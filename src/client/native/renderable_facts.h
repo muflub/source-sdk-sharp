@@ -108,8 +108,9 @@ void SourceSharp_ResetRenderableResolveStats();
 //                                  #define USE_DETAIL_SHAPES
 //      grep -c 'DOD_DLL\|CSTRIKE_DLL' src/_vpc_/ninja/sdk_csharp_debug.ninja -> 0
 //
-//    The finding is recorded at the guard in detailobjectsystem.cpp instead, so
-//    whoever turns that macro on reads it there rather than re-deriving it.
+//    detailobjectsystem.cpp left client.so (C7 cluster 10); the finding is
+//    recorded on SourceSharp.Client.Detail's DetailPropSystem, which ports no
+//    shaped sprite, so whoever adds them reads it there.
 //
 // 2. THE VIEWER'S FOV DISTANCE ADJUST FACTOR. It returned exactly 1.0f on every
 //    path -- PlayerNetState carries no fov, so stock's localFOV/defaultFOV is 1

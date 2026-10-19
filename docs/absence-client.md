@@ -112,6 +112,10 @@ makes things bigger on screen, does not fade them out from under itself:
     detailobjectsystem.cpp  BuildDetailObjectRenderLists    (direct)
     c_pixel_visibility.cpp  GlowSightDistance               (direct)
 
+(The two detail sites are `DetailPropSystem.cs`'s since detailobjectsystem.cpp
+left client.so in C7 cluster 10: `SortSpritesBackToFront` and
+`BuildRenderLists`, each with its factor of 1 and the warning below.)
+
 `PlayerNetState` carries no `fov` and no `defaultFov`, so there is nothing for
 this client to divide: the factor is **1 by construction**, not by accident.
 It was carried as `SourceSharp_ViewerFovDistanceAdjustFactor()`, a named
@@ -127,7 +131,7 @@ props fade at their unzoomed distances however far a scope is zoomed in.
 **Note for whoever closes it:** stock inverts the factor at
 `SortSpritesBackToFront` and not at the other two. A restoration that spells
 all three the same way doubles the error instead of cancelling it; both
-detailobjectsystem sites carry that warning at the line.
+detail sites (`DetailPropSystem.cs`) carry that warning at the line.
 
 Owner: **unowned.** Waits for: a `fov` field on `PlayerNetState`.
 
@@ -269,6 +273,13 @@ The user may overrule.
 
 ## 14. Detail shapes are not compiled — `USE_DETAIL_SHAPES` is off, and its sway would be dead
 
+DETAIL SHAPES ARE NOT PORTED, as they were not compiled. Since C7 cluster 10
+the detail props are `SourceSharp.Client.Detail` (detailobjectsystem.cpp left
+client.so): a cross or tri object is sorted and weighed as this build's stock
+weighed it and draws nothing, and the four shape convars are not declared.
+Whoever ports the shapes ports the text below with them. What follows is the
+finding as it stood in the stock file.
+
 DETAIL SHAPES ARE NOT COMPILED IN THIS BUILD. `detailobjectsystem.cpp`
 defines `USE_DETAIL_SHAPES` only under `#if defined(DOD_DLL) ||
 defined(CSTRIKE_DLL)`, and step 7d measured that neither is defined rather
@@ -302,7 +313,9 @@ only by the 3-D test, and then pushes the clump at nearly full force.
 This row was a comment block at the top of `detailobjectsystem.cpp` in the
 fork. It moved here so the patched-upstream ROOT (`make sdk-upstream`, whose
 series carries no comments) keeps the finding. `renderable_subject_test.cpp`
-checks this row and the guard it describes.
+checked this row and the guard it describes until the file left client.so;
+`DetailPropsTests.ShapedSpritesWeighTheirQuadsInABatchButDrawNothing` holds the
+port's half.
 
 Owner: whoever enables `USE_DETAIL_SHAPES`. Waits for: a reason to.
 

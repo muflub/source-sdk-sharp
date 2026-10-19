@@ -36,7 +36,7 @@
 #include "vstdlib/random.h"
 
 //-----------------------------------------------------------------------------
-// ModelInfo: 12 forwarder(s) over IVModelInfo.
+// ModelInfo: 14 forwarder(s) over IVModelInfo.
 //-----------------------------------------------------------------------------
 // const model_t * IVModelInfo::GetModel( int )
 static const model_t * SSFwd_ModelInfo_GetModel( IVModelInfo *self, int a0 ) { return self->GetModel( a0 ); }
@@ -62,6 +62,10 @@ static byte * SSFwd_ModelInfo_GetAnimBlock( IVModelInfo *self, const studiohdr_t
 static studiohdr_t * SSFwd_ModelInfo_GetStudiomodel( IVModelInfo *self, const model_t * a0 ) { return self->GetStudiomodel( a0 ); }
 // CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
 static CPhysCollide * SSFwd_ModelInfo_GetCollideForVirtualTerrain( IVModelInfo *self, int a0 ) { return self->GetCollideForVirtualTerrain( a0 ); }
+// bool IVModelInfo::IsModelVertexLit( const model_t * )
+static bool SSFwd_ModelInfo_IsModelVertexLit( IVModelInfo *self, const model_t * a0 ) { return self->IsModelVertexLit( a0 ); }
+// bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
+static bool SSFwd_ModelInfo_ModelHasMaterialProxy( IVModelInfo *self, const model_t * a0 ) { return self->ModelHasMaterialProxy( a0 ); }
 
 static void *const s_ModelInfoSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetModel ),
@@ -76,9 +80,11 @@ static void *const s_ModelInfoSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetAnimBlock ),
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetStudiomodel ),
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetCollideForVirtualTerrain ),
+	reinterpret_cast< void * >( &SSFwd_ModelInfo_IsModelVertexLit ),
+	reinterpret_cast< void * >( &SSFwd_ModelInfo_ModelHasMaterialProxy ),
 };
 
-static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 12 };
+static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 14 };
 
 //-----------------------------------------------------------------------------
 // BaseFileSystem: 3 forwarder(s) over IBaseFileSystem.

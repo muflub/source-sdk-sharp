@@ -557,7 +557,9 @@ const char *kLiveLaneHHeaders[] = {
 	// deps) and was deleted after the server gc cull, with its facts below.
 	// game/server/EntityDissolve.h and EntityFlame.h stood here; neither DLL
 	// compiles them any more, and no site row below names either.
-	"game/shared/env_detail_controller.h",
+	// game/shared/env_detail_controller.h stood here; its one includer,
+	// detailobjectsystem.cpp, left client.so in C7 cluster 10, and the header
+	// left the farm with it (make sdk-census: unused).
 	"game/shared/gamerules.h",
 };
 

@@ -1,6 +1,6 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at 09ad744db
+# measured at f9964449f
 # 2026-10-18, landing C9 tier0/vstdlib onto main 331c8a0cf (after lane t1's sentence.cpp eviction), re-measured there:
 #   incdir-forbidden-tus 148 (146 + the two new TUs), sdk-links 395 (397 - libtier0.so/libvstdlib.so). --write.
 # 2026-10-18, C9 tier0/vstdlib: client.so links neither libtier0.so nor libvstdlib.so (Linux). Its vprof profile is
@@ -245,9 +245,19 @@
 # 2026-10-18, the client physics and bone leftovers: fork physics.cpp left client.so (ClientPhysicsSystem), and ragdoll_library,
 #   shell_physics_shared_client.cpp, the bone leaf library and the client relays went: fork-src 15 -> 14, fork-hdr-total
 #   497 -> 489, fork-hdr-not-allowed 330 -> 325, incdir-forbidden-tus 148 -> 144, logic-lines 8257 -> 8106, sdk-links 395 -> 393.
-fork-hdr-not-allowed	325
-fork-hdr-total	489
-fork-src	14
+# 2026-10-18, studio.cpp's eviction: model_descriptor.cpp and studio.cpp left client.so: incdir-forbidden-tus 144 -> 142 (tools/client-novalve-census).
+# 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left client.so (its only caller was studio.cpp): incdir-forbidden-tus 142 -> 141.
+# 2026-10-18, studio.cpp's eviction: logic-lines 8106 -> 8077, shell_standalone_client.cpp's PublishModelFacts no longer opening a CStudioHdr (tools/client-novalve-census).
+# 2026-10-18, C7 detail: game/client/detailobjectsystem.cpp left client.so (its decisions are SourceSharp.Client.Detail.DetailPropSystem;
+#   shell_detail_props.cpp carries out the leaf, renderable and mesh calls): fork-src 14 -> 13, fork-hdr-total 489 -> 484,
+#   fork-hdr-not-allowed 325 -> 320, logic-lines 8077 -> 8073 (shell_client_orphans.cpp's GetDetailController, its importer gone),
+#   imports:tier1 7 -> 2 (the CUtlBuffer reads went; the 2 left are particlemgr.cpp's
+#   CUtlSymbolTable) (tools/client-novalve-census).
+# 2026-10-18, C7 detail: the fork links detailobjectsystem.cpp left behind went (make sdk-census named them unused): the file,
+#   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
+fork-hdr-not-allowed	320
+fork-hdr-total	484
+fork-src	13
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -260,7 +270,7 @@ imports:steam_api<-particles	0
 imports:tier0	0
 imports:tier0<-dmxloader	0
 imports:tier0<-particles	0
-imports:tier1	7
+imports:tier1	2
 imports:tier1<-dmxloader	0
 imports:tier1<-particles	0
 imports:tier2	0
@@ -279,12 +289,9 @@ imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-# 2026-10-18, studio.cpp's eviction: model_descriptor.cpp and studio.cpp left client.so: incdir-forbidden-tus 144 -> 142 (tools/client-novalve-census).
-# 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left client.so (its only caller was studio.cpp): incdir-forbidden-tus 142 -> 141.
 incdir-forbidden-tus	141
 link-forbidden	2
-# 2026-10-18, studio.cpp's eviction: logic-lines 8106 -> 8077, shell_standalone_client.cpp's PublishModelFacts no longer opening a CStudioHdr (tools/client-novalve-census).
-logic-lines	8077
+logic-lines	8073
 native-convar-decls	69
 needed-forbidden	0
-sdk-links	393
+sdk-links	388

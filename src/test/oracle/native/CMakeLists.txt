@@ -678,3 +678,41 @@ ss_cpptest_mathlib(lipsync_oracle_test
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/lipsync_oracle_test.cpp
             ${sentence_stock})
 endif()
+
+# THE DETAIL-PROP ORACLE (C7 cluster 10): stock's client detail props -- the
+# detail lump's parse, the per-view fades, the back-to-front sprite sorts and
+# every sprite quad -- run offline from the PRISTINE
+# game/client/detailobjectsystem.cpp over seeded lumps and a scripted world
+# (detailprops_stub/detail_harness.h says what is stock and what is
+# stand-in), held to the golden src/test/client/Fixtures/detailprops-stock.tsv,
+# which the managed port's DetailPropsOracleTests replays. mathlib for the
+# angle and SIMD math, tier1 for CUtlBuffer, CUtlMap and the ConVars. The
+# -Wno- flags are for VALVE'S CODE: its unused locals (vecSway, texul in
+# GetSpriteMiddleBottomPosition), the MSVC pragmas, the hidden GetAttachment
+# overload and the null references its handle stubs return.
+set(detailprops_stock "${SS_VALVE_SRC}/game/client/detailobjectsystem.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${detailprops_stock}")
+  ss_oracle_missing(detailprops_oracle_test "no ${detailprops_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject is COPIED, byte for byte, into its own directory before it is
+# included: its quoted #includes would otherwise find game/client's real
+# headers beside it ahead of the stand-ins.
+configure_file("${detailprops_stock}" "${CMAKE_CURRENT_BINARY_DIR}/detailprops_subject/detailobjectsystem.cpp" COPYONLY)
+# The subject's own pristine gamebspfile.h, tier1/heapsort.h and
+# tier0/valve_minmax_off.h (the farm no longer links them: their one includer
+# on client.so was the subject).
+configure_file("${SS_VALVE_SRC}/public/gamebspfile.h" "${CMAKE_CURRENT_BINARY_DIR}/detailprops_subject/gamebspfile.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/tier1/heapsort.h" "${CMAKE_CURRENT_BINARY_DIR}/detailprops_subject/tier1/heapsort.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/tier0/valve_minmax_off.h" "${CMAKE_CURRENT_BINARY_DIR}/detailprops_subject/tier0/valve_minmax_off.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(detailprops_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-sign-compare
+            -Wno-overloaded-virtual -Wno-unused-function -Wno-unused-private-field
+            -Wno-inconsistent-missing-override -Wno-nontrivial-memcall -Wno-null-dereference
+            -Wno-reorder-ctor
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/detailprops_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/detailprops_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/detailprops_oracle_test.cpp)
+endif()

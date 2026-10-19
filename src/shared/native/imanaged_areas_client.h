@@ -1038,6 +1038,48 @@ static const uint32_t kIManagedPhysicsClientSlotHashes[] = {
 static const int32_t kIManagedPhysicsClientSlotCount = 9;
 static_assert( sizeof( SSManagedPhysicsClientTable ) == 9 * sizeof( void * ), "SSManagedPhysicsClientTable is one pointer per slot" );
 
+class IManagedDetailPropsClient;
+
+// The table managed writes for IManagedDetailPropsClient: Release, Validate, then the TSV's order.
+struct SSManagedDetailPropsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *DetailInit )( IManagedDetailPropsClient *self );
+	void * ( *DetailLevelInitPreEntity )( IManagedDetailPropsClient *self, int32_t nMaterialWidth, int32_t nMaterialHeight, int32_t bHdr );
+	int32_t ( *DetailLevelInitPostEntity )( IManagedDetailPropsClient *self, const char *pszWorldMaterial, char *pOut, int32_t nOutSize );
+	void ( *DetailLevelShutdownPreEntity )( IManagedDetailPropsClient *self );
+	void * ( *DetailBuildLists )( IManagedDetailPropsClient *self, const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps, int32_t nFullbright );
+	void ( *DetailBeginTranslucent )( IManagedDetailPropsClient *self );
+	void * ( *DetailPrepare )( IManagedDetailPropsClient *self, int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright );
+	void * ( *DetailEmit )( IManagedDetailPropsClient *self, int32_t nMaxQuads );
+};
+
+class IManagedDetailPropsClient : public IManagedObject
+{
+public:
+	explicit IManagedDetailPropsClient( const SSManagedDetailPropsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void DetailInit() { Table()->DetailInit( this ); }
+	void *DetailLevelInitPreEntity( int32_t nMaterialWidth, int32_t nMaterialHeight, int32_t bHdr ) { return Table()->DetailLevelInitPreEntity( this, nMaterialWidth, nMaterialHeight, bHdr ); }
+	int32_t DetailLevelInitPostEntity( const char *pszWorldMaterial, char *pOut, int32_t nOutSize ) { return Table()->DetailLevelInitPostEntity( this, pszWorldMaterial, pOut, nOutSize ); }
+	void DetailLevelShutdownPreEntity() { Table()->DetailLevelShutdownPreEntity( this ); }
+	void *DetailBuildLists( const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps, int32_t nFullbright ) { return Table()->DetailBuildLists( this, pViewOriginXYZ, pCurrentViewOriginXYZ, bClientModeDraws, nDrawDetailProps, nFullbright ); }
+	void DetailBeginTranslucent() { Table()->DetailBeginTranslucent( this ); }
+	void *DetailPrepare( int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright ) { return Table()->DetailPrepare( this, nKind, pView, pLeaves, nLeaves, pClosestXYZ, nDrawDetailProps, bWireframe, nFullbright ); }
+	void *DetailEmit( int32_t nMaxQuads ) { return Table()->DetailEmit( this, nMaxQuads ); }
+
+private:
+	const SSManagedDetailPropsClientTable *Table() const { return static_cast< const SSManagedDetailPropsClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedDetailPropsClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0x07e0f4c4, 0x9b5eec31, 0xfcfc634a, 0x07e0f4c4, 0xf85ed399, 0x07e0f4c4,
+	0xd7d141d1, 0x5d056f2d,
+};
+static const int32_t kIManagedDetailPropsClientSlotCount = 10;
+static_assert( sizeof( SSManagedDetailPropsClientTable ) == 10 * sizeof( void * ), "SSManagedDetailPropsClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1065,6 +1107,7 @@ IManagedRenderClient *ManagedRenderClient();   // this load's area, or NULL outs
 IManagedInputClient *ManagedInputClient();   // this load's area, or NULL outside a load
 IManagedBonesClient *ManagedBonesClient();   // this load's area, or NULL outside a load
 IManagedPhysicsClient *ManagedPhysicsClient();   // this load's area, or NULL outside a load
+IManagedDetailPropsClient *ManagedDetailPropsClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

@@ -952,7 +952,7 @@ bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity )
 // folded into one NULL here so the caller has one test and not three.
 //
 // NOT Assert'd on the world existing, unlike GetClientWorldEntity above: this
-// is called from CDetailObjectSystem::LevelInitPostEntity, and a level init
+// is called from the detail props' LevelInitPostEntity (shell_detail_props.cpp), and a level init
 // that reached it before the world's packet had been decoded is a fallback
 // material rather than a fault.
 //-----------------------------------------------------------------------------

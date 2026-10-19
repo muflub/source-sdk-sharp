@@ -883,17 +883,26 @@
 #     SourceSharp shim (server)            123 -> 122
 # Hand-edited, not --write.
 #
+# 2026-10-18, C7 detail: game/client/detailobjectsystem.cpp left client.so and
+# shell_detail_props.cpp (its executor; the decisions are SourceSharp.Client.Detail's)
+# joined it. Debug build, on main a7ee694f9:
+#     stock game/client (client)           14 -> 13
+#     SourceSharp shim (client)            127 -> 128
+#     entity-using stock TUs (client)      3 -> 2 (2915 -> 857 code lines)
+#     client cross-edges                   60 symbols in 13 TUs -> 59 in 12 (DetailObjectSystem())
+# Hand-applied from the tool's diff, not --write.
+#
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
 objects linked                                                 119       141
-  ... stock game/server | game/client                            0        14
+  ... stock game/server | game/client                            0        13
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        119       127
+  ... SourceSharp shim (sourcesharp/**)                        119       128
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
-stock TUs that use an entity type but define none                0         3
-  ... their code lines                                           0      2915
+stock TUs that use an entity type but define none                0         2
+  ... their code lines                                           0       857
 stock TUs with entity-free text                                  0        11
   ... their code lines                                           0      7692
 CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
@@ -901,8 +910,8 @@ CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
                      CBaseEntityList) in the DLL
   ... same, without CBaseEntityList:: (§1's reading)             0         0
-shim -> stock cross-edges (distinct symbols)                     0        60
-stock TUs the shim links against                                 0        13
+shim -> stock cross-edges (distinct symbols)                     0        59
+stock TUs the shim links against                                 0        12
 
 # defines-an-entity regex: LINK_ENTITY_TO_CLASS|IMPLEMENT_SERVERCLASS_ST|IMPLEMENT_CLIENTCLASS
 # uses-an-entity regex:    \bC_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)\b|\bg?_?pEntityList\b|\bgEntList\b
@@ -932,7 +941,7 @@ ToEngineIface           0 in 0 files          17 in 10 files        1 in 1 files
 -- server: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
--- client: 60 distinct symbols across 13 of 14 stock TUs
+-- client: 59 distinct symbols across 12 of 13 stock TUs
      16  game/client/particlemgr.cpp
       8  game/client/glow_overlay.cpp
       7  game/client/particles_new.cpp
@@ -943,7 +952,6 @@ ToEngineIface           0 in 0 files          17 in 10 files        1 in 1 files
       3  game/client/warp_overlay.cpp
       1  game/client/ScreenSpaceEffects.cpp
       1  game/client/clientshadowmgr.cpp
-      1  game/client/detailobjectsystem.cpp
       1  game/client/entity_client_tools.cpp
       1  game/client/vgui_game_viewport.cpp
   -- zero-edge stock TUs:
@@ -1027,8 +1035,6 @@ game/client/ScreenSpaceEffects.cpp (1)
     g_pScreenSpaceEffects
 game/client/clientshadowmgr.cpp (1)
     g_pClientShadowMgr
-game/client/detailobjectsystem.cpp (1)
-    DetailObjectSystem()
 game/client/entity_client_tools.cpp (1)
     clienttools
 game/client/vgui_game_viewport.cpp (1)

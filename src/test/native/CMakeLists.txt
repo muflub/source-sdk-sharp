@@ -3948,6 +3948,13 @@ ss_cpptest(shell_clientdll_refusals_test
     INCLUDES sourcesharp/game/client
     SOURCES sourcesharp/test/shell_clientdll_refusals_test.cpp)
 
+# THE DETAIL PROPS' WIRE (C7 cluster 10): detail_props_wire.h, the readers
+# shell_detail_props.cpp carries the managed detail props' answers out with.
+# No SDK header, so the shipped reader is the thing under test.
+ss_cpptest(detail_props_wire_test
+    INCLUDES sourcesharp/game/client
+    SOURCES sourcesharp/test/detail_props_wire_test.cpp)
+
 # THE CLIENT FLIP'S RULING TABLE AND ITS REFUSAL COUNTER -- CLIENT_FLIP lane 2
 # (`c8-entitystatics`), plan_entity.md §7.
 #

@@ -166,6 +166,8 @@ FORWARD = [
             'GetModelBounds', 'GetModelFrameCount', 'GetModelType',
             'GetModelKeyValueText', 'FindModel', 'GetAnimBlock', 'GetStudiomodel',
             'GetCollideForVirtualTerrain',
+            # The detail props' dictionary (C7 cluster 10, DetailPropsEngine).
+            'IsModelVertexLit', 'ModelHasMaterialProxy',
         ],
     ),
     dict(
@@ -185,6 +187,10 @@ FORWARD = [
             'GetScreenSize', 'ServerCmd', 'ClientCmd', 'GetPlayerInfo', 'GetViewAngles',
             'SetViewAngles', 'IsInGame', 'GetGameDirectory', 'GetLevelName', 'IsPaused',
             'ClientCmd_Unrestricted', 'GetMouseDelta', 'GetProtocolVersion',
+            # The detail props (C7 cluster 10, DetailPropsEngine): the detail
+            # lump's read, its models, and the sprites' lighting.
+            'GameLumpVersion', 'GameLumpSize', 'LoadGameLump', 'LoadModel',
+            'LinearToGamma', 'LightStyleValue', 'ComputeDynamicLighting',
         ],
     ),
     dict(

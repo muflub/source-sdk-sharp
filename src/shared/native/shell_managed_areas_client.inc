@@ -139,6 +139,11 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pPhysicsClient )
 		return false;
 
+	pObject = pRoot->Acquire( "IManagedDetailPropsClient" );
+	areas.m_pDetailPropsClient = ManagedAccept< IManagedDetailPropsClient >( pObject, kIManagedDetailPropsClientSlotHashes, kIManagedDetailPropsClientSlotCount, pWhy, nWhy );
+	if ( !areas.m_pDetailPropsClient )
+		return false;
+
 	return true;
 }
 
@@ -194,6 +199,8 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pPhysicsClient, kIManagedPhysicsClientSlotHashes, kIManagedPhysicsClientSlotCount, pWhy, nWhy ) )
 		return false;
+	if ( !ManagedAcceptObject( areas.m_pDetailPropsClient, kIManagedDetailPropsClientSlotHashes, kIManagedDetailPropsClientSlotCount, pWhy, nWhy ) )
+		return false;
 	return true;
 }
 
@@ -224,6 +231,7 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pInputClient );
 	ManagedRelease( areas.m_pBonesClient );
 	ManagedRelease( areas.m_pPhysicsClient );
+	ManagedRelease( areas.m_pDetailPropsClient );
 }
 
 IManagedCommandsClient *ManagedCommandsClient()
@@ -349,4 +357,9 @@ IManagedBonesClient *ManagedBonesClient()
 IManagedPhysicsClient *ManagedPhysicsClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pPhysicsClient;
+}
+
+IManagedDetailPropsClient *ManagedDetailPropsClient()
+{
+	return ShellClientDll_Managed().m_Areas.m_pDetailPropsClient;
 }

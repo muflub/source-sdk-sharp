@@ -21,7 +21,7 @@ namespace SourceSharp.Shared;
 /// proxy and the client's own effects; the occlusion areas and the prop widths
 /// are handed to <c>engine->SetOcclusionParameters</c> and
 /// <c>modelinfo->SetLevelScreenFadeRange</c> the moment they arrive;
-/// <c>DetailSpriteMaterial</c> is what <c>detailobjectsystem.cpp</c> builds every
+/// <c>DetailSpriteMaterial</c> is what the client's <c>DetailPropSystem</c> builds every
 /// detail sprite out of; <c>StartDark</c> fades the screen up on the first
 /// frame. If one of them stopped arriving the symptom would be a rendering
 /// difference and not a crash.

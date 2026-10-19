@@ -613,6 +613,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The decal tables decals.cpp held (lane c2-sims, cluster 18): native's
         // decalsystem forwards here. The service is the container's (below),
         // resolved when native acquires the area, after composition.
+        // The detail props (C7 cluster 10): native's client system asks here.
+        // The service is the container's (below), resolved when native
+        // acquires the area, after composition.
+        _bindings.Add("IManagedDetailPropsClient",
+                      v => ManagedAreaFactory.Create(v, new Detail.DetailPropsClientBinding(_engine.Crossings, Log,
+                                                                                           _services.Require<Detail.IClientDetailProps>())));
         _bindings.Add("IManagedDecalsClient",
                       v => ManagedAreaFactory.Create(v, new DecalsClientBinding(_engine.Crossings, Log,
                                                                                _services.Require<IClientDecals>())));
@@ -909,6 +915,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         int v = _convars.RegisterAll(typeof(ClientModule).Assembly);
         _convars.PublishTo(_services);
+
+        // THE DETAIL PROPS (C7 cluster 10): the lump's parse, the fades, the
+        // sorts and the quads are managed; native's client system
+        // (shell_detail_props.cpp) asks at stock's times
+        // (IManagedDetailPropsClient) and carries the answers out. After the
+        // convars, which the system reads and the level restores.
+        _services.AddInstance<Detail.IClientDetailProps>(new Detail.DetailPropsHost(
+            new Detail.DetailPropSystem(Detail.DetailPropsEngines.For(_engine, Log), _services.Create<Detail.DetailConVars>())));
 
         // THE SOUNDSCAPES (sound cluster 17, lane c2-sims): the system is
         // managed; native's client-system shell drives it at stock's times
@@ -2059,7 +2073,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // This hook fires immediately AFTER the client gamesystems'
         // LevelInitPostEntity — the baseline entities and their blobs arrived
         // during signon, before it. That ordering is what the detail
-        // controller needs: CDetailObjectSystem restores cl_detailfade and
+        // controller needs: the detail props (DetailPropSystem) restore cl_detailfade and
         // cl_detaildist in its LevelInitPostEntity, wiping the clamp the
         // entity applied on arrival, so the clamp is said again from the one
         // managed moment on the right side of the restore.

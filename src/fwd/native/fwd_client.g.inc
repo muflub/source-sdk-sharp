@@ -38,7 +38,7 @@
 #include "vstdlib/random.h"
 
 //-----------------------------------------------------------------------------
-// ModelInfo: 12 forwarder(s) over IVModelInfo.
+// ModelInfo: 14 forwarder(s) over IVModelInfo.
 //-----------------------------------------------------------------------------
 // const model_t * IVModelInfo::GetModel( int )
 static const model_t * SSFwd_ModelInfo_GetModel( IVModelInfo *self, int a0 ) { return self->GetModel( a0 ); }
@@ -64,6 +64,10 @@ static byte * SSFwd_ModelInfo_GetAnimBlock( IVModelInfo *self, const studiohdr_t
 static studiohdr_t * SSFwd_ModelInfo_GetStudiomodel( IVModelInfo *self, const model_t * a0 ) { return self->GetStudiomodel( a0 ); }
 // CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
 static CPhysCollide * SSFwd_ModelInfo_GetCollideForVirtualTerrain( IVModelInfo *self, int a0 ) { return self->GetCollideForVirtualTerrain( a0 ); }
+// bool IVModelInfo::IsModelVertexLit( const model_t * )
+static bool SSFwd_ModelInfo_IsModelVertexLit( IVModelInfo *self, const model_t * a0 ) { return self->IsModelVertexLit( a0 ); }
+// bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
+static bool SSFwd_ModelInfo_ModelHasMaterialProxy( IVModelInfo *self, const model_t * a0 ) { return self->ModelHasMaterialProxy( a0 ); }
 
 static void *const s_ModelInfoSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetModel ),
@@ -78,9 +82,11 @@ static void *const s_ModelInfoSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetAnimBlock ),
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetStudiomodel ),
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetCollideForVirtualTerrain ),
+	reinterpret_cast< void * >( &SSFwd_ModelInfo_IsModelVertexLit ),
+	reinterpret_cast< void * >( &SSFwd_ModelInfo_ModelHasMaterialProxy ),
 };
 
-static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 12 };
+static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 14 };
 
 //-----------------------------------------------------------------------------
 // BaseFileSystem: 3 forwarder(s) over IBaseFileSystem.
@@ -101,7 +107,7 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// EngineClient: 13 forwarder(s) over IVEngineClient.
+// EngineClient: 20 forwarder(s) over IVEngineClient.
 //-----------------------------------------------------------------------------
 // void IVEngineClient013::GetScreenSize( int &, int & )
 static void SSFwd_EngineClient_GetScreenSize( IVEngineClient *self, int & a0, int & a1 ) { self->GetScreenSize( a0, a1 ); }
@@ -131,6 +137,20 @@ static void SSFwd_EngineClient_GetMouseDelta( IVEngineClient *self, int & a0, in
 #endif
 // uint IVEngineClient::GetProtocolVersion( void )
 static uint SSFwd_EngineClient_GetProtocolVersion( IVEngineClient *self ) { return self->GetProtocolVersion(); }
+// int IVEngineClient013::GameLumpVersion( int )
+static int SSFwd_EngineClient_GameLumpVersion( IVEngineClient *self, int a0 ) { return self->GameLumpVersion( a0 ); }
+// int IVEngineClient013::GameLumpSize( int )
+static int SSFwd_EngineClient_GameLumpSize( IVEngineClient *self, int a0 ) { return self->GameLumpSize( a0 ); }
+// bool IVEngineClient013::LoadGameLump( int, void *, int )
+static bool SSFwd_EngineClient_LoadGameLump( IVEngineClient *self, int a0, void * a1, int a2 ) { return self->LoadGameLump( a0, a1, a2 ); }
+// const model_t * IVEngineClient013::LoadModel( const char *, bool )
+static const model_t * SSFwd_EngineClient_LoadModel( IVEngineClient *self, const char * a0, bool a1 ) { return self->LoadModel( a0, a1 ); }
+// void IVEngineClient013::LinearToGamma( float *, float * )
+static void SSFwd_EngineClient_LinearToGamma( IVEngineClient *self, float * a0, float * a1 ) { self->LinearToGamma( a0, a1 ); }
+// float IVEngineClient013::LightStyleValue( int )
+static float SSFwd_EngineClient_LightStyleValue( IVEngineClient *self, int a0 ) { return self->LightStyleValue( a0 ); }
+// void IVEngineClient013::ComputeDynamicLighting( const Vector &, const Vector *, Vector & )
+static void SSFwd_EngineClient_ComputeDynamicLighting( IVEngineClient *self, const Vector & a0, const Vector * a1, Vector & a2 ) { self->ComputeDynamicLighting( a0, a1, a2 ); }
 
 static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetScreenSize ),
@@ -150,9 +170,16 @@ static void *const s_EngineClientSlots[] = {
 	nullptr, // the engine is built without USE_SDL and has no GetMouseDelta
 #endif
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetProtocolVersion ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_GameLumpVersion ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_GameLumpSize ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_LoadGameLump ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_LoadModel ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_LinearToGamma ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_LightStyleValue ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_ComputeDynamicLighting ),
 };
 
-static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 13 };
+static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 20 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.

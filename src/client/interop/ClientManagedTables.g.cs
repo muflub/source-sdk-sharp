@@ -1174,3 +1174,49 @@ public unsafe struct ManagedSteamCallbackTable
     [SlotHash(0xde3e0200)]
     public delegate* unmanaged<void*, void*, void> Run;
 }
+
+/// <summary>The table managed writes for <c>IManagedDetailPropsClient</c> (<c>SSManagedDetailPropsClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedDetailPropsClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedDetailPropsClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void DetailInit( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> DetailInit;
+
+    // 3: void * DetailLevelInitPreEntity( int32_t nMaterialWidth, int32_t nMaterialHeight, int32_t bHdr )
+    [SlotHash(0x9b5eec31)]
+    public delegate* unmanaged<void*, int, int, int, void*> DetailLevelInitPreEntity;
+
+    // 4: int32_t DetailLevelInitPostEntity( const char *pszWorldMaterial, char *pOut, int32_t nOutSize )
+    [SlotHash(0xfcfc634a)]
+    public delegate* unmanaged<void*, byte*, byte*, int, int> DetailLevelInitPostEntity;
+
+    // 5: void DetailLevelShutdownPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> DetailLevelShutdownPreEntity;
+
+    // 6: void * DetailBuildLists( const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps, int32_t nFullbright )
+    [SlotHash(0xf85ed399)]
+    public delegate* unmanaged<void*, void*, void*, int, int, int, void*> DetailBuildLists;
+
+    // 7: void DetailBeginTranslucent( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> DetailBeginTranslucent;
+
+    // 8: void * DetailPrepare( int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright )
+    [SlotHash(0xd7d141d1)]
+    public delegate* unmanaged<void*, int, void*, void*, int, void*, int, int, int, void*> DetailPrepare;
+
+    // 9: void * DetailEmit( int32_t nMaxQuads )
+    [SlotHash(0x5d056f2d)]
+    public delegate* unmanaged<void*, int, void*> DetailEmit;
+}

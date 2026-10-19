@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVModelInfo</c> through its forwarders (SSFwd_ModelInfo): 12 slot(s).
+/// <c>IVModelInfo</c> through its forwarders (SSFwd_ModelInfo): 14 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ModelInfoFwd : IForwarderTable
@@ -56,6 +56,12 @@ internal unsafe struct ModelInfoFwd : IForwarderTable
 
     // CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
     public delegate* unmanaged<void*, int, void*> GetCollideForVirtualTerrain;
+
+    // bool IVModelInfo::IsModelVertexLit( const model_t * )
+    public delegate* unmanaged<void*, void*, byte> IsModelVertexLit;
+
+    // bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
+    public delegate* unmanaged<void*, void*, byte> ModelHasMaterialProxy;
 }
 
 /// <summary>

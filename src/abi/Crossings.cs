@@ -855,6 +855,22 @@ public enum CrossingOp
     /// <summary>IManagedMaterialFilesClient::EncodeImage: a screenshot's pixels encoded as its TGA or VTF file in C# (C9: bitmap.a and vtf.a off client.so). CLIENT ONLY.</summary>
     ClientMaterialFilesEncodeImage = 345,
 
+    /// <summary>IManagedDetailPropsClient::DetailInit: the detail props' Init, once (C7 cluster 10). CLIENT ONLY.</summary>
+    ClientDetailInit = 346,
+    /// <summary>IManagedDetailPropsClient::DetailLevelInitPreEntity: the detail lump parsed in C#, once a level. CLIENT ONLY.</summary>
+    ClientDetailLevelInitPreEntity = 347,
+    /// <summary>IManagedDetailPropsClient::DetailLevelInitPostEntity: the fades restored and the sprite material named, once a level. CLIENT ONLY.</summary>
+    ClientDetailLevelInitPostEntity = 348,
+    /// <summary>IManagedDetailPropsClient::DetailLevelShutdownPreEntity, once a level. CLIENT ONLY.</summary>
+    ClientDetailLevelShutdownPreEntity = 349,
+    /// <summary>IManagedDetailPropsClient::DetailBuildLists: a view's fade and model states, once per view that builds entities. CLIENT ONLY.</summary>
+    ClientDetailBuildLists = 350,
+    /// <summary>IManagedDetailPropsClient::DetailBeginTranslucent, once per translucent pass. CLIENT ONLY.</summary>
+    ClientDetailBeginTranslucent = 351,
+    /// <summary>IManagedDetailPropsClient::DetailPrepare: one of a translucent draw's halves, up to its render context. CLIENT ONLY.</summary>
+    ClientDetailPrepare = 352,
+    /// <summary>IManagedDetailPropsClient::DetailEmit: a prepared draw's quads. CLIENT ONLY.</summary>
+    ClientDetailEmit = 353,
 }
 
 /// <summary>

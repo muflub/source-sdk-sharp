@@ -146,7 +146,7 @@ public sealed class ClientTonemapController : ClientStandaloneEntity
 ///
 /// <para>
 /// The odd one out in this file — no subsystem push, because the stock client
-/// never had one: <c>CDetailObjectSystem::LevelInitPostEntity</c> reads the
+/// never had one: <c>CDetailObjectSystem::LevelInitPostEntity</c> (DetailPropSystem's since C7 cluster 10) reads the
 /// controller and writes <c>cl_detailfade</c> / <c>cl_detaildist</c> itself,
 /// clamping the player's defaults DOWN to the map's. With the native class
 /// gone that read answers nobody (shell_client_orphans.cpp) and the system

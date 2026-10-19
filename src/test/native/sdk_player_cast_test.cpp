@@ -1556,7 +1556,9 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 		<< "scanned " << client.nLines << " lines out of " << client.nFiles
 		<< " files -- under a hundred lines each, so the files were opened and "
 		<< "not read";
-	EXPECT_GT( client.nLines, 15000 )
+	// 14,000: detailobjectsystem.cpp's 2,881 lines left the scan with the file
+	// (C7 cluster 10; 14,518 scanned after it).
+	EXPECT_GT( client.nLines, 14000 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )

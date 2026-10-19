@@ -320,6 +320,19 @@ public unsafe interface IManagedPhysicsClient
     void Reset();
 }
 
+[ManagedVtable(typeof(ManagedDetailPropsClientTable))]
+public unsafe interface IManagedDetailPropsClient
+{
+    void DetailInit();
+    void* DetailLevelInitPreEntity(int a0, int a1, int a2);
+    int DetailLevelInitPostEntity(byte* a0, byte* a1, int a2);
+    void DetailLevelShutdownPreEntity();
+    void* DetailBuildLists(void* a0, void* a1, int a2, int a3, int a4);
+    void DetailBeginTranslucent();
+    void* DetailPrepare(int a0, void* a1, void* a2, int a3, void* a4, int a5, int a6, int a7);
+    void* DetailEmit(int a0);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -373,4 +386,6 @@ public static class ManagedAreaFactory
         => IManagedBonesClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedPhysicsClient target)
         => IManagedPhysicsClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedDetailPropsClient target)
+        => IManagedDetailPropsClient__ManagedVtable.Create(vtables, target);
 }

@@ -87,6 +87,8 @@ const studiohdr_t *Rec_FindModelByCache( void *self, void *cache ) { Note( "Find
 byte *Rec_GetAnimBlock( void *self, const studiohdr_t *hdr, int block ) { Note( "GetAnimBlock", self, (intptr_t)hdr, block ); return kBlock; }
 studiohdr_t *Rec_GetStudiomodel( void *self, const model_t *model ) { Note( "GetStudiomodel", self, (intptr_t)model ); return kStudio; }
 CPhysCollide *Rec_GetCollideForVirtualTerrain( void *self, int index ) { Note( "GetCollideForVirtualTerrain", self, index ); return kTerrain; }
+bool Rec_IsModelVertexLit( void *self, const model_t *model ) { Note( "IsModelVertexLit", self, (intptr_t)model ); return true; }
+bool Rec_ModelHasMaterialProxy( void *self, const model_t *model ) { Note( "ModelHasMaterialProxy", self, (intptr_t)model ); return true; }
 
 // The fake: word 0 points at a table as long as the compiler says IVModelInfo
 // is, with a recorder at each forwarded method's slot (and at the two
@@ -128,6 +130,8 @@ struct FakeModelInfo
 		Put( &IVModelInfo::GetAnimBlock, (void *)&Rec_GetAnimBlock );
 		Put( &IVModelInfo::GetStudiomodel, (void *)&Rec_GetStudiomodel );
 		Put( &IVModelInfo::GetCollideForVirtualTerrain, (void *)&Rec_GetCollideForVirtualTerrain );
+		Put( &IVModelInfo::IsModelVertexLit, (void *)&Rec_IsModelVertexLit );
+		Put( &IVModelInfo::ModelHasMaterialProxy, (void *)&Rec_ModelHasMaterialProxy );
 	}
 };
 
@@ -145,7 +149,9 @@ enum ModelInfoSlot
 {
 	kGetModel, kGetModelIndex, kGetModelName, kGetVCollide_2, kGetModelBounds,
 	kGetModelFrameCount, kGetModelType, kGetModelKeyValueText, kFindModel,
-	kGetAnimBlock, kGetStudiomodel, kGetCollideForVirtualTerrain, kModelInfoSlots
+	kGetAnimBlock, kGetStudiomodel, kGetCollideForVirtualTerrain,
+	// Appended for the detail props (C7 cluster 10).
+	kIsModelVertexLit, kModelHasMaterialProxy, kModelInfoSlots
 };
 
 template < typename Fn >
@@ -284,6 +290,17 @@ TEST( FwdEngine, GetCollideForVirtualTerrainForwardsTheIndex )
 	EXPECT_EQ( kTerrain, Slot< CPhysCollide *( * )( void *, int ) >( kGetCollideForVirtualTerrain )( &fake, 12 ) );
 	EXPECT_STREQ( "GetCollideForVirtualTerrain", g_seen.pszMethod );
 	EXPECT_EQ( 12, g_seen.args[ 0 ] );
+}
+
+TEST( FwdEngine, TheDetailPropsDictionaryQuestionsForwardTheModel )
+{
+	FakeModelInfo fake;
+	EXPECT_TRUE( Slot< bool ( * )( void *, const model_t * ) >( kIsModelVertexLit )( &fake, kModel ) );
+	EXPECT_STREQ( "IsModelVertexLit", g_seen.pszMethod );
+	EXPECT_EQ( (intptr_t)kModel, g_seen.args[ 0 ] );
+	EXPECT_TRUE( Slot< bool ( * )( void *, const model_t * ) >( kModelHasMaterialProxy )( &fake, kModel ) );
+	EXPECT_STREQ( "ModelHasMaterialProxy", g_seen.pszMethod );
+	EXPECT_EQ( &fake, g_seen.pSelf );
 }
 
 TEST( FwdEngine, TheInternalFactoryServesATableAsItsSlotArrayWithItsCount )

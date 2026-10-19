@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 13 slot(s).
+/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 20 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineClientFwd : IForwarderTable
@@ -61,6 +61,27 @@ internal unsafe struct EngineClientFwd : IForwarderTable
 
     // uint IVEngineClient::GetProtocolVersion( void )
     public delegate* unmanaged<void*, uint> GetProtocolVersion;
+
+    // int IVEngineClient013::GameLumpVersion( int )
+    public delegate* unmanaged<void*, int, int> GameLumpVersion;
+
+    // int IVEngineClient013::GameLumpSize( int )
+    public delegate* unmanaged<void*, int, int> GameLumpSize;
+
+    // bool IVEngineClient013::LoadGameLump( int, void *, int )
+    public delegate* unmanaged<void*, int, void*, int, byte> LoadGameLump;
+
+    // const model_t * IVEngineClient013::LoadModel( const char *, bool )
+    public delegate* unmanaged<void*, byte*, byte, void*> LoadModel;
+
+    // void IVEngineClient013::LinearToGamma( float *, float * )
+    public delegate* unmanaged<void*, void*, void*, void> LinearToGamma;
+
+    // float IVEngineClient013::LightStyleValue( int )
+    public delegate* unmanaged<void*, int, float> LightStyleValue;
+
+    // void IVEngineClient013::ComputeDynamicLighting( const Vector &, const Vector *, Vector & )
+    public delegate* unmanaged<void*, void*, void*, void*, void> ComputeDynamicLighting;
 }
 
 /// <summary>

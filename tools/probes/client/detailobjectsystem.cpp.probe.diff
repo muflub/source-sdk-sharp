@@ -1,0 +1,57 @@
+--- a/game/client/detailobjectsystem.cpp
++++ b/game/client/detailobjectsystem.cpp
+@@ -64,6 +64,10 @@
+ 
+ #include "materialsystem/imaterialsystemhardwareconfig.h"
+ 
++#include "detail_probe.h"
++#define CMeshBuilder CDetailProbeMeshBuilder
++DETAIL_PROBE_COMMAND()
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -722,6 +726,11 @@
+ 	if ((m_Alpha == 0) || (!m_pModel))
+ 		return 0;
+ 
++	{
++		float probeColor[ 3 ];
++		GetColorModulation( probeColor );
++		DetailProbeModel( modelinfo->GetModelName( m_pModel ), m_Origin, m_Angles, m_Alpha, probeColor );
++	}
+ 	int drawn = modelrender->DrawModel( 
+ 		flags, 
+ 		this,
+@@ -2295,6 +2304,7 @@
+ 	// Here, we must draw all detail objects back-to-front
+ 	// FIXME: Cache off a sorted list so we don't have to re-sort every frame
+ 
++	DetailProbeLine( "c fastlist" );
+ 	// Count the total # of detail quads we possibly could render
+ 	int nMaxInLeaf;
+ 
+@@ -2442,6 +2452,7 @@
+ 
+ 	// Here, we must draw all detail objects back-to-front
+ 	RenderFastSprites( viewOrigin, viewForward, viewRight, viewUp, nLeafCount, pLeafList );
++	DetailProbeLine( "c oldlist" );
+ 
+ 	// FIXME: Cache off a sorted list so we don't have to re-sort every frame
+ 
+@@ -2532,6 +2543,7 @@
+ 
+ void CDetailObjectSystem::RenderFastTranslucentDetailObjectsInLeaf( const Vector &viewOrigin, const Vector &viewForward, const Vector &viewRight, const Vector &viewUp, int nLeaf, const Vector *pVecClosestPoint )
+ {
++	DetailProbeLine( "c fastleaf" );
+ 	CFastDetailLeafSpriteList *pData = reinterpret_cast< CFastDetailLeafSpriteList *> (
+ 		ClientLeafSystem()->GetSubSystemDataInLeaf( nLeaf, CLSUBSYSTEM_DETAILOBJECTS ) );
+ 	if ( ! pData )
+@@ -2675,6 +2687,7 @@
+ 	VPROF_BUDGET( "CDetailObjectSystem::RenderTranslucentDetailObjectsInLeaf", VPROF_BUDGETGROUP_DETAILPROP_RENDERING );
+ 
+ 	RenderFastTranslucentDetailObjectsInLeaf( viewOrigin, viewForward, viewRight, viewUp, nLeaf, pVecClosestPoint );
++	DetailProbeLine( "c oldleaf" );
+ 	// We may have already sorted this leaf. If not, sort the leaf.
+ 	if ( m_nSortedLeaf != nLeaf )
+ 	{

@@ -1,0 +1,31 @@
+--- a/src/client/native/shell_detail_props.cpp
++++ b/src/client/native/shell_detail_props.cpp
+@@ -54,6 +54,10 @@
+ #include "shell_world_nettable_client.h"
+ #include "detail_props_wire.h"
+ 
++#include "detail_probe.h"
++#define CMeshBuilder CDetailProbeMeshBuilder
++DETAIL_PROBE_COMMAND()
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -129,6 +133,7 @@
+ 	{
+ 		if ( m_nAlpha == 0 || !m_pModel )
+ 			return 0;
++		DetailProbeModel( modelinfo->GetModelName( m_pModel ), m_Origin, m_Angles, m_nAlpha, m_Color );
+ 		return modelrender->DrawModel( flags, this, MODEL_INSTANCE_INVALID, -1, m_pModel, m_Origin, m_Angles, 0, 0, 0 );
+ 	}
+ 	virtual int GetBody() OVERRIDE { return 0; }
+@@ -430,6 +435,9 @@
+ 	void Draw( int nKind, const Vector &viewOrigin, const Vector &viewForward, const Vector &viewRight, const Vector &viewUp,
+ 	           const int32_t *pLeaves, int nLeaves, const Vector *pClosest )
+ 	{
++		static const char *const kProbeCalls[] = { "c fastlist", "c oldlist", "c fastleaf", "c oldleaf" };
++		if ( nKind >= kFastInLeaf || nLeaves > 0 )
++			DetailProbeLine( kProbeCalls[ nKind ] );
+ 		IManagedDetailPropsClient *pArea = ManagedDetailPropsClient();
+ 		if ( !pArea )
+ 			return;

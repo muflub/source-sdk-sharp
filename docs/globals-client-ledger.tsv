@@ -132,17 +132,6 @@ clientshadowmgr.o	_ZL17s_ClientShadowMgr	s_ClientShadowMgr	game/client/clientsha
 clientshadowmgr.o	_ZL19s_VisibleShadowList	s_VisibleShadowList	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 clientshadowmgr.o	_ZL8s_bBreak	s_bBreak	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 clientshadowmgr.o	_ZL25s_nRttShadowTexturesDrawn	s_nRttShadowTexturesDrawn	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-detailobjectsystem.o	_ZZN12CDetailModel26RenderableToWorldTransformEvE3mat	CDetailModel::RenderableToWorldTransform()::mat	game/client/detailobjectsystem.cpp	LOCAL	bss	function-local	48	UNRULED		
-	_ZN12CDetailModel17gm_LightStylesMapE	CDetailModel::gm_LightStylesMap	game/client/detailobjectsystem.cpp	GLOBAL	bss	class-or-namespace	40	UNRULED		
-detailobjectsystem.o	_ZL9Four_255s	Four_255s	game/client/detailobjectsystem.cpp	LOCAL	data	file-or-global	16	UNRULED		
-detailobjectsystem.o	_ZL17Four_MagicNumbers	Four_MagicNumbers	game/client/detailobjectsystem.cpp	LOCAL	data	file-or-global	16	UNRULED		
-	cl_detail_multiplier	cl_detail_multiplier	game/client/detailobjectsystem.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	cl_detaildist	cl_detaildist	game/client/detailobjectsystem.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	cl_detailfade	cl_detailfade	game/client/detailobjectsystem.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	cl_fastdetailsprites	cl_fastdetailsprites	game/client/detailobjectsystem.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-detailobjectsystem.o	_ZL14mat_fullbright	mat_fullbright	game/client/detailobjectsystem.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-detailobjectsystem.o	_ZL20s_DetailObjectSystem	s_DetailObjectSystem	game/client/detailobjectsystem.cpp	LOCAL	bss	file-or-global	272	UNRULED		
-detailobjectsystem.o	_ZL12s_pQuadCount	s_pQuadCount	game/client/detailobjectsystem.cpp	LOCAL	data	file-or-global	16	UNRULED		
 entity_client_tools.o	_ZL38__g_CreateCClientToolsIClientTools_reg	__g_CreateCClientToolsIClientTools_reg	game/client/entity_client_tools.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 	clienttools	clienttools	game/client/entity_client_tools.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 entity_client_tools.o	_ZL13s_ClientTools	s_ClientTools	game/client/entity_client_tools.cpp	LOCAL	bss	file-or-global	16	UNRULED		
@@ -290,7 +279,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1120	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1128	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -345,6 +334,7 @@ shell_convars_client.o	_ZN12_GLOBAL__N_111g_szWatchedE	(anonymous namespace)::g_
 shell_debugoverlay_client.o	_ZL14g_DebugOverlay	g_DebugOverlay	sourcesharp/game/client/shell_debugoverlay_client.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	decalsystem	decalsystem	sourcesharp/game/client/shell_decals_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_decals_client.o	_ZL13g_DecalSystem	g_DecalSystem	sourcesharp/game/client/shell_decals_client.cpp	LOCAL	bss	file-or-global	544	UNRULED		
+shell_detail_props.o	_ZN12_GLOBAL__N_118g_ShellDetailPropsE	(anonymous namespace)::g_ShellDetailProps	sourcesharp/game/client/shell_detail_props.cpp	LOCAL	bss	function-local	880	MEMBER	DetailProps:DLL	reset_today=yes for its per-level members (the model props, the leaf runs and the materials, purged at LevelShutdownPreEntity/PostEntity); the object is the DLL's. client.so's IDetailObjectSystem: DetailObjectSystem() returns it to the client systems list (an IGameSystem) and to the leaf system and view render, which call its draw slots; it carries out SourceSharp.Client.Detail's answers and decides nothing (C7 cluster 10)
 	_ZN25CClientEffectRegistration7s_pHeadE	CClientEffectRegistration::s_pHead	sourcesharp/game/client/shell_effect_dispatch_client.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		the DECLARE_CLIENT_EFFECT list, walked in shell_effect_dispatch_client.cpp for the managed dispatch table
 shell_effect_ledger.o	_ZL28cs_cl_effects_report_command	cs_cl_effects_report_command	sourcesharp/game/client/shell_effect_ledger.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	g_SourceSharpEffects	g_SourceSharpEffects	sourcesharp/game/client/shell_effect_ledger.cpp	GLOBAL	bss	file-or-global	40	UNRULED		

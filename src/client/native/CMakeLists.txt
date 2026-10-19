@@ -23,7 +23,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/c_pixel_visibility.cpp
     ${SS_SRC}/game/client/clientleafsystem.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
-    ${SS_SRC}/game/client/detailobjectsystem.cpp
     ${SS_SRC}/game/client/entity_client_tools.cpp
     ${SS_SRC}/game/client/flashlighteffect.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
@@ -46,6 +45,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_cliententitylist.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_clientsystems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_decals_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_detail_props.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_dust_render.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effect_dispatch_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effect_ledger.cpp
@@ -225,6 +225,15 @@ if(SS_CONFIG STREQUAL "debug" AND SS_PM_PROBES)
   include(${PROJECT_SOURCE_DIR}/tools/probes/client/probe_copies.cmake)
   ss_client_probe_copy(game/client/particlemgr.cpp)
   ss_client_probe_copy(game/client/particles_new.cpp)
+endif()
+# C7 detail's A/B probe: a probe copy of shell_detail_props.cpp logging every
+# detail vertex and model-prop draw (tools/probes/client/detail_probe.h,
+# cs_cl_probe_detail). Its base half, detailobjectsystem.cpp.probe.diff,
+# applies to the fork's file at 82d2df06c, the eviction's parent.
+option(SS_DT_PROBES "debug client.so: compile the C7 detail probe copy" OFF)
+if(SS_CONFIG STREQUAL "debug" AND SS_DT_PROBES)
+  include(${PROJECT_SOURCE_DIR}/tools/probes/client/probe_copies.cmake)
+  ss_client_probe_copy_ours(src/client/native/shell_detail_props.cpp)
 endif()
 option(SS_CLIENT_PROBES "debug client.so: compile the C0 probes (tools/probes/client)" OFF)
 if(SS_CONFIG STREQUAL "debug" AND SS_CLIENT_PROBES)

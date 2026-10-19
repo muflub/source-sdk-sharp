@@ -115,8 +115,9 @@ TEST( ParticlesLibIsolation, TierOneNamesBothCarryAreLocalInEach )
 	// binds to its own, so each must be a local (t) definition on both sides.
 	const char *const kShared[] = {
 		"_ZN9KeyValuesC1EPKc",     // KeyValues::KeyValues( const char * )
-		"_ZN10CUtlBufferC1EPKvii", // CUtlBuffer::CUtlBuffer( const void *, int, int ) (the ( int, int, int )
-		                           // form left client.so with the screenshot encoders, C9)
+		// CUtlBuffer::CUtlBuffer( const void *, int, int ) stood here: client.so's
+		// last caller, detailobjectsystem.cpp's lump read, left in C7 cluster 10
+		// (the ( int, int, int ) form left with the screenshot encoders, C9).
 		"_Z9V_strncpyPcPKci",      // V_strncpy
 	};
 	const std::set< std::string > libLocal = Names( Lib(), "t" );

@@ -210,7 +210,7 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 // RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/shared/sound_emitter.cpp | SoundEmitterSystem
 // RULING | CToolFrameworkClient | STAYS | game/client/toolframework_client.cpp | ToolFrameworkClientSystem
 // RULING | CClientLeafSystem | STAYS | game/client/clientleafsystem.cpp | g_pClientLeafSystem
-// RULING | CDetailObjectSystem | STAYS | game/client/detailobjectsystem.cpp | DetailObjectSystem
+// RULING | CDetailObjectSystem | STAYS | sourcesharp/game/client/shell_detail_props.cpp | DetailObjectSystem
 // RULING | CViewportClientSystem | STAYS | game/client/vgui_game_viewport.cpp | ViewportClientSystem
 // RULING | CClientEffectPrecacheSystem | STAYS | sourcesharp/game/client/shell_effects_list_client.cpp | ClientEffectPrecacheSystem
 // RULING | CClientShadowMgr | STAYS | game/client/clientshadowmgr.cpp | g_pClientShadowMgr

@@ -1076,12 +1076,11 @@ the lane stopped here on the user's instruction). Measured with lld
 `--why-extract` on a relink of client.so (debug), `nm -D -u` over
 out/client.so, and `tools/client-novalve-census`.
 
-- **tier1.a** (imports:tier1 7, 2026-10-18 lane t1; was 15) is down to two members linked into
-  client.so (user ruling 2026-10-18: retire their importers, never port CUtlBuffer/CUtlSymbolTable):
-  - `utlbuffer.cpp.o`, pulled only by `game/client/detailobjectsystem.cpp`
-    (C7 cluster 10), which reads the detail lump through CUtlBuffer
-    (GetInt/GetChar, whose text branch reaches Scanf). public/sentence.cpp left
-    client.so 2026-10-18; its arm is SourceSharp.Client.LipSync.
+- **tier1.a** (imports:tier1 2, 2026-10-18 C7 detail; was 7 at lane t1, 15 before) is down to one member linked into
+  client.so (user ruling 2026-10-18: retire their importers, never port CUtlBuffer/CUtlSymbolTable).
+  `utlbuffer.cpp.o` left with `game/client/detailobjectsystem.cpp` (C7 cluster 10, 2026-10-18: the detail lump
+  is read by managed's DetailLumpReader); public/sentence.cpp left client.so 2026-10-18 (its arm is
+  SourceSharp.Client.LipSync). What is left:
   - `utlsymbol.cpp.o`, pulled only by `game/client/particlemgr.cpp`
     (CUtlSymbolTable). It leaves when particlemgr.cpp does (C7 particles).
 - **Lip sync wiring** (2026-10-18, lane t1): SourceSharp.Client.LipSync (Visemes, Sentence) is

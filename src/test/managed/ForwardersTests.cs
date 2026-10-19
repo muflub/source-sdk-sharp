@@ -87,7 +87,7 @@ public sealed unsafe class ForwardersTests
 
         Assert.True(Forwarders.TryBind(served.Header, out ModelInfoFwd* table, out string why), why);
         Assert.Equal((nint)served.Slots, (nint)table);
-        Assert.Equal((nint)(0x1000 + Count - 1), (nint)table->GetCollideForVirtualTerrain);
+        Assert.Equal((nint)(0x1000 + Count - 1), (nint)table->ModelHasMaterialProxy);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed unsafe class ForwardersTests
         // pointer: anything else would make the count wrong and misalign
         // every call after it.
         FieldInfo[] fields = typeof(ModelInfoFwd).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        Assert.Equal(12, Count);
+        Assert.Equal(14, Count);
         Assert.Equal(Count, fields.Length);
         Assert.All(fields, f => Assert.True(f.FieldType.IsFunctionPointer, f.Name));
         Assert.Equal("GetModel", fields[0].Name);

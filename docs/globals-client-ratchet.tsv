@@ -309,7 +309,11 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # 2026-10-18 client physics: ragdoll_library.cpp and shell_physics_shared_client.cpp deleted (the vphysics pointers only physics.cpp read, g_SolidSetup, the friction refusal and the data-object row pruned): 802 -> 795 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18, the client bone leaf library deleted (its gate, stack, counter and sweep tables, and C_BaseAnimatingGameSystem's instance, pruned): 795 -> 788 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18, studio.cpp's eviction: studio.cpp left client.so: link_level 788 -> 784, its four UNRULED rows (GroupStudioHdr's two __executeCount, pSeqdesc's s_nil_seq, mod_load_showstall's ref) gone (make globals-client-ledger, reconciled).
-client_globals_link_level	src/game/client	784
+# 2026-10-18, C7 detail: detailobjectsystem.cpp left client.so: link_level 784 -> 774, its eleven UNRULED rows (s_DetailObjectSystem,
+#   the four cl_detail*/fastdetailsprites convars and its mat_fullbright, Four_255s, Four_MagicNumbers, s_pQuadCount,
+#   CDetailModel::gm_LightStylesMap and RenderableToWorldTransform's mat) gone, and shell_detail_props.o's g_ShellDetailProps
+#   arriving (ruled MEMBER DetailProps:DLL) (make globals-client-ledger, reconciled).
+client_globals_link_level	src/game/client	774
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -334,7 +338,9 @@ client_globals_link_level	src/game/client	784
 # 2026-10-18 client physics: fork physics.cpp left client.so (g_Collisions, g_PhysicsSystem, the two convars and the two touchlink refusals pruned; the CPhysicsSystem row's function-local static added): 752 -> 747 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18 client physics: ragdoll_library.cpp and shell_physics_shared_client.cpp deleted (the vphysics pointers only physics.cpp read, g_SolidSetup, the friction refusal and the data-object row pruned): 747 -> 740 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18, the client bone leaf library deleted (its gate, stack, counter and sweep tables, and C_BaseAnimatingGameSystem's instance, pruned): 740 -> 733 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
-client_globals_unruled	docs/globals-client-ledger.tsv	733
+# 2026-10-18, C7 detail: 733 -> 718 LOWERED. The ledger held 729 UNRULED rows at main a7ee694f9 (4 of slack);
+#   detailobjectsystem.cpp's eleven left with it and g_ShellDetailProps arrived ruled (MEMBER), so 718 by count.
+client_globals_unruled	docs/globals-client-ledger.tsv	718
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 client_globals_floor	docs/globals-client-ledger.tsv	14

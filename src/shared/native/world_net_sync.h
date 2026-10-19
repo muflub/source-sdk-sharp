@@ -123,7 +123,7 @@ bool   SourceSharpWorld_ReadFlag  ( const unsigned char *pBlob,
 // The detail sprite material, as a pointer INTO the blob.
 //
 // A pointer rather than a copy because that is what its one consumer wants:
-// detailobjectsystem.cpp hands it straight to the material system. The bytes
+// shell_detail_props.cpp hands it to managed's DetailPropSystem. The bytes
 // are the world object's and live as long as it does, which is the same
 // lifetime the char[256] member had. Since step 5e that consumer asks
 // SourceSharp_WorldDetailSpriteMaterial() rather than naming C_World — the
@@ -156,7 +156,7 @@ void SourceSharpWorld_WriteFlag( unsigned char *pBlob,
 // bounds by the WorldDims material proxy and the client's own effects, the two
 // occlusion areas by engine->SetOcclusionParameters, the two prop widths by
 // modelinfo->SetLevelScreenFadeRange, the detail sprite material by
-// detailobjectsystem.cpp, startdark by the screen fade -- and every one of them
+// the detail props (shell_detail_props.cpp), startdark by the screen fade -- and every one of them
 // fails the same way: the value is a plausible zero, nothing crashes, nothing
 // logs, and the symptom is a rendering difference nobody attributes. Phase A2
 // reached the same conclusion about its three Steam/mdl methods and shipped

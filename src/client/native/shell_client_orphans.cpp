@@ -72,18 +72,11 @@ bool IsReflectiveGlassInView( const CViewSetup& view, cplane_t &plane )
 	return false;
 }
 
-// env_detail_controller.cpp held a static the constructor filled and this
-// returned; the class is C# on both sides now (Phase 4). NULL makes
-// CDetailObjectSystem::LevelInitPostEntity restore cl_detailfade and
-// cl_detaildist to the player's defaults each level — which is exactly the
-// baseline the managed client half (ClientWorldState.cs) clamps down from
-// when the entity's blob arrives.
-class C_EnvDetailController;
-
-C_EnvDetailController * GetDetailController()
-{
-	return NULL;
-}
+// GetDetailController() stood here, answering NULL for env_detail_controller.cpp's
+// static (the class is C# on both sides, Phase 4). Its one caller was
+// detailobjectsystem.cpp's LevelInitPostEntity, which left client.so in C7
+// cluster 10; DetailPropSystem.LevelInitPostEntity restores the player's
+// fades as the NULL arm did, and ClientWorldState.cs clamps them after.
 
 //-----------------------------------------------------------------------------
 // THE ONE TENANT THAT IS NOT A STUB.

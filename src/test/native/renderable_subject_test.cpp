@@ -204,12 +204,13 @@ int CountOccurrences( const std::string &strHaystack, const std::string &strNeed
 
 // Step 7d's translation units, by the paths the vpc names them by. There were
 // five; glow_outline_effect.cpp left client.so in plan_client_novalve C1 (its
-// body sat under GLOWS_ENABLE, defined nowhere), so "the five" below are four.
+// body sat under GLOWS_ENABLE, defined nowhere) and detailobjectsystem.cpp in
+// C7 cluster 10 (its decisions are SourceSharp.Client.Detail's, its executor
+// shell_detail_props.cpp), so "the five" below are three.
 const char *kStep7dTus[] =
 {
 	"game/client/clientleafsystem.cpp",
 	"game/client/clientshadowmgr.cpp",
-	"game/client/detailobjectsystem.cpp",
 	"game/client/c_pixel_visibility.cpp",
 };
 
@@ -255,9 +256,9 @@ TEST( Step7dSourceScan, NoneOfTheFiveAsksForTheLocalPlayerEntity )
 	// The other entity reach these files had. `C_BasePlayer::GetLocalPlayer()`
 	// has ONE definition on this link line and it is `return NULL`
 	// (shell_player_orphans.cpp), so every one of these was a dead branch
-	// standing on its initialiser. Only detailobjectsystem.cpp keeps one, and
-	// it is inside `#ifdef USE_DETAIL_SHAPES`, which this build never defines —
-	// pinned by its own fact below rather than waived here.
+	// standing on its initialiser. detailobjectsystem.cpp kept one, inside
+	// `#ifdef USE_DETAIL_SHAPES`, which this build never defined; the file has
+	// left client.so (C7 cluster 10).
 	const char *kMustBeClean[] =
 	{
 		"game/client/clientleafsystem.cpp",
@@ -329,44 +330,6 @@ TEST( Step7dSourceScan, TheCensusStillLooksForTheTypesTheFactAboveChecks )
 	EXPECT_NE( std::string::npos, strCensus.find( "USES_RE=" ) );
 	EXPECT_NE( std::string::npos,
 	           strCensus.find( "C_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)" ) );
-}
-
-TEST( Step7dSourceScan, TheDetailSwayGuardCarriesTheFindingThatItIsNotCompiled )
-{
-	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
-	// detailobjectsystem.cpp keeps one GetLocalPlayer and one CPlayerEnumerator,
-	// both inside `#if defined(DOD_DLL) || defined(CSTRIKE_DLL)`. That is
-	// allowed, and it is allowed only because the next reader is told why:
-	// the measurement that the macro is off, and that the sway it guards would
-	// avoid nobody. That note is docs/absence-client.md row 14. It used to be a
-	// comment in the fork's copy of the file, and moved to the ledger so the
-	// patched-upstream ROOT (make sdk-upstream), whose series carries no
-	// comments, keeps the finding. Every reading of the source here is
-	// STRIPPED, so the facts hold with or without comments in the SDK tree.
-	const std::string strDoc = ReadFile( "../docs/absence-client.md" );
-	ASSERT_FALSE( strDoc.empty() )
-		<< "docs/absence-client.md did not open, so the finding is unread";
-	const size_t posRow = strDoc.find( "## 14. Detail shapes are not compiled" );
-	ASSERT_NE( std::string::npos, posRow )
-		<< "the absence ledger lost the detail-shapes row";
-	const std::string strRow = strDoc.substr( posRow, strDoc.find( "\n## ", posRow + 1 ) - posRow );
-	EXPECT_NE( std::string::npos, strRow.find( "DETAIL SHAPES ARE NOT COMPILED IN THIS BUILD" ) );
-	EXPECT_NE( std::string::npos, strRow.find( "USE_DETAIL_SHAPES" ) );
-	EXPECT_NE( std::string::npos, strRow.find( "UpdatePlayerAvoid" ) );
-	EXPECT_NE( std::string::npos, strRow.find( "DEAD SWAY" ) );
-
-	const std::string strFile = StripComments( ReadFile( "game/client/detailobjectsystem.cpp" ) );
-	ASSERT_FALSE( strFile.empty() );
-
-	// The sway the row warns about is still code under the guard...
-	EXPECT_NE( std::string::npos, strFile.find( "UpdatePlayerAvoid" ) );
-
-	// ...and the guard is still what the row describes. If somebody makes
-	// USE_DETAIL_SHAPES unconditional the row becomes a lie and this fails.
-	EXPECT_NE( std::string::npos,
-	           strFile.find( "#if defined(DOD_DLL) || defined(CSTRIKE_DLL)\n#define USE_DETAIL_SHAPES" ) );
-	EXPECT_EQ( 1, CountOccurrences( strFile, "#define USE_DETAIL_SHAPES" ) )
-		<< "USE_DETAIL_SHAPES is defined somewhere other than under the guard";
 }
 
 //=============================================================================
@@ -472,32 +435,22 @@ TEST( Step7dNotDeleted, TheThreeUnscaledSitesAreTheBareOnesTheLedgerNames )
 	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// The ledger row (the fact above) names three sites. A reader at the line
 	// sees a bare 1 where stock multiplied by the FOV factor; the row is where
-	// the why lives. These facts pin the CODE of each site, read with comments
-	// stripped, so they hold whether or not the SDK tree carries the fork's
-	// comments: the two detail sites hold an explicit factor of exactly 1, the
-	// glow site multiplies by nothing, and nothing calls the deleted function.
-	const std::string strDetail = StripComments( ReadFile( "game/client/detailobjectsystem.cpp" ) );
+	// the why lives. These facts pin the CODE of the native site, read with
+	// comments stripped, so they hold whether or not the SDK tree carries the
+	// fork's comments: the glow site multiplies by nothing, and nothing calls
+	// the deleted function. The two detail sites left with
+	// detailobjectsystem.cpp (C7 cluster 10); DetailPropSystem.cs holds each
+	// factor at 1 and DetailPropsOracleTests holds both fades to stock's,
+	// recorded with the local player NULL.
 	const std::string strPixel = StripComments( ReadFile( "game/client/c_pixel_visibility.cpp" ) );
-	ASSERT_FALSE( strDetail.empty() );
 	ASSERT_FALSE( strPixel.empty() );
 
-	const std::string strSort =
-		FunctionBody( strDetail, "int CDetailObjectSystem::SortSpritesBackToFront(" );
-	const std::string strBuild =
-		FunctionBody( strDetail, "void CDetailObjectSystem::BuildDetailObjectRenderLists(" );
 	const std::string strGlow = FunctionBody( strPixel, "float GlowSightDistance(" );
-	ASSERT_FALSE( strSort.empty() ) << "SortSpritesBackToFront is gone or renamed";
-	ASSERT_FALSE( strBuild.empty() ) << "BuildDetailObjectRenderLists is gone or renamed";
 	ASSERT_FALSE( strGlow.empty() ) << "GlowSightDistance is gone or renamed";
 
-	EXPECT_EQ( 1, CountOccurrences( strSort, "float flFactor = 1.0f;" ) )
-		<< "SortSpritesBackToFront's factor is no longer the bare 1 row 6 records";
-	EXPECT_EQ( 1, CountOccurrences( strBuild, "float factor = 1.0f;" ) )
-		<< "BuildDetailObjectRenderLists' factor is no longer the bare 1 row 6 records";
 	EXPECT_EQ( std::string::npos, strGlow.find( "actor" ) )
 		<< "GlowSightDistance scales by a factor again; row 6 says it does not";
 
-	EXPECT_EQ( std::string::npos, strDetail.find( "FovDistanceAdjustFactor" ) );
 	EXPECT_EQ( std::string::npos, strPixel.find( "FovDistanceAdjustFactor" ) );
 }
 

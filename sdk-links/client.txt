@@ -60,7 +60,6 @@ src/game/client/clientmode.h
 src/game/client/clientshadowmgr.cpp
 src/game/client/clientsideeffects.h
 src/game/client/colorcorrectionmgr.h
-src/game/client/detailobjectsystem.cpp
 src/game/client/detailobjectsystem.h
 src/game/client/enginesprite.h
 src/game/client/entity_client_tools.cpp
@@ -168,7 +167,6 @@ src/game/shared/econ/ihasowner.h
 src/game/shared/effect_dispatch_data.h
 src/game/shared/ehandle.h
 src/game/shared/entitylist_base.h
-src/game/shared/env_detail_controller.h
 src/game/shared/env_wind_shared.h
 src/game/shared/eventlist.h
 src/game/shared/gamerules.h
@@ -249,7 +247,6 @@ src/public/engine/ishadowmgr.h
 src/public/engine/ivmodelrender.h
 src/public/game/client/IGameClientExports.h
 src/public/game/client/iviewport.h
-src/public/gamebspfile.h
 src/public/haptics/haptic_msgs.h
 src/public/haptics/ihaptics.h
 src/public/icliententity.h
@@ -325,13 +322,11 @@ src/public/steam/steamnetworkingtypes.h
 src/public/steam/steamtypes.h
 src/public/steam/steamuniverse.h
 src/public/tier0/l2cache.h
-src/public/tier0/valve_minmax_off.h
 src/public/tier0/vprof.h
 src/public/tier1/UtlSortVector.h
 src/public/tier1/UtlStringMap.h
 src/public/tier1/byteswap.h
 src/public/tier1/convar_serverbounded.h
-src/public/tier1/heapsort.h
 src/public/tier1/ilocalize.h
 src/public/tier1/rangecheckedvar.h
 src/public/tier1/smartptr.h
