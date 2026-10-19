@@ -33,22 +33,26 @@ namespace SourceSharp.Server;
 /// </para>
 ///
 /// <para>
-/// One divergence, and it is a suppression that had nothing to suppress: stock
-/// also puts the flashlight out and forbids it while slowed. CBasePlayer's
-/// flashlight methods are empty bodies — only CHL2_Player implements a
-/// flashlight, and this build's player derives straight from CBasePlayer — so
-/// there is no flashlight in this mod to take away, and an ABI call for it would
-/// have been a crossing to a no-op. It is left out rather than faked.
+/// The flashlight: stock puts it out whenever it slows a player, whatever the
+/// spawnflags, and then calls SetFlashlightEnabled( false ). The flashlight is
+/// <see cref="IPlayerFlashlight"/>'s (CHL2MP_Player's bodies), so the first is
+/// ported. The second is not: it sets CHL2_Player's m_bFlashlightDisabled,
+/// which CHL2MP_Player::FlashlightTurnOn never reads, so in the multiplayer
+/// game it changes nothing.
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.PlayerSpeedmod)]
 public sealed class PlayerSpeedMod : ScriptedEntity
 {
-    public PlayerSpeedMod(IEnginePlayerMovement playerMovement, IEnginePlayers players)
+    public PlayerSpeedMod(IEnginePlayerMovement playerMovement, IEnginePlayers players, IPlayerFlashlight flashlight)
     {
         PlayerMovement = playerMovement;
         Players = players;
+        Flashlight = flashlight;
     }
+
+    /// <summary>the player's flashlight, which slowing puts out.</summary>
+    private readonly IPlayerFlashlight Flashlight;
 
     /// <summary>how a player moves, and what may stop them.</summary>
     private readonly IEnginePlayerMovement PlayerMovement;
@@ -131,6 +135,11 @@ public sealed class PlayerSpeedMod : ScriptedEntity
         // wanting that to happen immediately.
         if (Flags.HasFlag(SpawnFlag.SuppressWeapons))
             Players.HolsterActiveWeapon(player);
+
+        // Stock's `if ( pPlayer->FlashlightIsOn() ) pPlayer->FlashlightTurnOff();`,
+        // between the holster and the buttons, with no spawnflag of its own.
+        if (Flashlight.IsOn(player))
+            Flashlight.TurnOff(player);
 
         SetButtons(player, disabled: true);
         SetHud(player, visible: false);

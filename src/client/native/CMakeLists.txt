@@ -23,7 +23,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/c_pixel_visibility.cpp
     ${SS_SRC}/game/client/clientleafsystem.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
-    ${SS_SRC}/game/client/flashlighteffect.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
     ${SS_SRC}/game/client/rendertexture.cpp
     ${SS_SRC}/game/client/ScreenSpaceEffects.cpp
@@ -50,6 +49,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effects_sim.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_entitystatics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_explosion_overlay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_flashlight_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud_framework.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_impact_effects.cpp

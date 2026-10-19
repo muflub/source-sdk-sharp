@@ -1748,6 +1748,29 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _observerCamera = _services.Create<Render.ObserverCamera>();
         _services.AddInstance(_observerCamera);
 
+        // THE LOCAL PLAYER'S FLASHLIGHT (C7 cluster 12): stock's
+        // C_BasePlayer::UpdateFlashlight and CFlashlightEffect, run at
+        // FRAME_RENDER_START. Its own ConVars are managed declarations; the
+        // four it reads but does not declare come through the convar watch
+        // (the module routes the watch's changes to them).
+        IFlashlightSlots flashlightSlots = _services.Require<IFlashlightSlots>();
+        var flashlightSettings = new Flashlight.FlashlightConVars(
+            _convars,
+            new Flashlight.WatchedConVarValues(_services.Require<IClientConVarSlots>(),
+                                               _services.Require<IEngineConsole>().FindConVarValue),
+            flashlightSlots.DXSupportLevel);
+        flashlightSettings.Start();
+        _flashlightSettings = flashlightSettings;
+        _flashlight = new Flashlight.LocalPlayerFlashlight(
+            new Flashlight.StandaloneFlashlightViewers(_services.Require<IClientStandalones>(),
+                                                       _services.Require<IEngineHud>(),
+                                                       new ClientStandaloneBlocks(_engine),
+                                                       _services.Require<ViewReadout>()),
+            new Flashlight.FlashlightWorld(flashlightSlots,
+                                           _services.Require<IEngineVisibility>()),
+            flashlightSettings);
+        _services.AddInstance(_flashlight);
+
         // WHAT FOG THE VIEWER IS STANDING IN (plan_entity.md step 8e-render).
         // Driven from OnStage, which is why it is held rather than registered
         // behind a contract nothing else asks.
@@ -2071,6 +2094,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             case ClientFrameStage.RenderStart:
                 _interpolation.RenderPass(_interpolationBlocks, _clock.Now);
 
+                // The local player's flashlight, where stock's
+                // C_BasePlayer::Simulate ran it (OnRenderStart's SimulateEntities,
+                // after the interpolation): the projected texture is handed to
+                // the shadow manager before the frame's view renders.
+                _flashlight?.Pass();
+
                 // The observer's view, after the drawn poses it reads its
                 // target off (C7 item 5).
                 _observerCamera?.Pass();
@@ -2096,6 +2125,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Beams.ClientBeamSystem? _beams;
     private ViewCamera.ViewCameraService? _viewCamera;
     private Render.ObserverCamera? _observerCamera;
+    private Flashlight.LocalPlayerFlashlight? _flashlight;
+    private Flashlight.FlashlightConVars? _flashlightSettings;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
 
@@ -2246,6 +2277,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // Every skeleton and model image goes with the level.
         _skeletons?.OnLevelShutdown();
 
+        // The flashlight's shadow goes with the shadow manager's level.
+        _flashlight?.LevelShutdown();
+
         // Forgotten rather than released: the entities holding them are going
         // away with the level, and so is the engine's whole dlight pool.
         _lights.Reset();
@@ -2326,6 +2360,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     {
         // A watched engine convar (IShimConVarsClient): the bounded convars' inputs.
         if (_boundedConVars is { } bounded && bounded.OnChanged(id))
+            return;
+
+        // The flashlight's ConVars, read through the same watch.
+        if (_flashlightSettings is { } flashlight && flashlight.OnChanged(id, newValue))
             return;
 
         if (!_convars.NotifyChanged(id, newValue, oldValue))

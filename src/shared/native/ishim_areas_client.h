@@ -40,6 +40,7 @@
 #define SOURCESHARP_SHIM_INPUTCLIENT_VERSION "SourceSharpInputClient001"
 #define SOURCESHARP_SHIM_PHYSICSCLIENT_VERSION "SourceSharpPhysicsClient001"
 #define SOURCESHARP_SHIM_CONVARSCLIENT_VERSION "SourceSharpConVarsClient001"
+#define SOURCESHARP_SHIM_FLASHLIGHTCLIENT_VERSION "SourceSharpFlashlightClient001"
 
 abstract_class IShimHudClient
 {
@@ -464,6 +465,22 @@ abstract_class IShimConVarsClient
 public:
 	virtual int32_t ConVarsClientWatch( const char *pName ) = 0;
 	virtual int32_t ConVarsClientSetValue( const char *pName, float flValue ) = 0;
+};
+
+// plan_client_novalve C7 cluster 12: the flashlight's executor
+// (shell_flashlight_client.cpp). SourceSharp.Client.Flashlight decides the
+// projected texture; these carry it to the client shadow manager.
+// FlashlightTexture holds a texture by name and answers its id (-1: none);
+// Create answers the shadow handle (-1: none).
+abstract_class IShimFlashlightClient
+{
+public:
+	virtual int32_t FlashlightTexture( const char *pszName ) = 0;
+	virtual int32_t FlashlightSupportsBorderColor() = 0;
+	virtual int32_t FlashlightCreate( const SourceSharpFlashlightState *pState ) = 0;
+	virtual void FlashlightUpdate( int32_t nHandle, const SourceSharpFlashlightState *pState ) = 0;
+	virtual void FlashlightProject( int32_t nHandle ) = 0;
+	virtual void FlashlightDestroy( int32_t nHandle ) = 0;
 };
 
 #endif // ISHIM_AREAS_CLIENT_H

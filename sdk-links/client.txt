@@ -25,7 +25,6 @@ src/game/client/c_baseentity.h
 src/game/client/c_baseflex.h
 src/game/client/c_baseplayer.h
 src/game/client/c_basetempentity.h
-src/game/client/c_baseviewmodel.h
 src/game/client/c_effects.h
 src/game/client/c_env_fog_controller.h
 src/game/client/c_func_reflective_glass.h
@@ -62,8 +61,6 @@ src/game/client/clientsideeffects.h
 src/game/client/colorcorrectionmgr.h
 src/game/client/detailobjectsystem.h
 src/game/client/enginesprite.h
-src/game/client/flashlighteffect.cpp
-src/game/client/flashlighteffect.h
 src/game/client/fontabc.h
 src/game/client/fx.h
 src/game/client/fx_explosion.h

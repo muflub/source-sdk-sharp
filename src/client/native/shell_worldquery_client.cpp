@@ -71,6 +71,7 @@
 // is not one, and a second engine-free header holding three functions would be
 // a file whose only purpose is its name.
 #include "shell_te_backend_args.h"
+#include "flashlight_trace_filter.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -79,6 +80,38 @@ using namespace TeBackendArgs;
 
 // PointContents left native code (2026-10-19): managed asks this side's
 // IEngineTrace through its forwarders.
+
+namespace
+{
+// flashlighteffect.cpp's CTraceFilterSkipPlayerAndViewModel, whose TU left
+// client.so with the flashlight's port (C7 cluster 12): a plain CTraceFilter
+// that skips players, view models and the two debris groups and hits a thing
+// that is no entity. The three facts are asked of the client shell by its
+// handle word; flashlight_trace_filter.h's rule over them is held to the
+// pristine class by flashlight_oracle_test. A shell's collision group is not
+// networked (C_StandaloneEntity::GetCollisionGroup answers
+// COLLISION_GROUP_NONE), so the debris arm cannot fire until it is.
+class CSkipPlayerAndViewModelFilter : public CTraceFilter
+{
+public:
+	virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
+	{
+		// By the hit's own handle, resolved through this side's table as
+		// TraceHitIndex resolves one: a handle the entity list does not answer
+		// (a static prop's) is no entity, and stock hits it.
+		if ( !pHandleEntity )
+			return true;
+		const CBaseHandle hHit = pHandleEntity->GetRefEHandle();
+		if ( !SourceSharp_ClientNetworkableFromHandle( hHit ) )
+			return true;
+		C_StandaloneEntity *pShell = SourceSharp_StandaloneFromHandle( (uint32_t)hHit.ToInt() );
+		if ( !pShell )
+			return true;
+		return SkipPlayerAndViewModelHits( pShell->IsPlayerShell(), pShell->Block().Client.ViewModel != 0,
+		                                   pShell->GetCollisionGroup() );
+	}
+};
+} // namespace
 
 
 //-----------------------------------------------------------------------------
@@ -157,6 +190,9 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	// arm, which is the arm that needed it, for SOURCESHARP_TRACE_ALL's reason.
 	else if ( req.nMask == SOURCESHARP_TRACE_BLOCKLOS )
 		nTraceMask = MASK_BLOCKLOS;
+	// The flashlight's direction mask (C7 cluster 12), on both arms.
+	else if ( req.nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
+		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
 
 	trace_t tr;
 
@@ -194,6 +230,11 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 		// COLLISION_GROUP_NONE always; the group is not a parameter and
 		// SourceSharpTraceFilter says why.
 		CTraceFilterSimple traceFilter( pPass, COLLISION_GROUP_NONE );
+		UTIL_TraceLine( vecStart, vecEnd, nTraceMask, &traceFilter, &tr );
+	}
+	else if ( nFilter == SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL )
+	{
+		CSkipPlayerAndViewModelFilter traceFilter;
 		UTIL_TraceLine( vecStart, vecEnd, nTraceMask, &traceFilter, &tr );
 	}
 	else
@@ -293,6 +334,8 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 		nTraceMask = MASK_SOLID;
 	else if ( nMask == SOURCESHARP_TRACE_SHOT )
 		nTraceMask = MASK_SHOT;
+	else if ( nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
+		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
 
 	IClientEntity *pEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
 	IHandleEntity *pPass = pEnt ? static_cast< IClientUnknown * >( pEnt ) : NULL;
@@ -311,6 +354,11 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 	else if ( nFilter == SOURCESHARP_TRACE_FILTER_WORLD_ONLY )
 	{
 		CTraceFilterWorldOnly traceFilter;
+		UTIL_TraceHull( vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr );
+	}
+	else if ( nFilter == SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL )
+	{
+		CSkipPlayerAndViewModelFilter traceFilter;
 		UTIL_TraceHull( vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr );
 	}
 	else

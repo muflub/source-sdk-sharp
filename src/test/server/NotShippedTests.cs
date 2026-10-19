@@ -158,7 +158,7 @@ public sealed class NotShippedTests
         // framework bridge left, and the stand-ins took their names.
         var client = CMakeGraph.CompiledSources(CMakeGraph.Client);
         Assert.True(Compiles(client, "client/shell_tools_off_client.cpp"),
-            "client_sourcesharp does not compile shell_tools_off_client.cpp, and clientshadowmgr.cpp and flashlighteffect.cpp still name what it defines");
+            "client_sourcesharp does not compile shell_tools_off_client.cpp, and clientshadowmgr.cpp still names what it defines");
         foreach (string gone in ToolFramework)
             Assert.False(Compiles(client, gone), gone + " is compiled into client_sourcesharp again");
     }
@@ -174,42 +174,22 @@ public sealed class NotShippedTests
     }
 
     [Fact]
-    public void TheToolsOffStandInDefinesTheGlobalAndExportsNoInterface()
+    public void TheToolsOffStandInDefinesOnlyWhatClientShadowMgrNamesAndExportsNoInterface()
     {
         // Only a tool asks for VCLIENTTOOLS001, and no
-        // binary of the install names it, so nothing exports it; `clienttools`
-        // stays, because flashlighteffect.cpp dereferences it.
+        // binary of the install names it, so nothing exports it. `clienttools`
+        // and ToolFramework_PostToolMessage left with flashlighteffect.cpp
+        // (C7 cluster 12); clientshadowmgr.cpp names the two that stay.
         string text = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_tools_off_client.cpp"));
+        string code = System.Text.RegularExpressions.Regex.Replace(text, @"//[^\n]*", "");
 
-        Assert.Contains("IClientTools *clienttools = &s_ClientToolsOff;", text);
-        Assert.Contains("bool IsInRecordingMode() const override { return false; }", text);
-        Assert.DoesNotContain("EXPOSE_SINGLE_INTERFACE", text);
-        Assert.DoesNotContain("VCLIENTTOOLS_INTERFACE_VERSION", text);
-    }
-
-    [Fact]
-    public void TheToolsOffStandInOverridesEveryPureVirtual()
-    {
-        // IClientTools' pure virtuals, counted from the header rather than
-        // pinned, so a method added to the interface moves the number honestly.
-        string? iface = RepoLayout.FindSdkFile(Path.Combine("src", "public", "toolframework", "itoolentity.h"));
-        Assert.NotNull(iface);
-
-        string ifaceText = File.ReadAllText(iface!);
-        int start = ifaceText.IndexOf("class IClientTools : public IBaseInterface", StringComparison.Ordinal);
-        Assert.True(start >= 0);
-        int end = ifaceText.IndexOf("#define VCLIENTTOOLS_INTERFACE_VERSION", start, StringComparison.Ordinal);
-        Assert.True(end > start);
-
-        int pureVirtuals = System.Text.RegularExpressions.Regex
-            .Matches(ifaceText[start..end], @"virtual[^;{}]*=\s*0\s*;")
-            .Count;
-        Assert.True(pureVirtuals > 40, $"IClientTools parsed as {pureVirtuals} pure virtuals");
-
-        string text = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_tools_off_client.cpp"));
-        int overrides = System.Text.RegularExpressions.Regex.Matches(text, @"\) (const )?override\b").Count;
-
-        Assert.Equal(pureVirtuals, overrides);
+        Assert.Contains("bool ToolsEnabled()\n{\n\treturn false;\n}", code);
+        Assert.Contains("void ToolFramework_RecordMaterialParams( IMaterial * )\n{\n}", code);
+        Assert.DoesNotContain("clienttools", code);
+        Assert.DoesNotContain("IClientTools", code);
+        Assert.DoesNotContain("ToolFramework_PostToolMessage", code);
+        Assert.DoesNotContain("EXPOSE_SINGLE_INTERFACE", code);
+        Assert.DoesNotContain("VCLIENTTOOLS_INTERFACE_VERSION", code);
     }
 
     [Fact]

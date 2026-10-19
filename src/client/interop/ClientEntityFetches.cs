@@ -80,6 +80,9 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The observer's camera (plan_client_novalve C7 item 5).
         services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(areas.ViewClient));
 
+        // The flashlight's executor and its traces (plan_client_novalve C7 cluster 12).
+        services.AddInstance<IFlashlightSlots>(new FlashlightSlots(engine.Api));
+
         // The net channel and the diagnostics ledgers, for the netgraph and
         // absences routes; one reader over the slots serves both.
         var readers = new ClientNetReaders(areas.DiagnosticsClient, areas.NetClient);

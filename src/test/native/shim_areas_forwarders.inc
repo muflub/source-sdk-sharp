@@ -443,3 +443,12 @@ TEST( FwdShimAreas, ShimConVarsClientIs2Slots )
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
+
+TEST( FwdShimAreas, ShimFlashlightClientIs6Slots )
+{
+	const int compiler = VTableHook::MemberOf( &IShimFlashlightClient::FlashlightDestroy ).slot + 1;
+	EXPECT_EQ( 6, compiler );
+	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimFlashlightClient" );
+	ASSERT_NE( nullptr, pTable );
+	EXPECT_EQ( compiler, pTable->nSlots );
+}

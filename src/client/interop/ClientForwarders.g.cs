@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 20 slot(s).
+/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineClientFwd : IForwarderTable
@@ -82,6 +82,9 @@ internal unsafe struct EngineClientFwd : IForwarderTable
 
     // void IVEngineClient013::ComputeDynamicLighting( const Vector &, const Vector *, Vector & )
     public delegate* unmanaged<void*, void*, void*, void*, void> ComputeDynamicLighting;
+
+    // int IVEngineClient013::GetDXSupportLevel( void )
+    public delegate* unmanaged<void*, int> GetDXSupportLevel;
 }
 
 /// <summary>

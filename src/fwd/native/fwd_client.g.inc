@@ -121,7 +121,7 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// EngineClient: 20 forwarder(s) over IVEngineClient.
+// EngineClient: 21 forwarder(s) over IVEngineClient.
 //-----------------------------------------------------------------------------
 // void IVEngineClient013::GetScreenSize( int &, int & )
 static void SSFwd_EngineClient_GetScreenSize( IVEngineClient *self, int & a0, int & a1 ) { self->GetScreenSize( a0, a1 ); }
@@ -165,6 +165,8 @@ static void SSFwd_EngineClient_LinearToGamma( IVEngineClient *self, float * a0, 
 static float SSFwd_EngineClient_LightStyleValue( IVEngineClient *self, int a0 ) { return self->LightStyleValue( a0 ); }
 // void IVEngineClient013::ComputeDynamicLighting( const Vector &, const Vector *, Vector & )
 static void SSFwd_EngineClient_ComputeDynamicLighting( IVEngineClient *self, const Vector & a0, const Vector * a1, Vector & a2 ) { self->ComputeDynamicLighting( a0, a1, a2 ); }
+// int IVEngineClient013::GetDXSupportLevel( void )
+static int SSFwd_EngineClient_GetDXSupportLevel( IVEngineClient *self ) { return self->GetDXSupportLevel(); }
 
 static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetScreenSize ),
@@ -191,9 +193,10 @@ static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_LinearToGamma ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_LightStyleValue ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_ComputeDynamicLighting ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_GetDXSupportLevel ),
 };
 
-static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 20 };
+static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.
@@ -1282,16 +1285,22 @@ static void *const s_ParticleLibSlots[] = {
 static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 48 };
 
 //-----------------------------------------------------------------------------
-// DebugOverlay: 1 forwarder(s) over IVDebugOverlay.
+// DebugOverlay: 3 forwarder(s) over IVDebugOverlay.
 //-----------------------------------------------------------------------------
 // void IVDebugOverlay::AddTextOverlayRGB( const Vector &, int, float, int, int, int, int, PRINTF_FORMAT_STRING const char *, ... )
 static void SSFwd_DebugOverlay_AddTextOverlayRGB_2( IVDebugOverlay *self, const Vector & a0, int a1, float a2, int a3, int a4, int a5, int a6, PRINTF_FORMAT_STRING const char * a7 ) { self->AddTextOverlayRGB( a0, a1, a2, a3, a4, a5, a6, "%s", a7 ); }
+// void IVDebugOverlay::AddBoxOverlay( const Vector &, const Vector &, const Vector &, QAngle const &, int, int, int, int, float )
+static void SSFwd_DebugOverlay_AddBoxOverlay( IVDebugOverlay *self, const Vector & a0, const Vector & a1, const Vector & a2, QAngle const & a3, int a4, int a5, int a6, int a7, float a8 ) { self->AddBoxOverlay( a0, a1, a2, a3, a4, a5, a6, a7, a8 ); }
+// void IVDebugOverlay::AddLineOverlay( const Vector &, const Vector &, int, int, int, bool, float )
+static void SSFwd_DebugOverlay_AddLineOverlay( IVDebugOverlay *self, const Vector & a0, const Vector & a1, int a2, int a3, int a4, bool a5, float a6 ) { self->AddLineOverlay( a0, a1, a2, a3, a4, a5, a6 ); }
 
 static void *const s_DebugOverlaySlots[] = {
 	reinterpret_cast< void * >( &SSFwd_DebugOverlay_AddTextOverlayRGB_2 ),
+	reinterpret_cast< void * >( &SSFwd_DebugOverlay_AddBoxOverlay ),
+	reinterpret_cast< void * >( &SSFwd_DebugOverlay_AddLineOverlay ),
 };
 
-static const SSForwarderTable s_DebugOverlayTable = { s_DebugOverlaySlots, 1 };
+static const SSForwarderTable s_DebugOverlayTable = { s_DebugOverlaySlots, 3 };
 
 //-----------------------------------------------------------------------------
 // EngineTrace: 1 forwarder(s) over IEngineTrace.
@@ -3100,6 +3109,33 @@ static void *const s_ShimConVarsClientSlots[] = {
 static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
+// ShimFlashlightClient: 6 forwarder(s) over IShimFlashlightClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimFlashlightClient::FlashlightTexture( const char * )
+static int32_t SSFwd_ShimFlashlightClient_FlashlightTexture( IShimFlashlightClient *self, const char * a0 ) { return self->FlashlightTexture( a0 ); }
+// int32_t IShimFlashlightClient::FlashlightSupportsBorderColor( void )
+static int32_t SSFwd_ShimFlashlightClient_FlashlightSupportsBorderColor( IShimFlashlightClient *self ) { return self->FlashlightSupportsBorderColor(); }
+// int32_t IShimFlashlightClient::FlashlightCreate( const SourceSharpFlashlightState * )
+static int32_t SSFwd_ShimFlashlightClient_FlashlightCreate( IShimFlashlightClient *self, const SourceSharpFlashlightState * a0 ) { return self->FlashlightCreate( a0 ); }
+// void IShimFlashlightClient::FlashlightUpdate( int32_t, const SourceSharpFlashlightState * )
+static void SSFwd_ShimFlashlightClient_FlashlightUpdate( IShimFlashlightClient *self, int32_t a0, const SourceSharpFlashlightState * a1 ) { self->FlashlightUpdate( a0, a1 ); }
+// void IShimFlashlightClient::FlashlightProject( int32_t )
+static void SSFwd_ShimFlashlightClient_FlashlightProject( IShimFlashlightClient *self, int32_t a0 ) { self->FlashlightProject( a0 ); }
+// void IShimFlashlightClient::FlashlightDestroy( int32_t )
+static void SSFwd_ShimFlashlightClient_FlashlightDestroy( IShimFlashlightClient *self, int32_t a0 ) { self->FlashlightDestroy( a0 ); }
+
+static void *const s_ShimFlashlightClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightTexture ),
+	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightSupportsBorderColor ),
+	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightProject ),
+	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightDestroy ),
+};
+
+static const SSForwarderTable s_ShimFlashlightClientTable = { s_ShimFlashlightClientSlots, 6 };
+
+//-----------------------------------------------------------------------------
 // PhysicsCallbacks: 7 function(s) over void, declared in fwd_physics.h.
 //-----------------------------------------------------------------------------
 // int SSFwd_PhysicsCallbacks_SizeOf( void )
@@ -3221,6 +3257,7 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimInputClient", &s_ShimInputClientTable },
 	{ "SSFwd_ShimPhysicsClient", &s_ShimPhysicsClientTable },
 	{ "SSFwd_ShimConVarsClient", &s_ShimConVarsClientTable },
+	{ "SSFwd_ShimFlashlightClient", &s_ShimFlashlightClientTable },
 	{ "SSFwd_PhysicsCallbacks", &s_PhysicsCallbacksTable },
 	{ "SSFwd_SteamCallback", &s_SteamCallbackTable },
 };

@@ -129,6 +129,8 @@ public class OnSpawnFieldReloadTests
         services.AddInstance(new DamageHitGroups());
         services.AddInstance(services.Create<Arsenal>());
         services.AddInstance<IPhysicsConversion>(new NoConversion());
+        services.AddInstance<IPlayerFlashlight>(
+            new PlayerFlashlight(new EngineEntityEffectBits(engine, engine), engine, engine));
 
         registry.Services = services;
         return registry;

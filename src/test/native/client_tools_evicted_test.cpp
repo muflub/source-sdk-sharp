@@ -41,8 +41,8 @@ bool HasLine( const std::string &text, const std::string &line )
 TEST( ClientToolsEvicted, NeitherToolTuIsCompiledAndTheStandInsAre )
 {
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_tools_off_client.cpp" ) )
-		<< "client_sourcesharp does not compile shell_tools_off_client.cpp; clientshadowmgr.cpp and "
-		   "flashlighteffect.cpp still name what it defines";
+		<< "client_sourcesharp does not compile shell_tools_off_client.cpp; clientshadowmgr.cpp still "
+		   "names what it defines";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/toolframework_client.cpp" ) )
 		<< "toolframework_client.cpp is compiled into client.so again (SFM is dead, 2026-10-19)";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/entity_client_tools.cpp" ) )

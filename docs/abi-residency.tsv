@@ -24,6 +24,7 @@ Entity.cs	plumbing	a: named by SharedForwarders.g.cs	-
 EntityOp.cs	plumbing	b: entity-op numbers native passes to Crossings.CountEntityOp, which keys its counters by them (Enum.GetNames, Read(EntityOp))	-
 EntitySlot.cs	plumbing	a: named by ShimAreas.g.cs	-
 EventIdStamps.cs	plumbing	c: CEventAction::s_iNextIDStamp: restored connections keep their stamps across a managed reload, so the counter must too (P1 run 3 lifetime ruling b)	-
+FlashlightState.cs	plumbing	a: named by ShimAreas.g.cs	-
 FogParams.cs	plumbing	a: named by ShimAreas.g.cs	-
 Forwarders.cs	plumbing	a: named by ShimAreas.g.cs	-
 GitProvenance.cs	plumbing	e: build provenance the Bootstrap reads (loader infra; folds into Bootstrap after SE2)	-

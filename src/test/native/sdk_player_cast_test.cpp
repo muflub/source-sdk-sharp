@@ -1543,13 +1543,14 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// particlemgr.cpp and particles_new.cpp left). Files 12 -> 10 and nHere
 	// 10 -> 8 when entity_client_tools.cpp and toolframework_client.cpp left
 	// (SFM is dead, user ruling 2026-10-19: 12 scanned, 9 compiled under game/,
-	// at 2b7da491f plus the SFM commits).
+	// at 2b7da491f plus the SFM commits). nHere 8 -> 7 when flashlighteffect.cpp
+	// left (C7 cluster 12, 2026-10-18, on main e070a68e7: 8 compiled under game/).
 	const ScanResult_t &client = ClientScan();
 	EXPECT_GT( client.nFiles, 10 )
 		<< "scanned " << client.nFiles << " client files -- too few to mean "
 		<< "anything, and low enough that the $File parse is the first thing "
 		<< "to suspect";
-	EXPECT_GT( client.nHere, 8 )
+	EXPECT_GT( client.nHere, 7 )
 		<< "client_sourcesharp compiles " << client.nHere << " entries under "
 		<< "game/ -- too few for the ratio below to mean anything";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )
@@ -2341,6 +2342,9 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	EXPECT_FALSE( ScannedFileNamed( client, "client/toolframework_client.cpp" ) )
 		<< "toolframework_client.cpp is in the client scan again: the tool "
 		<< "framework is back in client.so.";
+	EXPECT_FALSE( ScannedFileNamed( client, "client/flashlighteffect.cpp" ) )
+		<< "flashlighteffect.cpp is in the client scan again: the flashlight "
+		<< "is native in client.so again (it is managed since C7 cluster 12).";
 	// game/shared/util_shared.cpp's CLIENT ROW IS RETIRED FOR THE SAME REASON AS
 	// ITS SERVER TWIN, and it is the same single site: the file is compiled into
 	// both sides, so `CTraceFilterEntity`'s `GameEntityFromEntityHandle` ask was
@@ -2361,8 +2365,12 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// because its code went. Three of the four are still named by row above
 	// (trace_filter_library.cpp, clientleafsystem.cpp, cdll_util.cpp), which is
 	// where the weight sits; this floor's remaining job is the vacuity guard.
-	// 4 -> 3 in C8 (lane c6-input): cdll_util.cpp left client.so.
-	EXPECT_GE( client.EveryResolverHits.size(), 3u )
+	// 4 -> 3 in C8 (lane c6-input): cdll_util.cpp left client.so. 3 -> 2 in C7
+	// cluster 12 (2026-10-18): flashlighteffect.cpp left client.so, and its
+	// CTraceFilterSkipPlayerAndViewModel resolver with it (the managed
+	// flashlight's filter resolves the hit by handle, flashlight_trace_filter.h).
+	// Its absence is asserted below with clientshadowmgr.cpp proved read.
+	EXPECT_GE( client.EveryResolverHits.size(), 2u )
 		<< "the same, on the client." << Describe( client.EveryResolverHits );
 
 }

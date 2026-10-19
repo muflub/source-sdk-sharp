@@ -169,8 +169,6 @@ const File_t kShellEntityApi = { "sourcesharp/game/server/shell_entityapi.cpp",
 	"int32_t SourceSharp_GetPlayerTeam(" };
 const File_t kShellWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
 	"SourceSharp_TraceLine" };
-const File_t kClientViewModelHdr = { "game/client/c_baseviewmodel.h",
-	"#define C_BASEVIEWMODEL_H" };
 
 std::string Load( const File_t &f )
 {
@@ -545,14 +543,22 @@ TEST( ServerBeamViewModelEvicted, NoServerTranslationUnitIncludesTheBeamHeader )
 	}
 }
 
-TEST( ServerBeamViewModelEvicted, TheViewModelHeaderStaysForTheClientThatStillCompilesIt )
+// The header stayed on disk for the client while a compiled client TU included
+// it. The last, flashlighteffect.cpp, left client.so in C7 cluster 12
+// (2026-10-18), and `make sdk-census` then named the header unused, so the
+// question this fact told its reader to re-take was re-taken: its fork link
+// went, and the farm no longer holds it. A sibling header the client still
+// compiles is read first, so the absence is the header leaving and not the
+// root being wrong.
+TEST( ServerBeamViewModelEvicted, TheViewModelHeaderLeftWithTheClientsLastIncluder )
 {
-	const std::string s = Load( kClientViewModelHdr );
-
-	EXPECT_NE( s.find( "#include \"baseviewmodel_shared.h\"" ), std::string::npos )
-		<< "c_baseviewmodel.h no longer includes baseviewmodel_shared.h. The header "
-		   "stays on disk for the client's sake; if the client has stopped needing "
-		   "it, re-take the question of whether it can go";
+	EXPECT_NE( ReadStripped( "game/client/c_baseplayer.h" ).find( "class C_BasePlayer" ), std::string::npos )
+		<< "game/client/c_baseplayer.h could not be read from the farm, so the absence "
+		   "below proves nothing";
+	EXPECT_TRUE( ReadStripped( "game/client/c_baseviewmodel.h" ).empty() )
+		<< "c_baseviewmodel.h is in the farm again: a client TU includes it again "
+		   "(sdk-links/client.txt), so re-take whether the view model's header is "
+		   "the client's";
 }
 
 //-----------------------------------------------------------------------------

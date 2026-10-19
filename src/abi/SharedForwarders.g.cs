@@ -976,7 +976,7 @@ internal unsafe struct ShimRootFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVDebugOverlay</c> through its forwarders (SSFwd_DebugOverlay): 1 slot(s).
+/// <c>IVDebugOverlay</c> through its forwarders (SSFwd_DebugOverlay): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct DebugOverlayFwd : IForwarderTable
@@ -986,6 +986,12 @@ internal unsafe struct DebugOverlayFwd : IForwarderTable
 
     // void IVDebugOverlay::AddTextOverlayRGB( const Vector &, int, float, int, int, int, int, PRINTF_FORMAT_STRING const char *, ... )
     public delegate* unmanaged<void*, void*, int, float, int, int, int, int, byte*, void> AddTextOverlayRGB_2;
+
+    // void IVDebugOverlay::AddBoxOverlay( const Vector &, const Vector &, const Vector &, QAngle const &, int, int, int, int, float )
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, int, int, int, float, void> AddBoxOverlay;
+
+    // void IVDebugOverlay::AddLineOverlay( const Vector &, const Vector &, int, int, int, bool, float )
+    public delegate* unmanaged<void*, void*, void*, int, int, int, byte, float, void> AddLineOverlay;
 }
 
 /// <summary>
@@ -2842,6 +2848,34 @@ internal unsafe struct ShimConVarsClientFwd : IForwarderTable
 
     // int32_t IShimConVarsClient::ConVarsClientSetValue( const char *, float )
     public delegate* unmanaged<void*, byte*, float, int> ConVarsClientSetValue;
+}
+
+/// <summary>
+/// <c>IShimFlashlightClient</c> through its forwarders (SSFwd_ShimFlashlightClient): 6 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ShimFlashlightClientFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_ShimFlashlightClient";
+
+    // int32_t IShimFlashlightClient::FlashlightTexture( const char * )
+    public delegate* unmanaged<void*, byte*, int> FlashlightTexture;
+
+    // int32_t IShimFlashlightClient::FlashlightSupportsBorderColor( void )
+    public delegate* unmanaged<void*, int> FlashlightSupportsBorderColor;
+
+    // int32_t IShimFlashlightClient::FlashlightCreate( const SourceSharpFlashlightState * )
+    public delegate* unmanaged<void*, void*, int> FlashlightCreate;
+
+    // void IShimFlashlightClient::FlashlightUpdate( int32_t, const SourceSharpFlashlightState * )
+    public delegate* unmanaged<void*, int, void*, void> FlashlightUpdate;
+
+    // void IShimFlashlightClient::FlashlightProject( int32_t )
+    public delegate* unmanaged<void*, int, void> FlashlightProject;
+
+    // void IShimFlashlightClient::FlashlightDestroy( int32_t )
+    public delegate* unmanaged<void*, int, void> FlashlightDestroy;
 }
 
 /// <summary>

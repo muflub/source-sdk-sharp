@@ -108,7 +108,9 @@ public class PlayerEntityTests
     {
         var registry = new ScriptedEntityRegistry();
         registry.RegisterAll(typeof(PlayerSpeedMod).Assembly);
-        registry.Services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
+        var services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
+        services.AddInstance<IPlayerFlashlight>(new SpeedModLight(false));
+        registry.Services = services;
 
         Assert.True(registry.IsRegistered(EntityNames.PlayerSpeedmod), "player_speedmod is a managed class");
 
@@ -123,6 +125,63 @@ public class PlayerEntityTests
         Assert.True(!registry.Input(Ent, "SetSpeed", "1", 1f, EntityHandle.None), "player_speedmod claims nothing else");
 
         registry.Clear();
+    }
+
+    /// <summary>A flashlight that is lit or not, counting what it is told.</summary>
+    private sealed class SpeedModLight(bool on) : IPlayerFlashlight
+    {
+        public bool On = on;
+        public int TurnedOn, TurnedOff;
+        public bool IsOn(EntityHandle player) => On;
+        public void TurnOn(EntityHandle player) { TurnedOn++; On = true; }
+        public void TurnOff(EntityHandle player) { TurnedOff++; On = false; }
+    }
+
+    private static int SlowThenRestore(SpeedModLight light, out int offWhenSlowed)
+    {
+        var registry = new ScriptedEntityRegistry();
+        registry.RegisterAll(typeof(PlayerSpeedMod).Assembly);
+        var services = Services(out var engine);
+        engine.Strict = false; // the movement and button calls are not this fact's
+        engine.Returns("Entities.IsPlayer", true);
+        services.AddInstance<IPlayerFlashlight>(light);
+        registry.Services = services;
+        var player = new EntityHandle(0x0002_0001u);
+
+        registry.Spawn(Ent, EntityNames.PlayerSpeedmod);
+        registry.Input(Ent, "ModifySpeed", "0.2", 0.2f, player);
+        offWhenSlowed = light.TurnedOff;
+        registry.Input(Ent, "ModifySpeed", "1", 1f, player);
+        registry.Clear();
+        return light.TurnedOff;
+    }
+
+    /// <summary>
+    /// Stock's speedmod puts a lit flashlight out whenever it slows a player,
+    /// with no spawnflag of its own, and restoring the speed does not relight it.
+    /// </summary>
+    [Fact]
+    public void SpeedModPutsALitFlashlightOut()
+    {
+        var light = new SpeedModLight(true);
+
+        int off = SlowThenRestore(light, out int offWhenSlowed);
+
+        Assert.Equal(1, offWhenSlowed);
+        Assert.Equal(1, off);
+        Assert.Equal(0, light.TurnedOn);
+        Assert.False(light.On);
+    }
+
+    [Fact]
+    public void SpeedModLeavesAnUnlitFlashlightAlone()
+    {
+        var light = new SpeedModLight(false);
+
+        int off = SlowThenRestore(light, out _);
+
+        Assert.Equal(0, off);
+        Assert.Equal(0, light.TurnedOn);
     }
 
     [Fact]

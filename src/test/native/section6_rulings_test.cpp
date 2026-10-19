@@ -458,7 +458,10 @@ TEST( Section6Rulings, TheToolFrameworkLeftClientSo )
 	ASSERT_TRUE( FarmHas( kToolsOff ) ) << kToolsOff << " is missing, so nothing answers tools-off";
 	const std::string off = StripCommentsAndStrings( ReadRaw( kToolsOff ) );
 	EXPECT_EQ( 1, CountOf( off, "bool ToolsEnabled()" ) );
-	EXPECT_EQ( 1, CountOf( off, "IClientTools *clienttools =" ) );
+	EXPECT_EQ( 1, CountOf( off, "void ToolFramework_RecordMaterialParams(" ) );
+	// `clienttools` went with flashlighteffect.cpp, its last reader (C7
+	// cluster 12, 2026-10-18).
+	EXPECT_EQ( 0, CountOf( off, "clienttools" ) );
 	// The interface is not exported: only a tool asked for it.
 	EXPECT_EQ( 0, CountOf( off, "EXPOSE_SINGLE_INTERFACE" ) );
 	EXPECT_EQ( 0, CountOf( off, "VCLIENTTOOLS_INTERFACE_VERSION" ) );
