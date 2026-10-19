@@ -406,11 +406,13 @@ public class StringTableDeclarationTests
     /// <summary>
     /// The id-addressed area is INTERNAL, which is what makes a
     /// <c>TABLEID</c> unavailable to mod code rather than merely discouraged.
+    /// It lives with the other seams in the side's interface assembly
+    /// (plan_shim_areas_split phase 4).
     /// </summary>
     [Fact]
     public void TheIdAddressedAreaIsNotPublic()
     {
-        Type? area = typeof(IEngineStringTable).Assembly.GetType("SourceSharp.Abi.IEngineStringTables");
+        Type? area = typeof(IEngineEntities).Assembly.GetType("SourceSharp.Abi.IEngineStringTables");
 
         Assert.True(area is not null, "the id-addressed area is gone; the handle has nothing to ask");
         Assert.False(area!.IsPublic, "an id-addressed string-table interface is reachable from outside the ABI");
@@ -453,7 +455,7 @@ public class StringTableDeclarationTests
     {
         Assert.False(EngineServices.IsArea(typeof(IEngineStringTable)));
         Assert.True(EngineServices.IsArea(
-            typeof(IEngineStringTable).Assembly.GetType("SourceSharp.Abi.IEngineStringTables")!));
+            typeof(IEngineEntities).Assembly.GetType("SourceSharp.Abi.IEngineStringTables")!));
     }
 
     [Fact]

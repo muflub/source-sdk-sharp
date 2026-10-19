@@ -100,8 +100,7 @@ public class EngineAreaTests
     // (IEngineStringTable, the per-table handle), so the rule has a body worth
     // sharing rather than one line worth repeating.
     private static Type[] Areas()
-        => typeof(EngineServices).Assembly.GetTypes()
-            .Where(EngineServices.IsArea)
+        => EngineServices.Contracts()
             .OrderBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
 

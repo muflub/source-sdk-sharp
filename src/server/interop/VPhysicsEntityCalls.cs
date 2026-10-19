@@ -180,13 +180,6 @@ public sealed unsafe class VPhysicsEntityCalls : IVPhysicsEntityCalls, IDisposab
     }
 }
 
-/// <summary>What native does for an entity's physics init: it holds the object (stock's VPhysicsSwapObject).</summary>
-public interface IEntityPhysicsNative
-{
-    /// <summary>The shell holds <paramref name="physicsObject"/> and answers the one it held; false when the handle names no shell.</summary>
-    bool Swap(EntityHandle entity, nint physicsObject, out nint previous);
-}
-
 /// <summary><see cref="IEntityPhysicsNative"/> over one side's engine slots.</summary>
 public sealed class EngineEntityPhysicsNative : IEntityPhysicsNative
 {

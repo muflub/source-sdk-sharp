@@ -65,6 +65,8 @@ public class StaticStateCensusTests
         typeof(Debug.Api.DebugChannelClient).Assembly,
         Assembly.Load("Debug.Api.Server.Interfaces"),
         Assembly.Load("Debug.Api.Client.Interfaces"),
+        // plan_shim_areas_split phase 4: each side's engine seams.
+        Assembly.Load("SourceSharp.Server.Interface"),
         Assembly.Load("SourceSharp.Client.Interface"),
         Assembly.Load("Debug.Api.Shared"),
         // plan_client_ui: the UI toolkit and screens reload with the UI's own

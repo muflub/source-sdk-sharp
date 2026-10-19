@@ -27,6 +27,9 @@ public class SurfacePropertyManifestTests
 
     private sealed class Files : IEngineFiles
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public byte[]? ReadFileOnPath(string path, string pathId) => string.Equals(pathId, "GAME", StringComparison.Ordinal) ? ReadGameFileBytes(path) : null;
+
         public readonly Dictionary<string, string> Text = new();
         public int GameFileSize(string path) => Text.TryGetValue(path, out var t) ? t.Length : -1;
         public string? ReadGameFile(string path) => Text.TryGetValue(path, out var t) ? t : null;

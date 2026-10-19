@@ -344,13 +344,13 @@ public sealed unsafe class PlayerShadow
         // A climb the controller does itself is first traced up from the
         // shadow, so it never teleports into solid (A19). The hull is the
         // shadow's current one, as stock's UTIL_TraceEntity( this, ... ) is,
-        // but from MoveConstants.Stock rather than the player's scaled hulls
+        // but from MoveConstantDefaults.Stock rather than the player's scaled hulls
         // (player.cpp:4834-4835): coupled to SsPlayer.ShadowHulls, which reads
         // the same constants, and both change together if a composition ever
         // registers others.
         if (plan.StepUp == StepClimb)
         {
-            MoveConstants hulls = MoveConstants.Stock;
+            MoveConstants hulls = MoveConstantDefaults.Stock;
             bool crouched = state.State == StateCrouch;
             Vector mins = crouched ? hulls.DuckHullMin : hulls.HullMin;
             Vector maxs = crouched ? hulls.DuckHullMax : hulls.HullMax;

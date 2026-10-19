@@ -1115,6 +1115,9 @@ public class AnimationEventPumpTests
     /// <summary>A table and a clock, both written by this test.</summary>
     private sealed class Clock : IEngineEntityRender, IClientStandalones
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public string? GetModelKeyValueText(string modelName) => null;
+
         public readonly Dictionary<int, List<ModelAnimationEvent>> Events = new();
 
         public bool Dormant;

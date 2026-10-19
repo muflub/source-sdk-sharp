@@ -19,6 +19,9 @@ public class SoundscapeIndexTests
 {
     private sealed class Files : IEngineFiles
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public byte[]? ReadFileOnPath(string path, string pathId) => string.Equals(pathId, "GAME", StringComparison.Ordinal) ? ReadGameFileBytes(path) : null;
+
         public readonly Dictionary<string, string> Text = new();
         public readonly List<string> Asked = new();
 

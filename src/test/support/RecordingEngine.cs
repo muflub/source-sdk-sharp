@@ -452,6 +452,11 @@ public sealed class RecordingEngine :
     string? IEngineFiles.ReadGameFile(string path) => Record<string?>("Files.ReadGameFile", path);
     byte[]? IEngineFiles.ReadGameFileBytes(string path) => Record<byte[]?>("Files.ReadGameFileBytes", path);
 
+    // Only the GAME path, as IEngineFiles' default body answered before
+    // plan_shim_areas_split phase 4 (interface assemblies hold no bodies).
+    byte[]? IEngineFiles.ReadFileOnPath(string path, string pathId)
+        => string.Equals(pathId, "GAME", StringComparison.Ordinal) ? ((IEngineFiles)this).ReadGameFileBytes(path) : null;
+
     // Frame -- plan_gamedll.md Part 4's fifteen steps. The recording is the
     // CALL LIST, which is what lets one fact assert the frame's order as a
     // sequence rather than as a set.
@@ -698,6 +703,12 @@ public sealed class RecordingEngine :
     /// landed. An empty span is what "there is no block here" already means
     /// everywhere else.
     /// </summary>
+    // The empty answers of a side with no lists and no replay, as the
+    // interface's default bodies gave before plan_shim_areas_split phase 4.
+    IInterpolationBlocks IEngineEntities.InterpolationBlocks => NoInterpolationBlocks.Instance;
+    IRenderPolicyBlocks IEngineEntities.RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;
+    IClientReplayEngine IEngineEntities.ClientReplay => NoClientReplayEngine.Instance;
+
     Span<byte> IEngineEntities.GetEngineBlock(EntityHandle entity)
     {
         RecordVoid("Entities.GetEngineBlock", entity);

@@ -34,6 +34,11 @@ public sealed class MapSpawnerTests
     /// </summary>
     private sealed class Creator : IEngineEntities
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public IInterpolationBlocks InterpolationBlocks => NoInterpolationBlocks.Instance;
+        public IRenderPolicyBlocks RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;
+        public IClientReplayEngine ClientReplay => NoClientReplayEngine.Instance;
+
         private readonly IEngineEntities _engine;
         private uint _next = 0x0500;
 

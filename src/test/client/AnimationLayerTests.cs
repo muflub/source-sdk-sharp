@@ -139,6 +139,9 @@ public class AnimationLayerTests
     /// <summary>A shell that holds layers, written by this test.</summary>
     private sealed class Actors : IEngineEntityRender, IClientStandalones
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public string? GetModelKeyValueText(string modelName) => null;
+
         private readonly Dictionary<(uint, string), int> _sequences = new();
         private readonly Dictionary<(uint, int), (int sequence, float weight, int order, float cycle)> _held = new();
         private readonly HashSet<uint> _dormant = new();

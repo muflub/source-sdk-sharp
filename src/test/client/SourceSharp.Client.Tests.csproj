@@ -37,7 +37,7 @@
     <ProjectReference Include="..\support\client\SourceSharp.TestSupport.Client.csproj" Aliases="global,client" />
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="global,client" />
     <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="global,client" />
-    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="global,client" />
     <ProjectReference Include="..\..\debug_api_client\interfaces\Debug.Api.Client.Interfaces.csproj" />
     <!-- plan_client_ui: the UI toolkit and screens, tested under Ui/. -->
     <ProjectReference Include="..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />

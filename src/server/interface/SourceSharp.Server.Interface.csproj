@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The server's engine seams (plan_shim_areas_split phase 4): one interface
+    per capability the server's logic takes from the engine, in managed types,
+    and the managed-only value types their signatures use. Interfaces, enums
+    and data only (SS0030, role "interface" in Directory.Build.props).
+    SourceSharp.Server.Interop implements them over the native areas.
+
+    It references the Abi, whose value types (Vector, EntityHandle, the blobs)
+    the seams are written in: the Abi is the native layout contract and lives
+    in the side's root; this assembly loads into the game's context and
+    reloads with it.
+
+    The seams both sides use are in src/shared/interface and compiled into
+    this assembly and into SourceSharp.Client.Interface, as src/shared/managed
+    is into each side's logic: no third assembly, and each side's copy of a
+    shared seam is its own type.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\shared\interface\**\*.cs"
+             Exclude="..\..\shared\interface\obj\**;..\..\shared\interface\bin\**"
+             Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- One seam is internal: IEngineStringTables, which carries table ids a
+         mod should never see (its public face is StringTableAttribute and
+         IEngineStringTable). What reached it when it was interop reaches it
+         here: the interop that implements it, the side's logic (the shared
+         StringTableRegistry), the doubles that implement it and the suites. -->
+    <InternalsVisibleTo Include="SourceSharp.Server.Interop" />
+    <InternalsVisibleTo Include="SourceSharp.Server" />
+    <InternalsVisibleTo Include="SourceSharp.TestSupport.Server" />
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+  </ItemGroup>
+</Project>

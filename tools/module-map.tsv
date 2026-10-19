@@ -20,6 +20,7 @@ src/sourcesharp/managed/SourceSharp.Server	dir	src/server/managed
 src/sourcesharp/managed/SourceSharp.Server.Interop	dir	src/server/interop
 src/sourcesharp/managed/SourceSharp.Shared	dir	src/shared/managed
 src/sourcesharp/managed/SourceSharp.Shared.Interop	dir	src/shared/interop
+src/sourcesharp/managed/SourceSharp.Shared.Interface	dir	src/shared/interface
 src/sourcesharp/managed/SourceSharp.Bootstrap	dir	src/host/managed
 src/sourcesharp/managed/SourceSharp.Tests	dir	src/test/managed
 src/sourcesharp/managed/SourceSharp.Server.Tests	dir	src/test/server

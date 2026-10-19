@@ -81,6 +81,10 @@ public sealed class DeathServiceTests
 
     private sealed class FakeClients : IConnectedClients
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public float? AvgLatency(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+
         public List<string> Calls { get; } = new();
         public Dictionary<int, (ulong Steam, string? Address)> Slots { get; } = new();
         public ulong SteamId64(int entIndex) => Slots.TryGetValue(entIndex, out var s) ? s.Steam : 0;

@@ -39,6 +39,11 @@ public class WeaponSwitchTests
 
     internal sealed class SpawningEntities : IEngineEntities
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public IInterpolationBlocks InterpolationBlocks => NoInterpolationBlocks.Instance;
+        public IRenderPolicyBlocks RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;
+        public IClientReplayEngine ClientReplay => NoClientReplayEngine.Instance;
+
         private readonly IEngineEntities _engine;
         private readonly ScriptedEntityRegistry _registry;
         private readonly Dictionary<uint, string> _created = new();

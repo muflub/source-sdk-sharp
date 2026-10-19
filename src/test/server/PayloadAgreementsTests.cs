@@ -5,10 +5,10 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// What a <see cref="PayloadAgreement"/> says beyond its fields
-/// (<see cref="PayloadAgreementReading"/>), which the dev API's net schema
+/// (<see cref="PayloadAgreements"/>), which the dev API's net schema
 /// route prints.
 /// </summary>
-public class PayloadAgreementReadingTests
+public class PayloadAgreementsTests
 {
     [Theory]
     [InlineData(PayloadAgreementState.Agrees, "agrees")]
@@ -28,5 +28,5 @@ public class PayloadAgreementReadingTests
 
     [Fact]
     public void NotSuppliedHasNoWordsAndNoBadWord()
-        => Assert.Equal(new PayloadAgreement(PayloadAgreementState.NotSupplied, 0, -1), PayloadAgreement.NotSupplied);
+        => Assert.Equal(new PayloadAgreement(PayloadAgreementState.NotSupplied, 0, -1), PayloadAgreements.NotSupplied);
 }

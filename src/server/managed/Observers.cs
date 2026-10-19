@@ -435,7 +435,7 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
             Vector angles = entities.GetEyeAngles(target.Handle);
             angles = new Vector(angles.X, angles.Y, 0f);
             Vector end = start - Angles.Forward(angles) * 64f;
-            var c = MoveConstants.Stock;
+            var c = MoveConstantDefaults.Stock;
             var tr = world.EntityTraceHull(target.Handle, start, end, c.DuckHullMin, c.DuckHullMax,
                                            GameMovement.MaskPlayerSolid, GameMovement.CollisionGroupPlayerMovement);
             entities.Teleport(player.Handle, tr.EndPos, angles, zeroVelocity: true);

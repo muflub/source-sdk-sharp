@@ -53,6 +53,5 @@ public interface IEngineFiles
 
     /// <inheritdoc cref="EngineSide.FilesReadOnPathBytes"/>
     /// <remarks>A double that only knows the GAME path answers that one.</remarks>
-    byte[]? ReadFileOnPath(string path, string pathId)
-        => string.Equals(pathId, "GAME", StringComparison.Ordinal) ? ReadGameFileBytes(path) : null;
+    byte[]? ReadFileOnPath(string path, string pathId);
 }

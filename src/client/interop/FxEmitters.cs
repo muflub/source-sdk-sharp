@@ -77,65 +77,6 @@ public interface IFxEmitters
     void Release(int emitter);
 }
 
-/// <summary>
-/// The engine's answers a muzzle flash reads (IShimFxClient): attachments,
-/// the entity index behind a handle, the elight, client.so's <c>rand()</c>,
-/// and whether the impact effects' muzzle materials were cached.
-/// </summary>
-public interface IFxFlashReads
-{
-
-    /// <summary>
-    /// <c>FX_GetAttachmentTransform( h, att, &amp;origin, &amp;angles )</c>
-    /// (fx.cpp, C# since lane c5-particles): nothing for an invalid handle or
-    /// an attachment below 1, else the renderable's attachment (false, and
-    /// zeros, when the handle has no renderable).
-    /// </summary>
-    bool AttachmentTransform(uint handle, int attachment, out Vector origin, out QAngle angles)
-    {
-        origin = default;
-        angles = default;
-        if (handle == EntityHandle.None.Value || attachment < 1)
-            return false;
-        return RenderableAttachment(handle, attachment, out origin, out angles);
-    }
-
-    /// <summary>
-    /// <c>FX_GetAttachmentTransform( h, att, matrix )</c>: the matrix's
-    /// translation, which <c>AngleMatrix</c> copies from the origin unchanged.
-    /// </summary>
-    bool AttachmentMatrixOrigin(uint handle, int attachment, out Vector origin)
-        => AttachmentTransform(handle, attachment, out origin, out _);
-
-    /// <summary>The handle's renderable and its <c>GetAttachment</c>; false when it has no renderable.</summary>
-    bool RenderableAttachment(uint handle, int attachment, out Vector origin, out QAngle angles);
-
-    /// <summary>The entity index behind a handle; -1 when none.</summary>
-    int EntityIndex(uint handle);
-
-    /// <summary><c>effects-&gt;CL_AllocElight( key )</c>, filled.</summary>
-    void Elight(int key, in Vector origin, byte r, byte g, byte b, sbyte exponent, float radius, float decay, float die);
-
-    /// <summary><c>Vector::Random( lo, hi )</c>: the C runtime's rand(), not the engine stream.</summary>
-    Vector VectorRandom(float lo, float hi);
-
-    /// <summary>Whether the impact effects' muzzle materials were cached this level: bit 0 the SMG's, bit 1 the Combine's.</summary>
-    int MaterialsCached();
-}
-
-/// <summary>The tempent pool's models by name (the shell casings, the level's list).</summary>
-public interface IFxTempEntModels
-{
-    /// <summary>A tempent of the named model in a slot the managed pool reserved; false when none was made.</summary>
-    bool CreateNamed(int slot, in Vector origin, string model, int priority);
-
-    /// <summary><c>engine-&gt;LoadModel( name )</c>.</summary>
-    void LoadModel(string model);
-
-    /// <summary><c>modelinfo-&gt;GetModelFrameCount</c> of the loaded model; -1 for none.</summary>
-    int FrameCount(string model);
-}
-
 /// <summary>The muzzle flashes', the bounce sounds' and the named tempents' carry-out, over IShimFxClient's slots.</summary>
 internal sealed unsafe class ClientFxEmitterSlots(EngineSide api) : IFxFlashReads, IFxGameSounds, IFxTempEntModels
 {
@@ -146,6 +87,12 @@ internal sealed unsafe class ClientFxEmitterSlots(EngineSide api) : IFxFlashRead
         origin = new Vector(v[0], v[1], v[2]);
         angles = new QAngle(v[3], v[4], v[5]);
     }
+
+    public bool AttachmentTransform(uint handle, int attachment, out Vector origin, out QAngle angles)
+        => FxFlashAttachments.Transform(this, handle, attachment, out origin, out angles);
+
+    public bool AttachmentMatrixOrigin(uint handle, int attachment, out Vector origin)
+        => FxFlashAttachments.MatrixOrigin(this, handle, attachment, out origin);
 
     public bool RenderableAttachment(uint handle, int attachment, out Vector origin, out QAngle angles)
     {
@@ -254,4 +201,38 @@ public interface IClientTempEntHost
     int Attach(int client, int modelIndex, float zoffset, float life, int maxClients);
 
     void LevelInit();
+}
+
+/// <summary>
+/// <c>FX_GetAttachmentTransform</c>'s two spellings over an
+/// <see cref="IFxFlashReads"/>'s renderable read, for an implementation that
+/// answers them the engine's way.
+///
+/// <para>
+/// They were default bodies on the interface until plan_shim_areas_split
+/// phase 4 moved it to an interface assembly, which holds no bodies. They stay
+/// members of the interface rather than becoming extension methods because
+/// the oracle facts' doubles answer them from recorded stock runs rather than
+/// through the renderable read.
+/// </para>
+/// </summary>
+public static class FxFlashAttachments
+{
+    /// <summary>
+    /// Nothing for an invalid handle or an attachment below 1, else the
+    /// renderable's attachment (false, and zeros, when the handle has no
+    /// renderable).
+    /// </summary>
+    public static bool Transform(IFxFlashReads reads, uint handle, int attachment, out Vector origin, out QAngle angles)
+    {
+        origin = default;
+        angles = default;
+        if (handle == EntityHandle.None.Value || attachment < 1)
+            return false;
+        return reads.RenderableAttachment(handle, attachment, out origin, out angles);
+    }
+
+    /// <summary>The matrix's translation, which <c>AngleMatrix</c> copies from the origin unchanged.</summary>
+    public static bool MatrixOrigin(IFxFlashReads reads, uint handle, int attachment, out Vector origin)
+        => Transform(reads, handle, attachment, out origin, out _);
 }

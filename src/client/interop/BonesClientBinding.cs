@@ -207,17 +207,6 @@ public sealed unsafe class ClientStandaloneBlocks(ModuleEngine engine) : IStanda
     }
 }
 
-/// <summary>
-/// Where native keeps the sequence clock the managed skeleton chose
-/// (IShimStandaloneClient's StandaloneStoreSequence): the block's sequence,
-/// rate and start, and the duration and loop flag the native per-frame cycle
-/// reads. A store; managed decides.
-/// </summary>
-public interface IClientSequenceStore
-{
-    void Store(EntityHandle entity, int sequence, float playbackRate, float animTime, float duration, bool looping);
-}
-
 /// <summary><see cref="IClientSequenceStore"/> over the engine: one crossing a store.</summary>
 public sealed class ClientSequenceStore(ModuleEngine engine) : IClientSequenceStore
 {
@@ -230,16 +219,6 @@ public sealed class ClientSequenceStore(ModuleEngine engine) : IClientSequenceSt
             api.ClientShims.StandaloneStoreSequence(entity.Value, sequence, playbackRate, animTime, duration,
                                                     looping ? 1 : 0);
     }
-}
-
-/// <summary>
-/// Where native keeps the one fact about a managed ragdoll it needs
-/// (IShimStandaloneClient's StandaloneSetRagdoll): the solver owns the
-/// entity's pose. A store; managed decides (plan_physics_bones_native_zero Phase 3).
-/// </summary>
-public interface IStandaloneRagdollStore
-{
-    void SetRagdoll(EntityHandle entity, bool isRagdoll);
 }
 
 /// <summary><see cref="IStandaloneRagdollStore"/> over the engine: one crossing a store.</summary>

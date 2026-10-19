@@ -23,6 +23,9 @@ public class HostSayTests
 
     private sealed class Clients : IConnectedClients
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public float? AvgLatency(int entIndex) => null;
+
         public ulong SteamId64(int entIndex) => 0;
         public string? Address(int entIndex) => "loopback";
         public string? ClientConVar(int entIndex, string name) => name == "name" ? (entIndex == 1 ? "alice" : "bob") : null;
@@ -146,6 +149,9 @@ public class EngineClientsConVarTests
 {
     private sealed class Info : IClientInfo
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public float? AvgLatency(int entIndex) => null;
+
         public ulong SteamId64(int entIndex) => 0;
         public string? Address(int entIndex) => null;
         public string? ClientConVar(int entIndex, string name) => entIndex == 2 && name == "name" ? "bob" : null;

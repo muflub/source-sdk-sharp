@@ -148,8 +148,9 @@ int ManagedBit( const std::string &strCs, const char *pszName )
 
 const char *const kIConVarH  = "public/tier1/iconvar.h";
 const char *const kConVarCs  = "sourcesharp/managed/SourceSharp.Shared.Interop/ConVar.cs";
-// ConVarFlags and ConVarFlagNames, split out of ConVar.cs (plan_abi_hotreload D3).
-const char *const kConVarFlagsCs = "sourcesharp/managed/SourceSharp.Shared.Interop/ConVarFlags.cs";
+// ConVarFlags, split out of ConVar.cs (plan_abi_hotreload D3), and since
+// plan_shim_areas_split phase 4 in the shared seams: a seam's signature uses it.
+const char *const kConVarFlagsCs = "sourcesharp/managed/SourceSharp.Shared.Interface/ConVarFlags.cs";
 const char *const kGameSys   = "sourcesharp/game/shared/sourcesharp_gamesystem.cpp";
 // EngineSide.cs since plan_engineapi_vtables B1: the per-side instance holds the bodies.
 const char *const kEngineCs  = "sourcesharp/managed/SourceSharp.Shared.Interop/EngineSide.cs";

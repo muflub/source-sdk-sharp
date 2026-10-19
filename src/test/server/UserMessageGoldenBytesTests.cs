@@ -107,6 +107,10 @@ public class UserMessageGoldenBytesTests
 
     private sealed class NoInfo : IClientInfo
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public float? AvgLatency(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+
         public ulong SteamId64(int entIndex) => 0;
         public string? Address(int entIndex) => null;
     }

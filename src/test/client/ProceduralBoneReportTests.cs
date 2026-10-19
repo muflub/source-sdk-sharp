@@ -152,6 +152,9 @@ public class ProceduralBoneReportTests
     /// <summary>A world of models, written by this test.</summary>
     private sealed class Models : IEngineEntityRender, IClientStandalones
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public string? GetModelKeyValueText(string modelName) => null;
+
         private readonly Dictionary<uint, (string cls, string model, int bones, int computed, int jiggle, int ik)> _wearing = new();
         private readonly Dictionary<(uint, string), int> _sequences = new();
         private readonly HashSet<uint> _dormant = new();

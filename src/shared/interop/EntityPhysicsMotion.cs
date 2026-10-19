@@ -40,23 +40,6 @@ public interface IVPhysicsMotionCalls
 }
 
 /// <summary>
-/// The entity side of <see cref="EntityPhysicsMotion"/>: the entity's
-/// <c>IPhysicsObject *</c> (a held-pointer read, 0 for none), its own velocity
-/// members (the shell's mirrors, for an entity the solver is not moving), its
-/// facing, and the console.
-/// </summary>
-public interface IEntityPhysicsMotionHost
-{
-    nint PhysicsObject(EntityHandle entity);
-    Vector EntityVelocity(EntityHandle entity);
-    void SetEntityVelocity(EntityHandle entity, Vector velocity);
-    Vector EntityAngularVelocity(EntityHandle entity);
-    void SetEntityAngularVelocity(EntityHandle entity, Vector degreesPerSecond);
-    Vector Angles(EntityHandle entity);
-    void Warning(string message);
-}
-
-/// <summary>
 /// An entity's one-object physics calls, made by managed on the entity's
 /// <c>IPhysicsObject</c> (plan_physics_bones_native_zero: the last thin
 /// vphysics forwards leave shell_scripted.cpp, shell_entityapi.cpp and

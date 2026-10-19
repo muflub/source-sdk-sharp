@@ -200,10 +200,14 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   brace balance, per-parent line counts, `<summary>` balance and
   `AbiParityTests`: a keep-both splice eats lines.
 - **`*.Interface` and `*.Interfaces` assemblies hold only interfaces, enums
-  and pure data structs** (`SourceSharp.Client.Interface`, the dev API's
-  `Debug.Api.Server.Interfaces` and `Debug.Api.Client.Interfaces`).
-  UI types, implementations and logic go in an assembly of their own: putting
-  UI types in the client interface forced a plan to be restructured.
+  and pure data structs** (the engine seams' `SourceSharp.Server.Interface`
+  and `SourceSharp.Client.Interface`, with `src/shared/interface` compiled into
+  both; the dev API's `Debug.Api.Server.Interfaces` and
+  `Debug.Api.Client.Interfaces`). No default interface bodies, no static
+  initializers: a seam type's behaviour goes in the interop as extension
+  methods or a static class beside it. UI types, implementations and logic go
+  in an assembly of their own: putting UI types in the client interface forced
+  a plan to be restructured.
 - **The invalid entity handle is `0xFFFFFFFF`, never 0**, because entry 0 is the
   world. `EntityHandle` stores the raw handle inverted, so `default(EntityHandle)`
   IS `EntityHandle.None`; the raw handle 0 (entry 0) must be named on purpose.

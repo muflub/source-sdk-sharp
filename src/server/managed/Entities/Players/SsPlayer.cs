@@ -166,7 +166,7 @@ public sealed class SsPlayer : ScriptedEntity
     ///
     /// <para>
     /// <b>THE SAME NUMBERS THE MOVEMENT LOOP TRACES WITH</b>, taken from
-    /// <see cref="MoveConstants.Stock"/> rather than restated, because a shadow
+    /// <see cref="MoveConstantDefaults.Stock"/> rather than restated, because a shadow
     /// of a different size from the body is a player who is stopped by a crate
     /// their shadow has not reached (or shoves one they are not touching).
     /// <c>TheShadowHullIsTheMovementHull</c> pins the agreement.
@@ -174,7 +174,7 @@ public sealed class SsPlayer : ScriptedEntity
     ///
     /// <para>
     /// COUPLED TO PlayerShadow.Step's climb clamp, which traces with the same
-    /// <see cref="MoveConstants.Stock"/> hulls where stock's
+    /// <see cref="MoveConstantDefaults.Stock"/> hulls where stock's
     /// <c>UTIL_TraceEntity( this, ... )</c> uses the player's scaled ones
     /// (player.cpp:4834-4835). Consistent while both read Stock; a composition
     /// that registers other constants or a scaled model must change both.
@@ -184,7 +184,7 @@ public sealed class SsPlayer : ScriptedEntity
     {
         get
         {
-            var c = MoveConstants.Stock;
+            var c = MoveConstantDefaults.Stock;
             return (c.HullMin, c.HullMax, c.DuckHullMin, c.DuckHullMax);
         }
     }
