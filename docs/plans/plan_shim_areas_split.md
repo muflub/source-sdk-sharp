@@ -266,6 +266,13 @@ Each phase builds, passes its tests and is committed before the next.
   load first). Tests that compose a client module do not reach the shim at
   all: they mock the seams the adapters implement, handed in through
   `IClientEngineAdapters`.
+- 2026-10-19 (user, review of phase 7): `EngineSide` is a partial class whose
+  server-only and client-only logic lives in each side's half, in that side's
+  project. The `Engine*` bindings, which call those members, are split the
+  same way: a side-only member's real body is in its side's half, and the
+  other half answers what the member's attach guard answered there (chosen
+  over stubs in `EngineSide` and over moving only the members no shared code
+  calls).
 
 Open: none.
 
@@ -415,3 +422,75 @@ Open: none.
     to the side's factory or removes it.
   - No `InternalsVisibleTo` went: each test suite reaches other internals of
     the interops too.
+- **Phase 7** (2026-10-19). Measured at the start: 54 run-time side choices
+  (49 in `EngineSide`, four in `MovementBridge`, one in `PhysicsEvents`), not
+  the plan's 52.
+  - Each choice is one call on `OwnShims`, and each guard one
+    `OwnShimsAttached`. Each side's partial file names its own container
+    (`EngineSide.Server.cs`, `EngineSide.Client.cs`): no `#if`, because the
+    side is the assembly.
+  - A server `EngineSide` no longer answers from client areas attached to it.
+    Only tests did that, and their four client facts moved to the client
+    suite. The side audit reads `OwnShims` as it read the two accessors.
+  - Review ruling (Decisions): every `EngineSide` member that reaches one
+    side's areas moved to that side's half, 183 to `EngineSide.Server.cs` and
+    81 to `EngineSide.Client.cs`, found by a Roslyn pass over the members'
+    references to the areas and their attach state, and two more by hand
+    (the motion field, and the three-argument `ClientTraceLine`, which only
+    forwards to the client's). The shared file keeps the 97 that reach
+    neither. Each half also names the side's attach
+    (`AttachOwnShims`, which `SideLoad` calls) and its break models' precache.
+    `ModuleEngine.EntityFactories` is the server's (`ModuleEngine.Server.cs`).
+  - 236 binding members called the moved members, so the bindings are
+    partial too: `EngineBinding.Server.cs` and `EngineBinding.Client.cs`. A
+    second Roslyn pass moved 223 one-call forwards and wrote the other side's
+    answer from the member's attach guard: its value, its out assignments,
+    nothing for a void. A shell-less branch before the guard is dropped
+    there, because only the server's registry binds `ShellLess`. The other 13
+    were written by hand. Three keep their shared logic and reach
+    the engine through a private partial helper each half implements
+    (`IsDormant`, `GetAttachmentFrame`, `BoxInPvs`); the client's `Remove`
+    still asks the side's removal routes, the shared half of the server's
+    member.
+  - Tests: the cross-side attaches in 13 test files became `AttachOwnShims`
+    (each only ever attached its own side). The shared-interop audit compiles
+    the server's halves with their bodies replaced by `throw null!`, so it
+    holds the shared code only; the side audit's binding map reads the shared
+    file and both halves and folds the helpers into their callers. New facts
+    on each side check the other side's answers, the helpers and the attach;
+    changing one answer or helper turns its fact red.
+  - The seams over `EngineSide`'s member groups are the 29 `Engine*` areas
+    (`IEngineEntities`, `IEngineSound`, ...). Since phase 3 each side compiles
+    its own bindings, and since this phase each binding reaches only its own
+    side's container. So each root already registers its own implementation
+    of every area. A new fact checks that, binding by binding and by
+    assembly; skipping one area's registration turns it red.
+  - `EngineEnvironment`'s resolver: it now asks the side's root for the
+    engine's `appSystemFactory`, and the test-only resolver and pointer
+    constructor went. Its facts go through the side over `FakeShimRoot`,
+    which now records the acquires it is asked for. One new fact checks that
+    the AppSystem factory is the one asked. Asking the Internal factory, or
+    letting an empty name through, turns a fact red.
+  - Left for phase 8: the seven logic call sites that hand a `ModuleEngine` to
+    an interop factory (`EngineClient.Acquire`, `UniformRandomStream.Acquire`,
+    `EngineModelInfo.Acquire`, `ServerEntityEngine`). The public
+    `ModuleEngine` constructors of `MovementRunner`, `LivenessSlotReference`
+    and `StandaloneSlotReference` also wait: by then only the roots call them.
+  - **The cost** (section 7): one per-frame seam, `IEngineEntities.GetVelocity`
+    on the server. The path runs interface → `EngineEntities` →
+    `EngineSide` → `EntityPhysicsMotion` → `ShimPhysics`/`ShimTransform`
+    forwarder slots → native.
+    - Harness: a scratch harness over `FakeShimRoot` whose two slots are a
+      native stub library, so the timing has no reverse P/Invoke. Release
+      build, 20M calls a round after a 2M-call warm-up, 7 rounds, five runs
+      of each build interleaved, on the 4-core Xeon @ 2.10 GHz this ran on.
+    - Builds compared: the plan's base (8ea566c, phase 1 merged) against
+      phase 7's first commit (94112e2). The difference is about +0.7 ns a
+      call, inside the run-to-run spread, and consistent with phase 2's one
+      extra hop from a flat member to its area. Phase 9 removes that hop
+      when the flat members go.
+
+    | ns per call, 35 rounds | min | median | max |
+    |---|---|---|---|
+    | base 8ea566c | 18.76 | 20.90 | 26.41 |
+    | phase 7 94112e2 | 19.42 | 21.59 | 28.08 |

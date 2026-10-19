@@ -52,6 +52,21 @@ internal static class RepoLayout
         Path.Combine([RepoRoot, .. parts]);
 
     /// <summary>
+    /// The source of a type the shared interop declares partial, with each
+    /// side's half (plan_shim_areas_split phase 7): <c>src/shared/interop/T.cs</c>,
+    /// <c>src/server/interop/T.Server.cs</c> and
+    /// <c>src/client/interop/T.Client.cs</c>, joined. What a source-reading fact
+    /// said about one file of the type it says about all three.
+    /// </summary>
+    public static string SharedTypeSource(string type) =>
+        string.Join("\n", new[]
+        {
+            Repo("src", "shared", "interop", type + ".cs"),
+            Repo("src", "server", "interop", type + ".Server.cs"),
+            Repo("src", "client", "interop", type + ".Client.cs"),
+        }.Select(File.ReadAllText));
+
+    /// <summary>
     /// The directories a test used to find a file relative to, deepest first:
     /// the old test project and each of its ancestors, in the farm. The old
     /// tests walked up from their binary and took the first directory holding

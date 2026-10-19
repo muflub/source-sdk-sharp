@@ -120,8 +120,10 @@ std::string ReadCode( const char *pRelative )
 const char *const kSharedDefs = "game/shared/shareddefs.h";
 const char *const kServerNet  = "sourcesharp/game/server/shell_standalone.cpp";
 const char *const kClientCpp  = "sourcesharp/game/client/shell_standalone_client.cpp";
-// EngineSide.cs since plan_engineapi_vtables B1: the per-side instance holds the bodies.
-const char *const kEngineCs   = "sourcesharp/managed/SourceSharp.Shared.Interop/EngineSide.cs";
+// EngineSide.cs since plan_engineapi_vtables B1: the per-side instance holds the
+// bodies; the server's half since plan_shim_areas_split phase 7, because the
+// teleport reaches only the server's areas.
+const char *const kEngineCs   = "sourcesharp/managed/SourceSharp.Server.Interop/EngineSide.Server.cs";
 const char *const kInterpCs   = "sourcesharp/managed/SourceSharp.Client/Interpolation.cs";
 const char *const kBlockCs    = "sourcesharp/managed/SourceSharp.Abi/EngineBlock.cs";
 const char *const kGenerated  = "sourcesharp/game/shared/engine_block_generated.h";

@@ -1099,6 +1099,51 @@ public class SideAuditTests
             "a wrong-side reference is one complaint naming member and slot: " + string.Join("; ", violations));
     }
 
+    /// <summary>
+    /// The binding map over a shared file and two halves (plan_shim_areas_split
+    /// phase 7): a member in a half maps under the shared declaration's
+    /// interface, and a shared member whose logic calls a private partial
+    /// helper maps to the engine member the helper's half calls. The other
+    /// half's answer calls nothing, and its helper line is not counted as the
+    /// member before it.
+    /// </summary>
+    [Fact]
+    public void TheBindingMapReadsTheHalvesAndFollowsTheirHelpers()
+    {
+        const string shared = """
+            internal sealed partial class EngineThings : IEngineThings
+            {
+                public bool IsDormant(EntityHandle entity) => Mirrored ? false : EngineIsDormant(entity);
+                private partial bool EngineIsDormant(EntityHandle entity);
+                public int Shared(int x) => E.SharedThing(x);
+            }
+            """;
+        const string client = """
+            internal sealed partial class EngineThings
+            {
+                public int Health => E.LocalPlayerHealth;
+
+                private partial bool EngineIsDormant(EntityHandle entity) => E.StandaloneIsDormant(entity);
+            }
+            """;
+        const string server = """
+            internal sealed partial class EngineThings
+            {
+                public void SetSkin(EntityHandle entity, int skin) => E.EntitySetSkin(entity, skin);
+                public int Health => -1;
+                private partial bool EngineIsDormant(EntityHandle entity) => false;
+            }
+            """;
+
+        var map = SideAudit.BindingMap(shared, server, client);
+
+        Assert.Equal(["StandaloneIsDormant"], map[("IEngineThings", "IsDormant")]);
+        Assert.Equal(["EntitySetSkin"], map[("IEngineThings", "SetSkin")]);
+        Assert.Equal(["LocalPlayerHealth"], map[("IEngineThings", "Health")]);
+        Assert.Equal(["SharedThing"], map[("IEngineThings", "Shared")]);
+        Assert.False(map.ContainsKey(("IEngineThings", "EngineIsDormant")), "a helper is folded, not a member of its own");
+    }
+
     //-------------------------------------------------------------------------
 
     /// <summary>
@@ -1111,8 +1156,8 @@ public class SideAuditTests
         string? binding = RepoLayout.FindSdkFile(Path.Combine("managed", "SourceSharp.Shared.Interop", "EngineBinding.cs"));
         Assert.True(binding is not null, "EngineBinding.cs is found for the chain");
         var chain = SideAudit.BindingClasses(File.ReadAllText(binding!));
-        Assert.True(chain.Count > 10, $"the binding classes are read from EngineBinding.cs ({chain.Count} found)");
         chain.Add("EngineSide");
+        Assert.True(chain.Count > 10, $"the binding classes are read from EngineBinding.cs ({chain.Count} found)");
         return chain;
     }
 
@@ -1120,15 +1165,29 @@ public class SideAuditTests
                     Dictionary<string, HashSet<string>>?,
                     Dictionary<string, SlotSide>?) LoadChain()
     {
-        string? binding = RepoLayout.FindSdkFile(Path.Combine("managed", "SourceSharp.Shared.Interop", "EngineBinding.cs"));
-        string? engine = RepoLayout.FindSdkFile(Path.Combine("managed", "SourceSharp.Shared.Interop", "EngineSide.cs"));
+        // Each type is the shared file and the two sides' halves
+        // (plan_shim_areas_split phase 7). Every one must be found.
+        string[]? binding = Sources("EngineBinding");
+        string[]? engine = Sources("EngineSide");
         string? gamesystem = RepoLayout.FindSdkFile(Path.Combine("game", "shared", "sourcesharp_gamesystem.cpp"));
 
         if (binding is null || engine is null || gamesystem is null)
             return (null, null, null);
 
-        return (SideAudit.BindingMap(File.ReadAllText(binding)),
-                SideAudit.WrapperSlots(File.ReadAllText(engine)),
+        return (SideAudit.BindingMap(binding),
+                SideAudit.WrapperSlots(string.Join("\n", engine)),
                 SideAudit.SlotSidesFromServed(EngineApiCensusTests.ClientMethods(), EngineApiCensusTests.ServerMethods()));
+    }
+
+    /// <summary>A shared type's file and its two halves, or null when any is missing.</summary>
+    private static string[]? Sources(string type)
+    {
+        string?[] paths =
+        [
+            RepoLayout.FindSdkFile(Path.Combine("managed", "SourceSharp.Shared.Interop", type + ".cs")),
+            RepoLayout.FindSdkFile(Path.Combine("managed", "SourceSharp.Server.Interop", type + ".Server.cs")),
+            RepoLayout.FindSdkFile(Path.Combine("managed", "SourceSharp.Client.Interop", type + ".Client.cs")),
+        ];
+        return paths.Any(p => p is null) ? null : paths.Select(p => File.ReadAllText(p!)).ToArray();
     }
 }

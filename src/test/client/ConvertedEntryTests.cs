@@ -357,8 +357,8 @@ public unsafe class ConvertedEntryTests
                 .Forwarders<BaseFileSystemFwd>(out BaseFileSystemFwd* table);
             table->FileExists = &FileExistsAnswers;
             table->Size_2 = &SizeByNameAnswers;
-            var side = new EngineSide(Side.Server);
-            Assert.True(side.AttachShims(root.Bind(), out string why), why);
+            var side = new EngineSide(Side.Client);
+            Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
             var files = SideBindings.Of<IEngineFiles>(side);
 
             s_Exists = 1;

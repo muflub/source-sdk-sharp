@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Reflection;
 
 using SourceSharp.Abi;
@@ -68,6 +69,9 @@ public class TempEntBackendTests
         // puff is DustPuff, and ClientTeDust starts it.)
     };
 
+    private static string ClientHalf =>
+        File.ReadAllText(RepoLayout.Repo("src", "client", "interop", "EngineSide.Client.cs"));
+
     [Fact]
     public void EveryBackendIsReachableFromAbiThroughToACaller()
     {
@@ -79,9 +83,11 @@ public class TempEntBackendTests
                 $"{name} is a slot of its shim area's layout");
 
             // An EngineSide member since plan_engineapi_vtables B2 (the static
-            // Engine forwarded it until its bindings called the side directly).
-            Assert.True(typeof(EngineSide).GetMethod(name, BindingFlags.Public | BindingFlags.Instance) is not null,
-                $"{name} has a wrapper on EngineSide");
+            // Engine forwarded it until its bindings called the side directly),
+            // in the client's half since plan_shim_areas_split phase 7, which
+            // this suite does not compile: read from the half's source.
+            Assert.True(Regex.IsMatch(ClientHalf, $@"(?m)^\s+public\s[^\n(=]*\b{name}\s*\("),
+                $"{name} has a wrapper on the client's EngineSide");
 
             // The layer nothing else checks. A slot missing here is a slot no
             // managed caller can reach, because callers take IEngineEffects and

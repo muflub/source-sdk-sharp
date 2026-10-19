@@ -330,27 +330,6 @@ public class GlobalVarsBindingTests
                     "each environment answers out of its own side's globals");
     }
 
-    /// <summary>
-    /// An environment handed a pointer explicitly still uses it. That
-    /// constructor is what every other test in EngineEnvironmentTests stands on,
-    /// and the live-reading default must not have quietly replaced it.
-    /// </summary>
-    [Fact]
-    public unsafe void AnEnvironmentHandedAPointerStillReadsThatOne()
-    {
-        CGlobalVarsRaw handed = Engineish(client: false, curtime: 5.5f);
-        CGlobalVarsRaw engine = Engineish(client: false, curtime: 77f);
-
-        IEngineEnvironment env = new EngineEnvironment(null, (nint)(&handed));
-        var side = new EngineSide(Side.Server);
-        side.BindGlobalVars(Side.Server, (nint)(&engine));
-        IEngineEnvironment sides = SideBindings.Of<IEngineEnvironment>(side);
-
-        Assert.True(sides.Globals.CurTime == 77f, "the control: the side's own environment reads the engine's");
-        Assert.True(env.Globals.CurTime == 5.5f,
-            "an environment built around a pointer reads that pointer, not the engine's");
-    }
-
     //-------------------------------------------------------------------------
     // The slot itself. Declared, and wired where BOTH sides reach it.
     //-------------------------------------------------------------------------

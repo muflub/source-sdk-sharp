@@ -41,21 +41,6 @@ public unsafe class CollisionRulesSideTests : IDisposable
     }
 
     [Fact]
-    public void AClientSideDeliversTheMatrixToItsShimRoot()
-    {
-        uint* recorder = Serve("SourceSharpCollision001", typeof(ShimCollisionFwd));
-        var engine = Attached(Side.Client);
-
-        uint[] rows = CollisionRules.BuildMatrix();
-        bool delivered = engine.RegisterCollisionRules(rows);
-
-        Assert.True(delivered, "the client side reports the matrix delivered");
-        Assert.True(recorder[0] == 1, $"the client's rules slot was called once ({recorder[0]} calls)");
-        Assert.True(new ReadOnlySpan<uint>(recorder + 1, CollisionRulesBlob.RowCount).SequenceEqual(rows),
-            "the client's native side received the managed matrix row for row");
-    }
-
-    [Fact]
     public void AServerSideStillDeliversTheMatrixToItsShimRoot()
     {
         // The retention half: the server's route must survive the move.
@@ -132,9 +117,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
         api.Initialize();
 
         string why;
-        bool attached = side == Side.Server
-            ? api.AttachShims(_root.Bind(), out why)
-            : api.AttachClientShims(_root.Bind(), out why);
+        bool attached = api.AttachOwnShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

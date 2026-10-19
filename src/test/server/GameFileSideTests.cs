@@ -30,16 +30,6 @@ public unsafe class GameFileSideTests : IDisposable
     }
 
     [Fact]
-    public void AClientSideReadsAGameFileThroughItsShimRoot()
-    {
-        Serve("\"decals\" { \"a\" \"1\" }");
-        var engine = Attached(Side.Client);
-
-        Assert.True(engine.FilesReadGameFile("scripts/decals_subrect.txt") == "\"decals\" { \"a\" \"1\" }",
-            "the client side reads the served script through IShimEngine");
-    }
-
-    [Fact]
     public void AServerSideStillReadsAGameFileThroughItsShimRoot()
     {
         // The retention half: the server's route must survive the move.
@@ -87,9 +77,7 @@ public unsafe class GameFileSideTests : IDisposable
         api.Initialize();
 
         string why;
-        bool attached = side == Side.Server
-            ? api.AttachShims(_root.Bind(), out why)
-            : api.AttachClientShims(_root.Bind(), out why);
+        bool attached = api.AttachOwnShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

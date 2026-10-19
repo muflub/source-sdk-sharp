@@ -84,8 +84,61 @@ internal static class SharedSourceBuild
         const string grants = """
             [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SourceSharp.SharedSource")]
             """;
+
+        // The per-side halves of the shared types (plan_shim_areas_split phase
+        // 7): EngineSide's, the bindings' and ModuleEngine's. The shared source
+        // calls their members (a slot both sides serve on OwnShims, a side's own
+        // binding members), so it does not compile without one side's. The
+        // server's stand in, with every body thrown away: what the audit holds
+        // is the shared code, and a half's bodies lean on that side's own slots
+        // by design. The signatures are all the shared code sees, and both sides
+        // declare the same ones.
+        string[] halves = SideHalves.Select(f => StandIn(File.ReadAllText(RepoLayout.Repo("src", "server", "interop", f)))).ToArray();
+
         return Compile(dir, InteropName, Sources(50, "src", "shared", "interop"),
-                       [Abi().Location, seams], allowUnsafe: true, extra: [grants]);
+                       [Abi().Location, seams], allowUnsafe: true, extra: [grants, .. halves]);
+    }
+
+    /// <summary>The server's halves of the shared interop's partial types.</summary>
+    private static readonly string[] SideHalves = ["EngineSide.Server.cs", "EngineBinding.Server.cs", "ModuleEngine.Server.cs"];
+
+    /// <summary>
+    /// <paramref name="source"/> with every method, constructor, property and
+    /// accessor body replaced by <c>throw null!</c>: the declarations and
+    /// fields stay, and nothing the bodies called is referenced.
+    /// </summary>
+    internal static string StandIn(string source)
+        => new BodyRemover().Visit(CSharpSyntaxTree.ParseText(source).GetRoot())!.ToFullString();
+
+    private sealed class BodyRemover : Microsoft.CodeAnalysis.CSharp.CSharpSyntaxRewriter
+    {
+        private static readonly Microsoft.CodeAnalysis.CSharp.Syntax.ArrowExpressionClauseSyntax Throw
+            = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression("throw null!"));
+
+        private static T Strip<T>(T node, Microsoft.CodeAnalysis.CSharp.Syntax.BlockSyntax? body,
+                                  Microsoft.CodeAnalysis.CSharp.Syntax.ArrowExpressionClauseSyntax? arrow,
+                                  Func<T, T> toArrow) where T : SyntaxNode
+            => body is null && arrow is null ? node : toArrow(node);
+
+        public override SyntaxNode? VisitMethodDeclaration(Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax node)
+            => Strip(node, node.Body, node.ExpressionBody,
+                     n => n.WithBody(null).WithExpressionBody(Throw).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
+
+        public override SyntaxNode? VisitConstructorDeclaration(Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax node)
+            => Strip(node, node.Body, node.ExpressionBody,
+                     n => n.WithInitializer(null).WithBody(null).WithExpressionBody(Throw)
+                           .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
+
+        public override SyntaxNode? VisitPropertyDeclaration(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax node)
+        {
+            if (node.ExpressionBody is not null)
+                return node.WithExpressionBody(Throw).WithInitializer(null);
+            return base.VisitPropertyDeclaration(node);
+        }
+
+        public override SyntaxNode? VisitAccessorDeclaration(Microsoft.CodeAnalysis.CSharp.Syntax.AccessorDeclarationSyntax node)
+            => Strip(node, node.Body, node.ExpressionBody,
+                     n => n.WithBody(null).WithExpressionBody(Throw).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
     }
 
     private static Assembly Abi() => typeof(SourceSharp.Abi.ILog).Assembly;

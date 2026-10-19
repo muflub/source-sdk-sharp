@@ -269,12 +269,15 @@ TEST( ConVarReplicatedFlag, TheAbiForwarderPassesFlagsThrough )
 	ASSERT_FALSE( cs.empty() ) << kEngineCs << " did not open";
 
 	// The router's retirement (docs/todo.md) put the typed area call inline in
-	// the wrapper: a shared slot's dispatch has TWO arms, and `flags` must
-	// reach the area call as itself on both. A router made this one call; the
-	// count moved with the shape, the contract did not.
-	EXPECT_EQ( 2u, CountOf( cs, "RegisterConVar(pName, pDef, pHelp, flags," ) )
-		<< "Engine.RegisterConVar no longer forwards `flags` to the shim area on "
-		   "both dispatch arms -- something is now deriving the argument";
+	// the wrapper, and plan_shim_areas_split phase 7 made its two dispatch arms
+	// one call on the side's own container: `flags` must reach that call as
+	// itself. The count moved with the shape, the contract did not.
+	EXPECT_EQ( 1u, CountOf( cs, "OwnShims.RegisterConVar(pName, pDef, pHelp, flags," ) )
+		<< "Engine.RegisterConVar no longer forwards `flags` to the side's shim "
+		   "container -- something is now deriving the argument";
+	EXPECT_EQ( 1u, CountOf( cs, "RegisterConVar(pName, pDef, pHelp, " ) )
+		<< "Engine.RegisterConVar calls the shim area more than once again: "
+		   "each call must forward `flags` as itself";
 }
 
 

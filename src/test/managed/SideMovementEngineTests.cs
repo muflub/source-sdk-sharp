@@ -54,9 +54,7 @@ public unsafe class SideMovementEngineTests : IDisposable
         api.Initialize();
 
         string why;
-        bool attached = side == Side.Server
-            ? api.AttachShims(root.Bind(), out why)
-            : api.AttachClientShims(root.Bind(), out why);
+        bool attached = api.AttachOwnShims(root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

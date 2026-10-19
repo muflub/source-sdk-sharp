@@ -144,9 +144,7 @@ public static unsafe class SideLoad
             // load, attached to this side's engine API (docs/engineapi-switched.txt).
             // The client attaches its shared bases instead (plan_client_vtables
             // CB; docs/engineapi-client-switched.txt).
-            bool attached = session.Server
-                ? engine.AttachShims(root!, out why)
-                : engine.AttachClientShims(root!, out why);
+            bool attached = engine.AttachOwnShims(root!, out why);
             if (!attached)
             {
                 Trace(state.Log, $"LoadSideV2({side}) refused: {why}");

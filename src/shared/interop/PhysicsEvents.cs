@@ -386,11 +386,11 @@ public sealed class PhysicsSurfaces
     /// <summary>The surfaceprop at that index, or <c>default</c>.</summary>
     public unsafe MoveSurface Of(int surfaceProps)
     {
-        if (!(_api.ServerAttached || _api.ClientAttached))
+        if (!_api.OwnShimsAttached)
             return default;
 
         MoveSurfaceBlob blob = default;
-        if ((_api.ServerShimsOrNull is { } __att1 ? __att1.MoveSurface(surfaceProps, &blob) : _api.ClientShims.MoveSurface(surfaceProps, &blob)) == 0)
+        if ((_api.OwnShims.MoveSurface(surfaceProps, &blob)) == 0)
             return default;
 
         return new MoveSurface

@@ -101,10 +101,13 @@ public class ShimAreaTypedCallsTests
     [Fact]
     public void EngineSideOwnsTheAttach()
     {
-        foreach (string name in new[] { "AttachShims", "AttachClientShims" })
+        // The server's EngineSide attaches the server's areas only: the
+        // client's attach is in the client's half (plan_shim_areas_split phase 7).
+        foreach (string name in new[] { "AttachShims", "AttachOwnShims" })
             Assert.NotNull(EngineSideType.GetMethod(name, InstanceBoth));
-        foreach (string name in new[] { "ServerAttached", "ClientAttached" })
-            Assert.NotNull(EngineSideType.GetProperty(name, InstanceBoth));
+        Assert.NotNull(EngineSideType.GetProperty("ServerAttached", InstanceBoth));
+        Assert.Null(EngineSideType.GetMethod("AttachClientShims", InstanceBoth));
+        Assert.Null(EngineSideType.GetProperty("ClientAttached", InstanceBoth));
         // A side object is not a router: no Slot_/Has_ members at all.
         Assert.Empty(EngineSideType.GetMethods(InstanceBoth)
             .Where(m => m.Name.StartsWith("Slot_", StringComparison.Ordinal)
@@ -129,7 +132,7 @@ public class ShimAreaTypedCallsTests
     public void NoProductCodeRoutesThroughSlotPrefixedNames()
     {
         string root = RepoLayout.Repo();
-        string engineSide = File.ReadAllText(RepoLayout.Repo("src", "shared", "interop", "EngineSide.cs"));
+        string engineSide = RepoLayout.SharedTypeSource("EngineSide");
 
         Assert.Contains("before the shim areas were attached",
             AbiParityTests.CodeOnly(engineSide), StringComparison.Ordinal);
@@ -153,8 +156,10 @@ public class ShimAreaTypedCallsTests
 
         // Control: the stimulus reaches the subject — EngineSide is a large
         // hand-written surface, so an empty walk over a vanished file could
-        // not pass.
-        Assert.True(EngineSideType.GetMethods(InstanceBoth).Length > 300,
+        // not pass. The server's (this suite's), which since
+        // plan_shim_areas_split phase 7 no longer carries the client's members:
+        // 270 there at the split.
+        Assert.True(EngineSideType.GetMethods(InstanceBoth).Length > 200,
             $"{EngineSideType.GetMethods(InstanceBoth).Length} EngineSide methods");
     }
 
