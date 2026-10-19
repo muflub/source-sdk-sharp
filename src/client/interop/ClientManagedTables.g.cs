@@ -925,6 +925,14 @@ public unsafe struct ManagedRenderClientTable
     // 15: int32_t ViewDemoCamera( int32_t nStage, const float *pIn, float *pOut )
     [SlotHash(0xd6707e4a)]
     public delegate* unmanaged<void*, int, void*, void*, int> ViewDemoCamera;
+
+    // 16: int32_t RenderLeafList( const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords )
+    [SlotHash(0x6fc25d72)]
+    public delegate* unmanaged<void*, void*, void*, int, int> RenderLeafList;
+
+    // 17: int32_t RenderLeafViewModels( const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords )
+    [SlotHash(0x6fc25d72)]
+    public delegate* unmanaged<void*, void*, void*, int, int> RenderLeafViewModels;
 }
 
 /// <summary>The table managed writes for <c>IManagedInputClient</c> (<c>SSManagedInputClientTable</c> native-side).</summary>

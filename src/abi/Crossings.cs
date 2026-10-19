@@ -866,6 +866,10 @@ public enum CrossingOp
     ServerMoveSound = 343,
     /// <summary>IManagedSoundEmitter::ServerMoveSoundScript: the movement's IMoveHelper::StartSound by script name (plan_server_native_v2 T4a).</summary>
     ServerMoveSoundScript = 344,
+    /// <summary>IManagedRenderClient::RenderLeafList: one view's render list from its leaf-system buffer, once per view that draws entities (C7 cluster 12 L1). CLIENT ONLY.</summary>
+    ClientRenderLeafList = 345,
+    /// <summary>IManagedRenderClient::RenderLeafViewModels: the view models' opaque/translucent split, once per CollateViewModelRenderables (C7 cluster 12 L1). CLIENT ONLY.</summary>
+    ClientRenderLeafViewModels = 346,
 }
 
 /// <summary>

@@ -10,9 +10,50 @@ namespace SourceSharp.Client.Interop;
 /// recorded frame's text back. Every body counts its crossing; a failure
 /// answers stock, unrecorded (what the zeroed answer native starts from says).
 /// </summary>
-public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IClientRenderPlan plan)
+public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IClientRenderPlan plan,
+                                              IClientLeafLists? leafLists = null)
     : IManagedRenderClient
 {
+    // The leaf system's view (C7 cluster 12 L1): one buffer in, one answer
+    // out; -1 tells native to build the view with stock's BuildRenderablesList.
+    public int RenderLeafList(void* a0, void* a1, int a2)
+    {
+        crossings.Count(CrossingOp.ClientRenderLeafList);
+        if (leafLists == null || a0 == null || a1 == null || a2 <= 0)
+            return -1;
+        int words = *(int*)a0;
+        if (words <= 0)
+            return -1;
+        try
+        {
+            return leafLists.BuildRenderableList(new ReadOnlySpan<int>(a0, words), new Span<int>(a1, a2));
+        }
+        catch (Exception e)
+        {
+            ManagedVtable.Fail(log, "IManagedRenderClient.RenderLeafList", e);
+            return -1;
+        }
+    }
+
+    public int RenderLeafViewModels(void* a0, void* a1, int a2)
+    {
+        crossings.Count(CrossingOp.ClientRenderLeafViewModels);
+        if (leafLists == null || a0 == null || a1 == null || a2 < 0)
+            return -1;
+        int count = *(int*)a0;
+        if (count < 0 || count > a2)
+            return -1;
+        try
+        {
+            return leafLists.SplitViewModels(new ReadOnlySpan<int>(a0, count + 1), new Span<int>(a1, a2));
+        }
+        catch (Exception e)
+        {
+            ManagedVtable.Fail(log, "IManagedRenderClient.RenderLeafViewModels", e);
+            return -1;
+        }
+    }
+
     public int RenderFrame(void* a0, void* a1)
     {
         crossings.Count(CrossingOp.ClientRenderFrame);

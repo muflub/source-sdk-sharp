@@ -67,7 +67,7 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 22 | 5 | 31 |  |  |  | 61 | 34,915 |
+| a | a vtable the engine or VPhysics calls through | 22 | 5 | 31 |  |  |  | 61 | 35,011 |
 | b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,910 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,035 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 6 | 1 |  |  | 21 | 9,410 |
@@ -76,7 +76,7 @@ marker is the answer to "why is this native at all", not a full account.
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,422 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,599 |
-|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **92,793** |
+|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **92,889** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -206,6 +206,8 @@ Then the impact effects' control points bind the shell the trace hit (2026-10-19
 Then C_StandaloneEntity dropped its IGameEntity base and the six inert slots (2026-10-19, measured by the walk on main ac8dec8f3): (a) 34,910 -> 34,915 is shell_standalone_client.cpp's static_assert that the shell is no IGameEntity, its include and note, in place of the note that said why it still was (+5); the base, GetGameEntity's override and ShouldCollide, Touch, StartTouch, EndTouch and VPhysicsUpdate left shell_standalone_client.h, a header the table does not count (GetCollisionGroup stays, ICollideable's); 92,755 lines in the table.
 
 Then the served names b6's acquire scan found missing (2026-10-19, measured by the walk on main 01862e849): (b) 17,872 -> 17,882 is shell_vtable_interfaces.cpp's SourceSharpServes rows for VDebugOverlay003 on both sides and StaticPropMgrClient004 on the client, with ivdebugoverlay.h's include (+10); Forwarders.TryAcquire refused both as unknown interfaces, so every overlay call and every client static-prop read was a no-op; 92,765 lines in the table.
+
+Then the leaf system's per-view decisions moved to managed (2026-10-19, C7 cluster 12 L1, measured by the walk on 9f2f149d5 plus the lane): (a) 34,915 -> 35,011 is shell_view_executor_client.cpp's ManagedRenderablesList and ManagedViewModels, the gather's crossing and the answer carried out, with stock's builder kept as the fallback (+96); the gather itself is leaf_view_gather.h, a header the table does not count; 92,874 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
