@@ -122,6 +122,26 @@ public class ServedInterfaceTests
     }
 
     /// <summary>
+    /// Each side serves its own engine trace, by its own name: the movement
+    /// loop's point contents (GameMovement.CheckWater, through EngineBound.Trace)
+    /// acquires EngineTraceServer003 on the server and EngineTraceClient003 on
+    /// the client. Unserved, the acquisition throws on every tick, on both sides
+    /// (IManagedPlayerCommands.MoveProcessMovement and
+    /// IManagedPredictionClient.ClientPredictionUpdate, live on dm_lockdown at
+    /// 668496d40 to e814cd6d3).
+    /// </summary>
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
+    public void Each_side_serves_its_own_engine_trace_and_not_the_others()
+    {
+        string server = ServedBy("server_sourcesharp");
+        Assert.Contains($"\"{SourceSharp.Abi.EngineTrace.ServerInterfaceVersion}\"", server);
+        Assert.DoesNotContain($"\"{SourceSharp.Abi.EngineTrace.ClientInterfaceVersion}\"", server);
+        string client = ServedBy("client_sourcesharp");
+        Assert.Contains($"\"{SourceSharp.Abi.EngineTrace.ClientInterfaceVersion}\"", client);
+        Assert.DoesNotContain($"\"{SourceSharp.Abi.EngineTrace.ServerInterfaceVersion}\"", client);
+    }
+
+    /// <summary>
     /// Every name the server's managed physics acquires from the physics
     /// factory is one the server serves: a name it does not is answered
     /// "factory does not know that interface", and the player shadow
