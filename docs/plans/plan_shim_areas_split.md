@@ -415,3 +415,48 @@ Open: none.
     to the side's factory or removes it.
   - No `InternalsVisibleTo` went: each test suite reaches other internals of
     the interops too.
+- **Phase 7** (2026-10-19). Measured at the start: 54 run-time side choices
+  (49 in `EngineSide`, four in `MovementBridge`, one in `PhysicsEvents`), not
+  the plan's 52.
+  - Each choice is one call on `OwnShims`, and each guard one
+    `OwnShimsAttached`. Each side's partial file names its own container
+    (`EngineSide.Server.cs`, `EngineSide.Client.cs`): no `#if`, because the
+    side is the assembly.
+  - A server `EngineSide` no longer answers from client areas attached to it.
+    Only tests did that, and their four client facts moved to the client
+    suite. The side audit reads `OwnShims` as it read the two accessors.
+  - The seams over `EngineSide`'s member groups are the 29 `Engine*` areas
+    (`IEngineEntities`, `IEngineSound`, ...). Since phase 3 each side compiles
+    its own bindings, and since this phase each binding reaches only its own
+    side's container. So each root already registers its own implementation
+    of every area. A new fact checks that, binding by binding and by
+    assembly; skipping one area's registration turns it red.
+  - `EngineEnvironment`'s resolver: it now asks the side's root for the
+    engine's `appSystemFactory`, and the test-only resolver and pointer
+    constructor went. Its facts go through the side over `FakeShimRoot`,
+    which now records the acquires it is asked for. One new fact checks that
+    the AppSystem factory is the one asked. Asking the Internal factory, or
+    letting an empty name through, turns a fact red.
+  - Left for phase 8: the seven logic call sites that hand a `ModuleEngine` to
+    an interop factory (`EngineClient.Acquire`, `UniformRandomStream.Acquire`,
+    `EngineModelInfo.Acquire`, `ServerEntityEngine`). The public
+    `ModuleEngine` constructors of `MovementRunner`, `LivenessSlotReference`
+    and `StandaloneSlotReference` also wait: by then only the roots call them.
+  - **The cost** (section 7): one per-frame seam, `IEngineEntities.GetVelocity`
+    on the server. The path runs interface → `EngineEntities` →
+    `EngineSide` → `EntityPhysicsMotion` → `ShimPhysics`/`ShimTransform`
+    forwarder slots → native.
+    - Harness: a scratch harness over `FakeShimRoot` whose two slots are a
+      native stub library, so the timing has no reverse P/Invoke. Release
+      build, 20M calls a round after a 2M-call warm-up, 7 rounds, five runs
+      of each build interleaved, on the 4-core Xeon @ 2.10 GHz this ran on.
+    - Builds compared: the plan's base (8ea566c, phase 1 merged) against
+      phase 7's first commit (94112e2). The difference is about +0.7 ns a
+      call, inside the run-to-run spread, and consistent with phase 2's one
+      extra hop from a flat member to its area. Phase 9 removes that hop
+      when the flat members go.
+
+    | ns per call, 35 rounds | min | median | max |
+    |---|---|---|---|
+    | base 8ea566c | 18.76 | 20.90 | 26.41 |
+    | phase 7 94112e2 | 19.42 | 21.59 | 28.08 |
