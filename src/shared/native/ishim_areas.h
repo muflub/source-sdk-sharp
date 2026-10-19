@@ -65,10 +65,6 @@ abstract_class IShimEngine
 public:
 	virtual float GetCurrentTime() = 0;
 	virtual void * GetGlobalVarsPtr() = 0;
-	virtual int32_t FilesGameFileSize( const char * pszPath ) = 0;
-	virtual int32_t FilesReadGameFile( const char * pszPath, char * pOut, int32_t nOutSize ) = 0;
-	virtual int32_t FilesSizeOnPath( const char * pszPath, const char * pszPathId ) = 0;
-	virtual int32_t FilesReadOnPath( const char * pszPath, const char * pszPathId, void * pOut, int32_t nOutSize ) = 0;
 	virtual void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) = 0;
 	virtual void SoundPatchStop( int32_t hPatch ) = 0;
 	virtual void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) = 0;
@@ -137,7 +133,6 @@ abstract_class IShimWorld
 {
 public:
 	virtual int32_t PointContents( const float * pOrigin ) = 0;
-	virtual int32_t SurfacePropGameMaterial( int32_t nSurfaceProp ) = 0;
 };
 
 abstract_class IShimEntities
@@ -349,7 +344,6 @@ public:
 	virtual uint32_t TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ ) = 0;
 	virtual void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) = 0;
 	virtual int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) = 0;
-	virtual int32_t SurfacePropIndex( const char * pszName ) = 0;
 	virtual int32_t EntityModelSurfaceProp( uint32_t hEntity ) = 0;
 	virtual int32_t InvisibleRangeReach() = 0;
 	virtual void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) = 0;

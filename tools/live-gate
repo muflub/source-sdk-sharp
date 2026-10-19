@@ -2222,12 +2222,20 @@ def join_playerinfo(g):
 
     # THE PLUGIN-STYLE QUERY WENT WITH THE PLUGIN ABI (plan_server_native_min
     # P1, Decision 1): cs_sv_playerinfo asked PlayerInfoManager002 by name, and
-    # server.so exposes neither the interface nor the command now.
+    # server.so exposes neither the interface nor the command now. Its
+    # "         origin x y z" console line (shell_playerinfo_debug.cpp, deleted
+    # at 393cb1bdb) went with it, and this row read that line: from that
+    # commit the row found no line and failed on every pass (62's lane,
+    # 33 of 33 at 71d2be26d). The position is read from the dev API instead:
+    # /entity for the local player, which answers out of the same engine block
+    # the probe above counted. A missing player, or a player standing at the
+    # world origin, is the failure this row exists for.
 
-    origin = g.last_console_line("         origin ")
-    g.check(origin is not None and " origin 0.0 0.0 0.0 " not in origin,
-            "and the position it read out of the block is the player's, not the "
-            "world origin (%s)" % (origin.strip() if origin else "no line"))
+    player = g.api.player()
+    origin = player.get("origin") if player else None
+    g.check(origin is not None and any(abs(float(c)) > 0.5 for c in origin),
+            "and the player's position out of the block is the player's, not "
+            "the world origin (%s)" % (origin if origin is not None else "no ss_player"))
 
     # `status`, WHICH IS THE THIRD READOUT plan_entity.md's 3c gate NAMES and
     # the only one that goes through the ENGINE rather than through this DLL's

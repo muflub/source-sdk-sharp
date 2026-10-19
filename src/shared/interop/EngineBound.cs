@@ -88,6 +88,10 @@ internal sealed partial class EngineBoundSet
         new(UniformRandomStream.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => UniformRandomStream.Acquire(factory, out why));
 
+    internal BoundInterface<IVtablePhysicsSurfaceProps> SurfaceProps { get; } =
+        new(PhysicsSurfaceProps.InterfaceVersion,
+            (NativeInterfaceFactory factory, Side _, out string why) => PhysicsSurfaceProps.Acquire(factory, out why));
+
     internal BoundInterface<IVtableBaseFileSystem> Files { get; } =
         new(EngineBaseFileSystem.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => EngineBaseFileSystem.Acquire(factory, out why));
@@ -114,6 +118,9 @@ internal static partial class EngineBound
 
     /// <summary><c>VEngineRandom001</c>, this side's.</summary>
     internal static IUniformRandom Random(EngineSide side) => side.Bound.Random.For(side);
+
+    /// <summary><c>VPhysicsSurfaceProps001</c>, this side's.</summary>
+    internal static IVtablePhysicsSurfaceProps SurfaceProps(EngineSide side) => side.Bound.SurfaceProps.For(side);
 
     /// <summary><c>VBaseFileSystem011</c>, this side's.</summary>
     internal static IVtableBaseFileSystem Files(EngineSide side) => side.Bound.Files.For(side);

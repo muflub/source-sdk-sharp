@@ -1751,40 +1751,6 @@ int32_t SourceSharp_EntityModelSurfaceProp( uint32_t hEntity )
 }
 
 //-----------------------------------------------------------------------------
-// A surfaceprop by name, or -1. What a map key naming a KIND of surface —
-// func_breakable_surf's surfacetype, and nothing else yet — resolves through.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_SurfacePropIndex( const char *pszName )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !physprops || !pszName || !pszName[0] )
-		return -1;
-
-	return physprops->GetSurfaceIndex( pszName );
-}
-
-//-----------------------------------------------------------------------------
-// The game material of a surfaceprop — 'Y' glass, 'W' wood, 'C' concrete.
-//
-// Here so C# can SAY what it resolved. A surfaceprop index is opaque and
-// build-dependent; the letter is the thing a reader and an assertion can both
-// check, and it is the same letter env_player_surface_trigger already matches
-// ground against.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_SurfacePropGameMaterial( int32_t nSurfaceProp )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !physprops || nSurfaceProp < 0 )
-		return 0;
-
-	surfacedata_t *pSurface = physprops->GetSurfaceData( nSurfaceProp );
-
-	return pSurface ? pSurface->game.material : 0;
-}
-
-//-----------------------------------------------------------------------------
 // The engine's own bullet impact at a point.
 //
 // CBaseEntity::ImpactTrace's body, with one change: the surfaceprop is a

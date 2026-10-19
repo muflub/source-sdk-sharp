@@ -220,7 +220,9 @@ public partial class EngineApiAreasTests
         }
 
         var shared = Rows().Where(r => r.Struct == "EngineApi" && r.Side == "both" && r.Interface != "IShimRoot").ToList();
-        Assert.True(shared.Count >= 50, $"{shared.Count} shared slots");
+        // A floor against a parse that stopped early: 50 -> 40 when the four
+        // game-file read slots folded (2026-10-19; 46 read).
+        Assert.True(shared.Count >= 40, $"{shared.Count} shared slots");
 
         // Since plan_shim_areas_split phase 9 the container has no calls of its
         // own: a shared slot is routed when an area the client holds calls it.

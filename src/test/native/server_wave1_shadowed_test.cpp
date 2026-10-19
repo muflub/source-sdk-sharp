@@ -245,7 +245,7 @@ TEST( ServerWave1, TheFourShadowedFilesAreOutOfTheServerList )
 TEST( ServerWave1, CreateWeaponInfoLeftTheShimWithItsOnlyCaller )
 {
 	const std::string shell = Tight( "sourcesharp/game/shared/shell_shared.cpp",
-	                                 "SourceSharp_" );
+	                                 "default_fov" );
 	ASSERT_FALSE( shell.empty() );
 
 	EXPECT_EQ( shell.find( "FileWeaponInfo_t*CreateWeaponInfo()" ), std::string::npos )
@@ -481,8 +481,10 @@ TEST( ServerWave1, TemplateEntitiesLeftAndItsTwoForwardsDidNot )
 	// ruling this fact waited for: the user's cull removes what the linker
 	// drops, and server.so's --print-gc-sections link dropped both
 	// (0 importers since Phase 2c). The file stays for its other entry points.
+	// (Anchored on SourceSharp_FilesReadGameFile until the game-file reads
+	// folded onto IBaseFileSystem's forwarders, 2026-10-19.)
 	const std::string shell = Tight( "sourcesharp/game/server/shell_engineservices.cpp",
-	                                 "SourceSharp_FilesReadGameFile" );
+	                                 "SourceSharp_EntitiesInvalidateMdlCacheAll" );
 	ASSERT_FALSE( shell.empty() );
 
 	EXPECT_EQ( shell.find( "Templates_AddNamed(" ), std::string::npos )

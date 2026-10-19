@@ -44,8 +44,6 @@ using ss::IGameMovement;
 #include "tier0/icommandline.h"
 #include "ss_string.h"
 #include "ss_command_line.h"
-#include "filesystem.h"	// FilesSizeOnPath / FilesReadOnPath
-extern IFileSystem *filesystem;	// each DLL's own (shell_engineboundary.cpp, shell_clientdll.cpp)
 
 
 //-----------------------------------------------------------------------------
@@ -149,41 +147,3 @@ CMoveData *g_pMoveData = &g_MoveData;
 // plan_server_native_v2 T2 with SourceSharp_RegisterWeaponType: its three
 // readers had gone, so it was written at startup and read by nothing.
 
-//-----------------------------------------------------------------------------
-// IShimEngine::FilesSizeOnPath / FilesReadOnPath: a whole file off one named
-// search path ("GAME", "BSP", "MOD", ...), both sides (C9: the client's text
-// parsing moves to managed, and its map particle manifest lives on "BSP").
-// Open/Size/Close, because Size( path ) answers 0 for a missing file. The size
-// is -1 for a file that is not there (0 is a real, empty file); the read
-// answers the bytes read, or -1 for a missing file or one larger than the
-// buffer (refused, never truncated).
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_FilesSizeOnPath( const char *pszPath, const char *pszPathId )
-{
-	if ( !pszPath || !pszPath[0] || !pszPathId || !filesystem )
-		return -1;
-	FileHandle_t hFile = filesystem->Open( pszPath, "rb", pszPathId );
-	if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		return -1;
-	const unsigned int nSize = filesystem->Size( hFile );
-	filesystem->Close( hFile );
-	return nSize > 0x7fffffffu ? -1 : (int32_t)nSize;
-}
-
-int32_t SourceSharp_FilesReadOnPath( const char *pszPath, const char *pszPathId, void *pOut, int32_t nOutSize )
-{
-	if ( !pszPath || !pszPath[0] || !pszPathId || !pOut || nOutSize < 0 || !filesystem )
-		return -1;
-	FileHandle_t hFile = filesystem->Open( pszPath, "rb", pszPathId );
-	if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		return -1;
-	const unsigned int nSize = filesystem->Size( hFile );
-	if ( nSize > (unsigned int)nOutSize )
-	{
-		filesystem->Close( hFile );
-		return -1;
-	}
-	const int nRead = filesystem->Read( pOut, (int)nSize, hFile );
-	filesystem->Close( hFile );
-	return nRead;
-}

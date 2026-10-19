@@ -7,4 +7,3 @@
 13	SLOT-HELP	[CObserverNoNPCsOrPlayerFilter] virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
 49	SLOT	int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ,
 22	SLOT	int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ, float *pOutAngles )
-7	UNRULED	int32_t SourceSharp_SurfacePropGameMaterial( int32_t nSurfaceProp )

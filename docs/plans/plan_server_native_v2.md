@@ -418,6 +418,15 @@ together), rather than keep retired placeholders. The user also asked that
 all of this branch's work be squashed and landed on main once main is
 updated.
 
+**RULED 2026-10-19 (user):** D6 "keep it as is": the three shapes (C
+callbacks with no user-data argument, the ConVar/ConCommand objects the
+engine holds, the registration list heads static initialisers build) stay
+as the FLOOR rows they are; T6 hangs everything else off the one game-DLL
+object. And "expose file handles to managed code": the managed file-system
+wrapper may open, size, read and close through IBaseFileSystem's
+forwarders, which lifts EngineBaseFileSystem's "no handles" rule, so the
+game-file read slots fold (T3).
+
 **THE --reorder, NAMED (2026-10-18, follow-up to the landing at bd894daf1).** The
 landed commits' messages do not say it, so it is said here. Two of the four
 landed commits shrank forwarder tables with `tools/engine-forwarders --write

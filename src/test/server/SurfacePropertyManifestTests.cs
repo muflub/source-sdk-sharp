@@ -22,6 +22,7 @@ public class SurfacePropertyManifestTests
         public int ParseSurfaceData(string fileName, string text) { Parsed.Add((fileName, text)); return 0; }
         public int SurfacePropCount() => Parsed.Count;
         public string? PropName(int index) => null;
+        public int GameMaterial(int surfaceProps) => 0;
         public int SurfaceIndex(string name) => 0;
     }
 

@@ -65,7 +65,7 @@ internal unsafe struct ModelInfoFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IBaseFileSystem</c> through its forwarders (SSFwd_BaseFileSystem): 3 slot(s).
+/// <c>IBaseFileSystem</c> through its forwarders (SSFwd_BaseFileSystem): 7 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct BaseFileSystemFwd : IForwarderTable
@@ -81,6 +81,18 @@ internal unsafe struct BaseFileSystemFwd : IForwarderTable
 
     // long IBaseFileSystem::GetFileTime( const char *, const char * )
     public delegate* unmanaged<void*, byte*, byte*, long> GetFileTime;
+
+    // FileHandle_t IBaseFileSystem::Open( const char *, const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, byte*, void*> Open;
+
+    // unsigned int IBaseFileSystem::Size( FileHandle_t )
+    public delegate* unmanaged<void*, void*, uint> Size;
+
+    // int IBaseFileSystem::Read( void *, int, FileHandle_t )
+    public delegate* unmanaged<void*, void*, int, void*, int> Read;
+
+    // void IBaseFileSystem::Close( FileHandle_t )
+    public delegate* unmanaged<void*, void*, void> Close;
 }
 
 /// <summary>
@@ -998,7 +1010,7 @@ internal unsafe struct ShimConsoleFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEngine</c> through its forwarders (SSFwd_ShimEngine): 13 slot(s).
+/// <c>IShimEngine</c> through its forwarders (SSFwd_ShimEngine): 9 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEngineFwd : IForwarderTable
@@ -1011,18 +1023,6 @@ internal unsafe struct ShimEngineFwd : IForwarderTable
 
     // void * IShimEngine::GetGlobalVarsPtr( void )
     public delegate* unmanaged<void*, void*> GetGlobalVarsPtr;
-
-    // int32_t IShimEngine::FilesGameFileSize( const char * )
-    public delegate* unmanaged<void*, byte*, int> FilesGameFileSize;
-
-    // int32_t IShimEngine::FilesReadGameFile( const char *, char *, int32_t )
-    public delegate* unmanaged<void*, byte*, byte*, int, int> FilesReadGameFile;
-
-    // int32_t IShimEngine::FilesSizeOnPath( const char *, const char * )
-    public delegate* unmanaged<void*, byte*, byte*, int> FilesSizeOnPath;
-
-    // int32_t IShimEngine::FilesReadOnPath( const char *, const char *, void *, int32_t )
-    public delegate* unmanaged<void*, byte*, byte*, void*, int, int> FilesReadOnPath;
 
     // void IShimEngine::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
     public delegate* unmanaged<void*, int, float, float, int, float, int, void> SoundPatchEmit;
@@ -1239,7 +1239,7 @@ internal unsafe struct ShimMovementServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimWorldServer</c> through its forwarders (SSFwd_ShimWorldServer): 18 slot(s).
+/// <c>IShimWorldServer</c> through its forwarders (SSFwd_ShimWorldServer): 16 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimWorldServerFwd : IForwarderTable
@@ -1249,9 +1249,6 @@ internal unsafe struct ShimWorldServerFwd : IForwarderTable
 
     // int32_t IShimWorld::PointContents( const float * )
     public delegate* unmanaged<void*, void*, int> PointContents;
-
-    // int32_t IShimWorld::SurfacePropGameMaterial( int32_t )
-    public delegate* unmanaged<void*, int, int> SurfacePropGameMaterial;
 
     // int32_t IShimWorldServer::TraceLine( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t * )
     public delegate* unmanaged<void*, void*, void*, int, uint, void*, void*, void*, void*, int> TraceLine;
@@ -1270,9 +1267,6 @@ internal unsafe struct ShimWorldServerFwd : IForwarderTable
 
     // int32_t IShimWorldServer::WaterSurfaceBelow( const float *, float *, int32_t * )
     public delegate* unmanaged<void*, void*, void*, void*, int> WaterSurfaceBelow;
-
-    // int32_t IShimWorldServer::SurfacePropIndex( const char * )
-    public delegate* unmanaged<void*, byte*, int> SurfacePropIndex;
 
     // int32_t IShimWorldServer::EntityModelSurfaceProp( uint32_t )
     public delegate* unmanaged<void*, uint, int> EntityModelSurfaceProp;
@@ -1903,7 +1897,7 @@ internal unsafe struct ShimMovementFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimWorld</c> through its forwarders (SSFwd_ShimWorld): 2 slot(s).
+/// <c>IShimWorld</c> through its forwarders (SSFwd_ShimWorld): 1 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimWorldFwd : IForwarderTable
@@ -1913,9 +1907,6 @@ internal unsafe struct ShimWorldFwd : IForwarderTable
 
     // int32_t IShimWorld::PointContents( const float * )
     public delegate* unmanaged<void*, void*, int> PointContents;
-
-    // int32_t IShimWorld::SurfacePropGameMaterial( int32_t )
-    public delegate* unmanaged<void*, int, int> SurfacePropGameMaterial;
 }
 
 /// <summary>

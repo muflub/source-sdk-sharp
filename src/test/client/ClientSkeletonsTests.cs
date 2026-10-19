@@ -85,6 +85,7 @@ public unsafe class ClientSkeletonsTests
         public int ParseSurfaceData(string fileName, string text) => 0;
         public int SurfacePropCount() => 0;
         public string? PropName(int index) => null;
+        public int GameMaterial(int surfaceProps) => 0;
         public int SurfaceIndex(string name) => 42;
     }
 

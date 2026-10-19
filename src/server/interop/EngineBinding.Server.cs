@@ -522,7 +522,10 @@ internal sealed partial class EngineWorldQuery
 
     public int EntityModelSurfaceProp(EntityHandle entity) => E.EntityModelSurfaceProp(entity);
 
-    public int SurfacePropIndex(string name) => E.SurfacePropIndex(name);
+    // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a slot made
+    // the same call: the guard is its.
+    public int SurfacePropIndex(string name)
+        => string.IsNullOrEmpty(name) ? -1 : EngineBound.SurfaceProps(E).SurfaceIndex(name);
 
 
     // The client's members, as a server engine answers them: what each one's

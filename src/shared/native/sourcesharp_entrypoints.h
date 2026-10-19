@@ -33,7 +33,7 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// BOTH SIDES -- 20 slots.
+// BOTH SIDES -- 17 slots.
 //
 // A body on the server and a body on the client, or one shared body compiled
 // into each.
@@ -42,9 +42,6 @@ int32_t SourceSharp_EventGetBool( void *hEvent, const char *pKey );
 float SourceSharp_EventGetFloat( void *hEvent, const char *pKey );
 int32_t SourceSharp_EventGetInt( void *hEvent, const char *pKey );
 const char *SourceSharp_EventGetString( void *hEvent, const char *pKey );
-int32_t SourceSharp_FilesReadOnPath( const char *pszPath, const char *pszPathId, void *pOut,
-                                     int32_t nOutSize );
-int32_t SourceSharp_FilesSizeOnPath( const char *pszPath, const char *pszPathId );
 void SourceSharp_ListenForGameEvent( const char *pEventName );
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue,
                                 int32_t nValue );
@@ -64,11 +61,10 @@ int32_t SourceSharp_PointContents( const float *pOrigin );
 void SourceSharp_RegisterCollisionRules( const SourceSharpCollisionRules *pRules );
 void SourceSharp_RegisterMovementParams( const SourceSharpMovementParams *pParams );
 void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
-int32_t SourceSharp_SurfacePropGameMaterial( int32_t nSurfaceProp );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 174 slots.
+// SERVER ONLY -- 171 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -214,8 +210,6 @@ int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax );
 void SourceSharp_ExplosionEffect( const float *pOrigin, int32_t nModelIndex, float flScale,
                                   int32_t nFrameRate, int32_t nFlags, int32_t nRadius,
                                   int32_t nMagnitude );
-int32_t SourceSharp_FilesGameFileSize( const char *pszPath );
-int32_t SourceSharp_FilesReadGameFile( const char *pszPath, char *pOut, int32_t nOutSize );
 uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pClassName );
 void SourceSharp_FunnelEffect( const float *pOriginXYZ, int32_t nSpriteIndex,
                                int32_t bReversed );
@@ -282,7 +276,6 @@ int32_t SourceSharp_SoundScriptParameters( const char *pSoundName, float *pOut )
 void SourceSharp_SparkEffect( const float *pOriginXYZ, int32_t nMagnitude, int32_t nTrailLength,
                               int32_t bMakeSound, const float *pDirXYZ );
 void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime );
-int32_t SourceSharp_SurfacePropIndex( const char *pszName );
 int32_t SourceSharp_SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char *pOut,
                                         int32_t nOut );
 void SourceSharp_TempEntPlayback( int32_t hClass, const void *pBlob, int32_t nBytes,
@@ -315,7 +308,7 @@ const char *SourceSharp_WorldChapterTitle( void );
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 254 slots.
+// CLIENT ONLY -- 252 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -380,9 +373,6 @@ int32_t SourceSharp_ClientEntityOrigin( int32_t nEntityIndex, float *pOutXYZ );
 int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ,
                                             float *pOutAngles );
 void SourceSharp_ClientExplosionFireball( const float *pOriginXYZ );
-int32_t SourceSharp_ClientFilesGameFileSize( const char *pszPath );
-int32_t SourceSharp_ClientFilesReadGameFile( const char *pszPath, char *pOut,
-                                             int32_t nOutSize );
 int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd *pOut );
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
 int32_t SourceSharp_ClientIsLowViolence( void );

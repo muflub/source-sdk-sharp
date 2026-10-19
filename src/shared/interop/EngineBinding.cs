@@ -220,10 +220,15 @@ internal sealed partial class EngineFiles : IEngineFiles
     // scripts this area exists for are under the SDK's hl2/scripts and are on
     // no mod-relative path at all.
     private const string GameSearchPath = "GAME";
-    public string? ReadGameFile(string path) => E.FilesReadGameFile(path);
-    public byte[]? ReadGameFileBytes(string path) => E.FilesReadGameFileBytes(path);
+    // Through VBaseFileSystem011's forwarders since the user's 2026-10-19 ruling
+    // exposed file handles to managed: Open/Size/Read/Close in one call
+    // (EngineBaseFileSystem.ReadAll), where four IShimEngine slots used to.
+    public string? ReadGameFile(string path)
+        => ReadGameFileBytes(path) is { } bytes ? System.Text.Encoding.UTF8.GetString(bytes) : null;
+    public byte[]? ReadGameFileBytes(string path) => ReadFileOnPath(path, GameSearchPath);
 
-    public byte[]? ReadFileOnPath(string path, string pathId) => E.FilesReadOnPathBytes(path, pathId);
+    public byte[]? ReadFileOnPath(string path, string pathId)
+        => string.IsNullOrEmpty(path) || string.IsNullOrEmpty(pathId) ? null : EngineBound.Files(E).ReadAll(path, pathId);
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameEvents"/>. Every member is one call.</summary>
@@ -1035,7 +1040,10 @@ internal sealed partial class EngineWorldQuery : IEngineWorldQuery
     public EngineWorldQuery(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
     public int GetArea(Vector origin) => EngineBound.Server(E).GetArea(origin);
     public Contents PointContents(Vector origin) => E.PointContents(origin);
-    public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp) => E.SurfacePropGameMaterial(surfaceProp);
+    // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a slot made
+    // the same call: the guard is its.
+    public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
+        => surfaceProp < 0 ? 0 : (SurfaceMaterial)EngineBound.SurfaceProps(E).GameMaterial(surfaceProp);
 }
 
 /// <summary>The real engine, for <see cref="IEngineSound"/>. Every member is one call.</summary>

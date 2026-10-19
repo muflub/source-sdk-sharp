@@ -3515,19 +3515,6 @@ internal sealed unsafe partial class EngineSide
         return ServerShims.WorldServer.EntityModelSurfaceProp(entity.Value);
     }
 
-    /// <summary>
-    /// A surfaceprop by name — "glass", "tile", "metal" — or -1. What a map
-    /// key that names a KIND of surface rather than a material resolves
-    /// through.
-    /// </summary>
-    public int SurfacePropIndex(string name)
-    {
-        if (!s_Initialized || !ServerAttached || name.Length == 0) return -1;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-
-        fixed (byte* p = bytes) { return ServerShims.WorldServer.SurfacePropIndex(p); }
-    }
 
     /// <summary>
     /// The engine's own bullet impact at a point: the decal, the particles and

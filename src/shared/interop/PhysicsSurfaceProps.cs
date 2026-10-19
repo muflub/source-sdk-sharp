@@ -25,6 +25,12 @@ public interface IVtablePhysicsSurfaceProps
     /// TraceToStudio). VPhysics answers its own default for a name it lacks.
     /// </summary>
     int SurfaceIndex(string name);
+
+    /// <summary>
+    /// <c>GetSurfaceData( n )->game.material</c>, or 0 for an index the
+    /// physics module knows nothing of.
+    /// </summary>
+    int GameMaterial(int surfaceProps);
 }
 
 public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVPhysicsSurfaceSounds
@@ -48,9 +54,13 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
     /// not answer.
     /// </summary>
     public static IVtablePhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
+        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
+
+    /// <summary>The same, through one side's own factory: what EngineBound holds per side.</summary>
+    internal static IVtablePhysicsSurfaceProps? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(
-               (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
-               SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out PhysicsSurfacePropsFwd* table, out why)
+               factory, SourceSharpFactoryType.Physics, InterfaceVersion,
+               out void* self, out PhysicsSurfacePropsFwd* table, out why)
             ? new PhysicsSurfaceProps(self, table)
             : null;
 
@@ -88,5 +98,11 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
 
         fixed (byte* p = bytes)
             return _fwd->GetSurfaceIndex(_self, p);
+    }
+
+    public int GameMaterial(int surfaceProps)
+    {
+        var data = (VPhysicsSurfaceData*)_fwd->GetSurfaceData(_self, surfaceProps);
+        return data == null ? 0 : data->GameMaterial;
     }
 }

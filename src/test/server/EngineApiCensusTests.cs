@@ -159,7 +159,8 @@ public partial class EngineApiCensusTests
     // 2026-10-18 (the skeleton slots): EntitySetSequence and
     // EntityLookupAttachmentAny retire, ServerSkeletons answering both
     // (160 - 2 = 158).
-    private const int ServerOnly = 158;
+    // 2026-10-19: SurfacePropIndex folded onto IPhysicsSurfaceProps (158 - 1 = 157).
+    private const int ServerOnly = 157;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -318,7 +319,9 @@ public partial class EngineApiCensusTests
     // RegisterWeaponType went (58 - 2 = 56).
     // plan_server_native_v2 T3: the four shared StringTable* slots folded
     // (55 - 4 = 51).
-    private const int BothSides = 51;
+    // 2026-10-19: the four game-file read slots folded onto IBaseFileSystem (51 - 4 = 47).
+    // 2026-10-19: SurfacePropGameMaterial folded (47 - 1 = 46).
+    private const int BothSides = 46;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

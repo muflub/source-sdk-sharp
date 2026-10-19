@@ -16,7 +16,7 @@ namespace SourceSharp.Tests;
 public unsafe class ShimAreaShapeTests
 {
     [UnmanagedCallersOnly]
-    private static int FileSize41(void* self, byte* path) => 41;
+    private static void* Globals41(void* self) => (void*)41;
 
     [UnmanagedCallersOnly]
     private static int IndexSeven(void* self, uint handle) => 7;
@@ -50,15 +50,15 @@ public unsafe class ShimAreaShapeTests
     public void ASharedBaseIsOneClassOnBothContainers()
     {
         using var root = new FakeShimRoot();
-        root.Live("SourceSharpEngine001", nameof(ShimEngineFwd.FilesGameFileSize),
-                  (nint)(delegate* unmanaged<void*, byte*, int>)&FileSize41);
+        root.Live("SourceSharpEngine001", nameof(ShimEngineFwd.GetGlobalVarsPtr),
+                  (nint)(delegate* unmanaged<void*, void*>)&Globals41);
         var server = Server(root);
         var client = Client(root);
 
         Assert.IsType<EngineArea>(server.EngineBase);
         Assert.IsType<EngineArea>(client.EngineBase);
-        Assert.Equal(41, server.EngineBase.FilesGameFileSize(null));
-        Assert.Equal(41, client.EngineBase.FilesGameFileSize(null));
+        Assert.Equal((nint)41, server.EngineBase.GetGlobalVarsPtr());
+        Assert.Equal((nint)41, client.EngineBase.GetGlobalVarsPtr());
     }
 
     /// <summary>
