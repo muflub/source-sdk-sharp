@@ -152,3 +152,15 @@ public sealed class FadeToBlackConVar : BoolConVar
 public sealed class HudHintSoundConVar : BoolConVar
 {
 }
+
+/// <summary>
+/// The server's half of props_shared.cpp's replicated per-frame piece limit
+/// (the client's breaks read it: SourceSharp.Client's
+/// PropsBreakMaxPiecesPerFrameConVar). The server's own breaks do not read it
+/// yet.
+/// </summary>
+[ConVar("props_break_max_pieces_perframe", "-1", Flags = ConVarFlags.Replicated,
+        Help = "Maximum prop breakable piece count per frame (-1 = model default)")]
+public sealed class PropsBreakMaxPiecesPerFrameConVar : IntConVar
+{
+}

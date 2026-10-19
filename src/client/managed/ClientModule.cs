@@ -294,6 +294,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Physics.ClientFluidEvents? _fluidEvents;
     private FrictionSounds? _frictionSounds;
     private Physics.ClientFriction? _friction;
+    private Physics.ClientContactTouches? _contactTouches;
     private ManagedVtable? _physicsCollisionSolver;
 
     // The client's Steam (C6, Steam to managed): stock's CClientSteamContext
@@ -1466,7 +1467,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 _ragdollPhysics, new TempEnts.PoolPhysicsPropSlots(_tempEntPool), _services.Require<IClientModelNames>(),
                 _services.Require<BreakModels>(), _services.Require<IGameClock>(),
                 () => propEnvironment.Globals.IsAvailable ? propEnvironment.Globals.MaxClients : 1,
-                _services.Require<IRandomSeeds>(), Log);
+                _services.Require<IRandomSeeds>(), Log, _services.Create<TempEnts.PropBreakLimits>());
             _tempEntFrame.Driver = physicsProps;
             _services.AddInstance(physicsProps);
         }
@@ -1543,13 +1544,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The client's physics callbacks: stock's impact sounds, on managed's
         // own collision-event table (lane c6-input).
+        var propOwners = _services.Resolve(typeof(TempEnts.ClientPhysicsProps)) as TempEnts.IClientPhysicsPropOwners;
         _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>());
         _collisionSolver = new Physics.ClientCollisionSolver(
-            new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>()));
+            new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>(),
+                                             propOwners));
         _services.AddInstance(_impactSounds);
         _services.AddInstance(_collisionSolver);
-        if (_services.Resolve(typeof(TempEnts.ClientPhysicsProps)) is TempEnts.ClientPhysicsProps soundingProps)
-            _impactSounds.SoundsWithoutGameData = soundingProps.Owns;
         // The splash draws from the engine's own random stream, as stock's
         // random->RandomFloat does; with none there is no splash.
         IUniformRandom? splashRandom = UniformRandomStream.Acquire(_engine, out string whyNoSplashRandom);
@@ -1557,18 +1558,37 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             Log.Warning($"[SourceSharp/Client] physics: no engine random stream ({whyNoSplashRandom}); no splash\n");
         _fluidEvents = new Physics.ClientFluidEvents(
             new Physics.ClientFluidWorld(_services.Require<IClientSplashCarryOut>(), _services.Require<IClientPhysicsObjectReads>(),
-                                         new VPhysicsObjects(_engine.VPhysics), new VPhysicsFluids(_engine.VPhysics), _services.Require<IEngineEntities>()),
+                                         new VPhysicsObjects(_engine.VPhysics), new VPhysicsFluids(_engine.VPhysics), _services.Require<IEngineEntities>(),
+                                         propOwners),
             splashRandom, () => _clock.Now);
         _services.AddInstance(_fluidEvents);
 
         // The scrape (stock's client Friction and PhysFrictionSound): the shared
         // FrictionSounds over this side's sound controller and its own effects.
+        // A clientside prop's scrape is the world's to play (ClientPhysicsProps.SoundSource).
+        var scrapingProps = _services.Resolve(typeof(TempEnts.ClientPhysicsProps)) as TempEnts.ClientPhysicsProps;
         _frictionSounds = new FrictionSounds(_services.Require<IEngineSound>(), _sounds,
                                              new EnginePhysicsSurfaceTable(_services.Require<PhysicsSurfaces>()),
-                                             new Physics.ClientFrictionEffects(() => _clientEffects));
+                                             new Physics.ClientFrictionEffects(() => _clientEffects),
+                                             scrapingProps is null ? null : scrapingProps.SoundSource);
         _friction = new Physics.ClientFriction(new VPhysicsObjects(_engine.VPhysics), new Physics.FrictionSoundsScrapes(_frictionSounds),
                                                () => _clock.Now);
         _services.AddInstance(_frictionSounds);
+
+        // The contact touches (stock's client StartTouch/EndTouch and
+        // UpdateTouchEvents): the clientside props are what answers one, and
+        // their HitSurface splats blood where the model asks for it.
+        if (scrapingProps is not null)
+        {
+            var bloodConsole = _services.Require<IEngineConsole>();
+            scrapingProps.HitSurfaces = new TempEnts.ClientPropHitSurfaces(
+                _services.Require<IEngineEntityRender>().GetModelKeyValueText, _services.Require<IClientDecals>(),
+                _services.Require<IEngineWorldQuery>(), _services.Require<IEngineEffects>(),
+                () => !int.TryParse(bloodConsole.FindConVarValue("violence_hblood"), out int hblood) || hblood != 0);
+            _contactTouches = new Physics.ClientContactTouches(
+                new Physics.VPhysicsTouchWorld(new VPhysicsObjects(_engine.VPhysics)), scrapingProps);
+            _services.AddInstance(_contactTouches);
+        }
 
         // The level's environment and the step (stock's CPhysicsSystem): native's
         // client system row, PhysicsSimulate and PhysicsReset forward here.
@@ -1584,7 +1604,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                _convars.Get<Physics.ClientPhysTimescaleConVar>()
                                                ?? throw new InvalidOperationException("cl_phys_timescale is not registered")),
                 _services.Require<ClientPhysicsEnvironment>(), () => _physicsWorld, () => _ragdolls,
-                new Physics.ClientPhysicsStepTail(_impactSounds, _fluidEvents!, _frictionSounds, _clock), Log);
+                new Physics.ClientPhysicsStepTail(_impactSounds, _fluidEvents!, _frictionSounds, _clock, _contactTouches), Log);
             _services.AddInstance(_physicsSystem);
         }
 
@@ -2212,6 +2232,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         Log.Msg($"[SourceSharp/Client] level shutdown after {_stats.FrameCount} frames\n");
         _impactSounds?.Clear();
         _fluidEvents?.Clear();
+        _contactTouches?.Clear();
         if (_voiceStatus is { } voice)
             voice.LevelInitialized = false;
 
@@ -2440,7 +2461,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _physicsCollisionEvents = ClientPhysicsCollisionEventBinding.Create(vtables,
                 new ClientPhysicsCollisionEventBinding(_engine.Crossings, impacts,
                                                        _fluidEvents ?? throw new InvalidOperationException("the fluid slots were built before the fluid entries"),
-                                                       _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes")));
+                                                       _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes"),
+                                                       _contactTouches));
             callbacks.CollisionEvents = callbackObjects.CollisionEvent(_physicsCollisionEvents);
         }
 

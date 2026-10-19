@@ -72,6 +72,25 @@ public class FrictionSoundsTests
         return (new FrictionSounds(engine, controller, new Surfaces(), new TempEntFrictionEffects(engine, Temps)), controller, engine);
     }
 
+    [Fact]
+    public void A_sound_source_makes_the_patch_on_its_entity_and_keeps_the_scrape_the_scrapers()
+    {
+        var engine = Fake();
+        engine.ReturnsEachCall("Sound.SurfaceScrapeSound", () => "Crate.ScrapeRough")
+              .Returns("Sound.SoundScriptParameters", (SoundScriptParams?)new SoundScriptParams(1f, 100, 90, 110, 75))
+              .Returns("Sound.SoundPatchCreate", 7);
+        var world = new EntityHandle(0);
+        var sounds = new FrictionSounds(engine, new Controller(), new Surfaces(), new TempEntFrictionEffects(engine, Temps),
+                                        soundSource: e => e == Box ? world : e);
+
+        sounds.Friction(Box, Hard, Crate, RoughFloor, now: 0f);
+        sounds.Friction(Box, Hard, Crate, RoughFloor, now: 1f);
+
+        var created = Assert.Single(engine.Calls, c => c.Member == "Sound.SoundPatchCreate");
+        Assert.Equal(world, created.ArgAs<EntityHandle>(0));
+        Assert.Equal(1, sounds.Active);
+    }
+
     private sealed class RecordingTemps : TempEntsDouble
     {
         public readonly List<(Vector Position, Vector Direction)> MetalSparksSent = new();

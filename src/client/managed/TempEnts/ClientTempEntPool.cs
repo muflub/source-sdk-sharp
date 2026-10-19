@@ -254,6 +254,26 @@ public sealed class ClientTempEntPool
     /// worth folding.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Counts a slot live again that a client hot reload carried: its temp
+    /// entity is alive natively, and the clientside physics props hold it
+    /// (ClientPhysicsProps' restore). It joins the end of the live list, as
+    /// the newest. False when the slot is out of range or already live.
+    /// </summary>
+    public bool Adopt(int slot)
+    {
+        if (slot < 0 || slot >= Capacity || _active.Contains(slot) || !_free.Contains(slot))
+            return false;
+
+        int[] rest = _free.Where(s => s != slot).Reverse().ToArray();
+        _free.Clear();
+        foreach (int s in rest)
+            _free.Push(s);
+
+        _active.Add(slot);
+        return true;
+    }
+
     internal int Reserve(int priority)
     {
         int capacity = Capacity;

@@ -51,4 +51,4 @@
 5	SLOT	void SourceSharp_ClientSoundPatchStop( int32_t hPatch )
 8	SLOT	void SourceSharp_ClientSoundPatchState( int32_t hPatch, int32_t *pnEntIndex, int32_t *pbFilterActive )
 4	SLOT	void SourceSharp_ClientSoundPatchFree( int32_t hPatch )
-16	BOUNDARY	int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,
+24	BOUNDARY	int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,

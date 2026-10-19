@@ -435,22 +435,35 @@ void SourceSharp_ClientSoundPatchFree( int32_t hPatch )
 // level ), and "clientside created entites doesn't have a valid entindex, let
 // 'world' play the sound for them". The handle the managed controller tracks
 // it by, or 0.
+//
+// The WORLD's handle (entry 0) is that arm asked for by name: managed hands it
+// for a clientside physics prop, which is no shell. The world is no shell
+// either, so it is entindex 0 at the world's origin. (The client's attenuation
+// filter is every local player whatever its origin.)
 int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,
                                             const char *pSoundName, int32_t nSoundLevel )
 {
 	if ( !pSoundName )
 		return 0;
 
-	C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity );
-	if ( !pEntity )
-		return 0;
+	int nEntIndex = 0;
+	Vector vecOrigin = vec3_origin;
 
-	int nEntIndex = pEntity->entindex();
-	if ( nEntIndex < 0 )
-		nEntIndex = 0;
+	C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity );
+	if ( pEntity )
+	{
+		nEntIndex = pEntity->entindex();
+		if ( nEntIndex < 0 )
+			nEntIndex = 0;
+		vecOrigin = pEntity->GetAbsOrigin();
+	}
+	else if ( hEntity == INVALID_EHANDLE_INDEX || ( hEntity & ENT_ENTRY_MASK ) != 0 )
+	{
+		return 0;
+	}
 
 	const soundlevel_t level = (soundlevel_t)nSoundLevel;
-	CPASAttenuationFilter filter( pEntity->GetAbsOrigin(), level );
+	CPASAttenuationFilter filter( vecOrigin, level );
 	CSoundPatch *pPatch = ShellClientSoundController()->SoundCreate( filter, nEntIndex, nChannel, pSoundName, level );
 	return pPatch ? pPatch->Handle() : 0;
 }

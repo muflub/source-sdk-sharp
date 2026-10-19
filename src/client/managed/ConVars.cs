@@ -291,6 +291,16 @@ public sealed class HudDrawHistoryTimeConVar : FloatConVar { }
 // the declaration is the whole of it and shell_effects_sim.cpp keeps no ref.
 //-----------------------------------------------------------------------------
 
+// props_shared.cpp's piece limits (it left both DLLs): the clientside props'
+// breaks read them (ClientPhysicsProps, PropBreakLimits). The per-frame one is
+// replicated, so the server declares its half too (GameVars.cs).
+[ConVar("props_break_max_pieces", "-1", Help = "Maximum prop breakable piece count (-1 = model default)")]
+public sealed class PropsBreakMaxPiecesConVar : IntConVar { }
+
+[ConVar("props_break_max_pieces_perframe", "-1", Flags = ConVarFlags.Replicated,
+        Help = "Maximum prop breakable piece count per frame (-1 = model default)")]
+public sealed class PropsBreakMaxPiecesPerFrameConVar : IntConVar { }
+
 [ConVar("cl_winddir", "0",
         Flags = ConVarFlags.Cheat,
         Help = "Weather effects wind direction angle")]

@@ -163,6 +163,12 @@ public interface IRagdollVPhysics
 
     void SetGameFlags(nint physicsObject, ushort flags);
 
+    /// <summary><c>GetCallbackFlags</c> (CALLBACK_*).</summary>
+    ushort CallbackFlags(nint physicsObject);
+
+    /// <summary><c>SetCallbackFlags</c>.</summary>
+    void SetCallbackFlags(nint physicsObject, ushort flags);
+
     nint GameData(nint physicsObject);
 
     void EnableObjectCollisions(nint physicsObject, bool enable);

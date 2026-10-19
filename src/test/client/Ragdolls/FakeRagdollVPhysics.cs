@@ -22,6 +22,7 @@ public sealed class FakeRagdollVPhysics : IRagdollVPhysics
         public float Mass = 1f;
         public ushort GameIndex;
         public ushort GameFlags;
+        public ushort CallbackFlags = 0x0003;
         public bool CollisionsEnabled;
         public bool Asleep = true;
         public int Wakes;
@@ -311,6 +312,10 @@ public sealed class FakeRagdollVPhysics : IRagdollVPhysics
     public ushort GameFlags(nint physicsObject) => Objects[physicsObject].GameFlags;
 
     public void SetGameFlags(nint physicsObject, ushort flags) => Objects[physicsObject].GameFlags = flags;
+
+    public ushort CallbackFlags(nint physicsObject) => Objects[physicsObject].CallbackFlags;
+
+    public void SetCallbackFlags(nint physicsObject, ushort flags) => Objects[physicsObject].CallbackFlags = flags;
 
     public nint GameData(nint physicsObject)
         => Objects.TryGetValue(physicsObject, out FakeObject? o) ? o.Overrides.GameData : OtherGameData;
