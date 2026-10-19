@@ -276,9 +276,10 @@ lane; both still answer 0. The markers for these four are in
 
 and the pass that acts on them is the deliberate `SourceSharpFrame001` ->
 `SourceSharpFrame002` version-string bump, not the ABI renumbering pass. The
-managed side of the count is generated from that same header by
-`tools/vtable-layout`, so there is no second file to mark: the layout follows
-the header by construction and the tool diffs it on every run.
+managed side is generated from that same header by `tools/engine-forwarders`
+(the forwarder table and `ShimFrameFwd`), so there is no second file to mark:
+the table follows the header by construction and the tool diffs it on every
+run.
 
 WHY THEY CANNOT SIMPLY BE DELETED, which is the same argument as the ABI's and
 one notch sharper. Acquisition holds the managed slot count N against the count
