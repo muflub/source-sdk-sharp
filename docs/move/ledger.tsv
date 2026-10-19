@@ -1,7 +1,7 @@
 # move-ledger at fork tip 69525c1b4ccaf90f85aa9e586795ffb7e2b93a25
-# rows 9500; DROP 122; MOD-COPY 43; OURS 1946; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
-# listed below: 2141 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
-# valve_header: yes 611; no 1221; undecided 0
+# rows 9497; DROP 122; MOD-COPY 43; OURS 1943; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
+# listed below: 2138 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
+# valve_header: yes 609; no 1220; undecided 0
 # 2026-09-28: shell_particlequery.cpp/.h deleted after the move (plan_server_novalve.md P2.1); their two OURS rows removed
 # 2026-09-30: imovementplayer.h left the overlay for src/shared/native/ (plan_server_novalve.md P5): it needs only public/ headers, and server.so TUs on the R5 set reach it there; OURS-OVERLAY -> OURS
 # 2026-10-01: ServerNetworkProperty.cpp deleted (plan_server_novalve.md P5, lane E): server.so never constructed a CServerNetworkProperty; its OURS row and override removed
@@ -197,7 +197,6 @@ src/game/server/anyentity.h	OURS	src/server/native/anyentity.h	yes	rule 3: nativ
 src/game/server/server_csharp.vpc	DROP			retired in Phase 6b with VPC: a VPC project script	0		9	137032f059200856b7e0c9daee3224876a2d4369648f2314a6a423b8ecf83a5f
 src/game/shared/baseentity_sound_members.cpp	VALVE-DERIVED			13 verbatim content lines of src/game/shared/SoundEmitterSystem.cpp	13	src/game/shared/SoundEmitterSystem.cpp	13	c30cd91c93acf34d3cc4ddee5d420e00f72e80084d27236e0dd29cf91cdef78b
 src/game/shared/blast_blocking.h	OURS-OVERLAY	src/shared/native/sdk/game/shared/blast_blocking.h	yes	ports CGameRules::RadiusDamage's blast-blocking rule (gamerules.cpp)	0		0	a58a5a08cc3d25ba534ff740564d71a0cb5cbe7628b7f2608338aceadf8c65c3
-src/game/shared/closecaption_recipient.h	OURS	src/shared/native/closecaption_recipient.h	yes	ports RecipientFilter_RemoveIfNotCloseCaptioning rule (recipientfilter.cpp)	0		0	50420f835f9141f1b8b890e4ee37d1836e50eedbc7a77a30e0ac90261f86828d
 src/game/shared/collideable_center.h	OURS	src/shared/native/collideable_center.h	yes	rule 3: native code built against SDK headers (#include mathlib/)	0		0	6b1ca61910917d12e13c729ce4caa7f9fa040d81054663504f51b77e917fd80f
 src/game/shared/collideable_center_math.h	OURS	src/shared/native/collideable_center_math.h	yes	ports CCollisionProperty::WorldSpaceCenter/OBBCenter math (collisionproperty.cpp)	0		0	40366694480bc01a7cb44872067be1cf6d2294572d210bfbed4b7175994921f0
 src/game/shared/entity_abs_query_state.h	OURS-OVERLAY	src/shared/native/sdk/game/shared/entity_abs_query_state.h	no	relocates static data members out of class scope, no algorithm	0		0	d806e001d6b9e5726d63c34531dbde31c594949819a8b61933e18d4cea24e592
@@ -330,7 +329,6 @@ src/sourcesharp/game/server/shell_sharedappsystems.cpp	OURS	src/server/native/sh
 src/sourcesharp/game/server/shell_shot_path.h	OURS	src/server/native/shell_shot_path.h	yes	rule 3: native code built against SDK headers (#include mathlib/)	0		0	e7535157babdf5bc68d655c45add7880525b9bf306403b3d10a1244e443fe5c9
 src/sourcesharp/game/server/shell_sound.cpp	OURS	src/server/native/shell_sound.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	f87c2e9c80cc0af72e042dbf451143c77dce9d7c34434bef26e7a7ad802ffec1
 src/sourcesharp/game/server/shell_soundent.cpp	OURS	src/server/native/shell_soundent.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		6	1b7d464e8bf22aaddddb82ad186da26ed983c5f6e68c31b8b4351f11a054bf5e
-src/sourcesharp/game/server/shell_soundenvelope.cpp	OURS	src/server/native/shell_soundenvelope.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	c88f54d715ed4d9f62c9f60805d1e04c31aca526f50a7d9681cd98bd1b0ad2d9
 src/sourcesharp/game/server/shell_standalone.cpp	OURS	src/server/native/shell_standalone.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	0384c70ed23c85d1bc923af514ac79e00c4d8f1e471701565c4cb68cd0633f6b
 src/sourcesharp/game/server/shell_standalone.h	OURS	src/server/native/shell_standalone.h	yes	rule 3: native code built against SDK headers (#include iserverentity)	0		0	b4f99a55c9c48b1be711f2609cd3dc6eed4a1fb7120be8ce4df82fec3c369a9b
 src/sourcesharp/game/server/shell_standalone_base.cpp	OURS	src/server/native/shell_standalone_base.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	112d2a4202f2e0ef3e0bc92b8c9ce796688bcc57a7bc8a3e49dd4320620253d2
@@ -1658,7 +1656,6 @@ src/sourcesharp/test/client_world_arm_test.cpp	OURS	src/test/native/client_world
 src/sourcesharp/test/clientside_prop_evicted_test.cpp	OURS	src/test/native/clientside_prop_evicted_test.cpp	no	source/link scan of eviction facts; no logic	0		0	910e7d5f2a1ea96205d2128c54ae91f8321d86580bbbeff0437e4209d890ada7
 src/sourcesharp/test/clip_vphysics_port_test.cpp	OURS	src/test/native/clip_vphysics_port_test.cpp	no	explicitly not a reimplementation of stock's override; source scan of supporting facts	0		0	a26a3e60eae1f4588bdb639bfafcd01d84ed2a0ba2c2e4e7cd47a63012958460
 src/sourcesharp/test/close_rulings_test.cpp	OURS	src/test/native/close_rulings_test.cpp	no	drives changed regexes over text; scanner facts, no Valve algorithm	0		0	31435c1c2fb07c006694153035f55170f4d2fbecab4ef296459a6ccf8fc56000
-src/sourcesharp/test/closecaption_recipient_test.cpp	OURS	src/test/native/closecaption_recipient_test.cpp	no	drives own closecaption_recipient.h atoi-corner rule; own logic	0		0	5676ba00823a7f831a1d29c43955c4ced36e66fcbe5e4dda5adb0685cb119229
 src/sourcesharp/test/collideable_center_adapter_test.cpp	OURS	src/test/native/collideable_center_adapter_test.cpp	no	drives own collideable_center.h adapter over real Vector/matrix; no Valve body	0		0	e506a8e3a66bffb547b367c92191362ce160355a84f3a63d92ee9e381a18eab1
 src/sourcesharp/test/collideable_center_test.cpp	OURS	src/test/native/collideable_center_test.cpp	no	drives own collideable_center_math.h; expected values hand-computed, no embedded algorithm	0		0	fc0d30d706de244c35de1f5f647c40ce47cd368326a847c82c83e807381048ec
 src/sourcesharp/test/collision_group_names_test.cpp	OURS	src/test/native/collision_group_names_test.cpp	no	drives own name<->number lookup table; own data, no Valve logic	0		0	f0ba1e599705c8a12e338a057c50dbc2cd9d19a7179d0608400c8b0bdc2ef20b
@@ -1727,6 +1724,7 @@ src/sourcesharp/test/fog_wire_test.cpp	OURS	src/test/native/fog_wire_test.cpp	no
 # 2026-10-18: physworld_match_rule.h, physworld_match_rule_test.cpp and virtual_terrain_set_test.cpp deleted with physics_debug.cpp (whose rows never listed it; it was physics.cpp's split): their one user's six commands are SourceSharp.Server's PhysicsDebugCommands.cs, over PhysWorldMatch (which carries the gtest's cases) and a managed terrain set; OURS rows removed
 # 2026-10-18: model_descriptor.cpp, model_descriptor.h and model_descriptor_format_test.cpp deleted (studio.cpp's eviction): the model descriptor is SourceSharp.Shared.Bones' StudioModelDescriptor, read from the side's managed StudioHdr; IShimModels::ModelDescriptor retired; their three OURS rows removed
 # 2026-10-18: src/sourcesharp/public/studio.cpp deleted (studio.cpp's eviction): its last consumers, model_descriptor.cpp and the client shell's PublishModelFacts, read the managed StudioHdr instead (StudioModelDescriptor, ClientRenderPolicy.ReadModelCounts); nm over the kept objects (debug) found no referrer to its 30 (server) / 65 (client) strong symbols; its OURS row and override removed
+# 2026-10-19: shell_soundenvelope.cpp, closecaption_recipient.h and closecaption_recipient_test.cpp deleted (plan_server_native_v2 T4a): the server's sound patches and the closecaption rule are SourceSharp.Server's (ServerSoundPatches, SoundRecipients); their three OURS rows removed
 src/sourcesharp/test/gamedll_convars_test.cpp	OURS	src/test/native/gamedll_convars_test.cpp	yes	rule 1: carries a Valve copyright header	0		0	5ec615ab3e28b65dc67b85020002882d50353f7f77ff129b780d757f5ef03d8a
 src/sourcesharp/test/gamedll_ledger_test.cpp	OURS	src/test/native/gamedll_ledger_test.cpp	no	source scan of TODO/verdict table; no logic	0		0	5a4eecaf96ee03d23fba6c233704df5aa24fcc78594e8d39c4424e25f124167b
 src/sourcesharp/test/gameevent_listener_lifetime_test.cpp	OURS	src/test/native/gameevent_listener_lifetime_test.cpp	no	source scan of unhook call order; no logic	0		0	8386e6cd0ee14922e569dcd89bd8295831206355af063ea62d301f6ed7fbfe77

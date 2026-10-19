@@ -36,24 +36,6 @@ public unsafe interface IManagedSaveRestore
     int SaveRestoreEntities(byte* a0, int a1);
 }
 
-[ManagedVtable(typeof(ManagedSoundControllerTable))]
-public unsafe interface IManagedSoundController
-{
-    void ServerSoundControllerCreate(int a0);
-    void ServerSoundControllerDestroy(int a0);
-    void ServerSoundControllerPlay(int a0, float a1, float a2, float a3);
-    float ServerSoundControllerPlayEnvelope(int a0, int a1, void* a2, int a3);
-    void ServerSoundControllerChangePitch(int a0, float a1, float a2);
-    void ServerSoundControllerChangeVolume(int a0, float a1, float a2);
-    float ServerSoundControllerGetPitch(int a0);
-    float ServerSoundControllerGetVolume(int a0);
-    void ServerSoundControllerFadeOut(int a0, float a1, int a2);
-    void ServerSoundControllerCommandAdd(int a0, float a1, int a2, float a3, float a4);
-    void ServerSoundControllerCommandClear(int a0);
-    void ServerSoundControllerReset();
-    void ServerSoundControllerShutdown(int a0);
-}
-
 [ManagedVtable(typeof(ManagedSoundEntTable))]
 public unsafe interface IManagedSoundEnt
 {
@@ -122,8 +104,6 @@ public unsafe interface IManagedEvents
 public unsafe interface IManagedUserMessages
 {
     byte GetUserMessageInfo(int a0, byte* a1, int a2, void* a3);
-    byte CloseCaptionsWanted();
-    void EmitCloseCaption(void* a0, int a1, int a2, byte* a3, float a4, int a5, int a6, int a7);
 }
 
 [ManagedVtable(typeof(ManagedTempEntsTable))]
@@ -185,6 +165,13 @@ public unsafe interface IManagedBones
     int TestHitboxes(uint a0, void* a1, void* a2, int a3, void* a4, void* a5);
 }
 
+[ManagedVtable(typeof(ManagedSoundEmitterTable))]
+public unsafe interface IManagedSoundEmitter
+{
+    void ServerMoveSound(int a0, void* a1, int a2, byte* a3, float a4, int a5, int a6, int a7);
+    void ServerMoveSoundScript(int a0, void* a1, byte* a2);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -194,8 +181,6 @@ public static class ManagedAreaFactory
         => IManagedResources__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedSaveRestore target)
         => IManagedSaveRestore__ManagedVtable.Create(vtables, target);
-    public static ManagedVtable Create(ManagedVtables vtables, IManagedSoundController target)
-        => IManagedSoundController__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedSoundEnt target)
         => IManagedSoundEnt__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedHierarchy target)
@@ -224,4 +209,6 @@ public static class ManagedAreaFactory
         => IManagedConsoleOutput__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedBones target)
         => IManagedBones__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedSoundEmitter target)
+        => IManagedSoundEmitter__ManagedVtable.Create(vtables, target);
 }

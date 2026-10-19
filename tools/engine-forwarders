@@ -214,6 +214,11 @@ FORWARD = [
             'PEntityOfEntIndex', 'GetPlayerUserId', 'ServerCommand', 'ServerExecute',
             'SetView', 'LightStyle', 'GetClusterForOrigin', 'GetPVSForCluster',
             'CheckBoxInPVS',
+            # plan_server_native_v2 T4a: the managed SoundEmitter's ambient
+            # emit, the PAS a sound's recipients start from, and the sentence
+            # index UTIL_EmitAmbientSound turned a "!NAME" into.
+            'EmitAmbientSound', 'Message_DetermineMulticastRecipients',
+            'SentenceIndexFromName',
         ],
     ),
     dict(
@@ -264,6 +269,20 @@ FORWARD = [
             # 2026-10-19: a script's parameters, which the SoundScriptParameters
             # slot read through GameSound_GetParameters on both sides.
             'GetParametersForSound', 'GetActorGender',
+            # plan_server_native_v2 T4a: what the managed SoundEmitter asks of
+            # a script (CSoundEmitterSystem's emit and stop paths).
+            'GetParametersForSoundEx', 'InternalGetParametersForSound', 'GetWaveName',
+            'GetWavFileForSound_2', 'LookupSoundLevel',
+        ],
+    ),
+    dict(
+        struct='EngineSoundVtbl',
+        side='server',
+        # plan_server_native_v2 T4a: the server's IEngineSoundServer003, which
+        # the managed SoundEmitter emits and stops through (sound_emitter.cpp's
+        # emit path, moved).
+        methods=[
+            'EmitSound_2', 'StopSound', 'GetSoundDuration',
         ],
     ),
     dict(
@@ -526,6 +545,19 @@ HAND = [
             ('ConstructConstraintEvent', 'void *', 'void *, IManagedPhysicsConstraintEvent *'),
             ('ConstructMotionEvent', 'void *', 'void *, IManagedMotionEvent *'),
             ('ConstructKeyHandler', 'void *', 'void *, IManagedVPhysicsKeyHandler *'),
+        ],
+    ),
+    # plan_server_native_v2 T4a: the IRecipientFilter IEngineSound::EmitSound
+    # calls back, built in the managed block's reserved words over the
+    # recipients the managed SoundEmitter chose (fwd_recipient_filter.cpp).
+    dict(
+        table='RecipientFilter',
+        side='server',
+        self_type='void',
+        include='fwd_recipient_filter.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('Construct', 'void *', 'void *, IManagedRecipientFilter *'),
         ],
     ),
     dict(

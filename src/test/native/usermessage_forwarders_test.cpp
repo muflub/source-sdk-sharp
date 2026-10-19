@@ -173,11 +173,17 @@ TEST( UserMessageForwarders, TheCloseCaptionIsDecidedAndSentByManaged )
 	const std::string code = Code( kSoundEmitter );
 	ASSERT_FALSE( code.empty() ) << kSoundEmitter << " did not load.";
 
-	EXPECT_EQ( 2u, CountOf( code, "if(!pMessages||!pMessages->CloseCaptionsWanted()){return;}" ) )
-		<< "both EmitCloseCaption overloads must ask C# whether a caption is wanted before "
-		<< "looking up a duration, and stop when it says no.";
-	EXPECT_EQ( 1u, CountOf( code, "pMessages->EmitCloseCaption(slots,nSlots,filterCopy.IsReliable()?1:0,token,duration," ) )
-		<< "the caption's facts are no longer handed to C#.";
+	// plan_server_native_v2 T4a: the server's emit path is the managed
+	// SoundEmitter, which calls ICloseCaptions itself, so sound_emitter.cpp
+	// hands C# no caption any more and the two IManagedUserMessages slots it
+	// used are retired. The client arm (#ifdef CLIENT_DLL) shows its own HUD.
+	EXPECT_EQ( 0u, CountOf( code, "CloseCaptionsWanted" ) )
+		<< "sound_emitter.cpp asks the managed user messages about captions again; "
+		<< "the server's caption is SoundEmitter.EmitCloseCaption's.";
+	EXPECT_EQ( 0u, CountOf( code, "pMessages->EmitCloseCaption(" ) )
+		<< "sound_emitter.cpp hands C# a caption again.";
+	// The read is real: the client's caption arm is still in the file.
+	EXPECT_EQ( 1u, CountOf( code, "cchud->ProcessCaption(lowercase,duration,fromplayer);" ) );
 	EXPECT_EQ( 0u, CountOf( code, "UserMessageBegin(" ) )
 		<< "sound_emitter.cpp writes a user message again; the CloseCaption payload is C#'s.";
 	EXPECT_EQ( 0u, CountOf( code, "CUserMessagePayload" ) );

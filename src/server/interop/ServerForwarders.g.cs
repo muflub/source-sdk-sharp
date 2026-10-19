@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 18 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -74,6 +74,15 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // bool IVEngineServer::CheckBoxInPVS( const Vector &, const Vector &, const unsigned char *, int )
     public delegate* unmanaged<void*, void*, void*, byte*, int, byte> CheckBoxInPVS;
+
+    // void IVEngineServer::EmitAmbientSound( int, const Vector &, const char *, float, soundlevel_t, int, int, float )
+    public delegate* unmanaged<void*, int, void*, byte*, float, int, int, int, float, void> EmitAmbientSound;
+
+    // void IVEngineServer::Message_DetermineMulticastRecipients( bool, const Vector &, CBitVec< ABSOLUTE_PLAYER_LIMIT > & )
+    public delegate* unmanaged<void*, byte, void*, void*, void> Message_DetermineMulticastRecipients;
+
+    // int IVEngineServer::SentenceIndexFromName( const char * )
+    public delegate* unmanaged<void*, byte*, int> SentenceIndexFromName;
 }
 
 /// <summary>
@@ -90,6 +99,25 @@ internal unsafe struct NetChannelInfoFwd : IForwarderTable
 
     // float INetChannelInfo::GetAvgLatency( int )
     public delegate* unmanaged<void*, int, float> GetAvgLatency;
+}
+
+/// <summary>
+/// <c>IEngineSound</c> through its forwarders (SSFwd_EngineSound): 3 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct EngineSoundFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_EngineSound";
+
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound_2;
+
+    // void IEngineSound::StopSound( int, int, const char * )
+    public delegate* unmanaged<void*, int, int, byte*, void> StopSound;
+
+    // float IEngineSound::GetSoundDuration( const char * )
+    public delegate* unmanaged<void*, byte*, float> GetSoundDuration;
 }
 
 /// <summary>
@@ -122,4 +150,21 @@ internal unsafe struct GameEventManagerFwd : IForwarderTable
 
     // void IGameEventManager2::FreeEvent( IGameEvent * )
     public delegate* unmanaged<void*, void*, void> FreeEvent;
+}
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_RecipientFilter): 2 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct RecipientFilterFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_RecipientFilter";
+
+    // int SSFwd_RecipientFilter_SizeOf( void )
+    public delegate* unmanaged<int> SizeOf;
+
+    // void * SSFwd_RecipientFilter_Construct( void *, IManagedRecipientFilter * )
+    public delegate* unmanaged<void*, void*, void*> Construct;
 }

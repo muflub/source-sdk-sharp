@@ -1788,4 +1788,31 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask)
         => ClientTraceLine(start, end, mask, TraceFilter.HitAll);
+    // The client's patch arms (plan_server_native_v2 T4a): the five slots are
+    // IShimSoundscapeClient's alone since the server's patches became managed.
+    private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption)
+        => ClientShims.SoundscapeClient.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
+
+    private partial void SidePatchStop(int patch) => ClientShims.SoundscapeClient.SoundPatchStop(patch);
+
+    private partial void SidePatchState(int patch, out int entIndex, out bool filterActive)
+    {
+        int index = -1;
+        int active = 0;
+
+        ClientShims.SoundscapeClient.SoundPatchState(patch, &index, &active);
+
+        entIndex = index;
+        filterActive = active != 0;
+    }
+
+    private partial void SidePatchFree(int patch) => ClientShims.SoundscapeClient.SoundPatchFree(patch);
+
+    private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
+    {
+        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
+        fixed (byte* p = bytes)
+            return ClientShims.SoundscapeClient.SoundPatchCreate(entity.Value, channel, p, soundLevel);
+    }
 }
+

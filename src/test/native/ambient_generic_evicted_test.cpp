@@ -321,8 +321,11 @@ TEST( AmbientGenericEvicted, TheSentenceFunctionsItsReferrersNameAreStillDefined
 	// SENTENCEG_PlaySequentialSz LEFT IN THE SERVER GC CULL (2026-10-01): its
 	// referrer had gone, nothing on the link line imported it, and
 	// --print-gc-sections dropped it; asserted absent after the loop.
+	// SENTENCEG_Lookup LEFT IN plan_server_native_v2 T4a: its last importer,
+	// sound_emitter.cpp's UTIL_EmitAmbientSound, is the managed SoundEmitter's
+	// UtilEmitAmbient, which asks SentenceIndexFromName through its forwarder;
+	// asserted absent after the loop too.
 	static const char *kWanted[] = {
-		"intSENTENCEG_Lookup(constchar*sample)",
 		"voidSENTENCEG_Init()",
 	};
 
@@ -338,6 +341,9 @@ TEST( AmbientGenericEvicted, TheSentenceFunctionsItsReferrersNameAreStillDefined
 	EXPECT_EQ( tight.find( "SENTENCEG_PlaySequentialSz(" ), std::string::npos )
 		<< "SENTENCEG_PlaySequentialSz is back; nothing imported it when the "
 		<< "server gc cull deleted it.";
+	EXPECT_EQ( tight.find( "intSENTENCEG_Lookup(" ), std::string::npos )
+		<< "SENTENCEG_Lookup is back; its one importer went to C# in "
+		<< "plan_server_native_v2 T4a.";
 
 }
 

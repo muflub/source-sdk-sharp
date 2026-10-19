@@ -3,10 +3,10 @@
 // Included by fwd_shim_test.cpp: the compiler's count for each generated shim
 // interface, held to the forwarder table the server's library serves for it.
 
-TEST( FwdShimAreas, ShimEngineIs7Slots )
+TEST( FwdShimAreas, ShimEngineIs2Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEngine::SoundPatchCreate ).slot + 1;
-	EXPECT_EQ( 7, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEngine::GetGlobalVarsPtr ).slot + 1;
+	EXPECT_EQ( 2, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEngine" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -156,15 +156,6 @@ TEST( FwdShimAreas, ShimPlayersIs11Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimSoundIs5Slots )
-{
-	const int compiler = VTableHook::MemberOf( &IShimSound::EmitWorldSoundScript ).slot + 1;
-	EXPECT_EQ( 5, compiler );
-	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimSound" );
-	ASSERT_NE( nullptr, pTable );
-	EXPECT_EQ( compiler, pTable->nSlots );
-}
-
 TEST( FwdShimAreas, ShimEffectsServerIs12Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimEffectsServer::PaintDecal ).slot + 1;
@@ -201,10 +192,10 @@ TEST( FwdShimAreas, ShimDiagnosticsIs4Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimEngineIs7SlotsOnTheClient )
+TEST( FwdShimAreas, ShimEngineIs2SlotsOnTheClient )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEngine::SoundPatchCreate ).slot + 1;
-	EXPECT_EQ( 7, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEngine::GetGlobalVarsPtr ).slot + 1;
+	EXPECT_EQ( 2, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEngine" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -390,10 +381,10 @@ TEST( FwdShimAreas, ShimFxClientIs39Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimSoundscapeClientIs8Slots )
+TEST( FwdShimAreas, ShimSoundscapeClientIs13Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimSoundscapeClient::SoundscapeTouchSoundFile ).slot + 1;
-	EXPECT_EQ( 8, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimSoundscapeClient::SoundPatchCreate ).slot + 1;
+	EXPECT_EQ( 13, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimSoundscapeClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

@@ -1235,8 +1235,7 @@ internal sealed unsafe partial class EngineSide
 
         if (!s_Initialized || !ServerAttached) return;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes) ServerShims.Sound.EntityEmitSound(entity.Value, p);
+        ServerSounds?.EntityEmitSound(entity, soundName);
     }
 
     /// <summary>
@@ -1265,8 +1264,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes) ServerShims.Sound.EntityStopSound(entity.Value, p);
+        ServerSounds?.EntityStopSound(entity, soundName);
     }
 
     /// <summary>
@@ -1280,9 +1278,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return false;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        fixed (byte* p = bytes) return ServerShims.Sound.EmitWorldSoundScript(p, xyz, channel, volume) != 0;
+        return ServerSounds?.EmitWorldSoundScript(soundName, origin, channel, volume) == true;
     }
 
     /// <summary>A noise with no entity to come from.</summary>
@@ -1290,9 +1286,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        fixed (byte* p = bytes) ServerShims.Sound.EmitSoundAtPosition(p, xyz);
+        ServerSounds?.EmitSoundAtPosition(soundName, origin);
     }
 
     /// <summary>
@@ -3352,11 +3346,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-
-        fixed (byte* p = bytes)
-            ServerShims.Sound.EmitAmbientSound(entIndex, xyz, p, volume, soundLevel, flags, pitch);
+        ServerSounds?.EmitAmbientSound(entIndex, origin, soundName, volume, soundLevel, flags, pitch);
     }
 
     /// <summary>
@@ -3476,4 +3466,26 @@ internal sealed unsafe partial class EngineSide
             ? ServerShims.EntityLifecycle.EntityFactoryRefusalTimesAt(index)
             : 0;
 
+    // THE SERVER'S SOUNDS ARE MANAGED (plan_server_native_v2 T4a): the emit
+    // and patch calls go to the managed SoundEmitter's route, which the
+    // server's composition installs (ServerSoundRouting).
+    internal IServerSoundRoute? ServerSounds { get; set; }
+
+    private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption)
+        => ServerSounds?.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
+
+    private partial void SidePatchStop(int patch) => ServerSounds?.SoundPatchStop(patch);
+
+    private partial void SidePatchState(int patch, out int entIndex, out bool filterActive)
+    {
+        entIndex = -1;
+        filterActive = false;
+        ServerSounds?.SoundPatchState(patch, out entIndex, out filterActive);
+    }
+
+    private partial void SidePatchFree(int patch) => ServerSounds?.SoundPatchFree(patch);
+
+    private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
+        => ServerSounds?.SoundPatchCreate(entity, channel, soundName, soundLevel) ?? 0;
 }
+

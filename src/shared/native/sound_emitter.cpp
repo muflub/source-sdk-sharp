@@ -59,8 +59,6 @@
 #include "iserverentity.h"
 #include "ss_util.h"               // engine, ss::INDEXENT
 #include "shell_serversystem.h"	// plan_gamedll.md Phase 7a / T1
-#include "ss_recipient_filter.h"
-#include "imanaged_areas.h"        // IManagedUserMessages: the close caption is C#'s
 class IFileSystem;
 class IEngineSound;
 extern CGlobalVars *gpGlobals;
@@ -69,7 +67,10 @@ extern IFileSystem *filesystem;
 #endif
 // Each DLL's own: the server's is shell_sentences.cpp; the client's (the
 // engine's sentence index) client_util_library.cpp since plan_server_native_v2 T2.
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 int SENTENCEG_Lookup( const char *sample );
+#endif // CLIENT_DLL
 #include <ctype.h>
 #include <KeyValues.h>
 #include "engine/IEngineSound.h"
@@ -94,11 +95,14 @@ int SENTENCEG_Lookup( const char *sample );
 // engine's allocator, and the positions are copied into the caller's vector,
 // which this module owns (plan_server_novalve.md 3.6: copy-out).
 //-----------------------------------------------------------------------------
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 static void KeepEngineOrigins( const ss::EngineFilledUtlVector< Vector > &origins, const GameSoundParams_t &ep )
 {
 	for ( const Vector &v : origins.View() )
 		ep.m_UtlVecSoundOrigin.AddToTail( v );
 }
+#endif // CLIENT_DLL
 #ifdef CLIENT_DLL
 #include "util_shared.h"
 #endif
@@ -137,10 +141,6 @@ void Hack_FixEscapeChars( char *str );
 // plan_server_novalve.md P5); the client spells its base C_RecipientFilter
 // (the #define above). Both are renamed AFTER every include, so only this
 // file's own code sees the new spelling.
-#ifndef CLIENT_DLL
-#define CRecipientFilter ss::CRecipientFilter
-#define RecipientFilter_RemoveIfNotCloseCaptioning ss::RecipientFilter_RemoveIfNotCloseCaptioning
-#endif
 
 
 // sv_soundemitter_trace MOVED TO MANAGED CODE, plan_shim.md Phase 5 (lane 5d):
@@ -153,10 +153,16 @@ void Hack_FixEscapeChars( char *str );
 //
 // CManagedConVarRef rather than ConVarRef, for the reason managed_convar_ref.h
 // gives: a ConVarRef built at DLL load caches its miss forever.
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 static CManagedConVarRef sv_soundemitter_trace( "sv_soundemitter_trace" );
+#endif // CLIENT_DLL
 
 extern ISoundEmitterSystemBase *soundemitterbase;
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 static ConVar *g_pClosecaption = NULL;
+#endif // CLIENT_DLL
 
 #ifdef _XBOX
 int LookupStringFromCloseCaptionToken( char const *token );
@@ -165,6 +171,8 @@ const wchar_t *GetStringForIndex( int index );
 bool g_bPermitDirectSoundPrecache = false;
 
 
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 void WaveTrace( char const *wavname, char const *funcname )
 {
 	if ( IsX360() && !IsDebug() )
@@ -181,6 +189,7 @@ void WaveTrace( char const *wavname, char const *funcname )
 			funcname, wavname );
 	}
 }
+#endif // CLIENT_DLL
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -278,8 +287,10 @@ public:
 #if !defined( CLIENT_DLL )
 		m_bLogPrecache = ss::CommandLineHas( "-makereslists" );
 #endif
+#ifdef CLIENT_DLL
 		g_pClosecaption = cvar->FindVar("closecaption");
 		Assert(g_pClosecaption);
+#endif // CLIENT_DLL
 		return soundemitterbase->ModInit();
 	}
 
@@ -293,6 +304,8 @@ public:
 	}
 
 
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 	virtual void TraceEmitSound( char const *fmt, ... )
 	{
 		if ( !sv_soundemitter_trace.GetBool() )
@@ -314,12 +327,9 @@ public:
 		// over. Under `using CBaseEntity = IGameEntity;` an alias has no
 		// statics, so the borrow stops compiling; asking the way the rest of
 		// the file asks costs nothing and says the same thing.
-#if defined( CLIENT_DLL )
 		Msg( "%s %s", "(cl)", string );
-#else
-		Msg( "%s %s", "(sv)", string );
-#endif
 	}
+#endif // CLIENT_DLL
 
 	// Precache all wave files referenced in wave or rndwave keys
 	virtual void LevelInitPreEntity()
@@ -491,6 +501,8 @@ public:
 	}
 public:
 
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 	void EmitSoundByHandle( IRecipientFilter& filter, int entindex, const GameSoundParams_t & ep, HSOUNDSCRIPTHANDLE& handle )
 	{
 		// Pull data from parameters
@@ -498,7 +510,6 @@ public:
 
 		// Try to deduce the actor's gender
 		gender_t gender = GENDER_NONE;
-#ifdef CLIENT_DLL
 		// plan_entity.md step 7e, CLIENT ARM: THE ENTITY LIST, NOT THE SDK CLASS.
 		//
 		// This was a fork -- `C_BaseEntity::Instance( entindex )->GetModelName()`
@@ -552,23 +563,6 @@ public:
 		{
 			gender = soundemitterbase->GetActorGender( modelinfo->GetModelName( pGenderModel ) );
 		}
-#else
-		// Phase 13 (e) retype, server arm: GetModelName() is IServerEntity's
-		// own virtual and CBaseEntity's body is its one implementation
-		// (m_ModelName), so the question is answerable at the ENGINE BOUNDARY
-		// and never needed the SDK resolve. Asking the edict for its
-		// IServerEntity is movehelper_server.cpp's own recipe, taken there for
-		// the same reason: the SDK class's static Instance answers NULL for an
-		// entity outside that hierarchy, which HAS a model name and an edict --
-		// so this is not only alias-proof, it stops silently losing the gender
-		// of every entity this port owns.
-		edict_t *pEdict = ss::INDEXENT( entindex );
-		IServerEntity *pSE = pEdict ? pEdict->GetIServerEntity() : NULL;
-		if ( pSE )
-		{
-			gender = soundemitterbase->GetActorGender( STRING( pSE->GetModelName() ) );
-		}
-#endif
 
 		if ( !soundemitterbase->GetParametersForSoundEx( ep.m_pSoundName, handle, params, gender, true ) )
 		{
@@ -592,12 +586,6 @@ public:
 		}
 
 
-#if defined( _DEBUG ) && !defined( CLIENT_DLL )
-		if ( !enginesound->IsSoundPrecached( params.soundname ) )
-		{
-			Msg( "Sound %s:%s was not precached\n", ep.m_pSoundName, params.soundname );
-		}
-#endif
 
 		float st = ep.m_flSoundTime;
 		if ( !st && 
@@ -667,12 +655,6 @@ public:
 				WaveTrace( ep.m_pSoundName, "Emitsound" );
 			}
 
-#if defined( _DEBUG ) && !defined( CLIENT_DLL )
-			if ( !enginesound->IsSoundPrecached( ep.m_pSoundName ) )
-			{
-				Msg( "Sound %s was not precached\n", ep.m_pSoundName );
-			}
-#endif
 			ss::EngineFilledUtlVector< Vector > origins;
 			enginesound->EmitSound( 
 				filter, 
@@ -714,57 +696,6 @@ public:
 
 	void EmitCloseCaption( IRecipientFilter& filter, int entindex, bool fromplayer, char const *token, CUtlVector< Vector >& originlist, float duration, bool warnifmissing /*= false*/ )
 	{
-#if !defined( CLIENT_DLL )
-		// THE CAPTION IS C#'s (user-message payload model, 2026-10-04):
-		// SourceSharp.Server's CloseCaptions decides whether one is sent at
-		// all, builds the token (lowercased, escapes fixed), the duration hint
-		// and the flags, and sends the CloseCaption payload to each recipient.
-		// What stays here are the facts only native code can look up -- who
-		// the filter holds, a wave's duration, the speaker's gender -- and
-		// they are gathered only when C# says a caption is wanted.
-		IManagedUserMessages *pMessages = ManagedUserMessages();
-		if ( !pMessages || !pMessages->CloseCaptionsWanted() )
-		{
-			return;
-		}
-
-		// A negative duration means fill it in from the wav file if possible
-		if ( duration < 0.0f )
-		{
-			char const *wav = soundemitterbase->GetWavFileForSound( token, GENDER_NONE );
-			duration = wav ? enginesound->GetSoundDuration( wav ) : 2.0f;
-		}
-
-		// NOTE:  We must make a copy or else if the filter is owned by a SoundPatch, we'll end up destructively removing
-		//  all players from it!!!!
-		CRecipientFilter filterCopy;
-		filterCopy.CopyFrom( (CRecipientFilter &)filter );
-
-		// Remove any players who don't want close captions
-		RecipientFilter_RemoveIfNotCloseCaptioning( (CRecipientFilter &)filterCopy );
-
-		int32_t slots[ ABSOLUTE_PLAYER_LIMIT ];
-		int32_t nSlots = 0;
-		for ( int i = 0; i < filterCopy.GetRecipientCount() && nSlots < ABSOLUTE_PLAYER_LIMIT; i++ )
-		{
-			slots[ nSlots++ ] = filterCopy.GetRecipientIndex( i );
-		}
-
-		// The speaker's gender, from its model: the same edict -> IServerEntity
-		// resolve as EmitSoundByHandle above (IServerEntity is where
-		// GetModelName lives, and CBaseEntity::Instance answered NULL for every
-		// entity this port owns).
-		int32_t nGender = GENDER_NONE;
-		edict_t *pActorEdict = ss::INDEXENT( entindex );
-		IServerEntity *pActorSE = pActorEdict ? pActorEdict->GetIServerEntity() : NULL;
-		if ( pActorSE )
-		{
-			nGender = soundemitterbase->GetActorGender( STRING( pActorSE->GetModelName() ) );
-		}
-
-		pMessages->EmitCloseCaption( slots, nSlots, filterCopy.IsReliable() ? 1 : 0, token, duration,
-		                             fromplayer ? 1 : 0, warnifmissing ? 1 : 0, nGender );
-#else
 		// No close captions in multiplayer...
 		if ( gpGlobals->maxClients > 1 || (gpGlobals->maxClients==1 && !g_pClosecaption->GetBool()))
 		{
@@ -824,26 +755,15 @@ public:
 				cchud->ProcessCaption( lowercase, duration, fromplayer );
 			}
 		}
-	#endif
 	}
 
 	void EmitCloseCaption( IRecipientFilter& filter, int entindex, const CSoundParameters & params, const GameSoundParams_t & ep )
 	{
-#if !defined( CLIENT_DLL )
-		// Whether a caption is wanted at all is C#'s (CloseCaptions.Wanted);
-		// asked first, so a sound's duration is only looked up for one.
-		IManagedUserMessages *pMessages = ManagedUserMessages();
-		if ( !pMessages || !pMessages->CloseCaptionsWanted() )
-		{
-			return;
-		}
-#else
 		// No close captions in multiplayer...
 		if ( gpGlobals->maxClients > 1 || (gpGlobals->maxClients==1 && !g_pClosecaption->GetBool()))
 		{
 			return;
 		}
-#endif
 
 		if ( !ep.m_bEmitCloseCaption )
 		{
@@ -915,11 +835,7 @@ public:
 			params.volume = flVolume;
 		}
 
-#if defined( CLIENT_DLL )
 		enginesound->EmitAmbientSound( params.soundname, params.volume, params.pitch, iFlags, soundtime );
-#else
-		engine->EmitAmbientSound(entindex, origin, params.soundname, params.volume, params.soundlevel, iFlags, params.pitch, soundtime );
-#endif
 
 		bool needsCC = !( iFlags & ( SND_STOP | SND_CHANGE_VOL | SND_CHANGE_PITCH ) );
 
@@ -1019,11 +935,7 @@ public:
 
 		if ( pSample && ( ss::StrIStr( pSample, ".wav" ) || ss::StrIStr( pSample, ".mp3" )) )
 		{
-#if defined( CLIENT_DLL )
 			enginesound->EmitAmbientSound( pSample, volume, pitch, flags, soundtime );
-#else
-			engine->EmitAmbientSound( entindex, origin, pSample, volume, soundlevel, flags, pitch, soundtime );
-#endif
 
 			if ( duration )
 			{
@@ -1038,6 +950,7 @@ public:
 			EmitAmbientSound( entindex, origin, pSample, volume, flags, pitch, soundtime, duration );
 		}
 	}
+#endif // CLIENT_DLL
 };
 
 static CSoundEmitterSystem g_SoundEmitterSystem( "CSoundEmitterSystem" );
@@ -1085,6 +998,8 @@ CServerSystem *SoundEmitterSystem()
 
 
 
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : filter - 
@@ -1205,11 +1120,7 @@ void UTIL_EmitAmbientSound( int entindex, const Vector &vecOrigin, const char *s
 		{
 			char name[32];
 			ss::Format( name, sizeof(name), "!%d", sentenceIndex );
-#if !defined( CLIENT_DLL )
-			engine->EmitAmbientSound( entindex, vecOrigin, name, vol, soundlevel, fFlags, pitch, soundtime );
-#else
 			enginesound->EmitAmbientSound( name, vol, pitch, fFlags, soundtime );
-#endif
 			if ( duration )
 			{
 				*duration = enginesound->GetSoundDuration( name );
@@ -1225,26 +1136,6 @@ void UTIL_EmitAmbientSound( int entindex, const Vector &vecOrigin, const char *s
 	}
 }
 
-// NOT YET PORTED, kept rather than deleted: stock's CBaseEntity::GetSoundDuration
-// resolved a script sound name through this before asking the engine for the
-// wave's length, and no managed caller asks for a duration yet. It moves to C#
-// with that caller (docs/plans/plan_native_bindings_only.md N1).
-[[maybe_unused]] static const char *UTIL_TranslateSoundName( const char *soundname, const char *actormodel )
-{
-	Assert( soundname );
-
-	if ( ss::StrIStr( soundname, ".wav" ) || ss::StrIStr( soundname, ".mp3" ) )
-	{
-		if ( ss::StrIStr( soundname, ".wav" ) )
-		{
-			WaveTrace( soundname, "UTIL_TranslateSoundName" );
-		}
-		return soundname;
-	}
-
-	return soundemitterbase->GetWavFileForSound( soundname, actormodel );
-}
-
 
 bool GameSound_GetParameters( const char *soundname, CSoundParameters &params, const char *actormodel )
 {
@@ -1252,6 +1143,7 @@ bool GameSound_GetParameters( const char *soundname, CSoundParameters &params, c
 	
 	return soundemitterbase->GetParametersForSound( soundname, params, gender );
 }
+#endif // CLIENT_DLL
 
 HSOUNDSCRIPTHANDLE GameSound_PrecacheScript( const char *soundname )
 {
@@ -1261,6 +1153,8 @@ HSOUNDSCRIPTHANDLE GameSound_PrecacheScript( const char *soundname )
 	return soundemitterbase->GetSoundIndex( soundname );
 #endif
 }
+#ifdef CLIENT_DLL
+// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : filter - 
@@ -1276,6 +1170,7 @@ void GameSound_EmitCloseCaption( IRecipientFilter& filter, int entindex, char co
 
 	g_SoundEmitterSystem.EmitCloseCaption( filter, entindex, fromplayer, token, soundorigin, duration, warnifmissing );
 }
+#endif // CLIENT_DLL
 
 //-----------------------------------------------------------------------------
 // Purpose: 

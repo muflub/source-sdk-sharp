@@ -339,8 +339,10 @@ TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsTablesToo )
 TEST( FwdEngine, TheServerServesItsOwnTables )
 {
 	// The tables only the server calls (IVEngineServer, the INetChannelInfo
-	// objects it answers, the static prop manager) are in its library.
-	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer" } )
+	// objects it answers, the static prop manager, and IEngineSoundServer003
+	// the managed SoundEmitter emits through) are in its library.
+	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer",
+	                              "SSFwd_EngineSound" } )
 	{
 		EXPECT_NE( nullptr, SSFwdServer_Table( pszName ) ) << pszName;
 		EXPECT_NE( nullptr, SSFwd_Serve( pszName ) ) << pszName;

@@ -384,6 +384,14 @@ public:
 	virtual void SoundscapeMainView( float *pOut9 ) = 0;
 	virtual int32_t SoundscapeMakingResLists() = 0;
 	virtual void SoundscapeTouchSoundFile( const char *pszWave ) = 0;
+	// The client's sound patches (plan_server_native_v2 T4a): IShimEngine's
+	// five SoundPatch slots, the client's alone since the server's patches
+	// are managed (ServerSoundPatches).
+	virtual void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) = 0;
+	virtual void SoundPatchStop( int32_t hPatch ) = 0;
+	virtual void SoundPatchState( int32_t hPatch, int32_t *pnEntIndex, int32_t *pbFilterActive ) = 0;
+	virtual void SoundPatchFree( int32_t hPatch ) = 0;
+	virtual int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char *pSoundName, int32_t nSoundLevel ) = 0;
 };
 
 // The client weather's world (plan_client_novalve C2, lane c2-sims): the

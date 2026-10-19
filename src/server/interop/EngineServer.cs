@@ -111,6 +111,35 @@ public sealed unsafe class EngineServer : IVtableEngineServer
             _fwd->LightStyle(_self, style, p);
     }
 
+    /// <inheritdoc/>
+    public void EmitAmbientSound(int entIndex, Vector origin, string sample, float volume, int soundLevel,
+                                 int flags, int pitch, float soundTime)
+    {
+        fixed (byte* p = Vtable.Utf8(sample))
+            _fwd->EmitAmbientSound(_self, entIndex, &origin, p, volume, soundLevel, flags, pitch, soundTime);
+    }
+
+    /// <inheritdoc/>
+    public int SentenceIndexFromName(string name)
+    {
+        fixed (byte* p = Vtable.Utf8(name))
+            return _fwd->SentenceIndexFromName(_self, p);
+    }
+
+    /// <inheritdoc/>
+    public void MulticastRecipients(bool usePas, Vector origin, Span<uint> playerBits)
+    {
+        if (playerBits.Length < IVtableEngineServer.PlayerBitWords)
+            throw new ArgumentException(
+                $"the PAS is {IVtableEngineServer.PlayerBitWords} words (CBitVec<ABSOLUTE_PLAYER_LIMIT>); {playerBits.Length} were given",
+                nameof(playerBits));
+
+        playerBits[..IVtableEngineServer.PlayerBitWords].Clear();
+
+        fixed (uint* bits = playerBits)
+            _fwd->Message_DetermineMulticastRecipients(_self, usePas ? (byte)1 : (byte)0, &origin, bits);
+    }
+
     /// <summary>MAX_MAP_LEAFS / 8 (bspfile.h): the PVS buffer stock hands the engine.</summary>
     private const int PvsBytes = 65536 / 8;
 

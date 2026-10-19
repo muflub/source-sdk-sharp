@@ -7,7 +7,6 @@ IShimPrecache
 IShimGameRules
 IShimConsoleServer
 IShimDamage
-IShimSound
 IShimHierarchy
 IShimPhysics
 IShimCollisionServer

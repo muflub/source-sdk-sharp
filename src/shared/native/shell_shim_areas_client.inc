@@ -15,16 +15,6 @@ float CShimEngineClient::GetCurrentTime()
 	{ return ::SourceSharp_GetCurrentTime(); }
 void * CShimEngineClient::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
-void CShimEngineClient::SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption )
-	{ return ::SourceSharp_ClientSoundPatchEmit( hPatch, flVolume01, flPitch, nFlags, flStartTime, bEmitCaption ); }
-void CShimEngineClient::SoundPatchStop( int32_t hPatch )
-	{ return ::SourceSharp_ClientSoundPatchStop( hPatch ); }
-void CShimEngineClient::SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive )
-	{ return ::SourceSharp_ClientSoundPatchState( hPatch, pnEntIndex, pbFilterActive ); }
-void CShimEngineClient::SoundPatchFree( int32_t hPatch )
-	{ return ::SourceSharp_ClientSoundPatchFree( hPatch ); }
-int32_t CShimEngineClient::SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel )
-	{ return ::SourceSharp_ClientSoundPatchCreate( hEntity, nChannel, pSoundName, nSoundLevel ); }
 
 void CShimEventsClient::ListenForGameEvent( const char * pEventName )
 	{ return ::SourceSharp_ListenForGameEvent( pEventName ); }
@@ -498,6 +488,16 @@ int32_t CShimSoundscapeClient::SoundscapeMakingResLists()
 	{ return ::SourceSharp_SoundscapeMakingResLists(); }
 void CShimSoundscapeClient::SoundscapeTouchSoundFile( const char * pszWave )
 	{ return ::SourceSharp_SoundscapeTouchSoundFile( pszWave ); }
+void CShimSoundscapeClient::SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption )
+	{ return ::SourceSharp_ClientSoundPatchEmit( hPatch, flVolume01, flPitch, nFlags, flStartTime, bEmitCaption ); }
+void CShimSoundscapeClient::SoundPatchStop( int32_t hPatch )
+	{ return ::SourceSharp_ClientSoundPatchStop( hPatch ); }
+void CShimSoundscapeClient::SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive )
+	{ return ::SourceSharp_ClientSoundPatchState( hPatch, pnEntIndex, pbFilterActive ); }
+void CShimSoundscapeClient::SoundPatchFree( int32_t hPatch )
+	{ return ::SourceSharp_ClientSoundPatchFree( hPatch ); }
+int32_t CShimSoundscapeClient::SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel )
+	{ return ::SourceSharp_ClientSoundPatchCreate( hEntity, nChannel, pSoundName, nSoundLevel ); }
 
 int32_t CShimPrecipitationClient::PrecipitationTraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, int32_t bIgnorePlayer, float * pOut )
 	{ return ::SourceSharp_PrecipitationTraceLine( pStartXYZ, pEndXYZ, nMask, bIgnorePlayer, pOut ); }

@@ -29,6 +29,8 @@
 #include "steam/isteamapps.h"
 #include "steam/isteamfriends.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
+#include "const.h"
+#include "bitvec.h"
 
 
 #include <ctype.h>
@@ -410,5 +412,70 @@ TEST( SoundParametersLayout, OffsetsAndConstructor )
 	EXPECT_EQ( 75, (int)fresh.soundlevel );
 	EXPECT_EQ( 0, fresh.count );
 	EXPECT_EQ( 0, fresh.delay_msec );
+}
+
+//-----------------------------------------------------------------------------
+// CSoundParametersInternal, which the managed SoundEmitter's stop reads from
+// InternalGetParametersForSound (plan_server_native_v2 T4a):
+// SoundParametersInternalLayout's offsets. The fields are private, so each is
+// placed by hand in a buffer and read back through the header's own inline
+// accessor -- the accessor is what stock's StopSoundByHandle called.
+//-----------------------------------------------------------------------------
+TEST( SoundParametersInternalLayout, TheWaveListAndChannelTheStopReads )
+{
+	EXPECT_EQ( 36u, sizeof( CSoundParametersInternal ) );
+	EXPECT_EQ( 4u, sizeof( SoundFile ) );
+	EXPECT_EQ( 0u, offsetof( SoundFile, symbol ) );
+	EXPECT_EQ( 2u, sizeof( CUtlSymbol ) );
+
+	alignas( 8 ) unsigned char raw[ 36 ] = {};
+	const CSoundParametersInternal *pEntry = reinterpret_cast< const CSoundParametersInternal * >( raw );
+
+	// channel, a uint16 at 30.
+	const uint16 nChannel = 6;
+	memcpy( raw + 30, &nChannel, sizeof( nChannel ) );
+	EXPECT_EQ( 6, pEntry->GetChannel() );
+
+	// ONE wave: m_nSoundNames (uint16 at 16) is 1 and the SoundFile is the
+	// pointer field's own bytes, at 0.
+	const uint16 nOne = 1;
+	memcpy( raw + 16, &nOne, sizeof( nOne ) );
+	const uint16 nSymbol = 0x1234;
+	memcpy( raw + 0, &nSymbol, sizeof( nSymbol ) );
+	EXPECT_EQ( 1, pEntry->NumSoundNames() );
+	EXPECT_EQ( static_cast< const void * >( raw ), static_cast< const void * >( pEntry->GetSoundNames() ) );
+	EXPECT_EQ( 0x1234, (int)(UtlSymId_t)pEntry->GetSoundNames()[ 0 ].symbol );
+
+	// MORE than one: the field at 0 points at the array.
+	SoundFile waves[ 2 ];
+	SoundFile *pWaves = waves;
+	const uint16 nTwo = 2;
+	memcpy( raw + 16, &nTwo, sizeof( nTwo ) );
+	memcpy( raw + 0, &pWaves, sizeof( pWaves ) );
+	EXPECT_EQ( 2, pEntry->NumSoundNames() );
+	EXPECT_EQ( static_cast< const void * >( waves ), static_cast< const void * >( pEntry->GetSoundNames() ) );
+}
+
+//-----------------------------------------------------------------------------
+// CBitVec< ABSOLUTE_PLAYER_LIMIT >, which Message_DetermineMulticastRecipients
+// fills for the managed SoundEmitter's PAS (plan_server_native_v2 T4a):
+// IVtableEngineServer.PlayerBitWords uint32 words, bit N of the vector in word
+// N / 32 at bit N % 32.
+//-----------------------------------------------------------------------------
+TEST( PlayerBitVecLayout, EightWordsBitNInWordNOver32 )
+{
+	EXPECT_EQ( 255, ABSOLUTE_PLAYER_LIMIT );
+	EXPECT_EQ( 32u, sizeof( CBitVec< ABSOLUTE_PLAYER_LIMIT > ) );
+
+	CBitVec< ABSOLUTE_PLAYER_LIMIT > bits;
+	bits.ClearAll();
+	bits.Set( 37 );
+
+	uint32 words[ 8 ];
+	memcpy( words, &bits, sizeof( words ) );
+	EXPECT_EQ( 0u, words[ 0 ] );
+	EXPECT_EQ( 1u << 5, words[ 1 ] );
+	for ( int i = 2; i < 8; i++ )
+		EXPECT_EQ( 0u, words[ i ] ) << i;
 }
 

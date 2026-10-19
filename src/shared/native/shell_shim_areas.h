@@ -26,11 +26,6 @@ class CShimEngine final : public IShimEngine
 public:
 	float GetCurrentTime() override;
 	void * GetGlobalVarsPtr() override;
-	void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) override;
-	void SoundPatchStop( int32_t hPatch ) override;
-	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
-	void SoundPatchFree( int32_t hPatch ) override;
-	int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) override;
 };
 
 class CShimConsoleServer final : public IShimConsoleServer
@@ -260,16 +255,6 @@ public:
 	void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) override;
 };
 
-class CShimSound final : public IShimSound
-{
-public:
-	void EntityEmitSound( uint32_t hEntity, const char * pSoundName ) override;
-	void EntityStopSound( uint32_t hEntity, const char * pSoundName ) override;
-	void EmitSoundAtPosition( const char * pSoundName, const float * pXYZ ) override;
-	void EmitAmbientSound( int32_t nEntIndex, const float * pXYZ, const char * pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch ) override;
-	int32_t EmitWorldSoundScript( const char * pszName, const float * pXYZ, int32_t nChannel, float flVolume ) override;
-};
-
 class CShimEffectsServer final : public IShimEffectsServer
 {
 public:
@@ -330,7 +315,6 @@ struct CShimAreas
 	CShimDamage m_Damage;
 	CShimGameRules m_GameRules;
 	CShimPlayers m_Players;
-	CShimSound m_Sound;
 	CShimEffectsServer m_EffectsServer;
 	CShimDebugOverlay m_DebugOverlay;
 	CShimUserMessages m_UserMessages;
@@ -351,11 +335,6 @@ class CShimEngineClient final : public IShimEngine
 public:
 	float GetCurrentTime() override;
 	void * GetGlobalVarsPtr() override;
-	void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) override;
-	void SoundPatchStop( int32_t hPatch ) override;
-	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
-	void SoundPatchFree( int32_t hPatch ) override;
-	int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) override;
 };
 
 class CShimEventsClient final : public IShimEvents
@@ -687,6 +666,11 @@ public:
 	void SoundscapeMainView( float * pOut9 ) override;
 	int32_t SoundscapeMakingResLists() override;
 	void SoundscapeTouchSoundFile( const char * pszWave ) override;
+	void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) override;
+	void SoundPatchStop( int32_t hPatch ) override;
+	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
+	void SoundPatchFree( int32_t hPatch ) override;
+	int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) override;
 };
 
 class CShimPrecipitationClient final : public IShimPrecipitationClient

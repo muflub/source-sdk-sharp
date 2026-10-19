@@ -103,6 +103,13 @@ std::string Read( const char *pszRel )
 	return StripComments( ReadRaw( pszRel ) );
 }
 
+bool Exists( const char *pszRel )
+{
+	const char *pszRoot = SrcRoot();
+	EXPECT_TRUE( pszRoot != NULL ) << "cannot locate src/ from the test's cwd";
+	return pszRoot && std::ifstream( ( std::string( pszRoot ) + "/" + pszRel ).c_str() ).is_open();
+}
+
 int CountOf( const std::string &hay, const std::string &needle )
 {
 	int n = 0;
@@ -472,10 +479,11 @@ TEST( SoundEntManaged, TheShellsSoundFileNoLongerWalksTheList )
 	EXPECT_EQ( 0, CountOf( s, "SOUNDLIST_EMPTY" ) );
 	EXPECT_EQ( 0, CountOf( s, "#include \"soundent.h\"" ) );
 
-	// VACUITY GUARD: the file is still the sound shell and still has bodies in
-	// it, so the five zeroes above are about what was removed and not about a
-	// file that failed to open or was emptied.
-	EXPECT_LT( 0, CountOf( s, "GameSound_Emit" ) );
+	// VACUITY GUARD: the file is still the sound shell and still has a body in
+	// it -- the precache, since its emits went to C# in plan_server_native_v2
+	// T4a -- so the five zeroes above are about what was removed and not about
+	// a file that failed to open or was emptied.
+	EXPECT_LT( 0, CountOf( s, "GameSound_PrecacheScript" ) );
 
 	// And the include's removal is EXPLAINED. Read raw: a stripped read cannot
 	// tell "removed" from "removed and noted", and an unexplained deletion in a
@@ -560,14 +568,15 @@ TEST( SoundEntManaged, TheTwoEngineSlotsAreGoneFromBothSidesOfTheBoundary )
 	EXPECT_EQ( 0, CountOf( clientAreas, " SoundEntInsert(" ) );
 
 	// VACUITY GUARD on every file, because zeroes over a read is exactly the
-	// shape a failed open answers. EmitAmbientSound is a server area method
-	// since C6c; ConNPrintf a client-only area method; SourceSharpLogFn the
+	// shape a failed open answers. PrecacheSound is a server area method
+	// since C6c (EmitAmbientSound was, until IShimSound retired in
+	// plan_server_native_v2 T4a); ConNPrintf a client-only area method; SourceSharpLogFn the
 	// one function-pointer declaration the header still has, found by the same
 	// "(*Name)" needle shape (the engine API struct went at plan_client_vtables
 	// CC-last, the ManagedApi struct at CE-last);
 	// EntityGetModelName a shared slot both sides forward, the client to its
 	// own body.
-	EXPECT_EQ( 1, CountOf( areas, " EmitAmbientSound(" ) );
+	EXPECT_EQ( 1, CountOf( areas, " PrecacheSound(" ) );
 	EXPECT_EQ( 1, CountOf( clientAreas, " ConNPrintf(" ) );
 	EXPECT_EQ( 1, CountOf( abi, "(*SourceSharpLogFn)" ) );
 	EXPECT_EQ( 1, ForwardCount( client, "EntityGetModelName", "SourceSharp_ClientEntityGetModelName" ) );
@@ -626,126 +635,31 @@ TEST( SoundControllerManaged, TheRemovalCarriesItsReasonInTheTable )
 		   "two stages where CSoundEnt had one";
 }
 
-TEST( SoundControllerManaged, SoundenvelopeCppIsNotInTheServersProjectAndTheShimIs )
+TEST( SoundControllerManaged, NeitherSoundenvelopeCppNorTheShimIsInTheServersProject )
 {
-	// Proof-of-read before the absence: the shim below IS listed.
-	ASSERT_EQ( 1, NamedInServer( kEnvShim ) )
-		<< "shell_soundenvelope.cpp is not compiled, so "
-		   "CSoundEnvelopeController::GetController() is undefined";
+	// Proof-of-read before the absences: a sound file that IS listed.
+	ASSERT_EQ( 1, NamedInServer( kShim ) )
+		<< "shell_soundent.cpp is not compiled, so the read below proves nothing";
 
 	EXPECT_EQ( 0, NamedInServer( kEnvCpp ) )
-		<< "game/shared/soundenvelope.cpp is still compiled into server.so, so "
+		<< "game/shared/soundenvelope.cpp is compiled into server.so again, so "
 		   "there are two sound controllers and only one of them is driven";
+
+	// plan_server_native_v2 T4a: the server's patches are managed
+	// (ServerSoundPatches), so the shim that held them left the project.
+	EXPECT_EQ( 0, NamedInServer( kEnvShim ) )
+		<< "shell_soundenvelope.cpp is compiled again: the server's patch would be "
+		   "decided natively and in ServerSoundPatches both";
 }
 
-TEST( SoundControllerManaged, TheShimAnswersTheServersOwnInterface )
+TEST( SoundControllerManaged, TheShimAndItsInterfaceAreGone )
 {
-	const std::string shim = Read( kEnvShim );
-	ASSERT_FALSE( shim.empty() );
-
-	// P5 lane SP: physics.cpp's friction sounds were the last caller of
-	// CSoundEnvelopeController::GetController(), and they ask
-	// ss::SoundController() now (ss_soundcontroller.h). nm found no server object
-	// importing GetController after that, so the Valve class and its sixteen
-	// methods nobody called left the shim.
-	// AND THEN THAT CALLER LEFT TOO: the friction sounds are managed since the
-	// physics flip, so nm found no importer of ss::SoundController() and
-	// plan_server_native_v2 T2 deleted it. The controller's own entry points
-	// (SourceSharp_* below) are what remains.
-	EXPECT_EQ( 0, CountOf( shim, "ss::ISoundController &ss::SoundController()" ) )
-		<< "ss::SoundController() is back; say which native caller needs it";
-	EXPECT_EQ( 0, CountOf( shim, "CSoundEnvelopeController::GetController" ) )
-		<< "the shim answers the Valve controller again; nothing in server.so "
-		   "asks for it";
-
-	// THE INTERFACE IS ABSTRACT, and the number of methods it declares is READ
-	// OUT OF THE HEADER rather than written down here.
-	const std::string header = Read( kEnvSsHeader );
-	ASSERT_FALSE( header.empty() );
-
-	const size_t at  = header.find( "class ISoundController" );
-	ASSERT_NE( at, std::string::npos );
-	const size_t end = header.find( "};", at );
-	ASSERT_NE( end, std::string::npos );
-
-	const int nPureVirtuals = CountOf( header.substr( at, end - at ), "= 0;" );
-
-	EXPECT_LT( 0, nPureVirtuals ) << "the header's class body was not found";
-
-	// Every OVERRIDE in the shim, minus the four the recipient-filter copy
-	// declares -- a different interface in the same file.
-	const int nFilterOverrides = 4;
-
-	EXPECT_EQ( nPureVirtuals + nFilterOverrides, CountOf( shim, "OVERRIDE" ) )
-		<< "ss_soundcontroller.h declares " << nPureVirtuals << " pure virtuals and "
-		   "the shim must override every one, and nothing more";
-}
-
-TEST( SoundControllerManaged, EveryForwardGuardsANullManagedTable )
-{
-	const std::string shim = Read( kEnvShim );
-	ASSERT_FALSE( shim.empty() );
-
-	// The window is real: this object is a function-local static constructed on
-	// first use, and DLLInit runs LoadManagedRuntime after the engine has handed
-	// the game DLL its interfaces.
-	//
-	// AND THERE IS DELIBERATELY NO DO-NOTHING TABLE. A zeroed
-	// SourceSharpManagedApi is a struct of NULL function pointers, so "return a
-	// table of stubs" turns the window from a no-op into a null call -- which
-	// looks like a guard, reads like a guard, and crashes. The first draft of
-	// this file did exactly that, and this is the check that would have caught
-	// it.
-	EXPECT_EQ( 0, CountOf( shim, "SourceSharpManagedApi m_Absent" ) )
-		<< "a fallback TABLE is a struct of null function pointers, not a set of "
-		   "stubs; every call through it is a null call";
-
-	// One Ask() per forward, and every result tested before it is used. The
-	// count is the thing: a forward added without a guard is invisible until the
-	// one window between DLL load and the CLR coming up.
-	const int nAsks = CountOf( shim, "= Ask();" );
-	const int nGuards = CountOf( shim, "if ( !pApi" )
-	                  + CountOf( shim, "if ( pApi )" )
-	                  + CountOf( shim, "( pApi && pSound )" );
-
-	EXPECT_LT( 0, nAsks ) << "no forward asks for the managed table at all";
-	EXPECT_EQ( nAsks, nGuards )
-		<< nAsks << " calls to Ask() and " << nGuards << " guards on the result";
-}
-
-TEST( SoundControllerManaged, TheShimHoldsNoFileScopeState )
-{
-	const std::string shim = Read( kEnvShim );
-	ASSERT_FALSE( shim.empty() );
-
-	// tools/statics-audit is the tree-wide gate and it draws the distinction
-	// this check has to draw too: a static FUNCTION has internal linkage and is
-	// fine, a static VARIABLE at file scope is the subject. Counting the word
-	// `static` conflates them -- it read three here and called that a failure,
-	// when the third is `Ask()`, a static MEMBER FUNCTION.
-	//
-	// So the three are NAMED, one line each, and the count is what refuses a
-	// fourth. Named rather than only counted because this tree's recorded
-	// defect 3 is a count that survives a rename.
-	EXPECT_EQ( 1, CountOf( shim, "static IManagedSoundController *Ask()" ) )
-		<< "a static MEMBER FUNCTION -- internal to the class, holds nothing";
-	EXPECT_EQ( 1, CountOf( shim, "static CShellSoundController *ShellSoundController()" ) )
-		<< "a static FUNCTION at file scope -- internal linkage, holds nothing";
-	EXPECT_EQ( 1, CountOf( shim, "static CShellSoundController s_Controller;" ) )
-		<< "the one static VARIABLE, and it is FUNCTION-LOCAL: the population "
-		   "A1's gate deliberately does not cover, and the shape shell_decals.cpp "
-		   "already uses";
-
-	EXPECT_EQ( 3, CountOf( shim, "static " ) )
-		<< "shell_soundenvelope.cpp has grown a fourth static beyond the two "
-		   "functions and the accessor's own local instance";
-
-	// And the thing the rule is actually about: no static at FILE scope holding
-	// state. The patch table is a MEMBER of the controller object.
-	EXPECT_EQ( 0, CountOf( shim, "\nstatic CUtlVector" ) );
-	EXPECT_EQ( 1, CountOf( shim, "CUtlVector< CSoundPatch * > m_Patches;" ) )
-		<< "the patch table is not a member of the controller, so it is state "
-		   "somewhere this file should not have any";
+	// The shim's four facts about itself (its interface, its guards, its
+	// statics, the save-restore ops) went with it. What stays is that it is gone,
+	// and the interface its one caller left first.
+	EXPECT_TRUE( Exists( kShellSound ) ) << "the existence check reads nothing";
+	EXPECT_FALSE( Exists( kEnvShim ) ) << "shell_soundenvelope.cpp is back";
+	EXPECT_FALSE( Exists( kEnvSsHeader ) ) << "ss_soundcontroller.h is back";
 }
 
 TEST( SoundControllerManaged, ThePatchCrossesAsAHandleAndNeverAsAPointer )
@@ -777,65 +691,64 @@ TEST( SoundControllerManaged, ThePatchCrossesAsAHandleAndNeverAsAPointer )
 		"ServerSoundControllerGetVolume",
 	};
 
-	// Since plan_engineapi_vtables E6 the thirteen are methods of the
-	// managed-built IManagedSoundController: a pure virtual the generated
-	// table cannot leave unfilled, so the "required" guard is structural now
-	// and the retired ManagedApi rows must NOT be required.
+	// Since plan_engineapi_vtables E6 the thirteen were methods of the
+	// managed-built IManagedSoundController; since plan_server_native_v2 T4a
+	// the area is RETIRED: the patches are managed too (ServerSoundPatches), so
+	// nothing native tells the controller about one and no patch crosses at all.
 	const std::string areas = Read( kAreas2 );
 	ASSERT_FALSE( areas.empty() );
 	EXPECT_EQ( 0, CountOf( areas, "CSoundPatch" ) )
 		<< "the managed-built area names CSoundPatch, so something crosses as a pointer";
+	EXPECT_EQ( 0, CountOf( areas, "class IManagedSoundController " ) )
+		<< "IManagedSoundController is back; no native caller is left to call it";
+	// The read is real: the SoundEnt area beside it is still there.
+	EXPECT_EQ( 1, CountOf( areas, " ServerSoundEntInit(" ) );
 
 	for ( size_t i = 0; i < sizeof( kManaged ) / sizeof( kManaged[ 0 ] ); i++ )
 	{
-		EXPECT_EQ( 1, CountOf( areas, std::string( " " ) + kManaged[ i ] + "(" ) )
-			<< kManaged[ i ] << " is not a method of the managed-built area exactly once";
+		EXPECT_EQ( 0, CountOf( areas, std::string( " " ) + kManaged[ i ] + "(" ) )
+			<< kManaged[ i ] << " is a method of a managed-built area again";
 
 		EXPECT_EQ( 0, CountOf( rt, std::string( "f( " ) + kManaged[ i ] + " )" ) )
 			<< kManaged[ i ] << " is retired and filled by nobody; requiring it fails every load";
 	}
 }
 
-TEST( SoundControllerManaged, TheFourEngineSlotsAreDeclaredAndBound )
+TEST( SoundControllerManaged, TheFivePatchSlotsAreTheClientsAlone )
 {
-	// Server shim-area methods since plan_engineapi_vtables C6c.
-	const std::string areas = Read( kAreas );
-	const std::string impl  = Read( kAreasImpl );
+	// Server shim-area methods since plan_engineapi_vtables C6c, shared with
+	// the client; the client's alone since plan_server_native_v2 T4a, on
+	// IShimSoundscapeClient, because the server's patches are managed.
+	const std::string areas  = Read( kAreas );
+	const std::string impl   = Read( kAreasImpl );
+	const std::string client = Read( kClientAreasH );
+	const std::string cimpl  = Read( kClientAreasImpl );
 	ASSERT_FALSE( areas.empty() );
 	ASSERT_FALSE( impl.empty() );
+	ASSERT_FALSE( client.empty() );
+	ASSERT_FALSE( cimpl.empty() );
 
 	static const char *kEngine[] =
 	{
-		"SoundPatchEmit", "SoundPatchStop", "SoundPatchState", "SoundPatchFree",
+		"SoundPatchEmit", "SoundPatchStop", "SoundPatchState", "SoundPatchFree", "SoundPatchCreate",
 	};
 
 	for ( size_t i = 0; i < sizeof( kEngine ) / sizeof( kEngine[ 0 ] ); i++ )
 	{
-		EXPECT_EQ( 1, CountOf( areas, std::string( " " ) + kEngine[ i ] + "(" ) )
-			<< kEngine[ i ] << " is not declared on a server shim area";
+		EXPECT_EQ( 0, CountOf( areas, std::string( " " ) + kEngine[ i ] + "(" ) )
+			<< kEngine[ i ] << " is declared on a server shim area again";
+		EXPECT_EQ( 0, ForwardCount( impl, kEngine[ i ], "" ) )
+			<< kEngine[ i ] << " is forwarded on the server again";
+
+		EXPECT_EQ( 1, CountOf( client, std::string( " " ) + kEngine[ i ] + "(" ) )
+			<< kEngine[ i ] << " is not declared on a client shim area";
 
 		// A pure virtual cannot be left unbound, but its forward can name the
 		// wrong body: the only thing that makes the slot this one is the call.
-		EXPECT_EQ( 1, CountOf( impl, std::string( "{ return ::SourceSharp_" ) + kEngine[ i ] + "(" ) )
-			<< kEngine[ i ] << " is declared but its area method does not forward "
-			   "to SourceSharp_" << kEngine[ i ];
+		EXPECT_EQ( 1, ForwardCount( cimpl, kEngine[ i ], std::string( "SourceSharp_Client" ) + kEngine[ i ] ) )
+			<< kEngine[ i ] << " is declared but its client area method does not forward "
+			   "to SourceSharp_Client" << kEngine[ i ];
 	}
-}
-
-TEST( SoundControllerManaged, TheSaveRestoreOpsLeftWithTheValveController )
-{
-	const std::string shim = Read( kEnvShim );
-	ASSERT_FALSE( shim.empty() );
-
-	// soundenvelope.h declares GetSoundSaveRestoreOps for DEFINE_SOUNDPATCH. The
-	// shim defined it (answering NULL) only because the header promised it;
-	// no server object imported it (nm), and with the Valve controller gone
-	// the shim no longer includes soundenvelope.h. A server TU that used the
-	// macro would now fail to link, which is the loud failure wanted.
-	EXPECT_EQ( 0, CountOf( shim, "GetSoundSaveRestoreOps" ) )
-		<< "the shim defines GetSoundSaveRestoreOps again";
-	EXPECT_EQ( 0, CountOf( shim, "#include \"soundenvelope.h\"" ) )
-		<< "the shim includes soundenvelope.h again";
 }
 
 //=============================================================================//

@@ -101,7 +101,11 @@ ss_fwd_library(client)
 # is built without RTTI; the forwarders keep the tree's default. Its target
 # interface, IManagedSteamCallback, derives IManagedObject (imanaged_core.h).
 target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp)
-foreach(no_rtti fwd_steam.cpp fwd_physics.cpp)
+# The server's library also builds the IRecipientFilter IEngineSound::EmitSound
+# calls back over the managed SoundEmitter's recipients (fwd_recipient_filter.cpp,
+# plan_server_native_v2 T4a): a class with virtuals, as the two above.
+target_sources(ss_fwd_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_recipient_filter.cpp)
+foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp)
   if(SS_IS_MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)
   else()

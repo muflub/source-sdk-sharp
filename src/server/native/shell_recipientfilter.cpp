@@ -54,19 +54,7 @@ extern CGlobalVars *gpGlobals;
 // CTeamRecipientFilter's constructor went -- see the header's note and the
 // deleted-constructor marker further down -- so this was an include kept alive
 // by a class that had already left.
-#include "closecaption_recipient.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
-
-// The soundscript system, which is what CBaseEntity::LookupSoundLevel forwarded
-// to. Declared the same way SoundEmitterSystem.cpp declares it.
-extern ISoundEmitterSystemBase *soundemitterbase;
 #include "shell_standalone_player.h"
-// The slot table, for the handle-shaped CPASAttenuationFilter constructors
-// below: a handle is the one identity both entity hierarchies share, so a
-// filter built from one crops correctly around a source that has no
-// CBaseEntity to ask.
-#include "sourcesharp.h"
-#include "shell_resolve.h"
 
 // g_RecipientFilterPredictionSystem WAS HERE: a bare IPredictionSystem whose
 // one effect was to join g_pPredictionSystems at static init. Nothing on the
@@ -124,45 +112,9 @@ void ss::CRecipientFilter::AddRecipientsByPAS( const Vector& origin )
 
 // CTeamRecipientFilter's constructor was here; deleted, see the header's note.
 
-//-----------------------------------------------------------------------------
-// THE HANDLE-SHAPED CONSTRUCTOR. See recipientfilter.h for why it is not a
-// wrapper over the pointer form.
-//
-// WHY THE CENTRE AND NOT THE ORIGIN, said with the number rather than the
-// principle. Stock's four pointer constructors take
-// entity->GetSoundEmissionOrigin(), whose default body (baseentity.h) is
-// WorldSpaceCenter(). SourceSharpEntity_t::Center() is that same quantity for
-// both hierarchies -- origin plus the middle of the OBB. A brush entity's
-// m_vecOrigin is 0,0,0 unless the mapper gave it an origin brush, so taking
-// Origin() here would crop a door's move loop around the MAP ORIGIN and hand
-// it to whoever happens to be in the PAS of that point. The sound itself is
-// unaffected either way when the entity has an edict -- the engine attaches it
-// by index -- which is exactly what makes the wrong answer invisible.
-//
-// CBeam is the one class in stock that overrides GetSoundEmissionOrigin away
-// from the centre (beam_shared.h, to the beam's midpoint). Nothing reaches this
-// constructor with a beam: its callers are the port's own emitters, and a beam
-// on this side is a temp entity rather than an entity that makes noise. Named
-// here rather than left as a silent difference.
-//-----------------------------------------------------------------------------
-ss::CPASAttenuationFilter::CPASAttenuationFilter( const CBaseHandle &hSource, const char *lookupSound )
-{
-	const SourceSharpEntity_t ent =
-		SourceSharp_ResolveEntity( (uint32_t)hSource.ToInt() );
-
-	// An unresolvable source is heard by nobody. CPASFilter's default
-	// constructor has already left the recipient list empty; returning is what
-	// keeps it that way.
-	if ( !ent.IsValid() )
-		return;
-
-	const Vector vecCenter = ent.Center();
-
-	AddRecipientsByPAS( vecCenter );
-
-	const soundlevel_t level = soundemitterbase->LookupSoundLevel( lookupSound );
-	Filter( vecCenter, SNDLVL_TO_ATTN( level ) );
-}
+// THE HANDLE-SHAPED CONSTRUCTOR WENT (plan_server_native_v2 T4a) with its one
+// caller, shell_sound.cpp's entity emit: ServerSounds.EntityEmitSound builds
+// the same filter in C#, around the entity's centre at the script's level.
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -231,74 +183,7 @@ void ss::CPASAttenuationFilter::Filter( const Vector& origin, float attenuation 
 	}
 }
 
-//-----------------------------------------------------------------------------
-// plan_baseentity.md Phase 13 precondition (e): moved here from
-// CBaseEntity::RemoveRecipientsIfNotCloseCaptioning.
-//
-// It was a STATIC member of CBaseEntity that never touched an entity. Its whole
-// subject is a recipient filter and a per-client convar; the class it hung off
-// supplied nothing but a namespace, and that namespace is being deleted. Same
-// move, and the same reason, as the CPASAttenuationFilter constructors that
-// came here when baseentity.h left this file's include list.
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// Purpose: For each client who appears to be a valid recipient, checks the client has disabled CC and if so, removes them from 
-//  the recipient list.
-// Input  : filter - 
-//-----------------------------------------------------------------------------
-void ss::RecipientFilter_RemoveIfNotCloseCaptioning( ss::CRecipientFilter& filter )
-{
-	int c = filter.GetRecipientCount();
-	for ( int i = c - 1; i >= 0; --i )
-	{
-		int playerIndex = filter.GetRecipientIndex( i );
-
-		// THE FIFTEENTH SITE, and it was not in the hand-taken inventory of
-		// fourteen in docs/divergences.md -- sdk_player_cast_test.cpp found it
-		// the first time it ran, which is the whole argument for that test
-		// existing. Same shape as the other fourteen:
-		//
-		//     a static_cast to a player pointer, wrapped round the base
-		//     entity's static Instance of the slot, followed by
-		//     `if ( !player ) continue;`
-		//
-		// (spelled in prose rather than in code, for the reason the file
-		// banner gives: the cast census reads this file's text.)
-		//
-		// NULL today for the standalone player, so the `continue` ALWAYS fires
-		// and this function removes nobody: close captions go to every
-		// recipient regardless of what their closecaption convar says. At Phase
-		// 13 step 5 the NULL check passes instead, and RemoveRecipient's body
-		// is `player->entindex()` -- a virtual call through the wrong vtable.
-		//
-		// The site already HAS the slot. Stock converted it to a pointer so
-		// that RemoveRecipient could convert it back to a slot, and
-		// RemoveRecipientByPlayerIndex is that function with the round trip
-		// taken out. Nothing else here reads `player`.
-#if !defined( _XBOX )
-		// The rule -- and the empty-string case that is NOT the same as "0" --
-		// is closecaption_recipient.h, with its own tests. See the header:
-		// atoi("") and atoi("0") are both zero and mean opposite things.
-		const char *cvarvalue = engine->GetClientConVarValue( playerIndex, "closecaption" );
-		Assert( cvarvalue );
-		const bool bRemove = CloseCaption_ShouldRemoveRecipient( cvarvalue );
-#else
-		static ConVar *s_pCloseCaption = NULL;
-		if ( !s_pCloseCaption )
-		{
-			s_pCloseCaption = cvar->FindVar( "closecaption" );
-			if ( !s_pCloseCaption )
-			{
-				Error( "XBOX couldn't find closecaption convar!!!" );
-			}
-		}
-
-		// No "not reported yet" state here: the convar is this machine's own.
-		const bool bRemove = ( s_pCloseCaption->GetInt() == 0 );
-#endif
-		if ( bRemove )
-		{
-			filter.RemoveRecipientByPlayerIndex( playerIndex );
-		}
-	}
-}
+// RecipientFilter_RemoveIfNotCloseCaptioning WENT (plan_server_native_v2 T4a)
+// with sound_emitter.cpp's server caption, its one importer: the rule is
+// SoundRecipients.RemoveIfNotCloseCaptioning (C#), closecaption_recipient.h's
+// "" versus "0" distinction included.

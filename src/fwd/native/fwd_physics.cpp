@@ -185,6 +185,21 @@ extern "C" int __cdecl _purecall( void )
 	__debugbreak();
 	return 0;
 }
+
+// The same for a base's deleting destructor: a base with a virtual destructor
+// (IRecipientFilter, fwd_recipient_filter.cpp) has its vtable emitted where a
+// derived constructor installs it, and MSVC's scalar deleting destructor in it
+// names the global operator delete, which no runtime here defines (LNK2019 on
+// CI at 608740e). Never called: nothing deletes these objects.
+void __cdecl operator delete( void *, size_t ) noexcept
+{
+	__debugbreak();
+}
+
+void __cdecl operator delete( void * ) noexcept
+{
+	__debugbreak();
+}
 #endif
 #else
 extern "C" __attribute__(( visibility( "hidden" ) )) void __cxa_pure_virtual()

@@ -46,19 +46,6 @@ IManagedSaveRestore	ReloadSave	int32_t	void
 IManagedSaveRestore	ReloadRestore	int32_t	void
 IManagedSaveRestore	SaveCollectEntities	int32_t	char *pBuffer, int32_t nBytes
 IManagedSaveRestore	SaveRestoreEntities	int32_t	const char *pBuffer, int32_t nBytes
-IManagedSoundController	ServerSoundControllerCreate	void	int32_t hPatch
-IManagedSoundController	ServerSoundControllerDestroy	void	int32_t hPatch
-IManagedSoundController	ServerSoundControllerPlay	void	int32_t hPatch, float flVolume, float flPitch, float flStartTime
-IManagedSoundController	ServerSoundControllerPlayEnvelope	float	int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints
-IManagedSoundController	ServerSoundControllerChangePitch	void	int32_t hPatch, float flTarget, float flDeltaTime
-IManagedSoundController	ServerSoundControllerChangeVolume	void	int32_t hPatch, float flTarget, float flDeltaTime
-IManagedSoundController	ServerSoundControllerGetPitch	float	int32_t hPatch
-IManagedSoundController	ServerSoundControllerGetVolume	float	int32_t hPatch
-IManagedSoundController	ServerSoundControllerFadeOut	void	int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout
-IManagedSoundController	ServerSoundControllerCommandAdd	void	int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue
-IManagedSoundController	ServerSoundControllerCommandClear	void	int32_t hPatch
-IManagedSoundController	ServerSoundControllerReset	void	void
-IManagedSoundController	ServerSoundControllerShutdown	void	int32_t hPatch
 IManagedSoundEnt	ServerSoundEntInit	void	int32_t nMaxClients, float flCurTime
 IManagedSoundEnt	ServerSoundEntShutdown	void	void
 IManagedSoundEnt	ServerSoundEntInsert	void	int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget
@@ -99,8 +86,6 @@ IManagedClients	OnClientSettingsChanged	int32_t	int32_t nEntIndex
 IManagedClients	ServerTransmitAlwaysForClient	int32_t	int32_t iClientEdict
 IManagedEvents	OnGameEvent	void	const char *pEventName, void *hEvent
 IManagedUserMessages	GetUserMessageInfo	bool	int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize
-IManagedUserMessages	CloseCaptionsWanted	bool	void
-IManagedUserMessages	EmitCloseCaption	void	const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender
 IManagedTempEnts	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
 IManagedDiagnostics	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
 IManagedCommands	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
@@ -333,6 +318,10 @@ IManagedPhysicsConstraintEvent	ConstraintBroken	void	void *pConstraint
 IManagedMotionEvent	Simulate	int32_t	void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular
 IManagedVPhysicsKeyHandler	ParseKeyValue	void	void *pData, const char *pKey, const char *pValue
 IManagedVPhysicsKeyHandler	SetDefaults	void	void *pData
+IManagedRecipientFilter	IsReliable	int32_t	void
+IManagedRecipientFilter	IsInitMessage	int32_t	void
+IManagedRecipientFilter	GetRecipientCount	int32_t	void
+IManagedRecipientFilter	GetRecipientIndex	int32_t	int32_t nSlot
 IManagedPhysicsClient	LevelInitPreEntity	void	void
 IManagedPhysicsClient	LevelInitPostEntity	void	void
 IManagedPhysicsClient	LevelShutdownPreEntity	void	void
@@ -347,3 +336,5 @@ IManagedDetailPropsClient	DetailBuildLists	void *	const float *pViewOriginXYZ, c
 IManagedDetailPropsClient	DetailBeginTranslucent	void	void
 IManagedDetailPropsClient	DetailPrepare	void *	int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright
 IManagedDetailPropsClient	DetailEmit	void *	int32_t nMaxQuads
+IManagedSoundEmitter	ServerMoveSound	void	int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch
+IManagedSoundEmitter	ServerMoveSoundScript	void	int32_t nEntIndex, const float *pOrigin, const char *pSoundName

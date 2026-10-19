@@ -272,15 +272,17 @@ public unsafe class VtableBindingTests
         // Execute, SetView and LightStyle through the forwarders, and
         // plan_server_native_v2 T3 (ruled 2026-10-18) carries it unchanged. Each
         // arrives as one member named for its purpose; the raw slots and what
-        // creates or precaches stay absent.
+        // creates or precaches stay absent. plan_server_native_v2 T4a (the
+        // audit's FOLD EngineServerVtbl.EmitAmbientSound) adds the ambient
+        // emit, which the managed SoundEmitter's ambient path ends in.
         string[] offered = PublicMethodsOf(typeof(EngineServer));
 
-        foreach (string named in new[] { "ServerCommandNow", "SetView", "LightStyle" })
+        foreach (string named in new[] { "ServerCommandNow", "SetView", "LightStyle", "EmitAmbientSound" })
             Assert.Contains(named, offered);
 
         foreach (string forbidden in new[]
                  { "CreateEdict", "ServerCommand", "ServerExecute", "ClientCommand",
-                   "PrecacheModel", "EmitAmbientSound" })
+                   "PrecacheModel" })
         {
             Assert.DoesNotContain(forbidden, offered);
         }

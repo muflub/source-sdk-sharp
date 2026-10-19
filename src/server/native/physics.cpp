@@ -62,7 +62,7 @@
 #include "data_object_access.h"
 #include "ss_util.h"
 #include "vcollide_parse.h"
-#include "ss_soundcontroller.h"
+// ss_soundcontroller.h went with shell_soundenvelope.cpp (plan_server_native_v2 T4a).
 extern IVEngineServer *engine;
 #include "utlvector.h"
 #include "ss_init_factory.h"

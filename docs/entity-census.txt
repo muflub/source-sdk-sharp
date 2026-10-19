@@ -1,10 +1,12 @@
+# 2026-10-18, server-native-v2 (plan_server_native_min P1 replayed onto main 331c8a0cf): server TUs left the link:
+#   [snv2] server objects 123 -> 106, shim 123 -> 106. Measured lines re-taken from --write, the prose kept.
 # 2026-10-18, C7 flashlight (cluster 12), the eviction, measured at the rebase onto main e070a68e7 + this commit: flashlighteffect.cpp left client.so (the flashlight is managed's FlashlightEffect): client objects 142 -> 141, stock game/client 9 -> 8; stock TUs that use an entity type 1 -> 0 (394 -> 0 code lines), the last; it was a zero-edge TU, so cross-edges stay 28, now across 8 of 8 stock TUs. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, C7 flashlight (cluster 12), at the rebase onto main e070a68e7: shell_flashlight_client.cpp joins client.so (the
 #   flashlight's executor): client objects 141 -> 142, shim 132 -> 133. Hand-applied from tools/entity-census's diff.
 # 2026-10-19, SFM is dead (user ruling 2026-10-19), the eviction, measured on eb10dd6fe + this commit: toolframework_client.cpp and entity_client_tools.cpp left client.so and shell_tools_off_client.cpp joined it: client objects 142 -> 141, stock game/client 11 -> 9, shim 131 -> 132; stock TUs with entity-free text 10 -> 8 (5997 -> 5582 code lines); both were zero-edge TUs, so cross-edges stay 28, now across 8 of 9 stock TUs. The stand-in's IClientRenderable parameters are named, so the ToEngineIface cast pattern does not read them as casts (shim 12 in 6 files, unchanged). Hand-edited.
 # 2026-10-19, SFM is dead (user ruling 2026-10-19), our tool arms, measured on 2b7da491f + this commit: the shells stop calling the tool framework (EntityTool_RecordEntities, the proxy op RecordTools, RecordSparkImpact, ToolFramework_SetupEngineView/SetupAudioState/AdjustEngineViewport, ToolsEnabled, the CToolFrameworkClient system row). toolframework_client.cpp's 7 edges and entity_client_tools.cpp's 1 go (both zero-edge TUs until the eviction): cross-edges 36 -> 28, stock TUs linked against 10 -> 8, of 11. Hand-edited.
-# 2026-10-18, server-native-v2 (plan_server_native_min P1 replayed onto main 331c8a0cf): server TUs left the link:
-#   [snv2] server objects 123 -> 106, shim 123 -> 106. Measured lines re-taken from --write, the prose kept.
+# 2026-10-19, plan_server_native_v2 T4a (the sound emit path to C#): shell_soundenvelope.cpp left the server link:
+#   server objects 106 -> 105, shim 106 -> 105; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp left client.so: client objects 144 -> 142, stock game/client 13 -> 11; stock TUs using an entity type 2 -> 1 (857 -> 394 code lines), with entity-free text 11 -> 10 (7692 -> 5997); particlemgr.cpp's last 3 edges (the subtexture classes' constructors, now shell_particle_mgr_client.cpp's) go: cross-edges 39 -> 36, stock TUs linked against 11 -> 10, of 11. Hand-edited.
 # 2026-10-18, C7 particles phase 4 (the replacement), measured on main f4b31392d: shell_particle_mgr_client.cpp joins client.so: client objects 143 -> 144, shim 130 -> 131. particlemgr.cpp's edges 17 -> 3 (CParticleMgr's members and its four convars go; the subtexture classes' three constructors stay until the eviction moves them): cross-edges 53 -> 39. Hand-edited.
 # 2026-10-18, plan_server_native_v2 D1/D3: server.so builds on stock public/ headers, where the entity face is
@@ -907,11 +909,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 106       141
+objects linked                                                 105       141
   ... stock game/server | game/client                            0         8
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        106       133
+  ... SourceSharp shim (sourcesharp/**)                        105       133
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

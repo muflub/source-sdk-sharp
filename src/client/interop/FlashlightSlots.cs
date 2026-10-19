@@ -77,7 +77,7 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
         return _engineFwd == null ? null : _engineFwd->GetDXSupportLevel(_engine);
     }
 
-    public bool SupportsBorderColor() => api.ClientAttached && api.ClientShims.FlashlightSupportsBorderColor() != 0;
+    public bool SupportsBorderColor() => api.ClientAttached && api.ClientShims.FlashlightClient.FlashlightSupportsBorderColor() != 0;
 
     public int Texture(string name)
     {
@@ -85,7 +85,7 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
             return -1;
         byte[] bytes = Vtable.Utf8(name);
         fixed (byte* p = bytes)
-            return api.ClientShims.FlashlightTexture(p);
+            return api.ClientShims.FlashlightClient.FlashlightTexture(p);
     }
 
     public int Create(in FlashlightState state)
@@ -93,7 +93,7 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
         if (!api.ClientAttached)
             return -1;
         fixed (FlashlightState* p = &state)
-            return api.ClientShims.FlashlightCreate(p);
+            return api.ClientShims.FlashlightClient.FlashlightCreate(p);
     }
 
     public void Update(int handle, in FlashlightState state)
@@ -101,19 +101,19 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
         if (!api.ClientAttached)
             return;
         fixed (FlashlightState* p = &state)
-            api.ClientShims.FlashlightUpdate(handle, p);
+            api.ClientShims.FlashlightClient.FlashlightUpdate(handle, p);
     }
 
     public void Project(int handle)
     {
         if (api.ClientAttached)
-            api.ClientShims.FlashlightProject(handle);
+            api.ClientShims.FlashlightClient.FlashlightProject(handle);
     }
 
     public void Destroy(int handle)
     {
         if (api.ClientAttached)
-            api.ClientShims.FlashlightDestroy(handle);
+            api.ClientShims.FlashlightClient.FlashlightDestroy(handle);
     }
 
     public FlashlightTrace TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask)
@@ -126,7 +126,7 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
         float* endPos = stackalloc float[3];
         float fraction = 1f;
-        int hit = api.ClientShims.ClientTraceHull(s, e, lo, hi, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
+        int hit = api.ClientShims.ViewClient.ClientTraceHull(s, e, lo, hi, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
                                                   &fraction, endPos);
         return new FlashlightTrace(hit != 0, fraction, new Vector(endPos[0], endPos[1], endPos[2]));
     }
@@ -141,7 +141,7 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
         float* normal = stackalloc float[3];
         float fraction = 1f;
         int hitbox = 0, entity = 0, surfaceProps = 0, surfaceFlags = 0;
-        int hit = api.ClientShims.ClientTraceLine(s, e, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
+        int hit = api.ClientShims.ViewClient.ClientTraceLine(s, e, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
                                                   &fraction, endPos, normal, &hitbox, &entity, &surfaceProps,
                                                   &surfaceFlags);
         return new FlashlightTrace(hit != 0, fraction, new Vector(endPos[0], endPos[1], endPos[2]));

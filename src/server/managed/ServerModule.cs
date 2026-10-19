@@ -363,6 +363,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     private ManagedVtables? _vtables;
 
+    /// <summary>
+    /// The managed sound emitter (plan_server_native_v2 T4a), built with the
+    /// root because the one native IRecipientFilter every emit hands the
+    /// engine lives in a managed block; and that block, caller-held as
+    /// vphysics' are.
+    /// </summary>
+    private ServerSounds? _serverSounds;
+    private ManagedVtable? _recipientFilter;
+
     private ManagedVtable? _physicsObjectEvents;
     private ManagedVtable? _physicsCollisionEvents;
     private ManagedVtable? _physicsCollisionSolver;
@@ -692,8 +701,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                       v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedSaveRestore",
                       v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this)));
-        _bindings.Add("IManagedSoundController",
-                      v => ManagedAreaFactory.Create(v, new SoundControllerBinding(_engine.Crossings, this)));
+        // The standalone player's move helper's two sounds (plan_server_native_v2
+        // T4a), to the emitter BuildManagedRoot builds.
+        _bindings.Add("IManagedSoundEmitter",
+                      v => ManagedAreaFactory.Create(v, new SoundEmitterBinding(_engine.Crossings,
+                                                                                new MoveSoundsOf(() => _serverSounds))));
         _bindings.Add("IManagedSoundEnt",
                       v => ManagedAreaFactory.Create(v, new SoundEntBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedHierarchy",
@@ -705,7 +717,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedEvents",
                       v => ManagedAreaFactory.Create(v, new EventsBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUserMessages",
-                      v => ManagedAreaFactory.Create(v, new UserMessagesBinding(_userMessages, _services.Require<ICloseCaptions>())));
+                      v => ManagedAreaFactory.Create(v, new UserMessagesBinding(_userMessages)));
         _bindings.Add("IManagedTempEnts",
                       v => ManagedAreaFactory.Create(v, new TempEntsBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedDiagnostics",
@@ -2961,6 +2973,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _managedRoot = new ManagedRoot(_bindings
             ?? throw new InvalidOperationException("the managed root was asked for before Initialize"), vtables).Bind();
 
+        BuildSounds(vtables);
+
         // The objects vphysics is handed as its callbacks are libss_fwd_server's
         // (plan_forwarders_everywhere.md phase 5), each built in its block.
         PhysicsCallbackObjects? callbackObjects = PhysicsCallbackObjects.Acquire(_engine, out string callbacksWhy);
@@ -3079,6 +3093,68 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     }
 
     /// <summary>
+    /// The managed sound emitter (plan_server_native_v2 T4a): the script
+    /// table, the server's engine sound and engine server through their
+    /// forwarders, and the native IRecipientFilter libss_fwd_server builds in
+    /// a managed block, which every emit points at its recipients. The side's
+    /// sound members are routed to it. Without any of the four the server
+    /// makes no sound, and says why.
+    /// </summary>
+    private void BuildSounds(ManagedVtables vtables)
+    {
+        IVtableSoundEmitter? scripts = SoundEmitterBase.Acquire(_engine, out string scriptsWhy);
+        IVtableEngineSoundServer? sound = EngineSoundServer.Acquire(_engine, out string soundWhy);
+        IVtableEngineServer? server = EngineServer.Acquire(_engine, out string serverWhy);
+        RecipientFilterObject? filters = RecipientFilterObject.Acquire(_engine, out string filtersWhy);
+        if (scripts is null || sound is null || server is null || filters is null)
+        {
+            Log.Warning("[SourceSharp/Server] no sound emitter: "
+                        + (scripts is null ? scriptsWhy : sound is null ? soundWhy : server is null ? serverWhy : filtersWhy)
+                        + "\n");
+            return;
+        }
+
+        var sink = new RecipientFilterSink();
+        _recipientFilter = RecipientFilterSink.Create(vtables, sink);
+        var engine = new SoundEmitterEngine(scripts, sound, server, sink, filters.Build(_recipientFilter));
+
+        var players = _services.Require<IEnginePlayers>();
+        var entities = _services.Require<IEngineEntities>();
+        var render = _services.Require<IEngineEntityRender>();
+        var recipients = new SoundRecipients(engine, new ServerSoundListeners(_services.Require<IEngineEnvironment>(),
+                                                                                players, server));
+        var trace = _convars.Get<SvSoundEmitterTraceConVar>();
+
+        // The speaker: a player by its slot, anything else by the entry its
+        // index names; null where nothing is bound, which has no gender.
+        string? SpeakerModel(int index)
+        {
+            EntityHandle speaker = index >= 1 && index <= EngineLimits.MaxPlayerSlots ? players.GetHandle(index) : EntityHandle.None;
+            if (speaker == EntityHandle.None)
+                speaker = _entities.Directory.HandleOf(index);
+            return speaker == EntityHandle.None ? null : render.GetModelName(speaker);
+        }
+
+        var emitter = new SoundEmitter(engine, recipients, _services.Require<ICloseCaptions>(),
+                                       _services.Require<IGameClock>(), SpeakerModel, () => trace?.Value == true,
+                                       text => Log.Msg(text), DeveloperMessage);
+        _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
+                                         text => Log.Warning(text));
+        ServerSoundRouting.Route(_engine, _serverSounds);
+    }
+
+    /// <summary>The move helper's sounds, to whichever emitter the module has built (none before the root).</summary>
+    private sealed class MoveSoundsOf(Func<IMoveSoundSink?> sink) : IMoveSoundSink
+    {
+        public void MoveSound(int entIndex, Vector origin, int channel, string sample, float volume, int soundLevel,
+                              int flags, int pitch)
+            => sink()?.MoveSound(entIndex, origin, channel, sample, volume, soundLevel, flags, pitch);
+
+        public void MoveSoundScript(int entIndex, Vector origin, string soundName)
+            => sink()?.MoveSoundScript(entIndex, origin, soundName);
+    }
+
+    /// <summary>
     /// Stock's DevMsg( 1, ... ) / DevWarning for managed's physics solver: a
     /// line under <c>developer 1</c> and nothing otherwise. Read per print:
     /// the solver prints only for a large friction system or a blown collision
@@ -3106,8 +3182,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // vphysics' handlers never release their tables, so managed frees
         // them at the final unload (native has released the root by then);
         // a reload keeps both with the root.
+        // The sound route goes first: nothing may emit through a filter whose
+        // block is about to be freed.
+        ServerSoundRouting.Route(_engine, null);
+        _serverSounds = null;
         _vtables?.ReleaseCallerHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
-                                   _physicsConstraintEvents, _physicsMotionEvents, _solidKeys);
+                                   _physicsConstraintEvents, _physicsMotionEvents, _solidKeys, _recipientFilter);
+        _recipientFilter = null;
         _solidKeys = null;
         _physicsWorld = null;
         if (_entityPhysics is not null)

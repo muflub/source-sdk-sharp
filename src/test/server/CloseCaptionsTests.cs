@@ -112,53 +112,10 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
         Assert.Equal(0, CloseCaptions.PayloadOf("t", 1f, false, false, 0).Flags);
     }
 
-    //-------------------------------------------------------------------------
-    // The native forward.
-    //-------------------------------------------------------------------------
-
-    private sealed class Heard : ICloseCaptions
-    {
-        public bool Wanted { get; set; } = true;
-        public List<(int[] Slots, bool Reliable, string Token, float Duration, bool FromPlayer, bool Warn, int Gender)> Calls { get; } = new();
-
-        public int Emit(ReadOnlySpan<int> recipients, bool reliable, string token, float duration,
-                        bool fromPlayer, bool warnIfMissing, int gender)
-        {
-            Calls.Add((recipients.ToArray(), reliable, token, duration, fromPlayer, warnIfMissing, gender));
-            return recipients.Length;
-        }
-    }
-
-    [Fact]
-    public void TheBindingHandsNativesFactsToTheCaptions()
-    {
-        var heard = new Heard();
-        var binding = new UserMessagesBinding(new UserMessageRegistry(new RecordingLog(), receives: false), heard);
-
-        int[] slots = [3, 5];
-        byte[] token = [.. "Hi.There"u8, 0];
-        fixed (int* s = slots)
-        fixed (byte* t = token)
-            binding.EmitCloseCaption(s, 2, 1, t, 1.5f, 1, 0, 2);
-
-        var call = Assert.Single(heard.Calls);
-        Assert.Equal([3, 5], call.Slots);
-        Assert.Equal((true, "Hi.There", 1.5f, true, false, 2),
-                     (call.Reliable, call.Token, call.Duration, call.FromPlayer, call.Warn, call.Gender));
-    }
-
-    [Fact]
-    public void TheBindingAnswersWhetherACaptionIsWanted()
-    {
-        var heard = new Heard { Wanted = false };
-        var binding = new UserMessagesBinding(new UserMessageRegistry(new RecordingLog(), receives: false), heard);
-        Assert.Equal(0, binding.CloseCaptionsWanted());
-
-        heard.Wanted = true;
-        Assert.Equal(1, binding.CloseCaptionsWanted());
-
-        Assert.Equal(0, new UserMessagesBinding(new UserMessageRegistry(new RecordingLog(), receives: false)).CloseCaptionsWanted());
-    }
+    // THE NATIVE FORWARD WENT (plan_server_native_v2 T4a): sound_emitter.cpp's
+    // server arm handed the binding the caption's facts, and the managed
+    // SoundEmitter calls ICloseCaptions itself now (SoundEmitterTests' caption
+    // facts hold what reaches it).
 
     /// <summary>
     /// The four bits C# sets in the CloseCaption message are shareddefs.h's

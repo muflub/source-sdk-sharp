@@ -41,6 +41,7 @@ moved here verbatim with the date the comment was written (git blame). Newest fi
 
 | date | file | reason |
 |---|---|---|
+| 2026-10-19 | shell_soundenvelope.cpp | plan_server_native_v2 T4a: the server's CSoundPatch and CShellSoundController, and the five SoundPatch slot bodies. The patches are SourceSharp.Server's ServerSoundPatches over the managed SoundEmitter; ss_soundcontroller.h, whose ISoundController no server object called (nm), went with it. The client's patches are shell_soundenvelope_client.cpp's, unchanged. |
 | 2026-10-11 | physics_fx.cpp | physics_fx.cpp deleted 2026-10-11: PhysicsSplash had no caller; the splash is SourceSharp.Server's PhysicsSplashPlan (PhysicsFluidEvents). |
 | 2026-10-01 | particle_manifest.cpp | particle_manifest.cpp left (P5 lane SP): its server half is the two DispatchParticleEffect overloads, and no server object references either (nm over every server_sourcesharp object). client.so still builds it. |
 | 2026-10-01 | ragdoll_shared.cpp | ragdoll_shared.cpp left (P5 lane SP): no server object references any of its 62 defined symbols (nm), and the linked server.so kept only its TU-local vec2/vec4 constant initialisers. client.so still builds it. |

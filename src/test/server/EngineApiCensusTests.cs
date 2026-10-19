@@ -165,7 +165,9 @@ public partial class EngineApiCensusTests
     // 2026-10-19: PrecacheMaterial and PrecacheParticleSystem folded onto the
     // string tables' forwarders (154 - 2 = 152).
     // 2026-10-19: DrawWorldText folded onto IVDebugOverlay (152 - 1 = 151).
-    private const int ServerOnly = 151;
+    // plan_server_native_v2 T4a: IShimSound's five emits retired, the managed
+    // SoundEmitter answering them (151 - 5 = 146).
+    private const int ServerOnly = 146;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -311,7 +313,9 @@ public partial class EngineApiCensusTests
     // Combined at the rebase onto the forwarders main: 236 + 2 = 238.
     // C7 cluster 12: IShimFlashlightClient's six, the flashlight's executor
     // (texture, border colour, create, update, project, destroy): 238 + 6 = 244.
-    private const int ClientOnly = 244;
+    // plan_server_native_v2 T4a: the five SoundPatch slots are the client's
+    // alone (IShimSoundscapeClient), the server's patches managed (238 + 5 = 243; on main's flashlight 244 + 5 = 249).
+    private const int ClientOnly = 249;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
@@ -335,7 +339,9 @@ public partial class EngineApiCensusTests
     // managed (43 - 1 = 42).
     // 2026-10-19: SoundScriptParameters folded onto ISoundEmitterSystemBase
     // (42 - 1 = 41).
-    private const int BothSides = 41;
+    // plan_server_native_v2 T4a: IShimEngine's five SoundPatch slots left for
+    // the client (41 - 5 = 36).
+    private const int BothSides = 36;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

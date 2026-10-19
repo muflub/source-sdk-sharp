@@ -309,7 +309,10 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 #   P1 and plan_server_native_v2 T2/T3 over main's own evictions. `cd farm/debug && python3 tools/globals-census gate`
 #   -> link_level 286. The subject is the shim's directory: a fresh farm has no src/game/server (no server fork link
 #   since D3).
-globals_link_level	src/sourcesharp/game/server	286
+# LOWERED 2026-10-19, 286 -> 281 (plan_server_native_v2 T4a): the server's emit path left for C#: shell_sound.cpp's
+#   s_bSaid, shell_soundenvelope.cpp's s_Controller, sound_emitter.cpp's g_pClosecaption, sv_soundemitter_trace and
+#   WaveTrace's s_WaveTrace (client-only now). `make globals-census` -> link_level 281.
+globals_link_level	src/sourcesharp/game/server	281
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the

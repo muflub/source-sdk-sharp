@@ -14,16 +14,6 @@ float CShimEngine::GetCurrentTime()
 	{ return ::SourceSharp_GetCurrentTime(); }
 void * CShimEngine::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
-void CShimEngine::SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption )
-	{ return ::SourceSharp_SoundPatchEmit( hPatch, flVolume01, flPitch, nFlags, flStartTime, bEmitCaption ); }
-void CShimEngine::SoundPatchStop( int32_t hPatch )
-	{ return ::SourceSharp_SoundPatchStop( hPatch ); }
-void CShimEngine::SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive )
-	{ return ::SourceSharp_SoundPatchState( hPatch, pnEntIndex, pbFilterActive ); }
-void CShimEngine::SoundPatchFree( int32_t hPatch )
-	{ return ::SourceSharp_SoundPatchFree( hPatch ); }
-int32_t CShimEngine::SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel )
-	{ return ::SourceSharp_SoundPatchCreate( hEntity, nChannel, pSoundName, nSoundLevel ); }
 
 void CShimConsoleServer::SendClientCommand( uint32_t hPlayer, const char * pCommand )
 	{ return ::SourceSharp_SendClientCommand( hPlayer, pCommand ); }
@@ -335,17 +325,6 @@ int32_t CShimPlayers::ClientsStandalonePlayerEarPosition( int32_t iEdict, float 
 void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
 	{ return ::SourceSharp_PlayerSetTeam( hPlayer, nTeam ); }
 
-void CShimSound::EntityEmitSound( uint32_t hEntity, const char * pSoundName )
-	{ return ::SourceSharp_EntityEmitSound( hEntity, pSoundName ); }
-void CShimSound::EntityStopSound( uint32_t hEntity, const char * pSoundName )
-	{ return ::SourceSharp_EntityStopSound( hEntity, pSoundName ); }
-void CShimSound::EmitSoundAtPosition( const char * pSoundName, const float * pXYZ )
-	{ return ::SourceSharp_EmitSoundAtPosition( pSoundName, pXYZ ); }
-void CShimSound::EmitAmbientSound( int32_t nEntIndex, const float * pXYZ, const char * pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch )
-	{ return ::SourceSharp_EmitAmbientSound( nEntIndex, pXYZ, pSoundName, flVolume, nSoundLevel, nFlags, nPitch ); }
-int32_t CShimSound::EmitWorldSoundScript( const char * pszName, const float * pXYZ, int32_t nChannel, float flVolume )
-	{ return ::SourceSharp_EmitWorldSoundScript( pszName, pXYZ, nChannel, flVolume ); }
-
 int32_t CShimEffectsServer::TempEntRegister( const SourceSharpTeClass_t * pDesc )
 	{ return ::SourceSharp_TempEntRegister( pDesc ); }
 void CShimEffectsServer::TempEntPlayback( int32_t hClass, const void * pBlob, int32_t nBytes, const SourceSharpTeFilter_t * pFilter, float flDelay )
@@ -447,9 +426,6 @@ void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PLAYERS_VERSION ) )
 		return static_cast< IShimPlayers * >( &areas.m_Players );
-
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_SOUND_VERSION ) )
-		return static_cast< IShimSound * >( &areas.m_Sound );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTSSERVER_VERSION ) )
 		return static_cast< IShimEffectsServer * >( &areas.m_EffectsServer );

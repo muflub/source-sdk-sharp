@@ -26,7 +26,6 @@ struct CManagedAreas
 	IManagedPhysicsFrame *m_pPhysicsFrame;
 	IManagedResources *m_pResources;
 	IManagedSaveRestore *m_pSaveRestore;
-	IManagedSoundController *m_pSoundController;
 	IManagedSoundEnt *m_pSoundEnt;
 	IManagedHierarchy *m_pHierarchy;
 	IManagedEntities *m_pEntities;
@@ -41,6 +40,7 @@ struct CManagedAreas
 	IManagedFrame *m_pFrame;
 	IManagedConsoleOutput *m_pConsoleOutput;
 	IManagedBones *m_pBones;
+	IManagedSoundEmitter *m_pSoundEmitter;
 };
 
 struct CManagedHolders
@@ -61,7 +61,6 @@ inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 		&& !holders.m_Areas.m_pPhysicsFrame
 		&& !holders.m_Areas.m_pResources
 		&& !holders.m_Areas.m_pSaveRestore
-		&& !holders.m_Areas.m_pSoundController
 		&& !holders.m_Areas.m_pSoundEnt
 		&& !holders.m_Areas.m_pHierarchy
 		&& !holders.m_Areas.m_pEntities
@@ -75,7 +74,8 @@ inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 		&& !holders.m_Areas.m_pPlayerCommands
 		&& !holders.m_Areas.m_pFrame
 		&& !holders.m_Areas.m_pConsoleOutput
-		&& !holders.m_Areas.m_pBones;
+		&& !holders.m_Areas.m_pBones
+		&& !holders.m_Areas.m_pSoundEmitter;
 }
 
 // Every area from the root, each accepted through its Validate; false with the

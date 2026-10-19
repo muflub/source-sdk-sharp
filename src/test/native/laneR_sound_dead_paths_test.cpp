@@ -510,8 +510,10 @@ TEST( LaneRSoundDeadPaths, IsServerIsNoLongerBorrowedFromTheEntityClass )
 		   "c_baseentity.h `return false;`) borrowing the entity class for a "
 		   "namespace, and an alias has no statics.";
 
-	// And the two arms still say what the one expression said.
-	EXPECT_NE( std::string::npos, EmitterSource().find( "\"(sv)\"" ) );
+	// And the arm left still says what the one expression said for it. The
+	// server's "(sv)" arm went with its emit path in plan_server_native_v2 T4a:
+	// the server's trace line is SoundEmitter.Trace's (C#), same text.
+	EXPECT_EQ( std::string::npos, EmitterSource().find( "\"(sv)\"" ) );
 	EXPECT_NE( std::string::npos, EmitterSource().find( "\"(cl)\"" ) );
 }
 
@@ -851,18 +853,21 @@ TEST( LaneRSoundDeadPaths, TheServerActorLookupGoesThroughTheEdict )
 {
 	const std::string strCode = StripComments( EmitterSource() );
 
-	// Two server sites: EmitSoundByHandle and EmitCloseCaption.
+	// The two server sites, EmitSoundByHandle and EmitCloseCaption, resolved the
+	// edict's own IServerEntity (movehelper_server.cpp's recipe). They LEFT with
+	// the server's emit path in plan_server_native_v2 T4a: the managed
+	// SoundEmitter asks the entity at the index for its model through the
+	// managed entity area, on either hierarchy (SoundEmitterTests'
+	// TheSpeakersGenderComesFromTheModelOfTheEntityAtTheIndex). None is left.
 	size_t nEdict = 0, i = 0;
 	while ( ( i = strCode.find( "GetIServerEntity()", i ) ) != std::string::npos )
 	{
 		nEdict++;
 		i += 1;
 	}
-	EXPECT_EQ( 2u, nEdict )
-		<< "the two server actor-gender lookups should each resolve the edict's "
-		   "own IServerEntity -- movehelper_server.cpp's recipe. "
-		   "CBaseEntity::Instance answers NULL for every entity this port owns, "
-		   "so going back to it silently loses their gender.";
+	EXPECT_EQ( 0u, nEdict )
+		<< "a server actor-gender lookup is back in sound_emitter.cpp; the "
+		   "server's is the managed SoundEmitter's.";
 
 	// And the SDK resolve is gone from the file ALTOGETHER, not merely from the
 	// arms this build compiles. The two occurrences that used to remain were

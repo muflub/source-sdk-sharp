@@ -6,19 +6,16 @@
 # commit. columns: direction, slot, calls, rest, load
 # TIP=797a129bd4ccca3a8fffd4711d528181a65d6289
 # config=debug map=dm_lockdown rest=20s frames: rest=1626 load=487 trace lines: boot=689 rest=2552 load=2143
+# 2026-10-19, plan_server_native_v2 T4a: the five SourceSharp_SoundPatch* rows removed by hand (the slots left
+# the server: its patches are managed); every other row is the measurement above, unchanged.
 direction	slot	calls	rest	load
 managed:engine	SourceSharp_TraceLine	3250	1.569	1.433
 managed:engine	SourceSharp_PrecacheDecal	298	0.000	0.612
 managed:engine	SourceSharp_PrecacheModel	197	0.000	0.405
-managed:engine	SourceSharp_SoundPatchState	105	0.000	0.216
 managed:engine	SourceSharp_PaintDecal	81	0.000	0.166
 managed:engine	SourceSharp_EntityTraceHull	38	0.000	0.078
 managed:engine	SourceSharp_EntityModelSurfaceProp	13	0.000	0.027
 managed:engine	SourceSharp_SurfacePropGameMaterial	13	0.000	0.027
-managed:engine	SourceSharp_SoundPatchEmit	11	0.000	0.023
-managed:engine	SourceSharp_SoundPatchCreate	8	0.000	0.016
-managed:engine	SourceSharp_SoundPatchFree	8	0.000	0.016
-managed:engine	SourceSharp_SoundPatchStop	8	0.000	0.016
 managed:engine	SourceSharp_CreateConstraint	2	0.000	0.004
 managed:engine	SourceSharp_CreateMotionController	1	0.000	0.002
 managed:engine	SourceSharp_EngineLightStyle	1	0.000	0.002

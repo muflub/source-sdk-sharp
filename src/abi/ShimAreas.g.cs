@@ -62,11 +62,6 @@ internal sealed unsafe class EngineArea
 
     public float GetCurrentTime() { return _shim.Vt->GetCurrentTime(_shim.Self); }
     public nint GetGlobalVarsPtr() { return (nint)_shim.Vt->GetGlobalVarsPtr(_shim.Self); }
-    public void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5) { _shim.Vt->SoundPatchEmit(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void SoundPatchStop(int a0) { _shim.Vt->SoundPatchStop(_shim.Self, a0); }
-    public void SoundPatchState(int a0, int* a1, int* a2) { _shim.Vt->SoundPatchState(_shim.Self, a0, a1, a2); }
-    public void SoundPatchFree(int a0) { _shim.Vt->SoundPatchFree(_shim.Self, a0); }
-    public int SoundPatchCreate(uint a0, int a1, byte* a2, int a3) { return _shim.Vt->SoundPatchCreate(_shim.Self, a0, a1, a2, a3); }
 }
 
 /// <summary>
@@ -517,22 +512,6 @@ internal sealed unsafe class PlayersArea
 }
 
 /// <summary>
-/// <c>IShimSound</c>, served as <c>SourceSharpSound001</c>, through <see cref="ShimSoundFwd"/>.
-/// </summary>
-internal sealed unsafe class SoundArea
-{
-    private readonly ShimRef<ShimSoundFwd> _shim;
-
-    internal SoundArea(ShimRef<ShimSoundFwd> shim) { _shim = shim; }
-
-    public void EntityEmitSound(uint a0, byte* a1) { _shim.Vt->EntityEmitSound(_shim.Self, a0, a1); }
-    public void EntityStopSound(uint a0, byte* a1) { _shim.Vt->EntityStopSound(_shim.Self, a0, a1); }
-    public void EmitSoundAtPosition(byte* a0, float* a1) { _shim.Vt->EmitSoundAtPosition(_shim.Self, a0, a1); }
-    public void EmitAmbientSound(int a0, float* a1, byte* a2, float a3, int a4, int a5, int a6) { _shim.Vt->EmitAmbientSound(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public int EmitWorldSoundScript(byte* a0, float* a1, int a2, float a3) { return _shim.Vt->EmitWorldSoundScript(_shim.Self, a0, a1, a2, a3); }
-}
-
-/// <summary>
 /// <c>IShimEffectsServer</c>, served as <c>SourceSharpEffectsServer001</c>, through <see cref="ShimEffectsServerFwd"/>. Its base's slots are <see cref="EffectsArea"/>'s.
 /// </summary>
 internal sealed unsafe class EffectsServerArea : EffectsArea
@@ -956,6 +935,11 @@ internal sealed unsafe class SoundscapeClientArea
     public void SoundscapeMainView(float* a0) { _shim.Vt->SoundscapeMainView(_shim.Self, a0); }
     public int SoundscapeMakingResLists() { return _shim.Vt->SoundscapeMakingResLists(_shim.Self); }
     public void SoundscapeTouchSoundFile(byte* a0) { _shim.Vt->SoundscapeTouchSoundFile(_shim.Self, a0); }
+    public void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5) { _shim.Vt->SoundPatchEmit(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void SoundPatchStop(int a0) { _shim.Vt->SoundPatchStop(_shim.Self, a0); }
+    public void SoundPatchState(int a0, int* a1, int* a2) { _shim.Vt->SoundPatchState(_shim.Self, a0, a1, a2); }
+    public void SoundPatchFree(int a0) { _shim.Vt->SoundPatchFree(_shim.Self, a0); }
+    public int SoundPatchCreate(uint a0, int a1, byte* a2, int a3) { return _shim.Vt->SoundPatchCreate(_shim.Self, a0, a1, a2, a3); }
 }
 
 /// <summary>
@@ -1088,7 +1072,6 @@ internal sealed unsafe class ShimAreas
     public readonly DamageArea Damage = null!;
     public readonly GameRulesArea GameRules = null!;
     public readonly PlayersArea Players = null!;
-    public readonly SoundArea Sound = null!;
     public readonly EffectsServerArea EffectsServer = null!;
     public readonly DebugOverlayArea DebugOverlay = null!;
     public readonly UserMessagesArea UserMessages = null!;
@@ -1179,10 +1162,6 @@ internal sealed unsafe class ShimAreas
             Players = new PlayersArea(shim);
         }
         {
-            if (!ShimRef<ShimSoundFwd>.TryTake(root, "SourceSharpSound001", out var shim, out why)) return;
-            Sound = new SoundArea(shim);
-        }
-        {
             if (!ShimRef<ShimEffectsServerFwd>.TryTake(root, "SourceSharpEffectsServer001", out var shim, out why)) return;
             EffectsServer = new EffectsServerArea(shim);
         }
@@ -1211,7 +1190,7 @@ internal sealed unsafe class ShimAreas
         return areas is not null;
     }
 
-    internal static int Count => 22;
+    internal static int Count => 21;
 }
 
 /// <summary>

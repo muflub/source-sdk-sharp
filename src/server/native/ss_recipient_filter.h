@@ -56,7 +56,6 @@ public:
 	virtual int GetRecipientCount( void ) const { return (int)m_Recipients.size(); }
 	virtual int GetRecipientIndex( int slot ) const;
 
-	void CopyFrom( const CRecipientFilter &src );
 	void Reset( void );
 
 	void MakeReliable( void ) { m_bReliable = true; }
@@ -135,11 +134,6 @@ public:
 	{
 		Filter( origin, attenuation );
 	}
-	CPASAttenuationFilter( IGameEntity *entity, const char *lookupSound );
-	CPASAttenuationFilter( const Vector &origin, const char *lookupSound );
-	CPASAttenuationFilter( const CBaseHandle &hSource, const char *lookupSound );
-	CPASAttenuationFilter( IGameEntity *entity, const char *lookupSound, HSOUNDSCRIPTHANDLE &handle );
-	CPASAttenuationFilter( const Vector &origin, const char *lookupSound, HSOUNDSCRIPTHANDLE &handle );
 
 	// Drops the listed players farther from origin than the attenuation reaches.
 	void Filter( const Vector &origin, float attenuation = ATTN_NORM );
@@ -152,8 +146,6 @@ public:
 	explicit CPVSFilter( const Vector &origin ) { AddRecipientsByPVS( origin ); }
 };
 
-// Drops the players whose closecaption setting turns captions off.
-void RecipientFilter_RemoveIfNotCloseCaptioning( CRecipientFilter &filter );
 
 } // namespace ss
 

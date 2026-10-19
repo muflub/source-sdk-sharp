@@ -160,6 +160,28 @@ public interface IVtableEngineServer
     /// <summary>A client's convar value as the server holds it (<c>GetClientConVarValue</c>), or null.</summary>
     string? ClientConVarValue(int entIndex, string name);
 
+    /// <summary>
+    /// <c>EmitAmbientSound( entindex, pos, samp, vol, soundlevel, fFlags, pitch,
+    /// soundtime )</c>: what the managed SoundEmitter's ambient emit and
+    /// UTIL_EmitAmbientSound end in (plan_server_native_v2 T4a).
+    /// </summary>
+    void EmitAmbientSound(int entIndex, Vector origin, string sample, float volume, int soundLevel,
+                          int flags, int pitch, float soundTime);
+
+    /// <summary><c>SentenceIndexFromName( name )</c>: the sentence's index, or -1.</summary>
+    int SentenceIndexFromName(string name);
+
+    /// <summary>
+    /// <c>Message_DetermineMulticastRecipients( usepas, origin, playerbits )</c>:
+    /// the PAS (or PVS) of a point as a bit per player slot, bit N being
+    /// player N + 1, written into <paramref name="playerBits"/>
+    /// (<see cref="PlayerBitWords"/> words: CBitVec&lt;ABSOLUTE_PLAYER_LIMIT&gt;).
+    /// </summary>
+    void MulticastRecipients(bool usePas, Vector origin, Span<uint> playerBits);
+
+    /// <summary>The uint32 words of CBitVec&lt;ABSOLUTE_PLAYER_LIMIT&gt; (255 bits).</summary>
+    const int PlayerBitWords = 8;
+
     // NO Con_NPrintf AND NO ClientCommand, AND NEITHER GETS A C++ PROXY.
     //
     // Both are varargs, so managed cannot issue them through a fixed indirect
@@ -174,8 +196,9 @@ public interface IVtableEngineServer
     // LightStyle through the forwarders as the purpose-named members above.
     //
     // Still absent, and each for its own reason rather than for want of anyone
-    // looking: PrecacheModel, CreateEdict and EmitAmbientSound all CHANGE
-    // something, and the raw ServerCommand runs a console line (ServerCommandNow
+    // looking: PrecacheModel and CreateEdict CHANGE something (EmitAmbientSound
+    // joined at T4a, for the managed SoundEmitter), and the raw ServerCommand
+    // runs a console line (ServerCommandNow
     // is the one named member that does); Time and
     // GetServerTime are answered by the engine's own CGlobalVars through the
     // bound data pointer, which is a load rather than a call. The struct types

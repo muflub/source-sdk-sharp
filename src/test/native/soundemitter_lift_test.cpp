@@ -237,7 +237,10 @@ const char *const kCallers[] =
 	// ClientFriction), and nothing else of it called a sound.
 	"../sourcesharp/game/server/shell_absent.cpp",
 	"../sourcesharp/game/server/shell_sound.cpp",
-	"../sourcesharp/game/server/shell_standalone_player.cpp",
+	// shell_standalone_player.cpp left the list in plan_server_native_v2 T4a,
+	// as a DROP: its move helper's two StartSounds hand the managed
+	// SoundEmitter the sound through IManagedSoundEmitter
+	// (ServerMoveSound / ServerMoveSoundScript), so the sound is not lost.
 	// shell_worldquery.cpp left the list 2026-10-19: its one call was
 	// SparkEffect's "DoSpark", and the spark is EffectsOverTempEnts' (C#),
 	// which emits the same sound; the slot went.
