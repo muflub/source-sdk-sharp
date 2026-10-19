@@ -140,6 +140,9 @@
 #include "shell_cliententitylist.h"
 #include "shell_standalone_client.h"
 
+#include "handle_cross.h"          // SourceSharp_ClientShellFromTraceHit
+#include "engine/IStaticPropMgr.h"
+
 // plan_entity.md Phase 0 step 0e -- the engine-boundary probe, carried forward
 // from cliententitylist.cpp onto the object the engine now calls.
 #include "shell_boundary_probe.h"
@@ -233,6 +236,18 @@ C_StandaloneEntity *SourceSharp_ClientShellFromHandleEntity( IHandleEntity *pHan
 		return NULL;
 
 	return SourceSharp_ClientShellFromHandle( pHandleEntity->GetRefEHandle() );
+}
+
+//-----------------------------------------------------------------------------
+// What a trace hit, as a shell: handle_cross.h's crossing over this table.
+// The static-prop question is util_shared.h GameEntityFromEntityHandle's own
+// first ask, kept so a prop's handle never reaches the table.
+//-----------------------------------------------------------------------------
+C_StandaloneEntity *SourceSharp_ClientShellFromTraceHit( IHandleEntity *pHandleEntity )
+{
+	return SourceSharp_CrossHandleToClientShell< C_StandaloneEntity >( pHandleEntity,
+		[]( IHandleEntity *pHit ) { return SourceSharp_ClientShellFromHandleEntity( pHit ); },
+		[]( IHandleEntity *pHit ) { return staticpropmgr && staticpropmgr->IsStaticProp( pHit ); } );
 }
 
 //=============================================================================
@@ -661,30 +676,6 @@ CBaseHandle SourceSharp_ClientHandleFromIndex( int nEntry )
 	IClientUnknown *pLegacy = SourceSharp_LegacyListUnknownFromIndex( nEntry );
 
 	return pLegacy ? pLegacy->GetRefEHandle() : CBaseHandle();
-}
-
-//-----------------------------------------------------------------------------
-// The SDK-only arm. SDKEntityFromUnknown is c_baseentity.h's filtered ask --
-// NEVER the raw GetBaseEntity spelling on an IClientUnknown, which
-// cliententitylist.h bans on this side and sdk_player_cast_test.cpp enforces --
-// the ban is on the TEXT, so this comment does not spell it either.
-//-----------------------------------------------------------------------------
-IGameEntity *SourceSharp_ClientSdkEntityFromIndex( int nEntry )
-{
-	return SDKEntityFromUnknown( ClientUnknownFromIndex( nEntry ) );
-}
-
-//-----------------------------------------------------------------------------
-// The same filtered ask, by handle. Added by step p7-exit for the stock client
-// TUs that stay compiled and hold an endpoint as a handle rather than an index.
-//
-// IT GOES WITH ITS CALLERS, exactly as the index arm above does: when the last
-// C_BaseEntity leaves the client both are deleted rather than re-pointed, and
-// every caller of either is a caller that still wants a C_BaseEntity *.
-//-----------------------------------------------------------------------------
-IGameEntity *SourceSharp_ClientSdkEntityFromHandle( const CBaseHandle &hEnt )
-{
-	return SDKEntityFromUnknown( ClientUnknownFromHandle( hEnt ) );
 }
 
 //=============================================================================

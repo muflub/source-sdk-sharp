@@ -205,12 +205,22 @@ TEST( GroundTraceSubject, CanStandOnStillReturnsTrueForNull )
 	ASSERT_FALSE( strGround.empty() )
 		<< "game/shared/movement_ground.h could not be read";
 
-	EXPECT_NE( std::string::npos, strGround.find( "if ( TraceGameEntity( tr ) != NULL )" ) )
-		<< "MovementGroundFromTrace no longer resolves the ground through "
-		   "TraceGameEntity. That is the arm that answers for the parallel "
-		   "hierarchy on BOTH sides; without it a player standing on a managed "
-		   "entity resolves to no ground again, which is this file's bug by "
+	// PER SIDE SINCE 2026-10-18. The server asks ss::TraceGameEntity; the
+	// client asks the slot table for the shell the trace hit, because its
+	// C_StandaloneEntity no longer derives from IGameEntity and the client's
+	// TraceGameEntity (GetGameEntity()) answers NULL for every object. The
+	// shell crossing's own facts are handle_cross_test.cpp's ClientShellCross.
+	EXPECT_NE( std::string::npos, strGround.find( "if ( SourceSharp_ClientShellFromTraceHit( ss::TraceHit( tr ) ) != NULL )" ) )
+		<< "MovementGroundFromTrace's CLIENT arm no longer resolves the ground "
+		   "through the slot table's shell. TraceGameEntity answers NULL for "
+		   "every client object, so a player standing on a managed entity "
+		   "would resolve to no ground again, which is this file's bug by "
 		   "another route.";
+	EXPECT_NE( std::string::npos, strGround.find( "if ( ss::TraceGameEntity( tr ) != NULL )" ) )
+		<< "MovementGroundFromTrace's SERVER arm no longer resolves the ground "
+		   "through ss::TraceGameEntity.";
+	EXPECT_EQ( std::string::npos, strGround.find( "if ( TraceGameEntity( tr ) != NULL )" ) )
+		<< "the client asks TraceGameEntity again, which answers NULL there.";
 
 	EXPECT_NE( std::string::npos, strGround.find( "return ss::TraceHit( tr );" ) )
 		<< "MovementGroundFromTrace no longer returns the trace's own "

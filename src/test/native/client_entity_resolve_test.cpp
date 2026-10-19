@@ -625,19 +625,21 @@ TEST( ClientEntityResolve, TheThinkableResolverGoesThroughTheTableFirstPrimitive
 	    << "the thinkable resolver reaches for the stock list directly.";
 }
 
-TEST( ClientEntityResolve, TheSdkEntityByHandleResolverKeepsTheFilteredAsk )
+// The SDK-only arms (SourceSharp_ClientSdkEntityFromIndex / ...FromHandle) left
+// 2026-10-18 with C_StandaloneEntity's IGameEntity base: they answered NULL for
+// every entity on this side (every client GetBaseEntity() answers NULL), so
+// their callers now say NULL themselves. Not WIDENED to the shell: a caller
+// that wants the shell asks a shell resolver by name.
+TEST( ClientEntityResolve, TheSdkOnlyArmsAreGoneNotWidened )
 {
-	const std::string body = NoWhitespace( BodyOf( StripComments( ReadRaw( kResolvers ) ),
-	    "IGameEntity *SourceSharp_ClientSdkEntityFromHandle( const CBaseHandle &hEnt )" ) );
+	const std::string raw = StripComments( ReadRaw( kResolvers ) );
+	ASSERT_GT( raw.size(), 1000u ) << kResolvers << " did not read";
+	ASSERT_NE( raw.find( "SourceSharp_ClientShellFromHandle(" ), std::string::npos )
+	    << "the control: the slot-table resolver is not in " << kResolvers;
 
-	EXPECT_NE( body.find( "SDKEntityFromUnknown(" ), std::string::npos )
-	    << "the by-handle SDK arm stopped filtering. Widening it would hand "
-	       "callers a C_BaseEntity * for an entity that is not one -- which is "
-	       "exactly what shell_cliententitylist.h's banner says the index arm "
-	       "may never do.";
-	EXPECT_NE( body.find( "ClientUnknownFromHandle(hEnt)" ), std::string::npos )
-	    << "the by-handle SDK arm no longer goes through the table-first "
-	       "primitive.";
+	EXPECT_EQ( raw.find( "SourceSharp_ClientSdkEntityFrom" ), std::string::npos )
+	    << "an SDK-only arm is back in " << kResolvers << ". On this side it can "
+	       "only answer NULL, or hand out something that is not a C_BaseEntity.";
 }
 
 //-----------------------------------------------------------------------------
@@ -878,14 +880,14 @@ TEST( ClientEntityResolve, TheEffectDatasThreeAccessorsKeepTheirOwnFaces )
 	           std::string::npos )
 	    << "CEffectData::GetRenderable does not resolve a renderable.";
 
-	// THE FILTERED ASK, AND NOT THE WIDE ONE. GetEntity() hands back a
-	// C_BaseEntity *; the unknown or entity resolver would hand back a pointer
-	// to something that is not one, for every managed entity.
-	EXPECT_NE( body.find( "SourceSharp_ClientSdkEntityFromHandle(m_hEntity)" ),
+	// NOT THE WIDE ONE. GetEntity() hands back an IGameEntity *, and no client
+	// entity is one: it answers NULL, as the SDK-filtered resolve it used to
+	// ask did for every entity (2026-10-18).
+	EXPECT_NE( body.find( "IGameEntity*CEffectData::GetEntity()const{returnNULL;}" ),
 	           std::string::npos )
-	    << "CEffectData::GetEntity does not use the SDK-FILTERED resolver. It "
-	       "returns a C_BaseEntity *, so a widened resolve would hand its "
-	       "callers a pointer to an object that is not one.";
+	    << "CEffectData::GetEntity no longer answers NULL. It returns an "
+	       "IGameEntity *, so any resolve would hand its callers a pointer to an "
+	       "object that is not one.";
 
 	EXPECT_NE( body.find( "SourceSharp_ClientNetworkableFromHandle(m_hEntity)" ),
 	           std::string::npos )
@@ -1236,20 +1238,21 @@ TEST( ClientEntityResolve, TheGuardPassIsWhatSeparatesTheTwoArms )
 	//     of (a)'s second direction: a StripDeadArms that returned nothing would
 	//     pass every absence in this file, so one real migrated TU is
 	//     held to still have its live text after the pass.
-	// particlemgr.cpp since the C2 beam port took view_beams.cpp, and since C7
-	// particles phase 4 evicted particlemgr.cpp, the new-style effects' shell
-	// that took its draw: a compiled TU resolving its entities through the
-	// port's slot table.
-	const std::string beamsLive = LiveText( "sourcesharp/game/client/shell_new_particles_client.cpp" );
+	// particlemgr.cpp since the C2 beam port took view_beams.cpp, then the
+	// new-style effects' shell (C7 particles phase 4), and since 2026-10-18,
+	// when that shell's one resolve (the SDK-only arm) left with
+	// C_StandaloneEntity's IGameEntity base, the beam renderer: a compiled TU
+	// resolving its entities through the port's slot table.
+	const std::string beamsLive = LiveText( "sourcesharp/game/client/shell_beam_render.cpp" );
 
-	EXPECT_NE( beamsLive.find( "SourceSharp_ClientSdkEntityFromIndex(" ), std::string::npos )
-	    << "shell_new_particles_client.cpp's live text no longer contains the slot-table resolver "
+	EXPECT_NE( beamsLive.find( "SourceSharp_ClientShellFromHandleEntity(" ), std::string::npos )
+	    << "shell_beam_render.cpp's live text no longer contains the slot-table resolver "
 	       "after the guard pass. Either the pass is stripping code this build "
 	       "compiles -- in which case every absence in this file is vacuous -- or "
 	       "the file has stopped resolving its entities through the port.";
 
 	EXPECT_GT( beamsLive.size(), 1000u )
-	    << "shell_new_particles_client.cpp's live text is " << beamsLive.size() << " bytes after "
+	    << "shell_beam_render.cpp's live text is " << beamsLive.size() << " bytes after "
 	       "the guard pass. A pass that empties a compiled TU satisfies every "
 	       "`EXPECT_FALSE( NamesTheStockList( live ) )` in this file for a reason "
 	       "that has nothing to do with the migration.";
@@ -1288,4 +1291,81 @@ TEST( ClientEntityResolve, TheClientProjectStillDefinesTheGuardThisFileAssumes )
 	EXPECT_TRUE( compiled.count( "SOURCESHARP" ) )
 	    << "client_sourcesharp's compile command carries no -DSOURCESHARP, so "
 	       "the guard world in this file is wrong.";
+}
+
+//-----------------------------------------------------------------------------
+// THE IMPACT'S CONTROL-POINT ENTITY IS THE SHELL THE TRACE HIT (2026-10-18).
+//
+// The impact effects bind points 0-2 to the entity the bullet hit; the
+// particle query reads only whether a point has an object (m_pObject != NULL),
+// which is what managed's hit-box answers are keyed on. That entity came from
+// TraceGameEntity, i.e. GetGameEntity(), which answers NULL for every client
+// object once C_StandaloneEntity is no IGameEntity -- so the binding would have
+// gone silently. It comes from the slot table now.
+//
+// AND THE HANDLE IS A REAL ONE. The owners were an EHANDLE assigned from an
+// IGameEntity *, which networkvar.h's SourceSharp_EntityHandle refuses: a
+// Warning, an AssertMsg and the INVALID handle, for every managed entity a
+// bullet hit. A CBaseHandle from the shell's own GetRefEHandle() is the handle.
+//-----------------------------------------------------------------------------
+static size_t CountNeedle( const std::string &hay, const std::string &needle )
+{
+	size_t n = 0;
+	for ( size_t at = hay.find( needle ); at != std::string::npos; at = hay.find( needle, at + needle.size() ) )
+		n++;
+	return n;
+}
+
+TEST( ClientEntityResolve, TheImpactControlPointsBindTheShellTheTraceHit )
+{
+	const std::string impact = NoWhitespace( LiveText( "sourcesharp/game/client/shell_impact_effects.cpp" ) );
+	ASSERT_GT( impact.size(), 1000u ) << "shell_impact_effects.cpp did not read";
+
+	EXPECT_EQ( 3u, CountNeedle( impact, "SourceSharp_ClientShellFromTraceHit(ss::TraceHit(tr)));" ) )
+	    << "the three SetImpactControlPoint calls no longer hand it the shell the "
+	       "trace hit. TraceGameEntity answers NULL for every client object, so "
+	       "an impact on a managed entity would bind no object to its points.";
+	EXPECT_EQ( std::string::npos, impact.find( "TraceGameEntity(" ) )
+	    << "the impact effects ask TraceGameEntity again, which answers NULL on "
+	       "this side.";
+}
+
+TEST( ClientEntityResolve, TheControlPointOwnersAreRealHandles )
+{
+	const std::string header = NoWhitespace( StripComments( ReadRaw( "sourcesharp/game/client/shell_new_particles.h" ) ) );
+	const std::string body = NoWhitespace( LiveText( "sourcesharp/game/client/shell_new_particles_client.cpp" ) );
+	ASSERT_GT( header.size(), 500u ) << "shell_new_particles.h did not read";
+	ASSERT_GT( body.size(), 1000u ) << "shell_new_particles_client.cpp did not read";
+
+	EXPECT_NE( std::string::npos, header.find( "CBaseHandlem_hControlPointOwners[MAX_PARTICLE_CONTROL_POINTS];" ) )
+	    << "the control points' owners are not plain handles. An EHANDLE assigned "
+	       "from an entity pointer goes through networkvar.h's refusal and stores "
+	       "the INVALID handle.";
+	EXPECT_NE( std::string::npos, body.find( "m_hControlPointOwners[nWhichPoint]=pEntity->GetRefEHandle();" ) )
+	    << "SetControlPointEntity no longer stores the entity's own handle.";
+	EXPECT_NE( std::string::npos, body.find( "returnSourceSharp_ClientShellFromHandle(m_hControlPointOwners[nWhichPoint]);" ) )
+	    << "GetControlPointEntity no longer resolves its handle through the slot table.";
+}
+
+//-----------------------------------------------------------------------------
+// THE CLIENT SHELL IS NO IGameEntity (2026-10-18). The build's own gate is
+// shell_standalone_client.cpp's static_assert, shown failing against the
+// shell while it still derived; this pins that the gate is there and that the
+// class head says so.
+//-----------------------------------------------------------------------------
+TEST( ClientEntityResolve, TheClientShellIsNoGameEntityAndTheBuildSaysSo )
+{
+	const std::string header = NoWhitespace( StripComments( ReadRaw( "sourcesharp/game/client/shell_standalone_client.h" ) ) );
+	const std::string body = NoWhitespace( LiveText( "sourcesharp/game/client/shell_standalone_client.cpp" ) );
+	ASSERT_GT( header.size(), 1000u ) << "shell_standalone_client.h did not read";
+	ASSERT_GT( body.size(), 1000u ) << "shell_standalone_client.cpp did not read";
+
+	EXPECT_NE( std::string::npos, header.find( "classC_StandaloneEntity:publicIClientEntity,publicICollideable{" ) )
+	    << "C_StandaloneEntity's base list changed. It is IClientEntity and "
+	       "ICollideable; IGameEntity left with its six inert slots.";
+	EXPECT_NE( std::string::npos, body.find( "static_assert(!std::is_base_of<IGameEntity,C_StandaloneEntity>::value," ) )
+	    << "the build-time gate that the client shell is no IGameEntity is gone.";
+	EXPECT_EQ( std::string::npos, header.find( "GetGameEntity()OVERRIDE" ) )
+	    << "the shell answers GetGameEntity() again; on this side it is "
+	       "IClientEntity's NULL.";
 }

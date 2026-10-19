@@ -44,6 +44,8 @@
 #include "model_types.h"
 #include "engine/ivdebugoverlay.h"
 #include "shell_cliententitylist.h"
+#include "shell_standalone_client.h"
+#include "slot_table.h"
 #include "collisionproperty.h"	// UpdateDirtySpatialPartitionEntities
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -199,12 +201,12 @@ void CShellNewParticleEffect::SetControlPointOrientation( int nWhichPoint, const
 	m_pCollection->SetControlPointOrientation( nWhichPoint, forward, right, up );
 }
 
-void CShellNewParticleEffect::SetControlPointEntity( int nWhichPoint, IGameEntity *pEntity )
+void CShellNewParticleEffect::SetControlPointEntity( int nWhichPoint, C_StandaloneEntity *pEntity )
 {
 	if ( pEntity )
 	{
 		m_pCollection->SetControlPointObject( nWhichPoint, &m_hControlPointOwners[ nWhichPoint ] );
-		m_hControlPointOwners[ nWhichPoint ] = pEntity;
+		m_hControlPointOwners[ nWhichPoint ] = pEntity->GetRefEHandle();
 	}
 	else
 	{
@@ -212,9 +214,9 @@ void CShellNewParticleEffect::SetControlPointEntity( int nWhichPoint, IGameEntit
 	}
 }
 
-IGameEntity *CShellNewParticleEffect::GetControlPointEntity( int nWhichPoint ) const
+C_StandaloneEntity *CShellNewParticleEffect::GetControlPointEntity( int nWhichPoint ) const
 {
-	return m_hControlPointOwners[ nWhichPoint ];
+	return SourceSharp_ClientShellFromHandle( m_hControlPointOwners[ nWhichPoint ] );
 }
 
 void CShellNewParticleEffect::StopEmission( bool bInfiniteOnly, bool bRemoveAllParticles, bool bWakeOnStop )
@@ -323,11 +325,14 @@ int CShellNewParticleEffect::DrawModel( int flags )
 	in.HighestControlPoint = p->HighestCP();
 	in.ThirdPerson = input->CAM_IsThirdPerson() ? 1 : 0;
 
-	IGameEntity *pCameraObject = NULL;
+	// THE CAMERA OBJECT IS NULL, and in.CameraObject 0. Stock's is the
+	// C_BaseEntity at the view entity; the SDK-filtered resolve that stood for
+	// it here answered NULL for every entity on this side, so managed's
+	// skip-render test has never been taken (docs/todo.md: feeding it the view
+	// entity's shell is a behaviour change of its own).
+	void *pCameraObject = NULL;
 	if ( flags & STUDIO_TRANSPARENCY )
 	{
-		pCameraObject = SourceSharp_ClientSdkEntityFromIndex( render->GetViewEntity() );
-		in.CameraObject = (uint64_t)(uintptr_t)pCameraObject;
 		const int nSkip = pDef->m_nSkipRenderControlPoint;
 		if ( nSkip >= 0 && nSkip < MAX_PARTICLE_CONTROL_POINTS )
 			in.SkipObject = (uint64_t)(uintptr_t)GetControlPointEntity( nSkip );

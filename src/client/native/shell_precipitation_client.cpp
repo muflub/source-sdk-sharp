@@ -229,8 +229,10 @@ int32_t SourceSharp_PrecipitationTraceVolume( uint32_t hOwner, const float *pSta
 	tr.fraction = 1.0f;
 	tr.endpos = vecEnd;
 
+	// Stock's ShouldCollide( group, MASK_ALL ) cull is true for every entity
+	// (only debris refuses, and MASK_ALL carries CONTENTS_DEBRIS), so it is not asked.
 	C_StandaloneEntity *pOwner = SourceSharp_StandaloneFromHandle( hOwner );
-	if ( pOwner && pOwner->ShouldCollide( COLLISION_GROUP_NONE, MASK_ALL ) )
+	if ( pOwner )
 	{
 		Ray_t ray;
 		ray.Init( vecStart, vecEnd, Vector( pHullMinXYZ[ 0 ], pHullMinXYZ[ 1 ], pHullMinXYZ[ 2 ] ),

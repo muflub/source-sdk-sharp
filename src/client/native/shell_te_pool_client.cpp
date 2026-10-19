@@ -824,27 +824,20 @@ static void TempEntPoolLive_f( const CCommand &args )
 	Msg( "[SourceSharp] cs_cl_te_live: %d live of %d\n",
 	     nLive, (int)CTempEnts::MAX_TEMP_ENTITIES );
 
-	// WHAT AN OWNER INDEX WOULD RESOLVE TO, asked of the two lookups by name.
-	//
-	// THIS IS THE DEFECT AND THE FIX SIDE BY SIDE. The spawn used to store the
-	// SDK-only arm's answer, which is NULL for every managed entity, so the
-	// stored handle was INVALID and the collision trace ignored nothing. It now
-	// stores the seam's both-hierarchies handle. On a live client with managed
-	// entities the two answers DIFFER, and that difference is the capability.
+	// WHAT AN OWNER INDEX RESOLVES TO: the seam's both-hierarchies handle, which
+	// the spawn stores. (The SDK-only arm it used to store answered NULL for
+	// every entity on this side and is gone.)
 	if ( args.ArgC() > 1 )
 	{
 		const int nEntity = atoi( args[ 1 ] );
 
-		IGameEntity      *pSdk    = SourceSharp_ClientSdkEntityFromIndex( nEntity );
 		const CBaseHandle  hSeam   = SourceSharp_ClientHandleFromIndex( nEntity );
 		IClientUnknown    *pSeamed = SourceSharp_ClientUnknownFromHandle( hSeam );
 
 		Msg( "[SourceSharp] cs_cl_te_live: owner lookup for entity %d\n"
-		     "  SDK-only arm (what the spawn USED to store) : %s\n"
-		     "  seam handle  (what the spawn stores now)    : %s, entry %d\n"
+		     "  seam handle  (what the spawn stores)        : %s, entry %d\n"
 		     "  seam handle resolves to an IClientUnknown   : %s\n",
 		     nEntity,
-		     pSdk ? "a C_BaseEntity" : "NULL -- no owner, nothing ignored",
 		     hSeam.IsValid() ? "VALID" : "INVALID",
 		     hSeam.IsValid() ? hSeam.GetEntryIndex() : -1,
 		     pSeamed ? "yes" : "no" );

@@ -19,6 +19,8 @@
 #include "shell_standalone_client.h"
 #include "standalone_renderable_handle.h"
 
+#include <type_traits>   // the IGameEntity gate below
+
 // plan_entity.md Phase 5a. §3.3's slot table and the five resolvers that
 // replaced this file's twelve cl_entitylist sites; shell_cliententitylist.h
 // says which question each of them is for.
@@ -1111,12 +1113,15 @@ const model_t *C_StandaloneEntity::GetModel( void ) const
 //                            the same function's caller already reads
 //
 // The SHARED relays in game_entity_relays.h are the server's alone now: their
-// client half went with its last callers (2026-10-18). The shell still declares
-// IGameEntity, and with it the six inert slots, because the client's native
-// code uses IGameEntity as its entity type (the effect data, the impact
-// effects, the entity list's SDK lookups, GetGameEntity); see
-// docs/client-shell.md and docs/todo.md.
+// client half went with its last callers (2026-10-18).
 //-----------------------------------------------------------------------------
+
+// THE CLIENT SHELL IS NO IGameEntity (2026-10-18, docs/todo.md). The client
+// asks the slot table for its entities (slot_table.h's shell resolvers), so
+// GetGameEntity() answers NULL here as for every client object. Deriving again
+// would make that answer live and every fork inline that asks it a second route.
+static_assert( !std::is_base_of< IGameEntity, C_StandaloneEntity >::value,
+               "C_StandaloneEntity derives from IGameEntity again" );
 
 bool C_StandaloneEntity::ShouldDraw( void )
 {
@@ -3510,7 +3515,7 @@ int SourceSharp_StandaloneClientsLevelShutdown()
 // WHAT WAS MEASURED. CShellClientDLL::InvalidateMdlCache walked
 // ClientEntityList().FirstBaseEntity()/NextBaseEntity(), which answers
 // C_BaseEntity. C_StandaloneEntity is
-// `: public IClientEntity, public ICollideable, public IGameEntity` -- NOT a
+// `: public IClientEntity, public ICollideable` -- NOT a
 // C_BaseEntity -- so that walk never yielded a single shell and the flush
 // reached ZERO managed entities. Every m_CachedBones on this side survived a
 // model-cache flush, holding matrices built from a studiohdr_t mdlcache had

@@ -336,6 +336,12 @@ carry the ≈1,200 figure into another plan.
 
 ### 2.2 The six `IGameEntity` slots cannot go yet, and the blocker is a shared header
 
+**Closed 2026-10-19.** The relays left first, then the client's live
+`GetGameEntity()` readers moved to the slot table and `C_StandaloneEntity`
+dropped `public IGameEntity` and the six slots (`GetCollisionGroup` stays,
+`ICollideable`'s); see docs/todo.md's section of the same name for the
+measurements and the fork-declared signatures kept. What follows is the record.
+
 `C_StandaloneEntity` implements six `IGameEntity` methods — `ShouldCollide`,
 `Touch`, `StartTouch`, `EndTouch`, `VPhysicsUpdate`, and `GetCollisionGroup`
 (which `ICollideable` also declares, so one override answers both).

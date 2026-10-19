@@ -35,7 +35,7 @@
 #include "smartptr.h"
 #include "tier1/utlobjectreference.h"
 
-class IGameEntity;
+class C_StandaloneEntity;
 
 class CShellNewParticleEffect : public CDefaultClientRenderable
 {
@@ -60,8 +60,8 @@ public:
 
 	void SetControlPoint( int nWhichPoint, const Vector &v );
 	void SetControlPointOrientation( int nWhichPoint, const Vector &forward, const Vector &right, const Vector &up );
-	void SetControlPointEntity( int nWhichPoint, IGameEntity *pEntity );
-	IGameEntity *GetControlPointEntity( int nWhichPoint ) const;
+	void SetControlPointEntity( int nWhichPoint, C_StandaloneEntity *pEntity );
+	C_StandaloneEntity *GetControlPointEntity( int nWhichPoint ) const;
 	void StopEmission( bool bInfiniteOnly = false, bool bRemoveAllParticles = false, bool bWakeOnStop = false );
 
 	// The cull replacement EarlyRetireParticleSystems asked for: this one's
@@ -108,8 +108,10 @@ private:
 	matrix3x4_t m_RenderTransform;
 	// The control points' entities, by handle as stock's were. A point's
 	// object is its handle's address, as stock's was: the library and the
-	// particle query test it only for non-NULL.
-	EHANDLE m_hControlPointOwners[ MAX_PARTICLE_CONTROL_POINTS ];
+	// particle query test it only for non-NULL. A plain handle, from the
+	// shell's own GetRefEHandle(): an EHANDLE set from an entity pointer goes
+	// through networkvar.h's refusal and stores the invalid handle.
+	CBaseHandle m_hControlPointOwners[ MAX_PARTICLE_CONTROL_POINTS ];
 };
 
 // The live effects, newest first (stock's AddToHead order).

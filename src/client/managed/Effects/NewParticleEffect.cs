@@ -78,7 +78,7 @@ public struct NewParticleDrawIn
     public float NextSleepTime;         // the collection's m_flNextSleepTime
     public int SkipRenderControlPoint;  // the definition's m_nSkipRenderControlPoint (-1: none)
     public int HighestControlPoint;     // the collection's m_nHighestCP
-    // Entities are identity tokens (native's IGameEntity pointers), 0 for none:
+    // Entities are identity tokens (native's C_StandaloneEntity pointers), 0 for none:
     // the skip-render tests compare them and nothing else.
     public ulong CameraObject;          // the entity at the view entity's index
     public ulong SkipObject;            // the skip-render control point's entity

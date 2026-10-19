@@ -2341,7 +2341,7 @@ typedef struct
 } SourceSharpNewParticleCommit_t;
 
 // IManagedParticlesClient::NewEffectDraw's in: what native read for one
-// CNewParticleEffect::DrawModel. Entities are identity tokens (their IGameEntity
+// CNewParticleEffect::DrawModel. Entities are identity tokens (their C_StandaloneEntity
 // pointers), 0 for none: the skip-render tests compare them and nothing else.
 typedef struct
 {
