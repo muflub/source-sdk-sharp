@@ -1,7 +1,7 @@
 # move-ledger at fork tip 69525c1b4ccaf90f85aa9e586795ffb7e2b93a25
-# rows 9497; DROP 122; MOD-COPY 43; OURS 1943; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
-# listed below: 2138 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
-# valve_header: yes 609; no 1220; undecided 0
+# rows 9496; DROP 122; MOD-COPY 43; OURS 1942; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
+# listed below: 2137 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
+# valve_header: yes 608; no 1220; undecided 0
 # 2026-09-28: shell_particlequery.cpp/.h deleted after the move (plan_server_novalve.md P2.1); their two OURS rows removed
 # 2026-09-30: imovementplayer.h left the overlay for src/shared/native/ (plan_server_novalve.md P5): it needs only public/ headers, and server.so TUs on the R5 set reach it there; OURS-OVERLAY -> OURS
 # 2026-10-01: ServerNetworkProperty.cpp deleted (plan_server_novalve.md P5, lane E): server.so never constructed a CServerNetworkProperty; its OURS row and override removed
@@ -327,7 +327,6 @@ src/sourcesharp/game/server/shell_serversystems.cpp	OURS	src/server/native/shell
 src/sourcesharp/game/server/shell_shadow_ctrl_probe.h	DROP			removed 2026-09-28 with the shadow-controller probe (user ruling)	0		0	bea8e78b5bc960757d8ee77ff3e96088d7a0ee719167c549b89236dfffef9e70
 src/sourcesharp/game/server/shell_sharedappsystems.cpp	OURS	src/server/native/shell_sharedappsystems.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	16	src/game/server/gameinterface.cpp	16	6076a7aa1ce5f1282756a978aefbe72c82f7ed4b1f2845a4b36d59cb4c180e49
 src/sourcesharp/game/server/shell_shot_path.h	OURS	src/server/native/shell_shot_path.h	yes	rule 3: native code built against SDK headers (#include mathlib/)	0		0	e7535157babdf5bc68d655c45add7880525b9bf306403b3d10a1244e443fe5c9
-src/sourcesharp/game/server/shell_sound.cpp	OURS	src/server/native/shell_sound.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	f87c2e9c80cc0af72e042dbf451143c77dce9d7c34434bef26e7a7ad802ffec1
 src/sourcesharp/game/server/shell_soundent.cpp	OURS	src/server/native/shell_soundent.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		6	1b7d464e8bf22aaddddb82ad186da26ed983c5f6e68c31b8b4351f11a054bf5e
 src/sourcesharp/game/server/shell_standalone.cpp	OURS	src/server/native/shell_standalone.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	0384c70ed23c85d1bc923af514ac79e00c4d8f1e471701565c4cb68cd0633f6b
 src/sourcesharp/game/server/shell_standalone.h	OURS	src/server/native/shell_standalone.h	yes	rule 3: native code built against SDK headers (#include iserverentity)	0		0	b4f99a55c9c48b1be711f2609cd3dc6eed4a1fb7120be8ce4df82fec3c369a9b
@@ -413,7 +412,7 @@ src/sourcesharp/game/shared/shell_shared.cpp	OURS	src/shared/native/shell_shared
 src/sourcesharp/game/shared/shell_vtable_interfaces.cpp	OURS	src/shared/native/shell_vtable_interfaces.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	0437ca7fe59720b51609f01ded338d676846bff13711aabe7b7bf320de29d683
 src/sourcesharp/game/shared/shell_vtable_interfaces.h	OURS	src/shared/native/shell_vtable_interfaces.h	no	declarations only	0		0	658df054231a8710d66e65e0a483e7910569faaccfbbb06d1384448d453e35b9
 src/sourcesharp/game/shared/slot_table.h	OURS	src/shared/native/slot_table.h	yes	rule 3: native code built against SDK headers (#include basehandle.h)	0		0	001a1c0cc464e777babe325d8f1885828686e29e988c8dfeaafe98670d1c44a4
-src/sourcesharp/game/shared/sound_emitter.cpp	OURS	src/shared/native/sound_emitter.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	82	src/game/shared/SoundEmitterSystem.cpp	82	27a9f4267e1703f6fc64cbdc70bc8e0c203880967ca43877e60a03ec0b7fe8cf
+src/sourcesharp/game/client/sound_emitter.cpp	OURS	src/client/native/sound_emitter.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	82	src/game/shared/SoundEmitterSystem.cpp	82	27a9f4267e1703f6fc64cbdc70bc8e0c203880967ca43877e60a03ec0b7fe8cf
 src/sourcesharp/game/shared/sourcesharp_entrypoints.h	OURS	src/shared/native/sourcesharp_entrypoints.h	no	generated declarations, no logic	0		0	957b93c2657094b87c9ed2c9791e8de95a3b0350a85271454fe5226fcc41d0f6
 src/sourcesharp/game/shared/sourcesharp_gamesystem.cpp	OURS	src/shared/native/sourcesharp_gamesystem.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	973e265eb488a2d7c08e581982eb2a895ebe0ee9d64ebd8d6168c0ec9004b764
 src/sourcesharp/game/shared/sourcesharp_gamesystem.h	OURS	src/shared/native/sourcesharp_gamesystem.h	no	interop interface declarations	0		0	39d0fcdd19ba5daad9fc94331a553ce025d54940985bc5fc9d8e47df6aeed6b5
@@ -1725,6 +1724,7 @@ src/sourcesharp/test/fog_wire_test.cpp	OURS	src/test/native/fog_wire_test.cpp	no
 # 2026-10-18: model_descriptor.cpp, model_descriptor.h and model_descriptor_format_test.cpp deleted (studio.cpp's eviction): the model descriptor is SourceSharp.Shared.Bones' StudioModelDescriptor, read from the side's managed StudioHdr; IShimModels::ModelDescriptor retired; their three OURS rows removed
 # 2026-10-18: src/sourcesharp/public/studio.cpp deleted (studio.cpp's eviction): its last consumers, model_descriptor.cpp and the client shell's PublishModelFacts, read the managed StudioHdr instead (StudioModelDescriptor, ClientRenderPolicy.ReadModelCounts); nm over the kept objects (debug) found no referrer to its 30 (server) / 65 (client) strong symbols; its OURS row and override removed
 # 2026-10-19: shell_soundenvelope.cpp, closecaption_recipient.h and closecaption_recipient_test.cpp deleted (plan_server_native_v2 T4a): the server's sound patches and the closecaption rule are SourceSharp.Server's (ServerSoundPatches, SoundRecipients); their three OURS rows removed
+# 2026-10-19: shell_sound.cpp deleted (plan_server_native_v2 T4a, the precache path: SourceSharp_PrecacheSound is the managed SoundEmitterSystem's); its OURS row removed
 src/sourcesharp/test/gamedll_convars_test.cpp	OURS	src/test/native/gamedll_convars_test.cpp	yes	rule 1: carries a Valve copyright header	0		0	5ec615ab3e28b65dc67b85020002882d50353f7f77ff129b780d757f5ef03d8a
 src/sourcesharp/test/gamedll_ledger_test.cpp	OURS	src/test/native/gamedll_ledger_test.cpp	no	source scan of TODO/verdict table; no logic	0		0	5a4eecaf96ee03d23fba6c233704df5aa24fcc78594e8d39c4424e25f124167b
 src/sourcesharp/test/gameevent_listener_lifetime_test.cpp	OURS	src/test/native/gameevent_listener_lifetime_test.cpp	no	source scan of unhook call order; no logic	0		0	8386e6cd0ee14922e569dcd89bd8295831206355af063ea62d301f6ed7fbfe77

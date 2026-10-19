@@ -78,7 +78,6 @@ class CShimPrecache final : public IShimPrecache
 {
 public:
 	int32_t PrecacheModel( const char * pszModel ) override;
-	void PrecacheSound( const char * pSoundName ) override;
 	int32_t PrecacheDecal( const char * pName ) override;
 };
 

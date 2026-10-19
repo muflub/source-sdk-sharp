@@ -156,7 +156,7 @@ const char *kSoundscape = "sourcesharp/game/client/shell_soundscape_audio_client
 const char *kSoundscapeManaged = "sourcesharp/managed/SourceSharp.Client/Soundscapes/ClientSoundscapes.cs";
 const char *kSoundscapeCommands = "sourcesharp/managed/SourceSharp.Client/Soundscapes/SoundscapeCommands.cs";
 const char *kClientModule = "sourcesharp/managed/SourceSharp.Client/ClientModule.cs";
-const char *kEmitter    = "sourcesharp/game/shared/sound_emitter.cpp";
+const char *kEmitter    = "sourcesharp/game/client/sound_emitter.cpp";
 const char *kFilter     = "sourcesharp/game/client/shell_recipientfilter_client.cpp";
 // cs_cl_particle_report, managed since particlemgr.cpp left client.so (C7
 // particles phase 4), over the particles shell's per-system read and the

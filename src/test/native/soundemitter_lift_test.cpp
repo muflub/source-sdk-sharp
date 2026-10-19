@@ -4,7 +4,7 @@
 // claim is about the TEXT of files that need a whole engine to run, so the text
 // is what is read.
 //
-// WHAT WAS DONE. sourcesharp/game/shared/sound_emitter.cpp defined twenty-six
+// WHAT WAS DONE. sourcesharp/game/client/sound_emitter.cpp defined twenty-six
 // CBaseEntity members out of line. SEVENTEEN of them are declared `static` --
 // verified declaration by declaration in game/server/baseentity.h and
 // game/client/c_baseentity.h -- and a static member takes no `this`. Their
@@ -107,7 +107,7 @@ const std::string &EmitterSource()
 	// src/sourcesharp is game/'s sibling -- the same route this file's caller
 	// table already uses for the shim files on it.
 	static const std::string s =
-		ReadGameFile( "../sourcesharp/game/shared/sound_emitter.cpp" );
+		ReadGameFile( "../sourcesharp/game/client/sound_emitter.cpp" );
 	return s;
 }
 
@@ -235,8 +235,12 @@ const char *const kCallers[] =
 	// client/physics.cpp (fork) left client.so (2026-10-18): its friction
 	// sound's GameSound_GetParameters was a dead arm (the slot is managed's
 	// ClientFriction), and nothing else of it called a sound.
-	"../sourcesharp/game/server/shell_absent.cpp",
-	"../sourcesharp/game/server/shell_sound.cpp",
+	// shell_absent.cpp, shell_sound.cpp and world_adapter.cpp left the list in
+	// plan_server_native_v2 T4a's precache path, as DROPS: the script precache
+	// is the managed SoundEmitterSystem's, which shell_absent.cpp's
+	// EffectsPrecache and world_adapter.cpp's CWorld::Precache reach through
+	// IManagedSoundEmitter::ServerPrecacheScriptSound, and shell_sound.cpp's
+	// SourceSharp_PrecacheSound left the repository with its slot.
 	// shell_standalone_player.cpp left the list in plan_server_native_v2 T4a,
 	// as a DROP: its move helper's two StartSounds hand the managed
 	// SoundEmitter the sound through IManagedSoundEmitter
@@ -244,7 +248,6 @@ const char *const kCallers[] =
 	// shell_worldquery.cpp left the list 2026-10-19: its one call was
 	// SparkEffect's "DoSpark", and the spark is EffectsOverTempEnts' (C#),
 	// which emits the same sound; the slot went.
-	"../sourcesharp/game/server/world_adapter.cpp",
 	"../sourcesharp/game/client/shell_standalone_client.cpp",
 	"../sourcesharp/game/client/shell_explosion_overlay.cpp",	// RPGShotDown, from shell_trail_sim.cpp (lane c2-sims)
 };
@@ -710,7 +713,7 @@ TEST( SoundEmitterLiftScanner, TheEmitterAndItsHeaderWereReallyOpenedAndAreNotTr
 // defines NO entity member.
 //
 // A tenth definition sitting in the emitter is exactly what a merge that
-// resurrects a hunk produces. This is what makes sourcesharp/game/shared/sound_emitter.cpp a
+// resurrects a hunk produces. This is what makes sourcesharp/game/client/sound_emitter.cpp a
 // shim mechanism file rather than a stock one wearing a shim path.
 //-----------------------------------------------------------------------------
 TEST( SoundEmitterLift, TheEmitterDefinesNoEntityMemberAtAll )

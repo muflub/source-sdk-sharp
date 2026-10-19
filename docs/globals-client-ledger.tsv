@@ -623,6 +623,12 @@ shell_worldrender.o	_ZL21g_nActiveColorWeights	g_nActiveColorWeights	sourcesharp
 shell_worldrender.o	_ZL18g_nNextColorLookup	g_nNextColorLookup	sourcesharp/game/client/shell_worldrender.cpp	LOCAL	data	file-or-global	4	UNRULED		
 shell_worldtext_render.o	_ZL18g_ManagedWorldText	g_ManagedWorldText	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_worldtext_render.o	_ZL17g_WorldTextSystem	g_WorldTextSystem	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
+sound_emitter.o	_ZZ9WaveTracePKcS0_E11s_WaveTraceB5cxx11	WaveTrace(char const*, char const*)::s_WaveTrace[abi:cxx11]	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	function-local	48	UNRULED		
+sound_emitter.o	_ZL20g_SoundEmitterSystem	g_SoundEmitterSystem	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	file-or-global	16	UNRULED		
+	g_bPermitDirectSoundPrecache	g_bPermitDirectSoundPrecache	sourcesharp/game/client/sound_emitter.cpp	GLOBAL	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
+sound_emitter.o	_ZL15g_pClosecaption	g_pClosecaption	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	file-or-global	8	UNRULED		
+	s_bAllowPrecache	s_bAllowPrecache	sourcesharp/game/client/sound_emitter.cpp	WEAK	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
+sound_emitter.o	_ZL21sv_soundemitter_trace	sv_soundemitter_trace	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 tier0_thread_client.o	_ZN12_GLOBAL__N_112s_MainThreadE	(anonymous namespace)::s_MainThread	sourcesharp/game/client/tier0_thread_client.cpp	LOCAL	bss	function-local	8	UNRULED		
 	g_VProfCurrentProfile	g_VProfCurrentProfile	sourcesharp/game/client/tier0_vprof_client.cpp	GLOBAL	data	file-or-global	7696	UNRULED		
 	g_bDoRangeChecks	g_bDoRangeChecks	sourcesharp/game/client/tier1_client.cpp	GLOBAL	data	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
@@ -749,12 +755,6 @@ shell_physsaverestore_absent.o	_ZZL27ShellPhysSaveRestoreManagervE8s_Absent	Shel
 	default_fov	default_fov	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 shell_shared.o	_ZL10g_MoveData	g_MoveData	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	168	UNRULED		
 	g_pMoveData	g_pMoveData	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-sound_emitter.o	_ZZ9WaveTracePKcS0_E11s_WaveTraceB5cxx11	WaveTrace(char const*, char const*)::s_WaveTrace[abi:cxx11]	sourcesharp/game/shared/sound_emitter.cpp	LOCAL	bss	function-local	48	UNRULED		
-sound_emitter.o	_ZL20g_SoundEmitterSystem	g_SoundEmitterSystem	sourcesharp/game/shared/sound_emitter.cpp	LOCAL	bss	file-or-global	16	UNRULED		
-	g_bPermitDirectSoundPrecache	g_bPermitDirectSoundPrecache	sourcesharp/game/shared/sound_emitter.cpp	GLOBAL	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
-sound_emitter.o	_ZL15g_pClosecaption	g_pClosecaption	sourcesharp/game/shared/sound_emitter.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-	s_bAllowPrecache	s_bAllowPrecache	sourcesharp/game/shared/sound_emitter.cpp	WEAK	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
-sound_emitter.o	_ZL21sv_soundemitter_trace	sv_soundemitter_trace	sourcesharp/game/shared/sound_emitter.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 sourcesharp_gamesystem.o	_ZL20cs_cl_reload_command	cs_cl_reload_command	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 sourcesharp_gamesystem.o	_ZL21g_SourceSharpCommands	g_SourceSharpCommands	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	120	UNRULED		
 sourcesharp_gamesystem.o	_ZL20g_SourceSharpConVars	g_SourceSharpConVars	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	120	UNRULED		

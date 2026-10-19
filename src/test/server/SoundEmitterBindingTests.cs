@@ -24,9 +24,53 @@ public sealed unsafe class SoundEmitterBindingTests
             => Heard.Add($"{entIndex} {origin} {soundName}");
     }
 
-    private readonly Sink _sink = new();
+    private sealed class SystemSink : ISoundSystemSink
+    {
+        public readonly List<string> Precached = [];
+        public bool InitAnswer;
+        public int Inits;
 
-    private SoundEmitterBinding Binding() => new(new Crossings(), _sink);
+        public bool SystemInit()
+        {
+            Inits++;
+            return InitAnswer;
+        }
+
+        public void PrecacheScriptSound(string soundName) => Precached.Add(soundName);
+    }
+
+    private readonly Sink _sink = new();
+    private readonly SystemSink _system = new();
+
+    private SoundEmitterBinding Binding() => new(new Crossings(), _sink, _system);
+
+    [Fact]
+    public void SystemInitIsTheSystemsAnswerAsOneOrZero()
+    {
+        _system.InitAnswer = true;
+        Assert.Equal((byte)1, Binding().ServerSoundSystemInit());
+        _system.InitAnswer = false;
+        Assert.Equal((byte)0, Binding().ServerSoundSystemInit());
+        Assert.Equal(2, _system.Inits);
+    }
+
+    [Fact]
+    public void AScriptPrecacheArrivesAsItsNameAndANullOneReachesNothing()
+    {
+        byte* name = (byte*)Marshal.StringToCoTaskMemUTF8("BaseEntity.EnterWater");
+        try
+        {
+            var binding = Binding();
+            binding.ServerPrecacheScriptSound(name);
+            binding.ServerPrecacheScriptSound(null);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem((nint)name);
+        }
+
+        Assert.Equal(["BaseEntity.EnterWater"], _system.Precached);
+    }
 
     [Fact]
     public void AMoveSoundArrivesAsItsValues()

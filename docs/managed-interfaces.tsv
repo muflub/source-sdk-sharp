@@ -340,3 +340,5 @@ IManagedDetailPropsClient	DetailPrepare	void *	int32_t nKind, const float *pView
 IManagedDetailPropsClient	DetailEmit	void *	int32_t nMaxQuads
 IManagedSoundEmitter	ServerMoveSound	void	int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch
 IManagedSoundEmitter	ServerMoveSoundScript	void	int32_t nEntIndex, const float *pOrigin, const char *pSoundName
+IManagedSoundEmitter	ServerSoundSystemInit	bool	void
+IManagedSoundEmitter	ServerPrecacheScriptSound	void	const char *pSoundName

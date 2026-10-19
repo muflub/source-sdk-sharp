@@ -92,14 +92,11 @@ extern string_t g_iszFuncBrushClassname;   // shell_absent.cpp; nothing reads it
 // and the calls below name the free functions directly.
 #include "entity_shared_statics.h"
 
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the calls below name GameSound_* directly.
-#include "gamesound.h"
 #include "managed_convar_ref.h"
 #include "native_command_body.h"
 #include "ss_recipient_filter.h"
 #include "ss_entityfactory.h"   // ss::IEntityFactory, for CWorldFactory
+#include "imanaged_areas.h"   // plan_server_native_v2 T4a: the script precache, IManagedSoundEmitter
 
 // g_Language IS DECLARED IN C# (SourceSharp.Server.GLanguageConVar),
 // plan_server_novalve.md P2.3b; this reads and writes it by name. The write
@@ -1234,8 +1231,13 @@ void CWorld::Precache( void )
 		Precache_Model( "models/gibs/hgibs.mdl" );
 	}
 
-	GameSound_PrecacheScript( "BaseEntity.EnterWater" );
-	GameSound_PrecacheScript( "BaseEntity.ExitWater" );
+	// The script precache is the managed SoundEmitterSystem's
+	// (plan_server_native_v2 T4a, the precache path), through the load's area.
+	if ( IManagedSoundEmitter *pEmitter = ManagedSoundEmitter() )
+	{
+		pEmitter->ServerPrecacheScriptSound( "BaseEntity.EnterWater" );
+		pEmitter->ServerPrecacheScriptSound( "BaseEntity.ExitWater" );
+	}
 
 //
 // Setup light animation tables. 'a' is total darkness, 'z' is maxbright.

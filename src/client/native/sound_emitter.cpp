@@ -37,47 +37,31 @@
 // earlier phase (see game/shared/gamesound.h); soundemitter_lift_test.cpp is
 // the guard on that lift and reads this file at its new address.
 //
-// COMPILED BY BOTH VPCS, unchanged. The client's own arms are still here and
-// still say what they said; step 4b is a SERVER deletion and did not touch
-// them.
+// THE CLIENT'S ALONE since plan_server_native_v2 T4a (2026-10-19), so it is in
+// src/client/native. The server's half is managed: the emit path is
+// SoundEmitter, and the system's Init/Shutdown, the level's overrides and
+// preload, the -makereslists log and the precache are SoundEmitterSystem
+// (src/server/managed). server.so no longer compiles this file, so its server
+// arms are gone and its CLIENT_DLL conditionals are resolved; the client's
+// compile is unchanged token for token.
 //
 //=============================================================================//
 
-#ifdef CLIENT_DLL
 #include "cbase.h"
 #include "igamesystem.h"
 // The client's "who is at this index" ask, over the slot table (§3.3). This
-// file is in client_csharp.vpc and server_csharp.vpc only -- never a stock
-// vpc -- so there is no !SOURCESHARP arm to keep.
+// file is in the client's CMake list only -- never a stock build -- so there
+// is no !SOURCESHARP arm to keep.
 #include "shell_cliententitylist.h"
 #include "c_recipientfilter.h"
-#else
-// THE SERVER'S HALF IS ON THE R5 INCLUDE SET (plan_server_novalve.md P5 lane SP):
-// public/ headers and our own, with the engine globals and the two helpers our
-// own TUs define declared.
-#include "edict.h"
-#include "iserverentity.h"
-#include "ss_util.h"               // engine, ss::INDEXENT
-#include "shell_serversystem.h"	// plan_gamedll.md Phase 7a / T1
-class IFileSystem;
-class IEngineSound;
-extern CGlobalVars *gpGlobals;
-extern IEngineSound *enginesound;
-extern IFileSystem *filesystem;
-#endif
 // Each DLL's own: the server's is shell_sentences.cpp; the client's (the
 // engine's sentence index) client_util_library.cpp since plan_server_native_v2 T2.
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 int SENTENCEG_Lookup( const char *sample );
-#endif // CLIENT_DLL
 #include <ctype.h>
 #include <KeyValues.h>
 #include "engine/IEngineSound.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#ifdef CLIENT_DLL
 #include "igamesystem.h"
-#endif
 #include "soundchars.h"
 #include "filesystem.h"
 #include "checksum_crc.h"
@@ -95,26 +79,19 @@ int SENTENCEG_Lookup( const char *sample );
 // engine's allocator, and the positions are copied into the caller's vector,
 // which this module owns (plan_server_novalve.md 3.6: copy-out).
 //-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 static void KeepEngineOrigins( const ss::EngineFilledUtlVector< Vector > &origins, const GameSoundParams_t &ep )
 {
 	for ( const Vector &v : origins.View() )
 		ep.m_UtlVecSoundOrigin.AddToTail( v );
 }
-#endif // CLIENT_DLL
-#ifdef CLIENT_DLL
 #include "util_shared.h"
-#endif
 
 
 
-#ifdef CLIENT_DLL
 #include <vgui_controls/Controls.h>
 #include <vgui/IVGui.h>
 #include "hud_closecaption.h"
 #define CRecipientFilter C_RecipientFilter
-#endif
 
 // The lifted precache/tick/prediction/tracer statics. They used to be
 // reached as CBaseEntity::Foo() through one-line forwarders in
@@ -153,16 +130,10 @@ void Hack_FixEscapeChars( char *str );
 //
 // CManagedConVarRef rather than ConVarRef, for the reason managed_convar_ref.h
 // gives: a ConVarRef built at DLL load caches its miss forever.
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 static CManagedConVarRef sv_soundemitter_trace( "sv_soundemitter_trace" );
-#endif // CLIENT_DLL
 
 extern ISoundEmitterSystemBase *soundemitterbase;
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 static ConVar *g_pClosecaption = NULL;
-#endif // CLIENT_DLL
 
 #ifdef _XBOX
 int LookupStringFromCloseCaptionToken( char const *token );
@@ -171,8 +142,6 @@ const wchar_t *GetStringForIndex( int index );
 bool g_bPermitDirectSoundPrecache = false;
 
 
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 void WaveTrace( char const *wavname, char const *funcname )
 {
 	if ( IsX360() && !IsDebug() )
@@ -189,123 +158,36 @@ void WaveTrace( char const *wavname, char const *funcname )
 			funcname, wavname );
 	}
 }
-#endif // CLIENT_DLL
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL
 class CSoundEmitterSystem : public CClientSystem
-#else
-class CSoundEmitterSystem : public CServerSystem
-#endif
 {
 public:
 	virtual char const *Name() { return "CSoundEmitterSystem"; }
 
-#if !defined( CLIENT_DLL )
-	bool			m_bLogPrecache;
-	FileHandle_t	m_hPrecacheLogFile;
-	std::set< std::string > m_PrecachedScriptSounds;
-public:
-	CSoundEmitterSystem( char const *pszName ) :
-		m_bLogPrecache( false ),
-		m_hPrecacheLogFile( FILESYSTEM_INVALID_HANDLE )
-	{
-	}
-
-	void LogPrecache( char const *soundname )
-	{
-		if ( !m_bLogPrecache )
-			return;
-
-		// Make sure we only show the message once
-		if ( m_PrecachedScriptSounds.count( soundname ) )
-			return;
-
-		if (m_hPrecacheLogFile == FILESYSTEM_INVALID_HANDLE)
-		{
-			StartLog();
-		}
-
-		m_PrecachedScriptSounds.insert( soundname );
-
-		if (m_hPrecacheLogFile != FILESYSTEM_INVALID_HANDLE)
-		{
-			filesystem->Write("\"", 1, m_hPrecacheLogFile);
-			filesystem->Write(soundname, (int)strlen(soundname), m_hPrecacheLogFile);
-			filesystem->Write("\"\n", 2, m_hPrecacheLogFile);
-		}
-		else
-		{
-			Warning( "Disabling precache logging due to file i/o problem!!!\n" );
-			m_bLogPrecache = false;
-		}
-	}
-
-	void StartLog()
-	{
-		m_PrecachedScriptSounds.clear();
-
-		if ( !m_bLogPrecache )
-			return;
-
-		if ( FILESYSTEM_INVALID_HANDLE != m_hPrecacheLogFile )
-		{
-			return;
-		}
-
-		filesystem->CreateDirHierarchy("reslists", "DEFAULT_WRITE_PATH");
-
-		// open the new level reslist
-		char path[_MAX_PATH];
-		ss::Format(path, sizeof(path), "reslists\\%s.snd", gpGlobals->mapname.ToCStr() );
-		m_hPrecacheLogFile = filesystem->Open(path, "wt", "GAME");
-	}
-
-	void FinishLog()
-	{
-		if ( FILESYSTEM_INVALID_HANDLE != m_hPrecacheLogFile )
-		{
-			filesystem->Close( m_hPrecacheLogFile );
-			m_hPrecacheLogFile = FILESYSTEM_INVALID_HANDLE;
-		}
-
-		m_PrecachedScriptSounds.clear();
-	}
-#else
 	CSoundEmitterSystem( char const *name )
 	{
 	}
 
-#endif
 
 	// IServerSystem stuff
 	virtual bool Init()
 	{
 		Assert( soundemitterbase );
-#if !defined( CLIENT_DLL )
-		m_bLogPrecache = ss::CommandLineHas( "-makereslists" );
-#endif
-#ifdef CLIENT_DLL
 		g_pClosecaption = cvar->FindVar("closecaption");
 		Assert(g_pClosecaption);
-#endif // CLIENT_DLL
 		return soundemitterbase->ModInit();
 	}
 
 	virtual void Shutdown()
 	{
 		Assert( soundemitterbase );
-#if !defined( CLIENT_DLL )
-		FinishLog();
-#endif
 		soundemitterbase->ModShutdown();
 	}
 
 
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 	virtual void TraceEmitSound( char const *fmt, ... )
 	{
 		if ( !sv_soundemitter_trace.GetBool() )
@@ -329,18 +211,12 @@ public:
 		// the file asks costs nothing and says the same thing.
 		Msg( "%s %s", "(cl)", string );
 	}
-#endif // CLIENT_DLL
 
 	// Precache all wave files referenced in wave or rndwave keys
 	virtual void LevelInitPreEntity()
 	{
 		char mapname[ 256 ];
-#if !defined( CLIENT_DLL )
-		StartLog();
-		ss::Format( mapname, sizeof( mapname ), "maps/%s", STRING( gpGlobals->mapname ) );
-#else
 		ss::Format( mapname, sizeof( mapname ), "maps/%s", ss::GetFileName( engine->GetLevelName() ) );
-#endif
 
 		ss::FixSlashes( mapname );
 		ss::StrLower( mapname );
@@ -368,16 +244,6 @@ public:
 			soundemitterbase->AddSoundOverrides( scriptfile );
 		}
 
-#if !defined( CLIENT_DLL )
-		for ( int i=soundemitterbase->First(); i != soundemitterbase->InvalidIndex(); i=soundemitterbase->Next( i ) )
-		{
-			CSoundParametersInternal *pParams = soundemitterbase->InternalGetParametersForSound( i );
-			if ( pParams->ShouldPreload() )
-			{
-				InternalPrecacheWaves( i );
-			}
-		}
-#endif
 	}
 
 	virtual void LevelInitPostEntity()
@@ -388,17 +254,11 @@ public:
 	{
 		soundemitterbase->ClearSoundOverrides();
 
-#if !defined( CLIENT_DLL )
-		FinishLog();
-#endif
 	}
 
 	void Flush()
 	{
 		Assert( soundemitterbase );
-#if !defined( CLIENT_DLL )
-		FinishLog();
-#endif
 		soundemitterbase->Flush();
 	}
 		
@@ -463,23 +323,8 @@ public:
 				return SOUNDEMITTER_INVALID_HANDLE;
 			}
 
-#if !defined( CLIENT_DLL )
-			if ( soundname[ 0 ] )
-			{
-				static std::set< std::string > s_PrecacheScriptSoundFailures;
-
-				// Make sure we only show the message once
-				if ( s_PrecacheScriptSoundFailures.insert( soundname ).second )
-				{
-					DevMsg( "PrecacheScriptSound '%s' failed, no such sound script entry\n", soundname );
-				}
-			}
-#endif
 			return (HSOUNDSCRIPTHANDLE)soundIndex;
 		}
-#if !defined( CLIENT_DLL )
-		LogPrecache( soundname );
-#endif
 
 		InternalPrecacheWaves( soundIndex );
 		return (HSOUNDSCRIPTHANDLE)soundIndex;
@@ -501,8 +346,6 @@ public:
 	}
 public:
 
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 	void EmitSoundByHandle( IRecipientFilter& filter, int entindex, const GameSoundParams_t & ep, HSOUNDSCRIPTHANDLE& handle )
 	{
 		// Pull data from parameters
@@ -950,16 +793,11 @@ public:
 			EmitAmbientSound( entindex, origin, pSample, volume, flags, pitch, soundtime, duration );
 		}
 	}
-#endif // CLIENT_DLL
 };
 
 static CSoundEmitterSystem g_SoundEmitterSystem( "CSoundEmitterSystem" );
 
-#ifdef CLIENT_DLL
 CClientSystem *SoundEmitterSystem()
-#else
-CServerSystem *SoundEmitterSystem()
-#endif
 {
 	return &g_SoundEmitterSystem;
 }
@@ -998,8 +836,6 @@ CServerSystem *SoundEmitterSystem()
 
 
 
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : filter - 
@@ -1143,18 +979,11 @@ bool GameSound_GetParameters( const char *soundname, CSoundParameters &params, c
 	
 	return soundemitterbase->GetParametersForSound( soundname, params, gender );
 }
-#endif // CLIENT_DLL
 
 HSOUNDSCRIPTHANDLE GameSound_PrecacheScript( const char *soundname )
 {
-#if !defined( CLIENT_DLL )
-	return g_SoundEmitterSystem.PrecacheScriptSound( soundname );
-#else
 	return soundemitterbase->GetSoundIndex( soundname );
-#endif
 }
-#ifdef CLIENT_DLL
-// the client's alone: the server's emit path is managed (plan_server_native_v2 T4a, SoundEmitter.cs)
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : filter - 
@@ -1170,7 +999,6 @@ void GameSound_EmitCloseCaption( IRecipientFilter& filter, int entindex, char co
 
 	g_SoundEmitterSystem.EmitCloseCaption( filter, entindex, fromplayer, token, soundorigin, duration, warnifmissing );
 }
-#endif // CLIENT_DLL
 
 //-----------------------------------------------------------------------------
 // Purpose: 

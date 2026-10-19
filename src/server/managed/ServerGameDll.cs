@@ -636,6 +636,12 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// </summary>
     public void MapLoadPreEntity(string mapName)
     {
+        // FIRST, before any participant: the sound emitter system's level
+        // start (the map's overrides, the preload), which was the
+        // CSoundEmitterSystem row's LevelInitPreEntity, the row before the
+        // SourceSharpManaged row this runs from (plan_server_native_v2 T4a).
+        SoundSystem?.LevelInitPreEntity();
+
         _lifecycle.LevelInitPreEntity(mapName);
     }
 
@@ -708,6 +714,13 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// by name rather than dropped.
     /// </summary>
     internal IEnginePrecache? ParticlePrecache { get; set; }
+
+    /// <summary>
+    /// The managed sound emitter system, whose level start runs first in
+    /// <see cref="MapLoadPreEntity"/> (plan_server_native_v2 T4a); null when
+    /// the module could not build it, which it has said.
+    /// </summary>
+    internal SoundEmitterSystem? SoundSystem { get; set; }
 
     /// <summary>The model text and sequences ModelPrecacheComponents reads. Set by ServerModule.</summary>
     internal IEngineEntityRender? ModelText { get; set; }

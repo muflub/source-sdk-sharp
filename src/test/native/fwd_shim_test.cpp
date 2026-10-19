@@ -378,11 +378,12 @@ TEST( FwdShimCounts, TheFrameIsNineteenSlots )
 	                   VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot + 1, 19 );
 }
 
-TEST( FwdShimCounts, TheLevelIsTwentySixSlots )
+TEST( FwdShimCounts, TheLevelIsTwentySevenSlots )
 {
 	// Twenty-two until LoadSaveGameState, twenty-three until FileSizeOnPath and
-	// ReadFileOnPath, twenty-five until SpawnWorld: each appended.
-	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::SpawnWorld ).slot + 1, 26 );
+	// ReadFileOnPath, twenty-five until SpawnWorld, twenty-six until
+	// IsPrecacheAllowed (plan_server_native_v2 T4a): each appended.
+	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::IsPrecacheAllowed ).slot + 1, 27 );
 }
 
 //-----------------------------------------------------------------------------

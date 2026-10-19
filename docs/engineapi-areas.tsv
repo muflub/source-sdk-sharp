@@ -40,7 +40,6 @@ EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	SourceSharp_E
 StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	SourceSharp_StandaloneSetModelScale	uint, float, void	
 EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_EntitySetModel	uint, byte*, void	
 PrecacheModel	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheModel	byte*, int	
-PrecacheSound	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheSound	byte*, void	
 PrecacheDecal	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheDecal	byte*, int	
 MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	
 MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	

@@ -1153,8 +1153,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes) ServerShims.Precache.PrecacheSound(p);
+        ServerSounds?.PrecacheSound(soundName);
     }
 
     /// <summary>

@@ -167,7 +167,9 @@ public partial class EngineApiCensusTests
     // 2026-10-19: DrawWorldText folded onto IVDebugOverlay (152 - 1 = 151).
     // plan_server_native_v2 T4a: IShimSound's five emits retired, the managed
     // SoundEmitter answering them (151 - 5 = 146).
-    private const int ServerOnly = 146;
+    // plan_server_native_v2 T4a, the precache path: IShimPrecache::PrecacheSound
+    // retired, the managed SoundEmitterSystem answering it (146 - 1 = 145).
+    private const int ServerOnly = 145;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

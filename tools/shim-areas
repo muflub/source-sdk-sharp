@@ -703,11 +703,12 @@ def self_test():
     expect('a derived area declares only its own slots; the base\'s are inherited, not repeated',
            in_class('EntityGetModelName', 'ModelsArea') and not in_class('EntityGetModelName', 'ModelsServerArea'))
 
-    emit = in_class('PrecacheSound', 'ShimAreas')
+    # PrecacheModel since plan_server_native_v2 T4a retired PrecacheSound.
+    emit = in_class('PrecacheModel', 'ShimAreas')
     health = in_class('EntityGetHealth', 'ShimAreas')
     expect('a server-only slot is its area\'s alone, inline on the area class (C6c, no router)',
-           '_shim.Vt->PrecacheSound(_shim.Self' in in_class('PrecacheSound', 'PrecacheArea')
-           and emit == '' and len(typed_lines('PrecacheSound')) == 1)
+           '_shim.Vt->PrecacheModel(_shim.Self' in in_class('PrecacheModel', 'PrecacheArea')
+           and emit == '' and len(typed_lines('PrecacheModel')) == 1)
     expect('a container has no flat calls: a slot is called on the area that serves it, and nowhere else',
            health == '' and len(typed_lines('EntityGetHealth')) == 1
            and '_shim.Vt->EntityGetHealth(_shim.Self' in in_class('EntityGetHealth', 'EntitiesServerArea'))

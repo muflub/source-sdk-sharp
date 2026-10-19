@@ -92,7 +92,7 @@ static void *const s_ModelInfoSlots[] = {
 static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// BaseFileSystem: 7 forwarder(s) over IBaseFileSystem.
+// BaseFileSystem: 8 forwarder(s) over IBaseFileSystem.
 //-----------------------------------------------------------------------------
 // unsigned int IBaseFileSystem::Size( const char *, const char * )
 static unsigned int SSFwd_BaseFileSystem_Size_2( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->Size( a0, a1 ); }
@@ -108,6 +108,8 @@ static unsigned int SSFwd_BaseFileSystem_Size( IBaseFileSystem *self, FileHandle
 static int SSFwd_BaseFileSystem_Read( IBaseFileSystem *self, void * a0, int a1, FileHandle_t a2 ) { return self->Read( a0, a1, a2 ); }
 // void IBaseFileSystem::Close( FileHandle_t )
 static void SSFwd_BaseFileSystem_Close( IBaseFileSystem *self, FileHandle_t a0 ) { self->Close( a0 ); }
+// int IBaseFileSystem::Write( void const *, int, FileHandle_t )
+static int SSFwd_BaseFileSystem_Write( IBaseFileSystem *self, void const * a0, int a1, FileHandle_t a2 ) { return self->Write( a0, a1, a2 ); }
 
 static void *const s_BaseFileSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Size_2 ),
@@ -117,9 +119,22 @@ static void *const s_BaseFileSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Size ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Read ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Close ),
+	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Write ),
 };
 
-static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
+static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 8 };
+
+//-----------------------------------------------------------------------------
+// FileSystem: 1 forwarder(s) over IFileSystem.
+//-----------------------------------------------------------------------------
+// void IFileSystem::CreateDirHierarchy( const char *, const char * )
+static void SSFwd_FileSystem_CreateDirHierarchy( IFileSystem *self, const char * a0, const char * a1 ) { self->CreateDirHierarchy( a0, a1 ); }
+
+static void *const s_FileSystemSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_FileSystem_CreateDirHierarchy ),
+};
+
+static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 1 };
 
 //-----------------------------------------------------------------------------
 // EngineServer: 21 forwarder(s) over IVEngineServer.
@@ -275,7 +290,7 @@ static void *const s_NetworkStringTableSlots[] = {
 static const SSForwarderTable s_NetworkStringTableTable = { s_NetworkStringTableSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// SoundEmitterSystem: 9 forwarder(s) over ISoundEmitterSystemBase.
+// SoundEmitterSystem: 18 forwarder(s) over ISoundEmitterSystemBase.
 //-----------------------------------------------------------------------------
 // int ISoundEmitterSystemBase::GetSoundIndex( const char * )
 static int SSFwd_SoundEmitterSystem_GetSoundIndex( ISoundEmitterSystemBase *self, const char * a0 ) { return self->GetSoundIndex( a0 ); }
@@ -295,6 +310,24 @@ static const char * SSFwd_SoundEmitterSystem_GetWaveName( ISoundEmitterSystemBas
 static const char * SSFwd_SoundEmitterSystem_GetWavFileForSound_2( ISoundEmitterSystemBase *self, const char * a0, gender_t a1 ) { return self->GetWavFileForSound( a0, a1 ); }
 // soundlevel_t ISoundEmitterSystemBase::LookupSoundLevel( const char * )
 static soundlevel_t SSFwd_SoundEmitterSystem_LookupSoundLevel( ISoundEmitterSystemBase *self, const char * a0 ) { return self->LookupSoundLevel( a0 ); }
+// bool ISoundEmitterSystemBase::ModInit( void )
+static bool SSFwd_SoundEmitterSystem_ModInit( ISoundEmitterSystemBase *self ) { return self->ModInit(); }
+// void ISoundEmitterSystemBase::ModShutdown( void )
+static void SSFwd_SoundEmitterSystem_ModShutdown( ISoundEmitterSystemBase *self ) { self->ModShutdown(); }
+// void ISoundEmitterSystemBase::AddSoundOverrides( char const *, bool )
+static void SSFwd_SoundEmitterSystem_AddSoundOverrides( ISoundEmitterSystemBase *self, char const * a0, bool a1 ) { self->AddSoundOverrides( a0, a1 ); }
+// void ISoundEmitterSystemBase::ClearSoundOverrides( void )
+static void SSFwd_SoundEmitterSystem_ClearSoundOverrides( ISoundEmitterSystemBase *self ) { self->ClearSoundOverrides(); }
+// void ISoundEmitterSystemBase::Flush( void )
+static void SSFwd_SoundEmitterSystem_Flush( ISoundEmitterSystemBase *self ) { self->Flush(); }
+// int ISoundEmitterSystemBase::First( void )
+static int SSFwd_SoundEmitterSystem_First( ISoundEmitterSystemBase *self ) { return self->First(); }
+// int ISoundEmitterSystemBase::Next( int )
+static int SSFwd_SoundEmitterSystem_Next( ISoundEmitterSystemBase *self, int a0 ) { return self->Next( a0 ); }
+// int ISoundEmitterSystemBase::InvalidIndex( void )
+static int SSFwd_SoundEmitterSystem_InvalidIndex( ISoundEmitterSystemBase *self ) { return self->InvalidIndex(); }
+// bool ISoundEmitterSystemBase::IsValidIndex( int )
+static bool SSFwd_SoundEmitterSystem_IsValidIndex( ISoundEmitterSystemBase *self, int a0 ) { return self->IsValidIndex( a0 ); }
 
 static void *const s_SoundEmitterSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetSoundIndex ),
@@ -306,12 +339,21 @@ static void *const s_SoundEmitterSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetWaveName ),
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetWavFileForSound_2 ),
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_LookupSoundLevel ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_ModInit ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_ModShutdown ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_AddSoundOverrides ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_ClearSoundOverrides ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_Flush ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_First ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_Next ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_InvalidIndex ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_IsValidIndex ),
 };
 
-static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 9 };
+static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 18 };
 
 //-----------------------------------------------------------------------------
-// EngineSound: 3 forwarder(s) over IEngineSound.
+// EngineSound: 6 forwarder(s) over IEngineSound.
 //-----------------------------------------------------------------------------
 // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
 static void SSFwd_EngineSound_EmitSound_2( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, soundlevel_t a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector< Vector > * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
@@ -319,14 +361,23 @@ static void SSFwd_EngineSound_EmitSound_2( IEngineSound *self, IRecipientFilter 
 static void SSFwd_EngineSound_StopSound( IEngineSound *self, int a0, int a1, const char * a2 ) { self->StopSound( a0, a1, a2 ); }
 // float IEngineSound::GetSoundDuration( const char * )
 static float SSFwd_EngineSound_GetSoundDuration( IEngineSound *self, const char * a0 ) { return self->GetSoundDuration( a0 ); }
+// bool IEngineSound::PrecacheSound( const char *, bool, bool )
+static bool SSFwd_EngineSound_PrecacheSound( IEngineSound *self, const char * a0, bool a1, bool a2 ) { return self->PrecacheSound( a0, a1, a2 ); }
+// bool IEngineSound::IsSoundPrecached( const char * )
+static bool SSFwd_EngineSound_IsSoundPrecached( IEngineSound *self, const char * a0 ) { return self->IsSoundPrecached( a0 ); }
+// void IEngineSound::PrefetchSound( const char * )
+static void SSFwd_EngineSound_PrefetchSound( IEngineSound *self, const char * a0 ) { self->PrefetchSound( a0 ); }
 
 static void *const s_EngineSoundSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineSound_EmitSound_2 ),
 	reinterpret_cast< void * >( &SSFwd_EngineSound_StopSound ),
 	reinterpret_cast< void * >( &SSFwd_EngineSound_GetSoundDuration ),
+	reinterpret_cast< void * >( &SSFwd_EngineSound_PrecacheSound ),
+	reinterpret_cast< void * >( &SSFwd_EngineSound_IsSoundPrecached ),
+	reinterpret_cast< void * >( &SSFwd_EngineSound_PrefetchSound ),
 };
 
-static const SSForwarderTable s_EngineSoundTable = { s_EngineSoundSlots, 3 };
+static const SSForwarderTable s_EngineSoundTable = { s_EngineSoundSlots, 6 };
 
 //-----------------------------------------------------------------------------
 // StaticPropMgrServer: 1 forwarder(s) over IStaticPropMgrServer.
@@ -1007,7 +1058,7 @@ static void *const s_ShimFrameSlots[] = {
 static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
 
 //-----------------------------------------------------------------------------
-// ShimLevel: 26 forwarder(s) over IShimLevel.
+// ShimLevel: 27 forwarder(s) over IShimLevel.
 //-----------------------------------------------------------------------------
 // void IShimLevel::ResetServerTime( void )
 static void SSFwd_ShimLevel_ResetServerTime( IShimLevel *self ) { self->ResetServerTime(); }
@@ -1061,6 +1112,8 @@ static int32_t SSFwd_ShimLevel_FileSizeOnPath( IShimLevel *self, const char * a0
 static int32_t SSFwd_ShimLevel_ReadFileOnPath( IShimLevel *self, const char * a0, const char * a1, void * a2, int32_t a3 ) { return self->ReadFileOnPath( a0, a1, a2, a3 ); }
 // int32_t IShimLevel::SpawnWorld( const char * const *, const char * const *, int32_t )
 static int32_t SSFwd_ShimLevel_SpawnWorld( IShimLevel *self, const char * const * a0, const char * const * a1, int32_t a2 ) { return self->SpawnWorld( a0, a1, a2 ); }
+// int32_t IShimLevel::IsPrecacheAllowed( void )
+static int32_t SSFwd_ShimLevel_IsPrecacheAllowed( IShimLevel *self ) { return self->IsPrecacheAllowed(); }
 
 static void *const s_ShimLevelSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetServerTime ),
@@ -1089,9 +1142,10 @@ static void *const s_ShimLevelSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_FileSizeOnPath ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ReadFileOnPath ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_SpawnWorld ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_IsPrecacheAllowed ),
 };
 
-static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 26 };
+static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 27 };
 
 //-----------------------------------------------------------------------------
 // ShimRoot: 3 forwarder(s) over IShimRoot.
@@ -1331,22 +1385,19 @@ static void *const s_ShimModelsServerSlots[] = {
 static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 4 };
 
 //-----------------------------------------------------------------------------
-// ShimPrecache: 3 forwarder(s) over IShimPrecache.
+// ShimPrecache: 2 forwarder(s) over IShimPrecache.
 //-----------------------------------------------------------------------------
 // int32_t IShimPrecache::PrecacheModel( const char * )
 static int32_t SSFwd_ShimPrecache_PrecacheModel( IShimPrecache *self, const char * a0 ) { return self->PrecacheModel( a0 ); }
-// void IShimPrecache::PrecacheSound( const char * )
-static void SSFwd_ShimPrecache_PrecacheSound( IShimPrecache *self, const char * a0 ) { self->PrecacheSound( a0 ); }
 // int32_t IShimPrecache::PrecacheDecal( const char * )
 static int32_t SSFwd_ShimPrecache_PrecacheDecal( IShimPrecache *self, const char * a0 ) { return self->PrecacheDecal( a0 ); }
 
 static void *const s_ShimPrecacheSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheModel ),
-	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheSound ),
 	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheDecal ),
 };
 
-static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 3 };
+static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // ShimMovementServer: 11 forwarder(s) over IShimMovementServer.
@@ -2996,6 +3047,7 @@ static const SSForwarderTable s_RecipientFilterTable = { s_RecipientFilterSlots,
 static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ModelInfo", &s_ModelInfoTable },
 	{ "SSFwd_BaseFileSystem", &s_BaseFileSystemTable },
+	{ "SSFwd_FileSystem", &s_FileSystemTable },
 	{ "SSFwd_EngineServer", &s_EngineServerTable },
 	{ "SSFwd_UniformRandomStream", &s_UniformRandomStreamTable },
 	{ "SSFwd_NetChannelInfo", &s_NetChannelInfoTable },

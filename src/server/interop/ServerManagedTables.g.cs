@@ -773,4 +773,12 @@ public unsafe struct ManagedSoundEmitterTable
     // 3: void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName )
     [SlotHash(0x5cb9e839)]
     public delegate* unmanaged<void*, int, void*, byte*, void> ServerMoveSoundScript;
+
+    // 4: bool ServerSoundSystemInit( void )
+    [SlotHash(0xbe023354)]
+    public delegate* unmanaged<void*, byte> ServerSoundSystemInit;
+
+    // 5: void ServerPrecacheScriptSound( const char *pSoundName )
+    [SlotHash(0x3aa7ebf0)]
+    public delegate* unmanaged<void*, byte*, void> ServerPrecacheScriptSound;
 }

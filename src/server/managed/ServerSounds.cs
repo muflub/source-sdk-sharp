@@ -23,20 +23,32 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     private readonly IEngineEntities _entities;
     private readonly Action<string> _warning;
     private readonly ServerSoundPatches _patches;
+    private readonly SoundEmitterSystem? _system;
     private bool _saidUnresolved;
 
     /// <param name="onPatchCreated">
     /// The managed sound controller's <c>Create</c>: a new patch's handle is
     /// told to it as CShellSoundController::Track told it.
     /// </param>
+    /// <param name="system">
+    /// The sound emitter system every <see cref="PrecacheSound"/> goes to; null
+    /// precaches nothing (the module has said why).
+    /// </param>
     public ServerSounds(SoundEmitter emitter, IEngineEntities entities, Action<int> onPatchCreated,
-                        Action<string> warning)
+                        Action<string> warning, SoundEmitterSystem? system = null)
     {
         _emitter = emitter;
         _entities = entities;
         _warning = warning;
+        _system = system;
         _patches = new ServerSoundPatches(emitter, entities, onPatchCreated);
     }
+
+    /// <summary>
+    /// shell_sound.cpp's <c>SourceSharp_PrecacheSound</c>, which every managed
+    /// entity's precache reached: <see cref="SoundEmitterSystem.PrecacheSound"/>.
+    /// </summary>
+    public void PrecacheSound(string soundName) => _system?.PrecacheSound(soundName);
 
     /// <summary>The patches, for the facts.</summary>
     public ServerSoundPatches Patches => _patches;

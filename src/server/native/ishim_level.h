@@ -182,6 +182,15 @@ public:
 	virtual int32_t SpawnWorld( const char *const *ppKeys, const char *const *ppValues,
 	                            int32_t nKeys ) = 0;
 
+	//-------------------------------------------------------------------------
+	// plan_server_native_v2 T4a, the precache path: WHETHER A PRECACHE IS IN
+	// ORDER NOW -- the flag SetPrecacheAllowed above writes and the world's
+	// own precache opens (EntityPrecache_IsAllowed). 1 or 0. The managed
+	// SoundEmitterSystem asks it before stock's "Late precache of" warning;
+	// the flag itself stays native, where the world's precache sets it.
+	//-------------------------------------------------------------------------
+	virtual int32_t IsPrecacheAllowed() = 0;
+
 	// NEW METHODS GO HERE, AT THE END.
 };
 

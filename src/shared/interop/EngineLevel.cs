@@ -199,6 +199,9 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
         => Vtbl->SetPrecacheAllowed(_self, allowed ? 1 : 0);
 
     /// <inheritdoc/>
+    public bool IsPrecacheAllowed() => Vtbl->IsPrecacheAllowed(_self) != 0;
+
+    /// <inheritdoc/>
     public void ShutdownPreClearSteamSystems() => Vtbl->ShutdownPreClearSteamSystems(_self);
 
     /// <inheritdoc/>

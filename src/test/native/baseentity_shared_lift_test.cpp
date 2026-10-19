@@ -206,7 +206,7 @@ const Caller_t kCallers[] =
 	// Neither client.so nor server.so compiles them any more, so they left the
 	// source tree and their rows went with them.
 	{ "../sourcesharp/game/server/precache_model.cpp", true,  false },
-	{ "../sourcesharp/game/shared/sound_emitter.cpp", true,  true  },
+	{ "../sourcesharp/game/client/sound_emitter.cpp", true,  true  },
 };
 const size_t kNumCallers = sizeof( kCallers ) / sizeof( kCallers[ 0 ] );
 
@@ -847,7 +847,7 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// must follow the file or this row anchors nothing. 4e took the tracer
 		// DEFINITION out of baseentity_shared.cpp into entity_shared_statics.cpp,
 		// so the "3" 4b still carries is the pre-4e reading.
-		{ "../sourcesharp/game/shared/sound_emitter.cpp", "EntityPrecache_IsAllowed", 1, false },
+		{ "../sourcesharp/game/client/sound_emitter.cpp", "EntityPrecache_IsAllowed", 1, false },
 		// The DEFINITION step 4e moved from baseentity_shared.cpp into
 		// entity_shared_statics.cpp, and plan_server_native_v2 T2 on into the
 		// client's utility library (it was #ifdef CLIENT_DLL there).

@@ -607,6 +607,8 @@ struct SSManagedSoundEmitterTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *ServerMoveSound )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch );
 	void ( *ServerMoveSoundScript )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, const char *pSoundName );
+	bool ( *ServerSoundSystemInit )( IManagedSoundEmitter *self );
+	void ( *ServerPrecacheScriptSound )( IManagedSoundEmitter *self, const char *pSoundName );
 };
 
 class IManagedSoundEmitter : public IManagedObject
@@ -616,16 +618,18 @@ public:
 
 	void ServerMoveSound( int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch ) { Table()->ServerMoveSound( this, nEntIndex, pOrigin, nChannel, pSample, flVolume, nSoundLevel, nFlags, nPitch ); }
 	void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName ) { Table()->ServerMoveSoundScript( this, nEntIndex, pOrigin, pSoundName ); }
+	bool ServerSoundSystemInit() { return Table()->ServerSoundSystemInit( this ); }
+	void ServerPrecacheScriptSound( const char *pSoundName ) { Table()->ServerPrecacheScriptSound( this, pSoundName ); }
 
 private:
 	const SSManagedSoundEmitterTable *Table() const { return static_cast< const SSManagedSoundEmitterTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSoundEmitterSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xa452a32f, 0x5cb9e839,
+	0x07e0f4c4, 0x0d54c15e, 0xa452a32f, 0x5cb9e839, 0xbe023354, 0x3aa7ebf0,
 };
-static const int32_t kIManagedSoundEmitterSlotCount = 4;
-static_assert( sizeof( SSManagedSoundEmitterTable ) == 4 * sizeof( void * ), "SSManagedSoundEmitterTable is one pointer per slot" );
+static const int32_t kIManagedSoundEmitterSlotCount = 6;
+static_assert( sizeof( SSManagedSoundEmitterTable ) == 6 * sizeof( void * ), "SSManagedSoundEmitterTable is one pointer per slot" );
 
 IManagedPhysicsFrame *ManagedPhysicsFrame();   // this load's area, or NULL outside a load
 IManagedResources *ManagedResources();   // this load's area, or NULL outside a load

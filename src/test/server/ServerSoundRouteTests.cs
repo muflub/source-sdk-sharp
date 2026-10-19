@@ -39,6 +39,7 @@ public sealed class ServerSoundRouteTests : IDisposable
             filterActive = true;
         }
         public void SoundPatchFree(int patch) => Calls.Add($"PatchFree {patch}");
+        public void PrecacheSound(string soundName) => Calls.Add($"Precache {soundName}");
     }
 
     private readonly FakeShimRoot _root = new();
@@ -66,6 +67,18 @@ public sealed class ServerSoundRouteTests : IDisposable
         side.EntityStopSound(Door, "Doors.Move1");
 
         Assert.Equal(["Emit 10040 Doors.Move1", "Stop 10040 Doors.Move1"], route.Calls);
+    }
+
+    [Fact]
+    public void APrecacheReachesTheRouteAndAnEmptyNameDoesNot()
+    {
+        var route = new Route();
+        EngineSide side = Server(route);
+
+        side.PrecacheSound("Doors.Move1");
+        side.PrecacheSound("");
+
+        Assert.Equal(["Precache Doors.Move1"], route.Calls);
     }
 
     [Fact]

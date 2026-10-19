@@ -429,6 +429,7 @@ public sealed class RecordingEngine :
     void IEngineLevel.ActivateAllEntities() => RecordVoid("Level.ActivateAllEntities");
     void IEngineLevel.InitPostEntitySystems() => RecordVoid("Level.InitPostEntitySystems");
     void IEngineLevel.SetPrecacheAllowed(bool allowed) => RecordVoid("Level.SetPrecacheAllowed", allowed);
+    bool IEngineLevel.IsPrecacheAllowed() => Record<bool>("Level.IsPrecacheAllowed");
     void IEngineLevel.ShutdownPreClearSteamSystems() => RecordVoid("Level.ShutdownPreClearSteamSystems");
     void IEngineLevel.ClearSteamAPIContext() => RecordVoid("Level.ClearSteamAPIContext");
     void IEngineLevel.ShutdownPreEntitySystems() => RecordVoid("Level.ShutdownPreEntitySystems");

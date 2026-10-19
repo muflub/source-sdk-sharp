@@ -289,15 +289,19 @@ public unsafe class VtableBindingTests
     }
 
     [Fact]
-    public void TheFileSystemOffersNothingThatWrites()
+    public void TheFileSystemOffersNothingThatMakesOrChmodsAWholeFile()
     {
+        // The user's 2026-10-19 ruling exposed the handles: Open, Write and
+        // Close are offered, and the -makereslists precache log is what writes
+        // through them (plan_server_native_v2 T4a). A whole file made in one
+        // call, a chmod, and an unzip stay absent.
         string[] offered = PublicMethodsOf(typeof(EngineBaseFileSystem));
 
-        foreach (string forbidden in new[]
-                 { "Write", "WriteFile", "SetFileWritable", "Open", "Close", "UnzipFile" })
-        {
+        foreach (string named in new[] { "Open", "Write", "Close" })
+            Assert.Contains(named, offered);
+
+        foreach (string forbidden in new[] { "WriteFile", "SetFileWritable", "UnzipFile" })
             Assert.DoesNotContain(forbidden, offered);
-        }
     }
 
     [Fact]

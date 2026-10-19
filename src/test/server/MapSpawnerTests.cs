@@ -208,6 +208,7 @@ public sealed class MapSpawnerTests
         public void ActivateAllEntities() => _inner.ActivateAllEntities();
         public void InitPostEntitySystems() => _inner.InitPostEntitySystems();
         public void SetPrecacheAllowed(bool a) => _inner.SetPrecacheAllowed(a);
+        public bool IsPrecacheAllowed() => _inner.IsPrecacheAllowed();
         public void ShutdownPreClearSteamSystems() => _inner.ShutdownPreClearSteamSystems();
         public void ClearSteamAPIContext() => _inner.ClearSteamAPIContext();
         public void ShutdownPreEntitySystems() => _inner.ShutdownPreEntitySystems();

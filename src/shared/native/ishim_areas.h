@@ -104,7 +104,6 @@ abstract_class IShimPrecache
 {
 public:
 	virtual int32_t PrecacheModel( const char * pszModel ) = 0;
-	virtual void PrecacheSound( const char * pSoundName ) = 0;
 	virtual int32_t PrecacheDecal( const char * pName ) = 0;
 };
 

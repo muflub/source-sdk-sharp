@@ -189,10 +189,15 @@ TEST( Shard2Lifts, EffectsPrecacheAsksTheFreeSoundFunction )
 
 	EXPECT_EQ( 0, CountOf( code, "CBaseEntity::PrecacheScriptSound" ) )
 		<< "EffectsPrecache asks the class again -- that scope is what Phase 13 deletes";
-	EXPECT_LT( 0, CountOf( code, "GameSound_PrecacheScript(" ) )
-		<< "the free function is what the forwarder called, and what this file must call";
-	EXPECT_TRUE( Has( code, "#include \"gamesound.h\"" ) )
-		<< "the free function's declaration has to be included, not inherited from cbase.h";
+	// plan_server_native_v2 T4a's precache path: the free function left
+	// server.so with the native sound emitter system; the script precache is
+	// the managed SoundEmitterSystem's, through IManagedSoundEmitter.
+	EXPECT_EQ( 0, CountOf( code, "GameSound_PrecacheScript(" ) )
+		<< "server.so defines no GameSound_PrecacheScript any more";
+	EXPECT_EQ( 6, CountOf( code, "ServerPrecacheScriptSound(" ) )
+		<< "EffectsPrecache's six scripts go to the managed system";
+	EXPECT_TRUE( Has( code, "#include \"imanaged_areas.h\"" ) )
+		<< "the area's declaration has to be included, not inherited";
 }
 
 //=============================================================================//

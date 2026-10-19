@@ -132,6 +132,13 @@ public interface IEngineLevel
     /// <summary>Opens or closes the precache window.</summary>
     void SetPrecacheAllowed(bool allowed);
 
+    /// <summary>
+    /// Whether the precache window is open now: what <see cref="SetPrecacheAllowed"/>
+    /// and the world's own precache wrote (plan_server_native_v2 T4a). The
+    /// sound precache warns "Late precache of" when it is shut.
+    /// </summary>
+    bool IsPrecacheAllowed();
+
     /// <summary>The named list's pre-clear-steam shutdown pass, backwards.</summary>
     void ShutdownPreClearSteamSystems();
 
