@@ -128,10 +128,10 @@ public class ColorCorrectionVolumeTests
     /// 0..100 cube; the clock starts at zero and each test advances it with
     /// <c>Returns("Clock.Now", …)</c> — the last stub wins.
     /// </summary>
-    private static (ClientColorCorrectionVolume Volume, RecordingEngine Engine, ColorCorrections Service)
+    private static (ClientColorCorrectionVolume Volume, client::SourceSharp.Abi.RecordingEngine Engine, ColorCorrections Service)
         LiveVolume(float maxWeight = 1f, float fadeDuration = 10f, bool enabled = true)
     {
-        var engine = Fake()
+        var engine = ClientDoubles.Fake()
             .Returns("Visibility.ColorCorrectionAdd", 7)
             .Returns("Clock.Now", 0f);
 
@@ -160,7 +160,7 @@ public class ColorCorrectionVolumeTests
         return (volume, engine, service);
     }
 
-    private static float LastWeight(RecordingEngine engine)
+    private static float LastWeight(client::SourceSharp.Abi.RecordingEngine engine)
         => (float)engine.Last("Visibility.ColorCorrectionSetWeight")!.Value.Args[1]!;
 
     [Fact]

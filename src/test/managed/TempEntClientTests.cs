@@ -1,4 +1,19 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using RecordingEngine = client::SourceSharp.Abi.RecordingEngine;
+using RecordingLog = client::SourceSharp.Abi.RecordingLog;
+using TempEntRegistry = client::SourceSharp.Abi.TempEntRegistry;
+using TempEntType = client::SourceSharp.Abi.TempEntType;
+using TempEntWriter = client::SourceSharp.Abi.TempEntWriter;
+using TempEntReader = client::SourceSharp.Abi.TempEntReader;
+using TempEntState = client::SourceSharp.Abi.TempEntState;
+using TeField = client::SourceSharp.Abi.TeField;
+using TeFlags = client::SourceSharp.Abi.TeFlags;
+using TePropKind = client::SourceSharp.Abi.TePropKind;
+using ServiceContainer = client::SourceSharp.Abi.ServiceContainer;
+using TeSparks = client::SourceSharp.Shared.TeSparks;
+using TeEnergySplash = client::SourceSharp.Shared.TeEnergySplash;
 using SourceSharp.Abi;
 using client::SourceSharp.Client.TempEnts;
 using SourceSharp.Shared;
@@ -48,6 +63,23 @@ public class TempEntClientTests
     /// A registry over the real shared declarations, with native answering
     /// <paramref name="handle"/> to every registration.
     /// </summary>
+    /// <summary>
+    /// The server's writer, over the server's own double and a registry of the
+    /// server's copy of the shared declarations. Each side compiles the shared
+    /// interop (plan_shim_areas_split phase 3), so a sender and a receiver are
+    /// two sides joined only by the blob, as in the game.
+    /// </summary>
+    private static (SourceSharp.Server.TempEnts Temps, global::SourceSharp.Abi.RecordingEngine Engine,
+                    global::SourceSharp.Abi.TempEntRegistry Registry) ServerWriter()
+    {
+        var engine = TestServices.Fake();
+        int next = 5;
+        engine.ReturnsEachCall("Effects.TempEntRegister", () => next++);
+        var registry = new global::SourceSharp.Abi.TempEntRegistry(new global::SourceSharp.Abi.RecordingLog());
+        registry.RegisterAll("Test", TestServices.ServerGame, engine);
+        return (new SourceSharp.Server.TempEnts(new global::SourceSharp.Abi.RecordingLog(), registry, engine), engine, registry);
+    }
+
     private static TempEntRegistry Registered(RecordingEngine engine, int handle = 5)
     {
         // A DISTINCT handle per registration, as native gives out, starting at
@@ -78,7 +110,7 @@ public class TempEntClientTests
     [Fact]
     public void TheReaderFindsWhatTheWriterPutThere()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType sparks = Registered(engine).Find("CTESparks")!;
 
         var blob = new byte[sparks.BlobBytes];
@@ -108,7 +140,7 @@ public class TempEntClientTests
     [Fact]
     public void TheBasesFieldsAreInTheDerivedClassesBlob()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType sparks = registry.Find("CTESparks")!;
@@ -136,7 +168,7 @@ public class TempEntClientTests
     [Fact]
     public void AFieldNothingDeclaresReadsItsDefaultAndNotTheNextFieldsBytes()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType sparks = Registered(engine).Find("CTESparks")!;
 
         var blob = new byte[sparks.BlobBytes];
@@ -161,7 +193,7 @@ public class TempEntClientTests
     [Fact]
     public void AShortBlobReadsDefaultsRatherThanPastItsEnd()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType sparks = Registered(engine).Find("CTESparks")!;
 
         var full = new byte[sparks.BlobBytes];
@@ -189,7 +221,7 @@ public class TempEntClientTests
     [Fact]
     public void AnEntityHandleSurvivesThePackingStocksProxyWouldHaveDone()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType sparks = Registered(engine).Find("CTESparks")!;
 
         var blob = new byte[sparks.BlobBytes];
@@ -227,7 +259,7 @@ public class TempEntClientTests
     [Fact]
     public void ANarrowFieldReadsBackAtTheWidthItWasDeclaredWith()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType sparks = Registered(engine).Find("CTESparks")!;
 
         var blob = new byte[sparks.BlobBytes];
@@ -264,7 +296,7 @@ public class TempEntClientTests
     [Fact]
     public void TheHandleIsNotAnIndexIntoTheRegistry()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine, handle: 5);
 
         Assert.True(registry.Count >= 3, "three declarations were registered");
@@ -285,7 +317,7 @@ public class TempEntClientTests
     [Fact]
     public void ARefusedClassIsNotReachableByItsRefusal()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine, handle: -1);
 
         Assert.True(registry.Count >= 3, "the declarations were still discovered");
@@ -304,7 +336,7 @@ public class TempEntClientTests
         public int Calls { get; private set; }
         public Vector LastOrigin { get; private set; }
 
-        public void Play(in TempEntReader te)
+        public void Play(in client::SourceSharp.Abi.TempEntReader te)
         {
             Calls++;
             LastOrigin = te.Vector("Origin");
@@ -316,7 +348,7 @@ public class TempEntClientTests
         /// origin off the state's own type rather than through a declaration it
         /// does not name.
         /// </summary>
-        public void Play(TempEntState state)
+        public void Play(client::SourceSharp.Abi.TempEntState state)
         {
             Calls++;
 
@@ -328,7 +360,7 @@ public class TempEntClientTests
     [Fact]
     public void AnArrivingTempEntityReachesThePlayerRegisteredForItsName()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine, handle: 5);
 
         // CTESparks' OWN handle, asked for rather than assumed. The double
@@ -358,7 +390,7 @@ public class TempEntClientTests
     [Fact]
     public void AHandleThisSideRegisteredNothingForIsDroppedAndNotGuessed()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine, handle: 5));
 
         players.Dispatch(11, new byte[32]);
@@ -377,7 +409,7 @@ public class TempEntClientTests
     [Fact]
     public void ARegisteredClassWithNoPlayerIsDroppedRatherThanSilentlyIgnored()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine, handle: 5);
         var players = new ClientTempEnts(new RecordingLog(), registry);
 
@@ -397,10 +429,10 @@ public class TempEntClientTests
     [Fact]
     public void ThePlayersAreFoundByAttributeAndTheFirstPortedOneIsAmongThem()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine));
 
-        int found = players.RegisterAll(typeof(ClientTeEnergySplash).Assembly, Services());
+        int found = players.RegisterAll(typeof(ClientTeEnergySplash).Assembly, ClientDoubles.Services());
 
         Assert.True(found >= 1, "at least one client temp entity player was discovered");
         Assert.True(players.PlayerNames.Contains("CTEEnergySplash"),
@@ -421,7 +453,7 @@ public class TempEntClientTests
     [Fact]
     public void TheSplashReachesTheDrawingPrimitiveWithWhatTheBlobCarried()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType splash = registry.Find("CTEEnergySplash")!;
@@ -469,7 +501,7 @@ public class TempEntClientTests
     [Fact]
     public void TheExplosiveBitIsOneByteOfBlobAndTheLastOne()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType splash = registry.Find("CTEEnergySplash")!;
@@ -519,10 +551,7 @@ public class TempEntClientTests
     [Fact]
     public void TheSenderPacksTheBytesTheReceiverReadsBack()
     {
-        var engine = Fake();
-        var registry = Registered(engine);
-
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var (temps, engine, registry) = ServerWriter();
 
         temps.EnergySplash(TeFilter.Broadcast, 0f, new Vector(64f, -32f, 8f),
                            new Vector(0f, 0f, 1f), explosive: true);
@@ -530,7 +559,7 @@ public class TempEntClientTests
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 1, "one temp entity was sent");
 
         var call = engine.Last("Effects.TempEntPlayback")!.Value;
-        TempEntType splash = registry.Find("CTEEnergySplash")!;
+        global::SourceSharp.Abi.TempEntType splash = registry.Find("CTEEnergySplash")!;
 
         Assert.True(call.ArgAs<int>(0) == splash.Handle,
             "under the handle native answered for THIS class");
@@ -556,10 +585,10 @@ public class TempEntClientTests
     [Fact]
     public void WhatTheSenderPacksIsWhatThePlayerDraws()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var (temps, _, _) = ServerWriter();
         temps.EnergySplash(TeFilter.Broadcast, 0f, new Vector(-2932f, 3218f, 60f),
                            new Vector(0f, 0f, 1f), explosive: true);
 
@@ -619,7 +648,7 @@ public class TempEntClientTests
     [Fact]
     public void TheDeclarationIsWhatBothSidesBuildFrom()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType sparks = Registered(engine).Find("CTESparks")!;
 
         Assert.True(sparks.BlobBytes == 32,

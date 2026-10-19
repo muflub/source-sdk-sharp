@@ -1,3 +1,4 @@
+extern alias client;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -15,6 +16,13 @@ namespace SourceSharp.Tests;
 /// active. Each is now built over one side. These facts attach two fake shim
 /// roots to two sides, each answering differently, and show every call lands
 /// on the side it was built over.
+///
+/// <para>
+/// The client's half (its entity area's replay and frame blocks, and the
+/// engine client) is <c>ClientSideEngineTests</c> in the client suite: each
+/// side compiles its own copy of the shared interop (plan_shim_areas_split
+/// phase 3), and the client's areas are built from the client's.
+/// </para>
 /// </summary>
 public unsafe class SideMovementEngineTests : IDisposable
 {
@@ -172,126 +180,6 @@ public unsafe class SideMovementEngineTests : IDisposable
     }
 
     //-------------------------------------------------------------------------
-    // The client's replay and frame blocks, held by its entity area.
-    //-------------------------------------------------------------------------
-
-    [Fact]
-    public void EachEntityAreasReplayFetchesFromItsOwnSide()
-    {
-        var (first, second) = TwoSides(Side.Client, "SourceSharpPredictionClient001",
-            nameof(ShimPredictionClientFwd.ClientGetUserCmd),
-            (nint)(delegate* unmanaged<void*, int, void*, int>)&UserCmdFound,
-            (nint)(delegate* unmanaged<void*, int, void*, int>)&UserCmdMissing);
-
-        IClientReplayEngine mine = ClientEntities(first).ClientReplay;
-        IClientReplayEngine theirs = ClientEntities(second).ClientReplay;
-
-        Assert.True(mine.TryGetUserCmd(42, out UserCmd cmd), "the first side has the command");
-        Assert.Equal(42, cmd.CommandNumber);
-        Assert.False(theirs.TryGetUserCmd(42, out _), "and the second side does not");
-        Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
-    }
-
-    [Fact]
-    public void EachEntityAreasInterpolationListComesFromItsOwnSide()
-    {
-        var (first, second) = TwoSides(Side.Client, "SourceSharpStandaloneClient001",
-            nameof(ShimStandaloneClientFwd.ClientInterpBlocks),
-            (nint)(delegate* unmanaged<void*, void*, void*, void*>)&InterpOne,
-            (nint)(delegate* unmanaged<void*, void*, void*, void*>)&InterpNone);
-
-        Assert.Equal(1, ClientEntities(first).InterpolationBlocks.Begin(out float amount));
-        Assert.Equal(0.25f, amount);
-        Assert.Equal(0, ClientEntities(second).InterpolationBlocks.Begin(out _));
-        Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
-    }
-
-    [Fact]
-    public void EachEntityAreasRenderPolicyListComesFromItsOwnSide()
-    {
-        var (first, second) = TwoSides(Side.Client, "SourceSharpStandaloneClient001",
-            nameof(ShimStandaloneClientFwd.ClientPolicyBlocks),
-            (nint)(delegate* unmanaged<void*, void*, void*>)&PolicyOne,
-            (nint)(delegate* unmanaged<void*, void*, void*>)&PolicyNone);
-
-        Assert.Equal(1, ClientEntities(first).RenderPolicyBlocks.Begin());
-        Assert.Equal(0, ClientEntities(second).RenderPolicyBlocks.Begin());
-        Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
-    }
-
-    /// <summary>
-    /// A side's entity area as the client composition builds it: the client's
-    /// three fetches registered first (ClientEntityFetches), then the areas.
-    /// </summary>
-    private static IEngineEntities ClientEntities(EngineSide side)
-    {
-        var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        SourceSharp.Client.Interop.ClientEntityFetches.AddTo(services, new ModuleEngine(side));
-        EngineServices.AddTo(services, side);
-        return services.Require<IEngineEntities>();
-    }
-
-    [Fact]
-    public void TheClientsAreaAndContainerHoldTheSameThreeFetches()
-    {
-        var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var side = new EngineSide(Side.Client);
-        SourceSharp.Client.Interop.ClientEntityFetches.AddTo(services, new ModuleEngine(side));
-        EngineServices.AddTo(services, side);
-        var entities = services.Require<IEngineEntities>();
-
-        Assert.Same(services.Require<IClientReplayEngine>(), entities.ClientReplay);
-        Assert.Same(services.Require<IInterpolationBlocks>(), entities.InterpolationBlocks);
-        Assert.Same(services.Require<IRenderPolicyBlocks>(), entities.RenderPolicyBlocks);
-        Assert.IsNotType<NoClientReplayEngine>(entities.ClientReplay);
-    }
-
-    [Fact]
-    public void ASideWithNoClientFetchesAnswersNothing()
-    {
-        var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(services, new EngineSide(Side.Server));
-        var entities = services.Require<IEngineEntities>();
-
-        Assert.Same(NoClientReplayEngine.Instance, entities.ClientReplay);
-        Assert.Same(NoInterpolationBlocks.Instance, entities.InterpolationBlocks);
-        Assert.Same(NoRenderPolicyBlocks.Instance, entities.RenderPolicyBlocks);
-    }
-
-    //-------------------------------------------------------------------------
-    // The engine client's C++ proxies.
-    //-------------------------------------------------------------------------
-
-    [Fact]
-    public void AnEngineClientPrintsThroughTheSideItWasAcquiredOn()
-    {
-        var (first, _) = TwoSides(Side.Client, "SourceSharpViewClient001",
-            nameof(ShimViewClientFwd.ConNPrintf),
-            (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintFirst,
-            (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintSecond);
-
-        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-        try
-        {
-            // The table's type is Client.Interop's own (ClientForwarders.g.cs),
-            // so it is named through the constructor rather than here.
-            var ctor = typeof(EngineClient)
-                .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Single();
-            var client = (IVtableEngineClient)ctor.Invoke(
-                [first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, ctor.GetParameters()[2].ParameterType)]);
-
-            client.ConsolePrintAt(3, "hello");
-        }
-        finally
-        {
-            NativeMemory.Free(self);
-        }
-
-        Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
-    }
-
-    //-------------------------------------------------------------------------
     // A networked state's blob, bound on its registry's side.
     //-------------------------------------------------------------------------
 
@@ -363,8 +251,6 @@ public unsafe class SideMovementEngineTests : IDisposable
     // The fakes.
     //-------------------------------------------------------------------------
 
-    private static readonly nint* s_oneBlock = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
-
     // A blob and a slot a fake bind can answer with; test-lifetime storage.
     private static readonly byte* s_blob = (byte*)NativeMemory.AllocZeroed(4096);
     private static readonly EntitySlot* s_slot = (EntitySlot*)NativeMemory.AllocZeroed(1, (nuint)sizeof(EntitySlot));
@@ -407,55 +293,4 @@ public unsafe class SideMovementEngineTests : IDisposable
 
     [UnmanagedCallersOnly]
     private static int ProbeSecond(void* self, uint player, void* state) { s_secondCalls++; return 0; }
-
-    [UnmanagedCallersOnly]
-    private static int UserCmdFound(void* self, int number, void* cmd)
-    {
-        s_firstCalls++;
-        ((UserCmd*)cmd)->CommandNumber = number;
-        return 1;
-    }
-
-    [UnmanagedCallersOnly]
-    private static int UserCmdMissing(void* self, int number, void* cmd) { s_secondCalls++; return 0; }
-
-    [UnmanagedCallersOnly]
-    private static void* InterpOne(void* self, void* count, void* amount)
-    {
-        s_firstCalls++;
-        *(int*)count = 1;
-        *(float*)amount = 0.25f;
-        return s_oneBlock;
-    }
-
-    [UnmanagedCallersOnly]
-    private static void* InterpNone(void* self, void* count, void* amount)
-    {
-        s_secondCalls++;
-        *(int*)count = 0;
-        *(float*)amount = 0f;
-        return null;
-    }
-
-    [UnmanagedCallersOnly]
-    private static void* PolicyOne(void* self, void* count)
-    {
-        s_firstCalls++;
-        *(int*)count = 1;
-        return s_oneBlock;
-    }
-
-    [UnmanagedCallersOnly]
-    private static void* PolicyNone(void* self, void* count)
-    {
-        s_secondCalls++;
-        *(int*)count = 0;
-        return null;
-    }
-
-    [UnmanagedCallersOnly]
-    private static void PrintFirst(void* self, void* client, int position, byte* text) => s_firstCalls++;
-
-    [UnmanagedCallersOnly]
-    private static void PrintSecond(void* self, void* client, int position, byte* text) => s_secondCalls++;
 }

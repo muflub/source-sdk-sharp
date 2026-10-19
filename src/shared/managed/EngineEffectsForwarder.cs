@@ -2,14 +2,17 @@
 // which means to answer THREE of them does not have to reference the other
 // fifty-two.
 //
-// WHY THIS IS BESIDE ITS ONE SUBCLASS, IN SourceSharp.Server. SideAuditTests
-// Audit 2 fails any IEngine* member an assembly reaches that its side leaves
-// null, and this class names every client-only effect. It used to live in
-// SourceSharp.Abi for that reason alone. Since P1 run 3 the audit (SideReach)
-// knows a pure forwarder is pass-through: a member whose whole body is
-// `Inner.Same(args)` costs its caller what calling Inner would, so its own
-// reference is not a use. What counts is what EffectsOverTempEnts overrides and
-// calls, and what callers call through this class.
+// WHY IT IS SHARED SOURCE. SideAuditTests Audit 2 fails any IEngine* member an
+// assembly reaches that its side leaves null, and this class names every
+// effect of both sides. It used to live in SourceSharp.Abi for that reason
+// alone, then beside its one product subclass in SourceSharp.Server. Since P1
+// run 3 the audit (SideReach) knows a pure forwarder is pass-through: a member
+// whose whole body is `Inner.Same(args)` costs its caller what calling Inner
+// would, so its own reference is not a use. What counts is what
+// EffectsOverTempEnts overrides and calls, and what callers call through this
+// class. Since plan_shim_areas_split phase 3 each side compiles its own
+// IEngineEffects, so a forwarder over the client's needs the client's copy of
+// this class: the client's temp entity facts decorate its effects area with it.
 //
 // The subclass then references only the members it actually overrides, which is
 // the set Audit 2 is trying to ask about in the first place. Keep every member a

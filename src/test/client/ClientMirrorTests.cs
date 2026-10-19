@@ -41,7 +41,7 @@ public class ClientMirrorTests
     {
         lights = new DynamicLights(engine);
 
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientDynamicLight).Assembly);
         registry.Services = new ServiceContainer()
             .AddInstance<IDynamicLights>(lights)

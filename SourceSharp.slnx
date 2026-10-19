@@ -26,7 +26,8 @@
   <Project Path="src/test/server/SourceSharp.Server.Tests.csproj" />
   <Project Path="src/test/client/SourceSharp.Client.Tests.csproj" />
   <Project Path="src/test/client/Ui/ModUi/SourceSharp.Tests.ModUi.csproj" />
-  <Project Path="src/test/support/SourceSharp.TestSupport.csproj" />
+  <Project Path="src/test/support/server/SourceSharp.TestSupport.Server.csproj" />
+  <Project Path="src/test/support/client/SourceSharp.TestSupport.Client.csproj" />
   <Project Path="src/tf2/client/TF2.Client.csproj" />
   <Project Path="src/tf2/server/TF2.Server.csproj" />
   <Project Path="src/tf2/tests/TF2.Tests.csproj" />

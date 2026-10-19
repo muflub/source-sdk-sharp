@@ -114,7 +114,7 @@ public class ManagedSaveTests
     [Fact]
     public void ClientSaveCollectAnswersZeroWithNoEntities()
     {
-        Assert.Equal(0, new ClientModule(new ModuleEngine(new EngineSide(Side.Client))).SaveCollect(Span<byte>.Empty));
+        Assert.Equal(0, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client))).SaveCollect(Span<byte>.Empty));
     }
 
     /// <summary>
@@ -137,7 +137,7 @@ public class ManagedSaveTests
     {
         byte[] garbage = { 0xDE, 0xAD, 0xBE, 0xEF, 1, 0, 0, 0, 1, 0, 0, 0 };
 
-        Assert.Equal(-1, new ClientModule(new ModuleEngine(new EngineSide(Side.Client))).SaveRestore(garbage));
+        Assert.Equal(-1, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client))).SaveRestore(garbage));
     }
 
     /// <summary>
@@ -187,7 +187,7 @@ public class ManagedSaveTests
     public void AnEmptyBlockRestoresNothingWithoutRefusing()
     {
         Assert.Equal(0, new ServerModule(new ModuleEngine(new EngineSide(Side.Server))).SaveRestore(ReadOnlySpan<byte>.Empty));
-        Assert.Equal(0, new ClientModule(new ModuleEngine(new EngineSide(Side.Client))).SaveRestore(ReadOnlySpan<byte>.Empty));
+        Assert.Equal(0, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client))).SaveRestore(ReadOnlySpan<byte>.Empty));
     }
 
     //-------------------------------------------------------------------------

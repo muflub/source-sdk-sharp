@@ -1,10 +1,11 @@
+extern alias client;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using SourceSharp.Bootstrap;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared.Interop;
 using Xunit;
@@ -140,7 +141,7 @@ public sealed class SideBoundaryTests
         // The control: the same reader, on the side's shared entry code.
         var (references, types) = AbiIn(typeof(SideLoad).Assembly);
 
-        Assert.True(references, "SourceSharp.Shared.Interop lists SourceSharp.Abi");
+        Assert.True(references, "the side's interop, which compiles the shared entry code, lists SourceSharp.Abi");
         Assert.Contains("SourceSharp.Abi.ManagedVtables", types);
     }
 

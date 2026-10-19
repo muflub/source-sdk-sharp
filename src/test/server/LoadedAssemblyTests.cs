@@ -41,10 +41,12 @@ public class LoadedAssemblyTests
         => Assert.True(Names().Contains("SourceSharp.Abi"), "the contract assembly is scanned");
 
     [Fact]
-    public void TheSharedAssemblyIsScanned()
+    public void TheSidesInteropAssemblyIsScanned()
         // Since plan_side_isolation P7 the shared SOURCE is in each side's
-        // assembly; the one assembly both sides still load is Shared.Interop.
-        => Assert.True(Names().Contains("SourceSharp.Shared.Interop"), "the shared assembly is scanned");
+        // assembly, and since plan_shim_areas_split phase 3 the shared interop
+        // is in each side's interop: what the server's scan must reach beside
+        // its own assembly is the server's interop.
+        => Assert.True(Names().Contains("SourceSharp.Server.Interop"), "the side's interop assembly is scanned");
 
     [Fact]
     public void AReferencedAssemblyIsScanned()
@@ -202,20 +204,20 @@ public class LoadedAssemblyTests
     }
 
     [Fact]
-    public void ASideContextScansTheSharedAssembly()
+    public void ASideContextScansTheSidesInteropAssembly()
     {
         var (_, scanned) = Scanned();
 
-        Assert.True(scanned.Any(a => a.GetName().Name == "SourceSharp.Shared.Interop"), "a side context scans the shared assembly");
+        Assert.True(scanned.Any(a => a.GetName().Name == "SourceSharp.Server.Interop"), "a side context scans the side's interop assembly");
     }
 
     [Fact]
     public void AnUntouchedAssemblyIsLoadedByTheScanItself()
     {
         var (side, scanned) = Scanned();
-        var shared = scanned.FirstOrDefault(a => a.GetName().Name == "SourceSharp.Shared.Interop");
+        var interop = scanned.FirstOrDefault(a => a.GetName().Name == "SourceSharp.Server.Interop");
 
-        Assert.True(shared is not null && AssemblyLoadContext.GetLoadContext(shared) == side, "an untouched assembly is loaded by the scan itself");
+        Assert.True(interop is not null && AssemblyLoadContext.GetLoadContext(interop) == side, "an untouched assembly is loaded by the scan itself");
     }
 
     [Fact]

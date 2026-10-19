@@ -200,15 +200,16 @@ public class UnloadAfterDiscoverTests
 
 /// <summary>
 /// A side context's own copies, reached by reflection (P1 run 3): the engine
-/// surface is SourceSharp.Shared.Interop, loaded per side, so a side's types
-/// are cached in its own copy, and the types this test binds statically are
-/// the default context's.
+/// surface is the shared interop, compiled into each side's interop and loaded
+/// per side (plan_shim_areas_split phase 3), so a side's types are cached in
+/// its own copy, and the types this test binds statically are the default
+/// context's.
 /// </summary>
 internal static class SideCopy
 {
     public static Assembly Interop(AssemblyLoadContext side)
     {
-        var interop = side.LoadFromAssemblyName(new AssemblyName("SourceSharp.Shared.Interop"));
+        var interop = side.LoadFromAssemblyName(new AssemblyName("SourceSharp.Server.Interop"));
         Assert.True(AssemblyLoadContext.GetLoadContext(interop) == side, "the side has its own copy of the engine surface");
         return interop;
     }

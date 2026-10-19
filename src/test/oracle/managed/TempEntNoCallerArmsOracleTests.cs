@@ -1,4 +1,11 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using IEngineEffects = client::SourceSharp.Abi.IEngineEffects;
+using IGameClock = client::SourceSharp.Abi.IGameClock;
+using RecordingLog = client::SourceSharp.Abi.RecordingLog;
+using RecordingEngine = client::SourceSharp.Abi.RecordingEngine;
+using EngineEffectsForwarder = client::SourceSharp.Abi.EngineEffectsForwarder;
 using RandomSeeds = client::SourceSharp.Abi.RandomSeeds;
 
 using System.Text.RegularExpressions;
@@ -67,7 +74,7 @@ public class TempEntNoCallerArmsOracleTests
 
     private static Rigging Rig(int frames = 10, ModelType kind = ModelType.Sprite)
     {
-        var engine = TestServices.Fake();
+        var engine = ClientDoubles.Fake();
         var native = new SpawningPool(engine);
         var clock = new Clock { Now = 100f };
         var log = new RecordingLog();
@@ -345,7 +352,7 @@ public class TempEntNoCallerArmsOracleTests
     private static List<(string Model, Vector Origin, Vector Angles, Vector Velocity, float Life, int Flags)> Bolt(
         int maxClients, int surfaceFlags, Vector origin, Vector normal)
     {
-        var engine = TestServices.Fake();
+        var engine = ClientDoubles.Fake();
         nint raw = System.Runtime.InteropServices.Marshal.AllocHGlobal(
             System.Runtime.InteropServices.Marshal.SizeOf<CGlobalVarsRaw>());
         try

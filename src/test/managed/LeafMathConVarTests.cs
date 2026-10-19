@@ -60,16 +60,39 @@ public class LeafMathConVarTests
         return File.ReadAllText(path);
     }
 
-    private static Dictionary<string, ConVarBase> DeclaredIn(System.Reflection.Assembly assembly)
+    /// <summary>
+    /// A declaration as these facts compare it. Each side compiles its own copy
+    /// of the shared interop (plan_shim_areas_split phase 3), so the two sides'
+    /// ConVars are of two ConVarBase types; this is the part of either that the
+    /// facts read, the flags as this suite's enum by their value.
+    /// </summary>
+    private sealed record Declared(string Name, string DefaultValue, ConVarFlags Flags);
+
+    private static Dictionary<string, Declared> DeclaredIn(System.Reflection.Assembly assembly)
     {
         var registry = new ConVarRegistry(TestServices.UnattachedConsole());
         registry.RegisterAll(assembly);
+        return ByName(assembly, registry.All.Select(c => (c.GetType().Assembly, new Declared(c.Name, c.DefaultValue, c.Flags))));
+    }
 
-        var byName = new Dictionary<string, ConVarBase>();
+    private static Dictionary<string, Declared> ClientDeclaredIn(System.Reflection.Assembly assembly)
+    {
+        var console = ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(ClientDoubles.UnattachedEngine());
+        var registry = new client::SourceSharp.Abi.ConVarRegistry(console);
+        registry.RegisterAll(assembly);
+        return ByName(assembly, registry.All.Select(c => (c.GetType().Assembly,
+            new Declared(c.Name, c.DefaultValue,
+                         (ConVarFlags)Convert.ChangeType(c.Flags, Enum.GetUnderlyingType(typeof(ConVarFlags)))))));
+    }
 
-        foreach (var c in registry.All)
+    private static Dictionary<string, Declared> ByName(System.Reflection.Assembly assembly,
+                                                       IEnumerable<(System.Reflection.Assembly Owner, Declared ConVar)> all)
+    {
+        var byName = new Dictionary<string, Declared>();
+
+        foreach (var (owner, c) in all)
         {
-            if (c.GetType().Assembly != assembly)
+            if (owner != assembly)
                 continue;
 
             Assert.True(byName.TryAdd(c.Name, c),
@@ -80,11 +103,11 @@ public class LeafMathConVarTests
         return byName;
     }
 
-    private static Dictionary<string, ConVarBase> Server()
+    private static Dictionary<string, Declared> Server()
         => DeclaredIn(typeof(SourceSharp.Server.AnimThreeWayBlendConVar).Assembly);
 
-    private static Dictionary<string, ConVarBase> Client()
-        => DeclaredIn(typeof(client::SourceSharp.Client.ClAnimThreeWayBlendConVar).Assembly);
+    private static Dictionary<string, Declared> Client()
+        => ClientDeclaredIn(typeof(client::SourceSharp.Client.ClAnimThreeWayBlendConVar).Assembly);
 
     public static IEnumerable<object[]> TheReplicatedTwo() =>
     [
@@ -140,8 +163,8 @@ public class LeafMathConVarTests
     [MemberData(nameof(TheReplicatedTwo))]
     public void TheTwoSidesAgreeOnTheDefaultAndTheFlags(string name)
     {
-        ConVarBase s = Server()[name];
-        ConVarBase c = Client()[name];
+        Declared s = Server()[name];
+        Declared c = Client()[name];
 
         Assert.Equal(s.DefaultValue, c.DefaultValue);
         Assert.Equal(s.Flags, c.Flags);

@@ -209,7 +209,7 @@ public class PolicyKnobDeclarationTests
 
         foreach (var type in assembly.GetTypes())
         {
-            var attr = type.GetCustomAttribute<ConVarAttribute>();
+            var attr = SideAttribute.Get<ConVarAttribute>(type);
             if (attr is not null)
                 found[attr.Name] = attr;
         }
@@ -312,13 +312,11 @@ public class PolicyKnobDeclarationTests
     [Fact]
     public void TheRegistryBindsEveryMovedKnobToItsDeclaredDefault()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
-        registry.RegisterAll(ServerAssembly);
-        registry.RegisterAll(ClientAssembly);
+        var registered = BothSidesConVars.Registered(ServerAssembly, ClientAssembly);
 
         foreach (var knob in Moved)
         {
-            var bound = registry.All.Where(
+            var bound = registered.Where(
                 c => string.Equals(c.Name, knob.Name, StringComparison.OrdinalIgnoreCase)).ToList();
 
             Assert.True(bound.Count > 0, knob.Name + " reached no registry at all.");

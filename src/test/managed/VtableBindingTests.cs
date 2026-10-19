@@ -1,3 +1,8 @@
+extern alias client;
+// The client's interop is referenced under the client alias alone, since it
+// compiles its own copy of the shared interop (plan_shim_areas_split phase 3).
+using EngineClient = client::SourceSharp.Abi.EngineClient;
+using IVtableEngineClient = client::SourceSharp.Abi.IVtableEngineClient;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -203,7 +208,7 @@ public unsafe class VtableBindingTests
     {
         Assert.Null(EngineModelInfo.Acquire(Unattached(), out _));
         Assert.Null(EngineBaseFileSystem.Acquire(Unattached(), out _));
-        Assert.Null(EngineClient.Acquire(new ModuleEngine(new EngineSide(Side.Client)), out _));
+        Assert.Null(EngineClient.Acquire(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client)), out _));
         Assert.Null(EngineServer.Acquire(Unattached(), out _));
     }
 

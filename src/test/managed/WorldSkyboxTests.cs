@@ -248,7 +248,7 @@ public class WorldSkyboxTests
         public ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
     }
 
-    private static ClientSsPlayer Player(RecordingEngine engine, uint handle)
+    private static ClientSsPlayer Player(client::SourceSharp.Abi.RecordingEngine engine, uint handle)
     {
         var player = new ClientSsPlayer(engine) { Handle = new EntityHandle(handle) };
         player.State.BindLocal();
@@ -256,10 +256,10 @@ public class WorldSkyboxTests
         return player;
     }
 
-    private static (ClientSkybox Sky, RecordingEngine Engine, Standalones Live) Client(
+    private static (ClientSkybox Sky, client::SourceSharp.Abi.RecordingEngine Engine, Standalones Live) Client(
         int localIndex = LocalPlayerIndex)
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("Hud.LocalPlayerIndex", localIndex);
 
         var live = new Standalones();

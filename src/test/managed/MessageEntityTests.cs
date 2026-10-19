@@ -1,4 +1,7 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using Color32 = client::SourceSharp.Abi.Color32;
 using HudMessageArgs = client::SourceSharp.Shared.HudMessageArgs;
 using SourceSharp.Abi;
 using client::SourceSharp.Client;
@@ -71,7 +74,7 @@ public class MessageEntityTests
     [Fact]
     public void TitlesTakeTheirOwnSlots()
     {
-        var hud = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var hud = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
 
         // A game_text names its channel; a title has none and takes the next
         // free space. The two must not be able to evict one another.
@@ -91,7 +94,7 @@ public class MessageEntityTests
     [Fact]
     public void ATitleCanClearAnother()
     {
-        var hud = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var hud = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
 
         hud.ShowTitle("HINT_USE", "press use", "", 0.5f, 0.7f, Color32.White,
                       0f, 0f, 60f, 0f);
@@ -109,7 +112,7 @@ public class MessageEntityTests
     [Fact]
     public void AFullRingOverwritesTheOldest()
     {
-        var hud = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var hud = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
 
         for (int i = 0; i < HudMessages.TitleSlots; i++)
         {

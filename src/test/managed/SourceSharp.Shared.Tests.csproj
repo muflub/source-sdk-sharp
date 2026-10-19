@@ -23,7 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
-    <ProjectReference Include="..\support\SourceSharp.TestSupport.csproj" />
+    <!-- plan_shim_areas_split phase 3: each side compiles the shared interop, so the
+         doubles are built per side and the client's interop is named under the
+         client alias, as the client's logic is. -->
+    <ProjectReference Include="..\support\server\SourceSharp.TestSupport.Server.csproj" />
+    <ProjectReference Include="..\support\client\SourceSharp.TestSupport.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
     <!-- Aliased (plan_side_isolation P7): the shared source compiles into both sides, so its types exist twice here; unqualified names are the server's copy. -->

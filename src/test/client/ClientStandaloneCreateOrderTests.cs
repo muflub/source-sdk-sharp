@@ -58,7 +58,7 @@ public class ClientStandaloneCreateOrderTests
 
     private static ClientStandaloneRegistry Registry()
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
 
         registry.RegisterAll(typeof(TestCreateOrderEntity).Assembly);
         registry.Services = Services(out var engine);

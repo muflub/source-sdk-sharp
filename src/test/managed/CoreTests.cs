@@ -1068,12 +1068,12 @@ public class CoreTests
         // The HUD reads the local player every paint. This test is about the
         // paint not throwing when there is no player, so it says which reads it
         // does not care about rather than pretending it made no reads.
-        var hud = new client::SourceSharp.Client.Hud(new RecordingLog(), Fake().Ignores("Clock.Now"),
+        var hud = new client::SourceSharp.Client.Hud(new RecordingLog(), ClientDoubles.Fake().Ignores("Clock.Now"),
             // The five Hud.LocalWeapon* reads were named here and are gone: the
             // slots behind them were removed at ABI 249 and the facade methods
             // with them, so a name left here would be an ignore for a read that
             // cannot happen.
-            Fake().Ignores("Hud.LocalPlayerHealth", "Hud.LocalPlayerOrigin",
+            ClientDoubles.Fake().Ignores("Hud.LocalPlayerHealth", "Hud.LocalPlayerOrigin",
                            "Hud.Localise",
                            "Hud.LookupBinding", "Hud.TextMessageGet"),
             new DamageMessage(), new HudMsgMessage(), new HudTextMessage(), new KeyHintTextMessage(),
@@ -1124,7 +1124,7 @@ public class CoreTests
         Assert.True(HudMessages.Alpha(2f, 0f, 2f, 0f) == 0f, "a zero fade-out ends cleanly");
 
         // Channels: one message each, and a new one replaces what was there.
-        var messages = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var messages = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
 
         messages.Show(Message(1, "first"), 0f);
         Assert.True(messages.ActiveCount(0.5f) == 1, "a message is showing");
@@ -1140,7 +1140,7 @@ public class CoreTests
         // A fresh board from here on: a channel stays live until it expires, so
         // counting on a board that already has two messages up would measure the
         // earlier cases rather than this one.
-        var cleared = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var cleared = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
         cleared.Show(Message(3, "up"), 0f);
         Assert.True(cleared.ActiveCount(0.5f) == 1, "a message is up before it is cleared");
 
@@ -1149,15 +1149,15 @@ public class CoreTests
         Assert.True(cleared.ActiveCount(0.5f) == 0, "an empty message clears the channel");
 
         // Out of range is dropped rather than throwing or corrupting a channel.
-        var outOfRange = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var outOfRange = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
         Assert.True(!Throws(() => outOfRange.Show(Message(99, "nowhere"), 0f)), "a channel the engine does not have is ignored");
         Assert.True(outOfRange.ActiveCount(0.5f) == 0, "and shows nothing");
 
         // Refreshing the UI's view is safe with nothing to say and with something to say.
-        var empty = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var empty = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
         Assert.True(!Throws(() => empty.Refresh(0f)) && empty.MessageCount == 0, "an empty message board shows nothing");
 
-        var multiline = new HudMessages(new RecordingLog(), Fake(), Fake());
+        var multiline = new HudMessages(new RecordingLog(), ClientDoubles.Fake(), ClientDoubles.Fake());
         multiline.Show(Message(0, "a\nb"), 0f);
         Assert.True(multiline.ActiveCount(0.5f) == 1, "a multi-line message is one channel");
         multiline.Refresh(0.5f);
@@ -1165,7 +1165,7 @@ public class CoreTests
     }
 
     private static HudMessageArgs Message(int channel, string text)
-        => new(channel, 0.1f, 0.7f, Color32.White, Color32.Amber,
+        => new(channel, 0.1f, 0.7f, client::SourceSharp.Abi.Color32.White, client::SourceSharp.Abi.Color32.Amber,
                0, 0f, 1f, 5f, 0f, text);
 
     private static bool Throws(Action a)

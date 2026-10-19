@@ -183,10 +183,10 @@ public class SaveRoundTripTests
 
     private static ClientStandaloneRegistry ClientRegistry()
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientDynamicLight).Assembly);
-        registry.Services = new ServiceContainer()
-            .AddInstance<IDynamicLights>(new DynamicLights(Fake()));
+        registry.Services = new client::SourceSharp.Abi.ServiceContainer()
+            .AddInstance<IDynamicLights>(new DynamicLights(ClientDoubles.Fake()));
         return registry;
     }
 
@@ -715,6 +715,24 @@ public class SaveRoundTripTests
         return lines;
     }
 
+    /// <summary>The same, over the client's console (each side compiles its own, plan_shim_areas_split phase 3).</summary>
+    private static List<string> Logged(client::SourceSharp.Abi.ConsoleLines console, Action what)
+    {
+        var lines = new List<string>();
+        console.Tap = (text, _) => lines.Add(text);
+
+        try
+        {
+            what();
+        }
+        finally
+        {
+            console.Tap = null;
+        }
+
+        return lines;
+    }
+
     /// <summary>
     /// <b>THE POSITIVE CASE, AND IT COMES FIRST.</b> A thrower's neighbour is
     /// collected — so the two facts below are about a record that WOULD
@@ -816,11 +834,11 @@ public class SaveRoundTripTests
     /// </summary>
     private static ClientStandaloneRegistry ClientRegistryWithFixtures()
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientDynamicLight).Assembly);
         registry.RegisterAll(typeof(SaveRoundTripTests).Assembly);
-        registry.Services = new ServiceContainer()
-            .AddInstance<IDynamicLights>(new DynamicLights(Fake()));
+        registry.Services = new client::SourceSharp.Abi.ServiceContainer()
+            .AddInstance<IDynamicLights>(new DynamicLights(ClientDoubles.Fake()));
         return registry;
     }
 }
@@ -829,7 +847,7 @@ public class SaveRoundTripTests
 [ClientStandaloneEntity("save_thrower_client")]
 public sealed class SaveThrowerClientEntity : ClientStandaloneEntity
 {
-    public SaveThrowerClientEntity(IEngineEntityRender render) : base(render) { }
+    public SaveThrowerClientEntity(client::SourceSharp.Abi.IEngineEntityRender render) : base(render) { }
 
     public override string ClassName => "save_thrower_client";
 

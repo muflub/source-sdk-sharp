@@ -20,7 +20,12 @@
     <ProjectReference Include="..\client\TF2.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
-    <ProjectReference Include="..\..\test\support\SourceSharp.TestSupport.csproj" />
+    <!-- plan_shim_areas_split phase 3: each side compiles the shared interop, so the
+         doubles are built per side and the client's interop is named under the
+         client alias, as the client's logic is. -->
+    <ProjectReference Include="..\..\test\support\server\SourceSharp.TestSupport.Server.csproj" />
+    <ProjectReference Include="..\..\test\support\client\SourceSharp.TestSupport.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
   </ItemGroup>
   <ItemGroup>
     <!-- So facts can read the farm/fork the way core tests do. -->

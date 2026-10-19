@@ -12,7 +12,7 @@ namespace SourceSharp.Tests;
 [ClientStandaloneEntity("test_injected")]
 public sealed class TestInjectedClientEntity : ClientStandaloneEntity
 {
-    public TestInjectedClientEntity(ITestSystem system, IEngineEntityRender render)
+    public TestInjectedClientEntity(ITestSystem system, client::SourceSharp.Abi.IEngineEntityRender render)
         : base(render)
     {
         System = system;
@@ -25,7 +25,7 @@ public sealed class TestInjectedClientEntity : ClientStandaloneEntity
 [ClientStandaloneEntity("test_injection_plain")]
 public sealed class TestPlainClientEntity : ClientStandaloneEntity
 {
-    public TestPlainClientEntity(IEngineEntityRender render) : base(render) { }
+    public TestPlainClientEntity(client::SourceSharp.Abi.IEngineEntityRender render) : base(render) { }
 
     public override string ClassName => "test_injection_plain";
 }
@@ -33,7 +33,7 @@ public sealed class TestPlainClientEntity : ClientStandaloneEntity
 [ClientStandaloneEntity("test_injection_missing")]
 public sealed class TestMissingClientEntity : ClientStandaloneEntity
 {
-    public TestMissingClientEntity(IDisposable nobodyRegistersThis, IEngineEntityRender render)
+    public TestMissingClientEntity(IDisposable nobodyRegistersThis, client::SourceSharp.Abi.IEngineEntityRender render)
         : base(render)
     {
         _ = nobodyRegistersThis;

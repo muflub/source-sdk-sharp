@@ -473,8 +473,12 @@ public class EngineAreaTests
             .Select(a => a.GetName().Name)
             .ToList();
 
-        Assert.True(TypeRefNames(typeof(ServerEntityEngine).Assembly.Location).Contains("SourceSharp.Abi.EngineSide"),
-            "the reader sees a reference where there is one (ServerEntityEngine's assembly)");
+        // The positive arm: an assembly that names EngineSide across an assembly
+        // boundary. Since plan_shim_areas_split phase 3 EngineSide is DEFINED in
+        // each side's interop, so the interop holds no reference to it; this
+        // suite does.
+        Assert.True(TypeRefNames(typeof(EngineAreaTests).Assembly.Location).Contains("SourceSharp.Abi.EngineSide"),
+            "the reader sees a reference where there is one (this suite's assembly)");
         Assert.True(named.Count == 0, "no game assembly names EngineSide: " + string.Join(", ", named));
     }
 

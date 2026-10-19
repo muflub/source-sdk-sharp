@@ -13,7 +13,7 @@ namespace SourceSharp.Tests;
 public sealed class DirectoryProbeEntity : ClientStandaloneEntity
 {
     public DirectoryProbeEntity(string className)
-        : base((IEngineEntityRender)TestServices.Fake()) => ClassName = className;
+        : base(ClientDoubles.Fake()) => ClassName = className;
 
     public override string ClassName { get; }
 

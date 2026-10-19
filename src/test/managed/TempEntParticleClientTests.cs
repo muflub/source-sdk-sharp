@@ -1,4 +1,14 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using RecordingEngine = client::SourceSharp.Abi.RecordingEngine;
+using RecordingLog = client::SourceSharp.Abi.RecordingLog;
+using TempEntRegistry = client::SourceSharp.Abi.TempEntRegistry;
+using TempEntType = client::SourceSharp.Abi.TempEntType;
+using TempEntWriter = client::SourceSharp.Abi.TempEntWriter;
+using TeBits = client::SourceSharp.Abi.TeBits;
+using TeFlags = client::SourceSharp.Abi.TeFlags;
+using IEngineEntityRender = client::SourceSharp.Abi.IEngineEntityRender;
 using SourceSharp.Abi;
 using client::SourceSharp.Client;
 using client::SourceSharp.Client.Standalone;
@@ -106,6 +116,24 @@ public class TempEntParticleClientTests
 
     private readonly Explosions _explosions = new();
 
+    /// <summary>
+    /// The server's writer, over the server's own double and a registry of the
+    /// server's copy of the shared declarations. Each side compiles the shared
+    /// interop (plan_shim_areas_split phase 3), so the sender runs on its own
+    /// side; the blob these facts hand the players is repacked here anyway.
+    /// </summary>
+    private static SourceSharp.Server.TempEnts ServerWriter()
+    {
+        // Strict, with what Dry() answers, as the sender's engine was before
+        // the two sides were separate.
+        var engine = TestServices.Fake().Returns("WorldQuery.PointContents", Contents.Empty);
+        int next = 5;
+        engine.ReturnsEachCall("Effects.TempEntRegister", () => next++);
+        var registry = new global::SourceSharp.Abi.TempEntRegistry(new global::SourceSharp.Abi.RecordingLog());
+        registry.RegisterAll("Test", TestServices.ServerGame, engine);
+        return new SourceSharp.Server.TempEnts(new global::SourceSharp.Abi.RecordingLog(), registry, engine);
+    }
+
     private ClientTempEnts Players(RecordingEngine engine, TempEntRegistry registry,
                                           IClientStandalones? standalones = null, ILog? log = null,
                                           Sparks? sparks = null, Explosions? explosions = null)
@@ -136,7 +164,7 @@ public class TempEntParticleClientTests
     /// the water branch below a decision rather than a default.
     /// </summary>
     private static RecordingEngine Dry()
-        => Fake().Returns("WorldQuery.PointContents", Contents.Empty);
+        => ClientDoubles.Fake().Returns("WorldQuery.PointContents", Contents.Empty);
 
     // ---------------------------------------------------------------------
     // The base, which is the whole reason this lane exists as one piece.
@@ -227,7 +255,7 @@ public class TempEntParticleClientTests
         var engine = Dry();
         var registry = Registered(engine);
 
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var temps = ServerWriter();
         temps.Sparks(TeFilter.Broadcast, 0f, new Vector(-2932f, 3218f, 60f),
                      magnitude: 6, trailLength: 3, direction: new Vector(0f, 0f, 1f));
 
@@ -262,7 +290,7 @@ public class TempEntParticleClientTests
         var engine = Dry();
         var registry = Registered(engine);
 
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var temps = ServerWriter();
         temps.LargeFunnel(TeFilter.Broadcast, 0f, new Vector(100f, 200f, 300f),
                           modelIndex: 41, reversed: 1);
 
@@ -384,7 +412,7 @@ public class TempEntParticleClientTests
         var engine = Dry();
         var registry = Registered(engine);
 
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var temps = ServerWriter();
         temps.GaussExplosion(TeFilter.Broadcast, 0f, new Vector(9f, 8f, 7f),
                              new Vector(1f, 0f, 0f), type: 2);
 
@@ -416,7 +444,7 @@ public class TempEntParticleClientTests
         var engine = Dry();
         var registry = Registered(engine);
 
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var temps = ServerWriter();
         temps.Dust(TeFilter.Broadcast, 0f, new Vector(5f, 6f, 7f),
                    new Vector(0f, 0f, 1f), size: 64f, speed: 12f);
 
@@ -570,7 +598,7 @@ public class TempEntParticleClientTests
     [Fact]
     public void AnUnderwaterExplosionIsASplashAndNothingElse()
     {
-        var engine = Fake().Returns("WorldQuery.PointContents", Contents.Water);
+        var engine = ClientDoubles.Fake().Returns("WorldQuery.PointContents", Contents.Water);
         var registry = Registered(engine);
 
         TempEntType boom = registry.Find("CTEExplosion")!;
@@ -607,7 +635,7 @@ public class TempEntParticleClientTests
     [Fact]
     public void SlimeIsNotWaterHereBecauseItIsNotWaterInStock()
     {
-        var engine = Fake().Returns("WorldQuery.PointContents", Contents.Solid);
+        var engine = ClientDoubles.Fake().Returns("WorldQuery.PointContents", Contents.Solid);
         var registry = Registered(engine);
 
         TempEntType boom = registry.Find("CTEExplosion")!;

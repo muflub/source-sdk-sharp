@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 
 using SourceSharp.Abi;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 
@@ -245,13 +245,15 @@ public class MovementRulesSeamTests
     /// <summary>
     /// The pack a binding built in its constructor and hands its loop on
     /// every run. Reflection, because the pack is the binding's own; a binding
-    /// that stops keeping one fails here rather than passing vacuously.
+    /// that stops keeping one fails here rather than passing vacuously. Of the
+    /// binding's side's type: each side compiles its own copy of the shared
+    /// interop (plan_shim_areas_split phase 3).
     /// </summary>
-    private static MovementRules PackOf(object binding)
+    private static TRules PackOf<TRules>(object binding)
     {
         var field = binding.GetType().GetField("_rules", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.True(field is not null, $"{binding.GetType().Name} keeps its loop's pack in _rules");
-        return (MovementRules)field!.GetValue(binding)!;
+        return (TRules)field!.GetValue(binding)!;
     }
 
     /// <summary>
@@ -281,11 +283,11 @@ public class MovementRulesSeamTests
             new MovementRunner(new ModuleEngine(new EngineSide(Side.Server))),
             new PlayerCommandQueue(new RecordingLog()), () => false);
         var clientBinding = new PredictionClientBinding(
-            new Crossings(), null!, Module<IClientModule>(Resolved(clientHook)),
-            new MovementRunner(new ModuleEngine(new EngineSide(Side.Client))));
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(Resolved(clientHook)),
+            new client::SourceSharp.Abi.MovementRunner(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client))));
 
-        var server = PackOf(serverBinding);
-        var client = PackOf(clientBinding);
+        var server = PackOf<MovementRules>(serverBinding);
+        var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding);
 
         var request = new JumpRequest { PlayerIndex = 3, HorizontalSpeed = 200f };
         float serverJump = server.Jump(request), clientJump = client.Jump(request);

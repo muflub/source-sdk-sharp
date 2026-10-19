@@ -153,12 +153,12 @@ public class EntityInjectionTests
     [Fact]
     public void RealClientEntitiesReachTheirRegistries()
     {
-        var lights = new DynamicLights(Fake());
-        var corrections = new ColorCorrections(Fake());
+        var lights = new DynamicLights(ClientDoubles.Fake());
+        var corrections = new ColorCorrections(ClientDoubles.Fake());
 
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientDynamicLight).Assembly);
-        registry.Services = new ServiceContainer()
+        registry.Services = new client::SourceSharp.Abi.ServiceContainer()
             .AddInstance<IDynamicLights>(lights)
             .AddInstance<IColorCorrections>(corrections);
 
@@ -196,10 +196,10 @@ public class EntityInjectionTests
         // A second registry is a second world: two loads of the client module
         // do not share a list, which is the whole reason these stopped being
         // statics.
-        var second = new DynamicLights(Fake());
-        var other = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var second = new DynamicLights(ClientDoubles.Fake());
+        var other = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         other.RegisterAll(typeof(ClientDynamicLight).Assembly);
-        other.Services = new ServiceContainer().AddInstance<IDynamicLights>(second);
+        other.Services = new client::SourceSharp.Abi.ServiceContainer().AddInstance<IDynamicLights>(second);
 
         other.Create(light, EntityNames.LightDynamic);
         other.Get(light)!.OnSpawn();
@@ -211,11 +211,11 @@ public class EntityInjectionTests
     [Fact]
     public void ClientEntitiesResolve()
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(EntityInjectionTests).Assembly);
 
         var system = new TestSystem(11);
-        registry.Services = new ServiceContainer().AddInstance<ITestSystem>(system);
+        registry.Services = new client::SourceSharp.Abi.ServiceContainer().AddInstance<ITestSystem>(system);
 
         Assert.True(registry.Create(Ent, "test_injected"), "a client entity with dependencies is created");
         Assert.True(registry.Get(Ent) is TestInjectedClientEntity client
@@ -228,9 +228,9 @@ public class EntityInjectionTests
         Assert.True(!registry.Create(new EntityHandle(0x0700_0004u), "test_injection_missing"), "a client entity whose service is missing is refused");
 
         // With no container, the same split as the server's.
-        var bare = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var bare = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         bare.RegisterAll(typeof(EntityInjectionTests).Assembly);
-        bare.Services = Services(out var bareEngine);
+        bare.Services = ClientDoubles.Services(out var bareEngine);
 
         // The index the creation push caches (Phase X4): one ask per entity, so
         // that the lights stop asking once a frame. This test is about which
@@ -250,11 +250,11 @@ public class EntityInjectionTests
     [Fact]
     public void TwoClientRegistriesBindToTheirOwnEngines()
     {
-        var firstEngine = Mock().Returns("Entities.GetIndex", 3);
-        var secondEngine = Mock().Returns("Entities.GetIndex", 5);
+        var firstEngine = ClientDoubles.Fake().Returns("Entities.GetIndex", 3);
+        var secondEngine = ClientDoubles.Fake().Returns("Entities.GetIndex", 5);
 
-        var first = new ClientStandaloneRegistry(Areas(firstEngine));
-        var second = new ClientStandaloneRegistry(Areas(secondEngine));
+        var first = new ClientStandaloneRegistry(ClientDoubles.Areas(firstEngine));
+        var second = new ClientStandaloneRegistry(ClientDoubles.Areas(secondEngine));
         first.RegisterAll(typeof(EntityInjectionTests).Assembly);
         second.RegisterAll(typeof(EntityInjectionTests).Assembly);
 

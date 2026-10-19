@@ -112,7 +112,7 @@ public class MoveVarsTests
 
         foreach (var type in assembly.GetTypes())
         {
-            var attr = type.GetCustomAttribute<ConVarAttribute>();
+            var attr = SideAttribute.Get<ConVarAttribute>(type);
             if (attr is not null)
                 found[attr.Name] = attr;
         }
@@ -252,13 +252,11 @@ public class MoveVarsTests
     [Fact]
     public void TheRegistryBindsEveryMovedNameToItsDeclaredDefault()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
-        registry.RegisterAll(ServerAssembly);
-        registry.RegisterAll(ClientAssembly);
+        var registered = BothSidesConVars.Registered(ServerAssembly, ClientAssembly);
 
         foreach (var d in Declarations)
         {
-            var bound = registry.All.Where(
+            var bound = registered.Where(
                 c => string.Equals(c.Name, d.Name, StringComparison.OrdinalIgnoreCase)).ToList();
 
             Assert.True(bound.Count > 0, d.Name + " reached no registry at all.");

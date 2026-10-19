@@ -20,7 +20,7 @@
 // entities and no managed table behind them; forwarding them is not a stopgap,
 // it is the correct answer.
 //
-// THE FORWARDING IS IN EngineEffectsForwarder, beside this file. SideAuditTests
+// THE FORWARDING IS IN EngineEffectsForwarder (shared source). SideAuditTests
 // Audit 2 fails any IEngine* member this assembly reaches that the SERVER leaves
 // null, and spelling `=> _engine.RopeUpdate(...)` out here would name thirty-five
 // client-only members that can never be reached from here. The audit treats a

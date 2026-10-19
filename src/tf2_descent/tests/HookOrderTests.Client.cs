@@ -10,6 +10,10 @@ using Xunit;
 using ClientSideServiceRegistry = client::SourceSharp.Abi.ISideServiceRegistry;
 using ClientSideServiceRegistrar = client::SourceSharp.Abi.ISideServiceRegistrar;
 using ClientSideServiceAttribute = client::SourceSharp.Abi.SideServiceAttribute;
+using ClientServiceLocator = client::SourceSharp.Abi.IServiceLocator;
+// The client's copy of the ordering contract (plan_shim_areas_split phase 3:
+// each side compiles the shared interop); the server's reads every client hook as 0.
+using ClientOrderedHook = client::SourceSharp.Abi.IOrderedHook;
 using IClientLevelHook = client::SourceSharp.Client.IClientLevelHook;
 
 namespace TF2.Descent.Tests;
@@ -22,7 +26,7 @@ public sealed partial class HookOrderTests
         public List<Type> Hooks { get; } = new();
         public void Add<TService, TImplementation>() where TService : class where TImplementation : class, TService { }
         public void AddInstance<TService>(TService instance) where TService : class { }
-        public void AddFactory<TService>(Func<IServiceLocator, TService> factory) where TService : class { }
+        public void AddFactory<TService>(Func<ClientServiceLocator, TService> factory) where TService : class { }
         public void AddHooks<THook>() where THook : class => Hooks.Add(typeof(THook));
     }
 
@@ -45,7 +49,7 @@ public sealed partial class HookOrderTests
         assembly.GetTypes()
             .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IClientLevelHook).IsAssignableFrom(t)
                         && (!requireSideService || t.GetCustomAttributes<ClientSideServiceAttribute>().Any(a => a.Side == Side.Client)))
-            .Select(t => (t.Name, (RuntimeHelpers.GetUninitializedObject(t) as IOrderedHook)?.HookOrder ?? 0))
+            .Select(t => (t.Name, (RuntimeHelpers.GetUninitializedObject(t) as ClientOrderedHook)?.HookOrder ?? 0))
             .ToArray();
 
     private static void ClientAssertDistinct(Assembly assembly, Side side, IEnumerable<Type> hooks)

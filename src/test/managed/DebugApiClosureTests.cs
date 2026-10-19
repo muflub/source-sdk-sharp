@@ -71,7 +71,6 @@ public class DebugApiClosureTests
     private static readonly IReadOnlyDictionary<string, string> GameProjects = new Dictionary<string, string>
     {
         ["SourceSharp.Abi"] = "src/abi/SourceSharp.Abi.csproj",
-        ["SourceSharp.Shared.Interop"] = "src/shared/interop/SourceSharp.Shared.Interop.csproj",
         ["SourceSharp.Server"] = "src/server/managed/SourceSharp.Server.csproj",
         ["SourceSharp.Server.Interop"] = "src/server/interop/SourceSharp.Server.Interop.csproj",
         ["SourceSharp.Client"] = "src/client/managed/SourceSharp.Client.csproj",
