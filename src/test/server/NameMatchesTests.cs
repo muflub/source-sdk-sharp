@@ -143,22 +143,47 @@ public class NameMatchesTests
         Assert.Equal(0, n);
     }
 
+    /// <summary>
+    /// The buffer goes back once, through a using declaration, the walk and a
+    /// second Dispose. Counted on a pool of its own: a using STATEMENT over the
+    /// local (what this fact did) returned it twice, and on the shared pool
+    /// that handed one array to two renters in parallel facts.
+    /// </summary>
     [Fact]
     public void DisposingTwiceIsSafeAndUsingAroundAForeachReturnsTheBufferOnce()
     {
         var d = new EntityDirectory(new RecordingLog());
         Add(d, 10, "info_target", "x");
+        var pool = new CountingPool();
 
-        NameMatches matches = Named(d, "x", AliveIn(d));
         int n = 0;
-        using (matches)
         {
+            using NameMatches matches = NamedFrom(pool, d, "x", AliveIn(d));
             foreach (EntityHandle _ in matches)
                 n++;
+            matches.Dispose();
         }
-        matches.Dispose();
 
         Assert.Equal(1, n);
+        Assert.Equal(1, pool.Returns);
+    }
+
+    private static NameMatches NamedFrom(ArrayPool<EntityHandle> pool, EntityDirectory d, string query,
+                                         Func<EntityHandle, bool> alive)
+    {
+        EntityHandle[] buffer = pool.Rent(16);
+        int count = d.CollectByName(query, IsShellLess, ref buffer, 512);
+        return new NameMatches(buffer, count, alive, pool);
+    }
+
+    /// <summary>A pool that hands out fresh arrays and counts what comes back.</summary>
+    private sealed class CountingPool : ArrayPool<EntityHandle>
+    {
+        public int Returns { get; private set; }
+
+        public override EntityHandle[] Rent(int minimumLength) => new EntityHandle[minimumLength];
+
+        public override void Return(EntityHandle[] array, bool clearArray = false) => Returns++;
     }
 
     [Fact]
