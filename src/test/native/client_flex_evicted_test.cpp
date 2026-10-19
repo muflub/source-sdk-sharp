@@ -202,12 +202,13 @@ struct File_t
 // (src/client/native/CMakeLists.txt). Until Phase 6b it was server_csharp.vpc
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-// RE-ANCHORED twice. Step 7g rewrote entity_client_tools.cpp as an
+// RE-ANCHORED three times. Step 7g rewrote entity_client_tools.cpp as an
 // IClientTools refusal stub; then it left client.so (SFM is dead, user ruling
-// 2026-10-19), and client.so's IClientTools is shell_tools_off_client.cpp's,
-// whose overrides are unnamed-parameter one-liners.
+// 2026-10-19), and client.so's IClientTools was shell_tools_off_client.cpp's;
+// then that IClientTools went with flashlighteffect.cpp, its last user (C7
+// cluster 12, 2026-10-18), and the file keeps clientshadowmgr.cpp's two names.
 const File_t kClientTools = { "sourcesharp/game/client/shell_tools_off_client.cpp",
-	"FindGlobalFlexcontroller( char const * )" };
+	"bool ToolsEnabled()" };
 
 std::string Load( const File_t &f )
 {
@@ -269,24 +270,22 @@ TEST( ClientFlexEvicted, TheServerStillExcludesBothFlexSendTables )
 //-----------------------------------------------------------------------------
 // (S) THE ONE REFERRER THERE WAS. entity_client_tools.cpp was the only object
 // outside c_baseflex.cpp naming a symbol it uniquely defines. It left client.so
-// (SFM is dead, 2026-10-19); the IClientTools that replaced it is held here.
+// (SFM is dead, 2026-10-19); the IClientTools that replaced it left with
+// flashlighteffect.cpp (2026-10-18), so client.so has no IClientTools at all.
 //-----------------------------------------------------------------------------
 TEST( ClientFlexEvicted, TheClientToolsNoLongerReachIntoCBaseFlex )
 {
 	const std::string tools = Load( kClientTools );
-	EXPECT_EQ( tools.find( "C_BaseFlex::" ), std::string::npos )
-		<< "client.so's IClientTools names C_BaseFlex again. c_baseflex.cpp is "
-		   "not compiled, so this is an undefined reference -- the link will say "
-		   "so -- but the fix is to keep the IClientTools bodies inert.";
-
-	// Both pure virtuals still exist: IClientTools requires them, and a test that
-	// only checked the absence above would pass if somebody deleted the overrides
-	// and broke the interface instead. They answer the type's empty value and
-	// ask no entity: the tools are off (SFM is dead, 2026-10-19).
-	EXPECT_NE( tools.find( "int FindGlobalFlexcontroller( char const * ) override { return -1; }" ),
-		std::string::npos );
-	EXPECT_NE( tools.find( "char const *GetGlobalFlexControllerName( int ) override { return \"\"; }" ),
-		std::string::npos );
+	EXPECT_EQ( tools.find( "C_BaseFlex" ), std::string::npos )
+		<< "client.so's tools-off stand-ins name C_BaseFlex again. c_baseflex.cpp "
+		   "is not compiled, so this is an undefined reference -- the link will "
+		   "say so -- but the fix is to keep the stand-ins inert.";
+	EXPECT_EQ( tools.find( "IClientTools" ), std::string::npos )
+		<< "client.so has an IClientTools again (FindGlobalFlexcontroller and "
+		   "GetGlobalFlexControllerName were its flex arms). Nothing compiled into "
+		   "client.so dereferences `clienttools` since flashlighteffect.cpp left; a "
+		   "new user must answer the flex arms with the type's empty value and ask "
+		   "no entity.";
 }
 
 //-----------------------------------------------------------------------------

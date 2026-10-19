@@ -41,7 +41,8 @@ public interface IRespawnGate
 /// dispatch are testable without a module.
 /// </summary>
 public sealed class PlayerDeaths(ILog log, IEngineEntities entities, Corpses corpses, Players players,
-                                 IGameClock clock, IHooks<IPlayerDeathHook> hooks, DeathNotice deathNotice)
+                                 IGameClock clock, IHooks<IPlayerDeathHook> hooks, DeathNotice deathNotice,
+                                 IPlayerFlashlight? flashlight = null)
 {
     public void OnKilled(EntityHandle player, EntityHandle attacker)
     {
@@ -63,6 +64,12 @@ public sealed class PlayerDeaths(ILog log, IEngineEntities entities, Corpses cor
         deathNotice.Fire(player, attacker);
 
         players.OnKilled(player, attacker, clock.Now);
+
+        // CBasePlayer::Event_Killed's `if ( FlashlightIsOn() ) FlashlightTurnOff();`,
+        // after the record says they are dead (stock: after m_lifeState went
+        // LIFE_DYING), so TurnOff's living-player sound does not play.
+        if (flashlight is { } light && light.IsOn(player))
+            light.TurnOff(player);
 
         var death = new PlayerDeath(player, entities.GetIndex(player), attacker, origin, body);
         hooks.Each(nameof(IPlayerDeathHook.OnPlayerDied), h => h.OnPlayerDied(death));

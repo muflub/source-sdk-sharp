@@ -94,8 +94,13 @@ public class ClientNovalveRulingsTests
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void EveryPortOrLiveRowsTuIsStillCompiled()
     {
+        // §2.1 has no port or live row left since 2026-10-18, when the last
+        // (flashlighteffect.cpp) became ported (C7 cluster 12): every row is
+        // delete or ported, and those two facts hold them. This one guards a
+        // row reopened as port or live; the graph is proved read first.
+        Assert.True(CMakeGraph.Compiles(CMakeGraph.Client, "sourcesharp/game/client/shell_clientdll.cpp"),
+            "the client's compile graph does not list shell_clientdll.cpp: the checks below would pass over a graph never read");
         List<Row> kept = Rows().Where(r => r.Verdict is "port" or "live").ToList();
-        Assert.NotEmpty(kept);
         foreach (Row r in kept)
             Assert.True(CMakeGraph.Compiles(CMakeGraph.Client, r.Tu),
                 $"{r.Tu} is ruled {r.Verdict} ({r.Phase}) but has left client.so: a port goes only after the managed fact it names exists");

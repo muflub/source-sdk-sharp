@@ -81,14 +81,60 @@ public class PlayerDeathTests
         }
     }
 
-    private static (PlayerDeaths Deaths, Players Players, Heard Hook) Deaths(RecordingEngine engine, bool withHook = true)
+    private static (PlayerDeaths Deaths, Players Players, Heard Hook) Deaths(RecordingEngine engine, bool withHook = true,
+                                                                           IPlayerFlashlight? flashlight = null)
     {
         var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)), engine);
         var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons) { DropWeaponOnDeath = false };
         var hook = new Heard { ReadDeaths = () => players[Player].Deaths };
         var hooks = withHook ? new ListHooks<IPlayerDeathHook>(hook) : new ListHooks<IPlayerDeathHook>();
         return (new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine, hooks,
-                                 new DeathNotice(engine, engine, engine, new DamageInflictors())), players, hook);
+                                 new DeathNotice(engine, engine, engine, new DamageInflictors()), flashlight), players, hook);
+    }
+
+    // ---- the flashlight ------------------------------------------------------
+
+    /// <summary>A flashlight that is lit or not, recording what it was told and when.</summary>
+    private sealed class Light(bool on, Func<int> deathsOnRecord) : IPlayerFlashlight
+    {
+        public bool On = on;
+        public int TurnedOff;
+        public int DeathsWhenTurnedOff = -1;
+        public bool IsOn(EntityHandle player) => On;
+        public void TurnOn(EntityHandle player) => On = true;
+        public void TurnOff(EntityHandle player)
+        {
+            TurnedOff++;
+            DeathsWhenTurnedOff = deathsOnRecord();
+            On = false;
+        }
+    }
+
+    [Fact]
+    public void A_death_puts_a_lit_flashlight_out_after_the_death_is_on_the_record()
+    {
+        var engine = Dying();
+        Players? players = null;
+        var light = new Light(true, () => players![Player].Deaths);
+        var (deaths, p, _) = Deaths(engine, flashlight: light);
+        players = p;
+
+        deaths.OnKilled(Player, Attacker);
+
+        Assert.Equal(1, light.TurnedOff);
+        Assert.Equal(1, light.DeathsWhenTurnedOff);
+    }
+
+    [Fact]
+    public void A_death_leaves_an_unlit_flashlight_alone()
+    {
+        var engine = Dying();
+        var light = new Light(false, () => 0);
+        var (deaths, _, _) = Deaths(engine, flashlight: light);
+
+        deaths.OnKilled(Player, Attacker);
+
+        Assert.Equal(0, light.TurnedOff);
     }
 
     [Fact]

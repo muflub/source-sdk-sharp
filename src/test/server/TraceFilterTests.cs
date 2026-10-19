@@ -57,8 +57,8 @@ public class TraceFilterTests
             native[m.Groups[1].Value] = int.Parse(m.Groups[2].Value);
         }
 
-        Assert.True(native.Count == 4,
-            $"the header declares four filter modes and this found {native.Count} — the pattern "
+        Assert.True(native.Count == 5,
+            $"the header declares five filter modes and this found {native.Count} — the pattern "
           + "stopped matching rather than found a disagreement");
 
         // HIT_ALL -> HitAll, WORLD_ONLY -> WorldOnly.
@@ -68,6 +68,7 @@ public class TraceFilterTests
             ("SIMPLE",     TraceFilter.Simple),
             ("WORLD_ONLY", TraceFilter.WorldOnly),
             ("NO_NPCS_OR_PLAYER", TraceFilter.NoNpcsOrPlayer),
+            ("SKIP_PLAYER_AND_VIEW_MODEL", TraceFilter.SkipPlayerAndViewModel),
         ];
 
         foreach ((string nativeName, TraceFilter managed) in pairs)
@@ -134,6 +135,73 @@ public class TraceFilterTests
     /// existing callers — the trace probe and the projected decal — trace
     /// hit-all, and adding modes must not have moved them.
     /// </summary>
+    /// <summary>
+    /// The mask values cross the boundary as numbers too: each managed
+    /// <see cref="TraceMask"/> is the header's SOURCESHARP_TRACE_ value of
+    /// the same meaning, comments stripped first (the filter fact says why).
+    /// </summary>
+    [Fact]
+    public void TheManagedMaskValuesAreTheOnesTheHeaderDeclares()
+    {
+        string? header = RepoLayout.FindSdkFile(Path.Combine("src", "sourcesharp", "host", "sourcesharp.h"));
+        Assert.True(header is not null, "sourcesharp.h is not in the farm: the mask values cannot be checked");
+
+        string text = Regex.Replace(File.ReadAllText(header!), @"/\*.*?\*/", " ", RegexOptions.Singleline);
+        text = Regex.Replace(text, @"//[^\n]*", " ");
+        var native = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (Match m in Regex.Matches(text, @"\bSOURCESHARP_TRACE_(?!FILTER_)(\w+)\s*=\s*(\d+)"))
+            native[m.Groups[1].Value] = int.Parse(m.Groups[2].Value);
+
+        (string Native, TraceMask Managed)[] pairs =
+        [
+            ("BRUSHES", TraceMask.Brushes),
+            ("SHOT", TraceMask.Shot),
+            ("BRUSHES_AND_WATER", TraceMask.BrushesAndWater),
+            ("ALL", TraceMask.All),
+            ("SHOT_HULL", TraceMask.ShotHull),
+            ("SOLID", TraceMask.Solid),
+            ("BLOCKLOS", TraceMask.BlockLos),
+            ("OPAQUE_AND_NPCS_WINDOW", TraceMask.OpaqueAndNpcsWindow),
+        ];
+        Assert.Equal(pairs.Length, native.Count);
+        Assert.Equal(pairs.Length, Enum.GetValues<TraceMask>().Length);
+        foreach ((string name, TraceMask managed) in pairs)
+        {
+            Assert.True(native.TryGetValue(name, out int value), $"the header declares SOURCESHARP_TRACE_{name}");
+            Assert.True(value == (int)managed, $"SOURCESHARP_TRACE_{name} is {value}, TraceMask.{managed} is {(int)managed}");
+        }
+    }
+
+    /// <summary>
+    /// The flashlight's mask (C7 cluster 12) is mapped on every arm that maps
+    /// masks: the client's line and hull traces and the server's line trace,
+    /// each to MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW. A value an arm did not
+    /// know would be read there as the brushes-only default, in silence.
+    /// </summary>
+    [Theory]
+    [InlineData("client", "shell_worldquery_client.cpp", 2)]
+    [InlineData("server", "shell_worldquery.cpp", 1)]
+    public void TheFlashlightMaskIsMappedOnEachArm(string side, string file, int arms)
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW\s*\)\s*nTraceMask\s*=\s*MASK_OPAQUE_AND_NPCS\s*\|\s*CONTENTS_WINDOW\s*;").Count;
+        Assert.Equal(arms, found);
+    }
+
+    /// <summary>
+    /// The flashlight's filter is wired on both client traces, each to the
+    /// stock filter's class over the shells.
+    /// </summary>
+    [Fact]
+    public void TheFlashlightFilterIsWiredOnBothClientTraces()
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*nFilter\s*==\s*SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL\s*\)\s*\{\s*CSkipPlayerAndViewModelFilter\s+traceFilter\s*;\s*UTIL_Trace(?:Line|Hull)\(").Count;
+        Assert.Equal(2, found);
+    }
+
     [Fact]
     public void TheUnfilteredOverloadStillTracesHitAll()
     {

@@ -14,14 +14,15 @@ render plan still emits RENDER_OP_ClientSystemsPostRender (RenderOpKind 15),
 and the frozen render recordings name it, so the op and the walk stayed.
 Retiring both is one plan-op change plus the recordings' re-freeze.
 
-## The tools-off stand-ins leave with their last two Valve importers
+## The tools-off stand-ins leave with their last Valve importer
 
-shell_tools_off_client.cpp (2026-10-19) defines ToolsEnabled,
-ToolFramework_RecordMaterialParams, ToolFramework_PostToolMessage and
-`clienttools` only because clientshadowmgr.cpp and flashlighteffect.cpp,
-fork TUs still compiled into client.so, name them. When both have left
-(flashlighteffect.cpp is the flashlight/leaf lane's), delete the file, its
-test, its (x) row in docs/shim-reasons.md and the toolframework_client.h /
+shell_tools_off_client.cpp (2026-10-19) defines ToolsEnabled and
+ToolFramework_RecordMaterialParams only because clientshadowmgr.cpp, a fork
+TU still compiled into client.so, names them (nm -u over its object,
+2026-10-18). `clienttools` and ToolFramework_PostToolMessage left with
+flashlighteffect.cpp (C7 cluster 12, 2026-10-18), their only importer. When
+clientshadowmgr.cpp leaves, delete the file, its test, its (x) row in
+docs/shim-reasons.md and the toolframework_client.h /
 toolframework/itoolentity.h links in sdk-links/client.txt.
 
 
@@ -1044,8 +1045,10 @@ definitions, and the header from the client (the server compiles it too).
   entity type, so dropping the base would compile but answer NULL there:
   icliententity.h's `GetGameEntity()` and iclientunknown.h's `GetBaseEntity()`;
   util_shared.h's `GameEntityFromEntityHandle` and c_baseentity.h's
-  `SDKEntityFromRenderable`; flashlighteffect.cpp's trace filter (it asks
-  `GetCollisionGroup`); clientleafsystem.cpp (`GetClassname`); and particles_new.cpp
+  `SDKEntityFromRenderable`; flashlighteffect.cpp's trace filter (it asked
+  `GetCollisionGroup`; the file left client.so 2026-10-18, and the managed
+  flashlight's filter resolves the hit by handle through the slot table,
+  flashlight_trace_filter.h, with no IGameEntity); clientleafsystem.cpp (`GetClassname`); and particles_new.cpp
   (the owner, the control-point entity and the view-entity walk). Fork
   interfaces also fix our implementations' types: DispatchParticleEffect,
   CTakeDamageInfo/CMultiDamage, KillDeadBeams, ClientProjectile, the te
@@ -1055,7 +1058,16 @@ definitions, and the header from the client (the server compiles it too).
   ParseImpactData, DispatchNewParticleImpact) and the new particles'
   Set/GetControlPointEntity. These last are ca's particles lane's files. The base
   can go when particles_new.cpp, flashlighteffect.cpp and clientleafsystem.cpp
-  leave client.so, or after a user-made fork retype.
+  leave client.so, or after a user-made fork retype. (2026-10-18: the first
+  two have left. clientleafsystem.cpp's one use, `SDKEntityFromRenderable` /
+  `GetClassname` in AddRenderableToLeaf, is inside `#ifdef
+  DUMP_RENDERABLE_LEAFS`, which nothing defines: the TU preprocessed with its
+  compile_commands.json line holds neither name in its own text, nor does any
+  of the other seven fork TUs client.so compiles name IGameEntity,
+  SDKEntityFromRenderable or GameEntityFromEntityHandle. sdk_player_cast_test
+  still counts that site, because its guard stack does not know the macro is
+  undefined. The client's compiled IGameEntity users are ours:
+  trace_filter_library.cpp's GameEntityFromEntityHandle.)
 
 - **Two m_oldOrigins where stock keeps one** (found 2026-10-12 by the
   damage-message diagnosis): native's m_vecOldOrigin is set per usercmd and
@@ -1218,20 +1230,33 @@ RenderPlanner (the view in RenderInputs, a nested RenderView's ops after
 ScreenSpaceEffects), held to viewrender.cpp's order.
 
 
-## Client flashlight: flashlighteffect.cpp ruled `port` (C7 cluster 12)
+## Client flashlight: ported (C7 cluster 12); what it left open
 
-Added 2026-10-12 at main c46cb63eb (lane c6-input, C9 survey; integrator ruling).
+Added 2026-10-12 at main c46cb63eb (lane c6-input, C9 survey; integrator
+ruling); ported 2026-10-18 (lane C7 flashlight, on main e070a68e7).
 
-`game/client/flashlighteffect.cpp` is still compiled into client.so. Nothing
-imports its code, and of its definitions only the `r_newflashlight` change
-callback survives `--gc-sections`: its five `r_*flashlight*` ConVars are
-registered at static init. No engine binary under bin/linux64 contains any
-of those names. It is NOT dead stock, though: stock's C_BasePlayer drives
-CFlashlightEffect (the player's flashlight and its projected-texture
-shadow through clientshadowmgr), and nothing has ported that arm. Ruled
-`port`, kept in the build, owned by C7's cluster 12 (glow / screen-space /
-pixelvis / flashlight). It leaves when the managed flashlight exists, with
-the five ConVars as managed ones.
+flashlighteffect.cpp left client.so: the local player's flashlight is
+SourceSharp.Client.Flashlight (docs/client_evictions.md has the row,
+docs/client-novalve-rulings.tsv the `ported` reason). Left open, each small:
+
+- **Other players' flashlights.** Stock's C_BaseEntity::CreateLightEffects
+  gives a non-local entity with EF_DIMLIGHT a dynamic light at its origin.
+  Only the local player's projected texture is ported; another player with
+  the light on shows nothing on this client.
+- **Hot reload forgets the shadow handle.** LocalPlayerFlashlight holds the
+  shadow manager's handle in managed state, and the module's Shutdown does
+  not destroy it (whether the shadow manager is still up when the module
+  shuts down at process exit was not established). Read from the code, not
+  run: a `cs_cl_reload` with the light on would make a second effect and
+  leave the first projected texture alive until level shutdown (the shadow
+  manager frees every shadow there). The fix is a reload carry of the
+  handle, as ClientBoneBatchCarry carries the bone table.
+- **The debris arm of the trace filter cannot fire.** A client shell's
+  collision group is not networked (C_StandaloneEntity answers NONE), so
+  stock's skip of COLLISION_GROUP_DEBRIS / INTERACTIVE_DEBRIS never matches.
+  It fires once the collision group reaches the client.
+- **CBasePlayer::SetFlashlightEnabled** (the server's per-player "may use the
+  flashlight" switch) is not ported; cs_sv_allow_flashlight is the one gate.
 
 
 ## Client C9 (tier libraries): what is still open
@@ -1273,8 +1298,8 @@ out/client.so, and `tools/client-novalve-census`.
   hard-wired off, and the mod's content defines no new-style effect the
   threaded particle branch would simulate), so that binding is held by
   tier_bindings_client_test alone.
-- **flashlighteffect.cpp** is ruled `port` and kept; it is C7 cluster 12
-  (entry above: "Client flashlight").
+- **flashlighteffect.cpp** was ruled `port`; it is ported and left client.so
+  2026-10-18 (C7 cluster 12; entry above: "Client flashlight").
 
 ## Live gate: chat's second client exits during connect (flaky, 2026-10-12)
 

@@ -463,6 +463,10 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
 	// client arm for SOURCESHARP_TRACE_ALL's reason.
 	else if ( nMask == SOURCESHARP_TRACE_BLOCKLOS )
 		nTraceMask = MASK_BLOCKLOS;
+	// The flashlight's direction mask (C7 cluster 12): the client's trace
+	// asks it, and it is wired here for SOURCESHARP_TRACE_ALL's reason.
+	else if ( nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
+		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
 
 	// The entity to skip may be on either hierarchy, and it usually IS: the
 	// caller is almost always an emitter excluding itself. CTraceFilterSimple

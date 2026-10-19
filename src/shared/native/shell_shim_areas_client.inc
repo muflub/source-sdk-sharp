@@ -572,6 +572,19 @@ int32_t CShimConVarsClient::ConVarsClientWatch( const char * pName )
 int32_t CShimConVarsClient::ConVarsClientSetValue( const char * pName, float flValue )
 	{ return ::SourceSharp_ConVarsClientSetValue( pName, flValue ); }
 
+int32_t CShimFlashlightClient::FlashlightTexture( const char * pszName )
+	{ return ::SourceSharp_FlashlightTexture( pszName ); }
+int32_t CShimFlashlightClient::FlashlightSupportsBorderColor()
+	{ return ::SourceSharp_FlashlightSupportsBorderColor(); }
+int32_t CShimFlashlightClient::FlashlightCreate( const SourceSharpFlashlightState * pState )
+	{ return ::SourceSharp_FlashlightCreate( pState ); }
+void CShimFlashlightClient::FlashlightUpdate( int32_t nHandle, const SourceSharpFlashlightState * pState )
+	{ return ::SourceSharp_FlashlightUpdate( nHandle, pState ); }
+void CShimFlashlightClient::FlashlightProject( int32_t nHandle )
+	{ return ::SourceSharp_FlashlightProject( nHandle ); }
+void CShimFlashlightClient::FlashlightDestroy( int32_t nHandle )
+	{ return ::SourceSharp_FlashlightDestroy( nHandle ); }
+
 void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 {
 	if ( !pszName )
@@ -657,6 +670,9 @@ void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONVARSCLIENT_VERSION ) )
 		return static_cast< IShimConVarsClient * >( &areas.m_ConVarsClient );
+
+	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FLASHLIGHTCLIENT_VERSION ) )
+		return static_cast< IShimFlashlightClient * >( &areas.m_FlashlightClient );
 
 	return NULL;
 }

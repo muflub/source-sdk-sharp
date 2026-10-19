@@ -437,6 +437,38 @@ typedef struct
 	float    Decay;
 } SourceSharpDynamicLight;
 
+// One projected-texture flashlight's state, as managed decides it
+// (SourceSharp.Client.Flashlight, C7 cluster 12): the fields of
+// FlashlightState_t that stock's CFlashlightEffect::UpdateLightNew sets
+// (flashlighteffect.cpp). shell_flashlight_client.cpp copies them into a
+// default-constructed FlashlightState_t, so every field not named here keeps
+// that constructor's value, as stock's does. Every field is one word, so the
+// managed mirror (SourceSharp.Abi.FlashlightState) has no padding to agree on;
+// AbiParityTests holds the two field for field.
+typedef struct
+{
+	float    OriginXYZ[3];
+	// m_quatOrientation: x, y, z, w.
+	float    Orientation[4];
+	float    NearZ;
+	float    FarZ;
+	float    HorizontalFovDegrees;
+	float    VerticalFovDegrees;
+	float    QuadraticAtten;
+	float    LinearAtten;
+	float    ConstantAtten;
+	// m_Color: r, g, b and the ambient term.
+	float    Color[4];
+	// FlashlightTexture's id for m_pSpotlightTexture; -1 for none.
+	int32_t  Texture;
+	int32_t  TextureFrame;
+	int32_t  EnableShadows;
+	float    ShadowMapResolution;
+	float    ShadowAtten;
+	float    ShadowSlopeScaleDepthBias;
+	float    ShadowDepthBias;
+} SourceSharpFlashlightState;
+
 
 // How movement feels, stated once by C# and read by the native movement loop.
 //
@@ -779,6 +811,15 @@ typedef enum
 	// did not know would be read there as the default and answer a plausible
 	// wrong number in silence.
 	SOURCESHARP_TRACE_BLOCKLOS = 6,
+
+	// MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW -- solid, moveable, opaque and
+	// monster contents, and glass. What the flashlight's direction and
+	// pull-back traces stop on (flashlighteffect.cpp: `MASK_OPAQUE_AND_NPCS`,
+	// less CONTENTS_HITBOX, which it does not have, plus CONTENTS_WINDOW). Not
+	// SOURCESHARP_TRACE_SOLID: that has the grate bit, so the light would pull
+	// back from a grating it shines through. Wired on BOTH arms, for
+	// SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW = 7,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a
@@ -821,6 +862,14 @@ typedef enum
 	// chase camera traces with (C_BasePlayer::CalcChaseCamView), passing its
 	// target. C7 item 5.
 	SOURCESHARP_TRACE_FILTER_NO_NPCS_OR_PLAYER = 3,
+
+	// flashlighteffect.cpp's CTraceFilterSkipPlayerAndViewModel: a CTraceFilter
+	// (no pass entity, no game rules) that hits everything but a player, a view
+	// model, and an entity in COLLISION_GROUP_DEBRIS or
+	// COLLISION_GROUP_INTERACTIVE_DEBRIS; a thing that is no entity (a static
+	// prop) is hit. What the flashlight traces with (C7 cluster 12). Wired on
+	// both client traces.
+	SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL = 4,
 } SourceSharpTraceFilter;
 
 // Which piece of the client's world render state ClientSetWorldRenderState is

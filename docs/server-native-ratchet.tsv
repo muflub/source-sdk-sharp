@@ -52,7 +52,7 @@ src/server/native/shell_tempents_debug.cpp	192
 src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
 src/server/native/shell_world_nettable.cpp	14
-src/server/native/shell_worldquery.cpp	384
+src/server/native/shell_worldquery.cpp	386
 src/server/native/ss_recipient_filter.cpp	34
 src/server/native/standalone_relays.cpp	30
 src/server/native/world_adapter.cpp	161

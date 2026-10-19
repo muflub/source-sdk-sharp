@@ -716,3 +716,34 @@ ss_cpptest_mathlib(detailprops_oracle_test
              public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/detailprops_oracle_test.cpp)
 endif()
+
+# THE FLASHLIGHT ORACLE (C7 cluster 12): stock's client flashlight --
+# CFlashlightEffect's projected texture (the swing, the hull traces and their
+# filter, the pull-back, the basis, the state the shadow manager is handed),
+# the old dynamic-light flashlight and the r_newflashlight callback -- run
+# offline from the PRISTINE game/client/flashlighteffect.cpp over a scripted
+# world (flashlight_stub/flashlight_harness.h says what is stock and what is
+# stand-in), held to the golden src/test/client/Fixtures/flashlight-stock.tsv,
+# which the managed port's FlashlightOracleTests replays. mathlib for the
+# basis and VectorNormalize, tier1 for the ConVars and their callback. The
+# -Wno- flags are for VALVE'S CODE: the MSVC pragmas, its unused statics
+# under the tool framework, and the member it leaves uninitialised.
+set(flashlight_stock "${SS_VALVE_SRC}/game/client/flashlighteffect.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${flashlight_stock}")
+  ss_oracle_missing(flashlight_oracle_test "no ${flashlight_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and its own header are COPIED, byte for byte, into their own
+# directory before they are included: their quoted #includes would otherwise
+# find game/client's real headers beside them ahead of the stand-ins.
+configure_file("${flashlight_stock}" "${CMAKE_CURRENT_BINARY_DIR}/flashlight_subject/flashlighteffect.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/flashlighteffect.h" "${CMAKE_CURRENT_BINARY_DIR}/flashlight_subject/flashlighteffect.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(flashlight_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-unused-private-field
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/flashlight_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/flashlight_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/flashlight_oracle_test.cpp)
+endif()

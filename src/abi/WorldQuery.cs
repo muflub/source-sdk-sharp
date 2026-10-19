@@ -44,6 +44,14 @@ public enum TraceFilter
     /// camera traces with (C7 item 5).
     /// </summary>
     NoNpcsOrPlayer = 3,
+
+    /// <summary>
+    /// flashlighteffect.cpp's <c>CTraceFilterSkipPlayerAndViewModel</c>: a plain
+    /// <c>CTraceFilter</c> (no pass entity, no game rules) that hits everything
+    /// but a player, a view model, and an entity in the two debris collision
+    /// groups. What the flashlight traces with (C7 cluster 12).
+    /// </summary>
+    SkipPlayerAndViewModel = 4,
 }
 
 /// <summary>
@@ -141,6 +149,16 @@ public enum TraceMask
     /// </para>
     /// </summary>
     BlockLos = 6,
+
+    /// <summary>
+    /// <c>MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW</c> — solid, moveable, opaque
+    /// and monster contents, and glass: what the flashlight's direction and
+    /// pull-back traces stop on (flashlighteffect.cpp, C7 cluster 12). Not
+    /// <see cref="Solid"/>: that has the grate bit, and the light would pull back
+    /// from a grating it shines through. Mapped on BOTH arms of the ABI for
+    /// <see cref="All"/>'s reason.
+    /// </summary>
+    OpaqueAndNpcsWindow = 7,
 }
 
 /// <summary>

@@ -1048,6 +1048,23 @@ internal sealed unsafe class ConVarsClientArea
 }
 
 /// <summary>
+/// <c>IShimFlashlightClient</c>, served as <c>SourceSharpFlashlightClient001</c>, through <see cref="ShimFlashlightClientFwd"/>.
+/// </summary>
+internal sealed unsafe class FlashlightClientArea
+{
+    private readonly ShimRef<ShimFlashlightClientFwd> _shim;
+
+    internal FlashlightClientArea(ShimRef<ShimFlashlightClientFwd> shim) { _shim = shim; }
+
+    public int FlashlightTexture(byte* a0) { return _shim.Vt->FlashlightTexture(_shim.Self, a0); }
+    public int FlashlightSupportsBorderColor() { return _shim.Vt->FlashlightSupportsBorderColor(_shim.Self); }
+    public int FlashlightCreate(FlashlightState* a0) { return _shim.Vt->FlashlightCreate(_shim.Self, a0); }
+    public void FlashlightUpdate(int a0, FlashlightState* a1) { _shim.Vt->FlashlightUpdate(_shim.Self, a0, a1); }
+    public void FlashlightProject(int a0) { _shim.Vt->FlashlightProject(_shim.Self, a0); }
+    public void FlashlightDestroy(int a0) { _shim.Vt->FlashlightDestroy(_shim.Self, a0); }
+}
+
+/// <summary>
 /// Every server area, acquired from the shim root by version string with
 /// its forwarder table, which native must serve at no fewer slots than the
 /// struct reads (the tables only append).
@@ -1231,6 +1248,7 @@ internal sealed unsafe class ClientShimAreas
     public readonly InputClientArea InputClient = null!;
     public readonly PhysicsClientArea PhysicsClient = null!;
     public readonly ConVarsClientArea ConVarsClient = null!;
+    public readonly FlashlightClientArea FlashlightClient = null!;
 
     // Each area and its table, in turn; the first that is refused stops
     // the walk, leaving the rest unset and its reason in why.
@@ -1349,6 +1367,10 @@ internal sealed unsafe class ClientShimAreas
             if (!ShimRef<ShimConVarsClientFwd>.TryTake(root, "SourceSharpConVarsClient001", out var shim, out why)) return;
             ConVarsClient = new ConVarsClientArea(shim);
         }
+        {
+            if (!ShimRef<ShimFlashlightClientFwd>.TryTake(root, "SourceSharpFlashlightClient001", out var shim, out why)) return;
+            FlashlightClient = new FlashlightClientArea(shim);
+        }
     }
 
     internal static bool TryAcquire(ShimRoot root, out ClientShimAreas? areas, out string why)
@@ -1358,5 +1380,5 @@ internal sealed unsafe class ClientShimAreas
         return areas is not null;
     }
 
-    internal static int Count => 28;
+    internal static int Count => 29;
 }

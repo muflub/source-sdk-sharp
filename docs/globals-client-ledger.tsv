@@ -132,24 +132,6 @@ clientshadowmgr.o	_ZL17s_ClientShadowMgr	s_ClientShadowMgr	game/client/clientsha
 clientshadowmgr.o	_ZL19s_VisibleShadowList	s_VisibleShadowList	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 clientshadowmgr.o	_ZL8s_bBreak	s_bBreak	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 clientshadowmgr.o	_ZL25s_nRttShadowTexturesDrawn	s_nRttShadowTexturesDrawn	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-flashlighteffect.o	_ZL23mat_depthbias_shadowmap	mat_depthbias_shadowmap	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL33mat_slopescaledepthbias_shadowmap	mat_slopescaledepthbias_shadowmap	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL19r_flashlightambient	r_flashlightambient	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL20r_flashlightconstant	r_flashlightconstant	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL15r_flashlightfar	r_flashlightfar	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL15r_flashlightfov	r_flashlightfov	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL22r_flashlightladderdist	r_flashlightladderdist	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL18r_flashlightlinear	r_flashlightlinear	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL24r_flashlightlockposition	r_flashlightlockposition	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL16r_flashlightnear	r_flashlightnear	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL19r_flashlightoffsetx	r_flashlightoffsetx	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL19r_flashlightoffsety	r_flashlightoffsety	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL19r_flashlightoffsetz	r_flashlightoffsetz	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL21r_flashlightquadratic	r_flashlightquadratic	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL23r_flashlightshadowatten	r_flashlightshadowatten	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL26r_flashlightvisualizetrace	r_flashlightvisualizetrace	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL15r_newflashlight	r_newflashlight	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-flashlighteffect.o	_ZL17r_swingflashlight	r_swingflashlight	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 glow_overlay.o	_ZZN12CGlowOverlay4DrawEbE19nHDRColorScaleCache	CGlowOverlay::Draw(bool)::nHDRColorScaleCache	game/client/glow_overlay.cpp	LOCAL	bss	function-local	4	UNRULED		
 	_ZN18PrecacheEffectGlow20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectGlow::ClientEffectRegister::m_pszMaterials	game/client/glow_overlay.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
 	_ZN18PrecacheEffectGlow29register_ClientEffectRegisterE	PrecacheEffectGlow::register_ClientEffectRegister	game/client/glow_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
@@ -338,6 +320,9 @@ shell_entitystatics.o	_ZL14cl_interpolate	cl_interpolate	sourcesharp/game/client
 shell_explosion_overlay.o	_ZL35ClientEffectReg_RPGShotDownCallback	ClientEffectReg_RPGShotDownCallback	sourcesharp/game/client/shell_explosion_overlay.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 	_ZN12InterfaceReg16s_pInterfaceRegsE	InterfaceReg::s_pInterfaceRegs	sourcesharp/game/client/shell_factory_client.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		tier1 interface.cpp's registry head (shell_factory_client.cpp): the EXPOSE macros' static-init rows chain here, and CreateInterface, which the engine resolves by name, walks it. It lives as long as client.so's exported factory (C9)
 shell_factory_client.o	_ZL11s_Factories	s_Factories	sourcesharp/game/client/shell_factory_client.cpp	LOCAL	bss	file-or-global	16	UNRULED		
+shell_flashlight_client.o	_ZN12_GLOBAL__N_120g_FlashlightTexturesE	(anonymous namespace)::g_FlashlightTextures	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	32	MEMBER	Flashlight:DLL	the texture references FlashlightTexture holds for the DLL's life, so the ITexture pointer the client shadow manager keeps in a FlashlightState_t stays referenced (stock: CFlashlightEffect's m_FlashlightTexture); carries out SourceSharp.Client.Flashlight's choice, decides nothing (C7 cluster 12)
+shell_flashlight_client.o	_ZN12_GLOBAL__N_121g_nFlashlightTexturesE	(anonymous namespace)::g_nFlashlightTextures	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	4	MEMBER	Flashlight:DLL	how many of g_FlashlightTextures are held; with them for the DLL's life (C7 cluster 12)
+shell_flashlight_client.o	_ZN12_GLOBAL__N_126g_szFlashlightTextureNamesE	(anonymous namespace)::g_szFlashlightTextureNames	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	1040	MEMBER	Flashlight:DLL	the names g_FlashlightTextures were held by, the lookup that answers a name already held with its id (C7 cluster 12)
 shell_hud.o	_ZN12_GLOBAL__N_19g_UiPaintE	(anonymous namespace)::g_UiPaint	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_hud.o	_ZL24g_CSourceSharpHud_Helper	g_CSourceSharpHud_Helper	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_hud.o	_ZL15invnext_command	invnext_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
@@ -587,8 +572,6 @@ shell_tempents_client.o	_ZL12g_TeRegistry	g_TeRegistry	sourcesharp/game/client/s
 shell_tempents_client.o	_ZL11g_TeScratch	g_TeScratch	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	512	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_tempents_client.o	_ZL17g_iTeScratchClass	g_iTeScratchClass	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_tempents_client.o	_ZL13g_nTeShadowed	g_nTeShadowed	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-shell_tools_off_client.o	_ZN12_GLOBAL__N_116s_ClientToolsOffE	(anonymous namespace)::s_ClientToolsOff	sourcesharp/game/client/shell_tools_off_client.cpp	LOCAL	data	function-local	8	CONST	-	reset_today=n/a. client.so's IClientTools with no tool behind it (shell_tools_off_client.cpp): no fields, only its vtable, constant-initialised, never written. SFM is dead (user ruling 2026-10-19); it answers tools-off for flashlighteffect.cpp until that file leaves
-	clienttools	clienttools	sourcesharp/game/client/shell_tools_off_client.cpp	GLOBAL	data	file-or-global	8	CONST	-	reset_today=n/a. points at s_ClientToolsOff from load (constant-initialised, never assigned); flashlighteffect.cpp reads it. Was entity_client_tools.cpp's, which left client.so: SFM is dead (user ruling 2026-10-19)
 shell_vgui_client.o	_ZZ12VGui_StartupPFPvPKcPiEE15s_bModeCallback	VGui_Startup(void* (*)(char const*, int*))::s_bModeCallback	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 	g_InputInternal	g_InputInternal	sourcesharp/game/client/shell_vgui_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_vgui_client.o	_ZL16s_nPausedSeconds	s_nPausedSeconds	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	data	file-or-global	4	UNRULED		
@@ -747,7 +730,7 @@ shell_gamerules.o	_ZL20g_DefaultViewVectors	g_DefaultViewVectors	sourcesharp/gam
 	g_StringTableGameRules	g_StringTableGameRules	sourcesharp/game/shared/shell_gamerules.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_gamerules.o	_ZL16s_CollisionRules	s_CollisionRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	80	UNRULED		
 shell_gamerules.o	_ZL13s_DamageRules	s_DamageRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	20	UNRULED		
-shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	232	UNRULED		
+shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	240	UNRULED		
 shell_movement.o	_ZZL11ActiveMovervE9s_pActive	ActiveMover()::s_pActive	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_movement.o	_ZZL12MoveCountersvE9s_nCounts	MoveCounters()::s_nCounts	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_movement.o	_ZZL16MovementRefusalsvE11s_nRefusals	MovementRefusals()::s_nRefusals	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	12	UNRULED		

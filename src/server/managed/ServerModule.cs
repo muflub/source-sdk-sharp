@@ -308,6 +308,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     private Flames _flames = null!;
     private ImpulseCheats _impulses = null!;
+    private PlayerFlashlight _flashlight = null!;
     private DamageCheats _damageCheats = null!;
     private DevContext _devContext = null!;
     private Scoreboard _scoreboard = null!;
@@ -899,6 +900,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // alive check wants the plain answer, not the arsenal's bookkeeping.
         _impulses = _services.Create<ImpulseCheats>();
 
+        // The player's flashlight (C7 cluster 12): impulse 100's toggle, ahead
+        // of the cheats as stock's ImpulseCommands is, and the death and
+        // player_speedmod turn-offs. Before the players decorator, for the
+        // impulse cheats' reason; cs_sv_allow_flashlight is wired to Allowed
+        // once the ConVars are registered.
+        _services.AddInstance<IEntityEffectBits>(_services.Create<EngineEntityEffectBits>());
+        _flashlight = _services.Create<PlayerFlashlight>();
+        _services.AddInstance<IPlayerFlashlight>(_flashlight);
+
         // The damage-rule cheats (stock's god and buddha, whose client.cpp
         // registrations no-op on a standalone player). The toggles live here;
         // the rule they set lives on SsPlayer, in OnDamaged.
@@ -939,7 +949,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _players = _services.Create<Players>();
         _deaths = new PlayerDeaths(_log, _services.Require<IEngineEntities>(), _corpses, _players,
                                    _services.Require<IGameClock>(), _services.Require<IHooks<IPlayerDeathHook>>(),
-                                   _services.Require<DeathNotice>());
+                                   _services.Require<DeathNotice>(), _flashlight);
 
         // plan_gamedll_after.md Phase A3 -- the two "C" game systems that became
         // managed. Both are IGameLifecycle participants in the PRE-ENTITY half,
@@ -1905,6 +1915,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _armourBonus     = _convars.Get<ArmourBonusConVar>();
         _spawnHealth     = _convars.Get<SpawnHealthConVar>();
         _allowFlashlight = _convars.Get<AllowFlashlightConVar>();
+        if (_allowFlashlight is { } allowFlashlight)
+            _flashlight.Allowed = () => allowFlashlight.Value;
         _bannedNames     = _convars.Get<BannedNamesConVar>();
 
         // Nothing publishes on the generated shell here any more:
@@ -2074,7 +2086,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // ran ImpulseCommands at the end of ItemPostFrame. The sv_cheats gate is
         // inside Run, on the cheats ONLY: this crossing itself must never sit
         // behind it (the client-command gate got that wrong once already).
-        if (firstTime && cmd.Impulse != 0)
+        // The flashlight's impulse first, and outside the cheats: stock's
+        // ImpulseCommands answered 100 itself and handed every other number to
+        // CheatImpulseCommands.
+        if (firstTime && cmd.Impulse != 0 && !_flashlight.OnImpulse(player, cmd.Impulse))
             _impulses.Run(player, cmd.Impulse);
     }
 

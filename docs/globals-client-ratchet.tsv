@@ -323,7 +323,14 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   (g_ToolFrameworkClient, s_ClientTools and the VCLIENTTOOLS001 InterfaceReg node pruned) and shell_tools_off_client.cpp's
 #   s_ClientToolsOff arrived, with `clienttools` re-attributed to it; both ruled CONST: 754 -> 752 LOWERED
 #   (make globals-client-ledger, make globals-client-census gate PASS).
-client_globals_link_level	src/game/client	752
+# RAISED 2026-10-18, 752 -> 755, deliberately (C7 cluster 12, at the rebase onto main e070a68e7): shell_flashlight_client.cpp's
+#   texture table for the flashlight's executor -- g_FlashlightTextures (made on the first ask, no static initialiser),
+#   g_nFlashlightTextures and g_szFlashlightTextureNames, ruled MEMBER Flashlight:DLL: the references keep the ITexture the
+#   client shadow manager holds.
+# 2026-10-18, C7 flashlight (cluster 12), the eviction: flashlighteffect.cpp left client.so with its 18 ConVars, and
+#   shell_tools_off_client.cpp lost s_ClientToolsOff and `clienttools` (their last reader was flashlighteffect.cpp):
+#   755 -> 735 LOWERED (make globals-client-ledger: 20 rows pruned, none added; make globals-client-census gate PASS).
+client_globals_link_level	src/game/client	735
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -355,7 +362,9 @@ client_globals_link_level	src/game/client	752
 #   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
 # 2026-10-19, SFM is dead: the tool framework's four UNRULED rows left with its two TUs, and the stand-in's two rows
 #   arrived ruled CONST: 701 -> 697 LOWERED (make globals-client-census: unruled 697).
-client_globals_unruled	docs/globals-client-ledger.tsv	697
+# 2026-10-18, C7 flashlight (cluster 12), the eviction: flashlighteffect.cpp's 18 UNRULED ConVars left with it (the 16 are
+#   managed now, the two depth biases read by name): 697 -> 679 LOWERED (make globals-client-census: unruled 679).
+client_globals_unruled	docs/globals-client-ledger.tsv	679
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 client_globals_floor	docs/globals-client-ledger.tsv	14
@@ -416,6 +425,11 @@ client_globals_floor	docs/globals-client-ledger.tsv	14
 #   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
 # LOWERED 2026-10-19, 122 -> 121: SFM is dead; the tool framework's two TUs left client.so, and shell_tools_off_client.o
 #   is constant-initialised (measured by tools/globals-census summary --side client: objects_with_a_static_initialiser 121).
+# RAISED 2026-10-18, 121 -> 122, deliberately (C7 cluster 12, at the rebase onto main e070a68e7): shell_flashlight_client.cpp joins
+#   client.so. Its own state has no constructor (the texture table is pointers); the initialiser is the four __cxx_global_var_init
+#   the SDK headers cbase.h pulls in give every client TU (nm over the object: _GLOBAL__sub_I_shell_flashlight_client.cpp).
+# LOWERED 2026-10-18, 122 -> 121 (C7 cluster 12, the eviction): flashlighteffect.o left client.so with its 18 ConVar constructors
+#   (tools/globals-census summary --side client: objects_with_a_static_initialiser 121).
 client_globals_objects_with_static_init	src/game/client	121
 client_globals_reconcile_unattributed	src/game/client	0
 # RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static

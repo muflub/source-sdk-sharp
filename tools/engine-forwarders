@@ -194,6 +194,9 @@ FORWARD = [
             # lump's read, its models, and the sprites' lighting.
             'GameLumpVersion', 'GameLumpSize', 'LoadGameLump', 'LoadModel',
             'LinearToGamma', 'LightStyleValue', 'ComputeDynamicLighting',
+            # The flashlight (C7 cluster 12, SourceSharp.Client.Flashlight):
+            # stock's constructor and r_newflashlight callback ask the DX level.
+            'GetDXSupportLevel',
         ],
     ),
     dict(
@@ -448,6 +451,9 @@ FORWARD = [
         # a server slot used to make through overlay_library).
         methods=[
             'AddTextOverlayRGB_2',
+            # The flashlight's r_flashlightvisualizetrace (C7 cluster 12,
+            # SourceSharp.Client.Flashlight): the trace's end box and its line.
+            'AddBoxOverlay', 'AddLineOverlay',
         ],
     ),
     dict(

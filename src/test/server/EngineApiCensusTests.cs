@@ -309,7 +309,9 @@ public partial class EngineApiCensusTests
     // body was empty): 238 + 1 = 239.
     // plan_server_native_v2 T2: RegisterAmmoType is client-only (239 + 1 = 240).
     // Combined at the rebase onto the forwarders main: 236 + 2 = 238.
-    private const int ClientOnly = 238;
+    // C7 cluster 12: IShimFlashlightClient's six, the flashlight's executor
+    // (texture, border colour, create, update, project, destroy): 238 + 6 = 244.
+    private const int ClientOnly = 244;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

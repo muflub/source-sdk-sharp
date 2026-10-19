@@ -70,13 +70,13 @@ marker is the answer to "why is this native at all", not a full account.
 | a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 35,252 |
 | b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,990 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,031 |
-| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,267 |
-| e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,221 |
+| d | a layout the engine reads at fixed offsets | 5 | 6 | 6 | 1 |  |  | 21 | 9,410 |
+| e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,273 |
 | f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,720 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,418 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
-| x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,674 |
-|  | **total** | **77** | **35** | **70** | **3** | **2** | **1** | **212** | **93,685** |
+| x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,599 |
+|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **93,805** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -191,6 +191,10 @@ Then the server's last two native skeleton slots left the ABI (2026-10-18, lane 
 
 Then CI on main (2026-10-19, measured by the walk on 546910d): client.dll's MSVC link without tier0.lib. (d) 9,357 -> 9,383 is tier_bindings_client.cpp emitting tier0's inline CThreadMutex and CThreadSpinRWLock members, which fork objects import where MSVC did not inline them (+18), and binding g_pVCR, through which the emitted Lock enters its critical section, to tier0.dll's (+8); (x) 4,540 -> 4,559 is tier0_vprof_client.cpp emitting CVProfile's inline EnterScope and ExitScope the same way (+16), and defining its profile in an extern "C" block, which gcc 10 requires (+3); 209 files, 93,331 in the table.
 
+Then the flashlight's executor (C7 cluster 12, 2026-10-18, measured by the walk on the lane rebased onto main e070a68e7): (d) 9,267 -> 9,410 is sourcesharp/game/client/shell_flashlight_client.cpp (client, +143 lines, one file), IShimFlashlightClient's bodies: the FlashlightState_t the client shadow manager reads by layout, built from managed's SourceSharpFlashlightState, and the texture reference it keeps; (e) 4,221 -> 4,273 is the client's and the server's world-query arms learning SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW and the client's SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL (stock's flashlight filter over the shells; shell_worldquery_client.cpp +48, shell_worldquery.cpp +4); 213 files, 93,880 lines in the table (93,870 on e070a68e7; main's trace fix, b32ca3536, added (b)'s 10 at the rebase).
+
+Then flashlighteffect.cpp left client.so (C7 cluster 12, 2026-10-18, measured by the walk on the lane rebased onto main e070a68e7): (x) 4,674 -> 4,599 is sourcesharp/game/client/shell_tools_off_client.cpp losing `clienttools` (its never-recording IClientTools) and `ToolFramework_PostToolMessage`, which only flashlighteffect.cpp read (client, 119 -> 44 lines); 213 files, 93,805 lines in the table.
+
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
 `sourcesharp/game/client/shell_beam_endpoint_client.cpp`  
@@ -296,6 +300,7 @@ Then CI on main (2026-10-19, measured by the walk on 546910d): client.dll's MSVC
 #### (d) a layout the engine reads at fixed offsets — 16 files, 11,183 lines
 
 `sourcesharp/game/client/keyvalues_client.cpp`  
+`sourcesharp/game/client/shell_flashlight_client.cpp`  
 `sourcesharp/game/client/shell_player_orphans.cpp`  
 `sourcesharp/game/client/shell_view_facts.cpp`  
 `sourcesharp/game/client/shell_worldrender.cpp`  
@@ -405,7 +410,7 @@ close produces. **This is the number the port exists to drive to zero.**
 | `sourcesharp/game/client/tier0_spew_client.cpp` | 27 | tier0's `DevWarning( level )`, which only client objects call (bone_setup, shell_clientdll, the temp-entity shells); beside the shared tier0_spew_port.cpp because the server does not need it (user ruling 2026-10-12) | those call sites asking managed logging, or their TUs leaving |
 | `sourcesharp/game/client/tier1_client.cpp` | 174 | tier1's small members client.so still calls, so each object leaves its link: checksum_crc.cpp's CRC32 functions over ss_crc32.h (sentence.cpp, shell_input.cpp, SharedRandom's seed), rangecheckedvar.cpp's g_bDoRangeChecks (sequence_Transitioner.cpp) and mempool.cpp's CUtlMemoryPool (clientleafsystem.cpp, viewrender.cpp, the temp-entity pools, the view executor) | each name's last native caller leaving |
 | `sourcesharp/game/client/particles_lib/particles_tier2_stubs.cpp` | 73 | what particles.a imports from tier2.a (CBeamSegDraw's Start/NextSeg/End and vtable, RenderWireframeBox/Sphere), defined as counted no-ops so tier2.a left client.so (user ruling 2026-10-12); moved into libss_particles.so with particles.a (plan_particles_so.md), its counts read back through ISSParticleLib::Counters. Native because particles.a calls them in-process | real tier2 ports in the library, or particles.a's rope and debug-wireframe draws through managed |
-| `sourcesharp/game/client/shell_tools_off_client.cpp` | 119 | the names the Valve TUs still compiled into client.so link against after toolframework_client.cpp and entity_client_tools.cpp left (SFM is dead, user ruling 2026-10-19): `ToolsEnabled` (false) and `ToolFramework_RecordMaterialParams` for clientshadowmgr.cpp, `clienttools` (never in recording mode) and `ToolFramework_PostToolMessage` for flashlighteffect.cpp | clientshadowmgr.cpp's and flashlighteffect.cpp's evictions |
+| `sourcesharp/game/client/shell_tools_off_client.cpp` | 44 | the names the one Valve TU still compiled into client.so that names the tool framework links against, after toolframework_client.cpp and entity_client_tools.cpp left (SFM is dead, user ruling 2026-10-19): `ToolsEnabled` (false) and `ToolFramework_RecordMaterialParams` for clientshadowmgr.cpp. `clienttools` and `ToolFramework_PostToolMessage` went with flashlighteffect.cpp (C7 cluster 12, 2026-10-18) | clientshadowmgr.cpp's eviction |
 
 
 ## Link libraries, re-measured at the close

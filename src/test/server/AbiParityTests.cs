@@ -377,6 +377,52 @@ public partial class AbiParityTests
     /// unstripped scan reads the explanation as a declaration.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// <see cref="FlashlightState"/> against SourceSharpFlashlightState (C7
+    /// cluster 12): the header's arrays (OriginXYZ[3], Orientation[4],
+    /// Color[4]) are the managed side's one-word fields, so the two are
+    /// compared word by word: the managed field's name starts with the
+    /// native one's (less "XYZ"), an int32_t word is an int and a float a
+    /// float, and the sizes agree with no padding.
+    /// </summary>
+    [Fact]
+    public void TheFlashlightStateStructMatchesTheHeaderWordForWord()
+    {
+        string? header = FindHeader();
+        Assert.True(header is not null, "host/sourcesharp.h is not in the farm: the layout cannot be checked");
+
+        string text = File.ReadAllText(header!);
+        var native = PlainFields(text, "SourceSharpFlashlightState");
+        Assert.True(native.Count == 17, $"the header declares SourceSharpFlashlightState's 17 fields ({native.Count} found)");
+
+        int structEnd = text.IndexOf("} SourceSharpFlashlightState;", StringComparison.Ordinal);
+        int structStart = text.LastIndexOf("typedef struct", structEnd, StringComparison.Ordinal);
+        var intFields = Regex.Matches(Regex.Replace(text[structStart..structEnd], @"//[^\n]*", string.Empty),
+                                      @"\bint32_t\s+(\w+)\s*;")
+                             .Select(m => m.Groups[1].Value).ToHashSet();
+        Assert.Equal(3, intFields.Count);
+
+        var words = new List<(string Native, bool Int)>();
+        foreach (var (name, n) in native)
+            for (int i = 0; i < n; i++)
+                words.Add((name.EndsWith("XYZ", StringComparison.Ordinal) ? name[..^3] : name, intFields.Contains(name)));
+
+        var managed = typeof(FlashlightState)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .OrderBy(f => f.MetadataToken)
+            .ToList();
+
+        Assert.Equal(words.Count, managed.Count);
+        for (int i = 0; i < words.Count; i++)
+        {
+            Assert.True(managed[i].Name.StartsWith(words[i].Native, StringComparison.Ordinal),
+                        $"word {i}: managed {managed[i].Name}, native {words[i].Native}");
+            Type want = words[i].Int ? typeof(int) : typeof(float);
+            Assert.True(managed[i].FieldType == want, $"word {i} ({managed[i].Name}) is {managed[i].FieldType.Name}, the header's is {want.Name}");
+        }
+        Assert.Equal(words.Count * 4, Unsafe.SizeOf<FlashlightState>());
+    }
+
     private static List<(string Name, int Words)> PlainFields(string text, string structName)
     {
         var fields = new List<(string, int)>();

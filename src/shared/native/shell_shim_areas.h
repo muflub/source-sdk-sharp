@@ -748,6 +748,17 @@ public:
 	int32_t ConVarsClientSetValue( const char * pName, float flValue ) override;
 };
 
+class CShimFlashlightClient final : public IShimFlashlightClient
+{
+public:
+	int32_t FlashlightTexture( const char * pszName ) override;
+	int32_t FlashlightSupportsBorderColor() override;
+	int32_t FlashlightCreate( const SourceSharpFlashlightState * pState ) override;
+	void FlashlightUpdate( int32_t nHandle, const SourceSharpFlashlightState * pState ) override;
+	void FlashlightProject( int32_t nHandle ) override;
+	void FlashlightDestroy( int32_t nHandle ) override;
+};
+
 struct CShimAreasClient
 {
 	CShimEngineClient m_Engine;
@@ -777,6 +788,7 @@ struct CShimAreasClient
 	CShimInputClient m_InputClient;
 	CShimPhysicsClient m_PhysicsClient;
 	CShimConVarsClient m_ConVarsClient;
+	CShimFlashlightClient m_FlashlightClient;
 };
 
 // The client factory's rows: each shared base by its own version string.
