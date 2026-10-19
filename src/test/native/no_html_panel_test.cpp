@@ -86,8 +86,10 @@ TEST( NoHtmlPanelAtJoin, TheLinkReaderSeesTheClientsLibraries )
 {
 	const std::vector< std::string > libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
 	std::string strHit;
-	EXPECT_TRUE( AnyToken( libs, "tier1", strHit ) )
-		<< "no tier1 on " << cmake_graph::kClient << "'s link line: the reader is not reading it";
+	// libdl: every Linux link line names it (no Valve library is left on the
+	// client's line since C9 took tier1 off it).
+	EXPECT_TRUE( AnyToken( libs, "-ldl", strHit ) )
+		<< "no -ldl on " << cmake_graph::kClient << "'s link line: the reader is not reading it";
 }
 
 TEST( NoHtmlPanelAtJoin, NoVguiControlsArchiveIsLinked )

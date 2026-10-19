@@ -210,11 +210,12 @@ TEST( SdkLibMembers, TheGameLibrariesAreAmongTheConsumers )
 	const Survey_t &s = Survey();
 	std::set< std::string > consumers( s.consumers.begin(), s.consumers.end() );
 	EXPECT_TRUE( consumers.count( "out/libss_particles.so" ) ) << "the particles library no longer links tier1/mathlib?";
-	EXPECT_TRUE( consumers.count( "out/client.so" ) );
-	// server.so links neither archive: tier1's members it calls are
-	// tier1_port.cpp's and mathlib's are mathlib_port.cpp's. Its absence here
-	// is that fact read off the graph; client.so and the particles library
-	// above are the controls that the reading still finds consumers.
+	// Neither game DLL links either archive: server.so's tier1 members are
+	// tier1_port.cpp's and mathlib's are mathlib_port.cpp's, and client.so's
+	// last importers of both left it (plan_client_novalve C9). Their absence
+	// here is that fact read off the graph; the particles library above is the
+	// control that the reading still finds a consumer.
+	EXPECT_FALSE( consumers.count( "out/client.so" ) ) << "client.so links tier1 or mathlib again";
 	EXPECT_FALSE( consumers.count( "out/server.so" ) ) << "server.so links tier1 or mathlib again";
 	for ( const std::string &e : s.errors )
 		ADD_FAILURE() << e;

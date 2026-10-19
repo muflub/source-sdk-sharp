@@ -117,13 +117,15 @@ TEST( LinkLibraries, TheServerLinksNoTierLibrary )
 		EXPECT_FALSE( Links( kTargets[ 0 ], pLib ) ) << "server.so links " << pLib << " again";
 }
 
-TEST( LinkLibraries, TheClientLinksNeitherTier0NorVstdlib )
+TEST( LinkLibraries, TheClientLinksNoTierLibrary )
 {
 	// plan_client_novalve C9: client.so's tier0 and vstdlib names are its own
 	// (tier0_vprof_client.cpp, tier0_thread_client.cpp) or bound to the copies
-	// the engine loaded (tier_bindings_client.cpp). tier1 is a lane of its own.
+	// the engine loaded (tier_bindings_client.cpp), and no member of
+	// libtier1.a is pulled any more (the last importers, detailobjectsystem.cpp
+	// and particlemgr.cpp, left client.so).
 	ASSERT_STREQ( "client_sourcesharp", kTargets[ 1 ] );
-	for ( const char *pLib : { "tier0", "vstdlib" } )
+	for ( const char *pLib : { "tier0", "tier1", "vstdlib" } )
 		EXPECT_FALSE( Links( kTargets[ 1 ], pLib ) ) << "client.so links " << pLib << " again";
 }
 
