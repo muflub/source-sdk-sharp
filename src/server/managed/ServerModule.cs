@@ -954,6 +954,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _propData = _services.Create<PropData>();
         _services.AddInstance<IServerDecals>(_decals);
         _services.AddInstance(_services.Create<BloodDecals>());
+        // The skin a server entity is drawn with, sent as m_nSkin (2026-10-19).
+        _services.AddInstance<IServerSkins>(new ServerSkins(_engine));
         _services.AddInstance<IServerPropData>(_propData);
 
         // THE SURFACE PROPERTY MANIFEST, once, before any map -- plan_server_novalve.md

@@ -97,6 +97,20 @@ public static class EngineBlockMarks
     /// <c>EngineBlock</c> -- zero today, and written out because it is the
     /// thing that would move if anything were ever put ahead of the head.
     /// </summary>
+    /// <summary>
+    /// The offset inside the block of a field of the client tail
+    /// (<see cref="EngineBlockClientTail"/>), which both sides' blocks carry:
+    /// the skin is the one the server writes and marks.
+    /// </summary>
+    public static int OffsetInBlockOfClientTail(string tailFieldName)
+    {
+        if (string.IsNullOrEmpty(tailFieldName))
+            throw new ArgumentException("a tail field name is required", nameof(tailFieldName));
+
+        return (int)Marshal.OffsetOf<EngineBlock>(nameof(EngineBlock.Client))
+             + (int)Marshal.OffsetOf<EngineBlockClientTail>(tailFieldName);
+    }
+
     public static int OffsetInBlockOf(string headFieldName)
     {
         if (string.IsNullOrEmpty(headFieldName))

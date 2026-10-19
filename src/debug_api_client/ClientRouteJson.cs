@@ -61,6 +61,7 @@ internal static class ClientRouteJson
     {
         json.WriteStartObject();
         EntityRow(json, s.Entity);
+        json.WriteNumber("skin", s.Skin);
         Vec3(json, "angles", s.Angles);
         Vec3(json, "renderAngles", s.RenderAngles);
         json.WriteStartArray("states");

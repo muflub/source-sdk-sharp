@@ -308,7 +308,10 @@ incdir-forbidden	6
 incdir-forbidden-tus	142
 link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
-logic-lines	8421
+# 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
+#   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
+#   fix needs, not a relabel.
+logic-lines	8424
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

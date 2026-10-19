@@ -496,16 +496,16 @@ TEST( PayloadTiers, EveryTierHasADistinctName )
 //-----------------------------------------------------------------------------
 TEST( PayloadTiers, RealPropCountIsTheHierarchysForEveryShell )
 {
-	EXPECT_EQ( 10, SourceSharp_TierRealProps( SS_SHELL_STANDALONE ) );
+	EXPECT_EQ( 11, SourceSharp_TierRealProps( SS_SHELL_STANDALONE ) );   // 11 since m_nSkin (2026-10-19)
 
 	// The retired value answers the LIVE count, not a stale three. An old
 	// managed build asking about shell 0 must be told what the tables actually
 	// carry, or its inspector reports a prop total short at every tier.
-	EXPECT_EQ( 10, SourceSharp_TierRealProps( SS_SHELL_NETENTITY ) );
+	EXPECT_EQ( 11, SourceSharp_TierRealProps( SS_SHELL_NETENTITY ) );
 
 	// The numbers the managed schema panel shows for the 32-byte tier, spelled
 	// out because they are what a reader compares a dump against.
-	EXPECT_EQ( 18, SourceSharp_TierRealProps( SS_SHELL_STANDALONE ) + SourceSharp_TierWords( 0 ) );
+	EXPECT_EQ( 19, SourceSharp_TierRealProps( SS_SHELL_STANDALONE ) + SourceSharp_TierWords( 0 ) );
 }
 
 //=============================================================================//

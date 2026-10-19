@@ -145,6 +145,7 @@ public static partial class TestServices
         var decals = new RecordingDecals();
         services.AddInstance<IServerDecals>(decals);
         services.AddInstance(new BloodDecals(engine, decals, engine, engine));
+        services.AddInstance<IServerSkins>(new RecordingServerSkins());
         services.AddInstance(new SourceSharp.Server.Interop.SolverHeldOverlaps());
 
         services.AddInstance<IServerSoundEnt>(new SoundEnt(engine, engine, engine));

@@ -356,19 +356,19 @@ TEST( ClientPropCollision, StandaloneTableSendsSolidityOnBothSides )
 	ASSERT_TRUE( listTail != std::string::npos );
 	const std::string list = table.substr( listHead, listTail - listHead );
 	const size_t nRows = CountSubstring( list, "{\"m_" );
-	EXPECT_EQ( nRows, 10u ) << "StandaloneNetFields carries " << nRows << " rows";
+	EXPECT_EQ( nRows, 11u ) << "StandaloneNetFields carries " << nRows << " rows";   // 11 since m_nSkin
 
 	const std::string generic = NoWhitespace(
 		ReadStripped( "sourcesharp/game/shared/generic_nettable.h" ) );
 	ASSERT_FALSE( generic.empty() ) << "generic_nettable.h is unreadable";
-	EXPECT_TRUE( generic.find( "SOURCESHARP_TIER_PROPS_STANDALONE=10," ) != std::string::npos )
+	EXPECT_TRUE( generic.find( "SOURCESHARP_TIER_PROPS_STANDALONE=11," ) != std::string::npos )
 		<< "the native real-prop count did not move with the list";
 
 	const std::string managed = NoWhitespace(
 		ReadStripped( "sourcesharp/managed/SourceSharp.Shared.Interop/NetSchema.cs" ) );
 	ASSERT_FALSE( managed.empty() )
 		<< "NetSchema.cs is unreadable (the managed count would drift in silence)";
-	EXPECT_TRUE( managed.find( "StandaloneSharedProps=10;" ) != std::string::npos )
+	EXPECT_TRUE( managed.find( "StandaloneSharedProps=11;" ) != std::string::npos )
 		<< "the managed real-prop count did not move with the list";
 }
 
@@ -402,4 +402,25 @@ TEST( ClientPropCollision, BothBuildersAddressTheSolidityFields )
 	EXPECT_TRUE( server.find(
 		"nOffsets[STANDALONE_NET_FIELD_SOLIDFLAGS]=CStandaloneEntity::BlockBase()"
 		"+SS_BLOCK_HEAD_OFFSET(SolidFlags);" ) != std::string::npos );
+}
+
+// The skin row (2026-10-19): both builders address the block's Client.Skin, so
+// the server's mark (NetworkedSkin.Offset, inside the block) matches its prop
+// and the client decodes straight into what GetSkin answers.
+TEST( ClientPropCollision, BothBuildersAddressTheSkin )
+{
+	const std::string server = NoWhitespace(
+		ReadStripped( "sourcesharp/game/server/shell_standalone.cpp" ) );
+	const std::string client = NoWhitespace(
+		ReadStripped( "sourcesharp/game/client/shell_standalone_client.cpp" ) );
+	ASSERT_FALSE( server.empty() );
+	ASSERT_FALSE( client.empty() );
+	EXPECT_TRUE( server.find(
+		"nOffsets[STANDALONE_NET_FIELD_SKIN]=CStandaloneEntity::BlockBase()"
+		"+(int)offsetof(EngineBlock_t,Client)+(int)offsetof(EngineBlockClientTail_t,Skin);" ) != std::string::npos )
+		<< "the server's send builder has no skin offset";
+	EXPECT_TRUE( client.find(
+		"nOffsets[STANDALONE_NET_FIELD_SKIN]=C_StandaloneEntity::BlockBase()"
+		"+(int)offsetof(EngineBlock_t,Client)+(int)offsetof(EngineBlockClientTail_t,Skin);" ) != std::string::npos )
+		<< "the client's recv builder has no skin offset";
 }

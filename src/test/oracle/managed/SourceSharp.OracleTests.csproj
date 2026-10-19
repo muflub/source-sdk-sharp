@@ -34,6 +34,7 @@
     <Compile Include="..\..\common\RecordingJointTables.cs" Link="Shared\RecordingJointTables.cs" />
     <Compile Include="..\..\common\RecordingBlastSweep.cs" Link="Shared\RecordingBlastSweep.cs" />
     <Compile Include="..\..\common\RecordingDecals.cs" Link="Shared\RecordingDecals.cs" />
+    <Compile Include="..\..\common\RecordingServerSkins.cs" Link="Shared\RecordingServerSkins.cs" />
     <Compile Include="..\..\common\TempEntsDouble.cs" Link="Shared\TempEntsDouble.cs" />
     <Compile Include="..\..\common\RecordingEffectDispatch.cs" Link="Shared\RecordingEffectDispatch.cs" />
     <!-- The mdl image builder SequenceTransitionerOracleTests builds the golden's model with. -->

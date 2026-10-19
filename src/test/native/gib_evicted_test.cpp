@@ -569,12 +569,22 @@ TEST( GibEvicted, BlockerTwo_AndTheWireDidNotGrowToPayForIt )
 	// three whole effect families -- dust, smoke, precipitation -- rendered
 	// nothing (step 7a's cs_cl_dust_report). The verdict below is UNCHANGED:
 	// the four names in kAbsent are still absent, so blocker 2 was not paid for.
+	//
+	// AND THE VERDICT WAS RE-TAKEN FOR ONE OF THEM, 2026-10-19: m_nSkin is now on
+	// the wire, the eighth name present. The user asked that a skin the server
+	// picks reach the client (env_beverage's can, a gib), and the per-class
+	// payload route needs a managed CLIENT class for every class that picks a
+	// skin, which item_sodacan and ss_gib do not have. The price is the one
+	// m_fEffects was allowed: ten bits on every entity's table, which delta
+	// compression leaves out while the skin equals the baseline's zero. The
+	// other three stay absent.
 	const std::string wire = Load( kNetTable );
 
 	static const char *kPresent[] = { "\"m_vecOrigin\"", "\"m_angRotation\"",
 	                                  "\"m_nModelIndex\"", "\"m_fEffects\"",
 	                                  "\"m_nTypeId\"",
-	                                  "\"m_nSchemaHash\"", "\"m_nPayloadWords\"" };
+	                                  "\"m_nSchemaHash\"", "\"m_nPayloadWords\"",
+	                                  "\"m_nSkin\"" };
 	for ( size_t i = 0; i < sizeof( kPresent ) / sizeof( kPresent[ 0 ] ); i++ )
 	{
 		EXPECT_NE( wire.find( kPresent[ i ] ), std::string::npos )
@@ -582,7 +592,7 @@ TEST( GibEvicted, BlockerTwo_AndTheWireDidNotGrowToPayForIt )
 			<< "; the seven fields this blocker counts have changed";
 	}
 
-	static const char *kAbsent[] = { "\"m_nSkin\"", "\"m_clrRender\"",
+	static const char *kAbsent[] = { "\"m_clrRender\"",
 	                                 "\"m_nRenderMode\"", "\"m_flModelScale\"" };
 	for ( size_t i = 0; i < sizeof( kAbsent ) / sizeof( kAbsent[ 0 ] ); i++ )
 	{
