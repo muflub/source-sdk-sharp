@@ -28,9 +28,11 @@ sourcesharp_gamesystem.cpp:
   src/test/native/shim_areas_forwarders.inc  one count test per bound interface,
                                           its forwarder table against the
                                           compiler, included by fwd_shim_test
-  src/abi/ShimAreas.g.cs                 the managed Slot_X/Has_X routing: class
-                                          ShimSlots, held per side by EngineSide and
-                                          never a partial of it (plan_abi_hotreload D4)
+  src/abi/ShimAreas.g.cs                 the managed areas: one class per area over
+                                          its forwarder table (a server area deriving
+                                          the shared base it extends), and the two
+                                          containers EngineSide attaches per side
+                                          (plan_shim_areas_split phase 2)
 
 FORWARDS, NOT RENAMES. The bodies stay free SourceSharp_* functions: 969 gtest
 calls and tools/entrypoint-decls depend on them, and the client still fills the
@@ -436,12 +438,16 @@ def generate():
     owner = {s: i for i in routed for ci in chain_of(i) for s in slots_of(ci)}
     m = ['// ' + GENERATED[3:],
          '//',
-         '// plan_engineapi_vtables Phase C / docs/todo.md router retirement. Two',
-         '// area classes, each with one typed call per slot it serves; the call',
-         '// through the area\'s forwarder table (plan_forwarders_everywhere.md) is',
-         '// inline. Choosing between the server and client area for a both-sides',
-         '// slot is EngineSide\'s job (the attach state lives there); there is no',
-         '// generated router class and no Slot_X/Has_X plumbing.',
+         '// plan_shim_areas_split phase 2. One class per shim area, over its',
+         '// forwarder table (plan_forwarders_everywhere.md), with one typed call',
+         '// per slot it declares. A server area that extends a shared base derives',
+         '// that base\'s class: its table starts with exactly the base\'s slots',
+         '// (SharedForwarders.g.cs holds that field by field), so the base class',
+         '// reads either side\'s table. The two containers acquire every area of',
+         '// their side or none, and keep the flat members, each a one-line call to',
+         '// its area, until callers take the areas themselves. Choosing between',
+         '// the server and the client area for a both-sides slot is EngineSide\'s',
+         '// job; there is no router.',
          '',
          '#nullable enable',
          '',
@@ -482,102 +488,127 @@ def generate():
          '        return true;',
          '    }',
          '}',
-         '',
-         '/// <summary>',
-         '/// Every generated area, acquired from the shim root by version string with',
-         '/// its forwarder table, which native must serve at no fewer slots than the',
-         '/// struct reads (the tables only append).',
-         '/// </summary>',
-         'internal sealed unsafe class ShimAreas',
-         '{']
-    for i in routed:
-        m.append('    public readonly ShimRef<Shim%sFwd> %s;' % (short(i), field(i)))
-    # docs/todo.md "Managed code calls the engine vtables directly": every
-    # slot as a typed instance method on the area class that serves it, the
-    # vtable call inline. The router (ShimSlots) is being retired; the typed
-    # methods are what callers reach through the attached areas.
+         '']
     ptr = ('nint', 'IntPtr', 'nuint', 'UIntPtr')
 
-    def typed(ret, ptypes, s, target):
-        params = ', '.join('%s a%d' % (ty, k) for k, ty in enumerate(ptypes))
+    def params_of(ptypes):
+        return ', '.join('%s a%d' % (ty, k) for k, ty in enumerate(ptypes))
+
+    def typed(ret, ptypes, s):
+        """A slot's typed call on its area class, through the class's own table."""
         vargs = ', '.join(('(void*)a%d' % k) if ty in ptr else 'a%d' % k
                           for k, ty in enumerate(ptypes))
-        f = field(target)
-        v = '%s.Vt->%s(%s.Self%s)' % (f, s, f, (', ' + vargs) if vargs else '')
+        v = '_shim.Vt->%s(_shim.Self%s)' % (s, (', ' + vargs) if vargs else '')
         if ret in ptr or (ret.endswith('*') and ret != 'void*'):
             v = '(%s)%s' % (ret, v)
-        return '    public %s %s(%s) { %s%s; }' % (ret, s, params,
+        return '    public %s %s(%s) { %s%s; }' % (ret, s, params_of(ptypes),
                                                   '' if ret == 'void' else 'return ', v)
-    m.append('')
-    m.append('    // Typed calls, one per slot this class serves. A both-sides slot')
-    m.append('    // also exists on the other side\'s class; choosing between them is')
-    m.append("    // the side object's job, not the area's.")
+
+    def flat(ret, ptypes, s, target):
+        """A container's flat member: the same call, made on the area that serves it."""
+        args = ', '.join('a%d' % k for k in range(len(ptypes)))
+        return '    public %s %s(%s) { %s%s.%s(%s); }' % (ret, s, params_of(ptypes),
+                                                       '' if ret == 'void' else 'return ',
+                                                       field(target), s, args)
+
+    def area(i):
+        return short(i) + 'Area'
+
+    def fwd(i):
+        return 'Shim%sFwd' % short(i)
+
+    # Every area class: the shared bases and the console (both sides), the
+    # server's areas (deriving their base where they extend one), and the
+    # client-only areas. A class is declared once, whichever side uses it.
+    client_routed = client_bases + sorted(hand) + client_only
+    extended = {base[i] for i in concrete if base[i]}
+    classes = []
+    for i in client_bases + sorted(hand) + concrete + client_only:
+        if i not in classes:
+            classes.append(i)
+
+    def own_slots(i):
+        if i in client_only:
+            return client_slots[i]
+        return slots_of(i)
+
+    for i in classes:
+        b = base[i] if i in concrete else None
+        sealed = '' if i in extended else 'sealed '
+        m += ['/// <summary>',
+              '/// <c>%s</c>, served as <c>%s</c>, through <see cref="%s"/>.%s' % (
+                  i, version(i), fwd(i),
+                  (' Its base\'s slots are <see cref="%s"/>\'s.' % area(b)) if b else ''),
+              '/// </summary>',
+              'internal %sunsafe class %s%s' % (sealed, area(i), (' : %s' % area(b)) if b else ''),
+              '{',
+              '    private readonly ShimRef<%s> _shim;' % fwd(i),
+              '']
+        if b:
+            m += ['    internal %s(ShimRef<%s> shim)' % (area(i), fwd(i)),
+                  '        : base(new ShimRef<%s>(shim.Self, (%s*)shim.Vt))' % (fwd(b), fwd(b)),
+                  '    {',
+                  '        _shim = shim;',
+                  '    }']
+        else:
+            m.append('    internal %s(ShimRef<%s> shim) { _shim = shim; }' % (area(i), fwd(i)))
+        m.append('')
+        for s in own_slots(i):
+            ptypes, ret, _sup = types[s]
+            m.append(typed(ret, ptypes, s))
+        m += ['}', '']
+
+    def container(name, routed_here, served, doc, count):
+        out = ['/// <summary>'] + ['/// ' + l for l in doc] + ['/// </summary>',
+               'internal sealed unsafe class %s' % name, '{']
+        for i in routed_here:
+            out.append('    public readonly %s %s = null!;' % (area(i), field(i)))
+        out += ['', '    // Flat calls, one per slot this side serves, each on the area that',
+                '    // serves it. They go once every caller takes its area.']
+        for s, i in served.items():
+            ptypes, ret, _sup = types[s]
+            out.append(flat(ret, ptypes, s, i))
+        out += ['',
+                '    // Each area and its table, in turn; the first that is refused stops',
+                '    // the walk, leaving the rest unset and its reason in why.',
+                '    private %s(ShimRoot root, out string why)' % name,
+                '    {',
+                '        why = "";']
+        for i in routed_here:
+            out += ['        {',
+                    '            if (!ShimRef<%s>.TryTake(root, "%s", out var shim, out why)) return;' % (fwd(i), version(i)),
+                    '            %s = new %s(shim);' % (field(i), area(i)),
+                    '        }']
+        out += ['    }',
+                '',
+                '    internal static bool TryAcquire(ShimRoot root, out %s? areas, out string why)' % name,
+                '    {',
+                '        var taken = new %s(root, out why);' % name,
+                '        areas = why.Length == 0 ? taken : null;',
+                '        return areas is not null;',
+                '    }',
+                '',
+                '    internal static int Count => %d;' % count,
+                '}',
+                '']
+        return out
+
     served = {}
     for i in routed:
         for ci in chain_of(i):
             for s in slots_of(ci):
                 served.setdefault(s, i)
-    for s, i in served.items():
-        ptypes, ret, _sup = types[s]
-        m.append(typed(ret, ptypes, s, i))
-    m.append('')
-    m += ['',
-          '    // Each area and its table, in turn; the first that is refused stops',
-          '    // the walk, leaving the rest unset and its reason in why.',
-          '    private ShimAreas(ShimRoot root, out string why)',
-          '    {']
-    for i in routed:
-        m.append('        if (!ShimRef<Shim%sFwd>.TryTake(root, "%s", out %s, out why)) return;'
-                 % (short(i), version(i), field(i)))
-    m += ['    }',
-          '',
-          '    internal static bool TryAcquire(ShimRoot root, out ShimAreas? areas, out string why)',
-          '    {',
-          '        var taken = new ShimAreas(root, out why);',
-          '        areas = why.Length == 0 ? taken : null;',
-          '        return areas is not null;',
-          '    }',
-          '',
-          '    internal static int Count => %d;' % len(concrete),
-          '}',
-          '',
-          '/// <summary>',
-          '/// plan_client_vtables CB: the client\'s shared bases, acquired from its shim',
-          '/// root with the same span check.',
-          '/// </summary>',
-          'internal sealed unsafe class ClientShimAreas',
-          '{']
-    client_routed = client_bases + sorted(hand) + client_only
-    for i in client_routed:
-        m.append('    public readonly ShimRef<Shim%sFwd> %s;' % (short(i), field(i)))
-    # The client's typed calls: its shared bases and its client-only areas.
-    m.append('')
-    m.append('    // Typed calls, one per slot this class serves.')
+    m += container('ShimAreas', routed, served,
+                   ['Every server area, acquired from the shim root by version string with',
+                    'its forwarder table, which native must serve at no fewer slots than the',
+                    'struct reads (the tables only append).'], len(concrete))
     client_served = {}
     for i in client_routed:
         for s in (client_slots[i] if i in client_only else slots_of(i)):
             client_served.setdefault(s, i)
-    for s, i in client_served.items():
-        ptypes, ret, _sup = types[s]
-        m.append(typed(ret, ptypes, s, i))
-    m += ['',
-          '    private ClientShimAreas(ShimRoot root, out string why)',
-          '    {']
-    for i in client_routed:
-        m.append('        if (!ShimRef<Shim%sFwd>.TryTake(root, "%s", out %s, out why)) return;'
-                 % (short(i), version(i), field(i)))
-    m += ['    }',
-          '',
-          '    internal static bool TryAcquire(ShimRoot root, out ClientShimAreas? areas, out string why)',
-          '    {',
-          '        var taken = new ClientShimAreas(root, out why);',
-          '        areas = why.Length == 0 ? taken : null;',
-          '        return areas is not null;',
-          '    }',
-          '',
-          '    internal static int Count => %d;' % len(client_routed),
-          '}',
-          '']
+    m += container('ClientShimAreas', client_routed, client_served,
+                   ['plan_client_vtables CB: the client\'s areas, its shared bases and its',
+                    'own, acquired from its shim root with the same span check.'], len(client_routed))
 
     clive = client_switched()
     unknown_client = sorted(clive - set(client_routed))
@@ -638,8 +669,10 @@ def self_test():
     gen = generate()
     out = gen[OUT_MANAGED].split('\n')
 
+    class_head = re.compile(r'internal (sealed )?unsafe class (\w+)( : (\w+))?$')
+
     def typed_lines(slot):
-        """The generated typed-call lines for one slot (server class, client class)."""
+        """Every generated line that declares the slot's call (areas and containers)."""
         return [l for l in out if l.startswith('    public ') and (' %s(' % slot) in l]
 
     def in_class(slot, cls):
@@ -647,40 +680,64 @@ def self_test():
         body = []
         keep = False
         for l in out:
-            if l.startswith('internal sealed unsafe class '):
-                keep = l[len('internal sealed unsafe class '):].split()[0].rstrip('{') == cls
+            head = class_head.match(l)
+            if head:
+                keep = head.group(2) == cls
             if keep and l.startswith('    public ') and (' %s(' % slot) in l:
                 body.append(l)
         return body[0] if len(body) == 1 else ''
 
+    heads = {m.group(2): m for m in (class_head.match(l) for l in out) if m}
+
     managed = gen[OUT_MANAGED]
     expect('every area is held over its forwarder struct and its table is acquired by name '
            '(plan_forwarders_everywhere.md): no vtable struct, no vptr read',
-           'ShimRef<ShimEngineFwd> EngineBase;' in managed
-           and 'ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out EngineBase, out why)' in managed
+           'public readonly EngineArea EngineBase = null!;' in managed
+           and '    private readonly ShimRef<ShimEngineFwd> _shim;' in managed
+           and 'ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var shim, out why)' in managed
+           and 'EngineBase = new EngineArea(shim);' in managed
            and 'Forwarders.TryBind(header, out TFwd* table, out why)' in managed
            and not re.search(r'Shim\w+Vtbl', managed) and '*(TVtbl**)' not in managed)
 
+    # plan_shim_areas_split phase 2: one class per area, each with its own slots.
+    area_classes = [n for n in heads if n.endswith('Area')]
+    expect('one class per area, each declared once (the shared bases serve both sides)',
+           len(area_classes) == len(set(area_classes))
+           and set(area_classes) >= {'EngineArea', 'ConsoleArea', 'ModelsArea', 'ModelsServerArea',
+                                     'SoundArea', 'HudClientArea'})
+    expect('a server area that extends a shared base derives its class; the base class is not sealed, a leaf is',
+           heads['ModelsServerArea'].group(4) == 'ModelsArea' and not heads['ModelsArea'].group(1)
+           and heads['ModelsServerArea'].group(1) and heads['SoundArea'].group(1)
+           and not heads['SoundArea'].group(3))
+    expect('a derived area hands its base its own table, read as the base\'s (the same slots first)',
+           '        : base(new ShimRef<ShimModelsFwd>(shim.Self, (ShimModelsFwd*)shim.Vt))' in managed)
+    expect('a derived area declares only its own slots; the base\'s are inherited, not repeated',
+           in_class('EntityGetModelName', 'ModelsArea') and not in_class('EntityGetModelName', 'ModelsServerArea'))
+
     emit = in_class('EntityEmitSound', 'ShimAreas')
     health = in_class('EntityGetHealth', 'ShimAreas')
-    expect('a server-only slot is its vtable\'s alone, inline on the area (C6c, no router)',
-           'EntitiesServer' not in emit and 'Sound.Vt->EntityEmitSound(Sound.Self' in emit
+    expect('a server-only slot is its area\'s alone, inline on the area class (C6c, no router)',
+           '_shim.Vt->EntityEmitSound(_shim.Self' in in_class('EntityEmitSound', 'SoundArea')
+           and emit.endswith('{ Sound.EntityEmitSound(a0, a1); }')
            and 'Slot_' not in emit and '_api.' not in emit)
-    expect('an inherited server-only slot is typed on the derived area too',
-           'EntitiesServer.Vt->EntityGetHealth(EntitiesServer.Self' in health and '_api.' not in health)
-    expect('a both-sides slot is typed on both area classes; the side object chooses',
-           len(typed_lines('GetCurrentTime')) == 2
-           and in_class('GetCurrentTime', 'ShimAreas').startswith('    public float GetCurrentTime()')
-           and 'EngineBase.Vt->GetCurrentTime(EngineBase.Self' in in_class('GetCurrentTime', 'ClientShimAreas'))
+    expect('a flat member is one call to the area that serves it',
+           health.endswith('{ return EntitiesServer.EntityGetHealth(a0); }')
+           and '_shim.Vt->EntityGetHealth(_shim.Self' in in_class('EntityGetHealth', 'EntitiesServerArea'))
+    expect('a both-sides slot is typed once, on its shared base, and flat on both containers; '
+           'the side object chooses',
+           len(typed_lines('GetCurrentTime')) == 3
+           and '_shim.Vt->GetCurrentTime(_shim.Self' in in_class('GetCurrentTime', 'EngineArea')
+           and in_class('GetCurrentTime', 'ShimAreas') == '    public float GetCurrentTime() { return EngineBase.GetCurrentTime(); }'
+           and in_class('GetCurrentTime', 'ClientShimAreas') == in_class('GetCurrentTime', 'ShimAreas'))
     expect('the generated file is areas only: no router class, no routing helpers',
            'class ShimSlots' not in gen[OUT_MANAGED]
            and not any((' Slot_' in l or ' Has_' in l) and not l.lstrip().startswith('//') for l in out))
-    evt = in_class('EventGetInt', 'ShimAreas')
-    gvp = in_class('GetGlobalVarsPtr', 'ShimAreas')
+    evt = in_class('EventGetInt', 'EventsArea')
+    gvp = in_class('GetGlobalVarsPtr', 'EngineArea')
     expect('a pointer Abi.cs spells IntPtr is cast to void* for the vtable call',
-           'EventGetInt(EventsServer.Self, (void*)a0, a1)' in evt)
+           'EventGetInt(_shim.Self, (void*)a0, a1)' in evt)
     expect('a pointer return Abi.cs spells nint is cast back from the vtable\'s void*',
-           '(nint)EngineBase.Vt->GetGlobalVarsPtr(EngineBase.Self)' in gvp)
+           '(nint)_shim.Vt->GetGlobalVarsPtr(_shim.Self)' in gvp)
     real = globals()['switched']
     try:
         globals()['switched'] = lambda: real() - {'IShimSound'}
@@ -718,9 +775,9 @@ def self_test():
         globals()['client_switched'] = real_client
     expect('an unswitched client base is refused: a shared slot would lose its client route',
            'IShimModels' in unswitched and 'engineapi-client-switched' in unswitched)
-    expect('a shared slot is typed on both sides\'s area classes',
-           'ModelsServer.Vt->EntityGetModelName(ModelsServer.Self' in in_class('EntityGetModelName', 'ShimAreas')
-           and 'Models.Vt->EntityGetModelName(Models.Self' in in_class('EntityGetModelName', 'ClientShimAreas'))
+    expect('a shared slot reaches its base\'s class on both sides: the server through its derived area',
+           'ModelsServer.EntityGetModelName(' in in_class('EntityGetModelName', 'ShimAreas')
+           and 'Models.EntityGetModelName(' in in_class('EntityGetModelName', 'ClientShimAreas'))
     expect('a client switch list naming a base the client does not implement is refused',
            'IShimNoSuchBase' in bad_client)
     # plan_client_vtables CC: a client-only area.
@@ -729,9 +786,11 @@ def self_test():
            and 'CShimHudClient::GetLocalPlayerHealth' in gen[OUT_IMPL_CLIENT]
            and 'SOURCESHARP_SHIM_HUDCLIENT_VERSION' in gen[OUT_IMPL_CLIENT]
            and 'HudClient' not in gen[OUT_IMPL])
-    expect('a client-only slot is typed on the client class alone',
-           len(typed_lines('GetLocalPlayerHealth')) == 1
-           and 'HudClient.Vt->GetLocalPlayerHealth(HudClient.Self' in in_class('GetLocalPlayerHealth', 'ClientShimAreas'))
+    expect('a client-only slot is typed on its client area and flat on the client container alone',
+           len(typed_lines('GetLocalPlayerHealth')) == 2
+           and '_shim.Vt->GetLocalPlayerHealth(_shim.Self' in in_class('GetLocalPlayerHealth', 'HudClientArea')
+           and 'HudClient.GetLocalPlayerHealth()' in in_class('GetLocalPlayerHealth', 'ClientShimAreas')
+           and not in_class('GetLocalPlayerHealth', 'ShimAreas'))
     try:
         globals()['client_switched'] = lambda: real_client() - {'IShimHudClient'}
         generate()

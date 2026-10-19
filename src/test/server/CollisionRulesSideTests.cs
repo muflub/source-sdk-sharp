@@ -101,12 +101,11 @@ public unsafe class CollisionRulesSideTests : IDisposable
         => "SourceSharp" + ServerCollisionField.Name + "001";
 
     private static Type ServerCollisionFwd
-        => ServerCollisionField.FieldType.GetGenericArguments()[0];
+        => ShimAreaTypes.FwdOf(ServerCollisionField.FieldType);
 
     private static System.Reflection.FieldInfo ServerCollisionField
         => typeof(ShimAreas).GetFields().Single(f =>
-               f.FieldType.IsGenericType
-               && f.FieldType.GetGenericArguments()[0].GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
+               ShimAreaTypes.FwdOf(f.FieldType).GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
 
     /// <summary>
     /// Serves an area object for <paramref name="version"/> whose rules slot

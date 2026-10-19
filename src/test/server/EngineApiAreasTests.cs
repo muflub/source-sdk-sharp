@@ -177,27 +177,57 @@ public partial class EngineApiAreasTests
     }
 
     /// <summary>
-    /// plan_client_vtables CB2, retargeted for the retired router (docs/todo.md):
-    /// every shared slot (bar the root, which is not an area) has its typed call
-    /// on the client's own area class, which since CC-last deleted the struct is
-    /// the only way the client reaches it.
+    /// plan_client_vtables CB2, retargeted for the retired router (docs/todo.md)
+    /// and for the per-area classes (plan_shim_areas_split phase 2): every shared
+    /// slot (bar the root, which is not an area) is reached on the client through
+    /// an area the client's container holds, whose class (or the base it derives)
+    /// calls the slot through its own forwarder table. Since CC-last deleted the
+    /// struct, that is the only way the client reaches it.
     /// </summary>
     [Fact]
     public void EverySharedSlotRoutesThroughTheClientsAreaOnTheClient()
     {
         string generated = File.ReadAllText(RepoLayout.Repo("src", "abi", "ShimAreas.g.cs"));
-        // The ClientShimAreas class body: from its class line to the next one.
-        int from = generated.IndexOf("internal sealed unsafe class ClientShimAreas", StringComparison.Ordinal);
-        Assert.True(from >= 0, "the generated file holds ClientShimAreas");
-        string body = generated[from..];
+        // Every generated class body, by name, with the class it derives.
+        var classes = new Dictionary<string, (string? Base, List<string> Lines)>();
+        string? current = null;
+        foreach (string line in generated.Split('\n'))
+        {
+            var head = Regex.Match(line, @"^internal (?:sealed )?unsafe class (\w+)(?: : (\w+))?");
+            if (head.Success)
+            {
+                current = head.Groups[1].Value;
+                classes[current] = (head.Groups[2].Success ? head.Groups[2].Value : null, new List<string>());
+            }
+            else if (current is not null)
+                classes[current].Lines.Add(line);
+        }
+        Assert.True(classes.ContainsKey("ClientShimAreas"), "the generated file holds ClientShimAreas");
+        var client = classes["ClientShimAreas"].Lines;
+        var held = client.Select(l => Regex.Match(l, @"^    public readonly (\w+) (\w+) = null!;"))
+                         .Where(m => m.Success)
+                         .ToDictionary(m => m.Groups[2].Value, m => m.Groups[1].Value);
+        Assert.True(held.Count >= 20, $"the client container holds {held.Count} areas");
+
+        bool Calls(string? cls, string slot)
+        {
+            for (; cls is not null; cls = classes[cls].Base)
+                if (classes[cls].Lines.Any(l => l.StartsWith("    public ", StringComparison.Ordinal)
+                                                && l.Contains($" {slot}(", StringComparison.Ordinal)
+                                                && l.Contains($"_shim.Vt->{slot}(_shim.Self", StringComparison.Ordinal)))
+                    return true;
+            return false;
+        }
+
         var shared = Rows().Where(r => r.Struct == "EngineApi" && r.Side == "both" && r.Interface != "IShimRoot").ToList();
         Assert.True(shared.Count >= 50, $"{shared.Count} shared slots");
 
         var unrouted = shared.Where(r =>
         {
-            string? line = body.Split('\n').FirstOrDefault(l => l.StartsWith("    public ", StringComparison.Ordinal)
-                                                              && l.Contains($" {r.Slot}(", StringComparison.Ordinal));
-            return line is null || !line.Contains(".Vt->", StringComparison.Ordinal);
+            string? line = client.FirstOrDefault(l => l.StartsWith("    public ", StringComparison.Ordinal)
+                                                      && l.Contains($" {r.Slot}(", StringComparison.Ordinal));
+            var call = line is null ? Match.Empty : Regex.Match(line, $@"\{{ (?:return )?(\w+)\.{r.Slot}\(");
+            return !call.Success || !held.TryGetValue(call.Groups[1].Value, out string? area) || !Calls(area, r.Slot);
         }).Select(r => r.Slot).ToList();
 
         Assert.Empty(unrouted);

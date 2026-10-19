@@ -278,3 +278,13 @@ Open: none.
   (`UiAssemblyRulesTests`). The renamed and remaining assemblies' public
   surface, stripped of namespaces and assembly names, is identical to the old
   two (3,775 members, 71 interfaces, a reflection dump of each).
+- **Phase 2** (2026-10-19). `tools/shim-areas` writes 50 area classes at
+  4cb8137's table (23 server areas and 29 client, less the engine base and the
+  console both sides share): `EntitiesServerArea : EntitiesArea`, the derived
+  class handing its base its own table read as the base's. The containers hold
+  one instance per area and keep all 496 flat members (208 server, 288 client)
+  as one-line calls. A differential over the old and new generated file shows
+  each flat member calls the same slot, with the same signature, casts and
+  arguments, through the table its old field took. Tests that read the
+  forwarder type from a container field now read it from the area class's
+  constructor (`ShimAreaTypes.FwdOf`).

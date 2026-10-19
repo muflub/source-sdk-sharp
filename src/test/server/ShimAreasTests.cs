@@ -72,7 +72,7 @@ public unsafe class ShimAreasTests : IDisposable
     {
         string stem = version["SourceSharp".Length..^"001".Length];
         var field = typeof(ShimAreas).GetField(stem == "Engine" ? "EngineBase" : stem)!;
-        return field.FieldType.GetGenericArguments()[0];
+        return ShimAreaTypes.FwdOf(field.FieldType);
     }
 
     private static int Needs(string version) => Marshal.SizeOf(Fwd(version)) / sizeof(nint);
