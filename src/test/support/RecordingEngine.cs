@@ -226,6 +226,25 @@ public sealed class RecordingEngine :
         return this;
     }
 
+    /// <summary>
+    /// Runs <paramref name="observe"/> at the moment a member is called, after
+    /// the call is recorded.
+    ///
+    /// <para>
+    /// For state that rides BESIDE a call rather than in its arguments — a
+    /// scope the caller holds open around it (DamageHitGroups,
+    /// DamageInflictors). The log can say the call happened; only a look taken
+    /// during the call can say what was open while it did.
+    /// </para>
+    /// </summary>
+    public RecordingEngine WhenCalled(string member, Action<EngineCall> observe)
+    {
+        _observers[member] = observe;
+        return this;
+    }
+
+    private readonly Dictionary<string, Action<EngineCall>> _observers = new(StringComparer.Ordinal);
+
     /// <summary>Forgets every call, keeping the stubbed answers.</summary>
     public void Clear() => _calls.Clear();
 
@@ -268,7 +287,7 @@ public sealed class RecordingEngine :
     }
 
     private void RecordVoid(string member, params object?[] args)
-        => _calls.Add(new EngineCall(member, args));
+        => Add(new EngineCall(member, args));
 
     /// <summary>
     /// A call a side's own double (one this class cannot implement, because
@@ -288,8 +307,15 @@ public sealed class RecordingEngine :
 
     private T Record<T>(string member, params object?[] args)
     {
-        _calls.Add(new EngineCall(member, args));
+        Add(new EngineCall(member, args));
         return Value<T>(member);
+    }
+
+    private void Add(EngineCall call)
+    {
+        _calls.Add(call);
+        if (_observers.TryGetValue(call.Member, out var observe))
+            observe(call);
     }
 
     private T Value<T>(string key)
@@ -891,6 +917,7 @@ public sealed class RecordingEngine :
     void IEnginePlayers.Respawn(EntityHandle player) => RecordVoid("Players.Respawn", player);
     void IEnginePlayers.SetFov(EntityHandle player, EntityHandle requester, int fov, float rate) => RecordVoid("Players.SetFov", player, requester, fov, rate);
     void IEnginePlayers.SetObserverMode(EntityHandle player, ObserverMode mode) => RecordVoid("Players.SetObserverMode", player, mode);
+    void IEnginePlayers.SetTeam(EntityHandle player, int team) => RecordVoid("Players.SetTeam", player, team);
     void IEnginePlayers.SetPickupEnabled(EntityHandle entity, bool enabled) => RecordVoid("Players.SetPickupEnabled", entity, enabled);
     void IEnginePlayers.SetViewEntity(EntityHandle player, EntityHandle view) => RecordVoid("Players.SetViewEntity", player, view);
 

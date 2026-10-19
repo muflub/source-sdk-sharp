@@ -48,7 +48,7 @@ public class ClientArsenalClockTests
         var weapon = new ClientSsWeapon(engine) { Handle = new EntityHandle(0x0100_0041u) };
         weapon.State.BindLocal();
         weapon.State.OwnerIndex = LocalPlayer;
-        weapon.State.WeaponTypeId = WeaponTypes.IndexOf(EntityNames.WeaponPistol);
+        weapon.State.WeaponTypeId = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponPistol);
         weapon.State.Clip = 12;
         weapon.State.TimeWeaponIdle = 0f;   // due: the idle re-send fires
 

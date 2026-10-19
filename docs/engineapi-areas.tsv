@@ -93,7 +93,7 @@ PointContents	EngineApi	IShimWorld	shared		both	-	SourceSharp_PointContents	floa
 SurfacePropGameMaterial	EngineApi	IShimWorld	shared		both	-	SourceSharp_SurfacePropGameMaterial	int, int	
 TraceLine	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLine	float*, float*, int, uint, float*, float*, float*, uint*, int	
 TraceHull	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceHull	float*, float*, float*, float*, int, uint, uint*, int*, int	
-TraceLineSurface	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLineSurface	float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int	
+TraceLineSurface	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLineSurface	float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int*, int	
 TracePlayerAim	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TracePlayerAim	uint, float, float*, uint	
 AngleVectorsFromForward	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
 WaterSurfaceBelow	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_WaterSurfaceBelow	float*, float*, int*, int	
@@ -227,6 +227,7 @@ PlayerSetSoundscape	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSe
 ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
 ClientsSdkPlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsSdkPlayerEarPosition	int, float*, int	
 PlayerBoxInPvs	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerBoxInPvs	uint, float*, float*, int	
+PlayerSetTeam	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetTeam	uint, int, void	
 RegisterAmmoType	EngineApi	IShimWeapons	shared		both	-	SourceSharp_RegisterAmmoType	byte*, int, int, int, float, float, void	
 RegisterWeaponType	EngineApi	IShimWeapons	shared		both	-	SourceSharp_RegisterWeaponType	byte*, float, float, int, void	
 WeaponGetState	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponGetState	uint, WeaponState*, int	

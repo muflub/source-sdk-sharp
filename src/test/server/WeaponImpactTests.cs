@@ -79,7 +79,8 @@ public class WeaponImpactTests
     /// </summary>
     private static (Arsenal arsenal, RecordingEngine engine) Armed(
         bool hit = true, EntityHandle? subject = null, int surfaceProp = TracedSurfaceProp,
-        string weapon = "weapon_smg1")
+        string weapon = "weapon_smg1", HitGroup traced = HitGroup.Generic,
+        DamageHitGroups? hitGroups = null)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
             .Returns("Entities.GetClassName", EntityNames.SsPlayer)
@@ -98,7 +99,7 @@ public class WeaponImpactTests
                                             new Vector(-1f, 0f, 0f),
                                             subject ?? Crate,
                                             hit ? surfaceProp : -1,
-                                            0))
+                                            0, traced))
             .Returns("Clock.Now", 10f);
 
         var registry = new ScriptedEntityRegistry();
@@ -110,7 +111,7 @@ public class WeaponImpactTests
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
 
         var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine);
+                                  engine, engine, registry, engine, hitGroups ?? new DamageHitGroups());
 
         arsenal.GiveWeapon(Player, weapon);
 
@@ -225,7 +226,7 @@ public class WeaponImpactTests
         PullTheTrigger(arsenal, engine);
         AssertARoundWasSpent(engine);
 
-        Assert.Equal(AmmoTypes.For("SMG1")!.Value.DamageType,
+        Assert.Equal(AmmoCatalog.Stock().For("SMG1")!.Value.DamageType,
                      Impact(engine)!.Value.ArgAs<DamageType>(3));
     }
 
@@ -306,6 +307,59 @@ public class WeaponImpactTests
         Assert.Equal(Landed, hit.ArgAs<Vector>(5));
 
         Assert.False(engine.Called("Damage.Apply"), "the forceless form is not used as well");
+    }
+
+    // =====================================================================
+    // The hitgroup (tf2 stage 0.8): the trace's tr.hitgroup reaches the
+    // victim beside the damage call, as stock hands TraceAttack the trace.
+    // =====================================================================
+
+    /// <summary>
+    /// Fires one round whose trace stopped on <paramref name="traced"/> at a
+    /// valid victim, and answers the hitgroup that was open WHILE the damage
+    /// call ran, and the one open after the trigger was released.
+    /// </summary>
+    private static (HitGroup During, HitGroup After, int Calls) ShootAt(HitGroup traced)
+    {
+        var hitGroups = new DamageHitGroups();
+        var (arsenal, engine) = Armed(traced: traced, hitGroups: hitGroups);
+        engine.Returns("Entities.IsValid", true);
+        engine.Strict = false;   // a valid player also animates; that is not this fact
+
+        HitGroup during = (HitGroup)(-1);
+        engine.WhenCalled("Damage.ApplyAt", _ => during = hitGroups.Current);
+
+        PullTheTrigger(arsenal, engine);
+        AssertARoundWasSpent(engine);
+
+        return (during, hitGroups.Current, engine.CountOf("Damage.ApplyAt"));
+    }
+
+    [Fact]
+    public void ARoundCarriesTheTracesHitgroupIntoTheDamageCall()
+    {
+        var head = ShootAt(HitGroup.Head);
+        var chest = ShootAt(HitGroup.Chest);
+
+        Assert.True(head.Calls == 1 && chest.Calls == 1, "each round reached the damage call once");
+        Assert.True(head.During == HitGroup.Head,
+            $"a head trace is the head while the victim is hurt (read {head.During})");
+        Assert.True(chest.During == HitGroup.Chest,
+            $"and a chest trace the chest (read {chest.During}): the value is the trace's, not a constant");
+    }
+
+    [Fact]
+    public void ARoundOnNoHitboxIsGenericAndTheScopeCloses()
+    {
+        var plain = ShootAt(HitGroup.Generic);
+        var head = ShootAt(HitGroup.Head);
+
+        Assert.True(plain.Calls == 1, "the round reached the damage call");
+        Assert.True(plain.During == HitGroup.Generic,
+            $"a trace that struck no hitbox hurts as Generic (read {plain.During})");
+        Assert.True(head.After == HitGroup.Generic,
+            "and the shot's hitgroup does not outlive its damage call: the next "
+          + "hit, a blast or a fall, has no trace behind it");
     }
 
     [Fact]
@@ -393,7 +447,7 @@ public class WeaponImpactTests
         PullTheTrigger(arsenal, engine);
         AssertARoundWasSpent(engine);
 
-        int pellets = WeaponTypes.For("weapon_shotgun")!.Value.Pellets;
+        int pellets = WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Pellets;
         int marks = engine.Calls.Count(c => c.Member == "Effects.ImpactEffect");
 
         Assert.True(marks == pellets,

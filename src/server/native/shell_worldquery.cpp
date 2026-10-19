@@ -411,7 +411,8 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
                                          float *pOutFraction, float *pOutEndXYZ,
                                          float *pOutNormalXYZ, uint32_t *pOutHit,
                                          int32_t *pOutSurfaceProps,
-                                         int32_t *pOutSurfaceFlags )
+                                         int32_t *pOutSurfaceFlags,
+                                         int32_t *pOutHitgroup )
 {
 	if ( pOutFraction )
 		*pOutFraction = 1.0f;
@@ -425,6 +426,8 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
 		*pOutSurfaceProps = -1;
 	if ( pOutSurfaceFlags )
 		*pOutSurfaceFlags = 0;
+	if ( pOutHitgroup )
+		*pOutHitgroup = 0;
 
 	if ( !pStartXYZ || !pEndXYZ )
 		return 0;
@@ -515,6 +518,8 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
 			*pOutSurfaceProps = tr.surface.surfaceProps;
 		if ( pOutSurfaceFlags )
 			*pOutSurfaceFlags = tr.surface.flags;
+		if ( pOutHitgroup )
+			*pOutHitgroup = tr.hitgroup;
 	}
 
 	// Starting inside something counts as a hit: an emitter buried in a wall has
@@ -540,7 +545,7 @@ int32_t SourceSharp_TraceLine( const float *pStartXYZ, const float *pEndXYZ, int
 
 	return SourceSharp_TraceLineInto( pStartXYZ, pEndXYZ, nMask, hIgnore,
 	                                  pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-	                                  pOutHit, NULL, NULL );
+	                                  pOutHit, NULL, NULL, NULL );
 }
 
 //-----------------------------------------------------------------------------
@@ -556,13 +561,15 @@ int32_t SourceSharp_TraceLineSurface( const float *pStartXYZ, const float *pEndX
                                       float *pOutFraction, float *pOutEndXYZ,
                                       float *pOutNormalXYZ, uint32_t *pOutHit,
                                       int32_t *pOutSurfaceProps,
-                                      int32_t *pOutSurfaceFlags )
+                                      int32_t *pOutSurfaceFlags,
+                                      int32_t *pOutHitgroup )
 {
 	SOURCESHARP_TRACE_HOT();
 
 	return SourceSharp_TraceLineInto( pStartXYZ, pEndXYZ, nMask, hIgnore,
 	                                  pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-	                                  pOutHit, pOutSurfaceProps, pOutSurfaceFlags );
+	                                  pOutHit, pOutSurfaceProps, pOutSurfaceFlags,
+	                                  pOutHitgroup );
 }
 
 // SourceSharp_EntityApplyForceCenter (ApplyForceCenter, then Wake) is

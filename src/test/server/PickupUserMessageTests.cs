@@ -100,6 +100,7 @@ public class PickupUserMessageTests
 
     private static Arsenal Arsenal(ScriptedEntityRegistry registry, RecordingEngine engine)
         => new(new RecordingLog(), engine, engine, engine, engine, engine, engine, engine, engine, registry, engine,
+               new DamageHitGroups(),
                messages: engine);
 
     [Fact]
@@ -107,7 +108,7 @@ public class PickupUserMessageTests
     {
         var (registry, engine) = World(health: 100);
         var arsenal = Arsenal(registry, engine);
-        var pistol = AmmoTypes.For("Pistol")!.Value;
+        var pistol = AmmoCatalog.Stock().For("Pistol")!.Value;
 
         Assert.Equal(pistol.MaxCarry, arsenal.GiveAmmo(Player, pistol.MaxCarry, "Pistol"));
         Assert.Empty(Sends(engine, "AmmoDenied"));   // what fitted is not denied
@@ -116,15 +117,15 @@ public class PickupUserMessageTests
 
         var send = Assert.Single(Sends(engine, "AmmoDenied"));
         var reader = new UserMessageReader((byte[])send.Args[4]!);
-        Assert.Equal((AmmoTypes.WireIndex("Pistol"), Slot, true),
+        Assert.Equal((AmmoCatalog.Stock().WireIndex("Pistol"), Slot, true),
                      ((int)AmmoDenied.Read(ref reader).AmmoType, (int)send.Args[2]!, (bool)send.Args[3]!));
     }
 
     [Fact]
     public void Ammo_wire_indexes_count_from_one_as_stocks_ammo_table()
     {
-        Assert.Equal(1, AmmoTypes.WireIndex(AmmoTypes.All[0].Name));
-        Assert.Equal(AmmoTypes.All.Length, AmmoTypes.WireIndex(AmmoTypes.All[^1].Name));
-        Assert.Equal(-1, AmmoTypes.WireIndex("NoSuchAmmo"));
+        Assert.Equal(1, AmmoCatalog.Stock().WireIndex(AmmoTypes.All[0].Name));
+        Assert.Equal(AmmoTypes.All.Length, AmmoCatalog.Stock().WireIndex(AmmoTypes.All[^1].Name));
+        Assert.Equal(-1, AmmoCatalog.Stock().WireIndex("NoSuchAmmo"));
     }
 }

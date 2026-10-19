@@ -1007,10 +1007,27 @@ int32_t SourceSharp_GetPlayerTeam( uint32_t hPlayer )
 {
 	// Unassigned rather than "not a player": the rules entities gate on a
 	// non-negative answer, and a standalone player is a player.
-	if ( SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-		return 0;
+	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
+		return pStandalone->TeamNumber();
 
 	return -1;
+}
+
+//-----------------------------------------------------------------------------
+// Put a player on a team: the store of CBaseEntity::ChangeTeam
+// (baseentity.cpp:4947 -- `m_iTeamNum = iTeamNum`), and nothing else.
+//
+// NATIVE MAKES NO DECISION. The number is not validated -- an out-of-range
+// team lands like any other -- because which teams exist, which ones accept
+// a joiner and what a team change costs (items, observer state, the
+// player_team event) is managed policy: SourceSharp.Server's ITeams and its
+// single-owner IJoinTeamPolicy. A non-player handle is simply nobody to
+// move, matching the void arms of every other setter here.
+//-----------------------------------------------------------------------------
+void SourceSharp_PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
+{
+	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
+		pStandalone->ChangeTeam( nTeam );
 }
 
 //-----------------------------------------------------------------------------

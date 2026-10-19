@@ -25,16 +25,26 @@ internal static class LoadFacts
     public const string ServerAssemblies = "server_assemblies";
     public const string ClientAssemblies = "client_assemblies";
     public const string Browser = "browser";
+    public const string ClientUiAssemblies = "client_ui_assemblies";
+    public const string Localisation = "localisation";
     public const string Loaded = "loaded";
 
     /// <summary>
     /// Load's block, NUL included. <paramref name="browser"/> is the mod's
     /// server-browser entry (host plan_steam_auth S-18), written as one line
     /// of JSON (<see cref="BrowserJson"/>); a mod without one writes no row.
+    /// <paramref name="clientUiAssemblies"/> and <paramref name="localisation"/>
+    /// are the mod's <c>assemblies.client_ui</c> and <c>localisation</c> lists
+    /// (stage 0.9): the client's UiLoader loads the first into the UI's
+    /// collectible context, and its localiser asks the second of the engine
+    /// after the mod's own disk file. A mod without either writes an empty
+    /// row, exactly like the side lists.
     /// </summary>
     public static byte[] WriteLoad(string managedDir, string modId, string gameDir,
                                    IEnumerable<string> serverAssemblies, IEnumerable<string> clientAssemblies,
-                                   SourceSharp.Mods.BrowserSettings? browser = null)
+                                   SourceSharp.Mods.BrowserSettings? browser = null,
+                                   IEnumerable<string>? clientUiAssemblies = null,
+                                   IEnumerable<string>? localisation = null)
     {
         var text = new StringBuilder();
         Line(text, ManagedDir, managedDir);
@@ -44,6 +54,8 @@ internal static class LoadFacts
         Line(text, ClientAssemblies, List(clientAssemblies));
         if (browser is not null)
             Line(text, Browser, BrowserJson(browser));
+        Line(text, ClientUiAssemblies, List(clientUiAssemblies ?? []));
+        Line(text, Localisation, List(localisation ?? []));
         return Block(text);
     }
 

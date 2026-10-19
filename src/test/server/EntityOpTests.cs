@@ -356,7 +356,7 @@ public sealed class EntityOpTests
     private sealed class Glass : ScriptedEntity
     {
         public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType type,
-                                        Vector position, Vector force) => 1;
+                                        Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic) => 1;
     }
 
     /// <summary>

@@ -554,6 +554,22 @@ public class LifecycleTests
                                           // they go at level shutdown. Unordered: it
                                           // was a static cleared after the driver ran,
                                           // and nothing reads it during the change.
+        (typeof(GameModes),          75),  // tf2 stage 0.7 (U1): the mode proxy's
+                                           // pick, SEVENTY-FIVE — before Rules at
+                                           // 100, because the rules' own level-init
+                                           // reset asks the picked mode's round
+                                           // machine. Inserted in the spacing's own
+                                           // gap (between GlobalState 50 and Rules
+                                           // 100) rather than appended, so no
+                                           // existing participant moved.
+        (typeof(PlayerComposites),  450),  // tf2 stage 0.7 (D9/D10): the per-player
+                                           // composite's level-shutdown detach,
+                                           // FOUR HUNDRED FIFTY — beside the player
+                                           // roster at 400 and after it, its
+                                           // midpoint, since its components are
+                                           // per-player state that must not cross
+                                           // the reload. Inserted in the 400/500
+                                           // gap; no recorded participant moved.
     };
 
     [Fact]

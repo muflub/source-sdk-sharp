@@ -80,6 +80,18 @@ public enum LifecycleStage
     /// </summary>
     Rules = 100,
 
+    // ---- tf2 stage 0.7 (the mode proxy, ruling U1) --------------------------
+
+    /// <summary>
+    /// The mode proxy's pick, BEFORE <see cref="Rules"/> and that is the whole
+    /// number: the rules' level-init reset goes to the picked mode's round
+    /// machine, so the mode has to be named before the rules ask it anything.
+    /// Fifty between GlobalState and Rules is the spacing's own device — the
+    /// enum's comment says renumbering a participant is the operation to
+    /// avoid, and inserting is what the spacing is for.
+    /// </summary>
+    GameModes = 75,
+
     /// <summary>Map and runtime pickups.</summary>
     Pickups = 200,
 
@@ -88,6 +100,19 @@ public enum LifecycleStage
 
     /// <summary>The player roster and the death cycle.</summary>
     Players = 400,
+
+    // ---- tf2 stage 0.7 (the per-player composite, rulings D9/D10) ----------
+
+    /// <summary>
+    /// The per-player composite's level-shutdown detach: beside
+    /// <see cref="Players"/> and after it by the spacing's own midpoint —
+    /// the composite holds per-player state, so it ends with the player
+    /// roster, and nothing else at level scope reads components. Also the
+    /// composite's <see cref="IClientLifecycle.ClientLifecycleOrder"/>:
+    /// attach when the client is active, and the client participants in the
+    /// core are one (Arsenal, 600), so the value only has to stay unique.
+    /// </summary>
+    PlayerComponents = 450,
 
     /// <summary>The last button mask seen from each player.</summary>
     PlayerInput = 500,
@@ -346,8 +371,29 @@ public enum FrameStage
     /// <summary>The win check — where a mod decides the round is over.</summary>
     Rules = 300,
 
+    // ---- tf2 stage 0.7 (the mode proxy's warmup) ----------------------------
+
+    /// <summary>
+    /// The mode proxy's warmup, BEFORE <see cref="Rules"/> and the number is
+    /// the position argument: a switch's warmup ends by STARTING the round,
+    /// and the win check of a round that has not started must not run — a
+    /// frag collected while the players are still waiting must not end it.
+    /// 250, between Arsenal and Rules, is the spacing's own device; the five
+    /// recorded participants keep their numbers.
+    /// </summary>
+    GameModes = 250,
+
     /// <summary>The death cycle. It has to see a player the tick they die.</summary>
     Players = 400,
+
+    /// <summary>
+    /// The per-player composite's tick: after <see cref="Players"/> — a
+    /// component reads the frame's death-cycle outcome, not the other way
+    /// round — and before the pickup walk, which reads none of it. 450 is
+    /// the spacing's own midpoint; the recorded participants keep their
+    /// numbers.
+    /// </summary>
+    PlayerComponents = 450,
 
     /// <summary>Pickup respawns, and the first-frame placement of the map's own.</summary>
     Pickups = 500,

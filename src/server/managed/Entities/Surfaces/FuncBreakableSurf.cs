@@ -164,7 +164,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// </para>
     /// </summary>
     public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
-                                    Vector position, Vector force)
+                                    Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
     {
         if (_broken)
             return 0;

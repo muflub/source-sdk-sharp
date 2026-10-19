@@ -62,7 +62,7 @@ public class WeaponDeathTests
         registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
 
         var arsenal = new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine);
+                                  engine, engine, registry, engine, new DamageHitGroups());
 
         return (arsenal, engine);
     }
@@ -136,7 +136,7 @@ public class WeaponDeathTests
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
 
         var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine);
+                                  engine, engine, registry, engine, new DamageHitGroups());
 
         return (arsenal, engine, world, registry);
     }
@@ -189,7 +189,7 @@ public class WeaponDeathTests
         var weapon = (SsWeapon)registry.Get(weaponHandle)!;
         var viewModel = (SsViewModel)registry.Get(viewModelHandle)!;
 
-        Assert.True(weapon.State.WeaponTypeId == WeaponTypes.IndexOf("weapon_pistol"),
+        Assert.True(weapon.State.WeaponTypeId == WeaponCatalog.Stock().IndexOf("weapon_pistol"),
             "the redeploy armed the weapon entity with the new loadout");
         Assert.True(viewModel.State.OwnerIndex != 0, "and the viewmodel is owned again");
 

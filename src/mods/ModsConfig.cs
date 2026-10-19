@@ -47,7 +47,9 @@ public sealed record Mod(
     IReadOnlyList<string> ServerAssemblies,
     IReadOnlyList<string> ClientAssemblies,
     string ManagedDir,
-    BrowserSettings? Browser = null)
+    BrowserSettings? Browser = null,
+    IReadOnlyList<string> ClientUiAssemblies = default!,
+    IReadOnlyList<string> Localisation = default!)
 {
     /// <summary>
     /// The variable source# sets when the game runs on a game directory other
@@ -199,7 +201,9 @@ public sealed class ModsConfig
             {
                 Server = mod.Assemblies?.Server ?? defaults.Assemblies?.Server,
                 Client = mod.Assemblies?.Client ?? defaults.Assemblies?.Client,
+                ClientUi = mod.Assemblies?.ClientUi ?? defaults.Assemblies?.ClientUi,
             },
+            Localisation = mod.Localisation ?? defaults.Localisation,
             Browser = Merge(defaults.Browser, mod.Browser),
         };
     }
@@ -278,7 +282,9 @@ public sealed class ModsConfig
             e.Assemblies?.Server ?? [],
             e.Assemblies?.Client ?? [],
             managedDir,
-            e.Browser is null ? null : Browser(where, e.Browser));
+            e.Browser is null ? null : Browser(where, e.Browser),
+            e.Assemblies?.ClientUi ?? [],
+            e.Localisation ?? []);
     }
 
     private static BrowserSettings Browser(string where, BrowserEntry b)

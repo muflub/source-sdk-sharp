@@ -97,7 +97,7 @@ public abstract class FlyingProjectile : ScriptedEntity
     /// because the launcher already worked it out and reading it twice invites
     /// the two answers to differ by a frame of mouse movement.
     /// </summary>
-    internal void FiredBy(EntityHandle shooter, Vector velocity)
+    public void FiredBy(EntityHandle shooter, Vector velocity)
     {
         Shooter = shooter;
 

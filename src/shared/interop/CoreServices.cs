@@ -203,6 +203,20 @@ public interface IModInfo
 
     /// <summary>The mod's hosted server-browser entry from mods.yaml, or null when it has none.</summary>
     ModBrowser? Browser => null;
+
+    /// <summary>
+    /// The mod's own UI assemblies (mods.yaml <c>assemblies.client_ui</c>), in
+    /// load order, to join the core's three in the UI's collectible context
+    /// (stage 0.9); empty when the mod lists none.
+    /// </summary>
+    IReadOnlyList<string> UiAssemblies => [];
+
+    /// <summary>
+    /// The mod's extra language files (mods.yaml <c>localisation</c>), as
+    /// engine <c>GAME</c> paths — so a file in a mounted VPK is as reachable as
+    /// a loose one. First file wins a shared token; empty when it lists none.
+    /// </summary>
+    IReadOnlyList<string> Localisation => [];
 }
 
 /// <summary>
@@ -259,6 +273,8 @@ public sealed class ModInfo : IModInfo
         public const string ServerAssemblies = "SourceSharp.Mod.Assemblies.Server";
         public const string ClientAssemblies = "SourceSharp.Mod.Assemblies.Client";
         public const string Browser = "SourceSharp.Mod.Browser";
+        public const string ClientUiAssemblies = "SourceSharp.Mod.Assemblies.ClientUi";
+        public const string Localisation = "SourceSharp.Mod.Localisation";
     }
 
     private readonly Func<string, object?> _data;
@@ -283,13 +299,25 @@ public sealed class ModInfo : IModInfo
     /// <summary>Null when the mod has no browser block (Bootstrap published none, or an empty one).</summary>
     public ModBrowser? Browser => _data(Keys.Browser) is string { Length: > 0 } json ? ModBrowser.Parse(json) : null;
 
+    // The two stage-0.9 lists are always published, empty for none (Publish's
+    // rule); an absent key is a Bootstrap that predates the row and reads as none.
+    private IReadOnlyList<string> List(string key) =>
+        _data(key) as string is { Length: > 0 } joined ? joined.Split(';', StringSplitOptions.RemoveEmptyEntries) : [];
+
+    public IReadOnlyList<string> UiAssemblies => List(Keys.ClientUiAssemblies);
+
+    public IReadOnlyList<string> Localisation => List(Keys.Localisation);
+
     /// <summary>What Bootstrap calls once it has resolved the mod.</summary>
     public static void Publish(string id, string gameDir, string managedDir,
-                               IEnumerable<string> server, IEnumerable<string> client, string? browserJson = null)
+                               IEnumerable<string> server, IEnumerable<string> client, string? browserJson = null,
+                               IEnumerable<string>? clientUi = null, IEnumerable<string>? localisation = null)
     {
         // Always set, empty for none: AppContext data is process-wide, and a
         // reload of another mod must not inherit this one's entry.
         AppContext.SetData(Keys.Browser, browserJson ?? "");
+        AppContext.SetData(Keys.ClientUiAssemblies, string.Join(';', clientUi ?? []));
+        AppContext.SetData(Keys.Localisation, string.Join(';', localisation ?? []));
         AppContext.SetData(Keys.Id, id);
         AppContext.SetData(Keys.GameDir, gameDir);
         AppContext.SetData(Keys.ManagedDir, managedDir);

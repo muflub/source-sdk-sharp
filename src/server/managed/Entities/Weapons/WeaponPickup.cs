@@ -35,14 +35,21 @@ public sealed class WeaponPickup : PickupItem
 {
     private readonly Arsenal _arsenal;
 
-    public WeaponPickup(Arsenal arsenal)
+    // This side's weapon table, injected: the pickup for a weapon has to read
+    // its world model from the SAME list the server gave from, and that list
+    // now carries the mods' rows — a static here would stop at the core rows
+    // and dress a mod weapon in a pistol's model.
+    private readonly WeaponCatalog _weapons;
+
+    public WeaponPickup(Arsenal arsenal, WeaponCatalog? weapons = null)
     {
         _arsenal = arsenal;
+        _weapons = weapons ?? WeaponCatalog.Stock();
     }
 
     /// <summary>The w_ model, from the weapon's own row.</summary>
     protected override string Model
-        => WeaponTypes.For(ClassName)?.WorldModel ?? "models/weapons/w_pistol.mdl";
+        => _weapons.For(ClassName)?.WorldModel ?? "models/weapons/w_pistol.mdl";
 
     /// <summary>
     /// HL2MP's weapon respawn cadence rather than the items' 20 — a deathmatch

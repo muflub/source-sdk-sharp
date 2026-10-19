@@ -47,7 +47,12 @@ public sealed class UiReloadCommand(UiLoader ui, ILog log) : IConCommand
 /// </summary>
 public sealed class UiLoader : IUiClientEvents, IDisposable
 {
-    /// <summary>The UI's assemblies, in load order: what this context holds and what a UI-only deploy may change.</summary>
+    /// <summary>
+    /// The core's UI assemblies, in load order: what this context holds besides
+    /// the mod's own, and what a UI-only deploy may change. A mod names its own
+    /// in mods.yaml (<c>assemblies.client_ui</c>, stage 0.9) and they join here
+    /// per loader, so one collectible swap and one watcher cover them all.
+    /// </summary>
     public static readonly IReadOnlyList<string> Assemblies =
         ["SourceSharp.Client.Ui.Toolkit", "SourceSharp.Client.Ui", "SourceSharp.Client.Ui.Host"];
 
@@ -73,12 +78,19 @@ public sealed class UiLoader : IUiClientEvents, IDisposable
     private string _deploy = "none";
     private IReadOnlyList<string> _deployChanged = [];
 
+    private readonly IReadOnlyList<string> _uiAssemblies;
+
     public UiLoader(ILog log, IGameClock clock, string managedDir, Func<UiRuntimeServices> services,
-                    UiAutoReloadConVar? auto = null, AssemblyLoadContext? parent = null)
+                    UiAutoReloadConVar? auto = null, AssemblyLoadContext? parent = null,
+                    IEnumerable<string>? modAssemblies = null)
     {
         (_log, _clock, _managedDir, _services, _auto) = (log, clock, managedDir, services, auto);
         _parent = parent ?? AssemblyLoadContext.GetLoadContext(typeof(UiLoader).Assembly) ?? AssemblyLoadContext.Default;
+        _uiAssemblies = [.. Assemblies, .. (modAssemblies ?? []).Where(n => !Assemblies.Contains(n))];
     }
+
+    /// <summary>The assemblies this loader holds: the core's three, then the mod's, in load order.</summary>
+    public IReadOnlyList<string> HeldAssemblies => _uiAssemblies;
 
     /// <summary>The UI now; null before <see cref="Load"/> or when it failed.</summary>
     public IUiRuntime? Current { get; private set; }
@@ -195,11 +207,14 @@ public sealed class UiLoader : IUiClientEvents, IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private IUiRuntime? Start(out string? why)
     {
-        var context = new UiLoadContext($"SourceSharp.Ui#{++_loads}", _managedDir, _parent);
+        var context = new UiLoadContext($"SourceSharp.Ui#{++_loads}", _managedDir, _parent, _uiAssemblies);
         try
         {
-            foreach (string name in Assemblies)
-                if (context.LoadFromAssemblyName(new AssemblyName(name)) is null)
+            foreach (string name in _uiAssemblies)
+                // Ask the disk first: a held name with no file makes the
+                // runtime fall back to the parent and throw, and the load
+                // would be refused for an exception rather than this line.
+                if (!File.Exists(Path.Combine(_managedDir, name + ".dll")) || context.LoadFromAssemblyName(new AssemblyName(name)) is null)
                 {
                     why = $"{name}.dll is not in {_managedDir}";
                     context.Unload();
@@ -279,8 +294,8 @@ public sealed class UiLoader : IUiClientEvents, IDisposable
             .Order(StringComparer.Ordinal).ToList();
         _seen = now;
 
-        var ui = changed.Where(Assemblies.Contains).Where(n => _context?.Hashes.TryGetValue(n, out var h) != true || h != Hash(n)).ToList();
-        var other = changed.Where(n => !Assemblies.Contains(n)).ToList();
+        var ui = changed.Where(_uiAssemblies.Contains).Where(n => _context?.Hashes.TryGetValue(n, out var h) != true || h != Hash(n)).ToList();
+        var other = changed.Where(n => !_uiAssemblies.Contains(n)).ToList();
         if (other.Count > 0)
         {
             _deploy = "full";
@@ -339,8 +354,14 @@ public sealed class UiLoader : IUiClientEvents, IDisposable
         _context = null;
     }
 
-    /// <summary>The UI's collectible context: its three assemblies from bytes, the rest from the core's context.</summary>
-    private sealed class UiLoadContext(string name, string dir, AssemblyLoadContext parent)
+    /// <summary>
+    /// The UI's collectible context: the core's three assemblies and the mod's,
+    /// from bytes; the rest from the core's context. The held list is the
+    /// context's own, not the static: a mod assembly resolved through the
+    /// parent would pin to the core's context, survive the swap, and a reload
+    /// would keep the old one — the failure with no symptom.
+    /// </summary>
+    private sealed class UiLoadContext(string name, string dir, AssemblyLoadContext parent, IReadOnlyList<string> held)
         : AssemblyLoadContext(name, isCollectible: true)
     {
         /// <summary>Each UI assembly's hash as loaded: what tells a rewrite from a change.</summary>
@@ -351,7 +372,7 @@ public sealed class UiLoader : IUiClientEvents, IDisposable
             string? simple = assemblyName.Name;
             if (simple is null)
                 return null;
-            if (!UiLoader.Assemblies.Contains(simple))
+            if (!held.Contains(simple))
                 return parent.LoadFromAssemblyName(assemblyName);
 
             string path = Path.Combine(dir, simple + ".dll");

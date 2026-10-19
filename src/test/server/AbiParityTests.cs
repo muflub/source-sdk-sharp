@@ -359,6 +359,56 @@ public partial class AbiParityTests
     }
 
     /// <summary>
+    /// That the surface trace's out-parameters are read back into
+    /// <see cref="SurfaceTraceResult"/> in the order the header writes them
+    /// (tf2 stage 0.8).
+    ///
+    /// <para>
+    /// The three trailing outs — surfaceprop, <c>SURF_*</c> flags, hitgroup —
+    /// are all <c>int32_t *</c>, so the signature check in
+    /// <see cref="EngineApiAreasTests"/> passes a transposition of any two of
+    /// them. The symptom would be a bullet whose hitgroup is a surfaceprop
+    /// index: a headshot read as "concrete". So the NAMES are compared, in
+    /// order, across the three places that spell them: the header's parameter
+    /// list, the managed call's arguments, and the result's positional members.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheSurfaceTraceOutsReachTheResultInHeaderOrder()
+    {
+        string header = CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "ishim_areas.h")));
+        var decl = Regex.Match(header, @"virtual\s+int32_t\s+TraceLineSurface\s*\((?<p>[^)]*)\)");
+        Assert.True(decl.Success, "ishim_areas.h declares IShimWorldServer::TraceLineSurface");
+        var native = decl.Groups["p"].Value.Split(',')
+                         .Select(p => Regex.Match(p, @"(\w+)\s*$").Groups[1].Value)
+                         .SkipWhile(n => n != "pOutHit").Skip(1)
+                         .Select(n => n.StartsWith("pOut", StringComparison.Ordinal) ? n[4..] : n)
+                         .ToList();
+
+        string side = File.ReadAllText(RepoLayout.Repo("src", "shared", "interop", "EngineSide.cs"));
+        var call = Regex.Match(side, @"ServerShims\.TraceLineSurface\((?<a>[^;]*)\);");
+        Assert.True(call.Success, "EngineSide calls the TraceLineSurface slot");
+        var passed = call.Groups["a"].Value.Split(',')
+                         .Select(a => a.Trim())
+                         .SkipWhile(a => a != "&hit").Skip(1)
+                         .Select(a => a.TrimStart('&'))
+                         .ToList();
+
+        var members = typeof(SurfaceTraceResult).GetConstructors()
+                          .Single(c => c.GetParameters().Length > 1)
+                          .GetParameters()
+                          .Select(p => p.Name!)
+                          .SkipWhile(n => n != "Entity").Skip(1)
+                          .ToList();
+
+        Assert.Equal(["SurfaceProps", "SurfaceFlags", "Hitgroup"], native);
+        Assert.Equal(native.Select(n => n.ToLowerInvariant()),
+                     passed.Select(a => a.ToLowerInvariant()));
+        Assert.Equal(native.Select(n => n.ToLowerInvariant()),
+                     members.Select(m => m.ToLowerInvariant()));
+    }
+
+    /// <summary>
     /// The <c>const char *</c> fields of a struct in the header, in declaration
     /// order.
     /// </summary>

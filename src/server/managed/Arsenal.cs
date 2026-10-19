@@ -114,13 +114,38 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private readonly IEngineEntityRender _render;
     private readonly IEntityDirectory _directory;
     private readonly IGameClock _clock;
+    private readonly DamageHitGroups _hitGroups;
 
+    // The side's tables, injected (see the constructor): the ONLY way this class
+    // reaches a weapon or ammo row now. The static tables behind them hold the
+    // CORE rows; these hold the core rows plus whatever the loaded mods appended,
+    // and the server's inventory, the client's prediction and the wire index all
+    // have to be reading one list — which a static per side can be but an
+    // injected service at least makes testable.
+    private readonly WeaponCatalog _weapons;
+    private readonly AmmoCatalog _ammo;
+    private readonly WeaponBehaviours _behaviours;
+
+    /// <param name="weapons">
+    /// This side's weapon table — the core rows plus the mods'. Null takes the
+    /// stock table, which is what a composition with no mod assemblies registers
+    /// (and a test's arsenal): the same rows the statics hold, through the same
+    /// object the game uses, so no test reads a table the game does not.
+    /// </param>
+    /// <param name="ammo">This side's ammunition table; null takes the stock one.</param>
+    /// <param name="behaviours">
+    /// The behaviour table the per-player machines resolve their rows' keys
+    /// against; null takes the empty one, which is stock for every weapon.
+    /// </param>
     public Arsenal(ILog log, IEngineEntities entities, IEnginePrecache precache,
                    IEnginePlayers players, IEngineWorldQuery world,
                    IEngineSound sound, IEngineEffects effects,
                    IEngineDamage damage, IEngineEntityRender render,
                    IEntityDirectory directory, IGameClock clock,
-                   IUserMessageSender? messages = null)
+                   DamageHitGroups hitGroups,
+                   IUserMessageSender? messages = null,
+                   WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
+                   WeaponBehaviours? behaviours = null)
     {
         _messages = messages;
 
@@ -135,13 +160,36 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         _render = render;
         _directory = directory;
         _clock = clock;
+        _weapons = weapons ?? WeaponCatalog.Stock();
+        _ammo = ammo ?? AmmoCatalog.Stock();
+        _behaviours = behaviours ?? WeaponBehaviours.Stock();
+        _hitGroups = hitGroups;
     }
 
     /// <summary>
     /// Told about every projectile as it leaves, exactly as the old shared
     /// logic's hook was: the module attributes the throw to its thrower.
+    ///
+    /// <para>
+    /// The fourth argument is the FUSE in seconds — the firing weapon's answer,
+    /// carried through the launch instead of looked up by the receiver, because
+    /// a fuse belongs to the gun that fired it and not to the entity class that
+    /// flies. Zero is "the stock path declared none" and lets the module's
+    /// default stand; a behaviour that launched through
+    /// <see cref="IWeaponArms.LaunchWith"/> named its own.
+    /// </para>
     /// </summary>
-    public Action<EntityHandle, EntityHandle, Vector>? Launched { get; set; }
+    public Action<EntityHandle, EntityHandle, Vector, float>? Launched { get; set; }
+
+    /// <summary>
+    /// The weapon table this arsenal gives from — the one list this side reads,
+    /// exposed so the decorator and the console report answer "do we have that
+    /// weapon" from the arsenal's own answer rather than a second lookup.
+    /// </summary>
+    public WeaponCatalog Weapons => _weapons;
+
+    /// <summary>The ammunition table this arsenal fills pools from.</summary>
+    public AmmoCatalog Ammo => _ammo;
 
     //-------------------------------------------------------------------------
     // One player's holdings.
@@ -212,7 +260,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         carry = new Carry { Player = player };
         carry.Arms = new ServerWeaponArms(_log, this, carry);
-        carry.Machine = new WeaponLogic(carry.Arms);
+        carry.Machine = new WeaponLogic(carry.Arms, _weapons, _behaviours);
         _carries[player.Value] = carry;
         return carry;
     }
@@ -240,9 +288,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (!_players.IsAlive(player))
             return false;
 
-        int typeIndex = WeaponTypes.IndexOf(className);
+        int typeIndex = _weapons.IndexOf(className);
 
-        if (WeaponTypes.ByIndex(typeIndex) is not WeaponType type)
+        if (_weapons.ByIndex(typeIndex) is not WeaponType type)
         {
             _log.Warning($"[SourceSharp/Arsenal] no weapon row for '{className}'\n");
             return false;
@@ -257,19 +305,20 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             // Already owned: the duplicate is worth its clip in ammunition —
             // or a top-up of the pool for a poolfed weapon (frag, RPG).
-            int worth = type.ClipSize > 0 ? type.ClipSize : 1;
+            int clipSize = ClipSizeOf(in type);
+            int worth = clipSize > 0 ? clipSize : 1;
             return type.AmmoName.Length > 0 && GiveAmmo(player, worth, type.AmmoName) > 0;
         }
 
         carry.Weapons.Add(new Owned
         {
             TypeIndex = typeIndex,
-            Clip = Math.Max(type.ClipSize, 0),
+            Clip = Math.Max(ClipSizeOf(in type), 0),
         });
 
         // A pool-fed weapon arrives with one shot's worth in the pool, so a
         // picked-up RPG can fire before an ammo crate is found.
-        if (type.ClipSize <= 0 && type.AmmoName.Length > 0)
+        if (ClipSizeOf(in type) <= 0 && type.AmmoName.Length > 0)
             GiveAmmo(player, 1, type.AmmoName);
 
         // The first weapon deploys itself; later ones wait to be asked for,
@@ -296,7 +345,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (!_players.IsAlive(player))
             return 0;
 
-        if (AmmoTypes.For(ammoName) is not AmmoType ammo)
+        if (_ammo.For(ammoName) is not AmmoType ammo)
         {
             _log.Warning($"[SourceSharp/Arsenal] no ammo row for '{ammoName}'\n");
             return 0;
@@ -312,7 +361,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         {
             // CHL2_Player::GiveAmmo: "we've been denied the pickup, display a
             // hud icon to show that" -- reliable, to this player alone.
-            _messages?.Send(new AmmoDenied { AmmoType = (short)AmmoTypes.WireIndex(ammo.Name) },
+            _messages?.Send(new AmmoDenied { AmmoType = (short)_ammo.WireIndex(ammo.Name) },
                             _entities.GetIndex(player), reliable: true);
             return 0;
         }
@@ -332,7 +381,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (Refusal(player, out var carry) is SwitchOutcome refused)
             return refused;
 
-        int typeIndex = WeaponTypes.IndexOf(className);
+        int typeIndex = _weapons.IndexOf(className);
 
         for (int slot = 0; slot < carry!.Weapons.Count; slot++)
         {
@@ -466,7 +515,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         var owned = carry.Weapons[slot];
 
-        if (WeaponTypes.ByIndex(owned.TypeIndex) is not WeaponType type)
+        if (_weapons.ByIndex(owned.TypeIndex) is not WeaponType type)
             return;
 
         // What is being put away, for lastinv. Recorded before ActiveSlot moves,
@@ -484,7 +533,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         weapon.State.OwnerIndex = _entities.GetIndex(carry.Player);
         weapon.State.WeaponTypeId = owned.TypeIndex;
-        weapon.State.Clip = type.ClipSize > 0 ? owned.Clip : -1;
+        weapon.State.Clip = ClipSizeOf(in type) > 0 ? owned.Clip : -1;
         weapon.State.InReload = false;
         weapon.State.NextPrimaryAttack = now + type.DeployTime;
         weapon.State.NextSecondaryAttack = now + type.DeployTime;
@@ -519,9 +568,20 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         var owned = carry.Weapons[carry.ActiveSlot];
 
-        if (WeaponTypes.ByIndex(owned.TypeIndex) is { ClipSize: > 0 })
+        if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type && ClipSizeOf(in type) > 0)
             owned.Clip = Math.Max(0, weapon.State.Clip);
     }
+
+    /// <summary>
+    /// The clip a row holds here: the row's own, unless its behaviour answers
+    /// <see cref="IWeaponBehaviour.ModifyClipSize"/> — the same answer the
+    /// machine spends down from and reloads up to, so a fresh give fills the
+    /// clip a reload fills.
+    /// </summary>
+    private int ClipSizeOf(in WeaponType type)
+        => _behaviours.For(type.Behaviour) is { } behaviour
+            ? behaviour.ModifyClipSize(in type, type.ClipSize)
+            : type.ClipSize;
 
     /// <summary>
     /// Creates the two carried entities the first time a player needs them.
@@ -564,7 +624,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_directory.Get(carry.Weapon) is not SsWeapon weapon)
             return;
 
-        if (WeaponTypes.ByIndex(weapon.State.WeaponTypeId) is not WeaponType type)
+        if (_weapons.ByIndex(weapon.State.WeaponTypeId) is not WeaponType type)
             return;
 
         weapon.State.Reserve = PoolOf(carry, type.AmmoName);
@@ -619,7 +679,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
     private void SettlePool(Carry carry, int typeIndex, bool primary, int spent)
     {
-        if (spent == 0 || WeaponTypes.ByIndex(typeIndex) is not WeaponType type)
+        if (spent == 0 || _weapons.ByIndex(typeIndex) is not WeaponType type)
             return;
 
         string name = primary ? type.AmmoName : type.SecondaryAmmoName;
@@ -677,7 +737,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         var owned = carry.Weapons[carry.ActiveSlot];
 
-        if (WeaponTypes.ByIndex(owned.TypeIndex) is WeaponType type)
+        if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type)
         {
             EntityHandle dropped = _entities.Create(type.Name);
 
@@ -855,7 +915,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         foreach (var carry in _carries.Values)
         {
             string active = carry.ActiveSlot >= 0 && carry.ActiveSlot < carry.Weapons.Count
-                ? WeaponTypes.ByIndex(carry.Weapons[carry.ActiveSlot].TypeIndex)?.Name ?? string.Empty
+                ? _weapons.ByIndex(carry.Weapons[carry.ActiveSlot].TypeIndex)?.Name ?? string.Empty
                 : string.Empty;
 
             writer.AddRow()
@@ -864,14 +924,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                   .Set("w", carry.Weapon)
                   .Set("v", carry.ViewModel)
                   .Set("a", active)
-                  .Set("l", WeaponTypes.ByIndex(carry.LastTypeIndex)?.Name ?? string.Empty);
+                  .Set("l", _weapons.ByIndex(carry.LastTypeIndex)?.Name ?? string.Empty);
 
             foreach (var owned in carry.Weapons)
             {
                 writer.AddRow()
                       .Set(RowKind, "owned")
                       .Set("p", carry.Player)
-                      .Set("t", WeaponTypes.ByIndex(owned.TypeIndex)?.Name ?? string.Empty)
+                      .Set("t", _weapons.ByIndex(owned.TypeIndex)?.Name ?? string.Empty)
                       .Set("c", owned.Clip);
             }
 
@@ -906,14 +966,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                     carry.ActiveSlot = -1;
                     carry.Weapon = reader.Resolve(row.GetHandle("w"));
                     carry.ViewModel = reader.Resolve(row.GetHandle("v"));
-                    carry.LastTypeIndex = WeaponTypes.IndexOf(row.GetString("l"));
+                    carry.LastTypeIndex = _weapons.IndexOf(row.GetString("l"));
                     active[player.Value] = row.GetString("a");
                     break;
                 }
 
                 case "owned":
                 {
-                    int type = WeaponTypes.IndexOf(row.GetString("t"));
+                    int type = _weapons.IndexOf(row.GetString("t"));
                     if (type < 0)
                     {
                         _log.Warning($"[SourceSharp/Arsenal] reload: this build has no weapon " +
@@ -938,7 +998,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (!_carries.TryGetValue(player, out var carry) || name.Length == 0)
                 continue;
 
-            int type = WeaponTypes.IndexOf(name);
+            int type = _weapons.IndexOf(name);
             carry.ActiveSlot = carry.Weapons.FindIndex(o => o.TypeIndex == type);
         }
     }
@@ -954,7 +1014,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// </summary>
     public void PrecacheAll()
     {
-        foreach (var type in WeaponTypes.All)
+        foreach (var type in _weapons.All)
         {
             _precache.PrecacheModel(type.ViewModel);
             _precache.PrecacheModel(type.WorldModel);
@@ -978,7 +1038,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         for (int slot = 0; slot < carry.Weapons.Count; slot++)
         {
             var owned = carry.Weapons[slot];
-            string name = WeaponTypes.ByIndex(owned.TypeIndex)?.Name ?? $"#{owned.TypeIndex}";
+            string name = _weapons.ByIndex(owned.TypeIndex)?.Name ?? $"#{owned.TypeIndex}";
 
             // The active slot's clip lives in the weapon's blob while it is in
             // the hands; the stored copy is only settled on a switch. A report
@@ -1009,6 +1069,40 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     //-------------------------------------------------------------------------
     // The server's arms: what the machine's decisions DO.
     //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// THE one projectile spawn, shared by the stock launch and by a behaviour's
+    /// <see cref="IWeaponArms.LaunchWith"/>: create, place ahead of the eye,
+    /// spawn, set the velocity — an impulse for a thrown one, the plain velocity
+    /// for an aimed one — and report the launch with the fuse the gun declared.
+    /// One body for both doors so they cannot drift: a mod's projectile that
+    /// skipped the placement or the owner rule would hit its shooter or fly
+    /// sideways, and the bug would live in whichever door nobody tested.
+    /// </summary>
+    private void LaunchFlying(ILog log, Carry carry, in WeaponType type,
+                              string projectile, Vector velocity, bool thrown, float fuse)
+    {
+        EntityHandle flying = _entities.Create(projectile);
+
+        if (!_entities.IsValid(flying))
+        {
+            log.Warning($"[SourceSharp/Arsenal] {type.Name} could not create '{projectile}'\n");
+            return;
+        }
+
+        Vector from = _players.GetShootOrigin(carry.Player);
+        var aim = Angles.Vectors(_entities.GetEyeAngles(carry.Player));
+
+        // Position BEFORE spawning, because spawning is what reads it — and
+        // the offset is so it does not appear inside the thrower.
+        _entities.SetOrigin(flying, from + aim.Forward * WeaponLogic.LaunchOffset);
+        _entities.Spawn(flying);
+
+        if (thrown)
+            _entities.ApplyVelocityImpulse(flying, velocity, false);
+
+        Launched?.Invoke(flying, carry.Player, velocity, fuse);
+    }
 
     internal sealed class ServerWeaponArms : IWeaponArms
     {
@@ -1083,7 +1177,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
         {
-            if (AmmoTypes.For(type.AmmoName) is not AmmoType ammo)
+            if (_arsenal._ammo.For(type.AmmoName) is not AmmoType ammo)
                 return;
 
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
@@ -1112,11 +1206,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 {
                     // FireBullets' CalculateBulletDamageForce: the ammo's force
                     // along the shot, acting where it landed, so the victim's
-                    // OnTakeDamage can push its physics object (A30).
-                    _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
-                                             ammo.Damage, ammo.DamageType,
-                                             DamageForceRules.BulletForce(dir, ammo.DamageForce),
-                                             trace.End);
+                    // OnTakeDamage can push its physics object (A30). The
+                    // trace's hitgroup rides beside the call (stock hands the
+                    // trace itself to TraceAttack): see DamageHitGroups.
+                    using (_arsenal._hitGroups.Push(trace.HitGroup))
+                        _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
+                                                 ammo.Damage, ammo.DamageType,
+                                                 DamageForceRules.BulletForce(dir, ammo.DamageForce),
+                                                 trace.End);
 
                     if (_arsenal.IsStandalonePlayer(trace.Entity))
                         _arsenal._effects.BloodEffect(trace.End, dir, BloodColor.Red, ammo.Damage);
@@ -1171,28 +1268,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown)
         {
-            EntityHandle flying = _arsenal._entities.Create(projectile);
-
-            if (!_arsenal._entities.IsValid(flying))
-            {
-                _log.Warning($"[SourceSharp/Arsenal] {type.Name} could not create '{projectile}'\n");
-                return;
-            }
-
-            Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
 
-            // Position BEFORE spawning, because spawning is what reads it — and
-            // the offset is so it does not appear inside the thrower.
-            _arsenal._entities.SetOrigin(flying, from + aim.Forward * WeaponLogic.LaunchOffset);
-            _arsenal._entities.Spawn(flying);
+            _arsenal.LaunchFlying(_log, _carry, type, projectile,
+                                  WeaponLogic.LaunchVelocity(aim, speed, thrown), thrown, fuse: 0f);
+        }
 
-            Vector velocity = WeaponLogic.LaunchVelocity(aim, speed, thrown);
-
-            if (thrown)
-                _arsenal._entities.ApplyVelocityImpulse(flying, velocity, false);
-
-            _arsenal.Launched?.Invoke(flying, _carry.Player, velocity);
+        /// <inheritdoc />
+        public void LaunchWith(in WeaponType type, string projectile, Vector velocity, float fuse)
+        {
+            // The caller's velocity, unmodified: a behaviour that worked its own
+            // arc out is not asked to also know where the launcher's eye is.
+            _arsenal.LaunchFlying(_log, _carry, type, projectile, velocity, type.Thrown, fuse);
         }
 
         /// <summary>

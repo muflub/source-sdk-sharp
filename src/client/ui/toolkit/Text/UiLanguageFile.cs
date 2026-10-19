@@ -34,6 +34,20 @@ public sealed class UiLanguageFile : IUiLocaliser
     }
 
     /// <summary>
+    /// A language file's bytes as a game file read hands them over (a file in
+    /// a mounted VPK has no path on disk), decoded as <see cref="Load"/>
+    /// decodes a file: the byte-order mark says the encoding, UTF-16 as
+    /// shipped, and no mark is UTF-8.
+    /// </summary>
+    public static UiLanguageFile Parse(ReadOnlySpan<byte> bytes)
+    {
+        ReadOnlySpan<byte> le = [0xFF, 0xFE], be = [0xFE, 0xFF], utf8 = [0xEF, 0xBB, 0xBF];
+        return new UiLanguageFile(bytes.StartsWith(le) ? Encoding.Unicode.GetString(bytes[2..])
+                                  : bytes.StartsWith(be) ? Encoding.BigEndianUnicode.GetString(bytes[2..])
+                                  : Encoding.UTF8.GetString(bytes.StartsWith(utf8) ? bytes[3..] : bytes));
+    }
+
+    /// <summary>
     /// Several language files as one localiser, first file wins on a shared
     /// key (the preview's chain: the base mod's file, then each game mod's,
     /// as GameUiLocaliser asks the mod's own file before the engine's).
@@ -76,6 +90,9 @@ public sealed class UiLanguageFile : IUiLocaliser
     }
 
     public int Count => _tokens.Count;
+
+    /// <summary>The token names it holds, without the '#' (for comparing two readings of a file).</summary>
+    public IEnumerable<string> Keys => _tokens.Keys;
 
     /// <summary>Allocation-free: the key is looked up as a span of the token, not a substring.</summary>
     public string? Find(string token)

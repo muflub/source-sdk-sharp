@@ -48,17 +48,22 @@ public class MovementTests
             CurrentTime = 10f,
         };
 
+        // Phase 0.3: the decision is no longer a static but the side's
+        // resolved pack — with no hook registered that pack is the identity,
+        // and identity is the promise this fact still makes.
+        var stock = new ServiceContainer().Create<MovementRulesResolver>().Rules;
+
         // The default has to be exactly 1, not merely close to it. This is a
         // plumbing commit, and a hook that quietly shaved a few percent off
         // every jump would be a gameplay change nobody agreed to and nobody
         // could bisect.
-        Assert.True(Movement.JumpScale(in onGround) == 1f, "by default a jump is unchanged");
+        Assert.True(stock.Jump(onGround) == 1f, "by default a jump is unchanged");
 
         // A rule here decides from the REQUEST and nothing else, because it
         // runs on the server and again on the client for every unacknowledged
         // command. These check the shape holds rather than any particular rule:
         // the same request must always give the same answer.
-        Assert.True(Movement.JumpScale(in onGround) == Movement.JumpScale(in onGround), "the same request answers the same way twice");
+        Assert.True(stock.Jump(onGround) == stock.Jump(onGround), "the same request answers the same way twice");
 
         var moving = onGround; moving.HorizontalSpeed = 400f;
         var ducking = onGround; ducking.Ducking = 1;
@@ -66,13 +71,13 @@ public class MovementTests
 
         // Not asserting that these DIFFER — the default rule ignores them — but
         // that asking with any of them is safe and answers a usable jump.
-        Assert.True(Movement.JumpScale(in moving) > 0f, "a fast player still gets a jump");
-        Assert.True(Movement.JumpScale(in ducking) > 0f, "a ducking player still gets a jump");
-        Assert.True(Movement.JumpScale(in later) == 1f, "the answer does not drift with time");
+        Assert.True(stock.Jump(moving) > 0f, "a fast player still gets a jump");
+        Assert.True(stock.Jump(ducking) > 0f, "a ducking player still gets a jump");
+        Assert.True(stock.Jump(later) == 1f, "the answer does not drift with time");
 
         // The native side clamps a negative to zero, so nothing here can push a
         // player through the floor; a scale above zero is all this end promises.
-        Assert.True(Movement.JumpScale(in onGround) > 0f, "the default never refuses a jump");
+        Assert.True(stock.Jump(onGround) > 0f, "the default never refuses a jump");
     }
 
     [Fact]

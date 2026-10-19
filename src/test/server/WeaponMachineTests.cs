@@ -85,11 +85,11 @@ public class WeaponMachineTests
             Assert.True(type.WorldModel.Length > 0, $"{type.Name} names a world model");
 
             if (type.AmmoName.Length > 0)
-                Assert.True(AmmoTypes.For(type.AmmoName) is not null,
+                Assert.True(AmmoCatalog.Stock().For(type.AmmoName) is not null,
                     $"{type.Name}'s ammo '{type.AmmoName}' has a row in AmmoTypes");
 
             if (type.SecondaryAmmoName.Length > 0)
-                Assert.True(AmmoTypes.For(type.SecondaryAmmoName) is not null,
+                Assert.True(AmmoCatalog.Stock().For(type.SecondaryAmmoName) is not null,
                     $"{type.Name}'s secondary ammo '{type.SecondaryAmmoName}' has a row");
 
             if (type.IsMelee)
@@ -128,9 +128,9 @@ public class WeaponMachineTests
         for (int i = 0; i < pinned.Length; i++)
             Assert.Equal(pinned[i], WeaponTypes.All[i].Name);
 
-        Assert.Equal(1, WeaponTypes.IndexOf("WEAPON_PISTOL")); // case-blind, like a classname
-        Assert.Null(WeaponTypes.ByIndex(-1));
-        Assert.Null(WeaponTypes.ByIndex(WeaponTypes.All.Length));
+        Assert.Equal(1, WeaponCatalog.Stock().IndexOf("WEAPON_PISTOL")); // case-blind, like a classname
+        Assert.Null(WeaponCatalog.Stock().ByIndex(-1));
+        Assert.Null(WeaponCatalog.Stock().ByIndex(WeaponTypes.All.Length));
     }
 
     //-------------------------------------------------------------------------
@@ -161,7 +161,7 @@ public class WeaponMachineTests
         var vm = new ViewModelNetState();
         vm.BindLocal();
 
-        w.WeaponTypeId = WeaponTypes.IndexOf(weapon);
+        w.WeaponTypeId = WeaponCatalog.Stock().IndexOf(weapon);
         w.Clip = clip;
         w.Reserve = reserve;
         w.SecondaryReserve = secondary;

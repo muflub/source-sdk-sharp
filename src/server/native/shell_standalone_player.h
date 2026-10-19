@@ -271,6 +271,17 @@ public:
 	// watches, a respawning one stops watching. Solidity follows it.
 	void SetObserver( bool bObserver, int nMode );
 
+	// The team, and the switch. What ITeams.Join decides (through its
+	// single-owner policy hook) and the PlayerSetTeam slot carries out:
+	// the store of CBaseEntity::ChangeTeam (baseentity.cpp:4947 --
+	// `m_iTeamNum = iTeamNum`), and nothing more. No validation, no
+	// roster move, no model swap, no suicide -- those are managed
+	// decisions, and this side must not make them (plan porting rules).
+	// TEAM_UNASSIGNED (0) is the born answer, as stock gives a player
+	// who has not picked a side.
+	int  TeamNumber() const { return m_iTeamNum; }
+	void ChangeTeam( int iTeamNum ) { m_iTeamNum = iTeamNum; }
+
 	// --- THE PHYSICS SHADOW (plan_entity.md step 3f, §3.8) --------------------
 	//
 	// What makes a player able to PUSH a crate. Until this step the live gate's
@@ -403,6 +414,10 @@ private:
 
 	bool           m_bObserver;
 	int            m_nObserverMode;
+
+	// The team this player is on (TEAM_UNASSIGNED until something calls
+	// ChangeTeam). What GetPlayerTeam answers and PlayerSetTeam writes.
+	int            m_iTeamNum;
 
 	// The shadow, and the controller that drags it after the player. NULL until
 	// managed code asks for one; see InitVCollision.

@@ -116,6 +116,7 @@ public static class EntityNames
     // Rules a map can impose on the round.
     public const string Gibshooter      = "gibshooter";
     public const string GameEnd         = "game_end";
+    public const string GameModeSwitch  = "game_mode_switch";
     public const string GamePlayerEquip = "game_player_equip";
     public const string GamePlayerHurt  = "game_player_hurt";
     public const string GameScore       = "game_score";

@@ -129,7 +129,11 @@ public partial class EngineApiCensusTests
     // EntityApplyVelocityImpulse, EntityApplyForceCenter, EntityApplyForceOffset,
     // EntityApplyTorque, EntityAddPhysicsGameFlags, EntityBecomePhysicsTrigger:
     // 241 - 11 = 230. Measured.
-    private const int ServerOnly = 230;
+    // tf2 stage 0.5 (2026-10-11): PlayerSetTeam, the generic "put this
+    // player on this team" store the managed ITeams hands down, server-only
+    // -> 231 (277 at the lane's base; re-counted on the rebase onto main
+    // 7532a33ff). Measured.
+    private const int ServerOnly = 231;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

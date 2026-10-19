@@ -1565,8 +1565,8 @@ static int32_t SSFwd_ShimWorldServer_SurfacePropGameMaterial( IShimWorldServer *
 static int32_t SSFwd_ShimWorldServer_TraceLine( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7 ) { return self->TraceLine( a0, a1, a2, a3, a4, a5, a6, a7 ); }
 // int32_t IShimWorldServer::TraceHull( const float *, const float *, const float *, const float *, int32_t, uint32_t, uint32_t *, int32_t * )
 static int32_t SSFwd_ShimWorldServer_TraceHull( IShimWorldServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, uint32_t a5, uint32_t * a6, int32_t * a7 ) { return self->TraceHull( a0, a1, a2, a3, a4, a5, a6, a7 ); }
-// int32_t IShimWorldServer::TraceLineSurface( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t *, int32_t *, int32_t * )
-static int32_t SSFwd_ShimWorldServer_TraceLineSurface( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7, int32_t * a8, int32_t * a9 ) { return self->TraceLineSurface( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 ); }
+// int32_t IShimWorldServer::TraceLineSurface( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t *, int32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimWorldServer_TraceLineSurface( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7, int32_t * a8, int32_t * a9, int32_t * a10 ) { return self->TraceLineSurface( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 ); }
 // uint32_t IShimWorldServer::TracePlayerAim( uint32_t, float, float * )
 static uint32_t SSFwd_ShimWorldServer_TracePlayerAim( IShimWorldServer *self, uint32_t a0, float a1, float * a2 ) { return self->TracePlayerAim( a0, a1, a2 ); }
 // void IShimWorldServer::AngleVectorsFromForward( const float *, float *, float * )
@@ -1999,7 +1999,7 @@ static void *const s_ShimGameRulesSlots[] = {
 static const SSForwarderTable s_ShimGameRulesTable = { s_ShimGameRulesSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimPlayers: 17 forwarder(s) over IShimPlayers.
+// ShimPlayers: 18 forwarder(s) over IShimPlayers.
 //-----------------------------------------------------------------------------
 // uint32_t IShimPlayers::GetPlayerHandle( int32_t )
 static uint32_t SSFwd_ShimPlayers_GetPlayerHandle( IShimPlayers *self, int32_t a0 ) { return self->GetPlayerHandle( a0 ); }
@@ -2035,6 +2035,8 @@ static int32_t SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition( IShimPlayer
 static int32_t SSFwd_ShimPlayers_ClientsSdkPlayerEarPosition( IShimPlayers *self, int32_t a0, float * a1 ) { return self->ClientsSdkPlayerEarPosition( a0, a1 ); }
 // int32_t IShimPlayers::PlayerBoxInPvs( uint32_t, const float *, const float * )
 static int32_t SSFwd_ShimPlayers_PlayerBoxInPvs( IShimPlayers *self, uint32_t a0, const float * a1, const float * a2 ) { return self->PlayerBoxInPvs( a0, a1, a2 ); }
+// void IShimPlayers::PlayerSetTeam( uint32_t, int32_t )
+static void SSFwd_ShimPlayers_PlayerSetTeam( IShimPlayers *self, uint32_t a0, int32_t a1 ) { self->PlayerSetTeam( a0, a1 ); }
 
 static void *const s_ShimPlayersSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerHandle ),
@@ -2054,9 +2056,10 @@ static void *const s_ShimPlayersSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsSdkPlayerEarPosition ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerBoxInPvs ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetTeam ),
 };
 
-static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 17 };
+static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 18 };
 
 //-----------------------------------------------------------------------------
 // ShimWeaponsServer: 16 forwarder(s) over IShimWeaponsServer.

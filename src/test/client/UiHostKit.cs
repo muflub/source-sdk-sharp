@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client;
+using SourceSharp.Client.Interop;
 using SourceSharp.Client.Standalone;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
@@ -55,5 +56,69 @@ internal static class UiHostKit
         {
             Windows = windows,
         };
+    }
+
+    /// <summary>
+    /// The side's services a whole UI composes over (ClientUi.Build), over
+    /// fakes: <paramref name="dir"/> is the mod's game and managed directory,
+    /// and <paramref name="modData"/> answers IModInfo's other keys (the mod's
+    /// UI assemblies).
+    /// </summary>
+    public static ServiceContainer RuntimeServices(RecordingEngine engine, IUiSurface surface, string dir,
+                                                   Func<string, object?>? modData = null)
+    {
+        var services = new ServiceContainer()
+            .AddInstance<IEngineHud>(engine).AddInstance<IEngineConsole>(engine).AddInstance<IGameClock>(engine)
+            .AddInstance<IModInfo>(new ModInfo(k => k == ModInfo.Keys.ManagedDir || k == ModInfo.Keys.GameDir ? dir : modData?.Invoke(k)))
+            .AddInstance<IUiSurface>(surface)
+            .AddInstance<IClientStandalones>(new NoStandalones())
+            .AddInstance<IPlayerNames>(new EnginePlayerNames(() => null, new IdentityNameFilter()))
+            .AddInstance<IEngineEnvironment>(engine)
+            .AddInstance<IKillFeedSource>(new NoKills())
+            .AddInstance<ICentrePrintSource>(new CentrePrint(engine))
+            .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
+            .AddInstance<IChatInputSource>(new ChatInputUi(() => null))
+            .AddInstance<ILoadingDiscSource>(new LoadingDisc(engine))
+            .AddInstance<IDebugOverlaySource>(new NoOverlay())
+            .AddInstance<IVoiceSource>(new VoiceSpeakers(new NoVoicePlayers()));
+        var observer = new ObserverState(new NoObserverFields(), new NoSpectated(), () => null);
+        return services.AddInstance<IObserverSource>(observer).AddInstance<ISpectatorTargetSource>(observer);
+    }
+
+    private sealed class NoChatPlayers : IChatPlayers
+    {
+        public bool TryFind(int client, out string name, out int team) => ((name, team) = ("", 0)) == default;
+    }
+
+    private sealed class NoSpectated : ISpectatedPlayers
+    {
+        public bool TryFind(int client, out string name, out int team, out int health)
+        {
+            (name, team, health) = ("", 0, 0);
+            return false;
+        }
+    }
+
+    private sealed class NoVoicePlayers : IVoicePlayers
+    {
+        public bool TryFind(int client, out string name, out int team, out bool alive)
+        {
+            (name, team, alive) = ("", 0, true);
+            return false;
+        }
+    }
+
+    private sealed class NoOverlay : IDebugOverlaySource
+    {
+        public int Count => 0;
+
+        public DebugOverlayLine Line(int i) => throw new ArgumentOutOfRangeException(nameof(i));
+    }
+
+    private sealed class NoKills : IKillFeedSource
+    {
+        public int LineCount => 0;
+
+        public KillFeedLine Line(int i) => throw new ArgumentOutOfRangeException(nameof(i));
     }
 }

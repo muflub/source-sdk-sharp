@@ -41,10 +41,12 @@ public enum JoinTeamResult
     Invalid,
     /// <summary>Team 1 with mp_allowspectators 0: #Cannot_Be_Spectator.</summary>
     SpectatorsNotAllowed,
-    /// <summary>Team 1: watching.</summary>
+    /// <summary>Team 1: on the spectator team (<see cref="Teams.Join"/> stores it) and watching.</summary>
     Spectating,
-    /// <summary>A playing team: observing stopped. The team itself does not change yet.</summary>
+    /// <summary>A playing team: observing stopped, and the team stored by <see cref="Teams.Join"/>.</summary>
     Playing,
+    /// <summary>A playing team the <see cref="IJoinTeamPolicy"/> said no to: nothing changed.</summary>
+    Refused,
 }
 
 /// <summary>
@@ -125,22 +127,19 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     private AllowSpectatorsConVar? _allowSpectators;
 
     /// <summary>
-    /// <c>spectate</c>, which is HandleCommand_JoinTeam(TEAM_SPECTATOR):
-    /// refused without mp_allowspectators; ChangeTeam's RemoveAllItems(true);
+    /// <c>spectate</c>'s observer half, which is HandleCommand_JoinTeam(TEAM_SPECTATOR)
+    /// past its gate: refused without mp_allowspectators
+    /// (<see cref="AllowsSpectators"/>); ChangeTeam's RemoveAllItems(true);
     /// State_Enter_OBSERVER_MODE's mode, cl_spec_mode when it is in-eye to
     /// roaming and the last mode otherwise; m_bEnterObserver; StartObserverMode.
-    /// The team itself does not change (no SetTeam reaches the player yet), and
-    /// a deathmatch player is TEAM_UNASSIGNED, so stock's suicide for a living
-    /// teamed player does not arise.
+    /// The team itself is <see cref="Teams.Join"/>'s to store (it stores team 1
+    /// BEFORE calling this, stock's ChangeTeam order). Stock's suicide for a
+    /// living teamed player is not made (the <c>ITeams.Join</c> divergence row).
     /// </summary>
     public bool Spectate(SsPlayer player, float now)
     {
-        _allowSpectators ??= convars.Get<AllowSpectatorsConVar>();
-        if (_allowSpectators is { Value: false })
-        {
-            log.Msg("#Cannot_Be_Spectator\n");
+        if (!AllowsSpectators())
             return false;
-        }
 
         players.RemoveAllItems(player.Handle, stripSuit: true);
 
@@ -155,17 +154,35 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     }
 
     /// <summary>
-    /// <c>jointeam N</c>: HandleCommand_JoinTeam. No such team, or team 0, is
-    /// refused (stock's warning); team 1 is <see cref="Spectate"/>; a playing
-    /// team stops observing (StopObserverMode, State_Enter_ACTIVE). DIVERGENCE:
-    /// stock's spectator is LIFE_DEAD and comes back on a button
+    /// HandleCommand_JoinTeam(TEAM_SPECTATOR)'s gate: mp_allowspectators, and
+    /// stock's <c>#Cannot_Be_Spectator</c> when it is off. Asked by
+    /// <see cref="Teams.Join"/> before it stores team 1, so a refusal changes
+    /// nothing.
+    /// </summary>
+    public bool AllowsSpectators()
+    {
+        _allowSpectators ??= convars.Get<AllowSpectatorsConVar>();
+        if (_allowSpectators is { Value: false })
+        {
+            log.Msg("#Cannot_Be_Spectator\n");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// <c>jointeam N</c>'s observer half: HandleCommand_JoinTeam. No such team,
+    /// or team 0, is refused (stock's warning); team 1 is <see cref="Spectate"/>;
+    /// a playing team stops observing (StopObserverMode, State_Enter_ACTIVE).
+    /// DIVERGENCE: stock's spectator is LIFE_DEAD and comes back on a button
     /// (or mp_forcerespawn); this one never died, so it is respawned here. The
-    /// team does not change yet.
+    /// team store is <see cref="Teams.Join"/>'s.
     /// </summary>
     public JoinTeamResult JoinTeam(SsPlayer player, string? arg, float now)
     {
         int team = Atoi(arg);
-        if (team is < TeamSpectator or > LastTeam)
+        if (!IsValidTeamNumber(team))
         {
             log.Warning($"HandleCommand_JoinTeam( {team} ) - invalid team index.\n");
             return JoinTeamResult.Invalid;
@@ -182,9 +199,23 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     }
 
     /// <summary>The last of HL2MP's four teams (unassigned, spectator, combine, rebels).</summary>
-    private const int LastTeam = 3;
+    public const int LastTeam = 3;
 
-    private static int Atoi(string? text)
+    /// <summary>
+    /// Whether a <c>jointeam</c> argument names one of HL2MP's joinable teams.
+    /// The same gate <see cref="JoinTeam"/> applies — one spelling, so the
+    /// route that asks first (<see cref="Teams.Join"/>) and the arm that
+    /// refuses cannot drift apart.
+    /// </summary>
+    public static bool IsValidTeamNumber(int team) => team is >= TeamSpectator and <= LastTeam;
+
+    /// <summary>
+    /// C's <c>atoi</c>, as stock's command handlers parse a team number: the
+    /// leading digits after optional whitespace and sign, 0 for none
+    /// (<c>"2x"</c> is 2, <c>""</c> is 0). One spelling for <c>jointeam</c>'s
+    /// two readers (the command and this class's own <see cref="JoinTeam"/>).
+    /// </summary>
+    internal static int Atoi(string? text)
     {
         if (string.IsNullOrEmpty(text))
             return 0;

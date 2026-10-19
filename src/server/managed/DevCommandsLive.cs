@@ -862,8 +862,11 @@ public sealed class GiveCommand : DevCommand
     {
         if (argv.Length < 1)
         {
-            Log.Msg($"usage: give <{string.Join(" | ", WeaponTypes.All.Select(w => w.Name))}>\n" +
-                    $"       give <{string.Join(" | ", AmmoTypes.All.Select(a => a.Name))}> [count]\n");
+            // The tables are the arsenal's — what the game HAS includes the
+            // mods' rows, and this usage line must name them or a person
+            // typing a mod's classname is told it does not exist.
+            Log.Msg($"usage: give <{string.Join(" | ", Context.Weapons.All.Select(w => w.Name))}>\n" +
+                    $"       give <{string.Join(" | ", Context.Ammo.All.Select(a => a.Name))}> [count]\n");
             return;
         }
 
@@ -883,7 +886,7 @@ public sealed class GiveCommand : DevCommand
 
         string wanted = argv[0];
 
-        if (WeaponTypes.For(wanted) is { } weapon)
+        if (Context.Weapons.For(wanted) is { } weapon)
         {
             if (Context.Arsenal.GiveWeapon(issuer, weapon.Name))
                 Log.Msg($"give: {weapon.Name}\n");
@@ -893,7 +896,7 @@ public sealed class GiveCommand : DevCommand
             return;
         }
 
-        if (AmmoTypes.For(wanted) is { } ammo)
+        if (Context.Ammo.For(wanted) is { } ammo)
         {
             int count = argv.Length >= 2 && int.TryParse(argv[1], out int written) ? written : ammo.MaxCarry;
             int given = Context.Arsenal.GiveAmmo(issuer, count, ammo.Name);
@@ -906,8 +909,8 @@ public sealed class GiveCommand : DevCommand
         }
 
         Log.Msg($"give: this mod has nothing called '{wanted}'.\n" +
-                $"    weapons: {string.Join(", ", WeaponTypes.All.Select(w => w.Name))}\n" +
-                $"    ammo:    {string.Join(", ", AmmoTypes.All.Select(a => a.Name))}\n" +
+                $"    weapons: {string.Join(", ", Context.Weapons.All.Select(w => w.Name))}\n" +
+                $"    ammo:    {string.Join(", ", Context.Ammo.All.Select(a => a.Name))}\n" +
                 $"    anything else is an entity: ent_create {wanted}\n");
     }
 }

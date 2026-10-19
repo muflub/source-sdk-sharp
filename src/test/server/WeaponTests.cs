@@ -57,8 +57,8 @@ public class WeaponTests
         // Launch velocity: the thrown/aimed split.
         var level = Angles.Vectors(SourceSharp.Abi.Vector.Zero);
 
-        var bolt = WeaponTypes.For("weapon_crossbow")!.Value;
-        var frag = WeaponTypes.For("weapon_frag")!.Value;
+        var bolt = WeaponCatalog.Stock().For("weapon_crossbow")!.Value;
+        var frag = WeaponCatalog.Stock().For("weapon_frag")!.Value;
 
         Assert.True(!bolt.Thrown && frag.Thrown, "the crossbow is aimed, the frag is thrown");
 
@@ -81,8 +81,8 @@ public class WeaponTests
         Assert.True(WeaponTypes.All.All(w => w.LaunchSpeed == 0f || w.Projectile.Length > 0), "no weapon launches something it did not name");
 
         // The gap this closes: both used to be hitscan.
-        Assert.True(WeaponTypes.For("weapon_crossbow")!.Value.Projectile == EntityNames.SsBolt &&
-            WeaponTypes.For("weapon_rpg")!.Value.Projectile == EntityNames.SsRocket, "the crossbow and the RPG launch rather than trace");
+        Assert.True(WeaponCatalog.Stock().For("weapon_crossbow")!.Value.Projectile == EntityNames.SsBolt &&
+            WeaponCatalog.Stock().For("weapon_rpg")!.Value.Projectile == EntityNames.SsRocket, "the crossbow and the RPG launch rather than trace");
 
         SecondaryFire();
     }
@@ -120,8 +120,8 @@ public class WeaponTests
 
         Assert.True(withSecondary.All(w => w.Secondary!.Value.AmmoCost > 0), "every second trigger costs ammunition");
 
-        var shotgun = WeaponTypes.For("weapon_shotgun")!.Value.Secondary!.Value;
-        var smg = WeaponTypes.For("weapon_smg1")!.Value.Secondary!.Value;
+        var shotgun = WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Secondary!.Value;
+        var smg = WeaponCatalog.Stock().For("weapon_smg1")!.Value.Secondary!.Value;
 
         // The shotgun is the one that draws on the clip, and the reason
         // FromClip exists: its double blast is the same buckshot the primary
@@ -131,9 +131,9 @@ public class WeaponTests
 
         // Worth more than it looks: a double blast that were merely twice as
         // strong would have no drawback, and nobody would ever use the primary.
-        Assert.True(shotgun.Spread > WeaponTypes.For("weapon_shotgun")!.Value.Spread, "the double blast is wider than the single");
+        Assert.True(shotgun.Spread > WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Spread, "the double blast is wider than the single");
 
-        Assert.True(shotgun.Pellets > WeaponTypes.For("weapon_shotgun")!.Value.Pellets, "it fires more pellets than the single");
+        Assert.True(shotgun.Pellets > WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Pellets, "it fires more pellets than the single");
 
         // Everything else draws on a pool the primary never touches, so a full
         // clip says nothing about whether the alt-fire can fire.
@@ -146,7 +146,7 @@ public class WeaponTests
 
         Assert.True(WeaponLogic.LaunchVelocity(level, smg.LaunchSpeed, smg.Thrown).Z > 0f, "a thrown second trigger lofts like a thrown primary");
 
-        var ar2 = WeaponTypes.For("weapon_ar2")!.Value.Secondary!.Value;
+        var ar2 = WeaponCatalog.Stock().For("weapon_ar2")!.Value.Secondary!.Value;
 
         Assert.True(Math.Abs(WeaponLogic.LaunchVelocity(level, ar2.LaunchSpeed, ar2.Thrown).Z) < 0.001f, "an aimed second trigger leaves flat");
     }
@@ -201,7 +201,7 @@ public class WeaponTests
     [Fact]
     public void Weapons()
     {
-        Assert.True(WeaponTypes.For("weapon_shotgun") is not null, "a known weapon has an entry");
+        Assert.True(WeaponCatalog.Stock().For("weapon_shotgun") is not null, "a known weapon has an entry");
 
         // The table is the ONLY place the mod says what weapons it has: each row
         // claims its own classname for the weapon shell at startup, and there is
@@ -217,7 +217,7 @@ public class WeaponTests
         };
 
         foreach (string name in expected)
-            Assert.True(WeaponTypes.For(name) is not null, $"{name} is declared");
+            Assert.True(WeaponCatalog.Stock().For(name) is not null, $"{name} is declared");
 
         // And nothing beyond them, because a row nobody expected is a classname
         // claimed by the shell that no loadout, map or script asks for.
@@ -233,18 +233,18 @@ public class WeaponTests
 
         // The shotgun is the only reason the pellet count exists: stock puts it
         // in CWeaponShotgun, and there is no per-weapon class here to put it in.
-        Assert.True(WeaponTypes.For("weapon_shotgun")!.Value.Pellets == 7, "the shotgun fires more than one pellet");
+        Assert.True(WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Pellets == 7, "the shotgun fires more than one pellet");
 
         Assert.True(WeaponTypes.All.Where(w => w.Name != "weapon_shotgun").All(w => w.Pellets == 1), "everything else fires one");
 
         // Case comes from the engine and from map keyvalues, and those do not
         // agree as reliably as one would like.
-        Assert.True(WeaponTypes.For("WEAPON_SHOTGUN") is not null, "the lookup ignores case");
+        Assert.True(WeaponCatalog.Stock().For("WEAPON_SHOTGUN") is not null, "the lookup ignores case");
 
         // An unregistered weapon is not an error: the shell falls back to the
         // base class, which is what a generic weapon should do.
-        Assert.True(WeaponTypes.For("weapon_nonesuch") is null, "an unknown weapon has no entry");
-        Assert.True(WeaponTypes.For("") is null, "an empty name has no entry");
+        Assert.True(WeaponCatalog.Stock().For("weapon_nonesuch") is null, "an unknown weapon has no entry");
+        Assert.True(WeaponCatalog.Stock().For("") is null, "an empty name has no entry");
 
         // Every weapon must be able to fire at all. A zero interval would fire
         // once per tick, and a zero pellet count would fire nothing.
@@ -255,8 +255,8 @@ public class WeaponTests
 
         // Two weapons on the same ammo must differ by something, or naming them
         // separately buys nothing.
-        var pistol = WeaponTypes.For("weapon_pistol")!.Value;
-        var smg = WeaponTypes.For("weapon_smg1")!.Value;
+        var pistol = WeaponCatalog.Stock().For("weapon_pistol")!.Value;
+        var smg = WeaponCatalog.Stock().For("weapon_smg1")!.Value;
 
         Assert.True(pistol.Interval != smg.Interval || pistol.Spread != smg.Spread, "weapons sharing a damage source still differ");
     }

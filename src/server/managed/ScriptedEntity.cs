@@ -1224,6 +1224,19 @@ public abstract class ScriptedEntity
     public virtual bool OnInput(string name, string value, float number, EntityHandle activator) => false;
 
     /// <summary>
+    /// Back to a fresh round, WITHOUT being rebuilt from the map string. The
+    /// round reset (tf2 stage 0.7) walks the live entities and calls this
+    /// instead of stock's <c>CleanUpMap</c>, which respawns the map from its
+    /// entity string: managed state no map string ever held — a logic_case's
+    /// own counters, a mode's own bookkeeping — survives a rebuild only by
+    /// accident and must be cleared on purpose. The no-op default is the
+    /// answer for an entity with no per-round state, which is most of them;
+    /// opting in is per class, and the walk's own divergence row is in
+    /// docs/divergences.md.
+    /// </summary>
+    public virtual void RoundReset() { }
+
+    /// <summary>
     /// A player walked into this entity. Only item entities are triggers, so
     /// only they ever see this — and they see it every tick the player stands
     /// inside, which a pickup must account for rather than assume one call.
@@ -1424,9 +1437,17 @@ public abstract class ScriptedEntity
     /// surface could do is fall down all at once. Both are zero for damage with
     /// no place — a trigger_hurt hurts all of you at once.
     /// </para>
+    ///
+    /// <para>
+    /// <paramref name="hitGroup"/> is the studio hitbox group a bullet's trace
+    /// stopped on (stock's <c>tr.hitgroup</c>, which <c>TraceAttack</c> reads),
+    /// carried by <see cref="DamageHitGroups"/>; <see cref="HitGroup.Generic"/>
+    /// for anything that was not a traced shot. What a head is worth is the
+    /// victim's rule.
+    /// </para>
     /// </summary>
     public virtual int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
-                                   Vector position, Vector force)
+                                   Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
         => OnDamaged(attacker, damage, damageType);
 
     /// <summary>
@@ -3563,17 +3584,23 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         return true;
     }
 
-    /// <summary>Routes damage, and reports how much the entity accepted.</summary>
+    /// <summary>
+    /// Routes damage, and reports how much the entity accepted.
+    /// <paramref name="hitGroup"/> is the open <see cref="DamageHitGroups"/>
+    /// scope's, which the op does not carry: Generic for damage with no trace.
+    /// </summary>
     public int Damaged(EntityHandle handle, EntityHandle attacker, float damage, int damageType,
-                       Vector position = default, Vector force = default)
-        => Damaged(Resolve(handle), attacker, damage, damageType, position, force);
+                       Vector position = default, Vector force = default,
+                       HitGroup hitGroup = HitGroup.Generic)
+        => Damaged(Resolve(handle), attacker, damage, damageType, position, force, hitGroup);
 
-    /// <inheritdoc cref="Damaged(EntityHandle, EntityHandle, float, int, Vector, Vector)"/>
+    /// <inheritdoc cref="Damaged(EntityHandle, EntityHandle, float, int, Vector, Vector, HitGroup)"/>
     public int Damaged(in EntityRef entity, EntityHandle attacker, float damage, int damageType,
-                       Vector position = default, Vector force = default)
+                       Vector position = default, Vector force = default,
+                       HitGroup hitGroup = HitGroup.Generic)
         // The one place the engine's raw DMG_ word becomes typed. Native hands
         // it over as an int and every managed reader wants the domain.
-        => entity.Entity?.OnDamagedAt(attacker, damage, (DamageType)damageType, position, force) ?? 0;
+        => entity.Entity?.OnDamagedAt(attacker, damage, (DamageType)damageType, position, force, hitGroup) ?? 0;
 
     /// <summary>Routes an entity's health reaching zero.</summary>
     public bool Killed(EntityHandle handle, EntityHandle attacker)

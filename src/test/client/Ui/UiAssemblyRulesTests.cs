@@ -27,7 +27,10 @@ public class UiAssemblyRulesTests
     [Fact]
     public void The_ui_assemblies_reference_only_the_runtime_and_the_ui_contract()
     {
-        foreach (var asm in new[] { typeof(UiFrame).Assembly, typeof(ScreensAssembly).Assembly })
+        // The core's two, every game UI assembly the preview lists, and the
+        // facts' own mod UI assembly (stage 0.9): what a mod's client_ui holds
+        // is held to the core's rule.
+        foreach (var asm in PreviewRun.ScreenAssemblies().Append(typeof(ModUi.ModProbe).Assembly))
         {
             var refs = asm.GetReferencedAssemblies();
             Assert.Contains(refs, r => r.Name == "SourceSharp.Client.Interface");   // the scan sees references
@@ -51,8 +54,13 @@ public class UiAssemblyRulesTests
         return screens.Where(t => !sampled.Contains(t)).Select(t => t.Name).ToList();
     }
 
+    /// <summary>
+    /// Every screen the game would place from a screen assembly the preview
+    /// draws (the core's, and each listed game UI assembly), by the game's own
+    /// discovery (stage 0.9): what the game shows, the preview has drawn.
+    /// </summary>
     private static IEnumerable<Type> Screens()
-        => typeof(ScreensAssembly).Assembly.GetTypes().Where(t => !t.IsAbstract && typeof(UiScreen).IsAssignableFrom(t));
+        => UiScreens.Discover([.. PreviewRun.ScreenAssemblies().Where(a => a != typeof(UiScreen).Assembly)]);
 
     [Fact]
     public void Every_screen_has_a_sample()

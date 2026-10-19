@@ -79,7 +79,7 @@ public class WeaponSelectionTests
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
 
         var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine);
+                                  engine, engine, registry, engine, new DamageHitGroups());
 
         return (arsenal, engine, world);
     }

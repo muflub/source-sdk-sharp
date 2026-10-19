@@ -623,7 +623,7 @@ jobs:
       # step would otherwise sit silent until the job's timeout (one did, for
       # 20 minutes, with nothing in the log; the slowest fact takes about
       # 30 s). Python writes CRLF to a pipe on Windows, hence the tr.
-      - name: "Test (managed, server, client, tf2_descent: ${{ matrix.tier }} tier)"
+      - name: "Test (managed, server, client, tf2_descent, tf2: ${{ matrix.tier }} tier)"
         env:
           DOTNET: dotnet
           SS_DOTNET_TEST_ARGS: --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none

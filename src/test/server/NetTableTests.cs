@@ -1010,11 +1010,16 @@ public partial class NetTableTests
         //
         // 408 since the scoreboard's ping (plan_client_ui U3): player_manager's
         // seventh run, 34 shorts, took the greediest declaration from 340 to 408
-        // past the block, 844 -> 912, and this number with it. It is the
-        // ceiling check only (Part 18): every other class is sized to its own
-        // tier and did not move, and player_manager stays on 1024 (below).
-        Assert.True(blob == EngineBlock.SizeBytes + 408, $"the hierarchy's declared blob is 408 bytes past the engine block ({blob})");
-        Assert.Equal(912, blob);
+        // past the block, 844 -> 912, and this number with it. It is the ceiling
+        // check only (Part 18): every other class is sized to its own tier and
+        // did not move, and player_manager stays on 1024 (below).
+        //
+        // 472 since the team totals (tf2 stage 0.7 part C): TeamScore is
+        // EngineLimits.MaxTeams = 32 shorts, 64 bytes, the eighth run, and it
+        // took the declaration 912 -> 976 — still under the 1024 tier, so
+        // player_manager's wire block is unchanged and no other class moved.
+        Assert.True(blob == EngineBlock.SizeBytes + 472, $"the hierarchy's declared blob is 472 bytes past the engine block ({blob})");
+        Assert.Equal(976, blob);
 
         // The greediest classes, BY NAME. A max with no name would still pass
         // with color_correction back at 276 — it is WHICH class sets the number
@@ -1032,7 +1037,7 @@ public partial class NetTableTests
         // have doubled the payload props of all of them; the landings assertion
         // at the bottom is what says it no longer does. What the number above
         // still decides is the CEILING CHECK — a declaration past the largest
-        // tier is a class that cannot be networked at all — and 340 is
+        // tier is a class that cannot be networked at all — and 472 is
         // comfortably inside 2,048.
         var greediest = all.OrderByDescending(s => s.Size).First();
 
@@ -1041,7 +1046,7 @@ public partial class NetTableTests
                           .OrderBy(n => n)
                           .ToArray();
 
-        Assert.True(greediest.Size == Block + 408
+        Assert.True(greediest.Size == Block + 472
               && atTheTop.SequenceEqual(new[] { "player_manager" }),
             $"player_manager is the greediest declaration ({string.Join(", ", atTheTop)} at {greediest.Size})");
 
@@ -1097,13 +1102,15 @@ public partial class NetTableTests
 
         Assert.True(tiers.Ceiling(Size("func_lod")) < tiers.Ceiling(greediest.Size), "a four-byte class is carried on a smaller tier than the greediest one");
 
-        // THE PING PAYS ONLY ITS OWN ENTITY (plan_client_ui U3). player_manager's
-        // seventh run is 68 bytes on player_manager alone: 844 -> 912, both on the
-        // 1024 tier, so not even its own entity changes tier; no other class's
-        // size depends on it (each is its own declaration since Part 18).
-        Assert.True(Size("player_manager") == Block + 408, $"player_manager is {Size("player_manager")}");
+        // THE PING PAYS ONLY ITS OWN ENTITY (plan_client_ui U3), and so does
+        // the team-total run (tf2 stage 0.7 part C): player_manager's eighth
+        // run is 64 more bytes on player_manager alone — 844 -> 912 -> 976,
+        // all three on the 1024 tier, so not even its own entity changes tier;
+        // no other class's size depends on either (each is its own declaration
+        // since Part 18).
+        Assert.True(Size("player_manager") == Block + 472, $"player_manager is {Size("player_manager")}");
         Assert.True(tiers.Ceiling(Block + 340) == 1024 && tiers.Ceiling(Size("player_manager")) == 1024,
-            "player_manager is on the 1024 tier before the ping and after it");
+            "player_manager is on the 1024 tier before the ping, after it, and after the team totals");
     }
 
     /// <summary>

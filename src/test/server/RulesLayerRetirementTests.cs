@@ -276,7 +276,9 @@ public class RulesLayerSurveyTests
     // The rules native still asks. Native's link is the managed-built
     // IManagedClients since plan_engineapi_vtables E10 (the struct's slots were
     // removed at E-last); CanTakeDamage left the list then, having no native
-    // caller to ask it.
+    // caller. It is asked on the managed side instead: SsPlayer.OnDamaged asks
+    // IGameRules.CanTakeDamage for every hit, stock's FPlayerCanTakeDamage
+    // from CBasePlayer::OnTakeDamage (tf2 0.7 fix; PlayerDamageRulesTests).
     private static readonly string[] SlottedAtEveryLink =
     {
         "OnPlayerSpawned",

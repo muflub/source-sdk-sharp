@@ -27,26 +27,47 @@ public sealed class UiComposition : IUiRuntimeFactory
 public static class ClientUi
 {
     /// <summary>
-    /// The mod's language file and theme override, under its game directory.
-    /// Read from disk: the engine's file reads are the server's slots only.
+    /// The mod's own language file and theme override, under its game
+    /// directory, read from disk. The mod's other language files
+    /// (<see cref="GameLanguage"/>) come through the engine's filesystem.
     /// </summary>
     public const string LanguageFile = "resource/mod_sharp_english.txt", ThemeFile = "resource/ui-theme.yaml";
 
     /// <summary>
-    /// The UI's copy: the mod's language file first (it may override any core
-    /// string and adds its own), then the core's #SS_UI_ strings, embedded in
-    /// the toolkit, so a mod with no file (tf2_descent) still has them.
+    /// The UI's copy, first file wins: the mod's language file on disk (it may
+    /// override any core string and adds its own), then the files mods.yaml
+    /// lists (<c>localisation</c>, engine GAME paths, so a VPK-mounted
+    /// <c>resource/tf_english.txt</c> counts), then the core's #SS_UI_ strings,
+    /// embedded in the toolkit, so a mod with no file (tf2_descent) still has
+    /// them. GameUiLocaliser asks the engine for whatever this lacks.
     /// </summary>
-    public static UiLanguageFile Language(string gameDir, ILog log)
+    public static UiLanguageFile Language(string gameDir, ILog log, IEngineFiles? files, IReadOnlyList<string> gameFiles)
     {
-        var core = UiLanguageFile.Core();
+        var chain = new List<UiLanguageFile>();
         string languagePath = Path.Combine(gameDir, LanguageFile);
-        if (!File.Exists(languagePath))
-        {
-            log.Msg($"[SourceSharp/Ui] no {languagePath}: the core's UI strings only\n");
-            return core;
-        }
-        return UiLanguageFile.Chain(UiLanguageFile.Load(languagePath), core);
+        if (File.Exists(languagePath))
+            chain.Add(UiLanguageFile.Load(languagePath));
+        else
+            log.Msg($"[SourceSharp/Ui] no {languagePath}: the mod's own UI strings are none\n");
+        foreach (string path in gameFiles)
+            if (GameLanguage(files, path, log) is { } file)
+                chain.Add(file);
+        chain.Add(UiLanguageFile.Core());
+        return UiLanguageFile.Chain([.. chain]);
+    }
+
+    /// <summary>
+    /// A language file on the engine's GAME search paths (a loose file or one
+    /// in a mounted VPK), through <see cref="IEngineFiles.ReadGameFileBytes"/>
+    /// (the FilesReadGameFile slot): bytes, since the file is UTF-16. Null,
+    /// said in the log, when no path holds it or there is no engine to ask.
+    /// </summary>
+    public static UiLanguageFile? GameLanguage(IEngineFiles? files, string path, ILog log)
+    {
+        if (files?.ReadGameFileBytes(path) is { } bytes)
+            return UiLanguageFile.Parse(bytes);
+        log.Warning($"[SourceSharp/Ui] {path} (mods.yaml localisation) is on no GAME path: its tokens fall to the engine\n");
+        return null;
     }
 
     public static UiHost Build(ServiceContainer services, ILog log, Hud hud, HudMessages messages, HudHints hints,
@@ -71,7 +92,7 @@ public static class ClientUi
         if (File.Exists(themePath))
             UiThemeFile.Apply(theme, File.ReadAllText(themePath));
 
-        var language = Language(mod.GameDir, log);
+        var language = Language(mod.GameDir, log, services.Resolve<IEngineFiles>(), mod.Localisation);
 
         var localiser = new GameUiLocaliser(language, screen);
 
@@ -85,6 +106,11 @@ public static class ClientUi
         var names = new WeaponNames(c => scripts.ReadScript(c)?.PrintName, localiser.Find);
         var standalones = services.Require<IClientStandalones>();
         var player = new LocalPlayerUi(screen, arsenal, hud, standalones, names, services.Resolve<ViewReadout>());
+
+        // THE MOD'S SCREENS (stage 0.9): every UiScreen in its UI assemblies,
+        // built through the container, after the core's on the layer each names.
+        var windows = new UiWindows(new MemoryWindowStore());
+        var modScreens = UiModScreens.Build(services, UiModScreens.Assemblies(mod.UiAssemblies), windows);
 
         // THE HUD LAYER: its own context, so the menu's hit-testing never reads the HUD's frame.
         var hudScreen = new Ui.Screens.Hud(player, new VitalsPanel(player, player), new AmmoPanel(player, player),
@@ -102,7 +128,6 @@ public static class ClientUi
         UiScreen[] hudScreens = services.Resolve<IViewCameraSource>() is { } camera
             ? [hudScreen, centre, chat, overlayText, spec, specTarget, new ViewCameraHud(camera)]
             : [hudScreen, centre, chat, overlayText, spec, specTarget];
-        var hudLayer = new UiLayer(hudScreens, new UiContext(theme, backend, localiser, []), backend);
 
         // THE MENU LAYER (plan_client_ui U3): the screens the server, the binds
         // and cs_ui_open show, and the windows they live in, which a reload carries.
@@ -119,8 +144,7 @@ public static class ClientUi
         // just mirrors the typed lines, the pre-capture behaviour.
         var console = new ConsoleUi(engine, services.Resolve<ConsoleLines>());
         var browser = new ServerBrowserUi();
-        var windows = new UiWindows(new MemoryWindowStore());
-        UiScreen[] menus =
+        UiScreen[] menuScreens =
         [
             new Ui.Screens.Scoreboard(scores, new TeamTable(scores)),
             new TeamMenu(teams, new TeamCard(), teams),
@@ -134,7 +158,9 @@ public static class ClientUi
             new ChatInput(services.Require<IChatInputSource>()),
             new Ui.Screens.LoadingDisc(services.Require<ILoadingDiscSource>()),
         ];
-        var menuLayer = new UiLayer(menus, new UiContext(theme, backend, localiser, []), backend, windows);
+        var (hudPlaced, menuPlaced) = UiModScreens.Place(hudScreens, menuScreens, modScreens);
+        var hudLayer = new UiLayer(hudPlaced, new UiContext(theme, backend, localiser, []), backend);
+        var menuLayer = new UiLayer(menuPlaced, new UiContext(theme, backend, localiser, []), backend, windows);
 
         return new UiHost(log, services.Require<IGameClock>(), hudLayer, menuLayer, backend, services.Require<IUiSurface>(),
                           player, messages, build, scale, new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>()))

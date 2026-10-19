@@ -98,8 +98,8 @@ public class PlayerUserMessagesOracleTests
         Assert.Equal(2, Regex.Matches(kit, @"UserMessageBegin\(\s*user,\s*""ItemPickup""\s*\);\s*WRITE_STRING\(\s*GetClassname\(\)\s*\);").Count);
 
         // CAmmoDef counts from 1 ("Client assumes zero is an invalid ammo type"):
-        // AmmoTypes.WireIndex's base.
+        // AmmoCatalog.WireIndex's base.
         Assert.Matches(@"CAmmoDef::CAmmoDef\(void\)\s*\{[^}]*m_nAmmoIndex\s*=\s*1;", ValveSdk.Read("src/game/shared/ammodef.cpp"));
-        Assert.Equal(1, AmmoTypes.WireIndex(AmmoTypes.All[0].Name));
+        Assert.Equal(1, AmmoCatalog.Stock().WireIndex(AmmoTypes.All[0].Name));
     }
 }

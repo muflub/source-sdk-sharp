@@ -48,6 +48,10 @@
          DescentUiSourceUseTests can name their interfaces; each listed game
          adds its reference here (docs/plans/descent_ui.md §4). -->
     <ProjectReference Include="..\..\tf2_descent\ui\TF2.Descent.Client.Ui.csproj" />
+    <!-- A mod UI assembly of the facts' own (stage 0.9): its sources are its
+         project's, not this one's. -->
+    <ProjectReference Include="Ui\ModUi\SourceSharp.Tests.ModUi.csproj" />
+    <Compile Remove="Ui\ModUi\**" />
     <ProjectReference Include="..\..\debug_api_client\Debug.Api.Client.csproj" />
     <ProjectReference Include="..\..\debug_api_shared\Debug.Api.Shared.csproj" />
     <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />

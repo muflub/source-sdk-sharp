@@ -831,6 +831,20 @@ public class FrameLifecycleTests
         // FIRST, before the sound controller, so it is numbered below every
         // other OnPreClientUpdate participant.
         (typeof(PhysicsSoundBatch), 650),
+
+        // tf2 stage 0.7 (U1): the mode proxy's warmup, TWO HUNDRED FIFTY —
+        // before Rules at 300, because when the warmup ends the round starts,
+        // and the win check of a round that has not started must not run in
+        // that frame. Inserted in the spacing's own gap (between Arsenal 200
+        // and Rules 300), so none of the five recorded participants moved.
+        (typeof(GameModes), 250),
+
+        // tf2 stage 0.7 (D9/D10): the per-player composite's tick, FOUR
+        // HUNDRED FIFTY — after the death cycle at 400, because a component
+        // reads the frame's death outcome rather than the other way round.
+        // Inserted in the spacing's own gap (400/500); the recorded
+        // participants keep their numbers.
+        (typeof(PlayerComposites), 450),
     };
 
     [Fact]

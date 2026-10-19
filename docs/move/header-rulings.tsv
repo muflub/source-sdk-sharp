@@ -318,7 +318,6 @@ src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientWorldFog.cs	no	wires
 src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientWorldState.cs	no	unpacks shadow_control blob and hands to subsystem, no computation
 src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientWorldText.cs	no	hands eight values to native C_PointWorldText, draws nothing
 src/sourcesharp/managed/SourceSharp.Client/Standalone/MirrorCheckCommand.cs	no	own diagnostic struct/tool for mirror comparisons
-src/sourcesharp/managed/SourceSharp.Client/Standalone/PlayerAnimation.cs	yes	ports CBasePlayerAnimState (base_playeranimstate.cpp) speed/rate constants and clamp
 src/sourcesharp/managed/SourceSharp.Client/TempEnts/ClientEntityDecal.cs	yes	ports c_te_decal.cpp AddDecal four-outcome behaviour
 src/sourcesharp/managed/SourceSharp.Client/TempEnts/ClientTeArmorRicochet.cs	yes	ports c_te_armorricochet.cpp C_TEArmorRicochet::PostDataUpdate
 src/sourcesharp/managed/SourceSharp.Client/TempEnts/ClientTeBeamEntPoint.cs	yes	ports c_te_beamentpoint.cpp PostDataUpdate
@@ -1028,7 +1027,6 @@ src/sourcesharp/managed/SourceSharp.Tests/PhysicsShellContractTests.cs	no	own re
 src/sourcesharp/managed/SourceSharp.Tests/PhysicsWakeSleepTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/PlasmaRingTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/PlasmaScaleRampTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
-src/sourcesharp/managed/SourceSharp.Tests/PlayerAnimationTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/PlayerAnimatorTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/PlayerCheatCommandTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/PlayerCommandTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file

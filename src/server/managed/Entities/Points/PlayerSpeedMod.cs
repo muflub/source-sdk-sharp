@@ -23,8 +23,8 @@ namespace SourceSharp.Server;
 ///
 /// <para>
 /// The speed itself is the one thing that could not be a movement rule.
-/// <c>Movement.MaxSpeedScale</c> is the obvious home for it and will not do: it
-/// runs on the client too, once for every command the server has not
+/// <c>IMovementRules.MaxSpeedScale</c> is the obvious home for it and will not
+/// do: it runs on the client too, once for every command the server has not
 /// acknowledged, so a per-player factor only the server knows about makes the
 /// two sides disagree about where the player is and the player is dragged
 /// backwards. The engine's lagged-movement value is NETWORKED, which is exactly

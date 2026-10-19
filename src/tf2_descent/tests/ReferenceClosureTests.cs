@@ -62,7 +62,7 @@ public sealed class ReferenceClosureTests
         var refs = References(assembly);
 
         Assert.Empty(HostReferences(assembly));
-        Assert.DoesNotContain(refs, r => r.StartsWith("TF2Descent", StringComparison.Ordinal));
+        Assert.DoesNotContain(refs, r => r.StartsWith("TF2.Descent", StringComparison.Ordinal));
     }
 }
 

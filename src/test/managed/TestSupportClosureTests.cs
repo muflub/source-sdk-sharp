@@ -21,6 +21,7 @@ public class TestSupportClosureTests
         "src/test/client/SourceSharp.Client.Tests.csproj",
         "src/test/oracle/managed/SourceSharp.OracleTests.csproj",
         "src/tf2_descent/tests/TF2.Descent.Tests.csproj",
+        "src/tf2/tests/TF2.Tests.csproj",
     ];
 
     private static string Relative(string path) =>

@@ -83,7 +83,7 @@ public class ClientDirectoryRoutingTests
 
         weapon.State.BindLocal();
         weapon.State.OwnerIndex = owner;
-        weapon.State.WeaponTypeId = WeaponTypes.IndexOf(EntityNames.WeaponPistol);
+        weapon.State.WeaponTypeId = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponPistol);
         weapon.State.Clip = 12;
         weapon.State.Reserve = 30;
 

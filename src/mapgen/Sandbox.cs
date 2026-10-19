@@ -1600,6 +1600,14 @@ public static class Sandbox
         // ended the round would be a practical joke, not a demonstration.
         site.Ent(EntityNames.GameEnd, "end", new(0f, -128f, 16f));
 
+        // The mode switch (tf2 stage 0.7): a mapper wires anything to its
+        // SwitchTo <id> input and the map changes the game's mode at runtime.
+        // Placed with no wiring and no target id, on game_end's argument: a
+        // map may legally hold one, and a reset button that switched the
+        // whole server's game mode would be a practical joke, not a demo.
+        // The switch itself is GameModes.SwitchTo's, tested in C#.
+        site.Ent(EntityNames.GameModeSwitch, "modeswitch", new(-96f, -128f, 16f));
+
         // The budget a map hands out for bodies, and the only game_ rule here
         // with nothing to look at: this mod has no ragdolls, so the number is
         // held and never spent. It is placed rather than left out because a map

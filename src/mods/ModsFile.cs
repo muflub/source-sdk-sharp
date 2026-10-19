@@ -33,6 +33,15 @@ public sealed class ModEntry
     public EngineEntry? Engine { get; set; }
     public AssembliesEntry? Assemblies { get; set; }
 
+    /// <summary>
+    /// Extra language files the UI's localiser asks after the mod's own
+    /// on-disk <c>resource/mod_sharp_english.txt</c> and before the engine's
+    /// tables, in first-wins order. The paths are engine <c>GAME</c> search
+    /// paths (<c>resource/tf_english.txt</c>), so a file mounted in a VPK is
+    /// as reachable as a loose one.
+    /// </summary>
+    public List<string>? Localisation { get; set; }
+
     public string? ManagedDir { get; set; }
 
     /// <summary>The hosted server-browser entry (host plan_steam_auth S-18); only a hosted mod has one.</summary>
@@ -111,6 +120,16 @@ public sealed class AssembliesEntry
 {
     public List<string>? Server { get; set; }
     public List<string>? Client { get; set; }
+
+    /// <summary>
+    /// The mod's own UI assemblies (<c>TF2.Client.Ui</c>): the core's UiLoader
+    /// loads them into the UI's collectible context after the three core UI
+    /// assemblies, and the UI host composes their <c>UiScreen</c>s. Defaults to
+    /// none; a UI assembly sits in the mod's managed directory and may
+    /// reference only the toolkit and <c>SourceSharp.Client.Interface</c>
+    /// (UiAssemblyRulesTests). Lists replace, as the side lists do.
+    /// </summary>
+    public List<string>? ClientUi { get; set; }
 }
 
 [YamlStaticContext]

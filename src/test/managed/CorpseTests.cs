@@ -626,9 +626,19 @@ public class CorpseTests
         engine.Returns("EntityRender.LookupPoseParameter", -1);
         engine.Returns("Entities.GetAngles", Vector.Zero);
 
-        var player = new ClientSsPlayer(engine) { Handle = new EntityHandle(7u) };
+        // The player's body is driven by the shared machine (phase 0.10), so
+        // the reads the host's EngineAnimTarget needs are stubbed the same
+        // way PlayerAnimatorTests stubs them: a model worn, not dormant, no
+        // dials, and no viewer (the eyes are the body).
+        engine.Returns("EntityRender.GetModelName", "models/humans/group03/male_01.mdl");
+        engine.Returns("EntityRender.IsDormant", false);
+        engine.Returns("EntityRender.GetPoseParameter", 0f);
+        engine.Returns("Hud.LocalPlayerIndex", 0);
+
+        var player = new ClientSsPlayer(engine, clock: engine, screen: engine) { Handle = new EntityHandle(7u) };
         player.BindEngine(engine, engine);
         player.State.BindLocal();
+        player.State.Alive = true;                    // stock's Update gate
 
         // The player is mid-stride: the animator resolves and remembers a
         // sequence, and that is the one the body must take.
@@ -679,9 +689,18 @@ public class CorpseTests
         engine.Returns("EntityRender.LookupPoseParameter", -1);
         engine.Returns("Entities.GetAngles", Vector.Zero);
 
-        var player = new ClientSsPlayer(engine) { Handle = new EntityHandle(0x0003_8007u) };
+        // As in the sibling fact: the body's pose now comes from the shared
+        // machine, so the host's reads are stubbed and the composition's
+        // clock is the fake itself.
+        engine.Returns("EntityRender.GetModelName", "models/humans/group03/male_01.mdl");
+        engine.Returns("EntityRender.IsDormant", false);
+        engine.Returns("EntityRender.GetPoseParameter", 0f);
+        engine.Returns("Hud.LocalPlayerIndex", 0);
+
+        var player = new ClientSsPlayer(engine, clock: engine, screen: engine) { Handle = new EntityHandle(0x0003_8007u) };
         player.BindEngine(engine, engine);
         player.State.BindLocal();
+        player.State.Alive = true;
         player.State.Velocity = new Vector(200f, 0f, 0f);
         player.State.MaxSpeed = 200f;
         player.State.Flags = ClientSsPlayer.OnGroundFlag;

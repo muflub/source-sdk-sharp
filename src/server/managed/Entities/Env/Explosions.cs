@@ -28,8 +28,18 @@ namespace SourceSharp.Server;
 /// code uses and which creates nothing at all. A grenade no longer spawns and
 /// destroys an entity per bang.
 /// </para>
+///
+/// <para>
+/// The class is PUBLIC because <see cref="Fire"/> is a mod's door: Phase 0.4's
+/// rule is that a mod is not a test, so a behaviour's projectile that goes off
+/// reaches the one blast the core owns through this API rather than through
+/// <c>InternalsVisibleTo</c>. <c>Setup</c> and <c>Detonate</c> stay internal:
+/// they are <see cref="EnvExplosion"/>'s own think path's business, and a
+/// second door for code-made blasts is exactly the drift this file exists to
+/// prevent.
+/// </para>
 /// </summary>
-internal static class Explosions
+public static class Explosions
 {
     /// <summary>
     /// Everything one explosion is, gathered so the two doors into
@@ -170,13 +180,20 @@ internal static class Explosions
     /// The code door: what <c>ExplosionCreate</c> was, without the entity.
     ///
     /// <para>
+    /// Public API, not <c>InternalsVisibleTo</c>: a mod's projectile that goes
+    /// off is a mod, not a test, and its blast has to go through the one blast
+    /// the core owns (the falloff, the line of sight, the scorch decals) rather
+    /// than reimplement one that will drift.
+    /// </para>
+    ///
+    /// <para>
     /// The render mode is <see cref="RenderMode.TransAdd"/> because that is what
     /// ExplosionCreate set on the entity it built, and it is why a code-made
     /// explosion looks different from a bare map-placed one — see
     /// <see cref="EnvExplosion.EffectFlags"/>.
     /// </para>
     /// </summary>
-    internal static void Fire(IEngineWorldQuery world, IEngineEffects effects,
+    public static void Fire(IEngineWorldQuery world, IEngineEffects effects,
                               IEngineDamage damage, IEnginePrecache precache, IEngineHost host,
                               IBlastSweep blast, IServerDecals decals,
                               Vector origin, float magnitude, float radius,

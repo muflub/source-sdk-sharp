@@ -230,7 +230,7 @@ public sealed class PhysicsCannister : ScriptedEntity
     /// veers away from the shooter exactly as stock's does.
     /// </summary>
     public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
-                                    Vector position, Vector force)
+                                    Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
     {
         // An explosion is NOT a located hit, however good a position it comes
         // with. Stock reaches TraceAttack only down the bullet and melee path,

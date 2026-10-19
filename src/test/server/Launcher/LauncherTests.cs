@@ -771,6 +771,63 @@ public sealed class LauncherTests : IDisposable
     }
 
     [Fact]
+    public void An_instance_mirrors_the_sibling_mod_dirs_so_relative_gameinfo_mounts_resolve()
+    {
+        // TF2's gameinfo mounts `|gameinfo_path|../test` and
+        // `../../content/tf`; relocated into <root>/<mod>, those paths leave
+        // the mirror unless its neighbourhood is mirrored too.
+        SeedSharedMod();
+        string sibling = Path.Combine(_game, "mods", "tf2");
+        Directory.CreateDirectory(sibling);
+        File.WriteAllText(Path.Combine(sibling, "gameinfo.txt"), "\"GameInfo\" {}\n");
+        Directory.CreateDirectory(Path.Combine(_game, "content", "tf"));
+        File.WriteAllText(Path.Combine(_game, "content", "tf", "tf2_misc_dir.vpk"), "x");
+
+        FakeRunner runner = null!;
+        runner = new FakeRunner(0)
+        {
+            // The instance dir is removed when the game exits, so the mirror
+            // is inspected while the (fake) game is "up": ../tf2 from the
+            // mirrored test dir must reach the sibling mod dir, and
+            // ../../content from it the game dir's content.
+            OnRun = (_, _) =>
+            {
+                string gameDir = GameDirOf(runner.Runs[^1].Args);        // <root>/<pid>/test
+                string tf2ViaRelative = Path.GetFullPath(Path.Combine(gameDir, "..", "tf2"));
+                Assert.True(Directory.Exists(tf2ViaRelative), $"{tf2ViaRelative} does not exist");
+                Assert.Equal("\"GameInfo\" {}\n",
+                             File.ReadAllText(Path.Combine(tf2ViaRelative, "gameinfo.txt")));
+                string contentViaRelative = Path.GetFullPath(Path.Combine(gameDir, "..", "..", "content"));
+                Assert.True(Directory.Exists(contentViaRelative), $"{contentViaRelative} does not exist");
+                Assert.Equal("x", File.ReadAllText(Path.Combine(contentViaRelative, "tf", "tf2_misc_dir.vpk")));
+            },
+        };
+        Run(Found(), runner, TmpEnv(), "-instance");
+    }
+
+    [Fact]
+    public void An_instance_mirror_repairs_a_broken_content_link_and_never_touches_a_real_directory()
+    {
+        SeedSharedMod();
+        Directory.CreateDirectory(Path.Combine(_game, "content", "tf"));
+        string contentLink = Path.Combine(InstanceRoot, "content");
+
+        // a broken link left by a deleted tree is repaired
+        Directory.CreateDirectory(InstanceRoot);
+        File.CreateSymbolicLink(contentLink, Path.Combine(_root, "gone-tree", "content"));
+        Run(Found(), new FakeRunner(0), TmpEnv(), "-instance");
+        Assert.Equal(Path.Combine(_game, "content"),
+                     Path.GetFullPath(new FileInfo(contentLink).LinkTarget!));
+        File.Delete(contentLink);
+
+        // a real directory that is not ours is left alone
+        Directory.CreateDirectory(contentLink);
+        File.WriteAllText(Path.Combine(contentLink, "user.cfg"), "keep");
+        Run(Found(), new FakeRunner(0), TmpEnv(), "-instance");
+        Assert.Equal("keep", File.ReadAllText(Path.Combine(contentLink, "user.cfg")));
+    }
+
+    [Fact]
     public void A_stale_instance_of_a_dead_launcher_with_a_suffix_is_swept_at_start()
     {
         SeedSharedMod();

@@ -507,10 +507,11 @@ public static class MoveMath
     ///
     /// <para>
     /// <paramref name="friction"/> arrives ALREADY scaled — stock computes
-    /// <c>sv_friction * m_surfaceFriction</c> and then asks
-    /// <see cref="Movement.FrictionScale"/>, which is a managed decision that
-    /// already existed. Passing the finished number keeps this method's rule
-    /// (it touches only its arguments) and means the port REMOVES a boundary
+    /// <c>sv_friction * m_surfaceFriction</c> and then asks the side's
+    /// <see cref="SourceSharp.Shared.IMovementRules"/> hook (through the
+    /// resolved pack), which is a managed decision that already existed.
+    /// Passing the finished number keeps this method's rule (it touches only
+    /// its arguments) and means the port REMOVES a boundary
     /// crossing rather than adding one: the friction rule is now asked on the
     /// managed side of a call that was going to happen anyway.
     /// </para>

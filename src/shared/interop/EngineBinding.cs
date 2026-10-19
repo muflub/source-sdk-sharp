@@ -1006,6 +1006,7 @@ internal sealed class EnginePlayers : IEnginePlayers
     public void Respawn(EntityHandle player) => E.PlayerRespawn(player);
     public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f) => E.PlayerSetFov(player, requester, fov, rate);
     public void SetObserverMode(EntityHandle player, ObserverMode mode) => E.PlayerSetObserverMode(player, mode);
+    public void SetTeam(EntityHandle player, int team) => E.PlayerSetTeam(player, team);
     public void SetPickupEnabled(EntityHandle entity, bool enabled) => E.EntitySetPickupEnabled(entity, enabled);
     public void SetViewEntity(EntityHandle player, EntityHandle view) => E.PlayerSetViewEntity(player, view);
 

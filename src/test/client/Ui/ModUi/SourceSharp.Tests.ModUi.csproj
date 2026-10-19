@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A mod UI assembly for the facts (stage 0.9): one screen, the shape a mod's
+    assemblies.client_ui ships, referencing only the UI contract and the
+    toolkit (the rule UiAssemblyRulesTests holds). Never deployed: it builds
+    beside the client tests, which reference it, and is not in the game's
+    managed directory.
+  -->
+  <PropertyGroup>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/test-modui/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\client\ui\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,424 @@
+#!/usr/bin/env python3
+"""Read a Valve VPK (version 1 or 2) and extract named files. Stage 0.2.
+
+    tools/vpk-extract <dir.vpk> <path> [...] [-o OUTDIR]
+    tools/vpk-extract <dir.vpk> --list ['scripts/items/*']
+    tools/vpk-extract --self-test
+
+The install ships no vpk binary and python has no vpk module, and later
+stages' fixtures (class scripts, items_game.txt, weapon scripts) live inside
+`tf2_misc_dir.vpk` + its archives, so this reads the format directly. It is
+read-only: a VPK is never written.
+
+The tree is nested NUL-terminated levels -- extension, then path, then
+filename -- each file entry a fixed record, then its 0xFFFF terminator,
+then its preload bytes: the order every real reader uses (ValvePython
+unpacks "IHHIIH" per entry and reads the preload after it; Source2Wiki
+documents the same). Layouts are SNIFFED: a candidate walk must land
+exactly on treeStart+treeSize or the file is refused, never guessed at.
+Measured on all six dir packs on this machine (tf2's four, hl2's two):
+the tree sits right after the 28-byte standard header -- NOT at the
+header's headerLength, which is 48 on every one of them -- and each
+entry carries the older 16-byte record crc/preload16/archiveIndex16/
+offset32/length32 (tf2_misc_dir.vpk: 104,091 entries, the walk landing
+exactly at treeStart+treeSize, entries CRC-verifying against their
+archives). Every entry in every one of those packs stores preload_length
+0, where the canonical order and the wrong preload-first order are
+byte-identical -- no install file can adjudicate the order, so the
+published spec decides and the self-test adjudicates it: its
+negative-control arm writes a preload-bearing entry in the WRONG order
+and must be refused, so a reader regressed to accepting that order
+turns that check red. A mis-sliced preload cannot serve wrong bytes
+quietly either: read() CRCs preload and archive bytes together.
+
+archiveIndex names the sibling file `<base>_NNN.vpk` holding the bytes;
+the inline marker (no sibling; the bytes are entirely the entry's
+preload) is 0x7FFF as every real pack writes it and as ValvePython's
+reader tests, and 0xFFFFFFFF as the published v2 documents -- both
+normalise to inline.
+
+--self-test builds a tiny VPK in each accepted layout (two entries, one
+spanning the archive and one fully preloaded), the writer emitting only
+the published byte order, extracts back, compares bytes and CRC, and
+proves a corrupted archive, a truncated tree, the wrong-order file and an
+unmatched pattern are refused: an instrument that cannot fail is not
+evidence.
+"""
+
+import argparse
+import fnmatch
+import os
+import re
+import struct
+import sys
+import tempfile
+import zlib
+
+VPK_SIGNATURE = 0x55AA1234
+NO_ARCHIVE = 0xFFFFFFFF              # bytes are entirely the entry's preload
+INLINE_MARKERS = frozenset({0x7FFF, 0xFFFFFFFF, 0x8000})
+
+
+class VpkError(Exception):
+    pass
+
+
+class Entry:
+    __slots__ = ("crc", "preload", "archive_index", "offset", "length", "path")
+
+    def __init__(self, crc, preload, archive_index, offset, length, path):
+        self.crc = crc
+        self.preload = preload
+        self.archive_index = archive_index
+        self.offset = offset
+        self.length = length
+        self.path = path
+
+
+# A candidate: (name, min version, tree start, record fmt). Per entry, the
+# same order in every candidate: record, then the 0xFFFF terminator, then
+# the preload bytes -- the order every real reader uses (ValvePython reads
+# "IHHIIH" per entry, then the preload; Source2Wiki documents the same).
+# A file whose terminator sits after its preload fails the terminator
+# check and is REFUSED, never half-parsed; the self-test's negative-control
+# arm writes exactly that file and must see the refusal.
+LAYOUTS = [
+    # the shape all six dir packs on this machine carry (tf2's four, hl2's
+    # two): the tree right after the 28-byte standard header -- NOT at the
+    # header's headerLength, 48 on every one -- with the 16-byte record
+    # crc/preload16/archiveIndex16/offset32/length32. Measured at
+    # tf2_misc_dir.vpk: 104,091 entries, the walk ending exactly at
+    # treeStart+treeSize. A v2 file written with the v1 header still works
+    # through this candidate: the tree offset is what the walk must hit.
+    ("16B@28", 1, 28, "<IHHII"),
+    # the published v2 record (crc/preload16/archiveIndex32/offset64/
+    # length32) at the same tree start. Not seen in a file on this
+    # machine; the self-test's v2 arm is its only witness.
+    ("22B@28", 2, 28, "<IHIQI"),
+    # classic v1: tree right after the 12-byte header (sig/version/
+    # treeSize), per ValvePython's read_header. No v1 file here to
+    # measure; the published form is kept for the fixtures stages write.
+    ("16B@12", 1, 12, "<IHHII"),
+]
+
+
+class Vpk:
+    """One VPK directory file and the archives it names, opened lazily."""
+
+    def __init__(self, dir_path):
+        self.dir_path = os.fspath(dir_path)
+        self._archive_handles = {}
+        with open(self.dir_path, "rb") as f:
+            blob = f.read(64)
+            if len(blob) < 8:
+                raise VpkError(f"{self.dir_path}: too short for a VPK header")
+            sig, version = struct.unpack("<II", blob[:8])
+            if sig != VPK_SIGNATURE:
+                raise VpkError(f"{self.dir_path}: bad signature 0x{sig:08x}, "
+                               f"expected 0x{VPK_SIGNATURE:08x}")
+            if version not in (1, 2):
+                raise VpkError(f"{self.dir_path}: unsupported VPK version {version}")
+            self.version = version
+            f.seek(8)
+            raw = f.read(64)
+            if len(raw) < 4:
+                raise VpkError(f"{self.dir_path}: too short for the header fields")
+            fields = list(struct.unpack(f"<{len(raw) // 4}I", raw))
+            fields += [0] * (16 - len(fields))
+            tree_size = fields[0]        # the field right after version
+            chosen = None
+            for name, min_version, tree_start, fmt in LAYOUTS:
+                if self.version < min_version:
+                    continue
+                entries, end = self._try_tree(f, tree_start, tree_size, fmt)
+                if entries is not None and end == tree_start + tree_size:
+                    chosen = (name, entries)
+                    break
+            if chosen is None:
+                raise VpkError(f"{self.dir_path}: no known tree layout fits "
+                               f"(treeSize {tree_size}) -- refusing to guess")
+            self.layout, self.entries = chosen
+
+    @staticmethod
+    def _cstring(blob, pos):
+        z = blob.find(b"\0", pos)
+        if z < 0:
+            raise VpkError("unterminated string in the directory tree")
+        return blob[pos:z].decode("utf-8", "surrogateescape"), z + 1
+
+    def _try_tree(self, f, tree_start, tree_size, fmt):
+        """Walk one candidate layout; None if it desyncs or misses the end."""
+        f.seek(0)
+        blob = f.read(tree_start + tree_size + 8)
+        rec = struct.calcsize(fmt)
+        pos, end = tree_start, tree_start + tree_size
+        entries = {}
+        try:
+            while pos < end:
+                ext, pos = self._cstring(blob, pos)
+                if ext == "":
+                    break
+                while True:
+                    path, pos = self._cstring(blob, pos)
+                    if path == "":
+                        break
+                    while True:
+                        fname, pos = self._cstring(blob, pos)
+                        if fname == "":
+                            break
+                        if pos + rec + 2 > len(blob):
+                            return None, 0
+                        fields = struct.unpack(fmt, blob[pos:pos + rec])
+                        pos += rec
+                        crc, preload_length, archive_index = fields[0], fields[1], fields[2]
+                        offset, length = fields[3], fields[4]
+                        if struct.unpack("<H", blob[pos:pos + 2])[0] != 0xFFFF:
+                            return None, 0        # the entry's terminator
+                        pos += 2
+                        if archive_index in INLINE_MARKERS:
+                            archive_index = NO_ARCHIVE
+                        preload = blob[pos:pos + preload_length]
+                        pos += preload_length
+                        full = (f"{path}/{fname}.{ext}" if path else f"{fname}.{ext}")
+                        entries[full] = Entry(crc, preload, archive_index,
+                                              offset, length, full)
+        except (VpkError, IndexError):
+            return None, 0
+        # trailing alignment/terminator bytes are tolerated inside the tree
+        while pos < end and blob[pos:pos + 4] == b"\xff\xff\x00\x00":
+            pos += 4
+        return entries, pos
+
+    def read(self, entry):
+        data = bytes(entry.preload)
+        if entry.archive_index == NO_ARCHIVE:
+            if len(data) != entry.length:
+                raise VpkError(f"{entry.path}: preload is {len(data)} of {entry.length} bytes")
+        else:
+            base = os.path.splitext(os.path.basename(self.dir_path))[0]
+            m = re.match(r"(.*)_dir$", base)
+            if not m:
+                raise VpkError(f"{self.dir_path}: not a *_dir.vpk")
+            archive = os.path.join(os.path.dirname(self.dir_path),
+                                   f"{m.group(1)}_{entry.archive_index:03d}.vpk")
+            fh = self._archive_handles.get(archive)
+            if fh is None:
+                try:
+                    fh = open(archive, "rb")
+                except FileNotFoundError:
+                    raise VpkError(f"{entry.path}: archive {archive} is missing") from None
+                self._archive_handles[archive] = fh
+            fh.seek(entry.offset)
+            rest = fh.read(entry.length - len(data))
+            if len(rest) != entry.length - len(data):
+                raise VpkError(f"{entry.path}: short read from {archive}")
+            data += rest
+        if zlib.crc32(data) & 0xFFFFFFFF != entry.crc:
+            raise VpkError(f"{entry.path}: CRC mismatch (corrupt or truncated archive)")
+        return data
+
+    def close(self):
+        for fh in self._archive_handles.values():
+            fh.close()
+        self._archive_handles.clear()
+
+
+def _matching(vpk, patterns):
+    return sorted(n for n in vpk.entries
+                  if any(fnmatch.fnmatch(n, p) for p in patterns))
+
+
+def extract(dir_path, patterns, out_dir):
+    vpk = Vpk(dir_path)
+    try:
+        names = _matching(vpk, patterns)
+        if not names:
+            raise VpkError(f"no entry of {dir_path} matches {' '.join(patterns)} "
+                           f"(the tree holds {len(vpk.entries)} entries)")
+        written = []
+        for name in names:
+            data = vpk.read(vpk.entries[name])
+            dest = os.path.join(out_dir, name)
+            os.makedirs(os.path.dirname(dest) or out_dir, exist_ok=True)
+            with open(dest, "wb") as f:
+                f.write(data)
+            written.append(dest)
+        return written
+    finally:
+        vpk.close()
+
+
+def list_entries(dir_path, patterns):
+    vpk = Vpk(dir_path)
+    try:
+        names = _matching(vpk, patterns)
+        if not names:
+            raise VpkError(f"no entry of {dir_path} matches {' '.join(patterns)} "
+                           f"(the tree holds {len(vpk.entries)} entries)")
+        return names
+    finally:
+        vpk.close()
+
+
+# ---------------------------------------------------------------------------
+# self-test: build a tiny VPK in each accepted layout, read it back
+# ---------------------------------------------------------------------------
+
+def _cstr(s):
+    return s.encode("utf-8") + b"\0"
+
+
+def _tiny_vpk(tmp, base, layout):
+    """Writes <base>_dir.vpk + <base>_000.vpk into tmp holding two entries
+    under scripts/ (one spanning the archive, one fully preloaded), in the
+    named layout. The wire bytes are written here explicitly, in the
+    published order only -- record, 0xFFFF terminator, preload -- so the
+    reader is tested against what other tools write, not against this
+    file's own misreadings: a parser bug and a writer bug from one shared
+    builder could cancel out. The "wrong-order" arm writes the preload
+    before the terminator and exists to be refused."""
+    body = b"hello vpk\n"
+    preload_only = b"preloaded"
+    if layout == "16B@28":
+        version, tree_at, efmt, inline = 2, 28, "<IHHII", 0x7FFF
+    elif layout == "22B@28":
+        version, tree_at, efmt, inline = 2, 28, "<IHIQI", 0xFFFFFFFF
+    elif layout == "16B@12":
+        version, tree_at, efmt, inline = 1, 12, "<IHHII", 0x8000
+    elif layout == "16B@28-wrong-order":
+        version, tree_at, efmt, inline = 2, 28, "<IHHII", 0x7FFF
+    else:
+        raise AssertionError(layout)
+    marker = b"\xff\xff"
+
+    def entry(name, data, in_archive):
+        crc = zlib.crc32(data) & 0xFFFFFFFF
+        if in_archive:
+            rec = struct.pack(efmt, crc, 0, 0, 0, len(data))
+            return _cstr(name) + rec + marker
+        rec = struct.pack(efmt, crc, len(data), inline, 0, len(data))
+        if layout == "16B@28-wrong-order":
+            return _cstr(name) + rec + data + marker      # preload first
+        return _cstr(name) + rec + marker + data          # published order
+
+    tree_body = (_cstr("txt") + _cstr("scripts")
+                 + entry("a", body, in_archive=True)
+                 + entry("b", preload_only, in_archive=False)
+                 + b"\0\0")
+    if version == 1:
+        header = struct.pack("<3I", VPK_SIGNATURE, 1, len(tree_body))
+    else:
+        header = struct.pack("<7I", VPK_SIGNATURE, 2, len(tree_body), 0, 0, 48, 0)
+    assert len(header) == tree_at, (layout, len(header), tree_at)
+    with open(os.path.join(tmp, f"{base}_dir.vpk"), "wb") as f:
+        f.write(header + tree_body)
+    with open(os.path.join(tmp, f"{base}_000.vpk"), "wb") as f:
+        f.write(body)
+
+
+def self_test():
+    fails = 0
+
+    def check(name, cond, detail=""):
+        nonlocal fails
+        if cond:
+            print(f"  ok    {name} {('-- ' + detail) if detail else ''}")
+        else:
+            fails += 1
+            print(f"  FAIL  {name} {detail}")
+
+    for layout in ("16B@28", "22B@28", "16B@12"):
+        with tempfile.TemporaryDirectory() as tmp:
+            _tiny_vpk(tmp, "tiny", layout)
+            dirp = os.path.join(tmp, "tiny_dir.vpk")
+            want = {"scripts/a.txt": b"hello vpk\n", "scripts/b.txt": b"preloaded"}
+            try:
+                vpk = Vpk(dirp)
+                check(f"{layout}: the walk chose its own candidate",
+                      vpk.layout == layout, f"chose {vpk.layout}")
+                check(f"{layout}: two entries parsed", sorted(vpk.entries) == sorted(want),
+                      str(sorted(vpk.entries)))
+                check(f"{layout}: archive bytes + CRC",
+                      vpk.read(vpk.entries["scripts/a.txt"]) == want["scripts/a.txt"])
+                check(f"{layout}: preload bytes + CRC",
+                      vpk.read(vpk.entries["scripts/b.txt"]) == want["scripts/b.txt"])
+                # the refusal arm first proves the unpatched input was accepted
+                vpk.close()
+                with open(os.path.join(tmp, "tiny_000.vpk"), "r+b") as f:
+                    f.seek(0)
+                    f.write(b"X")
+                try:
+                    vpk2 = Vpk(dirp)
+                    vpk2.read(vpk2.entries["scripts/a.txt"])
+                    check(f"{layout}: a corrupted archive is refused", False)
+                except VpkError as e:
+                    check(f"{layout}: a corrupted archive is refused",
+                          "CRC mismatch" in str(e), str(e))
+                # a garbage tree (truncated) must be refused, not half-read
+                with open(dirp, "rb") as f:
+                    good = f.read()
+                with open(dirp, "wb") as f:
+                    f.write(good[:60])
+                try:
+                    Vpk(dirp)
+                    check(f"{layout}: a truncated tree is refused", False)
+                except VpkError:
+                    check(f"{layout}: a truncated tree is refused", True)
+            except VpkError as e:
+                check(f"{layout}: parses", False, str(e))
+
+    # the order the install cannot show (every pack there stores preload 0,
+    # where both orders are byte-identical): the same preload-bearing entry,
+    # written with the preload BEFORE the terminator, must be refused. The
+    # 16B@28 arm above is the positive pair: same bytes, published order,
+    # accepted.
+    with tempfile.TemporaryDirectory() as tmp:
+        _tiny_vpk(tmp, "tiny", "16B@28-wrong-order")
+        try:
+            Vpk(os.path.join(tmp, "tiny_dir.vpk"))
+            check("preload-before-terminator is refused", False)
+        except VpkError as e:
+            check("preload-before-terminator is refused",
+                  "no known tree layout fits" in str(e), str(e))
+
+    # an unmatched pattern is a failure, never an empty success
+    with tempfile.TemporaryDirectory() as tmp:
+        _tiny_vpk(tmp, "tiny", "16B@28")
+        try:
+            list_entries(os.path.join(tmp, "tiny_dir.vpk"), ["nope/*"])
+            check("an empty list is refused", False)
+        except VpkError as e:
+            check("an empty list is refused", "no entry" in str(e), str(e))
+
+    print(f"self-test: {fails} failed")
+    return 1 if fails else 0
+
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(prog="vpk-extract")
+    ap.add_argument("vpk", nargs="?")
+    ap.add_argument("paths", nargs="*")
+    ap.add_argument("-o", "--out", default=".")
+    ap.add_argument("--list", metavar="PATTERN", default=None)
+    ap.add_argument("--self-test", action="store_true")
+    args = ap.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+    if not args.vpk:
+        ap.error("a *_dir.vpk is required (or --self-test)")
+    patterns = [args.list] if args.list else args.paths
+    if not patterns:
+        ap.error("name the paths to extract, or --list PATTERN")
+    if args.list:
+        for n in list_entries(args.vpk, patterns):
+            print(n)
+        return 0
+    for dest in extract(args.vpk, patterns, args.out):
+        print(dest)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

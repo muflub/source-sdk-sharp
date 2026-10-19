@@ -126,6 +126,7 @@ public class OnSpawnFieldReloadTests
         services.AddInstance(new PvsCheckClient(registry, engine, engine));
         services.AddInstance<ITeFire>(
             new TeFire(log, new TempEntRegistry(log), engine, engine));
+        services.AddInstance(new DamageHitGroups());
         services.AddInstance(services.Create<Arsenal>());
         services.AddInstance<IPhysicsConversion>(new NoConversion());
 

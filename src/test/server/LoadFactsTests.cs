@@ -111,6 +111,76 @@ public sealed class LoadFactsTests
             Assert.Equal(2, SideFacts.ReadLoaded(p).Count);
     }
 
+    // ---- the mod's UI assemblies and language files (stage 0.9) ----
+
+    [Fact]
+    public void The_mods_ui_assemblies_and_language_files_reach_IModInfo_through_the_facts()
+    {
+        // mods.yaml's lists -> Bootstrap's WriteLoad -> the side's ParseLoad ->
+        // ModInfo.Publish's AppContext data -> what IModInfo answers. Order and
+        // spacing survive, which is the whole of what the UI loader reads.
+        byte[] block = LoadFacts.WriteLoad("/m", "tf2", "/g", [], [], null,
+                                           ["TF2.Client.Ui", "TF2.Descent.Client.Ui"],
+                                           ["resource/tf_english.txt", "resource/tf_items_english.txt"]);
+
+        SideFacts facts = SideFacts.ParseLoad(Text(block));
+        Assert.Equal(["TF2.Client.Ui", "TF2.Descent.Client.Ui"], facts.ModClientUiAssemblies);
+
+        var data = new Dictionary<string, object?>
+        {
+            [ModInfo.Keys.ClientUiAssemblies] = string.Join(';', facts.ModClientUiAssemblies),
+            [ModInfo.Keys.Localisation] = string.Join(';', facts.ModLocalisation),
+        };
+        var info = new ModInfo(k => data.GetValueOrDefault(k));
+        Assert.Equal(["TF2.Client.Ui", "TF2.Descent.Client.Ui"], info.UiAssemblies);
+        Assert.Equal(["resource/tf_english.txt", "resource/tf_items_english.txt"], info.Localisation);
+    }
+
+    [Fact]
+    public void A_mod_that_lists_neither_writes_empty_rows_and_the_side_reads_none()
+    {
+        // The empty answer is an empty list, not an absent key: Publish always
+        // sets both, so a reload of another mod cannot inherit this one's.
+        SideFacts facts = SideFacts.ParseLoad(Text(LoadBlock()));
+        Assert.Empty(facts.ModClientUiAssemblies);
+        Assert.Empty(facts.ModLocalisation);
+
+        var data = new Dictionary<string, object?>
+        {
+            [ModInfo.Keys.ClientUiAssemblies] = "",
+            [ModInfo.Keys.Localisation] = "",
+        };
+        var info = new ModInfo(k => data.GetValueOrDefault(k));
+        Assert.Empty(info.UiAssemblies);
+        Assert.Empty(info.Localisation);
+    }
+
+    [Fact]
+    public void A_load_block_from_a_Bootstrap_without_the_rows_reads_as_none_not_an_error()
+    {
+        // The reader's rule is "a missing or unknown key is refused", and these
+        // two are the exception the optionality is spelled by: a side loaded by
+        // a Bootstrap that predates stage 0.9 has the rows absent, and the mod
+        // simply has no UI assemblies.
+        string without = Encoding.UTF8.GetString(Text(LoadBlock()))
+            .Split('\n').Where(l => !l.StartsWith("client_ui_assemblies\t", StringComparison.Ordinal)
+                                  && !l.StartsWith("localisation\t", StringComparison.Ordinal))
+            .Aggregate((a, b) => a + "\n" + b);
+        SideFacts facts = SideFacts.ParseLoad(Encoding.UTF8.GetBytes(without));
+        Assert.Equal("tf2", facts.ModId);            // the block still parsed
+        Assert.Empty(facts.ModClientUiAssemblies);
+        Assert.Empty(facts.ModLocalisation);
+    }
+
+    [Fact]
+    public void An_unknown_fact_row_is_still_refused()
+    {
+        // The negative control on the arm above: only the two new keys joined
+        // the accepted set.
+        string text = Encoding.UTF8.GetString(Text(LoadBlock())) + "ui_assemblies\tTF2.Client.Ui\n";
+        Assert.Throws<FormatException>(() => SideFacts.ParseLoad(Encoding.UTF8.GetBytes(text)));
+    }
+
     [Fact]
     public void TheBootstrapsHashIsTheStampsHash()
     {

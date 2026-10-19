@@ -166,7 +166,7 @@ internal sealed unsafe class ShimAreas
     public int SurfacePropGameMaterial(int a0) { return WorldServer.Vt->SurfacePropGameMaterial(WorldServer.Self, a0); }
     public int TraceLine(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7) { return WorldServer.Vt->TraceLine(WorldServer.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public int TraceHull(float* a0, float* a1, float* a2, float* a3, int a4, uint a5, uint* a6, int* a7) { return WorldServer.Vt->TraceHull(WorldServer.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public int TraceLineSurface(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7, int* a8, int* a9) { return WorldServer.Vt->TraceLineSurface(WorldServer.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9); }
+    public int TraceLineSurface(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7, int* a8, int* a9, int* a10) { return WorldServer.Vt->TraceLineSurface(WorldServer.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
     public uint TracePlayerAim(uint a0, float a1, float* a2) { return WorldServer.Vt->TracePlayerAim(WorldServer.Self, a0, a1, a2); }
     public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { WorldServer.Vt->AngleVectorsFromForward(WorldServer.Self, a0, a1, a2); }
     public int WaterSurfaceBelow(float* a0, float* a1, int* a2) { return WorldServer.Vt->WaterSurfaceBelow(WorldServer.Self, a0, a1, a2); }
@@ -300,6 +300,7 @@ internal sealed unsafe class ShimAreas
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return Players.Vt->ClientsStandalonePlayerEarPosition(Players.Self, a0, a1); }
     public int ClientsSdkPlayerEarPosition(int a0, float* a1) { return Players.Vt->ClientsSdkPlayerEarPosition(Players.Self, a0, a1); }
     public int PlayerBoxInPvs(uint a0, float* a1, float* a2) { return Players.Vt->PlayerBoxInPvs(Players.Self, a0, a1, a2); }
+    public void PlayerSetTeam(uint a0, int a1) { Players.Vt->PlayerSetTeam(Players.Self, a0, a1); }
     public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { WeaponsServer.Vt->RegisterAmmoType(WeaponsServer.Self, a0, a1, a2, a3, a4, a5); }
     public void RegisterWeaponType(byte* a0, float a1, float a2, int a3) { WeaponsServer.Vt->RegisterWeaponType(WeaponsServer.Self, a0, a1, a2, a3); }
     public int WeaponGetState(uint a0, WeaponState* a1) { return WeaponsServer.Vt->WeaponGetState(WeaponsServer.Self, a0, a1); }

@@ -36,7 +36,8 @@ namespace SourceSharp.Shared;
 public static class Movement
 {
     /// <summary>
-    /// The parameters, as one value.
+    /// The core's default parameters, as one value — the answer for a game
+    /// with no <see cref="IMovementRules"/> hook.
     ///
     /// A property rather than a field so the defaults stay in one readable
     /// place and nothing can half-initialise it: a zero jump height is a player
@@ -113,89 +114,19 @@ public static class Movement
     };
 
     /// <summary>
-    /// Hands them over. Called at init on both sides, before any player exists.
+    /// Hands the resolved constants over. Called at init on both sides, before
+    /// any player exists, AFTER the mods have registered: what a mod's
+    /// <see cref="IMovementRules.Constants"/> says is what both halves of the
+    /// game run on, and both halves ask their own resolver the same way, so a
+    /// disagreement between them is impossible by construction.
     /// </summary>
-    public static void Register(string side, IEnginePlayerMovement movement, ILog log)
+    public static void Register(string side, MovementParams constants,
+                                IEnginePlayerMovement movement, ILog log)
     {
-        var p = Current;
-
-        movement.RegisterParams(p);
-        log.Msg($"[SourceSharp/{side}] movement: jump {p.JumpHeight:0}u, " +
-                   $"max speed {p.MaxSpeed:0}\n");
+        movement.RegisterParams(constants);
+        log.Msg($"[SourceSharp/{side}] movement: jump {constants.JumpHeight:0}u, " +
+                   $"max speed {constants.MaxSpeed:0}\n");
     }
-
-    /// <summary>
-    /// How much of a jump the player gets: 1 is the ordinary jump, 0 refuses
-    /// it, and anything between is a weaker one.
-    ///
-    /// <para>
-    /// The default is 1 for everybody, deliberately. This is the plumbing
-    /// commit for Phase 6 step 3, and a gameplay rule smuggled into it would be
-    /// impossible to review and impossible to bisect — the same reason
-    /// <see cref="Current"/> is still stock's numbers.
-    /// </para>
-    ///
-    /// <para>
-    /// A rule written here must decide from the request ALONE. It runs on the
-    /// server and again on the client for every unacknowledged command, so
-    /// anything it depends on that the client cannot see — a stamina counter
-    /// the server keeps to itself, a random roll — makes the two disagree, and
-    /// the player is dragged back to where the server thought they were.
-    /// </para>
-    /// </summary>
-    public static float JumpScale(in JumpRequest request) => 1f;
-
-    /// <summary>
-    /// How slippery the ground is: the friction the engine was about to apply,
-    /// scaled. Returning it unchanged is stock.
-    ///
-    /// <para>
-    /// The second decision to move out of the movement code, and like
-    /// <see cref="JumpScale"/> it is deliberately stock by default — a gameplay
-    /// rule smuggled into a plumbing commit is impossible to review and
-    /// impossible to bisect.
-    /// </para>
-    ///
-    /// <para>
-    /// What it is FOR is worth stating, because the shape is not obvious from
-    /// the signature: <paramref name="groundMaterial"/> is a surfaceprop game
-    /// material, so "ice is slippery" becomes a rule this mod states once rather
-    /// than something every map has to arrange for itself. Zero is a legitimate
-    /// answer — a skating rink — rather than a refusal.
-    /// </para>
-    ///
-    /// <para>
-    /// Same constraint as the jump, and it bites harder here because this runs
-    /// every frame rather than once per press: it must decide from its
-    /// arguments ALONE. Anything the client cannot also see makes the two sides
-    /// disagree, and the symptom is the player sliding back to where the server
-    /// thought they were.
-    /// </para>
-    /// </summary>
-    public static float FrictionScale(int playerIndex, float friction, float speed,
-                                      bool ducking, int groundMaterial)
-        => friction;
-
-    /// <summary>
-    /// How fast a player may move right now: the speed the engine arrived at,
-    /// scaled. Returning it unchanged is stock.
-    ///
-    /// <para>
-    /// Asked LAST, after the engine has applied the client's own cap, the
-    /// surface's speed factor and any constraint — so what arrives is the answer
-    /// a rule is overriding rather than one of the inputs to it.
-    /// </para>
-    ///
-    /// <para>
-    /// This is where sprinting, being wounded, or carrying something heavy
-    /// belongs. Predicted like the rest, so a rule may depend only on what it is
-    /// handed: "slower when hurt" works because health is networked, while a
-    /// counter the server keeps to itself would make the two sides disagree.
-    /// </para>
-    /// </summary>
-    public static float MaxSpeedScale(int playerIndex, float maxSpeed,
-                                      bool ducking, int groundMaterial)
-        => maxSpeed;
 
     /// <summary>
     /// How fast a jump leaves the ground, for a given gravity.

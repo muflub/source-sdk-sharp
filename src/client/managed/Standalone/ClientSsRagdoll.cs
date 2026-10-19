@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Anim;
 
 namespace SourceSharp.Client.Standalone;
 
@@ -231,7 +232,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 
         if (sequence < 0)
         {
-            foreach (string activity in PlayerAnimation.Activities(PlayerPosture.Idle))
+            foreach (string activity in Hl2PostureLayer.Activities(PlayerPosture.Idle))
             {
                 sequence = Render.LookupSequenceByActivity(Handle, activity);
 

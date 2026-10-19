@@ -62,11 +62,15 @@ public sealed class SsPlayer : ScriptedEntity
                     FluidTouches fluid, IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
                     IEngineHost? host = null, DamageInflictors? inflictors = null,
-                    IPlayerShadows? shadows = null)
+                    IPlayerShadows? shadows = null, IGameRules? rules = null, ConVarRegistry? convars = null,
+                    ModelDescriptors? models = null, IGameClock? clock = null,
+                    SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null)
     {
         _shadows = shadows;
         _host = host;
         _inflictors = inflictors;
+        _rules = rules;
+        _printDamage = convars?.Get<PlayerDebugPrintDamageConVar>();
         _messages = messages;
         _commands = commands;
         _fluid    = fluid;
@@ -74,7 +78,32 @@ public sealed class SsPlayer : ScriptedEntity
         _players  = players;
         _impacts  = impacts;
         _removals = removals;
+        _models   = models;
+        _clock    = clock;
+        _animLayers = animLayers;
     }
+
+    // The shared animation state (phase 0.10), container-supplied and built
+    // lazily on the first PreThink — the same machine the client runs, over
+    // this side's arms. OPTIONAL by decision: a player built by hand without
+    // them has no machine and drives nothing, which is what the hand-built
+    // server tests need (the fake would refuse the machine's reads) and what
+    // the composition's absence should mean anyway. Where they are the
+    // engine's own, the machine runs exactly as stock's
+    // m_PlayerAnimState->Update() in CBasePlayer::PreThink.
+    private readonly ModelDescriptors? _models;
+    private readonly IGameClock? _clock;
+    // The side's layer composition (the mods' IAnimStateLayer services and
+    // the core's HL2 layer); null for a hand-built player, whose chain is
+    // the HL2 layer alone.
+    private readonly SourceSharp.Shared.Anim.AnimStateLayers? _animLayers;
+    private SourceSharp.Shared.Anim.EngineAnimTarget? _animTarget;
+    private SourceSharp.Shared.Anim.MultiplayerAnimState? _animState;
+    private float _lastAnimDrive = float.NaN;
+
+    // The sequence last handed to the server's skeleton, so the per-drive
+    // hand-over reaches the engine only on a change (see EnsureAnimState).
+    private int _skeletonSequence = -1;
 
     private readonly IEngineEntityRender _render;
     private readonly IEnginePlayers _players;
@@ -88,6 +117,13 @@ public sealed class SsPlayer : ScriptedEntity
     private readonly IUserMessageSender? _messages;
     private readonly IEngineHost? _host;
     private readonly DamageInflictors? _inflictors;
+    // The mode's damage decision (spawn protection, friendly fire, the mods'
+    // IDamageRule chain): stock's g_pGameRules->FPlayerCanTakeDamage. Null
+    // for a player built by hand, which takes every hit, as CMultiplayRules'
+    // own answer does.
+    private readonly IGameRules? _rules;
+    // player_debug_print_damage: null for a player built without the registry.
+    private readonly PlayerDebugPrintDamageConVar? _printDamage;
 
     /// <summary>The suit's cap: stock's 100 (MAX_NORMAL_BATTERY).</summary>
     public const int MaxArmour = 100;
@@ -355,6 +391,18 @@ public sealed class SsPlayer : ScriptedEntity
     /// otherwise: god refuses it all, buddha stops one point short of death.
     /// </summary>
     public override int OnDamaged(EntityHandle attacker, float damage, DamageType damageType)
+        => TakeHit(attacker, damage, damageType, HitGroup.Generic);
+
+    /// <summary>
+    /// The located form, which is the one the damage op reaches: the same
+    /// rule, with the hit's <paramref name="hitGroup"/> handed to the mode's
+    /// damage decision (<see cref="DamageContext.HitGroup"/>).
+    /// </summary>
+    public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
+                                    Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
+        => TakeHit(attacker, damage, damageType, hitGroup);
+
+    private int TakeHit(EntityHandle attacker, float damage, DamageType damageType, HitGroup hitGroup)
     {
         // THE ANSWER IS THE WHOLE OF IT. The shell subtracts what this returns
         // from m_iHealth and calls OnKilled if that reaches zero
@@ -371,6 +419,19 @@ public sealed class SsPlayer : ScriptedEntity
         // Stock's "early out if there's no damage", before anything is recorded.
         if (damage == 0f)
             return 0;
+
+        // CBasePlayer::OnTakeDamage asks the rules before the armour takes
+        // anything (player.cpp:1147, FPlayerCanTakeDamage): "no" refuses the
+        // whole hit. Only a refusal changes the answer; Yes and UseStockRule
+        // both land it, the multiplayer rules' own true.
+        if (_rules?.CanTakeDamage(Handle, attacker, damage, (int)damageType, GameTime, hitGroup) == Decision.No)
+            return 0;
+
+        // Stock's player_debug_print_damage line, at stock's place (after the
+        // rules, before the armour), and the hitgroup the rules were told.
+        if (_printDamage?.Value == true)
+            Log.Msg($"{GameTime:F6}: Player {Handle} at [{Origin.X:F2} {Origin.Y:F2} {Origin.Z:F2}] "
+                  + $"took {damage:F6} damage from {attacker}, type {damageType}, hitgroup={(int)hitGroup}\n");
 
         // The suit first (stock's CBasePlayer::OnTakeDamage armour block), then
         // the health rule on what got through.
@@ -535,14 +596,96 @@ public sealed class SsPlayer : ScriptedEntity
 
     /// <summary>
     /// The player's per-frame think, in stock's PreThink order: the client data
-    /// (<see cref="UpdateClientData"/>), the time-based damage, then the suit's geiger counter.
+    /// (<see cref="UpdateClientData"/>), the time-based damage, then the suit's
+    /// geiger counter — and, where the composition handed this player its
+    /// clock and model table, the shared animation state, last (stock drives
+    /// <c>m_pPlayerAnimState-&gt;Update()</c> at the tail of
+    /// <c>CBasePlayer::PreThink</c>, after the state the pose reads is final).
     /// </summary>
     public void PreThink(float now)
     {
         UpdateClientData(now);
         CheckTimeBasedDamage(now);
         UpdateGeigerCounter(now);
+        UpdateAnimState(now);
     }
+
+    /// <summary>
+    /// One drive of the shared machine (phase 0.10): the server poses nothing
+    /// — it has no pose-parameter, layer or ground-speed arms and the pose
+    /// writes reach no shell (the divergence rows name each) — but it runs the
+    /// same decisions the client's copy runs, so the sequence the machine
+    /// chooses and the activity it remembers are the server's answer for
+    /// hitboxes, ragdolls and the day a pose driver exists. The eyes are the
+    /// replicated eye angles (stock's server-side <c>EyeAngles()</c>) and the
+    /// frame time is measured between drives, so the yaw converge and the
+    /// autokill timers advance whatever the driver's rhythm.
+    /// </summary>
+    public void UpdateAnimState(float now)
+    {
+        if (_clock is null || _models is null)
+            return;
+
+        SourceSharp.Shared.Anim.MultiplayerAnimState? state = EnsureAnimState();
+        if (state is null)
+            return;
+
+        float frameTime = float.IsNaN(_lastAnimDrive) ? 0f : now - _lastAnimDrive;
+        _lastAnimDrive = now;
+
+        // pitch, yaw, roll: the machine takes the yaw and pitch of the eyes.
+        Vector eye = Entities.GetEyeAngles(Handle);
+        state.Update(eye.Y, eye.X, now, frameTime);
+    }
+
+    /// <summary>The server's machine, built once on the first drive.</summary>
+    private SourceSharp.Shared.Anim.MultiplayerAnimState? EnsureAnimState()
+    {
+        if (_animState is not null)
+            return _animState;
+
+        if (_animTarget is null)
+        {
+            _animTarget = new SourceSharp.Shared.Anim.EngineAnimTarget(
+                Entities, _render, _models,
+                () => State,
+                () => Entities.GetEyeAngles(Handle),
+                arms: new SourceSharp.Shared.Anim.EngineAnimTarget.Arms(
+                    // The server's side has pose-parameter, dormancy and
+                    // layer arms nowhere (the divergence rows), so those
+                    // stay null — the target answers no dials and keeps the
+                    // gesture mirror in memory. What the server DOES have is
+                    // its own sequence write (EntitySetSequence, the arm
+                    // ScriptedEntity's PlaySequence helper uses; the rate and
+                    // restart slot is CLIENT-backed through its recording
+                    // branch): what the machine chooses is the pose the
+                    // server builds hitboxes and attachment frames from.
+                    // EDGE-TRIGGERED here, because the machine hands its
+                    // sequence over on every drive and EntitySetSequence
+                    // always restarts: a write per tick would pin the
+                    // server's cycle at zero. A new sequence, or the
+                    // machine's own restart (a re-entered one-shot), writes.
+                    PlaySequence: (sequence, _, restart) =>
+                    {
+                        if (restart || sequence != _skeletonSequence)
+                            _render.SetSequence(Handle, sequence);
+
+                        _skeletonSequence = sequence;
+                    }));
+
+            _animTarget.SetHandle(Handle);
+        }
+
+        _animState = new SourceSharp.Shared.Anim.MultiplayerAnimState(
+            _animTarget,
+            SourceSharp.Shared.Anim.AnimStateParams.Hl2Defaults(),
+            _animLayers?.ChainFor(_animTarget)
+                ?? SourceSharp.Shared.Anim.AnimStateLayers.CoreOnly(_animTarget));
+        return _animState;
+    }
+
+    /// <summary>The server's copy of the machine, or null before it first runs (reports; the pose driver's future entry).</summary>
+    public SourceSharp.Shared.Anim.MultiplayerAnimState? AnimStateOrNull => _animState;
 
     /// <summary>
     /// What one hit takes off a player at <paramref name="health"/>. Pure so

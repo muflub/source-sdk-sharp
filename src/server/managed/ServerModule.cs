@@ -161,6 +161,16 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.AddInstance<IEngineMotionControllers>(_physicsMotion);
         }
 
+        // The mods' first look at a word a player's console typed (tf2 stage
+        // 0.6). A CHAIN — several mods own different verbs — first true wins,
+        // asked in HookOrder's order by OnClientCommand before any of the
+        // core's own verbs. Registered HERE rather than beside the other
+        // three hook factories in Initialize because its dispatcher is this
+        // module itself, and the composition-only harnesses that drive that
+        // dispatcher (the 0.6 facts) never reach Initialize.
+        _services.AddFactory<IHooks<IClientCommandHook>>(
+            locator => new Hooks<IClientCommandHook>(locator, locator.Require<ILog>()));
+
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the player-command binding runs the
         // movement crossing, the command stages and the shadow through it.
@@ -279,6 +289,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     private Arsenal _arsenal = null!;
 
+    // The hitgroup of the hit being dealt (DamageHitGroups): opened by the
+    // shooter, read here where the damage op reaches the victim.
+    private DamageHitGroups _hitGroups = null!;
+
     private Flames _flames = null!;
     private ImpulseCheats _impulses = null!;
     private DamageCheats _damageCheats = null!;
@@ -373,6 +387,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     // This side's movement runner, built in ComposeEngineAreas (D8).
     private MovementRunner _movement = null!;
+
+    // The three movement decisions and the constants, resolved once after the
+    // mods registered (phase 0.3). The ABI getters answer from its frozen
+    // pack; the loop reaches the same pack through the binding's closure over
+    // these getters, so server and client of a hooked mod see one answer.
+    private MovementRulesResolver _movementRules = null!;
 
     // This side's entity payload reader, built over its own areas (D8).
     private NetPayloadReader _payloadReader = null!;
@@ -587,6 +607,39 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<IPlayerDeathHook>>(locator => new Hooks<IPlayerDeathHook>(locator, log));
         _services.AddFactory<IHooks<IRespawnGate>>(locator => new Hooks<IRespawnGate>(locator, log));
         _services.AddFactory<IHooks<IRoundEndGate>>(locator => new Hooks<IRoundEndGate>(locator, log));
+        // THE MOVEMENT RULES (phase 0.3) are a SINGLE-OWNER hook: a mod marks
+        // its IMovementRules [SideService] like any other service, and the
+        // MovementRulesResolver (asked once, below the mods' registration)
+        // walks this container's registrations itself rather than through an
+        // IHooks chain — a chain's order-uniqueness rule is about sequencing
+        // a dispatch, and this hook has no dispatch: a second owner is
+        // refused, never ordered.
+        // tf2 stage 0.5: the join policy is single-owner and, like the
+        // movement rules, NOT a chain: Teams resolves it from this container's
+        // registrations when the module asks, below the mods' scan. The spawn
+        // selector is a chain asked in HookOrder's order, lazy, so a hook may
+        // take the services Teams itself needs.
+        _services.AddFactory<IHooks<ISpawnSelector>>(locator => new Hooks<ISpawnSelector>(locator, log));
+        // tf2 stage 0.7: the mode selector is a chain (first non-null answer
+        // names the mode; the core's "null" answers last inside GameModes,
+        // not as a registered selector). Lazy, so a selector may take the
+        // services its own mode needs.
+        _services.AddFactory<IHooks<IGameModeSelector>>(locator => new Hooks<IGameModeSelector>(locator, log));
+        // The per-player composite's sources (tf2 stage 0.7 part B): every
+        // mod's IPlayerComponentSource, TF2's and Descent's alike, asked once
+        // per player and merged. A chain because that is the ruling — two
+        // mods bolt components onto the same player.
+        _services.AddFactory<IHooks<IPlayerComponentSource>>(locator => new Hooks<IPlayerComponentSource>(locator, log));
+        // The mods' damage rules (tf2 stage 0.7 part C): a chain — immunity
+        // zones, invulnerability windows and god-mode all refuse for their own
+        // reason, first actual answer wins, and none of them replaces the
+        // core's own two guards (the directions are argued on IDamageRule).
+        _services.AddFactory<IHooks<IDamageRule>>(locator => new Hooks<IDamageRule>(locator, log));
+        // The mods' spawn kit (tf2 stage 0.7 part C): a chain — the last
+        // provider that names a column owns it, so a class mod and a fun-mod
+        // override can coexist without editing each other (the directions
+        // are argued on ILoadoutProvider).
+        _services.AddFactory<IHooks<ILoadoutProvider>>(locator => new Hooks<ILoadoutProvider>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         _services.AddInstance<IModInfo>(new ModInfo());
@@ -780,6 +833,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // What the hit being dealt was inflicted by (a blast's grenade): read by
         // the player's Damage message, opened by the blast sweep.
         _services.AddInstance(new DamageInflictors());
+        // Its hitgroup (a bullet's trace): opened by Arsenal.FireBullets, read
+        // where the damage op reaches the victim (EntityOp.Damage below).
+        _hitGroups = new DamageHitGroups();
+        _services.AddInstance(_hitGroups);
         // UTIL_FindClientInPVS's check client, for the radiation triggers.
         _services.AddInstance(_services.Create<PvsCheckClient>());
         _services.AddInstance(_services.Create<DeathNotice>());
@@ -793,6 +850,23 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                             _services.Require<IEngineEntityPhysics>(), _convars,
                                             _services.Resolve<IConnectedClients>()));
         _services.AddInstance<IBlastSweep>(_services.Create<BlastSweep>());
+
+        // The weapon and ammo tables THIS side reads, registered before the
+        // arsenal is built so the container hands the same objects to it, to
+        // anything else that resolves a row, and — after the mod assemblies
+        // have registered their sources — to nothing else entirely: the tables
+        // ask their sources lazily, on the first read, which is the same rule
+        // Hooks<T> lives by. Wire indices are made against THIS list; a second
+        // copy elsewhere would renumber the wire.
+        _services.AddInstance(new WeaponCatalog(() => _services.ResolveAll<IWeaponTypeSource>(), Log));
+        _services.AddInstance(new AmmoCatalog(() => _services.ResolveAll<IAmmoTypeSource>(), Log));
+        _services.AddInstance(new WeaponBehaviours(() => _services.ResolveAll<IWeaponBehaviourSource>(), Log));
+
+        // The animation layer chain's composition (phase 0.10): the mods'
+        // IAnimStateLayer services, asked lazily on the first player's chain,
+        // and the core's HL2 layer. The client registers the same.
+        _services.AddInstance(new SourceSharp.Shared.Anim.AnimStateLayers(
+            () => _services.ResolveAll<SourceSharp.Shared.Anim.IAnimStateLayer>()));
 
         _arsenal = _services.Create<Arsenal>();
         _services.AddInstance(_arsenal);
@@ -1404,26 +1478,39 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_services.Create<MotdPanel>());
         // Host_Say, behind say and say_team.
         _services.AddInstance(_services.Create<HostSay>());
+        // The mode proxy (tf2 stage 0.7, ruling U1), BEFORE the rules: the
+        // rules take it (every question they ask a mode goes through it), and
+        // it takes the rules' machine as the default mode's — neither can be
+        // the other's constructor parameter, so the proxy is wired to its
+        // machine by Attach the moment both exist. Registered as a service
+        // and as a lifecycle/frame participant (its pick lands before the
+        // rules' reset, its warmup gate before their think).
+        var modes = _services.Create<GameModes>();
+        _services.AddInstance(modes);
         _rules = _services.Create<GameRules>();
+        modes.Attach(_rules);
+        // And the death cycle gets the proxy too (tf2 stage 0.7 part C): the
+        // respawn wait and the wave release are the active mode's when it owns
+        // them. Attach rather than a Players constructor parameter — the proxy
+        // cannot be Create'd at the Players creation site above, which runs
+        // before the ConVarRegistry it takes is registered.
+        _players.AttachModes(modes);
 
         // NO NATIVE AMMO REGISTRATION ON THE SERVER (plan_server_novalve.md P5,
         // user ruling 2026-10-01). server.so's table was written here and read
         // by nothing once the server gc cull deleted CalculateBulletDamageForce;
         // the server's ammo answers come from AmmoTypes itself. The client still
         // registers natively (ClientModule), where the table is read.
-        WeaponTypes.Register("Server", _services.Require<IEngineWeapons>(), Log);
-        Movement.Register("Server", _services.Require<IEnginePlayerMovement>(), Log);
-
-        // The eight movement ConVars take the mod's tuning as their starting
-        // value (plan_server_novalve.md P2.3; this was shell_movement.cpp's
-        // SetEngineConVar). Server only: every one is FCVAR_REPLICATED, and the
-        // engine refuses a client that sets one.
-        //
-        // The record of what was written is the module's (it was a static on
-        // MovementTuning), and each tuned convar is handed it as it is written.
-        var movementTuning = new AppliedMovementTuning(Log);
-        _services.AddInstance<IAppliedMovementTuning>(movementTuning);
-        movementTuning.Apply(_convars, Movement.Current);
+        // The MOVEMENT registration and the eight movement ConVars' starting
+        // values moved below the mods' registration (phase 0.3): both take the
+        // RESOLVED movement constants, and a mod's IMovementRules is not
+        // known until its assemblies have registered. The convars are still
+        // server-only — every one is FCVAR_REPLICATED, and the engine refuses
+        // a client that sets one (plan_server_novalve.md P2.3; the write was
+        // shell_movement.cpp's SetEngineConVar). The weapon table's native
+        // registration is below the mods' registration too: the catalogue
+        // builds itself on its first read, and reading it before the mods are
+        // in would freeze a table without their rows.
 
         // The usercmd decode's clamp (plan_server_novalve.md P2.2): read per
         // packet from this side's own ConVar, never by a crossing.
@@ -1459,12 +1546,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
             // Attribution for anything a weapon throws. The launch itself is in
             // the shared half, which cannot see the server's entity classes.
-            _arsenal.Launched = (thrown, thrower, velocity) =>
+            _arsenal.Launched = (thrown, thrower, velocity, fuse) =>
             {
                 switch (_entities.Get(thrown))
                 {
                     case Grenade grenade:
-                        grenade.ThrownBy(thrower, GrenadeFuse);
+                        // The gun's declared fuse wins; zero means the stock
+                        // path declared none and the module's own rule stands.
+                        grenade.ThrownBy(thrower, fuse > 0f ? fuse : GrenadeFuse);
                         break;
 
                     // An aimed projectile is not moving yet. The shell spawns it
@@ -1494,6 +1583,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IGameRules>(_rules);
         _services.AddInstance<IPlayerDirectory>(_players);
         _services.AddInstance<IPickupDirectory>(_pickups);
+        // tf2 stage 0.5: the team roster, the join and the spawn ask, by
+        // contract. Its observer half, clock, events and names are the
+        // instances already registered above; the scoreboard (PlayerResource)
+        // reads the same team through IEnginePlayers.GetTeam, so one store
+        // answers both. Built HERE, before the mods' scan, so a mod can inject
+        // ITeams — and so it resolves nothing at construction: its join policy
+        // is asked for below the scan.
+        var teams = _services.Create<Teams>();
+        _services.AddInstance<ITeams>(teams);
         // IPlayerButtons is registered ABOVE, before the Create block, because
         // Players now takes it as a constructor argument.
         _services.AddInstance<ISoundscapes>(_soundscapes);
@@ -1531,6 +1629,63 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _modServices = SideServices.Register(_services, Side.Server, LoadedAssemblies.Types(typeof(ServerModule).Assembly, Log));
         if (_modServices.Count > 0)
             Log.Msg($"[SourceSharp] registered {_modServices.Count} mod service contract(s)\n");
+
+        // THE JOIN POLICY, resolved once now the mods are in (tf2 stage 0.5),
+        // for the movement rules' reason: a single-owner hook asked before the
+        // scan sees no owner, forever. Two owners throw here, naming both,
+        // before any player exists; the owner is said out loud either way.
+        //
+        // THE OTHER 0.5-0.7 HOOKS ARE SAFE AT THIS POINT BECAUSE NOTHING READS
+        // THEM BEFORE IT: IHooks<T>.All collects on its first read and caches,
+        // and ISpawnSelector, IClientCommandHook, IGameModeSelector,
+        // IDamageRule, ILoadoutProvider, IRespawnGate, IPlayerDeathHook and
+        // IPlayerComponentSource are first read by a spawn, a client command,
+        // a level init, a hit, a death, a respawn or a client-active — all
+        // after Initialize. The modes (GameModes.Registered) are walked fresh
+        // on every ask; a mode's IRespawnPolicy and IScoring are read off the
+        // active mode per call. Any new reader in Initialize above this line
+        // must move below it.
+        Log.Msg($"[SourceSharp/Teams] join policy: " +
+                (teams.Policy is { } joinPolicy
+                    ? $"{joinPolicy.GetType().FullName} ({joinPolicy.GetType().Assembly.GetName().Name})"
+                    : "none (any real team is accepted; docs/divergences.md)") + "\n");
+
+        // THE MODES' IDS, verified once the mods are in (tf2 stage 0.7): two
+        // registrations answering one id are a startup error naming both —
+        // the lookup takes the first, and the second would be unreachable.
+        var modeIds = modes.VerifyRegistry();
+        Log.Msg($"[SourceSharp/Modes] registered modes: " +
+                (modeIds.Count > 0 ? string.Join(", ", modeIds) : "none") +
+                $" (plus the core's '{GameModes.NullModeId}')\n");
+
+        // THE MOVEMENT CONSTANTS, resolved once now the mods are in (phase
+        // 0.3). Zero IMovementRules registrations answer the core's stock
+        // table, so the test mod and tf2_descent register byte-identical
+        // parameters to the ones they did before. Two mods claiming the hook
+        // is a startup failure here, naming both, before any player exists.
+        _movementRules = _services.Create<MovementRulesResolver>();
+        // Published for a mod that wants to ask who owns movement, and for
+        // the ABI getters below; Create built it over this container, so the
+        // hook count already includes every assembly the scan found.
+        _services.AddInstance(_movementRules);
+
+        Movement.Register("Server", _movementRules.Constants,
+                          _services.Require<IEnginePlayerMovement>(), Log);
+
+        // The eight movement ConVars take the resolved constants as their
+        // starting value (plan_server_novalve.md P2.3; this was
+        // shell_movement.cpp's SetEngineConVar). The record of what was
+        // written is the module's (it was a static on MovementTuning), and
+        // each tuned convar is handed it as it is written.
+        var movementTuning = new AppliedMovementTuning(Log);
+        _services.AddInstance<IAppliedMovementTuning>(movementTuning);
+        movementTuning.Apply(_convars, _movementRules.Constants);
+
+        // The weapon table's native registration — here, after the mods'
+        // registration, because this is the FIRST read of the catalogue and
+        // the first read is what builds it: the mods' rows must be in the list
+        // the native fire-rate table is filled from.
+        _services.Require<WeaponCatalog>().Register("Server", _services.Require<IEngineWeapons>(), Log);
 
         // vphysics' callbacks on managed's own tables (plan_physics_managed B2):
         // a lifecycle participant, so it is registered before the driver below.
@@ -1579,6 +1734,19 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // model scale's store and by the engine's hitbox trace.
         _skeletonRoute.Skeletons = _skeletons;
 
+        // The per-player composite (tf2 stage 0.7 part B, D9/D10), before the
+        // three drivers below — they collect their participants at
+        // construction, and this is a participant of all three (its
+        // OnLevelShutdown detach, its frame tick, its client attach/detach).
+        // Lazy like every service here: a mod's [SideService]
+        // IPlayerComponentSource registered at its own stage is in the
+        // container before the composite first resolves its chain, which
+        // happens at the first player's client-active.
+        _services.AddFactory<PlayerComposites>(locator => new PlayerComposites(
+            log,
+            locator.Require<IHooks<IPlayerComponentSource>>(),
+            locator.Require<IEnginePlayers>(),
+            locator.Require<IGameClock>()));
         _lifecycle = new LifecycleDriver(Log, _services);
         _frames = new FrameDriver(Log, _services);
 
@@ -2199,6 +2367,19 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public EntityHandle SelectSpawnPoint(EntityHandle player)
     {
+        // The selectors first (tf2 stage 0.5/0.7): the active game mode's own
+        // IGameMode.Spawns, then the registered ISpawnSelector chain in
+        // HookOrder's order (ITeams.SelectSpawn), and the first named spot
+        // wins. None named (no mode spawns and no selectors, or every one
+        // falling through) is the core's walk below, unchanged: HL2DM is
+        // team-blind today and stays so until a mod registers otherwise.
+        if (_services.Resolve<ITeams>() is { } teams)
+        {
+            EntityHandle selected = teams.SelectSpawn(player);
+            if (selected != EntityHandle.None)
+                return selected;
+        }
+
         var candidates = new List<EntityHandle>();
 
         // Deathmatch points first, and info_player_start only if there are
@@ -2385,6 +2566,35 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // flaky" turned out to be.
         var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
+        // THE MODS FIRST (tf2 stage 0.6): every registered IClientCommandHook
+        // in HookOrder's order, and the first that says true owns the
+        // command — nothing here runs after it, because the word was one
+        // action and it happened. A hook that throws is named in the log and
+        // skipped: the chain carries on, and an unclaimed word falls through
+        // to the core's own verbs below, exactly as before this seam existed.
+        if (parts.Length >= 1 && _services.Resolve<IHooks<IClientCommandHook>>() is { } hooks)
+        {
+            // The args once, as a view over the split: no copy per hook asked.
+            ReadOnlySpan<string> args = parts.AsSpan(1);
+            foreach (var hook in hooks.All)
+            {
+                bool claimed;
+                try
+                {
+                    claimed = hook.Handle(player, parts[0], args);
+                }
+                catch (Exception e)
+                {
+                    // Hooks.Each logs this shape; the chain itself is not the thrower's.
+                    Log.Warning($"[SourceSharp/Server] client command hook " +
+                                $"{hook.GetType().FullName} threw on '{command}': {e}\n");
+                    continue;
+                }
+
+                if (claimed)
+                    return CommandResult.Handled;
+            }
+        }
         if (parts.Length >= 1)
         {
             if (parts[0].Equals("ss_use", StringComparison.OrdinalIgnoreCase) && parts.Length >= 2)
@@ -2423,7 +2633,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             if (_entities.Get(player) is SsPlayer watcher)
             {
                 var observers = _services.Require<Observers>();
-                float now = _clock.Now;
+                // The container's clock, not the field: the field is set
+                // later in Initialize, and this arm is also the one the
+                // composition-only harnesses (and the 0.6 facts) drive.
+                float now = _services.Require<IGameClock>().Now;
                 switch (parts[0].ToLowerInvariant())
                 {
                     case "spec_mode":
@@ -2441,24 +2654,28 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                         return CommandResult.Handled;
                     case "spectate":
                         // CHL2MP_Player's "spectate": HandleCommand_JoinTeam(
-                        // TEAM_SPECTATOR), the observer half (Observers.Spectate).
-                        observers.Spectate(watcher, now);
+                        // TEAM_SPECTATOR) — the same route as `jointeam 1`, so
+                        // the team is stored before the observer half runs.
+                        _services.Require<ITeams>().Join(player, Observers.TeamSpectator);
                         return CommandResult.Handled;
                 }
             }
 
             // The UI's team menu (plan_client_ui U3) sends stock's `jointeam N`.
-            // Teams cannot be changed on this hierarchy yet (no SetTeam reaches the
-            // standalone player), so the team is refused out loud. Its other half
-            // is: a spectator choosing a team stops observing and comes back
-            // (CHL2MP_Player::HandleCommand_JoinTeam's StopObserverMode and
-            // STATE_ACTIVE).
+            // Routed to the team service: its arms are stock's
+            // (CHL2MP_Player::HandleCommand_JoinTeam) — the spectator team is
+            // the observers' Spectate, an out-of-range number is their stock
+            // warning, the single-owner IJoinTeamPolicy decides a playing
+            // team BEFORE anything changes, and a playing team stops
+            // observing (StopObserverMode, STATE_ACTIVE), sets the team
+            // through the PlayerSetTeam slot and raises player_team.
             if (parts[0].Equals("jointeam", StringComparison.OrdinalIgnoreCase))
             {
-                Log.Msg($"[SourceSharp/Server] jointeam {(parts.Length > 1 ? parts[1] : "?")} from player " +
-                        $"{player.EntryIndex}: team changes are not supported yet\n");
-                if (_entities.Get(player) is SsPlayer joiner)
-                    _services.Require<Observers>().JoinTeam(joiner, parts.Length > 1 ? parts[1] : null, _clock.Now);
+                // Stock's `atoi( args[1] )`: the leading digits ("2x" is 2),
+                // and no argument is team 0, which Observers' validity gate
+                // refuses with the warning.
+                int requested = Observers.Atoi(parts.Length > 1 ? parts[1] : null);
+                _services.Require<ITeams>().Join(player, requested);
                 return CommandResult.Handled;
             }
 
@@ -3496,7 +3713,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
             case EntityOp.Damage:
                 return _entities.Damaged(it, args.Other, args.Number, args.Flags,
-                                         args.Position, args.Force);
+                                         args.Position, args.Force, _hitGroups.Current);
 
             case EntityOp.Killed:
                 _entities.Killed(it, args.Other);
@@ -3526,7 +3743,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public int OnScriptedDamaged(EntityHandle entity, EntityHandle attacker, float damage,
                                  int damageType, Vector position, Vector force)
-        => _entities.Damaged(entity, attacker, damage, damageType, position, force);
+        => _entities.Damaged(entity, attacker, damage, damageType, position, force, _hitGroups.Current);
 
     public void OnScriptedKilled(EntityHandle entity, EntityHandle attacker)
         => _entities.Killed(entity, attacker);
@@ -3587,17 +3804,21 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         return magnet?.PullOn(centre);
     }
     /// <summary>
-    /// How much of a jump a player gets. The rule itself is shared, because the
-    /// client predicts movement with the same one.
+    /// How much of a jump a player gets (ABI slot). The answer is the side's
+    /// resolved <see cref="MovementRules"/> pack — the core's identity, or the
+    /// one mod that registered <see cref="IMovementRules"/> — which is also
+    /// what the client's binding closure reaches, because both sides resolve
+    /// the same shared hook the same way. The rule itself is shared, because
+    /// the client predicts movement with the same one.
     /// </summary>
-    public float GetJumpScale(in JumpRequest request) => Movement.JumpScale(in request);
+    public float GetJumpScale(in JumpRequest request) => _movementRules.Rules.Jump(request);
 
     public float GetFrictionScale(int playerIndex, float friction, float speed,
                                   bool ducking, int groundMaterial)
-        => Movement.FrictionScale(playerIndex, friction, speed, ducking, groundMaterial);
+        => _movementRules.Rules.Friction(playerIndex, friction, speed, ducking, groundMaterial);
 
     public float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial)
-        => Movement.MaxSpeedScale(playerIndex, maxSpeed, ducking, groundMaterial);
+        => _movementRules.Rules.MaxSpeed(playerIndex, maxSpeed, ducking, groundMaterial);
 
     public void AddFireHeatInRadius(Vector origin, float radius, float heat)
     {

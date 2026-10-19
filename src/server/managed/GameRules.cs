@@ -73,7 +73,7 @@ public sealed class EndRoundCommand : IConCommand
 /// because keeping them together makes it obvious which decisions the mod has
 /// actually taken over and which still fall through to Source.
 /// </summary>
-public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
+public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRoundFlow
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -143,12 +143,34 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
     private readonly MpFragLimitConVar? _mpFragLimit;
     private readonly MpTimeLimitConVar? _mpTimeLimit;
     private float _levelStartedAt;
+    private readonly GameModes? _modes;
+    private readonly IHooks<IDamageRule>? _damageRules;
+    private readonly IHooks<ILoadoutProvider>? _loadoutProviders;
+
+    /// <summary>
+    /// The mode the proxy is answering for, or null — before any proxy,
+    /// before the first pick, and on the unknown-id arm. Null is not an
+    /// error to handle here: every question this class asks a mode then
+    /// answers with its own machine, which is the game exactly as it was
+    /// before modes existed (and what every no-owner fact measures).
+    /// </summary>
+    private IGameMode? Mode => _modes?.Active;
 
     public GameRules(ILog log, ConVarRegistry convars, IEngineHost host, IEnginePlayers players,
                      IEngineEntities entities, IScoreboard scoreboard,
                      IGameEvent<PlayerDeathArgs> deaths, Intermission? intermission = null,
-                     ConVarRegistry? mpConVars = null)
+                     ConVarRegistry? mpConVars = null, GameModes? modes = null,
+                     IHooks<IDamageRule>? damageRules = null,
+                     IHooks<ILoadoutProvider>? loadout = null)
     {
+        // The mode proxy (tf2 stage 0.7). OPTIONAL and null means the game
+        // before it: every question below answers with this class's own
+        // machine, which is what every no-owner fact measures. The module
+        // wires the real one; a test that builds the rules without it is not
+        // testing a lesser game, it is testing the no-owner arm.
+        _modes = modes;
+        _damageRules = damageRules;
+        _loadoutProviders = loadout;
         _intermission = intermission;
         _mpFragLimit = (mpConVars ?? convars).Get<MpFragLimitConVar>();
         _mpTimeLimit = (mpConVars ?? convars).Get<MpTimeLimitConVar>();
@@ -197,14 +219,84 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
         ("SMG1",    45),
     ];
 
+    /// <summary>
+    /// The kit one spawn hands out: each column is a provider's when the
+    /// last provider that named anything on it named it, the core's static
+    /// array otherwise (the rules of <see cref="ILoadoutProvider"/>).
+    /// Separate from the grant so a fact can see WHICH kit was chosen, not
+    /// just count engine calls.
+    /// </summary>
+    private (IReadOnlyList<string> Weapons, IReadOnlyList<(string, int)> Ammo) Kit(EntityHandle player)
+    {
+        IReadOnlyList<string> weapons = Loadout;
+        IReadOnlyList<(string, int)> ammo = StartingAmmo;
+
+        if (_loadoutProviders is { } providers)
+        {
+            // One pass, keeping the LAST provider that answered each column.
+            // A provider is asked for both columns inside one try: a provider
+            // that throws after answering one has not finished answering, so
+            // neither pointer moves and the kit before it stands (the throw
+            // is named on the log — the rule IDamageRule's dispatch applies
+            // to its thrower, for the same reason).
+            List<string>? bestWeapons = null;
+            List<(string, int)>? bestAmmo = null;
+            foreach (var provider in providers.All)
+            {
+                try
+                {
+                    List<string> w = [.. provider.Weapons(player)];
+                    List<(string, int)> a = [.. provider.Ammo(player)];
+                    if (w.Count > 0) bestWeapons = w;
+                    if (a.Count > 0) bestAmmo = a;
+                }
+                catch (Exception e)
+                {
+                    _log.Warning($"[SourceSharp/Rules] loadout provider {provider.GetType().FullName} threw: {e.Message}\n");
+                }
+            }
+
+            // De-duped by name, last entry for a name winning — the plan's
+            // "last answer wins per slot" over one provider's list.
+            if (bestWeapons is not null)
+                weapons = Dedupe(bestWeapons, w => w);
+            if (bestAmmo is not null)
+                ammo = Dedupe(bestAmmo, a => a.Item1);
+        }
+
+        return (weapons, ammo);
+    }
+
+    /// <summary>
+    /// Keeps one entry per key — the LAST one with that key — preserving the
+    /// order of first mention, so a kit reads the same every spawn.
+    /// </summary>
+    private static List<T> Dedupe<T>(List<T> entries, Func<T, string> key)
+    {
+        var last = new Dictionary<string, T>(StringComparer.Ordinal);
+        var order = new List<string>();
+        foreach (T e in entries)
+        {
+            string k = key(e);
+            if (!last.ContainsKey(k))
+                order.Add(k);
+            last[k] = e;
+        }
+        return [.. order.Select(k => last[k])];
+    }
+
 
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// Whether an attack lands. Answers two rules; anything else defers.
+    /// Whether an attack lands. Answers two rules of its own; anything it
+    /// defers goes to the mods' <see cref="IDamageRule"/> chain before the
+    /// stock rule gets it. <paramref name="hitGroup"/> rides into the chain's
+    /// <see cref="DamageContext"/> (tf2 stage 0.8); no core rule reads it.
     /// </summary>
     public Decision CanTakeDamage(EntityHandle player, EntityHandle attacker,
-                                  float damage, int damageType, float now)
+                                  float damage, int damageType, float now,
+                                  HitGroup hitGroup = HitGroup.Generic)
     {
         // Spawn protection. Checked before friendly fire because it should hold
         // regardless of who is shooting — including the world.
@@ -218,21 +310,68 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
         // Self-damage is never friendly fire — falling, and your own grenade,
         // should still hurt whatever the team rules say.
         if (attacker.Value == player.Value)
-            return Decision.UseStockRule;
+            return AskDamageRules(player, attacker, damage, damageType, hitGroup);
 
         // Friendly fire. Only answered when it is OFF and the two are actually
-        // on the same team; anything else defers, so this rule can never make
-        // damage land that the stock rules would have blocked.
-        if (_friendlyFire?.Value == false && _entities.IsValid(attacker))
-        {
-            int victimTeam   = _players.GetTeam(player);
-            int attackerTeam = _players.GetTeam(attacker);
+        // teammates; anything else defers, so this rule can never make damage
+        // land that the stock rules would have blocked.
+        if (_friendlyFire?.Value == false && _entities.IsValid(attacker)
+            && Teammates(_players.GetTeam(player), _players.GetTeam(attacker)))
+            return Decision.No;
 
-            // Both must be real players on a real team. A -1 means the attacker
-            // was not a player at all (a trigger, the world), which is not
-            // friendly fire and must not be blocked.
-            if (victimTeam >= 0 && victimTeam == attackerTeam)
-                return Decision.No;
+        return AskDamageRules(player, attacker, damage, damageType, hitGroup);
+    }
+
+    /// <summary>
+    /// stock's <c>FIRST_GAME_TEAM</c> (shareddefs.h: <c>LAST_SHARED_TEAM + 1</c>,
+    /// after <c>TEAM_UNASSIGNED</c> 0 and <c>TEAM_SPECTATOR</c> 1).
+    /// </summary>
+    public const int FirstGameTeam = 2;
+
+    /// <summary>
+    /// Whether two team numbers make the players on them teammates, the
+    /// relationship <c>CTeamplayRules::FPlayerCanTakeDamage</c> refuses friendly
+    /// fire on (<c>PlayerRelationship == GR_TEAMMATE</c>).
+    ///
+    /// <para>
+    /// <b>ONLY A GAME TEAM.</b> Unassigned (0) and Spectator (1) are the shared
+    /// teams, not sides: stock's HL2MP deathmatch answers <c>GR_NOTTEAMMATE</c>
+    /// for everyone (<c>CHL2MPRules::PlayerRelationship</c> without teamplay),
+    /// and this build's deathmatch players are all on Unassigned. Counting
+    /// team 0 as a side made any two of them teammates, so turning friendly
+    /// fire off would refuse every hit in the game. -1 (not a player: a
+    /// trigger, the world) is never a teammate.
+    /// </para>
+    /// </summary>
+    public static bool Teammates(int team, int otherTeam)
+        => team >= FirstGameTeam && team == otherTeam;
+
+    /// <summary>
+    /// The mods' half of the damage question, reached ONLY where this class
+    /// deferred (the two directions are argued on <see cref="IDamageRule"/>):
+    /// first actual answer wins, a rule that throws is named and treated as a
+    /// declination — a broken immunity zone must not kill the player it was
+    /// guarding, and must not let the rest of the chain off the hook.
+    /// </summary>
+    private Decision AskDamageRules(EntityHandle victim, EntityHandle attacker, float damage, int damageType,
+                                    HitGroup hitGroup)
+    {
+        if (_damageRules is not { } rules)
+            return Decision.UseStockRule;
+
+        var hit = new DamageContext(victim, attacker, damage, damageType, hitGroup);
+
+        foreach (var rule in rules.All)
+        {
+            try
+            {
+                if (rule.Decide(in hit) is { } d && d != Decision.UseStockRule)
+                    return d;
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] damage rule {rule.GetType().FullName} threw: {e.Message}\n");
+            }
         }
 
         return Decision.UseStockRule;
@@ -245,14 +384,17 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
     public float GetRespawnDelay(EntityHandle player) => _respawnDelay?.Value ?? -1f;
 
     /// <summary>
-    /// Hands out the loadout and starts the spawn-protection clock.
+    /// Hands out the loadout — the mods' when a provider owns a column, the
+    /// core's HL2 kit otherwise — and starts the spawn-protection clock.
     /// </summary>
     public void OnPlayerSpawned(EntityHandle player, float now)
     {
         _spawnedAt[player.Value] = now;
 
+        var (weapons, ammo) = Kit(player);
+
         int given = 0;
-        foreach (string weapon in Loadout)
+        foreach (string weapon in weapons)
         {
             if (_players.GiveItem(player, weapon))
                 given++;
@@ -261,10 +403,28 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
         // Ammo before weapons would be equally valid; after is chosen so a
         // weapon that sets its own default clip does not overwrite the grant.
         int ammoGiven = 0;
-        foreach (var (ammo, count) in StartingAmmo)
-            ammoGiven += _players.GiveAmmo(player, count, ammo);
+        foreach (var (name, count) in ammo)
+            ammoGiven += _players.GiveAmmo(player, count, name);
 
-        _log.Msg($"[SourceSharp/Rules] {player} spawned: gave {given}/{Loadout.Length} item(s), " +
+        // The mode's spawn arm, after the core's own bookkeeping: today's
+        // deathmatch adds nothing here (NullMode's machine IS this class and
+        // its OnPlayerSpawned is the no-op this call becomes), and a mode
+        // that readies a player per class owns it. A mode that throws is
+        // named and the spawn stands — the player has their weapons and the
+        // broken mod's half is in the log.
+        if (Mode is { } mode && !ReferenceEquals(mode.Rounds, this))
+        {
+            try
+            {
+                mode.Rounds.OnPlayerSpawned(player, now);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] mode '{mode.Id}' spawn arm threw: {e}\n");
+            }
+        }
+
+        _log.Msg($"[SourceSharp/Rules] {player} spawned: gave {given}/{weapons.Count} item(s), " +
                    $"{ammoGiven} ammo" +
                    $"{((_spawnProtect?.Value ?? 0f) > 0f ? $", protected for {_spawnProtect!.Value:F1}s" : "")}\n");
     }
@@ -321,7 +481,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
         // Nothing scores once the round is over, which is what stock HL2MP's
         // PlayerKilled does with IsIntermission: kills traded over the
         // scoreboard screen must not decide a round that has already ended.
-        if (_roundOver)
+        // "The round" is whichever machine owns it: the core's own flag, or
+        // the active mode's RoundOver (IRoundFlow: a round "ends once, and
+        // scores nothing more") — nothing below, the core's board included,
+        // runs for a round its owner has ended.
+        if (_roundOver || ModeRoundOver())
             return;
 
         _scoreboard.Add(death.UserId, 0, 1, death.IsCredited ? 0 : -1);
@@ -336,6 +500,61 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
                    $"with '{death.Weapon}'{(death.Headshot ? " (headshot)" : "")} — " +
                    $"now {_scoreboard.ScoreFor(death.UserId)} point(s), " +
                    $"{_scoreboard.DeathsFor(death.UserId)} death(s)\n");
+
+        // THE MODE'S DEATH ARMS, after the core's own writes (plan 0.7): the
+        // round machine's view of the kill, and the extra score writes the
+        // mode keeps beside the scoreboard. Both after, so a mode reads the
+        // board the same way a frag-limit check does. A mode that throws is
+        // named and the core's score stands: a broken team-score line must
+        // not uncredit a kill the engine already counted.
+        if (Mode is { } mode)
+        {
+            if (!ReferenceEquals(mode.Rounds, this))
+            {
+                try
+                {
+                    mode.Rounds.OnPlayerKilled(death);
+                }
+                catch (Exception e)
+                {
+                    _log.Warning($"[SourceSharp/Rules] mode '{mode.Id}' death arm threw: {e}\n");
+                }
+            }
+
+            if (mode.Scoring is { } scoring)
+            {
+                try
+                {
+                    scoring.OnDeath(death);
+                }
+                catch (Exception e)
+                {
+                    _log.Warning($"[SourceSharp/Rules] mode '{mode.Id}' scoring threw: {e}\n");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the active mode's own machine has ended its round. False when
+    /// no mode owns the round (NullMode's machine is this class, whose flag
+    /// the caller already read). A machine that throws is named and treated
+    /// as running: a broken mod must not stop the core's scoreboard.
+    /// </summary>
+    private bool ModeRoundOver()
+    {
+        if (Mode is not { } mode || ReferenceEquals(mode.Rounds, this))
+            return false;
+
+        try
+        {
+            return mode.Rounds.RoundOver;
+        }
+        catch (Exception e)
+        {
+            _log.Warning($"[SourceSharp/Rules] mode '{mode.Id}' RoundOver threw: {e}\n");
+            return false;
+        }
     }
 
     /// <summary>
@@ -353,19 +572,76 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle
     }
 
     /// <summary>
-    /// Checks the frag limit. Runs every server frame, so it does as little as
-    /// possible: an early return when the limit is off or the round is already
-    /// over, and no allocation on the common path.
+    /// The frame's win check: the core's intermission arm, the mode proxy's
+    /// gates, then the frag/time-limit machine — this class's own, or the
+    /// active mode's. Runs every server frame, so it does as little as
+    /// possible: an early return when the limit is off or the round is
+    /// already over, and no allocation on the common path.
     /// </summary>
     public void Think()
     {
         // CHL2MPRules::Think's game-over arm: wait out the intermission, then
-        // change the level, and nothing else.
+        // change the level, and nothing else. STAYS CORE whatever the mode
+        // (plan 0.7): the intermission is the core's own screen, and a mode
+        // that never ends its round must not strand the level-change clock.
         if (_intermission is { GameOver: true } over)
         {
             over.Think(_host.CurrentTime);
             return;
         }
+
+        // THE MODE PROXY (tf2 stage 0.7). Two gates before the machine:
+        //
+        // A switch's warmup — the round has not started, and the win check of
+        // a round that has not started must not run: a frag traded while the
+        // players wait out the warmup would otherwise end it.
+        if (_modes is { IsWarmingUp: true })
+            return;
+
+        // The active mode's machine, when one owns the round. No proxy, no
+        // picked mode, or NullMode (whose Rounds IS this class) is the arm
+        // below — today's machine, unchanged, which is what every no-owner
+        // fact measures. A machine that throws is named and skipped: a broken
+        // mod's Think does not make the core's own checks run as well, which
+        // would be two answers to one question.
+        if (Mode is { } mode && !ReferenceEquals(mode.Rounds, this))
+        {
+            try
+            {
+                mode.Rounds.Think(_host.CurrentTime);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] mode '{mode.Id}' round think threw: {e}\n");
+            }
+            return;
+        }
+
+        ThinkStock();
+    }
+    // IRoundFlow, and the one member that needs spelling out. Asked AS the
+    // machine — which is what NullMode.Rounds being this object means — the
+    // delegation above has already happened, so the frame pass goes straight
+    // to the stock check: asking Think again would ask the mode, and the mode
+    // is the one asking. ResetRound and RoundOver are the members below,
+    // matched by shape; the two arms today's deathmatch does not use are the
+    // explicit no-ops beside them.
+    void IRoundFlow.Think(float now) => ThinkStock();
+
+    void IRoundFlow.OnPlayerSpawned(EntityHandle player, float now) { }
+
+    void IRoundFlow.OnPlayerKilled(PlayerDeathArgs death) { }
+
+    /// <summary>
+    /// The core's own win check — the machine behind
+    /// <see cref="IRoundFlow.Think"/> when the active mode is
+    /// <see cref="NullMode"/>, and what a mode that reuses the deathmatch
+    /// checks calls from its own Think. Public for that second caller: the
+    /// delegation in <see cref="Think"/> is one-way, and a wrapper that came
+    /// back through it would ask itself the question it was asked.
+    /// </summary>
+    public void ThinkStock()
+    {
 
         if (_roundOver)
             return;

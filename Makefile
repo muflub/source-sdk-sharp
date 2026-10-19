@@ -57,12 +57,17 @@ CONFIG    ?= debug
 # every path built from it.
 FARM       = farm/$(CONFIG)
 GAME       = bin/$(CONFIG)
-MOD        = $(CURDIR)/bin/$(CONFIG)/mods/test
+# The mod the local launches start (`run`, `run-debug`, `headless`,
+# `run-release`): stage 0.2's launch seam. `make run RUN_MOD_ID=tf2` snapshots
+# and launches bin/<config>/mods/tf2; everything that builds into a mod
+# directory (ssmap's maps, cfg seeds) still follows it.
+RUN_MOD_ID ?= test
+MOD        = $(CURDIR)/bin/$(CONFIG)/mods/$(RUN_MOD_ID)
 # The launcher: source# (src/launcher), run from bin/<config>. It reads
 # mods.yaml beside it for the mod, so no -game; tools get the same one.
 # `#` starts a make comment, hence the backslash (tools/launcher-name-test).
 LAUNCH     = ./source\#
-LAUNCH_MOD =
+LAUNCH_MOD = -mod $(RUN_MOD_ID)
 TESTS     := src/test/managed
 WEBUI     := src/webui
 
@@ -240,9 +245,8 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
                  $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
-PHONY_TESTS := managed-test managed-legs descent-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
-        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
+PHONY_TESTS := managed-test managed-legs descent-test tf2-test
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
         entity-census entity-gates entity-ratchet \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
 
@@ -261,6 +265,7 @@ help:
 	@echo "  make ci-build   CI's native build in the sniper container (+ GLIBC check)"
 	@echo "  make run        build debug, launch, and rebuild the UI as you edit"
 	@echo "  make run-debug  launch and wait for a C# debugger to attach"
+	@echo "  make run [RUN_MOD_ID=tf2]           launch another mod's directory (default: test)"
 	@echo "  make headless   run with no dialogs and assertions logged, not fatal"
 	@echo "  make run-release  build release and launch it"
 	@echo "  make test       the routine test tier (per commit); each leg reported separately"
@@ -427,6 +432,8 @@ run-snapshot:
 	          || cp -a "$$entry" "$(RUN_MOD)/bin/$$name" ;; \
 	    esac; \
 	done
+	@ln -sfn $(CURDIR)/$(GAME)/content "$(dir $(RUN_SNAP))/content"
+	@ln -sfn $(CURDIR)/$(GAME)/mods/test "$(RUN_SNAP)/test"
 	@echo "==> running against a snapshot in $(RUN_MOD) — rebuilding will not disturb it"
 
 # The launcher is run from bin/<config> and handed the mod with -game. It finds
@@ -449,7 +456,7 @@ run: $(CONFIG) node run-snapshot
 	    exec $(CURDIR)/tools/debug-api-proxy $(UI_PORT) ) > $(RUN_TMP)/ui.log 2>&1 & \
 	  proxy=$$!; \
 	  trap 'kill $$watcher $$proxy 2> /dev/null' EXIT INT TERM; \
-	  cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) -game $(RUN_MOD) $(RUN_ARGS) +map $(MAP); \
+	  cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) $(LAUNCH_MOD) -game $(RUN_MOD) $(RUN_ARGS) +map $(MAP); \
 	  status=$$?; kill $$watcher $$proxy 2> /dev/null; \
 	  cp -f $(RUN_TMP)/ui.log $(CURDIR)/tools/.ui-proxy.log 2>/dev/null; \
 	  rm -rf $(RUN_TMP) $(RUN_SNAP); exit $$status
@@ -739,6 +746,8 @@ ORACLE_MANAGED_TEST = $(DOTNET) test src/test/oracle/managed --nologo
 # The TF2Descent mod's facts (src/tf2_descent/tests, plan_host_sdk): their own project,
 # because they need the host packages the core tests must never reference.
 DESCENT_TEST  = $(DOTNET) test src/tf2_descent/tests --nologo
+# The TF2 mod's facts (src/tf2/tests, stage0_core_seams 0.1): their own project.
+TF2_TEST      = $(DOTNET) test src/tf2/tests --nologo
 ORACLE_NATIVE_TEST  = $(FARM)/src/buildcpptests --oracle
 # THE MANAGED LEGS RUN THE BUILT ASSEMBLIES. `dotnet test <project>` walks
 # MSBuild's whole up-to-date graph first: 5.5 s for the client project's 999
@@ -755,6 +764,7 @@ MANAGED_LEG   = $(DOTNET) test $(TEST_DLLS)/tests/SourceSharp.Shared.Tests.dll -
 SERVER_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-server/SourceSharp.Server.Tests.dll --nologo
 CLIENT_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-client/SourceSharp.Client.Tests.dll --nologo
 DESCENT_LEG   = $(DOTNET) test $(TEST_DLLS)/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
+TF2_LEG       = $(DOTNET) test $(TEST_DLLS)/tf2-tests/TF2.Tests.dll --nologo
 ORACLE_MANAGED_LEG = $(DOTNET) test $(TEST_DLLS)/oracle-tests/SourceSharp.OracleTests.dll --nologo
 # The census tier (ss_census() in src/test/native/CMakeLists.txt): make test-full only.
 CENSUS_TEST   = $(FARM)/src/buildcpptests --census
@@ -875,7 +885,8 @@ MANAGED_TEST_LEGS = \
     'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
     'managed-server:tools/leg-floor managed-server && $(SERVER_LEG)' \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
-    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)'
+    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
+    'tf2:tools/leg-floor tf2 && $(TF2_LEG)'
 CHECK_MANAGED ?= 1
 # NATIVE_TIER=fast runs the native leg's fast tier in place of the whole leg
 # (tools/test-tiers); CI's linux-check does, and linux-native-slow runs the
@@ -898,7 +909,7 @@ test: ui
 	@$(TEST_BUILD)
 	@tools/run-test-legs $(TEST_LEGS)
 
-# Only the managed legs (managed, managed-server, managed-client, tf2_descent):
+# Only the managed legs (managed, managed-server, managed-client, tf2_descent, tf2):
 # the test assemblies built and run, no native build. Their CMake-graph facts
 # read farm/debug/build, so that tree must be configured (not built) first;
 # the launcher and mod-image facts run bin/debug/source#, so the launcher is
@@ -1028,6 +1039,10 @@ managed-test:
 # The TF2Descent facts alone (the tf2_descent leg of `make test`), FILTER as above.
 descent-test:
 	@$(DESCENT_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
+
+# The TF2 facts alone (the tf2 leg of `make test`), FILTER as above.
+tf2-test:
+	@$(TF2_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
 
 # The oracle leg alone.
 oracle-test:

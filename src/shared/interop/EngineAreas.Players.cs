@@ -89,6 +89,9 @@ public interface IEnginePlayers
     /// <inheritdoc cref="EngineSide.PlayerSetObserverMode"/>
     void SetObserverMode(EntityHandle player, ObserverMode mode);
 
+    /// <inheritdoc cref="EngineSide.PlayerSetTeam"/>
+    void SetTeam(EntityHandle player, int team);
+
     /// <inheritdoc cref="EngineSide.EntitySetPickupEnabled"/>
     void SetPickupEnabled(EntityHandle entity, bool enabled);
 

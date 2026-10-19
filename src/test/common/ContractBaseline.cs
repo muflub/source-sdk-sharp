@@ -84,6 +84,12 @@ public static class ContractBaseline
         "native_fixture",
         "reload_fixture",
         "reload_forgetful",
+        // stage0_core_seams.md phase 0.7: the mode proxy's switch entity,
+        // the name the plan names (not ss_*: like game_rules it is placed by
+        // a mapper, not written by code -- spawned through the registry by
+        // GameModesTests today; the sandbox station pass will place it once
+        // the porting batch lands, per CLAUDE.md). Stock never declared it.
+        "game_mode_switch",
         // plan_entity.md step 6e: the fixture SaveTierAgreementTests puts
         // through BOTH walks over the marked and custom tiers, so a difference
         // between them shows up as a key or a value and not as a guess.

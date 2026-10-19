@@ -34,8 +34,9 @@ public sealed class PlayerResourceNetStateTests
     }
 
     /// <summary>
-    /// Every run is <see cref="PlayerResourceNetState.Slots"/> long, counted off
-    /// the generated table rather than off the declaration that produced it.
+    /// Every PLAYER run is <see cref="PlayerResourceNetState.Slots"/> long,
+    /// counted off the generated table rather than off the declaration that
+    /// produced it.
     ///
     /// The generator names an array's elements <c>Field.0</c> upward, so this
     /// counts the entries whose name begins with each run's own prefix.
@@ -57,15 +58,32 @@ public sealed class PlayerResourceNetStateTests
     }
 
     /// <summary>
-    /// The seven runs are the whole table — nothing else crept in, and nothing
-    /// was dropped. Counted rather than listed so that adding a seventh run is
-    /// a red test rather than a silent widening of the wire format.
+    /// The team-score run is sized at the ENGINE's team bound, not the player
+    /// one — the one run here that is not a per-player row (tf2 stage 0.7
+    /// part C). Counted the same way, so a re-size to Slots (which would read
+    /// as plausible and network 4 rows nobody indexes) is red here.
     /// </summary>
     [Fact]
-    public void TheTableIsExactlyTheSevenRuns()
+    public void TheTeamRunIsOneRowPerTeam()
     {
-        // Seven since the scoreboard's ping (plan_client_ui U3), stock's m_iPing.
-        Assert.Equal(7 * PlayerResourceNetState.Slots,
+        int n = PlayerResourceNetState.NetLayout.Fields
+            .Count(f => f.Name.StartsWith("TeamScore.", System.StringComparison.Ordinal));
+
+        Assert.Equal(SourceSharp.Abi.EngineLimits.MaxTeams, n);
+    }
+
+    /// <summary>
+    /// The runs are the whole table — nothing else crept in, and nothing was
+    /// dropped. Counted rather than listed so that adding a run is a red test
+    /// rather than a silent widening of the wire format. Seven per-player runs
+    /// of <c>Slots</c> rows, plus the team-score run of <c>MaxTeams</c>.
+    /// </summary>
+    [Fact]
+    public void TheTableIsExactlyTheSevenRunsAndTheTeamRun()
+    {
+        // The eighth run is the mode's team score (tf2 stage 0.7 part C); the
+        // seventh, the scoreboard's ping (plan_client_ui U3), stock's m_iPing.
+        Assert.Equal(7 * PlayerResourceNetState.Slots + SourceSharp.Abi.EngineLimits.MaxTeams,
                      PlayerResourceNetState.NetLayout.Fields.Count);
     }
 
@@ -73,12 +91,13 @@ public sealed class PlayerResourceNetStateTests
     /// It fits a tier with room to spare, and BOTH bounds matter.
     ///
     /// <para>
-    /// 340 bytes lands in the 512 tier at two thirds full, which leaves room
-    /// for a run to be added without the whole thing moving to 1,024 and
-    /// doubling its payload words. The first version of this class sat at
-    /// 1,020 of 1,024 — 99.6%, which <c>debug-api nettable</c> flagged as
-    /// <c>nearCeiling</c> — because it declared 102 rows for a build whose
-    /// MAX_PLAYERS is 33.
+    /// 404 bytes — 340 of player rows plus the 64-byte team-score run (tf2
+    /// stage 0.7 part C) — lands in the 512 tier at seven ninths full, which
+    /// still leaves room for a run to be added without the whole thing moving
+    /// to 1,024 and doubling its payload words. The first version of this
+    /// class sat at 1,020 of 1,024 — 99.6%, which <c>debug-api nettable</c>
+    /// flagged as <c>nearCeiling</c> — because it declared 102 rows for a
+    /// build whose MAX_PLAYERS is 33.
     /// </para>
     ///
     /// <para>

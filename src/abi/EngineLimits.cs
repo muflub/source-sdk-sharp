@@ -36,4 +36,12 @@ public static class EngineLimits
     /// </para>
     /// </summary>
     public const int MaxEdicts = 2048;
+
+    /// <summary>
+    /// <c>MAX_TEAMS</c> from <c>game/shared/shareddefs.h</c>: how many team
+    /// indices exist, the bound on the player resource's team-score run
+    /// (tf2 stage 0.7 part C). <c>MAX_TEAMS_ARRAY_SAFE</c> equals it — unlike
+    /// the player arrays, there is no +1 row to spare here.
+    /// </summary>
+    public const int MaxTeams = 32;
 }

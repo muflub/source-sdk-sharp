@@ -182,8 +182,8 @@ int32_t CShimWorldServer::TraceLine( const float * pStartXYZ, const float * pEnd
 	{ return ::SourceSharp_TraceLine( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit ); }
 int32_t CShimWorldServer::TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid )
 	{ return ::SourceSharp_TraceHull( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, hIgnore, pOutHit, pOutStartSolid ); }
-int32_t CShimWorldServer::TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags )
-	{ return ::SourceSharp_TraceLineSurface( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit, pOutSurfaceProps, pOutSurfaceFlags ); }
+int32_t CShimWorldServer::TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup )
+	{ return ::SourceSharp_TraceLineSurface( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit, pOutSurfaceProps, pOutSurfaceFlags, pOutHitgroup ); }
 uint32_t CShimWorldServer::TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ )
 	{ return ::SourceSharp_TracePlayerAim( hPlayer, flRange, pOutHitXYZ ); }
 void CShimWorldServer::AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ )
@@ -459,6 +459,8 @@ int32_t CShimPlayers::ClientsSdkPlayerEarPosition( int32_t iEdict, float * pOutX
 	{ return ::SourceSharp_ClientsSdkPlayerEarPosition( iEdict, pOutXYZ ); }
 int32_t CShimPlayers::PlayerBoxInPvs( uint32_t hPlayer, const float * pMins, const float * pMaxs )
 	{ return ::SourceSharp_PlayerBoxInPvs( hPlayer, pMins, pMaxs ); }
+void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
+	{ return ::SourceSharp_PlayerSetTeam( hPlayer, nTeam ); }
 
 void CShimWeaponsServer::RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage )
 	{ return ::SourceSharp_RegisterAmmoType( pName, nDamageType, nMaxCarry, nTracerType, flDamageForce, flDamage ); }

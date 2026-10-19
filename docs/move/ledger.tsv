@@ -1,7 +1,7 @@
 # move-ledger at fork tip 69525c1b4ccaf90f85aa9e586795ffb7e2b93a25
-# rows 9509; DROP 122; MOD-COPY 43; OURS 1955; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
-# listed below: 2150 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
-# valve_header: yes 613; no 1222; undecided 0
+# rows 9507; DROP 122; MOD-COPY 43; OURS 1953; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
+# listed below: 2148 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
+# valve_header: yes 612; no 1221; undecided 0
 # 2026-09-28: shell_particlequery.cpp/.h deleted after the move (plan_server_novalve.md P2.1); their two OURS rows removed
 # 2026-09-30: imovementplayer.h left the overlay for src/shared/native/ (plan_server_novalve.md P5): it needs only public/ headers, and server.so TUs on the R5 set reach it there; OURS-OVERLAY -> OURS
 # 2026-10-01: ServerNetworkProperty.cpp deleted (plan_server_novalve.md P5, lane E): server.so never constructed a CServerNetworkProperty; its OURS row and override removed
@@ -65,6 +65,7 @@
 # 2026-10-12: shell_velocity_home.h deleted (plan_physics_bones_perf C2): its last caller, StandaloneEntity_Velocity, reads the velocity managed holds on the entity; its OURS row removed
 # 2026-10-12: velocity_home_test.cpp deleted with its subject (shell_velocity_home.h); EntityPhysicsMotionTests and PhysicsFrameTests hold the rule in managed; its OURS row removed
 # 2026-10-18: EngineServer.cs moved from src/shared/interop to src/server/interop (plan_engine_forwarders.md, one forwarder library per side): the wrapper holds libss_fwd_server's tables; its interface stays shared as IVtableEngineServer.cs. Its OURS row's destination updated
+# 2026-10-12: PlayerAnimation.cs and PlayerAnimationTests.cs deleted (TF2 stage 0, phase 0.10): the client's player is driven by the shared MultiplayerAnimState with the HL2 posture layer (src/shared/managed/Anim/Hl2PostureLayer.cs, its own valve-header-new row), and the policy facts moved to src/test/managed/Hl2PosturePolicyTests.cs; their two OURS rows removed
 path	class	dest	valve_header	reason	run	valve_match	borderline	sha256
 .claude/entity-port/status/nan-explain.md	DROP			lane status scratch	0		0	99c5024f5319b294de5ebb81f137e580b4d3307fa2f9a0015217da2b194cc4b7
 .claude/skills/exec-plan/SKILL.md	OURS	.claude/skills/exec-plan/SKILL.md			0		0	8886abdea2927475d02dd398d901f0c2dd7cdacd61d753d84a50754a0caed046
@@ -689,7 +690,6 @@ src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientWorldFog.cs	OURS	src
 src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientWorldState.cs	OURS	src/client/managed/Standalone/ClientWorldState.cs	no	unpacks shadow_control blob and hands to subsystem, no computation	0		0	ad64da23def03fecbeecef0a71dc34c3b150bc17306fed0028e283c0965442c2
 src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientWorldText.cs	OURS	src/client/managed/Standalone/ClientWorldText.cs	no	hands eight values to native C_PointWorldText, draws nothing	0		0	b854c7d6dbeaba28a3d130bd491879c98f90bd645e89e660852c21da5bddaf73
 src/sourcesharp/managed/SourceSharp.Client/Standalone/MirrorCheckCommand.cs	OURS	src/client/managed/Standalone/MirrorCheckCommand.cs	no	own diagnostic struct/tool for mirror comparisons	0		0	53d0b7184400cec624e49c5e222801f81b2895e1314976f3c2df5cbfbf514571
-src/sourcesharp/managed/SourceSharp.Client/Standalone/PlayerAnimation.cs	OURS	src/client/managed/Standalone/PlayerAnimation.cs	yes	ports CBasePlayerAnimState (base_playeranimstate.cpp) speed/rate constants and clamp	0		0	7d0cb23ec285117893e1a8251bbe3c4174198ebbba0acd1e60df3368f1c8627b
 src/sourcesharp/managed/SourceSharp.Client/TempEnts/ClientEntityDecal.cs	OURS	src/client/managed/TempEnts/ClientEntityDecal.cs	yes	ports c_te_decal.cpp AddDecal four-outcome behaviour	0		0	dc43ea3f12306bbbd6e950af9bc60545e216085a428ec2234fa24c4852a949ef
 src/sourcesharp/managed/SourceSharp.Client/TempEnts/ClientTeArmorRicochet.cs	OURS	src/client/managed/TempEnts/ClientTeArmorRicochet.cs	yes	ports c_te_armorricochet.cpp C_TEArmorRicochet::PostDataUpdate	0		0	5b3c7b7fb9d9f8b61ce77111f8c1c2aa106145f42da69c3af2892162693b8640
 src/sourcesharp/managed/SourceSharp.Client/TempEnts/ClientTeBeamEntPoint.cs	OURS	src/client/managed/TempEnts/ClientTeBeamEntPoint.cs	yes	ports c_te_beamentpoint.cpp PostDataUpdate	0		0	e5b69f04b5fd2c7174759af8ee83d79622f1d47c5575e976099fbe3286c072a9
@@ -1451,7 +1451,6 @@ src/sourcesharp/managed/SourceSharp.Tests/PhysicsShellContractTests.cs	OURS	src/
 src/sourcesharp/managed/SourceSharp.Tests/PhysicsWakeSleepTests.cs	OURS	src/test/server/PhysicsWakeSleepTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	dd3572205b59a464b702d02171d633d4112cdeb84ec97ebce0bd78020c7fca34
 src/sourcesharp/managed/SourceSharp.Tests/PlasmaRingTests.cs	OURS	src/test/server/PlasmaRingTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	ed7815e5affac521d0ed4dc36cdad7b26ba640fbb97082b08e61f629c72205d9
 src/sourcesharp/managed/SourceSharp.Tests/PlasmaScaleRampTests.cs	OURS	src/test/server/PlasmaScaleRampTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	d59474f7579236cf7c0f0a8596b263e57be92e54c82987b3e33b02371d7582a9
-src/sourcesharp/managed/SourceSharp.Tests/PlayerAnimationTests.cs	OURS	src/test/client/PlayerAnimationTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	760057474a09c02f5964ffb3093e732dbe350e4ee86cda2c303a5e2f708d2c61
 src/sourcesharp/managed/SourceSharp.Tests/PlayerAnimatorTests.cs	OURS	src/test/client/PlayerAnimatorTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	e71a3bb81951f507754fe2a53a1a4e26877efc52bcb662dfa961fef893e3d9d7
 src/sourcesharp/managed/SourceSharp.Tests/PlayerCheatCommandTests.cs	OURS	src/test/server/PlayerCheatCommandTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	9b90e556c01724a47ba805cfb55112a904d8e3d4e338ee6c7eee483b136e77e0
 src/sourcesharp/managed/SourceSharp.Tests/PlayerCommandTests.cs	OURS	src/test/server/PlayerCommandTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	ad67c70bea2b0eef8d7970e7a0b2dcff325fff969c6a929319cd359db36b1d0c

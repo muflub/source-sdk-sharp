@@ -175,12 +175,17 @@ public:
 		return ( pEdict != NULL ) ? engine->GetPlayerNetworkIDString( pEdict ) : "";
 	}
 
-	// NOT A REFUSAL, AND THE DIFFERENCE MATTERS. This mod has no teams at all,
-	// so TEAM_UNASSIGNED is the TRUE answer rather than a stand-in for one --
-	// the same answer stock gives a player who has not picked a side. A refusal
-	// is for a question this shim cannot answer, not for one whose answer is
-	// dull.
-	virtual int GetTeamIndex() OVERRIDE { return 0; }
+	// NOT A REFUSAL, AND THE DIFFERENCE MATTERS. The player's team is real
+	// storage now (CStandalonePlayer::m_iTeamNum, tf2 stage 0.5), so this
+	// reads it; an edict with no player claims keeps answering
+	// TEAM_UNASSIGNED -- the same answer stock gives a player who has not
+	// picked a side. A refusal is for a question this shim cannot answer,
+	// not for one whose answer is dull.
+	virtual int GetTeamIndex() OVERRIDE
+	{
+		const CStandalonePlayer *pPlayer = Player();
+		return ( pPlayer != NULL ) ? pPlayer->TeamNumber() : 0;
+	}
 
 	// A REFUSAL, because it is a mutator. "Put this player on team 2" that
 	// silently does nothing is precisely §7's silent no-op: the caller has no

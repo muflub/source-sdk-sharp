@@ -273,6 +273,8 @@ public class ModsConfigTests
           assemblies:
             server: [Core.Server]
             client: [Core.Client]
+            client_ui: [Core.Client.Ui]
+          localisation: [resource/core_english.txt]
           engine:
             client:
               fd_limit: 1000
@@ -289,6 +291,8 @@ public class ModsConfigTests
             title: Bee
             assemblies:
               server: [Core.Server, B.Server]
+              client_ui: [B.Client.Ui]
+            localisation: [resource/b_english.txt]
             engine:
               client:
                 args: [-b]
@@ -411,6 +415,91 @@ public class ModsConfigTests
         Assert.Equal(["SourceSharp.Server", "TF2.Server"], tf2.ServerAssemblies);
         Assert.Equal(["SourceSharp.Client", "TF2.Client"], tf2.ClientAssemblies);
         Assert.True(File.Exists(RepoLayout.Repo("game", "mod_tf2", "gameinfo.txt")));
+    }
+
+    //-------------------------------------------------------------------------
+    // The mod's UI assemblies and language files (stage 0.9)
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void A_mod_lists_its_ui_assemblies_and_language_files_in_order()
+    {
+        var mod = ModsConfig.Parse("""
+            mods:
+              tf2:
+                game_dir: mods/tf2
+                assemblies:
+                  client_ui: [TF2.Client.Ui]
+                localisation: [resource/tf_english.txt, resource/tf_items_english.txt]
+            """, Path).Select("tf2");
+        Assert.Equal(["TF2.Client.Ui"], mod.ClientUiAssemblies);
+        Assert.Equal(["resource/tf_english.txt", "resource/tf_items_english.txt"], mod.Localisation);
+    }
+
+    [Fact]
+    public void A_mod_without_the_new_keys_loads_no_ui_assemblies_and_no_extra_language_files()
+    {
+        var mod = ModsConfig.Parse(Minimal, Path).Select("test");
+        Assert.Empty(mod.ClientUiAssemblies);
+        Assert.Empty(mod.Localisation);
+    }
+
+    [Fact]
+    public void The_new_lists_replace_their_defaults_as_the_other_assembly_lists_do()
+    {
+        var mod = ModsConfig.Parse("""
+            defaults:
+              game_dir: mods/{id}
+              assemblies:
+                client_ui: [Base.Client.Ui]
+              localisation: [resource/base_english.txt]
+            mods:
+              a: {}
+              b:
+                assemblies:
+                  client_ui: [B.Client.Ui]
+                localisation: [resource/b_english.txt]
+            """, Path);
+        Assert.Equal(["Base.Client.Ui"], mod.Select("a").ClientUiAssemblies);
+        Assert.Equal(["resource/base_english.txt"], mod.Select("a").Localisation);
+        Assert.Equal(["B.Client.Ui"], mod.Select("b").ClientUiAssemblies);
+        Assert.Equal(["resource/b_english.txt"], mod.Select("b").Localisation);
+    }
+
+    [Fact]
+    public void A_client_ui_key_outside_the_assemblies_block_is_refused()
+    {
+        // The key is `assemblies.client_ui`; a top-level one is a misspelling,
+        // refused like every key the schema does not have.
+        var e = Refused("""
+            mods:
+              test:
+                game_dir: mods/test
+                client_ui: [TF2.Client.Ui]
+            """);
+        Assert.Contains("client_ui", e.Message);
+    }
+
+    [Fact]
+    public void The_ui_assembly_list_keeps_its_order_across_the_merge_of_the_sides()
+    {
+        // The merge rule: a mod that restates `assemblies` for its side lists
+        // but not for client_ui keeps the default's UI assemblies (the block
+        // merges field by field, like engine's roles).
+        var mod = ModsConfig.Parse("""
+            defaults:
+              game_dir: mods/{id}
+              assemblies:
+                server: [Core.Server]
+                client: [Core.Client]
+                client_ui: [Base.Client.Ui]
+            mods:
+              b:
+                assemblies:
+                  client: [Core.Client, B.Client]
+            """, Path).Select("b");
+        Assert.Equal(["Core.Client", "B.Client"], mod.ClientAssemblies);
+        Assert.Equal(["Base.Client.Ui"], mod.ClientUiAssemblies);
     }
 
     //-------------------------------------------------------------------------

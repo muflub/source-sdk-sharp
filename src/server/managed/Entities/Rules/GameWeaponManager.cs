@@ -37,13 +37,20 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.GameWeaponManager)]
 public sealed class GameWeaponManager : ScriptedEntity
 {
-    public GameWeaponManager(IEngineNetworking net)
+    public GameWeaponManager(IEngineNetworking net, WeaponCatalog? weapons = null)
     {
         Net = net;
+        _weapons = weapons ?? WeaponCatalog.Stock();
     }
 
     /// <summary>putting this entity’s state on the wire.</summary>
     private readonly IEngineNetworking Net;
+
+    // This side's weapon table: "is that even a weapon we have" is the same
+    // question the arsenal asks, and the two must not answer it from different
+    // lists — a manager aimed at a mod weapon would remove itself while the
+    // gun existed.
+    private readonly WeaponCatalog _weapons;
     /// <summary>What a map may set on this entity. See <see cref="GameWeaponManagerVars"/>.</summary>
     [ScriptVars] public GameWeaponManagerVars Vars = new();
 
@@ -73,7 +80,7 @@ public sealed class GameWeaponManager : ScriptedEntity
         // weapon table, so the same two questions are a lookup — and a manager
         // for a class this mod does not have is removed exactly as stock removes
         // it, rather than sweeping a name that can never appear.
-        if (WeaponTypes.For(Vars.WeaponName) is null)
+        if (_weapons.For(Vars.WeaponName) is null)
         {
             Log.Warning($"[SourceSharp] {ClassName} '{Name}': no weapon named '{Vars.WeaponName}'; removing itself\n");
             Remove();

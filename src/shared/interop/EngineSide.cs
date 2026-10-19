@@ -2475,6 +2475,20 @@ internal sealed unsafe partial class EngineSide
             : ObserverMode.None;
 
     /// <summary>
+    /// Puts a player on a team, carrying out the store of stock's
+    /// <c>CBaseEntity::ChangeTeam</c> — nothing more. The number is not
+    /// validated here on purpose: which teams exist and which accept a
+    /// joiner is the server's <c>ITeams</c> policy, and this call is how
+    /// that decision reaches the native player. Client-side it does
+    /// nothing: no area is attached.
+    /// </summary>
+    public void PlayerSetTeam(EntityHandle player, int team)
+    {
+        if (s_Initialized && ServerAttached)
+            ServerShims.PlayerSetTeam(player.Value, team);
+    }
+
+    /// <summary>
     /// Puts a dead player back in the world, through the engine's own respawn —
     /// so the spawn point choice, the loadout and the spawn event all still
     /// happen.
@@ -3305,7 +3319,7 @@ internal sealed unsafe partial class EngineSide
     /// once — the entity factory dictionary belongs to the server, and a client
     /// builds a weapon from its network class rather than from a name. So the
     /// slot is null on the client and this call does nothing there, which is
-    /// what lets one <c>WeaponTypes.Register</c> run unchanged on both sides.
+    /// what lets one <c>WeaponCatalog.Register</c> run unchanged on both sides.
     /// </para>
     /// </summary>
     public void RegisterWeaponEntity(string className)
@@ -5004,10 +5018,11 @@ internal sealed unsafe partial class EngineSide
         uint hit;
         int surfaceProps;
         int surfaceFlags;
+        int hitGroup;
 
         int stopped = ServerShims.TraceLineSurface(s, e, (int)mask, Skippable(ignore),
                                            &fraction, endPos, normal, &hit,
-                                           &surfaceProps, &surfaceFlags);
+                                           &surfaceProps, &surfaceFlags, &hitGroup);
 
         return new SurfaceTraceResult(
             stopped != 0,
@@ -5016,7 +5031,8 @@ internal sealed unsafe partial class EngineSide
             new Vector(normal[0], normal[1], normal[2]),
             new EntityHandle(hit),
             surfaceProps,
-            surfaceFlags);
+            surfaceFlags,
+            (HitGroup)hitGroup);
     }
 
     /// <summary>

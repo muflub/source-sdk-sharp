@@ -75,12 +75,25 @@ public sealed class Grenade : ScriptedEntity
     }
 
     /// <summary>
-    /// Who threw it, so the explosion is attributed to them.
+    /// Who threw it, so the explosion is attributed to them — and how long
+    /// the gun said it has before it goes off.
     ///
-    /// Without this a player killed by their own grenade is killed by nobody,
-    /// and the scoreboard has no idea what happened.
+    /// Without the thrower a player killed by their own grenade is killed by
+    /// nobody, and the scoreboard has no idea what happened. The fuse arrives
+    /// with the throw because it is a property of the FIRING: the stock path
+    /// declares none and passes 0, which keeps the map-set value here, while a
+    /// behaviour that launched this class through
+    /// <see cref="IWeaponArms.LaunchWith"/> names its own — every launcher of
+    /// this class shares one declared constant otherwise, and the mod that
+    /// owns the entity would out-veto the gun that fires it.
+    ///
+    /// <para>
+    /// Public API, not <c>InternalsVisibleTo</c>: a mod is not a test. A mod's
+    /// own thrown entity attributes its blast through this, or through
+    /// <see cref="Explosions.Fire"/> directly.
+    /// </para>
     /// </summary>
-    internal void ThrownBy(EntityHandle thrower, float fuse)
+    public void ThrownBy(EntityHandle thrower, float fuse)
     {
         _thrower = thrower;
         Vars.Fuse = fuse;

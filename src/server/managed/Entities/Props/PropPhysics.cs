@@ -604,7 +604,7 @@ public class PropPhysics : ScriptedEntity
     /// are not ported yet (A38).
     /// </summary>
     public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
-                                    Vector position, Vector force)
+                                    Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
     {
         // CBreakableProp::OnTakeDamage: under minhealthdmg the blow is refused
         // before the base, so it neither hurts nor pushes (props.cpp:1045; A38).

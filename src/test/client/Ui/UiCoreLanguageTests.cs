@@ -29,7 +29,7 @@ public sealed class UiCoreLanguageTests : IDisposable
     [Fact]
     public void A_mod_with_no_language_file_still_has_the_core_ui_strings()
     {
-        var lang = ClientUi.Language(_dir, new RecordingLog());
+        var lang = ClientUi.Language(_dir, new RecordingLog(), null, []);
         Assert.NotNull(lang);
         Assert.Equal("OK", lang!.Find("#SS_UI_Ok"));
         Assert.Equal("Cancel", lang.Find("#SS_UI_Cancel"));
@@ -40,7 +40,7 @@ public sealed class UiCoreLanguageTests : IDisposable
     public void A_mods_file_is_asked_first_and_its_own_tokens_join_the_core()
     {
         ModFile("\"SS_UI_Ok\" \"Righto\"\n\"Mod_Only\" \"From the mod\"");
-        var lang = ClientUi.Language(_dir, new RecordingLog())!;
+        var lang = ClientUi.Language(_dir, new RecordingLog(), null, [])!;
         Assert.Equal("Righto", lang.Find("#SS_UI_Ok"));          // the mod overrides the core
         Assert.Equal("From the mod", lang.Find("#Mod_Only"));
         Assert.Equal("Cancel", lang.Find("#SS_UI_Cancel"));      // and the core fills the rest

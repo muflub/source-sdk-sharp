@@ -446,6 +446,8 @@ CStandalonePlayer::CStandalonePlayer()
 	  m_nWaterType( 0 ),
 	  m_bObserver( false ),
 	  m_nObserverMode( 0 ),
+	  // TEAM_UNASSIGNED: the born answer, as stock's is.
+	  m_iTeamNum( 0 ),
 	  m_pShadowStand( NULL ),
 	  m_pShadowCrouch( NULL ),
 	  m_pShadowActive( NULL ),

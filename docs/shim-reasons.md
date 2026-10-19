@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 34,962 |
-| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 44 | 18,857 |
+| a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 34,964 |
+| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 44 | 18,862 |
 | c | static-init registration | 19 | 6 | 3 |  |  |  | 29 | 5,345 |
-| d | a layout the engine reads at fixed offsets | 5 | 6 | 4 | 2 |  |  | 20 | 11,571 |
-| e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,112 |
+| d | a layout the engine reads at fixed offsets | 5 | 6 | 4 | 2 |  |  | 20 | 11,588 |
+| e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,119 |
 | f | a bit-level wire codec | 5 | 6 | 2 | 1 |  |  | 14 | 4,670 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 5 | 2 | 9 | 1 |  |  | 19 | 9,852 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 4,839 |
 | x | NO LETTER FITS | 9 | 2 |  |  | 2 |  | 19 | 4,769 |
-|  | **total** | **88** | **37** | **67** | **4** | **2** | **1** | **223** | **99,977** |
+|  | **total** | **88** | **37** | **67** | **4** | **2** | **1** | **223** | **100,008** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise

@@ -38,6 +38,38 @@ public interface IWeaponArms
     void Launch(in WeaponType type, string projectile, float speed, bool thrown);
 
     /// <summary>
+    /// Launches with a velocity the CALLER worked out and a fuse the weapon
+    /// declares, and reports the launch (entity, launcher, velocity, fuse) so
+    /// the owning side can attribute the shot and pass the fuse on.
+    ///
+    /// <para>
+    /// <see cref="Launch"/> beside it is the STOCK path and stays untouched: it
+    /// derives the velocity itself from a speed and the thrown/aimed rule, and
+    /// the module attributes the throw after the fact. This one is the arms a
+    /// projectile mod needs and the stock set lacks — a behaviour that wants
+    /// its own launch vector (a lobbed arc it computed, a gun-specific muzzle
+    /// speed) and its own fuse has no other door, and a mod that had to spawn
+    /// the projectile itself would have to know the launcher's eye position,
+    /// which is the arms' business, not the mod's.
+    /// </para>
+    /// </summary>
+    /// <param name="type">The row launching it; its <see cref="WeaponType.Thrown"/>
+    /// still decides whether the velocity is an impulse or a set velocity.</param>
+    /// <param name="projectile">The projectile's classname.</param>
+    /// <param name="velocity">The velocity it leaves with, unmodified.</param>
+    /// <param name="fuse">
+    /// Seconds until what it launched goes off — carried to the projectile by
+    /// the same report that attributes the shot, because a fuse belongs to the
+    /// gun that fired it and not to the entity class that flies.
+    /// </param>
+    void LaunchWith(in WeaponType type, string projectile, Vector velocity, float fuse)
+    {
+        // Nothing by default, so the client's replay arms and a test's
+        // recording arms inherit the behaviour they already had: a launch on
+        // the replay side is a no-op whatever door it comes through.
+    }
+
+    /// <summary>
     /// The named animation's sequence index IN THE CURRENT VIEWMODEL, or -1.
     /// Both sides answer from the same model, which is what lets the sequence
     /// number be predicted state.
@@ -142,18 +174,36 @@ public static class WeaponAnimNames
 public sealed class WeaponLogic
 {
     private readonly IWeaponArms _arms;
-
-    public WeaponLogic(IWeaponArms arms)
-    {
-        _arms = arms;
-    }
+    private readonly WeaponCatalog _catalog;
+    private readonly WeaponBehaviours _behaviours;
 
     /// <summary>
-    /// Told about every projectile as it leaves. The server subscribes to
-    /// attribute the throw; the client's arms never launch, so it never fires
-    /// there. Carried on the ARMS side now — see the server's WeaponArms.
+    /// The machine for one player, on one side.
     /// </summary>
-    public Action<EntityHandle, EntityHandle, Vector>? Launched { get; set; }
+    /// <param name="arms">This side's hands — the effects and the sequence lookups.</param>
+    /// <param name="catalog">
+    /// The side's weapon table, which is what turns the networked
+    /// <see cref="WeaponNetState.WeaponTypeId"/> into a row. Injected rather
+    /// than read from a static because the table now carries the mod's rows as
+    /// well, and the two sides must be reading the SAME list to agree about an
+    /// index at all.
+    /// </param>
+    /// <param name="behaviours">
+    /// The side's behaviour table — what a row's
+    /// <see cref="WeaponType.Behaviour"/> key resolves to. Both sides must
+    /// resolve one key to one behaviour or prediction diverges, which is why
+    /// this is asked once per command and passed down to the attack points.
+    /// </param>
+    public WeaponLogic(IWeaponArms arms,
+                       WeaponCatalog? catalog = null, WeaponBehaviours? behaviours = null)
+    {
+        _arms = arms;
+        // Null takes the stock tables: the core rows and no behaviours, which
+        // is exactly what a test of the stock machine wants, and what a side
+        // with no mod assemblies would build anyway.
+        _catalog = catalog ?? WeaponCatalog.Stock();
+        _behaviours = behaviours ?? WeaponBehaviours.Stock();
+    }
 
     //-------------------------------------------------------------------------
     // The per-command machine.
@@ -169,22 +219,51 @@ public sealed class WeaponLogic
     /// false for every replay of one already predicted. Sounds and traces hang
     /// off it; state writes never do.
     /// </param>
+    /// <param name="behaviour">
+    /// The row's behaviour, resolved ONCE per command by the side's
+    /// <see cref="WeaponBehaviours"/> — so the server's run and the client's
+    /// replay of one command ask the same key and get the same answer. Null
+    /// (the overwhelmingly common case: a row that names no behaviour) leaves
+    /// every decision below with its stock answer.
+    /// </param>
     public void RunCommand(WeaponNetState w, ViewModelNetState vm,
                            int buttons, float now, bool effectsLive)
     {
-        if (WeaponTypes.ByIndex(w.WeaponTypeId) is not WeaponType type)
+        if (_catalog.ByIndex(w.WeaponTypeId) is not WeaponType type)
             return;
 
+        var behaviour = _behaviours.For(type.Behaviour);
+
+        Step(w, vm, buttons, now, effectsLive, in type, behaviour);
+
+        // The tail, run for EVERY command whatever the weapon did in it —
+        // firing, reloading or standing idle — as stock's ItemPostFrame was.
+        // Not inside the arms below, because a mod's per-frame bookkeeping that
+        // lived in the fire path would quietly stop during a reload.
+        behaviour?.ItemPostFrame(Context(in type, w, vm, now, effectsLive));
+    }
+
+    /// <summary>
+    /// The command itself: what the weapon was asked for and what it did about
+    /// it. Split from <see cref="RunCommand"/> only so the post-frame tail runs
+    /// for the arms that <c>return</c> early, and left alone otherwise — every
+    /// rule below is stock's.
+    /// </summary>
+    private void Step(WeaponNetState w, ViewModelNetState vm,
+                      int buttons, float now, bool effectsLive,
+                      in WeaponType type, IWeaponBehaviour? behaviour)
+    {
         int pressed = buttons & ~w.LastButtons;
         w.LastButtons = buttons;
 
+        int clipSize = ClipSize(behaviour, in type);
         var held = (InputButtons)buttons;
 
         // Reloading is checked before firing, because a reload in progress is
         // what decides whether firing is possible at all.
-        if (type.ClipSize > 0 && w.InReload)
+        if (clipSize > 0 && w.InReload)
         {
-            FinishReloadIfDue(w, in type, now);
+            FinishReloadIfDue(w, in type, now, clipSize);
             return;
         }
 
@@ -196,15 +275,15 @@ public sealed class WeaponLogic
             && type.Secondary is not null
             && w.NextSecondaryAttack <= now)
         {
-            SecondaryAttack(w, vm, in type, now, effectsLive);
+            SecondaryAttack(w, vm, in type, now, effectsLive, behaviour);
             return;
         }
 
         if (held.HasFlag(InputButtons.Attack) && w.NextPrimaryAttack <= now)
         {
-            if (IsEmpty(w, in type))
+            if (IsEmpty(w, in type, clipSize))
             {
-                HandleFireOnEmpty(w, in type, now, effectsLive);
+                HandleFireOnEmpty(w, in type, now, effectsLive, clipSize);
                 return;
             }
 
@@ -215,17 +294,17 @@ public sealed class WeaponLogic
             if (((InputButtons)pressed).HasFlag(InputButtons.Attack))
                 w.NextPrimaryAttack = now;
 
-            PrimaryAttack(w, vm, in type, now, effectsLive);
+            PrimaryAttack(w, vm, in type, now, effectsLive, behaviour);
             return;
         }
 
         // Reload on request, or because the clip ran dry and nothing is held.
         bool wantsReload = held.HasFlag(InputButtons.Reload)
-                        || (buttons == 0 && type.ClipSize > 0 && w.Clip <= 0);
+                        || (buttons == 0 && clipSize > 0 && w.Clip <= 0);
 
-        if (wantsReload && type.ClipSize > 0 && w.NextPrimaryAttack <= now)
+        if (wantsReload && clipSize > 0 && w.NextPrimaryAttack <= now)
         {
-            Reload(w, vm, in type, now, effectsLive);
+            Reload(w, vm, in type, now, effectsLive, behaviour);
             return;
         }
 
@@ -239,6 +318,26 @@ public sealed class WeaponLogic
         }
     }
 
+    /// <summary>The context one decision point is asked about.</summary>
+    private WeaponAttackContext Context(in WeaponType type, WeaponNetState w, ViewModelNetState vm,
+                                        float now, bool effectsLive)
+        => new(type, w, vm, now, effectsLive, _arms);
+
+    /// <summary>
+    /// The fire rate this machine uses for a row: the row's own, unless a
+    /// behaviour has an opinion. Deterministic by rule — both sides ask one key
+    /// and must get the same number, or the catch-up loop mispredicts.
+    /// </summary>
+    private float Interval(IWeaponBehaviour? behaviour, in WeaponType type)
+        => behaviour is null ? type.Interval : behaviour.ModifyFireInterval(in type, type.Interval);
+
+    /// <summary>
+    /// The clip this machine uses for a row: the row's own, unless a behaviour
+    /// has an opinion. Zero or less is the row's own "no clip".
+    /// </summary>
+    private int ClipSize(IWeaponBehaviour? behaviour, in WeaponType type)
+        => behaviour is null ? type.ClipSize : behaviour.ModifyClipSize(in type, type.ClipSize);
+
     /// <summary>
     /// One pull of the trigger.
     ///
@@ -247,26 +346,37 @@ public sealed class WeaponLogic
     /// what keeps rate of fire independent of framerate, and dropping it would
     /// make every automatic weapon slower on a busy server.
     /// </summary>
+    /// <param name="behaviour">The row's resolved behaviour, or null for stock.</param>
     public void PrimaryAttack(WeaponNetState w, ViewModelNetState vm,
-                              in WeaponType type, float now, bool effectsLive)
+                              in WeaponType type, float now, bool effectsLive,
+                              IWeaponBehaviour? behaviour = null)
     {
+        // The veto, asked BEFORE anything is spent or moved: a behaviour that
+        // says no pays for nothing, spends no round and leaves no animation.
+        if (behaviour is not null && !behaviour.BeforePrimaryAttack(Context(in type, w, vm, now, effectsLive)))
+            return;
+
         // An empty clip reloads instead of firing, which is what makes a reload
         // happen at all without anyone pressing a key for it.
-        if (type.ClipSize > 0 && w.Clip <= 0)
+        int clipSize = ClipSize(behaviour, in type);
+
+        if (clipSize > 0 && w.Clip <= 0)
         {
-            Reload(w, vm, in type, now, effectsLive);
+            Reload(w, vm, in type, now, effectsLive, behaviour);
             return;
         }
 
-        int shots = ShotsOwed(w.NextPrimaryAttack, now, type.Interval);
+        float interval = Interval(behaviour, in type);
 
-        w.NextPrimaryAttack = NextAttackAfter(w.NextPrimaryAttack, now, type.Interval);
+        int shots = ShotsOwed(w.NextPrimaryAttack, now, interval);
+
+        w.NextPrimaryAttack = NextAttackAfter(w.NextPrimaryAttack, now, interval);
         w.TimeWeaponIdle = now + IdleSettle;
 
         // A round is a round whatever it is loaded with, so the clip is spent
         // per SHOT and the pellets are multiplied afterwards. A shotgun that
         // took seven rounds per pull would empty in one.
-        if (type.ClipSize > 0)
+        if (clipSize > 0)
         {
             shots = Math.Min(shots, w.Clip);
             w.Clip -= shots;
@@ -298,20 +408,21 @@ public sealed class WeaponLogic
         {
             if (effectsLive)
                 _arms.MeleeSwing(in type);
-            return;
         }
-
         // A weapon either throws or shoots, never both. A launcher that also
         // fired a bullet down the middle would be two weapons wearing one model.
-        if (type.Projectile.Length > 0)
+        else if (type.Projectile.Length > 0)
         {
             if (effectsLive)
                 _arms.Launch(in type, type.Projectile, type.LaunchSpeed, type.Thrown);
-            return;
+        }
+        else if (effectsLive)
+        {
+            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets), type.Spread);
         }
 
-        if (effectsLive)
-            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets), type.Spread);
+        // The tail, after the stock shot has been spent and the arms have fired.
+        behaviour?.PrimaryAttack(Context(in type, w, vm, now, effectsLive));
     }
 
     /// <summary>
@@ -323,8 +434,10 @@ public sealed class WeaponLogic
     /// on a slow frame would empty the pool in one tick rather than keep a
     /// rate honest.
     /// </summary>
+    /// <param name="behaviour">The row's resolved behaviour, or null for stock.</param>
     public void SecondaryAttack(WeaponNetState w, ViewModelNetState vm,
-                                in WeaponType type, float now, bool effectsLive)
+                                in WeaponType type, float now, bool effectsLive,
+                                IWeaponBehaviour? behaviour = null)
     {
         if (type.Secondary is not { } secondary)
             return;
@@ -353,6 +466,9 @@ public sealed class WeaponLogic
             else
                 _arms.FireBullets(in type, Math.Max(1, secondary.Pellets), secondary.Spread);
         }
+
+        // The tail, once the alt-fire has been paid for and the arms have fired.
+        behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive));
     }
 
     /// <summary>
@@ -383,14 +499,18 @@ public sealed class WeaponLogic
     /// Starts a reload. It finishes later, in <see cref="FinishReloadIfDue"/>,
     /// which is what gives it a duration rather than making it instantaneous.
     /// </summary>
+    /// <param name="behaviour">The row's resolved behaviour, or null for stock.</param>
     public void Reload(WeaponNetState w, ViewModelNetState vm,
-                       in WeaponType type, float now, bool effectsLive)
+                       in WeaponType type, float now, bool effectsLive,
+                       IWeaponBehaviour? behaviour = null)
     {
-        if (type.ClipSize <= 0 || w.InReload)
+        int clipSize = ClipSize(behaviour, in type);
+
+        if (clipSize <= 0 || w.InReload)
             return;
 
         // Nothing to load, or nowhere to put it.
-        if (w.Reserve <= 0 || w.Clip >= type.ClipSize)
+        if (w.Reserve <= 0 || w.Clip >= clipSize)
             return;
 
         SendAnim(vm, WeaponAnim.Reload, 0f);
@@ -407,17 +527,23 @@ public sealed class WeaponLogic
 
         w.NextPrimaryAttack = now + duration;
         w.TimeWeaponIdle    = now + duration;
+
+        behaviour?.Reload(Context(in type, w, vm, now, effectsLive));
     }
 
-    /// <summary>Moves the ammunition once the reload animation has run its course.</summary>
-    private static void FinishReloadIfDue(WeaponNetState w, in WeaponType type, float now)
+    /// <summary>
+    /// Moves the ammunition once the reload animation has run its course.
+    /// <paramref name="clipSize"/> is what the machine decided the clip holds,
+    /// which may be a behaviour's answer rather than the row's.
+    /// </summary>
+    private static void FinishReloadIfDue(WeaponNetState w, in WeaponType type, float now, int clipSize)
     {
         if (w.NextPrimaryAttack > now)
             return;
 
         // What the reserve HAS rather than what the clip WANTS: the last eleven
         // rounds should load as eleven, not as nothing.
-        int wanted = type.ClipSize - w.Clip;
+        int wanted = clipSize - w.Clip;
         int loaded = Math.Min(wanted, w.Reserve);
 
         w.Reserve -= loaded;
@@ -429,12 +555,12 @@ public sealed class WeaponLogic
     /// Whether there is anything to fire. A melee weapon is never empty, which
     /// is what stops a crowbar clicking.
     /// </summary>
-    private static bool IsEmpty(WeaponNetState w, in WeaponType type)
+    private static bool IsEmpty(WeaponNetState w, in WeaponType type, int clipSize)
     {
         if (type.IsMelee)
             return false;
 
-        return type.ClipSize > 0 ? w.Clip <= 0 : w.Reserve <= 0;
+        return clipSize > 0 ? w.Clip <= 0 : w.Reserve <= 0;
     }
 
     /// <summary>
@@ -442,7 +568,7 @@ public sealed class WeaponLogic
     /// rather than every tick.
     /// </summary>
     private void HandleFireOnEmpty(WeaponNetState w, in WeaponType type,
-                                   float now, bool effectsLive)
+                                   float now, bool effectsLive, int clipSize)
     {
         if (effectsLive)
             _arms.Sound(type.EmptySound);
@@ -452,7 +578,7 @@ public sealed class WeaponLogic
         // An empty gun reloads itself, which is what stock does through
         // ReloadOrSwitchWeapons and is the difference between a gun that has
         // run out and a gun that is broken.
-        if (type.ClipSize > 0 && w.Reserve > 0)
+        if (clipSize > 0 && w.Reserve > 0)
         {
             w.InReload = true;
             float duration = _arms.AnimDuration(WeaponAnim.Reload);

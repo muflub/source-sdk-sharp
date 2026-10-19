@@ -3,6 +3,27 @@
 Work that has been decided on but has no plan or owner yet. Each item says
 why it's here and what is known, with the commit it was measured at.
 
+
+## The TF2 stage-0 plan's class-script fixture does not exist
+
+Added 2026-10-12 at stage0-core-seams 724e7547e (phase 0.2's gate).
+
+`docs/plans/tf2/stage0_core_seams.md:103,120` names
+`scripts/playerclasses/scout.txt` in `tf2_misc_dir.vpk` as the fixture whose
+`"speed_max"` gates `tools/vpk-extract`. No such entry exists: the pack's
+`scripts/playerclasses/` holds nine `.ctx` files (binary, not KeyValues),
+and `--list '*scout*'` returns `classes/scout.res` (a UI resource:
+`classNameLabel`, `#base "default.res"`) plus HWM expression files. The
+loose `content/tf/scripts/items/items_game.txt` exists but holds no
+`speed_max` either (0 matches). So phase 0.2's gate ran its extraction arm
+against a real entry that *does* exist (`scripts/autorp.txt`, and
+`--list 'scripts/items/*'`), and the `speed_max` claim is left unproved.
+
+What is known: per-class speed in stock TF2 is not a KeyValues file at all
+-- grep `../source-sdk-2013/src/game/server/tf*/tf_player_shared.cpp` /
+`tf_shared.cpp` for the character table before Stage 1.2 ports classes, and
+give that phase a fixture that exists. Behaviour-only test, no header.
+
 ## Managed code calls the engine vtables directly: ShimSlots retired, closed
 
 Added 2026-10-04 at main 9925463d; closed 2026-10-07 at todo-list (this

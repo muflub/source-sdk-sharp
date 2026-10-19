@@ -79,7 +79,7 @@ int32_t SourceSharp_SurfacePropGameMaterial( int32_t nSurfaceProp );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 231 slots.
+// SERVER ONLY -- 232 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -323,6 +323,7 @@ void SourceSharp_PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow );
 void SourceSharp_PlayerSetSoundscape( uint32_t hPlayer, int32_t nEntIndex,
                                       int32_t nSoundscapeIndex, int32_t nLocalBits,
                                       const float *pLocalPositions );
+void SourceSharp_PlayerSetTeam( uint32_t hPlayer, int32_t nTeam );
 void SourceSharp_PlayerSetViewEntity( uint32_t hPlayer, uint32_t hView );
 int32_t SourceSharp_PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch,
                                        void *pController );
@@ -383,7 +384,7 @@ int32_t SourceSharp_TraceLineSurface( const float *pStartXYZ, const float *pEndX
                                       int32_t nMask, uint32_t hIgnore, float *pOutFraction,
                                       float *pOutEndXYZ, float *pOutNormalXYZ,
                                       uint32_t *pOutHit, int32_t *pOutSurfaceProps,
-                                      int32_t *pOutSurfaceFlags );
+                                      int32_t *pOutSurfaceFlags, int32_t *pOutHitgroup );
 uint32_t SourceSharp_TracePlayerAim( uint32_t hPlayer, float flRange, float *pOutHitXYZ );
 void SourceSharp_TracerEffect( const float *pStartXYZ, const float *pEndXYZ );
 int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes,

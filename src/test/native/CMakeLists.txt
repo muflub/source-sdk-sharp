@@ -4268,6 +4268,15 @@ ss_cpptest(playerinfo_block_test
     INCLUDES sourcesharp/game/server
     SOURCES sourcesharp/test/playerinfo_block_test.cpp)
 
+# tf2 stage 0.5 -- THE PLAYER'S TEAM IS ONE NATIVE STORE (player_team_store_test.cpp).
+# PlayerSetTeam writes CStandalonePlayer::m_iTeamNum; SourceSharp_GetPlayerTeam
+# and IPlayerInfo::GetTeamIndex read it back. Both readers answered a flat 0
+# before 0.5, and a revert compiles, links and passes every managed fact (they
+# run over a double). Source-read with comments stripped, like
+# playerinfo_block_test: the bodies hang off engine state no test binary links.
+ss_cpptest(player_team_store_test
+    SOURCES sourcesharp/test/player_team_store_test.cpp)
+
 # plan_entity.md step 3g -- THE RULES CALLERS. Two facts families in one file:
 # cast family 5 has left shell_gamerules.cpp (§3.16's own gate for this step),
 # and 3a's level-init collision-rule bridge is deleted rather than moved onto

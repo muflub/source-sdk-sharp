@@ -1034,9 +1034,9 @@ public sealed class GameMovement
             _s.MaxSpeed *= speedFactor;
 
             // OnPlayerMaxSpeed, asked LAST so a rule overrides the answer
-            // rather than competing with its inputs. Movement.MaxSpeedScale is
-            // the identity by default, which is what makes this a plumbing
-            // point and not a gameplay change.
+            // rather than competing with its inputs. The pack's MaxSpeed is the
+            // identity unless a mod registers IMovementRules, which is what
+            // makes this a plumbing point and not a gameplay change.
             _s.MaxSpeed = MaxSpeedScale(_s.EntIndex, _s.MaxSpeed, _s.Ducked,
                                         _s.SurfaceDataValid ? _surfaceData.Material : 0);
 

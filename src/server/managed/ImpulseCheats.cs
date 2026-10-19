@@ -76,9 +76,16 @@ public sealed class ImpulseCheats
     private readonly IEngineEntities _entities;
     private readonly IEnginePlayers _players;
     private readonly IEngineWorldQuery _world;
+    // This side's tables: impulse 101 gives everything the game HAS, and
+    // after 0.4 what it has is the core rows plus the mods'. Reading the
+    // statics would give the nine HL2 guns and leave the mod's unfired, with
+    // the count line reporting the shortfall as if it were the whole world.
+    private readonly WeaponCatalog _weapons;
+    private readonly AmmoCatalog _ammo;
 
     public ImpulseCheats(ILog log, IWeaponGiver arsenal, IEngineEntities entities,
-                         IEnginePlayers players, IEngineWorldQuery world, IEngineConsole console)
+                         IEnginePlayers players, IEngineWorldQuery world, IEngineConsole console,
+                         WeaponCatalog? weapons = null, AmmoCatalog? ammo = null)
     {
 
         _log = log;
@@ -86,6 +93,8 @@ public sealed class ImpulseCheats
         _entities = entities;
         _players = players;
         _world = world;
+        _weapons = weapons ?? WeaponCatalog.Stock();
+        _ammo = ammo ?? AmmoCatalog.Stock();
         CheatsEnabled = () => CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
     }
 
@@ -146,12 +155,12 @@ public sealed class ImpulseCheats
     /// </summary>
     private void GiveEverything(EntityHandle player)
     {
-        foreach (var ammo in AmmoTypes.All)
+        foreach (var ammo in _ammo.All)
             _arsenal.GiveAmmo(player, ammo.MaxCarry, ammo.Name);
 
         int given = 0;
 
-        foreach (var weapon in WeaponTypes.All)
+        foreach (var weapon in _weapons.All)
         {
             if (_arsenal.GiveWeapon(player, weapon.Name))
                 given++;
@@ -164,7 +173,7 @@ public sealed class ImpulseCheats
             _entities.SetHealth(player, healed);
 
         _log.Msg($"[SourceSharp/Impulse] 101: {given} weapon(s) given, " +
-                $"{AmmoTypes.All.Length} pool(s) filled, health {health} -> {healed}\n");
+                $"{_ammo.All.Count} pool(s) filled, health {health} -> {healed}\n");
     }
 
     /// <summary>

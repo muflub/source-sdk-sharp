@@ -105,6 +105,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     // This side's movement runner, built in ComposeEngineAreas (D8).
     private MovementRunner _movement = null!;
 
+    // The three movement decisions and the constants, resolved once after the
+    // mods registered (phase 0.3), the client's copy of the same shared seam
+    // the server resolves. The ABI getters answer from its frozen pack and
+    // the runner hands the same pack to the replay's loop.
+    private MovementRulesResolver _movementRules = null!;
+
     // Every [StringTable] declaration, registered on this side too and read-only
     // on it. Built in Initialize because it needs the container to ask for the
     // id-addressed engine area, which is internal on purpose.
@@ -983,6 +989,24 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             Log.Msg($"[SourceSharp] registered {_modServices.Count} mod service contract(s)\n");
         }
 
+        // THIS SIDE's weapon tables, registered right after the mod services so
+        // their lazy source-ask can see what the mods registered — and before
+        // the native ammo/weapon registration below, which is what carries the
+        // MOD's rows to the native fire-rate table. They must be built from the
+        // SAME assembly set the server did: the networked WeaponTypeId is a
+        // position in this list, and a row present on one side and not the
+        // other is a mispredicted shot, not a refused give. The tables report
+        // refused rows loudly through the log.
+        _services.AddInstance(new WeaponCatalog(() => _services.ResolveAll<IWeaponTypeSource>(), Log));
+        _services.AddInstance(new AmmoCatalog(() => _services.ResolveAll<IAmmoTypeSource>(), Log));
+        _services.AddInstance(new WeaponBehaviours(() => _services.ResolveAll<IWeaponBehaviourSource>(), Log));
+
+        // The animation layer chain's composition, the server's twin: the
+        // mods' IAnimStateLayer services and the core's HL2 layer, so the
+        // predicted body asks the layers the server's copy asked.
+        _services.AddInstance(new SourceSharp.Shared.Anim.AnimStateLayers(
+            () => _services.ResolveAll<SourceSharp.Shared.Anim.IAnimStateLayer>()));
+
         // The index a message travels under is its position in this list, so
         // both sides must derive the same sequence from the same metadata —
         // which is what naming the SHARED assembly here says. Discovery still
@@ -1026,9 +1050,30 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The same ammo table the server builds, from the same shared list. A
         // weapon's ammo type arrives as an index into it, so a client that
         // skipped this resolves every one of them to nothing.
-        AmmoTypes.Register("Client", _services.Require<IEngineWeapons>(), Log);
-        WeaponTypes.Register("Client", _services.Require<IEngineWeapons>(), Log);
-        Movement.Register("Client", _services.Require<IEnginePlayerMovement>(), Log);
+        // The same tables the arsenal and the prediction machine read — which
+        // is the point: the native fire-rate/ammo table must hold the MOD's
+        // rows in the same index order, or a mod weapon fires at the shell's
+        // default rate and its ammo resolves to nothing. Building them here is
+        // what freezes the table; the first read wins (see WeaponCatalog).
+        _services.Require<AmmoCatalog>().Register("Client", _services.Require<IEngineWeapons>(), Log);
+        _services.Require<WeaponCatalog>().Register("Client", _services.Require<IEngineWeapons>(), Log);
+
+        // THE MOVEMENT CONSTANTS, resolved once now the mods are in (phase
+        // 0.3), the same way the server asks: zero registrations answer the
+        // core's stock table, one is that mod's, two is a startup failure
+        // naming both. Prediction is the reason this is not merely tidy —
+        // both sides must register the SAME parameters and answer the three
+        // scales with the SAME rules, or the replay diverges from the server
+        // with nothing but rubber-banding to show for it.
+        _movementRules = _services.Create<MovementRulesResolver>();
+        _services.AddInstance(_movementRules);
+        Movement.Register("Client", _movementRules.Constants,
+                          _services.Require<IEnginePlayerMovement>(), Log);
+
+        // The replay's loop takes its decisions from the runner (see
+        // MovementRunner.ClientLoop), so the client's own hook answers its
+        // predicted commands too — frozen here, before any command runs.
+        _movement.ReplayRules = _movementRules.Rules;
 
         // The collision matrix, the SAME one the server sends. ShouldCollide is
         // asked on this side too -- util_shared.cpp is shared and the trace
@@ -1352,6 +1397,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // BoltImpact (c_stickybolt.cpp's client effect) spawns through the
         // decisions above, so it joins the effect list here.
         effectHandlers.Add(_services.Create<Effects.CrossbowBoltEffect>());
+        // The mods' effects (stage 0.9): every [SideService(Side.Client)]
+        // IClientEffectHandler, after the core's, now the services they may
+        // ask for exist.
+        int modEffects = effectHandlers.AddFrom(_services, Log);
+        if (modEffects > 0)
+            Log.Msg($"[SourceSharp/Client] {modEffects} mod client effect(s)\n");
 
         // THE STANDALONE REGISTRY GOES IN BEFORE THE PLAYERS ARE BUILT, and the
         // ORDER is the whole of this comment. ClientTeExplosion asks for
@@ -1532,8 +1583,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                     () => EngineClient.Acquire(_engine, out _),
                                                     AcquireInputSystem,
                                                     () => ClientStringTables.Acquire(_engine, out _));
-        _uiLoader = new Vgui.UiLoader(Log, _clock, _services.Require<IModInfo>().ManagedDir, () => uiServices,
-                                      _convars.Get<Vgui.UiAutoReloadConVar>())
+        // The mod's own UI assemblies (mods.yaml client_ui, stage 0.9) join
+        // the core's three in the UI's own context, so a mod HUD ships and
+        // hot-reloads without the core ever naming a screen type.
+        var mod = _services.Require<IModInfo>();
+        _uiLoader = new Vgui.UiLoader(Log, _clock, mod.ManagedDir, () => uiServices,
+                                      _convars.Get<Vgui.UiAutoReloadConVar>(), modAssemblies: mod.UiAssemblies)
         {
             DrawHud = _convars.Get<Vgui.ClDrawHudConVar>(),
         };
@@ -2447,17 +2502,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         => _gameEvents.Dispatch(eventName, handle);
 
     /// <summary>
-    /// How much of a jump a player gets. The rule itself is shared, because the
-    /// client predicts movement with the same one.
+    /// How much of a jump a player gets (ABI slot). The answer is the side's
+    /// resolved <see cref="MovementRules"/> pack — the same object the replay's
+    /// loop was frozen with, and resolved the same way the server resolves
+    /// its own, which is what keeps the predicted scales and the server's one
+    /// opinion. The rule itself is shared, because the client predicts
+    /// movement with the same one.
     /// </summary>
-    public float GetJumpScale(in JumpRequest request) => Movement.JumpScale(in request);
+    public float GetJumpScale(in JumpRequest request) => _movementRules.Rules.Jump(request);
 
     public float GetFrictionScale(int playerIndex, float friction, float speed,
                                   bool ducking, int groundMaterial)
-        => Movement.FrictionScale(playerIndex, friction, speed, ducking, groundMaterial);
+        => _movementRules.Rules.Friction(playerIndex, friction, speed, ducking, groundMaterial);
 
     public float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial)
-        => Movement.MaxSpeedScale(playerIndex, maxSpeed, ducking, groundMaterial);
+        => _movementRules.Rules.MaxSpeed(playerIndex, maxSpeed, ducking, groundMaterial);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

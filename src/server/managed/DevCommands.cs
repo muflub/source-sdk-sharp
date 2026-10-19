@@ -104,7 +104,8 @@ public sealed class DevContext
     public DevContext(IEngineEntities entities, IEngineWorldQuery world,
                       IEnginePlayers players, IEngineEntityRender render,
                       IWeaponGiver arsenal, IEntityDirectory directory,
-                      EntityFactories factories, IEngineConsole console, ILog log)
+                      EntityFactories factories, IEngineConsole console, ILog log,
+                      WeaponCatalog? weapons = null, AmmoCatalog? ammo = null)
     {
         Log = log ?? throw new ArgumentNullException(nameof(log));
         CheatsEnabled = () => ImpulseCheats.CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
@@ -116,6 +117,11 @@ public sealed class DevContext
         Render = render;
         Arsenal = arsenal;
         Directory = directory;
+        // The give command addresses what the game HAS by name; after 0.4
+        // that includes the mods' rows, so the tables come from the side's
+        // container (null here is a test's world: the stock core rows).
+        Weapons = weapons ?? WeaponCatalog.Stock();
+        Ammo = ammo ?? AmmoCatalog.Stock();
 
         // The engine's own answer, through the players area so that a test can
         // replace it with the rest of the engine. Assigned here rather than as a
@@ -128,6 +134,18 @@ public sealed class DevContext
     public IEnginePlayers Players { get; }
     public IEngineEntityRender Render { get; }
     public IWeaponGiver Arsenal { get; }
+
+    /// <summary>
+    /// The side's weapon and ammo tables (see the constructor's parameters):
+    /// <c>give</c> addresses what the game HAS by name, and after 0.4 that
+    /// includes the mods' rows, so the command reads the container's tables
+    /// rather than the core's statics — a mod's gun would otherwise come back
+    /// as "this mod has nothing called ...".
+    /// </summary>
+    public WeaponCatalog Weapons { get; }
+
+    /// <summary>The side's ammunition table (see <see cref="Weapons"/>).</summary>
+    public AmmoCatalog Ammo { get; }
     public IEntityDirectory Directory { get; }
 
     /// <summary>

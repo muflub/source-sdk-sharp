@@ -437,3 +437,12 @@ public sealed class PhysTimescaleConVar : FloatConVar { }
         Help = "Write the [SS-PHYSWORLD] teardown report to /tmp/ss-physworld-<pid>.log. " +
                "Investigation scaffolding for the spawned-prop fall; off by default.")]
 public sealed class PhysWorldReportConVar : BoolConVar { }
+
+/// <summary>
+/// Stock's per-hit damage print (player.cpp), asked by
+/// <c>SsPlayer</c> after the rules let a hit through; this build's line also
+/// names the hit's hitgroup. Cheat-protected, as stock's is.
+/// </summary>
+[ConVar("player_debug_print_damage", "0", Flags = ConVarFlags.Cheat,
+        Help = "When true, print amount and type of all damage received by player to console.")]
+public sealed class PlayerDebugPrintDamageConVar : BoolConVar { }

@@ -63,17 +63,35 @@ public sealed class ClientArsenal : ILocalArsenal
     // field.
     private readonly NetStateCatalog _catalog;
 
-    public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
-                         IGameClock clock, IEngineHud screen, NetStateCatalog catalog)
-    {
+    // The side's tables, injected beside the machine they feed; the networked
+    // index resolves against THIS list, so it must be the one the server's
+    // index was made against.
+    private readonly WeaponCatalog _weapons;
+    private readonly AmmoCatalog _ammo;
 
+    public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
+                         IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
+                         WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
+                         WeaponBehaviours? behaviours = null)
+    {
         _log = log;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _standalones = standalones;
         _render = render;
         _clock = clock;
         _screen = screen;
-        _machine = new WeaponLogic(new ClientWeaponArms(this));
+
+        // THE SAME TABLES THE SERVER RESOLVED. The replay's machine reads the
+        // row the networked WeaponTypeId indexes and asks the row's behaviour
+        // key the same questions the server's machine asked, so this side must
+        // hold the identical table and the identical behaviour set — which is
+        // why both arrive injected from the side's composition rather than
+        // being reached through a static the client could fill differently. The
+        // defaults are the stock tables, which is what a mod-less game has.
+        _weapons = weapons ?? WeaponCatalog.Stock();
+        _ammo = ammo ?? AmmoCatalog.Stock();
+        _machine = new WeaponLogic(new ClientWeaponArms(this), _weapons,
+                                   behaviours ?? WeaponBehaviours.Stock());
 
         _weapon.BindLocal();
         _viewModel.BindLocal();
@@ -338,8 +356,8 @@ public sealed class ClientArsenal : ILocalArsenal
         (current, max) = (-1, 0);
         if (_localWeapon is null || _localWeapon.State.WeaponTypeId < 0)
             return false;
-        if (WeaponTypes.ByIndex(_localWeapon.State.WeaponTypeId) is not { } type
-            || type.SecondaryAmmoName.Length == 0 || AmmoTypes.For(type.SecondaryAmmoName) is not { } ammo)
+        if (_weapons.ByIndex(_localWeapon.State.WeaponTypeId) is not { } type
+            || type.SecondaryAmmoName.Length == 0 || _ammo.For(type.SecondaryAmmoName) is not { } ammo)
             return false;
         (current, max) = (_localWeapon.State.SecondaryReserve, ammo.MaxCarry);
         return true;
@@ -369,7 +387,7 @@ public sealed class ClientArsenal : ILocalArsenal
         if (state.WeaponTypeId < 0)
             return false;
 
-        var type = WeaponTypes.ByIndex(state.WeaponTypeId);
+        var type = _weapons.ByIndex(state.WeaponTypeId);
         name = type?.Name ?? $"#{state.WeaponTypeId}";
         clip = state.Clip;
         // A weapon that spends no ammunition (the crowbar) has no pool, whatever

@@ -85,6 +85,10 @@ public sealed unsafe class MovementRunner
         GameMovement loop = _loop ??= new GameMovement(_clientWorld ?? _world, default);
         loop.Constants = constants;
         loop.JumpHeight = jumpHeight;
+        // The replay's decisions, set here rather than by the caller: the
+        // native arm below brackets its rules the same way, so both arms of
+        // this side's loop get their decisions from the runner (phase 0.3).
+        loop.Rules = ReplayRules;
         return loop;
     }
 
@@ -111,6 +115,15 @@ public sealed unsafe class MovementRunner
     /// module); unset, the arm is stock's bare return.
     /// </summary>
     public Func<int, (Vector Origin, Vector Angles, Vector Velocity)?>? ObserverTargetPose { get; set; }
+
+    /// <summary>
+    /// The CLIENT REPLAY's decisions (phase 0.3). Set once by the side's
+    /// module after the mods have registered; like the native arm's rules
+    /// argument, it is handed to the loop for one command and taken back
+    /// after. An unset replay is the identity, exactly as a side with no
+    /// movement hook behaves.
+    /// </summary>
+    public MovementRules ReplayRules { get; set; } = MovementRules.Stock;
 
     /// <summary>How many it declined — the three refused move types.</summary>
     public long CommandsDeclined => _declined;

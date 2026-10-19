@@ -203,7 +203,7 @@ public class FuncPhysbox : ScriptedEntity
     /// (func_break.cpp:823-845; plan_physics_managed A30).
     /// </summary>
     public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
-                                    Vector position, Vector force)
+                                    Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
     {
         if (!_broken && (int)damage >= Vars.MinimumDamage)
             VPhysicsTakeDamage(damageType, position, force);

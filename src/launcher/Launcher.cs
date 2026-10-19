@@ -733,6 +733,68 @@ internal sealed class Launcher(
             File.CreateSymbolicLink(Path.Combine(dir, name), entry);
         }
 
+        // A mod's gameinfo mounts its neighbourhood by relative path
+        // (`|gameinfo_path|../test`, `../../content/tf/...`): the stock layout
+        // puts mods/<id> under the game dir, and TF2's content sits two levels
+        // up in `content/`. Relocated into <root>/<name>, those paths leave the
+        // mirror, so mirror the neighbourhood too: every sibling mod dir of the
+        // shared one lands in <root> (it satisfies `../<name>`), and the game
+        // dir's content in <root>/.. (it satisfies `../../content`). Links,
+        // never copies; a name already there (the game dir itself) is left.
+        string sharedDir = Path.TrimEndingDirectorySeparator(shared);
+        string? modsDir = Path.GetDirectoryName(sharedDir);
+        if (modsDir is not null && Directory.Exists(modsDir))
+        {
+            string selfName = Path.GetFileName(dir);
+            foreach (string sibling in Directory.EnumerateFileSystemEntries(modsDir))
+            {
+                string name = Path.GetFileName(sibling);
+                if (name == selfName)
+                    continue;
+                string link = Path.Combine(root, name);
+                if (!Directory.Exists(link) && !File.Exists(link))
+                    File.CreateSymbolicLink(link, sibling);
+            }
+
+            string? binDir = Path.GetDirectoryName(modsDir);
+            string content = Path.Combine(binDir ?? "", "content");
+            if (binDir is not null && Directory.Exists(content))
+            {
+                string up = Path.GetDirectoryName(root)
+                            ?? throw new IOException($"instance root {root} has no parent");
+                string contentLink = Path.Combine(up, "content");
+                // Concurrent games share <base>, so the link is whoever made
+                // it last: every tree's bin/<config>/content links to the same
+                // installed game, so any present target serves. A link left
+                // by a deleted tree is broken, and a stale one can point at
+                // nothing else useful, so (re)point anything that is not a
+                // link to exactly this content. A real directory there is the
+                // user's; it is never touched.
+                var existing = new FileInfo(contentLink);
+                bool ours = existing.LinkTarget is not null && existing.Exists &&
+                            Path.GetFullPath(existing.LinkTarget) == Path.GetFullPath(content);
+                if (!ours)
+                {
+                    if (existing.LinkTarget is not null)
+                    {
+                        try { File.Delete(contentLink); }
+                        catch (IOException) when (new FileInfo(contentLink).LinkTarget is null) { }
+                    }
+
+                    try
+                    {
+                        if (!Directory.Exists(contentLink) && !File.Exists(contentLink))
+                            File.CreateSymbolicLink(contentLink, content);
+                    }
+                    catch (IOException) when (File.Exists(contentLink))
+                    {
+                        // Another launcher raced us to the link; either
+                        // target serves the same content.
+                    }
+                }
+            }
+        }
+
         foreach (string file in privates)
         {
             string from = Path.Combine(shared, file);

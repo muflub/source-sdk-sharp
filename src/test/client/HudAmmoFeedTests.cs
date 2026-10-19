@@ -25,7 +25,7 @@ public class HudAmmoFeedTests
     private const int SomebodyElse = 2;
 
     /// <summary>The pistol's row, because the test names it by classname.</summary>
-    private static readonly int Pistol = WeaponTypes.IndexOf(EntityNames.WeaponPistol);
+    private static readonly int Pistol = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponPistol);
 
     private sealed class Standalones : IClientStandalones
     {
@@ -90,7 +90,7 @@ public class HudAmmoFeedTests
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
 
         var standalones = new Standalones();
-        standalones.Entities.Add(Weapon(engine, LocalPlayer, WeaponTypes.IndexOf(EntityNames.WeaponCrowbar), clip: -1, reserve: 0));
+        standalones.Entities.Add(Weapon(engine, LocalPlayer, WeaponCatalog.Stock().IndexOf(EntityNames.WeaponCrowbar), clip: -1, reserve: 0));
 
         Assert.True(Arsenal(engine, standalones).TryGetActive(out _, out int clip, out int reserve));
         Assert.Equal((-1, -1), (clip, reserve));
@@ -149,7 +149,7 @@ public class HudAmmoFeedTests
         arsenal.TryGetActive(out string before, out _, out _);
 
         // The switch, as the server performs it: same entity, new identity.
-        weapon.State.WeaponTypeId = WeaponTypes.IndexOf(EntityNames.WeaponCrowbar);
+        weapon.State.WeaponTypeId = WeaponCatalog.Stock().IndexOf(EntityNames.WeaponCrowbar);
         weapon.State.Clip = -1;
 
         Assert.True(arsenal.TryGetActive(out string after, out int clip, out _),

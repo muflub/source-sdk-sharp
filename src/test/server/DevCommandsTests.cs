@@ -154,7 +154,8 @@ public class DevCommandsTests
         => engine.Returns("Entities.IsValid", true)
                  .Returns("Entities.GetName", string.Empty)
                  .Returns("Entities.GetClassName", className)
-                 .Returns("Entities.GetIndex", 11);
+                 .Returns("Entities.GetIndex", 11)
+                 .Returns("Players.GetTeam", 0);   // the team line (tf2 stage 0.5)
 
     //-------------------------------------------------------------------------
     // The tokeniser. A dispatch hands managed code CCommand::ArgS — the
@@ -926,6 +927,27 @@ public class DevCommandsTests
         Run<EntInfoCommand>(context);
         Assert.True(engine.Called("Entities.GetHealth") && engine.Called("Entities.GetBounds"),
                     "ent_info is the long one");
+    }
+
+    [Fact]
+    public void EntInfoPrintsTheStoredTeamSoAJoinTeamIsVerifiable()
+    {
+        var (context, engine, _, _) = Rig();
+        Describable(engine);
+        engine.Returns("WorldQuery.TracePlayerAim", Target)
+              .Returns("WorldQuery.TracePlayerAim.hitPoint", new Vector(64f, 0f, 0f));
+        engine.Returns("Entities.GetOrigin", Vector.Zero);
+        engine.Returns("Entities.GetAngles", Vector.Zero);
+        engine.Returns("Entities.GetVelocity", Vector.Zero);
+        engine.Returns("Entities.GetHealth", 100);
+        engine.Returns("Entities.GetBounds", (Vector.Zero, Vector.Zero));
+        engine.Returns("Entities.GetSpawnFlags", 0);
+        engine.Returns("Players.GetTeam", 2);   // THE STIMULUS: a non-zero team
+
+        var report = ((DescribeCommand)Build(typeof(EntInfoCommand), context)).Report(Target);
+
+        Assert.Contains("team     2", report);
+        Assert.True(engine.Called("Players.GetTeam"), "the line reads the store, not a field");
     }
 
     //-------------------------------------------------------------------------

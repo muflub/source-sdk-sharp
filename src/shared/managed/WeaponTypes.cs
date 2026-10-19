@@ -123,6 +123,23 @@ public readonly record struct WeaponType(
 
     /// <summary>Whether this row swings rather than shoots.</summary>
     public bool IsMelee => AmmoName.Length == 0 && Projectile.Length == 0;
+
+    /// <summary>
+    /// The KEY to the behaviour this row asks the machine to run, or empty for
+    /// stock — answered through <see cref="IWeaponBehaviourSource"/> and
+    /// resolved by <see cref="WeaponBehaviours.For"/>.
+    ///
+    /// <para>
+    /// A key and not a type or an index because the table is APPEND-ONLY: a row
+    /// is identified by its classname, and the behaviour belongs to the mod that
+    /// wrote the row, which is loaded — in the general case — by neither side's
+    /// compiler. Naming it lets a core row opt into a mod's behaviour as readily
+    /// as a mod row does, and an unresolved key is stock rather than a broken
+    /// gun. A row is free to name one nobody registered; the machine says so
+    /// once, in the log, and runs stock.
+    /// </para>
+    /// </summary>
+    public string Behaviour { get; init; } = "";
 }
 
 /// <summary>
@@ -348,85 +365,4 @@ public static class WeaponTypes
             WorldModel  = "models/weapons/w_grenade.mdl",
         },
     ];
-
-    /// <summary>
-    /// Hands the table to the native side, which is where the attack path reads
-    /// it. Called on both sides: the client predicts a shot and needs the same
-    /// fire rate to predict it with.
-    ///
-    /// <para>
-    /// This is also where the nine classnames come into existence. Each row
-    /// claims its own name for the generic weapon shell, so the table above is
-    /// the ONLY place the mod says what weapons it has — a row is a weapon, and
-    /// there is nothing else to add. The names used to be a second list in
-    /// <c>shell_weapon.cpp</c>, which meant a weapon added here and not there
-    /// did not exist and failed as "unknown entity" rather than as anything
-    /// about this table.
-    /// </para>
-    ///
-    /// <para>
-    /// The classname claim does nothing on the client, where the slot is null:
-    /// the entity factory dictionary is the server's, and a client builds a
-    /// weapon from the network class the server sent rather than from a name.
-    /// One method still serves both sides, because the numbers below it are
-    /// needed on both and the names are needed on one.
-    /// </para>
-    /// </summary>
-    public static void Register(string side, IEngineWeapons weapons, ILog log)
-    {
-        foreach (var weapon in All)
-        {
-            // The CLASSNAMES are not claimed here any more (Phase 10): each row
-            // is a [ScriptedEntity] attribute on WeaponPickup, so the names go
-            // through the same registration as every other managed entity. What
-            // this still fills is the native fire-rate table, which is only
-            // read by code that dies with basecombatweapon_shared.cpp — kept
-            // until that file leaves, then this loop goes with it.
-            weapons.RegisterWeaponType(weapon.Name, weapon.Interval, weapon.Spread, weapon.Pellets);
-        }
-
-        log.Msg($"[SourceSharp/{side}] registered {All.Length} weapon type(s)\n");
-    }
-
-    /// <summary>
-    /// The profile for a classname, or null when there is none.
-    ///
-    /// Case-insensitive because a classname arrives from the engine and from map
-    /// keyvalues, and those do not agree about case as reliably as one would
-    /// like.
-    /// </summary>
-    public static WeaponType? For(string className)
-    {
-        foreach (var weapon in All)
-        {
-            if (string.Equals(weapon.Name, className, StringComparison.OrdinalIgnoreCase))
-                return weapon;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// A weapon's position in <see cref="All"/>, or -1.
-    ///
-    /// THE INDEX IS THE WIRE FORMAT (Phase 10): the carried weapon networks
-    /// WHICH weapon it is as this number, and the client resolves it against
-    /// the same table in the same assembly. Rows are therefore APPENDED, never
-    /// reordered — the same rule the ammo table lives by, pinned by
-    /// WeaponTests.TheTableOrderIsTheWireFormat.
-    /// </summary>
-    public static int IndexOf(string className)
-    {
-        for (int i = 0; i < All.Length; i++)
-        {
-            if (string.Equals(All[i].Name, className, StringComparison.OrdinalIgnoreCase))
-                return i;
-        }
-
-        return -1;
-    }
-
-    /// <summary>The row a networked index names, or null for -1 and anything stale.</summary>
-    public static WeaponType? ByIndex(int index)
-        => index >= 0 && index < All.Length ? All[index] : null;
 }

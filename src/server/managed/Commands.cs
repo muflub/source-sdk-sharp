@@ -167,13 +167,21 @@ public sealed class GiveWeaponCommand : IConCommand
 
     private readonly IEngineEntities _entities;
 
-    public GiveWeaponCommand(ILog log, Arsenal arsenal, IEnginePlayers players, IEngineEntities entities)
+    // This side's tables (injected through the container): cs_give addresses
+    // what the game HAS, and the mods' guns are part of what it has now.
+    private readonly WeaponCatalog _weapons;
+    private readonly AmmoCatalog _ammo;
+
+    public GiveWeaponCommand(ILog log, Arsenal arsenal, IEnginePlayers players, IEngineEntities entities,
+                             WeaponCatalog? weapons = null, AmmoCatalog? ammo = null)
     {
 
         _log = log;
         _arsenal = arsenal;
         _players = players;
         _entities = entities;
+        _weapons = weapons ?? WeaponCatalog.Stock();
+        _ammo = ammo ?? AmmoCatalog.Stock();
     }
 
     public void Execute(string args)
@@ -183,7 +191,7 @@ public sealed class GiveWeaponCommand : IConCommand
         int index = parts.Length >= 2 && int.TryParse(parts[0], out int parsed) ? parsed : 1;
         string weapon = parts.Length >= 2 ? parts[1] : (parts.Length == 1 ? parts[0] : "");
 
-        if (weapon.Length == 0 || WeaponTypes.For(weapon) is not WeaponType type)
+        if (weapon.Length == 0 || _weapons.For(weapon) is not WeaponType type)
         {
             _log.Warning("[SourceSharp/Arsenal] cs_give [player] <weapon classname>\n");
             return;
@@ -200,10 +208,10 @@ public sealed class GiveWeaponCommand : IConCommand
 
         // And the ammunition to use it, filled to the carry limits — a dev
         // command that hands over a weapon you cannot fire is not worth having.
-        if (type.AmmoName.Length > 0 && AmmoTypes.For(type.AmmoName) is AmmoType ammo)
+        if (type.AmmoName.Length > 0 && _ammo.For(type.AmmoName) is AmmoType ammo)
             _arsenal.GiveAmmo(player, ammo.MaxCarry, ammo.Name);
 
-        if (type.SecondaryAmmoName.Length > 0 && AmmoTypes.For(type.SecondaryAmmoName) is AmmoType pool)
+        if (type.SecondaryAmmoName.Length > 0 && _ammo.For(type.SecondaryAmmoName) is AmmoType pool)
             _arsenal.GiveAmmo(player, pool.MaxCarry, pool.Name);
 
         _arsenal.Switch(player, type.Name);

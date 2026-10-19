@@ -27,11 +27,24 @@
 			default_write_path	|gameinfo_path|.
 			gamebin				|gameinfo_path|bin
 
-			// TF2 first: its scripts, materials, models and sounds.
-			game				|gameinfo_path|../../content/tf/tf2_misc.vpk
-			game				|gameinfo_path|../../content/tf/tf2_textures.vpk
-			game				|gameinfo_path|../../content/tf/tf2_sound_misc.vpk
-			game				|gameinfo_path|../../content/tf/tf2_sound_vo_english.vpk
+			// TF2 first: its scripts, materials, models and sounds. The
+			// install ships these four archive *directory* packs and no
+			// single-file tf2_misc.vpk; stock TF2's gameinfo names each
+			// pack, so we name them too. Mounting the directory alone does
+			// NOT mount the packs inside it -- measured 2026-10-11 on fresh
+			// logs of one ctf_2fort load each: directory-only left 4,747
+			// "Missing map material" lines (CONCRETE/COMPUTERWALLN alone
+			// 1,668), the four explicit names left 0. The loose directory
+			// below carries the unpacked files (maps, cfg); it carries no
+			// materials (its materials/ holds only models/ and vgui/).
+			game				|gameinfo_path|../../content/tf/tf2_misc_dir.vpk
+			game				|gameinfo_path|../../content/tf/tf2_textures_dir.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_misc_dir.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_vo_english_dir.vpk
+
+			// ... then the loose files the install keeps: maps
+			// (ctf_2fort.bsp), cfg, unpacked scripts.
+			game				|gameinfo_path|../../content/tf
 
 			// The core game's own files.
 			game				|gameinfo_path|../test

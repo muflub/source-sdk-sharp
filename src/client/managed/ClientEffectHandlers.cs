@@ -25,7 +25,7 @@ public interface IClientEffectHandlers
     IReadOnlyDictionary<string, int> Counts { get; }
 }
 
-/// <summary><see cref="IClientEffectHandlers"/> over a fixed list.</summary>
+/// <summary><see cref="IClientEffectHandlers"/> over the core's fixed list, then the mods' (<see cref="AddFrom"/>).</summary>
 public sealed class ClientEffectHandlers : IClientEffectHandlers
 {
     private readonly Dictionary<string, IClientEffectHandler> _byName = new(StringComparer.OrdinalIgnoreCase);
@@ -42,6 +42,32 @@ public sealed class ClientEffectHandlers : IClientEffectHandlers
     /// list (BoltImpact needs the tempent decisions). Before the first dispatch.
     /// </summary>
     public void Add(IClientEffectHandler handler) => _byName[handler.EffectName] = handler;
+
+    /// <summary>
+    /// The mods' effects (stage 0.9): every <see cref="IClientEffectHandler"/>
+    /// the side's container holds, after the core's list. A mod declares one
+    /// as <c>[SideService(Side.Client)]</c>, with or without
+    /// <c>As = [typeof(IClientEffectHandler)]</c> (a contract claims once a
+    /// side, so the plain mark is the one that admits several). A mod adds
+    /// effects, it never replaces one: a name already handled keeps its
+    /// handler and the clash is a warning naming both. Answers how many joined.
+    /// </summary>
+    public int AddFrom(ServiceContainer services, ILog log)
+    {
+        int added = 0;
+        foreach (IClientEffectHandler handler in services.ResolveAll<IClientEffectHandler>())
+        {
+            if (_byName.TryGetValue(handler.EffectName, out IClientEffectHandler? held))
+            {
+                log.Warning($"[SourceSharp/Client] {handler.GetType().FullName} handles effect '{handler.EffectName}', " +
+                            $"which {held.GetType().FullName} already does: a mod adds effects, it never replaces one\n");
+                continue;
+            }
+            _byName[handler.EffectName] = handler;
+            added++;
+        }
+        return added;
+    }
 
     public IReadOnlyDictionary<string, int> Counts => _counts;
 

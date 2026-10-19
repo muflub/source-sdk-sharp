@@ -286,6 +286,12 @@ public:
 	// read; who asks and what they do with the answer is managed code's
 	// decision (stock's CTriggerHurt::RadiationThink gates a geiger ping).
 	virtual int32_t PlayerBoxInPvs( uint32_t hPlayer, const float * pMins, const float * pMaxs ) = 0;
+	// Put a player on a team: the carrying-out half of CBaseEntity's
+	// ChangeTeam (baseentity.cpp:4947 -- `m_iTeamNum = iTeamNum`, one
+	// assignment, no decisions). Native stores it and decides nothing: the
+	// team number is not validated here, the choice of team is managed
+	// code's (ITeams.Join and its policy hook). Append-only, tf2 stage 0.5.
+	virtual void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) = 0;
 };
 
 abstract_class IShimWeapons
@@ -415,7 +421,7 @@ abstract_class IShimWorldServer : public IShimWorld
 public:
 	virtual int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) = 0;
 	virtual int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) = 0;
-	virtual int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags ) = 0;
+	virtual int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) = 0;
 	virtual uint32_t TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ ) = 0;
 	virtual void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) = 0;
 	virtual int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) = 0;

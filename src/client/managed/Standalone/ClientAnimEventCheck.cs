@@ -67,13 +67,19 @@ public sealed class AnimEventCheckCommand : IConCommand
 
     private readonly IClientStandalones _standalones;
     private readonly IEngineEntityRender _render;
+    // The side's weapon table: the check sweeps what this client predicts
+    // with, and that is the mods' rows too now (the same table the arsenal's
+    // machine was built with).
+    private readonly WeaponCatalog _weapons;
 
-    public AnimEventCheckCommand(ILog log, IClientStandalones standalones, IEngineEntityRender render)
+    public AnimEventCheckCommand(ILog log, IClientStandalones standalones, IEngineEntityRender render,
+                                 WeaponCatalog? weapons = null)
     {
 
         _log = log;
         _standalones = standalones;
         _render = render;
+        _weapons = weapons ?? WeaponCatalog.Stock();
     }
 
     public void Execute(string args)
@@ -109,7 +115,7 @@ public sealed class AnimEventCheckCommand : IConCommand
 
         int unmet = 0;
 
-        foreach (var weapon in WeaponTypes.All)
+        foreach (var weapon in _weapons.All)
         {
             if (filter.Length > 0 && !weapon.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 continue;

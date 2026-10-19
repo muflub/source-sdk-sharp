@@ -146,7 +146,7 @@ public:
 	int32_t SurfacePropGameMaterial( int32_t nSurfaceProp ) override;
 	int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) override;
 	int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) override;
-	int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags ) override;
+	int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) override;
 	uint32_t TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ ) override;
 	void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) override;
 	int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) override;
@@ -325,6 +325,7 @@ public:
 	int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ ) override;
 	int32_t ClientsSdkPlayerEarPosition( int32_t iEdict, float * pOutXYZ ) override;
 	int32_t PlayerBoxInPvs( uint32_t hPlayer, const float * pMins, const float * pMaxs ) override;
+	void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) override;
 };
 
 class CShimWeaponsServer final : public IShimWeaponsServer

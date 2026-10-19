@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- TF2's client side: stock TF2 client logic, ported. -->
   <ItemGroup>
+    <!-- TF2's shared source compiles into each side (plan_side_isolation §2.4,
+         the Descent pattern): no TF2.Shared assembly, so the shared netstate
+         classes register once per side like src/shared/managed/*NetState.cs. -->
+    <Compile Include="..\shared\**\*.cs" Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" />
     <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"

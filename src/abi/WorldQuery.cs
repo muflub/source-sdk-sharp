@@ -258,6 +258,13 @@ public readonly record struct TraceResult(
 /// is the one every stock impact path tests: a shot into the skybox leaves no
 /// decal and no flecks.
 /// </param>
+/// <param name="HitGroup">
+/// The engine's <c>trace_t.hitgroup</c>: which group of the studio model's
+/// hitboxes the line stopped on, when the mask carries hitboxes
+/// (<see cref="TraceMask.Shot"/>). <see cref="Abi.HitGroup.Generic"/> for the
+/// world, a brush, a model without hitboxes, or a trace that hit nothing —
+/// the same zero stock's <c>trace_t</c> holds there.
+/// </param>
 public readonly record struct SurfaceTraceResult(
     bool Hit,
     float Fraction,
@@ -265,7 +272,27 @@ public readonly record struct SurfaceTraceResult(
     Vector Normal,
     EntityHandle Entity,
     int SurfaceProps,
-    int SurfaceFlags);
+    int SurfaceFlags,
+    HitGroup HitGroup = HitGroup.Generic);
+
+/// <summary>
+/// Stock's <c>HITGROUP_*</c> (<c>game/shared/shareddefs.h</c>): the group a
+/// studio model's hitbox belongs to, as a trace reports it. The values are the
+/// engine's and are pinned against the pristine header by an oracle test.
+/// 8 and 9 are unassigned in stock.
+/// </summary>
+public enum HitGroup
+{
+    Generic = 0,
+    Head = 1,
+    Chest = 2,
+    Stomach = 3,
+    LeftArm = 4,
+    RightArm = 5,
+    LeftLeg = 6,
+    RightLeg = 7,
+    Gear = 10,
+}
 
 /// <summary>
 /// What a line through the CLIENT's world ran into.

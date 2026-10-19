@@ -78,6 +78,25 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
         _gates = gates;
     }
 
+    /// <summary>
+    /// The mode proxy, for the active mode's <see cref="IRespawnPolicy"/>
+    /// (tf2 stage 0.7 part C), wired by <see cref="AttachModes"/>.
+    /// </summary>
+    private GameModes? _modes;
+
+    /// <summary>
+    /// The wiring the module does once, before the first frame: the proxy the
+    /// death cycle asks for its respawn policy. An ATTACH and not a
+    /// constructor parameter because the proxy cannot be constructed this
+    /// early — it takes the ConVarRegistry, which the module registers only
+    /// later — and `Create` resolves constructor arguments eagerly, so asking
+    /// for it by parameter would make the live game pass null. Same reason the
+    /// proxy is attached to its own machine (<c>GameModes.Attach</c>). Null
+    /// stays the no-owner arm: a test that builds the roster without ever
+    /// attaching gets this class's own answers, exactly as before modes.
+    /// </summary>
+    internal void AttachModes(GameModes modes) => _modes = modes;
+
     /// <summary>The mods' vetoes on respawning. See <see cref="MayRespawn"/>.</summary>
     private readonly IHooks<IRespawnGate>? _gates;
 
@@ -107,6 +126,64 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The active mode's respawn policy, or null: no proxy, no picked mode, or
+    /// a mode that says "the core's own answer" by leaving the concern out.
+    /// The two halves are asked together or not at all — a mode answers both or
+    /// neither, because a long wait with no release and a short wait with a
+    /// silent gate are the two ways a mode can accidentally trap a player, and
+    /// the interface makes the pair one decision (<see cref="IRespawnPolicy"/>).
+    /// </summary>
+    private IRespawnPolicy? Policy => _modes?.Active?.Respawn;
+
+    /// <summary>
+    /// Seconds this player waits from their death: the mode's number when it
+    /// owns the concern, this class's <see cref="RespawnDelay"/> otherwise. A
+    /// policy that throws is named and treated as no policy — the wait the
+    /// player would have waited anyway is what a broken mod must leave behind,
+    /// not a player held dead by it (the rule the gate walk above applies to a
+    /// throwing veto, for the same reason).
+    /// </summary>
+    private float DelayFor(EntityHandle player)
+    {
+        if (Policy is not { } policy)
+            return RespawnDelay;
+
+        try
+        {
+            return Math.Max(0f, policy.Delay(player));
+        }
+        catch (Exception e)
+        {
+            _log.Warning($"[SourceSharp/Players] mode respawn policy {policy.GetType().FullName} " +
+                         $"threw on Delay: {e.Message}\n");
+            return RespawnDelay;
+        }
+    }
+
+    /// <summary>
+    /// Whether the mode lets this player out right now — a wave's release, or
+    /// the plain yes. Null policy and a throw are both yes: the core's own
+    /// answer is that a wait ends when it ends, and the mode that owns the
+    /// hold is the one that has to say so on purpose.
+    /// </summary>
+    private bool WaveAllows(EntityHandle player, float now)
+    {
+        if (Policy is not { } policy)
+            return true;
+
+        try
+        {
+            return policy.WaveRelease(player, now);
+        }
+        catch (Exception e)
+        {
+            _log.Warning($"[SourceSharp/Players] mode respawn policy {policy.GetType().FullName} " +
+                         $"threw on WaveRelease: {e.Message}\n");
+            return true;
+        }
     }
 
     private readonly IGameClock _clock;
@@ -302,7 +379,7 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
                     _players.SetObserverMode(player, DeathView);
 
                 _log.Msg($"[SourceSharp/Players] {player} dead, may return in " +
-                           $"{Math.Max(0f, RespawnDelay - (now - record.DiedAt)):F1}s\n");
+                           $"{Math.Max(0f, DelayFor(player) - (now - record.DiedAt)):F1}s\n");
                 continue;
             }
 
@@ -315,7 +392,16 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
                     continue;
             }
 
-            if (now - record.DiedAt < RespawnDelay)
+            // The wait and the release, both the mode's when it owns the
+            // concern (tf2 stage 0.7 part C): a long delay plus a false
+            // release keeps the player dead until the mode says otherwise —
+            // the pair is why the policy answers them together
+            // (IRespawnPolicy). No policy is this class's own answer: the
+            // deathmatch wait and the plain yes.
+            if (now - record.DiedAt < DelayFor(player))
+                continue;
+
+            if (!WaveAllows(player, now))
                 continue;
 
             if (!wantsToRespawn(player))
@@ -357,7 +443,7 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
         if (record.DiedAt < 0f)
             return 0f;
 
-        return Math.Max(0f, RespawnDelay - (now - record.DiedAt));
+        return Math.Max(0f, DelayFor(player) - (now - record.DiedAt));
     }
 }
 

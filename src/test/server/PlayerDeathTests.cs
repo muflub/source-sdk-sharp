@@ -81,13 +81,27 @@ public class PlayerDeathTests
         }
     }
 
-    private static (PlayerDeaths Deaths, Players Players, Heard Hook) Deaths(RecordingEngine engine)
+    private static (PlayerDeaths Deaths, Players Players, Heard Hook) Deaths(RecordingEngine engine, bool withHook = true)
     {
         var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)), engine);
         var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons) { DropWeaponOnDeath = false };
         var hook = new Heard { ReadDeaths = () => players[Player].Deaths };
-        return (new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine, new ListHooks<IPlayerDeathHook>(hook),
+        var hooks = withHook ? new ListHooks<IPlayerDeathHook>(hook) : new ListHooks<IPlayerDeathHook>();
+        return (new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine, hooks,
                                  new DeathNotice(engine, engine, engine, new DamageInflictors())), players, hook);
+    }
+
+    [Fact]
+    public void Without_death_hooks_the_death_is_recorded_and_the_body_made_as_before()
+    {
+        var engine = Dying();
+        var (deaths, players, hook) = Deaths(engine, withHook: false);
+
+        deaths.OnKilled(Player, Attacker);
+
+        Assert.Equal(1, players[Player].Deaths);                       // on the record
+        Assert.Equal(1, engine.CountOf("Entities.Create"));             // the body made
+        Assert.Null(hook.Death);                                        // and no hook was there to hear it
     }
 
     [Fact]

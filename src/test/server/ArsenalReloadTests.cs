@@ -50,7 +50,7 @@ public class ArsenalReloadTests
 
         var entities = sharedEntities ?? new WeaponSwitchTests.SpawningEntities(engine, registry);
         var arsenal = new Arsenal(new RecordingLog(), entities, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine);
+                                  engine, engine, registry, engine, new DamageHitGroups());
         return new World(arsenal, engine, entities, registry);
     }
 

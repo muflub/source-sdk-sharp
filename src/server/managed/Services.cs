@@ -17,9 +17,14 @@ namespace SourceSharp.Server;
 /// </summary>
 public interface IGameRules
 {
-    /// <summary>Whether an attack lands. <see cref="Decision.UseStockRule"/> defers.</summary>
+    /// <summary>
+    /// Whether an attack lands. <see cref="Decision.UseStockRule"/> defers.
+    /// <paramref name="hitGroup"/> is the hit's studio hitbox group (a traced
+    /// shot's; Generic otherwise), handed on to the mods' damage rules.
+    /// </summary>
     Decision CanTakeDamage(EntityHandle player, EntityHandle attacker,
-                           float damage, int damageType, float now);
+                           float damage, int damageType, float now,
+                           HitGroup hitGroup = HitGroup.Generic);
 
     /// <summary>Whether a dead player may come back yet.</summary>
     Decision CanRespawn(EntityHandle player);

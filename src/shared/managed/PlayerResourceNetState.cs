@@ -115,8 +115,32 @@ public partial class PlayerResourceNetState
     /// </summary>
     [NetArray(Slots)] public partial NetArray<short> UserId { get; }
 
-    /// <summary>Which team. Four bits in stock; a byte is wider.</summary>
+    /// <summary>
+    /// Which team. Four bits in stock; a byte is wider.
+    ///
+    /// The row is the PLAYER's entity index, like every other run here.
+    /// </summary>
     [NetArray(Slots)] public partial NetArray<byte> Team { get; }
+
+    /// <summary>
+    /// A team's score, for the scoreboard header and the team menu
+    /// (tf2 stage 0.7 part C: the plan's "the team score fields it needs").
+    ///
+    /// <para>
+    /// THE INDEX IS THE TEAM, not the player — the one run on this class
+    /// that is not a per-player row, which is why it is sized at
+    /// <see cref="EngineLimits.MaxTeams"/> and refreshed by its own method
+    /// rather than by <see cref="SetRow"/>. Stock kept a team's score on the
+    /// C_Team entity and reached it through GetGlobalTeam; C_Team left this
+    /// build with the server gc cull, so a team's numbers have never been on
+    /// any table. This run is where the mode's IScoring puts them —
+    /// team-scored games (TF2's two teams today, the plan's Stage 1+) need
+    /// them client-side, and a run nothing reads is this repo's documented
+    /// quiet failure, so the client reader asks for it by name beside the
+    /// seven player rows (playerresource_pairing_test.cpp pins the pair).
+    /// </para>
+    /// </summary>
+    [NetArray(EngineLimits.MaxTeams)] public partial NetArray<short> TeamScore { get; }
 
     /// <summary>
     /// The client's ping in ms, smoothed, set every two seconds (stock's

@@ -53,7 +53,7 @@ public sealed class ArsenalPlayers : IEnginePlayers
     //-------------------------------------------------------------------------
 
     public bool GiveItem(EntityHandle player, string className)
-        => IsStandalone(player) && WeaponTypes.IndexOf(className) >= 0
+        => IsStandalone(player) && _arsenal.Weapons.Contains(className)
             ? _arsenal.GiveWeapon(player, className)
             : _inner.GiveItem(player, className);
 
@@ -118,6 +118,7 @@ public sealed class ArsenalPlayers : IEnginePlayers
     public void Respawn(EntityHandle player) => _inner.Respawn(player);
     public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f) => _inner.SetFov(player, requester, fov, rate);
     public void SetObserverMode(EntityHandle player, ObserverMode mode) => _inner.SetObserverMode(player, mode);
+    public void SetTeam(EntityHandle player, int team) => _inner.SetTeam(player, team);
     public void SetPickupEnabled(EntityHandle entity, bool enabled) => _inner.SetPickupEnabled(entity, enabled);
     public void SetViewEntity(EntityHandle player, EntityHandle view) => _inner.SetViewEntity(player, view);
 

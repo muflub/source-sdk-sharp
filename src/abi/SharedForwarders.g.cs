@@ -1333,8 +1333,8 @@ internal unsafe struct ShimWorldServerFwd : IForwarderTable
     // int32_t IShimWorldServer::TraceHull( const float *, const float *, const float *, const float *, int32_t, uint32_t, uint32_t *, int32_t * )
     public delegate* unmanaged<void*, void*, void*, void*, void*, int, uint, void*, void*, int> TraceHull;
 
-    // int32_t IShimWorldServer::TraceLineSurface( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t *, int32_t *, int32_t * )
-    public delegate* unmanaged<void*, void*, void*, int, uint, void*, void*, void*, void*, void*, void*, int> TraceLineSurface;
+    // int32_t IShimWorldServer::TraceLineSurface( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t *, int32_t *, int32_t *, int32_t * )
+    public delegate* unmanaged<void*, void*, void*, int, uint, void*, void*, void*, void*, void*, void*, void*, int> TraceLineSurface;
 
     // uint32_t IShimWorldServer::TracePlayerAim( uint32_t, float, float * )
     public delegate* unmanaged<void*, uint, float, void*, uint> TracePlayerAim;
@@ -1766,7 +1766,7 @@ internal unsafe struct ShimGameRulesFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimPlayers</c> through its forwarders (SSFwd_ShimPlayers): 17 slot(s).
+/// <c>IShimPlayers</c> through its forwarders (SSFwd_ShimPlayers): 18 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimPlayersFwd : IForwarderTable
@@ -1824,6 +1824,9 @@ internal unsafe struct ShimPlayersFwd : IForwarderTable
 
     // int32_t IShimPlayers::PlayerBoxInPvs( uint32_t, const float *, const float * )
     public delegate* unmanaged<void*, uint, void*, void*, int> PlayerBoxInPvs;
+
+    // void IShimPlayers::PlayerSetTeam( uint32_t, int32_t )
+    public delegate* unmanaged<void*, uint, int, void> PlayerSetTeam;
 }
 
 /// <summary>

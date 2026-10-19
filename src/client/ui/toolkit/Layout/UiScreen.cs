@@ -28,6 +28,22 @@ public abstract class UiScreen : IUiScreen
 }
 
 /// <summary>
+/// The screens an assembly ships (stage 0.9): every concrete, closed
+/// <see cref="UiScreen"/> type in it, by full name, assembly by assembly. The
+/// one list the game places a mod's screens from (ClientUi.ModScreens) and the
+/// UI facts hold every screen's sample against, so the game and the preview
+/// cannot disagree about what a UI assembly holds. Visibility is not a filter:
+/// an internal screen dropped here would be a screen silently never shown.
+/// </summary>
+public static class UiScreens
+{
+    public static IReadOnlyList<Type> Discover(params System.Reflection.Assembly[] assemblies)
+        => [.. assemblies.SelectMany(a => a.GetTypes()
+                                          .Where(t => !t.IsAbstract && !t.ContainsGenericParameters && typeof(UiScreen).IsAssignableFrom(t))
+                                          .OrderBy(t => t.FullName, StringComparer.Ordinal))];
+}
+
+/// <summary>
 /// A reusable sub-panel (plan_client_ui §5.7a): a class with its own fields,
 /// embedded with <c>ui.Sub(key, panel, props)</c> under its own id scope. Game
 /// data comes in by constructor (the data interfaces it reads, built by DI);

@@ -94,5 +94,6 @@
     <Compile Include="..\common\RecordingJointTables.cs" Link="common\RecordingJointTables.cs" />
     <Compile Include="..\common\TempEntsDouble.cs" Link="common\TempEntsDouble.cs" />
     <Compile Include="..\common\RecordingEffectDispatch.cs" Link="common\RecordingEffectDispatch.cs" />
+    <Compile Include="..\common\EmittedWeaponSources.cs" Link="common\EmittedWeaponSources.cs" />
   </ItemGroup>
 </Project>

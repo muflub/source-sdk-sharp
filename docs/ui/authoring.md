@@ -49,8 +49,12 @@ The rules that make every screen previewable, reloadable and cheap:
   of something gets one interface (`IScoreboardSource`,
   `ISpectatorTargetSource`).
 - **Registration:** previews and tests find a screen by its `[UiSample]`s; in
-  game the client's container registers every `UiScreen` (U2), and the layer
-  opens HUD screens by default and menus when asked.
+  game `ClientUi.Build` composes the core's screens, and every `UiScreen` in a
+  mod's UI assemblies (mods.yaml `assemblies.client_ui`) joins after them on
+  the layer its `Layer` names, by `Order`, built through the client's
+  container: data interfaces from the mod's `[SideService]` adapters (which
+  live in its client assembly, never the UI one), sub-panels built alongside.
+  The layer opens HUD screens by default and menus when asked.
 - **No statics with state, no globals.** Screens are built by DI; state lives
   in the screen's fields, in a sub-panel's fields, or in `ui.State<T>(key)`.
 - **No allocation per frame.** No `new`, no LINQ, no string concatenation or

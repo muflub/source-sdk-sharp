@@ -75,6 +75,11 @@ public abstract class DescribeCommand : DevCommand
         report.Append($"    health   {Context.Entities.GetHealth(subject)}\n");
         report.Append($"    bounds   {mins} .. {maxs}\n");
         report.Append($"    flags    spawnflags {Context.Entities.GetSpawnFlags(subject)}\n");
+        // The team the engine stores (the PlayerSetTeam slot's store), so a
+        // jointeam is verifiable from the console: tf2 stage 0.5's gate reads
+        // this line. Anything that is not a player prints -1:
+        // SourceSharp_GetPlayerTeam's "not a player" answer, not a team.
+        report.Append($"    team     {Context.Players.GetTeam(subject)}\n");
         report.Append($"    managed  {(Context.Directory.Get(subject) is { } m ? m.GetType().Name : "no — native entity")}\n");
 
         string className = Context.Entities.GetClassName(subject);

@@ -230,7 +230,8 @@ public static unsafe class SideLoad
             // What IModInfo reads in the game's load context (plan_host_sdk §2.8):
             // AppContext data is process-wide, so it crosses the context boundary.
             ModInfo.Publish(facts.ModId, facts.GameDir, facts.ManagedDir,
-                            facts.ServerAssemblies, facts.ClientAssemblies, facts.BrowserJson);
+                            facts.ServerAssemblies, facts.ClientAssemblies, facts.BrowserJson,
+                            facts.ModClientUiAssemblies, facts.ModLocalisation);
 
             if (CreateModule(session) is not { } module)
                 return -3;

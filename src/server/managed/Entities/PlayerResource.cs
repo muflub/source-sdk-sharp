@@ -59,7 +59,8 @@ public sealed class PlayerResource : ScriptedEntity
                           IEnginePlayers players,
                           IPlayerDirectory roster,
                           IClientInfo? clients = null,
-                          IEngineEnvironment? environment = null)
+                          IEngineEnvironment? environment = null,
+                          GameModes? modes = null)
     {
         Clients = clients;
         Environment = environment;
@@ -67,7 +68,20 @@ public sealed class PlayerResource : ScriptedEntity
         EntityApi = entities;
         PlayerApi = players;
         Roster = roster;
+        Modes = modes;
     }
+
+    /// <summary>
+    /// The mode proxy, for the active mode's <see cref="IScoring.TeamScore"/>
+    /// (tf2 stage 0.7 part C): the team column the scoreboard header reads.
+    /// Null or a mode with no scoring leaves every team at zero, which is what
+    /// this build has always shown — C_Team has been gone since the flip, and
+    /// the client reader's <c>GetTeamScore</c> fell back to zero for all of it.
+    /// The proxy exists before the entity does (registered in
+    /// <c>Initialize</c>, created at level init), so unlike the respawn
+    /// wiring this is an ordinary constructor parameter.
+    /// </summary>
+    private readonly GameModes? Modes;
 
     /// <summary>Each client's channel latency and cl_cmdrate, for the ping; none in a test without an engine.</summary>
     private readonly IClientInfo? Clients;
@@ -178,7 +192,62 @@ public sealed class PlayerResource : ScriptedEntity
                 UpdatePing(slot);
         }
 
+        UpdateTeamScores();
+
         SetNextThink(ThinkInterval);
+    }
+
+    /// <summary>
+    /// The team column, from the active mode's <see cref="IScoring"/> (tf2
+    /// stage 0.7 part C). Every team index the run has room for is asked —
+    /// <see cref="IScoring.TeamScore"/>'s negative means "no such team", the
+    /// zero the run already holds — so a team that scores for the first time
+    /// needs no registration step.
+    ///
+    /// <para>
+    /// No mode, or a mode that left scoring out, CLEARS the run rather than
+    /// leaving it: a mode switch mid-map would otherwise keep a team's
+    /// hundred points on the wire after the mode that earned them stopped
+    /// playing, and a scoreboard header is exactly where somebody would
+    /// notice. The clear is idempotent and costs nothing on rows already
+    /// zero, which is every row of a game that never had teams — the state
+    /// the client's GetTeamScore fallback has answered since C_Team left.
+    /// </para>
+    ///
+    /// <para>
+    /// A scoring object that throws is named once per team and the team keeps
+    /// its last score — a broken mode must not zero a team that was winning
+    /// (the rule the death-scoring dispatch applies to its thrower).
+    /// </para>
+    /// </summary>
+    public void UpdateTeamScores()
+    {
+        IScoring? scoring = Modes?.Active?.Scoring;
+
+        for (int team = 0; team < EngineLimits.MaxTeams; team++)
+        {
+            if (scoring is null)
+            {
+                State.TeamScore[team] = 0;
+                continue;
+            }
+
+            try
+            {
+                // A negative answer is "no such team" (IScoring.TeamScore's
+                // contract): the wire says zero, not "keep what was there" —
+                // a team the mode does not know had better not keep another
+                // round's points on the header.
+                int score = scoring.TeamScore(team);
+                State.TeamScore[team] = score < 0 ? (short)0
+                    : (short)(score > short.MaxValue ? short.MaxValue : score);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[SourceSharp/PlayerResource] scoring {scoring.GetType().FullName} " +
+                            $"threw on TeamScore({team}): {e.Message}\n");
+            }
+        }
     }
 
     /// <summary>
