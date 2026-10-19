@@ -87,6 +87,123 @@ public unsafe class ClientAdapterRegistrationTests
                                                        (nint)(delegate* unmanaged<void*, void*, int>)&Nine,
                                                        d => d.End(new float[ClientSpriteRequest.OutFloats])));
 
+    private const string Particles = "SourceSharpParticlesClient001";
+
+    [ThreadStatic] private static float[]? t_seen;
+
+    [UnmanagedCallersOnly] private static int ContentsOfZ(void* self, uint owner, float* point) => (int)point[2];
+
+    [UnmanagedCallersOnly]
+    private static int NameFx(void* self, int index, byte* name, int capacity)
+    {
+        name[0] = (byte)'f';
+        name[1] = (byte)'x';
+        return 2;
+    }
+
+    [UnmanagedCallersOnly]
+    private static int WorldTraceQuarter(void* self, float* start, float* end, float* output, int floats)
+    {
+        for (int i = 0; i < floats; i++)
+            output[i] = 0;
+        output[0] = 0.25f;
+        return floats;
+    }
+
+    [UnmanagedCallersOnly]
+    private static int PlaneTraceHalf(void* self, float* start, float* end, int mask, float* output, int floats)
+    {
+        for (int i = 0; i < floats; i++)
+            output[i] = 0;
+        output[0] = 0.5f;
+        output[4] = mask;
+        return floats;
+    }
+
+    [UnmanagedCallersOnly]
+    private static float VisibleThreeQuarters(void* self, float* origin, int* handle)
+    {
+        *handle = 4;
+        return 0.75f;
+    }
+
+    [UnmanagedCallersOnly] private static void SeeDestroy(void* self, uint owner, int channel) => t_seen = [owner, channel];
+    [UnmanagedCallersOnly] private static void SeeMeshDestroy(void* self, uint owner) => t_seen = [owner];
+    [UnmanagedCallersOnly] private static void SeeWind(void* self, float* wind, float* sway, int winds) => t_seen = [winds, wind[0]];
+
+    [Fact]
+    public void TheRegisteredBrushContentsAskTheParticlesArea()
+        => Assert.Equal(5, Through<IClientBrushContents, int>(Particles, nameof(ShimParticlesClientFwd.ParticlesBrushPointContents),
+                                                              (nint)(delegate* unmanaged<void*, uint, float*, int>)&ContentsOfZ,
+                                                              b => b.PointContents(EntityHandle.None, new Vector(0, 0, 5))));
+
+    [Fact]
+    public void TheRegisteredParticleSystemsAskTheParticlesArea()
+        => Assert.Equal(7, Through<IClientParticleSystems, int>(Particles, nameof(ShimParticlesClientFwd.ParticleDefinitionReads),
+                                                                (nint)(delegate* unmanaged<void*, int>)&Seven, p => p.DefinitionReads()));
+
+    [Fact]
+    public void TheRegisteredOneShotsAskTheParticlesArea()
+        => Assert.Equal("fx", Through<IClientParticleOneShots, string?>(Particles, nameof(ShimParticlesClientFwd.ParticleSystemNameFromIndex),
+                                                                        (nint)(delegate* unmanaged<void*, int, byte*, int, int>)&NameFx,
+                                                                        o => o.NameFromIndex(3)));
+
+    [Fact]
+    public void TheRegisteredWorldTraceAsksTheParticlesArea()
+        => Assert.Equal(0.25f, Through<IParticleWorldTrace, float>(Particles, nameof(ShimParticlesClientFwd.ParticlesWorldTrace),
+                                                                   (nint)(delegate* unmanaged<void*, float*, float*, float*, int, int>)&WorldTraceQuarter,
+                                                                   t => t.TraceLine(Vector.Zero, new Vector(0, 0, 64)).Fraction));
+
+    [Fact]
+    public void TheRegisteredPlaneTraceAsksTheParticlesArea()
+        => Assert.Equal((0.5f, 3f), Through<IClientPlaneTrace, (float, float)>(Particles, nameof(ShimParticlesClientFwd.ParticlesTraceLine),
+                                                                               (nint)(delegate* unmanaged<void*, float*, float*, int, float*, int, int>)&PlaneTraceHalf,
+                                                                               t => t.TraceLine(Vector.Zero, new Vector(0, 0, 64), 3) is var r ? (r.Fraction, r.PlaneDist) : default));
+
+    [Fact]
+    public void TheRegisteredPixelVisibilityAsksTheParticlesArea()
+    {
+        int handle = 0;
+        float visible = Through<IParticlePixelVisibility, float>(Particles, nameof(ShimParticlesClientFwd.ParticlesPixelVisible),
+                                                                 (nint)(delegate* unmanaged<void*, float*, int*, float>)&VisibleThreeQuarters,
+                                                                 v => v.FractionVisible(Vector.Zero, ref handle));
+
+        Assert.Equal((0.75f, 4), (visible, handle));
+    }
+
+    [Fact]
+    public void TheRegisteredExecutorDestroysThroughTheParticlesArea()
+    {
+        t_seen = null;
+        Through<INativeParticleExecutor, int>(Particles, nameof(ShimParticlesClientFwd.ParticlesDestroy),
+                                              (nint)(delegate* unmanaged<void*, uint, int, void>)&SeeDestroy,
+                                              x => { x.Destroy(new EntityHandle(0x0001_0002u), 6); return 0; });
+
+        Assert.Equal([0x0001_0002u, 6f], t_seen!);
+    }
+
+    [Fact]
+    public void TheRegisteredWorldTextMeshesDestroyThroughTheParticlesArea()
+    {
+        t_seen = null;
+        Through<IClientWorldTextMeshes, int>(Particles, nameof(ShimParticlesClientFwd.WorldTextMeshDestroy),
+                                             (nint)(delegate* unmanaged<void*, uint, void>)&SeeMeshDestroy,
+                                             m => { m.Destroy(new EntityHandle(0x0001_0003u)); return 0; });
+
+        Assert.Equal([0x0001_0003u], t_seen!);
+    }
+
+    [Fact]
+    public void TheRegisteredWindPublisherPublishesThroughTheEffectsRenderArea()
+    {
+        t_seen = null;
+        Through<IClientWindPublisher, int>("SourceSharpEffectsRenderClient001", nameof(ShimEffectsRenderClientFwd.WindPublish),
+                                           (nint)(delegate* unmanaged<void*, float*, float*, int, void>)&SeeWind,
+                                           w => { w.Publish(new Vector(2, 0, 0), null, 1); return 0; });
+
+        Assert.Equal([1f, 2f], t_seen!);
+    }
+
     /// <summary>A guarded call over an unattached engine answers its default, as the attach guard made it.</summary>
     [Fact]
     public void OverAnUnattachedEngineAGuardedFxCallAnswersItsDefault()

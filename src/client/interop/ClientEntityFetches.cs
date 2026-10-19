@@ -62,14 +62,14 @@ public static class ClientEntityFetches
         // The managed particle sims' draw executor (lane c2-sims): its
         // lifetime, which managed decides.
         // Wrapped by the managed manager's (ClientModule: BoundParticleExecutor).
-        services.AddInstance<INativeParticleExecutor>(new ClientParticleExecutor(engine.Api));
+        services.AddInstance<INativeParticleExecutor>(new ClientParticleExecutor(engine.Api.ClientShimsOrNull?.ParticlesClient));
         // The particles shell's started systems, for the particles route (lane c5-particles).
-        services.AddInstance<IClientParticleSystems>(new ClientParticleSystems(engine.Api));
+        services.AddInstance<IClientParticleSystems>(new ClientParticleSystems(engine.Api.ClientShimsOrNull?.ParticlesClient));
         // The ParticleEffect client effect's carry-out (lane c5-particles).
-        services.AddInstance<IClientParticleOneShots>(new ClientParticleOneShots(engine.Api));
+        services.AddInstance<IClientParticleOneShots>(new ClientParticleOneShots(engine.Api.ClientShimsOrNull?.ParticlesClient));
         // The particle collision's world trace (lane c5-particles).
-        services.AddInstance<IParticleWorldTrace>(new ClientParticleWorldTrace(engine.Api));
-        var particleTrace = new ClientParticleWorldTrace(engine.Api);
+        services.AddInstance<IParticleWorldTrace>(new ClientParticleWorldTrace(engine.Api.ClientShimsOrNull?.ParticlesClient));
+        var particleTrace = new ClientParticleWorldTrace(engine.Api.ClientShimsOrNull?.ParticlesClient);
         services.AddInstance<IParticleWorldTrace>(particleTrace);
         services.AddInstance<IParticleMaskTrace>(particleTrace);
         // The view the particle manager draws in, read once per view, and the
@@ -77,19 +77,19 @@ public static class ClientEntityFetches
         // libss_particles.so's ISSParticleLib, bound directly (plan_particles_so.md).
         var particleLibrary = new ParticleLibrary(engine.Api.Interfaces);
         services.AddInstance<IParticleLibrary>(particleLibrary);
-        var particleView = new ClientParticleViewSlots(engine.Api, particleLibrary);
+        var particleView = new ClientParticleViewSlots(engine.Api.ClientShimsOrNull?.ParticlesClient, particleLibrary);
         services.AddInstance<IParticleViewSource>(particleView);
         services.AddInstance<IParticlePixelVisibility>(particleView);
         services.AddInstance<IParticleThrottle>(particleView);
         services.AddInstance(new ParticleViews(particleView));
         // The dust motes' brush test (lane c5-particles).
-        services.AddInstance<IClientBrushContents>(new ClientBrushContents(engine.Api));
+        services.AddInstance<IClientBrushContents>(new ClientBrushContents(engine.Api.ClientShimsOrNull?.ParticlesClient));
         services.AddInstance<IClientModelNames>(new ClientModelNames(engine.Api));
-        services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(engine.Api));
+        services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(engine.Api.ClientShimsOrNull?.ParticlesClient));
         // point_worldtext's native text renderer (lane c2-sims): its lifetime.
-        services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(engine.Api));
+        services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(engine.Api.ClientShimsOrNull?.ParticlesClient));
         // The client wind's publication (lane c2-sims).
-        services.AddInstance<IClientWindPublisher>(new ClientWindPublisher(engine.Api));
+        services.AddInstance<IClientWindPublisher>(new ClientWindPublisher(engine.Api.ClientShimsOrNull?.EffectsRenderClient));
         // The material proxies' engine reads (lane c5-proxies): FindVar and
         // FindTexture at Init, the texture, entity and view reads of a bind.
         services.AddInstance<IClientMaterialProxyExecutor>(new ClientMaterialProxyExecutor(engine.Api));

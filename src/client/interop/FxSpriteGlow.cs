@@ -111,19 +111,19 @@ internal sealed class ClientFxPrecacheSlots(FxClientArea? fxClient) : IFxPrecach
 
     public void Cache(int index, bool precache)
     {
-        if ((fxClient is not null))
+        if (fxClient is not null)
             FxClient.FxPrecacheCache(index, precache ? 1 : 0);
     }
 
     public void CacheUsedMaterials()
     {
-        if ((fxClient is not null))
+        if (fxClient is not null)
             FxClient.FxCacheUsedMaterials();
     }
 
     public void CacheMaterialHandles()
     {
-        if ((fxClient is not null))
+        if (fxClient is not null)
             FxClient.FxCacheMaterialHandles();
     }
 }

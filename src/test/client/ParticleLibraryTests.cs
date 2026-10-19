@@ -216,7 +216,7 @@ public unsafe class ParticleLibraryTests
     public void WithNoClientAttachedTheThrottleIsUnrestrictedAndTheLibraryIsNotAsked()
     {
         var library = new CountingLibrary();
-        var slots = new ClientParticleViewSlots(new EngineSide(Side.Client), library);
+        var slots = new ClientParticleViewSlots(new EngineSide(Side.Client).ClientShimsOrNull?.ParticlesClient, library);
 
         Assert.Equal(1.0f, slots.ThrottleScaling());
         Assert.Equal(0, library.Asked);
@@ -230,7 +230,7 @@ public unsafe class ParticleLibraryTests
         Assert.True(side.AttachClientShims(root.Bind(), out string why), why);
         var library = new CountingLibrary();
 
-        Assert.Equal(0.5f, new ClientParticleViewSlots(side, library).ThrottleScaling());
+        Assert.Equal(0.5f, new ClientParticleViewSlots(side.ClientShimsOrNull?.ParticlesClient, library).ThrottleScaling());
         Assert.Equal(1, library.Asked);
     }
 }

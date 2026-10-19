@@ -28,13 +28,13 @@ internal sealed unsafe class ClientFxRenderSlots(FxClientArea? fxClient) : IFxRe
 
     public void MaterialAddRef(int material)
     {
-        if ((fxClient is not null))
+        if (fxClient is not null)
             FxClient.FxMaterialAddRef(material);
     }
 
     public void MaterialRelease(int material)
     {
-        if ((fxClient is not null))
+        if (fxClient is not null)
             FxClient.FxMaterialRelease(material);
     }
 
