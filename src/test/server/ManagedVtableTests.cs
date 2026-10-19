@@ -102,11 +102,11 @@ public unsafe partial class ManagedVtableTests
         Assert.True(a.Released && b.Released && c.Released);
     }
 
-    // Regression (live gate 9884cec7, "still bound x2"): vphysics' two
-    // Valve-layout handlers have no Release slot, so nothing freed them and
-    // the final unload's safety net reported both as leaks.
+    // Regression (live gate 9884cec7, "still bound x2"): vphysics never
+    // releases its handlers, so nothing freed their blocks and the final
+    // unload's safety net reported both as leaks.
     [Fact]
-    public void ValveHeldBlocksAreFreedOnceNativeReleasesTheRoot()
+    public void CallerHeldBlocksAreFreedOnceNativeReleasesTheRoot()
     {
         using var vtables = new ManagedVtables();
         var root = new ManagedRoot(new ManagedBindings(), vtables).Bind();
@@ -114,20 +114,20 @@ public unsafe partial class ManagedVtableTests
         var collisionEvents = Stand(vtables, "PhysicsCollisionEvent");
         ReleaseThroughTheTable(root);
 
-        Assert.Equal(2, vtables.ReleaseValveHeld(root, objectEvents, collisionEvents));
+        Assert.Equal(2, vtables.ReleaseCallerHeld(root, objectEvents, collisionEvents));
 
         Assert.True(objectEvents.Released && collisionEvents.Released);
         Assert.Equal(0, vtables.FreeRemaining());
     }
 
     [Fact]
-    public void ValveHeldBlocksAreKeptWhileTheRootIsHeldAsOnAReload()
+    public void CallerHeldBlocksAreKeptWhileTheRootIsHeldAsOnAReload()
     {
         using var vtables = new ManagedVtables();
         var root = new ManagedRoot(new ManagedBindings(), vtables).Bind();
         var objectEvents = Stand(vtables, "PhysicsObjectEvent");
 
-        Assert.Equal(0, vtables.ReleaseValveHeld(root, objectEvents, null));
+        Assert.Equal(0, vtables.ReleaseCallerHeld(root, objectEvents, null));
 
         Assert.False(objectEvents.Released);
     }

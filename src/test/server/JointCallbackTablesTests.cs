@@ -65,7 +65,7 @@ public unsafe class JointCallbackTablesTests
     }
 
     [Fact]
-    public void ANonValveTableOfOneSlotIsStillRefused()
+    public void ATableOfOneSlotIsRefused()
     {
         using var vtables = new ManagedVtables();
         nint* slots = stackalloc nint[1];
