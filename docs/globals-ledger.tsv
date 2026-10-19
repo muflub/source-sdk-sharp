@@ -434,8 +434,3 @@ collisionutils.o	_ZL12s_MatIndices	s_MatIndices	sourcesharp/public/collisionutil
 	g_StandardSendProxies	g_StandardSendProxies	sourcesharp/public/dt_send.cpp	GLOBAL	bss	file-or-global	88	UNRULED		
 dt_send.o	_ZL30s_pNonModifiedPointerProxyHead	s_pNonModifiedPointerProxyHead	sourcesharp/public/dt_send.cpp	LOCAL	bss	file-or-global	8	FLOOR		static-init registration named in plan_globals.md 2
 dt_utlvector_common.o	_ZL16s_DTElementNames	s_DTElementNames	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	10240	UNRULED		
-studio.o	_ZZN10CStudioHdr14GroupStudioHdrEiE14__executeCount	CStudioHdr::GroupStudioHdr(int)::__executeCount	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	4	UNRULED		
-studio.o	_ZZN10CStudioHdr14GroupStudioHdrEiE14__executeCount_0	CStudioHdr::GroupStudioHdr(int)::__executeCount	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	4	UNRULED		
-studio.o	_ZZN10CStudioHdr8pSeqdescEiE9s_nil_seq	CStudioHdr::pSeqdesc(int)::s_nil_seq	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	212	UNRULED		
-studio.o	_ZL18mod_load_showstall	mod_load_showstall	sourcesharp/public/studio.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-	_ZZN2ss17SecondsSinceStartEvE7s_Start	ss::SecondsSinceStart()::s_Start	sourcesharp/public/studio.cpp	WEAK	bss	function-local	8	MEMBER	Diagnostics:DLL	reset_today=NO. ss_clock.h's base, taken on the first call: Plat_FloatTime's process-relative base (tier0 held it), kept so float stall timers in studio.cpp keep millisecond precision (P4).

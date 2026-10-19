@@ -69,6 +69,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _predictionErrors = new PredictionErrorRing(catalog: _netStates);
         _clock = engine.Clock();
         _standalones = new(_services);
+
+        // The render policy grades a studio model by counts it reads from the
+        // skeletons' studio headers, composed later (studio.cpp's eviction).
+        _renderPolicy = new Standalone.ClientRenderPolicy(() => _skeletons?.Models);
     }
 
     /// <summary>
@@ -83,7 +87,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     // This side's per-client state that the stage entry drives and the report
     // commands read: registered in the container rather than held in statics.
     private readonly Interpolation _interpolation = new();
-    private readonly Standalone.ClientRenderPolicy _renderPolicy = new();
+    private readonly Standalone.ClientRenderPolicy _renderPolicy;
     private readonly ConCommandRegistry _commands = new();
     private ClientArsenal _clientArsenal = null!;
     private ClientPlayerPrediction _prediction = null!;
@@ -418,7 +422,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     // The client's descriptor durations, read from the skeletons' studio
     // headers; taken back in Shutdown (see ServerModule's twin).
-    private IDisposable? _timingAttachment;
+    private IDisposable? _descriptorAttachment;
 
     // plan_client_vtables CD: the managed-built interfaces native acquires from
     // the client's root, as the server's ServerModule holds them.
@@ -1152,10 +1156,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // this one leaving it behind (a section of its own).
         _services.AddInstance(new ClientBoneBatchCarry(_skeletons));
 
-        // Each sequence's default duration in the model descriptors is
-        // computed from the same studio headers (studio_sequence_timing.cpp's
-        // eviction): the native blob carries none.
-        _timingAttachment = _engine.Models.AttachTiming(new SourceSharp.Shared.Bones.StudioSequenceTiming(_skeletons.Models));
+        // The model descriptors are read from the same studio headers
+        // (studio.cpp's eviction): sequences, events, attachments and each
+        // sequence's default duration.
+        _descriptorAttachment = _engine.Models.AttachSource(new SourceSharp.Shared.Bones.StudioModelDescriptor(_skeletons.Models));
 
         // THE CLIENT'S RAGDOLLS (plan physics_bones_native_zero Phase 3):
         // ragdoll_shared.cpp, CRagdoll and ragdoll_library.cpp's table in
@@ -2486,8 +2490,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // Last, so the line above still printed through the module's own sink;
         // from here the bootstrap's console has the side again.
-        _timingAttachment?.Dispose();
-        _timingAttachment = null;
+        _descriptorAttachment?.Dispose();
+        _descriptorAttachment = null;
 
         _logAttachment?.Dispose();
         _logAttachment = null;

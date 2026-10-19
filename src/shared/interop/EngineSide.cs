@@ -4628,50 +4628,6 @@ internal sealed unsafe partial class EngineSide
             Motion.BecomeTrigger(entity, isTrigger);
     }
 
-    /// <summary>
-    /// ONE MODEL, ONE CROSSING: everything a model can be asked, packed.
-    ///
-    /// <para>
-    /// The raw blob; <see cref="ModelDescriptor.Decode"/> reads it and
-    /// <see cref="ModelDescriptors"/> keeps the answer for the level. Null when
-    /// the slot is not bound, when the index names no model, or when the model
-    /// has no studio data — a sprite, a brush model — all of which the eight
-    /// per-call entry points this replaces also answered nothing for.
-    /// </para>
-    ///
-    /// <para>
-    /// TWO CALLS, SIZE THEN CONTENT, which is this ABI's usual buffer
-    /// protocol. The size is not knowable without walking every string, and a
-    /// blob written into a buffer that was too small would decode as a
-    /// differently shaped model rather than as a failure — so native writes
-    /// only when the whole thing fits, and this refuses a second answer that
-    /// disagrees with the first rather than reading a short buffer.
-    /// </para>
-    /// </summary>
-    public byte[]? ModelDescriptorBlob(int modelIndex)
-    {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
-
-        int needed = (ServerShimsOrNull is { } __att31 ? __att31.ModelDescriptor(modelIndex, null, 0) : ClientShims.ModelDescriptor(modelIndex, null, 0));
-
-        if (needed <= 0) return null;
-
-        var blob = new byte[needed];
-
-        fixed (byte* p = blob)
-        {
-            int written = (ServerShimsOrNull is { } __att32 ? __att32.ModelDescriptor(modelIndex, p, needed) : ClientShims.ModelDescriptor(modelIndex, p, needed));
-
-            // A SECOND ANSWER THAT DISAGREES IS A REFUSAL, not a short read.
-            // The model could only have changed between the two calls if the
-            // mdl cache moved under us, and decoding half a blob produces a
-            // model with plausible-looking, wrong sequences.
-            if (written != needed) return null;
-        }
-
-        return blob;
-    }
-
     /// <summary>Plays a sequence from the start.</summary>
     public void EntitySetSequence(EntityHandle entity, int sequence)
     {

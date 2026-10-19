@@ -386,9 +386,20 @@ public sealed class MstudioSeqDesc : StudioRecord
     internal MstudioSeqDesc(byte[] image, int @base) : base(image, @base) { }
 
     public string Label => CString(I32(4));
+
+    /// <summary><c>pszActivityName()</c>: szactivitynameindex @8.</summary>
+    public string ActivityName => CString(I32(8));
     public int Flags => I32(12);
     public int Activity => I32(16);
     public int ActWeight => I32(20);
+
+    /// <summary><c>numevents</c> @24; the table is at <c>eventindex</c> @28,
+    /// record-relative, one 80-byte <see cref="MstudioEvent"/> each.</summary>
+    public int NumEvents => I32(24);
+    private int EventIndex => I32(28);
+
+    /// <summary><c>pEvent(i)</c>.</summary>
+    public MstudioEvent Event(int i) => new(Image, Base + EventIndex + MstudioEvent.Size * i);
     public int NumBlends => I32(56);
     private int AnimIndexIndex => I32(60);
     private int MovementIndex => I32(64);
@@ -612,6 +623,43 @@ public sealed class MstudioPoseParamDesc : StudioRecord
     internal float MutableStart;
     internal float MutableEnd;
     internal bool MutableStartSet;
+}
+
+/// <summary>
+/// <c>mstudioevent_t</c> (80 bytes): float cycle @0, int event @4, int type @8,
+/// char options[64] @12, int szeventindex @76 -- four-byte fields and a char
+/// array, so no padding.
+/// </summary>
+public sealed class MstudioEvent : StudioRecord
+{
+    internal const int Size = 80;
+    private const int OptionsAt = 12;
+    private const int OptionsBytes = 64;
+
+    internal MstudioEvent(byte[] image, int @base) : base(image, @base) { }
+
+    public float Cycle => F32(0);
+    public int EventId => I32(4);
+    public int Type => I32(8);
+
+    /// <summary><c>pszOptions()</c>: the inline array, up to its first NUL.
+    /// Bounded by the array, where stock's <c>strlen</c> is not; studiomdl
+    /// writes the options with <c>strcpy</c> into it, so a compiled model's
+    /// array always holds its NUL.</summary>
+    public string Options
+    {
+        get
+        {
+            ReadOnlySpan<byte> options = Image.AsSpan(Base + OptionsAt, OptionsBytes);
+            int end = options.IndexOf((byte)0);
+            return Encoding.UTF8.GetString(end < 0 ? options : options[..end]);
+        }
+    }
+
+    /// <summary><c>pszEventName()</c>: szeventindex @76, record-relative.
+    /// Meaningful only for a new-system event (<c>AE_TYPE_NEWEVENTSYSTEM</c>);
+    /// an old-system event's index is whatever the .mdl holds there.</summary>
+    public string Name => CString(I32(76));
 }
 
 /// <summary><c>mstudioattachment_t</c> (92 bytes).</summary>

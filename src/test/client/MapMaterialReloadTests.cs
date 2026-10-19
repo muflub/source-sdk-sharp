@@ -139,7 +139,7 @@ public class MapMaterialReloadTests
     private static unsafe int Call(Crossings crossings, Host host, string next, string? previous, int size, out string written)
     {
         var log = new RecordingLog();
-        var models = new ModelDescriptors(_ => -1, _ => null, _ => string.Empty, log);
+        var models = new ModelDescriptors(_ => -1, _ => string.Empty, log);
         var binding = new ClientRuntimeBinding(crossings, log, host, new StandaloneMirror(), models,
                                                new BreakModels(_ => -1, _ => -1, _ => null, models, log));
         byte[] n = Encoding.UTF8.GetBytes(next + "\0");

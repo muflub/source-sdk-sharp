@@ -326,7 +326,9 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # RAISED 2026-10-18, 222 -> 224, deliberately (plan_client_novalve C9): tier0_vprof_client.cpp (x), client.so's own never-enabled vprof profile (user ruling 2026-10-18), and tier_bindings_client.cpp (d), which binds CommandLine_Tier0, g_pMemAlloc, the CThread* members, g_pThreadPool and DestroyThreadPool to the libtier0.so and libvstdlib.so the engine loaded, so client.so links neither.
 # LOWERED 2026-10-18, 224 -> 223 (re-measured on main f707d5b8c): sourcesharp/game/server/physics_debug.cpp (c)
 #   was deleted; its six debug commands are managed's PhysicsDebugCommands.cs (docs/server_evictions.md).
-shim_cpp_files	src/sourcesharp	224
+# LOWERED 2026-10-18, 223 -> 218 (measured by the walk): studio.cpp's eviction. sourcesharp/game/shared/model_descriptor.cpp (f) and sourcesharp/public/studio.cpp (d) left both DLLs and the repository; the rest is slack the ceiling carried at main d6d3b9a3d (the walk read 220 there).
+# LOWERED 2026-10-18, 218 -> 217 (measured by the walk): sourcesharp/game/shared/studio_mdlcache.cpp (g) left both DLLs and the repository; its only caller was studio.cpp.
+shim_cpp_files	src/sourcesharp	218
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1667,7 +1669,9 @@ shim_cpp_files	src/sourcesharp	224
 # LOWERED 2026-10-18, 144594 -> 144420 (-174): physworld_match_rule.h (73) and physics_shell.h's non-finite
 #   test and pointer set (242 -> 141, -101) went with physics_debug.cpp, their one user; managed's twins are
 #   PhysWorldMatch, PhysicsNanGuard.IsFinite and PhysWorldProbes' terrain set. Headers only: the letter table is unchanged.
-shim_lines	src/sourcesharp	145678
+# LOWERED 2026-10-18, 144420 -> 142517 (measured by the walk): studio.cpp's eviction. studio.cpp (-1,520), model_descriptor.cpp (-205) and model_descriptor.h (-111) deleted; shell_standalone_client.cpp's PublishModelFacts stops reading the studio header (-50); the generated shim areas and prototypes lose the descriptor slot; the rest is slack the ceiling carried at main d6d3b9a3d (the walk read 144406 there).
+# LOWERED 2026-10-18, 142517 -> 142461 (-56, measured by the walk): studio_mdlcache.cpp deleted (its only caller was studio.cpp).
+shim_lines	src/sourcesharp	143719
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

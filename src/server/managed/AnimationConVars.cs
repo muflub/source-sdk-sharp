@@ -20,7 +20,8 @@ namespace SourceSharp.Server;
 /// only means anything if both DLLs register the name — that is what a
 /// replicated ConVar IS. <c>mod_load_showstall</c>, the third knob these files
 /// once declared, is the engine's own, so neither side declares it
-/// (convar_ownership.h); <c>studio.cpp</c> reads the engine's by name.
+/// (convar_ownership.h); <c>studio.cpp</c> read the engine's by name until it
+/// left both DLLs (2026-10-18), and nothing in them reads it now.
 /// </para>
 ///
 /// <para>
@@ -59,4 +60,4 @@ public sealed class AnimThreeWayBlendConVar : BoolConVar { }
 public sealed class AimConstraintConVar : BoolConVar { }
 
 // mod_load_showstall is the engine's (convar_ownership.h): studio.cpp's three
-// reads resolve it by name.
+// reads resolved it by name, and went with the file (2026-10-18).

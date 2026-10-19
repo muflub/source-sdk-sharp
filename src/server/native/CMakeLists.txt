@@ -17,7 +17,6 @@ ss_sdk_target(server_sourcesharp PROJECTDIR game/server RPATH_ORIGIN NO_WRAP
 # path back to its farm spelling through tools/module-map.tsv.
 set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/alloc_check.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/studio_mdlcache.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
@@ -108,7 +107,6 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/entity_shared_statics.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/gamestringpool.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/generic_payload.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/model_descriptor.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/movevars_shared.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/overlay_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_acquire_reasons.cpp
@@ -129,7 +127,6 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/console_display_forward.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/sourcesharp_gamesystem.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/standalone_player_sync.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/studio.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/takedamageinfo_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/trace_filter_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/util_shared_library.cpp
@@ -264,7 +261,6 @@ set(server_legacy_includes
 # headers key on for a shared TU that still builds against the fork in client.so.
 set(server_novalve_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/alloc_check.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/studio_mdlcache.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
@@ -287,7 +283,6 @@ set(server_novalve_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/dt_utlvector_common.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/overlay_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_acquire_reasons.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/studio.cpp
     # P5 wave 2: cbase.h included and never used -- the include removed, every
     # function the TU defines compared identical before and after (objdump).
     ${CMAKE_CURRENT_SOURCE_DIR}/plugin_check.cpp
@@ -426,9 +421,6 @@ set(server_novalve_sources
     # P5 lane SP: the server half needs only managed_convar_ref.h and its own
     # GetCurrentGravity declaration.
     ${PROJECT_SOURCE_DIR}/src/shared/native/movevars_shared.cpp
-    # P5 lane SP: modelinfo and mdlcache declared; the new-event-system bit
-    # from anim_event_names.h instead of eventlist.h.
-    ${PROJECT_SOURCE_DIR}/src/shared/native/model_descriptor.cpp
     # P5 lane SP: physicslink.h left the overlay for src/shared/native/; cbase.h
     # was then unused.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_physicsobjects.cpp

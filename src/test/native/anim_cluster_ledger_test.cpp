@@ -691,16 +691,17 @@ TEST( AnimClusterLedger, TheActivityOrdinalFamilyIsGoneFromDiskAndFromBothTarget
 
 	// THE LAST READER OF THE ORDINAL, which is what made the family a cycle:
 	// studio.cpp's activity-to-sequence mapping read seqdesc.activity, the
-	// number animation.cpp wrote there.
-	const std::string studio = Code( "sourcesharp/public/studio.cpp" );
+	// number animation.cpp wrote there. The mapping went first; since
+	// 2026-10-18 studio.cpp itself is gone (no native code reads the mdl
+	// through CStudioHdr: the descriptor and the render counts are managed's),
+	// so the reader cannot come back inside it.
+	ASSERT_GT( Code( kServerSystems ).size(), 1000u )
+		<< "the source reader reads " << kServerSystems << " as almost nothing, "
+		   "so the absence below would be the reader's";
 
-	ASSERT_GT( studio.size(), 1000u ) << "studio.cpp read as almost nothing";
-
-	EXPECT_EQ( 0, CountOf( studio, "SetActivityForSequence" ) )
-		<< "studio.cpp calls SetActivityForSequence again -- the function is "
-		   "in a file that does not exist.";
-	EXPECT_EQ( 0, CountOf( studio, "CActivityToSequenceMapping::" ) )
-		<< "studio.cpp defines the activity-to-sequence mapping again. It was "
-		   "reached only by the client's ::LookupSequence fall-through, which "
-		   "is the prediction defect Phase 2d closed.";
+	EXPECT_TRUE( Code( "sourcesharp/public/studio.cpp" ).empty() )
+		<< "studio.cpp is back. Its activity-to-sequence mapping was reached "
+		   "only by the client's ::LookupSequence fall-through, which is the "
+		   "prediction defect Phase 2d closed, and its accessors' consumers "
+		   "read the managed StudioHdr now.";
 }

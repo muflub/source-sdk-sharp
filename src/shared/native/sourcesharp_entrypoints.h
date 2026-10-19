@@ -33,7 +33,7 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// BOTH SIDES -- 28 slots.
+// BOTH SIDES -- 27 slots.
 //
 // A body on the server and a body on the client, or one shared body compiled
 // into each.
@@ -47,7 +47,6 @@ int32_t SourceSharp_FilesReadOnPath( const char *pszPath, const char *pszPathId,
                                      int32_t nOutSize );
 int32_t SourceSharp_FilesSizeOnPath( const char *pszPath, const char *pszPathId );
 void SourceSharp_ListenForGameEvent( const char *pEventName );
-int32_t SourceSharp_ModelDescriptor( int32_t nModelIndex, char *pBuffer, int32_t nBytes );
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue,
                                 int32_t nValue );
 int32_t SourceSharp_MovePointContents( const float *pXYZ, int32_t nSlot );

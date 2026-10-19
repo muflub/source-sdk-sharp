@@ -992,7 +992,7 @@ src/sourcesharp/managed/SourceSharp.Tests/MapSpawnerTests.cs	no	defers fixture p
 src/sourcesharp/managed/SourceSharp.Tests/MapSpawnOrderTests.cs	no	checks stock's classname priorities as known constants, checking behaviour
 src/sourcesharp/managed/SourceSharp.Tests/MessageEntityTests.cs	no	own message ring/token substitution
 src/sourcesharp/managed/SourceSharp.Tests/MicrophoneTests.cs	no	own hearing-meter proportionality, no cited Valve formula
-src/sourcesharp/managed/SourceSharp.Tests/ModelDescriptorTests.cs	no	stand-in encoder for interop layout, not logic
+src/sourcesharp/managed/SourceSharp.Tests/ModelDescriptorTests.cs	no	lookup rule and per-side cache facts over hand-built descriptors, not logic
 src/sourcesharp/managed/SourceSharp.Tests/ModStringTableTests.cs	no	own string-table create-pass rule
 src/sourcesharp/managed/SourceSharp.Tests/MotorTests.cs	no	own ramp-approach arithmetic
 src/sourcesharp/managed/SourceSharp.Tests/MoveMathTests.cs	no	checks constants read off gamemovement.cpp, checking behaviour not embedded formula
@@ -1346,7 +1346,6 @@ src/sourcesharp/test/map_residue_factories_test.cpp	no	source scan of which clas
 src/sourcesharp/test/materialproxy_subject_test.cpp	no	drives own materialproxy_subject.h rules lifted from a shim body; header not embedded here
 src/sourcesharp/test/mathlib_init_guard_test.cpp	no	source scan ensuring MathLib_Init call sites present; no logic
 src/sourcesharp/test/mathlib_test_env.h	no	gtest Environment helper calling MathLib_Init; no Valve logic
-src/sourcesharp/test/model_descriptor_format_test.cpp	no	source scan comparing field order between writer and reader; no logic
 src/sourcesharp/test/model_name_test.cpp	no	drives own shell_model_name.h brush-name rule; no Valve algorithm
 src/sourcesharp/test/movement_ground_writeback_test.cpp	no	drives own movement_ground_writeback.h rule; no Valve algorithm
 src/sourcesharp/test/move_root_test.cpp	no	drives real move_root.h bounded walk via stub entity; no algorithm embedded in test

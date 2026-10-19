@@ -1221,10 +1221,8 @@ static void *const s_ShimNetworkServerSlots[] = {
 static const SSForwarderTable s_ShimNetworkServerTable = { s_ShimNetworkServerSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimModelsServer: 8 forwarder(s) over IShimModelsServer.
+// ShimModelsServer: 7 forwarder(s) over IShimModelsServer.
 //-----------------------------------------------------------------------------
-// int32_t IShimModels::ModelDescriptor( int32_t, char *, int32_t )
-static int32_t SSFwd_ShimModelsServer_ModelDescriptor( IShimModelsServer *self, int32_t a0, char * a1, int32_t a2 ) { return self->ModelDescriptor( a0, a1, a2 ); }
 // void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
 static void SSFwd_ShimModelsServer_EntityGetModelName( IShimModelsServer *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetModelName( a0, a1, a2 ); }
 // int32_t IShimModels::EntitiesInvalidateMdlCacheAll( void )
@@ -1241,7 +1239,6 @@ static int32_t SSFwd_ShimModelsServer_EntityGetTextureFrame( IShimModelsServer *
 static void SSFwd_ShimModelsServer_EntitySetTextureFrame( IShimModelsServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetTextureFrame( a0, a1 ); }
 
 static void *const s_ShimModelsServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_ModelDescriptor ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntityGetModelName ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitiesInvalidateMdlCacheAll ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_StandaloneSetModelScale ),
@@ -1251,7 +1248,7 @@ static void *const s_ShimModelsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetTextureFrame ),
 };
 
-static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 8 };
+static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 7 };
 
 //-----------------------------------------------------------------------------
 // ShimPrecache: 5 forwarder(s) over IShimPrecache.
@@ -2166,10 +2163,8 @@ static void *const s_ShimNetworkSlots[] = {
 static const SSForwarderTable s_ShimNetworkTable = { s_ShimNetworkSlots, 4 };
 
 //-----------------------------------------------------------------------------
-// ShimModels: 4 forwarder(s) over IShimModels.
+// ShimModels: 3 forwarder(s) over IShimModels.
 //-----------------------------------------------------------------------------
-// int32_t IShimModels::ModelDescriptor( int32_t, char *, int32_t )
-static int32_t SSFwd_ShimModels_ModelDescriptor( IShimModels *self, int32_t a0, char * a1, int32_t a2 ) { return self->ModelDescriptor( a0, a1, a2 ); }
 // void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
 static void SSFwd_ShimModels_EntityGetModelName( IShimModels *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetModelName( a0, a1, a2 ); }
 // int32_t IShimModels::EntitiesInvalidateMdlCacheAll( void )
@@ -2178,13 +2173,12 @@ static int32_t SSFwd_ShimModels_EntitiesInvalidateMdlCacheAll( IShimModels *self
 static void SSFwd_ShimModels_StandaloneSetModelScale( IShimModels *self, uint32_t a0, float a1 ) { self->StandaloneSetModelScale( a0, a1 ); }
 
 static void *const s_ShimModelsSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimModels_ModelDescriptor ),
 	reinterpret_cast< void * >( &SSFwd_ShimModels_EntityGetModelName ),
 	reinterpret_cast< void * >( &SSFwd_ShimModels_EntitiesInvalidateMdlCacheAll ),
 	reinterpret_cast< void * >( &SSFwd_ShimModels_StandaloneSetModelScale ),
 };
 
-static const SSForwarderTable s_ShimModelsTable = { s_ShimModelsSlots, 4 };
+static const SSForwarderTable s_ShimModelsTable = { s_ShimModelsSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // ShimMovement: 6 forwarder(s) over IShimMovement.

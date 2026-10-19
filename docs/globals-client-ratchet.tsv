@@ -308,7 +308,8 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # 2026-10-18 client physics: fork physics.cpp left client.so (g_Collisions, g_PhysicsSystem, the two convars and the two touchlink refusals pruned; the CPhysicsSystem row's function-local static added): 807 -> 802 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18 client physics: ragdoll_library.cpp and shell_physics_shared_client.cpp deleted (the vphysics pointers only physics.cpp read, g_SolidSetup, the friction refusal and the data-object row pruned): 802 -> 795 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18, the client bone leaf library deleted (its gate, stack, counter and sweep tables, and C_BaseAnimatingGameSystem's instance, pruned): 795 -> 788 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
-client_globals_link_level	src/game/client	788
+# 2026-10-18, studio.cpp's eviction: studio.cpp left client.so: link_level 788 -> 784, its four UNRULED rows (GroupStudioHdr's two __executeCount, pSeqdesc's s_nil_seq, mod_load_showstall's ref) gone (make globals-client-ledger, reconciled).
+client_globals_link_level	src/game/client	784
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -387,5 +388,7 @@ client_globals_floor	docs/globals-client-ledger.tsv	14
 # 2026-10-18 client physics: fork physics.cpp left client.so (g_Collisions, g_PhysicsSystem, the two convars and the two touchlink refusals pruned; the CPhysicsSystem row's function-local static added): 129 -> 127 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18 client physics: ragdoll_library.cpp and shell_physics_shared_client.cpp deleted (the vphysics pointers only physics.cpp read, g_SolidSetup, the friction refusal and the data-object row pruned): 127 -> 125 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18, the client bone leaf library deleted (its gate, stack, counter and sweep tables, and C_BaseAnimatingGameSystem's instance, pruned): 125 -> 124 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
-client_globals_objects_with_static_init	src/game/client	124
+# LOWERED 2026-10-18, 124 -> 122: studio.cpp's eviction; studio.cpp's CManagedConVarRef was a static initialiser (measured by tools/globals-census summary --side client: 124 at main d6d3b9a3d, 123 once model_descriptor.cpp left, 122 now).
+# LOWERED 2026-10-18, 122 -> 121: studio_mdlcache.cpp left client.so; its object carried studio.h's header statics' initialiser (measured by tools/globals-census summary --side client).
+client_globals_objects_with_static_init	src/game/client	121
 client_globals_reconcile_unattributed	src/game/client	0

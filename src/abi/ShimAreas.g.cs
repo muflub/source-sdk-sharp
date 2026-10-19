@@ -129,7 +129,6 @@ internal sealed unsafe class ShimAreas
     public int EntityPayloadAgreement(uint a0, int* a1, int* a2) { return NetworkServer.Vt->EntityPayloadAgreement(NetworkServer.Self, a0, a1, a2); }
     public void* EntityGetEngineBlock(uint a0, int* a1) { return NetworkServer.Vt->EntityGetEngineBlock(NetworkServer.Self, a0, a1); }
     public void EntitySetTransmitAlways(uint a0, int a1) { NetworkServer.Vt->EntitySetTransmitAlways(NetworkServer.Self, a0, a1); }
-    public int ModelDescriptor(int a0, byte* a1, int a2) { return ModelsServer.Vt->ModelDescriptor(ModelsServer.Self, a0, a1, a2); }
     public void EntityGetModelName(uint a0, byte* a1, int a2) { ModelsServer.Vt->EntityGetModelName(ModelsServer.Self, a0, a1, a2); }
     public int EntitiesInvalidateMdlCacheAll() { return ModelsServer.Vt->EntitiesInvalidateMdlCacheAll(ModelsServer.Self); }
     public void StandaloneSetModelScale(uint a0, float a1) { ModelsServer.Vt->StandaloneSetModelScale(ModelsServer.Self, a0, a1); }
@@ -482,7 +481,6 @@ internal sealed unsafe class ClientShimAreas
     public int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4) { return Network.Vt->NetPublishType(Network.Self, a0, a1, a2, a3, a4); }
     public int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6) { return Network.Vt->NetTierInfo(Network.Self, a0, a1, a2, a3, a4, a5, a6); }
     public int WorldNetDeclare(int a0) { return Network.Vt->WorldNetDeclare(Network.Self, a0); }
-    public int ModelDescriptor(int a0, byte* a1, int a2) { return Models.Vt->ModelDescriptor(Models.Self, a0, a1, a2); }
     public void EntityGetModelName(uint a0, byte* a1, int a2) { Models.Vt->EntityGetModelName(Models.Self, a0, a1, a2); }
     public int EntitiesInvalidateMdlCacheAll() { return Models.Vt->EntitiesInvalidateMdlCacheAll(Models.Self); }
     public void StandaloneSetModelScale(uint a0, float a1) { Models.Vt->StandaloneSetModelScale(Models.Self, a0, a1); }

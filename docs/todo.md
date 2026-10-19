@@ -35,6 +35,19 @@ The fact is the client physics lane's (8ab15ceaf).
 
 **Closed 2026-10-18:** both allocation facts measure through SteadyAllocation.LeastAllocated (src/test/common): warmed three times, then the fewest bytes across five measured calls, so a JIT tier-up inside one call no longer charges it. Mutation proof: a per-call `new object[1]` in MotionSimulation's SimulateState turned all 4 EachKindsSimulateAllocatesNothing cases red, and one in NameMatches.MoveNext turned AWalkAllocatesNothing red; both green after the restore.
 
+
+## The client tail's four Studio*Count fields are unwritten
+
+Added 2026-10-18 (studio.cpp's eviction, studio 3). The render policy reads
+a studio model's sequence, pose-parameter, bone-controller and IK-chain
+counts from the side's managed header (ClientRenderPolicy.ReadModelCounts),
+so `EngineBlockClientTail.StudioSequenceCount` .. `StudioIkChainCount`
+(offsets 196..208) are neither written nor read. They were left in place
+because removing them moves PolicyInputs, PolicyOutputs and HitboxSet and
+shrinks the tail (224 bytes); drop them at the next re-layout of the block,
+with EngineBlockTests' and engine_block_layout_test's offset facts.
+
+
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg (closed)
 
 At f8c7e82ff (stage1-c-gameplay rebased onto main 42b718990, 2026-10-18) the

@@ -49,7 +49,7 @@ public class ParticleReloadPolicyTests
         // shutdown; inert ones keep this to the slot under test.
         var log = new RecordingLog();
         var crossings = new Crossings();
-        var models = new ModelDescriptors(_ => -1, _ => null, _ => string.Empty, log);
+        var models = new ModelDescriptors(_ => -1, _ => string.Empty, log);
         var breaks = new BreakModels(_ => -1, _ => -1, _ => null, models, log);
         var binding = new ClientRuntimeBinding(crossings, log, host, new StandaloneMirror(), models, breaks);
         long before = crossings.Read(CrossingOp.ClientParticlesNeedFullReload);

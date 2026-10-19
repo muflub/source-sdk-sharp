@@ -72,10 +72,8 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_physics_client.cpp
     # IShimConVarsClient (C8): the convar watch and managed's decided values.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_convars_client.cpp
-    # The server's tier connects, compiled for the client too (plan_client_novalve C9), and the
-    # server's studiohdr_t accessors over the model cache they connect.
+    # The server's tier connects, compiled for the client too (plan_client_novalve C9).
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier_connect.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/studio_mdlcache.cpp
     # tier2's members, ours (C9): the index generators and the names over them.
     ${CMAKE_CURRENT_SOURCE_DIR}/mesh_index_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier2_names_client.cpp
@@ -162,7 +160,6 @@ set(client_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/entity_shared_statics.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/gamestringpool.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/generic_payload.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/model_descriptor.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/movevars_shared.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/particle_manifest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/randoverride.cpp
@@ -189,7 +186,6 @@ set(client_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/sourcesharp_gamesystem.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/standalone_player_sync.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/steamid.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/studio.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/takedamageinfo_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/trace_filter_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/util_shared_library.cpp

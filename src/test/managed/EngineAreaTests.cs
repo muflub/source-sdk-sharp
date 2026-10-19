@@ -77,14 +77,6 @@ public class EngineAreaTests
           // this step exists to make impossible to skip.
           "DestroyShells",
 
-          // plan_shim.md Phase 2d. ModelDescriptorBlob is the MECHANISM under
-          // a capability, on DestroyShells' reasoning exactly: game code asks
-          // a model what sequences it has, and ModelDescriptors answers from a
-          // per-level cache. Nothing else calls this and nothing else should
-          // -- it hands back an undecoded blob, and a second decoder is a
-          // second thing that can disagree with model_descriptor.h.
-          "ModelDescriptorBlob",
-
           // plan_shim.md Phase 3, lane 3c-entityshell. THE OPPOSITE OF THE
           // ENTRIES ABOVE: these three are not mechanism under a capability,
           // they are RETIRED. Their native bodies are gone, their slots answer

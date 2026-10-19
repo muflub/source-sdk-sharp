@@ -117,7 +117,6 @@ public:
 abstract_class IShimModels
 {
 public:
-	virtual int32_t ModelDescriptor( int32_t nModelIndex, char * pBuffer, int32_t nBytes ) = 0;
 	virtual void EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize ) = 0;
 	virtual int32_t EntitiesInvalidateMdlCacheAll() = 0;
 	virtual void StandaloneSetModelScale( uint32_t hEntity, float flScale ) = 0;

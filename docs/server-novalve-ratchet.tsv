@@ -14,8 +14,11 @@
 # 2026-10-12, lane input (C9 tier0/vstdlib pure move): vstdlib_random_port.cpp and randoverride.cpp left server.so for
 #   src/client/native (gc-dropped, no server importer of RandomInt/rand/srand; user ruling 2026-10-12):
 #   fork-hdr-not-allowed 44 -> 40, fork-hdr-total 159 -> 154.
-fork-hdr-not-allowed	40
-fork-hdr-total	154
+# 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left server.so (its only caller was studio.cpp), and one fork
+#   header only it reached went from the server's closure: fork-hdr-not-allowed 40 -> 39, fork-hdr-total 154 -> 153
+#   (tools/server-novalve-census).
+fork-hdr-not-allowed	39
+fork-hdr-total	153
 fork-src	0
 imports:dmxloader	0
 imports:particles	0

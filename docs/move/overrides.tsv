@@ -44,6 +44,5 @@ src/sourcesharp/game/shared/util_shared_library.cpp	OURS	relocated Valve code, k
 src/sourcesharp/public/collisionutils.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/public/dt_send.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/public/dt_utlvector_common.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
-src/sourcesharp/public/studio.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/test/collision_rules_test.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/test/weapon_script_oracle_test.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27

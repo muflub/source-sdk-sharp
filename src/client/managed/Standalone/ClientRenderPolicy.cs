@@ -7,6 +7,7 @@
 
 using System.Runtime.InteropServices;
 using SourceSharp.Abi;
+using SourceSharp.Shared.Bones;
 
 namespace SourceSharp.Client.Standalone;
 
@@ -64,8 +65,11 @@ public struct ClientRenderFacts
     public int ModelType;
 
     /// <summary>
-    /// The studio header's sequence count, or −1 when its sequences have not
-    /// loaded. Zero is "cannot move"; −1 is "cannot be decided from yet".
+    /// The studio header's sequence count, or −1 when the side cannot open the
+    /// header (not paged in yet, or an include the engine cannot find). Zero
+    /// is "cannot move"; −1 is "cannot be decided from yet". Read from the
+    /// side's managed header (<see cref="ClientRenderPolicy.ReadFacts"/>), not
+    /// the block: the shell's CStudioHdr read left with studio.cpp.
     /// </summary>
     public int SequenceCount;
 
@@ -456,7 +460,16 @@ public sealed class ClientRenderPolicy
     /// </summary>
     private const uint NoHandle = 0xFFFFFFFFu;
 
-    public ClientRenderPolicy() => Forget();
+    // The side's studio headers, which the four model counts are read from.
+    // A provider because the policy is made with the module and the
+    // skeletons that own the headers are composed later; null until then.
+    private readonly Func<IBoneModels?> _models;
+
+    public ClientRenderPolicy(Func<IBoneModels?> models)
+    {
+        _models = models ?? throw new ArgumentNullException(nameof(models));
+        Forget();
+    }
 
     private void Forget()
     {
@@ -536,7 +549,7 @@ public sealed class ClientRenderPolicy
             if (_handles[index] == handle && _inputs[index] == inputs && ReadUInt(block, OutputsOffset) != 0)
                 continue;
 
-            ClientRenderFacts facts = ReadFacts(block);
+            ClientRenderFacts facts = ReadFacts(block, _models());
             ClientRenderChoices choices = Decide(facts);
             WriteChoices(block, choices);
 
@@ -579,6 +592,7 @@ public sealed class ClientRenderPolicy
          + (int)Marshal.OffsetOf<EngineBlockClientTail>(field);
 
     private static readonly int HandleOffset = Head(nameof(EngineBlockHead.Handle));
+    private static readonly int ModelIndexOffset = Head(nameof(EngineBlockHead.ModelIndex));
     private static readonly int InputsOffset = Tail(nameof(EngineBlockClientTail.PolicyInputs));
     private static readonly int OutputsOffset = Tail(nameof(EngineBlockClientTail.PolicyOutputs));
 
@@ -597,10 +611,6 @@ public sealed class ClientRenderPolicy
     private static readonly int FadeStyleOffset = Tail(nameof(EngineBlockClientTail.FadeStyle));
     private static readonly int ShadowChoiceOffset = Tail(nameof(EngineBlockClientTail.ShadowChoice));
     private static readonly int ModelTypeOffset = Tail(nameof(EngineBlockClientTail.ModelType));
-    private static readonly int SequenceCountOffset = Tail(nameof(EngineBlockClientTail.StudioSequenceCount));
-    private static readonly int PoseParameterOffset = Tail(nameof(EngineBlockClientTail.StudioPoseParameterCount));
-    private static readonly int BoneControllerOffset = Tail(nameof(EngineBlockClientTail.StudioBoneControllerCount));
-    private static readonly int IkChainOffset = Tail(nameof(EngineBlockClientTail.StudioIkChainCount));
 
     private static readonly int DrawnOffset = Tail(nameof(EngineBlockClientTail.Drawn));
     private static readonly int HideWhenOwnerSeenOffset = Tail(nameof(EngineBlockClientTail.HideWhenOwnerSeen));
@@ -609,8 +619,45 @@ public sealed class ClientRenderPolicy
     private static readonly int ShadowTypeOffset = Tail(nameof(EngineBlockClientTail.ShadowType));
     private static readonly int ShadowFlagsOffset = Tail(nameof(EngineBlockClientTail.ShadowFlags));
 
-    /// <summary>One entity's facts, out of its block.</summary>
-    public static ClientRenderFacts ReadFacts(ReadOnlySpan<byte> block) => new()
+    /// <summary>
+    /// One entity's facts: out of its block, and the four model counts out of
+    /// <paramref name="models"/>' header for the block's model index.
+    /// </summary>
+    public static ClientRenderFacts ReadFacts(ReadOnlySpan<byte> block, IBoneModels? models)
+    {
+        ClientRenderFacts facts = ReadBlockFacts(block);
+        ReadModelCounts(ref facts, ReadInt(block, ModelIndexOffset), models);
+        return facts;
+    }
+
+    /// <summary>
+    /// The counts the shadow rule grades a studio model by, as the shell's
+    /// PublishModelFacts read them through the native CStudioHdr before
+    /// studio.cpp left: a studio model whose header opens answers its
+    /// sequence, pose-parameter, bone-controller and IK-chain counts (each over
+    /// the folded virtual model); anything else answers
+    /// <see cref="ClientRenderFacts.SequencesUnavailable"/> and zeros.
+    /// </summary>
+    public static void ReadModelCounts(ref ClientRenderFacts facts, int modelIndex, IBoneModels? models)
+    {
+        facts.SequenceCount = ClientRenderFacts.SequencesUnavailable;
+        facts.PoseParameterCount = 0;
+        facts.BoneControllerCount = 0;
+        facts.IkChainCount = 0;
+
+        if (facts.ModelType != ClientRenderFacts.Studio || models is null || modelIndex <= 0)
+            return;
+
+        if (models.OpenStudioHdr(modelIndex) is not { } hdr)
+            return;
+
+        facts.SequenceCount = hdr.NumSequences;
+        facts.PoseParameterCount = hdr.NumPoseParameters;
+        facts.BoneControllerCount = hdr.NumBoneControllers;
+        facts.IkChainCount = hdr.NumIKChains;
+    }
+
+    private static ClientRenderFacts ReadBlockFacts(ReadOnlySpan<byte> block) => new()
     {
         Dormant             = ReadInt(block, DormantOffset) != 0,
         NoDraw              = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoDraw) != 0,
@@ -620,10 +667,6 @@ public sealed class ClientRenderPolicy
         Fade                = (FadeStyle)ReadInt(block, FadeStyleOffset),
         ShadowChoice        = (ShadowCastChoice)ReadInt(block, ShadowChoiceOffset),
         ModelType           = ReadInt(block, ModelTypeOffset),
-        SequenceCount       = ReadInt(block, SequenceCountOffset),
-        PoseParameterCount  = ReadInt(block, PoseParameterOffset),
-        BoneControllerCount = ReadInt(block, BoneControllerOffset),
-        IkChainCount        = ReadInt(block, IkChainOffset),
     };
 
     /// <summary>One entity's choices, into its block, with the output serial last.</summary>

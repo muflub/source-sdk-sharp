@@ -1099,27 +1099,27 @@ public struct EngineBlockClientTail
     public int ModelType;
 
     /// <summary>
-    /// The studio header's sequence count, or <b>−1</b> when its sequences have
-    /// not been loaded yet — which is a third state and not zero. Zero
-    /// sequences is a model that cannot move; −1 is a model nothing can be
-    /// decided from yet.
+    /// UNWRITTEN since studio.cpp's eviction (2026-10-18): the render policy
+    /// reads the studio header's sequence count from the side's managed header
+    /// (ClientRenderPolicy.ReadModelCounts), and nothing writes or reads this.
+    /// Kept so the tail's layout does not move (docs/todo.md).
     /// </summary>
     [NativeDoc(
-        "The studio header's sequence count, or -1 when its sequences have not been",
-        "loaded yet -- a third state and not zero. Zero sequences is a model that",
-        "cannot move; -1 is a model nothing can be decided from yet.")]
+        "UNWRITTEN since studio.cpp's eviction: the render policy reads the studio",
+        "header's counts from the side's managed header. Kept, with the three below,",
+        "so the tail's layout does not move (docs/todo.md).")]
     public int StudioSequenceCount;
 
-    /// <summary>The studio header's pose-parameter count.</summary>
-    [NativeDoc("The studio header's pose-parameter count.")]
+    /// <summary>Unwritten; see <see cref="StudioSequenceCount"/>.</summary>
+    [NativeDoc("Unwritten; see StudioSequenceCount.")]
     public int StudioPoseParameterCount;
 
-    /// <summary>The studio header's bone-controller count.</summary>
-    [NativeDoc("The studio header's bone-controller count.")]
+    /// <summary>Unwritten; see <see cref="StudioSequenceCount"/>.</summary>
+    [NativeDoc("Unwritten; see StudioSequenceCount.")]
     public int StudioBoneControllerCount;
 
-    /// <summary>The studio header's IK-chain count.</summary>
-    [NativeDoc("The studio header's IK-chain count.")]
+    /// <summary>Unwritten; see <see cref="StudioSequenceCount"/>.</summary>
+    [NativeDoc("Unwritten; see StudioSequenceCount.")]
     public int StudioIkChainCount;
 
     // ---- render policy: the two serials that keep the loop from running -----

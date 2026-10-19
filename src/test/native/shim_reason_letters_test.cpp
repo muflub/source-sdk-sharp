@@ -740,9 +740,10 @@ TEST( ShimReasonLetters, AMarkerAgreesWithTheProseItWasDerivedFrom )
 	// NINE when bone_setup.cpp (REASON (g)) was deleted 2026-10-12 (plan_physics_bones_native_zero Phase 3).
 	// EIGHT when studio_sequence_timing.cpp (REASON (g)) was deleted 2026-10-12: the descriptor's durations are managed.
 	// SEVEN when usercmd.cpp (REASON (f)) was deleted 2026-10-12: the client's codec moved to C#.
-	EXPECT_EQ( nChecked, 7 )
+	// SIX when studio.cpp (reason (d)) was deleted 2026-10-18: its last consumers read the managed StudioHdr.
+	EXPECT_EQ( nChecked, 6 )
 		<< "found " << nChecked << " files stating a letter in prose, and there "
-		   "were SEVEN once usercmd.cpp was deleted -- all agreeing with their marker. Fewer means the prose was "
+		   "were SIX once studio.cpp was deleted -- all agreeing with their marker. Fewer means the prose was "
 		   "reformatted away, a file was deleted, or the matcher broke -- and "
 		   "this agreement check is then checking less than it says. More "
 		   "means a file gained a prose letter and should be looked at, not "

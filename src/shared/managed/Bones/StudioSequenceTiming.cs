@@ -13,29 +13,15 @@
 //=============================================================================
 
 using System;
-using SourceSharp.Abi;
 
 namespace SourceSharp.Shared.Bones;
 
 /// <summary>
-/// <see cref="IModelSequenceTiming"/> over a side's model cache.
+/// A model's default sequence durations, read by
+/// <see cref="StudioModelDescriptor"/> into each descriptor.
 /// </summary>
-public sealed class StudioSequenceTiming : IModelSequenceTiming
+public static class StudioSequenceTiming
 {
-    private readonly IBoneModels _models;
-
-    public StudioSequenceTiming(IBoneModels models)
-    {
-        _models = models ?? throw new ArgumentNullException(nameof(models));
-    }
-
-    /// <inheritdoc/>
-    public float[]? DefaultDurations(int modelIndex)
-    {
-        StudioHdr? hdr = modelIndex > 0 ? _models.OpenStudioHdr(modelIndex) : null;
-        return hdr is null ? null : DefaultDurations(hdr);
-    }
-
     /// <summary>
     /// Each sequence's <c>Studio_Duration</c> at the pose
     /// <c>Studio_CalcDefaultPoseParameters</c> seeds, in model order.

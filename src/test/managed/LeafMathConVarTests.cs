@@ -16,8 +16,10 @@ namespace SourceSharp.Tests;
 /// were <c>static ConVar</c>s in <c>public/bone_setup.cpp</c> and
 /// <c>mod_load_showstall</c> one in <c>public/studio.cpp</c>. None is a name
 /// the engine resolves or transmits, so none may be declared natively; all
-/// three are <c>[ConVar]</c> classes now and the native readers resolve them
-/// out of the engine's registry through <c>CManagedConVarRef</c>.
+/// three are <c>[ConVar]</c> classes now and the native readers resolved them
+/// out of the engine's registry through <c>CManagedConVarRef</c>. Both files
+/// are gone (bone_setup.cpp at plan_physics_bones_native_zero Phase 3,
+/// studio.cpp at its eviction, 2026-10-18), so no native reader is left.
 /// </para>
 ///
 /// <para>
@@ -45,7 +47,8 @@ public class LeafMathConVarTests
 {
     // bone_setup.cpp's rows left with the file (plan_physics_bones_native_zero
     // Phase 3): anim_3wayblend and aim_constraint have no native reader now;
-    // SourceSharp.Shared.Bones takes anim_3wayblend as an argument.
+    // SourceSharp.Shared.Bones takes anim_3wayblend as an argument. studio.cpp's
+    // (mod_load_showstall) left with it at studio.cpp's eviction (2026-10-18).
     private const string Studio = "src/sourcesharp/public/studio.cpp";
 
     private static string Read(string relative)
@@ -55,21 +58,6 @@ public class LeafMathConVarTests
         Assert.True(File.Exists(path), "not on disk: " + path);
 
         return File.ReadAllText(path);
-    }
-
-    private static string Code(string relative)
-    {
-        string text = Read(relative);
-
-        // Line comments out. Every needle below is code, and the banners these
-        // two files now carry NAME all three convars in prose while saying they
-        // are declared elsewhere.
-        return string.Join("\n",
-            text.Split('\n').Select(line =>
-            {
-                int at = line.IndexOf("//", StringComparison.Ordinal);
-                return at >= 0 ? line[..at] : line;
-            }));
     }
 
     private static Dictionary<string, ConVarBase> DeclaredIn(System.Reflection.Assembly assembly)
@@ -143,7 +131,7 @@ public class LeafMathConVarTests
     {
         // mod_load_showstall is the engine's own name (no game-DLL flag in the
         // live table), so a managed declaration would alias it
-        // (convar_ownership.h). studio.cpp reads the engine's by name.
+        // (convar_ownership.h). No game-DLL code reads it since studio.cpp left.
         Assert.False(Server().ContainsKey("mod_load_showstall"));
         Assert.False(Client().ContainsKey("mod_load_showstall"));
     }
@@ -170,38 +158,17 @@ public class LeafMathConVarTests
     // The native side: it READS them and no longer DECLARES them.
     //=========================================================================
 
-    [Theory]
-    [InlineData(Studio, "mod_load_showstall")]
-    public void TheNativeFileHoldsAManagedRefAndNotADeclaration(string file, string name)
+    [Fact]
+    public void TheShowstallKnobsLastNativeReaderIsGone()
     {
-        string code = Code(file);
+        // The positive arm: the anchored tree is read (a file that stays).
+        Assert.True(File.Exists(Path.Combine(RepoLayout.SdkTree, "src", "buildsourcesharp")));
 
-        Assert.Contains("CManagedConVarRef " + name + "( \"" + name + "\" )", code,
-            StringComparison.Ordinal);
-
-        Assert.DoesNotContain("ConVar " + name + "( \"" + name + "\"", code,
-            StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData(Studio)]
-    public void TheNativeFileDeclaresNoConVarAtAll(string file)
-    {
-        string code = Code(file);
-
-        // `static ConVar ` is the declaration form; CManagedConVarRef and
-        // ConVarRef are reads and are not this.
-        Assert.DoesNotContain("static ConVar ", code, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData(Studio, "mod_load_showstall")]
-    public void TheReadersAreStillThere(string file, string name)
-    {
-        // The point of the move is that the RULE is unchanged and only the
-        // DECLARATION left. A file that had lost its reads would pass every
-        // absence assertion above.
-        Assert.Contains(name + ".Get", Code(file), StringComparison.Ordinal);
+        // studio.cpp read mod_load_showstall at three stall sites of its
+        // animation-block read; the block read is the managed StudioHdr's now
+        // (no stall telemetry: it reads copied images, not the engine's IO).
+        Assert.False(File.Exists(Path.Combine(RepoLayout.SdkTree, Studio)),
+            "studio.cpp is back in the tree: " + Path.Combine(RepoLayout.SdkTree, Studio));
     }
 
     //=========================================================================

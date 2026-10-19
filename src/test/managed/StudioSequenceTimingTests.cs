@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using SourceSharp.Shared.Bones;
 using Xunit;
 
@@ -16,19 +15,6 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class StudioSequenceTimingTests
 {
-    private sealed class OneModel(int index, StudioHdr? hdr) : IBoneModels
-    {
-        public List<int> Asked { get; } = [];
-
-        public bool HasStudioModel(int modelIndex) => OpenStudioHdr(modelIndex) is not null;
-
-        public StudioHdr? OpenStudioHdr(int modelIndex)
-        {
-            Asked.Add(modelIndex);
-            return modelIndex == index ? hdr : null;
-        }
-    }
-
     private static StudioHdr Build(StudioHdrBuilder b) =>
         StudioHdr.TryCreate(b.Build(), null, out StudioHdr? h)
             ? h!
@@ -118,34 +104,5 @@ public class StudioSequenceTimingTests
     {
         var b = BaseBuilder();
         Assert.Empty(StudioSequenceTiming.DefaultDurations(Build(b)));
-    }
-
-    [Fact]
-    public void TheModelIsReadFromTheSidesCacheByIndex()
-    {
-        var models = new OneModel(7, TwoSequences());
-
-        float[]? d = new StudioSequenceTiming(models).DefaultDurations(7);
-
-        Assert.NotNull(d);
-        Assert.Equal(2, d!.Length);
-        Assert.Equal(new[] { 7 }, models.Asked);
-    }
-
-    [Fact]
-    public void AModelTheCacheCannotOpenAnswersNull()
-    {
-        var models = new OneModel(7, TwoSequences());
-
-        Assert.Null(new StudioSequenceTiming(models).DefaultDurations(8));
-    }
-
-    [Fact]
-    public void ANonPositiveIndexIsNotAsked()
-    {
-        var models = new OneModel(0, TwoSequences());
-
-        Assert.Null(new StudioSequenceTiming(models).DefaultDurations(0));
-        Assert.Empty(models.Asked);
     }
 }

@@ -440,21 +440,6 @@ public class SideAuditTests
         // hazard SOURCESHARP_TRACE_ALL's note describes for the trace masks.
         "CurrentGravity",
 
-        // plan_shim.md Phase 2d. ONE MODEL, ONE CROSSING: the sequence table,
-        // the attachment names and the bone count of one model, packed once.
-        //
-        // BOTH SIDES AND NOT DUAL, and here that distinction is the entire
-        // point rather than bookkeeping. The seven per-call slots it replaces
-        // included one whose two native bodies DISAGREED -- the client's
-        // EntityLookupSequence fell through to a weighted RANDOM pick on an
-        // activity name where the server's refused to and answered -1 -- on a
-        // sequence index that is PREDICTED state. This slot reads the same
-        // .mdl on both sides with the same walk and answers the same bytes;
-        // the RULE over those bytes is one managed implementation. A dual
-        // wiring would be two walks that have to be kept in step, which is
-        // what was wrong before.
-        "ModelDescriptor",
-
         // The vtable binding's one entry point. BOTH SIDES because each side
         // serves the interfaces its own DLL was handed: IVEngineClient exists
         // only on the client and IVEngineServer only on the server, and the

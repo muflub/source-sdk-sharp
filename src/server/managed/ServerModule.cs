@@ -75,7 +75,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // The server's descriptor durations, read from the skeletons' studio
     // headers; taken back in Shutdown so the descriptors hold nothing of this
     // load context across a reload.
-    private IDisposable? _timingAttachment;
+    private IDisposable? _descriptorAttachment;
 
     /// <summary>This composition's container, for a fact that composes two.</summary>
     internal IServiceLocator Services => _services;
@@ -1730,10 +1730,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_skeletons);
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
-        // Each sequence's default duration in the model descriptors is
-        // computed from the same studio headers (studio_sequence_timing.cpp's
-        // eviction): the native blob carries none.
-        _timingAttachment = _engine.Models.AttachTiming(new StudioSequenceTiming(_skeletons.Models));
+        // The model descriptors are read from the same studio headers
+        // (studio.cpp's eviction): sequences, events, attachments and each
+        // sequence's default duration.
+        _descriptorAttachment = _engine.Models.AttachSource(new StudioModelDescriptor(_skeletons.Models));
 
         // THE FLIP: every bone question the engine bindings answer -- the
         // attachments, the cached count, the matrices, the sequence, the scale
@@ -3117,8 +3117,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // Last, so everything above still printed through the module's own
         // sink; from here the bootstrap's console has the side again.
-        _timingAttachment?.Dispose();
-        _timingAttachment = null;
+        _descriptorAttachment?.Dispose();
+        _descriptorAttachment = null;
 
         _livenessAttachment?.Dispose();
         _livenessAttachment = null;

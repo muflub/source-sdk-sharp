@@ -26,7 +26,6 @@ public class SideModelCachesTests
 
     private static ModelDescriptors Descriptors(List<string> asked)
         => new(model => { asked.Add(model); return 0; },
-               _ => null,
                _ => Model, new RecordingLog());
 
     [Fact]

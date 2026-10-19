@@ -34,7 +34,6 @@
 #include "bone_accessor.h"
 #include "animation.h"
 #include "cdll_bounded_cvars.h"
-#include "datacache/imdlcache.h"
 #include "iviewrender_beams.h"
 #include "beam_flags.h"
 
@@ -233,16 +232,12 @@ C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass
 	// integer AUTO is belongs to the managed enum and not to this allocator.
 	tail.ShadowChoice = STANDALONE_SHADOW_CHOICE_AUTO;
 
-	// NO MODEL, AND NO STUDIO HEADER READ YET — and neither of those is a zero
-	// (plan_entity.md step 6b). Zero is mod_bad, which is a model that failed to
-	// load; -1 is GetModel() == NULL, which is an entity that has none. Zero
-	// sequences is a model that CANNOT MOVE and earns a baked shadow; -1 is a
-	// studio header whose sequences have not been paged in, which earns none
-	// until they have. A zeroed tail would tell the render policy that every
-	// entity, before its first update, wears a broken model with no animation —
-	// and it would answer for it.
-	tail.ModelType           = -1;
-	tail.StudioSequenceCount = -1;
+	// NO MODEL, which is not a zero (plan_entity.md step 6b). Zero is mod_bad,
+	// a model that failed to load; -1 is GetModel() == NULL, an entity that has
+	// none. A zeroed tail would tell the render policy that every entity,
+	// before its first update, wears a broken model -- and it would answer for
+	// it. (The studio counts are managed's own read of the header now.)
+	tail.ModelType = -1;
 
 	// NOTHING IS SET UP OVER THE POSE ANY MORE -- plan_entity.md step 6a. Two
 	// CInterpolatedVars used to be pointed at Head.Origin and Head.Angles here,
@@ -611,9 +606,9 @@ void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 	// managed pass at the end of this network update decides, and the apply
 	// sweep at PreRender hands the answer to the shadow manager.
 	//
-	// GUARDED BY THE INDEX, not called unconditionally, because the studio
-	// header comes out of mdlcache and an entity that is networked every tick
-	// would otherwise pay for that read every tick to learn nothing.
+	// GUARDED BY THE INDEX, not called unconditionally: an entity that is
+	// networked every tick would otherwise bump its policy serial every tick,
+	// and managed would decide again over a model that had not changed.
 	if ( Block().Head.ModelIndex != m_nPublishedModelIndex )
 		PublishModelFacts();
 
@@ -1299,76 +1294,31 @@ void C_StandaloneEntity::CreateModelInstance()
 }
 
 //-----------------------------------------------------------------------------
-// PUBLISHING THE MODEL FACTS THE SHADOW RULE IS DECIDED FROM
+// PUBLISHING THE MODEL FACT THE SHADOW RULE IS DECIDED FROM
 // (plan_entity.md step 6b).
 //
-// The RULE is ClientRenderPolicy.Shadow's, in C#, and shadow_cast_policy.h --
-// which held it, and its sixteen gtests -- is gone. What is left here is what
-// could not go: opening a studio header is mdlcache's business and asking
-// modelinfo what kind of model an index names is the engine's. So the shell
-// reads the facts and writes them into the block, and the decision over them is
-// made where §3.2 says decisions are made.
+// The RULE is ClientRenderPolicy.Shadow's, in C#. What is left here is the
+// engine's question: what kind of model the entity's index names. The studio
+// header's counts the rule also grades by are managed's, read from the side's
+// StudioModels by the block's model index (studio.cpp's eviction: this was the
+// client's last CStudioHdr), so the block's four Studio*Count fields are no
+// longer written.
 //
 // CALLED WHEN THE MODEL INDEX CHANGES AND NOT PER FRAME. The index is networked
 // and the engine's decoder writes it into the block directly, so nothing here
 // runs to notice; the comparison against m_nPublishedModelIndex in
-// PostDataUpdate is what notices. That is also why the read is affordable at
-// all: the studio header comes out of the cache once per model change per
-// entity rather than once per shadow question.
+// PostDataUpdate is what notices, and the bump below is what has managed
+// decide again over the new model.
 //-----------------------------------------------------------------------------
 void C_StandaloneEntity::PublishModelFacts()
 {
 	m_nPublishedModelIndex = Block().Head.ModelIndex;
 
-	EngineBlockClientTail_t &tail = Block().Client;
-
-	// The state before anything is known, restated rather than assumed: this
-	// runs again every time the model changes, and a model that went away has
-	// to take the previous model's counts with it.
-	//
-	// -1 AND NOT ZERO, TWICE, and neither is a tidiness choice. Zero is mod_bad
-	// -- a model that failed to load -- and this is "there is no model". Zero
-	// sequences is a model that cannot move and earns a baked shadow; -1 is a
-	// studio header whose sequences have not been paged in and earns none yet.
-	tail.ModelType                 = -1;
-	tail.StudioSequenceCount       = -1;
-	tail.StudioPoseParameterCount  = 0;
-	tail.StudioBoneControllerCount = 0;
-	tail.StudioIkChainCount        = 0;
-
+	// -1 AND NOT ZERO: zero is mod_bad -- a model that failed to load -- and
+	// this is "there is no model". Restated every time, since a model that
+	// went away has to take the previous model's type with it.
 	const model_t *pModel = GetModel();
-
-	if ( pModel )
-	{
-		tail.ModelType = (int32_t)modelinfo->GetModelType( pModel );
-
-		// The studio header is only opened for a studio model. A brush entity
-		// has none, and asking the cache for one on every model change of every
-		// door in the map buys nothing -- the policy refuses a non-studio model
-		// on the model type alone.
-		if ( tail.ModelType == mod_studio )
-		{
-			MDLCACHE_CRITICAL_SECTION();
-
-			MDLHandle_t hModel = modelinfo->GetCacheHandle( pModel );
-			studiohdr_t *pRenderHdr =
-				( hModel != MDLHANDLE_INVALID ) ? mdlcache->GetStudioHdr( hModel ) : NULL;
-
-			if ( pRenderHdr )
-			{
-				CStudioHdr studioHdr;
-				studioHdr.Init( pRenderHdr, mdlcache );
-
-				if ( studioHdr.IsValid() && studioHdr.SequencesAvailable() )
-				{
-					tail.StudioSequenceCount       = studioHdr.GetNumSeq();
-					tail.StudioPoseParameterCount  = studioHdr.GetNumPoseParameters();
-					tail.StudioBoneControllerCount = studioHdr.numbonecontrollers();
-					tail.StudioIkChainCount        = studioHdr.numikchains();
-				}
-			}
-		}
-	}
+	Block().Client.ModelType = pModel ? (int32_t)modelinfo->GetModelType( pModel ) : -1;
 
 	BumpPolicyInputs();
 }

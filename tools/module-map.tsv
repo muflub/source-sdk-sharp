@@ -45,7 +45,6 @@ src/sourcesharp/fwd	files	src/fwd/native
 src/sourcesharp/public/collisionutils.cpp	file	src/shared/native/collisionutils.cpp
 src/sourcesharp/public/dt_send.cpp	file	src/shared/native/dt_send.cpp
 src/sourcesharp/public/dt_utlvector_common.cpp	file	src/shared/native/dt_utlvector_common.cpp
-src/sourcesharp/public/studio.cpp	file	src/shared/native/studio.cpp
 src/sourcesharp/common/steamid.cpp	file	src/shared/native/steamid.cpp
 src/sourcesharp/test	files	src/test/native
 src/sourcesharp/webui	dir	src/webui

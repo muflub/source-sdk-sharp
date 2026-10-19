@@ -1165,16 +1165,13 @@ internal unsafe struct ShimNetworkServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimModelsServer</c> through its forwarders (SSFwd_ShimModelsServer): 8 slot(s).
+/// <c>IShimModelsServer</c> through its forwarders (SSFwd_ShimModelsServer): 7 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimModelsServerFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimModelsServer";
-
-    // int32_t IShimModels::ModelDescriptor( int32_t, char *, int32_t )
-    public delegate* unmanaged<void*, int, byte*, int, int> ModelDescriptor;
 
     // void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
     public delegate* unmanaged<void*, uint, byte*, int, void> EntityGetModelName;
@@ -2133,16 +2130,13 @@ internal unsafe struct ShimNetworkFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimModels</c> through its forwarders (SSFwd_ShimModels): 4 slot(s).
+/// <c>IShimModels</c> through its forwarders (SSFwd_ShimModels): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimModelsFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimModels";
-
-    // int32_t IShimModels::ModelDescriptor( int32_t, char *, int32_t )
-    public delegate* unmanaged<void*, int, byte*, int, int> ModelDescriptor;
 
     // void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
     public delegate* unmanaged<void*, uint, byte*, int, void> EntityGetModelName;

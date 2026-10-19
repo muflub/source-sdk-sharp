@@ -259,6 +259,17 @@ public sealed partial class SourceFileNamesExistTests
         // SkeletonEvictionTests: src/shared/native/studio_sequence_timing.cpp was
         // deleted 2026-10-12; its absence from both targets and the disk is the claim.
         "studio_sequence_timing.cpp",
+        // StudioEvictionTests: src/shared/native/model_descriptor.cpp (and its
+        // .h) went with the descriptor slot; the descriptor is managed's.
+        "model_descriptor.cpp",
+        "model_descriptor.h",
+        // LeafMathConVarTests / StudioEvictionTests: src/shared/native/studio.cpp
+        // (farm path src/sourcesharp/public/studio.cpp) was deleted 2026-10-18;
+        // its absence is the claim.
+        "src/sourcesharp/public/studio.cpp",
+        "studio.cpp",
+        // StudioEvictionTests: src/shared/native/studio_mdlcache.cpp went after it.
+        "studio_mdlcache.cpp",
     };
 
     /// <summary>The extensions that mean "a file in this repository".</summary>

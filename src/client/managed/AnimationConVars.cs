@@ -9,9 +9,9 @@ namespace SourceSharp.Client;
 /// The whole argument is in <c>SourceSharp.Server.AnimationConVarsDoc</c> and
 /// is not repeated: these are the other half of three names that this build
 /// registers from BOTH DLLs, two of them because <c>FCVAR_REPLICATED</c> means
-/// nothing otherwise, and the third because
-/// <c>sourcesharp/public/studio.cpp</c> is a row in both <c>_csharp.vpc</c>
-/// file lists and so declared it twice already.
+/// nothing otherwise. The third, <c>mod_load_showstall</c>, is the engine's
+/// own and declared by neither (its native reader, studio.cpp, left both DLLs
+/// 2026-10-18).
 /// </para>
 ///
 /// <para>

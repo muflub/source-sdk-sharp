@@ -1,5 +1,3 @@
-using System.Text;
-
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
@@ -31,30 +29,22 @@ public class PlayerAnimStateDriveTests
     private const int RunSequence = 1;
     private const int JumpSequence = 2;
 
-    /// <summary>model_descriptor.h's format (v3: no durations), written out: an
-    /// HL2DM-shaped player with an idle, a run and a jump (the HL2 layer's
-    /// first asks).</summary>
-    private static byte[] PlayerModel()
+    /// <summary>An HL2DM-shaped player with an idle (2 s), a run (1 s) and a
+    /// jump (0.5 s): the HL2 layer's first asks, as the side's managed studio
+    /// header would describe them.</summary>
+    private sealed class PlayerModel : IModelDescriptorSource
     {
-        var bytes = new List<byte>();
-        void Int(int v) => bytes.AddRange(BitConverter.GetBytes(v));
-        void Str(string s) { Int(Encoding.UTF8.GetByteCount(s)); bytes.AddRange(Encoding.UTF8.GetBytes(s)); }
+        private static ModelSequence Seq(int index, string label, string activity, int flags, float duration)
+            => new(index, label, activity, flags, duration, System.Array.Empty<ModelSequenceEvent>());
 
-        Int(ModelDescriptor.Version);
-        Int(1);                                       // bones
-        Int(0);                                       // attachments
-        Int(3);                                       // sequences
-        Str("idle_melee"); Str("ACT_HL2MP_IDLE_MELEE"); Int(0x1); Int(0);
-        Str("run_melee"); Str("ACT_HL2MP_RUN_MELEE"); Int(0x1); Int(0);
-        Str("jump_melee"); Str("ACT_HL2MP_JUMP_MELEE"); Int(0); Int(0);
-        return bytes.ToArray();
-    }
-
-    /// <summary>The durations the side's managed studio headers would answer
-    /// (the blob carries none since v3): idle 2 s, run 1 s, jump 0.5 s.</summary>
-    private sealed class Durations : IModelSequenceTiming
-    {
-        public float[]? DefaultDurations(int modelIndex) => [2f, 1f, 0.5f];
+        public ModelDescriptor? Describe(int modelIndex) => ModelDescriptor.Create(
+            1, System.Array.Empty<string>(), System.Array.Empty<Vector>(),
+            new[]
+            {
+                Seq(0, "idle_melee", "ACT_HL2MP_IDLE_MELEE", 0x1, 2f),
+                Seq(1, "run_melee", "ACT_HL2MP_RUN_MELEE", 0x1, 1f),
+                Seq(2, "jump_melee", "ACT_HL2MP_JUMP_MELEE", 0, 0.5f),
+            });
     }
 
     private static (SsPlayer Player, RecordingEngine Engine) Running(AnimStateLayers? layers = null)
@@ -64,9 +54,8 @@ public class PlayerAnimStateDriveTests
         engine.Returns("Entities.GetAngles", Vector.Zero);
         engine.Returns("Entities.GetEyeAngles", Vector.Zero);
 
-        byte[] blob = PlayerModel();
-        var models = new ModelDescriptors(_ => 1, _ => blob, _ => Model, new RecordingLog());
-        models.AttachTiming(new Durations());
+        var models = new ModelDescriptors(_ => 1, _ => Model, new RecordingLog());
+        models.AttachSource(new PlayerModel());
 
         var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(),
                                   models: models, clock: engine, animLayers: layers)

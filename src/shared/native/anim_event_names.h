@@ -76,7 +76,8 @@ enum
 	kAnimEventTypeServer = 1 << 0,
 	kAnimEventTypeClient = 1 << 4,
 	// AE_TYPE_NEWEVENTSYSTEM: the event names itself (szeventindex is valid).
-	// model_descriptor.cpp reads it on the R5 include set, without eventlist.h.
+	// Its managed twin is AnimationEventTypes.NewEventSystem, by which the
+	// managed StudioModelDescriptor reads an event's name.
 	kAnimEventTypeNewEventSystem = 1 << 10,
 };
 

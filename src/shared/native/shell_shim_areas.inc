@@ -105,8 +105,6 @@ void * CShimNetworkServer::EntityGetEngineBlock( uint32_t hEntity, int32_t * pOu
 void CShimNetworkServer::EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
 	{ return ::SourceSharp_EntitySetTransmitAlways( hEntity, bAlways ); }
 
-int32_t CShimModelsServer::ModelDescriptor( int32_t nModelIndex, char * pBuffer, int32_t nBytes )
-	{ return ::SourceSharp_ModelDescriptor( nModelIndex, pBuffer, nBytes ); }
 void CShimModelsServer::EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize )
 	{ return ::SourceSharp_EntityGetModelName( hEntity, pOut, nOutSize ); }
 int32_t CShimModelsServer::EntitiesInvalidateMdlCacheAll()

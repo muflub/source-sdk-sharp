@@ -4,13 +4,16 @@ using System.Collections.Generic;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// ONE CROSSING PER MODEL PER LEVEL, and the cache that makes it one.
+/// ONE READ PER MODEL PER LEVEL, and the cache that makes it one.
 ///
 /// <para>
-/// <see cref="ModelDescriptor"/> says why the crossing exists; this is where
+/// <see cref="ModelDescriptor"/> says what a descriptor answers; this is where
 /// the answer is kept. A model's sequence table, attachment names and bone
 /// count are facts of a file on disk: they cannot change while the level is
-/// loaded, so asking twice is asking the same question twice.
+/// loaded, so asking twice is asking the same question twice. The answer is
+/// read from the side's managed studio header through the attached
+/// <see cref="IModelDescriptorSource"/> (studio.cpp's eviction: it used to be
+/// a blob that model_descriptor.cpp's native walk crossed).
 /// </para>
 ///
 /// <para>
@@ -38,11 +41,8 @@ namespace SourceSharp.Abi;
 /// </para>
 ///
 /// <para>
-/// <see cref="Crossings"/> and <see cref="Bytes"/> are the measurement the
-/// design was argued from and are not diagnostics-only: the question "is one
-/// descriptor cheaper than eight per-call entry points" is answered by how many
-/// models managed actually asks about, which is not the number a level
-/// precaches.
+/// <see cref="Reads"/> is how many models managed actually asks about, which
+/// is not the number a level precaches.
 /// </para>
 /// </summary>
 public sealed class ModelDescriptors
@@ -50,18 +50,16 @@ public sealed class ModelDescriptors
     private readonly Dictionary<string, ModelDescriptor> _table =
         new(StringComparer.OrdinalIgnoreCase);
 
-    // The side's three engine reads: a model's index by name, the descriptor
-    // blob at an index, and an entity's model name.
+    // The side's two engine reads: a model's index by name, and an entity's
+    // model name.
     private readonly Func<string, int> _modelIndex;
-    private readonly Func<int, byte[]?> _blob;
     private readonly Func<EntityHandle, string> _modelName;
 
-    private int _crossings;
-    private long _bytes;
+    private int _reads;
 
-    // Where each sequence's default duration comes from: the module that owns
-    // the side's managed studio headers attaches it (AttachTiming).
-    private IModelSequenceTiming? _timing;
+    // Where each descriptor is read from: the module that owns the side's
+    // managed studio headers attaches it (AttachSource).
+    private IModelDescriptorSource? _source;
 
     // Where a model this side cannot describe is said (statics to zero).
     private readonly ILog _log;
@@ -69,34 +67,28 @@ public sealed class ModelDescriptors
     /// <summary>The cache of one side, over that side's engine.</summary>
     internal ModelDescriptors(EngineSide side)
         : this(model => EngineBound.ModelInfo(side).ModelIndex(model),
-               side.ModelDescriptorBlob,
                side.EntityGetModelName,
                side.Log)
     {
     }
 
     /// <summary>
-    /// The same over the three reads given: what the side's constructor
+    /// The same over the two reads given: what the side's constructor
     /// passes, and what a fact passes instead of an engine.
     /// </summary>
     internal ModelDescriptors(Func<string, int> modelIndex,
-                              Func<int, byte[]?> blob,
                               Func<EntityHandle, string> modelName,
                               ILog log)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _modelIndex = modelIndex ?? throw new ArgumentNullException(nameof(modelIndex));
-        _blob = blob ?? throw new ArgumentNullException(nameof(blob));
         _modelName = modelName ?? throw new ArgumentNullException(nameof(modelName));
     }
 
-    /// <summary>How many descriptor blobs have been fetched since the last
-    /// <see cref="Clear"/> — one per model managed has asked about, not one per
-    /// model the level precached.</summary>
-    public int Crossings => _crossings;
-
-    /// <summary>How many bytes those blobs came to.</summary>
-    public long Bytes => _bytes;
+    /// <summary>How many descriptors have been read from the attached source
+    /// since the last <see cref="Clear"/> — one per model managed has asked
+    /// about, not one per model the level precached.</summary>
+    public int Reads => _reads;
 
     /// <summary>How many models this side has cached.</summary>
     public int CachedCount => _table.Count;
@@ -124,30 +116,29 @@ public sealed class ModelDescriptors
 
         // THE MISS IS CACHED TOO. A model with no studio data — a sprite, a
         // brush model — answers Empty every time, and a cache that only stored
-        // hits would cross for it on every call, which is the shape this type
-        // exists to remove.
+        // hits would ask again on every call.
         _table[modelName] = fetched;
         return fetched;
     }
 
     /// <summary>
-    /// Takes each sequence's default duration from <paramref name="timing"/>
-    /// until the returned attachment is disposed. The module that owns the
-    /// side's managed studio headers attaches at composition and disposes in
-    /// Shutdown, so a reloaded module's reader is never held across its unload.
-    /// Descriptors already cached keep the durations they were built with.
+    /// Reads every descriptor from <paramref name="source"/> until the
+    /// returned attachment is disposed. The module that owns the side's
+    /// managed studio headers attaches at composition and disposes in
+    /// Shutdown, so a reloaded module's reader is never held across its
+    /// unload. Descriptors already cached are kept.
     /// </summary>
-    public IDisposable AttachTiming(IModelSequenceTiming timing)
+    public IDisposable AttachSource(IModelDescriptorSource source)
     {
-        ArgumentNullException.ThrowIfNull(timing);
+        ArgumentNullException.ThrowIfNull(source);
 
-        IModelSequenceTiming? previous = _timing;
-        _timing = timing;
-        return new TimingAttachment(this, timing, previous);
+        IModelDescriptorSource? previous = _source;
+        _source = source;
+        return new SourceAttachment(this, source, previous);
     }
 
-    private sealed class TimingAttachment(ModelDescriptors owner, IModelSequenceTiming timing,
-                                          IModelSequenceTiming? previous) : IDisposable
+    private sealed class SourceAttachment(ModelDescriptors owner, IModelDescriptorSource source,
+                                          IModelDescriptorSource? previous) : IDisposable
     {
         private bool _disposed;
 
@@ -158,8 +149,8 @@ public sealed class ModelDescriptors
 
             _disposed = true;
 
-            if (ReferenceEquals(owner._timing, timing))
-                owner._timing = previous;
+            if (ReferenceEquals(owner._source, source))
+                owner._source = previous;
         }
     }
 
@@ -169,8 +160,7 @@ public sealed class ModelDescriptors
     public void Clear()
     {
         _table.Clear();
-        _crossings = 0;
-        _bytes = 0;
+        _reads = 0;
     }
 
     private ModelDescriptor Fetch(string modelName)
@@ -180,45 +170,23 @@ public sealed class ModelDescriptors
         if (index <= 0)
             return ModelDescriptor.Empty;
 
-        byte[]? blob = _blob(index);
-
-        if (blob is null || blob.Length == 0)
-            return ModelDescriptor.Empty;
-
-        _crossings++;
-        _bytes += blob.Length;
-
-        ModelDescriptor d = ModelDescriptor.Decode(blob, out string why);
-
-        if (why.Length > 0)
+        if (_source is not { } source)
         {
             // LOUD, because the alternative is a model that resolves every
             // sequence name to -1 and animates as nothing with nothing in the
-            // log — which is the defect the descriptor replaced an eight-slot
-            // crossing to make visible in the first place.
-            _log.Msg($"[SourceSharp] ModelDescriptor({modelName}): {why}\n");
-            return d;
+            // log.
+            _log.Msg($"[SourceSharp] ModelDescriptor({modelName}): no descriptor source attached; it answers nothing\n");
+            return ModelDescriptor.Empty;
         }
 
-        if (d.Sequences.Count == 0)
-            return d;
+        // Null is a model with no studio header to open (a sprite, a brush
+        // model), which the native walk answered with no blob: Empty, quietly.
+        ModelDescriptor? d = source.Describe(index);
 
-        // THE DURATIONS ARE MANAGED: the blob carries none (v3). A side with no
-        // reader attached, or a header the reader cannot open, answers 0 for
-        // every sequence -- what SequenceDuration answers for a sequence the
-        // model does not have -- and says so, since a 0 duration plays a
-        // sequence in one frame.
-        float[]? durations = _timing?.DefaultDurations(index);
+        if (d is null)
+            return ModelDescriptor.Empty;
 
-        if (durations is null || durations.Length != d.Sequences.Count)
-        {
-            string cause = durations is null
-                ? _timing is null ? "no sequence timing attached" : "no studio header for its sequence timing"
-                : $"sequence timing has {durations.Length} sequence(s), the descriptor {d.Sequences.Count}";
-            _log.Msg($"[SourceSharp] ModelDescriptor({modelName}): {cause}; every duration answers 0\n");
-            return d;
-        }
-
-        return d.WithDurations(durations);
+        _reads++;
+        return d;
     }
 }

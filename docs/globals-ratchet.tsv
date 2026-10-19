@@ -284,7 +284,8 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-18, 359 -> 352 (-7, make globals-ledger): physics_debug.cpp left server.so; its six
 #   SS_NATIVE_COMMAND bodies and PhysicsCommand's s_RefusePhysicsCommandByName went with it. The
 #   commands are managed's PhysicsDebugCommands.cs. tools/globals-census summary: link_level 352.
-globals_link_level	src/game/server	352
+# LOWERED 2026-10-18, 352 -> 347: studio.cpp's eviction. studio.cpp left server.so, and with it its four UNRULED rows (GroupStudioHdr's two __executeCount, pSeqdesc's s_nil_seq, mod_load_showstall's ref) and ss_clock.h's s_Start MEMBER row, which studio.cpp was the server's only includer of (make globals-ledger, reconciled).
+globals_link_level	src/game/server	347
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
@@ -332,7 +333,9 @@ globals_unruled	docs/globals-ledger.tsv	279
 # RAISED 2026-10-01, 103 -> 116: the diagnostics moved into 21 debug-only *_debug.cpp objects (user ruling),
 #   each with its SS_NATIVE_COMMAND registration's constructor; 8 hosts lost theirs. Measured on the DEBUG link,
 #   which is the only one that compiles them; a release server.so links none of the 21.
-globals_objects_with_static_init	src/game/server	116
+# LOWERED 2026-10-18, 116 -> 105: studio.cpp's eviction; studio.cpp's CManagedConVarRef was a static initialiser (measured by tools/globals-census summary --side server: 107 at main d6d3b9a3d, 106 once model_descriptor.cpp left, 105 now; the rest was slack).
+# LOWERED 2026-10-18, 105 -> 104: studio_mdlcache.cpp left server.so; its object carried studio.h's header statics' initialiser (measured by tools/globals-census summary --side server).
+globals_objects_with_static_init	src/game/server	104
 #
 # ---------------------------------------------------------------------------
 # THE SECOND INSTRUMENT MUST RECONCILE.

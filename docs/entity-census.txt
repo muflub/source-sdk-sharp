@@ -1,3 +1,8 @@
+# 2026-10-18, studio.cpp's eviction: model_descriptor.cpp left both DLLs (the model descriptor is managed's StudioModelDescriptor): objects 122 -> 121 (server) and 144 -> 143 (client), shim 122 -> 121 and 130 -> 129; no cross-edge moved. Hand-applied from tools/entity-census's diff.
+# 2026-10-18, studio.cpp's eviction: studio.cpp left both DLLs (no native code reads the mdl through CStudioHdr): objects 121 -> 120 (server) and 143 -> 142 (client), shim 121 -> 120 and 129 -> 128; no cross-edge moved. Hand-applied from tools/entity-census's diff.
+# 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left both DLLs (its only caller was studio.cpp): objects 120 -> 119 (server) and 142 -> 141 (client), shim 120 -> 119 and 128 -> 127; no cross-edge moved. Hand-applied from tools/entity-census's diff.
+# 2026-10-18, studio.cpp's eviction: studio.cpp left both DLLs (no native code reads the mdl through CStudioHdr): objects 122 -> 121 (server) and 147 -> 146 (client), shim 122 -> 121 and 132 -> 131; no cross-edge moved. Hand-applied from tools/entity-census's diff.
+# 2026-10-18, studio.cpp's eviction: model_descriptor.cpp left both DLLs (the model descriptor is managed's StudioModelDescriptor): objects 123 -> 122 (server) and 148 -> 147 (client), shim 123 -> 122 and 133 -> 132; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, landing C9 tier0/vstdlib onto main 331c8a0cf (after lane t1's sentence.cpp eviction): client objects 146 -> 148 (the two new TUs), stock public 0. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, C9 sentence (lane t1): public/sentence.cpp left client.so (its arm is SourceSharp.Client.LipSync):
 #   client objects 147 -> 146, stock public 1 -> 0, entity-free stock TUs 12 -> 11 (code lines 8982 -> 7692),
@@ -880,11 +885,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 122       144
+objects linked                                                 119       141
   ... stock game/server | game/client                            0        14
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        122       130
+  ... SourceSharp shim (sourcesharp/**)                        119       127
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         3

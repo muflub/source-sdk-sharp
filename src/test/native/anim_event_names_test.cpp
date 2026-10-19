@@ -324,7 +324,7 @@ TEST( AnimEventNames, TheNewEventSystemBitIsEventListsOwn )
 	EXPECT_EQ( nNew, (int)kAnimEventTypeNewEventSystem )
 		<< "anim_event_names.h's new-event-system bit is "
 		<< (int)kAnimEventTypeNewEventSystem << " and eventlist.h's is " << nNew
-		<< ". model_descriptor.cpp reads an event's name only when it is set.";
+		<< ". An event's name is read only when it is set.";
 }
 
 //=============================================================================//

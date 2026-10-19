@@ -281,7 +281,9 @@ public partial class EngineApiCensusTests
     // shared IShimModels bone slots retired (65 - 7 = 58).
     // DustEffect, the server's alone again (65 - 1 = 64).
     // C9: IShimEngine's FilesSizeOnPath and FilesReadOnPath (57 + 2 = 59).
-    private const int BothSides = 59;
+    // studio.cpp's eviction (2026-10-18): IShimModels' ModelDescriptor retired,
+    // the descriptor read from the managed header (59 - 1 = 58).
+    private const int BothSides = 58;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

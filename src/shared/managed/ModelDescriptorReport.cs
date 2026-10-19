@@ -67,8 +67,7 @@ public static class ModelDescriptorReport
         }
 
         lines.Add($"  cache: {models.CachedCount} model(s), " +
-                  $"{models.Crossings} crossing(s), " +
-                  $"{models.Bytes} byte(s) since level load");
+                  $"{models.Reads} read from the studio headers since level load");
 
         return lines;
     }

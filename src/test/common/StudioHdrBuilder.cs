@@ -200,14 +200,34 @@ public sealed partial class StudioHdrBuilder
         public int Flags;
     }
 
+    /// <summary>One <c>mstudioevent_t</c> (80 bytes).</summary>
+    public sealed class EventDef
+    {
+        public float Cycle;
+        public int Event;
+        public int Type;
+
+        /// <summary>The inline <c>options[64]</c>, NUL-terminated.</summary>
+        public string Options = "";
+
+        /// <summary><c>szeventindex</c> (@76); empty leaves the index 0.</summary>
+        public string Name = "";
+    }
+
     /// <summary>One <c>mstudioseqdesc_t</c> (212 bytes) plus payloads.</summary>
     public sealed class SeqDef
     {
         public string Label = "";
+
+        /// <summary><c>szactivitynameindex</c> (@8); empty leaves the index 0.</summary>
+        public string ActivityName = "";
         public int Flags;
         public int Activity;
         public int ActWeight;
         public int NumBlends = 1;
+
+        /// <summary>The event table (<c>numevents</c> @24 / <c>eventindex</c> @28).</summary>
+        public List<EventDef> Events = [];
 
         /// <summary><c>mstudioseqdesc_t.cycleposeindex</c> (@172): pose-parameter
         /// index used as the cycle index under <c>STUDIO_CYCLEPOSE</c>.</summary>
@@ -697,6 +717,11 @@ public sealed partial class StudioHdrBuilder
                 int at = Mark();
                 Pad(212); // fixed record; payload fields patched in pass 2
                 QueueString(at, 4, s.Label); // szlabelindex @4, record-relative
+                if (s.ActivityName.Length > 0)
+                {
+                    QueueString(at, 8, s.ActivityName); // szactivitynameindex @8
+                }
+
                 SpanWriter.PatchInt32(_image, at + 12, s.Flags);
                 SpanWriter.PatchInt32(_image, at + 16, s.Activity);
                 SpanWriter.PatchInt32(_image, at + 20, s.ActWeight);
@@ -1355,6 +1380,29 @@ public sealed partial class StudioHdrBuilder
         }
 
         Rel(60, tbl); // animindexindex
+
+        if (s.Events.Count > 0)
+        {
+            PadTo(4);
+            int ev = Mark();
+            foreach (EventDef e in s.Events)
+            {
+                int eat = Mark();
+                WF(e.Cycle);
+                W32(e.Event);
+                W32(e.Type);
+                Pad(64);                    // options[64] @12
+                PatchAscii(eat + 12, e.Options, 64);
+                W32(0);                     // szeventindex @76
+                if (e.Name.Length > 0)
+                {
+                    QueueString(eat, 76, e.Name);
+                }
+            }
+
+            SpanWriter.PatchInt32(_image, at + 24, s.Events.Count);
+            Rel(28, ev); // eventindex
+        }
 
         if (s.Weights is not null)
         {

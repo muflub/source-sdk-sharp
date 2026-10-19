@@ -279,9 +279,12 @@ imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-incdir-forbidden-tus	144
+# 2026-10-18, studio.cpp's eviction: model_descriptor.cpp and studio.cpp left client.so: incdir-forbidden-tus 144 -> 142 (tools/client-novalve-census).
+# 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left client.so (its only caller was studio.cpp): incdir-forbidden-tus 142 -> 141.
+incdir-forbidden-tus	141
 link-forbidden	2
-logic-lines	8106
+# 2026-10-18, studio.cpp's eviction: logic-lines 8106 -> 8077, shell_standalone_client.cpp's PublishModelFacts no longer opening a CStudioHdr (tools/client-novalve-census).
+logic-lines	8077
 native-convar-decls	69
 needed-forbidden	0
 sdk-links	393

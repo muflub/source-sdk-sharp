@@ -861,7 +861,3 @@ collisionutils.o	_ZL12s_MatIndices	s_MatIndices	sourcesharp/public/collisionutil
 dt_utlvector_common.o	_ZL8g_RTDictB5cxx11	g_RTDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL8g_STDictB5cxx11	g_STDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL16s_DTElementNames	s_DTElementNames	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	10240	DEAD		the linker drops it: nothing in the shipped .so reads it
-studio.o	_ZZN10CStudioHdr14GroupStudioHdrEiE14__executeCount	CStudioHdr::GroupStudioHdr(int)::__executeCount	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	4	UNRULED		
-studio.o	_ZZN10CStudioHdr14GroupStudioHdrEiE14__executeCount_0	CStudioHdr::GroupStudioHdr(int)::__executeCount	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	4	UNRULED		
-studio.o	_ZZN10CStudioHdr8pSeqdescEiE9s_nil_seq	CStudioHdr::pSeqdesc(int)::s_nil_seq	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	212	UNRULED		
-studio.o	_ZL18mod_load_showstall	mod_load_showstall	sourcesharp/public/studio.cpp	LOCAL	bss	file-or-global	32	UNRULED		

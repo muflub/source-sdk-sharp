@@ -94,7 +94,6 @@ public:
 class CShimModelsServer final : public IShimModelsServer
 {
 public:
-	int32_t ModelDescriptor( int32_t nModelIndex, char * pBuffer, int32_t nBytes ) override;
 	void EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize ) override;
 	int32_t EntitiesInvalidateMdlCacheAll() override;
 	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
@@ -511,7 +510,6 @@ public:
 class CShimModelsClient final : public IShimModels
 {
 public:
-	int32_t ModelDescriptor( int32_t nModelIndex, char * pBuffer, int32_t nBytes ) override;
 	void EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize ) override;
 	int32_t EntitiesInvalidateMdlCacheAll() override;
 	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;

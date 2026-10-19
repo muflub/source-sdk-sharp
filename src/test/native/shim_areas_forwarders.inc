@@ -48,10 +48,10 @@ TEST( FwdShimAreas, ShimNetworkServerIs11Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimModelsServerIs8Slots )
+TEST( FwdShimAreas, ShimModelsServerIs7Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimModelsServer::EntitySetTextureFrame ).slot + 1;
-	EXPECT_EQ( 8, compiler );
+	EXPECT_EQ( 7, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimModelsServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -264,10 +264,10 @@ TEST( FwdShimAreas, ShimNetworkIs4SlotsOnTheClient )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimModelsIs4SlotsOnTheClient )
+TEST( FwdShimAreas, ShimModelsIs3SlotsOnTheClient )
 {
 	const int compiler = VTableHook::MemberOf( &IShimModels::StandaloneSetModelScale ).slot + 1;
-	EXPECT_EQ( 4, compiler );
+	EXPECT_EQ( 3, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimModels" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

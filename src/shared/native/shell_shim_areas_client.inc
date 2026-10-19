@@ -67,8 +67,6 @@ int32_t CShimNetworkClient::NetTierInfo( int32_t nShell, int32_t iTier, const ch
 int32_t CShimNetworkClient::WorldNetDeclare( int32_t nBlobBytes )
 	{ return ::SourceSharp_WorldNetDeclare( nBlobBytes ); }
 
-int32_t CShimModelsClient::ModelDescriptor( int32_t nModelIndex, char * pBuffer, int32_t nBytes )
-	{ return ::SourceSharp_ModelDescriptor( nModelIndex, pBuffer, nBytes ); }
 void CShimModelsClient::EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize )
 	{ return ::SourceSharp_ClientEntityGetModelName( hEntity, pOut, nOutSize ); }
 int32_t CShimModelsClient::EntitiesInvalidateMdlCacheAll()

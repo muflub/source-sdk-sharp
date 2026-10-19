@@ -79,26 +79,21 @@ public class SkeletonEvictionTests
     }
 
     /// <summary>
-    /// The retention half: the descriptor itself stays native on both sides
-    /// (the server in both of its lists), and each side's module hands its
-    /// descriptors the managed sequence timing that replaced the native
-    /// durations.
+    /// The retention half: each side's module hands its descriptors the
+    /// managed reader (StudioModelDescriptor, which times each sequence) that
+    /// replaced the native walk and its durations.
     /// </summary>
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BothSidesKeepTheDescriptorAndTimeItsSequencesInManagedCode()
     {
-        Assert.True(Lists(CMakeGraph.Client, "model_descriptor.cpp"));
-        Assert.True(Lists(CMakeGraph.Server, "model_descriptor.cpp"));
-        Assert.Equal(2, SourceLinesNaming(CMakeGraph.Server, "model_descriptor.cpp"));
-
-        Assert.True(typeof(SourceSharp.Abi.IModelSequenceTiming)
-            .IsAssignableFrom(typeof(SourceSharp.Shared.Bones.StudioSequenceTiming)));
+        Assert.True(typeof(SourceSharp.Abi.IModelDescriptorSource)
+            .IsAssignableFrom(typeof(SourceSharp.Shared.Bones.StudioModelDescriptor)));
 
         string server = File.ReadAllText(RepoLayout.Repo("src", "server", "managed", "ServerModule.cs"));
         string client = File.ReadAllText(RepoLayout.Repo("src", "client", "managed", "ClientModule.cs"));
-        Assert.Contains("_timingAttachment = _engine.Models.AttachTiming(new StudioSequenceTiming(_skeletons.Models));",
+        Assert.Contains("_descriptorAttachment = _engine.Models.AttachSource(new StudioModelDescriptor(_skeletons.Models));",
                         server, System.StringComparison.Ordinal);
-        Assert.Contains("_timingAttachment = _engine.Models.AttachTiming(new SourceSharp.Shared.Bones.StudioSequenceTiming(_skeletons.Models));",
+        Assert.Contains("_descriptorAttachment = _engine.Models.AttachSource(new SourceSharp.Shared.Bones.StudioModelDescriptor(_skeletons.Models));",
                         client, System.StringComparison.Ordinal);
     }
 }

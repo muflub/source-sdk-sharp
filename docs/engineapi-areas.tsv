@@ -56,7 +56,6 @@ EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	So
 EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityPayloadAgreement	uint, int*, int*, int	
 EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityGetEngineBlock	uint, int*, void*	
 EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntitySetTransmitAlways	uint, int, void	
-ModelDescriptor	EngineApi	IShimModels	shared		both	-	SourceSharp_ModelDescriptor	int, byte*, int, int	
 EntityGetModelName	EngineApi	IShimModels	shared		both	-	SourceSharp_EntityGetModelName	uint, byte*, int, void	SourceSharp_ClientEntityGetModelName
 EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	SourceSharp_EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
 StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	SourceSharp_StandaloneSetModelScale	uint, float, void	

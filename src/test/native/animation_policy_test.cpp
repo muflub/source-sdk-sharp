@@ -127,6 +127,9 @@ std::string StripComments( const std::string &s )
 	return out;
 }
 
+// The model descriptor's reader: managed since studio.cpp's eviction.
+const char *const kDescriptorReader = "managed/SourceSharp.Shared/Bones/StudioModelDescriptor.cs";
+
 const std::string &Code( const std::string &strRelative )
 {
 	// One cache per path, because every test below reads two or three of the
@@ -377,36 +380,29 @@ TEST( AnimationPolicy, TheClientsLayerLengthComesFromTheLibraryToo )
 //
 // THE CLAIM IS NOT LOST, AND SINCE 2026-10-12 IT IS C#'s. It moved first to
 // model_descriptor.cpp's walk (Studio_CalcDefaultPoseParameters, then
-// Studio_Duration over the result), and then out of native code altogether:
-// descriptor format v3 carries no duration, and StudioSequenceTiming computes
-// it from the side's managed StudioHdr, seeded with the model's own defaults
-// (StudioSequenceTimingTests.TheBlendIsTimedAtTheModelsOwnDefaultPose holds
-// the rule). That let studio_sequence_timing.cpp leave both DLLs.
-// TheDescriptorComputesNoDuration below is the removal half: the walk must not
-// grow the native computation back.
+// Studio_Duration over the result), then out of native code: StudioSequenceTiming
+// computes it from the side's managed StudioHdr, seeded with the model's own
+// defaults (StudioSequenceTimingTests.TheBlendIsTimedAtTheModelsOwnDefaultPose
+// holds the rule). Since 2026-10-18 the whole descriptor is managed's
+// (StudioModelDescriptor; studio.cpp's eviction) and the walk is gone.
+// TheDescriptorIsTimedInManagedCode below holds both halves: the managed
+// reader times each sequence, and the native walk has not come back.
 //-----------------------------------------------------------------------------
-TEST( AnimationPolicy, TheDescriptorComputesNoDuration )
+TEST( AnimationPolicy, TheDescriptorIsTimedInManagedCode )
 {
-	const std::string code = Code( "game/shared/model_descriptor.cpp" );
+	const std::string reader = Code( kDescriptorReader );
 
-	ASSERT_FALSE( code.empty() )
-		<< "model_descriptor.cpp could not be read, so this fact asserts "
-		   "nothing about whether the walk computes a duration.";
+	ASSERT_GT( reader.size(), 1000u )
+		<< kDescriptorReader << " could not be read, so this fact asserts "
+		   "nothing about where a sequence's duration is computed.";
 
-	// The positive arm: the walk this fact reads is still the one that writes
-	// each sequence's row, so an absence below is about that row.
-	ASSERT_GT( Occurrences( code, "sink.Int( seqdesc.flags );" ), 0 )
-		<< "the descriptor walk no longer writes a sequence's flags, so this "
-		   "fact is not reading the sequence row it means to.";
+	EXPECT_GT( Occurrences( reader, "StudioSequenceTiming.DefaultDurations(hdr)" ), 0 )
+		<< "the managed descriptor reader no longer times its sequences; every "
+		   "duration would answer 0 and a sequence would play in one frame.";
 
-	EXPECT_EQ( Occurrences( code, "Studio_Duration(" ), 0 )
-		<< "the descriptor walk computes a sequence duration in native code "
-		   "again. Format v3 has no duration field: managed computes it "
-		   "(StudioSequenceTiming), and studio_sequence_timing.cpp is gone.";
-
-	EXPECT_EQ( Occurrences( code, "Studio_CalcDefaultPoseParameters(" ), 0 )
-		<< "the descriptor walk seeds the default pose in native code again; "
-		   "only the managed StudioSequenceTiming does that now.";
+	EXPECT_TRUE( ReadShimFile( "game/shared/model_descriptor.cpp" ).empty() )
+		<< "model_descriptor.cpp is back: the descriptor is the managed "
+		   "StudioModelDescriptor's, read from the side's StudioHdr.";
 }
 
 TEST( AnimationPolicy, TheGroundSpeedWalkMovesTheModelWithARealPose )
@@ -846,23 +842,25 @@ TEST( AnimationPolicy, TheEventTableStillHasADoorManagedCodeReadsItThrough )
 	// the .mdl and both sides read the same file.
 	//
 	// So what this fact watches is the DOOR rather than its old address: the
-	// writer must still pack the events, and the shell must still be the
-	// no-op that the batch delivery makes correct.
-	const std::string code = Code( "game/shared/model_descriptor.cpp" );
+	// reader must still carry the events, and the shell must still be the
+	// no-op that the batch delivery makes correct. Since 2026-10-18 the reader
+	// is managed's (StudioModelDescriptor, over the side's StudioHdr), and
+	// model_descriptor.cpp's walk is gone.
+	const std::string code = Code( kDescriptorReader );
 
-	ASSERT_FALSE( code.empty() )
-		<< "model_descriptor.cpp could not be read; without it this fact "
+	ASSERT_GT( code.size(), 1000u )
+		<< kDescriptorReader << " could not be read; without it this fact "
 		   "cannot tell a batch delivery from animation events deleted.";
 
-	EXPECT_GT( Occurrences( code, "seqdesc.numevents" ), 0 )
+	EXPECT_GT( Occurrences( code, "int eventCount = seq.NumEvents;" ), 0 )
 		<< "the descriptor no longer reads a sequence's event count, so the "
 		   "empty DoAnimationEvents above is animation events DELETED rather "
 		   "than animation events delivered as a batch.";
 
-	EXPECT_GT( Occurrences( code, "seqdesc.pEvent( j )" ), 0 )
+	EXPECT_GT( Occurrences( code, "MstudioEvent e = seq.Event(j);" ), 0 )
 		<< "the descriptor no longer reads the events themselves.";
 
-	EXPECT_GT( Occurrences( code, "pEvent->pszOptions()" ), 0 )
+	EXPECT_GT( Occurrences( code, "e.Options" ), 0 )
 		<< "the descriptor no longer carries each event's OPTIONS -- the "
 		   "muzzle flash's attachment, the sound's script name. An event "
 		   "delivered without them fires nothing.";

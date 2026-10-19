@@ -326,18 +326,18 @@ struct EngineBlockClientTail_t
 	// the same as mod_bad.
 	int32_t     ModelType;
 
-	// The studio header's sequence count, or -1 when its sequences have not been
-	// loaded yet -- a third state and not zero. Zero sequences is a model that
-	// cannot move; -1 is a model nothing can be decided from yet.
+	// UNWRITTEN since studio.cpp's eviction: the render policy reads the studio
+	// header's counts from the side's managed header. Kept, with the three below,
+	// so the tail's layout does not move (docs/todo.md).
 	int32_t     StudioSequenceCount;
 
-	// The studio header's pose-parameter count.
+	// Unwritten; see StudioSequenceCount.
 	int32_t     StudioPoseParameterCount;
 
-	// The studio header's bone-controller count.
+	// Unwritten; see StudioSequenceCount.
 	int32_t     StudioBoneControllerCount;
 
-	// The studio header's IK-chain count.
+	// Unwritten; see StudioSequenceCount.
 	int32_t     StudioIkChainCount;
 
 	// ---- render policy: the two serials that keep the loop from running ----

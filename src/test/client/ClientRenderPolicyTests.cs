@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Standalone;
+using SourceSharp.Shared.Bones;
 
 using Xunit;
 
@@ -516,6 +518,64 @@ public class ClientRenderPolicyTests
     private static uint ReadU(byte[] block, int offset)
         => BitConverter.ToUInt32(block, offset);
 
+    //-------------------------------------------------------------------------
+    // The side's studio headers, which the four model counts are read from
+    // (studio.cpp's eviction): one model per index, built by StudioHdrBuilder.
+    //-------------------------------------------------------------------------
+
+    private const int PropModel = 5;      // four sequences, nothing posable
+    private const int PosedModel = 6;     // four sequences, two pose parameters
+    private const int IkModel = 7;        // four sequences, one IK chain
+
+    private sealed class FakeModels : IBoneModels
+    {
+        public List<int> Asked { get; } = new();
+
+        public bool HasStudioModel(int modelIndex) => OpenStudioHdr(modelIndex) is not null;
+
+        public StudioHdr? OpenStudioHdr(int modelIndex)
+        {
+            Asked.Add(modelIndex);
+            return modelIndex switch
+            {
+                PropModel => Hdr(0, 0, 0),
+                PosedModel => Hdr(2, 0, 0),
+                IkModel => Hdr(0, 0, 1),
+                _ => null,
+            };
+        }
+
+        private static StudioHdr Hdr(int poseParams, int controllers, int ikChains)
+        {
+            var b = new StudioHdrBuilder { ModelName = "prop" };
+            b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "root" });
+            b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "tip", Parent = 0 });
+            b.Anims.Add(new StudioHdrBuilder.AnimDef { Name = "a" });
+            for (int i = 0; i < 4; i++)
+                b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = $"s{i}" });
+            for (int i = 0; i < poseParams; i++)
+                b.PoseParams.Add(new StudioHdrBuilder.PoseParamDef { Name = $"p{i}" });
+            for (int i = 0; i < controllers; i++)
+                b.Controllers.Add(new StudioHdrBuilder.ControllerDef { Bone = 0 });
+            for (int i = 0; i < ikChains; i++)
+                b.IkChains.Add(new StudioHdrBuilder.IkChainDef { Name = $"ik{i}", Links = { (0, System.Numerics.Vector3.Zero), (1, System.Numerics.Vector3.Zero) } });
+
+            return StudioHdr.TryCreate(b.Build(), null, out StudioHdr? h) && h is not null
+                ? h
+                : throw new InvalidOperationException("fixture image rejected by TryCreate");
+        }
+    }
+
+    private static ClientRenderPolicy Policy(IBoneModels? models = null)
+    {
+        IBoneModels fake = models ?? new FakeModels();
+        return new ClientRenderPolicy(() => fake);
+    }
+
+    private static int HeadModelIndex
+        => (int)Marshal.OffsetOf<EngineBlock>(nameof(EngineBlock.Head))
+         + (int)Marshal.OffsetOf<EngineBlockHead>(nameof(EngineBlockHead.ModelIndex));
+
     /// <summary>A block holding a drawn studio prop, on the handle given.</summary>
     private static FakeBlocks OneProp(uint handle = 0x00010007u)
     {
@@ -523,8 +583,8 @@ public class ClientRenderPolicyTests
         byte[] block = blocks.Raw(0);
 
         Write(block, HeadHandle, unchecked((int)handle));
+        Write(block, HeadModelIndex, PropModel);
         Write(block, Tail(nameof(EngineBlockClientTail.ModelType)), ClientRenderFacts.Studio);
-        Write(block, Tail(nameof(EngineBlockClientTail.StudioSequenceCount)), 4);
 
         return blocks;
     }
@@ -533,7 +593,7 @@ public class ClientRenderPolicyTests
     public void TheRenderGroupIsWrittenIntoTheBlock()
     {
         var blocks = OneProp();
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
@@ -548,7 +608,7 @@ public class ClientRenderPolicyTests
         var blocks = OneProp();
         Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.FadeStyle)), (int)FadeStyle.Lod);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal((int)ClientRenderGroup.TranslucentEntity,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
@@ -559,9 +619,9 @@ public class ClientRenderPolicyTests
     public void TheShadowChoiceIsWrittenIntoTheBlockAsATypeAndItsFlags()
     {
         var blocks = OneProp();
-        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.StudioPoseParameterCount)), 2);
+        Write(blocks.Raw(0), HeadModelIndex, PosedModel);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal((int)ShadowCast.RenderToTextureDynamic,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowType))));
@@ -577,7 +637,7 @@ public class ClientRenderPolicyTests
         Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowChoice)),
               (int)ShadowCastChoice.Never);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal((int)ShadowCast.None,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowType))));
@@ -590,7 +650,7 @@ public class ClientRenderPolicyTests
         var blocks = OneProp();
         Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ViewModel)), 1);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal(1, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Drawn))));
         Assert.Equal(1, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.HideWhenOwnerSeen))));
@@ -602,7 +662,7 @@ public class ClientRenderPolicyTests
         var blocks = OneProp();
         Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Dormant)), 1);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal(0, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Drawn))));
     }
@@ -618,7 +678,7 @@ public class ClientRenderPolicyTests
         var blocks = OneProp();
         Write(blocks.Raw(0), HeadEffects, (int)EntityEffect.NoDraw);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal(0, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Drawn))));
     }
@@ -633,7 +693,7 @@ public class ClientRenderPolicyTests
         var blocks = OneProp();
         Write(blocks.Raw(0), HeadEffects, (int)EntityEffect.DimLight);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.Equal(1, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Drawn))));
     }
@@ -645,7 +705,7 @@ public class ClientRenderPolicyTests
         // last applied. A serial that never moved would be a leaf system and a
         // shadow manager holding the first frame's answers forever.
         var blocks = OneProp();
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
         Assert.NotEqual(0u, ReadU(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.PolicyOutputs))));
     }
@@ -657,7 +717,7 @@ public class ClientRenderPolicyTests
         // walks every block — that is how a list is walked — but an entity whose
         // inputs have not moved costs one load and one compare.
         var blocks = OneProp();
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         Assert.Equal(1, policy.Pass(blocks));
         Assert.Equal(0, policy.Pass(blocks));
@@ -672,7 +732,7 @@ public class ClientRenderPolicyTests
     public void TheOutputSerialStandsStillWhileTheInputsDo()
     {
         var blocks = OneProp();
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         policy.Pass(blocks);
         uint after = ReadU(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.PolicyOutputs)));
@@ -686,7 +746,7 @@ public class ClientRenderPolicyTests
     public void BumpingTheInputSerialIsWhatMakesThePolicyRunAgain()
     {
         var blocks = OneProp();
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         policy.Pass(blocks);
 
@@ -708,7 +768,7 @@ public class ClientRenderPolicyTests
         // and forgot to bump would be a renderable stuck on last frame's policy,
         // and this is what says so.
         var blocks = OneProp();
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         policy.Pass(blocks);
 
@@ -728,7 +788,7 @@ public class ClientRenderPolicyTests
         // that inherits a slot inherits the previous entity's render policy and
         // keeps it until one of its own inputs moves.
         var blocks = OneProp(handle: 0x00010007u);
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         policy.Pass(blocks);
         Assert.Equal(0, policy.Pass(blocks));
@@ -753,7 +813,7 @@ public class ClientRenderPolicyTests
         // and cl_fullupdate on dm_lockdown). An output serial of zero is a
         // block nothing has decided for: the pass writes from 1.
         const uint handle = 0x00010007u;
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
         var first = OneProp(handle);
         Write(first.Raw(0), Tail(nameof(EngineBlockClientTail.PolicyInputs)), 1);
         policy.Pass(first);
@@ -778,7 +838,7 @@ public class ClientRenderPolicyTests
         // starts at INVALID_EHANDLE_INDEX.
         var blocks = OneProp(handle: 0u);
 
-        Assert.Equal(1, new ClientRenderPolicy().Pass(blocks));
+        Assert.Equal(1, Policy().Pass(blocks));
         Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
     }
@@ -790,7 +850,7 @@ public class ClientRenderPolicyTests
         // kept its mark would carry the render policy of whatever held its slot
         // on the last one.
         var blocks = OneProp();
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         policy.Pass(blocks);
         Assert.Equal(0, policy.Pass(blocks));
@@ -813,7 +873,7 @@ public class ClientRenderPolicyTests
         var blocks = new FakeBlocks(1);
         blocks.Truncate(0, 32);
 
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         Assert.Equal(0, policy.Pass(blocks));
         Assert.Equal(0, policy.LastSeen);
@@ -822,7 +882,7 @@ public class ClientRenderPolicyTests
     [Fact]
     public void AnEmptyListIsAPassThatDecidesNothing()
     {
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         Assert.Equal(0, policy.Pass(NoRenderPolicyBlocks.Instance));
         Assert.Equal(1, policy.Passes);
@@ -843,7 +903,7 @@ public class ClientRenderPolicyTests
             Write(blocks.Raw(i), Tail(nameof(EngineBlockClientTail.ModelType)), ClientRenderFacts.Studio);
         }
 
-        var policy = new ClientRenderPolicy();
+        var policy = Policy();
 
         Assert.Equal(3, policy.Pass(blocks));
         Assert.Equal(0, policy.Pass(blocks));
@@ -860,16 +920,96 @@ public class ClientRenderPolicyTests
         // through the same pair.
         var blocks = OneProp();
         Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.FadeStyle)), (int)FadeStyle.PortalWindow);
-        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.StudioIkChainCount)), 1);
+        Write(blocks.Raw(0), HeadModelIndex, IkModel);
 
-        new ClientRenderPolicy().Pass(blocks);
+        Policy().Pass(blocks);
 
-        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0));
+        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0), new FakeModels());
         ClientRenderChoices choices = ClientRenderPolicy.ReadChoices(blocks.Raw(0));
 
         Assert.Equal(FadeStyle.PortalWindow, facts.Fade);
         Assert.Equal(1, facts.IkChainCount);
         Assert.Equal(ClientRenderPolicy.Decide(facts).Group, choices.Group);
         Assert.Equal(ClientRenderPolicy.Decide(facts).Shadow, choices.Shadow);
+    }
+
+    //=========================================================================
+    // THE MODEL COUNTS: read from the side's managed header, not the block.
+    //=========================================================================
+
+    [Fact]
+    public void AStudioModelsCountsAreReadFromItsHeaderByTheBlocksModelIndex()
+    {
+        var models = new FakeModels();
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadModelIndex, PosedModel);
+
+        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0), models);
+
+        Assert.Equal((4, 2, 0, 0), (facts.SequenceCount, facts.PoseParameterCount, facts.BoneControllerCount, facts.IkChainCount));
+        Assert.Equal(new[] { PosedModel }, models.Asked);
+    }
+
+    [Fact]
+    public void TheBlocksOwnCountFieldsAreNotRead()
+    {
+        // The shell no longer writes them: a stale value there must not reach
+        // the rule. The header answers 4 sequences and no pose parameters.
+        var blocks = OneProp();
+        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.StudioSequenceCount)), 0);
+        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.StudioPoseParameterCount)), 9);
+
+        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0), new FakeModels());
+
+        Assert.Equal((4, 0), (facts.SequenceCount, facts.PoseParameterCount));
+    }
+
+    [Fact]
+    public void AStudioModelWhoseHeaderCannotOpenHasNoSequencesToDecideFromYet()
+    {
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadModelIndex, 99);
+
+        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0), new FakeModels());
+
+        Assert.Equal((ClientRenderFacts.SequencesUnavailable, 0, 0, 0),
+                     (facts.SequenceCount, facts.PoseParameterCount, facts.BoneControllerCount, facts.IkChainCount));
+    }
+
+    [Fact]
+    public void BeforeTheSkeletonsAreComposedNoModelHasSequencesToDecideFromYet()
+    {
+        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(OneProp().Raw(0), null);
+
+        Assert.Equal(ClientRenderFacts.SequencesUnavailable, facts.SequenceCount);
+    }
+
+    [Fact]
+    public void ANonStudioModelIsNeverAskedOfTheHeaders()
+    {
+        var models = new FakeModels();
+        var blocks = OneProp();
+        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ModelType)), 1);   // mod_brush
+
+        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0), models);
+
+        Assert.Equal(ClientRenderFacts.SequencesUnavailable, facts.SequenceCount);
+        Assert.Empty(models.Asked);
+    }
+
+    [Fact]
+    public void ThePassReadsTheCountsFromTheModelsItWasGiven()
+    {
+        // The shadow a posable model earns (RTT dynamic) is only reachable
+        // through the header's pose-parameter count.
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadModelIndex, PosedModel);
+        var models = new FakeModels();
+
+        Policy(models).Pass(blocks);
+
+        Assert.Contains(PosedModel, models.Asked);
+        Assert.Equal((int)ShadowCast.RenderToTextureDynamic,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowType))));
     }
 }

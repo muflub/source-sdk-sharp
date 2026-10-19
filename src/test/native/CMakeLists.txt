@@ -4287,26 +4287,9 @@ ss_cpptest(usercmd_codec_test
 ss_cpptest(anim_event_names_test
     SOURCES sourcesharp/test/anim_event_names_test.cpp)
 
-# plan_shim.md Phase 2d -- THE DESCRIPTOR BLOB'S TWO HALVES AGREE
-# (model_descriptor_format_test.cpp). model_descriptor.cpp writes one model's
-# whole table and SourceSharp.Abi/ModelDescriptor.cs reads it, in two languages
-# with no shared declaration between them, so the FORMAT is what can silently
-# disagree -- and a disagreement does not crash, it decodes a model whose
-# labels are activity names and whose durations are flags.
-#
-# It extracts the ORDER AND KIND of every field each side touches and requires
-# the two sequences to be identical, which catches an added field, a removed
-# field, a swap, and an int written where a float is read. The VALUES are
-# ModelDescriptorTests' job on the managed side; neither check subsumes the
-# other.
-#
-# Source-read, and it must be: the writer needs a studio header and an mdl
-# cache so no test binary can call it, the reader is managed, and what is at
-# risk is an ordering that no running program compares either.
-#
-# Appended at the END, as the lane brief directs.
-ss_cpptest(model_descriptor_format_test
-    SOURCES sourcesharp/test/model_descriptor_format_test.cpp)
+# model_descriptor_format_test.cpp went 2026-10-18 with both halves it
+# compared: the descriptor is read by the managed StudioModelDescriptor, and
+# neither model_descriptor.cpp's walk nor ModelDescriptor.Decode is left.
 # plan_entity.md Phase 7 step 7b -- THREE STOCK TEMP-ENTITY TUs LEAVE THE CLIENT
 # (tempent_evicted_test.cpp). c_basetempentity.cpp, c_te_particlesystem.cpp and
 # c_te_explosion.cpp are out of client_csharp.vpc.

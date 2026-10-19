@@ -8,7 +8,6 @@ src/shared/interop/UserCmdCodec.cs	ports ReadUsercmd (usercmd.cpp) and MD5_Pseud
 src/server/managed/Entities/Soundscape/SoundscapePrintDebugInfoCommand.cs	ports sv_soundscape_printdebuginfo's registry print (CSoundscapeSystem::PrintDebugInfo, soundscape_system.cpp)
 src/shared/managed/SurfacePropertyManifest.cs	ports PhysParseSurfaceData and AddSurfacepropFile (physics_shared.cpp)
 src/server/managed/ModelParticles.cs	ports Precache_ModelComponents's model-keyvalues particle precache (precache_model.cpp)
-src/shared/native/studio_mdlcache.cpp	ports studiohdr_t::GetVirtualModel/GetAnimBlock/GetAutoplayList and virtualgroup_t::GetStudioHdr (studio_shared.cpp; tier3 studiohdrstub.o behaviour)
 src/server/managed/ModelComponents.cs	ports Precache_ModelComponents's event walks and CModelSoundsCache::BuildAnimationEventSoundList (precache_model.cpp)
 src/shared/native/tier1_port.cpp	ports tier1 members server.so still calls (bitbuf.cpp: bf_read::SetOverflowFlag; interface.cpp: InterfaceReg, CreateInterface, Sys_GetFactoryThis; checksum_crc.cpp: CRC32_Init/ProcessBuffer/Final/GetTableEntry; more as each tier1 object leaves)
 src/shared/native/server_string_pool.h	ports CStringPool's Allocate/FreeAll contract (stringpool.cpp) for CGameStringPool
