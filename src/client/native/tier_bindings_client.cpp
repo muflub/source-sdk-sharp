@@ -28,6 +28,9 @@
 //   g_pMemAlloc           tier0's allocator, through which tier1's utlsymbol
 //                         member (compiled without NO_MALLOC_OVERRIDE)
 //                         allocates and frees
+//   g_pVCR                (Windows) tier0's VCR hooks, through which the
+//                         CThreadMutex::Lock emitted below enters its
+//                         critical section
 //
 // Each function is found once, on first call: the engine needs that tier0 and
 // vstdlib, so they outlive the client. The two pointers are copied when the
@@ -105,10 +108,15 @@ struct BindEnginePointers
 	{
 		g_pMemAlloc = PointerIn( kTier0, "g_pMemAlloc" );
 		g_pThreadPool = PointerIn( kVstdlib, "g_pThreadPool" );
+		g_pVCR = static_cast< VCR_t * >( PointerIn( kTier0, "g_pVCR" ) );
 	}
 };
 BindEnginePointers s_BindEnginePointers;
 } // namespace
+
+// vcrmode.h read plain gives this name C++ linkage; tier0.dll exports its own
+// by the C name, which the fork's objects import.
+VCR_t *g_pVCR = nullptr;
 
 extern "C" void *CommandLine_Tier0()
 {
