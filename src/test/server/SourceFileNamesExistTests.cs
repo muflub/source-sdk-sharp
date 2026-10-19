@@ -540,7 +540,10 @@ public sealed partial class SourceFileNamesExistTests
     /// 49 TO 48 AT plan_server_native_v2 T2: AbiParityTests'
     /// TheGibShotStructMatchesTheHeader and its not-found arm went with the
     /// native SourceSharpGibShot.
-    private const int VacuousAssertionSites = 48;
+    /// 48 TO 47 AT plan_server_native_v2 T4b: TempEntEffectDataTests'
+    /// read of dt_send.cpp's SendPropDataTable went with the function; the
+    /// collapsible rule is asked of SendPropPlan instead.
+    private const int VacuousAssertionSites = 47;
 
     private static readonly Regex Vacuous = new(
         @"\bAssert\s*\.\s*(?:True\s*\(\s*true|False\s*\(\s*false)\b",

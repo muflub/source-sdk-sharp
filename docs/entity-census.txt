@@ -1,3 +1,6 @@
+# 2026-10-19, plan_server_native_v2 T4b (the temp entity tables planned in C#): shell_tempents_store.cpp joined the server
+#   link (the managed plan's block, read and stored): server objects 102 -> 103, shim 102 -> 103 (on main after T4c; 103 -> 104 at the lane's base); no cross-edge moved.
+#   Hand-applied from tools/entity-census's diff.
 # 2026-10-18, server-native-v2 (plan_server_native_min P1 replayed onto main 331c8a0cf): server TUs left the link:
 #   [snv2] server objects 123 -> 106, shim 123 -> 106. Measured lines re-taken from --write, the prose kept.
 # 2026-10-18, C7 flashlight (cluster 12), the eviction, measured at the rebase onto main e070a68e7 + this commit: flashlighteffect.cpp left client.so (the flashlight is managed's FlashlightEffect): client objects 142 -> 141, stock game/client 9 -> 8; stock TUs that use an entity type 1 -> 0 (394 -> 0 code lines), the last; it was a zero-edge TU, so cross-edges stay 28, now across 8 of 8 stock TUs. Hand-applied from tools/entity-census's diff.
@@ -913,11 +916,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 102       141
+objects linked                                                 103       141
   ... stock game/server | game/client                            0         7
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        102       134
+  ... SourceSharp shim (sourcesharp/**)                        103       134
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

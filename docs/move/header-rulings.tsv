@@ -77,7 +77,7 @@ src/sourcesharp/game/shared/sourcesharp_gamesystem.h	no	interop interface declar
 src/sourcesharp/game/shared/standalone_nettable.h	yes	reproduces CBaseEntity's SendTable field encodings (m_fEffects et al)
 src/sourcesharp/game/shared/standalone_player_sync.h	yes	rule 3: includes imovementplayer.h which includes mathlib/const.h
 src/sourcesharp/game/shared/tempent_forwards.h	no	own forwarder-id vocabulary
-src/sourcesharp/game/shared/tempent_schema.h	yes	ports stock's temp-entity SendTable/RecvTable naming and bit-width rules
+src/sourcesharp/game/client/tempent_schema.h	yes	ports stock's temp-entity SendTable/RecvTable naming and bit-width rules
 src/sourcesharp/game/shared/trail_lifetime.h	yes	ports C_BaseEntity's zeroing operator new/delete
 src/sourcesharp/game/shared/view_effect_reach.h	yes	ports ComputeShakeAmplitude/view-punch falloff/TransmitShakeEvent gate
 src/sourcesharp/game/shared/vtable_hook.h	no	own compiler-based vtable-slot tooling

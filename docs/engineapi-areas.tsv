@@ -159,18 +159,16 @@ PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSn
 GetPlayerShootOrigin	EngineApi	IShimPlayers	server		server	-	SourceSharp_GetPlayerShootOrigin	uint, float*, void	
 ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
 PlayerSetTeam	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetTeam	uint, int, void	
-TempEntRegister	EngineApi	IShimEffects	shared		both	-	SourceSharp_TempEntRegister	TeClassDesc*, int	SourceSharp_TempEntRegisterClient
-TempEntPlayback	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_TempEntPlayback	int, void*, int, TeFilterDesc*, float, void	
-EffectDispatchIndex	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_EffectDispatchIndex	byte*, int	
-ExplosionEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ExplosionEffect	float*, int, float, int, int, int, int, void	
-ViewPunch	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ViewPunch	float*, float*, float, int, void	
-ImpactEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ImpactEffect	float*, float*, int, int, uint, void	
-TracerEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_TracerEffect	float*, float*, void	
-BubbleEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BubbleEffect	uint, int, float, void	
-FunnelEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_FunnelEffect	float*, int, int, void	
-SplashEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_SplashEffect	float*, float, int, void	
-BloodEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BloodEffect	float*, float*, int, float, int, int, void	
-PaintDecal	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_PaintDecal	int, float*, float*, float, int, int, int	
+ExplosionEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_ExplosionEffect	float*, int, float, int, int, int, int, void	
+ViewPunch	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_ViewPunch	float*, float*, float, int, void	
+ImpactEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_ImpactEffect	float*, float*, int, int, uint, void	
+TracerEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_TracerEffect	float*, float*, void	
+BubbleEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_BubbleEffect	uint, int, float, void	
+FunnelEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_FunnelEffect	float*, int, int, void	
+SplashEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_SplashEffect	float*, float, int, void	
+BloodEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_BloodEffect	float*, float*, int, float, int, int, void	
+PaintDecal	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_PaintDecal	int, float*, float*, float, int, int, int	
+TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_TempEntBuild	void*, int, TeBuiltTable*, int	
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
 AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_AddLineOverlay	float*, float*, int, int, int, int, float, void	
 OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_OverlayCounts	uint*, uint*, uint*, uint*, int*, void	
@@ -215,6 +213,7 @@ ClientRicochet	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp
 ClientSmoke	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSmoke	float*, int, float, float, void	
 ClientSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSparks	float*, int, int, float*, void	
 EffectDispatchName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_EffectDispatchName	int, byte*, int, void	
+TempEntRegister	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_TempEntRegisterClient	TeClassDesc*, int	
 DrawSprite	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSprite	uint, int, float, int, int, int, int, int, int, float, int, float, float, int	
 DrawSpriteOffset	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSpriteOffset	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, int	
 ParticleSystemFollowPoints	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemFollowPoints	uint, int, int	

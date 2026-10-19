@@ -696,6 +696,10 @@ internal sealed unsafe partial class EngineSide
     // TEMP ENTITIES (plan_tmp.md Part 3).
     //-------------------------------------------------------------------------
 
+    // Each side's own (plan_server_native_v2 T4b): the client registers through
+    // IShimTempEntBackendsClient, the server plans in C# and answers -1.
+    private partial int SideTempEntRegister(TeClassDesc* desc);
+
     /// <summary>
     /// Hands one temp entity's description to native, which builds the table.
     /// Answers the handle, or -1.
@@ -765,7 +769,7 @@ internal sealed unsafe partial class EngineSide
                     Fields        = description.Fields.Length == 0 ? null : pFields,
                 };
 
-                return (OwnShims.Effects.TempEntRegister(&desc));
+                return SideTempEntRegister(&desc);
             }
         }
         finally

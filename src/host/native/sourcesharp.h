@@ -1128,7 +1128,7 @@ typedef struct
 // declares the fields, EntityLayout computes the offsets, and native turns the
 // description below into SendProp[]/SendTable/ServerClass at runtime.
 //
-// THE ARITHMETIC OVER THESE STRUCTS LIVES IN game/shared/tempent_schema.h,
+// THE ARITHMETIC OVER THESE STRUCTS LIVES IN game/client/tempent_schema.h,
 // which includes this header and NOTHING else — so widths, the worst-case
 // encoded size against the engine's 192-byte event cap, duplicate-name refusal and
 // late-registration refusal are all testable without a running Source.
@@ -1281,35 +1281,77 @@ typedef struct
 } SourceSharpTeClass_t;
 
 //-----------------------------------------------------------------------------
-// Who hears one. Mirrors the CRecipientFilter family (plan 3.4).
+// THE SERVER'S TEMP ENTITY TABLES, DECIDED IN C# AND STORED HERE
+// (plan_server_native_v2 T4b).
 //
-// Every call site in this build today is Broadcast or PASAttenuation; the other
-// three are here because ITempEntsSystem takes an IRecipientFilter and their
-// absence would be discovered at the worst possible time.
+// The server plans each table in managed code (TePropPlanner, SendPropPlan):
+// which props exist, their offsets and names, and every field dt_send.cpp's
+// SendProp constructors would have computed. What crosses is one
+// length-prefixed block (BitBlock: an int32 bit count, then the payload) per
+// table: a SourceSharpTeTableHeader_t, nProps SourceSharpSendPropRow_t, and the
+// names, NUL-terminated, at the payload offsets the header and rows give.
+// Native stores the rows into SendProps, builds the SendTable and, if asked,
+// the ServerClass, and decides nothing. The engine walks both by layout and
+// calls the proxies through m_ProxyFn, which is why they are built natively.
+//
+// The client still plans its RecvTables from SourceSharpTeClass_t above, with
+// tempent_schema.h.
 //-----------------------------------------------------------------------------
 typedef enum
 {
-	SOURCESHARP_TE_FILTER_BROADCAST       = 0,
-	SOURCESHARP_TE_FILTER_PVS             = 1,
-	SOURCESHARP_TE_FILTER_PAS             = 2,
-	SOURCESHARP_TE_FILTER_PAS_ATTENUATION = 3,
-	SOURCESHARP_TE_FILTER_SINGLE_PLAYER   = 4,
-} SourceSharpTeFilterKind;
+	SOURCESHARP_SENDPROXY_NONE                    = 0,
+	SOURCESHARP_SENDPROXY_INT8_TO_INT32           = 1,
+	SOURCESHARP_SENDPROXY_INT16_TO_INT32          = 2,
+	SOURCESHARP_SENDPROXY_INT32_TO_INT32          = 3,
+	SOURCESHARP_SENDPROXY_UINT8_TO_INT32          = 4,
+	SOURCESHARP_SENDPROXY_UINT16_TO_INT32         = 5,
+	SOURCESHARP_SENDPROXY_UINT32_TO_INT32         = 6,
+	SOURCESHARP_SENDPROXY_FLOAT_TO_FLOAT          = 7,
+	SOURCESHARP_SENDPROXY_VECTOR_TO_VECTOR        = 8,
+	SOURCESHARP_SENDPROXY_ANGLE_TO_FLOAT          = 9,
+	SOURCESHARP_SENDPROXY_QANGLES                 = 10,
+	SOURCESHARP_SENDPROXY_STRING_TO_STRING        = 11,
+	SOURCESHARP_SENDPROXY_DATATABLE_TO_DATATABLE  = 12,   // a DPT_DataTable's table proxy
+	SOURCESHARP_SENDPROXY_EMPTY                   = 13,   // a DPT_Array's (InternalSendPropArray)
+	SOURCESHARP_SENDPROXY_COUNT                   = 14,
+} SourceSharpSendProxy;
 
 typedef struct
 {
-	int32_t nKind;                  // SourceSharpTeFilterKind
-	float   vecOrigin[3];           // PVS / PAS / PAS-attenuation
-	int32_t nPlayerIndex;           // SINGLE_PLAYER, 1..maxplayers
-	float   flAttenuation;          // PAS_ATTENUATION
+	int32_t  nProps;
+	int32_t  bRegisterClass;    // 0 = a table other tables nest, with no ServerClass
+	int32_t  oClassName;        // payload offsets of the two names
+	int32_t  oTableName;
+	uint32_t nShapeHash;        // managed's fingerprint, handed back on a re-registration
+} SourceSharpTeTableHeader_t;
 
-	// CARRIED AND NEVER CONSULTED, on purpose (plan 2H). Prediction suppression
-	// is already dead in this build: IPredictionSystem::m_pSuppressHost is only
-	// ever written with an SDK CBaseEntity, none exists here, so SuppressTE
-	// always answers false. The bit is in the struct so the SHAPE survives the
-	// port and a future prediction path has somewhere to land.
-	int32_t bIgnorePredictionCull;
-} SourceSharpTeFilter_t;
+typedef struct
+{
+	int32_t nType;              // DPT_* (dt_common.h)
+	int32_t nOffset;            // negative for a vector elem; the engine flips it
+	int32_t nFlags;             // SPROP_*
+	int32_t nBits;
+	float   flLowValue;
+	float   flHighValue;
+	float   flHighLowMul;
+	int32_t nElements;
+	int32_t nElementStride;
+	int32_t nProxy;             // SourceSharpSendProxy
+	int32_t hDataTable;         // DPT_DataTable: a table built before this one; else -1
+	int32_t oName;              // payload offset of the prop's name
+} SourceSharpSendPropRow_t;
+
+// What a build answers besides its handle. A class NAME built by an earlier
+// load answers that table, with bExisted set and the hash it was built with:
+// the tables are process-lifetime (the engine walked the class list once), so
+// a managed reload gets its handles back rather than new tables.
+typedef struct
+{
+	int32_t     bExisted;
+	uint32_t    nShapeHash;
+	const void *pSendTable;     // for PlaybackTempEntity
+	int32_t    *pClassId;       // &ServerClass::m_ClassID, which the engine fills after DLL init; NULL with no class
+} SourceSharpTeBuiltTable_t;
 
 //-----------------------------------------------------------------------------
 // ONE POOLED TEMP ENTITY'S LIFETIME, as the managed pool reads and writes it

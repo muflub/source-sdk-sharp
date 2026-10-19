@@ -237,6 +237,9 @@ FORWARD = [
             # plan_server_native_v2 T4c: the managed SaveGameSession allocates
             # the save block through the engine, which frees it.
             'SaveAllocMemory', 'SaveFreeMemory',
+            # plan_server_native_v2 T4b: the managed temp entity send, over the
+            # managed recipient filter and a table native built from its plan.
+            'PlaybackTempEntity',
         ],
     ),
     dict(

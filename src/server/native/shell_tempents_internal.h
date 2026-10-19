@@ -8,8 +8,8 @@
 //========= SourceSharp — shell_tempents.cpp's state, for its debug file =====//
 //
 // Read-only accessors over what shell_tempents.cpp owns, for
-// shell_tempents_debug.cpp's cs_sv_te_dump. The registry and the built tables
-// stay file-static there; these are functions, not globals, so ownership does
+// shell_tempents_debug.cpp's cs_sv_te_dump. The built tables stay file-static
+// there; these are functions, not globals, so ownership does
 // not move and nothing outside the two files is offered a way to write them.
 //
 //=============================================================================//
@@ -19,16 +19,15 @@
 #pragma once
 #endif
 
-class CSourceSharpTeRegistry;
 class SendTable;
 class ServerClass;
 
-// Every description C# registered, in handle order.
-const CSourceSharpTeRegistry &SourceSharpTe_Registry();
+// How many tables were built, and whether the registration window has shut.
+int  SourceSharpTe_BuiltCount( void );
+bool SourceSharpTe_RegistrationClosed( void );
 
-// The table and the ServerClass built for registry handle i. NULL when nothing
-// was built, when the description asked for no ServerClass, or when i is out of
-// range (0 .. SOURCESHARP_TE_MAX_CLASSES - 1).
+// The table and the ServerClass built for handle i. NULL when nothing was
+// built, when the plan asked for no ServerClass, or when i is out of range.
 SendTable   *SourceSharpTe_BuiltTable( int i );
 ServerClass *SourceSharpTe_BuiltClass( int i );
 

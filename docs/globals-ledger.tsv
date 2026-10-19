@@ -210,11 +210,11 @@ shell_standalone_player.o	_ZL19s_StandalonePlayers	s_StandalonePlayers	sourcesha
 shell_standalone_player_debug.o	_ZL31s_SSNativeCommandBody_ss_ground	s_SSNativeCommandBody_ss_ground	sourcesharp/game/server/shell_standalone_player_debug.cpp	LOCAL	bss	file-or-global	24	CONST	-	reset_today=n/a. An SS_NATIVE_COMMAND list node (native_command_body.h, plan_server_novalve.md P2.3c): the body's name, function pointer and list link, written once during static initialisation and never after
 shell_te_forwards.o	_ZL14s_EffectServer	s_EffectServer	sourcesharp/game/server/shell_te_forwards.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 shell_te_forwards_debug.o	_ZL39s_SSNativeCommandBody_cs_sv_te_dispatch	s_SSNativeCommandBody_cs_sv_te_dispatch	sourcesharp/game/server/shell_te_forwards_debug.cpp	LOCAL	bss	file-or-global	24	CONST	-	reset_today=n/a. An SS_NATIVE_COMMAND list node (native_command_body.h, plan_server_novalve.md P2.3c): the body's name, function pointer and list link, written once during static initialisation and never after
-shell_tempents.o	_ZL9g_TeBuilt	g_TeBuilt	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	2048	UNRULED		
+shell_tempents.o	_ZL9g_TeBuilt	g_TeBuilt	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	3072	UNRULED		
+shell_tempents.o	_ZL9g_TeNamesB5cxx11	g_TeNames[abi:cxx11]	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	48	UNRULED		
 shell_tempents.o	_ZL14g_TePrediction	g_TePrediction	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-shell_tempents.o	_ZL13g_TePropNamesB5cxx11	g_TePropNames[abi:cxx11]	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	48	UNRULED		
-shell_tempents.o	_ZL12g_TeRegistry	g_TeRegistry	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	232472	UNRULED		
 shell_tempents.o	_ZL11g_TeScratch	g_TeScratch	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	512	UNRULED		
+shell_tempents.o	_ZL11g_bTeClosed	g_bTeClosed	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 shell_tempents.o	_ZL10g_nTeBuilt	g_nTeBuilt	sourcesharp/game/server/shell_tempents.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 shell_tempents_debug.o	_ZL35s_SSNativeCommandBody_cs_sv_te_dump	s_SSNativeCommandBody_cs_sv_te_dump	sourcesharp/game/server/shell_tempents_debug.cpp	LOCAL	bss	file-or-global	24	CONST	-	reset_today=n/a. An SS_NATIVE_COMMAND list node (native_command_body.h, plan_server_novalve.md P2.3c): the body's name, function pointer and list link, written once during static initialisation and never after
 shell_world_nettable.o	_ZZL13WorldNetTablevE7s_Table	WorldNetTable()::s_Table	sourcesharp/game/server/shell_world_nettable.cpp	LOCAL	bss	function-local	40	UNRULED		

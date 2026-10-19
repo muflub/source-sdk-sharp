@@ -1713,22 +1713,13 @@ internal unsafe struct ShimPlayersFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEffectsServer</c> through its forwarders (SSFwd_ShimEffectsServer): 12 slot(s).
+/// <c>IShimEffectsServer</c> through its forwarders (SSFwd_ShimEffectsServer): 10 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEffectsServerFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimEffectsServer";
-
-    // int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
-    public delegate* unmanaged<void*, void*, int> TempEntRegister;
-
-    // void IShimEffectsServer::TempEntPlayback( int32_t, const void *, int32_t, const SourceSharpTeFilter_t *, float )
-    public delegate* unmanaged<void*, int, void*, int, void*, float, void> TempEntPlayback;
-
-    // int32_t IShimEffectsServer::EffectDispatchIndex( const char * )
-    public delegate* unmanaged<void*, byte*, int> EffectDispatchIndex;
 
     // void IShimEffectsServer::ExplosionEffect( const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t )
     public delegate* unmanaged<void*, void*, int, float, int, int, int, int, void> ExplosionEffect;
@@ -1756,6 +1747,9 @@ internal unsafe struct ShimEffectsServerFwd : IForwarderTable
 
     // int32_t IShimEffectsServer::PaintDecal( int32_t, const float *, const float *, float, int32_t, int32_t )
     public delegate* unmanaged<void*, int, void*, void*, float, int, int, int> PaintDecal;
+
+    // int32_t IShimEffectsServer::TempEntBuild( const void *, int32_t, SourceSharpTeBuiltTable_t * )
+    public delegate* unmanaged<void*, void*, int, void*, int> TempEntBuild;
 }
 
 /// <summary>
@@ -1939,19 +1933,6 @@ internal unsafe struct ShimCollisionFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEffects</c> through its forwarders (SSFwd_ShimEffects): 1 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct ShimEffectsFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_ShimEffects";
-
-    // int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
-    public delegate* unmanaged<void*, void*, int> TempEntRegister;
-}
-
-/// <summary>
 /// <c>IShimHudClient</c> through its forwarders (SSFwd_ShimHudClient): 5 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -2051,7 +2032,7 @@ internal unsafe struct ShimTempEntPoolClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 17 slot(s).
+/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 18 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
@@ -2109,6 +2090,9 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
 
     // void IShimTempEntBackendsClient::EffectDispatchName( int32_t, char *, int32_t )
     public delegate* unmanaged<void*, int, byte*, int, void> EffectDispatchName;
+
+    // int32_t IShimTempEntBackendsClient::TempEntRegister( const SourceSharpTeClass_t * )
+    public delegate* unmanaged<void*, void*, int> TempEntRegister;
 }
 
 /// <summary>

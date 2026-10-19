@@ -137,7 +137,7 @@ static void *const s_FileSystemSlots[] = {
 static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 1 };
 
 //-----------------------------------------------------------------------------
-// EngineServer: 23 forwarder(s) over IVEngineServer.
+// EngineServer: 24 forwarder(s) over IVEngineServer.
 //-----------------------------------------------------------------------------
 // bool IVEngineServer::IsDedicatedServer( void )
 static bool SSFwd_EngineServer_IsDedicatedServer( IVEngineServer *self ) { return self->IsDedicatedServer(); }
@@ -185,6 +185,8 @@ static int SSFwd_EngineServer_SentenceIndexFromName( IVEngineServer *self, const
 static void * SSFwd_EngineServer_SaveAllocMemory( IVEngineServer *self, size_t a0, size_t a1 ) { return self->SaveAllocMemory( a0, a1 ); }
 // void IVEngineServer::SaveFreeMemory( void * )
 static void SSFwd_EngineServer_SaveFreeMemory( IVEngineServer *self, void * a0 ) { self->SaveFreeMemory( a0 ); }
+// void IVEngineServer::PlaybackTempEntity( IRecipientFilter &, float, const void *, const SendTable *, int )
+static void SSFwd_EngineServer_PlaybackTempEntity( IVEngineServer *self, IRecipientFilter & a0, float a1, const void * a2, const SendTable * a3, int a4 ) { self->PlaybackTempEntity( a0, a1, a2, a3, a4 ); }
 
 static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_IsDedicatedServer ),
@@ -210,9 +212,10 @@ static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_SentenceIndexFromName ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_SaveAllocMemory ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_SaveFreeMemory ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_PlaybackTempEntity ),
 };
 
-static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 23 };
+static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 24 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.
@@ -1859,14 +1862,8 @@ static void *const s_ShimPlayersSlots[] = {
 static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsServer: 12 forwarder(s) over IShimEffectsServer.
+// ShimEffectsServer: 10 forwarder(s) over IShimEffectsServer.
 //-----------------------------------------------------------------------------
-// int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
-static int32_t SSFwd_ShimEffectsServer_TempEntRegister( IShimEffectsServer *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
-// void IShimEffectsServer::TempEntPlayback( int32_t, const void *, int32_t, const SourceSharpTeFilter_t *, float )
-static void SSFwd_ShimEffectsServer_TempEntPlayback( IShimEffectsServer *self, int32_t a0, const void * a1, int32_t a2, const SourceSharpTeFilter_t * a3, float a4 ) { self->TempEntPlayback( a0, a1, a2, a3, a4 ); }
-// int32_t IShimEffectsServer::EffectDispatchIndex( const char * )
-static int32_t SSFwd_ShimEffectsServer_EffectDispatchIndex( IShimEffectsServer *self, const char * a0 ) { return self->EffectDispatchIndex( a0 ); }
 // void IShimEffectsServer::ExplosionEffect( const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t )
 static void SSFwd_ShimEffectsServer_ExplosionEffect( IShimEffectsServer *self, const float * a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6 ) { self->ExplosionEffect( a0, a1, a2, a3, a4, a5, a6 ); }
 // void IShimEffectsServer::ViewPunch( const float *, const float *, float, int32_t )
@@ -1885,11 +1882,10 @@ static void SSFwd_ShimEffectsServer_SplashEffect( IShimEffectsServer *self, cons
 static void SSFwd_ShimEffectsServer_BloodEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5 ) { self->BloodEffect( a0, a1, a2, a3, a4, a5 ); }
 // int32_t IShimEffectsServer::PaintDecal( int32_t, const float *, const float *, float, int32_t, int32_t )
 static int32_t SSFwd_ShimEffectsServer_PaintDecal( IShimEffectsServer *self, int32_t a0, const float * a1, const float * a2, float a3, int32_t a4, int32_t a5 ) { return self->PaintDecal( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimEffectsServer::TempEntBuild( const void *, int32_t, SourceSharpTeBuiltTable_t * )
+static int32_t SSFwd_ShimEffectsServer_TempEntBuild( IShimEffectsServer *self, const void * a0, int32_t a1, SourceSharpTeBuiltTable_t * a2 ) { return self->TempEntBuild( a0, a1, a2 ); }
 
 static void *const s_ShimEffectsServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntRegister ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntPlayback ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_EffectDispatchIndex ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ExplosionEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ViewPunch ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ImpactEffect ),
@@ -1899,9 +1895,10 @@ static void *const s_ShimEffectsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_SplashEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_PaintDecal ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntBuild ),
 };
 
-static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 12 };
+static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 10 };
 
 //-----------------------------------------------------------------------------
 // ShimDebugOverlay: 4 forwarder(s) over IShimDebugOverlay.
@@ -2075,18 +2072,6 @@ static void *const s_ShimCollisionSlots[] = {
 static const SSForwarderTable s_ShimCollisionTable = { s_ShimCollisionSlots, 1 };
 
 //-----------------------------------------------------------------------------
-// ShimEffects: 1 forwarder(s) over IShimEffects.
-//-----------------------------------------------------------------------------
-// int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
-static int32_t SSFwd_ShimEffects_TempEntRegister( IShimEffects *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
-
-static void *const s_ShimEffectsSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimEffects_TempEntRegister ),
-};
-
-static const SSForwarderTable s_ShimEffectsTable = { s_ShimEffectsSlots, 1 };
-
-//-----------------------------------------------------------------------------
 // ShimHudClient: 5 forwarder(s) over IShimHudClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimHudClient::GetLocalPlayerHealth( void )
@@ -2183,7 +2168,7 @@ static void *const s_ShimTempEntPoolClientSlots[] = {
 static const SSForwarderTable s_ShimTempEntPoolClientTable = { s_ShimTempEntPoolClientSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// ShimTempEntBackendsClient: 17 forwarder(s) over IShimTempEntBackendsClient.
+// ShimTempEntBackendsClient: 18 forwarder(s) over IShimTempEntBackendsClient.
 //-----------------------------------------------------------------------------
 // void IShimTempEntBackendsClient::ClientDecalBrushModel( int32_t, const float *, int32_t )
 static void SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel( IShimTempEntBackendsClient *self, int32_t a0, const float * a1, int32_t a2 ) { self->ClientDecalBrushModel( a0, a1, a2 ); }
@@ -2219,6 +2204,8 @@ static void SSFwd_ShimTempEntBackendsClient_ClientSmoke( IShimTempEntBackendsCli
 static void SSFwd_ShimTempEntBackendsClient_ClientSparks( IShimTempEntBackendsClient *self, const float * a0, int32_t a1, int32_t a2, const float * a3 ) { self->ClientSparks( a0, a1, a2, a3 ); }
 // void IShimTempEntBackendsClient::EffectDispatchName( int32_t, char *, int32_t )
 static void SSFwd_ShimTempEntBackendsClient_EffectDispatchName( IShimTempEntBackendsClient *self, int32_t a0, char * a1, int32_t a2 ) { self->EffectDispatchName( a0, a1, a2 ); }
+// int32_t IShimTempEntBackendsClient::TempEntRegister( const SourceSharpTeClass_t * )
+static int32_t SSFwd_ShimTempEntBackendsClient_TempEntRegister( IShimTempEntBackendsClient *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
 
 static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel ),
@@ -2238,9 +2225,10 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSmoke ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSparks ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_EffectDispatchName ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_TempEntRegister ),
 };
 
-static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 17 };
+static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 18 };
 
 //-----------------------------------------------------------------------------
 // ShimEffectsRenderClient: 30 forwarder(s) over IShimEffectsRenderClient.
@@ -3111,7 +3099,6 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimMovement", &s_ShimMovementTable },
 	{ "SSFwd_ShimEntities", &s_ShimEntitiesTable },
 	{ "SSFwd_ShimCollision", &s_ShimCollisionTable },
-	{ "SSFwd_ShimEffects", &s_ShimEffectsTable },
 	{ "SSFwd_ShimHudClient", &s_ShimHudClientTable },
 	{ "SSFwd_ShimPredictionClient", &s_ShimPredictionClientTable },
 	{ "SSFwd_ShimTempEntPoolClient", &s_ShimTempEntPoolClientTable },

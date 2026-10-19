@@ -156,15 +156,9 @@ static void *SourceSharp_GetGlobalVarsPtr( void )
 
 #ifndef CLIENT_DLL
 // Temp entities (plan_tmp.md Part 3), implemented in server/shell_tempents.cpp.
-// It builds a SendTable and a ServerClass from a description at DLL init and
-// sends a blob through engine->PlaybackTempEntity. Init wires the base-table
-// resolver BEFORE anything can be refused for the lack of one; Close shuts the
-// window that the engine's single walk of g_pServerClassHead defines.
-//
-// Server only: the client half of the same design is C-Phase 1 and lands in
-// shell_tempents_client.cpp with its own slot.
-int32_t SourceSharp_TempEntRegister( const SourceSharpTeClass_t *pDesc );
-void    SourceSharp_TempEntInit( void );
+// Managed plans each table and native stores it (plan_server_native_v2 T4b);
+// Close shuts the window that the engine's single walk of g_pServerClassHead
+// defines.
 void    SourceSharp_TempEntCloseRegistration( void );
 
 #endif
@@ -1246,17 +1240,12 @@ bool SourceSharp_LoadManagedSide( void )
 // ishim_areas.h, client-only areas in ishim_areas_client.h), acquired through
 // its shim root; the fill went with them.
 
-#ifndef CLIENT_DLL
-	// BEFORE LoadSide, because managed registers its temp entity classes
-	// from inside it and a base table still owned by stock has to be
-	// resolvable by then. Wiring the resolver afterwards would refuse every
-	// derived table on the first run and none on the second.
-	SourceSharp_TempEntInit();
-#else
-	// The same, on the same side of LoadSide and for the same reason. Every
-	// managed base table this client declares is resolved against
-	// g_pClientClassHead when stock still owns it, which is the ordinary
-	// state of this port for its whole length.
+#ifdef CLIENT_DLL
+	// BEFORE LoadSide, because managed registers its temp entity classes from
+	// inside it. Every managed base table this client declares is resolved
+	// against g_pClientClassHead when stock still owns it, which is the
+	// ordinary state of this port for its whole length. (The server's tables
+	// are planned in C# and nest only each other: plan_server_native_v2 T4b.)
 	SourceSharp_TempEntClientInit();
 #endif
 

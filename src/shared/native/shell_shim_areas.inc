@@ -323,12 +323,6 @@ int32_t CShimPlayers::ClientsStandalonePlayerEarPosition( int32_t iEdict, float 
 void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
 	{ return ::SourceSharp_PlayerSetTeam( hPlayer, nTeam ); }
 
-int32_t CShimEffectsServer::TempEntRegister( const SourceSharpTeClass_t * pDesc )
-	{ return ::SourceSharp_TempEntRegister( pDesc ); }
-void CShimEffectsServer::TempEntPlayback( int32_t hClass, const void * pBlob, int32_t nBytes, const SourceSharpTeFilter_t * pFilter, float flDelay )
-	{ return ::SourceSharp_TempEntPlayback( hClass, pBlob, nBytes, pFilter, flDelay ); }
-int32_t CShimEffectsServer::EffectDispatchIndex( const char * pName )
-	{ return ::SourceSharp_EffectDispatchIndex( pName ); }
 void CShimEffectsServer::ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude )
 	{ return ::SourceSharp_ExplosionEffect( pOrigin, nModelIndex, flScale, nFrameRate, nFlags, nRadius, nMagnitude ); }
 void CShimEffectsServer::ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir )
@@ -347,6 +341,8 @@ void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pD
 	{ return ::SourceSharp_BloodEffect( pOriginXYZ, pDirXYZ, nColor, flAmount, bStream, nSprayFlags ); }
 int32_t CShimEffectsServer::PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority )
 	{ return ::SourceSharp_PaintDecal( nTexture, pOriginXYZ, pAnglesXYZ, flProjectDistance, bPermanent, bLowPriority ); }
+int32_t CShimEffectsServer::TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut )
+	{ return ::SourceSharp_TempEntBuild( pBlock, nBlockBytes, pOut ); }
 
 int32_t CShimDebugOverlay::DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a )
 	{ return ::SourceSharp_DrawEntityOverlay( hEntity, nLine, pText, flDuration, r, g, b, a ); }

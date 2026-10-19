@@ -59,11 +59,8 @@ public static class TeForwardDispatch
             TeForward.BloodStream              => BloodStream(f, i),
             TeForward.Bubbles                  => Bubbles(f, i),
             TeForward.Decal                    => Decal(f, i),
-            TeForward.Dust                     => Dust(f, i),
             TeForward.Explosion                => Explosion(f, i),
             TeForward.LargeFunnel              => LargeFunnel(f, i),
-            TeForward.MetalSparks              => MetalSparks(f, i),
-            TeForward.MuzzleFlash              => MuzzleFlash(f, i),
             TeForward.ProjectDecal             => ProjectDecal(f, i),
             TeForward.Smoke                    => Smoke(f, i),
             TeForward.Sparks                   => Sparks(f, i),
@@ -130,20 +127,6 @@ public static class TeForwardDispatch
         };
     }
 
-    private static TempEntState? Dust(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 8 || i.Length < 0)
-            return null;
-
-        return new TeDust
-        {
-            Origin    = new Vector(f[0], f[1], f[2]),
-            Size      = f[3],
-            Speed     = f[4],
-            Direction = new Vector(f[5], f[6], f[7]),
-        };
-    }
-
     private static TempEntState? Explosion(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
     {
         if (f.Length < 7 || i.Length < 6)
@@ -173,32 +156,6 @@ public static class TeForwardDispatch
             Origin     = new Vector(f[0], f[1], f[2]),
             ModelIndex = i[0],
             Reversed   = i[1],
-        };
-    }
-
-    private static TempEntState? MetalSparks(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 6 || i.Length < 0)
-            return null;
-
-        return new TeMetalSparks
-        {
-            Position  = new Vector(f[0], f[1], f[2]),
-            Direction = new Vector(f[3], f[4], f[5]),
-        };
-    }
-
-    private static TempEntState? MuzzleFlash(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 7 || i.Length < 1)
-            return null;
-
-        return new TeMuzzleFlash
-        {
-            Origin = new Vector(f[0], f[1], f[2]),
-            Angles = new Vector(f[3], f[4], f[5]),
-            Scale  = f[6],
-            Type   = i[0],
         };
     }
 

@@ -146,6 +146,16 @@ public sealed unsafe class EngineServer : IVtableEngineServer, SourceSharp.Serve
             _fwd->Message_DetermineMulticastRecipients(_self, usePas ? (byte)1 : (byte)0, &origin, bits);
     }
 
+    /// <inheritdoc/>
+    public void PlaybackTempEntity(nint filter, float delay, ReadOnlySpan<byte> sender, nint sendTable, int classId)
+    {
+        if (filter == 0 || sendTable == 0 || sender.IsEmpty)
+            return;
+
+        fixed (byte* p = sender)
+            _fwd->PlaybackTempEntity(_self, (void*)filter, delay, p, (void*)sendTable, classId);
+    }
+
     /// <summary>MAX_MAP_LEAFS / 8 (bspfile.h): the PVS buffer stock hands the engine.</summary>
     private const int PvsBytes = 65536 / 8;
 

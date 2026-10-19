@@ -169,7 +169,10 @@ public partial class EngineApiCensusTests
     // SoundEmitter answering them (151 - 5 = 146).
     // plan_server_native_v2 T4a, the precache path: IShimPrecache::PrecacheSound
     // retired, the managed SoundEmitterSystem answering it (146 - 1 = 145).
-    private const int ServerOnly = 145;
+    // plan_server_native_v2 T4b: TempEntPlayback and EffectDispatchIndex
+    // retired (the managed ServerTempEntEngine answering them through the
+    // engine and string table forwarders), TempEntBuild appended (145 - 2 + 1 = 144).
+    private const int ServerOnly = 144;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -317,7 +320,9 @@ public partial class EngineApiCensusTests
     // (texture, border colour, create, update, project, destroy): 238 + 6 = 244.
     // plan_server_native_v2 T4a: the five SoundPatch slots are the client's
     // alone (IShimSoundscapeClient), the server's patches managed (238 + 5 = 243; on main's flashlight 244 + 5 = 249).
-    private const int ClientOnly = 249;
+    // plan_server_native_v2 T4b: TempEntRegister is the client's alone
+    // (IShimTempEntBackendsClient), the server's tables planned in C# (249 + 1 = 250).
+    private const int ClientOnly = 250;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
@@ -343,7 +348,8 @@ public partial class EngineApiCensusTests
     // (42 - 1 = 41).
     // plan_server_native_v2 T4a: IShimEngine's five SoundPatch slots left for
     // the client (41 - 5 = 36).
-    private const int BothSides = 36;
+    // plan_server_native_v2 T4b: TempEntRegister left for the client (36 - 1 = 35).
+    private const int BothSides = 35;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

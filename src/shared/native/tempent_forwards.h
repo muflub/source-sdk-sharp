@@ -42,7 +42,10 @@
 // are KEPT and marked RESERVED rather than removed, because removing one is a
 // renumber and the paragraph above says the one renumber was not a precedent.
 // No forwarder may use a RESERVED id (tempent_evicted_test checks both ways);
-// a later renumber pass that owns the whole table can drop them.
+// a later renumber pass that owns the whole table can drop them. Three more
+// joined them in plan_server_native_v2 T4b -- TE_Dust, TE_MetalSparks and
+// TE_MuzzleFlash, whose only callers were ss::IEffects methods no server TU
+// called.
 //
 //===========================================================================//
 
@@ -62,12 +65,12 @@ enum SourceSharpTeForward_t
 	SOURCESHARP_TE_FWD_BUBBLES                     =  5,   // TE_Bubbles -> Bubbles
 	SOURCESHARP_TE_FWD_DECAL                       =  6,   // TE_Decal -> Decal
 	SOURCESHARP_TE_FWD_TE_DISPATCH_EFFECT          =  7,   // TE_DispatchEffect -> TeDispatchEffect
-	SOURCESHARP_TE_FWD_DUST                        =  8,   // TE_Dust -> Dust
+	SOURCESHARP_TE_FWD_DUST                        =  8,   // TE_Dust -> Dust   RESERVED
 	SOURCESHARP_TE_FWD_ENERGY_SPLASH               =  9,   // TE_EnergySplash -> EnergySplash   RESERVED
 	SOURCESHARP_TE_FWD_EXPLOSION                   = 10,   // TE_Explosion -> Explosion
 	SOURCESHARP_TE_FWD_LARGE_FUNNEL                = 11,   // TE_LargeFunnel -> LargeFunnel
-	SOURCESHARP_TE_FWD_METAL_SPARKS                = 12,   // TE_MetalSparks -> MetalSparks
-	SOURCESHARP_TE_FWD_MUZZLE_FLASH                = 13,   // TE_MuzzleFlash -> MuzzleFlash
+	SOURCESHARP_TE_FWD_METAL_SPARKS                = 12,   // TE_MetalSparks -> MetalSparks   RESERVED
+	SOURCESHARP_TE_FWD_MUZZLE_FLASH                = 13,   // TE_MuzzleFlash -> MuzzleFlash   RESERVED
 	SOURCESHARP_TE_FWD_PROJECT_DECAL               = 14,   // TE_ProjectDecal -> ProjectDecal
 	SOURCESHARP_TE_FWD_SMOKE                       = 15,   // TE_Smoke -> Smoke
 	SOURCESHARP_TE_FWD_SPARKS                      = 16,   // TE_Sparks -> Sparks

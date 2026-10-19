@@ -28,7 +28,7 @@ std::__new_allocator<std::__detail::_Hash_node<std::__cxx11::basic_string<char, 
 std::__new_allocator<std::__detail::_Hash_node_base*>::allocate	new_allocator.h	149	15496	entity classes	the kept-string pools' bucket arrays, one per descriptor
 std::__new_allocator<char>::allocate	new_allocator.h	69	1353	entity classes	the kept strings too long for the small-string buffer
 CStandaloneScriptedClass::Describe	shell_standalone_class.cpp	79	1696	entity classes	each scripted class's array of output names (shell_standalone_class.cpp:128), owned by its descriptor
-SourceSharp_TempEntRegister	shell_tempents.cpp	133	36304	temp-entity classes	each C#-registered temp entity's SendProp array, SendTable and ServerClass (shell_tempents.cpp:440/503/525); the ServerClass joins the server class list the engine walks to build its tables
+SourceSharp_TempEntBuild	shell_tempents.cpp	133	36304	temp-entity classes	each C#-planned temp entity's SendProp array, SendTable and ServerClass (shell_tempents.cpp:142/165/168; plan_server_native_v2 T4b renamed the site from SourceSharp_TempEntRegister, blocks/bytes as reviewed there); the ServerClass joins the server class list the engine walks to build its tables
 RegisterStandaloneTiers	shell_standalone.cpp	21	137776	network tables	the standalone entity tiers' SendProps, SendTables and ServerClasses, built at load and read by the engine's networking every tick
 SendPropArray3	dt_send.cpp	6	7520	network tables	the array props inside those SendTables (stock dt_send.cpp allocates these once and never frees them either)
 CWorldNetTable::Declare	shell_world_nettable.cpp	3	25936	network tables	the world's SendTable and props, declared once per load and read by the engine every tick

@@ -61,7 +61,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 152 slots.
+// SERVER ONLY -- 150 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -89,7 +89,6 @@ void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount );
 int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText,
                                        float flDuration, int32_t r, int32_t g, int32_t b,
                                        int32_t a );
-int32_t SourceSharp_EffectDispatchIndex( const char *pName );
 void SourceSharp_EndRound( void );
 int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius,
                                       uint32_t *pOutHandles, int32_t nMax );
@@ -245,9 +244,8 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
 void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand );
 void SourceSharp_SetSkyboxParams( const SourceSharpSkyboxParams *pParams );
 void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime );
-void SourceSharp_TempEntPlayback( int32_t hClass, const void *pBlob, int32_t nBytes,
-                                  const SourceSharpTeFilter_t *pFilter, float flDelay );
-int32_t SourceSharp_TempEntRegister( const SourceSharpTeClass_t *pDesc );
+int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
+                                  SourceSharpTeBuiltTable_t *pOut );
 int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys,
                                         const int32_t *pPackBytes, const float *pOriginsXYZ,
                                         const float *pAnglesPYR, int32_t nCount,

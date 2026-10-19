@@ -57,8 +57,10 @@ public class TeForwardSignatureTests
         // for one id from two places). A floor above the population is a fact that
         // can only fail, which is not a stricter check but a broken one.
         // The server gc cull (2026-10-01) deleted four forwards nothing called and
-        // reserved their ids: 14 ids, 16 bodies now.
-        Assert.True(arms.Count >= 14,
+        // reserved their ids: 14 ids, 16 bodies then. plan_server_native_v2 T4b
+        // reserved three more (TE_Dust, TE_MetalSparks, TE_MuzzleFlash, whose only
+        // callers were ss::IEffects methods no server TU called): 11 ids now.
+        Assert.True(arms.Count >= 11,
             $"only {arms.Count} dispatcher arm(s) were parsed out of TeForwardDispatch.cs. "
           + "The arm pattern stopped matching rather than the arms going away — with an "
           + "empty arm table every comparison below is vacuous and this fact would be "
@@ -119,8 +121,10 @@ public class TeForwardSignatureTests
         // for one id from two places). A floor above the population is a fact that
         // can only fail, which is not a stricter check but a broken one.
         // The server gc cull (2026-10-01) deleted four forwards nothing called and
-        // reserved their ids: 14 ids, 16 bodies now.
-        Assert.True(checkedForwards >= 14,
+        // reserved their ids: 14 ids, 16 bodies then. plan_server_native_v2 T4b
+        // reserved three more (TE_Dust, TE_MetalSparks, TE_MuzzleFlash, whose only
+        // callers were ss::IEffects methods no server TU called): 11 ids now.
+        Assert.True(checkedForwards >= 13,
             $"only {checkedForwards} forward(s) were matched to an arm, which is far fewer than "
           + "there are — the packing or the arm pattern stopped matching rather than agreeing");
 
@@ -180,15 +184,17 @@ public class TeForwardSignatureTests
         // for one id from two places). A floor above the population is a fact that
         // can only fail, which is not a stricter check but a broken one.
         // The server gc cull (2026-10-01) deleted four forwards nothing called and
-        // reserved their ids: 14 ids, 16 bodies now.
-        Assert.True(forwarded.Count >= 14,
+        // reserved their ids: 14 ids, 16 bodies then. plan_server_native_v2 T4b
+        // reserved three more (TE_Dust, TE_MetalSparks, TE_MuzzleFlash, whose only
+        // callers were ss::IEffects methods no server TU called): 11 ids now.
+        Assert.True(forwarded.Count >= 11,
             $"only {forwarded.Count} native forward id(s) were found across the "
           + "shell_te_fwd_*.cpp. The call pattern stopped matching rather than the "
           + "forwards going away, and an empty forward set makes this fact vacuous");
 
         var arms = ArmsOf(File.ReadAllText(dispatch));
 
-        Assert.True(arms.Count >= 14,
+        Assert.True(arms.Count >= 11,
             $"only {arms.Count} dispatcher arm(s) were parsed out of TeForwardDispatch.cs. "
           + "With an empty arm table there is nothing to be an orphan and this fact would "
           + "be green having checked nothing");

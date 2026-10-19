@@ -13,8 +13,10 @@
 // reads this vtable and the type is server.so's own. Per the plan's naming rule
 // it lives in namespace ss, on public/ headers alone.
 //
-// Only the five methods a server translation unit calls are declared: Smoke,
-// Sparks, Dust, MuzzleFlash and MetalSparks. There is no IPredictionSystem base:
+// Only the methods a server translation unit calls are declared: Smoke and
+// Sparks (UTIL_Smoke and UTIL_BloodDrips' mechanical arm). Dust, MuzzleFlash and
+// MetalSparks went with plan_server_native_v2 T4b: no server TU called them
+// (their managed callers send through ServerTempEntEngine). There is no IPredictionSystem base:
 // the suppress-host rule those methods applied is SourceSharpTe_SuppressFilter
 // (shell_tempents.cpp), which nothing reaches through this interface.
 //
@@ -42,14 +44,6 @@ public:
 
 	virtual void Sparks( const Vector &position, int nMagnitude = 1, int nTrailLength = 1,
 	                     const Vector *pvecDir = NULL ) = 0;
-
-	virtual void Dust( const Vector &pos, const Vector &dir, float size, float speed ) = 0;
-
-	virtual void MuzzleFlash( const Vector &vecOrigin, const QAngle &vecAngles, float flScale,
-	                          int iType ) = 0;
-
-	// Like a ricochet, without the sound.
-	virtual void MetalSparks( const Vector &position, const Vector &direction ) = 0;
 
 protected:
 	~IEffects() {}

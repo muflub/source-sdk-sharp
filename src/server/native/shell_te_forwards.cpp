@@ -63,8 +63,8 @@
 // file), no forwarder is registered by name (no DECLARE_CLIENT_EFFECT,
 // DECLARE_TEMPENT or REGISTER_EFFECT in any of the eight), and no managed code
 // calls one: a TE_* is a C++ symbol with no ABI slot behind it. The one ABI
-// entry point that lived among them, SourceSharp_EffectDispatchIndex, is at the
-// bottom of this file, unchanged.
+// entry point that lived among them, SourceSharp_EffectDispatchIndex, went
+// with plan_server_native_v2 T4b (see the bottom of this file).
 //
 // WHAT THE MANAGED SIDE STILL CANNOT DO, so this is not read as a port that
 // stalled: nothing here decides behaviour. Each body packs numbers and hands
@@ -343,45 +343,6 @@ void TE_DispatchEffect( IRecipientFilter& filter, float delay,
 }
 
 //-----------------------------------------------------------------------------
-// moved verbatim from shell_te_fwd_f.cpp
-//-----------------------------------------------------------------------------
-// func_dust.cpp's TE_Dust, by way of shell_entity_orphans.cpp, over the managed
-// DT_TEDust. LEDGER ROW S6.
-//
-// THE ORIGIN IS THE BASE'S FIELD. DT_TEDust declares a size, a speed and a
-// direction; m_vecOrigin belongs to DT_TEParticleSystem and sits at the front of
-// this class's blob. The writer's FindField walks the managed base chain, so
-// naming it here resolves — and a forward that set only its own three fields
-// would put every puff of dust at the world origin, which looks like dust.
-//
-// THE ASSERT TRAVELS WITH THE FUNCTION. m_vecDirection is four bits per
-// component over an explicit [-1, 1] — stock's "cheap normal" — so a direction
-// longer than one is CLAMPED BY THE ENCODER rather than rejected, and comes out
-// the other side pointing somewhere else. That is why the check is at the send
-// and not in the client.
-//-----------------------------------------------------------------------------
-void TE_Dust( IRecipientFilter& filter, float delay,
-	const Vector &pos, const Vector &dir, float size, float speed )
-{
-	Assert( dir.Length() < 1.01 );	// make sure it's a normal
-
-	const float f[] =
-	{
-		pos.x,
-		pos.y,
-		pos.z,
-		size,
-		speed,
-		dir.x,
-		dir.y,
-		dir.z,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_DUST, filter, delay, f, ARRAYSIZE( f ), NULL, 0 );
-}
-
-
-//-----------------------------------------------------------------------------
 // moved verbatim from shell_te_fwd_e.cpp
 //-----------------------------------------------------------------------------
 // te_explosion.cpp's TE_Explosion.
@@ -457,66 +418,6 @@ void TE_LargeFunnel( IRecipientFilter& filter, float delay,
 	};
 
 	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_LARGE_FUNNEL, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
-}
-
-//-----------------------------------------------------------------------------
-// moved verbatim from shell_te_fwd_d.cpp
-//-----------------------------------------------------------------------------
-// te_armorricochet.cpp's TE_MetalSparks, over the managed DT_TEMetalSparks.
-//
-// The assert is stock's own (te_armorricochet.cpp:100) and stays on this side of
-// the boundary: it is a statement about what the CALLER passes, not about what
-// the table encodes, and the managed declaration has nowhere to put it.
-//-----------------------------------------------------------------------------
-void TE_MetalSparks( IRecipientFilter& filter, float delay,
-	const Vector* pos, const Vector* dir )
-{
-	Assert( dir->Length() < 1.01 ); // make sure it's a normal
-
-	const float f[] =
-	{
-		pos->x,
-		pos->y,
-		pos->z,
-		dir->x,
-		dir->y,
-		dir->z,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_METAL_SPARKS, filter, delay, f, ARRAYSIZE( f ), NULL, 0 );
-}
-
-//-----------------------------------------------------------------------------
-// moved verbatim from shell_te_fwd_f.cpp
-//-----------------------------------------------------------------------------
-// te_muzzleflash.cpp's TE_MuzzleFlash, over the managed DT_TEMuzzleFlash.
-//
-// THE ANGLES GO ON THE WIRE AS A PLAIN COORD VECTOR. Stock's member is a
-// CNetworkQAngle and its prop is SendPropVector, not SendPropQAngles — no
-// anglemod, no [0,360] range — so a QAngle's three floats are handed to
-// SetVector as they are. Lane B's DT_TEProjectedDecal is the other way round
-// and the two are deliberately not unified: see TeMuzzleFlash.cs.
-//-----------------------------------------------------------------------------
-void TE_MuzzleFlash( IRecipientFilter& filter, float delay,
-	const Vector &start, const QAngle &angles, float scale, int type )
-{
-	const float f[] =
-	{
-		start.x,
-		start.y,
-		start.z,
-		angles.x,
-		angles.y,
-		angles.z,
-		scale,
-	};
-
-	const int i[] =
-	{
-		type,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_MUZZLE_FLASH, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -680,23 +581,10 @@ void DispatchEffect( const char *pName, const ss::CEffectData &data )
 // lives in shell_te_forwards_debug.cpp with its two name lists, which only a
 // debug build compiles.
 
-//-----------------------------------------------------------------------------
-// The ABI slot the header comment above asked for: a name, as an index in the
-// EffectDispatch network string table.
-//
-// EffectNameIndex, exported and nothing more — deliberately the SAME function
-// rather than a second one that does the same thing. Two resolutions of one
-// name is precisely the failure mode this file's header names: the symptom of
-// the two disagreeing is not a missing effect but the WRONG one.
-//
-// IT OUTLIVES THIS FILE. Part 7 deletes te.cpp and TE_DispatchEffect goes with
-// it; this and the two DispatchEffect overloads above do not, because they are
-// what the rest of the server and all of managed code call.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EffectDispatchIndex( const char *pName )
-{
-	return EffectNameIndex( pName );
-}
+// SourceSharp_EffectDispatchIndex, the ABI slot that exported EffectNameIndex,
+// went with plan_server_native_v2 T4b: managed code asks the same table the
+// same question through the string table forwarders (EffectDispatchNames), so
+// both resolutions are one AddString on one table, idempotent for the level.
 
 //=============================================================================//
 // IEffects, FOLDED IN FROM game/server/EffectsServer.cpp (217 lines).
@@ -729,7 +617,10 @@ int32_t SourceSharp_EffectDispatchIndex( const char *pName )
 // whole of ss::IEffects (ss_effects.h). Beam, EnergySplash, Ricochet, Time,
 // IsServer and SuppressEffectsSounds were kept only because the Valve IEffects
 // was abstract; with its last caller switched to ss::Effects(), they went with
-// it (P5 lane SP).
+// it (P5 lane SP). Dust, MetalSparks and MuzzleFlash followed in
+// plan_server_native_v2 T4b, with TE_Dust, TE_MetalSparks and TE_MuzzleFlash:
+// only UTIL_Smoke and UTIL_BloodDrips' mechanical arm still call through here
+// (Smoke and Sparks), and the managed effects send through ServerTempEntEngine.
 //
 // THE IEffects001 EXPOSE AND THE g_pEffects GLOBAL ARE GONE TOO. `IEffects001`
 // is in no engine binary -- of the 90 .so files under Source SDK Base 2013
@@ -771,26 +662,6 @@ public:
 		TE_Sparks( filter, 0.0, &position, nMagnitude, nTrailLength, pvecDir );
 	}
 
-	virtual void Dust( const Vector &pos, const Vector &dir, float size, float speed )
-	{
-		ss::CPVSFilter filter( pos );
-
-		TE_Dust( filter, 0.0, pos, dir, size, speed );
-	}
-
-	virtual void MuzzleFlash( const Vector &origin, const QAngle &angles, float scale, int type )
-	{
-		ss::CPVSFilter filter( origin );
-
-		TE_MuzzleFlash( filter, 0.0f, origin, angles, scale, type );
-	}
-
-	virtual void MetalSparks( const Vector &position, const Vector &direction )
-	{
-		ss::CPVSFilter filter( position );
-
-		TE_MetalSparks( filter, 0.0, &position, &direction );
-	}
 };
 
 //-----------------------------------------------------------------------------

@@ -497,11 +497,11 @@ TEST( EntrypointDecls, ATwoArmedSlotDeclaresBothOfItsBodies )
 	ASSERT_GE( fill.size(), 300u );
 	ASSERT_GE( declared.size(), 300u );
 
-	// The seven slots this tree wires once per side, each with a DIFFERENT
+	// The six slots this tree wires once per side, each with a DIFFERENT
 	// function. They are named rather than discovered because the failure being
 	// pinned is that one of each pair goes missing -- and a scan that discovers
 	// the pairs from the same map would lose the same half.
-	static const char *const kPairs[ 7 ][ 2 ] =
+	static const char *const kPairs[ 6 ][ 2 ] =
 	{
 		{ "SourceSharp_EntityGetIndex",       "SourceSharp_ClientEntityGetIndex" },
 		{ "SourceSharp_EntityGetOrigin",      "SourceSharp_ClientEntityGetOrigin" },
@@ -509,13 +509,14 @@ TEST( EntrypointDecls, ATwoArmedSlotDeclaresBothOfItsBodies )
 		{ "SourceSharp_EntityGetModelName",   "SourceSharp_ClientEntityGetModelName" },
 		{ "SourceSharp_EntitiesInvalidateMdlCacheAll",
 		  "SourceSharp_ClientEntitiesInvalidateMdlCacheAll" },
-		{ "SourceSharp_TempEntRegister",      "SourceSharp_TempEntRegisterClient" },
+		// SourceSharp_TempEntRegister left the server (plan_server_native_v2 T4b):
+		// the slot is the client's alone, so it is no pair.
 		// Lane side-audit-2 (2026-10-02): the client answers liveness from its
 		// own list, so a cs_cl_reload's restored handles survive.
 		{ "SourceSharp_EntityIsValid",        "SourceSharp_ClientEntityIsValid" },
 	};
 
-	for ( int i = 0; i < 7; i++ )
+	for ( int i = 0; i < 6; i++ )
 	{
 		std::map< std::string, std::string >::const_iterator sv = declared.find( kPairs[ i ][ 0 ] );
 		std::map< std::string, std::string >::const_iterator cl = declared.find( kPairs[ i ][ 1 ] );

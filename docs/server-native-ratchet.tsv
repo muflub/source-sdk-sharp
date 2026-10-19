@@ -43,10 +43,10 @@ src/server/native/shell_standalone_hierarchy.cpp	138
 src/server/native/shell_standalone_player.cpp	291
 src/server/native/shell_standalone_player_debug.cpp	34
 src/server/native/shell_stringtables.cpp	51
-src/server/native/shell_te_forwards.cpp	352
+src/server/native/shell_te_forwards.cpp	282
 src/server/native/shell_te_forwards_debug.cpp	42
-src/server/native/shell_tempents.cpp	269
-src/server/native/shell_tempents_debug.cpp	192
+src/server/native/shell_tempents.cpp	48
+src/server/native/shell_tempents_debug.cpp	130
 src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
 src/server/native/shell_world_nettable.cpp	14
@@ -55,7 +55,7 @@ src/server/native/ss_recipient_filter.cpp	22
 src/server/native/standalone_relays.cpp	30
 src/server/native/world_adapter.cpp	164
 src/server/native/world_adapter_debug.cpp	81
-src/shared/native/dt_send.cpp	269
+src/shared/native/dt_send.cpp	148
 src/shared/native/entity_shared_statics.cpp	8
 src/shared/native/gamestringpool.cpp	8
 src/shared/native/gamestringpool_debug.cpp	16

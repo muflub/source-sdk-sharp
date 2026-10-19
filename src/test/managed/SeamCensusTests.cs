@@ -63,7 +63,9 @@ public class SeamCensusTests
         Assert.Equal("(none)", KindOf("SourceSharp.Abi", "SourceSharp.Abi.StandardErrorLog"));
         Assert.Equal("(none)", KindOf("SourceSharp.Server.Interop", "SourceSharp.Abi.NoRenderPolicyBlocks"));
 
-        Assert.True(wrapper.Values.Count(k => k == "area") >= 50, "every generated area is found");
+        // 50 at #24; slot retirements fold whole areas away (48 after T4b), so the
+        // floor is a census that read the generated file, not its size.
+        Assert.True(wrapper.Values.Count(k => k == "area") >= 40, "every generated area is found");
         Assert.True(wrapper.Values.Count(k => k.StartsWith("implementation", StringComparison.Ordinal)) >= 60,
                     "the implementations of both sides are found");
     }

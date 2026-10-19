@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 23 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 24 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -102,6 +102,9 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // void IVEngineServer::SaveFreeMemory( void * )
     public delegate* unmanaged<void*, void*, void> SaveFreeMemory;
+
+    // void IVEngineServer::PlaybackTempEntity( IRecipientFilter &, float, const void *, const SendTable *, int )
+    public delegate* unmanaged<void*, void*, float, void*, void*, int, void> PlaybackTempEntity;
 }
 
 /// <summary>

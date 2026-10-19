@@ -152,18 +152,6 @@ internal unsafe class CollisionArea
 }
 
 /// <summary>
-/// <c>IShimEffects</c>, served as <c>SourceSharpEffects001</c>, through <see cref="ShimEffectsFwd"/>.
-/// </summary>
-internal unsafe class EffectsArea
-{
-    private readonly ShimRef<ShimEffectsFwd> _shim;
-
-    internal EffectsArea(ShimRef<ShimEffectsFwd> shim) { _shim = shim; }
-
-    public int TempEntRegister(TeClassDesc* a0) { return _shim.Vt->TempEntRegister(_shim.Self, a0); }
-}
-
-/// <summary>
 /// <c>IShimConsole</c>, served as <c>SourceSharpConsole001</c>, through <see cref="ShimConsoleFwd"/>.
 /// </summary>
 internal sealed unsafe class ConsoleArea
@@ -511,20 +499,14 @@ internal sealed unsafe class PlayersArea
 }
 
 /// <summary>
-/// <c>IShimEffectsServer</c>, served as <c>SourceSharpEffectsServer001</c>, through <see cref="ShimEffectsServerFwd"/>. Its base's slots are <see cref="EffectsArea"/>'s.
+/// <c>IShimEffectsServer</c>, served as <c>SourceSharpEffectsServer001</c>, through <see cref="ShimEffectsServerFwd"/>.
 /// </summary>
-internal sealed unsafe class EffectsServerArea : EffectsArea
+internal sealed unsafe class EffectsServerArea
 {
     private readonly ShimRef<ShimEffectsServerFwd> _shim;
 
-    internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim)
-        : base(new ShimRef<ShimEffectsFwd>(shim.Self, (ShimEffectsFwd*)shim.Vt))
-    {
-        _shim = shim;
-    }
+    internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim) { _shim = shim; }
 
-    public void TempEntPlayback(int a0, void* a1, int a2, TeFilterDesc* a3, float a4) { _shim.Vt->TempEntPlayback(_shim.Self, a0, a1, a2, a3, a4); }
-    public int EffectDispatchIndex(byte* a0) { return _shim.Vt->EffectDispatchIndex(_shim.Self, a0); }
     public void ExplosionEffect(float* a0, int a1, float a2, int a3, int a4, int a5, int a6) { _shim.Vt->ExplosionEffect(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void ViewPunch(float* a0, float* a1, float a2, int a3) { _shim.Vt->ViewPunch(_shim.Self, a0, a1, a2, a3); }
     public void ImpactEffect(float* a0, float* a1, int a2, int a3, uint a4) { _shim.Vt->ImpactEffect(_shim.Self, a0, a1, a2, a3, a4); }
@@ -534,6 +516,7 @@ internal sealed unsafe class EffectsServerArea : EffectsArea
     public void SplashEffect(float* a0, float a1, int a2) { _shim.Vt->SplashEffect(_shim.Self, a0, a1, a2); }
     public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Vt->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int PaintDecal(int a0, float* a1, float* a2, float a3, int a4, int a5) { return _shim.Vt->PaintDecal(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Vt->TempEntBuild(_shim.Self, a0, a1, a2); }
 }
 
 /// <summary>
@@ -660,6 +643,7 @@ internal sealed unsafe class TempEntBackendsClientArea
     public void ClientSmoke(float* a0, int a1, float a2, float a3) { _shim.Vt->ClientSmoke(_shim.Self, a0, a1, a2, a3); }
     public void ClientSparks(float* a0, int a1, int a2, float* a3) { _shim.Vt->ClientSparks(_shim.Self, a0, a1, a2, a3); }
     public void EffectDispatchName(int a0, byte* a1, int a2) { _shim.Vt->EffectDispatchName(_shim.Self, a0, a1, a2); }
+    public int TempEntRegister(TeClassDesc* a0) { return _shim.Vt->TempEntRegister(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -1085,7 +1069,6 @@ internal sealed unsafe class ShimAreas
     public MovementArea Movement => MovementServer;
     public EntitiesArea Entities => EntitiesServer;
     public CollisionArea Collision => CollisionServer;
-    public EffectsArea Effects => EffectsServer;
 
     // Each area and its table, in turn; the first that is refused stops
     // the walk, leaving the rest unset and its reason in why.
@@ -1205,7 +1188,6 @@ internal sealed unsafe class ClientShimAreas
     public readonly MovementArea Movement = null!;
     public readonly EntitiesArea Entities = null!;
     public readonly CollisionArea Collision = null!;
-    public readonly EffectsArea Effects = null!;
     public readonly ConsoleArea Console = null!;
     public readonly HudClientArea HudClient = null!;
     public readonly PredictionClientArea PredictionClient = null!;
@@ -1260,10 +1242,6 @@ internal sealed unsafe class ClientShimAreas
         {
             if (!ShimRef<ShimCollisionFwd>.TryTake(root, "SourceSharpCollision001", out var shim, out why)) return;
             Collision = new CollisionArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEffectsFwd>.TryTake(root, "SourceSharpEffects001", out var shim, out why)) return;
-            Effects = new EffectsArea(shim);
         }
         {
             if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var shim, out why)) return;
@@ -1358,5 +1336,5 @@ internal sealed unsafe class ClientShimAreas
         return areas is not null;
     }
 
-    internal static int Count => 29;
+    internal static int Count => 28;
 }

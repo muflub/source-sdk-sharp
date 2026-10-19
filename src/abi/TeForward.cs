@@ -51,12 +51,15 @@ public enum TeForward
     Bubbles                  = 5,
     Decal                    = 6,
     TeDispatchEffect         = 7,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4b; kept so no id moves.</summary>
     Dust                     = 8,
     /// <summary>RESERVED: no native forwarder since the server gc cull; kept so no id moves.</summary>
     EnergySplash             = 9,
     Explosion                = 10,
     LargeFunnel              = 11,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4b; kept so no id moves.</summary>
     MetalSparks              = 12,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4b; kept so no id moves.</summary>
     MuzzleFlash              = 13,
     ProjectDecal             = 14,
     Smoke                    = 15,
