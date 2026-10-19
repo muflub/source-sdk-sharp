@@ -235,6 +235,43 @@ numbers here.
   in order: swapping two arguments in the generated forwarder turns it red).
 - The shim ratchet rose by the 1049 generated lines (docs/shim-ratchet.tsv).
 
+## 6e. Phase 5, as built (2026-10-19)
+
+- libss_fwd_<side> builds the six vphysics callbacks (src/fwd/native/
+  fwd_physics.cpp, a source of both libraries): one class per Valve interface
+  (IPhysicsObjectEvent, IPhysicsCollisionEvent, IPhysicsCollisionSolver,
+  IPhysicsConstraintEvent, IMotionEvent, IVPhysicsKeyHandler), each a vptr and
+  a pointer to its managed table, forwarding every virtual to it. The six
+  became managed-built interfaces in docs/managed-interfaces.tsv
+  (`IManagedPhysicsObjectEvent`, ...); tools/managed-areas writes their C
+  structs into a header of their own (imanaged_physics_callbacks.h), since no
+  area holds them, and their C# tables beside the code that builds each.
+- Where section 2c had managed allocate the object with SizeOf/Construct, the
+  object lives in the block itself: each callback table reserves two words
+  after word 0 (`ReservedWords = 2`, the header's
+  kManagedPhysicsCallbackWords), and `SSFwd_PhysicsCallbacks.Construct<Kind>`
+  builds the object there, over the block. vphysics holds a pointer into the
+  block, so the object survives a reload patch (which rewrites word 0's
+  table, not the reserved words) and is freed with the block: no second
+  allocation and no lifetime to pair. `PhysicsCallbackObjects` (Shared.Interop)
+  refuses a library whose SizeOf exceeds what the block reserves.
+- The libraries' pure-virtual handler (`__cxa_pure_virtual` / `_purecall`,
+  which a class with virtuals names and NO_RUNTIME leaves undefined) moved
+  from fwd_steam.cpp to fwd_physics.cpp, so both libraries carry it.
+- tools/vtable-layout lost its six valve-implemented-by-managed rows and
+  VtableLayouts.g.cs those structs (65 -> 59); vtable_index_agreement_test its
+  six length arms. fwd_physics_test drives each object through its Valve
+  interface as vphysics does; mutation: ObjectWake forwarded to ObjectSleep
+  turns TheObjectEventReachesTheManagedSideWithTheObject red.
+  PhysicsCallbackObjectsTests: the oversize refusal (red with the check
+  disabled), the build location, each kind, and the reload patch.
+  tools/managed-areas' self-test: five arms over the callbacks (red with the
+  motion controller filed in Shared.Interop, and with the reserved words
+  dropped).
+- The shim ratchet rose by 432 lines and one translation unit
+  (docs/shim-ratchet.tsv gives the sum by file); dead-conditionals allows
+  SS_FWD_SERVER_BUILD / SS_FWD_CLIENT_BUILD as side markers.
+
 ## 7. Decisions
 
 - 2026-10-18 (user, relayed by a peer session): every native<->managed call

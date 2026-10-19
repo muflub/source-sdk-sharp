@@ -849,6 +849,39 @@ def self_test():
     expect('no client interface reaches the server\'s files',
            not any(is_client(i) for i, _ss in model()) and any(i == 'IManagedClients' for i, _ss in model())
            and 'IManagedRuntimeClient' not in out[OUT_IFACE] + out[OUT_HOLDER] + out[OUT_IMPL] + out[OUT_MANAGED])
+
+    # The vphysics callbacks (plan_forwarders_everywhere.md phase 5): managed
+    # tables like the areas, but no area holds them -- libss_fwd builds the
+    # Valve object in each block's reserved words -- so they have a header of
+    # their own and reserve exactly the words that object takes.
+    cb = out[OUT_CALLBACKS]
+    expect('every vphysics callback is declared in its own header and in no area header',
+           all('class %s : public IManagedObject' % i in cb and 'class %s ' % i not in out[OUT_IFACE]
+               for i in CALLBACKS)
+           and not any(i in CALLBACKS for i, _ss in model() + client_model()))
+    expect('each callback\'s C# table reserves the object\'s words, and no area\'s does',
+           all('[ImplementedByManaged("%s", ReservedWords = %d)]' % (i, CALLBACK_WORDS)
+               in out[table_file(i)] for i in CALLBACKS)
+           and 'ReservedWords' not in out[OUT_TABLES_CLIENT]
+           and '[ImplementedByManaged("IManagedSoundEnt")]' in out[OUT_TABLES_SERVER])
+    expect('a callback\'s table is in the assembly that builds it: shared ones in Shared.Interop, '
+           'the server\'s motion controller in Server.Interop',
+           table_file('IManagedVPhysicsKeyHandler') == OUT_TABLES
+           and table_file('IManagedMotionEvent') == OUT_TABLES_SERVER)
+    expect('the header hands native the reserved word count it builds the object in',
+           'static const int32_t kManagedPhysicsCallbackWords = %d;' % CALLBACK_WORDS in cb)
+    g = globals()
+    saved = g['CALLBACKS']
+    try:
+        g['CALLBACKS'] = dict(saved, IManagedNoSuchCallback='shared')
+        refused = False
+        try:
+            callbacks()
+        except SystemExit:
+            refused = True
+    finally:
+        g['CALLBACKS'] = saved
+    expect('a callback the TSV does not declare is refused, not generated without it', refused)
     print('\n%d arm(s), %d failed.' % (len(arms), arms.count(False)))
     return 0 if all(arms) else 1
 
