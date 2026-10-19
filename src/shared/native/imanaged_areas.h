@@ -102,8 +102,11 @@ struct SSManagedSaveRestoreTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	int32_t ( *ReloadSave )( IManagedSaveRestore *self );
 	int32_t ( *ReloadRestore )( IManagedSaveRestore *self );
-	int32_t ( *SaveCollectEntities )( IManagedSaveRestore *self, char *pBuffer, int32_t nBytes );
-	int32_t ( *SaveRestoreEntities )( IManagedSaveRestore *self, const char *pBuffer, int32_t nBytes );
+	void * ( *SaveInit )( IManagedSaveRestore *self, int32_t nSize, float flCurTime );
+	int32_t ( *SaveWriteFields )( IManagedSaveRestore *self, void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount );
+	int32_t ( *SaveReadFields )( IManagedSaveRestore *self, void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount );
+	int32_t ( *SaveWriteBody )( IManagedSaveRestore *self, void *pSave );
+	int32_t ( *SaveReadBody )( IManagedSaveRestore *self, void *pSave );
 };
 
 class IManagedSaveRestore : public IManagedObject
@@ -113,18 +116,22 @@ public:
 
 	int32_t ReloadSave() { return Table()->ReloadSave( this ); }
 	int32_t ReloadRestore() { return Table()->ReloadRestore( this ); }
-	int32_t SaveCollectEntities( char *pBuffer, int32_t nBytes ) { return Table()->SaveCollectEntities( this, pBuffer, nBytes ); }
-	int32_t SaveRestoreEntities( const char *pBuffer, int32_t nBytes ) { return Table()->SaveRestoreEntities( this, pBuffer, nBytes ); }
+	void *SaveInit( int32_t nSize, float flCurTime ) { return Table()->SaveInit( this, nSize, flCurTime ); }
+	int32_t SaveWriteFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount ) { return Table()->SaveWriteFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount ); }
+	int32_t SaveReadFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount ) { return Table()->SaveReadFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount ); }
+	int32_t SaveWriteBody( void *pSave ) { return Table()->SaveWriteBody( this, pSave ); }
+	int32_t SaveReadBody( void *pSave ) { return Table()->SaveReadBody( this, pSave ); }
 
 private:
 	const SSManagedSaveRestoreTable *Table() const { return static_cast< const SSManagedSaveRestoreTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSaveRestoreSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0x3169518e, 0x3169518e,
+	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0xeb834733, 0x7a6a4861, 0x7a6a4861, 0x1134ef71,
+	0x1134ef71,
 };
-static const int32_t kIManagedSaveRestoreSlotCount = 6;
-static_assert( sizeof( SSManagedSaveRestoreTable ) == 6 * sizeof( void * ), "SSManagedSaveRestoreTable is one pointer per slot" );
+static const int32_t kIManagedSaveRestoreSlotCount = 9;
+static_assert( sizeof( SSManagedSaveRestoreTable ) == 9 * sizeof( void * ), "SSManagedSaveRestoreTable is one pointer per slot" );
 
 class IManagedSoundEnt;
 

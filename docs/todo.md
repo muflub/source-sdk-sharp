@@ -187,6 +187,14 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   client EmitSound/EmitSoundByHandle/close captions, about 500 logic lines
   (docs/client-novalve-ratchet.tsv's logic-lines counts it now). It is the
   client port's to move to managed, as the server's went to SoundEmitter.
+- **shell_savegame.cpp's client save codec is native** (moved to
+  src/client/native 2026-10-19, plan_server_native_v2 T4c, same link
+  position): the client's SaveInit/SaveWriteFields/SaveReadFields for its decal
+  and music blocks, about 200 logic lines (docs/client-novalve-ratchet.tsv's
+  logic-lines counts it now), over shell_savegame.h's inline codec. The
+  server's moved to SaveGameSession over SaveBlockCodec (Server.Interop);
+  the client port can take the same codec (it is pure, the CSaveRestoreData
+  layout is the same type) through IManagedSaveRestoreClient slots.
 
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
 

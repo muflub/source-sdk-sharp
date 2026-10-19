@@ -18,7 +18,7 @@ src/server/native/shell_entityapi.cpp	406
 src/server/native/shell_entityslots_debug.cpp	9
 src/server/native/shell_factory.cpp	8
 src/server/native/shell_gameclients.cpp	94
-src/server/native/shell_gamedll.cpp	25
+src/server/native/shell_gamedll.cpp	16
 src/server/native/shell_gamedll_debug.cpp	24
 src/server/native/shell_gameents.cpp	59
 src/server/native/shell_gameents_debug.cpp	17
@@ -71,7 +71,6 @@ src/shared/native/shell_gamerules.cpp	86
 src/shared/native/shell_movement.cpp	190
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
-src/shared/native/shell_savegame.cpp	291
 src/shared/native/sourcesharp_gamesystem.cpp	77
 src/shared/native/standalone_player_sync.cpp	101
 src/shared/native/takedamageinfo_library.cpp	125

@@ -68,15 +68,15 @@ marker is the answer to "why is this native at all", not a full account.
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
 | a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 34,952 |
-| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,745 |
+| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,675 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,035 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 6 | 1 |  |  | 21 | 9,410 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,670 |
-| f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,720 |
+| f | a bit-level wire codec | 5 | 4 | 3 | 1 |  |  | 13 | 3,567 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,422 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,605 |
-|  | **total** | **76** | **35** | **71** | **3** | **2** | **1** | **212** | **92,671** |
+|  | **total** | **76** | **34** | **72** | **3** | **2** | **1** | **212** | **92,448** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -346,6 +346,7 @@ Then the leaf system's per-view decisions moved to managed (2026-10-19, C7 clust
 
 `sourcesharp/game/client/generic_payload_client.cpp`  
 `sourcesharp/game/client/shell_recvtable.cpp`  
+`sourcesharp/game/client/shell_savegame.cpp`  
 `sourcesharp/game/client/shell_world_nettable_client.cpp`  
 `sourcesharp/game/server/sendproxy.cpp`  
 `sourcesharp/game/server/shell_nettable.cpp`  
@@ -355,7 +356,6 @@ Then the leaf system's per-view decisions moved to managed (2026-10-19, C7 clust
 `sourcesharp/game/server/shell_transmitsteps.cpp`  
 `sourcesharp/game/shared/entity_shared_statics.cpp`  
 `sourcesharp/game/shared/generic_payload.cpp`  
-`sourcesharp/game/shared/shell_savegame.cpp`  
 `sourcesharp/game/shared/util_shared_library.cpp`  
 `sourcesharp/public/dt_utlvector_common.cpp`  
 

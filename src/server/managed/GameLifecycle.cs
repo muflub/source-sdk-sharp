@@ -39,9 +39,9 @@ namespace SourceSharp.Abi;
 /// </para>
 ///
 /// <para>
-/// The premise is stale. The save cluster is LIVE: <c>SaveCollectEntities</c>
-/// and <c>SaveRestoreEntities</c> are bound in
-/// <c>SourceSharp.Bootstrap/Entry.cs</c>, <c>ServerModule.SaveCollect</c> and
+/// The premise is stale. The save cluster is LIVE: IServerGameDLL's Save and
+/// Restore forward to IManagedSaveRestore's <c>SaveWriteBody</c> /
+/// <c>SaveReadBody</c> (SaveRestoreBinding), <c>ServerModule.SaveCollect</c> and
 /// <c>SaveRestore</c> implement them, and the live gate's <c>save-load</c> step
 /// exercises the round trip. The caller exists. So <c>OnSave</c> and
 /// <c>OnRestore</c> are written, on <see cref="ISaveCustom"/> — a participant

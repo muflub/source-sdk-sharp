@@ -164,8 +164,10 @@ public enum CrossingOp
     ServerReloadRestore = 84,
     ClientReloadSave = 85,
     ClientReloadRestore = 86,
-    ServerSaveCollect = 87,
-    ServerSaveRestore = 88,
+    /// <summary>IManagedSaveRestore::SaveWriteBody: IServerGameDLL::Save's one body block, the managed world, once per save. Was ServerSaveCollect (the entity block's retired SaveCollectEntities slot) until plan_server_native_v2 T4c; the value is kept.</summary>
+    ServerSaveWriteBody = 87,
+    /// <summary>IManagedSaveRestore::SaveReadBody: IServerGameDLL::Restore's body block, once per load. Was ServerSaveRestore (SaveRestoreEntities) until plan_server_native_v2 T4c; the value is kept.</summary>
+    ServerSaveReadBody = 88,
     ServerOnRagdollMagnetForce = 89,
     /// <summary>IManagedUiClient::Paint, once per root panel a frame (plan_client_ui U2): the HUD's paint, which was ClientOnHudPaint. CLIENT ONLY.</summary>
     ClientUiPaint = 90,
@@ -874,6 +876,12 @@ public enum CrossingOp
     ServerSoundSystemInit = 347,
     /// <summary>IManagedSoundEmitter::ServerPrecacheScriptSound: the world's and EffectsPrecache's script precaches, to the managed SoundEmitterSystem (plan_server_native_v2 T4a, the precache path).</summary>
     ServerPrecacheScriptSound = 348,
+    /// <summary>IManagedSaveRestore::SaveInit: the save block allocated and placed by the managed SaveGameSession, once per save (plan_server_native_v2 T4c).</summary>
+    ServerSaveInit = 349,
+    /// <summary>IManagedSaveRestore::SaveWriteFields: one of the engine's own structs into the save through the managed codec, a few dozen per save (plan_server_native_v2 T4c).</summary>
+    ServerSaveWriteFields = 350,
+    /// <summary>IManagedSaveRestore::SaveReadFields: one of the engine's own structs read back, a few dozen per load (plan_server_native_v2 T4c).</summary>
+    ServerSaveReadFields = 351,
 }
 
 /// <summary>
@@ -1274,7 +1282,7 @@ public sealed class Crossings
     ///
     /// <para>
     /// SIZE, THEN FILL — the contract <c>AnimListActivityNames</c> and
-    /// <c>SaveCollectEntities</c> already use in this ABI, and it is used again
+    /// <c>ISideModule.SaveCollect</c> already use in this ABI, and it is used again
     /// here for the same reason: the caller cannot know how long the report is
     /// until it is composed, and a truncating slot would hand the console half
     /// a table that reads as a whole one. So this answers the bytes the WHOLE

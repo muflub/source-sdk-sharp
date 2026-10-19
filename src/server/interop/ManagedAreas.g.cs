@@ -32,8 +32,11 @@ public unsafe interface IManagedSaveRestore
 {
     int ReloadSave();
     int ReloadRestore();
-    int SaveCollectEntities(byte* a0, int a1);
-    int SaveRestoreEntities(byte* a0, int a1);
+    void* SaveInit(int a0, float a1);
+    int SaveWriteFields(void* a0, byte* a1, void* a2, void* a3, int a4, int a5);
+    int SaveReadFields(void* a0, byte* a1, void* a2, void* a3, int a4, int a5);
+    int SaveWriteBody(void* a0);
+    int SaveReadBody(void* a0);
 }
 
 [ManagedVtable(typeof(ManagedSoundEntTable))]

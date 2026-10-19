@@ -22,7 +22,7 @@ sourcesharp/game/server/shell_entityslots.cpp	3123
 sourcesharp/game/server/shell_factory.cpp	761
 sourcesharp/game/server/shell_frame.cpp	957
 sourcesharp/game/server/shell_gameclients.cpp	11318
-sourcesharp/game/server/shell_gamedll.cpp	8083
+sourcesharp/game/server/shell_gamedll.cpp	7060
 sourcesharp/game/server/shell_gameents.cpp	2377
 sourcesharp/game/server/shell_gametags.cpp	125
 sourcesharp/game/server/shell_globals.cpp	2751
@@ -74,7 +74,6 @@ sourcesharp/game/shared/shell_gamerules.cpp	3107
 sourcesharp/game/shared/shell_internalfactory.cpp	9164
 sourcesharp/game/shared/shell_movement.cpp	12268
 sourcesharp/game/shared/shell_physsaverestore_absent.cpp	62
-sourcesharp/game/shared/shell_savegame.cpp	10451
 sourcesharp/game/shared/shell_shared.cpp	488
 sourcesharp/game/shared/shell_vtable_interfaces.cpp	1775
 sourcesharp/game/shared/sound_emitter.cpp	13735
