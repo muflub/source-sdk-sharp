@@ -208,6 +208,18 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   methods or a static class beside it. UI types, implementations and logic go
   in an assembly of their own: putting UI types in the client interface forced
   a plan to be restructured.
+- **Logic reaches the engine only through seams, and tests hold seams.**
+  Game logic (the server, the client, the UI, the mods) never names
+  `EngineSide`, `ModuleEngine`, a shim area class, a forwarder struct or an
+  implementation of a seam interface. The two composition roots
+  (`ServerModule`, `ClientModule`) are the exception: they build the
+  implementations over their own engine and register them. A test reaches an
+  implementation through its side's registration (`SideBindings.Of`, a root's
+  `Services`) and holds the interface. `SeamCensusTests` and each test
+  project's `SeamCensus*Tests` hold both rules over IL
+  (`src/test/common/SeamCensus.cs`). Why: an adapter that took the whole side
+  depended on every area, and a test that named one could not see the
+  registration break (`docs/plans/plan_shim_areas_split.md`).
 - **The invalid entity handle is `0xFFFFFFFF`, never 0**, because entry 0 is the
   world. `EntityHandle` stores the raw handle inverted, so `default(EntityHandle)`
   IS `EntityHandle.None`; the raw handle 0 (entry 0) must be named on purpose.
