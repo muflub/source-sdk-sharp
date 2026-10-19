@@ -237,22 +237,29 @@ public unsafe class ConvertedEntryTests
     [Fact]
     public void ReconnectSendsExactlyRetryThroughClientCmd()
     {
-        var table = ForwarderTable<EngineClientFwd>();
-        table[ClientCmdSlot] = (delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
-        void** self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-        *self = table;
+        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
         s_ClientCmdSaw = null;
+        try
+        {
+            // Acquired as the client acquires it, over a root that serves the
+            // engine client and its table, and held as its interface.
+            using var root = new FakeShimRoot()
+                .Interface(EngineClient.InterfaceVersion, self)
+                .Forwarders<EngineClientFwd>(out EngineClientFwd* table);
+            ((nint*)table)[ClientCmdSlot] = (nint)(delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
+            var side = new EngineSide(Side.Client);
+            Assert.True(side.AttachClientShims(root.Bind(), out string attachWhy), attachWhy);
 
-        var client = (IVtableEngineClient)typeof(EngineClient)
-            .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-            .Single()
-            .Invoke([new EngineSide(Side.Client), Pointer.Box(self, typeof(void*)), Pointer.Box(table, typeof(EngineClientFwd*))]);
-        client.Reconnect();
+            IVtableEngineClient? client = EngineClient.Acquire(new ModuleEngine(side), out string why);
+            Assert.True(client is not null, why);
+            client.Reconnect();
 
-        Assert.Equal("retry", s_ClientCmdSaw);
-
-        NativeMemory.Free(table);
-        NativeMemory.Free(self);
+            Assert.Equal("retry", s_ClientCmdSaw);
+        }
+        finally
+        {
+            NativeMemory.Free(self);
+        }
     }
 
     //-------------------------------------------------------------------------
