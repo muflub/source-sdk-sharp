@@ -29,7 +29,7 @@ internal sealed unsafe class FakeShimRoot : IDisposable
             // served as SourceSharpEngine001, on the server too since lane
             // c2-sims bound it for itself.
             string version = $"SourceSharp{(field.Name == "EngineBase" ? "Engine" : field.Name)}001";
-            Serve(version, field.FieldType.GetGenericArguments()[0]);
+            Serve(version, ShimAreaTypes.FwdOf(field.FieldType));
         }
 
         // And the client's areas the server's do not already name, so the same
@@ -42,7 +42,7 @@ internal sealed unsafe class FakeShimRoot : IDisposable
             if (_areas.ContainsKey(version))
                 continue;
 
-            Serve(version, field.FieldType.GetGenericArguments()[0]);
+            Serve(version, ShimAreaTypes.FwdOf(field.FieldType));
         }
     }
 
