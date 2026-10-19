@@ -25,6 +25,8 @@
 
 #include "steam/steam_api_common.h"
 #include "imanaged_steam_callback.h"
+#include "sourcesharp/game/client/particles_lib/include/ss_particles/iparticlelib.h"
+#include "sourcesharp/game/shared/vtable_hook.h"
 
 #include <stdint.h>
 
@@ -269,4 +271,20 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 		EXPECT_EQ( nullptr, SSFwdClient_Table( pszName ) ) << pszName;
 		EXPECT_EQ( nullptr, SSFwd_Serve( pszName ) ) << pszName;
 	}
+}
+
+TEST( FwdSteam, TheParticleLibraryTableIsFortyFiveSlotsAsTheCompilerCountsThem )
+{
+	// libss_particles.so's ISSParticleLib, which only the client calls, so its
+	// table is the client library's alone: Connect, Disconnect, Mgr, Counters,
+	// then the 41 particles.a members client.so forwards. No virtual
+	// destructor; read off the last member, so an append the table missed
+	// shows here. (Held to the old generated layout until
+	// plan_forwarders_everywhere.md phase 6.)
+	const int compiler = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
+	EXPECT_EQ( 45, compiler );
+
+	const SSForwarderTable *pTable = SSFwdClient_Table( "SSFwd_ParticleLib" );
+	ASSERT_NE( nullptr, pTable );
+	EXPECT_EQ( compiler, pTable->nSlots );
 }

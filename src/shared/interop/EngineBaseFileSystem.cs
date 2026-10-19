@@ -27,10 +27,10 @@ namespace SourceSharp.Abi;
 //-----------------------------------------------------------------------------
 // AND THE OVERLOAD TRAP IS STILL REAL. `IBaseFileSystem` declares Size TWICE --
 // `Size( FileHandle_t )` at slot 6 and `Size( const char *, const char * )` at
-// slot 7 -- so the generated struct has `Size` and `Size_2`, IN THAT ORDER, and
-// the one this file wants is the SECOND. Calling `Size` would hand a filename to
-// a method expecting a file handle. The field's trailing comment in
-// VtableLayouts.g.cs carries the parameter list that tells them apart, and
+// slot 7 -- so the generated forwarder struct has `Size` and `Size_2`, IN THAT
+// ORDER, and the one this file wants is the SECOND. Calling `Size` would hand a
+// filename to a method expecting a file handle. The field's trailing comment in
+// SharedForwarders.g.cs carries the parameter list that tells them apart, and
 // tools/vtable-layout --self-test has an arm on the ordering.
 //=============================================================================
 

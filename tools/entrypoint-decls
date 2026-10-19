@@ -36,9 +36,8 @@ only if the two disagree in a way the compiler can see.  `int32_t` where the
 field says `int`, `float *` where it says `const float *` -- neither is caught,
 and neither is visible in review.
 
-So the prototypes are DERIVED now, exactly the way `SourceSharp.Abi`'s
-`VtableLayouts.g.cs` is derived from the interface headers by
-`tools/vtable-layout`.
+So the prototypes are DERIVED now, the way `tools/vtable-layout` types each
+interface's slots from its own declaration in the header.
 
 
 THE TWO INPUTS, AND WHAT EACH DECIDES

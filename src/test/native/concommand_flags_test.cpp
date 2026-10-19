@@ -54,21 +54,22 @@ std::string Read( const char *pszRel )
 
 const char *kRegistrar = "sourcesharp/game/shared/sourcesharp_gamesystem.cpp";
 // The slot's declaration: IShimConsole's method since the engine API struct
-// was deleted (plan_client_vtables CC-last), and its managed mirror, the
-// generated layout ShimConsoleVtbl.
-const char *kHeader    = "sourcesharp/game/shared/ishim_console.h";
-const char *kLayouts   = "sourcesharp/managed/SourceSharp.Abi/VtableLayouts.g.cs";
+// was deleted (plan_client_vtables CC-last), and what managed calls it
+// through, the generated forwarder struct ShimConsoleFwd
+// (plan_forwarders_everywhere.md).
+const char *kHeader     = "sourcesharp/game/shared/ishim_console.h";
+const char *kForwarders = "sourcesharp/managed/SourceSharp.Abi/SharedForwarders.g.cs";
 
 size_t IndexOf( const std::string &hay, const std::string &needle )
 {
 	return hay.find( needle );
 }
 
-// One generated layout struct, from its declaration to its closing brace, or
-// empty: a field found anywhere else in the file is another struct's.
+// One generated forwarder struct, from its declaration to its closing brace,
+// or empty: a field found anywhere else in the file is another struct's.
 std::string LayoutWindow( const std::string &s, const char *pszStruct )
 {
-	const size_t open = s.find( std::string( "internal unsafe struct " ) + pszStruct + "\n" );
+	const size_t open = s.find( std::string( "internal unsafe struct " ) + pszStruct + " : IForwarderTable\n" );
 	if ( open == std::string::npos )
 		return std::string();
 
@@ -122,14 +123,15 @@ TEST( ConCommandFlags, TheAbiSlotCarriesAFlagWord )
 		   "managed [ConCommand] can only ever be an unflagged command and the "
 		   "thirteen deferred-abi ledger rows are blocked again";
 
-	// And the managed mirror carries the word too: the object, the name, the
-	// help, the flags, and the int32 answer. A layout that dropped it would
-	// call the method with a flag word read out of whatever the register held.
-	const std::string layout = LayoutWindow( Read( kLayouts ), "ShimConsoleVtbl" );
-	ASSERT_FALSE( layout.empty() ) << "ShimConsoleVtbl was not found in " << kLayouts;
+	// And what managed calls carries the word too: the object, the name, the
+	// help, the flags, and the int32 answer. A forwarder struct that dropped it
+	// would call the method with a flag word read out of whatever the register
+	// held.
+	const std::string layout = LayoutWindow( Read( kForwarders ), "ShimConsoleFwd" );
+	ASSERT_FALSE( layout.empty() ) << "ShimConsoleFwd was not found in " << kForwarders;
 	EXPECT_NE( IndexOf( layout, "delegate* unmanaged<void*, byte*, byte*, int, int> RegisterConCommand;" ),
 	           std::string::npos )
-		<< "ShimConsoleVtbl's RegisterConCommand is not the four-argument, flag-carrying shape";
+		<< "ShimConsoleFwd's RegisterConCommand is not the four-argument, flag-carrying shape";
 }
 
 TEST( ConCommandFlags, TheRegistrarIsFoundAsAWindow )

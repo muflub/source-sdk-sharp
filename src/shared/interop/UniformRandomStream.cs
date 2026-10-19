@@ -31,9 +31,9 @@ public interface IUniformRandom
     // shell_worldquery.cpp makes the same argument about the flat ABI slot.
     //
     // There is no table saying so and no flag on a field. The method is not
-    // here, so there is nothing to call. VtableLayouts.g.cs still TYPES slot 0,
-    // because the struct describes the engine's ABI and the ABI is what it is
-    // whatever anybody decides.
+    // here, so there is nothing to call, and the forwarder table has no slot
+    // for it either: tools/engine-forwarders' row names only the methods
+    // managed calls.
 
     /// <summary>A float in <c>[min, max]</c>.</summary>
     float RandomFloat(float min, float max);

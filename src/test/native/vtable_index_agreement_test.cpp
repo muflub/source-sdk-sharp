@@ -1,47 +1,25 @@
-//========= SourceSharp — the vtable table lengths, asked of the compiler =====//
+//========= SourceSharp — the layouts managed shares with native, asked of the compiler //
 //
-// Some C++ tables are still described by the structs in
-// src/abi/VtableLayouts.g.cs: the shim interfaces native implements (which
-// managed now calls through their forwarders, plan_forwarders_everywhere.md)
-// and the vphysics callbacks managed writes in Valve's layout. That file is
-// GENERATED from the
-// same headers by tools/vtable-layout, and a generated file can go stale:
-// somebody edits a header, or lands the generator's input without re-running
-// it. Then field N of the struct is a different method from slot N of the
-// table, nothing faults, and the wrong function returns whatever it left in
-// the return register.
+// What crosses between native and managed by LAYOUT rather than by call: the
+// data structs managed reads and writes in place (vphysics' collision event,
+// the ragdoll and constraint params, the world's fluid and surface data, the
+// Steam callback payloads), each held field by field to the offsets its
+// managed view uses.
 //
-// So there is ONE check and this file is its build-time half.
-//
-//   * native takes each table's length from the COMPILER,
-//     `VTableHook::MemberOf( &Interface::LastMethod ).slot + 1`, and hands it to
-//     managed beside the interface pointer;
-//   * managed compares it to sizeof(TVtbl) / sizeof(void *) and refuses to bind
-//     when they differ, naming both numbers;
-//   * and the tests below hold the compiler's number against the COMMITTED
-//     generated file, so a stale layout is red in `make check` rather than only
-//     at run time on somebody's machine.
-//
-// THE COMMITTED FILE IS READ RATHER THAN REGENERATED, and that distinction is
-// the whole value of these tests. A check that regenerates the layout from the
-// headers and compares it to a count taken from the same headers derives BOTH
-// SIDES FROM ONE INPUT: a shifted header shifts the layout too, the two agree,
-// and the arm passes while being wrong. Parsing what is on disk is what makes
-// this a second opinion.
-//
-// NO ENGINE TABLE IS HERE. Managed calls the engine's and vphysics' interfaces
-// through the generated forwarders (plan_engine_forwarders.md), which native
-// compiles as ordinary virtual calls, so their slots are the compiler's and
-// there is no layout to hold against it. tools/vtable-layout refuses to emit a
-// table MSVC orders differently, so every struct below has one order, its
-// field order, on both ABIs.
+// No vtable layout is here any more (plan_forwarders_everywhere.md). Managed
+// calls every native interface through a generated forwarder table, compiled
+// against the header as ordinary virtual calls, so the slots are the
+// compiler's and no layout is held against it; each table's count is held to
+// the compiler's in the forwarder libraries' tests (fwd_shim_test and
+// shim_areas_forwarders.inc, fwd_steam_test). What is left of the old count
+// check is the fact that no acquire hands one back.
 //=============================================================================//
 
 #include "gtest/gtest.h"
 
 #include <type_traits>
 
-// The data structs managed reads by layout (the tests after the lengths).
+// The data structs managed reads by layout.
 #include "vphysics_interface.h"
 #include "vphysics/constraints.h"
 #include "vcollide_parse.h"
@@ -51,20 +29,6 @@
 #include "steam/isteamapps.h"
 #include "steam/isteamfriends.h"
 
-// THE SHIM LAYER'S HEADERS, which are in THIS tree rather than the SDK's -- and
-// that is the whole reason their agreement is cheap to check. The engine
-// headers above describe a prebuilt module compiled by somebody else; these
-// describe a class compiled from this file's own include, in this build, by
-// this compiler.
-#include "../game/server/ishim_frame.h"
-#include "../game/server/ishim_level.h"
-#include "../game/shared/ishim_root.h"
-#include "../game/shared/ishim_console.h"
-#include "../game/shared/ishim_areas.h"
-#include "../game/shared/ishim_areas_client.h"
-#include "../game/client/particles_lib/include/ss_particles/iparticlelib.h"
-
-#include "../game/shared/vtable_hook.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -76,13 +40,9 @@ namespace
 {
 
 //-----------------------------------------------------------------------------
-// THE GENERATED LAYOUT, found by walking up from wherever the binary was run --
-// the same way map_entity_block_test.cpp finds its table, and for the same
-// reason: a compiled-in copy of the answers would be a SECOND record of them.
+// A tree file, found by walking up from wherever the binary was run -- the
+// same way map_entity_block_test.cpp finds its table.
 //-----------------------------------------------------------------------------
-const char *const kLayoutRelative =
-	"sourcesharp/managed/SourceSharp.Abi/VtableLayouts.g.cs";
-
 std::string ReadRelative( const char *relative )
 {
 	std::string prefix;
@@ -110,58 +70,7 @@ std::string ReadRelative( const char *relative )
 	return std::string();
 }
 
-std::string ReadLayout()
-{
-	return ReadRelative( kLayoutRelative );
-}
-
-//-----------------------------------------------------------------------------
-// How many fields one generated struct declares.
-//
-// COUNTED FROM `public ` AT THE START OF A LINE INSIDE THE STRUCT BODY, which is
-// what every field declaration is and what no comment line is -- the prose the
-// generator carries onto a field is `    // ...`. Returns -1 for a struct that
-// is not there at all, so "the generator stopped emitting it" cannot read as
-// "it has no fields".
-//-----------------------------------------------------------------------------
-int FieldsIn( const std::string &text, const char *structName )
-{
-	// " unsafe struct ": internal, or public for an implemented-by-managed layout.
-	std::string needle = std::string( " unsafe struct " ) + structName + "\n{";
-	size_t at = text.find( needle );
-
-	if ( at == std::string::npos )
-		return -1;
-
-	size_t end = text.find( "\n}", at );
-
-	if ( end == std::string::npos )
-		return -1;
-
-	int fields = 0;
-	size_t line = at;
-
-	while ( ( line = text.find( "\n    public ", line ) ) != std::string::npos && line < end )
-	{
-		fields++;
-		line += 2;
-	}
-
-	return fields;
-}
-
 } // namespace
-
-
-//=============================================================================
-// ONE TEST PER INTERFACE: the compiler's own table length, against the number of
-// fields the committed generated file declares.
-//
-// The compiler's answer comes from a pointer to the interface's LAST
-// declaration. Under the Itanium ABI a pointer-to-member-function carries its
-// slot, so this is not a count of anything -- and on a class whose virtual
-// destructor occupies slots 0 and 1, those two are already inside the number.
-//=============================================================================
 
 //=============================================================================
 // NO ACQUIRE COUNTS A VTABLE (plan_forwarders_everywhere.md phase 6).
@@ -223,176 +132,6 @@ TEST( VtableAcquireCount, ShimRootGetHandsTheRootsForwarderTableRatherThanACount
 	EXPECT_EQ( std::string::npos, fn.find( "VTableHook::MemberOf" ) )
 		<< "ShimRoot_Get counts the root's vtable again";
 }
-
-TEST( VtableLayoutLength, TheGeneratedFileIsFound )
-{
-	EXPECT_FALSE( ReadLayout().empty() )
-		<< "cannot find " << kLayoutRelative << " -- every test below is vacuous without it";
-}
-
-TEST( VtableLayoutLength, ShimRootIsThreeSlots )
-{
-	// plan_engineapi_vtables step A3, and C5 (AcquireInterface, before Release);
-	// AbiVersion left with the ABI version (2026-10-01). No virtual destructor,
-	// for ishim_frame.h's reason. Release is the anchor managed's
-	// ShimRoot.TryBind holds the count against, with equality.
-	const int compiler = VTableHook::MemberOf( &IShimRoot::Release ).slot + 1;
-
-	EXPECT_EQ( 3, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimRootVtbl" ) );
-}
-
-TEST( VtableLayoutLength, ShimConsoleIsElevenSlots )
-{
-	// plan_engineapi_vtables step A4: the ten console slots of EngineApi, in
-	// the struct's order, then RevertNamedConVar (sound cluster 17, lane
-	// c2-sims). No virtual destructor.
-	const int compiler = VTableHook::MemberOf( &IShimConsole::ConsoleSnapshotEntry ).slot + 1;
-
-	EXPECT_EQ( 11, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimConsoleVtbl" ) );
-}
-
-TEST( VtableLayoutLength, ParticleLibIsFortyFiveSlots )
-{
-	// plan_particles_so.md: libss_particles.so's ISSParticleLib -- Connect,
-	// Disconnect, Mgr, Counters, then the 41 particles.a members client.so
-	// forwards. No virtual destructor. MgrUncacheAllParticleSystems is the
-	// anchor ParticleLib_Acquire reports (particles_lib_client.cpp).
-	const int compiler = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
-
-	EXPECT_EQ( 45, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ParticleLibVtbl" ) );
-}
-
-TEST( VtableLayoutLength, ShimFrameIsNineteenSlots )
-{
-	// NINETEEN AND NOT TWENTY-ONE. IShimFrame declares no virtual destructor --
-	// deliberately, see ishim_frame.h -- so there is no Itanium complete/
-	// deleting pair in front of the first method and slot 0 really is
-	// IsSimulatingOnAlternateTicks. Adding one would move every slot by two,
-	// and this arm is where that arrives.
-	//
-	// Seventeen until plan_entity.md step 1g, which split StandaloneRunFrame
-	// into StandaloneUpdate and StandaloneFinish so the managed think pass
-	// could run between them; eighteen until the sub-ioqueue lane appended
-	// DeliverToSdkEntities, the leaf the managed I/O queue asks when nothing
-	// managed answered an input.
-	//
-	// READ OFF THE LAST MEMBER, whichever it is: this is `+ 1` on the tail of
-	// the header, so an append that forgets the layout file is caught by the
-	// second EXPECT rather than by the first agreeing with a stale constant.
-	const int compiler = VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot + 1;
-
-	EXPECT_EQ( 19, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimFrameVtbl" ) );
-}
-
-TEST( VtableLayoutLength, ShimLevelIsTwentySixSlots )
-{
-	// Twenty-six and not twenty-eight: IShimLevel declares no virtual
-	// destructor either, for the reason ishim_level.h gives.
-	//
-	// TWENTY-TWO UNTIL STAGE 2 OF THE SAVE LANE, which appended
-	// LoadSaveGameState -- the one call the game DLL has to make for a saved
-	// world to come back, and the reason stage 1's ReadRestoreHeaders and
-	// Restore never fired. TWENTY-THREE UNTIL plan_server_novalve P2.1, which
-	// appended FileSizeOnPath and ReadFileOnPath for the managed particle
-	// manifest. TWENTY-FIVE UNTIL P5, which appended SpawnWorld: the world
-	// arrives as parsed pairs instead of map text. The number moving is what the
-	// append-only rule looks like from here; the ORDER check below is what says
-	// it appended.
-	const int compiler = VTableHook::MemberOf( &IShimLevel::SpawnWorld ).slot + 1;
-
-	EXPECT_EQ( 26, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimLevelVtbl" ) );
-}
-
-TEST( VtableLayoutLength, TheShimLevelSlotsAreInTheHeadersOwnOrder )
-{
-	// The first, one in the middle and the last -- because the span check
-	// cannot see a reorder and this is where a reorder arrives.
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IShimLevel::ResetServerTime ).slot );
-	EXPECT_EQ( 7, VTableHook::MemberOf( &IShimLevel::ResetDeleteList ).slot );
-
-	// PropDataClearFile WAS the last slot and is now the second to last. It
-	// stays at 21, which is what says stage 2's LoadSaveGameState was APPENDED
-	// rather than inserted -- the one diff shape the append-only rule permits
-	// and the one the span check cannot check.
-	EXPECT_EQ( 21, VTableHook::MemberOf( &IShimLevel::PropDataClearFile ).slot );
-	EXPECT_EQ( 22, VTableHook::MemberOf( &IShimLevel::LoadSaveGameState ).slot );
-}
-
-TEST( VtableLayoutLength, TheShimFrameSlotsAreInTheHeadersOwnOrder )
-{
-	// THE SPAN CHECK CANNOT SEE A REORDER, which is the whole reason
-	// ishim_frame.h is append-only by rule: `managed <= native` protects against
-	// APPENDS and nothing else, and two methods of the same shape swapped in the
-	// middle passes it and silently misbinds.
-	//
-	// So the compiler is asked where three of them are -- the first, one in the
-	// middle, and the last -- rather than only how many there are.
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IShimFrame::IsSimulatingOnAlternateTicks ).slot );
-	EXPECT_EQ( 6, VTableHook::MemberOf( &IShimFrame::PhysicsRunThinkFunctions ).slot );
-	EXPECT_EQ( 16, VTableHook::MemberOf( &IShimFrame::StandaloneUpdate ).slot );
-	EXPECT_EQ( 17, VTableHook::MemberOf( &IShimFrame::StandaloneFinish ).slot );
-	EXPECT_EQ( 18, VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot );
-}
-
-TEST( VtableLayoutLength, EveryBoundMethodIsVirtualAndNeedsNoThisAdjustment )
-{
-	// A NON-VIRTUAL MEMBER IS NOT IN THE TABLE AT ALL, so indexing one is a
-	// category error rather than an off-by-one. And a non-zero adjustment would
-	// mean the pointer was converted from a base's member to a derived's, in
-	// which case the slot is numbered against a table this is not indexing.
-	const VTableHook::Member members[] = {
-		// CShimFrame derives from IShimFrame singly, so a non-zero adjustment
-		// here would mean the pointer had been converted across a base and the
-		// slot numbered against a table nothing is indexing.
-		VTableHook::MemberOf( &IShimFrame::TickCount ),
-		VTableHook::MemberOf( &IShimLevel::ResetServerTime ),
-	};
-
-	for ( size_t i = 0; i < sizeof( members ) / sizeof( members[ 0 ] ); i++ )
-	{
-		EXPECT_TRUE( members[ i ].isVirtual ) << "member " << i;
-		EXPECT_EQ( 0, members[ i ].adjust ) << "member " << i;
-	}
-}
-
-TEST( VtableLayoutLength, AStructTheGeneratorNoLongerEmitsReadsAsMinusOneRatherThanZero )
-{
-	// THE ARM THAT MAKES EVERY TEST ABOVE MEAN SOMETHING. If FieldsIn answered 0
-	// for a struct it could not find, every EXPECT_EQ above would compare a real
-	// number against 0 and fail loudly -- but a future refactor that made it
-	// answer the count of an EMPTY body would pass silently. -1 can never equal
-	// a table length.
-	EXPECT_EQ( -1, FieldsIn( ReadLayout(), "NoSuchVtblStructExists" ) );
-}
-
-//=============================================================================
-// THE VALVE-LAYOUT TABLES MANAGED WRITES.
-//
-// One test per interface, and each is the same two questions: what does the
-// COMPILER say this table's length is, and does the committed generated file
-// say the same? The compiler's answer comes from a pointer to the chain's last
-// declaration, which carries its own slot.
-//
-// THE TWO ANSWERS ARE INDEPENDENT even though the method's NAME came from the
-// header walk. If the walk missed a method, the last one is still last and its
-// true slot is higher than the walk's count; if the walk counted one the
-// compiler does not (a `#if` compiled out, say), the true slot is lower. Either
-// way the numbers part company, which is the whole failure mode a generated
-// layout has.
-//=============================================================================
-
-#define VTABLE_LENGTH_TEST( name, structName, expr, expected )   \
-	TEST( VtableLayoutLength, name )                             \
-	{                                                            \
-		const int compiler = VTableHook::MemberOf( expr ).slot + 1; \
-		EXPECT_EQ( expected, compiler );                         \
-		EXPECT_EQ( compiler, FieldsIn( ReadLayout(), structName ) ); \
-	}
 
 // The five callbacks managed registers (ClientSteamCallbacks.cs): each id and
 // payload size the SDK headers give, which ClientSteamCallbacksTests pins on
@@ -628,48 +367,3 @@ TEST( SurfaceDataLayout, TheSoundFieldsTheManagedBatchReads )
 // plan_engineapi_vtables Phase C: one length test per interface tools/shim-areas
 // generates, and kShimAreasCovered naming their structs -- generated from the
 // same table as the interfaces and their layouts.
-#include "shim_areas_layout.inc"
-
-// The tables managed writes and native calls are not here: tools/managed-areas
-// writes both sides of each from docs/managed-interfaces.tsv, its C struct with
-// a static_assert of its size, and native checks managed's per-slot hashes at
-// acquire (plan_forwarders_everywhere.md phase 4).
-
-TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
-{
-	// THE ARM THAT NOTICES A LAYOUT NOBODY CHECKED. tools/vtable-layout emits
-	// one struct per interface it knows about; if a later lane adds one and no
-	// test here names it, its length is a claim with nothing behind it.
-	const char *const kCovered[] = {
-		// The shim layer.
-		"ShimFrameVtbl", "ShimLevelVtbl", "ShimRootVtbl", "ShimConsoleVtbl",
-		// plan_particles_so.md: libss_particles.so's own export, served by the
-		// client's internal factory.
-		"ParticleLibVtbl",
-	};
-
-	const std::string layout = ReadLayout();
-	const int covered = (int)( sizeof( kCovered ) / sizeof( kCovered[ 0 ] ) );
-
-	const int areas = (int)( sizeof( kShimAreasCovered ) / sizeof( kShimAreasCovered[ 0 ] ) );
-
-	// Every name above must really be in the file...
-	for ( int i = 0; i < covered; i++ )
-		EXPECT_NE( -1, FieldsIn( layout, kCovered[ i ] ) ) << kCovered[ i ];
-	for ( int i = 0; i < areas; i++ )
-		EXPECT_NE( -1, FieldsIn( layout, kShimAreasCovered[ i ] ) ) << kShimAreasCovered[ i ];
-
-	// ...and the file must hold no OTHER struct.
-	int emitted = 0;
-	size_t at = 0;
-	const std::string needle = " unsafe struct ";   // internal or public
-
-	while ( ( at = layout.find( needle, at ) ) != std::string::npos )
-	{
-		emitted++;
-		at += needle.size();
-	}
-
-	EXPECT_EQ( covered + areas, emitted )
-		<< "a generated struct has no length test naming it";
-}
