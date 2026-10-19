@@ -70,13 +70,13 @@ marker is the answer to "why is this native at all", not a full account.
 | a | a vtable the engine or VPhysics calls through | 21 | 5 | 30 |  |  |  | 59 | 34,798 |
 | b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 17,720 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,077 |
-| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,357 |
+| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,383 |
 | e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,552 |
 | f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,715 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,415 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
-| x | NO LETTER FITS | 7 | 2 | 1 |  | 2 |  | 18 | 4,540 |
-|  | **total** | **77** | **35** | **67** | **3** | **2** | **1** | **209** | **93,286** |
+| x | NO LETTER FITS | 7 | 2 | 1 |  | 2 |  | 18 | 4,559 |
+|  | **total** | **77** | **35** | **67** | **3** | **2** | **1** | **209** | **93,331** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -188,6 +188,8 @@ Then physics_debug.cpp left (2026-10-18, measured by the walk on the lane rebase
 Then detailobjectsystem.cpp left client.so (C7 cluster 10, 2026-10-18, measured by the walk on the lane rebased onto main a7ee694f9): (a) arrives with sourcesharp/game/client/shell_detail_props.cpp (client, +497 lines, one file), client.so's IDetailObjectSystem, the model props' IClientRenderable and the leaf enumerator, carrying out SourceSharp.Client.Detail's answers; (g) 9,755 -> 9,748 is shell_client_orphans.cpp's GetDetailController, whose only importer was detailobjectsystem.cpp (-7); 218 files, 98,339 in the table.
 
 Then the server's last two native skeleton slots left the ABI (2026-10-18, lane claude/tail-skeleton-standalone, measured by the walk on the lane rebased onto main f4b31392d): (a) 34,846 -> 34,798 is shell_scripted.cpp's SourceSharp_EntitySetSequence and its comment block (-48); (g) 9,446 -> 9,415 is shell_standalone_hierarchy.cpp's SourceSharp_EntityLookupAttachmentAny and StandaloneBones_Unreached (-31). ServerSkeletons answers both; no file left or arrived; 209 files, 93,286 lines in the table.
+
+Then CI on main (2026-10-19, measured by the walk on 546910d): client.dll's MSVC link without tier0.lib. (d) 9,357 -> 9,383 is tier_bindings_client.cpp emitting tier0's inline CThreadMutex and CThreadSpinRWLock members, which fork objects import where MSVC did not inline them (+18), and binding g_pVCR, through which the emitted Lock enters its critical section, to tier0.dll's (+8); (x) 4,540 -> 4,559 is tier0_vprof_client.cpp emitting CVProfile's inline EnterScope and ExitScope the same way (+16), and defining its profile in an extern "C" block, which gcc 10 requires (+3); 209 files, 93,331 in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

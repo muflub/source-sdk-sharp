@@ -1557,8 +1557,11 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 		<< " files -- under a hundred lines each, so the files were opened and "
 		<< "not read";
 	// 14,000: detailobjectsystem.cpp's 2,881 lines left the scan with the file
-	// (C7 cluster 10; 14,518 scanned after it).
-	EXPECT_GT( client.nLines, 14000 )
+	// (C7 cluster 10; 14,518 scanned after it, in a tree set up from the fork).
+	// 13,000: a tree from stock upstream plus patches/ (make sdk-upstream, as
+	// CI's) reads fewer lines, since the fork's edited files are longer: 13,913
+	// at 28b4e9d and 13,715 at 4cb81375.
+	EXPECT_GT( client.nLines, 13000 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )

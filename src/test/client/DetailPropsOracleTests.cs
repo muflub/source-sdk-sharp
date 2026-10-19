@@ -29,6 +29,15 @@ namespace SourceSharp.Tests;
 /// (<c>R</c>) have no managed row to print, so their effect, the copies'
 /// corners, is what is compared.
 /// </para>
+///
+/// <para>
+/// One difference is the platform's: the sprites' corners and the models'
+/// yaw go through the C runtime's <c>atan2f</c>, <c>sinf</c> and
+/// <c>cosf</c>, whose last bit is the recording machine's libm (glibc 2.39's
+/// <c>atan2f</c> and the Windows C runtime's <c>sinf</c> each differ from it).
+/// A row that differs is held to that last bit's bound, and every other column
+/// of it exactly.
+/// </para>
 /// </summary>
 public class DetailPropsOracleTests
 {
@@ -505,8 +514,53 @@ public class DetailPropsOracleTests
     // recording's: each corner is the sprite's centre plus or minus the
     // half-width times a unit vector whose length rests on the estimate
     // (relative error 1.5 * 2^-12 on either maker's), so a coordinate may move
-    // by 2^-10 of the half-width plus a few of its own ulps.
-    private static bool CloseVertex(string expected, string actual)
+    // by 2^-10 of the half-width. The quad's extent is at least the half-width.
+    private const float RsqBound = 1.0f / 1024.0f;
+
+    // libm's last bit: one ulp of an angle or of its sine moves a corner by a
+    // few millionths of the sprite's size (3.3e-6 of its extent at most, measured
+    // against glibc 2.39), well inside 2^-14.
+    private const float LibmBound = 1.0f / 16384.0f;
+
+    // Each vertex's quad extent, by row: the largest of its four corners' spans
+    // along x, y and z in the golden. A draw's vertices are whole quads.
+    private static Dictionary<int, float> QuadExtents(List<string> rows)
+    {
+        var extents = new Dictionary<int, float>();
+        int run = -1;
+        for (int i = 0; i < rows.Count; i++)
+        {
+            if (!rows[i].StartsWith("V\t", StringComparison.Ordinal))
+            {
+                run = -1;
+                continue;
+            }
+            if (run < 0)
+                run = i;
+            int first = run + (i - run) / 4 * 4;
+            if (first != i)
+                continue;
+            float extent = 0;
+            for (int axis = 1; axis <= 3; axis++)
+            {
+                float lo = float.MaxValue, hi = float.MinValue;
+                for (int k = first; k < first + 4 && k < rows.Count && rows[k].StartsWith("V\t", StringComparison.Ordinal); k++)
+                {
+                    float v = F(rows[k].Split('\t')[axis]);
+                    lo = MathF.Min(lo, v);
+                    hi = MathF.Max(hi, v);
+                }
+                extent = MathF.Max(extent, hi - lo);
+            }
+            for (int k = first; k < first + 4; k++)
+                extents[k] = extent;
+        }
+        return extents;
+    }
+
+    // A vertex whose position is within `relative` of its quad's extent, plus a
+    // few of its own ulps, and whose colour and texture coordinates are exact.
+    private static bool CloseVertex(string expected, string actual, float extent, float relative)
     {
         string[] e = expected.Split('\t'), a = actual.Split('\t');
         if (e.Length != a.Length || e[0] != "V" || a[0] != "V")
@@ -519,8 +573,30 @@ public class DetailPropsOracleTests
         for (int i = 1; i <= 3; i++)
         {
             float x = F(e[i]), y = F(a[i]);
-            float bound = MathF.Max(MathF.Abs(x), 64.0f) * 2.0e-6f + 0.05f;
+            float bound = extent * relative + 4.0f * (MathF.BitIncrement(MathF.Abs(x)) - MathF.Abs(x));
             if (MathF.Abs(x - y) > bound)
+                return false;
+        }
+        return true;
+    }
+
+    // A model row (M, or its DrawModel's DM) whose angles are within libm's
+    // last bit, four ulps after the conversion to degrees (three at most,
+    // measured against glibc 2.39), and every other column exact. Angles are
+    // M's columns 6-8 and DM's 8-10.
+    private static bool CloseModelAngles(string expected, string actual)
+    {
+        string[] e = expected.Split('\t'), a = actual.Split('\t');
+        int first = e[0] switch { "M" => 6, "DM" => 8, _ => -1 };
+        if (first < 0 || e.Length != a.Length || e[0] != a[0])
+            return false;
+        for (int i = 1; i < e.Length; i++)
+        {
+            if (e[i] == a[i])
+                continue;
+            if (i < first || i > first + 2)
+                return false;
+            if (Math.Abs((long)BitConverter.SingleToInt32Bits(F(e[i])) - BitConverter.SingleToInt32Bits(F(a[i]))) > 4)
                 return false;
         }
         return true;
@@ -539,7 +615,8 @@ public class DetailPropsOracleTests
         List<string> actual = NormalizeLoads(r.Actual);
         Assert.Equal(r.Actual.Count, actual.Count);
 
-        int vertices = 0, fast = 0;
+        Dictionary<int, float> extents = QuadExtents(golden);
+        int vertices = 0;
         for (int i = 0; i < Math.Min(golden.Count, actual.Count); i++)
         {
             if (golden[i] == actual[i])
@@ -548,13 +625,14 @@ public class DetailPropsOracleTests
                     vertices++;
                 continue;
             }
-            bool fastCorner = !r.RsqMatches && r.FastVertexLines.Contains(i) && CloseVertex(golden[i], actual[i]);
-            if (fastCorner)
+            float relative = !r.RsqMatches && r.FastVertexLines.Contains(i) ? RsqBound : LibmBound;
+            if (extents.TryGetValue(i, out float extent) && CloseVertex(golden[i], actual[i], extent, relative))
             {
-                fast++;
                 vertices++;
                 continue;
             }
+            if (CloseModelAngles(golden[i], actual[i]))
+                continue;
             Assert.Fail($"row {i + 1}: stock wrote\n  {golden[i]}\nand the port\n  {actual[i]}\n" +
                         $"(previous row {(i > 0 ? golden[i - 1] : "-")})");
         }
