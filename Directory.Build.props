@@ -68,9 +68,9 @@
       interface library (user ruling, 2026-10-05) and is not on this list.
   -->
   <PropertyGroup>
-    <SourceSharpStaticStateGated>;SourceSharp.Abi;SourceSharp.Server;SourceSharp.Client;Debug.Api.Server;SourceSharp.Shared.Interop;SourceSharp.Server.Interop;SourceSharp.Client.Interop;Debug.Api.Client;Debug.Api.Server.Interfaces;Debug.Api.Client.Interfaces;SourceSharp.Client.Interface;Debug.Api.Shared;SourceSharp.Client.Ui.Toolkit;SourceSharp.Client.Ui;</SourceSharpStaticStateGated>
+    <SourceSharpStaticStateGated>;SourceSharp.Abi;SourceSharp.Server;SourceSharp.Client;Debug.Api.Server;SourceSharp.Server.Interop;SourceSharp.Client.Interop;Debug.Api.Client;Debug.Api.Server.Interfaces;Debug.Api.Client.Interfaces;SourceSharp.Client.Interface;Debug.Api.Shared;SourceSharp.Client.Ui.Toolkit;SourceSharp.Client.Ui;</SourceSharpStaticStateGated>
     <SourceSharpModGated>;TF2.Descent.Rules;TF2.Descent.Server;TF2.Descent.Client;TF2.Server;TF2.Client;</SourceSharpModGated>
-    <SourceSharpTestGated>;SourceSharp.Shared.Tests;SourceSharp.Server.Tests;SourceSharp.Client.Tests;TF2.Descent.Tests;TF2.Tests;SourceSharp.OracleTests;SourceSharp.TestSupport;</SourceSharpTestGated>
+    <SourceSharpTestGated>;SourceSharp.Shared.Tests;SourceSharp.Server.Tests;SourceSharp.Client.Tests;TF2.Descent.Tests;TF2.Tests;SourceSharp.OracleTests;SourceSharp.TestSupport.Server;SourceSharp.TestSupport.Client;</SourceSharpTestGated>
     <SourceSharpInterfaceGated>;SourceSharp.Client.Interface;Debug.Api.Server.Interfaces;Debug.Api.Client.Interfaces;</SourceSharpInterfaceGated>
     <SourceSharpStaticStateWaivers Condition="'$(SourceSharpStaticStateWaivers)' == ''">$(RepoRoot)src/analyzers/static-state-waivers.txt</SourceSharpStaticStateWaivers>
   </PropertyGroup>

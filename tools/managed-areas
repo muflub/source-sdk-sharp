@@ -81,7 +81,7 @@ OUT_RUNTIME = 'src/shared/native/imanaged_runtime.h'
 OUT_HOLDER = 'src/shared/native/shell_managed_areas.h'
 OUT_IMPL = 'src/shared/native/shell_managed_areas.inc'
 # Every table managed writes, as C#, in the assembly whose code builds it, as
-# tools/engine-forwarders places its structs: the root's in Shared.Interop (its
+# tools/engine-forwarders places its structs: the root's in the shared interop (its
 # ManagedRoot builds it, for both sides; the Abi holds plumbing only), the
 # server's runtime and areas in Server.Interop, the client's runtime, areas and
 # Steam callback in Client.Interop.
@@ -89,7 +89,7 @@ OUT_TABLES = 'src/shared/interop/SharedManagedTables.g.cs'
 OUT_TABLES_SERVER = 'src/server/interop/ServerManagedTables.g.cs'
 OUT_TABLES_CLIENT = 'src/client/interop/ClientManagedTables.g.cs'
 TABLE_FILES = {
-    OUT_TABLES: 'SourceSharp.Shared.Interop, for the table both sides build (the root)',
+    OUT_TABLES: 'the shared interop (each side\'s interop compiles it), for the table both sides build (the root)',
     OUT_TABLES_SERVER: 'SourceSharp.Server.Interop, for the server\'s runtime and areas',
     OUT_TABLES_CLIENT: 'SourceSharp.Client.Interop, for the client\'s runtime, areas and Steam callback',
 }
@@ -776,7 +776,7 @@ def self_test():
     expect('the table struct is held to one pointer per slot by the compiler',
            'static_assert( sizeof( SSManagedSoundEntTable ) == 6 * sizeof( void * )' in iface)
     tables = out[OUT_TABLES_SERVER]
-    expect('each table is in the assembly that builds it: the root in Shared.Interop, a server area in '
+    expect('each table is in the assembly that builds it: the root in the shared interop, a server area in '
            'Server.Interop, a client area and the Steam callback in Client.Interop',
            'struct ManagedRootTable' in out[OUT_TABLES] and 'struct ManagedSoundEntTable' not in out[OUT_TABLES]
            and table_file('IManagedRuntimeServer') == OUT_TABLES_SERVER
@@ -864,7 +864,7 @@ def self_test():
                in out[table_file(i)] for i in CALLBACKS)
            and 'ReservedWords' not in out[OUT_TABLES_CLIENT]
            and '[ImplementedByManaged("IManagedSoundEnt")]' in out[OUT_TABLES_SERVER])
-    expect('a callback\'s table is in the assembly that builds it: shared ones in Shared.Interop, '
+    expect('a callback\'s table is in the assembly that builds it: shared ones in the shared interop, '
            'the server\'s motion controller in Server.Interop',
            table_file('IManagedVPhysicsKeyHandler') == OUT_TABLES
            and table_file('IManagedMotionEvent') == OUT_TABLES_SERVER)

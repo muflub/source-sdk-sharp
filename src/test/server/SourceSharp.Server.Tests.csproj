@@ -21,7 +21,7 @@
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <!-- StaticStateWaivers reads the static-state waiver list through the analyzer's parser. -->
     <ProjectReference Include="..\..\analyzers\SourceSharp.Analyzers.csproj" />
-    <ProjectReference Include="..\support\SourceSharp.TestSupport.csproj" />
+    <ProjectReference Include="..\support\server\SourceSharp.TestSupport.Server.csproj" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
     <ProjectReference Include="..\..\debug_api\interfaces\Debug.Api.Server.Interfaces.csproj" />
     <ProjectReference Include="..\..\debug_api\Debug.Api.Server.csproj" />

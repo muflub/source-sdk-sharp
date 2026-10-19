@@ -121,7 +121,7 @@ public unsafe class EngineSideTests
         var assemblies = new[]
         {
             typeof(ILog).Assembly, typeof(EngineSide).Assembly, typeof(SourceSharp.Shared.Interop.SideLoad).Assembly,
-            typeof(SourceSharp.Server.Interop.FrameBinding).Assembly, typeof(SourceSharp.Client.Interop.ClientSideEntry).Assembly,
+            typeof(SourceSharp.Server.Interop.FrameBinding).Assembly, typeof(client::SourceSharp.Client.Interop.ClientSideEntry).Assembly,
             typeof(SourceSharp.Server.ServerModule).Assembly, typeof(client::SourceSharp.Client.ClientModule).Assembly,
         }.Distinct().ToList();
 

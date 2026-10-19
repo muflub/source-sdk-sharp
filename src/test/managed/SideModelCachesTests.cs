@@ -164,25 +164,6 @@ public class SideModelCachesTests
     }
 
     [Fact]
-    public void TwoClientCompositionsRegisterAndClearTheirOwnEnginesCaches()
-    {
-        var engineA = new ModuleEngine(new EngineSide(Side.Client));
-        var engineB = new ModuleEngine(new EngineSide(Side.Client));
-        var a = new ClientModule(engineA);
-        var b = new ClientModule(engineB);
-        a.ComposeEngineAreas();
-        b.ComposeEngineAreas();
-
-        Assert.Same(engineA.Models, a.Services.Require<ModelDescriptors>());
-        Assert.Same(engineB.Models, b.Services.Require<ModelDescriptors>());
-        Assert.NotSame(engineA.Models, engineB.Models);
-
-        var runtime = b.NewRuntimeBinding();
-        Assert.Same(engineB.Models, Held<ModelDescriptors>(runtime));
-        Assert.Same(engineB.Breaks, Held<BreakModels>(runtime));
-    }
-
-    [Fact]
     public void TheServersLevelShutdownClearsTheCachesItIsHandedAndNoOthers()
     {
         var mine = Descriptors([]);
@@ -194,23 +175,6 @@ public class SideModelCachesTests
         Assert.Equal(1, breaks.Parses);
 
         new SourceSharp.Server.Interop.FrameBinding(new Crossings(), new RecordingLog(), new QuietModule(), new LivenessMirror(), mine, breaks).LevelShutdown();
-
-        Assert.Equal(0, mine.CachedCount);
-        Assert.Equal(0, breaks.Parses);
-        Assert.Equal(1, theirs.CachedCount);
-    }
-
-    [Fact]
-    public void TheClientsLevelShutdownClearsTheCachesItIsHandedAndNoOthers()
-    {
-        var mine = Descriptors([]);
-        var theirs = Descriptors([]);
-        var breaks = new BreakModels(_ => 7, _ => -1, _ => Crate, mine, new RecordingLog());
-        mine.ForModel(Model);
-        theirs.ForModel(Model);
-        breaks.Count(Model);
-
-        new SourceSharp.Client.Interop.ClientRuntimeBinding(new Crossings(), new RecordingLog(), new QuietHost(), new StandaloneMirror(), mine, breaks).LevelShutdown();
 
         Assert.Equal(0, mine.CachedCount);
         Assert.Equal(0, breaks.Parses);
@@ -252,16 +216,5 @@ public class SideModelCachesTests
         public void ConCommandDispatch(int commandId, string args) { }
         public void Shutdown() { }
         public void DispatchGameEvent(string eventName, IntPtr handle) { }
-    }
-
-    private sealed class QuietHost : SourceSharp.Client.Interop.IClientRuntimeHost
-    {
-        public void Frame(float frameTime) { }
-        public void OnStage(int stage) { }
-        public void LevelInit(string mapName) { }
-        public void LevelShutdown() { }
-        public void InvalidateMdlCache() { }
-        public bool ParticlesNeedFullReload(int previousMapParticleFiles) => true;
-        public string? MapMaterialReloadSet(string nextBsp, string previousBsp) => null;
     }
 }

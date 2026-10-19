@@ -56,7 +56,10 @@ public class PairingAuditTests
             if (attribute is null)
                 continue;
 
-            var states = NetStateBinding.FieldsOn(type)
+            // The client's own binding: each side compiles the shared interop
+            // (plan_shim_areas_split phase 3), and a client state field is of
+            // the client's NetState.
+            var states = client::SourceSharp.Abi.NetStateBinding.FieldsOn(type)
                                         .Select(f => f.FieldType.Name)
                                         .ToHashSet(StringComparer.Ordinal);
 

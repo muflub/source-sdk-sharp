@@ -52,9 +52,9 @@ internal sealed record Reach(string Path, ReachKind Kind, string Type, string Me
 /// implements, costs its caller exactly what calling Inner would; its own
 /// reference is not a use. What counts is what its subclasses override and
 /// call, and what callers call through it: a call to such a member is charged
-/// with the member it forwards to. This is how EngineEffectsForwarder lives in
-/// SourceSharp.Server beside its one subclass without the server "using" the
-/// client-only effects it forwards and never calls.
+/// with the member it forwards to. This is how EngineEffectsForwarder is shared
+/// source, compiled into both sides, without either "using" the other side's
+/// effects it forwards and never calls.
 /// </para>
 /// </summary>
 internal static class SideReach

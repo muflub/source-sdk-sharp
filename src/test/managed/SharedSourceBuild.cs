@@ -6,50 +6,98 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// The shared source (src/shared/managed) compiled ALONE, the way the
-/// SourceSharp.Shared assembly was before plan_side_isolation P7 folded it into
-/// each side: against SourceSharp.Abi and SourceSharp.Shared.Interop only, with
-/// the generators. What a fact needs to say about "the code both sides compile"
-/// it says about this assembly, because inside SourceSharp.Server or
-/// SourceSharp.Client that code is mixed with one side's own.
+/// The code both sides compile, compiled ALONE: the shared interop
+/// (src/shared/interop) as the SourceSharp.Shared.Interop assembly was before
+/// plan_shim_areas_split phase 3 compiled it into each side's interop, and the
+/// shared source (src/shared/managed) as the SourceSharp.Shared assembly was
+/// before plan_side_isolation P7 folded it into each side, against the Abi and
+/// that interop only, with the generators. What a fact needs to say about "the
+/// code both sides compile" it says about these, because inside a side's
+/// assemblies that code is mixed with the side's own.
 /// </summary>
 internal static class SharedSourceBuild
 {
     /// <summary>
-    /// The assembly's name. Shared.Interop grants it its internals, as it
-    /// granted SourceSharp.Shared, because the shared source reads them.
+    /// The shared source's assembly name. The interop below grants it its
+    /// internals, as Shared.Interop granted SourceSharp.Shared, because the
+    /// shared source reads them.
     /// </summary>
     public const string Name = "SourceSharp.SharedSource";
 
     /// <summary>
+    /// The shared interop's assembly name. The Abi grants it its internals, as
+    /// it granted SourceSharp.Shared.Interop.
+    /// </summary>
+    public const string InteropName = "SourceSharp.SharedInteropSource";
+
+    /// <summary>A fresh directory for one build; the caller deletes it.</summary>
+    public static string NewDirectory()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "ss-shared-source-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    /// <summary>
     /// Compiles the shared source into a fresh directory, beside copies of the
-    /// two assemblies it references, and answers the built file's path. A
+    /// Abi and the shared interop it references (built alone, as
+    /// <see cref="BuildInterop"/>), and answers the built file's path. A
     /// compile error is a failure: an audit of an assembly that did not build
     /// would read nothing.
     /// </summary>
     public static string Build()
     {
-        string source = RepoLayout.Repo("src", "shared", "managed");
+        string dir = NewDirectory();
+        string interop = BuildInterop(dir);
+        string path = Compile(dir, Name, Sources("src", "shared", "managed"),
+                              [Abi().Location, interop], allowUnsafe: false, extra: []);
+        return path;
+    }
+
+    /// <summary>
+    /// Compiles the shared interop alone into <paramref name="dir"/>, beside a
+    /// copy of the Abi, and answers the built file's path.
+    /// </summary>
+    public static string BuildInterop(string dir)
+    {
+        // What the interop granted as an assembly of its own and what the code
+        // compiled alone needs: the shared source reads its internals.
+        const string grants = """
+            [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SourceSharp.SharedSource")]
+            """;
+        return Compile(dir, InteropName, Sources("src", "shared", "interop"),
+                       [Abi().Location], allowUnsafe: true, extra: [grants]);
+    }
+
+    private static Assembly Abi() => typeof(SourceSharp.Abi.ILog).Assembly;
+
+    private static string[] Sources(params string[] relative)
+    {
+        string source = RepoLayout.Repo(relative);
+        string sep = Path.DirectorySeparatorChar.ToString();
         string[] files = Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
-                                  .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                                  .Where(f => !f.Contains($"{sep}obj{sep}", StringComparison.Ordinal)
+                                           && !f.Contains($"{sep}bin{sep}", StringComparison.Ordinal))
                                   .OrderBy(f => f, StringComparer.Ordinal)
                                   .ToArray();
-        Assert.True(files.Length > 50, $"the shared source at {source} ({files.Length} files)");
+        Assert.True(files.Length > 50, $"the shared code at {source} ({files.Length} files)");
+        return files;
+    }
 
+    private static string Compile(string dir, string name, string[] files, string[] references,
+                                  bool allowUnsafe, string[] extra)
+    {
         var options = new CSharpParseOptions(LanguageVersion.Latest);
         var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(f), options, f))
                          .Append(CSharpSyntaxTree.ParseText(ImplicitUsings, options, "<implicit usings>"))
+                         .Concat(extra.Select((t, k) => CSharpSyntaxTree.ParseText(t, options, $"<extra {k}>")))
                          .ToList();
 
-        Assembly abi = typeof(SourceSharp.Abi.ILog).Assembly;
-        Assembly interop = typeof(SourceSharp.Shared.Interop.SideLoad).Assembly;
-        var references = Platform().Append(MetadataReference.CreateFromFile(abi.Location))
-                                   .Append(MetadataReference.CreateFromFile(interop.Location))
-                                   .ToArray();
-
-        var compilation = CSharpCompilation.Create(Name, trees, references,
+        var compilation = CSharpCompilation.Create(name, trees,
+            Platform().Concat(references.Select(r => (MetadataReference)MetadataReference.CreateFromFile(r))).ToArray(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-                                         nullableContextOptions: NullableContextOptions.Enable));
+                                         nullableContextOptions: NullableContextOptions.Enable,
+                                         allowUnsafe: allowUnsafe));
 
         // Every generator the side projects run over the same source.
         var generators = typeof(SourceSharp.Generators.NetStateGenerator).Assembly.GetTypes()
@@ -62,16 +110,18 @@ internal static class SharedSourceBuild
         CSharpGeneratorDriver.Create(generators, parseOptions: options)
                              .RunGeneratorsAndUpdateCompilation(compilation, out Compilation generated, out _);
 
-        string dir = Path.Combine(Path.GetTempPath(), "ss-shared-source-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        File.Copy(abi.Location, Path.Combine(dir, Path.GetFileName(abi.Location)));
-        File.Copy(interop.Location, Path.Combine(dir, Path.GetFileName(interop.Location)));
+        foreach (string reference in references)
+        {
+            string copy = Path.Combine(dir, Path.GetFileName(reference));
+            if (!File.Exists(copy))
+                File.Copy(reference, copy);
+        }
 
-        string path = Path.Combine(dir, Name + ".dll");
+        string path = Path.Combine(dir, name + ".dll");
         using (var stream = File.Create(path))
         {
             var result = generated.Emit(stream);
-            Assert.True(result.Success, "the shared source compiles alone: "
+            Assert.True(result.Success, $"{name} compiles alone: "
                 + string.Join("\n", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Take(20)));
         }
 

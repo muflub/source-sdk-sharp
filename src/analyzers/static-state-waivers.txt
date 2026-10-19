@@ -18,11 +18,18 @@
 # (<Name>k__BackingField), a nested type with ".", a generic one with `N.
 
 # P1 run 3: moved Abi -> Shared.Interop; stateless null objects and an empty value.
-SourceSharp.Shared.Interop: SourceSharp.Abi.EmptyTiers.Instance	NULL-OBJECT
-SourceSharp.Shared.Interop: SourceSharp.Abi.ModelDescriptor.Empty	NULL-OBJECT
-SourceSharp.Shared.Interop: SourceSharp.Abi.NoClientReplayEngine.Instance	NULL-OBJECT
-SourceSharp.Shared.Interop: SourceSharp.Abi.NoInterpolationBlocks.Instance	NULL-OBJECT
-SourceSharp.Shared.Interop: SourceSharp.Abi.NoRenderPolicyBlocks.Instance	NULL-OBJECT
+# One per side since the shared interop compiles into each (plan_shim_areas_split
+# phase 3).
+SourceSharp.Server.Interop: SourceSharp.Abi.EmptyTiers.Instance	NULL-OBJECT
+SourceSharp.Server.Interop: SourceSharp.Abi.ModelDescriptor.Empty	NULL-OBJECT
+SourceSharp.Server.Interop: SourceSharp.Abi.NoClientReplayEngine.Instance	NULL-OBJECT
+SourceSharp.Server.Interop: SourceSharp.Abi.NoInterpolationBlocks.Instance	NULL-OBJECT
+SourceSharp.Server.Interop: SourceSharp.Abi.NoRenderPolicyBlocks.Instance	NULL-OBJECT
+SourceSharp.Client.Interop: SourceSharp.Abi.EmptyTiers.Instance	NULL-OBJECT
+SourceSharp.Client.Interop: SourceSharp.Abi.ModelDescriptor.Empty	NULL-OBJECT
+SourceSharp.Client.Interop: SourceSharp.Abi.NoClientReplayEngine.Instance	NULL-OBJECT
+SourceSharp.Client.Interop: SourceSharp.Abi.NoInterpolationBlocks.Instance	NULL-OBJECT
+SourceSharp.Client.Interop: SourceSharp.Abi.NoRenderPolicyBlocks.Instance	NULL-OBJECT
 
 # P1 run 3: moved Abi -> Shared; a stateless empty value. One per side since
 # the shared source compiles into each (plan_side_isolation P7).

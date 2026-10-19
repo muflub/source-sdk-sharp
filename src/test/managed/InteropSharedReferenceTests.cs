@@ -1,8 +1,9 @@
+extern alias client;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using SourceSharp.Server.Interop;
 using Xunit;
 

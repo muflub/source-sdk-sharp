@@ -1,4 +1,7 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using IModInfo = client::SourceSharp.Abi.IModInfo;
 
 using System.Net;
 using System.Security.Cryptography;
@@ -88,7 +91,7 @@ public sealed class LevelPrefetchTests : IDisposable
         }
     }
 
-    private sealed class Hooks<T>(params T[] hooks) : IHooks<T> where T : class
+    private sealed class Hooks<T>(params T[] hooks) : client::SourceSharp.Abi.IHooks<T> where T : class
     {
         public IReadOnlyList<T> All => hooks;
         public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }

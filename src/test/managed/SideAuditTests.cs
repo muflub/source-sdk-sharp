@@ -956,7 +956,6 @@ public class SideAuditTests
     }
 
     private const string Abi = "SourceSharp.Abi";
-    private const string SharedInterop = "SourceSharp.Shared.Interop";
     private const string ServerInterop = "SourceSharp.Server.Interop";
     private const string ClientInterop = "SourceSharp.Client.Interop";
 
@@ -967,12 +966,12 @@ public class SideAuditTests
     [Fact]
     public void ServerAssemblyLeansOnlyOnSlotsItsSideFills()
         => CheckAssembly(typeof(SourceSharp.Server.ServerModule).Assembly.Location,
-            ServerFills, ServerWaiver, NoneKnown, "SourceSharp.Server", Abi, ServerInterop, SharedInterop);
+            ServerFills, ServerWaiver, NoneKnown, "SourceSharp.Server", Abi, ServerInterop);
 
     [Fact]
     public void ClientAssemblyLeansOnlyOnSlotsItsSideFills()
         => CheckAssembly(typeof(client::SourceSharp.Client.ClientModule).Assembly.Location,
-            ClientFills, ClientWaiver, ClientKnown, "SourceSharp.Client", Abi, ClientInterop, SharedInterop);
+            ClientFills, ClientWaiver, ClientKnown, "SourceSharp.Client", Abi, ClientInterop);
 
     [Fact]
     public void SharedAssemblyLeansOnlyOnSlotsBothSidesFill()
@@ -984,7 +983,7 @@ public class SideAuditTests
         string built = SharedSourceBuild.Build();
         try
         {
-            CheckAssembly(built, BothFill, SharedWaiver, SharedKnown, SharedSourceBuild.Name, Abi, SharedInterop);
+            CheckAssembly(built, BothFill, SharedWaiver, SharedKnown, SharedSourceBuild.Name, Abi, SharedSourceBuild.InteropName);
         }
         finally
         {
@@ -994,15 +993,31 @@ public class SideAuditTests
 
     [Fact]
     public void ServerInteropLeansOnlyOnSlotsTheServerFills()
-        => CheckAssembly(Beside(ServerInterop), ServerFills, NoWaiver, NoneKnown, ServerInterop, Abi, SharedInterop);
+        => CheckAssembly(Beside(ServerInterop), ServerFills, NoWaiver, NoneKnown, ServerInterop, Abi);
 
     [Fact]
     public void ClientInteropLeansOnlyOnSlotsTheClientFills()
-        => CheckAssembly(Beside(ClientInterop), ClientFills, NoWaiver, NoneKnown, ClientInterop, Abi, SharedInterop);
+        => CheckAssembly(Beside(ClientInterop), ClientFills, NoWaiver, NoneKnown, ClientInterop, Abi);
 
     [Fact]
     public void SharedInteropLeansOnlyOnSlotsBothSidesFill()
-        => CheckAssembly(Beside(SharedInterop), BothFill, NoWaiver, SharedInteropKnown, SharedInterop, Abi);
+    {
+        // The shared interop has no assembly of its own since
+        // plan_shim_areas_split phase 3: each side's interop compiles it beside
+        // that side's own code, which may lean on its own slots. So it is
+        // compiled alone, as SourceSharp.Shared.Interop was, and that is what the
+        // both-sides rule is held over.
+        string dir = SharedSourceBuild.NewDirectory();
+        try
+        {
+            string built = SharedSourceBuild.BuildInterop(dir);
+            CheckAssembly(built, BothFill, NoWaiver, SharedInteropKnown, SharedSourceBuild.InteropName, Abi);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 
     /// <summary>The Interop assemblies were never audited, so they start with no waiver at all.</summary>
     private static IReadOnlySet<string> NoWaiver => new HashSet<string>(StringComparer.Ordinal);

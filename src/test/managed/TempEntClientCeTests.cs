@@ -1,4 +1,18 @@
 extern alias client;
+// The client's copy of the shared interop's colour, which the client's
+// shatter seam takes and these facts read back (plan_shim_areas_split phase 3).
+using Color32 = client::SourceSharp.Abi.Color32;
+// The rest of the file is the client's too: its doubles, its log and the
+// registry its players read from. The two round trips name the server's
+// writer side with global:: (plan_shim_areas_split phase 3).
+using RecordingEngine = client::SourceSharp.Abi.RecordingEngine;
+using RecordingLog = client::SourceSharp.Abi.RecordingLog;
+using TempEntRegistry = client::SourceSharp.Abi.TempEntRegistry;
+using ServiceContainer = client::SourceSharp.Abi.ServiceContainer;
+using TempEntType = client::SourceSharp.Abi.TempEntType;
+using TempEntWriter = client::SourceSharp.Abi.TempEntWriter;
+using TePropKind = client::SourceSharp.Abi.TePropKind;
+using TeFlags = client::SourceSharp.Abi.TeFlags;
 using System;
 using System.Linq;
 
@@ -81,6 +95,22 @@ public class TempEntClientCeTests
         return registry;
     }
 
+    /// <summary>
+    /// The server's writer, over the server's own double and a registry of the
+    /// server's copy of the shared declarations. Each side compiles the shared
+    /// interop (plan_shim_areas_split phase 3), so a round trip is two sides
+    /// joined only by the blob, as in the game.
+    /// </summary>
+    private static (SourceSharp.Server.TempEnts Temps, global::SourceSharp.Abi.RecordingEngine Engine) ServerWriter()
+    {
+        var engine = TestServices.Fake();
+        int next = 5;
+        engine.ReturnsEachCall("Effects.TempEntRegister", () => next++);
+        var registry = new global::SourceSharp.Abi.TempEntRegistry(new global::SourceSharp.Abi.RecordingLog());
+        registry.RegisterAll("Test", TestServices.ServerGame, engine);
+        return (new SourceSharp.Server.TempEnts(new global::SourceSharp.Abi.RecordingLog(), registry, engine), engine);
+    }
+
     // =====================================================================
     // Discovery.
     // =====================================================================
@@ -101,13 +131,13 @@ public class TempEntClientCeTests
     [Fact]
     public void TheSixCePlayersAreFoundByAttributeUnderTheirWireNames()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine));
 
         // CTEEffectDispatch's player takes the managed dispatch table; the
         // module registers it before the players are built, and so does this.
-        var services = Services();
-        services.AddInstance<SourceSharp.Client.Interop.IClientEffectDispatch>(new RecordingEffectDispatch());
+        var services = ClientDoubles.Services();
+        services.AddInstance<client::SourceSharp.Client.Interop.IClientEffectDispatch>(new RecordingEffectDispatch());
         // And the shatter's shards (ShardEffects), likewise.
         services.AddInstance<IClientShatter>(new EngineShatter(engine));
         players.RegisterAll(typeof(ClientTeSmoke).Assembly, services);
@@ -135,7 +165,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheSmokeReachesTheEngineWithItsScaleMultipliedByTen()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTESmoke")!;
@@ -176,7 +206,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheSmokeScaleFactorIsTheOneTheClassDeclares()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTESmoke")!;
@@ -205,7 +235,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheMuzzleFlashCarriesTheTypeOffTheWireAndNotAZero()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEMuzzleFlash")!;
@@ -248,7 +278,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheMuzzleFlashAnglesAreNotReRangedIntoZeroToThreeSixty()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEMuzzleFlash")!;
@@ -285,7 +315,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheImpactDecodesEverythingAndDrawsNothingBecauseStockDrawsNothing()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEImpact")!;
@@ -334,7 +364,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheImpactHasNoFlagsFieldBecauseStocksSendTableHasNone()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntType te = Registered(engine).Find("CTEImpact")!;
 
         Assert.True(!te.Fields.ContainsKey("m_ucFlags"),
@@ -358,7 +388,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheDynamicLightReachesThePoolAtTheTempEntityKey()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEDynamicLight")!;
@@ -414,7 +444,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheDynamicLightCarriesItsDecayAndNotOnlyItsLifetime()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEDynamicLight")!;
@@ -452,7 +482,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheDynamicLightExponentIsReadSignedWhereTheColoursAreNot()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEDynamicLight")!;
@@ -497,10 +527,10 @@ public class TempEntClientCeTests
     [Fact]
     public void TheDispatchRoundTripsEveryNestedFieldFromTheServerWriter()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var (temps, server) = ServerWriter();
 
         var sent = new TeEffectData
         {
@@ -529,7 +559,7 @@ public class TempEntClientCeTests
 
         temps.DispatchEffect(TeFilter.Broadcast, 0f, 9, sent);
 
-        var playback = engine.Last("Effects.TempEntPlayback")!.Value;
+        var playback = server.Last("Effects.TempEntPlayback")!.Value;
         byte[] blob = playback.ArgAs<byte[]>(4)!;
 
         // The client's own side: the string table answers for index 9.
@@ -593,9 +623,9 @@ public class TempEntClientCeTests
     [Fact]
     public void TheSurfacePropertyLosesItsPlusOneAndMinusOneComesBackAsMinusOne()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
-        var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
+        var (temps, server) = ServerWriter();
 
         var players = new ClientTempEnts(new RecordingLog(), registry);
         var dispatched = new RecordingEffectDispatch();
@@ -609,7 +639,7 @@ public class TempEntClientCeTests
 
             temps.DispatchEffect(TeFilter.Broadcast, 0f, 4, data);
 
-            byte[] blob = engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<byte[]>(4)!;
+            byte[] blob = server.Last("Effects.TempEntPlayback")!.Value.ArgAs<byte[]>(4)!;
 
             players.Dispatch(registry.Find("CTEEffectDispatch")!.Handle, blob);
 
@@ -633,7 +663,7 @@ public class TempEntClientCeTests
     [Fact]
     public void AnIndexTheStringTableDoesNotHoldDispatchesNothing()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEEffectDispatch")!;
@@ -685,7 +715,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheImpactDispatchNameIsCarriedThroughUnchangedAndRowC7StaysOpen()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEEffectDispatch")!;
@@ -728,7 +758,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheShatteredPaneCarriesAllFourteenValuesAndBothFaceColours()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEShatterSurface")!;
@@ -796,7 +826,7 @@ public class TempEntClientCeTests
     [Fact]
     public void EachColourByteIsReadAtItsOwnOffsetAndNotOverItsNeighbours()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEShatterSurface")!;
@@ -858,7 +888,7 @@ public class TempEntClientCeTests
     [Fact]
     public void TheShatteredPaneAnglesAreAPlainVectorAndSurviveNegative()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEShatterSurface")!;
@@ -911,7 +941,7 @@ public class TempEntClientCeTests
     [Fact]
     public void AllSixNestTheBaseTableAndTheBaseIsStillNotRegisteredAsAClass()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         TempEntRegistry registry = Registered(engine);
 
         TempEntType baseTable = registry.Find("CBaseTempEntity")!;
@@ -936,7 +966,7 @@ public class TempEntClientCeTests
     }
 
     /// <summary>The managed dispatch table's seat, recording what reached it.</summary>
-    private sealed class RecordingEffectDispatch : SourceSharp.Client.Interop.IClientEffectDispatch
+    private sealed class RecordingEffectDispatch : client::SourceSharp.Client.Interop.IClientEffectDispatch
     {
         public List<(string Name, EffectData Data)> Calls { get; } = [];
 

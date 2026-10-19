@@ -21,9 +21,16 @@ internal static class AnalyzerHarness
     /// <summary>The probe's syntax-tree path: not a file in the tree, so not named like one.</summary>
     public const string ProbePath = "(probe source)";
 
+    // The client's copies of the shared interop and its doubles: each side
+    // compiles its own (plan_shim_areas_split phase 3), so with both a probe
+    // naming a shared type would find two. The probe sees the server's, as the
+    // unaliased names of this suite are.
+    private static readonly string[] ClientCopies = ["SourceSharp.Client.Interop", "SourceSharp.TestSupport.Client"];
+
     private static readonly MetadataReference[] References =
         ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
+            .Where(p => !ClientCopies.Contains(Path.GetFileNameWithoutExtension(p)))
             .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))
             .Append(MetadataReference.CreateFromFile(typeof(SourceSharp.Abi.ScriptedVarSet).Assembly.Location))
             .Append(MetadataReference.CreateFromFile(typeof(SourceSharp.Abi.EntityHandle).Assembly.Location))

@@ -29,11 +29,14 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
-    <ProjectReference Include="..\support\SourceSharp.TestSupport.csproj" />
     <!-- global AND client: the client-side helpers in ../common are linked into
          the cross-side project too, where the client is reached as client::
-         (plan_side_isolation P7); here the same spelling names the one client. -->
+         (plan_side_isolation P7); here the same spelling names the one client.
+         Its interop and doubles likewise, since each side compiles the shared
+         interop (plan_shim_areas_split phase 3). -->
+    <ProjectReference Include="..\support\client\SourceSharp.TestSupport.Client.csproj" Aliases="global,client" />
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="global,client" />
+    <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="global,client" />
     <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
     <ProjectReference Include="..\..\debug_api_client\interfaces\Debug.Api.Client.Interfaces.csproj" />
     <!-- plan_client_ui: the UI toolkit and screens, tested under Ui/. -->
@@ -90,5 +93,10 @@
     <Compile Include="..\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
     <Compile Include="..\common\ClientShellFactAttribute.cs" Link="common\ClientShellFactAttribute.cs" />
     <Compile Include="..\common\TestServices.cs" Link="common\TestServices.cs" />
+    <Compile Include="..\common\ClientDoubles.cs" Link="common\ClientDoubles.cs" />
+    <Compile Include="..\common\EngineApiAreasTests.Helpers.cs" Link="common\EngineApiAreasTests.Helpers.cs" />
+    <Compile Include="..\common\EngineApiCensusTests.Helpers.cs" Link="common\EngineApiCensusTests.Helpers.cs" />
+    <Compile Include="..\common\SideAudit.cs" Link="common\SideAudit.cs" />
+    <Compile Include="..\common\AbiParityTests.Helpers.cs" Link="common\AbiParityTests.Helpers.cs" />
   </ItemGroup>
 </Project>

@@ -115,7 +115,7 @@ public class CorpseTests
     }
 
     /// <summary>A client body with somewhere for its decoded state to live.</summary>
-    private static ClientSsRagdoll Viewer(RecordingEngine engine, Viewers? others = null)
+    private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null)
     {
         // At the origin, matching the state's default -- see the note below.
         // Set on the engine rather than in each test, because every viewer test
@@ -529,7 +529,7 @@ public class CorpseTests
     {
         var force = new Vector(0f, 250f, 40f);
 
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", true);
         engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
 
@@ -569,7 +569,7 @@ public class CorpseTests
     [Fact]
     public void TheBodyIsPosedBeforeItIsCollapsed()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", true);
         engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
 
@@ -619,7 +619,7 @@ public class CorpseTests
     {
         const int Running = 17;
 
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", true);
         engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
         engine.Returns("EntityRender.SequenceGroundSpeed", 200f);
@@ -682,7 +682,7 @@ public class CorpseTests
     [Fact]
     public void ThePlayerABodyWasPosedFromSurvivesAClientReload()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", true);
         engine.Returns("EntityRender.LookupSequenceByActivity", 17);
         engine.Returns("EntityRender.SequenceGroundSpeed", 200f);
@@ -742,7 +742,7 @@ public class CorpseTests
     [Fact]
     public void ABodyWhosePlayerThisMachineCannotSeeStillGetsARealPose()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", true);
         engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
 
@@ -768,7 +768,7 @@ public class CorpseTests
     [Fact]
     public void AModelWithNoAnimationIsNotForcedIntoSequenceZero()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", false);
         engine.Returns("EntityRender.LookupSequenceByActivity", -1);
 
@@ -791,7 +791,7 @@ public class CorpseTests
     [Fact]
     public void TheBodyCollapsesOnceHoweverManyUpdatesArrive()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", true);
         engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
 
@@ -819,7 +819,7 @@ public class CorpseTests
     [Fact]
     public void ABodyWhoseModelHasNotArrivedYetIsAskedAgain()
     {
-        var engine = Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("EntityRender.BecomeRagdoll", false);
         engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
 

@@ -1,4 +1,7 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using IModInfo = client::SourceSharp.Abi.IModInfo;
 
 using System.Net;
 using SourceSharp.Abi;

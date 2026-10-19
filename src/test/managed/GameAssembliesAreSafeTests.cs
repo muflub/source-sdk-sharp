@@ -4,7 +4,7 @@ using System.Security;
 using System.Xml.Linq;
 
 using client::SourceSharp.Client;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;

@@ -8,6 +8,7 @@ using ClientSavedHandles = client::SourceSharp.Abi.SavedHandles;
 using ClientSaveCustom = client::SourceSharp.Abi.ISaveCustom;
 using ClientSaveWriter = client::SourceSharp.Abi.ISaveWriter;
 using ClientSaveReader = client::SourceSharp.Abi.ISaveReader;
+using ClientSaveField = client::SourceSharp.Abi.SaveFieldAttribute;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,24 +60,26 @@ public class SaveTierAgreementTests
     /// <para>
     /// Since the shared source compiles into each side (plan_side_isolation P7)
     /// each walk asks for its OWN side's <c>ISaveCustom</c>, so the one shape
-    /// implements both, with one body. <c>[SaveField]</c> is Shared.Interop's
-    /// and so already one type for both walks.
+    /// implements both, with one body. Since the shared interop compiles into
+    /// each side too (plan_shim_areas_split phase 3), each walk also asks for
+    /// its own side's <c>[SaveField]</c>, so every member carries both, with one
+    /// key: in the game each side compiles the entity with its own.
     /// </para>
     /// </summary>
     [ScriptedEntity("tier_agreement")]
     public sealed class AgreementEntity : ScriptedEntity, ISaveCustom, ClientSaveCustom
     {
-        [SaveField] public int Legs = 4;
-        [SaveField] public string Note { get; set; } = "stock";
-        [SaveField] public bool Awake = true;
-        [SaveField] public float Weight = 2.5f;
-        [SaveField] public Vector Where = new(1f, 2f, 3f);
-        [SaveField] public QAngle Facing = new(10f, 20f, 30f);
-        [SaveField("mood")] public AgreementMood Feeling = AgreementMood.Cross;
-        [SaveField] public EntityHandle Friend = new(41u);
+        [SaveField, ClientSaveField] public int Legs = 4;
+        [SaveField, ClientSaveField] public string Note { get; set; } = "stock";
+        [SaveField, ClientSaveField] public bool Awake = true;
+        [SaveField, ClientSaveField] public float Weight = 2.5f;
+        [SaveField, ClientSaveField] public Vector Where = new(1f, 2f, 3f);
+        [SaveField, ClientSaveField] public QAngle Facing = new(10f, 20f, 30f);
+        [SaveField("mood"), ClientSaveField("mood")] public AgreementMood Feeling = AgreementMood.Cross;
+        [SaveField, ClientSaveField] public EntityHandle Friend = new(41u);
 
         /// <summary>Get-only: saved for a reader, never written back.</summary>
-        [SaveField] public int Doubled => Legs * 2;
+        [SaveField, ClientSaveField] public int Doubled => Legs * 2;
 
         /// <summary>Not marked. The control — neither walk may carry it.</summary>
         public int Unmarked = 9;
@@ -229,8 +232,9 @@ public class SaveTierAgreementTests
     /// <summary><see cref="TestServices"/>' unattached handles, as the client's type.</summary>
     private static ClientSavedHandles ClientHandles()
     {
-        var engine = ScriptedEntityRegistry.UnattachedEngine();
-        return new ClientSavedHandles(engine.Require<IEngineHost>(), engine.Require<IEngineEntities>());
+        var engine = ClientDoubles.UnattachedEngine();
+        return new ClientSavedHandles(ClientDoubles.Require<client::SourceSharp.Abi.IEngineHost>(engine),
+                                      ClientDoubles.Require<client::SourceSharp.Abi.IEngineEntities>(engine));
     }
 
     private static AgreementEntity RoundTrip(AgreementEntity from)

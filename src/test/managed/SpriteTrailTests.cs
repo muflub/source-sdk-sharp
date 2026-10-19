@@ -1,7 +1,7 @@
 extern alias client;
 using SourceSharp.Abi;
 using client::SourceSharp.Client.Effects;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using client::SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
 using SourceSharp.Server;
@@ -124,9 +124,9 @@ public class SpriteTrailTests
     [Fact]
     public void TheClientHalfFeedsAStockObject()
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientSpriteTrail).Assembly);
-        var services = Services(out var engine);
+        var services = ClientDoubles.Services(out var engine);
         engine.Ignores("EntityRender.RegisterRenderable", "EntityRender.UnregisterRenderable");
 
         // The ribbon's ring is managed (ClientSpriteTrails, lane c2-fx); this

@@ -35,6 +35,8 @@ public class ClientManagedTablesTests
         Assert.Contains("ManagedRuntimeClientTable", names);
         Assert.Contains("ManagedSteamCallbackTable", names);
         Assert.DoesNotContain("ManagedRuntimeServerTable", names);
-        Assert.DoesNotContain("ManagedRootTable", names);
+        // The root both sides build is shared, not the server's: each side's
+        // interop compiles the shared interop since plan_shim_areas_split phase 3.
+        Assert.Contains("ManagedRootTable", names);
     }
 }

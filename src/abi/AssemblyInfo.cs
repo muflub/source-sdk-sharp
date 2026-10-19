@@ -20,9 +20,12 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("TF2.Descent.Tests")]
 
 // plan_abi_hotreload D4 / docs/todo.md router retirement: the generated area
-// classes stay in the ABI as plumbing; the engine surface that calls through
-// them is bound for Shared.Interop, which reaches them through this.
-[assembly: InternalsVisibleTo("SourceSharp.Shared.Interop")]
+// classes stay in the ABI as plumbing, and the engine surface that calls
+// through them (src/shared/interop) reaches them through this. Since
+// plan_shim_areas_split phase 3 that source is compiled into each side's
+// interop, granted below; this name is the same source compiled alone, which
+// SideAuditTests holds to the slots both sides fill.
+[assembly: InternalsVisibleTo("SourceSharp.SharedInteropSource")]
 
 // plan_abi_hotreload Phase 1: the server's engine-interface wrappers
 // (EngineNetworkStringTables, PhysicsSurfaceProps, SoundEmitterBase) moved to
@@ -37,8 +40,11 @@ using System.Runtime.CompilerServices;
 
 // plan_abi_hotreload Phase 1, run 2: RecordingEngine moved to the test-only
 // SourceSharp.TestSupport (the user's ruling) and implements the internal
-// IEngineStringTables, which it reached as a file of this assembly.
-[assembly: InternalsVisibleTo("SourceSharp.TestSupport")]
+// IEngineStringTables, which it reached as a file of this assembly. Since
+// plan_shim_areas_split phase 3 the doubles are built once per side, over that
+// side's copy of the engine areas.
+[assembly: InternalsVisibleTo("SourceSharp.TestSupport.Server")]
+[assembly: InternalsVisibleTo("SourceSharp.TestSupport.Client")]
 
 // plan_abi_hotreload Phase 1, run 3: the server entity cluster (ScriptedEntity
 // and its registry, EntityDirectory, ThinkScheduler, EntityIoQueue; plan M3)

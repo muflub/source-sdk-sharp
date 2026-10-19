@@ -3,15 +3,23 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// SourceSharp.TestSupport holds the test doubles (RecordingEngine) the test
-/// assemblies share, and no product assembly may reference it: a fake engine
+/// SourceSharp.TestSupport.Server and .Client hold the test doubles (RecordingEngine) the test
+/// assemblies share, and no product assembly may reference either: a fake engine
 /// reachable from the game is a fake engine the game can be handed. Read from
 /// the project files and from the deployed metadata, as DebugApiClosureTests
 /// reads its rules.
 /// </summary>
 public class TestSupportClosureTests
 {
-    private const string TestSupport = "SourceSharp.TestSupport";
+    // The doubles are built once per side (plan_shim_areas_split phase 3): the
+    // same source over each side's copy of the shared interop.
+    private static readonly string[] TestSupport = ["SourceSharp.TestSupport.Server", "SourceSharp.TestSupport.Client"];
+
+    private static readonly string[] TestSupportProjects =
+    [
+        "src/test/support/server/SourceSharp.TestSupport.Server.csproj",
+        "src/test/support/client/SourceSharp.TestSupport.Client.csproj",
+    ];
 
     /// <summary>The projects that are tests, and so may reference it.</summary>
     private static readonly string[] TestProjects =
@@ -32,7 +40,7 @@ public class TestSupportClosureTests
     {
         var projects = Directory.EnumerateFiles(RepoLayout.Repo("src"), "*.csproj", SearchOption.AllDirectories)
                                 .Select(Relative)
-                                .Where(p => !TestProjects.Contains(p) && p != "src/test/support/SourceSharp.TestSupport.csproj")
+                                .Where(p => !TestProjects.Contains(p) && !TestSupportProjects.Contains(p))
                                 .ToList();
         // The stimulus reaches the subject: the game, its mods and its tools
         // are well over a dozen projects, and an empty walk would pass.
@@ -40,9 +48,9 @@ public class TestSupportClosureTests
         Assert.Contains("src/server/managed/SourceSharp.Server.csproj", projects);
 
         var offenders = projects.Where(p => DebugApiClosureTests.ProjectReferencesOf(File.ReadAllText(RepoLayout.Repo(p.Split('/'))))
-                                                              .Contains(TestSupport))
+                                                              .Overlaps(TestSupport))
                                 .ToList();
-        Assert.True(offenders.Count == 0, "product projects reference " + TestSupport + ": " + string.Join(", ", offenders));
+        Assert.True(offenders.Count == 0, "product projects reference the test doubles: " + string.Join(", ", offenders));
     }
 
     [Fact]
@@ -51,7 +59,8 @@ public class TestSupportClosureTests
         // The positive arm: the reader sees the reference where it is, so the
         // walk above would see it where it is not allowed.
         foreach (string project in TestProjects)
-            Assert.Contains(TestSupport, DebugApiClosureTests.ProjectReferencesOf(File.ReadAllText(RepoLayout.Repo(project.Split('/')))));
+            Assert.True(DebugApiClosureTests.ProjectReferencesOf(File.ReadAllText(RepoLayout.Repo(project.Split('/')))).Overlaps(TestSupport),
+                        $"{project} references a side's test doubles");
     }
 
     [Fact]
@@ -61,13 +70,14 @@ public class TestSupportClosureTests
         var dlls = Directory.Exists(managed) ? Directory.GetFiles(managed, "*.dll") : [];
         Assert.True(dlls.Any(d => Path.GetFileName(d) == "SourceSharp.Server.dll"),
                     $"{managed} holds the deployed game ({dlls.Length} dll(s)); a check that read nothing would pass");
-        Assert.DoesNotContain(dlls, d => Path.GetFileNameWithoutExtension(d) == TestSupport);
+        Assert.DoesNotContain(dlls, d => TestSupport.Contains(Path.GetFileNameWithoutExtension(d)));
 
-        var offenders = dlls.Where(d => DebugApiClosureTests.ReferencesOf(d).AssemblyRefs.Contains(TestSupport))
+        var offenders = dlls.Where(d => DebugApiClosureTests.ReferencesOf(d).AssemblyRefs.Overlaps(TestSupport))
                             .Select(Path.GetFileName).ToList();
-        Assert.True(offenders.Count == 0, "deployed assemblies reference " + TestSupport + ": " + string.Join(", ", offenders));
+        Assert.True(offenders.Count == 0, "deployed assemblies reference the test doubles: " + string.Join(", ", offenders));
 
         // The positive arm, from metadata: the test assembly does.
-        Assert.Contains(TestSupport, DebugApiClosureTests.ReferencesOf(typeof(TestSupportClosureTests).Assembly.Location).AssemblyRefs);
+        Assert.True(DebugApiClosureTests.ReferencesOf(typeof(TestSupportClosureTests).Assembly.Location).AssemblyRefs.Overlaps(TestSupport),
+                    "the test assembly references the doubles");
     }
 }

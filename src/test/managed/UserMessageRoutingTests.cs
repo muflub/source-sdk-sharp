@@ -1,9 +1,10 @@
+extern alias client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using SourceSharp.Abi;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 using Xunit;
@@ -315,7 +316,7 @@ public sealed class UserMessageRoutingTests
     public unsafe void TheClientAreaHandsDispatchToTheReceiver()
     {
         var (registry, engine, receiver) = Client();
-        var binding = new UserMessagesClientBinding(new Crossings(), receiver);
+        var binding = new UserMessagesClientBinding(new Crossings(), new ClientDispatch(receiver));
 
         // The payload arrives as one BitBlock: 80 bits, no read back.
         byte[] block = new byte[BitBlock.HeaderBytes + 10];
@@ -558,5 +559,17 @@ public sealed class UserMessageRoutingTests
         var direct = Registered(services: services);
         var before = Warnings(() => direct.Dispatch(direct.IdOf("Damage"), new byte[] { 7 }));
         Assert.Contains(before, w => w.Contains("user message 'Damage' ended mid-member or was malformed"));
+    }
+
+    /// <summary>
+    /// The receiver as the client's dispatch seam. The receiver here is built
+    /// from the cross-side suite's unaliased (server) copy of the shared source,
+    /// and each side compiles its own copy of the shared interop
+    /// (plan_shim_areas_split phase 3), so the client binding takes the
+    /// client's interface: this forwards each call unchanged.
+    /// </summary>
+    private sealed class ClientDispatch(UserMessageReceiver inner) : client::SourceSharp.Abi.IUserMessageDispatch
+    {
+        public bool Dispatch(int id, ReadOnlySpan<byte> block) => inner.Dispatch(id, block);
     }
 }

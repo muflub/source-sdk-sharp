@@ -141,7 +141,7 @@ public class WeaponBehaviourParityTests
     /// <summary>The client's prediction of the same pull, over the networked index.</summary>
     private static C.WeaponNetState ClientShot(ServiceContainer container, int networkedIndex)
     {
-        var engine = TestServices.Fake();
+        var engine = ClientDoubles.Fake();
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
         engine.Returns("Clock.Now", Now);
         engine.Returns("EntityRender.LookupSequenceByActivity", 0);
@@ -161,7 +161,7 @@ public class WeaponBehaviourParityTests
         standalones.Directory.Bind(viewModel.Handle, -1, viewModel);
 
         var arsenal = new ClientArsenal(new RecordingLog(), standalones, engine, engine, engine,
-                                        new NetStateCatalog(TestServices.ClientGame, new RecordingLog()),
+                                        new client::SourceSharp.Abi.NetStateCatalog(TestServices.ClientGame, new RecordingLog()),
                                         weapons: container.Require<C.WeaponCatalog>(),
                                         behaviours: container.Require<C.WeaponBehaviours>());
 

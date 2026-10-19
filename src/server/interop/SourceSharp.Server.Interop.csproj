@@ -8,7 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
-    <ProjectReference Include="..\..\shared\interop\SourceSharp.Shared.Interop.csproj" />
     <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
@@ -19,5 +18,23 @@
     <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- plan_shim_areas_split phase 3: the interop both sides use is compiled
+         into each side's, as src/shared/managed is into each side's logic. Each
+         side loads everything but the Abi into its own context, so the two
+         never shared a type of it; now each side's copy can only be its own. -->
+    <Compile Include="..\..\shared\interop\**\*.cs"
+             Exclude="..\..\shared\interop\obj\**;..\..\shared\interop\bin\**"
+             Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- What the shared interop granted when it was an assembly of its own.
+         The suites and the oracle tests reach its internals; the test doubles
+         implement its internal engine areas; the side's logic (and the shared
+         source in it) reads internals such as NetState.Blob. -->
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+    <InternalsVisibleTo Include="SourceSharp.TestSupport.Server" />
+    <InternalsVisibleTo Include="SourceSharp.Server" />
   </ItemGroup>
 </Project>

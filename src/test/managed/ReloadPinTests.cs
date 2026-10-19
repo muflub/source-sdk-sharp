@@ -299,15 +299,19 @@ public sealed class ReloadPinTests
         // into them came from the going context. It asked for
         // ScriptedEntityRegistry by type until P1 run 3; the interface is the
         // same question only while the registry is its one implementer.
+        // Each side compiles its own IRouteBinder (plan_shim_areas_split phase
+        // 3), so a type is asked against both, and both sides' interops are read.
         var binders = new[]
             {
-                typeof(ILog).Assembly, typeof(ManagedCaches).Assembly, typeof(ScriptedEntityRegistry).Assembly,
+                typeof(ILog).Assembly, typeof(ManagedCaches).Assembly, typeof(client::SourceSharp.Abi.ManagedCaches).Assembly,
+                typeof(ScriptedEntityRegistry).Assembly,
                 typeof(ServerModule).Assembly,
                 typeof(client::SourceSharp.Client.ClientModule).Assembly,
             }
             .Distinct()
             .SelectMany(a => a.GetTypes())
-            .Where(t => !t.IsInterface && typeof(IRouteBinder).IsAssignableFrom(t))
+            .Where(t => !t.IsInterface && (typeof(IRouteBinder).IsAssignableFrom(t)
+                                           || typeof(client::SourceSharp.Abi.IRouteBinder).IsAssignableFrom(t)))
             .ToList();
 
         Assert.Equal(new[] { typeof(ScriptedEntityRegistry) }, binders);

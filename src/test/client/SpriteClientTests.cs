@@ -164,7 +164,7 @@ public class SpriteClientTests
     /// </summary>
     private static (T, RecordingEngine) Client<T>(string className) where T : ClientSpriteBase
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientSprite).Assembly);
 
         var services = Services(out var engine);

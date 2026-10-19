@@ -1,24 +1,31 @@
 extern alias client;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using IEngineConsole = client::SourceSharp.Abi.IEngineConsole;
+using IUniformRandom = client::SourceSharp.Abi.IUniformRandom;
+using ConVarAttribute = client::SourceSharp.Abi.ConVarAttribute;
+using ConVarFlags = client::SourceSharp.Abi.ConVarFlags;
+using NativeConsoleEntry = client::SourceSharp.Abi.NativeConsoleEntry;
 
 using System.Globalization;
 using System.IO.Compression;
 
 using SourceSharp.Abi;
-using SourceSharp.Client.Interop;
+using client::SourceSharp.Client.Interop;
 using Xunit;
 
 using IPostProcessContributor = client::SourceSharp.Client.Render.IPostProcessContributor;
-using PostCvar = SourceSharp.Client.Interop.PostCvar;
+using PostCvar = client::SourceSharp.Client.Interop.PostCvar;
 using PostOpsWriter = client::SourceSharp.Client.Render.PostOpsWriter;
 using PostPlanText = client::SourceSharp.Client.Render.PostPlanText;
-using PostProcessInputs = SourceSharp.Client.Interop.PostProcessInputs;
+using PostProcessInputs = client::SourceSharp.Client.Interop.PostProcessInputs;
 using PostProcessPlanner = client::SourceSharp.Client.Render.PostProcessPlanner;
 using PostProgramEffects = client::SourceSharp.Client.Render.PostProgramEffects;
-using PostProgramKind = SourceSharp.Client.Interop.PostProgramKind;
-using PostTexture = SourceSharp.Client.Interop.PostTexture;
+using PostProgramKind = client::SourceSharp.Client.Interop.PostProgramKind;
+using PostTexture = client::SourceSharp.Client.Interop.PostTexture;
 using PyroVision = TF2.Client.PyroVision;
-using RenderOp = SourceSharp.Client.Interop.RenderOp;
-using RenderOpKind = SourceSharp.Client.Interop.RenderOpKind;
+using RenderOp = client::SourceSharp.Client.Interop.RenderOp;
+using RenderOpKind = client::SourceSharp.Client.Interop.RenderOpKind;
 using RenderPlanBuilder = client::SourceSharp.Client.Render.RenderPlanBuilder;
 using RenderPlanText = client::SourceSharp.Client.Render.RenderPlanText;
 using RenderTrace = client::SourceSharp.Client.Render.RenderTrace;
@@ -124,7 +131,7 @@ public sealed class PyroVisionTests
         public void Warning(string message) { }
     }
 
-    private sealed class Hooks(params IPostProcessContributor[] hooks) : IHooks<IPostProcessContributor>
+    private sealed class Hooks(params IPostProcessContributor[] hooks) : client::SourceSharp.Abi.IHooks<IPostProcessContributor>
     {
         public IReadOnlyList<IPostProcessContributor> All => hooks;
 

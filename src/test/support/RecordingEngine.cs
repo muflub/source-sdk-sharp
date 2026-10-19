@@ -135,6 +135,25 @@ public sealed class RecordingEngine :
     /// </summary>
     public bool Strict { get; set; } = true;
 
+    /// <summary>
+    /// A strict double with the universal reads stubbed and nothing else
+    /// (<c>TestServices.Mock</c> explains which and why). It lives here, not in
+    /// the suites' helpers, because the doubles are built once per side
+    /// (plan_shim_areas_split phase 3): a suite that drives both sides asks each
+    /// side's build for its own default the same way.
+    /// </summary>
+    public static RecordingEngine Default()
+        => new RecordingEngine()
+            .Returns("Entities.GetSpawnFlags", 0)
+            .Returns("Entities.GetName", string.Empty)
+            .Returns("Entities.GetClassName", string.Empty)
+            .Returns("Host.ActiveSide", Side.Server)
+            // The fifth universal read (plan_abi_hotreload D8): every entity
+            // asks whether there is a native side before saving or restoring
+            // one (ScriptedEntity.HasNativeSide). A double is not a running
+            // engine, so no; a fact that wants the native section says so.
+            .Returns("Host.IsInitialized", false);
+
     /// <summary>Stubs the answer to a member, or to one of its out parameters.</summary>
     public RecordingEngine Returns(string member, object? value)
     {

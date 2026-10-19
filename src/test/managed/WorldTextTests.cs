@@ -189,7 +189,7 @@ public class WorldTextTests
         Assert.True(text.State.Color == 0xFF00_00FFu, "an unparseable colour leaves the last one standing");
     }
 
-    private sealed class Meshes : global::SourceSharp.Client.Interop.IClientWorldTextMeshes
+    private sealed class Meshes : client::SourceSharp.Client.Interop.IClientWorldTextMeshes
     {
         public readonly List<string> Calls = new();
 
@@ -218,12 +218,12 @@ public class WorldTextTests
     [Fact]
     public void TheClientHalfTakesEverythingIntoItsLayout()
     {
-        var registry = new ClientStandaloneRegistry(ScriptedEntityRegistry.UnattachedEngine());
+        var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientWorldText).Assembly);
 
         var meshes = new Meshes();
-        var services = Services(out var engine);
-        services.AddInstance<global::SourceSharp.Client.Interop.IClientWorldTextMeshes>(meshes);
+        var services = ClientDoubles.Services(out var engine);
+        services.AddInstance<client::SourceSharp.Client.Interop.IClientWorldTextMeshes>(meshes);
         registry.Services = services;
         engine.Ignores("EntityRender.RegisterRenderable", "EntityRender.UnregisterRenderable");
 

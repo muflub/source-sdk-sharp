@@ -288,3 +288,32 @@ Open: none.
   arguments, through the table its old field took. Tests that read the
   forwarder type from a container field now read it from the area class's
   constructor (`ShimAreaTypes.FwdOf`).
+- **Phase 3** (2026-10-19). `src/shared/interop` is compiled into
+  `SourceSharp.Server.Interop` and `SourceSharp.Client.Interop` and its project
+  is gone; each interop carries the grants the shared one gave (the suites, the
+  oracle tests, its side's test doubles and its side's logic). A reflection dump
+  of each side's interop equals its old public surface plus the old
+  Shared.Interop's (5,785 and 7,691 member lines). What the change asked of the
+  rest:
+  - The test doubles are built per side (`SourceSharp.TestSupport.Server` and
+    `.Client`, one source); a suite driving both sides references the client's
+    under its `client` alias, with the client's interop. `RecordingEngine.Default()`
+    holds `Mock()`'s stubs so each build has them, and `ClientDoubles` (common)
+    hands out the client's doubles, unattached engine and `Require`.
+  - Facts in the cross-side suite that drove only the client moved to the client
+    suite (twelve files, three of them halves split off a mixed file); facts that
+    drive both name the client's copies explicitly, and the temp entity round
+    trips run the server's writer on the server's own double and registry.
+  - `EngineEffectsForwarder`, a pure forwarder the audit treats as pass-through,
+    is shared source, so the client's temp entity facts can decorate the
+    client's effects area.
+  - The side audit compiles the shared interop alone in memory
+    (`SourceSharp.SharedInteropSource`, granted by the Abi) and holds it to the
+    both-sides slots, as it does the shared source.
+  - A runtime check against the other side's copy compiles and reads nothing,
+    so the cross-side suites were scanned for every `as`, `is`, `typeof`,
+    `IsAssignableFrom` and attribute lookup naming a shared interop type. One
+    had gone vacuous (`ReloadPinTests` asked client types for the server's
+    `IRouteBinder`), and others failed loudly (`HookOrderTests` read every
+    client hook's order as 0, the ConVar declaration facts found no client
+    declarations); each now asks the right side.

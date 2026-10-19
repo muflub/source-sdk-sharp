@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Test doubles the test assemblies share (plan_abi_hotreload Phase 1, the
+    user's ruling: RecordingEngine moves to a test assembly), built over the
+    server's engine areas. The doubles implement the IEngine* areas of
+    src/shared/interop, which since plan_shim_areas_split phase 3 every side
+    compiles for itself, so the same source (src/test/support/*.cs) is built
+    once per side: SourceSharp.TestSupport.Server and .Client. A suite that
+    drives both sides references both, the client's under its client alias.
+    No product assembly may reference either (TestSupportClosureTests holds
+    that from the project files and from the built metadata), and the output
+    stays out of the game's managed directory for the same reason.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/test-support-server/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\..\server\interop\SourceSharp.Server.Interop.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The suite may reach the doubles' internals. -->
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+</Project>

@@ -15,7 +15,7 @@ namespace SourceSharp.Tests;
 /// (plan_physics_bones_native_zero Phase 3: the bodies are managed's own now,
 /// and the double's assembly cannot see them).
 /// </summary>
-public sealed class RecordingRagdolls(RecordingEngine engine) : IClientRagdolls
+public sealed class RecordingRagdolls(client::SourceSharp.Abi.RecordingEngine engine) : IClientRagdolls
 {
     public int Count => 0;
 

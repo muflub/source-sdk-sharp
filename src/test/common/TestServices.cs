@@ -215,15 +215,5 @@ public static partial class TestServices
     /// one wins.
     /// </para>
     /// </summary>
-    public static RecordingEngine Mock()
-        => new RecordingEngine()
-            .Returns("Entities.GetSpawnFlags", 0)
-            .Returns("Entities.GetName", string.Empty)
-            .Returns("Entities.GetClassName", string.Empty)
-            .Returns("Host.ActiveSide", Side.Server)
-            // The fifth universal read (plan_abi_hotreload D8): every entity
-            // asks whether there is a native side before saving or restoring
-            // one (ScriptedEntity.HasNativeSide). A double is not a running
-            // engine, so no; a fact that wants the native section says so.
-            .Returns("Host.IsInitialized", false);
+    public static RecordingEngine Mock() => RecordingEngine.Default();
 }

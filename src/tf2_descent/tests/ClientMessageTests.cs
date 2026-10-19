@@ -1,4 +1,10 @@
 extern alias client;
+using RecordingEngine = client::SourceSharp.Abi.RecordingEngine;
+// The client's copies of the shared interop types this file hands to client
+// code; each side compiles its own (plan_shim_areas_split phase 3).
+using IGameClock = client::SourceSharp.Abi.IGameClock;
+using ISteamAuthTickets = client::SourceSharp.Abi.ISteamAuthTickets;
+using SteamAuthTicket = client::SourceSharp.Abi.SteamAuthTicket;
 // The reading side: the client's own copy of the shared messages (each side
 // compiles them, plan_side_isolation §2.4).
 using client::TF2.Descent.Client;
@@ -9,6 +15,7 @@ using HudMessageArgs = client::SourceSharp.Shared.HudMessageArgs;
 using IUserMessage = client::SourceSharp.Abi.IUserMessage;
 using UserMessageReader = client::SourceSharp.Abi.UserMessageReader;
 using ClientKey = client::SourceSharp.Abi.UserMessageKey;
+using Color32 = client::SourceSharp.Abi.Color32;
 using SourceSharp.Abi;
 using client::SourceSharp.Client;
 using SourceSharp.Shared;
@@ -22,7 +29,7 @@ namespace TF2.Descent.Tests;
 /// </summary>
 public sealed class ClientMessageTests
 {
-    private sealed class Hooks<T>(params T[] hooks) : IHooks<T> where T : class
+    private sealed class Hooks<T>(params T[] hooks) : client::SourceSharp.Abi.IHooks<T> where T : class
     {
         public IReadOnlyList<T> All => hooks;
         public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }

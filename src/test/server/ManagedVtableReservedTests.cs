@@ -173,8 +173,12 @@ public unsafe partial class ManagedVtableTests
     // that builds it), and the Valve layouts are still the Abi's. The client's
     // are ClientManagedTablesTests'.
     private static IEnumerable<(Type Layout, ImplementedByManagedAttribute Attribute)> ManagedWrittenLayouts()
+        // The root's assembly is the server's interop since plan_shim_areas_split
+        // phase 3 (each side compiles the shared interop), so the list is
+        // de-duplicated rather than read twice.
         => new[] { typeof(ManagedVtable).Assembly, typeof(ManagedRootTable).Assembly,
                    typeof(SourceSharp.Server.Interop.ServerRuntimeBinding).Assembly }
+               .Distinct()
                .SelectMany(a => a.GetTypes())
                .Select(t => (t, t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false)
                                  .Cast<ImplementedByManagedAttribute>().SingleOrDefault()))
