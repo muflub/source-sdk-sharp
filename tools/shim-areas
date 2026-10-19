@@ -228,9 +228,6 @@ def model():
     return order, slots, base, concrete
 
 
-FLAT = True
-
-
 def short(iface):
     return iface[len('IShim'):]
 
@@ -447,10 +444,10 @@ def generate():
          '// that base\'s class: its table starts with exactly the base\'s slots',
          '// (SharedForwarders.g.cs holds that field by field), so the base class',
          '// reads either side\'s table. The two containers acquire every area of',
-         '// their side or none, and keep the flat members, each a one-line call to',
-         '// its area, until callers take the areas themselves. Choosing between',
-         '// the server and the client area for a both-sides slot is EngineSide\'s',
-         '// job; there is no router.',
+         '// their side or none, and a caller names the area it calls',
+         '// (ServerShims.Sound.EntityEmitSound). A derived area also answers to its',
+         '// shared base\'s name on the server\'s container, so code compiled into',
+         '// both sides calls a both-sides slot the same way; there is no router.',
          '',
          '#nullable enable',
          '',
@@ -507,13 +504,6 @@ def generate():
         return '    public %s %s(%s) { %s%s; }' % (ret, s, params_of(ptypes),
                                                   '' if ret == 'void' else 'return ', v)
 
-    def flat(ret, ptypes, s, target):
-        """A container's flat member: the same call, made on the area that serves it."""
-        args = ', '.join('a%d' % k for k in range(len(ptypes)))
-        return '    public %s %s(%s) { %s%s.%s(%s); }' % (ret, s, params_of(ptypes),
-                                                       '' if ret == 'void' else 'return ',
-                                                       field(target), s, args)
-
     def area(i):
         return short(i) + 'Area'
 
@@ -561,7 +551,7 @@ def generate():
             m.append(typed(ret, ptypes, s))
         m += ['}', '']
 
-    def container(name, routed_here, served, doc, count):
+    def container(name, routed_here, doc, count):
         out = ['/// <summary>'] + ['/// ' + l for l in doc] + ['/// </summary>',
                'internal sealed unsafe class %s' % name, '{']
         for i in routed_here:
@@ -576,12 +566,6 @@ def generate():
                     '    // holds that base by.']
             for i in views:
                 out.append('    public %s %s => %s;' % (area(base[i]), field(base[i]), field(i)))
-        if FLAT:
-            out += ['', '    // Flat calls, one per slot this side serves, each on the area that',
-                    '    // serves it. They go once every caller takes its area.']
-            for s, i in served.items():
-                ptypes, ret, _sup = types[s]
-                out.append(flat(ret, ptypes, s, i))
         out += ['',
                 '    // Each area and its table, in turn; the first that is refused stops',
                 '    // the walk, leaving the rest unset and its reason in why.',
@@ -607,20 +591,11 @@ def generate():
                 '']
         return out
 
-    served = {}
-    for i in routed:
-        for ci in chain_of(i):
-            for s in slots_of(ci):
-                served.setdefault(s, i)
-    m += container('ShimAreas', routed, served,
+    m += container('ShimAreas', routed,
                    ['Every server area, acquired from the shim root by version string with',
                     'its forwarder table, which native must serve at no fewer slots than the',
                     'struct reads (the tables only append).'], len(concrete))
-    client_served = {}
-    for i in client_routed:
-        for s in (client_slots[i] if i in client_only else slots_of(i)):
-            client_served.setdefault(s, i)
-    m += container('ClientShimAreas', client_routed, client_served,
+    m += container('ClientShimAreas', client_routed,
                    ['plan_client_vtables CB: the client\'s areas, its shared bases and its',
                     'own, acquired from its shim root with the same span check.'], len(client_routed))
 
@@ -732,17 +707,14 @@ def self_test():
     health = in_class('EntityGetHealth', 'ShimAreas')
     expect('a server-only slot is its area\'s alone, inline on the area class (C6c, no router)',
            '_shim.Vt->EntityEmitSound(_shim.Self' in in_class('EntityEmitSound', 'SoundArea')
-           and emit.endswith('{ Sound.EntityEmitSound(a0, a1); }')
-           and 'Slot_' not in emit and '_api.' not in emit)
-    expect('a flat member is one call to the area that serves it',
-           health.endswith('{ return EntitiesServer.EntityGetHealth(a0); }')
+           and emit == '' and len(typed_lines('EntityEmitSound')) == 1)
+    expect('a container has no flat calls: a slot is called on the area that serves it, and nowhere else',
+           health == '' and len(typed_lines('EntityGetHealth')) == 1
            and '_shim.Vt->EntityGetHealth(_shim.Self' in in_class('EntityGetHealth', 'EntitiesServerArea'))
-    expect('a both-sides slot is typed once, on its shared base, and flat on both containers; '
-           'the side object chooses',
-           len(typed_lines('GetCurrentTime')) == 3
+    expect('a both-sides slot is typed once, on its shared base, and on neither container',
+           len(typed_lines('GetCurrentTime')) == 1
            and '_shim.Vt->GetCurrentTime(_shim.Self' in in_class('GetCurrentTime', 'EngineArea')
-           and in_class('GetCurrentTime', 'ShimAreas') == '    public float GetCurrentTime() { return EngineBase.GetCurrentTime(); }'
-           and in_class('GetCurrentTime', 'ClientShimAreas') == in_class('GetCurrentTime', 'ShimAreas'))
+           and in_class('GetCurrentTime', 'ShimAreas') == '' and in_class('GetCurrentTime', 'ClientShimAreas') == '')
     expect('a derived area answers to its shared base\'s name on the server container, as the base, '
            'so code compiled into both sides names a both-sides slot the same way',
            '    public MovementArea Movement => MovementServer;' in gen[OUT_MANAGED].split('\n')
@@ -795,8 +767,9 @@ def self_test():
     expect('an unswitched client base is refused: a shared slot would lose its client route',
            'IShimModels' in unswitched and 'engineapi-client-switched' in unswitched)
     expect('a shared slot reaches its base\'s class on both sides: the server through its derived area',
-           'ModelsServer.EntityGetModelName(' in in_class('EntityGetModelName', 'ShimAreas')
-           and 'Models.EntityGetModelName(' in in_class('EntityGetModelName', 'ClientShimAreas'))
+           '    public ModelsArea Models => ModelsServer;' in out
+           and '    public readonly ModelsArea Models = null!;' in out
+           and '_shim.Vt->EntityGetModelName(_shim.Self' in in_class('EntityGetModelName', 'ModelsArea'))
     expect('a client switch list naming a base the client does not implement is refused',
            'IShimNoSuchBase' in bad_client)
     # plan_client_vtables CC: a client-only area.
@@ -805,11 +778,11 @@ def self_test():
            and 'CShimHudClient::GetLocalPlayerHealth' in gen[OUT_IMPL_CLIENT]
            and 'SOURCESHARP_SHIM_HUDCLIENT_VERSION' in gen[OUT_IMPL_CLIENT]
            and 'HudClient' not in gen[OUT_IMPL])
-    expect('a client-only slot is typed on its client area and flat on the client container alone',
-           len(typed_lines('GetLocalPlayerHealth')) == 2
+    expect('a client-only slot is typed on its client area, which the client container alone holds',
+           len(typed_lines('GetLocalPlayerHealth')) == 1
            and '_shim.Vt->GetLocalPlayerHealth(_shim.Self' in in_class('GetLocalPlayerHealth', 'HudClientArea')
-           and 'HudClient.GetLocalPlayerHealth()' in in_class('GetLocalPlayerHealth', 'ClientShimAreas')
-           and not in_class('GetLocalPlayerHealth', 'ShimAreas'))
+           and '    public readonly HudClientArea HudClient = null!;' in out
+           and out.count('    public readonly HudClientArea HudClient = null!;') == 1)
     try:
         globals()['client_switched'] = lambda: real_client() - {'IShimHudClient'}
         generate()

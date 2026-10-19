@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using Xunit;
@@ -8,8 +9,9 @@ namespace SourceSharp.Tests;
 /// plan_shim_areas_split phase 2: each shim area is a class over its own
 /// forwarder table, and the containers hold one instance per area. One fact per
 /// class shape, each driving a live slot of a <see cref="FakeShimRoot"/> through
-/// the area and through the container's flat member, so a class that read the
-/// wrong table, or a flat member that called the wrong area, answers wrong.
+/// the area the container holds (and, for a derived area, through the base-named
+/// view of it), so a class that read the wrong table answers wrong. Since phase
+/// 9 a container has no calls of its own.
 /// </summary>
 public unsafe class ShimAreaShapeTests
 {
@@ -98,6 +100,25 @@ public unsafe class ShimAreaShapeTests
 
         Assert.Equal(5u, server.EntitiesServer.FindEntityByClassname(0, null));
         Assert.Null(typeof(EntitiesArea).GetMethod(nameof(EntitiesServerArea.FindEntityByClassname)));
+    }
+
+    /// <summary>
+    /// plan_shim_areas_split phase 9: a container holds areas and nothing to
+    /// call. Each slot is called on the area that serves it, so a caller names
+    /// the area it depends on rather than the whole side.
+    /// </summary>
+    [Fact]
+    public void NeitherContainerHasACallOfItsOwn()
+    {
+        foreach (Type container in new[] { typeof(ShimAreas), typeof(ClientShimAreas) })
+        {
+            var calls = container.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                                 .Where(m => !m.IsSpecialName)
+                                 .Select(m => m.Name)
+                                 .ToList();
+            Assert.True(calls.Count == 0, $"{container.Name} declares calls: {string.Join(", ", calls)}");
+            Assert.NotEmpty(container.GetFields(BindingFlags.Public | BindingFlags.Instance));
+        }
     }
 
     /// <summary>A client-only area is a class of its own, held by the client container alone.</summary>
