@@ -4,8 +4,8 @@
 1	SLOT-HELP	[CGlowSightFilter] CGlowSightFilter() : CTraceFilterSimple( NULL, COLLISION_GROUP_NONE )
 8	SLOT-HELP	[CGlowSightFilter] virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
 7	SLOT-HELP	static int TraceHitIndex( IHandleEntity *pHit )
-78	SLOT	int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
+80	SLOT	int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
 1	SLOT-HELP	[CObserverNoNPCsOrPlayerFilter] CObserverNoNPCsOrPlayerFilter( const IHandleEntity *pPass ) : CTraceFilterSimple( pPass, COLLISION_GROUP_NON
 13	SLOT-HELP	[CObserverNoNPCsOrPlayerFilter] virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
-63	SLOT	int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ,
+65	SLOT	int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ,
 22	SLOT	int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ, float *pOutAngles )

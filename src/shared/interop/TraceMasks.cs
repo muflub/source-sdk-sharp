@@ -46,11 +46,14 @@ internal static class TraceMasks
     /// <summary><c>MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS</c>: a glow's sight line (C7 pixel visibility).</summary>
     public const int GlowSight = ContentsSolid | ContentsMoveable | ContentsOpaque | ContentsMonster | ContentsDebris;
 
+    /// <summary><c>CONTENTS_SOLID</c> alone: a glow overlay's line at the sky (C7 glow overlays).</summary>
+    public const int SolidOnly = ContentsSolid;
+
     /// <summary><c>MASK_ALL</c>.</summary>
     public const int All = unchecked((int)0xFFFFFFFF);
 
     /// <summary>
-    /// A line trace's mask: the eight named masks, and the brushes-only mask for
+    /// A line trace's mask: the nine named masks, and the brushes-only mask for
     /// anything else (the native table's fall-through).
     /// </summary>
     public static int Line(TraceMask mask) => mask switch
@@ -63,6 +66,7 @@ internal static class TraceMasks
         TraceMask.BlockLos => BlockLos,
         TraceMask.OpaqueAndNpcsWindow => OpaqueAndNpcsWindow,
         TraceMask.GlowSight => GlowSight,
+        TraceMask.ContentsSolid => SolidOnly,
         _ => SolidBrushOnly,
     };
 

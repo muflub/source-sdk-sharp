@@ -63,7 +63,10 @@ server_stock_tus	src/server/native/CMakeLists.txt	0
 # 2026-10-19, SFM is dead (user ruling 2026-10-19): toolframework_client.cpp and entity_client_tools.cpp left:
 #   client_stock_tus 49 -> 9, measured by `python3 tools/cmakegraph.py sources client | grep -E '^(game|public)/'
 #   | grep -vxc public/tier0/memoverride.cpp` (11 before the two left; the rest of the fall is main's own).
-client_stock_tus	src/client/native/CMakeLists.txt	9
+# LOWERED 2026-10-19, 9 -> 1 (lane C7 small render TUs, rebased onto main 1d344bb23): rendertexture.cpp,
+#   ScreenSpaceEffects.cpp, vgui_game_viewport.cpp, warp_overlay.cpp, glow_overlay.cpp and c_pixel_visibility.cpp
+#   left (the same command: clientshadowmgr.cpp alone).
+client_stock_tus	src/client/native/CMakeLists.txt	1
 #
 # ---------------------------------------------------------------------------
 # The shim itself. "Shipped shim" is every .cpp and .h under src/sourcesharp/
@@ -354,7 +357,12 @@ client_stock_tus	src/client/native/CMakeLists.txt	9
 # LOWERED 2026-10-19, 215 -> 214 (the walk at the client save codec landing on main 9d7f49fad): shell_savegame.cpp deleted.
 # RAISED 2026-10-19, 214 -> 215 (+1, the walk at the client temp entity landing on main 6c0c02d09), deliberately:
 #   shell_tempents_store_client.cpp, which stores the managed temp entity plan as the RecvTables the engine reads by layout.
-shim_cpp_files	src/sourcesharp	215
+# RAISED 2026-10-19, 215 -> 216 (lane C7 small render TUs, rebased onto main 1d344bb23; the walk measures 216, main's
+#   213), deliberately: +4 executors for the six Valve TUs the lane evicted (shell_render_targets_client.cpp, the named
+#   render targets the material system holds; shell_managed_clientsystems_client.cpp, kClientSystems[]'s rows over
+#   managed systems; shell_pixelvis_client.cpp, the occlusion query objects; shell_glow_client.cpp, the overlays'
+#   draw), less shell_explosion_overlay.cpp.
+shim_cpp_files	src/sourcesharp	216
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1789,7 +1797,13 @@ shim_cpp_files	src/sourcesharp	215
 # RAISED 2026-10-19, 131480 -> 131488 (+8, measured by the walk), deliberately: fwd_leaf_system.cpp's
 #   op buffer drops to 64 operations (2 KB) under a static_assert, so no frame needs MSVC's __chkstk,
 #   and its global operator delete is non-MSVC only (fwd_physics.cpp's serves MSVC; LNK2005/LNK2019 on CI at f6f1389).
-shim_lines	src/sourcesharp	131488
+# RAISED 2026-10-19, 131488 -> 132566 (+1078, measured by the walk; `git diff --numstat main..HEAD` over the shim's
+#   .cpp and .h agrees: +1412 -334), deliberately (lane C7 small render TUs, rebased onto main 1d344bb23): the four
+#   executors above and their headers (render_target_store.h, shell_render_targets.h, shell_pixelvis_client.h,
+#   shell_glow_client.h, glow_trace_filter.h), the managed rows' generated and hand-kept declarations, and the
+#   render trace's mesh and occlusion-query hooks, less shell_explosion_overlay.cpp (-162) and the native glows' four
+#   retired slot bodies. The six fork TUs they replace (about 2,600 lines) left client.so and are outside the walk.
+shim_lines	src/sourcesharp	132566
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

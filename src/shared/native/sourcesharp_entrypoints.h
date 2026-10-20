@@ -250,7 +250,7 @@ int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 256 slots.
+// CLIENT ONLY -- 251 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -268,7 +268,6 @@ int32_t SourceSharp_BeamEntityFacts( uint32_t hEntity, int32_t nAttachment,
                                      int32_t bTryAttachment, float *pOut9 );
 int32_t SourceSharp_BeamEntityHasModel( uint32_t hEntity );
 int32_t SourceSharp_BeamGlow( int32_t nModelIndex, int32_t bBind );
-float SourceSharp_BeamHaloVisibility( const float *pOriginXYZ, float flProxySize );
 int32_t SourceSharp_BeamModelIndex( const char *pszName );
 int32_t SourceSharp_BeamModelInfo( int32_t nModelIndex, int32_t *pOutFrameCount );
 int32_t SourceSharp_BeamRenderableAdd( const float *pOriginMinsMaxs9 );
@@ -312,7 +311,6 @@ int32_t SourceSharp_ClientEntityModelType( int32_t nEntity );
 int32_t SourceSharp_ClientEntityOrigin( int32_t nEntityIndex, float *pOutXYZ );
 int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ,
                                             float *pOutAngles );
-void SourceSharp_ClientExplosionFireball( const float *pOriginXYZ );
 int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd *pOut );
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
 int32_t SourceSharp_ClientIsLowViolence( void );
@@ -424,9 +422,7 @@ void SourceSharp_FxElight( int32_t nKey, const float *pOriginXYZ, int32_t r, int
 int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ,
                                         char *pModelOut, int32_t nModelSize );
 int32_t SourceSharp_FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR );
-float SourceSharp_FxGlowSightDistance( const float *pPositionXYZ );
 int32_t SourceSharp_FxHandleEntityIndex( uint32_t hEntity );
-void SourceSharp_FxImpactOverlay( const float *pPositionXYZ, const float *pColorRGB );
 void SourceSharp_FxLoadModel( const char *pModel );
 int32_t SourceSharp_FxLocalPlayer( void );
 void SourceSharp_FxMainViewOrigin( float *pOutXYZ );
@@ -449,8 +445,6 @@ int32_t SourceSharp_FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ,
                                        float *pIn );
 int32_t SourceSharp_FxSpriteDrawEnd( const float *pOut );
 int32_t SourceSharp_FxSpriteDrawStore( const float *pOut );
-float SourceSharp_FxSpriteGlowFraction( const float *pPositionXYZ, float flProxySize,
-                                        float flProxyAspect );
 int32_t SourceSharp_FxTempEntCreateNamed( int32_t nSlot, const float *pOriginXYZ,
                                           const char *pModel, int32_t nPriority );
 void SourceSharp_FxVectorRandom( float flLo, float flHi, float *pOutXYZ );
@@ -463,6 +457,7 @@ void SourceSharp_GetLightForPointFast( void *pEngineClient, const float *pPosXYZ
 int32_t SourceSharp_GetLocalPlayerHealth( void );
 int32_t SourceSharp_GetLocalPlayerIndex( void );
 int32_t SourceSharp_GetLocalPlayerOrigin( float *pOutXYZ );
+int32_t SourceSharp_GlowMaterialFind( const char *pszName, const char *pszGroup );
 void SourceSharp_HudLocalise( const char *pToken, char *pOut, int32_t nOutSize );
 void SourceSharp_HudLookupBinding( const char *pBinding, char *pOut, int32_t nOutSize );
 int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage *pOut );
@@ -500,7 +495,6 @@ int32_t SourceSharp_ParticlesCreateAt( int32_t nId, const char *pszMaterial,
 void SourceSharp_ParticlesDestroy( uint32_t hOwner, int32_t nChannel );
 int32_t SourceSharp_ParticlesMaterialVarInt( uint32_t hOwner, int32_t nChannel,
                                              const char *pszVar, int32_t *pValue );
-float SourceSharp_ParticlesPixelVisible( const float *pOriginXYZ, int32_t *pQueryHandle );
 void SourceSharp_ParticlesSetLights( uint32_t hOwner, int32_t nChannel, const float *pLights,
                                      int32_t nFloats );
 int32_t SourceSharp_ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity,

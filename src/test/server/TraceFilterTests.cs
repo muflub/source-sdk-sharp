@@ -164,6 +164,7 @@ public class TraceFilterTests
             ("BLOCKLOS", TraceMask.BlockLos),
             ("OPAQUE_AND_NPCS_WINDOW", TraceMask.OpaqueAndNpcsWindow),
             ("GLOW_SIGHT", TraceMask.GlowSight),
+            ("CONTENTS_SOLID", TraceMask.ContentsSolid),
         ];
         Assert.Equal(pairs.Length, native.Count);
         Assert.Equal(pairs.Length, Enum.GetValues<TraceMask>().Length);
@@ -236,6 +237,22 @@ public class TraceFilterTests
         string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
         int found = Regex.Matches(code,
             @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_GLOW_SIGHT\s*\)\s*nTraceMask\s*=\s*MASK_OPAQUE\s*\|\s*CONTENTS_MONSTER\s*\|\s*CONTENTS_DEBRIS\s*;").Count;
+        Assert.Equal(arms, found);
+    }
+
+    /// <summary>
+    /// A glow overlay's line at the sky (C7 glow overlays) is mapped on every
+    /// native arm that maps masks, the client's line and hull traces, each to
+    /// CONTENTS_SOLID alone. The server's is managed TraceMasks'
+    /// (TraceMaskFoldTests holds its row).
+    /// </summary>
+    [Theory]
+    [InlineData("client", "shell_worldquery_client.cpp", 2)]
+    public void TheContentsSolidMaskIsMappedOnEachArm(string side, string file, int arms)
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_CONTENTS_SOLID\s*\)\s*nTraceMask\s*=\s*CONTENTS_SOLID\s*;").Count;
         Assert.Equal(arms, found);
     }
 

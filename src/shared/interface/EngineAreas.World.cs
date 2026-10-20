@@ -280,9 +280,8 @@ public interface IEngineEffects
 
     // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP). Eight named
     // primitives, not one kind+params slot; Sparks reuses ClientSparks above.
-
-    /// <inheritdoc cref="EngineSide.ClientExplosionFireball"/>
-    void ClientExplosionFireball(Vector origin);
+    // (ClientExplosionFireball, the last of them, left with the glow overlays'
+    // port, C7: the flash is the managed GlowOverlaySystem's.)
 
 
 

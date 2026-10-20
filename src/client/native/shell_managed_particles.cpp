@@ -54,7 +54,6 @@
 #include "tier1/utlobjectreference.h"
 #include "shell_clientdll_refusals.h"
 #include "viewrender.h"
-#include "c_pixel_visibility.h"
 #include "clienteffectprecachesystem.h"
 #include "shell_cliententitylist.h"
 #include "fx.h"
@@ -1643,23 +1642,6 @@ void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pO
 		pOriginForward6[4] = vf.y;
 		pOriginForward6[5] = vf.z;
 	}
-}
-
-//-----------------------------------------------------------------------------
-// PixelVisibility_FractionVisible at a point, through the caller's handle (a
-// pixelvis_handle_t, which is an int; managed keeps it with the emitter that
-// owns the query, as CSimpleGlowEmitter kept m_queryHandle).
-//-----------------------------------------------------------------------------
-float SourceSharp_ParticlesPixelVisible( const float *pOriginXYZ, int32_t *pQueryHandle )
-{
-	if ( !pOriginXYZ || !pQueryHandle )
-		return 0.0f;
-	pixelvis_queryparams_t params;
-	params.Init( Vector( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] ) );
-	pixelvis_handle_t hQuery = *pQueryHandle;
-	const float flVisible = PixelVisibility_FractionVisible( params, &hQuery );
-	*pQueryHandle = hQuery;
-	return flVisible;
 }
 
 //-----------------------------------------------------------------------------

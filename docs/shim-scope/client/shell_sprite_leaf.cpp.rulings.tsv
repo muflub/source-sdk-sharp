@@ -10,8 +10,6 @@ IMaterial *CEngineSprite::GetMaterial(	LAYOUT	enginesprite.h's member: a mode's 
 int CEngineSprite::GetOrientation(	LAYOUT	enginesprite.h's member: the $spriteorientation read at init
 void CEngineSprite::UnloadMaterial(	LAYOUT	enginesprite.h's member: drops the materials' references
 int SourceSharp_PlanSprite(	BOUNDARY	C_SpriteRenderer::DrawSprite's executor: reads the sprite model, the attachment, the blend and the view for SpriteRenderer's plan (IManagedFxClient::SpritePlan), then sets the blend and builds the quad the plan chose
-float SourceSharp_FxSpriteGlowFraction(	BOUNDARY	IShimFxClient: PixelVisibility_FractionVisible on the planned sprite's query handle
-float SourceSharp_FxGlowSightDistance(	BOUNDARY	IShimFxClient: GlowSightDistance, for the planner's glow fade
 static void PutVector(	SLOT-HELP	packs a vector into the plan's request floats
 int C_SpriteRenderer::DrawSprite(	SLOT	Sprite.h's member, C_LocalTempEntity's draw: forwards to the planner with stock's proxy size
 float C_SpriteRenderer::GlowBlend(	LAYOUT	Sprite.h's virtual, a slot in C_LocalTempEntity's vtable; nothing calls it now that the blend is the planner's

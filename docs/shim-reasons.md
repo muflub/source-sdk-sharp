@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 61 | 34,491 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,886 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 26 | 3,829 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 35,021 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,896 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,932 |
 | d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,264 |
-| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,419 |
+| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,458 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,168 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,421 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,422 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,103 |
-| x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,605 |
-|  | **total** | **75** | **34** | **73** | **3** | **2** | **1** | **213** | **89,186** |
+| x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,608 |
+|  | **total** | **75** | **34** | **73** | **3** | **2** | **1** | **216** | **89,872** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -216,6 +216,8 @@ Then the client's sound emit path moved to managed (2026-10-19, measured by the 
 Then the client save codec moved to managed (2026-10-19, measured by the walk at the landing on main 9d7f49fad): (f) 13 -> 12 files and 3,567 -> 3,168 lines are shell_savegame.cpp, deleted, and shell_savegame.h's inline codec, gone (the header now holds only the server's ShellSave_LoadGameNeedsPlayer); (b) 16,636 -> 16,646 is shell_clientdll.cpp's three one-line save forwards; 90,871 lines in the table.
 
 Then the client's temp entity tables moved to managed planning (2026-10-19, measured by the walk at the landing on main 6c0c02d09): (d) 22 -> 23 files and 9,444 -> 9,492 lines is shell_tempents_store_client.cpp, which stores the managed plan as the RecvProp/RecvTable/ClientClass the engine reads by layout; (b) 16,646 -> 15,900 is tempent_schema.h and the native registration path, deleted, with the dead local Begin/Set*/Play path; (h) -10 follows; 90,163 lines in the table.
+
+Then lane C7 small render TUs landed (2026-10-19, measured by the walk at the lane rebased onto main 1d344bb23): rendertexture.cpp, ScreenSpaceEffects.cpp, vgui_game_viewport.cpp, warp_overlay.cpp, glow_overlay.cpp and c_pixel_visibility.cpp left client.so, their decisions managed. (a) 61 -> 63 files and 34,491 -> 35,021 lines is shell_pixelvis_client.cpp (+248), shell_glow_client.cpp (+208) and shell_render_targets_client.cpp (+85), the executors of what managed decides, and the render trace's mesh and occlusion-query hooks (shell_render_trace_client.cpp +195), less shell_explosion_overlay.cpp (-162), the fireball's backend (shell_te_backends_client.cpp -30) and ParticlesPixelVisible's body (shell_managed_particles.cpp -18); (c) 26 -> 27 files and 3,829 -> 3,932 is shell_managed_clientsystems_client.cpp (+103), kClientSystems[]'s rows over managed systems; (e) +39 is the client trace's glow and solid arms (shell_worldquery_client.cpp); (b) +10, (g) +1 and (x) +3 follow; 89,872 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

@@ -280,6 +280,26 @@ public unsafe class ClientAdapterRegistrationTests
         Assert.Equal((6, 12.5f), (view.Id, view.Origin.X));
     }
 
+    [ThreadStatic] private static string? t_found;
+
+    // The material asked for: its name and group, answered with an id.
+    [UnmanagedCallersOnly]
+    private static int FindTwelve(void* self, byte* name, byte* group)
+    {
+        t_found = Marshal.PtrToStringUTF8((nint)name) + " " + Marshal.PtrToStringUTF8((nint)group);
+        return 12;
+    }
+
+    [Fact]
+    public void TheRegisteredGlowMaterialsFindThroughTheViewArea()
+    {
+        t_found = null;
+        int id = Through<IGlowMaterials, int>(View, nameof(ShimViewClientFwd.GlowMaterialFind),
+                                              (nint)(delegate* unmanaged<void*, byte*, byte*, int>)&FindTwelve,
+                                              m => m.Find("sun/overlay", "ClientEffect textures"));
+        Assert.Equal((12, "sun/overlay ClientEffect textures"), (id, t_found));
+    }
+
     [ThreadStatic] private static string? t_declared;
 
     // What arrived: the slot, the name, the group and the three ints.

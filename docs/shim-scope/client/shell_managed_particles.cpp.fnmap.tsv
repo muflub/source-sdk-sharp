@@ -81,7 +81,6 @@
 19	SLOT	int32_t SourceSharp_ParticleSystemOneShot( const char *pszName, const float *pSortOriginXYZ, const float *pPoints,
 19	BOUNDARY	int32_t SourceSharp_ParticlesWorldTrace( const float *pStartXYZ, const float *pEndXYZ, float *pOut, int32_t nOut )
 23	BOUNDARY	void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pOriginForward6 )
-11	BOUNDARY	float SourceSharp_ParticlesPixelVisible( const float *pOriginXYZ, int32_t *pQueryHandle )
 18	BOUNDARY	int32_t SourceSharp_ParticlesTraceMask( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, float *pOut, int32_t nOut )
 7	SLOT-HELP	static void ManagedWaterSplash( int nKind, const Vector &origin, const Vector *pNormal, float flScale, const Vector *pColor,
 4	BOUNDARY	void FX_GunshotSplash( const Vector &origin, const Vector &normal, float scale )

@@ -215,6 +215,9 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	// A glow's sight line (C7 pixel visibility): no glass. On both arms.
 	else if ( req.nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
 		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
+	// A glow overlay's line at the sky (C7 glow overlays). On both arms.
+	else if ( req.nMask == SOURCESHARP_TRACE_CONTENTS_SOLID )
+		nTraceMask = CONTENTS_SOLID;
 
 	trace_t tr;
 
@@ -365,6 +368,8 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
 	else if ( nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
 		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
+	else if ( nMask == SOURCESHARP_TRACE_CONTENTS_SOLID )
+		nTraceMask = CONTENTS_SOLID;
 
 	IClientEntity *pEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
 	IHandleEntity *pPass = pEnt ? static_cast< IClientUnknown * >( pEnt ) : NULL;

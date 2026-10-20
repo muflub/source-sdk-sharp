@@ -104,6 +104,13 @@ IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial )
 	return MaterialOf( nMaterial );
 }
 
+// A material as its id, no reference taken, for the glow overlays' find
+// (shell_glow_client.cpp: stock's overlays found theirs and held none).
+int32_t SourceSharp_FxMaterialIdOf( IMaterial *pMaterial )
+{
+	return MaterialId( pMaterial );
+}
+
 class CEffectsListThunk final : public IEffectsList
 {
 public:

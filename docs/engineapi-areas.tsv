@@ -186,7 +186,6 @@ ClientDecalStaticProp	EngineApi	IShimTempEntBackendsClient	client		client	-	Sour
 ClientDecalStudioModel	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalStudioModel	int, float*, float*, int, void	
 ClientEnergySplash	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientEnergySplash	float*, float*, int, void	
 ClientEntityModelType	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientEntityModelType	int, int	
-ClientExplosionFireball	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientExplosionFireball	float*, void	
 ClientIsLowViolence	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientIsLowViolence	int	
 ClientMetalSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientMetalSparks	float*, float*, void	
 ClientMuzzleFlash	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientMuzzleFlash	float*, float*, float, int, void	
@@ -216,7 +215,6 @@ BeamEntityAt	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_Bea
 BeamEntityHasModel	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamEntityHasModel	uint, int	
 BeamEntityFacts	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamEntityFacts	uint, int, int, float*, int	
 BeamBoxVisibility	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamBoxVisibility	float*, float*, int	
-BeamHaloVisibility	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamHaloVisibility	float*, float, float	
 BeamScreenPosition	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamScreenPosition	float*, float*, int	
 BeamRenderableAdd	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamRenderableAdd	float*, int	
 BeamRenderableChanged	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamRenderableChanged	int, float*, void	
@@ -270,6 +268,7 @@ PixelVisQueryReset	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelV
 PixelVisQueryPixels	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisQueryPixels	int, int, int*, void	
 PixelVisDiameters	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisDiameters	float*, int, float*, void	
 PixelVisView	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisView	float*, int, int	
+GlowMaterialFind	EngineApi	IShimViewClient	client		client	-	SourceSharp_GlowMaterialFind	byte*, byte*, int	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	
@@ -316,7 +315,6 @@ ParticleSystemNameFromIndex	EngineApi	IShimParticlesClient	client		client	-	Sour
 ParticleSystemOneShot	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemOneShot	byte*, float*, float*, int, float*, int	
 ParticlesWorldTrace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesWorldTrace	float*, float*, float*, int, int	
 ParticlesView	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesView	float*, int*, float*, void	
-ParticlesPixelVisible	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesPixelVisible	float*, int*, float	
 ParticlesTraceMask	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceMask	float*, float*, uint, float*, int, int	
 ParticlesSetSpace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesSetSpace	uint, int, uint, int, int, ParticleFollow*, int	
 ParticlesBrushPointContents	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesBrushPointContents	uint, float*, int	
@@ -338,8 +336,6 @@ FxEntityAttachment	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntity
 FxDispatchParticleEffect	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxDispatchParticleEffect	int, float*, float*, float*, int, void	
 FxEntityRenderAngles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntityRenderAngles	int, float*, int	
 FxEjectBrass	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEjectBrass	float*, float*, float*, int, void	
-FxSpriteGlowFraction	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteGlowFraction	float*, float, float, float	
-FxGlowSightDistance	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxGlowSightDistance	float*, float	
 FxSpriteDrawBegin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawBegin	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, float*, int	
 FxSpriteDrawEnd	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawEnd	float*, int	
 FxSpriteDrawStore	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawStore	float*, int	
@@ -352,7 +348,6 @@ FxHandleEntityIndex	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxHandl
 FxElight	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxElight	int, float*, int, int, int, int, float, float, float, void	
 FxVectorRandom	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxVectorRandom	float, float, float*, void	
 FxMaterialsCached	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialsCached	int	
-FxImpactOverlay	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxImpactOverlay	float*, float*, void	
 FxTempEntCreateNamed	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxTempEntCreateNamed	int, float*, byte*, int, int	
 FxLoadModel	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLoadModel	byte*, void	
 FxModelFrameCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxModelFrameCount	byte*, int	

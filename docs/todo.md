@@ -378,7 +378,7 @@ its exit:
   one crossing.
 - **The team-255 broadcast is a native game-event listener** (shell_client.cpp's
   `FireGameEvent`); a managed listener would take it, and the RPG's
-  `RPGShotDownCallback` (shell_explosion_overlay.cpp) has no dispatcher in this
+  `RPGShotDown` effect (managed since C7: RpgShotDownEffect) has no sender in this
   build.
 
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg

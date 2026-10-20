@@ -97,11 +97,10 @@ CClientSystem *ClientSystem_ManagedViewport();
 CClientSystem *ClientSoundscapeSystem();
 
 CClientSystem *ClientSystem_StandaloneClient();
-CClientSystem *ClientSystem_GlowOverlay();
+CClientSystem *ClientSystem_ManagedGlowOverlay();
 CClientSystem *ClientSystem_DecalEmitter();
 CClientSystem *ClientSystem_DirtySpatialPartition();
 CClientSystem *ClientSystem_BulletWhizTimer();
-CClientSystem *ClientSystem_PixelVisibility();
 CClientSystem *ClientSystem_ManagedPixelVisibility();
 CClientSystem *ClientSystem_Sprite();
 CClientSystem *ClientSystem_WorldText();
@@ -225,11 +224,10 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 // RULING | CClientShadowMgr | STAYS | game/client/clientshadowmgr.cpp | g_pClientShadowMgr
 // RULING | C_SoundscapeSystem | STAYS | sourcesharp/game/client/shell_soundscape_audio_client.cpp | ClientSoundscapeSystem
 // RULING | CSourceSharpStandaloneClientSystem | STAYS | sourcesharp/game/client/shell_standalone_client.cpp | ClientSystem_StandaloneClient
-// RULING | CGlowOverlaySystem | STAYS | game/client/glow_overlay.cpp | ClientSystem_GlowOverlay
+// RULING | CGlowOverlaySystem | STAYS | sourcesharp/game/client/shell_managed_clientsystems_client.cpp | ClientSystem_ManagedGlowOverlay
 // RULING | CDecalEmitterSystem | STAYS | sourcesharp/game/client/shell_decals_client.cpp | ClientSystem_DecalEmitter
 // RULING | CDirtySpatialPartitionEntityList | STAYS | sourcesharp/game/shared/collisionproperty.cpp | ClientSystem_DirtySpatialPartition
 // RULING | CBulletWhizTimer | STAYS | sourcesharp/game/client/shell_effects_list_client.cpp | ClientSystem_BulletWhizTimer
-// RULING | CPixelVisibilitySystemGlow | STAYS | game/client/c_pixel_visibility.cpp | ClientSystem_PixelVisibility
 // RULING | CPixelVisibilitySystem | STAYS | sourcesharp/game/client/shell_managed_clientsystems_client.cpp | ClientSystem_ManagedPixelVisibility
 // RULING | CSourceSharpSpriteSystem | STAYS | sourcesharp/game/client/shell_sprite_render.cpp | ClientSystem_Sprite
 // RULING | CSourceSharpWorldTextSystem | STAYS | sourcesharp/game/client/shell_worldtext_render.cpp | ClientSystem_WorldText
@@ -318,13 +316,12 @@ static const ClientSystemRow_t kClientSystems[] =
 	// `{ "CEZParticleInit", ... }` stood here: particles_ez.cpp left with lane
 	// c5-particles (FX_Dust is C#'s DustPuff; DrawParticleSingletons draws its
 	// executors from shell_managed_particles.cpp).
-	{ "CGlowOverlaySystem",                 ClientSystem_GlowOverlay },
+	{ "CGlowOverlaySystem",                 ClientSystem_ManagedGlowOverlay },
 	{ "CDecalEmitterSystem",                ClientSystem_DecalEmitter },
 	{ "CDirtySpatialPartitionEntityList",   ClientSystem_DirtySpatialPartition },
 	{ "CBulletWhizTimer",                   ClientSystem_BulletWhizTimer },
-	// c_pixel_visibility.cpp's own system, for its last caller (glow_overlay.cpp),
-	// then managed's PixelVisibilitySystem, every other glow's (C7).
-	{ "CPixelVisibilitySystemGlow",         ClientSystem_PixelVisibility },
+	// c_pixel_visibility.cpp's own CPixelVisibilitySystem stood here: it is
+	// managed's PixelVisibilitySystem (C7), the row below, at stock's place.
 	{ "CPixelVisibilitySystem",             ClientSystem_ManagedPixelVisibility },
 	// `{ "C_BaseAnimatingGameSystem", ClientSystem_BaseAnimating }` STOOD HERE:
 	// its stage ran the bone leaf library's sweeps, none registered (2026-10-18).

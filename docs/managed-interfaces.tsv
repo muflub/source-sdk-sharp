@@ -418,3 +418,11 @@ IManagedClientSystemsClient	Stage	int32_t	const char *pszSystem, int32_t nStage
 IManagedPixelVisClient	EndView	int32_t	const float *pView, int32_t nViewFloats, int32_t *pCmds, int32_t nCmdWords
 IManagedPixelVisClient	Commands	int32_t	int32_t *pCmds, int32_t nCmdWords
 IManagedPixelVisClient	EndScene	void	void
+# C7 glow overlays (glow_overlay.cpp, warp_overlay.cpp): the plan's GlowDrawOverlays op hands managed the view
+# (origin, forward, zFar, the frustum's first five planes, the wireframe question, r_drawsprites: 29 floats) and
+# carries out the commands it answers, int32 words (shell_glow_client.h's SS_GLOW_CMD_*); the count of words is the
+# answer, and when it is more than nCmdWords native grows its buffer and asks Commands for the same words.
+# UpdateSkyOverlays is the plan's GlowUpdateSkyOverlays op, with the current view's origin.
+IManagedGlowClient	DrawOverlays	int32_t	const float *pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t *pCmds, int32_t nCmdWords
+IManagedGlowClient	Commands	int32_t	int32_t *pCmds, int32_t nCmdWords
+IManagedGlowClient	UpdateSkyOverlays	void	const float *pOrigin, float flZFar, int32_t bCacheFullSceneState

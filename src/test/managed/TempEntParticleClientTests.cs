@@ -116,6 +116,16 @@ public class TempEntParticleClientTests
 
     private readonly Explosions _explosions = new();
 
+    // The fireball flashes the explosion asks for: a warp overlay the managed glow overlays hold (C7).
+    private sealed class Fireballs : client::SourceSharp.Client.Interop.IExplosionFireball
+    {
+        public readonly List<Vector> Made = [];
+
+        public void Fireball(Vector origin) => Made.Add(origin);
+    }
+
+    private readonly Fireballs _fireballs = new();
+
     /// <summary>
     /// The server's writer, over the server's own double and a registry of the
     /// server's copy of the shared declarations. Each side compiles the shared
@@ -148,7 +158,7 @@ public class TempEntParticleClientTests
 
         Assert.True(players.Add("CTESparks", new ClientTeSparks(engine)), "sparks claims its name");
         Assert.True(players.Add("CTEExplosion",
-            new ClientTeExplosion(log ?? new RecordingLog(), engine, engine, standalones, new RecordingRagdolls(engine), engine, explosions ?? _explosions)), "and the explosion");
+            new ClientTeExplosion(log ?? new RecordingLog(), engine, standalones, new RecordingRagdolls(engine), engine, explosions ?? _explosions, _fireballs)), "and the explosion");
         Assert.True(players.Add("CTELargeFunnel", new ClientTeLargeFunnel(_funnels)), "and the funnel");
         Assert.True(players.Add("CTEBloodStream", new ClientTeBloodStream(_te)), "and the blood");
         Assert.True(players.Add("CTEShowLine", new ClientTeShowLine(_te)), "and the line");
@@ -510,7 +520,7 @@ public class TempEntParticleClientTests
 
         Assert.True(_explosions.Made.Count(m => m.Kind == client::SourceSharp.Client.Effects.ExplosionKind.Water) == 0,
             "no splash on dry land");
-        Assert.True(engine.CountOf("Effects.ClientExplosionFireball") == 1,
+        Assert.True(_fireballs.Made.Count == 1,
             "the fireball overlay, because no flag suppressed it");
         Assert.True(_explosions.Made.Count(m => m.Kind == client::SourceSharp.Client.Effects.ExplosionKind.Base) == 1,
             "and the explosion itself");
@@ -527,7 +537,7 @@ public class TempEntParticleClientTests
         Assert.True(core.Scale == 1.5f, "and m_fScale is the SCALE");
         Assert.True(core.Flags == 0, "with the flags it was sent with");
 
-        Assert.True(Same(engine.Last("Effects.ClientExplosionFireball")!.Value.ArgAs<Vector>(0),
+        Assert.True(Same(_fireballs.Made.Last(),
                          new Vector(-1000f, 250f, 64f)),
             "and the overlay is at the same point, not at the origin");
     }
@@ -548,7 +558,7 @@ public class TempEntParticleClientTests
         Players(engine, registry).Dispatch(boom.Handle,
             ExplosionBlob(boom, new Vector(0f, 0f, 0f), flags: 0x40));
 
-        Assert.True(engine.CountOf("Effects.ClientExplosionFireball") == 0,
+        Assert.True(_fireballs.Made.Count == 0,
             "TE_EXPLFLAG_NOFIREBALL is 0x40 and it means no fireball");
         Assert.True(_explosions.Made.Count(m => m.Kind == client::SourceSharp.Client.Effects.ExplosionKind.Base) == 1,
             "and the explosion still happens, which is the half a flag test gets wrong");
@@ -572,13 +582,13 @@ public class TempEntParticleClientTests
         // 0x80 is TE_EXPLFLAG_NOFIREBALLSMOKE: bigger than 0x40, and NOT it.
         players.Dispatch(boom.Handle, ExplosionBlob(boom, Vector.Zero, flags: 0x80));
 
-        Assert.True(engine.CountOf("Effects.ClientExplosionFireball") == 1,
+        Assert.True(_fireballs.Made.Count == 1,
             "0x80 does not contain 0x40, so the fireball still draws");
 
         // 0x41 is NOFIREBALL with something else beside it.
         players.Dispatch(boom.Handle, ExplosionBlob(boom, Vector.Zero, flags: 0x41));
 
-        Assert.True(engine.CountOf("Effects.ClientExplosionFireball") == 1,
+        Assert.True(_fireballs.Made.Count == 1,
             "and 0x41 does contain it, so no second overlay was drawn");
     }
 
@@ -609,7 +619,7 @@ public class TempEntParticleClientTests
         Assert.True(_explosions.Made.Count(m => m.Kind == client::SourceSharp.Client.Effects.ExplosionKind.Water) == 1, "the splash");
         Assert.True(_explosions.Made.Count(m => m.Kind == client::SourceSharp.Client.Effects.ExplosionKind.Base) == 0,
             "and NOT the land explosion as well");
-        Assert.True(engine.CountOf("Effects.ClientExplosionFireball") == 0,
+        Assert.True(_fireballs.Made.Count == 0,
             "nor a fireball on top of it: stock returns before reaching either");
 
         var splash = _explosions.Made.Last(m => m.Kind == client::SourceSharp.Client.Effects.ExplosionKind.Water);

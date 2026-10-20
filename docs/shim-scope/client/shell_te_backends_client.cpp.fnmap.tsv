@@ -16,6 +16,5 @@
 12	UNRULED	int32_t SourceSharp_ClientEntityModelType( int32_t nEntity )
 25	UNRULED	void SourceSharp_ClientDecalStudioModel( int32_t nEntity,
 14	UNRULED	void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCenterXYZ,
-15	UNRULED	void SourceSharp_ClientExplosionFireball( const float *pOriginXYZ )
 12	UNRULED	void SourceSharp_EffectDispatchName( int32_t nIndex, char *pOut, int32_t nOutBytes )
-69	UNRULED	CON_COMMAND_F( cs_cl_te_backend,
+65	UNRULED	CON_COMMAND_F( cs_cl_te_backend,

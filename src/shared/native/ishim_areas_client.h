@@ -91,7 +91,6 @@ public:
 	virtual void ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ, const float *pRayEndXYZ, int32_t nDecalIndex ) = 0;
 	virtual void ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ, int32_t bExplosive ) = 0;
 	virtual int32_t ClientEntityModelType( int32_t nEntity ) = 0;
-	virtual void ClientExplosionFireball( const float *pOriginXYZ ) = 0;
 	virtual int32_t ClientIsLowViolence() = 0;
 	virtual void ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ ) = 0;
 	virtual void ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType ) = 0;
@@ -129,7 +128,6 @@ public:
 	virtual int32_t BeamEntityHasModel( uint32_t hEntity ) = 0;
 	virtual int32_t BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float *pOut9 ) = 0;
 	virtual int32_t BeamBoxVisibility( const float *pMinsXYZ, const float *pMaxsXYZ ) = 0;
-	virtual float BeamHaloVisibility( const float *pOriginXYZ, float flProxySize ) = 0;
 	virtual int32_t BeamScreenPosition( const float *pPointXYZ, float *pOutScreenXYZ ) = 0;
 	virtual int32_t BeamRenderableAdd( const float *pOriginMinsMaxs9 ) = 0;
 	virtual void BeamRenderableChanged( int32_t nRenderable, const float *pOriginMinsMaxs9 ) = 0;
@@ -205,6 +203,7 @@ public:
 	virtual void PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t *pOut ) = 0;
 	virtual void PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut ) = 0;
 	virtual int32_t PixelVisView( float *pOut, int32_t nFloats ) = 0;
+	virtual int32_t GlowMaterialFind( const char *pszName, const char *pszGroup ) = 0;
 };
 
 // plan_side_isolation §2.2a: the client half of user messages. Managed reads a
@@ -305,8 +304,6 @@ public:
 	// and CurrentViewOrigin() / CurrentViewForward() (6 floats). Managed reads it once per view, when the key
 	// IManagedParticlesClient::Draw carries changes.
 	virtual void ParticlesView( float *pModelView12, int32_t *pViewId, float *pOriginForward6 ) = 0;
-	// PixelVisibility_FractionVisible at a point, through the caller's query handle (kept managed).
-	virtual float ParticlesPixelVisible( const float *pOriginXYZ, int32_t *pQueryHandle ) = 0;
 	// g_pParticleSystemMgr->ParticleThrottleScaling(): 1 unrestricted .. 0 fully, which the metal sparks scale their count by.
 	// A line through the world with the contents mask managed names (lane c5-particles: fx_water's MASK_WATER, fx_explosion's
 	// CONTENTS_SOLID), COLLISION_GROUP_NONE; out fraction, endpos xyz, normal xyz, startsolid, fractionleftsolid.
@@ -351,11 +348,6 @@ public:
 	// angles, and the legacy temp entity pool's brass.
 	virtual int32_t FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR ) = 0;
 	virtual void FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR, int32_t nType ) = 0;
-	// The sprite planner's two engine answers (SpriteRenderer): the pixel
-	// visibility of the sprite being planned, on its renderer's query handle,
-	// and GlowSightDistance.
-	virtual float FxSpriteGlowFraction( const float *pPositionXYZ, float flProxySize, float flProxyAspect ) = 0;
-	virtual float FxGlowSightDistance( const float *pPositionXYZ ) = 0;
 	// A managed sprite planned in managed (ClientSpriteHost.DrawSprite): the
 	// request, then the plan carried out -- no crossing back for the plan.
 	virtual int32_t FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float *pIn ) = 0;
@@ -374,9 +366,6 @@ public:
 	virtual void FxElight( int32_t nKey, const float *pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent, float flRadius, float flDecay, float flDie ) = 0;
 	virtual void FxVectorRandom( float flLo, float flHi, float *pOutXYZ ) = 0;
 	virtual int32_t FxMaterialsCached() = 0;
-	// fx.cpp's FX_GunshipImpact overlay (lane c5-particles: FxEffects.GunshipImpact): a warp overlay at the
-	// position managed placed, in its base colour, ramped as stock's CImpactOverlay.
-	virtual void FxImpactOverlay( const float *pPositionXYZ, const float *pColorRGB ) = 0;
 	// The tempents' bounce sounds (TempEntSounds), and the models they spawn by name.
 	virtual int32_t FxTempEntCreateNamed( int32_t nSlot, const float *pOriginXYZ, const char *pModel, int32_t nPriority ) = 0;
 	virtual void FxLoadModel( const char *pModel ) = 0;

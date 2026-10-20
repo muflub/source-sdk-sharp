@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Client.Interop;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Client.TempEnts;
@@ -103,7 +104,6 @@ public sealed class ClientTeExplosion : ClientTempEnt<TeExplosion>, IClientTempE
     /// </summary>
     private const float BlastCentreDrop = 32f;
 
-    private readonly IEngineEffects _effects;
     private readonly IEngineWorldQuery _world;
     private readonly IClientStandalones _standalones;
     private readonly Ragdolls.IClientRagdolls _ragdolls;
@@ -131,14 +131,17 @@ public sealed class ClientTeExplosion : ClientTempEnt<TeExplosion>, IClientTempE
     // fx_explosion.cpp's effects, C# since lane c5-particles (ExplosionEffects).
     private readonly Effects.IClientExplosions _explosions;
 
-    public ClientTeExplosion(ILog log, IEngineEffects effects, IEngineWorldQuery world,
+    // The fireball flash, a warp overlay the managed glow overlays hold (C7).
+    private readonly IExplosionFireball _fireball;
+
+    public ClientTeExplosion(ILog log, IEngineWorldQuery world,
                              IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls,
-                             IEngineEntities entities, Effects.IClientExplosions explosions)
+                             IEngineEntities entities, Effects.IClientExplosions explosions, IExplosionFireball fireball)
     {
         _explosions = explosions;
+        _fireball = fireball;
 
         _log = log;
-        _effects = effects;
         _world = world;
         _standalones = standalones;
         _ragdolls = ragdolls;
@@ -183,7 +186,7 @@ public sealed class ClientTeExplosion : ClientTempEnt<TeExplosion>, IClientTempE
         }
 
         if ((te.Flags & NoFireball) == 0)
-            _effects.ClientExplosionFireball(te.Origin);
+            _fireball.Fireball(te.Origin);
 
         _explosions.Create(Effects.ExplosionKind.Base, te.Origin, te.Magnitude, te.Scale, te.Flags);
     }

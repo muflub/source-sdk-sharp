@@ -45,7 +45,6 @@ uint32_t SourceSharp_BeamEntityAt(	BOUNDARY	IShimEffectsRenderClient::BeamEntity
 int32_t SourceSharp_BeamEntityHasModel(	BOUNDARY	IShimEffectsRenderClient::BeamEntityHasModel: GetModel() != NULL at a handle
 int32_t SourceSharp_BeamEntityFacts(	BOUNDARY	IShimEffectsRenderClient::BeamEntityFacts: which hierarchy holds a handle, and its attachment, collision centre and render origin; the route is BeamEndpoint.cs's
 int32_t SourceSharp_BeamBoxVisibility(	BOUNDARY	IShimEffectsRenderClient::BeamBoxVisibility: engine IsBoxVisible and CullBox
-float SourceSharp_BeamHaloVisibility(	BOUNDARY	IShimEffectsRenderClient::BeamHaloVisibility: PixelVisibility_FractionVisible's handle-less sight test
 int32_t SourceSharp_BeamScreenPosition(	BOUNDARY	IShimEffectsRenderClient::BeamScreenPosition: debugoverlay ScreenPosition
 int32_t SourceSharp_BeamRenderableAdd(	BOUNDARY	IShimEffectsRenderClient::BeamRenderableAdd: a pooled translucent leaf renderable for a managed beam
 void SourceSharp_BeamRenderableChanged(	BOUNDARY	IShimEffectsRenderClient::BeamRenderableChanged: the leaf system's RenderableChanged

@@ -45,7 +45,6 @@
 5	BOUNDARY	int32_t SourceSharp_BeamEntityHasModel( uint32_t hEntity )
 32	BOUNDARY	int32_t SourceSharp_BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float *pOut9 )
 6	BOUNDARY	int32_t SourceSharp_BeamBoxVisibility( const float *pMinsXYZ, const float *pMaxsXYZ )
-6	BOUNDARY	float SourceSharp_BeamHaloVisibility( const float *pOriginXYZ, float flProxySize )
 7	BOUNDARY	int32_t SourceSharp_BeamScreenPosition( const float *pPointXYZ, float *pOutScreenXYZ )
 19	BOUNDARY	int32_t SourceSharp_BeamRenderableAdd( const float *pOriginMinsMaxs9 )
 8	BOUNDARY	void SourceSharp_BeamRenderableChanged( int32_t nRenderable, const float *pOriginMinsMaxs9 )

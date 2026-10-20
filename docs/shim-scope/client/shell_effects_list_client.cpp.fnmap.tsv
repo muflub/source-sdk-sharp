@@ -3,6 +3,7 @@
 14	SLOT-HELP	static int32_t MaterialId( IMaterial *pMaterial )
 4	SLOT-HELP	static IMaterial *MaterialOf( int32_t nMaterial )
 4	SLOT-HELP	IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial )
+4	SLOT-HELP	int32_t SourceSharp_FxMaterialIdOf( IMaterial *pMaterial )
 3	SLOT	[CEffectsListThunk] void AddEffect( CClientSideEffect *effect ) override
 3	SLOT	[CEffectsListThunk] void RemoveEffect( CClientSideEffect *effect ) override
 5	SLOT	[CEffectsListThunk] void DrawEffects( double frametime ) override

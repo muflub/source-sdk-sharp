@@ -53,7 +53,6 @@ int32_t SourceSharp_ParticleSystemOneShot(	SLOT	IShimParticlesClient::ParticleSy
 int32_t SourceSharp_ParticlesWorldTrace(	BOUNDARY	UTIL_TraceLine with the particle collision's mask and group, the answer copied out
 void SourceSharp_ParticlesView(	BOUNDARY	the particle manager's model-view rows and CurrentViewID() copied out
 int32_t SourceSharp_ParticlesTraceMask(	BOUNDARY	UTIL_TraceLine with the mask managed named, the answer copied out
-float SourceSharp_ParticlesPixelVisible(	BOUNDARY	PixelVisibility_FractionVisible at the point managed named, through the handle managed keeps
 [CManagedParticleEffect] void SetSpace(	BOUNDARY	stores the space managed chose (PoolEmitters) and answers the follow it read; the binding's flags are managed's
 [CManagedParticleEffect] void FollowSpace(	SLOT-HELP	CLocalSpaceEmitter::SetupTransformMatrix's reads: the attachment matrix, its origin and the owner's box, handed to managed's binding
 int32_t SourceSharp_ParticlesSetSpace(	SLOT	IShimParticlesClient::ParticlesSetSpace: the space, and the follow it answers

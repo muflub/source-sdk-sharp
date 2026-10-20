@@ -57,49 +57,74 @@ public sealed class PixelVisFrame(IEngineEnvironment environment) : IPixelVisFra
     public float FrameTime => environment.Globals.IsAvailable ? environment.Globals.FrameTime : 0f;
 }
 
+// c_pixel_visibility.cpp's ConVars and command, declared here since the file
+// left client.so (C7): names, defaults, help and flags as stock declared them
+// (PixelVisConVarOracleTests holds each to the pristine file).
+
+/// <summary>r_pixelvisibility_partial: a fraction from the counting query; 0 answers all or nothing.</summary>
+[ConVar("r_pixelvisibility_partial", "1")]
+public sealed class PixelVisPartialConVar : BoolConVar { }
+
+/// <summary>r_dopixelvisibility: 0 answers every glow fully visible, with no query.</summary>
+[ConVar("r_dopixelvisibility", "1", Flags = ConVarFlags.AllowedInCompetitive)]
+public sealed class PixelVisEnabledConVar : BoolConVar { }
+
 /// <summary>
-/// The ConVars the pixel visibility reads: c_pixel_visibility.cpp's four and
-/// glow_overlay.cpp's building_cubemaps, read by name through the convar watch
-/// while those files declare them. r_drawpixelvisibility's change is stock's
-/// change callback (<see cref="DrawChanged"/>): the proxies drawn visibly.
+/// r_drawpixelvisibility: the proxies drawn visibly. Its change is stock's
+/// change callback (PixelvisDrawChanged), told to <see cref="Changed"/>.
 /// </summary>
-public sealed class PixelVisSettings(WatchedConVarValues watch) : IPixelVisSettings
+[ConVar("r_drawpixelvisibility", "0", Help = "Show the occlusion proxies")]
+public sealed class DrawPixelVisibilityConVar : BoolConVar
 {
-    public const string PartialName = "r_pixelvisibility_partial";
-    public const string EnabledName = "r_dopixelvisibility";
-    public const string DrawName = "r_drawpixelvisibility";
-    public const string SpewName = "r_pixelvisibility_spew";
-    public const string BuildingCubemapsName = "building_cubemaps";
+    /// <summary>The new value, after every change whatever its source.</summary>
+    public event Action<bool>? Changed;
 
-    /// <summary>The names the watch reads.</summary>
-    public static string[] Names() => [PartialName, EnabledName, DrawName, SpewName, BuildingCubemapsName];
+    protected override void OnChanged(bool oldValue, bool newValue) => Changed?.Invoke(newValue);
+}
 
-    /// <summary>r_drawpixelvisibility changed: its new value.</summary>
-    public Action<bool>? DrawChanged { get; set; }
+/// <summary>r_pixelvisibility_spew: each query's pixel counts, printed.</summary>
+[ConVar("r_pixelvisibility_spew", "0")]
+public sealed class PixelVisSpewConVar : BoolConVar { }
 
-    public void Start() => watch.Watch(Names());
+/// <summary>pixelvis_debug: the sets' and queries' counts.</summary>
+[ConCommand("pixelvis_debug", Help = "Dump debug info")]
+public sealed class PixelVisDebugCommand(PixelVisibilitySystem system) : IConCommand
+{
+    public void Execute(string args) => system.DebugInfo();
+}
 
-    /// <summary>
-    /// A watched convar changed; false for an id this set does not hold. A
-    /// change to r_drawpixelvisibility's string is stock's callback firing.
-    /// </summary>
-    public bool OnChanged(int id, string newValue)
-    {
-        string? before = watch.Raw(DrawName);
-        if (!watch.OnChanged(id, newValue))
-            return false;
-        if (!string.Equals(before, watch.Raw(DrawName), StringComparison.Ordinal))
-            DrawChanged?.Invoke(watch.Bool(DrawName));
-        return true;
-    }
+/// <summary>
+/// building_cubemaps, read by name through the convar watch: the engine
+/// defines it (its buildcubemaps sets it), so a C# declaration is refused as
+/// engine-owned. glow_overlay.cpp's declaration was the engine's under another
+/// DLL's name; the overlays and the pixel visibility both read this one.
+/// </summary>
+public sealed class BuildingCubemapsWatch(WatchedConVarValues watch)
+{
+    public const string Name = "building_cubemaps";
 
-    public bool Partial => watch.Bool(PartialName);
+    public void Start() => watch.Watch([Name]);
 
-    public bool Enabled => watch.Bool(EnabledName);
+    /// <summary>A watched convar changed; false for an id this watch does not hold.</summary>
+    public bool OnChanged(int id, string newValue) => watch.OnChanged(id, newValue);
 
-    public bool Spew => watch.Bool(SpewName);
+    public bool Value => watch.Bool(Name);
+}
 
-    public bool BuildingCubemaps => watch.Bool(BuildingCubemapsName);
+/// <summary>
+/// The ConVars the pixel visibility reads: c_pixel_visibility.cpp's three
+/// (the declarations above) and building_cubemaps (the engine's, watched).
+/// </summary>
+public sealed class PixelVisSettings(Func<bool> partial, Func<bool> enabled, Func<bool> spew, Func<bool> buildingCubemaps)
+    : IPixelVisSettings
+{
+    public bool Partial => partial();
+
+    public bool Enabled => enabled();
+
+    public bool Spew => spew();
+
+    public bool BuildingCubemaps => buildingCubemaps();
 }
 
 /// <summary>

@@ -47,3 +47,4 @@ void InitSmokeFogOverlay()	HOOK	the client DLL's init: the overlay's material, h
 void TermSmokeFogOverlay()	HOOK	the client DLL's shutdown: the material let go
 void DrawSmokeFogOverlay()	BOUNDARY	the view's call: SmokeFogOverlay's plan (IManagedFxClient::SmokeFogPlan) carried out as the full-screen quad
 IMaterial *SourceSharp_FxMaterialOf(	SLOT-HELP	an IFxRender material id as the material, for the render plan's executor
+int32_t SourceSharp_FxMaterialIdOf(	SLOT-HELP	a material as the effect list's id with no reference taken, for IShimViewClient::GlowMaterialFind (shell_glow_client.cpp)

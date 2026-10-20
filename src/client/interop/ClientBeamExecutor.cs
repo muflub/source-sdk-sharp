@@ -105,12 +105,6 @@ internal sealed unsafe class ClientBeamExecutor(EffectsRenderClientArea effectsR
         culled = (bits & 2) != 0;
     }
 
-    public float HaloVisibility(in Vector origin, float proxySize)
-    {
-        float* v = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return effectsRenderClient.BeamHaloVisibility(v, proxySize);
-    }
-
     public Vector ScreenPosition(in Vector point)
     {
         float* v = stackalloc float[6] { point.X, point.Y, point.Z, 0, 0, 0 };

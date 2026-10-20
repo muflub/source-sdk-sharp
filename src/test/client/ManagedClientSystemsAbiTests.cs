@@ -39,7 +39,8 @@ public class ManagedClientSystemsAbiTests
                         .Select(m => m.Groups[1].Value).ToList();
         Assert.NotEmpty(rows);
         var names = new[] { new ViewportClientSystem(new NullLayout()).Name,
-                            new SourceSharp.Client.Render.PixelVisibility.PixelVisibilityClientSystem(null!).Name };
+                            new SourceSharp.Client.Render.PixelVisibility.PixelVisibilityClientSystem(null!).Name,
+                            new SourceSharp.Client.Render.GlowOverlays.GlowOverlayClientSystem(null!).Name };
         foreach (string row in rows)
             Assert.Contains(row, names);
     }

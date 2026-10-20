@@ -72,11 +72,11 @@
 
 #include "beam_shared.h"
 
-// C-Phase 3, lane CP's eight. fx_explosion.h is CExplosionOverlay (its two
-// explosion singletons are C# now, lane c5-particles; so is the funnel);
-// (c_te_particlesystem.h left with the blood stream and the line: their
+// (C-Phase 3, lane CP's eight: fx_explosion.h left with CExplosionOverlay, the
+// fireball's flash, which is the managed GlowOverlaySystem's since C7; its two
+// explosion singletons and the funnel are C# since lane c5-particles.
+// c_te_particlesystem.h left with the blood stream and the line: their
 // CTEParticleRenderer is C#'s TeParticles, lane c5-particles.)
-#include "fx_explosion.h"
 
 // sharedInterface.h is where `random` -- the ENGINE's IUniformRandomStream --
 // is declared, and it is what c_te_bloodstream.cpp included for it. Without it `random` resolves to libc's random(), which
@@ -883,39 +883,10 @@ void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCent
 //-----------------------------------------------------------------------------
 // (The ordinary and the underwater explosion left with lane c5-particles:
 // fx_explosion.cpp's effects are C#, ExplosionEffects, and ClientTeExplosion
-// calls them; the fireball's flash below is still drawn here.)
+// calls them. The fireball's flash left with the glow overlays' port, C7: its
+// CExplosionOverlay is a RampOverlay in the managed GlowOverlaySystem, made by
+// GlowOverlayCreators.Fireball, and the ClientExplosionFireball slot retired.)
 //-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// The fireball's flash: one CExplosionOverlay, which is a CWarpOverlay that
-// grows and fades over a tenth of a second. c_te_explosion.cpp, and the numbers
-// are its.
-//
-// GATED IN C#, on TE_EXPLFLAG_NOFIREBALL and on not being underwater -- both of
-// which are decisions, so neither is here. Activate() hands the overlay to the
-// glow overlay list, which owns it from then on; there is nothing to release.
-//-----------------------------------------------------------------------------
-void SourceSharp_ClientExplosionFireball( const float *pOriginXYZ )
-{
-	if ( !pOriginXYZ )
-		return;
-
-	CExplosionOverlay *pOverlay = new CExplosionOverlay;
-
-	if ( !pOverlay )
-		return;
-
-	pOverlay->m_flLifetime = 0;
-	pOverlay->m_vPos       = Vector( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-	pOverlay->m_nSprites   = 1;
-
-	pOverlay->m_vBaseColors[0].Init( 1.0f, 0.9f, 0.7f );
-
-	pOverlay->m_Sprites[0].m_flHorzSize = 0.05f;
-	pOverlay->m_Sprites[0].m_flVertSize = pOverlay->m_Sprites[0].m_flHorzSize * 0.5f;
-
-	pOverlay->Activate();
-}
 
 //-----------------------------------------------------------------------------
 // The funnel (c_te_largefunnel.cpp's CreateFunnel) is C#'s: LargeFunnel, lane
@@ -1017,7 +988,7 @@ CON_COMMAND_F( cs_cl_te_backend,
 	{
 		Msg( "cs_cl_te_backend <sparks|metalsparks|ricochet|muzzleflash|smoke|splash|"
 		     "decal|dispatch|"
-		     "fireball|bloodstream|showline|dust>\n" );
+		     "bloodstream|showline|dust>\n" );
 		return;
 	}
 
@@ -1095,10 +1066,9 @@ CON_COMMAND_F( cs_cl_te_backend,
 	// `cs_cl_te_backend explosion` draws and a fired CTEExplosion does not, the
 	// fault is on the managed side of the slot.
 	//-------------------------------------------------------------------------
-	else if ( !Q_stricmp( pWhich, "fireball" ) )
-	{
-		SourceSharp_ClientExplosionFireball( pAt );
-	}
+	// "fireball" left with its backend (C7 glow overlays: the flash is the
+	// managed GlowOverlaySystem's; cs_te_fire explosion plays it through the
+	// temp entity).
 	// "bloodstream" and "showline" left with their backends (lane c5-particles:
 	// TeParticles; cs_te_fire plays both through their temp entities).
 	// "dust" left with its backend (lane c5-particles: the puff is C#'s
