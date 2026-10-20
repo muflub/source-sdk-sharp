@@ -25,6 +25,7 @@ public class BoundForwarderTests
         // defaults): registering must not ask it, or this would throw here.
         ServiceContainer services = Registered(TestSides.WithoutForwarders(Side.Server));
 
+        Assert.NotNull(services.Require<IUniformRandom>());
         Assert.NotNull(services.Require<IFwdEngineServer>());
         Assert.NotNull(services.Require<IFwdEngineSoundServer>());
         Assert.NotNull(services.Require<IFwdFileSystem>());

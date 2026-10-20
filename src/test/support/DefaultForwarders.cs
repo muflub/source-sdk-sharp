@@ -20,6 +20,7 @@ internal static class DefaultForwarders
     /// <summary>Holds the defaults on <paramref name="side"/>'s bound slots, for as long as it has no shim root.</summary>
     public static void HoldOn(EngineSide side)
     {
+        side.Bound.Random.Hold(new LowestRandom());
         side.Bound.Trace.Hold(new EmptyWorldTrace());
         side.Bound.SurfaceProps.Hold(new NoSurfaceProps());
         side.Bound.SoundEmitter.Hold(new NoSoundEmitter());
@@ -44,6 +45,16 @@ internal static class DefaultForwarders
 
         public EngineGameTrace TraceRay(in EngineRay ray, uint mask, nint filter)
             => new() { StartPos = ray.Start, EndPos = ray.Start + ray.Delta, Fraction = 1f };
+    }
+
+    /// <summary>A stream that always draws the low end of the range: deterministic, and in range.</summary>
+    internal sealed class LowestRandom : IUniformRandom
+    {
+        public float RandomFloat(float min, float max) => min;
+
+        public int RandomInt(int min, int max) => min;
+
+        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     /// <summary>No surface table: no names, no indices, the default surface's movement answers.</summary>

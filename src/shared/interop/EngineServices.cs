@@ -104,6 +104,7 @@ public static partial class EngineServices
     /// </summary>
     internal static void AddForwarders(ServiceContainer services, EngineSide side)
     {
+        services.AddInstance<IUniformRandom>(new BoundRandom(side));
         services.AddInstance<IFwdSoundEmitter>(new BoundSoundEmitter(side));
         var surfaces = new BoundSurfaceProps(side);
         services.AddInstance<IFwdPhysicsSurfaceProps>(surfaces);

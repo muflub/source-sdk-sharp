@@ -275,3 +275,20 @@ internal sealed unsafe partial class BoundEngineServer(EngineSide side) : IFwdEn
     public void PlaybackTempEntity(nint filter, float delay, ReadOnlySpan<byte> sender, nint sendTable, int classId)
         => EngineBound.Server(side).PlaybackTempEntity(filter, delay, sender, sendTable, classId);
 }
+
+/// <summary>
+/// <see cref="IUniformRandom"/> over the side's bound VEngineRandom001: each
+/// call asks <see cref="EngineBound.Random"/>, which acquires the stream on
+/// first use and throws, naming it, if the engine refuses it.
+/// </summary>
+internal sealed class BoundRandom(EngineSide side) : IUniformRandom
+{
+    public float RandomFloat(float min, float max)
+        => EngineBound.Random(side).RandomFloat(min, max);
+
+    public int RandomInt(int min, int max)
+        => EngineBound.Random(side).RandomInt(min, max);
+
+    public float RandomFloatExp(float min, float max, float exponent)
+        => EngineBound.Random(side).RandomFloatExp(min, max, exponent);
+}

@@ -805,9 +805,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // bound proxy's Init answers and bind state cross cs_cl_reload.
         _services.Add<IClientMaterialProxies, MaterialProxies.MaterialProxyHost>();
         // The render plan (C7): View_Render's per-frame path and its recorder.
-        // The engine's uniform random stream, for a service (or a mod) that draws
-        // from it as stock's free RandomFloat does.
-        _services.AddInstance<IUniformRandom>(new EngineRandom(() => UniformRandomStream.Acquire(_engine, out _), log));
+        // (The engine's uniform random stream, for a service or a mod that draws
+        // from it as stock's free RandomFloat does, is AddTo's: IUniformRandom.)
         // The old-style particle manager (C7 particles phase 2.3): every
         // executor's binding, updated here; an IReloadParticipant, so the
         // bindings cross cs_cl_reload while the native executors stay.
@@ -1760,10 +1759,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_impactSounds);
         _services.AddInstance(_collisionSolver);
         // The splash draws from the engine's own random stream, as stock's
-        // random->RandomFloat does; with none there is no splash.
-        IUniformRandom? splashRandom = UniformRandomStream.Acquire(_engine, out string whyNoSplashRandom);
-        if (splashRandom is null)
-            Log.Warning($"[SourceSharp/Client] physics: no engine random stream ({whyNoSplashRandom}); no splash\n");
+        // random->RandomFloat does.
+        IUniformRandom splashRandom = _services.Require<IUniformRandom>();
         _fluidEvents = new Physics.ClientFluidEvents(
             new Physics.ClientFluidWorld(_services.Require<IClientSplashCarryOut>(), _services.Require<IClientPhysicsObjectReads>(),
                                          new VPhysicsObjects(_engine.VPhysics), new VPhysicsFluids(_engine.VPhysics), _services.Require<IEngineEntities>(),
@@ -2023,11 +2020,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The rumble mixer (c_rumble.cpp's CRumbleEffects), stepped once a frame
         // below; its random amplitude is the engine's own stream.
-        IUniformRandom? rumbleRandom = UniformRandomStream.Acquire(_engine, out string whyNoRandom);
-        if (rumbleRandom is null)
-            Log.Warning($"[SourceSharp/Client] input: no engine random stream ({whyNoRandom}); no rumble mixer\n");
-        var rumble = rumbleRandom is null ? null : new Input.ClientRumble(inputDevices, inputCvars, rumbleRandom, text => Log.Msg(text),
-                                                                                 inputMailbox);
+        var rumble = new Input.ClientRumble(inputDevices, inputCvars, _services.Require<IUniformRandom>(), text => Log.Msg(text),
+                                            inputMailbox);
         IEngineHud hudArea = _services.Require<IEngineHud>();
         _inputService = new Input.ClientInputService(input, rumble,
                                                      localPlayerAlive: () => _standalones.GetByIndex(hudArea.LocalPlayerIndex) is ClientSsPlayer local
