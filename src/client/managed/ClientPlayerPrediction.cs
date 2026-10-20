@@ -552,8 +552,8 @@ public sealed class ClientPlayerPrediction
     // field access here.
     //-------------------------------------------------------------------------
 
-    /// <summary><c>FL_BASEVELOCITY</c> (const.h).</summary>
-    private const uint FlBaseVelocity = 1u << 5;
+    /// <summary><c>FL_BASEVELOCITY</c> (const.h, the multiplayer block this build compiles; 1 &lt;&lt; 5 there is FL_INRAIN).</summary>
+    private const uint FlBaseVelocity = 1u << 24;
 
     /// <summary>
     /// The server's last word, into the loop's state. Every networked field,
