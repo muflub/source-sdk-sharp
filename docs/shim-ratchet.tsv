@@ -1868,7 +1868,11 @@ shim_cpp_files	src/sourcesharp	217
 # RAISED 2026-10-19, 128502 -> 128869 (+367, the walk at the C7 shadow manager S0/S1 landing on main 2ba84d1ca), deliberately:
 #   the render recorder's shadowmgr. hook family (shell_render_trace_client.cpp), the shadow manager's base witness for
 #   S2's byte-equal A/B (the lane measured the same +367 on its base 01c4ea691).
-shim_lines	src/sourcesharp	128869
+# 2026-10-19, T6 part 1 rebased onto main cd01c2887: main's 128869 plus the lane's +91 (128502 -> 128593 at its base) = 128960.
+shim_lines	src/sourcesharp	128960
+# RAISED 2026-10-19, 128502 -> 128520 (plan_server_native_v2 T6, +18 net): the root's scaffolding is new text -- server_state.h (the two heap tiers m_pDll/m_pLevel) and shell_shim_root_server.h (the server's shim root as a member of the game DLL object, Acquire folded from SourceSharp_InternalFactory) -- and it binds what T6 moves off file-scope statics; T6 3a-3g's dead-global deletions paid for all but 18 lines of it.
+# RAISED 2026-10-19, 128520 -> 128571 (plan_server_native_v2 T6 5a, +51): the entity control block and slot table moved from file-scope statics into the DLL tier (CServerDllState); every shell_entityslots.cpp entry point now resolves the tier and answers "no entity" outside DLLInit..DLLShutdown, and server_state.h names the two members and their lifetime. It binds the 245,792 B those two statics held.
+# RAISED 2026-10-19, 128571 -> 128593 (plan_server_native_v2 T6 5b, +22): the server's net type table moved from SourceSharp_NetTypes()'s function-local static into the DLL tier (CServerDllState::m_NetTypes); generic_payload.cpp gains the server's accessor beside the client's unchanged one, and server_state.h names the member and its lifetime. It binds the 43,016 B that static held.
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

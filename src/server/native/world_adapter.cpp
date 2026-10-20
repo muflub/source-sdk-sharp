@@ -66,7 +66,6 @@ extern CGlobalVars  *gpGlobals;
 // longer includes: enginecallback.h, util.h, client.h and ai_utils.h.
 void PrecacheParticleSystem( const char *pParticleSystemName );
 void SENTENCEG_Init();
-extern string_t g_iszFuncBrushClassname;   // shell_absent.cpp; nothing reads it
 
 #include "precache_model.h"
 #include "shell_server.h"
@@ -98,10 +97,9 @@ extern string_t g_iszFuncBrushClassname;   // shell_absent.cpp; nothing reads it
 // precache since plan_server_native_v2 T4e; s_Language went with them.
 
 
-// Owned here since 13c: player.cpp defined it and left with the player
-// cluster. The world reset below is the only remaining touch — spawn point
-// rotation was the SDK player's, and the managed side keeps its own.
-IGameEntity						*g_pLastSpawn = NULL;
+// g_pLastSpawn, g_fGameOver and g_iszFuncBrushClassname went
+// (plan_server_native_v2 T6): the world's Precache wrote each and nothing read
+// one (spawn rotation, game-over and func_brush lookups are managed's).
 
 //-----------------------------------------------------------------------------
 // The global sprite indexes, transplanted from basecombatweapon.cpp when that
@@ -113,23 +111,22 @@ IGameEntity						*g_pLastSpawn = NULL;
 // table now.
 //-----------------------------------------------------------------------------
 short		g_sModelIndexSmoke;			// holds the index for the smoke cloud
-short		g_sModelIndexBubbles;		// holds the index for the bubbles model
-short		g_sModelIndexBloodDrop;		// holds the sprite index for the initial blood
-short		g_sModelIndexBloodSpray;	// holds the sprite index for splattered blood
 
-// THE FOUR WHOSE INDICES NATIVE CODE READS (UTIL_Smoke, UTIL_BloodStream,
-// UTIL_BloodDrips, UTIL_Bubbles in server_util_library.cpp, through
-// ss::Effects and the TE forwards). The rest of stock's W_Precache -- the
+// THE ONE WHOSE INDEX NATIVE CODE READS (UTIL_Smoke in server_util_library.cpp,
+// through ss::Effects). The other three are still precached, which fills the
+// engine's table, but their indices had no reader (UTIL_Bubbles and
+// UTIL_BubbleTrail are gone), so they are not stored (plan_server_native_v2
+// T6). The rest of stock's W_Precache -- the
 // fireball, the underwater fireball, the laser and its dot (globals nothing
 // read), the three blood-impact particle systems and the bubble trail -- is
-// managed's world precache (plan_server_native_v2 T4e). These four go when
-// their readers do.
+// managed's world precache (plan_server_native_v2 T4e). These go when their
+// reader does.
 static void W_Precache(void)
 {
 	g_sModelIndexSmoke = Precache_Model("sprites/steam1.vmt");// smoke
-	g_sModelIndexBubbles = Precache_Model("sprites/bubble.vmt");//bubbles
-	g_sModelIndexBloodSpray = Precache_Model("sprites/bloodspray.vmt"); // initial blood
-	g_sModelIndexBloodDrop = Precache_Model("sprites/blood.vmt"); // splattered blood
+	Precache_Model("sprites/bubble.vmt");//bubbles
+	Precache_Model("sprites/bloodspray.vmt"); // initial blood
+	Precache_Model("sprites/blood.vmt"); // splattered blood
 }
 
 //=======================
@@ -480,7 +477,6 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 }
 
 
-extern bool		g_fGameOver;
 static CWorld *g_WorldEntity = NULL;
 
 CWorld* GetWorldEntity()
@@ -954,9 +950,6 @@ void CWorld::Precache( void )
 	// `g_WorldEntity = this;` STOOD HERE AND IS IN THE CONSTRUCTOR NOW. See
 	// there for why: the map's keys arrive before this runs, and the blob they
 	// are stored in is found by identity against this pointer.
-	g_fGameOver = false;
-	g_pLastSpawn = NULL;
-
 	// Set up game rules. The native rules object stays while native code reads
 	// g_pGameRules; its Init answered true and did nothing, and is no longer
 	// called (plan_server_native_v2 T4e).
@@ -990,8 +983,6 @@ void CWorld::Precache( void )
 	SENTENCEG_Init();
 
 	W_Precache();
-
-	g_iszFuncBrushClassname = AllocPooledString("func_brush");
 }
 
 // cs_sv_world (the world's networked state, on demand) is a diagnostic: it

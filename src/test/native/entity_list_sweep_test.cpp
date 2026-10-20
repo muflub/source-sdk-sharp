@@ -765,11 +765,12 @@ TEST( EntityListSweep, TheLevelShutdownClearsTheSlotTableWithoutRewindingItsSeri
 
 	ASSERT_FALSE( body.empty() ) << "SourceSharp_ResetEntitySlots has no body";
 
-	EXPECT_TRUE( Has( body, "SourceSharp_SlotTable().ClearBindings()" ) )
+	// pTable is the DLL tier's slot table since plan_server_native_v2 T6.
+	EXPECT_TRUE( Has( body, "pTable->ClearBindings()" ) )
 		<< "the level shutdown does not clear the slot table with ClearBindings. "
 		   "Body was: " << body;
 
-	EXPECT_FALSE( Has( body, "SourceSharp_SlotTable().Reset()" ) )
+	EXPECT_FALSE( Has( body, "pTable->Reset()" ) )
 		<< "the level shutdown REWINDS the slot table's serials. The edict's "
 		   "mirror survives the map, so the next occupant of an edict would "
 		   "carry the serial the last one did and SV_PackEntity would reuse its "

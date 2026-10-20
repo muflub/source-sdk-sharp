@@ -408,7 +408,13 @@ TEST( TypedHandleSweep, TheOnlyRawSpellingsLeftAreProseInTheRelocatedFiles )
 		// So the prose went with the code it was about, which is the ONE way
 		// this count is allowed to fall. The other three are unmoved, and the
 		// line numbers above are re-measured rather than carried.
-		{ "sourcesharp/game/server/physics.cpp",        2 },
+		//
+		// 2 -> 0 IN plan_server_native_v2 T6, the same one allowed way: both
+		// remaining spellings (the SDK list's EHANDLE member and the refusal
+		// message naming what it would drag in) were the shadow-entity list's
+		// refusal, which went with g_pShadowEntities, the always-NULL list it
+		// narrated. The row stays at 0 so a spelling coming back is named.
+		{ "sourcesharp/game/server/physics.cpp",        0 },
 		// physics_debug.cpp's row went 1 -> 0 at plan_physics_bones_native_zero
 		// 2.3 (physics_budget's note left with the command), and the file
 		// itself on 2026-10-18 (its commands are managed's
@@ -448,8 +454,9 @@ TEST( TypedHandleSweep, TheOnlyRawSpellingsLeftAreProseInTheRelocatedFiles )
 
 	// 5 -> 4 for the single reason named on the physics.cpp row above, and
 	// 4 -> 3 for the one named on the physics_debug.cpp row, and 3 -> 2 for
-	// physics_shared.cpp's row leaving with the file.
-	EXPECT_EQ( 2, nTotal );
+	// physics_shared.cpp's row leaving with the file, and 2 -> 0 for the
+	// shadow list's refusal (T6, on the physics.cpp row).
+	EXPECT_EQ( 0, nTotal );
 
 	// AND NO OTHER SHIM SOURCE CARRIES ONE, so the three rows above are the
 	// whole population rather than three files somebody happened to list.

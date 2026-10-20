@@ -377,7 +377,9 @@ public class ServerGameDllTests
         dll.MapLoad(new MapLoad("background01", Lump), MapLoadType.Background);
 
         var steps = StepsOf(engine);
-        Assert.True(steps.Length > 1 && steps[0] == "Level.SetLoadType" && steps[1] == "Level.ResetServerTime",
+        // The arm's first level step was Level.ResetServerTime until that slot
+        // retired (plan_server_native_v2 T6); the write is still first.
+        Assert.True(steps.Length > 1 && steps[0] == "Level.SetLoadType",
             $"the load type is written first, then the arm runs (saw {string.Join(", ", steps.Take(2))})");
         var write = engine.Calls.First(c => c.Member == "Level.SetLoadType");
         Assert.Equal(MapLoadType.Background, (MapLoadType)write.Args[0]!);
@@ -658,7 +660,9 @@ public class ServerGameDllTests
 
         string[] steps = StepsOf(engine);
 
-        Assert.Equal("Level.ResetServerTime", steps[0]);
+        // The arm's first step was Level.ResetServerTime until that slot retired
+        // (plan_server_native_v2 T6); it is the purge now.
+        Assert.Equal("Entities.PurgeMapRefs", steps[0]);
         Assert.Equal("Level.LoadSaveGameState", steps[^1]);
     }
 
@@ -753,7 +757,8 @@ public class ServerGameDllTests
 
         Assert.Equal(new[]
         {
-            "Level.ResetServerTime",
+            // "Level.ResetServerTime" stood first until the slot retired
+            // (plan_server_native_v2 T6: the clock it reset had no reader).
             // The two particle manifest steps were here; they are read in C#
             // now (plan_server_novalve.md P2.1), through LevelFiles, between
             // these two -- see TheParticleManifestsAreReadBetweenTheClockAndThePurge.
@@ -936,11 +941,12 @@ public class ServerGameDllTests
         dll.MapLoadNewGame(new MapLoad("de_dust", Lump));
 
         var members = engine.Calls.Select(c => c.Member).ToList();
-        int clock = members.IndexOf("Level.ResetServerTime");
+        // The clock's reset stood before the read until its slot retired
+        // (plan_server_native_v2 T6); the read still comes before the purge.
         int read = members.IndexOf("LevelFiles.ReadFileOnPath");
         int purge = members.IndexOf("Entities.PurgeMapRefs");
-        Assert.True(clock >= 0 && clock < read && read < purge,
-            "reset the clock, read the manifests, then purge the map refs");
+        Assert.True(read >= 0 && read < purge,
+            "read the manifests, then purge the map refs");
     }
 
     [Fact]
@@ -1391,7 +1397,8 @@ public class ServerGameDllTests
         Assert.Equal(new[]
         {
             "Frame.IsSimulatingOnAlternateTicks",
-            "Frame.SetServerCurTime",
+            // "Frame.SetServerCurTime" stood here until the slot retired
+            // (plan_server_native_v2 T6).
             "Frame.GetFrameTime",
             "Entities.CleanupDeleteList",
             // The named list's pre-entity-think pass: the managed row alone

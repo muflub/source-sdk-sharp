@@ -102,9 +102,10 @@ public:
 	// frame, which is why the pair is asymmetric.
 	virtual void SetFrameTime( float flFrameTime ) = 0;
 
-	// g_flServerCurTime = gpGlobals->curtime -- the rollback-independent server
-	// clock. Its flat field carried [SuppressGCTransition] too: one read and
-	// one field write, both plain floats, no call, 1.000 crossings a frame.
+	// SS_RETIRED SetServerCurTime lane=t6-globals g_flServerCurTime had no reader (baseprojectile.cpp is in neither DLL); managed no longer calls it
+	// Was g_flServerCurTime = gpGlobals->curtime, the rollback-independent
+	// server clock. The body is empty and the slot is kept at its index until
+	// the table's next --reorder pass; see shell_frame.cpp.
 	virtual void SetServerCurTime() = 0;
 
 	// SS_RETIRED PhysicsRunThinkFunctions lane=3b-enginebind physics_main.cpp left the vpc; the SimThink list has no members and the thinks are managed

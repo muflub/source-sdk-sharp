@@ -40,7 +40,7 @@ uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 	// is gone (plan_physics_bones_native_zero 2.3): the rules vphysics asks are
 	// managed's PhysicsSolverRules.
 	#include "ss_shareddefs.h"	// ss::kDmg*, the damage mask table
-	#include "ss_takedamageinfo.h"	// ss::g_MultiDamage, ss::ApplyMultiDamage
+	#include "ss_takedamageinfo.h"	// ss::CTakeDamageInfo, the damage helpers
 	#include "standalone_relays.h"	// StandaloneEntity_Name
 
 	// shareddefs.h's damage bits by their stock names, for the mask table
@@ -432,11 +432,11 @@ CSourceSharpGameRules::CSourceSharpGameRules()
 	g_pGameRules = this;
 
 	// Also stock's, and it matters: the multi-damage accumulator is global and
-	// a level change leaves whatever the last frame put in it.
+	// a level change leaves whatever the last frame put in it. The server has
+	// no accumulator since plan_server_native_v2 T6: nothing filled it, so
+	// there is nothing for a level change to leave.
 #ifdef CLIENT_DLL
 	ClearMultiDamage();
-#else
-	ss::ClearMultiDamage();
 #endif
 }
 
@@ -651,19 +651,10 @@ bool CSourceSharpGameRules::ClientConnected( edict_t *pEntity, const char *pszNa
 //-----------------------------------------------------------------------------
 void CSourceSharpGameRules::EndGameFrame( void )
 {
-	// Was BaseClass::EndGameFrame (gamerules.cpp:800), inlined with the base
-	// gone. It is a diagnostic that only fires on a programming error: damage
-	// was accumulated with AddMultiDamage and never applied.
-	Assert( ss::g_MultiDamage.IsClear() );
-	if ( !ss::g_MultiDamage.IsClear() )
-	{
-		Warning("Unapplied multidamage left in the system:\nTarget: %s\nInflictor: %s\nAttacker: %s\nDamage: %.2f\n",
-			StandaloneEntity_Name( ss::g_MultiDamage.GetTarget() ),
-			StandaloneEntity_Name( ss::g_MultiDamage.GetInflictor() ),
-			StandaloneEntity_Name( ss::g_MultiDamage.GetAttacker() ),
-			ss::g_MultiDamage.GetDamage() );
-		ss::ApplyMultiDamage();
-	}
+	// BaseClass::EndGameFrame (gamerules.cpp:800) was a diagnostic for damage
+	// accumulated with AddMultiDamage and never applied. Nothing accumulates on
+	// the server (AddMultiDamage exists in neither DLL), so the check could not
+	// fire and went with the accumulator in plan_server_native_v2 T6.
 
 	// THE FRAME'S LAST MANAGED POINT AND THE LATE DRAIN ARE MANAGED'S CALLS
 	// (plan_server_native_v2 T4e): ServerGameDll.GameFrame runs them right

@@ -199,10 +199,6 @@ void UTIL_Smoke( const Vector &origin, const float scale, const float framerate 
 // plan_server_novalve.md P2.3b; this reads it by name.
 static CManagedConVarRef s_Language( "g_Language" );
 
-extern short g_sModelIndexBubbles;
-extern short g_sModelIndexBloodDrop;
-extern short g_sModelIndexBloodSpray;
-
 void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount )
 {
 	if ( !UTIL_ShouldShowBlood( color ) )

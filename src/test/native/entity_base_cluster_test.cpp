@@ -240,23 +240,6 @@ TEST( EntityBaseCluster, TheWorldsPrecacheCarriesTheGamePrecacheAndNotTheStockOn
 		<< "someone un-guards the C++ list to fix the link, the mod gets two lists.";
 }
 
-TEST( EntityBaseCluster, TheSvCheatsStorageIsTheShimsAndTheDeclarationDidNotMove )
-{
-	// The IMPLEMENT_MOVEHELPER() shape: storage belongs with its installer.
-	const std::string shim = ReadStripped( "sourcesharp/game/server/shell_engineboundary.cpp" );
-	RequireAnchor( shim, "shell_engineboundary.cpp", "g_pCVar->FindVar( \"sv_cheats\" )" );
-
-	EXPECT_TRUE( Has( shim, "ConVar *sv_cheats = NULL;" ) )
-		<< "the sv_cheats storage is not in the file that fills it.";
-
-	// The other half -- game/server/client.cpp defining no copy -- read a file
-	// server.so no longer compiles and which has left the source tree.
-
-	// The declaration half -- player.h's `extern ConVar *sv_cheats;` -- is
-	// retired: game/server/player.h is compiled by nothing since
-	// plan_server_novalve.md P5 and left the farm in P6.
-}
-
 //=============================================================================//
 // 4. DEFECT 8 -- C_BaseEntity::PostDataUpdate NEVER RUNS IN THIS BUILD, ARM BY
 //    ARM.

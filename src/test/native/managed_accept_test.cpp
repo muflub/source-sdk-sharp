@@ -287,18 +287,33 @@ TEST( ManagedHolders, EveryHolderAloneMakesTheSetNonEmpty )
 
 TEST( ManagedHolders, TheShimRootHoldsNothingFromManaged )
 {
-	const std::string src = ReadSource( "sourcesharp/game/shared/shell_internalfactory.cpp" );
-	ASSERT_FALSE( src.empty() ) << "run from the farm's src";
+	// Two roots since plan_server_native_v2 T6: the client's, still a static in
+	// shell_internalfactory.cpp, and the server's, a member of the game DLL
+	// object declared in shell_shim_root_server.h. Neither holds anything
+	// managed built.
+	struct Root_t { const char *pszFile; const char *pszClass; const char *pszControl; };
+	static const Root_t kRoots[] = {
+		{ "sourcesharp/game/shared/shell_internalfactory.cpp", "class CShimRoot ", "CShimAreasClient m_ClientAreas;" },
+		{ "sourcesharp/game/server/shell_shim_root_server.h", "class CShimRootServer ", "CShimAreas m_Areas;" },
+	};
+	for ( const Root_t &root : kRoots )
+	{
+		const std::string src = ReadSource( root.pszFile );
+		ASSERT_FALSE( src.empty() ) << "run from the farm's src: " << root.pszFile;
 
-	const size_t open = src.find( "class CShimRoot " );
-	ASSERT_NE( std::string::npos, open );
-	const size_t close = src.find( "\n};\n", open );
-	ASSERT_NE( std::string::npos, close );
-	const std::string body = src.substr( open, close - open );
+		const size_t open = src.find( root.pszClass );
+		ASSERT_NE( std::string::npos, open ) << root.pszFile;
+		const size_t close = src.find( "\n};\n", open );
+		ASSERT_NE( std::string::npos, close ) << root.pszFile;
+		const std::string body = src.substr( open, close - open );
 
-	EXPECT_NE( std::string::npos, body.find( "CShimAreas m_Areas;" ) ) << "the control: the walk reached the members";
-	EXPECT_EQ( std::string::npos, body.find( "IManaged" ) ) << "the shim root holds a managed-built object again";
-	EXPECT_EQ( std::string::npos, body.find( "CManagedAreas" ) ) << "the shim root holds the managed areas again";
+		EXPECT_NE( std::string::npos, body.find( root.pszControl ) )
+			<< root.pszFile << ": the control: the walk reached the members";
+		EXPECT_EQ( std::string::npos, body.find( "IManaged" ) )
+			<< root.pszFile << ": the shim root holds a managed-built object again";
+		EXPECT_EQ( std::string::npos, body.find( "CManagedAreas" ) )
+			<< root.pszFile << ": the shim root holds the managed areas again";
+	}
 }
 
 TEST( ManagedHolders, TheGameDllObjectOwnsThemAndChecksThemAtDestruction )

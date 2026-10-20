@@ -56,7 +56,11 @@
 // C9's tier1 step: nm -u found no importer on either DLL's link, and both
 // link with GC_SECTIONS=0 without it.)
 //-----------------------------------------------------------------------------
+#ifdef CLIENT_DLL
+// `cvar` is the client's alone: four client objects read it and no server
+// object does (nm), so the server's went (plan_server_native_v2 T6).
 ICvar *cvar = NULL;
+#endif
 ICvar *g_pCVar = NULL;
 
 static bool s_bTier1Connected = false;
@@ -69,7 +73,11 @@ void SourceSharp_ConnectTier1( CreateInterfaceFn engineFactory )
 	s_bTier1Connected = true;
 
 	if ( !g_pCVar )
+#ifdef CLIENT_DLL
 		cvar = g_pCVar = (ICvar *)engineFactory( CVAR_INTERFACE_VERSION, NULL );
+#else
+		g_pCVar = (ICvar *)engineFactory( CVAR_INTERFACE_VERSION, NULL );
+#endif
 }
 
 void SourceSharp_DisconnectTier1()
@@ -77,7 +85,11 @@ void SourceSharp_DisconnectTier1()
 	if ( !s_bTier1Connected )
 		return;
 
+#ifdef CLIENT_DLL
 	cvar = g_pCVar = NULL;
+#else
+	g_pCVar = NULL;
+#endif
 	s_bTier1Connected = false;
 }
 

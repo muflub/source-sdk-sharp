@@ -128,7 +128,6 @@ IUploadGameStats *gamestatsuploader = NULL;
 // stock's DLLInit acquisition list and returns false on the first miss.
 //-----------------------------------------------------------------------------
 IVEngineServer	*engine = NULL;
-IVoiceServer	*g_pVoiceServer = NULL;
 #if !defined(_STATIC_LINKED)
 IFileSystem		*filesystem = NULL;
 #else
@@ -140,17 +139,18 @@ IStaticPropMgrServer *staticpropmgr = NULL;
 // `#define random random_valve` (stdlib.h's random() would collide), so its
 // link name is random_valve, and that is the name defined here.
 IUniformRandomStream *random_valve = NULL;
-IEngineSound *enginesound = NULL;
 ISpatialPartition *partition = NULL;
 IVModelInfo *modelinfo = NULL;
 IEngineTrace *enginetrace = NULL;
 IGameEventManager2 *gameeventmanager = NULL;
-IDataCache *datacache = NULL;
 IVDebugOverlay * debugoverlay = NULL;
-ISoundEmitterSystemBase *soundemitterbase = NULL;
-ISceneFileCache *scenefilecache = NULL;
 // serverenginetools, xboxsystem and matchmaking are gone: nothing assigned or
 // read them (the globals ledger ruled all three DEAD, dropped by the linker).
+// g_pVoiceServer, enginesound, datacache, soundemitterbase, scenefilecache and
+// sv_cheats went as globals too (plan_server_native_v2 T6): nothing on the
+// server read them outside the acquisition below, which still asks for each and
+// refuses to start without it -- stock's behaviour -- holding the answer in a
+// local.
 
 //-----------------------------------------------------------------------------
 // WHAT USED TO STAND HERE, AND WHY THE SPACE IS EMPTY -- plan_shim.md step 5c.
@@ -246,48 +246,21 @@ IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 // above IScriptManager for the 0-consumer measurement.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// The rollback-independent server clock. Written by
-// SourceSharp_LevelResetServerTime and the frame's first step (both in
-// shell_level.cpp); read by game/shared/baseprojectile.cpp, which declares
-// it extern beside its own comment saying why it is not gpGlobals->curtime.
-//-----------------------------------------------------------------------------
-float g_flServerCurTime = 0.0f;
+// g_flServerCurTime, the rollback-independent server clock, went in
+// plan_server_native_v2 T6: its one reader was game/shared/baseprojectile.cpp,
+// which neither DLL compiles, so the frame and the level reset wrote it for
+// nobody. IShimFrame::SetServerCurTime and IShimLevel::ResetServerTime are
+// retired slots now.
 
 //=============================================================================//
 // 2. THE ACQUISITION -- was shell_engineinterfaces.cpp
 //=============================================================================//
 
-//-----------------------------------------------------------------------------
-// THE sv_cheats HANDLE, and why the STORAGE lives beside the code that fills it.
-//
-// This was `ConVar *sv_cheats = NULL;` in game/server/client.cpp. Nothing else
-// in that 1,800-line file wrote it -- DLLInit below is the only writer in the
-// build -- and it was one of exactly two things any other object still needed
-// from that TU. tools/4a-owes named both:
-//
-//     $ tools/4a-owes client
-//       shell_engineinterfaces (1)   sv_cheats
-//       shell_standalone_player (1)  sv_cheats
-//       world_adapter (1)            ClientPrecache()
-//
-// Same shape and same reason as the Phase 4 exit lane's IMPLEMENT_MOVEHELPER():
-// a definition whose only contribution is storage belongs with its installer.
-// The DECLARATION stays exactly where stock puts it (player.h:182), so not one
-// dereference on either side changed and there is no second spelling to drift.
-//
-// NULL until DLLInit runs, which is stock's own state: client.cpp initialised
-// it to NULL too, and DLLInit refuses to start the server if FindVar answers
-// nothing.
-//-----------------------------------------------------------------------------
-ConVar *sv_cheats = NULL;
 
 // Stock's, all defined in gameinterface.cpp outside the class. enginecallback.h
 // declares most of them; these four it does not.
 extern INetworkStringTableContainer *networkstringtable;
 extern IUniformRandomStream *random_valve;
-extern ISoundEmitterSystemBase *soundemitterbase;
-extern ISceneFileCache *scenefilecache;
 extern IUploadGameStats *gamestatsuploader;
 
 // InitializeCvars went with shell_gamedll_convars.cpp
@@ -316,7 +289,9 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
                                           CreateInterfaceFn physicsFactory,
                                           CreateInterfaceFn fileSystemFactory )
 {
-	if ( (g_pVoiceServer = (IVoiceServer *)appSystemFactory( INTERFACEVERSION_VOICESERVER, NULL )) == NULL )
+	// Acquired only to refuse a server that lacks it, as stock does; nothing
+	// on the server calls it (plan_server_native_v2 T6).
+	if ( appSystemFactory( INTERFACEVERSION_VOICESERVER, NULL ) == NULL )
 		return false;
 	if ( (networkstringtable = (INetworkStringTableContainer *)appSystemFactory( INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL )) == NULL )
 		return false;
@@ -324,7 +299,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 		return false;
 	if ( (random_valve = (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL )) == NULL )
 		return false;
-	if ( (enginesound = (IEngineSound *)appSystemFactory( IENGINESOUND_SERVER_INTERFACE_VERSION, NULL )) == NULL )
+	if ( appSystemFactory( IENGINESOUND_SERVER_INTERFACE_VERSION, NULL ) == NULL )
 		return false;
 	if ( (::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL )) == NULL )
 		return false;
@@ -336,7 +311,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 		return false;
 	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL )) == NULL )
 		return false;
-	if ( (datacache = (IDataCache *)appSystemFactory( DATACACHE_INTERFACE_VERSION, NULL )) == NULL )
+	if ( appSystemFactory( DATACACHE_INTERFACE_VERSION, NULL ) == NULL )
 		return false;
 
 	// TWENTY-FIRST, AND IT WAS MISSING. Phase 6 transliterated stock's
@@ -348,7 +323,9 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	// a dereference sixty-six times a second on the first map.
 	if ( (gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL )) == NULL )
 		return false;
-	if ( (soundemitterbase = (ISoundEmitterSystemBase *)appSystemFactory( SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL )) == NULL )
+	ISoundEmitterSystemBase *pSoundEmitter =
+		(ISoundEmitterSystemBase *)appSystemFactory( SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL );
+	if ( pSoundEmitter == NULL )
 		return false;
 
 	// mdlcache is connected by ConnectTier3Libraries, which the shell's DLLInit
@@ -361,7 +338,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	// are dropped, nothing read the acquired pointer, and the engine asks this
 	// DLL for no plugin interface (engine-boundary.md §6).
 
-	if ( (scenefilecache = (ISceneFileCache *)appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL )) == NULL )
+	if ( appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL ) == NULL )
 		return false;
 
 	// NO VSCRIPT. Stock acquired IScriptManager here (optional, skipped under
@@ -372,7 +349,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 
 	// Both the client and the game DLL Connect this; the soundemittersystem
 	// handles the second one gracefully. Stock's comment, and its call.
-	if ( !soundemitterbase->Connect( appSystemFactory ) )
+	if ( !pSoundEmitter->Connect( appSystemFactory ) )
 		return false;
 
 	// The three factories, stored for whatever inits later and needs one.
@@ -404,16 +381,10 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	// plan_server_novalve.md P2.1, and server.so links neither particles.a nor
 	// dmxloader.a.
 
-	// The one convar handle the rest of the SERVER reads through a global.
-	// player.h:182 declares it; util_shared.cpp, the entity input path and
-	// every FCVAR_CHEAT guard dereference it, so a NULL here is a crash on the
-	// first cheat check rather than "cheats are off".
-	//
-	// AND THE STORAGE IS HERE NOW TOO -- see just above this function. It was
-	// game/server/client.cpp's, which is a file the Phase 4 exit removes.
-	sv_cheats = g_pCVar->FindVar( "sv_cheats" );
-
-	if ( !sv_cheats )
+	// sv_cheats is looked up and required, as stock's DLLInit did; nothing on
+	// the server reads the handle any more (managed's DevCommand owns the cheat
+	// gate), so it is not kept (plan_server_native_v2 T6).
+	if ( !g_pCVar->FindVar( "sv_cheats" ) )
 		return false;
 
 	// try to get debug overlay, may be NULL if on HLDS -- stock's comment, and

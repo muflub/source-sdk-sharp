@@ -51,10 +51,6 @@
 #include <vstdlib/random.h>
 #include "coordsize.h"
 #include "physicsowner.h"
-// f-physics: how a refused path says what it is and counts how often it is
-// reached. §7 forbids the silent no-op, and the count is what makes "nothing
-// can reach this" a measurement instead of a claim.
-#include "physics_bridge_refusal.h"
 // f-physics: the per-entity side table. c8-shared6 re-homed the system out of
 // physics_main_shared.cpp (which leaves) into game/shared/physics_shared.cpp
 // (which stays), keeping both accessor names; `EntityDataObject_Has` is the
@@ -119,8 +115,6 @@ using ss::masscenteroverride_t;
 
 // defined in phys_constraint
 
-
-CEntityList *g_pShadowEntities = NULL;
 
 // THE SERVER'S VPHYSICS POINTERS, HELD (plan_physics_bones_native_zero 2.6):
 // stock's physics_shared.cpp globals, filled by CPhysicsHook below and read by
@@ -282,63 +276,13 @@ void CPhysicsHook::LevelInitPreEntity()
 		Warning( "[SourceSharp] the level has no world physics object: %s\n",
 		         pPhysicsFrame ? "managed built none" : "no managed load to build it" );
 
-	//=========================================================================//
-	// f-physics: A DECLARED, PRINTED REFUSAL (§7). THE SDK SHADOW-ENTITY LIST
-	// IS REMOVED AND IT IS SAID PLAINLY. See PhysAddShadow below for the
-	// accessors, which keep their signatures because physics.h declares them.
-	//
-	// `CEntityList` is four out-of-line members defined in game/server/cbase.cpp,
-	// which LEAVES, and `game/server/physics.cpp` is THE ONLY FILE IN THE TREE
-	// THAT USES THE TYPE AT ALL -- measured, not assumed:
-	//
-	//     grep -rn '\bCEntityList\b' game/ sourcesharp/
-	//       -> cbase.cpp (the four definitions), entitylist.h (the declaration),
-	//          physics.cpp and physics.h (g_pShadowEntities) and nothing else.
-	//
-	// RE-HOMING IT LOOKS RIGHT AND IS A TRAP. The list stores `entitem_t`, whose
-	// member is an EHANDLE -- which resolves through `g_pEntityList`, the entity
-	// list the flip replaces (§3.3) -- and whose `operator new`/`delete` come
-	// from `g_EntListMemPool`, also in cbase.cpp. Carrying the type here would
-	// carry both of those into a file §6 keeps, trading four symbols owed for
-	// two different ones owed. That is moving the debt rather than paying it,
-	// and it is the same mistake as routing a transform through ICollideable.
-	//
-	// AND THE LIST IS ALREADY EMPTY ON THIS TREE, which is what makes the
-	// refusal cost nothing today rather than only after the flip:
-	//
-	//     PhysAddShadow    referenced by NO object of the server project
-	//     PhysHasShadow    referenced by NO object of the server project
-	//     PhysRemoveShadow referenced by baseentity.o and baseentity_shared.o,
-	//                      both inside the removal set
-	//
-	// Nothing fills it, so the walk in PhysicsSimulate has always had nothing to
-	// walk, and `VPhysicsShadowUpdate` -- the SDK's own step-movement follow-up,
-	// NOT the per-tick VPhysicsUpdate that is on the boundary and is driven by
-	// the active-object loop -- has never had a subject here.
-	//
-	// WHAT WOULD HAVE TO EXIST: shadow controllers are named in physicsowner.h's
-	// list of "the machinery that only a CBaseEntity has", so this needs the
-	// managed hierarchy to own a shadow controller first. plan_entity.md §3.8
-	// already routes shadow controllers through ids allocated by PhysicsShell,
-	// which is where the replacement list belongs.
-	//=========================================================================//
-	static CPhysicsBridgeRefusal s_RefuseShadowList(
-		"the SDK shadow-entity list, and the per-step VPhysicsShadowUpdate it drives",
-		"CEntityList is defined in cbase.cpp, which leaves, and physics.cpp is the only "
-		"file in the tree that uses the type. Re-homing it would carry entitem_t's "
-		"EHANDLE and g_EntListMemPool into a file §6 keeps -- moving the debt, not "
-		"paying it. The list is already empty on this tree: no object of the server "
-		"project references PhysAddShadow or PhysHasShadow at all, and the only "
-		"references to PhysRemoveShadow are in baseentity.o and baseentity_shared.o, "
-		"both inside the removal set. Shadow controllers are CBaseEntity-only machinery "
-		"by physicsowner.h's own list; plan_entity.md §3.8 routes them through ids "
-		"allocated by PhysicsShell, which is where the replacement list belongs." );
-
-	if ( s_RefuseShadowList.Reached() )
-	{
-		Warning( SOURCESHARP_PHYSICS_REFUSAL_FMT,
-		         s_RefuseShadowList.What(), s_RefuseShadowList.Refusal() );
-	}
+	// THE SDK SHADOW-ENTITY LIST IS NOT CARRIED (plan_entity.md §7). Its
+	// printed refusal and the always-NULL g_pShadowEntities went in
+	// plan_server_native_v2 T6: nothing fills the list (no object references
+	// PhysAddShadow or PhysHasShadow), so the warning reported a state that
+	// cannot change. Shadow controllers are CBaseEntity-only machinery by
+	// physicsowner.h's own list; plan_entity.md §3.8 routes them through ids
+	// allocated by PhysicsShell, which is where a replacement would belong.
 
 	// The surface sounds' precache and handles, managed's too (2.6).
 	if ( pPhysicsFrame )
@@ -375,10 +319,6 @@ void CPhysicsHook::LevelShutdownPostEntity()
 
 	g_PhysWorldObject = NULL;
 
-	// Nothing was allocated -- see the refusal in LevelInitPreEntity -- so there
-	// is nothing to delete. The pointer is cleared anyway, because leaving a
-	// stale non-NULL here is the one way this refusal could become a crash.
-	g_pShadowEntities = NULL;
 	m_massCenterOverrides.Purge();
 	FlushVehicleScripts();
 }

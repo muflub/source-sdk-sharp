@@ -29,8 +29,8 @@
 #include "igamemovement.h"
 #endif
 #ifdef CLIENT_DLL
-// The server has no IPredictionSystem: its effects and temp entities read the
-// suppress host through ss::TePrediction (ss_te_prediction.h).
+// The server has no IPredictionSystem and no suppress host (its last reader,
+// the multi-damage apply, went in plan_server_native_v2 T6).
 #include "ipredictionsystem.h"
 #endif
 #ifdef CLIENT_DLL

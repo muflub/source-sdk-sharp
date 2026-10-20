@@ -50,6 +50,7 @@
 #ifndef CLIENT_DLL
 #include "sourcesharp_gamesystem.h"   // IManagedRuntimeServer
 #include "shell_managed_areas.h"     // CManagedAreas (tools/managed-areas)
+#include "shell_shim_root_server.h"  // CShimRootServer, the game DLL's member (T6)
 #else
 #include "shell_managed_areas_client.h"   // CManagedHoldersClient (plan_client_vtables CD)
 #include "particles_lib_client.h"         // ParticleLib_Acquire (plan_particles_so.md)
@@ -71,14 +72,12 @@ void *ShimFrame_Acquire();
 void *ShimLevel_Acquire();
 #endif
 
-#ifndef CLIENT_DLL
-// The shim root's areas; defined beside the root, below.
-CShimAreas &ShimAreasOfRoot();
-#else
+#ifdef CLIENT_DLL
 // The client's shared bases (plan_client_vtables CB); defined beside the root.
 CShimAreasClient &ShimClientAreasOfRoot();
 #endif
 
+#ifdef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // The row set. One line per shim interface this side implements.
 //-----------------------------------------------------------------------------
@@ -100,30 +99,15 @@ void *SourceSharp_InternalFactory( const char *pszName )
 	if ( void *pTable = SSFwd_Serve( pszName ) )
 		return pTable;
 
-#ifndef CLIENT_DLL
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FRAME_VERSION ) )
-		return ShimFrame_Acquire();
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
-		return ShimLevel_Acquire();
-#endif
-
-#ifdef CLIENT_DLL
 	// plan_particles_so.md: libss_particles.so's ISSParticleLib, the object in
 	// the library itself (client.so's forwards call the same one).
 	if ( !ss::StrICmp( pszName, SS_PARTICLE_LIB_INTERFACE_VERSION ) )
 		return ParticleLib_Acquire();
-#endif
 
-#ifndef CLIENT_DLL
-	// plan_engineapi_vtables Phase C: the generated areas (tools/shim-areas).
-	if ( void *pArea = ShimAreas_Acquire( ShimAreasOfRoot(), pszName ) )
-		return pArea;
-#else
 	// plan_client_vtables CB: the client's shared bases.
 	if ( void *pArea = ShimAreasClient_Acquire( ShimClientAreasOfRoot(), pszName ) )
 		return pArea;
-#endif
 
 	// A name this side does not serve. Not an error, and reported as the same
 	// "factory does not know that interface" an engine factory's NULL gets:
@@ -131,6 +115,62 @@ void *SourceSharp_InternalFactory( const char *pszName )
 	// GameFrame to have steps of.
 	return NULL;
 }
+#endif
+
+#ifndef CLIENT_DLL
+//-----------------------------------------------------------------------------
+// THE SERVER'S ROW SET IS ITS ROOT'S Acquire (plan_server_native_v2 T6). One
+// line per shim interface the server implements, served from the root's own
+// members; the root is a member of the game DLL object (shell_shim_root_server.h).
+//-----------------------------------------------------------------------------
+void *CShimRootServer::Acquire( const char *pszName )
+{
+	if ( !pszName )
+		return NULL;
+
+	// plan_engineapi_vtables A4: a SHARED area. Both sides serve it since
+	// plan_client_vtables CA, where the client's LoadSideV2 acquires it.
+	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
+		return static_cast< IShimConsole * >( &m_Console );
+
+	// plan_engine_forwarders.md: the forwarder libraries' tables, by the name
+	// managed asks for (SSFwd_<table>).
+	if ( void *pTable = SSFwd_Serve( pszName ) )
+		return pTable;
+
+	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FRAME_VERSION ) )
+		return ShimFrame_Acquire();
+
+	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
+		return ShimLevel_Acquire();
+
+	// plan_engineapi_vtables Phase C: the generated areas (tools/shim-areas).
+	if ( void *pArea = ShimAreas_Acquire( m_Areas, pszName ) )
+		return pArea;
+
+	// A name this side does not serve: the same "factory does not know that
+	// interface" an engine factory's NULL gets.
+	return NULL;
+}
+
+void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion,
+                                         char *pError, int32_t nErrorBytes )
+{
+	// THIS side's own interfaces come from the root itself; only the engine's
+	// factory kinds go to the one acquisition entry point.
+	if ( nType == SOURCESHARP_FACTORY_INTERNAL )
+	{
+		void *pShim = Acquire( pszVersion );
+		if ( !pShim )
+			SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		return pShim;
+	}
+
+	return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion,
+	                                     pError, nErrorBytes );
+}
+#endif
+
 
 //-----------------------------------------------------------------------------
 // THE ROOT -- plan_engineapi_vtables.md step A3.
@@ -146,6 +186,7 @@ void *SourceSharp_InternalFactory( const char *pszName )
 // than one per area. Both sides build it: the client's struct reaches its
 // console through it until the client's own wave.
 //-----------------------------------------------------------------------------
+#ifdef CLIENT_DLL
 namespace
 {
 
@@ -169,27 +210,26 @@ public:
 	}
 
 	CShimConsole m_Console;
-#ifndef CLIENT_DLL
-	// The native-side shim areas only. What native holds from managed (the
-	// root, the runtime, the generated areas) is the game DLL object's:
-	// ShellGameDll_Managed() (plan_managed_vtable_reload.md L2).
-	CShimAreas m_Areas;
-#else
 	// plan_client_vtables CB: the client's shared bases (tools/shim-areas).
 	CShimAreasClient m_ClientAreas;
-#endif
 };
 
 } // namespace
 
 static CShimRoot g_ShimRoot;
+#endif
 
 IShimRoot *ShimRoot_Get( const void **ppTable )
 {
 	if ( ppTable )
 		*ppTable = SSFwd_Serve( "SSFwd_ShimRoot" );
 
+#ifdef CLIENT_DLL
 	return &g_ShimRoot;
+#else
+	// The game DLL's member since plan_server_native_v2 T6.
+	return &ShellGameDll_ShimRoot();
+#endif
 }
 
 #ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
@@ -207,11 +247,6 @@ CShimAreasClient &ShimClientAreasOfRoot()
 #endif
 
 #ifndef CLIENT_DLL
-CShimAreas &ShimAreasOfRoot()
-{
-	return g_ShimRoot.m_Areas;
-}
-
 IManagedRoot *ManagedRoot_Get()
 {
 	return ShellGameDll_Managed().m_pRoot;
@@ -345,10 +380,12 @@ void ManagedRoot_Release()
 }
 #endif
 
+#ifdef CLIENT_DLL
 void *ShimConsole_Acquire()
 {
 	return static_cast< IShimConsole * >( &g_ShimRoot.m_Console );
 }
+#endif
 
 // The generated areas' acquire, release and accessors (tools/managed-areas).
 #include "shell_managed_areas.inc"

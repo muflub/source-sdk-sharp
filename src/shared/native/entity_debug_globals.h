@@ -45,25 +45,10 @@
 #endif
 
 //-----------------------------------------------------------------------------
-// Debug entity selection. The overlays let one player click entities in the
-// world; m_nDebugPlayer was that player's slot and -1 when there is none.
+// Debug entity selection (m_bInDebugSelect / m_nDebugPlayer) went in
+// plan_server_native_v2 T6: nothing in either DLL set either one, so the
+// overlay viewer they gated was never established (shell_debugoverlays.cpp).
 //-----------------------------------------------------------------------------
-inline bool s_bInDebugSelect = false;
-inline bool &EntityDebug_InSelectRef()
-{
-	return s_bInDebugSelect;
-}
-
-inline int s_nDebugPlayer = -1;
-inline int &EntityDebug_SelectingPlayerRef()
-{
-	return s_nDebugPlayer;
-}
-
-inline bool EntityDebug_InSelect()                 { return EntityDebug_InSelectRef(); }
-inline void EntityDebug_SetInSelect( bool bOn )    { EntityDebug_InSelectRef() = bOn; }
-inline int  EntityDebug_SelectingPlayer()          { return EntityDebug_SelectingPlayerRef(); }
-inline void EntityDebug_SetSelectingPlayer( int n ){ EntityDebug_SelectingPlayerRef() = n; }
 
 //-----------------------------------------------------------------------------
 // The entity I/O single-stepper, behind ent_pause / ent_step. Paused, the event

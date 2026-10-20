@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,753 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,751 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,744 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,134 |
-| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,553 |
-| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,147 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,710 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,831 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,691 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,159 |
+| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,449 |
+| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,160 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 | 1 |  |  | 16 | 9,345 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,009 |
-| x | NO LETTER FITS | 7 | 1 | 3 |  | 2 |  | 19 | 4,424 |
-|  | **total** | **75** | **33** | **75** | **3** | **2** | **1** | **217** | **86,860** |
+| x | NO LETTER FITS | 7 | 1 | 3 |  | 2 |  | 19 | 4,407 |
+|  | **total** | **75** | **33** | **75** | **3** | **2** | **1** | **217** | **86,761** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise

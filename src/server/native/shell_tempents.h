@@ -43,7 +43,6 @@
 
 #include "irecipientfilter.h"
 #include "mathlib/vector.h"
-namespace ss { class TePrediction; }
 
 namespace ss { struct CEffectData; }
 
@@ -70,17 +69,9 @@ bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
                             const float *pFloats, int nFloats,
                             const int *pInts, int nInts );
 
-//-----------------------------------------------------------------------------
-// The temp entity subsystem's suppress host (ss::TePrediction,
-// ss_te_prediction.h) -- what the `te` singleton's IPredictionSystem half held,
-// without the list nothing on the server walks.
-//
-// takedamageinfo.cpp's ApplyMultiDamage is the one caller that wants the object
-// rather than the effects: it clears the temp entity system's suppress host
-// across TakeDamage so that damage-triggered effects are NOT culled, and puts it
-// back afterwards.
-//-----------------------------------------------------------------------------
-ss::TePrediction *SourceSharpTe_PredictionSystem( void );
+// SourceSharpTe_PredictionSystem and ss::TePrediction went in
+// plan_server_native_v2 T6: their one caller was the server's multi-damage
+// apply, which nothing could reach.
 
 // BEHAVIOUR LEDGER ROW S5 (TriggerTempEntity, stock's tool-build-only stub)
 // has no server half any more. Its refusal, SourceSharpTe_ToolsRefused, was

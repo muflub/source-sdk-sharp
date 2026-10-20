@@ -39,26 +39,6 @@
 #ifdef CLIENT_DLL
 #include "cbase.h"
 #endif
-#if !defined( CLIENT_DLL )
-// te.h and its `te` singleton went with plan_tmp.md Part 7. What ApplyMultiDamage
-// wanted from `te` was never an effect -- it was the temp entity subsystem's
-// IPredictionSystem, so that damage-triggered effects are not culled by a
-// prediction filter left set from somewhere else. That object outlived the
-// dispatch table: SourceSharpTe_PredictionSystem(), in shell_tempents.cpp.
-#include "shell_tempents.h"
-#include "ss_te_prediction.h"
-// SOURCESHARP: the dual value type for "an entity of either kind, found by
-// handle". Server only, deliberately — anyentity.h says why: the client half of
-// the parallel hierarchy does not join the spatial partition, so there is
-// nothing over there for one of these to find.
-#include "anyentity.h"
-// SOURCESHARP: the union resolve -- plan_entity.md §3.3, lane entlist-server.
-// The two entity-list LookupEntity calls in this file's server arms asked
-// the entity list because it was the only thing that answered for BOTH
-// hierarchies; SourceSharp_EntityFromHandle is the three named arms that
-// replaced it. Server only, with anyentity.h and for the same reason.
-#include "slot_table.h"
-#endif
 #ifdef CLIENT_DLL
 #include "gamerules.h"
 #else
@@ -110,6 +90,12 @@ namespace ss
 {
 #endif
 
+// THE DATADESCS AND THE MULTI-DAMAGE ACCUMULATOR ARE THE CLIENT'S ONLY
+// (plan_server_native_v2 T6): on the server nothing accumulated into
+// g_MultiDamage -- AddMultiDamage exists in neither DLL -- so it was always
+// clear, its apply could not fire, and the two datamaps were read by nothing
+// but the accumulator's own base-map chain (nm: server 0 importers).
+#ifdef CLIENT_DLL
 BEGIN_SIMPLE_DATADESC( CTakeDamageInfo )
 	DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ),
 	DEFINE_FIELD( m_vecDamagePosition, FIELD_POSITION_VECTOR),
@@ -126,6 +112,7 @@ BEGIN_SIMPLE_DATADESC( CTakeDamageInfo )
 	DEFINE_FIELD( m_iAmmoType, FIELD_INTEGER),
 	DEFINE_FIELD( m_iDamagedOtherPlayers, FIELD_INTEGER),
 END_DATADESC()
+#endif // CLIENT_DLL
 
 void CTakeDamageInfo::Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType, int iCustomDamage )
 {
@@ -202,20 +189,12 @@ void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, floa
 // sometimes-true to never-true while appearing to have been answered.
 //-----------------------------------------------------------------------------
 
+#ifdef CLIENT_DLL
 // -------------------------------------------------------------------------------------------------- //
 // MultiDamage
 // Collects multiple small damages into a single damage
 // -------------------------------------------------------------------------------------------------- //
-#ifdef CLIENT_DLL
 BEGIN_SIMPLE_DATADESC_( CMultiDamage, CTakeDamageInfo )
-#else
-// BEGIN_SIMPLE_DATADESC_ spelled out: its GetBaseMap calls DataMapAccess
-// unqualified, and inside namespace ss that finds both datamap.h's template and
-// the class's friend of the same name. The body is DataMapAccess's.
-datamap_t CMultiDamage::m_DataMap = { 0, 0, "CMultiDamage", NULL };
-datamap_t *CMultiDamage::GetBaseMap() { return &CTakeDamageInfo::m_DataMap; }
-BEGIN_DATADESC_GUTS( CMultiDamage )
-#endif
 	DEFINE_FIELD( m_hTarget, FIELD_EHANDLE),
 END_DATADESC()
 
@@ -251,34 +230,11 @@ void ApplyMultiDamage( void )
 	if ( !g_MultiDamage.GetTarget() )
 		return;
 
-#ifndef CLIENT_DLL
-	ss::TePrediction *pTe = SourceSharpTe_PredictionSystem();
-
-	const IGameEntity *host = pTe->GetSuppressHost();
-	pTe->SetSuppressHost( NULL );
-
-	// SOURCESHARP, Phase 13 step 5: the accumulated damage is delivered through
-	// AnyEntity_t, which is the dual answer for "hurt this, whichever hierarchy
-	// it is on" — pBase->TakeDamage for an SDK entity, StandaloneEntity_TakeDamage
-	// for one outside it. Written `GetTarget()->TakeDamage()` this asked
-	// CBaseEntity for a member the boundary does not carry, and answered a
-	// managed victim with a silent nothing: the typed handle's Get() reports
-	// NULL for a standalone entity, so IsClear() read as "no target" and the
-	// whole accumulation was dropped. Resolving from the HANDLE finds both kinds.
-	// SourceSharp_EntityFromHandle, for the reason above the inflictor lookup.
-	AnyEntity_t target =
-		AnyEntityOf( SourceSharp_EntityFromHandle( g_MultiDamage.GetTargetHandle() ) );
-	if ( target.IsValid() )
-	{
-		target.TakeDamage( g_MultiDamage );
-	}
-
-	pTe->SetSuppressHost( const_cast< IGameEntity * >( host ) );
-#endif
 
 	// Damage is done, clear it out
 	ClearMultiDamage();
 }
+#endif // CLIENT_DLL
 
 //============================================================================================================
 // Utility functions for physics damage force calculation 

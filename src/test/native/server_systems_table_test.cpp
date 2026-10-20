@@ -255,7 +255,8 @@ TEST( ServerSystemsTable, TheWorldsPrecacheKeepsOnlyItsNativeHalfInOrder )
 	const char *kOrder[] = {
 		"InstallGameRules();", "ss::SoundEnt_Init();",
 		"SourceSharp_ManagedLevelInitPreEntity(", "SENTENCEG_Init();", "W_Precache();",
-		"AllocPooledString(\"func_brush\")",
+		// AllocPooledString("func_brush") stood last; its global had no reader
+		// and went in plan_server_native_v2 T6.
 	};
 	size_t at = 0;
 	for ( const char *pszStep : kOrder )

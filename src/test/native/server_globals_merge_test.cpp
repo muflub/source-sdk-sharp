@@ -28,7 +28,7 @@
 // SIX SINCE plan_server_native_v2 T5 (2026-10-19): g_vecAttackDir and
 // g_iSkillLevel went, no object on server.so's link importing either (nm U),
 // and their needles below went with them (user ruling 2026-10-19: tests of
-// unused code go with it).
+// unused code go with it). FIVE SINCE T6: g_fGameOver went the same way.
 //
 //=============================================================================//
 
@@ -181,8 +181,8 @@ TEST( ServerGlobalsMerge, TheEightDefinitionsAreAllHereAndEachExactlyOnce )
 
 	struct Def_t { const char *pszNeedle; const char *pszWhy; };
 	static const Def_t kDefs[] = {
-		{ "boolg_fGameOver;",
-		  "globals.cpp's game-over flag" },
+		// boolg_fGameOver; went in plan_server_native_v2 T6: CWorld::Precache
+		// wrote it and no server object read it (nm U).
 		// ss:: since P5 lane R: server.so's own list type (ss_init_factory.h).
 		{ "voidss::FactoryList_Store(constss::factorylist_t&sourceData)",
 		  "the engine hands the game DLL its factories at load through this" },

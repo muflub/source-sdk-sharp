@@ -45,6 +45,7 @@
 #include "ss_world.h"
 #include "sourcesharp.h"
 #include "native_command_body.h"
+#include "server_state.h"    // the DLL tier the two blocks live in (T6)
 
 
 // The block sizes itself without const.h so that the gtest can build it with no
@@ -55,12 +56,27 @@ COMPILE_TIME_ASSERT( SOURCESHARP_MAX_ENTITY_SLOTS >= NUM_ENT_ENTRIES );
 void *SourceSharp_EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize );
 
 //-----------------------------------------------------------------------------
-// One block for the process. Static rather than allocated: it is 128KB, it is
-// live from the first entity to the last, and a pointer C# holds into it must
-// stay valid for the life of the side — an array that could be reallocated is
-// exactly the hazard this file exists to remove.
+// One block for the DLL, in the game DLL's DLL tier (server_state.h,
+// plan_server_native_v2 T6). It was a file-scope static; it is a member of
+// CServerDllState now, built in DLLInit and destroyed at the end of
+// DLLShutdown, after the managed side has unloaded -- so a pointer C# holds
+// into it stays valid for the life of the side, and it is never reallocated,
+// which is the hazard this file exists to remove.
+//
+// NULL outside DLLInit..DLLShutdown. Every entry point below answers "no
+// entity" then, as it would for an entry nothing bound.
 //-----------------------------------------------------------------------------
-static CSourceSharpEntitySlots g_EntitySlots;
+static CSourceSharpEntitySlots *EntitySlots()
+{
+	CServerDllState *pDll = ShellGameDll_Dll();
+	return pDll ? &pDll->m_EntitySlots : NULL;
+}
+
+static CSourceSharpSlotTable *SlotTable()
+{
+	CServerDllState *pDll = ShellGameDll_Dll();
+	return pDll ? &pDll->m_SlotTable : NULL;
+}
 
 //-----------------------------------------------------------------------------
 // The entry index a packed handle names, or -1.
@@ -147,8 +163,9 @@ void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
 		*pOutSerial = SOURCESHARP_SLOT_SERIAL_NONE;
 
 	const int nEntry = SourceSharp_SlotEntryOf( hEntity );
+	CSourceSharpEntitySlots *pSlots = EntitySlots();
 
-	if ( nEntry < 0 )
+	if ( nEntry < 0 || !pSlots )
 	{
 		return NULL;
 	}
@@ -163,7 +180,7 @@ void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
 
 	uint32_t nSerial = SOURCESHARP_SLOT_SERIAL_NONE;
 
-	if ( !g_EntitySlots.Open( nEntry, hEntity, &nSerial ) )
+	if ( !pSlots->Open( nEntry, hEntity, &nSerial ) )
 	{
 		return NULL;
 	}
@@ -172,7 +189,7 @@ void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
 	if ( pOutSize )
 		*pOutSize = nSize;
 	if ( pOutSlot )
-		*pOutSlot = g_EntitySlots.Slots() + nEntry;
+		*pOutSlot = pSlots->Slots() + nEntry;
 	if ( pOutSerial )
 		*pOutSerial = nSerial;
 
@@ -210,9 +227,10 @@ void SourceSharp_EntityMarkStateChanged( uint32_t hEntity )
 void SourceSharp_EntitySlotClosed( uint32_t hEntity )
 {
 	const int nEntry = SourceSharp_SlotEntryOf( hEntity );
+	CSourceSharpEntitySlots *pSlots = EntitySlots();
 
-	if ( nEntry >= 0 )
-		g_EntitySlots.Close( nEntry );
+	if ( nEntry >= 0 && pSlots )
+		pSlots->Close( nEntry );
 }
 
 //-----------------------------------------------------------------------------
@@ -233,13 +251,16 @@ int SourceSharp_DrainEntitySlots( void )
 {
 
 	int nMarked = 0;
+	CSourceSharpEntitySlots *pSlots = EntitySlots();
+	if ( !pSlots )
+		return 0;
 
-	for ( int i = g_EntitySlots.ActiveCount() - 1; i >= 0; --i )
+	for ( int i = pSlots->ActiveCount() - 1; i >= 0; --i )
 	{
-		const int nEntry = g_EntitySlots.ActiveAt( i );
-		const uint32_t hEntity = g_EntitySlots.HandleAt( nEntry );
+		const int nEntry = pSlots->ActiveAt( i );
+		const uint32_t hEntity = pSlots->HandleAt( nEntry );
 
-		const bool bDirty = g_EntitySlots.TakeDirty( nEntry );
+		const bool bDirty = pSlots->TakeDirty( nEntry );
 
 		if ( bDirty )
 		{
@@ -257,7 +278,7 @@ int SourceSharp_DrainEntitySlots( void )
 		}
 		else if ( !SourceSharp_ResolveEntity( hEntity ).IsValid() )
 		{
-			g_EntitySlots.Close( nEntry );
+			pSlots->Close( nEntry );
 			continue;
 		}
 	}
@@ -288,7 +309,8 @@ int SourceSharp_DrainEntitySlots( void )
 //-----------------------------------------------------------------------------
 int SourceSharp_RetireEntitySlots( void )
 {
-	return g_EntitySlots.Retire();
+	CSourceSharpEntitySlots *pSlots = EntitySlots();
+	return pSlots ? pSlots->Retire() : 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -297,7 +319,10 @@ int SourceSharp_RetireEntitySlots( void )
 //-----------------------------------------------------------------------------
 void SourceSharp_ResetEntitySlots( void )
 {
-	g_EntitySlots.Reset();
+	CSourceSharpEntitySlots *pSlots = EntitySlots();
+	CSourceSharpSlotTable *pTable = SlotTable();
+	if ( pSlots )
+		pSlots->Reset();
 
 	// AND THE SLOT TABLE, which is the other table this file owns and has the
 	// same reason to be cleared: a binding that outlived the map would be
@@ -316,7 +341,8 @@ void SourceSharp_ResetEntitySlots( void )
 	// mirror does not move, and the new entity is packed as a continuation of
 	// the dead one. CGlobalEntityList never met this: it drew its serials once
 	// at static construction and only ever bumped them.
-	SourceSharp_SlotTable().ClearBindings();
+	if ( pTable )
+		pTable->ClearBindings();
 }
 
 //=============================================================================
@@ -337,26 +363,23 @@ void SourceSharp_ResetEntitySlots( void )
 // spaces, different reasons. slot_table.h says why the second one may not be
 // walked while the first one must be.
 //
-// WHY THE TABLE IS NOT A FILE-SCOPE GLOBAL. plan.md §1a: nothing in
-// SourceSharp's C++ is a static or a global, and the exception in the block
-// above (g_EntitySlots) predates the rule. The tree's answer to "one object per
-// side, owned by the game system" is the shape
-// shell_serversystems.cpp:236 uses for the managed system itself -- a
-// function-local static inside the accessor that hands it out, so the object's
-// lifetime is stated by the code that owns it rather than decided by the
-// linker's static-init order. This is that shape. The game system drives its
-// only lifecycle event: SourceSharp_ResetEntitySlots below is called from
-// SourceSharp_ManagedLevelShutdown, and it now resets both tables.
+// NEITHER TABLE IS A STATIC ANY MORE (plan_server_native_v2 T6). The table
+// was a function-local static inside its accessor, so that its lifetime was
+// stated by the code that owned it; both are members of the game DLL's DLL
+// tier now (CServerDllState, server_state.h), which states the lifetime in one
+// place for everything: DLLInit to DLLShutdown. The level's one lifecycle event
+// is unchanged: SourceSharp_ResetEntitySlots above resets both tables.
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-// The server's slot table. One per side; the client's arrives with
-// IClientEntityList in Phase 5a.
+// The server's slot table, for the debug readout (cs_sv_slot_table). A console
+// command runs between DLLInit and DLLShutdown, so the tier is there.
 //-----------------------------------------------------------------------------
 CSourceSharpSlotTable &SourceSharp_SlotTable( void )
 {
-	static CSourceSharpSlotTable s_SlotTable;
-	return s_SlotTable;
+	CSourceSharpSlotTable *pTable = SlotTable();
+	AssertMsg( pTable, "the slot table was asked for outside DLLInit..DLLShutdown" );
+	return *pTable;
 }
 
 //-----------------------------------------------------------------------------
@@ -376,7 +399,8 @@ CSourceSharpSlotTable &SourceSharp_SlotTable( void )
 //-----------------------------------------------------------------------------
 CBaseHandle SourceSharp_SlotIssue( int nEntry )
 {
-	return SourceSharp_SlotTable().IssueHandle( nEntry );
+	CSourceSharpSlotTable *pTable = SlotTable();
+	return pTable ? pTable->IssueHandle( nEntry ) : CBaseHandle();
 }
 
 //-----------------------------------------------------------------------------
@@ -386,7 +410,8 @@ CBaseHandle SourceSharp_SlotIssue( int nEntry )
 bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell,
                              edict_t *pEdict )
 {
-	if ( !SourceSharp_SlotTable().BindAt( handle, pShell ) )
+	CSourceSharpSlotTable *pTable = SlotTable();
+	if ( !pTable || !pTable->BindAt( handle, pShell ) )
 		return false;
 
 	StandaloneNetSerial_Mirror( pEdict, (unsigned long)handle.GetSerialNumber() );
@@ -405,7 +430,8 @@ bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShel
 //-----------------------------------------------------------------------------
 void SourceSharp_SlotUnbind( int nEntry )
 {
-	SourceSharp_SlotTable().Unbind( nEntry );
+	if ( CSourceSharpSlotTable *pTable = SlotTable() )
+		pTable->Unbind( nEntry );
 }
 
 //-----------------------------------------------------------------------------
@@ -435,7 +461,8 @@ void SourceSharp_SlotUnbind( int nEntry )
 //-----------------------------------------------------------------------------
 CStandaloneEntity *SourceSharp_ShellFromHandle( const CBaseHandle &handle )
 {
-	return static_cast< CStandaloneEntity * >( SourceSharp_SlotTable().Resolve( handle ) );
+	CSourceSharpSlotTable *pTable = SlotTable();
+	return pTable ? static_cast< CStandaloneEntity * >( pTable->Resolve( handle ) ) : NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -451,7 +478,8 @@ CStandaloneEntity *SourceSharp_ShellFromHandle( const CBaseHandle &handle )
 //-----------------------------------------------------------------------------
 CStandaloneEntity *SourceSharp_ShellFromIndex( int nEntry )
 {
-	return SourceSharp_ShellFromHandle( SourceSharp_SlotTable().HandleOf( nEntry ) );
+	CSourceSharpSlotTable *pTable = SlotTable();
+	return pTable ? SourceSharp_ShellFromHandle( pTable->HandleOf( nEntry ) ) : NULL;
 }
 
 //-----------------------------------------------------------------------------

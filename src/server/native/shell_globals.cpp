@@ -97,7 +97,8 @@
 // should `extern ...` declare each variable, to better document what globals
 // they care about."
 //-----------------------------------------------------------------------------
-bool			g_fGameOver;
+// g_fGameOver went in plan_server_native_v2 T6: CWorld::Precache wrote it and
+// no server object read it (nm U).
 
 //-----------------------------------------------------------------------------
 // game/server/init_factory.cpp
