@@ -707,8 +707,11 @@ TEST( PredictionSeed, TheSeedHasExactlyOneWayIn )
 	ASSERT_FALSE( ShellPlayerSvC().empty() ) << "server shell_standalone_player.cpp did not load";
 	ASSERT_FALSE( ShellPlayerClC().empty() ) << "client shell_prediction.cpp did not load";
 
-	EXPECT_EQ( CountOf( ShellPlayerSvC(), "EntityPrediction_SetSeedFromCommand(" ), 2 )
-		<< "the server player no longer seeds through the lifted free function.";
+	// The server player seeds nothing since plan_server_native_v2 T4g: its
+	// commands run in managed, and nothing native on the server read the seed.
+	EXPECT_EQ( CountOf( ShellPlayerSvC(), "EntityPrediction_SetSeedFromCommand(" ), 0 )
+		<< "the server player seeds the native prediction seed again; nothing on"
+		   " the server reads it.";
 	EXPECT_EQ( CountOf( ShellPlayerClC(), "EntityPrediction_SetSeedFromCommand(" ), 2 )
 		<< "the client replay bracket no longer seeds through the lifted free\n"
 		   " function. Both calls are load-bearing: the set on the way in and the\n"

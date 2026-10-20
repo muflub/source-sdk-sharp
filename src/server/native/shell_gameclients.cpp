@@ -733,46 +733,11 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 	if ( nTooLarge >= 0 )
 		Error( "ClientSetupVisibility: portal number (%d) too large", nTooLarge );
 
-	// The standalone half of the same update: which areas this client may
-	// see, recomputed from its own eyes. Held on its CPlayerLocalData —
-	// the block the local-exclusive table reads from.
-	Vector vecEye;
-
-	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pClient ) )
-	{
-		// THE SAME CACHED ANSWER, not a second EyePosition() (step 3c). Asking
-		// twice in one method would have been two crossings on the first frame
-		// and two different eye positions on any frame where they disagreed.
-		if ( !SourceSharp_ClientViewOrigin( pClient, &vecEye ) )
-			vecEye = pStandalone->Block().Head.Origin;
-
-		auto &local = pStandalone->MvLocal();
-
-		unsigned char tempBits[ 32 ];
-		COMPILE_TIME_ASSERT( sizeof( tempBits ) >= sizeof( local.m_chAreaBits ) );
-
-		int nArea = engine->GetArea( vecEye );
-		engine->GetAreaBits( nArea, tempBits, sizeof( tempBits ) );
-
-		for ( int i = 0; i < local.m_chAreaBits.Count(); i++ )
-		{
-			if ( tempBits[ i ] != local.m_chAreaBits[ i ] )
-				local.m_chAreaBits.Set( i, tempBits[ i ] );
-		}
-
-		for ( int i = 0; i < MAX_AREA_PORTAL_STATE_BYTES; i++ )
-		{
-			if ( portalBits[ i ] != local.m_chAreaPortalBits[ i ] )
-				local.m_chAreaPortalBits.Set( i, portalBits[ i ] );
-		}
-	}
-
-	// THE SDK PLAYER'S AREA-BITS UPDATE STOOD HERE, guarded on a `CBasePlayer *`
-	// that was assigned NULL twelve lines after it was declared and never
-	// assigned again -- so the block could not run, and the
-	// `dynamic_cast<CPortal_Player*>` inside its `#ifdef PORTAL` was a cast of
-	// NULL inside dead text inside a configuration this mod does not build.
-	// The standalone player's areaportal bits are written by the arm above.
+	// The client's area bits are not kept here: CPlayerLocalData's m_chAreaBits
+	// and m_chAreaPortalBits had no reader once DT_Local went (plan_server_native_v2
+	// T2), and the engine never reads them. portalBits above is the managed walk's
+	// by-product; the walk itself is what answers the engine.
+	(void)portalBits;
 }
 
 
@@ -845,7 +810,7 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 	if ( !pStandalone )
 		return 0.0f;
 
-	pStandalone->QueueDecodedUsercmds( queued, nQueued );
+	pStandalone->QueuedUsercmds( nQueued );
 	return gpGlobals->interval_per_tick;
 }
 

@@ -170,31 +170,9 @@ string_t g_iszFuncBrushClassname = NULL_STRING;
 // THE LAST TENANTS OF THE MAP-ENTITY FILES (was shell_entity_orphans.cpp).
 //=============================================================================
 
-//-----------------------------------------------------------------------------
-// The handle spelling of env_player_surface_trigger's funnel (its static
-// CEnvPlayerSurfaceTrigger::SetPlayerSurface until P5), which is the one
-// the movement loop calls (Phase 9a): the loop holds a CBaseHandle for ANY
-// player it moves, and the old resolve through UTIL_PlayerByIndex silently
-// skipped every player that was not a CBasePlayer.
-//-----------------------------------------------------------------------------
-namespace ss { void SetPlayerSurface( const CBaseHandle &hPlayer, char gameMaterial ); }
-
-void ss::SetPlayerSurface( const CBaseHandle &hPlayer, char gameMaterial )
-{
-	// Ignore players in the air (stops bunny hoppers escaping triggers)
-	if ( gameMaterial == 0 )
-		return;
-
-	if ( !hPlayer.IsValid() )
-		return;
-
-	// E17: the server's managed-built area.
-	if ( IManagedPlayerCommands *pCommands = ManagedPlayerCommands() )
-	{
-		pCommands->OnPlayerSurfaceChanged( (uint32_t)hPlayer.ToInt(),
-		                                   (int32_t)gameMaterial );
-	}
-}
+// env_player_surface_trigger's funnel (ss::SetPlayerSurface) went with the
+// server's native command path (plan_server_native_v2 T4g): the managed
+// movement world hands the material to the module (ServerMoveWorld).
 
 //-----------------------------------------------------------------------------
 // point_message's overlay pass, called once a frame from CServerGameDLL::Think.

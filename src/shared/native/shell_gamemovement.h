@@ -63,6 +63,14 @@
 //-----------------------------------------------------------------------------
 void SourceSharp_MovementFatal( int nReason, int nDetail );
 
+#ifndef CLIENT_DLL
+// The server's managed command loop (plan_server_native_v2 T4g): the 0 arm's
+// fatal, asked before each command, and the movemath counter, bumped for each
+// command the loop ran. shell_movement.cpp, beside the switch and the counter.
+void SourceSharp_MovementRequireManaged();
+void SourceSharp_MoveNoteServerCommand();
+#endif
+
 //-----------------------------------------------------------------------------
 // HOW MUCH THE LANDING THAT IS ABOUT TO BE APPLIED DOES.
 //

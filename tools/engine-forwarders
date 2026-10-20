@@ -257,6 +257,10 @@ FORWARD = [
             # (EffectsOverTempEnts.PaintDecal, where SourceSharp_PaintDecal
             # stored it).
             'StaticDecal',
+            # plan_server_native_v2 T4g: the wall clock CheckStuck's throttle
+            # reads, for the server's movement constants managed builds itself
+            # (shell_movement.cpp's FillConstants read engine->Time()).
+            'Time',
         ],
     ),
     dict(

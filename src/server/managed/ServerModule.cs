@@ -183,6 +183,22 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _movement = new MovementRunner(_engine);
         _services.AddInstance(_movement);
 
+        // THE SERVER'S COMMANDS RUN IN MANAGED (plan_server_native_v2 T4g):
+        // the players' movement state, the words that outlive a command, the
+        // world the loop moves through and the command stages over them; and
+        // the route that answers game code's calls on a player's movement
+        // state from those records.
+        _playerMoves.Seed = (player, move) => _entities?.Get(player) is SsPlayer p && PlayerMovePublisher.Seed(p.State, move);
+        _serverCommands = new ServerPlayerCommands(_engine, _playerMoves, _moveData,
+                                                   new MoveSoundsOf(() => _serverSounds), this, _movement,
+                                                   NewMoveConstants().Read,
+                                                   new PlayerMovePublisher(h => _entities?.Get(h) as SsPlayer),
+                                                   _services.Require<IEngineEnvironment>());
+        _services.AddInstance(_playerMoves);
+        _services.AddInstance(_moveData);
+        _services.AddInstance(_serverCommands);
+        ServerPlayerMovementRouting.Route(_engine, new ServerPlayerMovement(_engine, _playerMoves, _serverCommands));
+
         // And its player command queues and shadow run (statics to zero), for
         // the binding the root builds, the player's removal and the two
         // console commands that report them.
@@ -247,6 +263,16 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         => new(Log, this, SoundSystemInit, map => _gameDll.PreEntityParticipants(map),
                () => _gameDll.ShutdownPreEntityParticipants(), () => _physicsFrame?.Frame(),
                _liveness, _engine.Models, _engine.Breaks);
+
+    /// <summary>
+    /// The server's movement constants from this module's own declarations
+    /// (plan_server_native_v2 T4g): its convars, its registered movement
+    /// params, the globals and engine-&gt;Time().
+    /// </summary>
+    internal ServerMoveConstants NewMoveConstants()
+        => new(_convars, () => _movementRules?.Constants ?? Movement.Current,
+               _services.Require<IEngineEnvironment>(),
+               () => (_engineServer ??= EngineServer.Acquire(_engine, out _))?.Time() ?? 0f);
 
     /// <summary><c>engine-&gt;IsModelPrecached( name )</c>, through IVEngineServer's forwarders.</summary>
     private bool ModelAlreadyPrecached(string name)
@@ -444,6 +470,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     // This side's movement runner, built in ComposeEngineAreas (D8).
     private MovementRunner _movement = null!;
+
+    // The players' movement state and the server's command stages
+    // (plan_server_native_v2 T4g).
+    private readonly ServerPlayerMoves _playerMoves = new();
+    private readonly ServerMoveData _moveData = new();
+    private ServerPlayerCommands _serverCommands = null!;
 
     // The three movement decisions and the constants, resolved once after the
     // mods registered (phase 0.3). The ABI getters answer from its frozen
@@ -768,8 +800,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedNetState",
                       v => ManagedAreaFactory.Create(v, new NetStateLayoutBinding(_engine.Crossings, Log, _netStates)));
         _bindings.Add("IManagedPlayerCommands",
-                      v => ManagedAreaFactory.Create(v, new PlayerCommandsBinding(_engine.Crossings, Log, this, this, _movement, _playerCommands,
-                                                             () => _playerShadow?.Value ?? true)));
+                      v => ManagedAreaFactory.Create(v, new PlayerCommandsBinding(_engine.Crossings, Log, this, this, _playerCommands,
+                                                             () => _playerShadow?.Value ?? true,
+                                                             _serverCommands, _engine)));
         // The engine's hitbox traces against a standalone entity's skeleton
         // (plan physics_bones_native_zero step 1.1). Built when native
         // acquires the area, by which time the skeletons exist.
@@ -1501,7 +1534,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             Log.Warning("[SourceSharp/Server] no VPhysics surface table: player shadows use surfaceprop 0\n");
         var shadowBodies = PlayerShadowBodies.ForEngine(
             _engine, new VPhysicsShadowCalls(physicsCollision, _surfaceProps, _engine.VPhysics),
-            () => _playerShadow?.Value ?? true, text => Log.Warning(text));
+            () => _playerShadow?.Value ?? true, text => Log.Warning(text), _playerMoves, _moveData);
         _services.AddInstance(shadowBodies);
         _services.AddInstance<IPlayerShadows>(shadowBodies);
         _playerCommands.Shadow.Bodies = shadowBodies;
@@ -2455,6 +2488,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Run the handle-safety check here rather than from a console command:
         // spawn is the one moment a live player handle is guaranteed to exist.
         VerifyHandleSafety(player);
+
+        // The spawn's movement state, on the wire before the first command
+        // runs, as the native spawn's SyncToBlob put it (plan_server_native_v2 T4g).
+        _serverCommands.Publish(player, _playerMoves.For(player));
     }
 
     /// <summary>
@@ -2499,6 +2536,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public EntityHandle SelectSpawnPoint(EntityHandle player)
     {
+        // CStandalonePlayer::Spawn asks this first, so this is where its
+        // movement words land in the managed record (plan_server_native_v2
+        // T4g): a client, walking, the eye at the hull's view height. The
+        // record is published with the spawn's other state (OnPlayerSpawn).
+        _playerMoves.For(player).Spawn((_movementRules?.Constants ?? Movement.Current).View);
+
         // The selectors first (tf2 stage 0.5/0.7): the active game mode's own
         // IGameMode.Spawns, then the registered ISpawnSelector chain in
         // HookOrder's order (ITeams.SelectSpawn), and the first named spot
@@ -3315,6 +3358,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // block is about to be freed.
         ServerSoundRouting.Route(_engine, null);
         _serverSounds = null;
+        // And the players' movement route: nothing answers a player's movement
+        // state from this composition's records after it goes.
+        ServerPlayerMovementRouting.Route(_engine, null);
         // The same for the traces: nothing may trace through a filter whose
         // block is about to be freed.
         ServerTraceRouting.Unroute(_engine);

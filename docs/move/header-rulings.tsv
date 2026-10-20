@@ -78,7 +78,6 @@ src/sourcesharp/game/shared/standalone_nettable.h	yes	reproduces CBaseEntity's S
 src/sourcesharp/game/shared/standalone_player_sync.h	yes	rule 3: includes imovementplayer.h which includes mathlib/const.h
 src/sourcesharp/game/shared/tempent_forwards.h	no	own forwarder-id vocabulary
 src/sourcesharp/game/shared/trail_lifetime.h	yes	ports C_BaseEntity's zeroing operator new/delete
-src/sourcesharp/game/shared/view_effect_reach.h	yes	ports ComputeShakeAmplitude/view-punch falloff/TransmitShakeEvent gate
 src/sourcesharp/game/shared/vtable_hook.h	no	own compiler-based vtable-slot tooling
 src/sourcesharp/game/shared/world_net_sync.h	no	own managed field-offset architecture
 src/sourcesharp/game/shared/world_subject.h	yes	ports/fixes CGameTrace::DidHitWorld's identity comparison
@@ -1402,7 +1401,6 @@ src/sourcesharp/test/soundent_gamesystem_test.cpp	no	source-scan verifying de-en
 src/sourcesharp/test/soundent_managed_test.cpp	no	source-scan verifying managed participant wiring
 src/sourcesharp/test/soundscape_particle_7e_test.cpp	no	source-scan verifying view-accessor/entity-ask facts
 src/sourcesharp/test/srvshim_rulings_test.cpp	no	source-scan pinning two refusal rulings
-src/sourcesharp/test/standalone_basevelocity_test.cpp	no	tests own base-velocity rule header, cites Valve only as motivation
 src/sourcesharp/test/standalone_client_layout_test.cpp	no	source-scan verifying single-copy layout
 src/sourcesharp/test/standalone_collision_rules_test.cpp	no	tests own collision-invalidation rule header, cites Valve only as motivation
 src/sourcesharp/test/standalone_handle_ban_client_test.cpp	no	must-not-compile probe for banned handle type
@@ -1434,7 +1432,6 @@ src/sourcesharp/test/typed_handle_sweep_test.cpp	no	source-scan verifying typed 
 src/sourcesharp/test/usercmd_codec_test.cpp	no	source-scan verifying bit-symmetry of relocated codec
 src/sourcesharp/test/util_shared_library_test.cpp	no	source-scan verifying utility relocation correctness
 src/sourcesharp/test/variant_convert_test.cpp	yes	every expression copied out of variant_t::Convert and variant_t::ToString (cbase.cpp)
-src/sourcesharp/test/view_effect_reach_test.cpp	no	tests own view-effect-reach rule header, original logic
 src/sourcesharp/test/view_subject_test.cpp	no	tests own view-subject rule header plus source-scan
 src/sourcesharp/test/vpc_folders_test.cpp	no	vpc folder-structure verification test
 src/sourcesharp/test/vpc_link_libraries_test.cpp	no	vpc link-library ratchet test

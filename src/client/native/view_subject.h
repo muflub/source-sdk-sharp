@@ -12,8 +12,8 @@
 // it, so it can be checked by view_subject_test.cpp rather than by a
 // photograph.
 //
-// Same shape and the same reason as thirdperson_camera.h and
-// view_effect_reach.h: shell_view_facts.cpp includes cbase.h and can never be
+// Same shape and the same reason as thirdperson_camera.h (and
+// view_effect_reach.h, until its punch walk went managed): shell_view_facts.cpp includes cbase.h and can never be
 // linked into a gtest, so a rule left inside it is a rule nothing can assert.
 // Each of the three below replaced a question a stock TU used to put to the
 // local player entity, and each has an edge that is wrong in a way a running

@@ -46,6 +46,7 @@ NativeInterfaceFactory.cs	plumbing	a: named by Forwarders.cs	-
 OpArgs.cs	plumbing	a: named by ShimAreas.g.cs	-
 ParticleFollow.cs	plumbing	a: named by ShimAreas.g.cs	-
 ParticleSystemInfo.cs	plumbing	a: named by ShimAreas.g.cs	-
+PlayerCommandBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
 PlayerShadowBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
 ProcMaps.cs	plumbing	e: /proc/self/maps reader the Bootstrap stamps native with (loader infra)	-
 RagdollState.cs	plumbing	b: value contract: SourceSharpRagdollState bits	-

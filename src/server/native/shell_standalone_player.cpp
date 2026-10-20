@@ -52,10 +52,6 @@ int UTIL_GetCommandClientIndex( void );
 #include "shell_server.h"
 #include "shell_resolve.h"   // SourceSharp_HandleFromEntity: the alias-guarded crossing
 #include "sourcesharp.h"
-#include "ss_gamemovement.h"	// the server's CMoveData / IGameMovement are server.so's own
-#include "ss_movehelper.h"		// CStandaloneMoveHelper's base
-using ss::CMoveData;
-using ss::IGameMovement;
 // SourceSharpMovement_PendingFallDamage: the amount MoveMath.FallDamage chose
 // for the landing this move helper is about to apply.
 #include "shell_gamemovement.h"
@@ -72,8 +68,6 @@ using ss::IGameMovement;
 #include "ss_takedamageinfo.h"	// server.so's damage info
 
 
-extern IGameMovement *g_pGameMovement;
-extern CMoveData *g_pMoveData;
 
 // The lifted precache/tick/prediction/tracer statics. They used to be
 // reached as CBaseEntity::Foo() through one-line forwarders in
@@ -84,7 +78,6 @@ extern CMoveData *g_pMoveData;
 #include "ss_string.h"
 #include "ss_entityfactory.h"   // ss::EntityFactoryDictionary, for the ss_player factory
 #include "imanaged_areas.h"   // plan_engineapi_vtables E10, E15, E17: IManagedClients, IManagedCommands, IManagedPlayerCommands
-#include "tickbase_rule.h"
 #include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 // The player's physics-shadow states, with stock's values (player.h's
@@ -126,20 +119,11 @@ void CStandalonePlayer::SyncToBlob()
 	if ( !PlayerFieldsCurrent() )
 		return;
 
-	SourceSharpPlayerExtras_t extras;
-	extras.vecOrigin   = GetAbsOrigin();
-	extras.vecVelocity = m_vecAbsVelocity;
-	extras.flMaxSpeed  = m_flMaxSpeed;
-	extras.nTickBase   = m_nTickBase;
-	extras.nHealth     = GetHealth();
-	extras.bAlive      = MvIsAlive();
-
-	// What they are standing on, as stock's networked ehandle word. The blob is
-	// the prediction schema, so leaving this out left FL_ONGROUND in the blob
-	// with nothing behind it — see PlayerNetState.GroundEntity.
-	extras.nGroundEntity = SourceSharpPlayerSync_EncodeGround( m_hGround );
-
-	SourceSharpPlayerSync_Write( DataBlob(), s_PlayerFields, this, extras );
+	// THE ENGINE SIDE'S THREE WORDS ONLY (plan_server_native_v2 T4g): where the
+	// shell is, its health and whether it is alive. The movement state is the
+	// managed command loop's, which publishes it with these after each command
+	// (PlayerMovePublisher); a hit between commands updates what it changed.
+	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), s_PlayerFields, GetAbsOrigin(), GetHealth(), MvIsAlive() );
 
 	NetworkStateChanged();
 }
@@ -181,225 +165,6 @@ CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
 }
 
 //-----------------------------------------------------------------------------
-// THE MOVE HELPER SINGLETON'S STORAGE, moved here by the Phase 4 exit lane from
-// game/server/movehelper_server.cpp, which then left server_csharp.vpc.
-//
-// imovehelper.h's own instruction is "add this to the CPP file that implements
-// the IMoveHelper", and this is that file: CStandaloneMoveHelper below is the
-// ONLY IMoveHelper this build ever constructs. movehelper_server.cpp's
-// CMoveHelperServer is created by MoveHelperServer(), whose only callers are in
-// game/server/player.cpp -- which this project does not compile -- so the whole
-// 428-line file contributed exactly this one declaration to the link.
-//
-// Measured rather than argued: `tools/4a-owes movehelper_server` reported 2
-// symbols owed and BOTH were IMoveHelper::sm_pSingleton, from gamemovement.o
-// and this object. Nothing owed MoveHelperServer() or any CMoveHelperServer
-// member, and the link runs with -Wl,--no-undefined, so a missed caller is a
-// build failure and not a silent one. The vtable hole that argument leaves is
-// closed by construction: a CMoveHelperServer can only be REACHED through
-// MoveHelper(), which returns this pointer, which only CStandaloneMoveHelper
-// ::Install ever writes.
-//-----------------------------------------------------------------------------
-ss::IMoveHelper *ss::IMoveHelper::sm_pSingleton = 0;
-
-//-----------------------------------------------------------------------------
-// The move helper. Lives here because only a standalone player ever installs
-// it, and installs it for exactly one command at a time.
-//-----------------------------------------------------------------------------
-class CStandaloneMoveHelper : public ss::IMoveHelper
-{
-public:
-	CStandaloneMoveHelper() : m_pHost( NULL ) {}
-
-	// The swap. The loop reads the singleton, so for the duration of one
-	// standalone command the singleton is this. Scoped by RunOneCommand.
-	void Install( CStandalonePlayer *pHost )
-	{
-		m_pHost = pHost;
-		m_pPrevious = ss::MoveHelper();
-		SetSingleton( this );
-	}
-
-	void Uninstall()
-	{
-		SetSingleton( m_pPrevious );
-		m_pPrevious = NULL;
-		m_pHost = NULL;
-		m_TouchList.RemoveAll();
-	}
-
-	virtual char const *GetName( CBaseHandle handle ) const OVERRIDE { return "standaloneplayer"; }
-
-	virtual void ResetTouchList( void ) OVERRIDE { m_TouchList.RemoveAll(); }
-
-	virtual bool AddToTouched( const CGameTrace &tr, const Vector &impactvelocity ) OVERRIDE
-	{
-		// The same dedupe stock keeps: one report per entity per command.
-		for ( int i = 0; i < m_TouchList.Count(); i++ )
-		{
-			if ( m_TouchList[i].trace.m_pEnt == tr.m_pEnt )
-				return false;
-		}
-
-		int i = m_TouchList.AddToTail();
-		m_TouchList[i].trace = tr;
-		m_TouchList[i].deltavelocity = impactvelocity;
-
-		// CBasePlayer::Touch's job (player.cpp:4761): whether this was a
-		// moveable physics object the move shoved is MANAGED's decision
-		// (PlayerShadowBodies.TouchedMoveablePhysics, 2026-10-12); native
-		// records what was touched, and whether it was the ground then.
-		if ( m_pHost && tr.m_pEnt )
-			m_pHost->RecordMoveTouch( ss::TraceHit( tr )->GetRefEHandle() );
-		return true;
-	}
-
-	// The trigger sweep, which is the half of ProcessImpacts gameplay stands
-	// on: pickups are triggers, and so is every managed trigger volume. The
-	// solid-impact notifications stock also sends (PhysicsImpact on what was
-	// run into) are recorded in docs/divergences.md rather than half-done.
-	virtual void ProcessImpacts( void ) OVERRIDE;
-
-	virtual void Con_NPrintf( int idx, char const *fmt, ... ) OVERRIDE
-	{
-		va_list argptr;
-		char szString[ 1024 ];
-
-		va_start( argptr, fmt );
-		ss::FormatV( szString, sizeof( szString ), fmt, argptr );
-		va_end( argptr );
-
-		engine->Con_NPrintf( idx, "%s", szString );
-	}
-
-	// The movement's sounds (a fall, a swim stroke) go to the managed
-	// SoundEmitter (plan_server_native_v2 T4a), which decides who hears them:
-	// the PAS of the point, as stock's CRecipientFilter::AddRecipientsByPAS.
-	virtual void StartSound( const Vector &origin, int channel, char const *sample,
-	                         float volume, soundlevel_t soundlevel, int fFlags, int pitch ) OVERRIDE
-	{
-		IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
-		if ( !m_pHost || !pEmitter || !sample )
-			return;
-
-		pEmitter->ServerMoveSound( m_pHost->MvEntIndex(), origin.Base(), channel, sample, volume,
-		                           (int32_t)soundlevel, fFlags, pitch );
-	}
-
-	virtual void StartSound( const Vector &origin, const char *soundname ) OVERRIDE
-	{
-		IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
-		if ( !m_pHost || !pEmitter || !soundname )
-			return;
-
-		pEmitter->ServerMoveSoundScript( m_pHost->MvEntIndex(), origin.Base(), soundname );
-	}
-
-	virtual void PlaybackEventFull( int flags, int clientindex, unsigned short eventindex,
-	                                float delay, Vector &origin, Vector &angles,
-	                                float fparam1, float fparam2, int iparam1, int iparam2,
-	                                int bparam1, int bparam2 ) OVERRIDE {}
-
-	// Fall damage, computed the way CMoveHelperServer computes it and applied
-	// through the shell's damage path, so the managed rules see it exactly as
-	// they see every other hit.
-	virtual bool PlayerFallingDamage( void ) OVERRIDE;
-
-	virtual void PlayerSetAnimation( int playerAnim ) OVERRIDE {}
-
-	virtual IPhysicsSurfaceProps *GetSurfaceProps( void ) OVERRIDE
-	{
-		extern IPhysicsSurfaceProps *physprops;
-		return physprops;
-	}
-
-	virtual bool IsWorldEntity( const CBaseHandle &handle ) OVERRIDE
-	{
-		// Instance() is a STATIC of CBaseEntity and goes with the class, so the
-		// armed arm cannot ask the entity list for the world and compare
-		// pointers. It does not have to: the world is entry 0 of the handle
-		// table and always has been, and THIS PORT HAS ALREADY WRITTEN THAT
-		// ANSWER — the client twin of this same class,
-		// sourcesharp/game/client/shell_standalone_player.cpp:283, is
-		// `return handle.GetEntryIndex() == 0;` and nothing else.
-		//
-		// Not made unconditional, deliberately: Instance( 0 ) revalidates the
-		// serial where the entry index alone does not, and this is not the shard
-		// to change what the SDK build answers.
-		return handle.GetEntryIndex() == 0;
-	}
-
-private:
-	struct StandaloneTouch_t
-	{
-		trace_t trace;
-		Vector  deltavelocity;
-	};
-
-	CStandalonePlayer *m_pHost;
-	ss::IMoveHelper   *m_pPrevious;
-	CUtlVector< StandaloneTouch_t > m_TouchList;
-};
-
-static CStandaloneMoveHelper s_StandaloneMoveHelper;
-
-void CStandaloneMoveHelper::ProcessImpacts( void )
-{
-	if ( !m_pHost )
-		return;
-
-	// Which triggers is the player standing in NOW. The same ask the shell's
-	// own movers make after every step — SolidMoved enumerates the trigger
-	// list on behalf of an entity that asks, and nothing asks for free.
-	m_pHost->TouchTriggers( m_pHost->GetAbsOrigin() );
-
-	m_TouchList.RemoveAll();
-}
-
-//-----------------------------------------------------------------------------
-// APPLY the landing. It does not decide it.
-//
-// WHAT MOVED, AND WHY. This function used to hold the whole rule: the
-// threshold, the slope, and the arithmetic -- a third copy of stock's formula
-// beside CHalfLife2::FlPlayerFallDamage's and GameMovement's, and the only one
-// of the three fed the player's m_flFallVelocity MEMBER, which is the value
-// from before the move that is landing them. So the managed loop armed the call
-// on the velocity it had just computed and this body then scaled the damage by
-// a different number, and on the commonest path -- the member still 0 because
-// the writeback happens at FinishMove -- the arm above returned "no damage" for
-// a fall the loop had already decided was lethal.
-//
-// The amount is MoveMath.FallDamage's now and arrives in
-// SourceSharpMovement_PendingFallDamage. What is left here is the three things
-// only the server can do: hand the damage to the shell's damage path, make the
-// noise, and answer whether they got up.
-//-----------------------------------------------------------------------------
-bool CStandaloneMoveHelper::PlayerFallingDamage( void )
-{
-	if ( !m_pHost )
-		return true;
-
-	const float flFallDamage = SourceSharpMovement_PendingFallDamage();
-
-	// STILL GUARDED, and not because the caller might get it wrong: the managed
-	// loop arms this call only above the threshold, so a zero here means the
-	// amount did not arrive. Applying zero damage would still make the noise and
-	// still report a hit, which is the shape of a bug that reads as working.
-	if ( flFallDamage > 0 )
-	{
-		// Through the shell's damage path: OnManagedDamage decides what lands,
-		// exactly as it does for a bullet.
-		ss::CTakeDamageInfo info( NULL, NULL, flFallDamage, ss::kDmgFall );
-		info.SetDamagePosition( m_pHost->GetAbsOrigin() );
-		m_pHost->TakeDamage( info );
-
-		StartSound( m_pHost->GetAbsOrigin(), "Player.FallDamage" );
-	}
-
-	return m_pHost->GetHealth() > 0;
-}
-
-//-----------------------------------------------------------------------------
 // Construction and identity.
 //-----------------------------------------------------------------------------
 CStandalonePlayer::CStandalonePlayer()
@@ -436,11 +201,8 @@ CStandalonePlayer::CStandalonePlayer()
 	  m_pPhysicsController( NULL ),
 	  m_pShadowEnv( NULL ),
 	  m_nVCollisionState( -1 ),
-	  m_nMoveTouched( 0 ),
-	  m_fMoveTouchedGround( 0 ),
-	  m_nTickBase( 0 ),
 	  m_nSimulationTick( -1 ),
-	  m_pCurrentCommand( NULL )
+	  m_nPendingCmds( 0 )
 {
 	m_szPlayerName[0] = 0;
 
@@ -491,28 +253,6 @@ CStandalonePlayer::~CStandalonePlayer()
 
 	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers && s_StandalonePlayers[ nIndex ] == this )
 		s_StandalonePlayers[ nIndex ] = NULL;
-}
-
-//-----------------------------------------------------------------------------
-// A shove to the view. CBasePlayer::ViewPunch's body, and the whole of it.
-//
-// The punch is a VELOCITY on the view angle rather than an offset: the movement
-// loop's DecayPunchAngle springs m_vecPunchAngle back to zero over the ticks
-// that follow, which is what makes a punch a kick rather than a permanent tilt.
-// Both halves of the pair are already in the blob (standalone_player_sync.cpp),
-// so the client sees it without anything new on the wire.
-//
-// SYNCED IMMEDIATELY, for the same reason TakeDamage is: a punch arrives from
-// an entity's think or an input, not from a command, so without this it would
-// sit on the server until the player's next usercmd -- a shove that lands a
-// tick late reads as network jitter rather than as a bug, which is precisely
-// the kind of quiet wrongness this file's sync exists to prevent.
-//-----------------------------------------------------------------------------
-void CStandalonePlayer::ViewPunch( const QAngle &angleOffset )
-{
-	m_Local.m_vecPunchAngleVel += angleOffset * 20;
-
-	SyncToBlob();
 }
 
 void CStandalonePlayer::SetPlayerName( const char *pName )
@@ -717,38 +457,14 @@ static CStandalonePlayer *StandalonePlayer_FromManagedHandle( uint32_t hPlayer )
 
 
 //-----------------------------------------------------------------------------
-// plan_server_novalve.md P2.2. C# decoded this packet, clamped it, planned it
-// and queued its own copy; these are those same commands in the same order,
-// so an index into this queue names the same command in C#'s. Only the
-// conversion to the struct the native run loop reads is left here.
+// plan_server_novalve.md P2.2: C# decoded this packet, clamped it, planned it
+// and queued it; since plan_server_native_v2 T4g it also runs it, so native
+// keeps only how many commands are waiting, for the frame's one crossing.
 //-----------------------------------------------------------------------------
-void CStandalonePlayer::QueueDecodedUsercmds( const SourceSharpDecodedUserCmd *pCmds, int nCount )
+void CStandalonePlayer::QueuedUsercmds( int nCount )
 {
-	if ( !pCmds || nCount <= 0 )
-		return;
-
-	for ( int i = 0; i < nCount; i++ )
-	{
-		const SourceSharpUserCmd &f = pCmds[ i ].cmd;
-
-		ss::CUserCmd cmd;
-		cmd.Reset();
-		cmd.command_number = f.command_number;
-		cmd.tick_count     = f.tick_count;
-		cmd.viewangles.Init( f.viewangles[ 0 ], f.viewangles[ 1 ], f.viewangles[ 2 ] );
-		cmd.forwardmove    = f.forwardmove;
-		cmd.sidemove       = f.sidemove;
-		cmd.upmove         = f.upmove;
-		cmd.buttons        = f.buttons;
-		cmd.impulse        = (byte)f.impulse;
-		cmd.weaponselect   = f.weaponselect;
-		cmd.weaponsubtype  = pCmds[ i ].weaponsubtype;
-		cmd.random_seed    = pCmds[ i ].random_seed;
-		cmd.mousedx        = (short)f.mousedx;
-		cmd.mousedy        = (short)f.mousedy;
-
-		m_PendingCmds.AddToTail( cmd );
-	}
+	if ( nCount > 0 )
+		m_nPendingCmds += nCount;
 }
 
 void CStandalonePlayer::RunAllQueuedCommands()
@@ -767,253 +483,180 @@ void CStandalonePlayer::RunQueuedCommands()
 
 	m_nSimulationTick = gpGlobals->tickcount;
 
-	// The clock the commands run on. Stock corrects it toward the server's
-	// within sv_clockcorrection_msecs (60 by default); this applies the same
-	// bound with the same number, quoted rather than tuned.
-	if ( m_PendingCmds.Count() == 0 )
+	if ( m_nPendingCmds == 0 )
 		return;
 
-	// Stock's AdjustPlayerTimeBase, only on a frame that runs commands (see
-	// tickbase_rule.h). A base of 0 has never been placed: put it as single
-	// player does.
-	m_nTickBase = TickBase_Adjust( m_nTickBase, gpGlobals->tickcount, m_PendingCmds.Count(),
-	                               gpGlobals->simTicksThisFrame, (int)( 0.5f + 0.060f / gpGlobals->interval_per_tick ),
-	                               m_nTickBase == 0 || gpGlobals->maxClients == 1 );
-
+	// The tick base, its AdjustPlayerTimeBase placement and each command's
+	// clock are the managed command loop's (plan_server_native_v2 T4g,
+	// ServerPlayerCommands); the frame's clock is put back after the batch.
 	const float flSaveCurtime   = gpGlobals->curtime;
 	const float flSaveFrametime = gpGlobals->frametime;
 
-	// ONE CROSSING FOR THE WHOLE QUEUE. The loop is managed: it asks for each
-	// command's move through EngineApi::PlayerRunMove and makes its own
-	// per-command decisions between the two stages.
-	// E17: the server's managed-built area.
+	// ONE CROSSING FOR THE WHOLE QUEUE. The loop is managed, each command's
+	// stages with it (E17: the server's managed-built area).
 	IManagedPlayerCommands *pCommands = ManagedPlayerCommands();
 
 	if ( pCommands )
 	{
-		pCommands->PlayerRunCommands( ManagedHandle(), m_PendingCmds.Count() );
+		pCommands->PlayerRunCommands( ManagedHandle(), m_nPendingCmds );
 	}
 	else
 	{
 		Warning( "[SourceSharp] no managed run loop; %d queued command(s) dropped\n",
-		         m_PendingCmds.Count() );
+		         m_nPendingCmds );
 	}
 
-	// NO TEARDOWN HERE, AND THAT IS CHECKED RATHER THAN ASSUMED. Each command
-	// tears its own seed and current command down in stage 2, where the single
-	// native function did -- after the managed decisions, because SharedRandom*
-	// reads the seed and a weapon frame that ran seedless would mispredict.
-	//
-	// A repeat of it here would be belt and braces for a refusal that stopped
-	// the loop early, and it is not needed: RunCommandStage's index check comes
-	// BEFORE it touches the seed, so the stage that refuses is the stage that
-	// set nothing, and the last command that ran reached its own stage 2.
-	// PlayerCommandTests pins that ordering, because it is the only thing
-	// keeping this comment true.
-	m_PendingCmds.RemoveAll();
+	m_nPendingCmds = 0;
 
 	gpGlobals->curtime   = flSaveCurtime;
 	gpGlobals->frametime = flSaveFrametime;
 }
 
 //-----------------------------------------------------------------------------
-// ONE COMMAND. CPlayerMove::RunCommand, holding only what a standalone player
-// has -- see the header comment for what is deliberately absent.
+// ONE MANAGED COMMAND'S ENGINE SIDE (plan_server_native_v2 T4g).
 //
-// THREE STAGES, AND THE SPLIT IS EXACTLY WHERE THE MANAGED CALLS WERE. The
-// single native function this replaces did, in this order:
-//
-//   prepare  -- current command, seed, curtime, the two sanity rules, the base
-//               velocity fold, the view angles, SetupMove
-//   PHASE 0     (was a crossing; is a managed call now)
-//   move     -- the move helper, step 3e's movement bracket, FinishMove, the
-//               pitch fold, ProcessImpacts
-//   PHASE 1     (was a crossing)
-//   BUTTONS     (was a crossing)
-//   finish   -- the seed and current-command teardown, the tickbase step, and
-//               SyncToBlob, the publish
-//
-// TWO STAGES WOULD HAVE BEEN ENOUGH FOR THE SERVER TODAY -- its phase 0 returns
-// immediately -- and that is exactly why it is three. A phase 0 called before
-// the prepare would run with no current command and with the PREVIOUS command's
-// SharedRandom seed, which is a divergence that costs nothing until the first
-// person puts work in phase 0 and then costs a mispredicted round.
-//
-// The split at the far end is load-bearing today: the managed decisions CHANGE
-// STATE THE PUBLISH CARRIES -- a weapon frame moves m_flMaxSpeed, an impulse
-// cheat changes health -- so publishing before them would put every such change
-// one command late in the blob.
+// The managed command loop owns the player's movement state and decides every
+// step of a command (ServerCommandRules, ServerPlayerCommands). Native answers
+// what only the engine's side holds -- the shell's origin, the CPlayerState the
+// engine reads by layout, health, the ground entity's velocity -- and carries
+// out what only it can: the view angle into CPlayerState, the shell's origin
+// and angles, and the trigger sweep at the new origin.
 //-----------------------------------------------------------------------------
-bool CStandalonePlayer::RunCommandStage( int nIndex, int nStage )
+COMPILE_TIME_ASSERT( sizeof( SourceSharpPlayerCommandFacts ) == 80 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandFacts, vecOrigin ) == 8 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandFacts, nFixAngle ) == 44 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandFacts, nEntIndex ) == 60 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandFacts, vecGroundVelocity ) == 68 );
+
+COMPILE_TIME_ASSERT( sizeof( SourceSharpPlayerCommandResult ) == 76 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandResult, flYaw ) == 20 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandResult, vecViewOffset ) == 32 );
+COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandResult, hGround ) == 68 );
+
+void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 {
-	if ( nIndex < 0 || nIndex >= m_PendingCmds.Count() )
-		return false;
+	const Vector &vecOrigin = GetAbsOrigin();
+	pOut->vecOrigin[0] = vecOrigin.x;
+	pOut->vecOrigin[1] = vecOrigin.y;
+	pOut->vecOrigin[2] = vecOrigin.z;
 
-	if ( nStage < 0 || nStage > 2 )
-		return false;
+	const CPlayerState &pl = PlayerState();
+	pOut->angVAngle[0] = pl.v_angle.x;
+	pOut->angVAngle[1] = pl.v_angle.y;
+	pOut->angVAngle[2] = pl.v_angle.z;
+	pOut->angAngleChange[0] = pl.anglechange.x;
+	pOut->angAngleChange[1] = pl.anglechange.y;
+	pOut->angAngleChange[2] = pl.anglechange.z;
+	pOut->nFixAngle = pl.fixangle;
+	pOut->bDeadFlag = pl.deadflag ? 1 : 0;
 
-	ss::CUserCmd *ucmd = &m_PendingCmds[ nIndex ];
+	pOut->nHealth      = GetHealth();
+	pOut->flModelScale = GetModelScale();
+	pOut->nEntIndex    = EntIndex();
 
-	const float flTickInterval = gpGlobals->interval_per_tick;
+	// The ground the managed state names, resolved as MvGetGroundEntity did:
+	// the union resolve, which answers NULL for an entity that has gone.
+	IHandleEntity *pGround = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
+	pOut->bGroundResolves = pGround ? 1 : 0;
 
-	if ( nStage == 1 )
-		return RunCommandMove( ucmd );
+	const Vector vecGroundVelocity = MovementGroundVelocity( pGround );
+	pOut->vecGroundVelocity[0] = vecGroundVelocity.x;
+	pOut->vecGroundVelocity[1] = vecGroundVelocity.y;
+	pOut->vecGroundVelocity[2] = vecGroundVelocity.z;
+}
 
-	if ( nStage == 2 )
-	{
-		// The teardown that used to sit at the end of the single function, in
-		// the same place relative to the managed calls: AFTER them. The seed is
-		// what SharedRandom* reads, so clearing it before phase 1 would have
-		// left the weapon frame seedless.
-		EntityPrediction_SetSeedFromCommand( NULL );
-		m_pCurrentCommand = NULL;
+void CStandalonePlayer::FinishCommand( const SourceSharpPlayerCommandResult &result )
+{
+	// The words native code still reads off the player, written before the
+	// trigger sweep below calls back into anything that might read them.
+	m_fFlags          = result.nFlags;
+	m_MoveType        = (MoveType_t)result.nMoveType;
+	m_vecViewOffset.Init( result.vecViewOffset[0], result.vecViewOffset[1], result.vecViewOffset[2] );
+	m_vecAbsVelocity.Init( result.vecVelocity[0], result.vecVelocity[1], result.vecVelocity[2] );
+	m_vecBaseVelocity.Init( result.vecBaseVelocity[0], result.vecBaseVelocity[1], result.vecBaseVelocity[2] );
+	m_hGround         = CBaseHandle::UnsafeFromIndex( (int)result.hGround );
+	m_Local.m_flFallVelocity = result.flFallVelocity;
 
-		if ( gpGlobals->frametime > 0 )
-			m_nTickBase++;
+	// FinishMove's two engine-facing writes: where the player is, and the
+	// body's angles (the yaw alone, as the native command path set them).
+	SetAbsOrigin( Vector( result.vecOrigin[0], result.vecOrigin[1], result.vecOrigin[2] ) );
+	SetAbsAngles( QAngle( 0, result.flYaw, 0 ) );
 
-		// The blob is the player at this command now -- what the wire sends and
-		// what the client's ring will compare its replay of this command
-		// against.
-		SyncToBlob();
+	// ProcessImpacts' trigger sweep: which triggers the player stands in now.
+	TouchTriggers( GetAbsOrigin() );
+}
 
-		// THE SHADOW IS NOT DRIVEN FROM HERE ANY MORE, and its absence is the
-		// policy-player lane. It used to be the last line of this stage --
-		// UpdateVCollision( nIndex ) -- carrying the whole state machine with
-		// it. The managed run loop calls PlayerShadow.Step immediately after
-		// this stage returns, which is the same point in the sequence and is
-		// where stock runs UpdateVPhysicsPosition (player.cpp:3395); it is there
-		// rather than here because that loop is what knows WHICH command just
-		// ran, and the shadow's arrival ramp is measured in stock's loop
-		// counter. See ShadowProbe / ShadowApply below.
-		return true;
-	}
+int32_t SourceSharp_PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts )
+{
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
-	// STOCK'S FIRST LINE OF PlayerRunCommand (player.cpp:3801) clears
-	// m_touchedPhysObject; here the touch list it is decided from is
-	// per-command: filled by the move that is about to run and read by the
-	// shadow step at the end of it.
-	m_nMoveTouched = 0;
-	m_fMoveTouchedGround = 0;
+	if ( !pPlayer || !pFacts || pFacts->struct_size != sizeof( *pFacts ) )
+		return 0;
 
-	m_pCurrentCommand = ucmd;
-	EntityPrediction_SetSeedFromCommand( ucmd );
+	// The 0 arm of sourcesharp_movement_managed stays fatal: there is no
+	// second movement to select (tools/movemath-gate's arm F).
+	SourceSharp_MovementRequireManaged();
 
-	gpGlobals->curtime   = m_nTickBase * flTickInterval;
-	gpGlobals->frametime = flTickInterval;
+	pPlayer->CommandFacts( pFacts );
+	return 1;
+}
 
-	// The same two sanity rules stock applies before anything reads them.
-	if ( !ucmd->viewangles.IsValid() || !ss::IsEntityQAngleReasonable( ucmd->viewangles ) )
-		ucmd->viewangles = vec3_angle;
+void SourceSharp_PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle )
+{
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
-	// Base velocity becomes real velocity, as stock's CheckMovingGround: the
-	// conveyor half is absent because a standalone conveyor carries its riders
-	// itself (Phase 3c) and never writes a base velocity at all.
-	if ( !( m_fFlags & FL_BASEVELOCITY ) )
-	{
-		m_vecAbsVelocity += ( 1.0f + ( flTickInterval * 0.5f ) ) * m_vecBaseVelocity;
-		m_vecBaseVelocity.Init();
-	}
-	m_fFlags &= ~FL_BASEVELOCITY;
+	if ( !pPlayer || !pAnglePYR )
+		return;
 
-	// The old angles are last command's authority, recorded before this
-	// command's overwrite them — stock's order, player_command.cpp:402.
-	g_pMoveData->m_vecOldAngles = PlayerState().v_angle;
+	pPlayer->PlayerState().v_angle.Init( pAnglePYR[0], pAnglePYR[1], pAnglePYR[2] );
+	pPlayer->PlayerState().fixangle = nFixAngle;
+}
 
-	if ( PlayerState().fixangle == FIXANGLE_NONE )
-	{
-		PlayerState().v_angle = ucmd->viewangles;
-	}
-	else if ( PlayerState().fixangle == FIXANGLE_RELATIVE )
-	{
-		PlayerState().v_angle = ucmd->viewangles + PlayerState().anglechange;
-		PlayerState().fixangle = FIXANGLE_NONE;
-	}
+void SourceSharp_PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult )
+{
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
-	// SetupMove, over this player's own fields.
-	CMoveData *move = g_pMoveData;
+	if ( !pPlayer || !pResult || pResult->struct_size != sizeof( *pResult ) )
+		return;
 
-	move->m_bFirstRunOfFunctions = true;
-	move->m_bGameCodeMovedPlayer = ( m_vecPreviouslyPredictedOrigin != GetAbsOrigin() );
-	move->m_nImpulseCommand      = ucmd->impulse;
-	move->m_vecViewAngles        = ucmd->viewangles;
-	move->m_vecAbsViewAngles     = move->m_vecViewAngles;
-	move->m_nButtons             = ucmd->buttons;
-	move->m_flForwardMove        = ucmd->forwardmove;
-	move->m_flSideMove           = ucmd->sidemove;
-	move->m_flUpMove             = ucmd->upmove;
-	move->m_flClientMaxSpeed     = m_flMaxSpeed;
-	move->m_nOldButtons          = m_Local.m_nOldButtons;
-	move->m_flOldForwardMove     = m_Local.m_flOldForwardMove;
-	move->m_vecAngles            = PlayerState().v_angle;
-	move->m_vecVelocity          = m_vecAbsVelocity;
-	move->m_nPlayerHandle        = GetRefEHandle();
-	move->SetAbsOrigin( GetAbsOrigin() );
-	move->m_vecConstraintCenter  = vec3_origin;
-	move->m_flConstraintRadius   = 0.0f;
-	move->m_flConstraintWidth    = 0.0f;
-	move->m_flConstraintSpeedFactor = 0.0f;
+	pPlayer->FinishCommand( *pResult );
 
-	return true;
+	// THE MOVEMATH COUNTER counts runs, not asks (tools/movemath-gate).
+	if ( pResult->bRan )
+		SourceSharp_MoveNoteServerCommand();
 }
 
 //-----------------------------------------------------------------------------
-// Stage 1: the move itself, between the two managed phases.
+// A landing's damage, carried out: the amount is MoveMath.FallDamage's, the
+// noise managed's. Through the shell's damage path, so the managed rules see it
+// as they see every other hit; answers whether the player is still up.
 //-----------------------------------------------------------------------------
-bool CStandalonePlayer::RunCommandMove( ss::CUserCmd *ucmd )
-{
-	CMoveData *move = g_pMoveData;
-
-	s_StandaloneMoveHelper.Install( this );
-	s_StandaloneMoveHelper.ResetTouchList();
-
-	// The bracket stock's two movement drivers put around every call, and
-	// which left the build with them: player_command.cpp (evicted at the
-	// -ss_player flip) on the server, prediction.cpp (evicted at 9c6) on the
-	// client. CGameMovement::player is set HERE and asserted against inside
-	// ProcessMovement -- "StartTrackPredictionErrors should have set this" --
-	// so without the bracket the first command of every level fires
-	// gamemovement.cpp(1168) and the prediction-error checker, which reads
-	// the same member, measures a player nobody is moving.
-	g_pGameMovement->StartTrackPredictionErrors( this );
-	g_pGameMovement->ProcessMovement( this, move );
-	g_pGameMovement->FinishTrackPredictionErrors( this );
-
-	// FinishMove.
-	SetAbsOrigin( move->GetAbsOrigin() );
-	m_vecAbsVelocity = move->m_vecVelocity;
-	m_vecPreviouslyPredictedOrigin = move->GetAbsOrigin();
-	m_Local.m_nOldButtons = move->m_nButtons;
-
-	// The pitch fold and clamp, then the body's angles: what everyone else
-	// sees of where this player faces.
-	float pitch = move->m_vecAngles[ PITCH ];
-	if ( pitch > 180.0f )
-		pitch -= 360.0f;
-	pitch = clamp( pitch, -90.0f, 90.0f );
-	move->m_vecAngles[ PITCH ] = pitch;
-
-	SetAbsAngles( QAngle( 0, move->m_vecAngles[ YAW ], 0 ) );
-
-	s_StandaloneMoveHelper.ProcessImpacts();
-	s_StandaloneMoveHelper.Uninstall();
-
-	return true;
-}
-
-//-----------------------------------------------------------------------------
-// EngineApi::PlayerRunMove -- the managed run loop asking for one command.
-//
-// A free function because the ABI table holds free functions; it resolves the
-// handle the same way every other player-addressed slot in this file does.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PlayerRunMove( uint32_t hPlayer, int32_t nIndex, int32_t nStage )
+int32_t SourceSharp_PlayerFallDamage( uint32_t hPlayer, float flDamage )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
 	if ( !pPlayer )
-		return 0;
+		return 1;
 
-	return pPlayer->RunCommandStage( nIndex, nStage ) ? 1 : 0;
+	if ( flDamage > 0 )
+	{
+		ss::CTakeDamageInfo info( NULL, NULL, flDamage, ss::kDmgFall );
+		info.SetDamagePosition( pPlayer->GetAbsOrigin() );
+		pPlayer->TakeDamage( info );
+	}
+
+	return pPlayer->GetHealth() > 0 ? 1 : 0;
+}
+
+//-----------------------------------------------------------------------------
+// The engine side's three words into the player's networked state: the
+// managed command loop publishes the movement state and asks for these beside
+// it, after each command (plan_server_native_v2 T4g).
+//-----------------------------------------------------------------------------
+void SourceSharp_PlayerSyncEngineSide( uint32_t hPlayer )
+{
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+		pPlayer->SyncToBlob();
 }
 
 //=============================================================================
@@ -1151,22 +794,14 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 	pOut->vecVelocity[1]  = m_vecAbsVelocity.y;
 	pOut->vecVelocity[2]  = m_vecAbsVelocity.z;
 
-	if ( CMoveData *move = g_pMoveData )
-	{
-		pOut->vecOutWishVel[0] = move->m_outWishVel.x;
-		pOut->vecOutWishVel[1] = move->m_outWishVel.y;
-		pOut->vecOutWishVel[2] = move->m_outWishVel.z;
-		pOut->flOutStepHeight  = move->m_outStepHeight;
-	}
+	// The move's outputs (the wish velocity, the step height) and its touch
+	// list are the managed command loop's (plan_server_native_v2 T4g):
+	// MovedPlayerShadowNative fills them over these facts.
 
 	pOut->flMaxSpeed         = m_flMaxSpeed;
 	pOut->nFlags             = m_fFlags;
 	pOut->nMoveType          = m_MoveType;
 
-	pOut->nTouched       = m_nMoveTouched;
-	pOut->fTouchedGround = m_fMoveTouchedGround;
-	for ( int i = 0; i < m_nMoveTouched && i < SOURCESHARP_PLAYER_TOUCH_MAX; ++i )
-		pOut->hTouched[i] = m_hMoveTouched[i];
 	pOut->flFrameTime        = gpGlobals->frametime;
 	pOut->flTickInterval     = gpGlobals->interval_per_tick;
 
@@ -1207,14 +842,10 @@ void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
 	                : nState == VPHYS_CROUCH ? m_pShadowCrouch
 	                : NULL;
 
-	if ( !bAfterCommand )
-		return;
-
-	// The move data's step height is consumed here, once per command (stock's
-	// PostThinkVPhysics). m_oldOrigin, which stock sets beside it, is
-	// managed's (PlayerMoveMemory).
-	if ( g_pMoveData )
-		g_pMoveData->m_outStepHeight = 0.0f;
+	// After a command the move's step height is consumed (stock's
+	// PostThinkVPhysics): the managed command loop's word, consumed there
+	// (MovedPlayerShadowNative.Commit).
+	(void)bAfterCommand;
 }
 
 int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut )

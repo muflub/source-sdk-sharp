@@ -859,7 +859,8 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// SetPrecacheAllowed, the one native call left.
 		{ "game/server/world_adapter.cpp",             "EntityPrecache_SetAllowed",              0, true },
 		{ "game/server/shell_level.cpp",               "EntityPrecache_SetAllowed",              1, true },
-		{ "game/server/shell_standalone_player.cpp",   "EntityPrediction_SetSeedFromCommand",    2, true },
+		// 0 since plan_server_native_v2 T4g: the server's commands are managed.
+		{ "game/server/shell_standalone_player.cpp",   "EntityPrediction_SetSeedFromCommand",    0, true },
 		{ "game/client/shell_prediction.cpp",          "EntityPrediction_SetSeedFromCommand",    2, true },
 		{ "game/client/shell_standalone_client.cpp",   "EntitySim_IsSimulatingOnAlternateTicks", 1, true },
 	};

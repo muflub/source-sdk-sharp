@@ -345,7 +345,13 @@ IDLE_MOVE_OPS = ("MoveAccelerate", "MoveCalcRoll", "MoveCheckVelocity",
 # ServerMoveProcessMovement, the client's replay ClientMoveProcessMovement.
 # The step asks whether the SERVER's managed loop ran the commands, so it
 # reads the server's alone: a client predicting on its own no longer passes it.
-WALKING_OPS = ("ServerMoveProcessMovement",)
+#
+# THE SERVER'S COMMAND LOOP SINCE plan_server_native_v2 T4g: the whole of a
+# command is managed (ServerPlayerCommands) and calls the movement loop
+# directly, so no op crosses per command any more. What crosses is the frame's
+# batch, ServerPlayerRunCommands, and the loop runs inside it: the only server
+# movement there is. The walk itself is still read off the player's position.
+WALKING_OPS = ("ServerPlayerRunCommands",)
 
 # Below this many server frames a stage has no meaningful RATE: a step that
 # takes five frames is nearly all fixed cost, and one frame more or less moves
@@ -10255,9 +10261,14 @@ def self_test():
     ok(not (set(WALKING_OPS) & set(PER_FRAME_OPS)),
        "nor one of the once-per-frame ops, which are non-zero for any server "
        "that is running at all")
-    ok(all("Move" in name for name in WALKING_OPS),
-       "and each is a movement crossing, not something that merely correlates "
-       "with walking")
+    # A Move* op, or since plan_server_native_v2 T4g the server's command
+    # batch: the movement loop runs inside ServerPlayerRunCommands and crosses
+    # nothing of its own per command. Named, not matched loosely, so a needle
+    # swapped for a frame op still goes red here.
+    ok(all("Move" in name or name == "ServerPlayerRunCommands" for name in WALKING_OPS),
+       "and each is a crossing the server's movement loop runs in (a Move* op, "
+       "or the command batch it runs inside since T4g), not something that "
+       "merely correlates with walking")
 
     # THE PROPERTY THE OLD NEEDLE CARRIED, now carried by step_move's mid-hold
     # sample instead. It is checked here so that deleting the sample and

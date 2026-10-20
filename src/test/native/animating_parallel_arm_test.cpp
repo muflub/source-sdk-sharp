@@ -250,8 +250,9 @@ TEST( AnimatingParallelArm, TheFileTheSweepIsAboutWasActuallyRead )
 
 	ASSERT_FALSE( lines.empty() ) << kFile << " read as empty";
 	// 800, not 1000: the last thin vphysics forwards and the velocity home
-	// left this file (2026-10-12, 931 code lines after them).
-	EXPECT_GT( lines.size(), 800u )
+	// left this file (2026-10-12, 931 code lines after them). 600, not 800:
+	// the view punch walk went managed (plan_server_native_v2 T4g, 685 after).
+	EXPECT_GT( lines.size(), 600u )
 		<< kFile << " read as " << lines.size() << " lines, which is not this file";
 }
 

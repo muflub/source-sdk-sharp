@@ -139,10 +139,8 @@ public unsafe interface IManagedNetState
 [ManagedVtable(typeof(ManagedPlayerCommandsTable))]
 public unsafe interface IManagedPlayerCommands
 {
-    int MoveProcessMovement(void* a0);
     int PlayerRunCommands(uint a0, int a1);
     int PlayerDecodeCommands(uint a0, void* a1, int a2, int a3, int a4, int a5, int a6, int a7, void* a8, int a9, void* a10);
-    void OnPlayerSurfaceChanged(uint a0, int a1);
 }
 
 [ManagedVtable(typeof(ManagedConsoleOutputTable))]

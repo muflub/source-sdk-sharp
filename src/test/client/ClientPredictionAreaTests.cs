@@ -30,7 +30,10 @@ public class ClientPredictionAreaTests
     {
         string movement = Movement();
 
-        Assert.Matches(new Regex(@"#else\s*IManagedPredictionClient \*pCommands = ManagedPredictionClient\(\);\s*#endif"),
+        // The crossing is the client's alone since plan_server_native_v2 T4g
+        // (the server's commands run in managed): the whole function is in
+        // the client's arm.
+        Assert.Matches(new Regex(@"#ifdef CLIENT_DLL\s*bool SourceSharp_MoveProcessMovement\( SourceSharpMoveState \*pState \)\s*\{\s*IManagedPredictionClient \*pCommands = ManagedPredictionClient\(\);"),
                        movement);
         Assert.Single(Regex.Matches(movement, @"pCommands->MoveProcessMovement\( pState \)"));
     }

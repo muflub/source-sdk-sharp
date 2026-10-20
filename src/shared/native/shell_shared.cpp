@@ -27,10 +27,6 @@
 #endif
 #ifdef CLIENT_DLL
 #include "igamemovement.h"
-#else
-#include "ss_gamemovement.h"	// the server's CMoveData / IGameMovement are server.so's own
-using ss::CMoveData;
-using ss::IGameMovement;
 #endif
 #ifdef CLIENT_DLL
 // The server has no IPredictionSystem: its effects and temp entities read the
@@ -98,10 +94,13 @@ ConVar default_fov( "default_fov", "90", FCVAR_REPLICATED | FCVAR_CHEAT,
 // managed loop. `g_pGameMovement` is defined there too.
 //-----------------------------------------------------------------------------
 
-// Needed on BOTH sides: the server runs player movement, and the client
-// re-runs it during prediction (prediction.cpp references this directly).
+// The client's: its prediction bracket lends it to the movement servicing.
+// The server's movement data is managed's since plan_server_native_v2 T4g
+// (ServerPlayerMove, ServerMoveData).
+#ifdef CLIENT_DLL
 static CMoveData g_MoveData;
 CMoveData *g_pMoveData = &g_MoveData;
+#endif
 
 // Ammo types: SourceSharp_RegisterAmmoType is the client's alone (an
 // IShimStandaloneClient slot since plan_server_native_v2 T2), with its

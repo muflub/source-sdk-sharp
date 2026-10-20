@@ -697,6 +697,93 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
             ServerShims.MovementServer.PlayerShadowCommit(player.Value, state, afterCommand ? 1 : 0);
     }
 
+    // ONE MANAGED COMMAND'S ENGINE SIDE (plan_server_native_v2 T4g): what the
+    // engine's side holds, the view angle into CPlayerState, the move's result
+    // carried out, the hull trace, and a landing's damage. INTERNAL: the server
+    // command loop's (ServerPlayerCommands), not an engine area game code asks.
+
+    /// <summary>
+    /// The player's origin, CPlayerState angle words, death flag, health,
+    /// scale and index, and the velocity of <see cref="PlayerCommandFacts.Ground"/>.
+    /// False when the handle names no player.
+    /// </summary>
+    internal bool PlayerCommandBegin(EntityHandle player, ref PlayerCommandFacts facts)
+    {
+        if (!s_Initialized || !ServerAttached) return false;
+
+        facts.StructSize = (uint)sizeof(PlayerCommandFacts);
+        fixed (PlayerCommandFacts* p = &facts)
+            return ServerShims.MovementServer.PlayerCommandBegin(player.Value, p) != 0;
+    }
+
+    /// <summary>pl.v_angle and pl.fixangle, as the command's prepare decided them.</summary>
+    internal void PlayerCommandView(EntityHandle player, Vector angles, int fixAngle)
+    {
+        if (!s_Initialized || !ServerAttached) return;
+
+        float* a = stackalloc float[3] { angles.X, angles.Y, angles.Z };
+        ServerShims.MovementServer.PlayerCommandView(player.Value, a, fixAngle);
+    }
+
+    /// <summary>The move's result: the origin, the body's yaw, the trigger sweep, and native's mirrors.</summary>
+    internal void PlayerCommandFinish(EntityHandle player, in PlayerCommandResult result)
+    {
+        if (!s_Initialized || !ServerAttached) return;
+
+        PlayerCommandResult r = result;
+        r.StructSize = (uint)sizeof(PlayerCommandResult);
+        ServerShims.MovementServer.PlayerCommandFinish(player.Value, &r);
+    }
+
+    /// <summary>The engine side's three words (origin, health, alive) into the player's networked state.</summary>
+    internal void PlayerSyncEngineSide(EntityHandle player)
+    {
+        if (s_Initialized && ServerAttached)
+            ServerShims.MovementServer.PlayerSyncEngineSide(player.Value);
+    }
+
+    /// <summary>A landing's damage through the shell's damage path; whether the player is still up.</summary>
+    internal bool PlayerFallDamage(EntityHandle player, float damage)
+        => !s_Initialized || !ServerAttached || ServerShims.MovementServer.PlayerFallDamage(player.Value, damage) != 0;
+
+    /// <summary>
+    /// The movement hull, through the managed filter for <paramref name="player"/>'s
+    /// query, with the entity it hit and the ground it found as handles
+    /// (<see cref="EntityHandle.None"/> for none). Refused, as native refuses,
+    /// without a filter.
+    /// </summary>
+    internal void MoveTraceServer(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
+                                  EntityHandle player, MoveTraceBlob* blob, out EntityHandle hit, out EntityHandle ground)
+    {
+        hit = EntityHandle.None;
+        ground = EntityHandle.None;
+
+        if (!s_Initialized || !ServerAttached || Tracer is not { } tracer)
+        {
+            *blob = default;
+            blob->StartSolid = 1;
+            blob->AllSolid = 1;
+            blob->EndPosX = start[0];
+            blob->EndPosY = start[1];
+            blob->EndPosZ = start[2];
+            return;
+        }
+
+        uint* handles = stackalloc uint[2];
+        nint filter = tracer.Enter(player, collisionGroup);
+        try
+        {
+            ServerShims.MovementServer.MoveTraceServer(start, end, mins, maxs, (int)mask, collisionGroup, blob, filter, handles);
+        }
+        finally
+        {
+            tracer.Exit();
+        }
+
+        hit = new EntityHandle(handles[0]);
+        ground = new EntityHandle(handles[1]);
+    }
+
     /// <summary>
     /// UTIL_TraceEntity: the entity's hull swept from start to end with the
     /// mask and collision group, ignoring the entity (physics stock parity B7).
@@ -722,8 +809,13 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     /// </summary>
     public void PlayerSetObserverMode(EntityHandle player, ObserverMode mode)
     {
-        if (s_Initialized && ServerAttached)
-            ServerShims.Players.PlayerSetObserverMode(player.Value, (int)mode);
+        if (!s_Initialized || !ServerAttached)
+            return;
+
+        // The move type it implies is the managed record's (plan_server_native_v2
+        // T4g); native keeps the solidity and its own readers' copy.
+        PlayerMoves?.SetObserverMode(player, (int)mode);
+        ServerShims.Players.PlayerSetObserverMode(player.Value, (int)mode);
     }
 
     public ObserverMode PlayerGetObserverMode(EntityHandle player)
@@ -761,13 +853,17 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     /// stops their own movement fighting whatever is pushing them.
     ///
     /// Stock mispredicts this: the underlying variable has no send prop, so the
-    /// client never learns it is set. Setting it here behaves exactly as stock
-    /// does, misprediction included.
+    /// client never learns it is set. The managed record's word is not
+    /// published either, so this behaves exactly as stock does, misprediction
+    /// included. The word is the managed command loop's (plan_server_native_v2
+    /// T4g); with no route installed there is no player to slow.
     /// </summary>
     public void PlayerSetSlowMovement(EntityHandle player, bool slow)
     {
-        if (s_Initialized && ServerAttached)
-            ServerShims.MovementServer.PlayerSetSlowMovement(player.Value, slow ? 1 : 0);
+        if (!s_Initialized || !ServerAttached)
+            return;
+
+        PlayerMoves?.SetSlowMovement(player, slow);
     }
 
     /// <summary>
@@ -817,7 +913,10 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
         if (!s_Initialized || !ServerAttached)
             return MoveType.None;
 
-        return (MoveType)ServerShims.MovementServer.PlayerSetMoveType(player.Value, (int)moveType);
+        // The managed record's (plan_server_native_v2 T4g); native keeps its
+        // own readers' copy.
+        var native = (MoveType)ServerShims.MovementServer.PlayerSetMoveType(player.Value, (int)moveType);
+        return PlayerMoves is { } moves ? moves.SetMoveType(player, moveType) : native;
     }
 
     /// <summary>
@@ -2004,9 +2103,10 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     {
         if (!s_Initialized || !ServerAttached) return;
 
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        float* p = stackalloc float[3] { punch.X, punch.Y, punch.Z };
-        ServerShims.EffectsServer.ViewPunch(o, p, radius, inAir ? 1 : 0);
+        // The punch is a player's movement state, the managed command loop's
+        // (plan_server_native_v2 T4g): UTIL_ViewPunch over the records. With no
+        // route installed there is no player to punch.
+        PlayerMoves?.ViewPunch(origin, punch, radius, inAir);
     }
 
     /// <summary>How heavy a physics object is. Zero if it has no physics at all.</summary>
@@ -2307,6 +2407,16 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
         int move;
         var state = (EntityState)ServerShims.EntitiesServer.EntityGetState(entity.Value, &move);
         moveType = (MoveType)move;
+
+        // A player's move type and ground are the managed record's
+        // (plan_server_native_v2 T4g).
+        if ((state & EntityState.Player) != 0 && PlayerMoves is { } moves
+            && moves.PlayerState(entity, out MoveType playerMoveType, out bool onGround))
+        {
+            moveType = playerMoveType;
+            state = onGround ? state | EntityState.OnGround : state & ~EntityState.OnGround;
+        }
+
         return state;
     }
 
@@ -2671,8 +2781,10 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     {
         if (!s_Initialized || !ServerAttached) return;
 
-        float* v = stackalloc float[3] { velocity.X, velocity.Y, velocity.Z };
-        ServerShims.Transform.EntityAddBaseVelocity(entity.Value, v);
+        // A player's base velocity is the managed command loop's
+        // (plan_server_native_v2 T4g), and only a player has the channel: the
+        // route refuses anything else and says so once per entity.
+        PlayerMoves?.AddBaseVelocity(entity, velocity);
     }
 
     /// <summary>
@@ -3240,6 +3352,11 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     // (ServerTraceRouting.Build); without one the side traces nothing.
     internal IServerTraceRoute? Tracer { get; set; }
 
+    // A PLAYER'S MOVEMENT STATE IS MANAGED (plan_server_native_v2 T4g): the
+    // calls game code makes on it are answered from the command loop's
+    // records, which the server's composition installs.
+    internal IServerPlayerMovementRoute? PlayerMoves { get; set; }
+
     // COLLISION_GROUP_NONE: the group every trace of this side's but the
     // entity sweep asks with, as CTraceFilterSimple( ignore, COLLISION_GROUP_NONE ) did.
     private const int CollisionGroupNone = 0;
@@ -3250,35 +3367,12 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     private partial void SidePatchStop(int patch) => ServerSounds?.SoundPatchStop(patch);
 
     // THE MOVEMENT LOOP'S HULL, THROUGH THE MANAGED FILTER (plan_server_native_v2
-    // T4f): the query is CTraceFilterSimple( player, group ), as
-    // shell_movement.cpp's UTIL_TraceRay asked, and native carries the trace
-    // out (it keeps the trace_t AddToTouched replays and the ground it found).
-    // Without a filter the side refuses as native refuses outside a crossing:
-    // blocked at the start, never "the way is clear".
+    // T4f, T4g): MoveTraceServer, without the two handles the command loop's
+    // own world keeps. Without a filter the side refuses: blocked at the
+    // start, never "the way is clear".
     private partial void SideMoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
                                        EntityHandle player, MoveTraceBlob* blob)
-    {
-        if (Tracer is not { } tracer)
-        {
-            *blob = default;
-            blob->StartSolid = 1;
-            blob->AllSolid = 1;
-            blob->EndPosX = start[0];
-            blob->EndPosY = start[1];
-            blob->EndPosZ = start[2];
-            return;
-        }
-
-        nint filter = tracer.Enter(player, collisionGroup);
-        try
-        {
-            ServerShims.MovementServer.MoveTraceThrough(start, end, mins, maxs, (int)mask, collisionGroup, blob, filter);
-        }
-        finally
-        {
-            tracer.Exit();
-        }
-    }
+        => MoveTraceServer(start, end, mins, maxs, mask, collisionGroup, player, blob, out _, out _);
 
     private partial EntityHandle SideMovePass(int entIndex) => GetPlayerHandle(entIndex);
 

@@ -186,7 +186,7 @@ const File_t kAiAbsent     = { "sourcesharp/game/server/shell_absent.cpp",
 // with its hook, so the anchor was RadiusDamage's definition; that went in
 // plan_server_native_v2 T2, and the anchor is ss::SetPlayerSurface's.
 const File_t kAiOrphans    = { "sourcesharp/game/server/shell_absent.cpp",
-	"void ss::SetPlayerSurface(" };
+	"void UTIL_BloodSpray(" };
 // The anchor was EffectsPrecache's definition until it went managed
 // (plan_server_native_v2 T4e); UTIL_BloodSpray's is still this file's.
 const File_t kEntOrphans   = { "sourcesharp/game/server/shell_absent.cpp",
@@ -696,7 +696,7 @@ TEST( EntityBaseHusks, TheAiOrphansKeepTheShotPath )
 	}
 
 	// AND THE ONE THAT SURVIVED, UNTIL plan_server_native_min P1. The anchor
-	// (ss::SetPlayerSurface) keeps the absences above from passing over an emptied
+	// (UTIL_BloodSpray since T4g) keeps the absences above from passing over an emptied
 	// file. PostFrameNavigationSystem went with its hook, whose whole body was
 	// a bool toggle nothing read, and its kServerSystems[] row went in the same
 	// commit, so no null accessor reaches the game-system list.
@@ -779,7 +779,8 @@ TEST( EntityBaseHusks, TheEntityOrphansKeepWhatIsStillNamed )
 {
 	const std::string s = Load( kEntOrphans );
 	static const char *kKept[] = {
-		"ss::SetPlayerSurface",
+		// ss::SetPlayerSurface left in plan_server_native_v2 T4g: the
+		// managed movement world hands the material to the module.
 		// RadiusDamage left in plan_server_native_v2 T2: no managed caller.
 		// EffectsPrecache left in T4e: its sounds are the world's precache.
 		"UTIL_BloodSpray",
@@ -845,30 +846,23 @@ TEST( EntityBaseHusks, TheEntityOrphansKeepWhatIsStillNamed )
 	}
 }
 
-TEST( EntityBaseHusks, OnlyTheHandleShapedSurfaceFunnelIsDefined )
+TEST( EntityBaseHusks, NoNativeSurfaceFunnelIsLeft )
 {
-	// gamemovement.cpp calls the pointer overload only in its `#else` arm,
-	// which is the stock build's. The handle one is the live path.
+	// env_player_surface_trigger's funnel was ss::SetPlayerSurface, called from
+	// the shim's MoveEffect channel (SOURCESHARP_MOVE_EFFECT_SET_PLAYER_SURFACE)
+	// when the material under a player changed. Since plan_server_native_v2
+	// T4g the server's movement world is managed and hands the material to the
+	// module itself (ServerMoveWorld.SetPlayerSurface), so neither spelling of
+	// the funnel is defined and the shim's channel calls none.
 	const std::string s = Load( kEntOrphans );
-	EXPECT_NE( s.find( "SetPlayerSurface( const CBaseHandle &hPlayer" ), std::string::npos )
-		<< "the handle-shaped surface funnel is gone; the movement loop calls it "
-		   "every time the material under a player changes";
-	EXPECT_EQ( s.find( "SetPlayerSurface( CBasePlayer *" ), std::string::npos )
-		<< "the pointer-shaped overload is back; it has no caller in this build";
+	ASSERT_FALSE( s.empty() ) << "shell_absent.cpp did not open";
+	EXPECT_EQ( s.find( "SetPlayerSurface(" ), std::string::npos )
+		<< "a native surface funnel is back; the managed movement world answers it";
 
-	// REPOINTED AT STEP 8f-igamemovement. The LIVE caller is the shim's
-	// MoveEffect channel now -- SOURCESHARP_MOVE_EFFECT_SET_PLAYER_SURFACE, which
-	// the managed loop reaches every time the material under a player changes.
-	// gamemovement.cpp still has a call of its own in CategorizePosition, but
-	// that is stock's body and nothing calls it unless
-	// sourcesharp_movement_managed is 0, so a needle there would go on passing
-	// after the file's last live caller had gone. Both are read, so neither can
-	// be lost quietly.
 	const std::string strShim = Load( kShellMovement );
-	EXPECT_NE( strShim.find( "SetPlayerSurface( mv->m_nPlayerHandle" ), std::string::npos )
-		<< "the managed movement loop's MoveEffect channel stopped calling the "
-		   "handle-shaped funnel; the material under a player stops reaching "
-		   "env_player_surface_trigger";
+	ASSERT_FALSE( strShim.empty() ) << "shell_movement.cpp did not open";
+	EXPECT_EQ( strShim.find( "SetPlayerSurface(" ), std::string::npos )
+		<< "the shim's MoveEffect channel calls a surface funnel again";
 }
 
 TEST( EntityBaseHusks, TheSelfRegisteringPrecacheWentManagedWithItsSounds )

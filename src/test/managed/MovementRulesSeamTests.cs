@@ -280,7 +280,6 @@ public class MovementRulesSeamTests
 
         var serverBinding = new PlayerCommandsBinding(
             new Crossings(), new RecordingLog(), null!, Module<IServerModule>(Resolved(serverHook)),
-            new MovementRunner(new ModuleEngine(new EngineSide(Side.Server))),
             new PlayerCommandQueue(new RecordingLog()), () => false);
         var clientBinding = new PredictionClientBinding(
             new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(Resolved(clientHook)),

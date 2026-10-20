@@ -10,12 +10,13 @@ namespace SourceSharp.Tests;
 /// plan_server_native_v2 T4f: the server's movement loop traces its hull through
 /// the managed trace filter. The side names the query --
 /// <c>CTraceFilterSimple( player, group )</c>, as shell_movement.cpp's
-/// UTIL_TraceRay asked -- and hands the native filter to
-/// SourceSharp_MoveTraceThrough, which carries the trace out; the runner names
-/// the moved player for the crossing. The recorders are static, as unmanaged
-/// callbacks must be, and only this class's facts touch them.
+/// UTIL_TraceRay asked -- and hands the native filter to the slot that carries
+/// the trace out: SourceSharp_MoveTraceServer since T4g (MoveTraceThrough's
+/// slot is retired), which also answers the hit entity and the ground as
+/// handles for the managed command loop. The recorders are static, as
+/// unmanaged callbacks must be, and only this class's facts touch them.
 /// </summary>
-public sealed unsafe class MoveTraceThroughTests : IDisposable
+public sealed unsafe class MoveTraceServerTests : IDisposable
 {
     private const string MovementServer = "SourceSharpMovementServer001";
 
@@ -28,14 +29,19 @@ public sealed unsafe class MoveTraceThroughTests : IDisposable
 
     [UnmanagedCallersOnly]
     private static void Through(void* self, float* s, float* e, float* lo, float* hi, int mask, int group,
-                                MoveTraceBlob* blob, void* filter)
+                                MoveTraceBlob* blob, void* filter, uint* handles)
     {
         s_calls++;
         s_filter = (nint)filter;
         s_mask = mask;
         s_group = group;
         blob->Fraction = 0.5f;
+        handles[0] = HitRaw;
+        handles[1] = GroundRaw;
     }
+
+    private const uint HitRaw = 5u | (9u << 12);
+    private const uint GroundRaw = 6u | (2u << 12);
 
     private sealed class Recorder : IServerTraceRoute
     {
@@ -59,12 +65,12 @@ public sealed unsafe class MoveTraceThroughTests : IDisposable
     private readonly EngineSide _side = new(Side.Server);
     private readonly Recorder _traces = new();
 
-    public MoveTraceThroughTests()
+    public MoveTraceServerTests()
     {
         s_calls = 0;
         s_filter = 0;
-        _root.Live(MovementServer, nameof(ShimMovementServerFwd.MoveTraceThrough),
-                   (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, void>)&Through);
+        _root.Live(MovementServer, nameof(ShimMovementServerFwd.MoveTraceServer),
+                   (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, uint*, void>)&Through);
         _side.Initialize();
         Assert.True(_side.AttachShims(_root.Bind(), out string why), why);
         _side.Tracer = _traces;
@@ -102,6 +108,20 @@ public sealed unsafe class MoveTraceThroughTests : IDisposable
 
         Assert.Equal((Player, 8), Assert.Single(_traces.Entered));
         Assert.Equal(1, _traces.Exits);
+    }
+
+    [Fact]
+    public void TheHitAndTheGroundComeBackAsHandles()
+    {
+        float* s = stackalloc float[3] { 1, 2, 3 };
+        float* e = stackalloc float[3] { 4, 5, 6 };
+        float* lo = stackalloc float[3] { -16, -16, 0 };
+        float* hi = stackalloc float[3] { 16, 16, 72 };
+        MoveTraceBlob blob = default;
+
+        _side.MoveTraceServer(s, e, lo, hi, 1, 0, Player, &blob, out EntityHandle hit, out EntityHandle ground);
+
+        Assert.True(hit == new EntityHandle(HitRaw) && ground == new EntityHandle(GroundRaw), $"hit {hit}, ground {ground}");
     }
 
     [Fact]

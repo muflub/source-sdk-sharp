@@ -571,7 +571,7 @@ const Anchor_t kAnchors[] =
 	// RE-ANCHORED (Phase 1b, then plan_server_native_min P1). Was
 	// shell_ai_orphans.cpp on "CTriggerTraceEnum", then the deferred-navigation
 	// hook; both went, so the anchor is a definition the file still holds.
-	{ "sourcesharp/.../shell_absent.cpp",          OrphansSource,            "void ss::SetPlayerSurface(" },
+	{ "sourcesharp/.../shell_absent.cpp",          OrphansSource,            "void UTIL_BloodSpray(" },
 	{ "sourcesharp/game/server/anyentity.h",                   AnyEntityHeader,          "ANYENTITY_H" },
 	// NEITHER QUARANTINE FILE IS HERE ANY MORE. baseentity_sweep_forwarders.cpp
 	// and shell_ai_orphans_forwarders.cpp have both been retired.
@@ -665,9 +665,9 @@ TEST( RemovalSetTail, OrphansDefinesNoMemberAtAllAndStillDefinesTheThreeLifts )
 	//
 	// So the fact that keeps this from passing over an emptied file is no
 	// longer "the three are here"; it is the anchor above, which requires
-	// ss::SetPlayerSurface, a definition the file still holds now that the
-	// deferred-navigation hook (plan_server_native_min P1) and RadiusDamage
-	// (plan_server_native_v2 T2) are gone.
+	// UTIL_BloodSpray, a definition the file still holds now that the
+	// deferred-navigation hook (plan_server_native_min P1), RadiusDamage
+	// (plan_server_native_v2 T2) and ss::SetPlayerSurface (T4g) are gone.
 	//
 	// BULLETS NO LONGER HIT TRIGGERS. plan_shim.md §10 records that as an open
 	// question with the experiment that settles it: shoot a trigger_hurt with a

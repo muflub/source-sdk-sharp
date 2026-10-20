@@ -2046,6 +2046,54 @@ typedef struct
 	uint32_t hTouched[SOURCESHARP_PLAYER_TOUCH_MAX];
 } SourceSharpPlayerShadowFacts;
 
+//-----------------------------------------------------------------------------
+// ONE SERVER COMMAND, AROUND MANAGED'S MOVE (plan_server_native_v2 T4g). The
+// managed command loop owns the player's movement state and makes every
+// decision; native answers what only the engine's side holds and carries out
+// what only it can. PlayerCommandFacts and PlayerCommandResult in
+// SourceSharp.Abi mirror these; the asserts beside the slot bodies pin them.
+//-----------------------------------------------------------------------------
+
+// IShimMovementServer::PlayerCommandBegin: in, the ground the managed state
+// stands on; out, where the player is and what the engine-read CPlayerState
+// says. (The command's clock is managed's to set: it writes CGlobalVars.)
+typedef struct
+{
+	uint32_t struct_size;
+	uint32_t hGround;              // in: the ground handle, or the invalid one
+
+	float    vecOrigin[3];         // out: GetAbsOrigin()
+	float    angVAngle[3];         // out: pl.v_angle
+	float    angAngleChange[3];    // out: pl.anglechange
+	int32_t  nFixAngle;            // out: pl.fixangle
+	int32_t  bDeadFlag;            // out: pl.deadflag
+	int32_t  nHealth;              // out: GetHealth()
+	float    flModelScale;         // out: the shell's model scale
+	int32_t  nEntIndex;            // out
+	int32_t  bGroundResolves;      // out: hGround names a live entity
+	float    vecGroundVelocity[3]; // out: MovementGroundVelocity( that entity )
+} SourceSharpPlayerCommandFacts;
+
+// IShimMovementServer::PlayerCommandFinish: the move's result, carried out.
+// The origin and yaw go to the shell (SetAbsOrigin, SetAbsAngles( 0, yaw, 0 ))
+// and the triggers it stands in are touched; the rest are the words native
+// code still reads off the player between commands (the readers are named in
+// docs/todo.md's T4g entry), mirrored until each moves.
+typedef struct
+{
+	uint32_t struct_size;
+	int32_t  bRan;                 // the loop ran (the movemath counter)
+	float    vecOrigin[3];
+	float    flYaw;
+	int32_t  nFlags;
+	int32_t  nMoveType;
+	float    vecViewOffset[3];
+	float    vecVelocity[3];
+	float    vecBaseVelocity[3];
+	uint32_t hGround;
+	float    flFallVelocity;
+} SourceSharpPlayerCommandResult;
+
 // SourceSharpEngineApi, the struct of engine slots, is gone (plan_client_vtables
 // CC-last): every slot is a method of a shim area, the server's (ishim_areas.h)
 // or the client's (ishim_areas_client.h, and the shared bases in ishim_areas.h),

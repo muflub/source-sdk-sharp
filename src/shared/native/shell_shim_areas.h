@@ -87,14 +87,17 @@ public:
 	int32_t MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue ) override;
 	float CurrentGravity() override;
 	void RegisterMovementParams( const SourceSharpMovementParams * pParams ) override;
-	int32_t PlayerRunMove( uint32_t hPlayer, int32_t nIndex, int32_t nStage ) override;
 	int32_t PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts * pOut ) override;
 	int32_t PlayerShadowAdopt( uint32_t hPlayer, void * pStand, void * pCrouch, void * pController ) override;
 	void PlayerShadowRelease( uint32_t hPlayer ) override;
 	void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) override;
 	int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) override;
-	void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) override;
-	void MoveTraceThrough( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter ) override;
+	int32_t PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts * pFacts ) override;
+	void PlayerCommandView( uint32_t hPlayer, const float * pAnglePYR, int32_t nFixAngle ) override;
+	void PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult * pResult ) override;
+	void MoveTraceServer( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter, uint32_t * pOutHandles ) override;
+	int32_t PlayerFallDamage( uint32_t hPlayer, float flDamage ) override;
+	void PlayerSyncEngineSide( uint32_t hPlayer ) override;
 };
 
 class CShimWorldServer final : public IShimWorldServer
@@ -158,7 +161,6 @@ public:
 	void EntityTeleport( uint32_t hEntity, const float * pOrigin, const float * pAngles, int32_t bZeroVelocity ) override;
 	void EntityGetVelocity( uint32_t hEntity, float * pOutXYZ ) override;
 	void EntitySetVelocity( uint32_t hEntity, const float * pXYZ ) override;
-	void EntityAddBaseVelocity( uint32_t hEntity, const float * pVelocityXYZ ) override;
 	void EntityGetAngularVelocity( uint32_t hEntity, float * pOutPYR ) override;
 	void EntitySetAngularVelocity( uint32_t hEntity, const float * pPYR ) override;
 	void EntityGetEyePosition( uint32_t hEntity, float * pOutXYZ ) override;
@@ -239,7 +241,6 @@ public:
 class CShimEffectsServer final : public IShimEffectsServer
 {
 public:
-	void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) override;
 	void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) override;
 	int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) override;
 };

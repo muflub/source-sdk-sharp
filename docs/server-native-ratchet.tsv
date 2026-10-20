@@ -5,7 +5,7 @@ src/server/native/alloc_check.cpp	510
 src/server/native/exit_watch.cpp	22
 src/server/native/precache_model.cpp	25
 src/server/native/server_util_library.cpp	24
-src/server/native/shell_absent.cpp	24
+src/server/native/shell_absent.cpp	12
 src/server/native/shell_clientsteps.cpp	16
 src/server/native/shell_commandclient.cpp	11
 src/server/native/shell_debugoverlays.cpp	87
@@ -15,7 +15,7 @@ src/server/native/shell_engineboundary_debug.cpp	44
 src/server/native/shell_entityapi.cpp	310
 src/server/native/shell_entityslots_debug.cpp	9
 src/server/native/shell_factory.cpp	8
-src/server/native/shell_gameclients.cpp	72
+src/server/native/shell_gameclients.cpp	52
 src/server/native/shell_gamedll.cpp	16
 src/server/native/shell_gamedll_debug.cpp	24
 src/server/native/shell_gameents.cpp	59
@@ -25,7 +25,7 @@ src/server/native/shell_level.cpp	30
 src/server/native/shell_nettable.cpp	6
 src/server/native/shell_nettable_debug.cpp	69
 src/server/native/shell_recipientfilter.cpp	62
-src/server/native/shell_scripted.cpp	107
+src/server/native/shell_scripted.cpp	63
 src/server/native/shell_scripted_debug.cpp	36
 src/server/native/shell_sentences.cpp	7
 src/server/native/shell_server.cpp	7
@@ -37,7 +37,7 @@ src/server/native/shell_standalone_class.cpp	5
 src/server/native/shell_standalone_class_debug.cpp	29
 src/server/native/shell_standalone_debug.cpp	25
 src/server/native/shell_standalone_hierarchy.cpp	138
-src/server/native/shell_standalone_player.cpp	291
+src/server/native/shell_standalone_player.cpp	103
 src/server/native/shell_standalone_player_debug.cpp	34
 src/server/native/shell_stringtables.cpp	51
 src/server/native/shell_te_forwards.cpp	181
@@ -47,7 +47,7 @@ src/server/native/shell_tempents_debug.cpp	130
 src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
 src/server/native/shell_world_nettable.cpp	14
-src/server/native/shell_worldquery.cpp	196
+src/server/native/shell_worldquery.cpp	141
 src/server/native/ss_recipient_filter.cpp	22
 src/server/native/standalone_relays.cpp	30
 src/server/native/world_adapter.cpp	46
@@ -65,7 +65,7 @@ src/shared/native/shell_diagnostics.cpp	274
 src/shared/native/shell_diagnostics_debug.cpp	8
 src/shared/native/shell_gameevents.cpp	37
 src/shared/native/shell_gamerules.cpp	83
-src/shared/native/shell_movement.cpp	190
+src/shared/native/shell_movement.cpp	192
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
 src/shared/native/sourcesharp_gamesystem.cpp	33

@@ -143,16 +143,33 @@ public sealed unsafe class MovementRunner
     /// </summary>
     public int ProcessMovement(MoveStateBlob* blob, in MovementRules rules)
     {
+        if (blob is null)
+            return 0;
+
+        var frame = new MoveFrameConstants(MovementBridge.ReadConstants(blob), blob->CvJumpHeight,
+                                           blob->EngineTime, blob->ModelScale, blob->CurrentGravity);
+        return ProcessMovement(blob, rules, in frame);
+    }
+
+    /// <summary>
+    /// The run, with the constants named by the caller rather than read out of
+    /// the blob: the server's are managed's own declarations
+    /// (plan_server_native_v2 T4g, <c>ServerMoveConstants</c>), so the blob's
+    /// constant words are not read on that side.
+    /// </summary>
+    public int ProcessMovement(MoveStateBlob* blob, in MovementRules rules, in MoveFrameConstants frame)
+    {
         if (blob is null || (blob->IsServer != 0) != _isServer)
             return 0;
 
-        _world.Time = blob->EngineTime;
+        _world.Time = frame.EngineTime;
 
         GameMovement loop = _loop ??= new GameMovement(_world, default);
-        loop.Constants = MovementBridge.ReadConstants(blob);
-        loop.JumpHeight = blob->CvJumpHeight;
+        loop.Constants = frame.Constants;
+        loop.JumpHeight = frame.JumpHeight;
 
         MoveState state = MovementBridge.ReadState(blob);
+        state.CurrentGravity = frame.CurrentGravity;
 
         // FullObserverMove's target, from the side's own observer.
         if (state.ObserverMode is GameMovement.ObsModeInEye or GameMovement.ObsModeChase or GameMovement.ObsModePoi

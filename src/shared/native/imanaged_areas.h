@@ -488,10 +488,8 @@ struct SSManagedPlayerCommandsTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *MoveProcessMovement )( IManagedPlayerCommands *self, SourceSharpMoveState *pState );
 	int32_t ( *PlayerRunCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, int32_t nCount );
 	int32_t ( *PlayerDecodeCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead );
-	void ( *OnPlayerSurfaceChanged )( IManagedPlayerCommands *self, uint32_t hPlayer, int32_t nGameMaterial );
 };
 
 class IManagedPlayerCommands : public IManagedObject
@@ -499,20 +497,18 @@ class IManagedPlayerCommands : public IManagedObject
 public:
 	explicit IManagedPlayerCommands( const SSManagedPlayerCommandsTable *pTable ) : IManagedObject( pTable ) {}
 
-	int32_t MoveProcessMovement( SourceSharpMoveState *pState ) { return Table()->MoveProcessMovement( this, pState ); }
 	int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount ) { return Table()->PlayerRunCommands( this, hPlayer, nCount ); }
 	int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead ) { return Table()->PlayerDecodeCommands( this, hPlayer, pData, nStartBit, nDataBits, nNumCmds, nTotalCmds, nDroppedPackets, bQueue, pOut, nOutMax, pBitsRead ); }
-	void OnPlayerSurfaceChanged( uint32_t hPlayer, int32_t nGameMaterial ) { Table()->OnPlayerSurfaceChanged( this, hPlayer, nGameMaterial ); }
 
 private:
 	const SSManagedPlayerCommandsTable *Table() const { return static_cast< const SSManagedPlayerCommandsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPlayerCommandsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x1134ef71, 0xbabc0fee, 0x889faf12, 0x8d177001,
+	0x07e0f4c4, 0x0d54c15e, 0xbabc0fee, 0x889faf12,
 };
-static const int32_t kIManagedPlayerCommandsSlotCount = 6;
-static_assert( sizeof( SSManagedPlayerCommandsTable ) == 6 * sizeof( void * ), "SSManagedPlayerCommandsTable is one pointer per slot" );
+static const int32_t kIManagedPlayerCommandsSlotCount = 4;
+static_assert( sizeof( SSManagedPlayerCommandsTable ) == 4 * sizeof( void * ), "SSManagedPlayerCommandsTable is one pointer per slot" );
 
 class IManagedConsoleOutput;
 

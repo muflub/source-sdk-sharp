@@ -170,6 +170,18 @@ public readonly unsafe struct Globals
     /// <summary>Time spent on the last server or client frame.</summary>
     public float FrameTime => _p->frametime;
 
+    /// <summary>
+    /// Sets <c>curtime</c> and <c>frametime</c>, as stock's
+    /// <c>CPlayerMove::RunCommand</c> does for each user command
+    /// (plan_server_native_v2 T4g: the server's command loop is managed). The
+    /// engine's struct, written where a game DLL writes it; nothing else.
+    /// </summary>
+    public void SetClock(float curTime, float frameTime)
+    {
+        _p->curtime = curTime;
+        _p->frametime = frameTime;
+    }
+
     /// <summary>The current maxplayers setting.</summary>
     public int MaxClients => _p->maxClients;
 
