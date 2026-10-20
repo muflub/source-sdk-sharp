@@ -82,7 +82,7 @@ public class ClientPredictionAreaTests
     {
         string module = Code("src", "client", "managed", "ClientModule.cs");
 
-        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedPredictionClient"",\s*v => ManagedAreaFactory\.Create\(v, new PredictionClientBinding\(_engine\.Crossings, this, this, _movement\)\)\);"),
+        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedPredictionClient"",\s*v => ManagedAreaFactory\.Create\(v, PredictionClientBinding\.For\(_engine\.Crossings, this, this, _movement\)\)\);"),
                        module);
     }
 }
