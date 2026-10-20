@@ -138,6 +138,44 @@ public class EngineBoundTests
     }
 
     [Fact]
+    public void TheServerBindingSurvivesTheAttach()
+    {
+        // SideLoad.Load's order: the side is bound (EngineServerBinding.Bind,
+        // its bindSide) BEFORE its shims attach. The attach must keep the
+        // acquirer the bind installed, or every IVEngineServer call on a live
+        // server answers "binds no IVEngineServer".
+        using var root = new FakeShimRoot();
+        var side = TestSides.Create(Side.Server);
+        EngineServerBinding.Bind(side);
+        side.Initialize();
+        Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+
+        // The fake root serves no VEngineServer023, so the factory refuses:
+        // what matters is that it was asked, through the installed acquirer.
+        string why = Assert.Throws<InterfaceAcquisitionException>(() => EngineBound.Server(side)).Message;
+
+        Assert.Contains("VEngineServer023", why);
+        Assert.DoesNotContain("binds no IVEngineServer", why);
+    }
+
+    [Fact]
+    public void ATestSidesHeldDefaultAnswersUntilTheAttachAndTheRootAfter()
+    {
+        using var root = new FakeShimRoot();
+        var side = TestSides.Create(Side.Server);
+
+        Assert.Equal(0, EngineBound.Trace(side).PointContents(Vector.Zero));
+
+        side.Initialize();
+        Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+
+        // The root serves no EngineTraceServer003: the factory is asked now,
+        // where the detached side answered from its default.
+        string why = Assert.Throws<InterfaceAcquisitionException>(() => EngineBound.Trace(side)).Message;
+        Assert.Contains("EngineTraceServer003", why);
+    }
+
+    [Fact]
     public void UseServerInstallsTheAcquirerTheSideAsksThrough()
     {
         var side = TestSides.Create(Side.Server);

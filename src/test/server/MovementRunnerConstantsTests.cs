@@ -67,6 +67,15 @@ public sealed unsafe class MovementRunnerConstantsTests
         handles[1] = 0xFFFFFFFFu;
     }
 
+    // The world's contents, empty: the root's EngineTraceServer003 answers the
+    // loop's PointContents, and its VPhysicsSurfaceProps001 the surfaces (the
+    // side asks the root once it is attached).
+    [UnmanagedCallersOnly]
+    private static int Empty(void* self, void* point, void* entity) => 0;
+
+    [UnmanagedCallersOnly]
+    private static void* NoSurface(void* self, int surfaceProps) => null;
+
     private sealed class NoFilter : IServerTraceRoute
     {
         public ServerTrace Line(Vector start, Vector end, uint mask, EntityHandle pass, int collisionGroup) => default;
@@ -80,12 +89,17 @@ public sealed unsafe class MovementRunnerConstantsTests
     public void TheServersFallIsTheGivenGravityNotTheBlobs()
     {
         using var root = new FakeShimRoot();
+        nint* self = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
+        root.Interface(EngineTrace.ServerInterfaceVersion, self).Forwarders(out EngineTraceFwd* trace);
+        trace->GetPointContents = &Empty;
+        // And no surface table: every surfaceprop reads as none (a null record).
+        root.Interface(PhysicsSurfaceProps.InterfaceVersion, self).Forwarders(out PhysicsSurfacePropsFwd* surfaces);
+        surfaces->GetSurfaceData = &NoSurface;
         root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveTraceServer),
                   (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, uint*, void>)&Clear);
         EngineSide side = TestSides.Create(Side.Server);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
-        DefaultForwarders.HoldOn(side);
         side.Tracer = new NoFilter();
 
         var runner = MovementRunner.For(new ModuleEngine(side));
@@ -98,5 +112,6 @@ public sealed unsafe class MovementRunnerConstantsTests
         float expected = -400f * 0.015f;
         Assert.True(MathF.Abs(blob.VelocityZ - expected) < 1e-3f,
                     $"fell at {blob.VelocityZ}, sv_gravity 400 is {expected}, the blob's 800 is {2 * expected}");
+        NativeMemory.Free(self);
     }
 }

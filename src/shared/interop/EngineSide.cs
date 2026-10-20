@@ -118,7 +118,7 @@ internal sealed unsafe partial class EngineSide
     /// acquired from this side's factory on first use and held for this
     /// engine's life (statics to zero: they were four process-wide slots).
     /// </summary>
-    internal EngineBoundSet Bound { get; private set; } = new();
+    internal EngineBoundSet Bound { get; } = new();
 
     /// <summary>
     /// Every line this side's console prints, for the dev API's tap and a
@@ -263,9 +263,6 @@ internal sealed unsafe partial class EngineSide
     private void Attached(ShimRoot root, ServiceContainer areas)
     {
         _root = root;
-        // A fresh bound set: what is bound from now on is the root's, and a
-        // test side's held defaults (TestSides) must not answer for it.
-        Bound = new EngineBoundSet();
         UseAreas(areas);
     }
 

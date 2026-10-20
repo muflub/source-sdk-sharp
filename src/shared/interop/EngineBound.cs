@@ -40,6 +40,12 @@ internal sealed class BoundInterface<T> where T : class
 
     private T? _held;
 
+    // A test side's default (TestSides, DefaultForwarders): answers only while
+    // the side has no shim root, so a fact that attaches a fake root asks the
+    // root's factory from then on. Kept apart from _held, which the acquirer
+    // filled, so the attach drops nothing the side's binding installed.
+    private T? _detachedDefault;
+
     internal delegate T? Acquirer(NativeInterfaceFactory factory, Side side, out string why);
 
     internal BoundInterface(string version, Acquirer acquire)
@@ -67,6 +73,9 @@ internal sealed class BoundInterface<T> where T : class
         if (_held is not null)
             return _held;
 
+        if (_detachedDefault is not null && side.Root is null)
+            return _detachedDefault;
+
         T bound = _acquire(side.Interfaces, side.Side, out string why)
             ?? throw InterfaceAcquisitionException.FromReport(
                    SourceSharpFactoryType.AppSystem, _version, why);
@@ -76,11 +85,11 @@ internal sealed class BoundInterface<T> where T : class
     }
 
     /// <summary>
-    /// Answers <paramref name="bound"/> from now on, without asking the
-    /// factory: a test side's default forwarder (TestSides), which a root's
-    /// attach replaces with the bound set itself (EngineSide.Attached).
+    /// Answers <paramref name="bound"/> while the side has no shim root,
+    /// without asking the factory: a test side's default forwarder (TestSides).
+    /// Once the side attaches a root, the slot asks its acquirer as usual.
     /// </summary>
-    internal void Hold(T bound) => _held = bound ?? throw new ArgumentNullException(nameof(bound));
+    internal void Hold(T bound) => _detachedDefault = bound ?? throw new ArgumentNullException(nameof(bound));
 }
 
 /// <summary>
