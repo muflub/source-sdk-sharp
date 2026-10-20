@@ -72,8 +72,9 @@ public unsafe class CollisionRulesClientSideTests : IDisposable
         {
             var areas = new List<(Type Type, object Area)>();
             ServerAreaRegistration.AddDetached((type, area) => areas.Add((type, area)));
-            return areas.Where(a => a.Type == a.Area.GetType())
-                        .Select(a => a.Type)
+            // Under its own interface (IXArea for XArea), not a base's.
+            return areas.Where(a => a.Type.Name == "I" + a.Area.GetType().Name)
+                        .Select(a => a.Area.GetType())
                         .Single(t => ShimAreaTypes.FwdOf(t).GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
         }
     }
@@ -99,7 +100,7 @@ public unsafe class CollisionRulesClientSideTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;

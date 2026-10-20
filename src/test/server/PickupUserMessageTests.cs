@@ -22,7 +22,7 @@ public class PickupUserMessageTests
 
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine) World(int health)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine);
         engine.Ignores("Entities.SetHealth", "Entities.SetModel", "Entities.GetOrigin")

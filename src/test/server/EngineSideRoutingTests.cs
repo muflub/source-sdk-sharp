@@ -17,7 +17,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
     [Fact]
     public void ASwitchedSlotIsAnsweredByItsVtableOnceAttached()
     {
-        var side = EngineSide.Create(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.Initialize();   // plan_client_vtables CC-last: there is no struct
 
         _root.Live("SourceSharpDebugOverlay001", nameof(ShimDebugOverlayFwd.OverlayCounts),
@@ -30,21 +30,22 @@ public unsafe class EngineSideRoutingTests : IDisposable
     [Fact]
     public void AServerOnlySlotIsAbsentBeforeTheShimsAttach()
     {
-        var side = EngineSide.Create(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.Initialize();
 
-        Assert.False(side.ShimsAttached);
+        Assert.Null(side.Root);
     }
 
     [Fact]
     public void AServerOnlySlotCalledUnattachedThrowsRatherThanAnsweringZero()
     {
-        var side = EngineSide.Create(Side.Server);
+        // A side as its load makes it, before the attach (not a test's side
+        // over the default areas): its areas are detached ones, over no table,
+        // and a call refuses with the reason. Nothing checks for the attach.
+        var side = EngineSide.Create(Side.Server, new SideState(Side.Server));
         side.Initialize();
 
-        // The side's area before the attach is a detached one, over no table:
-        // a call that slipped past the attach guards refuses with the reason.
-        var lifecycle = side.Areas.Require<EntityLifecycleArea>();
+        var lifecycle = side.Areas.Require<IEntityLifecycleArea>();
         var e = Assert.Throws<InvalidOperationException>(() => lifecycle.EntityFactoryCount());
         Assert.Contains("before the shim areas were attached", e.Message);
     }

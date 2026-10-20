@@ -35,7 +35,7 @@ public class NamedOutputBindingTests
 
     private static ScriptedEntityRegistry Spawned(string className)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(NamedOutputBindingTests).Assembly);
         registry.Services = Services();
         registry.Spawn(Ent, className);

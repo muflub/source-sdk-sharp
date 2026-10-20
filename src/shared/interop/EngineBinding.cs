@@ -38,7 +38,7 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
 
     private EngineSide E => _side;
 
-    private readonly ConsoleArea _consoleArea;
+    private readonly IConsoleArea _consoleArea;
 
     public void ExecuteServerCommand(string command)
     {
@@ -52,8 +52,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
     /// </summary>
     public string? FindConVarValue(string name)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return null;
-
         const int bufSize = 260;
         byte* buf = stackalloc byte[bufSize];
 
@@ -70,8 +68,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
     /// <summary>Reads the engine's current value. Prefer the cached ConVarBase accessors on hot paths.</summary>
     public string GetConVarValue(int id)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return string.Empty;
-
         const int bufSize = 260;
         byte* buf = stackalloc byte[bufSize];
         _consoleArea.GetConVarValue(id, buf, bufSize);
@@ -94,8 +90,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
     /// </param>
     public int RegisterConCommand(string name, string help, ConVarFlags flags)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return -1;
-
         var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
         var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
         fixed (byte* pName = nameBytes)
@@ -114,8 +108,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
     /// </summary>
     public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return -1;
-
         var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
         var defBytes  = Encoding.UTF8.GetBytes(defaultValue + "\0");
         var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
@@ -131,8 +123,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
 
     public void SetConVarValue(int id, string value)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         var bytes = Encoding.UTF8.GetBytes(value + "\0");
         fixed (byte* p = bytes)
         {
@@ -164,8 +154,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
     /// </summary>
     public void SetConVarValueByName(string name, string value)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         var nameBytes  = Encoding.UTF8.GetBytes(name + "\0");
         var valueBytes = Encoding.UTF8.GetBytes(value + "\0");
 
@@ -190,15 +178,12 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole
 
     /// <summary>Walks the engine's registry; returns how many entries it saw.</summary>
     public int Snapshot()
-        => (E.IsInitialized && E.ShimsAttached) ? _consoleArea.ConsoleSnapshot() : 0;
+        => _consoleArea.ConsoleSnapshot();
 
     /// <summary>Copies one entry out of the last snapshot. False past the end.</summary>
     public bool SnapshotEntry(int index, out NativeConsoleEntry entry)
     {
         entry = default;
-
-        if (!E.IsInitialized || !E.ShimsAttached)
-            return false;
 
         ConsoleEntry raw;
 
@@ -341,7 +326,7 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
 
     private EngineSide E => _side;
 
-    private readonly EngineArea _engineBaseArea;
+    private readonly IEngineArea _engineBaseArea;
 
     private readonly IFwdBaseFileSystem? _files;
 
@@ -355,11 +340,11 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
     /// this member -- the arm measured nothing, which is worse than a red.
     /// </para>
     /// </summary>
-    internal EngineFiles(EngineSide side, EngineArea engineBaseArea, IFwdBaseFileSystem files)
+    internal EngineFiles(EngineSide side, IEngineArea engineBaseArea, IFwdBaseFileSystem files)
         : this(side, engineBaseArea) => _files = files;
 
     /// <summary>The one the container builds, over the real engine filesystem.</summary>
-    public EngineFiles(EngineSide side, EngineArea engineBaseArea)
+    public EngineFiles(EngineSide side, IEngineArea engineBaseArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _engineBaseArea = engineBaseArea ?? throw new ArgumentNullException(nameof(engineBaseArea));
@@ -404,8 +389,6 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
     /// </summary>
     public string? ReadGameFile(string path)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return null;
-
         // ITS OWN SIZE CALL, and it went from a wrapper call to this on the
         // commit that converted FilesGameFileSize -- plan_native_api.md Phase 3.
         //
@@ -424,7 +407,6 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
         // list. Converting it means either lifting the no-handles rule, which
         // is the owner's call, or a shim-layer method under Phase 6, which is
         // where a handle-free read belongs anyway.
-        if (!E.IsInitialized || !E.ShimsAttached) return null;
 
         int size;
 
@@ -455,10 +437,6 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
 
     public byte[]? ReadGameFileBytes(string path)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return null;
-
-        if (!E.ShimsAttached) return null;
-
         int size;
         var sizePath = Encoding.UTF8.GetBytes(path + "\0");
         fixed (byte* sp = sizePath)
@@ -493,7 +471,7 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
     /// </summary>
     public byte[]? ReadFileOnPath(string path, string pathId)
     {
-        if (!E.IsInitialized || !E.ShimsAttached || path.Length == 0 || pathId.Length == 0)
+        if (path.Length == 0 || pathId.Length == 0)
             return null;
 
         var p = Encoding.UTF8.GetBytes(path + "\0");
@@ -517,42 +495,27 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
 /// <summary>The real engine, for <see cref="IEngineGameEvents"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineGameEvents : IEngineGameEvents
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
-
-    private readonly EventsArea _eventsArea;
+    private readonly IEventsArea _eventsArea;
     public bool EventGetBool(IntPtr handle, string key)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return false;
-
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
         fixed (byte* p = bytes) { return _eventsArea.EventGetBool(handle, p) != 0; }
     }
 
     public float EventGetFloat(IntPtr handle, string key)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return 0f;
-
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
         fixed (byte* p = bytes) { return _eventsArea.EventGetFloat(handle, p); }
     }
 
     public int EventGetInt(IntPtr handle, string key)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return 0;
-
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
         fixed (byte* p = bytes) { return _eventsArea.EventGetInt(handle, p); }
     }
 
     public string EventGetString(IntPtr handle, string key)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return string.Empty;
-
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
         fixed (byte* p = bytes) { return EngineSide.FromUtf8(_eventsArea.EventGetString(handle, p)); }
     }
@@ -563,8 +526,6 @@ internal sealed unsafe partial class EngineGameEvents : IEngineGameEvents
 
     public void ListenForGameEvent(string name)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* p = bytes) { _eventsArea.ListenForGameEvent(p); }
     }
@@ -587,7 +548,7 @@ internal sealed unsafe partial class EngineNetworking : IEngineNetworking
 
     private EngineSide E => _side;
 
-    private readonly NetworkArea _networkArea;
+    private readonly INetworkArea _networkArea;
 
     // Engine.FireScriptedOutput WAS HERE, AND IS DELETED WITH ITS SLOT --
     // plan_entity.md step 2a. Its one caller was Output.Fire, which now posts
@@ -618,8 +579,7 @@ internal sealed unsafe partial class EngineNetworking : IEngineNetworking
     /// </para>
     /// </summary>
     public int NetHierarchyDeclare(int blobBytes)
-        => (E.IsInitialized && E.ShimsAttached)
-            ? _networkArea.NetHierarchyDeclare(blobBytes) : 0;
+        => _networkArea.NetHierarchyDeclare(blobBytes);
 
     /// <summary>
     /// Declares worldspawn's blob size to the native shim, which builds its
@@ -641,8 +601,7 @@ internal sealed unsafe partial class EngineNetworking : IEngineNetworking
     /// </para>
     /// </summary>
     public int WorldNetDeclare(int blobBytes)
-        => (E.IsInitialized && E.ShimsAttached)
-            ? _networkArea.WorldNetDeclare(blobBytes) : 0;
+        => _networkArea.WorldNetDeclare(blobBytes);
 
     /// <summary>
     /// Publishes one managed type and returns the tier native assigned it, or
@@ -667,9 +626,6 @@ internal sealed unsafe partial class EngineNetworking : IEngineNetworking
     {
         nativeTypeId = 0;
 
-        if (!E.IsInitialized || !E.ShimsAttached)
-            return -1;
-
         var bytes = Encoding.UTF8.GetBytes(className + "\0");
 
         fixed (byte* p = bytes)
@@ -686,9 +642,6 @@ internal sealed unsafe partial class EngineNetworking : IEngineNetworking
     /// </summary>
     public NetTierInfo? NetTierAt(int shell, int tier)
     {
-        if (!E.IsInitialized || !E.ShimsAttached)
-            return null;
-
         byte* table = null;
         int bytes = 0, words = 0, props = 0, live = 0;
 
@@ -723,8 +676,8 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
 
     private EngineSide E => _side;
 
-    private readonly EntitiesArea _entitiesArea;
-    private readonly ModelsArea _modelsArea;
+    private readonly IEntitiesArea _entitiesArea;
+    private readonly IModelsArea _modelsArea;
 
     private readonly StandaloneSkeletonRoute _skeletons = new();
 
@@ -799,7 +752,7 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
         if (E.ShellLess.Claims(h))
             return -1;
 
-        return (E.IsInitialized && E.ShimsAttached) ? _entitiesArea.EntityGetIndex(h.Value) : -1;
+        return _entitiesArea.EntityGetIndex(h.Value);
     }
 
     public Vector GetOrigin(EntityHandle h)
@@ -807,8 +760,6 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
         if (E.ShellLess.State(h) is { } shellLess)
             return shellLess.Origin;
-
-        if (!E.IsInitialized || !E.ShimsAttached) return default;
 
         float* xyz = stackalloc float[3];
         _entitiesArea.EntityGetOrigin(h.Value, xyz);
@@ -929,7 +880,6 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
     /// <returns>how many entities dropped a cache.</returns>
     public int InvalidateMdlCacheAll()
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return 0;
         return _modelsArea.EntitiesInvalidateMdlCacheAll();
     }
 }
@@ -950,9 +900,6 @@ internal sealed unsafe partial class EngineEntityNames : IEngineEntityNames
 /// <summary>The real engine, for <see cref="IEngineOverlaps"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineOverlaps : IEngineOverlaps
 {
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntityPhysics"/>. Every member is one call.</summary>
@@ -991,7 +938,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
 
     private EngineSide E => _side;
 
-    private readonly ModelsArea _modelsArea;
+    private readonly IModelsArea _modelsArea;
 
     private readonly StandaloneMirror _mirror;
 
@@ -1325,20 +1272,13 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     /// </remarks>
     private void StandaloneSetModelScale(EntityHandle entity, float scale)
     {
-        if (E.IsInitialized && E.ShimsAttached)
-            _modelsArea.StandaloneSetModelScale(entity.Value, scale);
+        _modelsArea.StandaloneSetModelScale(entity.Value, scale);
     }
 }
 
 /// <summary>The real engine, for <see cref="IEngineDamage"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineDamage : IEngineDamage
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
     // No engine answer since plan_server_native_v2 T2: CBaseCombatCharacter's server-ragdoll flag left with it (trigger_serverragdoll asks).
     public void SetForceServerRagdoll(EntityHandle entity, bool force) { }
     // No engine answer since plan_server_native_v2 T2: the take-damage mode left with CBaseEntity; every entity answers DAMAGE_YES (trigger_camera asks).
@@ -1348,18 +1288,10 @@ internal sealed unsafe partial class EngineDamage : IEngineDamage
 /// <summary>The real engine, for <see cref="IEngineCollisionRules"/>.</summary>
 internal sealed unsafe partial class EngineCollisionRules : IEngineCollisionRules
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
+    private readonly ICollisionArea _collisionArea;
 
-    private EngineSide E => _side;
-
-    private readonly CollisionArea _collisionArea;
-
-    public EngineCollisionRules(EngineSide side, CollisionArea collisionArea)
+    public EngineCollisionRules(ICollisionArea collisionArea)
     {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
         _collisionArea = collisionArea ?? throw new ArgumentNullException(nameof(collisionArea));
     }
 
@@ -1371,8 +1303,6 @@ internal sealed unsafe partial class EngineCollisionRules : IEngineCollisionRule
     /// </summary>
     public bool RegisterCollisionRules(uint[] rows)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return false;
-
         var blob = default(CollisionRulesBlob);
         blob.SetRows(rows);
 
@@ -1384,12 +1314,6 @@ internal sealed unsafe partial class EngineCollisionRules : IEngineCollisionRule
 /// <summary>The real engine, for <see cref="IEngineGameRulesPolicy"/>.</summary>
 internal sealed unsafe partial class EngineGameRulesPolicy : IEngineGameRulesPolicy
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
 }
 
 /// <summary>The real engine, for <see cref="IEngineBrushMovement"/>. Every member is one call.</summary>
@@ -1477,7 +1401,7 @@ internal sealed unsafe partial class EnginePlayerMovement : IEnginePlayerMovemen
 
     private EngineSide E => _side;
 
-    private readonly MovementArea _movementArea;
+    private readonly IMovementArea _movementArea;
 
     public void ClearMovementConstraint(EntityHandle player) => E.PlayerClearMovementConstraint(player);
     // No engine answer since plan_server_native_v2 T2: forcing buttons on the player's command path is not ported (trigger_playermovement, trigger_camera ask).
@@ -1491,8 +1415,6 @@ internal sealed unsafe partial class EnginePlayerMovement : IEnginePlayerMovemen
     /// </summary>
     public void RegisterParams(MovementParams parameters)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         _movementArea.RegisterMovementParams(&parameters);
     }
 
@@ -1511,31 +1433,16 @@ internal sealed unsafe partial class EnginePlayerMovement : IEnginePlayerMovemen
 /// <summary>The real engine, for <see cref="IEngineWeapons"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineWeapons : IEngineWeapons
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
 }
 
 /// <summary>The real engine, for <see cref="IEngineDiagnostics"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineDiagnostics : IEngineDiagnostics
 {
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
 }
 
 /// <summary>The real engine, for <see cref="IEngineHud"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineHud : IEngineHud
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
 }
 
 /// <summary>The real engine, for <see cref="IEngineWorldQuery"/>. Every member is one call.</summary>
@@ -1548,7 +1455,7 @@ internal sealed unsafe partial class EngineWorldQuery : IEngineWorldQuery
 
     private EngineSide E => _side;
 
-    private readonly WorldArea _worldArea;
+    private readonly IWorldArea _worldArea;
     public int GetArea(Vector origin) => EngineBound.Server(E).GetArea(origin);
 
     /// <summary>
@@ -1556,8 +1463,6 @@ internal sealed unsafe partial class EngineWorldQuery : IEngineWorldQuery
     /// </summary>
     public Contents PointContents(Vector origin)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return Contents.Empty;
-
         float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         return (Contents)_worldArea.PointContents(p);
     }
@@ -1571,8 +1476,6 @@ internal sealed unsafe partial class EngineWorldQuery : IEngineWorldQuery
     /// </summary>
     public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return SurfaceMaterial.Unknown;
-
         return (SurfaceMaterial)_worldArea.SurfacePropGameMaterial(surfaceProp);
     }
 }
@@ -1587,7 +1490,7 @@ internal sealed unsafe partial class EngineSound : IEngineSound
 
     private EngineSide E => _side;
 
-    private readonly EngineArea _engineBaseArea;
+    private readonly IEngineArea _engineBaseArea;
 
     /// <summary>
     /// Emit one sound patch at the given envelope values — plan_gamedll_after.md
@@ -1603,8 +1506,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     /// </summary>
     public void SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         _engineBaseArea.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
     }
 
@@ -1615,8 +1516,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     /// </summary>
     public void SoundPatchStop(int patch)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         _engineBaseArea.SoundPatchStop(patch);
     }
 
@@ -1638,8 +1537,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
         entIndex = -1;
         filterActive = false;
 
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         int index = -1;
         int active = 0;
 
@@ -1656,8 +1553,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     /// </summary>
     public void SoundPatchFree(int patch)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return;
-
         _engineBaseArea.SoundPatchFree(patch);
     }
 
@@ -1667,7 +1562,7 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     /// </summary>
     public SoundScriptParams? SoundScriptParameters(string soundName)
     {
-        if (!E.IsInitialized || !E.ShimsAttached || soundName.Length == 0) return null;
+        if (soundName.Length == 0) return null;
 
         float* outs = stackalloc float[5];
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
@@ -1688,7 +1583,7 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     /// </summary>
     public int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
     {
-        if (!E.IsInitialized || !E.ShimsAttached || soundName.Length == 0) return 0;
+        if (soundName.Length == 0) return 0;
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         fixed (byte* p = bytes)
@@ -1701,8 +1596,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     /// </summary>
     public string? SurfaceScrapeSound(int surfaceProps, bool smooth)
     {
-        if (!E.IsInitialized || !E.ShimsAttached) return null;
-
         byte* buffer = stackalloc byte[128];
         int length = _engineBaseArea.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
         return length <= 0 ? null : Encoding.UTF8.GetString(buffer, Math.Min(length, 127));
@@ -1712,15 +1605,8 @@ internal sealed unsafe partial class EngineSound : IEngineSound
 /// <summary>The real engine, for <see cref="IEngineEffects"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineEffects : IEngineEffects
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
-
-    private readonly EffectsArea _effectsArea;
-    private readonly MovementArea _movementArea;
+    private readonly IEffectsArea _effectsArea;
+    private readonly IMovementArea _movementArea;
 
     //-------------------------------------------------------------------------
     // TEMP ENTITIES (plan_tmp.md Part 3).
@@ -1748,9 +1634,6 @@ internal sealed unsafe partial class EngineEffects : IEngineEffects
     /// </summary>
     public int TempEntRegister(TeClass description)
     {
-        if (!E.IsInitialized || !E.ShimsAttached)
-            return -1;
-
         // Every string is pinned for the duration of the call and freed after
         // it. Native COPIES what it is handed — a SendProp keeps the pointer it
         // was given for the life of the process and this memory is not that —
@@ -1812,7 +1695,7 @@ internal sealed unsafe partial class EngineEffects : IEngineEffects
     /// something nobody watches closely.
     /// </summary>
     public float CurrentGravity()
-        => (!E.IsInitialized || !E.ShimsAttached) ? 600f : _movementArea.CurrentGravity();
+        => _movementArea.CurrentGravity();
 }
 
 /// <summary>The real engine, for <see cref="IEngineVisibility"/>. Every member is one call.</summary>

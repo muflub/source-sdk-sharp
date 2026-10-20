@@ -13,6 +13,13 @@
   -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <!-- The generated default shim areas (ShimAreaDefaults.g.cs) implement
+         the areas' interfaces, whose slots take and return raw pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Which side's interop this build is over: TestSides hands that
+         interop's registration's defaults, whatever Side value it is asked for,
+         as the interop itself registers only its own side's areas. -->
+    <DefineConstants>$(DefineConstants);TEST_SUPPORT_SERVER</DefineConstants>
     <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/test-support-server/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
@@ -27,5 +34,7 @@
     <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+    <InternalsVisibleTo Include="TF2.Descent.Tests" />
   </ItemGroup>
 </Project>

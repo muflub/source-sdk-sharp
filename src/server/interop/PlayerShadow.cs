@@ -321,7 +321,7 @@ public sealed unsafe class PlayerShadow
     /// <param name="enabled"><c>sourcesharp_player_shadow</c>, as this side's composition reads it.</param>
     internal bool Step(PlayerRunMoveStages? stages, EntityHandle player, int commandIndex, bool enabled)
     {
-        if (stages is null || !stages.Api.ShimsAttached || Bodies is not { } bodies)
+        if (stages is null || Bodies is not { } bodies)
             return false;
 
         // The probe is managed's since plan_physics_bones_native_zero 2.5:

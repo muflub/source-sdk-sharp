@@ -46,13 +46,13 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
 
     /// <summary>The side's factories over its own lifecycle area, as ModuleEngine binds them.</summary>
     private static EntityFactories Factories(EngineSide side)
-        => side.BindEntityFactories(side.Areas.Require<EntityLifecycleArea>());
+        => side.BindEntityFactories(side.Areas.Require<IEntityLifecycleArea>());
 
     /// <summary>One ask of a fresh, unattached server side, over its own (detached) lifecycle area.</summary>
-    private static T Fresh<T>(Func<EngineSide, EntityLifecycleArea, T> ask)
+    private static T Fresh<T>(Func<EngineSide, IEntityLifecycleArea, T> ask)
     {
-        var side = EngineSide.Create(Side.Server);
-        return ask(side, side.Areas.Require<EntityLifecycleArea>());
+        var side = TestSides.Create(Side.Server);
+        return ask(side, side.Areas.Require<IEntityLifecycleArea>());
     }
 
     /// <summary>
@@ -65,8 +65,12 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     /// </summary>
     private EngineSide Attached(Side which = Side.Server)
     {
-        var side = EngineSide.Create(which);
+        var side = TestSides.Create(which);
+        // Both counts the bind pulls on its way out (Refresh): an attached
+        // side calls its slots, and a zeroed slot is no answer.
         _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.EntityFactoryCount),
+                   (nint)(delegate* unmanaged<void*, int>)&Count);
+        _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.EntityFactoryRefusalCount),
                    (nint)(delegate* unmanaged<void*, int>)&Count);
         Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         return side;
@@ -116,16 +120,17 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     }
 
     /// <summary>
-    /// A server side with no shims attached leaves the table UNASKED rather
-    /// than empty: there is nothing to ask it with.
+    /// The server wires its table whatever is behind its areas: nothing asks
+    /// whether an engine is attached (plan_shim_areas_split phase 11 review).
+    /// Over the default areas it holds what they answer, which is nothing.
     /// </summary>
     [Fact]
-    public void AServerWithoutItsShimsWiresNothing()
+    public void AServerWiresItsTableOverWhateverAreasItHas()
     {
-        var factories = Factories(EngineSide.Create(Side.Server));
+        var factories = Factories(TestSides.Create(Side.Server));
 
-        Assert.False(factories.Available);
-        Assert.Null(factories.NativeCount);
+        Assert.True(factories.Available);
+        Assert.Equal(0, factories.NativeCount!());
     }
 
     //-------------------------------------------------------------------------

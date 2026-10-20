@@ -7,7 +7,7 @@ namespace SourceSharp.Client.Interop;
 /// (shell_effects_list_client.cpp). Each member is one slot; a missing shim
 /// draws nothing and answers as an empty view would.
 /// </summary>
-internal sealed unsafe class ClientFxRenderSlots(FxClientArea fxClient) : IFxRender
+internal sealed unsafe class ClientFxRenderSlots(IFxClientArea fxClient) : IFxRender
 {
     private const int NameBytes = 256;
 

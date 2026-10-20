@@ -123,7 +123,7 @@ public unsafe class ShimLevelTests
 
     private static IEngineLevel BoundTo(void* self, void** table)
     {
-        object level = SideBindings.Of<IEngineLevel>(EngineSide.Create(Side.Server));
+        object level = SideBindings.Of<IEngineLevel>(TestSides.Create(Side.Server));
 
         Set(level, "_self", Pointer.Box(self, typeof(void*)));
         Set(level, "_vtbl", Pointer.Box(table, typeof(ShimLevelFwd*)));
@@ -163,7 +163,7 @@ public unsafe class ShimLevelTests
         var header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
         try
         {
-            var served = EngineSide.Create(Side.Server);
+            var served = TestSides.Create(Side.Server);
             header->Slots = table;
             header->SlotCount = Forwarders.SlotCount<ShimLevelFwd>();
             using var root = new FakeShimRoot()
@@ -174,7 +174,7 @@ public unsafe class ShimLevelTests
             Assert.Equal(6, SideBindings.Of<IEngineLevel>(served).ResetDeleteList());
 
             // The control: a side with no root behind it refuses the same call.
-            var unserved = EngineSide.Create(Side.Server);
+            var unserved = TestSides.Create(Side.Server);
             Assert.Throws<InterfaceAcquisitionException>(() => SideBindings.Of<IEngineLevel>(unserved).ResetDeleteList());
         }
         finally
@@ -320,7 +320,7 @@ public unsafe class ShimLevelTests
         // not happen. Here it says so at the site that asked.
         // A side whose root serves no level area, reached as the side registers it.
         using var root = new FakeShimRoot();
-        var side = EngineSide.Create(Side.Server);
+        var side = TestSides.Create(Side.Server);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         var refused = SideBindings.Of<IEngineLevel>(side);
 

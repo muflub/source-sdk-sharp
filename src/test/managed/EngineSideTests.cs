@@ -16,7 +16,7 @@ public unsafe class EngineSideTests
     [Fact]
     public void AFreshSideAnswersItsDefaultsBeforeItIsLoaded()
     {
-        var side = EngineSide.Create(Side.Server);
+        var side = TestSides.Create(Side.Server);
 
         Assert.False(side.IsInitialized);
         Assert.Equal(-1, SideBindings.Of<IEngineEntities>(side).GetIndex(new EntityHandle(1)));
@@ -25,8 +25,8 @@ public unsafe class EngineSideTests
     [Fact]
     public void LoadingOneSideLeavesTheOtherUntouched()
     {
-        var server = EngineSide.Create(Side.Server);
-        var client = EngineSide.Create(Side.Client);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
 
         // plan_client_vtables CC-last: no struct; the server's slot is its shim
         // area's, attached from a fake root with only that slot live.
@@ -55,8 +55,8 @@ public unsafe class EngineSideTests
     [Fact]
     public void EachSidesSurfaceTableReadsItsOwnRouting()
     {
-        var server = EngineSide.Create(Side.Server);
-        var other = EngineSide.Create(Side.Server);
+        var server = TestSides.Create(Side.Server);
+        var other = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveSurface),
@@ -92,8 +92,8 @@ public unsafe class EngineSideTests
     {
         // plan_engineapi_vtables B2: a side's container binds every engine area
         // to that side. A server object's call never reaches the client's table.
-        var server = EngineSide.Create(Side.Server);
-        var client = EngineSide.Create(Side.Client);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
 
         using var root = new FakeShimRoot();
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),

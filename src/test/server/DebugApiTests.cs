@@ -793,7 +793,7 @@ public class DebugApiTests
         // loaded from memory and have no Location to ask. It tells the side's
         // engine where it loaded from, and the layout reads that side's host:
         // a side of this test's own, not the process's (plan_abi_hotreload D8).
-        var server = EngineSide.Create(Side.Server);
+        var server = TestSides.Create(Side.Server);
         server.ManagedDirectory = Path.Combine("elsewhere", "bin", "managed");
         var layout = new ModLayout(() => ((IEngineHost)SideBindings.Of<IEngineHost>(server)).ManagedDirectory);
 
@@ -861,9 +861,9 @@ public class DebugApiTests
     [Fact]
     public void EachLayoutReadsItsOwnSidesHost()
     {
-        var first = EngineSide.Create(Side.Server);
+        var first = TestSides.Create(Side.Server);
         first.ManagedDirectory = Path.Combine("first", "bin", "managed");
-        var second = EngineSide.Create(Side.Server);
+        var second = TestSides.Create(Side.Server);
         second.ManagedDirectory = Path.Combine("second", "bin", "managed");
 
         var a = new ModLayout(() => ((IEngineHost)SideBindings.Of<IEngineHost>(first)).ManagedDirectory);

@@ -44,7 +44,7 @@ public static partial class TestServices
     /// from a side of its own rather than the process's (plan_abi_hotreload D8).
     /// </summary>
     public static IEngineConsole UnattachedConsole()
-        => ScriptedEntityRegistry.UnattachedEngine().Require<IEngineConsole>();
+        => TestEngines.Server().Engine.Require<IEngineConsole>();
 
     /// <summary>
     /// A restore's handle re-check over a side of the test's own with no
@@ -53,7 +53,7 @@ public static partial class TestServices
     /// </summary>
     public static SavedHandles UnattachedHandles()
     {
-        var engine = ScriptedEntityRegistry.UnattachedEngine();
+        var engine = TestEngines.Server().Engine;
         return new SavedHandles(engine.Require<IEngineHost>(), engine.Require<IEngineEntities>());
     }
 
@@ -117,7 +117,7 @@ public static partial class TestServices
         // FrictionSoundsTests reads the controller's side itself.
         services.AddInstance(new SourceSharp.Shared.FrictionSounds(engine, new SilentSoundController(),
                                                                    new SourceSharp.Shared.EnginePhysicsSurfaceTable(
-                                                                       EngineSide.Create(Side.Server).Surfaces),
+                                                                       TestSides.Create(Side.Server).Surfaces),
                                                                    new SourceSharp.Server.TempEntFrictionEffects(engine,
                                                                        new SourceSharp.Server.TempEnts(new RecordingLog(), new TempEntRegistry(new RecordingLog()), engine))));
 

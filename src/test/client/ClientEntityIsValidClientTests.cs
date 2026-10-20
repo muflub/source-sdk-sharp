@@ -51,7 +51,7 @@ public unsafe class ClientEntityIsValidClientTests : IDisposable
         Serve("SourceSharpEntities001", Alive);
         var engine = Attached(Side.Client);
 
-        Assert.True(engine.ShimsAttached, "the client side has its Entities area attached");
+        Assert.NotNull(engine.Root);
         Assert.True(engine.EntityIsValid(Saved), "and answers from it: the slot said alive");
     }
 
@@ -141,7 +141,7 @@ public unsafe class ClientEntityIsValidClientTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;

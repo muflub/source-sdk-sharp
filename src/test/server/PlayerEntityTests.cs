@@ -33,7 +33,7 @@ public class PlayerEntityTests
     [Fact]
     public void StripInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerWeaponStrip).Assembly);
         registry.Services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
 
@@ -106,7 +106,7 @@ public class PlayerEntityTests
     [Fact]
     public void SpeedModInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerSpeedMod).Assembly);
         registry.Services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
 
@@ -165,7 +165,7 @@ public class PlayerEntityTests
     [Fact]
     public void Keys()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(InfoIntermission).Assembly);
         registry.Services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
 

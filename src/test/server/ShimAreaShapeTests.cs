@@ -60,10 +60,10 @@ public unsafe class ShimAreaShapeTests
         var server = Server(root);
         var client = Client(root);
 
-        Assert.IsType<EngineArea>(server[typeof(EngineArea)]);
-        Assert.IsType<EngineArea>(client[typeof(EngineArea)]);
-        Assert.Equal(41, Area<EngineArea>(server).FilesGameFileSize(null));
-        Assert.Equal(41, Area<EngineArea>(client).FilesGameFileSize(null));
+        Assert.IsType<EngineArea>(server[typeof(IEngineArea)]);
+        Assert.IsType<EngineArea>(client[typeof(IEngineArea)]);
+        Assert.Equal(41, Area<IEngineArea>(server).FilesGameFileSize(null));
+        Assert.Equal(41, Area<IEngineArea>(client).FilesGameFileSize(null));
     }
 
     /// <summary>
@@ -84,14 +84,14 @@ public unsafe class ShimAreaShapeTests
         var client = Client(root);
 
         Assert.Equal(typeof(EntitiesArea), typeof(EntitiesServerArea).BaseType);
-        Assert.Equal(7, Area<EntitiesServerArea>(server).EntityGetIndex(1));
+        Assert.Equal(7, Area<IEntitiesServerArea>(server).EntityGetIndex(1));
         // And as its base, under the type the client registers the base by, so
         // code compiled into both sides asks for a both-sides area the same way.
-        Assert.Same(server[typeof(EntitiesServerArea)], server[typeof(EntitiesArea)]);
-        Assert.Equal(7, Area<EntitiesArea>(server).EntityGetIndex(1));
+        Assert.Same(server[typeof(IEntitiesServerArea)], server[typeof(IEntitiesArea)]);
+        Assert.Equal(7, Area<IEntitiesArea>(server).EntityGetIndex(1));
         // The client's area is the base class itself, over the client's table.
-        Assert.IsType<EntitiesArea>(client[typeof(EntitiesArea)]);
-        Assert.Equal(9, Area<EntitiesArea>(client).EntityGetIndex(1));
+        Assert.IsType<EntitiesArea>(client[typeof(IEntitiesArea)]);
+        Assert.Equal(9, Area<IEntitiesArea>(client).EntityGetIndex(1));
     }
 
     /// <summary>A derived area's own slot is read from its own table.</summary>
@@ -103,8 +103,8 @@ public unsafe class ShimAreaShapeTests
                   (nint)(delegate* unmanaged<void*, uint, byte*, uint>)&FoundFive);
         var server = Server(root);
 
-        Assert.Equal(5u, Area<EntitiesServerArea>(server).FindEntityByClassname(0, null));
-        Assert.Null(typeof(EntitiesArea).GetMethod(nameof(EntitiesServerArea.FindEntityByClassname)));
+        Assert.Equal(5u, Area<IEntitiesServerArea>(server).FindEntityByClassname(0, null));
+        Assert.Null(typeof(IEntitiesArea).GetMethod(nameof(IEntitiesServerArea.FindEntityByClassname)));
     }
 
     /// <summary>
@@ -177,7 +177,7 @@ public unsafe class ShimAreaShapeTests
                   (nint)(delegate* unmanaged<void*, int>)&PlayerThree);
         var client = Client(root);
 
-        Assert.Equal(3, Area<HudClientArea>(client).GetLocalPlayerIndex());
-        Assert.False(Server(root).ContainsKey(typeof(HudClientArea)));
+        Assert.Equal(3, Area<IHudClientArea>(client).GetLocalPlayerIndex());
+        Assert.False(Server(root).ContainsKey(typeof(IHudClientArea)));
     }
 }

@@ -502,6 +502,17 @@ internal static class SideReach
         {
             string label = $"{simpleType}.{name}";
 
+            if (ns == AbiNamespace && simpleType.EndsWith("Area", StringComparison.Ordinal))
+            {
+                string member = name.StartsWith("get_", StringComparison.Ordinal) ? name[4..] : name;
+                // Before the IEngine* seams: an area is held by its interface
+                // (IEngineArea), which shares their prefix. The generated
+                // areas hold only typed slot calls, and
+                // since plan_shim_areas_split phase 11 a consumer holds the area
+                // it calls, so a call on one is the slot itself.
+                return new Target(TargetKind.Engine, ReachKind.Slot, simpleType, member,
+                                  $"{simpleType}.{member}", default);
+            }
             if (ns == AbiNamespace && simpleType.StartsWith("IEngine", StringComparison.Ordinal))
             {
                 string member = name.StartsWith("get_", StringComparison.Ordinal) || name.StartsWith("set_", StringComparison.Ordinal)
@@ -512,15 +523,6 @@ internal static class SideReach
             {
                 string member = name.StartsWith("get_", StringComparison.Ordinal) ? name[4..] : name;
                 return new Target(TargetKind.Engine, ReachKind.Wrapper, simpleType, member, $"EngineSide.{member}", default);
-            }
-            if (ns == AbiNamespace && simpleType.EndsWith("Area", StringComparison.Ordinal))
-            {
-                string member = name.StartsWith("get_", StringComparison.Ordinal) ? name[4..] : name;
-                // The generated area classes hold only typed slot calls, and
-                // since plan_shim_areas_split phase 11 a consumer holds the area
-                // it calls, so a call on one is the slot itself.
-                return new Target(TargetKind.Engine, ReachKind.Slot, simpleType, member,
-                                  $"{simpleType}.{member}", default);
             }
 
             return new Target(TargetKind.Helper, default, simpleType, name, label, new MethodKey(asm, fullType, name, sig));

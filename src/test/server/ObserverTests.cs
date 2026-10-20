@@ -46,7 +46,7 @@ public class ObserverTests
 
         public Rig(int count = 3)
         {
-            var registry = new ScriptedEntityRegistry();
+            var registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(SsPlayer).Assembly);
             var services = Services(out Engine);
             Engine.Returns("Entities.IsValid", true)

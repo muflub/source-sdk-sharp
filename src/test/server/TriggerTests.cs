@@ -78,7 +78,7 @@ public class TriggerTests
     private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className,
         params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerMultiple).Assembly);
         // MotionControllers.Create: trigger_vphysics_motion makes its medium at
         // spawn, through the container's area since plan_abi_hotreload D8. The
@@ -162,7 +162,7 @@ public class TriggerTests
         Assert.True(trigger.OnTrigger.FireCount == 1, "toggling turns it back off");
 
         // StartDisabled is read at spawn.
-        var registry3 = new ScriptedEntityRegistry();
+        var registry3 = new ScriptedEntityRegistry(TestEngines.Server());
         registry3.RegisterAll(typeof(TriggerMultiple).Assembly);
         registry3.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "StartDisabled", "1");
@@ -183,7 +183,7 @@ public class TriggerTests
     [Fact]
     public void InertTrigger()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Trigger).Assembly);
         registry.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
         registry.Spawn(Ent, EntityNames.Trigger);

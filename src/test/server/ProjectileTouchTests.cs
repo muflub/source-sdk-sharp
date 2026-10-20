@@ -50,7 +50,7 @@ public class ProjectileTouchTests
               .Ignores("Effects.PaintDecal")
               .Ignores("Effects.ExplosionEffect");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Rocket).Assembly);
         registry.Services = services;
 

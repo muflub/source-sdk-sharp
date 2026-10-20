@@ -21,7 +21,7 @@ public class TriggerVPhysicsMotionPlayerTests
 
     private static (ScriptedEntityRegistry Registry, SsPlayer Player, RecordingEngine Engine) World()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerVPhysicsMotion).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

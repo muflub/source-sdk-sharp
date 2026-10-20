@@ -138,7 +138,7 @@ public class WorldTextTests
     [Fact]
     public void Inputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointWorldText).Assembly);
         registry.Services = Services();
 
@@ -267,7 +267,7 @@ public class WorldTextTests
 
     private static PointWorldText Spawn(uint index, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointWorldText).Assembly);
         registry.Services = Services();
 

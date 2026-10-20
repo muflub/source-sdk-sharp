@@ -59,12 +59,12 @@ public class ShellLessEntityTests
     /// accessors on the side whose route its registry answers, rather than on
     /// the static <c>Engine</c>, and nothing is shared with any other fact.
     /// </summary>
-    private readonly EngineSide _side = EngineSide.Create(Side.Server);
+    private readonly EngineSide _side = TestSides.Create(Side.Server);
 
     /// <summary>A registry with this assembly's classes in it, over <see cref="_side"/>'s routes.</summary>
     private ScriptedEntityRegistry Fresh()
     {
-        var registry = new ScriptedEntityRegistry(_side.ShellLess, _side.EntityIo, _side.Removal);
+        var registry = new ScriptedEntityRegistry(_side.ShellLess, _side.EntityIo, _side.Removal, TestEngines.Server());
 
         // The engine areas an entity is bound to, over the same side, so an
         // entity's own reads (SpawnFlags, Entities.GetOrigin) reach this route.
@@ -843,7 +843,7 @@ public class ShellLessEntityTests
     {
         var registry = Fresh();
         var handle = registry.Create(Shellless, default);
-        var client = EngineSide.Create(Side.Client);
+        var client = TestSides.Create(Side.Client);
 
         Assert.False(client.ShellLess.Claims(handle));
         Assert.True(_side.ShellLess.Claims(handle));    // the control

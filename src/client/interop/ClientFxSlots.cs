@@ -7,7 +7,7 @@ namespace SourceSharp.Client.Interop;
 /// (shell_effects_client.cpp). Each call is one slot with the arguments as
 /// they are; a missing shim draws nothing and answers "suppress".
 /// </summary>
-internal sealed unsafe class ClientFxSlots(FxClientArea fxClient) : IFxSuppression, IFxImpactOverlay
+internal sealed unsafe class ClientFxSlots(IFxClientArea fxClient) : IFxSuppression, IFxImpactOverlay
 {
     public void ImpactOverlay(Vector position, Vector color)
     {

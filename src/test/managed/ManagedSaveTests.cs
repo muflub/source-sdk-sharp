@@ -42,7 +42,7 @@ public class ManagedSaveTests
 {
     private static ScriptedEntityRegistry Registry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ManagedSaveTests).Assembly);
         registry.Services = Services();
         return registry;
@@ -107,14 +107,14 @@ public class ManagedSaveTests
     [Fact]
     public void ServerSaveCollectAnswersZeroWithNoEntities()
     {
-        Assert.Equal(0, new ServerModule(new ModuleEngine(EngineSide.Create(Side.Server))).SaveCollect(Span<byte>.Empty));
+        Assert.Equal(0, new ServerModule(new ModuleEngine(TestSides.Create(Side.Server))).SaveCollect(Span<byte>.Empty));
     }
 
     /// <summary>The client's half of the same, over its own registry.</summary>
     [Fact]
     public void ClientSaveCollectAnswersZeroWithNoEntities()
     {
-        Assert.Equal(0, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.EngineSide.Create(Side.Client))).SaveCollect(Span<byte>.Empty));
+        Assert.Equal(0, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))).SaveCollect(Span<byte>.Empty));
     }
 
     /// <summary>
@@ -128,7 +128,7 @@ public class ManagedSaveTests
         // Right length, wrong magic: a buffer that is not this format.
         byte[] garbage = { 0xDE, 0xAD, 0xBE, 0xEF, 1, 0, 0, 0, 1, 0, 0, 0 };
 
-        Assert.Equal(-1, new ServerModule(new ModuleEngine(EngineSide.Create(Side.Server))).SaveRestore(garbage));
+        Assert.Equal(-1, new ServerModule(new ModuleEngine(TestSides.Create(Side.Server))).SaveRestore(garbage));
     }
 
     /// <summary>The client refuses the same bytes the same way.</summary>
@@ -137,7 +137,7 @@ public class ManagedSaveTests
     {
         byte[] garbage = { 0xDE, 0xAD, 0xBE, 0xEF, 1, 0, 0, 0, 1, 0, 0, 0 };
 
-        Assert.Equal(-1, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.EngineSide.Create(Side.Client))).SaveRestore(garbage));
+        Assert.Equal(-1, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))).SaveRestore(garbage));
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public class ManagedSaveTests
         // never reaches the per-record refusal this fact is named for.
         byte[] cut = CutAndRestamp(whole, 1);
 
-        Assert.Equal(-1, new ServerModule(new ModuleEngine(EngineSide.Create(Side.Server))).SaveRestore(cut));
+        Assert.Equal(-1, new ServerModule(new ModuleEngine(TestSides.Create(Side.Server))).SaveRestore(cut));
 
         // AND THE REGISTRY IS NEVER REACHED, which is what makes -1 mean
         // "nothing was restored" rather than "the caller should tidy up".
@@ -186,8 +186,8 @@ public class ManagedSaveTests
     [Fact]
     public void AnEmptyBlockRestoresNothingWithoutRefusing()
     {
-        Assert.Equal(0, new ServerModule(new ModuleEngine(EngineSide.Create(Side.Server))).SaveRestore(ReadOnlySpan<byte>.Empty));
-        Assert.Equal(0, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.EngineSide.Create(Side.Client))).SaveRestore(ReadOnlySpan<byte>.Empty));
+        Assert.Equal(0, new ServerModule(new ModuleEngine(TestSides.Create(Side.Server))).SaveRestore(ReadOnlySpan<byte>.Empty));
+        Assert.Equal(0, new ClientModule(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))).SaveRestore(ReadOnlySpan<byte>.Empty));
     }
 
     //-------------------------------------------------------------------------

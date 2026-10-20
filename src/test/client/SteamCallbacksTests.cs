@@ -149,7 +149,7 @@ public unsafe class SteamCallbacksTests
             _root.Forwarders(out SteamCallbackFwd* fwd);
             FakeSteamLibrary.Fill(fwd, builds);
 
-            var side = EngineSide.Create(Side.Client);
+            var side = TestSides.Create(Side.Client);
             side.Initialize();
             Assert.True(side.AttachOwnShims(_root.Bind(), out string attach), attach);
 
@@ -318,7 +318,7 @@ public unsafe class SteamCallbacksTests
     public void NoCallbacksWhereTheFactoryServesNoCallbackTable()
     {
         using var root = new FakeShimRoot();   // serves no SSFwd_SteamCallback
-        var side = EngineSide.Create(Side.Client);
+        var side = TestSides.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string attach), attach);
         using var vtables = new ManagedVtables();

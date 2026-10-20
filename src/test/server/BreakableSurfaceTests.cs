@@ -30,7 +30,7 @@ public class BreakableSurfaceTests
 
     private static FuncBreakableSurf Spawn(uint index, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncBreakableSurf).Assembly);
 
         var services = Services(out var engine);
@@ -122,7 +122,7 @@ public class BreakableSurfaceMaterialTests
                                            int modelProp, int namedProp,
                                            params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncBreakableSurf).Assembly);
 
         var services = Services(out engine);

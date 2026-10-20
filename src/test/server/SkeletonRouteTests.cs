@@ -54,7 +54,7 @@ public class SkeletonRouteTests
     {
         var fake = new Fake();
         var route = new StandaloneSkeletonRoute { Skeletons = filled ? fake : null };
-        var side = EngineSide.Create(Side.Server);
+        var side = TestSides.Create(Side.Server);
         return (SideBindings.Of<IEngineEntityRender>(side, new StandaloneMirror(), route), SideBindings.Of<IEngineEntities>(side, route), fake, route);
     }
 

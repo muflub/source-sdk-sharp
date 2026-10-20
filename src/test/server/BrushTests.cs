@@ -24,7 +24,7 @@ public class BrushTests
     private static (ScriptedEntityRegistry Registry, EntityHandle Handle, T Entity) Spawn<T>(
         string className, uint index, params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPushable).Assembly);
         registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
 
@@ -287,7 +287,7 @@ public class BrushTests
     [Fact]
     public void TheRestAreRegistered()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPushable).Assembly);
         registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
 

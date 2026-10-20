@@ -174,15 +174,15 @@ public static partial class EngineServices
     }
 
     /// <summary>
-    /// Whether a constructor parameter is a shim area: a generated
-    /// <c>*Area</c> class of this side's registration, which
+    /// Whether a constructor parameter is a shim area: the generated
+    /// <c>I*Area</c> interface of an area of this side's registration, which
     /// <see cref="Build"/> takes from the side (plan_shim_areas_split phase
     /// 11) rather than from the composition's container, so a binding is
     /// handed the areas it calls and nothing holds them as a set.
     /// </summary>
     internal static bool IsShimArea(Type type)
-        => type.IsClass && type.Assembly == typeof(ShimRoot).Assembly
-        && type.Name.EndsWith("Area", StringComparison.Ordinal);
+        => type.IsInterface && type.Assembly == typeof(ShimRoot).Assembly
+        && type.Name.StartsWith('I') && type.Name.EndsWith("Area", StringComparison.Ordinal);
 
     private static object Build(Type implementation, EngineSide side, IServiceLocator from)
     {

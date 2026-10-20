@@ -21,7 +21,7 @@ public class SpringTests
 {
     private static PhysSpring Spawn()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysSpring).Assembly);
         registry.Services = Ignoring("Entities.GetOrigin");
 

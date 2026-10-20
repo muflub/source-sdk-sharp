@@ -108,18 +108,24 @@ public class EngineAreaTests
     /// plan_abi_hotreload D8: every binding is built over the side it serves.
     /// A parameterless constructor could only find its side by following the
     /// active one, which is the process-wide reach two instances cannot share.
+    /// A binding that calls nothing on its side (no area, no side: every
+    /// member answers a constant, as <c>EngineWeapons</c> does since the
+    /// attach checks went, plan_shim_areas_split phase 11 review) holds no
+    /// state and so reaches nothing; a parameterless binding that holds
+    /// anything is the reach this forbids.
     /// </summary>
     [Fact]
     public void NoBindingCanBeBuiltWithoutItsSide()
     {
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var bindings = EngineServices.Bindings(EngineSide.Create(Side.Server), composition).ToArray();
+        var bindings = EngineServices.Bindings(TestSides.Create(Side.Server), composition).ToArray();
         Assert.True(bindings.Length > 20, $"{bindings.Length} bindings reflected over");
 
         var sideless = bindings
             .Select(b => b.Binding.GetType())
             .Where(t => t.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-                                         Type.EmptyTypes) is not null)
+                                         Type.EmptyTypes) is not null
+                        && t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Length > 0)
             .Select(t => t.Name)
             .ToArray();
 
@@ -181,7 +187,7 @@ public class EngineAreaTests
         // Built over a container holding what a side's composition registers
         // before its areas (the render binding's mirror, plan_abi_hotreload D7).
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var bindings = EngineServices.Bindings(EngineSide.Create(Side.Server), composition).ToArray();
+        var bindings = EngineServices.Bindings(TestSides.Create(Side.Server), composition).ToArray();
 
         Assert.True(bindings.Length == areas.Length, "every area has a binding");
 
@@ -208,7 +214,7 @@ public class EngineAreaTests
         // The render binding's mirror first, as a side's composition registers
         // it (plan_abi_hotreload D7).
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        int added = EngineServices.AddTo(services, EngineSide.Create(Side.Server));
+        int added = EngineServices.AddTo(services, TestSides.Create(Side.Server));
 
         Assert.True(added == Areas().Length, "registering the engine adds every area");
 
@@ -236,9 +242,9 @@ public class EngineAreaTests
     public void EachSideRegistersItsOwnBindingOfEveryArea()
     {
         var server = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(server, EngineSide.Create(Side.Server));
+        EngineServices.AddTo(server, TestSides.Create(Side.Server));
         var client = new client::SourceSharp.Abi.ServiceContainer().AddInstance(new client::SourceSharp.Abi.StandaloneMirror());
-        client::SourceSharp.Abi.EngineServices.AddTo(client, client::SourceSharp.Abi.EngineSide.Create(Side.Client));
+        client::SourceSharp.Abi.EngineServices.AddTo(client, client::SourceSharp.Abi.TestSides.Create(Side.Client));
 
         Assembly serverInterop = typeof(EngineSide).Assembly;
         Assembly clientInterop = typeof(client::SourceSharp.Abi.EngineSide).Assembly;

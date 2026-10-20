@@ -31,7 +31,7 @@ internal static class TestMapSpawner
                                     ScriptedEntityRegistry? registry = null,
                                     TemplateStore? templates = null,
                                     IServerMapSpawnOrder? spawnOrder = null)
-        => new(new RecordingLog(), registry ?? new ScriptedEntityRegistry(),
+        => new(new RecordingLog(), registry ?? new ScriptedEntityRegistry(TestEngines.Server()),
                HierarchyDriver.For(new NoWorld()),
                templates ?? new TemplateStore(new RecordingLog()),
                entities,

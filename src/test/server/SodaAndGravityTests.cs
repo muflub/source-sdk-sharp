@@ -92,7 +92,7 @@ public class SodaAndGravityTests
     [Fact]
     public void TheGravityInputsAreBound()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TargetChangeGravity).Assembly);
         registry.Services = Ignoring("Host.IsInitialized", "Entities.IsValid", "Entities.GetHealth");
 
@@ -119,7 +119,7 @@ public class SodaAndGravityTests
 
     private static (ScriptedEntityRegistry, ItemSodacan) FreshCan()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ItemSodacan).Assembly);
         registry.Services = Ignoring("Host.IsInitialized", "Entities.IsValid", "Entities.GetHealth");
         registry.Spawn(Can, EntityNames.ItemSodacan);

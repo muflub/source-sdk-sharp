@@ -26,7 +26,7 @@ public class SkyTests
     private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className,
         params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SkyCamera).Assembly);
         registry.Services = Ignoring("WorldQuery.GetArea", "Entities.GetOrigin");
 

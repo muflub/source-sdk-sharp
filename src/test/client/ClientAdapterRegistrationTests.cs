@@ -30,7 +30,7 @@ public unsafe class ClientAdapterRegistrationTests
 
     private static EngineSide Attached(FakeShimRoot root)
     {
-        var side = EngineSide.Create(Side.Client);
+        var side = TestSides.Create(Side.Client);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return side;
     }
@@ -429,14 +429,23 @@ public unsafe class ClientAdapterRegistrationTests
     }
 
     /// <summary>
-    /// Over an engine that never attached, the registration itself refuses:
-    /// no adapter is built over a missing area (the game never composes before
-    /// the attach; a test composition hands fakes instead).
+    /// Nothing asks whether the engine attached (plan_shim_areas_split phase 11
+    /// review): over a side as its load makes it, before the attach, the
+    /// registration builds every adapter, and the first engine call through one
+    /// refuses, naming the area it reached. The game never composes before the
+    /// attach, and a test with no engine hands the default areas instead.
     /// </summary>
     [Fact]
-    public void OverAnUnattachedEngineTheRegistrationRefuses()
+    public void OverAnUnattachedEngineTheFirstCallRefusesNamingTheArea()
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => Composed(EngineSide.Create(Side.Client)));
-        Assert.Contains("before its shim areas were attached", refusal.Message);
+        var services = Composed(EngineSide.Create(Side.Client, new SideState(Side.Client)));
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => services.Require<IUiSurface>().TextureCreate());
+        Assert.Contains("SSFwd_ShimUiClient was called before the shim areas were attached", refusal.Message);
     }
+
+    /// <summary>Over a side of the default areas every adapter answers its default.</summary>
+    [Fact]
+    public void OverTheDefaultAreasAnAdapterAnswersItsDefault()
+        => Assert.Equal(0, Composed(TestSides.Create(Side.Client)).Require<IUiSurface>().TextureCreate());
 }

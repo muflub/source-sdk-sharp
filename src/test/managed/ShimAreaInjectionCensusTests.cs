@@ -29,9 +29,18 @@ public class ShimAreaInjectionCensusTests
     private static Assembly[] Interops =>
         [typeof(EngineSide).Assembly, typeof(client::SourceSharp.Abi.EngineSide).Assembly];
 
-    /// <summary>Whether <paramref name="type"/> is a generated area class.</summary>
+    /// <summary>
+    /// Whether <paramref name="type"/> is a generated area: its class, or the
+    /// <c>I*Area</c> interface consumers hold it by (phase 11 review).
+    /// </summary>
     private static bool IsArea(Type type)
-        => type.Assembly == Abi && type.IsClass
+        => type.Assembly == Abi
+        && (IsAreaClass(type)
+            || type.IsInterface && type.Name.StartsWith('I')
+               && Abi.GetType($"{type.Namespace}.{type.Name[1..]}") is { } cls && IsAreaClass(cls));
+
+    private static bool IsAreaClass(Type type)
+        => type.IsClass
         && type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
                .Any(f => f.FieldType.IsGenericType && f.FieldType.GetGenericTypeDefinition().Name == "ShimRef`1");
 

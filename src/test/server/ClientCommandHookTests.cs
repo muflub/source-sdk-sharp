@@ -61,7 +61,7 @@ public class ClientCommandHookTests
 
     private sealed class Rig
     {
-        public readonly EngineSide Engine = EngineSide.Create(Side.Server);
+        public readonly EngineSide Engine = TestSides.Create(Side.Server);
         public readonly ServerModule Module;
         public readonly RecordingEngine Double;
         public readonly List<(string Text, bool Warning)> Lines = [];

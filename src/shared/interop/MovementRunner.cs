@@ -52,7 +52,7 @@ public sealed unsafe class MovementRunner
     public static MovementRunner For(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Api.Areas.Require<MovementArea>());
+        var world = new MovementBridge.EngineMoveWorld(engine.Api.Areas.Require<IMovementArea>());
         return new MovementRunner(engine.Api, world, engine.Side == Side.Server, clientWorld?.Invoke(world));
     }
 

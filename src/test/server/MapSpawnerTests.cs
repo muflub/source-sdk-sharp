@@ -245,7 +245,7 @@ public sealed class MapSpawnerTests
     /// </summary>
     private static ScriptedEntityRegistry Registry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SpawnRelay).Assembly);
         return registry;
     }
@@ -725,7 +725,7 @@ public sealed class MapSpawnerTests
               .Returns("Entities.GetSpawnFlags", 0)
               .Returns("Level.SpawnWorld", true);
 
-        var registry = new ScriptedEntityRegistry { Services = services };
+        var registry = new ScriptedEntityRegistry(TestEngines.Server()) { Services = services };
         registry.RegisterAll(typeof(PointTemplate).Assembly);
         registry.RegisterAll(typeof(SpawnRelay).Assembly);
 

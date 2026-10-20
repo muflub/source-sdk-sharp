@@ -41,7 +41,7 @@ public class IntermissionTests
     private static (Intermission It, RecordingEngine Engine, Console Console, ConVarRegistry ConVars) Rig(string? mapcycle = null,
                                                                                                          params IRoundEndGate[] gates)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine);
         engine.Returns("Entities.IsValid", true)

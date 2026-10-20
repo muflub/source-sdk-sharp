@@ -63,6 +63,7 @@ OUT_IMPL = 'src/shared/native/shell_shim_areas.inc'
 OUT_IMPL_CLIENT = 'src/shared/native/shell_shim_areas_client.inc'
 OUT_TEST = 'src/test/native/shim_areas_forwarders.inc'
 OUT_MANAGED = 'src/abi/ShimAreas.g.cs'
+OUT_DEFAULTS = 'src/test/support/ShimAreaDefaults.g.cs'
 SWITCHED = 'docs/engineapi-switched.txt'
 # plan_client_vtables CB: the shared bases whose EngineSide calls go through the
 # client's vtable on the client (empty: the client still reads the struct).
@@ -474,10 +475,11 @@ def generate():
          '        => new(Self, (TBase*)Vt);',
          '',
          '    /// <summary>',
-         '    /// The table every typed call goes through. A detached area (one a side',
-         '    /// with no engine registers, over no table) refuses here with the reason',
-         '    /// rather than reading a null table: the attach guards keep product code',
-         '    /// from asking, and a call that slips past them says so.',
+         '    /// The table every typed call goes through. A detached area (what a side',
+         '    /// registers before its attach, over no table) refuses here with the',
+         '    /// reason rather than reading a null table. Nothing checks for the attach:',
+         '    /// the game composes only after it, and a test with no engine is given',
+         '    /// the default areas (src/test/support/ShimAreaDefaults.g.cs).',
          '    /// </summary>',
          '    public TFwd* Table',
          '    {',
@@ -558,15 +560,34 @@ def generate():
             return client_slots[i]
         return slots_of(i)
 
+    def iface(i):
+        return 'I' + area(i)
+
+    def slot_decl(ret, ptypes, s):
+        return '    %s %s(%s);' % (ret, s, params_of(ptypes))
+
     for i in classes:
         b = base[i] if i in concrete else None
         sealed = '' if i in extended else 'sealed '
+        # The area as its consumers see it: they take the interface, so a test
+        # with no engine hands them the generated default instead
+        # (plan_shim_areas_split phase 11 review).
+        m += ['/// <summary>',
+              '/// <c>%s</c> as its consumers take it: <see cref="%s"/> over the engine,' % (i, area(i)),
+              '/// or a test\'s default (<c>Default%s</c>).' % area(i),
+              '/// </summary>',
+              'internal unsafe interface %s%s' % (iface(i), (' : %s' % iface(b)) if b else ''),
+              '{']
+        for s in own_slots(i):
+            ptypes, ret, _sup = types[s]
+            m.append(slot_decl(ret, ptypes, s))
+        m += ['}', '']
         m += ['/// <summary>',
               '/// <c>%s</c>, served as <c>%s</c>, through <see cref="%s"/>.%s' % (
                   i, version(i), fwd(i),
                   (' Its base\'s slots are <see cref="%s"/>\'s.' % area(b)) if b else ''),
               '/// </summary>',
-              'internal %sunsafe class %s%s' % (sealed, area(i), (' : %s' % area(b)) if b else ''),
+              'internal %sunsafe class %s : %s%s' % (sealed, area(i), ('%s, ' % area(b)) if b else '', iface(i)),
               '{',
               '    private readonly ShimRef<%s> _shim;' % fwd(i),
               '']
@@ -623,9 +644,9 @@ def generate():
                 '    }',
                 '',
                 '    /// <summary>',
-                '    /// Every area over no table: what a side with no engine (a test\'s, or',
-                '    /// one before its load) registers, so a consumer can be built; its',
-                '    /// attach guard refuses every call.',
+                '    /// Every area over no table: what a side registers before its attach,',
+                '    /// so it can be made before the root is bound. A call throws, naming',
+                '    /// the area; the game composes only after the attach.',
                 '    /// </summary>',
                 '    internal static void AddDetached(Action<Type, object> add)',
                 '        => Add(add,']
@@ -637,9 +658,9 @@ def generate():
                 for k, i in enumerate(routed_here)]
         out += ['    {']
         for i in routed_here:
-            out.append('        add(typeof(%s), %s);' % (area(i), local(i)))
+            out.append('        add(typeof(%s), %s);' % (iface(i), local(i)))
         for i in views:
-            out.append('        add(typeof(%s), %s);' % (area(base[i]), local(i)))
+            out.append('        add(typeof(%s), %s);' % (iface(base[i]), local(i)))
         out += ['    }', '}', '']
         return out
 
@@ -682,10 +703,96 @@ def generate():
                 raise SystemExit('tools/shim-areas: %s is client-only, so %s must be in %s (there is no struct)'
                                  % (s, i, CLIENT_SWITCHED))
 
+    # THE DEFAULT AREAS, for tests (plan_shim_areas_split phase 11 review: the
+    # user's ruling that tests get generated doubles of the interfaces that
+    # answer good defaults, and managed logic never checks for an attach or a
+    # null interface). Compiled into the test support assemblies only.
+    # A slot whose zero means something (entity handle 0 is the world, index
+    # 0 the first) answers what "nothing" is instead: what the attach guards
+    # these defaults replace answered.
+    nothing = {
+        'GetCommandClientHandle': '0xFFFFFFFFu', 'TracePlayerAim': '0xFFFFFFFFu',
+        'FindEntityByClassname': '0xFFFFFFFFu', 'CreateEntity': '0xFFFFFFFFu',
+        'MapSpawnCreate': '0xFFFFFFFFu', 'EntityGetParent': '0xFFFFFFFFu',
+        'GetPlayerHandle': '0xFFFFFFFFu', 'BeamEntityAt': '0xFFFFFFFFu',
+        'EntityGetIndex': '-1', 'FxHandleEntityIndex': '-1', 'SurfacePropIndex': '-1',
+        'RegisterConCommand': '-1', 'RegisterConVar': '-1',
+        'FilesGameFileSize': '-1',
+    }
+    unknown_nothing = sorted(set(nothing) - set(types))
+    if unknown_nothing:
+        raise SystemExit('tools/shim-areas: defaults name slots that do not exist: %s' % ', '.join(unknown_nothing))
+
+    def default_value(ret, s):
+        if s in nothing:
+            return nothing[s]
+        return 'default'
+
+    def default_slot(ret, ptypes, s):
+        if ret == 'void':
+            return '    public void %s(%s) { }' % (s, params_of(ptypes))
+        return '    public %s %s(%s) => %s;' % (ret, s, params_of(ptypes), default_value(ret, s))
+
+    d = ['// ' + GENERATED[3:],
+         '//',
+         '// plan_shim_areas_split phase 11 review. One default per shim area',
+         '// interface, for a test with no engine: every call answers its type\'s',
+         '// default (zero, false, a null pointer: no text) and writes',
+         '// nothing through the pointers it is handed, which the callers allocate',
+         '// zeroed. A derived area\'s default derives its base\'s, as the areas do.',
+         '// Each side\'s defaults are handed, by interface, as its registration',
+         '// hands the real areas, so a test side composes exactly as the game\'s.',
+         '',
+         '#nullable enable',
+         '',
+         'namespace SourceSharp.Abi;',
+         '']
+    for i in classes:
+        b = base[i] if i in concrete else None
+        sealed = '' if i in extended else 'sealed '
+        d += ['/// <summary><see cref="%s"/> for a test with no engine: every call answers its default.</summary>' % iface(i),
+              'internal %sunsafe class Default%s : %s%s' % (sealed, area(i), ('Default%s, ' % area(b)) if b else '', iface(i)),
+              '{']
+        for s in own_slots(i):
+            ptypes, ret, _sup = types[s]
+            d.append(default_slot(ret, ptypes, s))
+        d += ['}', '']
+
+    def defaults_of(name, routed_here, side):
+        views = [i for i in routed_here if i in concrete and base[i]]
+        out = ['/// <summary>',
+               '/// The %s\'s default areas, handed by interface as <c>%s</c>' % (side, name.replace('Defaults', 'Registration')),
+               '/// hands the real ones (a derived area also as its shared base).',
+               '/// </summary>',
+               'internal static class %s' % name, '{',
+               '    internal static void AddTo(Action<Type, object> add)',
+               '    {']
+        for i in routed_here:
+            out.append('        var %s = new Default%s();' % (field(i)[0].lower() + field(i)[1:] + 'Area', area(i)))
+        for i in routed_here:
+            out.append('        add(typeof(%s), %s);' % (iface(i), field(i)[0].lower() + field(i)[1:] + 'Area'))
+        for i in views:
+            out.append('        add(typeof(%s), %s);' % (iface(base[i]), field(i)[0].lower() + field(i)[1:] + 'Area'))
+        out += ['    }', '}', '']
+        return out
+
+    d += ['/// <summary>',
+          '/// The slots whose default is "nothing" (-1, the invalid handle) rather than',
+          '/// zero, by name: what a fake root\'s unserved slot answers for them too.',
+          '/// </summary>',
+          'internal static class ShimAreaNothingSlots',
+          '{',
+          '    public static bool Contains(string slot) => slot is %s;' % ' or '.join('"%s"' % n for n in sorted(nothing)),
+          '}',
+          '']
+    d += defaults_of('ServerAreaDefaults', routed, 'server')
+    d += defaults_of('ClientAreaDefaults', client_routed, 'client')
+
     # OUT_IFACE is not written since C6a: it is the hand-maintained contract
     # the rest is generated from (h is kept only to validate the table).
     return {OUT_CLASSES: '\n'.join(c),
-            OUT_IMPL: '\n'.join(im), OUT_IMPL_CLIENT: '\n'.join(cim), OUT_TEST: '\n'.join(t), OUT_MANAGED: '\n'.join(m)}
+            OUT_IMPL: '\n'.join(im), OUT_IMPL_CLIENT: '\n'.join(cim), OUT_TEST: '\n'.join(t), OUT_MANAGED: '\n'.join(m),
+            OUT_DEFAULTS: '\n'.join(d)}
 
 
 def self_test():
@@ -710,7 +817,8 @@ def self_test():
     gen = generate()
     out = gen[OUT_MANAGED].split('\n')
 
-    class_head = re.compile(r'internal (sealed )?unsafe class (\w+)( : (\w+))?$')
+    # A class implements its own interface, after its base class if it has one.
+    class_head = re.compile(r'internal (sealed )?unsafe class (\w+) :( (\w+),)? I\w+$')
 
     def typed_lines(slot):
         """Every generated line that declares the slot's call."""
@@ -759,6 +867,33 @@ def self_test():
     expect('a derived area declares only its own slots; the base\'s are inherited, not repeated',
            in_class('EntityGetModelName', 'ModelsArea') and not in_class('EntityGetModelName', 'ModelsServerArea'))
 
+    # plan_shim_areas_split phase 11 review: consumers hold an area by its
+    # interface, so a test with no engine hands them the generated default.
+    expect('every area class implements its own interface, which extends its base\'s; '
+           'the registration hands each area by its interface',
+           'internal unsafe interface IModelsServerArea : IModelsArea' in managed
+           and 'internal sealed unsafe class ModelsServerArea : ModelsArea, IModelsServerArea' in managed
+           and 'internal unsafe class EngineArea : IEngineArea' not in managed
+           and 'internal sealed unsafe class EngineArea : IEngineArea' in managed
+           and '        add(typeof(IModelsServerArea), modelsServerArea);' in managed
+           and '        add(typeof(IModelsArea), modelsServerArea);' in managed
+           and not re.search(r'add\(typeof\([A-Z]\w*Area\)', managed.replace('typeof(I', 'typeof(#')))
+    defaults = gen[OUT_DEFAULTS]
+    expect('every area has a test default that answers its type\'s default and derives its base\'s default, '
+           'and each side hands its defaults by interface as its registration hands the areas',
+           'internal sealed unsafe class DefaultModelsServerArea : DefaultModelsArea, IModelsServerArea' in defaults
+           and 'internal unsafe class DefaultModelsArea : IModelsArea' in defaults
+           and '    public int EntityGetHealth(uint a0) => default;' in defaults
+           and '    public byte* WorldChapterTitle() => default;' in defaults
+           and '    public int EntityGetIndex(uint a0) => -1;' in defaults
+           and '    public uint FindEntityByClassname(uint a0, byte* a1) => 0xFFFFFFFFu;' in defaults
+           and 'internal static class ServerAreaDefaults' in defaults
+           and 'internal static class ClientAreaDefaults' in defaults
+           and '        add(typeof(IModelsArea), modelsServerArea);' in defaults
+           and defaults.count('internal static void AddTo(Action<Type, object> add)') == 2
+           and len(re.findall(r'^internal (?:sealed )?unsafe class Default\w+Area', defaults, re.M))
+               == len(re.findall(r'^internal (?:sealed )?unsafe class \w+Area :', managed, re.M)))
+
     emit = in_class('EntityEmitSound', 'ServerAreaRegistration')
     health = in_class('EntityGetHealth', 'ServerAreaRegistration')
     expect('a server-only slot is its area\'s alone, inline on the area class (C6c, no router)',
@@ -774,10 +909,10 @@ def self_test():
            and in_class('GetCurrentTime', 'ClientAreaRegistration') == '')
     expect('a derived area is also registered as its shared base on the server, '
            'so code compiled into both sides asks for a both-sides area by the same type',
-           '        add(typeof(MovementArea), movementServerArea);' in out
-           and '        add(typeof(MovementArea), movementArea);' in out
-           and '        add(typeof(EngineArea), engineBaseArea);' in out
-           and out.count('        add(typeof(EngineArea), engineBaseArea);') == 2)
+           '        add(typeof(IMovementArea), movementServerArea);' in out
+           and '        add(typeof(IMovementArea), movementArea);' in out
+           and '        add(typeof(IEngineArea), engineBaseArea);' in out
+           and out.count('        add(typeof(IEngineArea), engineBaseArea);') == 2)
     expect('nothing holds the areas as a set: no container class, no area fields outside the areas '
            '(plan_shim_areas_split phase 11)',
            'class ShimAreas' not in managed and 'class ClientShimAreas' not in managed
@@ -844,8 +979,8 @@ def self_test():
     expect('an unswitched client base is refused: a shared slot would lose its client route',
            'IShimModels' in unswitched and 'engineapi-client-switched' in unswitched)
     expect('a shared slot reaches its base\'s class on both sides: the server through its derived area',
-           '        add(typeof(ModelsArea), modelsServerArea);' in out
-           and '        add(typeof(ModelsArea), modelsArea);' in out
+           '        add(typeof(IModelsArea), modelsServerArea);' in out
+           and '        add(typeof(IModelsArea), modelsArea);' in out
            and '_shim.Table->EntityGetModelName(_shim.Self' in in_class('EntityGetModelName', 'ModelsArea'))
     expect('a client switch list naming a base the client does not implement is refused',
            'IShimNoSuchBase' in bad_client)
@@ -858,8 +993,8 @@ def self_test():
     expect('a client-only slot is typed on its client area, which the client registration alone hands out',
            len(typed_lines('GetLocalPlayerHealth')) == 1
            and '_shim.Table->GetLocalPlayerHealth(_shim.Self' in in_class('GetLocalPlayerHealth', 'HudClientArea')
-           and out.count('        add(typeof(HudClientArea), hudClientArea);') == 1
-           and managed.index('add(typeof(HudClientArea)') > managed.index('class ClientAreaRegistration'))
+           and out.count('        add(typeof(IHudClientArea), hudClientArea);') == 1
+           and managed.index('add(typeof(IHudClientArea)') > managed.index('class ClientAreaRegistration'))
     try:
         globals()['client_switched'] = lambda: real_client() - {'IShimHudClient'}
         generate()

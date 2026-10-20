@@ -280,11 +280,11 @@ public class MovementRulesSeamTests
 
         var serverBinding = PlayerCommandsBinding.For(
             new Crossings(), new RecordingLog(), null!, Module<IServerModule>(Resolved(serverHook)),
-            MovementRunner.For(new ModuleEngine(EngineSide.Create(Side.Server))),
+            MovementRunner.For(new ModuleEngine(TestSides.Create(Side.Server))),
             new PlayerCommandQueue(new RecordingLog()), () => false);
         var clientBinding = PredictionClientBinding.For(
             new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(Resolved(clientHook)),
-            client::SourceSharp.Abi.MovementRunner.For(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.EngineSide.Create(Side.Client))));
+            client::SourceSharp.Abi.MovementRunner.For(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
 
         var server = PackOf<MovementRules>(serverBinding);
         var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding);

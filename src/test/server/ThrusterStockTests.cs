@@ -34,7 +34,7 @@ public class ThrusterStockTests
 
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine, Poses Poses) Side()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysThruster).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

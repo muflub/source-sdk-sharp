@@ -193,7 +193,8 @@ public partial class EngineApiAreasTests
         string? current = null;
         foreach (string line in generated.Split('\n'))
         {
-            var head = Regex.Match(line, @"^internal (?:sealed )?unsafe class (\w+)(?: : (\w+))?");
+            // A class implements its own interface, after its base class if it has one.
+            var head = Regex.Match(line, @"^internal (?:sealed )?unsafe class (\w+) :(?: (\w+),)? I\w+");
             if (head.Success)
             {
                 current = head.Groups[1].Value;
@@ -205,7 +206,7 @@ public partial class EngineApiAreasTests
         // What the client's registration hands (plan_shim_areas_split phase 11:
         // there is no container), by class name.
         var held = new List<string>();
-        ClientAreaRegistration.AddDetached((type, _) => held.Add(type.Name));
+        ClientAreaRegistration.AddDetached((_, area) => held.Add(area.GetType().Name));
         Assert.True(held.Count >= 20, $"the client's registration hands {held.Count} areas");
         Assert.All(held, name => Assert.True(classes.ContainsKey(name), $"{name} is a generated area class"));
 

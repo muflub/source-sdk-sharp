@@ -196,7 +196,7 @@ public unsafe class VtableBindingTests
     [Fact]
     public void TheServerProbeReportsTheEngineClientRefused()
     {
-        string line = ShimProbes.EngineClient(new ModuleEngine(EngineSide.Create(Side.Server)));
+        string line = ShimProbes.EngineClient(new ModuleEngine(TestSides.Create(Side.Server)));
 
         Assert.True(line.StartsWith("IVEngineClient: REFUSED", StringComparison.Ordinal)
                     && line.Contains("VEngineClient014", StringComparison.Ordinal),
@@ -208,7 +208,7 @@ public unsafe class VtableBindingTests
     {
         Assert.Null(EngineModelInfo.Acquire(Unattached(), out _));
         Assert.Null(EngineBaseFileSystem.Acquire(Unattached(), out _));
-        Assert.Null(EngineClient.Acquire(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.EngineSide.Create(Side.Client)), out _));
+        Assert.Null(EngineClient.Acquire(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client)), out _));
         Assert.Null(EngineServer.Acquire(Unattached(), out _));
     }
 
@@ -216,7 +216,7 @@ public unsafe class VtableBindingTests
     /// A server engine of the test's own with no native half (plan_abi_hotreload
     /// D8): every acquire names the module it acquires for.
     /// </summary>
-    private static ModuleEngine Unattached() => new(EngineSide.Create(Side.Server));
+    private static ModuleEngine Unattached() => new(TestSides.Create(Side.Server));
 
     //-------------------------------------------------------------------------
     // 2. POLICY, EXPRESSED ONLY BY ABSENCE.

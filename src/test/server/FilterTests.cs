@@ -24,7 +24,7 @@ public class FilterTests
 
     private static (ScriptedEntityRegistry, T) Spawn<T>(string className) where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FilterBase).Assembly);
         registry.Services = Ignoring("Entities.GetOrigin", "EntityPhysics.GetMass", "Entities.IsValid");
         registry.Spawn(Ent, className);
@@ -107,7 +107,7 @@ public class FilterTests
     [Fact]
     public void MultiCombining()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FilterBase).Assembly);
         registry.Services = Ignoring("Entities.GetOrigin", "EntityPhysics.GetMass", "Entities.IsValid");
         registry.Spawn(Ent, EntityNames.FilterMulti);

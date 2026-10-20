@@ -5,7 +5,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real one, over the client's shim areas.</summary>
-internal sealed unsafe class ClientParticleSystems(ParticlesClientArea particlesClient) : IClientParticleSystems
+internal sealed unsafe class ClientParticleSystems(IParticlesClientArea particlesClient) : IClientParticleSystems
 {
     private const int NameBytes = 128;
 
@@ -51,7 +51,7 @@ internal sealed unsafe class ClientParticleSystems(ParticlesClientArea particles
 }
 
 /// <summary>The real one, over IShimParticlesClient.</summary>
-internal sealed unsafe class ClientParticleOneShots(ParticlesClientArea particlesClient) : IClientParticleOneShots
+internal sealed unsafe class ClientParticleOneShots(IParticlesClientArea particlesClient) : IClientParticleOneShots
 {
     private const int NameBytes = 256;
 
@@ -82,7 +82,7 @@ internal sealed unsafe class ClientParticleOneShots(ParticlesClientArea particle
 }
 
 /// <summary>The real one, over IShimParticlesClient::ParticlesWorldTrace and ParticlesTraceMask.</summary>
-internal sealed unsafe class ClientParticleWorldTrace(ParticlesClientArea particlesClient) : IParticleWorldTrace, IParticleMaskTrace
+internal sealed unsafe class ClientParticleWorldTrace(IParticlesClientArea particlesClient) : IParticleWorldTrace, IParticleMaskTrace
 {
     public MaskTrace Trace(Vector start, Vector end, uint mask)
     {
@@ -195,7 +195,7 @@ public static class ParticleViewReading
 /// The real ones, over IShimParticlesClient's view and visibility slots; the
 /// throttle is the particle library's own answer (plan_particles_so.md).
 /// </summary>
-internal sealed unsafe class ClientParticleViewSlots(ParticlesClientArea particlesClient, IParticleLibrary library)
+internal sealed unsafe class ClientParticleViewSlots(IParticlesClientArea particlesClient, IParticleLibrary library)
     : IParticleViewSource, IParticlePixelVisibility, IParticleThrottle
 {
     public float ThrottleScaling() => library.ThrottleScaling();
@@ -309,7 +309,7 @@ public sealed class ParticleFloatMode
 }
 
 /// <summary>The real one, over the client's shim areas.</summary>
-internal sealed unsafe class ClientBrushContents(ParticlesClientArea particlesClient) : IClientBrushContents
+internal sealed unsafe class ClientBrushContents(IParticlesClientArea particlesClient) : IClientBrushContents
 {
     public int PointContents(EntityHandle owner, Vector point)
     {

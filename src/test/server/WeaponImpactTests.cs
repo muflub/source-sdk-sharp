@@ -102,7 +102,7 @@ public class WeaponImpactTests
                                             0, traced))
             .Returns("Clock.Now", 10f);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
 

@@ -62,7 +62,7 @@ public unsafe class GameFileClientSideTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;

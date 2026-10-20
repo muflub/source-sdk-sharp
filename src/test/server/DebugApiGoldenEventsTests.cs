@@ -25,7 +25,7 @@ public class DebugApiGoldenEventsTests
 
     private static ReloadFixtureEntity Entity()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(DebugApiGoldenEventsTests).Assembly);
         registry.Services = Services();
         registry.KeyValue(Source, "reload_fixture", "speed", "1");

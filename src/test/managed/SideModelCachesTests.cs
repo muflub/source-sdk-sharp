@@ -117,15 +117,15 @@ public class SideModelCachesTests
         static object? PrecacheOf(BreakModels b)
             => typeof(BreakModels).GetField("_precache", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(b);
 
-        Assert.NotNull(PrecacheOf(EngineSide.Create(Side.Server).Breaks));
-        Assert.Null(PrecacheOf(EngineSide.Create(Side.Client).Breaks));
+        Assert.NotNull(PrecacheOf(TestSides.Create(Side.Server).Breaks));
+        Assert.Null(PrecacheOf(TestSides.Create(Side.Client).Breaks));
     }
 
     [Fact]
     public void EachEngineOwnsItsModelCachesAndItsBreakListsReadItsDescriptors()
     {
-        var first = EngineSide.Create(Side.Server);
-        var second = EngineSide.Create(Side.Server);
+        var first = TestSides.Create(Side.Server);
+        var second = TestSides.Create(Side.Server);
 
         Assert.NotSame(first.Models, second.Models);
         Assert.NotSame(first.Breaks, second.Breaks);
@@ -136,8 +136,8 @@ public class SideModelCachesTests
     [Fact]
     public void TwoServerCompositionsRegisterAndClearTheirOwnEnginesCaches()
     {
-        var engineA = new ModuleEngine(EngineSide.Create(Side.Server));
-        var engineB = new ModuleEngine(EngineSide.Create(Side.Server));
+        var engineA = new ModuleEngine(TestSides.Create(Side.Server));
+        var engineB = new ModuleEngine(TestSides.Create(Side.Server));
         var a = new ServerModule(engineA);
         var b = new ServerModule(engineB);
         a.ComposeEngineAreas();

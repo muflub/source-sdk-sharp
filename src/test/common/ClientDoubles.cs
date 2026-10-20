@@ -56,15 +56,15 @@ internal static class ClientDoubles
         => C.ServiceLocatorExtensions.Require<T>(services);
 
     /// <summary>
-    /// The client's engine with nothing attached: the side's areas over an
-    /// <see cref="C.EngineSide"/> no native side was ever bound to, its mirror and
-    /// its clock. What a client registry under test is built over when the fact
-    /// is about the registry, not the engine (the server's counterpart is
-    /// ScriptedEntityRegistry.UnattachedEngine).
+    /// The client's engine with nothing native behind it: the side's bindings
+    /// over a side of the default areas (<c>TestSides</c>), its mirror and its
+    /// clock. What a client registry under test is built over when the fact is
+    /// about the registry, not the engine (the server's counterpart is
+    /// <c>TestEngines.Server</c>).
     /// </summary>
     public static C.ServiceContainer UnattachedEngine()
     {
-        var side = C.EngineSide.Create(SourceSharp.Abi.Side.Client);
+        var side = C.TestSides.Create(SourceSharp.Abi.Side.Client);
         var engine = new C.ServiceContainer();
         engine.AddInstance(new C.StandaloneMirror());
         C.EngineServices.AddTo(engine, side);

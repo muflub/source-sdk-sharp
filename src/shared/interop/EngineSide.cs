@@ -31,10 +31,11 @@ internal sealed unsafe partial class EngineSide
     // anything reaches into: a binding or adapter is given the areas it calls
     // in its constructor, by the composition that builds it
     // (EngineServices.Build, ModuleEngine), which is the only reader of
-    // Areas. Every area over no table until the attach, so a side with no
-    // engine composes, and its attach guard refuses every call.
+    // Areas. Every area is over no table until the attach, so a side with no
+    // engine composes, and a call before the attach throws, naming the area
+    // (ShimRef.Table): nothing checks for the attach, since the game composes
+    // only after it (LoadSideV2 attaches, then loads the module).
     private ServiceContainer _areas = null!;
-    private bool _attached;
 
     // The areas the side's OWN services read: the ones made before any
     // composition exists, with the side (its log, its globals and clock, its
@@ -45,10 +46,10 @@ internal sealed unsafe partial class EngineSide
     //
     // These, the registry and Surfaces are null only inside Create, which
     // hands them the detached areas before anything can hold the side.
-    private ConsoleArea _consoleArea = null!;
-    private EngineArea _engineArea = null!;
-    private EntitiesArea _entitiesArea = null!;
-    private ModelsArea _modelsArea = null!;
+    private IConsoleArea _consoleArea = null!;
+    private IEngineArea _engineArea = null!;
+    private IEntitiesArea _entitiesArea = null!;
+    private IModelsArea _modelsArea = null!;
 
     // A constructor only saves what it is handed (phase 11 review): Create
     // builds the rest.
@@ -58,8 +59,30 @@ internal sealed unsafe partial class EngineSide
         State = state;
     }
 
-    /// <summary>A side with a state of its own: an engine composed without a load.</summary>
-    internal static EngineSide Create(Side side) => Create(side, new SideState(side));
+    /// <summary>
+    /// A side over the areas its maker hands it, with a state of its own: a
+    /// test's side, over the generated default areas
+    /// (<c>TestSides.Create</c>, src/test/support). Nothing in the side or its
+    /// consumers checks whether an engine is behind them, so a side with no
+    /// engine is given areas that answer defaults rather than none.
+    /// </summary>
+    internal static EngineSide Create(Side side, ServiceContainer areas) => Create(side, new SideState(side), areas);
+
+    /// <summary>
+    /// A side over <paramref name="state"/>, which must be the same side's, and
+    /// the areas its maker hands it: a test's side that shares a state.
+    /// </summary>
+    internal static EngineSide Create(Side side, SideState state, ServiceContainer areas)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(areas);
+        if (state.Side != side)
+            throw new ArgumentException($"a {side} engine was handed the {state.Side} side's state", nameof(state));
+
+        var engine = new EngineSide(side, state);
+        engine.UseAreas(areas);
+        return engine;
+    }
 
     /// <summary>
     /// The side over <paramref name="state"/>, which must be the same side's,
@@ -229,9 +252,6 @@ internal sealed unsafe partial class EngineSide
     /// <summary>The root the attached areas came from, or null before an attach.</summary>
     internal ShimRoot? Root => _root;
 
-    /// <summary>Whether the side's own areas are attached: what every attach guard asks.</summary>
-    internal bool ShimsAttached => _attached;
-
     /// <summary>
     /// The side's areas by type: detached before the attach, the root's after.
     /// For the composition that builds a consumer and hands it the areas it
@@ -243,7 +263,6 @@ internal sealed unsafe partial class EngineSide
     private void Attached(ShimRoot root, ServiceContainer areas)
     {
         _root = root;
-        _attached = true;
         UseAreas(areas);
     }
 
@@ -251,11 +270,11 @@ internal sealed unsafe partial class EngineSide
     private void UseAreas(ServiceContainer areas)
     {
         _areas = areas;
-        _consoleArea = areas.Require<ConsoleArea>();
-        _engineArea = areas.Require<EngineArea>();
-        _entitiesArea = areas.Require<EntitiesArea>();
-        _modelsArea = areas.Require<ModelsArea>();
-        Surfaces = new PhysicsSurfaces(this, areas.Require<MovementArea>());
+        _consoleArea = areas.Require<IConsoleArea>();
+        _engineArea = areas.Require<IEngineArea>();
+        _entitiesArea = areas.Require<IEntitiesArea>();
+        _modelsArea = areas.Require<IModelsArea>();
+        Surfaces = new PhysicsSurfaces(areas.Require<IMovementArea>());
         OwnAreas(areas);
     }
 
@@ -377,7 +396,7 @@ internal sealed unsafe partial class EngineSide
     /// table yet or the shim is older than the slot.
     /// </summary>
     private nint AskForGlobalVars()
-        => (s_Initialized && ShimsAttached) ? _engineArea.GetGlobalVarsPtr() : 0;
+        => _engineArea.GetGlobalVarsPtr();
 
     /// <summary>
     /// The one line that makes the whole phase checkable in a running game:
@@ -414,7 +433,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     private void ReportAgreement(Side side, nint pointer)
     {
-        if (_side != side || !s_Initialized)
+        if (_side != side)
             return;
 
         var globals = new Globals(pointer);
@@ -426,10 +445,7 @@ internal sealed unsafe partial class EngineSide
         int disagreed = 0;
         var line = new System.Text.StringBuilder();
 
-        if (ShimsAttached)
-            Compare("curtime", _engineArea.GetCurrentTime().Equals(globals.CurTime), $"{_engineArea.GetCurrentTime()}/{globals.CurTime}");
-        else
-            line.Append("curtime no-slot ");
+        Compare("curtime", _engineArea.GetCurrentTime().Equals(globals.CurTime), $"{_engineArea.GetCurrentTime()}/{globals.CurTime}");
 
         // THE SECOND SOURCE FOR THESE TWO MOVED, AND THIS MOVED WITH IT.
         //
@@ -488,12 +504,6 @@ internal sealed unsafe partial class EngineSide
 
     public void Msg(string message)
     {
-        if (!s_Initialized || !ShimsAttached)
-        {
-            Lines.Line(message, isWarning: false);
-            return;
-        }
-
         var bytes = Encoding.UTF8.GetBytes(message + "\0");
         fixed (byte* p = bytes)
         {
@@ -514,12 +524,6 @@ internal sealed unsafe partial class EngineSide
     /// <summary>Prints a warning to the Source console.</summary>
     public void Warning(string message)
     {
-        if (!s_Initialized || !ShimsAttached)
-        {
-            Lines.Line(message, isWarning: true);
-            return;
-        }
-
         var bytes = Encoding.UTF8.GetBytes(message + "\0");
         fixed (byte* p = bytes)
         {
@@ -576,7 +580,7 @@ internal sealed unsafe partial class EngineSide
             liveness.TryLookup(h, out bool alive))
             return alive;
 
-        return s_Initialized && ShimsAttached && (_entitiesArea.EntityIsValid(h.Value)) != 0;
+        return (_entitiesArea.EntityIsValid(h.Value)) != 0;
     }
 
     /// <summary>
@@ -596,7 +600,7 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public bool EntityIsValidBySlot(EntityHandle h)
-        => s_Initialized && ShimsAttached && (_entitiesArea.EntityIsValid(h.Value)) != 0;
+        => (_entitiesArea.EntityIsValid(h.Value)) != 0;
 
     /// <summary>
     /// Server time in seconds. The same clock the shell computes respawn
@@ -623,7 +627,7 @@ internal sealed unsafe partial class EngineSide
             if (globals != 0)
                 return new Globals(globals).CurTime;
 
-            return (s_Initialized && ShimsAttached) ? _engineArea.GetCurrentTime() : 0f;
+            return _engineArea.GetCurrentTime();
         }
     }
 
@@ -648,8 +652,6 @@ internal sealed unsafe partial class EngineSide
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
         if (ShellLess.State(h) is { } shellLess)
             return shellLess.Angles;
-
-        if (!s_Initialized || !ShimsAttached) return default;
 
         float* pyr = stackalloc float[3];
         _entitiesArea.EntityGetAngles(h.Value, pyr);
@@ -751,9 +753,6 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public string EntityGetModelName(EntityHandle entity)
     {
-        if (!s_Initialized || !ShimsAttached)
-            return string.Empty;
-
         byte* buffer = stackalloc byte[256];
         _modelsArea.EntityGetModelName(entity.Value, buffer, 256);
 

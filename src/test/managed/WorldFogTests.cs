@@ -52,7 +52,7 @@ public class WorldFogTests
     private static ScriptedEntityRegistry Registry(RecordingEngine engine)
     {
         var services = Services(out _);
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvFogController).Assembly);
         registry.Services = services;
         return registry;
@@ -66,7 +66,7 @@ public class WorldFogTests
         engine.Returns("Entities.GetSpawnFlags", spawnFlags);
         engine.Returns("Entities.GetSpawnAngles", default(Vector));
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvFogController).Assembly);
         registry.Services = services;
 
@@ -85,7 +85,7 @@ public class WorldFogTests
     public void AMapWithNoFogControllerHasNoFog()
     {
         var services = Services(out _);
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvFogController).Assembly);
         registry.Services = services;
 
@@ -168,7 +168,7 @@ public class WorldFogTests
         engine.Ignores("WorldQuery.GetArea");
         engine.Returns("Entities.GetSpawnAngles", default(Vector));
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvFogController).Assembly);
         registry.Services = services;
 

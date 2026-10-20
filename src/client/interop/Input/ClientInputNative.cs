@@ -18,14 +18,14 @@ public sealed unsafe class ClientInputHost : IInputHost
 {
     // The side's input area (plan_shim_areas_split phase 11): the cursor,
     // the HUD's facts and the view-angle calls below are its slots.
-    private readonly InputClientArea _input;
+    private readonly IInputClientArea _input;
     private readonly IEngineConsole _console;
 
     // The engine client, handed in: null where there is none (the server, a
     // side with no engine), and then every engine-client answer is its default.
     private readonly IClientInputEngine? _engineClient;
 
-    internal ClientInputHost(InputClientArea input, IEngineConsole console, IClientInputEngine? engineClient)
+    internal ClientInputHost(IInputClientArea input, IEngineConsole console, IClientInputEngine? engineClient)
     {
         _input = input ?? throw new ArgumentNullException(nameof(input));
         _console = console ?? throw new ArgumentNullException(nameof(console));
@@ -37,7 +37,7 @@ public sealed unsafe class ClientInputHost : IInputHost
     /// its input area and its engine client, taken here once.
     /// </summary>
     public static IInputHost For(ModuleEngine engine, IEngineConsole console)
-        => new ClientInputHost(engine.Api.Areas.Require<InputClientArea>(), console,
+        => new ClientInputHost(engine.Api.Areas.Require<IInputClientArea>(), console,
                                EngineClient.Acquire(engine, out _) as IClientInputEngine);
 
     public InputAngles GetViewAngles() => _engineClient?.GetViewAngles() ?? default;

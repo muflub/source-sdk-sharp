@@ -45,9 +45,9 @@ public sealed class StandaloneSlotReference
     private readonly StandaloneSkeletonRoute? _skeletons;
 
     // The side's standalone area, whose dormancy slot this reads.
-    private readonly StandaloneClientArea _standalone;
+    private readonly IStandaloneClientArea _standalone;
 
-    internal StandaloneSlotReference(EngineSide side, StandaloneClientArea standalone,
+    internal StandaloneSlotReference(EngineSide side, IStandaloneClientArea standalone,
                                      StandaloneSkeletonRoute? skeletons = null)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
@@ -59,7 +59,7 @@ public sealed class StandaloneSlotReference
     public static StandaloneSlotReference For(ModuleEngine engine, StandaloneSkeletonRoute? skeletons = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new StandaloneSlotReference(engine.Api, engine.Api.Areas.Require<StandaloneClientArea>(), skeletons);
+        return new StandaloneSlotReference(engine.Api, engine.Api.Areas.Require<IStandaloneClientArea>(), skeletons);
     }
 
     /// <summary>

@@ -247,7 +247,7 @@ public unsafe class ConvertedEntryTests
                 .Interface(EngineClient.InterfaceVersion, self)
                 .Forwarders<EngineClientFwd>(out EngineClientFwd* table);
             ((nint*)table)[ClientCmdSlot] = (nint)(delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
-            var side = EngineSide.Create(Side.Client);
+            var side = TestSides.Create(Side.Client);
             Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
             IFwdEngineClient? client = EngineClient.Acquire(new ModuleEngine(side), out string why);
@@ -364,7 +364,7 @@ public unsafe class ConvertedEntryTests
                 .Forwarders<BaseFileSystemFwd>(out BaseFileSystemFwd* table);
             table->FileExists = &FileExistsAnswers;
             table->Size_2 = &SizeByNameAnswers;
-            var side = EngineSide.Create(Side.Client);
+            var side = TestSides.Create(Side.Client);
             Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
             var files = SideBindings.Of<IEngineFiles>(side);
 

@@ -22,7 +22,7 @@ public class SensorTests
 
     private static PointAngularVelocitySensor Spawn(float threshold, float interval)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointAngularVelocitySensor).Assembly);
         registry.Services = Services();
         registry.Spawn(Ent, EntityNames.PointAngularvelocitysensor);
@@ -111,7 +111,7 @@ public class PointSensorTests
 
     private static PointAngleSensor Spawn(float duration)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointAngleSensor).Assembly);
         registry.Services = Services();
         registry.Spawn(Ent, EntityNames.PointAnglesensor);

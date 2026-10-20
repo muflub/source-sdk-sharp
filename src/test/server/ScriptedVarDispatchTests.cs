@@ -110,7 +110,7 @@ public class ScriptedVarDispatchTests
 
         foreach (string spelling in spellings)
         {
-            var registry = new ScriptedEntityRegistry();
+            var registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(ScriptedVarDispatchTests).Assembly);
             registry.Services = Services();
 
@@ -125,7 +125,7 @@ public class ScriptedVarDispatchTests
 
         // The other half: folding case must not fold two keys together. A key
         // that differs by more than case is still a different key.
-        var fresh = new ScriptedEntityRegistry();
+        var fresh = new ScriptedEntityRegistry(TestEngines.Server());
         fresh.RegisterAll(typeof(ScriptedVarDispatchTests).Assembly);
         fresh.Services = Services();
 

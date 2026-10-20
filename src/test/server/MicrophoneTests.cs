@@ -24,7 +24,7 @@ public class MicrophoneTests
 
     private static ScriptedEntityRegistry NewRegistry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvMicrophone).Assembly);
         registry.Services = Services();
         return registry;

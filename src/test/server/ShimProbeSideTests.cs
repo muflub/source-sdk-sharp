@@ -14,8 +14,8 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheLevelProbeAsksTheEngineItIsHanded()
     {
-        var served = EngineSide.Create(Side.Server);
-        var bare = EngineSide.Create(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         int word = 0;
@@ -37,7 +37,7 @@ public sealed unsafe class ShimProbeSideTests
     // phase 6): what native serves under SSFwd_ShimLevel against what ShimLevelFwd reads.
     private static string Level(Action<FakeShimRoot> serve)
     {
-        var side = EngineSide.Create(Side.Server);
+        var side = TestSides.Create(Side.Server);
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(EngineLevel.InterfaceVersion, &word);
@@ -79,8 +79,8 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheStringTableAcquireAsksTheEngineItIsHanded()
     {
-        var served = EngineSide.Create(Side.Server);
-        var bare = EngineSide.Create(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         var self = stackalloc nint[1];
@@ -103,8 +103,8 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheEngineServerAcquireAsksTheEngineItIsHanded()
     {
-        var served = EngineSide.Create(Side.Server);
-        var bare = EngineSide.Create(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         var self = stackalloc nint[1];

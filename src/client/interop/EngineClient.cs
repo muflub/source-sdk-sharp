@@ -28,9 +28,9 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     // The view area those four proxies are slots of (plan_shim_areas_split
     // phase 11): the side's, taken when this was acquired.
-    private readonly ViewClientArea _view;
+    private readonly IViewClientArea _view;
 
-    private EngineClient(EngineSide side, ViewClientArea view, void* self, EngineClientFwd* table)
+    private EngineClient(EngineSide side, IViewClientArea view, void* self, EngineClientFwd* table)
     {
         _side = side;
         _view = view;
@@ -51,7 +51,7 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
         return Forwarders.TryAcquire<EngineClientFwd>(
                    side.Interfaces, SourceSharpFactoryType.AppSystem,
                    InterfaceVersion, out void* self, out EngineClientFwd* table, out why)
-            ? new EngineClient(side, side.Areas.Require<ViewClientArea>(), self, table)
+            ? new EngineClient(side, side.Areas.Require<IViewClientArea>(), self, table)
             : null;
     }
 

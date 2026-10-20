@@ -45,9 +45,9 @@ internal sealed unsafe partial class EngineSide
     // EngineSide.cs): the precache its break models use, and the shell's
     // velocity, eye and gravity members and the physics object its motion
     // host reads. Assigned with the shared four at each attach.
-    private PrecacheArea _precacheArea = null!;
-    private TransformArea _transformArea = null!;
-    private PhysicsArea _physicsArea = null!;
+    private IPrecacheArea _precacheArea = null!;
+    private ITransformArea _transformArea = null!;
+    private IPhysicsArea _physicsArea = null!;
 
     /// <summary>
     /// The server's own areas from <paramref name="areas"/>, at construction
@@ -57,9 +57,9 @@ internal sealed unsafe partial class EngineSide
     [MemberNotNull(nameof(_precacheArea), nameof(_transformArea), nameof(_physicsArea))]
     private void OwnAreas(IServiceLocator areas)
     {
-        _precacheArea = areas.Require<PrecacheArea>();
-        _transformArea = areas.Require<TransformArea>();
-        _physicsArea = areas.Require<PhysicsArea>();
+        _precacheArea = areas.Require<IPrecacheArea>();
+        _transformArea = areas.Require<ITransformArea>();
+        _physicsArea = areas.Require<IPhysicsArea>();
         _motion = null;
     }
 
@@ -157,11 +157,11 @@ internal sealed unsafe partial class EngineSide
     /// from <c>Initialize</c>; two managed game instances would have shared them.
     /// </para>
     /// </summary>
-    internal EntityFactories BindEntityFactories(EntityLifecycleArea lifecycleArea)
+    internal EntityFactories BindEntityFactories(IEntityLifecycleArea lifecycleArea)
     {
         // The slots are the EntityLifecycle area's (the struct lost them in C6c),
-        // so a server side without its shims attached has no factories to report.
-        if (_side != Side.Server || !ShimsAttached)
+        // which only the server registers.
+        if (_side != Side.Server)
             return new EntityFactories();
 
         var factories = new EntityFactories
@@ -193,11 +193,8 @@ internal sealed unsafe partial class EngineSide
     /// would replicate nothing and say nothing about why.
     /// </para>
     /// </summary>
-    internal EntityBlobBinding BindEntityBlob(NetworkServerArea networkArea, EntityHandle h)
+    internal EntityBlobBinding BindEntityBlob(INetworkServerArea networkArea, EntityHandle h)
     {
-        if (!s_Initialized || !ShimsAttached)
-            return default;
-
         int size = 0;
         uint serial = 0;
         EntitySlot* slot = null;
@@ -241,10 +238,9 @@ internal sealed unsafe partial class EngineSide
     /// op table's and the op table is step 1f's.
     /// </para>
     /// </summary>
-    public void MarkEntityBlockChanged(NetworkServerArea networkArea, EntityHandle h, int blockOffset)
+    public void MarkEntityBlockChanged(INetworkServerArea networkArea, EntityHandle h, int blockOffset)
     {
-        if (s_Initialized && ShimsAttached)
-            networkArea.EntityMarkBlockChanged(h.Value, blockOffset);
+        networkArea.EntityMarkBlockChanged(h.Value, blockOffset);
     }
 
     /// <summary>Whether a player is alive. False covers both dead and spectating.</summary>
@@ -256,10 +252,9 @@ internal sealed unsafe partial class EngineSide
     /// interop's player-shadow half (EnginePlayerShadowNative), not an engine
     /// area any game code asks.
     /// </summary>
-    internal bool PlayerShadowFacts(MovementServerArea movementArea, EntityHandle player, out PlayerShadowFacts facts)
+    internal bool PlayerShadowFacts(IMovementServerArea movementArea, EntityHandle player, out PlayerShadowFacts facts)
     {
         facts = default;
-        if (!s_Initialized || !ShimsAttached) return false;
 
         facts.StructSize = (uint)sizeof(PlayerShadowFacts);
         fixed (PlayerShadowFacts* p = &facts)
@@ -267,32 +262,28 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>Native holds the body managed built (stand, crouch, controller). False when the player is gone.</summary>
-    internal bool PlayerShadowAdopt(MovementServerArea movementArea, EntityHandle player, nint stand, nint crouch, nint controller)
-        => s_Initialized && ShimsAttached && movementArea.PlayerShadowAdopt(player.Value, stand, crouch, controller) != 0;
+    internal bool PlayerShadowAdopt(IMovementServerArea movementArea, EntityHandle player, nint stand, nint crouch, nint controller)
+        => movementArea.PlayerShadowAdopt(player.Value, stand, crouch, controller) != 0;
 
     /// <summary>Native tears the held body down (DestroyVCollision), or drops it if its environment has gone.</summary>
-    internal void PlayerShadowRelease(MovementServerArea movementArea, EntityHandle player)
+    internal void PlayerShadowRelease(IMovementServerArea movementArea, EntityHandle player)
     {
-        if (s_Initialized && ShimsAttached)
-            movementArea.PlayerShadowRelease(player.Value);
+        movementArea.PlayerShadowRelease(player.Value);
     }
 
     /// <summary>The hull in play; after a command, m_oldOrigin and the move's step height consumed.</summary>
-    internal void PlayerShadowCommit(MovementServerArea movementArea, EntityHandle player, int state, bool afterCommand)
+    internal void PlayerShadowCommit(IMovementServerArea movementArea, EntityHandle player, int state, bool afterCommand)
     {
-        if (s_Initialized && ShimsAttached)
-            movementArea.PlayerShadowCommit(player.Value, state, afterCommand ? 1 : 0);
+        movementArea.PlayerShadowCommit(player.Value, state, afterCommand ? 1 : 0);
     }
 
     /// <summary>
     /// UTIL_TraceEntity: the entity's hull swept from start to end with the
     /// mask and collision group, ignoring the entity (physics stock parity B7).
     /// </summary>
-    public EntityHullTrace EntityTraceHull(WorldServerArea worldArea, EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
+    public EntityHullTrace EntityTraceHull(IWorldServerArea worldArea, EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
                                            uint mask, int collisionGroup)
     {
-        if (!s_Initialized || !ShimsAttached) return new EntityHullTrace(start, true, true);
-
         float* s0 = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e0 = stackalloc float[3] { end.X, end.Y, end.Z };
         float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
@@ -312,9 +303,9 @@ internal sealed unsafe partial class EngineSide
     /// An empty batch does not cross at all.
     /// </para>
     /// </summary>
-    public void DestroyShells(EntityLifecycleArea lifecycleArea, ReadOnlySpan<EntityHandle> batch)
+    public void DestroyShells(IEntityLifecycleArea lifecycleArea, ReadOnlySpan<EntityHandle> batch)
     {
-        if (batch.IsEmpty || !s_Initialized || !ShimsAttached)
+        if (batch.IsEmpty)
             return;
 
         // AN EntityHandle IS NOT ITS RAW HANDLE: it stores it inverted, so
@@ -368,8 +359,8 @@ internal sealed unsafe partial class EngineSide
     /// putting it on <c>IEngineEntities</c> would publish a diagnostic counter
     /// to every consumer of the entity API.
     /// </remarks>
-    internal int InvisibleRangeReach(WorldServerArea worldArea)
-        => (s_Initialized && ShimsAttached) ? worldArea.InvisibleRangeReach() : 0;
+    internal int InvisibleRangeReach(IWorldServerArea worldArea)
+        => worldArea.InvisibleRangeReach();
 
     public Vector EntityGetVelocity(EntityHandle h)
     {
@@ -380,16 +371,12 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return default;
 
-        if (!s_Initialized || !ShimsAttached) return default;
-
         return Motion.Velocity(h);
     }
 
     /// <summary>Where something looks from. A player's origin is at their feet.</summary>
     public Vector EntityGetEyePosition(EntityHandle h)
     {
-        if (!s_Initialized || !ShimsAttached) return default;
-
         float* xyz = stackalloc float[3];
         _transformArea.EntityGetEyePosition(h.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
@@ -397,8 +384,6 @@ internal sealed unsafe partial class EngineSide
 
     public void EntitySetVelocity(EntityHandle h, Vector velocity)
     {
-        if (!s_Initialized || !ShimsAttached) return;
-
         Motion.SetVelocity(h, velocity);
     }
 
@@ -409,8 +394,6 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround)
     {
-        if (!s_Initialized || !ShimsAttached) return;
-
         // clearGround is the non-simulated arm's, and that arm writes nothing
         // (EntityPhysicsMotion's remarks): the native forward ignored it too.
         Motion.ApplyVelocityImpulse(h, impulse);
@@ -418,8 +401,7 @@ internal sealed unsafe partial class EngineSide
 
     public void EntitySetGravity(EntityHandle h, float gravity)
     {
-        if (s_Initialized && ShimsAttached)
-            _transformArea.EntitySetGravity(h.Value, gravity);
+        _transformArea.EntitySetGravity(h.Value, gravity);
     }
 
     //-------------------------------------------------------------------------
@@ -454,11 +436,8 @@ internal sealed unsafe partial class EngineSide
     /// the other one.
     /// </para>
     /// </summary>
-    public Span<byte> GetEntityBlock(NetworkServerArea networkArea, EntityHandle h)
+    public Span<byte> GetEntityBlock(INetworkServerArea networkArea, EntityHandle h)
     {
-        if (!s_Initialized || !ShimsAttached)
-            return Span<byte>.Empty;
-
         int size;
         void* p = networkArea.EntityGetEngineBlock(h.Value, &size);
 
@@ -478,8 +457,6 @@ internal sealed unsafe partial class EngineSide
     internal bool EntitySwapPhysicsObject(EntityHandle entity, nint physicsObject, out nint previous)
     {
         previous = 0;
-        if (!s_Initialized || !ShimsAttached)
-            return false;
 
         void* held = null;
         int ok = _physicsArea.EntitySwapPhysicsObject(entity.Value, physicsObject, &held);
@@ -497,8 +474,6 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntitySetAngularVelocity(EntityHandle entity, Vector degreesPerSecond)
     {
-        if (!s_Initialized || !ShimsAttached) return;
-
         Motion.SetAngularVelocity(entity, degreesPerSecond);
     }
 
@@ -511,8 +486,6 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public Vector EntityGetAngularVelocity(EntityHandle entity)
     {
-        if (!s_Initialized || !ShimsAttached) return default;
-
         return Motion.AngularVelocity(entity);
     }
 
@@ -525,27 +498,22 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityApplyForceOffset(EntityHandle entity, Vector force, Vector worldPoint)
     {
-        if (!s_Initialized || !ShimsAttached) return;
-
         Motion.ApplyForceOffset(entity, force, worldPoint);
     }
 
     /// <summary>Spins a physics object about its own centre.</summary>
     public void EntityApplyTorque(EntityHandle entity, Vector torque)
     {
-        if (!s_Initialized || !ShimsAttached) return;
-
         Motion.ApplyTorque(entity, torque);
     }
 
     /// <summary>How heavy a physics object is. Zero if it has no physics at all.</summary>
     public float EntityGetMass(EntityHandle entity)
-        => (s_Initialized && ShimsAttached) ? Motion.Mass(entity) : 0f;
+        => Motion.Mass(entity);
 
     public void EntitySetMass(EntityHandle entity, float mass)
     {
-        if (s_Initialized && ShimsAttached)
-            Motion.SetMass(entity, mass);
+        Motion.SetMass(entity, mass);
     }
 
     /// <summary>
@@ -554,8 +522,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityEnableMotion(EntityHandle entity, bool enable)
     {
-        if (s_Initialized && ShimsAttached)
-            Motion.EnableMotion(entity, enable);
+        Motion.EnableMotion(entity, enable);
     }
 
     /// <summary>
@@ -573,8 +540,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityPhysicsWake(EntityHandle entity)
     {
-        if (s_Initialized && ShimsAttached)
-            Motion.Wake(entity);
+        Motion.Wake(entity);
     }
 
     /// <summary>
@@ -592,8 +558,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityPhysicsSleep(EntityHandle entity)
     {
-        if (s_Initialized && ShimsAttached)
-            Motion.Sleep(entity);
+        Motion.Sleep(entity);
     }
 
     /// <summary>
@@ -603,8 +568,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityAddPhysicsGameFlags(EntityHandle entity, uint flags)
     {
-        if (s_Initialized && ShimsAttached)
-            Motion.AddGameFlags(entity, flags);
+        Motion.AddGameFlags(entity, flags);
     }
 
     /// <summary>
@@ -613,7 +577,7 @@ internal sealed unsafe partial class EngineSide
     /// (plan_physics_managed). Valid until the entity's object is destroyed.
     /// </summary>
     public nint EntityPhysicsObject(EntityHandle entity)
-        => s_Initialized && ShimsAttached ? _physicsArea.EntityPhysicsObject(entity.Value) : 0;
+        => _physicsArea.EntityPhysicsObject(entity.Value);
 
     /// <summary>
     /// The level's <c>IPhysicsEnvironment *</c>, or 0 between levels: managed
@@ -621,7 +585,7 @@ internal sealed unsafe partial class EngineSide
     /// <c>PhysicsEnvironmentFwd</c> (plan_physics_managed B2).
     /// </summary>
     public nint PhysicsEnvironmentPointer()
-        => s_Initialized && ShimsAttached ? _physicsArea.PhysicsEnvironmentPointer() : 0;
+        => _physicsArea.PhysicsEnvironmentPointer();
 
     /// <summary>
     /// <c>IPhysicsCollision::CollideGetExtent</c> for a physics object at its
@@ -632,7 +596,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public unsafe Vector PhysicsCollideExtent(nint physicsObject, Vector direction)
     {
-        if (!s_Initialized || !ShimsAttached || physicsObject == 0 || !PhysicsCollisionTable(out void* collision, out PhysicsCollisionFwd* vt))
+        if (physicsObject == 0 || !PhysicsCollisionTable(out void* collision, out PhysicsCollisionFwd* vt))
             return Vector.Zero;
 
         PhysicsObjectFwd* obj = VPhysics.PhysicsObject;
@@ -655,7 +619,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     internal unsafe int PhysicsUpdateOwners(ReadOnlySpan<nint> objects, ReadOnlySpan<float> velocities, Span<uint> owners)
     {
-        if (!s_Initialized || !ShimsAttached || objects.IsEmpty)
+        if (objects.IsEmpty)
             return 0;
 
         int count = Math.Min(Math.Min(objects.Length, owners.Length), velocities.Length / 3);
@@ -672,7 +636,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public unsafe Vector PhysicsInertia(nint physicsObject)
     {
-        if (!s_Initialized || !ShimsAttached || physicsObject == 0)
+        if (physicsObject == 0)
             return Vector.Zero;
 
         return (VPhysics.PhysicsObject)->GetInertia((void*)physicsObject);
@@ -684,8 +648,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntitySetPhysicsStatic(EntityHandle entity, bool isStatic)
     {
-        if (s_Initialized && ShimsAttached)
-            PhysicsInit?.SetStatic(entity, isStatic);
+        PhysicsInit?.SetStatic(entity, isStatic);
     }
 
     /// <summary>
@@ -695,8 +658,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityBecomePhysicsTrigger(EntityHandle entity, bool isTrigger)
     {
-        if (s_Initialized && ShimsAttached)
-            Motion.BecomeTrigger(entity, isTrigger);
+        Motion.BecomeTrigger(entity, isTrigger);
     }
 
     /// <summary>
@@ -712,7 +674,7 @@ internal sealed unsafe partial class EngineSide
     /// lookup that fails every frame on the far side.</returns>
     public int PrecacheModel(string model)
     {
-        if (!s_Initialized || !ShimsAttached || model.Length == 0) return -1;
+        if (model.Length == 0) return -1;
 
         var bytes = Encoding.UTF8.GetBytes(model + "\0");
         fixed (byte* p = bytes) { return _precacheArea.PrecacheModel(p); }
@@ -724,8 +686,6 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntityApplyForceCenter(EntityHandle entity, Vector force)
     {
-        if (!s_Initialized || !ShimsAttached) return;
-
         Motion.ApplyForceCenter(entity, force);
     }
 
@@ -739,8 +699,7 @@ internal sealed unsafe partial class EngineSide
     /// already was, so calling twice is safe.
     /// </summary>
     public bool EntityInitPhysics(EntityHandle entity, bool asleep = false, bool debris = false)
-        => s_Initialized && ShimsAttached
-           && PhysicsInit?.Create(entity, isStatic: false, asleep, debris) == true;
+        => PhysicsInit?.Create(entity, isStatic: false, asleep, debris) == true;
 
     /// <summary>
     /// What shape this entity presents to a trace, as the engine's own FSOLID_
@@ -752,11 +711,8 @@ internal sealed unsafe partial class EngineSide
     /// brush, and the projectile cannot know which it was handed.
     /// </para>
     /// </summary>
-    public SolidFlags EntityGetSolidFlags(CollisionServerArea collisionArea, EntityHandle entity)
+    public SolidFlags EntityGetSolidFlags(ICollisionServerArea collisionArea, EntityHandle entity)
     {
-        if (!s_Initialized || !ShimsAttached)
-            return SolidFlags.None;
-
         return (SolidFlags)collisionArea.EntityGetSolidFlags(entity.Value);
     }
 
@@ -783,8 +739,8 @@ internal sealed unsafe partial class EngineSide
     //-------------------------------------------------------------------------
 
     /// <summary>How many classnames the native dictionary holds a factory for.</summary>
-    internal int EntityFactoryCount(EntityLifecycleArea lifecycleArea)
-        => (s_Initialized && ShimsAttached) ? lifecycleArea.EntityFactoryCount() : 0;
+    internal int EntityFactoryCount(IEntityLifecycleArea lifecycleArea)
+        => lifecycleArea.EntityFactoryCount();
 
     /// <summary>
     /// The i'th installed classname in install order, or null past the end.
@@ -799,31 +755,23 @@ internal sealed unsafe partial class EngineSide
     /// after it.
     /// </para>
     /// </summary>
-    internal string? EntityFactoryNameAt(EntityLifecycleArea lifecycleArea, int index)
+    internal string? EntityFactoryNameAt(IEntityLifecycleArea lifecycleArea, int index)
     {
-        if (!s_Initialized || !ShimsAttached)
-            return null;
-
         return Utf8OrNull(lifecycleArea.EntityFactoryNameAt(index));
     }
 
     /// <summary>How many distinct classnames have been asked for and refused.</summary>
-    internal int EntityFactoryRefusalCount(EntityLifecycleArea lifecycleArea)
-        => (s_Initialized && ShimsAttached) ? lifecycleArea.EntityFactoryRefusalCount() : 0;
+    internal int EntityFactoryRefusalCount(IEntityLifecycleArea lifecycleArea)
+        => lifecycleArea.EntityFactoryRefusalCount();
 
     /// <summary>The i'th refused classname, or null past the end.</summary>
-    internal string? EntityFactoryRefusalNameAt(EntityLifecycleArea lifecycleArea, int index)
+    internal string? EntityFactoryRefusalNameAt(IEntityLifecycleArea lifecycleArea, int index)
     {
-        if (!s_Initialized || !ShimsAttached)
-            return null;
-
         return Utf8OrNull(lifecycleArea.EntityFactoryRefusalNameAt(index));
     }
 
     /// <summary>How many times the i'th refused classname was asked for.</summary>
-    internal int EntityFactoryRefusalTimesAt(EntityLifecycleArea lifecycleArea, int index)
-        => (s_Initialized && ShimsAttached)
-            ? lifecycleArea.EntityFactoryRefusalTimesAt(index)
-            : 0;
+    internal int EntityFactoryRefusalTimesAt(IEntityLifecycleArea lifecycleArea, int index)
+        => lifecycleArea.EntityFactoryRefusalTimesAt(index);
 
 }

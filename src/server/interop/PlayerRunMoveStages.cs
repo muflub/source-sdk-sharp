@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 
 namespace SourceSharp.Abi;
 
@@ -18,7 +17,7 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed class PlayerRunMoveStages
 {
-    internal PlayerRunMoveStages(EngineSide side, MovementServerArea movement, WorldServerArea world)
+    internal PlayerRunMoveStages(EngineSide side, IMovementServerArea movement, IWorldServerArea world)
     {
         Api = side ?? throw new ArgumentNullException(nameof(side));
         _movement = movement ?? throw new ArgumentNullException(nameof(movement));
@@ -26,7 +25,7 @@ public sealed class PlayerRunMoveStages
     }
 
     // That side's movement area, whose PlayerRunMove slot the stages call.
-    private readonly MovementServerArea _movement;
+    private readonly IMovementServerArea _movement;
 
     // Made on the first ask and kept, so the per-frame command loop allocates
     // no delegate.
@@ -40,7 +39,7 @@ public sealed class PlayerRunMoveStages
     {
         ArgumentNullException.ThrowIfNull(movement);
         EngineSide side = movement.Api;
-        return new PlayerRunMoveStages(side, side.Areas.Require<MovementServerArea>(), side.Areas.Require<WorldServerArea>());
+        return new PlayerRunMoveStages(side, side.Areas.Require<IMovementServerArea>(), side.Areas.Require<IWorldServerArea>());
     }
 
     /// <summary>The side these stages run on: the runner's.</summary>
@@ -48,7 +47,7 @@ public sealed class PlayerRunMoveStages
 
     // That side's world area, which the player's shadow traces its climb
     // through (TraceHull).
-    private readonly WorldServerArea _world;
+    private readonly IWorldServerArea _world;
 
     /// <summary>
     /// UTIL_TraceEntity on this side: the entity's hull swept from start to
@@ -62,14 +61,5 @@ public sealed class PlayerRunMoveStages
     /// <summary><c>PlayerRunMove</c> on this side, as the command loop calls it.</summary>
     internal Func<EntityHandle, int, int, int> RunMove => _runMove ??= RunMoveStage;
 
-    private int RunMoveStage(EntityHandle player, int index, int stage) => RunMoveVia(Api, _movement, player, index, stage);
-
-    /// <summary>
-    /// <paramref name="side"/>'s <c>PlayerRunMove</c> slot, guarded on the slot
-    /// being wired. An unwired slot answers 0, which the command loop reads as
-    /// the refusal it is.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int RunMoveVia(EngineSide side, MovementServerArea movement, EntityHandle player, int index, int stage)
-        => side.ShimsAttached ? movement.PlayerRunMove(player.Value, index, stage) : 0;
+    private int RunMoveStage(EntityHandle player, int index, int stage) => _movement.PlayerRunMove(player.Value, index, stage);
 }

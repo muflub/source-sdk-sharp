@@ -78,7 +78,7 @@ public interface IFxEmitters
 }
 
 /// <summary>The muzzle flashes', the bounce sounds' and the named tempents' carry-out, over IShimFxClient's slots.</summary>
-internal sealed unsafe class ClientFxEmitterSlots(FxClientArea fxClient) : IFxFlashReads, IFxGameSounds, IFxTempEntModels
+internal sealed unsafe class ClientFxEmitterSlots(IFxClientArea fxClient) : IFxFlashReads, IFxGameSounds, IFxTempEntModels
 {
     private static byte[] Utf8(string s) => System.Text.Encoding.UTF8.GetBytes(s + "\0");
 

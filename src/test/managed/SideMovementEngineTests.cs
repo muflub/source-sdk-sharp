@@ -50,7 +50,7 @@ public unsafe class SideMovementEngineTests : IDisposable
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;
@@ -198,7 +198,7 @@ public unsafe class SideMovementEngineTests : IDisposable
         _ = Attached(_second, Side.Server);
 
         var state = new SourceSharp.Shared.BarrelNetState();
-        state.Bind(first, first.Areas.Require<NetworkServerArea>(), Player);
+        state.Bind(first, first.Areas.Require<INetworkServerArea>(), Player);
 
         // Bound to the blob the first side answered (IsBound itself asks the
         // side's EntityIsValid, a SuppressGCTransition slot a managed fake
@@ -226,7 +226,7 @@ public unsafe class SideMovementEngineTests : IDisposable
         _ = Attached(_second, Side.Server);
 
         var holder = new HoldsAState();
-        NetState[] states = NetStateServerBinding.AttachBound(holder, Player, first, first.Areas.Require<NetworkServerArea>(),
+        NetState[] states = NetStateServerBinding.AttachBound(holder, Player, first, first.Areas.Require<INetworkServerArea>(),
                                                               new NetStateFields(new RecordingLog()));
 
         Assert.Single(states);
@@ -244,8 +244,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void ANetStateOnASideWithNoEngineTakesLocalStorage()
     {
         var state = new SourceSharp.Shared.BarrelNetState();
-        var side = EngineSide.Create(Side.Server);
-        state.Bind(side, side.Areas.Require<NetworkServerArea>(), Player);
+        var side = TestSides.Create(Side.Server);
+        state.Bind(side, side.Areas.Require<INetworkServerArea>(), Player);
 
         Assert.False(state.IsBound, "no engine: a local state, not a bound one");
         Assert.True(state.IsLive, "but it has storage");

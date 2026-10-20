@@ -36,7 +36,7 @@ public unsafe class ClientSideEngineTests : IDisposable
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;
@@ -120,7 +120,7 @@ public unsafe class ClientSideEngineTests : IDisposable
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         using var root = new FakeShimRoot();
-        var side = EngineSide.Create(Side.Client);
+        var side = TestSides.Create(Side.Client);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
         EngineServices.AddTo(services, side);
@@ -136,7 +136,7 @@ public unsafe class ClientSideEngineTests : IDisposable
     public void ASideWithNoClientFetchesAnswersNothing()
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(services, EngineSide.Create(Side.Server));
+        EngineServices.AddTo(services, TestSides.Create(Side.Server));
         var entities = services.Require<IEngineEntities>();
 
         Assert.Same(NoClientReplayEngine.Instance, entities.ClientReplay);

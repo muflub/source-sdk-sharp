@@ -132,7 +132,7 @@ public class PhysicsObjectEngineTests
 
     private static RecordingEngine SpawnMedium(uint id)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerVPhysicsMotion).Assembly);
         var services = TestServices.Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

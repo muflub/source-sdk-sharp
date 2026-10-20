@@ -25,7 +25,7 @@ public class TeleportStockTests
 
     private static (ScriptedEntityRegistry, RecordingEngine) World(string className, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerTeleport).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

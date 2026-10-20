@@ -129,8 +129,8 @@ public unsafe class SideStateTests
     [Fact]
     public void AnEngineComposedWithoutALoadHasAStateOfItsOwn()
     {
-        var one = EngineSide.Create(Side.Server);
-        var two = EngineSide.Create(Side.Server);
+        var one = TestSides.Create(Side.Server);
+        var two = TestSides.Create(Side.Server);
 
         Assert.NotSame(one.State, two.State);
         Assert.NotSame(one.State.Crossings, two.State.Crossings);

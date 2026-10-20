@@ -115,7 +115,7 @@ public class TouchLinkTests
 
     private static ScriptedEntityRegistry Fresh(out Raised raised)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TouchLinkTests).Assembly);
         registry.Services = Services();
 

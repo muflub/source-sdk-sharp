@@ -36,7 +36,7 @@ public class TwoInstanceTests
     {
         public ServerInstance()
         {
-            Engine = EngineSide.Create(Side.Server, new SideState(Side.Server));
+            Engine = TestSides.Create(Side.Server);
             Module = new ServerModule(new ModuleEngine(Engine));
             Module.ComposeEngineAreas();
 

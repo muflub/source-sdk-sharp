@@ -69,17 +69,19 @@ public unsafe class ShimAreasTests : IDisposable
     private static List<Type> Areas()
     {
         var areas = new List<Type>();
+        // Each area once, under its own interface (IXArea for XArea), not a base's.
         ServerAreaRegistration.AddDetached((type, area) =>
         {
-            if (type == area.GetType())
-                areas.Add(type);
+            if (type.Name == "I" + area.GetType().Name)
+                areas.Add(area.GetType());
         });
         return areas;
     }
 
     // An area's version is its class name less "Area": IShimEngine's class is
-    // EngineArea, served as SourceSharpEngine001.
-    private static string VersionOf(Type area) => $"SourceSharp{area.Name[..^"Area".Length]}001";
+    // EngineArea, handed as IEngineArea, served as SourceSharpEngine001.
+    private static string VersionOf(Type area)
+        => $"SourceSharp{(area.IsInterface ? area.Name[1..] : area.Name)[..^"Area".Length]}001";
 
     // Every version the registration asks for.
     private static List<string> Versions() => Areas().Select(VersionOf).ToList();

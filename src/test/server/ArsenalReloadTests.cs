@@ -42,7 +42,7 @@ public class ArsenalReloadTests
         var registry = sharedRegistry;
         if (registry is null)
         {
-            registry = new ScriptedEntityRegistry();
+            registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(SsWeapon).Assembly);
             registry.Services = Services(out _);
             registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");

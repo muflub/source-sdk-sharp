@@ -54,7 +54,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         Assert.True(alive.EntityIsValid(Saved), "the server answers alive when its slot does");
 
         using var other = new FakeShimRoot();
-        var gone = EngineSide.Create(Side.Server);
+        var gone = TestSides.Create(Side.Server);
         gone.Initialize();
         var (goneSelf, goneSlots) = Area(Gone);
         other.Area("SourceSharpEntitiesServer001", (void*)goneSelf, (void*)goneSlots);
@@ -103,7 +103,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;

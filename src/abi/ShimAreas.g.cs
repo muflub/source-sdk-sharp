@@ -35,10 +35,11 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
         => new(Self, (TBase*)Vt);
 
     /// <summary>
-    /// The table every typed call goes through. A detached area (one a side
-    /// with no engine registers, over no table) refuses here with the reason
-    /// rather than reading a null table: the attach guards keep product code
-    /// from asking, and a call that slips past them says so.
+    /// The table every typed call goes through. A detached area (what a side
+    /// registers before its attach, over no table) refuses here with the
+    /// reason rather than reading a null table. Nothing checks for the attach:
+    /// the game composes only after it, and a test with no engine is given
+    /// the default areas (src/test/support/ShimAreaDefaults.g.cs).
     /// </summary>
     public TFwd* Table
     {
@@ -84,9 +85,30 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
 }
 
 /// <summary>
+/// <c>IShimEngine</c> as its consumers take it: <see cref="EngineArea"/> over the engine,
+/// or a test's default (<c>DefaultEngineArea</c>).
+/// </summary>
+internal unsafe interface IEngineArea
+{
+    float GetCurrentTime();
+    nint GetGlobalVarsPtr();
+    int FilesGameFileSize(byte* a0);
+    int FilesReadGameFile(byte* a0, byte* a1, int a2);
+    int FilesSizeOnPath(byte* a0, byte* a1);
+    int FilesReadOnPath(byte* a0, byte* a1, void* a2, int a3);
+    void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5);
+    void SoundPatchStop(int a0);
+    void SoundPatchState(int a0, int* a1, int* a2);
+    void SoundPatchFree(int a0);
+    int SoundScriptParameters(byte* a0, float* a1);
+    int SoundPatchCreate(uint a0, int a1, byte* a2, int a3);
+    int SurfaceScrapeSound(int a0, int a1, byte* a2, int a3);
+}
+
+/// <summary>
 /// <c>IShimEngine</c>, served as <c>SourceSharpEngine001</c>, through <see cref="ShimEngineFwd"/>.
 /// </summary>
-internal sealed unsafe class EngineArea
+internal sealed unsafe class EngineArea : IEngineArea
 {
     private readonly ShimRef<ShimEngineFwd> _shim;
 
@@ -108,9 +130,22 @@ internal sealed unsafe class EngineArea
 }
 
 /// <summary>
+/// <c>IShimEvents</c> as its consumers take it: <see cref="EventsArea"/> over the engine,
+/// or a test's default (<c>DefaultEventsArea</c>).
+/// </summary>
+internal unsafe interface IEventsArea
+{
+    void ListenForGameEvent(byte* a0);
+    int EventGetInt(IntPtr a0, byte* a1);
+    float EventGetFloat(IntPtr a0, byte* a1);
+    int EventGetBool(IntPtr a0, byte* a1);
+    byte* EventGetString(IntPtr a0, byte* a1);
+}
+
+/// <summary>
 /// <c>IShimEvents</c>, served as <c>SourceSharpEvents001</c>, through <see cref="ShimEventsFwd"/>.
 /// </summary>
-internal unsafe class EventsArea
+internal unsafe class EventsArea : IEventsArea
 {
     private readonly ShimRef<ShimEventsFwd> _shim;
 
@@ -124,9 +159,21 @@ internal unsafe class EventsArea
 }
 
 /// <summary>
+/// <c>IShimNetwork</c> as its consumers take it: <see cref="NetworkArea"/> over the engine,
+/// or a test's default (<c>DefaultNetworkArea</c>).
+/// </summary>
+internal unsafe interface INetworkArea
+{
+    int NetHierarchyDeclare(int a0);
+    int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4);
+    int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6);
+    int WorldNetDeclare(int a0);
+}
+
+/// <summary>
 /// <c>IShimNetwork</c>, served as <c>SourceSharpNetwork001</c>, through <see cref="ShimNetworkFwd"/>.
 /// </summary>
-internal unsafe class NetworkArea
+internal unsafe class NetworkArea : INetworkArea
 {
     private readonly ShimRef<ShimNetworkFwd> _shim;
 
@@ -139,9 +186,20 @@ internal unsafe class NetworkArea
 }
 
 /// <summary>
+/// <c>IShimModels</c> as its consumers take it: <see cref="ModelsArea"/> over the engine,
+/// or a test's default (<c>DefaultModelsArea</c>).
+/// </summary>
+internal unsafe interface IModelsArea
+{
+    void EntityGetModelName(uint a0, byte* a1, int a2);
+    int EntitiesInvalidateMdlCacheAll();
+    void StandaloneSetModelScale(uint a0, float a1);
+}
+
+/// <summary>
 /// <c>IShimModels</c>, served as <c>SourceSharpModels001</c>, through <see cref="ShimModelsFwd"/>.
 /// </summary>
-internal unsafe class ModelsArea
+internal unsafe class ModelsArea : IModelsArea
 {
     private readonly ShimRef<ShimModelsFwd> _shim;
 
@@ -153,9 +211,23 @@ internal unsafe class ModelsArea
 }
 
 /// <summary>
+/// <c>IShimMovement</c> as its consumers take it: <see cref="MovementArea"/> over the engine,
+/// or a test's default (<c>DefaultMovementArea</c>).
+/// </summary>
+internal unsafe interface IMovementArea
+{
+    void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6);
+    int MovePointContents(float* a0, int a1);
+    int MoveSurface(int a0, MoveSurfaceBlob* a1);
+    int MoveEffect(int a0, float* a1, float a2, int a3);
+    float CurrentGravity();
+    void RegisterMovementParams(MovementParams* a0);
+}
+
+/// <summary>
 /// <c>IShimMovement</c>, served as <c>SourceSharpMovement001</c>, through <see cref="ShimMovementFwd"/>.
 /// </summary>
-internal unsafe class MovementArea
+internal unsafe class MovementArea : IMovementArea
 {
     private readonly ShimRef<ShimMovementFwd> _shim;
 
@@ -170,9 +242,19 @@ internal unsafe class MovementArea
 }
 
 /// <summary>
+/// <c>IShimWorld</c> as its consumers take it: <see cref="WorldArea"/> over the engine,
+/// or a test's default (<c>DefaultWorldArea</c>).
+/// </summary>
+internal unsafe interface IWorldArea
+{
+    int PointContents(float* a0);
+    int SurfacePropGameMaterial(int a0);
+}
+
+/// <summary>
 /// <c>IShimWorld</c>, served as <c>SourceSharpWorld001</c>, through <see cref="ShimWorldFwd"/>.
 /// </summary>
-internal unsafe class WorldArea
+internal unsafe class WorldArea : IWorldArea
 {
     private readonly ShimRef<ShimWorldFwd> _shim;
 
@@ -183,9 +265,21 @@ internal unsafe class WorldArea
 }
 
 /// <summary>
+/// <c>IShimEntities</c> as its consumers take it: <see cref="EntitiesArea"/> over the engine,
+/// or a test's default (<c>DefaultEntitiesArea</c>).
+/// </summary>
+internal unsafe interface IEntitiesArea
+{
+    int EntityGetIndex(uint a0);
+    void EntityGetOrigin(uint a0, float* a1);
+    void EntityGetAngles(uint a0, float* a1);
+    int EntityIsValid(uint a0);
+}
+
+/// <summary>
 /// <c>IShimEntities</c>, served as <c>SourceSharpEntities001</c>, through <see cref="ShimEntitiesFwd"/>.
 /// </summary>
-internal unsafe class EntitiesArea
+internal unsafe class EntitiesArea : IEntitiesArea
 {
     private readonly ShimRef<ShimEntitiesFwd> _shim;
 
@@ -198,9 +292,18 @@ internal unsafe class EntitiesArea
 }
 
 /// <summary>
+/// <c>IShimCollision</c> as its consumers take it: <see cref="CollisionArea"/> over the engine,
+/// or a test's default (<c>DefaultCollisionArea</c>).
+/// </summary>
+internal unsafe interface ICollisionArea
+{
+    void RegisterCollisionRules(CollisionRulesBlob* a0);
+}
+
+/// <summary>
 /// <c>IShimCollision</c>, served as <c>SourceSharpCollision001</c>, through <see cref="ShimCollisionFwd"/>.
 /// </summary>
-internal unsafe class CollisionArea
+internal unsafe class CollisionArea : ICollisionArea
 {
     private readonly ShimRef<ShimCollisionFwd> _shim;
 
@@ -210,9 +313,18 @@ internal unsafe class CollisionArea
 }
 
 /// <summary>
+/// <c>IShimEffects</c> as its consumers take it: <see cref="EffectsArea"/> over the engine,
+/// or a test's default (<c>DefaultEffectsArea</c>).
+/// </summary>
+internal unsafe interface IEffectsArea
+{
+    int TempEntRegister(TeClassDesc* a0);
+}
+
+/// <summary>
 /// <c>IShimEffects</c>, served as <c>SourceSharpEffects001</c>, through <see cref="ShimEffectsFwd"/>.
 /// </summary>
-internal unsafe class EffectsArea
+internal unsafe class EffectsArea : IEffectsArea
 {
     private readonly ShimRef<ShimEffectsFwd> _shim;
 
@@ -222,9 +334,28 @@ internal unsafe class EffectsArea
 }
 
 /// <summary>
+/// <c>IShimConsole</c> as its consumers take it: <see cref="ConsoleArea"/> over the engine,
+/// or a test's default (<c>DefaultConsoleArea</c>).
+/// </summary>
+internal unsafe interface IConsoleArea
+{
+    void Msg(byte* a0);
+    void Warning(byte* a0);
+    int RegisterConCommand(byte* a0, byte* a1, int a2);
+    int RegisterConVar(byte* a0, byte* a1, byte* a2, int a3, int a4, float a5, int a6, float a7);
+    void SetConVarValue(int a0, byte* a1);
+    void GetConVarValue(int a0, byte* a1, int a2);
+    int FindConVarValue(byte* a0, byte* a1, int a2);
+    void SetNamedConVarValue(byte* a0, byte* a1);
+    void RevertNamedConVar(byte* a0);
+    int ConsoleSnapshot();
+    int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1);
+}
+
+/// <summary>
 /// <c>IShimConsole</c>, served as <c>SourceSharpConsole001</c>, through <see cref="ShimConsoleFwd"/>.
 /// </summary>
-internal sealed unsafe class ConsoleArea
+internal sealed unsafe class ConsoleArea : IConsoleArea
 {
     private readonly ShimRef<ShimConsoleFwd> _shim;
 
@@ -244,9 +375,19 @@ internal sealed unsafe class ConsoleArea
 }
 
 /// <summary>
+/// <c>IShimConsoleServer</c> as its consumers take it: <see cref="ConsoleServerArea"/> over the engine,
+/// or a test's default (<c>DefaultConsoleServerArea</c>).
+/// </summary>
+internal unsafe interface IConsoleServerArea
+{
+    void SendClientCommand(uint a0, byte* a1);
+    uint GetCommandClientHandle();
+}
+
+/// <summary>
 /// <c>IShimConsoleServer</c>, served as <c>SourceSharpConsoleServer001</c>, through <see cref="ShimConsoleServerFwd"/>.
 /// </summary>
-internal sealed unsafe class ConsoleServerArea
+internal sealed unsafe class ConsoleServerArea : IConsoleServerArea
 {
     private readonly ShimRef<ShimConsoleServerFwd> _shim;
 
@@ -257,9 +398,21 @@ internal sealed unsafe class ConsoleServerArea
 }
 
 /// <summary>
+/// <c>IShimEventsServer</c> as its consumers take it: <see cref="EventsServerArea"/> over the engine,
+/// or a test's default (<c>DefaultEventsServerArea</c>).
+/// </summary>
+internal unsafe interface IEventsServerArea : IEventsArea
+{
+    void EventSetInt(IntPtr a0, byte* a1, int a2);
+    void EventSetFloat(IntPtr a0, byte* a1, float a2);
+    void EventSetBool(IntPtr a0, byte* a1, int a2);
+    void EventSetString(IntPtr a0, byte* a1, byte* a2);
+}
+
+/// <summary>
 /// <c>IShimEventsServer</c>, served as <c>SourceSharpEventsServer001</c>, through <see cref="ShimEventsServerFwd"/>. Its base's slots are <see cref="EventsArea"/>'s.
 /// </summary>
-internal sealed unsafe class EventsServerArea : EventsArea
+internal sealed unsafe class EventsServerArea : EventsArea, IEventsServerArea
 {
     private readonly ShimRef<ShimEventsServerFwd> _shim;
 
@@ -276,9 +429,24 @@ internal sealed unsafe class EventsServerArea : EventsArea
 }
 
 /// <summary>
+/// <c>IShimNetworkServer</c> as its consumers take it: <see cref="NetworkServerArea"/> over the engine,
+/// or a test's default (<c>DefaultNetworkServerArea</c>).
+/// </summary>
+internal unsafe interface INetworkServerArea : INetworkArea
+{
+    void* EntityGetDataBlob(uint a0, int* a1);
+    void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3);
+    void EntityMarkStateChanged(uint a0);
+    void EntityMarkBlockChanged(uint a0, int a1);
+    int EntityPayloadAgreement(uint a0, int* a1, int* a2);
+    void* EntityGetEngineBlock(uint a0, int* a1);
+    void EntitySetTransmitAlways(uint a0, int a1);
+}
+
+/// <summary>
 /// <c>IShimNetworkServer</c>, served as <c>SourceSharpNetworkServer001</c>, through <see cref="ShimNetworkServerFwd"/>. Its base's slots are <see cref="NetworkArea"/>'s.
 /// </summary>
-internal sealed unsafe class NetworkServerArea : NetworkArea
+internal sealed unsafe class NetworkServerArea : NetworkArea, INetworkServerArea
 {
     private readonly ShimRef<ShimNetworkServerFwd> _shim;
 
@@ -298,9 +466,18 @@ internal sealed unsafe class NetworkServerArea : NetworkArea
 }
 
 /// <summary>
+/// <c>IShimModelsServer</c> as its consumers take it: <see cref="ModelsServerArea"/> over the engine,
+/// or a test's default (<c>DefaultModelsServerArea</c>).
+/// </summary>
+internal unsafe interface IModelsServerArea : IModelsArea
+{
+    void EntitySetModel(uint a0, byte* a1);
+}
+
+/// <summary>
 /// <c>IShimModelsServer</c>, served as <c>SourceSharpModelsServer001</c>, through <see cref="ShimModelsServerFwd"/>. Its base's slots are <see cref="ModelsArea"/>'s.
 /// </summary>
-internal sealed unsafe class ModelsServerArea : ModelsArea
+internal sealed unsafe class ModelsServerArea : ModelsArea, IModelsServerArea
 {
     private readonly ShimRef<ShimModelsServerFwd> _shim;
 
@@ -314,9 +491,22 @@ internal sealed unsafe class ModelsServerArea : ModelsArea
 }
 
 /// <summary>
+/// <c>IShimPrecache</c> as its consumers take it: <see cref="PrecacheArea"/> over the engine,
+/// or a test's default (<c>DefaultPrecacheArea</c>).
+/// </summary>
+internal unsafe interface IPrecacheArea
+{
+    int PrecacheModel(byte* a0);
+    void PrecacheSound(byte* a0);
+    int PrecacheDecal(byte* a0);
+    void PrecacheMaterial(byte* a0);
+    void PrecacheParticleSystem(byte* a0);
+}
+
+/// <summary>
 /// <c>IShimPrecache</c>, served as <c>SourceSharpPrecache001</c>, through <see cref="ShimPrecacheFwd"/>.
 /// </summary>
-internal sealed unsafe class PrecacheArea
+internal sealed unsafe class PrecacheArea : IPrecacheArea
 {
     private readonly ShimRef<ShimPrecacheFwd> _shim;
 
@@ -330,9 +520,24 @@ internal sealed unsafe class PrecacheArea
 }
 
 /// <summary>
+/// <c>IShimMovementServer</c> as its consumers take it: <see cref="MovementServerArea"/> over the engine,
+/// or a test's default (<c>DefaultMovementServerArea</c>).
+/// </summary>
+internal unsafe interface IMovementServerArea : IMovementArea
+{
+    int PlayerRunMove(uint a0, int a1, int a2);
+    int PlayerShadowFacts(uint a0, PlayerShadowFacts* a1);
+    int PlayerShadowAdopt(uint a0, nint a1, nint a2, nint a3);
+    void PlayerShadowRelease(uint a0);
+    void PlayerShadowCommit(uint a0, int a1, int a2);
+    int PlayerSetMoveType(uint a0, int a1);
+    void PlayerSetSlowMovement(uint a0, int a1);
+}
+
+/// <summary>
 /// <c>IShimMovementServer</c>, served as <c>SourceSharpMovementServer001</c>, through <see cref="ShimMovementServerFwd"/>. Its base's slots are <see cref="MovementArea"/>'s.
 /// </summary>
-internal sealed unsafe class MovementServerArea : MovementArea
+internal sealed unsafe class MovementServerArea : MovementArea, IMovementServerArea
 {
     private readonly ShimRef<ShimMovementServerFwd> _shim;
 
@@ -352,9 +557,33 @@ internal sealed unsafe class MovementServerArea : MovementArea
 }
 
 /// <summary>
+/// <c>IShimWorldServer</c> as its consumers take it: <see cref="WorldServerArea"/> over the engine,
+/// or a test's default (<c>DefaultWorldServerArea</c>).
+/// </summary>
+internal unsafe interface IWorldServerArea : IWorldArea
+{
+    int TraceLine(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7);
+    int TraceHull(float* a0, float* a1, float* a2, float* a3, int a4, uint a5, uint* a6, int* a7);
+    int TraceLineSurface(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7, int* a8, int* a9, int* a10);
+    uint TracePlayerAim(uint a0, float a1, float* a2);
+    void AngleVectorsFromForward(float* a0, float* a1, float* a2);
+    int WaterSurfaceBelow(float* a0, float* a1, int* a2);
+    int SurfacePropIndex(byte* a0);
+    int EntityModelSurfaceProp(uint a0);
+    int InvisibleRangeReach();
+    void SetSkyboxParams(SkyboxParams* a0);
+    byte* WorldChapterTitle();
+    uint AreaPortalCreate(int a0, int a1);
+    void AreaPortalDestroy(uint a0);
+    void AreaPortalSetOpen(uint a0, int a1);
+    void AreaPortalSetWindow(uint a0, uint a1, float a2);
+    int EntityTraceHull(uint a0, float* a1, float* a2, float* a3, float* a4, int a5, int a6, float* a7);
+}
+
+/// <summary>
 /// <c>IShimWorldServer</c>, served as <c>SourceSharpWorldServer001</c>, through <see cref="ShimWorldServerFwd"/>. Its base's slots are <see cref="WorldArea"/>'s.
 /// </summary>
-internal sealed unsafe class WorldServerArea : WorldArea
+internal sealed unsafe class WorldServerArea : WorldArea, IWorldServerArea
 {
     private readonly ShimRef<ShimWorldServerFwd> _shim;
 
@@ -383,9 +612,35 @@ internal sealed unsafe class WorldServerArea : WorldArea
 }
 
 /// <summary>
+/// <c>IShimEntitiesServer</c> as its consumers take it: <see cref="EntitiesServerArea"/> over the engine,
+/// or a test's default (<c>DefaultEntitiesServerArea</c>).
+/// </summary>
+internal unsafe interface IEntitiesServerArea : IEntitiesArea
+{
+    int EntityIsPlayer(uint a0);
+    void EntityGetClassName(uint a0, byte* a1, int a2);
+    void EntityGetName(uint a0, byte* a1, int a2);
+    int EntityGetState(uint a0, int* a1);
+    uint FindEntityByClassname(uint a0, byte* a1);
+    int EntitiesInSphere(float* a0, float a1, uint* a2, int a3);
+    int EntitySetKeyValue(uint a0, byte* a1, byte* a2);
+    void EntityGetSpawnOrigin(uint a0, float* a1);
+    void EntityGetSpawnAngles(uint a0, float* a1);
+    int EntityGetSpawnFlags(uint a0);
+    void EntitySetSpawnFlags(uint a0, int a1);
+    int EntityGetHealth(uint a0);
+    void EntitySetHealth(uint a0, int a1);
+    void EntitySetVisible(uint a0, int a1);
+    void EntitySetOwner(uint a0, uint a1);
+    void EntityMakePickup(uint a0, float a1, float a2, float a3);
+    void EntitySetPickupEnabled(uint a0, int a1);
+    int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1);
+}
+
+/// <summary>
 /// <c>IShimEntitiesServer</c>, served as <c>SourceSharpEntitiesServer001</c>, through <see cref="ShimEntitiesServerFwd"/>. Its base's slots are <see cref="EntitiesArea"/>'s.
 /// </summary>
-internal sealed unsafe class EntitiesServerArea : EntitiesArea
+internal sealed unsafe class EntitiesServerArea : EntitiesArea, IEntitiesServerArea
 {
     private readonly ShimRef<ShimEntitiesServerFwd> _shim;
 
@@ -416,9 +671,31 @@ internal sealed unsafe class EntitiesServerArea : EntitiesArea
 }
 
 /// <summary>
+/// <c>IShimEntityLifecycle</c> as its consumers take it: <see cref="EntityLifecycleArea"/> over the engine,
+/// or a test's default (<c>DefaultEntityLifecycleArea</c>).
+/// </summary>
+internal unsafe interface IEntityLifecycleArea
+{
+    uint CreateEntity(byte* a0);
+    void EntitySpawn(uint a0);
+    void EntityRemove(uint a0);
+    void DestroyShell(uint* a0, int a1);
+    uint MapSpawnCreate(byte* a0, byte* a1, int a2);
+    void RegisterScriptedEntity(byte* a0, byte** a1, int a2, int a3);
+    void RegisterClassOps(byte* a0, uint a1);
+    int EntityDispatch(uint a0, int a1, OpArgs* a2);
+    int EntityFactoryCount();
+    byte* EntityFactoryNameAt(int a0);
+    int EntityFactoryRefusalCount();
+    byte* EntityFactoryRefusalNameAt(int a0);
+    int EntityFactoryRefusalTimesAt(int a0);
+    int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7);
+}
+
+/// <summary>
 /// <c>IShimEntityLifecycle</c>, served as <c>SourceSharpEntityLifecycle001</c>, through <see cref="ShimEntityLifecycleFwd"/>.
 /// </summary>
-internal sealed unsafe class EntityLifecycleArea
+internal sealed unsafe class EntityLifecycleArea : IEntityLifecycleArea
 {
     private readonly ShimRef<ShimEntityLifecycleFwd> _shim;
 
@@ -441,9 +718,31 @@ internal sealed unsafe class EntityLifecycleArea
 }
 
 /// <summary>
+/// <c>IShimTransform</c> as its consumers take it: <see cref="TransformArea"/> over the engine,
+/// or a test's default (<c>DefaultTransformArea</c>).
+/// </summary>
+internal unsafe interface ITransformArea
+{
+    void EntitySetOrigin(uint a0, float* a1);
+    void EntitySetAngles(uint a0, float* a1);
+    void EntityTeleport(uint a0, float* a1, float* a2, int a3);
+    void EntityGetVelocity(uint a0, float* a1);
+    void EntitySetVelocity(uint a0, float* a1);
+    void EntityAddBaseVelocity(uint a0, float* a1);
+    void EntityGetAngularVelocity(uint a0, float* a1);
+    void EntitySetAngularVelocity(uint a0, float* a1);
+    void EntityGetEyePosition(uint a0, float* a1);
+    void EntityGetEyeAngles(uint a0, float* a1);
+    void EntityGetWorldSpaceCenter(uint a0, float* a1);
+    float EntityGetGravity(uint a0);
+    void EntitySetGravity(uint a0, float a1);
+    void EntitySetBounce(uint a0, int a1);
+}
+
+/// <summary>
 /// <c>IShimTransform</c>, served as <c>SourceSharpTransform001</c>, through <see cref="ShimTransformFwd"/>.
 /// </summary>
-internal sealed unsafe class TransformArea
+internal sealed unsafe class TransformArea : ITransformArea
 {
     private readonly ShimRef<ShimTransformFwd> _shim;
 
@@ -466,9 +765,24 @@ internal sealed unsafe class TransformArea
 }
 
 /// <summary>
+/// <c>IShimHierarchy</c> as its consumers take it: <see cref="HierarchyArea"/> over the engine,
+/// or a test's default (<c>DefaultHierarchyArea</c>).
+/// </summary>
+internal unsafe interface IHierarchyArea
+{
+    int EntitySetParent(uint a0, uint a1, int a2);
+    uint EntityGetParent(uint a0);
+    int EntityGetParentAttachment(uint a0);
+    void EntitySetLocalTransform(uint a0, float* a1, float* a2);
+    void EntityGetLocalTransform(uint a0, float* a1, float* a2);
+    int EntityParentProbe(uint a0);
+    int EntityGetAttachmentFrame(uint a0, int a1, float* a2, float* a3);
+}
+
+/// <summary>
 /// <c>IShimHierarchy</c>, served as <c>SourceSharpHierarchy001</c>, through <see cref="ShimHierarchyFwd"/>.
 /// </summary>
-internal sealed unsafe class HierarchyArea
+internal sealed unsafe class HierarchyArea : IHierarchyArea
 {
     private readonly ShimRef<ShimHierarchyFwd> _shim;
 
@@ -484,9 +798,28 @@ internal sealed unsafe class HierarchyArea
 }
 
 /// <summary>
+/// <c>IShimCollisionServer</c> as its consumers take it: <see cref="CollisionServerArea"/> over the engine,
+/// or a test's default (<c>DefaultCollisionServerArea</c>).
+/// </summary>
+internal unsafe interface ICollisionServerArea : ICollisionArea
+{
+    void EntityGetBounds(uint a0, float* a1, float* a2);
+    void EntityGetBoundsSize(uint a0, float* a1);
+    void EntitySetBounds(uint a0, float* a1, float* a2);
+    int EntityGetSolidType(uint a0);
+    void EntitySetSolidity(uint a0, int a1, int a2);
+    int EntityGetSolidFlags(uint a0);
+    void EntitySetNotSolid(uint a0, int a1);
+    void EntitySetBrushSolidity(uint a0, int a1);
+    int EntityGetCollisionGroup(uint a0);
+    void EntitySetCollisionGroup(uint a0, int a1);
+    int EntityOverlapReport(uint* a0, int a1);
+}
+
+/// <summary>
 /// <c>IShimCollisionServer</c>, served as <c>SourceSharpCollisionServer001</c>, through <see cref="ShimCollisionServerFwd"/>. Its base's slots are <see cref="CollisionArea"/>'s.
 /// </summary>
-internal sealed unsafe class CollisionServerArea : CollisionArea
+internal sealed unsafe class CollisionServerArea : CollisionArea, ICollisionServerArea
 {
     private readonly ShimRef<ShimCollisionServerFwd> _shim;
 
@@ -510,9 +843,23 @@ internal sealed unsafe class CollisionServerArea : CollisionArea
 }
 
 /// <summary>
+/// <c>IShimPhysics</c> as its consumers take it: <see cref="PhysicsArea"/> over the engine,
+/// or a test's default (<c>DefaultPhysicsArea</c>).
+/// </summary>
+internal unsafe interface IPhysicsArea
+{
+    void EntityDestroyPhysics(uint a0);
+    nint EntityPhysicsObject(uint a0);
+    nint PhysicsEnvironmentPointer();
+    nint PhysicsWorldObject();
+    int PhysicsUpdateOwners(void** a0, float* a1, int a2, uint* a3);
+    int EntitySwapPhysicsObject(uint a0, nint a1, void** a2);
+}
+
+/// <summary>
 /// <c>IShimPhysics</c>, served as <c>SourceSharpPhysics001</c>, through <see cref="ShimPhysicsFwd"/>.
 /// </summary>
-internal sealed unsafe class PhysicsArea
+internal sealed unsafe class PhysicsArea : IPhysicsArea
 {
     private readonly ShimRef<ShimPhysicsFwd> _shim;
 
@@ -527,9 +874,20 @@ internal sealed unsafe class PhysicsArea
 }
 
 /// <summary>
+/// <c>IShimDamage</c> as its consumers take it: <see cref="DamageArea"/> over the engine,
+/// or a test's default (<c>DefaultDamageArea</c>).
+/// </summary>
+internal unsafe interface IDamageArea
+{
+    void ApplyDamage(uint a0, uint a1, float a2, int a3);
+    void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6);
+    void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5);
+}
+
+/// <summary>
 /// <c>IShimDamage</c>, served as <c>SourceSharpDamage001</c>, through <see cref="ShimDamageFwd"/>.
 /// </summary>
-internal sealed unsafe class DamageArea
+internal sealed unsafe class DamageArea : IDamageArea
 {
     private readonly ShimRef<ShimDamageFwd> _shim;
 
@@ -541,9 +899,20 @@ internal sealed unsafe class DamageArea
 }
 
 /// <summary>
+/// <c>IShimGameRules</c> as its consumers take it: <see cref="GameRulesArea"/> over the engine,
+/// or a test's default (<c>DefaultGameRulesArea</c>).
+/// </summary>
+internal unsafe interface IGameRulesArea
+{
+    void RegisterGameRulesPolicy(GameRulesPolicyBlob* a0);
+    void RegisterDamageRules(DamageRuleMasks* a0);
+    void EndRound();
+}
+
+/// <summary>
 /// <c>IShimGameRules</c>, served as <c>SourceSharpGameRules001</c>, through <see cref="ShimGameRulesFwd"/>.
 /// </summary>
-internal sealed unsafe class GameRulesArea
+internal sealed unsafe class GameRulesArea : IGameRulesArea
 {
     private readonly ShimRef<ShimGameRulesFwd> _shim;
 
@@ -555,9 +924,28 @@ internal sealed unsafe class GameRulesArea
 }
 
 /// <summary>
+/// <c>IShimPlayers</c> as its consumers take it: <see cref="PlayersArea"/> over the engine,
+/// or a test's default (<c>DefaultPlayersArea</c>).
+/// </summary>
+internal unsafe interface IPlayersArea
+{
+    uint GetPlayerHandle(int a0);
+    int GetPlayerTeam(uint a0);
+    int PlayerIsAlive(uint a0);
+    void PlayerRespawn(uint a0);
+    void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2);
+    int PlayerGetObserverMode(uint a0);
+    void PlayerSetObserverMode(uint a0, int a1);
+    void PlayerSnapEyeAngles(uint a0, float* a1);
+    void GetPlayerShootOrigin(uint a0, float* a1);
+    int ClientsStandalonePlayerEarPosition(int a0, float* a1);
+    void PlayerSetTeam(uint a0, int a1);
+}
+
+/// <summary>
 /// <c>IShimPlayers</c>, served as <c>SourceSharpPlayers001</c>, through <see cref="ShimPlayersFwd"/>.
 /// </summary>
-internal sealed unsafe class PlayersArea
+internal sealed unsafe class PlayersArea : IPlayersArea
 {
     private readonly ShimRef<ShimPlayersFwd> _shim;
 
@@ -577,9 +965,22 @@ internal sealed unsafe class PlayersArea
 }
 
 /// <summary>
+/// <c>IShimSound</c> as its consumers take it: <see cref="SoundArea"/> over the engine,
+/// or a test's default (<c>DefaultSoundArea</c>).
+/// </summary>
+internal unsafe interface ISoundArea
+{
+    void EntityEmitSound(uint a0, byte* a1);
+    void EntityStopSound(uint a0, byte* a1);
+    void EmitSoundAtPosition(byte* a0, float* a1);
+    void EmitAmbientSound(int a0, float* a1, byte* a2, float a3, int a4, int a5, int a6);
+    int EmitWorldSoundScript(byte* a0, float* a1, int a2, float a3);
+}
+
+/// <summary>
 /// <c>IShimSound</c>, served as <c>SourceSharpSound001</c>, through <see cref="ShimSoundFwd"/>.
 /// </summary>
-internal sealed unsafe class SoundArea
+internal sealed unsafe class SoundArea : ISoundArea
 {
     private readonly ShimRef<ShimSoundFwd> _shim;
 
@@ -593,9 +994,31 @@ internal sealed unsafe class SoundArea
 }
 
 /// <summary>
+/// <c>IShimEffectsServer</c> as its consumers take it: <see cref="EffectsServerArea"/> over the engine,
+/// or a test's default (<c>DefaultEffectsServerArea</c>).
+/// </summary>
+internal unsafe interface IEffectsServerArea : IEffectsArea
+{
+    void TempEntPlayback(int a0, void* a1, int a2, TeFilterDesc* a3, float a4);
+    int EffectDispatchIndex(byte* a0);
+    void ExplosionEffect(float* a0, int a1, float a2, int a3, int a4, int a5, int a6);
+    void ViewPunch(float* a0, float* a1, float a2, int a3);
+    void SparkEffect(float* a0, int a1, int a2, int a3, float* a4);
+    void ImpactEffect(float* a0, float* a1, int a2, int a3, uint a4);
+    void MuzzleFlashEffect(float* a0, float* a1, float a2, int a3);
+    void TracerEffect(float* a0, float* a1);
+    void BubbleEffect(uint a0, int a1, float a2);
+    void FunnelEffect(float* a0, int a1, int a2);
+    void DustEffect(float* a0, float* a1, float a2, float a3);
+    void SplashEffect(float* a0, float a1, int a2);
+    void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5);
+    int PaintDecal(int a0, float* a1, float* a2, float a3, int a4, int a5);
+}
+
+/// <summary>
 /// <c>IShimEffectsServer</c>, served as <c>SourceSharpEffectsServer001</c>, through <see cref="ShimEffectsServerFwd"/>. Its base's slots are <see cref="EffectsArea"/>'s.
 /// </summary>
-internal sealed unsafe class EffectsServerArea : EffectsArea
+internal sealed unsafe class EffectsServerArea : EffectsArea, IEffectsServerArea
 {
     private readonly ShimRef<ShimEffectsServerFwd> _shim;
 
@@ -622,9 +1045,22 @@ internal sealed unsafe class EffectsServerArea : EffectsArea
 }
 
 /// <summary>
+/// <c>IShimDebugOverlay</c> as its consumers take it: <see cref="DebugOverlayArea"/> over the engine,
+/// or a test's default (<c>DefaultDebugOverlayArea</c>).
+/// </summary>
+internal unsafe interface IDebugOverlayArea
+{
+    void DrawWorldText(float* a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7);
+    int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7);
+    void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6);
+    void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4);
+    void OverlayResetCounts();
+}
+
+/// <summary>
 /// <c>IShimDebugOverlay</c>, served as <c>SourceSharpDebugOverlay001</c>, through <see cref="ShimDebugOverlayFwd"/>.
 /// </summary>
-internal sealed unsafe class DebugOverlayArea
+internal sealed unsafe class DebugOverlayArea : IDebugOverlayArea
 {
     private readonly ShimRef<ShimDebugOverlayFwd> _shim;
 
@@ -638,9 +1074,18 @@ internal sealed unsafe class DebugOverlayArea
 }
 
 /// <summary>
+/// <c>IShimUserMessages</c> as its consumers take it: <see cref="UserMessagesArea"/> over the engine,
+/// or a test's default (<c>DefaultUserMessagesArea</c>).
+/// </summary>
+internal unsafe interface IUserMessagesArea
+{
+    int UserMessageSend(int a0, byte* a1, int a2, int a3, int a4);
+}
+
+/// <summary>
 /// <c>IShimUserMessages</c>, served as <c>SourceSharpUserMessages001</c>, through <see cref="ShimUserMessagesFwd"/>.
 /// </summary>
-internal sealed unsafe class UserMessagesArea
+internal sealed unsafe class UserMessagesArea : IUserMessagesArea
 {
     private readonly ShimRef<ShimUserMessagesFwd> _shim;
 
@@ -650,9 +1095,21 @@ internal sealed unsafe class UserMessagesArea
 }
 
 /// <summary>
+/// <c>IShimDiagnostics</c> as its consumers take it: <see cref="DiagnosticsArea"/> over the engine,
+/// or a test's default (<c>DefaultDiagnosticsArea</c>).
+/// </summary>
+internal unsafe interface IDiagnosticsArea
+{
+    int PlayerShadowCounts(int* a0, int a1);
+    int ExitWatchArm(byte* a0);
+    int ExitWatchRead(int* a0, int a1);
+    int ExitWatchDisarm();
+}
+
+/// <summary>
 /// <c>IShimDiagnostics</c>, served as <c>SourceSharpDiagnostics001</c>, through <see cref="ShimDiagnosticsFwd"/>.
 /// </summary>
-internal sealed unsafe class DiagnosticsArea
+internal sealed unsafe class DiagnosticsArea : IDiagnosticsArea
 {
     private readonly ShimRef<ShimDiagnosticsFwd> _shim;
 
@@ -665,9 +1122,22 @@ internal sealed unsafe class DiagnosticsArea
 }
 
 /// <summary>
+/// <c>IShimHudClient</c> as its consumers take it: <see cref="HudClientArea"/> over the engine,
+/// or a test's default (<c>DefaultHudClientArea</c>).
+/// </summary>
+internal unsafe interface IHudClientArea
+{
+    int GetLocalPlayerHealth();
+    int GetLocalPlayerIndex();
+    void HudLocalise(byte* a0, byte* a1, int a2);
+    void HudLookupBinding(byte* a0, byte* a1, int a2);
+    int HudTextMessageGet(byte* a0, TextMessage* a1);
+}
+
+/// <summary>
 /// <c>IShimHudClient</c>, served as <c>SourceSharpHudClient001</c>, through <see cref="ShimHudClientFwd"/>.
 /// </summary>
-internal sealed unsafe class HudClientArea
+internal sealed unsafe class HudClientArea : IHudClientArea
 {
     private readonly ShimRef<ShimHudClientFwd> _shim;
 
@@ -681,9 +1151,21 @@ internal sealed unsafe class HudClientArea
 }
 
 /// <summary>
+/// <c>IShimPredictionClient</c> as its consumers take it: <see cref="PredictionClientArea"/> over the engine,
+/// or a test's default (<c>DefaultPredictionClientArea</c>).
+/// </summary>
+internal unsafe interface IPredictionClientArea
+{
+    int ClientGetUserCmd(int a0, UserCmd* a1);
+    void ClientPlayerPredictionDrive(uint a0, ClientPlayerViewBlob* a1);
+    int MoveBeginClientCommand(uint a0, int a1, MoveStateBlob* a2);
+    void MoveEndClientCommand(int a0, int* a1);
+}
+
+/// <summary>
 /// <c>IShimPredictionClient</c>, served as <c>SourceSharpPredictionClient001</c>, through <see cref="ShimPredictionClientFwd"/>.
 /// </summary>
-internal sealed unsafe class PredictionClientArea
+internal sealed unsafe class PredictionClientArea : IPredictionClientArea
 {
     private readonly ShimRef<ShimPredictionClientFwd> _shim;
 
@@ -696,9 +1178,31 @@ internal sealed unsafe class PredictionClientArea
 }
 
 /// <summary>
+/// <c>IShimTempEntPoolClient</c> as its consumers take it: <see cref="TempEntPoolClientArea"/> over the engine,
+/// or a test's default (<c>DefaultTempEntPoolClientArea</c>).
+/// </summary>
+internal unsafe interface ITempEntPoolClientArea
+{
+    int ClientEntityModelBounds(int a0, float* a1, float* a2, float* a3);
+    int ClientEntityOrigin(int a0, float* a1);
+    void ClientWindSpeed(float a0, float* a1);
+    int TempEntPoolAddVisible(int a0);
+    int TempEntPoolCapacity();
+    int TempEntPoolCreate(int a0, float* a1, int a2, int a3);
+    void TempEntPoolDestroy(int a0);
+    int TempEntPoolReadLife(int a0, TempEntLife* a1);
+    int TempEntPoolReadStatics(int a0, TempEntStatics* a1);
+    int TempEntPoolReadTransform(int a0, TempEntTransform* a1);
+    int TempEntPoolSimulate(int a0, float a1, int a2);
+    int TempEntPoolWriteLife(int a0, TempEntLife* a1);
+    int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1);
+    int TempEntPoolWriteTransform(int a0, TempEntTransform* a1);
+}
+
+/// <summary>
 /// <c>IShimTempEntPoolClient</c>, served as <c>SourceSharpTempEntPoolClient001</c>, through <see cref="ShimTempEntPoolClientFwd"/>.
 /// </summary>
-internal sealed unsafe class TempEntPoolClientArea
+internal sealed unsafe class TempEntPoolClientArea : ITempEntPoolClientArea
 {
     private readonly ShimRef<ShimTempEntPoolClientFwd> _shim;
 
@@ -721,9 +1225,34 @@ internal sealed unsafe class TempEntPoolClientArea
 }
 
 /// <summary>
+/// <c>IShimTempEntBackendsClient</c> as its consumers take it: <see cref="TempEntBackendsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultTempEntBackendsClientArea</c>).
+/// </summary>
+internal unsafe interface ITempEntBackendsClientArea
+{
+    void ClientDecalBrushModel(int a0, float* a1, int a2);
+    int ClientDecalIndexFromName(byte* a0);
+    int ClientDecalNameFromIndex(int a0, byte* a1, int a2);
+    void ClientDecalShoot(int a0, int a1, float* a2, float* a3, int a4);
+    void ClientDecalStaticProp(float* a0, float* a1, int a2, int a3);
+    void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3);
+    void ClientEnergySplash(float* a0, float* a1, int a2);
+    int ClientEntityModelType(int a0);
+    void ClientExplosionFireball(float* a0);
+    int ClientIsLowViolence();
+    void ClientMetalSparks(float* a0, float* a1);
+    void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3);
+    void ClientPlayerDecalShoot(float* a0, int a1, int a2);
+    void ClientRicochet(float* a0, float* a1);
+    void ClientSmoke(float* a0, int a1, float a2, float a3);
+    void ClientSparks(float* a0, int a1, int a2, float* a3);
+    void EffectDispatchName(int a0, byte* a1, int a2);
+}
+
+/// <summary>
 /// <c>IShimTempEntBackendsClient</c>, served as <c>SourceSharpTempEntBackendsClient001</c>, through <see cref="ShimTempEntBackendsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class TempEntBackendsClientArea
+internal sealed unsafe class TempEntBackendsClientArea : ITempEntBackendsClientArea
 {
     private readonly ShimRef<ShimTempEntBackendsClientFwd> _shim;
 
@@ -749,9 +1278,47 @@ internal sealed unsafe class TempEntBackendsClientArea
 }
 
 /// <summary>
+/// <c>IShimEffectsRenderClient</c> as its consumers take it: <see cref="EffectsRenderClientArea"/> over the engine,
+/// or a test's default (<c>DefaultEffectsRenderClientArea</c>).
+/// </summary>
+internal unsafe interface IEffectsRenderClientArea
+{
+    int DrawSprite(uint a0, int a1, float a2, int a3, int a4, int a5, int a6, int a7, int a8, float a9, int a10, float a11, float a12);
+    int DrawSpriteOffset(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13);
+    int ParticleSystemFollowPoints(uint a0, int a1);
+    int ParticleSystemStart(uint a0, byte* a1);
+    void ParticleSystemStop(uint a0);
+    void SpriteTrailDestroy(uint a0);
+    void SpriteTrailUpdate(uint a0, int a1, int a2);
+    void WindPublish(float* a0, float* a1, int a2);
+    int RopeMaterial(byte* a0, int* a1, int* a2);
+    void RopeDraw(int a0, float* a1, int a2, float* a3, int a4, int a5);
+    void ClientViewState(int a0, float* a1, float* a2, float* a3, float* a4, int* a5, int* a6, int* a7);
+    void ClientComputeLighting(float* a0, float* a1, float* a2);
+    float ClientTraceHullWorld(float* a0, float* a1, float* a2, float* a3, int a4, int* a5, float* a6);
+    void BeamView(int a0, float* a1);
+    int BeamModelInfo(int a0, int* a1);
+    int BeamModelIndex(byte* a0);
+    uint BeamEntityAt(int a0);
+    int BeamEntityHasModel(uint a0);
+    int BeamEntityFacts(uint a0, int a1, int a2, float* a3);
+    int BeamBoxVisibility(float* a0, float* a1);
+    float BeamHaloVisibility(float* a0, float a1);
+    int BeamScreenPosition(float* a0, float* a1);
+    int BeamRenderableAdd(float* a0);
+    void BeamRenderableChanged(int a0, float* a1);
+    void BeamRenderableRemove(int a0);
+    int BeamBindSprite(int a0, int a1, int a2, int a3);
+    void BeamSetHdrColorScale(int a0, int a1, float a2);
+    int BeamGlow(int a0, int a1);
+    void BeamDrawStrip(float* a0, int a1);
+    void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4);
+}
+
+/// <summary>
 /// <c>IShimEffectsRenderClient</c>, served as <c>SourceSharpEffectsRenderClient001</c>, through <see cref="ShimEffectsRenderClientFwd"/>.
 /// </summary>
-internal sealed unsafe class EffectsRenderClientArea
+internal sealed unsafe class EffectsRenderClientArea : IEffectsRenderClientArea
 {
     private readonly ShimRef<ShimEffectsRenderClientFwd> _shim;
 
@@ -790,9 +1357,39 @@ internal sealed unsafe class EffectsRenderClientArea
 }
 
 /// <summary>
+/// <c>IShimStandaloneClient</c> as its consumers take it: <see cref="StandaloneClientArea"/> over the engine,
+/// or a test's default (<c>DefaultStandaloneClientArea</c>).
+/// </summary>
+internal unsafe interface IStandaloneClientArea
+{
+    void ActivateOccluder(int a0, int a1);
+    void ClientEmitSound(uint a0, byte* a1, float* a2);
+    void** ClientInterpBlocks(int* a0, float* a1);
+    void** ClientPolicyBlocks(int* a0);
+    void DynamicLightRelease(int a0);
+    void DynamicLightUpdate(DynamicLight* a0);
+    int StandaloneIsDormant(uint a0);
+    void StandaloneSetBlending(uint a0, int a1, int a2, int a3);
+    void StandaloneSetCustomDraw(uint a0, float* a1, float* a2);
+    void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4);
+    void StandaloneSetOverlayModel(uint a0, int a1);
+    void StandaloneSetShadowCast(uint a0, int a1);
+    void StandaloneSetViewModel(uint a0, int a1);
+    int StandaloneShadowCast(uint a0, int* a1, int* a2);
+    void SurfaceSetEdges(uint a0, byte* a1, int a2);
+    int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10);
+    int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7);
+    void* StandaloneEngineBlock(uint a0, int* a1);
+    void StandaloneStoreSequence(uint a0, int a1, float a2, float a3, float a4, int a5);
+    void StandaloneSetRagdoll(uint a0, int a1);
+    void EntitySetSkin(uint a0, int a1);
+    void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5);
+}
+
+/// <summary>
 /// <c>IShimStandaloneClient</c>, served as <c>SourceSharpStandaloneClient001</c>, through <see cref="ShimStandaloneClientFwd"/>.
 /// </summary>
-internal sealed unsafe class StandaloneClientArea
+internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
 {
     private readonly ShimRef<ShimStandaloneClientFwd> _shim;
 
@@ -823,9 +1420,33 @@ internal sealed unsafe class StandaloneClientArea
 }
 
 /// <summary>
+/// <c>IShimViewClient</c> as its consumers take it: <see cref="ViewClientArea"/> over the engine,
+/// or a test's default (<c>DefaultViewClientArea</c>).
+/// </summary>
+internal unsafe interface IViewClientArea
+{
+    void ConNPrintf(void* a0, int a1, byte* a2);
+    void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5);
+    void GetLightForPoint(void* a0, float* a1, int a2, float* a3);
+    void GetLightForPointFast(void* a0, float* a1, int a2, float* a3);
+    int ClientColorCorrection(int a0, int a1, byte* a2, float a3);
+    void ClientSetWorldRenderState(int a0, float* a1, int a2);
+    int GetLocalPlayerOrigin(float* a0);
+    void SetViewerFogParams(FogParams* a0);
+    void SetViewerSkyboxParams(SkyboxParams* a0);
+    int ClientTraceLine(float* a0, float* a1, int a2, int a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11);
+    int ClientTraceHull(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int a6, float* a7, float* a8);
+    int ClientEntityRenderPose(int a0, float* a1, float* a2);
+    void ViewOverrideSet(int a0, float* a1, float* a2, int a3);
+    int EntitiesUpdateVisibilityAll();
+    int RenderViewToTarget(int a0, ViewTargetSetup* a1);
+    int ViewTargetInfo(int a0, int* a1);
+}
+
+/// <summary>
 /// <c>IShimViewClient</c>, served as <c>SourceSharpViewClient001</c>, through <see cref="ShimViewClientFwd"/>.
 /// </summary>
-internal sealed unsafe class ViewClientArea
+internal sealed unsafe class ViewClientArea : IViewClientArea
 {
     private readonly ShimRef<ShimViewClientFwd> _shim;
 
@@ -850,9 +1471,19 @@ internal sealed unsafe class ViewClientArea
 }
 
 /// <summary>
+/// <c>IShimUserMessagesClient</c> as its consumers take it: <see cref="UserMessagesClientArea"/> over the engine,
+/// or a test's default (<c>DefaultUserMessagesClientArea</c>).
+/// </summary>
+internal unsafe interface IUserMessagesClientArea
+{
+    int ClientViewportQuery(byte* a0);
+    void ClientViewportShow(byte* a0, int a1, byte* a2, int a3, int a4);
+}
+
+/// <summary>
 /// <c>IShimUserMessagesClient</c>, served as <c>SourceSharpUserMessagesClient001</c>, through <see cref="ShimUserMessagesClientFwd"/>.
 /// </summary>
-internal sealed unsafe class UserMessagesClientArea
+internal sealed unsafe class UserMessagesClientArea : IUserMessagesClientArea
 {
     private readonly ShimRef<ShimUserMessagesClientFwd> _shim;
 
@@ -863,9 +1494,21 @@ internal sealed unsafe class UserMessagesClientArea
 }
 
 /// <summary>
+/// <c>IShimNetClient</c> as its consumers take it: <see cref="NetClientArea"/> over the engine,
+/// or a test's default (<c>DefaultNetClientArea</c>).
+/// </summary>
+internal unsafe interface INetClientArea
+{
+    int SendServerMessage(byte* a0, byte* a1, int a2);
+    int ClientNetFlow(int a0, float* a1, int a2);
+    int ClientNetChannel(float* a0, int a1);
+    int ClientNetPacket(int a0, int a1, float* a2, int a3);
+}
+
+/// <summary>
 /// <c>IShimNetClient</c>, served as <c>SourceSharpNetClient001</c>, through <see cref="ShimNetClientFwd"/>.
 /// </summary>
-internal sealed unsafe class NetClientArea
+internal sealed unsafe class NetClientArea : INetClientArea
 {
     private readonly ShimRef<ShimNetClientFwd> _shim;
 
@@ -878,9 +1521,19 @@ internal sealed unsafe class NetClientArea
 }
 
 /// <summary>
+/// <c>IShimDiagnosticsClient</c> as its consumers take it: <see cref="DiagnosticsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultDiagnosticsClientArea</c>).
+/// </summary>
+internal unsafe interface IDiagnosticsClientArea
+{
+    int ClientNotShipped(int a0, byte* a1, int a2, byte* a3, int a4, int* a5, int* a6);
+    int ClientRefusal(int a0, byte* a1, int a2, int* a3, int* a4);
+}
+
+/// <summary>
 /// <c>IShimDiagnosticsClient</c>, served as <c>SourceSharpDiagnosticsClient001</c>, through <see cref="ShimDiagnosticsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class DiagnosticsClientArea
+internal sealed unsafe class DiagnosticsClientArea : IDiagnosticsClientArea
 {
     private readonly ShimRef<ShimDiagnosticsClientFwd> _shim;
 
@@ -891,9 +1544,38 @@ internal sealed unsafe class DiagnosticsClientArea
 }
 
 /// <summary>
+/// <c>IShimUiClient</c> as its consumers take it: <see cref="UiClientArea"/> over the engine,
+/// or a test's default (<c>DefaultUiClientArea</c>).
+/// </summary>
+internal unsafe interface IUiClientArea
+{
+    void UiDrawFilledRect(int a0, int a1, int a2, int a3, uint a4);
+    void UiDrawFilledRectFade(int a0, int a1, int a2, int a3, uint a4, int a5, int a6, int a7);
+    void UiDrawOutlinedRect(int a0, int a1, int a2, int a3, uint a4);
+    void UiDrawLine(int a0, int a1, int a2, int a3, uint a4);
+    void UiDrawTexturedRect(int a0, int a1, int a2, int a3, int a4, float a5, float a6, float a7, float a8, uint a9);
+    void UiDrawPolygon(int a0, float* a1, int a2, uint a3);
+    void UiDrawText(int a0, int a1, int a2, ushort* a3, int a4, uint a5);
+    void UiMeasureText(int a0, ushort* a1, int a2, int* a3, int* a4);
+    void UiSetClip(int a0, int a1, int a2, int a3, int a4);
+    int UiTextureCreate();
+    void UiTextureUpload(int a0, byte* a1, int a2, int a3);
+    int UiFontAddFile(byte* a0);
+    int UiFontCreate(byte* a0, int a1, int a2, int a3);
+    void UiFontMetrics(int a0, int* a1, int* a2);
+    int UiFontAdvances(int a0, int a1, int a2, int* a3);
+    void UiScreenSize(int* a0, int* a1);
+    void UiPlaySound(byte* a0);
+    void UiSetMenuInput(int a0, int a1);
+    void UiSetCursor(int a0);
+    int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6);
+    void UiDebugOverlayClearDead();
+}
+
+/// <summary>
 /// <c>IShimUiClient</c>, served as <c>SourceSharpUiClient001</c>, through <see cref="ShimUiClientFwd"/>.
 /// </summary>
-internal sealed unsafe class UiClientArea
+internal sealed unsafe class UiClientArea : IUiClientArea
 {
     private readonly ShimRef<ShimUiClientFwd> _shim;
 
@@ -923,9 +1605,37 @@ internal sealed unsafe class UiClientArea
 }
 
 /// <summary>
+/// <c>IShimParticlesClient</c> as its consumers take it: <see cref="ParticlesClientArea"/> over the engine,
+/// or a test's default (<c>DefaultParticlesClientArea</c>).
+/// </summary>
+internal unsafe interface IParticlesClientArea
+{
+    int ParticlesCreate(uint a0, int a1, byte* a2, float a3, int a4);
+    void ParticlesConfigure(uint a0, int a1, float a2);
+    void ParticlesDestroy(uint a0, int a1);
+    void ParticlesSetLights(uint a0, int a1, float* a2, int a3);
+    int ParticlesTraceLine(float* a0, float* a1, int a2, float* a3, int a4);
+    int WorldTextMeshUpdate(uint a0, byte* a1, float* a2, int a3);
+    void WorldTextMeshDestroy(uint a0);
+    int ParticleSystemsRead(int a0, ParticleSystemInfo* a1, byte* a2, int a3);
+    int ParticleDefinitionReads();
+    int ParticleQueryUnanswered(int* a0, int a1);
+    int ParticlesMaterialVarInt(uint a0, int a1, byte* a2, int* a3);
+    int ParticlesCreateAt(int a0, byte* a1, float* a2, float a3, int a4);
+    int ParticleSystemNameFromIndex(int a0, byte* a1, int a2);
+    int ParticleSystemOneShot(byte* a0, float* a1, float* a2, int a3, float* a4);
+    int ParticlesWorldTrace(float* a0, float* a1, float* a2, int a3);
+    void ParticlesView(float* a0, int* a1, float* a2);
+    float ParticlesPixelVisible(float* a0, int* a1);
+    int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4);
+    int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5);
+    int ParticlesBrushPointContents(uint a0, float* a1);
+}
+
+/// <summary>
 /// <c>IShimParticlesClient</c>, served as <c>SourceSharpParticlesClient001</c>, through <see cref="ShimParticlesClientFwd"/>.
 /// </summary>
-internal sealed unsafe class ParticlesClientArea
+internal sealed unsafe class ParticlesClientArea : IParticlesClientArea
 {
     private readonly ShimRef<ShimParticlesClientFwd> _shim;
 
@@ -954,9 +1664,56 @@ internal sealed unsafe class ParticlesClientArea
 }
 
 /// <summary>
+/// <c>IShimFxClient</c> as its consumers take it: <see cref="FxClientArea"/> over the engine,
+/// or a test's default (<c>DefaultFxClientArea</c>).
+/// </summary>
+internal unsafe interface IFxClientArea
+{
+    int EffectRegistrationCount();
+    int EffectRegistrationName(int a0, byte* a1, int a2);
+    void EffectRegistrationRun(int a0, EffectData* a1);
+    int FxCanPredict();
+    int FxRecipientCount(float* a0);
+    int FxMaterialFind(byte* a0);
+    void FxMaterialAddRef(int a0);
+    void FxMaterialRelease(int a0);
+    int FxMaterialName(int a0, byte* a1, int a2);
+    void FxDrawQuads(int a0, int a1, float* a2, int a3);
+    void FxView(float* a0);
+    void FxMainViewOrigin(float* a0);
+    int FxEmitTracerSound(byte* a0, float* a1, float* a2);
+    int FxLocalPlayer();
+    void FxViewAngles(float* a0);
+    int FxEntityAttachment(int a0, int a1, float* a2, byte* a3, int a4);
+    void FxDispatchParticleEffect(int a0, float* a1, float* a2, float* a3, int a4);
+    int FxEntityRenderAngles(int a0, float* a1);
+    void FxEjectBrass(float* a0, float* a1, float* a2, int a3);
+    float FxSpriteGlowFraction(float* a0, float a1, float a2);
+    float FxGlowSightDistance(float* a0);
+    int FxSpriteDrawBegin(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13, float* a14);
+    int FxSpriteDrawEnd(float* a0);
+    int FxSpriteDrawStore(float* a0);
+    int FxPrecacheCount();
+    void FxPrecacheCache(int a0, int a1);
+    void FxCacheUsedMaterials();
+    void FxCacheMaterialHandles();
+    int FxRenderableAttachment(uint a0, int a1, float* a2);
+    int FxHandleEntityIndex(uint a0);
+    void FxElight(int a0, float* a1, int a2, int a3, int a4, int a5, float a6, float a7, float a8);
+    void FxVectorRandom(float a0, float a1, float* a2);
+    int FxMaterialsCached();
+    void FxImpactOverlay(float* a0, float* a1);
+    int FxSoundParameters(byte* a0, float* a1, byte* a2, int a3);
+    void FxEmitWorldSound(byte* a0, int a1, float a2, int a3, int a4, float* a5);
+    int FxTempEntCreateNamed(int a0, float* a1, byte* a2, int a3);
+    void FxLoadModel(byte* a0);
+    int FxModelFrameCount(byte* a0);
+}
+
+/// <summary>
 /// <c>IShimFxClient</c>, served as <c>SourceSharpFxClient001</c>, through <see cref="ShimFxClientFwd"/>.
 /// </summary>
-internal sealed unsafe class FxClientArea
+internal sealed unsafe class FxClientArea : IFxClientArea
 {
     private readonly ShimRef<ShimFxClientFwd> _shim;
 
@@ -1004,9 +1761,25 @@ internal sealed unsafe class FxClientArea
 }
 
 /// <summary>
+/// <c>IShimSoundscapeClient</c> as its consumers take it: <see cref="SoundscapeClientArea"/> over the engine,
+/// or a test's default (<c>DefaultSoundscapeClientArea</c>).
+/// </summary>
+internal unsafe interface ISoundscapeClientArea
+{
+    void SoundscapeEmitAmbient(byte* a0, float a1, int a2, int a3);
+    void SoundscapeEmitWorld(byte* a0, float a1, int a2, int a3, int a4, float* a5);
+    void SoundscapeStopWorld(byte* a0);
+    void SoundscapeSetRoomType(int a0);
+    void SoundscapeSetPlayerDsp(int a0);
+    void SoundscapeMainView(float* a0);
+    int SoundscapeMakingResLists();
+    void SoundscapeTouchSoundFile(byte* a0);
+}
+
+/// <summary>
 /// <c>IShimSoundscapeClient</c>, served as <c>SourceSharpSoundscapeClient001</c>, through <see cref="ShimSoundscapeClientFwd"/>.
 /// </summary>
-internal sealed unsafe class SoundscapeClientArea
+internal sealed unsafe class SoundscapeClientArea : ISoundscapeClientArea
 {
     private readonly ShimRef<ShimSoundscapeClientFwd> _shim;
 
@@ -1023,9 +1796,24 @@ internal sealed unsafe class SoundscapeClientArea
 }
 
 /// <summary>
+/// <c>IShimPrecipitationClient</c> as its consumers take it: <see cref="PrecipitationClientArea"/> over the engine,
+/// or a test's default (<c>DefaultPrecipitationClientArea</c>).
+/// </summary>
+internal unsafe interface IPrecipitationClientArea
+{
+    int PrecipitationTraceLine(float* a0, float* a1, int a2, int a3, float* a4);
+    int PrecipitationTraceVolume(uint a0, float* a1, float* a2, float* a3, float* a4, float* a5);
+    int PrecipitationPointContents(float* a0);
+    int PrecipitationInPvs(uint a0);
+    int PrecipitationPlayer(float* a0);
+    void PrecipitationWorldBounds(float* a0);
+    int PrecipitationScreenWidth();
+}
+
+/// <summary>
 /// <c>IShimPrecipitationClient</c>, served as <c>SourceSharpPrecipitationClient001</c>, through <see cref="ShimPrecipitationClientFwd"/>.
 /// </summary>
-internal sealed unsafe class PrecipitationClientArea
+internal sealed unsafe class PrecipitationClientArea : IPrecipitationClientArea
 {
     private readonly ShimRef<ShimPrecipitationClientFwd> _shim;
 
@@ -1041,9 +1829,24 @@ internal sealed unsafe class PrecipitationClientArea
 }
 
 /// <summary>
+/// <c>IShimMaterialProxyClient</c> as its consumers take it: <see cref="MaterialProxyClientArea"/> over the engine,
+/// or a test's default (<c>DefaultMaterialProxyClientArea</c>).
+/// </summary>
+internal unsafe interface IMaterialProxyClientArea
+{
+    int ProxyFindVar(int a0, byte* a1, int a2, int* a3);
+    int ProxyFindTexture(int a0, byte* a1, byte* a2, int a3, int* a4);
+    int ProxyVarTexture(int a0, int a1, byte* a2, int a3);
+    int ProxyBindEntity(int a0, void* a1);
+    int ProxyReadView(int a0, float* a1, int a2);
+    int ProxyPlayerCustomFile(int a0, uint* a1);
+    void ProxyNotShipped(byte* a0, byte* a1);
+}
+
+/// <summary>
 /// <c>IShimMaterialProxyClient</c>, served as <c>SourceSharpMaterialProxyClient001</c>, through <see cref="ShimMaterialProxyClientFwd"/>.
 /// </summary>
-internal sealed unsafe class MaterialProxyClientArea
+internal sealed unsafe class MaterialProxyClientArea : IMaterialProxyClientArea
 {
     private readonly ShimRef<ShimMaterialProxyClientFwd> _shim;
 
@@ -1059,9 +1862,29 @@ internal sealed unsafe class MaterialProxyClientArea
 }
 
 /// <summary>
+/// <c>IShimInputClient</c> as its consumers take it: <see cref="InputClientArea"/> over the engine,
+/// or a test's default (<c>DefaultInputClientArea</c>).
+/// </summary>
+internal unsafe interface IInputClientArea
+{
+    void InputCursorState(int* a0, int* a1);
+    void InputGetCursorPos(int* a0, int* a1);
+    void InputSetCursorPos(int a0, int a1);
+    void InputSetCursorArrow();
+    void InputVguiScreenSize(int* a0, int* a1);
+    void InputHudFacts(float* a0, int* a1, float* a2);
+    void InputStopPitchDrift();
+    void InputSetLocalViewAngles(float* a0);
+    void InputViewerCameraModeChanged();
+    int InputViewerAimIsAssisted();
+    void InputShowScoreboard(int a0);
+    void* InputMailbox();
+}
+
+/// <summary>
 /// <c>IShimInputClient</c>, served as <c>SourceSharpInputClient001</c>, through <see cref="ShimInputClientFwd"/>.
 /// </summary>
-internal sealed unsafe class InputClientArea
+internal sealed unsafe class InputClientArea : IInputClientArea
 {
     private readonly ShimRef<ShimInputClientFwd> _shim;
 
@@ -1082,9 +1905,23 @@ internal sealed unsafe class InputClientArea
 }
 
 /// <summary>
+/// <c>IShimPhysicsClient</c> as its consumers take it: <see cref="PhysicsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultPhysicsClientArea</c>).
+/// </summary>
+internal unsafe interface IPhysicsClientArea
+{
+    int PhysicsClientSurfaceAudio(int a0, byte* a1, int a2, byte* a3, int a4, float* a5);
+    int PhysicsClientEmitImpactSound(byte* a0, float* a1, int a2, float a3);
+    void PhysicsClientCollideExtent(void* a0, float* a1, float* a2, float* a3, float* a4);
+    int PhysicsClientPointContents(float* a0);
+    void PhysicsClientSplashLighting(float* a0, float* a1);
+    void PhysicsClientSplashEffect(int a0, float* a1, float* a2, float a3, float* a4, float a5, float a6);
+}
+
+/// <summary>
 /// <c>IShimPhysicsClient</c>, served as <c>SourceSharpPhysicsClient001</c>, through <see cref="ShimPhysicsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class PhysicsClientArea
+internal sealed unsafe class PhysicsClientArea : IPhysicsClientArea
 {
     private readonly ShimRef<ShimPhysicsClientFwd> _shim;
 
@@ -1099,9 +1936,19 @@ internal sealed unsafe class PhysicsClientArea
 }
 
 /// <summary>
+/// <c>IShimConVarsClient</c> as its consumers take it: <see cref="ConVarsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultConVarsClientArea</c>).
+/// </summary>
+internal unsafe interface IConVarsClientArea
+{
+    int ConVarsClientWatch(byte* a0);
+    int ConVarsClientSetValue(byte* a0, float a1);
+}
+
+/// <summary>
 /// <c>IShimConVarsClient</c>, served as <c>SourceSharpConVarsClient001</c>, through <see cref="ShimConVarsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class ConVarsClientArea
+internal sealed unsafe class ConVarsClientArea : IConVarsClientArea
 {
     private readonly ShimRef<ShimConVarsClientFwd> _shim;
 
@@ -1179,9 +2026,9 @@ internal static unsafe class ServerAreaRegistration
     }
 
     /// <summary>
-    /// Every area over no table: what a side with no engine (a test's, or
-    /// one before its load) registers, so a consumer can be built; its
-    /// attach guard refuses every call.
+    /// Every area over no table: what a side registers before its attach,
+    /// so it can be made before the root is bound. A call throws, naming
+    /// the area; the game composes only after the attach.
     /// </summary>
     internal static void AddDetached(Action<Type, object> add)
         => Add(add,
@@ -1234,37 +2081,37 @@ internal static unsafe class ServerAreaRegistration
         DiagnosticsArea diagnosticsArea,
         ConsoleArea consoleArea)
     {
-        add(typeof(EngineArea), engineBaseArea);
-        add(typeof(ConsoleServerArea), consoleServerArea);
-        add(typeof(EventsServerArea), eventsServerArea);
-        add(typeof(NetworkServerArea), networkServerArea);
-        add(typeof(ModelsServerArea), modelsServerArea);
-        add(typeof(PrecacheArea), precacheArea);
-        add(typeof(MovementServerArea), movementServerArea);
-        add(typeof(WorldServerArea), worldServerArea);
-        add(typeof(EntitiesServerArea), entitiesServerArea);
-        add(typeof(EntityLifecycleArea), entityLifecycleArea);
-        add(typeof(TransformArea), transformArea);
-        add(typeof(HierarchyArea), hierarchyArea);
-        add(typeof(CollisionServerArea), collisionServerArea);
-        add(typeof(PhysicsArea), physicsArea);
-        add(typeof(DamageArea), damageArea);
-        add(typeof(GameRulesArea), gameRulesArea);
-        add(typeof(PlayersArea), playersArea);
-        add(typeof(SoundArea), soundArea);
-        add(typeof(EffectsServerArea), effectsServerArea);
-        add(typeof(DebugOverlayArea), debugOverlayArea);
-        add(typeof(UserMessagesArea), userMessagesArea);
-        add(typeof(DiagnosticsArea), diagnosticsArea);
-        add(typeof(ConsoleArea), consoleArea);
-        add(typeof(EventsArea), eventsServerArea);
-        add(typeof(NetworkArea), networkServerArea);
-        add(typeof(ModelsArea), modelsServerArea);
-        add(typeof(MovementArea), movementServerArea);
-        add(typeof(WorldArea), worldServerArea);
-        add(typeof(EntitiesArea), entitiesServerArea);
-        add(typeof(CollisionArea), collisionServerArea);
-        add(typeof(EffectsArea), effectsServerArea);
+        add(typeof(IEngineArea), engineBaseArea);
+        add(typeof(IConsoleServerArea), consoleServerArea);
+        add(typeof(IEventsServerArea), eventsServerArea);
+        add(typeof(INetworkServerArea), networkServerArea);
+        add(typeof(IModelsServerArea), modelsServerArea);
+        add(typeof(IPrecacheArea), precacheArea);
+        add(typeof(IMovementServerArea), movementServerArea);
+        add(typeof(IWorldServerArea), worldServerArea);
+        add(typeof(IEntitiesServerArea), entitiesServerArea);
+        add(typeof(IEntityLifecycleArea), entityLifecycleArea);
+        add(typeof(ITransformArea), transformArea);
+        add(typeof(IHierarchyArea), hierarchyArea);
+        add(typeof(ICollisionServerArea), collisionServerArea);
+        add(typeof(IPhysicsArea), physicsArea);
+        add(typeof(IDamageArea), damageArea);
+        add(typeof(IGameRulesArea), gameRulesArea);
+        add(typeof(IPlayersArea), playersArea);
+        add(typeof(ISoundArea), soundArea);
+        add(typeof(IEffectsServerArea), effectsServerArea);
+        add(typeof(IDebugOverlayArea), debugOverlayArea);
+        add(typeof(IUserMessagesArea), userMessagesArea);
+        add(typeof(IDiagnosticsArea), diagnosticsArea);
+        add(typeof(IConsoleArea), consoleArea);
+        add(typeof(IEventsArea), eventsServerArea);
+        add(typeof(INetworkArea), networkServerArea);
+        add(typeof(IModelsArea), modelsServerArea);
+        add(typeof(IMovementArea), movementServerArea);
+        add(typeof(IWorldArea), worldServerArea);
+        add(typeof(IEntitiesArea), entitiesServerArea);
+        add(typeof(ICollisionArea), collisionServerArea);
+        add(typeof(IEffectsArea), effectsServerArea);
     }
 }
 
@@ -1347,9 +2194,9 @@ internal static unsafe class ClientAreaRegistration
     }
 
     /// <summary>
-    /// Every area over no table: what a side with no engine (a test's, or
-    /// one before its load) registers, so a consumer can be built; its
-    /// attach guard refuses every call.
+    /// Every area over no table: what a side registers before its attach,
+    /// so it can be made before the root is bound. A call throws, naming
+    /// the area; the game composes only after the attach.
     /// </summary>
     internal static void AddDetached(Action<Type, object> add)
         => Add(add,
@@ -1414,34 +2261,34 @@ internal static unsafe class ClientAreaRegistration
         PhysicsClientArea physicsClientArea,
         ConVarsClientArea conVarsClientArea)
     {
-        add(typeof(EngineArea), engineBaseArea);
-        add(typeof(EventsArea), eventsArea);
-        add(typeof(NetworkArea), networkArea);
-        add(typeof(ModelsArea), modelsArea);
-        add(typeof(MovementArea), movementArea);
-        add(typeof(WorldArea), worldArea);
-        add(typeof(EntitiesArea), entitiesArea);
-        add(typeof(CollisionArea), collisionArea);
-        add(typeof(EffectsArea), effectsArea);
-        add(typeof(ConsoleArea), consoleArea);
-        add(typeof(HudClientArea), hudClientArea);
-        add(typeof(PredictionClientArea), predictionClientArea);
-        add(typeof(TempEntPoolClientArea), tempEntPoolClientArea);
-        add(typeof(TempEntBackendsClientArea), tempEntBackendsClientArea);
-        add(typeof(EffectsRenderClientArea), effectsRenderClientArea);
-        add(typeof(StandaloneClientArea), standaloneClientArea);
-        add(typeof(ViewClientArea), viewClientArea);
-        add(typeof(UserMessagesClientArea), userMessagesClientArea);
-        add(typeof(NetClientArea), netClientArea);
-        add(typeof(DiagnosticsClientArea), diagnosticsClientArea);
-        add(typeof(UiClientArea), uiClientArea);
-        add(typeof(ParticlesClientArea), particlesClientArea);
-        add(typeof(FxClientArea), fxClientArea);
-        add(typeof(SoundscapeClientArea), soundscapeClientArea);
-        add(typeof(PrecipitationClientArea), precipitationClientArea);
-        add(typeof(MaterialProxyClientArea), materialProxyClientArea);
-        add(typeof(InputClientArea), inputClientArea);
-        add(typeof(PhysicsClientArea), physicsClientArea);
-        add(typeof(ConVarsClientArea), conVarsClientArea);
+        add(typeof(IEngineArea), engineBaseArea);
+        add(typeof(IEventsArea), eventsArea);
+        add(typeof(INetworkArea), networkArea);
+        add(typeof(IModelsArea), modelsArea);
+        add(typeof(IMovementArea), movementArea);
+        add(typeof(IWorldArea), worldArea);
+        add(typeof(IEntitiesArea), entitiesArea);
+        add(typeof(ICollisionArea), collisionArea);
+        add(typeof(IEffectsArea), effectsArea);
+        add(typeof(IConsoleArea), consoleArea);
+        add(typeof(IHudClientArea), hudClientArea);
+        add(typeof(IPredictionClientArea), predictionClientArea);
+        add(typeof(ITempEntPoolClientArea), tempEntPoolClientArea);
+        add(typeof(ITempEntBackendsClientArea), tempEntBackendsClientArea);
+        add(typeof(IEffectsRenderClientArea), effectsRenderClientArea);
+        add(typeof(IStandaloneClientArea), standaloneClientArea);
+        add(typeof(IViewClientArea), viewClientArea);
+        add(typeof(IUserMessagesClientArea), userMessagesClientArea);
+        add(typeof(INetClientArea), netClientArea);
+        add(typeof(IDiagnosticsClientArea), diagnosticsClientArea);
+        add(typeof(IUiClientArea), uiClientArea);
+        add(typeof(IParticlesClientArea), particlesClientArea);
+        add(typeof(IFxClientArea), fxClientArea);
+        add(typeof(ISoundscapeClientArea), soundscapeClientArea);
+        add(typeof(IPrecipitationClientArea), precipitationClientArea);
+        add(typeof(IMaterialProxyClientArea), materialProxyClientArea);
+        add(typeof(IInputClientArea), inputClientArea);
+        add(typeof(IPhysicsClientArea), physicsClientArea);
+        add(typeof(IConVarsClientArea), conVarsClientArea);
     }
 }

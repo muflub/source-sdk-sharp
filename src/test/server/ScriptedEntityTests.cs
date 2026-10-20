@@ -117,7 +117,7 @@ public class ScriptedEntityTests
 
     private static ScriptedEntityRegistry Fresh()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ScriptedEntityTests).Assembly);
         registry.Services = Services();
         return registry;
@@ -349,7 +349,7 @@ public class ScriptedEntityTests
 
     private static ScriptedEntityRegistry Game()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(MathCounter).Assembly);
         registry.Services = Services();
         return registry;

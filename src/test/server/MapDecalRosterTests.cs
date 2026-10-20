@@ -18,7 +18,7 @@ public class MapDecalRosterTests
 
     private static ScriptedEntityRegistry Registry(IEntityRoster<MapDecal> pending)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(InfoDecal).Assembly);
 
         var services = Services(out var engine);

@@ -112,7 +112,7 @@ public class ExplosionSelfIgnoreTests
         foreach (var member in alsoIgnore)
             engine.Ignores(member);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Rocket).Assembly);
         registry.Services = services;
 
@@ -221,7 +221,7 @@ public class ExplosionSelfIgnoreTests
               .Ignores("Entities.Remove")
               .Ignores("Entities.SetNextThink");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = services;
 

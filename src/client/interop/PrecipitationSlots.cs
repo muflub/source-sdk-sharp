@@ -2,7 +2,7 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
-internal sealed unsafe class ClientPrecipitationSlots(PrecipitationClientArea precipitationClient) : IClientPrecipitationEngine
+internal sealed unsafe class ClientPrecipitationSlots(IPrecipitationClientArea precipitationClient) : IClientPrecipitationEngine
 {
     public bool TraceLine(in Vector start, in Vector end, uint mask, bool ignorePlayer, out float fraction, out Vector endPos, out ushort surfaceFlags)
     {

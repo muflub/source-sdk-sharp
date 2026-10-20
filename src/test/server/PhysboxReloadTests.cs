@@ -26,7 +26,7 @@ public class PhysboxReloadTests
 
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine) Side(int spawnFlags = 0)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

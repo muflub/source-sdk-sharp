@@ -8,28 +8,23 @@ namespace SourceSharp.Server.Interop;
 /// </summary>
 public sealed unsafe class UserMessageOutbox : IUserMessageOutbox
 {
-    private readonly EngineSide _side;
-    private readonly UserMessagesArea _messages;
+    private readonly IUserMessagesArea _messages;
 
-    internal UserMessageOutbox(EngineSide side, UserMessagesArea messages)
+    internal UserMessageOutbox(IUserMessagesArea messages)
     {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
         _messages = messages ?? throw new ArgumentNullException(nameof(messages));
     }
 
-    /// <summary>The outbox over <paramref name="engine"/>'s side and its user-message area, taken here once.</summary>
+    /// <summary>The outbox over <paramref name="engine"/>'s user-message area, taken here once.</summary>
     public static UserMessageOutbox For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new UserMessageOutbox(engine.Api, engine.Api.Areas.Require<UserMessagesArea>());
+        return new UserMessageOutbox(engine.Api.Areas.Require<IUserMessagesArea>());
     }
 
     /// <inheritdoc/>
     public bool Send(int id, ReadOnlySpan<byte> payload, int player, bool reliable)
     {
-        if (!_side.IsInitialized || !_side.ShimsAttached)
-            return false;
-
         fixed (byte* p = payload)
             return _messages.UserMessageSend(id, p, payload.Length, player, reliable ? 1 : 0) != 0;
     }

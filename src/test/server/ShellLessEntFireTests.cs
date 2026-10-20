@@ -44,7 +44,7 @@ public class ShellLessEntFireTests
     /// </summary>
     private static ScriptedEntityRegistry Fresh()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ShellLessEntFireTests).Assembly);
         return registry;
     }
@@ -217,9 +217,9 @@ public class ShellLessEntFireTests
     [Fact]
     public void TheRouteFindsNothingOnADifferentSide()
     {
-        var server = EngineSide.Create(Side.Server);
-        var client = EngineSide.Create(Side.Client);
-        var registry = new ScriptedEntityRegistry(server.ShellLess, server.EntityIo, server.Removal);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
+        var registry = new ScriptedEntityRegistry(server.ShellLess, server.EntityIo, server.Removal, TestEngines.Server());
         registry.RegisterAll(typeof(ShellLessEntFireTests).Assembly);
         registry.Create(Shellless, Named("shaker"));
 

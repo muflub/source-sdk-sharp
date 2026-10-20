@@ -13,7 +13,7 @@ public interface IClientPhysicsEngine
 /// IShimPhysicsClient over the client's engine (plan_client_novalve C6, cluster
 /// 9; lane c6-input), and the physics objects' own vtables for the object reads.
 /// </summary>
-internal sealed unsafe class ClientPhysicsSlots(PhysicsClientArea physicsClient, VPhysicsTables vphysics, VPhysicsObjects objects) : IClientImpactSoundWorld, IClientPhysicsObjectReads,
+internal sealed unsafe class ClientPhysicsSlots(IPhysicsClientArea physicsClient, VPhysicsTables vphysics, VPhysicsObjects objects) : IClientImpactSoundWorld, IClientPhysicsObjectReads,
                                                                 IClientSplashCarryOut
 {
     private const int MaxName = 128;

@@ -15,7 +15,7 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed class ServerEntityEngine
 {
-    internal ServerEntityEngine(EngineSide api, EntityLifecycleArea lifecycle, WorldServerArea world, NetworkServerArea network)
+    internal ServerEntityEngine(EngineSide api, IEntityLifecycleArea lifecycle, IWorldServerArea world, INetworkServerArea network)
     {
         Api = api ?? throw new ArgumentNullException(nameof(api));
         _lifecycle = lifecycle ?? throw new ArgumentNullException(nameof(lifecycle));
@@ -25,9 +25,9 @@ public sealed class ServerEntityEngine
 
     // The areas the facade's own calls reach (plan_shim_areas_split phase 11):
     // the shells' teardown, the invisible-range counter and the blob bind.
-    private readonly EntityLifecycleArea _lifecycle;
-    private readonly WorldServerArea _world;
-    private readonly NetworkServerArea _network;
+    private readonly IEntityLifecycleArea _lifecycle;
+    private readonly IWorldServerArea _world;
+    private readonly INetworkServerArea _network;
 
     /// <summary>Over a composition's engine, with the areas its calls reach taken from it here once.</summary>
     public static ServerEntityEngine For(ModuleEngine engine)
@@ -35,8 +35,8 @@ public sealed class ServerEntityEngine
 
     /// <inheritdoc cref="For(ModuleEngine)"/>
     internal static ServerEntityEngine For(EngineSide side)
-        => new(side, side.Areas.Require<EntityLifecycleArea>(), side.Areas.Require<WorldServerArea>(),
-               side.Areas.Require<NetworkServerArea>());
+        => new(side, side.Areas.Require<IEntityLifecycleArea>(), side.Areas.Require<IWorldServerArea>(),
+               side.Areas.Require<INetworkServerArea>());
 
     /// <summary>The side this forwards to.</summary>
     internal EngineSide Api { get; }
@@ -62,24 +62,4 @@ public sealed class ServerEntityEngine
     /// <summary>Binds an entity's net states to its blob on this side: <see cref="NetStateServerBinding.AttachBound"/>.</summary>
     public NetState[] AttachBound(object instance, EntityHandle handle, NetStateFields fields)
         => NetStateServerBinding.AttachBound(instance, handle, Api, _network, fields);
-
-    /// <summary>
-    /// An unattached server side and its engine container: what a registry
-    /// built with no composition binds and stamps with (the tests' registry).
-    /// </summary>
-    public static (ServiceContainer Engine, ServerEntityEngine Side) Unattached()
-    {
-        var side = EngineSide.Create(Abi.Side.Server);
-        EngineServerBinding.Bind(side);
-        var engine = new ServiceContainer();
-
-        // The render binding takes the side's mirror in its constructor.
-        engine.AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(engine, side);
-
-        // And its clock, as the game's composition registers one: what a
-        // registry stamps outputs, thinks and saves with.
-        engine.AddInstance<IGameClock>(new EngineClock(side));
-        return (engine, For(side));
-    }
 }

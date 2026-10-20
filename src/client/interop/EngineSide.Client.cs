@@ -71,9 +71,9 @@ internal sealed unsafe partial class EngineSide
     /// <c>%s</c> that happens to be in a model name or a chat line.
     /// </para>
     /// </summary>
-    public unsafe void ConNPrintf(ViewClientArea viewArea, void* engineClient, int position, string text)
+    public unsafe void ConNPrintf(IViewClientArea viewArea, void* engineClient, int position, string text)
     {
-        if (!s_Initialized || !ShimsAttached || engineClient == null)
+        if (engineClient == null)
             return;
 
         byte[] bytes = Vtable.Utf8(text);
@@ -93,10 +93,10 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public unsafe void ConNXPrintf(
-        ViewClientArea viewArea, void* engineClient, int index, float timeToLive,
+        IViewClientArea viewArea, void* engineClient, int index, float timeToLive,
         float red, float green, float blue, bool fixedWidthFont, string text)
     {
-        if (!s_Initialized || !ShimsAttached || engineClient == null)
+        if (engineClient == null)
             return;
 
         byte[] bytes = Vtable.Utf8(text);
@@ -115,7 +115,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     /// <returns>False when nothing answered, in which case nothing is written.</returns>
     public unsafe bool TryGetLightForPoint(
-        ViewClientArea viewArea, void* engineClient, in Vector position, bool clamp, out Vector light)
+        IViewClientArea viewArea, void* engineClient, in Vector position, bool clamp, out Vector light)
         => TryLightForPoint(viewArea, fast: false, engineClient, position, clamp, out light);
 
     /// <summary>
@@ -123,17 +123,17 @@ internal sealed unsafe partial class EngineSide
     /// above and refused for the same reason.
     /// </summary>
     public unsafe bool TryGetLightForPointFast(
-        ViewClientArea viewArea, void* engineClient, in Vector position, bool clamp, out Vector light)
+        IViewClientArea viewArea, void* engineClient, in Vector position, bool clamp, out Vector light)
         => TryLightForPoint(viewArea, fast: true, engineClient, position, clamp, out light);
 
     // plan_client_vtables CC7: the two slots are routed (Slot_/Has_), so the
     // choice between them is a flag rather than a struct field passed along.
     private unsafe bool TryLightForPoint(
-        ViewClientArea viewArea, bool fast, void* engineClient, in Vector position, bool clamp, out Vector light)
+        IViewClientArea viewArea, bool fast, void* engineClient, in Vector position, bool clamp, out Vector light)
     {
         light = default;
 
-        if (!s_Initialized || engineClient == null || !ShimsAttached)
+        if (engineClient == null)
             return false;
 
         float* input = stackalloc float[3] { position.X, position.Y, position.Z };
@@ -169,10 +169,8 @@ internal sealed unsafe partial class EngineSide
     /// carried on answering plausible stale numbers to everything that asked.
     /// </para>
     /// </summary>
-    public bool StandaloneIsDormant(StandaloneClientArea standaloneArea, EntityHandle entity)
+    public bool StandaloneIsDormant(IStandaloneClientArea standaloneArea, EntityHandle entity)
     {
-        if (!s_Initialized || !ShimsAttached) return false;
-
         return standaloneArea.StandaloneIsDormant(entity.Value) != 0;
     }
 }

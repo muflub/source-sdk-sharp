@@ -39,7 +39,7 @@ public class ClientMdlCacheFlushTests
         // it in an internal field precisely so it can be handed a double —
         // Initialize builds a whole client, which a fact about one method has
         // no business doing.
-        var module = new ClientModule(new ModuleEngine(EngineSide.Create(Side.Client))) { _mdlCacheWalk = engine };
+        var module = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client))) { _mdlCacheWalk = engine };
 
         return (module, engine);
     }
@@ -101,7 +101,7 @@ public class ClientMdlCacheFlushTests
     [Fact]
     public void AFlushWithNoWalkBoundAnswersZeroInsteadOfThrowing()
     {
-        var module = new ClientModule(new ModuleEngine(EngineSide.Create(Side.Client)));
+        var module = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)));
 
         module.InvalidateMdlCache();
 

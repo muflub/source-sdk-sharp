@@ -229,6 +229,17 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   motion host). `ShimAreaInjectionCensusTests` holds all three. Why: the
   containers (`ShimAreas`, `ClientShimAreas`) let every binding reach every
   area through its side, so nothing said what each one depended on.
+- **Consumers hold a shim area by its generated interface (`IEngineArea`,
+  ...), and nothing checks whether the engine is attached** (user ruling
+  2026-10-20). No `ShimsAttached`, no `IsInitialized` guard, no null area:
+  the game composes only after the attach, and a side before it throws on a
+  call, naming the area. A test with no engine builds its side with
+  `TestSides.Create` (and a registry with `TestEngines.Server()`), over the
+  generated default areas (`src/test/support/ShimAreaDefaults.g.cs`, from
+  `tools/shim-areas`), which answer good defaults; a fake root's unserved
+  slots answer the same (`src/test/common/DefaultSlots.cs`). Why: the guards
+  made every binding take its side only to ask a question production always
+  answers yes, and hid in tests what a missing engine really does.
 - **An interop constructor saves its parameters into fields and does nothing
   else** (Abi, Server.Interop, Client.Interop; user ruling 2026-10-20). What
   it would look up, acquire or build is handed to it, and a static factory

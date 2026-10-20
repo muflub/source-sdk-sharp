@@ -76,7 +76,7 @@ public class PointTemplateTests
         if (spawned is not null)
             engine.Returns("Scripted.TemplateSpawnKeyed", spawned);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointTemplate).Assembly);
         registry.Services = services;
 

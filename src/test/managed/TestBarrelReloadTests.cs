@@ -55,7 +55,7 @@ public class TestBarrelReloadTests
 
     private static ScriptedEntityRegistry NewRegistry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TestBarrel).Assembly);
 
         // NAMED RATHER THAN DEFAULTED. OnSpawn logs the barrel's health and

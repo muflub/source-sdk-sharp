@@ -57,7 +57,7 @@ public class PhysicsEventRouterTests
 
     private static (ScriptedEntityRegistry Registry, PhysicsEventRouter Router, Dictionary<EntityHandle, int> Flags) World(out RecordingEngine engine)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -259,7 +259,7 @@ public class PhysicsEventRouterTests
 
     private static (ScriptedEntityRegistry Registry, PhysicsEventRouter Router) ProbeWorld()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysicsEventRouterTests).Assembly);
         var services = Services();
         registry.Services = services;
@@ -428,7 +428,7 @@ public class PhysicsEventRouterTests
     {
         // UpdateDamageEvents runs once the step's collisions are all heard: a
         // hit queued while the drain routes is not delivered until the flush.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = Services(out var engine);
         registry.Services = services;
         engine.Returns("Entities.IsPlayer", false).Returns("Entities.GetSolidFlags", (SolidFlags)0);
@@ -449,7 +449,7 @@ public class PhysicsEventRouterTests
     public void Fluid_entry_and_exit_reach_the_fluid_touches()
     {
         // I2: FluidStart carries the object's material index; FluidEnd clears.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = Services();
         registry.Services = services;
         var router = new PhysicsEventRouter(registry, services.Require<PhysicsDamageQueue>(),
@@ -472,7 +472,7 @@ public class PhysicsEventRouterTests
     {
         // D2: a Friction record is VPhysicsFriction's report for its object;
         // the policy asks for the surface's scrape sound when it is loud enough.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = Services(out var engine);
         registry.Services = services;
         engine.Returns("Sound.SurfaceScrapeSound", (string?)null);
@@ -493,7 +493,7 @@ public class PhysicsEventRouterTests
     {
         // B7: SHADOW_UPDATE is PhysFrame's walk of the shadow entities; the
         // answer starts by probing the shadow the solver just moved.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = Services(out var engine);
         registry.Services = services;
         engine.Returns("Shadows.Probe", (PlayerShadowState?)null);
@@ -515,7 +515,7 @@ public class PhysicsEventRouterTests
         // A23: CPhysConstraintEvents::ConstraintBroken. The record names the
         // constraint (Object0) and its two ends; a world end has no entity, and
         // the owner must hear it all the same.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = Services(out var engine);
         registry.Services = services;
         registry.RegisterAll(typeof(ConstraintOwnerProbe).Assembly);
@@ -537,7 +537,7 @@ public class PhysicsEventRouterTests
     {
         // A9: UpdatePenetrateEvents handed this pair to EntityPhysics_CreateSolver;
         // the first thing the solver does is take the pair out of collision.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = Services(out var engine);
         registry.Services = services;
         var router = new PhysicsEventRouter(registry, services.Require<PhysicsDamageQueue>(),

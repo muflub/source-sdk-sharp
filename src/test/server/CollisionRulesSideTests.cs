@@ -57,15 +57,18 @@ public unsafe class CollisionRulesSideTests : IDisposable
     }
 
     [Fact]
-    public void ASideWithNoShimRootSaysTheMatrixWasNotDelivered()
+    public void ASideBeforeItsAttachRefusesTheMatrixLoudly()
     {
-        // The silence this replaces: an unattached side used to return as if
-        // it had registered.
-        var engine = EngineSide.Create(Side.Client);
+        // The silence this replaced: an unattached side used to return as if
+        // it had registered. Nothing checks for the attach now (plan_shim_areas_split
+        // phase 11 review); a side as its load makes it, before the attach,
+        // refuses the call, naming the area, rather than answering anything.
+        var engine = EngineSide.Create(Side.Client, new SideState(Side.Client));
         engine.Initialize();
 
-        Assert.False(SideBindings.Of<IEngineCollisionRules>(engine).RegisterCollisionRules(CollisionRules.BuildMatrix()),
-            "a side that cannot serve the slot reports the matrix undelivered");
+        var refusal = Assert.Throws<InvalidOperationException>(
+            () => SideBindings.Of<IEngineCollisionRules>(engine).RegisterCollisionRules(CollisionRules.BuildMatrix()));
+        Assert.Contains("before the shim areas were attached", refusal.Message);
     }
 
     [Fact]
@@ -96,8 +99,9 @@ public unsafe class CollisionRulesSideTests : IDisposable
         {
             var areas = new List<(Type Type, object Area)>();
             ServerAreaRegistration.AddDetached((type, area) => areas.Add((type, area)));
-            return areas.Where(a => a.Type == a.Area.GetType())
-                        .Select(a => a.Type)
+            // Under its own interface (IXArea for XArea), not a base's.
+            return areas.Where(a => a.Type.Name == "I" + a.Area.GetType().Name)
+                        .Select(a => a.Area.GetType())
                         .Single(t => ShimAreaTypes.FwdOf(t).GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
         }
     }
@@ -123,7 +127,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = EngineSide.Create(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;

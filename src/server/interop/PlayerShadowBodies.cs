@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary><see cref="IPlayerTouchWorld"/> over one side's engine: the entity's block read in place, and its held object.</summary>
-internal sealed class EnginePlayerTouchWorld(EngineSide side, NetworkServerArea network) : IPlayerTouchWorld
+internal sealed class EnginePlayerTouchWorld(EngineSide side, INetworkServerArea network) : IPlayerTouchWorld
 {
     private static readonly int MoveTypeOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.MoveType));
     private static readonly int SolidOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidType));
@@ -53,7 +53,7 @@ public interface IPlayerShadows : IPlayerShadowProbe
 }
 
 /// <summary><see cref="IPlayerShadowNative"/> over one side's engine slots.</summary>
-internal sealed class EnginePlayerShadowNative(EngineSide side, MovementServerArea movement) : IPlayerShadowNative
+internal sealed class EnginePlayerShadowNative(EngineSide side, IMovementServerArea movement) : IPlayerShadowNative
 {
     public bool Facts(EntityHandle player, out PlayerShadowFacts facts) => side.PlayerShadowFacts(movement, player, out facts);
 
@@ -151,9 +151,9 @@ public sealed class PlayerShadowBodies : IPlayerShadows
     {
         ArgumentNullException.ThrowIfNull(engine);
         var areas = engine.Api.Areas;
-        var bodies = new PlayerShadowBodies(new EnginePlayerShadowNative(engine.Api, areas.Require<MovementServerArea>()),
+        var bodies = new PlayerShadowBodies(new EnginePlayerShadowNative(engine.Api, areas.Require<IMovementServerArea>()),
                                             v, enabled, warning,
-                                            new EnginePlayerTouchWorld(engine.Api, areas.Require<NetworkServerArea>()));
+                                            new EnginePlayerTouchWorld(engine.Api, areas.Require<INetworkServerArea>()));
         engine.Api.Teleported = bodies.Teleport;
         return bodies;
     }

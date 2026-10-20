@@ -270,6 +270,15 @@ Each phase builds, passes its tests and is committed before the next.
   Server.Interop, Client.Interop), in this PR, held by a census fact. Allowed
   besides stores: the object's own empty state, chaining with defaults, value
   types and attributes (not checked), argument validation.
+- 2026-10-20 (user, PR review): the `IVtable*` engine interfaces are
+  `IFwd*` ("IVtableEngineClient should prob be IFwdEngineClient"; "also make
+  sure to fix any other IVtable prefix classes").
+- 2026-10-20 (user, PR review): drop the logic that checks `ShimsAttached`,
+  and the side a consumer held only for it ("this code is not useful ... the
+  other interfaces will be null if not true already"). Asked how tests with
+  no engine should then work: "generate mocks for the interfaces for tests
+  that return good defaults. Managed logic should never check for null
+  interface or expect a null interface".
 - 2026-10-19 (user, review of phase 5): the adapters' areas are not nullable,
   because nothing in the game composes before the attach (LoadSideV2 fails the
   load first). Tests that compose a client module do not reach the shim at
@@ -660,3 +669,28 @@ Open: none.
     lazy property. `ConstructorCensusTests` reads the IL of every class
     constructor in the Abi and both interops (over 500); a planted
     `console.FindConVarValue` in `ClientInputHost`'s constructor turns it red.
+  - Review round 2 (2026-10-20): no attach checks. Every `ShimsAttached` and
+    `IsInitialized` guard in the bindings, `EngineSide` and the helpers is
+    gone, and with it `EngineSide.ShimsAttached` and the side field of nine
+    bindings and six helpers that held it only for the guard. `tools/shim-areas`
+    emits an `I<Name>Area` interface per area (a derived area's extends its
+    base's), the registrations hand areas by interface, and consumers hold
+    the interfaces. It also emits `src/test/support/ShimAreaDefaults.g.cs`: a
+    default per area that answers its type's default, or "nothing" (-1, the
+    invalid handle) for the slots whose zero means something, and each side's
+    defaults handed as its registration hands the areas. `EngineSide.Create(side)`
+    is gone: a test side is `TestSides.Create`, over the defaults; the
+    registry's test constructors take `TestEngines.Server()`, which replaces
+    `ServerEntityEngine.Unattached` in the product. A fake root's unserved
+    slot answers through a native stub (`DefaultSlots`, zero or -1), because
+    59 slots are called with `SuppressGCTransition` and cannot reach managed
+    code. Tests that asserted the guards' answers now assert the new contract:
+    a side before its attach (the load's `Create(side, state)`) throws naming
+    the area, and a side over the defaults answers them. Mutation proofs: the
+    registration handing areas by class, and the defaults losing their
+    "nothing" table, each turn the generator's self-test red.
+  - Not done in this round: managed logic still takes `IFwd*` engine
+    interfaces as nullable (79 sites, `Func<IFwdEngineClient?>`,
+    `IClientInputEngine?`, `IInputMailbox?`), acquired lazily from the
+    engine's factories; giving those a non-null source in tests is the next
+    step the ruling implies.
