@@ -129,19 +129,6 @@ glow_overlay.o	_ZZN12CGlowOverlay4DrawEbE19nHDRColorScaleCache	CGlowOverlay::Dra
 	cl_sun_decay_rate	cl_sun_decay_rate	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	g_GlowOverlaySystem	g_GlowOverlaySystem	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	56	UNRULED		
 	g_flOverlayRange	g_flOverlayRange	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
-rendertexture.o	_ZZ14AddReleaseFuncvE6bAdded	AddReleaseFunc()::bAdded	game/client/rendertexture.cpp	LOCAL	bss	function-local	1	UNRULED		
-rendertexture.o	_ZL15s_TeenyTextures	s_TeenyTextures	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	24	UNRULED		
-rendertexture.o	_ZL16s_pCameraTexture	s_pCameraTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL24s_pFullFrameDepthTexture	s_pFullFrameDepthTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL30s_pFullFrameFrameBufferTexture	s_pFullFrameFrameBufferTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-rendertexture.o	_ZL20s_pFullscreenTexture	s_pFullscreenTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL31s_pPowerOfTwoFrameBufferTexture	s_pPowerOfTwoFrameBufferTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL18s_pQuarterSizedFB0	s_pQuarterSizedFB0	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL18s_pQuarterSizedFB1	s_pQuarterSizedFB1	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL18s_pSmallBufferHDR0	s_pSmallBufferHDR0	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL18s_pSmallBufferHDR1	s_pSmallBufferHDR1	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL25s_pWaterReflectionTexture	s_pWaterReflectionTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-rendertexture.o	_ZL25s_pWaterRefractionTexture	s_pWaterRefractionTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 vgui_game_viewport.o	_ZL22g_ViewportClientSystem	g_ViewportClientSystem	game/client/vgui_game_viewport.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 	_ZN18PrecacheEffectWarp20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectWarp::ClientEffectRegister::m_pszMaterials	game/client/warp_overlay.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
 	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	game/client/warp_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
@@ -495,6 +482,7 @@ shell_prediction.o	_ZL21g_bWorldUpdateArrived	g_bWorldUpdateArrived	sourcesharp/
 	prediction	prediction	sourcesharp/game/client/shell_prediction.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_prediction.o	_ZL18s_ClientMoveHelper	s_ClientMoveHelper	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_recipientfilter_client.o	_ZL33g_RecipientFilterPredictionSystem	g_RecipientFilterPredictionSystem	sourcesharp/game/client/shell_recipientfilter_client.cpp	LOCAL	bss	file-or-global	40	UNRULED		
+shell_render_targets_client.o	_ZN12_GLOBAL__N_115g_RenderTargetsE	(anonymous namespace)::g_RenderTargets	sourcesharp/game/client/shell_render_targets_client.cpp	LOCAL	bss	function-local	2536	MEMBER	RenderTargets:DLL	reset_today=n/a: the references live while the material system's release function has not dropped them, for the DLL's life. client.so's render-target store: the CTextureReference per named render target rendertexture.cpp's getters held, and the rows managed's RenderTargetCatalog declared (IShimViewClient::RenderTargetDeclare). The material system holds the release function's pointer. Carries out the catalog's rows, decides nothing (C7 render textures)
 shell_render_trace_client.o	_ZN12_GLOBAL__N_111g_OriginalsE	(anonymous namespace)::g_Originals	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	704	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_19g_PatchesE	(anonymous namespace)::g_Patches	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_16g_TextE	(anonymous namespace)::g_Text	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	32	UNRULED		

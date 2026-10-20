@@ -726,6 +726,7 @@ internal sealed unsafe class ViewClientArea
     public int EntitiesUpdateVisibilityAll() { return _shim.Vt->EntitiesUpdateVisibilityAll(_shim.Self); }
     public int RenderViewToTarget(int a0, ViewTargetSetup* a1) { return _shim.Vt->RenderViewToTarget(_shim.Self, a0, a1); }
     public int ViewTargetInfo(int a0, int* a1) { return _shim.Vt->ViewTargetInfo(_shim.Self, a0, a1); }
+    public int RenderTargetDeclare(int a0, byte* a1, byte* a2, int a3, int a4, int a5) { return _shim.Vt->RenderTargetDeclare(_shim.Self, a0, a1, a2, a3, a4, a5); }
 }
 
 /// <summary>

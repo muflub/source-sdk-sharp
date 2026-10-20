@@ -35,6 +35,7 @@ internal sealed class FakeClientEngineAdapters : IClientEngineAdapters
         typeof(IFxSpriteDraw),
         typeof(IFxSpriteGlow),
         typeof(INativeParticleExecutor),
+        typeof(IRenderTargetTable),
     ];
 
     /// <summary>How many times a composition asked for the adapters.</summary>

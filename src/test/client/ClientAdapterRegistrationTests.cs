@@ -271,6 +271,27 @@ public unsafe class ClientAdapterRegistrationTests
         Assert.Equal(new ViewTargetInfo(640, 480, 3, 2), info);
     }
 
+    [ThreadStatic] private static string? t_declared;
+
+    // What arrived: the slot, the name, the group and the three ints.
+    [UnmanagedCallersOnly]
+    private static int SeeDeclare(void* self, int slot, byte* name, byte* group, int complain, int flags, int release)
+    {
+        t_declared = $"{slot} {Marshal.PtrToStringUTF8((nint)name)} {Marshal.PtrToStringUTF8((nint)group)} {complain} {flags} {release}";
+        return 1;
+    }
+
+    [Fact]
+    public void TheRegisteredRenderTargetTableDeclaresThroughTheViewArea()
+    {
+        t_declared = null;
+        bool declared = Through<IRenderTargetTable, bool>(View, nameof(ShimViewClientFwd.RenderTargetDeclare),
+                                                          (nint)(delegate* unmanaged<void*, int, byte*, byte*, int, int, int, int>)&SeeDeclare,
+                                                          t => t.Declare(3, "_rt_X", "RenderTargets", true, 4, 5));
+        Assert.True(declared);
+        Assert.Equal("3 _rt_X RenderTargets 1 4 5", t_declared);
+    }
+
     [UnmanagedCallersOnly] private static int ContentsOfZOnly(void* self, float* point) => (int)point[2];
 
     [Fact]

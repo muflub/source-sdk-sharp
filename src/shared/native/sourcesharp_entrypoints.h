@@ -250,7 +250,7 @@ int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 248 slots.
+// CLIENT ONLY -- 249 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -546,6 +546,9 @@ int32_t SourceSharp_ProxyVarTexture( int32_t hProxy, int32_t nSlot, char *pOutNa
                                      int32_t nOutSize );
 void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,
                                    int32_t nTracerType, float flDamageForce, float flDamage );
+int32_t SourceSharp_RenderTargetDeclare( int32_t nSlot, const char *pszName,
+                                         const char *pszGroup, int32_t bComplain,
+                                         int32_t nCreationFlags, int32_t nReleaseOrder );
 int32_t SourceSharp_RenderViewToTarget( int32_t nTarget,
                                         const SourceSharpViewTargetSetup *pSetup );
 void SourceSharp_RopeDraw( int32_t nMaterial, const float *pSegs, int32_t nSegs,

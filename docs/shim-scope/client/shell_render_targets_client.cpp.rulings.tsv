@@ -1,0 +1,7 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+void ReleaseRenderTargetsThunk()	SLOT	the function pointer the material system calls at a release; forwards to the store
+int32_t SourceSharp_RenderTargetDeclare(	SLOT	IShimViewClient::RenderTargetDeclare: one slot's row from RenderTargetCatalog, into the store
+ITexture *ShellRenderTarget(	LIVE-API	the executor, the view scene's depth copy and (at the eviction) rendertexture.h's names read a slot's texture
+ITexture *GetPowerOfTwoFrameBufferTexture(	LIVE-API	rendertexture.h's name view_scene.h's UpdateRefractTexture inline (fork) calls, from the plan's executor and shell_managed_particles.cpp (nm over the link edge): the slot managed declared
+ITexture *GetFullFrameFrameBufferTexture(	LIVE-API	rendertexture.h's name view_scene.h's UpdateScreenEffectTexture inline (fork) and ScreenSpaceEffects.cpp call (nm over the link edge): the frame buffer slot by index, a bounds check its only if

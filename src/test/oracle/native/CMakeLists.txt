@@ -902,3 +902,41 @@ ss_cpptest_tier1(soundemitter_client_oracle_test
              public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/soundemitter_client_oracle_test.cpp)
 endif()
+
+# THE RENDER TEXTURE ORACLE (C7, rendertexture.cpp): stock's client hooks into
+# the material system's named render targets -- each getter's FindTexture name
+# and group, the reference it takes, the release function registered on the
+# first find and the references that function drops -- run offline from the
+# PRISTINE game/client/rendertexture.cpp and public/materialsystem/
+# MaterialSystemUtil.cpp (CTextureReference) over a recording material-system
+# double, held to the golden src/test/client/Fixtures/rendertexture-stock.tsv,
+# which the managed RenderTargetCatalog's facts replay; and SourceSharp's
+# native store (src/client/native/render_target_store.h) run over the
+# golden's rows, held to stock's calls. tier1 for the string
+# functions. -Wno-reorder-ctor, -Wno-unused-private-field and
+# -Wno-overloaded-virtual are for VALVE'S HEADERS (bitmap/imageformat.h's
+# constructor, the material headers' unused fields, materialsystem/imesh.h's
+# IMesh hiding its bases' ModifyBegin and ModifyEnd), as the beam oracle has
+# them.
+set(rendertexture_stock "${SS_VALVE_SRC}/game/client/rendertexture.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${rendertexture_stock}" OR NOT EXISTS "${msu_stock}")
+  ss_oracle_missing(rendertexture_oracle_test "no ${rendertexture_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and its own header are COPIED, byte for byte, into their own
+# directory: its quoted #include of rendertexture.h then finds the pristine
+# copy beside it and nothing else of game/client's.
+configure_file("${rendertexture_stock}" "${CMAKE_CURRENT_BINARY_DIR}/rendertexture_subject/rendertexture.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/rendertexture.h" "${CMAKE_CURRENT_BINARY_DIR}/rendertexture_subject/rendertexture.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(rendertexture_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-private-field -Wno-reorder-ctor
+            -Wno-overloaded-virtual
+    INCLUDES ${CMAKE_CURRENT_BINARY_DIR}/rendertexture_subject
+             ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/client/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/rendertexture_oracle_test.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/rendertexture_subject/rendertexture.cpp
+            ${msu_stock})
+endif()

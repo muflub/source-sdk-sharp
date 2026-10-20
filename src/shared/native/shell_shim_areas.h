@@ -508,6 +508,7 @@ public:
 	int32_t EntitiesUpdateVisibilityAll() override;
 	int32_t RenderViewToTarget( int32_t nTarget, const SourceSharpViewTargetSetup * pSetup ) override;
 	int32_t ViewTargetInfo( int32_t nTarget, int32_t * pOut4 ) override;
+	int32_t RenderTargetDeclare( int32_t nSlot, const char * pszName, const char * pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder ) override;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient

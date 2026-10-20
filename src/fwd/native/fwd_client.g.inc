@@ -2536,7 +2536,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 16 forwarder(s) over IShimViewClient.
+// ShimViewClient: 17 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2570,6 +2570,8 @@ static int32_t SSFwd_ShimViewClient_EntitiesUpdateVisibilityAll( IShimViewClient
 static int32_t SSFwd_ShimViewClient_RenderViewToTarget( IShimViewClient *self, int32_t a0, const SourceSharpViewTargetSetup * a1 ) { return self->RenderViewToTarget( a0, a1 ); }
 // int32_t IShimViewClient::ViewTargetInfo( int32_t, int32_t * )
 static int32_t SSFwd_ShimViewClient_ViewTargetInfo( IShimViewClient *self, int32_t a0, int32_t * a1 ) { return self->ViewTargetInfo( a0, a1 ); }
+// int32_t IShimViewClient::RenderTargetDeclare( int32_t, const char *, const char *, int32_t, int32_t, int32_t )
+static int32_t SSFwd_ShimViewClient_RenderTargetDeclare( IShimViewClient *self, int32_t a0, const char * a1, const char * a2, int32_t a3, int32_t a4, int32_t a5 ) { return self->RenderTargetDeclare( a0, a1, a2, a3, a4, a5 ); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
@@ -2588,9 +2590,10 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_EntitiesUpdateVisibilityAll ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_RenderViewToTarget ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ViewTargetInfo ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_RenderTargetDeclare ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 16 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 17 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.

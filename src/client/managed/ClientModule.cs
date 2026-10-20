@@ -1813,6 +1813,16 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _observerCamera = _services.Create<Render.ObserverCamera>();
         _services.AddInstance(_observerCamera);
 
+        // THE NAMED RENDER TARGETS (C7, rendertexture.cpp's getters): which
+        // texture each slot finds, and which references the material system's
+        // release drops, declared to the native store before anything renders.
+        // A reload declares the same rows, and the store keeps its references.
+        var renderTargets = new Render.RenderTargetCatalog();
+        _services.AddInstance(renderTargets);
+        int renderTargetsDeclared = renderTargets.DeclareTo(_services.Require<IRenderTargetTable>());
+        if (renderTargetsDeclared != (int)Render.RenderTargetSlot.Count)
+            Log.Warning($"[SourceSharp/Client] the render target store took {renderTargetsDeclared} of {(int)Render.RenderTargetSlot.Count} slots\n");
+
         // THE LOCAL PLAYER'S FLASHLIGHT (C7 cluster 12): stock's
         // C_BasePlayer::UpdateFlashlight and CFlashlightEffect, run at
         // FRAME_RENDER_START. Its own ConVars are managed declarations; the

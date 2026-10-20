@@ -1,0 +1,56 @@
+# C7, the small render TUs (rendertexture.cpp, ScreenSpaceEffects.cpp, vgui_game_viewport.cpp,
+# c_pixel_visibility.cpp, glow_overlay.cpp, warp_overlay.cpp): the frame's engine calls at fixed poses,
+# the witness two builds are compared by (run at each and compare the traces' call lines). The render
+# targets show in the executor's copies and binds, pixel visibility in the occlusion queries and their
+# proxies, the glow overlays in an explosion's fireball flash (a warp overlay, a tenth of a second long,
+# so the trace is asked for right after the temp entity is fired and again a frame later), and the
+# screen-space effects in the post pass. Two frames at the first pose measure the frame-to-frame noise;
+# the map is then loaded again in the same process (the second map load) and the first pose recorded
+# once more. Every build carries the recorder:
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-render-small-ab.steps --no-probe-build --port P
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd cs_sv_showpanel 1 info 0
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/pose1-a.txt
+wait recorded \d+ lines to .*pose1-a 20
+cmd cs_cl_render_trace {out}/pose1-b.txt
+wait recorded \d+ lines to .*pose1-b 20
+shot pose1
+cmd cs_te_fire explosion -4116 4400 64
+cmd cs_cl_render_trace {out}/explosion-a.txt
+wait recorded \d+ lines to .*explosion-a 20
+cmd cs_te_fire explosion -4116 4400 64
+sleep 0.03
+cmd cs_cl_render_trace {out}/explosion-b.txt
+wait recorded \d+ lines to .*explosion-b 20
+cmd cs_te_fire explosion -4116 4400 64
+sleep 0.05
+shot explosion
+api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/pose2.txt
+wait recorded \d+ lines to .*pose2 20
+shot pose2
+api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/pose3.txt
+wait recorded \d+ lines to .*pose3 20
+shot pose3
+cmd map dm_lockdown
+sleep 25
+cmd sv_cheats 1
+cmd cs_sv_showpanel 1 info 0
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/reload-pose1.txt
+wait recorded \d+ lines to .*reload-pose1 60
+shot reload-pose1
+cmd cs_te_fire explosion -4116 4400 64
+cmd cs_cl_render_trace {out}/reload-explosion.txt
+wait recorded \d+ lines to .*reload-explosion 20
+quit
