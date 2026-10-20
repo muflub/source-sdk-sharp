@@ -235,7 +235,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 251 slots.
+// CLIENT ONLY -- 247 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -385,12 +385,8 @@ int32_t SourceSharp_EffectRegistrationCount( void );
 int32_t SourceSharp_EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize );
 void SourceSharp_EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData );
 void SourceSharp_EntitySetSkin( uint32_t hEntity, int32_t nSkin );
-int32_t SourceSharp_FlashlightCreate( const SourceSharpFlashlightState *pState );
-void SourceSharp_FlashlightDestroy( int32_t nHandle );
-void SourceSharp_FlashlightProject( int32_t nHandle );
 int32_t SourceSharp_FlashlightSupportsBorderColor( void );
 int32_t SourceSharp_FlashlightTexture( const char *pszName );
-void SourceSharp_FlashlightUpdate( int32_t nHandle, const SourceSharpFlashlightState *pState );
 void SourceSharp_FxCacheMaterialHandles( void );
 void SourceSharp_FxCacheUsedMaterials( void );
 int32_t SourceSharp_FxCanPredict( void );

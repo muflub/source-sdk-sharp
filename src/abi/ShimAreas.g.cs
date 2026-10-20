@@ -1797,10 +1797,6 @@ internal unsafe interface IFlashlightClientArea
 {
     int FlashlightTexture(byte* a0);
     int FlashlightSupportsBorderColor();
-    int FlashlightCreate(FlashlightState* a0);
-    void FlashlightUpdate(int a0, FlashlightState* a1);
-    void FlashlightProject(int a0);
-    void FlashlightDestroy(int a0);
 }
 
 /// <summary>
@@ -1814,10 +1810,6 @@ internal sealed unsafe class FlashlightClientArea : IFlashlightClientArea
 
     public int FlashlightTexture(byte* a0) { return _shim.Table->FlashlightTexture(_shim.Self, a0); }
     public int FlashlightSupportsBorderColor() { return _shim.Table->FlashlightSupportsBorderColor(_shim.Self); }
-    public int FlashlightCreate(FlashlightState* a0) { return _shim.Table->FlashlightCreate(_shim.Self, a0); }
-    public void FlashlightUpdate(int a0, FlashlightState* a1) { _shim.Table->FlashlightUpdate(_shim.Self, a0, a1); }
-    public void FlashlightProject(int a0) { _shim.Table->FlashlightProject(_shim.Self, a0); }
-    public void FlashlightDestroy(int a0) { _shim.Table->FlashlightDestroy(_shim.Self, a0); }
 }
 
 /// <summary>

@@ -76,7 +76,7 @@ public class CMakeGraphTests
         static string Local(string module, string file) => $"src/{module}/native/{file}";
         Assert.Equal("sourcesharp/game/server/physics.cpp", CMakeGraph.RepoToFarm(Local("server", "physics.cpp")));
         Assert.Equal("sourcesharp/game/shared/shell_shared.cpp", CMakeGraph.RepoToFarm(Local("shared", "shell_shared.cpp")));
-        Assert.Equal("sourcesharp/public/collisionutils.cpp", CMakeGraph.RepoToFarm(Local("shared", "collisionutils.cpp")));
+        Assert.Equal("sourcesharp/public/dt_send.cpp", CMakeGraph.RepoToFarm(Local("shared", "dt_send.cpp")));
         Assert.Equal("sourcesharp/game/server/shell_gamedll.cpp",
             CMakeGraph.FarmRelative(RepoLayout.Repo("src", "server", "native", "shell_gamedll.cpp")));
         Assert.Throws<InvalidOperationException>(() => CMakeGraph.RepoToFarm(Local("nowhere", "none") + ".cpp"));

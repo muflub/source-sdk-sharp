@@ -299,8 +299,7 @@ public class SideAuditTests
         "ConVarsClientWatch", "ConVarsClientSetValue",
         // The flashlight's executor (C7 cluster 12): the client shadow manager
         // and its texture, which exist only in client.so.
-        "FlashlightTexture", "FlashlightSupportsBorderColor", "FlashlightCreate", "FlashlightUpdate",
-        "FlashlightProject", "FlashlightDestroy",
+        "FlashlightTexture", "FlashlightSupportsBorderColor",
         // The named render targets' store (C7, rendertexture.cpp's getters):
         // the material system's render targets exist only in client.so.
         "RenderTargetDeclare",

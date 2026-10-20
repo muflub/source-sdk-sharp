@@ -98,6 +98,11 @@ set(_ss_fwd_leaf_system ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_leaf_system.cpp
 set_source_files_properties(${_ss_fwd_leaf_system} PROPERTIES
     COMPILE_DEFINITIONS CLIENT_DLL
     INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
+# And its shadow manager table (fwd_shadows.cpp, C7 cluster 12 S2), the same.
+set(_ss_fwd_shadows ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_shadows.cpp)
+set_source_files_properties(${_ss_fwd_shadows} PROPERTIES
+    COMPILE_DEFINITIONS CLIENT_DLL
+    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
 ss_cpptest_engine_headers(fwd_steam_test
     DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT ${_ss_fwd_client_sdl}
     INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
@@ -106,7 +111,8 @@ ss_cpptest_engine_headers(fwd_steam_test
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
-            ${_ss_fwd_leaf_system})
+            ${_ss_fwd_leaf_system}
+            ${_ss_fwd_shadows})
 
 # C7 cluster 12 L2: the client leaf system's forwarder class, driven as the
 # engine and client.so's C++ drive it over a recording managed table, each
@@ -122,7 +128,24 @@ ss_cpptest_engine_headers(fwd_leaf_system_test
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
-            ${_ss_fwd_leaf_system})
+            ${_ss_fwd_leaf_system}
+            ${_ss_fwd_shadows})
+
+# C7 cluster 12 S2: the client shadow manager's table (SSFwd_Shadows_Run),
+# each record kind carried out over fakes whose recorders sit at the
+# compiler's slots, and the run's bounds as fwd_shadows.h documents them. The
+# client's library is compiled in, as fwd_leaf_system_test's is.
+ss_cpptest_engine_headers(fwd_shadows_test
+    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT CLIENT_DLL ${_ss_fwd_client_sdl}
+    INCLUDES sourcesharp/game/shared sourcesharp/host sourcesharp/game/client game/client game/shared
+             ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shadows_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
+            ${_ss_fwd_leaf_system}
+            ${_ss_fwd_shadows})
 
 # plan_forwarders_everywhere.md phase 1: the shim layer's own interfaces
 # through the same forwarder tables, each slot holding what reached a
@@ -3766,6 +3789,13 @@ ss_cpptest(detail_props_wire_test
     INCLUDES sourcesharp/game/client
     SOURCES sourcesharp/test/detail_props_wire_test.cpp)
 
+# THE SHADOW MANAGER'S PENDING QUEUE (C7 cluster 12 S2): shadow_pending_queue.h,
+# what the entity shells tell the managed shadow manager between its calls.
+# No SDK header, so the shipped queue is the thing under test.
+ss_cpptest(shadow_pending_queue_test
+    INCLUDES sourcesharp/game/client
+    SOURCES sourcesharp/test/shadow_pending_queue_test.cpp)
+
 # THE CLIENT FLIP'S RULING TABLE AND ITS REFUSAL COUNTER -- CLIENT_FLIP lane 2
 # (`c8-entitystatics`), plan_entity.md §7.
 #
@@ -5049,20 +5079,6 @@ ss_cpptest(shell_factory_client_test
     INCLUDES public public/tier0 public/tier1 game/client
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_factory_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/shell_factory_client.cpp)
-
-# SFM is dead (user ruling 2026-10-19): client.so's tools-off stand-ins
-# (shell_tools_off_client.cpp) answer "tools are off" to the Valve TUs that still
-# name the tool framework. Links no tier0 or tier1.
-ss_cpptest(shell_tools_off_client_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL
-    # Valve headers itoolentity.h reaches: utlblockmemory.h's unused local,
-    # imageformat.h's and studio.h's initialiser order, studio.h's memcpy of
-    # classes, and iclientrenderable.h's `*((CBaseHandle*)0)`.
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-reorder-ctor
-            -Wno-nontrivial-memcall -Wno-null-dereference
-    INCLUDES public public/tier0 public/tier1 public/mathlib game/client game/shared
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_tools_off_client_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/client/native/shell_tools_off_client.cpp)
 
 # SFM is dead (user ruling 2026-10-19): the tool framework's two TUs are off
 # client.so's source list, the stand-ins are on it, and the built client.so

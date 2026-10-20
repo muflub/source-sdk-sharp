@@ -31,7 +31,8 @@
 #include "said_once_per_id.h"
 #include "clientleafsystem.h"
 #include "shell_effect_ledger.h"
-#include "iclientshadowmgr.h"
+#include "engine/ishadowmgr.h"
+#include "shell_shadows_client.h"
 #include "ivrenderview.h"
 #include "bone_accessor.h"
 #include "animation.h"
@@ -121,13 +122,6 @@ C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass
 	  m_bDrawReported( false ),
 	  m_ModelInstance( MODEL_INSTANCE_INVALID ),
 	  m_hRenderHandle( INVALID_CLIENT_RENDER_HANDLE ),
-
-	  // No shadow yet, and not dirty: there is nothing on the manager's list to
-	  // be dirty ABOUT. CClientShadowMgr::CreateShadow opens with
-	  // Assert( !pRenderable->IsShadowDirty() ), so starting this true would
-	  // fire on the first prop in a _DEBUG build.
-	  m_ShadowHandle( CLIENTSHADOW_INVALID_HANDLE ),
-	  m_bShadowDirty( false ),
 
 	  // The think list's invalid handle (its unsigned short InvalidIndex), as a
 	  // value: client_thinklist.cpp left client.so in C8 (ClientC8Evicted).
@@ -980,13 +974,12 @@ void C_StandaloneEntity::OnPositionChanged()
 	// `if ( (shadow.m_Flags & SHADOW_FLAGS_ANIMATING_SOURCE) == 0 )`. So an
 	// animating entity -- a ragdoll included -- is permanently texture-dirty by
 	// stock's own design and is redrawn every frame regardless of this call.
-	if ( g_pClientShadowMgr )
-	{
-		g_pClientShadowMgr->AddToDirtyShadowList( this );
-
-		if ( bPoseMoved )
-			g_pClientShadowMgr->MarkRenderToTextureShadowDirty( GetShadowHandle() );
-	}
+	//
+	// THE MANAGER IS MANAGED (C7 cluster 12 S2), so both calls are one entry of
+	// the shells' queue (shell_shadows_client.h), collapsed per entity and
+	// handed over with the manager's next call: the texture mark rides in the
+	// entry only when the pose moved, for the reason above.
+	ShellShadows_MarkDirty( BlockHandle(), bPoseMoved );
 }
 
 void C_StandaloneEntity::AddToLeafSystem()
@@ -1360,58 +1353,45 @@ ShadowType_t C_StandaloneEntity::ShadowCastType()
 //-----------------------------------------------------------------------------
 void C_StandaloneEntity::RefreshShadow()
 {
-	// Nothing to cast onto, and nowhere to register: a shadow created before
-	// the manager exists is a null dereference rather than a missing shadow.
-	if ( !g_pClientShadowMgr )
-		return;
-
-	const ShadowType_t shadowType = ShadowCastType();
-
-	if ( shadowType == SHADOWS_NONE )
-	{
-		DestroyShadow();
-		return;
-	}
-
-	// Already has one. The manager recomputes the KIND itself from the flags it
-	// was given, exactly as it does for stock — an entity whose model changed
-	// from a studio model to a brush model loses the shadow above rather than
-	// swapping it, which is stock's behaviour and its limitation both.
-	if ( m_ShadowHandle != CLIENTSHADOW_INVALID_HANDLE )
-		return;
-
-	// THE FLAGS ARE A LOAD TOO. Which bits a shadow of this kind wants is
-	// C_BaseEntity::CreateShadow's two lines and they are ClientRenderPolicy's
-	// now, beside the type that decides them: getting either wrong is a shadow
-	// that exists and is the wrong KIND, which no error reports and only a
-	// photograph shows. Pinned here because here is where both declarations are
-	// in scope.
-	COMPILE_TIME_ASSERT( (int)SHADOW_FLAGS_SHADOW                == ( 1 << 1 ) );
-	COMPILE_TIME_ASSERT( (int)SHADOW_FLAGS_USE_RENDER_TO_TEXTURE == ( 1 << 2 ) );
-	COMPILE_TIME_ASSERT( (int)SHADOW_FLAGS_ANIMATING_SOURCE      == ( 1 << 3 ) );
-
+	// THE MANAGER IS MANAGED (C7 cluster 12 S2), and so is the question of
+	// whether this entity already has a shadow: the queue hands it the type and
+	// the flags the block says now, and the managed manager creates, keeps or
+	// destroys (C_BaseEntity::CreateShadow's three arms). The FLAGS are a load
+	// too: which bits a shadow of this kind wants is ClientRenderPolicy's.
+	//
 	// ClientEntityHandle_t( BlockHandle() ) is what GetClientHandle() is on
-	// C_BaseEntity. The manager looks the renderable back up through it —
-	// ClientEntityList().GetClientRenderableFromHandle — and this entity is in
-	// that list from its constructor, so the round trip lands back on `this`.
-	// A _DEBUG build asserts exactly that inside AddToDirtyShadowList.
-	m_ShadowHandle = g_pClientShadowMgr->CreateShadow( ClientEntityHandle_t( BlockHandle() ),
-	                                                  Block().Client.ShadowFlags );
+	// C_BaseEntity; the manager looks the renderable back up through it, and
+	// this entity is in the client's list from its constructor.
+	ShellShadows_Refresh( BlockHandle(), (int)ShadowCastType(), Block().Client.ShadowFlags );
 }
 
 void C_StandaloneEntity::DestroyShadow()
 {
-	if ( m_ShadowHandle == CLIENTSHADOW_INVALID_HANDLE )
-		return;
+	// Queued too, and the entity's earlier entries with it go: the renderable
+	// may be freed before the hand-over.
+	ShellShadows_Destroy( BlockHandle() );
+}
 
-	g_pClientShadowMgr->DestroyShadow( m_ShadowHandle );
-	m_ShadowHandle = CLIENTSHADOW_INVALID_HANDLE;
-
-	// The manager clears this on the way out of its dirty list, but only for a
-	// shadow it still holds. Cleared here too so the flag can never outlive the
-	// handle it describes: a renderable that says "dirty" with no shadow is one
-	// AddToDirtyShadowList will decline to touch forever after.
-	m_bShadowDirty = false;
+//-----------------------------------------------------------------------------
+// Whether a projected texture lands on this entity: C_BaseEntity's
+// ShouldReceiveProjectedTextures, which is ClientRenderPolicy.Receives now
+// (C7 cluster 12 S2, user ruling Q2 "match stock"). The policy writes both
+// answers, a shadow's and a flashlight's, into the block's ShadowFlags word
+// above the shadow flags (ClientShadowFlag.ReceivesShadows, 1 << 29, and
+// .ReceivesFlashlight, 1 << 30); this reads the one the question's kind
+// names, the flashlight's when the mask holds both, as stock's tests it first.
+// It answered false for every entity until S2.
+//-----------------------------------------------------------------------------
+bool C_StandaloneEntity::ShouldReceiveProjectedTextures( int flags )
+{
+	// ClientShadowFlag's two engine bits (engine/ishadowmgr.h); the rest of the
+	// word is the managed manager's own.
+	COMPILE_TIME_ASSERT( (int)SHADOW_FLAGS_FLASHLIGHT == ( 1 << 0 ) );
+	COMPILE_TIME_ASSERT( (int)SHADOW_FLAGS_SHADOW == ( 1 << 1 ) );
+	const int kReceivesShadows = 1 << 29;
+	const int kReceivesFlashlight = 1 << 30;
+	const int nAnswer = ( flags & SHADOW_FLAGS_FLASHLIGHT ) ? kReceivesFlashlight : kReceivesShadows;
+	return ( Block().Client.ShadowFlags & nAnswer ) != 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -3612,10 +3592,9 @@ void SourceSharp_StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice )
 // "casting nothing" is a model with nothing to cast with, while "simple" plus
 // "casting nothing" is an entity that is not being drawn at all.
 //
-// The third fact is whether the client shadow manager actually holds a handle,
-// which is the one the Phase 5 gate would have answered instantly: the shell's
-// ShadowCastType() said SHADOWS_SIMPLE for a year while the manager held
-// nothing, and no report anywhere could tell the two apart.
+// The third out, whether the client shadow manager holds a handle, is written
+// 0: the managed manager holds the handles since C7 cluster 12 S2 and answers
+// it itself (IEntityShadowState.HasShadow); managed passes NULL.
 //-----------------------------------------------------------------------------
 int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice,
                                           int32_t *pOutHasShadow )
@@ -3633,9 +3612,6 @@ int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice,
 
 	if ( pOutChoice )
 		*pOutChoice = pEntity->ShadowCastChoice();
-
-	if ( pOutHasShadow )
-		*pOutHasShadow = pEntity->HasShadow() ? 1 : 0;
 
 	return (int32_t)pEntity->ShadowCastType();
 }

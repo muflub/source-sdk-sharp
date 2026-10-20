@@ -14,7 +14,7 @@ namespace SourceSharp.Client;
 /// </summary>
 public sealed class ClientDebugEntities(IRenderPolicyBlocks blocks, IEngineEntityRender render,
                                         IClientStandalones standalones, Interpolation interpolation,
-                                        ClientNetSchemaTypes types)
+                                        ClientNetSchemaTypes types, Render.Shadows.IEntityShadowState shadows)
     : IDebugClientEntities
 {
     public IReadOnlyList<DebugClientEntity> List(string className)
@@ -99,7 +99,9 @@ public sealed class ClientDebugEntities(IRenderPolicyBlocks blocks, IEngineEntit
     {
         int index = IndexOf(block);
         var handle = new EntityHandle(block.Head.Handle);
-        render.ShadowCast(handle, out _, out bool hasShadow);
+        // Whether the shadow manager holds a shadow for it: managed's since S2
+        // of C7 cluster 12 (the entity's handle is the manager's, not the shell's).
+        bool hasShadow = shadows.HasShadow(block.Head.Handle);
 
         return new DebugClientEntity(
             index, block.Head.Handle, standalones.GetByIndex(index)?.ClassName ?? "", render.GetModelName(handle),

@@ -52,7 +52,6 @@
 //
 //=============================================================================//
 #include "gtest/gtest.h"
-#include "ss_ci_skip.h"
 #include "cmake_graph.h"
 
 #include <sys/stat.h>
@@ -364,42 +363,22 @@ TEST( LeafSystemDeEntitied, NeitherBoundsFunctionReachesAnEntityOrADeletedSeam )
 	}
 }
 
-TEST( LeafSystemDeEntitied, TheDeletedSeamIsGoneFromBOTHSidesAndTheResolveIsNot )
+TEST( LeafSystemDeEntitied, TheFactsFileWentWithItsLastResolve )
 {
-	// The pair that makes the deletion a deletion rather than a rename: the six
-	// bodies are gone from the shim AND from its header, and the ONE thing that
-	// file is still for is still there. Without the positive half every name
-	// below is satisfied by an empty or unopenable file.
-	const std::string factsCode = StripComments( ReadFile( kFacts ) );
-	const std::string header = StripComments( ReadFile( kFactsHeader ) );
-	ASSERT_FALSE( factsCode.empty() ) << kFacts << " read as nothing";
-	ASSERT_FALSE( header.empty() ) << kFactsHeader << " read as nothing";
-
-	EXPECT_TRUE( Contains( factsCode, "IClientRenderable *SourceSharp_RenderableFromHandle( const CBaseHandle &hEnt )" ) )
-		<< kFacts << " no longer defines the handle->renderable resolve, which "
-		   "is the one thing the file is for";
-	EXPECT_TRUE( Contains( header, "IClientRenderable *SourceSharp_RenderableFromHandle" ) )
-		<< kFactsHeader << " no longer declares the resolve";
-
-	const char *kDeleted[] = {
-		"SourceSharp_BoneMergeBoundsFromFollowedEntity",
-		"SourceSharp_BoneMergeBoundsFromMoveParent",
-		"SourceSharp_ShadowRenderingClipPlane",
-		"SourceSharp_ShadowSourceIsNpcOrPlayer",
-		"SourceSharp_ShadowBoneSetupQueueAdd",
-		"SourceSharp_ShadowBoneSetupQueueRun",
-		"SourceSharp_ShadowBoneSetupQueueReset",
-		"SourceSharp_ViewerFovDistanceAdjustFactor",
-	};
-	for ( size_t i = 0; i < sizeof( kDeleted ) / sizeof( kDeleted[ 0 ] ); i++ )
-	{
-		EXPECT_FALSE( Contains( factsCode, kDeleted[ i ] ) )
-			<< kFacts << " defines " << kDeleted[ i ] << " again. Every one of "
-			<< "these answered a constant on this link line; a body here is a "
-			<< "body with no caller unless a call site came back too.";
-		EXPECT_FALSE( Contains( header, kDeleted[ i ] ) )
-			<< kFactsHeader << " declares " << kDeleted[ i ] << " again";
-	}
+	// The six seams went at the de-entitying, and the ONE thing the facts file
+	// was still for, SourceSharp_RenderableFromHandle, went with its last
+	// importer, clientshadowmgr.cpp (C7 cluster 12 S2): the managed shadow
+	// manager resolves a handle through shell_shadows_client.cpp. The leaf
+	// system's shell is the control that the farm was read.
+	ASSERT_FALSE( StripComments( ReadFile( kLeafSystem ) ).empty() ) << kLeafSystem << " read as nothing";
+	EXPECT_TRUE( ReadFile( kFacts ).empty() ) << kFacts << " is back";
+	EXPECT_TRUE( ReadFile( kFactsHeader ).empty() ) << kFactsHeader << " is back";
+	const std::string shell = StripComments( ReadFile( "sourcesharp/game/client/shell_shadows_client.cpp" ) );
+	ASSERT_FALSE( shell.empty() ) << "shell_shadows_client.cpp read as nothing";
+	EXPECT_TRUE( Contains( shell, "IClientRenderable *RenderableOf( uint32_t hEntity )" ) )
+		<< "shell_shadows_client.cpp no longer resolves the manager's entity handles";
+	EXPECT_FALSE( Contains( shell, "SourceSharp_RenderableFromHandle" ) )
+		<< "shell_shadows_client.cpp asks the deleted resolve";
 }
 
 TEST( LeafSystemDeEntitied, TheLeafSystemNoLongerNeedsTheFactsHeaderAtAll )
@@ -423,185 +402,47 @@ TEST( LeafSystemDeEntitied, TheLeafSystemNoLongerNeedsTheFactsHeaderAtAll )
 
 
 //=============================================================================
-// PART 1b — THE SHADOW MANAGER, SAME MOVE, SAME ANTI-DELETION ARGUMENT
+// PART 1b — THE SHADOW MANAGER: RETIRED WITH ITS SUBJECT
+//
+// 2026-10-19, C7 cluster 12 S2: clientshadowmgr.cpp, the client's last fork
+// TU, left client.so. The shadow manager is SourceSharp.Client's
+// (src/client/managed/Render/Shadows/), its native residue
+// shell_shadows_client.cpp and the forwarder library's fwd_shadows.cpp.
+//
+// Four facts stood here, all read out of the fork's clientshadowmgr.cpp: that
+// its code named no SDK entity type (paired with its FirstShadowChild /
+// NextShadowPeer walks and docs/absence-client.md row 15), that the bone-setup
+// queue was gone and the threaded setup branch was not, that
+// ComputeExtraClipPlanes still added its three planes and no fourth, and that
+// AddShadowToReceiver added to a static prop only on the flashlight path. The
+// file is gone from the farm, so each had nothing left to read; they are
+// retired with it, as the leaf system's stock-file facts were at L2. What the
+// managed port does on those paths is held against stock by the shadow
+// manager oracle (ShadowManagerOracleTests.cs), not by a source scan. What
+// stays is the eviction itself, on the leaf system's model above.
 //=============================================================================
 
 namespace
 {
-const char *kShadowMgr = "game/client/clientshadowmgr.cpp";
+const char *kStockShadowMgr = "game/client/clientshadowmgr.cpp";
+const char *kShadowsShell = "sourcesharp/game/client/shell_shadows_client.cpp";
 }
 
-TEST( ShadowMgrDeEntitied, ItNamesCBaseEntityOnlyInTheFlashlightTargetGuards )
+TEST( ShadowMgrDeEntitied, TheStockShadowManagerIsNotCompiled )
 {
-	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
-	// plan_entity.md 3.9 gives this file the leaf system's sentence. Three of
-	// its five guarded regions moved to the shim; the two that stayed were the
-	// flashlight-target walk and IsFlashlightTarget, whose bodies call
-	// CClientShadowMgr's own members and which cpp_alias_t5_test's
-	// FlashlightTargetVacuity already measures as unreachable in this project.
-	//
-	// REWRITTEN BY THE `residue` WAVE (74b071771..a46e8d645), AND THE NUMBER
-	// IS NOW ZERO RATHER THAN TWO.
-	//
-	// The two walks this fact counted were at game/client/clientshadowmgr.cpp
-	// :2738-2767 and :4252-4266 at 74b071771, and BOTH sat inside
-	// `#ifndef SS_CBASEENTITY_ALIAS`. The one configuration this project builds
-	// has SS_CBASEENTITY_ALIAS and SOURCESHARP both DEFINED, so neither arm was
-	// ever compiled: the residue wave deleted 5,282 lines of exactly that kind
-	// of dead text out of 44 stock TUs and the compiler's input did not move
-	// (588 objects, identical DEFINED and UNDEFINED symbol sets). Counting them
-	// was counting text the flip had already removed.
-	//
-	// So the successor property is the STRONGER one -- this file's CODE now
-	// names no SDK entity type at all -- and it is written as an absence, which
-	// is exactly the shape that passes over an empty or unopenable file. Every
-	// zero below is therefore paired with a positive anchor:
-	//
-	//   * the file still IS the shadow manager (the four renderable-typed
-	//     FirstShadowChild() walks and the three NextShadowPeer() steps that
-	//     replaced the move hierarchy, and AddShadowToReceiver's definition);
-	//   * docs/absence-client.md row 15 still carries the paragraph that says
-	//     WHY the walks were never retyped, so a later deletion of the record
-	//     is caught too. It was a comment in the fork's copy of the file; it
-	//     moved to the ledger so the comment-free patched upstream (make
-	//     sdk-upstream) keeps it.
-	const std::string code = StripComments( ReadFile( kShadowMgr ) );
-	const std::string doc = ReadFile( "../docs/absence-client.md" );
-	ASSERT_FALSE( doc.empty() ) << "docs/absence-client.md read as nothing";
-	const size_t posRow = doc.find( "## 15. The flashlight-target tail" );
-	ASSERT_NE( std::string::npos, posRow ) << "the absence ledger lost row 15";
-	const std::string raw = doc.substr( posRow, doc.find( "\n## ", posRow + 1 ) - posRow );
-	ASSERT_FALSE( code.empty() ) << kShadowMgr << " read as nothing";
-
-	// ---- the positive half: this is still the shadow manager -----------------
-	EXPECT_EQ( 4, CountOccurrences( code, "FirstShadowChild()" ) )
-		<< kShadowMgr << " no longer walks the renderable child hierarchy; the "
-		<< "zeroes below would then be satisfied by deleting the file's work "
-		<< "rather than by the flip having already removed dead text";
-	EXPECT_EQ( 3, CountOccurrences( code, "NextShadowPeer()" ) )
-		<< kShadowMgr << "'s renderable-typed peer steps are not all there";
-	EXPECT_TRUE( Contains( code, "void CClientShadowMgr::AddShadowToReceiver(" ) )
-		<< kShadowMgr << " no longer defines AddShadowToReceiver";
-
-	// ---- the absence half: no entity reach survives in code ------------------
-	EXPECT_EQ( 0, CountOccurrences( code, "C_BaseEntity" ) )
-		<< kShadowMgr << " names C_BaseEntity in CODE again. The two "
-		<< "flashlight-target walks that used to account for this were dead "
-		<< "`#ifndef SS_CBASEENTITY_ALIAS` text and the `residue` wave deleted "
-		<< "them; a new one is a new entity reach, not the old one coming back";
-	EXPECT_EQ( 0, CountOccurrences( code, "C_BaseAnimating" ) )
-		<< kShadowMgr << " still names C_BaseAnimating; the bone-setup queue "
-		<< "and its two CUtlVector< C_BaseAnimating * > statics moved";
-	EXPECT_EQ( 0, CountOccurrences( code, "FirstMoveChild()" ) )
-		<< kShadowMgr << " walks the MOVE hierarchy again. That is the SDK "
-		<< "entity hierarchy read off C_BaseEntity, and igameentity.h refuses "
-		<< "GetMoveParent by name -- there is no managed route for it";
-
-	// ---- and the record of why the walks were never retyped ------------------
-	EXPECT_TRUE( Contains( raw, "igameentity.h says so for GetMoveParent by name" ) )
-		<< "docs/absence-client.md row 15 has lost the paragraph that says why the flashlight "
-		<< "walks were deleted rather than ported. Without it the zeroes above "
-		<< "read as a file that was simply tidied";
-}
-
-//-----------------------------------------------------------------------------
-// THE SHADOW MANAGER'S THREE RELOCATED REGIONS, REWRITTEN BY LANE 4c-render.
-//
-// READ THE ASSERTIONS, NOT THE HISTORY. All three are gone from both sides.
-//
-// The bone-setup queue, the rendering clip plane and the NPC/player static-prop
-// gate were relocated out of this file by wave 2b because each is something the
-// file DID with an entity rather than a place it looked one up -- and the
-// queue's ELEMENT TYPE was an SDK entity class, which no respelling can fix.
-// Measured at the far end, all three were constants: `false`, `false`, and an
-// Add() with an empty body whose Run() therefore handed ParallelProcess two
-// zero-length arrays twice a frame. Each depended on a resolve that walks the
-// partition before it asks GetBaseEntity(), and this link line has no SDK
-// C_BaseEntity. Lane 4c-render deleted all three and their five call sites.
-//
-// EACH SUCCESSOR IS AN ABSENCE PAIRED WITH THE POSITIVE ANCHOR IT WOULD
-// OTHERWISE BE SATISFIED BY DELETING. A file that no longer poses shadows, no
-// longer clips flashlights and no longer adds anything to a static prop passes
-// every "does not name X" on its own; so what is asserted is that the
-// SURROUNDING WORK is still there and that only the entity reach went.
-//-----------------------------------------------------------------------------
-TEST( ShadowMgrDeEntitied, ThePosePassIsGoneAndTheThreadedBranchItBracketedIsNot )
-{
-	const std::string code = StripComments( ReadFile( kShadowMgr ) );
-	ASSERT_FALSE( code.empty() ) << kShadowMgr << " read as nothing";
-
-	// ---- the positive half: the threaded setup pass still exists ------------
-	EXPECT_TRUE( Contains( code, "m_bThreaded" ) )
-		<< kShadowMgr << " no longer has the threaded setup branch at all, so "
-		<< "the absences below would be satisfied by deleting the work rather "
-		<< "than by deleting an empty queue";
-	EXPECT_TRUE( Contains( code, "if ( BuildSetupListForRenderToTextureShadow( info.m_hShadow, info.m_flArea ) )" ) )
-		<< kShadowMgr << " no longer builds the setup list inside that branch";
-	EXPECT_TRUE( Contains( code, "bDrewTexture = true;" ) )
-		<< "BuildSetupShadowHierarchy no longer records that it had a model "
-		<< "shadow to draw; that flag is the branch's real output and it never "
-		<< "depended on the queue";
-
-	// ---- the absence half: nothing queues, drains or poses an entity --------
-	const char *kGone[] = {
-		"SourceSharp_ShadowBoneSetupQueueReset",
-		"SourceSharp_ShadowBoneSetupQueueAdd",
-		"SourceSharp_ShadowBoneSetupQueueRun",
-		"C_BaseAnimating",
-		"SetupBones(",
-	};
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
-	{
-		EXPECT_EQ( 0, CountOccurrences( code, kGone[ i ] ) )
-			<< kShadowMgr << " names " << kGone[ i ] << " in CODE again. The "
-			<< "queue's element type was an SDK entity class and there is no "
-			<< "such class here; a queue that fills again poses nothing and "
-			<< "costs a traversal.";
-	}
-}
-
-TEST( ShadowMgrDeEntitied, TheShadowIsClippedByTheThreePlanesComputeExtraClipPlanesMakes )
-{
-	// The fourth plane came off the renderable's own m_fRenderingClipPlane, two
-	// FIELDS on C_BaseEntity. It is gone; the three the function computes are
-	// the whole answer and must still be added, or the shadow stops being
-	// bounded at all -- which renders, and looks like a lighting bug.
-	const std::string body = StripComments(
-		FunctionBody( kShadowMgr, "void CClientShadowMgr::ComputeExtraClipPlanes( IClientRenderable* pRenderable, " ) );
-	ASSERT_FALSE( body.empty() ) << kShadowMgr << ": no ComputeExtraClipPlanes body";
-
-	EXPECT_TRUE( Contains( body, "AddExtraClipPlane( handle, normal, dist )" ) )
-		<< "ComputeExtraClipPlanes no longer adds the planes it computes, so the "
-		<< "shadow is not clipped by its own bounding box";
-	EXPECT_FALSE( Contains( body, "SourceSharp_ShadowRenderingClipPlane" ) )
-		<< "the deleted clip-plane seam is back; it answered false on every "
-		<< "path because C_StandaloneEntity declares no clip plane at all";
-	EXPECT_FALSE( Contains( body, "flClipDist" ) )
-		<< "ComputeExtraClipPlanes reads a clip distance from somewhere again";
-}
-
-TEST( ShadowMgrDeEntitied, NothingIsAddedToAStaticPropExceptByTheFlashlightPath )
-{
-	// The render-to-texture branch's add was gated on "an NPC or player casts
-	// this", read off the caster's FL_* flags -- SDK movement state that never
-	// crosses (igameentity.h states the verdict by name). The gate answered
-	// false always, so the add never happened, so both went. The FLASHLIGHT
-	// branch's add is a different path with a different condition and is the
-	// positive anchor: if it went too, this file has stopped lighting props.
-	const std::string body = StripComments(
-		FunctionBody( kShadowMgr, "void CClientShadowMgr::AddShadowToReceiver( ClientShadowHandle_t handle," ) );
-	ASSERT_FALSE( body.empty() ) << kShadowMgr << ": no AddShadowToReceiver body";
-
-	EXPECT_EQ( 1, CountOccurrences( body, "AddShadowToStaticProp(" ) )
-		<< "AddShadowToReceiver adds to a static prop on a number of paths "
-		<< "other than one. The flashlight path is the only one left: the "
-		<< "render-to-texture path's add was gated on an entity's FL_NPC / "
-		<< "FL_CLIENT, which never answered true here.";
-	EXPECT_TRUE( Contains( body, "IsFlashlightTarget( handle, pRenderable )" ) )
-		<< "the flashlight path's own condition is gone, so the single add "
-		<< "counted above may be the wrong one";
-	EXPECT_FALSE( Contains( body, "SourceSharp_ShadowSourceIsNpcOrPlayer" ) )
-		<< "the deleted NPC/player gate is back";
+	// The farm has no stock file, and the client's own list compiles none --
+	// proof-of-read first (the list names the shadow manager's client.so home),
+	// so the absence is about the client's list and not a reader that saw none.
+	EXPECT_TRUE( ReadFile( kStockShadowMgr ).empty() ) << kStockShadowMgr << " is back in the farm";
+	const std::string list = cmake_graph::ListText( cmake_graph::kClient );
+	ASSERT_TRUE( Contains( list, "shell_shadows_client.cpp" ) )
+		<< cmake_graph::ListFile( cmake_graph::kClient ) << " was not read";
+	EXPECT_FALSE( Contains( list, "clientshadowmgr.cpp" ) )
+		<< cmake_graph::ListFile( cmake_graph::kClient ) << " compiles clientshadowmgr.cpp again";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kStockShadowMgr ) )
+		<< "client_sourcesharp has a compile command for " << kStockShadowMgr;
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kShadowsShell ) )
+		<< "the graph does not see the shadow manager's client.so home; the absence above proves nothing";
 }
 
 

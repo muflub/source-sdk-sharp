@@ -1,6 +1,9 @@
 // SFM is dead (user ruling 2026-10-19): toolframework_client.cpp and
-// entity_client_tools.cpp left client.so. Read off the build: neither is
-// compiled, the tools-off stand-ins are, and the built client.so names neither
+// entity_client_tools.cpp left client.so, and the tools-off stand-ins
+// (shell_tools_off_client.cpp) followed with clientshadowmgr.cpp, their last
+// importer (C7 cluster 12 S2). Read off the build: none is compiled (the
+// shadow manager's shell is, the control that the list was read), and the
+// built client.so names neither
 // tool interface -- it exports no VCLIENTTOOLS001 and asks the engine for no
 // VCLIENTENGINETOOLS001. The interface the engine does ask for by name,
 // VClient017, is the positive control that the binary was read.
@@ -38,11 +41,13 @@ bool HasLine( const std::string &text, const std::string &line )
 }
 } // namespace
 
-TEST( ClientToolsEvicted, NeitherToolTuIsCompiledAndTheStandInsAre )
+TEST( ClientToolsEvicted, NoToolTuIsCompiled )
 {
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_tools_off_client.cpp" ) )
-		<< "client_sourcesharp does not compile shell_tools_off_client.cpp; clientshadowmgr.cpp still "
-		   "names what it defines";
+	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_shadows_client.cpp" ) )
+		<< "client_sourcesharp does not compile shell_shadows_client.cpp: this is not the client's list";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_tools_off_client.cpp" ) )
+		<< "shell_tools_off_client.cpp is compiled into client.so again; its last importer, clientshadowmgr.cpp, "
+		   "left at C7 cluster 12 S2";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/toolframework_client.cpp" ) )
 		<< "toolframework_client.cpp is compiled into client.so again (SFM is dead, 2026-10-19)";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/entity_client_tools.cpp" ) )

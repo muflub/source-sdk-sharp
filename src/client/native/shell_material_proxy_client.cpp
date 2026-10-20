@@ -36,7 +36,9 @@
 // shell_materialproxies.cpp's four (Shield, HeliBlade, VortEmissive,
 // PlayerLogo) and viewpostprocess.cpp's two (MotionBlur, engine_post: C7, the
 // post program's values); MaterialProxyFactoryTests holds this list equal to
-// MaterialProxyFactory's and to the C0 registry's.
+// MaterialProxyFactory's and to the C0 registry's. Then clientshadowmgr.cpp's
+// two (Shadow, ShadowModel: C7 cluster 12 S2, the render-to-texture shadow
+// decals' atlas and ShadowInfo_t; user ruling Q1, 2026-10-19, "move to c#").
 //
 //=============================================================================//
 
@@ -77,7 +79,8 @@
 	X( 30, SelectFirstIfNonZero ) X( 31, Shield ) X( 32, Sine ) X( 33, Subtract ) X( 34, TextureScroll ) \
 	X( 35, TextureTransform ) X( 36, ToggleTexture ) X( 37, UniformNoise ) X( 38, VortEmissive ) X( 39, WaterLOD ) \
 	X( 40, WorldDims ) X( 41, WrapMinMax ) X( 42, lampbeam ) X( 43, lamphalo ) \
-	X( 44, MotionBlur ) X( 45, engine_post ) X( 46, ParticleSphereProxy )
+	X( 44, MotionBlur ) X( 45, engine_post ) X( 46, ParticleSphereProxy ) \
+	X( 47, Shadow ) X( 48, ShadowModel )
 
 #define SS_PROXY_NAME( i, name ) #name,
 static const char *const s_ProxyNames[] = { SS_PROXY_NAMES( SS_PROXY_NAME ) };

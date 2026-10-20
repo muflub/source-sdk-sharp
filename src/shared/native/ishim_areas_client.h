@@ -474,20 +474,16 @@ public:
 	virtual int32_t ConVarsClientSetValue( const char *pName, float flValue ) = 0;
 };
 
-// plan_client_novalve C7 cluster 12: the flashlight's executor
-// (shell_flashlight_client.cpp). SourceSharp.Client.Flashlight decides the
-// projected texture; these carry it to the client shadow manager.
-// FlashlightTexture holds a texture by name and answers its id (-1: none);
-// Create answers the shadow handle (-1: none).
+// plan_client_novalve C7 cluster 12: the flashlight's two native asks
+// (shell_shadows_client.cpp). FlashlightTexture holds a texture by name and
+// answers its id (-1: none). The projected texture itself goes to the managed
+// shadow manager in-process since S2 (FlashlightWorld), and the four manager
+// slots that carried it here retired.
 abstract_class IShimFlashlightClient
 {
 public:
 	virtual int32_t FlashlightTexture( const char *pszName ) = 0;
 	virtual int32_t FlashlightSupportsBorderColor() = 0;
-	virtual int32_t FlashlightCreate( const SourceSharpFlashlightState *pState ) = 0;
-	virtual void FlashlightUpdate( int32_t nHandle, const SourceSharpFlashlightState *pState ) = 0;
-	virtual void FlashlightProject( int32_t nHandle ) = 0;
-	virtual void FlashlightDestroy( int32_t nHandle ) = 0;
 };
 
 #endif // ISHIM_AREAS_CLIENT_H

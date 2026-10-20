@@ -545,7 +545,7 @@ public interface IEngineEntityRender
     void SetShadowCast(EntityHandle entity, ShadowCastChoice choice);
 
     /// <inheritdoc cref="EngineSide.StandaloneShadowCast"/>
-    ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked, out bool hasShadow);
+    ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked);
 
     /// <inheritdoc cref="EngineSide.StandaloneSetFade"/>
     void SetFade(EntityHandle entity, FadeStyle style, float startDistance, float endDistance, float minimumAlpha = 0f);

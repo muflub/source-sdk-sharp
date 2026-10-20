@@ -1188,30 +1188,24 @@ internal sealed unsafe partial class EngineEntityRender
     }
 
     /// <summary>
-    /// What this entity is casting right now, what it was asked to cast, and
-    /// whether the client shadow manager is holding a handle for it at all.
+    /// What this entity is casting right now and what it was asked to cast.
     /// Client-side.
     ///
     /// <para>
-    /// The third fact is the one Phase 5's gate needed and could not get. The
-    /// shell's <c>ShadowCastType()</c> answered SHADOWS_SIMPLE for every drawn
-    /// entity while <c>GetShadowHandle()</c> was hard-coded to invalid, so the
-    /// manager held nothing and projected nothing — the entity reported that it
-    /// cast a shadow and cast none, and the only thing in the game that could
-    /// tell the difference was a photograph of the floor.
+    /// Whether the client shadow manager holds a handle for it, the third fact
+    /// Phase 5's gate needed, is the managed manager's since C7 cluster 12 S2
+    /// (<c>IEntityShadowState.HasShadow</c>); the slot's third out is passed
+    /// null.
     /// </para>
     /// </summary>
-    public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked, out bool hasShadow)
+    public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = ShadowCastChoice.Auto;
-        hasShadow = false;
 
         int choice = 0;
-        int held = 0;
-        int cast = _standaloneClientArea.StandaloneShadowCast(entity.Value, &choice, &held);
+        int cast = _standaloneClientArea.StandaloneShadowCast(entity.Value, &choice, null);
 
         asked = (ShadowCastChoice)choice;
-        hasShadow = held != 0;
 
         return (ShadowCast)cast;
     }

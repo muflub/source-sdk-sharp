@@ -74,6 +74,4 @@ allow	SS_FWD_CLIENT_BUILD	side marker: the mirror of SS_FWD_SERVER_BUILD, on lib
 pending	sourcesharp/common/steamid.cpp	HL1	relocated stock, verbatim (Steam's own steamclientpublic.h lineage). Owned by whoever next touches the relocation.
 pending	sourcesharp/common/steamid.cpp	STEAM	relocated stock, verbatim. Same owner as HL1 above.
 pending	sourcesharp/public/dt_send.cpp	SUPPORTS_INT64	relocated stock, verbatim. Owned by the datatable work, not by a client-shell lane.
-pending	sourcesharp/public/collisionutils.cpp	_X360	relocated stock, verbatim (plan_shim.md Phase 2d). Five sites, all VMX128 arms of a ray/box test. (bone_setup.cpp's row left with the file, plan_physics_bones_native_zero Phase 3.)
-pending	sourcesharp/public/collisionutils.cpp	PARANOID_SIMD_ASSERTING	relocated stock, verbatim (plan_shim.md Phase 2d). One site, and it is INSIDE the _X360 arm above -- it goes when that arm does, and not before.
 pending	sourcesharp/game/server/shell_engineboundary.cpp	TF_DLL	server shim, and a mod guard: this is not Team Fortress. Owned by the server side.

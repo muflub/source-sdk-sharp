@@ -1,3 +1,5 @@
+# 2026-10-19, C7 cluster 12 S2 (the client shadow manager to C#), measured on cd01c2887 + the switch: clientshadowmgr.cpp, the client's last stock TU, left client.so (its manager is SourceSharp.Client's Render/Shadows; shell_shadows_client.cpp joined and shell_flashlight_client.cpp folded into it): client objects 139 -> 138, stock game/client 1 -> 0, stock TUs with entity-free text 1 -> 0 (2747 -> 0 code lines), cross-edges 1 -> 0 (g_pClientShadowMgr) across 0 of 0 stock TUs. Hand-edited.
+# 2026-10-20, C7 cluster 12 S2's deletion, measured on f6c3f0b33 + the deletion: shell_renderable_facts.cpp, shell_tools_off_client.cpp and collisionutils.cpp left client.so with clientshadowmgr.cpp, their last importer: client objects 138 -> 135, shim 138 -> 135; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-19, plan_server_native_v2 T5: tier0_thread_port.cpp left the server link for src/client/native (no server
 #   object imports it): server objects 99 -> 98, shim 99 -> 98 (debug build); no cross-edge moved. Hand-applied from
 #   tools/entity-census's diff.
@@ -938,24 +940,24 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                  98       139
-  ... stock game/server | game/client                            0         1
+objects linked                                                  98       135
+  ... stock game/server | game/client                            0         0
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                         98       138
+  ... SourceSharp shim (sourcesharp/**)                         98       135
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0
   ... their code lines                                           0         0
-stock TUs with entity-free text                                  0         1
-  ... their code lines                                           0      2747
+stock TUs with entity-free text                                  0         0
+  ... their code lines                                           0         0
 CBaseEntity:: / C_BaseEntity:: members in the DLL                3         0
   ... same, with NO symbol-type filter (§1's reading)            3         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
                      CBaseEntityList) in the DLL
   ... same, without CBaseEntityList:: (§1's reading)             0         0
-shim -> stock cross-edges (distinct symbols)                     0         1
-stock TUs the shim links against                                 0         1
+shim -> stock cross-edges (distinct symbols)                     0         0
+stock TUs the shim links against                                 0         0
 
 # defines-an-entity regex: LINK_ENTITY_TO_CLASS|IMPLEMENT_SERVERCLASS_ST|IMPLEMENT_CLIENTCLASS
 # uses-an-entity regex:    \bC_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)\b|\bg?_?pEntityList\b|\bgEntList\b
@@ -985,8 +987,7 @@ ToEngineIface           0 in 0 files          12 in 7 files         0 in 0 files
 -- server: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
--- client: 1 distinct symbols across 1 of 1 stock TUs
-      1  game/client/clientshadowmgr.cpp
+-- client: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
 == 4. THE EDGES THEMSELVES ==
@@ -1000,5 +1001,3 @@ ToEngineIface           0 in 0 files          12 in 7 files         0 in 0 files
 -- server
 
 -- client
-game/client/clientshadowmgr.cpp (1)
-    g_pClientShadowMgr

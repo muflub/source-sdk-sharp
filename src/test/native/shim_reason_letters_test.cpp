@@ -741,9 +741,11 @@ TEST( ShimReasonLetters, AMarkerAgreesWithTheProseItWasDerivedFrom )
 	// EIGHT when studio_sequence_timing.cpp (REASON (g)) was deleted 2026-10-12: the descriptor's durations are managed.
 	// SEVEN when usercmd.cpp (REASON (f)) was deleted 2026-10-12: the client's codec moved to C#.
 	// SIX when studio.cpp (reason (d)) was deleted 2026-10-18: its last consumers read the managed StudioHdr.
-	EXPECT_EQ( nChecked, 6 )
+	// FIVE when collisionutils.cpp (REASON (g)) was deleted 2026-10-20 (C7 cluster 12 S2): clientshadowmgr.cpp,
+	// whose ComputeSeparatingPlane it served, left client.so, and nothing else imported it.
+	EXPECT_EQ( nChecked, 5 )
 		<< "found " << nChecked << " files stating a letter in prose, and there "
-		   "were SIX once studio.cpp was deleted -- all agreeing with their marker. Fewer means the prose was "
+		   "were FIVE once collisionutils.cpp was deleted -- all agreeing with their marker. Fewer means the prose was "
 		   "reformatted away, a file was deleted, or the matcher broke -- and "
 		   "this agreement check is then checking less than it says. More "
 		   "means a file gained a prose letter and should be looked at, not "

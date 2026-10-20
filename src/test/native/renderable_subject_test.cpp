@@ -11,7 +11,9 @@
 // deletion. A grep goes to zero just as happily when the behaviour is gone as
 // when it is ported, so these facts assert that the twelve resolves still EXIST
 // and go somewhere, and that the loss counter is still read by two independent
-// readers.
+// readers. (The twelve resolves were the fork's clientshadowmgr.cpp's, and
+// left with it in C7 cluster 12 S2, 2026-10-19; what stays reads the shim,
+// the shadow manager's native residue and its managed report.)
 //
 // A THIRD HALF USED TO BE HERE AND IS NOT: the RULES, run out of
 // renderable_subject.h without an engine. There were two of them. The resolve
@@ -142,66 +144,6 @@ std::string StripComments( const std::string &strIn )
 	return out;
 }
 
-//-----------------------------------------------------------------------------
-// LINE-INITIAL CONDITIONAL DIRECTIVES, counted on the RAW text.
-//
-// Needed because "this file has no alias guard left" cannot be asked with a
-// substring: shell_renderable_facts.cpp still SPELLS
-// `#ifndef SS_CBASEENTITY_ALIAS` in a comment (:189, describing the block the
-// close deleted), and the close deliberately did not rewrite prose. A raw
-// find() would read that sentence as a guard -- the "prose counts as code to a
-// grep" hazard, which has fired on this lane before.
-//
-// `#include`, `#define` and `#pragma` select nothing and are not counted.
-//-----------------------------------------------------------------------------
-int CountConditionalDirectives( const std::string &strRaw )
-{
-	static const char *kWords[] = { "#if", "#ifdef", "#ifndef", "#else", "#elif" };
-
-	int n = 0;
-	size_t i = 0;
-	while ( i < strRaw.size() )
-	{
-		size_t e = strRaw.find( '\n', i );
-		if ( e == std::string::npos )
-			e = strRaw.size();
-
-		const std::string line = strRaw.substr( i, e - i );
-		i = e + 1;
-
-		const size_t w = line.find_first_not_of( " \t" );
-		if ( w == std::string::npos || line[ w ] != '#' )
-			continue;
-
-		const std::string rest = line.substr( w );
-		const size_t sp = rest.find_first_of( " \t" );
-		const std::string word = rest.substr( 0, sp );
-
-		for ( size_t k = 0; k < sizeof( kWords ) / sizeof( kWords[ 0 ] ); k++ )
-		{
-			if ( word == kWords[ k ] )
-			{
-				n++;
-				break;
-			}
-		}
-	}
-
-	return n;
-}
-
-int CountOccurrences( const std::string &strHaystack, const std::string &strNeedle )
-{
-	int n = 0;
-	for ( size_t pos = strHaystack.find( strNeedle );
-	      pos != std::string::npos;
-	      pos = strHaystack.find( strNeedle, pos + strNeedle.size() ) )
-	{
-		n++;
-	}
-	return n;
-}
-
 // Step 7d's translation units, by the paths the vpc names them by. There were
 // five; glow_outline_effect.cpp left client.so in plan_client_novalve C1 (its
 // body sat under GLOWS_ENABLE, defined nowhere), detailobjectsystem.cpp in
@@ -210,72 +152,23 @@ int CountOccurrences( const std::string &strHaystack, const std::string &strNeed
 // registry and decisions are SourceSharp.Client's LeafRegistry, its native
 // residue libss_fwd_client's forwarder class) and c_pixel_visibility.cpp in C7
 // (its decisions are SourceSharp.Client's PixelVisibilitySystem, its executor
-// shell_pixelvis_client.cpp), so "the five" below are one.
-const char *kStep7dTus[] =
-{
-	"game/client/clientshadowmgr.cpp",
-};
+// shell_pixelvis_client.cpp). The last, clientshadowmgr.cpp, left with C7
+// cluster 12 S2 (2026-10-19: the client's last fork TU left client.so; the
+// shadow manager is SourceSharp.Client's, src/client/managed/Render/Shadows/,
+// its native residue shell_shadows_client.cpp and fwd_shadows.cpp). So the
+// three facts that read "the five" -- AllFiveTranslationUnitsAreReadable,
+// NoneOfTheFiveNamesTheStockClientEntityList and
+// NoneOfTheFiveAsksForTheLocalPlayerEntity -- had no subject left and are
+// retired with it; leaf_cycle_test.cpp's TheStockShadowManagerIsNotCompiled
+// holds the eviction.
 
-const size_t kStep7dTuCount = sizeof( kStep7dTus ) / sizeof( kStep7dTus[ 0 ] );
+// The shadow manager's native residue, read where the fork file was.
+const char kShadowsShell[] = "sourcesharp/game/client/shell_shadows_client.cpp";
+const char kShadowsForwarder[] = "sourcesharp/fwd/fwd_shadows.cpp";
+// And its managed report, the successor of the fork's PrintShadowReport.
+const char kShadowReport[] = "sourcesharp/managed/SourceSharp.Client/Render/Shadows/ShadowManager.Debug.cs";
 
 } // namespace
-
-TEST( Step7dSourceScan, AllFiveTranslationUnitsAreReadable )
-{
-	// The anchor. Every fact below reads these five, and ReadFile answers an
-	// EMPTY STRING for a path it cannot open — which contains no needle and
-	// would make every scan below pass for a tree with no source in it at all.
-	for ( size_t i = 0; i < kStep7dTuCount; i++ )
-	{
-		EXPECT_FALSE( ReadFile( kStep7dTus[ i ] ).empty() ) << kStep7dTus[ i ];
-	}
-}
-
-TEST( Step7dSourceScan, NoneOfTheFiveNamesTheStockClientEntityList )
-{
-	// THE STEP'S OWN GATE CLAUSE. Both spellings the census counts:
-	// `ClientEntityList()` is the accessor and `cl_entitylist` is the pointer
-	// behind it, and a file that switched from one to the other would satisfy a
-	// check written for only one of them.
-	for ( size_t i = 0; i < kStep7dTuCount; i++ )
-	{
-		const std::string strFile = StripComments( ReadFile( kStep7dTus[ i ] ) );
-		ASSERT_FALSE( strFile.empty() ) << kStep7dTus[ i ];
-
-		EXPECT_EQ( std::string::npos, strFile.find( "ClientEntityList()" ) )
-			<< kStep7dTus[ i ] << " still calls ClientEntityList(), the STOCK "
-			   "CClientEntityList. The list the engine holds is "
-			   "CSourceSharpClientEntityList over the slot table; ask "
-			   "SourceSharp_RenderableFromHandle (renderable_facts.h) instead.";
-
-		EXPECT_EQ( std::string::npos, strFile.find( "cl_entitylist" ) )
-			<< kStep7dTus[ i ] << " names cl_entitylist directly";
-	}
-}
-
-TEST( Step7dSourceScan, NoneOfTheFiveAsksForTheLocalPlayerEntity )
-{
-	// The other entity reach these files had. `C_BasePlayer::GetLocalPlayer()`
-	// has ONE definition on this link line and it is `return NULL`
-	// (shell_player_orphans.cpp), so every one of these was a dead branch
-	// standing on its initialiser. detailobjectsystem.cpp kept one, inside
-	// `#ifdef USE_DETAIL_SHAPES`, which this build never defined; the file has
-	// left client.so (C7 cluster 10).
-	const char *kMustBeClean[] =
-	{
-		"game/client/clientshadowmgr.cpp",
-	};
-
-	for ( size_t i = 0; i < sizeof( kMustBeClean ) / sizeof( kMustBeClean[ 0 ] ); i++ )
-	{
-		const std::string strFile = StripComments( ReadFile( kMustBeClean[ i ] ) );
-		ASSERT_FALSE( strFile.empty() ) << kMustBeClean[ i ];
-
-		EXPECT_EQ( std::string::npos, strFile.find( "GetLocalPlayer" ) )
-			<< kMustBeClean[ i ] << " still asks C_BasePlayer::GetLocalPlayer(), "
-			   "which answers NULL on this link line";
-	}
-}
 
 // The two facts that stood here held c_pixel_visibility.cpp free of the player
 // header and of every entity type the census looks for. The file left client.so
@@ -336,37 +229,14 @@ TEST( Step7dSourceScan, TheCensusStillLooksForTheTypesTheFactAboveChecks )
 // there and goes somewhere real.
 //=============================================================================
 
-// THE COUNT IS TWELVE AND IT WAS THIRTEEN. Lane 4c-render deleted the
-// thirteenth: BuildFlashlight's tail resolved a renderable only to ask it for
-// its own rendering clip plane, which is two FIELDS on C_BaseEntity and
-// therefore answered `false` on every path in every build that ran. The resolve
-// went with the question. The other twelve are unchanged.
-TEST( Step7dNotDeleted, TheShadowManagerStillResolvesTwelveHandles )
-{
-	// THE EXACT COUNT, not a floor. A floor here would pass just as happily for
-	// a file with one resolve left and eleven `return`s in place of the rest,
-	// and that is precisely the shape a compile gate rewards. Every one of the
-	// twelve either tests the answer or Asserts it.
-	const std::string strFile = StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
-	ASSERT_FALSE( strFile.empty() );
-
-	// COUNTED UP TO PrintShadowReport AND NOT PAST IT. The report resolves once
-	// per shadow too, so a whole-file count would be twelve ported sites plus
-	// however many the INSTRUMENT makes — and an instrument that can hold the
-	// count up on its own is the same defect as an instrument that reports its
-	// own traffic. The subject is the render path's resolves; the report is not
-	// one of them.
-	const size_t posReport = strFile.find( "void CClientShadowMgr::PrintShadowReport" );
-	ASSERT_NE( std::string::npos, posReport );
-
-	EXPECT_EQ( 12, CountOccurrences( strFile.substr( 0, posReport ),
-	                                 "SourceSharp_RenderableFromHandle(" ) )
-		<< "clientshadowmgr.cpp no longer makes twelve handle->renderable "
-		   "resolves. If a resolve was legitimately removed, move this number "
-		   "and say which one in the commit — do not raise it to a floor.";
-
-	EXPECT_NE( std::string::npos, strFile.find( "#include \"renderable_facts.h\"" ) );
-}
+// TheShadowManagerStillResolvesTwelveHandles STOOD HERE and is retired with
+// its subject (2026-10-19, C7 cluster 12 S2: clientshadowmgr.cpp, the client's
+// last fork TU, left client.so). It held the fork file to exactly twelve
+// SourceSharp_RenderableFromHandle resolves before PrintShadowReport (it was
+// thirteen until lane 4c-render deleted BuildFlashlight's clip-plane ask). The
+// managed shadow manager resolves through its native residue's RenderableOf
+// (shell_shadows_client.cpp), one op per ask, and its oracle
+// (ShadowManagerOracleTests.cs) holds what each path does with the answer.
 
 // READ THE ASSERTIONS, NOT THE NAME OF THE FACT THIS REPLACES. Both of the
 // facts that stood here -- "the two FOV sites still scale something" and "the
@@ -450,74 +320,61 @@ TEST( Step7dNotDeleted, TheThreeUnscaledSitesAreTheBareOnesTheLedgerNames )
 TEST( Step7dNotDeleted, TheLostRenderableCounterIsActuallyRead )
 {
 	// The counter that makes the seam falsifiable. A struct field nothing
-	// prints is a number that cannot fail — the recorded shape of a floor or a
-	// sum that passes because nothing read it. Two independent readers are
-	// required: the seam's own report and the shadow manager's.
-	const std::string strFacts =
-		StripComments( ReadFile( "sourcesharp/game/client/shell_renderable_facts.cpp" ) );
-	ASSERT_FALSE( strFacts.empty() );
+	// prints is a number that cannot fail -- the recorded shape of a floor or a
+	// sum that passes because nothing read it.
+	//
+	// THE SEAM'S OWN COUNTER LEFT WITH IT: shell_renderable_facts.cpp's
+	// s_ResolveStats.nUnresolved (counted only for a VALID handle that resolved
+	// to NULL, and printed by cs_cl_renderable_report) went when
+	// SourceSharp_RenderableFromHandle lost its last importer,
+	// clientshadowmgr.cpp (C7 cluster 12 S2). The reader left is the managed
+	// shadow report's (ShadowManager.Debug.cs), which counts the shadows whose
+	// renderable did not resolve itself, prints the count and names each.
+	EXPECT_TRUE( ReadFile( "sourcesharp/game/client/shell_renderable_facts.cpp" ).empty() )
+		<< "shell_renderable_facts.cpp is back in the farm";
+	const std::string strReport = StripComments( ReadFile( kShadowReport ) );
+	ASSERT_FALSE( strReport.empty() ) << kShadowReport;
+	ASSERT_NE( std::string::npos, strReport.find( "public void PrintShadowReport(bool resetCounters)" ) )
+		<< kShadowReport << " no longer defines PrintShadowReport, so this reads something else";
 
-	EXPECT_NE( std::string::npos, strFacts.find( "s.nUnresolved" ) )
-		<< "cs_cl_renderable_report no longer prints the lost-renderable count";
-	EXPECT_NE( std::string::npos, strFacts.find( "++s_ResolveStats.nUnresolved" ) )
-		<< "nothing increments the lost-renderable count, so the two readers "
-		   "below are reading a permanent zero";
-
-	// AND IT IS GATED ON THE HANDLE BEING VALID, which is the whole distinction
-	// the counter exists to make: a NULL for an INVALID handle is a caller
-	// asking about nothing, a NULL for a VALID one is a renderable the render
-	// path has lost. This used to be RenderableSubject::IsLostRenderable, a
-	// rule with its own unit test; lane 4c-render inlined it, so the shape is
-	// what is checked now.
-	EXPECT_NE( std::string::npos, strFacts.find( "else if ( hEnt.IsValid() )" ) )
-		<< "the lost-renderable count is no longer gated on the handle being "
-		   "valid, so every resolve of a null handle reads as a loss and the "
-		   "number the shadow gate asserts is zero can never be zero";
-
-	const std::string strShadow = StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
-	ASSERT_FALSE( strShadow.empty() );
-
-	EXPECT_NE( std::string::npos, strShadow.find( "stats.nUnresolved" ) );
+	EXPECT_NE( std::string::npos, strReport.find( "if (renderable == 0)\n                ++lost;" ) )
+		<< "the managed shadow report no longer counts a shadow whose renderable "
+		   "did not resolve";
+	EXPECT_NE( std::string::npos, strReport.find( "lostRenderable {lost}" ) )
+		<< "the managed shadow report no longer prints its lost-renderable count";
 }
 
-TEST( Step7dNotDeleted, TheShadowReportSnapshotsTheStatsBeforeItsOwnAsks )
-{
-	// THE INSTRUMENT MUST NOT ANSWER ABOUT ITSELF. PrintShadowReport calls
-	// SourceSharp_RenderableFromHandle once per shadow, so reading the stats
-	// after that loop would report the report's own traffic — and a gate
-	// asserting `asks > 0` would then pass on a client whose render path had
-	// asked nothing at all. The snapshot must be taken before the first
-	// resolve, so it must appear before the loop that does them.
-	const std::string strShadow = StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
-	ASSERT_FALSE( strShadow.empty() );
-
-	const size_t posFn = strShadow.find( "void CClientShadowMgr::PrintShadowReport" );
-	ASSERT_NE( std::string::npos, posFn );
-
-	const size_t posSnapshot =
-		strShadow.find( "SourceSharpRenderableResolveStats_t stats = SourceSharp_RenderableResolveStats()",
-		                posFn );
-	ASSERT_NE( std::string::npos, posSnapshot );
-
-	const size_t posFirstResolve =
-		strShadow.find( "SourceSharp_RenderableFromHandle( shadow.m_Entity )", posFn );
-	ASSERT_NE( std::string::npos, posFirstResolve );
-
-	EXPECT_LT( posSnapshot, posFirstResolve )
-		<< "PrintShadowReport reads the resolve stats after its own resolves, "
-		   "so the numbers it prints include its own traffic.";
-}
-
+// TheShadowReportSnapshotsTheStatsBeforeItsOwnAsks STOOD HERE and is retired
+// with clientshadowmgr.cpp (C7 cluster 12 S2, 2026-10-19). It held the fork's
+// PrintShadowReport to snapshot SourceSharp_RenderableResolveStats() before
+// its own per-shadow resolves, so the report could not count its own traffic.
+// The managed report prints no resolve stats at all -- only the counts it
+// takes over the list it walks -- so there is no snapshot to order.
+//
+// The report has to say so out loud when it is about nothing: an empty shadow
+// list prints "held 0" and every other number reads as a clean bill of
+// health, and "no failures" over an empty list is the exact reading this port
+// keeps being fooled by. RE-POINTED with the same date and reason from the
+// fork's PrintShadowReport to its managed successor, which prints the same
+// sentence; the guard is read too, so a line printed always (or never) fails.
 TEST( Step7dNotDeleted, TheShadowReportSaysSoWhenItIsAboutNothing )
 {
-	// An empty shadow list prints "held 0" and every other number reads as a
-	// clean bill of health. The report has to say that out loud, because "no
-	// failures" over an empty list is the exact reading this port keeps being
-	// fooled by.
-	const std::string strShadow = ReadFile( "game/client/clientshadowmgr.cpp" );
-	ASSERT_FALSE( strShadow.empty() );
+	const std::string strReport = StripComments( ReadFile( kShadowReport ) );
+	ASSERT_FALSE( strReport.empty() ) << kShadowReport;
 
-	EXPECT_NE( std::string::npos, strShadow.find( "THE MANAGER HOLDS NO SHADOWS" ) );
+	const size_t posFn = strReport.find( "public void PrintShadowReport(bool resetCounters)" );
+	ASSERT_NE( std::string::npos, posFn ) << kShadowReport << " no longer defines PrintShadowReport";
+
+	const size_t posGuard = strReport.find( "if (held == 0)", posFn );
+	ASSERT_NE( std::string::npos, posGuard )
+		<< "PrintShadowReport no longer tests for an empty shadow list";
+	const size_t posSay = strReport.find( "THE MANAGER HOLDS NO SHADOWS", posFn );
+	EXPECT_NE( std::string::npos, posSay )
+		<< "PrintShadowReport no longer says that the list it reported on is empty";
+	EXPECT_LT( posGuard, posSay ) << "the empty-list sentence is not under its guard";
+	// The sentence is the statement right after the guard, not one somewhere later.
+	EXPECT_EQ( std::string::npos, strReport.substr( posGuard, posSay - posGuard ).find( ';' ) )
+		<< "something stands between the empty-list guard and its sentence";
 }
 
 // READ THE ASSERTIONS, NOT THE NAME. THE FOUR BLOCKS ARE GONE FROM BOTH ENDS,
@@ -550,6 +407,9 @@ TEST( Step7dNotDeleted, TheShadowReportSaysSoWhenItIsAboutNothing )
 // BuildFlashlight still adds the three planes it computes, the flashlight path
 // still adds to static props. What is asserted HERE is the absence, in both
 // files at once, which is the half that catches a block moving back home.
+// (The shadow manager's presence facts left with clientshadowmgr.cpp in C7
+// cluster 12 S2, 2026-10-19; its managed port's oracle holds those paths now,
+// and its native residue is the shadow end read below.)
 TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 {
 	// THE LEAF SYSTEM'S END IS NOW OURS. clientleafsystem.cpp left client.so
@@ -566,18 +426,34 @@ TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 	ASSERT_NE( std::string::npos, strLeaf.find( "class SSClientLeafSystem final : public IClientLeafSystem" ) )
 		<< "the forwarder class was not read";
 
-	const std::string strShadow = StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
-	const std::string strFacts =
-		StripComments( ReadFile( "sourcesharp/game/client/shell_renderable_facts.cpp" ) );
-	const std::string strFactsHeader =
-		StripComments( ReadFile( "sourcesharp/game/client/renderable_facts.h" ) );
+	// THE SHADOW MANAGER'S END IS NOW OURS TOO. clientshadowmgr.cpp, the
+	// client's last fork TU, left client.so with C7 cluster 12 S2 (2026-10-19);
+	// its decisions are SourceSharp.Client's and what client.so and
+	// libss_fwd_client keep of it is the executor and its forwarder table,
+	// read here as the shadow end on the leaf end's model. The stock file is
+	// gone from the farm, and the two residue files are proved read by an
+	// anchor each, so the absences below are about files that were opened.
+	EXPECT_TRUE( ReadFile( "game/client/clientshadowmgr.cpp" ).empty() )
+		<< "clientshadowmgr.cpp is back in the farm";
+	const std::string strShadowShell = StripComments( ReadFile( kShadowsShell ) );
+	const std::string strShadowFwd = StripComments( ReadFile( kShadowsForwarder ) );
+	ASSERT_NE( std::string::npos, strShadowShell.find( "IClientRenderable *RenderableOf( uint32_t hEntity )" ) )
+		<< kShadowsShell << " was not read, or no longer resolves a shadow's renderable";
+	ASSERT_NE( std::string::npos, strShadowFwd.find( "int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv" ) )
+		<< kShadowsForwarder << " was not read";
+	const std::string strShadow = strShadowShell + strShadowFwd;
 	ASSERT_FALSE( strLeaf.empty() );
 	ASSERT_FALSE( strShadow.empty() );
-	ASSERT_FALSE( strFacts.empty() );
-	ASSERT_FALSE( strFactsHeader.empty() );
+	// The shim the seams were relocated OUT of went too, with its last resolve
+	// (C7 cluster 12 S2): its absence is the strongest form of the absences
+	// below.
+	EXPECT_TRUE( ReadFile( "sourcesharp/game/client/shell_renderable_facts.cpp" ).empty() )
+		<< "shell_renderable_facts.cpp is back in the farm";
+	EXPECT_TRUE( ReadFile( "sourcesharp/game/client/renderable_facts.h" ).empty() )
+		<< "renderable_facts.h is back in the farm";
 
-	// 1. THE SEAM NAMES, IN ALL FOUR FILES. A name in any of them is either a
-	//    restored body or a call with nothing to answer it.
+	// 1. THE SEAM NAMES, IN BOTH ENDS. A name in either is either a restored
+	//    body or a call with nothing to answer it.
 	const char *kSeams[] = {
 		"SourceSharp_BoneMergeBoundsFromFollowedEntity",
 		"SourceSharp_BoneMergeBoundsFromMoveParent",
@@ -589,14 +465,10 @@ TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 	};
 	for ( size_t i = 0; i < sizeof( kSeams ) / sizeof( kSeams[ 0 ] ); i++ )
 	{
-		EXPECT_EQ( std::string::npos, strFacts.find( kSeams[ i ] ) )
-			<< "the shim defines " << kSeams[ i ] << " again";
-		EXPECT_EQ( std::string::npos, strFactsHeader.find( kSeams[ i ] ) )
-			<< "the shim declares " << kSeams[ i ] << " again";
 		EXPECT_EQ( std::string::npos, strLeaf.find( kSeams[ i ] ) )
 			<< "the leaf system's native end calls " << kSeams[ i ] << " again";
 		EXPECT_EQ( std::string::npos, strShadow.find( kSeams[ i ] ) )
-			<< "clientshadowmgr.cpp calls " << kSeams[ i ] << " again";
+			<< "the shadow manager's native end calls " << kSeams[ i ] << " again";
 	}
 
 	// 2. AND THE ENTITY READS THEMSELVES, which is what a restoration would
@@ -612,90 +484,23 @@ TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 	};
 	for ( size_t i = 0; i < sizeof( kReaches ) / sizeof( kReaches[ 0 ] ); i++ )
 	{
-		EXPECT_EQ( std::string::npos, strFacts.find( kReaches[ i ] ) )
-			<< "the shim reaches an SDK entity again (" << kReaches[ i ] << "). "
-			<< "That resolve walks the partition before it asks "
-			<< "GetBaseEntity(), and there is no SDK class left for it to "
-			<< "answer with -- so it is a partition walk in front of a NULL.";
 		EXPECT_EQ( std::string::npos, strShadow.find( kReaches[ i ] ) )
-			<< "clientshadowmgr.cpp reaches an SDK entity again ("
+			<< "the shadow manager's native end reaches an SDK entity again ("
 			<< kReaches[ i ] << ")";
 		EXPECT_EQ( std::string::npos, strLeaf.find( kReaches[ i ] ) )
 			<< "the leaf system's native end reaches an SDK entity again ("
 			<< kReaches[ i ] << ")";
 	}
-
-	// 3. AND THE WHOLE-FILE FORM, which is what makes every absence above a
-	//    statement about the build rather than about the arm I happen to be in.
-	//    Counted line-initially: prose that spells a guard is not a guard.
-	EXPECT_EQ( 0, CountConditionalDirectives( strFacts ) )
-		<< "shell_renderable_facts.cpp has conditional compilation in it again. "
-		   "Every absence above becomes a claim about one arm -- re-check each "
-		   "against the guard before believing it.";
-
-	// 4. THE POSITIVE ANCHOR FOR THE WHOLE FACT. Everything above is satisfied
-	//    by an empty shim. The resolve is what the file is still for, and the
-	//    two stock files still ask it.
-	EXPECT_NE( std::string::npos,
-	           strFacts.find( "IClientRenderable *SourceSharp_RenderableFromHandle( const CBaseHandle &hEnt )" ) )
-		<< "shell_renderable_facts.cpp no longer defines the resolve, so every "
-		   "absence above is a statement about an empty file";
-	EXPECT_NE( std::string::npos, strShadow.find( "SourceSharp_RenderableFromHandle(" ) )
-		<< "clientshadowmgr.cpp no longer resolves handles through the shim";
 }
 
-// READ THE ASSERTIONS, NOT THE NAME. The flashlight-target walk is the one of
-// the five guarded regions that could NOT relocate -- its body called
-// AddShadowToReceiver and IsFlashlightTarget, both CClientShadowMgr members --
-// so it was deleted where it stood by the `residue` wave, on the strength of an
-// argument that it was unreachable. This fact is that argument, kept standing.
-//
-// AN ABSENCE WRITTEN ALONE HERE WOULD PASS OVER AN EMPTY FILE and over one
-// where the flashlight machinery had been deleted outright, so it is written
-// WITH the vacuity wall that licensed the deletion:
-//
-//   presence -- m_hTargetEntity is still read into bLightSpecificEntity, still
-//               written in exactly one place, and all three IsFlashlightTarget
-//               call sites still short-circuit on `(!shadow.m_hTargetEntity) ||`.
-//               FlashlightTargetVacuity in cpp_alias_t5_test.cpp owns the far
-//               end.
-//   absence  -- nothing dereferences the handle any more, in any arm.
-TEST( Step7dNotDeleted, TheFlashlightTargetWalkIsGoneAndItsVacuityWallStands )
-{
-	// Comment-stripped, because clientshadowmgr.cpp's surviving prose is a long
-	// explanation of the walk that went and it spells the names -- the same
-	// trap this file's own StripComments header records for ClientEntityList().
-	const std::string strShadowCode =
-		StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
-	ASSERT_FALSE( strShadowCode.empty() );
-
-	EXPECT_NE( std::string::npos,
-	           strShadowCode.find( "bool bLightSpecificEntity = shadow.m_hTargetEntity.Get() != NULL;" ) )
-		<< "clientshadowmgr.cpp no longer reads m_hTargetEntity into "
-		   "bLightSpecificEntity, so the early return that makes the deleted "
-		   "walk unreachable is not there and the absence below proves nothing";
-	EXPECT_NE( std::string::npos,
-	           strShadowCode.find( "shadow.m_hTargetEntity = targetEntity;" ) )
-		<< "SetFlashlightTarget no longer writes m_hTargetEntity; the \"written "
-		   "in exactly one place\" half of the vacuity argument is gone";
-	EXPECT_EQ( 3, CountOccurrences( strShadowCode,
-	           "(!shadow.m_hTargetEntity) || IsFlashlightTarget( handle, pRenderable )" ) )
-		<< "clientshadowmgr.cpp no longer has exactly three short-circuiting "
-		   "IsFlashlightTarget call sites; the `||` is what keeps that function "
-		   "from ever running, and BuildFlashlight's tail was deleted on the "
-		   "strength of it";
-
-	EXPECT_EQ( std::string::npos, strShadowCode.find( "m_hTargetEntity->" ) )
-		<< "clientshadowmgr.cpp dereferences m_hTargetEntity again. That handle "
-		   "answers a C_BaseEntity *, which is the entity reach shard T5 guarded "
-		   "and the residue wave removed -- FirstMoveChild, GetModel and "
-		   "GetClientRenderable were all reached through it";
-	EXPECT_EQ( std::string::npos, strShadowCode.find( "FirstMoveChild()" ) )
-		<< "clientshadowmgr.cpp walks the SDK move hierarchy again; "
-		   "igameentity.h refuses GetMoveParent by name, so there is no managed "
-		   "route for it";
-	EXPECT_EQ( std::string::npos,
-	           strShadowCode.find( "AddShadowToReceiver( handle, shadow.m_hTargetEntity" ) )
-		<< "clientshadowmgr.cpp passes m_hTargetEntity to AddShadowToReceiver "
-		   "again; IGameEntity * does not convert to IClientRenderable *";
-}
+// TheFlashlightTargetWalkIsGoneAndItsVacuityWallStands STOOD HERE and is
+// retired with its subject (2026-10-19, C7 cluster 12 S2: clientshadowmgr.cpp,
+// the client's last fork TU, left client.so). It kept standing the argument
+// that licensed the `residue` wave's deletion of the fork file's
+// flashlight-target walk: m_hTargetEntity read into bLightSpecificEntity,
+// written in one place, and three IsFlashlightTarget call sites that
+// short-circuited on it, with nothing dereferencing the handle. Its partner,
+// cpp_alias_t5_test.cpp's FlashlightTargetVacuity, is retired the same day.
+// The managed shadow manager ports the target path whole (SetFlashlightTarget
+// and IsFlashlightTarget, ShadowManager.Projection.cs, resolving the target
+// by handle through RenderableOf), so there is no vacuous arm left to wall.

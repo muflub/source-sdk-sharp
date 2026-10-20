@@ -646,10 +646,6 @@ internal sealed unsafe class DefaultFlashlightClientArea : IFlashlightClientArea
 {
     public int FlashlightTexture(byte* a0) => default;
     public int FlashlightSupportsBorderColor() => default;
-    public int FlashlightCreate(FlashlightState* a0) => default;
-    public void FlashlightUpdate(int a0, FlashlightState* a1) { }
-    public void FlashlightProject(int a0) { }
-    public void FlashlightDestroy(int a0) { }
 }
 
 /// <summary>

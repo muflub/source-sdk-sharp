@@ -1,9 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void StateFromWire(	LAYOUT	fills FlashlightState_t, which the shadow manager and the engine's shadowmgr read by layout, field for field from managed's SourceSharpFlashlightState (C7 cluster 12)
-int32_t SourceSharp_FlashlightTexture(	SLOT	IShimFlashlightClient::FlashlightTexture: CTextureReference::Init on the name managed chose, held so the pointer the shadow manager keeps stays referenced
-int32_t SourceSharp_FlashlightSupportsBorderColor(	BOUNDARY	IShimFlashlightClient::FlashlightSupportsBorderColor: the hardware config's answer, passed through
-int32_t SourceSharp_FlashlightCreate(	SLOT	IShimFlashlightClient::FlashlightCreate: CreateFlashlight with managed's state
-void SourceSharp_FlashlightUpdate(	SLOT	IShimFlashlightClient::FlashlightUpdate: UpdateFlashlightState with managed's state (managed decides when)
-void SourceSharp_FlashlightProject(	SLOT	IShimFlashlightClient::FlashlightProject: UpdateProjectedTexture( h, true )
-void SourceSharp_FlashlightDestroy(	SLOT	IShimFlashlightClient::FlashlightDestroy: DestroyFlashlight

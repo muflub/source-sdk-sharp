@@ -40,7 +40,6 @@ src/sourcesharp/game/shared/takedamageinfo_library.cpp	OURS	relocated Valve code
 src/sourcesharp/game/shared/trace_filter_library.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/shared/usercmd.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/shared/util_shared_library.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
-src/sourcesharp/public/collisionutils.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/public/dt_send.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/public/dt_utlvector_common.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/test/collision_rules_test.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27

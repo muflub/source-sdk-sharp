@@ -89,6 +89,7 @@
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
 #include "shell_render_trace_client.h"
+#include "shell_shadows_client.h"
 #include "shell_standalone_client.h"
 #include "shell_view_targets.h"
 #include "materialsystem/imesh.h"
@@ -460,7 +461,7 @@ public:
 	{
 		if ( !m_pWorldListInfo )
 			return;
-		g_pClientShadowMgr->ComputeShadowTextures( *this, m_pWorldListInfo->m_LeafCount, m_pWorldListInfo->m_pLeafList );
+		ShellShadows_ComputeShadowTextures( m_pWorldListInfo->m_LeafCount, m_pWorldListInfo->m_pLeafList );
 	}
 
 	void ReleaseLists()
@@ -1346,7 +1347,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_SceneBegin: render->SceneBegin(); break;
 		case RENDER_OP_SceneEnd: render->SceneEnd(); break;
 		case RENDER_OP_TurnOnToneMapping: { CMatRenderContextPtr ctx( materials ); ctx->TurnOnToneMapping(); break; }
-		case RENDER_OP_ShadowAdvanceFrame: g_pClientShadowMgr->AdvanceFrame(); break;
+		case RENDER_OP_ShadowAdvanceFrame: ShellShadows_AdvanceFrame(); break;
 		case RENDER_OP_Push3DView:
 			if ( op.I[3] )
 				render->Push3DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum(), Target( op.I[2] ) );
@@ -1358,9 +1359,9 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_SetupCurrentView: ShellView_SetupCurrentView( setup.origin, setup.angles, op.I[0], true ); break;
 		case RENDER_OP_FinishCurrentView: ShellView_FinishCurrentView(); break;
 		case RENDER_OP_AllowCurrentViewAccess: ShellView_AllowCurrentViewAccess( op.I[0] != 0 ); break;
-		case RENDER_OP_ShadowPreRender: g_pClientShadowMgr->PreRender(); break;
-		case RENDER_OP_ShadowComputeDepthTextures: g_pClientShadowMgr->ComputeShadowDepthTextures( setup ); break;
-		case RENDER_OP_ShadowUnlockDepthTextures: g_pClientShadowMgr->UnlockAllShadowDepthTextures(); break;
+		case RENDER_OP_ShadowPreRender: ShellShadows_PreRender(); break;
+		case RENDER_OP_ShadowComputeDepthTextures: ShellShadows_ComputeShadowDepthTextures( setup ); break;
+		case RENDER_OP_ShadowUnlockDepthTextures: ShellShadows_UnlockAllShadowDepthTextures(); break;
 		case RENDER_OP_ClientSystemsPreRender: SourceSharp_ClientSystemsPreRender(); break;
 		case RENDER_OP_ClientSystemsPostRender: SourceSharp_ClientSystemsPostRender(); break;
 		case RENDER_OP_ViewSetupVisEx:
@@ -1587,7 +1588,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			pDebug->Release();
 			break;
 		}
-		case RENDER_OP_DebugShadowTexture: g_pClientShadowMgr->RenderShadowTexture( op.I[0], op.I[0] ); break;
+		case RENDER_OP_DebugShadowTexture: ShellShadows_RenderShadowTexture( op.I[0], op.I[0] ); break;
 		case RENDER_OP_DebugShowTexture: DebugShowTexture( op.F[0] ); break;
 		case RENDER_OP_DebugFlashlightDepth: shadowmgr->DrawFlashlightDepthTexture(); break;
 		case RENDER_OP_Draw3DDebugOverlays: render->Draw3DDebugOverlays(); break;

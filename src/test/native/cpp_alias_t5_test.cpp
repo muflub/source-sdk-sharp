@@ -33,9 +33,10 @@
 // must still contain one.
 //
 // WHAT IS LEFT HERE. The guard, retype and return checks read files the build
-// no longer compiles and were culled with them. What remains is the
-// flashlight-target vacuity that clientshadowmgr.cpp's arms rested on
-// (section 5), which reads the client's build list and the shadow manager.
+// no longer compiles and were culled with them. The flashlight-target vacuity
+// that clientshadowmgr.cpp's arms rested on (section 5) went when that file
+// left client.so (C7 cluster 12 S2, 2026-10-19). Only the scanner's
+// self-tests remain.
 //
 // THE SCANNER IS ITSELF CHECKED. A source scanner that reads nothing passes
 // every claim it is given, and this tree has shipped several. The self-tests
@@ -47,68 +48,10 @@
 
 #include "gtest/gtest.h"
 
-#include "cmake_graph.h"
-
-#include <sys/stat.h>
-
-#include <cstring>
-#include <fstream>
-#include <set>
 #include <string>
-#include <vector>
 
 namespace
 {
-
-//-----------------------------------------------------------------------------
-// Finding the tree, and reading it. Same shape as cpp_alias_lane1_test.cpp.
-//-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::vector< std::string > ReadLines( const std::string &strRelative )
-{
-	std::vector< std::string > lines;
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return lines;
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return lines;
-
-	std::string line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		lines.push_back( line );
-	}
-	return lines;
-}
-
-std::string ReadFile( const std::string &strRelative )
-{
-	const std::vector< std::string > lines = ReadLines( strRelative );
-	std::string out;
-	for ( size_t i = 0; i < lines.size(); i++ )
-		out += lines[ i ] + "\n";
-	return out;
-}
 
 bool Contains( const std::string &hay, const char *needle )
 {
@@ -151,81 +94,19 @@ std::string StripComments( const std::string &strIn )
 } // namespace
 
 //-----------------------------------------------------------------------------
-// 5. FLASHLIGHT TARGET VACUITY, which is what clientshadowmgr.cpp's two armed
-// arms rest on.
+// 5. FLASHLIGHT TARGET VACUITY, RETIRED (2026-10-19, C7 cluster 12 S2:
+// clientshadowmgr.cpp, the client's last fork TU, left client.so).
 //
-// CClientShadowMgr::m_hTargetEntity is written in exactly one place,
-// SetFlashlightTarget, whose only caller in the tree is
-// c_env_projectedtexture.cpp — and this project does not compile that file. So
-// bLightSpecificEntity has always been false here and IsFlashlightTarget has
-// never been called, all three of its call sites short-circuiting on
-// `(!shadow.m_hTargetEntity) ||`.
-//
-// THE QUESTION IS ASKED THE OTHER WAY ROUND NOW. This used to look for the
-// `-$File` that removed the file. client_csharp.vpc was flattened
-// (plan_vpc_client.md, phase A10 of plan_gamedll_after.md): it has no -$File
-// at all, it lists the 288 files it compiles, and "out of the project" is
-// ABSENCE from that list. That is the stronger form -- a removal list can only
-// name what somebody wrote down, and this one is exact by construction -- but
-// an absence assertion is vacuous on a file that could not be read, so the
-// positive control below runs first.
-//
-// SINCE PHASE 6b the list is client_sourcesharp's, read through cmake_graph.h
-// (compile_commands.json cross-checked against src/client/native/CMakeLists.txt)
-// -- VPC is gone. The positive control and the absence are unchanged in kind.
-//
-// Same shape of evidence, and deliberately the same shape of fixture, as
-// PredictionVacuity in engine_core_retype_test.cpp: the arms are only exact
-// while the exclusion holds, so the exclusion is what is pinned.
+// The two facts here pinned what clientshadowmgr.cpp's two whole-body arms
+// rested on: SetFlashlightTarget was m_hTargetEntity's only writer, and its only
+// caller, c_env_projectedtexture.cpp, was out of the client build, so the arms
+// guarding IsFlashlightTarget were vacuous. The file left with the managed
+// shadow manager (src/client/managed/Render/Shadows/), which has no arm to be
+// vacuous: SetFlashlightTarget and IsFlashlightTarget are ported whole
+// (ShadowManager.Projection.cs, ShadowManager.Receivers.cs) and checked against
+// stock by the shadow manager oracle (ShadowManagerOracleTests.cs). There is no
+// subject left for either fact to read.
 //-----------------------------------------------------------------------------
-TEST( CppAliasT5, FlashlightTargetVacuity_ProjectedTextureIsNotInThisProject )
-{
-	// POSITIVE CONTROL. Without it, a reader that saw the wrong list -- or none
-	// -- would make the assertion below pass for the wrong reason.
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/clientshadowmgr.cpp" ) )
-		<< "client_sourcesharp does not compile clientshadowmgr.cpp, the file this "
-		   "whole test is about. Either it left the build or the reader is not "
-		   "reading the client's list, and the absence assertion below would pass "
-		   "vacuously.";
-
-	// By BASENAME in any directory, the strength the old substring search had.
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
-	std::string strFound;
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
-	{
-		if ( it->substr( it->rfind( '/' ) + 1 ) == "c_env_projectedtexture.cpp" )
-			strFound = *it;
-	}
-	EXPECT_EQ( strFound, "" )
-		<< strFound << " is back in the client build (client_sourcesharp), so "
-		   "SetFlashlightTarget has a caller again and clientshadowmgr.cpp's two "
-		   "armed arms are no longer vacuous";
-}
-
-TEST( CppAliasT5, FlashlightTargetVacuity_NothingElseCallsSetFlashlightTarget )
-{
-	// The other half, and without it the fixture above pins a fact about a file
-	// that might not be the only caller any more. Read out of the shadow manager
-	// itself: if a second caller appeared, it would be here or in a file this
-	// scanner cannot see — so this is a floor, and the build-list entry is the wall.
-	const std::string strCpp = StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
-	ASSERT_FALSE( strCpp.empty() );
-
-	EXPECT_TRUE( Contains( strCpp, "void CClientShadowMgr::SetFlashlightTarget(" ) )
-		<< "SetFlashlightTarget has moved; the vacuity argument names it by "
-		   "being the only writer of m_hTargetEntity";
-
-	// The one write, still the one write.
-	size_t n = 0, at = 0;
-	while ( ( at = strCpp.find( "m_hTargetEntity =", at ) ) != std::string::npos )
-	{
-		n++; at += 1;
-	}
-	EXPECT_EQ( n, (size_t)1 )
-		<< "m_hTargetEntity is assigned in " << n << " places, not one — the "
-		   "vacuity argument for BuildFlashlight and IsFlashlightTarget assumes "
-		   "SetFlashlightTarget is the only writer";
-}
 
 //=============================================================================//
 // SCANNER SELF-TESTS.

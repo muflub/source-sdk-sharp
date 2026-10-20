@@ -175,25 +175,9 @@ TEST( MathlibPort, VectorTransformRotatesThenTranslates )
 	ExpectNear( out, 10, 21, 30 );
 }
 
-TEST( MathlibPort, VectorITransformUndoesVectorTransform )
-{
-	matrix3x4_t m;
-	AngleMatrix( QAngle( 15, 25, 35 ), Vector( -5, 6, 7 ), m );
-	const Vector in( 3, -4, 5 );
-	Vector there, back;
-	VectorTransform( in, m, there );
-	VectorITransform( there, m, back );
-	ExpectNear( back, 3, -4, 5 );
-}
-
-TEST( MathlibPort, VectorIRotateIgnoresTheTranslation )
-{
-	matrix3x4_t m;
-	AngleMatrix( QAngle( 0, 90, 0 ), Vector( 100, 100, 100 ), m );
-	Vector out;
-	VectorIRotate( Vector( 0, 1, 0 ), m, out );   // the inverse of a 90-degree yaw
-	ExpectNear( out, 1, 0, 0 );
-}
+// VectorITransform and VectorIRotate were client.so's alone, and left
+// mathlib_port_client.cpp with clientshadowmgr.cpp, their last importer (C7
+// cluster 12 S2); their two facts went with them.
 
 TEST( MathlibPort, CalcSqrDistanceToAABBIsZeroInsideAndOnTheFaces )
 {

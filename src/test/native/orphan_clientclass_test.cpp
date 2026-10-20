@@ -778,17 +778,30 @@ TEST( OrphanClientClass, TheScanReadsPreprocessorGuardsRatherThanRawText )
 	// that is still a compiled row and still carries seam calls:
 	// clientshadowmgr.cpp (cdll_util.cpp, then client_thinklist.cpp, until C8
 	// took them out of the build).
+	//
+	// RE-POINTED 2026-10-19 (C7 cluster 12 S2: clientshadowmgr.cpp, the client's
+	// last fork TU, left client.so). No fork file is a compiled row of the
+	// client any more, so the subject is our own shell_clientdll.cpp: a compiled
+	// row of client_sourcesharp that carries seam calls. It proves the same two
+	// things the fork file did: the walk above iterated the client's compiled
+	// set (the row is in it), and a row of that set reads as text through the
+	// same ReadRaw + StripComments the count used.
+	const char kSubject[] = "sourcesharp/game/client/shell_clientdll.cpp";
 	bool bFoundSubject = false;
 	for ( size_t i = 0; i < files.size(); i++ )
-		if ( files[ i ] == "game/client/clientshadowmgr.cpp" )
+		if ( files[ i ] == kSubject )
 			bFoundSubject = true;
 	EXPECT_TRUE( bFoundSubject )
-		<< "game/client/clientshadowmgr.cpp has left client_sourcesharp. It is this "
-		   "fact's proof-of-read subject; re-point it at another compiled fork file "
+		<< kSubject << " has left client_sourcesharp. It is this "
+		   "fact's proof-of-read subject; re-point it at another compiled file "
 		   "with seam calls, or the scan above is not shown to walk the set.";
-	EXPECT_TRUE( Has( StripComments( ReadRaw( "game/client/clientshadowmgr.cpp" ) ), "SourceSharp_" ) )
-		<< "game/client/clientshadowmgr.cpp read as nothing, or has lost its seam calls; "
+	EXPECT_TRUE( Has( StripComments( ReadRaw( kSubject ) ), "SourceSharp_" ) )
+		<< kSubject << " read as nothing, or has lost its seam calls; "
 		   "the counts above cannot be trusted.";
+	for ( size_t i = 0; i < files.size(); i++ )
+		EXPECT_NE( files[ i ], "game/client/clientshadowmgr.cpp" )
+			<< "clientshadowmgr.cpp is a compiled row again; the shadow manager is "
+			   "managed since C7 cluster 12 S2.";
 	for ( size_t i = 0; i < files.size(); i++ )
 		EXPECT_NE( files[ i ], "game/client/c_te_effect_dispatch.cpp" )
 			<< "c_te_effect_dispatch.cpp is a compiled row again; its RecvTable "

@@ -98,7 +98,8 @@ public class LeafRegistryOracleTests
     }
 
     /// <summary>The scenario's world and things, the native side the registry asks, and the forwarder that carries its operations out.</summary>
-    private sealed class Replay : ILeafNative, ILeafListSettings
+    private sealed class Replay : ILeafNative, ILeafListSettings, SourceSharp.Client.Render.Shadows.IShadowReceivers,
+                                  SourceSharp.Client.Render.Shadows.IShadowLeafEnumerator
     {
         public readonly List<string> Log = [];
         public LeafRegistry Registry;
@@ -126,7 +127,7 @@ public class LeafRegistryOracleTests
 
         public Replay()
         {
-            Registry = new LeafRegistry(this);
+            Registry = new LeafRegistry(this) { Receivers = this };
             Builder = new RenderableListBuilder(Registry, this);
         }
 
@@ -136,7 +137,7 @@ public class LeafRegistryOracleTests
             var writer = new SourceSharp.Client.ReloadWriter();
             Registry.Save(writer);
             byte[] bytes = writer.ToArray();
-            Registry = new LeafRegistry(this);
+            Registry = new LeafRegistry(this) { Receivers = this };
             Builder = new RenderableListBuilder(Registry, this);
             var reader = new SourceSharp.Client.ReloadReader(bytes);
             Registry.Restore(reader);
@@ -154,6 +155,14 @@ public class LeafRegistryOracleTests
 
         private Thing ThingOf(nint p) => _byPointer.TryGetValue(p, out Thing? t) ? t : throw new InvalidOperationException($"no thing at {p}");
 
+        // ---- the managed shadow manager (C7 cluster 12 S2): the receivers and the enumerator, in-process ----
+
+        public void AddShadowToReceiver(int shadow, nint renderable, int kind) => Emit("SR", shadow, ThingOf(renderable).Id, kind);
+
+        public void RemoveAllShadowsFromReceiver(nint renderable, int kind) => Emit("SX", ThingOf(renderable).Id, kind);
+
+        public void EnumShadow(int userId) => Emit("EN", userId);
+
         // ---- the forwarder: carries the queued operations out ----
 
         private void Carry()
@@ -167,8 +176,6 @@ public class LeafRegistryOracleTests
                     LeafOp op = ops[i];
                     switch (op.Kind)
                     {
-                        case LeafOpKind.AddShadowToReceiver: Emit("SR", op.B, ThingOf((nint)op.A).Id, op.C); break;
-                        case LeafOpKind.RemoveAllShadowsFromReceiver: Emit("SX", ThingOf((nint)op.A).Id, op.C); break;
                         case LeafOpKind.SetRenderHandle: ThingOf((nint)op.A).Handle = (int)op.B; break;
                         case LeafOpKind.DeleteSubSystemData: Emit("SDEL", _subDataTags[op.A]); break;
                         case LeafOpKind.ListEntry:
@@ -180,7 +187,6 @@ public class LeafRegistryOracleTests
                                     Emit("NP", 10, $"Warning: overflowed CClientRenderablesList group {g}");
                             break;
                         case LeafOpKind.ViewModel: _viewModels.Add((op.A, (int)op.B)); break;
-                        case LeafOpKind.EnumShadow: Emit("EN", op.B); break;
                         default: throw new InvalidOperationException($"an operation of kind {op.Kind}");
                     }
                 }
@@ -517,7 +523,7 @@ public class LeafRegistryOracleTests
                         Registry.RemoveShadow(_shadowHandles[I(r[2])]);
                         break;
                     case "ES":
-                        Registry.EnumerateShadowsInLeaves(r.Length < 2 || r[1].Length == 0 ? [] : r[1].Split(',').Select(I).ToArray());
+                        Registry.EnumerateShadowsInLeaves(r.Length < 2 || r[1].Length == 0 ? [] : r[1].Split(',').Select(I).ToArray(), this);
                         Carry();
                         break;
                     case "V":

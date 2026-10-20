@@ -68,7 +68,6 @@ public class ClientEntitiesRouteTests
     {
         var engine = Fake();
         engine.Returns("EntityRender.GetModelName", "models/props/crate.mdl");
-        engine.Returns("EntityRender.ShadowCast.hasShadow", true);
         engine.Returns("EntityRender.ShadowCast.asked", default(ShadowCastChoice));
         engine.Returns("EntityRender.ShadowCast", default(ShadowCast));
 
@@ -91,7 +90,7 @@ public class ClientEntitiesRouteTests
         var tiers = new Tiers(new NetTierInfo(0, "DT_SS_Tier0", 64, 16, 22, true));
         var types = new ClientNetSchemaTypes(tiers, () => StandaloneNetStates.Discover(
             typeof(ClientModule).Assembly, new RecordingLog()));
-        return (new ClientDebugEntities(blocks, engine, standalones, interpolation, types), blocks);
+        return (new ClientDebugEntities(blocks, engine, standalones, interpolation, types, new HeldShadows(true)), blocks);
     }
 
     [Fact]
@@ -144,6 +143,12 @@ public class ClientEntitiesRouteTests
         public IReadOnlyList<DebugClientEntity> List(string className) => list;
 
         public DebugClientEntityState? State(int index) => state;
+    }
+
+    // Whether the shadow manager holds each entity's shadow (managed's since C7 cluster 12 S2).
+    private sealed class HeldShadows(bool held) : SourceSharp.Client.Render.Shadows.IEntityShadowState
+    {
+        public bool HasShadow(uint entity) => held;
     }
 
     private sealed class Tiers(params NetTierInfo[] tiers) : INetTiers

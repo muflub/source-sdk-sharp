@@ -627,7 +627,39 @@ public class ClientRenderPolicyTests
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowType))));
         Assert.Equal((int)(ClientShadowFlag.Shadow | ClientShadowFlag.UseRenderToTexture
                            | ClientShadowFlag.AnimatingSource),
-                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags))));
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags))) & ~(int)ClientRenderPolicy.ReceiveMask);
+    }
+
+    // Q2 (C7 cluster 12 S2): the receive answers ride in the same word, above
+    // the shadow flags, and the shell answers ShouldReceiveProjectedTextures
+    // from them. A studio prop takes the flashlight and no projected shadow.
+    [Fact]
+    public void TheReceiveAnswersAreWrittenAboveTheShadowFlags()
+    {
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadModelIndex, PosedModel);
+
+        Policy().Pass(blocks);
+
+        int word = Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags)));
+        Assert.Equal((int)ClientShadowFlag.ReceivesFlashlight, word & (int)ClientRenderPolicy.ReceiveMask);
+        Assert.Equal(ClientShadowFlag.ReceivesFlashlight, ClientRenderPolicy.ReadChoices(blocks.Raw(0)).Receives);
+    }
+
+    // The render mode the receive rule reads is the shell's blending: a blended
+    // entity with no alpha is invisible and takes no flashlight.
+    [Fact]
+    public void ABlendedInvisibleEntityTakesNoFlashlight()
+    {
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadModelIndex, PosedModel);
+        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Translucent)), 1);
+        blocks.Raw(0)[Tail(nameof(EngineBlockClientTail.RenderColorA))] = 0;
+
+        Policy().Pass(blocks);
+
+        int word = Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags)));
+        Assert.Equal(0, word & (int)ClientRenderPolicy.ReceiveMask);
     }
 
     [Fact]
@@ -641,7 +673,7 @@ public class ClientRenderPolicyTests
 
         Assert.Equal((int)ShadowCast.None,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowType))));
-        Assert.Equal(0, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags))));
+        Assert.Equal(0, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags))) & ~(int)ClientRenderPolicy.ReceiveMask);
     }
 
     [Fact]

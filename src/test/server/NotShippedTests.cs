@@ -82,8 +82,10 @@ public sealed class NotShippedTests
     {
         var client = CMakeGraph.CompiledSources(CMakeGraph.Client);
 
-        // Proof of read, beside the absences: the tools-off stand-ins the client keeps.
-        Assert.True(Compiles(client, "client/shell_tools_off_client.cpp"));
+        // Proof of read, beside the absences: the shadow manager's shell, which
+        // the client keeps (the tools-off stand-ins were it until they left
+        // with clientshadowmgr.cpp, C7 cluster 12 S2).
+        Assert.True(Compiles(client, "client/shell_shadows_client.cpp"));
 
         foreach (string evicted in Evicted)
             Assert.False(Compiles(client, evicted), evicted + " is compiled into client_sourcesharp again");
@@ -155,10 +157,13 @@ public sealed class NotShippedTests
     public void TheToolFrameworkLeftTheClientBuild()
     {
         // SFM is dead (user ruling 2026-10-19): the refusal stub and the
-        // framework bridge left, and the stand-ins took their names.
+        // framework bridge left, and the stand-ins that took their names left
+        // with clientshadowmgr.cpp, their last importer (C7 cluster 12 S2;
+        // client_tools_evicted_test holds that absence, the deleted name being
+        // one this suite may not spell).
         var client = CMakeGraph.CompiledSources(CMakeGraph.Client);
-        Assert.True(Compiles(client, "client/shell_tools_off_client.cpp"),
-            "client_sourcesharp does not compile shell_tools_off_client.cpp, and clientshadowmgr.cpp still names what it defines");
+        Assert.True(Compiles(client, "client/shell_shadows_client.cpp"),
+            "client_sourcesharp does not compile shell_shadows_client.cpp: this is not the client's list");
         foreach (string gone in ToolFramework)
             Assert.False(Compiles(client, gone), gone + " is compiled into client_sourcesharp again");
     }
@@ -168,29 +173,16 @@ public sealed class NotShippedTests
     {
         // The farm holds only what the DLLs compile; rooted, as above.
         string root = RepoLayout.SdkTree;
-        Assert.True(File.Exists(Path.Combine(root, "src", "sourcesharp", "game", "client", "shell_tools_off_client.cpp")));
+        Assert.True(File.Exists(Path.Combine(root, "src", "sourcesharp", "game", "client", "shell_shadows_client.cpp")));
         foreach (string gone in ToolFramework)
             Assert.False(File.Exists(Path.Combine(root, "src", "game", "client", gone)), gone + " is back in the farm");
     }
 
-    [Fact]
-    public void TheToolsOffStandInDefinesOnlyWhatClientShadowMgrNamesAndExportsNoInterface()
-    {
-        // Only a tool asks for VCLIENTTOOLS001, and no
-        // binary of the install names it, so nothing exports it. `clienttools`
-        // and ToolFramework_PostToolMessage left with flashlighteffect.cpp
-        // (C7 cluster 12); clientshadowmgr.cpp names the two that stay.
-        string text = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_tools_off_client.cpp"));
-        string code = System.Text.RegularExpressions.Regex.Replace(text, @"//[^\n]*", "");
-
-        Assert.Contains("bool ToolsEnabled()\n{\n\treturn false;\n}", code);
-        Assert.Contains("void ToolFramework_RecordMaterialParams( IMaterial * )\n{\n}", code);
-        Assert.DoesNotContain("clienttools", code);
-        Assert.DoesNotContain("IClientTools", code);
-        Assert.DoesNotContain("ToolFramework_PostToolMessage", code);
-        Assert.DoesNotContain("EXPOSE_SINGLE_INTERFACE", code);
-        Assert.DoesNotContain("VCLIENTTOOLS_INTERFACE_VERSION", code);
-    }
+    // TheToolsOffStandInDefinesOnlyWhatClientShadowMgrNamesAndExportsNoInterface
+    // STOOD HERE and is retired with its subject: shell_tools_off_client.cpp
+    // left with clientshadowmgr.cpp, which named its two stand-ins (C7 cluster
+    // 12 S2), and TheBuiltClientNamesNoToolInterface (client_tools_evicted_test)
+    // holds that client.so exports no VCLIENTTOOLS001.
 
     [Fact]
     public void TheOneInterfaceThatLeftTheExportSetIsDeclaredNotShipped()

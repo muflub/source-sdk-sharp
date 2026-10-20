@@ -54,6 +54,8 @@
 #else
 #include "shell_managed_areas_client.h"   // CManagedHoldersClient (plan_client_vtables CD)
 #include "particles_lib_client.h"         // ParticleLib_Acquire (plan_particles_so.md)
+#include "fwd_shadows.h"                  // SS_SHADOW_ENV_VERSION (C7 cluster 12 S2)
+void *ShadowEnv_Acquire();                // shell_shadows_client.cpp
 #include "ss_particles/iparticlelib.h"    // SS_PARTICLE_LIB_INTERFACE_VERSION
 #endif
 
@@ -104,6 +106,12 @@ void *SourceSharp_InternalFactory( const char *pszName )
 	// the library itself (client.so's forwards call the same one).
 	if ( !ss::StrICmp( pszName, SS_PARTICLE_LIB_INTERFACE_VERSION ) )
 		return ParticleLib_Acquire();
+
+	// C7 cluster 12 S2: the environment libss_fwd_client's ShadowNative table
+	// carries the managed shadow manager's calls out over
+	// (shell_shadows_client.cpp), handed to every Run.
+	if ( !ss::StrICmp( pszName, SS_SHADOW_ENV_VERSION ) )
+		return ShadowEnv_Acquire();
 
 	// plan_client_vtables CB: the client's shared bases.
 	if ( void *pArea = ShimAreasClient_Acquire( ShimClientAreasOfRoot(), pszName ) )

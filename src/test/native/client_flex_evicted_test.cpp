@@ -95,9 +95,6 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <fstream>
-#include <dirent.h>
-#include <sys/stat.h>
 #include "gtest/gtest.h"
 
 #include "cmake_graph.h"
@@ -105,83 +102,7 @@
 namespace
 {
 
-//-----------------------------------------------------------------------------
-// Finding the tree, and reading it. Same shape as client_orphan_evictions_test.
-//-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-// Whole file, comments gone. Empty means "could not open", which every caller
-// must distinguish from "opened and found nothing".
-std::string ReadStripped( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line;
-		all += '\n';
-	}
-	return StripComments( all );
-}
-
-struct File_t
-{
-	const char *pszRel;
-	const char *pszAnchor;
-};
+// (The reader that opened the tools-off stand-ins left with them, C7 cluster 12 S2.)
 
 // THE ANCHOR MOVED; NOTHING THIS FILE ASSERTS DID.
 //
@@ -202,24 +123,7 @@ struct File_t
 // (src/client/native/CMakeLists.txt). Until Phase 6b it was server_csharp.vpc
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-// RE-ANCHORED three times. Step 7g rewrote entity_client_tools.cpp as an
-// IClientTools refusal stub; then it left client.so (SFM is dead, user ruling
-// 2026-10-19), and client.so's IClientTools was shell_tools_off_client.cpp's;
-// then that IClientTools went with flashlighteffect.cpp, its last user (C7
-// cluster 12, 2026-10-18), and the file keeps clientshadowmgr.cpp's two names.
-const File_t kClientTools = { "sourcesharp/game/client/shell_tools_off_client.cpp",
-	"bool ToolsEnabled()" };
 
-std::string Load( const File_t &f )
-{
-	const std::string s = ReadStripped( f.pszRel );
-	EXPECT_FALSE( s.empty() ) << "could not open " << f.pszRel
-		<< " — every absence invariant below would pass vacuously";
-	EXPECT_NE( s.find( f.pszAnchor ), std::string::npos )
-		<< f.pszRel << " does not contain its anchor \"" << f.pszAnchor
-		<< "\"; the file this test reasons about has moved or been rewritten";
-	return s;
-}
 
 // Does this target leave the file out of the build? Out means NO compiled
 // source of the target has its BASENAME -- the strength the flattened-vpc
@@ -268,25 +172,13 @@ TEST( ClientFlexEvicted, TheServerStillExcludesBothFlexSendTables )
 }
 
 //-----------------------------------------------------------------------------
-// (S) THE ONE REFERRER THERE WAS. entity_client_tools.cpp was the only object
-// outside c_baseflex.cpp naming a symbol it uniquely defines. It left client.so
-// (SFM is dead, 2026-10-19); the IClientTools that replaced it left with
-// flashlighteffect.cpp (2026-10-18), so client.so has no IClientTools at all.
+// (S) THE ONE REFERRER THERE WAS, entity_client_tools.cpp, left client.so (SFM
+// is dead, 2026-10-19); the IClientTools that replaced it left with
+// flashlighteffect.cpp (2026-10-18), and the tools-off stand-ins that were
+// left (shell_tools_off_client.cpp) went with clientshadowmgr.cpp, their last
+// importer (C7 cluster 12 S2). Nothing is left to name C_BaseFlex, and
+// client_tools_evicted_test holds that no tools TU is compiled.
 //-----------------------------------------------------------------------------
-TEST( ClientFlexEvicted, TheClientToolsNoLongerReachIntoCBaseFlex )
-{
-	const std::string tools = Load( kClientTools );
-	EXPECT_EQ( tools.find( "C_BaseFlex" ), std::string::npos )
-		<< "client.so's tools-off stand-ins name C_BaseFlex again. c_baseflex.cpp "
-		   "is not compiled, so this is an undefined reference -- the link will "
-		   "say so -- but the fix is to keep the stand-ins inert.";
-	EXPECT_EQ( tools.find( "IClientTools" ), std::string::npos )
-		<< "client.so has an IClientTools again (FindGlobalFlexcontroller and "
-		   "GetGlobalFlexControllerName were its flex arms). Nothing compiled into "
-		   "client.so dereferences `clienttools` since flashlighteffect.cpp left; a "
-		   "new user must answer the flex arms with the type's empty value and ask "
-		   "no entity.";
-}
 
 //-----------------------------------------------------------------------------
 // THE REMOVAL ITSELF, and the one thing the per-file assertions cannot reach

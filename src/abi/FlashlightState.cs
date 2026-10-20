@@ -5,8 +5,8 @@ namespace SourceSharp.Abi;
 /// <summary>
 /// One projected-texture flashlight's state. Mirrors SourceSharpFlashlightState
 /// (sourcesharp.h) word for word: the fields of FlashlightState_t a flashlight
-/// sets, which shell_flashlight_client.cpp copies into a default-constructed
-/// one for the client shadow manager. The whole state per call, as
+/// sets, which fwd_shadows.cpp's executor copies into a default-constructed
+/// one for the engine (the managed shadow manager's flashlight records). The whole state per call, as
 /// <see cref="DynamicLight"/> is: it is rewritten every frame the light is on.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

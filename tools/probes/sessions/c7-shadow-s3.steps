@@ -1,0 +1,95 @@
+# C7 shadow manager, S3's measurement (docs/plans/c7_shadow_manager.md): what the managed client shadow manager
+# costs, at c7-shadow-ab.steps' poses on dm_lockdown, in windows of 10 s: the inbound crossings per client frame
+# (cs_cl_crossings), and the manager's own calls, managed time, queued entries and native runs per frame
+# (cs_cl_shadow_stats, which only a build with the managed manager has). Poses 1 and 3 with
+# r_shadowrendertotexture 0 and 1, the flashlight (impulse 100) on at pose 1 in each mode, and pose 1 again after a
+# second map load in the same process; a crate is dropped in view at pose 1 and shot with the
+# flashlight off and on (rtt0-p1-noflash.jpg, rtt0-p1-flash.jpg, user ruling Q2). Each window is bracketed by `SHW <tag> s3-start` / `s3-window` echo markers;
+# the reports printed after the s3-window marker are the window's.
+#   INSTANCE=0 tools/probes/c0-session OUT tools/probes/sessions/c7-shadow-s3.steps --no-probe-build --port P
+# The base it compares with is c7-shadow-ab.steps' crossings windows at the base (the same poses and modes), which
+# have no shadow stats.
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd cs_sv_showpanel 1 info 0
+cmd r_shadowrendertotexture 0
+sleep 2
+# ---- r_shadowrendertotexture 0 ----
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd echo SHW rtt0-p1 s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW rtt0-p1 s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+api place tools/probes/sessions/c7-shadow-ab.json
+sleep 3
+# The crate with the flashlight off, then on (Q2: the flashlight lights props since S2; before it, only the world
+# and static props).
+shot rtt0-p1-noflash
+cmd impulse 100
+sleep 2
+shot rtt0-p1-flash
+cmd echo SHW rtt0-p1-flash s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW rtt0-p1-flash s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+cmd impulse 100
+sleep 1
+api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
+sleep 2
+cmd echo SHW rtt0-p3 s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW rtt0-p3 s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+# ---- r_shadowrendertotexture 1 ----
+cmd r_shadowrendertotexture 1
+sleep 2
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd echo SHW rtt1-p1 s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW rtt1-p1 s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+cmd impulse 100
+sleep 2
+cmd echo SHW rtt1-p1-flash s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW rtt1-p1-flash s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+cmd impulse 100
+sleep 1
+api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
+sleep 2
+cmd echo SHW rtt1-p3 s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW rtt1-p3 s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+# ---- a second map load, pose 1 in both modes ----
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd cs_sv_showpanel 1 info 0
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd echo SHW reload-rtt1-p1 s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW reload-rtt1-p1 s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+cmd r_shadowrendertotexture 0
+sleep 2
+cmd echo SHW reload-rtt0-p1 s3-start
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+sleep 10
+cmd echo SHW reload-rtt0-p1 s3-window
+cmd cs_cl_crossings reset; cs_cl_shadow_stats reset
+quit

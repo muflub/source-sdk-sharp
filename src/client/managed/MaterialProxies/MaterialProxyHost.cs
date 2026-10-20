@@ -52,10 +52,10 @@ public sealed class MaterialProxyHost : IClientMaterialProxies, IMaterialProxyRe
     private int _frame = int.MinValue;
 
     public MaterialProxyHost(IClientMaterialProxyExecutor exec, IEngineHost engine, IEngineConsole console, ILog log,
-                             MatStubConVar matStub, IPostProxyValues post)
+                             MatStubConVar matStub, IPostProxyValues post, Render.Shadows.IShadowProxySource shadows)
         : this(exec, new EngineUniform(engine),
                () => int.TryParse(console.FindConVarValue("developer"), out int level) && level >= 1, log,
-               () => matStub.Value, post)
+               () => matStub.Value, post, shadows)
     {
     }
 
@@ -63,13 +63,14 @@ public sealed class MaterialProxyHost : IClientMaterialProxies, IMaterialProxyRe
     /// <param name="developer">Whether <c>developer</c> is 1 or more.</param>
     /// <param name="matStub">Whether <c>mat_stub</c> is on.</param>
     internal MaterialProxyHost(IClientMaterialProxyExecutor exec, IProxyUniform uniform, Func<bool> developer, ILog log,
-                               Func<bool>? matStub = null, IPostProxyValues? post = null)
+                               Func<bool>? matStub = null, IPostProxyValues? post = null,
+                               Render.Shadows.IShadowProxySource? shadows = null)
     {
         _matStub = matStub ?? (() => false);
         _exec = exec;
         _uniform = uniform;
         IProxyMath math = new StockProxyMath();
-        _factory = new MaterialProxyFactory(log, math, developer, post);
+        _factory = new MaterialProxyFactory(log, math, developer, post, shadows);
         _gaussian = new GaussianRandom(math);
         _bind = new BindContext(this);
     }

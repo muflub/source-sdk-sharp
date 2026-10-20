@@ -355,10 +355,9 @@ TEST( CppAliasShardT4, TheResidueWaveTookTheDeadArmsWhole )
 	const Cleared_t kCleared[] = {
 		// (client_thinklist.cpp's row left with the file in C8, lane c6-input.)
 		// (toolframework_client.cpp's row -- RecordMaterialParams' guarded body --
-		// left with the file: SFM is dead, user ruling 2026-10-19. The name is
-		// shell_tools_off_client.cpp's now, an empty body.)
-		{ "sourcesharp/game/client/shell_tools_off_client.cpp", "ToolFramework_RecordMaterialParams",
-		  { "IsToolRecording", "SDKEntityFromUnknown", NULL } },
+		// left with the file: SFM is dead, user ruling 2026-10-19. The name was
+		// shell_tools_off_client.cpp's, an empty body, until that file went with
+		// clientshadowmgr.cpp at C7 cluster 12 S2.)
 
 		// particles_new.cpp's row: 74b071771:...:171 (whole-body), :295 and
 		// :683 (substituting), plus :396 and :440. The file left client.so (C7

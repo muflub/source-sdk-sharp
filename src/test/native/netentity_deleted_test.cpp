@@ -533,17 +533,25 @@ TEST( NetEntityDeleted, NothingAnywhereInTheTreeNamesTheFourReapedSlots )
 	// compiled by nothing since P5 and left the farm, and no stock file is left
 	// under game/server at all. The server needle is now a stock header under
 	// public/, the one root of the three this list had never named.
+	//
+	// RE-ANCHORED A THIRD TIME on 2026-10-19 (C7 cluster 12 S2:
+	// clientshadowmgr.cpp, the client's last fork TU, left client.so). No stock
+	// TU is left under game/client either, so the client needle is a stock
+	// client header the client's TUs still include (sdk-links/client.txt), as
+	// the server's became one under public/. It still proves the walk reached
+	// game/client, which is what a needle from each root is for.
 	bool bStockPublic = false, bStockClient = false, bShim = false;
 	for ( size_t i = 0; i < files.size(); i++ )
 	{
 		bStockPublic = bStockPublic || files[ i ].first == "public/tier0/dbg.h";
-		bStockClient = bStockClient || files[ i ].first == "game/client/clientshadowmgr.cpp";
+		bStockClient = bStockClient || files[ i ].first == "game/client/c_baseentity.h";
 		bShim        = bShim        || files[ i ].first == "sourcesharp/game/server/shell_dispatch.cpp";
 	}
 	EXPECT_TRUE( bStockPublic ) << "public/tier0/dbg.h was not read";
-	// (cdll_util.cpp was the client needle until it left the build in C8, and
-	// clientleafsystem.cpp until C7 cluster 12 L2.)
-	EXPECT_TRUE( bStockClient ) << "game/client/clientshadowmgr.cpp was not read";
+	// (cdll_util.cpp was the client needle until it left the build in C8,
+	// clientleafsystem.cpp until C7 cluster 12 L2, and clientshadowmgr.cpp
+	// until C7 cluster 12 S2.)
+	EXPECT_TRUE( bStockClient ) << "game/client/c_baseentity.h was not read";
 	EXPECT_TRUE( bShim ) << "sourcesharp/game/server/shell_dispatch.cpp was not read";
 
 	// THE POSITIVE CONTROL FOR THE SEARCH ITSELF. `OnCreateMove` is a live slot

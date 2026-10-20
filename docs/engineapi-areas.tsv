@@ -396,7 +396,3 @@ ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	SourceSharp_Con
 ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	SourceSharp_ConVarsClientSetValue	byte*, float, int	
 FlashlightTexture	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightTexture	byte*, int	
 FlashlightSupportsBorderColor	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightSupportsBorderColor	int	
-FlashlightCreate	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightCreate	FlashlightState*, int	
-FlashlightUpdate	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightUpdate	int, FlashlightState*, void	
-FlashlightProject	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightProject	int, void	
-FlashlightDestroy	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightDestroy	int, void	

@@ -1506,3 +1506,65 @@ public unsafe struct ManagedGlowClientTable
     [SlotHash(0x93d74047)]
     public delegate* unmanaged<void*, void*, float, int, void> UpdateSkyOverlays;
 }
+
+/// <summary>The table managed writes for <c>IManagedShadowsClient</c> (<c>SSManagedShadowsClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedShadowsClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedShadowsClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t Init( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> Init;
+
+    // 3: void Shutdown( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Shutdown;
+
+    // 4: void LevelInitPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelInitPreEntity;
+
+    // 5: void LevelShutdownPostEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelShutdownPostEntity;
+
+    // 6: void PreRender( const int32_t *pPending, int32_t nPending )
+    [SlotHash(0x2acf7c51)]
+    public delegate* unmanaged<void*, void*, int, void> PreRender;
+
+    // 7: void AdvanceFrame( const int32_t *pPending, int32_t nPending )
+    [SlotHash(0x2acf7c51)]
+    public delegate* unmanaged<void*, void*, int, void> AdvanceFrame;
+
+    // 8: void ComputeShadowTextures( const uint16_t *pLeaves, int32_t nLeafCount, const int32_t *pPending, int32_t nPending )
+    [SlotHash(0xca302c1c)]
+    public delegate* unmanaged<void*, void*, int, void*, int, void> ComputeShadowTextures;
+
+    // 9: void ComputeShadowDepthTextures( const float *pView, int32_t nViewFloats, const int32_t *pPending, int32_t nPending )
+    [SlotHash(0xca302c1c)]
+    public delegate* unmanaged<void*, void*, int, void*, int, void> ComputeShadowDepthTextures;
+
+    // 10: void UnlockAllShadowDepthTextures( const int32_t *pPending, int32_t nPending )
+    [SlotHash(0x2acf7c51)]
+    public delegate* unmanaged<void*, void*, int, void> UnlockAllShadowDepthTextures;
+
+    // 11: void RestoreRenderState( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> RestoreRenderState;
+
+    // 12: void RenderShadowTexture( int32_t nWidth, int32_t nHeight )
+    [SlotHash(0x7fb639b8)]
+    public delegate* unmanaged<void*, int, int, void> RenderShadowTexture;
+
+    // 13: void Pending( const int32_t *pEntries, int32_t nCount )
+    [SlotHash(0x2acf7c51)]
+    public delegate* unmanaged<void*, void*, int, void> Pending;
+}

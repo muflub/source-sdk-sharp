@@ -77,37 +77,6 @@
 #       consumer plus a lifetime tier on a client root (MEMBER).
 #
 home	mangled	name	tu	bind	kind	scope	size	disposition	owner	reason
-	_ZZ15AllocTempVectorvE8s_nIndex	AllocTempVector()::s_nIndex	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	4	UNRULED		
-	_ZZ15AllocTempVectorvE9s_vecTemp	AllocTempVector()::s_vecTemp	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	1536	UNRULED		
-clientshadowmgr.o	_ZZN16CClientShadowMgr26BuildActiveShadowDepthListERK10CViewSetupiPtE18s_bOverflowWarning	CClientShadowMgr::BuildActiveShadowDepthList(CViewSetup const&, int, unsigned short*)::s_bOverflowWarning	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	1	UNRULED		
-clientshadowmgr.o	_ZZN16CClientShadowMgr26ComputeShadowDepthTexturesERK10CViewSetupE8mapCount	CClientShadowMgr::ComputeShadowDepthTextures(CViewSetup const&)::mapCount	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	4	UNRULED		
-clientshadowmgr.o	_ZZN16CClientShadowMgr16CreateFlashlightERK17FlashlightState_tE13invalidHandle	CClientShadowMgr::CreateFlashlight(FlashlightState_t const&)::invalidHandle	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	4	UNRULED		
-clientshadowmgr.o	_ZZNK16CClientShadowMgr18GetShadowDirectionEvE9s_vecDown	CClientShadowMgr::GetShadowDirection() const::s_vecDown	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	12	UNRULED		
-	_ZZN9CVProfile10EnterScopeEPKciS1_biE9fAsserted	CVProfile::EnterScope(char const*, int, char const*, bool, int)::fAsserted	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	1	UNRULED		
-clientshadowmgr.o	_ZL31__g_CreateCShadowModelProxy_reg	__g_CreateCShadowModelProxy_reg	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-clientshadowmgr.o	_ZL26__g_CreateCShadowProxy_reg	__g_CreateCShadowProxy_reg	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-clientshadowmgr.o	_ZL27cs_cl_shadow_report_command	cs_cl_shadow_report_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-	g_pClientShadowMgr	g_pClientShadowMgr	game/client/clientshadowmgr.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-clientshadowmgr.o	_ZL21r_flashlight_version2	r_flashlight_version2	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-	r_flashlightdepthres	r_flashlightdepthres	game/client/clientshadowmgr.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	r_flashlightdepthtexture	r_flashlightdepthtexture	game/client/clientshadowmgr.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL23r_flashlightdrawfrustum	r_flashlightdrawfrustum	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL18r_flashlightmodels	r_flashlightmodels	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL22r_shadowangles_command	r_shadowangles_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL28r_shadowblobbycutoff_command	r_shadowblobbycutoff_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL13r_shadowbreak	r_shadowbreak	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL21r_shadowcolor_command	r_shadowcolor_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL19r_shadowdir_command	r_shadowdir_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL20r_shadowdist_command	r_shadowdist_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL19r_shadowmaxrendered	r_shadowmaxrendered	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL23r_shadowrendertotexture	r_shadowrendertotexture	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL9r_shadows	r_shadows	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL21r_shadows_gamecontrol	r_shadows_gamecontrol	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-	r_threaded_client_shadow_manager	r_threaded_client_shadow_manager	game/client/clientshadowmgr.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-clientshadowmgr.o	_ZL17s_ClientShadowMgr	s_ClientShadowMgr	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	456	UNRULED		
-clientshadowmgr.o	_ZL19s_VisibleShadowList	s_VisibleShadowList	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-clientshadowmgr.o	_ZL8s_bBreak	s_bBreak	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-clientshadowmgr.o	_ZL25s_nRttShadowTexturesDrawn	s_nRttShadowTexturesDrawn	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 steamid.o	_ZZNK8CSteamID6RenderEvE4nBuf	CSteamID::Render() const::nBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 steamid.o	_ZZNK8CSteamID6RenderEvE7rgchBuf	CSteamID::Render() const::rgchBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	148	DEAD		the linker drops it: nothing in the shipped .so reads it
 client_util_library.o	_ZZ7VarArgsPKczE6string	VarArgs(char const*, ...)::string	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	function-local	1024	UNRULED		
@@ -185,7 +154,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1168	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1176	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -273,9 +242,6 @@ shell_entitystatics.o	_ZL14cl_interpolate	cl_interpolate	sourcesharp/game/client
 	s_bInterpolate	s_bInterpolate	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
 	_ZN12InterfaceReg16s_pInterfaceRegsE	InterfaceReg::s_pInterfaceRegs	sourcesharp/game/client/shell_factory_client.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		tier1 interface.cpp's registry head (shell_factory_client.cpp): the EXPOSE macros' static-init rows chain here, and CreateInterface, which the engine resolves by name, walks it. It lives as long as client.so's exported factory (C9)
 shell_factory_client.o	_ZL11s_Factories	s_Factories	sourcesharp/game/client/shell_factory_client.cpp	LOCAL	bss	file-or-global	16	UNRULED		
-shell_flashlight_client.o	_ZN12_GLOBAL__N_120g_FlashlightTexturesE	(anonymous namespace)::g_FlashlightTextures	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	32	MEMBER	Flashlight:DLL	the texture references FlashlightTexture holds for the DLL's life, so the ITexture pointer the client shadow manager keeps in a FlashlightState_t stays referenced (stock: CFlashlightEffect's m_FlashlightTexture); carries out SourceSharp.Client.Flashlight's choice, decides nothing (C7 cluster 12)
-shell_flashlight_client.o	_ZN12_GLOBAL__N_121g_nFlashlightTexturesE	(anonymous namespace)::g_nFlashlightTextures	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	4	MEMBER	Flashlight:DLL	how many of g_FlashlightTextures are held; with them for the DLL's life (C7 cluster 12)
-shell_flashlight_client.o	_ZN12_GLOBAL__N_126g_szFlashlightTextureNamesE	(anonymous namespace)::g_szFlashlightTextureNames	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	1040	MEMBER	Flashlight:DLL	the names g_FlashlightTextures were held by, the lookup that answers a name already held with its id (C7 cluster 12)
 shell_glow_client.o	_ZZN12_GLOBAL__N_17ExecuteEPKiiE19nHDRColorScaleCache	(anonymous namespace)::Execute(int const*, int)::nHDRColorScaleCache	sourcesharp/game/client/shell_glow_client.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_glow_client.o	_ZN12_GLOBAL__N_110s_CommandsE	(anonymous namespace)::s_Commands	sourcesharp/game/client/shell_glow_client.cpp	LOCAL	bss	function-local	32	MEMBER	Glow:DLL	reset_today=n/a: the buffer a glow overlay draw hands managed for its command words, grown when they do not fit; refilled every draw, read back by nothing between draws (C7).
 	_ZN18PrecacheEffectGlow20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectGlow::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_glow_client.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
@@ -327,7 +293,7 @@ shell_input.o	_ZL7g_Input	g_Input	sourcesharp/game/client/shell_input.cpp	LOCAL	
 	in_speed	in_speed	sourcesharp/game/client/shell_input.cpp	GLOBAL	bss	file-or-global	12	UNRULED		
 	in_strafe	in_strafe	sourcesharp/game/client/shell_input.cpp	GLOBAL	bss	file-or-global	12	UNRULED		
 	input	input	sourcesharp/game/client/shell_input.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-shell_leaf_system_client.o	_ZN12_GLOBAL__N_15s_EnvE	(anonymous namespace)::s_Env	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	64	UNRULED		
+shell_leaf_system_client.o	_ZN12_GLOBAL__N_15s_EnvE	(anonymous namespace)::s_Env	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	56	UNRULED		
 shell_leaf_system_client.o	_ZN12_GLOBAL__N_112s_GameSystemE	(anonymous namespace)::s_GameSystem	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 shell_leaf_system_client.o	_ZN12_GLOBAL__N_115s_LeafSystemRegE	(anonymous namespace)::s_LeafSystemReg	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 shell_leaf_system_client.o	_ZN12_GLOBAL__N_19s_StorageE	(anonymous namespace)::s_Storage	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	4096	UNRULED		
@@ -429,6 +395,8 @@ shell_material_proxy_client.o	_ZL19s_ManagedProxyReg43	s_ManagedProxyReg43	sourc
 shell_material_proxy_client.o	_ZL19s_ManagedProxyReg44	s_ManagedProxyReg44	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_material_proxy_client.o	_ZL19s_ManagedProxyReg45	s_ManagedProxyReg45	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_material_proxy_client.o	_ZL19s_ManagedProxyReg46	s_ManagedProxyReg46	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
+shell_material_proxy_client.o	_ZL19s_ManagedProxyReg47	s_ManagedProxyReg47	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
+shell_material_proxy_client.o	_ZL19s_ManagedProxyReg48	s_ManagedProxyReg48	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_material_proxy_client.o	_ZL18s_ManagedProxyReg5	s_ManagedProxyReg5	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_material_proxy_client.o	_ZL18s_ManagedProxyReg6	s_ManagedProxyReg6	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_material_proxy_client.o	_ZL18s_ManagedProxyReg7	s_ManagedProxyReg7	sourcesharp/game/client/shell_material_proxy_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
@@ -474,7 +442,7 @@ shell_prediction.o	_ZL18s_ClientMoveHelper	s_ClientMoveHelper	sourcesharp/game/c
 shell_recipientfilter_client.o	_ZL33g_RecipientFilterPredictionSystem	g_RecipientFilterPredictionSystem	sourcesharp/game/client/shell_recipientfilter_client.cpp	LOCAL	bss	file-or-global	40	UNRULED		
 shell_render_targets_client.o	_ZN12_GLOBAL__N_115g_RenderTargetsE	(anonymous namespace)::g_RenderTargets	sourcesharp/game/client/shell_render_targets_client.cpp	LOCAL	bss	function-local	2536	MEMBER	RenderTargets:DLL	reset_today=n/a: the references live while the material system's release function has not dropped them, for the DLL's life. client.so's render-target store: the CTextureReference per named render target rendertexture.cpp's getters held, and the rows managed's RenderTargetCatalog declared (IShimViewClient::RenderTargetDeclare). The material system holds the release function's pointer. Carries out the catalog's rows, decides nothing (C7 render textures)
 shell_render_trace_client.o	_ZN12_GLOBAL__N_111g_MeshHooksE	(anonymous namespace)::g_MeshHooks	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	128	UNRULED		
-shell_render_trace_client.o	_ZN12_GLOBAL__N_111g_OriginalsE	(anonymous namespace)::g_Originals	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	784	UNRULED		
+shell_render_trace_client.o	_ZN12_GLOBAL__N_111g_OriginalsE	(anonymous namespace)::g_Originals	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	928	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_19g_PatchesE	(anonymous namespace)::g_Patches	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_19g_QueriesE	(anonymous namespace)::g_Queries	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_16g_TextE	(anonymous namespace)::g_Text	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	32	UNRULED		
@@ -484,11 +452,18 @@ shell_render_trace_client.o	_ZN12_GLOBAL__N_19g_bMeshesE	(anonymous namespace)::
 shell_render_trace_client.o	_ZN12_GLOBAL__N_112g_nMeshHooksE	(anonymous namespace)::g_nMeshHooks	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_114g_nShadowDepthE	(anonymous namespace)::g_nShadowDepth	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_113g_pClientBaseE	(anonymous namespace)::g_pClientBase	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	8	UNRULED		
-shell_renderable_facts.o	_ZL31cs_cl_renderable_report_command	cs_cl_renderable_report_command	sourcesharp/game/client/shell_renderable_facts.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_renderable_facts.o	_ZL14s_ResolveStats	s_ResolveStats	sourcesharp/game/client/shell_renderable_facts.cpp	LOCAL	bss	file-or-global	16	UNRULED		
+shell_render_trace_client.o	_ZN12_GLOBAL__N_114g_pShadowsBaseE	(anonymous namespace)::g_pShadowsBase	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_rope_render.o	_ZL14g_RopeExecutor	g_RopeExecutor	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	152	UNRULED		
 shell_rope_render.o	_ZL15g_RopeMaterials	g_RopeMaterials	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_rope_render.o	_ZL23g_SourceSharpRopeSystem	g_SourceSharpRopeSystem	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
+shell_shadows_client.o	_ZN12_GLOBAL__N_15s_EnvE	(anonymous namespace)::s_Env	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	184	UNRULED		
+shell_shadows_client.o	_ZN12_GLOBAL__N_120s_FlashlightTexturesE	(anonymous namespace)::s_FlashlightTextures	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	32	MEMBER	Flashlight:DLL	the texture references FlashlightTexture holds for the DLL's life, so the ITexture pointer the engine keeps in a FlashlightState_t stays referenced (stock: CFlashlightEffect's m_FlashlightTexture); carries out SourceSharp.Client.Flashlight's choice, decides nothing (C7 cluster 12; moved from shell_flashlight_client.cpp at S2)
+shell_shadows_client.o	_ZN12_GLOBAL__N_112s_GameSystemE	(anonymous namespace)::s_GameSystem	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	16	UNRULED		
+shell_shadows_client.o	_ZN12_GLOBAL__N_111s_MaterialsE	(anonymous namespace)::s_Materials	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	32	UNRULED		
+shell_shadows_client.o	_ZN12_GLOBAL__N_17s_QueueE	(anonymous namespace)::s_Queue	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	6168	UNRULED		
+shell_shadows_client.o	_ZN12_GLOBAL__N_110s_TexturesE	(anonymous namespace)::s_Textures	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	32	UNRULED		
+shell_shadows_client.o	_ZN12_GLOBAL__N_121s_nFlashlightTexturesE	(anonymous namespace)::s_nFlashlightTextures	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	4	MEMBER	Flashlight:DLL	how many of s_FlashlightTextures are held; with them for the DLL's life (C7 cluster 12)
+shell_shadows_client.o	_ZN12_GLOBAL__N_126s_szFlashlightTextureNamesE	(anonymous namespace)::s_szFlashlightTextureNames	sourcesharp/game/client/shell_shadows_client.cpp	LOCAL	bss	function-local	1040	MEMBER	Flashlight:DLL	the names s_FlashlightTextures were held by, the lookup that answers a name already held with its id (C7 cluster 12)
 shell_soundemitter_client.o	_ZZ25ClientSystem_SoundEmittervE5s_Row	ClientSystem_SoundEmitter()::s_Row	sourcesharp/game/client/shell_soundemitter_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 shell_soundenvelope_client.o	_ZZL26ShellClientSoundControllervE12s_Controller	ShellClientSoundController()::s_Controller	sourcesharp/game/client/shell_soundenvelope_client.cpp	LOCAL	bss	function-local	48	UNRULED		
 shell_soundscape_audio_client.o	_ZZ22ClientSoundscapeSystemvE8s_System	ClientSoundscapeSystem()::s_System	sourcesharp/game/client/shell_soundscape_audio_client.cpp	LOCAL	bss	function-local	16	UNRULED		
@@ -768,7 +743,5 @@ util_shared_library.o	_ZL15violence_ablood	violence_ablood	sourcesharp/game/shar
 util_shared_library.o	_ZL14violence_agibs	violence_agibs	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 util_shared_library.o	_ZL15violence_hblood	violence_hblood	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 util_shared_library.o	_ZL14violence_hgibs	violence_hgibs	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-collisionutils.o	_ZL12s_ExtIndices	s_ExtIndices	sourcesharp/public/collisionutils.cpp	LOCAL	data	file-or-global	24	DEAD		the linker drops it: nothing in the shipped .so reads it
-collisionutils.o	_ZL12s_MatIndices	s_MatIndices	sourcesharp/public/collisionutils.cpp	LOCAL	data	file-or-global	24	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL8g_RTDictB5cxx11	g_RTDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL8g_STDictB5cxx11	g_STDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it

@@ -68,7 +68,7 @@ public class ClientProxiesRouteTests
 
         using var doc = JsonDocument.Parse(Answer(host));
         var root = doc.RootElement;
-        Assert.Equal(47, root.GetProperty("registered").GetInt32()); // with viewpostprocess.cpp's MotionBlur and engine_post (C7), particle_proxies.cpp's ParticleSphereProxy
+        Assert.Equal(49, root.GetProperty("registered").GetInt32()); // with viewpostprocess.cpp's MotionBlur and engine_post (C7), particle_proxies.cpp's ParticleSphereProxy, clientshadowmgr.cpp's Shadow and ShadowModel (C7 cluster 12 S2)
         var sine = root.GetProperty("names").EnumerateArray().Single(n => n.GetProperty("name").GetString() == "Sine");
         Assert.Equal(2, sine.GetProperty("binds").GetInt32());
         Assert.Equal(1, sine.GetProperty("bindsLastFrame").GetInt32());

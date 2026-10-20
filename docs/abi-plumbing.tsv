@@ -25,6 +25,7 @@ EngineBlockFingerprint.cs	b	fingerprint of the engine block layout (boundary dri
 EngineLimits.cs	b	value contract: MAX_PLAYERS and MAX_EDICTS the engine is built around (split out of Log.cs)
 EntityOp.cs	b	entity-op numbers native passes to Crossings.CountEntityOp, which keys its counters by them (Enum.GetNames, Read(EntityOp))
 EventIdStamps.cs	c	CEventAction::s_iNextIDStamp: restored connections keep their stamps across a managed reload, so the counter must too (P1 run 3 lifetime ruling b)
+FlashlightState.cs	b	blittable mirror of SourceSharpFlashlightState: the 25 words fwd_shadows.cpp's executor reads into a FlashlightState_t (static_assert there)
 FogParams.cs	b	blittable mirror of SourceSharpFogParams; ShimAreas.g.cs routes it
 GitProvenance.cs	e	build provenance the Bootstrap reads (loader infra; folds into Bootstrap after SE2)
 Globals.cs	b	CGlobalVarsRaw layout mirror + its pointer reader

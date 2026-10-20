@@ -4,4 +4,4 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 0 links here; 545 in all lists (were 576)
+# 0 links here; 540 in all lists (were 541)

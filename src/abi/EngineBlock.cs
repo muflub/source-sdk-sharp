@@ -993,8 +993,12 @@ public struct EngineBlockClientTail
     [NativeDoc("A ShadowType_t: the ANSWER, from ShadowChoice and the model facts below.")]
     public int ShadowType;
 
-    /// <summary>The <c>SHADOW_FLAGS_*</c> bits <c>CreateShadow</c> is given.</summary>
-    [NativeDoc("The SHADOW_FLAGS_* bits CreateShadow is given.")]
+    /// <summary>The <c>SHADOW_FLAGS_*</c> bits <c>CreateShadow</c> is given, and
+    /// above them the render policy's two ShouldReceiveProjectedTextures answers
+    /// (<see cref="ClientShadowFlag.ReceivesShadows"/>, <see cref="ClientShadowFlag.ReceivesFlashlight"/>).</summary>
+    [NativeDoc("The SHADOW_FLAGS_* bits CreateShadow is given, and above them (1 << 29,",
+               "1 << 30) the policy's ShouldReceiveProjectedTextures answers for a shadow",
+               "and for a flashlight, which CreateShadow is not given.")]
     public int ShadowFlags;
 
     // ---- render policy: what managed code decided FROM, that it also owns ---

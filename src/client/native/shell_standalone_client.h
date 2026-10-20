@@ -497,17 +497,13 @@ public:
 	virtual void OnThreadedDrawSetup() OVERRIDE {}
 	virtual bool UsesPowerOfTwoFrameBufferTexture( void ) OVERRIDE { return false; }
 	virtual bool UsesFullFrameBufferTexture( void ) OVERRIDE { return false; }
-	// The client shadow manager's name for this entity's shadow, and the whole
-	// reason managed props cast one at all.
-	//
-	// This answered CLIENTSHADOW_INVALID_HANDLE unconditionally until Phase 5's
-	// gate, with no member behind it, and that ONE constant was the whole bug:
-	// CClientShadowMgr reaches a renderable's shadow only through this handle —
-	// GetActualShadowCastType( pRenderable ) is literally
-	// GetActualShadowCastType( pRenderable->GetShadowHandle() ) — so an invalid
-	// handle is SHADOWS_NONE no matter what ShadowCastType() below says. The
-	// virtual was answering a question nobody was asking.
-	virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE { return m_ShadowHandle; }
+	// The client shadow manager's name for this entity's shadow, and whether
+	// the renderable is on its dirty list (stock's m_ShadowHandle and
+	// EFL_DIRTY_SHADOWUPDATE): the managed manager's own since C7 cluster 12
+	// S2 (EntityShadows answers ShadowHandle, IsShadowDirty and
+	// MarkShadowDirty of a renderable itself). Nothing native asks them: the
+	// engine's one caller (staticpropmgr) asks its own props.
+	virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE { return CLIENTSHADOW_INVALID_HANDLE; }
 	virtual ClientRenderHandle_t &RenderHandle() OVERRIDE { return m_hRenderHandle; }
 	// WHICH BODY GROUPS, out of the block rather than the constant zero that
 	// stood here. Zero is still what it answers for every entity today, and
@@ -560,24 +556,16 @@ public:
 		color[1] = tail.RenderColorG * ( 1.0f / 255.0f );
 		color[2] = tail.RenderColorB * ( 1.0f / 255.0f );
 	}
-	virtual bool ShouldReceiveProjectedTextures( int ) OVERRIDE { return false; }
+	virtual bool ShouldReceiveProjectedTextures( int flags ) OVERRIDE;
 	virtual bool GetShadowCastDistance( float *, ShadowType_t ) const OVERRIDE { return false; }
 	virtual bool GetShadowCastDirection( Vector *, ShadowType_t ) const OVERRIDE { return false; }
 	virtual void GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType_t ) OVERRIDE
 	{
 		GetRenderBounds( mins, maxs );
 	}
-	// Whether this entity is already on the manager's dirty list.
-	//
-	// A real flag, not the `false` and the empty body that stood here while
-	// there was no shadow to be dirty. CClientShadowMgr::AddToDirtyShadowList
-	// opens with `if ( pRenderable->IsShadowDirty() ) return;`, so a renderable
-	// that always answers no is added to that list again on every position
-	// change and re-projected as many times per frame as it moved — and
-	// CreateShadow's own `Assert( !pRenderable->IsShadowDirty() )` would then
-	// be checking a constant. Stock keeps the same bit in EFL_DIRTY_SHADOWUPDATE.
-	virtual bool IsShadowDirty( void ) OVERRIDE { return m_bShadowDirty; }
-	virtual void MarkShadowDirty( bool bDirty ) OVERRIDE { m_bShadowDirty = bDirty; }
+	// GetShadowHandle's: the managed manager keeps the bit.
+	virtual bool IsShadowDirty( void ) OVERRIDE { return false; }
+	virtual void MarkShadowDirty( bool ) OVERRIDE {}
 	virtual IClientRenderable *GetShadowParent() OVERRIDE { return NULL; }
 	virtual IClientRenderable *FirstShadowChild() OVERRIDE { return NULL; }
 	virtual IClientRenderable *NextShadowPeer() OVERRIDE { return NULL; }
@@ -830,7 +818,6 @@ public:
 	// because "I asked for auto" and "it is casting nothing" is the pair that
 	// names the problem.
 	int  ShadowCastChoice() const { return Block().Client.ShadowChoice; }
-	bool HasShadow() const { return m_ShadowHandle != CLIENTSHADOW_INVALID_HANDLE; }
 
 	//-------------------------------------------------------------------------
 	// The viewmodel pass (Phase 10's render half). See StandaloneSetViewModel
@@ -873,7 +860,8 @@ private:
 	// ways: it destroys as often as it creates, because ShadowCastType()
 	// changes as the model arrives, as the entity goes dormant, and as managed
 	// code changes its mind. Called from every place that can change any of
-	// those, which is why it is one function and not a line at each.
+	// those, which is why it is one function and not a line at each. Both are
+	// queue entries for the managed manager (shell_shadows_client.h).
 	//-------------------------------------------------------------------------
 	void RefreshShadow();
 	void DestroyShadow();
@@ -992,15 +980,6 @@ private:
 	// The leaf system's handle for this renderable. CDefaultClientRenderable
 	// owned this; it lives here now for the same reason the defaults above do.
 	ClientRenderHandle_t  m_hRenderHandle;
-
-	// The client shadow manager's handle for this entity's shadow, invalid
-	// while it casts none. C_BaseEntity keeps the same member; not having one
-	// is what the Phase 5 gate photographed.
-	ClientShadowHandle_t  m_ShadowHandle;
-
-	// Whether that shadow is already queued for re-projection. Stock keeps it
-	// in EFL_DIRTY_SHADOWUPDATE; this hierarchy has no eflags, so it is a bool.
-	bool                  m_bShadowDirty;
 
 	// A StandaloneShadowChoice_t. AUTO until a managed class says otherwise,
 	// which is what every entity that has never been told anything uses.

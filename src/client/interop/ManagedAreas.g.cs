@@ -412,6 +412,23 @@ public unsafe interface IManagedGlowClient
     void UpdateSkyOverlays(void* a0, float a1, int a2);
 }
 
+[ManagedVtable(typeof(ManagedShadowsClientTable))]
+public unsafe interface IManagedShadowsClient
+{
+    int Init();
+    void Shutdown();
+    void LevelInitPreEntity();
+    void LevelShutdownPostEntity();
+    void PreRender(void* a0, int a1);
+    void AdvanceFrame(void* a0, int a1);
+    void ComputeShadowTextures(void* a0, int a1, void* a2, int a3);
+    void ComputeShadowDepthTextures(void* a0, int a1, void* a2, int a3);
+    void UnlockAllShadowDepthTextures(void* a0, int a1);
+    void RestoreRenderState();
+    void RenderShadowTexture(int a0, int a1);
+    void Pending(void* a0, int a1);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -477,4 +494,6 @@ public static class ManagedAreaFactory
         => IManagedPixelVisClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedGlowClient target)
         => IManagedGlowClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedShadowsClient target)
+        => IManagedShadowsClient__ManagedVtable.Create(vtables, target);
 }

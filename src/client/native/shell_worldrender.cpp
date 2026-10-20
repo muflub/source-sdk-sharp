@@ -24,7 +24,6 @@
 #include "shell_standalone_client.h"
 #include "sourcesharp.h"
 
-#include "iclientshadowmgr.h"
 #include "iviewrender.h"
 #include "materialsystem/imaterialsystem.h"
 #include "c_baseplayer.h"
@@ -80,24 +79,9 @@ void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues
 
 	switch ( nWhich )
 	{
-	case SOURCESHARP_WORLDRENDER_SHADOW:
-	{
-		if ( !WorldRenderCountOk( "shadow", nCount, 8 ) )
-			return;
-
-		// The direction is NOT normalised here, and stock does not either:
-		// shadow_control's own KeyValue turns the mapper's angles into a
-		// forward vector and hands that over as it is.
-		Vector vecDirection( pValues[0], pValues[1], pValues[2] );
-
-		g_pClientShadowMgr->SetShadowDirection( vecDirection );
-		g_pClientShadowMgr->SetShadowColor( (unsigned char)pValues[3],
-		                                    (unsigned char)pValues[4],
-		                                    (unsigned char)pValues[5] );
-		g_pClientShadowMgr->SetShadowDistance( pValues[6] );
-		g_pClientShadowMgr->SetShadowsDisabled( pValues[7] != 0.0f );
-		return;
-	}
+	// SOURCESHARP_WORLDRENDER_SHADOW, shadow_control's direction, colour,
+	// distance and switch, stood here: the client shadow manager is managed's
+	// (C7 cluster 12 S2), and ClientShadowControl hands them to it directly.
 
 	case SOURCESHARP_WORLDRENDER_WATERLOD:
 	{

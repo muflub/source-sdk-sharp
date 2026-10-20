@@ -25,32 +25,25 @@ namespace SourceSharp.Client.Standalone;
 [ClientStandaloneEntity(EntityNames.ShadowControl)]
 public sealed class ClientShadowControl : ClientStandaloneEntity
 {
-    public ClientShadowControl(IEngineEntityRender render, IEngineVisibility visibility)
+    public ClientShadowControl(IEngineEntityRender render, Render.Shadows.IShadowWorldControl shadows)
         : base(render)
     {
-        Visibility = visibility;
+        Shadows = shadows;
     }
 
-    /// <summary>what can be seen, and how it is lit.</summary>
-    private readonly IEngineVisibility Visibility;
+    /// <summary>the client shadow manager, managed's (C7 cluster 12 S2).</summary>
+    private readonly Render.Shadows.IShadowWorldControl Shadows;
 
 
     public override string ClassName => EntityNames.ShadowControl;
 
     [NetState] public ShadowControlNetState State = new();
 
+    // C_ShadowControl::OnDataChanged's four calls, in its order.
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
-    {
-        Span<float> values = stackalloc float[8]
-        {
-            State.Direction.X, State.Direction.Y, State.Direction.Z,
-            State.Red, State.Green, State.Blue,
-            State.MaxDistance,
-            State.Disabled ? 1f : 0f,
-        };
-
-        Visibility.ClientSetWorldRenderState(WorldRenderState.Shadow, values);
-    }
+        => Shadows.SetWorldShadows(new Vector(State.Direction.X, State.Direction.Y, State.Direction.Z),
+                                   State.Red, State.Green, State.Blue,
+                                   State.MaxDistance, State.Disabled);
 }
 
 /// <summary>The client half of <c>water_lod_control</c>: two distances, pushed at the view renderer.</summary>

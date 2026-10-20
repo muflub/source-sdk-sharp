@@ -2934,31 +2934,19 @@ static void *const s_ShimConVarsClientSlots[] = {
 static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimFlashlightClient: 6 forwarder(s) over IShimFlashlightClient.
+// ShimFlashlightClient: 2 forwarder(s) over IShimFlashlightClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimFlashlightClient::FlashlightTexture( const char * )
 static int32_t SSFwd_ShimFlashlightClient_FlashlightTexture( IShimFlashlightClient *self, const char * a0 ) { return self->FlashlightTexture( a0 ); }
 // int32_t IShimFlashlightClient::FlashlightSupportsBorderColor( void )
 static int32_t SSFwd_ShimFlashlightClient_FlashlightSupportsBorderColor( IShimFlashlightClient *self ) { return self->FlashlightSupportsBorderColor(); }
-// int32_t IShimFlashlightClient::FlashlightCreate( const SourceSharpFlashlightState * )
-static int32_t SSFwd_ShimFlashlightClient_FlashlightCreate( IShimFlashlightClient *self, const SourceSharpFlashlightState * a0 ) { return self->FlashlightCreate( a0 ); }
-// void IShimFlashlightClient::FlashlightUpdate( int32_t, const SourceSharpFlashlightState * )
-static void SSFwd_ShimFlashlightClient_FlashlightUpdate( IShimFlashlightClient *self, int32_t a0, const SourceSharpFlashlightState * a1 ) { self->FlashlightUpdate( a0, a1 ); }
-// void IShimFlashlightClient::FlashlightProject( int32_t )
-static void SSFwd_ShimFlashlightClient_FlashlightProject( IShimFlashlightClient *self, int32_t a0 ) { self->FlashlightProject( a0 ); }
-// void IShimFlashlightClient::FlashlightDestroy( int32_t )
-static void SSFwd_ShimFlashlightClient_FlashlightDestroy( IShimFlashlightClient *self, int32_t a0 ) { self->FlashlightDestroy( a0 ); }
 
 static void *const s_ShimFlashlightClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightTexture ),
 	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightSupportsBorderColor ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightCreate ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightUpdate ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightProject ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightDestroy ),
 };
 
-static const SSForwarderTable s_ShimFlashlightClientTable = { s_ShimFlashlightClientSlots, 6 };
+static const SSForwarderTable s_ShimFlashlightClientTable = { s_ShimFlashlightClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // PhysicsCallbacks: 7 function(s) over void, declared in fwd_physics.h.

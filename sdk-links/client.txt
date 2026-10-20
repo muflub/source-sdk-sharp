@@ -4,17 +4,16 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 374 links here; 545 in all lists (were 576)
+# 368 links here; 540 in all lists (were 541)
 #       3 src/common
-#     180 src/game
+#     177 src/game
 #       4 src/lib
-#     187 src/public
+#     184 src/public
 src/common/replay/ireplayscreenshotsystem.h
 src/common/steamcommon.h
 src/common/xbox/xboxstubs.h
 src/game/client/animationlayer.h
 src/game/client/bone_merge_cache.h
-src/game/client/bonetoworldarray.h
 src/game/client/c_baseanimating.h
 src/game/client/c_baseanimatingoverlay.h
 src/game/client/c_basecombatcharacter.h
@@ -51,7 +50,6 @@ src/game/client/clienteffectprecachesystem.h
 src/game/client/cliententitylist.h
 src/game/client/clientleafsystem.h
 src/game/client/clientmode.h
-src/game/client/clientshadowmgr.cpp
 src/game/client/clientsideeffects.h
 src/game/client/detailobjectsystem.h
 src/game/client/enginesprite.h
@@ -116,7 +114,6 @@ src/game/client/smoke_fog_overlay.h
 src/game/client/studio_stats.h
 src/game/client/tempent.h
 src/game/client/timedevent.h
-src/game/client/toolframework_client.h
 src/game/client/vgui_basepanel.h
 src/game/client/vgui_int.h
 src/game/client/vguicenterprint.h
@@ -209,7 +206,6 @@ src/public/cdll_int.h
 src/public/client_class.h
 src/public/client_render_handle.h
 src/public/client_textmessage.h
-src/public/collisionutils.h
 src/public/con_nprint.h
 src/public/coordsize.h
 src/public/datacache/idatacache.h
@@ -322,7 +318,6 @@ src/public/tier1/utlhandletable.h
 src/public/tier1/utlhash.h
 src/public/tier1/utlintrusivelist.h
 src/public/tier1/utllinkedlist.h
-src/public/tier1/utlmultilist.h
 src/public/tier1/utlobjectreference.h
 src/public/tier1/utlpriorityqueue.h
 src/public/tier1/utlqueue.h
@@ -380,6 +375,5 @@ src/public/video/ivideoservices.h
 src/public/view_shared.h
 src/public/vphysics/performance.h
 src/public/vstdlib/IKeyValuesSystem.h
-src/public/vstdlib/jobthread.h
 src/public/vtf/vtf.h
 src/public/worldsize.h

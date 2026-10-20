@@ -317,7 +317,7 @@ std::string PlanSlice( const std::string &plan, const char *pszFrom, const char 
 // too, so they read it rather than retire.
 const char *kEffects = "sourcesharp/game/client/shell_effects_client.cpp";
 const char *kToolFw  = "game/client/toolframework_client.cpp";   // gone (SFM is dead, 2026-10-19)
-const char *kToolsOff = "sourcesharp/game/client/shell_tools_off_client.cpp";
+const char *kToolsOff = "sourcesharp/game/client/shell_tools_off_client.cpp";   // gone (C7 cluster 12 S2)
 const char *kPlan    = "../docs/plans/plan_entity.md";  // was ../plan_entity.md before source-sdk-sharp
 
 }  // namespace
@@ -451,20 +451,16 @@ TEST( Section6Rulings, TheToolFrameworkLeftClientSo )
 {
 	ASSERT_TRUE( SrcRoot() != NULL ) << "cannot locate src/ from the working directory";
 	// The farm holds only what the DLLs compile, so absence there is the TU
-	// leaving the build, not a path that moved: its stand-in is beside it.
+	// leaving the build, not a path that moved. Its tools-off stand-ins
+	// followed with clientshadowmgr.cpp, their last importer (C7 cluster 12
+	// S2): nothing in client.so asks whether tools are on. The shadow
+	// manager's shell is the control that the farm was read.
+	ASSERT_TRUE( FarmHas( "sourcesharp/game/client/shell_shadows_client.cpp" ) )
+		<< "the farm does not hold shell_shadows_client.cpp: the absences below would prove nothing";
 	EXPECT_FALSE( FarmHas( kToolFw ) ) << kToolFw << " is back in the farm";
 	EXPECT_FALSE( FarmHas( "game/client/entity_client_tools.cpp" ) )
 		<< "entity_client_tools.cpp is back in the farm";
-	ASSERT_TRUE( FarmHas( kToolsOff ) ) << kToolsOff << " is missing, so nothing answers tools-off";
-	const std::string off = StripCommentsAndStrings( ReadRaw( kToolsOff ) );
-	EXPECT_EQ( 1, CountOf( off, "bool ToolsEnabled()" ) );
-	EXPECT_EQ( 1, CountOf( off, "void ToolFramework_RecordMaterialParams(" ) );
-	// `clienttools` went with flashlighteffect.cpp, its last reader (C7
-	// cluster 12, 2026-10-18).
-	EXPECT_EQ( 0, CountOf( off, "clienttools" ) );
-	// The interface is not exported: only a tool asked for it.
-	EXPECT_EQ( 0, CountOf( off, "EXPOSE_SINGLE_INTERFACE" ) );
-	EXPECT_EQ( 0, CountOf( off, "VCLIENTTOOLS_INTERFACE_VERSION" ) );
+	EXPECT_FALSE( FarmHas( kToolsOff ) ) << kToolsOff << " is back in the farm";
 }
 
 TEST( Section6Rulings, TheViewShellsNoLongerCallTheToolFramework )

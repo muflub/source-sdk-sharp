@@ -158,6 +158,17 @@ public sealed class LeafRegistry : IReloadParticipant
     /// <summary>The native side, for the builder's batches.</summary>
     internal ILeafNative Native => _native;
 
+    /// <summary>
+    /// The shadow manager's receiver calls (C7 cluster 12 S2): a shadow
+    /// landing on a receiver and a receiver leaving its leaves call the managed
+    /// manager directly, in the same process (they were operations the
+    /// forwarder carried out against the C++ manager until S2's deletion);
+    /// with none set there is no manager to tell. Set once, by the manager's
+    /// composition (the manager reaches the registry, so the registry cannot
+    /// take it in its constructor).
+    /// </summary>
+    public Shadows.IShadowReceivers? Receivers { get; set; }
+
     /// <summary>The level's leaf count.</summary>
     public int LeafCount => _leafCount;
 
@@ -620,10 +631,12 @@ public sealed class LeafRegistry : IReloadParticipant
     }
 
     /// <summary>
-    /// EnumerateShadowsInLeaves: each shadow in the leaves once, as an
-    /// EnumShadow operation with its user id. Nothing for no leaves.
+    /// EnumerateShadowsInLeaves: each shadow in the leaves once, its user id
+    /// to the caller's enumerator (the managed shadow manager's visible list,
+    /// called back in the same process since C7 cluster 12 S2). Nothing for no
+    /// leaves.
     /// </summary>
-    public void EnumerateShadowsInLeaves(ReadOnlySpan<int> leaves)
+    public void EnumerateShadowsInLeaves(ReadOnlySpan<int> leaves, Shadows.IShadowLeafEnumerator enumerator)
     {
         if (leaves.Length == 0)
             return;
@@ -637,8 +650,8 @@ public sealed class LeafRegistry : IReloadParticipant
                 ref ShadowInfo shadow = ref _shadows[_shadowsInLeaf.Element(node)];
                 if (shadow.EnumCount != ShadowEnum)
                 {
-                    Op(LeafOpKind.EnumShadow, 0, shadow.UserId);
                     shadow.EnumCount = ShadowEnum;
+                    enumerator.EnumShadow(shadow.UserId);
                 }
             }
         }
@@ -698,7 +711,7 @@ public sealed class LeafRegistry : IReloadParticipant
             int kind = (info.Flags & FlagBrushModel) != 0 ? ReceiverBrushModel
                 : (info.Flags & FlagStaticProp) != 0 ? ReceiverStaticProp
                 : ReceiverStudioModel;
-            Op(LeafOpKind.AddShadowToReceiver, info.Renderable, _shadows[shadow].UserId, kind);
+            Receivers?.AddShadowToReceiver(_shadows[shadow].UserId, (nint)info.Renderable, kind);
         }
         _pendingReceivers.Clear();
     }
@@ -714,10 +727,13 @@ public sealed class LeafRegistry : IReloadParticipant
         _renderablesInLeaf.RemoveElement(handle);
         ref RenderableInfo info = ref _renderables[handle];
         if ((info.Flags & FlagBrushModel) != 0)
-            Op(LeafOpKind.RemoveAllShadowsFromReceiver, info.Renderable, 0, ReceiverBrushModel);
+            RemoveAllShadowsFromReceiver(info.Renderable, ReceiverBrushModel);
         else if ((info.Flags & FlagStudioModel) != 0)
-            Op(LeafOpKind.RemoveAllShadowsFromReceiver, info.Renderable, 0, ReceiverStudioModel);
+            RemoveAllShadowsFromReceiver(info.Renderable, ReceiverStudioModel);
     }
+
+    private void RemoveAllShadowsFromReceiver(long renderable, int kind)
+        => Receivers?.RemoveAllShadowsFromReceiver((nint)renderable, kind);
 
     // The renderables whose ShouldReceiveProjectedTextures( mask ) the next
     // inserts depend on, and whose answer matters: a kind that can take one,

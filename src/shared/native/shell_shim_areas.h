@@ -700,10 +700,6 @@ class CShimFlashlightClient final : public IShimFlashlightClient
 public:
 	int32_t FlashlightTexture( const char * pszName ) override;
 	int32_t FlashlightSupportsBorderColor() override;
-	int32_t FlashlightCreate( const SourceSharpFlashlightState * pState ) override;
-	void FlashlightUpdate( int32_t nHandle, const SourceSharpFlashlightState * pState ) override;
-	void FlashlightProject( int32_t nHandle ) override;
-	void FlashlightDestroy( int32_t nHandle ) override;
 };
 
 struct CShimAreasClient
