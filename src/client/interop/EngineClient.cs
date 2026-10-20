@@ -44,10 +44,11 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
     /// which is not an error: this interface exists only on the client.
     /// </summary>
     public static IFwdEngineClient? Acquire(ModuleEngine engine, out string why)
-    {
-        ArgumentNullException.ThrowIfNull(engine);
-        EngineSide side = engine.Api;
+        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api, out why);
 
+    /// <summary>The engine client over <paramref name="side"/>'s own factory and view area, or null with the reason.</summary>
+    internal static IFwdEngineClient? Acquire(EngineSide side, out string why)
+    {
         return Forwarders.TryAcquire<EngineClientFwd>(
                    side.Interfaces, SourceSharpFactoryType.AppSystem,
                    InterfaceVersion, out void* self, out EngineClientFwd* table, out why)

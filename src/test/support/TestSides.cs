@@ -16,6 +16,21 @@ internal static class TestSides
     /// <summary>A new <paramref name="side"/> over that side's default areas and <paramref name="state"/>.</summary>
     public static EngineSide Create(Side side, SideState state)
     {
+        EngineSide engine = WithoutForwarders(side, state);
+        DefaultForwarders.HoldOn(engine);
+        return engine;
+    }
+
+    /// <summary>
+    /// A new <paramref name="side"/> over its default areas whose engine
+    /// interfaces hold no default, so each one asks the side's own factory
+    /// (which, with no native half, refuses, naming the interface): for facts
+    /// about the acquirers themselves.
+    /// </summary>
+    public static EngineSide WithoutForwarders(Side side) => WithoutForwarders(side, new SideState(side));
+
+    private static EngineSide WithoutForwarders(Side side, SideState state)
+    {
         // This interop's own side's areas, whatever side is asked for: a side
         // object of the server's interop holds the server's areas even when a
         // fact names it the client, as the interop's own registration does.
@@ -25,8 +40,6 @@ internal static class TestSides
 #else
         ClientAreaDefaults.AddTo((type, area) => areas.AddInstance(type, area));
 #endif
-        EngineSide engine = EngineSide.Create(side, state, areas);
-        DefaultForwarders.HoldOn(engine);
-        return engine;
+        return EngineSide.Create(side, state, areas);
     }
 }

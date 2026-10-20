@@ -187,6 +187,7 @@ public class PlayerNameSourceCensusTests
         "src/client/managed/Ui/PlayerNames",     // the one source
         "src/client/managed/Voice/VoiceEngine",  // the guid, not a name
         "src/client/interop/EngineClient",       // the engine read itself
+        "src/client/interop/BoundForwarders.Client", // the registered seam, one delegation to it
         "src/client/interface/EngineClient",     // the seam that declares that read
     ];
 

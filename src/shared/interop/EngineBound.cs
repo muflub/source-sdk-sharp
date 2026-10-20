@@ -36,11 +36,19 @@ namespace SourceSharp.Abi;
 internal sealed class BoundInterface<T> where T : class
 {
     private readonly string _version;
-    private readonly Acquirer _acquire;
+    private readonly Acquirer? _acquire;
+    private readonly SideAcquirer? _acquireOverSide;
 
     private T? _held;
 
     internal delegate T? Acquirer(NativeInterfaceFactory factory, Side side, out string why);
+
+    /// <summary>
+    /// An acquire that needs the side itself, not only its factory: a wrapper
+    /// built over the side's own state (the client's engine client keeps the
+    /// side and its view area).
+    /// </summary>
+    internal delegate T? SideAcquirer(EngineSide side, out string why);
 
     internal BoundInterface(string version, Acquirer acquire)
     {
@@ -48,8 +56,15 @@ internal sealed class BoundInterface<T> where T : class
         _acquire = acquire;
     }
 
+    internal BoundInterface(string version, SideAcquirer acquire)
+    {
+        _version = version;
+        _acquireOverSide = acquire;
+    }
+
     /// <summary>The same acquirer, holding nothing: what a fresh bound set keeps of this one.</summary>
-    internal BoundInterface<T> Unheld() => new(_version, _acquire);
+    internal BoundInterface<T> Unheld()
+        => _acquire is not null ? new(_version, _acquire) : new(_version, _acquireOverSide!);
 
     /// <summary>
     /// The interface, acquired through <paramref name="side"/>'s own factory
@@ -70,7 +85,8 @@ internal sealed class BoundInterface<T> where T : class
         if (_held is not null)
             return _held;
 
-        T bound = _acquire(side.Interfaces, side.Side, out string why)
+        string why = string.Empty;
+        T bound = (_acquire is not null ? _acquire(side.Interfaces, side.Side, out why) : _acquireOverSide!(side, out why))
             ?? throw InterfaceAcquisitionException.FromReport(
                    SourceSharpFactoryType.AppSystem, _version, why);
 
@@ -121,6 +137,14 @@ internal sealed partial class EngineBoundSet
     // dedicated one.
     internal BoundInterface<IFwdModelInfo> ModelInfo { get; } =
         new(EngineModelInfo.ServerInterfaceVersion, EngineBound.AcquireModelInfo);
+
+    // A DEDICATED SERVER HAS NO OVERLAY, and that is not an error: it draws
+    // nothing. The slot answers a NoDebugOverlay then, never null, so what
+    // draws text never asks whether there is an overlay to draw on.
+    internal BoundInterface<IFwdDebugOverlay> DebugOverlay { get; } =
+        new(EngineDebugOverlay.InterfaceVersion,
+            (NativeInterfaceFactory factory, Side _, out string why)
+                => EngineDebugOverlay.Acquire(factory, out why) ?? new NoDebugOverlay());
 }
 
 /// <summary>The bound interfaces, read off the side asking: stateless forwarders.</summary>
@@ -151,4 +175,7 @@ internal static partial class EngineBound
 
     /// <summary>The side's own model info.</summary>
     internal static IFwdModelInfo ModelInfo(EngineSide side) => side.Bound.ModelInfo.For(side);
+
+    /// <summary><c>IVDebugOverlay</c>; one that draws nothing on a side with none (a dedicated server).</summary>
+    internal static IFwdDebugOverlay DebugOverlay(EngineSide side) => side.Bound.DebugOverlay.For(side);
 }

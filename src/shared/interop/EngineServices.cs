@@ -87,8 +87,32 @@ public static partial class EngineServices
         // so registering them asks the engine nothing.
         services.AddInstance(side.VPhysics);
 
+        // AND THE ENGINE INTERFACES, NON-NULL (AddForwarders).
+        AddForwarders(services, side);
+
         return count;
     }
+
+    /// <summary>
+    /// The engine interfaces, non-null. Each is a forwarder over the side's
+    /// bound slot (BoundForwarders.cs), which acquires on its first call: most
+    /// exist only once the side's DLL is up, after this registration, so
+    /// registering asks the engine nothing. A consumer is handed the interface
+    /// by constructor and never checks it for null; a refusal throws at the
+    /// call, naming the interface.
+    /// </summary>
+    internal static void AddForwarders(ServiceContainer services, EngineSide side)
+    {
+        services.AddInstance<IFwdSoundEmitter>(new BoundSoundEmitter(side));
+        services.AddInstance<IFwdPhysicsSurfaceProps>(new BoundSurfaceProps(side));
+        services.AddInstance<IFwdBaseFileSystem>(new BoundBaseFileSystem(side));
+        services.AddInstance<IFwdModelInfo>(new BoundModelInfo(side));
+        services.AddInstance<IFwdDebugOverlay>(new BoundDebugOverlay(side));
+        AddSideForwarders(services, side);
+    }
+
+    /// <summary>The side's own engine interfaces, as <see cref="AddForwarders"/> registers the shared ones.</summary>
+    static partial void AddSideForwarders(ServiceContainer services, EngineSide side);
 
     public static bool IsArea(Type contract)
         => contract.IsInterface
