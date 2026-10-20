@@ -191,31 +191,17 @@ public:
             return false;
         }
 
-        // TODO #1, CLOSED. Phase 6 answered half of it with a crutch that said
-        // so; this is the other half and the crutch is gone.
-        //
-        // The TODO asks "move these eight subsystems to managed code". Part 9's
-        // measured answer is that the question is really "who calls these now
-        // that IGameSystem::InitAllSystems is not on the shell's path?", and
-        // the answer is the NAMED LIST -- kServerSystems[] in
-        // shell_serversystems.cpp, one row per system in the order it runs,
-        // with every shutdown pass walking the same rows backwards.
+        // TODO #1, CLOSED. The game systems' Init is the FIRST thing
+        // OnSystemStart does, in managed's order (ServerSystems.Init,
+        // plan_server_native_v2 T4e): CPhysicsHook's Init through
+        // IShimLevel::PhysicsInit, then the managed sound emitter system's,
+        // then the mod's own start -- which is entitled to find every game
+        // system up, physenv's interfaces among them. kServerSystems[] in
+        // shell_serversystems.cpp held that order until then.
         //
         // The particle system manager is not among them: it is not a game
         // system, and it is inited in SourceSharp_AcquireEngineInterfaces
         // above, where stock inits it.
-        //
-        // BEFORE OnSystemStart and AFTER LoadManagedRuntime, which is the one
-        // ordering constraint in this block. LoadManagedRuntime brings the CLR
-        // up; the table's SourceSharpManaged row does no Init of its own for
-        // exactly that reason. OnSystemStart is the mod's own start and is
-        // entitled to find every game system already up -- physenv among them,
-        // which is what CPhysicsHook::Init creates.
-        if ( !SourceSharp_ServerSystemsInit() )
-        {
-            return false;
-        }
-
         if ( !ManagedRuntimeServer()->OnSystemStart() )
         {
             return false;
@@ -342,21 +328,11 @@ public:
             SourceSharp_UnloadManagedSide();
         }
 
-        // THE NAMED LIST, BACKWARDS. Stock's DLLShutdown does
-        // ModelSoundsCacheShutdown() (the cache is C#'s rebuild now,
-        // plan_server_novalve.md P3) and then IGameSystem::ShutdownAllSystems()
-        // (gameinterface.cpp:857, 876), and the reversal is the whole content
-        // of the second one: GameStringSystem is row 0, so it shuts down LAST,
-        // which is stock's "must init first + shutdown last" turned into a
-        // property of the table rather than a comment somebody has to notice.
-        //
-        // AFTER the managed stop, which is the mirror of DLLInit's "systems
-        // first, then OnSystemStart".
-        //
-        // Guarded on shell mode by the early return above, and reached whether
-        // or not the runtime loaded: a DLLInit that failed after
-        // SourceSharp_ServerSystemsInit still left every system up.
-        SourceSharp_ServerSystemsShutdown();
+        // STOCK'S IGameSystem::ShutdownAllSystems() (gameinterface.cpp:876) HAS
+        // NOTHING TO WALK HERE: neither native system (CGameStringPool,
+        // CPhysicsHook) overrides Shutdown, and the managed row's was empty.
+        // The walk went with kServerSystems[] (plan_server_native_v2 T4e);
+        // ServerSystemsTests holds that no row declares the stage.
 
 
         // AND THE REST OF DLLInit, UNWOUND IN REVERSE. It connected all three
@@ -416,15 +392,10 @@ public:
     {
 
         // Stock's whole body is IGameSystem::PostInitAllSystems()
-        // (gameinterface.cpp:849-852). The named list's pass, then the managed
-        // one -- native first, because a managed participant is entitled to
-        // find every game system past its own PostInit.
-        //
-        // NO PARTICIPANT ON EITHER SIDE TODAY, and the pass is here anyway for
-        // Part 3a's reason: a stage the shell calls and nobody implements is
-        // free, and a stage that does not exist is a rewrite later.
-        SourceSharp_ServerSystemsPostInit();
-
+        // (gameinterface.cpp:849-852). Neither native system overrides
+        // PostInit, so the native half of that pass went with kServerSystems[]
+        // (plan_server_native_v2 T4e); the managed participants' PostInit is
+        // OnGamePostStart's.
         ManagedRuntimeServer()->OnGamePostStart();
     }
 
@@ -461,58 +432,13 @@ public:
         load.pOldLevel = pOldLevel;
         load.pLandmarkName = pLandmarkName;
 
-        // THE TWO SAVE-CLUSTER ARMS (Part 7). OnMapLoad_Transition and
-        // OnMapLoad_LoadGame are the save cluster wearing a different name --
-        // a transition is a save plus a restore, and a loadGame IS a restore --
-        // and this build's engine answers `Can't save multiplayer games` to
-        // every command that could produce one (docs/divergences.md, "Saving
-        // and level transitions are gone").
-        //
-        // THE SLOTS STAY. The shape is right and costs nothing, the managed
-        // side still receives them and still returns true, and the day a save
-        // lane exists there is nothing to re-plumb. What is added is the
-        // measurement: these two count, so "no map ever took a save arm" is an
-        // answer somebody can produce rather than an absence of evidence.
-        // Counted BEFORE the forward, so a managed side that throws still
-        // leaves the finding behind.
-        if (loadGame)
-        {
-            if (pOldLevel)
-            {
-                ShellGameDll_Unreachable( "IServerGameDLL::LevelInit (transition)" );
-
-                m_pGlobals->eLoadType = MapLoad_Transition;
-                return ManagedRuntimeServer()->OnMapLoad_Transition(&load);
-            }
-            else
-            {
-                // NO REFUSAL HERE ANY MORE, and its removal is the one edit
-                // that says stage 2 happened. This arm IS implemented: the
-                // managed MapLoadSaveGame respawns the map from the lump and
-                // then asks the engine for the game state, which is what
-                // drives ReadRestoreHeaders and Restore.
-                //
-                // WHY THAT ORDER RATHER THAN STOCK'S. Stock does not spawn the
-                // map on this arm because ITS restore re-creates every entity
-                // out of the save's entity table. This port writes no entity
-                // table (docs/managed-saverestore.md section 2d) and its
-                // records are the MANAGED HALF of an entity rather than the
-                // entity -- so the native world has to come from the lump, and
-                // the save is laid back over it.
-                m_pGlobals->eLoadType = MapLoad_LoadGame;
-                return ManagedRuntimeServer()->OnMapLoad_LoadGame(&load);
-            }
-        }
-        else if (background)
-        {
-            m_pGlobals->eLoadType = MapLoad_Background;
-            return ManagedRuntimeServer()->OnMapLoad_Background(&load);
-        }
-        else
-        {
-            m_pGlobals->eLoadType = MapLoad_NewGame;
-            return ManagedRuntimeServer()->OnMapLoad_NewGame(&load);
-        }
+        // THE ARM IS MANAGED'S (plan_server_native_v2 T4e). Stock picks one of
+        // four from loadGame, pOldLevel and background and writes
+        // gpGlobals->eLoadType first; MapLoadArms makes that choice and the
+        // write is IShimLevel::SetLoadType. pOldLevel's null-ness reaches it
+        // through the struct, so a transition is still "loadGame with an old
+        // level" exactly as stock tests the pointer.
+        return ManagedRuntimeServer()->OnMapLoad(&load, loadGame, background);
     }
 
     void LevelShutdown() override
@@ -744,13 +670,13 @@ public:
     // here: GetSaveComment (which still fills its out-parameter),
     // CreateEntityTransitionList and BuildAdjacentMapList (level TRANSITIONS,
     // which a plain save/load does not involve and which need the entity table
-    // this stage does not build), and LevelInit's two save arms, whose managed
-    // OnMapLoad_Transition / OnMapLoad_LoadGame are the other lane's.
+    // this stage does not build). LevelInit's transition arm refuses in
+    // managed, where its arm is chosen (MapLoadArms, plan_server_native_v2 T4e).
     //
     // SO WHY KEEP WARNING AND COUNTING AT ALL. plan_server.md Part 5's rule,
     // which Part 7 adopts and which nothing here overturns: a stub that is
     // never called and a stub that is called constantly look identical from
-    // outside. The four that remain carry the instrument for that reason, and
+    // outside. The three that remain carry the instrument for that reason, and
     // the eleven that answer replaced it with a trace rather than dropping it.
     //-------------------------------------------------------------------------
     CSaveRestoreData *SaveInit(int size) override

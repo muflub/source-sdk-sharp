@@ -77,18 +77,39 @@ public interface IServerLifetime
 }
 
 /// <summary>
+/// <b>Which arm of <c>LevelInit</c> a load takes</b> (plan_server_native_v2 T4e).
+/// Stock's <c>CServerGameDLL::LevelInit</c> (gameinterface.cpp) picks it from its
+/// two bools and the old level: <c>loadGame</c> with an old level is a
+/// transition, <c>loadGame</c> alone a saved game, otherwise <c>background</c>
+/// picks a background map over a new game. The shell used to choose in C++ and
+/// call one of four slots; it now forwards the three facts and this chooses.
+/// </summary>
+public static class MapLoadArms
+{
+    /// <summary>The arm, from <c>LevelInit</c>'s <c>loadGame</c>, whether
+    /// <c>pOldLevel</c> was non-null, and <c>background</c>.</summary>
+    public static MapLoadType For(bool loadGame, bool hasOldLevel, bool background)
+    {
+        if (loadGame)
+            return hasOldLevel ? MapLoadType.Transition : MapLoadType.LoadGame;
+
+        return background ? MapLoadType.Background : MapLoadType.NewGame;
+    }
+}
+
+/// <summary>
 /// A map's load, activation and teardown. Native: the four arms of
 /// <c>LevelInit</c>, <c>ServerActivate</c>, <c>LevelShutdown</c> and
 /// <c>CreateNetworkStringTables</c>.
 ///
 /// <para>
-/// <b>Four load methods rather than one with a load-type argument.</b> The shell
-/// has already resolved <c>LevelInit</c>'s two bools by the time it forwards,
-/// and the four arms are genuinely different: <c>Background</c> differs from
-/// <c>NewGame</c> only in <c>eLoadType</c>, while <c>Transition</c> and
-/// <c>SaveGame</c> are the save cluster this port refuses (Part 7). A single
-/// method with an enum would put that refusal inside a switch instead of at the
-/// method that is refused.
+/// <b>Four load methods, and <see cref="MapLoad"/> over them.</b> The four arms
+/// are genuinely different: <c>Background</c> differs from <c>NewGame</c> only
+/// in <c>eLoadType</c>, while <c>Transition</c> and <c>SaveGame</c> are the save
+/// cluster this port refuses (Part 7). The shell resolved <c>LevelInit</c>'s two
+/// bools and called one of four slots until plan_server_native_v2 T4e; now it
+/// forwards them, <see cref="MapLoadArms.For"/> picks the arm and
+/// <see cref="MapLoad"/> runs it.
 /// </para>
 /// </summary>
 public interface IServerLevel
@@ -104,6 +125,14 @@ public interface IServerLevel
 
     /// <summary>A fresh map. The arm every multiplayer load takes.</summary>
     bool MapLoadNewGame(in MapLoad load);
+
+    /// <summary>
+    /// <c>IServerGameDLL::LevelInit</c> itself (plan_server_native_v2 T4e): the
+    /// load type <see cref="MapLoadArms.For"/> chose is written to the engine's
+    /// globals first, as stock writes <c>gpGlobals-&gt;eLoadType</c> before
+    /// anything else in the arm, and then that arm runs.
+    /// </summary>
+    bool MapLoad(in MapLoad load, MapLoadType how);
 
     /// <summary>
     /// The PRE-ENTITY half of level init: the map is loading and NONE of its
@@ -138,6 +167,14 @@ public interface IServerLevel
     /// of Precache_ModelComponents, which calls it and does nothing else.
     /// </summary>
     void ModelPrecacheComponents(string modelName);
+
+    /// <summary>
+    /// Stock's "warn on out of order precache" (CBaseEntity::PrecacheModel),
+    /// for a model about to be precached: <paramref name="allowed"/> is whether
+    /// the precache window is open. plan_server_native_v2 T4e: Precache_Model
+    /// made this check in C++.
+    /// </summary>
+    void ModelPrecacheCheck(string modelName, bool allowed);
 
     /// <summary>
     /// The PRE-ENTITY half of level shutdown: the map is going away and its

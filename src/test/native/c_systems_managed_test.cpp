@@ -104,7 +104,12 @@ int CountOf( const std::string &hay, const std::string &needle )
 	return n;
 }
 
-const char *kTable      = "sourcesharp/game/server/shell_serversystems.cpp";
+// kServerSystems[]'s file until plan_server_native_v2 T4e made its order
+// managed's: LifecycleStages.cs and ServerSystems.cs carry what it said.
+const char *kLevel      = "sourcesharp/game/server/shell_level.cpp";
+const char *kWorld      = "sourcesharp/game/server/world_adapter.cpp";
+const char *kStages     = "sourcesharp/managed/SourceSharp.Server/LifecycleStages.cs";
+const char *kSystems    = "sourcesharp/managed/SourceSharp.Server/ServerSystems.cs";
 // WHAT EACH SIDE COMPILES is read through cmake_graph.h: server_sourcesharp
 // (src/server/native/CMakeLists.txt) and client_sourcesharp
 // (src/client/native/CMakeLists.txt). Until Phase 6b it was the `$File` rows
@@ -132,125 +137,86 @@ int NamedInBuild( const char *pszTarget, const char *pszSrcRelative )
 
 TEST( CSystemsManaged, NeitherSystemIsARowAnyMore )
 {
-	const std::string table = Read( kTable );
-	ASSERT_FALSE( table.empty() );
+	// The table they left is gone too (plan_server_native_v2 T4e): the native
+	// systems' stages are shell_level.cpp's steps, and neither of these two is
+	// one of them -- nor is either accessor, which existed only so the table
+	// could name it.
+	const std::string level = Read( kLevel );
+	ASSERT_FALSE( level.empty() );
 
-	// The ROW, spelled as a row -- name and accessor between braces. Matching on
-	// the bare class name would also hit the paragraph naming it as a removal,
-	// which is why comments are stripped and why the needle is the row's shape.
-	EXPECT_EQ( 0, CountOf( table, "{ \"CPropData\"," ) );
-	EXPECT_EQ( 0, CountOf( table, "{ \"CDecalEmitterSystem\"," ) );
+	EXPECT_EQ( 0, CountOf( level, "PropDataGameSystem" ) );
+	EXPECT_EQ( 0, CountOf( level, "DecalEmitterGameSystem" ) );
 
-	// ...and the accessors that existed only so the table could name them.
-	EXPECT_EQ( 0, CountOf( table, "PropDataGameSystem" ) );
-	EXPECT_EQ( 0, CountOf( table, "DecalEmitterGameSystem" ) );
-
-	// VACUITY GUARD. Every count above is zero, and zero is also what a file
-	// that failed to open answers. A row that IS still there proves the needle
-	// shape finds one.
-	EXPECT_EQ( 1, CountOf( table, "{ \"CPhysicsHook\"," ) )
-		<< "the row needle matches nothing at all, so the four zeroes above say "
-		   "nothing either";
+	// VACUITY GUARD: the native system the steps DO run is found by the same
+	// read, so the zeroes above are measured.
+	EXPECT_GE( CountOf( level, "PhysicsGameSystem()->" ), 1 )
+		<< "the steps' needle matches nothing at all, so the zeroes above say nothing either";
 }
 
-TEST( CSystemsManaged, BothRemovalsCarryTheirReasonInTheTable )
+TEST( CSystemsManaged, BothRemovalsCarryTheirReasonWhereTheirStagesAre )
 {
-	// A row deleted without a reason is indistinguishable from one forgotten --
-	// the rule the six existing non-rows are written under. Read from the FILE
-	// rather than the stripped text, because the reason IS a comment.
+	// A row deleted without a reason is indistinguishable from one forgotten.
+	// The reasons were the table's comments; since the table went
+	// (plan_server_native_v2 T4e) they are the managed stages' own, in
+	// LifecycleStages.cs. Read from the FILE rather than the stripped text,
+	// because the reason IS a comment.
 	const char *pszRoot = SrcRoot();
 	ASSERT_TRUE( pszRoot != NULL );
 
-	std::ifstream f( ( std::string( pszRoot ) + "/" + kTable ).c_str(), std::ios::binary );
+	std::ifstream f( ( std::string( pszRoot ) + "/" + kStages ).c_str(), std::ios::binary );
 	ASSERT_TRUE( f.is_open() );
 	const std::string raw( ( std::istreambuf_iterator<char>( f ) ),
 	                       std::istreambuf_iterator<char>() );
 
-	// ONE WINDOW PER SYSTEM, and this is the THIRD spelling of this check.
-	//
-	// It first asked whether "NOT DELETED: MOVED" appeared AT ALL, and stayed
-	// green through a mutation that took it off one of the two -- the other
-	// still carried it, so half its subject had lost its verdict. That is this
-	// tree's recorded H1 defect.
-	//
-	// The repair was EXPECT_EQ( 2, CountOf( raw, ... ) ), and that was the SAME
-	// DEFECT one step further out: a whole-file count keyed on how many
-	// removals existed the day it was written. Phase A3's SECOND PAIR moved
-	// CSoundEnt and CSoundControllerImp out of the same table with the same
-	// phrase, the count read 4, and this fact went red on a tree where all four
-	// of its subjects were correct. Stale by construction -- exactly like a
-	// needle keyed on the ABI version, which this tree has had to fix three
-	// times.
-	//
-	// So: each system's OWN block, bounded at the next entry. It cannot go
-	// stale when a later phase adds a fifth removal, and it still cannot be
-	// satisfied by the other system's verdict.
-	static const char *kBlocks[] = { "//   CPropData", "//   CDecalEmitterSystem" };
+	// ONE WINDOW, bounded by the two stages it explains: the paragraph that
+	// names both systems, before PropData = 800, and both stage values after it.
+	const size_t para = raw.find( "The two \"C\" game systems that became managed" );
+	const size_t prop = raw.find( "PropData = 800," );
+	const size_t decals = raw.find( "Decals = 900," );
+	ASSERT_NE( para, std::string::npos ) << "the paragraph that says why the two left is gone";
+	ASSERT_NE( prop, std::string::npos );
+	ASSERT_NE( decals, std::string::npos );
+	ASSERT_LT( para, prop );
 
-	for ( size_t i = 0; i < sizeof( kBlocks ) / sizeof( kBlocks[ 0 ] ); i++ )
-	{
-		const size_t at = raw.find( kBlocks[ i ] );
-
-		EXPECT_NE( at, std::string::npos )
-			<< kBlocks[ i ] << " is not in the table's list of what is NOT a row";
-		if ( at == std::string::npos )
-			continue;
-
-		// The window ends at the next "//   C" entry. Running it to
-		// end-of-file is the shape that lets one system's verdict satisfy
-		// another's check.
-		const size_t next = raw.find( "\n//   C", at + 1 );
-		const std::string block = raw.substr( at, next == std::string::npos
-		                                          ? std::string::npos : next - at );
-
-		EXPECT_NE( block.find( "NOT DELETED: MOVED" ), std::string::npos )
-			<< kBlocks[ i ] << "'s own block does not say it MOVED, so a reader "
-			   "cannot tell it from the ones that were deleted";
-	}
+	const std::string block = raw.substr( para, prop - para );
+	EXPECT_NE( block.find( "CPropData" ), std::string::npos );
+	EXPECT_NE( block.find( "CDecalEmitterSystem" ), std::string::npos );
 }
 
 //=============================================================================//
 // 2. THE PRE-ENTITY HALF HAS A CALLER NOW, AND HAD NONE BEFORE
 //=============================================================================//
 
-TEST( CSystemsManaged, TheTablesManagedRowDrivesThePreEntityHalf )
+TEST( CSystemsManaged, TheWorldsPrecacheDrivesThePreEntityHalf )
 {
-	const std::string table = Read( kTable );
-	ASSERT_FALSE( table.empty() );
+	// The only thing on the server that reaches this half is the WORLD's own
+	// precache, as stock's pass was: it hands managed the edge, and managed's
+	// ServerSystems runs CPhysicsHook's stage and then the managed row's
+	// (plan_server_native_v2 T4e; the table's row called it until then).
+	const std::string world = Read( kWorld );
+	const std::string systems = Read( kSystems );
+	ASSERT_FALSE( world.empty() );
+	ASSERT_FALSE( systems.empty() );
 
-	// The row is the ONLY thing on the server that can reach this half: the
-	// pass is driven from world_adapter.cpp's call to
-	// SourceSharp_LevelInitPreEntityAllSystems, which walks these rows.
-	EXPECT_EQ( 1, CountOf( table, "SourceSharp_ManagedLevelInitPreEntity(" ) )
-		<< "exactly one call, from the row that owns the managed frame";
-	EXPECT_NE( table.find( "virtual void LevelInitPreEntity() OVERRIDE" ), std::string::npos )
-		<< "and it is an override of the stage, not a call bolted onto another one";
+	EXPECT_EQ( 1, CountOf( world, "SourceSharp_ManagedLevelInitPreEntity(" ) )
+		<< "exactly one call, from the world's precache";
+	EXPECT_EQ( 1, CountOf( systems, "managed.LevelInitPreEntity(mapName);" ) )
+		<< "and ServerSystems runs the managed row's pre-entity stage once";
 }
 
 TEST( CSystemsManaged, EachManagedEventPointStillHasExactlyOneBody )
 {
-	// Phase 7's invariant, extended to the fifth point and then to the SIXTH.
-	// Two DRIVERS was the design; two BODIES would be the bug, and it is the
-	// kind that agrees with itself until somebody edits one of them. Counted
-	// across BOTH files, because the realistic place a second body gets written
-	// is the table's own file -- the row is the caller that "only needs a little
-	// more".
-	//
-	// THE LIST GROWS WITH THE POINTS AND THAT IS THE OPPOSITE OF THE DEFECT THIS
-	// FILE ALREADY RECORDS. BothRemovalsCarryTheirReasonInTheTable was stale by
-	// construction because it counted how many REMOVALS existed the day it was
-	// written -- a population that later phases add to for reasons unrelated to
-	// the fact. This list is an ENUMERATION of the managed event points, and a
-	// point that is not in it is a point nothing checks: it has to grow, and a
-	// phase that adds a point and not a row here has left its own body
-	// unchecked. A3's fifth system added SourceSharp_ManagedLevelShutdownPreEntity.
+	// Phase 7's invariant: two DRIVERS was the design; two BODIES would be the
+	// bug. One server body is left -- the pre-entity edge -- and the other five
+	// went with kServerSystems[] (plan_server_native_v2 T4e): managed's
+	// ServerSystems calls those edges itself. A body back here is a second
+	// driver of a stage managed already runs.
 	const std::string gs = Read( kGameSystem );
-	const std::string table = Read( kTable );
 	ASSERT_FALSE( gs.empty() );
-	ASSERT_FALSE( table.empty() );
 
-	static const char *kBodies[] = {
-		"void SourceSharp_ManagedLevelInitPreEntity(",
+	EXPECT_EQ( 1, CountOf( gs, "void SourceSharp_ManagedLevelInitPreEntity(" ) );
+
+	static const char *kGone[] = {
 		"void SourceSharp_ManagedLevelInit(",
 		"void SourceSharp_ManagedLevelShutdownPreEntity(",
 		"void SourceSharp_ManagedLevelShutdown(",
@@ -258,45 +224,45 @@ TEST( CSystemsManaged, EachManagedEventPointStillHasExactlyOneBody )
 		"void SourceSharp_ManagedFrameThink(",
 	};
 
-	for ( size_t i = 0; i < sizeof( kBodies ) / sizeof( kBodies[ 0 ] ); i++ )
-	{
-		EXPECT_EQ( 1, CountOf( gs, kBodies[ i ] ) + CountOf( table, kBodies[ i ] ) )
-			<< kBodies[ i ];
-	}
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+		EXPECT_EQ( 0, CountOf( gs, kGone[ i ] ) ) << kGone[ i ];
 }
 
 TEST( CSystemsManaged, ThePreEntityBodyIsGuardedOffTheClient )
 {
-	// sourcesharp_gamesystem.cpp compiles into client.so as well, and the four
-	// bodies beside this one are inside one `#ifndef CLIENT_DLL` block that runs
-	// for several hundred lines. A body written just outside it exists on the
-	// client, where ServerMapLoadPreEntity is a null slot -- so it would be a
-	// function nobody calls on one side and the phase's whole mechanism on the
-	// other. That cost a build in this phase and is pinned rather than
-	// remembered.
+	// sourcesharp_gamesystem.cpp compiles into client.so as well, and this body
+	// is inside one `#ifndef CLIENT_DLL` block that runs for several hundred
+	// lines. A body written just outside it exists on the client, where the
+	// slot it calls is the server's.
 	const std::string gs = Read( kGameSystem );
 	ASSERT_FALSE( gs.empty() );
 
 	const size_t body = gs.find( "void SourceSharp_ManagedLevelInitPreEntity(" );
-	const size_t four = gs.find( "void SourceSharp_ManagedLevelInit(" );
 	ASSERT_NE( body, std::string::npos );
-	ASSERT_NE( four, std::string::npos );
 
-	// BOTH DIRECTIONS, and the backward one is the load-bearing half.
-	//
-	// Asked only "is there an #endif between this body and the next", the fact
-	// stayed green through the realistic edit -- closing the block ABOVE the
-	// body and reopening it inside, which puts the body outside the guard and
-	// leaves nothing between it and its neighbour.
+	// BOTH DIRECTIONS. Backward: no #endif between the guard's opener and the
+	// body (closing the block above the body and reopening it inside is the
+	// realistic edit). Forward: the body's own close comes before the block's.
 	const size_t opener = gs.rfind( "#ifndef CLIENT_DLL", body );
 	ASSERT_NE( opener, std::string::npos );
 
 	EXPECT_EQ( 0, CountOf( gs.substr( opener, body - opener ), "#endif" ) )
 		<< "the guard that encloses the pre-entity body was closed before it, "
 		   "so the body is on the client's side of the line";
-	EXPECT_EQ( 0, CountOf( gs.substr( body, four - body ), "#endif" ) )
-		<< "the pre-entity body is outside the #ifndef CLIENT_DLL block the "
-		   "other four are in";
+
+	const size_t open = gs.find( '{', body );
+	ASSERT_NE( open, std::string::npos );
+	size_t depth = 0, close = std::string::npos;
+	for ( size_t i = open; i < gs.size(); i++ )
+	{
+		if ( gs[ i ] == '{' ) depth++;
+		else if ( gs[ i ] == '}' && --depth == 0 ) { close = i; break; }
+	}
+	ASSERT_NE( close, std::string::npos );
+	EXPECT_EQ( 0, CountOf( gs.substr( body, close - body ), "#endif" ) )
+		<< "the pre-entity body runs past the end of its #ifndef CLIENT_DLL block";
+	EXPECT_NE( gs.find( "#endif", close ), std::string::npos )
+		<< "the block the pre-entity body is in never closes";
 }
 
 //=============================================================================//

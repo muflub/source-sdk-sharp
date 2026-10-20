@@ -86,11 +86,6 @@ bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy
 	if ( !areas.m_pPlayerCommands )
 		return false;
 
-	pObject = pRoot->Acquire( "IManagedFrame" );
-	areas.m_pFrame = ManagedAccept< IManagedFrame >( pObject, kIManagedFrameSlotHashes, kIManagedFrameSlotCount, pWhy, nWhy );
-	if ( !areas.m_pFrame )
-		return false;
-
 	pObject = pRoot->Acquire( "IManagedConsoleOutput" );
 	areas.m_pConsoleOutput = ManagedAccept< IManagedConsoleOutput >( pObject, kIManagedConsoleOutputSlotHashes, kIManagedConsoleOutputSlotCount, pWhy, nWhy );
 	if ( !areas.m_pConsoleOutput )
@@ -139,8 +134,6 @@ bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pPlayerCommands, kIManagedPlayerCommandsSlotHashes, kIManagedPlayerCommandsSlotCount, pWhy, nWhy ) )
 		return false;
-	if ( !ManagedAcceptObject( areas.m_pFrame, kIManagedFrameSlotHashes, kIManagedFrameSlotCount, pWhy, nWhy ) )
-		return false;
 	if ( !ManagedAcceptObject( areas.m_pConsoleOutput, kIManagedConsoleOutputSlotHashes, kIManagedConsoleOutputSlotCount, pWhy, nWhy ) )
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pBones, kIManagedBonesSlotHashes, kIManagedBonesSlotCount, pWhy, nWhy ) )
@@ -166,7 +159,6 @@ void ManagedAreas_Release( CManagedAreas &areas )
 	ManagedRelease( areas.m_pCommands );
 	ManagedRelease( areas.m_pNetState );
 	ManagedRelease( areas.m_pPlayerCommands );
-	ManagedRelease( areas.m_pFrame );
 	ManagedRelease( areas.m_pConsoleOutput );
 	ManagedRelease( areas.m_pBones );
 	ManagedRelease( areas.m_pSoundEmitter );
@@ -240,11 +232,6 @@ IManagedNetState *ManagedNetState()
 IManagedPlayerCommands *ManagedPlayerCommands()
 {
 	return ShellGameDll_Managed().m_Areas.m_pPlayerCommands;
-}
-
-IManagedFrame *ManagedFrame()
-{
-	return ShellGameDll_Managed().m_Areas.m_pFrame;
 }
 
 IManagedConsoleOutput *ManagedConsoleOutput()

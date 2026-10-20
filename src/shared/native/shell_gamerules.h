@@ -268,7 +268,7 @@ public:
 	// The last thing the game DLL does in a frame, and the only hook that runs
 	// after both the dev API's queue and the entity I/O queue. The dirty-word
 	// drain happens here a second time so that a property written from either is
-	// announced in the frame it was written. See SourceSharp_DrainEntitySlotsLate.
+	// announced in the frame it was written. The drain is managed's call since plan_server_native_v2 T4e.
 	virtual void EndGameFrame( void ) OVERRIDE;
 
 
@@ -318,7 +318,6 @@ public:
 	virtual float AdjustPlayerDamageInflicted( float damage ) OVERRIDE { return damage; }  // gamerules.h:359
 	virtual void  AdjustPlayerDamageTaken( RulesDamageInfo_t *pInfo ) OVERRIDE {}            // gamerules.h:360
 	virtual void  CreateCustomNetworkStringTables( void ) OVERRIDE {}                      // gamerules.h:444
-	virtual void  EndMultiplayerGame( void ) OVERRIDE {}                                   // gamerules.h:422
 	virtual void  InitDefaultAIRelationships( void ) OVERRIDE { return; }                  // gamerules.h:388
 	virtual void  Precache( void ) OVERRIDE { return; }                                    // gamerules.h:267
 	virtual void  ResetMapCycleTimeStamp( void ) OVERRIDE { return; }                      // gamerules.h:449

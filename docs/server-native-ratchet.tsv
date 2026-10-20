@@ -3,9 +3,9 @@
 # maintained by tools/server-native-scope --write; reviewed in the diff.
 src/server/native/alloc_check.cpp	510
 src/server/native/exit_watch.cpp	22
-src/server/native/precache_model.cpp	30
+src/server/native/precache_model.cpp	25
 src/server/native/server_util_library.cpp	24
-src/server/native/shell_absent.cpp	39
+src/server/native/shell_absent.cpp	24
 src/server/native/shell_clientsteps.cpp	16
 src/server/native/shell_commandclient.cpp	11
 src/server/native/shell_debugoverlays.cpp	87
@@ -28,8 +28,7 @@ src/server/native/shell_recipientfilter.cpp	62
 src/server/native/shell_scripted.cpp	107
 src/server/native/shell_scripted_debug.cpp	36
 src/server/native/shell_sentences.cpp	7
-src/server/native/shell_server.cpp	13
-src/server/native/shell_serversystems.cpp	5
+src/server/native/shell_server.cpp	7
 src/server/native/shell_soundent.cpp	11
 src/server/native/shell_standalone.cpp	193
 src/server/native/shell_standalone_base.cpp	182
@@ -51,7 +50,7 @@ src/server/native/shell_world_nettable.cpp	14
 src/server/native/shell_worldquery.cpp	301
 src/server/native/ss_recipient_filter.cpp	22
 src/server/native/standalone_relays.cpp	30
-src/server/native/world_adapter.cpp	121
+src/server/native/world_adapter.cpp	53
 src/server/native/world_adapter_debug.cpp	81
 src/shared/native/dt_send.cpp	148
 src/shared/native/entity_shared_statics.cpp	8
@@ -65,11 +64,11 @@ src/shared/native/shell_acquire_reasons.cpp	15
 src/shared/native/shell_diagnostics.cpp	274
 src/shared/native/shell_diagnostics_debug.cpp	8
 src/shared/native/shell_gameevents.cpp	37
-src/shared/native/shell_gamerules.cpp	86
+src/shared/native/shell_gamerules.cpp	83
 src/shared/native/shell_movement.cpp	190
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
-src/shared/native/sourcesharp_gamesystem.cpp	77
+src/shared/native/sourcesharp_gamesystem.cpp	33
 src/shared/native/standalone_player_sync.cpp	101
 src/shared/native/takedamageinfo_library.cpp	125
 src/shared/native/trace_filter_library.cpp	65

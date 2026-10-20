@@ -206,21 +206,25 @@ public sealed class MapSpawnerTests
         public void LoadMessageOfTheDay() => _inner.LoadMessageOfTheDay();
         public int ResetDeleteList() => _inner.ResetDeleteList();
         public void ActivateAllEntities() => _inner.ActivateAllEntities();
-        public void InitPostEntitySystems() => _inner.InitPostEntitySystems();
         public void SetPrecacheAllowed(bool a) => _inner.SetPrecacheAllowed(a);
         public bool IsPrecacheAllowed() => _inner.IsPrecacheAllowed();
-        public void ShutdownPreClearSteamSystems() => _inner.ShutdownPreClearSteamSystems();
         public void ClearSteamAPIContext() => _inner.ClearSteamAPIContext();
-        public void ShutdownPreEntitySystems() => _inner.ShutdownPreEntitySystems();
         public void ShutdownStandaloneEntities() => _inner.ShutdownStandaloneEntities();
         public void ShutdownSoundEnt() => _inner.ShutdownSoundEnt();
         public void ClearEntityList() => _inner.ClearEntityList();
-        public void ShutdownPostEntitySystems() => _inner.ShutdownPostEntitySystems();
         public void UncacheAllParticleSystems() => _inner.UncacheAllParticleSystems();
         public void RecreateParticleDictionary() => _inner.RecreateParticleDictionary();
         public void PropDataLoadFile() => _inner.PropDataLoadFile();
         public void PropDataClearFile() => _inner.PropDataClearFile();
         public bool LoadSaveGameState(string m, bool c) => _inner.LoadSaveGameState(m, c);
+        public void SetLoadType(MapLoadType how) => _inner.SetLoadType(how);
+        public bool PhysicsInit() => _inner.PhysicsInit();
+        public void PhysicsLevelInitPreEntity() => _inner.PhysicsLevelInitPreEntity();
+        public void PhysicsLevelInitPostEntity() => _inner.PhysicsLevelInitPostEntity();
+        public void PhysicsLevelShutdownPreEntity() => _inner.PhysicsLevelShutdownPreEntity();
+        public void PhysicsLevelShutdownPostEntity() => _inner.PhysicsLevelShutdownPostEntity();
+        public void StringPoolLevelShutdownPostEntity() => _inner.StringPoolLevelShutdownPostEntity();
+        public void ResetEntitySlots() => _inner.ResetEntitySlots();
     }
 
     /// <summary>The lump used by most facts: three entities, one of them a class

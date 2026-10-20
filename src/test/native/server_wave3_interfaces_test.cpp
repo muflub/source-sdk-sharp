@@ -273,7 +273,9 @@ TEST( ServerWave3, NothingOnTheServerLinkCallsRandSoRandOverrideLeftIt )
 		<< "warns: bring randoverride.cpp and vstdlib_random_port.cpp back to "
 		<< "the server (or ask managed code) before this goes green.";
 	EXPECT_EQ( 0, ImportersOf( cmake_graph::kServer, "srand", &nObjects ) );
-	ASSERT_GT( nObjects, 100u );
+	// 80, not 100: the server's link edge is 100 objects since
+	// plan_server_native_v2 T4e (shell_serversystems.o left).
+	ASSERT_GT( nObjects, 80u );
 }
 
 TEST( ServerWave3, RandOverrideStaysOnTheClientBecauseItInterposesLibc )

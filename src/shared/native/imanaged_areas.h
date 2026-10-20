@@ -34,7 +34,6 @@ struct SSManagedPhysicsFrameTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *Frame )( IManagedPhysicsFrame *self );
 	void * ( *CreateWorld )( IManagedPhysicsFrame *self );
 	int32_t ( *PrecacheSurfaceSounds )( IManagedPhysicsFrame *self );
 };
@@ -44,7 +43,6 @@ class IManagedPhysicsFrame : public IManagedObject
 public:
 	explicit IManagedPhysicsFrame( const SSManagedPhysicsFrameTable *pTable ) : IManagedObject( pTable ) {}
 
-	void Frame() { Table()->Frame( this ); }
 	void *CreateWorld() { return Table()->CreateWorld( this ); }
 	int32_t PrecacheSurfaceSounds() { return Table()->PrecacheSurfaceSounds( this ); }
 
@@ -53,10 +51,10 @@ private:
 };
 
 static const uint32_t kIManagedPhysicsFrameSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x07e0f4c4, 0xe13ef122, 0x9d8d9245,
+	0x07e0f4c4, 0x0d54c15e, 0xe13ef122, 0x9d8d9245,
 };
-static const int32_t kIManagedPhysicsFrameSlotCount = 5;
-static_assert( sizeof( SSManagedPhysicsFrameTable ) == 5 * sizeof( void * ), "SSManagedPhysicsFrameTable is one pointer per slot" );
+static const int32_t kIManagedPhysicsFrameSlotCount = 4;
+static_assert( sizeof( SSManagedPhysicsFrameTable ) == 4 * sizeof( void * ), "SSManagedPhysicsFrameTable is one pointer per slot" );
 
 class IManagedResources;
 
@@ -70,6 +68,7 @@ struct SSManagedResourcesTable
 	int32_t ( *ServerDecalTranslateForGameMaterial )( IManagedResources *self, const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize );
 	int32_t ( *ServerPropDataRandomChunkModel )( IManagedResources *self, const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize );
 	void ( *ModelPrecacheComponents )( IManagedResources *self, const char *pszModelName );
+	void ( *ModelPrecacheCheck )( IManagedResources *self, const char *pszModelName, bool bAllowed );
 };
 
 class IManagedResources : public IManagedObject
@@ -82,16 +81,17 @@ public:
 	int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalTranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize ); }
 	int32_t ServerPropDataRandomChunkModel( const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize ) { return Table()->ServerPropDataRandomChunkModel( this, pszSection, nMaxSize, pOut, nOutSize ); }
 	void ModelPrecacheComponents( const char *pszModelName ) { Table()->ModelPrecacheComponents( this, pszModelName ); }
+	void ModelPrecacheCheck( const char *pszModelName, bool bAllowed ) { Table()->ModelPrecacheCheck( this, pszModelName, bAllowed ); }
 
 private:
 	const SSManagedResourcesTable *Table() const { return static_cast< const SSManagedResourcesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedResourcesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x256306e9, 0x3aa7ebf0,
+	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x256306e9, 0x3aa7ebf0, 0x296debda,
 };
-static const int32_t kIManagedResourcesSlotCount = 7;
-static_assert( sizeof( SSManagedResourcesTable ) == 7 * sizeof( void * ), "SSManagedResourcesTable is one pointer per slot" );
+static const int32_t kIManagedResourcesSlotCount = 8;
+static_assert( sizeof( SSManagedResourcesTable ) == 8 * sizeof( void * ), "SSManagedResourcesTable is one pointer per slot" );
 
 class IManagedSaveRestore;
 
@@ -266,7 +266,6 @@ struct SSManagedClientsTable
 	int32_t ( *OnClientConnect )( IManagedClients *self, const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize );
 	void ( *OnClientPutInServer )( IManagedClients *self, int32_t nEntIndex, const char *pPlayerName );
 	void ( *OnClientActive )( IManagedClients *self, int32_t nEntIndex, int32_t bLoadGame );
-	void ( *OnClientGamePrecache )( IManagedClients *self );
 	void ( *OnRespawn )( IManagedClients *self, int32_t nEntIndex, int32_t bCopyCorpse );
 	void ( *OnPlayerSpawn )( IManagedClients *self, uint32_t hPlayer );
 	void ( *OnPlayerSpawned )( IManagedClients *self, uint32_t hPlayer );
@@ -289,7 +288,6 @@ public:
 	int32_t OnClientConnect( const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize ) { return Table()->OnClientConnect( this, pName, pAddress, pReject, nRejectSize ); }
 	void OnClientPutInServer( int32_t nEntIndex, const char *pPlayerName ) { Table()->OnClientPutInServer( this, nEntIndex, pPlayerName ); }
 	void OnClientActive( int32_t nEntIndex, int32_t bLoadGame ) { Table()->OnClientActive( this, nEntIndex, bLoadGame ); }
-	void OnClientGamePrecache() { Table()->OnClientGamePrecache( this ); }
 	void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse ) { Table()->OnRespawn( this, nEntIndex, bCopyCorpse ); }
 	void OnPlayerSpawn( uint32_t hPlayer ) { Table()->OnPlayerSpawn( this, hPlayer ); }
 	void OnPlayerSpawned( uint32_t hPlayer ) { Table()->OnPlayerSpawned( this, hPlayer ); }
@@ -308,12 +306,12 @@ private:
 };
 
 static const uint32_t kIManagedClientsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x994fbbfe, 0xeed27821, 0x7fb639b8, 0x07e0f4c4, 0x7fb639b8, 0x8a6f1a50,
-	0x8a6f1a50, 0xc2a9f6e4, 0x021a56ce, 0x9e9fda65, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a,
-	0xa45f061a, 0x9546130c,
+	0x07e0f4c4, 0x0d54c15e, 0x994fbbfe, 0xeed27821, 0x7fb639b8, 0x7fb639b8, 0x8a6f1a50, 0x8a6f1a50,
+	0xc2a9f6e4, 0x021a56ce, 0x9e9fda65, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a, 0xa45f061a,
+	0x9546130c,
 };
-static const int32_t kIManagedClientsSlotCount = 18;
-static_assert( sizeof( SSManagedClientsTable ) == 18 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
+static const int32_t kIManagedClientsSlotCount = 17;
+static_assert( sizeof( SSManagedClientsTable ) == 17 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
 
 class IManagedEvents;
 
@@ -516,41 +514,6 @@ static const uint32_t kIManagedPlayerCommandsSlotHashes[] = {
 static const int32_t kIManagedPlayerCommandsSlotCount = 6;
 static_assert( sizeof( SSManagedPlayerCommandsTable ) == 6 * sizeof( void * ), "SSManagedPlayerCommandsTable is one pointer per slot" );
 
-class IManagedFrame;
-
-// The table managed writes for IManagedFrame: Release, Validate, then the TSV's order.
-struct SSManagedFrameTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *Frame )( IManagedFrame *self, float flFrameTime );
-	void ( *FramePreThink )( IManagedFrame *self, float flFrameTime );
-	void ( *FramePostThink )( IManagedFrame *self, float flFrameTime );
-	void ( *LevelInit )( IManagedFrame *self, const char *pMapName );
-	void ( *LevelShutdown )( IManagedFrame *self );
-};
-
-class IManagedFrame : public IManagedObject
-{
-public:
-	explicit IManagedFrame( const SSManagedFrameTable *pTable ) : IManagedObject( pTable ) {}
-
-	void Frame( float flFrameTime ) { Table()->Frame( this, flFrameTime ); }
-	void FramePreThink( float flFrameTime ) { Table()->FramePreThink( this, flFrameTime ); }
-	void FramePostThink( float flFrameTime ) { Table()->FramePostThink( this, flFrameTime ); }
-	void LevelInit( const char *pMapName ) { Table()->LevelInit( this, pMapName ); }
-	void LevelShutdown() { Table()->LevelShutdown( this ); }
-
-private:
-	const SSManagedFrameTable *Table() const { return static_cast< const SSManagedFrameTable * >( m_pTable ); }
-};
-
-static const uint32_t kIManagedFrameSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xb86ff9be, 0xb86ff9be, 0xb86ff9be, 0x3aa7ebf0, 0x07e0f4c4,
-};
-static const int32_t kIManagedFrameSlotCount = 7;
-static_assert( sizeof( SSManagedFrameTable ) == 7 * sizeof( void * ), "SSManagedFrameTable is one pointer per slot" );
-
 class IManagedConsoleOutput;
 
 // The table managed writes for IManagedConsoleOutput: Release, Validate, then the TSV's order.
@@ -616,7 +579,6 @@ struct SSManagedSoundEmitterTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *ServerMoveSound )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch );
 	void ( *ServerMoveSoundScript )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, const char *pSoundName );
-	bool ( *ServerSoundSystemInit )( IManagedSoundEmitter *self );
 	void ( *ServerPrecacheScriptSound )( IManagedSoundEmitter *self, const char *pSoundName );
 };
 
@@ -627,7 +589,6 @@ public:
 
 	void ServerMoveSound( int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch ) { Table()->ServerMoveSound( this, nEntIndex, pOrigin, nChannel, pSample, flVolume, nSoundLevel, nFlags, nPitch ); }
 	void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName ) { Table()->ServerMoveSoundScript( this, nEntIndex, pOrigin, pSoundName ); }
-	bool ServerSoundSystemInit() { return Table()->ServerSoundSystemInit( this ); }
 	void ServerPrecacheScriptSound( const char *pSoundName ) { Table()->ServerPrecacheScriptSound( this, pSoundName ); }
 
 private:
@@ -635,10 +596,10 @@ private:
 };
 
 static const uint32_t kIManagedSoundEmitterSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xa452a32f, 0x5cb9e839, 0xbe023354, 0x3aa7ebf0,
+	0x07e0f4c4, 0x0d54c15e, 0xa452a32f, 0x5cb9e839, 0x3aa7ebf0,
 };
-static const int32_t kIManagedSoundEmitterSlotCount = 6;
-static_assert( sizeof( SSManagedSoundEmitterTable ) == 6 * sizeof( void * ), "SSManagedSoundEmitterTable is one pointer per slot" );
+static const int32_t kIManagedSoundEmitterSlotCount = 5;
+static_assert( sizeof( SSManagedSoundEmitterTable ) == 5 * sizeof( void * ), "SSManagedSoundEmitterTable is one pointer per slot" );
 
 IManagedPhysicsFrame *ManagedPhysicsFrame();   // this load's area, or NULL outside a load
 IManagedResources *ManagedResources();   // this load's area, or NULL outside a load
@@ -654,7 +615,6 @@ IManagedDiagnostics *ManagedDiagnostics();   // this load's area, or NULL outsid
 IManagedCommands *ManagedCommands();   // this load's area, or NULL outside a load
 IManagedNetState *ManagedNetState();   // this load's area, or NULL outside a load
 IManagedPlayerCommands *ManagedPlayerCommands();   // this load's area, or NULL outside a load
-IManagedFrame *ManagedFrame();   // this load's area, or NULL outside a load
 IManagedConsoleOutput *ManagedConsoleOutput();   // this load's area, or NULL outside a load
 IManagedBones *ManagedBones();   // this load's area, or NULL outside a load
 IManagedSoundEmitter *ManagedSoundEmitter();   // this load's area, or NULL outside a load

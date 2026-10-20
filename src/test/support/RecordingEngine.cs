@@ -66,6 +66,7 @@ public sealed class UnstubbedEngineCallException : Exception
 public sealed class RecordingEngine :
     IGameClock,
     IEngineConsole,
+    IConVarFlagReader,
     IEngineHost,
     IEnginePrecache,
     IEngineGameEvents,
@@ -311,6 +312,12 @@ public sealed class RecordingEngine :
         => Add(new EngineCall(member, args));
 
     /// <summary>
+    /// A marker on the call list from a test double that is not an engine area
+    /// (a managed row a fact wants ordered against the engine's own steps).
+    /// </summary>
+    public void Note(string member, params object?[] args) => Add(new EngineCall(member, args));
+
+    /// <summary>
     /// A call a side's own double (one this class cannot implement, because
     /// its contract lives in a side assembly) puts in this ordered log.
     /// </summary>
@@ -371,6 +378,7 @@ public sealed class RecordingEngine :
     // Console
     void IEngineConsole.ExecuteServerCommand(string command) => RecordVoid("Console.ExecuteServerCommand", command);
     string? IEngineConsole.FindConVarValue(string name) => Record<string?>("Console.FindConVarValue", name);
+    int IConVarFlagReader.FindConVarFlags(string name) => Record<int>("Console.FindConVarFlags", name);
     string IEngineConsole.GetConVarValue(int id) => Record<string>("Console.GetConVarValue", id);
     void IEngineConsole.Msg(string message) => RecordVoid("Console.Msg", message);
     int IEngineConsole.RegisterConCommand(string name, string help, ConVarFlags flags)
@@ -396,7 +404,6 @@ public sealed class RecordingEngine :
 
     Side IEngineHost.ActiveSide => Record<Side>("Host.ActiveSide");
     float IEngineHost.CurrentTime => Record<float>("Host.CurrentTime");
-    void IEngineHost.EndRound() => RecordVoid("Host.EndRound");
     bool IEngineHost.IsInitialized => Record<bool>("Host.IsInitialized");
     string IEngineHost.ManagedDirectory => Record<string>("Host.ManagedDirectory");
     float IEngineHost.RandomFloat(float min, float max) => Record<float>("Host.RandomFloat", min, max);
@@ -427,16 +434,13 @@ public sealed class RecordingEngine :
     // spanning two areas as a single sequence.
     int IEngineLevel.ResetDeleteList() => Record<int>("Level.ResetDeleteList");
     void IEngineLevel.ActivateAllEntities() => RecordVoid("Level.ActivateAllEntities");
-    void IEngineLevel.InitPostEntitySystems() => RecordVoid("Level.InitPostEntitySystems");
     void IEngineLevel.SetPrecacheAllowed(bool allowed) => RecordVoid("Level.SetPrecacheAllowed", allowed);
     bool IEngineLevel.IsPrecacheAllowed() => Record<bool>("Level.IsPrecacheAllowed");
-    void IEngineLevel.ShutdownPreClearSteamSystems() => RecordVoid("Level.ShutdownPreClearSteamSystems");
+    void IEngineLevel.SetLoadType(MapLoadType how) => RecordVoid("Level.SetLoadType", how);
     void IEngineLevel.ClearSteamAPIContext() => RecordVoid("Level.ClearSteamAPIContext");
-    void IEngineLevel.ShutdownPreEntitySystems() => RecordVoid("Level.ShutdownPreEntitySystems");
     void IEngineLevel.ShutdownStandaloneEntities() => RecordVoid("Level.ShutdownStandaloneEntities");
     void IEngineLevel.ShutdownSoundEnt() => RecordVoid("Level.ShutdownSoundEnt");
     void IEngineLevel.ClearEntityList() => RecordVoid("Level.ClearEntityList");
-    void IEngineLevel.ShutdownPostEntitySystems() => RecordVoid("Level.ShutdownPostEntitySystems");
     void IEngineLevel.UncacheAllParticleSystems() => RecordVoid("Level.UncacheAllParticleSystems");
     void IEngineLevel.RecreateParticleDictionary() => RecordVoid("Level.RecreateParticleDictionary");
 
@@ -444,6 +448,16 @@ public sealed class RecordingEngine :
     void IEngineLevel.PropDataLoadFile() => RecordVoid("Level.PropDataLoadFile");
     void IEngineLevel.PropDataClearFile() => RecordVoid("Level.PropDataClearFile");
     bool IEngineLevel.LoadSaveGameState(string mapName, bool createPlayers) => Record<bool>("Level.LoadSaveGameState", mapName, createPlayers);
+
+    // plan_server_native_v2 T4e -- the two native systems' stages, which
+    // ServerSystems orders around the managed row's.
+    bool IEngineLevel.PhysicsInit() => Record<bool>("Level.PhysicsInit");
+    void IEngineLevel.PhysicsLevelInitPreEntity() => RecordVoid("Level.PhysicsLevelInitPreEntity");
+    void IEngineLevel.PhysicsLevelInitPostEntity() => RecordVoid("Level.PhysicsLevelInitPostEntity");
+    void IEngineLevel.PhysicsLevelShutdownPreEntity() => RecordVoid("Level.PhysicsLevelShutdownPreEntity");
+    void IEngineLevel.PhysicsLevelShutdownPostEntity() => RecordVoid("Level.PhysicsLevelShutdownPostEntity");
+    void IEngineLevel.StringPoolLevelShutdownPostEntity() => RecordVoid("Level.StringPoolLevelShutdownPostEntity");
+    void IEngineLevel.ResetEntitySlots() => RecordVoid("Level.ResetEntitySlots");
     byte[]? ILevelFiles.ReadFileOnPath(string path, string pathId) => Record<byte[]?>("LevelFiles.ReadFileOnPath", path, pathId);
 
     // Files -- plan_gamedll_after.md Phase A3. A test that does not stub a read
@@ -466,21 +480,21 @@ public sealed class RecordingEngine :
     float IEngineFrame.GetFrameTime() => Record<float>("Frame.GetFrameTime");
     void IEngineFrame.SetFrameTime(float frameTime) => RecordVoid("Frame.SetFrameTime", frameTime);
     void IEngineFrame.SetServerCurTime() => RecordVoid("Frame.SetServerCurTime");
-    void IEngineFrame.ServerSystemsPreThink() => RecordVoid("Frame.ServerSystemsPreThink");
     void IEngineFrame.PhysicsRunThinkFunctions(bool simulating) => RecordVoid("Frame.PhysicsRunThinkFunctions", simulating);
-    void IEngineFrame.ServerSystemsPostThink() => RecordVoid("Frame.ServerSystemsPostThink");
     void IEngineFrame.ServiceEventQueue() => RecordVoid("Frame.ServiceEventQueue");
     void IEngineFrame.UpdateAllClientData() => RecordVoid("Frame.UpdateAllClientData");
     void IEngineFrame.EndGameFrame() => RecordVoid("Frame.EndGameFrame");
     void IEngineFrame.FireNetworkPropertyEvents() => RecordVoid("Frame.FireNetworkPropertyEvents");
     void IEngineFrame.GamestatsUpdateConnection() => RecordVoid("Frame.GamestatsUpdateConnection");
     void IEngineFrame.DrawAllDebugOverlays() => RecordVoid("Frame.DrawAllDebugOverlays");
-    void IEngineFrame.ServerSystemsPreClientUpdate() => RecordVoid("Frame.ServerSystemsPreClientUpdate");
     void IEngineFrame.StandalonePlayerCommands() => RecordVoid("Frame.StandalonePlayerCommands");
     void IEngineFrame.StandaloneUpdate() => RecordVoid("Frame.StandaloneUpdate");
     void IEngineFrame.StandaloneFinish() => RecordVoid("Frame.StandaloneFinish");
     int IEngineFrame.DeliverToSdkEntities(string target, string input, string? value)
         => Record<int>("Frame.DeliverToSdkEntities", target, input, value);
+    void IEngineFrame.DrainEntitySlots() => RecordVoid("Frame.DrainEntitySlots");
+    void IEngineFrame.BeginModelCacheLock() => RecordVoid("Frame.BeginModelCacheLock");
+    void IEngineFrame.EndModelCacheLock() => RecordVoid("Frame.EndModelCacheLock");
 
     // String tables -- plan_gamedll_after.md Phase A8's mod-declared route.
     //

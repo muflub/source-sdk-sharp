@@ -1046,19 +1046,6 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     }
 
     /// <summary>
-    /// Ends the round and sends everyone to intermission.
-    ///
-    /// Routed through the gamerules so the base class runs its own end-of-round
-    /// bookkeeping — scores, timers, the map change that follows — rather than
-    /// the shell reimplementing it.
-    /// </summary>
-    public void EndRound()
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.GameRules.EndRound();
-    }
-
-    /// <summary>
     /// Team number for a player, or -1 if the handle is not a player.
     ///
     /// -1 rather than 0, because 0 is a real team a player can be on

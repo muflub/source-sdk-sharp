@@ -42,103 +42,87 @@ public unsafe struct ManagedRuntimeServerTable
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnGameStop;
 
-    // 6: bool OnMapLoad_Transition( const SourceSharpMapLoad *pLoad )
-    [SlotHash(0xa4166c88)]
-    public delegate* unmanaged<void*, void*, byte> OnMapLoad_Transition;
+    // 6: bool OnMapLoad( const SourceSharpMapLoad *pLoad, bool loadGame, bool background )
+    [SlotHash(0xad4eea04)]
+    public delegate* unmanaged<void*, void*, byte, byte, byte> OnMapLoad;
 
-    // 7: bool OnMapLoad_LoadGame( const SourceSharpMapLoad *pLoad )
-    [SlotHash(0xa4166c88)]
-    public delegate* unmanaged<void*, void*, byte> OnMapLoad_LoadGame;
-
-    // 8: bool OnMapLoad_Background( const SourceSharpMapLoad *pLoad )
-    [SlotHash(0xa4166c88)]
-    public delegate* unmanaged<void*, void*, byte> OnMapLoad_Background;
-
-    // 9: bool OnMapLoad_NewGame( const SourceSharpMapLoad *pLoad )
-    [SlotHash(0xa4166c88)]
-    public delegate* unmanaged<void*, void*, byte> OnMapLoad_NewGame;
-
-    // 10: void OnMapUnload( void )
+    // 7: void OnMapUnload( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnMapUnload;
 
-    // 11: void OnServerActivate( void )
+    // 8: void OnServerActivate( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnServerActivate;
 
-    // 12: void OnGameFrame( bool simulating )
+    // 9: void OnGameFrame( bool simulating )
     [SlotHash(0xffa5785e)]
     public delegate* unmanaged<void*, byte, void> OnGameFrame;
 
-    // 13: void OnPreClientUpdate( void )
+    // 10: void OnPreClientUpdate( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnPreClientUpdate;
 
-    // 14: void OnThink( void )
+    // 11: void OnThink( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnThink;
 
-    // 15: void CreateNetworkStringTables( void )
+    // 12: void CreateNetworkStringTables( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> CreateNetworkStringTables;
 
-    // 16: float OnTickInterval( void )
+    // 13: float OnTickInterval( void )
     [SlotHash(0x611715b4)]
     public delegate* unmanaged<void*, float> OnTickInterval;
 
-    // 17: bool OnShouldHideServer( void )
+    // 14: bool OnShouldHideServer( void )
     [SlotHash(0xbe023354)]
     public delegate* unmanaged<void*, byte> OnShouldHideServer;
 
-    // 18: int OnBrowserMapOverride( char *pOut, int nOutSize )
+    // 15: int OnBrowserMapOverride( char *pOut, int nOutSize )
     [SlotHash(0x3169518e)]
     public delegate* unmanaged<void*, byte*, int, int> OnBrowserMapOverride;
 
-    // 19: int OnBrowserGameData( char *pOut, int nOutSize )
+    // 16: int OnBrowserGameData( char *pOut, int nOutSize )
     [SlotHash(0x3169518e)]
     public delegate* unmanaged<void*, byte*, int, int> OnBrowserGameData;
 
-    // 20: bool OnIsManualMapChangeOkay( char *pReasonOut, int nOutSize )
+    // 17: bool OnIsManualMapChangeOkay( char *pReasonOut, int nOutSize )
     [SlotHash(0x298326e5)]
     public delegate* unmanaged<void*, byte*, int, byte> OnIsManualMapChangeOkay;
 
-    // 21: void OnQueryCvarValueFinished( int nCookie, int nEntIndex, int eStatus, const char *pCvarName, const char *pCvarValue )
+    // 18: void OnQueryCvarValueFinished( int nCookie, int nEntIndex, int eStatus, const char *pCvarName, const char *pCvarValue )
     [SlotHash(0xde10bc09)]
     public delegate* unmanaged<void*, int, int, int, byte*, byte*, void> OnQueryCvarValueFinished;
 
-    // 22: void OnHibernation( bool bHibernating )
+    // 19: void OnHibernation( bool bHibernating )
     [SlotHash(0xffa5785e)]
     public delegate* unmanaged<void*, byte, void> OnHibernation;
 
-    // 23: int OnStatusLines( char *pOut, int nOutSize )
+    // 20: int OnStatusLines( char *pOut, int nOutSize )
     [SlotHash(0x3169518e)]
     public delegate* unmanaged<void*, byte*, int, int> OnStatusLines;
 
-    // 24: void OnInvalidateMdlCache( void )
+    // 21: void OnInvalidateMdlCache( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnInvalidateMdlCache;
 
-    // 25: void OnSteamGameServerActivated( void )
+    // 22: void OnSteamGameServerActivated( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnSteamGameServerActivated;
 
-    // 26: void OnSteamGameServerShutdown( void )
+    // 23: void OnSteamGameServerShutdown( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnSteamGameServerShutdown;
 
-    // 27: void OnMapLoadPreEntity( const char *pszMapName )
+    // 24: void OnMapLoadPreEntity( const char *pszMapName )
     [SlotHash(0x3aa7ebf0)]
     public delegate* unmanaged<void*, byte*, void> OnMapLoadPreEntity;
 
-    // 28: void OnMapUnloadPreEntity( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> OnMapUnloadPreEntity;
-
-    // 29: int OnWorldKeyValue( uint32_t hWorld, const char *pKey, const char *pValue )
+    // 25: int OnWorldKeyValue( uint32_t hWorld, const char *pKey, const char *pValue )
     [SlotHash(0xdcf0f1f1)]
     public delegate* unmanaged<void*, uint, byte*, byte*, int> OnWorldKeyValue;
 
-    // 30: void OnGetGameDescription( char *pOut, int nOutSize )
+    // 26: void OnGetGameDescription( char *pOut, int nOutSize )
     [SlotHash(0x3e98ef21)]
     public delegate* unmanaged<void*, byte*, int, void> OnGetGameDescription;
 }
@@ -156,15 +140,11 @@ public unsafe struct ManagedPhysicsFrameTable
     [SlotHash(0x0d54c15e)]
     public delegate* unmanaged<void*, void*, int, int> Validate;
 
-    // 2: void Frame( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> Frame;
-
-    // 3: void * CreateWorld( void )
+    // 2: void * CreateWorld( void )
     [SlotHash(0xe13ef122)]
     public delegate* unmanaged<void*, void*> CreateWorld;
 
-    // 4: int32_t PrecacheSurfaceSounds( void )
+    // 3: int32_t PrecacheSurfaceSounds( void )
     [SlotHash(0x9d8d9245)]
     public delegate* unmanaged<void*, int> PrecacheSurfaceSounds;
 }
@@ -201,6 +181,10 @@ public unsafe struct ManagedResourcesTable
     // 6: void ModelPrecacheComponents( const char *pszModelName )
     [SlotHash(0x3aa7ebf0)]
     public delegate* unmanaged<void*, byte*, void> ModelPrecacheComponents;
+
+    // 7: void ModelPrecacheCheck( const char *pszModelName, bool bAllowed )
+    [SlotHash(0x296debda)]
+    public delegate* unmanaged<void*, byte*, byte, void> ModelPrecacheCheck;
 }
 
 /// <summary>The table managed writes for <c>IManagedSaveRestore</c> (<c>SSManagedSaveRestoreTable</c> native-side).</summary>
@@ -404,55 +388,51 @@ public unsafe struct ManagedClientsTable
     [SlotHash(0x7fb639b8)]
     public delegate* unmanaged<void*, int, int, void> OnClientActive;
 
-    // 5: void OnClientGamePrecache( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> OnClientGamePrecache;
-
-    // 6: void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse )
+    // 5: void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse )
     [SlotHash(0x7fb639b8)]
     public delegate* unmanaged<void*, int, int, void> OnRespawn;
 
-    // 7: void OnPlayerSpawn( uint32_t hPlayer )
+    // 6: void OnPlayerSpawn( uint32_t hPlayer )
     [SlotHash(0x8a6f1a50)]
     public delegate* unmanaged<void*, uint, void> OnPlayerSpawn;
 
-    // 8: void OnPlayerSpawned( uint32_t hPlayer )
+    // 7: void OnPlayerSpawned( uint32_t hPlayer )
     [SlotHash(0x8a6f1a50)]
     public delegate* unmanaged<void*, uint, void> OnPlayerSpawned;
 
-    // 9: void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker )
+    // 8: void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker )
     [SlotHash(0xc2a9f6e4)]
     public delegate* unmanaged<void*, uint, uint, void> OnPlayerKilled;
 
-    // 10: uint32_t OnSelectSpawnPoint( uint32_t hPlayer )
+    // 9: uint32_t OnSelectSpawnPoint( uint32_t hPlayer )
     [SlotHash(0x021a56ce)]
     public delegate* unmanaged<void*, uint, uint> OnSelectSpawnPoint;
 
-    // 11: int32_t GetPlayerRelationship( uint32_t hPlayer, uint32_t hTarget )
+    // 10: int32_t GetPlayerRelationship( uint32_t hPlayer, uint32_t hTarget )
     [SlotHash(0x9e9fda65)]
     public delegate* unmanaged<void*, uint, uint, int> GetPlayerRelationship;
 
-    // 12: int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea )
+    // 11: int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea )
     [SlotHash(0x17365172)]
     public delegate* unmanaged<void*, int, void*, int> ServerSkyboxAreaForClient;
 
-    // 13: int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ )
+    // 12: int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ )
     [SlotHash(0x17365172)]
     public delegate* unmanaged<void*, int, void*, int> ServerEarPositionForClient;
 
-    // 14: int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen )
+    // 13: int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen )
     [SlotHash(0x4a9e65fd)]
     public delegate* unmanaged<void*, int, byte*, void*, int, int> OnClientNetMessage;
 
-    // 15: int32_t OnClientSettingsChanged( int32_t nEntIndex )
+    // 14: int32_t OnClientSettingsChanged( int32_t nEntIndex )
     [SlotHash(0xa45f061a)]
     public delegate* unmanaged<void*, int, int> OnClientSettingsChanged;
 
-    // 16: int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict )
+    // 15: int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict )
     [SlotHash(0xa45f061a)]
     public delegate* unmanaged<void*, int, int> ServerTransmitAlwaysForClient;
 
-    // 17: int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes )
+    // 16: int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes )
     [SlotHash(0x9546130c)]
     public delegate* unmanaged<void*, void*, float, void*, int, int> ServerAreaPortalVisibility;
 }
@@ -607,40 +587,6 @@ public unsafe struct ManagedPlayerCommandsTable
     public delegate* unmanaged<void*, uint, int, void> OnPlayerSurfaceChanged;
 }
 
-/// <summary>The table managed writes for <c>IManagedFrame</c> (<c>SSManagedFrameTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedFrame")]
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct ManagedFrameTable
-{
-    // 0: void Release( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> Release;
-
-    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
-    [SlotHash(0x0d54c15e)]
-    public delegate* unmanaged<void*, void*, int, int> Validate;
-
-    // 2: void Frame( float flFrameTime )
-    [SlotHash(0xb86ff9be)]
-    public delegate* unmanaged<void*, float, void> Frame;
-
-    // 3: void FramePreThink( float flFrameTime )
-    [SlotHash(0xb86ff9be)]
-    public delegate* unmanaged<void*, float, void> FramePreThink;
-
-    // 4: void FramePostThink( float flFrameTime )
-    [SlotHash(0xb86ff9be)]
-    public delegate* unmanaged<void*, float, void> FramePostThink;
-
-    // 5: void LevelInit( const char *pMapName )
-    [SlotHash(0x3aa7ebf0)]
-    public delegate* unmanaged<void*, byte*, void> LevelInit;
-
-    // 6: void LevelShutdown( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> LevelShutdown;
-}
-
 /// <summary>The table managed writes for <c>IManagedConsoleOutput</c> (<c>SSManagedConsoleOutputTable</c> native-side).</summary>
 [ImplementedByManaged("IManagedConsoleOutput")]
 [StructLayout(LayoutKind.Sequential)]
@@ -760,11 +706,7 @@ public unsafe struct ManagedSoundEmitterTable
     [SlotHash(0x5cb9e839)]
     public delegate* unmanaged<void*, int, void*, byte*, void> ServerMoveSoundScript;
 
-    // 4: bool ServerSoundSystemInit( void )
-    [SlotHash(0xbe023354)]
-    public delegate* unmanaged<void*, byte> ServerSoundSystemInit;
-
-    // 5: void ServerPrecacheScriptSound( const char *pSoundName )
+    // 4: void ServerPrecacheScriptSound( const char *pSoundName )
     [SlotHash(0x3aa7ebf0)]
     public delegate* unmanaged<void*, byte*, void> ServerPrecacheScriptSound;
 }

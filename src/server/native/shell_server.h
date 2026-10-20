@@ -28,7 +28,6 @@ const char *SourceSharp_GetGameDescription();
 
 void SourceSharp_OnClientPutInServer( edict_t *pEntity, const char *pPlayerName );
 void SourceSharp_OnClientActive( edict_t *pEntity, bool bLoadGame );
-void SourceSharp_OnClientGamePrecache();
 
 // The 3D skybox a managed sky_camera pushed, if there is one.
 //
@@ -84,42 +83,12 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
                                           CreateInterfaceFn fileSystemFactory );
 
 //-----------------------------------------------------------------------------
-// PHASE 7 -- THE NAMED LIST. shell_serversystems.cpp holds kServerSystems[],
-// one row per game system in the order it runs; every pass below walks those
-// rows, and the shutdown passes walk the SAME rows backwards.
-//
-// This replaced shell_gamesystems.cpp, the Phase 6 crutch, which called
-// IGameSystem::InitAllSystems() and so took its order from the linker.
-//
-// WHO CALLS WHAT, because the answer is not "the shell" for all of them:
-//
-//   Init / PostInit / Shutdown            CShellGameDll::DLLInit, DLLShutdown
-//   LevelInitPreEntity                    world_adapter.cpp, from inside the
-//                                         WORLD ENTITY's precache -- stock's
-//                                         own placement, and the one pass the
-//                                         shell does not drive
-//   LevelInitPostEntity                   CShellGameDll::ServerActivate
-//   LevelShutdown{PreClearSteam,Pre,Post} CShellGameDll::LevelShutdown
-//   Frame{Pre,Post}Think, PreClientUpdate CShellGameDll::GameFrame /
-//                                         PreClientUpdate
+// PHASE 7'S NAMED LIST IS MANAGED'S (plan_server_native_v2 T4e).
+// shell_serversystems.cpp held kServerSystems[] and walked its rows forwards
+// and backwards; the order is ServerSystems.cs now, and each native system's
+// stage is one IShimLevel step (PhysicsInit, PhysicsLevelInitPreEntity, ...,
+// StringPoolLevelShutdownPostEntity) carried out in shell_level.cpp.
 //-----------------------------------------------------------------------------
-bool SourceSharp_ServerSystemsInit( void );
-void SourceSharp_ServerSystemsPostInit( void );
-void SourceSharp_ServerSystemsShutdown( void );
-
-// The pre-entity pass. It does not carry the ServerSystems name because its ONE
-// caller is world_adapter.cpp -- stock calls this pass from inside the WORLD
-// ENTITY's precache and not from LevelInit, and the name is what makes that
-// call site legible beside stock's world.cpp:622.
-void SourceSharp_LevelInitPreEntityAllSystems( const char *pszMapName );
-
-void SourceSharp_ServerSystemsLevelInitPostEntity( void );
-void SourceSharp_ServerSystemsLevelShutdownPreClearSteamAPIContext( void );
-void SourceSharp_ServerSystemsLevelShutdownPreEntity( void );
-void SourceSharp_ServerSystemsLevelShutdownPostEntity( void );
-void SourceSharp_ServerSystemsFramePreThink( void );
-void SourceSharp_ServerSystemsFramePostThink( void );
-void SourceSharp_ServerSystemsPreClientUpdate( void );
 
 // SourceSharp_HostIsDedicatedServer IS GONE -- plan_native_api.md Phase 4.
 // IEngineHost.IsDedicatedServer calls IVEngineServer::IsDedicatedServer
@@ -140,16 +109,12 @@ int32_t SourceSharp_EntitiesInvalidateMdlCacheAll( void );
 // defined in sourcesharp/game/shared/sourcesharp_gamesystem.cpp beside the
 // managed API table they read.
 //
-// Two things drive them: CSourceSharpSystem in delegate mode and the shell's
-// kServerSystems[] row in shell mode. Two drivers are the design; two BODIES
-// would be the bug, which is why these are declared rather than duplicated.
+// One is left on the server: the pre-entity edge, which the WORLD entity's
+// own precache reaches (world_adapter.cpp). The level init, level shutdown and
+// frame edges are managed's own calls since plan_server_native_v2 T4e
+// (ServerSystems.cs), so their bodies here went with kServerSystems[].
 //-----------------------------------------------------------------------------
 void SourceSharp_ManagedLevelInitPreEntity( const char *pszMapName );
-void SourceSharp_ManagedLevelInit( const char *pszMapName );
-void SourceSharp_ManagedLevelShutdownPreEntity( void );
-void SourceSharp_ManagedLevelShutdown( void );
-void SourceSharp_ManagedFramePreThink( void );
-void SourceSharp_ManagedFrameThink( void );
 
 //-----------------------------------------------------------------------------
 // CHECKTRANSMIT'S RECIPIENT -- plan_server.md Phase 8b, plan-audit C4.

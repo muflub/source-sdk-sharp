@@ -904,14 +904,8 @@ internal unsafe struct ShimFrameFwd : IForwarderTable
     // void IShimFrame::SetServerCurTime( void )
     public delegate* unmanaged<void*, void> SetServerCurTime;
 
-    // void IShimFrame::ServerSystemsPreThink( void )
-    public delegate* unmanaged<void*, void> ServerSystemsPreThink;
-
     // void IShimFrame::PhysicsRunThinkFunctions( int32_t )
     public delegate* unmanaged<void*, int, void> PhysicsRunThinkFunctions;
-
-    // void IShimFrame::ServerSystemsPostThink( void )
-    public delegate* unmanaged<void*, void> ServerSystemsPostThink;
 
     // void IShimFrame::ServiceEventQueue( void )
     public delegate* unmanaged<void*, void> ServiceEventQueue;
@@ -931,9 +925,6 @@ internal unsafe struct ShimFrameFwd : IForwarderTable
     // void IShimFrame::DrawAllDebugOverlays( void )
     public delegate* unmanaged<void*, void> DrawAllDebugOverlays;
 
-    // void IShimFrame::ServerSystemsPreClientUpdate( void )
-    public delegate* unmanaged<void*, void> ServerSystemsPreClientUpdate;
-
     // void IShimFrame::StandalonePlayerCommands( void )
     public delegate* unmanaged<void*, void> StandalonePlayerCommands;
 
@@ -945,10 +936,19 @@ internal unsafe struct ShimFrameFwd : IForwarderTable
 
     // int32_t IShimFrame::DeliverToSdkEntities( const char *, const char *, const char * )
     public delegate* unmanaged<void*, byte*, byte*, byte*, int> DeliverToSdkEntities;
+
+    // void IShimFrame::DrainEntitySlots( void )
+    public delegate* unmanaged<void*, void> DrainEntitySlots;
+
+    // void IShimFrame::BeginModelCacheLock( void )
+    public delegate* unmanaged<void*, void> BeginModelCacheLock;
+
+    // void IShimFrame::EndModelCacheLock( void )
+    public delegate* unmanaged<void*, void> EndModelCacheLock;
 }
 
 /// <summary>
-/// <c>IShimLevel</c> through its forwarders (SSFwd_ShimLevel): 27 slot(s).
+/// <c>IShimLevel</c> through its forwarders (SSFwd_ShimLevel): 31 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimLevelFwd : IForwarderTable
@@ -983,20 +983,11 @@ internal unsafe struct ShimLevelFwd : IForwarderTable
     // void IShimLevel::ActivateAllEntities( void )
     public delegate* unmanaged<void*, void> ActivateAllEntities;
 
-    // void IShimLevel::InitPostEntitySystems( void )
-    public delegate* unmanaged<void*, void> InitPostEntitySystems;
-
     // void IShimLevel::SetPrecacheAllowed( int32_t )
     public delegate* unmanaged<void*, int, void> SetPrecacheAllowed;
 
-    // void IShimLevel::ShutdownPreClearSteamSystems( void )
-    public delegate* unmanaged<void*, void> ShutdownPreClearSteamSystems;
-
     // void IShimLevel::ClearSteamAPIContext( void )
     public delegate* unmanaged<void*, void> ClearSteamAPIContext;
-
-    // void IShimLevel::ShutdownPreEntitySystems( void )
-    public delegate* unmanaged<void*, void> ShutdownPreEntitySystems;
 
     // void IShimLevel::ShutdownStandaloneEntities( void )
     public delegate* unmanaged<void*, void> ShutdownStandaloneEntities;
@@ -1006,9 +997,6 @@ internal unsafe struct ShimLevelFwd : IForwarderTable
 
     // void IShimLevel::ClearEntityList( void )
     public delegate* unmanaged<void*, void> ClearEntityList;
-
-    // void IShimLevel::ShutdownPostEntitySystems( void )
-    public delegate* unmanaged<void*, void> ShutdownPostEntitySystems;
 
     // void IShimLevel::UncacheAllParticleSystems( void )
     public delegate* unmanaged<void*, void> UncacheAllParticleSystems;
@@ -1036,6 +1024,30 @@ internal unsafe struct ShimLevelFwd : IForwarderTable
 
     // int32_t IShimLevel::IsPrecacheAllowed( void )
     public delegate* unmanaged<void*, int> IsPrecacheAllowed;
+
+    // void IShimLevel::SetLoadType( int32_t )
+    public delegate* unmanaged<void*, int, void> SetLoadType;
+
+    // int32_t IShimLevel::PhysicsInit( void )
+    public delegate* unmanaged<void*, int> PhysicsInit;
+
+    // void IShimLevel::PhysicsLevelInitPreEntity( void )
+    public delegate* unmanaged<void*, void> PhysicsLevelInitPreEntity;
+
+    // void IShimLevel::PhysicsLevelInitPostEntity( void )
+    public delegate* unmanaged<void*, void> PhysicsLevelInitPostEntity;
+
+    // void IShimLevel::PhysicsLevelShutdownPreEntity( void )
+    public delegate* unmanaged<void*, void> PhysicsLevelShutdownPreEntity;
+
+    // void IShimLevel::PhysicsLevelShutdownPostEntity( void )
+    public delegate* unmanaged<void*, void> PhysicsLevelShutdownPostEntity;
+
+    // void IShimLevel::StringPoolLevelShutdownPostEntity( void )
+    public delegate* unmanaged<void*, void> StringPoolLevelShutdownPostEntity;
+
+    // void IShimLevel::ResetEntitySlots( void )
+    public delegate* unmanaged<void*, void> ResetEntitySlots;
 }
 
 /// <summary>
@@ -1090,7 +1102,7 @@ internal unsafe struct EngineTraceFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimConsole</c> through its forwarders (SSFwd_ShimConsole): 11 slot(s).
+/// <c>IShimConsole</c> through its forwarders (SSFwd_ShimConsole): 12 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimConsoleFwd : IForwarderTable
@@ -1130,6 +1142,9 @@ internal unsafe struct ShimConsoleFwd : IForwarderTable
 
     // int32_t IShimConsole::ConsoleSnapshotEntry( int32_t, SourceSharpConsoleEntry * )
     public delegate* unmanaged<void*, int, void*, int> ConsoleSnapshotEntry;
+
+    // int32_t IShimConsole::FindConVarFlags( const char * )
+    public delegate* unmanaged<void*, byte*, int> FindConVarFlags;
 }
 
 /// <summary>
@@ -1652,7 +1667,7 @@ internal unsafe struct ShimDamageFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimGameRules</c> through its forwarders (SSFwd_ShimGameRules): 3 slot(s).
+/// <c>IShimGameRules</c> through its forwarders (SSFwd_ShimGameRules): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimGameRulesFwd : IForwarderTable
@@ -1665,9 +1680,6 @@ internal unsafe struct ShimGameRulesFwd : IForwarderTable
 
     // void IShimGameRules::RegisterDamageRules( const SourceSharpDamageRules * )
     public delegate* unmanaged<void*, void*, void> RegisterDamageRules;
-
-    // void IShimGameRules::EndRound( void )
-    public delegate* unmanaged<void*, void> EndRound;
 }
 
 /// <summary>

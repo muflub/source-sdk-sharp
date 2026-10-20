@@ -266,45 +266,14 @@ int SourceSharp_DrainEntitySlots( void )
 }
 
 //-----------------------------------------------------------------------------
-// The same drain again, at the very end of the game frame.
-//
-// WHY THERE IS A SECOND ONE. FrameUpdatePostEntityThink is not the last thing
-// in a server frame that can write a managed property — it is barely halfway.
-// Two writers run after it and before the engine packs the snapshot:
-//
-//   IGameSystem::FrameUpdatePostEntityThinkAllSystems()   <- the first drain
-//     ...
-//     CGameRules::FrameUpdatePostEntityThink -> Think -> the dev API's queue
-//   ServiceEventQueue()                                   <- every ent_fire
-//   CGameRules::EndGameFrame()                            <- this drain
-//
-// CGameRules is a CAutoGameSystemPerFrame constructed at level init, so it joins
-// the per-frame list AFTER every statically-constructed system — the drain's own
-// included. Its Think therefore always runs after the drain, and the entity I/O
-// queue runs after all of them. A write from either was marked one frame late:
-// packed with a clean edict for one snapshot, and announced by the next frame's
-// drain.
-//
-// That was measured rather than reasoned about. With sv_debugmanualmode 1 the
-// engine complains when an edict claims to be clean and its props moved, and it
-// complained 225 times for thirteen func_breakable_surf broken through the dev
-// API — one per payload word, once each. See docs/divergences.md.
-//
-// Draining twice is safe because TakeDirty clears what it reports: the second
-// pass over an already-drained frame finds nothing and marks nothing. The first
-// drain is kept rather than moved because g_pGameRules can be NULL — between
-// levels there is no EndGameFrame at all, and a frame with no drain in it is
-// exactly the state this is here to prevent.
+// SourceSharp_DrainEntitySlotsLate WAS HERE: the second drain, which
+// CSourceSharpGameRules::EndGameFrame ran after the frame's last managed point
+// so a write made there was announced in the frame it was made. Since
+// plan_server_native_v2 T4e that point and its drain are managed's calls
+// (ServerGameDll.GameFrame: the point, then IShimFrame::DrainEntitySlots), so
+// both drains are the one function, SourceSharp_DrainEntitySlots, through the
+// frame's slot. Draining twice stays safe: TakeDirty clears what it reports.
 //-----------------------------------------------------------------------------
-int SourceSharp_DrainEntitySlotsLate( void )
-{
-
-	// THE BOOKKEEPING THAT USED TO BE HERE went with cs_sv_dirty_stats. The
-	// late drain's marks were subtracted back out of the early drain's totals
-	// so the two counters stayed distinguishable; there are no counters, and
-	// the drain itself never read them.
-	return SourceSharp_DrainEntitySlots();
-}
 
 //-----------------------------------------------------------------------------
 // A managed reload is about to happen: void every serial handed out so far.

@@ -16,6 +16,18 @@
 namespace SourceSharp.Abi;
 
 /// <summary>
+/// The flags of a console variable the engine already holds (plan_server_native_v2
+/// T4e): every bit <c>ConCommandBase::IsFlagSet</c> answers, or -1 when it holds
+/// none under the name. What the convar registry reads to refuse a name the
+/// engine owns. The real console implements it beside <see cref="IEngineConsole"/>;
+/// a console that does not answers "none", which refuses nothing.
+/// </summary>
+public interface IConVarFlagReader
+{
+    int FindConVarFlags(string name);
+}
+
+/// <summary>
 /// The console: what is printed to it, and the variables and commands it holds.
 ///
 /// <para>
@@ -71,12 +83,6 @@ public interface IEngineConsole
 /// and where the managed assemblies were loaded from.
 ///
 /// <para>
-/// The odd one out is <see cref="EndRound"/>, which ends the MATCH rather than the
-/// process. It sits here because there is nothing else it belongs to: a round is a
-/// property of the session, not of any entity in it.
-/// </para>
-///
-/// <para>
 /// Nothing here marks which side is executing: no thread does since
 /// plan_side_isolation P5, because each side runs its own copy of the Abi.
 /// <see cref="ActiveSide"/> answers the side this binding was built for.
@@ -89,9 +95,6 @@ public interface IEngineHost
 
     /// <inheritdoc cref="EngineSide.CurrentTime"/>
     float CurrentTime { get; }
-
-    /// <inheritdoc cref="EngineSide.EndRound"/>
-    void EndRound();
 
     /// <inheritdoc cref="EngineSide.IsInitialized"/>
     bool IsInitialized { get; }

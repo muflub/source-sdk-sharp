@@ -50,7 +50,6 @@ public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServer
 
     public void OnClientActive(int a0, int a1) { Enter(CrossingOp.ServerOnClientActive); game.OnClientActive(a0, a1 != 0); }
 
-    public void OnClientGamePrecache() { Enter(CrossingOp.ServerOnClientGamePrecache); game.OnClientGamePrecache(); }
 
     public void OnRespawn(int a0, int a1) { Enter(CrossingOp.ServerOnRespawn); game.OnRespawn(a0, a1 != 0); }
 

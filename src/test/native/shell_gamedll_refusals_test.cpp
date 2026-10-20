@@ -297,13 +297,23 @@ TEST( RefusalSites, TheTransitionMapLoadArmStillRefusesAndTheSavegameArmDoesNot 
 {
 	const std::string strShell = Shell();
 
-	// OnMapLoad_Transition is still the save cluster wearing a different name.
+	// The transition arm is still the save cluster wearing a different name.
 	// A transition needs the entity table docs/managed-saverestore.md section
 	// 2d leaves empty, and an answer there would be a wrong answer rather than
-	// a partial one.
+	// a partial one. plan_server_native_v2 T4e: the ARM is managed's
+	// (MapLoadArms), so the refusal names itself there, in the same words;
+	// the shell forwards LevelInit in one call and refuses nothing.
+	const std::string strManaged =
+	    ReadSrc( "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs" );
+	ASSERT_FALSE( strManaged.empty() ) << "ServerGameDll.cs not found in the farm";
 	EXPECT_NE( std::string::npos,
+	           strManaged.find( "REFUSED: IServerGameDLL::LevelInit (transition) was called." ) )
+		<< "LevelInit's transition arm names itself in managed MapLoad";
+	EXPECT_EQ( std::string::npos,
 	           strShell.find( "ShellGameDll_Unreachable( \"IServerGameDLL::LevelInit (transition)\" )" ) )
-		<< "LevelInit's transition arm is Part 7's OnMapLoad_Transition";
+		<< "the shell no longer chooses the arm, so it cannot refuse one";
+	EXPECT_EQ( 1, (int)( strShell.find( "->OnMapLoad(" ) != std::string::npos ) )
+		<< "LevelInit forwards through the one OnMapLoad slot";
 
 	// THE SAVEGAME ARM IS IMPLEMENTED, and its refusal is gone with it. This
 	// is asserted rather than merely deleted because a refusal is the cheapest
@@ -342,9 +352,11 @@ TEST( RefusalSites, TheCountOfCallSitesIsTheCountOfRefusalsAndNoMore )
 	const int nSites = CountOccurrences( strShell, "ShellGameDll_Unreachable( \"" );
 	const int nExpected = 3  /* what is left of the save cluster: the two
 	                            transition methods and GetSaveComment */
-	                    + 1  /* LevelInit's TRANSITION arm. Stage 2 implemented
+	                    + 0  /* LevelInit's TRANSITION arm: Stage 2 implemented
 	                            the savegame arm and took its refusal with it,
-	                            which is why this is 1 and not 2 */
+	                            and plan_server_native_v2 T4e moved the arm's
+	                            choice -- and the transition's refusal -- to
+	                            managed (MapLoadArms, ServerGameDll.MapLoad) */
 	                    + 2; /* Part 10's two unreachable forwards; not Status */
 
 	EXPECT_EQ( nExpected, nSites )

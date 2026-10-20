@@ -353,13 +353,20 @@ const Site kSites[] =
 	{ "sourcesharp/game/server/precache_model.cpp",     kServerOnly },
 	{ "sourcesharp/game/server/shell_server.cpp",       kServerOnly },
 	{ "sourcesharp/game/server/shell_standalone.cpp",   kServerOnly },
-	{ "sourcesharp/game/server/shell_serversystems.cpp", kServerOnly },
+	// shell_serversystems.cpp STOOD HERE and left with kServerSystems[]
+	// (plan_server_native_v2 T4e); the native systems' stages are
+	// shell_level.cpp's steps, which name no stock base either.
+	{ "sourcesharp/game/server/shell_level.cpp",        kServerOnly },
 };
 
 const size_t kSiteCount = sizeof( kSites ) / sizeof( kSites[ 0 ] );
 
 const char *kBaseHeader = "sourcesharp/game/server/shell_serversystem.h";
-const char *kTableFile  = "sourcesharp/game/server/shell_serversystems.cpp";
+// The native systems' stages, one IShimLevel step each, since kServerSystems[]
+// (shell_serversystems.cpp) went managed at plan_server_native_v2 T4e; the
+// order is ServerSystems.cs.
+const char *kStepsFile  = "sourcesharp/game/server/shell_level.cpp";
+const char *kOrderFile  = "sourcesharp/managed/SourceSharp.Server/ServerSystems.cs";
 // WHERE THE RATIONALE LIVES NOW. It used to be a comment beside the $File line
 // in the .vpc; the scripts were reformatted with every comment stripped out to
 // this document, verbatim and keyed the same way. The convention is unchanged --
@@ -570,18 +577,16 @@ TEST( ServerSystemsUnderive, TheStockBasesAreNamedOnlyInsideAClientArm )
 // 2. The base declares exactly the stages the walkers dispatch
 //=============================================================================//
 
-TEST( ServerSystemsUnderive, TheBaseDeclaresExactlyTheStagesTheWalkersDispatch )
+TEST( ServerSystemsUnderive, TheBaseDeclaresExactlyTheStagesTheStepsRun )
 {
 	const std::string base  = StripComments( Read( kBaseHeader ) );
-	const std::string table = StripComments( Read( kTableFile ) );
+	const std::string steps = StripComments( Read( kStepsFile ) );
 	ASSERT_FALSE( base.empty() );
-	ASSERT_FALSE( table.empty() );
+	ASSERT_FALSE( steps.empty() );
 
 	// The stages the BASE offers: every `virtual <type> Name()` in the header,
-	// less the destructor and less Name/IsPerFrame, which are the row's label
-	// and the per-frame selector rather than dispatch points.
-	static const char *kNotAStage[] = { "Name", "IsPerFrame" };
-
+	// less the destructor and less Name, which is the system's label rather
+	// than a dispatch point.
 	std::set<std::string> declared;
 	const std::vector<std::string> lines = Lines( base );
 	for ( size_t i = 0; i < lines.size(); i++ )
@@ -596,61 +601,49 @@ TEST( ServerSystemsUnderive, TheBaseDeclaresExactlyTheStagesTheWalkersDispatch )
 		if ( start == std::string::npos ) continue;
 		const std::string name = t.substr( start + 1, paren - start - 1 );
 
-		bool bSkip = false;
-		for ( size_t k = 0; k < 2; k++ ) if ( name == kNotAStage[ k ] ) bSkip = true;
-		if ( bSkip || name.empty() ) continue;
-
+		if ( name.empty() || name == "Name" ) continue;
 		declared.insert( name );
 	}
 
-	ASSERT_GT( declared.size(), 5u )
+	ASSERT_GE( declared.size(), 5u )
 		<< "the base declares almost no stages -- the parse is broken, and a "
 		   "broken parse makes both directions below pass vacuously";
 
-	// The stages the TABLE dispatches: every `&CServerSystem::X` and
-	// `&CServerSystemPerFrame::X` handed to a walker, plus Init, which
-	// SourceSharp_ServerSystemsInit calls directly because it reads an answer.
+	// The stages the STEPS run: every `PhysicsGameSystem()->X(` and
+	// `GameStringSystem()->X(` in shell_level.cpp (plan_server_native_v2 T4e:
+	// the walks went, each stage is one IShimLevel step).
 	std::set<std::string> dispatched;
-	dispatched.insert( "Init" );
-
-	static const char *kPrefixes[] = { "&CServerSystem::", "&CServerSystemPerFrame::" };
+	static const char *kPrefixes[] = { "PhysicsGameSystem()->", "GameStringSystem()->" };
 	for ( size_t p = 0; p < 2; p++ )
 	{
 		const std::string prefix = kPrefixes[ p ];
-		size_t at = table.find( prefix );
+		size_t at = steps.find( prefix );
 		while ( at != std::string::npos )
 		{
 			const size_t start = at + prefix.size();
 			size_t end = start;
-			while ( end < table.size()
-				&& ( isalnum( (unsigned char)table[ end ] ) || table[ end ] == '_' ) )
+			while ( end < steps.size()
+				&& ( isalnum( (unsigned char)steps[ end ] ) || steps[ end ] == '_' ) )
 				end++;
-			dispatched.insert( table.substr( start, end - start ) );
-			at = table.find( prefix, end );
+			dispatched.insert( steps.substr( start, end - start ) );
+			at = steps.find( prefix, end );
 		}
 	}
 
-	// BOTH DIRECTIONS, because each is a different silent failure.
-	//
-	// A stage on the base that nothing walks is a hook a system can implement
-	// and watch never fire -- the exact shape of the bug this phase exists to
-	// prevent, one level down.
+	// A stage on the base that no step runs is a hook a system can implement
+	// and watch never fire -- the shape of the bug Phase 7 existed to prevent.
 	for ( std::set<std::string>::const_iterator it = declared.begin(); it != declared.end(); ++it )
 	{
 		EXPECT_TRUE( dispatched.count( *it ) == 1 )
-			<< "CServerSystem declares " << *it << " and no walker in "
-			<< kTableFile << " dispatches it. A system overriding it would "
+			<< "CServerSystem declares " << *it << " and no step in "
+			<< kStepsFile << " runs it. A system overriding it would "
 			   "compile, link, and never run";
 	}
 
-	// A walk of a stage the base does not declare cannot happen -- it is a
-	// compile error -- so the interesting direction is the one above. This
-	// half guards the parse instead: if the needle for the walkers ever stops
-	// matching, `dispatched` collapses to {Init} and the loop above fails
-	// loudly rather than the whole fact going quiet.
-	EXPECT_GT( dispatched.size(), 5u )
-		<< "the walker scan found almost nothing -- it is the needle that broke, "
-		   "not the table";
+	// And the other way: the parse guard. If the needle stops matching,
+	// `dispatched` collapses and the loop above fails loudly.
+	EXPECT_GE( dispatched.size(), 5u )
+		<< "the step scan found almost nothing -- it is the needle that broke";
 }
 
 
@@ -733,20 +726,21 @@ TEST( ServerSystemsUnderive, StocksGameSystemCallsAreAllOutOfTheBuild )
 	// is neither an IGameSystem:: call nor a kept-whole body left to count.
 	// What must not come back is pinned on the live successor below.
 	// AND THE LIVE SUCCESSOR, which is the whole reason stock's calls had to be
-	// out of the build: server systems are driven by ONE written-down list, and
-	// that list is a table this build walks itself.
-	const std::string table = StripComments( Read( kTableFile ) );
-	ASSERT_FALSE( table.empty() );
+	// out of the build: server systems are driven by ONE written-down order.
+	// That order is managed's since plan_server_native_v2 T4e (ServerSystems),
+	// and its native half is one step per stage, which calls no stock driver.
+	const std::string steps = StripComments( Read( kStepsFile ) );
+	const std::string order = StripComments( Read( kOrderFile ) );
+	ASSERT_FALSE( steps.empty() );
+	ASSERT_FALSE( order.empty() );
 
-	EXPECT_EQ( 0, CountOf( table, "IGameSystem::" ) )
-		<< "the replacement driver calls stock's driver -- kServerSystems[] "
-		   "exists because that list is anonymous and unwalkable here";
-	EXPECT_EQ( 1, CountOf( table, "static const ServerSystemRow_t kServerSystems[] =" ) );
-	EXPECT_EQ( 1, CountOf( table, "static const int kServerSystemCount = ARRAYSIZE( kServerSystems );" ) )
-		<< "the row count is no longer derived from the table itself -- a "
-		   "hand-written count is a list that can go out of step with the rows";
-	EXPECT_GT( CountOf( table, "kServerSystems[ i ]" ), 0 )
-		<< "nothing walks the table";
+	EXPECT_EQ( 0, CountOf( steps, "IGameSystem::" ) )
+		<< "the native steps call stock's driver -- that list is anonymous and "
+		   "unwalkable here";
+	EXPECT_EQ( 1, CountOf( order, "public sealed class ServerSystems(" ) )
+		<< "the one written-down order is gone";
+	EXPECT_GE( CountOf( steps, "PhysicsGameSystem()->" ), 5 )
+		<< "the native steps run almost no stage";
 }
 
 
@@ -788,14 +782,15 @@ TEST( ServerSystemsUnderive, TheManagedGameSystemIsTheClientsAndItsBodiesAreNot 
 	// the client would compile them and the server's kServerSystems[] row would
 	// have nothing to call, which is a link error, but a body moved into a
 	// CLIENT_DLL arm of a file the server also compiles reads as fine.
+	//
+	// One body is left since plan_server_native_v2 T4e: the pre-entity edge the
+	// world's precache reaches. The level and frame edges went with
+	// kServerSystems[]; ServerSystems calls those itself.
 	static const char *kBodies[] =
 	{
-		"void SourceSharp_ManagedLevelInit(",
-		"void SourceSharp_ManagedLevelShutdown(",
-		"void SourceSharp_ManagedFramePreThink(",
-		"void SourceSharp_ManagedFrameThink(",
+		"void SourceSharp_ManagedLevelInitPreEntity(",
 	};
-	for ( size_t b = 0; b < 4; b++ )
+	for ( size_t b = 0; b < sizeof( kBodies ) / sizeof( kBodies[ 0 ] ); b++ )
 	{
 		const std::vector<size_t> at = LinesContaining( text, kBodies[ b ] );
 		ASSERT_EQ( 1u, at.size() ) << kBodies[ b ] << " -- expected exactly one definition";

@@ -26,7 +26,6 @@
 #include "shell_serversystem.h"
 #include "shell_server.h"
 
-#include "precache_model.h"
 #include "ss_shareddefs.h"
 
 
@@ -82,14 +81,10 @@ void ClientActive( edict_t *pEdict, bool bLoadGame )
 	SourceSharp_OnClientActive( pEdict, bLoadGame );
 }
 
-void ClientGamePrecache( void )
-{
-	SOURCESHARP_TRACE();
-	// The engine requires the player model to be precached before anyone spawns.
-	Precache_Model( "models/player/male_01.mdl" );
-
-	SourceSharp_OnClientGamePrecache();
-}
+// ClientGamePrecache WENT MANAGED (plan_server_native_v2 T4e): the player
+// model the engine requires before anyone spawns, and the managed side's own
+// precache point, are ServerGameDll.WorldPrecache's, at the position
+// CWorld::Precache called this from.
 
 // InitBodyQue went (plan_server_native_min P1): a SOURCESHARP_STUB() body —
 // the corpse pool is a managed decision (Corpses.cs), and the one caller
@@ -119,31 +114,6 @@ void ClientGamePrecache( void )
 // met -- a listener for every fired event, or the engine segfaults on a null
 // descriptor -- is met from C# since the gameevents fold
 // (shared/shell_gameevents.cpp subscribes during LoadSide in DLLInit).
-
-//-----------------------------------------------------------------------------
-// Ends the round, sending everyone to intermission.
-//
-// Routed through the gamerules rather than called directly so the base class
-// runs its own end-of-round bookkeeping — scores, timers, the map change that
-// follows — instead of the shell having to reimplement it.
-//-----------------------------------------------------------------------------
-void SourceSharp_EndRound( void )
-{
-	SOURCESHARP_TRACE();
-
-	// IGameRules, not the class -- and this line is why the interface's method
-	// list has EndMultiplayerGame on it. The sweep that built that list looked
-	// for "g_pGameRules->" and "GameRules()->"; this call goes through a LOCAL,
-	// so it was invisible to both and the compiler found it instead.
-	IGameRules *pRules = g_pGameRules;	// GameRules()'s whole body (gamerules.h)
-	if ( !pRules )
-	{
-		Warning( "[SourceSharp] EndRound with no game rules\n" );
-		return;
-	}
-
-	pRules->EndMultiplayerGame();
-}
 
 //-----------------------------------------------------------------------------
 // Engine-facing bits of CServerGameDLL / CServerGameClients that gameinterface

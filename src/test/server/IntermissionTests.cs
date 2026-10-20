@@ -205,7 +205,6 @@ public class IntermissionTests
         deaths.Raise(new PlayerDeathArgs(UserId: 7, AttackerUserId: 9, "pistol", false));
         rules.Think();
         Assert.True(it.GameOver, "the second reaches mp_fraglimit");
-        Assert.False(engine.Called("Host.EndRound"), "the native round end is not asked");
 
         engine.Returns("Host.CurrentTime", 26f);
         rules.Think();

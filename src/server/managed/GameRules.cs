@@ -59,10 +59,7 @@ public sealed class EndRoundCommand : IConCommand
     public void Execute(string args)
     {
         _log.Msg("[SourceSharp/Rules] ending round on request\n");
-        if (_intermission is not null)
-            _intermission.Begin(_host.CurrentTime);
-        else
-            _host.EndRound();
+        _intermission?.Begin(_host.CurrentTime);
     }
 }
 
@@ -683,17 +680,15 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     }
 
     /// <summary>
-    /// EndMultiplayerGame: the intermission (stock's GoToIntermission), or,
-    /// for rules built without one, the native round end.
+    /// EndMultiplayerGame: the intermission (stock's GoToIntermission). Rules
+    /// built without one only mark the round over: the native rules'
+    /// EndMultiplayerGame they used to be handed was empty, and its shim slot
+    /// retired at plan_server_native_v2 T4e.
     /// </summary>
     public void EndRound()
     {
         _roundOver = true;
-
-        if (_intermission is not null)
-            _intermission.Begin(_host.CurrentTime);
-        else
-            _host.EndRound();
+        _intermission?.Begin(_host.CurrentTime);
     }
 
     /// <summary>

@@ -153,32 +153,29 @@ public class LevelShutdownPreEntityTests
     }
 
     /// <summary>
-    /// AND <c>MapUnload</c> DOES NOT ALSO DISPATCH IT, which is the other way to
-    /// get this wrong and the one that would look green.
+    /// AND <c>MapUnload</c> DISPATCHES IT EXACTLY ONCE, in its pass.
     ///
     /// <para>
-    /// The obvious repair for a stage with no caller is to add the dispatch to
-    /// the method that owns the teardown sequence. It runs — so every fact
-    /// above passes — and it runs in the WRONG PLACE: the native pre-entity
-    /// pass is a BACKWARD walk of <c>kServerSystems[]</c>, and a dispatch from
-    /// <c>MapUnload</c> is outside that walk entirely. Both participants that
-    /// need this stage inherit a position from a row in the middle of it.
+    /// Until plan_server_native_v2 T4e this fact said the opposite: the pass
+    /// was a native backward walk of <c>kServerSystems[]</c> and the managed
+    /// participants were reached from the SourceSharpManaged row inside it, so
+    /// a dispatch from <c>MapUnload</c> would have been a second one outside
+    /// the walk. The walk is managed's now (<c>ServerSystems</c>), so
+    /// <c>MapUnload</c> runs the pass itself, where the native walk ran, and
+    /// the participants' position inside it is
+    /// <c>ServerSystemsTests.ThePreEntityShutdownPassIsBackwards</c>.
     /// </para>
     /// </summary>
     [Fact]
-    public void MapUnloadDoesNotDispatchThePreEntityHalfItself()
+    public void MapUnloadDispatchesThePreEntityHalfOnce()
     {
         var watcher = new Watcher(10);
         var dll = DllOver(DriverOver(watcher));
 
         ((IServerLevel)dll).MapUnload();
 
-        Assert.True(watcher.Seen.Count == 0,
-            "MapUnload dispatched the pre-entity shutdown stage itself, which puts every "
-            + "managed participant outside the backward walk of kServerSystems[] -- after "
-            + "every row rather than at the position its row held. It reaches the "
-            + "participants through the SourceSharpManaged row's own stage, and the row is "
-            + "what makes the position reproducible");
+        Assert.True(watcher.Seen.SequenceEqual(new[] { "pre" }),
+            "MapUnload runs the pre-entity shutdown pass once");
     }
 
     /// <summary>

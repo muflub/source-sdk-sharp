@@ -333,11 +333,6 @@ internal sealed partial class EngineGameRulesPolicy
     public void RegisterPolicy(GameRulesPolicyBlob policy) => E.RegisterGameRulesPolicy(policy);
 }
 
-internal sealed partial class EngineHost
-{
-    public void EndRound() => E.EndRound();
-}
-
 internal sealed partial class EngineHud
 {
     // Through IVDebugOverlay's forwarders since 2026-10-19, where the

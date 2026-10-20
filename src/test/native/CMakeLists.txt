@@ -4728,16 +4728,6 @@ ss_cpptest_mathlib(mathlib_port_stock_test
     SOURCES sourcesharp/test/mathlib_port_stock_test.cpp)
 
 # ---------------------------------------------------------------------------
-# A managed declaration never aliases a convar the engine defines:
-# convar_ownership.h's rule, which SourceSharp_EngineRegisterConVar applies.
-# ---------------------------------------------------------------------------
-ss_cpptest(convar_ownership_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/convar_ownership_test.cpp)
-
-# ---------------------------------------------------------------------------
 # The client's MD5_PseudoRandom answers from C# (IManagedDiagnosticsClient);
 # tier1's checksum_md5.cpp is out of the build. Links tier0 for Error().
 # ---------------------------------------------------------------------------

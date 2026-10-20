@@ -176,14 +176,8 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     public void SetServerCurTime() => Vtbl->SetServerCurTime(_self);
 
     /// <inheritdoc/>
-    public void ServerSystemsPreThink() => Vtbl->ServerSystemsPreThink(_self);
-
-    /// <inheritdoc/>
     public void PhysicsRunThinkFunctions(bool simulating)
         => Vtbl->PhysicsRunThinkFunctions(_self, simulating ? 1 : 0);
-
-    /// <inheritdoc/>
-    public void ServerSystemsPostThink() => Vtbl->ServerSystemsPostThink(_self);
 
     /// <inheritdoc/>
     public void ServiceEventQueue() => Vtbl->ServiceEventQueue(_self);
@@ -202,9 +196,6 @@ internal sealed unsafe class EngineFrame : IEngineFrame
 
     /// <inheritdoc/>
     public void DrawAllDebugOverlays() => Vtbl->DrawAllDebugOverlays(_self);
-
-    /// <inheritdoc/>
-    public void ServerSystemsPreClientUpdate() => Vtbl->ServerSystemsPreClientUpdate(_self);
 
     /// <inheritdoc/>
     public void StandalonePlayerCommands() => Vtbl->StandalonePlayerCommands(_self);
@@ -234,4 +225,13 @@ internal sealed unsafe class EngineFrame : IEngineFrame
         fixed (byte* pv = v)
             return Vtbl->DeliverToSdkEntities(_self, pt, pi, pv);
     }
+
+    /// <inheritdoc/>
+    public void DrainEntitySlots() => Vtbl->DrainEntitySlots(_self);
+
+    /// <inheritdoc/>
+    public void BeginModelCacheLock() => Vtbl->BeginModelCacheLock(_self);
+
+    /// <inheritdoc/>
+    public void EndModelCacheLock() => Vtbl->EndModelCacheLock(_self);
 }

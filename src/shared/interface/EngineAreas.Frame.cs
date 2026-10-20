@@ -20,17 +20,13 @@ namespace SourceSharp.Abi;
 /// </para>
 ///
 /// <para>
-/// <b>Where the managed frame is, because it is not a member here.</b>
-/// <see cref="ServerSystemsPreThink"/> and <see cref="ServerSystemsPostThink"/>
-/// are the named list's two per-frame passes, and the managed frame is a
-/// <i>row</i> of that list — so <c>FramePreThink</c> runs inside the first and
-/// the managed frame inside the second, each with the same native neighbours
-/// stock gives them. Part 4's sketch writes those two as inline C# calls around
-/// the passes; measured, that would move the managed frame ahead of
-/// <c>CSoundEnt</c>, <c>CRagdollLRURetirement</c> and <c>CEntityListSystem</c>,
-/// none of which is a no-op. The third managed point,
-/// <c>FramePostThink</c>, is inside <see cref="EndGameFrame"/>, which is where
-/// stock reaches it from too.
+/// <b>Where the managed frame is, because it is not a member here.</b> The named
+/// list's two per-frame passes are managed's own since plan_server_native_v2
+/// T4e (<c>ServerSystems</c>): the physics frame and the managed frame run in
+/// the post-entity-think pass in the order kServerSystems[] gave them, each
+/// inside <see cref="BeginModelCacheLock"/>, with <see cref="DrainEntitySlots"/>
+/// after. The third managed point, <c>FramePostThink</c>, is inside
+/// <see cref="EndGameFrame"/>, which is where stock reaches it from too.
 /// </para>
 ///
 /// <para>
@@ -92,23 +88,10 @@ public interface IEngineFrame
     void SetServerCurTime();
 
     /// <summary>
-    /// The named list's pre-entity-think pass. The managed <c>FramePreThink</c>
-    /// happens INSIDE it, because SourceSharpManaged is a row of that table.
-    /// </summary>
-    void ServerSystemsPreThink();
-
-    /// <summary>
     /// Every entity's think for this frame. Between the two system passes,
     /// which is the whole reason they are named Pre- and PostEntityThink.
     /// </summary>
     void PhysicsRunThinkFunctions(bool simulating);
-
-    /// <summary>
-    /// The named list's post-entity-think pass. The managed frame — every
-    /// <c>IFrameLifecycle.OnThink</c> and the dev API's pump — happens INSIDE
-    /// it, at the position CSourceSharpSystem held.
-    /// </summary>
-    void ServerSystemsPostThink();
 
     /// <summary>
     /// Fires every entity I/O whose time has come. After the think pass, so an
@@ -154,9 +137,6 @@ public interface IEngineFrame
     /// comment there is "allow this in release for now".
     /// </summary>
     void DrawAllDebugOverlays();
-
-    /// <summary>The named list's PreClientUpdate pass.</summary>
-    void ServerSystemsPreClientUpdate();
 
     /// <summary>
     /// The parallel hierarchy's queued player commands — plan_gamedll_after.md
@@ -210,4 +190,22 @@ public interface IEngineFrame
     /// </para>
     /// </summary>
     int DeliverToSdkEntities(string target, string input, string? value);
+
+    /// <summary>
+    /// One <c>NetworkStateChanged</c> per entity whose managed state was written
+    /// this frame: the managed row's native half after the managed frame, when
+    /// kServerSystems[] walked it (plan_server_native_v2 T4e).
+    /// </summary>
+    void DrainEntitySlots();
+
+    /// <summary>
+    /// <c>mdlcache-&gt;BeginLock()</c>: the <c>MDLCACHE_CRITICAL_SECTION</c> each
+    /// system's stage ran inside when the walks were native (stock's
+    /// igamesystem.cpp takes it per system). Paired with
+    /// <see cref="EndModelCacheLock"/> around a managed stage.
+    /// </summary>
+    void BeginModelCacheLock();
+
+    /// <summary><c>mdlcache-&gt;EndLock()</c>; see <see cref="BeginModelCacheLock"/>.</summary>
+    void EndModelCacheLock();
 }

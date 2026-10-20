@@ -155,6 +155,11 @@ public class LevelInitPreEntityTests
         var watcher = new Watcher(10);
         var engine = TestServices.Fake();
 
+        // The world's precache around the pass (plan_server_native_v2 T4e)
+        // reads g_Language and the globals; the strict double answers both.
+        engine.Returns("Console.FindConVarValue", "0");
+        engine.Returns("Environment.Globals", default(Globals));
+
         var (stringTables, modTable) = TestStringTables.For(engine);
 
         var dll = new ServerGameDll(new RecordingLog(), engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,

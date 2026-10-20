@@ -224,7 +224,6 @@ class CShimGameRules final : public IShimGameRules
 public:
 	void RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy * pPolicy ) override;
 	void RegisterDamageRules( const SourceSharpDamageRules * pRules ) override;
-	void EndRound() override;
 };
 
 class CShimPlayers final : public IShimPlayers

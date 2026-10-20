@@ -58,10 +58,10 @@ public class CrossingsStatusTests
     public void StatusReportsAnOpItHasSeen()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
-        Assert.Contains("\"ServerFrame\":2", Status());
+        Assert.Contains("\"ServerGameFrame\":2", Status());
     }
 
     /// <summary>
@@ -73,7 +73,7 @@ public class CrossingsStatusTests
     public void StatusOmitsOpsNothingHasEntered()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         Assert.DoesNotContain("\"ClientFrame\"", Status());
     }
@@ -86,9 +86,9 @@ public class CrossingsStatusTests
     public void StatusCarriesTheServerFrameDenominator()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
-        _crossings.Count(CrossingOp.ServerFrame);
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         Assert.Contains("\"serverFrames\":3", Status());
     }
@@ -106,7 +106,7 @@ public class CrossingsStatusTests
     public void StatusCarriesTheTotal()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
         _crossings.Count(CrossingOp.ServerThink);
 
         Assert.Contains("\"total\":2", Status());

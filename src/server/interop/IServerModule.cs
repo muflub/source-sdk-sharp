@@ -23,7 +23,6 @@ public interface IServerModule : ITempEntBlobs
     /// player takes the name in its <c>name</c> convar (the native SetPlayerName).
     /// </summary>
     bool OnClientSettingsChanged(int entIndex);
-    void OnClientGamePrecache();
     void OnRespawn(int entIndex, bool copyCorpse);
 
     // --- gameplay decisions ---

@@ -488,6 +488,28 @@ TEST( PrecacheModelMove, TheFreeFunctionsAreDefinedInPrecacheModelCpp )
 		<< "Precache_ModelComponents has no definition in precache_model.cpp.";
 }
 
+//-----------------------------------------------------------------------------
+// plan_server_native_v2 T4e: stock's "warn on out of order precache" is
+// managed's (LatePrecache). Precache_Model hands over the name and the
+// window's flag -- a read, not a decision -- and neither asks the engine
+// whether the model is precached nor prints: that would be the rule back.
+//-----------------------------------------------------------------------------
+TEST( PrecacheModelMove, TheLatePrecacheRuleIsManagedAndNativeHandsItTheFlag )
+{
+	// Squeezed: BodyOf strips every space, so the needles carry none.
+	const std::string strBody = BodyOf( StripComments( PrecacheModelSource() ), "int Precache_Model" );
+	ASSERT_NE( std::string( "" ), strBody ) << "Precache_Model has no definition";
+
+	EXPECT_EQ( 1u, CountOf( strBody, "->ModelPrecacheCheck(name,EntityPrecache_IsAllowed());" ) )
+		<< "Precache_Model does not hand managed the name and the window's flag";
+	EXPECT_EQ( 0u, CountOf( strBody, "IsModelPrecached" ) )
+		<< "Precache_Model asks the engine whether the model is precached: the rule is native again";
+	EXPECT_EQ( 0u, CountOf( strBody, "DevMsg" ) )
+		<< "Precache_Model prints the late-precache warning itself";
+	EXPECT_EQ( 1u, CountOf( strBody, "engine->PrecacheModel(name,bPreload)" ) )
+		<< "the control: the precache itself is still made here, read by the same body";
+}
+
 //=============================================================================//
 // The scanner's own fixtures. Everything above is worthless if these fail.
 //=============================================================================//

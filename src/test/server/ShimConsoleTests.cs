@@ -79,9 +79,10 @@ public unsafe class ShimConsoleTests : IDisposable
     }
 
     [Fact]
-    public void TheTableIsElevenSlots()
-        // Ten, then RevertNamedConVar (sound cluster 17, lane c2-sims).
-        => Assert.Equal(11, ShimConsole.ExpectedEntries);
+    public void TheTableIsTwelveSlots()
+        // Ten, then RevertNamedConVar (sound cluster 17, lane c2-sims), then
+        // FindConVarFlags (plan_server_native_v2 T4e).
+        => Assert.Equal(12, ShimConsole.ExpectedEntries);
 
     private ShimConsole Acquire(int entries)
     {

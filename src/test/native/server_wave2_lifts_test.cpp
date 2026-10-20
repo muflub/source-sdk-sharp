@@ -342,32 +342,34 @@ TEST( ServerWave2, TheModelSoundsCacheLeftForCSharp )
 }
 
 //-----------------------------------------------------------------------------
-// The precache_register fold: ONE list head, not two.
+// The precache_register fold: ONE list head, not two -- and since
+// plan_server_native_v2 T4e, none. The list's one registrant (EffectsPrecache,
+// six game sounds) is managed's world precache, so the list head, its push,
+// its walk and the registration all went; a head back here would be a second
+// precache path beside the managed one.
 //-----------------------------------------------------------------------------
-TEST( ServerWave2, ThereIsExactlyOnePrecacheListHead )
+TEST( ServerWave2, ThePrecacheListHeadWentWithItsOneRegistrant )
 {
 	const std::string wa = Tight( "sourcesharp/game/server/world_adapter.cpp",
-	                              "CPrecacheRegister::Precache();" );
+	                              "void CWorld::Precache( void )" );
 	ASSERT_FALSE( wa.empty() );
 
-	EXPECT_NE( wa.find( "CPrecacheRegister*g_pPrecacheRegisters=0;" ), std::string::npos )
-		<< "world_adapter.cpp does not define the list head, and "
-		<< "precache_register.cpp is out of the build -- so nothing does.";
+	EXPECT_EQ( wa.find( "g_pPrecacheRegisters" ), std::string::npos )
+		<< "world_adapter.cpp defines a precache list head again";
+	EXPECT_EQ( wa.find( "CPrecacheRegister" ), std::string::npos )
+		<< "world_adapter.cpp pushes onto or walks a precache list again";
 
-	EXPECT_NE( wa.find( "CPrecacheRegister::CPrecacheRegister(" ), std::string::npos )
-		<< "the constructor that PUSHES onto the list is missing.";
-	EXPECT_NE( wa.find( "voidCPrecacheRegister::Precache()" ), std::string::npos )
-		<< "the walk is missing.";
-
-	// The registrant lives in a different file and is the only thing on the
-	// list; if it goes, the mechanism is still correct and precaches nothing.
 	const std::string orphans = Tight( "sourcesharp/game/server/shell_absent.cpp",
-	                                   "EffectsPrecache" );
-	EXPECT_NE( orphans.find( "PRECACHE_REGISTER_FN(EffectsPrecache)" ), std::string::npos )
-		<< "nothing registers with the precache list any more, so the walk in "
-		<< "world_adapter.cpp iterates an empty list and six game sounds -- the "
-		<< "splash, the underwater impact, the ricochet, the explosion -- go "
-		<< "unprecached. The first play of each is silent.";
+	                                   "void UTIL_BloodSpray(" );
+	EXPECT_EQ( orphans.find( "PRECACHE_REGISTER_FN(EffectsPrecache)" ), std::string::npos )
+		<< "EffectsPrecache registers itself again";
+
+	// The six sounds are not lost: the world's precache names them.
+	const std::string managed = Tight( "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs",
+	                                   "private void WorldPrecache()" );
+	EXPECT_NE( managed.find( "\"Underwater.BulletImpact\"" ), std::string::npos )
+		<< "the splash, the underwater impact, the ricochet and the explosion go "
+		   "unprecached: the first play of each is silent";
 }
 
 //-----------------------------------------------------------------------------

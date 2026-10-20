@@ -422,7 +422,6 @@ TEST( SaveRestoreEvicted, TheFourTransitionRefusalsStillStand )
 		"IServerGameDLL::GetSaveComment",
 		"IServerGameDLL::CreateEntityTransitionList",
 		"IServerGameDLL::BuildAdjacentMapList",
-		"IServerGameDLL::LevelInit (transition)",
 	};
 
 	for ( size_t i = 0; i < sizeof( kStillRefused ) / sizeof( kStillRefused[ 0 ] ); i++ )
@@ -433,6 +432,13 @@ TEST( SaveRestoreEvicted, TheFourTransitionRefusalsStillStand )
 		EXPECT_TRUE( Has( shell, strNeedle.c_str() ) )
 		    << kStillRefused[ i ] << " no longer names itself in a refusal";
 	}
+
+	// The fourth, LevelInit's transition arm, is managed's since
+	// plan_server_native_v2 T4e (MapLoadArms picks the arm), and refuses there.
+	const std::string managed =
+	    ReadStripped( "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs" );
+	EXPECT_TRUE( Has( managed, "REFUSED: IServerGameDLL::LevelInit (transition) was called." ) )
+	    << "IServerGameDLL::LevelInit (transition) no longer names itself in a refusal";
 }
 
 TEST( SaveRestoreEvicted, TheNoOpManagerKeepsNoTable )

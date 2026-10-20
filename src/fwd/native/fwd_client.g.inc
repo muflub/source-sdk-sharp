@@ -1066,12 +1066,8 @@ static float SSFwd_ShimFrame_GetFrameTime( IShimFrame *self ) { return self->Get
 static void SSFwd_ShimFrame_SetFrameTime( IShimFrame *self, float a0 ) { self->SetFrameTime( a0 ); }
 // void IShimFrame::SetServerCurTime( void )
 static void SSFwd_ShimFrame_SetServerCurTime( IShimFrame *self ) { self->SetServerCurTime(); }
-// void IShimFrame::ServerSystemsPreThink( void )
-static void SSFwd_ShimFrame_ServerSystemsPreThink( IShimFrame *self ) { self->ServerSystemsPreThink(); }
 // void IShimFrame::PhysicsRunThinkFunctions( int32_t )
 static void SSFwd_ShimFrame_PhysicsRunThinkFunctions( IShimFrame *self, int32_t a0 ) { self->PhysicsRunThinkFunctions( a0 ); }
-// void IShimFrame::ServerSystemsPostThink( void )
-static void SSFwd_ShimFrame_ServerSystemsPostThink( IShimFrame *self ) { self->ServerSystemsPostThink(); }
 // void IShimFrame::ServiceEventQueue( void )
 static void SSFwd_ShimFrame_ServiceEventQueue( IShimFrame *self ) { self->ServiceEventQueue(); }
 // void IShimFrame::UpdateAllClientData( void )
@@ -1084,8 +1080,6 @@ static void SSFwd_ShimFrame_FireNetworkPropertyEvents( IShimFrame *self ) { self
 static void SSFwd_ShimFrame_GamestatsUpdateConnection( IShimFrame *self ) { self->GamestatsUpdateConnection(); }
 // void IShimFrame::DrawAllDebugOverlays( void )
 static void SSFwd_ShimFrame_DrawAllDebugOverlays( IShimFrame *self ) { self->DrawAllDebugOverlays(); }
-// void IShimFrame::ServerSystemsPreClientUpdate( void )
-static void SSFwd_ShimFrame_ServerSystemsPreClientUpdate( IShimFrame *self ) { self->ServerSystemsPreClientUpdate(); }
 // void IShimFrame::StandalonePlayerCommands( void )
 static void SSFwd_ShimFrame_StandalonePlayerCommands( IShimFrame *self ) { self->StandalonePlayerCommands(); }
 // void IShimFrame::StandaloneUpdate( void )
@@ -1094,6 +1088,12 @@ static void SSFwd_ShimFrame_StandaloneUpdate( IShimFrame *self ) { self->Standal
 static void SSFwd_ShimFrame_StandaloneFinish( IShimFrame *self ) { self->StandaloneFinish(); }
 // int32_t IShimFrame::DeliverToSdkEntities( const char *, const char *, const char * )
 static int32_t SSFwd_ShimFrame_DeliverToSdkEntities( IShimFrame *self, const char * a0, const char * a1, const char * a2 ) { return self->DeliverToSdkEntities( a0, a1, a2 ); }
+// void IShimFrame::DrainEntitySlots( void )
+static void SSFwd_ShimFrame_DrainEntitySlots( IShimFrame *self ) { self->DrainEntitySlots(); }
+// void IShimFrame::BeginModelCacheLock( void )
+static void SSFwd_ShimFrame_BeginModelCacheLock( IShimFrame *self ) { self->BeginModelCacheLock(); }
+// void IShimFrame::EndModelCacheLock( void )
+static void SSFwd_ShimFrame_EndModelCacheLock( IShimFrame *self ) { self->EndModelCacheLock(); }
 
 static void *const s_ShimFrameSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_IsSimulatingOnAlternateTicks ),
@@ -1101,26 +1101,26 @@ static void *const s_ShimFrameSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_GetFrameTime ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetFrameTime ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetServerCurTime ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPreThink ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_PhysicsRunThinkFunctions ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPostThink ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServiceEventQueue ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_UpdateAllClientData ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndGameFrame ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_FireNetworkPropertyEvents ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_GamestatsUpdateConnection ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_DrawAllDebugOverlays ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPreClientUpdate ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandalonePlayerCommands ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneUpdate ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneFinish ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_DeliverToSdkEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_DrainEntitySlots ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_BeginModelCacheLock ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndModelCacheLock ),
 };
 
 static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
 
 //-----------------------------------------------------------------------------
-// ShimLevel: 27 forwarder(s) over IShimLevel.
+// ShimLevel: 31 forwarder(s) over IShimLevel.
 //-----------------------------------------------------------------------------
 // void IShimLevel::ResetServerTime( void )
 static void SSFwd_ShimLevel_ResetServerTime( IShimLevel *self ) { self->ResetServerTime(); }
@@ -1140,24 +1140,16 @@ static void SSFwd_ShimLevel_LoadMessageOfTheDay( IShimLevel *self ) { self->Load
 static int32_t SSFwd_ShimLevel_ResetDeleteList( IShimLevel *self ) { return self->ResetDeleteList(); }
 // void IShimLevel::ActivateAllEntities( void )
 static void SSFwd_ShimLevel_ActivateAllEntities( IShimLevel *self ) { self->ActivateAllEntities(); }
-// void IShimLevel::InitPostEntitySystems( void )
-static void SSFwd_ShimLevel_InitPostEntitySystems( IShimLevel *self ) { self->InitPostEntitySystems(); }
 // void IShimLevel::SetPrecacheAllowed( int32_t )
 static void SSFwd_ShimLevel_SetPrecacheAllowed( IShimLevel *self, int32_t a0 ) { self->SetPrecacheAllowed( a0 ); }
-// void IShimLevel::ShutdownPreClearSteamSystems( void )
-static void SSFwd_ShimLevel_ShutdownPreClearSteamSystems( IShimLevel *self ) { self->ShutdownPreClearSteamSystems(); }
 // void IShimLevel::ClearSteamAPIContext( void )
 static void SSFwd_ShimLevel_ClearSteamAPIContext( IShimLevel *self ) { self->ClearSteamAPIContext(); }
-// void IShimLevel::ShutdownPreEntitySystems( void )
-static void SSFwd_ShimLevel_ShutdownPreEntitySystems( IShimLevel *self ) { self->ShutdownPreEntitySystems(); }
 // void IShimLevel::ShutdownStandaloneEntities( void )
 static void SSFwd_ShimLevel_ShutdownStandaloneEntities( IShimLevel *self ) { self->ShutdownStandaloneEntities(); }
 // void IShimLevel::ShutdownSoundEnt( void )
 static void SSFwd_ShimLevel_ShutdownSoundEnt( IShimLevel *self ) { self->ShutdownSoundEnt(); }
 // void IShimLevel::ClearEntityList( void )
 static void SSFwd_ShimLevel_ClearEntityList( IShimLevel *self ) { self->ClearEntityList(); }
-// void IShimLevel::ShutdownPostEntitySystems( void )
-static void SSFwd_ShimLevel_ShutdownPostEntitySystems( IShimLevel *self ) { self->ShutdownPostEntitySystems(); }
 // void IShimLevel::UncacheAllParticleSystems( void )
 static void SSFwd_ShimLevel_UncacheAllParticleSystems( IShimLevel *self ) { self->UncacheAllParticleSystems(); }
 // void IShimLevel::RecreateParticleDictionary( void )
@@ -1176,6 +1168,22 @@ static int32_t SSFwd_ShimLevel_ReadFileOnPath( IShimLevel *self, const char * a0
 static int32_t SSFwd_ShimLevel_SpawnWorld( IShimLevel *self, const char * const * a0, const char * const * a1, int32_t a2 ) { return self->SpawnWorld( a0, a1, a2 ); }
 // int32_t IShimLevel::IsPrecacheAllowed( void )
 static int32_t SSFwd_ShimLevel_IsPrecacheAllowed( IShimLevel *self ) { return self->IsPrecacheAllowed(); }
+// void IShimLevel::SetLoadType( int32_t )
+static void SSFwd_ShimLevel_SetLoadType( IShimLevel *self, int32_t a0 ) { self->SetLoadType( a0 ); }
+// int32_t IShimLevel::PhysicsInit( void )
+static int32_t SSFwd_ShimLevel_PhysicsInit( IShimLevel *self ) { return self->PhysicsInit(); }
+// void IShimLevel::PhysicsLevelInitPreEntity( void )
+static void SSFwd_ShimLevel_PhysicsLevelInitPreEntity( IShimLevel *self ) { self->PhysicsLevelInitPreEntity(); }
+// void IShimLevel::PhysicsLevelInitPostEntity( void )
+static void SSFwd_ShimLevel_PhysicsLevelInitPostEntity( IShimLevel *self ) { self->PhysicsLevelInitPostEntity(); }
+// void IShimLevel::PhysicsLevelShutdownPreEntity( void )
+static void SSFwd_ShimLevel_PhysicsLevelShutdownPreEntity( IShimLevel *self ) { self->PhysicsLevelShutdownPreEntity(); }
+// void IShimLevel::PhysicsLevelShutdownPostEntity( void )
+static void SSFwd_ShimLevel_PhysicsLevelShutdownPostEntity( IShimLevel *self ) { self->PhysicsLevelShutdownPostEntity(); }
+// void IShimLevel::StringPoolLevelShutdownPostEntity( void )
+static void SSFwd_ShimLevel_StringPoolLevelShutdownPostEntity( IShimLevel *self ) { self->StringPoolLevelShutdownPostEntity(); }
+// void IShimLevel::ResetEntitySlots( void )
+static void SSFwd_ShimLevel_ResetEntitySlots( IShimLevel *self ) { self->ResetEntitySlots(); }
 
 static void *const s_ShimLevelSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetServerTime ),
@@ -1187,15 +1195,11 @@ static void *const s_ShimLevelSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadMessageOfTheDay ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetDeleteList ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ActivateAllEntities ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_InitPostEntitySystems ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetPrecacheAllowed ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreClearSteamSystems ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearSteamAPIContext ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreEntitySystems ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownStandaloneEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownSoundEnt ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearEntityList ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPostEntitySystems ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_UncacheAllParticleSystems ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_RecreateParticleDictionary ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataLoadFile ),
@@ -1205,9 +1209,17 @@ static void *const s_ShimLevelSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ReadFileOnPath ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_SpawnWorld ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_IsPrecacheAllowed ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetLoadType ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PhysicsInit ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PhysicsLevelInitPreEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PhysicsLevelInitPostEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PhysicsLevelShutdownPreEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PhysicsLevelShutdownPostEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_StringPoolLevelShutdownPostEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetEntitySlots ),
 };
 
-static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 27 };
+static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 31 };
 
 //-----------------------------------------------------------------------------
 // ShimRoot: 3 forwarder(s) over IShimRoot.
@@ -1411,7 +1423,7 @@ static void *const s_EngineTraceSlots[] = {
 static const SSForwarderTable s_EngineTraceTable = { s_EngineTraceSlots, 1 };
 
 //-----------------------------------------------------------------------------
-// ShimConsole: 11 forwarder(s) over IShimConsole.
+// ShimConsole: 12 forwarder(s) over IShimConsole.
 //-----------------------------------------------------------------------------
 // void IShimConsole::Msg( const char * )
 static void SSFwd_ShimConsole_Msg( IShimConsole *self, const char * a0 ) { self->Msg( a0 ); }
@@ -1435,6 +1447,8 @@ static void SSFwd_ShimConsole_RevertNamedConVar( IShimConsole *self, const char 
 static int32_t SSFwd_ShimConsole_ConsoleSnapshot( IShimConsole *self ) { return self->ConsoleSnapshot(); }
 // int32_t IShimConsole::ConsoleSnapshotEntry( int32_t, SourceSharpConsoleEntry * )
 static int32_t SSFwd_ShimConsole_ConsoleSnapshotEntry( IShimConsole *self, int32_t a0, SourceSharpConsoleEntry * a1 ) { return self->ConsoleSnapshotEntry( a0, a1 ); }
+// int32_t IShimConsole::FindConVarFlags( const char * )
+static int32_t SSFwd_ShimConsole_FindConVarFlags( IShimConsole *self, const char * a0 ) { return self->FindConVarFlags( a0 ); }
 
 static void *const s_ShimConsoleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_Msg ),
@@ -1448,9 +1462,10 @@ static void *const s_ShimConsoleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_RevertNamedConVar ),
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_ConsoleSnapshot ),
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_ConsoleSnapshotEntry ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_FindConVarFlags ),
 };
 
-static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 11 };
+static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 12 };
 
 //-----------------------------------------------------------------------------
 // ShimEngine: 2 forwarder(s) over IShimEngine.
@@ -1957,22 +1972,19 @@ static void *const s_ShimDamageSlots[] = {
 static const SSForwarderTable s_ShimDamageTable = { s_ShimDamageSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimGameRules: 3 forwarder(s) over IShimGameRules.
+// ShimGameRules: 2 forwarder(s) over IShimGameRules.
 //-----------------------------------------------------------------------------
 // void IShimGameRules::RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy * )
 static void SSFwd_ShimGameRules_RegisterGameRulesPolicy( IShimGameRules *self, const SourceSharpGameRulesPolicy * a0 ) { self->RegisterGameRulesPolicy( a0 ); }
 // void IShimGameRules::RegisterDamageRules( const SourceSharpDamageRules * )
 static void SSFwd_ShimGameRules_RegisterDamageRules( IShimGameRules *self, const SourceSharpDamageRules * a0 ) { self->RegisterDamageRules( a0 ); }
-// void IShimGameRules::EndRound( void )
-static void SSFwd_ShimGameRules_EndRound( IShimGameRules *self ) { self->EndRound(); }
 
 static void *const s_ShimGameRulesSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimGameRules_RegisterGameRulesPolicy ),
 	reinterpret_cast< void * >( &SSFwd_ShimGameRules_RegisterDamageRules ),
-	reinterpret_cast< void * >( &SSFwd_ShimGameRules_EndRound ),
 };
 
-static const SSForwarderTable s_ShimGameRulesTable = { s_ShimGameRulesSlots, 3 };
+static const SSForwarderTable s_ShimGameRulesTable = { s_ShimGameRulesSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // ShimPlayers: 9 forwarder(s) over IShimPlayers.

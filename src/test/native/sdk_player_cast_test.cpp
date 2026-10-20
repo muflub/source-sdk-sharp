@@ -1609,7 +1609,10 @@ TEST( SdkPlayerCast, TheEvictionListWasParsedAndIsLoadBearing )
 	// swallowed the whole tree would scan files the compiler never sees, which
 	// is noisy but safe. Both are excluded by asserting a range, and the
 	// direction of the dangerous failure is the opposite of what it was.
-	EXPECT_GT( server.nEvictions, 100 )
+	// 80, not 100: plan_server_native_v2's evictions brought the list to 100
+	// at T4e (shell_serversystems.cpp left), and a floor the tree sits on is
+	// not a floor.
+	EXPECT_GT( server.nEvictions, 80 )
 		<< "server_sourcesharp's source list read as (nearly) nothing";
 	EXPECT_LT( server.nEvictions, 400 )
 		<< "far more entries than server_sourcesharp compiles; the reader is "

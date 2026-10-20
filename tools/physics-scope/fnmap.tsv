@@ -1,10 +1,9 @@
-139	168	19	class CPhysicsHook : public CServerSystemPerFrame
-176	179	4	CServerSystem* PhysicsGameSystem()
-185	207	13	bool CPhysicsHook::Init( void )
-221	349	41	void CPhysicsHook::LevelInitPreEntity()
-353	356	4	void CPhysicsHook::LevelInitPostEntity()
-358	363	6	void CPhysicsHook::LevelShutdownPreEntity()
-365	385	13	void CPhysicsHook::LevelShutdownPostEntity()
-397	401	5	void CPhysicsHook::FrameUpdatePostEntityThink( )
-423	429	6	CWorld *PhysicsWorldOwner( const IPhysicsObject *pObject )
-466	494	24	int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,
+139	167	18	class CPhysicsHook : public CServerSystem
+175	178	4	CServerSystem* PhysicsGameSystem()
+184	206	13	bool CPhysicsHook::Init( void )
+220	348	41	void CPhysicsHook::LevelInitPreEntity()
+352	355	4	void CPhysicsHook::LevelInitPostEntity()
+357	362	6	void CPhysicsHook::LevelShutdownPreEntity()
+364	384	13	void CPhysicsHook::LevelShutdownPostEntity()
+415	421	6	CWorld *PhysicsWorldOwner( const IPhysicsObject *pObject )
+458	486	24	int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,

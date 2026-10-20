@@ -40,6 +40,7 @@ public:
 	void RevertNamedConVar( const char *pName ) override;
 	int32_t ConsoleSnapshot() override;
 	int32_t ConsoleSnapshotEntry( int32_t nIndex, SourceSharpConsoleEntry *pOut ) override;
+	int32_t FindConVarFlags( const char *pName ) override;
 };
 
 #ifdef CLIENT_DLL

@@ -190,7 +190,9 @@ public partial class EngineApiCensusTests
     // plan_server_native_v2 T4d: WorldChapterTitle retired: the key is held by
     // ServerGameDll.WorldKeyValue, the round trip through CWorld gone (127 - 1 =
     // 126).
-    private const int ServerOnly = 126;
+    // plan_server_native_v2 T4e: IShimGameRules::EndRound retired: the
+    // native EndMultiplayerGame it reached was empty (126 - 1 = 125).
+    private const int ServerOnly = 125;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -382,7 +384,9 @@ public partial class EngineApiCensusTests
     // plan_server_native_v2 T4a: IShimEngine's five SoundPatch slots left for
     // the client (41 - 5 = 36).
     // plan_server_native_v2 T4b: TempEntRegister left for the client (36 - 1 = 35).
-    private const int BothSides = 35;
+    // plan_server_native_v2 T4e: IShimConsole's FindConVarFlags, the flags the
+    // convar registry reads to refuse an engine-owned name (35 + 1 = 36).
+    private const int BothSides = 36;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

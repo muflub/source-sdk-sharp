@@ -24,7 +24,7 @@ $ ./5a-codelines.sh src/server/native/physics.cpp
 raw=2994  code=1523  comment=1131  blank=340
 ```
 
-So: **542 raw / 187 code / 283 comment / 72 blank.** Prose is **60.2% of
+So: **534 raw / 181 code / 281 comment / 72 blank.** Prose is **60.2% of
 the non-blank lines** (283 of 470), not the 49% the plan quotes; the plan's
 figure is comment-over-code (283/187 = 151%) or a different stripper. Either
 way the point it was making stands and gets stronger: **less than half of this
@@ -502,7 +502,18 @@ the include and its three-line comment go, 547 -> 542 raw, 188 -> 187 code,
 286 -> 283 comment, 73 -> 72 blank. `fnmap` re-run: the same 10 functions at
 the same code sizes, 5 lines earlier; `classify` totals unchanged.
 
-Of the 188 code lines, **135 are inside a function body** across **10
+kServerSystems[]'s order went managed (plan_server_native_v2 T4e, 2026-10-19):
+`CPhysicsHook::FrameUpdatePostEntityThink` only forwarded to managed's
+PhysicsFrame, and `ServerSystems.FramePostThink` now runs the step at the
+row's position itself, so the override, its declaration and its comment go and
+the class derives `CServerSystem` (the per-frame base went with the walks).
+542 -> 534 raw, 187 -> 181 code, 283 -> 281 comment, 72 blank (a scratch
+counter reads the previous file as 542/186/284/72, the same deltas). `fnmap`
+re-run and `fnmap.tsv` rewritten: 10 -> 9 functions, 135 -> 129 body lines
+(the class row 19 -> 18, the 5-line forward gone); `rulings.tsv` loses the
+forward's HOOK row, so `classify` reads HOOK 7/101 -> 6/95, TOTAL 9/129.
+
+Of the 181 code lines, **129 are inside a function body** across **9
 top-level definitions**. The other 53 are includes, file-scope globals and
 forward declarations.
 
@@ -516,7 +527,7 @@ $ python3 5a-physics-classify.py 5a-physics-fnmap.tsv 5a-physics-rulings.tsv
 
 The classifier **fails** (exit 1) if any function has no ruling, if a ruling key
 matches more than one function, or if a ruling matches none. It exits 0 here, so
-the ten totals below account for all 10 functions and all 135 lines with
+the ten totals below account for all 9 functions and all 129 lines with
 nothing dropped and nothing double-counted. That guard is the reason to trust
 the arithmetic rather than the author.
 
@@ -559,12 +570,12 @@ claim:
 | `SLOT` | 0 | 0 | deleted: every vphysics slot is a managed table (2.1; was 14 / 335 until B2.2, 5 / 82 until 2.1) |
 | `DEAD` | 0 | 0 | deleted (server gc cull, 2026-10-01; was 25 / 284) |
 | `STOCK-DEBUG` | 0 | 0 | re-registered on the managed side (2.3): `air_density` (AirDensityCommand) and `physics_budget` with its sleep (PhysicsBudget, PhysicsSolver.ForceEntityToSleep); the rest went to `physics_debug.cpp` (2026-10-01; was 14 / 253; 3 / 19 until B2.2 deleted `physics_budget`'s touch buffering; 2 / 15 until 2.1 left PhysForceEntityToSleep its one caller; 3 / 34 until 2.3) |
-| `HOOK` | 7 | 101 | no — `CPhysicsHook`, an engine-driven `IGameSystem` (254 until 2.3 took the report's automatic run out of LevelInitPostEntity; 11 / 252 until 2.3 moved the sound batches and PreClientUpdate to managed's PhysicsSoundBatch; 8 / 179 until 2.3 moved PhysFrame to managed's PhysicsFrame; 7 / 104 until the ring's clears left with the ring) |
+| `HOOK` | 6 | 95 | no — `CPhysicsHook`, a native game system whose stages managed's ServerSystems orders (7 / 101 until plan_server_native_v2 T4e took the frame forward out: ServerSystems runs PhysicsFrame at the row's position; 254 until 2.3 took the report's automatic run out of LevelInitPostEntity; 11 / 252 until 2.3 moved the sound batches and PreClientUpdate to managed's PhysicsSoundBatch; 8 / 179 until 2.3 moved PhysFrame to managed's PhysicsFrame; 7 / 104 until the ring's clears left with the ring) |
 | `LIVE-API` | 2 | 28 | no — a shim object on the link line imports it (3 / 34 until PhysicsWorldOwner was re-ruled BOUNDARY, 2026-10-18; 3 / 29 until the owner batch held managed's velocity, plan_physics_bones_perf C2; was 4 / 50; 3 / 16 until C3/L's two sound slots; 5 / 38 until B5's stress write; 6 / 42 until B7's penetration answer; 8 / 57 until 2.1 deleted the penetration readouts and PhysIsInCallback; 5 / 36 until 2.3 took the two sound slots out of the ABI; 3 / 14 until 2.3's PhysicsUpdateOwners slot; 4 / 33 until the stress walk's ring write left with PhysFrame) |
 | `DEAD-VIA` | 0 | 0 | deleted with the dead functions above (was 6 / 41) |
 | `STALE-KEEP` | 0 | 0 | deleted, its reason having expired (was 4 / 34) |
 | `BOUNDARY` | 1 | 6 | `PhysicsWorldOwner`, the compare against the world's object managed hands native (re-ruled from LIVE-API 2026-10-18: no other server object imports it since physics_debug.o left); the world build is managed's (2.6; was 1 / 5, `PhysCreateWorld`); ManagedPhysicsObjectOf re-ruled here at 2.1 and deleted with the sound slots at 2.3; CSkipKeys deleted at 2.2; EntityPhysicsObject and its list deleted with their caller at 2.3 |
-| **total** | **10** | **135** | |
+| **total** | **9** | **129** | |
 
 `SLOT` + `SLOT-HELP` = **0 lines** since plan_physics_bones_native_zero 2.1
 deleted CCollisionEvent: **0 are vtable slots** vphysics dispatches into this

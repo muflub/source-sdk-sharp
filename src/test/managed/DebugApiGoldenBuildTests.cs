@@ -62,7 +62,7 @@ public partial class DebugApiGoldenBuildTests
     public void Status_carries_the_server_build_and_the_crossings_as_the_contracts_render_them()
     {
         var crossings = new Crossings();
-        crossings.Count(CrossingOp.ServerFrame);   // a non-empty table, so the comparison reads one
+        crossings.Count(CrossingOp.ServerGameFrame);   // a non-empty table, so the comparison reads one
         var build = new BuildInfo();
         build.SetManaged(KnownHalf, Array.Empty<string>());   // a known half, so the comparison reads one
         using var server = NeverPumped.Server(crossings, build);

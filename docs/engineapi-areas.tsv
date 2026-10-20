@@ -13,6 +13,7 @@ SetNamedConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleSet
 RevertNamedConVar	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRevertNamedConVar	byte*, void	
 ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshot	int	
 ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshotEntry	int, ConsoleEntry*, int	
+FindConVarFlags	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleFindConVarFlags	byte*, int	
 SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_SendClientCommand	uint, byte*, void	
 GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_GetCommandClientHandle	uint	
 ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	SourceSharp_ListenForGameEvent	byte*, void	
@@ -136,7 +137,6 @@ EntityTakeDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_EntityTakeDa
 ApplyDamageForce	EngineApi	IShimDamage	server		server	-	SourceSharp_ApplyDamageForce	uint, uint, float, int, float*, float*, void	
 RegisterGameRulesPolicy	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterGameRulesPolicy	GameRulesPolicyBlob*, void	
 RegisterDamageRules	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterDamageRules	DamageRuleMasks*, void	
-EndRound	EngineApi	IShimGameRules	server		server	-	SourceSharp_EndRound	void	
 GetPlayerHandle	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerHandle	int, uint	
 GetPlayerTeam	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerTeam	uint, int	
 PlayerIsAlive	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerIsAlive	uint, int	

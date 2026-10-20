@@ -139,6 +139,7 @@ int CountOf( const std::string &strHaystack, const char *pszNeedle )
 // Anchors are deliberately NOT the thing each test asserts about: an anchor
 // equal to the assertion cannot catch a rename of the subject.
 const char *kWorldAdapter = "sourcesharp/game/server/world_adapter.cpp";
+const char *kWorldPrecache = "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs";
 const char *kRetired      = "sourcesharp/managed/SourceSharp.Server/DevCommandsRetired.cs";
 const char *kLive         = "sourcesharp/managed/SourceSharp.Server/DevCommandsLive.cs";
 
@@ -217,14 +218,22 @@ TEST( EntityBaseCluster, EntScriptDumpIsADeclaredAndPrintedRetirementInManagedCo
 // exist and quietly disagree.
 //=============================================================================//
 
-TEST( EntityBaseCluster, WorldAdapterCallsTheShimsGamePrecacheAndNotTheStockOne )
+TEST( EntityBaseCluster, TheWorldsPrecacheCarriesTheGamePrecacheAndNotTheStockOne )
 {
 	const std::string src = ReadStripped( kWorldAdapter );
-	RequireAnchor( src, "world_adapter.cpp", "void CPrecacheRegister::Precache()" );
+	RequireAnchor( src, "world_adapter.cpp", "void CWorld::Precache( void )" );
 
-	EXPECT_TRUE( Has( src, "ClientGamePrecache();" ) )
-		<< "world_adapter.cpp no longer calls ClientGamePrecache(), which is what "
-		<< "precaches the player model the engine requires before anyone spawns.";
+	// ClientGamePrecache -- the player model the engine requires before anyone
+	// spawns, and the managed precache point -- is managed's world precache
+	// since plan_server_native_v2 T4e, reached from CWorld::Precache through
+	// the pre-entity edge.
+	const std::string world = ReadStripped( kWorldPrecache );
+	RequireAnchor( world, "ServerGameDll.cs", "private void WorldPrecache()" );
+	EXPECT_TRUE( Has( world, "PrecacheModel(\"models/player/male_01.mdl\")" ) )
+		<< "the world's precache no longer precaches the player model the engine "
+		<< "requires before anyone spawns.";
+	EXPECT_EQ( 0, CountOf( src, "ClientGamePrecache();" ) )
+		<< "world_adapter.cpp calls a native ClientGamePrecache again: two places precache the player";
 	EXPECT_EQ( 0, CountOf( src, "ClientPrecache();" ) )
 		<< "world_adapter.cpp calls the retired ClientPrecache() again. That symbol "
 		<< "is behind #ifndef SOURCESHARP, so this is a link error today -- but if "

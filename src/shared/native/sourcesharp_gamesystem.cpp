@@ -62,7 +62,6 @@ float GetCurrentGravity( void );
 #include "movevars_shared.h"
 #endif
 #include "native_command_body.h"
-#include "convar_ownership.h"
 #include "ss_string.h"
 #include "console_registry.h"
 #include "console_display_forward.h"
@@ -256,6 +255,7 @@ static void SourceSharp_ConsoleRevertNamedConVar( const char *n ) { ShimConsole(
 static int32_t SourceSharp_ConsoleConsoleSnapshot() { return ShimConsole().ConsoleSnapshot(); }
 static int32_t SourceSharp_ConsoleConsoleSnapshotEntry( int32_t i, SourceSharpConsoleEntry *o )
 	{ return ShimConsole().ConsoleSnapshotEntry( i, o ); }
+static int32_t SourceSharp_ConsoleFindConVarFlags( const char *n ) { return ShimConsole().FindConVarFlags( n ); }
 #endif
 
 //-----------------------------------------------------------------------------
@@ -747,23 +747,10 @@ int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultVal
 		return pConVar->GetId();
 	}
 
-	// A NAME THE ENGINE OWNS IS REFUSED, NOT ALIASED (convar_ownership.h). The
-	// engine's own variables are registered before either game DLL loads, so
-	// the lookup sees every one of them. No carrier is built; the managed
-	// registry turns this answer into a startup failure naming the class.
-	if ( g_pCVar )
-	{
-		const ConVar *pExisting = g_pCVar->FindVar( pName );
-		const int nOwnerFlags = !pExisting ? 0 :
-			( pExisting->IsFlagSet( FCVAR_GAMEDLL ) ? FCVAR_GAMEDLL : 0 ) |
-			( pExisting->IsFlagSet( FCVAR_CLIENTDLL ) ? FCVAR_CLIENTDLL : 0 );
-		if ( pExisting && SourceSharp_ConVarOwnedByEngine( nOwnerFlags ) )
-		{
-			::Warning( "[SourceSharp] C# declared convar '%s', which the engine defines: refused. "
-			         "Read the engine's by name instead of declaring it.\n", pName );
-			return SOURCESHARP_CONVAR_ENGINE_OWNED;
-		}
-	}
+	// A NAME THE ENGINE OWNS IS REFUSED BEFORE IT GETS HERE: the managed
+	// registry asks FindConVarFlags below and decides (ConVarOwnership,
+	// plan_server_native_v2 T4e), so a declaration that reaches this function
+	// is one managed already allowed.
 
 	// THE DLL IDENTIFIER FLAG, WHICH tier1 CANNOT GIVE US.
 	//
@@ -952,6 +939,22 @@ static int32_t SourceSharp_ConsoleFlags( const ConCommandBase *pBase )
 	}
 
 	return nFlags;
+}
+
+//-----------------------------------------------------------------------------
+// The flags of the variable the engine holds under a name, every bit IsFlagSet
+// answers, or -1 for none (plan_server_native_v2 T4e). The engine's own
+// variables are registered before either game DLL loads, so the lookup sees
+// every one of them; managed reads the two DLL bits off this to refuse a name
+// the engine owns.
+//-----------------------------------------------------------------------------
+int32_t CShimConsole::FindConVarFlags( const char *pName )
+{
+	if ( !g_pCVar || !pName || !pName[0] )
+		return -1;
+
+	const ConVar *pExisting = g_pCVar->FindVar( pName );
+	return pExisting ? SourceSharp_ConsoleFlags( pExisting ) : -1;
 }
 
 int32_t CShimConsole::ConsoleSnapshot( void )
@@ -1333,27 +1336,15 @@ void SourceSharp_UnloadManagedSide( void )
 //-----------------------------------------------------------------------------
 #ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
-// THE MANAGED SIDE'S FOUR SERVER EVENT POINTS, EACH WITH EXACTLY ONE BODY.
-//
-// plan_gamedll.md Phase 7. Two things drive these points in the server binary:
-// CSourceSharpSystem in delegate mode, and the shell's kServerSystems[] row
-// with -shellgamedll. There must never be two IMPLEMENTATIONS. The phase's
-// invariant -- NOTHING RUNS TWICE, NOTHING STOPS RUNNING -- is held
-// structurally by there being one body per point, here, called from both.
-//
-// Factored out of CSourceSharpSystem below rather than copied. A copy is two
-// bodies that agree until one of them is edited, and what would be copied is
-// the order in which managed code learns that a level started and a frame ran.
-//
-// The map name is a PARAMETER because the two callers get it from different
-// places: CSourceSharpSystem has IGameSystem::MapName(), which is set by
-// LevelInitPreEntityAllSystems, and the shell does not call that -- its row
-// passes gpGlobals->mapname. Both name the map that is loading.
+// THE MANAGED SIDE'S SERVER EVENT POINTS (plan_gamedll.md Phase 7). Four of
+// the five bodies that were here -- level init, level shutdown and its
+// pre-entity half, and the two frame points -- went with kServerSystems[]
+// (plan_server_native_v2 T4e): managed's ServerSystems calls those edges
+// itself, in the order the table's walks gave them.
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// THE PRE-ENTITY HALF, added by plan_gamedll_after.md Phase A3 -- a FIFTH body
-// beside the four above, and the reason it is a body here rather than a call in
-// the shell is the same reason those four are: there must be one of it.
+// THE PRE-ENTITY HALF, added by plan_gamedll_after.md Phase A3, and the one
+// body left: the WORLD entity's own precache reaches it, from native.
 //
 // IT HAD NO CALLER AT ALL BEFORE THIS PHASE, on either side of the boundary.
 // Part 3a added IGameLifecycle.OnLevelInitPreEntity and
@@ -1378,46 +1369,6 @@ void SourceSharp_ManagedLevelInitPreEntity( const char *pszMapName )
 		     SOURCESHARP_SIDE_TAG, pszMapName );
 
 	pRuntime->OnMapLoadPreEntity( pszMapName );
-}
-
-void SourceSharp_ManagedLevelInit( const char *pszMapName )
-{
-	// E18: the managed-built IManagedFrame.
-	IManagedFrame *pFrame = g_bSourceSharpLoaded ? ManagedFrame() : NULL;
-	if ( !pFrame )
-		return;
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] %s level init -> C#: %s\n", SOURCESHARP_SIDE_TAG, pszMapName );
-
-	pFrame->LevelInit( pszMapName );
-}
-
-//-----------------------------------------------------------------------------
-// THE PRE-ENTITY HALF OF LEVEL SHUTDOWN -- plan_gamedll_after.md Phase A3, the
-// fifth "C" system. A SIXTH body beside the five above, and it is here for the
-// same reason they are: there must be exactly one of it.
-//
-// IT HAD NO CALLER AT ALL BEFORE THIS PHASE, on either side of the boundary,
-// and that is the third time this plan has found a stage in that state.
-// LifecycleDriver.LevelShutdownPreEntity existed from Part 3a's split; the only
-// things that had ever driven it were two facts in LifecycleTests.cs.
-//
-// The cost was real rather than theoretical: SoundController declares
-// OnLevelShutdownPreEntity for SystemReset (Phase A3, second pair), so every
-// live sound patch survived a level change from that phase until this one.
-//-----------------------------------------------------------------------------
-void SourceSharp_ManagedLevelShutdownPreEntity( void )
-{
-	// E1: the managed-built runtime's slot, not a ManagedApi one.
-	IManagedRuntimeServer *pRuntime = ManagedRuntimeServer();
-	if ( !g_bSourceSharpLoaded || !pRuntime )
-		return;
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] %s level shutdown pre-entity -> C#\n", SOURCESHARP_SIDE_TAG );
-
-	pRuntime->OnMapUnloadPreEntity();
 }
 
 //-----------------------------------------------------------------------------
@@ -1513,49 +1464,6 @@ int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistan
 	                                                     pPortalBits, nPortalBytes );
 }
 
-void SourceSharp_ManagedLevelShutdown( void )
-{
-	// E18: the managed-built IManagedFrame.
-	IManagedFrame *pFrame = g_bSourceSharpLoaded ? ManagedFrame() : NULL;
-	if ( !pFrame )
-		return;
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] %s level shutdown -> C#\n", SOURCESHARP_SIDE_TAG );
-
-	pFrame->LevelShutdown();
-
-	// Every control-block slot closed, after managed shutdown rather than
-	// before it: a state object is entitled to write during its entity's
-	// teardown, and a slot closed early would turn that write into an exception
-	// rather than into the value it is trying to leave behind.
-	SourceSharp_ResetEntitySlots();
-}
-
-void SourceSharp_ManagedFramePreThink( void )
-{
-	IManagedFrame *pFrame = g_bSourceSharpLoaded ? ManagedFrame() : NULL;   // E18
-	if ( pFrame )
-		pFrame->FramePreThink( gpGlobals->frametime );
-}
-
-void SourceSharp_ManagedFrameThink( void )
-{
-	IManagedFrame *pFrame = g_bSourceSharpLoaded ? ManagedFrame() : NULL;   // E18
-	if ( pFrame )
-		pFrame->Frame( gpGlobals->frametime );
-
-	// AFTER the managed frame and before the snapshot, which is what makes this
-	// the right hook rather than a convenient one. Every managed write in the
-	// frame has landed by now, and each stored a one into its entity's dirty
-	// word instead of making a call; this turns the whole frame's stores into
-	// one NetworkStateChanged per entity that actually changed.
-	//
-	// This is not the LAST place a managed write can happen -- CGameRules::
-	// EndGameFrame drains again. This one is kept because g_pGameRules is NULL
-	// between levels, where EndGameFrame is never called at all.
-	SourceSharp_DrainEntitySlots();
-}
 #endif // !CLIENT_DLL
 
 //=============================================================================
@@ -1590,13 +1498,14 @@ void SourceSharp_ManagedFrameThink( void )
 //   forwards OnLevelInit / OnLevelShutdown / OnFrame through it.
 //
 // THE GUARD IS STILL #ifdef CLIENT_DLL AND NOT A DELETION: the server has no
-// such row (its per-frame work is the kServerSystems[] SourceSharpManaged row),
+// such row (its per-frame work is managed's own ServerSystems, which was the
+// kServerSystems[] SourceSharpManaged row until plan_server_native_v2 T4e),
 // so deleting the class outright compiles green on the server and leaves the
 // client with no managed frame at all -- this project's recorded failure mode
 // for a shared file.
 //
-// The four SourceSharp_Managed* bodies above are NOT inside this guard. They
-// are the server's, they had two callers, and this removes one of them.
+// The one SourceSharp_Managed* body left above is NOT inside this guard: it is
+// the server's pre-entity edge.
 //=============================================================================
 #ifdef CLIENT_DLL
 
@@ -1700,8 +1609,8 @@ public:
 		// THE SERVER'S TWO STAGES USED TO BE HERE, under #else:
 		// FrameUpdatePreEntityThink and FrameUpdatePostEntityThink, forwarding
 		// to SourceSharp_ManagedFramePreThink and SourceSharp_ManagedFrameThink.
-		// Phase 7a removed them with the class, and the shell's kServerSystems[]
-		// row is what calls those two bodies now. The server's reload service
+		// Phase 7a removed them with the class; managed's ServerSystems runs the
+		// server's frame edges itself (plan_server_native_v2 T4e). The server's reload service
 		// point went with them and is IServerGameDLL::Think alone, which is the
 		// only per-frame entry that runs with no level loaded.
 		SourceSharp_ServiceReloadRequest();
@@ -2029,13 +1938,6 @@ void SourceSharp_OnClientActive( edict_t *pEntity, bool bLoadGame )
 	SOURCESHARP_TRACE();
 	if ( g_bSourceSharpLoaded && ManagedClients() )
 		ManagedClients()->OnClientActive( pEntity ? pEntity->m_EdictIndex : -1, bLoadGame ? 1 : 0 );
-}
-
-void SourceSharp_OnClientGamePrecache()
-{
-	SOURCESHARP_TRACE();
-	if ( g_bSourceSharpLoaded && ManagedClients() )
-		ManagedClients()->OnClientGamePrecache();
 }
 
 #endif // !CLIENT_DLL

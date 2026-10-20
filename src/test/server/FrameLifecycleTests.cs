@@ -359,101 +359,25 @@ public class FrameLifecycleTests
     private static string Read(string relative) =>
         File.ReadAllText(Path.Combine(RepoLayout.SdkTree, relative));
 
-    [Fact]
-    public void PreThinkIsCalledFromFrameUpdatePreEntityThink()
-    {
-        // FOLLOWED THE WORK. This read CSourceSharpSystem's own
-        // FrameUpdatePreEntityThink override until plan_gamedll.md Phase 7a put
-        // that class behind #ifdef CLIENT_DLL: on the server the type is not
-        // instantiated and does not exist, and the shell's kServerSystems[] row
-        // is the only driver of the managed frame.
-        //
-        // THE SUBJECT IS UNCHANGED and is the reason the fact exists: the
-        // managed pre-think must be reached from inside the per-frame
-        // PRE-ENTITY pass, at that row's position in the table -- not hoisted
-        // out of the pass into the C# frame, which is what Part 4's sketch
-        // writes and which would run it ahead of CSoundEnt.
-        var table = Read("src/sourcesharp/game/server/shell_serversystems.cpp");
+    // PreThinkIsCalledFromFrameUpdatePreEntityThink and
+    // ThinkIsCalledFromFrameUpdatePostEntityThink WERE HERE and are retired with
+    // their subject (plan_server_native_v2 T4e): they read the SourceSharpManaged
+    // row of kServerSystems[] in shell_serversystems.cpp, which is gone, and their
+    // second halves had read vacuously since E18 (they looked for a
+    // g_ManagedApi.FramePreThink( call the bodies no longer made, and an IndexOf of
+    // -1 passed the "within 400 characters" test). The subject -- the managed
+    // pre-think inside the pre-entity-think pass, the managed frame inside the
+    // post-entity-think pass after the physics step -- is held behaviourally now:
+    // ServerSystemsTests.ThePreThinkPassIsTheManagedRowAlone and
+    // .ThePostThinkPassStepsPhysicsThenTheManagedFrameThenDrains, and
+    // ServerGameDllTests.AFrameRunsStocksStepsInStocksOrder for where the passes
+    // sit in the frame.
 
-        int hook = table.IndexOf("virtual void FrameUpdatePreEntityThink() OVERRIDE", StringComparison.Ordinal);
-        Assert.True(hook >= 0,
-            "the kServerSystems[] managed row no longer overrides "
-            + "FrameUpdatePreEntityThink, which is the only hook that runs "
-            + "before Physics_RunThinkFunctions.");
-
-        int call = table.IndexOf("SourceSharp_ManagedFramePreThink();", hook, StringComparison.Ordinal);
-        int nextHook = table.IndexOf("virtual void FrameUpdatePostEntityThink", hook, StringComparison.Ordinal);
-        Assert.True(call >= 0 && call < nextHook,
-            "FramePreThink is not called inside FrameUpdatePreEntityThink.");
-
-        // And the shared body is what crosses. A row that reached g_ManagedApi
-        // itself would be a second copy of the crossing.
-        var cpp = Read("src/sourcesharp/game/shared/sourcesharp_gamesystem.cpp");
-        int body = cpp.IndexOf("void SourceSharp_ManagedFramePreThink( void )", StringComparison.Ordinal);
-        Assert.True(body >= 0
-                 && cpp.IndexOf("g_ManagedApi.FramePreThink(", body, StringComparison.Ordinal) - body < 400,
-            "the shared body is what actually crosses to managed code");
-    }
-
-    [Fact]
-    public void ThinkIsCalledFromFrameUpdatePostEntityThink()
-    {
-        // FOLLOWED THE WORK, TWICE, AND BOTH TIMES BY ITS OWN RULE.
-        // plan_gamedll.md Phase 7 gave this hook a SECOND driver -- the shell's
-        // kServerSystems[] row -- and factored the body into
-        // SourceSharp_ManagedFrameThink so there was one body and two callers
-        // rather than two bodies. Phase 7a then removed the FIRST driver:
-        // CSourceSharpSystem is behind #ifdef CLIENT_DLL and does not exist on
-        // the server, so the row is the only one left. One body, one caller.
-        //
-        // What this asserts is unchanged: the managed frame is reached from
-        // inside the per-frame POST-ENTITY pass, at the row's position, and the
-        // shared body is what crosses.
-        var table = Read("src/sourcesharp/game/server/shell_serversystems.cpp");
-        var cpp = Read("src/sourcesharp/game/shared/sourcesharp_gamesystem.cpp");
-
-        int hook = table.IndexOf("virtual void FrameUpdatePostEntityThink() OVERRIDE", StringComparison.Ordinal);
-        Assert.True(hook >= 0,
-            "the kServerSystems[] managed row no longer overrides "
-            + "FrameUpdatePostEntityThink.");
-
-        int call = table.IndexOf("SourceSharp_ManagedFrameThink();", hook, StringComparison.Ordinal);
-        Assert.True(call >= 0 && call - hook < 1200,
-            "the managed frame call is not inside FrameUpdatePostEntityThink. That "
-            + "hook is the middle of the frame and the point the stock rules "
-            + "class ran its own Think from.");
-
-        int body = cpp.IndexOf("void SourceSharp_ManagedFrameThink( void )", StringComparison.Ordinal);
-        Assert.True(body >= 0
-                 && cpp.IndexOf("g_ManagedApi.Frame(", body, StringComparison.Ordinal) - body < 400,
-            "the shared body is what actually crosses to managed code");
-    }
-
-    /// <summary>
-    /// PostThink must be dispatched BEFORE SourceSharp_DrainEntitySlotsLate.
-    /// The drain turns the frame's managed writes into one NetworkStateChanged
-    /// per changed entity; a participant that writes after it has its writes
-    /// held until the next frame's drain, one tick late.
-    /// </summary>
-    [Fact]
-    public void PostThinkIsDispatchedBeforeTheLateDrain()
-    {
-        var cpp = Read("src/sourcesharp/game/shared/shell_gamerules.cpp");
-
-        int body = cpp.IndexOf("void CSourceSharpGameRules::EndGameFrame( void )", StringComparison.Ordinal);
-        Assert.True(body >= 0, "CSourceSharpGameRules::EndGameFrame is gone.");
-
-        int call = cpp.IndexOf("FramePostThink(", body, StringComparison.Ordinal);
-        int drain = cpp.IndexOf("SourceSharp_DrainEntitySlotsLate()", body, StringComparison.Ordinal);
-
-        Assert.True(call >= 0, "EndGameFrame does not dispatch FramePostThink.");
-        Assert.True(drain >= 0, "EndGameFrame no longer drains the late entity slots.");
-        Assert.True(call < drain,
-            "FramePostThink is dispatched AFTER the late drain. A participant "
-            + "writing there has its writes held until the next frame's drain, "
-            + "one tick late -- which is the exact failure the late drain was "
-            + "added to prevent.");
-    }
+    // PostThinkIsDispatchedBeforeTheLateDrain WAS HERE: a source scan of
+    // CSourceSharpGameRules::EndGameFrame for the FramePostThink call before
+    // SourceSharp_DrainEntitySlotsLate. Both are managed's calls since
+    // plan_server_native_v2 T4e, so the order is held behaviourally:
+    // ServerGameDllTests.TheLastManagedPointRunsAfterTheRulesAndBeforeTheLateDrain.
 
     // ------------------------------------------------------------------
     // The think sequence that used to be CSourceSharpGameRules::Think.

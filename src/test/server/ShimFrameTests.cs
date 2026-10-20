@@ -51,7 +51,9 @@ public unsafe class ShimFrameTests
         // Seventeen until step 1g, which split StandaloneRunFrame into
         // StandaloneUpdate and StandaloneFinish so the managed think pass could
         // run between them (plan_entity.md §3.4); eighteen until the
-        // sub-ioqueue lane appended DeliverToSdkEntities.
+        // sub-ioqueue lane appended DeliverToSdkEntities. Nineteen again after
+        // plan_server_native_v2 T4e retired the three system walks and appended
+        // DrainEntitySlots and the model-cache lock's two ends.
         => Assert.Equal(19, Forwarders.SlotCount<ShimFrameFwd>());
 
     [Fact]
@@ -72,18 +74,20 @@ public unsafe class ShimFrameTests
         var layout = typeof(ShimFrameFwd);
 
         int first = (int)Marshal.OffsetOf(layout, "IsSimulatingOnAlternateTicks");
-        int last = (int)Marshal.OffsetOf(layout, "DeliverToSdkEntities");
+        int last = (int)Marshal.OffsetOf(layout, "EndModelCacheLock");
 
         Assert.Equal(0, first);
         Assert.Equal(18 * sizeof(void*), last);
     }
 
     [Fact]
-    public void PhysicsRunThinkFunctionsIsSlotSix()
+    public void PhysicsRunThinkFunctionsIsSlotFive()
         // A MIDDLE SLOT, named, because the two ends agreeing does not say the
         // eighteen in between are in the header's order -- and a reorder in
-        // the middle is precisely what the span check cannot see.
-        => Assert.Equal(6 * sizeof(void*),
+        // the middle is precisely what the span check cannot see. Six until
+        // plan_server_native_v2 T4e's --reorder took ServerSystemsPreThink out
+        // above it.
+        => Assert.Equal(5 * sizeof(void*),
                         (int)Marshal.OffsetOf(typeof(ShimFrameFwd),
                                               "PhysicsRunThinkFunctions"));
 
@@ -121,8 +125,8 @@ public unsafe class ShimFrameTests
 
         table[1] = (delegate* unmanaged<void*, int>)&TickCountAnswers;
         table[2] = (delegate* unmanaged<void*, float>)&GetFrameTimeAnswers;
-        table[6] = (delegate* unmanaged<void*, int, void>)&PhysicsRecords;
-        table[8] = (delegate* unmanaged<void*, void>)&ServiceEventQueueCounts;
+        table[5] = (delegate* unmanaged<void*, int, void>)&PhysicsRecords;
+        table[6] = (delegate* unmanaged<void*, void>)&ServiceEventQueueCounts;
 
         return NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
     }

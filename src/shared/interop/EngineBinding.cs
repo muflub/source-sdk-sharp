@@ -26,7 +26,7 @@ using System.Reflection;
 namespace SourceSharp.Abi;
 
 /// <summary>The real engine, for <see cref="IEngineConsole"/>. Every member is one call.</summary>
-internal sealed partial class EngineConsole : IEngineConsole
+internal sealed partial class EngineConsole : IEngineConsole, IConVarFlagReader
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -43,6 +43,7 @@ internal sealed partial class EngineConsole : IEngineConsole
             EngineBound.Server(E).ServerCommandNow(command);
     }
     public string? FindConVarValue(string name) => E.FindConVarValue(name);
+    public int FindConVarFlags(string name) => E.FindConVarFlags(name);
     public string GetConVarValue(int id) => E.GetConVarValue(id);
     public void Msg(string message) => E.Msg(message);
     public int RegisterConCommand(string name, string help, ConVarFlags flags)

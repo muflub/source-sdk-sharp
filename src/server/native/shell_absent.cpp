@@ -54,7 +54,7 @@
 //   CEnvPlayerSurfaceTrigger::SetPlayerSurface  shell_movement      lane H1
 //   RadiusDamage                                shell_worldquery    lane S3
 //   UTIL_BloodSpray                             shell_worldquery    lane S3
-//   EffectsPrecache                             NOBODY -- see below
+//   EffectsPrecache                             (went managed, T4e; below)
 //
 // GetRecentNPCSpeech left it in P5 too: it answered 0 on every call, and
 // GetBugReportInfo, its one caller, now writes the empty report directly.
@@ -107,13 +107,12 @@
 // env_player_surface_trigger.h, envmicrophone.h, soundent.h and takedamageinfo.h
 // went. What they gave is server.so's own below: ss::CPostFrameNavigationHook,
 // ss::SetPlayerSurface and the ss_shareddefs.h constants.
-#include "shell_serversystem.h"   // CServerSystemPerFrame
+#include <cstddef>                // NULL, for string_t.h (shell_serversystem.h brought it until T4e)
 #include "string_t.h"
 #include "utlvector.h"
 #include "ss_shareddefs.h"        // DONT_BLEED, kDmgBlast, the SOUND_* bits and channel
 #include "ss_soundent.h"
 #include "igamerules.h"
-#include "ss_precache_register.h"
 #include "ss_effect_dispatch.h"
 #include "sourcesharp.h"
 #include "imanaged_areas.h"   // plan_engineapi_vtables E17: the server's IManagedPlayerCommands
@@ -248,36 +247,8 @@ void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amoun
 	DispatchEffect( "bloodspray", data );
 }
 
-//-----------------------------------------------------------------------------
-// The sounds effects.cpp precached, verbatim. NAMED BY NOTHING and kept anyway:
-// PRECACHE_REGISTER_FN registers it from a static constructor, so no importer
-// count can see it, and without it six game sounds the managed side plays go
-// unprecached and the first play of each is silent.
-//
-// The TF_DLL arm went with the file rather than being carried: it precached
-// three models for tempfx, and this mod is not TF.
-//-----------------------------------------------------------------------------
-//
-// The script precache is the managed SoundEmitterSystem's
-// (plan_server_native_v2 T4a, the precache path), through the load's area.
-void EffectsPrecache( void *pUser )
-{
-	IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
-	if ( !pEmitter )
-		return;
-
-	pEmitter->ServerPrecacheScriptSound( "Underwater.BulletImpact" );
-
-	pEmitter->ServerPrecacheScriptSound( "FX_RicochetSound.Ricochet" );
-
-	pEmitter->ServerPrecacheScriptSound( "Physics.WaterSplash" );
-	pEmitter->ServerPrecacheScriptSound( "BaseExplosionEffect.Sound" );
-	pEmitter->ServerPrecacheScriptSound( "Splash.SplashSound" );
-
-	if ( gpGlobals->maxClients > 1 )
-	{
-		pEmitter->ServerPrecacheScriptSound( "HudChat.Message" );
-	}
-}
-
-SS_PRECACHE_REGISTER_FN( EffectsPrecache );
+// EFFECTSPRECACHE WAS HERE: the six sounds effects.cpp precached, registered
+// from a static constructor through ss::CPrecacheRegister. They are managed's
+// world precache since plan_server_native_v2 T4e (ServerGameDll.WorldPrecache,
+// HudChat.Message still only on a multiplayer server), and the register went
+// with its one registrant.

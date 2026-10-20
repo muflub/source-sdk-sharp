@@ -310,8 +310,10 @@ TEST( EngineCoreRetypeScanner, EveryFileWasReallyOpened )
 		   "PhysicsSplash had no caller; the managed PhysicsSplashPlan is the "
 		   "splash. A native copy back in the tree is a second decider.";
 	EXPECT_GT( PhysicsCpp().size(), 500u );
-	EXPECT_NE( PhysicsCpp().find( "void CPhysicsHook::FrameUpdatePostEntityThink" ), std::string::npos )
-		<< "physics.cpp carries no CPhysicsHook frame, so it is not the file "
+	// The level stage, not the frame: CPhysicsHook's FrameUpdatePostEntityThink
+	// went with kServerSystems[] (plan_server_native_v2 T4e).
+	EXPECT_NE( PhysicsCpp().find( "void CPhysicsHook::LevelInitPreEntity" ), std::string::npos )
+		<< "physics.cpp carries no CPhysicsHook level stage, so it is not the file "
 		   "this scanner means to be reading";
 	// THE TWO ENTITY HEADERS SHRANK BY AN ORDER OF MAGNITUDE, and the floors
 	// moved with them. `class CBaseEntity` / `class C_BaseEntity` were inside

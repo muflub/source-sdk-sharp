@@ -9,10 +9,7 @@ IManagedRuntimeServer	OnSystemStart	bool	void
 IManagedRuntimeServer	OnGameStart	bool	void
 IManagedRuntimeServer	OnGamePostStart	void	void
 IManagedRuntimeServer	OnGameStop	void	void
-IManagedRuntimeServer	OnMapLoad_Transition	bool	const SourceSharpMapLoad *pLoad
-IManagedRuntimeServer	OnMapLoad_LoadGame	bool	const SourceSharpMapLoad *pLoad
-IManagedRuntimeServer	OnMapLoad_Background	bool	const SourceSharpMapLoad *pLoad
-IManagedRuntimeServer	OnMapLoad_NewGame	bool	const SourceSharpMapLoad *pLoad
+IManagedRuntimeServer	OnMapLoad	bool	const SourceSharpMapLoad *pLoad, bool loadGame, bool background
 IManagedRuntimeServer	OnMapUnload	void	void
 IManagedRuntimeServer	OnServerActivate	void	void
 IManagedRuntimeServer	OnGameFrame	void	bool simulating
@@ -31,10 +28,8 @@ IManagedRuntimeServer	OnInvalidateMdlCache	void	void
 IManagedRuntimeServer	OnSteamGameServerActivated	void	void
 IManagedRuntimeServer	OnSteamGameServerShutdown	void	void
 IManagedRuntimeServer	OnMapLoadPreEntity	void	const char *pszMapName
-IManagedRuntimeServer	OnMapUnloadPreEntity	void	void
 IManagedRuntimeServer	OnWorldKeyValue	int	uint32_t hWorld, const char *pKey, const char *pValue
 IManagedRuntimeServer	OnGetGameDescription	void	char *pOut, int nOutSize
-IManagedPhysicsFrame	Frame	void	void
 IManagedPhysicsFrame	CreateWorld	void *	void
 IManagedPhysicsFrame	PrecacheSurfaceSounds	int32_t	void
 IManagedResources	ServerDecalIndexForName	int32_t	const char *pszName
@@ -42,6 +37,7 @@ IManagedResources	ServerDecalNameForIndex	int32_t	int32_t nIndex, char *pOut, in
 IManagedResources	ServerDecalTranslateForGameMaterial	int32_t	const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize
 IManagedResources	ServerPropDataRandomChunkModel	int32_t	const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize
 IManagedResources	ModelPrecacheComponents	void	const char *pszModelName
+IManagedResources	ModelPrecacheCheck	void	const char *pszModelName, bool bAllowed
 IManagedSaveRestore	ReloadSave	int32_t	void
 IManagedSaveRestore	ReloadRestore	int32_t	void
 IManagedSaveRestore	SaveInit	void *	int32_t nSize, float flCurTime
@@ -75,7 +71,6 @@ IManagedEntities	TemplatesAddNamed	int32_t	const char *pszName, const char *pszC
 IManagedClients	OnClientConnect	int32_t	const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize
 IManagedClients	OnClientPutInServer	void	int32_t nEntIndex, const char *pPlayerName
 IManagedClients	OnClientActive	void	int32_t nEntIndex, int32_t bLoadGame
-IManagedClients	OnClientGamePrecache	void	void
 IManagedClients	OnRespawn	void	int32_t nEntIndex, int32_t bCopyCorpse
 IManagedClients	OnPlayerSpawn	void	uint32_t hPlayer
 IManagedClients	OnPlayerSpawned	void	uint32_t hPlayer
@@ -101,11 +96,6 @@ IManagedPlayerCommands	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
 IManagedPlayerCommands	PlayerRunCommands	int32_t	uint32_t hPlayer, int32_t nCount
 IManagedPlayerCommands	PlayerDecodeCommands	int32_t	uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead
 IManagedPlayerCommands	OnPlayerSurfaceChanged	void	uint32_t hPlayer, int32_t nGameMaterial
-IManagedFrame	Frame	void	float flFrameTime
-IManagedFrame	FramePreThink	void	float flFrameTime
-IManagedFrame	FramePostThink	void	float flFrameTime
-IManagedFrame	LevelInit	void	const char *pMapName
-IManagedFrame	LevelShutdown	void	void
 IManagedRuntimeClient	Frame	void	float flFrameTime
 IManagedRuntimeClient	ClientStage	void	int32_t nStage
 IManagedRuntimeClient	LevelInit	void	const char *pMapName
@@ -352,7 +342,6 @@ IManagedDetailPropsClient	DetailPrepare	void *	int32_t nKind, const float *pView
 IManagedDetailPropsClient	DetailEmit	void *	int32_t nMaxQuads
 IManagedSoundEmitter	ServerMoveSound	void	int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch
 IManagedSoundEmitter	ServerMoveSoundScript	void	int32_t nEntIndex, const float *pOrigin, const char *pSoundName
-IManagedSoundEmitter	ServerSoundSystemInit	bool	void
 IManagedSoundEmitter	ServerPrecacheScriptSound	void	const char *pSoundName
 # C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system's
 # registry and decisions are managed's. libss_fwd_client's forwarder class

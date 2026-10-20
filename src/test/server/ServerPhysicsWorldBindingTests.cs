@@ -34,12 +34,13 @@ public unsafe class ServerPhysicsWorldBindingTests
         using var vtables = new ManagedVtables();
         var crossings = new Crossings();
         var world = new World();
-        ManagedVtable table = IManagedPhysicsFrame__ManagedVtable.Create(vtables, new PhysicsFrameBinding(crossings, () => { }, () => world));
+        ManagedVtable table = IManagedPhysicsFrame__ManagedVtable.Create(vtables, new PhysicsFrameBinding(crossings, () => world));
 
-        // Release is slot 0, Validate 1, Frame 2, then the two rows in order
-        // (ParseModelSolid, slot 5, left with native's InitPhysics).
-        void* made = ((delegate* unmanaged<void*, void*>)Slot(table, 3))(table.Pointer);
-        int sounds = ((delegate* unmanaged<void*, int>)Slot(table, 4))(table.Pointer);
+        // Release is slot 0, Validate 1, then the two rows in order (Frame,
+        // slot 2, left with kServerSystems[] in plan_server_native_v2 T4e;
+        // ParseModelSolid with native's InitPhysics).
+        void* made = ((delegate* unmanaged<void*, void*>)Slot(table, 2))(table.Pointer);
+        int sounds = ((delegate* unmanaged<void*, int>)Slot(table, 3))(table.Pointer);
 
         Assert.Equal((nint)0x1234, (nint)made);
         Assert.Equal(17, sounds);
@@ -52,10 +53,10 @@ public unsafe class ServerPhysicsWorldBindingTests
     public void WithNoWorldBuiltTheSlotsAnswerNothing()
     {
         using var vtables = new ManagedVtables();
-        ManagedVtable table = IManagedPhysicsFrame__ManagedVtable.Create(vtables, new PhysicsFrameBinding(new Crossings(), () => { }));
+        ManagedVtable table = IManagedPhysicsFrame__ManagedVtable.Create(vtables, new PhysicsFrameBinding(new Crossings()));
 
-        Assert.Equal((nint)0, (nint)((delegate* unmanaged<void*, void*>)Slot(table, 3))(table.Pointer));
-        Assert.Equal(-1, ((delegate* unmanaged<void*, int>)Slot(table, 4))(table.Pointer));
+        Assert.Equal((nint)0, (nint)((delegate* unmanaged<void*, void*>)Slot(table, 2))(table.Pointer));
+        Assert.Equal(-1, ((delegate* unmanaged<void*, int>)Slot(table, 3))(table.Pointer));
     }
 
     [Fact]

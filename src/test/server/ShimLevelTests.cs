@@ -35,27 +35,36 @@ public unsafe class ShimLevelTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimLevelTableHasTwentySevenSlots()
+    public void TheShimLevelTableHasThirtyOneSlots()
         //
         // Twenty-two until the save lane's stage 2 appended LoadSaveGameState;
         // twenty-three until plan_server_novalve P2.1 appended FileSizeOnPath
         // and ReadFileOnPath; twenty-five until P5 appended SpawnWorld;
-        // twenty-six until plan_server_native_v2 T4a appended IsPrecacheAllowed.
-        => Assert.Equal(27, Forwarders.SlotCount<ShimLevelFwd>());
+        // twenty-six until plan_server_native_v2 T4a appended IsPrecacheAllowed;
+        // twenty-seven until T4e appended SetLoadType; thirty-one after T4e's
+        // four system walks retired and its seven system stages appended.
+        => Assert.Equal(31, Forwarders.SlotCount<ShimLevelFwd>());
 
     [Fact]
     public void EveryShimLevelFieldIsPointerSized()
-        => Assert.Equal(27 * sizeof(void*), sizeof(ShimLevelFwd));
+        => Assert.Equal(31 * sizeof(void*), sizeof(ShimLevelFwd));
 
     [Fact]
-    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotTwentySix()
+    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotThirty()
     {
+        // Four lower after plan_server_native_v2 T4e retired the four system
+        // walks (tools/engine-forwarders --reorder): InitPostEntitySystems,
+        // ShutdownPreClearSteamSystems, ShutdownPreEntitySystems and
+        // ShutdownPostEntitySystems.
         Assert.Equal(0, SlotOf("ResetServerTime"));
-        Assert.Equal(22, SlotOf("LoadSaveGameState"));
-        Assert.Equal(23, SlotOf("FileSizeOnPath"));
-        Assert.Equal(24, SlotOf("ReadFileOnPath"));
-        Assert.Equal(25, SlotOf("SpawnWorld"));
-        Assert.Equal(26, SlotOf("IsPrecacheAllowed"));
+        Assert.Equal(18, SlotOf("LoadSaveGameState"));
+        Assert.Equal(19, SlotOf("FileSizeOnPath"));
+        Assert.Equal(20, SlotOf("ReadFileOnPath"));
+        Assert.Equal(21, SlotOf("SpawnWorld"));
+        Assert.Equal(22, SlotOf("IsPrecacheAllowed"));
+        Assert.Equal(23, SlotOf("SetLoadType"));
+        Assert.Equal(24, SlotOf("PhysicsInit"));
+        Assert.Equal(30, SlotOf("ResetEntitySlots"));
     }
 
     [Fact]
@@ -64,8 +73,9 @@ public unsafe class ShimLevelTests
         // an append and against nothing else, so a method INSERTED in the
         // middle passes every count there is and silently misbinds every slot
         // below it. PropDataClearFile was the last field before stage 2 added
-        // LoadSaveGameState; it must still be at 21.
-        => Assert.Equal(21, SlotOf("PropDataClearFile"));
+        // LoadSaveGameState; it was at 21 until plan_server_native_v2 T4e's
+        // deliberate --reorder took four walks out above it, and is at 17.
+        => Assert.Equal(17, SlotOf("PropDataClearFile"));
 
     [Fact]
     public void ResetDeleteListIsSlotSeven()

@@ -140,7 +140,6 @@ internal sealed class FxTestRig : IFxRender, IFxTracerSound, IEngineHost
 
     // Not read by the effect list.
     public Side ActiveSide => throw new NotSupportedException();
-    public void EndRound() => throw new NotSupportedException();
     public bool IsInitialized => throw new NotSupportedException();
     public string ManagedDirectory => throw new NotSupportedException();
     public int RandomInt(int min, int max)

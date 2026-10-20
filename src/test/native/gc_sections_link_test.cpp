@@ -159,7 +159,8 @@ TEST( GcSectionsLink, PropsSharedIsInNeitherProject )
 	// propdata.txt for a chunk table nothing on the client read, and its
 	// "precache" was modelinfo->GetModelIndex, a lookup), and is deleted. The
 	// proofs-of-read are files each DLL does compile.
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_serversystems.cpp" ) );
+	// shell_frame.cpp: shell_serversystems.cpp left with kServerSystems[] (plan_server_native_v2 T4e).
+	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_frame.cpp" ) );
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_clientsystems.cpp" ) );
 	for ( const char *pszTarget : { cmake_graph::kServer, cmake_graph::kClient } )
 		EXPECT_FALSE( cmake_graph::Compiles( pszTarget, "sourcesharp/game/shared/shell_propdata_system.cpp" ) )

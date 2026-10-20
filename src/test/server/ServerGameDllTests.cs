@@ -23,6 +23,26 @@ public class ServerGameDllTests
     // The frame's I/O route, one per fact (plan_abi_hotreload D7: it was static).
     private readonly EntityIoRoutes _io = new();
 
+    // The log the dll under test writes to, one per fact.
+    private readonly RecordingLog _log = new();
+
+    /// <summary>
+    /// The managed row of kServerSystems[] (plan_server_native_v2 T4e), as
+    /// markers on the engine's own call list, so a pass's position among the
+    /// steps is one sequence.
+    /// </summary>
+    private sealed class NotingRow(RecordingEngine engine) : IServerSystemRow
+    {
+        public bool Init() { engine.Note("Row.Init"); return true; }
+        public void LevelInitPreEntity(string mapName) => engine.Note("Row.LevelInitPreEntity");
+        public void LevelInitPostEntity(string mapName) => engine.Note("Row.LevelInitPostEntity");
+        public void LevelShutdownPreEntity() => engine.Note("Row.LevelShutdownPreEntity");
+        public void LevelShutdownPostEntity() => engine.Note("Row.LevelShutdownPostEntity");
+        public void FramePreThink(float frameTime) => engine.Note("Row.FramePreThink");
+        public void Frame(float frameTime) => engine.Note("Row.Frame");
+        public void PhysicsFrame() => engine.Note("Row.PhysicsFrame");
+    }
+
     /// <summary>
     /// A real entity lump — braces and all — rather than the bare word
     /// <c>worldspawn</c> it used to be.
@@ -101,7 +121,7 @@ public class ServerGameDllTests
         // precedes the parse rather than merely that both happened.
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        var dll = new ServerGameDll(new RecordingLog(), engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, commandLine, engine, engine, engine, engine,
+        var dll = new ServerGameDll(_log, engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, commandLine, engine, engine, engine, engine,
                                     stringTables, modTable,
                                     // Phase A3: the lifecycle driver MapLoadPreEntity
                                     // dispatches into. An empty container here, so the
@@ -124,6 +144,13 @@ public class ServerGameDllTests
                                     // The I/O route the frame services, this
                                     // fact's own (plan_abi_hotreload D7).
                                     _io);
+
+        // kServerSystems[]'s order, with the managed row as markers.
+        engine.Returns("Level.PhysicsInit", true);
+        dll.Systems = new ServerSystems(engine, engine, new NotingRow(engine), _log);
+
+        // The frame's last managed point, as a marker (plan_server_native_v2 T4e).
+        dll.FrameEndParticipants = _ => engine.Note("Row.FramePostThink");
         return (dll, engine);
     }
 
@@ -279,6 +306,51 @@ public class ServerGameDllTests
         Assert.True(dll.GameStart(), "the managed side lets GameInit finish");
     }
 
+    /// <summary>
+    /// DLLInit's systems come up first in SystemStart (plan_server_native_v2
+    /// T4e), and a system that refuses stops the server, as InitAllSystems' false
+    /// did: the start does not happen.
+    /// </summary>
+    [Fact]
+    public void ASystemThatRefusesToInitStopsTheSystemStart()
+    {
+        var (dll, engine) = Build();
+        engine.Returns("Level.PhysicsInit", false);
+
+        Assert.False(dll.SystemStart());
+        Assert.False(dll.IsSystemStarted);
+    }
+
+    [Fact]
+    public void TheSystemStartRunsTheSystemsInitFirst()
+    {
+        var (dll, engine) = Build();
+
+        Assert.True(dll.SystemStart());
+        Assert.Equal(new[] { "Level.PhysicsInit", "Row.Init" },
+                     engine.Calls.Select(c => c.Member)
+                           .Where(n => n.StartsWith("Level.", StringComparison.Ordinal)
+                                    || n.StartsWith("Row.", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// Precache_Model's check reaches the rule the module gave it, with the
+    /// window's flag as native read it (plan_server_native_v2 T4e).
+    /// </summary>
+    [Fact]
+    public void AModelPrecacheCheckReachesTheLatePrecacheRule()
+    {
+        var (dll, _) = Build();
+        var said = new System.Collections.Generic.List<string>();
+        dll.LatePrecache = new LatePrecache(_ => false, said.Add);
+
+        ((IServerLevel)dll).ModelPrecacheCheck("models/a.mdl", allowed: true);
+        ((IServerLevel)dll).ModelPrecacheCheck("models/b.mdl", allowed: false);
+
+        Assert.Single(said);
+        Assert.StartsWith("Late precache of models/b.mdl", said[0], StringComparison.Ordinal);
+    }
+
     [Fact]
     public void GameStopUnwindsBothStarts()
     {
@@ -289,6 +361,225 @@ public class ServerGameDllTests
         dll.GameStop();
 
         Assert.True(!dll.IsSystemStarted && !dll.IsGameStarted, "GameShutdown leaves neither standing");
+    }
+
+    // ---- IServerLevel.MapLoad: LevelInit, one slot (plan_server_native_v2 T4e)
+
+    /// <summary>
+    /// Stock's first line in every arm is <c>gpGlobals-&gt;eLoadType = ...</c>,
+    /// before the restore or the parse. The write is the first level step.
+    /// </summary>
+    [Fact]
+    public void MapLoadWritesTheLoadTypeBeforeTheArmsFirstStep()
+    {
+        var (dll, engine) = Build();
+
+        dll.MapLoad(new MapLoad("background01", Lump), MapLoadType.Background);
+
+        var steps = StepsOf(engine);
+        Assert.True(steps.Length > 1 && steps[0] == "Level.SetLoadType" && steps[1] == "Level.ResetServerTime",
+            $"the load type is written first, then the arm runs (saw {string.Join(", ", steps.Take(2))})");
+        var write = engine.Calls.First(c => c.Member == "Level.SetLoadType");
+        Assert.Equal(MapLoadType.Background, (MapLoadType)write.Args[0]!);
+    }
+
+    [Fact]
+    public void MapLoadRunsTheArmItIsGiven()
+    {
+        var (dll, _) = Build();
+
+        dll.MapLoad(new MapLoad("background01", Lump), MapLoadType.Background);
+
+        Assert.True(dll.LoadType == MapLoadType.Background && dll.CurrentMap == "background01",
+            "the background arm ran");
+    }
+
+    [Fact]
+    public void MapLoadRunsTheTransitionArmForATransition()
+    {
+        var (dll, _) = Build();
+
+        dll.MapLoad(new MapLoad("d1_town_02", Lump, "d1_town_01", "town_gate"), MapLoadType.Transition);
+
+        Assert.True(dll.LoadType == MapLoadType.Transition, "the transition arm ran");
+    }
+
+    /// <summary>
+    /// The transition arm names itself as a refusal, in the shell's old words:
+    /// <c>grep -c REFUSED</c> over console.log is the tally the gate keeps.
+    /// </summary>
+    [Fact]
+    public void TheTransitionArmStillNamesItselfARefusal()
+    {
+        var (dll, _) = Build();
+
+        dll.MapLoad(new MapLoad("d1_town_02", Lump, "d1_town_01", "town_gate"), MapLoadType.Transition);
+
+        Assert.Contains(_log.Lines, l => l.Warning
+            && l.Text.Contains("REFUSED: IServerGameDLL::LevelInit (transition) was called", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ANewGameArmRefusesNothing()
+    {
+        var (dll, _) = Build();
+
+        dll.MapLoad(new MapLoad("de_dust", Lump), MapLoadType.NewGame);
+
+        Assert.DoesNotContain(_log.Lines, l => l.Text.Contains("REFUSED", StringComparison.Ordinal));
+    }
+
+    // ---- the world entity's precache (plan_server_native_v2 T4e) ------------
+    //
+    // Stock's CWorld::Precache (world.cpp), the part native no longer holds:
+    // sv_stepsize 18 and room_type 0, the window opened, the pre-entity pass,
+    // then what the world always precaches, in stock's order.
+
+    /// <summary>
+    /// A dll whose precache and sound precache land on the engine's call list,
+    /// with <paramref name="maxClients"/> in the globals and g_Language reading
+    /// <paramref name="language"/>.
+    /// </summary>
+    private (ServerGameDll Dll, RecordingEngine Engine, nint Globals) BuildForTheWorld(int maxClients = 1, string language = "0")
+    {
+        var (dll, engine) = Build();
+        nint globals = System.Runtime.InteropServices.Marshal.AllocHGlobal(System.Runtime.InteropServices.Marshal.SizeOf<CGlobalVarsRaw>());
+        for (int i = 0; i < System.Runtime.InteropServices.Marshal.SizeOf<CGlobalVarsRaw>(); i++)
+            System.Runtime.InteropServices.Marshal.WriteByte(globals, i, 0);
+        System.Runtime.InteropServices.Marshal.WriteInt32(globals,
+            (int)System.Runtime.InteropServices.Marshal.OffsetOf<CGlobalVarsRaw>(nameof(CGlobalVarsRaw.maxClients)), maxClients);
+
+        engine.Returns("Environment.Globals", new Globals(globals));
+        engine.Returns("Console.FindConVarValue", language);
+        engine.Returns("Precache.PrecacheModel", 1);
+        dll.ParticlePrecache = engine;
+        dll.PrecacheScriptSound = name => engine.Note("Sound.PrecacheScriptSound", name);
+        return (dll, engine, globals);
+    }
+
+    private static string[] PrecachesOf(RecordingEngine engine)
+        => engine.Calls
+            .Where(c => c.Member is "Precache.PrecacheModel" or "Precache.PrecacheParticleSystem")
+            .Select(c => c.ArgAs<string>(0))
+            .ToArray();
+
+    private static string[] ScriptSoundsOf(RecordingEngine engine)
+        => engine.Calls.Where(c => c.Member == "Sound.PrecacheScriptSound").Select(c => c.ArgAs<string>(0)).ToArray();
+
+    [Fact]
+    public void TheWorldsPrecacheSetsStocksConVarsAndOpensTheWindowBeforeThePass()
+    {
+        var (dll, engine, globals) = BuildForTheWorld();
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            var steps = engine.Calls
+                .Where(c => c.Member is "Console.SetConVarValueByName" or "Level.SetPrecacheAllowed"
+                                     or "Level.PhysicsLevelInitPreEntity" or "Row.LevelInitPreEntity")
+                .Select(c => c.Member == "Console.SetConVarValueByName" ? $"{c.Arg(0)}={c.Arg(1)}"
+                           : c.Member == "Level.SetPrecacheAllowed" ? $"allowed={c.Arg(0)}" : c.Member)
+                .ToArray();
+
+            Assert.Equal(new[]
+            {
+                "sv_stepsize=18", "room_type=0", "allowed=True",
+                "Level.PhysicsLevelInitPreEntity", "Row.LevelInitPreEntity",
+                "g_Language=0",
+            }, steps);
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
+    }
+
+    [Fact]
+    public void TheWorldsModelsAndParticlesFollowThePassInStocksOrder()
+    {
+        var (dll, engine, globals) = BuildForTheWorld();
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            var members = engine.Calls.Select(c => c.Member).ToList();
+            int pass = members.IndexOf("Row.LevelInitPreEntity");
+            int first = members.IndexOf("Precache.PrecacheModel");
+            Assert.True(pass >= 0 && first > pass, "the world's precaches follow the pre-entity pass");
+
+            Assert.Equal(new[]
+            {
+                // W_Precache, less the four native readers hold the indices of.
+                "sprites/zerogxplode.vmt", "sprites/WXplo1.vmt", "sprites/laserbeam.vmt", "sprites/laserdot.vmt",
+                "blood_impact_red_01", "blood_impact_green_01", "blood_impact_yellow_01",
+                "effects/bubble.vmt",
+                // ClientGamePrecache.
+                "models/player/male_01.mdl",
+                // The gibs for an English server.
+                "models/gibs/hgibs.mdl",
+            }, PrecachesOf(engine));
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
+    }
+
+    /// <summary>
+    /// Stock sets g_Language to English and then reads it, so the German arm
+    /// is reached only by a server whose g_Language read answers German: the
+    /// arm is kept, as stock's.
+    /// </summary>
+    [Fact]
+    public void AGermanLanguageReadPrecachesTheGermanGibs()
+    {
+        var (dll, engine, globals) = BuildForTheWorld(language: "1");
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            Assert.Equal("models/germangibs.mdl", PrecachesOf(engine).Last());
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
+    }
+
+    [Fact]
+    public void TheWorldsSoundsArePrecachedInStocksOrder()
+    {
+        var (dll, engine, globals) = BuildForTheWorld(maxClients: 1);
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            Assert.Equal(new[]
+            {
+                "BaseEntity.EnterWater", "BaseEntity.ExitWater",
+                "Underwater.BulletImpact", "FX_RicochetSound.Ricochet", "Physics.WaterSplash",
+                "BaseExplosionEffect.Sound", "Splash.SplashSound",
+            }, ScriptSoundsOf(engine));
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
+    }
+
+    [Fact]
+    public void AMultiplayerServerAlsoPrecachesTheChatSound()
+    {
+        var (dll, engine, globals) = BuildForTheWorld(maxClients: 2);
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            Assert.Equal("HudChat.Message", ScriptSoundsOf(engine).Last());
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
+    }
+
+    /// <summary>ClientGamePrecache's managed point, which printed one line.</summary>
+    [Fact]
+    public void TheManagedPrecachePointStillSaysSo()
+    {
+        var (dll, _, globals) = BuildForTheWorld();
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            Assert.Contains(_log.Lines, l => l.Text == "[SourceSharp/Server] precache\n");
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
     }
 
     // ---- IServerLevel: the four arms ---------------------------------------
@@ -1078,7 +1369,9 @@ public class ServerGameDllTests
     private static string[] FrameStepsOf(RecordingEngine engine)
         => engine.Calls
             .Select(c => c.Member)
-            .Where(n => n.StartsWith("Frame.", StringComparison.Ordinal)
+            .Where(n => (n.StartsWith("Frame.", StringComparison.Ordinal)
+                         && !n.EndsWith("ModelCacheLock", StringComparison.Ordinal))
+                     || n.StartsWith("Row.", StringComparison.Ordinal)
                      || n == "Entities.CleanupDeleteList")
             .ToArray();
 
@@ -1101,7 +1394,9 @@ public class ServerGameDllTests
             "Frame.SetServerCurTime",
             "Frame.GetFrameTime",
             "Entities.CleanupDeleteList",
-            "Frame.ServerSystemsPreThink",
+            // The named list's pre-entity-think pass: the managed row alone
+            // (ServerSystems, plan_server_native_v2 T4e).
+            "Row.FramePreThink",
             "Frame.GamestatsUpdateConnection",
             // THREE OF STOCK'S STEPS ARE NOT HERE, and each is a retired
             // IShimFrame slot rather than a step this port forgot --
@@ -1110,8 +1405,9 @@ public class ServerGameDllTests
             //
             //   PhysicsRunThinkFunctions was here, between the two system
             //   passes. physics_main.cpp left the vpc and the thinks are
-            //   managed: they drain inside ServerSystemsPostThink, on the next
-            //   line, from StandaloneHierarchy's hook.
+            //   managed: they drain inside the managed frame (Row.Frame), in
+            //   the post-entity-think pass below, from StandaloneHierarchy's
+            //   hook.
             //
             //   ServiceEventQueue was between ServerSystemsPostThink and the
             //   second reap. cbase.cpp defined the queue and both producers
@@ -1121,12 +1417,45 @@ public class ServerGameDllTests
             //   FireNetworkPropertyEvents was between EndGameFrame and
             //   SetFrameTime. g_NetworkPropertyEventMgr went at Phase 1d and
             //   nothing could ever have registered with it.
-            "Frame.ServerSystemsPostThink",
+            // The post-entity-think pass: the physics row's step, the managed
+            // frame, the slots drained.
+            "Row.PhysicsFrame",
+            "Row.Frame",
+            "Frame.DrainEntitySlots",
             "Entities.CleanupDeleteList",
             "Frame.UpdateAllClientData",
             "Frame.EndGameFrame",
+            // The frame's last managed point and the late drain, managed's
+            // calls since plan_server_native_v2 T4e (they were the rules
+            // object's, inside EndGameFrame).
+            "Row.FramePostThink",
+            "Frame.DrainEntitySlots",
             "Frame.SetFrameTime",
         }, FrameStepsOf(engine));
+    }
+
+    /// <summary>
+    /// The frame's last managed point runs after the rules' end of frame --
+    /// after the I/O queue and the client data -- and BEFORE the late drain: a
+    /// participant writing there would otherwise wait a tick to be announced,
+    /// which is the failure the late drain exists to prevent.
+    /// </summary>
+    [Fact]
+    public void TheLastManagedPointRunsAfterTheRulesAndBeforeTheLateDrain()
+    {
+        var (dll, engine) = Build();
+        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
+        engine.Returns("Frame.GetFrameTime", 0.015f);
+
+        dll.GameFrame(true);
+
+        var steps = FrameStepsOf(engine).ToList();
+        int rules = steps.IndexOf("Frame.EndGameFrame");
+        int point = steps.IndexOf("Row.FramePostThink");
+        int drain = steps.LastIndexOf("Frame.DrainEntitySlots");
+
+        Assert.True(rules >= 0 && point == rules + 1 && drain == point + 1,
+            $"the rules' end, the point, the drain, adjacent (saw {rules}, {point}, {drain})");
     }
 
     /// <summary>
@@ -1165,8 +1494,8 @@ public class ServerGameDllTests
 
         var steps = FrameStepsOf(engine).ToList();
 
-        int pre = steps.IndexOf("Frame.ServerSystemsPreThink");
-        int post = steps.IndexOf("Frame.ServerSystemsPostThink");
+        int pre = steps.IndexOf("Row.FramePreThink");
+        int post = steps.IndexOf("Row.PhysicsFrame");
 
         Assert.True(pre >= 0, "the pre-entity pass ran");
         Assert.Equal(pre + 2, post);
@@ -1228,7 +1557,7 @@ public class ServerGameDllTests
         // -- ent_fire in baseentity.cpp, the output-firing path in
         // entityoutput.cpp -- left the vpc with it. There is one queue now, and
         // it is serviced at the position the native one held.
-        Assert.Equal("Frame.ServerSystemsPostThink", beforeThePass[^1]);
+        Assert.Equal("Frame.DrainEntitySlots", beforeThePass[^1]);
     }
 
     /// <summary>
@@ -1281,7 +1610,7 @@ public class ServerGameDllTests
         // Its slot is retired (lane 3b-enginebind): no armed server TU can post
         // a native event, so the "native first" ordering argument above now has
         // one queue to order, at the position it argued for.
-        Assert.Equal("Frame.ServerSystemsPostThink", whole[stepsAtThePass - 1]);
+        Assert.Equal("Frame.DrainEntitySlots", whole[stepsAtThePass - 1]);
         Assert.Equal("Entities.CleanupDeleteList", whole[stepsAtThePass]);
     }
 
@@ -1333,7 +1662,7 @@ public class ServerGameDllTests
         var steps = FrameStepsOf(engine).ToList();
 
         int end = steps.IndexOf("Frame.EndGameFrame");
-        int postThink = steps.IndexOf("Frame.ServerSystemsPostThink");
+        int postThink = steps.IndexOf("Row.Frame");
         int clientData = steps.IndexOf("Frame.UpdateAllClientData");
 
         // EVERY INDEX IS REQUIRED TO BE FOUND. IndexOf answers -1 for a step
@@ -1372,7 +1701,7 @@ public class ServerGameDllTests
         // NothingRunsBetweenTheTwoSystemPasses for why that landmark replaced
         // the retired PhysicsRunThinkFunctions slot -- so the pass is what the
         // two reaps must bracket.
-        int thinks = steps.IndexOf("Frame.ServerSystemsPostThink");
+        int thinks = steps.IndexOf("Row.Frame");
 
         Assert.True(thinks >= 0, "the post-entity pass, which the thinks run inside, ran");
         Assert.True(first >= 0 && last > first && first < thinks && thinks < last,
@@ -1475,7 +1804,8 @@ public class ServerGameDllTests
     /// <summary>Every step of the activate, in the order it is recorded.</summary>
     private static string[] ActivateStepsOf(RecordingEngine engine)
         => engine.Calls.Select(c => c.Member)
-                 .Where(n => n.StartsWith("Level.", StringComparison.Ordinal))
+                 .Where(n => n.StartsWith("Level.", StringComparison.Ordinal)
+                          || n.StartsWith("Row.", StringComparison.Ordinal))
                  .ToArray();
 
     /// <summary>
@@ -1506,7 +1836,10 @@ public class ServerGameDllTests
         //   ServerActivate's activation pass.
         Assert.Equal(new[]
         {
-            "Level.InitPostEntitySystems",
+            // The named list's post-entity pass: CPhysicsHook, then the
+            // managed level init (ServerSystems, plan_server_native_v2 T4e).
+            "Level.PhysicsLevelInitPostEntity",
+            "Row.LevelInitPostEntity",
             "Level.SetPrecacheAllowed",
         }, ActivateStepsOf(engine));
     }
@@ -1528,31 +1861,17 @@ public class ServerGameDllTests
 
         var steps = ActivateStepsOf(engine).ToList();
 
-        Assert.True(steps.IndexOf("Level.InitPostEntitySystems")
-                  < steps.IndexOf("Level.SetPrecacheAllowed"),
+        int pass = steps.IndexOf("Row.LevelInitPostEntity");
+        Assert.True(pass >= 0 && pass < steps.IndexOf("Level.SetPrecacheAllowed"),
             "the precache window closes after the post-entity pass");
     }
 
-    /// <summary>
-    /// The activate walk comes BEFORE the post-entity pass, because that pass is
-    /// where the managed level init runs and it is entitled to find every map
-    /// entity already activated.
-    /// </summary>
-    [Fact]
-    public void TheActivateWalkComesBeforeThePostEntityPass()
-    {
-        var (dll, engine) = Build();
-        engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", "0");
-
-        dll.ServerActivate();
-
-        var steps = ActivateStepsOf(engine).ToList();
-
-        Assert.True(steps.IndexOf("Level.ActivateAllEntities")
-                  < steps.IndexOf("Level.InitPostEntitySystems"),
-            "entities activate before the post-entity systems pass");
-    }
+    // TheActivateWalkComesBeforeThePostEntityPass WAS HERE and is retired
+    // (plan_server_native_v2 T4e): it compared Level.ActivateAllEntities against
+    // the pass, and that slot was retired by lane 3b-enginebind, so its IndexOf
+    // answered -1 and the comparison held vacuously from then on. The walk is
+    // MapSpawner.ActivateAll, which records nothing here; ServerActivate's line
+    // order is what puts it before the pass.
 
     // ANonEmptyDeleteQueueOnLevelStartIsReported IS RETIRED WITH ITS SLOT, and
     // it is worth saying what it actually asserted, because the name promised
@@ -1689,14 +2008,24 @@ public class ServerGameDllTests
 
         Assert.Equal(new[]
         {
-            "Level.ShutdownPreClearSteamSystems",
-            // Level.ClearSteamAPIContext was here: the Steam context is C#'s
-            // own (plan_server_novalve.md P2.5), cleared by Host.SteamGameServerClear
-            // at this point -- TheSteamContextIsClearedAfterThePassNamedForIt.
-            "Level.ShutdownPreEntitySystems",
+            // Level.ShutdownPreClearSteamSystems was first: no row of
+            // kServerSystems[] declared the stage, so it went with the walks
+            // (plan_server_native_v2 T4e). Level.ClearSteamAPIContext followed:
+            // the Steam context is C#'s own (plan_server_novalve.md P2.5),
+            // cleared by Host.SteamGameServerClear at this point --
+            // TheSteamContextIsClearedBeforeThePreEntityPass.
+            //
+            // The pre-entity pass, backwards: the managed row, then physics.
+            "Row.LevelShutdownPreEntity",
+            "Level.PhysicsLevelShutdownPreEntity",
             "Level.ShutdownSoundEnt",
             "Level.ClearEntityList",
-            "Level.ShutdownPostEntitySystems",
+            // The post-entity pass, backwards: the managed row and its slot
+            // reset, physics, and the string pool last.
+            "Row.LevelShutdownPostEntity",
+            "Level.ResetEntitySlots",
+            "Level.PhysicsLevelShutdownPostEntity",
+            "Level.StringPoolLevelShutdownPostEntity",
             "Level.SetPrecacheAllowed",
             // UncacheAllParticleSystems and RecreateParticleDictionary were the
             // last two: CParticleSystemMgr's, gone with it (P2.1). The managed
@@ -1705,27 +2034,24 @@ public class ServerGameDllTests
     }
 
     /// <summary>
-    /// The steam context is cleared AFTER the pass named for it. That name is
-    /// the whole reason the pass exists separately: a system that reads the
-    /// context has to be told before it goes.
+    /// The steam context is cleared BEFORE the pre-entity pass, where stock's
+    /// was. The pass named for the clear (LevelShutdownPreClearSteamAPIContext)
+    /// had no row declaring it, so it went with kServerSystems[]'s walks
+    /// (plan_server_native_v2 T4e) and nothing runs ahead of the clear.
     /// </summary>
     [Fact]
-    public void TheSteamContextIsClearedAfterThePassNamedForIt()
+    public void TheSteamContextIsClearedBeforeThePreEntityPass()
     {
         var (dll, engine) = Build();
 
         dll.MapUnload();
 
-        // The clear is C#'s own now (plan_server_novalve.md P2.5), a Host call
-        // rather than a Level step, and it still sits where stock's did: after
-        // the pass named for it and before the pre-entity pass.
         var calls = engine.Calls.Select(c => c.Member).ToList();
-        int preClear = calls.IndexOf("Level.ShutdownPreClearSteamSystems");
         int clear = calls.IndexOf("Host.SteamGameServerClear");
-        int preEntity = calls.IndexOf("Level.ShutdownPreEntitySystems");
+        int preEntity = calls.IndexOf("Row.LevelShutdownPreEntity");
 
-        Assert.True(preClear >= 0 && clear > preClear && preEntity > clear,
-            "the pre-clear pass runs before the clear, and the clear before the pre-entity pass");
+        Assert.True(clear >= 0 && preEntity > clear,
+            "the clear runs, and before the pre-entity pass");
     }
 
     /// <summary>
@@ -1742,10 +2068,11 @@ public class ServerGameDllTests
 
         var steps = ActivateStepsOf(engine).ToList();
 
-        Assert.True(steps.IndexOf("Level.ShutdownPreEntitySystems")
-                  < steps.IndexOf("Level.ClearEntityList")
-                 && steps.IndexOf("Level.ClearEntityList")
-                  < steps.IndexOf("Level.ShutdownPostEntitySystems"),
+        int pre = steps.IndexOf("Level.PhysicsLevelShutdownPreEntity");
+        int clear = steps.IndexOf("Level.ClearEntityList");
+        int post = steps.IndexOf("Row.LevelShutdownPostEntity");
+
+        Assert.True(pre >= 0 && pre < clear && clear < post,
             "pre-entity pass, clear, post-entity pass");
     }
 
@@ -1800,10 +2127,9 @@ public class ServerGameDllTests
         dll.MapUnload();
 
         Assert.True(dll.CurrentMap.Length == 0 && dll.EntityLumpBytes == 0
-                 && ActivateStepsOf(engine).Length == 6,
-            "the map is forgotten and all six steps still ran (nine until the "
-            + "particle manager's two left, plan_server_novalve.md P2.1, and "
-            + "seven until the Steam context clear became C#'s own, P2.5)");
+                 && ActivateStepsOf(engine).Length == 9,
+            "the map is forgotten and all nine steps still ran (the passes' "
+            + "rows counted one by one since plan_server_native_v2 T4e)");
     }
 
     // ---- PreClientUpdate ---------------------------------------------------
@@ -1815,16 +2141,17 @@ public class ServerGameDllTests
     /// what makes an NDebugOverlay call from managed code visible at all.
     /// </summary>
     [Fact]
-    public void PreClientUpdateDrawsTheOverlaysThenRunsTheSystemsPass()
+    public void PreClientUpdateDrawsTheOverlaysAndRunsNoSystemsPass()
     {
         var (dll, engine) = Build();
 
         dll.PreClientUpdate();
 
+        // The named list's PreClientUpdate pass is not here: no row of
+        // kServerSystems[] declared the stage (plan_server_native_v2 T4e).
         Assert.Equal(new[]
         {
             "Frame.DrawAllDebugOverlays",
-            "Frame.ServerSystemsPreClientUpdate",
         }, FrameStepsOf(engine));
     }
 

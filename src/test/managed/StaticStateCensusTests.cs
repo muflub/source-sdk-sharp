@@ -59,7 +59,7 @@ public class StaticStateCensusTests
         // hold, into the Interop assemblies; a static that moved out of sight
         // would read as converted. Each side's interop holds the shared
         // interop too (plan_shim_areas_split phase 3).
-        typeof(SourceSharp.Server.Interop.FrameBinding).Assembly,
+        typeof(SourceSharp.Server.Interop.PhysicsFrameBinding).Assembly,
         typeof(client::SourceSharp.Client.Interop.ClientSideEntry).Assembly,
         // plan_devapi_interfaces: the dev API's hook assemblies hold no state.
         typeof(Debug.Api.DebugChannelClient).Assembly,

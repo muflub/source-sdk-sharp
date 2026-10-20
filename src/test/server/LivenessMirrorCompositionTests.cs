@@ -131,7 +131,8 @@ public class LivenessMirrorCompositionTests
             Spawn(module, Prop);
             Assert.True(Valid(engine, Prop), "alive before the shutdown (the positive arm)");
 
-            new FrameBinding(new Crossings(), new RecordingLog(), new QuietModule(), module.Services.Require<LivenessMirror>(), engine.Models, engine.Breaks).LevelShutdown();
+            new ManagedSystemRow(new RecordingLog(), new QuietModule(), () => true, _ => { }, () => { }, () => { },
+                                 module.Services.Require<LivenessMirror>(), engine.Models, engine.Breaks).LevelShutdownPostEntity();
 
             Assert.Equal(0, module.Services.Require<LivenessMirror>().RecordCount);
         }
@@ -145,10 +146,10 @@ public class LivenessMirrorCompositionTests
 
         try
         {
-            var held = typeof(FrameBinding)
+            var held = typeof(ManagedSystemRow)
                 .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 .Single(f => f.FieldType == typeof(LivenessMirror))
-                .GetValue(module.NewFrameBinding());
+                .GetValue(module.NewSystemRow());
 
             Assert.Same(module.Services.Require<LivenessMirror>(), held);
         }

@@ -25,7 +25,7 @@ namespace SourceSharp.Tests;
 /// pin a particular thunk's meaning — that is <c>CrossingsAuditTests</c>' job,
 /// against <c>Entry.cs</c> — so these use whichever ops make the arithmetic
 /// legible, except the two that ARE named contracts:
-/// <see cref="CrossingOp.ServerFrame"/> and <see cref="CrossingOp.ClientFrame"/>
+/// <see cref="CrossingOp.ServerGameFrame"/> and <see cref="CrossingOp.ClientFrame"/>
 /// are the per-frame denominators and each has a fact of its own.
 /// </para>
 /// </summary>
@@ -39,16 +39,16 @@ public class CrossingsTests
     public void CountIncrementsTheOpItNames()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
-        Assert.Equal(1, _crossings.Read(CrossingOp.ServerFrame));
+        Assert.Equal(1, _crossings.Read(CrossingOp.ServerGameFrame));
     }
 
     [Fact]
     public void CountLeavesEveryOtherOpAlone()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         Assert.Equal(0, _crossings.Read(CrossingOp.ClientFrame));
         Assert.Equal(0, _crossings.Read(CrossingOp.ServerThink));
@@ -75,7 +75,7 @@ public class CrossingsTests
     public void ResetZeroesEveryOp()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
         _crossings.Count(CrossingOp.ClientFrame);
         _crossings.Count(CrossingOp.ServerThink);
 
@@ -89,7 +89,7 @@ public class CrossingsTests
     public void ResetZeroesTheTotal()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
         _crossings.Reset();
 
         Assert.Equal(0, _crossings.Total);
@@ -113,19 +113,19 @@ public class CrossingsTests
     public void TotalIsTheSumOfEveryOp()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
         _crossings.Count(CrossingOp.ClientFrame);
 
         Assert.Equal(3, _crossings.Total);
     }
 
     [Fact]
-    public void ServerFramesReadsTheServerFrameOp()
+    public void ServerFramesReadsTheServerGameFrameOp()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         Assert.Equal(2, _crossings.ServerFrames);
     }
@@ -143,20 +143,20 @@ public class CrossingsTests
     public void ActiveOmitsOpsNothingHasEntered()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
-        Assert.Equal(new[] { "ServerFrame" }, _crossings.Active().Select(a => a.Name));
+        Assert.Equal(new[] { "ServerGameFrame" }, _crossings.Active().Select(a => a.Name));
     }
 
     [Fact]
     public void ActiveIsBiggestFirst()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
         _crossings.Count(CrossingOp.ClientFrame);
         _crossings.Count(CrossingOp.ClientFrame);
 
-        Assert.Equal(new[] { "ClientFrame", "ServerFrame" }, _crossings.Active().Select(a => a.Name));
+        Assert.Equal(new[] { "ClientFrame", "ServerGameFrame" }, _crossings.Active().Select(a => a.Name));
     }
 
     /// <summary>
@@ -168,10 +168,10 @@ public class CrossingsTests
     public void ActiveBreaksTiesByName()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
         _crossings.Count(CrossingOp.ClientFrame);
 
-        Assert.Equal(new[] { "ClientFrame", "ServerFrame" }, _crossings.Active().Select(a => a.Name));
+        Assert.Equal(new[] { "ClientFrame", "ServerGameFrame" }, _crossings.Active().Select(a => a.Name));
     }
 
     [Fact]
@@ -230,8 +230,8 @@ public class CrossingsTests
     public void ReportGivesEachOpAsARatePerServerFrame()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         for (int i = 0; i < 4; i++)
             _crossings.Count(CrossingOp.ServerThink);
@@ -329,7 +329,7 @@ public class CrossingsTests
     public void WriteReportFillsTheExactReportText()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         string expected = _crossings.Report();
         var buffer = new byte[_crossings.WriteReport(Span<byte>.Empty, reset: false)];
@@ -359,23 +359,23 @@ public class CrossingsTests
     public void WriteReportIgnoresResetOnASizingCall()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         _crossings.WriteReport(Span<byte>.Empty, reset: true);
 
-        Assert.Equal(1, _crossings.Read(CrossingOp.ServerFrame));
+        Assert.Equal(1, _crossings.Read(CrossingOp.ServerGameFrame));
     }
 
     [Fact]
     public void WriteReportResetsAfterFilling()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         var buffer = new byte[_crossings.WriteReport(Span<byte>.Empty, reset: false)];
         _crossings.WriteReport(buffer, reset: true);
 
-        Assert.Equal(0, _crossings.Read(CrossingOp.ServerFrame));
+        Assert.Equal(0, _crossings.Read(CrossingOp.ServerGameFrame));
     }
 
     /// <summary>
@@ -401,12 +401,12 @@ public class CrossingsTests
     public void WriteReportLeavesTheCountersAloneWhenNotAskedToReset()
     {
         _crossings.Reset();
-        _crossings.Count(CrossingOp.ServerFrame);
+        _crossings.Count(CrossingOp.ServerGameFrame);
 
         var buffer = new byte[_crossings.WriteReport(Span<byte>.Empty, reset: false)];
         _crossings.WriteReport(buffer, reset: false);
 
-        Assert.Equal(1, _crossings.Read(CrossingOp.ServerFrame));
+        Assert.Equal(1, _crossings.Read(CrossingOp.ServerGameFrame));
     }
 
     //-------------------------------------------------------------------------
