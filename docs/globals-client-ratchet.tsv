@@ -365,7 +365,20 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   buffer (s_Queries, s_Commands, MEMBER PixelVis:DLL) and the adapter's CPixelVisibilitySystem row
 #   (ClientSystem_ManagedPixelVisibility()::s_Row, MEMBER ClientSystems:DLL); make globals-client-ledger: 3 added; gate
 #   PASS. c_pixel_visibility.o's own statics leave with its eviction, after glow_overlay.cpp's.
-client_globals_link_level	src/game/client	711
+# RAISED 2026-10-19, 711 -> 714 (C7 glow overlays, the replacement): shell_glow_client.o's command buffer (s_Commands,
+#   MEMBER Glow:DLL) and its $hdrcolorscale token cache (UNRULED, as stock's in glow_overlay.o and the sprite leaf's
+#   are), and the adapter's CGlowOverlaySystem row (MEMBER ClientSystems:DLL); make globals-client-ledger: 3 added;
+#   gate PASS. glow_overlay.o's own statics leave with its eviction.
+# LOWERED 2026-10-19, 714 -> 713 (C7 glow overlays, warp_overlay.cpp's eviction): shell_explosion_overlay.o's
+#   RPGShotDown registration went with the file; warp_overlay.o's two PrecacheEffectWarp rows moved, rulings carried,
+#   to shell_glow_client.o (make globals-client-ledger: 1 pruned; gate PASS).
+# LOWERED 2026-10-19, 713 -> 701 (C7 glow overlays and pixel visibility, glow_overlay.cpp's and c_pixel_visibility.cpp's
+#   eviction): their ConVars (cl_ShowSunVectors, cl_sun_decay_rate and the four r_*pixelvis* are C#'s; building_cubemaps
+#   is the engine's, read by name), g_GlowOverlaySystem, g_flOverlayRange, CGlowOverlay::Draw's token cache,
+#   g_PixelVisibilitySystem and pixelvis_debug went with the files; PrecacheEffectGlow's two rows moved to
+#   shell_glow_client.o and PrecacheOcclusionProxy's two to shell_pixelvis_client.o, rulings carried
+#   (make globals-client-ledger: 12 pruned; gate PASS).
+client_globals_link_level	src/game/client	701
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -404,7 +417,13 @@ client_globals_link_level	src/game/client	711
 # LOWERED 2026-10-19, 652 -> 651 (C7 viewport system, the eviction): g_ViewportClientSystem's UNRULED row pruned.
 # RAISED 2026-10-19, 651 -> 655 (C7, 5d8deb7d0's render-trace hooks, ledgered after the fact): the instrument's four new
 #   statics, UNRULED as its other rows are (make globals-client-census: unruled 655).
-client_globals_unruled	docs/globals-client-ledger.tsv	655
+# RAISED 2026-10-19, 655 -> 656 (C7 glow overlays, the replacement): shell_glow_client.o's $hdrcolorscale token cache,
+#   UNRULED as stock's own in glow_overlay.o (which leaves with its eviction) and the sprite leaf's are.
+# LOWERED 2026-10-19, 656 -> 655 (C7 glow overlays, warp_overlay.cpp's eviction): shell_explosion_overlay.o's UNRULED
+#   RPGShotDown registration pruned.
+# LOWERED 2026-10-19, 655 -> 643 (C7 glow overlays and pixel visibility, the eviction): glow_overlay.o's and
+#   c_pixel_visibility.o's twelve UNRULED rows pruned (the four precache rows moved, still UNRULED).
+client_globals_unruled	docs/globals-client-ledger.tsv	643
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 # LOWERED 2026-10-19, 14 -> 13 (C7 screen-space effects, the eviction): CScreenSpaceEffectRegistration::s_pHead's list and
@@ -488,7 +507,17 @@ client_globals_floor	docs/globals-client-ledger.tsv	13
 # RAISED 2026-10-19, 119 -> 120 (C7 pixel visibility, the replacement): shell_pixelvis_client.o joins client.so; its two
 #   CUtlVectors have constructors, and cbase.h's header initialisers come with the TU (tools/globals-census summary
 #   --side client: objects_with_a_static_initialiser 120). c_pixel_visibility.o's eviction takes one out.
-client_globals_objects_with_static_init	src/game/client	120
+# RAISED 2026-10-19, 120 -> 121 (C7 glow overlays, the replacement): shell_glow_client.o joins client.so; its command
+#   buffer has a constructor, and cbase.h's header initialisers come with the TU (tools/globals-census summary --side
+#   client: objects_with_a_static_initialiser 121). glow_overlay.o's and warp_overlay.o's evictions take them out.
+# LOWERED 2026-10-19, 121 -> 119 (C7 glow overlays, warp_overlay.cpp's eviction): warp_overlay.o and
+#   shell_explosion_overlay.o left with their registrations (tools/globals-census summary --side client:
+#   objects_with_a_static_initialiser 119).
+# LOWERED 2026-10-19, 119 -> 117 (C7 glow overlays and pixel visibility, the eviction): glow_overlay.o and
+#   c_pixel_visibility.o left; their precache registrations' initialisers run in shell_glow_client.o and
+#   shell_pixelvis_client.o, which had one already (tools/globals-census summary --side client:
+#   objects_with_a_static_initialiser 117).
+client_globals_objects_with_static_init	src/game/client	117
 client_globals_reconcile_unattributed	src/game/client	0
 # RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static
 #   initialisers 129 -> 130. UTIL_IsLowViolence moved from the shared util_shared_library.cpp to client_util_library.cpp

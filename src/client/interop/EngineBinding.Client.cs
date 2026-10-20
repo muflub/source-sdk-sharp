@@ -82,9 +82,8 @@ internal sealed partial class EngineEffects
 
     public Vector ClientWindSpeed(float time) => E.ClientWindSpeed(time);
 
-    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP). Eight named
-    // primitives, not one kind+params slot; Sparks reuses ClientSparks above.
-    public void ClientExplosionFireball(Vector origin) => E.ClientExplosionFireball(origin);
+    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP): the last,
+    // ClientExplosionFireball, left with the glow overlays' port (C7).
 
     // THE LEGACY TEMP ENTITY POOL (plan_tmp.md Part 5, C-Phase 4).
     public int TempEntPoolCapacity() => E.TempEntPoolCapacity();

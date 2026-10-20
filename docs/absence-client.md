@@ -114,7 +114,10 @@ makes things bigger on screen, does not fade them out from under itself:
 
 (The two detail sites are `DetailPropSystem.cs`'s since detailobjectsystem.cpp
 left client.so in C7 cluster 10: `SortSpritesBackToFront` and
-`BuildRenderLists`, each with its factor of 1 and the warning below.)
+`BuildRenderLists`, each with its factor of 1 and the warning below. The glow
+site is `PixelVisibilitySystem.cs`'s `GlowSightDistance` since
+c_pixel_visibility.cpp left client.so in C7, its factor of 1 noted on the
+class.)
 
 `PlayerNetState` carries no `fov` and no `defaultFov`, so there is nothing for
 this client to divide: the factor is **1 by construction**, not by accident.

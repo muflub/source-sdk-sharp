@@ -47,7 +47,6 @@
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imesh.h"
 #include "engine/ivdebugoverlay.h"
-#include "c_pixel_visibility.h"
 #include "clientleafsystem.h"
 #include "view.h"
 #include "tier0/icommandline.h"
@@ -411,15 +410,6 @@ int32_t SourceSharp_BeamBoxVisibility( const float *pMinsXYZ, const float *pMaxs
 	const Vector &mins = *reinterpret_cast< const Vector * >( pMinsXYZ );
 	const Vector &maxs = *reinterpret_cast< const Vector * >( pMaxsXYZ );
 	return ( engine->IsBoxVisible( mins, maxs ) ? 1 : 0 ) | ( engine->CullBox( mins, maxs ) ? 2 : 0 );
-}
-
-// Stock's beam never set its query handle, so this is the handle-less arm of
-// PixelVisibility_FractionVisible: a sight trace, 1 or 0.
-float SourceSharp_BeamHaloVisibility( const float *pOriginXYZ, float flProxySize )
-{
-	pixelvis_queryparams_t params;
-	params.Init( *reinterpret_cast< const Vector * >( pOriginXYZ ), flProxySize );
-	return PixelVisibility_FractionVisible( params, NULL );
 }
 
 int32_t SourceSharp_BeamScreenPosition( const float *pPointXYZ, float *pOutScreenXYZ )

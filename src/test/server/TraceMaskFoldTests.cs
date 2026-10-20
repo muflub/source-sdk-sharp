@@ -87,6 +87,7 @@ public sealed unsafe class TraceMaskFoldTests : System.IDisposable
     [InlineData(TraceMask.BlockLos, 0x4041)]
     [InlineData(TraceMask.OpaqueAndNpcsWindow, 0x2004083)]
     [InlineData(TraceMask.GlowSight, 0x6004081)]
+    [InlineData(TraceMask.ContentsSolid, 0x1)]
     [InlineData((TraceMask)99, 0x400b)]
     public void ALineTraceCarriesTheEnginesOwnMask(TraceMask mask, int engine)
     {

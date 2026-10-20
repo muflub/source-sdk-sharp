@@ -290,9 +290,13 @@ const char *kEvicted[] =
 	"game/client/c_te_explosion.cpp",
 };
 
+// The native replacement that stays: the evicted temp entities' backends.
+// (shell_explosion_overlay.cpp, c_te_explosion.cpp's overlay, left with the
+// glow overlays' port, C7: CExplosionOverlay is the managed GlowOverlaySystem's
+// RampOverlay.)
 const char *kReplacements[] =
 {
-	"sourcesharp/game/client/shell_explosion_overlay.cpp",
+	"sourcesharp/game/client/shell_te_backends_client.cpp",
 };
 
 //-----------------------------------------------------------------------------
@@ -489,33 +493,37 @@ TEST( TempEntEvicted, TheParticleEmitterIsCSharpAndItsShimIsGone )
 	EXPECT_FALSE( Exists( "sourcesharp/game/client/shell_te_particle_render.cpp" ) )
 		<< "shell_te_particle_render.cpp is back; the emitter is C#'s (TeParticles)";
 	// Positive control of the same probe: a shim file that stays.
-	EXPECT_TRUE( Exists( "sourcesharp/game/client/shell_explosion_overlay.cpp" ) );
+	EXPECT_TRUE( Exists( "sourcesharp/game/client/shell_te_backends_client.cpp" ) );
 }
 
 //-----------------------------------------------------------------------------
-// c_te_explosion.cpp: the overlay moved.
+// c_te_explosion.cpp: the overlay moved to the shim (step 7b), and then to C#
+// (C7 glow overlays: the managed GlowOverlaySystem's RampOverlay).
 //-----------------------------------------------------------------------------
-TEST( TempEntEvicted, TheExplosionOverlayHasExactlyOneDefinitionInTheTree )
+TEST( TempEntEvicted, TheExplosionOverlayIsCSharpAndNoCompiledTuDefinesIt )
 {
 	const std::vector< std::string > files = ClientCompiledFiles();
 
 	ASSERT_NO_FATAL_FAILURE( AssertTheClientFileListParsed( files ) );
 
 	std::vector< std::string > definers;
+	int nBackends = 0;
 
 	for ( size_t i = 0; i < files.size(); i++ )
 	{
 		const std::string body = SourceSharpArm( StripComments( Read( files[ i ] ) ) );
 
-		if ( body.find( "CExplosionOverlay::Update" ) != std::string::npos )
+		if ( body.find( "CExplosionOverlay::Update" ) != std::string::npos ||
+		     body.find( "new CExplosionOverlay" ) != std::string::npos )
 			definers.push_back( files[ i ] );
+		// Positive control of the same sweep: a backend that stays, found by its definition.
+		if ( body.find( "void SourceSharp_ClientEnergySplash(" ) != std::string::npos )
+			nBackends++;
 	}
 
-	ASSERT_EQ( definers.size(), 1u )
-		<< "exactly one compiled TU defines the overlay -- two shim TUs emit its "
-		   "vtable, so zero is a link error and two is a drift";
-	EXPECT_EQ( definers[ 0 ], "sourcesharp/game/client/shell_explosion_overlay.cpp" )
-		<< "and it is the shim's";
+	EXPECT_EQ( nBackends, 1 ) << "the sweep finds the energy splash's one definition";
+	EXPECT_TRUE( definers.empty() )
+		<< "no compiled TU defines or makes the native explosion overlay; the first is " << ( definers.empty() ? "" : definers[ 0 ] );
 }
 
 //=============================================================================//

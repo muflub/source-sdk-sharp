@@ -653,11 +653,16 @@ TEST( LeafCyclePch, NoPrecompiledHeaderDirectiveExistsInThisProjectAnyMore )
 	// never ran and which has left the tree; the shape is described above.
 	//
 	// The build this repo DOES run is client_sourcesharp
-	// (src/client/native/CMakeLists.txt), read through cmake_graph.h.
-	const char *const kPixelVis = "game/client/c_pixel_visibility.cpp";
+	// (src/client/native/CMakeLists.txt), read through cmake_graph.h. The
+	// worked example itself left client.so (C7: c_pixel_visibility.cpp's
+	// decisions are C#'s PixelVisibilitySystem), so the compile command read
+	// is its executor's, a TU that starts with cbase.h as the example did.
+	const char *const kPixelVis = "sourcesharp/game/client/shell_pixelvis_client.cpp";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/c_pixel_visibility.cpp" ) )
+		<< "c_pixel_visibility.cpp is back in the build";
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kPixelVis ) )
-		<< "c_pixel_visibility.cpp has left the build, so the cluster this "
-		<< "lane measured is not the one on disk";
+		<< kPixelVis << " has left the build, so there is no compile command "
+		<< "to read the reading's shape from";
 
 	EXPECT_FALSE( Contains( cmake_graph::ListText( cmake_graph::kClient ), "target_precompile_headers" ) )
 		<< cmake_graph::ListFile( cmake_graph::kClient ) << " declares a "

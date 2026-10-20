@@ -1042,3 +1042,43 @@ ss_cpptest_mathlib(pixelvis_oracle_test
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/pixelvis_oracle_test.cpp
     LIBS ${tier2_stock})
 endif()
+
+# THE GLOW OVERLAY ORACLE (C7, glow_overlay.cpp and warp_overlay.cpp): stock's
+# glow overlays -- the active list, each overlay's obstruction (the pixel
+# visibility question, the trace and its fade, building cubemaps, the cache
+# flags), the sprites' size, colour and basis, the frustum cull, the default
+# material and $hdrcolorscale, the wireframe pass, r_drawsprites, the clipping
+# switch, the warp overlay's draw and the sky overlays -- run offline from the
+# PRISTINE game/client/glow_overlay.cpp and warp_overlay.cpp over a scripted
+# world and vtable doubles of the material system
+# (glowoverlay_stub/glowoverlay_harness.h says what is stock and what is
+# stand-in), held to the golden src/test/client/Fixtures/glowoverlay-stock.tsv,
+# which the managed GlowOverlaySystem's facts replay. mathlib for the vector
+# math, tier1 for the ConVars and CUtlLinkedList, the pristine tier2.a for
+# CMeshBuilder's quad indices. The -Wno- flags are for VALVE'S CODE and headers,
+# as the pixel visibility oracle's.
+set(glowoverlay_stock "${SS_VALVE_SRC}/game/client/glow_overlay.cpp")
+set(warpoverlay_stock "${SS_VALVE_SRC}/game/client/warp_overlay.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${glowoverlay_stock}" OR NOT EXISTS "${warpoverlay_stock}" OR NOT EXISTS "${tier2_stock}")
+  ss_oracle_missing(glowoverlay_oracle_test "no ${glowoverlay_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subjects and the headers they include by quote are COPIED, byte for byte,
+# into their own directory: their quoted #includes would otherwise find
+# game/client's real headers beside them ahead of the stand-ins.
+configure_file("${glowoverlay_stock}" "${CMAKE_CURRENT_BINARY_DIR}/glowoverlay_subject/glow_overlay.cpp" COPYONLY)
+configure_file("${warpoverlay_stock}" "${CMAKE_CURRENT_BINARY_DIR}/glowoverlay_subject/warp_overlay.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/glow_overlay.h" "${CMAKE_CURRENT_BINARY_DIR}/glowoverlay_subject/glow_overlay.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/c_pixel_visibility.h" "${CMAKE_CURRENT_BINARY_DIR}/glowoverlay_subject/c_pixel_visibility.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/sun_shared.h" "${CMAKE_CURRENT_BINARY_DIR}/glowoverlay_subject/sun_shared.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(glowoverlay_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-unused-private-field -Wno-dangling-else -Wno-reorder-ctor -Wno-overloaded-virtual
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/glowoverlay_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/glowoverlay_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+             ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/client/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/glowoverlay_oracle_test.cpp
+    LIBS ${tier2_stock})
+endif()

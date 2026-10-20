@@ -9,7 +9,6 @@ src/sourcesharp/game/client/shell_clientdll_appsystems.cpp	OURS	relocated Valve 
 src/sourcesharp/game/client/shell_clientdll_gameclientexports.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/client/shell_dust_render.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/client/shell_effects_sim.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
-src/sourcesharp/game/client/shell_explosion_overlay.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/client/shell_impact_effects.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/client/shell_recipientfilter_client.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/client/shell_sprite_leaf.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27

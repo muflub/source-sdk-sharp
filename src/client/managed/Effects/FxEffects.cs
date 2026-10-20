@@ -42,7 +42,7 @@ public interface IFxRoutineEnvironment
     void ImpactOverlay(Vector position, Vector normal, float r, float g, float b);
 }
 
-/// <summary>The real one: the sound through the game sounds, the overlay through IShimFxClient::FxImpactOverlay.</summary>
+/// <summary>The real one: the sound through the game sounds, the overlay through the managed glow overlays (GlowOverlayCreators).</summary>
 public sealed class FxRoutineEnvironment(IFxGameSounds sounds, IFxImpactOverlay overlay) : IFxRoutineEnvironment
 {
     // CLocalPlayerFilter, SOUND_FROM_WORLD, the script's own parameters at the point.

@@ -77,14 +77,6 @@
 #       consumer plus a lifetime tier on a client root (MEMBER).
 #
 home	mangled	name	tu	bind	kind	scope	size	disposition	owner	reason
-	_ZN22PrecacheOcclusionProxy20ClientEffectRegister14m_pszMaterialsE	PrecacheOcclusionProxy::ClientEffectRegister::m_pszMaterials	game/client/c_pixel_visibility.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
-	_ZN22PrecacheOcclusionProxy29register_ClientEffectRegisterE	PrecacheOcclusionProxy::register_ClientEffectRegister	game/client/c_pixel_visibility.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-c_pixel_visibility.o	_ZL23g_PixelVisibilitySystem	g_PixelVisibilitySystem	game/client/c_pixel_visibility.cpp	LOCAL	bss	file-or-global	208	UNRULED		
-c_pixel_visibility.o	_ZL22pixelvis_debug_command	pixelvis_debug_command	game/client/c_pixel_visibility.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-	r_dopixelvisibility	r_dopixelvisibility	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	r_drawpixelvisibility	r_drawpixelvisibility	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	r_pixelvisibility_partial	r_pixelvisibility_partial	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	r_pixelvisibility_spew	r_pixelvisibility_spew	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	_ZZ15AllocTempVectorvE8s_nIndex	AllocTempVector()::s_nIndex	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	4	UNRULED		
 	_ZZ15AllocTempVectorvE9s_vecTemp	AllocTempVector()::s_vecTemp	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	1536	UNRULED		
 clientshadowmgr.o	_ZZN16CClientShadowMgr26BuildActiveShadowDepthListERK10CViewSetupiPtE18s_bOverflowWarning	CClientShadowMgr::BuildActiveShadowDepthList(CViewSetup const&, int, unsigned short*)::s_bOverflowWarning	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	1	UNRULED		
@@ -116,16 +108,6 @@ clientshadowmgr.o	_ZL17s_ClientShadowMgr	s_ClientShadowMgr	game/client/clientsha
 clientshadowmgr.o	_ZL19s_VisibleShadowList	s_VisibleShadowList	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 clientshadowmgr.o	_ZL8s_bBreak	s_bBreak	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 clientshadowmgr.o	_ZL25s_nRttShadowTexturesDrawn	s_nRttShadowTexturesDrawn	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-glow_overlay.o	_ZZN12CGlowOverlay4DrawEbE19nHDRColorScaleCache	CGlowOverlay::Draw(bool)::nHDRColorScaleCache	game/client/glow_overlay.cpp	LOCAL	bss	function-local	4	UNRULED		
-	_ZN18PrecacheEffectGlow20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectGlow::ClientEffectRegister::m_pszMaterials	game/client/glow_overlay.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
-	_ZN18PrecacheEffectGlow29register_ClientEffectRegisterE	PrecacheEffectGlow::register_ClientEffectRegister	game/client/glow_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-	building_cubemaps	building_cubemaps	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	cl_ShowSunVectors	cl_ShowSunVectors	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	cl_sun_decay_rate	cl_sun_decay_rate	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-	g_GlowOverlaySystem	g_GlowOverlaySystem	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	56	UNRULED		
-	g_flOverlayRange	g_flOverlayRange	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
-	_ZN18PrecacheEffectWarp20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectWarp::ClientEffectRegister::m_pszMaterials	game/client/warp_overlay.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
-	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	game/client/warp_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 steamid.o	_ZZNK8CSteamID6RenderEvE4nBuf	CSteamID::Render() const::nBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 steamid.o	_ZZNK8CSteamID6RenderEvE7rgchBuf	CSteamID::Render() const::rgchBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	148	DEAD		the linker drops it: nothing in the shipped .so reads it
 client_util_library.o	_ZZ7VarArgsPKczE6string	VarArgs(char const*, ...)::string	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	function-local	1024	UNRULED		
@@ -201,7 +183,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1160	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1168	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -287,12 +269,17 @@ shell_entitystatics.o	_ZL14cl_interpolate	cl_interpolate	sourcesharp/game/client
 	s_bAbsQueriesValid	s_bAbsQueriesValid	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
 	s_bAbsRecomputationEnabled	s_bAbsRecomputationEnabled	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
 	s_bInterpolate	s_bInterpolate	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
-shell_explosion_overlay.o	_ZL35ClientEffectReg_RPGShotDownCallback	ClientEffectReg_RPGShotDownCallback	sourcesharp/game/client/shell_explosion_overlay.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 	_ZN12InterfaceReg16s_pInterfaceRegsE	InterfaceReg::s_pInterfaceRegs	sourcesharp/game/client/shell_factory_client.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		tier1 interface.cpp's registry head (shell_factory_client.cpp): the EXPOSE macros' static-init rows chain here, and CreateInterface, which the engine resolves by name, walks it. It lives as long as client.so's exported factory (C9)
 shell_factory_client.o	_ZL11s_Factories	s_Factories	sourcesharp/game/client/shell_factory_client.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 shell_flashlight_client.o	_ZN12_GLOBAL__N_120g_FlashlightTexturesE	(anonymous namespace)::g_FlashlightTextures	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	32	MEMBER	Flashlight:DLL	the texture references FlashlightTexture holds for the DLL's life, so the ITexture pointer the client shadow manager keeps in a FlashlightState_t stays referenced (stock: CFlashlightEffect's m_FlashlightTexture); carries out SourceSharp.Client.Flashlight's choice, decides nothing (C7 cluster 12)
 shell_flashlight_client.o	_ZN12_GLOBAL__N_121g_nFlashlightTexturesE	(anonymous namespace)::g_nFlashlightTextures	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	4	MEMBER	Flashlight:DLL	how many of g_FlashlightTextures are held; with them for the DLL's life (C7 cluster 12)
 shell_flashlight_client.o	_ZN12_GLOBAL__N_126g_szFlashlightTextureNamesE	(anonymous namespace)::g_szFlashlightTextureNames	sourcesharp/game/client/shell_flashlight_client.cpp	LOCAL	bss	function-local	1040	MEMBER	Flashlight:DLL	the names g_FlashlightTextures were held by, the lookup that answers a name already held with its id (C7 cluster 12)
+shell_glow_client.o	_ZZN12_GLOBAL__N_17ExecuteEPKiiE19nHDRColorScaleCache	(anonymous namespace)::Execute(int const*, int)::nHDRColorScaleCache	sourcesharp/game/client/shell_glow_client.cpp	LOCAL	bss	function-local	4	UNRULED		
+shell_glow_client.o	_ZN12_GLOBAL__N_110s_CommandsE	(anonymous namespace)::s_Commands	sourcesharp/game/client/shell_glow_client.cpp	LOCAL	bss	function-local	32	MEMBER	Glow:DLL	reset_today=n/a: the buffer a glow overlay draw hands managed for its command words, grown when they do not fit; refilled every draw, read back by nothing between draws (C7).
+	_ZN18PrecacheEffectGlow20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectGlow::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_glow_client.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
+	_ZN18PrecacheEffectGlow29register_ClientEffectRegisterE	PrecacheEffectGlow::register_ClientEffectRegister	sourcesharp/game/client/shell_glow_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
+	_ZN18PrecacheEffectWarp20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectWarp::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_glow_client.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
+	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	sourcesharp/game/client/shell_glow_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 shell_hud.o	_ZN12_GLOBAL__N_19g_UiPaintE	(anonymous namespace)::g_UiPaint	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_hud.o	_ZL24g_CSourceSharpHud_Helper	g_CSourceSharpHud_Helper	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_hud.o	_ZL15invnext_command	invnext_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
@@ -371,6 +358,7 @@ shell_legacy_tempents_client.o	_ZL10g_TempEnts	g_TempEnts	sourcesharp/game/clien
 	tempents	tempents	sourcesharp/game/client/shell_legacy_tempents_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_loadingdisc_client.o	_ZL13g_LoadingDisc	g_LoadingDisc	sourcesharp/game/client/shell_loadingdisc_client.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	loadingdisc	loadingdisc	sourcesharp/game/client/shell_loadingdisc_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
+shell_managed_clientsystems_client.o	_ZZ31ClientSystem_ManagedGlowOverlayvE5s_Row	ClientSystem_ManagedGlowOverlay()::s_Row	sourcesharp/game/client/shell_managed_clientsystems_client.cpp	LOCAL	bss	function-local	32	MEMBER	ClientSystems:DLL	reset_today=n/a: the row's adapter lives for the DLL's life, as kClientSystems[] walks it from Init to Shutdown. It holds the row's name and a warned-once flag; every stage is managed's GlowOverlaySystem's (C7).
 shell_managed_clientsystems_client.o	_ZZ35ClientSystem_ManagedPixelVisibilityvE5s_Row	ClientSystem_ManagedPixelVisibility()::s_Row	sourcesharp/game/client/shell_managed_clientsystems_client.cpp	LOCAL	bss	function-local	32	MEMBER	ClientSystems:DLL	reset_today=n/a: the row's adapter lives for the DLL's life, as kClientSystems[] walks it from Init to Shutdown. It holds the row's name and a warned-once flag; every stage is managed's PixelVisibilitySystem's (C7).
 shell_managed_clientsystems_client.o	_ZZ28ClientSystem_ManagedViewportvE5s_Row	ClientSystem_ManagedViewport()::s_Row	sourcesharp/game/client/shell_managed_clientsystems_client.cpp	LOCAL	bss	function-local	32	MEMBER	ClientSystems:DLL	reset_today=n/a: the row's adapter lives for the DLL's life, as kClientSystems[] walks it from Init to Shutdown. It holds the row's name and a warned-once flag; every stage is managed's ViewportClientSystem's (IManagedClientSystemsClient::Stage). Decides nothing (C7, vgui_game_viewport.cpp)
 	_ZN24PrecacheEffectBloodSpray20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectBloodSpray::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_managed_particles.cpp	GLOBAL	data	class-or-namespace	32	UNRULED		
@@ -462,6 +450,8 @@ shell_physics_client.o	_ZZ20ClientSystem_PhysicsvE15s_PhysicsSystem	ClientSystem
 	physprops	physprops	sourcesharp/game/client/shell_physics_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_pixelvis_client.o	_ZN12_GLOBAL__N_110s_CommandsE	(anonymous namespace)::s_Commands	sourcesharp/game/client/shell_pixelvis_client.cpp	LOCAL	bss	function-local	32	MEMBER	PixelVis:DLL	reset_today=n/a: the buffer a view's end hands managed for its command words, grown when they do not fit; refilled every view, read back by nothing between views (C7).
 shell_pixelvis_client.o	_ZN12_GLOBAL__N_19s_QueriesE	(anonymous namespace)::s_Queries	sourcesharp/game/client/shell_pixelvis_client.cpp	LOCAL	bss	function-local	32	MEMBER	PixelVis:DLL	reset_today=n/a: the render context's occlusion query objects managed's PixelVisibilitySystem made, by id, for the DLL's life; managed destroys each at its level's end (and a reload's new build the old one's). Storage only (C7).
+	_ZN22PrecacheOcclusionProxy20ClientEffectRegister14m_pszMaterialsE	PrecacheOcclusionProxy::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_pixelvis_client.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
+	_ZN22PrecacheOcclusionProxy29register_ClientEffectRegisterE	PrecacheOcclusionProxy::register_ClientEffectRegister	sourcesharp/game/client/shell_pixelvis_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	g_nKillCamMode	g_nKillCamMode	sourcesharp/game/client/shell_player_orphans.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
 shell_precipitation_client.o	_ZN12_GLOBAL__N_110s_SplashesE	(anonymous namespace)::s_Splashes	sourcesharp/game/client/shell_precipitation_client.cpp	LOCAL	bss	function-local	1536	UNRULED		
 shell_precipitation_client.o	_ZN12_GLOBAL__N_110s_TracerInE	(anonymous namespace)::s_TracerIn	sourcesharp/game/client/shell_precipitation_client.cpp	LOCAL	bss	function-local	458752	UNRULED		

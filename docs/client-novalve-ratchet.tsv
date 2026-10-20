@@ -1,6 +1,9 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, C7 glow overlays and pixel visibility (glow_overlay.cpp's and c_pixel_visibility.cpp's eviction, one commit: each links a symbol of the other), measured by tools/client-novalve-census on the lane at main a001d7a31: both left client.so (the overlays are GlowOverlaySystem's, the pixel visibility PixelVisibilitySystem's): fork-src 3 -> 1, fork-hdr-not-allowed 303 -> 298, fork-hdr-total 467 -> 462, incdir-forbidden-tus 140 -> 138, sdk-links 515 -> 510 (the two .cpp and glow_overlay.h, c_sun.h and sun_shared.h, which only glow_overlay.cpp read: make sdk-census), logic-lines 7515 unchanged (the four retired shim bodies were ruled BOUNDARY). Hand-edited.
+# 2026-10-19, C7 glow overlays (warp_overlay.cpp's eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: warp_overlay.cpp left client.so with the native warp overlays (CWarpOverlay::Draw is WarpOverlay's, the explosion and impact overlays and RPGShotDown are GlowOverlaySystem's): fork-src 4 -> 3, fork-hdr-not-allowed 305 -> 303, fork-hdr-total 469 -> 467, incdir-forbidden-tus 142 -> 140 (warp_overlay.cpp and shell_explosion_overlay.cpp), sdk-links 517 -> 515 (the .cpp and fx_explosion.h, which only the fireball's backend read: make sdk-census), logic-lines 7566 -> 7515 (the fireball backend, RPGShotDownCallback and the console arm's fireball, UNRULED, gone). Hand-edited.
+# 2026-10-19, C7 glow overlays (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_glow_client.cpp (the view handed to managed's GlowOverlaySystem and the executor of its commands) joins client.so: incdir-forbidden-tus 141 -> 142 RAISED (the one new TU; glow_overlay.cpp's and warp_overlay.cpp's evictions take two out); logic-lines 7566 unchanged (the new functions ruled SLOT, SLOT-HELP and HOOK). Hand-edited.
 # 2026-10-19, C7 pixel visibility (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_pixelvis_client.cpp (the occlusion query table and the executor of the proxies managed answers a view's end with) joins client.so: incdir-forbidden-tus 140 -> 141 RAISED (the one new TU; c_pixel_visibility.cpp's eviction, after glow_overlay.cpp's, takes one out); logic-lines 7566 unchanged (the new functions ruled SLOT, SLOT-HELP and HOOK). Hand-edited.
 # 2026-10-19, C7 viewport system (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: vgui_game_viewport.cpp left client.so (CViewportClientSystem is managed's ViewportClientSystem, its row the adapter's): fork-src 5 -> 4, fork-hdr-not-allowed 306 -> 305, fork-hdr-total 470 -> 469, incdir-forbidden-tus 141 -> 140, sdk-links 518 -> 517 (the .cpp); logic-lines 7566 unchanged. Hand-edited.
 # 2026-10-19, C7 viewport system (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_managed_clientsystems_client.cpp (the kClientSystems[] row adapter for managed client systems) joins client.so: incdir-forbidden-tus 140 -> 141 RAISED (the one new TU; vgui_game_viewport.cpp's eviction takes one out); logic-lines 7566 unchanged (the adapter ruled SLOT, SLOT-HELP and HOOK, ClientModeLayout BOUNDARY). Hand-edited.
@@ -285,9 +288,9 @@
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
 # 2026-10-19, C7 cluster 12 L2, the eviction: clientleafsystem.cpp left client.so (tools/client-novalve-census): fork-hdr-not-allowed 311 -> 309,
 #   fork-hdr-total 475 -> 473, fork-src 8 -> 7, incdir-forbidden-tus 142 -> 141, sdk-links 522 -> 521. Hand-edited.
-fork-hdr-not-allowed	305
-fork-hdr-total	469
-fork-src	4
+fork-hdr-not-allowed	298
+fork-hdr-total	462
+fork-src	1
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -330,7 +333,7 @@ incdir-forbidden	6
 #   SLOT-HELP/HOOK (tools/shim-scope), so logic-lines stays 8301. Hand-edited.
 # RAISED 2026-10-19, incdir-forbidden-tus 140 -> 141 (the client temp entity landing on main 6c0c02d09), deliberately: the new
 #   TU shell_tempents_store_client.cpp, which stores the managed plan as engine-read RecvTables (dt_recv.h).
-incdir-forbidden-tus	141
+incdir-forbidden-tus	138
 link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
 # 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
@@ -352,8 +355,8 @@ link-forbidden	1
 # LOWERED 2026-10-19, logic-lines 8696 -> 7566 (-1130, tools/shim-scope at the client temp entity landing on main 6c0c02d09):
 #   tempent_schema.h and the native registration path deleted; the store and the receiving shell's husk ruled carrying out
 #   (the lane measured 9514 -> 8384 on its base). Hand-edited.
-logic-lines	7566
+logic-lines	7515
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	517
+sdk-links	510

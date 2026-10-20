@@ -129,8 +129,6 @@ void CShimTempEntBackendsClient::ClientEnergySplash( const float * pPosXYZ, cons
 	{ return ::SourceSharp_ClientEnergySplash( pPosXYZ, pDirXYZ, bExplosive ); }
 int32_t CShimTempEntBackendsClient::ClientEntityModelType( int32_t nEntity )
 	{ return ::SourceSharp_ClientEntityModelType( nEntity ); }
-void CShimTempEntBackendsClient::ClientExplosionFireball( const float * pOriginXYZ )
-	{ return ::SourceSharp_ClientExplosionFireball( pOriginXYZ ); }
 int32_t CShimTempEntBackendsClient::ClientIsLowViolence()
 	{ return ::SourceSharp_ClientIsLowViolence(); }
 void CShimTempEntBackendsClient::ClientMetalSparks( const float * pPositionXYZ, const float * pDirectionXYZ )
@@ -190,8 +188,6 @@ int32_t CShimEffectsRenderClient::BeamEntityFacts( uint32_t hEntity, int32_t nAt
 	{ return ::SourceSharp_BeamEntityFacts( hEntity, nAttachment, bTryAttachment, pOut9 ); }
 int32_t CShimEffectsRenderClient::BeamBoxVisibility( const float * pMinsXYZ, const float * pMaxsXYZ )
 	{ return ::SourceSharp_BeamBoxVisibility( pMinsXYZ, pMaxsXYZ ); }
-float CShimEffectsRenderClient::BeamHaloVisibility( const float * pOriginXYZ, float flProxySize )
-	{ return ::SourceSharp_BeamHaloVisibility( pOriginXYZ, flProxySize ); }
 int32_t CShimEffectsRenderClient::BeamScreenPosition( const float * pPointXYZ, float * pOutScreenXYZ )
 	{ return ::SourceSharp_BeamScreenPosition( pPointXYZ, pOutScreenXYZ ); }
 int32_t CShimEffectsRenderClient::BeamRenderableAdd( const float * pOriginMinsMaxs9 )
@@ -300,6 +296,8 @@ void CShimViewClient::PixelVisDiameters( const float * pSpheres, int32_t nSphere
 	{ return ::SourceSharp_PixelVisDiameters( pSpheres, nSpheres, pOut ); }
 int32_t CShimViewClient::PixelVisView( float * pOut, int32_t nFloats )
 	{ return ::SourceSharp_PixelVisView( pOut, nFloats ); }
+int32_t CShimViewClient::GlowMaterialFind( const char * pszName, const char * pszGroup )
+	{ return ::SourceSharp_GlowMaterialFind( pszName, pszGroup ); }
 
 int32_t CShimUserMessagesClient::ClientViewportQuery( const char * pPanel )
 	{ return ::SourceSharp_ClientViewportQuery( pPanel ); }
@@ -397,8 +395,6 @@ int32_t CShimParticlesClient::ParticlesWorldTrace( const float * pStartXYZ, cons
 	{ return ::SourceSharp_ParticlesWorldTrace( pStartXYZ, pEndXYZ, pOut, nOut ); }
 void CShimParticlesClient::ParticlesView( float * pModelView12, int32_t * pViewId, float * pOriginForward6 )
 	{ return ::SourceSharp_ParticlesView( pModelView12, pViewId, pOriginForward6 ); }
-float CShimParticlesClient::ParticlesPixelVisible( const float * pOriginXYZ, int32_t * pQueryHandle )
-	{ return ::SourceSharp_ParticlesPixelVisible( pOriginXYZ, pQueryHandle ); }
 int32_t CShimParticlesClient::ParticlesTraceMask( const float * pStartXYZ, const float * pEndXYZ, uint32_t nMask, float * pOut, int32_t nOut )
 	{ return ::SourceSharp_ParticlesTraceMask( pStartXYZ, pEndXYZ, nMask, pOut, nOut ); }
 int32_t CShimParticlesClient::ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags, SourceSharpParticleFollow_t * pFollow )
@@ -442,10 +438,6 @@ int32_t CShimFxClient::FxEntityRenderAngles( int32_t nEntIndex, float * pOutPYR 
 	{ return ::SourceSharp_FxEntityRenderAngles( nEntIndex, pOutPYR ); }
 void CShimFxClient::FxEjectBrass( const float * pOriginXYZ, const float * pAnglesPYR, const float * pGunAnglesPYR, int32_t nType )
 	{ return ::SourceSharp_FxEjectBrass( pOriginXYZ, pAnglesPYR, pGunAnglesPYR, nType ); }
-float CShimFxClient::FxSpriteGlowFraction( const float * pPositionXYZ, float flProxySize, float flProxyAspect )
-	{ return ::SourceSharp_FxSpriteGlowFraction( pPositionXYZ, flProxySize, flProxyAspect ); }
-float CShimFxClient::FxGlowSightDistance( const float * pPositionXYZ )
-	{ return ::SourceSharp_FxGlowSightDistance( pPositionXYZ ); }
 int32_t CShimFxClient::FxSpriteDrawBegin( uint32_t hOwner, const float * pOffsetXYZ, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float * pIn )
 	{ return ::SourceSharp_FxSpriteDrawBegin( hOwner, pOffsetXYZ, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn ); }
 int32_t CShimFxClient::FxSpriteDrawEnd( const float * pOut )
@@ -470,8 +462,6 @@ void CShimFxClient::FxVectorRandom( float flLo, float flHi, float * pOutXYZ )
 	{ return ::SourceSharp_FxVectorRandom( flLo, flHi, pOutXYZ ); }
 int32_t CShimFxClient::FxMaterialsCached()
 	{ return ::SourceSharp_FxMaterialsCached(); }
-void CShimFxClient::FxImpactOverlay( const float * pPositionXYZ, const float * pColorRGB )
-	{ return ::SourceSharp_FxImpactOverlay( pPositionXYZ, pColorRGB ); }
 int32_t CShimFxClient::FxTempEntCreateNamed( int32_t nSlot, const float * pOriginXYZ, const char * pModel, int32_t nPriority )
 	{ return ::SourceSharp_FxTempEntCreateNamed( nSlot, pOriginXYZ, pModel, nPriority ); }
 void CShimFxClient::FxLoadModel( const char * pModel )

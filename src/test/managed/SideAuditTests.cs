@@ -59,7 +59,6 @@ public class SideAuditTests
         // the server starts no CNewParticleEffect.
         "ParticleSystemsRead", "ParticleDefinitionReads", "ParticleQueryUnanswered", "ParticlesMaterialVarInt", "ParticlesCreateAt", "ParticleSystemNameFromIndex", "ParticleSystemOneShot", "ParticlesWorldTrace",
         "ParticlesView",
-        "ParticlesPixelVisible",
         "ParticlesTraceMask",
         "ParticlesSetSpace",
         "ParticlesBrushPointContents",
@@ -169,8 +168,7 @@ public class SideAuditTests
         "FxDispatchParticleEffect",
         "FxEntityRenderAngles",
         "FxEjectBrass",
-        "FxSpriteGlowFraction",
-        "FxGlowSightDistance", "FxSpriteDrawBegin", "FxSpriteDrawEnd", "FxSpriteDrawStore",
+        "FxSpriteDrawBegin", "FxSpriteDrawEnd", "FxSpriteDrawStore",
         "FxPrecacheCount",
         "FxPrecacheCache",
         "FxCacheUsedMaterials",
@@ -180,7 +178,7 @@ public class SideAuditTests
         "FxElight",
         "FxVectorRandom",
         "FxMaterialsCached",
-        "FxImpactOverlay",
+        // (FxImpactOverlay left with the glow overlays' port, C7.)
         "FxTempEntCreateNamed",
         "FxLoadModel", "FxModelFrameCount",
 
@@ -277,7 +275,7 @@ public class SideAuditTests
         // The beam executor (shell_beam_render.cpp) and the reads the managed
         // beam system makes: drawing, and the client's view of the world.
         "BeamView", "BeamModelInfo", "BeamModelIndex", "BeamEntityAt", "BeamEntityHasModel",
-        "BeamEntityFacts", "BeamBoxVisibility", "BeamHaloVisibility", "BeamScreenPosition",
+        "BeamEntityFacts", "BeamBoxVisibility", "BeamScreenPosition",
         "BeamRenderableAdd", "BeamRenderableChanged", "BeamRenderableRemove", "BeamBindSprite",
         "BeamSetHdrColorScale", "BeamGlow", "BeamDrawStrip", "BeamDrawMesh",
         // The UI's draw primitives (shell_ui.cpp, plan_client_ui U2): vgui's
@@ -314,6 +312,8 @@ public class SideAuditTests
         // client.so's.
         "PixelVisQueryCreate", "PixelVisQueryDestroy", "PixelVisQueryReset", "PixelVisQueryPixels",
         "PixelVisDiameters", "PixelVisView",
+        // The glow overlays' material find (C7, glow_overlay.cpp): client.so's materials.
+        "GlowMaterialFind",
         "InputMailbox",
         "SpriteTrailDestroy", "SpriteTrailUpdate",
         "StandaloneSetBlending",
@@ -358,7 +358,7 @@ public class SideAuditTests
         // Part 4's pencilled ONE ClientParticleTeSpawn(kind, params), because
         // the seven TEs on that base share a TABLE and not a backend --
         // TempEntBackendTests carries the whole argument.
-        "ClientExplosionFireball",
+        // (ClientExplosionFireball, their last, left with the glow overlays' port, C7.)
         // C-Phase 3 lane C4's six, for the LEGACY TEMP ENTITY POOL. Client-only
         // for a sharper reason than the ones above them: the pool IS a client
         // structure -- c_te_legacytempents.cpp's 500 C_LocalTempEntity, which

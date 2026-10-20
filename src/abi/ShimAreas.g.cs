@@ -616,7 +616,6 @@ internal sealed unsafe class TempEntBackendsClientArea
     public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { _shim.Vt->ClientDecalStudioModel(_shim.Self, a0, a1, a2, a3); }
     public void ClientEnergySplash(float* a0, float* a1, int a2) { _shim.Vt->ClientEnergySplash(_shim.Self, a0, a1, a2); }
     public int ClientEntityModelType(int a0) { return _shim.Vt->ClientEntityModelType(_shim.Self, a0); }
-    public void ClientExplosionFireball(float* a0) { _shim.Vt->ClientExplosionFireball(_shim.Self, a0); }
     public int ClientIsLowViolence() { return _shim.Vt->ClientIsLowViolence(_shim.Self); }
     public void ClientMetalSparks(float* a0, float* a1) { _shim.Vt->ClientMetalSparks(_shim.Self, a0, a1); }
     public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { _shim.Vt->ClientMuzzleFlash(_shim.Self, a0, a1, a2, a3); }
@@ -657,7 +656,6 @@ internal sealed unsafe class EffectsRenderClientArea
     public int BeamEntityHasModel(uint a0) { return _shim.Vt->BeamEntityHasModel(_shim.Self, a0); }
     public int BeamEntityFacts(uint a0, int a1, int a2, float* a3) { return _shim.Vt->BeamEntityFacts(_shim.Self, a0, a1, a2, a3); }
     public int BeamBoxVisibility(float* a0, float* a1) { return _shim.Vt->BeamBoxVisibility(_shim.Self, a0, a1); }
-    public float BeamHaloVisibility(float* a0, float a1) { return _shim.Vt->BeamHaloVisibility(_shim.Self, a0, a1); }
     public int BeamScreenPosition(float* a0, float* a1) { return _shim.Vt->BeamScreenPosition(_shim.Self, a0, a1); }
     public int BeamRenderableAdd(float* a0) { return _shim.Vt->BeamRenderableAdd(_shim.Self, a0); }
     public void BeamRenderableChanged(int a0, float* a1) { _shim.Vt->BeamRenderableChanged(_shim.Self, a0, a1); }
@@ -733,6 +731,7 @@ internal sealed unsafe class ViewClientArea
     public void PixelVisQueryPixels(int a0, int a1, int* a2) { _shim.Vt->PixelVisQueryPixels(_shim.Self, a0, a1, a2); }
     public void PixelVisDiameters(float* a0, int a1, float* a2) { _shim.Vt->PixelVisDiameters(_shim.Self, a0, a1, a2); }
     public int PixelVisView(float* a0, int a1) { return _shim.Vt->PixelVisView(_shim.Self, a0, a1); }
+    public int GlowMaterialFind(byte* a0, byte* a1) { return _shim.Vt->GlowMaterialFind(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -834,7 +833,6 @@ internal sealed unsafe class ParticlesClientArea
     public int ParticleSystemOneShot(byte* a0, float* a1, float* a2, int a3, float* a4) { return _shim.Vt->ParticleSystemOneShot(_shim.Self, a0, a1, a2, a3, a4); }
     public int ParticlesWorldTrace(float* a0, float* a1, float* a2, int a3) { return _shim.Vt->ParticlesWorldTrace(_shim.Self, a0, a1, a2, a3); }
     public void ParticlesView(float* a0, int* a1, float* a2) { _shim.Vt->ParticlesView(_shim.Self, a0, a1, a2); }
-    public float ParticlesPixelVisible(float* a0, int* a1) { return _shim.Vt->ParticlesPixelVisible(_shim.Self, a0, a1); }
     public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) { return _shim.Vt->ParticlesTraceMask(_shim.Self, a0, a1, a2, a3, a4); }
     public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) { return _shim.Vt->ParticlesSetSpace(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int ParticlesBrushPointContents(uint a0, float* a1) { return _shim.Vt->ParticlesBrushPointContents(_shim.Self, a0, a1); }
@@ -867,8 +865,6 @@ internal sealed unsafe class FxClientArea
     public void FxDispatchParticleEffect(int a0, float* a1, float* a2, float* a3, int a4) { _shim.Vt->FxDispatchParticleEffect(_shim.Self, a0, a1, a2, a3, a4); }
     public int FxEntityRenderAngles(int a0, float* a1) { return _shim.Vt->FxEntityRenderAngles(_shim.Self, a0, a1); }
     public void FxEjectBrass(float* a0, float* a1, float* a2, int a3) { _shim.Vt->FxEjectBrass(_shim.Self, a0, a1, a2, a3); }
-    public float FxSpriteGlowFraction(float* a0, float a1, float a2) { return _shim.Vt->FxSpriteGlowFraction(_shim.Self, a0, a1, a2); }
-    public float FxGlowSightDistance(float* a0) { return _shim.Vt->FxGlowSightDistance(_shim.Self, a0); }
     public int FxSpriteDrawBegin(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13, float* a14) { return _shim.Vt->FxSpriteDrawBegin(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14); }
     public int FxSpriteDrawEnd(float* a0) { return _shim.Vt->FxSpriteDrawEnd(_shim.Self, a0); }
     public int FxSpriteDrawStore(float* a0) { return _shim.Vt->FxSpriteDrawStore(_shim.Self, a0); }
@@ -881,7 +877,6 @@ internal sealed unsafe class FxClientArea
     public void FxElight(int a0, float* a1, int a2, int a3, int a4, int a5, float a6, float a7, float a8) { _shim.Vt->FxElight(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8); }
     public void FxVectorRandom(float a0, float a1, float* a2) { _shim.Vt->FxVectorRandom(_shim.Self, a0, a1, a2); }
     public int FxMaterialsCached() { return _shim.Vt->FxMaterialsCached(_shim.Self); }
-    public void FxImpactOverlay(float* a0, float* a1) { _shim.Vt->FxImpactOverlay(_shim.Self, a0, a1); }
     public int FxTempEntCreateNamed(int a0, float* a1, byte* a2, int a3) { return _shim.Vt->FxTempEntCreateNamed(_shim.Self, a0, a1, a2, a3); }
     public void FxLoadModel(byte* a0) { _shim.Vt->FxLoadModel(_shim.Self, a0); }
     public int FxModelFrameCount(byte* a0) { return _shim.Vt->FxModelFrameCount(_shim.Self, a0); }

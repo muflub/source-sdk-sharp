@@ -5,15 +5,13 @@
 1	SLOT-HELP	static void PutVector( float *p, const Vector &v )
 53	BOUNDARY	static bool GatherSprite( IClientEntity *entity, const model_t *model,
 48	BOUNDARY	static int ExecuteSprite( const SpritePending_t &pending, const float *out )
-24	BOUNDARY	int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, const model_t *model,
+22	BOUNDARY	int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, const model_t *model,
 16	BOUNDARY	int SourceSharp_SpriteDrawBegin( pixelvis_handle_t *pQuery, IClientEntity *entity, const model_t *model,
 5	SLOT-HELP	static void StorePlanQuery( const float *pOut )
 10	BOUNDARY	int32_t SourceSharp_FxSpriteDrawEnd( const float *pOut )
 15	SLOT	int32_t SourceSharp_FxSpriteDrawStore( const float *pOut )
 11	BOUNDARY	int SourceSharp_SpriteExecuteStored( IClientEntity *pEntity, float flBlendNow )
 4	SLOT-HELP	void SourceSharp_SpriteStoredClear()
-8	BOUNDARY	float SourceSharp_FxSpriteGlowFraction( const float *pPositionXYZ, float flProxySize, float flProxyAspect )
-6	BOUNDARY	float SourceSharp_FxGlowSightDistance( const float *pPositionXYZ )
 22	SLOT	int C_SpriteRenderer::DrawSprite(
 4	LAYOUT	float C_SpriteRenderer::GlowBlend( CEngineSprite *, const Vector &, int, int, int, float * )
 4	SLOT-HELP	static bool SpriteModeHasMaterial( int nMode )

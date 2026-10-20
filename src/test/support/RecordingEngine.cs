@@ -1116,9 +1116,8 @@ public sealed class RecordingEngine :
     void IEngineEffects.ClientPlayerDecalShoot(Vector position, int player, int entIndex) => RecordVoid("Effects.ClientPlayerDecalShoot", position, player, entIndex);
     int IEngineEffects.ClientDecalIndexFromName(string name) => Record<int>("Effects.ClientDecalIndexFromName", name);
 
-    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP). Eight named
-    // primitives, not one kind+params slot; Sparks reuses ClientSparks above.
-    void IEngineEffects.ClientExplosionFireball(Vector origin) => RecordVoid("Effects.ClientExplosionFireball", origin);
+    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP): the last,
+    // ClientExplosionFireball, left with the glow overlays' port (C7).
 
     // THE LEGACY TEMP ENTITY POOL (plan_tmp.md Part 5, C-Phase 4).
     //

@@ -60,7 +60,8 @@ public class TempEntBackendTests
         // arrived WITH their callers rather than ahead of them, which is why
         // the lane was allowed to add them at all — see
         // <see cref="TheParticleSystemBackendIsEightNamedSlotsNotOneGenericOne"/>.
-        "ClientExplosionFireball",
+        // (ClientExplosionFireball, their last, left with the glow overlays'
+        // port, C7: the fireball's flash is the managed GlowOverlaySystem's.)
         // (ClientBloodStream and ClientShowLine left with lane c5-particles: the
         // blood stream and the line are TeParticles; their players start them.
         // ClientGaussExplosion and ClientLargeFunnel left with lane c5-particles:
@@ -147,15 +148,19 @@ public class TempEntBackendTests
             "no ClientParticleTeSpawn slot: the seven particle-system TEs share a base "
           + "table and not a backend, so each has the primitive it actually ends in");
 
-        // The eight that took its place, by name. A list derived from the slot
-        // table would agree with its own absence, which is this file's whole rule.
+        // The eight that took its place, by name, are all gone now: the gauss
+        // discharge, the funnel, the dust, the blood stream and the line became
+        // C# (lane c5-particles), and the fireball's flash the managed glow
+        // overlays' (C7). A list derived from the slot table would agree with its
+        // own absence, which is this file's whole rule, so they are named here.
         foreach (string named in new[]
                  {
-                     "ClientExplosionFireball",
+                     "ClientExplosionFireball", "ClientGaussExplosion", "ClientLargeFunnel", "ClientDust",
+                     "ClientBloodStream", "ClientShowLine",
                  })
         {
-            Assert.True(EngineApiAreasTests.SlotField(named) is not null,
-                $"{named} is one of the named primitives that replaced the generic slot (eight until the gauss discharge, the funnel, the dust, the blood stream and the line became C#)");
+            Assert.True(EngineApiAreasTests.SlotField(named) is null,
+                $"{named} was one of the named primitives that replaced the generic slot and has left; it must not come back");
         }
 
         // Sparks is the reason there are eight rather than nine, and it is

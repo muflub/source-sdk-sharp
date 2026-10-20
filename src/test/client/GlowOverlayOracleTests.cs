@@ -1,0 +1,362 @@
+using System.Globalization;
+using System.Text;
+
+using SourceSharp.Abi;
+using SourceSharp.Client.Interop;
+using SourceSharp.Client.Render.GlowOverlays;
+using SourceSharp.Client.Render.PixelVisibility;
+
+using Xunit;
+
+namespace SourceSharp.Tests;
+
+/// <summary>
+/// The managed glow overlays (<see cref="GlowOverlaySystem"/>) against stock's
+/// glow_overlay.cpp and warp_overlay.cpp, run offline from the pristine files
+/// by src/test/oracle/native/glowoverlay_oracle_test.cpp
+/// (<c>Fixtures/glowoverlay-stock.tsv</c>, README-glowoverlay-stock.md beside it).
+///
+/// <para>
+/// The golden carries its stimulus: each <c>S</c> row is a step, driven here on
+/// the managed system over a double that answers from the rows (a pixel
+/// visibility question's answer, a trace's fraction and flags) and carries the
+/// draw out as the oracle's material-system doubles did (the clipping state
+/// EnableClipping returns, the materials found by name, $hdrcolorscale on all
+/// but a <c>*_noscale</c> material, the mesh builder's float-to-byte colour).
+/// Every row stock wrote after a step must be the row the managed system made
+/// the double write, in stock's order.
+/// </para>
+/// </summary>
+public class GlowOverlayOracleTests
+{
+    private static string Bits(float f) => BitConverter.SingleToUInt32Bits(f).ToString("x8", CultureInfo.InvariantCulture);
+
+    private static float Float(string bits) => BitConverter.UInt32BitsToSingle(uint.Parse(bits, NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+
+    private static int Int(string s) => int.Parse(s, CultureInfo.InvariantCulture);
+
+    private static string V3(in Vector v) => $"{Bits(v.X)}\t{Bits(v.Y)}\t{Bits(v.Z)}";
+
+    private static Vector Vec(string[] a, int at) => new(Float(a[at]), Float(a[at + 1]), Float(a[at + 2]));
+
+    // mathlib's FastFToC: the float's bits after c * 255 + 2^23.
+    private static int FToC(float c) => BitConverter.SingleToInt32Bits(c * 255.0f + (float)( 1 << 23 )) & 255;
+
+    private sealed class NamedGlow(string name, List<string> log) : GlowOverlay
+    {
+        public readonly string Name = name;
+        protected internal override void OnRemoved() => log.Add("DEL\t" + Name);
+    }
+
+    private sealed class NamedWarp(string name, int lives, List<string> log) : WarpOverlay
+    {
+        public readonly string Name = name;
+        private int _lives = lives;
+
+        public override bool Update(float frameTime)
+        {
+            if (_lives < 0)
+                return true;
+            return _lives-- > 0;
+        }
+
+        protected internal override void OnRemoved() => log.Add("DEL\t" + Name);
+    }
+
+    private sealed class Rig : IPixelVisibility, IGlowEngine, IGlowSettings, IPixelVisFrame, IGlowDraw
+    {
+        public readonly List<string> Log = [];
+        public readonly GlowOverlaySystem System;
+        public readonly Dictionary<string, GlowOverlay> Overlays = new(StringComparer.Ordinal);
+        private readonly List<string> _materials = [];
+        private readonly ConVarLike _drawSprites = new("1");
+        public Queue<string[]> Expected = new();
+        private bool _available = true;
+        private bool _clipping = true;
+        private bool _saved;
+        private float _traceFraction = 1;
+        private int _traceFlags;
+        private int _nextHandle = 1;
+        public GlowView View;
+
+        public Rig() => System = new GlowOverlaySystem(this, this, this, this);
+
+        // ConVars as the oracle set them.
+        private sealed class ConVarLike(string value)
+        {
+            public string Value = value;
+        }
+
+        public bool BuildingCubemaps { get; private set; }
+        public float SunDecayRate { get; private set; } = 0.05f;
+        public int DrawSprites => (int)VariantParse.Atof(_drawSprites.Value);
+        public bool Wireframe { get; private set; }
+        public int FrameCount { get; private set; }
+        public float FrameTime { get; private set; }
+
+        // The answers come from the expected rows: the next row of the kind.
+        private string[] Next(string kind)
+        {
+            while (Expected.Count > 0)
+            {
+                string[] row = Expected.Dequeue();
+                if (row[0] == kind)
+                    return row;
+            }
+            Assert.Fail("the managed system asked a " + kind + " stock did not");
+            return [];
+        }
+
+        public bool IsAvailable
+        {
+            get
+            {
+                Log.Add($"PA\t{( _available ? 1 : 0 )}");
+                return _available;
+            }
+        }
+
+        public float FractionVisible(in PixelVisParams p, ref int queryHandle)
+        {
+            int hIn = queryHandle;
+            if (queryHandle == 0)
+                queryHandle = _nextHandle++;
+            string[] row = Next("PV");
+            float answer = Float(row[9]);
+            Log.Add(string.Create(CultureInfo.InvariantCulture,
+                $"PV\t{V3(p.Position)}\t{Bits(p.ProxySize)}\t{Bits(p.ProxyAspect)}\t{Bits(p.FadeTime)}\t{( p.SizeInScreenspace ? 1 : 0 )}\t{hIn}\t{Bits(answer)}\t{queryHandle}"));
+            return answer;
+        }
+
+        public float FractionVisibleNoHandle(in Vector position) => throw new InvalidOperationException("not asked");
+
+        public float GlowSightDistance(in Vector glowOrigin, bool shouldTrace) => throw new InvalidOperationException("not asked");
+
+        public int FindMaterial(string name, string group)
+        {
+            Log.Add($"MF\t{name}\t{group}\t1");
+            int at = _materials.IndexOf(name);
+            if (at < 0)
+            {
+                _materials.Add(name);
+                at = _materials.Count - 1;
+            }
+            return at + 1;
+        }
+
+        private string Name(int material) => material > 0 ? _materials[material - 1] : "(null)";
+
+        public void TraceSolid(in Vector start, in Vector end, out float fraction, out int surfaceFlags)
+        {
+            fraction = _traceFraction;
+            surfaceFlags = _traceFlags;
+            Log.Add(string.Create(CultureInfo.InvariantCulture,
+                $"T\t{V3(start)}\t{V3(end)}\t{1:x8}\t0\t0\t{Bits(fraction)}\t{surfaceFlags}"));
+        }
+
+        public void Clip(GlowClip clip)
+        {
+            bool enable = clip switch { GlowClip.EnableAndSave => true, GlowClip.Off => false, _ => _saved };
+            bool old = _clipping;
+            _clipping = enable;
+            if (clip == GlowClip.EnableAndSave)
+                _saved = old;
+            Log.Add($"EC\t{( enable ? 1 : 0 )}\t{( old ? 1 : 0 )}");
+        }
+
+        public void HdrColorScale(int material, float scale)
+        {
+            string name = Name(material);
+            bool found = !name.Contains("_noscale", StringComparison.Ordinal);
+            Log.Add($"FV\t{name}\t$hdrcolorscale\t{( found ? 1 : 0 )}");
+            if (found)
+                Log.Add($"HS\t{name}\t{Bits(scale)}");
+        }
+
+        public void Quad(int material, ReadOnlySpan<GlowVertex> vertices)
+        {
+            Log.Add($"GM\t0\t0\t0\t{Name(material)}");
+            var row = new StringBuilder("MESH\t2\t4");
+            foreach (GlowVertex v in vertices)
+            {
+                row.Append(string.Create(CultureInfo.InvariantCulture,
+                    $"\t{Bits(v.Position.X)},{Bits(v.Position.Y)},{Bits(v.Position.Z)}/{FToC(v.Color.Z):x2}{FToC(v.Color.Y):x2}{FToC(v.Color.X):x2}{FToC(1.0f):x2}/{Bits(v.S)},{Bits(v.T)}"));
+            }
+            Log.Add(row.ToString());
+        }
+
+        public void WireframeQuad(int material, ReadOnlySpan<Vector> positions)
+        {
+            Log.Add($"B\t{Name(material)}");
+            Log.Add($"GM\t0\t0\t0\t{Name(material)}");
+            var row = new StringBuilder("MESH\t2\t4");
+            foreach (Vector p in positions)
+            {
+                row.Append(string.Create(CultureInfo.InvariantCulture,
+                    $"\t{Bits(p.X)},{Bits(p.Y)},{Bits(p.Z)}/{FToC(0):x2}{FToC(0):x2}{FToC(1):x2}ff/{Bits(0)},{Bits(0)}"));
+            }
+            Log.Add(row.ToString());
+        }
+
+        public void Step(string[] a)
+        {
+            switch (a[0])
+            {
+                case "overlay":
+                {
+                    string kind = a[1], name = a[2];
+                    int lives = Int(a[3]);
+                    GlowOverlay o = kind == "warp" ? new NamedWarp(name, lives, Log) : new NamedGlow(name, Log);
+                    o.Pos = Vec(a, 4);
+                    o.Directional = a[7] == "1";
+                    o.Direction = Vec(a, 8);
+                    o.InSky = a[11] == "1";
+                    o.ProxyRadius = Float(a[12]);
+                    o.HdrColorScale = Float(a[13]);
+                    o.NSprites = Int(a[14]);
+                    for (int i = 0; i < o.NSprites; i++)
+                    {
+                        int at = 15 + i * 6;
+                        o.Sprites[i].Color = Vec(a, at);
+                        o.Sprites[i].HorzSize = Float(a[at + 3]);
+                        o.Sprites[i].VertSize = Float(a[at + 4]);
+                        string material = a[at + 5];
+                        o.Sprites[i].Material = 0;
+                        if (material != "-")
+                            o.Sprites[i].Material = -i - 1;     // found below, as the creator found it
+                    }
+                    for (int i = 0; i < o.NSprites; i++)
+                    {
+                        if (o.Sprites[i].Material < 0)
+                            o.Sprites[i].Material = FindMaterial(a[15 + i * 6 + 5], GlowOverlaySystem.ClientEffectsGroup);
+                    }
+                    System.Activate(o);
+                    Overlays[name] = o;
+                    break;
+                }
+                case "frame":
+                    FrameCount++;
+                    FrameTime = Float(a[1]);
+                    break;
+                case "view":
+                {
+                    var planes = new GlowPlane[5];
+                    for (int i = 0; i < 5; i++)
+                        planes[i] = new GlowPlane(Vec(a, 8 + i * 4), Float(a[11 + i * 4]));
+                    View = new GlowView(Vec(a, 1), Vec(a, 4), Float(a[7]), planes);
+                    break;
+                }
+                case "clipping":
+                    _clipping = a[1] == "1";
+                    break;
+                case "world":
+                    _traceFraction = Float(a[1]);
+                    _traceFlags = Int(a[2]);
+                    break;
+                case "available":
+                    _available = a[1] == "1";
+                    break;
+                case "wireframe":
+                    Wireframe = a[1] == "1";
+                    break;
+                case "cvar":
+                    switch (a[1])
+                    {
+                        case "r_drawsprites": _drawSprites.Value = a[2]; break;
+                        case "building_cubemaps": BuildingCubemaps = a[2] != "0"; break;
+                        case "cl_sun_decay_rate": SunDecayRate = VariantParse.Atof(a[2]); break;
+                        default: Assert.Fail("no ConVar " + a[1]); break;
+                    }
+                    break;
+                case "draw":
+                    System.DrawOverlays(View, a[1] == "1", this);
+                    break;
+                case "sky":
+                    System.UpdateSkyOverlays(View.Origin, Float(a[1]), a[2] == "1");
+                    break;
+                case "activate":
+                    System.Activate(Overlays[a[1]]);
+                    break;
+                case "deactivate":
+                    GlowOverlaySystem.Deactivate(Overlays[a[1]]);
+                    break;
+                case "delete":
+                    System.Remove(Overlays[a[1]]);
+                    Overlays.Remove(a[1]);
+                    break;
+                case "shutdown":
+                    System.LevelShutdownPostEntity();
+                    Overlays.Clear();
+                    break;
+                default:
+                    Assert.Fail("no step " + a[0]);
+                    break;
+            }
+        }
+    }
+
+    private static List<string> Stock()
+    {
+        string path = RepoLayout.Repo("src", "test", "client", "Fixtures", "glowoverlay-stock.tsv");
+        Assert.True(File.Exists(path), "the recorded stock glow overlays are missing: " + path);
+        var rows = File.ReadAllLines(path).Where(l => l.Length > 0).ToList();
+        Assert.True(rows.Count(r => r.StartsWith("S\t", StringComparison.Ordinal)) > 100 && rows.Count(r => r.StartsWith("MESH\t", StringComparison.Ordinal)) > 100,
+                    "the oracle parsed");
+        return rows;
+    }
+
+    [Fact]
+    public void ThePrecacheListsAreStocks()
+    {
+        List<string> stock = Stock();
+        var rows = GlowOverlaySystem.Precaches.Select(p => $"P\t{p.Name}\t{string.Join('\t', p.Materials)}").ToList();
+        Assert.Equal(stock.TakeWhile(r => r.StartsWith("P\t", StringComparison.Ordinal)), rows);
+    }
+
+    [Fact]
+    public void EveryStepDoesWhatStocksDid()
+    {
+        var rig = new Rig();
+        List<string> stock = Stock();
+        int i = stock.FindIndex(r => r.StartsWith("S\t", StringComparison.Ordinal));
+        int steps = 0, held = 0;
+        while (i < stock.Count)
+        {
+            string s = stock[i++];
+            Assert.StartsWith("S\t", s);
+            var expected = new List<string>();
+            while (i < stock.Count && !stock[i].StartsWith("S\t", StringComparison.Ordinal))
+                expected.Add(stock[i++]);
+            rig.Log.Clear();
+            rig.Expected = new Queue<string[]>(expected.Select(r => r.Split('\t')));
+            rig.Step(s[2..].Split('\t'));
+            Assert.True(expected.SequenceEqual(rig.Log),
+                        $"step {steps} {s.Replace('\t', ' ')}:\n  stock   {string.Join("\n          ", expected)}\n  managed {string.Join("\n          ", rig.Log)}");
+            steps++;
+            held += expected.Count;
+        }
+        Assert.True(steps > 120 && held > 900, $"{steps} steps, {held} rows held");
+    }
+
+    [Fact]
+    public void ARampOverlayFadesAndGrowsForATenthOfASecond()
+    {
+        var o = new RampOverlay(RampOverlay.ExplosionGrowth) { NSprites = 1 };
+        o.BaseColors[0] = new Vector(1.0f, 0.9f, 0.7f);
+        o.Sprites[0].HorzSize = 0.05f;
+        o.Sprites[0].VertSize = 0.025f;
+
+        Assert.True(o.Update(0.025f));
+        Assert.Equal(0.025f, o.Lifetime);
+        Assert.Equal(0.75f, o.Sprites[0].Color.X);
+        Assert.Equal(0.05f + 16.0f * 0.025f, o.Sprites[0].HorzSize);
+        Assert.Equal(0.025f + 16.0f * 0.025f, o.Sprites[0].VertSize);
+        Assert.True(o.Update(0.05f));
+        Assert.False(o.Update(0.05f));      // 0.125 s: no longer under the tenth
+
+        var impact = new RampOverlay(RampOverlay.ImpactGrowth) { NSprites = 1 };
+        impact.Sprites[0].HorzSize = 0.01f;
+        Assert.True(impact.Update(0.05f));
+        Assert.Equal(0.01f + 1.0f * 0.05f, impact.Sprites[0].HorzSize);
+    }
+}

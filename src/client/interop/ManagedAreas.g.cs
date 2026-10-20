@@ -404,6 +404,14 @@ public unsafe interface IManagedPixelVisClient
     void EndScene();
 }
 
+[ManagedVtable(typeof(ManagedGlowClientTable))]
+public unsafe interface IManagedGlowClient
+{
+    int DrawOverlays(void* a0, int a1, int a2, void* a3, int a4);
+    int Commands(void* a0, int a1);
+    void UpdateSkyOverlays(void* a0, float a1, int a2);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -467,4 +475,6 @@ public static class ManagedAreaFactory
         => IManagedClientSystemsClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedPixelVisClient target)
         => IManagedPixelVisClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedGlowClient target)
+        => IManagedGlowClient__ManagedVtable.Create(vtables, target);
 }

@@ -1553,12 +1553,17 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// (C7 screen-space effects, the same lane: 8 scanned, 5 compiled under
 	// game/). Files 7 -> 6 and nHere 4 -> 3 when vgui_game_viewport.cpp left
 	// (C7 viewport system, the same lane: 7 scanned, 4 compiled under game/).
+	// Files 6 -> 5 and nHere 3 -> 2 when warp_overlay.cpp left (C7 glow
+	// overlays, the same lane: 6 scanned, 3 compiled under game/). Files 5 -> 3
+	// and nHere 2 -> 0 when glow_overlay.cpp and c_pixel_visibility.cpp left
+	// (C7 glow overlays and pixel visibility, the same lane: 4 scanned,
+	// clientshadowmgr.cpp the one compiled under game/).
 	const ScanResult_t &client = ClientScan();
-	EXPECT_GT( client.nFiles, 6 )
+	EXPECT_GT( client.nFiles, 3 )
 		<< "scanned " << client.nFiles << " client files -- too few to mean "
 		<< "anything, and low enough that the $File parse is the first thing "
 		<< "to suspect";
-	EXPECT_GT( client.nHere, 3 )
+	EXPECT_GT( client.nHere, 0 )
 		<< "client_sourcesharp compiles " << client.nHere << " entries under "
 		<< "game/ -- too few for the ratio below to mean anything";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )
@@ -1582,8 +1587,11 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// on the fork; upstream's copies are 793 + 356 lines, so about 9,650 there.
 	// clientleafsystem.cpp left with C7 cluster 12 L2: 7,991 scanned after it
 	// on the fork; upstream's copy is about 1,800 lines, so about 7,850 there.
-	// 7,000 holds on both.
-	EXPECT_GT( client.nLines, 7000 )
+	// glow_overlay.cpp and c_pixel_visibility.cpp left with C7: 5,776 scanned
+	// after them on the fork (clientshadowmgr.cpp's 4,484 and the three
+	// libraries' 1,292); upstream's clientshadowmgr.cpp is 4,335 lines, so
+	// about 5,627 there. 5,000 holds on both.
+	EXPECT_GT( client.nLines, 5000 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )

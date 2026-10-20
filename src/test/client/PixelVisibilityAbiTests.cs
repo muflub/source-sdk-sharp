@@ -261,26 +261,40 @@ public class PixelVisibilityAbiTests
     [Fact]
     public void TheDrawConVarsChangeIsStocksCallback()
     {
-        var slots = new Slots();
-        var values = new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            [PixelVisSettings.PartialName] = "1", [PixelVisSettings.EnabledName] = "1", [PixelVisSettings.DrawName] = "0",
-            [PixelVisSettings.SpewName] = "0", [PixelVisSettings.BuildingCubemapsName] = "0",
-        };
-        var settings = new PixelVisSettings(new SourceSharp.Client.Flashlight.WatchedConVarValues(slots, n => values.GetValueOrDefault(n)));
+        var draw = new DrawPixelVisibilityConVar();
         var shown = new List<bool>();
-        settings.DrawChanged = shown.Add;
-        settings.Start();
-        Assert.Equal(PixelVisSettings.Names().Length, slots.Ids.Count);
-        Assert.True(settings.Partial && settings.Enabled && !settings.Spew && !settings.BuildingCubemaps);
+        draw.Changed += shown.Add;
 
-        Assert.True(settings.OnChanged(slots.Ids[PixelVisSettings.DrawName], "1"));
-        Assert.True(settings.OnChanged(slots.Ids[PixelVisSettings.SpewName], "1"));
-        Assert.True(settings.OnChanged(slots.Ids[PixelVisSettings.DrawName], "0"));
-        Assert.False(settings.OnChanged(99, "1"));
+        draw.NotifyChanged("1", "0");
+        draw.NotifyChanged("0", "1");
 
         Assert.Equal([true, false], shown);
-        Assert.True(settings.Spew);
+    }
+
+    [Fact]
+    public void BuildingCubemapsIsTheEnginesWatchedByName()
+    {
+        var slots = new Slots();
+        var values = new Dictionary<string, string?>(StringComparer.Ordinal) { [BuildingCubemapsWatch.Name] = "0" };
+        var watch = new BuildingCubemapsWatch(new SourceSharp.Client.Flashlight.WatchedConVarValues(slots, n => values.GetValueOrDefault(n)));
+        watch.Start();
+        Assert.Equal(["building_cubemaps"], slots.Ids.Keys);
+        Assert.False(watch.Value);
+
+        Assert.True(watch.OnChanged(slots.Ids[BuildingCubemapsWatch.Name], "1"));
+        Assert.True(watch.Value);
+        Assert.False(watch.OnChanged(99, "0"));
+        Assert.True(watch.Value);
+    }
+
+    [Fact]
+    public void TheSettingsReadTheirConVarsAtEachQuestion()
+    {
+        bool partial = true, enabled = true, spew = false, cubemaps = false;
+        var settings = new PixelVisSettings(() => partial, () => enabled, () => spew, () => cubemaps);
+        Assert.True(settings.Partial && settings.Enabled && !settings.Spew && !settings.BuildingCubemaps);
+        (partial, enabled, spew, cubemaps) = (false, false, true, true);
+        Assert.True(!settings.Partial && !settings.Enabled && settings.Spew && settings.BuildingCubemaps);
     }
 
     [Fact]

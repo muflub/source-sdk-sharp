@@ -445,7 +445,7 @@ TEST( ServerWave2, IntervalLeftTheBuildAndNoNativeTranslationUnitCallsIt )
 				continue;
 			nRead++;
 			const std::string tight = NoWhitespace( StripComments( raw ) );
-			if ( tight.find( "ClientSound::Emit(filter,SOUND_FROM_WORLD,\"Missile.ShotDown\",&data.m_vOrigin)" ) != std::string::npos )
+			if ( tight.find( "SourceSharp_ClientEnergySplash(pAt,pDir,1)" ) != std::string::npos )
 				bControl = true;
 			if ( tight.find( "ReadInterval(" ) != std::string::npos
 				|| tight.find( "RandomInterval(" ) != std::string::npos )
@@ -454,7 +454,7 @@ TEST( ServerWave2, IntervalLeftTheBuildAndNoNativeTranslationUnitCallsIt )
 	}
 	EXPECT_GT( nRead, 200u ) << "the scan read " << nRead << " compiled sources; it is not reading the source lists";
 	EXPECT_TRUE( bControl )
-		<< "the scan did not see shell_explosion_overlay.cpp's ClientSound::Emit, so it is not reading text";
+		<< "the scan did not see cs_cl_te_backend's energy splash call (shell_te_backends_client.cpp), so it is not reading text";
 	for ( size_t i = 0; i < callers.size(); i++ )
 		ADD_FAILURE() << callers[ i ] << " calls ReadInterval or RandomInterval. The rules are managed "
 		              << "(SourceSharp.Shared.Interval); a native caller would be a second copy of "

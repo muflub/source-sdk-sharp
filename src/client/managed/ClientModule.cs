@@ -754,6 +754,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedPixelVisClient",
                       v => ManagedAreaFactory.Create(v, new PixelVisClientBinding(_engine.Crossings, Log,
                                                                                _services.Require<Render.PixelVisibility.PixelVisHost>())));
+        // The plan's glow overlay ops (C7): the draw carries out managed's
+        // commands, the sky update asks the sky overlays' obstruction.
+        _bindings.Add("IManagedGlowClient",
+                      v => ManagedAreaFactory.Create(v, new GlowClientBinding(_engine.Crossings, Log,
+                                                                            _services.Require<Render.GlowOverlays.GlowHost>())));
         _bindings.Add("IManagedWorldTextClient",
                       v => ManagedAreaFactory.Create(v, new WorldTextClientBinding(_engine.Crossings, Log,
                                                                                   new Effects.ClientWorldTexts(_standalones))));
@@ -845,20 +850,59 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             systems.Register(new ClientSystems.ViewportClientSystem(locator.Require<IClientModeLayout>()));
             systems.Register(new Render.PixelVisibility.PixelVisibilityClientSystem(
                 locator.Require<Render.PixelVisibility.PixelVisibilitySystem>()));
+            systems.Register(new Render.GlowOverlays.GlowOverlayClientSystem(
+                locator.Require<Render.GlowOverlays.GlowOverlaySystem>()));
             return systems;
         });
+        // The glow overlays (C7, glow_overlay.cpp and warp_overlay.cpp): the
+        // list the explosions' and impacts' flashes join, drawn by the plan's
+        // GlowDrawOverlays op; cl_sun_decay_rate is glow_overlay.cpp's, declared
+        // in C# since that file left, and building_cubemaps the engine's,
+        // watched. The flashes last a tenth of a second, so a managed reload
+        // drops the few in flight rather than carry them.
+        _services.AddFactory<Render.PixelVisibility.BuildingCubemapsWatch>(locator =>
+        {
+            var watch = new Render.PixelVisibility.BuildingCubemapsWatch(
+                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
+            watch.Start();
+            _buildingCubemaps = watch;
+            return watch;
+        });
+        _services.AddFactory<Render.GlowOverlays.GlowSettings>(locator =>
+        {
+            var buildingCubemaps = locator.Require<Render.PixelVisibility.BuildingCubemapsWatch>();
+            var sunDecayRate = _convars.Get<Render.GlowOverlays.SunDecayRateConVar>()
+                               ?? throw new InvalidOperationException("cl_sun_decay_rate is not registered");
+            return new Render.GlowOverlays.GlowSettings(() => buildingCubemaps.Value, () => sunDecayRate.Value);
+        });
+        _services.AddFactory<Render.GlowOverlays.GlowOverlaySystem>(locator => new Render.GlowOverlays.GlowOverlaySystem(
+            locator.Require<IPixelVisibility>(),
+            new Render.GlowOverlays.ClientGlowEngine(locator.Require<IGlowMaterials>(), locator.Require<IEngineWorldQuery>()),
+            locator.Require<Render.GlowOverlays.GlowSettings>(),
+            new Render.PixelVisibility.PixelVisFrame(locator.Require<IEngineEnvironment>())));
+        _services.AddFactory<Render.GlowOverlays.GlowOverlayCreators>(locator =>
+            new Render.GlowOverlays.GlowOverlayCreators(locator.Require<Render.GlowOverlays.GlowOverlaySystem>()));
+        _services.AddFactory<IExplosionFireball>(locator => locator.Require<Render.GlowOverlays.GlowOverlayCreators>());
+        _services.AddFactory<IFxImpactOverlay>(locator => locator.Require<Render.GlowOverlays.GlowOverlayCreators>());
+        _services.AddFactory<Render.GlowOverlays.GlowHost>(locator => new Render.GlowOverlays.GlowHost(
+            locator.Require<Render.GlowOverlays.GlowOverlaySystem>(), locator.Require<Render.GlowOverlays.GlowSettings>()));
         // The client's pixel visibility (C7, c_pixel_visibility.cpp): the
         // system every glow asks (sprites, particle glows, beam halos), its
-        // engine over IShimViewClient's slots, and the ConVars it reads by name
-        // while c_pixel_visibility.cpp and glow_overlay.cpp declare them. An
-        // IReloadParticipant: a reload carries the level's materials.
+        // engine over IShimViewClient's slots, and c_pixel_visibility.cpp's
+        // ConVars, declared in C# since that file left (building_cubemaps is
+        // the engine's, watched). An IReloadParticipant: a reload carries the
+        // level's materials.
         _services.AddFactory<Render.PixelVisibility.PixelVisSettings>(locator =>
         {
-            var settings = new Render.PixelVisibility.PixelVisSettings(
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            settings.Start();
-            _pixelVisSettings = settings;
-            return settings;
+            var partial = _convars.Get<Render.PixelVisibility.PixelVisPartialConVar>()
+                          ?? throw new InvalidOperationException("r_pixelvisibility_partial is not registered");
+            var enabled = _convars.Get<Render.PixelVisibility.PixelVisEnabledConVar>()
+                          ?? throw new InvalidOperationException("r_dopixelvisibility is not registered");
+            var spew = _convars.Get<Render.PixelVisibility.PixelVisSpewConVar>()
+                       ?? throw new InvalidOperationException("r_pixelvisibility_spew is not registered");
+            var buildingCubemaps = locator.Require<Render.PixelVisibility.BuildingCubemapsWatch>();
+            return new Render.PixelVisibility.PixelVisSettings(() => partial.Value, () => enabled.Value, () => spew.Value,
+                                                               () => buildingCubemaps.Value);
         });
         _services.AddFactory<Render.PixelVisibility.ClientPixelVisEngine>(locator => new Render.PixelVisibility.ClientPixelVisEngine(
             locator.Require<IPixelVisSlots>(), locator.Require<IFxRender>(), locator.Require<IEngineWorldQuery>(),
@@ -869,7 +913,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             var settings = locator.Require<Render.PixelVisibility.PixelVisSettings>();
             var system = new Render.PixelVisibility.PixelVisibilitySystem(engine, engine,
                 new Render.PixelVisibility.PixelVisFrame(locator.Require<IEngineEnvironment>()), settings);
-            settings.DrawChanged = system.ShowQueries;
+            // r_drawpixelvisibility's change callback; a system built after a
+            // change (a managed reload) starts where stock's would stand.
+            var draw = _convars.Get<Render.PixelVisibility.DrawPixelVisibilityConVar>()
+                       ?? throw new InvalidOperationException("r_drawpixelvisibility is not registered");
+            system.ShowQueries(draw.Value);
+            draw.Changed += system.ShowQueries;
             return system;
         });
         _services.AddFactory<IPixelVisibility>(locator => locator.Require<Render.PixelVisibility.PixelVisibilitySystem>());
@@ -1523,6 +1572,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             new Effects.SmokeEffect(fxRoutines),
             new Effects.GunshipImpactEffect(fxRoutines),
             new Effects.CommandPointerEffect(fxRoutines),
+            // The RPG shot down's flash and sound (C7 glow overlays).
+            new Render.GlowOverlays.RpgShotDownEffect(_services.Require<IFxGameSounds>(),
+                                                      _services.Require<Render.GlowOverlays.GlowOverlayCreators>()),
             new Effects.EmptyEffect("TeslaHitboxes"),
             new Effects.EmptyEffect("TeslaZap"),
             // fx_impact.cpp's GlassImpact (lane c5-particles: ShardEffects).
@@ -2259,7 +2311,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Flashlight.LocalPlayerFlashlight? _flashlight;
     private Flashlight.FlashlightConVars? _flashlightSettings;
     private Render.LeafSystem.LeafListConVars? _leafConVars;
-    private Render.PixelVisibility.PixelVisSettings? _pixelVisSettings;
+    private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
 
@@ -2503,8 +2555,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         if (_leafConVars is { } leafConVars && leafConVars.OnChanged(id, newValue))
             return;
 
-        // The pixel visibility's (C7), read by name while their files declare them.
-        if (_pixelVisSettings is { } pixelVisSettings && pixelVisSettings.OnChanged(id, newValue))
+        // building_cubemaps, the engine's, which the pixel visibility and the glow overlays read (C7).
+        if (_buildingCubemaps is { } buildingCubemaps && buildingCubemaps.OnChanged(id, newValue))
             return;
 
         if (!_convars.NotifyChanged(id, newValue, oldValue))

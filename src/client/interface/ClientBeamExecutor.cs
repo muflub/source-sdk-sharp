@@ -42,9 +42,6 @@ public interface IClientBeamExecutor
     /// <summary><c>IsBoxVisible</c> and <c>CullBox</c> together.</summary>
     void BoxVisibility(in Vector mins, in Vector maxs, out bool visible, out bool culled);
 
-    /// <summary>The halo's sight test (stock's handle-less pixel visibility).</summary>
-    float HaloVisibility(in Vector origin, float proxySize);
-
     /// <summary><c>debugoverlay-&gt;ScreenPosition</c>.</summary>
     Vector ScreenPosition(in Vector point);
 

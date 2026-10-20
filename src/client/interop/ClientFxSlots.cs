@@ -3,19 +3,13 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>
-/// IEffects' suppression answers and the gunship overlay over IShimFxClient
-/// (shell_effects_client.cpp). Each call is one slot with the arguments as
-/// they are; a missing shim draws nothing and answers "suppress".
+/// IEffects' suppression answers over the FX area (shell_effects_client.cpp).
+/// Each call is one slot with the arguments as they are. (The gunship
+/// overlay's FxImpactOverlay slot left with the glow overlays' port, C7: the
+/// overlay is the managed GlowOverlaySystem's.)
 /// </summary>
-internal sealed unsafe class ClientFxSlots(FxClientArea fxClient) : IFxSuppression, IFxImpactOverlay
+internal sealed unsafe class ClientFxSlots(FxClientArea fxClient) : IFxSuppression
 {
-    public void ImpactOverlay(Vector position, Vector color)
-    {
-        float* p = stackalloc float[] { position.X, position.Y, position.Z };
-        float* c = stackalloc float[] { color.X, color.Y, color.Z };
-        fxClient.FxImpactOverlay(p, c);
-    }
-
     public bool CanPredict() => fxClient.FxCanPredict() != 0;
 
     public int RecipientCount(Vector origin)

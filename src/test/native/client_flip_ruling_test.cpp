@@ -388,10 +388,13 @@ TEST( ClientFlipRuling, TheTableHasExactlyTwentyOneLiveRows )
 	//
 	// 22 UNTIL the tool framework followed: CToolFrameworkClient left with
 	// toolframework_client.cpp. SFM is dead (user ruling 2026-10-19).
-	// 22 WHILE c_pixel_visibility.cpp serves glow_overlay.cpp beside managed's system
+	// 22 WHILE c_pixel_visibility.cpp served glow_overlay.cpp beside managed's system
 	// (C7 pixel visibility): its own row, renamed CPixelVisibilitySystemGlow, and
 	// the managed row named CPixelVisibilitySystem.
-	EXPECT_EQ( TableRowNames().size(), 22u );
+	//
+	// 21 SINCE both left client.so (C7): CPixelVisibilitySystemGlow's row went
+	// with c_pixel_visibility.cpp; the managed row keeps stock's name and place.
+	EXPECT_EQ( TableRowNames().size(), 21u );
 }
 
 TEST( ClientFlipRuling, TheToolFrameworkIsNamedInACommentAndIsNotARow )

@@ -293,12 +293,13 @@ TEST( RagdollBlastSeam, TheReferenceFileIsUncompiledAndUnduplicated )
 {
 	// What the client compiles: client_sourcesharp's source list, read through
 	// cmake_graph.h (src/client/native/CMakeLists.txt). The proof-of-read is the
-	// overlay's new home, which this same test needs compiled.
+	// evicted temp entities' backends, which stay native (the overlay's old home,
+	// shell_explosion_overlay.cpp, left with the glow overlays' port, C7).
 	const std::set< std::string > client = cmake_graph::CompiledSources( cmake_graph::kClient );
 
-	ASSERT_TRUE( client.count( "sourcesharp/game/client/shell_explosion_overlay.cpp" ) )
-		<< "client_sourcesharp does not compile shell_explosion_overlay.cpp -- either the "
-		   "reader is not reading the client's source list or the overlay's home left it";
+	ASSERT_TRUE( client.count( "sourcesharp/game/client/shell_te_backends_client.cpp" ) )
+		<< "client_sourcesharp does not compile shell_te_backends_client.cpp -- either the "
+		   "reader is not reading the client's source list or the backends left it";
 
 	// By the path's TAIL, as the old vpc needle was: a copy under any directory counts.
 	const std::string strTail = "/c_te_explosion.cpp";
@@ -311,20 +312,27 @@ TEST( RagdollBlastSeam, TheReferenceFileIsUncompiledAndUnduplicated )
 			   "reference the falloff numbers are read out of";
 	}
 
-	// The overlay that WAS the file's one reachable body, in its new home.
-	const std::string overlay = Read( "sourcesharp/game/client/shell_explosion_overlay.cpp" );
-
-	ASSERT_FALSE( overlay.empty() )
-		<< "shell_explosion_overlay.cpp is where CExplosionOverlay::Update went";
-	EXPECT_NE( overlay.find( "bool CExplosionOverlay::Update( void )" ), std::string::npos )
-		<< "and it carries the definition, which two shim TUs need a vtable for";
-
-	// And the arithmetic is NOT restated anywhere under sourcesharp/.
-	EXPECT_EQ( overlay.find( "CRagdollExplosionEnumerator::" ), std::string::npos )
-		<< "the enumerator did not come with it";
-	EXPECT_EQ( overlay.find( "m_flMagnitude" ), std::string::npos )
-		<< "and neither did the falloff -- a second copy of stock's arithmetic inside "
-		   "this port is a comparison of the port with itself";
+	// The overlay that WAS the file's one reachable body went from the shim to
+	// C# (C7 glow overlays: the managed GlowOverlaySystem's RampOverlay), and its
+	// shim home with it. What this fact holds is that the falloff's arithmetic is
+	// NOT restated anywhere under sourcesharp/: no compiled client TU carries the
+	// enumerator or the magnitude it reads.
+	int nRead = 0;
+	for ( std::set< std::string >::const_iterator it = client.begin(); it != client.end(); ++it )
+	{
+		if ( it->compare( 0, 12, "sourcesharp/" ) != 0 )
+			continue;
+		const std::string body = Read( *it );
+		if ( body.empty() )
+			continue;
+		nRead++;
+		EXPECT_EQ( body.find( "CRagdollExplosionEnumerator::" ), std::string::npos )
+			<< *it << " carries the enumerator -- a second copy of stock's arithmetic inside "
+			   "this port is a comparison of the port with itself";
+	}
+	EXPECT_GT( nRead, 100 ) << "the sweep read the shim's compiled sources";
+	EXPECT_TRUE( Read( "sourcesharp/game/client/shell_explosion_overlay.cpp" ).empty() )
+		<< "shell_explosion_overlay.cpp is back; the explosion overlay is C#'s";
 }
 
 // BothSlotsAreDeclaredWiredAndDefined LEFT with the native body (plan physics_bones_native_zero Phase 3):

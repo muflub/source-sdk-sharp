@@ -24,7 +24,7 @@
 // viewer's fog and sky), asks managed for the plan (RenderPlanBuild), and runs
 // the ops; on a stock frame, or when managed declines, it calls stock's
 // RenderView. GetViewSetup's slot is overwritten too, so the setup the plan
-// draws is the one glow_overlay.cpp reads, as stock's RenderView made it, and
+// draws is the one shell_glow_client.cpp reads, as stock's RenderView made it, and
 // FreezeFrame's, so the plan knows when stock's freeze frame is running.
 //
 // THE EXECUTOR DECIDES NOTHING. Each op is one engine call or one stock
@@ -59,8 +59,7 @@
 #include "model_types.h"
 #include "vgui_controls/Controls.h"
 #include "ivieweffects.h"
-#include "glow_overlay.h"
-#include "c_pixel_visibility.h"
+#include "shell_glow_client.h"
 #include "shell_pixelvis_client.h"
 #include "clientsideeffects.h"
 #include "smoke_fog_overlay.h"
@@ -1622,10 +1621,8 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_PostClearColor4ub:
 			PostOp( op );
 			break;
-		// c_pixel_visibility.cpp's system first, for its last caller
-		// (glow_overlay.cpp), then managed's (every other glow).
-		case RENDER_OP_PixelVisEndCurrentView: PixelVisibility_EndCurrentView(); ShellPixelVisEndView(); break;
-		case RENDER_OP_PixelVisEndScene: PixelVisibility_EndScene(); ShellPixelVisEndScene(); break;
+		case RENDER_OP_PixelVisEndCurrentView: ShellPixelVisEndView(); break;
+		case RENDER_OP_PixelVisEndScene: ShellPixelVisEndScene(); break;
 		case RENDER_OP_Flush: { CMatRenderContextPtr ctx( materials ); ctx->Flush( op.I[0] != 0 ); break; }
 		case RENDER_OP_CopyRefractionTarget:
 		{
@@ -1637,8 +1634,8 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		}
 		case RENDER_OP_PushCustomClipPlane: { CMatRenderContextPtr ctx( materials ); ctx->PushCustomClipPlane( op.F ); break; }
 		case RENDER_OP_PopCustomClipPlane: { CMatRenderContextPtr ctx( materials ); ctx->PopCustomClipPlane(); break; }
-		case RENDER_OP_GlowDrawOverlays: CGlowOverlay::DrawOverlays( op.I[0] != 0 ); break;
-		case RENDER_OP_GlowUpdateSkyOverlays: CGlowOverlay::UpdateSkyOverlays( op.F[0], op.I[0] != 0 ); break;
+		case RENDER_OP_GlowDrawOverlays: ShellGlowDrawOverlays( op.I[0] != 0 ); break;
+		case RENDER_OP_GlowUpdateSkyOverlays: ShellGlowUpdateSkyOverlays( op.F[0], op.I[0] != 0 ); break;
 		case RENDER_OP_DrawPrecipitation: DrawPrecipitation(); break;
 		case RENDER_OP_ClientEffectsDraw: clienteffects->DrawEffects( gpGlobals->frametime ); break;
 		case RENDER_OP_SetFXCreationAllowed: SetFXCreationAllowed( op.I[0] != 0 ); break;

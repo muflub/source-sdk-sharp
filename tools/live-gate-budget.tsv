@@ -268,7 +268,13 @@ input-usercmd	rate	56.778	12098	31.185	7235	232	2	7235	7932
 #   batch 4 41.119 (13117/319) and 42.125 (13480/320); the per-op counts differ by those three ops at 319-322 each.
 #   Port budget rise allowed by user ruling 2026-10-12; perf pass after the port (C7 follow-up: fold the three into the
 #   per-frame crossing). Re-recorded from the higher pass, the file's own ceilings. Was: rate	42.138	10497	21.425	6599	308.
-render	rate	55.164	14652	30.109	9635	320	2	9195	9635
+# render: 2026-10-19, the five small render TUs in managed (C7: render textures, screen-space effects, the viewport
+#   system, pixel visibility, glow and warp overlays). GitHub main 43b33a0 (PR #23) measures 54.337 (17388/320) and
+#   54.254 (17524/323), two passes of `live-gate --steps render` at the stand, already near the old ceiling (the row's
+#   30.109 was recorded before the client batches since). With this batch: 59.410 (18120/305) and 60.584 (19387/320),
+#   +5.7 a client frame (+10%). Port budget rise allowed by user ruling 2026-10-12; perf pass after the port.
+#   Re-recorded from the higher pass, the file's own ceilings. Was: rate	55.164	14652	30.109	9635	320	2	9195	9635.
+render	rate	100.876	29280	60.584	19387	320	2	18120	19387
 # kill-feed: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.483	21048)
 kill-feed	rate	56.873	63912	31.249	41811	1338	2	41811	42475
 # ui-motd: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.464	849)

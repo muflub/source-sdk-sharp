@@ -1,0 +1,7 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+float FloatOf(	SLOT-HELP	a command word's float bits
+void Execute(	SLOT	carries out a draw's commands as managed answered them: the clipping switch (its first answer kept), a material's $hdrcolorscale, a quad and a wireframe quad (glow_overlay.cpp's and warp_overlay.cpp's meshes); the switch over the kind and the bounds checks are its only ifs
+int32_t SourceSharp_GlowMaterialFind(	SLOT	IShimViewClient::GlowMaterialFind: materials->FindMaterial by name and group, no reference taken, as the effect list's material id
+void ShellGlowDrawOverlays(	HOOK	the plan's GlowDrawOverlays op: the current view, zFar, the frustum's first five planes, the wireframe question and r_drawsprites to IManagedGlowClient::DrawOverlays, its commands carried out (a buffer grown and asked again when they did not fit)
+void ShellGlowUpdateSkyOverlays(	HOOK	the plan's GlowUpdateSkyOverlays op: the view's origin to IManagedGlowClient::UpdateSkyOverlays

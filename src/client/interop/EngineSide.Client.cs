@@ -537,19 +537,8 @@ internal sealed unsafe partial class EngineSide
     // which is why there are eight for seven.
     //-------------------------------------------------------------------------
 
-    /// <summary>
-    /// The fireball's white-hot flash: one <c>CExplosionOverlay</c>, which
-    /// grows and fades over a tenth of a second.
-    /// </summary>
-    public unsafe void ClientExplosionFireball(Vector origin)
-    {
-        if (!s_Initialized || !ClientAttached) return;
-
-        float* pOrigin = stackalloc float[3];
-        pOrigin[0] = origin.X; pOrigin[1] = origin.Y; pOrigin[2] = origin.Z;
-
-        ClientShims.TempEntBackendsClient.ClientExplosionFireball(pOrigin);
-    }
+    // (ClientExplosionFireball, the fireball's flash, left with the glow
+    // overlays' port, C7: it is a RampOverlay in the managed GlowOverlaySystem.)
 
     // ---- the legacy temp entity pool (plan_tmp.md Part 5). Client only ----
     //

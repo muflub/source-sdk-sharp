@@ -2135,7 +2135,7 @@ static void *const s_ShimTempEntPoolClientSlots[] = {
 static const SSForwarderTable s_ShimTempEntPoolClientTable = { s_ShimTempEntPoolClientSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// ShimTempEntBackendsClient: 18 forwarder(s) over IShimTempEntBackendsClient.
+// ShimTempEntBackendsClient: 17 forwarder(s) over IShimTempEntBackendsClient.
 //-----------------------------------------------------------------------------
 // void IShimTempEntBackendsClient::ClientDecalBrushModel( int32_t, const float *, int32_t )
 static void SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel( IShimTempEntBackendsClient *self, int32_t a0, const float * a1, int32_t a2 ) { self->ClientDecalBrushModel( a0, a1, a2 ); }
@@ -2153,8 +2153,6 @@ static void SSFwd_ShimTempEntBackendsClient_ClientDecalStudioModel( IShimTempEnt
 static void SSFwd_ShimTempEntBackendsClient_ClientEnergySplash( IShimTempEntBackendsClient *self, const float * a0, const float * a1, int32_t a2 ) { self->ClientEnergySplash( a0, a1, a2 ); }
 // int32_t IShimTempEntBackendsClient::ClientEntityModelType( int32_t )
 static int32_t SSFwd_ShimTempEntBackendsClient_ClientEntityModelType( IShimTempEntBackendsClient *self, int32_t a0 ) { return self->ClientEntityModelType( a0 ); }
-// void IShimTempEntBackendsClient::ClientExplosionFireball( const float * )
-static void SSFwd_ShimTempEntBackendsClient_ClientExplosionFireball( IShimTempEntBackendsClient *self, const float * a0 ) { self->ClientExplosionFireball( a0 ); }
 // int32_t IShimTempEntBackendsClient::ClientIsLowViolence( void )
 static int32_t SSFwd_ShimTempEntBackendsClient_ClientIsLowViolence( IShimTempEntBackendsClient *self ) { return self->ClientIsLowViolence(); }
 // void IShimTempEntBackendsClient::ClientMetalSparks( const float *, const float * )
@@ -2183,7 +2181,6 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalStudioModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientEnergySplash ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientEntityModelType ),
-	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientExplosionFireball ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientIsLowViolence ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientMetalSparks ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientMuzzleFlash ),
@@ -2195,10 +2192,10 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_TempEntBuildClient ),
 };
 
-static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 18 };
+static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 17 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsRenderClient: 30 forwarder(s) over IShimEffectsRenderClient.
+// ShimEffectsRenderClient: 29 forwarder(s) over IShimEffectsRenderClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimEffectsRenderClient::DrawSprite( uint32_t, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float )
 static int32_t SSFwd_ShimEffectsRenderClient_DrawSprite( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, float a9, int32_t a10, float a11, float a12 ) { return self->DrawSprite( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 ); }
@@ -2240,8 +2237,6 @@ static int32_t SSFwd_ShimEffectsRenderClient_BeamEntityHasModel( IShimEffectsRen
 static int32_t SSFwd_ShimEffectsRenderClient_BeamEntityFacts( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, int32_t a2, float * a3 ) { return self->BeamEntityFacts( a0, a1, a2, a3 ); }
 // int32_t IShimEffectsRenderClient::BeamBoxVisibility( const float *, const float * )
 static int32_t SSFwd_ShimEffectsRenderClient_BeamBoxVisibility( IShimEffectsRenderClient *self, const float * a0, const float * a1 ) { return self->BeamBoxVisibility( a0, a1 ); }
-// float IShimEffectsRenderClient::BeamHaloVisibility( const float *, float )
-static float SSFwd_ShimEffectsRenderClient_BeamHaloVisibility( IShimEffectsRenderClient *self, const float * a0, float a1 ) { return self->BeamHaloVisibility( a0, a1 ); }
 // int32_t IShimEffectsRenderClient::BeamScreenPosition( const float *, float * )
 static int32_t SSFwd_ShimEffectsRenderClient_BeamScreenPosition( IShimEffectsRenderClient *self, const float * a0, float * a1 ) { return self->BeamScreenPosition( a0, a1 ); }
 // int32_t IShimEffectsRenderClient::BeamRenderableAdd( const float * )
@@ -2282,7 +2277,6 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamEntityHasModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamEntityFacts ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamBoxVisibility ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamHaloVisibility ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamScreenPosition ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamRenderableAdd ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamRenderableChanged ),
@@ -2294,7 +2288,7 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamDrawMesh ),
 };
 
-static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 30 };
+static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 29 };
 
 //-----------------------------------------------------------------------------
 // ShimStandaloneClient: 21 forwarder(s) over IShimStandaloneClient.
@@ -2369,7 +2363,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 23 forwarder(s) over IShimViewClient.
+// ShimViewClient: 24 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2417,6 +2411,8 @@ static void SSFwd_ShimViewClient_PixelVisQueryPixels( IShimViewClient *self, int
 static void SSFwd_ShimViewClient_PixelVisDiameters( IShimViewClient *self, const float * a0, int32_t a1, float * a2 ) { self->PixelVisDiameters( a0, a1, a2 ); }
 // int32_t IShimViewClient::PixelVisView( float *, int32_t )
 static int32_t SSFwd_ShimViewClient_PixelVisView( IShimViewClient *self, float * a0, int32_t a1 ) { return self->PixelVisView( a0, a1 ); }
+// int32_t IShimViewClient::GlowMaterialFind( const char *, const char * )
+static int32_t SSFwd_ShimViewClient_GlowMaterialFind( IShimViewClient *self, const char * a0, const char * a1 ) { return self->GlowMaterialFind( a0, a1 ); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
@@ -2442,9 +2438,10 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisQueryPixels ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisDiameters ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisView ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GlowMaterialFind ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 23 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 24 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.
@@ -2573,7 +2570,7 @@ static void *const s_ShimUiClientSlots[] = {
 static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 22 };
 
 //-----------------------------------------------------------------------------
-// ShimParticlesClient: 20 forwarder(s) over IShimParticlesClient.
+// ShimParticlesClient: 19 forwarder(s) over IShimParticlesClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimParticlesClient::ParticlesCreate( uint32_t, int32_t, const char *, float, int32_t )
 static int32_t SSFwd_ShimParticlesClient_ParticlesCreate( IShimParticlesClient *self, uint32_t a0, int32_t a1, const char * a2, float a3, int32_t a4 ) { return self->ParticlesCreate( a0, a1, a2, a3, a4 ); }
@@ -2607,8 +2604,6 @@ static int32_t SSFwd_ShimParticlesClient_ParticleSystemOneShot( IShimParticlesCl
 static int32_t SSFwd_ShimParticlesClient_ParticlesWorldTrace( IShimParticlesClient *self, const float * a0, const float * a1, float * a2, int32_t a3 ) { return self->ParticlesWorldTrace( a0, a1, a2, a3 ); }
 // void IShimParticlesClient::ParticlesView( float *, int32_t *, float * )
 static void SSFwd_ShimParticlesClient_ParticlesView( IShimParticlesClient *self, float * a0, int32_t * a1, float * a2 ) { self->ParticlesView( a0, a1, a2 ); }
-// float IShimParticlesClient::ParticlesPixelVisible( const float *, int32_t * )
-static float SSFwd_ShimParticlesClient_ParticlesPixelVisible( IShimParticlesClient *self, const float * a0, int32_t * a1 ) { return self->ParticlesPixelVisible( a0, a1 ); }
 // int32_t IShimParticlesClient::ParticlesTraceMask( const float *, const float *, uint32_t, float *, int32_t )
 static int32_t SSFwd_ShimParticlesClient_ParticlesTraceMask( IShimParticlesClient *self, const float * a0, const float * a1, uint32_t a2, float * a3, int32_t a4 ) { return self->ParticlesTraceMask( a0, a1, a2, a3, a4 ); }
 // int32_t IShimParticlesClient::ParticlesSetSpace( uint32_t, int32_t, uint32_t, int32_t, int32_t, SourceSharpParticleFollow_t * )
@@ -2633,16 +2628,15 @@ static void *const s_ShimParticlesClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleSystemOneShot ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesWorldTrace ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesView ),
-	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesPixelVisible ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesTraceMask ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesSetSpace ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesBrushPointContents ),
 };
 
-static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 20 };
+static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 19 };
 
 //-----------------------------------------------------------------------------
-// ShimFxClient: 36 forwarder(s) over IShimFxClient.
+// ShimFxClient: 33 forwarder(s) over IShimFxClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimFxClient::EffectRegistrationCount( void )
 static int32_t SSFwd_ShimFxClient_EffectRegistrationCount( IShimFxClient *self ) { return self->EffectRegistrationCount(); }
@@ -2680,10 +2674,6 @@ static void SSFwd_ShimFxClient_FxDispatchParticleEffect( IShimFxClient *self, in
 static int32_t SSFwd_ShimFxClient_FxEntityRenderAngles( IShimFxClient *self, int32_t a0, float * a1 ) { return self->FxEntityRenderAngles( a0, a1 ); }
 // void IShimFxClient::FxEjectBrass( const float *, const float *, const float *, int32_t )
 static void SSFwd_ShimFxClient_FxEjectBrass( IShimFxClient *self, const float * a0, const float * a1, const float * a2, int32_t a3 ) { self->FxEjectBrass( a0, a1, a2, a3 ); }
-// float IShimFxClient::FxSpriteGlowFraction( const float *, float, float )
-static float SSFwd_ShimFxClient_FxSpriteGlowFraction( IShimFxClient *self, const float * a0, float a1, float a2 ) { return self->FxSpriteGlowFraction( a0, a1, a2 ); }
-// float IShimFxClient::FxGlowSightDistance( const float * )
-static float SSFwd_ShimFxClient_FxGlowSightDistance( IShimFxClient *self, const float * a0 ) { return self->FxGlowSightDistance( a0 ); }
 // int32_t IShimFxClient::FxSpriteDrawBegin( uint32_t, const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float, float * )
 static int32_t SSFwd_ShimFxClient_FxSpriteDrawBegin( IShimFxClient *self, uint32_t a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, int32_t a9, float a10, int32_t a11, float a12, float a13, float * a14 ) { return self->FxSpriteDrawBegin( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
 // int32_t IShimFxClient::FxSpriteDrawEnd( const float * )
@@ -2708,8 +2698,6 @@ static void SSFwd_ShimFxClient_FxElight( IShimFxClient *self, int32_t a0, const 
 static void SSFwd_ShimFxClient_FxVectorRandom( IShimFxClient *self, float a0, float a1, float * a2 ) { self->FxVectorRandom( a0, a1, a2 ); }
 // int32_t IShimFxClient::FxMaterialsCached( void )
 static int32_t SSFwd_ShimFxClient_FxMaterialsCached( IShimFxClient *self ) { return self->FxMaterialsCached(); }
-// void IShimFxClient::FxImpactOverlay( const float *, const float * )
-static void SSFwd_ShimFxClient_FxImpactOverlay( IShimFxClient *self, const float * a0, const float * a1 ) { self->FxImpactOverlay( a0, a1 ); }
 // int32_t IShimFxClient::FxTempEntCreateNamed( int32_t, const float *, const char *, int32_t )
 static int32_t SSFwd_ShimFxClient_FxTempEntCreateNamed( IShimFxClient *self, int32_t a0, const float * a1, const char * a2, int32_t a3 ) { return self->FxTempEntCreateNamed( a0, a1, a2, a3 ); }
 // void IShimFxClient::FxLoadModel( const char * )
@@ -2736,8 +2724,6 @@ static void *const s_ShimFxClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxDispatchParticleEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEntityRenderAngles ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEjectBrass ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteGlowFraction ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxGlowSightDistance ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteDrawBegin ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteDrawEnd ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteDrawStore ),
@@ -2750,13 +2736,12 @@ static void *const s_ShimFxClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxElight ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxVectorRandom ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialsCached ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxImpactOverlay ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxTempEntCreateNamed ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxLoadModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxModelFrameCount ),
 };
 
-static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 36 };
+static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 33 };
 
 //-----------------------------------------------------------------------------
 // ShimSoundscapeClient: 10 forwarder(s) over IShimSoundscapeClient.

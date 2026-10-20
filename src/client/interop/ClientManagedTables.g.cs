@@ -1480,3 +1480,29 @@ public unsafe struct ManagedPixelVisClientTable
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> EndScene;
 }
+
+/// <summary>The table managed writes for <c>IManagedGlowClient</c> (<c>SSManagedGlowClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedGlowClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedGlowClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t DrawOverlays( const float *pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t *pCmds, int32_t nCmdWords )
+    [SlotHash(0xec611fae)]
+    public delegate* unmanaged<void*, void*, int, int, void*, int, int> DrawOverlays;
+
+    // 3: int32_t Commands( int32_t *pCmds, int32_t nCmdWords )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Commands;
+
+    // 4: void UpdateSkyOverlays( const float *pOrigin, float flZFar, int32_t bCacheFullSceneState )
+    [SlotHash(0x93d74047)]
+    public delegate* unmanaged<void*, void*, float, int, void> UpdateSkyOverlays;
+}

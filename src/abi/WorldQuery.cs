@@ -175,6 +175,14 @@ public enum TraceMask
     /// of the ABI for <see cref="All"/>'s reason.
     /// </summary>
     GlowSight = 8,
+
+    /// <summary>
+    /// <c>CONTENTS_SOLID</c> alone — what a glow overlay's line at the sky stops
+    /// on when the card cannot answer pixel visibility (glow_overlay.cpp, C7);
+    /// the sky's surface flag is read off what it hit. Mapped on BOTH arms of the
+    /// ABI for <see cref="All"/>'s reason.
+    /// </summary>
+    ContentsSolid = 9,
 }
 
 /// <summary>

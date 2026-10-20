@@ -416,7 +416,6 @@ public:
 	void ClientDecalStudioModel( int32_t nEntity, const float * pRayStartXYZ, const float * pRayEndXYZ, int32_t nDecalIndex ) override;
 	void ClientEnergySplash( const float * pPosXYZ, const float * pDirXYZ, int32_t bExplosive ) override;
 	int32_t ClientEntityModelType( int32_t nEntity ) override;
-	void ClientExplosionFireball( const float * pOriginXYZ ) override;
 	int32_t ClientIsLowViolence() override;
 	void ClientMetalSparks( const float * pPositionXYZ, const float * pDirectionXYZ ) override;
 	void ClientMuzzleFlash( const float * pOriginXYZ, const float * pAnglesPYR, float flScale, int32_t nType ) override;
@@ -451,7 +450,6 @@ public:
 	int32_t BeamEntityHasModel( uint32_t hEntity ) override;
 	int32_t BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float * pOut9 ) override;
 	int32_t BeamBoxVisibility( const float * pMinsXYZ, const float * pMaxsXYZ ) override;
-	float BeamHaloVisibility( const float * pOriginXYZ, float flProxySize ) override;
 	int32_t BeamScreenPosition( const float * pPointXYZ, float * pOutScreenXYZ ) override;
 	int32_t BeamRenderableAdd( const float * pOriginMinsMaxs9 ) override;
 	void BeamRenderableChanged( int32_t nRenderable, const float * pOriginMinsMaxs9 ) override;
@@ -515,6 +513,7 @@ public:
 	void PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t * pOut ) override;
 	void PixelVisDiameters( const float * pSpheres, int32_t nSpheres, float * pOut ) override;
 	int32_t PixelVisView( float * pOut, int32_t nFloats ) override;
+	int32_t GlowMaterialFind( const char * pszName, const char * pszGroup ) override;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient
@@ -586,7 +585,6 @@ public:
 	int32_t ParticleSystemOneShot( const char * pszName, const float * pSortOriginXYZ, const float * pPoints, int32_t nPoints, const float * pOrientation0 ) override;
 	int32_t ParticlesWorldTrace( const float * pStartXYZ, const float * pEndXYZ, float * pOut, int32_t nOut ) override;
 	void ParticlesView( float * pModelView12, int32_t * pViewId, float * pOriginForward6 ) override;
-	float ParticlesPixelVisible( const float * pOriginXYZ, int32_t * pQueryHandle ) override;
 	int32_t ParticlesTraceMask( const float * pStartXYZ, const float * pEndXYZ, uint32_t nMask, float * pOut, int32_t nOut ) override;
 	int32_t ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags, SourceSharpParticleFollow_t * pFollow ) override;
 	int32_t ParticlesBrushPointContents( uint32_t hOwner, const float * pPointXYZ ) override;
@@ -613,8 +611,6 @@ public:
 	void FxDispatchParticleEffect( int32_t nSystem, const float * pStartXYZ, const float * pEndXYZ, const float * pAnglesPYR, int32_t nEntIndex ) override;
 	int32_t FxEntityRenderAngles( int32_t nEntIndex, float * pOutPYR ) override;
 	void FxEjectBrass( const float * pOriginXYZ, const float * pAnglesPYR, const float * pGunAnglesPYR, int32_t nType ) override;
-	float FxSpriteGlowFraction( const float * pPositionXYZ, float flProxySize, float flProxyAspect ) override;
-	float FxGlowSightDistance( const float * pPositionXYZ ) override;
 	int32_t FxSpriteDrawBegin( uint32_t hOwner, const float * pOffsetXYZ, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float * pIn ) override;
 	int32_t FxSpriteDrawEnd( const float * pOut ) override;
 	int32_t FxSpriteDrawStore( const float * pOut ) override;
@@ -627,7 +623,6 @@ public:
 	void FxElight( int32_t nKey, const float * pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent, float flRadius, float flDecay, float flDie ) override;
 	void FxVectorRandom( float flLo, float flHi, float * pOutXYZ ) override;
 	int32_t FxMaterialsCached() override;
-	void FxImpactOverlay( const float * pPositionXYZ, const float * pColorRGB ) override;
 	int32_t FxTempEntCreateNamed( int32_t nSlot, const float * pOriginXYZ, const char * pModel, int32_t nPriority ) override;
 	void FxLoadModel( const char * pModel ) override;
 	int32_t FxModelFrameCount( const char * pModel ) override;

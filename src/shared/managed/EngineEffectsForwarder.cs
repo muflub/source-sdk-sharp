@@ -86,9 +86,8 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual void ClientPlayerDecalShoot(Vector position, int player, int entIndex) => Inner.ClientPlayerDecalShoot(position, player, entIndex);
     public virtual int ClientDecalIndexFromName(string name) => Inner.ClientDecalIndexFromName(name);
 
-    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP). Eight named
-    // primitives, not one kind+params slot; Sparks reuses ClientSparks above.
-    public virtual void ClientExplosionFireball(Vector origin) => Inner.ClientExplosionFireball(origin);
+    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP): the last,
+    // ClientExplosionFireball, left with the glow overlays' port (C7).
 
     // THE LEGACY TEMP ENTITY POOL (plan_tmp.md Part 5, C-Phase 4). Six slots
     // that reach ONE pooled C_LocalTempEntity by slot number.

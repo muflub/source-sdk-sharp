@@ -20,7 +20,8 @@
 // know, there is nothing to ask and nothing refuses (the second is said once).
 //
 // The rows: CViewportClientSystem (vgui_game_viewport.cpp, C7),
-// CPixelVisibilitySystem (c_pixel_visibility.cpp, C7).
+// CPixelVisibilitySystem (c_pixel_visibility.cpp, C7), CGlowOverlaySystem
+// (glow_overlay.cpp, C7).
 //=============================================================================//
 
 #include "cbase.h"
@@ -84,6 +85,13 @@ private:
 CClientSystem *ClientSystem_ManagedViewport()
 {
 	static CManagedClientSystemRow s_Row( "CViewportClientSystem" );
+	return &s_Row;
+}
+
+// kClientSystems[]'s "CGlowOverlaySystem": GlowOverlaySystem (C#).
+CClientSystem *ClientSystem_ManagedGlowOverlay()
+{
+	static CManagedClientSystemRow s_Row( "CGlowOverlaySystem" );
 	return &s_Row;
 }
 

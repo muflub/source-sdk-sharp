@@ -2012,7 +2012,7 @@ internal unsafe struct ShimTempEntPoolClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 18 slot(s).
+/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 17 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
@@ -2044,9 +2044,6 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
     // int32_t IShimTempEntBackendsClient::ClientEntityModelType( int32_t )
     public delegate* unmanaged<void*, int, int> ClientEntityModelType;
 
-    // void IShimTempEntBackendsClient::ClientExplosionFireball( const float * )
-    public delegate* unmanaged<void*, void*, void> ClientExplosionFireball;
-
     // int32_t IShimTempEntBackendsClient::ClientIsLowViolence( void )
     public delegate* unmanaged<void*, int> ClientIsLowViolence;
 
@@ -2076,7 +2073,7 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEffectsRenderClient</c> through its forwarders (SSFwd_ShimEffectsRenderClient): 30 slot(s).
+/// <c>IShimEffectsRenderClient</c> through its forwarders (SSFwd_ShimEffectsRenderClient): 29 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
@@ -2143,9 +2140,6 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 
     // int32_t IShimEffectsRenderClient::BeamBoxVisibility( const float *, const float * )
     public delegate* unmanaged<void*, void*, void*, int> BeamBoxVisibility;
-
-    // float IShimEffectsRenderClient::BeamHaloVisibility( const float *, float )
-    public delegate* unmanaged<void*, void*, float, float> BeamHaloVisibility;
 
     // int32_t IShimEffectsRenderClient::BeamScreenPosition( const float *, float * )
     public delegate* unmanaged<void*, void*, void*, int> BeamScreenPosition;
@@ -2249,7 +2243,7 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 23 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 24 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2325,6 +2319,9 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::PixelVisView( float *, int32_t )
     public delegate* unmanaged<void*, void*, int, int> PixelVisView;
+
+    // int32_t IShimViewClient::GlowMaterialFind( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, int> GlowMaterialFind;
 }
 
 /// <summary>
@@ -2458,7 +2455,7 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimParticlesClient</c> through its forwarders (SSFwd_ShimParticlesClient): 20 slot(s).
+/// <c>IShimParticlesClient</c> through its forwarders (SSFwd_ShimParticlesClient): 19 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimParticlesClientFwd : IForwarderTable
@@ -2514,9 +2511,6 @@ internal unsafe struct ShimParticlesClientFwd : IForwarderTable
     // void IShimParticlesClient::ParticlesView( float *, int32_t *, float * )
     public delegate* unmanaged<void*, void*, void*, void*, void> ParticlesView;
 
-    // float IShimParticlesClient::ParticlesPixelVisible( const float *, int32_t * )
-    public delegate* unmanaged<void*, void*, void*, float> ParticlesPixelVisible;
-
     // int32_t IShimParticlesClient::ParticlesTraceMask( const float *, const float *, uint32_t, float *, int32_t )
     public delegate* unmanaged<void*, void*, void*, uint, void*, int, int> ParticlesTraceMask;
 
@@ -2528,7 +2522,7 @@ internal unsafe struct ShimParticlesClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimFxClient</c> through its forwarders (SSFwd_ShimFxClient): 36 slot(s).
+/// <c>IShimFxClient</c> through its forwarders (SSFwd_ShimFxClient): 33 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimFxClientFwd : IForwarderTable
@@ -2590,12 +2584,6 @@ internal unsafe struct ShimFxClientFwd : IForwarderTable
     // void IShimFxClient::FxEjectBrass( const float *, const float *, const float *, int32_t )
     public delegate* unmanaged<void*, void*, void*, void*, int, void> FxEjectBrass;
 
-    // float IShimFxClient::FxSpriteGlowFraction( const float *, float, float )
-    public delegate* unmanaged<void*, void*, float, float, float> FxSpriteGlowFraction;
-
-    // float IShimFxClient::FxGlowSightDistance( const float * )
-    public delegate* unmanaged<void*, void*, float> FxGlowSightDistance;
-
     // int32_t IShimFxClient::FxSpriteDrawBegin( uint32_t, const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float, float * )
     public delegate* unmanaged<void*, uint, void*, int, float, int, int, int, int, int, int, float, int, float, float, void*, int> FxSpriteDrawBegin;
 
@@ -2631,9 +2619,6 @@ internal unsafe struct ShimFxClientFwd : IForwarderTable
 
     // int32_t IShimFxClient::FxMaterialsCached( void )
     public delegate* unmanaged<void*, int> FxMaterialsCached;
-
-    // void IShimFxClient::FxImpactOverlay( const float *, const float * )
-    public delegate* unmanaged<void*, void*, void*, void> FxImpactOverlay;
 
     // int32_t IShimFxClient::FxTempEntCreateNamed( int32_t, const float *, const char *, int32_t )
     public delegate* unmanaged<void*, int, void*, byte*, int, int> FxTempEntCreateNamed;

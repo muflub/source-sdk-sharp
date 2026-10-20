@@ -977,6 +977,12 @@ public enum CrossingOp
     ClientPixelVisCommands = 398,
     /// <summary>IManagedPixelVisClient::EndScene: the scene's end frees the sets and queries nobody asked about. CLIENT ONLY.</summary>
     ClientPixelVisEndScene = 399,
+    /// <summary>IManagedGlowClient::DrawOverlays: the plan's glow overlay draw asks the managed system for its commands (C7, glow_overlay.cpp). CLIENT ONLY.</summary>
+    ClientGlowDrawOverlays = 400,
+    /// <summary>IManagedGlowClient::Commands: a draw whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
+    ClientGlowCommands = 401,
+    /// <summary>IManagedGlowClient::UpdateSkyOverlays: the sky overlays' obstruction. CLIENT ONLY.</summary>
+    ClientGlowUpdateSkyOverlays = 402,
 }
 
 /// <summary>

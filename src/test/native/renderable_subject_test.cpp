@@ -208,11 +208,12 @@ int CountOccurrences( const std::string &strHaystack, const std::string &strNeed
 // C7 cluster 10 (its decisions are SourceSharp.Client.Detail's, its executor
 // shell_detail_props.cpp) and clientleafsystem.cpp in C7 cluster 12 L2 (its
 // registry and decisions are SourceSharp.Client's LeafRegistry, its native
-// residue libss_fwd_client's forwarder class), so "the five" below are two.
+// residue libss_fwd_client's forwarder class) and c_pixel_visibility.cpp in C7
+// (its decisions are SourceSharp.Client's PixelVisibilitySystem, its executor
+// shell_pixelvis_client.cpp), so "the five" below are one.
 const char *kStep7dTus[] =
 {
 	"game/client/clientshadowmgr.cpp",
-	"game/client/c_pixel_visibility.cpp",
 };
 
 const size_t kStep7dTuCount = sizeof( kStep7dTus ) / sizeof( kStep7dTus[ 0 ] );
@@ -263,7 +264,6 @@ TEST( Step7dSourceScan, NoneOfTheFiveAsksForTheLocalPlayerEntity )
 	const char *kMustBeClean[] =
 	{
 		"game/client/clientshadowmgr.cpp",
-		"game/client/c_pixel_visibility.cpp",
 	};
 
 	for ( size_t i = 0; i < sizeof( kMustBeClean ) / sizeof( kMustBeClean[ 0 ] ); i++ )
@@ -277,30 +277,26 @@ TEST( Step7dSourceScan, NoneOfTheFiveAsksForTheLocalPlayerEntity )
 	}
 }
 
-TEST( Step7dSourceScan, PixelVisibilityNoLongerIncludesThePlayerHeader )
-{
-	// The include is the coupling, not the call. A file that stopped calling
-	// GetLocalPlayer but kept c_baseplayer.h still drags the player entity's
-	// whole surface into a render TU, and 7h's gate is about exactly that.
-	const std::string strFile = StripComments( ReadFile( "game/client/c_pixel_visibility.cpp" ) );
-	ASSERT_FALSE( strFile.empty() );
-
-	EXPECT_EQ( std::string::npos, strFile.find( "c_baseplayer.h" ) );
-}
+// The two facts that stood here held c_pixel_visibility.cpp free of the player
+// header and of every entity type the census looks for. The file left client.so
+// in C7; its port is C#, which the census does not read, so the fact below
+// holds the same needles to the port.
+const char kPixelVisPort[] = "sourcesharp/managed/SourceSharp.Client/Render/PixelVisibility/PixelVisibilitySystem.cs";
 
 TEST( Step7dSourceScan, PixelVisibilityIsEntityFreeByTheCensusOwnRegex )
 {
 	// THE CENSUS READS RAW TEXT, so a file whose only remaining mention of an
-	// entity type is a COMMENT is still counted as a TU that uses one. This
-	// file has none at all now, which moves it out of "stock TUs that use an
-	// entity type but define none" and into "stock TUs with entity-free text" —
-	// a real census movement of one TU rather than a grep tidied around.
+	// entity type is a COMMENT is still counted as a TU that uses one. The
+	// native file had none when it left, and its port has none either: the
+	// pixel visibility asks the view and the material system, never an entity.
 	//
 	// The needles are tools/entity-census's USES_RE spelled out, and they are
 	// checked against the tool below so this cannot drift into checking for
 	// something the census does not look for.
-	const std::string strFile = ReadFile( "game/client/c_pixel_visibility.cpp" );
-	ASSERT_FALSE( strFile.empty() );
+	const std::string strFile = ReadFile( kPixelVisPort );
+	ASSERT_FALSE( strFile.empty() ) << kPixelVisPort;
+	ASSERT_NE( std::string::npos, strFile.find( "public float GlowSightDistance(" ) )
+		<< kPixelVisPort << " no longer defines GlowSightDistance, so this reads something else";
 
 	const char *kEntityTypes[] =
 	{
@@ -313,7 +309,7 @@ TEST( Step7dSourceScan, PixelVisibilityIsEntityFreeByTheCensusOwnRegex )
 	for ( size_t i = 0; i < sizeof( kEntityTypes ) / sizeof( kEntityTypes[ 0 ] ); i++ )
 	{
 		EXPECT_EQ( std::string::npos, strFile.find( kEntityTypes[ i ] ) )
-			<< "c_pixel_visibility.cpp names " << kEntityTypes[ i ]
+			<< kPixelVisPort << " names " << kEntityTypes[ i ]
 			<< " -- in code or in a comment, the census counts it either way";
 	}
 }
@@ -418,37 +414,34 @@ TEST( Step7dNotDeleted, TheFovGapIsRecordedWhereARestorerWillFindIt )
 		   "sites the same way doubles the error instead of cancelling it";
 }
 
-// The body of FUNCTION in STRIPPED text, from its definition to the next
-// line-initial '}' -- the shape every function in these Valve files closes
-// with. Empty when the definition is not there.
-std::string FunctionBody( const std::string &strCode, const std::string &strSignature )
-{
-	const size_t pos = strCode.find( strSignature );
-	if ( pos == std::string::npos )
-		return std::string();
-	const size_t end = strCode.find( "\n}", pos );
-	return strCode.substr( pos, end == std::string::npos ? std::string::npos : end - pos );
-}
-
 TEST( Step7dNotDeleted, TheThreeUnscaledSitesAreTheBareOnesTheLedgerNames )
 {
-	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// The ledger row (the fact above) names three sites. A reader at the line
 	// sees a bare 1 where stock multiplied by the FOV factor; the row is where
-	// the why lives. These facts pin the CODE of the native site, read with
+	// the why lives. These facts pin the CODE of the glow site, read with
 	// comments stripped, so they hold whether or not the SDK tree carries the
 	// fork's comments: the glow site multiplies by nothing, and nothing calls
 	// the deleted function. The two detail sites left with
 	// detailobjectsystem.cpp (C7 cluster 10); DetailPropSystem.cs holds each
 	// factor at 1 and DetailPropsOracleTests holds both fades to stock's,
-	// recorded with the local player NULL.
-	const std::string strPixel = StripComments( ReadFile( "game/client/c_pixel_visibility.cpp" ) );
-	ASSERT_FALSE( strPixel.empty() );
+	// recorded with the local player NULL. The glow site left with
+	// c_pixel_visibility.cpp (C7): PixelVisibilitySystem.cs's GlowSightDistance,
+	// whose body is read here (it closes at its own four-space '}'), and
+	// PixelVisibilityOracleTests holds its distances to stock's.
+	const std::string strPixel = StripComments( ReadFile( kPixelVisPort ) );
+	ASSERT_FALSE( strPixel.empty() ) << kPixelVisPort;
 
-	const std::string strGlow = FunctionBody( strPixel, "float GlowSightDistance(" );
-	ASSERT_FALSE( strGlow.empty() ) << "GlowSightDistance is gone or renamed";
+	const size_t posGlow = strPixel.find( "public float GlowSightDistance(" );
+	ASSERT_NE( std::string::npos, posGlow ) << "GlowSightDistance is gone or renamed";
+	const size_t endGlow = strPixel.find( "\n    }", posGlow );
+	ASSERT_NE( std::string::npos, endGlow );
+	const std::string strGlow = strPixel.substr( posGlow, endGlow - posGlow );
+	ASSERT_NE( std::string::npos, strGlow.find( "return dist;" ) )
+		<< "the body read is not GlowSightDistance's";
 
 	EXPECT_EQ( std::string::npos, strGlow.find( "actor" ) )
+		<< "GlowSightDistance scales by a factor again; row 6 says it does not";
+	EXPECT_EQ( std::string::npos, strGlow.find( "Fov" ) )
 		<< "GlowSightDistance scales by a factor again; row 6 says it does not";
 
 	EXPECT_EQ( std::string::npos, strPixel.find( "FovDistanceAdjustFactor" ) );

@@ -20,10 +20,7 @@ ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP)
 # (${SS_SRC}/..., sdk-links/). tools/cmakegraph.py and its twins map a local
 # path back to its farm spelling through tools/module-map.tsv.
 set(client_sourcesharp_sources
-    ${SS_SRC}/game/client/c_pixel_visibility.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
-    ${SS_SRC}/game/client/glow_overlay.cpp
-    ${SS_SRC}/game/client/warp_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/client_util_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/managed_runtime_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_beam_render.cpp
@@ -45,7 +42,6 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effects_list_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effects_sim.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_entitystatics.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_explosion_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_flashlight_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud_framework.cpp
@@ -137,6 +133,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_targets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_render_targets_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_pixelvis_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_glow_client.cpp
     # C7 (§3.3): View_Render's body -- the per-frame path question and the
     # render plan's executor -- and the recorder that measures both paths.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_executor_client.cpp

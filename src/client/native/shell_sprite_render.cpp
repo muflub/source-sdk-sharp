@@ -65,7 +65,6 @@
 #include "view.h"
 #include "enginesprite.h"
 #include "materialsystem/imaterialsystem.h"
-#include "c_pixel_visibility.h"
 #include "engine/ivmodelinfo.h"
 #include "igamesystem.h"
 #include "shell_particle_systems.h"

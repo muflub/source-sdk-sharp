@@ -77,7 +77,6 @@ public class ClientBeamSystemTests
             culled = false;
         }
 
-        public float HaloVisibility(in Vector origin, float proxySize) => 1;
         public Vector ScreenPosition(in Vector point) => point;
 
         public int RenderableAdd(in Vector origin, in Vector mins, in Vector maxs)

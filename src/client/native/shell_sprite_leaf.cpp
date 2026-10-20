@@ -58,7 +58,6 @@
 #include "view_shared.h"
 #include "viewrender.h"
 #include "shell_effect_ledger.h"
-#include "c_pixel_visibility.h"
 #include "shell_beam_render.h"         // SourceSharp_PlanSprite
 #include "sourcesharp.h"
 #include "managed_runtime_client.h"
@@ -81,13 +80,13 @@ ConVar	r_drawsprites( "r_drawsprites", "1", FCVAR_CHEAT );
 // (src/client/managed/Effects/SpriteRenderer.cs), recorded off this file
 // before they moved (sprite-stock.tsv.gz) and replayed bit for bit by
 // ClientSpriteRendererTests. What stays is what the managed half cannot do:
-// read the sprite model and the renderer, answer its two glow questions on
-// this renderer's query handle, and build the mesh.
+// read the sprite model and the renderer, carry the renderer's query handle
+// to and from the plan, and build the mesh.
 //
 // TWO PATHS TO ONE PLAN. The request is floats (SS_SPRITE_IN_*), the plan is
-// floats (SS_SPRITE_OUT_*), and the glow answers are asked from inside the plan
-// through IShimFxClient's FxSpriteGlowFraction / FxGlowSightDistance, which
-// read the query handle left in s_pPlanQuery.
+// floats (SS_SPRITE_OUT_*); the glow answers are managed's own pixel
+// visibility's (C7), asked on the handle the request carries and stored back
+// from the plan.
 //   * A draw native starts (a tempent, C_SpriteRenderer) crosses into managed
 //     once for the plan: IManagedFxClient::SpritePlan (SourceSharp_PlanSprite).
 //   * A draw MANAGED starts (a managed sprite, from inside its owner's
@@ -146,9 +145,9 @@ static pixelvis_handle_t HandleOf( float f )
 
 COMPILE_TIME_ASSERT( sizeof( pixelvis_handle_t ) == sizeof( float ) );
 
-// The renderer whose sprite is being planned: its query handle, for the glow
-// question asked from inside the plan. Sprites are drawn one at a time on the
-// render thread, so one slot is enough; it is NULL outside a plan.
+// The renderer whose sprite the direct path is planning: where the plan's
+// query handle is stored back. Sprites are drawn one at a time on the render
+// thread, so one slot is enough; it is NULL outside a plan.
 static pixelvis_handle_t *s_pPlanQuery = NULL;
 
 // The blend the last request was gathered under (the batched path keeps it with its plan).
@@ -314,9 +313,7 @@ int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, co
 	in[ SS_SPRITE_IN_QUERY_HANDLE ] = HandleBits( pQuery ? *pQuery : 0 );
 
 	float out[ SS_SPRITE_OUT_FLOATS ];
-	s_pPlanQuery = pQuery;
 	const int32_t nPlanned = pFx->SpritePlan( in, SS_SPRITE_IN_FLOATS, out, SS_SPRITE_OUT_FLOATS );
-	s_pPlanQuery = NULL;
 
 	if ( nPlanned != SS_SPRITE_OUT_FLOATS )
 		return 0;
@@ -328,8 +325,8 @@ int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, co
 
 // THE DIRECT PATH: a draw MANAGED starts (a managed sprite's, from inside its
 // owner's ClientStandaloneDraw) plans in managed between these two calls, so
-// the plan costs no crossing back. Begin reads the request and arms the glow
-// query for the planner's questions; End carries the plan out (or, handed
+// the plan costs no crossing back. Begin reads the request and keeps the
+// renderer's query handle for the plan to store back; End carries the plan out (or, handed
 // NULL, drops the pending draw). One sprite at a time, on the render thread.
 static SpritePending_t s_DirectPending;
 static bool s_bDirectPending = false;
@@ -420,25 +417,6 @@ int SourceSharp_SpriteExecuteStored( IClientEntity *pEntity, float flBlendNow )
 void SourceSharp_SpriteStoredClear()
 {
 	s_StoredSprites.RemoveAll();
-}
-
-// IShimFxClient: the two glow answers, for the sprite being planned.
-float SourceSharp_FxSpriteGlowFraction( const float *pPositionXYZ, float flProxySize, float flProxyAspect )
-{
-	if ( !s_pPlanQuery || !pPositionXYZ )
-		return 0.0f;
-
-	pixelvis_queryparams_t params;
-	params.Init( Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ), flProxySize, flProxyAspect );
-	return PixelVisibility_FractionVisible( params, s_pPlanQuery );
-}
-
-float SourceSharp_FxGlowSightDistance( const float *pPositionXYZ )
-{
-	if ( !pPositionXYZ )
-		return 0.0f;
-
-	return GlowSightDistance( Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ), false );
 }
 
 // C_SpriteRenderer's two, for C_LocalTempEntity (c_te_legacytempents.cpp)

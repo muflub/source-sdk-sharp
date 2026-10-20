@@ -164,6 +164,11 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pPixelVisClient )
 		return false;
 
+	pObject = pRoot->Acquire( "IManagedGlowClient" );
+	areas.m_pGlowClient = ManagedAccept< IManagedGlowClient >( pObject, kIManagedGlowClientSlotHashes, kIManagedGlowClientSlotCount, pWhy, nWhy );
+	if ( !areas.m_pGlowClient )
+		return false;
+
 	return true;
 }
 
@@ -229,6 +234,8 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pPixelVisClient, kIManagedPixelVisClientSlotHashes, kIManagedPixelVisClientSlotCount, pWhy, nWhy ) )
 		return false;
+	if ( !ManagedAcceptObject( areas.m_pGlowClient, kIManagedGlowClientSlotHashes, kIManagedGlowClientSlotCount, pWhy, nWhy ) )
+		return false;
 	return true;
 }
 
@@ -264,6 +271,7 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pSoundEmitterClient );
 	ManagedRelease( areas.m_pClientSystemsClient );
 	ManagedRelease( areas.m_pPixelVisClient );
+	ManagedRelease( areas.m_pGlowClient );
 }
 
 IManagedCommandsClient *ManagedCommandsClient()
@@ -414,4 +422,9 @@ IManagedClientSystemsClient *ManagedClientSystemsClient()
 IManagedPixelVisClient *ManagedPixelVisClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pPixelVisClient;
+}
+
+IManagedGlowClient *ManagedGlowClient()
+{
+	return ShellClientDll_Managed().m_Areas.m_pGlowClient;
 }

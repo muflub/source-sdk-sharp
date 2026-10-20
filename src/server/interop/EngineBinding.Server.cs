@@ -104,7 +104,6 @@ internal sealed partial class EngineEffects
         return false;
     }
     public Vector ClientWindSpeed(float time) => Vector.Zero;
-    public void ClientExplosionFireball(Vector origin) { }
     public int TempEntPoolCapacity() => 0;
     public void TempEntPoolDestroy(int slot) { }
     public bool TempEntPoolReadLife(int slot, out TempEntLife life)

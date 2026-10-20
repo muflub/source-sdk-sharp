@@ -27,7 +27,6 @@ src/game/client/c_effects.h
 src/game/client/c_env_fog_controller.h
 src/game/client/c_func_reflective_glass.h
 src/game/client/c_impact_effects.h
-src/game/client/c_pixel_visibility.cpp
 src/game/client/c_pixel_visibility.h
 src/game/client/c_playerlocaldata.h
 src/game/client/c_recipientfilter.h
@@ -35,7 +34,6 @@ src/game/client/c_rope.h
 src/game/client/c_rumble.h
 src/game/client/c_soundscape.h
 src/game/client/c_sprite.h
-src/game/client/c_sun.h
 src/game/client/c_te_effect_dispatch.h
 src/game/client/c_te_legacytempents.h
 src/game/client/c_te_particlesystem.h
@@ -60,7 +58,6 @@ src/game/client/detailobjectsystem.h
 src/game/client/enginesprite.h
 src/game/client/fontabc.h
 src/game/client/fx.h
-src/game/client/fx_explosion.h
 src/game/client/fx_fleck.h
 src/game/client/fx_impact.h
 src/game/client/fx_line.h
@@ -68,8 +65,6 @@ src/game/client/fx_quad.h
 src/game/client/fx_sparks.h
 src/game/client/fx_staticline.h
 src/game/client/fx_water.h
-src/game/client/glow_overlay.cpp
-src/game/client/glow_overlay.h
 src/game/client/hud.h
 src/game/client/hud_basechat.h
 src/game/client/hud_closecaption.h
@@ -132,7 +127,6 @@ src/game/client/view.h
 src/game/client/view_scene.h
 src/game/client/viewpostprocess.h
 src/game/client/viewrender.h
-src/game/client/warp_overlay.cpp
 src/game/client/weapons_resource.h
 src/game/shared/GameEventListener.h
 src/game/shared/IEffects.h
@@ -192,7 +186,6 @@ src/game/shared/shareddefs.h
 src/game/shared/smoke_fog_overlay_shared.h
 src/game/shared/solidsetdefaults.h
 src/game/shared/soundenvelope.h
-src/game/shared/sun_shared.h
 src/game/shared/takedamageinfo.h
 src/game/shared/tempentity.h
 src/game/shared/touchlink.h

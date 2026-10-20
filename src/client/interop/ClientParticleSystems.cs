@@ -192,11 +192,12 @@ public static class ParticleViewReading
 }
 
 /// <summary>
-/// The real ones, over IShimParticlesClient's view and visibility slots; the
-/// throttle is the particle library's own answer (plan_particles_so.md).
+/// The real ones, over the particles area's view slot; the throttle is the
+/// particle library's own answer (plan_particles_so.md). The glows' pixel
+/// visibility is managed's (C7, ParticlePixelVisibility).
 /// </summary>
 internal sealed unsafe class ClientParticleViewSlots(ParticlesClientArea particlesClient, IParticleLibrary library)
-    : IParticleViewSource, IParticlePixelVisibility, IParticleThrottle
+    : IParticleViewSource, IParticleThrottle
 {
     public float ThrottleScaling() => library.ThrottleScaling();
 
@@ -209,15 +210,6 @@ internal sealed unsafe class ClientParticleViewSlots(ParticlesClientArea particl
         int viewId = 0;
         particlesClient.ParticlesView(m, &viewId, of);
         return ParticleViewReading.From(new ReadOnlySpan<float>(m, 12), viewId, new Vector(of[0], of[1], of[2]), new Vector(of[3], of[4], of[5]));
-    }
-
-    public float FractionVisible(Vector origin, ref int queryHandle)
-    {
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        int handle = queryHandle;
-        float visible = particlesClient.ParticlesPixelVisible(o, &handle);
-        queryHandle = handle;
-        return visible;
     }
 }
 

@@ -41,8 +41,21 @@
 #include "sourcesharp_entrypoints.h"
 #include "shell_pixelvis_client.h"
 
+#include "clienteffectprecachesystem.h"
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+
+//-----------------------------------------------------------------------------
+// c_pixel_visibility.cpp's precache list, which left with it (C7): the
+// proxies are C#'s (PixelVisibilitySystem) and draw through the executor
+// below; the precache system is still native, so the two materials stock's file
+// registered are registered here, unchanged and in its order.
+//-----------------------------------------------------------------------------
+CLIENTEFFECT_REGISTER_BEGIN( PrecacheOcclusionProxy )
+CLIENTEFFECT_MATERIAL( "engine/occlusionproxy" )
+CLIENTEFFECT_MATERIAL( "engine/occlusionproxy_countdraw" )
+CLIENTEFFECT_REGISTER_END()
 
 IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial );
 

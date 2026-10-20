@@ -1288,6 +1288,37 @@ static const uint32_t kIManagedPixelVisClientSlotHashes[] = {
 static const int32_t kIManagedPixelVisClientSlotCount = 5;
 static_assert( sizeof( SSManagedPixelVisClientTable ) == 5 * sizeof( void * ), "SSManagedPixelVisClientTable is one pointer per slot" );
 
+class IManagedGlowClient;
+
+// The table managed writes for IManagedGlowClient: Release, Validate, then the TSV's order.
+struct SSManagedGlowClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *DrawOverlays )( IManagedGlowClient *self, const float *pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t *pCmds, int32_t nCmdWords );
+	int32_t ( *Commands )( IManagedGlowClient *self, int32_t *pCmds, int32_t nCmdWords );
+	void ( *UpdateSkyOverlays )( IManagedGlowClient *self, const float *pOrigin, float flZFar, int32_t bCacheFullSceneState );
+};
+
+class IManagedGlowClient : public IManagedObject
+{
+public:
+	explicit IManagedGlowClient( const SSManagedGlowClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t DrawOverlays( const float *pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t *pCmds, int32_t nCmdWords ) { return Table()->DrawOverlays( this, pView, nViewFloats, bCacheFullSceneState, pCmds, nCmdWords ); }
+	int32_t Commands( int32_t *pCmds, int32_t nCmdWords ) { return Table()->Commands( this, pCmds, nCmdWords ); }
+	void UpdateSkyOverlays( const float *pOrigin, float flZFar, int32_t bCacheFullSceneState ) { Table()->UpdateSkyOverlays( this, pOrigin, flZFar, bCacheFullSceneState ); }
+
+private:
+	const SSManagedGlowClientTable *Table() const { return static_cast< const SSManagedGlowClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedGlowClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xec611fae, 0x0d54c15e, 0x93d74047,
+};
+static const int32_t kIManagedGlowClientSlotCount = 5;
+static_assert( sizeof( SSManagedGlowClientTable ) == 5 * sizeof( void * ), "SSManagedGlowClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1320,6 +1351,7 @@ IManagedLeafSystemClient *ManagedLeafSystemClient();   // this load's area, or N
 IManagedSoundEmitterClient *ManagedSoundEmitterClient();   // this load's area, or NULL outside a load
 IManagedClientSystemsClient *ManagedClientSystemsClient();   // this load's area, or NULL outside a load
 IManagedPixelVisClient *ManagedPixelVisClient();   // this load's area, or NULL outside a load
+IManagedGlowClient *ManagedGlowClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

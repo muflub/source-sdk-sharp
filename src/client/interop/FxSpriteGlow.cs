@@ -2,22 +2,6 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
-/// <summary>The real answers, over the slots; a missing shim answers "not visible".</summary>
-internal sealed unsafe class ClientFxSpriteGlowSlots(FxClientArea fxClient) : IFxSpriteGlow
-{
-    public float FractionVisible(in Vector position, float proxySize, float proxyAspect, ref int queryHandle)
-    {
-        float* p = stackalloc float[] { position.X, position.Y, position.Z };
-        return fxClient.FxSpriteGlowFraction(p, proxySize, proxyAspect);
-    }
-
-    public float SightDistance(in Vector position)
-    {
-        float* p = stackalloc float[] { position.X, position.Y, position.Z };
-        return fxClient.FxGlowSightDistance(p);
-    }
-}
-
 /// <summary>What native's sprite plan reaches (IManagedFxClient::SpritePlan's body).</summary>
 public interface IClientSpriteHost
 {

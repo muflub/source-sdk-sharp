@@ -833,6 +833,12 @@ typedef enum
 	// glow behind a window would go out. Wired on BOTH arms, for
 	// SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_GLOW_SIGHT = 8,
+
+	// CONTENTS_SOLID alone -- what a glow overlay's line at the sky stops on
+	// when the card cannot answer pixel visibility (glow_overlay.cpp, C7): solid
+	// brushes and nothing else, the sky's surface flag read off what it hit.
+	// Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_CONTENTS_SOLID = 9,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a
