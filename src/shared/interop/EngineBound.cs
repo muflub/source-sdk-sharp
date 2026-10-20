@@ -48,6 +48,9 @@ internal sealed class BoundInterface<T> where T : class
         _acquire = acquire;
     }
 
+    /// <summary>The same acquirer, holding nothing: what a fresh bound set keeps of this one.</summary>
+    internal BoundInterface<T> Unheld() => new(_version, _acquire);
+
     /// <summary>
     /// The interface, acquired through <paramref name="side"/>'s own factory
     /// on first use and held by that side's engine (plan_abi_hotreload D8,

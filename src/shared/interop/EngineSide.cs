@@ -264,8 +264,10 @@ internal sealed unsafe partial class EngineSide
     {
         _root = root;
         // A fresh bound set: what is bound from now on is the root's, and a
-        // test side's held defaults (TestSides) must not answer for it.
-        Bound = new EngineBoundSet();
+        // test side's held defaults (TestSides) must not answer for it. The
+        // acquirers installed before the attach (the server's IVEngineServer,
+        // EngineServerBinding through SideLoad.Load) carry over.
+        Bound = Bound.Unheld();
         UseAreas(areas);
     }
 
