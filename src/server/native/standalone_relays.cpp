@@ -103,30 +103,6 @@ int StandaloneEntity_MoveType( const IGameEntity *pEnt )
 	                                  pShell->Block().Head.MoveType );
 }
 
-uint32_t StandaloneEntity_RootParentHandle( const IGameEntity *pEnt )
-{
-	const CStandaloneEntity *pShell = ShellOf( pEnt );
-	uint32_t hRoot = (uint32_t)pShell->GetRefEHandle().ToInt();
-
-	// Bounded: a chain deeper than this is a loop, and a loop has no root.
-	for ( int i = 0; i < 32; i++ )
-	{
-		const uint32_t hParent = pShell->Block().Head.ParentHandle;
-		if ( hParent == (uint32_t)INVALID_EHANDLE_INDEX )
-			break;
-
-		// A parent that is gone, or not a shell, ends the chain where it is.
-		const SourceSharpEntity_t parent = SourceSharp_ResolveEntity( hParent );
-		if ( !parent.pStandalone )
-			break;
-
-		pShell = parent.pStandalone;
-		hRoot  = hParent;
-	}
-
-	return hRoot;
-}
-
 IPhysicsObject *StandaloneEntity_PhysicsObject( const IGameEntity *pEnt )
 {
 	return ShellOf( pEnt )->GetPhysics();

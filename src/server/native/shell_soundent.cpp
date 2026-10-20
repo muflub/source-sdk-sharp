@@ -121,40 +121,10 @@ void ss::SoundEnt_Shutdown()
 }
 
 //-----------------------------------------------------------------------------
-// Recording one noise.
-//
-// THE OWNER AND THE TARGET CROSS AS HANDLES, NOT AS POINTERS, and that is the
-// same correction shell_sound.cpp already records for reading the list back:
-// the handle is the one identity both entity hierarchies share, so a sound made
-// by a managed entity is credited to it rather than reported as a world noise.
-// SourceSharp_HandleFromAnyEntity is asked of the IHandleEntity face, which is
-// what both hierarchies answer -- and the PARAMETERS are IHandleEntity now, so
-// that is the only spelling this body can have. cpp_alias_t1_test's
-// TheOwnerHandleIsNotResolvedThroughAnEntityFirst pins exactly that, and the
-// CBaseEntity-only sibling is named there as "the spelling that would
-// reintroduce the bug". Armed it would not even compile, which is the same
-// answer arriving from the other side; soundent.h carries the reasoning.
-//
-// A NULL owner becomes INVALID_EHANDLE_INDEX, which is what an unset handle
-// held in stock -- so "nobody made this" is the same value it always was.
+// ss::SoundEnt_InsertSound WENT (plan_server_native_v2 T5): no server object
+// called it (nm U over the link edge). Sound hints enter the managed pool from
+// managed code (SoundEnt.InsertSound), which needs no native crossing.
 //-----------------------------------------------------------------------------
-void ss::SoundEnt_InsertSound( int iType, const Vector &vecOrigin, int iVolume,
-                               float flDuration, IHandleEntity *pOwner,
-                               int soundChannelIndex, IHandleEntity *pSoundTarget )
-{
-	// plan_engineapi_vtables E7: the managed-built sound-hint area.
-	IManagedSoundEnt *pApi = ManagedSoundEnt();
-
-	if ( pApi == NULL )
-		return;
-
-	const float flOrigin[ 3 ] = { vecOrigin.x, vecOrigin.y, vecOrigin.z };
-
-	pApi->ServerSoundEntInsert( iType, flOrigin, iVolume, flDuration,
-	                            SourceSharp_HandleFromAnyEntity( pOwner ),
-	                            soundChannelIndex,
-	                            SourceSharp_HandleFromAnyEntity( pSoundTarget ) );
-}
 
 //-----------------------------------------------------------------------------
 // A client is leaving: clear its reserved slot.

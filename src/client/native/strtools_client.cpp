@@ -10,8 +10,10 @@
 // The strtools.cpp functions that client.so's objects, particles.a,
 // dmxloader.a and the tier1 members kept for those two archives call, so
 // strtools.o leaves the client's link (plan_client_novalve C9, tier1).
-// tier1_port.cpp (src/shared/native) defines the few the server calls too;
-// these are the rest, client-only (ruling 2026-10-12). Each forwards to
+// tier1_port.cpp (src/shared/native) defines what both DLLs call; these are
+// the rest, client-only (ruling 2026-10-12; _V_memset, _V_memmove and
+// V_stricmp joined them at plan_server_native_v2 T5, when the server's last
+// importers left). Each forwards to
 // ss_string.h (held to pristine strtools.cpp by ss_string_oracle_test) or,
 // where tier1 is the C library call, to that. Where tier1 called Error, so
 // do these. The debug forms' file and line arguments fed tier0's pointer
@@ -37,6 +39,17 @@ void _V_memcpy( const char *, int, void *dest, const void *src, int count )
 int _V_memcmp( const char *, int, const void *m1, const void *m2, int count )
 {
 	return memcmp( m1, m2, (size_t)count );
+}
+
+// CUtlVector's ShiftElements* call these two (V_memset in debug builds).
+void _V_memset( const char *, int, void *dest, int fill, int count )
+{
+	memset( dest, fill, count );
+}
+
+void _V_memmove( const char *, int, void *dest, const void *src, int count )
+{
+	memmove( dest, src, count );
 }
 
 int _V_strlen( const char *, int, const char *str )
@@ -79,6 +92,13 @@ void V_strncpy( char *pDest, const char *pSrc, int maxLen )
 int V_strncmp( const char *s1, const char *s2, int count )
 {
 	return ss::StrNCmp( s1, s2, count );
+}
+
+// ASCII case folding, the sign of V_stricmp (ss_string_oracle_test holds it):
+// CaselessStringLessThan and the other callers fork headers inline.
+int V_stricmp( const char *s1, const char *s2 )
+{
+	return ss::StrICmp( s1, s2 );
 }
 
 int V_strnicmp( const char *s1, const char *s2, int n )

@@ -4709,7 +4709,8 @@ ss_cpptest(tier1_port_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier1_port_test.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
 
-# server.so's mathlib members (mathlib_port.cpp), linked WITHOUT libmathlib.a:
+# the DLLs' mathlib members (mathlib_port.cpp, both DLLs', and
+# mathlib_port_client.cpp, client.so's alone), linked WITHOUT libmathlib.a:
 # it builds only while the port is self-contained, and runs on Windows, where
 # no mathlib binary can. mathlib_port_stock_test holds it to stock bit for bit.
 ss_cpptest(mathlib_port_test
@@ -4717,7 +4718,8 @@ ss_cpptest(mathlib_port_test
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/mathlib_port_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp)
+            ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/mathlib_port_client.cpp)
 
 # The port's ss_mathlib:: inlines against the stock libmathlib.a members of the
 # same names, side by side in one binary, every output float compared by its
@@ -4820,8 +4822,9 @@ ss_cpptest(fatal_report_test
     SOURCES sourcesharp/test/fatal_report_test.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp)
 
-# tier0_spew_port.cpp: the tier0 functions server.so calls through dbg.h,
-# defined in server.so (plan_server_novalve.md P4). Links NO tier0, so every
+# tier0_spew_port.cpp: the tier0 functions both DLLs call through dbg.h, and
+# tier0_spew_client.cpp's, which only client.so calls (plan_server_novalve.md
+# P4, plan_server_native_v2 T5). Links NO tier0, so every
 # Msg / Warning / Assert / Error here reaches the port.
 # _DEBUG: the Assert macro only expands with DBGFLAG_ASSERT, which _DEBUG sets,
 # as it does in server.so's debug build. -Wno-unused-variable for Valve's
@@ -4833,6 +4836,7 @@ ss_cpptest(tier0_spew_port_test
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES sourcesharp/test/tier0_spew_port_test.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/tier0_spew_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
     LIBS dl)
@@ -4905,7 +4909,7 @@ ss_cpptest(tier0_client_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier0_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/tier0_vprof_client.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/tier0_thread_client.cpp
-            ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp)
+            ${PROJECT_SOURCE_DIR}/src/client/native/tier0_thread_port.cpp)
 
 # console_display_forward.cpp: the engine's console prints, forwarded to this
 # load's managed console-output area (docs/todo.md's console capture item).
@@ -4936,14 +4940,15 @@ ss_cpptest(console_line_buffer_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/console_line_buffer_test.cpp)
 
 # tier0_thread_port.cpp: the thread and platform calls fork-header inlines make
-# (CThreadFastMutex, DebuggerBreak), defined in server.so (P4). Links NO tier0.
+# (CThreadFastMutex, DebuggerBreak), defined in client.so (server.so's objects
+# import none since plan_server_native_v2 T5). Links NO tier0.
 ss_cpptest(tier0_thread_port_test
     LINUX_ONLY "drives the POSIX thread port through pthreads"
     DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier0_thread_port_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp)
+            ${PROJECT_SOURCE_DIR}/src/client/native/tier0_thread_port.cpp)
 
 # ss_recipient_filter.cpp: the list logic of server.so's own recipient filters
 # (plan_server_novalve.md P5). Links that file alone, on the R5 include set.

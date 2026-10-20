@@ -847,50 +847,6 @@ const model_t *CWorldCollideable::GetCollisionModel()
 }
 
 //-----------------------------------------------------------------------------
-// A bullet hole on a wall, and this is the one piece of CBaseEntity behaviour
-// the world genuinely used.
-//
-// UTIL_DecalTrace resolved the trace to a CBaseEntity and called ImpactTrace on
-// it. There is nothing to resolve to now, so it asks this instead -- and what
-// it gets is stock's BRUSH arm, unchanged:
-//
-//     CBaseEntity::ImpactTrace (baseentity.cpp) -- for a solid that is not
-//     VPhysics-simulated, the whole body is the decal. The force it otherwise
-//     applies goes to a physics object, and worldspawn has none; the gibs it
-//     otherwise spawns belong to a breakable, and worldspawn is not one.
-//
-// So this is not a reduced version of ImpactTrace. It is the branch worldspawn
-// has always taken through it.
-//-----------------------------------------------------------------------------
-void CWorld::ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName )
-{
-	if ( !pTrace || pTrace->fraction == 1.0f )
-		return;
-
-	if ( pTrace->surface.flags & SURF_SKY )
-		return;
-
-	// CBaseEntity::ImpactTrace's body, with the ONE line that needed the class
-	// answered by definition instead. That line is:
-	//
-	//     data.m_nEntIndex = pEntity->entindex();
-	//
-	// reached through `TraceEntity( *pTrace )`, whose own comment in
-	// baseentity_shared.cpp records the dereference as unguarded and as the
-	// shape "that made the dm_lockdown skylight a reliable segfault". For the
-	// world the index is not looked up at all: worldspawn IS entity 0, which is
-	// the whole of what RequiredEdictIndex says.
-	ss::CEffectData data;
-	data.m_vOrigin      = pTrace->endpos;
-	data.m_vStart       = pTrace->startpos;
-	data.m_nSurfaceProp = pTrace->surface.surfaceProps;
-	data.m_nDamageType  = iDamageType;
-	data.m_nHitBox      = pTrace->hitbox;
-	data.m_nEntIndex    = RequiredEdictIndex();
-
-	DispatchEffect( pCustomImpactName ? pCustomImpactName : "Impact", data );
-}
-
 void CWorld::Spawn( void )
 {
 	// The origin and the angles are the constructor's and are not re-set here:

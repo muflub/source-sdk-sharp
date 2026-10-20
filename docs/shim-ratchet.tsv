@@ -367,7 +367,8 @@ client_stock_tus	src/client/native/CMakeLists.txt	1
 # RAISED 2026-10-19, 215 -> 216 (plan_server_native_v2 T4f), deliberately: fwd_trace_filter.cpp (a), the
 #   ITraceFilter libss_fwd_server builds for IEngineTrace::TraceRay over the managed trace rule (Recipe E;
 #   Decision 2), which the engine calls through its vtable per candidate. Exit: none while the engine calls it.
-shim_cpp_files	src/sourcesharp	216
+# RAISED 2026-10-19, 216 -> 217, deliberately (plan_server_native_v2 T5): sourcesharp/game/client/mathlib_port_client.cpp (g), the mathlib members only client.so imports, split from mathlib_port.cpp so the shared TU holds only what both DLLs import (user ruling 2026-10-12); no line of mathlib arithmetic was added.
+shim_cpp_files	src/sourcesharp	217
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1845,7 +1846,26 @@ shim_cpp_files	src/sourcesharp	216
 #   MoveTraceThrough and PlayerRunMove slots, and the surface funnel.
 # LOWERED 2026-10-19, 129726 -> 129436 (plan_server_native_v2 T4g, the walk with the ceiling at 1; -290): the view punch walk (UTIL_ViewPunch, its subject and slot body, CStandalonePlayer::ViewPunch, view_effect_reach.h) and SourceSharp_PlayerSetSlowMovement, both the managed record's now.
 # LOWERED 2026-10-19, 129436 -> 129214 (plan_server_native_v2 T4g, the walk with the ceiling at 1; -222): SourceSharp_EntityAddBaseVelocity and standalone_basevelocity.h (with its gtest): a player's base velocity is the managed record's.
-shim_lines	src/sourcesharp	129214
+# LOWERED 2026-10-19, 129214 -> 129156 (plan_server_native_v2 T5, the walk with the ceiling at 1; -58): mathlib_port.cpp's eleven members no object on either side imports (AngleQuaternion, Approach, BasisToQuaternion, CalcFovY, Catmull_Rom_Spline, the nine-argument GeneratePerspectiveFrustum, MatrixVectors, VMatrix::operator*, the three-argument VectorAngles, g_SIMD_signmask, power2_n).
+# RAISED 2026-10-19, 129156 -> 129164, deliberately (plan_server_native_v2 T5, the walk with the ceiling at 1; +8): mathlib_port_client.cpp's header block; the 35 members and the client data it holds moved from mathlib_port.cpp line for line.
+# RAISED 2026-10-19, 129164 -> 129166, deliberately (plan_server_native_v2 T5, the walk with the ceiling at 1; +2): tier0_thread_port.cpp moved to src/client/native (server.so imports none of it); its header comment says so in two more lines.
+# LOWERED 2026-10-19, 129166 -> 129047 (plan_server_native_v2 T5, the walk with the ceiling at 1; -119): tier0_thread_port.cpp's Plat_IsInDebugSession and GetCPUInformation (with CpuId and OnlineProcessors), which no object of either DLL imports, and their three gtests.
+# LOWERED 2026-10-19, 129047 -> 129016 (plan_server_native_v2 T5, the walk with the ceiling at 1; -31): tier1_port.cpp: V_vsnprintfRet (no importer on either side) and three gtests; _V_memset, _V_memmove and V_stricmp moved to strtools_client.cpp (server.so imports none).
+# LOWERED 2026-10-19, 129016 -> 129010 (plan_server_native_v2 T5, the walk with the ceiling at 1; -6): tier0_spew_port.cpp's HushAsserts (no importer on either side: libmathlib.a, which asked, is on neither link) and its gtest; DevMsg( level ) and MemAllocOOMError moved to tier0_spew_client.cpp (server.so imports neither).
+# LOWERED 2026-10-19, 129010 -> 128996 (plan_server_native_v2 T5, the walk with the ceiling at 1; -14): g_pUtlSortVectorQSortContext (tier_connect.cpp), k_flMaxEntityPosCoord, k_flMaxEntityEulerAngle and k_flMaxEntitySpinRate (entity_shared_statics.cpp) and ss_util.h's IsEntityQAngleReasonable, which nothing called: no importer on either side.
+# RAISED 2026-10-19, 128996 -> 129003, deliberately (plan_server_native_v2 T5, the walk with the ceiling at 1; +7): k_flMaxEntitySpeed, EntityPrediction_SetSeedFromCommand and ss::RequireLoadedSymbol moved beside their one client importer each, with a line saying where they came from; the GAME_DLL arms went (no server importer).
+# LOWERED 2026-10-19, 129003 -> 128958 (plan_server_native_v2 T5, the walk with the ceiling at 1; -45): SourceSharpEntity_t's SoundSourceIndex, ModelIndex and Name (shell_resolve.h, shell_standalone_base.cpp): no server object called them.
+# LOWERED 2026-10-19, 128958 -> 128915 (plan_server_native_v2 T5, the walk with the ceiling at 1; -43): StandaloneEntity_RootParentHandle (standalone_relays) and StandaloneHierarchy_ResolveParentNames (shell_standalone_hierarchy): no server object called either.
+# LOWERED 2026-10-19, 128915 -> 128910 (plan_server_native_v2 T5, the walk with the ceiling at 1; -5): shell_factory.cpp's Sys_GetFactoryThis: no server object called it, and server.so exports CreateInterface alone.
+# LOWERED 2026-10-19, 128910 -> 128909 (plan_server_native_v2 T5, the walk with the ceiling at 1; -1): shell_globals.cpp's g_vecAttackDir and g_iSkillLevel: no server object imported either.
+# LOWERED 2026-10-19, 128909 -> 128887 (plan_server_native_v2 T5, the walk with the ceiling at 1; -22): shell_engineboundary.cpp's DEBUG chained-Activate pair and shell_level.cpp's extern declarations of it: no server object imported either.
+# LOWERED 2026-10-19, 128887 -> 128770 (plan_server_native_v2 T5, the walk with the ceiling at 1; -117): server_util_library.cpp's UTIL_SnapDirectionToAxis and UTIL_ImpactTrace, and world_adapter.cpp's CWorld::ImpactTrace (its one caller was UTIL_ImpactTrace): no server object imported any of them.
+# LOWERED 2026-10-19, 128770 -> 128678 (plan_server_native_v2 T5, the walk with the ceiling at 1; -92): ss_recipient_filter.h's CPASAttenuationFilter (nothing built one) with shell_recipientfilter.cpp's Filter, and ss_recipient_filter.cpp's RemoveRecipientByPlayerIndex, whose one importer Filter was.
+# LOWERED 2026-10-19, 128678 -> 128642 (plan_server_native_v2 T5, the walk with the ceiling at 1; -36): shell_soundent.cpp's ss::SoundEnt_InsertSound and its ss_soundent.h declaration: no server object called it.
+# LOWERED 2026-10-19, 128642 -> 128553 (plan_server_native_v2 T5, the walk with the ceiling at 1; -89): standalone_player_sync.cpp's SourceSharpPlayerSync_Write with WriteF32, WriteAng and the header's SourceSharpPlayerExtras_t: no object of either DLL called the copy.
+# LOWERED 2026-10-19, 128553 -> 128511 (plan_server_native_v2 T5, the walk with the ceiling at 1; -42): shell_debugoverlays.cpp's DebugDrawLine and overlay_library's Overlay_LinePadded, its body: no server object called either.
+# LOWERED 2026-10-19, 128511 -> 128502 (plan_server_native_v2 T5, the walk with the ceiling at 1; -9): world_subject_dll.cpp's CGameTrace::DidHitWorld and DidHitNonWorldEntity: no server object called either.
+shim_lines	src/sourcesharp	128502
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

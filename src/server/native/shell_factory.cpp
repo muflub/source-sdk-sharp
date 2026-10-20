@@ -64,11 +64,6 @@ void *CreateInterface( const char *pName, int *pReturnCode )
 	return pAnswer;
 }
 
-CreateInterfaceFn Sys_GetFactoryThis( void )
-{
-	return &CreateInterface;
-}
-
 int SourceSharp_ExposedCount()
 {
 	return kExposedCount;

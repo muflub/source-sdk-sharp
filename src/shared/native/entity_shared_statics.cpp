@@ -24,7 +24,9 @@
 //
 // WHAT IS HERE, AND WHY EACH IS MECHANISM RATHER THAN POLICY (§6):
 //
-//   the four k_flMaxEntity* limits, CheckEntityVelocity and
+//   the k_flMaxEntity* limits (three went at plan_server_native_v2 T5, no
+//   object of either DLL importing them; k_flMaxEntitySpeed is
+//   client_util_library.cpp's, its one importer), CheckEntityVelocity and
 //   CheckEmitReasonablePhysicsSpew   — arithmetic over a Vector against four
 //   floats, plus a five-second throttle on a spew. They decide nothing about
 //   what the game does; they say whether a number is a number.
@@ -33,7 +35,9 @@
 //   one ConVar. The ConVar (sv_alternateticks) is declared here now.
 //
 //   EntityPrediction_SetSeedFromCommand — copies two ints out of a CUserCmd
-//   into entity_prediction_seed.h's storage.
+//   into entity_prediction_seed.h's storage. shell_prediction.cpp's since
+//   plan_server_native_v2 T5: the server's command path is managed's (T4g),
+//   so no server object imports it.
 //
 //   EntityTracer_ComputeStartPosition — where a tracer is drawn from.
 //
@@ -74,10 +78,6 @@ extern CGlobalVars *gpGlobals;   // shell_engineboundary.cpp
 // two speed limits are bumped because the computed speeds downstream are
 // legitimately above the original constants.
 //-----------------------------------------------------------------------------
-float k_flMaxEntityPosCoord = MAX_COORD_FLOAT;
-float k_flMaxEntityEulerAngle = 360.0 * 1000.0f; // really should be restricted to +/-180, but some code doesn't adhere to this.  let's just trap NANs, etc
-float k_flMaxEntitySpeed = k_flMaxVelocity * 2.0f;
-float k_flMaxEntitySpinRate = k_flMaxAngularVelocity * 10.0f;
 
 //-----------------------------------------------------------------------------
 // Whether the server simulates entities on even-numbered ticks only.
@@ -94,24 +94,3 @@ bool EntitySim_IsSimulatingOnAlternateTicks()
 	return sv_alternateticks.GetBool();
 }
 
-//-----------------------------------------------------------------------------
-// The prediction seeds carried by one usercmd, or -1 for "not inside a usercmd"
-// when handed NULL.
-//-----------------------------------------------------------------------------
-void EntityPrediction_SetSeedFromCommand( const EntityPredictionCmd_t *cmd )
-{
-	if ( !cmd )
-	{
-		EntityPrediction_SetSeed( -1 );
-#ifdef GAME_DLL
-		EntityPrediction_SetServerSeed( -1 );
-#endif
-
-		return;
-	}
-
-	EntityPrediction_SetSeed( cmd->random_seed );
-#ifdef GAME_DLL
-	EntityPrediction_SetServerSeed( cmd->server_random_seed );
-#endif
-}

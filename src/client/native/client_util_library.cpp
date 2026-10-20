@@ -66,6 +66,7 @@
 #include "managed_convar_ref.h"
 #include "checksum_crc.h"
 #include "entity_prediction_seed.h"
+#include "vphysics/performance.h"   // k_flMaxVelocity, k_flMaxEntitySpeed's base
 #include <vstdlib/random.h>
 #include "particle_parse.h"
 // The sound block from sound_emitter.cpp at the end of this file.
@@ -190,11 +191,14 @@ int ScreenWidth( void )
 //
 // plan_server_native_v2 T2 (2026-10-18): a shared TU keeps only what both DLLs
 // import (user ruling 2026-10-12), and these three were compiled only into the
-// client. Moved verbatim; the reasonableness limits they read
-// (k_flMaxEntitySpeed and the rest) stay in entity_shared_statics.cpp, which
-// both DLLs compile. None has a caller in client.so today (nm: no symbol, the
+// client. Moved verbatim; k_flMaxEntitySpeed, the limit they read, followed at
+// plan_server_native_v2 T5. None has a caller in client.so today (nm: no symbol, the
 // gc drops them); they are stock's, kept for the port that needs them.
 //=============================================================================//
+
+// The speed bound CheckEntityVelocity reads, from entity_shared_statics.cpp
+// (plan_server_native_v2 T5: no server object imports it).
+float k_flMaxEntitySpeed = k_flMaxVelocity * 2.0f;
 
 // Utility func to throttle rate at which the "reasonable position" spew goes out
 static double s_LastEntityReasonableEmitTime;

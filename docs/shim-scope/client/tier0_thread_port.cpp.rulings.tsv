@@ -1,0 +1,5 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+ThreadId_t ThreadGetCurrentId()	HOST	tier0's thread entry point for fork-header inlines (client.so links no tier0; C9), held by tier0_thread_port_test
+void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile	HOST	tier0's thread entry point for fork-header inlines (client.so links no tier0; C9), held by tier0_thread_port_test
+bool ThreadInterlockedAssignIf128( volatile int128 *pDest, const int128 &value, const int128 &comperand )	HOST	tier0's thread entry point for fork-header inlines (client.so links no tier0; C9), held by tier0_thread_port_test

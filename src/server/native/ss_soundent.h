@@ -36,12 +36,6 @@ namespace ss
 bool SoundEnt_Init();
 void SoundEnt_Shutdown();
 
-// One sound hint (CSoundEnt::InsertSound). iType is soundent.h's SOUND_* bits;
-// soundChannelIndex 0 is SOUNDENT_CHANNEL_UNSPECIFIED.
-void SoundEnt_InsertSound( int iType, const Vector &vecOrigin, int iVolume, float flDuration,
-                           IHandleEntity *pOwner, int soundChannelIndex,
-                           IHandleEntity *pSoundTarget );
-
 // The client reserve: a player's slot in the list, and clearing it.
 void SoundEnt_ResetClientSound( int iIndex );
 int SoundEnt_ClientSoundIndex( edict_t *pClient );

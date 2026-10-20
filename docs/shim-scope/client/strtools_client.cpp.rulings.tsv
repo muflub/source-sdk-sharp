@@ -36,3 +36,6 @@ void V_ComposeFileName( const char *path, const char *filename, char *dest, int 
 void V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir 	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1)
 _V_strcmp	HOST	strtools.h name client.so still links; moved from tier1_port.cpp when server.so stopped calling it (plan_server_native_v2 T2)
 void V_strncpy	HOST	strtools.h name client.so still links; moved from tier1_port.cpp when server.so stopped calling it (plan_server_native_v2 T2)
+void _V_memset( const char *, int, void *dest, int fill, int count	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1; from tier1_port.cpp at plan_server_native_v2 T5)
+void _V_memmove( const char *, int, void *dest, const void *src, int count	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1; from tier1_port.cpp at plan_server_native_v2 T5)
+int V_stricmp( const char *s1, const char *s2	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1; from tier1_port.cpp at plan_server_native_v2 T5)

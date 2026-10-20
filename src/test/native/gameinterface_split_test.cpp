@@ -795,22 +795,23 @@ TEST( GameInterfaceSplit, TheTwoConVarsWithReadersElsewhereSurvivedAndTheThirdWa
 		   "dropped (plan_shim.md 5c) and nothing on either link line reads it.";
 }
 
-TEST( GameInterfaceSplit, TheChainedActivateFlagsAreStillDefinedAndStillDebugOnly )
+TEST( GameInterfaceSplit, TheChainedActivateFlagsAreGone )
 {
 	const std::string raw = Read( kGlobals );
 	ASSERT_FALSE( raw.empty() );
+	// Proof of read: the file still defines the engine's global block pointer.
+	ASSERT_NE( raw.find( "CGlobalVars *gpGlobals" ), std::string::npos )
+		<< kGlobals << " read as something other than the boundary file";
 
-	// Three files declare these extern at the point of use --
-	// baseentity.cpp's CBaseEntity::Activate, hl2/npc_citizen17.cpp and
-	// shell_level.cpp's activate-all-entities step -- and all three do it
-	// inside #ifdef DEBUG. A definition that stopped being debug-only would be
-	// harmless; one that stopped existing is a link error in the DEBUG build
-	// only, which is the build nobody ships and everybody develops in.
-	EXPECT_NE( raw.find( "#ifdef DEBUG\nbool g_bReceivedChainedActivate;\n"
-	                     "bool g_bCheckForChainedActivate;\n#endif\n" ),
-	           std::string::npos )
-		<< "the chained-activate pair is not defined in " << kGlobals
-		<< " under #ifdef DEBUG, in that shape.";
+	// Their three users -- baseentity.cpp's CBaseEntity::Activate,
+	// hl2/npc_citizen17.cpp and shell_level.cpp's activate-all-entities
+	// bracketing -- are all gone from the build, and no object on server.so's
+	// link imported either flag (plan_server_native_v2 T5, nm U), so the
+	// definitions went too. One coming back would be a global nobody reads.
+	EXPECT_EQ( raw.find( "bool g_bReceivedChainedActivate;" ), std::string::npos )
+		<< "the chained-activate pair is defined in " << kGlobals << " again";
+	EXPECT_EQ( raw.find( "bool g_bCheckForChainedActivate;" ), std::string::npos )
+		<< "the chained-activate pair is defined in " << kGlobals << " again";
 }
 
 //=============================================================================//

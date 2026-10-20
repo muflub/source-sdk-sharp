@@ -5,25 +5,18 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — tier1's small members, as server.so uses them ========//
+//========= SourceSharp — tier1's small members, as both DLLs use them =========//
 // SS_REASON d  a layout the engine reads at fixed offsets
 //
-// plan_server_novalve.md P3. server.so does not link tier1. Each member here
-// is one a header on the allowlist declares and server code (or inline code in
-// that header) calls, answered with tier1's documented behaviour; each arrived
-// in the commit that took its tier1 object off the link.
+// plan_server_novalve.md P3. Neither DLL links tier1. Each member here is one
+// a header on the allowlist declares and code in both DLLs (or inline code in
+// that header) calls, answered with tier1's documented behaviour. The
+// strtools.cpp members only client.so imports are strtools_client.cpp's
+// (plan_server_native_v2 T5: a shared TU keeps only what both DLLs import).
 //
 //=============================================================================//
 
 #include "tier1/bitbuf.h"
-#include "tier1/strtools.h"
-
-#include "ss_string.h"
-
-#include <stdarg.h>
-#include <stdio.h>
-
-#include <string.h>
 
 //-----------------------------------------------------------------------------
 // bitbuf.h's inline Seek (and the reads) flag a read past the end through this.
@@ -33,48 +26,4 @@ void bf_read::SetOverflowFlag()
 {
 	Assert( !m_bAssertOnOverflow );
 	m_bOverflow = true;
-}
-
-//-----------------------------------------------------------------------------
-// strtools.cpp's members that inline code in fork headers still calls (P4:
-// libtier1.a leaves the link): CUtlVector's ShiftElements* (V_memmove,
-// V_memset in debug), mapentities_shared.h's parser (Q_strncpy, Q_memset),
-// CaselessStringLessThan / StringLessThan (V_stricmp, V_strcmp), CFmtStr
-// (V_vsnprintfRet), saverestore's string ops (V_strlen). Our own code calls
-// ss_string.h; these go when P5's header move takes the callers away.
-//
-// The debug forms take __FILE__/__LINE__ for tier0's pointer asserts, which
-// server.so does not have; they are the C library call.
-//-----------------------------------------------------------------------------
-void _V_memset( const char *, int, void *dest, int fill, int count )
-{
-	memset( dest, fill, count );
-}
-
-void _V_memmove( const char *, int, void *dest, const void *src, int count )
-{
-	memmove( dest, src, count );
-}
-
-// ASCII case folding, the sign of V_stricmp (ss_string_oracle_test holds it).
-int V_stricmp( const char *s1, const char *s2 )
-{
-	return ss::StrICmp( s1, s2 );
-}
-
-// The length written; on truncation (or an encoding error) maxLen, with the
-// output cut and terminated, and *pbTruncated set.
-int V_vsnprintfRet( char *pDest, int maxLen, const char *pFormat, va_list params, bool *pbTruncated )
-{
-	int len = vsnprintf( pDest, maxLen, pFormat, params );
-	const bool bTruncated = len < 0 || len >= maxLen;
-	if ( pbTruncated )
-		*pbTruncated = bTruncated;
-	if ( bTruncated )
-	{
-		len = maxLen;
-		if ( maxLen > 0 )
-			pDest[ maxLen - 1 ] = 0;
-	}
-	return len;
 }

@@ -49,7 +49,8 @@
 // they are here for convenient centralisation, and because leaving one file
 // behind to hold three uninitialised globals would be the whole cost of the
 // merge for none of the benefit. If C# comes to own the skill level or the
-// game-over flag, they leave from here.
+// game-over flag, they leave from here. g_vecAttackDir and g_iSkillLevel left
+// at plan_server_native_v2 T5: no server object imported either (nm U).
 //
 // SERVER_CLASS.CPP AND NETWORKVAR.CPP STAY ON DISK, and not for the same
 // reason -- which is worth spelling out because "the client compiles both" is
@@ -96,8 +97,6 @@
 // should `extern ...` declare each variable, to better document what globals
 // they care about."
 //-----------------------------------------------------------------------------
-Vector			g_vecAttackDir;
-int				g_iSkillLevel;
 bool			g_fGameOver;
 
 //-----------------------------------------------------------------------------

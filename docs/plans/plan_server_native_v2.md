@@ -325,6 +325,13 @@ Re-measure importers of `mathlib_port.cpp` (13 symbols imported today by
 left after T4. Close with §1's instruments re-run at the tip, the
 before/after table with shas, and the census of what native stays and why.
 
+**DONE 2026-10-19** (lane T5, base 91296dc75, 23 commits). Importers were
+measured with nm U over both link edges (no static archive is on either
+link any more) and confirmed by the linker's own discard list; every
+deletion ran `tools/nogc-relink`, and the TU eviction a full
+`make debug GC_SECTIONS=0`. The measured close is §4; what stays native and
+the follow-ups no design decision covers are docs/todo.md's T5 section.
+
 ### T6. Native globals and statics to one root (user ask 2026-10-18; plan_globals.md's design, re-measured)
 
 The design already exists: plan_globals.md §2, "one root, two tiers". One
@@ -392,17 +399,84 @@ MEMBER, 0 DEAD; `objects_with_a_static_initialiser` at the floor; the daily
 gate green on the new static-init order; plan_globals.md's banner replaced
 by a pointer here.
 
-## 4. End state (estimate, to be replaced by measurement at the close)
+## 4. End state (measured at the T5 close, 2026-10-19)
 
-Binding at the tip: THUNK 831 + LAYOUT 450 + REG 342 joined lines plus the
-hand-spelled convar/tier rows (~1,000) and HOST 988: about 3,600 code lines,
-falling by the forwards T3.4 turns into managed-built vtables (IServerGameDLL
-30 of 55, IServerGameClients, IServerGameEnts: roughly 400 lines) and rising
-by nothing. KEEP-OUT 2,441 falls to the traces and the recipient filter
-until P3f, then to near zero. So release server.so after T1-T5: about 3,000
-code lines of binding and host, every fork header stock and public, release
-`.text` from 403,711 B to an estimated 150-200 KB (the host, the ports and
-the layouts; measure, do not trust this number).
+Measured by T5 on its branch at its last code commit (the lane's tip; base
+91296dc75, which is in the archived lineage `archive/pre-public-main-9` since
+main was rebased onto GitHub as c56e578d8 with the same tree). The 42b718990
+column is §1's, measured when this plan was written; the 91296dc75 column was
+measured by T5 in this checkout (release built at 91296dc75, then the tip
+rebuilt over it). Commands: `size -A` and `readelf -SW` on
+`farm/<config>/build/out/server.so`, `stat` on the deployed
+`bin/release/bin/linux64/server.so`, `tools/cmakegraph.py objects|sources
+server`, `tools/server-native-text`, `tools/server-native-scope`,
+`tools/shim-scope`, the `shim_reason_letters_test` walk (ceiling set to 1),
+`make globals-census`, `tools/client-novalve-census`.
+
+| instrument | 42b718990 | 91296dc75 (T5 base) | T5 tip |
+|---|--:|--:|--:|
+| debug `server.so` `.text` (B) | 939,083 | 359,607 | 359,607 |
+| release `server.so` `.text` (B) | 403,711 | 150,612 | **150,612** |
+| release `server.so` deployed (stripped, B) | 601,568 | 391,984 | 391,984 |
+| objects on the link edge, debug / release | 123 / 99 | 99 / 81 | 98 / 80 |
+| release object `.text` before `--gc-sections` (server-native-text) | n/m | 270,949 | **249,799** |
+| release `.cpp` lines on the list, raw / code | 58,241 (debug list) / 23,976 | 36,320 / 14,510 | 35,307 / 13,859 |
+| not-native lines (server-native-scope: MOVE+DELETE+FOLD+DEBUG, joined) | 8,083 (first ratchet, 5a1941ff3) | 4,935 | **4,818** |
+| shim lines (the walk, .cpp and .h) | 145,428 | 129,214 | 128,502 |
+| shim-reasons table (.cpp walk), files / lines | 222 / 100,278 | 216 / 87,100 | 217 / 86,493 |
+| server statics, link level (globals ledger rows) | 359 | 237 | **225** |
+| client native logic lines (R7, shim-scope) | 8,257 | 7,515 | 7,515 |
+| exports / Valve archives linked | `CreateInterface` / none | same | same |
+
+**What T5 itself changed, and what it did not.** The linked `.text` of both
+builds is the size it was at 91296dc75 (359,607 debug, 150,612 release;
+byte-identical after T5 1, by sha256 of the section; later moves only
+re-placed functions within it):
+everything T5 deleted had already been discarded by `--gc-sections`, which is
+what "no importer" means. T5 removed the source and the compiled objects'
+copies (release object `.text` -21,150 B; mathlib_port 16,575 -> 2,056),
+one TU from the server link (tier0_thread_port.cpp), 117 not-native lines,
+712 shim lines, 12 static-state rows, and the tests whose only subject was
+the deleted code (user ruling 2026-10-19).
+
+**The substrate, re-measured** (nm U over the link edges at the tip):
+`mathlib_port.cpp` keeps 9 symbols (7 functions, `vec3_origin`, `vec3_angle`)
+imported by 13 server objects (was 13 symbols by 19); its other 35 members
+are `src/client/native/mathlib_port_client.cpp`'s and 11 went. ConVarRef is
+imported by 9 server objects (was 15); all 76 of `convar_port.cpp`'s
+definitions are in the linked server.so (the ConVar/ConCommand vtables the
+engine calls reach the ones no object names). `gamestringpool.cpp`: all 4
+live. `tier0_spew_port.cpp` keeps the 13 server.so imports plus
+`Tier0_DevSpewV`, the seam the client file's two printers use;
+`tier1_port.cpp` keeps `bf_read::SetOverflowFlag` alone;
+`tier0_thread_port.cpp` is client-only.
+
+**What native stays, and why** (release, the tip's 80 TUs, 11,674 code lines
+in 938 functions, joined through the ledger by `tools/server-native-scope`'s
+own Joiner):
+
+| category | code lines | functions | what |
+|---|--:|--:|---|
+| engine-called vtables (KEEP-THUNK) | 1,766 | 190 | IServerGameDLL, IServerGameClients, IServerGameEnts, IServerGameTags, the shared app systems, CStandaloneEntity's ICollideable / IServerEntity / IServerNetworkable, CShellGameMovement, the ConVar and ConCommand carriers, the string-table forwards |
+| layouts the engine reads (KEEP-LAYOUT) | 565 | 47 | SendProp / SendTable / ServerClass (dt_send.cpp, shell_tempents_store.cpp storing the managed plan), edict / PVSInfo, CPlayerState, `sourcesharp.h`'s structs |
+| registration (KEEP-REG) | 885 | 63 | `CreateInterface` and `kExposed[]`, the factory tables, ConVar_Register, CPhysicsHook, DLLInit |
+| host, substrate and engine-held pointers (KEEP-HOST) | 1,922 | 124 | the CoreCLR host (managed_runtime_server, shell_internalfactory, exit_watch, fatal_report), the ports above, tier_connect, engine_heap, loaded_symbol, and the engine interface pointers (38 `engine-iface-ptr` statics, most in shell_engineboundary.cpp) |
+| marshalling-only outbound (KEEP-OUT) | 2,087 | 224 | the entity API's getters, precache, string tables, the recipient filters' list logic |
+| logic still native (MOVE / FOLD / OOS) | 2,742 / 164 / 232 | 160 / 19 / 20 | MOVE's largest: shell_entityapi (288), shell_globals (260), shell_standalone_base (182), shell_te_forwards (175), overlay_library (148), dt_send (148), shell_worldquery (141), shell_standalone_hierarchy (138), shell_movement (126), takedamageinfo_library (125); OOS is physics.cpp's hook and held globals |
+| debug instruments (DEBUG) | 1,288 in release TUs; +624 in the 18 debug-only TUs | 88; +33 | diagnostic arms and console commands (ruling 5); release compiles no debug-only TU |
+| static-state FLOOR rows (D6) | | 8 | `s_gameShellDll`, `g_pServerClassHead`, `s_pNonModifiedPointerProxyHead`, `g_ExitWatch` (the kernel's and SDL's callbacks), console_display_forward's `g_Forwarder` and `g_pInstalledCvar`, alloc_check's `g_State` and `t_depth` (debug) |
+
+The globals ledger at the tip: 225 link-level rows (UNRULED 123, MEMBER 51,
+CONST 30, MANAGED 9, FLOOR 8, DEAD 4), 1,411,344 B at object level (the TE
+pool and the entity slot blocks are most of it), 85 objects with a static
+initialiser (measured; the ratchet row reads 104). T6 is the track that takes
+these to the D6 floor.
+
+Against §4's 2026-10-18 estimate ("release `.text` from 403,711 B to an
+estimated 150-200 KB"): 150,612 B, at the low end, with 2,742 MOVE lines still
+native. What is left of the binding (THUNK + LAYOUT + REG + HOST, 5,138 lines)
+is above the estimate's ~3,600 because the joined ledger now counts the
+hand-spelled convar and tier rows it then estimated separately.
 
 ## 5. Decisions for the user
 
@@ -499,6 +573,20 @@ New:
 5. **D5: order.** T1 before T2-T4 [recommended: it respells one type across
    48 TUs and would conflict with every lane], or T1 as its own lane beside
    them with the conflicts resolved at each rebase.
+
+**T5 CLOSED, 2026-10-19.** Substrate collapse done as §3 T5 says, under the
+user's rulings of 2026-10-12 (server-dead code the client uses moves to
+src/client/native) and 2026-10-19 ("remove tests that test unused code":
+each deletion took the tests whose only subject it was, named in its
+commit). Not done, each needing a decision or a lane of its own (docs/todo.md):
+the header-inline relays of anyentity.h and physicsowner.h, dt_send.cpp's
+dead SendTable and non-modified-proxy constructors (the latter builds a D6
+FLOOR list head), managed-table slots left with no native caller
+(IManagedHierarchy.HierarchyResolveParentNames, IManagedSoundEnt's insert;
+retiring a row is a --reorder), shell_movement.cpp's server-dead arms, and
+three client-only imports kept in shared TUs as seams over file-local
+helpers (Tier0_DevSpewV, SourceSharp_LogStub) or text-pinned
+(UTIL_Tracer).
 
 ## 6. Risks
 

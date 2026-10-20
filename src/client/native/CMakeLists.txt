@@ -73,10 +73,11 @@ set(client_sourcesharp_sources
     # what particles.a imports from tier2 is stubbed inside that library).
     ${CMAKE_CURRENT_SOURCE_DIR}/particles_lib_client.cpp
     # tier0 and vstdlib, the server's ports (plan_client_novalve C9, user
-    # decision 2026-10-12): the spew/assert entry points and the thread and
-    # platform calls both DLLs make, and client.so's own random stream.
+    # decision 2026-10-12): the spew/assert entry points both DLLs make, the
+    # thread and platform calls only client.so makes (plan_server_native_v2
+    # T5), and client.so's own random stream.
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vstdlib_random_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier0_spew_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_client.cpp
@@ -91,6 +92,7 @@ set(client_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
     # mathlib, the server's port (C9): libmathlib.a is off the link line.
     ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mathlib_port_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/strtools_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/keyvalues_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier1_client.cpp
@@ -303,7 +305,7 @@ ss_link_host(client_sourcesharp)
 if(SS_IS_MSVC)
   set_property(SOURCE
       ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
-      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_port.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/tier0_spew_client.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_client.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/tier0_vprof_client.cpp

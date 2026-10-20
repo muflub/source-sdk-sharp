@@ -469,7 +469,7 @@ TEST( PermanentDecalBan, TheFrameProjectionAsksEachHierarchyItsOwnQuestion )
 		   "chose, and nothing says so.";
 }
 
-// BAN D — the three engine-facing projections must be declared where they can
+// BAN D — the engine-facing projections (two since T5) must be declared where they can
 // be found, because the whole point of putting them on SourceSharpEntity_t is
 // that the NEXT site needing an index or a frame has somewhere to ask.
 //
@@ -490,7 +490,8 @@ TEST( PermanentDecalBan, TheProjectionsAreOnTheOneResolver )
 	}
 
 	EXPECT_FALSE( Naming( all, "int EntityIndex() const" ).empty() );
-	EXPECT_FALSE( Naming( all, "int ModelIndex() const" ).empty() );
+	// ModelIndex left the resolver (plan_server_native_v2 T5): no server object
+	// called it (nm U over the link edge).
 	EXPECT_FALSE( Naming( all, "const matrix3x4_t &EntityToWorld() const" ).empty() );
 }
 

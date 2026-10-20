@@ -17,8 +17,8 @@
 //   default argument here, so pass all three), UTIL_IsCommandIssuedByServerAdmin
 //   (shell_commandclient.cpp), UTIL_ShouldShowBlood, UTIL_RemoveImmediate,
 //   CreateEntityByName (its default the one baseentity.h gave it), the view
-//   punch (shell_scripted.cpp; the shake and the fade are C#'s),
-//   and DebugDrawLine (shell_debugoverlays.cpp). SourceSharp_EngineVisualizeTraces
+//   punch (shell_scripted.cpp; the shake and the fade are C#'s). DebugDrawLine
+//   went at plan_server_native_v2 T5. SourceSharp_EngineVisualizeTraces
 //   left with the server's trace filter (plan_server_native_v2 T4f).
 //
 //   The fork's INLINE helpers would be a second body under a Valve name, so
@@ -57,11 +57,7 @@ extern IEngineTrace   *enginetrace;
 void UTIL_ClearTrace( trace_t &trace );
 bool UTIL_IsCommandIssuedByServerAdmin( void );
 bool UTIL_ShouldShowBlood( int bloodColor );				// util_shared_library.cpp
-void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName );	// server_util_library.cpp
 
-void DebugDrawLine( const Vector &vecAbsStart, const Vector &vecAbsEnd,
-                    int r, int g, int b, bool test, float duration );
-extern float k_flMaxEntityEulerAngle;                      // entity_shared_statics.cpp
 
 namespace ss
 {
@@ -89,16 +85,6 @@ inline int ENTINDEX( edict_t *pEdict )
 inline edict_t *INDEXENT( int iEdictNum )
 {
 	return engine->PEntityOfEntIndex( iEdictNum );
-}
-
-// baseentity_shared.h's sanity bound on an entity's Euler angles.
-inline bool IsEntityQAngleReasonable( const QAngle &q )
-{
-	float r = k_flMaxEntityEulerAngle;
-	return
-		q.x > -r && q.x < r &&
-		q.y > -r && q.y < r &&
-		q.z > -r && q.z < r;
 }
 
 //-----------------------------------------------------------------------------

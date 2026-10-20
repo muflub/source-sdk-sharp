@@ -73,8 +73,8 @@
 // removing each and reading the error, and it is four shorter than sound.cpp's:
 // physics.h went with TEXTURETYPE_Find's `physprops`, ai_speech.h with the suit
 // speaker's `g_AIFriendliesTalkSemaphore`, game.h with its `suitvolume`, and
-// vstdlib/random.h with the suit speaker's pitch jitter. recipientfilter.h
-// stays, because the one surviving emit still builds a CPASAttenuationFilter.
+// vstdlib/random.h with the suit speaker's pitch jitter. ss_recipient_filter.h
+// stays for the filters the surviving emit builds.
 #include "ss_util.h"            // engine, ss::ENTINDEX
 #include "ss_recipient_filter.h"
 #include "engine/IEngineSound.h"

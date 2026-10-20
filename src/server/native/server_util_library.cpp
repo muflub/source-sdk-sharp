@@ -111,29 +111,6 @@ void UTIL_ClearTrace( trace_t &trace )
 	trace.surface = g_NullSurface;
 }
 
-//------------------------------------------------------------------------------
-// UTIL_SnapDirectionToAxis
-//------------------------------------------------------------------------------
-// snaps a vector to the nearest axis vector (if within epsilon)
-void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )
-{
-	float proj = 1 - epsilon;
-	for ( int i = 0; i < 3; i ++ )
-	{
-		if ( fabs(direction[i]) > proj )
-		{
-			// snap to axis unit vector
-			if ( direction[i] < 0 )
-				direction[i] = -1.0f;
-			else
-				direction[i] = 1.0f;
-			direction[(i+1)%3] = 0;
-			direction[(i+2)%3] = 0;
-			return;
-		}
-	}
-}
-
 // UTIL_VarArgs went (plan_server_native_min P1): a static buffer shared by
 // every caller; its one live caller formats into a local instead.
 
@@ -239,48 +216,6 @@ void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color,
 
 	TE_BloodStream( filter, 0.0, &origin, &direction, 247, 63, 14, 255, MIN( amount, 255 ) );
 }				
-
-//------------------------------------------------------------------------------
-// Purpose : Creates both an decal and any associated impact effects (such
-//			 as flecks) for the given iDamageType and the trace's end position
-// Input   :
-// Output  :
-//------------------------------------------------------------------------------
-void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName )
-{
-	// TraceEntity is named in the shard brief's NULL-subject inventory: it
-	// answers NULL for anything outside the SDK, so armed this function is
-	// already inert for every entity rather than waiting on anything. Its own
-	// `!pEntity` return is that inertness written down.
-	//
-	// UTIL_IsValidEntity takes an IServerEntity, and armed a CBaseEntity * no
-	// longer converts to one -- IGameEntity has no base at all. ImpactTrace is
-	// CBaseEntity's own.
-	// THE WORLD FIRST, AND WITHOUT IT THERE ARE NO BULLET HOLES ON WALLS.
-	//
-	// This is the site the T1 census called the second most expensive: almost
-	// every impact effect in a game lands on level geometry, and every one of
-	// them reaches this function. With CWorld off the CBaseEntity hierarchy
-	// (plan_cworld_trace.md T3) `TraceEntity` answers NULL for the world, the
-	// `!pEntity` return above fires, and decals and flecks stop appearing on
-	// walls -- silently, and only on walls, which is the failure mode that
-	// reads as a renderer problem.
-	//
-	// The world answers for itself. CWorld::ImpactTrace is
-	// CBaseEntity::ImpactTrace's body with the entity index answered by
-	// definition rather than looked up.
-	if ( SourceSharp_IsTheWorld( ss::TraceHit( *pTrace ) ) )
-	{
-		if ( ( pTrace->surface.flags & SURF_SKY ) || pTrace->fraction == 1.0 )
-			return;
-
-		if ( CWorld *pWorld = GetWorldEntity() )
-			pWorld->ImpactTrace( pTrace, iDamageType, pCustomImpactName );
-
-		return;
-	}
-
-}
 
 // CWaterTraceFilter went (plan_server_native_min P1): nm shows no vtable or
 // typeinfo for it emitted or imported by any server object; nothing constructed

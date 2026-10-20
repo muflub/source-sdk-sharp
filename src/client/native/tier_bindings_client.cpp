@@ -63,6 +63,25 @@
 	#pragma init_seg( lib )
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
+
+// loaded_symbol.h's RequireLoadedSymbol, defined beside its one caller
+// (plan_server_native_v2 T5: no server object imports it).
+void *ss::RequireLoadedSymbol( const char *pszFile, const char *pszSymbol )
+{
+	void *pSymbol = FindLoadedSymbol( pszFile, pszSymbol );
+	if ( !pSymbol )
+	{
+		fprintf( stderr, "[SourceSharp] %s: no loaded %s defines it. This module binds it "
+		                 "to the copy the engine loaded and links no other; stopping.\n",
+		         pszSymbol, pszFile );
+		fflush( stderr );
+		abort();
+	}
+	return pSymbol;
+}
+
 namespace
 {
 #if defined( _WIN32 )

@@ -34,7 +34,7 @@
 
 // THE R5 SET (plan_server_novalve.md P5): cbase.h, in_buttons.h,
 // movevars_shared.h, usercmd.h, takedamageinfo.h and physics_shared.h went.
-#include "ss_util.h"               // engine, ss::IsEntityQAngleReasonable
+#include "ss_util.h"               // engine
 #include "ss_shareddefs.h"         // kMaxPlayers, kDmgFall
 #include "ss_physics_shared.h"     // physenv, physcollision
 #include "ss_entityhandle.h"       // ss::GameEntityFromEntityHandle

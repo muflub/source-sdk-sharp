@@ -116,28 +116,14 @@ struct SourceSharpEntity_t
 	// relative to a VOLUME means by "where it is".
 	Vector Center() const;
 
-	// The entity index a sound attaches to, or SOUND_FROM_WORLD for an entity
-	// the client has never heard of. A server-only entity has no index, and a
-	// sound from a fixed point is the honest answer rather than no sound.
-	int SoundSourceIndex() const;
-
 	// The index the ENGINE stores something against — a decal, and anything
 	// else engine-side that names an entity by number rather than by pointer.
 	// 0 for an entity the client has never heard of, which is the world's
 	// index and is what "attached to nothing in particular" has always meant
 	// on that side.
-	//
-	// SEPARATE FROM SoundSourceIndex despite the two agreeing today, because
-	// they are answers to different questions and only one of them has a
-	// sentinel: SOUND_FROM_WORLD is a sound-engine constant that happens to be
-	// 0, and SOUND_FROM_LOCAL_PLAYER is -1 in the same numbering. Folding them
-	// together would make a future change to either silently change the other.
+	// (The sound source's index, SoundSourceIndex, is the managed
+	// ServerSounds.SoundSourceIndex since plan_server_native_v2 T4a.)
 	int EntityIndex() const;
-
-	// What the engine would draw for it, or 0 for an entity with no model.
-	// Both hierarchies answer this through IServerEntity, which is where the
-	// membership rule says it belongs.
-	int ModelIndex() const;
 
 	// The frame the entity's own model is expressed in — what turns a point in
 	// the world into a point ON the entity, and back.
@@ -168,7 +154,6 @@ struct SourceSharpEntity_t
 	// handle is — but a warning that cannot name the thing it is about is a
 	// warning nobody can act on.
 	const char *Classname() const;
-	const char *Name() const;
 
 	IPhysicsObject *Physics() const;
 

@@ -387,16 +387,11 @@ uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPacked
 // is defined NOWHERE -- not in a .vpc, not on a command line, not in a header
 // this build reaches. Every line of the walk runs, and this is all of it.
 //
-// The chained-activate check is stock's and is DEBUG-only there too. The two
-// flags were defined in gameinterface.cpp outside any class, so they survived
-// Phase 7a; they are in sourcesharp/game/server/shell_engineboundary.cpp since
-// plan_gamedll_after.md Phase A9 step 4 deleted that file.
-// CBaseEntity::Activate (baseentity.cpp:1493) is what sets the second one.
+// The chained-activate check is stock's and is DEBUG-only there too. Its two
+// flags went at plan_server_native_v2 T5: baseentity.cpp and npc_citizen17.cpp,
+// which wrote and read them, are not compiled, and this step's bracketing went
+// with the walk, so no object imported either.
 //-----------------------------------------------------------------------------
-#ifdef DEBUG
-extern bool g_bReceivedChainedActivate;
-extern bool g_bCheckForChainedActivate;
-#endif
 
 
 
