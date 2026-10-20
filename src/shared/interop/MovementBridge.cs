@@ -198,13 +198,20 @@ public static unsafe class MovementBridge
     /// </summary>
     internal sealed class EngineMoveWorld : IMoveWorld
     {
-        // The side's slot routing, given by the runner that owns this world
-        // (plan_abi_hotreload D8); it was Engine.Current.Slots per call.
+        // The side and its movement area, given by the runner that owns this
+        // world (plan_abi_hotreload D8); it was Engine.Current.Slots per call.
+        // The side for its bound interfaces (the trace, the surface props) and
+        // its movement trace, which each side runs its own way.
         private readonly EngineSide _api;
+        private readonly IMovementArea _movement;
 
         private readonly MovePointContentsCache _pointContents = new();
 
-        internal EngineMoveWorld(EngineSide api) => _api = api;
+        internal EngineMoveWorld(EngineSide api, IMovementArea movement)
+        {
+            _api = api ?? throw new ArgumentNullException(nameof(api));
+            _movement = movement ?? throw new ArgumentNullException(nameof(movement));
+        }
 
         /// <summary>
         /// The player the crossing in progress moves, which the server's trace
@@ -216,16 +223,13 @@ public static unsafe class MovementBridge
         public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs,
                                uint mask, int collisionGroup)
         {
-            if (!_api.OwnShimsAttached)
-                return MoveTrace.Clear(end);
-
             float* s = stackalloc float[3] { start.X, start.Y, start.Z };
             float* e = stackalloc float[3] { end.X, end.Y, end.Z };
             float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
             float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
             MoveTraceBlob blob = default;
-            _api.MoveTrace(s, e, lo, hi, mask, collisionGroup, Player, &blob);
+            _api.MoveTrace(_movement, s, e, lo, hi, mask, collisionGroup, Player, &blob);
 
             return new MoveTrace
             {
@@ -247,9 +251,6 @@ public static unsafe class MovementBridge
 
         public int PointContents(in Vector point, int slot)
         {
-            if (!_api.OwnShimsAttached)
-                return 0;
-
             if (_pointContents.TryGet(point, slot, out int cached))
                 return cached;
 
@@ -261,17 +262,12 @@ public static unsafe class MovementBridge
         public void ResetPointContentsCache(bool optimizations) => _pointContents.Reset(optimizations);
 
         public MoveSurface Surface(int surfaceProps)
-            => _api.OwnShimsAttached
-                ? EngineBound.SurfaceProps(_api).Surface(surfaceProps)
-                : default;
+            => EngineBound.SurfaceProps(_api).Surface(surfaceProps);
 
         private int Effect(MoveEffectKind kind, in Vector xyz, float value, int flag)
         {
-            if (!_api.OwnShimsAttached)
-                return 1;
-
             float* p = stackalloc float[3] { xyz.X, xyz.Y, xyz.Z };
-            return (_api.OwnShims.Movement.MoveEffect((int)kind, p, value, flag));
+            return (_movement.MoveEffect((int)kind, p, value, flag));
         }
 
         public void ResetTouchList() => Effect(MoveEffectKind.ResetTouchList, Vector.Zero, 0f, 0);

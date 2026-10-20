@@ -123,7 +123,7 @@ public class UserMessageGoldenBytesTests
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine, EntityHandle Handle) Spawn(
         string className, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GameText).Assembly);
         registry.Services = Services(out var engine);
 

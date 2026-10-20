@@ -33,7 +33,7 @@ public class PlayerResourceTests
                                         bool anyoneConnected,
                                         IClientInfo? clients = null)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerResource).Assembly);
 
         var services = Services(out engine);
@@ -61,7 +61,7 @@ public class PlayerResourceTests
     [Fact]
     public void RegistersAsPlayerManager()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerResource).Assembly);
 
         Assert.True(registry.IsRegistered(EntityNames.PlayerManager));

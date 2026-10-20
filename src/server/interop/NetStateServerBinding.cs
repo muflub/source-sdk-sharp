@@ -46,14 +46,15 @@ public static class NetStateServerBinding
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(engine);
-        state.Bind(engine.Api, handle);
+        state.Bind(engine.Api, engine.Api.Areas.Require<INetworkServerArea>(), handle);
     }
 
     /// <inheritdoc cref="Bind(NetState, ModuleEngine, EntityHandle)"/>
     /// <param name="state">The state to bind.</param>
     /// <param name="side">The side the entity lives on: its registry's own.</param>
+    /// <param name="network">That side's network area, whose slot binds the blob.</param>
     /// <param name="handle">The entity.</param>
-    internal static void Bind(this NetState state, EngineSide side, EntityHandle handle)
+    internal static void Bind(this NetState state, EngineSide side, INetworkServerArea network, EntityHandle handle)
     {
         if (!side.IsInitialized)
         {
@@ -61,7 +62,7 @@ public static class NetStateServerBinding
             return;
         }
 
-        state.BindTo(side.BindEntityBlob(handle), side, handle);
+        state.BindTo(side.BindEntityBlob(network, handle), side, handle);
     }
 
     /// <summary>
@@ -92,7 +93,7 @@ public static class NetStateServerBinding
     /// </para>
     /// </summary>
     internal static NetState[] AttachBound(object instance, EntityHandle handle, EngineSide side,
-                                           NetStateFields known)
+                                           INetworkServerArea network, NetStateFields known)
     {
         var fields = known.FieldsOn(instance.GetType());
         if (fields.Length == 0)
@@ -105,7 +106,7 @@ public static class NetStateServerBinding
             if (NetStateBinding.StateIn(instance, fields[i], known.Log) is not { } state)
                 continue;
 
-            state.Bind(side, handle);
+            state.Bind(side, network, handle);
             states[i] = state;
         }
 

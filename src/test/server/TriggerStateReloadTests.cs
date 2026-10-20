@@ -25,7 +25,7 @@ public class TriggerStateReloadTests
 
     private static ScriptedEntityRegistry Registry(out RecordingEngine engine, float now)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerMultiple).Assembly);
         var services = Services(out engine);
         services.AddInstance<IEntityDirectory>(registry);

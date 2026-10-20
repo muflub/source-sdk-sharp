@@ -261,6 +261,24 @@ Each phase builds, passes its tests and is committed before the next.
   assembly. `Shared.Interop` is compiled into each side's interop to match.
 - 2026-10-19 (user): the Abi keeps only the value types its own code uses; the
   others live in the interface assemblies.
+- 2026-10-20 (user, PR review): a constructor is handed what it uses and
+  stores it ("this constructor should be: `internal ClientInputHost(InputClientArea
+  input, IEngineConsole console)` and the same for all the other places";
+  "why is engine client not an interface passed in the constructor as well?").
+  Then: "also apply this logic to all the classes so the constructors are only
+  saving params directly into fields". Scope ruled as the interop layer (Abi,
+  Server.Interop, Client.Interop), in this PR, held by a census fact. Allowed
+  besides stores: the object's own empty state, chaining with defaults, value
+  types and attributes (not checked), argument validation.
+- 2026-10-20 (user, PR review): the `IVtable*` engine interfaces are
+  `IFwd*` ("IFwdEngineClient should prob be IFwdEngineClient"; "also make
+  sure to fix any other IVtable prefix classes").
+- 2026-10-20 (user, PR review): drop the logic that checks `ShimsAttached`,
+  and the side a consumer held only for it ("this code is not useful ... the
+  other interfaces will be null if not true already"). Asked how tests with
+  no engine should then work: "generate mocks for the interfaces for tests
+  that return good defaults. Managed logic should never check for null
+  interface or expect a null interface".
 - 2026-10-19 (user, review of phase 5): the adapters' areas are not nullable,
   because nothing in the game composes before the attach (LoadSideV2 fails the
   load first). Tests that compose a client module do not reach the shim at
@@ -273,6 +291,11 @@ Each phase builds, passes its tests and is committed before the next.
   other half answers what the member's attach guard answered there (chosen
   over stubs in `EngineSide` and over moving only the members no shared code
   calls).
+- 2026-10-19 (user, after phase 10 merged): the containers go too. Asked "did
+  you actually remove the class that is a list of interfaces and inject the
+  interfaces directly into all the places?", then "no plan, just do it":
+  phase 11 removes `ShimAreas` and `ClientShimAreas`, and every consumer is
+  handed the areas it calls by constructor.
 
 Open: none.
 
@@ -502,7 +525,7 @@ Open: none.
     `ClientReloadRequester`). The client root hands each the acquire its other
     engine-client services already took, now one method,
     `AcquireEngineClient`.
-  - `cs_vtable_client` takes `IVtableEngineClientSource`, a new seam in
+  - `cs_vtable_client` takes `IFwdEngineClientSource`, a new seam in
     Client.Interface: the engine client, or the reason it was refused. It
     cannot be named `IEngine...`, because `EngineServices` enrols every
     `IEngine*` interface beside a same-named class as an engine area.
@@ -577,3 +600,136 @@ Open: none.
     - `new ClientUiSurface(null)` planted in a client test;
     - `new EngineClock(...)` planted in a server test.
   - CLAUDE.md states the rule beside the interface-assembly rule.
+- **Phase 11** (2026-10-19). The containers are gone. Each area is handed to
+  the code that calls it, by constructor.
+  - `tools/shim-areas` writes `ServerAreaRegistration` and
+    `ClientAreaRegistration` in their place: static, with no state. Each takes
+    every area of its side from the root or none, and hands each one, by
+    type, to the side's registry. A derived server area is also handed under
+    its shared base's type. `AddDetached` hands the same types over no table.
+    That is what a side with no engine registers, so a test's composition
+    builds. Every typed call goes through `ShimRef.Table`, which refuses a
+    detached area with "was called before the shim areas were attached"
+    instead of reading a null table. That keeps phase 9's unattached-throw
+    fact. Four self-test arms hold the shape, among them: no container,
+    takes before the one add, and the checked table. Each was proved by a
+    planted mutation.
+  - `EngineSide` keeps the registry (`Areas`, detached until the attach) and
+    one `ShimsAttached` flag in place of `ServerShims`, `ClientShims`,
+    `OwnShims` and their `*Attached` twins. It keeps four areas of its own
+    (console, engine, entities, models) and the server three more (precache,
+    transform, physics). They serve the services made with the side, before
+    any composition: its log, globals and clock, model descriptors, break
+    models, liveness, surfaces and the motion host. They are assigned at each
+    attach.
+  - The members that called an area moved into the binding that called
+    them: 232 were inlined into a pass-through binding member of the same
+    signature, the rest moved as private members. A Roslyn pass in the
+    scratchpad did it, and rounds ran until nothing more could move.
+    `EngineSide` went from 7,102 lines to 1,886 and the bindings from 2,136
+    to 7,405. Each binding's side half declares the public constructors
+    with the areas that half calls. `EngineServices.Build` fills an area
+    parameter from the side's registry and everything else from the
+    composition, as before.
+  - A member with several callers that needs the side's state stays on
+    `EngineSide` and takes its area as a parameter: the blob bind, the
+    hull trace, the factory table, the shells. A consumer that is not a
+    binding resolves its areas once, at its composition point: a
+    `ModuleEngine` constructor or a static factory such as `ForEngine` or
+    `Acquire`. The player shadow's climb traces through
+    `PlayerRunMoveStages.TraceHull`, so the command loop hands on stages
+    rather than an area.
+  - `ShimAreaInjectionCensusTests` holds three rules over both sides' built
+    interop and the Abi:
+    - no type hands out an area (every area field or property is private);
+    - `EngineSide` holds exactly its seven, or four, own areas;
+    - `Areas` is read only by the side, `ModuleEngine`, the client's
+      adapter registration or a static method that is not a constructor
+      (a factory such as `For`), never per call.
+
+    Mutation proofs turn each red: an `internal` area field, an
+    eighth area field on the side, and a binding method that looks an area up.
+  - Tests: `FakeShimRoot` serves what the registrations hand. Facts that
+    called a moved member call it through its binding (`SideBindings.Of`).
+    The side audit reads an area call by its field or parameter name
+    (`_networkServerArea.X(`, `networkArea.X(`) and follows private binding
+    helpers to a fixed point. Its reach walk treats a call on an area class
+    as the slot.
+  - Review round (2026-10-20): constructors only store. `ClientInputHost`
+    takes its `InputClientArea`, the console and the engine client's input
+    slice (`IClientInputEngine`, implemented explicitly by `EngineClient` so
+    its public surface stays its table's). The work constructors did moved
+    into static factories: `EngineSide.Create` (validation and the detached
+    areas), `ConVarRegistry.For`, `NetStateCatalog.Of`,
+    `NetSchemaType.Create`, `MovementRunner.For`, `PlayerCommandsBinding.For`,
+    `PredictionClientBinding.For`, `HierarchyDriver.For`, `InputMailbox.Over`,
+    `ClientBoneBatch.Allocate`, `FirstChance.Watch` and others; derived shim
+    areas take their base's `ShimRef` (`shim.As<TBase>()`) from the
+    registration. What a constructor computed from its arguments became a
+    lazy property. `ConstructorCensusTests` reads the IL of every class
+    constructor in the Abi and both interops (over 500); a planted
+    `console.FindConVarValue` in `ClientInputHost`'s constructor turns it red.
+  - Review round 2 (2026-10-20): no attach checks. Every `ShimsAttached` and
+    `IsInitialized` guard in the bindings, `EngineSide` and the helpers is
+    gone, and with it `EngineSide.ShimsAttached` and the side field of nine
+    bindings and six helpers that held it only for the guard. `tools/shim-areas`
+    emits an `I<Name>Area` interface per area (a derived area's extends its
+    base's), the registrations hand areas by interface, and consumers hold
+    the interfaces. It also emits `src/test/support/ShimAreaDefaults.g.cs`: a
+    default per area that answers its type's default, or "nothing" (-1, the
+    invalid handle) for the slots whose zero means something, and each side's
+    defaults handed as its registration hands the areas. `EngineSide.Create(side)`
+    is gone: a test side is `TestSides.Create`, over the defaults; the
+    registry's test constructors take `TestEngines.Server()`, which replaces
+    `ServerEntityEngine.Unattached` in the product. A fake root's unserved
+    slot answers through a native stub (`DefaultSlots`, zero or -1), because
+    59 slots are called with `SuppressGCTransition` and cannot reach managed
+    code. Tests that asserted the guards' answers now assert the new contract:
+    a side before its attach (the load's `Create(side, state)`) throws naming
+    the area, and a side over the defaults answers them. Mutation proofs: the
+    registration handing areas by class, and the defaults losing their
+    "nothing" table, each turn the generator's self-test red.
+  - `ClientInputHost` (review, 2026-10-20: "this should never be nullable
+    or null as this is the ClientInputHost class"; "why cant this be
+    injected via dep injection? Shouldnt need a static for this"): its
+    engine client is non-null and the static `For` is gone. The module
+    builds it with `ModuleEngine.Create<T>(services)`, which builds a type as
+    the bindings are built (areas from the side, the rest from the
+    container). The game's adapters (`ClientEntityFetches`) register
+    `IClientInputEngine` as a factory over the acquired engine client, which
+    fails the build with the engine's reason if refused; a test's
+    `FakeClientEngineAdapters` registers a generated default double.
+  - Not done in this round: other managed logic still takes `IFwd*` engine
+    interfaces as nullable (`Func<IFwdEngineClient?>`, `IInputMailbox?`, about
+    75 sites), acquired lazily from the engine's factories; giving those a
+    non-null, injected source is the next step the ruling implies.
+- **Onto main** (2026-10-20). Main gained 34 commits while the PR was open
+  (plan_server_native_v2's T4 series: the server's sounds, traces and player
+  movement managed; the IShimSound, base effects and base world areas
+  retired). The branch's final state was brought onto main as one commit, the
+  originals kept under `archive/phase11-pre-rebase-ba464d3`, and this plan's
+  rules applied to main's new code in the same pass:
+  - main's `EngineSide` members that read a retired slot or a container
+    became binding members over injected areas, or side members that take
+    the area (`MoveTraceServer`, `PlayerCommandBegin` and the rest take
+    `IMovementServerArea`); the sound patches' per-side arms are the
+    `EngineSound` halves' (`SidePatch*`); `PlayerSequences` runs over
+    `ServerPlayerSequenceSlots`, a value over the areas the slots read;
+  - main's new classes take their areas through an internal constructor and
+    a public `For(ModuleEngine, ...)` (`ServerPlayerCommands`,
+    `ServerPlayerMovement`, `ServerSkins`, `TempEntTables`,
+    `ClientTempEntTables`, `FlashlightSlots`), and their attach guards are
+    gone; the constructor census found ten constructors of main's doing work,
+    each now stores only (`TraceFilterRules.Over` validates and copies);
+  - engine-less test sides answer main's forwarders with defaults too
+    (`DefaultForwarders`: an empty world, no surface props), held on the
+    side's bound set, which an attach replaces; the defaults' "nothing" table
+    gains `FindConVarFlags` (-1, "the engine defines no such convar");
+  - the side audit waives the five sound patch members on the server and
+    shared lists: the binding map joins both halves under one member, so the
+    client's patch slots read as the server's, and the server's answer is its
+    managed route, which the audit cannot see.
+  `make test` at the result: every leg's failures are a subset of main's own
+  in the same environment (managed 0; managed-server 8 and managed-client 25,
+  float-exact replays and the absent TF2 content; native's
+  `CMakeGraphReal.EveryFileThisTreeCompilesTurnsAWarningIntoAnError`).

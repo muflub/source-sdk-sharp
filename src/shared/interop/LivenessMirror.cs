@@ -492,8 +492,8 @@ public sealed class LivenessSlotReference
     // mirror it checks, never whichever side is active.
     private readonly EngineSide _side;
 
-    public LivenessSlotReference(ModuleEngine engine)
-        => _side = (engine ?? throw new ArgumentNullException(nameof(engine))).Api;
+    public static LivenessSlotReference For(ModuleEngine engine)
+        => new((engine ?? throw new ArgumentNullException(nameof(engine))).Api);
 
     internal LivenessSlotReference(EngineSide side) => _side = side;
 

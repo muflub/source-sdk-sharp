@@ -27,22 +27,76 @@ internal sealed unsafe partial class EngineSide
     private bool _globalsDecided;
     private ShimRoot? _root;
 
-    internal EngineSide(Side side) : this(side, new SideState(side)) { }
+    // THE SIDE'S AREAS, BY TYPE (plan_shim_areas_split phase 11). Not a set
+    // anything reaches into: a binding or adapter is given the areas it calls
+    // in its constructor, by the composition that builds it
+    // (EngineServices.Build, ModuleEngine), which is the only reader of
+    // Areas. Every area is over no table until the attach, so a side with no
+    // engine composes, and a call before the attach throws, naming the area
+    // (ShimRef.Table): nothing checks for the attach, since the game composes
+    // only after it (LoadSideV2 attaches, then loads the module).
+    private ServiceContainer _areas = null!;
 
-    internal EngineSide(Side side, SideState state)
+    // The areas the side's OWN services read: the ones made before any
+    // composition exists, with the side (its log, its globals and clock, its
+    // model descriptors and break models, its entity liveness and the shell's
+    // velocity host). Assigned at each attach, from the same registration, and
+    // pinned by ShimAreaInjectionCensusTests so this does not grow back into a
+    // container: an area a binding calls is that binding's.
+    //
+    // These, the registry and Surfaces are null only inside Create, which
+    // hands them the detached areas before anything can hold the side.
+    private IConsoleArea _consoleArea = null!;
+    private IEngineArea _engineArea = null!;
+    private IEntitiesArea _entitiesArea = null!;
+    private IModelsArea _modelsArea = null!;
+
+    // A constructor only saves what it is handed (phase 11 review): Create
+    // builds the rest.
+    private EngineSide(Side side, SideState state)
+    {
+        _side = side;
+        State = state;
+    }
+
+    /// <summary>
+    /// A side over the areas its maker hands it, with a state of its own: a
+    /// test's side, over the generated default areas
+    /// (<c>TestSides.Create</c>, src/test/support). Nothing in the side or its
+    /// consumers checks whether an engine is behind them, so a side with no
+    /// engine is given areas that answer defaults rather than none.
+    /// </summary>
+    internal static EngineSide Create(Side side, ServiceContainer areas) => Create(side, new SideState(side), areas);
+
+    /// <summary>
+    /// A side over <paramref name="state"/>, which must be the same side's, and
+    /// the areas its maker hands it: a test's side that shares a state.
+    /// </summary>
+    internal static EngineSide Create(Side side, SideState state, ServiceContainer areas)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(areas);
+        if (state.Side != side)
+            throw new ArgumentException($"a {side} engine was handed the {state.Side} side's state", nameof(state));
+
+        var engine = new EngineSide(side, state);
+        engine.UseAreas(areas);
+        return engine;
+    }
+
+    /// <summary>
+    /// The side over <paramref name="state"/>, which must be the same side's,
+    /// with every area detached until the attach.
+    /// </summary>
+    internal static EngineSide Create(Side side, SideState state)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (state.Side != side)
             throw new ArgumentException($"a {side} engine was handed the {state.Side} side's state", nameof(state));
 
-        _side = side;
-        State = state;
-        Models = new ModelDescriptors(this);
-        // The precache is the server's (OwnModelPrecache, in each side's half):
-        // the client hands none in and a missing model answers -1, as the null
-        // slot did.
-        Breaks = new BreakModels(this, Models, OwnModelPrecache);
-        Surfaces = new PhysicsSurfaces(this);
+        var engine = new EngineSide(side, state);
+        engine.UseAreas(DetachedAreas());
+        return engine;
     }
 
     /// <summary>
@@ -64,7 +118,7 @@ internal sealed unsafe partial class EngineSide
     /// acquired from this side's factory on first use and held for this
     /// engine's life (statics to zero: they were four process-wide slots).
     /// </summary>
-    internal EngineBoundSet Bound { get; } = new();
+    internal EngineBoundSet Bound { get; private set; } = new();
 
     /// <summary>
     /// Every line this side's console prints, for the dev API's tap and a
@@ -123,10 +177,21 @@ internal sealed unsafe partial class EngineSide
     // module hands them on (ModuleEngine) and clears them at level shutdown.
 
     /// <summary>This side's model descriptors, cached per model per level.</summary>
-    internal ModelDescriptors Models { get; }
+    internal ModelDescriptors Models
+        => _models ??= new ModelDescriptors(model => EngineBound.ModelInfo(this).ModelIndex(model), EntityGetModelName, Log);
 
-    /// <summary>This side's break-piece lists, parsed once per model per level.</summary>
-    internal BreakModels Breaks { get; }
+    private ModelDescriptors? _models;
+
+    /// <summary>
+    /// This side's break-piece lists, parsed once per model per level. The
+    /// precache is the server's (OwnModelPrecache, in each side's half): the
+    /// client hands none in and a missing model answers -1, as the null slot did.
+    /// </summary>
+    internal BreakModels Breaks
+        => _breaks ??= new BreakModels(model => EngineBound.ModelInfo(this).ModelIndex(model), OwnModelPrecache,
+                                       index => EngineBound.ModelInfo(this).CollisionKeyValueText(index), Models, Log);
+
+    private BreakModels? _breaks;
 
     /// <summary>
     /// The handle a trace may be told to skip: <see cref="EntityHandle.None"/>
@@ -187,6 +252,35 @@ internal sealed unsafe partial class EngineSide
     /// <summary>The root the attached areas came from, or null before an attach.</summary>
     internal ShimRoot? Root => _root;
 
+    /// <summary>
+    /// The side's areas by type: detached before the attach, the root's after.
+    /// For the composition that builds a consumer and hands it the areas it
+    /// calls, and for nothing else (ShimAreaInjectionCensusTests).
+    /// </summary>
+    internal IServiceLocator Areas => _areas;
+
+    /// <summary>The attach, once every area was taken: the side answers from these from now on.</summary>
+    private void Attached(ShimRoot root, ServiceContainer areas)
+    {
+        _root = root;
+        // A fresh bound set: what is bound from now on is the root's, and a
+        // test side's held defaults (TestSides) must not answer for it.
+        Bound = new EngineBoundSet();
+        UseAreas(areas);
+    }
+
+    /// <summary>The side answers from <paramref name="areas"/> from now on: detached at Create, the root's at the attach.</summary>
+    private void UseAreas(ServiceContainer areas)
+    {
+        _areas = areas;
+        _consoleArea = areas.Require<IConsoleArea>();
+        _engineArea = areas.Require<IEngineArea>();
+        _entitiesArea = areas.Require<IEntitiesArea>();
+        _modelsArea = areas.Require<IModelsArea>();
+        Surfaces = new PhysicsSurfaces(this);
+        OwnAreas(areas);
+    }
+
     // plan_abi_hotreload D7: the liveness mirror EntityIsValid answers from is
     // the server composition's, attached while it is composed and taken back
     // at its Shutdown. Null means every ask crosses to the slot.
@@ -228,8 +322,10 @@ internal sealed unsafe partial class EngineSide
     /// This side's surfaceprop table, over this side's routing. It replaced the
     /// two MoveSurface routers PhysicsSurfaces.Of reached through the static
     /// Engine.Current; EngineServices registers it in the side's container.
+    /// Made again at the attach, over the attached movement area, which is
+    /// before any composition registers it.
     /// </summary>
-    internal PhysicsSurfaces Surfaces { get; }
+    internal PhysicsSurfaces Surfaces { get; private set; } = null!;
 
     internal Side Side => _side;
 
@@ -254,7 +350,8 @@ internal sealed unsafe partial class EngineSide
     private bool s_Initialized => _ready;
 
     // plan_client_vtables CC-last: no struct; every slot is a shim-area method,
-    // routed by ShimAreas.g.cs once the side's areas are attached.
+    // called on the side's attached areas (ShimAreas.g.cs), each handed to the
+    // binding that calls it.
     internal void Initialize()
     {
         _ready = true;
@@ -302,7 +399,7 @@ internal sealed unsafe partial class EngineSide
     /// table yet or the shim is older than the slot.
     /// </summary>
     private nint AskForGlobalVars()
-        => (s_Initialized && OwnShimsAttached) ? (OwnShims.EngineBase.GetGlobalVarsPtr()) : 0;
+        => _engineArea.GetGlobalVarsPtr();
 
     /// <summary>
     /// The one line that makes the whole phase checkable in a running game:
@@ -339,7 +436,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     private void ReportAgreement(Side side, nint pointer)
     {
-        if (_side != side || !s_Initialized)
+        if (_side != side)
             return;
 
         var globals = new Globals(pointer);
@@ -351,10 +448,7 @@ internal sealed unsafe partial class EngineSide
         int disagreed = 0;
         var line = new System.Text.StringBuilder();
 
-        if (OwnShimsAttached)
-            Compare("curtime", (OwnShims.EngineBase.GetCurrentTime()).Equals(globals.CurTime), $"{(OwnShims.EngineBase.GetCurrentTime())}/{globals.CurTime}");
-        else
-            line.Append("curtime no-slot ");
+        Compare("curtime", _engineArea.GetCurrentTime().Equals(globals.CurTime), $"{_engineArea.GetCurrentTime()}/{globals.CurTime}");
 
         // THE SECOND SOURCE FOR THESE TWO MOVED, AND THIS MOVED WITH IT.
         //
@@ -413,12 +507,6 @@ internal sealed unsafe partial class EngineSide
 
     public void Msg(string message)
     {
-        if (!s_Initialized || !OwnShimsAttached)
-        {
-            Lines.Line(message, isWarning: false);
-            return;
-        }
-
         var bytes = Encoding.UTF8.GetBytes(message + "\0");
         fixed (byte* p = bytes)
         {
@@ -431,7 +519,7 @@ internal sealed unsafe partial class EngineSide
             var ptr = (nint)p;
             Lines.SuppressEcho(message, () =>
             {
-                OwnShims.Console.Msg((byte*)ptr);
+                _consoleArea.Msg((byte*)ptr);
             });
         }
     }
@@ -439,12 +527,6 @@ internal sealed unsafe partial class EngineSide
     /// <summary>Prints a warning to the Source console.</summary>
     public void Warning(string message)
     {
-        if (!s_Initialized || !OwnShimsAttached)
-        {
-            Lines.Line(message, isWarning: true);
-            return;
-        }
-
         var bytes = Encoding.UTF8.GetBytes(message + "\0");
         fixed (byte* p = bytes)
         {
@@ -453,161 +535,9 @@ internal sealed unsafe partial class EngineSide
             var ptr = (nint)p;
             Lines.SuppressEcho(message, () =>
             {
-                OwnShims.Console.Warning((byte*)ptr);
+                _consoleArea.Warning((byte*)ptr);
             }, isWarning: true);
         }
-    }
-
-    /// <summary>
-    /// Registers a console command. Native owns the ConCommand object for the
-    /// process lifetime; only the managed handler is rebound on reload, because
-    /// UnregisterConCommands is all-or-nothing per DLL
-    /// (src/tier1/convar.cpp:93). See plan.md Part 5, rule 2.
-    /// </summary>
-    /// <param name="flags">
-    /// The FCVAR word, carried across and ORed with this DLL's own identifier
-    /// flag natively — see the slot's comment in <c>sourcesharp.h</c>. A cheat
-    /// command declared without <see cref="ConVarFlags.Cheat"/> is a command
-    /// that runs with <c>sv_cheats 0</c>, which is a different command.
-    /// </param>
-    public int RegisterConCommand(string name, string help, ConVarFlags flags)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return -1;
-
-        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
-        var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
-        fixed (byte* pName = nameBytes)
-        fixed (byte* pHelp = helpBytes)
-        {
-            return (OwnShims.Console.RegisterConCommand(pName, pHelp, unchecked((int)flags)));
-        }
-    }
-
-    /// <summary>
-    /// Registers a ConVar. Native owns it for the process lifetime.
-    ///
-    /// The bounds are optional and are the ENGINE's clamp: a convar with a
-    /// minimum clamps every write on the way in, whatever the source, so a
-    /// change callback never sees a value outside them.
-    /// </summary>
-    public int RegisterConVar(string name, string defaultValue, string help, int flags,
-                                     float? min = null, float? max = null)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return -1;
-
-        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
-        var defBytes  = Encoding.UTF8.GetBytes(defaultValue + "\0");
-        var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
-        fixed (byte* pName = nameBytes)
-        fixed (byte* pDef = defBytes)
-        fixed (byte* pHelp = helpBytes)
-        {
-            return (OwnShims.Console.RegisterConVar(pName, pDef, pHelp, flags,
-                                      min.HasValue ? 1 : 0, min ?? 0f,
-                                      max.HasValue ? 1 : 0, max ?? 0f));
-        }
-    }
-
-    /// <summary>
-    /// The flags of the variable the engine holds under <paramref name="name"/>,
-    /// or -1 for none (IShimConsole::FindConVarFlags, plan_server_native_v2 T4e).
-    /// </summary>
-    public int FindConVarFlags(string name)
-    {
-        if (!s_Initialized || !OwnShimsAttached || name.Length == 0) return -1;
-
-        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* pName = nameBytes)
-        {
-            return OwnShims.Console.FindConVarFlags(pName);
-        }
-    }
-
-    public void SetConVarValue(int id, string value)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        var bytes = Encoding.UTF8.GetBytes(value + "\0");
-        fixed (byte* p = bytes)
-        {
-            OwnShims.Console.SetConVarValue(id, p);
-        }
-    }
-
-    /// <summary>Reads the engine's current value. Prefer the cached ConVarBase accessors on hot paths.</summary>
-    public string GetConVarValue(int id)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return string.Empty;
-
-        const int bufSize = 260;
-        byte* buf = stackalloc byte[bufSize];
-        OwnShims.Console.GetConVarValue(id, buf, bufSize);
-        return FromUtf8(buf);
-    }
-
-    //-------------------------------------------------------------------------
-    // The engine's own console registry.
-    //
-    // Nothing above this line can see it: RegisterConVar and friends deal only
-    // in convars C# declared, addressed by an id native handed back. These read
-    // the list the engine already had — thousands of entries belonging to the
-    // engine and both game DLLs — and they are the raw crossings. What renders
-    // them is NativeConsole, which is where the reason for each of them is.
-    //
-    // Game thread only, and a snapshot must be drained before the next is taken.
-    //-------------------------------------------------------------------------
-
-    /// <summary>Walks the engine's registry; returns how many entries it saw.</summary>
-    public int ConsoleSnapshot()
-        => (s_Initialized && OwnShimsAttached) ? (OwnShims.Console.ConsoleSnapshot()) : 0;
-
-    /// <summary>Copies one entry out of the last snapshot. False past the end.</summary>
-    public bool ConsoleSnapshotEntry(int index, out NativeConsoleEntry entry)
-    {
-        entry = default;
-
-        if (!s_Initialized || !OwnShimsAttached)
-            return false;
-
-        ConsoleEntry raw;
-
-        if ((OwnShims.Console.ConsoleSnapshotEntry(index, &raw)) == 0)
-            return false;
-
-        // Every buffer is fixed and NUL-terminated native-side, so each of these
-        // reads to the terminator rather than to the end of its buffer.
-        entry = new NativeConsoleEntry(
-            FromUtf8(raw.Name),
-            FromUtf8(raw.Value),
-            FromUtf8(raw.Default),
-            FromUtf8(raw.Help),
-            raw.Flags,
-            raw.IsCommand != 0,
-            raw.HasMin != 0 ? raw.Min : null,
-            raw.HasMax != 0 ? raw.Max : null);
-
-        return true;
-    }
-
-    /// <summary>
-    /// One native convar's value by name. Null when the engine knows no such
-    /// convar, and null for a command, which has no value to read.
-    /// </summary>
-    public string? FindConVarValue(string name)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return null;
-
-        const int bufSize = 260;
-        byte* buf = stackalloc byte[bufSize];
-
-        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* pName = nameBytes)
-        {
-            if ((OwnShims.Console.FindConVarValue(pName, buf, bufSize)) == 0)
-                return null;
-        }
-
-        return FromUtf8(buf);
     }
 
     //-------------------------------------------------------------------------
@@ -653,7 +583,7 @@ internal sealed unsafe partial class EngineSide
             liveness.TryLookup(h, out bool alive))
             return alive;
 
-        return s_Initialized && OwnShimsAttached && (OwnShims.Entities.EntityIsValid(h.Value)) != 0;
+        return (_entitiesArea.EntityIsValid(h.Value)) != 0;
     }
 
     /// <summary>
@@ -673,98 +603,7 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public bool EntityIsValidBySlot(EntityHandle h)
-        => s_Initialized && OwnShimsAttached && (OwnShims.Entities.EntityIsValid(h.Value)) != 0;
-
-    /// <summary>
-    /// The entity's edict index, or -1.
-    /// </summary>
-    /// <remarks>
-    /// <b>-1 for a shell-less entity, and that is not a degradation</b> — step
-    /// 2e. It is the same answer the shell gave: a class of kind
-    /// <see cref="ScriptedEntityKind.Logical"/> was already server-only, so its
-    /// <c>CStandaloneEntity</c> never claimed an edict and <c>entindex()</c>
-    /// answered -1 for it. What changes is that there is no longer an object to
-    /// ask.
-    /// </remarks>
-    public int EntityGetIndex(EntityHandle h)
-    {
-        if (ShellLess.Claims(h))
-            return -1;
-
-        return (s_Initialized && OwnShimsAttached) ? (OwnShims.Entities.EntityGetIndex(h.Value)) : -1;
-    }
-
-    public Vector EntityGetOrigin(EntityHandle h)
-    {
-        // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (ShellLess.State(h) is { } shellLess)
-            return shellLess.Origin;
-
-        if (!s_Initialized || !OwnShimsAttached) return default;
-
-        float* xyz = stackalloc float[3];
-        OwnShims.Entities.EntityGetOrigin(h.Value, xyz);
-        return new Vector(xyz[0], xyz[1], xyz[2]);
-    }
-
-    //-------------------------------------------------------------------------
-    // TEMP ENTITIES (plan_tmp.md Part 3).
-    //-------------------------------------------------------------------------
-
-
-
-    /// <summary>
-    /// <c>GetCurrentGravity()</c>. A slot rather than a constant because
-    /// <c>sv_gravity</c> is a convar: a tempent falling at 600 while the world
-    /// falls at 800 looks almost right, which is the worst kind of wrong for
-    /// something nobody watches closely.
-    /// </summary>
-    public unsafe float CurrentGravity()
-        => (!s_Initialized || !OwnShimsAttached) ? 600f : (OwnShims.Movement.CurrentGravity());
-
-    //-------------------------------------------------------------------------
-    // Game events.
-    //-------------------------------------------------------------------------
-
-    public void ListenForGameEvent(string name)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { OwnShims.Events.ListenForGameEvent(p); }
-    }
-
-    public int EventGetInt(IntPtr handle, string key)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return 0;
-
-        var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (OwnShims.Events.EventGetInt(handle, p)); }
-    }
-
-    public float EventGetFloat(IntPtr handle, string key)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return 0f;
-
-        var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (OwnShims.Events.EventGetFloat(handle, p)); }
-    }
-
-    public bool EventGetBool(IntPtr handle, string key)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return false;
-
-        var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (OwnShims.Events.EventGetBool(handle, p)) != 0; }
-    }
-
-    public string EventGetString(IntPtr handle, string key)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return string.Empty;
-
-        var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return FromUtf8((OwnShims.Events.EventGetString(handle, p))); }
-    }
+        => (_entitiesArea.EntityIsValid(h.Value)) != 0;
 
     /// <summary>
     /// Server time in seconds. The same clock the shell computes respawn
@@ -791,7 +630,7 @@ internal sealed unsafe partial class EngineSide
             if (globals != 0)
                 return new Globals(globals).CurTime;
 
-            return (s_Initialized && OwnShimsAttached) ? (OwnShims.EngineBase.GetCurrentTime()) : 0f;
+            return _engineArea.GetCurrentTime();
         }
     }
 
@@ -810,34 +649,6 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void PlayerClearMovementConstraint(EntityHandle player) { }
 
-    /// <summary>
-    /// Hands the movement parameters to the native loop. Called once per side
-    /// at startup — see <see cref="MovementParams"/> for why both.
-    /// </summary>
-    public void RegisterMovementParams(MovementParams parameters)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        OwnShims.Movement.RegisterMovementParams(&parameters);
-    }
-
-    /// <summary>
-    /// The collision matrix. Registered from both sides; answers whether this
-    /// side's native received it, so a side that cannot serve the slot says so
-    /// instead of keeping native's defaults in silence (which the client did
-    /// until the slot moved into the shared IShimCollision base).
-    /// </summary>
-    public bool RegisterCollisionRules(uint[] rows)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return false;
-
-        var blob = default(CollisionRulesBlob);
-        blob.SetRows(rows);
-
-        OwnShims.Collision.RegisterCollisionRules(&blob);
-        return true;
-    }
-
     /// <summary>Facing, as pitch/yaw/roll.</summary>
     public Vector EntityGetAngles(EntityHandle h)
     {
@@ -845,13 +656,10 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.State(h) is { } shellLess)
             return shellLess.Angles;
 
-        if (!s_Initialized || !OwnShimsAttached) return default;
-
         float* pyr = stackalloc float[3];
-        OwnShims.Entities.EntityGetAngles(h.Value, pyr);
+        _entitiesArea.EntityGetAngles(h.Value, pyr);
         return new Vector(pyr[0], pyr[1], pyr[2]);
     }
-
 
     // vphysics' IPhysicsCollision, acquired on first use from this side's
     // factories; the pointer is the vphysics module's for the process.
@@ -875,116 +683,6 @@ internal sealed unsafe partial class EngineSide
         self = _physicsCollision;
         vt = _physicsCollisionFwd;
         return self != null;
-    }
-
-    // Engine.FireScriptedOutput WAS HERE, AND IS DELETED WITH ITS SLOT --
-    // plan_entity.md step 2a. Its one caller was Output.Fire, which now posts
-    // straight into the directory's queue; there is nothing for a managed
-    // wrapper around a deleted slot to wrap.
-
-    /// <summary>
-    /// Declares the parallel hierarchy's shared blob size, before any class on
-    /// it is described. Returns the payload word count every class on the
-    /// hierarchy will carry, -1 if native refused the size, and 0 when native
-    /// does not supply the call.
-    ///
-    /// <para>
-    /// The number is one for the whole hierarchy rather than one per class,
-    /// because every entity on that hierarchy is allocated the same blob
-    /// length — operator new is a static function with no idea which class the
-    /// factory is about to make. Native cannot work it out early enough: it
-    /// learns the size from the class descriptions as they arrive, so the first
-    /// class described would get fewer payload words than the last.
-    /// </para>
-    ///
-    /// <para>
-    /// It also cannot be derived from the classes a side HOSTS. A state may be
-    /// declared before one half of its entity has been ported, so the two sides
-    /// publish different sets — and two sides deriving the number from what
-    /// they publish derive two numbers. This is computed from every declaration
-    /// in the shared assembly, which both sides read identically.
-    /// </para>
-    /// </summary>
-    public int NetHierarchyDeclare(int blobBytes)
-        => (s_Initialized && OwnShimsAttached)
-            ? (OwnShims.Network.NetHierarchyDeclare(blobBytes)) : 0;
-
-    /// <summary>
-    /// Declares worldspawn's blob size to the native shim, which builds its
-    /// table around the number (plan_gamedll_after.md Part B2).
-    ///
-    /// <para>
-    /// SEPARATE FROM <see cref="NetHierarchyDeclare"/> BECAUSE THE WORLD IS NOT
-    /// ON THE HIERARCHY. That number sizes every entity on the parallel
-    /// hierarchy and is therefore the max over all of them; the world's shim is
-    /// a <c>CBaseEntity</c> that allocates its own blob against its own base, so
-    /// its size is its own and folding it into that max would put three hundred
-    /// bytes on a hundred-odd entities that have no use for them.
-    /// </para>
-    ///
-    /// <para>
-    /// Zero with no engine, which is the test harness: nothing is declared, and
-    /// the caller reports that it published nothing rather than treating the
-    /// absence of a game as a refusal.
-    /// </para>
-    /// </summary>
-    public int WorldNetDeclare(int blobBytes)
-        => (s_Initialized && OwnShimsAttached)
-            ? (OwnShims.Network.WorldNetDeclare(blobBytes)) : 0;
-
-    /// <summary>
-    /// Publishes one managed type and returns the tier native assigned it, or
-    /// -1. See NetPublishType in sourcesharp.h.
-    ///
-    /// <para>
-    /// This is the whole of what replaces the field-by-field description. What
-    /// travels is a name, a layout fingerprint and a size — native has no
-    /// opinion about what a field is any more.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="nativeTypeId"/> is the id NATIVE hashed from the name.
-    /// The caller compares it against <see cref="NetSchema.TypeIdOf"/>, which
-    /// turns "two implementations of FNV-1a in two languages" from something a
-    /// test corpus covers into something every name in the build covers. -1
-    /// with an id of 0 is what an absent engine answers, which is the test
-    /// harness rather than a failure.
-    /// </para>
-    /// </summary>
-    public int NetPublishType(string className, int shell, uint schemaHash,
-                                     int layoutBytes, out uint nativeTypeId)
-    {
-        nativeTypeId = 0;
-
-        if (!s_Initialized || !OwnShimsAttached)
-            return -1;
-
-        var bytes = Encoding.UTF8.GetBytes(className + "\0");
-
-        fixed (byte* p = bytes)
-        fixed (uint* pId = &nativeTypeId)
-        {
-            return (OwnShims.Network.NetPublishType(p, shell, schemaHash, layoutBytes, pId));
-        }
-    }
-
-    /// <summary>
-    /// One tier as native registered it, or null past the end of the list. See
-    /// NetTierInfo in sourcesharp.h — this is what <see cref="NetTiers"/> reads
-    /// instead of projecting the boundary rule a second time.
-    /// </summary>
-    public NetTierInfo? NetTierAt(int shell, int tier)
-    {
-        if (!s_Initialized || !OwnShimsAttached)
-            return null;
-
-        byte* table = null;
-        int bytes = 0, words = 0, props = 0, live = 0;
-
-        if ((OwnShims.Network.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live)) == 0)
-            return null;
-
-        return new NetTierInfo(tier, FromUtf8(table), bytes, words, props, live != 0);
     }
     //-------------------------------------------------------------------------
     // THE VTABLE BINDING'S FIVE NATIVE SLOTS.
@@ -1046,66 +744,6 @@ internal sealed unsafe partial class EngineSide
     internal IEntityPhysicsRoute? PhysicsInit { get; set; }
 
     /// <summary>
-    /// Sets a convar the ENGINE owns, by name.
-    ///
-    /// <para>
-    /// The partner of <see cref="FindConVarValue"/>, and deliberately not the
-    /// same call as <see cref="SetConVarValue"/>: that one addresses a convar
-    /// this mod registered and holds an id for, and a renderer convar declared
-    /// in native code has no id here to hold.
-    /// </para>
-    ///
-    /// <para>
-    /// Goes through ConVarRef rather than the console, which is what makes it
-    /// usable at all — a cheat-flagged convar refuses a console change without
-    /// sv_cheats, while every stock entity that writes one writes it from code
-    /// where no such check applies.
-    /// </para>
-    ///
-    /// <para>
-    /// A name that resolves to nothing is ignored. That is the ordinary case
-    /// for a client convar named from the server, not an error.
-    /// </para>
-    /// </summary>
-    public void SetNamedConVarValue(string name, string value)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        var nameBytes  = Encoding.UTF8.GetBytes(name + "\0");
-        var valueBytes = Encoding.UTF8.GetBytes(value + "\0");
-
-        fixed (byte* n = nameBytes)
-        fixed (byte* v = valueBytes)
-        {
-            OwnShims.Console.SetNamedConVarValue(n, v);
-        }
-    }
-
-    /// <summary>
-    /// How big this instance wears its model, as a multiplier on the size the
-    /// artist built it at. Answered by BOTH sides.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The client's copy is what the player sees. The server's is what its own
-    /// skeleton is built with, so attachments on a scaled model land where the
-    /// artist put them, and it is what the scaled-collision rule reads when it
-    /// decides whether a trace may use the solver's scaled hull.
-    /// </para>
-    /// <para>
-    /// Zero and below are REFUSED natively rather than clamped, and say so in
-    /// the console: a scale of zero collapses every bone onto the entity
-    /// origin, which is a thing that is still in the world and still solid to
-    /// the entity list but draws as nothing and traces as nothing.
-    /// </para>
-    /// </remarks>
-    public void StandaloneSetModelScale(EntityHandle entity, float scale)
-    {
-        if (s_Initialized && OwnShimsAttached)
-            OwnShims.Models.StandaloneSetModelScale(entity.Value, scale);
-    }
-
-    /// <summary>
     /// The model this entity is using, as the name the map knows it by — "*23"
     /// for a brush model. Empty for an entity that has none.
     ///
@@ -1118,224 +756,52 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public string EntityGetModelName(EntityHandle entity)
     {
-        if (!s_Initialized || !OwnShimsAttached)
-            return string.Empty;
-
         byte* buffer = stackalloc byte[256];
-        OwnShims.Models.EntityGetModelName(entity.Value, buffer, 256);
+        _modelsArea.EntityGetModelName(entity.Value, buffer, 256);
 
         return FromUtf8(buffer);
     }
 
-
-    /// <summary>
-    /// Emit one sound patch at the given envelope values — plan_gamedll_after.md
-    /// Phase A3, second pair.
-    ///
-    /// <para>
-    /// <paramref name="volume01"/> is the ENVELOPE's value and not what reaches
-    /// the engine: the shim multiplies it by the volume the sound script chose,
-    /// which it read once at create time. A patch's ramp is a MULTIPLIER on a
-    /// script's number, and only one side of this boundary has ever seen that
-    /// number.
-    /// </para>
-    /// </summary>
-    public void SoundPatchEmit(int patch, float volume01, float pitch, int flags,
-                                      float startTime, bool emitCaption)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        SidePatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
-    }
-
-    /// <summary>
-    /// Stop one sound patch, if it is playing. Idempotent, because the shim
-    /// tracks whether it ever started — stopping a sound that never played is a
-    /// warning from the engine and a real one.
-    /// </summary>
-    public void SoundPatchStop(int patch)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        SidePatchStop(patch);
-    }
-
-    /// <summary>
-    /// The two questions the frame pass asks of every live patch, in one
-    /// crossing.
-    /// </summary>
-    /// <param name="entIndex">
-    /// The entity the patch rides, or negative when it has gone — which is what
-    /// makes the caller drop it.
-    /// </param>
-    /// <param name="filterActive">
-    /// Whether anybody is still listening. A patch with no recipients is KEPT
-    /// and not emitted, which is stock's behaviour and not the same thing as
-    /// having lost its entity.
-    /// </param>
-    public void SoundPatchState(int patch, out int entIndex, out bool filterActive)
-    {
-        entIndex = -1;
-        filterActive = false;
-
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        SidePatchState(patch, out entIndex, out filterActive);
-    }
-
-    /// <summary>
-    /// Free the native patch. The one direction <c>SoundDestroy</c> does not
-    /// cover: a queued DESTROY command comes due inside the managed frame pass,
-    /// so the decision is managed and the delete is not.
-    /// </summary>
-    public void SoundPatchFree(int patch)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return;
-
-        SidePatchFree(patch);
-    }
-
-
-    /// <summary>
-    /// A sound patch on the entity, heard from where it stands
-    /// (SoundCreate with a CPASAttenuationFilter): the handle the managed
-    /// sound controller tracks it by, or 0. Played, ramped and destroyed
-    /// through the controller like any other patch.
-    /// </summary>
-    public int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
-    {
-        if (!s_Initialized || !OwnShimsAttached || soundName.Length == 0) return 0;
-
-        return SidePatchCreate(entity, channel, soundName, soundLevel);
-    }
-
-    // Each side's own patch arm (plan_server_native_v2 T4a): the server's
-    // patches are the managed SoundEmitter's, the client's IShimSoundscapeClient's.
     /// <summary>
     /// The movement loop's hull trace (plan_server_native_v2 T4f): the server
     /// traces through the managed trace filter, skipping
     /// <paramref name="player"/> (SourceSharp_MoveTraceThrough); the client
-    /// through its own slot's filter.
+    /// through its own slot's filter. The movement area is the caller's
+    /// (the runner's world holds it): the side holds only the areas its own
+    /// services read.
     /// </summary>
-    internal void MoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
-                            EntityHandle player, MoveTraceBlob* blob)
-        => SideMoveTrace(start, end, mins, maxs, mask, collisionGroup, player, blob);
+    internal void MoveTrace(IMovementArea movement, float* start, float* end, float* mins, float* maxs, uint mask,
+                            int collisionGroup, EntityHandle player, MoveTraceBlob* blob)
+        => SideMoveTrace(movement, start, end, mins, maxs, mask, collisionGroup, player, blob);
 
     /// <summary>The entity a movement trace skips: the player at that edict index on the server, none on the client.</summary>
     internal EntityHandle MovePass(int entIndex) => SideMovePass(entIndex);
 
-    private partial void SideMoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
-                                       EntityHandle player, MoveTraceBlob* blob);
-    private partial EntityHandle SideMovePass(int entIndex);
-
-    private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption);
-    private partial void SidePatchStop(int patch);
-    private partial void SidePatchState(int patch, out int entIndex, out bool filterActive);
-    private partial void SidePatchFree(int patch);
-    private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel);
-
-
+    /// <summary>
+    /// The entity's edict index, or -1: -1 for a shell-less entity too, which
+    /// is the answer its shell gave (step 2e). Over the side's own entities
+    /// area, so the binding and the server's movement classes ask the same.
+    /// </summary>
+    internal int EntityGetIndex(EntityHandle h)
+        => ShellLess.Claims(h) ? -1 : _entitiesArea.EntityGetIndex(h.Value);
 
     /// <summary>
-    /// No side registers a temp entity through here any more: the server plans
-    /// its tables in C# (plan_server_native_v2 T4b) and so does the client
-    /// (ClientTempEntTables over IShimTempEntBackendsClient's TempEntBuildClient).
-    /// -1, "this side does not register through here".
+    /// The entity's origin. A shell-less entity is answered here and never
+    /// crosses (step 2e).
     /// </summary>
-    public int TempEntRegister(TeClass description) => -1;
-
-    // ---- plan_gamedll.md Part 4, Phase 6: LEVELINIT'S NINE NATIVE STEPS ----
-    //
-    // Nine wrappers and no tenth that runs them in order. The order is
-    // ServerGameDll.MapLoadNewGame's, in C#, where it can be read and tested;
-    // a Engine.LevelInit() here would be the same C++ sequence one language
-    // further up.
-
-    // // ---- plan_gamedll.md Part 4, Phase 7: SERVERACTIVATE'S AND
-    // 	// ---- LEVELSHUTDOWN'S NATIVE STEPS.
-    // 	//
-    // 	// The same rule as LevelInit's nine above: one slot per irreducible step,
-    // 	// C# owns the order and native owns no part of it. LevelShutdown is the
-    // 	// clearest case in the whole plan -- stock's body is nine calls and the
-    // 	// SEQUENCE is the only thing in it, so a single LevelShutdown slot would
-    // 	// have been a crossing that carried nothing but the thing worth reading.
-    // 	//
-    // 	// SERVER ONLY, all twelve, and NULL on the client for the same reason the
-    // 	// nine above are.
-    // 	//
-    // 	// APPENDED AT THE TAIL: every field above has an offset the managed side
-    // 	// has already compiled against.
-
-    // // ---- plan_gamedll.md Part 4, Phase 7: GAMEFRAME'S NATIVE STEPS.
-    // 	//
-    // 	// Fifteen slots and no GameFrame slot, on the same rule as LevelInit's
-    // 	// nine and LevelShutdown's twelve. The two per-frame passes below are the
-    // 	// named list's, and THE MANAGED FRAME RUNS INSIDE THEM rather than around
-    // 	// them -- SourceSharpManaged is a row of kServerSystems[] at the position
-    // 	// CSourceSharpSystem held, so FramePreThink and Frame keep the same native
-    // 	// neighbours stock gives them. Hoisting them out would move the managed
-    // 	// frame ahead of CSoundEnt, CRagdollLRURetirement and CEntityListSystem,
-    // 	// none of which is a no-op. See shell_frame.cpp.
-    // 	//
-    // 	// SERVER ONLY, all fifteen.
-    // 	//
-    // 	// APPENDED AT THE TAIL: every field above has an offset the managed side
-    // 	// has already compiled against.
-
-    //-------------------------------------------------------------------------
-    // MOD-DECLARED NETWORK STRING TABLES — plan_gamedll_after.md Phase A8.
-    //
-    // ADDITIVE. The seven shared tables (Materials, ParticleEffectNames,
-    // EffectDispatch, VguiScreen, InfoPanel, Scenes, ServerMapCycle) are
-    // created natively and 141 native references read the globals behind them;
-    // nothing here replaces any of that. These six are how a MOD declares a
-    // table of its OWN, which is what the CreateNetworkStringTables slot was
-    // reserved for.
-    //
-    // CREATION ONLY WORKS INSIDE IServerModule's CreateNetworkStringTables.
-    // The engine opens a window for it there and refuses outside it — Create
-    // answers -1 and says so rather than the caller finding out from an index
-    // that does not work. Find works at any time, which is what a hot reload
-    // needs: the managed side forgets its ids, the engine does not forget its
-    // tables.
-    //
-    // EVERY MISS IS -1. Never INVALID_STRING_INDEX (0xFFFF), which crosses as
-    // 65535 and reads as success to every `if (i >= 0)`.
-    //-------------------------------------------------------------------------
-
-    // ---- plan_gamedll_after.md Phase A2 ------------------------------------
-
-    // THE THREE STEAM GAME-SERVER SLOTS ARE RETIRED -- plan_server_novalve.md
-    // P2.5. IEngineHost's Steam members are C#'s own (SteamGameServerFlat, the
-    // flat API); server.so no longer links libsteam_api.so.
-
-    /// <summary>
-    /// Stock's InvalidateMdlCache walk: every live entity that owns a
-    /// <c>CStudioHdr</c> drops it. Native because that cache is a native member
-    /// of <c>CBaseAnimating</c> and no managed walk reaches it.
-    ///
-    /// <para>
-    /// <b>BOTH SIDES, AND IT ANSWERS HOW MANY</b> (lane diag-visibility). The
-    /// slot used to be bound on the server only, so this returned quietly on
-    /// the client and the flush reached nothing there; and it used to answer
-    /// nothing at all, which made an empty body and a working one identical
-    /// from outside. Zero when there is no native side to ask, which is a true
-    /// answer and not a degraded one: with no side bound there are no entities.
-    /// </para>
-    /// </summary>
-    /// <returns>how many entities dropped a cache.</returns>
-    public int EntitiesInvalidateMdlCacheAll()
+    internal Vector EntityGetOrigin(EntityHandle h)
     {
-        if (!s_Initialized || !OwnShimsAttached) return 0;
-        return (OwnShims.Models.EntitiesInvalidateMdlCacheAll());
+        if (ShellLess.State(h) is { } shellLess)
+            return shellLess.Origin;
+
+        float* xyz = stackalloc float[3];
+        _entitiesArea.EntityGetOrigin(h.Value, xyz);
+        return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
-
-
-    // ---- plan_gamedll_after.md Phase A3 ------------------------------------
-
-
-
+    private partial void SideMoveTrace(IMovementArea movement, float* start, float* end, float* mins, float* maxs,
+                                       uint mask, int collisionGroup, EntityHandle player, MoveTraceBlob* blob);
+    private partial EntityHandle SideMovePass(int entIndex);
 
     // ---- marshalling and the globals check, this side's own (plan_abi_hotreload D8) ----
     // They were the static Engine's and reached here through `using static`;
@@ -1395,7 +861,7 @@ internal sealed unsafe partial class EngineSide
     /// caller can free it. Null in, null out — a null base table means NOBASE
     /// and native reads it that way.
     /// </summary>
-    private static byte* Utf8(string? text, List<IntPtr> owned)
+    internal static byte* Utf8(string? text, List<IntPtr> owned)
     {
         if (text is null)
             return null;

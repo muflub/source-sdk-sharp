@@ -31,7 +31,7 @@ public class FuncMoveLinearReloadTests
 
     private static ScriptedEntityRegistry NewRegistry(out RecordingEngine engine)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncMoveLinear).Assembly);
         registry.Services = Services(out engine);
         engine.Returns("Entities.GetSpawnOrigin", Drawn);

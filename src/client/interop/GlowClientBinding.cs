@@ -62,7 +62,7 @@ public sealed unsafe class GlowClientBinding(Crossings crossings, ILog log, ICli
 }
 
 /// <summary>The view area's GlowMaterialFind, one crossing.</summary>
-internal sealed unsafe class ClientGlowMaterials(ViewClientArea viewClient) : IGlowMaterials
+internal sealed unsafe class ClientGlowMaterials(IViewClientArea viewClient) : IGlowMaterials
 {
     public int Find(string name, string group)
     {

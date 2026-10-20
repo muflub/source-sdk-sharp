@@ -15,35 +15,37 @@ namespace SourceSharp.Server.Interop;
 /// D8): the per-command stages and the player shadow run on its side.
 /// </remarks>
 public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, ISideModule module, IServerModule game,
-                                                  PlayerCommandQueue commands, Func<bool> shadowEnabled,
-                                                  ServerPlayerCommands? serverCommands = null,
-                                                  ModuleEngine? engine = null) : IManagedPlayerCommands
+                                                  MovementRules rules, PlayerCommandQueue commands,
+                                                  Func<bool> shadowEnabled, ServerPlayerCommands? serverCommands,
+                                                  ModuleEngine? engine) : IManagedPlayerCommands
 {
-    // The module's three movement decisions, built once (statics to zero):
-    // handed to the loop for each run and taken back after, so no closure
-    // over this module is left in a loop that outlives it.
-    private readonly MovementRules _rules = new(
-        r => game.GetJumpScale(in r),
-        (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
-        (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
+    // The module's three movement decisions, built once by For (statics to
+    // zero) and handed to the server's command stages, the pack its loop runs.
+    private readonly MovementRules _rules = rules;
 
-    // The server's command stages (plan_server_native_v2 T4g), handed the
-    // module's three movement decisions once.
-    private readonly ServerPlayerCommands? _serverCommands = WithRules(serverCommands, game);
+    // The server's command stages (plan_server_native_v2 T4g).
+    private readonly ServerPlayerCommands? _serverCommands = serverCommands;
 
     private static int Refuse(EntityHandle player, int index, int stage, in UserCmd cmd) => 0;
 
-    private static ServerPlayerCommands? WithRules(ServerPlayerCommands? commands, IServerModule game)
+    /// <summary>
+    /// The binding over <paramref name="game"/>'s movement decisions, which
+    /// are built here once and handed to <paramref name="serverCommands"/>
+    /// (phase 11 review: a constructor only keeps what it is handed).
+    /// </summary>
+    public static PlayerCommandsBinding For(Crossings crossings, ILog log, ISideModule module, IServerModule game,
+                                            PlayerCommandQueue commands, Func<bool> shadowEnabled,
+                                            ServerPlayerCommands? serverCommands = null, ModuleEngine? engine = null)
     {
-        if (commands is not null)
-        {
-            commands.Rules = new MovementRules(
-                r => game.GetJumpScale(in r),
-                (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
-                (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
-        }
+        var rules = new MovementRules(
+            r => game.GetJumpScale(in r),
+            (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
+            (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
 
-        return commands;
+        if (serverCommands is not null)
+            serverCommands.Rules = rules;
+
+        return new(crossings, log, module, game, rules, commands, shadowEnabled, serverCommands, engine);
     }
 
     private void Enter(CrossingOp op)

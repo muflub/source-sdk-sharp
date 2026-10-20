@@ -68,17 +68,23 @@ public static class ManagedDiagnostics
     {
         ArgumentNullException.ThrowIfNull(log);
         log.Msg($"[SourceSharp] first-chance exception logging {(enabled ? "ON" : "OFF")}\n");
-        return enabled ? new FirstChance(log) : null;
+        return enabled ? FirstChance.Watch(log) : null;
     }
 
     private sealed class FirstChance : IDisposable
     {
         private readonly EventHandler<FirstChanceExceptionEventArgs> _handler;
 
-        public FirstChance(ILog log)
+        private FirstChance(EventHandler<FirstChanceExceptionEventArgs> handler) => _handler = handler;
+
+        // The subscription is made here, not in the constructor: a
+        // constructor only keeps what it is handed (phase 11 review).
+        public static FirstChance Watch(ILog log)
         {
-            _handler = (_, e) => log.Warning($"[SourceSharp] first-chance: {e.Exception.GetType().Name}: {e.Exception.Message}\n");
-            AppDomain.CurrentDomain.FirstChanceException += _handler;
+            var watch = new FirstChance((_, e) => log.Warning(
+                $"[SourceSharp] first-chance: {e.Exception.GetType().Name}: {e.Exception.Message}\n"));
+            AppDomain.CurrentDomain.FirstChanceException += watch._handler;
+            return watch;
         }
 
         public void Dispose() => AppDomain.CurrentDomain.FirstChanceException -= _handler;

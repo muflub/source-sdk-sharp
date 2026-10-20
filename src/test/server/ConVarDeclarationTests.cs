@@ -27,7 +27,7 @@ public class ConVarDeclarationTests
 {
     private static ConVarRegistry Registered()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(ConVarDeclarationTests).Assembly);
 
         return registry;

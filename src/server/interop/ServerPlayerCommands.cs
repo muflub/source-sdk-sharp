@@ -61,6 +61,7 @@ public sealed class ServerMoveData
 public sealed class ServerPlayerCommands
 {
     private readonly EngineSide _api;
+    private readonly IMovementServerArea _movementArea;
     private readonly ServerPlayerMoves _moves;
     private readonly ServerMoveData _data;
     private readonly ServerMoveWorld _world;
@@ -73,32 +74,49 @@ public sealed class ServerPlayerCommands
     // The command being run: what stage 0 learnt that stage 1 reads.
     private PlayerCommandFacts _facts;
 
-    /// <param name="sounds">The movement's noises (the swim stroke, a landing), to the managed SoundEmitter.</param>
-    /// <param name="game">The module the surface change goes to; null sends it nowhere.</param>
-    public ServerPlayerCommands(ModuleEngine engine, ServerPlayerMoves moves, ServerMoveData data,
-                                IMoveSoundSink sounds, IServerModule? game,
-                                MovementRunner movement, Func<MoveFrameConstants> constants,
-                                IPlayerMovePublisher publisher, IEngineEnvironment environment)
+    internal ServerPlayerCommands(EngineSide api, IMovementServerArea movementArea, ServerMoveWorld world,
+                                  GameMovement loop, ServerPlayerMoves moves, ServerMoveData data,
+                                  MovementRunner movement, Func<MoveFrameConstants> constants,
+                                  IPlayerMovePublisher publisher, IEngineEnvironment environment)
     {
-        var world = new ServerMoveWorld(engine, sounds, game);
-        _api = (engine ?? throw new ArgumentNullException(nameof(engine))).Api;
+        _api = api ?? throw new ArgumentNullException(nameof(api));
+        _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _loop = loop ?? throw new ArgumentNullException(nameof(loop));
         _moves = moves ?? throw new ArgumentNullException(nameof(moves));
         _data = data ?? throw new ArgumentNullException(nameof(data));
-        _world = world;
         _movement = movement ?? throw new ArgumentNullException(nameof(movement));
         _constants = constants ?? throw new ArgumentNullException(nameof(constants));
         _publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
-        _loop = new GameMovement(world, default);
+    }
 
-        Stage = RunStage;
+    /// <summary>
+    /// The command loop over <paramref name="engine"/>'s side and its movement
+    /// area, taken here once, with the world it moves players through.
+    /// </summary>
+    /// <param name="sounds">The movement's noises (the swim stroke, a landing), to the managed SoundEmitter.</param>
+    /// <param name="game">The module the surface change goes to; null sends it nowhere.</param>
+    public static ServerPlayerCommands For(ModuleEngine engine, ServerPlayerMoves moves, ServerMoveData data,
+                                           IMoveSoundSink sounds, IServerModule? game,
+                                           MovementRunner movement, Func<MoveFrameConstants> constants,
+                                           IPlayerMovePublisher publisher, IEngineEnvironment environment)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        EngineSide api = engine.Api;
+        IMovementServerArea movementArea = api.Areas.Require<IMovementServerArea>();
+        var world = new ServerMoveWorld(api, movementArea, sounds, game);
+        return new ServerPlayerCommands(api, movementArea, world, new GameMovement(world, default), moves, data,
+                                        movement, constants, publisher, environment);
     }
 
     /// <summary>The module's three movement decisions, handed to the loop for each run.</summary>
     public MovementRules Rules { get; set; } = MovementRules.Stock;
 
     /// <summary>The three stages, as <see cref="PlayerCommandQueue.Run"/> calls them. Built once.</summary>
-    public PlayerCommandStage Stage { get; }
+    public PlayerCommandStage Stage => _stage ??= RunStage;
+
+    private PlayerCommandStage? _stage;
 
     /// <summary>How many commands the loop ran.</summary>
     public long Ran { get; private set; }
@@ -152,7 +170,7 @@ public sealed class ServerPlayerCommands
 
         _facts = default;
         _facts.Ground = m.Ground.Value;
-        if (!_api.PlayerCommandBegin(player, ref _facts))
+        if (!_api.PlayerCommandBegin(_movementArea, player, ref _facts))
             return false;
 
         Vector viewAngles = ServerCommandRules.SaneViewAngles(new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll));
@@ -171,7 +189,7 @@ public sealed class ServerPlayerCommands
             _facts.VAngle, _facts.FixAngle, _facts.AngleChange, viewAngles);
 
         if (_facts.FixAngle != ServerCommandRules.FixAngleAbsolute)
-            _api.PlayerCommandView(player, vAngle, fixAngle);
+            _api.PlayerCommandView(_movementArea, player, vAngle, fixAngle);
 
         ServerCommandRules.SetupMove(s, in cmd, viewAngles, vAngle, oldAngles, _facts.Origin,
                                      m.PreviouslyPredictedOrigin, m.MaxSpeed, s.OldButtons, m.OldForwardMove);
@@ -272,7 +290,7 @@ public sealed class ServerPlayerCommands
             FallVelocity = s.FallVelocity,
         };
 
-        _api.PlayerCommandFinish(player, in result);
+        _api.PlayerCommandFinish(_movementArea, player, in result);
 
         _world.Host = null;
         _world.ResetTouchList();
@@ -337,6 +355,6 @@ public sealed class ServerPlayerCommands
     public void Publish(EntityHandle player, ServerPlayerMove m)
     {
         _publisher.Publish(player, m);
-        _api.PlayerSyncEngineSide(player);
+        _api.PlayerSyncEngineSide(_movementArea, player);
     }
 }

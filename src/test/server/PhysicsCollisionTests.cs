@@ -769,7 +769,7 @@ public class PhysicsEventsCommandTests
         var response = new PhysicsCollisionResponse(new NullWorld());
         var console = new FakeConsole();
         var collisionServices = TestServices.Services();
-        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(), collisionServices.Require<PhysicsDamageQueue>(),
+        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(TestEngines.Server()), collisionServices.Require<PhysicsDamageQueue>(),
                                             collisionServices.Require<FluidTouches>(), collisionServices.Require<FrictionSounds>(), collisionServices.Require<PlayerShadowRecovery>(), collisionServices.Require<IGameClock>(), collisionServices.Require<PhysicsEntitySolver>());
         return (response, console, new PhysicsEventsCommand(response, router, console));
     }
@@ -783,7 +783,7 @@ public class PhysicsEventsCommandTests
     public void The_physics_counter_group_counts_events_by_kind()
     {
         var (response, _, _) = New();
-        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(), TestServices.Services().Require<PhysicsDamageQueue>(),
+        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(TestEngines.Server()), TestServices.Services().Require<PhysicsDamageQueue>(),
                                             TestServices.Services().Require<FluidTouches>(), TestServices.Services().Require<FrictionSounds>(),
                                             TestServices.Services().Require<PlayerShadowRecovery>(), TestServices.Services().Require<IGameClock>(),
                                             TestServices.Services().Require<PhysicsEntitySolver>());
@@ -802,7 +802,7 @@ public class PhysicsEventsCommandTests
         // The ring that fed it is gone (plan_physics_bones_native_zero 2.3), so
         // a "drains" counter could only ever read 0: it went with Drain.
         var (response, _, _) = New();
-        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(), TestServices.Services().Require<PhysicsDamageQueue>(),
+        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(TestEngines.Server()), TestServices.Services().Require<PhysicsDamageQueue>(),
                                             TestServices.Services().Require<FluidTouches>(), TestServices.Services().Require<FrictionSounds>(),
                                             TestServices.Services().Require<PlayerShadowRecovery>(), TestServices.Services().Require<IGameClock>(),
                                             TestServices.Services().Require<PhysicsEntitySolver>());
@@ -847,7 +847,7 @@ public class PhysicsEventsCommandTests
         // A9's live check reads these: stuck debris handed to the solver.
         var (response, _, _) = New();
         var solver = new PhysicsEntitySolver(new OpenSolverWorld(), TestServices.Services().Require<IGameClock>());
-        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(), TestServices.Services().Require<PhysicsDamageQueue>(),
+        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(TestEngines.Server()), TestServices.Services().Require<PhysicsDamageQueue>(),
                                             TestServices.Services().Require<FluidTouches>(), TestServices.Services().Require<FrictionSounds>(),
                                             TestServices.Services().Require<PlayerShadowRecovery>(), TestServices.Services().Require<IGameClock>(),
                                             solver);
@@ -862,7 +862,7 @@ public class PhysicsEventsCommandTests
     public void The_physics_counter_group_names_every_kind_even_at_zero()
     {
         var (response, _, _) = New();
-        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(), TestServices.Services().Require<PhysicsDamageQueue>(),
+        var router = new PhysicsEventRouter(new ScriptedEntityRegistry(TestEngines.Server()), TestServices.Services().Require<PhysicsDamageQueue>(),
                                             TestServices.Services().Require<FluidTouches>(), TestServices.Services().Require<FrictionSounds>(),
                                             TestServices.Services().Require<PlayerShadowRecovery>(), TestServices.Services().Require<IGameClock>(),
                                             TestServices.Services().Require<PhysicsEntitySolver>());

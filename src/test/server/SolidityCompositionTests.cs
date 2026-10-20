@@ -54,7 +54,7 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
     private static int GetSolidFlags(void* self, uint h) => s_SolidFlags;
 
     private readonly FakeShimRoot _root = new();
-    private readonly EngineSide _side = new(Side.Server);
+    private readonly EngineSide _side = TestSides.Create(Side.Server);
 
     public SolidityCompositionTests()
     {
@@ -65,17 +65,21 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
              .Live(Collision, "EntityGetSolidFlags", (nint)(delegate* unmanaged<void*, uint, int>)&GetSolidFlags)
              .Live(Entities, "EntitySetVisible", (nint)(delegate* unmanaged<void*, uint, int, void>)&SetVisible);
         _side.Initialize();
-        Assert.True(_side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(_side.AttachOwnShims(_root.Bind(), out string why), why);
     }
 
     public void Dispose() => _root.Dispose();
+
+    private IEnginePlayers Players => SideBindings.Of<IEnginePlayers>(_side);
+
+    private IEngineEntityPhysics Physics => SideBindings.Of<IEngineEntityPhysics>(_side);
 
     private static readonly EntityHandle Ent = new(0x00120034);
 
     [Fact]
     public void APickupIsItsBoxOnTheFloorThenATriggerThatIsNotSolid()
     {
-        _side.MakePickup(Ent, 16f, 8f, 24f);
+        Players.MakePickup(Ent, 16f, 8f, 24f);
 
         Assert.Equal(new[]
         {
@@ -87,7 +91,7 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
     [Fact]
     public void AnEnabledPickupIsShownThenMadeATriggerBox()
     {
-        _side.EntitySetPickupEnabled(Ent, true);
+        Players.SetPickupEnabled(Ent, true);
 
         Assert.Equal(new[] { "SetVisible 1179700 1", "SetSolidity 1179700 2 0xc" }, s_Calls);
     }
@@ -95,7 +99,7 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
     [Fact]
     public void ADisabledPickupIsHiddenThenLeavesTheTriggerListEntirely()
     {
-        _side.EntitySetPickupEnabled(Ent, false);
+        Players.SetPickupEnabled(Ent, false);
 
         Assert.Equal(new[] { "SetVisible 1179700 0", "SetSolidity 1179700 0 0x4" }, s_Calls);
     }
@@ -107,7 +111,7 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
     [InlineData((BrushSolidity)7, "SetSolidity 1179700 1 0x0")]
     public void ABrushStaysBspAndOnlyItsFlagsChange(BrushSolidity solidity, string expected)
     {
-        _side.EntitySetBrushSolidity(Ent, solidity);
+        Physics.SetBrushSolidity(Ent, solidity);
 
         Assert.Equal(new[] { expected }, s_Calls);
     }
@@ -118,7 +122,7 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
         s_SolidType = 2;
         s_SolidFlags = 0x8 | 0x20;
 
-        _side.EntitySetNotSolid(Ent, true);
+        Physics.SetNotSolid(Ent, true);
 
         Assert.Equal(new[] { "SetSolidity 1179700 2 0x2c" }, s_Calls);
     }
@@ -129,7 +133,7 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
         s_SolidType = 1;
         s_SolidFlags = 0x4 | 0x8;
 
-        _side.EntitySetNotSolid(Ent, false);
+        Physics.SetNotSolid(Ent, false);
 
         Assert.Equal(new[] { "SetSolidity 1179700 1 0x8" }, s_Calls);
     }

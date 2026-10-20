@@ -94,7 +94,7 @@ public class ContractDiffOracleTests
     {
         var stock = StockContract.Shared.Value;
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ContractDiffOracleTests).Assembly);
         registry.Services = Services();
 
@@ -521,7 +521,7 @@ public class ContractDiffOracleTests
         // reach are a separate, smaller hole and are not claimed to be fixed.
         var stock = StockContract.Shared.Value;
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ContractDiffOracleTests).Assembly);
         registry.Services = Services();
 

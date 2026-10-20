@@ -70,7 +70,7 @@ public class LeafMathConVarTests
 
     private static Dictionary<string, Declared> DeclaredIn(System.Reflection.Assembly assembly)
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(assembly);
         return ByName(assembly, registry.All.Select(c => (c.GetType().Assembly, new Declared(c.Name, c.DefaultValue, c.Flags))));
     }
@@ -78,7 +78,7 @@ public class LeafMathConVarTests
     private static Dictionary<string, Declared> ClientDeclaredIn(System.Reflection.Assembly assembly)
     {
         var console = ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(ClientDoubles.UnattachedEngine());
-        var registry = new client::SourceSharp.Abi.ConVarRegistry(console);
+        var registry = client::SourceSharp.Abi.ConVarRegistry.For(console);
         registry.RegisterAll(assembly);
         return ByName(assembly, registry.All.Select(c => (c.GetType().Assembly,
             new Declared(c.Name, c.DefaultValue,

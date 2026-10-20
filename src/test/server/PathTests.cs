@@ -24,7 +24,7 @@ public class PathTests
 
     private static ScriptedEntityRegistry NewRegistry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(KeyframeTrack).Assembly);
         registry.Services = Ignoring("Clock.Now", "Entities.GetAngles", "Entities.GetBounds", "Entities.GetBoundsSize", "Entities.GetOrigin", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
         return registry;
@@ -492,7 +492,7 @@ public class PathTests
     [Fact]
     public void ATrackTrainTickedUnblockableByPlayerIsUnblockableByPlayer()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(KeyframeTrack).Assembly);
         registry.Services = Services(out RecordingEngine engine);
         engine.Ignores("Clock.Now", "Entities.GetAngles", "Entities.GetBounds", "Entities.GetBoundsSize",

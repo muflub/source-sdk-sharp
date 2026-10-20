@@ -22,7 +22,7 @@ public class PhysboxTests
 
     private static FuncPhysbox Spawn(uint index, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         registry.Services = Ignoring("Entities.GetHealth", "EntityPhysics.InitPhysics");
 
@@ -78,7 +78,7 @@ public class PhysboxTests
     // SF_PHYSBOX_ENABLE_PICKUP_OUTPUT (0x80000) is set (:571-580).
     private static (ScriptedEntityRegistry Registry, FuncPhysbox Box, RecordingEngine Engine) Flagged(int spawnFlags)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -136,7 +136,7 @@ public class PhysboxTests
     [Fact]
     public void OnHealthChanged_carries_the_clamped_health_ratio()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         var services = Services(out var engine);
         registry.Services = services;
@@ -160,7 +160,7 @@ public class PhysboxTests
     [Fact]
     public void Damage_outputs_carry_the_attacker_as_activator()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

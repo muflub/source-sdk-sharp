@@ -29,7 +29,7 @@ public class TriggerVPhysicsMotionReloadTests
 
     private static ScriptedEntityRegistry Registry(out RecordingEngine engine, bool player)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerVPhysicsMotion).Assembly);
         var services = Services(out engine);
         services.AddInstance<IEntityDirectory>(registry);

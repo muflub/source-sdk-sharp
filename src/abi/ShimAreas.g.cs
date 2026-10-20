@@ -5,11 +5,12 @@
 // per slot it declares. A server area that extends a shared base derives
 // that base's class: its table starts with exactly the base's slots
 // (SharedForwarders.g.cs holds that field by field), so the base class
-// reads either side's table. The two containers acquire every area of
-// their side or none, and a caller names the area it calls
-// (ServerShims.Sound.EntityEmitSound). A derived area also answers to its
-// shared base's name on the server's container, so code compiled into
-// both sides calls a both-sides slot the same way; there is no router.
+// reads either side's table. Each side's registration acquires every
+// area of that side or none and hands them, by type, to the side's
+// registry; nothing holds them as a set. A consumer is given the areas
+// it calls in its constructor (plan_shim_areas_split phase 11). A
+// derived area is also registered as its shared base, so code compiled
+// into both sides asks for a both-sides area by the same type.
 
 #nullable enable
 
@@ -25,6 +26,38 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
     public readonly TFwd* Vt;
 
     public ShimRef(void* self, TFwd* table) { Self = self; Vt = table; }
+
+    /// <summary>
+    /// The same object over the same table read as <typeparamref name="TBase"/>'s:
+    /// a derived area's table starts with exactly its base's slots.
+    /// </summary>
+    public ShimRef<TBase> As<TBase>() where TBase : unmanaged, IForwarderTable
+        => new(Self, (TBase*)Vt);
+
+    /// <summary>
+    /// The table every typed call goes through. A detached area (what a side
+    /// registers before its attach, over no table) refuses here with the
+    /// reason rather than reading a null table. Nothing checks for the attach:
+    /// the game composes only after it, and a test with no engine is given
+    /// the default areas (src/test/support/ShimAreaDefaults.g.cs).
+    /// </summary>
+    public TFwd* Table
+    {
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            TFwd* table = Vt;
+            if (table == null)
+                Detached();
+            return table;
+        }
+    }
+
+    [System.Diagnostics.CodeAnalysis.DoesNotReturn]
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void Detached()
+        => throw new InvalidOperationException(
+            $"{TFwd.TableName} was called before the shim areas were attached");
 
     /// <summary>
     /// The area by its version string and its table by the table's name,
@@ -52,955 +85,1739 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
 }
 
 /// <summary>
+/// <c>IShimEngine</c> as its consumers take it: <see cref="EngineArea"/> over the engine,
+/// or a test's default (<c>DefaultEngineArea</c>).
+/// </summary>
+internal unsafe interface IEngineArea
+{
+    float GetCurrentTime();
+    nint GetGlobalVarsPtr();
+}
+
+/// <summary>
 /// <c>IShimEngine</c>, served as <c>SourceSharpEngine001</c>, through <see cref="ShimEngineFwd"/>.
 /// </summary>
-internal sealed unsafe class EngineArea
+internal sealed unsafe class EngineArea : IEngineArea
 {
     private readonly ShimRef<ShimEngineFwd> _shim;
 
     internal EngineArea(ShimRef<ShimEngineFwd> shim) { _shim = shim; }
 
-    public float GetCurrentTime() { return _shim.Vt->GetCurrentTime(_shim.Self); }
-    public nint GetGlobalVarsPtr() { return (nint)_shim.Vt->GetGlobalVarsPtr(_shim.Self); }
+    public float GetCurrentTime() { return _shim.Table->GetCurrentTime(_shim.Self); }
+    public nint GetGlobalVarsPtr() { return (nint)_shim.Table->GetGlobalVarsPtr(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimEvents</c> as its consumers take it: <see cref="EventsArea"/> over the engine,
+/// or a test's default (<c>DefaultEventsArea</c>).
+/// </summary>
+internal unsafe interface IEventsArea
+{
+    void ListenForGameEvent(byte* a0);
+    int EventGetInt(IntPtr a0, byte* a1);
+    float EventGetFloat(IntPtr a0, byte* a1);
+    int EventGetBool(IntPtr a0, byte* a1);
+    byte* EventGetString(IntPtr a0, byte* a1);
 }
 
 /// <summary>
 /// <c>IShimEvents</c>, served as <c>SourceSharpEvents001</c>, through <see cref="ShimEventsFwd"/>.
 /// </summary>
-internal unsafe class EventsArea
+internal unsafe class EventsArea : IEventsArea
 {
     private readonly ShimRef<ShimEventsFwd> _shim;
 
     internal EventsArea(ShimRef<ShimEventsFwd> shim) { _shim = shim; }
 
-    public void ListenForGameEvent(byte* a0) { _shim.Vt->ListenForGameEvent(_shim.Self, a0); }
-    public int EventGetInt(IntPtr a0, byte* a1) { return _shim.Vt->EventGetInt(_shim.Self, (void*)a0, a1); }
-    public float EventGetFloat(IntPtr a0, byte* a1) { return _shim.Vt->EventGetFloat(_shim.Self, (void*)a0, a1); }
-    public int EventGetBool(IntPtr a0, byte* a1) { return _shim.Vt->EventGetBool(_shim.Self, (void*)a0, a1); }
-    public byte* EventGetString(IntPtr a0, byte* a1) { return (byte*)_shim.Vt->EventGetString(_shim.Self, (void*)a0, a1); }
+    public void ListenForGameEvent(byte* a0) { _shim.Table->ListenForGameEvent(_shim.Self, a0); }
+    public int EventGetInt(IntPtr a0, byte* a1) { return _shim.Table->EventGetInt(_shim.Self, (void*)a0, a1); }
+    public float EventGetFloat(IntPtr a0, byte* a1) { return _shim.Table->EventGetFloat(_shim.Self, (void*)a0, a1); }
+    public int EventGetBool(IntPtr a0, byte* a1) { return _shim.Table->EventGetBool(_shim.Self, (void*)a0, a1); }
+    public byte* EventGetString(IntPtr a0, byte* a1) { return (byte*)_shim.Table->EventGetString(_shim.Self, (void*)a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimNetwork</c> as its consumers take it: <see cref="NetworkArea"/> over the engine,
+/// or a test's default (<c>DefaultNetworkArea</c>).
+/// </summary>
+internal unsafe interface INetworkArea
+{
+    int NetHierarchyDeclare(int a0);
+    int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4);
+    int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6);
+    int WorldNetDeclare(int a0);
 }
 
 /// <summary>
 /// <c>IShimNetwork</c>, served as <c>SourceSharpNetwork001</c>, through <see cref="ShimNetworkFwd"/>.
 /// </summary>
-internal unsafe class NetworkArea
+internal unsafe class NetworkArea : INetworkArea
 {
     private readonly ShimRef<ShimNetworkFwd> _shim;
 
     internal NetworkArea(ShimRef<ShimNetworkFwd> shim) { _shim = shim; }
 
-    public int NetHierarchyDeclare(int a0) { return _shim.Vt->NetHierarchyDeclare(_shim.Self, a0); }
-    public int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4) { return _shim.Vt->NetPublishType(_shim.Self, a0, a1, a2, a3, a4); }
-    public int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6) { return _shim.Vt->NetTierInfo(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public int WorldNetDeclare(int a0) { return _shim.Vt->WorldNetDeclare(_shim.Self, a0); }
+    public int NetHierarchyDeclare(int a0) { return _shim.Table->NetHierarchyDeclare(_shim.Self, a0); }
+    public int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4) { return _shim.Table->NetPublishType(_shim.Self, a0, a1, a2, a3, a4); }
+    public int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6) { return _shim.Table->NetTierInfo(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public int WorldNetDeclare(int a0) { return _shim.Table->WorldNetDeclare(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimModels</c> as its consumers take it: <see cref="ModelsArea"/> over the engine,
+/// or a test's default (<c>DefaultModelsArea</c>).
+/// </summary>
+internal unsafe interface IModelsArea
+{
+    void EntityGetModelName(uint a0, byte* a1, int a2);
+    int EntitiesInvalidateMdlCacheAll();
+    void StandaloneSetModelScale(uint a0, float a1);
 }
 
 /// <summary>
 /// <c>IShimModels</c>, served as <c>SourceSharpModels001</c>, through <see cref="ShimModelsFwd"/>.
 /// </summary>
-internal unsafe class ModelsArea
+internal unsafe class ModelsArea : IModelsArea
 {
     private readonly ShimRef<ShimModelsFwd> _shim;
 
     internal ModelsArea(ShimRef<ShimModelsFwd> shim) { _shim = shim; }
 
-    public void EntityGetModelName(uint a0, byte* a1, int a2) { _shim.Vt->EntityGetModelName(_shim.Self, a0, a1, a2); }
-    public int EntitiesInvalidateMdlCacheAll() { return _shim.Vt->EntitiesInvalidateMdlCacheAll(_shim.Self); }
-    public void StandaloneSetModelScale(uint a0, float a1) { _shim.Vt->StandaloneSetModelScale(_shim.Self, a0, a1); }
+    public void EntityGetModelName(uint a0, byte* a1, int a2) { _shim.Table->EntityGetModelName(_shim.Self, a0, a1, a2); }
+    public int EntitiesInvalidateMdlCacheAll() { return _shim.Table->EntitiesInvalidateMdlCacheAll(_shim.Self); }
+    public void StandaloneSetModelScale(uint a0, float a1) { _shim.Table->StandaloneSetModelScale(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimMovement</c> as its consumers take it: <see cref="MovementArea"/> over the engine,
+/// or a test's default (<c>DefaultMovementArea</c>).
+/// </summary>
+internal unsafe interface IMovementArea
+{
+    void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6);
+    int MoveEffect(int a0, float* a1, float a2, int a3);
+    float CurrentGravity();
+    void RegisterMovementParams(MovementParams* a0);
 }
 
 /// <summary>
 /// <c>IShimMovement</c>, served as <c>SourceSharpMovement001</c>, through <see cref="ShimMovementFwd"/>.
 /// </summary>
-internal unsafe class MovementArea
+internal unsafe class MovementArea : IMovementArea
 {
     private readonly ShimRef<ShimMovementFwd> _shim;
 
     internal MovementArea(ShimRef<ShimMovementFwd> shim) { _shim = shim; }
 
-    public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { _shim.Vt->MoveTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public int MoveEffect(int a0, float* a1, float a2, int a3) { return _shim.Vt->MoveEffect(_shim.Self, a0, a1, a2, a3); }
-    public float CurrentGravity() { return _shim.Vt->CurrentGravity(_shim.Self); }
-    public void RegisterMovementParams(MovementParams* a0) { _shim.Vt->RegisterMovementParams(_shim.Self, a0); }
+    public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { _shim.Table->MoveTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public int MoveEffect(int a0, float* a1, float a2, int a3) { return _shim.Table->MoveEffect(_shim.Self, a0, a1, a2, a3); }
+    public float CurrentGravity() { return _shim.Table->CurrentGravity(_shim.Self); }
+    public void RegisterMovementParams(MovementParams* a0) { _shim.Table->RegisterMovementParams(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimEntities</c> as its consumers take it: <see cref="EntitiesArea"/> over the engine,
+/// or a test's default (<c>DefaultEntitiesArea</c>).
+/// </summary>
+internal unsafe interface IEntitiesArea
+{
+    int EntityGetIndex(uint a0);
+    void EntityGetOrigin(uint a0, float* a1);
+    void EntityGetAngles(uint a0, float* a1);
+    int EntityIsValid(uint a0);
 }
 
 /// <summary>
 /// <c>IShimEntities</c>, served as <c>SourceSharpEntities001</c>, through <see cref="ShimEntitiesFwd"/>.
 /// </summary>
-internal unsafe class EntitiesArea
+internal unsafe class EntitiesArea : IEntitiesArea
 {
     private readonly ShimRef<ShimEntitiesFwd> _shim;
 
     internal EntitiesArea(ShimRef<ShimEntitiesFwd> shim) { _shim = shim; }
 
-    public int EntityGetIndex(uint a0) { return _shim.Vt->EntityGetIndex(_shim.Self, a0); }
-    public void EntityGetOrigin(uint a0, float* a1) { _shim.Vt->EntityGetOrigin(_shim.Self, a0, a1); }
-    public void EntityGetAngles(uint a0, float* a1) { _shim.Vt->EntityGetAngles(_shim.Self, a0, a1); }
-    public int EntityIsValid(uint a0) { return _shim.Vt->EntityIsValid(_shim.Self, a0); }
+    public int EntityGetIndex(uint a0) { return _shim.Table->EntityGetIndex(_shim.Self, a0); }
+    public void EntityGetOrigin(uint a0, float* a1) { _shim.Table->EntityGetOrigin(_shim.Self, a0, a1); }
+    public void EntityGetAngles(uint a0, float* a1) { _shim.Table->EntityGetAngles(_shim.Self, a0, a1); }
+    public int EntityIsValid(uint a0) { return _shim.Table->EntityIsValid(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimCollision</c> as its consumers take it: <see cref="CollisionArea"/> over the engine,
+/// or a test's default (<c>DefaultCollisionArea</c>).
+/// </summary>
+internal unsafe interface ICollisionArea
+{
+    void RegisterCollisionRules(CollisionRulesBlob* a0);
 }
 
 /// <summary>
 /// <c>IShimCollision</c>, served as <c>SourceSharpCollision001</c>, through <see cref="ShimCollisionFwd"/>.
 /// </summary>
-internal unsafe class CollisionArea
+internal unsafe class CollisionArea : ICollisionArea
 {
     private readonly ShimRef<ShimCollisionFwd> _shim;
 
     internal CollisionArea(ShimRef<ShimCollisionFwd> shim) { _shim = shim; }
 
-    public void RegisterCollisionRules(CollisionRulesBlob* a0) { _shim.Vt->RegisterCollisionRules(_shim.Self, a0); }
+    public void RegisterCollisionRules(CollisionRulesBlob* a0) { _shim.Table->RegisterCollisionRules(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimConsole</c> as its consumers take it: <see cref="ConsoleArea"/> over the engine,
+/// or a test's default (<c>DefaultConsoleArea</c>).
+/// </summary>
+internal unsafe interface IConsoleArea
+{
+    void Msg(byte* a0);
+    void Warning(byte* a0);
+    int RegisterConCommand(byte* a0, byte* a1, int a2);
+    int RegisterConVar(byte* a0, byte* a1, byte* a2, int a3, int a4, float a5, int a6, float a7);
+    void SetConVarValue(int a0, byte* a1);
+    void GetConVarValue(int a0, byte* a1, int a2);
+    int FindConVarValue(byte* a0, byte* a1, int a2);
+    void SetNamedConVarValue(byte* a0, byte* a1);
+    void RevertNamedConVar(byte* a0);
+    int ConsoleSnapshot();
+    int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1);
+    int FindConVarFlags(byte* a0);
 }
 
 /// <summary>
 /// <c>IShimConsole</c>, served as <c>SourceSharpConsole001</c>, through <see cref="ShimConsoleFwd"/>.
 /// </summary>
-internal sealed unsafe class ConsoleArea
+internal sealed unsafe class ConsoleArea : IConsoleArea
 {
     private readonly ShimRef<ShimConsoleFwd> _shim;
 
     internal ConsoleArea(ShimRef<ShimConsoleFwd> shim) { _shim = shim; }
 
-    public void Msg(byte* a0) { _shim.Vt->Msg(_shim.Self, a0); }
-    public void Warning(byte* a0) { _shim.Vt->Warning(_shim.Self, a0); }
-    public int RegisterConCommand(byte* a0, byte* a1, int a2) { return _shim.Vt->RegisterConCommand(_shim.Self, a0, a1, a2); }
-    public int RegisterConVar(byte* a0, byte* a1, byte* a2, int a3, int a4, float a5, int a6, float a7) { return _shim.Vt->RegisterConVar(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public void SetConVarValue(int a0, byte* a1) { _shim.Vt->SetConVarValue(_shim.Self, a0, a1); }
-    public void GetConVarValue(int a0, byte* a1, int a2) { _shim.Vt->GetConVarValue(_shim.Self, a0, a1, a2); }
-    public int FindConVarValue(byte* a0, byte* a1, int a2) { return _shim.Vt->FindConVarValue(_shim.Self, a0, a1, a2); }
-    public void SetNamedConVarValue(byte* a0, byte* a1) { _shim.Vt->SetNamedConVarValue(_shim.Self, a0, a1); }
-    public void RevertNamedConVar(byte* a0) { _shim.Vt->RevertNamedConVar(_shim.Self, a0); }
-    public int ConsoleSnapshot() { return _shim.Vt->ConsoleSnapshot(_shim.Self); }
-    public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) { return _shim.Vt->ConsoleSnapshotEntry(_shim.Self, a0, a1); }
-    public int FindConVarFlags(byte* a0) { return _shim.Vt->FindConVarFlags(_shim.Self, a0); }
+    public void Msg(byte* a0) { _shim.Table->Msg(_shim.Self, a0); }
+    public void Warning(byte* a0) { _shim.Table->Warning(_shim.Self, a0); }
+    public int RegisterConCommand(byte* a0, byte* a1, int a2) { return _shim.Table->RegisterConCommand(_shim.Self, a0, a1, a2); }
+    public int RegisterConVar(byte* a0, byte* a1, byte* a2, int a3, int a4, float a5, int a6, float a7) { return _shim.Table->RegisterConVar(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public void SetConVarValue(int a0, byte* a1) { _shim.Table->SetConVarValue(_shim.Self, a0, a1); }
+    public void GetConVarValue(int a0, byte* a1, int a2) { _shim.Table->GetConVarValue(_shim.Self, a0, a1, a2); }
+    public int FindConVarValue(byte* a0, byte* a1, int a2) { return _shim.Table->FindConVarValue(_shim.Self, a0, a1, a2); }
+    public void SetNamedConVarValue(byte* a0, byte* a1) { _shim.Table->SetNamedConVarValue(_shim.Self, a0, a1); }
+    public void RevertNamedConVar(byte* a0) { _shim.Table->RevertNamedConVar(_shim.Self, a0); }
+    public int ConsoleSnapshot() { return _shim.Table->ConsoleSnapshot(_shim.Self); }
+    public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) { return _shim.Table->ConsoleSnapshotEntry(_shim.Self, a0, a1); }
+    public int FindConVarFlags(byte* a0) { return _shim.Table->FindConVarFlags(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimConsoleServer</c> as its consumers take it: <see cref="ConsoleServerArea"/> over the engine,
+/// or a test's default (<c>DefaultConsoleServerArea</c>).
+/// </summary>
+internal unsafe interface IConsoleServerArea
+{
+    void SendClientCommand(uint a0, byte* a1);
+    uint GetCommandClientHandle();
 }
 
 /// <summary>
 /// <c>IShimConsoleServer</c>, served as <c>SourceSharpConsoleServer001</c>, through <see cref="ShimConsoleServerFwd"/>.
 /// </summary>
-internal sealed unsafe class ConsoleServerArea
+internal sealed unsafe class ConsoleServerArea : IConsoleServerArea
 {
     private readonly ShimRef<ShimConsoleServerFwd> _shim;
 
     internal ConsoleServerArea(ShimRef<ShimConsoleServerFwd> shim) { _shim = shim; }
 
-    public void SendClientCommand(uint a0, byte* a1) { _shim.Vt->SendClientCommand(_shim.Self, a0, a1); }
-    public uint GetCommandClientHandle() { return _shim.Vt->GetCommandClientHandle(_shim.Self); }
+    public void SendClientCommand(uint a0, byte* a1) { _shim.Table->SendClientCommand(_shim.Self, a0, a1); }
+    public uint GetCommandClientHandle() { return _shim.Table->GetCommandClientHandle(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimEventsServer</c> as its consumers take it: <see cref="EventsServerArea"/> over the engine,
+/// or a test's default (<c>DefaultEventsServerArea</c>).
+/// </summary>
+internal unsafe interface IEventsServerArea : IEventsArea
+{
+    void EventSetInt(IntPtr a0, byte* a1, int a2);
+    void EventSetFloat(IntPtr a0, byte* a1, float a2);
+    void EventSetBool(IntPtr a0, byte* a1, int a2);
+    void EventSetString(IntPtr a0, byte* a1, byte* a2);
 }
 
 /// <summary>
 /// <c>IShimEventsServer</c>, served as <c>SourceSharpEventsServer001</c>, through <see cref="ShimEventsServerFwd"/>. Its base's slots are <see cref="EventsArea"/>'s.
 /// </summary>
-internal sealed unsafe class EventsServerArea : EventsArea
+internal sealed unsafe class EventsServerArea : EventsArea, IEventsServerArea
 {
     private readonly ShimRef<ShimEventsServerFwd> _shim;
 
-    internal EventsServerArea(ShimRef<ShimEventsServerFwd> shim)
-        : base(new ShimRef<ShimEventsFwd>(shim.Self, (ShimEventsFwd*)shim.Vt))
+    internal EventsServerArea(ShimRef<ShimEventsServerFwd> shim, ShimRef<ShimEventsFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
 
-    public void EventSetInt(IntPtr a0, byte* a1, int a2) { _shim.Vt->EventSetInt(_shim.Self, (void*)a0, a1, a2); }
-    public void EventSetFloat(IntPtr a0, byte* a1, float a2) { _shim.Vt->EventSetFloat(_shim.Self, (void*)a0, a1, a2); }
-    public void EventSetBool(IntPtr a0, byte* a1, int a2) { _shim.Vt->EventSetBool(_shim.Self, (void*)a0, a1, a2); }
-    public void EventSetString(IntPtr a0, byte* a1, byte* a2) { _shim.Vt->EventSetString(_shim.Self, (void*)a0, a1, a2); }
+    public void EventSetInt(IntPtr a0, byte* a1, int a2) { _shim.Table->EventSetInt(_shim.Self, (void*)a0, a1, a2); }
+    public void EventSetFloat(IntPtr a0, byte* a1, float a2) { _shim.Table->EventSetFloat(_shim.Self, (void*)a0, a1, a2); }
+    public void EventSetBool(IntPtr a0, byte* a1, int a2) { _shim.Table->EventSetBool(_shim.Self, (void*)a0, a1, a2); }
+    public void EventSetString(IntPtr a0, byte* a1, byte* a2) { _shim.Table->EventSetString(_shim.Self, (void*)a0, a1, a2); }
+}
+
+/// <summary>
+/// <c>IShimNetworkServer</c> as its consumers take it: <see cref="NetworkServerArea"/> over the engine,
+/// or a test's default (<c>DefaultNetworkServerArea</c>).
+/// </summary>
+internal unsafe interface INetworkServerArea : INetworkArea
+{
+    void* EntityGetDataBlob(uint a0, int* a1);
+    void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3);
+    void EntityMarkStateChanged(uint a0);
+    void EntityMarkBlockChanged(uint a0, int a1);
+    int EntityPayloadAgreement(uint a0, int* a1, int* a2);
+    void* EntityGetEngineBlock(uint a0, int* a1);
+    void EntitySetTransmitAlways(uint a0, int a1);
 }
 
 /// <summary>
 /// <c>IShimNetworkServer</c>, served as <c>SourceSharpNetworkServer001</c>, through <see cref="ShimNetworkServerFwd"/>. Its base's slots are <see cref="NetworkArea"/>'s.
 /// </summary>
-internal sealed unsafe class NetworkServerArea : NetworkArea
+internal sealed unsafe class NetworkServerArea : NetworkArea, INetworkServerArea
 {
     private readonly ShimRef<ShimNetworkServerFwd> _shim;
 
-    internal NetworkServerArea(ShimRef<ShimNetworkServerFwd> shim)
-        : base(new ShimRef<ShimNetworkFwd>(shim.Self, (ShimNetworkFwd*)shim.Vt))
+    internal NetworkServerArea(ShimRef<ShimNetworkServerFwd> shim, ShimRef<ShimNetworkFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
 
-    public void* EntityGetDataBlob(uint a0, int* a1) { return _shim.Vt->EntityGetDataBlob(_shim.Self, a0, a1); }
-    public void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3) { return _shim.Vt->EntityBindBlob(_shim.Self, a0, a1, a2, a3); }
-    public void EntityMarkStateChanged(uint a0) { _shim.Vt->EntityMarkStateChanged(_shim.Self, a0); }
-    public void EntityMarkBlockChanged(uint a0, int a1) { _shim.Vt->EntityMarkBlockChanged(_shim.Self, a0, a1); }
-    public int EntityPayloadAgreement(uint a0, int* a1, int* a2) { return _shim.Vt->EntityPayloadAgreement(_shim.Self, a0, a1, a2); }
-    public void* EntityGetEngineBlock(uint a0, int* a1) { return _shim.Vt->EntityGetEngineBlock(_shim.Self, a0, a1); }
-    public void EntitySetTransmitAlways(uint a0, int a1) { _shim.Vt->EntitySetTransmitAlways(_shim.Self, a0, a1); }
+    public void* EntityGetDataBlob(uint a0, int* a1) { return _shim.Table->EntityGetDataBlob(_shim.Self, a0, a1); }
+    public void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3) { return _shim.Table->EntityBindBlob(_shim.Self, a0, a1, a2, a3); }
+    public void EntityMarkStateChanged(uint a0) { _shim.Table->EntityMarkStateChanged(_shim.Self, a0); }
+    public void EntityMarkBlockChanged(uint a0, int a1) { _shim.Table->EntityMarkBlockChanged(_shim.Self, a0, a1); }
+    public int EntityPayloadAgreement(uint a0, int* a1, int* a2) { return _shim.Table->EntityPayloadAgreement(_shim.Self, a0, a1, a2); }
+    public void* EntityGetEngineBlock(uint a0, int* a1) { return _shim.Table->EntityGetEngineBlock(_shim.Self, a0, a1); }
+    public void EntitySetTransmitAlways(uint a0, int a1) { _shim.Table->EntitySetTransmitAlways(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimModelsServer</c> as its consumers take it: <see cref="ModelsServerArea"/> over the engine,
+/// or a test's default (<c>DefaultModelsServerArea</c>).
+/// </summary>
+internal unsafe interface IModelsServerArea : IModelsArea
+{
+    void EntitySetModel(uint a0, byte* a1);
 }
 
 /// <summary>
 /// <c>IShimModelsServer</c>, served as <c>SourceSharpModelsServer001</c>, through <see cref="ShimModelsServerFwd"/>. Its base's slots are <see cref="ModelsArea"/>'s.
 /// </summary>
-internal sealed unsafe class ModelsServerArea : ModelsArea
+internal sealed unsafe class ModelsServerArea : ModelsArea, IModelsServerArea
 {
     private readonly ShimRef<ShimModelsServerFwd> _shim;
 
-    internal ModelsServerArea(ShimRef<ShimModelsServerFwd> shim)
-        : base(new ShimRef<ShimModelsFwd>(shim.Self, (ShimModelsFwd*)shim.Vt))
+    internal ModelsServerArea(ShimRef<ShimModelsServerFwd> shim, ShimRef<ShimModelsFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
 
-    public void EntitySetModel(uint a0, byte* a1) { _shim.Vt->EntitySetModel(_shim.Self, a0, a1); }
+    public void EntitySetModel(uint a0, byte* a1) { _shim.Table->EntitySetModel(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimPrecache</c> as its consumers take it: <see cref="PrecacheArea"/> over the engine,
+/// or a test's default (<c>DefaultPrecacheArea</c>).
+/// </summary>
+internal unsafe interface IPrecacheArea
+{
+    int PrecacheModel(byte* a0);
 }
 
 /// <summary>
 /// <c>IShimPrecache</c>, served as <c>SourceSharpPrecache001</c>, through <see cref="ShimPrecacheFwd"/>.
 /// </summary>
-internal sealed unsafe class PrecacheArea
+internal sealed unsafe class PrecacheArea : IPrecacheArea
 {
     private readonly ShimRef<ShimPrecacheFwd> _shim;
 
     internal PrecacheArea(ShimRef<ShimPrecacheFwd> shim) { _shim = shim; }
 
-    public int PrecacheModel(byte* a0) { return _shim.Vt->PrecacheModel(_shim.Self, a0); }
+    public int PrecacheModel(byte* a0) { return _shim.Table->PrecacheModel(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimMovementServer</c> as its consumers take it: <see cref="MovementServerArea"/> over the engine,
+/// or a test's default (<c>DefaultMovementServerArea</c>).
+/// </summary>
+internal unsafe interface IMovementServerArea : IMovementArea
+{
+    int PlayerShadowFacts(uint a0, PlayerShadowFacts* a1);
+    int PlayerShadowAdopt(uint a0, nint a1, nint a2, nint a3);
+    void PlayerShadowRelease(uint a0);
+    void PlayerShadowCommit(uint a0, int a1, int a2);
+    int PlayerSetMoveType(uint a0, int a1);
+    int PlayerCommandBegin(uint a0, PlayerCommandFacts* a1);
+    void PlayerCommandView(uint a0, float* a1, int a2);
+    void PlayerCommandFinish(uint a0, PlayerCommandResult* a1);
+    void MoveTraceServer(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6, nint a7, uint* a8);
+    int PlayerFallDamage(uint a0, float a1);
+    void PlayerSyncEngineSide(uint a0);
 }
 
 /// <summary>
 /// <c>IShimMovementServer</c>, served as <c>SourceSharpMovementServer001</c>, through <see cref="ShimMovementServerFwd"/>. Its base's slots are <see cref="MovementArea"/>'s.
 /// </summary>
-internal sealed unsafe class MovementServerArea : MovementArea
+internal sealed unsafe class MovementServerArea : MovementArea, IMovementServerArea
 {
     private readonly ShimRef<ShimMovementServerFwd> _shim;
 
-    internal MovementServerArea(ShimRef<ShimMovementServerFwd> shim)
-        : base(new ShimRef<ShimMovementFwd>(shim.Self, (ShimMovementFwd*)shim.Vt))
+    internal MovementServerArea(ShimRef<ShimMovementServerFwd> shim, ShimRef<ShimMovementFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
 
-    public int PlayerShadowFacts(uint a0, PlayerShadowFacts* a1) { return _shim.Vt->PlayerShadowFacts(_shim.Self, a0, a1); }
-    public int PlayerShadowAdopt(uint a0, nint a1, nint a2, nint a3) { return _shim.Vt->PlayerShadowAdopt(_shim.Self, a0, (void*)a1, (void*)a2, (void*)a3); }
-    public void PlayerShadowRelease(uint a0) { _shim.Vt->PlayerShadowRelease(_shim.Self, a0); }
-    public void PlayerShadowCommit(uint a0, int a1, int a2) { _shim.Vt->PlayerShadowCommit(_shim.Self, a0, a1, a2); }
-    public int PlayerSetMoveType(uint a0, int a1) { return _shim.Vt->PlayerSetMoveType(_shim.Self, a0, a1); }
-    public int PlayerCommandBegin(uint a0, PlayerCommandFacts* a1) { return _shim.Vt->PlayerCommandBegin(_shim.Self, a0, a1); }
-    public void PlayerCommandView(uint a0, float* a1, int a2) { _shim.Vt->PlayerCommandView(_shim.Self, a0, a1, a2); }
-    public void PlayerCommandFinish(uint a0, PlayerCommandResult* a1) { _shim.Vt->PlayerCommandFinish(_shim.Self, a0, a1); }
-    public void MoveTraceServer(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6, nint a7, uint* a8) { _shim.Vt->MoveTraceServer(_shim.Self, a0, a1, a2, a3, a4, a5, a6, (void*)a7, a8); }
-    public int PlayerFallDamage(uint a0, float a1) { return _shim.Vt->PlayerFallDamage(_shim.Self, a0, a1); }
-    public void PlayerSyncEngineSide(uint a0) { _shim.Vt->PlayerSyncEngineSide(_shim.Self, a0); }
+    public int PlayerShadowFacts(uint a0, PlayerShadowFacts* a1) { return _shim.Table->PlayerShadowFacts(_shim.Self, a0, a1); }
+    public int PlayerShadowAdopt(uint a0, nint a1, nint a2, nint a3) { return _shim.Table->PlayerShadowAdopt(_shim.Self, a0, (void*)a1, (void*)a2, (void*)a3); }
+    public void PlayerShadowRelease(uint a0) { _shim.Table->PlayerShadowRelease(_shim.Self, a0); }
+    public void PlayerShadowCommit(uint a0, int a1, int a2) { _shim.Table->PlayerShadowCommit(_shim.Self, a0, a1, a2); }
+    public int PlayerSetMoveType(uint a0, int a1) { return _shim.Table->PlayerSetMoveType(_shim.Self, a0, a1); }
+    public int PlayerCommandBegin(uint a0, PlayerCommandFacts* a1) { return _shim.Table->PlayerCommandBegin(_shim.Self, a0, a1); }
+    public void PlayerCommandView(uint a0, float* a1, int a2) { _shim.Table->PlayerCommandView(_shim.Self, a0, a1, a2); }
+    public void PlayerCommandFinish(uint a0, PlayerCommandResult* a1) { _shim.Table->PlayerCommandFinish(_shim.Self, a0, a1); }
+    public void MoveTraceServer(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6, nint a7, uint* a8) { _shim.Table->MoveTraceServer(_shim.Self, a0, a1, a2, a3, a4, a5, a6, (void*)a7, a8); }
+    public int PlayerFallDamage(uint a0, float a1) { return _shim.Table->PlayerFallDamage(_shim.Self, a0, a1); }
+    public void PlayerSyncEngineSide(uint a0) { _shim.Table->PlayerSyncEngineSide(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimWorldServer</c> as its consumers take it: <see cref="WorldServerArea"/> over the engine,
+/// or a test's default (<c>DefaultWorldServerArea</c>).
+/// </summary>
+internal unsafe interface IWorldServerArea
+{
+    void AngleVectorsFromForward(float* a0, float* a1, float* a2);
+    int EntityModelSurfaceProp(uint a0);
+    int InvisibleRangeReach();
+    void SetSkyboxParams(SkyboxParams* a0);
 }
 
 /// <summary>
 /// <c>IShimWorldServer</c>, served as <c>SourceSharpWorldServer001</c>, through <see cref="ShimWorldServerFwd"/>.
 /// </summary>
-internal sealed unsafe class WorldServerArea
+internal sealed unsafe class WorldServerArea : IWorldServerArea
 {
     private readonly ShimRef<ShimWorldServerFwd> _shim;
 
     internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim) { _shim = shim; }
 
-    public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { _shim.Vt->AngleVectorsFromForward(_shim.Self, a0, a1, a2); }
-    public int EntityModelSurfaceProp(uint a0) { return _shim.Vt->EntityModelSurfaceProp(_shim.Self, a0); }
-    public int InvisibleRangeReach() { return _shim.Vt->InvisibleRangeReach(_shim.Self); }
-    public void SetSkyboxParams(SkyboxParams* a0) { _shim.Vt->SetSkyboxParams(_shim.Self, a0); }
+    public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { _shim.Table->AngleVectorsFromForward(_shim.Self, a0, a1, a2); }
+    public int EntityModelSurfaceProp(uint a0) { return _shim.Table->EntityModelSurfaceProp(_shim.Self, a0); }
+    public int InvisibleRangeReach() { return _shim.Table->InvisibleRangeReach(_shim.Self); }
+    public void SetSkyboxParams(SkyboxParams* a0) { _shim.Table->SetSkyboxParams(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimEntitiesServer</c> as its consumers take it: <see cref="EntitiesServerArea"/> over the engine,
+/// or a test's default (<c>DefaultEntitiesServerArea</c>).
+/// </summary>
+internal unsafe interface IEntitiesServerArea : IEntitiesArea
+{
+    int EntityIsPlayer(uint a0);
+    void EntityGetClassName(uint a0, byte* a1, int a2);
+    void EntityGetName(uint a0, byte* a1, int a2);
+    int EntityGetState(uint a0, int* a1);
+    uint FindEntityByClassname(uint a0, byte* a1);
+    int EntitiesInSphere(float* a0, float a1, uint* a2, int a3);
+    int EntitySetKeyValue(uint a0, byte* a1, byte* a2);
+    void EntityGetSpawnOrigin(uint a0, float* a1);
+    void EntityGetSpawnAngles(uint a0, float* a1);
+    int EntityGetSpawnFlags(uint a0);
+    void EntitySetSpawnFlags(uint a0, int a1);
+    int EntityGetHealth(uint a0);
+    void EntitySetHealth(uint a0, int a1);
+    void EntitySetVisible(uint a0, int a1);
+    void EntitySetOwner(uint a0, uint a1);
+    int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1);
 }
 
 /// <summary>
 /// <c>IShimEntitiesServer</c>, served as <c>SourceSharpEntitiesServer001</c>, through <see cref="ShimEntitiesServerFwd"/>. Its base's slots are <see cref="EntitiesArea"/>'s.
 /// </summary>
-internal sealed unsafe class EntitiesServerArea : EntitiesArea
+internal sealed unsafe class EntitiesServerArea : EntitiesArea, IEntitiesServerArea
 {
     private readonly ShimRef<ShimEntitiesServerFwd> _shim;
 
-    internal EntitiesServerArea(ShimRef<ShimEntitiesServerFwd> shim)
-        : base(new ShimRef<ShimEntitiesFwd>(shim.Self, (ShimEntitiesFwd*)shim.Vt))
+    internal EntitiesServerArea(ShimRef<ShimEntitiesServerFwd> shim, ShimRef<ShimEntitiesFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
 
-    public int EntityIsPlayer(uint a0) { return _shim.Vt->EntityIsPlayer(_shim.Self, a0); }
-    public void EntityGetClassName(uint a0, byte* a1, int a2) { _shim.Vt->EntityGetClassName(_shim.Self, a0, a1, a2); }
-    public void EntityGetName(uint a0, byte* a1, int a2) { _shim.Vt->EntityGetName(_shim.Self, a0, a1, a2); }
-    public int EntityGetState(uint a0, int* a1) { return _shim.Vt->EntityGetState(_shim.Self, a0, a1); }
-    public uint FindEntityByClassname(uint a0, byte* a1) { return _shim.Vt->FindEntityByClassname(_shim.Self, a0, a1); }
-    public int EntitiesInSphere(float* a0, float a1, uint* a2, int a3) { return _shim.Vt->EntitiesInSphere(_shim.Self, a0, a1, a2, a3); }
-    public int EntitySetKeyValue(uint a0, byte* a1, byte* a2) { return _shim.Vt->EntitySetKeyValue(_shim.Self, a0, a1, a2); }
-    public void EntityGetSpawnOrigin(uint a0, float* a1) { _shim.Vt->EntityGetSpawnOrigin(_shim.Self, a0, a1); }
-    public void EntityGetSpawnAngles(uint a0, float* a1) { _shim.Vt->EntityGetSpawnAngles(_shim.Self, a0, a1); }
-    public int EntityGetSpawnFlags(uint a0) { return _shim.Vt->EntityGetSpawnFlags(_shim.Self, a0); }
-    public void EntitySetSpawnFlags(uint a0, int a1) { _shim.Vt->EntitySetSpawnFlags(_shim.Self, a0, a1); }
-    public int EntityGetHealth(uint a0) { return _shim.Vt->EntityGetHealth(_shim.Self, a0); }
-    public void EntitySetHealth(uint a0, int a1) { _shim.Vt->EntitySetHealth(_shim.Self, a0, a1); }
-    public void EntitySetVisible(uint a0, int a1) { _shim.Vt->EntitySetVisible(_shim.Self, a0, a1); }
-    public void EntitySetOwner(uint a0, uint a1) { _shim.Vt->EntitySetOwner(_shim.Self, a0, a1); }
-    public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) { return _shim.Vt->EntitiesStandalonePlayerSkyboxArea(_shim.Self, a0, a1); }
+    public int EntityIsPlayer(uint a0) { return _shim.Table->EntityIsPlayer(_shim.Self, a0); }
+    public void EntityGetClassName(uint a0, byte* a1, int a2) { _shim.Table->EntityGetClassName(_shim.Self, a0, a1, a2); }
+    public void EntityGetName(uint a0, byte* a1, int a2) { _shim.Table->EntityGetName(_shim.Self, a0, a1, a2); }
+    public int EntityGetState(uint a0, int* a1) { return _shim.Table->EntityGetState(_shim.Self, a0, a1); }
+    public uint FindEntityByClassname(uint a0, byte* a1) { return _shim.Table->FindEntityByClassname(_shim.Self, a0, a1); }
+    public int EntitiesInSphere(float* a0, float a1, uint* a2, int a3) { return _shim.Table->EntitiesInSphere(_shim.Self, a0, a1, a2, a3); }
+    public int EntitySetKeyValue(uint a0, byte* a1, byte* a2) { return _shim.Table->EntitySetKeyValue(_shim.Self, a0, a1, a2); }
+    public void EntityGetSpawnOrigin(uint a0, float* a1) { _shim.Table->EntityGetSpawnOrigin(_shim.Self, a0, a1); }
+    public void EntityGetSpawnAngles(uint a0, float* a1) { _shim.Table->EntityGetSpawnAngles(_shim.Self, a0, a1); }
+    public int EntityGetSpawnFlags(uint a0) { return _shim.Table->EntityGetSpawnFlags(_shim.Self, a0); }
+    public void EntitySetSpawnFlags(uint a0, int a1) { _shim.Table->EntitySetSpawnFlags(_shim.Self, a0, a1); }
+    public int EntityGetHealth(uint a0) { return _shim.Table->EntityGetHealth(_shim.Self, a0); }
+    public void EntitySetHealth(uint a0, int a1) { _shim.Table->EntitySetHealth(_shim.Self, a0, a1); }
+    public void EntitySetVisible(uint a0, int a1) { _shim.Table->EntitySetVisible(_shim.Self, a0, a1); }
+    public void EntitySetOwner(uint a0, uint a1) { _shim.Table->EntitySetOwner(_shim.Self, a0, a1); }
+    public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) { return _shim.Table->EntitiesStandalonePlayerSkyboxArea(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimEntityLifecycle</c> as its consumers take it: <see cref="EntityLifecycleArea"/> over the engine,
+/// or a test's default (<c>DefaultEntityLifecycleArea</c>).
+/// </summary>
+internal unsafe interface IEntityLifecycleArea
+{
+    uint CreateEntity(byte* a0);
+    void EntitySpawn(uint a0);
+    void EntityRemove(uint a0);
+    void DestroyShell(uint* a0, int a1);
+    uint MapSpawnCreate(byte* a0, byte* a1, int a2);
+    void RegisterScriptedEntity(byte* a0, byte** a1, int a2, int a3);
+    void RegisterClassOps(byte* a0, uint a1);
+    int EntityDispatch(uint a0, int a1, OpArgs* a2);
+    int EntityFactoryCount();
+    byte* EntityFactoryNameAt(int a0);
+    int EntityFactoryRefusalCount();
+    byte* EntityFactoryRefusalNameAt(int a0);
+    int EntityFactoryRefusalTimesAt(int a0);
+    int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7);
 }
 
 /// <summary>
 /// <c>IShimEntityLifecycle</c>, served as <c>SourceSharpEntityLifecycle001</c>, through <see cref="ShimEntityLifecycleFwd"/>.
 /// </summary>
-internal sealed unsafe class EntityLifecycleArea
+internal sealed unsafe class EntityLifecycleArea : IEntityLifecycleArea
 {
     private readonly ShimRef<ShimEntityLifecycleFwd> _shim;
 
     internal EntityLifecycleArea(ShimRef<ShimEntityLifecycleFwd> shim) { _shim = shim; }
 
-    public uint CreateEntity(byte* a0) { return _shim.Vt->CreateEntity(_shim.Self, a0); }
-    public void EntitySpawn(uint a0) { _shim.Vt->EntitySpawn(_shim.Self, a0); }
-    public void EntityRemove(uint a0) { _shim.Vt->EntityRemove(_shim.Self, a0); }
-    public void DestroyShell(uint* a0, int a1) { _shim.Vt->DestroyShell(_shim.Self, a0, a1); }
-    public uint MapSpawnCreate(byte* a0, byte* a1, int a2) { return _shim.Vt->MapSpawnCreate(_shim.Self, a0, a1, a2); }
-    public void RegisterScriptedEntity(byte* a0, byte** a1, int a2, int a3) { _shim.Vt->RegisterScriptedEntity(_shim.Self, a0, a1, a2, a3); }
-    public void RegisterClassOps(byte* a0, uint a1) { _shim.Vt->RegisterClassOps(_shim.Self, a0, a1); }
-    public int EntityDispatch(uint a0, int a1, OpArgs* a2) { return _shim.Vt->EntityDispatch(_shim.Self, a0, a1, a2); }
-    public int EntityFactoryCount() { return _shim.Vt->EntityFactoryCount(_shim.Self); }
-    public byte* EntityFactoryNameAt(int a0) { return (byte*)_shim.Vt->EntityFactoryNameAt(_shim.Self, a0); }
-    public int EntityFactoryRefusalCount() { return _shim.Vt->EntityFactoryRefusalCount(_shim.Self); }
-    public byte* EntityFactoryRefusalNameAt(int a0) { return (byte*)_shim.Vt->EntityFactoryRefusalNameAt(_shim.Self, a0); }
-    public int EntityFactoryRefusalTimesAt(int a0) { return _shim.Vt->EntityFactoryRefusalTimesAt(_shim.Self, a0); }
-    public int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7) { return _shim.Vt->TemplateSpawnKeyed(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public uint CreateEntity(byte* a0) { return _shim.Table->CreateEntity(_shim.Self, a0); }
+    public void EntitySpawn(uint a0) { _shim.Table->EntitySpawn(_shim.Self, a0); }
+    public void EntityRemove(uint a0) { _shim.Table->EntityRemove(_shim.Self, a0); }
+    public void DestroyShell(uint* a0, int a1) { _shim.Table->DestroyShell(_shim.Self, a0, a1); }
+    public uint MapSpawnCreate(byte* a0, byte* a1, int a2) { return _shim.Table->MapSpawnCreate(_shim.Self, a0, a1, a2); }
+    public void RegisterScriptedEntity(byte* a0, byte** a1, int a2, int a3) { _shim.Table->RegisterScriptedEntity(_shim.Self, a0, a1, a2, a3); }
+    public void RegisterClassOps(byte* a0, uint a1) { _shim.Table->RegisterClassOps(_shim.Self, a0, a1); }
+    public int EntityDispatch(uint a0, int a1, OpArgs* a2) { return _shim.Table->EntityDispatch(_shim.Self, a0, a1, a2); }
+    public int EntityFactoryCount() { return _shim.Table->EntityFactoryCount(_shim.Self); }
+    public byte* EntityFactoryNameAt(int a0) { return (byte*)_shim.Table->EntityFactoryNameAt(_shim.Self, a0); }
+    public int EntityFactoryRefusalCount() { return _shim.Table->EntityFactoryRefusalCount(_shim.Self); }
+    public byte* EntityFactoryRefusalNameAt(int a0) { return (byte*)_shim.Table->EntityFactoryRefusalNameAt(_shim.Self, a0); }
+    public int EntityFactoryRefusalTimesAt(int a0) { return _shim.Table->EntityFactoryRefusalTimesAt(_shim.Self, a0); }
+    public int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7) { return _shim.Table->TemplateSpawnKeyed(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+}
+
+/// <summary>
+/// <c>IShimTransform</c> as its consumers take it: <see cref="TransformArea"/> over the engine,
+/// or a test's default (<c>DefaultTransformArea</c>).
+/// </summary>
+internal unsafe interface ITransformArea
+{
+    void EntitySetOrigin(uint a0, float* a1);
+    void EntitySetAngles(uint a0, float* a1);
+    void EntityTeleport(uint a0, float* a1, float* a2, int a3);
+    void EntityGetVelocity(uint a0, float* a1);
+    void EntitySetVelocity(uint a0, float* a1);
+    void EntityGetAngularVelocity(uint a0, float* a1);
+    void EntitySetAngularVelocity(uint a0, float* a1);
+    void EntityGetEyePosition(uint a0, float* a1);
+    void EntityGetEyeAngles(uint a0, float* a1);
+    void EntityGetWorldSpaceCenter(uint a0, float* a1);
+    float EntityGetGravity(uint a0);
+    void EntitySetGravity(uint a0, float a1);
+    void EntitySetBounce(uint a0, int a1);
 }
 
 /// <summary>
 /// <c>IShimTransform</c>, served as <c>SourceSharpTransform001</c>, through <see cref="ShimTransformFwd"/>.
 /// </summary>
-internal sealed unsafe class TransformArea
+internal sealed unsafe class TransformArea : ITransformArea
 {
     private readonly ShimRef<ShimTransformFwd> _shim;
 
     internal TransformArea(ShimRef<ShimTransformFwd> shim) { _shim = shim; }
 
-    public void EntitySetOrigin(uint a0, float* a1) { _shim.Vt->EntitySetOrigin(_shim.Self, a0, a1); }
-    public void EntitySetAngles(uint a0, float* a1) { _shim.Vt->EntitySetAngles(_shim.Self, a0, a1); }
-    public void EntityTeleport(uint a0, float* a1, float* a2, int a3) { _shim.Vt->EntityTeleport(_shim.Self, a0, a1, a2, a3); }
-    public void EntityGetVelocity(uint a0, float* a1) { _shim.Vt->EntityGetVelocity(_shim.Self, a0, a1); }
-    public void EntitySetVelocity(uint a0, float* a1) { _shim.Vt->EntitySetVelocity(_shim.Self, a0, a1); }
-    public void EntityGetAngularVelocity(uint a0, float* a1) { _shim.Vt->EntityGetAngularVelocity(_shim.Self, a0, a1); }
-    public void EntitySetAngularVelocity(uint a0, float* a1) { _shim.Vt->EntitySetAngularVelocity(_shim.Self, a0, a1); }
-    public void EntityGetEyePosition(uint a0, float* a1) { _shim.Vt->EntityGetEyePosition(_shim.Self, a0, a1); }
-    public void EntityGetEyeAngles(uint a0, float* a1) { _shim.Vt->EntityGetEyeAngles(_shim.Self, a0, a1); }
-    public void EntityGetWorldSpaceCenter(uint a0, float* a1) { _shim.Vt->EntityGetWorldSpaceCenter(_shim.Self, a0, a1); }
-    public float EntityGetGravity(uint a0) { return _shim.Vt->EntityGetGravity(_shim.Self, a0); }
-    public void EntitySetGravity(uint a0, float a1) { _shim.Vt->EntitySetGravity(_shim.Self, a0, a1); }
-    public void EntitySetBounce(uint a0, int a1) { _shim.Vt->EntitySetBounce(_shim.Self, a0, a1); }
+    public void EntitySetOrigin(uint a0, float* a1) { _shim.Table->EntitySetOrigin(_shim.Self, a0, a1); }
+    public void EntitySetAngles(uint a0, float* a1) { _shim.Table->EntitySetAngles(_shim.Self, a0, a1); }
+    public void EntityTeleport(uint a0, float* a1, float* a2, int a3) { _shim.Table->EntityTeleport(_shim.Self, a0, a1, a2, a3); }
+    public void EntityGetVelocity(uint a0, float* a1) { _shim.Table->EntityGetVelocity(_shim.Self, a0, a1); }
+    public void EntitySetVelocity(uint a0, float* a1) { _shim.Table->EntitySetVelocity(_shim.Self, a0, a1); }
+    public void EntityGetAngularVelocity(uint a0, float* a1) { _shim.Table->EntityGetAngularVelocity(_shim.Self, a0, a1); }
+    public void EntitySetAngularVelocity(uint a0, float* a1) { _shim.Table->EntitySetAngularVelocity(_shim.Self, a0, a1); }
+    public void EntityGetEyePosition(uint a0, float* a1) { _shim.Table->EntityGetEyePosition(_shim.Self, a0, a1); }
+    public void EntityGetEyeAngles(uint a0, float* a1) { _shim.Table->EntityGetEyeAngles(_shim.Self, a0, a1); }
+    public void EntityGetWorldSpaceCenter(uint a0, float* a1) { _shim.Table->EntityGetWorldSpaceCenter(_shim.Self, a0, a1); }
+    public float EntityGetGravity(uint a0) { return _shim.Table->EntityGetGravity(_shim.Self, a0); }
+    public void EntitySetGravity(uint a0, float a1) { _shim.Table->EntitySetGravity(_shim.Self, a0, a1); }
+    public void EntitySetBounce(uint a0, int a1) { _shim.Table->EntitySetBounce(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimHierarchy</c> as its consumers take it: <see cref="HierarchyArea"/> over the engine,
+/// or a test's default (<c>DefaultHierarchyArea</c>).
+/// </summary>
+internal unsafe interface IHierarchyArea
+{
+    int EntitySetParent(uint a0, uint a1, int a2);
+    uint EntityGetParent(uint a0);
+    int EntityGetParentAttachment(uint a0);
+    void EntitySetLocalTransform(uint a0, float* a1, float* a2);
+    void EntityGetLocalTransform(uint a0, float* a1, float* a2);
+    int EntityParentProbe(uint a0);
+    int EntityGetAttachmentFrame(uint a0, int a1, float* a2, float* a3);
 }
 
 /// <summary>
 /// <c>IShimHierarchy</c>, served as <c>SourceSharpHierarchy001</c>, through <see cref="ShimHierarchyFwd"/>.
 /// </summary>
-internal sealed unsafe class HierarchyArea
+internal sealed unsafe class HierarchyArea : IHierarchyArea
 {
     private readonly ShimRef<ShimHierarchyFwd> _shim;
 
     internal HierarchyArea(ShimRef<ShimHierarchyFwd> shim) { _shim = shim; }
 
-    public int EntitySetParent(uint a0, uint a1, int a2) { return _shim.Vt->EntitySetParent(_shim.Self, a0, a1, a2); }
-    public uint EntityGetParent(uint a0) { return _shim.Vt->EntityGetParent(_shim.Self, a0); }
-    public int EntityGetParentAttachment(uint a0) { return _shim.Vt->EntityGetParentAttachment(_shim.Self, a0); }
-    public void EntitySetLocalTransform(uint a0, float* a1, float* a2) { _shim.Vt->EntitySetLocalTransform(_shim.Self, a0, a1, a2); }
-    public void EntityGetLocalTransform(uint a0, float* a1, float* a2) { _shim.Vt->EntityGetLocalTransform(_shim.Self, a0, a1, a2); }
-    public int EntityParentProbe(uint a0) { return _shim.Vt->EntityParentProbe(_shim.Self, a0); }
-    public int EntityGetAttachmentFrame(uint a0, int a1, float* a2, float* a3) { return _shim.Vt->EntityGetAttachmentFrame(_shim.Self, a0, a1, a2, a3); }
+    public int EntitySetParent(uint a0, uint a1, int a2) { return _shim.Table->EntitySetParent(_shim.Self, a0, a1, a2); }
+    public uint EntityGetParent(uint a0) { return _shim.Table->EntityGetParent(_shim.Self, a0); }
+    public int EntityGetParentAttachment(uint a0) { return _shim.Table->EntityGetParentAttachment(_shim.Self, a0); }
+    public void EntitySetLocalTransform(uint a0, float* a1, float* a2) { _shim.Table->EntitySetLocalTransform(_shim.Self, a0, a1, a2); }
+    public void EntityGetLocalTransform(uint a0, float* a1, float* a2) { _shim.Table->EntityGetLocalTransform(_shim.Self, a0, a1, a2); }
+    public int EntityParentProbe(uint a0) { return _shim.Table->EntityParentProbe(_shim.Self, a0); }
+    public int EntityGetAttachmentFrame(uint a0, int a1, float* a2, float* a3) { return _shim.Table->EntityGetAttachmentFrame(_shim.Self, a0, a1, a2, a3); }
+}
+
+/// <summary>
+/// <c>IShimCollisionServer</c> as its consumers take it: <see cref="CollisionServerArea"/> over the engine,
+/// or a test's default (<c>DefaultCollisionServerArea</c>).
+/// </summary>
+internal unsafe interface ICollisionServerArea : ICollisionArea
+{
+    void EntityGetBounds(uint a0, float* a1, float* a2);
+    void EntityGetBoundsSize(uint a0, float* a1);
+    void EntitySetBounds(uint a0, float* a1, float* a2);
+    int EntityGetSolidType(uint a0);
+    void EntitySetSolidity(uint a0, int a1, int a2);
+    int EntityGetSolidFlags(uint a0);
+    int EntityGetCollisionGroup(uint a0);
+    void EntitySetCollisionGroup(uint a0, int a1);
+    int EntityOverlapReport(uint* a0, int a1);
 }
 
 /// <summary>
 /// <c>IShimCollisionServer</c>, served as <c>SourceSharpCollisionServer001</c>, through <see cref="ShimCollisionServerFwd"/>. Its base's slots are <see cref="CollisionArea"/>'s.
 /// </summary>
-internal sealed unsafe class CollisionServerArea : CollisionArea
+internal sealed unsafe class CollisionServerArea : CollisionArea, ICollisionServerArea
 {
     private readonly ShimRef<ShimCollisionServerFwd> _shim;
 
-    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim)
-        : base(new ShimRef<ShimCollisionFwd>(shim.Self, (ShimCollisionFwd*)shim.Vt))
+    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim, ShimRef<ShimCollisionFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
 
-    public void EntityGetBounds(uint a0, float* a1, float* a2) { _shim.Vt->EntityGetBounds(_shim.Self, a0, a1, a2); }
-    public void EntityGetBoundsSize(uint a0, float* a1) { _shim.Vt->EntityGetBoundsSize(_shim.Self, a0, a1); }
-    public void EntitySetBounds(uint a0, float* a1, float* a2) { _shim.Vt->EntitySetBounds(_shim.Self, a0, a1, a2); }
-    public int EntityGetSolidType(uint a0) { return _shim.Vt->EntityGetSolidType(_shim.Self, a0); }
-    public void EntitySetSolidity(uint a0, int a1, int a2) { _shim.Vt->EntitySetSolidity(_shim.Self, a0, a1, a2); }
-    public int EntityGetSolidFlags(uint a0) { return _shim.Vt->EntityGetSolidFlags(_shim.Self, a0); }
-    public int EntityGetCollisionGroup(uint a0) { return _shim.Vt->EntityGetCollisionGroup(_shim.Self, a0); }
-    public void EntitySetCollisionGroup(uint a0, int a1) { _shim.Vt->EntitySetCollisionGroup(_shim.Self, a0, a1); }
-    public int EntityOverlapReport(uint* a0, int a1) { return _shim.Vt->EntityOverlapReport(_shim.Self, a0, a1); }
+    public void EntityGetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntityGetBounds(_shim.Self, a0, a1, a2); }
+    public void EntityGetBoundsSize(uint a0, float* a1) { _shim.Table->EntityGetBoundsSize(_shim.Self, a0, a1); }
+    public void EntitySetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntitySetBounds(_shim.Self, a0, a1, a2); }
+    public int EntityGetSolidType(uint a0) { return _shim.Table->EntityGetSolidType(_shim.Self, a0); }
+    public void EntitySetSolidity(uint a0, int a1, int a2) { _shim.Table->EntitySetSolidity(_shim.Self, a0, a1, a2); }
+    public int EntityGetSolidFlags(uint a0) { return _shim.Table->EntityGetSolidFlags(_shim.Self, a0); }
+    public int EntityGetCollisionGroup(uint a0) { return _shim.Table->EntityGetCollisionGroup(_shim.Self, a0); }
+    public void EntitySetCollisionGroup(uint a0, int a1) { _shim.Table->EntitySetCollisionGroup(_shim.Self, a0, a1); }
+    public int EntityOverlapReport(uint* a0, int a1) { return _shim.Table->EntityOverlapReport(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimPhysics</c> as its consumers take it: <see cref="PhysicsArea"/> over the engine,
+/// or a test's default (<c>DefaultPhysicsArea</c>).
+/// </summary>
+internal unsafe interface IPhysicsArea
+{
+    void EntityDestroyPhysics(uint a0);
+    nint EntityPhysicsObject(uint a0);
+    nint PhysicsEnvironmentPointer();
+    nint PhysicsWorldObject();
+    int PhysicsUpdateOwners(void** a0, float* a1, int a2, uint* a3);
+    int EntitySwapPhysicsObject(uint a0, nint a1, void** a2);
 }
 
 /// <summary>
 /// <c>IShimPhysics</c>, served as <c>SourceSharpPhysics001</c>, through <see cref="ShimPhysicsFwd"/>.
 /// </summary>
-internal sealed unsafe class PhysicsArea
+internal sealed unsafe class PhysicsArea : IPhysicsArea
 {
     private readonly ShimRef<ShimPhysicsFwd> _shim;
 
     internal PhysicsArea(ShimRef<ShimPhysicsFwd> shim) { _shim = shim; }
 
-    public void EntityDestroyPhysics(uint a0) { _shim.Vt->EntityDestroyPhysics(_shim.Self, a0); }
-    public nint EntityPhysicsObject(uint a0) { return (nint)_shim.Vt->EntityPhysicsObject(_shim.Self, a0); }
-    public nint PhysicsEnvironmentPointer() { return (nint)_shim.Vt->PhysicsEnvironmentPointer(_shim.Self); }
-    public nint PhysicsWorldObject() { return (nint)_shim.Vt->PhysicsWorldObject(_shim.Self); }
-    public int PhysicsUpdateOwners(void** a0, float* a1, int a2, uint* a3) { return _shim.Vt->PhysicsUpdateOwners(_shim.Self, a0, a1, a2, a3); }
-    public int EntitySwapPhysicsObject(uint a0, nint a1, void** a2) { return _shim.Vt->EntitySwapPhysicsObject(_shim.Self, a0, (void*)a1, a2); }
+    public void EntityDestroyPhysics(uint a0) { _shim.Table->EntityDestroyPhysics(_shim.Self, a0); }
+    public nint EntityPhysicsObject(uint a0) { return (nint)_shim.Table->EntityPhysicsObject(_shim.Self, a0); }
+    public nint PhysicsEnvironmentPointer() { return (nint)_shim.Table->PhysicsEnvironmentPointer(_shim.Self); }
+    public nint PhysicsWorldObject() { return (nint)_shim.Table->PhysicsWorldObject(_shim.Self); }
+    public int PhysicsUpdateOwners(void** a0, float* a1, int a2, uint* a3) { return _shim.Table->PhysicsUpdateOwners(_shim.Self, a0, a1, a2, a3); }
+    public int EntitySwapPhysicsObject(uint a0, nint a1, void** a2) { return _shim.Table->EntitySwapPhysicsObject(_shim.Self, a0, (void*)a1, a2); }
+}
+
+/// <summary>
+/// <c>IShimDamage</c> as its consumers take it: <see cref="DamageArea"/> over the engine,
+/// or a test's default (<c>DefaultDamageArea</c>).
+/// </summary>
+internal unsafe interface IDamageArea
+{
+    void ApplyDamage(uint a0, uint a1, float a2, int a3);
+    void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6);
+    void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5);
 }
 
 /// <summary>
 /// <c>IShimDamage</c>, served as <c>SourceSharpDamage001</c>, through <see cref="ShimDamageFwd"/>.
 /// </summary>
-internal sealed unsafe class DamageArea
+internal sealed unsafe class DamageArea : IDamageArea
 {
     private readonly ShimRef<ShimDamageFwd> _shim;
 
     internal DamageArea(ShimRef<ShimDamageFwd> shim) { _shim = shim; }
 
-    public void ApplyDamage(uint a0, uint a1, float a2, int a3) { _shim.Vt->ApplyDamage(_shim.Self, a0, a1, a2, a3); }
-    public void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) { _shim.Vt->EntityTakeDamage(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5) { _shim.Vt->ApplyDamageForce(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void ApplyDamage(uint a0, uint a1, float a2, int a3) { _shim.Table->ApplyDamage(_shim.Self, a0, a1, a2, a3); }
+    public void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) { _shim.Table->EntityTakeDamage(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5) { _shim.Table->ApplyDamageForce(_shim.Self, a0, a1, a2, a3, a4, a5); }
+}
+
+/// <summary>
+/// <c>IShimGameRules</c> as its consumers take it: <see cref="GameRulesArea"/> over the engine,
+/// or a test's default (<c>DefaultGameRulesArea</c>).
+/// </summary>
+internal unsafe interface IGameRulesArea
+{
+    void RegisterGameRulesPolicy(GameRulesPolicyBlob* a0);
+    void RegisterDamageRules(DamageRuleMasks* a0);
 }
 
 /// <summary>
 /// <c>IShimGameRules</c>, served as <c>SourceSharpGameRules001</c>, through <see cref="ShimGameRulesFwd"/>.
 /// </summary>
-internal sealed unsafe class GameRulesArea
+internal sealed unsafe class GameRulesArea : IGameRulesArea
 {
     private readonly ShimRef<ShimGameRulesFwd> _shim;
 
     internal GameRulesArea(ShimRef<ShimGameRulesFwd> shim) { _shim = shim; }
 
-    public void RegisterGameRulesPolicy(GameRulesPolicyBlob* a0) { _shim.Vt->RegisterGameRulesPolicy(_shim.Self, a0); }
-    public void RegisterDamageRules(DamageRuleMasks* a0) { _shim.Vt->RegisterDamageRules(_shim.Self, a0); }
+    public void RegisterGameRulesPolicy(GameRulesPolicyBlob* a0) { _shim.Table->RegisterGameRulesPolicy(_shim.Self, a0); }
+    public void RegisterDamageRules(DamageRuleMasks* a0) { _shim.Table->RegisterDamageRules(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimPlayers</c> as its consumers take it: <see cref="PlayersArea"/> over the engine,
+/// or a test's default (<c>DefaultPlayersArea</c>).
+/// </summary>
+internal unsafe interface IPlayersArea
+{
+    uint GetPlayerHandle(int a0);
+    int GetPlayerTeam(uint a0);
+    int PlayerIsAlive(uint a0);
+    void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2);
+    int PlayerGetObserverMode(uint a0);
+    void PlayerSetObserverMode(uint a0, int a1);
+    void PlayerSnapEyeAngles(uint a0, float* a1);
+    int ClientsStandalonePlayerEarPosition(int a0, float* a1);
+    void PlayerSetTeam(uint a0, int a1);
 }
 
 /// <summary>
 /// <c>IShimPlayers</c>, served as <c>SourceSharpPlayers001</c>, through <see cref="ShimPlayersFwd"/>.
 /// </summary>
-internal sealed unsafe class PlayersArea
+internal sealed unsafe class PlayersArea : IPlayersArea
 {
     private readonly ShimRef<ShimPlayersFwd> _shim;
 
     internal PlayersArea(ShimRef<ShimPlayersFwd> shim) { _shim = shim; }
 
-    public uint GetPlayerHandle(int a0) { return _shim.Vt->GetPlayerHandle(_shim.Self, a0); }
-    public int GetPlayerTeam(uint a0) { return _shim.Vt->GetPlayerTeam(_shim.Self, a0); }
-    public int PlayerIsAlive(uint a0) { return _shim.Vt->PlayerIsAlive(_shim.Self, a0); }
-    public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { _shim.Vt->PlayerPlaceAtSpawn(_shim.Self, a0, a1, a2); }
-    public int PlayerGetObserverMode(uint a0) { return _shim.Vt->PlayerGetObserverMode(_shim.Self, a0); }
-    public void PlayerSetObserverMode(uint a0, int a1) { _shim.Vt->PlayerSetObserverMode(_shim.Self, a0, a1); }
-    public void PlayerSnapEyeAngles(uint a0, float* a1) { _shim.Vt->PlayerSnapEyeAngles(_shim.Self, a0, a1); }
-    public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return _shim.Vt->ClientsStandalonePlayerEarPosition(_shim.Self, a0, a1); }
-    public void PlayerSetTeam(uint a0, int a1) { _shim.Vt->PlayerSetTeam(_shim.Self, a0, a1); }
+    public uint GetPlayerHandle(int a0) { return _shim.Table->GetPlayerHandle(_shim.Self, a0); }
+    public int GetPlayerTeam(uint a0) { return _shim.Table->GetPlayerTeam(_shim.Self, a0); }
+    public int PlayerIsAlive(uint a0) { return _shim.Table->PlayerIsAlive(_shim.Self, a0); }
+    public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { _shim.Table->PlayerPlaceAtSpawn(_shim.Self, a0, a1, a2); }
+    public int PlayerGetObserverMode(uint a0) { return _shim.Table->PlayerGetObserverMode(_shim.Self, a0); }
+    public void PlayerSetObserverMode(uint a0, int a1) { _shim.Table->PlayerSetObserverMode(_shim.Self, a0, a1); }
+    public void PlayerSnapEyeAngles(uint a0, float* a1) { _shim.Table->PlayerSnapEyeAngles(_shim.Self, a0, a1); }
+    public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return _shim.Table->ClientsStandalonePlayerEarPosition(_shim.Self, a0, a1); }
+    public void PlayerSetTeam(uint a0, int a1) { _shim.Table->PlayerSetTeam(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimEffectsServer</c> as its consumers take it: <see cref="EffectsServerArea"/> over the engine,
+/// or a test's default (<c>DefaultEffectsServerArea</c>).
+/// </summary>
+internal unsafe interface IEffectsServerArea
+{
+    void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5);
+    int TempEntBuild(void* a0, int a1, TeBuiltTable* a2);
 }
 
 /// <summary>
 /// <c>IShimEffectsServer</c>, served as <c>SourceSharpEffectsServer001</c>, through <see cref="ShimEffectsServerFwd"/>.
 /// </summary>
-internal sealed unsafe class EffectsServerArea
+internal sealed unsafe class EffectsServerArea : IEffectsServerArea
 {
     private readonly ShimRef<ShimEffectsServerFwd> _shim;
 
     internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim) { _shim = shim; }
 
-    public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Vt->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Vt->TempEntBuild(_shim.Self, a0, a1, a2); }
+    public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Table->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Table->TempEntBuild(_shim.Self, a0, a1, a2); }
+}
+
+/// <summary>
+/// <c>IShimDebugOverlay</c> as its consumers take it: <see cref="DebugOverlayArea"/> over the engine,
+/// or a test's default (<c>DefaultDebugOverlayArea</c>).
+/// </summary>
+internal unsafe interface IDebugOverlayArea
+{
+    int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7);
+    void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6);
+    void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4);
+    void OverlayResetCounts();
 }
 
 /// <summary>
 /// <c>IShimDebugOverlay</c>, served as <c>SourceSharpDebugOverlay001</c>, through <see cref="ShimDebugOverlayFwd"/>.
 /// </summary>
-internal sealed unsafe class DebugOverlayArea
+internal sealed unsafe class DebugOverlayArea : IDebugOverlayArea
 {
     private readonly ShimRef<ShimDebugOverlayFwd> _shim;
 
     internal DebugOverlayArea(ShimRef<ShimDebugOverlayFwd> shim) { _shim = shim; }
 
-    public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { return _shim.Vt->DrawEntityOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { _shim.Vt->AddLineOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { _shim.Vt->OverlayCounts(_shim.Self, a0, a1, a2, a3, a4); }
-    public void OverlayResetCounts() { _shim.Vt->OverlayResetCounts(_shim.Self); }
+    public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { return _shim.Table->DrawEntityOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { _shim.Table->AddLineOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { _shim.Table->OverlayCounts(_shim.Self, a0, a1, a2, a3, a4); }
+    public void OverlayResetCounts() { _shim.Table->OverlayResetCounts(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimUserMessages</c> as its consumers take it: <see cref="UserMessagesArea"/> over the engine,
+/// or a test's default (<c>DefaultUserMessagesArea</c>).
+/// </summary>
+internal unsafe interface IUserMessagesArea
+{
+    int UserMessageSend(int a0, byte* a1, int a2, int a3, int a4);
 }
 
 /// <summary>
 /// <c>IShimUserMessages</c>, served as <c>SourceSharpUserMessages001</c>, through <see cref="ShimUserMessagesFwd"/>.
 /// </summary>
-internal sealed unsafe class UserMessagesArea
+internal sealed unsafe class UserMessagesArea : IUserMessagesArea
 {
     private readonly ShimRef<ShimUserMessagesFwd> _shim;
 
     internal UserMessagesArea(ShimRef<ShimUserMessagesFwd> shim) { _shim = shim; }
 
-    public int UserMessageSend(int a0, byte* a1, int a2, int a3, int a4) { return _shim.Vt->UserMessageSend(_shim.Self, a0, a1, a2, a3, a4); }
+    public int UserMessageSend(int a0, byte* a1, int a2, int a3, int a4) { return _shim.Table->UserMessageSend(_shim.Self, a0, a1, a2, a3, a4); }
+}
+
+/// <summary>
+/// <c>IShimDiagnostics</c> as its consumers take it: <see cref="DiagnosticsArea"/> over the engine,
+/// or a test's default (<c>DefaultDiagnosticsArea</c>).
+/// </summary>
+internal unsafe interface IDiagnosticsArea
+{
+    int PlayerShadowCounts(int* a0, int a1);
+    int ExitWatchArm(byte* a0);
+    int ExitWatchRead(int* a0, int a1);
+    int ExitWatchDisarm();
 }
 
 /// <summary>
 /// <c>IShimDiagnostics</c>, served as <c>SourceSharpDiagnostics001</c>, through <see cref="ShimDiagnosticsFwd"/>.
 /// </summary>
-internal sealed unsafe class DiagnosticsArea
+internal sealed unsafe class DiagnosticsArea : IDiagnosticsArea
 {
     private readonly ShimRef<ShimDiagnosticsFwd> _shim;
 
     internal DiagnosticsArea(ShimRef<ShimDiagnosticsFwd> shim) { _shim = shim; }
 
-    public int PlayerShadowCounts(int* a0, int a1) { return _shim.Vt->PlayerShadowCounts(_shim.Self, a0, a1); }
-    public int ExitWatchArm(byte* a0) { return _shim.Vt->ExitWatchArm(_shim.Self, a0); }
-    public int ExitWatchRead(int* a0, int a1) { return _shim.Vt->ExitWatchRead(_shim.Self, a0, a1); }
-    public int ExitWatchDisarm() { return _shim.Vt->ExitWatchDisarm(_shim.Self); }
+    public int PlayerShadowCounts(int* a0, int a1) { return _shim.Table->PlayerShadowCounts(_shim.Self, a0, a1); }
+    public int ExitWatchArm(byte* a0) { return _shim.Table->ExitWatchArm(_shim.Self, a0); }
+    public int ExitWatchRead(int* a0, int a1) { return _shim.Table->ExitWatchRead(_shim.Self, a0, a1); }
+    public int ExitWatchDisarm() { return _shim.Table->ExitWatchDisarm(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimHudClient</c> as its consumers take it: <see cref="HudClientArea"/> over the engine,
+/// or a test's default (<c>DefaultHudClientArea</c>).
+/// </summary>
+internal unsafe interface IHudClientArea
+{
+    int GetLocalPlayerHealth();
+    int GetLocalPlayerIndex();
+    void HudLocalise(byte* a0, byte* a1, int a2);
+    void HudLookupBinding(byte* a0, byte* a1, int a2);
+    int HudTextMessageGet(byte* a0, TextMessage* a1);
 }
 
 /// <summary>
 /// <c>IShimHudClient</c>, served as <c>SourceSharpHudClient001</c>, through <see cref="ShimHudClientFwd"/>.
 /// </summary>
-internal sealed unsafe class HudClientArea
+internal sealed unsafe class HudClientArea : IHudClientArea
 {
     private readonly ShimRef<ShimHudClientFwd> _shim;
 
     internal HudClientArea(ShimRef<ShimHudClientFwd> shim) { _shim = shim; }
 
-    public int GetLocalPlayerHealth() { return _shim.Vt->GetLocalPlayerHealth(_shim.Self); }
-    public int GetLocalPlayerIndex() { return _shim.Vt->GetLocalPlayerIndex(_shim.Self); }
-    public void HudLocalise(byte* a0, byte* a1, int a2) { _shim.Vt->HudLocalise(_shim.Self, a0, a1, a2); }
-    public void HudLookupBinding(byte* a0, byte* a1, int a2) { _shim.Vt->HudLookupBinding(_shim.Self, a0, a1, a2); }
-    public int HudTextMessageGet(byte* a0, TextMessage* a1) { return _shim.Vt->HudTextMessageGet(_shim.Self, a0, a1); }
+    public int GetLocalPlayerHealth() { return _shim.Table->GetLocalPlayerHealth(_shim.Self); }
+    public int GetLocalPlayerIndex() { return _shim.Table->GetLocalPlayerIndex(_shim.Self); }
+    public void HudLocalise(byte* a0, byte* a1, int a2) { _shim.Table->HudLocalise(_shim.Self, a0, a1, a2); }
+    public void HudLookupBinding(byte* a0, byte* a1, int a2) { _shim.Table->HudLookupBinding(_shim.Self, a0, a1, a2); }
+    public int HudTextMessageGet(byte* a0, TextMessage* a1) { return _shim.Table->HudTextMessageGet(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimPredictionClient</c> as its consumers take it: <see cref="PredictionClientArea"/> over the engine,
+/// or a test's default (<c>DefaultPredictionClientArea</c>).
+/// </summary>
+internal unsafe interface IPredictionClientArea
+{
+    int ClientGetUserCmd(int a0, UserCmd* a1);
+    void ClientPlayerPredictionDrive(uint a0, ClientPlayerViewBlob* a1);
+    int MoveBeginClientCommand(uint a0, int a1, MoveStateBlob* a2);
+    void MoveEndClientCommand(int a0, int* a1);
 }
 
 /// <summary>
 /// <c>IShimPredictionClient</c>, served as <c>SourceSharpPredictionClient001</c>, through <see cref="ShimPredictionClientFwd"/>.
 /// </summary>
-internal sealed unsafe class PredictionClientArea
+internal sealed unsafe class PredictionClientArea : IPredictionClientArea
 {
     private readonly ShimRef<ShimPredictionClientFwd> _shim;
 
     internal PredictionClientArea(ShimRef<ShimPredictionClientFwd> shim) { _shim = shim; }
 
-    public int ClientGetUserCmd(int a0, UserCmd* a1) { return _shim.Vt->ClientGetUserCmd(_shim.Self, a0, a1); }
-    public void ClientPlayerPredictionDrive(uint a0, ClientPlayerViewBlob* a1) { _shim.Vt->ClientPlayerPredictionDrive(_shim.Self, a0, a1); }
-    public int MoveBeginClientCommand(uint a0, int a1, MoveStateBlob* a2) { return _shim.Vt->MoveBeginClientCommand(_shim.Self, a0, a1, a2); }
-    public void MoveEndClientCommand(int a0, int* a1) { _shim.Vt->MoveEndClientCommand(_shim.Self, a0, a1); }
+    public int ClientGetUserCmd(int a0, UserCmd* a1) { return _shim.Table->ClientGetUserCmd(_shim.Self, a0, a1); }
+    public void ClientPlayerPredictionDrive(uint a0, ClientPlayerViewBlob* a1) { _shim.Table->ClientPlayerPredictionDrive(_shim.Self, a0, a1); }
+    public int MoveBeginClientCommand(uint a0, int a1, MoveStateBlob* a2) { return _shim.Table->MoveBeginClientCommand(_shim.Self, a0, a1, a2); }
+    public void MoveEndClientCommand(int a0, int* a1) { _shim.Table->MoveEndClientCommand(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimTempEntPoolClient</c> as its consumers take it: <see cref="TempEntPoolClientArea"/> over the engine,
+/// or a test's default (<c>DefaultTempEntPoolClientArea</c>).
+/// </summary>
+internal unsafe interface ITempEntPoolClientArea
+{
+    int ClientEntityModelBounds(int a0, float* a1, float* a2, float* a3);
+    int ClientEntityOrigin(int a0, float* a1);
+    void ClientWindSpeed(float a0, float* a1);
+    int TempEntPoolAddVisible(int a0);
+    int TempEntPoolCapacity();
+    int TempEntPoolCreate(int a0, float* a1, int a2, int a3);
+    void TempEntPoolDestroy(int a0);
+    int TempEntPoolReadLife(int a0, TempEntLife* a1);
+    int TempEntPoolReadStatics(int a0, TempEntStatics* a1);
+    int TempEntPoolReadTransform(int a0, TempEntTransform* a1);
+    int TempEntPoolSimulate(int a0, float a1, int a2);
+    int TempEntPoolWriteLife(int a0, TempEntLife* a1);
+    int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1);
+    int TempEntPoolWriteTransform(int a0, TempEntTransform* a1);
 }
 
 /// <summary>
 /// <c>IShimTempEntPoolClient</c>, served as <c>SourceSharpTempEntPoolClient001</c>, through <see cref="ShimTempEntPoolClientFwd"/>.
 /// </summary>
-internal sealed unsafe class TempEntPoolClientArea
+internal sealed unsafe class TempEntPoolClientArea : ITempEntPoolClientArea
 {
     private readonly ShimRef<ShimTempEntPoolClientFwd> _shim;
 
     internal TempEntPoolClientArea(ShimRef<ShimTempEntPoolClientFwd> shim) { _shim = shim; }
 
-    public int ClientEntityModelBounds(int a0, float* a1, float* a2, float* a3) { return _shim.Vt->ClientEntityModelBounds(_shim.Self, a0, a1, a2, a3); }
-    public int ClientEntityOrigin(int a0, float* a1) { return _shim.Vt->ClientEntityOrigin(_shim.Self, a0, a1); }
-    public void ClientWindSpeed(float a0, float* a1) { _shim.Vt->ClientWindSpeed(_shim.Self, a0, a1); }
-    public int TempEntPoolAddVisible(int a0) { return _shim.Vt->TempEntPoolAddVisible(_shim.Self, a0); }
-    public int TempEntPoolCapacity() { return _shim.Vt->TempEntPoolCapacity(_shim.Self); }
-    public int TempEntPoolCreate(int a0, float* a1, int a2, int a3) { return _shim.Vt->TempEntPoolCreate(_shim.Self, a0, a1, a2, a3); }
-    public void TempEntPoolDestroy(int a0) { _shim.Vt->TempEntPoolDestroy(_shim.Self, a0); }
-    public int TempEntPoolReadLife(int a0, TempEntLife* a1) { return _shim.Vt->TempEntPoolReadLife(_shim.Self, a0, a1); }
-    public int TempEntPoolReadStatics(int a0, TempEntStatics* a1) { return _shim.Vt->TempEntPoolReadStatics(_shim.Self, a0, a1); }
-    public int TempEntPoolReadTransform(int a0, TempEntTransform* a1) { return _shim.Vt->TempEntPoolReadTransform(_shim.Self, a0, a1); }
-    public int TempEntPoolSimulate(int a0, float a1, int a2) { return _shim.Vt->TempEntPoolSimulate(_shim.Self, a0, a1, a2); }
-    public int TempEntPoolWriteLife(int a0, TempEntLife* a1) { return _shim.Vt->TempEntPoolWriteLife(_shim.Self, a0, a1); }
-    public int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1) { return _shim.Vt->TempEntPoolWriteSpawn(_shim.Self, a0, a1); }
-    public int TempEntPoolWriteTransform(int a0, TempEntTransform* a1) { return _shim.Vt->TempEntPoolWriteTransform(_shim.Self, a0, a1); }
+    public int ClientEntityModelBounds(int a0, float* a1, float* a2, float* a3) { return _shim.Table->ClientEntityModelBounds(_shim.Self, a0, a1, a2, a3); }
+    public int ClientEntityOrigin(int a0, float* a1) { return _shim.Table->ClientEntityOrigin(_shim.Self, a0, a1); }
+    public void ClientWindSpeed(float a0, float* a1) { _shim.Table->ClientWindSpeed(_shim.Self, a0, a1); }
+    public int TempEntPoolAddVisible(int a0) { return _shim.Table->TempEntPoolAddVisible(_shim.Self, a0); }
+    public int TempEntPoolCapacity() { return _shim.Table->TempEntPoolCapacity(_shim.Self); }
+    public int TempEntPoolCreate(int a0, float* a1, int a2, int a3) { return _shim.Table->TempEntPoolCreate(_shim.Self, a0, a1, a2, a3); }
+    public void TempEntPoolDestroy(int a0) { _shim.Table->TempEntPoolDestroy(_shim.Self, a0); }
+    public int TempEntPoolReadLife(int a0, TempEntLife* a1) { return _shim.Table->TempEntPoolReadLife(_shim.Self, a0, a1); }
+    public int TempEntPoolReadStatics(int a0, TempEntStatics* a1) { return _shim.Table->TempEntPoolReadStatics(_shim.Self, a0, a1); }
+    public int TempEntPoolReadTransform(int a0, TempEntTransform* a1) { return _shim.Table->TempEntPoolReadTransform(_shim.Self, a0, a1); }
+    public int TempEntPoolSimulate(int a0, float a1, int a2) { return _shim.Table->TempEntPoolSimulate(_shim.Self, a0, a1, a2); }
+    public int TempEntPoolWriteLife(int a0, TempEntLife* a1) { return _shim.Table->TempEntPoolWriteLife(_shim.Self, a0, a1); }
+    public int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1) { return _shim.Table->TempEntPoolWriteSpawn(_shim.Self, a0, a1); }
+    public int TempEntPoolWriteTransform(int a0, TempEntTransform* a1) { return _shim.Table->TempEntPoolWriteTransform(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimTempEntBackendsClient</c> as its consumers take it: <see cref="TempEntBackendsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultTempEntBackendsClientArea</c>).
+/// </summary>
+internal unsafe interface ITempEntBackendsClientArea
+{
+    void ClientDecalBrushModel(int a0, float* a1, int a2);
+    int ClientDecalIndexFromName(byte* a0);
+    int ClientDecalNameFromIndex(int a0, byte* a1, int a2);
+    void ClientDecalShoot(int a0, int a1, float* a2, float* a3, int a4);
+    void ClientDecalStaticProp(float* a0, float* a1, int a2, int a3);
+    void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3);
+    void ClientEnergySplash(float* a0, float* a1, int a2);
+    int ClientEntityModelType(int a0);
+    int ClientIsLowViolence();
+    void ClientMetalSparks(float* a0, float* a1);
+    void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3);
+    void ClientPlayerDecalShoot(float* a0, int a1, int a2);
+    void ClientRicochet(float* a0, float* a1);
+    void ClientSmoke(float* a0, int a1, float a2, float a3);
+    void ClientSparks(float* a0, int a1, int a2, float* a3);
+    void EffectDispatchName(int a0, byte* a1, int a2);
+    int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3);
 }
 
 /// <summary>
 /// <c>IShimTempEntBackendsClient</c>, served as <c>SourceSharpTempEntBackendsClient001</c>, through <see cref="ShimTempEntBackendsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class TempEntBackendsClientArea
+internal sealed unsafe class TempEntBackendsClientArea : ITempEntBackendsClientArea
 {
     private readonly ShimRef<ShimTempEntBackendsClientFwd> _shim;
 
     internal TempEntBackendsClientArea(ShimRef<ShimTempEntBackendsClientFwd> shim) { _shim = shim; }
 
-    public void ClientDecalBrushModel(int a0, float* a1, int a2) { _shim.Vt->ClientDecalBrushModel(_shim.Self, a0, a1, a2); }
-    public int ClientDecalIndexFromName(byte* a0) { return _shim.Vt->ClientDecalIndexFromName(_shim.Self, a0); }
-    public int ClientDecalNameFromIndex(int a0, byte* a1, int a2) { return _shim.Vt->ClientDecalNameFromIndex(_shim.Self, a0, a1, a2); }
-    public void ClientDecalShoot(int a0, int a1, float* a2, float* a3, int a4) { _shim.Vt->ClientDecalShoot(_shim.Self, a0, a1, a2, a3, a4); }
-    public void ClientDecalStaticProp(float* a0, float* a1, int a2, int a3) { _shim.Vt->ClientDecalStaticProp(_shim.Self, a0, a1, a2, a3); }
-    public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { _shim.Vt->ClientDecalStudioModel(_shim.Self, a0, a1, a2, a3); }
-    public void ClientEnergySplash(float* a0, float* a1, int a2) { _shim.Vt->ClientEnergySplash(_shim.Self, a0, a1, a2); }
-    public int ClientEntityModelType(int a0) { return _shim.Vt->ClientEntityModelType(_shim.Self, a0); }
-    public int ClientIsLowViolence() { return _shim.Vt->ClientIsLowViolence(_shim.Self); }
-    public void ClientMetalSparks(float* a0, float* a1) { _shim.Vt->ClientMetalSparks(_shim.Self, a0, a1); }
-    public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { _shim.Vt->ClientMuzzleFlash(_shim.Self, a0, a1, a2, a3); }
-    public void ClientPlayerDecalShoot(float* a0, int a1, int a2) { _shim.Vt->ClientPlayerDecalShoot(_shim.Self, a0, a1, a2); }
-    public void ClientRicochet(float* a0, float* a1) { _shim.Vt->ClientRicochet(_shim.Self, a0, a1); }
-    public void ClientSmoke(float* a0, int a1, float a2, float a3) { _shim.Vt->ClientSmoke(_shim.Self, a0, a1, a2, a3); }
-    public void ClientSparks(float* a0, int a1, int a2, float* a3) { _shim.Vt->ClientSparks(_shim.Self, a0, a1, a2, a3); }
-    public void EffectDispatchName(int a0, byte* a1, int a2) { _shim.Vt->EffectDispatchName(_shim.Self, a0, a1, a2); }
-    public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) { return _shim.Vt->TempEntBuildClient(_shim.Self, a0, a1, a2, a3); }
+    public void ClientDecalBrushModel(int a0, float* a1, int a2) { _shim.Table->ClientDecalBrushModel(_shim.Self, a0, a1, a2); }
+    public int ClientDecalIndexFromName(byte* a0) { return _shim.Table->ClientDecalIndexFromName(_shim.Self, a0); }
+    public int ClientDecalNameFromIndex(int a0, byte* a1, int a2) { return _shim.Table->ClientDecalNameFromIndex(_shim.Self, a0, a1, a2); }
+    public void ClientDecalShoot(int a0, int a1, float* a2, float* a3, int a4) { _shim.Table->ClientDecalShoot(_shim.Self, a0, a1, a2, a3, a4); }
+    public void ClientDecalStaticProp(float* a0, float* a1, int a2, int a3) { _shim.Table->ClientDecalStaticProp(_shim.Self, a0, a1, a2, a3); }
+    public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { _shim.Table->ClientDecalStudioModel(_shim.Self, a0, a1, a2, a3); }
+    public void ClientEnergySplash(float* a0, float* a1, int a2) { _shim.Table->ClientEnergySplash(_shim.Self, a0, a1, a2); }
+    public int ClientEntityModelType(int a0) { return _shim.Table->ClientEntityModelType(_shim.Self, a0); }
+    public int ClientIsLowViolence() { return _shim.Table->ClientIsLowViolence(_shim.Self); }
+    public void ClientMetalSparks(float* a0, float* a1) { _shim.Table->ClientMetalSparks(_shim.Self, a0, a1); }
+    public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { _shim.Table->ClientMuzzleFlash(_shim.Self, a0, a1, a2, a3); }
+    public void ClientPlayerDecalShoot(float* a0, int a1, int a2) { _shim.Table->ClientPlayerDecalShoot(_shim.Self, a0, a1, a2); }
+    public void ClientRicochet(float* a0, float* a1) { _shim.Table->ClientRicochet(_shim.Self, a0, a1); }
+    public void ClientSmoke(float* a0, int a1, float a2, float a3) { _shim.Table->ClientSmoke(_shim.Self, a0, a1, a2, a3); }
+    public void ClientSparks(float* a0, int a1, int a2, float* a3) { _shim.Table->ClientSparks(_shim.Self, a0, a1, a2, a3); }
+    public void EffectDispatchName(int a0, byte* a1, int a2) { _shim.Table->EffectDispatchName(_shim.Self, a0, a1, a2); }
+    public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) { return _shim.Table->TempEntBuildClient(_shim.Self, a0, a1, a2, a3); }
+}
+
+/// <summary>
+/// <c>IShimEffectsRenderClient</c> as its consumers take it: <see cref="EffectsRenderClientArea"/> over the engine,
+/// or a test's default (<c>DefaultEffectsRenderClientArea</c>).
+/// </summary>
+internal unsafe interface IEffectsRenderClientArea
+{
+    int DrawSprite(uint a0, int a1, float a2, int a3, int a4, int a5, int a6, int a7, int a8, float a9, int a10, float a11, float a12);
+    int DrawSpriteOffset(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13);
+    int ParticleSystemFollowPoints(uint a0, int a1);
+    int ParticleSystemStart(uint a0, byte* a1);
+    void ParticleSystemStop(uint a0);
+    void SpriteTrailDestroy(uint a0);
+    void SpriteTrailUpdate(uint a0, int a1, int a2);
+    void WindPublish(float* a0, float* a1, int a2);
+    int RopeMaterial(byte* a0, int* a1, int* a2);
+    void RopeDraw(int a0, float* a1, int a2, float* a3, int a4, int a5);
+    void ClientViewState(int a0, float* a1, float* a2, float* a3, float* a4, int* a5, int* a6, int* a7);
+    void ClientComputeLighting(float* a0, float* a1, float* a2);
+    float ClientTraceHullWorld(float* a0, float* a1, float* a2, float* a3, int a4, int* a5, float* a6);
+    void BeamView(int a0, float* a1);
+    int BeamModelInfo(int a0, int* a1);
+    int BeamModelIndex(byte* a0);
+    uint BeamEntityAt(int a0);
+    int BeamEntityHasModel(uint a0);
+    int BeamEntityFacts(uint a0, int a1, int a2, float* a3);
+    int BeamBoxVisibility(float* a0, float* a1);
+    int BeamScreenPosition(float* a0, float* a1);
+    int BeamRenderableAdd(float* a0);
+    void BeamRenderableChanged(int a0, float* a1);
+    void BeamRenderableRemove(int a0);
+    int BeamBindSprite(int a0, int a1, int a2, int a3);
+    void BeamSetHdrColorScale(int a0, int a1, float a2);
+    int BeamGlow(int a0, int a1);
+    void BeamDrawStrip(float* a0, int a1);
+    void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4);
 }
 
 /// <summary>
 /// <c>IShimEffectsRenderClient</c>, served as <c>SourceSharpEffectsRenderClient001</c>, through <see cref="ShimEffectsRenderClientFwd"/>.
 /// </summary>
-internal sealed unsafe class EffectsRenderClientArea
+internal sealed unsafe class EffectsRenderClientArea : IEffectsRenderClientArea
 {
     private readonly ShimRef<ShimEffectsRenderClientFwd> _shim;
 
     internal EffectsRenderClientArea(ShimRef<ShimEffectsRenderClientFwd> shim) { _shim = shim; }
 
-    public int DrawSprite(uint a0, int a1, float a2, int a3, int a4, int a5, int a6, int a7, int a8, float a9, int a10, float a11, float a12) { return _shim.Vt->DrawSprite(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12); }
-    public int DrawSpriteOffset(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13) { return _shim.Vt->DrawSpriteOffset(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13); }
-    public int ParticleSystemFollowPoints(uint a0, int a1) { return _shim.Vt->ParticleSystemFollowPoints(_shim.Self, a0, a1); }
-    public int ParticleSystemStart(uint a0, byte* a1) { return _shim.Vt->ParticleSystemStart(_shim.Self, a0, a1); }
-    public void ParticleSystemStop(uint a0) { _shim.Vt->ParticleSystemStop(_shim.Self, a0); }
-    public void SpriteTrailDestroy(uint a0) { _shim.Vt->SpriteTrailDestroy(_shim.Self, a0); }
-    public void SpriteTrailUpdate(uint a0, int a1, int a2) { _shim.Vt->SpriteTrailUpdate(_shim.Self, a0, a1, a2); }
-    public void WindPublish(float* a0, float* a1, int a2) { _shim.Vt->WindPublish(_shim.Self, a0, a1, a2); }
-    public int RopeMaterial(byte* a0, int* a1, int* a2) { return _shim.Vt->RopeMaterial(_shim.Self, a0, a1, a2); }
-    public void RopeDraw(int a0, float* a1, int a2, float* a3, int a4, int a5) { _shim.Vt->RopeDraw(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void ClientViewState(int a0, float* a1, float* a2, float* a3, float* a4, int* a5, int* a6, int* a7) { _shim.Vt->ClientViewState(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public void ClientComputeLighting(float* a0, float* a1, float* a2) { _shim.Vt->ClientComputeLighting(_shim.Self, a0, a1, a2); }
-    public float ClientTraceHullWorld(float* a0, float* a1, float* a2, float* a3, int a4, int* a5, float* a6) { return _shim.Vt->ClientTraceHullWorld(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public void BeamView(int a0, float* a1) { _shim.Vt->BeamView(_shim.Self, a0, a1); }
-    public int BeamModelInfo(int a0, int* a1) { return _shim.Vt->BeamModelInfo(_shim.Self, a0, a1); }
-    public int BeamModelIndex(byte* a0) { return _shim.Vt->BeamModelIndex(_shim.Self, a0); }
-    public uint BeamEntityAt(int a0) { return _shim.Vt->BeamEntityAt(_shim.Self, a0); }
-    public int BeamEntityHasModel(uint a0) { return _shim.Vt->BeamEntityHasModel(_shim.Self, a0); }
-    public int BeamEntityFacts(uint a0, int a1, int a2, float* a3) { return _shim.Vt->BeamEntityFacts(_shim.Self, a0, a1, a2, a3); }
-    public int BeamBoxVisibility(float* a0, float* a1) { return _shim.Vt->BeamBoxVisibility(_shim.Self, a0, a1); }
-    public int BeamScreenPosition(float* a0, float* a1) { return _shim.Vt->BeamScreenPosition(_shim.Self, a0, a1); }
-    public int BeamRenderableAdd(float* a0) { return _shim.Vt->BeamRenderableAdd(_shim.Self, a0); }
-    public void BeamRenderableChanged(int a0, float* a1) { _shim.Vt->BeamRenderableChanged(_shim.Self, a0, a1); }
-    public void BeamRenderableRemove(int a0) { _shim.Vt->BeamRenderableRemove(_shim.Self, a0); }
-    public int BeamBindSprite(int a0, int a1, int a2, int a3) { return _shim.Vt->BeamBindSprite(_shim.Self, a0, a1, a2, a3); }
-    public void BeamSetHdrColorScale(int a0, int a1, float a2) { _shim.Vt->BeamSetHdrColorScale(_shim.Self, a0, a1, a2); }
-    public int BeamGlow(int a0, int a1) { return _shim.Vt->BeamGlow(_shim.Self, a0, a1); }
-    public void BeamDrawStrip(float* a0, int a1) { _shim.Vt->BeamDrawStrip(_shim.Self, a0, a1); }
-    public void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4) { _shim.Vt->BeamDrawMesh(_shim.Self, a0, a1, a2, a3, a4); }
+    public int DrawSprite(uint a0, int a1, float a2, int a3, int a4, int a5, int a6, int a7, int a8, float a9, int a10, float a11, float a12) { return _shim.Table->DrawSprite(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12); }
+    public int DrawSpriteOffset(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13) { return _shim.Table->DrawSpriteOffset(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13); }
+    public int ParticleSystemFollowPoints(uint a0, int a1) { return _shim.Table->ParticleSystemFollowPoints(_shim.Self, a0, a1); }
+    public int ParticleSystemStart(uint a0, byte* a1) { return _shim.Table->ParticleSystemStart(_shim.Self, a0, a1); }
+    public void ParticleSystemStop(uint a0) { _shim.Table->ParticleSystemStop(_shim.Self, a0); }
+    public void SpriteTrailDestroy(uint a0) { _shim.Table->SpriteTrailDestroy(_shim.Self, a0); }
+    public void SpriteTrailUpdate(uint a0, int a1, int a2) { _shim.Table->SpriteTrailUpdate(_shim.Self, a0, a1, a2); }
+    public void WindPublish(float* a0, float* a1, int a2) { _shim.Table->WindPublish(_shim.Self, a0, a1, a2); }
+    public int RopeMaterial(byte* a0, int* a1, int* a2) { return _shim.Table->RopeMaterial(_shim.Self, a0, a1, a2); }
+    public void RopeDraw(int a0, float* a1, int a2, float* a3, int a4, int a5) { _shim.Table->RopeDraw(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void ClientViewState(int a0, float* a1, float* a2, float* a3, float* a4, int* a5, int* a6, int* a7) { _shim.Table->ClientViewState(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public void ClientComputeLighting(float* a0, float* a1, float* a2) { _shim.Table->ClientComputeLighting(_shim.Self, a0, a1, a2); }
+    public float ClientTraceHullWorld(float* a0, float* a1, float* a2, float* a3, int a4, int* a5, float* a6) { return _shim.Table->ClientTraceHullWorld(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public void BeamView(int a0, float* a1) { _shim.Table->BeamView(_shim.Self, a0, a1); }
+    public int BeamModelInfo(int a0, int* a1) { return _shim.Table->BeamModelInfo(_shim.Self, a0, a1); }
+    public int BeamModelIndex(byte* a0) { return _shim.Table->BeamModelIndex(_shim.Self, a0); }
+    public uint BeamEntityAt(int a0) { return _shim.Table->BeamEntityAt(_shim.Self, a0); }
+    public int BeamEntityHasModel(uint a0) { return _shim.Table->BeamEntityHasModel(_shim.Self, a0); }
+    public int BeamEntityFacts(uint a0, int a1, int a2, float* a3) { return _shim.Table->BeamEntityFacts(_shim.Self, a0, a1, a2, a3); }
+    public int BeamBoxVisibility(float* a0, float* a1) { return _shim.Table->BeamBoxVisibility(_shim.Self, a0, a1); }
+    public int BeamScreenPosition(float* a0, float* a1) { return _shim.Table->BeamScreenPosition(_shim.Self, a0, a1); }
+    public int BeamRenderableAdd(float* a0) { return _shim.Table->BeamRenderableAdd(_shim.Self, a0); }
+    public void BeamRenderableChanged(int a0, float* a1) { _shim.Table->BeamRenderableChanged(_shim.Self, a0, a1); }
+    public void BeamRenderableRemove(int a0) { _shim.Table->BeamRenderableRemove(_shim.Self, a0); }
+    public int BeamBindSprite(int a0, int a1, int a2, int a3) { return _shim.Table->BeamBindSprite(_shim.Self, a0, a1, a2, a3); }
+    public void BeamSetHdrColorScale(int a0, int a1, float a2) { _shim.Table->BeamSetHdrColorScale(_shim.Self, a0, a1, a2); }
+    public int BeamGlow(int a0, int a1) { return _shim.Table->BeamGlow(_shim.Self, a0, a1); }
+    public void BeamDrawStrip(float* a0, int a1) { _shim.Table->BeamDrawStrip(_shim.Self, a0, a1); }
+    public void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4) { _shim.Table->BeamDrawMesh(_shim.Self, a0, a1, a2, a3, a4); }
+}
+
+/// <summary>
+/// <c>IShimStandaloneClient</c> as its consumers take it: <see cref="StandaloneClientArea"/> over the engine,
+/// or a test's default (<c>DefaultStandaloneClientArea</c>).
+/// </summary>
+internal unsafe interface IStandaloneClientArea
+{
+    void ActivateOccluder(int a0, int a1);
+    void** ClientInterpBlocks(int* a0, float* a1);
+    void** ClientPolicyBlocks(int* a0);
+    void DynamicLightRelease(int a0);
+    void DynamicLightUpdate(DynamicLight* a0);
+    int StandaloneIsDormant(uint a0);
+    void StandaloneSetBlending(uint a0, int a1, int a2, int a3);
+    void StandaloneSetCustomDraw(uint a0, float* a1, float* a2);
+    void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4);
+    void StandaloneSetOverlayModel(uint a0, int a1);
+    void StandaloneSetShadowCast(uint a0, int a1);
+    void StandaloneSetViewModel(uint a0, int a1);
+    int StandaloneShadowCast(uint a0, int* a1, int* a2);
+    void SurfaceSetEdges(uint a0, byte* a1, int a2);
+    int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10);
+    int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7);
+    void* StandaloneEngineBlock(uint a0, int* a1);
+    void StandaloneStoreSequence(uint a0, int a1, float a2, float a3, float a4, int a5);
+    void StandaloneSetRagdoll(uint a0, int a1);
+    void EntitySetSkin(uint a0, int a1);
+    void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5);
 }
 
 /// <summary>
 /// <c>IShimStandaloneClient</c>, served as <c>SourceSharpStandaloneClient001</c>, through <see cref="ShimStandaloneClientFwd"/>.
 /// </summary>
-internal sealed unsafe class StandaloneClientArea
+internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
 {
     private readonly ShimRef<ShimStandaloneClientFwd> _shim;
 
     internal StandaloneClientArea(ShimRef<ShimStandaloneClientFwd> shim) { _shim = shim; }
 
-    public void ActivateOccluder(int a0, int a1) { _shim.Vt->ActivateOccluder(_shim.Self, a0, a1); }
-    public void** ClientInterpBlocks(int* a0, float* a1) { return (void**)_shim.Vt->ClientInterpBlocks(_shim.Self, a0, a1); }
-    public void** ClientPolicyBlocks(int* a0) { return (void**)_shim.Vt->ClientPolicyBlocks(_shim.Self, a0); }
-    public void DynamicLightRelease(int a0) { _shim.Vt->DynamicLightRelease(_shim.Self, a0); }
-    public void DynamicLightUpdate(DynamicLight* a0) { _shim.Vt->DynamicLightUpdate(_shim.Self, a0); }
-    public int StandaloneIsDormant(uint a0) { return _shim.Vt->StandaloneIsDormant(_shim.Self, a0); }
-    public void StandaloneSetBlending(uint a0, int a1, int a2, int a3) { _shim.Vt->StandaloneSetBlending(_shim.Self, a0, a1, a2, a3); }
-    public void StandaloneSetCustomDraw(uint a0, float* a1, float* a2) { _shim.Vt->StandaloneSetCustomDraw(_shim.Self, a0, a1, a2); }
-    public void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4) { _shim.Vt->StandaloneSetFade(_shim.Self, a0, a1, a2, a3, a4); }
-    public void StandaloneSetOverlayModel(uint a0, int a1) { _shim.Vt->StandaloneSetOverlayModel(_shim.Self, a0, a1); }
-    public void StandaloneSetShadowCast(uint a0, int a1) { _shim.Vt->StandaloneSetShadowCast(_shim.Self, a0, a1); }
-    public void StandaloneSetViewModel(uint a0, int a1) { _shim.Vt->StandaloneSetViewModel(_shim.Self, a0, a1); }
-    public int StandaloneShadowCast(uint a0, int* a1, int* a2) { return _shim.Vt->StandaloneShadowCast(_shim.Self, a0, a1, a2); }
-    public void SurfaceSetEdges(uint a0, byte* a1, int a2) { _shim.Vt->SurfaceSetEdges(_shim.Self, a0, a1, a2); }
-    public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) { return _shim.Vt->ClientRecvProp(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
-    public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) { return _shim.Vt->ClientSchemaRefusal(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public void* StandaloneEngineBlock(uint a0, int* a1) { return _shim.Vt->StandaloneEngineBlock(_shim.Self, a0, a1); }
-    public void StandaloneStoreSequence(uint a0, int a1, float a2, float a3, float a4, int a5) { _shim.Vt->StandaloneStoreSequence(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void StandaloneSetRagdoll(uint a0, int a1) { _shim.Vt->StandaloneSetRagdoll(_shim.Self, a0, a1); }
-    public void EntitySetSkin(uint a0, int a1) { _shim.Vt->EntitySetSkin(_shim.Self, a0, a1); }
-    public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { _shim.Vt->RegisterAmmoType(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void ActivateOccluder(int a0, int a1) { _shim.Table->ActivateOccluder(_shim.Self, a0, a1); }
+    public void** ClientInterpBlocks(int* a0, float* a1) { return (void**)_shim.Table->ClientInterpBlocks(_shim.Self, a0, a1); }
+    public void** ClientPolicyBlocks(int* a0) { return (void**)_shim.Table->ClientPolicyBlocks(_shim.Self, a0); }
+    public void DynamicLightRelease(int a0) { _shim.Table->DynamicLightRelease(_shim.Self, a0); }
+    public void DynamicLightUpdate(DynamicLight* a0) { _shim.Table->DynamicLightUpdate(_shim.Self, a0); }
+    public int StandaloneIsDormant(uint a0) { return _shim.Table->StandaloneIsDormant(_shim.Self, a0); }
+    public void StandaloneSetBlending(uint a0, int a1, int a2, int a3) { _shim.Table->StandaloneSetBlending(_shim.Self, a0, a1, a2, a3); }
+    public void StandaloneSetCustomDraw(uint a0, float* a1, float* a2) { _shim.Table->StandaloneSetCustomDraw(_shim.Self, a0, a1, a2); }
+    public void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4) { _shim.Table->StandaloneSetFade(_shim.Self, a0, a1, a2, a3, a4); }
+    public void StandaloneSetOverlayModel(uint a0, int a1) { _shim.Table->StandaloneSetOverlayModel(_shim.Self, a0, a1); }
+    public void StandaloneSetShadowCast(uint a0, int a1) { _shim.Table->StandaloneSetShadowCast(_shim.Self, a0, a1); }
+    public void StandaloneSetViewModel(uint a0, int a1) { _shim.Table->StandaloneSetViewModel(_shim.Self, a0, a1); }
+    public int StandaloneShadowCast(uint a0, int* a1, int* a2) { return _shim.Table->StandaloneShadowCast(_shim.Self, a0, a1, a2); }
+    public void SurfaceSetEdges(uint a0, byte* a1, int a2) { _shim.Table->SurfaceSetEdges(_shim.Self, a0, a1, a2); }
+    public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) { return _shim.Table->ClientRecvProp(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
+    public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) { return _shim.Table->ClientSchemaRefusal(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public void* StandaloneEngineBlock(uint a0, int* a1) { return _shim.Table->StandaloneEngineBlock(_shim.Self, a0, a1); }
+    public void StandaloneStoreSequence(uint a0, int a1, float a2, float a3, float a4, int a5) { _shim.Table->StandaloneStoreSequence(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void StandaloneSetRagdoll(uint a0, int a1) { _shim.Table->StandaloneSetRagdoll(_shim.Self, a0, a1); }
+    public void EntitySetSkin(uint a0, int a1) { _shim.Table->EntitySetSkin(_shim.Self, a0, a1); }
+    public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { _shim.Table->RegisterAmmoType(_shim.Self, a0, a1, a2, a3, a4, a5); }
+}
+
+/// <summary>
+/// <c>IShimViewClient</c> as its consumers take it: <see cref="ViewClientArea"/> over the engine,
+/// or a test's default (<c>DefaultViewClientArea</c>).
+/// </summary>
+internal unsafe interface IViewClientArea
+{
+    void ConNPrintf(void* a0, int a1, byte* a2);
+    void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5);
+    void GetLightForPoint(void* a0, float* a1, int a2, float* a3);
+    void GetLightForPointFast(void* a0, float* a1, int a2, float* a3);
+    int ClientColorCorrection(int a0, int a1, byte* a2, float a3);
+    void ClientSetWorldRenderState(int a0, float* a1, int a2);
+    int GetLocalPlayerOrigin(float* a0);
+    void SetViewerFogParams(FogParams* a0);
+    void SetViewerSkyboxParams(SkyboxParams* a0);
+    int ClientTraceLine(float* a0, float* a1, int a2, int a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11);
+    int ClientTraceHull(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int a6, float* a7, float* a8);
+    int ClientEntityRenderPose(int a0, float* a1, float* a2);
+    void ViewOverrideSet(int a0, float* a1, float* a2, int a3);
+    int EntitiesUpdateVisibilityAll();
+    int RenderViewToTarget(int a0, ViewTargetSetup* a1);
+    int ViewTargetInfo(int a0, int* a1);
+    int RenderTargetDeclare(int a0, byte* a1, byte* a2, int a3, int a4, int a5);
+    int PixelVisQueryCreate();
+    void PixelVisQueryDestroy(int a0);
+    void PixelVisQueryReset(int a0);
+    void PixelVisQueryPixels(int a0, int a1, int* a2);
+    void PixelVisDiameters(float* a0, int a1, float* a2);
+    int PixelVisView(float* a0, int a1);
+    int GlowMaterialFind(byte* a0, byte* a1);
 }
 
 /// <summary>
 /// <c>IShimViewClient</c>, served as <c>SourceSharpViewClient001</c>, through <see cref="ShimViewClientFwd"/>.
 /// </summary>
-internal sealed unsafe class ViewClientArea
+internal sealed unsafe class ViewClientArea : IViewClientArea
 {
     private readonly ShimRef<ShimViewClientFwd> _shim;
 
     internal ViewClientArea(ShimRef<ShimViewClientFwd> shim) { _shim = shim; }
 
-    public void ConNPrintf(void* a0, int a1, byte* a2) { _shim.Vt->ConNPrintf(_shim.Self, a0, a1, a2); }
-    public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { _shim.Vt->ConNXPrintf(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { _shim.Vt->GetLightForPoint(_shim.Self, a0, a1, a2, a3); }
-    public void GetLightForPointFast(void* a0, float* a1, int a2, float* a3) { _shim.Vt->GetLightForPointFast(_shim.Self, a0, a1, a2, a3); }
-    public int ClientColorCorrection(int a0, int a1, byte* a2, float a3) { return _shim.Vt->ClientColorCorrection(_shim.Self, a0, a1, a2, a3); }
-    public void ClientSetWorldRenderState(int a0, float* a1, int a2) { _shim.Vt->ClientSetWorldRenderState(_shim.Self, a0, a1, a2); }
-    public int GetLocalPlayerOrigin(float* a0) { return _shim.Vt->GetLocalPlayerOrigin(_shim.Self, a0); }
-    public void SetViewerFogParams(FogParams* a0) { _shim.Vt->SetViewerFogParams(_shim.Self, a0); }
-    public void SetViewerSkyboxParams(SkyboxParams* a0) { _shim.Vt->SetViewerSkyboxParams(_shim.Self, a0); }
-    public int ClientTraceLine(float* a0, float* a1, int a2, int a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) { return _shim.Vt->ClientTraceLine(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
-    public int ClientTraceHull(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int a6, float* a7, float* a8) { return _shim.Vt->ClientTraceHull(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8); }
-    public int ClientEntityRenderPose(int a0, float* a1, float* a2) { return _shim.Vt->ClientEntityRenderPose(_shim.Self, a0, a1, a2); }
-    public void ViewOverrideSet(int a0, float* a1, float* a2, int a3) { _shim.Vt->ViewOverrideSet(_shim.Self, a0, a1, a2, a3); }
-    public int EntitiesUpdateVisibilityAll() { return _shim.Vt->EntitiesUpdateVisibilityAll(_shim.Self); }
-    public int RenderViewToTarget(int a0, ViewTargetSetup* a1) { return _shim.Vt->RenderViewToTarget(_shim.Self, a0, a1); }
-    public int ViewTargetInfo(int a0, int* a1) { return _shim.Vt->ViewTargetInfo(_shim.Self, a0, a1); }
-    public int RenderTargetDeclare(int a0, byte* a1, byte* a2, int a3, int a4, int a5) { return _shim.Vt->RenderTargetDeclare(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public int PixelVisQueryCreate() { return _shim.Vt->PixelVisQueryCreate(_shim.Self); }
-    public void PixelVisQueryDestroy(int a0) { _shim.Vt->PixelVisQueryDestroy(_shim.Self, a0); }
-    public void PixelVisQueryReset(int a0) { _shim.Vt->PixelVisQueryReset(_shim.Self, a0); }
-    public void PixelVisQueryPixels(int a0, int a1, int* a2) { _shim.Vt->PixelVisQueryPixels(_shim.Self, a0, a1, a2); }
-    public void PixelVisDiameters(float* a0, int a1, float* a2) { _shim.Vt->PixelVisDiameters(_shim.Self, a0, a1, a2); }
-    public int PixelVisView(float* a0, int a1) { return _shim.Vt->PixelVisView(_shim.Self, a0, a1); }
-    public int GlowMaterialFind(byte* a0, byte* a1) { return _shim.Vt->GlowMaterialFind(_shim.Self, a0, a1); }
+    public void ConNPrintf(void* a0, int a1, byte* a2) { _shim.Table->ConNPrintf(_shim.Self, a0, a1, a2); }
+    public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { _shim.Table->ConNXPrintf(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { _shim.Table->GetLightForPoint(_shim.Self, a0, a1, a2, a3); }
+    public void GetLightForPointFast(void* a0, float* a1, int a2, float* a3) { _shim.Table->GetLightForPointFast(_shim.Self, a0, a1, a2, a3); }
+    public int ClientColorCorrection(int a0, int a1, byte* a2, float a3) { return _shim.Table->ClientColorCorrection(_shim.Self, a0, a1, a2, a3); }
+    public void ClientSetWorldRenderState(int a0, float* a1, int a2) { _shim.Table->ClientSetWorldRenderState(_shim.Self, a0, a1, a2); }
+    public int GetLocalPlayerOrigin(float* a0) { return _shim.Table->GetLocalPlayerOrigin(_shim.Self, a0); }
+    public void SetViewerFogParams(FogParams* a0) { _shim.Table->SetViewerFogParams(_shim.Self, a0); }
+    public void SetViewerSkyboxParams(SkyboxParams* a0) { _shim.Table->SetViewerSkyboxParams(_shim.Self, a0); }
+    public int ClientTraceLine(float* a0, float* a1, int a2, int a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) { return _shim.Table->ClientTraceLine(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
+    public int ClientTraceHull(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int a6, float* a7, float* a8) { return _shim.Table->ClientTraceHull(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8); }
+    public int ClientEntityRenderPose(int a0, float* a1, float* a2) { return _shim.Table->ClientEntityRenderPose(_shim.Self, a0, a1, a2); }
+    public void ViewOverrideSet(int a0, float* a1, float* a2, int a3) { _shim.Table->ViewOverrideSet(_shim.Self, a0, a1, a2, a3); }
+    public int EntitiesUpdateVisibilityAll() { return _shim.Table->EntitiesUpdateVisibilityAll(_shim.Self); }
+    public int RenderViewToTarget(int a0, ViewTargetSetup* a1) { return _shim.Table->RenderViewToTarget(_shim.Self, a0, a1); }
+    public int ViewTargetInfo(int a0, int* a1) { return _shim.Table->ViewTargetInfo(_shim.Self, a0, a1); }
+    public int RenderTargetDeclare(int a0, byte* a1, byte* a2, int a3, int a4, int a5) { return _shim.Table->RenderTargetDeclare(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int PixelVisQueryCreate() { return _shim.Table->PixelVisQueryCreate(_shim.Self); }
+    public void PixelVisQueryDestroy(int a0) { _shim.Table->PixelVisQueryDestroy(_shim.Self, a0); }
+    public void PixelVisQueryReset(int a0) { _shim.Table->PixelVisQueryReset(_shim.Self, a0); }
+    public void PixelVisQueryPixels(int a0, int a1, int* a2) { _shim.Table->PixelVisQueryPixels(_shim.Self, a0, a1, a2); }
+    public void PixelVisDiameters(float* a0, int a1, float* a2) { _shim.Table->PixelVisDiameters(_shim.Self, a0, a1, a2); }
+    public int PixelVisView(float* a0, int a1) { return _shim.Table->PixelVisView(_shim.Self, a0, a1); }
+    public int GlowMaterialFind(byte* a0, byte* a1) { return _shim.Table->GlowMaterialFind(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimUserMessagesClient</c> as its consumers take it: <see cref="UserMessagesClientArea"/> over the engine,
+/// or a test's default (<c>DefaultUserMessagesClientArea</c>).
+/// </summary>
+internal unsafe interface IUserMessagesClientArea
+{
+    int ClientViewportQuery(byte* a0);
+    void ClientViewportShow(byte* a0, int a1, byte* a2, int a3, int a4);
 }
 
 /// <summary>
 /// <c>IShimUserMessagesClient</c>, served as <c>SourceSharpUserMessagesClient001</c>, through <see cref="ShimUserMessagesClientFwd"/>.
 /// </summary>
-internal sealed unsafe class UserMessagesClientArea
+internal sealed unsafe class UserMessagesClientArea : IUserMessagesClientArea
 {
     private readonly ShimRef<ShimUserMessagesClientFwd> _shim;
 
     internal UserMessagesClientArea(ShimRef<ShimUserMessagesClientFwd> shim) { _shim = shim; }
 
-    public int ClientViewportQuery(byte* a0) { return _shim.Vt->ClientViewportQuery(_shim.Self, a0); }
-    public void ClientViewportShow(byte* a0, int a1, byte* a2, int a3, int a4) { _shim.Vt->ClientViewportShow(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ClientViewportQuery(byte* a0) { return _shim.Table->ClientViewportQuery(_shim.Self, a0); }
+    public void ClientViewportShow(byte* a0, int a1, byte* a2, int a3, int a4) { _shim.Table->ClientViewportShow(_shim.Self, a0, a1, a2, a3, a4); }
+}
+
+/// <summary>
+/// <c>IShimNetClient</c> as its consumers take it: <see cref="NetClientArea"/> over the engine,
+/// or a test's default (<c>DefaultNetClientArea</c>).
+/// </summary>
+internal unsafe interface INetClientArea
+{
+    int SendServerMessage(byte* a0, byte* a1, int a2);
+    int ClientNetFlow(int a0, float* a1, int a2);
+    int ClientNetChannel(float* a0, int a1);
+    int ClientNetPacket(int a0, int a1, float* a2, int a3);
 }
 
 /// <summary>
 /// <c>IShimNetClient</c>, served as <c>SourceSharpNetClient001</c>, through <see cref="ShimNetClientFwd"/>.
 /// </summary>
-internal sealed unsafe class NetClientArea
+internal sealed unsafe class NetClientArea : INetClientArea
 {
     private readonly ShimRef<ShimNetClientFwd> _shim;
 
     internal NetClientArea(ShimRef<ShimNetClientFwd> shim) { _shim = shim; }
 
-    public int SendServerMessage(byte* a0, byte* a1, int a2) { return _shim.Vt->SendServerMessage(_shim.Self, a0, a1, a2); }
-    public int ClientNetFlow(int a0, float* a1, int a2) { return _shim.Vt->ClientNetFlow(_shim.Self, a0, a1, a2); }
-    public int ClientNetChannel(float* a0, int a1) { return _shim.Vt->ClientNetChannel(_shim.Self, a0, a1); }
-    public int ClientNetPacket(int a0, int a1, float* a2, int a3) { return _shim.Vt->ClientNetPacket(_shim.Self, a0, a1, a2, a3); }
+    public int SendServerMessage(byte* a0, byte* a1, int a2) { return _shim.Table->SendServerMessage(_shim.Self, a0, a1, a2); }
+    public int ClientNetFlow(int a0, float* a1, int a2) { return _shim.Table->ClientNetFlow(_shim.Self, a0, a1, a2); }
+    public int ClientNetChannel(float* a0, int a1) { return _shim.Table->ClientNetChannel(_shim.Self, a0, a1); }
+    public int ClientNetPacket(int a0, int a1, float* a2, int a3) { return _shim.Table->ClientNetPacket(_shim.Self, a0, a1, a2, a3); }
+}
+
+/// <summary>
+/// <c>IShimDiagnosticsClient</c> as its consumers take it: <see cref="DiagnosticsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultDiagnosticsClientArea</c>).
+/// </summary>
+internal unsafe interface IDiagnosticsClientArea
+{
+    int ClientNotShipped(int a0, byte* a1, int a2, byte* a3, int a4, int* a5, int* a6);
+    int ClientRefusal(int a0, byte* a1, int a2, int* a3, int* a4);
 }
 
 /// <summary>
 /// <c>IShimDiagnosticsClient</c>, served as <c>SourceSharpDiagnosticsClient001</c>, through <see cref="ShimDiagnosticsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class DiagnosticsClientArea
+internal sealed unsafe class DiagnosticsClientArea : IDiagnosticsClientArea
 {
     private readonly ShimRef<ShimDiagnosticsClientFwd> _shim;
 
     internal DiagnosticsClientArea(ShimRef<ShimDiagnosticsClientFwd> shim) { _shim = shim; }
 
-    public int ClientNotShipped(int a0, byte* a1, int a2, byte* a3, int a4, int* a5, int* a6) { return _shim.Vt->ClientNotShipped(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public int ClientRefusal(int a0, byte* a1, int a2, int* a3, int* a4) { return _shim.Vt->ClientRefusal(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ClientNotShipped(int a0, byte* a1, int a2, byte* a3, int a4, int* a5, int* a6) { return _shim.Table->ClientNotShipped(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public int ClientRefusal(int a0, byte* a1, int a2, int* a3, int* a4) { return _shim.Table->ClientRefusal(_shim.Self, a0, a1, a2, a3, a4); }
+}
+
+/// <summary>
+/// <c>IShimUiClient</c> as its consumers take it: <see cref="UiClientArea"/> over the engine,
+/// or a test's default (<c>DefaultUiClientArea</c>).
+/// </summary>
+internal unsafe interface IUiClientArea
+{
+    void UiDrawFilledRect(int a0, int a1, int a2, int a3, uint a4);
+    void UiDrawFilledRectFade(int a0, int a1, int a2, int a3, uint a4, int a5, int a6, int a7);
+    void UiDrawOutlinedRect(int a0, int a1, int a2, int a3, uint a4);
+    void UiDrawLine(int a0, int a1, int a2, int a3, uint a4);
+    void UiDrawTexturedRect(int a0, int a1, int a2, int a3, int a4, float a5, float a6, float a7, float a8, uint a9);
+    void UiDrawPolygon(int a0, float* a1, int a2, uint a3);
+    void UiDrawText(int a0, int a1, int a2, ushort* a3, int a4, uint a5);
+    void UiMeasureText(int a0, ushort* a1, int a2, int* a3, int* a4);
+    void UiSetClip(int a0, int a1, int a2, int a3, int a4);
+    int UiTextureCreate();
+    void UiTextureUpload(int a0, byte* a1, int a2, int a3);
+    int UiFontAddFile(byte* a0);
+    int UiFontCreate(byte* a0, int a1, int a2, int a3);
+    void UiFontMetrics(int a0, int* a1, int* a2);
+    int UiFontAdvances(int a0, int a1, int a2, int* a3);
+    void UiScreenSize(int* a0, int* a1);
+    void UiPlaySound(byte* a0);
+    void UiSetMenuInput(int a0, int a1);
+    void UiSetCursor(int a0);
+    int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6);
+    void UiDebugOverlayClearDead();
+    void ClientModeLayout();
 }
 
 /// <summary>
 /// <c>IShimUiClient</c>, served as <c>SourceSharpUiClient001</c>, through <see cref="ShimUiClientFwd"/>.
 /// </summary>
-internal sealed unsafe class UiClientArea
+internal sealed unsafe class UiClientArea : IUiClientArea
 {
     private readonly ShimRef<ShimUiClientFwd> _shim;
 
     internal UiClientArea(ShimRef<ShimUiClientFwd> shim) { _shim = shim; }
 
-    public void UiDrawFilledRect(int a0, int a1, int a2, int a3, uint a4) { _shim.Vt->UiDrawFilledRect(_shim.Self, a0, a1, a2, a3, a4); }
-    public void UiDrawFilledRectFade(int a0, int a1, int a2, int a3, uint a4, int a5, int a6, int a7) { _shim.Vt->UiDrawFilledRectFade(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public void UiDrawOutlinedRect(int a0, int a1, int a2, int a3, uint a4) { _shim.Vt->UiDrawOutlinedRect(_shim.Self, a0, a1, a2, a3, a4); }
-    public void UiDrawLine(int a0, int a1, int a2, int a3, uint a4) { _shim.Vt->UiDrawLine(_shim.Self, a0, a1, a2, a3, a4); }
-    public void UiDrawTexturedRect(int a0, int a1, int a2, int a3, int a4, float a5, float a6, float a7, float a8, uint a9) { _shim.Vt->UiDrawTexturedRect(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9); }
-    public void UiDrawPolygon(int a0, float* a1, int a2, uint a3) { _shim.Vt->UiDrawPolygon(_shim.Self, a0, a1, a2, a3); }
-    public void UiDrawText(int a0, int a1, int a2, ushort* a3, int a4, uint a5) { _shim.Vt->UiDrawText(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void UiMeasureText(int a0, ushort* a1, int a2, int* a3, int* a4) { _shim.Vt->UiMeasureText(_shim.Self, a0, a1, a2, a3, a4); }
-    public void UiSetClip(int a0, int a1, int a2, int a3, int a4) { _shim.Vt->UiSetClip(_shim.Self, a0, a1, a2, a3, a4); }
-    public int UiTextureCreate() { return _shim.Vt->UiTextureCreate(_shim.Self); }
-    public void UiTextureUpload(int a0, byte* a1, int a2, int a3) { _shim.Vt->UiTextureUpload(_shim.Self, a0, a1, a2, a3); }
-    public int UiFontAddFile(byte* a0) { return _shim.Vt->UiFontAddFile(_shim.Self, a0); }
-    public int UiFontCreate(byte* a0, int a1, int a2, int a3) { return _shim.Vt->UiFontCreate(_shim.Self, a0, a1, a2, a3); }
-    public void UiFontMetrics(int a0, int* a1, int* a2) { _shim.Vt->UiFontMetrics(_shim.Self, a0, a1, a2); }
-    public int UiFontAdvances(int a0, int a1, int a2, int* a3) { return _shim.Vt->UiFontAdvances(_shim.Self, a0, a1, a2, a3); }
-    public void UiScreenSize(int* a0, int* a1) { _shim.Vt->UiScreenSize(_shim.Self, a0, a1); }
-    public void UiPlaySound(byte* a0) { _shim.Vt->UiPlaySound(_shim.Self, a0); }
-    public void UiSetMenuInput(int a0, int a1) { _shim.Vt->UiSetMenuInput(_shim.Self, a0, a1); }
-    public void UiSetCursor(int a0) { _shim.Vt->UiSetCursor(_shim.Self, a0); }
-    public int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6) { return _shim.Vt->UiDebugOverlayText(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public void UiDebugOverlayClearDead() { _shim.Vt->UiDebugOverlayClearDead(_shim.Self); }
-    public void ClientModeLayout() { _shim.Vt->ClientModeLayout(_shim.Self); }
+    public void UiDrawFilledRect(int a0, int a1, int a2, int a3, uint a4) { _shim.Table->UiDrawFilledRect(_shim.Self, a0, a1, a2, a3, a4); }
+    public void UiDrawFilledRectFade(int a0, int a1, int a2, int a3, uint a4, int a5, int a6, int a7) { _shim.Table->UiDrawFilledRectFade(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public void UiDrawOutlinedRect(int a0, int a1, int a2, int a3, uint a4) { _shim.Table->UiDrawOutlinedRect(_shim.Self, a0, a1, a2, a3, a4); }
+    public void UiDrawLine(int a0, int a1, int a2, int a3, uint a4) { _shim.Table->UiDrawLine(_shim.Self, a0, a1, a2, a3, a4); }
+    public void UiDrawTexturedRect(int a0, int a1, int a2, int a3, int a4, float a5, float a6, float a7, float a8, uint a9) { _shim.Table->UiDrawTexturedRect(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9); }
+    public void UiDrawPolygon(int a0, float* a1, int a2, uint a3) { _shim.Table->UiDrawPolygon(_shim.Self, a0, a1, a2, a3); }
+    public void UiDrawText(int a0, int a1, int a2, ushort* a3, int a4, uint a5) { _shim.Table->UiDrawText(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void UiMeasureText(int a0, ushort* a1, int a2, int* a3, int* a4) { _shim.Table->UiMeasureText(_shim.Self, a0, a1, a2, a3, a4); }
+    public void UiSetClip(int a0, int a1, int a2, int a3, int a4) { _shim.Table->UiSetClip(_shim.Self, a0, a1, a2, a3, a4); }
+    public int UiTextureCreate() { return _shim.Table->UiTextureCreate(_shim.Self); }
+    public void UiTextureUpload(int a0, byte* a1, int a2, int a3) { _shim.Table->UiTextureUpload(_shim.Self, a0, a1, a2, a3); }
+    public int UiFontAddFile(byte* a0) { return _shim.Table->UiFontAddFile(_shim.Self, a0); }
+    public int UiFontCreate(byte* a0, int a1, int a2, int a3) { return _shim.Table->UiFontCreate(_shim.Self, a0, a1, a2, a3); }
+    public void UiFontMetrics(int a0, int* a1, int* a2) { _shim.Table->UiFontMetrics(_shim.Self, a0, a1, a2); }
+    public int UiFontAdvances(int a0, int a1, int a2, int* a3) { return _shim.Table->UiFontAdvances(_shim.Self, a0, a1, a2, a3); }
+    public void UiScreenSize(int* a0, int* a1) { _shim.Table->UiScreenSize(_shim.Self, a0, a1); }
+    public void UiPlaySound(byte* a0) { _shim.Table->UiPlaySound(_shim.Self, a0); }
+    public void UiSetMenuInput(int a0, int a1) { _shim.Table->UiSetMenuInput(_shim.Self, a0, a1); }
+    public void UiSetCursor(int a0) { _shim.Table->UiSetCursor(_shim.Self, a0); }
+    public int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6) { return _shim.Table->UiDebugOverlayText(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public void UiDebugOverlayClearDead() { _shim.Table->UiDebugOverlayClearDead(_shim.Self); }
+    public void ClientModeLayout() { _shim.Table->ClientModeLayout(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimParticlesClient</c> as its consumers take it: <see cref="ParticlesClientArea"/> over the engine,
+/// or a test's default (<c>DefaultParticlesClientArea</c>).
+/// </summary>
+internal unsafe interface IParticlesClientArea
+{
+    int ParticlesCreate(uint a0, int a1, byte* a2, float a3, int a4);
+    void ParticlesConfigure(uint a0, int a1, float a2);
+    void ParticlesDestroy(uint a0, int a1);
+    void ParticlesSetLights(uint a0, int a1, float* a2, int a3);
+    int ParticlesTraceLine(float* a0, float* a1, int a2, float* a3, int a4);
+    int WorldTextMeshUpdate(uint a0, byte* a1, float* a2, int a3);
+    void WorldTextMeshDestroy(uint a0);
+    int ParticleSystemsRead(int a0, ParticleSystemInfo* a1, byte* a2, int a3);
+    int ParticleDefinitionReads();
+    int ParticleQueryUnanswered(int* a0, int a1);
+    int ParticlesMaterialVarInt(uint a0, int a1, byte* a2, int* a3);
+    int ParticlesCreateAt(int a0, byte* a1, float* a2, float a3, int a4);
+    int ParticleSystemNameFromIndex(int a0, byte* a1, int a2);
+    int ParticleSystemOneShot(byte* a0, float* a1, float* a2, int a3, float* a4);
+    int ParticlesWorldTrace(float* a0, float* a1, float* a2, int a3);
+    void ParticlesView(float* a0, int* a1, float* a2);
+    int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4);
+    int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5);
+    int ParticlesBrushPointContents(uint a0, float* a1);
 }
 
 /// <summary>
 /// <c>IShimParticlesClient</c>, served as <c>SourceSharpParticlesClient001</c>, through <see cref="ShimParticlesClientFwd"/>.
 /// </summary>
-internal sealed unsafe class ParticlesClientArea
+internal sealed unsafe class ParticlesClientArea : IParticlesClientArea
 {
     private readonly ShimRef<ShimParticlesClientFwd> _shim;
 
     internal ParticlesClientArea(ShimRef<ShimParticlesClientFwd> shim) { _shim = shim; }
 
-    public int ParticlesCreate(uint a0, int a1, byte* a2, float a3, int a4) { return _shim.Vt->ParticlesCreate(_shim.Self, a0, a1, a2, a3, a4); }
-    public void ParticlesConfigure(uint a0, int a1, float a2) { _shim.Vt->ParticlesConfigure(_shim.Self, a0, a1, a2); }
-    public void ParticlesDestroy(uint a0, int a1) { _shim.Vt->ParticlesDestroy(_shim.Self, a0, a1); }
-    public void ParticlesSetLights(uint a0, int a1, float* a2, int a3) { _shim.Vt->ParticlesSetLights(_shim.Self, a0, a1, a2, a3); }
-    public int ParticlesTraceLine(float* a0, float* a1, int a2, float* a3, int a4) { return _shim.Vt->ParticlesTraceLine(_shim.Self, a0, a1, a2, a3, a4); }
-    public int WorldTextMeshUpdate(uint a0, byte* a1, float* a2, int a3) { return _shim.Vt->WorldTextMeshUpdate(_shim.Self, a0, a1, a2, a3); }
-    public void WorldTextMeshDestroy(uint a0) { _shim.Vt->WorldTextMeshDestroy(_shim.Self, a0); }
-    public int ParticleSystemsRead(int a0, ParticleSystemInfo* a1, byte* a2, int a3) { return _shim.Vt->ParticleSystemsRead(_shim.Self, a0, a1, a2, a3); }
-    public int ParticleDefinitionReads() { return _shim.Vt->ParticleDefinitionReads(_shim.Self); }
-    public int ParticleQueryUnanswered(int* a0, int a1) { return _shim.Vt->ParticleQueryUnanswered(_shim.Self, a0, a1); }
-    public int ParticlesMaterialVarInt(uint a0, int a1, byte* a2, int* a3) { return _shim.Vt->ParticlesMaterialVarInt(_shim.Self, a0, a1, a2, a3); }
-    public int ParticlesCreateAt(int a0, byte* a1, float* a2, float a3, int a4) { return _shim.Vt->ParticlesCreateAt(_shim.Self, a0, a1, a2, a3, a4); }
-    public int ParticleSystemNameFromIndex(int a0, byte* a1, int a2) { return _shim.Vt->ParticleSystemNameFromIndex(_shim.Self, a0, a1, a2); }
-    public int ParticleSystemOneShot(byte* a0, float* a1, float* a2, int a3, float* a4) { return _shim.Vt->ParticleSystemOneShot(_shim.Self, a0, a1, a2, a3, a4); }
-    public int ParticlesWorldTrace(float* a0, float* a1, float* a2, int a3) { return _shim.Vt->ParticlesWorldTrace(_shim.Self, a0, a1, a2, a3); }
-    public void ParticlesView(float* a0, int* a1, float* a2) { _shim.Vt->ParticlesView(_shim.Self, a0, a1, a2); }
-    public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) { return _shim.Vt->ParticlesTraceMask(_shim.Self, a0, a1, a2, a3, a4); }
-    public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) { return _shim.Vt->ParticlesSetSpace(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public int ParticlesBrushPointContents(uint a0, float* a1) { return _shim.Vt->ParticlesBrushPointContents(_shim.Self, a0, a1); }
+    public int ParticlesCreate(uint a0, int a1, byte* a2, float a3, int a4) { return _shim.Table->ParticlesCreate(_shim.Self, a0, a1, a2, a3, a4); }
+    public void ParticlesConfigure(uint a0, int a1, float a2) { _shim.Table->ParticlesConfigure(_shim.Self, a0, a1, a2); }
+    public void ParticlesDestroy(uint a0, int a1) { _shim.Table->ParticlesDestroy(_shim.Self, a0, a1); }
+    public void ParticlesSetLights(uint a0, int a1, float* a2, int a3) { _shim.Table->ParticlesSetLights(_shim.Self, a0, a1, a2, a3); }
+    public int ParticlesTraceLine(float* a0, float* a1, int a2, float* a3, int a4) { return _shim.Table->ParticlesTraceLine(_shim.Self, a0, a1, a2, a3, a4); }
+    public int WorldTextMeshUpdate(uint a0, byte* a1, float* a2, int a3) { return _shim.Table->WorldTextMeshUpdate(_shim.Self, a0, a1, a2, a3); }
+    public void WorldTextMeshDestroy(uint a0) { _shim.Table->WorldTextMeshDestroy(_shim.Self, a0); }
+    public int ParticleSystemsRead(int a0, ParticleSystemInfo* a1, byte* a2, int a3) { return _shim.Table->ParticleSystemsRead(_shim.Self, a0, a1, a2, a3); }
+    public int ParticleDefinitionReads() { return _shim.Table->ParticleDefinitionReads(_shim.Self); }
+    public int ParticleQueryUnanswered(int* a0, int a1) { return _shim.Table->ParticleQueryUnanswered(_shim.Self, a0, a1); }
+    public int ParticlesMaterialVarInt(uint a0, int a1, byte* a2, int* a3) { return _shim.Table->ParticlesMaterialVarInt(_shim.Self, a0, a1, a2, a3); }
+    public int ParticlesCreateAt(int a0, byte* a1, float* a2, float a3, int a4) { return _shim.Table->ParticlesCreateAt(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ParticleSystemNameFromIndex(int a0, byte* a1, int a2) { return _shim.Table->ParticleSystemNameFromIndex(_shim.Self, a0, a1, a2); }
+    public int ParticleSystemOneShot(byte* a0, float* a1, float* a2, int a3, float* a4) { return _shim.Table->ParticleSystemOneShot(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ParticlesWorldTrace(float* a0, float* a1, float* a2, int a3) { return _shim.Table->ParticlesWorldTrace(_shim.Self, a0, a1, a2, a3); }
+    public void ParticlesView(float* a0, int* a1, float* a2) { _shim.Table->ParticlesView(_shim.Self, a0, a1, a2); }
+    public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) { return _shim.Table->ParticlesTraceMask(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) { return _shim.Table->ParticlesSetSpace(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int ParticlesBrushPointContents(uint a0, float* a1) { return _shim.Table->ParticlesBrushPointContents(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimFxClient</c> as its consumers take it: <see cref="FxClientArea"/> over the engine,
+/// or a test's default (<c>DefaultFxClientArea</c>).
+/// </summary>
+internal unsafe interface IFxClientArea
+{
+    int EffectRegistrationCount();
+    int EffectRegistrationName(int a0, byte* a1, int a2);
+    void EffectRegistrationRun(int a0, EffectData* a1);
+    int FxCanPredict();
+    int FxRecipientCount(float* a0);
+    int FxMaterialFind(byte* a0);
+    void FxMaterialAddRef(int a0);
+    void FxMaterialRelease(int a0);
+    int FxMaterialName(int a0, byte* a1, int a2);
+    void FxDrawQuads(int a0, int a1, float* a2, int a3);
+    void FxView(float* a0);
+    void FxMainViewOrigin(float* a0);
+    int FxLocalPlayer();
+    void FxViewAngles(float* a0);
+    int FxEntityAttachment(int a0, int a1, float* a2, byte* a3, int a4);
+    void FxDispatchParticleEffect(int a0, float* a1, float* a2, float* a3, int a4);
+    int FxEntityRenderAngles(int a0, float* a1);
+    void FxEjectBrass(float* a0, float* a1, float* a2, int a3);
+    int FxSpriteDrawBegin(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13, float* a14);
+    int FxSpriteDrawEnd(float* a0);
+    int FxSpriteDrawStore(float* a0);
+    int FxPrecacheCount();
+    void FxPrecacheCache(int a0, int a1);
+    void FxCacheUsedMaterials();
+    void FxCacheMaterialHandles();
+    int FxRenderableAttachment(uint a0, int a1, float* a2);
+    int FxHandleEntityIndex(uint a0);
+    void FxElight(int a0, float* a1, int a2, int a3, int a4, int a5, float a6, float a7, float a8);
+    void FxVectorRandom(float a0, float a1, float* a2);
+    int FxMaterialsCached();
+    int FxTempEntCreateNamed(int a0, float* a1, byte* a2, int a3);
+    void FxLoadModel(byte* a0);
+    int FxModelFrameCount(byte* a0);
 }
 
 /// <summary>
 /// <c>IShimFxClient</c>, served as <c>SourceSharpFxClient001</c>, through <see cref="ShimFxClientFwd"/>.
 /// </summary>
-internal sealed unsafe class FxClientArea
+internal sealed unsafe class FxClientArea : IFxClientArea
 {
     private readonly ShimRef<ShimFxClientFwd> _shim;
 
     internal FxClientArea(ShimRef<ShimFxClientFwd> shim) { _shim = shim; }
 
-    public int EffectRegistrationCount() { return _shim.Vt->EffectRegistrationCount(_shim.Self); }
-    public int EffectRegistrationName(int a0, byte* a1, int a2) { return _shim.Vt->EffectRegistrationName(_shim.Self, a0, a1, a2); }
-    public void EffectRegistrationRun(int a0, EffectData* a1) { _shim.Vt->EffectRegistrationRun(_shim.Self, a0, a1); }
-    public int FxCanPredict() { return _shim.Vt->FxCanPredict(_shim.Self); }
-    public int FxRecipientCount(float* a0) { return _shim.Vt->FxRecipientCount(_shim.Self, a0); }
-    public int FxMaterialFind(byte* a0) { return _shim.Vt->FxMaterialFind(_shim.Self, a0); }
-    public void FxMaterialAddRef(int a0) { _shim.Vt->FxMaterialAddRef(_shim.Self, a0); }
-    public void FxMaterialRelease(int a0) { _shim.Vt->FxMaterialRelease(_shim.Self, a0); }
-    public int FxMaterialName(int a0, byte* a1, int a2) { return _shim.Vt->FxMaterialName(_shim.Self, a0, a1, a2); }
-    public void FxDrawQuads(int a0, int a1, float* a2, int a3) { _shim.Vt->FxDrawQuads(_shim.Self, a0, a1, a2, a3); }
-    public void FxView(float* a0) { _shim.Vt->FxView(_shim.Self, a0); }
-    public void FxMainViewOrigin(float* a0) { _shim.Vt->FxMainViewOrigin(_shim.Self, a0); }
-    public int FxLocalPlayer() { return _shim.Vt->FxLocalPlayer(_shim.Self); }
-    public void FxViewAngles(float* a0) { _shim.Vt->FxViewAngles(_shim.Self, a0); }
-    public int FxEntityAttachment(int a0, int a1, float* a2, byte* a3, int a4) { return _shim.Vt->FxEntityAttachment(_shim.Self, a0, a1, a2, a3, a4); }
-    public void FxDispatchParticleEffect(int a0, float* a1, float* a2, float* a3, int a4) { _shim.Vt->FxDispatchParticleEffect(_shim.Self, a0, a1, a2, a3, a4); }
-    public int FxEntityRenderAngles(int a0, float* a1) { return _shim.Vt->FxEntityRenderAngles(_shim.Self, a0, a1); }
-    public void FxEjectBrass(float* a0, float* a1, float* a2, int a3) { _shim.Vt->FxEjectBrass(_shim.Self, a0, a1, a2, a3); }
-    public int FxSpriteDrawBegin(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13, float* a14) { return _shim.Vt->FxSpriteDrawBegin(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14); }
-    public int FxSpriteDrawEnd(float* a0) { return _shim.Vt->FxSpriteDrawEnd(_shim.Self, a0); }
-    public int FxSpriteDrawStore(float* a0) { return _shim.Vt->FxSpriteDrawStore(_shim.Self, a0); }
-    public int FxPrecacheCount() { return _shim.Vt->FxPrecacheCount(_shim.Self); }
-    public void FxPrecacheCache(int a0, int a1) { _shim.Vt->FxPrecacheCache(_shim.Self, a0, a1); }
-    public void FxCacheUsedMaterials() { _shim.Vt->FxCacheUsedMaterials(_shim.Self); }
-    public void FxCacheMaterialHandles() { _shim.Vt->FxCacheMaterialHandles(_shim.Self); }
-    public int FxRenderableAttachment(uint a0, int a1, float* a2) { return _shim.Vt->FxRenderableAttachment(_shim.Self, a0, a1, a2); }
-    public int FxHandleEntityIndex(uint a0) { return _shim.Vt->FxHandleEntityIndex(_shim.Self, a0); }
-    public void FxElight(int a0, float* a1, int a2, int a3, int a4, int a5, float a6, float a7, float a8) { _shim.Vt->FxElight(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8); }
-    public void FxVectorRandom(float a0, float a1, float* a2) { _shim.Vt->FxVectorRandom(_shim.Self, a0, a1, a2); }
-    public int FxMaterialsCached() { return _shim.Vt->FxMaterialsCached(_shim.Self); }
-    public int FxTempEntCreateNamed(int a0, float* a1, byte* a2, int a3) { return _shim.Vt->FxTempEntCreateNamed(_shim.Self, a0, a1, a2, a3); }
-    public void FxLoadModel(byte* a0) { _shim.Vt->FxLoadModel(_shim.Self, a0); }
-    public int FxModelFrameCount(byte* a0) { return _shim.Vt->FxModelFrameCount(_shim.Self, a0); }
+    public int EffectRegistrationCount() { return _shim.Table->EffectRegistrationCount(_shim.Self); }
+    public int EffectRegistrationName(int a0, byte* a1, int a2) { return _shim.Table->EffectRegistrationName(_shim.Self, a0, a1, a2); }
+    public void EffectRegistrationRun(int a0, EffectData* a1) { _shim.Table->EffectRegistrationRun(_shim.Self, a0, a1); }
+    public int FxCanPredict() { return _shim.Table->FxCanPredict(_shim.Self); }
+    public int FxRecipientCount(float* a0) { return _shim.Table->FxRecipientCount(_shim.Self, a0); }
+    public int FxMaterialFind(byte* a0) { return _shim.Table->FxMaterialFind(_shim.Self, a0); }
+    public void FxMaterialAddRef(int a0) { _shim.Table->FxMaterialAddRef(_shim.Self, a0); }
+    public void FxMaterialRelease(int a0) { _shim.Table->FxMaterialRelease(_shim.Self, a0); }
+    public int FxMaterialName(int a0, byte* a1, int a2) { return _shim.Table->FxMaterialName(_shim.Self, a0, a1, a2); }
+    public void FxDrawQuads(int a0, int a1, float* a2, int a3) { _shim.Table->FxDrawQuads(_shim.Self, a0, a1, a2, a3); }
+    public void FxView(float* a0) { _shim.Table->FxView(_shim.Self, a0); }
+    public void FxMainViewOrigin(float* a0) { _shim.Table->FxMainViewOrigin(_shim.Self, a0); }
+    public int FxLocalPlayer() { return _shim.Table->FxLocalPlayer(_shim.Self); }
+    public void FxViewAngles(float* a0) { _shim.Table->FxViewAngles(_shim.Self, a0); }
+    public int FxEntityAttachment(int a0, int a1, float* a2, byte* a3, int a4) { return _shim.Table->FxEntityAttachment(_shim.Self, a0, a1, a2, a3, a4); }
+    public void FxDispatchParticleEffect(int a0, float* a1, float* a2, float* a3, int a4) { _shim.Table->FxDispatchParticleEffect(_shim.Self, a0, a1, a2, a3, a4); }
+    public int FxEntityRenderAngles(int a0, float* a1) { return _shim.Table->FxEntityRenderAngles(_shim.Self, a0, a1); }
+    public void FxEjectBrass(float* a0, float* a1, float* a2, int a3) { _shim.Table->FxEjectBrass(_shim.Self, a0, a1, a2, a3); }
+    public int FxSpriteDrawBegin(uint a0, float* a1, int a2, float a3, int a4, int a5, int a6, int a7, int a8, int a9, float a10, int a11, float a12, float a13, float* a14) { return _shim.Table->FxSpriteDrawBegin(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14); }
+    public int FxSpriteDrawEnd(float* a0) { return _shim.Table->FxSpriteDrawEnd(_shim.Self, a0); }
+    public int FxSpriteDrawStore(float* a0) { return _shim.Table->FxSpriteDrawStore(_shim.Self, a0); }
+    public int FxPrecacheCount() { return _shim.Table->FxPrecacheCount(_shim.Self); }
+    public void FxPrecacheCache(int a0, int a1) { _shim.Table->FxPrecacheCache(_shim.Self, a0, a1); }
+    public void FxCacheUsedMaterials() { _shim.Table->FxCacheUsedMaterials(_shim.Self); }
+    public void FxCacheMaterialHandles() { _shim.Table->FxCacheMaterialHandles(_shim.Self); }
+    public int FxRenderableAttachment(uint a0, int a1, float* a2) { return _shim.Table->FxRenderableAttachment(_shim.Self, a0, a1, a2); }
+    public int FxHandleEntityIndex(uint a0) { return _shim.Table->FxHandleEntityIndex(_shim.Self, a0); }
+    public void FxElight(int a0, float* a1, int a2, int a3, int a4, int a5, float a6, float a7, float a8) { _shim.Table->FxElight(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8); }
+    public void FxVectorRandom(float a0, float a1, float* a2) { _shim.Table->FxVectorRandom(_shim.Self, a0, a1, a2); }
+    public int FxMaterialsCached() { return _shim.Table->FxMaterialsCached(_shim.Self); }
+    public int FxTempEntCreateNamed(int a0, float* a1, byte* a2, int a3) { return _shim.Table->FxTempEntCreateNamed(_shim.Self, a0, a1, a2, a3); }
+    public void FxLoadModel(byte* a0) { _shim.Table->FxLoadModel(_shim.Self, a0); }
+    public int FxModelFrameCount(byte* a0) { return _shim.Table->FxModelFrameCount(_shim.Self, a0); }
+}
+
+/// <summary>
+/// <c>IShimSoundscapeClient</c> as its consumers take it: <see cref="SoundscapeClientArea"/> over the engine,
+/// or a test's default (<c>DefaultSoundscapeClientArea</c>).
+/// </summary>
+internal unsafe interface ISoundscapeClientArea
+{
+    void SoundscapeSetRoomType(int a0);
+    void SoundscapeSetPlayerDsp(int a0);
+    void SoundscapeMainView(float* a0);
+    int SoundscapeMakingResLists();
+    void SoundscapeTouchSoundFile(byte* a0);
+    void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5);
+    void SoundPatchStop(int a0);
+    void SoundPatchState(int a0, int* a1, int* a2);
+    void SoundPatchFree(int a0);
+    int SoundPatchCreate(uint a0, int a1, byte* a2, int a3);
 }
 
 /// <summary>
 /// <c>IShimSoundscapeClient</c>, served as <c>SourceSharpSoundscapeClient001</c>, through <see cref="ShimSoundscapeClientFwd"/>.
 /// </summary>
-internal sealed unsafe class SoundscapeClientArea
+internal sealed unsafe class SoundscapeClientArea : ISoundscapeClientArea
 {
     private readonly ShimRef<ShimSoundscapeClientFwd> _shim;
 
     internal SoundscapeClientArea(ShimRef<ShimSoundscapeClientFwd> shim) { _shim = shim; }
 
-    public void SoundscapeSetRoomType(int a0) { _shim.Vt->SoundscapeSetRoomType(_shim.Self, a0); }
-    public void SoundscapeSetPlayerDsp(int a0) { _shim.Vt->SoundscapeSetPlayerDsp(_shim.Self, a0); }
-    public void SoundscapeMainView(float* a0) { _shim.Vt->SoundscapeMainView(_shim.Self, a0); }
-    public int SoundscapeMakingResLists() { return _shim.Vt->SoundscapeMakingResLists(_shim.Self); }
-    public void SoundscapeTouchSoundFile(byte* a0) { _shim.Vt->SoundscapeTouchSoundFile(_shim.Self, a0); }
-    public void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5) { _shim.Vt->SoundPatchEmit(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void SoundPatchStop(int a0) { _shim.Vt->SoundPatchStop(_shim.Self, a0); }
-    public void SoundPatchState(int a0, int* a1, int* a2) { _shim.Vt->SoundPatchState(_shim.Self, a0, a1, a2); }
-    public void SoundPatchFree(int a0) { _shim.Vt->SoundPatchFree(_shim.Self, a0); }
-    public int SoundPatchCreate(uint a0, int a1, byte* a2, int a3) { return _shim.Vt->SoundPatchCreate(_shim.Self, a0, a1, a2, a3); }
+    public void SoundscapeSetRoomType(int a0) { _shim.Table->SoundscapeSetRoomType(_shim.Self, a0); }
+    public void SoundscapeSetPlayerDsp(int a0) { _shim.Table->SoundscapeSetPlayerDsp(_shim.Self, a0); }
+    public void SoundscapeMainView(float* a0) { _shim.Table->SoundscapeMainView(_shim.Self, a0); }
+    public int SoundscapeMakingResLists() { return _shim.Table->SoundscapeMakingResLists(_shim.Self); }
+    public void SoundscapeTouchSoundFile(byte* a0) { _shim.Table->SoundscapeTouchSoundFile(_shim.Self, a0); }
+    public void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5) { _shim.Table->SoundPatchEmit(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void SoundPatchStop(int a0) { _shim.Table->SoundPatchStop(_shim.Self, a0); }
+    public void SoundPatchState(int a0, int* a1, int* a2) { _shim.Table->SoundPatchState(_shim.Self, a0, a1, a2); }
+    public void SoundPatchFree(int a0) { _shim.Table->SoundPatchFree(_shim.Self, a0); }
+    public int SoundPatchCreate(uint a0, int a1, byte* a2, int a3) { return _shim.Table->SoundPatchCreate(_shim.Self, a0, a1, a2, a3); }
+}
+
+/// <summary>
+/// <c>IShimPrecipitationClient</c> as its consumers take it: <see cref="PrecipitationClientArea"/> over the engine,
+/// or a test's default (<c>DefaultPrecipitationClientArea</c>).
+/// </summary>
+internal unsafe interface IPrecipitationClientArea
+{
+    int PrecipitationTraceLine(float* a0, float* a1, int a2, int a3, float* a4);
+    int PrecipitationTraceVolume(uint a0, float* a1, float* a2, float* a3, float* a4, float* a5);
+    int PrecipitationPointContents(float* a0);
+    int PrecipitationInPvs(uint a0);
+    int PrecipitationPlayer(float* a0);
+    void PrecipitationWorldBounds(float* a0);
+    int PrecipitationScreenWidth();
 }
 
 /// <summary>
 /// <c>IShimPrecipitationClient</c>, served as <c>SourceSharpPrecipitationClient001</c>, through <see cref="ShimPrecipitationClientFwd"/>.
 /// </summary>
-internal sealed unsafe class PrecipitationClientArea
+internal sealed unsafe class PrecipitationClientArea : IPrecipitationClientArea
 {
     private readonly ShimRef<ShimPrecipitationClientFwd> _shim;
 
     internal PrecipitationClientArea(ShimRef<ShimPrecipitationClientFwd> shim) { _shim = shim; }
 
-    public int PrecipitationTraceLine(float* a0, float* a1, int a2, int a3, float* a4) { return _shim.Vt->PrecipitationTraceLine(_shim.Self, a0, a1, a2, a3, a4); }
-    public int PrecipitationTraceVolume(uint a0, float* a1, float* a2, float* a3, float* a4, float* a5) { return _shim.Vt->PrecipitationTraceVolume(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public int PrecipitationPointContents(float* a0) { return _shim.Vt->PrecipitationPointContents(_shim.Self, a0); }
-    public int PrecipitationInPvs(uint a0) { return _shim.Vt->PrecipitationInPvs(_shim.Self, a0); }
-    public int PrecipitationPlayer(float* a0) { return _shim.Vt->PrecipitationPlayer(_shim.Self, a0); }
-    public void PrecipitationWorldBounds(float* a0) { _shim.Vt->PrecipitationWorldBounds(_shim.Self, a0); }
-    public int PrecipitationScreenWidth() { return _shim.Vt->PrecipitationScreenWidth(_shim.Self); }
+    public int PrecipitationTraceLine(float* a0, float* a1, int a2, int a3, float* a4) { return _shim.Table->PrecipitationTraceLine(_shim.Self, a0, a1, a2, a3, a4); }
+    public int PrecipitationTraceVolume(uint a0, float* a1, float* a2, float* a3, float* a4, float* a5) { return _shim.Table->PrecipitationTraceVolume(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int PrecipitationPointContents(float* a0) { return _shim.Table->PrecipitationPointContents(_shim.Self, a0); }
+    public int PrecipitationInPvs(uint a0) { return _shim.Table->PrecipitationInPvs(_shim.Self, a0); }
+    public int PrecipitationPlayer(float* a0) { return _shim.Table->PrecipitationPlayer(_shim.Self, a0); }
+    public void PrecipitationWorldBounds(float* a0) { _shim.Table->PrecipitationWorldBounds(_shim.Self, a0); }
+    public int PrecipitationScreenWidth() { return _shim.Table->PrecipitationScreenWidth(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimMaterialProxyClient</c> as its consumers take it: <see cref="MaterialProxyClientArea"/> over the engine,
+/// or a test's default (<c>DefaultMaterialProxyClientArea</c>).
+/// </summary>
+internal unsafe interface IMaterialProxyClientArea
+{
+    int ProxyFindVar(int a0, byte* a1, int a2, int* a3);
+    int ProxyFindTexture(int a0, byte* a1, byte* a2, int a3, int* a4);
+    int ProxyVarTexture(int a0, int a1, byte* a2, int a3);
+    int ProxyBindEntity(int a0, void* a1);
+    int ProxyReadView(int a0, float* a1, int a2);
+    int ProxyPlayerCustomFile(int a0, uint* a1);
+    void ProxyNotShipped(byte* a0, byte* a1);
 }
 
 /// <summary>
 /// <c>IShimMaterialProxyClient</c>, served as <c>SourceSharpMaterialProxyClient001</c>, through <see cref="ShimMaterialProxyClientFwd"/>.
 /// </summary>
-internal sealed unsafe class MaterialProxyClientArea
+internal sealed unsafe class MaterialProxyClientArea : IMaterialProxyClientArea
 {
     private readonly ShimRef<ShimMaterialProxyClientFwd> _shim;
 
     internal MaterialProxyClientArea(ShimRef<ShimMaterialProxyClientFwd> shim) { _shim = shim; }
 
-    public int ProxyFindVar(int a0, byte* a1, int a2, int* a3) { return _shim.Vt->ProxyFindVar(_shim.Self, a0, a1, a2, a3); }
-    public int ProxyFindTexture(int a0, byte* a1, byte* a2, int a3, int* a4) { return _shim.Vt->ProxyFindTexture(_shim.Self, a0, a1, a2, a3, a4); }
-    public int ProxyVarTexture(int a0, int a1, byte* a2, int a3) { return _shim.Vt->ProxyVarTexture(_shim.Self, a0, a1, a2, a3); }
-    public int ProxyBindEntity(int a0, void* a1) { return _shim.Vt->ProxyBindEntity(_shim.Self, a0, a1); }
-    public int ProxyReadView(int a0, float* a1, int a2) { return _shim.Vt->ProxyReadView(_shim.Self, a0, a1, a2); }
-    public int ProxyPlayerCustomFile(int a0, uint* a1) { return _shim.Vt->ProxyPlayerCustomFile(_shim.Self, a0, a1); }
-    public void ProxyNotShipped(byte* a0, byte* a1) { _shim.Vt->ProxyNotShipped(_shim.Self, a0, a1); }
+    public int ProxyFindVar(int a0, byte* a1, int a2, int* a3) { return _shim.Table->ProxyFindVar(_shim.Self, a0, a1, a2, a3); }
+    public int ProxyFindTexture(int a0, byte* a1, byte* a2, int a3, int* a4) { return _shim.Table->ProxyFindTexture(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ProxyVarTexture(int a0, int a1, byte* a2, int a3) { return _shim.Table->ProxyVarTexture(_shim.Self, a0, a1, a2, a3); }
+    public int ProxyBindEntity(int a0, void* a1) { return _shim.Table->ProxyBindEntity(_shim.Self, a0, a1); }
+    public int ProxyReadView(int a0, float* a1, int a2) { return _shim.Table->ProxyReadView(_shim.Self, a0, a1, a2); }
+    public int ProxyPlayerCustomFile(int a0, uint* a1) { return _shim.Table->ProxyPlayerCustomFile(_shim.Self, a0, a1); }
+    public void ProxyNotShipped(byte* a0, byte* a1) { _shim.Table->ProxyNotShipped(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimInputClient</c> as its consumers take it: <see cref="InputClientArea"/> over the engine,
+/// or a test's default (<c>DefaultInputClientArea</c>).
+/// </summary>
+internal unsafe interface IInputClientArea
+{
+    void InputCursorState(int* a0, int* a1);
+    void InputGetCursorPos(int* a0, int* a1);
+    void InputSetCursorPos(int a0, int a1);
+    void InputSetCursorArrow();
+    void InputVguiScreenSize(int* a0, int* a1);
+    void InputHudFacts(float* a0, int* a1, float* a2);
+    void InputStopPitchDrift();
+    void InputSetLocalViewAngles(float* a0);
+    void InputViewerCameraModeChanged();
+    int InputViewerAimIsAssisted();
+    void InputShowScoreboard(int a0);
+    void* InputMailbox();
 }
 
 /// <summary>
 /// <c>IShimInputClient</c>, served as <c>SourceSharpInputClient001</c>, through <see cref="ShimInputClientFwd"/>.
 /// </summary>
-internal sealed unsafe class InputClientArea
+internal sealed unsafe class InputClientArea : IInputClientArea
 {
     private readonly ShimRef<ShimInputClientFwd> _shim;
 
     internal InputClientArea(ShimRef<ShimInputClientFwd> shim) { _shim = shim; }
 
-    public void InputCursorState(int* a0, int* a1) { _shim.Vt->InputCursorState(_shim.Self, a0, a1); }
-    public void InputGetCursorPos(int* a0, int* a1) { _shim.Vt->InputGetCursorPos(_shim.Self, a0, a1); }
-    public void InputSetCursorPos(int a0, int a1) { _shim.Vt->InputSetCursorPos(_shim.Self, a0, a1); }
-    public void InputSetCursorArrow() { _shim.Vt->InputSetCursorArrow(_shim.Self); }
-    public void InputVguiScreenSize(int* a0, int* a1) { _shim.Vt->InputVguiScreenSize(_shim.Self, a0, a1); }
-    public void InputHudFacts(float* a0, int* a1, float* a2) { _shim.Vt->InputHudFacts(_shim.Self, a0, a1, a2); }
-    public void InputStopPitchDrift() { _shim.Vt->InputStopPitchDrift(_shim.Self); }
-    public void InputSetLocalViewAngles(float* a0) { _shim.Vt->InputSetLocalViewAngles(_shim.Self, a0); }
-    public void InputViewerCameraModeChanged() { _shim.Vt->InputViewerCameraModeChanged(_shim.Self); }
-    public int InputViewerAimIsAssisted() { return _shim.Vt->InputViewerAimIsAssisted(_shim.Self); }
-    public void InputShowScoreboard(int a0) { _shim.Vt->InputShowScoreboard(_shim.Self, a0); }
-    public void* InputMailbox() { return _shim.Vt->InputMailbox(_shim.Self); }
+    public void InputCursorState(int* a0, int* a1) { _shim.Table->InputCursorState(_shim.Self, a0, a1); }
+    public void InputGetCursorPos(int* a0, int* a1) { _shim.Table->InputGetCursorPos(_shim.Self, a0, a1); }
+    public void InputSetCursorPos(int a0, int a1) { _shim.Table->InputSetCursorPos(_shim.Self, a0, a1); }
+    public void InputSetCursorArrow() { _shim.Table->InputSetCursorArrow(_shim.Self); }
+    public void InputVguiScreenSize(int* a0, int* a1) { _shim.Table->InputVguiScreenSize(_shim.Self, a0, a1); }
+    public void InputHudFacts(float* a0, int* a1, float* a2) { _shim.Table->InputHudFacts(_shim.Self, a0, a1, a2); }
+    public void InputStopPitchDrift() { _shim.Table->InputStopPitchDrift(_shim.Self); }
+    public void InputSetLocalViewAngles(float* a0) { _shim.Table->InputSetLocalViewAngles(_shim.Self, a0); }
+    public void InputViewerCameraModeChanged() { _shim.Table->InputViewerCameraModeChanged(_shim.Self); }
+    public int InputViewerAimIsAssisted() { return _shim.Table->InputViewerAimIsAssisted(_shim.Self); }
+    public void InputShowScoreboard(int a0) { _shim.Table->InputShowScoreboard(_shim.Self, a0); }
+    public void* InputMailbox() { return _shim.Table->InputMailbox(_shim.Self); }
+}
+
+/// <summary>
+/// <c>IShimPhysicsClient</c> as its consumers take it: <see cref="PhysicsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultPhysicsClientArea</c>).
+/// </summary>
+internal unsafe interface IPhysicsClientArea
+{
+    int PhysicsClientSurfaceAudio(int a0, byte* a1, int a2, byte* a3, int a4, float* a5);
+    void PhysicsClientCollideExtent(void* a0, float* a1, float* a2, float* a3, float* a4);
+    int PhysicsClientPointContents(float* a0);
+    void PhysicsClientSplashLighting(float* a0, float* a1);
+    void PhysicsClientSplashEffect(int a0, float* a1, float* a2, float a3, float* a4, float a5, float a6);
 }
 
 /// <summary>
 /// <c>IShimPhysicsClient</c>, served as <c>SourceSharpPhysicsClient001</c>, through <see cref="ShimPhysicsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class PhysicsClientArea
+internal sealed unsafe class PhysicsClientArea : IPhysicsClientArea
 {
     private readonly ShimRef<ShimPhysicsClientFwd> _shim;
 
     internal PhysicsClientArea(ShimRef<ShimPhysicsClientFwd> shim) { _shim = shim; }
 
-    public int PhysicsClientSurfaceAudio(int a0, byte* a1, int a2, byte* a3, int a4, float* a5) { return _shim.Vt->PhysicsClientSurfaceAudio(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void PhysicsClientCollideExtent(void* a0, float* a1, float* a2, float* a3, float* a4) { _shim.Vt->PhysicsClientCollideExtent(_shim.Self, a0, a1, a2, a3, a4); }
-    public int PhysicsClientPointContents(float* a0) { return _shim.Vt->PhysicsClientPointContents(_shim.Self, a0); }
-    public void PhysicsClientSplashLighting(float* a0, float* a1) { _shim.Vt->PhysicsClientSplashLighting(_shim.Self, a0, a1); }
-    public void PhysicsClientSplashEffect(int a0, float* a1, float* a2, float a3, float* a4, float a5, float a6) { _shim.Vt->PhysicsClientSplashEffect(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public int PhysicsClientSurfaceAudio(int a0, byte* a1, int a2, byte* a3, int a4, float* a5) { return _shim.Table->PhysicsClientSurfaceAudio(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void PhysicsClientCollideExtent(void* a0, float* a1, float* a2, float* a3, float* a4) { _shim.Table->PhysicsClientCollideExtent(_shim.Self, a0, a1, a2, a3, a4); }
+    public int PhysicsClientPointContents(float* a0) { return _shim.Table->PhysicsClientPointContents(_shim.Self, a0); }
+    public void PhysicsClientSplashLighting(float* a0, float* a1) { _shim.Table->PhysicsClientSplashLighting(_shim.Self, a0, a1); }
+    public void PhysicsClientSplashEffect(int a0, float* a1, float* a2, float a3, float* a4, float a5, float a6) { _shim.Table->PhysicsClientSplashEffect(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+}
+
+/// <summary>
+/// <c>IShimConVarsClient</c> as its consumers take it: <see cref="ConVarsClientArea"/> over the engine,
+/// or a test's default (<c>DefaultConVarsClientArea</c>).
+/// </summary>
+internal unsafe interface IConVarsClientArea
+{
+    int ConVarsClientWatch(byte* a0);
+    int ConVarsClientSetValue(byte* a0, float a1);
 }
 
 /// <summary>
 /// <c>IShimConVarsClient</c>, served as <c>SourceSharpConVarsClient001</c>, through <see cref="ShimConVarsClientFwd"/>.
 /// </summary>
-internal sealed unsafe class ConVarsClientArea
+internal sealed unsafe class ConVarsClientArea : IConVarsClientArea
 {
     private readonly ShimRef<ShimConVarsClientFwd> _shim;
 
     internal ConVarsClientArea(ShimRef<ShimConVarsClientFwd> shim) { _shim = shim; }
 
-    public int ConVarsClientWatch(byte* a0) { return _shim.Vt->ConVarsClientWatch(_shim.Self, a0); }
-    public int ConVarsClientSetValue(byte* a0, float a1) { return _shim.Vt->ConVarsClientSetValue(_shim.Self, a0, a1); }
+    public int ConVarsClientWatch(byte* a0) { return _shim.Table->ConVarsClientWatch(_shim.Self, a0); }
+    public int ConVarsClientSetValue(byte* a0, float a1) { return _shim.Table->ConVarsClientSetValue(_shim.Self, a0, a1); }
+}
+
+/// <summary>
+/// <c>IShimFlashlightClient</c> as its consumers take it: <see cref="FlashlightClientArea"/> over the engine,
+/// or a test's default (<c>DefaultFlashlightClientArea</c>).
+/// </summary>
+internal unsafe interface IFlashlightClientArea
+{
+    int FlashlightTexture(byte* a0);
+    int FlashlightSupportsBorderColor();
+    int FlashlightCreate(FlashlightState* a0);
+    void FlashlightUpdate(int a0, FlashlightState* a1);
+    void FlashlightProject(int a0);
+    void FlashlightDestroy(int a0);
 }
 
 /// <summary>
 /// <c>IShimFlashlightClient</c>, served as <c>SourceSharpFlashlightClient001</c>, through <see cref="ShimFlashlightClientFwd"/>.
 /// </summary>
-internal sealed unsafe class FlashlightClientArea
+internal sealed unsafe class FlashlightClientArea : IFlashlightClientArea
 {
     private readonly ShimRef<ShimFlashlightClientFwd> _shim;
 
     internal FlashlightClientArea(ShimRef<ShimFlashlightClientFwd> shim) { _shim = shim; }
 
-    public int FlashlightTexture(byte* a0) { return _shim.Vt->FlashlightTexture(_shim.Self, a0); }
-    public int FlashlightSupportsBorderColor() { return _shim.Vt->FlashlightSupportsBorderColor(_shim.Self); }
-    public int FlashlightCreate(FlashlightState* a0) { return _shim.Vt->FlashlightCreate(_shim.Self, a0); }
-    public void FlashlightUpdate(int a0, FlashlightState* a1) { _shim.Vt->FlashlightUpdate(_shim.Self, a0, a1); }
-    public void FlashlightProject(int a0) { _shim.Vt->FlashlightProject(_shim.Self, a0); }
-    public void FlashlightDestroy(int a0) { _shim.Vt->FlashlightDestroy(_shim.Self, a0); }
+    public int FlashlightTexture(byte* a0) { return _shim.Table->FlashlightTexture(_shim.Self, a0); }
+    public int FlashlightSupportsBorderColor() { return _shim.Table->FlashlightSupportsBorderColor(_shim.Self); }
+    public int FlashlightCreate(FlashlightState* a0) { return _shim.Table->FlashlightCreate(_shim.Self, a0); }
+    public void FlashlightUpdate(int a0, FlashlightState* a1) { _shim.Table->FlashlightUpdate(_shim.Self, a0, a1); }
+    public void FlashlightProject(int a0) { _shim.Table->FlashlightProject(_shim.Self, a0); }
+    public void FlashlightDestroy(int a0) { _shim.Table->FlashlightDestroy(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -1008,305 +1825,320 @@ internal sealed unsafe class FlashlightClientArea
 /// its forwarder table, which native must serve at no fewer slots than the
 /// struct reads (the tables only append).
 /// </summary>
-internal sealed unsafe class ShimAreas
+internal static unsafe class ServerAreaRegistration
 {
-    public readonly EngineArea EngineBase = null!;
-    public readonly ConsoleServerArea ConsoleServer = null!;
-    public readonly EventsServerArea EventsServer = null!;
-    public readonly NetworkServerArea NetworkServer = null!;
-    public readonly ModelsServerArea ModelsServer = null!;
-    public readonly PrecacheArea Precache = null!;
-    public readonly MovementServerArea MovementServer = null!;
-    public readonly WorldServerArea WorldServer = null!;
-    public readonly EntitiesServerArea EntitiesServer = null!;
-    public readonly EntityLifecycleArea EntityLifecycle = null!;
-    public readonly TransformArea Transform = null!;
-    public readonly HierarchyArea Hierarchy = null!;
-    public readonly CollisionServerArea CollisionServer = null!;
-    public readonly PhysicsArea Physics = null!;
-    public readonly DamageArea Damage = null!;
-    public readonly GameRulesArea GameRules = null!;
-    public readonly PlayersArea Players = null!;
-    public readonly EffectsServerArea EffectsServer = null!;
-    public readonly DebugOverlayArea DebugOverlay = null!;
-    public readonly UserMessagesArea UserMessages = null!;
-    public readonly DiagnosticsArea Diagnostics = null!;
-    public readonly ConsoleArea Console = null!;
-
-    // Each derived area as its shared base, under the name the client
-    // holds that base by.
-    public EventsArea Events => EventsServer;
-    public NetworkArea Network => NetworkServer;
-    public ModelsArea Models => ModelsServer;
-    public MovementArea Movement => MovementServer;
-    public EntitiesArea Entities => EntitiesServer;
-    public CollisionArea Collision => CollisionServer;
-
-    // Each area and its table, in turn; the first that is refused stops
-    // the walk, leaving the rest unset and its reason in why.
-    private ShimAreas(ShimRoot root, out string why)
-    {
-        why = "";
-        {
-            if (!ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var shim, out why)) return;
-            EngineBase = new EngineArea(shim);
-        }
-        {
-            if (!ShimRef<ShimConsoleServerFwd>.TryTake(root, "SourceSharpConsoleServer001", out var shim, out why)) return;
-            ConsoleServer = new ConsoleServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEventsServerFwd>.TryTake(root, "SourceSharpEventsServer001", out var shim, out why)) return;
-            EventsServer = new EventsServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimNetworkServerFwd>.TryTake(root, "SourceSharpNetworkServer001", out var shim, out why)) return;
-            NetworkServer = new NetworkServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimModelsServerFwd>.TryTake(root, "SourceSharpModelsServer001", out var shim, out why)) return;
-            ModelsServer = new ModelsServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimPrecacheFwd>.TryTake(root, "SourceSharpPrecache001", out var shim, out why)) return;
-            Precache = new PrecacheArea(shim);
-        }
-        {
-            if (!ShimRef<ShimMovementServerFwd>.TryTake(root, "SourceSharpMovementServer001", out var shim, out why)) return;
-            MovementServer = new MovementServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimWorldServerFwd>.TryTake(root, "SourceSharpWorldServer001", out var shim, out why)) return;
-            WorldServer = new WorldServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEntitiesServerFwd>.TryTake(root, "SourceSharpEntitiesServer001", out var shim, out why)) return;
-            EntitiesServer = new EntitiesServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEntityLifecycleFwd>.TryTake(root, "SourceSharpEntityLifecycle001", out var shim, out why)) return;
-            EntityLifecycle = new EntityLifecycleArea(shim);
-        }
-        {
-            if (!ShimRef<ShimTransformFwd>.TryTake(root, "SourceSharpTransform001", out var shim, out why)) return;
-            Transform = new TransformArea(shim);
-        }
-        {
-            if (!ShimRef<ShimHierarchyFwd>.TryTake(root, "SourceSharpHierarchy001", out var shim, out why)) return;
-            Hierarchy = new HierarchyArea(shim);
-        }
-        {
-            if (!ShimRef<ShimCollisionServerFwd>.TryTake(root, "SourceSharpCollisionServer001", out var shim, out why)) return;
-            CollisionServer = new CollisionServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimPhysicsFwd>.TryTake(root, "SourceSharpPhysics001", out var shim, out why)) return;
-            Physics = new PhysicsArea(shim);
-        }
-        {
-            if (!ShimRef<ShimDamageFwd>.TryTake(root, "SourceSharpDamage001", out var shim, out why)) return;
-            Damage = new DamageArea(shim);
-        }
-        {
-            if (!ShimRef<ShimGameRulesFwd>.TryTake(root, "SourceSharpGameRules001", out var shim, out why)) return;
-            GameRules = new GameRulesArea(shim);
-        }
-        {
-            if (!ShimRef<ShimPlayersFwd>.TryTake(root, "SourceSharpPlayers001", out var shim, out why)) return;
-            Players = new PlayersArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEffectsServerFwd>.TryTake(root, "SourceSharpEffectsServer001", out var shim, out why)) return;
-            EffectsServer = new EffectsServerArea(shim);
-        }
-        {
-            if (!ShimRef<ShimDebugOverlayFwd>.TryTake(root, "SourceSharpDebugOverlay001", out var shim, out why)) return;
-            DebugOverlay = new DebugOverlayArea(shim);
-        }
-        {
-            if (!ShimRef<ShimUserMessagesFwd>.TryTake(root, "SourceSharpUserMessages001", out var shim, out why)) return;
-            UserMessages = new UserMessagesArea(shim);
-        }
-        {
-            if (!ShimRef<ShimDiagnosticsFwd>.TryTake(root, "SourceSharpDiagnostics001", out var shim, out why)) return;
-            Diagnostics = new DiagnosticsArea(shim);
-        }
-        {
-            if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var shim, out why)) return;
-            Console = new ConsoleArea(shim);
-        }
-    }
-
-    internal static bool TryAcquire(ShimRoot root, out ShimAreas? areas, out string why)
-    {
-        var taken = new ShimAreas(root, out why);
-        areas = why.Length == 0 ? taken : null;
-        return areas is not null;
-    }
-
     internal static int Count => 21;
+
+    /// <summary>
+    /// Takes every area from the root, each with its table, and hands them
+    /// to <paramref name="add"/> only when all were taken: the first refused
+    /// stops the walk with its reason in <paramref name="why"/>, and nothing
+    /// is handed.
+    /// </summary>
+    internal static bool TryAcquire(ShimRoot root, Action<Type, object> add, out string why)
+    {
+        if (!ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var engineBaseArea, out why)) return false;
+        if (!ShimRef<ShimConsoleServerFwd>.TryTake(root, "SourceSharpConsoleServer001", out var consoleServerArea, out why)) return false;
+        if (!ShimRef<ShimEventsServerFwd>.TryTake(root, "SourceSharpEventsServer001", out var eventsServerArea, out why)) return false;
+        if (!ShimRef<ShimNetworkServerFwd>.TryTake(root, "SourceSharpNetworkServer001", out var networkServerArea, out why)) return false;
+        if (!ShimRef<ShimModelsServerFwd>.TryTake(root, "SourceSharpModelsServer001", out var modelsServerArea, out why)) return false;
+        if (!ShimRef<ShimPrecacheFwd>.TryTake(root, "SourceSharpPrecache001", out var precacheArea, out why)) return false;
+        if (!ShimRef<ShimMovementServerFwd>.TryTake(root, "SourceSharpMovementServer001", out var movementServerArea, out why)) return false;
+        if (!ShimRef<ShimWorldServerFwd>.TryTake(root, "SourceSharpWorldServer001", out var worldServerArea, out why)) return false;
+        if (!ShimRef<ShimEntitiesServerFwd>.TryTake(root, "SourceSharpEntitiesServer001", out var entitiesServerArea, out why)) return false;
+        if (!ShimRef<ShimEntityLifecycleFwd>.TryTake(root, "SourceSharpEntityLifecycle001", out var entityLifecycleArea, out why)) return false;
+        if (!ShimRef<ShimTransformFwd>.TryTake(root, "SourceSharpTransform001", out var transformArea, out why)) return false;
+        if (!ShimRef<ShimHierarchyFwd>.TryTake(root, "SourceSharpHierarchy001", out var hierarchyArea, out why)) return false;
+        if (!ShimRef<ShimCollisionServerFwd>.TryTake(root, "SourceSharpCollisionServer001", out var collisionServerArea, out why)) return false;
+        if (!ShimRef<ShimPhysicsFwd>.TryTake(root, "SourceSharpPhysics001", out var physicsArea, out why)) return false;
+        if (!ShimRef<ShimDamageFwd>.TryTake(root, "SourceSharpDamage001", out var damageArea, out why)) return false;
+        if (!ShimRef<ShimGameRulesFwd>.TryTake(root, "SourceSharpGameRules001", out var gameRulesArea, out why)) return false;
+        if (!ShimRef<ShimPlayersFwd>.TryTake(root, "SourceSharpPlayers001", out var playersArea, out why)) return false;
+        if (!ShimRef<ShimEffectsServerFwd>.TryTake(root, "SourceSharpEffectsServer001", out var effectsServerArea, out why)) return false;
+        if (!ShimRef<ShimDebugOverlayFwd>.TryTake(root, "SourceSharpDebugOverlay001", out var debugOverlayArea, out why)) return false;
+        if (!ShimRef<ShimUserMessagesFwd>.TryTake(root, "SourceSharpUserMessages001", out var userMessagesArea, out why)) return false;
+        if (!ShimRef<ShimDiagnosticsFwd>.TryTake(root, "SourceSharpDiagnostics001", out var diagnosticsArea, out why)) return false;
+        if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var consoleArea, out why)) return false;
+        Add(add,
+            new EngineArea(engineBaseArea),
+            new ConsoleServerArea(consoleServerArea),
+            new EventsServerArea(eventsServerArea, eventsServerArea.As<ShimEventsFwd>()),
+            new NetworkServerArea(networkServerArea, networkServerArea.As<ShimNetworkFwd>()),
+            new ModelsServerArea(modelsServerArea, modelsServerArea.As<ShimModelsFwd>()),
+            new PrecacheArea(precacheArea),
+            new MovementServerArea(movementServerArea, movementServerArea.As<ShimMovementFwd>()),
+            new WorldServerArea(worldServerArea),
+            new EntitiesServerArea(entitiesServerArea, entitiesServerArea.As<ShimEntitiesFwd>()),
+            new EntityLifecycleArea(entityLifecycleArea),
+            new TransformArea(transformArea),
+            new HierarchyArea(hierarchyArea),
+            new CollisionServerArea(collisionServerArea, collisionServerArea.As<ShimCollisionFwd>()),
+            new PhysicsArea(physicsArea),
+            new DamageArea(damageArea),
+            new GameRulesArea(gameRulesArea),
+            new PlayersArea(playersArea),
+            new EffectsServerArea(effectsServerArea),
+            new DebugOverlayArea(debugOverlayArea),
+            new UserMessagesArea(userMessagesArea),
+            new DiagnosticsArea(diagnosticsArea),
+            new ConsoleArea(consoleArea));
+        return true;
+    }
+
+    /// <summary>
+    /// Every area over no table: what a side registers before its attach,
+    /// so it can be made before the root is bound. A call throws, naming
+    /// the area; the game composes only after the attach.
+    /// </summary>
+    internal static void AddDetached(Action<Type, object> add)
+        => Add(add,
+            new EngineArea(default),
+            new ConsoleServerArea(default),
+            new EventsServerArea(default, default),
+            new NetworkServerArea(default, default),
+            new ModelsServerArea(default, default),
+            new PrecacheArea(default),
+            new MovementServerArea(default, default),
+            new WorldServerArea(default),
+            new EntitiesServerArea(default, default),
+            new EntityLifecycleArea(default),
+            new TransformArea(default),
+            new HierarchyArea(default),
+            new CollisionServerArea(default, default),
+            new PhysicsArea(default),
+            new DamageArea(default),
+            new GameRulesArea(default),
+            new PlayersArea(default),
+            new EffectsServerArea(default),
+            new DebugOverlayArea(default),
+            new UserMessagesArea(default),
+            new DiagnosticsArea(default),
+            new ConsoleArea(default));
+
+    private static void Add(Action<Type, object> add,
+        EngineArea engineBaseArea,
+        ConsoleServerArea consoleServerArea,
+        EventsServerArea eventsServerArea,
+        NetworkServerArea networkServerArea,
+        ModelsServerArea modelsServerArea,
+        PrecacheArea precacheArea,
+        MovementServerArea movementServerArea,
+        WorldServerArea worldServerArea,
+        EntitiesServerArea entitiesServerArea,
+        EntityLifecycleArea entityLifecycleArea,
+        TransformArea transformArea,
+        HierarchyArea hierarchyArea,
+        CollisionServerArea collisionServerArea,
+        PhysicsArea physicsArea,
+        DamageArea damageArea,
+        GameRulesArea gameRulesArea,
+        PlayersArea playersArea,
+        EffectsServerArea effectsServerArea,
+        DebugOverlayArea debugOverlayArea,
+        UserMessagesArea userMessagesArea,
+        DiagnosticsArea diagnosticsArea,
+        ConsoleArea consoleArea)
+    {
+        add(typeof(IEngineArea), engineBaseArea);
+        add(typeof(IConsoleServerArea), consoleServerArea);
+        add(typeof(IEventsServerArea), eventsServerArea);
+        add(typeof(INetworkServerArea), networkServerArea);
+        add(typeof(IModelsServerArea), modelsServerArea);
+        add(typeof(IPrecacheArea), precacheArea);
+        add(typeof(IMovementServerArea), movementServerArea);
+        add(typeof(IWorldServerArea), worldServerArea);
+        add(typeof(IEntitiesServerArea), entitiesServerArea);
+        add(typeof(IEntityLifecycleArea), entityLifecycleArea);
+        add(typeof(ITransformArea), transformArea);
+        add(typeof(IHierarchyArea), hierarchyArea);
+        add(typeof(ICollisionServerArea), collisionServerArea);
+        add(typeof(IPhysicsArea), physicsArea);
+        add(typeof(IDamageArea), damageArea);
+        add(typeof(IGameRulesArea), gameRulesArea);
+        add(typeof(IPlayersArea), playersArea);
+        add(typeof(IEffectsServerArea), effectsServerArea);
+        add(typeof(IDebugOverlayArea), debugOverlayArea);
+        add(typeof(IUserMessagesArea), userMessagesArea);
+        add(typeof(IDiagnosticsArea), diagnosticsArea);
+        add(typeof(IConsoleArea), consoleArea);
+        add(typeof(IEventsArea), eventsServerArea);
+        add(typeof(INetworkArea), networkServerArea);
+        add(typeof(IModelsArea), modelsServerArea);
+        add(typeof(IMovementArea), movementServerArea);
+        add(typeof(IEntitiesArea), entitiesServerArea);
+        add(typeof(ICollisionArea), collisionServerArea);
+    }
 }
 
 /// <summary>
 /// plan_client_vtables CB: the client's areas, its shared bases and its
 /// own, acquired from its shim root with the same span check.
 /// </summary>
-internal sealed unsafe class ClientShimAreas
+internal static unsafe class ClientAreaRegistration
 {
-    public readonly EngineArea EngineBase = null!;
-    public readonly EventsArea Events = null!;
-    public readonly NetworkArea Network = null!;
-    public readonly ModelsArea Models = null!;
-    public readonly MovementArea Movement = null!;
-    public readonly EntitiesArea Entities = null!;
-    public readonly CollisionArea Collision = null!;
-    public readonly ConsoleArea Console = null!;
-    public readonly HudClientArea HudClient = null!;
-    public readonly PredictionClientArea PredictionClient = null!;
-    public readonly TempEntPoolClientArea TempEntPoolClient = null!;
-    public readonly TempEntBackendsClientArea TempEntBackendsClient = null!;
-    public readonly EffectsRenderClientArea EffectsRenderClient = null!;
-    public readonly StandaloneClientArea StandaloneClient = null!;
-    public readonly ViewClientArea ViewClient = null!;
-    public readonly UserMessagesClientArea UserMessagesClient = null!;
-    public readonly NetClientArea NetClient = null!;
-    public readonly DiagnosticsClientArea DiagnosticsClient = null!;
-    public readonly UiClientArea UiClient = null!;
-    public readonly ParticlesClientArea ParticlesClient = null!;
-    public readonly FxClientArea FxClient = null!;
-    public readonly SoundscapeClientArea SoundscapeClient = null!;
-    public readonly PrecipitationClientArea PrecipitationClient = null!;
-    public readonly MaterialProxyClientArea MaterialProxyClient = null!;
-    public readonly InputClientArea InputClient = null!;
-    public readonly PhysicsClientArea PhysicsClient = null!;
-    public readonly ConVarsClientArea ConVarsClient = null!;
-    public readonly FlashlightClientArea FlashlightClient = null!;
-
-    // Each area and its table, in turn; the first that is refused stops
-    // the walk, leaving the rest unset and its reason in why.
-    private ClientShimAreas(ShimRoot root, out string why)
-    {
-        why = "";
-        {
-            if (!ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var shim, out why)) return;
-            EngineBase = new EngineArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEventsFwd>.TryTake(root, "SourceSharpEvents001", out var shim, out why)) return;
-            Events = new EventsArea(shim);
-        }
-        {
-            if (!ShimRef<ShimNetworkFwd>.TryTake(root, "SourceSharpNetwork001", out var shim, out why)) return;
-            Network = new NetworkArea(shim);
-        }
-        {
-            if (!ShimRef<ShimModelsFwd>.TryTake(root, "SourceSharpModels001", out var shim, out why)) return;
-            Models = new ModelsArea(shim);
-        }
-        {
-            if (!ShimRef<ShimMovementFwd>.TryTake(root, "SourceSharpMovement001", out var shim, out why)) return;
-            Movement = new MovementArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEntitiesFwd>.TryTake(root, "SourceSharpEntities001", out var shim, out why)) return;
-            Entities = new EntitiesArea(shim);
-        }
-        {
-            if (!ShimRef<ShimCollisionFwd>.TryTake(root, "SourceSharpCollision001", out var shim, out why)) return;
-            Collision = new CollisionArea(shim);
-        }
-        {
-            if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var shim, out why)) return;
-            Console = new ConsoleArea(shim);
-        }
-        {
-            if (!ShimRef<ShimHudClientFwd>.TryTake(root, "SourceSharpHudClient001", out var shim, out why)) return;
-            HudClient = new HudClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimPredictionClientFwd>.TryTake(root, "SourceSharpPredictionClient001", out var shim, out why)) return;
-            PredictionClient = new PredictionClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimTempEntPoolClientFwd>.TryTake(root, "SourceSharpTempEntPoolClient001", out var shim, out why)) return;
-            TempEntPoolClient = new TempEntPoolClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimTempEntBackendsClientFwd>.TryTake(root, "SourceSharpTempEntBackendsClient001", out var shim, out why)) return;
-            TempEntBackendsClient = new TempEntBackendsClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimEffectsRenderClientFwd>.TryTake(root, "SourceSharpEffectsRenderClient001", out var shim, out why)) return;
-            EffectsRenderClient = new EffectsRenderClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimStandaloneClientFwd>.TryTake(root, "SourceSharpStandaloneClient001", out var shim, out why)) return;
-            StandaloneClient = new StandaloneClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimViewClientFwd>.TryTake(root, "SourceSharpViewClient001", out var shim, out why)) return;
-            ViewClient = new ViewClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimUserMessagesClientFwd>.TryTake(root, "SourceSharpUserMessagesClient001", out var shim, out why)) return;
-            UserMessagesClient = new UserMessagesClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimNetClientFwd>.TryTake(root, "SourceSharpNetClient001", out var shim, out why)) return;
-            NetClient = new NetClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimDiagnosticsClientFwd>.TryTake(root, "SourceSharpDiagnosticsClient001", out var shim, out why)) return;
-            DiagnosticsClient = new DiagnosticsClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimUiClientFwd>.TryTake(root, "SourceSharpUiClient001", out var shim, out why)) return;
-            UiClient = new UiClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimParticlesClientFwd>.TryTake(root, "SourceSharpParticlesClient001", out var shim, out why)) return;
-            ParticlesClient = new ParticlesClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimFxClientFwd>.TryTake(root, "SourceSharpFxClient001", out var shim, out why)) return;
-            FxClient = new FxClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimSoundscapeClientFwd>.TryTake(root, "SourceSharpSoundscapeClient001", out var shim, out why)) return;
-            SoundscapeClient = new SoundscapeClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimPrecipitationClientFwd>.TryTake(root, "SourceSharpPrecipitationClient001", out var shim, out why)) return;
-            PrecipitationClient = new PrecipitationClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimMaterialProxyClientFwd>.TryTake(root, "SourceSharpMaterialProxyClient001", out var shim, out why)) return;
-            MaterialProxyClient = new MaterialProxyClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimInputClientFwd>.TryTake(root, "SourceSharpInputClient001", out var shim, out why)) return;
-            InputClient = new InputClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimPhysicsClientFwd>.TryTake(root, "SourceSharpPhysicsClient001", out var shim, out why)) return;
-            PhysicsClient = new PhysicsClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimConVarsClientFwd>.TryTake(root, "SourceSharpConVarsClient001", out var shim, out why)) return;
-            ConVarsClient = new ConVarsClientArea(shim);
-        }
-        {
-            if (!ShimRef<ShimFlashlightClientFwd>.TryTake(root, "SourceSharpFlashlightClient001", out var shim, out why)) return;
-            FlashlightClient = new FlashlightClientArea(shim);
-        }
-    }
-
-    internal static bool TryAcquire(ShimRoot root, out ClientShimAreas? areas, out string why)
-    {
-        var taken = new ClientShimAreas(root, out why);
-        areas = why.Length == 0 ? taken : null;
-        return areas is not null;
-    }
-
     internal static int Count => 28;
+
+    /// <summary>
+    /// Takes every area from the root, each with its table, and hands them
+    /// to <paramref name="add"/> only when all were taken: the first refused
+    /// stops the walk with its reason in <paramref name="why"/>, and nothing
+    /// is handed.
+    /// </summary>
+    internal static bool TryAcquire(ShimRoot root, Action<Type, object> add, out string why)
+    {
+        if (!ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var engineBaseArea, out why)) return false;
+        if (!ShimRef<ShimEventsFwd>.TryTake(root, "SourceSharpEvents001", out var eventsArea, out why)) return false;
+        if (!ShimRef<ShimNetworkFwd>.TryTake(root, "SourceSharpNetwork001", out var networkArea, out why)) return false;
+        if (!ShimRef<ShimModelsFwd>.TryTake(root, "SourceSharpModels001", out var modelsArea, out why)) return false;
+        if (!ShimRef<ShimMovementFwd>.TryTake(root, "SourceSharpMovement001", out var movementArea, out why)) return false;
+        if (!ShimRef<ShimEntitiesFwd>.TryTake(root, "SourceSharpEntities001", out var entitiesArea, out why)) return false;
+        if (!ShimRef<ShimCollisionFwd>.TryTake(root, "SourceSharpCollision001", out var collisionArea, out why)) return false;
+        if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var consoleArea, out why)) return false;
+        if (!ShimRef<ShimHudClientFwd>.TryTake(root, "SourceSharpHudClient001", out var hudClientArea, out why)) return false;
+        if (!ShimRef<ShimPredictionClientFwd>.TryTake(root, "SourceSharpPredictionClient001", out var predictionClientArea, out why)) return false;
+        if (!ShimRef<ShimTempEntPoolClientFwd>.TryTake(root, "SourceSharpTempEntPoolClient001", out var tempEntPoolClientArea, out why)) return false;
+        if (!ShimRef<ShimTempEntBackendsClientFwd>.TryTake(root, "SourceSharpTempEntBackendsClient001", out var tempEntBackendsClientArea, out why)) return false;
+        if (!ShimRef<ShimEffectsRenderClientFwd>.TryTake(root, "SourceSharpEffectsRenderClient001", out var effectsRenderClientArea, out why)) return false;
+        if (!ShimRef<ShimStandaloneClientFwd>.TryTake(root, "SourceSharpStandaloneClient001", out var standaloneClientArea, out why)) return false;
+        if (!ShimRef<ShimViewClientFwd>.TryTake(root, "SourceSharpViewClient001", out var viewClientArea, out why)) return false;
+        if (!ShimRef<ShimUserMessagesClientFwd>.TryTake(root, "SourceSharpUserMessagesClient001", out var userMessagesClientArea, out why)) return false;
+        if (!ShimRef<ShimNetClientFwd>.TryTake(root, "SourceSharpNetClient001", out var netClientArea, out why)) return false;
+        if (!ShimRef<ShimDiagnosticsClientFwd>.TryTake(root, "SourceSharpDiagnosticsClient001", out var diagnosticsClientArea, out why)) return false;
+        if (!ShimRef<ShimUiClientFwd>.TryTake(root, "SourceSharpUiClient001", out var uiClientArea, out why)) return false;
+        if (!ShimRef<ShimParticlesClientFwd>.TryTake(root, "SourceSharpParticlesClient001", out var particlesClientArea, out why)) return false;
+        if (!ShimRef<ShimFxClientFwd>.TryTake(root, "SourceSharpFxClient001", out var fxClientArea, out why)) return false;
+        if (!ShimRef<ShimSoundscapeClientFwd>.TryTake(root, "SourceSharpSoundscapeClient001", out var soundscapeClientArea, out why)) return false;
+        if (!ShimRef<ShimPrecipitationClientFwd>.TryTake(root, "SourceSharpPrecipitationClient001", out var precipitationClientArea, out why)) return false;
+        if (!ShimRef<ShimMaterialProxyClientFwd>.TryTake(root, "SourceSharpMaterialProxyClient001", out var materialProxyClientArea, out why)) return false;
+        if (!ShimRef<ShimInputClientFwd>.TryTake(root, "SourceSharpInputClient001", out var inputClientArea, out why)) return false;
+        if (!ShimRef<ShimPhysicsClientFwd>.TryTake(root, "SourceSharpPhysicsClient001", out var physicsClientArea, out why)) return false;
+        if (!ShimRef<ShimConVarsClientFwd>.TryTake(root, "SourceSharpConVarsClient001", out var conVarsClientArea, out why)) return false;
+        if (!ShimRef<ShimFlashlightClientFwd>.TryTake(root, "SourceSharpFlashlightClient001", out var flashlightClientArea, out why)) return false;
+        Add(add,
+            new EngineArea(engineBaseArea),
+            new EventsArea(eventsArea),
+            new NetworkArea(networkArea),
+            new ModelsArea(modelsArea),
+            new MovementArea(movementArea),
+            new EntitiesArea(entitiesArea),
+            new CollisionArea(collisionArea),
+            new ConsoleArea(consoleArea),
+            new HudClientArea(hudClientArea),
+            new PredictionClientArea(predictionClientArea),
+            new TempEntPoolClientArea(tempEntPoolClientArea),
+            new TempEntBackendsClientArea(tempEntBackendsClientArea),
+            new EffectsRenderClientArea(effectsRenderClientArea),
+            new StandaloneClientArea(standaloneClientArea),
+            new ViewClientArea(viewClientArea),
+            new UserMessagesClientArea(userMessagesClientArea),
+            new NetClientArea(netClientArea),
+            new DiagnosticsClientArea(diagnosticsClientArea),
+            new UiClientArea(uiClientArea),
+            new ParticlesClientArea(particlesClientArea),
+            new FxClientArea(fxClientArea),
+            new SoundscapeClientArea(soundscapeClientArea),
+            new PrecipitationClientArea(precipitationClientArea),
+            new MaterialProxyClientArea(materialProxyClientArea),
+            new InputClientArea(inputClientArea),
+            new PhysicsClientArea(physicsClientArea),
+            new ConVarsClientArea(conVarsClientArea),
+            new FlashlightClientArea(flashlightClientArea));
+        return true;
+    }
+
+    /// <summary>
+    /// Every area over no table: what a side registers before its attach,
+    /// so it can be made before the root is bound. A call throws, naming
+    /// the area; the game composes only after the attach.
+    /// </summary>
+    internal static void AddDetached(Action<Type, object> add)
+        => Add(add,
+            new EngineArea(default),
+            new EventsArea(default),
+            new NetworkArea(default),
+            new ModelsArea(default),
+            new MovementArea(default),
+            new EntitiesArea(default),
+            new CollisionArea(default),
+            new ConsoleArea(default),
+            new HudClientArea(default),
+            new PredictionClientArea(default),
+            new TempEntPoolClientArea(default),
+            new TempEntBackendsClientArea(default),
+            new EffectsRenderClientArea(default),
+            new StandaloneClientArea(default),
+            new ViewClientArea(default),
+            new UserMessagesClientArea(default),
+            new NetClientArea(default),
+            new DiagnosticsClientArea(default),
+            new UiClientArea(default),
+            new ParticlesClientArea(default),
+            new FxClientArea(default),
+            new SoundscapeClientArea(default),
+            new PrecipitationClientArea(default),
+            new MaterialProxyClientArea(default),
+            new InputClientArea(default),
+            new PhysicsClientArea(default),
+            new ConVarsClientArea(default),
+            new FlashlightClientArea(default));
+
+    private static void Add(Action<Type, object> add,
+        EngineArea engineBaseArea,
+        EventsArea eventsArea,
+        NetworkArea networkArea,
+        ModelsArea modelsArea,
+        MovementArea movementArea,
+        EntitiesArea entitiesArea,
+        CollisionArea collisionArea,
+        ConsoleArea consoleArea,
+        HudClientArea hudClientArea,
+        PredictionClientArea predictionClientArea,
+        TempEntPoolClientArea tempEntPoolClientArea,
+        TempEntBackendsClientArea tempEntBackendsClientArea,
+        EffectsRenderClientArea effectsRenderClientArea,
+        StandaloneClientArea standaloneClientArea,
+        ViewClientArea viewClientArea,
+        UserMessagesClientArea userMessagesClientArea,
+        NetClientArea netClientArea,
+        DiagnosticsClientArea diagnosticsClientArea,
+        UiClientArea uiClientArea,
+        ParticlesClientArea particlesClientArea,
+        FxClientArea fxClientArea,
+        SoundscapeClientArea soundscapeClientArea,
+        PrecipitationClientArea precipitationClientArea,
+        MaterialProxyClientArea materialProxyClientArea,
+        InputClientArea inputClientArea,
+        PhysicsClientArea physicsClientArea,
+        ConVarsClientArea conVarsClientArea,
+        FlashlightClientArea flashlightClientArea)
+    {
+        add(typeof(IEngineArea), engineBaseArea);
+        add(typeof(IEventsArea), eventsArea);
+        add(typeof(INetworkArea), networkArea);
+        add(typeof(IModelsArea), modelsArea);
+        add(typeof(IMovementArea), movementArea);
+        add(typeof(IEntitiesArea), entitiesArea);
+        add(typeof(ICollisionArea), collisionArea);
+        add(typeof(IConsoleArea), consoleArea);
+        add(typeof(IHudClientArea), hudClientArea);
+        add(typeof(IPredictionClientArea), predictionClientArea);
+        add(typeof(ITempEntPoolClientArea), tempEntPoolClientArea);
+        add(typeof(ITempEntBackendsClientArea), tempEntBackendsClientArea);
+        add(typeof(IEffectsRenderClientArea), effectsRenderClientArea);
+        add(typeof(IStandaloneClientArea), standaloneClientArea);
+        add(typeof(IViewClientArea), viewClientArea);
+        add(typeof(IUserMessagesClientArea), userMessagesClientArea);
+        add(typeof(INetClientArea), netClientArea);
+        add(typeof(IDiagnosticsClientArea), diagnosticsClientArea);
+        add(typeof(IUiClientArea), uiClientArea);
+        add(typeof(IParticlesClientArea), particlesClientArea);
+        add(typeof(IFxClientArea), fxClientArea);
+        add(typeof(ISoundscapeClientArea), soundscapeClientArea);
+        add(typeof(IPrecipitationClientArea), precipitationClientArea);
+        add(typeof(IMaterialProxyClientArea), materialProxyClientArea);
+        add(typeof(IInputClientArea), inputClientArea);
+        add(typeof(IPhysicsClientArea), physicsClientArea);
+        add(typeof(IConVarsClientArea), conVarsClientArea);
+        add(typeof(IFlashlightClientArea), flashlightClientArea);
+    }
 }

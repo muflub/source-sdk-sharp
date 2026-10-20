@@ -20,7 +20,7 @@ namespace SourceSharp.Tests;
 public class PredictionSchemaTests
 {
     // This class's own catalog of the shared declarations (statics to zero).
-    private readonly NetStateCatalog _catalog = new(TestServices.ServerGame, new RecordingLog());
+    private readonly NetStateCatalog _catalog = NetStateCatalog.Of(TestServices.ServerGame, new RecordingLog());
 
     /// <summary>
     /// Where a class's own state begins in the blob. The ENGINE BLOCK

@@ -36,7 +36,7 @@ public unsafe class ClientSideEngineTests : IDisposable
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
-        var api = new EngineSide(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;
@@ -120,7 +120,7 @@ public unsafe class ClientSideEngineTests : IDisposable
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         using var root = new FakeShimRoot();
-        var side = new EngineSide(Side.Client);
+        var side = TestSides.Create(Side.Client);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
         EngineServices.AddTo(services, side);
@@ -136,7 +136,7 @@ public unsafe class ClientSideEngineTests : IDisposable
     public void ASideWithNoClientFetchesAnswersNothing()
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(services, new EngineSide(Side.Server));
+        EngineServices.AddTo(services, TestSides.Create(Side.Server));
         var entities = services.Require<IEngineEntities>();
 
         Assert.Same(NoClientReplayEngine.Instance, entities.ClientReplay);
@@ -164,7 +164,7 @@ public unsafe class ClientSideEngineTests : IDisposable
                 (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintFirst,
                 (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintSecond);
 
-            IVtableEngineClient? client = EngineClient.Acquire(new ModuleEngine(first), out string why);
+            IFwdEngineClient? client = EngineClient.Acquire(new ModuleEngine(first), out string why);
             Assert.True(client is not null, why);
 
             client.ConsolePrintAt(3, "hello");

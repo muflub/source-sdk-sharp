@@ -8,18 +8,18 @@ internal sealed partial class EngineBoundSet
     // the side is created (EngineServerBinding.Bind, through SideLoad.Load), before
     // anything asks; a side that never does -- the client, whose engine has no
     // IVEngineServer -- answers every ask by name rather than with a zero.
-    private BoundInterface<IVtableEngineServer> _server =
-        new(IVtableEngineServer.InterfaceVersion, NoServer);
+    private BoundInterface<IFwdEngineServer> _server =
+        new(IFwdEngineServer.InterfaceVersion, NoServer);
 
-    internal BoundInterface<IVtableEngineServer> Server => _server;
+    internal BoundInterface<IFwdEngineServer> Server => _server;
 
     /// <summary>The server side's acquirer for IVEngineServer, installed before first use.</summary>
-    internal void UseServer(BoundInterface<IVtableEngineServer>.Acquirer acquire)
-        => _server = new(IVtableEngineServer.InterfaceVersion, acquire ?? throw new ArgumentNullException(nameof(acquire)));
+    internal void UseServer(BoundInterface<IFwdEngineServer>.Acquirer acquire)
+        => _server = new(IFwdEngineServer.InterfaceVersion, acquire ?? throw new ArgumentNullException(nameof(acquire)));
 
-    private static IVtableEngineServer? NoServer(NativeInterfaceFactory factory, Side side, out string why)
+    private static IFwdEngineServer? NoServer(NativeInterfaceFactory factory, Side side, out string why)
     {
-        why = $"the {side} side binds no IVEngineServer ({IVtableEngineServer.InterfaceVersion}): its wrapper is the server's";
+        why = $"the {side} side binds no IVEngineServer ({IFwdEngineServer.InterfaceVersion}): its wrapper is the server's";
         return null;
     }
 }
@@ -27,5 +27,5 @@ internal sealed partial class EngineBoundSet
 internal static partial class EngineBound
 {
     /// <summary><c>IVEngineServer</c>. Server side only.</summary>
-    internal static IVtableEngineServer Server(EngineSide side) => side.Bound.Server.For(side);
+    internal static IFwdEngineServer Server(EngineSide side) => side.Bound.Server.For(side);
 }

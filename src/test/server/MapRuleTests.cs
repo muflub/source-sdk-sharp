@@ -77,7 +77,7 @@ public class MapRuleTests
     [Fact]
     public void ZoneCounting()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GameZonePlayer).Assembly);
         registry.Services = Ignoring("Entities.GetBounds", "Players.GetHandle", "Entities.GetOrigin", "Entities.IsValid");
         registry.Spawn(Ent, EntityNames.GameZonePlayer);
@@ -145,7 +145,7 @@ public class MapRuleTests
     [Fact]
     public void RagdollKeysAndInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GameRagdollManager).Assembly);
 
         // THE BUDGET'S DESTINATION IS A CONSTRUCTOR ARGUMENT NOW, not a console
@@ -197,7 +197,7 @@ public class MapRuleTests
     [Fact]
     public void TheRagdollBudgetLandsOnTheCorpseRegistry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GameRagdollManager).Assembly);
 
         var services = Services(out var engine);
@@ -228,7 +228,7 @@ public class MapRuleTests
     [Fact]
     public void ARagdollManagerWithNoBudgetLeavesTheRegistrysDefaultAlone()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GameRagdollManager).Assembly);
 
         var services = Services(out var engine);
@@ -248,7 +248,7 @@ public class MapRuleTests
     [Fact]
     public void ProximityIsInert()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(LogicProximity).Assembly);
         registry.Services = Ignoring("Entities.GetBounds", "Players.GetHandle", "Entities.IsValid");
 

@@ -278,12 +278,12 @@ public class MovementRulesSeamTests
         var serverHook = new FakeRules { JumpTo = 0.25f, FrictionTo = 2f, MaxSpeedTo = 128f };
         var clientHook = new FakeRules { JumpTo = 0.25f, FrictionTo = 2f, MaxSpeedTo = 128f };
 
-        var serverBinding = new PlayerCommandsBinding(
+        var serverBinding = PlayerCommandsBinding.For(
             new Crossings(), new RecordingLog(), null!, Module<IServerModule>(Resolved(serverHook)),
             new PlayerCommandQueue(new RecordingLog()), () => false);
-        var clientBinding = new PredictionClientBinding(
+        var clientBinding = PredictionClientBinding.For(
             new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(Resolved(clientHook)),
-            new client::SourceSharp.Abi.MovementRunner(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client))));
+            client::SourceSharp.Abi.MovementRunner.For(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
 
         var server = PackOf<MovementRules>(serverBinding);
         var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding);

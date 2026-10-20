@@ -32,7 +32,7 @@ namespace SourceSharp.Tests;
 public class NetStateFieldOffsetTests
 {
     // This class's own catalog of the shared declarations (statics to zero).
-    private readonly NetStateCatalog _catalog = new(TestServices.ServerGame, new RecordingLog());
+    private readonly NetStateCatalog _catalog = NetStateCatalog.Of(TestServices.ServerGame, new RecordingLog());
 
     /// <summary>
     /// The names shell_surface_render.cpp resolves at its first update, in the
@@ -187,7 +187,7 @@ public class NetStateFieldOffsetTests
     [Fact]
     public void EachCatalogAnswersFromItsOwnDeclarations()
     {
-        var empty = new NetStateCatalog(Array.Empty<Type>());
+        var empty = NetStateCatalog.Of(Array.Empty<Type>());
 
         Assert.True(_catalog.FieldOffset(EntityNames.FuncBreakableSurf, "Wide") >= 0, "the full catalog knows the class");
         Assert.Equal(-1, empty.FieldOffset(EntityNames.FuncBreakableSurf, "Wide"));

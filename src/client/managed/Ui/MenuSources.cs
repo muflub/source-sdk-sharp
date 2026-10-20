@@ -11,7 +11,7 @@ namespace SourceSharp.Client.Vgui;
 /// the engine (GetPlayerInfo), sorted by frags. Refreshed by the host once a
 /// frame while the scoreboard is open; names are asked once per user id.
 /// </summary>
-public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, Func<IVtableEngineClient?> engine,
+public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, Func<IFwdEngineClient?> engine,
                                  IPlayerNames names, IEngineConsole console, IEngineEnvironment environment) : IScoreboardSource
 {
     private const int Slots = PlayerResourceNetState.Slots;
@@ -22,7 +22,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
     private readonly int[] _nameUserIds = new int[Slots];
     private readonly bool[] _fake = new bool[Slots];
     private int _count, _teamCount;
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
     private Standalone.ClientPlayerResource? _resource;
 
     public string ServerName { get; private set; } = string.Empty;
@@ -144,7 +144,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 /// frags from the scoreboard's rows; a choice is sent to the server as
 /// <c>jointeam N</c> (0 auto-assign, 1 spectate) and closes the menu.
 /// </summary>
-public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, Func<IVtableEngineClient?> engine, ILog log)
+public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, Func<IFwdEngineClient?> engine, ILog log)
     : ITeamMenuSource, ITeamMenuActions
 {
     private readonly TeamChoice[] _choices = new TeamChoice[2];
@@ -254,7 +254,7 @@ public sealed class MotdUi(Func<string, string?>? infoPanel = null) : IMotdSourc
 /// </param>
 public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsoleCompletionSource, IConsoleActions, IDisposable
 {
-    private readonly Func<IVtableEngineClient?> _engine;
+    private readonly Func<IFwdEngineClient?> _engine;
     private readonly ConsoleLines? _engineLines;
     private readonly object _gate = new();
     private readonly Action<string, bool>? _previousTap;
@@ -274,7 +274,7 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     /// prints freely; an unbounded list would grow all session.</summary>
     public const int MaxLines = 1024;
 
-    public ConsoleUi(Func<IVtableEngineClient?> engine, ConsoleLines? lines = null)
+    public ConsoleUi(Func<IFwdEngineClient?> engine, ConsoleLines? lines = null)
     {
         _engine = engine;
         _engineLines = lines;
@@ -466,11 +466,11 @@ public sealed class EngineConVarStore(IEngineConsole console) : IUiConVarStore
 /// as console lines, and a captured button's name from the input system.
 /// Names are upper case, as stock's keyboard options show them.
 /// </summary>
-public sealed class EngineKeyBindingStore(IEngineHud screen, Func<IVtableEngineClient?> engine, Func<IVtableInputSystem?> input)
+public sealed class EngineKeyBindingStore(IEngineHud screen, Func<IFwdEngineClient?> engine, Func<IFwdInputSystem?> input)
     : IUiKeyBindingStore
 {
-    private IVtableEngineClient? _engine;
-    private IVtableInputSystem? _input;
+    private IFwdEngineClient? _engine;
+    private IFwdInputSystem? _input;
 
     public string? KeyFor(string command)
         => screen.LookupBinding(command) is { Length: > 0 } key ? key.ToUpperInvariant() : null;

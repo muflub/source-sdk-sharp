@@ -77,12 +77,13 @@ public sealed class EntityLayout
 {
     private readonly Dictionary<string, EntityFieldLayout> _byName;
 
-    private EntityLayout(IReadOnlyList<EntityFieldLayout> fields, int size, string className)
+    private EntityLayout(IReadOnlyList<EntityFieldLayout> fields, int size, string className,
+                         Dictionary<string, EntityFieldLayout> byName)
     {
         Fields = fields;
         Size = size;
         ClassName = className;
-        _byName = fields.ToDictionary(f => f.Name, StringComparer.Ordinal);
+        _byName = byName;
     }
 
     public IReadOnlyList<EntityFieldLayout> Fields { get; }
@@ -299,7 +300,8 @@ public sealed class EntityLayout
             offset += size;
         }
 
-        return new EntityLayout(fields, Align(offset, 4), className ?? type.Name);
+        return new EntityLayout(fields, Align(offset, 4), className ?? type.Name,
+                                fields.ToDictionary(f => f.Name, StringComparer.Ordinal));
     }
 
     private static int Align(int value, int alignment)

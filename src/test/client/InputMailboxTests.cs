@@ -35,7 +35,7 @@ public class InputMailboxTests
         InputMailboxBlock block = default;
         block.StructSize = 28;
         nint address = (nint)(&block);
-        Assert.Throws<InvalidOperationException>(() => new InputMailbox(address));
+        Assert.Throws<InvalidOperationException>(() => InputMailbox.Over(address));
     }
 
     /// <summary>A recording host: every cursor call the mouse code makes, in order.</summary>

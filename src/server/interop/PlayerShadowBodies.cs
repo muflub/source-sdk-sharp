@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary><see cref="IPlayerTouchWorld"/> over one side's engine: the entity's block read in place, and its held object.</summary>
-internal sealed class EnginePlayerTouchWorld(EngineSide side) : IPlayerTouchWorld
+internal sealed class EnginePlayerTouchWorld(EngineSide side, INetworkServerArea network) : IPlayerTouchWorld
 {
     private static readonly int MoveTypeOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.MoveType));
     private static readonly int SolidOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidType));
@@ -18,7 +18,7 @@ internal sealed class EnginePlayerTouchWorld(EngineSide side) : IPlayerTouchWorl
 
     public bool TryEntity(EntityHandle entity, out int moveType, out int solidType, out int solidFlags, out nint physicsObject)
     {
-        Span<byte> block = side.GetEntityBlock(entity);
+        Span<byte> block = side.GetEntityBlock(network, entity);
         if (block.Length < EngineBlock.SizeBytes)
         {
             moveType = solidType = solidFlags = 0;
@@ -53,16 +53,16 @@ public interface IPlayerShadows : IPlayerShadowProbe
 }
 
 /// <summary><see cref="IPlayerShadowNative"/> over one side's engine slots.</summary>
-internal sealed class EnginePlayerShadowNative(EngineSide side) : IPlayerShadowNative
+internal sealed class EnginePlayerShadowNative(EngineSide side, IMovementServerArea movement) : IPlayerShadowNative
 {
-    public bool Facts(EntityHandle player, out PlayerShadowFacts facts) => side.PlayerShadowFacts(player, out facts);
+    public bool Facts(EntityHandle player, out PlayerShadowFacts facts) => side.PlayerShadowFacts(movement, player, out facts);
 
     public bool Adopt(EntityHandle player, nint stand, nint crouch, nint controller)
-        => side.PlayerShadowAdopt(player, stand, crouch, controller);
+        => side.PlayerShadowAdopt(movement, player, stand, crouch, controller);
 
-    public void Release(EntityHandle player) => side.PlayerShadowRelease(player);
+    public void Release(EntityHandle player) => side.PlayerShadowRelease(movement, player);
 
-    public void Commit(EntityHandle player, int state, bool afterCommand) => side.PlayerShadowCommit(player, state, afterCommand);
+    public void Commit(EntityHandle player, int state, bool afterCommand) => side.PlayerShadowCommit(movement, player, state, afterCommand);
 
     public nint Environment() => side.PhysicsEnvironmentPointer();
 }
@@ -114,8 +114,14 @@ public sealed class PlayerShadowBodies : IPlayerShadows
     // SS-PHYSWORLD report prints it. So they are unmanaged, made once per
     // instance and never freed: an object can outlive this instance across a
     // hot reload, and two short strings are the price of that never dangling.
-    private readonly nint _standName = Marshal.StringToCoTaskMemUTF8("player_stand");
-    private readonly nint _crouchName = Marshal.StringToCoTaskMemUTF8("player_crouch");
+    // The two hulls' names, made on the first body built rather than in the
+    // constructor, and kept for the bodies' lifetime.
+    private nint _standName;
+    private nint _crouchName;
+
+    private nint StandName => _standName != 0 ? _standName : _standName = Marshal.StringToCoTaskMemUTF8("player_stand");
+
+    private nint CrouchName => _crouchName != 0 ? _crouchName : _crouchName = Marshal.StringToCoTaskMemUTF8("player_crouch");
 
     /// <param name="enabled"><c>sourcesharp_player_shadow</c>: whether a body may be built at all.</param>
     /// <param name="warning">Where a refusal is said (native's Warning).</param>
@@ -149,12 +155,13 @@ public sealed class PlayerShadowBodies : IPlayerShadows
 
         // The movement words are the managed command loop's when it runs
         // (plan_server_native_v2 T4g).
-        IPlayerShadowNative native = new EnginePlayerShadowNative(engine.Api);
+        var areas = engine.Api.Areas;
+        IPlayerShadowNative native = new EnginePlayerShadowNative(engine.Api, areas.Require<IMovementServerArea>());
         if (moves is not null && data is not null)
             native = new SourceSharp.Server.Interop.MovedPlayerShadowNative(native, moves, data);
 
         var bodies = new PlayerShadowBodies(native, v, enabled, warning,
-                                            new EnginePlayerTouchWorld(engine.Api));
+                                            new EnginePlayerTouchWorld(engine.Api, areas.Require<INetworkServerArea>()));
         engine.Api.Teleported = bodies.Teleport;
         return bodies;
     }
@@ -253,7 +260,7 @@ public sealed class PlayerShadowBodies : IPlayerShadows
             Damping = HullDamping,
             RotDamping = HullRotDamping,
             RotInertiaLimit = HullRotInertiaLimit,
-            Name = _standName,
+            Name = StandName,
             GameData = PhysicsGameData.FromHandle(player),
             Volume = 0f,
             DragCoefficient = 0f,
@@ -261,7 +268,7 @@ public sealed class PlayerShadowBodies : IPlayerShadows
         };
 
         nint stand = _v.CreatePolyObject(env, standCollide, surface, f.Origin, in p);
-        p.Name = _crouchName;
+        p.Name = CrouchName;
         nint crouch = _v.CreatePolyObject(env, crouchCollide, surface, f.Origin, in p);
 
         if (stand == 0 || crouch == 0)

@@ -13,7 +13,7 @@ namespace SourceSharp.Server.Interop;
 /// </summary>
 public sealed class ServerTracer : IServerTraceRoute
 {
-    private readonly IVtableEngineTrace _trace;
+    private readonly IFwdEngineTrace _trace;
     private readonly TraceFilterSink _sink;
     private readonly ITraceEntityHandles _handles;
     private readonly nint _filter;
@@ -23,7 +23,7 @@ public sealed class ServerTracer : IServerTraceRoute
     /// <param name="sink">The managed side of <paramref name="filter"/>.</param>
     /// <param name="handles">What turns a trace's <c>m_pEnt</c> into a handle.</param>
     /// <param name="filter">The <c>ITraceFilter *</c> libss_fwd built over the sink's block.</param>
-    public ServerTracer(IVtableEngineTrace trace, TraceFilterSink sink, ITraceEntityHandles handles, nint filter)
+    public ServerTracer(IFwdEngineTrace trace, TraceFilterSink sink, ITraceEntityHandles handles, nint filter)
     {
         _trace = trace ?? throw new ArgumentNullException(nameof(trace));
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
@@ -90,12 +90,12 @@ public sealed class EngineTraceCandidates : ITraceCandidates
 
     private readonly Func<EntityHandle, Span<byte>> _block;
     private readonly Func<EntityHandle, int> _index;
-    private readonly IVtableModelInfo _models;
+    private readonly IFwdModelInfo _models;
 
     /// <param name="block">The entity's engine block (empty for anything without one).</param>
     /// <param name="index">The entity's edict index (0 for the world).</param>
     /// <param name="models">The server's model info.</param>
-    public EngineTraceCandidates(Func<EntityHandle, Span<byte>> block, Func<EntityHandle, int> index, IVtableModelInfo models)
+    public EngineTraceCandidates(Func<EntityHandle, Span<byte>> block, Func<EntityHandle, int> index, IFwdModelInfo models)
     {
         _block = block ?? throw new ArgumentNullException(nameof(block));
         _index = index ?? throw new ArgumentNullException(nameof(index));

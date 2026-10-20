@@ -43,7 +43,7 @@ public class AiSoundTests
     [Fact]
     public void TheClassIsDeclared()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(AiSound).Assembly);
         registry.Services = Services();
 
@@ -57,7 +57,7 @@ public class AiSoundTests
 
     private static AiSound Spawn(uint handle, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(AiSound).Assembly);
         registry.Services = Services();
 

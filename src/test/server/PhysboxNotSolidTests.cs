@@ -19,7 +19,7 @@ public class PhysboxNotSolidTests
 {
     private static RecordingEngine Spawned(params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         var services = Services(out var engine);
         registry.Services = services;

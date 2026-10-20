@@ -43,19 +43,23 @@ public class ShimAreaTypedCallsTests
         => area.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
     /// <summary>
-    /// Whether one of the areas <paramref name="container"/> holds declares the
-    /// slot. Since plan_shim_areas_split phase 9 a container has no calls of its
-    /// own: a caller names the area.
+    /// Whether one of the areas a side's registration hands declares the slot.
+    /// Since plan_shim_areas_split phase 11 nothing holds the areas as a set:
+    /// the registration hands each, by type, and a caller is given the area.
     /// </summary>
-    private static bool Serves(Type container, string slot)
-        => container.GetFields(BindingFlags.Public | BindingFlags.Instance).Any(f => Method(f.FieldType, slot) is not null);
+    private static bool Serves(Action<Action<Type, object>> registration, string slot)
+    {
+        var types = new List<Type>();
+        registration((type, _) => types.Add(type));
+        return types.Any(t => Method(t, slot) is not null);
+    }
 
     /// <summary>
     /// "callers use the generated vtable interfaces of each shim area
     /// directly": every slot row is a typed instance method on the area class
-    /// that serves it — an area <c>ShimAreas</c> holds for the server's, one
-    /// <c>ClientShimAreas</c> holds for the client's, and a both-sides slot on
-    /// an area of each.
+    /// that serves it — an area the server's registration hands for the
+    /// server's, one the client's hands for the client's, and a both-sides
+    /// slot on an area of each.
     /// </summary>
     [Fact]
     public void EverySlotIsATypedMethodOnItsOwningAreaClass()
@@ -72,10 +76,10 @@ public class ShimAreaTypedCallsTests
         {
             bool serverServes = side == "server" || side == "both";
             bool clientServes = side == "client" || side == "both";
-            if (serverServes && !Serves(typeof(ShimAreas), slot))
-                missing.Add($"ShimAreas.{slot} ({kind}/{side})");
-            if (clientServes && !Serves(typeof(ClientShimAreas), slot))
-                missing.Add($"ClientShimAreas.{slot} ({kind}/{side})");
+            if (serverServes && !Serves(ServerAreaRegistration.AddDetached, slot))
+                missing.Add($"server: {slot} ({kind}/{side})");
+            if (clientServes && !Serves(ClientAreaRegistration.AddDetached, slot))
+                missing.Add($"client: {slot} ({kind}/{side})");
         }
         Assert.Empty(missing);
     }
@@ -96,29 +100,39 @@ public class ShimAreaTypedCallsTests
         Assert.DoesNotContain("Has_", code, StringComparison.Ordinal);
 
         // Positive arms: the areas are real and carry the typed calls.
-        Assert.Contains("class ShimAreas", code, StringComparison.Ordinal);
-        Assert.Contains("class ClientShimAreas", code, StringComparison.Ordinal);
-        Assert.NotNull(Method(typeof(EntitiesServerArea), "EntityGetHealth"));
-        Assert.NotNull(Method(typeof(EngineArea), "GetCurrentTime"));
-        Assert.True(Serves(typeof(ShimAreas), "GetCurrentTime") && Serves(typeof(ClientShimAreas), "GetCurrentTime"),
-                    "a both-sides slot is on an area each container holds");
+        Assert.Contains("class ServerAreaRegistration", code, StringComparison.Ordinal);
+        Assert.Contains("class ClientAreaRegistration", code, StringComparison.Ordinal);
+        Assert.NotNull(Method(typeof(IEntitiesServerArea), "EntityGetHealth"));
+        Assert.NotNull(Method(typeof(IEngineArea), "GetCurrentTime"));
+        Assert.True(Serves(ServerAreaRegistration.AddDetached, "GetCurrentTime")
+                    && Serves(ClientAreaRegistration.AddDetached, "GetCurrentTime"),
+                    "a both-sides slot is on an area each side registers");
     }
 
     /// <summary>
-    /// The attach moves to <c>EngineSide</c>, the side object the areas are
-    /// injected through: it owns <c>AttachShims</c>, <c>AttachClientShims</c>
-    /// and <c>ServerAttached</c> as instance members.
+    /// The attach is <c>EngineSide</c>'s, the side object the areas are
+    /// registered with: one <c>AttachOwnShims</c> per side, and no accessor
+    /// for a set of areas (plan_shim_areas_split phase 11). Nothing asks
+    /// whether the attach happened (phase 11 review): the game composes
+    /// only after it, and a call before it throws.
     /// </summary>
     [Fact]
     public void EngineSideOwnsTheAttach()
     {
+        Assert.NotNull(EngineSideType.GetMethod("AttachOwnShims", InstanceBoth));
+        foreach (string gone in new[] { "AttachShims", "AttachClientShims" })
+            Assert.Null(EngineSideType.GetMethod(gone, InstanceBoth));
+        foreach (string gone in new[] { "ServerAttached", "ClientAttached", "OwnShimsAttached",
+                                        "ServerShims", "ClientShims", "OwnShims", "ShimsAttached" })
+            Assert.Null(EngineSideType.GetProperty(gone, InstanceBoth));
+
         // The server's EngineSide attaches the server's areas only: the
         // client's attach is in the client's half (plan_shim_areas_split phase 7).
-        foreach (string name in new[] { "AttachShims", "AttachOwnShims" })
-            Assert.NotNull(EngineSideType.GetMethod(name, InstanceBoth));
-        Assert.NotNull(EngineSideType.GetProperty("ServerAttached", InstanceBoth));
-        Assert.Null(EngineSideType.GetMethod("AttachClientShims", InstanceBoth));
-        Assert.Null(EngineSideType.GetProperty("ClientAttached", InstanceBoth));
+        using var root = new FakeShimRoot();
+        var side = TestSides.Create(Side.Server);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        Assert.NotNull(side.Areas.Resolve(typeof(IEntitiesServerArea)));
+        Assert.Null(side.Areas.Resolve(typeof(IHudClientArea)));
         // A side object is not a router: no Slot_/Has_ members at all.
         Assert.Empty(EngineSideType.GetMethods(InstanceBoth)
             .Where(m => m.Name.StartsWith("Slot_", StringComparison.Ordinal)
@@ -132,8 +146,8 @@ public class ShimAreaTypedCallsTests
     private static Type EngineSideType => typeof(EngineSide);
 
     /// <summary>
-    /// "no pass-through wrappers in EngineSide" with the guards kept: the
-    /// unattached-throw texts move to EngineSide with the attach, and no
+    /// "no pass-through wrappers in EngineSide": the side holds its areas
+    /// (<c>UseAreas</c>), and no
     /// product code outside the generated file names a router member.
     /// The control keeps the walk honest: the generated file itself still
     /// compiles typed calls a callsite-walk can see, and EngineSide keeps the
@@ -145,10 +159,7 @@ public class ShimAreaTypedCallsTests
         string root = RepoLayout.Repo();
         string engineSide = RepoLayout.SharedTypeSource("EngineSide");
 
-        Assert.Contains("before the shim areas were attached",
-            AbiParityTests.CodeOnly(engineSide), StringComparison.Ordinal);
-        Assert.Contains("server-only engine slot was called",
-            AbiParityTests.CodeOnly(engineSide), StringComparison.Ordinal);
+        Assert.Contains("UseAreas", AbiParityTests.CodeOnly(engineSide), StringComparison.Ordinal);
 
         var routerNames = new List<string>();
         foreach (string file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
@@ -165,13 +176,14 @@ public class ShimAreaTypedCallsTests
         }
         Assert.Empty(routerNames);
 
-        // Control: the stimulus reaches the subject — EngineSide is a large
-        // hand-written surface, so an empty walk over a vanished file could
-        // not pass. The server's (this suite's), which since
-        // plan_shim_areas_split phase 7 no longer carries the client's members:
-        // 270 there at the split.
-        Assert.True(EngineSideType.GetMethods(InstanceBoth).Length > 200,
-            $"{EngineSideType.GetMethods(InstanceBoth).Length} EngineSide methods");
+        // Control: the stimulus reaches the subject — the engine bindings are a
+        // large hand-written surface, so an empty walk over vanished files
+        // could not pass. The server's (this suite's): since
+        // plan_shim_areas_split phase 11 the members that call an area are the
+        // bindings', not EngineSide's.
+        int bound = EngineServices.Areas(TestSides.Create(Side.Server).Log)
+            .Sum(a => a.Implementation.GetMethods(InstanceBoth | BindingFlags.DeclaredOnly).Length);
+        Assert.True(bound > 400, $"{bound} engine binding methods");
     }
 
     /// <summary>

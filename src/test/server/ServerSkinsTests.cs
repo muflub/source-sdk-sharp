@@ -38,12 +38,12 @@ public sealed unsafe class ServerSkinsTests
                   (nint)(delegate* unmanaged<void*, uint, int*, void*>)&GetBlock);
         root.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerFwd.EntityMarkBlockChanged),
                   (nint)(delegate* unmanaged<void*, uint, int, void>)&Mark);
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.Initialize();
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         s_Marks = 0;
         s_MarkedOffset = -1;
-        return (new ServerSkins(new ModuleEngine(side)), root);
+        return (ServerSkins.For(new ModuleEngine(side)), root);
     }
 
     [Fact]

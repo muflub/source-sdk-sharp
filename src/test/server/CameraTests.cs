@@ -29,7 +29,7 @@ public class CameraTests
 
     private static ScriptedEntityRegistry NewRegistry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerCamera).Assembly);
         registry.Services = Ignoring("Clock.Now", "Entities.GetOrigin")
             .AddInstance<IViewControlHolders>(new ViewControlHolders());

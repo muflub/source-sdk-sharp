@@ -31,7 +31,7 @@ namespace SourceSharp.Tests;
 public class PredictionRingTests
 {
     // This class's own catalog of the shared declarations (statics to zero).
-    private readonly NetStateCatalog _catalog = new(TestServices.ClientGame, new RecordingLog());
+    private readonly NetStateCatalog _catalog = NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog());
 
     static PredictionRingTests()
     {

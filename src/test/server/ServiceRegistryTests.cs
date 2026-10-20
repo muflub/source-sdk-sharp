@@ -24,7 +24,7 @@ public partial class ServiceRegistryTests
     [Fact]
     public void ConVarsReachTheContainer()
     {
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         var services = new ServiceContainer();
 
         convars.RegisterAll(typeof(ServiceRegistryTests).Assembly);
@@ -60,7 +60,7 @@ public partial class ServiceRegistryTests
 
         // The order a module uses: convars first, then the systems, then the
         // commands that ask for either.
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(ServiceRegistryTests).Assembly);
         convars.PublishTo(services);
         services.AddInstance<ICounter>(counter);
@@ -90,7 +90,7 @@ public partial class ServiceRegistryTests
         var services = new ServiceContainer();
         services.AddInstance<ICounter>(new Counter());
 
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(ServiceRegistryTests).Assembly);
         convars.PublishTo(services);
 
@@ -122,7 +122,7 @@ public partial class ServiceRegistryTests
         // on: one unbuildable declaration must not take the rest of the
         // console's commands down with it.
         var services = new ServiceContainer();
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(ServiceRegistryTests).Assembly);
         convars.PublishTo(services);
 

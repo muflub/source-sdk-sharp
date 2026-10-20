@@ -15,7 +15,11 @@ namespace SourceSharp.Server.Interop;
 public sealed unsafe class EntitiesBinding(Crossings crossings, ILog log, IServerModule game, LivenessMirror liveness,
                                             EntityRemovalRoutes removal, ShellLessRoutes shellLess) : IManagedEntities
 {
-    private readonly string[] _dispatchNames = Enum.GetNames<EntityOp>().Select(n => "ServerDispatch." + n).ToArray();
+    // The ops' names for a failure's report, made on the first failure rather
+    // than in the constructor.
+    private string[]? _dispatchNames;
+
+    private string[] DispatchNames => _dispatchNames ??= Enum.GetNames<EntityOp>().Select(n => "ServerDispatch." + n).ToArray();
 
     private void Enter(CrossingOp op)
     {
@@ -53,7 +57,7 @@ public sealed unsafe class EntitiesBinding(Crossings crossings, ILog log, IServe
         catch (Exception e)
         {
             int i = (int)kind;
-            ManagedVtable.Fail(log, (uint)i < (uint)_dispatchNames.Length ? _dispatchNames[i] : "ServerDispatch", e);
+            ManagedVtable.Fail(log, (uint)i < (uint)DispatchNames.Length ? DispatchNames[i] : "ServerDispatch", e);
             return kind == EntityOp.FilterPasses ? -1 : 0;
         }
     }

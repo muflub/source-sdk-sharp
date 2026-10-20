@@ -46,7 +46,7 @@ public class EnvTests
     private static T Spawn<T>(string className, uint index, params (string Key, string Value)[] keys)
         where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvShake).Assembly);
         registry.Services = Services();
 
@@ -132,7 +132,7 @@ public class EnvTests
         Assert.True(!ReferenceEquals(steam.State, legacy.State), "the two classnames have their own tables");
 
         var driven = Spawn<EnvSteam>(EntityNames.EnvSteam, 13);
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvShake).Assembly);
         registry.Services = Services();
 

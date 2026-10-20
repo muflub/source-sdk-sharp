@@ -142,7 +142,7 @@ public class ChatFeedTests
         Assert.True(closed);
     }
 
-    internal sealed class RecordingEngineClient(List<string> sent) : IVtableEngineClient
+    internal sealed class RecordingEngineClient(List<string> sent) : IFwdEngineClient
     {
         public void SubmitConsoleLine(string line) => sent.Add(line);
 

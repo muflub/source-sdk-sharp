@@ -30,25 +30,31 @@ public interface ITempEntTables
 /// <summary><see cref="ITempEntTables"/> over the server's shim slot.</summary>
 public sealed unsafe class TempEntTables : ITempEntTables
 {
-    private readonly EngineSide _side;
+    private readonly IEffectsServerArea _effects;
 
-    public TempEntTables(ModuleEngine engine)
+    internal TempEntTables(IEffectsServerArea effects)
+    {
+        _effects = effects ?? throw new ArgumentNullException(nameof(effects));
+    }
+
+    /// <summary>Over <paramref name="engine"/>'s effects area, taken here once.</summary>
+    public static TempEntTables For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        _side = engine.Api;
+        return new TempEntTables(engine.Api.Areas.Require<IEffectsServerArea>());
     }
 
     /// <inheritdoc/>
     public TempEntTable? Build(ReadOnlySpan<byte> block)
     {
-        if (!_side.IsInitialized || !_side.ServerAttached || block.IsEmpty)
+        if (block.IsEmpty)
             return null;
 
         TeBuiltTable built = default;
         int handle;
 
         fixed (byte* p = block)
-            handle = _side.ServerShims.EffectsServer.TempEntBuild(p, block.Length, &built);
+            handle = _effects.TempEntBuild(p, block.Length, &built);
 
         if (handle < 0)
             return null;
@@ -91,7 +97,7 @@ public static class TempEntBlock
 /// engine forwarder, with the IRecipientFilter libss_fwd_server built over the
 /// managed sink pointed at this send's recipients for the length of the call.
 /// </summary>
-public sealed unsafe class TempEntSendEngine(IVtableEngineServer server, RecipientFilterSink sink, nint nativeFilter)
+public sealed unsafe class TempEntSendEngine(IFwdEngineServer server, RecipientFilterSink sink, nint nativeFilter)
 {
     /// <summary>
     /// The class id the engine gave a table's ServerClass, read where native

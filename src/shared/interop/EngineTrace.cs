@@ -7,7 +7,7 @@ namespace SourceSharp.Abi;
 /// Each side binds its own object (EngineTraceServer003 on the server,
 /// EngineTraceClient003 on the client): one declaration, two copies of the world.
 /// </summary>
-public interface IVtableEngineTrace
+public interface IFwdEngineTrace
 {
     /// <summary><c>GetPointContents( vecAbsPosition, NULL )</c>: the CONTENTS_* bits at a point.</summary>
     int PointContents(Vector point);
@@ -22,11 +22,11 @@ public interface IVtableEngineTrace
 }
 
 /// <summary>
-/// <see cref="IVtableEngineTrace"/> over EngineTraceFwd (2026-10-19), where the
+/// <see cref="IFwdEngineTrace"/> over EngineTraceFwd (2026-10-19), where the
 /// PointContents shim slot made the same call on both sides
 /// (UTIL_PointContents).
 /// </summary>
-public sealed unsafe class EngineTrace : IVtableEngineTrace
+public sealed unsafe class EngineTrace : IFwdEngineTrace
 {
     public const string ServerInterfaceVersion = "EngineTraceServer003";
     public const string ClientInterfaceVersion = "EngineTraceClient003";
@@ -41,7 +41,7 @@ public sealed unsafe class EngineTrace : IVtableEngineTrace
     }
 
     /// <summary>One side's trace interface, by that side's own name, or null with the reason.</summary>
-    internal static IVtableEngineTrace? Acquire(NativeInterfaceFactory factory, Side side, out string why)
+    internal static IFwdEngineTrace? Acquire(NativeInterfaceFactory factory, Side side, out string why)
         => Forwarders.TryAcquire<EngineTraceFwd>(
                factory, SourceSharpFactoryType.AppSystem,
                side == Side.Client ? ClientInterfaceVersion : ServerInterfaceVersion,

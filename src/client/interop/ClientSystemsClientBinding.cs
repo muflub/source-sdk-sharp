@@ -30,7 +30,7 @@ public sealed unsafe class ClientSystemsClientBinding(Crossings crossings, ILog 
 }
 
 /// <summary>The real layout, over the UI area's <c>ClientModeLayout</c>.</summary>
-internal sealed class ClientModeLayoutSlot(UiClientArea uiClient) : IClientModeLayout
+internal sealed class ClientModeLayoutSlot(IUiClientArea uiClient) : IClientModeLayout
 {
     public void Layout() => uiClient.ClientModeLayout();
 }

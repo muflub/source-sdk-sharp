@@ -116,7 +116,7 @@ public class GameDllConVarsOracleTests
     {
         var assembly = typeof(MapCycleFileConVar).Assembly;
 
-        var registry = new ConVarRegistry(SourceSharp.Tests.TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(SourceSharp.Tests.TestServices.UnattachedConsole());
         registry.RegisterAll(assembly);
 
         var byName = new Dictionary<string, ConVarBase>();

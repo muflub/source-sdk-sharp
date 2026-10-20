@@ -32,7 +32,7 @@ public class ConstraintReloadTests
 
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine) SocketSide(bool build = true)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysBallSocket).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -57,7 +57,7 @@ public class ConstraintReloadTests
 
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine) SpringSide(bool build = true)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysSpring).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

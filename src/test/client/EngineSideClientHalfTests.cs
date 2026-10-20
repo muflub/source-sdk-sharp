@@ -23,7 +23,7 @@ public class EngineSideClientHalfTests
 
     private static EngineSide Attached(FakeShimRoot root)
     {
-        var side = new EngineSide(Side.Client);
+        var side = TestSides.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return side;
@@ -34,7 +34,7 @@ public class EngineSideClientHalfTests
     // client composition over a fake root reaches slots the fake leaves null.
     private static EngineSide Client()
     {
-        var side = new EngineSide(Side.Client);
+        var side = TestSides.Create(Side.Client);
         side.Initialize();
         return side;
     }
@@ -42,12 +42,11 @@ public class EngineSideClientHalfTests
     [Fact]
     public void TheClientsEngineSideAttachesTheClientsAreasOnly()
     {
-        Assert.NotNull(typeof(EngineSide).GetMethod("AttachClientShims", Flags));
-        Assert.Null(typeof(EngineSide).GetMethod("AttachShims", Flags));
-        Assert.Null(typeof(EngineSide).GetProperty("ServerAttached", Flags));
-
         using var root = new FakeShimRoot();
-        Assert.True(Attached(root).ClientAttached, "AttachOwnShims attaches the client's areas");
+        EngineSide side = Attached(root);
+        Assert.NotNull(side.Root);
+        Assert.NotNull(side.Areas.Resolve(typeof(IHudClientArea)));
+        Assert.Null(side.Areas.Resolve(typeof(IEntitiesServerArea)));
     }
 
     private const System.Reflection.BindingFlags Flags

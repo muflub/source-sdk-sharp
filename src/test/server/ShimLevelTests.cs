@@ -141,7 +141,7 @@ public unsafe class ShimLevelTests
 
     private static IEngineLevel BoundTo(void* self, void** table)
     {
-        object level = SideBindings.Of<IEngineLevel>(new EngineSide(Side.Server));
+        object level = SideBindings.Of<IEngineLevel>(TestSides.Create(Side.Server));
 
         Set(level, "_self", Pointer.Box(self, typeof(void*)));
         Set(level, "_vtbl", Pointer.Box(table, typeof(ShimLevelFwd*)));
@@ -181,18 +181,18 @@ public unsafe class ShimLevelTests
         var header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
         try
         {
-            var served = new EngineSide(Side.Server);
+            var served = TestSides.Create(Side.Server);
             header->Slots = table;
             header->SlotCount = Forwarders.SlotCount<ShimLevelFwd>();
             using var root = new FakeShimRoot()
                 .Interface(EngineLevel.InterfaceVersion, self)
                 .Interface(ShimLevelFwd.TableName, header);
-            Assert.True(served.AttachShims(root.Bind(), out string why), why);
+            Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
 
             Assert.Equal(6, SideBindings.Of<IEngineLevel>(served).ResetDeleteList());
 
             // The control: a side with no root behind it refuses the same call.
-            var unserved = new EngineSide(Side.Server);
+            var unserved = TestSides.Create(Side.Server);
             Assert.Throws<InterfaceAcquisitionException>(() => SideBindings.Of<IEngineLevel>(unserved).ResetDeleteList());
         }
         finally
@@ -353,8 +353,8 @@ public unsafe class ShimLevelTests
         // not happen. Here it says so at the site that asked.
         // A side whose root serves no level area, reached as the side registers it.
         using var root = new FakeShimRoot();
-        var side = new EngineSide(Side.Server);
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        var side = TestSides.Create(Side.Server);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         var refused = SideBindings.Of<IEngineLevel>(side);
 
         Assert.Throws<InterfaceAcquisitionException>(() => refused.ClearEntityList());

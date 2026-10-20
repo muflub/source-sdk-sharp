@@ -968,7 +968,7 @@ public class DevCommandsTests
             .Returns("Entities.GetSpawnFlags", 0);
 
     private static NetSchemaType TwoFieldSchema(string className = "ss_player")
-        => new(className, "SsPlayerState", NetSchemaShell.Standalone,
+        => NetSchemaType.Create(className, "SsPlayerState", NetSchemaShell.Standalone,
                new[]
                {
                    new NetSchemaField("Health", "int", NetFieldKind.Int, 0, 4, 32),

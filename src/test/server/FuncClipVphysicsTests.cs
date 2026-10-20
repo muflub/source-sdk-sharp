@@ -40,7 +40,7 @@ public class FuncClipVphysicsTests
     {
         var services = Services(out var engine);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncClipVphysics).Assembly);
         registry.Services = services;
 

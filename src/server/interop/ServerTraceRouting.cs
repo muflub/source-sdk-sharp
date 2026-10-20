@@ -26,8 +26,10 @@ public static class ServerTraceRouting
             return null;
 
         EngineSide side = engine.Api;
-        var candidates = new EngineTraceCandidates(side.GetEntityBlock, side.EntityGetIndex, EngineBound.ModelInfo(side));
-        var sink = new TraceFilterSink(new TraceFilterRules(candidates, collisionRows), engine.Crossings);
+        INetworkServerArea network = side.Areas.Require<INetworkServerArea>();
+        var candidates = new EngineTraceCandidates(h => side.GetEntityBlock(network, h), side.EntityGetIndex,
+                                                   EngineBound.ModelInfo(side));
+        var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, collisionRows), engine.Crossings);
         ManagedVtable block = TraceFilterSink.Create(vtables, sink);
         nint nativeFilter = filters.Build(block, TraceFilterRules.TraceEverything);
 

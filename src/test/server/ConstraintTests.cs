@@ -27,7 +27,7 @@ public class ConstraintTests
     [Fact]
     public void MapKeys()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysSlideConstraint).Assembly);
         registry.Services = Services();
 
@@ -124,7 +124,7 @@ public class ConstraintTests
         // axis, not per bound. A transposition here limits the wrong axis, and
         // the result is a joint that swings freely where it should stop and
         // jams where it should swing — which reads as a mapping error.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysRagdollConstraint).Assembly);
         registry.Services = Services();
 

@@ -26,7 +26,7 @@ public class PhysicsConstraintBreakTests
     private static (ScriptedEntityRegistry Registry, PhysBallSocket Entity, RecordingEngine Engine) Built(string breakSound = "",
         params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysBallSocket).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

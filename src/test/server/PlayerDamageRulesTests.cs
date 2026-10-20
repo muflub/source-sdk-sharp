@@ -34,7 +34,7 @@ public class PlayerDamageRulesTests
     /// <summary>The real rules over doubles: every player on <paramref name="team"/>, friendly fire as given.</summary>
     internal static GameRules Rules(int team, string friendlyFire = "1", IDamageRule? rule = null)
     {
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         convars.Get<FriendlyFireConVar>()!.Bind(-1, "cs_sv_friendly_fire", friendlyFire);
 

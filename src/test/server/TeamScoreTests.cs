@@ -75,9 +75,9 @@ public class TeamScoreTests
     /// </summary>
     private sealed class Rig
     {
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         public readonly ServiceContainer Services = TestServices.Services();
-        public readonly ScriptedEntityRegistry Registry = new();
+        public readonly ScriptedEntityRegistry Registry = new(TestEngines.Server());
         private readonly RecordingEngine _engine;
 
         public Rig()

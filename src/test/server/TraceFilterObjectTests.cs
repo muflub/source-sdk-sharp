@@ -50,7 +50,7 @@ public sealed unsafe class TraceFilterObjectTests : IDisposable
     public void Dispose() => NativeMemory.Free(_table);
 
     private static TraceFilterSink Sink()
-        => new(new TraceFilterRules(new NoCandidates(), new uint[TraceFilterRules.GroupCount]), new Crossings());
+        => new(TraceFilterRules.Over(new NoCandidates(), new uint[TraceFilterRules.GroupCount]), new Crossings());
 
     private sealed class NoCandidates : ITraceCandidates
     {

@@ -189,7 +189,11 @@ public sealed unsafe class SaveBlockSession
     // The name an unnamed field goes under. Native memory, never freed: the
     // token table holds it BY POINTER, and the engine reads it back when it
     // writes the table into the file, after the call that interned it.
-    private readonly byte* _unnamed;
+    // The name a field with none is described by, made on first use (a
+    // constructor only stores, by the interop layer's rule).
+    private byte* _unnamed;
+
+    private byte* Unnamed => _unnamed != null ? _unnamed : _unnamed = NativeName("<unnamed>");
 
     /// <summary>
     /// A session over the engine's allocator as it is when a save starts: the
@@ -202,7 +206,6 @@ public sealed unsafe class SaveBlockSession
         _log = log;
         _memoryOf = memoryOf;
         _traceBlocks = traceBlocks;
-        _unnamed = NativeName("<unnamed>");
     }
 
     /// <summary>A NUL-terminated copy of <paramref name="text"/> in native memory that is never freed.</summary>
@@ -266,7 +269,7 @@ public sealed unsafe class SaveBlockSession
         {
             byte* field = fields + (nint)i * stride;
             byte* name = *(byte**)(field + SaveRestoreLayout.FieldName);
-            descs[i] = new SaveFieldDesc(name != null ? name : _unnamed,
+            descs[i] = new SaveFieldDesc(name != null ? name : Unnamed,
                                          *(int*)(field + SaveRestoreLayout.FieldType),
                                          *(ushort*)(field + SaveRestoreLayout.FieldSize),
                                          *(int*)(field + SaveRestoreLayout.FieldOffset));

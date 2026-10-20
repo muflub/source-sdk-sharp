@@ -223,7 +223,7 @@ public class WeaponBehaviourTests
             .ReturnsEachCall("Clock.Now", () => clock())
             .Ignores("EntityRender.LookupSequenceByActivity");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = TestServices.Services(out _);
         registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");

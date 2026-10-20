@@ -74,6 +74,13 @@ internal sealed class BoundInterface<T> where T : class
         _held = bound;
         return bound;
     }
+
+    /// <summary>
+    /// Answers <paramref name="bound"/> from now on, without asking the
+    /// factory: a test side's default forwarder (TestSides), which a root's
+    /// attach replaces with the bound set itself (EngineSide.Attached).
+    /// </summary>
+    internal void Hold(T bound) => _held = bound ?? throw new ArgumentNullException(nameof(bound));
 }
 
 /// <summary>
@@ -89,18 +96,18 @@ internal sealed partial class EngineBoundSet
             (NativeInterfaceFactory factory, Side _, out string why) => UniformRandomStream.Acquire(factory, out why));
 
     // THE TRACE IS ASKED FOR BY THE SIDE'S OWN NAME, as the model info is.
-    internal BoundInterface<IVtableEngineTrace> Trace { get; } =
+    internal BoundInterface<IFwdEngineTrace> Trace { get; } =
         new(EngineTrace.ServerInterfaceVersion, EngineTrace.Acquire);
 
-    internal BoundInterface<IVtableSoundEmitter> SoundEmitter { get; } =
+    internal BoundInterface<IFwdSoundEmitter> SoundEmitter { get; } =
         new(SoundEmitterBase.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => SoundEmitterBase.Acquire(factory, out why));
 
-    internal BoundInterface<IVtablePhysicsSurfaceProps> SurfaceProps { get; } =
+    internal BoundInterface<IFwdPhysicsSurfaceProps> SurfaceProps { get; } =
         new(PhysicsSurfaceProps.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => PhysicsSurfaceProps.Acquire(factory, out why));
 
-    internal BoundInterface<IVtableBaseFileSystem> Files { get; } =
+    internal BoundInterface<IFwdBaseFileSystem> Files { get; } =
         new(EngineBaseFileSystem.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => EngineBaseFileSystem.Acquire(factory, out why));
 
@@ -109,14 +116,14 @@ internal sealed partial class EngineBoundSet
     // side's own -- so a server that asked for the client spelling would get
     // the client's model info on a listen server and nothing at all on a
     // dedicated one.
-    internal BoundInterface<IVtableModelInfo> ModelInfo { get; } =
+    internal BoundInterface<IFwdModelInfo> ModelInfo { get; } =
         new(EngineModelInfo.ServerInterfaceVersion, EngineBound.AcquireModelInfo);
 }
 
 /// <summary>The bound interfaces, read off the side asking: stateless forwarders.</summary>
 internal static partial class EngineBound
 {
-    internal static IVtableModelInfo? AcquireModelInfo(NativeInterfaceFactory factory, Side side, out string why)
+    internal static IFwdModelInfo? AcquireModelInfo(NativeInterfaceFactory factory, Side side, out string why)
         => EngineModelInfo.Acquire(factory, out why, ModelInfoVersion(side));
 
     internal static string ModelInfoVersion(Side side)
@@ -128,17 +135,17 @@ internal static partial class EngineBound
     internal static IUniformRandom Random(EngineSide side) => side.Bound.Random.For(side);
 
     /// <summary><c>EngineTraceServer003</c> or <c>EngineTraceClient003</c>, this side's.</summary>
-    internal static IVtableEngineTrace Trace(EngineSide side) => side.Bound.Trace.For(side);
+    internal static IFwdEngineTrace Trace(EngineSide side) => side.Bound.Trace.For(side);
 
     /// <summary><c>VSoundEmitter002</c>, this side's.</summary>
-    internal static IVtableSoundEmitter SoundEmitter(EngineSide side) => side.Bound.SoundEmitter.For(side);
+    internal static IFwdSoundEmitter SoundEmitter(EngineSide side) => side.Bound.SoundEmitter.For(side);
 
     /// <summary><c>VPhysicsSurfaceProps001</c>, this side's.</summary>
-    internal static IVtablePhysicsSurfaceProps SurfaceProps(EngineSide side) => side.Bound.SurfaceProps.For(side);
+    internal static IFwdPhysicsSurfaceProps SurfaceProps(EngineSide side) => side.Bound.SurfaceProps.For(side);
 
     /// <summary><c>VBaseFileSystem011</c>, this side's.</summary>
-    internal static IVtableBaseFileSystem Files(EngineSide side) => side.Bound.Files.For(side);
+    internal static IFwdBaseFileSystem Files(EngineSide side) => side.Bound.Files.For(side);
 
     /// <summary>The side's own model info.</summary>
-    internal static IVtableModelInfo ModelInfo(EngineSide side) => side.Bound.ModelInfo.For(side);
+    internal static IFwdModelInfo ModelInfo(EngineSide side) => side.Bound.ModelInfo.For(side);
 }

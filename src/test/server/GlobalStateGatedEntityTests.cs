@@ -39,7 +39,7 @@ public class GlobalStateGatedEntityTests
 
     private static (ScriptedEntityRegistry Registry, GlobalStateTable Globals) Game()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(LogicAuto).Assembly);
 
         var services = Services();

@@ -35,7 +35,7 @@ public class CannisterReloadTests
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine)
         Side(float now = 0f)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysicsCannister).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

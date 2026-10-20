@@ -26,14 +26,25 @@ public interface IServerSkins
 public sealed class ServerSkins : IServerSkins
 {
     private readonly EngineSide _side;
+    private readonly INetworkServerArea _network;
 
-    public ServerSkins(ModuleEngine engine)
-        => _side = (engine ?? throw new ArgumentNullException(nameof(engine))).Api;
+    internal ServerSkins(EngineSide side, INetworkServerArea network)
+    {
+        _side = side ?? throw new ArgumentNullException(nameof(side));
+        _network = network ?? throw new ArgumentNullException(nameof(network));
+    }
+
+    /// <summary>Over <paramref name="engine"/>'s side and its network area, taken here once.</summary>
+    public static ServerSkins For(ModuleEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        return new ServerSkins(engine.Api, engine.Api.Areas.Require<INetworkServerArea>());
+    }
 
     /// <inheritdoc/>
     public void SetSkin(EntityHandle entity, int skin)
     {
-        if (NetworkedSkin.Write(_side.GetEntityBlock(entity), skin))
-            _side.MarkEntityBlockChanged(entity, NetworkedSkin.Offset);
+        if (NetworkedSkin.Write(_side.GetEntityBlock(_network, entity), skin))
+            _side.MarkEntityBlockChanged(_network, entity, NetworkedSkin.Offset);
     }
 }

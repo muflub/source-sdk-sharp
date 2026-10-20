@@ -790,7 +790,7 @@ public class SideAuditTests
 
         string[] SlotsOf(string iface, string member)
             => bindingMap.TryGetValue((iface, member), out var wrappers)
-                ? wrappers.SelectMany(w => wrapperSlots.TryGetValue(w, out var s) ? s : new HashSet<string>()).ToArray()
+                ? SideAudit.SlotsOf(wrappers, wrapperSlots).ToArray()
                 : Array.Empty<string>();
 
         Assert.True(SlotsOf("IEngineEntities", "GetOrigin").Contains("EntityGetOrigin"),
@@ -826,13 +826,31 @@ public class SideAuditTests
     /// </summary>
     private static readonly HashSet<string> ClientWaiver = new(StringComparer.Ordinal);
 
-    private static readonly HashSet<string> ServerWaiver = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> ServerWaiver = new(StringComparer.Ordinal)
+    {
+        // THE SOUND PATCHES (plan_server_native_v2 T4a). The shared envelope
+        // controller drives IEngineSound's five patch members on both sides;
+        // the client's half carries them out on IShimSoundscapeClient's
+        // client-only slots, and the server's half on the managed
+        // SoundEmitter's route (EngineSound.SidePatch*, over
+        // IServerSoundRoute), which is no slot. The binding map joins both
+        // halves under one member, so the client's slots read as the server's
+        // too; the route is the server's answer, and this audit cannot see a
+        // managed answer. The lines go if the audit learns to read a member per
+        // side.
+        "IEngineSound.SoundPatchCreate is backed by Client-only slot 'SoundPatchCreate'",
+        "IEngineSound.SoundPatchEmit is backed by Client-only slot 'SoundPatchEmit'",
+        "IEngineSound.SoundPatchFree is backed by Client-only slot 'SoundPatchFree'",
+        "IEngineSound.SoundPatchState is backed by Client-only slot 'SoundPatchState'",
+        "IEngineSound.SoundPatchStop is backed by Client-only slot 'SoundPatchStop'",
+    };
 
     /// <summary>
     /// Shared code that leans on server-only slots.
     ///
     /// <para>
-    /// EMPTY, and it emptied exactly the way its old comment predicted: every
+    /// The sound patches' five (see ServerWaiver) are its only lines. It had
+    /// been EMPTY, and it emptied exactly the way its old comment predicted: every
     /// line in it was WeaponLogic's engine surface, waived "until weapon
     /// prediction moves managed (Phase 9c/10) — at which point these slots go
     /// dual and the lines come off". Phase 10 moved the machine onto the
@@ -841,7 +859,15 @@ public class SideAuditTests
     /// assemblies), so there is nothing left to waive.
     /// </para>
     /// </summary>
-    private static readonly HashSet<string> SharedWaiver = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> SharedWaiver = new(StringComparer.Ordinal)
+    {
+        // The sound patches' five, as ServerWaiver says.
+        "IEngineSound.SoundPatchCreate is backed by Client-only slot 'SoundPatchCreate'",
+        "IEngineSound.SoundPatchEmit is backed by Client-only slot 'SoundPatchEmit'",
+        "IEngineSound.SoundPatchFree is backed by Client-only slot 'SoundPatchFree'",
+        "IEngineSound.SoundPatchState is backed by Client-only slot 'SoundPatchState'",
+        "IEngineSound.SoundPatchStop is backed by Client-only slot 'SoundPatchStop'",
+    };
 
     //-------------------------------------------------------------------------
     // The KNOWN lists: wrong-side reaches hidden behind a helper in Abi or an

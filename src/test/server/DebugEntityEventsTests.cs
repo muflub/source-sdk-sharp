@@ -15,7 +15,7 @@ public class DebugEntityEventsTests
 
     private static ReloadFixtureEntity Entity()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(DebugEntityEventsTests).Assembly);
         registry.Services = Services();
         registry.KeyValue(Source, "reload_fixture", "speed", "1");
@@ -23,7 +23,7 @@ public class DebugEntityEventsTests
     }
 
     private static DebugEntityEvents Events(ReloadFixtureEntity entity)
-        => new(ScriptedEntityRegistry.UnattachedEngine().Require<IEngineEntities>(), entity.Owner!);
+        => new(TestEngines.Server().Engine.Require<IEngineEntities>(), entity.Owner!);
 
     [Fact]
     public void A_subscriber_is_told_each_output_with_its_entity()

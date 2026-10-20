@@ -63,7 +63,7 @@ public class EngineEntityNamesTests
     [Fact]
     public void ANameIsAskedOfTheSidesShellLessAnswers()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         var answers = new OneName();
         side.ShellLess.Bind(answers);
 
@@ -74,7 +74,7 @@ public class EngineEntityNamesTests
     [Fact]
     public void AnEmptyNameMatchesNothingAndAsksNobody()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         var answers = new OneName();
         side.ShellLess.Bind(answers);
 
@@ -85,7 +85,7 @@ public class EngineEntityNamesTests
     [Fact]
     public void ASideWithNoShellLessAnswersMatchesNothing()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
 
         Assert.Empty(Walk(Binding(side).Named("lamp")));
     }

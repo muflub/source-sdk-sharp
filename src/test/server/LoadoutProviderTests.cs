@@ -52,7 +52,7 @@ public class LoadoutProviderTests
     /// <summary>The rules over a recording engine, as the other rules' facts build them.</summary>
     private sealed class Rig
     {
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         public readonly RecordingLog Log = new();
         private readonly RecordingEngine _host;
         private readonly RecordingEngine _players;

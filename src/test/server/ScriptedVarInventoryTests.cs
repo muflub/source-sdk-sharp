@@ -42,7 +42,7 @@ public class ScriptedVarInventoryTests
     /// <summary>The registry, and the inventory it produces, folded to lower case.</summary>
     private static (string[] Actual, string[] Expected) Compare()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ScriptedVarInventoryTests).Assembly);
         registry.Services = Services();
 

@@ -225,7 +225,7 @@ internal static class SideCopy
 
     /// <summary>A side's own <c>NetStateCatalog</c>, over its own copy of the declarations (statics to zero).</summary>
     public static object Catalog(Assembly interop, Assembly declarations)
-        => Activator.CreateInstance(interop.GetType("SourceSharp.Abi.NetStateCatalog", true)!, declarations, new RecordingLog())!;
+        => Static(interop, "NetStateCatalog", "Of", declarations, new RecordingLog())!;
 
     public static int DescribeOffset(object catalog, uint typeId, int offset)
     {

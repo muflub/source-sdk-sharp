@@ -36,7 +36,7 @@ public class PlayerStressDamageTests
 
     private static (SsPlayer Player, RecordingEngine Engine, PhysicsDamageQueue Impacts) World()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine);
         registry.Services = services;

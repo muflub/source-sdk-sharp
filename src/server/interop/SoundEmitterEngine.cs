@@ -19,8 +19,8 @@ public interface IServerSoundEmitterEngine : ISoundEmitterEngine
 /// native <c>IRecipientFilter</c> every emit hands the engine: the sink is
 /// pointed at the emit's recipients for exactly the EmitSound call.
 /// </summary>
-public sealed class SoundEmitterEngine(IVtableSoundEmitter scripts, IVtableEngineSoundServer sound,
-                                       IVtableEngineServer server, RecipientFilterSink sink, nint nativeFilter)
+public sealed class SoundEmitterEngine(IFwdSoundEmitter scripts, IFwdEngineSoundServer sound,
+                                       IFwdEngineServer server, RecipientFilterSink sink, nint nativeFilter)
     : IServerSoundEmitterEngine
 {
     public int SoundIndex(string name) => scripts.SoundIndex(name);

@@ -75,7 +75,7 @@ public class PhysicsWakeSleepTests
                        "Precache.BreakPieceCount",
                        "Scripted.SetNextThink");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = services;
 
@@ -91,7 +91,7 @@ public class PhysicsWakeSleepTests
 
         engine.Ignores("Entities.GetHealth", "EntityPhysics.InitPhysics");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         registry.Services = services;
 
@@ -110,7 +110,7 @@ public class PhysicsWakeSleepTests
                        "Precache.Model",
                        "Scripted.SetNextThink");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysicsCannister).Assembly);
         registry.Services = services;
 

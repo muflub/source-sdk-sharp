@@ -34,10 +34,9 @@ namespace SourceSharp.Server.Interop;
 /// the ground write-back names), and the point-contents cache.
 /// </para>
 /// </summary>
-internal sealed unsafe class ServerMoveWorld(ModuleEngine engine, IMoveSoundSink sounds, IServerModule? game) : IMoveWorld
+internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea movement, IMoveSoundSink sounds,
+                                             IServerModule? game) : IMoveWorld
 {
-    private readonly EngineSide api = (engine ?? throw new ArgumentNullException(nameof(engine))).Api;
-
     private readonly MovePointContentsCache _pointContents = new();
 
     // The move helper's touch list (CStandaloneMoveHelper::m_TouchList): the
@@ -72,7 +71,7 @@ internal sealed unsafe class ServerMoveWorld(ModuleEngine engine, IMoveSoundSink
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
         MoveTraceBlob blob = default;
-        api.MoveTraceServer(s, e, lo, hi, mask, collisionGroup, Player, &blob,
+        api.MoveTraceServer(movement, s, e, lo, hi, mask, collisionGroup, Player, &blob,
                             out EntityHandle hit, out EntityHandle ground);
 
         // THE WHOLE TRACE'S ENTITY, KEPT, so AddToTouched can report it: every
@@ -104,9 +103,6 @@ internal sealed unsafe class ServerMoveWorld(ModuleEngine engine, IMoveSoundSink
 
     public int PointContents(in Vector point, int slot)
     {
-        if (!api.OwnShimsAttached)
-            return 0;
-
         if (_pointContents.TryGet(point, slot, out int cached))
             return cached;
 
@@ -118,7 +114,7 @@ internal sealed unsafe class ServerMoveWorld(ModuleEngine engine, IMoveSoundSink
     public void ResetPointContentsCache(bool optimizations) => _pointContents.Reset(optimizations);
 
     public MoveSurface Surface(int surfaceProps)
-        => api.OwnShimsAttached ? EngineBound.SurfaceProps(api).Surface(surfaceProps) : default;
+        => EngineBound.SurfaceProps(api).Surface(surfaceProps);
 
     /// <summary>A new command's helper, and the loop's own ResetTouchList.</summary>
     public void ResetTouchList() => _touchList.Clear();
@@ -153,7 +149,7 @@ internal sealed unsafe class ServerMoveWorld(ModuleEngine engine, IMoveSoundSink
     /// </summary>
     public bool PlayerFallingDamage(float damage)
     {
-        bool alive = api.PlayerFallDamage(Player, damage);
+        bool alive = api.PlayerFallDamage(movement, Player, damage);
 
         // From where the shell is after the hit, as the helper's
         // StartSound( m_pHost->GetAbsOrigin(), ... ) asked it.

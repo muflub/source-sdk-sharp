@@ -16,7 +16,7 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class SurfacePropertyManifestTests
 {
-    private sealed class Props : IVtablePhysicsSurfaceProps
+    private sealed class Props : IFwdPhysicsSurfaceProps
     {
         public readonly List<(string File, string Text)> Parsed = new();
         public int ParseSurfaceData(string fileName, string text) { Parsed.Add((fileName, text)); return 0; }

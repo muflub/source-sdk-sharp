@@ -30,7 +30,7 @@ public class EnvGlobalTests
         // (plan_abi_hotreload D7), so no process-wide side has to be pinned
         // here any more: it was, because the route was one static that checked
         // Engine.ActiveSide, and this fact passed or failed on test order.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvGlobal).Assembly);
 
         var services = Services(out RecordingEngine engine);

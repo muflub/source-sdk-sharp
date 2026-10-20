@@ -8,7 +8,7 @@ namespace SourceSharp.Client.Interop;
 /// <see cref="ISoundscapeAudio"/> over IShimSoundscapeClient and the console's
 /// two named-convar api. A missing shim plays nothing.
 /// </summary>
-internal sealed unsafe class SoundscapeAudioSlots(ConsoleArea console, SoundscapeClientArea soundscapeClient) : ISoundscapeAudio
+internal sealed unsafe class SoundscapeAudioSlots(IConsoleArea console, ISoundscapeClientArea soundscapeClient) : ISoundscapeAudio
 {
     private static byte[] Utf8(string s) => Encoding.UTF8.GetBytes(s + "\0");
 

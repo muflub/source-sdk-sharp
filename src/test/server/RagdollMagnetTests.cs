@@ -142,7 +142,7 @@ public class RagdollMagnetTests
 
     private static ScriptedEntityRegistry Registry(IEntityRoster<PhysRagdollMagnet> magnets)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysRagdollMagnet).Assembly);
         registry.Services = new ServiceContainer()
             .AddInstance<IEntityRoster<PhysRagdollMagnet>>(magnets);

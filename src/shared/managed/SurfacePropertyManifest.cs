@@ -81,7 +81,7 @@ public sealed class SurfacePropertyManifest
     }
 
     /// <summary>Reads the manifest and hands VPhysics each file. Answers how many files it parsed.</summary>
-    public int Load(IVtablePhysicsSurfaceProps props)
+    public int Load(IFwdPhysicsSurfaceProps props)
     {
         string? manifest = _files.ReadGameFile(ManifestPath);
 

@@ -180,7 +180,7 @@ Managed callers should call these directly; the managed-built slot goes in T3.
 - **The `_DEBUG` "Sound %s was not precached" line.** Stock printed it from
   the emit in debug builds; the managed emitter drops it. The forwarder it
   needs, `IEngineSound::IsSoundPrecached`, exists since T4a's precache path
-  (`IVtableEngineSoundServer.IsSoundPrecached`); `ISoundEmitterEngine` would
+  (`IFwdEngineSoundServer.IsSoundPrecached`); `ISoundEmitterEngine` would
   carry it to the emit.
 - **sound_emitter.cpp's client emit path is native** (moved to
   src/client/native 2026-10-19, same link position). **Closed 2026-10-19:**
@@ -517,8 +517,10 @@ Added 2026-10-04 at main 9925463d; closed 2026-10-07 at todo-list (this
 lane).
 
 The router is gone. `tools/shim-areas` now emits one typed method per slot
-on the area class that serves it (`ShimAreas`, `ClientShimAreas`), with the
-vtable call inline; the generated file is `src/abi/ShimAreas.g.cs`. There is
+on the area class that serves it, with the vtable call inline; the
+generated file is `src/abi/ShimAreas.g.cs`. (Since plan_shim_areas_split
+phase 11 no container holds the areas: each binding or adapter is handed the
+areas it calls by constructor.) There is
 no `Slot_X` router, no `Has_X` (an area method is reached only through the
 attach-state pattern-match, which is what `Has_X` tested), and no
 throwing accessor. Each `EngineSide` dispatch reads
@@ -1049,12 +1051,12 @@ The client binds the engine's IInputSystem (`InputSystemVersion001`, the generat
 - `ClientInputDevices` (`src/client/interop/Input/ClientInputNative.cs`, the game input's
   `IInputDevices`): raw mouse accumulators, the joystick axes, rumble, the analog pad and
   the Steam Controller (over libsteam_api's flat API).
-- `InputSystem` (`src/client/interop/InputSystem.cs`, `IVtableInputSystem`): only
+- `InputSystem` (`src/client/interop/InputSystem.cs`, `IFwdInputSystem`): only
   `ButtonCodeToString`, for the UI's key bindings form (`EngineKeyBindingStore`,
   acquired by `ClientModule.AcquireInputSystem`).
 
 Fold them into one service registered in the client container, with the two contracts as
-its faces (or `IVtableInputSystem` as one more member of the input's device surface), so
+its faces (or `IFwdInputSystem` as one more member of the input's device surface), so
 the vtable is acquired once, a missing input system is reported once, and the UI and the
 game input cannot disagree about whether there is one. Pure plumbing, no behaviour change:
 the facts to keep green are `InputStockOracleTests` (the device reads in the replay) and the

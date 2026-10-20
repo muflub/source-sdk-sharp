@@ -347,7 +347,7 @@ public class LivenessMirrorTests
 
     private static void OnTheSide(Side side, Action<EngineSide, LivenessMirror> body)
     {
-        var engine = new EngineSide(side);
+        var engine = TestSides.Create(side);
         var mirror = new LivenessMirror();
         using var attached = engine.AttachLiveness(mirror);
         body(engine, mirror);
@@ -448,8 +448,8 @@ public class LivenessMirrorTests
     [Fact]
     public void TwoServerSidesEachAnswerFromTheirOwnMirror()
     {
-        var first = new EngineSide(Side.Server);
-        var second = new EngineSide(Side.Server);
+        var first = TestSides.Create(Side.Server);
+        var second = TestSides.Create(Side.Server);
         var firstMirror = new LivenessMirror();
         var secondMirror = new LivenessMirror();
         using var firstAttached = first.AttachLiveness(firstMirror);
@@ -894,7 +894,7 @@ public class LivenessMirrorTests
     [Fact]
     public void DisposingAnAttachmentPutsBackTheMirrorBeforeIt()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         var first = new LivenessMirror();
         var second = new LivenessMirror();
 
@@ -912,7 +912,7 @@ public class LivenessMirrorTests
     {
         // A reload's order: the new module composes before nothing else, but a
         // module disposed late must not take away its successor's mirror.
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         var older = side.AttachLiveness(new LivenessMirror());
         var newer = new LivenessMirror();
         using var b = side.AttachLiveness(newer);

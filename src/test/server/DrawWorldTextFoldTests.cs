@@ -48,9 +48,9 @@ public sealed unsafe class DrawWorldTextFoldTests : System.IDisposable
             fwd->AddTextOverlayRGB_2 = &AddText;
         }
 
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.Initialize();
-        Assert.True(side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         return SideBindings.Of<IEngineHud>(side);
     }
 

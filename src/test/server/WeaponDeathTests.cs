@@ -35,7 +35,7 @@ public class WeaponDeathTests
             .Returns("Entities.GetClassName", EntityNames.SsPlayer)
             .Returns("Players.IsAlive", false);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
 
@@ -107,7 +107,7 @@ public class WeaponDeathTests
             .Returns("Players.IsAlive", true)
             .Returns("Clock.Now", 10f);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
 

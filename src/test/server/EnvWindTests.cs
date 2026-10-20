@@ -29,7 +29,7 @@ public class EnvWindTests
         engine.Returns("Entities.GetAngles", new Vector(0f, 45f, 0f));
         engine.Returns("Clock.Now", 12.5f);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvWind).Assembly);
         registry.Services = Services();
         // The recording double answers the facing read.

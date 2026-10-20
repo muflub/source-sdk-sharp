@@ -76,7 +76,7 @@ public class EmitterTests
     [Fact]
     public void BlastRadius()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysExplosion).Assembly);
         registry.Services = Services();
 

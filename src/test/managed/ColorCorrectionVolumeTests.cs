@@ -36,7 +36,7 @@ public class ColorCorrectionVolumeTests
     private static (ColorCorrectionVolume Volume, RecordingEngine Engine) Spawn(
         uint index, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ColorCorrectionVolume).Assembly);
         registry.Services = Services(out var engine);
         engine.Ignores("Entities.GetOrigin");
@@ -58,7 +58,7 @@ public class ColorCorrectionVolumeTests
     [Fact]
     public void ClassnameResolves()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ColorCorrectionVolume).Assembly);
         registry.Services = Services(out var engine);
         engine.Ignores("Entities.GetOrigin");
@@ -98,7 +98,7 @@ public class ColorCorrectionVolumeTests
     [Fact]
     public void StartDisabledAndTheInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ColorCorrectionVolume).Assembly);
         registry.Services = Services(out var engine);
         engine.Ignores("Entities.GetOrigin");

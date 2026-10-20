@@ -34,10 +34,10 @@ public class EntityInjectionTests
 
     private static (ScriptedEntityRegistry Registry, TestSystem System) Server(int answer = 42)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EntityInjectionTests).Assembly);
 
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(EntityInjectionTests).Assembly);
 
         var system = new TestSystem(answer);
@@ -68,7 +68,7 @@ public class EntityInjectionTests
         // by moving where the instance comes from: the instance is created when
         // the FIRST KEYVALUE arrives, not at spawn, and an entity built at spawn
         // would have missed every key in the map.
-        var second = new ScriptedEntityRegistry();
+        var second = new ScriptedEntityRegistry(TestEngines.Server());
         second.RegisterAll(typeof(EntityInjectionTests).Assembly);
         second.Services = registry.Services;
         second.KeyValue(Other, "test_injected", "targetname", "whatever");
@@ -86,7 +86,7 @@ public class EntityInjectionTests
     {
         // No container at all, which is every test written before this existed
         // and every module that has not been handed one.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EntityInjectionTests).Assembly);
 
         registry.Spawn(Ent, "test_injection_plain");

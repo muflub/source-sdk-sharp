@@ -7,18 +7,18 @@ namespace SourceSharp.Abi;
 // which libss_fwd_server serves and the client's library does not, so it lives
 // in Server.Interop beside them. The interface it implements, and what to
 // know before adding a method to it, are Shared.Interop's
-// (IVtableEngineServer.cs): the shared bindings ask the interface, through the
+// (IFwdEngineServer.cs): the shared bindings ask the interface, through the
 // side's bound slot, which EngineServerBinding fills on the server.
 //=============================================================================
 
 /// <summary>
-/// <see cref="IVtableEngineServer"/> over the engine's own object, called
+/// <see cref="IFwdEngineServer"/> over the engine's own object, called
 /// through its vtable.
 /// </summary>
-public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine
+public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine
 {
-    /// <summary><see cref="IVtableEngineServer.InterfaceVersion"/>.</summary>
-    public const string InterfaceVersion = IVtableEngineServer.InterfaceVersion;
+    /// <summary><see cref="IFwdEngineServer.InterfaceVersion"/>.</summary>
+    public const string InterfaceVersion = IFwdEngineServer.InterfaceVersion;
 
     private readonly void* _self;
     private readonly EngineServerFwd* _fwd;
@@ -43,14 +43,14 @@ public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, Sour
     /// thread's active side.
     /// </para>
     /// </summary>
-    public static IVtableEngineServer? Acquire(ModuleEngine engine, out string why)
+    public static IFwdEngineServer? Acquire(ModuleEngine engine, out string why)
         => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
 
     /// <summary>
     /// The same, through one side's own interface factory (plan_abi_hotreload
     /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
-    internal static IVtableEngineServer? Acquire(NativeInterfaceFactory factory, out string why)
+    internal static IFwdEngineServer? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<EngineServerFwd>(
                factory, SourceSharpFactoryType.AppSystem,
                InterfaceVersion, out void* self, out EngineServerFwd* table, out why)
@@ -150,7 +150,7 @@ public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, Sour
 
     // IAreaPortalEngine, EXPLICITLY: the area portal records' three calls
     // (plan_server_native_v2 T4d) are offered to what holds that interface and
-    // to nothing that holds IVtableEngineServer (VtableBindingTests).
+    // to nothing that holds IFwdEngineServer (VtableBindingTests).
 
     /// <inheritdoc/>
     void SourceSharp.Server.Interop.IAreaPortalEngine.SetAreaPortalState(int portalNumber, bool open)
@@ -180,12 +180,12 @@ public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, Sour
     /// <inheritdoc/>
     public void MulticastRecipients(bool usePas, Vector origin, Span<uint> playerBits)
     {
-        if (playerBits.Length < IVtableEngineServer.PlayerBitWords)
+        if (playerBits.Length < IFwdEngineServer.PlayerBitWords)
             throw new ArgumentException(
-                $"the PAS is {IVtableEngineServer.PlayerBitWords} words (CBitVec<ABSOLUTE_PLAYER_LIMIT>); {playerBits.Length} were given",
+                $"the PAS is {IFwdEngineServer.PlayerBitWords} words (CBitVec<ABSOLUTE_PLAYER_LIMIT>); {playerBits.Length} were given",
                 nameof(playerBits));
 
-        playerBits[..IVtableEngineServer.PlayerBitWords].Clear();
+        playerBits[..IFwdEngineServer.PlayerBitWords].Clear();
 
         fixed (uint* bits = playerBits)
             _fwd->Message_DetermineMulticastRecipients(_self, usePas ? (byte)1 : (byte)0, &origin, bits);

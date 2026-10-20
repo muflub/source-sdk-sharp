@@ -2,8 +2,8 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// The slots a player-only sequence is made of (plan_server_native_v2 T4d).
-/// <see cref="EngineSide"/> answers every member with its own method of the
-/// same name; a fact answers them with a recorder.
+/// <c>ServerPlayerSequenceSlots</c> answers every member with the side's own
+/// method of the same name; a fact answers them with a recorder.
 /// </summary>
 internal interface IPlayerSequenceSlots
 {

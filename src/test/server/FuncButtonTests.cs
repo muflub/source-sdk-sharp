@@ -35,7 +35,7 @@ public class FuncButtonTests
         var services = Services(out var engine);
         engine.Returns("Entities.GetSpawnFlags", spawnFlags);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncButton).Assembly);
         registry.Services = services;
 

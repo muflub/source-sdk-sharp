@@ -60,7 +60,7 @@ public sealed class TraceMaskFoldTests : System.IDisposable
     }
 
     private readonly FakeShimRoot _root = new();
-    private readonly EngineSide _side = new(Side.Server);
+    private readonly EngineSide _side = TestSides.Create(Side.Server);
     private readonly Recorder _traces = new();
 
     private int s_Mask => _traces.Mask;
@@ -68,7 +68,7 @@ public sealed class TraceMaskFoldTests : System.IDisposable
     public TraceMaskFoldTests()
     {
         _side.Initialize();
-        Assert.True(_side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(_side.AttachOwnShims(_root.Bind(), out string why), why);
         _side.Tracer = _traces;
     }
 

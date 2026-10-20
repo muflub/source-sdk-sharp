@@ -8,7 +8,7 @@ namespace SourceSharp.Abi;
 /// handed to VPhysics' own parser exactly as physics_shared.cpp's
 /// PhysParseSurfaceData did.
 /// </summary>
-public interface IVtablePhysicsSurfaceProps
+public interface IFwdPhysicsSurfaceProps
 {
     /// <summary><c>ParseSurfaceData( pFileName, pTextfile )</c>: VPhysics parses one file's text.</summary>
     int ParseSurfaceData(string fileName, string text);
@@ -47,7 +47,7 @@ public interface IVtablePhysicsSurfaceProps
     string? ScrapeSound(int surfaceProps, bool smooth);
 }
 
-public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVPhysicsSurfaceSounds
+public sealed unsafe class PhysicsSurfaceProps : IFwdPhysicsSurfaceProps, IVPhysicsSurfaceSounds
 {
     private const int MaxSoundName = 128;
 
@@ -67,11 +67,11 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
     /// own side (plan_abi_hotreload D8); null, with the reason, when it does
     /// not answer.
     /// </summary>
-    public static IVtablePhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
+    public static IFwdPhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
         => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
 
     /// <summary>The same, through one side's own factory: what EngineBound holds per side.</summary>
-    internal static IVtablePhysicsSurfaceProps? Acquire(NativeInterfaceFactory factory, out string why)
+    internal static IFwdPhysicsSurfaceProps? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(
                factory, SourceSharpFactoryType.Physics, InterfaceVersion,
                out void* self, out PhysicsSurfacePropsFwd* table, out why)

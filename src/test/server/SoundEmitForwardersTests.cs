@@ -316,11 +316,11 @@ public sealed unsafe class SoundEmitForwardersTests : IDisposable
     private static void CreateDirRecords(void* self, byte* path, byte* pathId)
         => s_Sample = Marshal.PtrToStringUTF8((nint)path) + "|" + Marshal.PtrToStringUTF8((nint)pathId);
 
-    private IVtableBaseFileSystem BaseFiles(BaseFileSystemFwd* fwd)
+    private IFwdBaseFileSystem BaseFiles(BaseFileSystemFwd* fwd)
     {
         ConstructorInfo ctor = typeof(EngineBaseFileSystem).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Single();
         ParameterInfo[] parameters = ctor.GetParameters();
-        return (IVtableBaseFileSystem)ctor.Invoke([Pointer.Box(Bytes(8), parameters[0].ParameterType),
+        return (IFwdBaseFileSystem)ctor.Invoke([Pointer.Box(Bytes(8), parameters[0].ParameterType),
                                                    Pointer.Box(fwd, parameters[1].ParameterType)]);
     }
 
@@ -344,7 +344,7 @@ public sealed unsafe class SoundEmitForwardersTests : IDisposable
         s_Written = null;
         s_ClosedCount = 0;
 
-        IVtableBaseFileSystem files = BaseFiles(fwd);
+        IFwdBaseFileSystem files = BaseFiles(fwd);
         Assert.Equal(0, files.Write("x"u8, 0));
         files.Close(0);
         files.Close(0x55);
@@ -372,11 +372,11 @@ public sealed unsafe class SoundEmitForwardersTests : IDisposable
 
     // ---- IVEngineServer: the PAS ----
 
-    private static IVtableEngineServer Server(EngineServerFwd* fwd, void* self)
+    private static IFwdEngineServer Server(EngineServerFwd* fwd, void* self)
     {
         ConstructorInfo ctor = typeof(EngineServer).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Single();
         ParameterInfo[] parameters = ctor.GetParameters();
-        return (IVtableEngineServer)ctor.Invoke([Pointer.Box(self, parameters[0].ParameterType),
+        return (IFwdEngineServer)ctor.Invoke([Pointer.Box(self, parameters[0].ParameterType),
                                                  Pointer.Box(fwd, parameters[1].ParameterType),
                                                  Pointer.Box(null, parameters[2].ParameterType)]);
     }
@@ -386,7 +386,7 @@ public sealed unsafe class SoundEmitForwardersTests : IDisposable
     {
         EngineServerFwd* fwd = Zeroed<EngineServerFwd>();
         fwd->Message_DetermineMulticastRecipients = &Multicast;
-        Span<uint> bits = stackalloc uint[IVtableEngineServer.PlayerBitWords];
+        Span<uint> bits = stackalloc uint[IFwdEngineServer.PlayerBitWords];
         bits.Fill(0xFFFFFFFF);
 
         Server(fwd, Bytes(8)).MulticastRecipients(true, new Vector(4, 5, 6), bits);

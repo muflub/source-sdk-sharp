@@ -333,8 +333,8 @@ public class EntityRemovalTests
         var rig = new Rig();
         rig.Add(H(64));
 
-        var server = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
         server.Removal.Bind(rig.Directory.Remove, rig.Directory.FreeRemoved);
 
         Assert.False(client.Removal.Remove(H(64)));

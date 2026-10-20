@@ -38,7 +38,7 @@ public class SmokeStackTests
     /// </param>
     private static ScriptedEntityRegistry Registry(string stackName = "")
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvSmokeStack).Assembly);
 
         var services = Services(out var engine);

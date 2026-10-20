@@ -121,10 +121,10 @@ public unsafe class SteamGameServerInstanceTests
     {
         var served = new ServiceContainer().AddInstance(new StandaloneMirror());
         served.AddInstance<ISteamGameServer>(new AnsweringSteam(loggedOn: true));
-        EngineServices.AddTo(served, new EngineSide(Side.Server));
+        EngineServices.AddTo(served, TestSides.Create(Side.Server));
 
         var bare = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(bare, new EngineSide(Side.Client));
+        EngineServices.AddTo(bare, TestSides.Create(Side.Client));
 
         Assert.True(served.Require<IEngineHost>().SteamGameServerLoggedOn(), "the registered instance answers");
         Assert.False(bare.Require<IEngineHost>().SteamGameServerLoggedOn(), "a side that registers none has no game server");

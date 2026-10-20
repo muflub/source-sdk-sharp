@@ -28,7 +28,7 @@ public class EngineAssertionTests
 
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine) Fitted()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerServerRagdoll).Assembly);
 
         var fake = Mock().Ignores("Entities.IsPlayer");

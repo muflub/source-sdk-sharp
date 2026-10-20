@@ -272,7 +272,7 @@ public sealed class HostingServicesTests
     [Fact]
     public void Execute_returns_what_the_command_printed()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         var console = new ServerConsole(new SpeakingConsole(new RecordingEngine(), side), side.Lines);
 
         Assert.Equal("ran status\n", console.Execute("status"));
@@ -282,7 +282,7 @@ public sealed class HostingServicesTests
     public void A_capture_takes_every_line_numbered_inside_it_and_nests()
     {
         string inner = "", outer;
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         outer = side.Lines.Capture(() =>
         {
             var other = new Thread(() => side.Msg("from another thread\n"));

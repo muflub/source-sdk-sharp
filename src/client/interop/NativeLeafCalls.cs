@@ -128,8 +128,12 @@ public enum LeafCall
 /// <summary>Batches and items per <see cref="LeafCall"/> kind: the leaf system's outbound crossings.</summary>
 public sealed class LeafCallCounts
 {
-    private readonly long[] _calls = new long[Enum.GetValues<LeafCall>().Length];
-    private readonly long[] _items = new long[Enum.GetValues<LeafCall>().Length];
+    // One per kind: the enum's last member plus one, a constant (a
+    // constructor only stores, by the interop layer's rule).
+    private const int Kinds = (int)LeafCall.DetailModels + 1;
+
+    private readonly long[] _calls = new long[Kinds];
+    private readonly long[] _items = new long[Kinds];
 
     public void Count(LeafCall kind, int items)
     {

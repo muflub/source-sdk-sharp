@@ -12,7 +12,7 @@ internal sealed class EngineStudioMemory : IStudioMemory
         _side = side ?? throw new ArgumentNullException(nameof(side));
     }
 
-    private IVtableModelInfo Info => EngineBound.ModelInfo(_side);
+    private IFwdModelInfo Info => EngineBound.ModelInfo(_side);
 
     public byte[]? ModelImage(int modelIndex) => Info.StudioImage(modelIndex, null);
 

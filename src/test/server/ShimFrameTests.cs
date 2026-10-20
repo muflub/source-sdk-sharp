@@ -146,7 +146,7 @@ public unsafe class ShimFrameTests
     {
         // Over an engine of the fact's own (plan_abi_hotreload D8), whose
         // globals are unbound, so the reads reach the table.
-        object frame = SideBindings.Of<IEngineFrame>(side ?? new EngineSide(Side.Server));
+        object frame = SideBindings.Of<IEngineFrame>(side ?? TestSides.Create(Side.Server));
 
         Set(frame, "_self", Pointer.Box(self, typeof(void*)));
         Set(frame, "_vtbl", Pointer.Box(table, typeof(ShimFrameFwd*)));
@@ -167,7 +167,7 @@ public unsafe class ShimFrameTests
         // the engine's own struct and never touches the table. The live probe
         // (ShimProbes.Frame) is the other half -- it calls the SLOT directly and
         // holds it against the CGlobalVars read.
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         Assert.True(side.GlobalVarsPointer == 0,
                     "no engine set gpGlobals for the frame's side, so the fallback is "
                     + "the path under test");
@@ -263,7 +263,7 @@ public unsafe class ShimFrameTests
     private static IEngineFrame RefusedArea(EngineSide side, out FakeShimRoot root)
     {
         root = new FakeShimRoot { Refusal = "factory does not know that interface" };
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return SideBindings.Of<IEngineFrame>(side);
     }
 
@@ -287,7 +287,7 @@ public unsafe class ShimFrameTests
         // which is the difference between a fact and a decoration: the helper
         // was never wrong. What was wrong was which constructor this class
         // called, and only a fact that reaches the call site can see that.
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         Assert.True(side.GlobalVarsPointer == 0,
                     "gpGlobals is unbound for the area's side, so TickCount falls "
                     + "through to the table and the bind is reached");
@@ -316,7 +316,7 @@ public unsafe class ShimFrameTests
         // The other half: saying it once must not mean saying less. A reader of
         // this line has to be able to tell WHICH interface refused and WHY
         // without a second lookup.
-        var frame = RefusedArea(new EngineSide(Side.Server), out var root);
+        var frame = RefusedArea(TestSides.Create(Side.Server), out var root);
         using var _ = root;
         var thrown = Assert.Throws<InterfaceAcquisitionException>(() => frame.TickCount());
 
@@ -335,7 +335,7 @@ public unsafe class ShimFrameTests
         // tested it, returned, and the frame step quietly did not happen. An
         // area that cannot reach its interface is not a degraded area, it is a
         // bug, and it now says so at the site that asked.
-        var frame = RefusedArea(new EngineSide(Side.Server), out var root);
+        var frame = RefusedArea(TestSides.Create(Side.Server), out var root);
         using var _ = root;
         Assert.Throws<InterfaceAcquisitionException>(() => frame.ServiceEventQueue());
     }

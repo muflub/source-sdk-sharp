@@ -9,11 +9,11 @@ namespace SourceSharp.Server.Interop;
 /// only forwarded to it, and ServerSystems now runs the step at that row's
 /// position itself.
 /// </summary>
-public sealed unsafe class PhysicsFrameBinding(Crossings crossings, Func<IServerPhysicsWorld?> world)
+public sealed unsafe class PhysicsFrameBinding(Crossings crossings, Func<IServerPhysicsWorld?>? world)
     : IManagedPhysicsFrame
 {
     public PhysicsFrameBinding(Crossings crossings)
-        : this(crossings, () => null)
+        : this(crossings, null)
     {
     }
 
@@ -23,14 +23,14 @@ public sealed unsafe class PhysicsFrameBinding(Crossings crossings, Func<IServer
     public void* CreateWorld()
     {
         crossings.Count(CrossingOp.ServerPhysicsCreateWorld);
-        return (void*)(world()?.CreateWorld() ?? 0);
+        return (void*)(world?.Invoke()?.CreateWorld() ?? 0);
     }
 
     // The count of names precached, or -1 when nothing could be asked.
     public int PrecacheSurfaceSounds()
     {
         crossings.Count(CrossingOp.ServerPhysicsPrecacheSurfaceSounds);
-        return world()?.PrecacheSurfaceSounds() ?? -1;
+        return world?.Invoke()?.PrecacheSurfaceSounds() ?? -1;
     }
 
 }
@@ -55,9 +55,9 @@ public interface IServerPhysicsWorld
 /// always the solid handler, for the world's solids, the static props' and a
 /// model's. One per registry, as stock's was one object.
 /// </summary>
-public sealed unsafe class SolidKeyHandlerBinding(Crossings crossings, nint defaultName) : IVPhysicsKeyHandlerSink, ISolidKeyTable
+public sealed unsafe class SolidKeyHandlerBinding(Crossings crossings, SolidKeyDefaults solids) : IVPhysicsKeyHandlerSink, ISolidKeyTable
 {
-    public SolidKeyDefaults Solids { get; } = new(defaultName);
+    public SolidKeyDefaults Solids { get; } = solids;
 
     /// <summary>The table vphysics is handed, once <see cref="Create"/> has built it.</summary>
     public nint Table { get; set; }

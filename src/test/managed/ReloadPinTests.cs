@@ -86,14 +86,14 @@ public sealed class ReloadPinTests
         Assert.NotSame(typeof(ScriptedEntityRegistry), type);
 
         object registry = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic, null,
-            new object[] { side.ShellLess, side.EntityIo, side.Removal }, null)!;
+            new object[] { side.ShellLess, side.EntityIo, side.Removal, TestEngines.Server() }, null)!;
         int registered = (int)type.GetMethod("RegisterAll", new[] { typeof(Assembly) })!.Invoke(registry, new object[] { classes })!;
         Assert.True(registered > 0, "the second copy of SourceSharp.Server must contribute entity classes");
         return (IRouteBinder)registry;
     }
 
     /// <summary>The side copy's own registry with its classes, over a fresh side's routes.</summary>
-    private static IRouteBinder SideRegistry(Assembly classes) => RegistryOver(new EngineSide(Side.Server), classes);
+    private static IRouteBinder SideRegistry(Assembly classes) => RegistryOver(TestSides.Create(Side.Server), classes);
 
     //-------------------------------------------------------------------------
     // Which side a registry belongs to.
@@ -141,7 +141,7 @@ public sealed class ReloadPinTests
         var (context, _) = LoadSideCopy("belongs-empty");
         try
         {
-            Assert.False(Invoke_BelongsTo(new ScriptedEntityRegistry(), context));
+            Assert.False(Invoke_BelongsTo(new ScriptedEntityRegistry(TestEngines.Server()), context));
         }
         finally
         {
@@ -162,7 +162,7 @@ public sealed class ReloadPinTests
     public void ManagedCachesForgetDropsAllThreeRoutes()
     {
         var (context, assembly) = LoadSideCopy("forget-drops");
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         try
         {
             var registry = RegistryOver(side, assembly);
@@ -172,7 +172,7 @@ public sealed class ReloadPinTests
             Assert.NotNull(side.EntityIo.ServiceQueue);
             Assert.NotNull(side.Removal.Mark);
 
-            ManagedCaches.Forget(context, [new EngineSide(Side.Client), side]);
+            ManagedCaches.Forget(context, [TestSides.Create(Side.Client), side]);
 
             Assert.Null(side.ShellLess.Answers);
             Assert.Null(side.EntityIo.Input);
@@ -196,8 +196,8 @@ public sealed class ReloadPinTests
         var (context, assembly) = LoadSideCopy("forget-handed");
         try
         {
-            var handed = new EngineSide(Side.Server);
-            var other = new EngineSide(Side.Server);
+            var handed = TestSides.Create(Side.Server);
+            var other = TestSides.Create(Side.Server);
             RegistryOver(handed, assembly);
             var kept = RegistryOver(other, assembly);
 
@@ -220,7 +220,7 @@ public sealed class ReloadPinTests
         var (context, assembly) = LoadSideCopy("forget-counts");
         try
         {
-            var side = new EngineSide(Side.Server);
+            var side = TestSides.Create(Side.Server);
             RegistryOver(side, assembly);
 
             Assert.Equal(3, ManagedCaches.ForgetRoutes(side, context));
@@ -241,7 +241,7 @@ public sealed class ReloadPinTests
         var (stranger, _) = LoadSideCopy("forget-other-theirs");
         try
         {
-            var side = new EngineSide(Side.Server);
+            var side = TestSides.Create(Side.Server);
             var registry = RegistryOver(side, assembly);
 
             Assert.Equal(0, ManagedCaches.ForgetRoutes(side, stranger));
@@ -320,15 +320,15 @@ public sealed class ReloadPinTests
     [Fact]
     public void DetachDropsOnlyTheRoutesStillBoundToThisRegistry()
     {
-        var side = new EngineSide(Side.Server);
-        var first = new ScriptedEntityRegistry(side.ShellLess, side.EntityIo, side.Removal);
+        var side = TestSides.Create(Side.Server);
+        var first = new ScriptedEntityRegistry(side.ShellLess, side.EntityIo, side.Removal, TestEngines.Server());
 
         Assert.Equal(3, first.Detach());
         Assert.Null(side.ShellLess.Answers);
         Assert.Null(side.EntityIo.Input);
         Assert.Null(side.Removal.Mark);
 
-        _ = new ScriptedEntityRegistry(side.ShellLess, side.EntityIo, side.Removal);
+        _ = new ScriptedEntityRegistry(side.ShellLess, side.EntityIo, side.Removal, TestEngines.Server());
         var second = side.ShellLess.Answers;
 
         Assert.Equal(0, first.Detach());

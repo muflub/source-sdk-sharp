@@ -141,7 +141,9 @@ public static partial class EngineServices
     /// EngineBinding.cs adapter since B2, and since plan_abi_hotreload D8 they
     /// take nothing else). A binding's other
     /// constructor parameters are what its side's composition already holds,
-    /// resolved from <paramref name="from"/> (plan_abi_hotreload D7): the
+    /// resolved from <paramref name="from"/> (plan_abi_hotreload D7), except
+    /// the shim areas it calls, which come from the side's own registration
+    /// (plan_shim_areas_split phase 11): the
     /// render binding's mirror is the one instance the module also hands its
     /// push handlers, which a constructor of its own could never be. The
     /// longest constructor that can be satisfied wins, and a binding none can
@@ -171,6 +173,29 @@ public static partial class EngineServices
         throw new ServiceResolutionException($"{contract.Name} is not an engine area");
     }
 
+    /// <summary>
+    /// Whether a constructor parameter is a shim area: the generated
+    /// <c>I*Area</c> interface of an area of this side's registration, which
+    /// <see cref="Build"/> takes from the side (plan_shim_areas_split phase
+    /// 11) rather than from the composition's container, so a binding is
+    /// handed the areas it calls and nothing holds them as a set.
+    /// </summary>
+    internal static bool IsShimArea(Type type)
+        => type.IsInterface && type.Assembly == typeof(ShimRoot).Assembly
+        && type.Name.StartsWith('I') && type.Name.EndsWith("Area", StringComparison.Ordinal);
+
+    /// <summary>
+    /// <paramref name="implementation"/>, built as a binding is: its areas from
+    /// <paramref name="side"/>, the rest from <paramref name="from"/>
+    /// (<see cref="ModuleEngine.Create{T}"/>).
+    /// </summary>
+    internal static object Create(Type implementation, EngineSide side, IServiceLocator from)
+    {
+        ArgumentNullException.ThrowIfNull(side);
+        ArgumentNullException.ThrowIfNull(from);
+        return Build(implementation, side, from);
+    }
+
     private static object Build(Type implementation, EngineSide side, IServiceLocator from)
     {
         var constructors = implementation.GetConstructors()
@@ -184,9 +209,11 @@ public static partial class EngineServices
 
             for (int i = 0; i < parameters.Length && satisfied; i++)
             {
-                args[i] = parameters[i].ParameterType == typeof(EngineSide)
-                    ? side
-                    : from.Resolve(parameters[i].ParameterType);
+                Type wanted = parameters[i].ParameterType;
+                args[i] = wanted == typeof(EngineSide) ? side
+                        : wanted == typeof(NativeInterfaceFactory) ? side.Interfaces
+                        : IsShimArea(wanted) ? side.Areas.Resolve(wanted)
+                        : from.Resolve(wanted);
 
                 satisfied = args[i] is not null;
             }

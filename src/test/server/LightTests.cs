@@ -55,7 +55,7 @@ public class LightTests
     private static (ScriptedEntityRegistry, T) SpawnIgnoring<T>(string className,
         string[] ignores, params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Light).Assembly);
         registry.Services = Ignoring([.. ignores, "Entities.GetOrigin"]);
 

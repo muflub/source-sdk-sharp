@@ -133,7 +133,7 @@ public unsafe class GameFileSideTests : IDisposable
 
     private IEngineFiles Files(Side side)
     {
-        var api = new EngineSide(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;

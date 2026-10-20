@@ -133,19 +133,19 @@ Abbreviations:
 | EngineAreas.Players.cs | MOVE | Shared.Interop | IEnginePlayers/Weapons/Hud contracts (+TextSize) | census: pinned via EngineSide.cs:2800 (TextSize) | 314 |
 | EngineAreas.StringTables.cs | MOVE | Shared.Interop | [StringTable] attribute + IEngineStringTable(s) + handle | census: pinned via EngineBinding.cs:145 (IEngineStringTables) | 334 |
 | EngineAreas.World.cs | MOVE | Shared.Interop | IEngineWorldQuery/Sound/Effects/Visibility contracts | census: pinned via EngineBinding.cs:1006 (IEngineWorldQuery) | 638 |
-| EngineBaseFileSystem.cs | MOVE | Shared.Interop | IBaseFileSystem binding over its vtable: pointer code, not the binding machinery | census: pinned via EngineBinding.cs:182 (IVtableBaseFileSystem) | 161 |
+| EngineBaseFileSystem.cs | MOVE | Shared.Interop | IBaseFileSystem binding over its vtable: pointer code, not the binding machinery | census: pinned via EngineBinding.cs:182 (IFwdBaseFileSystem) | 161 |
 | EngineBinding.cs | MOVE | Shared.Interop | EngineX adapters (L25-1345) -> ShI; EngineServices composition (L1347) -> Sh; ClientInfo()/hosting adapter over SteamGameServerFlat/EngineBound.Server -> SvI | census: pinned via ScriptedEntity.cs:591 (EngineEntities); uses static Engine (32 sites); must stop naming: ClientReplayEngine (ClientReplay.cs->Client.Interop) at L333; EngineClock (GameServices.cs->Shared) at L1379; IClientInfo (ServerHostingContracts.cs->Server) at L1464; InterpolationBlocks (InterpolationBlocks.cs->Client.Interop) at L321 | 1517 |
 | EngineBlock.cs | PLUMBING-STAYS | - | engine block layout; native EngineBlock_t is generated from it | - | 1199 |
 | EngineBlockFingerprint.cs | PLUMBING-STAYS | - | fingerprint of the engine block layout (boundary drift check) | - | 196 |
 | EngineBlockMarks.cs | MOVE | Shared.Interop | which block writes announce StateChanged(offset): write policy used by game code | census: pinned via TeleportDiscontinuity.cs:74 (EngineBlockMarks) | 159 |
-| EngineBound.cs | MOVE | Shared.Interop | PerSide<T> + model info -> ShI; EngineBound.Server (IVtableEngineServer) -> SvI; re-acquired per load | census: pinned via EngineBinding.cs:76 (EngineBound); must stop naming: IVtableEngineServer (EngineServer.cs->Server.Interop) at L102 | 137 |
+| EngineBound.cs | MOVE | Shared.Interop | PerSide<T> + model info -> ShI; EngineBound.Server (IFwdEngineServer) -> SvI; re-acquired per load | census: pinned via EngineBinding.cs:76 (EngineBound); must stop naming: IFwdEngineServer (EngineServer.cs->Server.Interop) at L102 | 137 |
 | EngineClient.cs | MOVE | Client.Interop | IVEngineClient binding over its vtable | uses static Engine (4 sites) | 201 |
 | EngineEffectsForwarder.cs | MOVE | Shared.Interop | decorator base for IEngineEffects | - | 177 |
 | EngineEnvironment.cs | MOVE | Server.Interop | IEngineEnvironment + binding: server DLLInit environment | uses static Engine (1 sites) | 138 |
 | EngineFrame.cs | MOVE | Server.Interop | IEngineFrame over IShimFrame | uses static Engine (2 sites) | 232 |
 | EngineHierarchyWorld.cs | MOVE | Shared | ParentProbe bits -> ShI (EngineSide answers it); EngineHierarchyWorld (IHierarchyWorld over 21 static Engine calls) -> Sh | census: pinned via Engine.cs:351 (ParentProbe); uses static Engine (21 sites) | 319 |
 | EngineLevel.cs | MOVE | Server.Interop | IEngineLevel over IShimLevel | - | 271 |
-| EngineModelInfo.cs | MOVE | Shared.Interop | IVModelInfo binding over its vtable | census: pinned via EngineBinding.cs:565 (IVtableModelInfo) | 225 |
+| EngineModelInfo.cs | MOVE | Shared.Interop | IVModelInfo binding over its vtable | census: pinned via EngineBinding.cs:565 (IFwdModelInfo) | 225 |
 | EngineNetworkStringTables.cs | MOVE | Server.Interop | INetworkStringTableContainer binding (server) | - | 134 |
 | EngineServer.cs | MOVE | Server.Interop | IVEngineServer binding (server) | census: pinned via EngineBinding.cs | 267 |
 | EngineSide.Slots.g.cs | PLUMBING-STAYS | - | ShimRef/ShimAreas/ClientShimAreas + Slot_X/Has_X routing: generated plumbing (user example). tools/shim-areas must emit the routing as its own class (e.g. ShimSlots, public or IVT) instead of an EngineSide partial (L239), so EngineSide.cs can leave | Bootstrap names it: Entry.cs:134 (ShimAreas/ClientShimAreas.Count in a log line); stays but names moving: EngineSide (EngineSide.cs) at L239 | 1175 |

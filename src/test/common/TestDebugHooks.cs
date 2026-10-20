@@ -33,9 +33,9 @@ internal static partial class TestDebugHooks
                                         IDebugProcess? process = null,
                                         IDebugCommandRun? commandRun = null)
     {
-        engine ??= ScriptedEntityRegistry.UnattachedEngine();
+        engine ??= TestEngines.Server().Engine;
         return new(new DebugLog(log ?? new RecordingLog(), lines ?? new ConsoleLines()), new DebugBuild(build ?? new BuildInfo(), crossings ?? new Crossings()),
-                   new DebugEntityEvents(engine.Require<IEngineEntities>(), registry ?? new ScriptedEntityRegistry()),
+                   new DebugEntityEvents(engine.Require<IEngineEntities>(), registry ?? new ScriptedEntityRegistry(TestEngines.Server())),
                    console ?? DebugConsoleHook.Over(engine.Require<IEngineConsole>(), () => [], () => [], _ => null),
                    new DebugEntityCatalog(classes ?? (() => []), instances ?? (() => [])),
                    new DebugStatus(reload ?? new ReloadStore(Side.Server), counters ?? (() => DebugStatus.ZeroCounters()),

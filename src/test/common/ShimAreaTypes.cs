@@ -12,11 +12,19 @@ namespace SourceSharp.Tests;
 /// </summary>
 internal static class ShimAreaTypes
 {
-    /// <summary>The forwarder struct an area class (a container field's type) reads its slots through.</summary>
+    /// <summary>
+    /// The forwarder struct an area reads its slots through: the area's class,
+    /// or the <c>I*Area</c> interface the registration hands it by (the class
+    /// of the same name less the <c>I</c>).
+    /// </summary>
     public static Type FwdOf(Type area)
     {
+        if (area.IsInterface)
+            area = area.Assembly.GetType($"{area.Namespace}.{area.Name[1..]}", throwOnError: true)!;
+
+        // A derived area also takes its base's view of the same table, second.
         var ctor = Assert.Single(area.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic));
-        Type shimRef = Assert.Single(ctor.GetParameters()).ParameterType;
+        Type shimRef = ctor.GetParameters()[0].ParameterType;
         Assert.True(shimRef.IsGenericType, $"{area.Name} is not built from a ShimRef");
         return shimRef.GetGenericArguments()[0];
     }

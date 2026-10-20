@@ -31,7 +31,7 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
         _globals->nTimestampRandomizeWindow = 32;
         var engine = Mock();
         engine.Returns("Console.FindConVarValue", closecaption);
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)_globals);
         return (new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(side), engine), engine);
     }
@@ -68,7 +68,7 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
     {
         var engine = Mock();
         engine.Returns("Console.FindConVarValue", "1");
-        var captions = new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server)), engine);
+        var captions = new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(TestSides.Create(Side.Server)), engine);
 
         Assert.False(captions.Wanted);
     }

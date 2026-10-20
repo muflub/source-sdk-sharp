@@ -18,7 +18,7 @@ namespace SourceSharp.Tests;
 public unsafe class NetStateLayoutBindingTests
 {
     // This class's own catalog of the shared declarations (statics to zero).
-    private readonly NetStateCatalog _catalog = new(TestServices.ServerGame, new RecordingLog());
+    private readonly NetStateCatalog _catalog = NetStateCatalog.Of(TestServices.ServerGame, new RecordingLog());
 
     private readonly NetStateLayoutBinding _binding;
 

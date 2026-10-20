@@ -51,7 +51,7 @@ public class ContractDiffTests
     [Fact]
     public void TheManagedBaseAnswersOnlyKill()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ContractDiffTests).Assembly);
         registry.Services = Services();
 
@@ -165,7 +165,7 @@ public class ContractDiffTests
         // by between 1 and 33 classes each. Pinning that count by EQUALITY means
         // an entry cannot drift from 0 to 31, or from 31 back to 0, without the
         // file being edited to say so.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ContractDiffTests).Assembly);
         registry.Services = Services();
 

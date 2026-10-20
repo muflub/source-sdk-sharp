@@ -5,7 +5,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real one, over <c>ClientRecvProp</c> and <c>ClientSchemaRefusal</c>.</summary>
-internal sealed unsafe class ClientRecvTables(StandaloneClientArea standaloneClient) : IClientRecvTables
+internal sealed unsafe class ClientRecvTables(IStandaloneClientArea standaloneClient) : IClientRecvTables
 {
     private const int NameBytes = 128;
 

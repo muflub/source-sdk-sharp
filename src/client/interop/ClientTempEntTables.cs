@@ -29,25 +29,31 @@ public interface ITempEntRecvTables
 /// <summary><see cref="ITempEntRecvTables"/> over the client's shim slot.</summary>
 public sealed unsafe class ClientTempEntTables : ITempEntRecvTables
 {
-    private readonly EngineSide _side;
+    private readonly ITempEntBackendsClientArea _backends;
 
-    public ClientTempEntTables(ModuleEngine engine)
+    internal ClientTempEntTables(ITempEntBackendsClientArea backends)
+    {
+        _backends = backends ?? throw new ArgumentNullException(nameof(backends));
+    }
+
+    /// <summary>Over <paramref name="engine"/>'s temp entity backends area, taken here once.</summary>
+    public static ClientTempEntTables For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        _side = engine.Api;
+        return new ClientTempEntTables(engine.Api.Areas.Require<ITempEntBackendsClientArea>());
     }
 
     /// <inheritdoc/>
     public TempEntRecvTable? Build(ReadOnlySpan<byte> block, int blobBytes)
     {
-        if (!_side.IsInitialized || !_side.ClientAttached || block.IsEmpty)
+        if (block.IsEmpty)
             return null;
 
         TeRecvBuilt built = default;
         int handle;
 
         fixed (byte* p = block)
-            handle = _side.ClientShims.TempEntBackendsClient.TempEntBuildClient(p, block.Length, blobBytes, &built);
+            handle = _backends.TempEntBuildClient(p, block.Length, blobBytes, &built);
 
         return handle < 0 ? null : new TempEntRecvTable(handle, built.Existed != 0, built.ShapeHash);
     }

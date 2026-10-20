@@ -13,7 +13,7 @@ public interface IClientSpriteHost
     int Plan(ReadOnlySpan<float> input, Span<float> output);
 }
 
-internal sealed unsafe class ClientFxSpriteDrawSlots(FxClientArea fxClient) : IFxSpriteDraw
+internal sealed unsafe class ClientFxSpriteDrawSlots(IFxClientArea fxClient) : IFxSpriteDraw
 {
     public bool Begin(EntityHandle owner, in Vector offset, int modelIndex, float frame, int renderMode, int renderFx,
                       int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale,
@@ -63,7 +63,7 @@ public interface IClientSpriteTrailHost
 }
 
 /// <summary>The real registry, over the slots; a missing shim has no registrations.</summary>
-internal sealed class ClientFxPrecacheSlots(FxClientArea fxClient) : IFxPrecache
+internal sealed class ClientFxPrecacheSlots(IFxClientArea fxClient) : IFxPrecache
 {
     public int Count() => fxClient.FxPrecacheCount();
 

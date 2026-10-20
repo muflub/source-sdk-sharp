@@ -3,7 +3,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real targets, over the slots.</summary>
-internal sealed unsafe class ClientViewTargets(ViewClientArea viewClient) : IViewTargets
+internal sealed unsafe class ClientViewTargets(IViewClientArea viewClient) : IViewTargets
 {
     public bool Render(int target, in ViewTargetSetup setup)
     {

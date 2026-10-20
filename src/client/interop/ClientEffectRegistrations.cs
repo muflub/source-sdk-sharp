@@ -3,7 +3,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real ones, over the api.</summary>
-internal sealed unsafe class ClientEffectRegistrations(FxClientArea fxClient) : IClientEffectRegistrations
+internal sealed unsafe class ClientEffectRegistrations(IFxClientArea fxClient) : IClientEffectRegistrations
 {
     private const int NameBytes = 256;
 

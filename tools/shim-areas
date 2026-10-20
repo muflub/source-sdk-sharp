@@ -30,9 +30,10 @@ sourcesharp_gamesystem.cpp:
                                           compiler, included by fwd_shim_test
   src/abi/ShimAreas.g.cs                 the managed areas: one class per area over
                                           its forwarder table (a server area deriving
-                                          the shared base it extends), and the two
-                                          containers EngineSide attaches per side
-                                          (plan_shim_areas_split phase 2)
+                                          the shared base it extends), and each
+                                          side's registration, which hands them by
+                                          type to that side's registry
+                                          (plan_shim_areas_split phases 2 and 11)
 
 FORWARDS, NOT RENAMES. The bodies stay free SourceSharp_* functions: 969 gtest
 calls and tools/entrypoint-decls depend on them, and the client still fills the
@@ -62,6 +63,7 @@ OUT_IMPL = 'src/shared/native/shell_shim_areas.inc'
 OUT_IMPL_CLIENT = 'src/shared/native/shell_shim_areas_client.inc'
 OUT_TEST = 'src/test/native/shim_areas_forwarders.inc'
 OUT_MANAGED = 'src/abi/ShimAreas.g.cs'
+OUT_DEFAULTS = 'src/test/support/ShimAreaDefaults.g.cs'
 SWITCHED = 'docs/engineapi-switched.txt'
 # plan_client_vtables CB: the shared bases whose EngineSide calls go through the
 # client's vtable on the client (empty: the client still reads the struct).
@@ -443,11 +445,12 @@ def generate():
          '// per slot it declares. A server area that extends a shared base derives',
          '// that base\'s class: its table starts with exactly the base\'s slots',
          '// (SharedForwarders.g.cs holds that field by field), so the base class',
-         '// reads either side\'s table. The two containers acquire every area of',
-         '// their side or none, and a caller names the area it calls',
-         '// (ServerShims.Sound.EntityEmitSound). A derived area also answers to its',
-         '// shared base\'s name on the server\'s container, so code compiled into',
-         '// both sides calls a both-sides slot the same way; there is no router.',
+         '// reads either side\'s table. Each side\'s registration acquires every',
+         '// area of that side or none and hands them, by type, to the side\'s',
+         '// registry; nothing holds them as a set. A consumer is given the areas',
+         '// it calls in its constructor (plan_shim_areas_split phase 11). A',
+         '// derived area is also registered as its shared base, so code compiled',
+         '// into both sides asks for a both-sides area by the same type.',
          '',
          '#nullable enable',
          '',
@@ -463,6 +466,38 @@ def generate():
          '    public readonly TFwd* Vt;',
          '',
          '    public ShimRef(void* self, TFwd* table) { Self = self; Vt = table; }',
+         '',
+         '    /// <summary>',
+         '    /// The same object over the same table read as <typeparamref name="TBase"/>\'s:',
+         '    /// a derived area\'s table starts with exactly its base\'s slots.',
+         '    /// </summary>',
+         '    public ShimRef<TBase> As<TBase>() where TBase : unmanaged, IForwarderTable',
+         '        => new(Self, (TBase*)Vt);',
+         '',
+         '    /// <summary>',
+         '    /// The table every typed call goes through. A detached area (what a side',
+         '    /// registers before its attach, over no table) refuses here with the',
+         '    /// reason rather than reading a null table. Nothing checks for the attach:',
+         '    /// the game composes only after it, and a test with no engine is given',
+         '    /// the default areas (src/test/support/ShimAreaDefaults.g.cs).',
+         '    /// </summary>',
+         '    public TFwd* Table',
+         '    {',
+         '        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]',
+         '        get',
+         '        {',
+         '            TFwd* table = Vt;',
+         '            if (table == null)',
+         '                Detached();',
+         '            return table;',
+         '        }',
+         '    }',
+         '',
+         '    [System.Diagnostics.CodeAnalysis.DoesNotReturn]',
+         '    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]',
+         '    private static void Detached()',
+         '        => throw new InvalidOperationException(',
+         '            $"{TFwd.TableName} was called before the shim areas were attached");',
          '',
          '    /// <summary>',
          '    /// The area by its version string and its table by the table\'s name,',
@@ -498,7 +533,7 @@ def generate():
         """A slot's typed call on its area class, through the class's own table."""
         vargs = ', '.join(('(void*)a%d' % k) if ty in ptr else 'a%d' % k
                           for k, ty in enumerate(ptypes))
-        v = '_shim.Vt->%s(_shim.Self%s)' % (s, (', ' + vargs) if vargs else '')
+        v = '_shim.Table->%s(_shim.Self%s)' % (s, (', ' + vargs) if vargs else '')
         if ret in ptr or (ret.endswith('*') and ret != 'void*'):
             v = '(%s)%s' % (ret, v)
         return '    public %s %s(%s) { %s%s; }' % (ret, s, params_of(ptypes),
@@ -525,21 +560,43 @@ def generate():
             return client_slots[i]
         return slots_of(i)
 
+    def iface(i):
+        return 'I' + area(i)
+
+    def slot_decl(ret, ptypes, s):
+        return '    %s %s(%s);' % (ret, s, params_of(ptypes))
+
     for i in classes:
         b = base[i] if i in concrete else None
         sealed = '' if i in extended else 'sealed '
+        # The area as its consumers see it: they take the interface, so a test
+        # with no engine hands them the generated default instead
+        # (plan_shim_areas_split phase 11 review).
+        m += ['/// <summary>',
+              '/// <c>%s</c> as its consumers take it: <see cref="%s"/> over the engine,' % (i, area(i)),
+              '/// or a test\'s default (<c>Default%s</c>).' % area(i),
+              '/// </summary>',
+              'internal unsafe interface %s%s' % (iface(i), (' : %s' % iface(b)) if b else ''),
+              '{']
+        for s in own_slots(i):
+            ptypes, ret, _sup = types[s]
+            m.append(slot_decl(ret, ptypes, s))
+        m += ['}', '']
         m += ['/// <summary>',
               '/// <c>%s</c>, served as <c>%s</c>, through <see cref="%s"/>.%s' % (
                   i, version(i), fwd(i),
                   (' Its base\'s slots are <see cref="%s"/>\'s.' % area(b)) if b else ''),
               '/// </summary>',
-              'internal %sunsafe class %s%s' % (sealed, area(i), (' : %s' % area(b)) if b else ''),
+              'internal %sunsafe class %s : %s%s' % (sealed, area(i), ('%s, ' % area(b)) if b else '', iface(i)),
               '{',
               '    private readonly ShimRef<%s> _shim;' % fwd(i),
               '']
         if b:
-            m += ['    internal %s(ShimRef<%s> shim)' % (area(i), fwd(i)),
-                  '        : base(new ShimRef<%s>(shim.Self, (%s*)shim.Vt))' % (fwd(b), fwd(b)),
+            # The base's view of the same table is handed in (the registration
+            # makes it with ShimRef.As), so the constructor only keeps what it
+            # is given (plan_shim_areas_split phase 11 review).
+            m += ['    internal %s(ShimRef<%s> shim, ShimRef<%s> asBase)' % (area(i), fwd(i), fwd(b)),
+                  '        : base(asBase)',
                   '    {',
                   '        _shim = shim;',
                   '    }']
@@ -551,53 +608,69 @@ def generate():
             m.append(typed(ret, ptypes, s))
         m += ['}', '']
 
-    def container(name, routed_here, doc, count):
-        out = ['/// <summary>'] + ['/// ' + l for l in doc] + ['/// </summary>',
-               'internal sealed unsafe class %s' % name, '{']
-        for i in routed_here:
-            out.append('    public readonly %s %s = null!;' % (area(i), field(i)))
-        # A derived area also answers to its shared base's name, as the base's
-        # class: the client holds that base under the name, so code compiled
-        # into both sides (EngineSide.OwnShims) calls a both-sides slot the same
-        # way on either.
+    def registration(name, routed_here, doc, count):
+        # No container: the areas are handed one by one, by type, to the
+        # side's registry (plan_shim_areas_split phase 11), and each consumer
+        # is given the areas it calls in its constructor. A derived area is
+        # also handed under its shared base's type, so code compiled into both
+        # sides asks for a both-sides area by the same type on either.
+        def local(i):
+            f = field(i)
+            return f[0].lower() + f[1:] + 'Area'
         views = [i for i in routed_here if i in concrete and base[i]]
-        if views:
-            out += ['', '    // Each derived area as its shared base, under the name the client',
-                    '    // holds that base by.']
-            for i in views:
-                out.append('    public %s %s => %s;' % (area(base[i]), field(base[i]), field(i)))
-        out += ['',
-                '    // Each area and its table, in turn; the first that is refused stops',
-                '    // the walk, leaving the rest unset and its reason in why.',
-                '    private %s(ShimRoot root, out string why)' % name,
-                '    {',
-                '        why = "";']
+        out = ['/// <summary>'] + ['/// ' + l for l in doc] + ['/// </summary>',
+               'internal static unsafe class %s' % name, '{',
+               '    internal static int Count => %d;' % count, '',
+               '    /// <summary>',
+               '    /// Takes every area from the root, each with its table, and hands them',
+               '    /// to <paramref name="add"/> only when all were taken: the first refused',
+               '    /// stops the walk with its reason in <paramref name="why"/>, and nothing',
+               '    /// is handed.',
+               '    /// </summary>',
+               '    internal static bool TryAcquire(ShimRoot root, Action<Type, object> add, out string why)',
+               '    {']
         for i in routed_here:
-            out += ['        {',
-                    '            if (!ShimRef<%s>.TryTake(root, "%s", out var shim, out why)) return;' % (fwd(i), version(i)),
-                    '            %s = new %s(shim);' % (field(i), area(i)),
-                    '        }']
-        out += ['    }',
-                '',
-                '    internal static bool TryAcquire(ShimRoot root, out %s? areas, out string why)' % name,
-                '    {',
-                '        var taken = new %s(root, out why);' % name,
-                '        areas = why.Length == 0 ? taken : null;',
-                '        return areas is not null;',
+            out.append('        if (!ShimRef<%s>.TryTake(root, "%s", out var %s, out why)) return false;'
+                       % (fwd(i), version(i), local(i)))
+        def made(i, ref):
+            b = base[i] if i in concrete else None
+            if not b:
+                return 'new %s(%s)' % (area(i), ref)
+            return 'new %s(%s, %s)' % (area(i), ref, ('%s.As<%s>()' % (ref, fwd(b))) if ref != 'default' else 'default')
+        out += ['        Add(add,'] + ['            %s%s' % (made(i, local(i)), ',' if k + 1 < len(routed_here) else ');')
+                                      for k, i in enumerate(routed_here)]
+        out += [
+                '        return true;',
                 '    }',
                 '',
-                '    internal static int Count => %d;' % count,
-                '}',
-                '']
+                '    /// <summary>',
+                '    /// Every area over no table: what a side registers before its attach,',
+                '    /// so it can be made before the root is bound. A call throws, naming',
+                '    /// the area; the game composes only after the attach.',
+                '    /// </summary>',
+                '    internal static void AddDetached(Action<Type, object> add)',
+                '        => Add(add,']
+        out += ['            %s%s' % (made(i, 'default'), ',' if k + 1 < len(routed_here) else ');')
+                for k, i in enumerate(routed_here)]
+        out += ['',
+                '    private static void Add(Action<Type, object> add,']
+        out += ['        %s %s%s' % (area(i), local(i), ',' if k + 1 < len(routed_here) else ')')
+                for k, i in enumerate(routed_here)]
+        out += ['    {']
+        for i in routed_here:
+            out.append('        add(typeof(%s), %s);' % (iface(i), local(i)))
+        for i in views:
+            out.append('        add(typeof(%s), %s);' % (iface(base[i]), local(i)))
+        out += ['    }', '}', '']
         return out
 
-    m += container('ShimAreas', routed,
-                   ['Every server area, acquired from the shim root by version string with',
-                    'its forwarder table, which native must serve at no fewer slots than the',
-                    'struct reads (the tables only append).'], len(concrete))
-    m += container('ClientShimAreas', client_routed,
-                   ['plan_client_vtables CB: the client\'s areas, its shared bases and its',
-                    'own, acquired from its shim root with the same span check.'], len(client_routed))
+    m += registration('ServerAreaRegistration', routed,
+                      ['Every server area, acquired from the shim root by version string with',
+                       'its forwarder table, which native must serve at no fewer slots than the',
+                       'struct reads (the tables only append).'], len(concrete))
+    m += registration('ClientAreaRegistration', client_routed,
+                      ['plan_client_vtables CB: the client\'s areas, its shared bases and its',
+                       'own, acquired from its shim root with the same span check.'], len(client_routed))
 
     clive = client_switched()
     unknown_client = sorted(clive - set(client_routed))
@@ -630,10 +703,98 @@ def generate():
                 raise SystemExit('tools/shim-areas: %s is client-only, so %s must be in %s (there is no struct)'
                                  % (s, i, CLIENT_SWITCHED))
 
+    # THE DEFAULT AREAS, for tests (plan_shim_areas_split phase 11 review: the
+    # user's ruling that tests get generated doubles of the interfaces that
+    # answer good defaults, and managed logic never checks for an attach or a
+    # null interface). Compiled into the test support assemblies only.
+    # A slot whose zero means something (entity handle 0 is the world, index
+    # 0 the first) answers what "nothing" is instead: what the attach guards
+    # these defaults replace answered.
+    nothing = {
+        'GetCommandClientHandle': '0xFFFFFFFFu',
+        'FindEntityByClassname': '0xFFFFFFFFu', 'CreateEntity': '0xFFFFFFFFu',
+        'MapSpawnCreate': '0xFFFFFFFFu', 'EntityGetParent': '0xFFFFFFFFu',
+        'GetPlayerHandle': '0xFFFFFFFFu', 'BeamEntityAt': '0xFFFFFFFFu',
+        'EntityGetIndex': '-1', 'FxHandleEntityIndex': '-1',
+        'RegisterConCommand': '-1', 'RegisterConVar': '-1',
+        # -1 is "the engine defines no such convar": a 0 would claim every
+        # managed declaration as the engine's (ConVarRegistry's alias check).
+        'FindConVarFlags': '-1',
+    }
+    unknown_nothing = sorted(set(nothing) - set(types))
+    if unknown_nothing:
+        raise SystemExit('tools/shim-areas: defaults name slots that do not exist: %s' % ', '.join(unknown_nothing))
+
+    def default_value(ret, s):
+        if s in nothing:
+            return nothing[s]
+        return 'default'
+
+    def default_slot(ret, ptypes, s):
+        if ret == 'void':
+            return '    public void %s(%s) { }' % (s, params_of(ptypes))
+        return '    public %s %s(%s) => %s;' % (ret, s, params_of(ptypes), default_value(ret, s))
+
+    d = ['// ' + GENERATED[3:],
+         '//',
+         '// plan_shim_areas_split phase 11 review. One default per shim area',
+         '// interface, for a test with no engine: every call answers its type\'s',
+         '// default (zero, false, a null pointer: no text) and writes',
+         '// nothing through the pointers it is handed, which the callers allocate',
+         '// zeroed. A derived area\'s default derives its base\'s, as the areas do.',
+         '// Each side\'s defaults are handed, by interface, as its registration',
+         '// hands the real areas, so a test side composes exactly as the game\'s.',
+         '',
+         '#nullable enable',
+         '',
+         'namespace SourceSharp.Abi;',
+         '']
+    for i in classes:
+        b = base[i] if i in concrete else None
+        sealed = '' if i in extended else 'sealed '
+        d += ['/// <summary><see cref="%s"/> for a test with no engine: every call answers its default.</summary>' % iface(i),
+              'internal %sunsafe class Default%s : %s%s' % (sealed, area(i), ('Default%s, ' % area(b)) if b else '', iface(i)),
+              '{']
+        for s in own_slots(i):
+            ptypes, ret, _sup = types[s]
+            d.append(default_slot(ret, ptypes, s))
+        d += ['}', '']
+
+    def defaults_of(name, routed_here, side):
+        views = [i for i in routed_here if i in concrete and base[i]]
+        out = ['/// <summary>',
+               '/// The %s\'s default areas, handed by interface as <c>%s</c>' % (side, name.replace('Defaults', 'Registration')),
+               '/// hands the real ones (a derived area also as its shared base).',
+               '/// </summary>',
+               'internal static class %s' % name, '{',
+               '    internal static void AddTo(Action<Type, object> add)',
+               '    {']
+        for i in routed_here:
+            out.append('        var %s = new Default%s();' % (field(i)[0].lower() + field(i)[1:] + 'Area', area(i)))
+        for i in routed_here:
+            out.append('        add(typeof(%s), %s);' % (iface(i), field(i)[0].lower() + field(i)[1:] + 'Area'))
+        for i in views:
+            out.append('        add(typeof(%s), %s);' % (iface(base[i]), field(i)[0].lower() + field(i)[1:] + 'Area'))
+        out += ['    }', '}', '']
+        return out
+
+    d += ['/// <summary>',
+          '/// The slots whose default is "nothing" (-1, the invalid handle) rather than',
+          '/// zero, by name: what a fake root\'s unserved slot answers for them too.',
+          '/// </summary>',
+          'internal static class ShimAreaNothingSlots',
+          '{',
+          '    public static bool Contains(string slot) => slot is %s;' % ' or '.join('"%s"' % n for n in sorted(nothing)),
+          '}',
+          '']
+    d += defaults_of('ServerAreaDefaults', routed, 'server')
+    d += defaults_of('ClientAreaDefaults', client_routed, 'client')
+
     # OUT_IFACE is not written since C6a: it is the hand-maintained contract
     # the rest is generated from (h is kept only to validate the table).
     return {OUT_CLASSES: '\n'.join(c),
-            OUT_IMPL: '\n'.join(im), OUT_IMPL_CLIENT: '\n'.join(cim), OUT_TEST: '\n'.join(t), OUT_MANAGED: '\n'.join(m)}
+            OUT_IMPL: '\n'.join(im), OUT_IMPL_CLIENT: '\n'.join(cim), OUT_TEST: '\n'.join(t), OUT_MANAGED: '\n'.join(m),
+            OUT_DEFAULTS: '\n'.join(d)}
 
 
 def self_test():
@@ -658,10 +819,11 @@ def self_test():
     gen = generate()
     out = gen[OUT_MANAGED].split('\n')
 
-    class_head = re.compile(r'internal (sealed )?unsafe class (\w+)( : (\w+))?$')
+    # A class implements its own interface, after its base class if it has one.
+    class_head = re.compile(r'internal (sealed )?unsafe class (\w+) :( (\w+),)? I\w+$')
 
     def typed_lines(slot):
-        """Every generated line that declares the slot's call (areas and containers)."""
+        """Every generated line that declares the slot's call."""
         return [l for l in out if l.startswith('    public ') and (' %s(' % slot) in l]
 
     def in_class(slot, cls):
@@ -681,10 +843,9 @@ def self_test():
     managed = gen[OUT_MANAGED]
     expect('every area is held over its forwarder struct and its table is acquired by name '
            '(plan_forwarders_everywhere.md): no vtable struct, no vptr read',
-           'public readonly EngineArea EngineBase = null!;' in managed
-           and '    private readonly ShimRef<ShimEngineFwd> _shim;' in managed
-           and 'ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var shim, out why)' in managed
-           and 'EngineBase = new EngineArea(shim);' in managed
+           '    private readonly ShimRef<ShimEngineFwd> _shim;' in managed
+           and 'ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out var engineBaseArea, out why)' in managed
+           and 'new EngineArea(engineBaseArea)' in managed
            and 'Forwarders.TryBind(header, out TFwd* table, out why)' in managed
            and not re.search(r'Shim\w+Vtbl', managed) and '*(TVtbl**)' not in managed)
 
@@ -698,29 +859,82 @@ def self_test():
            heads['ModelsServerArea'].group(4) == 'ModelsArea' and not heads['ModelsArea'].group(1)
            and heads['ModelsServerArea'].group(1) and heads['PrecacheArea'].group(1)
            and not heads['PrecacheArea'].group(3))
-    expect('a derived area hands its base its own table, read as the base\'s (the same slots first)',
-           '        : base(new ShimRef<ShimModelsFwd>(shim.Self, (ShimModelsFwd*)shim.Vt))' in managed)
+    expect('a derived area hands its base its own table, read as the base\'s (the same slots first), '
+           'made by the registration so the constructor only keeps what it is given',
+           '    internal ModelsServerArea(ShimRef<ShimModelsServerFwd> shim, ShimRef<ShimModelsFwd> asBase)' in managed
+           and '        : base(asBase)' in managed
+           and 'new ModelsServerArea(modelsServerArea, modelsServerArea.As<ShimModelsFwd>())' in managed
+           and 'new ModelsServerArea(default, default)' in managed
+           and '        => new(Self, (TBase*)Vt);' in managed)
     expect('a derived area declares only its own slots; the base\'s are inherited, not repeated',
            in_class('EntityGetModelName', 'ModelsArea') and not in_class('EntityGetModelName', 'ModelsServerArea'))
 
+    # plan_shim_areas_split phase 11 review: consumers hold an area by its
+    # interface, so a test with no engine hands them the generated default.
+    expect('every area class implements its own interface, which extends its base\'s; '
+           'the registration hands each area by its interface',
+           'internal unsafe interface IModelsServerArea : IModelsArea' in managed
+           and 'internal sealed unsafe class ModelsServerArea : ModelsArea, IModelsServerArea' in managed
+           and 'internal unsafe class EngineArea : IEngineArea' not in managed
+           and 'internal sealed unsafe class EngineArea : IEngineArea' in managed
+           and '        add(typeof(IModelsServerArea), modelsServerArea);' in managed
+           and '        add(typeof(IModelsArea), modelsServerArea);' in managed
+           and not re.search(r'add\(typeof\([A-Z]\w*Area\)', managed.replace('typeof(I', 'typeof(#')))
+    defaults = gen[OUT_DEFAULTS]
+    expect('every area has a test default that answers its type\'s default and derives its base\'s default, '
+           'and each side hands its defaults by interface as its registration hands the areas',
+           'internal sealed unsafe class DefaultModelsServerArea : DefaultModelsArea, IModelsServerArea' in defaults
+           and 'internal unsafe class DefaultModelsArea : IModelsArea' in defaults
+           and '    public int EntityGetHealth(uint a0) => default;' in defaults
+           and '    public byte* EntityFactoryNameAt(int a0) => default;' in defaults
+           and '    public int EntityGetIndex(uint a0) => -1;' in defaults
+           and '    public uint FindEntityByClassname(uint a0, byte* a1) => 0xFFFFFFFFu;' in defaults
+           and 'internal static class ServerAreaDefaults' in defaults
+           and 'internal static class ClientAreaDefaults' in defaults
+           and '        add(typeof(IModelsArea), modelsServerArea);' in defaults
+           and defaults.count('internal static void AddTo(Action<Type, object> add)') == 2
+           and len(re.findall(r'^internal (?:sealed )?unsafe class Default\w+Area', defaults, re.M))
+               == len(re.findall(r'^internal (?:sealed )?unsafe class \w+Area :', managed, re.M)))
+
     # PrecacheModel since plan_server_native_v2 T4a retired PrecacheSound.
-    emit = in_class('PrecacheModel', 'ShimAreas')
-    health = in_class('EntityGetHealth', 'ShimAreas')
+    emit = in_class('PrecacheModel', 'ServerAreaRegistration')
+    health = in_class('EntityGetHealth', 'ServerAreaRegistration')
     expect('a server-only slot is its area\'s alone, inline on the area class (C6c, no router)',
-           '_shim.Vt->PrecacheModel(_shim.Self' in in_class('PrecacheModel', 'PrecacheArea')
+           '_shim.Table->PrecacheModel(_shim.Self' in in_class('PrecacheModel', 'PrecacheArea')
            and emit == '' and len(typed_lines('PrecacheModel')) == 1)
-    expect('a container has no flat calls: a slot is called on the area that serves it, and nowhere else',
+    expect('a registration has no flat calls: a slot is called on the area that serves it, and nowhere else',
            health == '' and len(typed_lines('EntityGetHealth')) == 1
-           and '_shim.Vt->EntityGetHealth(_shim.Self' in in_class('EntityGetHealth', 'EntitiesServerArea'))
-    expect('a both-sides slot is typed once, on its shared base, and on neither container',
+           and '_shim.Table->EntityGetHealth(_shim.Self' in in_class('EntityGetHealth', 'EntitiesServerArea'))
+    expect('a both-sides slot is typed once, on its shared base, and on neither registration',
            len(typed_lines('GetCurrentTime')) == 1
-           and '_shim.Vt->GetCurrentTime(_shim.Self' in in_class('GetCurrentTime', 'EngineArea')
-           and in_class('GetCurrentTime', 'ShimAreas') == '' and in_class('GetCurrentTime', 'ClientShimAreas') == '')
-    expect('a derived area answers to its shared base\'s name on the server container, as the base, '
-           'so code compiled into both sides names a both-sides slot the same way',
-           '    public MovementArea Movement => MovementServer;' in gen[OUT_MANAGED].split('\n')
-           and '    public readonly MovementArea Movement = null!;' in gen[OUT_MANAGED].split('\n')
-           and not any(l.startswith('    public EngineArea EngineBase =>') for l in gen[OUT_MANAGED].split('\n')))
+           and '_shim.Table->GetCurrentTime(_shim.Self' in in_class('GetCurrentTime', 'EngineArea')
+           and in_class('GetCurrentTime', 'ServerAreaRegistration') == ''
+           and in_class('GetCurrentTime', 'ClientAreaRegistration') == '')
+    expect('a derived area is also registered as its shared base on the server, '
+           'so code compiled into both sides asks for a both-sides area by the same type',
+           '        add(typeof(IMovementArea), movementServerArea);' in out
+           and '        add(typeof(IMovementArea), movementArea);' in out
+           and '        add(typeof(IEngineArea), engineBaseArea);' in out
+           and out.count('        add(typeof(IEngineArea), engineBaseArea);') == 2)
+    expect('nothing holds the areas as a set: no container class, no area fields outside the areas '
+           '(plan_shim_areas_split phase 11)',
+           'class ShimAreas' not in managed and 'class ClientShimAreas' not in managed
+           and not any(l.startswith('    public readonly ') and l.rstrip().endswith('= null!;') for l in out)
+           and 'internal static class ServerAreaRegistration' not in managed
+           and 'internal static unsafe class ServerAreaRegistration' in managed
+           and 'internal static unsafe class ClientAreaRegistration' in managed)
+    server_reg = managed[managed.index('class ServerAreaRegistration'):managed.index('class ClientAreaRegistration')]
+    expect('the areas are handed only when every one was taken: each take returns before the one add',
+           server_reg.count('        Add(add,') == 1
+           and 0 < server_reg.rfind('return false;') < server_reg.find('        Add(add,'))
+    expect('every typed call goes through the checked table, so a detached area refuses with the reason '
+           'instead of reading a null table',
+           '    public TFwd* Table' in managed and 'was called before the shim areas were attached' in managed
+           and not any('_shim.Vt->' in l for l in out)
+           and len(typed_lines('PrecacheModel')) == 1 and '_shim.Table->PrecacheModel(' in typed_lines('PrecacheModel')[0])
+    expect('a side with no engine registers every area over no table',
+           'internal static void AddDetached(Action<Type, object> add)' in managed
+           and 'new EngineArea(default)' in managed)
     expect('the generated file is areas only: no router class, no routing helpers',
            'class ShimSlots' not in gen[OUT_MANAGED]
            and not any((' Slot_' in l or ' Has_' in l) and not l.lstrip().startswith('//') for l in out))
@@ -729,7 +943,7 @@ def self_test():
     expect('a pointer Abi.cs spells IntPtr is cast to void* for the vtable call',
            'EventGetInt(_shim.Self, (void*)a0, a1)' in evt)
     expect('a pointer return Abi.cs spells nint is cast back from the vtable\'s void*',
-           '(nint)_shim.Vt->GetGlobalVarsPtr(_shim.Self)' in gvp)
+           '(nint)_shim.Table->GetGlobalVarsPtr(_shim.Self)' in gvp)
     real = globals()['switched']
     try:
         globals()['switched'] = lambda: real() - {'IShimPrecache'}
@@ -768,9 +982,9 @@ def self_test():
     expect('an unswitched client base is refused: a shared slot would lose its client route',
            'IShimModels' in unswitched and 'engineapi-client-switched' in unswitched)
     expect('a shared slot reaches its base\'s class on both sides: the server through its derived area',
-           '    public ModelsArea Models => ModelsServer;' in out
-           and '    public readonly ModelsArea Models = null!;' in out
-           and '_shim.Vt->EntityGetModelName(_shim.Self' in in_class('EntityGetModelName', 'ModelsArea'))
+           '        add(typeof(IModelsArea), modelsServerArea);' in out
+           and '        add(typeof(IModelsArea), modelsArea);' in out
+           and '_shim.Table->EntityGetModelName(_shim.Self' in in_class('EntityGetModelName', 'ModelsArea'))
     expect('a client switch list naming a base the client does not implement is refused',
            'IShimNoSuchBase' in bad_client)
     # plan_client_vtables CC: a client-only area.
@@ -779,11 +993,11 @@ def self_test():
            and 'CShimHudClient::GetLocalPlayerHealth' in gen[OUT_IMPL_CLIENT]
            and 'SOURCESHARP_SHIM_HUDCLIENT_VERSION' in gen[OUT_IMPL_CLIENT]
            and 'HudClient' not in gen[OUT_IMPL])
-    expect('a client-only slot is typed on its client area, which the client container alone holds',
+    expect('a client-only slot is typed on its client area, which the client registration alone hands out',
            len(typed_lines('GetLocalPlayerHealth')) == 1
-           and '_shim.Vt->GetLocalPlayerHealth(_shim.Self' in in_class('GetLocalPlayerHealth', 'HudClientArea')
-           and '    public readonly HudClientArea HudClient = null!;' in out
-           and out.count('    public readonly HudClientArea HudClient = null!;') == 1)
+           and '_shim.Table->GetLocalPlayerHealth(_shim.Self' in in_class('GetLocalPlayerHealth', 'HudClientArea')
+           and out.count('        add(typeof(IHudClientArea), hudClientArea);') == 1
+           and managed.index('add(typeof(IHudClientArea)') > managed.index('class ClientAreaRegistration'))
     try:
         globals()['client_switched'] = lambda: real_client() - {'IShimHudClient'}
         generate()
@@ -800,9 +1014,8 @@ def self_test():
            'AttachShims' not in gen[OUT_MANAGED] and 'AttachClientShims' not in gen[OUT_MANAGED]
            and 'ServerAttached' not in gen[OUT_MANAGED] and ' internal ShimRoot? Root' not in gen[OUT_MANAGED])
     expect('the areas are still acquired with the span check and counts',
-           'internal static bool TryAcquire(ShimRoot root, out ShimAreas? areas' in gen[OUT_MANAGED]
-           and 'internal static bool TryAcquire(ShimRoot root, out ClientShimAreas? areas' in gen[OUT_MANAGED]
-           and 'internal static int Count =>' in gen[OUT_MANAGED])
+           managed.count('internal static bool TryAcquire(ShimRoot root, Action<Type, object> add, out string why)') == 2
+           and managed.count('internal static int Count =>') == 2)
     # The vtable order (lane c5-particles): the tree agrees, and each way of
     # disagreeing is caught.
     expect('the hand-kept headers declare every TSV interface in the TSV\'s order', order_problems() == [])

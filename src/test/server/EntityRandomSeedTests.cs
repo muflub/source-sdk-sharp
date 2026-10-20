@@ -104,7 +104,7 @@ public class EntityRandomSeedTests
     [Fact]
     public void TwoCasesBuiltBackToBackPickDifferently()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(LogicCase).Assembly);
         registry.Services = Services();
 

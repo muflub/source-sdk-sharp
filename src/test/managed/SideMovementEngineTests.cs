@@ -54,7 +54,7 @@ public unsafe class SideMovementEngineTests : IDisposable
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
-        var api = new EngineSide(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         string why;
@@ -98,8 +98,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     {
         var (first, second) = TwoTraces();
 
-        var mine = new MovementRunner(new ModuleEngine(first));
-        _ = new MovementRunner(new ModuleEngine(second));
+        var mine = MovementRunner.For(new ModuleEngine(first));
+        _ = MovementRunner.For(new ModuleEngine(second));
 
         Assert.Equal(7, mine.World.PointContents(Vector.Zero, 0));
         Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
@@ -108,7 +108,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void ASlotAnswersAgainForAPointWithinAUnit()
     {
-        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
 
         world.PointContents(new Vector(0, 0, 0), 1);
@@ -122,7 +122,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void EachSlotIsItsOwnAndSlotMinusOneIsNeverCached()
     {
-        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
 
         world.PointContents(Vector.Zero, 0);
@@ -135,7 +135,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void AResetForgetsEverySlot()
     {
-        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
         world.PointContents(Vector.Zero, 0);
 
@@ -147,7 +147,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void WithoutTheOptimizationsNothingIsCached()
     {
-        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: false);
 
         world.PointContents(Vector.Zero, 0);
@@ -205,7 +205,7 @@ public unsafe class SideMovementEngineTests : IDisposable
         _ = Attached(_second, Side.Server);
 
         var state = new SourceSharp.Shared.BarrelNetState();
-        state.Bind(first, Player);
+        state.Bind(first, first.Areas.Require<INetworkServerArea>(), Player);
 
         // Bound to the blob the first side answered (IsBound itself asks the
         // side's EntityIsValid, a SuppressGCTransition slot a managed fake
@@ -233,7 +233,8 @@ public unsafe class SideMovementEngineTests : IDisposable
         _ = Attached(_second, Side.Server);
 
         var holder = new HoldsAState();
-        NetState[] states = NetStateServerBinding.AttachBound(holder, Player, first, new NetStateFields(new RecordingLog()));
+        NetState[] states = NetStateServerBinding.AttachBound(holder, Player, first, first.Areas.Require<INetworkServerArea>(),
+                                                              new NetStateFields(new RecordingLog()));
 
         Assert.Single(states);
         Assert.Equal(Player, holder.State!.Handle);
@@ -250,7 +251,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void ANetStateOnASideWithNoEngineTakesLocalStorage()
     {
         var state = new SourceSharp.Shared.BarrelNetState();
-        state.Bind(new EngineSide(Side.Server), Player);
+        var side = TestSides.Create(Side.Server);
+        state.Bind(side, side.Areas.Require<INetworkServerArea>(), Player);
 
         Assert.False(state.IsBound, "no engine: a local state, not a bound one");
         Assert.True(state.IsLive, "but it has storage");

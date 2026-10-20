@@ -177,7 +177,7 @@ public sealed class ChatPlayers(IClientStandalones standalones, IPlayerNames nam
 /// <c>say_team "…"</c> through the console and closes; Esc closes; the keys
 /// and characters come from the menu root while the chat input is open.
 /// </summary>
-public sealed class ChatInputUi(Func<IVtableEngineClient?> engine) : IChatInputSource
+public sealed class ChatInputUi(Func<IFwdEngineClient?> engine) : IChatInputSource
 {
     /// <summary>The longest line stock's input takes (MAX_CHARS_PER_LINE 128).</summary>
     public const int MaxChars = 127;

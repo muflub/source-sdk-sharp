@@ -22,9 +22,9 @@ public interface IParticleQueryEngine
 }
 
 /// <summary>The real one, over IVEngineClient, acquired on first use. Not in game, and black, with no engine.</summary>
-public sealed class ParticleQueryEngine(Func<IVtableEngineClient?> acquire) : IParticleQueryEngine
+public sealed class ParticleQueryEngine(Func<IFwdEngineClient?> acquire) : IParticleQueryEngine
 {
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
 
     public bool IsInGame()
     {

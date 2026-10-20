@@ -83,7 +83,7 @@ public class OnSpawnFieldReloadTests
     /// </summary>
     private static ScriptedEntityRegistry NewRegistry(out RecordingEngine engine)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncMoveLinear).Assembly);
         // The sweep spawns every class in the tree; an arbitrary class's
         // OnSpawn reads whatever engine values it likes, and the sweep cares

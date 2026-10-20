@@ -162,7 +162,7 @@ public class LevelInitPreEntityTests
 
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        var dll = new ServerGameDll(new RecordingLog(), engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
+        var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
                                     engine, engine, stringTables, modTable,
                                     DriverOver(watcher), new TemplateStore(new RecordingLog()),
                                     // plan_entity.md step 2d: ServerGameDll owns
@@ -194,7 +194,7 @@ public class LevelInitPreEntityTests
         var engine = TestServices.Fake();
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        var dll = new ServerGameDll(new RecordingLog(), engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
+        var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
                                     engine, engine, stringTables, modTable,
                                     DriverOver(watcher), new TemplateStore(new RecordingLog()),
                                     TestMapSpawner.Over(engine, engine), new EntityIoRoutes());

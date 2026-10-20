@@ -37,7 +37,7 @@ public class HostSayTests
 
     private static (HostSay Chat, RecordingEngine Engine, RecordingLog Log) Rig()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine);
         engine.Returns("Entities.IsValid", true).Returns("Players.GetTeam", 0).Returns("Host.IsDedicatedServer", false)

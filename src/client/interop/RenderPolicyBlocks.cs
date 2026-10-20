@@ -15,9 +15,9 @@ internal sealed unsafe class RenderPolicyBlocks : IRenderPolicyBlocks
 {
     // The shim area this calls, handed over by the client root once the
     // side's areas are attached (plan_shim_areas_split phase 5).
-    private readonly StandaloneClientArea _standaloneClient;
+    private readonly IStandaloneClientArea _standaloneClient;
 
-    internal RenderPolicyBlocks(StandaloneClientArea standaloneClient)
+    internal RenderPolicyBlocks(IStandaloneClientArea standaloneClient)
     {
         _standaloneClient = standaloneClient;
     }

@@ -43,20 +43,32 @@ public sealed unsafe class SaveGameSession
     public const string EntityBlock = "SSENTITY";
 
     private readonly ILog _log;
-    private readonly SaveBlockSession _blocks;
+    private readonly ISaveMemory? _memory;
+    private readonly Func<ISaveMemory?>? _memoryOf;
+
+    // The block session, made on first use over whichever allocator the
+    // session was given (a constructor only stores, by the interop layer's rule).
+    private SaveBlockSession? _blocks;
+
+    private SaveBlockSession Blocks => _blocks ??= new SaveBlockSession(_log, _memoryOf ?? (() => _memory), traceBlocks: true);
 
     // NUL-terminated names the token table holds BY POINTER: the engine reads
     // them back when it writes the table into the .sav, after the call that
     // interned them returned. Native memory, never freed: a save's table can
     // name them for as long as the engine holds the block, and it is two
     // short strings per module.
-    private readonly byte* _entityBlock;
-    private readonly byte* _blobChunk;
+    private byte* _entityBlock;
+    private byte* _blobChunk;
+
+    private byte* EntityBlockName => _entityBlock != null ? _entityBlock : _entityBlock = SaveBlockSession.NativeName(EntityBlock);
+
+    private byte* BlobChunkName => _blobChunk != null ? _blobChunk : _blobChunk = SaveBlockSession.NativeName("BLOB");
 
     /// <summary>A session over the engine's allocator (null: every SaveInit refuses, loudly).</summary>
     public SaveGameSession(ILog log, ISaveMemory? memory)
-        : this(log, () => memory)
     {
+        _log = log;
+        _memory = memory;
     }
 
     /// <summary>
@@ -66,21 +78,19 @@ public sealed unsafe class SaveGameSession
     public SaveGameSession(ILog log, Func<ISaveMemory?> memoryOf)
     {
         _log = log;
-        _blocks = new SaveBlockSession(log, memoryOf, traceBlocks: true);
-        _entityBlock = SaveBlockSession.NativeName(EntityBlock);
-        _blobChunk = SaveBlockSession.NativeName("BLOB");
+        _memoryOf = memoryOf;
     }
 
     /// <summary>SaveInit (<see cref="SaveBlockSession.Init"/>).</summary>
-    public void* Init(int size, float curTime) => _blocks.Init(size, curTime);
+    public void* Init(int size, float curTime) => Blocks.Init(size, curTime);
 
     /// <summary>SaveWriteFields (<see cref="SaveBlockSession.WriteFields"/>).</summary>
     public bool WriteFields(void* save, byte* name, byte* pBase, byte* fields, int stride, int count)
-        => _blocks.WriteFields(save, name, pBase, fields, stride, count);
+        => Blocks.WriteFields(save, name, pBase, fields, stride, count);
 
     /// <summary>SaveReadFields (<see cref="SaveBlockSession.ReadFields"/>).</summary>
     public bool ReadFields(void* save, byte* name, byte* pBase, byte* fields, int stride, int count)
-        => _blocks.ReadFields(save, name, pBase, fields, stride, count);
+        => Blocks.ReadFields(save, name, pBase, fields, stride, count);
 
     private void Trace(string text) => _log.Msg("[SourceSharp][save] " + text + "\n");
 
@@ -125,7 +135,7 @@ public sealed unsafe class SaveGameSession
         }
 
         var cursor = new SaveCursor(block.Cursor, block.Available);
-        int written = SaveBlobCodec.WriteBlobBlock(ref cursor, block.Symbols, _entityBlock, _blobChunk, payload);
+        int written = SaveBlobCodec.WriteBlobBlock(ref cursor, block.Symbols, EntityBlockName, BlobChunkName, payload);
         if (written < 0)
         {
             _log.Warning($"[SourceSharp] save: blob block '{EntityBlock}' ({bytes} payload bytes) did not fit -- "
@@ -154,7 +164,7 @@ public sealed unsafe class SaveGameSession
 
         int before = block.Pos;
         var sizing = new SaveCursor(block.Cursor, block.Available);
-        int payload = SaveBlobCodec.ReadBlobBlock(ref sizing, block.Symbols, _entityBlock, Span<byte>.Empty,
+        int payload = SaveBlobCodec.ReadBlobBlock(ref sizing, block.Symbols, EntityBlockName, Span<byte>.Empty,
                                                    out string? refusal);
         if (payload == SaveBlobCodec.NoBlock)
         {
@@ -171,7 +181,7 @@ public sealed unsafe class SaveGameSession
 
         var bytes = new byte[payload];
         var cursor = new SaveCursor(block.Cursor, block.Available);
-        int read = SaveBlobCodec.ReadBlobBlock(ref cursor, block.Symbols, _entityBlock, bytes, out _);
+        int read = SaveBlobCodec.ReadBlobBlock(ref cursor, block.Symbols, EntityBlockName, bytes, out _);
         if (read != payload)
         {
             _log.Warning($"[SourceSharp] load: the managed entity block sized {payload} bytes and read {read}. "

@@ -176,7 +176,7 @@ public class WeaponSwitchTests
                                      new Vector(0f, 0f, 1f), EntityHandle.None))
             .Returns("Clock.Now", 10f);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
 

@@ -15,11 +15,11 @@ internal static class BothSidesConVars
     /// <summary>The name and declared default of every ConVar either assembly registers.</summary>
     public static List<(string Name, string DefaultValue)> Registered(Assembly server, Assembly client)
     {
-        var serverRegistry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var serverRegistry = ConVarRegistry.For(TestServices.UnattachedConsole());
         serverRegistry.RegisterAll(server);
 
         var console = ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(ClientDoubles.UnattachedEngine());
-        var clientRegistry = new client::SourceSharp.Abi.ConVarRegistry(console);
+        var clientRegistry = client::SourceSharp.Abi.ConVarRegistry.For(console);
         clientRegistry.RegisterAll(client);
 
         return serverRegistry.All.Select(c => (c.Name, c.DefaultValue))

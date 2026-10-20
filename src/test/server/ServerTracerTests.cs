@@ -80,7 +80,7 @@ public class ServerTracerTests
     }
 
     /// <summary>An engine whose trace asks the filter about planted candidates, as TraceRay does.</summary>
-    private sealed class Engine(TraceFilterSink sink) : IVtableEngineTrace
+    private sealed class Engine(TraceFilterSink sink) : IFwdEngineTrace
     {
         public readonly List<uint> Candidates = [];
         public readonly List<(EngineRay Ray, uint Mask, nint Filter)> Calls = [];
@@ -105,7 +105,7 @@ public class ServerTracerTests
 
     private static (ServerTracer Tracer, Engine Engine, TraceFilterSink Sink) Build(Candidates candidates)
     {
-        var sink = new TraceFilterSink(new TraceFilterRules(candidates, CollisionRules.BuildMatrix()), new Crossings());
+        var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, CollisionRules.BuildMatrix()), new Crossings());
         var engine = new Engine(sink);
         return (new ServerTracer(engine, sink, new Handles(), 0xF00D), engine, sink);
     }

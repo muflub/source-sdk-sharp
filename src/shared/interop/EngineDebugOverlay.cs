@@ -7,7 +7,7 @@ namespace SourceSharp.Abi;
 /// world point. Both sides resolve <c>VDebugOverlay003</c>; a dedicated server
 /// has none.
 /// </summary>
-public interface IVtableDebugOverlay
+public interface IFwdDebugOverlay
 {
     /// <summary>
     /// <c>AddTextOverlayRGB( origin, line, duration, r, g, b, a, "%s", text )</c>:
@@ -17,11 +17,11 @@ public interface IVtableDebugOverlay
 }
 
 /// <summary>
-/// <see cref="IVtableDebugOverlay"/> over DebugOverlayFwd (2026-10-19), where
+/// <see cref="IFwdDebugOverlay"/> over DebugOverlayFwd (2026-10-19), where
 /// the DrawWorldText shim slot made the same call through overlay_library's
 /// Overlay_TextAtPosition.
 /// </summary>
-public sealed unsafe class EngineDebugOverlay : IVtableDebugOverlay
+public sealed unsafe class EngineDebugOverlay : IFwdDebugOverlay
 {
     public const string InterfaceVersion = "VDebugOverlay003";
 
@@ -35,7 +35,7 @@ public sealed unsafe class EngineDebugOverlay : IVtableDebugOverlay
     }
 
     /// <summary>The side's overlay, or null with the reason (a dedicated server has none).</summary>
-    internal static IVtableDebugOverlay? Acquire(NativeInterfaceFactory factory, out string why)
+    internal static IFwdDebugOverlay? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<DebugOverlayFwd>(
                factory, SourceSharpFactoryType.AppSystem, InterfaceVersion,
                out void* self, out DebugOverlayFwd* table, out why)

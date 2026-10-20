@@ -85,7 +85,7 @@ public class EntityIoTests
 
     private static ScriptedEntityRegistry Fresh()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EntityIoTests).Assembly);
         registry.Services = Services();
 

@@ -49,7 +49,7 @@ public class DeferredRestoreTests
 {
     private static ScriptedEntityRegistry Registry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(DeferredRestoreTests).Assembly);
         registry.Services = Services();
         return registry;
@@ -69,7 +69,7 @@ public class DeferredRestoreTests
     /// </summary>
     private static ScriptedEntityRegistry Registry(out RecordingEngine engine)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(DeferredRestoreTests).Assembly);
         registry.Services = Services(out engine);
         return registry;

@@ -110,6 +110,10 @@ internal static class SeamCensus
                     continue;
                 kinds[(a, name)] = kind;
                 held.Add(name);
+                // An area is held by its interface (IXArea for XArea) since the
+                // phase 11 review, so holding that is holding the engine too.
+                if (kind == "area")
+                    held.Add(name.Insert(name.LastIndexOf('.') + 1, "I"));
             }
         }
 

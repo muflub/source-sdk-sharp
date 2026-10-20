@@ -74,13 +74,24 @@ public sealed unsafe class ClientBoneBatch
     private int _matrixCapacity;
     private int _matricesUsed;
 
-    public ClientBoneBatch()
+    private ClientBoneBatch(Header* header, int tablesAllocated)
     {
-        _header = (Header*)NativeMemory.AllocZeroed((nuint)sizeof(Header));
-        _header->SlotToEntry = (short*)NativeMemory.Alloc(Slots * sizeof(short));
-        new Span<short>(_header->SlotToEntry, Slots).Fill(-1);
-        _header->FrameCount = -1;
-        TablesAllocated = 1;
+        _header = header;
+        TablesAllocated = tablesAllocated;
+    }
+
+    /// <summary>
+    /// A new batch: its header and slot map allocated here, every slot empty
+    /// and no frame yet (phase 11 review: a constructor only saves what it is
+    /// handed).
+    /// </summary>
+    public static ClientBoneBatch Allocate()
+    {
+        var header = (Header*)NativeMemory.AllocZeroed((nuint)sizeof(Header));
+        header->SlotToEntry = (short*)NativeMemory.Alloc(Slots * sizeof(short));
+        new Span<short>(header->SlotToEntry, Slots).Fill(-1);
+        header->FrameCount = -1;
+        return new ClientBoneBatch(header, tablesAllocated: 1);
     }
 
     /// <summary>The table's address.</summary>
@@ -90,7 +101,7 @@ public sealed unsafe class ClientBoneBatch
     public bool Handed { get; private set; }
 
     /// <summary>The tables this instance allocated (its constructor's).</summary>
-    public int TablesAllocated { get; private set; }
+    public int TablesAllocated { get; }
 
     /// <summary>The tables this instance freed: its own, when it adopted a previous build's.</summary>
     public int TablesFreed { get; private set; }

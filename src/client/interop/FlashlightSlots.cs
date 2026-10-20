@@ -50,7 +50,8 @@ public interface IFlashlightSlots
 }
 
 /// <summary>The real slots: IShimFlashlightClient, IShimViewClient's traces, and two engine forwarder tables.</summary>
-internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
+internal sealed unsafe class FlashlightSlots(EngineSide api, IFlashlightClientArea flashlight, IViewClientArea view)
+    : IFlashlightSlots
 {
     private const string DebugOverlayVersion = "VDebugOverlay003";
 
@@ -62,7 +63,7 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
 
     private void Bind()
     {
-        if (_bound || !api.ClientAttached)
+        if (_bound)
             return;
         _bound = true;
         Forwarders.TryAcquire(api.Interfaces, SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion,
@@ -77,71 +78,59 @@ internal sealed unsafe class FlashlightSlots(EngineSide api) : IFlashlightSlots
         return _engineFwd == null ? null : _engineFwd->GetDXSupportLevel(_engine);
     }
 
-    public bool SupportsBorderColor() => api.ClientAttached && api.ClientShims.FlashlightClient.FlashlightSupportsBorderColor() != 0;
+    public bool SupportsBorderColor() => flashlight.FlashlightSupportsBorderColor() != 0;
 
     public int Texture(string name)
     {
-        if (!api.ClientAttached)
-            return -1;
         byte[] bytes = Vtable.Utf8(name);
         fixed (byte* p = bytes)
-            return api.ClientShims.FlashlightClient.FlashlightTexture(p);
+            return flashlight.FlashlightTexture(p);
     }
 
     public int Create(in FlashlightState state)
     {
-        if (!api.ClientAttached)
-            return -1;
         fixed (FlashlightState* p = &state)
-            return api.ClientShims.FlashlightClient.FlashlightCreate(p);
+            return flashlight.FlashlightCreate(p);
     }
 
     public void Update(int handle, in FlashlightState state)
     {
-        if (!api.ClientAttached)
-            return;
         fixed (FlashlightState* p = &state)
-            api.ClientShims.FlashlightClient.FlashlightUpdate(handle, p);
+            flashlight.FlashlightUpdate(handle, p);
     }
 
     public void Project(int handle)
     {
-        if (api.ClientAttached)
-            api.ClientShims.FlashlightClient.FlashlightProject(handle);
+        flashlight.FlashlightProject(handle);
     }
 
     public void Destroy(int handle)
     {
-        if (api.ClientAttached)
-            api.ClientShims.FlashlightClient.FlashlightDestroy(handle);
+        flashlight.FlashlightDestroy(handle);
     }
 
     public FlashlightTrace TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask)
     {
-        if (!api.ClientAttached)
-            return new FlashlightTrace(false, 1f, end);
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
         float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
         float* endPos = stackalloc float[3];
         float fraction = 1f;
-        int hit = api.ClientShims.ViewClient.ClientTraceHull(s, e, lo, hi, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
+        int hit = view.ClientTraceHull(s, e, lo, hi, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
                                                   &fraction, endPos);
         return new FlashlightTrace(hit != 0, fraction, new Vector(endPos[0], endPos[1], endPos[2]));
     }
 
     public FlashlightTrace TraceLine(Vector start, Vector end, TraceMask mask)
     {
-        if (!api.ClientAttached)
-            return new FlashlightTrace(false, 1f, end);
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
         float* endPos = stackalloc float[3];
         float* normal = stackalloc float[3];
         float fraction = 1f;
         int hitbox = 0, entity = 0, surfaceProps = 0, surfaceFlags = 0;
-        int hit = api.ClientShims.ViewClient.ClientTraceLine(s, e, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
+        int hit = view.ClientTraceLine(s, e, (int)mask, (int)TraceFilter.SkipPlayerAndViewModel, -1,
                                                   &fraction, endPos, normal, &hitbox, &entity, &surfaceProps,
                                                   &surfaceFlags);
         return new FlashlightTrace(hit != 0, fraction, new Vector(endPos[0], endPos[1], endPos[2]));

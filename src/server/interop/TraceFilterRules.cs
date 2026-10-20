@@ -116,13 +116,21 @@ public sealed class TraceFilterRules
     /// <param name="candidates">The blocks and the model table.</param>
     /// <param name="collisionRows">CollisionRules.BuildMatrix(): bit b of row a
     /// is "group a collides with group b".</param>
-    public TraceFilterRules(ITraceCandidates candidates, uint[] collisionRows)
+    public static TraceFilterRules Over(ITraceCandidates candidates, uint[] collisionRows)
     {
-        _candidates = candidates ?? throw new ArgumentNullException(nameof(candidates));
+        ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(collisionRows);
         if (collisionRows.Length != GroupCount)
             throw new ArgumentException($"the collision matrix has {GroupCount} rows, not {collisionRows.Length}", nameof(collisionRows));
-        _rows = (uint[])collisionRows.Clone();
+        return new TraceFilterRules(candidates, (uint[])collisionRows.Clone());
+    }
+
+    // The rows are a copy Over made, checked there (a constructor only stores,
+    // by the interop layer's rule).
+    private TraceFilterRules(ITraceCandidates candidates, uint[] rows)
+    {
+        _candidates = candidates;
+        _rows = rows;
     }
 
     /// <summary>Whether a raw handle is a static prop's (<c>IStaticPropMgr::IsStaticProp</c>).</summary>

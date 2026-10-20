@@ -79,28 +79,31 @@ public sealed unsafe class InputMailbox : IInputMailbox
 {
     private readonly InputMailboxBlock* _block;
 
+    private InputMailbox(InputMailboxBlock* block) => _block = block;
+
     /// <summary>Over the block at <paramref name="address"/>, which must say it is this layout's size.</summary>
-    public InputMailbox(nint address)
+    public static InputMailbox Over(nint address)
     {
         if (address == 0)
             throw new ArgumentException("no input mailbox", nameof(address));
-        _block = (InputMailboxBlock*)address;
-        if (_block->StructSize != (uint)sizeof(InputMailboxBlock))
+        var block = (InputMailboxBlock*)address;
+        if (block->StructSize != (uint)sizeof(InputMailboxBlock))
             throw new InvalidOperationException(
-                $"the input mailbox says it is {_block->StructSize} bytes and this build's is {sizeof(InputMailboxBlock)}");
+                $"the input mailbox says it is {block->StructSize} bytes and this build's is {sizeof(InputMailboxBlock)}");
+        return new InputMailbox(block);
     }
 
     /// <summary>The game's block, from IShimInputClient::InputMailbox; null when native has none.</summary>
     public static InputMailbox? Open(ModuleEngine engine, out string why)
     {
-        nint address = (nint)engine.Api.ClientShims.InputClient.InputMailbox();
+        nint address = (nint)engine.Api.Areas.Require<IInputClientArea>().InputMailbox();
         if (address == 0)
         {
             why = "IShimInputClient::InputMailbox answered null";
             return null;
         }
         why = "";
-        return new InputMailbox(address);
+        return Over(address);
     }
 
     public bool TakeKeyboardSampleTime(ref uint seq, out float time)

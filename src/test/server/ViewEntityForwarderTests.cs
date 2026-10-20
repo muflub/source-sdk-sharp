@@ -43,7 +43,7 @@ public sealed unsafe class ViewEntityForwarderTests
     {
         public readonly FakeShimRoot Root = new();
         public readonly nint* Self = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
-        public readonly EngineSide Side = new(SourceSharp.Abi.Side.Server);
+        public readonly EngineSide Side = TestSides.Create(SourceSharp.Abi.Side.Server);
         public readonly LivenessMirror Mirror = new();
         public readonly EngineServerFwd* Fwd;
         private readonly System.IDisposable _liveness;
@@ -60,7 +60,7 @@ public sealed unsafe class ViewEntityForwarderTests
             fwd->ServerExecute = &Execute;
             fwd->LightStyle = &Style;
             Side.Initialize();
-            Assert.True(Side.AttachShims(Root.Bind(), out string why), why);
+            Assert.True(Side.AttachOwnShims(Root.Bind(), out string why), why);
             Side.Bound.UseServer((NativeInterfaceFactory factory, SourceSharp.Abi.Side _, out string w) => EngineServer.Acquire(factory, out w));
             _liveness = Side.AttachLiveness(Mirror);
             s_ViewPlayer = s_ViewTarget = 0;
