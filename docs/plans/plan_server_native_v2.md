@@ -410,8 +410,19 @@ MEMBER Diagnostics, not DEAD, because `tools/live-gate`'s join step reads
 `ss_boundary_probe_report` in debug; and the engine pointers read only inside
 the acquisition (`datacache`, `enginesound`, `g_pVoiceServer`, `scenefilecache`,
 `soundemitterbase`, `sv_cheats`) are DEAD as globals, their refuse-if-missing
-checks kept as locals. `g_pSharedChangeInfo` and the two `bitvec.h` tables need
-a fork edit to go further (plan_globals G2.4), so they wait for the user.
+checks kept as locals. `g_pSharedChangeInfo` needs a fork edit to go further
+(plan_globals G2.4), so it waits for the user.
+
+**RULED 2026-10-20 (user): the two `bitvec.h` tables need no fork edit.**
+`bitvec.h` stays (the engine passes `CBitVec` through `eiface.h`'s transmit
+info and `Message_DetermineMulticastRecipients`). Its tables (`firstBitLUT`,
+1,024 B; `g_StartMask`, 128 B; ruled CONST, never written) reach server.so
+only through `ss::CRecipientFilter::AddPlayersFromBitMask`, which the native
+PVS/PAS filters still use (shell_te_forwards.cpp, server_util_library.cpp).
+Of the three ways out offered (leave them; a `__builtin_ctz` loop of our own;
+let them go with their last caller), the user chose the third: they leave the
+link when the remaining native PVS/PAS filter users move to managed, which
+`RecipientFilter.cs` already ports. No code changes for them now.
 
 **T6 part 1 done (2026-10-19, lane t6-globals, steps 1-3 and step 4's first
 item; not yet on main).** Measured at the lane's tip the same way (debug
