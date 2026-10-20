@@ -250,7 +250,7 @@ public unsafe class ConvertedEntryTests
             var side = TestSides.Create(Side.Client);
             Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
-            IFwdEngineClient? client = EngineClient.Acquire(new ModuleEngine(side), out string why);
+            IFwdEngineClient? client = EngineClient.Acquire(side, out string why);
             Assert.True(client is not null, why);
             client.Reconnect();
 

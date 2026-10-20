@@ -40,13 +40,9 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     /// <summary>
     /// The engine client, or null with the reason, acquired through
-    /// <paramref name="engine"/>'s own interface factory. Null on the server,
+    /// the side's own interface factory. Null on the server,
     /// which is not an error: this interface exists only on the client.
     /// </summary>
-    public static IFwdEngineClient? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api, out why);
-
-    /// <summary>The engine client over <paramref name="side"/>'s own factory and view area, or null with the reason.</summary>
     internal static IFwdEngineClient? Acquire(EngineSide side, out string why)
     {
         return Forwarders.TryAcquire<EngineClientFwd>(

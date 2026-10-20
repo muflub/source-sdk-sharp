@@ -165,25 +165,17 @@ public sealed unsafe class EngineModelInfo : IFwdModelInfo
     /// The engine's model info, or null with the reason.
     ///
     /// <para>
-    /// Through <paramref name="engine"/>'s own side's interface factory
+    /// Through the side's own interface factory
     /// (plan_abi_hotreload D8), never the process-wide one that followed the
     /// thread's active side.
     /// </para>
     /// </summary>
-    /// <param name="engine">The asking module's engine.</param>
+    /// <param name="factory">The side's own interface factory.</param>
     /// <param name="why">One line saying what failed. Empty on success.</param>
     /// <param name="interfaceVersion">
-    /// Which spelling to ask for. Native serves both on both sides, so the
-    /// default is the server's and a client caller may pass its own.
+    /// Which spelling to ask for. Native serves both on both sides, so each
+    /// side asks for its own (<see cref="EngineBound.ModelInfoVersion"/>).
     /// </param>
-    public static IFwdModelInfo? Acquire(
-        ModuleEngine engine, out string why, string interfaceVersion = ServerInterfaceVersion)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why, interfaceVersion);
-
-    /// <summary>
-    /// The same, through one side's own interface factory (plan_abi_hotreload
-    /// D8): what <see cref="EngineBound"/> holds per side.
-    /// </summary>
     internal static IFwdModelInfo? Acquire(
         NativeInterfaceFactory factory, out string why, string interfaceVersion)
         => Forwarders.TryAcquire(

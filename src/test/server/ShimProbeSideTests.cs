@@ -117,9 +117,9 @@ public sealed unsafe class ShimProbeSideTests
 
         // As above: only the engine whose own root answers binds. cs_vtable
         // acquires this way, for the module it runs in.
-        Assert.True(EngineServer.Acquire(new ModuleEngine(served), out string servedWhy) is not null,
+        Assert.True(EngineServer.Acquire(served.Interfaces, out string servedWhy) is not null,
                     $"the served engine reached its own root: {servedWhy}");
-        Assert.True(EngineServer.Acquire(new ModuleEngine(bare), out string bareWhy) is null,
+        Assert.True(EngineServer.Acquire(bare.Interfaces, out string bareWhy) is null,
                     $"the other engine reached no root at all, not the first's: {bareWhy}");
     }
 }
