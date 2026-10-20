@@ -23,7 +23,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/c_pixel_visibility.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
-    ${SS_SRC}/game/client/rendertexture.cpp
     ${SS_SRC}/game/client/ScreenSpaceEffects.cpp
     ${SS_SRC}/game/client/vgui_game_viewport.cpp
     ${SS_SRC}/game/client/warp_overlay.cpp
@@ -137,6 +136,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_usermessages_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_facts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_targets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_render_targets_client.cpp
     # C7 (§3.3): View_Render's body -- the per-frame path question and the
     # render plan's executor -- and the recorder that measures both paths.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_executor_client.cpp

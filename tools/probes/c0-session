@@ -53,6 +53,7 @@ It runs ONE game with its own TMPDIR, DEBUG_API_DIR and -port, and only ever
 kills that game: the pid whose environment carries this run's TMPDIR.
 """
 import argparse
+import getpass
 import glob
 import os
 import re
@@ -271,12 +272,21 @@ def main():
                 if not ok:
                     raise SystemExit(1)
             elif verb == "shot":
-                before = set(glob.glob(os.path.join(shots, "*.jpg")))
+                # A game launched with -instance (local_launch's default) writes
+                # its screenshots into its own game dir, /tmp/ssi-<user>/<launcher
+                # pid>/<mod> (src/launcher/Launcher.cs, InstanceBase), not the
+                # tree's mods/test.
+                inst_base = env.get("SOURCESHARP_INSTANCE_ROOT") or "/tmp/ssi-" + getpass.getuser()
+                shot_dirs = [shots, os.path.join(inst_base, str(proc.pid), "test", "screenshots")]
+
+                def jpgs():
+                    return {p for d in shot_dirs for p in glob.glob(os.path.join(d, "*.jpg"))}
+                before = jpgs()
                 api("cmd", "jpeg")
                 got = None
                 for _ in range(20):
                     time.sleep(0.5)
-                    new = set(glob.glob(os.path.join(shots, "*.jpg"))) - before
+                    new = jpgs() - before
                     if new:
                         got = max(new, key=os.path.getmtime)
                         time.sleep(0.5)

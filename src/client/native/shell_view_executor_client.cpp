@@ -53,7 +53,7 @@
 #include "view_shared.h"
 #include "view_scene.h"
 #include "viewpostprocess.h"
-#include "rendertexture.h"
+#include "shell_render_targets.h"   // the render targets managed declares (C7)
 #include "iclientmode.h"
 #include "c_env_fog_controller.h"
 #include "model_types.h"
@@ -886,8 +886,8 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 	if ( fog.m_nVisibleFogVolume != -1 )
 	{
 		in.ViewPlaneIntersectsWater = ViewPlaneIntersectsWater( setup, fog.m_flWaterHeight, fog.m_nVisibleFogVolume );
-		ITexture *pReflection = GetWaterReflectionTexture();
-		ITexture *pRefraction = GetWaterRefractionTexture();
+		ITexture *pReflection = ShellRenderTarget( SS_RT_WaterReflection );
+		ITexture *pRefraction = ShellRenderTarget( SS_RT_WaterRefraction );
 		in.ReflectionWidth = pReflection ? pReflection->GetActualWidth() : 0;
 		in.ReflectionHeight = pReflection ? pReflection->GetActualHeight() : 0;
 		in.RefractionWidth = pRefraction ? pRefraction->GetActualWidth() : 0;
@@ -1107,9 +1107,9 @@ ITexture *Target( int nTarget )
 {
 	switch ( nTarget )
 	{
-	case RENDER_TARGET_FullFrameFB0: return GetFullFrameFrameBufferTexture( 0 );
-	case RENDER_TARGET_WaterReflection: return GetWaterReflectionTexture();
-	case RENDER_TARGET_WaterRefraction: return GetWaterRefractionTexture();
+	case RENDER_TARGET_FullFrameFB0: return ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 );
+	case RENDER_TARGET_WaterReflection: return ShellRenderTarget( SS_RT_WaterReflection );
+	case RENDER_TARGET_WaterRefraction: return ShellRenderTarget( SS_RT_WaterRefraction );
 	case RENDER_TARGET_Saved: return State().m_pSavedRenderTarget;
 	case RENDER_TARGET_ViewTarget0: return ShellViewTargets_Texture( 0 );
 	case RENDER_TARGET_ShadowColor: return State().m_pShadowColor;
@@ -1212,7 +1212,7 @@ void DrawOverlayMaterial( IMaterial *pMaterial, int nBranch, int x, int y, int w
 	{
 		UpdateRefractTexture( x, y, w, h, true );
 		CMatRenderContextPtr pRenderContext( materials );
-		ITexture *pTexture = GetPowerOfTwoFrameBufferTexture();
+		ITexture *pTexture = ShellRenderTarget( SS_RT_PowerOfTwoFrameBuffer );
 		int sw = pTexture->GetActualWidth();
 		int sh = pTexture->GetActualHeight();
 		pRenderContext->DrawScreenSpaceRectangle( pMaterial, 0, 0, w, h, 0, 0, sw - 1, sh - 1, sw, sh );
@@ -1473,7 +1473,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			CMatRenderContextPtr ctx( materials );
 			state.m_FrameBufferCopies.AddToTail( ctx->GetFrameBufferCopyTexture( 0 ) );
 			if ( op.I[0] )
-				ctx->SetFrameBufferCopyTexture( GetPowerOfTwoFrameBufferTexture() );
+				ctx->SetFrameBufferCopyTexture( ShellRenderTarget( SS_RT_PowerOfTwoFrameBuffer ) );
 			break;
 		}
 		case RENDER_OP_FrameBufferCopyPop:
@@ -1631,7 +1631,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			Rect_t src;
 			src.x = op.I[0]; src.y = op.I[1]; src.width = op.I[2]; src.height = op.I[3];
 			CMatRenderContextPtr ctx( materials );
-			ctx->CopyRenderTargetToTextureEx( GetWaterRefractionTexture(), 0, &src, NULL );
+			ctx->CopyRenderTargetToTextureEx( ShellRenderTarget( SS_RT_WaterRefraction ), 0, &src, NULL );
 			break;
 		}
 		case RENDER_OP_PushCustomClipPlane: { CMatRenderContextPtr ctx( materials ); ctx->PushCustomClipPlane( op.F ); break; }
@@ -1702,7 +1702,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			Rect_t rect;
 			rect.x = op.I[0]; rect.y = op.I[1]; rect.width = op.I[2]; rect.height = op.I[3];
 			CMatRenderContextPtr ctx( materials );
-			ctx->CopyRenderTargetToTextureEx( GetFullscreenTexture(), 0, &rect, &rect );
+			ctx->CopyRenderTargetToTextureEx( ShellRenderTarget( SS_RT_Fullscreen ), 0, &rect, &rect );
 			break;
 		}
 		case RENDER_OP_SetCurrentViewSetup:
@@ -1858,7 +1858,7 @@ ITexture *PostTexture( int nTexture )
 {
 	switch ( nTexture )
 	{
-	case 1: return GetFullFrameFrameBufferTexture( 0 );
+	case 1: return ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 );
 	case 2: return materials->FindTexture( "_rt_SmallFB0", TEXTURE_GROUP_RENDER_TARGET );
 	case 3: return materials->FindTexture( "_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET );
 	case 4: return materials->FindTexture( "_rt_ResolvedFullFrameDepth", TEXTURE_GROUP_RENDER_TARGET );
@@ -1925,7 +1925,7 @@ bool RunPostProgram( int nKind, const CViewSetup &setup, int x, int y, int w, in
 	in.FakeSrgbWrite = g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0;
 	in.SupportsPixelShaders20 = g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0;
 	in.ColorCorrectionActive = SourceSharp_ColorCorrectionActive() ? 1 : 0;
-	if ( ITexture *pFull = GetFullFrameFrameBufferTexture( 0 ) )
+	if ( ITexture *pFull = ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 ) )
 	{
 		in.FullFrameWidth = pFull->GetActualWidth();
 		in.FullFrameHeight = pFull->GetActualHeight();

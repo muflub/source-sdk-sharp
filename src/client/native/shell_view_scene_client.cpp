@@ -23,7 +23,7 @@
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
-#include "rendertexture.h"
+#include "shell_render_targets.h"
 #include "view_scene.h"
 #include "view_frustum_transform.h"
 
@@ -54,7 +54,7 @@ void UpdateFullScreenDepthTexture( void )
 	if ( !g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_b() )
 		return;
 
-	ITexture *pDepthTex = GetFullFrameDepthTexture();
+	ITexture *pDepthTex = ShellRenderTarget( SS_RT_FullFrameDepth );
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->CopyRenderTargetToTextureEx( pDepthTex, 0, NULL, NULL );
 	pRenderContext->SetFullScreenDepthTextureValidityFlag( true );

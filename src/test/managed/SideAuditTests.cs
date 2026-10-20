@@ -303,6 +303,9 @@ public class SideAuditTests
         // and its texture, which exist only in client.so.
         "FlashlightTexture", "FlashlightSupportsBorderColor", "FlashlightCreate", "FlashlightUpdate",
         "FlashlightProject", "FlashlightDestroy",
+        // The named render targets' store (C7, rendertexture.cpp's getters):
+        // the material system's render targets exist only in client.so.
+        "RenderTargetDeclare",
         "InputMailbox",
         "SpriteTrailDestroy", "SpriteTrailUpdate",
         "StandaloneSetBlending",

@@ -286,6 +286,8 @@ int32_t CShimViewClient::RenderViewToTarget( int32_t nTarget, const SourceSharpV
 	{ return ::SourceSharp_RenderViewToTarget( nTarget, pSetup ); }
 int32_t CShimViewClient::ViewTargetInfo( int32_t nTarget, int32_t * pOut4 )
 	{ return ::SourceSharp_ViewTargetInfo( nTarget, pOut4 ); }
+int32_t CShimViewClient::RenderTargetDeclare( int32_t nSlot, const char * pszName, const char * pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder )
+	{ return ::SourceSharp_RenderTargetDeclare( nSlot, pszName, pszGroup, bComplain, nCreationFlags, nReleaseOrder ); }
 
 int32_t CShimUserMessagesClient::ClientViewportQuery( const char * pPanel )
 	{ return ::SourceSharp_ClientViewportQuery( pPanel ); }

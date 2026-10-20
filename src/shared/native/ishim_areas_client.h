@@ -194,6 +194,11 @@ public:
 	// point stock's DrawMonitors draws, and answers the target's facts.
 	virtual int32_t RenderViewToTarget( int32_t nTarget, const SourceSharpViewTargetSetup *pSetup ) = 0;
 	virtual int32_t ViewTargetInfo( int32_t nTarget, int32_t *pOut4 ) = 0;
+	// rendertexture.cpp's getters (C7): one slot's texture, group, FindTexture
+	// arguments and place in the release's order, as managed's
+	// RenderTargetCatalog decided them; shell_render_targets_client.cpp finds
+	// on the slot's first use and drops the reference at the release.
+	virtual int32_t RenderTargetDeclare( int32_t nSlot, const char *pszName, const char *pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder ) = 0;
 };
 
 // plan_side_isolation §2.2a: the client half of user messages. Managed reads a

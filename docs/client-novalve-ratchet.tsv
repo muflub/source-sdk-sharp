@@ -1,6 +1,8 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, C7 render textures (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: rendertexture.cpp left client.so (its decisions are RenderTargetCatalog's, its references the store's): fork-src 7 -> 6, fork-hdr-not-allowed 309 -> 308, fork-hdr-total 473 -> 472, incdir-forbidden-tus 142 -> 141, sdk-links 521 -> 520 (the .cpp; rendertexture.h stays, view_scene.h includes it); logic-lines 7566 unchanged (rendertexture.h's two imported names, ruled LIVE-API). Hand-edited.
+# 2026-10-19, C7 render textures (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_render_targets_client.cpp (the store carrying out RenderTargetCatalog's rows) joins client.so: incdir-forbidden-tus 141 -> 142 RAISED (the one new TU, compiled with the client target's include dirs; rendertexture.cpp's eviction takes one out); logic-lines 7566 unchanged (the new functions ruled SLOT, SLOT-HELP, BOUNDARY and LIVE-API). Hand-edited.
 # 2026-10-19, T4b rebased onto main 60ebe2a09, measured by tools/shim-scope: logic-lines 8990 (main) -> 9514, the lane's +524 (tempent_schema.h counted in src/client/native for the first time; not new logic).
 # 2026-10-19, shell_savegame.cpp moved src/shared/native -> src/client/native (client.so's alone since plan_server_native_v2 T4c), measured by tools/shim-scope: logic-lines 8804 -> 9010 RAISED (+206). NOT new logic: tools/shim-scope walks src/client/native only, so the file's client save codec (ShellSave_Init/WriteFields/ReadFields and the now-unreached blob and readout functions, unruled) is counted for the first time; the client object is unchanged (same defined symbols, .text 27,555 bytes before and after). docs/todo.md names the port. Hand-edited.
 # 2026-10-19, sound_emitter.cpp moved src/shared/native -> src/client/native (client.so's alone since plan_server_native_v2 T4a), measured by tools/shim-scope: logic-lines 8301 -> 8804 RAISED (+503). NOT new logic: tools/shim-scope walks src/client/native only, so the file's client emit path (CSoundEmitterSystem's EmitSound/EmitSoundByHandle/close captions, unruled) is counted for the first time. It is the client port's to move to managed. Hand-edited.
@@ -279,9 +281,9 @@
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
 # 2026-10-19, C7 cluster 12 L2, the eviction: clientleafsystem.cpp left client.so (tools/client-novalve-census): fork-hdr-not-allowed 311 -> 309,
 #   fork-hdr-total 475 -> 473, fork-src 8 -> 7, incdir-forbidden-tus 142 -> 141, sdk-links 522 -> 521. Hand-edited.
-fork-hdr-not-allowed	309
-fork-hdr-total	473
-fork-src	7
+fork-hdr-not-allowed	308
+fork-hdr-total	472
+fork-src	6
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -350,4 +352,4 @@ logic-lines	7566
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	521
+sdk-links	520

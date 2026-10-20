@@ -77,6 +77,9 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The second cameras' render targets (lane camproto).
         services.AddInstance<IViewTargets>(new ClientViewTargets(areas.ViewClient));
 
+        // The named render targets' store (C7, rendertexture.cpp's getters).
+        services.AddInstance<IRenderTargetTable>(new ClientRenderTargetTable(areas.ViewClient));
+
         // The observer's camera (plan_client_novalve C7 item 5).
         services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(areas.ViewClient));
 

@@ -263,6 +263,7 @@ ViewOverrideSet	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewOverr
 EntitiesUpdateVisibilityAll	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientEntitiesUpdateVisibilityAll	int	
 RenderViewToTarget	EngineApi	IShimViewClient	client		client	-	SourceSharp_RenderViewToTarget	int, ViewTargetSetup*, int	
 ViewTargetInfo	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewTargetInfo	int, int*, int	
+RenderTargetDeclare	EngineApi	IShimViewClient	client		client	-	SourceSharp_RenderTargetDeclare	int, byte*, byte*, int, int, int, int	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	

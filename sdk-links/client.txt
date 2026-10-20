@@ -121,7 +121,6 @@ src/game/client/prediction.h
 src/game/client/proxyentity.h
 src/game/client/ragdoll.h
 src/game/client/recvproxy.h
-src/game/client/rendertexture.cpp
 src/game/client/rendertexture.h
 src/game/client/smoke_fog_overlay.h
 src/game/client/studio_stats.h

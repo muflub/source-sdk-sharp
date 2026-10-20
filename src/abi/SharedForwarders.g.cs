@@ -2249,7 +2249,7 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 16 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 17 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2304,6 +2304,9 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::ViewTargetInfo( int32_t, int32_t * )
     public delegate* unmanaged<void*, int, void*, int> ViewTargetInfo;
+
+    // int32_t IShimViewClient::RenderTargetDeclare( int32_t, const char *, const char *, int32_t, int32_t, int32_t )
+    public delegate* unmanaged<void*, int, byte*, byte*, int, int, int, int> RenderTargetDeclare;
 }
 
 /// <summary>
