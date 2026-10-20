@@ -1863,3 +1863,15 @@ the radius at 48 and with the crate not spared. The subset
 join,prop-hurts-player,impact-damage did not reproduce it in 12 passes
 before the fix or 12 after (the gibs' landing depends on the full gate's
 state), so the evidence is the full-gate log and the self-test.
+
+## sdk-links follow-ups (from the 2026-10-19 reconciliation)
+
+- **sdk-links/windows.txt** still lists bitmap.lib, tier2.lib, tier3.lib and
+  vtf.lib. No CMake target on any platform links sdk::bitmap, sdk::tier2,
+  sdk::tier3 or sdk::vtf, so they look dead. Only GitHub CI verifies the
+  Windows build: delete them in a commit that CI then checks.
+- **DONE 2026-10-19: props_shared.h's link is gone.** Its last reader,
+  PropBreakTests' spawnflag fact (a farm read that passed when the file was
+  missing), is now PropBreakSpawnFlagsOracleTests (oracle-managed), which
+  reads the pristine clone. sdk-links/tests.txt dropped the line, and
+  make sdk-census reads 544 links with 0 unused.
