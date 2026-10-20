@@ -39,7 +39,7 @@ public class PointCommandTests
     [Fact]
     public void TheWait()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointServerCommand).Assembly);
         registry.Services = Ignoring("Console.FindConVarValue", "Entities.IsPlayer");
         registry.Spawn(Ent, EntityNames.PointServercommand);
@@ -119,7 +119,7 @@ public class PointCommandTests
         foreach (string className in new[] { EntityNames.PointServercommand,
                                              EntityNames.PointClientcommand })
         {
-            var registry = new ScriptedEntityRegistry();
+            var registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(PointServerCommand).Assembly);
             registry.Services = Ignoring("Console.FindConVarValue", "Entities.IsPlayer");
 

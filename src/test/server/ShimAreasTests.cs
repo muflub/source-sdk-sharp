@@ -6,8 +6,10 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// plan_engineapi_vtables Phase C0: <see cref="ShimAreas"/> acquires every
-/// generated area from the shim root, and refuses a root that is missing one or
+/// plan_engineapi_vtables Phase C0: <see cref="ServerAreaRegistration"/>
+/// acquires every generated area from the shim root (and, since
+/// plan_shim_areas_split phase 11, hands each to the side by type), and
+/// refuses a root that is missing one or
 /// serves its forwarder table (plan_forwarders_everywhere.md) with fewer slots
 /// than the generated struct reads. The root is a fake in unmanaged memory
 /// answering version strings and table names from tables this test fills.
@@ -25,8 +27,10 @@ public unsafe class ShimAreasTests : IDisposable
     {
         ShimRoot root = Root(_ => true, _ => 0);
 
-        Assert.True(ShimAreas.TryAcquire(root, out var areas, out string why), why);
-        Assert.NotNull(areas);
+        var areas = new List<Type>();
+        Assert.True(ServerAreaRegistration.TryAcquire(root, (type, _) => areas.Add(type), out string why), why);
+        Assert.Equal(Versions().Count, areas.Count(t => t.Name.EndsWith("Area", StringComparison.Ordinal)
+                                                        && Versions().Contains(VersionOf(t))));
     }
 
     [Fact]
@@ -35,8 +39,9 @@ public unsafe class ShimAreasTests : IDisposable
         string victim = Versions()[3];
         ShimRoot root = Root(v => v != victim, _ => 0);
 
-        Assert.False(ShimAreas.TryAcquire(root, out var areas, out string why));
-        Assert.Null(areas);
+        var areas = new List<Type>();
+        Assert.False(ServerAreaRegistration.TryAcquire(root, (type, _) => areas.Add(type), out string why));
+        Assert.Empty(areas);
         Assert.Contains($"does not serve {victim}", why);
     }
 
@@ -46,8 +51,9 @@ public unsafe class ShimAreasTests : IDisposable
         string victim = Versions()[5];
         ShimRoot root = Root(_ => true, v => v == victim ? -1 : 0);
 
-        Assert.False(ShimAreas.TryAcquire(root, out var areas, out string why));
-        Assert.Null(areas);
+        var areas = new List<Type>();
+        Assert.False(ServerAreaRegistration.TryAcquire(root, (type, _) => areas.Add(type), out string why));
+        Assert.Empty(areas);
         Assert.Contains(victim, why);
         Assert.Contains($"with {Needs(victim) - 1} forwarder(s)", why);
         Assert.Contains($"reads {Needs(victim)}", why);
@@ -55,25 +61,33 @@ public unsafe class ShimAreasTests : IDisposable
 
     [Fact]
     public void TheCountMatchesTheGeneratedTable()
-        => Assert.Equal(21, ShimAreas.Count);   // 21 since plan_server_native_v2 T4a (IShimSound retired: the managed SoundEmitter answers its five emits); 22 since plan_server_native_v2 T3 (the string tables folded; IShimStringTablesServer retired); 23 since plan_server_native_v2 T2 (IShimWeapons retired: RegisterWeaponType went, RegisterAmmoType is the client's); 24 since the same plan (IShimInventory left with its last slot); 25 since plan_physics_bones_native_zero 2.4 (the three joint tables left); 28 since the debug-api lane's IShimDiagnostics; 27 since plan_side_isolation P2: IShimUserMessages, and IShimEvents bound for itself
+        => Assert.Equal(21, ServerAreaRegistration.Count);   // 21 since plan_server_native_v2 T4a (IShimSound retired: the managed SoundEmitter answers its five emits); 22 since plan_server_native_v2 T3 (the string tables folded; IShimStringTablesServer retired); 23 since plan_server_native_v2 T2 (IShimWeapons retired: RegisterWeaponType went, RegisterAmmoType is the client's); 24 since the same plan (IShimInventory left with its last slot); 25 since plan_physics_bones_native_zero 2.4 (the three joint tables left); 28 since the debug-api lane's IShimDiagnostics; 27 since plan_side_isolation P2: IShimUserMessages, and IShimEvents bound for itself
 
-    // Every version the generated class asks for, read from its own fields'
-    // layouts so this test cannot drift from the generator.
-    private static List<string> Versions()
-        => typeof(ShimAreas).GetFields(BindingFlags.Public | BindingFlags.Instance)
-               .Select(f => $"SourceSharp{Stem(f.Name)}001")
-               .ToList();
+    // Every area the server registers under its own type (not again as a
+    // base), read from the registration so this test cannot drift from the
+    // generator.
+    private static List<Type> Areas()
+    {
+        var areas = new List<Type>();
+        // Each area once, under its own interface (IXArea for XArea), not a base's.
+        ServerAreaRegistration.AddDetached((type, area) =>
+        {
+            if (type.Name == "I" + area.GetType().Name)
+                areas.Add(area.GetType());
+        });
+        return areas;
+    }
 
-    // IShimEngine's field is EngineBase and its version SourceSharpEngine001
-    // (tools/shim-areas field()); every other field is its version's stem.
-    private static string Stem(string field) => field == "EngineBase" ? "Engine" : field;
+    // An area's version is its class name less "Area": IShimEngine's class is
+    // EngineArea, handed as IEngineArea, served as SourceSharpEngine001.
+    private static string VersionOf(Type area)
+        => $"SourceSharp{(area.IsInterface ? area.Name[1..] : area.Name)[..^"Area".Length]}001";
+
+    // Every version the registration asks for.
+    private static List<string> Versions() => Areas().Select(VersionOf).ToList();
 
     private static Type Fwd(string version)
-    {
-        string stem = version["SourceSharp".Length..^"001".Length];
-        var field = typeof(ShimAreas).GetField(stem == "Engine" ? "EngineBase" : stem)!;
-        return ShimAreaTypes.FwdOf(field.FieldType);
-    }
+        => ShimAreaTypes.FwdOf(Areas().Single(a => VersionOf(a) == version));
 
     private static int Needs(string version) => Marshal.SizeOf(Fwd(version)) / sizeof(nint);
 

@@ -6,7 +6,7 @@ namespace SourceSharp.Client.Interop;
 /// The view area's pixel visibility slots (shell_pixelvis_client.cpp), one
 /// crossing each.
 /// </summary>
-internal sealed unsafe class ClientPixelVisSlots(ViewClientArea viewClient) : IPixelVisSlots
+internal sealed unsafe class ClientPixelVisSlots(IViewClientArea viewClient) : IPixelVisSlots
 {
     public int QueryCreate() => viewClient.PixelVisQueryCreate();
 

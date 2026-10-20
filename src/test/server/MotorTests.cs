@@ -47,7 +47,7 @@ public class MotorTests
     [Fact]
     public void Acceleration()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysMotor).Assembly);
         registry.Services = Ignoring("Entities.GetOrigin");
         registry.Spawn(Ent, EntityNames.PhysMotor);
@@ -126,7 +126,7 @@ public class MotorTests
     [Fact]
     public void A_motor_without_start_on_turns_when_a_map_sets_its_speed()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysMotor).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

@@ -636,18 +636,17 @@ public sealed class NetStateCatalog
     private readonly Dictionary<Type, Dictionary<string, float>> _tolerances = new();
 
     /// <summary>A catalog of the states <paramref name="declarations"/> declares.</summary>
-    public NetStateCatalog(Assembly declarations, ILog log)
-        : this(() => StandaloneNetStates.Discover(declarations, log))
+    public static NetStateCatalog Of(Assembly declarations, ILog log)
     {
         ArgumentNullException.ThrowIfNull(declarations);
+        return new NetStateCatalog(() => StandaloneNetStates.Discover(declarations, log));
     }
 
     /// <summary>A catalog of exactly <paramref name="states"/>.</summary>
-    public NetStateCatalog(IEnumerable<Type> states)
-        : this(() => StandaloneNetStates.Discover(states))
-    {
-    }
+    public static NetStateCatalog Of(IEnumerable<Type> states)
+        => new(() => StandaloneNetStates.Discover(states));
 
+    // What to discover, on the first ask: the factories above build it.
     private NetStateCatalog(Func<IEnumerable<StandaloneNetState>> declared) => _declared = declared;
 
     /// <summary>The declarations by entity classname.</summary>

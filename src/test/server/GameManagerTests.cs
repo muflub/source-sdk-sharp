@@ -38,7 +38,7 @@ public class GameManagerTests
 
     private static ScriptedEntityRegistry Registry(IGameEventFeed? feed = null)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GameGibManager).Assembly);
 
         // The systems these entities ask for, faked. game_ui reads the buttons
@@ -169,7 +169,7 @@ public class GameManagerTests
 
         // A name this mod has no weapon for. Stock creates one to find out and
         // removes itself when it cannot; this asks the weapon table.
-        var other = new ScriptedEntityRegistry();
+        var other = new ScriptedEntityRegistry(TestEngines.Server());
         other.RegisterAll(typeof(GameWeaponManager).Assembly);
         other.Services = Services();
         other.KeyValue(Ent, EntityNames.GameWeaponManager, "weaponname", "weapon_physcannon");
@@ -391,7 +391,7 @@ public class GameManagerTests
         Assert.True(listener.OnEventFired.FireCount == 1, "it fires for its own team");
 
         // No team key at all means anybody, which is what most maps want.
-        var any = new ScriptedEntityRegistry();
+        var any = new ScriptedEntityRegistry(TestEngines.Server());
         any.RegisterAll(typeof(LogicEventListener).Assembly);
         var anyServices = Services();
         anyServices.AddInstance<IGameEventFeed>(feed);

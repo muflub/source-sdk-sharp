@@ -2,7 +2,7 @@ extern alias client;
 // The client's interop is referenced under the client alias alone, since it
 // compiles its own copy of the shared interop (plan_shim_areas_split phase 3).
 using EngineClient = client::SourceSharp.Abi.EngineClient;
-using IVtableEngineClient = client::SourceSharp.Abi.IVtableEngineClient;
+using IFwdEngineClient = client::SourceSharp.Abi.IFwdEngineClient;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -196,7 +196,7 @@ public unsafe class VtableBindingTests
     [Fact]
     public void TheServerProbeReportsTheEngineClientRefused()
     {
-        string line = ShimProbes.EngineClient(new ModuleEngine(new EngineSide(Side.Server)));
+        string line = ShimProbes.EngineClient(new ModuleEngine(TestSides.Create(Side.Server)));
 
         Assert.True(line.StartsWith("IVEngineClient: REFUSED", StringComparison.Ordinal)
                     && line.Contains("VEngineClient014", StringComparison.Ordinal),
@@ -208,7 +208,7 @@ public unsafe class VtableBindingTests
     {
         Assert.Null(EngineModelInfo.Acquire(Unattached(), out _));
         Assert.Null(EngineBaseFileSystem.Acquire(Unattached(), out _));
-        Assert.Null(EngineClient.Acquire(new client::SourceSharp.Abi.ModuleEngine(new client::SourceSharp.Abi.EngineSide(Side.Client)), out _));
+        Assert.Null(EngineClient.Acquire(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client)), out _));
         Assert.Null(EngineServer.Acquire(Unattached(), out _));
     }
 
@@ -216,7 +216,7 @@ public unsafe class VtableBindingTests
     /// A server engine of the test's own with no native half (plan_abi_hotreload
     /// D8): every acquire names the module it acquires for.
     /// </summary>
-    private static ModuleEngine Unattached() => new(new EngineSide(Side.Server));
+    private static ModuleEngine Unattached() => new(TestSides.Create(Side.Server));
 
     //-------------------------------------------------------------------------
     // 2. POLICY, EXPRESSED ONLY BY ABSENCE.
@@ -254,7 +254,7 @@ public unsafe class VtableBindingTests
         // What game code is offered is the seam's surface: the client's
         // implementation is reached only through it (plan_shim_areas_split
         // phase 10).
-        string[] offered = PublicMethodsOf(typeof(IVtableEngineClient));
+        string[] offered = PublicMethodsOf(typeof(IFwdEngineClient));
 
         Assert.Contains("SubmitConsoleLine", offered);
         foreach (string forbidden in new[]
@@ -320,10 +320,10 @@ public unsafe class VtableBindingTests
         foreach ((Type impl, Type contract) in new[]
                  {
                      (typeof(UniformRandomStream), typeof(IUniformRandom)),
-                     (typeof(EngineModelInfo), typeof(IVtableModelInfo)),
-                     (typeof(EngineBaseFileSystem), typeof(IVtableBaseFileSystem)),
-                     (typeof(EngineClient), typeof(IVtableEngineClient)),
-                     (typeof(EngineServer), typeof(IVtableEngineServer)),
+                     (typeof(EngineModelInfo), typeof(IFwdModelInfo)),
+                     (typeof(EngineBaseFileSystem), typeof(IFwdBaseFileSystem)),
+                     (typeof(EngineClient), typeof(IFwdEngineClient)),
+                     (typeof(EngineServer), typeof(IFwdEngineServer)),
                  })
         {
             string[] offered = PublicMethodsOf(impl).OrderBy(n => n).ToArray();
@@ -392,10 +392,10 @@ public unsafe class VtableBindingTests
         foreach ((Type impl, Type contract) in new[]
                  {
                      (typeof(UniformRandomStream), typeof(IUniformRandom)),
-                     (typeof(EngineModelInfo), typeof(IVtableModelInfo)),
-                     (typeof(EngineBaseFileSystem), typeof(IVtableBaseFileSystem)),
-                     (typeof(EngineClient), typeof(IVtableEngineClient)),
-                     (typeof(EngineServer), typeof(IVtableEngineServer)),
+                     (typeof(EngineModelInfo), typeof(IFwdModelInfo)),
+                     (typeof(EngineBaseFileSystem), typeof(IFwdBaseFileSystem)),
+                     (typeof(EngineClient), typeof(IFwdEngineClient)),
+                     (typeof(EngineServer), typeof(IFwdEngineServer)),
                  })
         {
             MethodInfo acquire = impl.GetMethod("Acquire", BindingFlags.Public

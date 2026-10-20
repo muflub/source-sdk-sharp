@@ -2155,45 +2155,32 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// <summary>
     /// A registry over routes of its own, which no engine side reads: for
     /// tests that drive the registry directly. The game builds one with the
-    /// side's routes. Its engine is a side of its own with nothing attached
-    /// (<see cref="UnattachedEngine"/>), never the process's.
+    /// side's routes. Its engine is the one the test hands it (a side over the
+    /// default areas, <c>TestEngines.Server</c>), never the process's.
     /// </summary>
-    internal ScriptedEntityRegistry()
-        : this(new LivenessMirror(), new ShellLessRoutes(), new EntityIoRoutes(), new EntityRemovalRoutes())
+    internal ScriptedEntityRegistry((ServiceContainer Engine, ServerEntityEngine Side) engine)
+        : this(new LivenessMirror(), new ShellLessRoutes(), new EntityIoRoutes(), new EntityRemovalRoutes(), engine)
     {
     }
 
     /// <summary>A registry over routes of its own that records into <paramref name="liveness"/>: for tests.</summary>
-    internal ScriptedEntityRegistry(LivenessMirror liveness)
-        : this(liveness, new ShellLessRoutes(), new EntityIoRoutes(), new EntityRemovalRoutes())
+    internal ScriptedEntityRegistry(LivenessMirror liveness, (ServiceContainer Engine, ServerEntityEngine Side) engine)
+        : this(liveness, new ShellLessRoutes(), new EntityIoRoutes(), new EntityRemovalRoutes(), engine)
     {
     }
 
     /// <summary>A registry over the given routes whose removals go to a mirror of its own: for tests.</summary>
-    internal ScriptedEntityRegistry(ShellLessRoutes shellLess, EntityIoRoutes io, EntityRemovalRoutes removal)
-        : this(new LivenessMirror(), shellLess, io, removal)
+    internal ScriptedEntityRegistry(ShellLessRoutes shellLess, EntityIoRoutes io, EntityRemovalRoutes removal,
+                                    (ServiceContainer Engine, ServerEntityEngine Side) engine)
+        : this(new LivenessMirror(), shellLess, io, removal, engine)
     {
     }
 
     private ScriptedEntityRegistry(LivenessMirror liveness, ShellLessRoutes shellLess, EntityIoRoutes io,
-                                   EntityRemovalRoutes removal)
-        : this(liveness, shellLess, io, removal, ServerEntityEngine.Unattached())
+                                   EntityRemovalRoutes removal, (ServiceContainer Engine, ServerEntityEngine Side) engine)
+        : this(liveness, shellLess, io, removal, engine.Engine, engine.Side)
     {
     }
-
-    private ScriptedEntityRegistry(LivenessMirror liveness, ShellLessRoutes shellLess, EntityIoRoutes io,
-                                   EntityRemovalRoutes removal, (ServiceContainer Engine, ServerEntityEngine Side) unattached)
-        : this(liveness, shellLess, io, removal, unattached.Engine, unattached.Side)
-    {
-    }
-
-    /// <summary>
-    /// The engine areas of a new server side that no native module is attached
-    /// to, for the test constructors above: every call answers what an engine
-    /// that is not there answers, as the process's did before D8, but the
-    /// side is this registry's own, so two registries share nothing.
-    /// </summary>
-    internal static ServiceContainer UnattachedEngine() => ServerEntityEngine.Unattached().Engine;
 
     // The side this registry frees shells through and asks the shell-less
     // reach of: the composition's, or a test's unattached one. Through

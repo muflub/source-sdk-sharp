@@ -22,7 +22,7 @@ public class PhysboxMultiplayerTests
 
     private static FuncPhysboxMultiplayer Spawn(uint index, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         registry.Services = Ignoring("Entities.GetHealth", "EntityPhysics.InitPhysics");
 
@@ -41,7 +41,7 @@ public class PhysboxMultiplayerTests
         // The registration, not the class: a [ScriptedEntity] nobody scanned is
         // a native classname with no factory, which is a silent "entity not
         // found" at map load.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPhysbox).Assembly);
         registry.Services = Ignoring("Entities.GetHealth", "EntityPhysics.InitPhysics");
 

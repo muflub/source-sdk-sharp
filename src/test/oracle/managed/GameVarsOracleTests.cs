@@ -119,7 +119,7 @@ public class GameVarsOracleTests
     {
         var assembly = typeof(ForceCameraConVar).Assembly;
 
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(assembly);
 
         var byName = new Dictionary<string, ConVarBase>();

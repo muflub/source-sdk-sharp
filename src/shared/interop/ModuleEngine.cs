@@ -93,6 +93,20 @@ public sealed partial class ModuleEngine
     public int AddTo(ServiceContainer services) => EngineServices.AddTo(services, Api);
 
     /// <summary>
+    /// Builds <typeparamref name="T"/> by its longest public constructor that
+    /// can be satisfied, as the engine bindings are built: each shim area it
+    /// takes from this side, everything else from <paramref name="services"/>.
+    /// Injection for a consumer that is not a binding, so it is handed its
+    /// areas and services rather than looking them up.
+    /// </summary>
+    public T Create<T>(IServiceLocator services) where T : class
+        => (T)Create(typeof(T), services);
+
+    /// <inheritdoc cref="Create{T}"/>
+    public object Create(Type implementation, IServiceLocator services)
+        => EngineServices.Create(implementation, Api, services);
+
+    /// <summary>
     /// Has this engine's <c>EntityIsValid</c> answer from the composition's
     /// <paramref name="mirror"/> (plan_abi_hotreload D7) until the returned
     /// attachment is disposed. The module attaches at composition and disposes

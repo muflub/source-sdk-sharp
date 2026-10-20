@@ -208,9 +208,9 @@ internal sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyE
 {
     // The shim area this calls, handed over by the client root once the
     // side's areas are attached (plan_shim_areas_split phase 5).
-    private readonly MaterialProxyClientArea _materialProxyClient;
+    private readonly IMaterialProxyClientArea _materialProxyClient;
 
-    internal ClientMaterialProxyExecutor(MaterialProxyClientArea materialProxyClient)
+    internal ClientMaterialProxyExecutor(IMaterialProxyClientArea materialProxyClient)
     {
         _materialProxyClient = materialProxyClient;
     }

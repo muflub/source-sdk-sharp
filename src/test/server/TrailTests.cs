@@ -28,7 +28,7 @@ public class TrailTests
     private static T Spawn<T>(string className, uint index, params (string Key, string Value)[] keys)
         where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvFireTrail).Assembly);
 
         // Two engine reads these checks are not about, named rather than
@@ -249,7 +249,7 @@ public class TrailTests
         // explosion a map can switch back on must not have been collected by
         // the client in between, and a Disable that lowered the flag would
         // undo exactly that.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvSporeExplosion).Assembly);
         registry.Services = Ignoring("Precache.PrecacheMaterial", "Host.CurrentTime");
 

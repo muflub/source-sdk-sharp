@@ -378,7 +378,7 @@ public sealed class ServerSoundPatches(SoundEmitter emitter, IEngineEntities ent
 /// each client reported (GetClientConVarValue).
 /// </summary>
 public sealed class ServerSoundListeners(IEngineEnvironment environment, IEnginePlayers players,
-                                         IVtableEngineServer server) : ISoundListeners
+                                         IFwdEngineServer server) : ISoundListeners
 {
     public int MaxClients => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 0;
 

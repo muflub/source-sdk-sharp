@@ -20,7 +20,7 @@ public class RoundEndWithoutIntermissionTests
     public void The_rules_mark_the_round_over_and_ask_the_engine_nothing()
     {
         _ = Services(out var engine);
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         var deaths = new PlayerDeathEvent();
         var board = new Scoreboard(engine, new PlayerDisconnectEvent(), new RecordingLog());

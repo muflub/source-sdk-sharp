@@ -61,7 +61,7 @@ public class TraceFilterRulesTests
     private static TraceCandidate Brush(SolidType solid)
         => new((int)EngineCollisionGroup.None, solid, BrushModel, EntityHandle.None);
 
-    private static TraceFilterRules Rules(Candidates candidates) => new(candidates, CollisionRules.BuildMatrix());
+    private static TraceFilterRules Rules(Candidates candidates) => TraceFilterRules.Over(candidates, CollisionRules.BuildMatrix());
 
     private static bool Hits(Candidates candidates, EntityHandle candidate, int mask,
                              EntityHandle pass = default, int group = 0)
@@ -252,7 +252,7 @@ public class TraceFilterRulesTests
 
     [Fact]
     public void TheMatrixMustHaveOneRowPerSharedGroup()
-        => Assert.Throws<ArgumentException>(() => new TraceFilterRules(new Candidates(), new uint[3]));
+        => Assert.Throws<ArgumentException>(() => TraceFilterRules.Over(new Candidates(), new uint[3]));
 
     [Fact]
     public void OutsideATraceTheSinkHitsNothing()

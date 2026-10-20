@@ -333,7 +333,7 @@ public class ReloadStateTests
 
         float Stamped(float now)
         {
-            var registry = new ScriptedEntityRegistry();
+            var registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(ReloadStateTests).Assembly);
             registry.Services = Services(out var engine);
             engine.Returns("Clock.Now", now);
@@ -356,7 +356,7 @@ public class ReloadStateTests
     {
         _reload.Clear();
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ReloadStateTests).Assembly);
         registry.Services = Services();
 
@@ -374,7 +374,7 @@ public class ReloadStateTests
         Assert.True(ReloadCarrier.Count(_reload) == 1, "and it is waiting in the ABI, not in the registry");
 
         // The reload: a brand new registry, as a brand new assembly's would be.
-        var reloaded = new ScriptedEntityRegistry();
+        var reloaded = new ScriptedEntityRegistry(TestEngines.Server());
         reloaded.RegisterAll(typeof(ReloadStateTests).Assembly);
         reloaded.Services = Services();
 
@@ -400,7 +400,7 @@ public class ReloadStateTests
     {
         _reload.Clear();
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ReloadStateTests).Assembly);
         registry.Services = Services();
 
@@ -409,7 +409,7 @@ public class ReloadStateTests
 
         registry.SaveForReload(_reload);
 
-        var reloaded = new ScriptedEntityRegistry();
+        var reloaded = new ScriptedEntityRegistry(TestEngines.Server());
         reloaded.RegisterAll(typeof(ReloadStateTests).Assembly);
         reloaded.Services = Services();
 
@@ -526,7 +526,7 @@ public class ReloadStateTests
         _reload.Clear();
         _reload.NoteRestoreFailures(99, "stale");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ReloadStateTests).Assembly);
         registry.Services = Services();
 
@@ -534,7 +534,7 @@ public class ReloadStateTests
         registry.KeyValue(handle, "reload_fixture", "speed", "7");
         registry.SaveForReload(_reload);
 
-        var reloaded = new ScriptedEntityRegistry();
+        var reloaded = new ScriptedEntityRegistry(TestEngines.Server());
         reloaded.RegisterAll(typeof(ReloadStateTests).Assembly);
         reloaded.Services = Services();
 
@@ -570,7 +570,7 @@ public class ReloadStateTests
         _reload.Clear();
         _reload.NoteRestoreFailures(0, null);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ReloadStateTests).Assembly);
         registry.Services = Services();
 
@@ -586,7 +586,7 @@ public class ReloadStateTests
 
         Assert.Equal(2, ReloadCarrier.Count(_reload));
 
-        var reloaded = new ScriptedEntityRegistry();
+        var reloaded = new ScriptedEntityRegistry(TestEngines.Server());
         reloaded.RegisterAll(typeof(ReloadStateTests).Assembly);
         reloaded.Services = Services();
 

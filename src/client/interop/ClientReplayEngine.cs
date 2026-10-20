@@ -5,9 +5,9 @@ internal sealed unsafe class ClientReplayEngine : IClientReplayEngine
 {
     // The shim area this calls, handed over by the client root once the
     // side's areas are attached (plan_shim_areas_split phase 5).
-    private readonly PredictionClientArea _predictionClient;
+    private readonly IPredictionClientArea _predictionClient;
 
-    internal ClientReplayEngine(PredictionClientArea predictionClient)
+    internal ClientReplayEngine(IPredictionClientArea predictionClient)
     {
         _predictionClient = predictionClient;
     }

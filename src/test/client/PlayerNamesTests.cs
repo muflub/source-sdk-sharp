@@ -18,7 +18,7 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class PlayerNamesTests
 {
-    private sealed class Engine(Dictionary<int, ClientPlayerInfo> infos) : IVtableEngineClient
+    private sealed class Engine(Dictionary<int, ClientPlayerInfo> infos) : IFwdEngineClient
     {
         public bool TryGetPlayerInfo(int entIndex, out ClientPlayerInfo info) => infos.TryGetValue(entIndex, out info);
         public void SubmitConsoleLine(string line) { }

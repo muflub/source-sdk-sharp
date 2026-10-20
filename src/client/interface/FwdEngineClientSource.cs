@@ -6,7 +6,7 @@ namespace SourceSharp.Abi;
 ///
 /// <para>
 /// The seam for code that reports the refusal itself (<c>cs_vtable_client</c>):
-/// the services that only need the client take a <c>Func&lt;IVtableEngineClient?&gt;</c>
+/// the services that only need the client take a <c>Func&lt;IFwdEngineClient?&gt;</c>
 /// from the root instead. Either way the acquire goes through the
 /// composition's own engine (plan_abi_hotreload D8), and the logic never names
 /// <c>ModuleEngine</c> (plan_shim_areas_split phase 8).
@@ -19,8 +19,8 @@ namespace SourceSharp.Abi;
 /// by its root.
 /// </para>
 /// </summary>
-public interface IVtableEngineClientSource
+public interface IFwdEngineClientSource
 {
     /// <summary>The engine client, or null with <paramref name="why"/> the engine's reason.</summary>
-    IVtableEngineClient? Acquire(out string why);
+    IFwdEngineClient? Acquire(out string why);
 }

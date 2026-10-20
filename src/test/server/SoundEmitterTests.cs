@@ -48,7 +48,7 @@ public sealed class SoundEmitterTests
         public readonly Dictionary<string, int> Sentences = new(StringComparer.Ordinal);
         public readonly Dictionary<string, string> WavFiles = new(StringComparer.Ordinal);
         public Func<string, float> Duration = _ => 1.5f;
-        public uint[] PasBits = new uint[IVtableEngineServer.PlayerBitWords];
+        public uint[] PasBits = new uint[IFwdEngineServer.PlayerBitWords];
         public int GenderOf(string? model) => model?.Contains("female", StringComparison.Ordinal) == true ? 2 : 1;
         public int LastGender = -1;
         public short LastHandleIn;

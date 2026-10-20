@@ -118,7 +118,7 @@ internal sealed unsafe class NativeMailboxBlock : IDisposable
     {
         _block = (InputMailboxBlock*)System.Runtime.InteropServices.NativeMemory.AllocZeroed((nuint)sizeof(InputMailboxBlock));
         _block->StructSize = (uint)sizeof(InputMailboxBlock);
-        Mailbox = new InputMailbox((nint)_block);
+        Mailbox = InputMailbox.Over((nint)_block);
     }
 
     public InputMailbox Mailbox { get; }

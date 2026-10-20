@@ -51,7 +51,7 @@ public class RouteInjectionTests
     [Fact]
     public void EachCompositionAsksForItsOwnFactoryTable()
     {
-        var engine = new ModuleEngine(new EngineSide(Side.Server));
+        var engine = new ModuleEngine(TestSides.Create(Side.Server));
         Assert.NotSame(engine.EntityFactories(), engine.EntityFactories());
     }
 
@@ -111,9 +111,9 @@ public class RouteInjectionTests
     public void EachCompositionsRunReadsItsOwnShadowSwitch()
     {
         int askedFirst = 0, askedSecond = 0;
-        var first = new SourceSharp.Server.Interop.PlayerCommandsBinding(new Crossings(), new RecordingLog(), 
+        var first = SourceSharp.Server.Interop.PlayerCommandsBinding.For(new Crossings(), new RecordingLog(), 
             null!, null!, new PlayerCommandQueue(new RecordingLog()), () => { askedFirst++; return false; });
-        var second = new SourceSharp.Server.Interop.PlayerCommandsBinding(new Crossings(), new RecordingLog(), 
+        var second = SourceSharp.Server.Interop.PlayerCommandsBinding.For(new Crossings(), new RecordingLog(), 
             null!, null!, new PlayerCommandQueue(new RecordingLog()), () => { askedSecond++; return true; });
 
         var player = new EntityHandle(0x7FFF_0FEEu);
@@ -153,11 +153,11 @@ public class RouteInjectionTests
     private static (ServiceContainer Services, ScriptedEntityRegistry Registry) Compose()
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(services, new EngineSide(Side.Server));
+        EngineServices.AddTo(services, TestSides.Create(Side.Server));
 
         var registry = new ScriptedEntityRegistry(services.Require<ShellLessRoutes>(),
                                                   services.Require<EntityIoRoutes>(),
-                                                  services.Require<EntityRemovalRoutes>());
+                                                  services.Require<EntityRemovalRoutes>(), TestEngines.Server());
         registry.RegisterAll(typeof(RouteInjectionTests).Assembly);
         return (services, registry);
     }
@@ -165,7 +165,7 @@ public class RouteInjectionTests
     [Fact]
     public void ASidesContainerHoldsThatSidesOwnRoutes()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         EngineServices.AddTo(services, side);
 

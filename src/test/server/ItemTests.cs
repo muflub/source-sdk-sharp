@@ -49,7 +49,7 @@ public class ItemTests
     {
         TestItem.Reset();
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ItemTests).Assembly);
         registry.Services = Services(out var engine);
 
@@ -287,7 +287,7 @@ public class ItemTests
         engine.Returns("Clock.Now", 42f);
         services.AddInstance<IPickupDirectory>(directory);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Pickups).Assembly);
         registry.Services = services;
         registry.Spawn(Item, EntityNames.SsPickup);

@@ -40,7 +40,7 @@ public class ScriptedEntityPlaySequenceTests
 
     private static (PlaySequenceFixture Entity, RecordingEngine Engine) Spawned(int lookup)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlaySequenceFixture).Assembly);
         registry.Services = TestServices.Services(out var engine);
         engine.Returns("EntityRender.LookupSequence", lookup);

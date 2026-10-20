@@ -69,12 +69,12 @@ public class TeamJoinTests
     private sealed class Rig
     {
         public readonly RecordingEngine Engine = TestServices.Fake();
-        public readonly ScriptedEntityRegistry Registry = new();
+        public readonly ScriptedEntityRegistry Registry = new(TestEngines.Server());
         public readonly Observers Observers = null!;
         public readonly RecordingLog Log = new();
         public readonly SsPlayer[] Players;
         public readonly ObserverTests.Clients Clients = new();
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
 
         public Rig()
         {

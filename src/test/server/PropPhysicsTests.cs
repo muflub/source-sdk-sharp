@@ -28,7 +28,7 @@ public class PropPhysicsTests
     [Fact]
     public void SettleIsNotATimer()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = Ignoring("Entities.GetOrigin");
 
@@ -52,7 +52,7 @@ public class PropPhysicsTests
     [Fact]
     public void SettleHappensOnce()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = Services();
 
@@ -80,7 +80,7 @@ public class PropPhysicsTests
     //-------------------------------------------------------------------------
     private static (ScriptedEntityRegistry Registry, EntityHandle Handle, RecordingEngine Engine) SpawnWith(int? spawnFlags)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -127,7 +127,7 @@ public class PropPhysicsTests
     //-------------------------------------------------------------------------
     private static (PropPhysics Prop, EntityHandle Handle, RecordingEngine Engine) Piece(bool gib)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -226,7 +226,7 @@ public class PropPhysicsTests
 
     private static (PropPhysics Prop, EntityHandle Handle, RecordingEngine Engine, PhysicsDamageQueue Impacts) Struck(out FluidTouches fluid, int spawnFlags = 0, string? damageScale = null)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -339,7 +339,7 @@ public class PropPhysicsTests
                                                                      bool otherIsPlayer = false,
                                                                      params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -477,7 +477,7 @@ public class PropPhysicsTests
     [Fact]
     public void A_prop_spawns_with_its_model_prop_data_health()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

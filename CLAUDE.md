@@ -220,6 +220,37 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   (`src/test/common/SeamCensus.cs`). Why: an adapter that took the whole side
   depended on every area, and a test that named one could not see the
   registration break (`docs/plans/plan_shim_areas_split.md`).
+- **A shim area is handed to the code that calls it; nothing holds the areas
+  as a set.** A binding or adapter takes the `*Area` classes it calls by
+  constructor, and `EngineServices.Build` fills them from the side's
+  registration (`EngineSide.Areas`), which only composition reads (a static
+  factory such as `For`, `ModuleEngine`); a constructor never looks one up. `EngineSide` keeps only the
+  areas its own services read (its log, globals, model names, break models and
+  motion host). `ShimAreaInjectionCensusTests` holds all three. Why: the
+  containers (`ShimAreas`, `ClientShimAreas`) let every binding reach every
+  area through its side, so nothing said what each one depended on.
+- **Consumers hold a shim area by its generated interface (`IEngineArea`,
+  ...), and nothing checks whether the engine is attached** (user ruling
+  2026-10-20). No `ShimsAttached`, no `IsInitialized` guard, no null area:
+  the game composes only after the attach, and a side before it throws on a
+  call, naming the area. A test with no engine builds its side with
+  `TestSides.Create` (and a registry with `TestEngines.Server()`), over the
+  generated default areas (`src/test/support/ShimAreaDefaults.g.cs`, from
+  `tools/shim-areas`), which answer good defaults; a fake root's unserved
+  slots answer the same (`src/test/common/DefaultSlots.cs`). Why: the guards
+  made every binding take its side only to ask a question production always
+  answers yes, and hid in tests what a missing engine really does.
+- **An interop constructor saves its parameters into fields and does nothing
+  else** (Abi, Server.Interop, Client.Interop; user ruling 2026-10-20). What
+  it would look up, acquire or build is handed to it, and a static factory
+  (`For`, `Of`, `Create`, `Acquire`) does that work once, where a reader can
+  see it. Allowed beside the stores: the object's own empty state (an empty
+  collection, an array, a scratch block, and in a parameterless constructor
+  a lambda or a layer object made from constants), chaining to another
+  constructor with a default, and argument checks that throw. Value types,
+  attributes and exceptions are exempt. `ConstructorCensusTests` reads every
+  constructor's IL. Why: a constructor that reached into the side hid what
+  the class depended on, the same way the area containers did.
 - **The invalid entity handle is `0xFFFFFFFF`, never 0**, because entry 0 is the
   world. `EntityHandle` stores the raw handle inverted, so `default(EntityHandle)`
   IS `EntityHandle.None`; the raw handle 0 (entry 0) must be named on purpose.

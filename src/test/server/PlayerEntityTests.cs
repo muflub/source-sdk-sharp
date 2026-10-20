@@ -33,7 +33,7 @@ public class PlayerEntityTests
     [Fact]
     public void StripInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerWeaponStrip).Assembly);
         registry.Services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
 
@@ -106,7 +106,7 @@ public class PlayerEntityTests
     [Fact]
     public void SpeedModInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerSpeedMod).Assembly);
         var services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
         services.AddInstance<IPlayerFlashlight>(new SpeedModLight(false));
@@ -139,7 +139,7 @@ public class PlayerEntityTests
 
     private static int SlowThenRestore(SpeedModLight light, out int offWhenSlowed)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerSpeedMod).Assembly);
         var services = Services(out var engine);
         engine.Strict = false; // the movement and button calls are not this fact's
@@ -224,7 +224,7 @@ public class PlayerEntityTests
     [Fact]
     public void Keys()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(InfoIntermission).Assembly);
         registry.Services = Ignoring("Entities.FindByName", "Entities.IsPlayer", "Entities.IsValid");
 

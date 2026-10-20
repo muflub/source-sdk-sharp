@@ -40,7 +40,7 @@ public class AddOutputTests
 
     private static ScriptedEntityRegistry Wired(out RecordingEngine engine)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(AddOutputTests).Assembly);
         registry.Services = Services(out engine);
 
@@ -293,7 +293,7 @@ public class AddOutputTests
 
         SavedIo saved = registry.Directory.SaveIo(0f);
 
-        var reloaded = new ScriptedEntityRegistry();
+        var reloaded = new ScriptedEntityRegistry(TestEngines.Server());
         reloaded.RegisterAll(typeof(AddOutputTests).Assembly);
         reloaded.Services = Services();
         reloaded.KeyValue(Source, "reload_fixture", "speed", "1");

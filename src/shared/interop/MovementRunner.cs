@@ -27,24 +27,33 @@ public sealed unsafe class MovementRunner
     private long _ran;
     private long _declined;
 
-    public MovementRunner(ModuleEngine engine)
-        : this(engine, null)
-    {
-    }
-
-    /// <param name="engine">This side's engine.</param>
+    /// <param name="side">This side's engine.</param>
+    /// <param name="world">The engine's world, over that side's movement area.</param>
+    /// <param name="isServer">Whether that side is the server.</param>
     /// <param name="clientWorld">
     /// The client prediction's world over the engine's (<see cref="ClientLoop"/>):
     /// the client puts stock's client move helper there (lane c6-input). Null
     /// runs the loop on the engine's world itself.
     /// </param>
-    public MovementRunner(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld)
+    internal MovementRunner(EngineSide side, MovementBridge.EngineMoveWorld world, bool isServer, IMoveWorld? clientWorld)
+    {
+        Api = side ?? throw new ArgumentNullException(nameof(side));
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _isServer = isServer;
+        _clientWorld = clientWorld;
+    }
+
+    /// <summary>
+    /// The runner over <paramref name="engine"/>'s side and its movement area,
+    /// taken here once (plan_shim_areas_split phase 11).
+    /// </summary>
+    /// <param name="engine">This side's engine.</param>
+    /// <param name="clientWorld">The client prediction's world over the engine's; null runs on the engine's.</param>
+    public static MovementRunner For(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        Api = engine.Api;
-        _world = new MovementBridge.EngineMoveWorld(Api);
-        _isServer = engine.Side == Side.Server;
-        _clientWorld = clientWorld?.Invoke(_world);
+        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Api.Areas.Require<IMovementArea>());
+        return new MovementRunner(engine.Api, world, engine.Side == Side.Server, clientWorld?.Invoke(world));
     }
 
     private readonly IMoveWorld? _clientWorld;

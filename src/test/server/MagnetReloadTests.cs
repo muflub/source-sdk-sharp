@@ -31,7 +31,7 @@ public class MagnetReloadTests
     private static (ScriptedEntityRegistry Registry, RecordingEngine Engine)
         Side(float now = 0f, uint firstJoint = FirstJoint, int spawnFlags = 0)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysMagnet).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

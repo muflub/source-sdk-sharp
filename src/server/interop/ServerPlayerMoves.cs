@@ -21,7 +21,11 @@ public sealed class ServerPlayerMove
     /// The per-command inputs (the command, the clock, the engine's facts) are
     /// written over it before each run.
     /// </summary>
-    public MoveState Move { get; } = Fresh();
+    public MoveState Move => _move ??= Fresh();
+
+    // Made on first read with the native constructor's values (a constructor
+    // only stores, by the interop layer's rule).
+    private MoveState? _move;
 
     /// <summary>
     /// m_nTickBase: the tick this player's next command runs at. 0 is "never

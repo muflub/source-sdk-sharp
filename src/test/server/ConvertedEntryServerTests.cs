@@ -129,8 +129,8 @@ public unsafe class ConvertedEntryServerTests
         return self;
     }
 
-    private static IVtableEngineServer ServerOver(void* self, void** table)
-        => (IVtableEngineServer)NewImpl(typeof(EngineServer), self, table, (nint)s_ChannelForwarders);
+    private static IFwdEngineServer ServerOver(void* self, void** table)
+        => (IFwdEngineServer)NewImpl(typeof(EngineServer), self, table, (nint)s_ChannelForwarders);
 
     [Fact]
     public void ClientSteamIdReadsTheCSteamIdAsOneWordAndZeroForAnEmptySlot()

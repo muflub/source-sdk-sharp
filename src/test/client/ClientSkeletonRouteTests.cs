@@ -98,7 +98,7 @@ public class ClientSkeletonRouteTests
     {
         var fake = new Fake();
         var route = new StandaloneSkeletonRoute { Skeletons = fake };
-        return (SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), new StandaloneMirror(), route), fake);
+        return (SideBindings.Of<IEngineEntityRender>(TestSides.Create(Side.Client), new StandaloneMirror(), route), fake);
     }
 
     [Fact]

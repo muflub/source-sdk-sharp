@@ -5,7 +5,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real surface, over the IShimUiClient api.</summary>
-internal sealed unsafe class ClientUiSurface(UiClientArea uiClient) : IUiSurface
+internal sealed unsafe class ClientUiSurface(IUiClientArea uiClient) : IUiSurface
 {
     public void FilledRect(int x0, int y0, int x1, int y1, uint rgba)
         => uiClient.UiDrawFilledRect(x0, y0, x1, y1, rgba);

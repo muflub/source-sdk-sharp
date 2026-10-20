@@ -89,31 +89,28 @@ public sealed class SaveFieldInfo
     {
         Key = key;
         _field = field;
-        MemberType = field.FieldType;
-        DeclaredBy = field.DeclaringType?.Name ?? "?";
-        MemberName = field.Name;
     }
 
     internal SaveFieldInfo(string key, PropertyInfo property)
     {
         Key = key;
         _property = property;
-        MemberType = property.PropertyType;
-        DeclaredBy = property.DeclaringType?.Name ?? "?";
-        MemberName = property.Name;
     }
+
+    // The member, whichever of the two it is: the facts below are read from it.
+    private MemberInfo Member => (MemberInfo?)_field ?? _property!;
 
     /// <summary>What the value is carried under.</summary>
     public string Key { get; }
 
     /// <summary>The member's own name, for a message that has to name it.</summary>
-    public string MemberName { get; }
+    public string MemberName => Member.Name;
 
     /// <summary>The class that declared it, for the same reason.</summary>
-    public string DeclaredBy { get; }
+    public string DeclaredBy => Member.DeclaringType?.Name ?? "?";
 
     /// <summary>Its declared type — what the value is written and read as.</summary>
-    public Type MemberType { get; }
+    public Type MemberType => _field?.FieldType ?? _property!.PropertyType;
 
     /// <summary>
     /// Whether the value can be written back at all.

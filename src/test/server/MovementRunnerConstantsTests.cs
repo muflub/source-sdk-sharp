@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -48,10 +49,46 @@ public sealed unsafe class MovementRunnerConstantsTests
         return new MoveFrameConstants(c, 21f, 0f, 1f, gravity);
     }
 
+    // THE SERVER'S MOVEMENT TRACE, CLEAR: the hull swept the whole way, as
+    // an empty world answers. The side traces through its tracer, and a test
+    // side installs none (the side then refuses, blocked at the start), so
+    // this fact attaches a root whose slot answers clear, and a tracer that
+    // filters nothing. The fall is the subject here, not the world.
+    [UnmanagedCallersOnly]
+    private static void Clear(void* self, float* s, float* e, float* lo, float* hi, int mask, int group,
+                              MoveTraceBlob* blob, void* filter, uint* handles)
+    {
+        *blob = default;
+        blob->Fraction = 1f;
+        blob->EndPosX = e[0];
+        blob->EndPosY = e[1];
+        blob->EndPosZ = e[2];
+        handles[0] = 0xFFFFFFFFu;
+        handles[1] = 0xFFFFFFFFu;
+    }
+
+    private sealed class NoFilter : IServerTraceRoute
+    {
+        public ServerTrace Line(Vector start, Vector end, uint mask, EntityHandle pass, int collisionGroup) => default;
+        public ServerTrace Hull(Vector start, Vector end, Vector mins, Vector maxs, uint mask, EntityHandle pass, int collisionGroup) => default;
+        public int PointContents(Vector point) => 0;
+        public nint Enter(EntityHandle pass, int collisionGroup) => 0;
+        public void Exit() { }
+    }
+
     [Fact]
     public void TheServersFallIsTheGivenGravityNotTheBlobs()
     {
-        var runner = new MovementRunner(new ModuleEngine(new EngineSide(Side.Server)));
+        using var root = new FakeShimRoot();
+        root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveTraceServer),
+                  (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, uint*, void>)&Clear);
+        EngineSide side = TestSides.Create(Side.Server);
+        side.Initialize();
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        DefaultForwarders.HoldOn(side);
+        side.Tracer = new NoFilter();
+
+        var runner = MovementRunner.For(new ModuleEngine(side));
         MoveStateBlob blob = Airborne();
         MoveFrameConstants frame = Frame(400f);
 

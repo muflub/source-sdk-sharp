@@ -7,8 +7,9 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// A shim root in unmanaged memory serving every generated area as an object
-/// and a zeroed forwarder table under the table's own name
-/// (plan_forwarders_everywhere.md), except the slots a test fills with
+/// and a forwarder table under the table's own name
+/// (plan_forwarders_everywhere.md) whose every slot answers its default
+/// (<see cref="DefaultSlots"/>), except the slots a test fills with
 /// <see cref="Live"/>. The root object's second word holds a handle to this
 /// instance, so tests in parallel classes each answer from their own table.
 /// </summary>
@@ -35,26 +36,24 @@ internal sealed unsafe class FakeShimRoot : IDisposable
 
     public FakeShimRoot()
     {
-        foreach (var field in typeof(ShimAreas).GetFields(BindingFlags.Public | BindingFlags.Instance))
+        // Every area either side registers, each served under its version
+        // string: the area's class name less "Area" (IShimEngine's class is
+        // IEngineArea, served as SourceSharpEngine001), so the same root binds
+        // a server side and a client side (AttachOwnShims). A base area the
+        // server registers again as its derived area's base is served once.
+        var types = new List<Type>();
+        ServerAreaRegistration.AddDetached((type, _) => types.Add(type));
+        ClientAreaRegistration.AddDetached((type, _) => types.Add(type));
+        foreach (Type area in types)
         {
-            // IShimEngine is its field EngineBase (tools/shim-areas field()),
-            // served as SourceSharpEngine001, on the server too since lane
-            // c2-sims bound it for itself.
-            string version = $"SourceSharp{(field.Name == "EngineBase" ? "Engine" : field.Name)}001";
-            Serve(version, ShimAreaTypes.FwdOf(field.FieldType));
-        }
-
-        // And the client's areas the server's do not already name, so the same
-        // root binds a client side (AttachClientShims). The client's engine
-        // base is its field EngineBase, served as SourceSharpEngine001.
-        foreach (var field in typeof(ClientShimAreas).GetFields(BindingFlags.Public | BindingFlags.Instance))
-        {
-            string name = field.Name == "EngineBase" ? "Engine" : field.Name;
-            string version = $"SourceSharp{name}001";
+            // Handed by interface (IEngineArea): the area's class name is the
+            // interface's less its I.
+            string name = area.IsInterface ? area.Name[1..] : area.Name;
+            string version = $"SourceSharp{name[..^"Area".Length]}001";
             if (_areas.ContainsKey(version))
                 continue;
 
-            Serve(version, ShimAreaTypes.FwdOf(field.FieldType));
+            Serve(version, ShimAreaTypes.FwdOf(area));
         }
     }
 
@@ -69,6 +68,7 @@ internal sealed unsafe class FakeShimRoot : IDisposable
         var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
         header->Slots = (void**)Alloc(count);
         header->SlotCount = count;
+        DefaultSlots.Fill(fwd, (nint*)header->Slots);
 
         string tableName = (string)fwd.GetProperty("TableName", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
         _areas[version] = (nint)Alloc(1);
@@ -143,6 +143,16 @@ internal sealed unsafe class FakeShimRoot : IDisposable
         _areas[version] = (nint)self;
         ((ForwarderTableHeader*)_headers[version])->Slots = (void**)slots;
         _tables[version] = (_tables[version].Fwd, (nint)slots);
+        return this;
+    }
+
+    /// <summary>
+    /// Stops serving one area, as a root built without it would: its version
+    /// string acquires nothing from now on.
+    /// </summary>
+    public FakeShimRoot Withhold(string version)
+    {
+        _areas.Remove(version);
         return this;
     }
 

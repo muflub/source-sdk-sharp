@@ -10,18 +10,36 @@ using SourceSharp.Abi;
 namespace SourceSharp.Server.Interop;
 
 /// <summary>The route over the server's <see cref="ServerPlayerMoves"/>.</summary>
-public sealed class ServerPlayerMovement(ModuleEngine engine, ServerPlayerMoves moves, ServerPlayerCommands commands)
-    : IServerPlayerMovementRoute
+public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
 {
-    private readonly EngineSide api = (engine ?? throw new ArgumentNullException(nameof(engine))).Api;
+    private readonly EngineSide api;
+    private readonly IEntitiesServerArea _entities;
+    private readonly ServerPlayerMoves moves;
+    private readonly ServerPlayerCommands commands;
     private readonly HashSet<EntityHandle> _refused = new();
+
+    internal ServerPlayerMovement(EngineSide api, IEntitiesServerArea entities, ServerPlayerMoves moves,
+                                  ServerPlayerCommands commands)
+    {
+        this.api = api ?? throw new ArgumentNullException(nameof(api));
+        _entities = entities ?? throw new ArgumentNullException(nameof(entities));
+        this.moves = moves ?? throw new ArgumentNullException(nameof(moves));
+        this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
+    }
+
+    /// <summary>The route over <paramref name="engine"/>'s side and its entities area, taken here once.</summary>
+    public static ServerPlayerMovement For(ModuleEngine engine, ServerPlayerMoves moves, ServerPlayerCommands commands)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        return new ServerPlayerMovement(engine.Api, engine.Api.Areas.Require<IEntitiesServerArea>(), moves, commands);
+    }
 
     /// <summary>The lift off the floor an upward push gives (standalone_basevelocity.h's SOURCESHARP_BASEVELOCITY_UNSTICK, until T4g).</summary>
     public const float Unstick = 1.0f;
 
     /// <summary>The record of <paramref name="entity"/> when it is a player, else null.</summary>
     public ServerPlayerMove? Player(EntityHandle entity)
-        => entity != EntityHandle.None && api.EntityIsPlayer(entity) ? moves.For(entity) : null;
+        => entity != EntityHandle.None && api.EntityIsPlayer(_entities, entity) ? moves.For(entity) : null;
 
     public bool PlayerState(EntityHandle entity, out MoveType moveType, out bool onGround)
     {
@@ -80,7 +98,7 @@ public sealed class ServerPlayerMovement(ModuleEngine engine, ServerPlayerMoves 
         if (Player(entity) is not { } m)
         {
             if (FirstRefusal(entity))
-                api.Warning($"[SourceSharp] AddBaseVelocity: '{api.EntityGetClassName(entity)}' (handle " +
+                api.Warning($"[SourceSharp] AddBaseVelocity: '{api.EntityGetClassName(_entities, entity)}' (handle " +
                             $"{entity.Value}) is not a player, so it has no base-velocity channel; the push " +
                             "was ignored. Push a physics object with ApplyForceCenter, or move it.\n");
 

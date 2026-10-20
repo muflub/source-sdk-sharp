@@ -69,7 +69,7 @@ public class InputDepthTests
     /// </summary>
     private static (ScriptedEntityRegistry Registry, EntityHandle Handle, RecursiveInputEntity Entity) Looping()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(RecursiveInputEntity).Assembly);
         registry.Services = Services();
         RecursiveInputEntity.Registry = registry;
@@ -180,10 +180,10 @@ public class InputDepthTests
     [Fact]
     public void AnInputRaisesOnlyItsOwnRegistrysDepth()
     {
-        var mine = new ScriptedEntityRegistry();
+        var mine = new ScriptedEntityRegistry(TestEngines.Server());
         mine.RegisterAll(typeof(DepthProbeEntity).Assembly);
         mine.Services = Services();
-        var other = new ScriptedEntityRegistry();
+        var other = new ScriptedEntityRegistry(TestEngines.Server());
 
         var handle = new EntityHandle(2);
         mine.Spawn(handle, "test_depth_probe");

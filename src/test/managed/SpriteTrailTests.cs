@@ -38,7 +38,7 @@ public class SpriteTrailTests
         engine.Returns("Precache.ModelFrameCount", 1);
         engine.Returns("Entities.GetAngles", new Vector(0f, 0f, 0f));
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvSpriteTrail).Assembly);
         registry.Services = services;
 

@@ -65,7 +65,7 @@ public sealed unsafe class SoundScriptParametersFoldTests : System.IDisposable
         fwd->GetActorGender = &Gender;
         fwd->GetParametersForSound = &Parameters;
 
-        var api = new EngineSide(side);
+        var api = TestSides.Create(side);
         api.Initialize();
         string why;
         Assert.True(api.AttachOwnShims(_root.Bind(), out why), why);

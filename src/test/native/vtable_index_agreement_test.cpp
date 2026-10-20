@@ -490,7 +490,7 @@ TEST( SoundParametersInternalLayout, ShouldPreloadIsBitThreeOfByte34 )
 //-----------------------------------------------------------------------------
 // CBitVec< ABSOLUTE_PLAYER_LIMIT >, which Message_DetermineMulticastRecipients
 // fills for the managed SoundEmitter's PAS (plan_server_native_v2 T4a):
-// IVtableEngineServer.PlayerBitWords uint32 words, bit N of the vector in word
+// IFwdEngineServer.PlayerBitWords uint32 words, bit N of the vector in word
 // N / 32 at bit N % 32.
 //-----------------------------------------------------------------------------
 TEST( PlayerBitVecLayout, EightWordsBitNInWordNOver32 )

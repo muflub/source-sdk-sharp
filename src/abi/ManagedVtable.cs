@@ -206,7 +206,7 @@ public sealed unsafe class ManagedVtables : IDisposable
 {
     private readonly Dictionary<nint, Entry> _live = new();
     private readonly Dictionary<string, nint> _byKey = new(StringComparer.Ordinal);
-    private readonly Action<string, int> _onTrap;
+    private readonly Action<string, int>? _onTrap;
     private readonly Side _side;
     private GCHandle<ManagedVtables> _self;
 
@@ -228,7 +228,7 @@ public sealed unsafe class ManagedVtables : IDisposable
     public ManagedVtables(Action<string, int>? onTrap = null, Side side = Side.Server)
     {
         _side = side;
-        _onTrap = onTrap ?? FailFast;
+        _onTrap = onTrap;
         _self = new GCHandle<ManagedVtables>(this);
     }
 
@@ -425,7 +425,7 @@ public sealed unsafe class ManagedVtables : IDisposable
 
     /// <summary>A trapped slot was called: names the contract and slot to the trap handler.</summary>
     internal void Trapped(nint block, int slot)
-        => _onTrap(_live.TryGetValue(block, out var entry) ? entry.Contract : "an unregistered block", slot);
+        => (_onTrap ?? FailFast)(_live.TryGetValue(block, out var entry) ? entry.Contract : "an unregistered block", slot);
 
     /// <summary>Whether <paramref name="block"/> is a block this registry holds and has not freed.</summary>
     public bool IsLive(nint block) => _live.ContainsKey(block);

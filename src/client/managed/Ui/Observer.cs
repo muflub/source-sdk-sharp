@@ -181,9 +181,9 @@ public sealed class SpectatorCommands
 /// the engine has no server to send to while one plays.
 /// </summary>
 public sealed class SpectatorCommandRunner(SpectatorCommands decide, IObserverSource observer, ILog log,
-                                           Func<IVtableEngineClient?> engine)
+                                           Func<IFwdEngineClient?> engine)
 {
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
 
     public void Run(string name, string args)
     {

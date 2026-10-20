@@ -112,3 +112,33 @@ public interface IInputDevices
     void SetRumble(float left, float right);
     void StopRumble();
 }
+
+/// <summary>
+/// The engine client's calls the input host makes (<c>IVEngineClient</c>, through
+/// its forwarder table): the view angles, the screen, pause, the SDL mouse delta,
+/// the unrestricted command buffer and the overlay line. A seam of its own, the
+/// minimum the input host needs, so the host is handed the engine client rather
+/// than binding its table again (plan_shim_areas_split phase 11 review).
+///
+/// <para>
+/// NOT NAMED <c>IEngine...</c>: every interface of this assembly with that
+/// prefix is an engine area (<c>EngineServices.IsArea</c>), registered with a
+/// binding of its own, and this is a slice of the engine client, not an area.
+/// </para>
+/// </summary>
+public interface IClientInputEngine
+{
+    InputAngles GetViewAngles();
+    void SetViewAngles(InputAngles angles);
+    void GetScreenSize(out int width, out int height);
+    bool IsPaused { get; }
+
+    /// <summary>The SDL mouse delta; zero where the engine is built without SDL and has no slot.</summary>
+    void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta);
+
+    /// <summary><c>ClientCmd_Unrestricted</c>, for <see cref="IInputHost.ClientCmdUnrestricted"/>.</summary>
+    void ClientCmdUnrestricted(string command);
+
+    /// <summary><c>Con_NPrintf</c>.</summary>
+    void ConsolePrintAt(int position, string text);
+}

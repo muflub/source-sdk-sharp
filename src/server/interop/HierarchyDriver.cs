@@ -90,11 +90,14 @@ public sealed class HierarchyDriver
     private readonly Dictionary<EntityHandle, GuardWords> _wanted = new();
     private readonly List<EntityHandle> _stale = new();
 
-    public HierarchyDriver(IComposedWorld world)
+    public HierarchyDriver(IComposedWorld world, Hierarchy hierarchy)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
-        _hierarchy = new Hierarchy(world);
+        _hierarchy = hierarchy ?? throw new ArgumentNullException(nameof(hierarchy));
     }
+
+    /// <summary>The driver over <paramref name="world"/> and a hierarchy built over it here.</summary>
+    public static HierarchyDriver For(IComposedWorld world) => new(world, new Hierarchy(world));
 
     /// <summary>The model, for diagnostics and for tests. Nothing else reads it.</summary>
     public Hierarchy Model => _hierarchy;

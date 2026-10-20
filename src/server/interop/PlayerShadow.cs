@@ -320,7 +320,7 @@ public sealed unsafe class PlayerShadow
     /// <param name="enabled"><c>sourcesharp_player_shadow</c>, as this side's composition reads it.</param>
     internal bool Step(EngineSide? api, EntityHandle player, int commandIndex, bool enabled)
     {
-        if (api is null || !api.ServerAttached || Bodies is not { } bodies)
+        if (api is null || Bodies is not { } bodies)
             return false;
 
         long start = CostMeter.Start();

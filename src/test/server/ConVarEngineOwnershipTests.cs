@@ -177,7 +177,7 @@ public class ConVarEngineOwnershipTests
     public void AnOrdinaryRefusalStillBindsToTheDeclaredDefault()
     {
         // -1 (no engine, or refused for another reason) keeps its old meaning.
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterTypes(new[] { typeof(OursB) });
         Assert.Equal("2", registry.ValueOf("ss_test_ours_b"));
     }
@@ -198,8 +198,8 @@ public class ConVarEngineOwnershipTests
         var first = Console(11);
         var second = Console(22);
 
-        new ConVarRegistry(first).RegisterTypes(new[] { typeof(OursB) });
-        new ConVarRegistry(second).RegisterTypes(new[] { typeof(OursB) });
+        ConVarRegistry.For(first).RegisterTypes(new[] { typeof(OursB) });
+        ConVarRegistry.For(second).RegisterTypes(new[] { typeof(OursB) });
 
         Assert.Equal(1, first.CountOf("Console.RegisterConVar"));
         Assert.Equal(1, second.CountOf("Console.RegisterConVar"));

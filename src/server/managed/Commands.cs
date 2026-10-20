@@ -366,10 +366,10 @@ public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog lo
         // world model has exactly one frame.
         Report("IVModelInfo", engine.ModelInfo(out why), why,
                info => $"ModelIndex(\"maps/dm_lockdown.bsp\") = "
-                       + $"{((IVtableModelInfo)info).ModelIndex("maps/dm_lockdown.bsp")}, "
-                       + $"TypeAt(1) = {((IVtableModelInfo)info).TypeAt(1)}, "
-                       + $"FrameCountAt(1) = {((IVtableModelInfo)info).FrameCountAt(1)}, "
-                       + $"FrameCountAt(0) = {((IVtableModelInfo)info).FrameCountAt(0)}");
+                       + $"{((IFwdModelInfo)info).ModelIndex("maps/dm_lockdown.bsp")}, "
+                       + $"TypeAt(1) = {((IFwdModelInfo)info).TypeAt(1)}, "
+                       + $"FrameCountAt(1) = {((IFwdModelInfo)info).FrameCountAt(1)}, "
+                       + $"FrameCountAt(0) = {((IFwdModelInfo)info).FrameCountAt(0)}");
 
         // AND THE PAIR THAT TELLS AN EMPTY FILE FROM A MISSING ONE, which is
         // what Phase 3 converted FilesGameFileSize onto. Size answers 0 for
@@ -377,11 +377,11 @@ public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog lo
         // source is `stat`.
         Report("IBaseFileSystem", engine.BaseFileSystem(out why), why,
                files => $"FileSize(\"gameinfo.txt\", \"MOD\") = "
-                        + $"{((IVtableBaseFileSystem)files).FileSize("gameinfo.txt", "MOD")}, "
+                        + $"{((IFwdBaseFileSystem)files).FileSize("gameinfo.txt", "MOD")}, "
                         + $"FileExists(\"gameinfo.txt\", \"GAME\") = "
-                        + $"{((IVtableBaseFileSystem)files).FileExists("gameinfo.txt", "GAME")}, "
+                        + $"{((IFwdBaseFileSystem)files).FileExists("gameinfo.txt", "GAME")}, "
                         + $"FileExists(\"nothing_is_here.txt\", \"GAME\") = "
-                        + $"{((IVtableBaseFileSystem)files).FileExists("nothing_is_here.txt", "GAME")}");
+                        + $"{((IFwdBaseFileSystem)files).FileExists("nothing_is_here.txt", "GAME")}");
 
         // THE THREE READS PHASE 3 EXPOSED, beside the game dir. EntityCount is
         // the EDICT count and is held against the live gate's own census, which
@@ -389,10 +389,10 @@ public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog lo
         // probe line printing both is what says so out loud. IsDedicatedServer
         // is false on the listen server every gate here runs.
         Report("IVEngineServer", engine.EngineServer(out why), why,
-               server => $"GameDir() = {((IVtableEngineServer)server).GameDir()}, "
-                         + $"IsDedicatedServer() = {((IVtableEngineServer)server).IsDedicatedServer()}, "
-                         + $"EntityCount() = {((IVtableEngineServer)server).EntityCount()}, "
-                         + $"GetArea(0,0,64) = {((IVtableEngineServer)server).GetArea(new Vector(0f, 0f, 64f))}");
+               server => $"GameDir() = {((IFwdEngineServer)server).GameDir()}, "
+                         + $"IsDedicatedServer() = {((IFwdEngineServer)server).IsDedicatedServer()}, "
+                         + $"EntityCount() = {((IFwdEngineServer)server).EntityCount()}, "
+                         + $"GetArea(0,0,64) = {((IFwdEngineServer)server).GetArea(new Vector(0f, 0f, 64f))}");
 
         // Expected to refuse on this side. Reported rather than skipped: a
         // refusal that is never printed is indistinguishable from a call nobody

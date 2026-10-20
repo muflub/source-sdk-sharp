@@ -90,7 +90,7 @@ public class BoltImpactTests
 
         var temps = (RecordingEffectDispatch)services.Resolve(typeof(ITempEnts))!;
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Bolt).Assembly);
         registry.Services = services;
 

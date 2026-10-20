@@ -45,7 +45,7 @@ public class EnvFogControllerTests
         engine.Returns("Entities.GetSpawnFlags", spawnFlags);
         engine.Returns("Entities.GetSpawnAngles", spawnAngles);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvFogController).Assembly);
         registry.Services = services;
 

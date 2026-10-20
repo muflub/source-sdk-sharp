@@ -14,15 +14,15 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheLevelProbeAsksTheEngineItIsHanded()
     {
-        var served = new EngineSide(Side.Server);
-        var bare = new EngineSide(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(EngineLevel.InterfaceVersion, &word).Forwarders<ShimLevelFwd>();
 
         served.Initialize();
-        Assert.True(served.AttachShims(root.Bind(), out string why), why);
+        Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
 
         string answered = ShimProbes.Level(new ModuleEngine(served));
         string refused = ShimProbes.Level(new ModuleEngine(bare));
@@ -37,14 +37,14 @@ public sealed unsafe class ShimProbeSideTests
     // phase 6): what native serves under SSFwd_ShimLevel against what ShimLevelFwd reads.
     private static string Level(Action<FakeShimRoot> serve)
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(EngineLevel.InterfaceVersion, &word);
         serve(root);
 
         side.Initialize();
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return ShimProbes.Level(new ModuleEngine(side));
     }
 
@@ -79,8 +79,8 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheStringTableAcquireAsksTheEngineItIsHanded()
     {
-        var served = new EngineSide(Side.Server);
-        var bare = new EngineSide(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         var self = stackalloc nint[1];
@@ -89,7 +89,7 @@ public sealed unsafe class ShimProbeSideTests
             .Forwarders<NetworkStringTableFwd>();
 
         served.Initialize();
-        Assert.True(served.AttachShims(root.Bind(), out string why), why);
+        Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
 
         // The served engine's own root answers the container and its
         // forwarders, so its acquire binds; the bare engine has no root, and
@@ -103,8 +103,8 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheEngineServerAcquireAsksTheEngineItIsHanded()
     {
-        var served = new EngineSide(Side.Server);
-        var bare = new EngineSide(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
 
         using var root = new FakeShimRoot();
         var self = stackalloc nint[1];
@@ -113,7 +113,7 @@ public sealed unsafe class ShimProbeSideTests
             .Forwarders<NetChannelInfoFwd>();
 
         served.Initialize();
-        Assert.True(served.AttachShims(root.Bind(), out string why), why);
+        Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
 
         // As above: only the engine whose own root answers binds. cs_vtable
         // acquires this way, for the module it runs in.

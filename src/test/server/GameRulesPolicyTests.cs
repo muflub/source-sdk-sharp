@@ -273,7 +273,7 @@ public class SkillLevelTests
     [Fact]
     public void SkillIsNotDeclaredByManagedCode()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(GameRules).Assembly);
 
         Assert.DoesNotContain(registry.All, c =>

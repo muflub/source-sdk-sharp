@@ -58,8 +58,8 @@ public interface IClientEngineSound
 /// the sink is pointed at the emit's recipients for exactly the EmitSound call.
 /// The client's EmitAmbientSound takes no entity, origin or level.
 /// </summary>
-public sealed class ClientSoundEmitterEngine(IVtableSoundEmitter scripts, IVtableEngineSoundClient sound,
-                                             IVtableEngineClient engine, RecipientFilterSink sink, nint nativeFilter)
+public sealed class ClientSoundEmitterEngine(IFwdSoundEmitter scripts, IFwdEngineSoundClient sound,
+                                             IFwdEngineClient engine, RecipientFilterSink sink, nint nativeFilter)
     : ISoundEmitterEngine, IClientEngineSound
 {
     public int SoundIndex(string name) => scripts.SoundIndex(name);
@@ -113,8 +113,8 @@ public sealed class ClientSoundEmitterEngine(IVtableSoundEmitter scripts, IVtabl
 }
 
 /// <summary><see cref="IClientSoundSystemEngine"/> over the script table, the engine client and the file system.</summary>
-public sealed class ClientSoundSystemEngine(IVtableSoundEmitter scripts, IVtableEngineClient engine,
-                                            IVtableBaseFileSystem files) : IClientSoundSystemEngine
+public sealed class ClientSoundSystemEngine(IFwdSoundEmitter scripts, IFwdEngineClient engine,
+                                            IFwdBaseFileSystem files) : IClientSoundSystemEngine
 {
     public bool ModInit() => scripts.ModInit();
 

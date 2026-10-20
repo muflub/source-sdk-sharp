@@ -5,7 +5,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real one, over the IShimEffectsRenderClient api.</summary>
-internal sealed unsafe class ClientRopeExecutor(EffectsRenderClientArea effectsRenderClient) : IClientRopeExecutor, IClientComputeLighting
+internal sealed unsafe class ClientRopeExecutor(IEffectsRenderClientArea effectsRenderClient) : IClientRopeExecutor, IClientComputeLighting
 {
     public int Material(string name, out int textureHeight, out bool hasBack)
     {

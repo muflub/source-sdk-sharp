@@ -64,21 +64,6 @@ public sealed class BreakModels
     private readonly ILog _log;
 
     /// <summary>
-    /// The break lists of one side, over that side's engine and descriptors.
-    /// <paramref name="precache"/> is the side's own: the server's precache, and
-    /// null on the client, whose precache slot is server-only and answered -1
-    /// (P1 run 3: the side that owns the slot hands it in, so this shared body
-    /// never names it).
-    /// </summary>
-    internal BreakModels(EngineSide side, ModelDescriptors descriptors, Func<string, int>? precache)
-        : this(model => EngineBound.ModelInfo(side).ModelIndex(model),
-               precache,
-               index => EngineBound.ModelInfo(side).CollisionKeyValueText(index),
-               descriptors, side.Log)
-    {
-    }
-
-    /// <summary>
     /// The same over the reads given: what the side's constructor passes, and
     /// what a fact passes instead of an engine.
     /// </summary>

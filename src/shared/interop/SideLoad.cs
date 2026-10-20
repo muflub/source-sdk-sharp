@@ -98,7 +98,7 @@ public static unsafe class SideLoad
         // module, so the module is composed over this instance. Nothing of it
         // outlives the load: its routing is re-attached, its globals re-asked
         // and its caches re-filled by the next one.
-        EngineSide engine = new(side, state);
+        EngineSide engine = EngineSide.Create(side, state);
         SideSession session;
 
         try
@@ -154,7 +154,7 @@ public static unsafe class SideLoad
             console!.Msg($"[SourceSharp] LoadSideV2({side}): shim root bound "
                 + $"({ShimRoot.ExpectedEntries} slots), {ShimConsole.InterfaceVersion} acquired "
                 + $"through it ({ShimConsole.ExpectedEntries} slots), "
-                + $"{(session.Server ? ShimAreas.Count : ClientShimAreas.Count)} {(session.Server ? "" : "client ")}areas attached\n");
+                + $"{(session.Server ? ServerAreaRegistration.Count : ClientAreaRegistration.Count)} {(session.Server ? "" : "client ")}areas attached\n");
         }
         catch (Exception e)
         {

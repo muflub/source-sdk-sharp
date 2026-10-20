@@ -8,7 +8,7 @@ namespace SourceSharp.Client.Interop;
 /// overlay's FxImpactOverlay slot left with the glow overlays' port, C7: the
 /// overlay is the managed GlowOverlaySystem's.)
 /// </summary>
-internal sealed unsafe class ClientFxSlots(FxClientArea fxClient) : IFxSuppression
+internal sealed unsafe class ClientFxSlots(IFxClientArea fxClient) : IFxSuppression
 {
     public bool CanPredict() => fxClient.FxCanPredict() != 0;
 

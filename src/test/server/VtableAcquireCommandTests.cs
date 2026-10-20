@@ -29,9 +29,9 @@ public unsafe class VtableAcquireCommandTests
     private sealed class Interfaces : IServerEngineInterfaces
     {
         public IUniformRandom? RandomStream(out string why) { why = ""; return new SevenRandom(); }
-        public IVtableModelInfo? ModelInfo(out string why) { why = "no model info"; return null; }
-        public IVtableBaseFileSystem? BaseFileSystem(out string why) { why = "no filesystem"; return null; }
-        public IVtableEngineServer? EngineServer(out string why) { why = "no engine server"; return null; }
+        public IFwdModelInfo? ModelInfo(out string why) { why = "no model info"; return null; }
+        public IFwdBaseFileSystem? BaseFileSystem(out string why) { why = "no filesystem"; return null; }
+        public IFwdEngineServer? EngineServer(out string why) { why = "no engine server"; return null; }
         public string EngineClientProbe() => "client probe";
         public string FrameProbe() => "frame probe";
         public string LevelProbe() => "level probe";
@@ -79,8 +79,8 @@ public unsafe class VtableAcquireCommandTests
     [Fact]
     public void TheRootRegistersTheInterfacesOverItsOwnEngine()
     {
-        var served = new EngineSide(Side.Server);
-        var bare = new EngineSide(Side.Server);
+        var served = TestSides.Create(Side.Server);
+        var bare = TestSides.Create(Side.Server);
         IServerEngineInterfaces answered = Composed(served);
         IServerEngineInterfaces refused = Composed(bare);
 
@@ -89,7 +89,7 @@ public unsafe class VtableAcquireCommandTests
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(UniformRandomStream.InterfaceVersion, &word).Forwarders<UniformRandomStreamFwd>();
-        Assert.True(served.AttachShims(root.Bind(), out string attachWhy), attachWhy);
+        Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
         Assert.NotNull(answered.RandomStream(out _));
         Assert.Null(refused.RandomStream(out string why));
@@ -99,7 +99,7 @@ public unsafe class VtableAcquireCommandTests
     [Fact]
     public void TheRegisteredProbesAskTheRootsEngine()
     {
-        IServerEngineInterfaces interfaces = Composed(new EngineSide(Side.Server));
+        IServerEngineInterfaces interfaces = Composed(TestSides.Create(Side.Server));
 
         Assert.StartsWith("IShimFrame: REFUSED", interfaces.FrameProbe(), StringComparison.Ordinal);
         Assert.StartsWith("IShimLevel: REFUSED", interfaces.LevelProbe(), StringComparison.Ordinal);

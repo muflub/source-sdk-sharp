@@ -173,7 +173,7 @@ public sealed class SoundRecipients(IServerSoundEmitterEngine engine, ISoundList
             return filter;
         }
 
-        Span<uint> bits = stackalloc uint[IVtableEngineServer.PlayerBitWords];
+        Span<uint> bits = stackalloc uint[IFwdEngineServer.PlayerBitWords];
         engine.MulticastRecipients(usePas, origin, bits);
         filter.AddFromBits(bits);
         return filter;

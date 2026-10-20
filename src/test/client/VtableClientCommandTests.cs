@@ -11,12 +11,12 @@ namespace SourceSharp.Tests;
 /// </summary>
 public unsafe class VtableClientCommandTests
 {
-    private sealed class Source(IVtableEngineClient? client, string why) : IVtableEngineClientSource
+    private sealed class Source(IFwdEngineClient? client, string why) : IFwdEngineClientSource
     {
-        public IVtableEngineClient? Acquire(out string reason) { reason = why; return client; }
+        public IFwdEngineClient? Acquire(out string reason) { reason = why; return client; }
     }
 
-    private sealed class Client : IVtableEngineClient
+    private sealed class Client : IFwdEngineClient
     {
         public List<string> Printed { get; } = new();
         public void SubmitConsoleLine(string line) { }
@@ -73,10 +73,10 @@ public unsafe class VtableClientCommandTests
     [Fact]
     public void TheRootRegistersTheSourceOverItsOwnEngine()
     {
-        var served = new EngineSide(Side.Client);
-        var bare = new EngineSide(Side.Client);
-        IVtableEngineClientSource servedSource = Composed(served);
-        IVtableEngineClientSource bareSource = Composed(bare);
+        var served = TestSides.Create(Side.Client);
+        var bare = TestSides.Create(Side.Client);
+        IFwdEngineClientSource servedSource = Composed(served);
+        IFwdEngineClientSource bareSource = Composed(bare);
 
         // Attached after the composition, which the source allows because it
         // acquires when asked: a composition over a fake root would build
@@ -84,20 +84,20 @@ public unsafe class VtableClientCommandTests
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(EngineClient.InterfaceVersion, &word).Forwarders<EngineClientFwd>();
-        Assert.True(served.AttachClientShims(root.Bind(), out string attachWhy), attachWhy);
+        Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
-        IVtableEngineClient? answered = servedSource.Acquire(out _);
-        IVtableEngineClient? refused = bareSource.Acquire(out string why);
+        IFwdEngineClient? answered = servedSource.Acquire(out _);
+        IFwdEngineClient? refused = bareSource.Acquire(out string why);
 
         Assert.NotNull(answered);
         Assert.Null(refused);
         Assert.False(string.IsNullOrEmpty(why), "a refusal carries the engine's reason");
     }
 
-    private static IVtableEngineClientSource Composed(EngineSide side)
+    private static IFwdEngineClientSource Composed(EngineSide side)
     {
         var module = new ClientModule(new ModuleEngine(side), new FakeClientEngineAdapters());
         module.ComposeEngineAreas();
-        return module.Services.Require<IVtableEngineClientSource>();
+        return module.Services.Require<IFwdEngineClientSource>();
     }
 }

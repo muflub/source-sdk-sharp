@@ -5,7 +5,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real ones, over the api.</summary>
-internal sealed unsafe class ClientNetReaders(DiagnosticsClientArea diagnosticsClient, NetClientArea netClient) : IClientNetChannel, IClientDiagnosticsLedgers
+internal sealed unsafe class ClientNetReaders(IDiagnosticsClientArea diagnosticsClient, INetClientArea netClient) : IClientNetChannel, IClientDiagnosticsLedgers
 {
     private const int Groups = IClientNetChannel.Groups;
 

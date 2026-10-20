@@ -27,7 +27,7 @@ public class WeightAndFlameTests
 
     private static FuncWeightButton Spawn(uint index, string weightToActivate)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncWeightButton).Assembly);
         registry.Services = Services();
 

@@ -233,8 +233,8 @@ public unsafe class ParticleLibraryTests
     public void WithTheClientAttachedTheThrottleIsTheLibrarysAnswer()
     {
         using var root = new FakeShimRoot();
-        var side = new EngineSide(Side.Client);
-        Assert.True(side.AttachClientShims(root.Bind(), out string why), why);
+        var side = TestSides.Create(Side.Client);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         var library = new CountingLibrary();
 
         Assert.Equal(0.5f, ViewSlots(side, library).ThrottleScaling());

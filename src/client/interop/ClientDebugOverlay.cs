@@ -2,7 +2,7 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
-internal sealed unsafe class ClientDebugOverlay(UiClientArea uiClient) : IClientDebugOverlay
+internal sealed unsafe class ClientDebugOverlay(IUiClientArea uiClient) : IClientDebugOverlay
 {
     public int Text(int index, out float x, out float y, out int line, out uint rgba, Span<byte> text)
     {

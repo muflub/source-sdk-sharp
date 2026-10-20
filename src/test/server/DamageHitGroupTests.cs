@@ -35,7 +35,7 @@ public class DamageHitGroupTests
 
     private static (ScriptedEntityRegistry Registry, HitGroupProbeEntity Probe) Rig()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(DamageHitGroupTests).Assembly);
         registry.Services = Services(out _);
         registry.KeyValue(Victim, "test_hitgroup_probe", "targetname", "probe");
@@ -120,11 +120,11 @@ public class DamageHitGroupTests
 
     private static List<string> PrintedFor(string print, HitGroup hitGroup)
     {
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         convars.Get<PlayerDebugPrintDamageConVar>()!.Bind(-1, "player_debug_print_damage", print);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine, convars);
         engine.Strict = false;   // the player's spawn-free build reads more than this fact asks

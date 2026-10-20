@@ -87,7 +87,7 @@ public class FallDamageRuleRetirementTests
         // method. Left declared it would be a console knob that turns nothing,
         // which is worse than not offering it: the console would accept it, the
         // registry would list it, and no fall would change.
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(GameRules).Assembly);
 
         // The control: an empty registry would pass the absence for nothing.
@@ -171,7 +171,7 @@ public class TeamplayRuleRetirementTests
         // cs_sv_teamplay's only reader was GameRules.IsTeamplay. The control is
         // cs_sv_fraglimit, declared beside it in the same file and still read
         // by GameRules.Think.
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(GameRules).Assembly);
 
         Assert.Contains(registry.All, c =>

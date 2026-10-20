@@ -39,7 +39,7 @@ namespace SourceSharp.Abi;
 /// through a file handle this class opens and closes within one call (the
 /// user's 2026-10-19 ruling exposed the handles; none outlives a call).
 /// </summary>
-public interface IVtableBaseFileSystem
+public interface IFwdBaseFileSystem
 {
     /// <summary>
     /// The whole of a file on a search path, or null when it is not there:
@@ -112,10 +112,10 @@ public interface IVtableBaseFileSystem
 }
 
 /// <summary>
-/// <see cref="IVtableBaseFileSystem"/> over the engine's own object, called
+/// <see cref="IFwdBaseFileSystem"/> over the engine's own object, called
 /// through its vtable.
 /// </summary>
-public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
+public sealed unsafe class EngineBaseFileSystem : IFwdBaseFileSystem
 {
     /// <summary>
     /// <c>IBaseFileSystem</c>'s OWN factory name, which is the whole of the
@@ -149,14 +149,14 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
     /// thread's active side.
     /// </para>
     /// </summary>
-    public static IVtableBaseFileSystem? Acquire(ModuleEngine engine, out string why)
+    public static IFwdBaseFileSystem? Acquire(ModuleEngine engine, out string why)
         => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
 
     /// <summary>
     /// The same, through one side's own interface factory (plan_abi_hotreload
     /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
-    internal static IVtableBaseFileSystem? Acquire(NativeInterfaceFactory factory, out string why)
+    internal static IFwdBaseFileSystem? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<BaseFileSystemFwd>(
                factory, SourceSharpFactoryType.FileSystem,
                InterfaceVersion, out void* self, out BaseFileSystemFwd* table, out why)

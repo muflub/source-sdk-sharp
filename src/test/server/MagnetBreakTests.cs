@@ -29,7 +29,7 @@ public class MagnetBreakTests
     private static (ScriptedEntityRegistry Registry, PhysMagnet Entity, RecordingEngine Engine)
         Caught(params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PhysMagnet).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

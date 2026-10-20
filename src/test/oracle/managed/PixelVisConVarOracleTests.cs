@@ -49,7 +49,7 @@ public class PixelVisConVarOracleTests
 
     private static Dictionary<string, ConVarBase> Client()
     {
-        var registry = new ConVarRegistry(SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(SourceSharp.Tests.ClientDoubles.UnattachedEngine()));
+        var registry = ConVarRegistry.For(SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(SourceSharp.Tests.ClientDoubles.UnattachedEngine()));
         registry.RegisterAll(ClientAssembly);
         return registry.All.Where(c => c.GetType().Assembly == ClientAssembly).ToDictionary(c => c.Name);
     }

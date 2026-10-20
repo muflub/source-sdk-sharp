@@ -60,7 +60,7 @@ public class PropGibTests
         engine.Returns("Entities.GetHealth", 0);
         engine.Returns("Scripted.SetNextThink", 0);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = services;
 
@@ -120,7 +120,7 @@ public class PropGibTests
     {
         var services = Services(out var engine);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = services;
 

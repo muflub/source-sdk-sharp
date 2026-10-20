@@ -40,7 +40,7 @@ public class InfoLightingRelativeTests
         var services = Services(out var engine);
         engine.Returns("Entities.FindByName", answer);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(InfoLightingRelative).Assembly);
         registry.Services = services;
 
@@ -142,7 +142,7 @@ public class InfoLightingRelativeTests
         // fails naming the call rather than passing on a default.
         var services = Services(out var engine);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(InfoLightingRelative).Assembly);
         registry.Services = services;
 

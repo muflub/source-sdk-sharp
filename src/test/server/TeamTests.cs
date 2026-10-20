@@ -63,7 +63,7 @@ public class TeamTests
     [Fact]
     public void PlayerTeamKeysAndInputs()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(GamePlayerTeam).Assembly);
         registry.Services = Ignoring("Console.FindConVarValue", "Entities.FireInput", "Host.RandomFloat", "Players.GetHandle", "Players.GetTeam", "Entities.IsValid");
 
@@ -167,7 +167,7 @@ public class TeamTests
 
     private static VoteController Make(EntityHandle handle)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(VoteController).Assembly);
         registry.Services = Ignoring("Console.FindConVarValue", "Entities.FireInput", "Host.RandomFloat", "Players.GetHandle", "Players.GetTeam", "Entities.IsValid")
             .AddInstance<IVoteIndices>(new VoteIndices());

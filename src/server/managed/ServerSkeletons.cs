@@ -65,7 +65,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     private readonly IGameClock _clock;
     private readonly ILog _log;
     private readonly AnimThreeWayBlendConVar? _threeWayBlend;
-    private readonly IVtablePhysicsSurfaceProps? _surfaceProps;
+    private readonly IFwdPhysicsSurfaceProps? _surfaceProps;
     private readonly ServerBoneDriver _driver;
     private readonly BoneEntityStates _states = new();
     private readonly Dictionary<string, int> _surfaceIndices = new(StringComparer.Ordinal);
@@ -76,7 +76,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
 
     public ServerSkeletons(IStandaloneBlocks blocks, StudioModels models, IGameClock clock, ILog log,
                            AnimThreeWayBlendConVar? threeWayBlend = null,
-                           IVtablePhysicsSurfaceProps? surfaceProps = null)
+                           IFwdPhysicsSurfaceProps? surfaceProps = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _models = models ?? throw new ArgumentNullException(nameof(models));

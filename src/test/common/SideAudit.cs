@@ -215,19 +215,42 @@ internal static class SideAudit
             if (current is null)
                 continue;
 
-            // The area accessors since the router's retirement (docs/todo.md):
-            // EngineSide reaches a shim-area slot through ServerShims / ClientShims,
-            // or through OwnShims, the side's own container, which each side's
-            // partial file names (plan_shim_areas_split phase 7: a slot both sides
-            // serve, where the run-time side choice was). Since phase 9 the call
-            // names the area too (OwnShims.Movement.MoveTrace), and the slot is
-            // the name after it.
-            foreach (Match m in Regex.Matches(line, @"\b(?:ServerShims|ClientShims|OwnShims)\s*\.\s*(?:\w+\s*\.\s*)?(\w+)\s*\("))
-                map[current].Add(m.Groups[1].Value);
+            foreach (string slot in AreaCalls(line))
+                map[current].Add(slot);
         }
 
         return map;
     }
+
+    /// <summary>
+    /// The shim-area slots one line calls. Since plan_shim_areas_split phase
+    /// 11 there is no container: an area is a field a binding or the side was
+    /// given (<c>_networkServerArea.EntityBindBlob(</c>) or a parameter a side
+    /// member is handed (<c>networkArea.EntityBindBlob(</c>), both named for
+    /// their area, and the slot is the name after it.
+    /// </summary>
+    public static IEnumerable<string> AreaCalls(string line)
+        => Regex.Matches(line, @"\b_?[a-z]\w*Area\s*\.\s*(\w+)\s*\(").Select(m => m.Groups[1].Value);
+
+    /// <summary>
+    /// The slots a binding member's entries lean on: each wrapper's slots from
+    /// <paramref name="wrapperSlots"/>, and each slot the member calls on an
+    /// area it was given directly (<see cref="SlotMark"/>).
+    /// </summary>
+    public static IEnumerable<string> SlotsOf(IEnumerable<string> entries, Dictionary<string, HashSet<string>> wrapperSlots)
+    {
+        foreach (string entry in entries)
+        {
+            if (entry.StartsWith(SlotMark, StringComparison.Ordinal))
+                yield return entry[SlotMark.Length..];
+            else if (wrapperSlots.TryGetValue(entry, out var slots))
+                foreach (string slot in slots)
+                    yield return slot;
+        }
+    }
+
+    /// <summary>A slot a binding member calls on an area it holds, as recorded in the binding map.</summary>
+    public const string SlotMark = "slot:";
 
     //-------------------------------------------------------------------------
     // 3. EngineBinding.cs: which wrapper each interface member forwards to.
@@ -241,7 +264,7 @@ internal static class SideAudit
     /// </summary>
     /// <summary>The binding classes <see cref="BindingMap"/> reads, by simple name.</summary>
     public static HashSet<string> BindingClasses(string bindingSource)
-        => Regex.Matches(bindingSource, @"(?m)^\s*internal\s+sealed\s+(?:partial\s+)?class\s+(\w+)\s*:\s*IEngine\w+")
+        => Regex.Matches(bindingSource, @"(?m)^\s*internal\s+sealed\s+(?:unsafe\s+)?(?:partial\s+)?class\s+(\w+)\s*:\s*IEngine\w+")
                 .Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
@@ -255,29 +278,41 @@ internal static class SideAudit
     {
         var ifaces = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (string source in bindingSources)
-            foreach (Match m in Regex.Matches(source, @"(?m)^\s*internal\s+sealed\s+(?:partial\s+)?class\s+(\w+)\s*:\s*(IEngine\w+)"))
+            foreach (Match m in Regex.Matches(source, @"(?m)^\s*internal\s+sealed\s+(?:unsafe\s+)?(?:partial\s+)?class\s+(\w+)\s*:\s*(IEngine\w+)"))
                 ifaces[m.Groups[1].Value] = m.Groups[2].Value;
 
         // A member whose shared logic wraps one side-only engine call reaches it
-        // through a private partial helper, which each half implements. The
-        // helpers are parsed as members (marked), then folded into the members
-        // that call them, so the chain still ends at the engine member.
+        // through a private partial helper, which each half implements, and a
+        // member may share a private method with another (since
+        // plan_shim_areas_split phase 11 the area calls are the bindings' own).
+        // The helpers are parsed as members (marked), then folded into the
+        // members that call them, so the chain still ends at the slot.
         var helpers = new HashSet<string>(StringComparer.Ordinal);
         foreach (string source in bindingSources)
-            foreach (Match m in Regex.Matches(source, @"(?m)^\s+private\s+partial\s+[\w<>?,\s]+?\s(\w+)\s*\("))
+            foreach (Match m in Regex.Matches(source, @"(?m)^\s+private\s+(?!readonly\b)(?:static\s+)?(?:unsafe\s+)?(?:partial\s+)?[\w<>?,\[\]\s]+?\s(\w+)\s*\("))
                 helpers.Add(m.Groups[1].Value);
 
         var map = new Dictionary<(string, string), HashSet<string>>();
         foreach (string source in bindingSources)
             AddBindings(map, ifaces, helpers, source);
 
-        foreach (var key in map.Keys.Where(k => helpers.Contains(k.Item2)).ToList())
+        // A helper may call another, so the fold runs to a fixed point: each
+        // helper's own calls first take in the helpers it calls, and then every
+        // member takes in its helpers'.
+        var helperKeys = map.Keys.Where(k => helpers.Contains(k.Item2)).ToList();
+        for (bool changed = true; changed;)
         {
-            HashSet<string> calls = map[key];
-            map.Remove(key);
-            foreach (var entry in map.Where(e => e.Key.Item1 == key.Item1 && e.Value.Remove(HelperMark + key.Item2)))
-                entry.Value.UnionWith(calls);
+            changed = false;
+            foreach (var entry in map)
+                foreach (var key in helperKeys)
+                    if (entry.Key.Item1 == key.Item1 && entry.Key != key && entry.Value.Remove(HelperMark + key.Item2))
+                    {
+                        entry.Value.UnionWith(map[key]);
+                        changed = true;
+                    }
         }
+        foreach (var key in helperKeys)
+            map.Remove(key);
 
         return map;
     }
@@ -294,7 +329,7 @@ internal static class SideAudit
 
         foreach (string line in bindingSource.Split('\n'))
         {
-            Match cls = Regex.Match(line, @"^\s*internal\s+sealed\s+(?:partial\s+)?class\s+(\w+)");
+            Match cls = Regex.Match(line, @"^\s*internal\s+sealed\s+(?:unsafe\s+)?(?:partial\s+)?class\s+(\w+)");
             if (cls.Success)
             {
                 iface = ifaces.GetValueOrDefault(cls.Groups[1].Value);
@@ -305,7 +340,7 @@ internal static class SideAudit
             if (iface is null)
                 continue;
 
-            if (Regex.IsMatch(line, @"^\s+(?:public|private\s+partial)\s+"))
+            if (Regex.IsMatch(line, @"^\s+(?:public|private)\s+(?!readonly\b)"))
             {
                 string name = MemberNameOf(line);
                 if (name.Length > 0)
@@ -322,6 +357,10 @@ internal static class SideAudit
             // `E.X` since plan_engineapi_vtables B2: a binding calls its side.
             foreach (Match m in Regex.Matches(line, @"\b(?:Engine|E)\.(\w+)"))
                 map[current.Value].Add(m.Groups[1].Value);
+
+            // An area the binding was given (plan_shim_areas_split phase 11).
+            foreach (string slot in AreaCalls(line))
+                map[current.Value].Add(SlotMark + slot);
 
             foreach (Match m in Regex.Matches(line, @"(?<![.\w])(\w+)\s*\("))
                 if (helpers.Contains(m.Groups[1].Value) && m.Groups[1].Value != current.Value.Item2)
@@ -412,16 +451,10 @@ internal static class SideAudit
             if (!bindingMap.TryGetValue((iface, member), out var wrappers))
                 continue;
 
-            foreach (string wrapper in wrappers)
+            foreach (string slot in SlotsOf(wrappers, wrapperSlots))
             {
-                if (!wrapperSlots.TryGetValue(wrapper, out var slots))
-                    continue;
-
-                foreach (string slot in slots)
-                {
-                    if (slotSides.TryGetValue(slot, out SlotSide side) && !allowed(side))
-                        complaints.Add($"{iface}.{member} is backed by {side}-only slot '{slot}'");
-                }
+                if (slotSides.TryGetValue(slot, out SlotSide side) && !allowed(side))
+                    complaints.Add($"{iface}.{member} is backed by {side}-only slot '{slot}'");
             }
         }
 

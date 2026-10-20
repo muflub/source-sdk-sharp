@@ -25,7 +25,7 @@ namespace SourceSharp.Client.Interop;
 ///     defaults are nothing, as both of stock's are.</item>
 /// </list>
 /// </summary>
-public sealed unsafe class RagdollKeyHandlerBinding(Crossings crossings, nint defaultName) : IVPhysicsKeyHandlerSink, ISolidKeyTable
+public sealed unsafe class RagdollKeyHandlerBinding(Crossings crossings, SolidKeyDefaults solids) : IVPhysicsKeyHandlerSink, ISolidKeyTable
 {
     /// <summary>bspflags.h's <c>CONTENTS_SOLID</c>.</summary>
     public const uint ContentsSolid = SolidKeyDefaults.ContentsSolid;
@@ -41,7 +41,7 @@ public sealed unsafe class RagdollKeyHandlerBinding(Crossings crossings, nint de
     public bool SolidInFlight { get; set; }
 
     /// <summary>The solid half: stock's <c>CSolidSetDefaults</c>, shared with the world's physics build.</summary>
-    public SolidKeyDefaults Solids { get; } = new(defaultName);
+    public SolidKeyDefaults Solids { get; } = solids;
 
     /// <summary>The table vphysics is handed, once <see cref="RagdollVPhysics.InstallHandlers"/> has built it.</summary>
     public nint Table { get; set; }

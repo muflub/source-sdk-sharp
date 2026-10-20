@@ -142,7 +142,7 @@ public class DeathNoticeTests
 
         var host = Fake().Returns("Host.ActiveSide", Side.Server);
         var board = new Scoreboard(host, new PlayerDisconnectEvent(), log);
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         var rules = new GameRules(log, convars, host,
                                   Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GetTeam"),

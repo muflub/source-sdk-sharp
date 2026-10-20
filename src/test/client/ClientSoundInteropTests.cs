@@ -142,7 +142,7 @@ public sealed unsafe class ClientSoundInteropTests : IDisposable
     // ClientSoundEmitterEngine: the sink names the emit's recipients for the call
     //-------------------------------------------------------------------------
 
-    private sealed class SinkReader(RecipientFilterSink sink) : IVtableEngineSoundClient
+    private sealed class SinkReader(RecipientFilterSink sink) : IFwdEngineSoundClient
     {
         public List<string> Seen { get; } = [];
 

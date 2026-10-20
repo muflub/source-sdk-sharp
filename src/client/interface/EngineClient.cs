@@ -45,8 +45,14 @@ namespace SourceSharp.Abi;
 /// <summary>
 /// What the engine client knows about the loaded map and the mod, as game code
 /// should see it — no pointer arithmetic, no slot number.
+///
+/// <para>
+/// <c>IFwd</c>: the engine's own <c>IVEngineClient</c>, called through its
+/// forwarder table. It was <c>IFwdEngineClient</c> from when managed code
+/// called the engine's vtable; nothing does since the forwarders.
+/// </para>
 /// </summary>
-public interface IVtableEngineClient
+public interface IFwdEngineClient
 {
     /// <summary>The loaded map's own path, <c>maps/&lt;map&gt;.bsp</c>, or null.</summary>
     string? LevelName();

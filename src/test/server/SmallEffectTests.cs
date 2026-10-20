@@ -30,7 +30,7 @@ public class SmallEffectTests
     private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className,
         params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvBlood).Assembly);
         registry.Services = Ignoring("Precache.PrecacheModel");
 
@@ -153,7 +153,7 @@ public class SmallEffectTests
 
         Assert.True(Near(tracer.Delay, 1f), "a zero delay becomes one second");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvBlood).Assembly);
         registry.Services = Ignoring("Precache.PrecacheModel");
         registry.KeyValue(Ent, EntityNames.EnvTracer, "delay", "0.25");
@@ -180,7 +180,7 @@ public class SmallEffectTests
         // the key is not reported as a mapper's typo.
         Assert.True(dust.ColourKey == "255 0 0", "the colour key is claimed even though nothing sends it");
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvBlood).Assembly);
         registry.Services = Ignoring("Precache.PrecacheModel");
         registry.Spawn(Ent, EntityNames.EnvFunnel);

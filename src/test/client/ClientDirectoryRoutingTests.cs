@@ -102,7 +102,7 @@ public class ClientDirectoryRoutingTests
         standalones.Add(new EntityHandle(0x0100_0041u), Weapon(engine, LocalPlayer));
 
         var arsenal = new ClientArsenal(new RecordingLog(), standalones, engine, engine, engine,
-                                        new NetStateCatalog(TestServices.ClientGame, new RecordingLog()));
+                                        NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
 
         Assert.True(arsenal.TryGetActive(out string name, out _, out _));
         Assert.Equal(EntityNames.WeaponPistol, name);
@@ -119,7 +119,7 @@ public class ClientDirectoryRoutingTests
         standalones.Add(new EntityHandle(0x0100_0041u), Weapon(engine, owner: 2));
 
         var arsenal = new ClientArsenal(new RecordingLog(), standalones, engine, engine, engine,
-                                        new NetStateCatalog(TestServices.ClientGame, new RecordingLog()));
+                                        NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
 
         // THE FILTER THE INDEX DOES NOT DO. A classname lookup answers every
         // weapon on the map; whose it is is still the owner compare, and a

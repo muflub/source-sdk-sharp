@@ -16,7 +16,7 @@ namespace SourceSharp.Tests;
 public class WeaponMachineTests
 {
     // This class's own catalog of the shared declarations (statics to zero).
-    private readonly NetStateCatalog _catalog = new(TestServices.ServerGame, new RecordingLog());
+    private readonly NetStateCatalog _catalog = NetStateCatalog.Of(TestServices.ServerGame, new RecordingLog());
 
     static WeaponMachineTests()
     {

@@ -49,7 +49,7 @@ public class MultiplayerConVarTests
     /// </summary>
     private static Dictionary<string, ConVarBase> DeclaredIn(System.Reflection.Assembly assembly)
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(assembly);
 
         var byName = new Dictionary<string, ConVarBase>();

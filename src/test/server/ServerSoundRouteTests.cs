@@ -48,12 +48,16 @@ public sealed class ServerSoundRouteTests : IDisposable
 
     private EngineSide Server(Route? route)
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.Initialize();
-        Assert.True(side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         side.ServerSounds = route;
         return side;
     }
+
+    private static IEngineSound Sound(EngineSide side) => SideBindings.Of<IEngineSound>(side);
+
+    private static IEnginePrecache Precache(EngineSide side) => SideBindings.Of<IEnginePrecache>(side);
 
     private static readonly EntityHandle Door = new(64u | (1u << 16));
 
@@ -63,8 +67,8 @@ public sealed class ServerSoundRouteTests : IDisposable
         var route = new Route();
         EngineSide side = Server(route);
 
-        side.EntityEmitSound(Door, "Doors.Move1");
-        side.EntityStopSound(Door, "Doors.Move1");
+        Sound(side).EntityEmitSound(Door, "Doors.Move1");
+        Sound(side).EntityStopSound(Door, "Doors.Move1");
 
         Assert.Equal(["Emit 10040 Doors.Move1", "Stop 10040 Doors.Move1"], route.Calls);
     }
@@ -75,8 +79,8 @@ public sealed class ServerSoundRouteTests : IDisposable
         var route = new Route();
         EngineSide side = Server(route);
 
-        side.PrecacheSound("Doors.Move1");
-        side.PrecacheSound("");
+        Precache(side).PrecacheSound("Doors.Move1");
+        Precache(side).PrecacheSound("");
 
         Assert.Equal(["Precache Doors.Move1"], route.Calls);
     }
@@ -87,9 +91,9 @@ public sealed class ServerSoundRouteTests : IDisposable
         var route = new Route();
         EngineSide side = Server(route);
 
-        side.EmitSoundAtPosition("A", new Vector(1, 2, 3));
-        Assert.True(side.EmitWorldSoundScript("B", default, 6, 0.5f));
-        side.EmitAmbientSound(9, default, "C", 1f, 80, 4, 90);
+        Sound(side).EmitSoundAtPosition("A", new Vector(1, 2, 3));
+        Assert.True(Sound(side).EmitWorldSoundScript("B", default, 6, 0.5f));
+        Sound(side).EmitAmbientSound(9, default, "C", 1f, 80, 4, 90);
 
         Assert.Equal(3, route.Calls.Count);
         Assert.StartsWith("AtPosition A", route.Calls[0], StringComparison.Ordinal);
@@ -102,11 +106,11 @@ public sealed class ServerSoundRouteTests : IDisposable
         var route = new Route();
         EngineSide side = Server(route);
 
-        int patch = side.SoundPatchCreate(Door, 1, "Doors.Move1", 75);
-        side.SoundPatchEmit(patch, 1f, 100f, 0, 0f, true);
-        side.SoundPatchState(patch, out int entIndex, out bool active);
-        side.SoundPatchStop(patch);
-        side.SoundPatchFree(patch);
+        int patch = Sound(side).SoundPatchCreate(Door, 1, "Doors.Move1", 75);
+        Sound(side).SoundPatchEmit(patch, 1f, 100f, 0, 0f, true);
+        Sound(side).SoundPatchState(patch, out int entIndex, out bool active);
+        Sound(side).SoundPatchStop(patch);
+        Sound(side).SoundPatchFree(patch);
 
         Assert.Equal((41, 17, true), (patch, entIndex, active));
         Assert.Equal(["PatchCreate 1 Doors.Move1 75", "PatchEmit 41 True", "PatchState 41", "PatchStop 41", "PatchFree 41"],
@@ -118,11 +122,11 @@ public sealed class ServerSoundRouteTests : IDisposable
     {
         EngineSide side = Server(null);
 
-        side.EntityEmitSound(Door, "Doors.Move1");
-        side.SoundPatchState(3, out int entIndex, out bool active);
+        Sound(side).EntityEmitSound(Door, "Doors.Move1");
+        Sound(side).SoundPatchState(3, out int entIndex, out bool active);
 
-        Assert.Equal(0, side.SoundPatchCreate(Door, 1, "Doors.Move1", 75));
-        Assert.False(side.EmitWorldSoundScript("B", default, 6, 0.5f));
+        Assert.Equal(0, Sound(side).SoundPatchCreate(Door, 1, "Doors.Move1", 75));
+        Assert.False(Sound(side).EmitWorldSoundScript("B", default, 6, 0.5f));
         Assert.Equal((-1, false), (entIndex, active));
     }
 
@@ -132,9 +136,9 @@ public sealed class ServerSoundRouteTests : IDisposable
         var route = new Route();
         EngineSide side = Server(route);
 
-        side.EntityEmitSound(Door, string.Empty);
-        side.EntityStopSound(Door, string.Empty);
-        side.SoundPatchCreate(Door, 1, string.Empty, 75);
+        Sound(side).EntityEmitSound(Door, string.Empty);
+        Sound(side).EntityStopSound(Door, string.Empty);
+        Sound(side).SoundPatchCreate(Door, 1, string.Empty, 75);
 
         Assert.Empty(route.Calls);
     }

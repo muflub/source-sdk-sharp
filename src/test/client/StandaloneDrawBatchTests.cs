@@ -58,7 +58,7 @@ public unsafe class StandaloneDrawBatchTests
     private readonly StandaloneClientBinding _binding;
 
     public StandaloneDrawBatchTests()
-        => _binding = new(_crossings, new RecordingLog(), _client, new StandaloneMirror(), new NetStateCatalog([]));
+        => _binding = new(_crossings, new RecordingLog(), _client, new StandaloneMirror(), NetStateCatalog.Of([]));
 
     [Fact]
     public void AnUnpreparedEntityIsAnsweredMinusOneOverWhatNativeLeftInItsSlot()

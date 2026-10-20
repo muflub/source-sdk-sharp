@@ -26,7 +26,7 @@ namespace SourceSharp.Abi;
 /// What the engine knows about a precached model, as game code should see it —
 /// no pointer arithmetic, no slot number.
 /// </summary>
-public interface IVtableModelInfo
+public interface IFwdModelInfo
 {
     /// <summary>The engine's <c>model_t *</c> for a precached index, or zero.</summary>
     nint Model(int modelIndex);
@@ -136,10 +136,10 @@ internal unsafe struct VCollideLayout
 }
 
 /// <summary>
-/// <see cref="IVtableModelInfo"/> over the engine's own object, called through
+/// <see cref="IFwdModelInfo"/> over the engine's own object, called through
 /// its vtable.
 /// </summary>
-public sealed unsafe class EngineModelInfo : IVtableModelInfo
+public sealed unsafe class EngineModelInfo : IFwdModelInfo
 {
     /// <summary>The server's factory name for it.</summary>
     public const string ServerInterfaceVersion = "VModelInfoServer004";
@@ -176,7 +176,7 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
     /// Which spelling to ask for. Native serves both on both sides, so the
     /// default is the server's and a client caller may pass its own.
     /// </param>
-    public static IVtableModelInfo? Acquire(
+    public static IFwdModelInfo? Acquire(
         ModuleEngine engine, out string why, string interfaceVersion = ServerInterfaceVersion)
         => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why, interfaceVersion);
 
@@ -184,7 +184,7 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
     /// The same, through one side's own interface factory (plan_abi_hotreload
     /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
-    internal static IVtableModelInfo? Acquire(
+    internal static IFwdModelInfo? Acquire(
         NativeInterfaceFactory factory, out string why, string interfaceVersion)
         => Forwarders.TryAcquire(
                factory, SourceSharpFactoryType.AppSystem,

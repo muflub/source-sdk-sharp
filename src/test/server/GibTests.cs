@@ -34,7 +34,7 @@ public class GibTests
     /// </summary>
     private static (SsGib Gib, RecordingEngine Engine) Spawn()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsGib).Assembly);
 
         var services = TestServices.Services(out var engine);

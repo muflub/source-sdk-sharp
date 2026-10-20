@@ -83,8 +83,8 @@ public interface ISoundPrecacheEngine
 /// <see cref="ISoundPrecacheEngine"/> over the forwarder wrappers and the
 /// level area: each member is one call.
 /// </summary>
-public sealed class SoundPrecacheEngine(IVtableSoundEmitter scripts, IVtableEngineSoundServer sound,
-                                        IVtableBaseFileSystem files, IVtableFileSystem dirs, IEngineLevel level)
+public sealed class SoundPrecacheEngine(IFwdSoundEmitter scripts, IFwdEngineSoundServer sound,
+                                        IFwdBaseFileSystem files, IFwdFileSystem dirs, IEngineLevel level)
     : ISoundPrecacheEngine
 {
     public bool ModInit() => scripts.ModInit();

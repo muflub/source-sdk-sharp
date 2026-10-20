@@ -3,7 +3,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real slots.</summary>
-internal sealed unsafe class ObserverCameraSlots(ViewClientArea viewClient) : IObserverCameraSlots
+internal sealed unsafe class ObserverCameraSlots(IViewClientArea viewClient) : IObserverCameraSlots
 {
     public CameraTrace TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, TraceFilter filter, int passIndex)
     {

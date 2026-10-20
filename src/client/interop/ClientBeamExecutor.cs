@@ -53,7 +53,7 @@ public sealed unsafe class BeamsClientBinding(Func<IClientBeamCallbacks?> target
 }
 
 /// <summary>The real executor, over the IShimEffectsRenderClient api.</summary>
-internal sealed unsafe class ClientBeamExecutor(EffectsRenderClientArea effectsRenderClient) : IClientBeamExecutor
+internal sealed unsafe class ClientBeamExecutor(IEffectsRenderClientArea effectsRenderClient) : IClientBeamExecutor
 {
     public void View(bool insideView, Span<float> out42)
     {

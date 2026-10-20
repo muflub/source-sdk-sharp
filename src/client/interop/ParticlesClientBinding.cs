@@ -410,7 +410,7 @@ public sealed unsafe class ParticlesClientBinding(Crossings crossings, ILog log,
 }
 
 /// <summary>The real one, over IShimParticlesClient::ParticlesTraceLine.</summary>
-internal sealed unsafe class ClientPlaneTrace(ParticlesClientArea particlesClient) : IClientPlaneTrace
+internal sealed unsafe class ClientPlaneTrace(IParticlesClientArea particlesClient) : IClientPlaneTrace
 {
     public (float Fraction, Vector Normal, float PlaneDist) TraceLine(Vector start, Vector end, int mask)
     {
@@ -437,7 +437,7 @@ internal sealed class ClientModelNames(EngineSide side) : IClientModelNames
 }
 
 /// <summary>The real one, over the api.</summary>
-internal sealed unsafe class ClientParticleExecutor(ParticlesClientArea particlesClient) : INativeParticleExecutor
+internal sealed unsafe class ClientParticleExecutor(IParticlesClientArea particlesClient) : INativeParticleExecutor
 {
     public bool Create(EntityHandle owner, int channel, string material, float cullRadius, bool alwaysSimulate)
     {
@@ -520,7 +520,7 @@ public sealed unsafe class WorldTextClientBinding(Crossings crossings, ILog log,
 }
 
 /// <summary>The real one, over IShimParticlesClient::WorldTextMeshUpdate/Destroy.</summary>
-internal sealed unsafe class ClientWorldTextMeshes(ParticlesClientArea particlesClient) : IClientWorldTextMeshes
+internal sealed unsafe class ClientWorldTextMeshes(IParticlesClientArea particlesClient) : IClientWorldTextMeshes
 {
     public bool Update(EntityHandle owner, string material, Vector mins, Vector maxs)
     {
@@ -537,7 +537,7 @@ internal sealed unsafe class ClientWorldTextMeshes(ParticlesClientArea particles
 }
 
 /// <summary>The real one, over IShimEffectsRenderClient::WindPublish.</summary>
-internal sealed unsafe class ClientWindPublisher(EffectsRenderClientArea effectsRenderClient) : IClientWindPublisher
+internal sealed unsafe class ClientWindPublisher(IEffectsRenderClientArea effectsRenderClient) : IClientWindPublisher
 {
     public void Publish(Vector wind, Vector? sway, int winds)
     {

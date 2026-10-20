@@ -82,7 +82,7 @@ public unsafe class PhysicsObjectEventsTests
     [Fact]
     public void A_posted_wake_reaches_its_entity_at_the_next_flush_and_is_counted()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         var services = TestServices.Services();
         var router = new PhysicsEventRouter(registry, services.Require<PhysicsDamageQueue>(), services.Require<FluidTouches>(),
                                             services.Require<FrictionSounds>(), services.Require<PlayerShadowRecovery>(),

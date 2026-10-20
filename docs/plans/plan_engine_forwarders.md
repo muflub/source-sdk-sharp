@@ -305,7 +305,7 @@ ABIs and need nothing.
   server only to server interop"). `EngineServer` (IVEngineServer and the
   INetChannelInfo objects it answers) and `StaticPropMgrServer` are
   Server.Interop's; what the shared code asks of them stays shared, as
-  interfaces that name no forwarder: `IVtableEngineServer`, which the shared
+  interfaces that name no forwarder: `IFwdEngineServer`, which the shared
   bindings reach through the side's bound slot, and `IStaticPropPhysics`,
   which the server hands the world physics build. The bound slot holds no
   acquirer until the server's entry installs one (`EngineServerBinding.Bind`,

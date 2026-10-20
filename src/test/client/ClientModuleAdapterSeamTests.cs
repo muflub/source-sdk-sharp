@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client;
+using SourceSharp.Client.Interop;
 using Xunit;
 
 namespace SourceSharp.Tests;
@@ -16,7 +17,7 @@ public class ClientModuleAdapterSeamTests
     [Fact]
     public void ComposingAModuleAsksTheAdaptersItWasHandedOnceOverItsOwnEngine()
     {
-        var engine = new ModuleEngine(new EngineSide(Side.Client));
+        var engine = new ModuleEngine(TestSides.Create(Side.Client));
         var adapters = new FakeClientEngineAdapters();
 
         new ClientModule(engine, adapters).ComposeEngineAreas();
@@ -26,11 +27,16 @@ public class ClientModuleAdapterSeamTests
     }
 
     [Fact]
-    public void TheGameConstructorComposesTheRealAdaptersWhichRefuseAnUnattachedEngine()
+    public void TheGameConstructorComposesTheRealAdapters()
     {
-        var module = new ClientModule(new ModuleEngine(new EngineSide(Side.Client)));
+        // The real adapters over the side's own areas: here the default ones,
+        // so composing succeeds and an adapter answers its default. Nothing
+        // asks whether an engine is attached (plan_shim_areas_split phase 11
+        // review); FakeClientEngineAdapters above is the double a fact hands.
+        var module = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)));
 
-        var refusal = Assert.Throws<InvalidOperationException>(() => module.ComposeEngineAreas());
-        Assert.Contains("before its shim areas were attached", refusal.Message);
+        module.ComposeEngineAreas();
+
+        Assert.Equal(0, module.Services.Require<IUiSurface>().TextureCreate());
     }
 }

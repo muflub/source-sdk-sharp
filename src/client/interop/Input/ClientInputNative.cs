@@ -14,102 +14,55 @@ namespace SourceSharp.Client.Input;
 //=============================================================================
 
 /// <summary><see cref="IInputHost"/> in the game.</summary>
-public sealed unsafe class ClientInputHost : IInputHost
+internal sealed unsafe class ClientInputHost : IInputHost
 {
-    private readonly EngineSide _api;
+    // The side's input area (plan_shim_areas_split phase 11): the cursor,
+    // the HUD's facts and the view-angle calls below are its slots.
+    private readonly IInputClientArea _input;
     private readonly IEngineConsole _console;
-    private readonly Func<IVtableEngineClient?> _engineClient;
-    private readonly NativeInterfaceFactory _interfaces;
-    private void* _self;
-    private EngineClientFwd* _fwd;
-    private bool _asked;
 
-    internal ClientInputHost(ModuleEngine engine, IEngineConsole console)
+    // The engine client's input calls, handed in: the client always has one
+    // (this host is never built on the server), so never null.
+    private readonly IClientInputEngine _engineClient;
+
+    /// <summary>
+    /// Built by the client's composition (<see cref="ModuleEngine.Create{T}"/>):
+    /// the input area from the side, the console and the engine client from
+    /// the container, where the game's adapters registered it
+    /// (<see cref="ClientEntityFetches"/>) and a test's register a double.
+    /// </summary>
+    public ClientInputHost(IInputClientArea input, IEngineConsole console, IClientInputEngine engineClient)
     {
-        _api = engine.Api;
-        _interfaces = engine.Api.Interfaces;
-        _console = console;
-        _engineClient = () => EngineClient.Acquire(engine, out _);
+        _input = input ?? throw new ArgumentNullException(nameof(input));
+        _console = console ?? throw new ArgumentNullException(nameof(console));
+        _engineClient = engineClient ?? throw new ArgumentNullException(nameof(engineClient));
     }
 
-    /// <summary>The client's input host, over the engine of <paramref name="engine"/>.</summary>
-    public static IInputHost For(ModuleEngine engine, IEngineConsole console) => new ClientInputHost(engine, console);
+    public InputAngles GetViewAngles() => _engineClient.GetViewAngles();
 
-    private bool Bound()
-    {
-        if (!_asked)
-        {
-            _asked = true;
-            if (Forwarders.TryAcquire<EngineClientFwd>(_interfaces, SourceSharpFactoryType.AppSystem,
-                                                    EngineClient.InterfaceVersion, out void* self, out EngineClientFwd* table, out _))
-            {
-                _self = self;
-                _fwd = table;
-            }
-        }
-        return _fwd != null;
-    }
+    public void SetViewAngles(InputAngles angles) => _engineClient.SetViewAngles(angles);
 
-    public InputAngles GetViewAngles()
-    {
-        if (!Bound())
-            return default;
-        float* a = stackalloc float[3];
-        _fwd->GetViewAngles(_self, a);
-        return new InputAngles(a[0], a[1], a[2]);
-    }
+    public void GetScreenSize(out int width, out int height) => _engineClient.GetScreenSize(out width, out height);
 
-    public void SetViewAngles(InputAngles angles)
-    {
-        if (!Bound())
-            return;
-        float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
-        _fwd->SetViewAngles(_self, a);
-    }
-
-    public void GetScreenSize(out int width, out int height)
-    {
-        int w = 0, h = 0;
-        if (Bound())
-            _fwd->GetScreenSize(_self, &w, &h);
-        width = w;
-        height = h;
-    }
-
-    public bool IsPaused => Bound() && _fwd->IsPaused(_self) != 0;
+    public bool IsPaused => _engineClient.IsPaused;
 
     public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)
-    {
-        int dx = 0, dy = 0;
-        // NULL where the engine is built without SDL (Valve's Windows engine
-        // has no GetMouseDelta): then there is no delta to read.
-        if (Bound() && _fwd->GetMouseDelta != null)
-            _fwd->GetMouseDelta(_self, &dx, &dy, (byte)(ignoreNextMouseDelta ? 1 : 0));
-        x = dx;
-        y = dy;
-    }
+        => _engineClient.GetMouseDelta(out x, out y, ignoreNextMouseDelta);
 
-    public void ClientCmdUnrestricted(string command)
-    {
-        if (!Bound())
-            return;
-        byte[] bytes = Vtable.Utf8(command);
-        fixed (byte* p = bytes)
-            _fwd->ClientCmd_Unrestricted(_self, p);
-    }
+    public void ClientCmdUnrestricted(string command) => _engineClient.ClientCmdUnrestricted(command);
 
     public string? EngineConVar(string name) => _console.FindConVarValue(name);
 
     public void Msg(string text) => _console.Msg(text);
 
-    public void ConsolePrintAt(int line, string text) => _engineClient()?.ConsolePrintAt(line, text);
+    public void ConsolePrintAt(int line, string text) => _engineClient.ConsolePrintAt(line, text);
 
     public bool CursorVisible
     {
         get
         {
             int visible = 0, locked = 0;
-            _api.ClientShims.InputClient.InputCursorState(&visible, &locked);
+            _input.InputCursorState(&visible, &locked);
             return visible != 0;
         }
     }
@@ -119,7 +72,7 @@ public sealed unsafe class ClientInputHost : IInputHost
         get
         {
             int visible = 0, locked = 0;
-            _api.ClientShims.InputClient.InputCursorState(&visible, &locked);
+            _input.InputCursorState(&visible, &locked);
             return locked != 0;
         }
     }
@@ -127,19 +80,19 @@ public sealed unsafe class ClientInputHost : IInputHost
     public void GetCursorPos(out int x, out int y)
     {
         int cx = 0, cy = 0;
-        _api.ClientShims.InputClient.InputGetCursorPos(&cx, &cy);
+        _input.InputGetCursorPos(&cx, &cy);
         x = cx;
         y = cy;
     }
 
-    public void SetCursorPos(int x, int y) => _api.ClientShims.InputClient.InputSetCursorPos(x, y);
+    public void SetCursorPos(int x, int y) => _input.InputSetCursorPos(x, y);
 
-    public void SetCursorArrow() => _api.ClientShims.InputClient.InputSetCursorArrow();
+    public void SetCursorArrow() => _input.InputSetCursorArrow();
 
     public void GetVguiScreenSize(out int width, out int height)
     {
         int w = 0, h = 0;
-        _api.ClientShims.InputClient.InputVguiScreenSize(&w, &h);
+        _input.InputVguiScreenSize(&w, &h);
         width = w;
         height = h;
     }
@@ -150,24 +103,24 @@ public sealed unsafe class ClientInputHost : IInputHost
         {
             float sensitivity = 0, fov = 1;
             int keyBits = 0;
-            _api.ClientShims.InputClient.InputHudFacts(&sensitivity, &keyBits, &fov);
+            _input.InputHudFacts(&sensitivity, &keyBits, &fov);
             return new InputHudFacts(sensitivity, keyBits, fov);
         }
     }
 
-    public void StopPitchDrift() => _api.ClientShims.InputClient.InputStopPitchDrift();
+    public void StopPitchDrift() => _input.InputStopPitchDrift();
 
     public void SetLocalViewAngles(InputAngles angles)
     {
         float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
-        _api.ClientShims.InputClient.InputSetLocalViewAngles(a);
+        _input.InputSetLocalViewAngles(a);
     }
 
-    public void ViewerCameraModeChanged() => _api.ClientShims.InputClient.InputViewerCameraModeChanged();
+    public void ViewerCameraModeChanged() => _input.InputViewerCameraModeChanged();
 
-    public bool ViewerAimIsAssisted => _api.ClientShims.InputClient.InputViewerAimIsAssisted() != 0;
+    public bool ViewerAimIsAssisted => _input.InputViewerAimIsAssisted() != 0;
 
-    public void ShowScoreboard(bool show) => _api.ClientShims.InputClient.InputShowScoreboard(show ? 1 : 0);
+    public void ShowScoreboard(bool show) => _input.InputShowScoreboard(show ? 1 : 0);
 }
 
 /// <summary><see cref="IInputDevices"/> in the game: the engine's IInputSystem.</summary>
@@ -184,14 +137,15 @@ public sealed unsafe class ClientInputDevices : IInputDevices
     private InputSystemFwd* _fwd;
     private bool _asked;
 
-    internal ClientInputDevices(ModuleEngine engine, ILog log)
+    internal ClientInputDevices(NativeInterfaceFactory interfaces, SteamControllerFlat flat)
     {
-        _interfaces = engine.Api.Interfaces;
-        _flat = new SteamControllerFlat(log);
+        _interfaces = interfaces;
+        _flat = flat;
     }
 
     /// <summary>The client's input system, from the engine's app-system factory.</summary>
-    public static IInputDevices For(ModuleEngine engine, ILog log) => new ClientInputDevices(engine, log);
+    public static IInputDevices For(ModuleEngine engine, ILog log)
+        => new ClientInputDevices(engine.Api.Interfaces, new SteamControllerFlat(log));
 
     private bool Bound()
     {

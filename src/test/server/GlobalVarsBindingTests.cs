@@ -147,7 +147,7 @@ public class GlobalVarsBindingTests
     public unsafe void AnAcceptedPointerBecomesTheSidesGlobals()
     {
         CGlobalVarsRaw raw = Engineish(client: false, curtime: 11.25f);
-        var server = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
 
         server.BindGlobalVars(Side.Server, (nint)(&raw));
 
@@ -163,7 +163,7 @@ public class GlobalVarsBindingTests
     public unsafe void ARefusedPointerIsNotKept()
     {
         CGlobalVarsRaw raw = Engineish(client: true, curtime: 11.25f);
-        var server = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
 
         server.BindGlobalVars(Side.Server, (nint)(&raw));
 
@@ -179,8 +179,8 @@ public class GlobalVarsBindingTests
     public unsafe void BindingOneSideDoesNotAnswerForTheOther()
     {
         CGlobalVarsRaw raw = Engineish(client: false, curtime: 3f);
-        var server = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
 
         server.BindGlobalVars(Side.Server, (nint)(&raw));
 
@@ -199,7 +199,7 @@ public class GlobalVarsBindingTests
     public unsafe void CurrentTimeIsLoadedFromTheGlobalsRatherThanCrossed()
     {
         CGlobalVarsRaw raw = Engineish(client: false, curtime: 42.5f);
-        var server = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
 
         server.BindGlobalVars(Side.Server, (nint)(&raw));
 
@@ -214,7 +214,7 @@ public class GlobalVarsBindingTests
     public unsafe void CurrentTimeFollowsTheEngineAfterTheFrameMoves()
     {
         CGlobalVarsRaw raw = Engineish(client: false, curtime: 1f);
-        var server = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
 
         server.BindGlobalVars(Side.Server, (nint)(&raw));
 
@@ -233,7 +233,7 @@ public class GlobalVarsBindingTests
 
         // The frame area's OWN side's globals (plan_abi_hotreload D8), so an
         // engine of the fact's own rather than the process's.
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)(&raw));
 
         // THROUGH THE AREA, because that is where this behaviour now lives.
@@ -253,7 +253,7 @@ public class GlobalVarsBindingTests
         CGlobalVarsRaw raw = Engineish(client: false);
         raw.tickcount = 1234;
 
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)(&raw));
 
         Assert.True(SideBindings.Of<IEngineFrame>(side).TickCount() == 1234,
@@ -269,7 +269,7 @@ public class GlobalVarsBindingTests
     [Fact]
     public void WithNoGlobalsTheClockIsStillTheSlotsAnswer()
     {
-        var server = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
         server.BindGlobalVars(Side.Server, 0);
 
         Assert.True(server.CurrentTime == 0f,
@@ -291,7 +291,7 @@ public class GlobalVarsBindingTests
     [Fact]
     public unsafe void TheEnvironmentTheContainerRegistersReadsTheEnginesGlobals()
     {
-        var server = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         EngineServices.AddTo(services, server);
         IEngineEnvironment env = services.Require<IEngineEnvironment>();
@@ -312,8 +312,8 @@ public class GlobalVarsBindingTests
     [Fact]
     public unsafe void EachRegisteredEnvironmentReadsItsOwnSidesGlobals()
     {
-        var serverSide = new EngineSide(Side.Server);
-        var clientSide = new EngineSide(Side.Client);
+        var serverSide = TestSides.Create(Side.Server);
+        var clientSide = TestSides.Create(Side.Client);
         var serverServices = new ServiceContainer().AddInstance(new StandaloneMirror());
         var clientServices = new ServiceContainer().AddInstance(new StandaloneMirror());
         EngineServices.AddTo(serverServices, serverSide);

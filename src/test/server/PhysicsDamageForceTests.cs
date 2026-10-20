@@ -25,7 +25,7 @@ public class PhysicsDamageForceTests
     private static (T Entity, RecordingEngine Engine) Spawn<T>(string className, params (string Key, string Value)[] keys)
         where T : ScriptedEntity
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -125,7 +125,7 @@ public class PhysicsDamageForceTests
     // instead, so debris crates blocked players and doorways.
     private static RecordingEngine SpawnedWithFlags(string className, int spawnFlags)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
@@ -161,7 +161,7 @@ public class PhysicsDamageForceTests
     [Fact]
     public void DisableDamageForces_stops_the_push_and_EnableDamageForces_restores_it()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);

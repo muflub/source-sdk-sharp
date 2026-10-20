@@ -84,7 +84,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// this acquire rather than the engine (plan_shim_areas_split phase 8), so
     /// only the root names <see cref="ModuleEngine"/>.
     /// </summary>
-    private IVtableEngineClient? AcquireEngineClient() => EngineClient.Acquire(_engine, out _);
+    private IFwdEngineClient? AcquireEngineClient() => EngineClient.Acquire(_engine, out _);
 
     public ClientModule(ModuleEngine engine)
         : this(engine, new ClientEntityFetches())
@@ -107,7 +107,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // (statics to zero).
         _layouts = new EntityLayoutRegistry(engine.Log);
         _tempEnts = new TempEntRegistry(engine.Log);
-        _netStates = new NetStateCatalog(Game, engine.Log);
+        _netStates = NetStateCatalog.Of(Game, engine.Log);
         _predictionErrors = new PredictionErrorRing(catalog: _netStates);
         _clock = engine.Clock();
         _standalones = new(_services);
@@ -232,7 +232,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     // The input system for the UI's key names, said once when it cannot be had.
     private bool _inputRefused;
 
-    private IVtableInputSystem? AcquireInputSystem()
+    private IFwdInputSystem? AcquireInputSystem()
     {
         var input = InputSystem.Acquire(_engine, out string why);
         if (input is null && !_inputRefused)
@@ -373,7 +373,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_engine.Breaks);
 
         // The mirror gate's independent oracle, over this side's own slots.
-        _services.AddInstance(new StandaloneSlotReference(_engine, _skeletonRoute));
+        _services.AddInstance(StandaloneSlotReference.For(_engine, _skeletonRoute));
 
         // The client's three entity fetches and the other engine adapters,
         // built here and handed to the IEngineEntities binding the next line
@@ -385,7 +385,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_skeletonRoute);
 
         int areas = _engine.AddTo(_services);
-        _convars = new ConVarRegistry(_services.Require<IEngineConsole>());
+        _convars = ConVarRegistry.For(_services.Require<IEngineConsole>());
 
         // The server-bounded convars (C8): native objects the engine reads
         // through their vtable, answering values decided here. Started now so
@@ -417,7 +417,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The prediction's world carries stock's client move helper
         // (ClientPredictionMoveWorld, lane c6-input): the predicted swim
         // sound, and the helper's no-op answers taken here.
-        _movement = new MovementRunner(_engine, world => new ClientPredictionMoveWorld(world,
+        _movement = MovementRunner.For(_engine, world => new ClientPredictionMoveWorld(world,
             () => _prediction?.PredictingHost ?? EntityHandle.None,
             () => _prediction?.FirstRunOfFunctions ?? false,
             _clientSounds));
@@ -429,7 +429,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // And its engine client, for what reports the engine's refusal
         // (cs_vtable_client) rather than naming the engine.
-        _services.AddInstance<IVtableEngineClientSource>(new VtableEngineClientSource(_engine));
+        _services.AddInstance<IFwdEngineClientSource>(new FwdEngineClientSource(_engine));
 
         // This side's build stamps (statics to zero): its SideState's, which
         // the HUD's corner stamp reads.
@@ -659,7 +659,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedStandaloneClient",
                       v => ManagedAreaFactory.Create(v, NewStandaloneBinding()));
         _bindings.Add("IManagedPredictionClient",
-                      v => ManagedAreaFactory.Create(v, new PredictionClientBinding(_engine.Crossings, this, this, _movement)));
+                      v => ManagedAreaFactory.Create(v, PredictionClientBinding.For(_engine.Crossings, this, this, _movement)));
         _bindings.Add("IManagedHudClient", v => ManagedAreaFactory.Create(v, new HudClientBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUiClient", v => ManagedAreaFactory.Create(v, new UiClientBinding(_engine.Crossings, () => _ui, () => _centre, () => _disc, () => _voiceEvents, () => _keys, () => _voiceStatus)));
         // The client engine's console prints, forwarded in process by the
@@ -1356,7 +1356,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // plan_server_native_v2 T4b): ClientTempEntEngine decides every
         // RecvProp, and IShimTempEntBackendsClient::TempEntBuildClient builds
         // the RecvTable, the ClientClass and the receiving shell from its block.
-        var tempEntEngine = new TempEnts.ClientTempEntEngine(new ClientTempEntTables(_engine), Log);
+        var tempEntEngine = new TempEnts.ClientTempEntEngine(ClientTempEntTables.For(_engine), Log);
         int tempEnts = _tempEnts.RegisterAll("Client", Game, tempEntEngine);
         _services.AddInstance(_tempEnts);
 
@@ -1377,10 +1377,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // half): posed in managed code from the engine's model cache, copied
         // as bytes. A reload participant (the merge sources, scales, poses,
         // layers and clocks C# set cross cs_cl_reload).
-        IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
+        IFwdPhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
         if (surfaceProps is null)
             Log.Warning($"[SourceSharp/Client] no VPhysics surface table for the hitbox trace: {surfaceWhy}\n");
-        _skeletons = new ClientSkeletons(new ClientStandaloneBlocks(_engine), new ClientSequenceStore(_engine),
+        _skeletons = new ClientSkeletons(ClientStandaloneBlocks.For(_engine), ClientSequenceStore.For(_engine),
                                          new SourceSharp.Shared.Bones.StudioModels(_engine.StudioMemory()),
                                          index => _standalones.GetByIndex(index)?.Handle,
                                          _services.Require<IEngineEnvironment>(), Log,
@@ -1416,11 +1416,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                                _services.Require<IEngineConsole>(),
                                                                _convars.Get<Ragdolls.RagdollSleepAfterTimeConVar>()
                                                                ?? throw new InvalidOperationException("ragdoll_sleepaftertime is not registered"));
-            var ragdollBlocks = new ClientStandaloneBlocks(_engine);
+            var ragdollBlocks = ClientStandaloneBlocks.For(_engine);
             _ragdolls = new Ragdolls.ClientRagdolls(
                 _ragdollPhysics, new Ragdolls.RagdollSolver(_ragdollPhysics, Log, () => ragdollWorld.Developer),
                 new Ragdolls.ClientRagdollPoses(_skeletons, ragdollBlocks),
-                new Ragdolls.ClientRagdollTails(ragdollBlocks, new StandaloneRagdollStore(_engine)),
+                new Ragdolls.ClientRagdollTails(ragdollBlocks, StandaloneRagdollStore.For(_engine)),
                 new Ragdolls.ClientRagdollClock(_services.Require<IEngineEnvironment>()), ragdollWorld,
                 new Ragdolls.ClientRagdollNames(), Log);
             _services.AddInstance<Ragdolls.IClientRagdolls>(_ragdolls);
@@ -1947,7 +1947,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _flashlight = new Flashlight.LocalPlayerFlashlight(
             new Flashlight.StandaloneFlashlightViewers(_services.Require<IClientStandalones>(),
                                                        _services.Require<IEngineHud>(),
-                                                       new ClientStandaloneBlocks(_engine),
+                                                       ClientStandaloneBlocks.For(_engine),
                                                        _services.Require<ViewReadout>()),
             new Flashlight.FlashlightWorld(flashlightSlots,
                                            _services.Require<IEngineVisibility>()),
@@ -1975,7 +1975,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // closes the gate.
         var inputCvars = new Input.InputCvars();
         int inputConVars = inputCvars.Bind(_convars.All);
-        var inputHost = Input.ClientInputHost.For(_engine, _services.Require<IEngineConsole>());
+        var inputHost = _engine.Create<Input.ClientInputHost>(_services);
         var inputDevices = Input.ClientInputDevices.For(_engine, Log);
         // The input mailbox: the sample times native stores and the no-op
         // answers native carries out, without a crossing either way.
@@ -2714,14 +2714,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 Log.Warning($"[SourceSharp/Client] physics: no static prop manager ({staticPropsWhy}); the static props make no objects\n");
             _physicsWorldVPhysics = PhysicsWorldVPhysics.Acquire(_engine, _services.Require<IClientPhysicsEngine>().Environment,
                                                                  staticProps, keys, out string worldWhy);
-            IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string propsWhy);
+            IFwdPhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string propsWhy);
             if (_physicsWorldVPhysics is null || surfaceProps is null)
             {
                 Log.Warning($"[SourceSharp/Client] no world physics build: {worldWhy} {propsWhy}\n");
             }
             else
             {
-                IVtableSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
+                IFwdSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
                 if (emitter is null)
                     Log.Warning($"[SourceSharp/Client] the surface sounds' handles stay invalid: {emitterWhy}\n");
 
@@ -2764,10 +2764,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// </summary>
     private void BuildSounds(ManagedVtables vtables)
     {
-        IVtableSoundEmitter? scripts = SoundEmitterBase.Acquire(_engine, out string scriptsWhy);
-        IVtableEngineSoundClient? sound = EngineSoundClient.Acquire(_engine, out string soundWhy);
-        IVtableEngineClient? engineClient = EngineClient.Acquire(_engine, out string clientWhy);
-        IVtableBaseFileSystem? files = EngineBaseFileSystem.Acquire(_engine, out string filesWhy);
+        IFwdSoundEmitter? scripts = SoundEmitterBase.Acquire(_engine, out string scriptsWhy);
+        IFwdEngineSoundClient? sound = EngineSoundClient.Acquire(_engine, out string soundWhy);
+        IFwdEngineClient? engineClient = EngineClient.Acquire(_engine, out string clientWhy);
+        IFwdBaseFileSystem? files = EngineBaseFileSystem.Acquire(_engine, out string filesWhy);
         RecipientFilterObject? filters = RecipientFilterObject.Acquire(_engine, out string filtersWhy);
         if (scripts is null || sound is null || engineClient is null || files is null || filters is null)
         {
@@ -2824,7 +2824,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _steamContext = new Steam.ClientSteamContext(steam, Log);
         _steamContext.Activate();
 
-        IVtableEngineClient? engineClient = EngineClient.Acquire(_engine, out string why);
+        IFwdEngineClient? engineClient = EngineClient.Acquire(_engine, out string why);
         if (engineClient is not ISteamLaunchCommands commands)
         {
             Log.Warning($"[SourceSharp/Steam] no Steam callbacks: the engine client did not bind ({why})\n");

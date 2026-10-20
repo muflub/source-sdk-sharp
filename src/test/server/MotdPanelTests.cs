@@ -20,7 +20,7 @@ public class MotdPanelTests
     {
         var engine = Fake();
         engine.Returns("Console.FindConVarValue", hostname);
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         return (new MotdPanel(engine, engine, convars), engine, convars);
     }

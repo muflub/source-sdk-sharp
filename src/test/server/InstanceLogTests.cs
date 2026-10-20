@@ -30,8 +30,8 @@ public class InstanceLogTests
     [Fact]
     public void TwoCompositionsLogToTheirOwnConsolesWithNoCrossover()
     {
-        var firstEngine = new EngineSide(Side.Server);
-        var secondEngine = new EngineSide(Side.Server);
+        var firstEngine = TestSides.Create(Side.Server);
+        var secondEngine = TestSides.Create(Side.Server);
         var first = Composed(firstEngine);
         var second = Composed(secondEngine);
 
@@ -57,7 +57,7 @@ public class InstanceLogTests
     [Fact]
     public void AttachingALogToTheSidePutsBackWhatWasThere()
     {
-        var engine = new EngineSide(Side.Server);
+        var engine = TestSides.Create(Side.Server);
         var shim = new RecordingLog();
         var mine = new RecordingLog();
         engine.State.Log = shim;

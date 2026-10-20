@@ -29,7 +29,7 @@ public class RopeTests
         EntityHandle handle, RecordingEngine engine,
         params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(RopeKeyframe).Assembly);
 
         // The recording double answers the entity lookups the resolution does.

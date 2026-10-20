@@ -61,7 +61,7 @@ public class ClientArsenalClockTests
         pair.Directory.Bind(viewModel.Handle, -1, viewModel);
 
         var arsenal = new ClientArsenal(new RecordingLog(), pair, engine, engine, engine,
-                                        new NetStateCatalog(TestServices.ClientGame, new RecordingLog()));
+                                        NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
         var player = new EntityHandle(0x0001_0000u | LocalPlayer);
 
         var basis = new UserCmd { CommandNumber = 10 };

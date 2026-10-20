@@ -29,7 +29,11 @@ public sealed class MovePointContentsCache
     private readonly Vector[] _points = new Vector[Slots];
     private bool _optimizations = true;
 
-    public MovePointContentsCache() => Reset(optimizations: true);
+    // Whether the slots hold Unset or answers. A new cache's slots are zeros,
+    // which would read as answers; the first Reset or Store fills them with
+    // Unset first, so a constructor need not (it only stores, by the interop
+    // layer's rule).
+    private bool _primed;
 
     /// <summary>
     /// <c>ResetGetPointContentsCache</c>; <paramref name="optimizations"/> is
@@ -39,13 +43,14 @@ public sealed class MovePointContentsCache
     {
         _optimizations = optimizations;
         Array.Fill(_contents, Unset);
+        _primed = true;
     }
 
     /// <summary>The slot's answer, if it still holds for <paramref name="point"/>.</summary>
     public bool TryGet(in Vector point, int slot, out int contents)
     {
         contents = 0;
-        if (!_optimizations || (uint)slot >= Slots || _contents[slot] == Unset)
+        if (!_optimizations || !_primed || (uint)slot >= Slots || _contents[slot] == Unset)
             return false;
 
         Vector last = _points[slot];
@@ -62,6 +67,9 @@ public sealed class MovePointContentsCache
     {
         if (!_optimizations || (uint)slot >= Slots)
             return;
+
+        if (!_primed)
+            Reset(_optimizations);
 
         _contents[slot] = contents;
         _points[slot] = point;

@@ -16,17 +16,17 @@ public unsafe class EngineSideTests
     [Fact]
     public void AFreshSideAnswersItsDefaultsBeforeItIsLoaded()
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
 
         Assert.False(side.IsInitialized);
-        Assert.Equal(-1, side.EntityGetIndex(new EntityHandle(1)));
+        Assert.Equal(-1, SideBindings.Of<IEngineEntities>(side).GetIndex(new EntityHandle(1)));
     }
 
     [Fact]
     public void LoadingOneSideLeavesTheOtherUntouched()
     {
-        var server = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
 
         // plan_client_vtables CC-last: no struct; the server's slot is its shim
         // area's, attached from a fake root with only that slot live.
@@ -34,15 +34,15 @@ public unsafe class EngineSideTests
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
         server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
+        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
         Assert.True(server.IsInitialized);
-        Assert.Equal(7, server.EntityGetIndex(new EntityHandle(1)));
+        Assert.Equal(7, SideBindings.Of<IEngineEntities>(server).GetIndex(new EntityHandle(1)));
 
         // Impossible to state before B1: one static table per side, chosen by
         // the thread. Here the client instance was never given the table.
         Assert.False(client.IsInitialized);
-        Assert.Equal(-1, client.EntityGetIndex(new EntityHandle(1)));
+        Assert.Equal(-1, SideBindings.Of<IEngineEntities>(client).GetIndex(new EntityHandle(1)));
     }
 
     /// <summary>
@@ -55,8 +55,8 @@ public unsafe class EngineSideTests
     [Fact]
     public void EachSidesSurfaceTableReadsItsOwnRouting()
     {
-        var server = new EngineSide(Side.Server);
-        var other = new EngineSide(Side.Server);
+        var server = TestSides.Create(Side.Server);
+        var other = TestSides.Create(Side.Server);
 
         // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a
         // MoveSurface shim slot answered.
@@ -68,7 +68,7 @@ public unsafe class EngineSideTests
         fwd->GetSurfaceData = &SurfaceIsSand;
         fwd->GetPhysicsProperties = &SandDensity;
         server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
+        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
         MoveSurface sand = server.Surfaces.Of(3);
         Assert.True(sand.Valid, "the attached side's table answers through its own slot");
@@ -98,14 +98,14 @@ public unsafe class EngineSideTests
     {
         // plan_engineapi_vtables B2: a side's container binds every engine area
         // to that side. A server object's call never reaches the client's table.
-        var server = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var server = TestSides.Create(Side.Server);
+        var client = TestSides.Create(Side.Client);
 
         using var root = new FakeShimRoot();
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
         server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
+        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
         var serverServices = new ServiceContainer().AddInstance(new StandaloneMirror());
         var clientServices = new ServiceContainer().AddInstance(new StandaloneMirror());

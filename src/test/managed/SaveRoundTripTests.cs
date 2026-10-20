@@ -47,7 +47,7 @@ public class SaveRoundTripTests
 
     private static ScriptedEntityRegistry Registry()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SaveRoundTripTests).Assembly);
         registry.Services = Services();
         return registry;

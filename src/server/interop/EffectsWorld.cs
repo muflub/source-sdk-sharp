@@ -47,7 +47,7 @@ public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities enti
     // COLLISION_GROUP_NONE.
     private const int CollisionGroupNone = 0;
 
-    private IVtableEngineServer? _server;
+    private IFwdEngineServer? _server;
 
     /// <inheritdoc/>
     public ServerTrace? Trace(Vector start, Vector end, uint mask)
@@ -72,7 +72,7 @@ public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities enti
     public (string ClassName, string Name) Names(EntityHandle entity)
         => (entities.GetClassName(entity), entities.GetName(entity));
 
-    private IVtableEngineServer Server()
+    private IFwdEngineServer Server()
         => _server ??= EngineServer.Acquire(engine, out string why)
                        ?? throw new InvalidOperationException("the effects world has no engine server: " + why);
 }

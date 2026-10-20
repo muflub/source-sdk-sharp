@@ -32,8 +32,11 @@ public readonly record struct CostSummary(long Calls, long Units, long TotalTick
 /// </summary>
 public sealed class CostMeter
 {
+    /// <summary>A meter over the latest 4096 calls.</summary>
+    public CostMeter() : this(4096) { }
+
     /// <param name="window">How many of the latest calls the percentiles keep.</param>
-    public CostMeter(int window = 4096)
+    public CostMeter(int window)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(window, 1);
         _window = new long[window];

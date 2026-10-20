@@ -32,7 +32,7 @@ public sealed unsafe class ServerCommandSideTests : IDisposable
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
-        var api = new EngineSide(side);
+        var api = TestSides.Create(side);
         api.Initialize();
 
         bool attached = api.AttachOwnShims(root.Bind(), out string why);
@@ -85,9 +85,9 @@ public sealed unsafe class ServerCommandSideTests : IDisposable
         env.Raw->interval_per_tick = 0.015f;
         env.Raw->maxClients = 2;
 
-        var commands = new ServerPlayerCommands(engine, new ServerPlayerMoves(), new ServerMoveData(),
+        var commands = ServerPlayerCommands.For(engine, new ServerPlayerMoves(), new ServerMoveData(),
                                                 new NoSounds(), null,
-                                                new MovementRunner(engine), () => default, new NoPublish(), env);
+                                                MovementRunner.For(engine), () => default, new NoPublish(), env);
 
         var cmd = new UserCmd { CommandNumber = 1 };
         Assert.Equal(1, commands.Stage(Player, 0, 0, in cmd));

@@ -110,7 +110,7 @@ public interface IVPhysicsShadowCalls
 }
 
 /// <summary>The real vphysics. Holds only the two factory tables.</summary>
-public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IVtablePhysicsSurfaceProps? surfaces,
+public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IFwdPhysicsSurfaceProps? surfaces,
                                                VPhysicsTables vphysics)
     : IVPhysicsShadowCalls
 {

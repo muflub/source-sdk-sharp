@@ -253,7 +253,7 @@ public class ShooterTests
     private static (EnvShooter Shooter, RecordingEngine Engine) Spawn(
         string className, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvShooter).Assembly);
 
         var services = TestServices.Services(out var engine);

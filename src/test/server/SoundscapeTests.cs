@@ -57,7 +57,7 @@ public class SoundscapeTests
         // test exercises the same construction the game does.
         var soundscapes = new Soundscapes(new RecordingLog(), net, net, Fake(), Fake(), Fake());
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvSoundscape).Assembly);
         registry.Services = new ServiceContainer().AddInstance<ISoundscapes>(soundscapes);
 
@@ -302,7 +302,7 @@ public class SoundscapeTests
         var net = Fake().Returns("Entities.GetIndex", 0);
         var soundscapes = new Soundscapes(new RecordingLog(), net, net, Fake(), Fake(), Fake());
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(EnvSoundscape).Assembly);
         registry.Services = new ServiceContainer().AddInstance<ISoundscapes>(soundscapes);
 

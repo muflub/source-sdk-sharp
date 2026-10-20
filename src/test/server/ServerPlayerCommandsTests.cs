@@ -44,7 +44,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
     }
 
     private readonly CGlobalVarsRaw* _globals = (CGlobalVarsRaw*)NativeMemory.AllocZeroed((nuint)sizeof(CGlobalVarsRaw));
-    private readonly ModuleEngine _engine = new(new EngineSide(Side.Server));
+    private readonly ModuleEngine _engine = new(TestSides.Create(Side.Server));
     private readonly ServerPlayerMoves _moves = new();
     private readonly ServerMoveData _data = new();
     private readonly Published _published = new();
@@ -55,8 +55,8 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         _globals->interval_per_tick = 0.015f;
         _globals->frametime = 0.015f;
         _globals->maxClients = 2;
-        _commands = new ServerPlayerCommands(_engine, _moves, _data, new NoSounds(), null,
-                                             new MovementRunner(_engine), Frame, _published,
+        _commands = ServerPlayerCommands.For(_engine, _moves, _data, new NoSounds(), null,
+                                             MovementRunner.For(_engine), Frame, _published,
                                              new Env { Raw = _globals });
     }
 
@@ -348,7 +348,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         // shell_worldquery.cpp's CSaidOncePerId, carried over: a push at
         // something with no base-velocity channel says so once per entity, not
         // once per tick of the belt or the push field (plan_server_native_v2 T4g).
-        var route = new ServerPlayerMovement(_engine, _moves, _commands);
+        var route = ServerPlayerMovement.For(_engine, _moves, _commands);
 
         bool landed = route.AddBaseVelocity(Crate, new Vector(0f, 0f, 100f));
 
@@ -359,7 +359,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
     [Fact]
     public void ARefusalIsSaidOncePerEntity()
     {
-        var route = new ServerPlayerMovement(_engine, _moves, _commands);
+        var route = ServerPlayerMovement.For(_engine, _moves, _commands);
 
         Assert.Equal((true, false, true),
                      (route.FirstRefusal(Crate), route.FirstRefusal(Crate), route.FirstRefusal(Lift)));

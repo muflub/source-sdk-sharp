@@ -23,7 +23,7 @@ public class ServerTagsTests
 
     private static (ConVarRegistry Registry, SvGravityConVar Gravity) Declared(string engineValue)
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         var g = Gravity(engineValue);
         registry.Adopt(g);
         return (registry, g);
@@ -88,7 +88,7 @@ public class ServerTagsTests
     [Fact]
     public void RegistrationCarriesTheTagOntoTheConVar()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(SvGravityConVar).Assembly);
         Assert.Equal("gravity", registry.Get<SvGravityConVar>()!.Tag);
         Assert.Null(registry.Get<SvMaxSpeedConVar>()!.Tag);
@@ -98,7 +98,7 @@ public class ServerTagsTests
     public void GravityIsTheOnlyTagTheServerDeclares()
     {
         // Stock's list was sv_gravity and sv_alltalk; this mod has no sv_alltalk.
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(SvGravityConVar).Assembly);
         Assert.Equal(new[] { "sv_gravity:gravity" },
                      registry.All.Where(c => c.Tag is not null).Select(c => c.Name + ":" + c.Tag).ToArray());
@@ -167,7 +167,7 @@ public class ServerTagsTests
     public void AnUntaggedChangePushesNothing()
     {
         var engine = new RecordingEngine().Returns("Console.FindConVarValue", "a");
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         var g = Gravity("800");
         var speed = new SvMaxSpeedConVar();
         speed.Bind(-1, "sv_maxspeed", "320");
@@ -198,7 +198,7 @@ public class ServerTagsTests
     {
         // Strict: an unanswered read would throw.
         var engine = new RecordingEngine();
-        new ServerTags(engine, new ConVarRegistry(TestServices.UnattachedConsole()));
+        new ServerTags(engine, ConVarRegistry.For(TestServices.UnattachedConsole()));
         Assert.Empty(engine.Calls);
     }
 }

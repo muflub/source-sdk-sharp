@@ -251,7 +251,7 @@ public class LoadedAssemblyTests
     {
         // Anchored on the ABI, which declares no entity classes at all — so
         // anything registered here came from somewhere else entirely.
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
 
         Assert.True(registry.RegisterAll(typeof(ILog).Assembly) > 0, "entity classes are found outside the assembly asked about");
     }
@@ -259,7 +259,7 @@ public class LoadedAssemblyTests
     [Fact]
     public void AClassDeclaredInTheModsServerAssemblyIsRegistered()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ILog).Assembly);
 
         Assert.True(registry.IsRegistered("prop_physics"), "a class declared in the mod's server assembly is registered");

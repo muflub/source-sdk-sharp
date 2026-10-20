@@ -3,7 +3,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real store, over the view area's <c>RenderTargetDeclare</c>.</summary>
-internal sealed unsafe class ClientRenderTargetTable(ViewClientArea viewClient) : IRenderTargetTable
+internal sealed unsafe class ClientRenderTargetTable(IViewClientArea viewClient) : IRenderTargetTable
 {
     public bool Declare(int slot, string name, string group, bool complain, int creationFlags, int releaseOrder)
     {

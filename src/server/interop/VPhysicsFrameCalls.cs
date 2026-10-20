@@ -62,11 +62,15 @@ public sealed unsafe class VPhysicsFrameCalls : IVPhysicsFrameCalls
     private readonly VPhysicsTables _vphysics;
 
     /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
-    public VPhysicsFrameCalls(VPhysicsTables vphysics)
+    internal VPhysicsFrameCalls(VPhysicsTables vphysics, Server.Interop.VPhysicsSolverObjects objects)
     {
         _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
-        _objects = new Server.Interop.VPhysicsSolverObjects(vphysics);
+        _objects = objects ?? throw new ArgumentNullException(nameof(objects));
     }
+
+    /// <summary>The frame's calls over <paramref name="vphysics"/>, and its solver objects over the same tables.</summary>
+    public static VPhysicsFrameCalls For(VPhysicsTables vphysics)
+        => new(vphysics, new Server.Interop.VPhysicsSolverObjects(vphysics ?? throw new ArgumentNullException(nameof(vphysics))));
 
     private readonly Server.Interop.VPhysicsSolverObjects _objects;
 

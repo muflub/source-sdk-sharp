@@ -56,7 +56,7 @@ public class HudAmmoFeedTests
     }
 
     private static ClientArsenal Arsenal(RecordingEngine engine, Standalones standalones)
-        => new(new RecordingLog(), standalones, engine, engine, engine, new NetStateCatalog(TestServices.ClientGame, new RecordingLog()));
+        => new(new RecordingLog(), standalones, engine, engine, engine, NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
 
     //-------------------------------------------------------------------------
     // The feed itself.

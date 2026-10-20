@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Input;
+using SourceSharp.Client.Interop;
 using Xunit;
 
 namespace SourceSharp.Tests;
@@ -36,10 +37,10 @@ public sealed unsafe class ClientInputHostTests
             ? (delegate* unmanaged<void*, void*, void*, byte, void>)&MouseDeltaAnswers
             : null;
 
-        var side = new EngineSide(Side.Client);
+        var side = TestSides.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
-        return ClientInputHost.For(new ModuleEngine(side), new NullConsole());
+        return Composed(new ModuleEngine(side));
     }
 
     [Fact]
@@ -66,6 +67,122 @@ public sealed unsafe class ClientInputHostTests
 
         Assert.Equal((0, 0), (x, y));
         Assert.Equal(0, s_DeltaCalls);
+    }
+
+    private static float[] s_Angles = new float[3];
+    private static string? s_Command;
+
+    [UnmanagedCallersOnly]
+    private static void GetAngles(void* self, void* angles)
+    {
+        ((float*)angles)[0] = s_Angles[0];
+        ((float*)angles)[1] = s_Angles[1];
+        ((float*)angles)[2] = s_Angles[2];
+    }
+
+    [UnmanagedCallersOnly]
+    private static void SetAngles(void* self, void* angles)
+        => s_Angles = [((float*)angles)[0], ((float*)angles)[1], ((float*)angles)[2]];
+
+    [UnmanagedCallersOnly]
+    private static void ScreenIs640By480(void* self, void* width, void* height)
+    {
+        *(int*)width = 640;
+        *(int*)height = 480;
+    }
+
+    [UnmanagedCallersOnly]
+    private static byte Paused(void* self) => 1;
+
+    [UnmanagedCallersOnly]
+    private static void Unrestricted(void* self, byte* command)
+        => s_Command = Marshal.PtrToStringUTF8((nint)command);
+
+    // The host over an engine client whose view angles, screen, pause and
+    // unrestricted command slots are live (plan_shim_areas_split phase 11
+    // review: the host is handed the engine client rather than binding its
+    // table itself, so these reach the engine through it).
+    private static IInputHost HostWithInputSlots(FakeShimRoot root)
+    {
+        var self = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
+        root.Interface(EngineClient.InterfaceVersion, self)
+            .Forwarders(out EngineClientFwd* fwd);
+        fwd->GetViewAngles = &GetAngles;
+        fwd->SetViewAngles = &SetAngles;
+        fwd->GetScreenSize = &ScreenIs640By480;
+        fwd->IsPaused = &Paused;
+        fwd->ClientCmd_Unrestricted = &Unrestricted;
+
+        var side = TestSides.Create(Side.Client);
+        side.Initialize();
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        return Composed(new ModuleEngine(side));
+    }
+
+    [Fact]
+    public void TheViewAnglesRoundTripThroughTheEngineClient()
+    {
+        using var root = new FakeShimRoot();
+        IInputHost host = HostWithInputSlots(root);
+
+        host.SetViewAngles(new InputAngles(10f, 20f, 30f));
+        InputAngles read = host.GetViewAngles();
+
+        Assert.Equal((10f, 20f, 30f), (read.Pitch, read.Yaw, read.Roll));
+    }
+
+    [Fact]
+    public void TheScreenPauseAndUnrestrictedCommandReachTheEngineClient()
+    {
+        using var root = new FakeShimRoot();
+        IInputHost host = HostWithInputSlots(root);
+        s_Command = null;
+
+        host.GetScreenSize(out int width, out int height);
+        host.ClientCmdUnrestricted("+jump");
+
+        Assert.Equal((640, 480), (width, height));
+        Assert.True(host.IsPaused);
+        Assert.Equal("+jump", s_Command);
+    }
+
+    // The host as the client's composition builds it (phase 11 review: by
+    // injection, no static): the game's adapters register the engine client,
+    // and the module builds the host over the side's input area and them.
+    private static IInputHost Composed(ModuleEngine engine)
+    {
+        var services = new ServiceContainer().AddInstance<IEngineConsole>(new NullConsole());
+        new ClientEntityFetches().AddTo(services, engine);
+        // By type: the census lets a fact read the class's shape, never hold it.
+        return (IInputHost)engine.Create(typeof(ClientInputHost), services);
+    }
+
+    /// <summary>
+    /// The host is only ever the client's, so its engine client is never null:
+    /// the constructor refuses one rather than answering defaults for it.
+    /// </summary>
+    [Fact]
+    public void TheHostRefusesANullEngineClient()
+    {
+        var side = TestSides.Create(Side.Client);
+        var input = side.Areas.Require<IInputClientArea>();
+        var constructor = Assert.Single(typeof(ClientInputHost).GetConstructors());
+
+        var thrown = Assert.Throws<System.Reflection.TargetInvocationException>(
+            () => constructor.Invoke([input, new NullConsole(), null]));
+        var refusal = Assert.IsType<ArgumentNullException>(thrown.InnerException);
+        Assert.Equal("engineClient", refusal.ParamName);
+    }
+
+    /// <summary>
+    /// An engine that does not serve IVEngineClient fails the host's build,
+    /// with the engine's reason, rather than handing it nothing.
+    /// </summary>
+    [Fact]
+    public void AnEngineWithNoEngineClientFailsTheBuildWithItsReason()
+    {
+        var refusal = Assert.ThrowsAny<Exception>(() => Composed(new ModuleEngine(TestSides.Create(Side.Client))));
+        Assert.Contains("the input host has no engine client", refusal.ToString());
     }
 
     private sealed class NullConsole : IEngineConsole

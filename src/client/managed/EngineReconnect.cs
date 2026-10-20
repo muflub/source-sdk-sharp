@@ -7,9 +7,9 @@ namespace SourceSharp.Client;
 /// the engine interface exists once the client DLL is up, which is after this
 /// module registers its services.
 /// </summary>
-public sealed class EngineReconnect(Func<IVtableEngineClient?> acquire, ILog log) : IClientReconnect
+public sealed class EngineReconnect(Func<IFwdEngineClient?> acquire, ILog log) : IClientReconnect
 {
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
 
     public void Reconnect()
     {

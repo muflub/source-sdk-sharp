@@ -100,7 +100,7 @@ public class MultiplayerConVarOracleTests
     /// </summary>
     private static Dictionary<string, ConVarBase> DeclaredIn(System.Reflection.Assembly assembly)
     {
-        var registry = new ConVarRegistry(SourceSharp.Tests.TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(SourceSharp.Tests.TestServices.UnattachedConsole());
         registry.RegisterAll(assembly);
 
         var byName = new Dictionary<string, ConVarBase>();
@@ -258,7 +258,7 @@ public class MultiplayerConVarOracleTests
         var assembly = typeof(client::SourceSharp.Client.ClMpChatTimeConVar).Assembly;
         var console = SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(
             SourceSharp.Tests.ClientDoubles.UnattachedEngine());
-        var registry = new client::SourceSharp.Abi.ConVarRegistry(console);
+        var registry = client::SourceSharp.Abi.ConVarRegistry.For(console);
         registry.RegisterAll(assembly);
 
         var byName = new Dictionary<string, client::SourceSharp.Abi.ConVarBase>();

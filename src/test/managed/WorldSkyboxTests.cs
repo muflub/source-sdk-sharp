@@ -55,7 +55,7 @@ public class WorldSkyboxTests
     private static ScriptedEntityRegistry WithSky(
         EntityHandle at, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SkyCamera).Assembly);
         registry.Services = Ignoring("WorldQuery.GetArea", "Entities.GetOrigin");
 
@@ -73,7 +73,7 @@ public class WorldSkyboxTests
     [Fact]
     public void AMapWithNoSkyCameraHasNoSkybox()
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SkyCamera).Assembly);
         registry.Services = Ignoring("WorldQuery.GetArea", "Entities.GetOrigin");
 

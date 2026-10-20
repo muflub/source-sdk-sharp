@@ -473,7 +473,7 @@ public class EntityPhysicsCreationTests
     public void TheRegistrysSpawnAsksForAPropKindsObjectAfterTheClassSpawns()
     {
         var (c, v, _) = Make();
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.SpawnPhysics = c;
 
@@ -486,7 +486,7 @@ public class EntityPhysicsCreationTests
     public void TheRegistrysSpawnAsksNothingForAnotherKind()
     {
         var (c, v, _) = Make();
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.SpawnPhysics = c;
 

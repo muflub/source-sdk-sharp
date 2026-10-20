@@ -25,7 +25,7 @@ public class TriggerHurtTests
     private static (ScriptedEntityRegistry Registry, TriggerHurt Trigger, RecordingEngine Engine) Spawn(
         int health = 100, params (string Key, string Value)[] keys)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerHurt).Assembly);
         var services = Services(out var engine);
         engine.Ignores("Clock.Now", "Networking.EntityGetState", "Networking.EntityGetState.moveType",
@@ -142,7 +142,7 @@ public class TriggerHurtRadiationTests
 
     private (ScriptedEntityRegistry Registry, RecordingEngine Engine, SsPlayer A, SsPlayer B) Rig(bool inPvs = true)
     {
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(TriggerHurt).Assembly);
         var services = TestServices.Services(out var engine);
         float now = 0f;

@@ -17,7 +17,7 @@ public class PredictionOverlayTests
     // Head.Origin is at byte 16 of the engine block; z is 24..27.
     private const int OriginZ = 24;
 
-    private static NetStateCatalog Catalog() => new(TestServices.ClientGame, new RecordingLog());
+    private static NetStateCatalog Catalog() => NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog());
 
     private static (byte[] Predicted, int DeclaredStart) Image(Type stateType)
     {

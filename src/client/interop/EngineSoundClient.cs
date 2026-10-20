@@ -7,7 +7,7 @@ namespace SourceSharp.Abi;
 /// forwarder table as the server's (<see cref="EngineSoundFwd"/>, both
 /// libraries), under the client's version string.
 /// </summary>
-public interface IVtableEngineSoundClient
+public interface IFwdEngineSoundClient
 {
     /// <summary>
     /// <c>EmitSound( filter, entindex, channel, sample, volume, soundlevel,
@@ -36,8 +36,8 @@ public interface IVtableEngineSoundClient
     void EmitAmbientSound(string sample, float volume, int pitch, int flags, float soundTime);
 }
 
-/// <summary><see cref="IVtableEngineSoundClient"/> over the engine's object, through its forwarders.</summary>
-public sealed unsafe class EngineSoundClient : IVtableEngineSoundClient
+/// <summary><see cref="IFwdEngineSoundClient"/> over the engine's object, through its forwarders.</summary>
+public sealed unsafe class EngineSoundClient : IFwdEngineSoundClient
 {
     /// <summary>The client's IEngineSound (IEngineSound.h's IENGINESOUND_CLIENT_INTERFACE_VERSION).</summary>
     public const string InterfaceVersion = "IEngineSoundClient003";
@@ -52,11 +52,11 @@ public sealed unsafe class EngineSoundClient : IVtableEngineSoundClient
     }
 
     /// <summary>The client's engine sound, or null with the reason (null on the server).</summary>
-    public static IVtableEngineSoundClient? Acquire(ModuleEngine engine, out string why)
+    public static IFwdEngineSoundClient? Acquire(ModuleEngine engine, out string why)
         => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
 
     /// <summary>The same, through one side's own interface factory.</summary>
-    internal static IVtableEngineSoundClient? Acquire(NativeInterfaceFactory factory, out string why)
+    internal static IFwdEngineSoundClient? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<EngineSoundFwd>(factory, SourceSharpFactoryType.AppSystem,
                InterfaceVersion, out void* self, out EngineSoundFwd* table, out why)
             ? new EngineSoundClient(self, table)

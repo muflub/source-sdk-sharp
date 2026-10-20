@@ -108,7 +108,7 @@ public class GameModesTests
 
     private sealed class Rig
     {
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         public readonly List<string> Order = [];
         public readonly RecordingLog Log = new();
 
@@ -632,7 +632,7 @@ public class GameModesTests
         // asks for GameModes) and its input is bound through the real
         // [ScriptedEvent] binder — both halves of "a mapper wires SwitchTo
         // arena in the map" are exercised, not replaced with a direct call.
-        var registry = new ScriptedEntityRegistry { Services = rig.Services };
+        var registry = new ScriptedEntityRegistry(TestEngines.Server()) { Services = rig.Services };
         registry.RegisterAll(typeof(GameModeSwitch).Assembly);
         var handle = new EntityHandle(0x0002_0002u);
         registry.Spawn(handle, "game_mode_switch");

@@ -105,10 +105,10 @@ public unsafe class EntityHandleInversionTests : IDisposable
 
     private EngineSide Attached(string area, string slot, nint fn)
     {
-        var side = new EngineSide(Side.Server);
+        var side = TestSides.Create(Side.Server);
         side.Initialize();
         _root.Live(area, slot, fn);
-        Assert.True(side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         return side;
     }
 
@@ -122,7 +122,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
         var side = Attached("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.DestroyShell),
                             (nint)(delegate* unmanaged<void*, uint*, int, void>)&RecordShells);
 
-        side.DestroyShells(Handles(Raw));
+        side.DestroyShells(side.Areas.Require<IEntityLifecycleArea>(), Handles(Raw));
 
         Assert.Equal(Raw, t_seen);
     }
@@ -137,7 +137,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
         for (int i = 0; i < raw.Length; i++)
             raw[i] = (uint)(i * 0x0001_0001);
 
-        side.DestroyShells(Handles(raw));
+        side.DestroyShells(side.Areas.Require<IEntityLifecycleArea>(), Handles(raw));
 
         Assert.Equal(raw, t_seen);
     }
@@ -149,7 +149,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
                             (nint)(delegate* unmanaged<void*, float*, float, uint*, int, int>)&WriteSphere);
         var into = new EntityHandle[8];
 
-        int n = side.EntitiesInSphere(Vector.Zero, 64f, into);
+        int n = SideBindings.Of<IEngineWorldQuery>(side).EntitiesInSphere(Vector.Zero, 64f, into);
 
         Assert.Equal(Raw, Array.ConvertAll(into[..n], h => h.Value));
     }
@@ -161,7 +161,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
                             (nint)(delegate* unmanaged<void*, float*, float, uint*, int, int>)&WriteSphere);
         var into = new EntityHandle[8];
 
-        int n = side.EntitiesInSphere(Vector.Zero, 64f, into);
+        int n = SideBindings.Of<IEngineWorldQuery>(side).EntitiesInSphere(Vector.Zero, 64f, into);
 
         Assert.All(into[n..], h => Assert.Equal(EntityHandle.None, h));
     }
@@ -173,7 +173,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
                             (nint)(delegate* unmanaged<void*, uint*, int, int>)&WriteOverlaps);
         var into = new OverlapPair[4];
 
-        int n = side.EntityOverlapReport(into);
+        int n = SideBindings.Of<IEngineOverlaps>(side).OverlapReport(into);
 
         Assert.Equal(Raw, new[] { into[0].A.Value, into[0].B.Value, into[1].A.Value, into[1].B.Value }[..(2 * n)]);
     }

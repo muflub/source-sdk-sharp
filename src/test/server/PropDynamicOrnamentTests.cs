@@ -60,7 +60,7 @@ public class PropDynamicOrnamentTests
         // spawn does; a test that attaches re-stubs it true afterwards.
         engine.Returns("Entities.SetParent", false);
 
-        var registry = new ScriptedEntityRegistry();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropDynamicOrnament).Assembly);
         registry.Services = services;
 
