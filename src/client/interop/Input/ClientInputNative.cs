@@ -23,9 +23,9 @@ public sealed unsafe class ClientInputHost : IInputHost
 
     // The engine client, handed in: null where there is none (the server, a
     // side with no engine), and then every engine-client answer is its default.
-    private readonly IEngineClientInput? _engineClient;
+    private readonly IClientInputEngine? _engineClient;
 
-    internal ClientInputHost(InputClientArea input, IEngineConsole console, IEngineClientInput? engineClient)
+    internal ClientInputHost(InputClientArea input, IEngineConsole console, IClientInputEngine? engineClient)
     {
         _input = input ?? throw new ArgumentNullException(nameof(input));
         _console = console ?? throw new ArgumentNullException(nameof(console));
@@ -38,7 +38,7 @@ public sealed unsafe class ClientInputHost : IInputHost
     /// </summary>
     public static IInputHost For(ModuleEngine engine, IEngineConsole console)
         => new ClientInputHost(engine.Api.Areas.Require<InputClientArea>(), console,
-                               EngineClient.Acquire(engine, out _) as IEngineClientInput);
+                               EngineClient.Acquire(engine, out _) as IClientInputEngine);
 
     public InputAngles GetViewAngles() => _engineClient?.GetViewAngles() ?? default;
 
@@ -146,14 +146,15 @@ public sealed unsafe class ClientInputDevices : IInputDevices
     private InputSystemFwd* _fwd;
     private bool _asked;
 
-    internal ClientInputDevices(ModuleEngine engine, ILog log)
+    internal ClientInputDevices(NativeInterfaceFactory interfaces, SteamControllerFlat flat)
     {
-        _interfaces = engine.Api.Interfaces;
-        _flat = new SteamControllerFlat(log);
+        _interfaces = interfaces;
+        _flat = flat;
     }
 
     /// <summary>The client's input system, from the engine's app-system factory.</summary>
-    public static IInputDevices For(ModuleEngine engine, ILog log) => new ClientInputDevices(engine, log);
+    public static IInputDevices For(ModuleEngine engine, ILog log)
+        => new ClientInputDevices(engine.Api.Interfaces, new SteamControllerFlat(log));
 
     private bool Bound()
     {

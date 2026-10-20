@@ -25,8 +25,10 @@ public class ModuleEngineTests
     [Fact]
     public void TwoCompositionsReadTheirOwnEnginesManagedDirectory()
     {
-        var first = new EngineSide(Side.Server) { ManagedDirectory = "first/bin/managed" };
-        var second = new EngineSide(Side.Server) { ManagedDirectory = "second/bin/managed" };
+        var first = EngineSide.Create(Side.Server);
+        first.ManagedDirectory = "first/bin/managed";
+        var second = EngineSide.Create(Side.Server);
+        second.ManagedDirectory = "second/bin/managed";
 
         var firstServices = new ServiceContainer();
         var secondServices = new ServiceContainer();
@@ -46,8 +48,8 @@ public class ModuleEngineTests
         CGlobalVarsRaw early = Globals(curtime: 3f);
         CGlobalVarsRaw late = Globals(curtime: 7.5f);
 
-        var first = new EngineSide(Side.Server);
-        var second = new EngineSide(Side.Server);
+        var first = EngineSide.Create(Side.Server);
+        var second = EngineSide.Create(Side.Server);
         first.BindGlobalVars(Side.Server, (nint)(&early));
         second.BindGlobalVars(Side.Server, (nint)(&late));
 
@@ -58,8 +60,8 @@ public class ModuleEngineTests
     [Fact]
     public void LivenessAttachesToTheHandedEngineOnly()
     {
-        var first = new EngineSide(Side.Server);
-        var second = new EngineSide(Side.Server);
+        var first = EngineSide.Create(Side.Server);
+        var second = EngineSide.Create(Side.Server);
         var mirror = new LivenessMirror();
 
         using (new ModuleEngine(first).AttachLiveness(mirror))
@@ -74,15 +76,15 @@ public class ModuleEngineTests
     [Fact]
     public void AModuleEngineSaysWhichSideItIs()
     {
-        Assert.Equal(Side.Client, new ModuleEngine(new EngineSide(Side.Client)).Side);
-        Assert.Equal(Side.Server, new ModuleEngine(new EngineSide(Side.Server)).Side);
+        Assert.Equal(Side.Client, new ModuleEngine(EngineSide.Create(Side.Client)).Side);
+        Assert.Equal(Side.Server, new ModuleEngine(EngineSide.Create(Side.Server)).Side);
     }
 
     [Fact]
     public void AHostAnswersTheSideItIsBoundTo()
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(services, new EngineSide(Side.Client));
+        EngineServices.AddTo(services, EngineSide.Create(Side.Client));
 
         Assert.Equal(Side.Client, services.Require<IEngineHost>().ActiveSide);
     }
@@ -90,8 +92,8 @@ public class ModuleEngineTests
     [Fact]
     public void EachEngineAcquiresThroughAFactoryOfItsOwn()
     {
-        var first = new EngineSide(Side.Server);
-        var second = new EngineSide(Side.Server);
+        var first = EngineSide.Create(Side.Server);
+        var second = EngineSide.Create(Side.Server);
 
         Assert.Same(first.Interfaces, first.Interfaces);
         Assert.NotSame(first.Interfaces, second.Interfaces);

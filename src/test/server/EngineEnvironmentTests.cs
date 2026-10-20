@@ -14,7 +14,7 @@ public class EngineEnvironmentTests
     [Fact]
     public void AnEnvironmentWhoseSideHasNoRootAnswersNothing()
     {
-        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server));
+        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(EngineSide.Create(Side.Server));
 
         Assert.True(env.GetInterface("VEngineServer023") == 0,
             "with no shim root attached, every interface lookup answers null");
@@ -23,7 +23,7 @@ public class EngineEnvironmentTests
     [Fact]
     public void AnEnvironmentTheShellHasNotFilledInHasNoGlobals()
     {
-        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server));
+        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(EngineSide.Create(Side.Server));
 
         Assert.True(!env.Globals.IsAvailable,
             "and Globals says it is not available rather than answering a plausible zero");
@@ -102,7 +102,7 @@ public class EngineEnvironmentTests
     /// <summary>The server's environment, as its registration builds it over a side attached to <paramref name="root"/>.</summary>
     private static IEngineEnvironment Attached(FakeShimRoot root)
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return SideBindings.Of<IEngineEnvironment>(side);
     }
@@ -130,7 +130,7 @@ public class EngineEnvironmentTests
         live.nTimestampRandomizeWindow = 32;
         live.curtime = 1.0f;
 
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)(&live));
         IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(side);
 

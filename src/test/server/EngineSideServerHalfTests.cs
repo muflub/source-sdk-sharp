@@ -22,7 +22,7 @@ public class EngineSideServerHalfTests
 
     private static EngineSide Attached(FakeShimRoot root)
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return side;

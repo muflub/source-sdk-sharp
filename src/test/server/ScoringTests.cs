@@ -43,7 +43,7 @@ public class ScoringTests
     /// </summary>
     private sealed class Match
     {
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         public readonly RecordingEngine Host;
         public readonly PlayerDisconnectEvent Disconnects = new();
         public readonly PlayerDeathEvent Deaths = new();

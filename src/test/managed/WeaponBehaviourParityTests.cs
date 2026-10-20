@@ -161,7 +161,7 @@ public class WeaponBehaviourParityTests
         standalones.Directory.Bind(viewModel.Handle, -1, viewModel);
 
         var arsenal = new ClientArsenal(new RecordingLog(), standalones, engine, engine, engine,
-                                        new client::SourceSharp.Abi.NetStateCatalog(TestServices.ClientGame, new RecordingLog()),
+                                        client::SourceSharp.Abi.NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
                                         weapons: container.Require<C.WeaponCatalog>(),
                                         behaviours: container.Require<C.WeaponBehaviours>());
 

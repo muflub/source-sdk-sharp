@@ -141,7 +141,7 @@ public unsafe class ClientEntityIsValidClientTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = new EngineSide(side);
+        var api = EngineSide.Create(side);
         api.Initialize();
 
         string why;

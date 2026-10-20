@@ -32,7 +32,7 @@ public unsafe class RagdollEngineTests
     private static (ManagedVtable Table, RagdollKeyHandlerBinding Sink) Keys(ManagedVtables vtables, Crossings crossings,
                                                                             nint defaultName = 0)
     {
-        var sink = new RagdollKeyHandlerBinding(crossings, defaultName);
+        var sink = new RagdollKeyHandlerBinding(crossings, new SolidKeyDefaults(defaultName));
         return (RagdollKeyHandlerBinding.Create(vtables, sink), sink);
     }
 

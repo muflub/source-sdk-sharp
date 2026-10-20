@@ -78,7 +78,7 @@ public class LevelShutdownPreEntityTests
 
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        return new ServerGameDll(new RecordingLog(), engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
+        return new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
                                  engine, engine, stringTables, modTable, driver,
                                  new TemplateStore(new RecordingLog()),
                                  // plan_entity.md step 2d. Nothing here loads a

@@ -43,7 +43,7 @@ public sealed unsafe class ViewEntityForwarderTests
     {
         public readonly FakeShimRoot Root = new();
         public readonly nint* Self = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
-        public readonly EngineSide Side = new(SourceSharp.Abi.Side.Server);
+        public readonly EngineSide Side = EngineSide.Create(SourceSharp.Abi.Side.Server);
         public readonly LivenessMirror Mirror = new();
         public readonly EngineServerFwd* Fwd;
         private readonly System.IDisposable _liveness;

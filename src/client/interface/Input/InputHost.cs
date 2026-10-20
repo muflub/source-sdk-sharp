@@ -119,8 +119,14 @@ public interface IInputDevices
 /// the unrestricted command buffer and the overlay line. A seam of its own, the
 /// minimum the input host needs, so the host is handed the engine client rather
 /// than binding its table again (plan_shim_areas_split phase 11 review).
+///
+/// <para>
+/// NOT NAMED <c>IEngine...</c>: every interface of this assembly with that
+/// prefix is an engine area (<c>EngineServices.IsArea</c>), registered with a
+/// binding of its own, and this is a slice of the engine client, not an area.
+/// </para>
 /// </summary>
-public interface IEngineClientInput
+public interface IClientInputEngine
 {
     InputAngles GetViewAngles();
     void SetViewAngles(InputAngles angles);

@@ -63,7 +63,7 @@ public unsafe class ServerPhysicsWorldBindingTests
     {
         using var vtables = new ManagedVtables();
         var crossings = new Crossings();
-        var keys = new SolidKeyHandlerBinding(crossings, 0x5150);
+        var keys = new SolidKeyHandlerBinding(crossings, new SolidKeyDefaults(0x5150));
         using var callbacks = new FakePhysicsCallbacks();
         ManagedVtable table = SolidKeyHandlerBinding.Create(vtables, keys, callbacks.Objects);
         byte* solid = (byte*)NativeMemory.AllocZeroed(SolidLayout.Size);

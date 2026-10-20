@@ -42,7 +42,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
 
     private RagdollVPhysics(IClientPhysicsEngine environment, void* physics, PhysicsFwd* physicsFwd, void* collision,
                             PhysicsCollisionFwd* collisionFwd, void* props, PhysicsSurfacePropsFwd* propsFwd,
-                            void* modelInfo, ModelInfoFwd* modelInfoFwd, VPhysicsTables vphysics)
+                            void* modelInfo, ModelInfoFwd* modelInfoFwd, VPhysicsTables vphysics, byte* defaultName)
     {
         _environment = environment;
         _physics = physics;
@@ -54,9 +54,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         _modelInfo = modelInfo;
         _modelInfoFwd = modelInfoFwd;
         _vphysics = vphysics;
-
-        _defaultName = (byte*)NativeMemory.AllocZeroed(8);
-        "DEFAULT"u8.CopyTo(new Span<byte>(_defaultName, 8));
+        _defaultName = defaultName;
     }
 
     /// <summary>The four factory interfaces, from <paramref name="engine"/>'s own side; null with the reason when one does not answer.</summary>
@@ -78,8 +76,11 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
             return null;
         }
 
+        // The solids' default name, which this object owns and frees.
+        byte* defaultName = (byte*)NativeMemory.AllocZeroed(8);
+        "DEFAULT"u8.CopyTo(new Span<byte>(defaultName, 8));
         return new RagdollVPhysics(environment, physics, physicsFwd, collision, collisionFwd, props, propsFwd,
-                                   modelInfo, modelInfoFwd, engine.Api.VPhysics);
+                                   modelInfo, modelInfoFwd, engine.Api.VPhysics, defaultName);
     }
 
     /// <summary>
@@ -90,7 +91,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     public void InstallHandlers(ManagedVtables vtables, Crossings crossings, PhysicsCallbackObjects objects)
     {
         ArgumentNullException.ThrowIfNull(objects);
-        _keys = new RagdollKeyHandlerBinding(crossings, (nint)_defaultName);
+        _keys = new RagdollKeyHandlerBinding(crossings, new SolidKeyDefaults((nint)_defaultName));
         _keyTable = RagdollKeyHandlerBinding.Create(vtables, _keys);
         // The IVPhysicsKeyHandler vphysics is handed: libss_fwd_client's object,
         // built in the block (plan_forwarders_everywhere.md phase 5).

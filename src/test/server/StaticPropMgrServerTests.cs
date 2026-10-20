@@ -28,7 +28,7 @@ public sealed unsafe class StaticPropMgrServerTests
 
     private static ModuleEngine ServerOver(FakeShimRoot root)
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return new ModuleEngine(side);

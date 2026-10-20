@@ -59,7 +59,7 @@ public class ShellLessEntityTests
     /// accessors on the side whose route its registry answers, rather than on
     /// the static <c>Engine</c>, and nothing is shared with any other fact.
     /// </summary>
-    private readonly EngineSide _side = new(Side.Server);
+    private readonly EngineSide _side = EngineSide.Create(Side.Server);
 
     /// <summary>A registry with this assembly's classes in it, over <see cref="_side"/>'s routes.</summary>
     private ScriptedEntityRegistry Fresh()
@@ -843,7 +843,7 @@ public class ShellLessEntityTests
     {
         var registry = Fresh();
         var handle = registry.Create(Shellless, default);
-        var client = new EngineSide(Side.Client);
+        var client = EngineSide.Create(Side.Client);
 
         Assert.False(client.ShellLess.Claims(handle));
         Assert.True(_side.ShellLess.Claims(handle));    // the control

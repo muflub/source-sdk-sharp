@@ -69,7 +69,7 @@ public sealed class ServerEntityEngine
     /// </summary>
     public static (ServiceContainer Engine, ServerEntityEngine Side) Unattached()
     {
-        var side = new EngineSide(Abi.Side.Server);
+        var side = EngineSide.Create(Abi.Side.Server);
         EngineServerBinding.Bind(side);
         var engine = new ServiceContainer();
 

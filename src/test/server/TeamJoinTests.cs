@@ -74,7 +74,7 @@ public class TeamJoinTests
         public readonly RecordingLog Log = new();
         public readonly SsPlayer[] Players;
         public readonly ObserverTests.Clients Clients = new();
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
 
         public Rig()
         {

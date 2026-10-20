@@ -81,15 +81,9 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     private ShimFrameFwd* _vtbl;
 
     /// <summary>
-    /// The one the container builds: over the side's own factory, which asks
-    /// that side's shim root.
-    /// </summary>
-    public EngineFrame(EngineSide side) : this(side, side.Interfaces)
-    {
-    }
-
-    /// <summary>
-    /// The same, over a named factory.
+    /// Over <paramref name="side"/> and a factory: the side's own when the
+    /// container builds it (<c>EngineServices.Build</c> hands it the side's
+    /// <see cref="EngineSide.Interfaces"/>), a named one in a fact.
     ///
     /// <para>
     /// <b>The seam is here so that what a REFUSED bind says can be tested at
@@ -100,7 +94,7 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     /// <c>Bind</c> can see.
     /// </para>
     /// </summary>
-    internal EngineFrame(EngineSide side, NativeInterfaceFactory factory)
+    public EngineFrame(EngineSide side, NativeInterfaceFactory factory)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _factory = factory;

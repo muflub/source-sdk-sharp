@@ -39,7 +39,7 @@ public class LivenessMirrorCompositionTests
 
     private static ServerModule Composed(out EngineSide engine)
     {
-        engine = new EngineSide(Side.Server);
+        engine = EngineSide.Create(Side.Server);
         return Composed(engine);
     }
 

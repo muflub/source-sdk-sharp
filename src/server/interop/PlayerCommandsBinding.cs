@@ -16,20 +16,32 @@ namespace SourceSharp.Server.Interop;
 /// the player shadow all run on the side it was built over.
 /// </remarks>
 public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, ISideModule module, IServerModule game,
-                                                  MovementRunner movement, PlayerCommandQueue commands,
+                                                  MovementRunner movement, MovementRules rules,
+                                                  PlayerRunMoveStages stages, PlayerCommandQueue commands,
                                                   Func<bool> shadowEnabled) : IManagedPlayerCommands
 {
     // The module's three movement decisions, built once (statics to zero):
     // handed to the loop for each run and taken back after, so no closure
     // over this module is left in a loop that outlives it.
-    private readonly MovementRules _rules = new(
-        r => game.GetJumpScale(in r),
-        (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
-        (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
+    private readonly MovementRules _rules = rules;
 
     // The command loop's PlayerRunMove stages, over the same side as the
     // runner (they were MovementRunner's, which both sides build).
-    private readonly PlayerRunMoveStages _stages = PlayerRunMoveStages.For(movement);
+    private readonly PlayerRunMoveStages _stages = stages;
+
+    /// <summary>
+    /// The binding over <paramref name="game"/>'s movement decisions and
+    /// <paramref name="movement"/>'s stages, which are built here once (phase
+    /// 11 review: a constructor only keeps what it is handed).
+    /// </summary>
+    public static PlayerCommandsBinding For(Crossings crossings, ILog log, ISideModule module, IServerModule game,
+                                            MovementRunner movement, PlayerCommandQueue commands, Func<bool> shadowEnabled)
+        => new(crossings, log, module, game, movement,
+               new MovementRules(
+                   r => game.GetJumpScale(in r),
+                   (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
+                   (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m)),
+               PlayerRunMoveStages.For(movement), commands, shadowEnabled);
 
     private void Enter(CrossingOp op)
     {

@@ -47,18 +47,13 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     private ShimLevelFwd* _vtbl;
 
     /// <summary>
-    /// The one the container builds: over the real ABI slot, acquired through
-    /// its own side's factory (plan_abi_hotreload D8), never the process-wide one.
+    /// Over a factory: its own side's when the container builds it (the real
+    /// ABI slot, acquired through that side's factory, plan_abi_hotreload D8,
+    /// never the process-wide one; <c>EngineServices.Build</c> hands it the
+    /// side's <see cref="EngineSide.Interfaces"/>), a named one in a fact, so a
+    /// refused bind can be driven at the call site.
     /// </summary>
-    public EngineLevel(EngineSide side) : this((side ?? throw new ArgumentNullException(nameof(side))).Interfaces)
-    {
-    }
-
-    /// <summary>
-    /// The same, over a named factory — the seam that lets a refused bind be
-    /// driven at the call site rather than one layer under it.
-    /// </summary>
-    internal EngineLevel(NativeInterfaceFactory factory) => _factory = factory;
+    public EngineLevel(NativeInterfaceFactory factory) => _factory = factory;
 
     private ShimLevelFwd* Vtbl
     {

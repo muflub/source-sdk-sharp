@@ -36,7 +36,7 @@ public sealed unsafe class ClientInputHostTests
             ? (delegate* unmanaged<void*, void*, void*, byte, void>)&MouseDeltaAnswers
             : null;
 
-        var side = new EngineSide(Side.Client);
+        var side = EngineSide.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return ClientInputHost.For(new ModuleEngine(side), new NullConsole());
@@ -112,7 +112,7 @@ public sealed unsafe class ClientInputHostTests
         fwd->IsPaused = &Paused;
         fwd->ClientCmd_Unrestricted = &Unrestricted;
 
-        var side = new EngineSide(Side.Client);
+        var side = EngineSide.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return ClientInputHost.For(new ModuleEngine(side), new NullConsole());
@@ -153,7 +153,7 @@ public sealed unsafe class ClientInputHostTests
     [Fact]
     public void WithNoEngineClientEveryAnswerIsItsDefault()
     {
-        IInputHost host = ClientInputHost.For(new ModuleEngine(new EngineSide(Side.Client)), new NullConsole());
+        IInputHost host = ClientInputHost.For(new ModuleEngine(EngineSide.Create(Side.Client)), new NullConsole());
 
         host.GetScreenSize(out int width, out int height);
         host.GetMouseDelta(out int x, out int y, ignoreNextMouseDelta: false);

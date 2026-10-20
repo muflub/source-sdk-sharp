@@ -71,8 +71,8 @@ public unsafe class VtableClientCommandTests
     [Fact]
     public void TheRootRegistersTheSourceOverItsOwnEngine()
     {
-        var served = new EngineSide(Side.Client);
-        var bare = new EngineSide(Side.Client);
+        var served = EngineSide.Create(Side.Client);
+        var bare = EngineSide.Create(Side.Client);
         IVtableEngineClientSource servedSource = Composed(served);
         IVtableEngineClientSource bareSource = Composed(bare);
 

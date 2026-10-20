@@ -261,6 +261,15 @@ Each phase builds, passes its tests and is committed before the next.
   assembly. `Shared.Interop` is compiled into each side's interop to match.
 - 2026-10-19 (user): the Abi keeps only the value types its own code uses; the
   others live in the interface assemblies.
+- 2026-10-20 (user, PR review): a constructor is handed what it uses and
+  stores it ("this constructor should be: `internal ClientInputHost(InputClientArea
+  input, IEngineConsole console)` and the same for all the other places";
+  "why is engine client not an interface passed in the constructor as well?").
+  Then: "also apply this logic to all the classes so the constructors are only
+  saving params directly into fields". Scope ruled as the interop layer (Abi,
+  Server.Interop, Client.Interop), in this PR, held by a census fact. Allowed
+  besides stores: the object's own empty state, chaining with defaults, value
+  types and attributes (not checked), argument validation.
 - 2026-10-19 (user, review of phase 5): the adapters' areas are not nullable,
   because nothing in the game composes before the attach (LoadSideV2 fails the
   load first). Tests that compose a client module do not reach the shim at
@@ -626,7 +635,8 @@ Open: none.
     - no type hands out an area (every area field or property is private);
     - `EngineSide` holds exactly its seven, or four, own areas;
     - `Areas` is read only by the side, `ModuleEngine`, the client's
-      adapter registration, a constructor or a static method, never per call.
+      adapter registration or a static method that is not a constructor
+      (a factory such as `For`), never per call.
 
     Mutation proofs turn each red: an `internal` area field, an
     eighth area field on the side, and a binding method that looks an area up.
@@ -636,3 +646,17 @@ Open: none.
     (`_networkServerArea.X(`, `networkArea.X(`) and follows private binding
     helpers to a fixed point. Its reach walk treats a call on an area class
     as the slot.
+  - Review round (2026-10-20): constructors only store. `ClientInputHost`
+    takes its `InputClientArea`, the console and the engine client's input
+    slice (`IClientInputEngine`, implemented explicitly by `EngineClient` so
+    its public surface stays its table's). The work constructors did moved
+    into static factories: `EngineSide.Create` (validation and the detached
+    areas), `ConVarRegistry.For`, `NetStateCatalog.Of`,
+    `NetSchemaType.Create`, `MovementRunner.For`, `PlayerCommandsBinding.For`,
+    `PredictionClientBinding.For`, `HierarchyDriver.For`, `InputMailbox.Over`,
+    `ClientBoneBatch.Allocate`, `FirstChance.Watch` and others; derived shim
+    areas take their base's `ShimRef` (`shim.As<TBase>()`) from the
+    registration. What a constructor computed from its arguments became a
+    lazy property. `ConstructorCensusTests` reads the IL of every class
+    constructor in the Abi and both interops (over 500); a planted
+    `console.FindConVarValue` in `ClientInputHost`'s constructor turns it red.

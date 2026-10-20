@@ -43,7 +43,7 @@ public unsafe class GameFileSideTests : IDisposable
     [Fact]
     public void ASideWithNoShimRootReadsNothing()
     {
-        var engine = new EngineSide(Side.Client);
+        var engine = EngineSide.Create(Side.Client);
         engine.Initialize();
 
         Assert.True(SideBindings.Of<IEngineFiles>(engine).ReadGameFile("scripts/decals_subrect.txt") is null,
@@ -73,7 +73,7 @@ public unsafe class GameFileSideTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = new EngineSide(side);
+        var api = EngineSide.Create(side);
         api.Initialize();
 
         string why;

@@ -64,7 +64,7 @@ internal static class ClientDoubles
     /// </summary>
     public static C.ServiceContainer UnattachedEngine()
     {
-        var side = new C.EngineSide(SourceSharp.Abi.Side.Client);
+        var side = C.EngineSide.Create(SourceSharp.Abi.Side.Client);
         var engine = new C.ServiceContainer();
         engine.AddInstance(new C.StandaloneMirror());
         C.EngineServices.AddTo(engine, side);

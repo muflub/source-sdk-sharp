@@ -70,7 +70,7 @@ public class ObserverTests
                 p.State.Alive = true;
                 p.State.ObserverTarget = EntityHandle.None.Value;
             }
-            ConVars = new ConVarRegistry(UnattachedConsole());
+            ConVars = ConVarRegistry.For(UnattachedConsole());
             ConVars.RegisterAll(typeof(GameRules).Assembly);
             ConVars.Get<AllowSpectatorsConVar>()!.NotifyChanged("1", "0");   // stock's default
             Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine, Engine, Engine, ConVars, Clients);

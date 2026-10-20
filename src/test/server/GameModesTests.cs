@@ -108,7 +108,7 @@ public class GameModesTests
 
     private sealed class Rig
     {
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         public readonly List<string> Order = [];
         public readonly RecordingLog Log = new();
 

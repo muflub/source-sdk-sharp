@@ -28,18 +28,19 @@ public sealed unsafe class MovementRunner
     private long _declined;
 
     /// <param name="side">This side's engine.</param>
-    /// <param name="movement">That side's movement area, which the engine's world moves through.</param>
+    /// <param name="world">The engine's world, over that side's movement area.</param>
+    /// <param name="isServer">Whether that side is the server.</param>
     /// <param name="clientWorld">
     /// The client prediction's world over the engine's (<see cref="ClientLoop"/>):
     /// the client puts stock's client move helper there (lane c6-input). Null
     /// runs the loop on the engine's world itself.
     /// </param>
-    internal MovementRunner(EngineSide side, MovementArea movement, Func<IMoveWorld, IMoveWorld>? clientWorld)
+    internal MovementRunner(EngineSide side, MovementBridge.EngineMoveWorld world, bool isServer, IMoveWorld? clientWorld)
     {
         Api = side ?? throw new ArgumentNullException(nameof(side));
-        _world = new MovementBridge.EngineMoveWorld(Api, movement);
-        _isServer = side.Side == Side.Server;
-        _clientWorld = clientWorld?.Invoke(_world);
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _isServer = isServer;
+        _clientWorld = clientWorld;
     }
 
     /// <summary>
@@ -51,7 +52,8 @@ public sealed unsafe class MovementRunner
     public static MovementRunner For(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new MovementRunner(engine.Api, engine.Api.Areas.Require<MovementArea>(), clientWorld);
+        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Api.Areas.Require<MovementArea>());
+        return new MovementRunner(engine.Api, world, engine.Side == Side.Server, clientWorld?.Invoke(world));
     }
 
     private readonly IMoveWorld? _clientWorld;

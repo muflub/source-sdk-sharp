@@ -113,7 +113,7 @@ public class EngineAreaTests
     public void NoBindingCanBeBuiltWithoutItsSide()
     {
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var bindings = EngineServices.Bindings(new EngineSide(Side.Server), composition).ToArray();
+        var bindings = EngineServices.Bindings(EngineSide.Create(Side.Server), composition).ToArray();
         Assert.True(bindings.Length > 20, $"{bindings.Length} bindings reflected over");
 
         var sideless = bindings
@@ -181,7 +181,7 @@ public class EngineAreaTests
         // Built over a container holding what a side's composition registers
         // before its areas (the render binding's mirror, plan_abi_hotreload D7).
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var bindings = EngineServices.Bindings(new EngineSide(Side.Server), composition).ToArray();
+        var bindings = EngineServices.Bindings(EngineSide.Create(Side.Server), composition).ToArray();
 
         Assert.True(bindings.Length == areas.Length, "every area has a binding");
 
@@ -208,7 +208,7 @@ public class EngineAreaTests
         // The render binding's mirror first, as a side's composition registers
         // it (plan_abi_hotreload D7).
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        int added = EngineServices.AddTo(services, new EngineSide(Side.Server));
+        int added = EngineServices.AddTo(services, EngineSide.Create(Side.Server));
 
         Assert.True(added == Areas().Length, "registering the engine adds every area");
 
@@ -236,9 +236,9 @@ public class EngineAreaTests
     public void EachSideRegistersItsOwnBindingOfEveryArea()
     {
         var server = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(server, new EngineSide(Side.Server));
+        EngineServices.AddTo(server, EngineSide.Create(Side.Server));
         var client = new client::SourceSharp.Abi.ServiceContainer().AddInstance(new client::SourceSharp.Abi.StandaloneMirror());
-        client::SourceSharp.Abi.EngineServices.AddTo(client, new client::SourceSharp.Abi.EngineSide(Side.Client));
+        client::SourceSharp.Abi.EngineServices.AddTo(client, client::SourceSharp.Abi.EngineSide.Create(Side.Client));
 
         Assembly serverInterop = typeof(EngineSide).Assembly;
         Assembly clientInterop = typeof(client::SourceSharp.Abi.EngineSide).Assembly;

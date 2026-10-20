@@ -120,7 +120,7 @@ public class DamageHitGroupTests
 
     private static List<string> PrintedFor(string print, HitGroup hitGroup)
     {
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         convars.Get<PlayerDebugPrintDamageConVar>()!.Bind(-1, "player_debug_print_damage", print);
 

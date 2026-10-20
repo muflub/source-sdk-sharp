@@ -229,6 +229,17 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   motion host). `ShimAreaInjectionCensusTests` holds all three. Why: the
   containers (`ShimAreas`, `ClientShimAreas`) let every binding reach every
   area through its side, so nothing said what each one depended on.
+- **An interop constructor saves its parameters into fields and does nothing
+  else** (Abi, Server.Interop, Client.Interop; user ruling 2026-10-20). What
+  it would look up, acquire or build is handed to it, and a static factory
+  (`For`, `Of`, `Create`, `Acquire`) does that work once, where a reader can
+  see it. Allowed beside the stores: the object's own empty state (an empty
+  collection, an array, a scratch block, and in a parameterless constructor
+  a lambda or a layer object made from constants), chaining to another
+  constructor with a default, and argument checks that throw. Value types,
+  attributes and exceptions are exempt. `ConstructorCensusTests` reads every
+  constructor's IL. Why: a constructor that reached into the side hid what
+  the class depended on, the same way the area containers did.
 - **The invalid entity handle is `0xFFFFFFFF`, never 0**, because entry 0 is the
   world. `EntityHandle` stores the raw handle inverted, so `default(EntityHandle)`
   IS `EntityHandle.None`; the raw handle 0 (entry 0) must be named on purpose.

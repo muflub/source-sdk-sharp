@@ -50,7 +50,7 @@ public unsafe class SideMovementEngineTests : IDisposable
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
-        var api = new EngineSide(side);
+        var api = EngineSide.Create(side);
         api.Initialize();
 
         string why;
@@ -244,7 +244,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void ANetStateOnASideWithNoEngineTakesLocalStorage()
     {
         var state = new SourceSharp.Shared.BarrelNetState();
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         state.Bind(side, side.Areas.Require<NetworkServerArea>(), Player);
 
         Assert.False(state.IsBound, "no engine: a local state, not a bound one");

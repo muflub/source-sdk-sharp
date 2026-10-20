@@ -87,7 +87,7 @@ public class RespawnPolicyTests
     /// </summary>
     private sealed class Rig
     {
-        public readonly ConVarRegistry ConVars = new(TestServices.UnattachedConsole());
+        public readonly ConVarRegistry ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         public readonly RecordingLog Log = new();
         public readonly RecordingEngine Engine = Fake();
         public readonly ServiceContainer Services = TestServices.Services();

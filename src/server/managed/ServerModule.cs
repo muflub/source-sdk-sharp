@@ -49,7 +49,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // (statics to zero).
         _tempEnts = new TempEntRegistry(engine.Log);
         _playerCommands = new PlayerCommandQueue(engine.Log);
-        _netStates = new NetStateCatalog(Game, engine.Log);
+        _netStates = NetStateCatalog.Of(Game, engine.Log);
         _layouts = new EntityLayoutRegistry(engine.Log);
     }
 
@@ -112,7 +112,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_engine.Breaks);
 
         // The liveness gate's independent oracle, over this side's own slot.
-        _services.AddInstance(new LivenessSlotReference(_engine));
+        _services.AddInstance(LivenessSlotReference.For(_engine));
 
         // This load's Steam game server, handed to the engine host binding the
         // next line builds (P1 run 3: an instance per load, not a static; it
@@ -121,7 +121,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         int areas = _engine.AddTo(_services);
 
-        _convars = new ConVarRegistry(_services.Require<IEngineConsole>());
+        _convars = ConVarRegistry.For(_services.Require<IEngineConsole>());
         _userMessages = new UserMessageRegistry(Log, receives: false);
 
         // What sends a user message by key (plan_side_isolation §2.2a): this
@@ -714,7 +714,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedNetState",
                       v => ManagedAreaFactory.Create(v, new NetStateLayoutBinding(_engine.Crossings, Log, _netStates)));
         _bindings.Add("IManagedPlayerCommands",
-                      v => ManagedAreaFactory.Create(v, new PlayerCommandsBinding(_engine.Crossings, Log, this, this, _movement, _playerCommands,
+                      v => ManagedAreaFactory.Create(v, PlayerCommandsBinding.For(_engine.Crossings, Log, this, this, _movement, _playerCommands,
                                                              () => _playerShadow?.Value ?? true)));
         _bindings.Add("IManagedFrame",
                       v => ManagedAreaFactory.Create(v, NewFrameBinding()));
@@ -1725,7 +1725,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // CPhysicsHook forwards its FrameUpdatePostEntityThink. A lifecycle
         // participant, so registered before the driver below.
         {
-            var frameCalls = new VPhysicsFrameCalls(_engine.VPhysics);
+            var frameCalls = VPhysicsFrameCalls.For(_engine.VPhysics);
             var speeds = _convars.Get<PhysSpeedsConVar>()
                 ?? throw new InvalidOperationException("phys_speeds is not registered");
             var timescale = _convars.Get<PhysTimescaleConVar>()
@@ -2999,8 +2999,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // vphysics never keeps it (a solid's name is the caller's), and it is
         // allocated once per load and never freed, like the build's names.
         {
-            var solidKeys = new SolidKeyHandlerBinding(_engine.Crossings,
-                                                       System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi("DEFAULT"));
+            var solidKeys = new SolidKeyHandlerBinding(_engine.Crossings, new SolidKeyDefaults(
+                                                       System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi("DEFAULT")));
             _solidKeys = callbackObjects is null ? null : SolidKeyHandlerBinding.Create(vtables, solidKeys, callbackObjects);
             var entityPhysics = _services.Require<IEngineEntityPhysics>();
             IStaticPropPhysics? staticProps = StaticPropMgrServer.Acquire(_engine, out string worldWhy);

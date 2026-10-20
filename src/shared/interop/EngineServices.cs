@@ -199,6 +199,7 @@ public static partial class EngineServices
             {
                 Type wanted = parameters[i].ParameterType;
                 args[i] = wanted == typeof(EngineSide) ? side
+                        : wanted == typeof(NativeInterfaceFactory) ? side.Interfaces
                         : IsShimArea(wanted) ? side.Areas.Resolve(wanted)
                         : from.Resolve(wanted);
 

@@ -502,7 +502,7 @@ public sealed class ConVarRegistry
     private readonly Dictionary<string, Type> _owners = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A registry over one side's console (plan_abi_hotreload D8).</summary>
-    public ConVarRegistry(IEngineConsole console) : this(new EngineConVarBackend(console), new ConsoleLog(console)) { }
+    public static ConVarRegistry For(IEngineConsole console) => new(new EngineConVarBackend(console), new ConsoleLog(console));
 
     /// <param name="backend">Where the declarations go.</param>
     /// <param name="log">

@@ -129,8 +129,8 @@ public unsafe class SideStateTests
     [Fact]
     public void AnEngineComposedWithoutALoadHasAStateOfItsOwn()
     {
-        var one = new EngineSide(Side.Server);
-        var two = new EngineSide(Side.Server);
+        var one = EngineSide.Create(Side.Server);
+        var two = EngineSide.Create(Side.Server);
 
         Assert.NotSame(one.State, two.State);
         Assert.NotSame(one.State.Crossings, two.State.Crossings);
@@ -205,7 +205,7 @@ public unsafe class SideStateTests
 
     [Fact]
     public void AnEngineRefusesTheOtherSidesState()
-        => Assert.Throws<ArgumentException>(() => new EngineSide(Side.Server, new SideState(Side.Client)));
+        => Assert.Throws<ArgumentException>(() => EngineSide.Create(Side.Server, new SideState(Side.Client)));
 
     private static void Free(nint handle)
     {

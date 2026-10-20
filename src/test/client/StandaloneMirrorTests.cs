@@ -337,7 +337,7 @@ public class StandaloneMirrorTests
     public void DormancyIsAnsweredFromTheMirror()
     {
         var mirror = new StandaloneMirror();
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Client), mirror);
 
         mirror.NoteDormancy(H(12), dormant: true);
 
@@ -350,7 +350,7 @@ public class StandaloneMirrorTests
     public void DormancyFallsBackToTheSlotWhenTheRerouteIsSwitchedOff()
     {
         var mirror = new StandaloneMirror { Rerouted = false };
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Client), mirror);
 
         mirror.NoteDormancy(H(12), dormant: true);
 
@@ -363,7 +363,7 @@ public class StandaloneMirrorTests
     public void TheServerIsNotAnsweredFromTheMirror()
     {
         var mirror = new StandaloneMirror();
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Server), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Server), mirror);
 
         mirror.NoteDormancy(H(12), dormant: true);
 
@@ -376,7 +376,7 @@ public class StandaloneMirrorTests
     public void TheAnimationClockIsAnsweredFromTheMirror()
     {
         var mirror = new StandaloneMirror();
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Client), mirror);
 
         mirror.NoteSequence(H(12), 6, 1f, restart: true, now: 0f);
         mirror.NoteSequenceInfo(H(12), duration: 2f, looping: true);
@@ -396,7 +396,7 @@ public class StandaloneMirrorTests
     public void TheAnimationClockFallsBackToTheSlotWhenTheRerouteIsSwitchedOff()
     {
         var mirror = new StandaloneMirror { Rerouted = false };
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Client), mirror);
 
         mirror.NoteSequence(H(12), 6, 1f, restart: true, now: 0f);
         mirror.NoteSequenceInfo(H(12), duration: 2f, looping: true);
@@ -415,7 +415,7 @@ public class StandaloneMirrorTests
     public void TheServersAnimationClockIsNotAnsweredFromTheMirror()
     {
         var mirror = new StandaloneMirror();
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Server), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Server), mirror);
 
         mirror.NoteSequence(H(12), 6, 1f, restart: true, now: 0f);
 
@@ -429,7 +429,7 @@ public class StandaloneMirrorTests
     public void PlayingASequenceWritesTheRecordThrough()
     {
         var mirror = new StandaloneMirror();
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Client), mirror);
 
         OnTheClient(() =>
         {
@@ -458,7 +458,7 @@ public class StandaloneMirrorTests
     public void AWriteIsRecordedEvenWithTheRerouteSwitchedOff()
     {
         var mirror = new StandaloneMirror { Rerouted = false };
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Client), mirror);
 
         OnTheClient(() =>
         {
@@ -475,7 +475,7 @@ public class StandaloneMirrorTests
     public void AServerSideWriteDoesNotEnterTheMirror()
     {
         var mirror = new StandaloneMirror();
-        var render = SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Server), mirror);
+        var render = SideBindings.Of<IEngineEntityRender>(EngineSide.Create(Side.Server), mirror);
 
         OnTheServer(() =>
         {

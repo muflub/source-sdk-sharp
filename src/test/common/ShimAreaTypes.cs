@@ -15,8 +15,9 @@ internal static class ShimAreaTypes
     /// <summary>The forwarder struct an area class (a container field's type) reads its slots through.</summary>
     public static Type FwdOf(Type area)
     {
+        // A derived area also takes its base's view of the same table, second.
         var ctor = Assert.Single(area.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic));
-        Type shimRef = Assert.Single(ctor.GetParameters()).ParameterType;
+        Type shimRef = ctor.GetParameters()[0].ParameterType;
         Assert.True(shimRef.IsGenericType, $"{area.Name} is not built from a ShimRef");
         return shimRef.GetGenericArguments()[0];
     }

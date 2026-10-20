@@ -117,7 +117,7 @@ public static partial class TestServices
         // FrictionSoundsTests reads the controller's side itself.
         services.AddInstance(new SourceSharp.Shared.FrictionSounds(engine, new SilentSoundController(),
                                                                    new SourceSharp.Shared.EnginePhysicsSurfaceTable(
-                                                                       new EngineSide(Side.Server).Surfaces),
+                                                                       EngineSide.Create(Side.Server).Surfaces),
                                                                    new SourceSharp.Server.TempEntFrictionEffects(engine,
                                                                        new SourceSharp.Server.TempEnts(new RecordingLog(), new TempEntRegistry(new RecordingLog()), engine))));
 

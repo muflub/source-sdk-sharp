@@ -128,7 +128,7 @@ public class ShimAreaTypedCallsTests
         // The server's EngineSide attaches the server's areas only: the
         // client's attach is in the client's half (plan_shim_areas_split phase 7).
         using var root = new FakeShimRoot();
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         Assert.NotNull(side.Areas.Resolve(typeof(EntitiesServerArea)));
         Assert.Null(side.Areas.Resolve(typeof(HudClientArea)));
@@ -180,7 +180,7 @@ public class ShimAreaTypedCallsTests
         // could not pass. The server's (this suite's): since
         // plan_shim_areas_split phase 11 the members that call an area are the
         // bindings', not EngineSide's.
-        int bound = EngineServices.Areas(new EngineSide(Side.Server).Log)
+        int bound = EngineServices.Areas(EngineSide.Create(Side.Server).Log)
             .Sum(a => a.Implementation.GetMethods(InstanceBoth | BindingFlags.DeclaredOnly).Length);
         Assert.True(bound > 400, $"{bound} engine binding methods");
     }

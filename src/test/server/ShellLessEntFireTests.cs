@@ -217,8 +217,8 @@ public class ShellLessEntFireTests
     [Fact]
     public void TheRouteFindsNothingOnADifferentSide()
     {
-        var server = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var server = EngineSide.Create(Side.Server);
+        var client = EngineSide.Create(Side.Client);
         var registry = new ScriptedEntityRegistry(server.ShellLess, server.EntityIo, server.Removal);
         registry.RegisterAll(typeof(ShellLessEntFireTests).Assembly);
         registry.Create(Shellless, Named("shaker"));

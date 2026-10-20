@@ -56,7 +56,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     private readonly IVtablePhysicsSurfaceProps? _surfaceProps;
     private readonly ClientBoneDriver _driver;
     private readonly BoneEntityStates _states = new();
-    private readonly ClientBoneBatch _batch = new();
+    private readonly ClientBoneBatch _batch = ClientBoneBatch.Allocate();
 
     // The entities that became ragdolls since the last batch was built: the
     // frame they flipped in and what their entry had answered by then (-1 for

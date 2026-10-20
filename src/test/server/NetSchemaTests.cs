@@ -180,7 +180,7 @@ public partial class NetSchemaTests
         var type = NetSchema.FromStandalone(
             NoTiers, StandaloneNetStates.Of(typeof(DeclaredTypes)), published: true);
 
-        var renamed = new NetSchemaType(
+        var renamed = NetSchemaType.Create(
             type.ClassName, type.TypeName, type.Shell,
             type.Fields.Select(f => f with { CsType = f.CsType + "_other" }).ToArray(),
             type.LayoutBytes, type.PropCount, published: true);
@@ -189,7 +189,7 @@ public partial class NetSchemaTests
 
         // And the guard that says the hash is not simply ignoring this struct:
         // move something that DOES change decoding and it must move.
-        var widened = new NetSchemaType(
+        var widened = NetSchemaType.Create(
             type.ClassName, type.TypeName, type.Shell,
             type.Fields.Select(f => f.Name == "Style" ? f with { Bits = f.Bits + 1 } : f).ToArray(),
             type.LayoutBytes, type.PropCount, published: true);
@@ -506,7 +506,7 @@ public partial class NetSchemaTests
         // And the failure the inspector is for, staged: a layout whose middle
         // field is one byte off reads a value nobody wrote. If the decoder could
         // not tell these apart it would have nothing to report.
-        var shifted = new NetSchemaType(
+        var shifted = NetSchemaType.Create(
             type.ClassName, type.TypeName, type.Shell,
             new[]
             {
@@ -554,7 +554,7 @@ public partial class NetSchemaTests
 
         // A negative offset cannot arise from the generator, and a decoder that
         // trusted one would index before the start of engine memory.
-        var negative = new NetSchemaType("x", "x", NetSchemaShell.Standalone,
+        var negative = NetSchemaType.Create("x", "x", NetSchemaShell.Standalone,
             new[] { new NetSchemaField("Bad", "int", NetFieldKind.Int, -4, 4, 32) },
             4, 1, published: true);
 

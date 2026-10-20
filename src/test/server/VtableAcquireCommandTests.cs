@@ -79,8 +79,8 @@ public unsafe class VtableAcquireCommandTests
     [Fact]
     public void TheRootRegistersTheInterfacesOverItsOwnEngine()
     {
-        var served = new EngineSide(Side.Server);
-        var bare = new EngineSide(Side.Server);
+        var served = EngineSide.Create(Side.Server);
+        var bare = EngineSide.Create(Side.Server);
         IServerEngineInterfaces answered = Composed(served);
         IServerEngineInterfaces refused = Composed(bare);
 
@@ -99,7 +99,7 @@ public unsafe class VtableAcquireCommandTests
     [Fact]
     public void TheRegisteredProbesAskTheRootsEngine()
     {
-        IServerEngineInterfaces interfaces = Composed(new EngineSide(Side.Server));
+        IServerEngineInterfaces interfaces = Composed(EngineSide.Create(Side.Server));
 
         Assert.StartsWith("IShimFrame: REFUSED", interfaces.FrameProbe(), StringComparison.Ordinal);
         Assert.StartsWith("IShimLevel: REFUSED", interfaces.LevelProbe(), StringComparison.Ordinal);

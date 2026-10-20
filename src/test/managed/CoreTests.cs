@@ -43,8 +43,8 @@ public class CoreTests
     [Fact]
     public void EngineIsPerSide()
     {
-        var server = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var server = EngineSide.Create(Side.Server);
+        var client = EngineSide.Create(Side.Client);
 
         Assert.True(!server.IsInitialized && !client.IsInitialized, "a fresh side is not initialised");
         server.Initialize();
@@ -130,7 +130,7 @@ public class CoreTests
     [Fact]
     public void ConVarRegistryRejectsBadDeclarations()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
 
         // No engine, so registration cannot succeed — the point is that it
         // reports rather than throwing, and binds each convar to what it
@@ -917,7 +917,7 @@ public class CoreTests
         var board = new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog());
         var deaths = new PlayerDeathEvent();
 
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         var rules = new GameRules(new RecordingLog(), convars, host,
             Fake().Ignores("Players.GiveItem", "Players.GiveAmmo", "Players.FindByUserId",

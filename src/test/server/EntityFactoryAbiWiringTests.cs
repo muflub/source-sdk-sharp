@@ -51,7 +51,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     /// <summary>One ask of a fresh, unattached server side, over its own (detached) lifecycle area.</summary>
     private static T Fresh<T>(Func<EngineSide, EntityLifecycleArea, T> ask)
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         return ask(side, side.Areas.Require<EntityLifecycleArea>());
     }
 
@@ -65,7 +65,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     /// </summary>
     private EngineSide Attached(Side which = Side.Server)
     {
-        var side = new EngineSide(which);
+        var side = EngineSide.Create(which);
         _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.EntityFactoryCount),
                    (nint)(delegate* unmanaged<void*, int>)&Count);
         Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
@@ -122,7 +122,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     [Fact]
     public void AServerWithoutItsShimsWiresNothing()
     {
-        var factories = Factories(new EngineSide(Side.Server));
+        var factories = Factories(EngineSide.Create(Side.Server));
 
         Assert.False(factories.Available);
         Assert.Null(factories.NativeCount);

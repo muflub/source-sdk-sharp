@@ -33,7 +33,7 @@ internal sealed unsafe partial class EngineSide
     // (EngineServices.Build, ModuleEngine), which is the only reader of
     // Areas. Every area over no table until the attach, so a side with no
     // engine composes, and its attach guard refuses every call.
-    private ServiceContainer _areas;
+    private ServiceContainer _areas = null!;
     private bool _attached;
 
     // The areas the side's OWN services read: the ones made before any
@@ -42,33 +42,38 @@ internal sealed unsafe partial class EngineSide
     // velocity host). Assigned at each attach, from the same registration, and
     // pinned by ShimAreaInjectionCensusTests so this does not grow back into a
     // container: an area a binding calls is that binding's.
-    private ConsoleArea _consoleArea;
-    private EngineArea _engineArea;
-    private EntitiesArea _entitiesArea;
-    private ModelsArea _modelsArea;
+    //
+    // These, the registry and Surfaces are null only inside Create, which
+    // hands them the detached areas before anything can hold the side.
+    private ConsoleArea _consoleArea = null!;
+    private EngineArea _engineArea = null!;
+    private EntitiesArea _entitiesArea = null!;
+    private ModelsArea _modelsArea = null!;
 
-    internal EngineSide(Side side) : this(side, new SideState(side)) { }
+    // A constructor only saves what it is handed (phase 11 review): Create
+    // builds the rest.
+    private EngineSide(Side side, SideState state)
+    {
+        _side = side;
+        State = state;
+    }
 
-    internal EngineSide(Side side, SideState state)
+    /// <summary>A side with a state of its own: an engine composed without a load.</summary>
+    internal static EngineSide Create(Side side) => Create(side, new SideState(side));
+
+    /// <summary>
+    /// The side over <paramref name="state"/>, which must be the same side's,
+    /// with every area detached until the attach.
+    /// </summary>
+    internal static EngineSide Create(Side side, SideState state)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (state.Side != side)
             throw new ArgumentException($"a {side} engine was handed the {state.Side} side's state", nameof(state));
 
-        _side = side;
-        State = state;
-        _areas = DetachedAreas();
-        _consoleArea = _areas.Require<ConsoleArea>();
-        _engineArea = _areas.Require<EngineArea>();
-        _entitiesArea = _areas.Require<EntitiesArea>();
-        _modelsArea = _areas.Require<ModelsArea>();
-        OwnAreas(_areas);
-        Models = new ModelDescriptors(this);
-        // The precache is the server's (OwnModelPrecache, in each side's half):
-        // the client hands none in and a missing model answers -1, as the null
-        // slot did.
-        Breaks = new BreakModels(this, Models, OwnModelPrecache);
-        Surfaces = new PhysicsSurfaces(this, _areas.Require<MovementArea>());
+        var engine = new EngineSide(side, state);
+        engine.UseAreas(DetachedAreas());
+        return engine;
     }
 
     /// <summary>
@@ -149,10 +154,21 @@ internal sealed unsafe partial class EngineSide
     // module hands them on (ModuleEngine) and clears them at level shutdown.
 
     /// <summary>This side's model descriptors, cached per model per level.</summary>
-    internal ModelDescriptors Models { get; }
+    internal ModelDescriptors Models
+        => _models ??= new ModelDescriptors(model => EngineBound.ModelInfo(this).ModelIndex(model), EntityGetModelName, Log);
 
-    /// <summary>This side's break-piece lists, parsed once per model per level.</summary>
-    internal BreakModels Breaks { get; }
+    private ModelDescriptors? _models;
+
+    /// <summary>
+    /// This side's break-piece lists, parsed once per model per level. The
+    /// precache is the server's (OwnModelPrecache, in each side's half): the
+    /// client hands none in and a missing model answers -1, as the null slot did.
+    /// </summary>
+    internal BreakModels Breaks
+        => _breaks ??= new BreakModels(model => EngineBound.ModelInfo(this).ModelIndex(model), OwnModelPrecache,
+                                       index => EngineBound.ModelInfo(this).CollisionKeyValueText(index), Models, Log);
+
+    private BreakModels? _breaks;
 
     /// <summary>
     /// The handle a trace may be told to skip: <see cref="EntityHandle.None"/>
@@ -226,9 +242,15 @@ internal sealed unsafe partial class EngineSide
     /// <summary>The attach, once every area was taken: the side answers from these from now on.</summary>
     private void Attached(ShimRoot root, ServiceContainer areas)
     {
-        _areas = areas;
         _root = root;
         _attached = true;
+        UseAreas(areas);
+    }
+
+    /// <summary>The side answers from <paramref name="areas"/> from now on: detached at Create, the root's at the attach.</summary>
+    private void UseAreas(ServiceContainer areas)
+    {
+        _areas = areas;
         _consoleArea = areas.Require<ConsoleArea>();
         _engineArea = areas.Require<EngineArea>();
         _entitiesArea = areas.Require<EntitiesArea>();
@@ -281,7 +303,7 @@ internal sealed unsafe partial class EngineSide
     /// Made again at the attach, over the attached movement area, which is
     /// before any composition registers it.
     /// </summary>
-    internal PhysicsSurfaces Surfaces { get; private set; }
+    internal PhysicsSurfaces Surfaces { get; private set; } = null!;
 
     internal Side Side => _side;
 

@@ -26,7 +26,7 @@ public class StandaloneMirrorCompositionTests
 
     private static ClientModule Composed(SideState? state = null)
     {
-        var module = new ClientModule(new ModuleEngine(new EngineSide(Side.Client, state ?? new SideState(Side.Client))), new FakeClientEngineAdapters());
+        var module = new ClientModule(new ModuleEngine(EngineSide.Create(Side.Client, state ?? new SideState(Side.Client))), new FakeClientEngineAdapters());
         module.ComposeEngineAreas();
         return module;
     }

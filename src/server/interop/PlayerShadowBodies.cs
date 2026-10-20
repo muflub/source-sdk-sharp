@@ -114,8 +114,14 @@ public sealed class PlayerShadowBodies : IPlayerShadows
     // SS-PHYSWORLD report prints it. So they are unmanaged, made once per
     // instance and never freed: an object can outlive this instance across a
     // hot reload, and two short strings are the price of that never dangling.
-    private readonly nint _standName = Marshal.StringToCoTaskMemUTF8("player_stand");
-    private readonly nint _crouchName = Marshal.StringToCoTaskMemUTF8("player_crouch");
+    // The two hulls' names, made on the first body built rather than in the
+    // constructor, and kept for the bodies' lifetime.
+    private nint _standName;
+    private nint _crouchName;
+
+    private nint StandName => _standName != 0 ? _standName : _standName = Marshal.StringToCoTaskMemUTF8("player_stand");
+
+    private nint CrouchName => _crouchName != 0 ? _crouchName : _crouchName = Marshal.StringToCoTaskMemUTF8("player_crouch");
 
     /// <param name="enabled"><c>sourcesharp_player_shadow</c>: whether a body may be built at all.</param>
     /// <param name="warning">Where a refusal is said (native's Warning).</param>
@@ -246,7 +252,7 @@ public sealed class PlayerShadowBodies : IPlayerShadows
             Damping = HullDamping,
             RotDamping = HullRotDamping,
             RotInertiaLimit = HullRotInertiaLimit,
-            Name = _standName,
+            Name = StandName,
             GameData = PhysicsGameData.FromHandle(player),
             Volume = 0f,
             DragCoefficient = 0f,
@@ -254,7 +260,7 @@ public sealed class PlayerShadowBodies : IPlayerShadows
         };
 
         nint stand = _v.CreatePolyObject(env, standCollide, surface, f.Origin, in p);
-        p.Name = _crouchName;
+        p.Name = CrouchName;
         nint crouch = _v.CreatePolyObject(env, crouchCollide, surface, f.Origin, in p);
 
         if (stand == 0 || crouch == 0)

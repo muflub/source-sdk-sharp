@@ -21,12 +21,16 @@ public sealed class PlayerRunMoveStages
     internal PlayerRunMoveStages(EngineSide side, MovementServerArea movement, WorldServerArea world)
     {
         Api = side ?? throw new ArgumentNullException(nameof(side));
-        ArgumentNullException.ThrowIfNull(movement);
+        _movement = movement ?? throw new ArgumentNullException(nameof(movement));
         _world = world ?? throw new ArgumentNullException(nameof(world));
-
-        // Built once, so the per-frame command loop allocates no delegate.
-        RunMove = (player, index, stage) => RunMoveVia(side, movement, player, index, stage);
     }
+
+    // That side's movement area, whose PlayerRunMove slot the stages call.
+    private readonly MovementServerArea _movement;
+
+    // Made on the first ask and kept, so the per-frame command loop allocates
+    // no delegate.
+    private Func<EntityHandle, int, int, int>? _runMove;
 
     /// <summary>
     /// The stages over <paramref name="movement"/>'s side, with the areas they
@@ -56,7 +60,9 @@ public sealed class PlayerRunMoveStages
         => Api.EntityTraceHull(_world, entity, start, end, mins, maxs, mask, collisionGroup);
 
     /// <summary><c>PlayerRunMove</c> on this side, as the command loop calls it.</summary>
-    internal Func<EntityHandle, int, int, int> RunMove { get; }
+    internal Func<EntityHandle, int, int, int> RunMove => _runMove ??= RunMoveStage;
+
+    private int RunMoveStage(EntityHandle player, int index, int stage) => RunMoveVia(Api, _movement, player, index, stage);
 
     /// <summary>
     /// <paramref name="side"/>'s <c>PlayerRunMove</c> slot, guarded on the slot

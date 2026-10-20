@@ -115,7 +115,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
 
     private EngineSide Attached(string area, string slot, nint fn)
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();
         _root.Live(area, slot, fn);
         Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);

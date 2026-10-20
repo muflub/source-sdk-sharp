@@ -107,7 +107,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // (statics to zero).
         _layouts = new EntityLayoutRegistry(engine.Log);
         _tempEnts = new TempEntRegistry(engine.Log);
-        _netStates = new NetStateCatalog(Game, engine.Log);
+        _netStates = NetStateCatalog.Of(Game, engine.Log);
         _predictionErrors = new PredictionErrorRing(catalog: _netStates);
         _clock = engine.Clock();
         _standalones = new(_services);
@@ -378,7 +378,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_skeletonRoute);
 
         int areas = _engine.AddTo(_services);
-        _convars = new ConVarRegistry(_services.Require<IEngineConsole>());
+        _convars = ConVarRegistry.For(_services.Require<IEngineConsole>());
 
         // The server-bounded convars (C8): native objects the engine reads
         // through their vtable, answering values decided here. Started now so
@@ -640,7 +640,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedStandaloneClient",
                       v => ManagedAreaFactory.Create(v, NewStandaloneBinding()));
         _bindings.Add("IManagedPredictionClient",
-                      v => ManagedAreaFactory.Create(v, new PredictionClientBinding(_engine.Crossings, this, this, _movement)));
+                      v => ManagedAreaFactory.Create(v, PredictionClientBinding.For(_engine.Crossings, this, this, _movement)));
         _bindings.Add("IManagedHudClient", v => ManagedAreaFactory.Create(v, new HudClientBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUiClient", v => ManagedAreaFactory.Create(v, new UiClientBinding(_engine.Crossings, () => _ui, () => _centre, () => _disc, () => _voiceEvents, () => _keys, () => _voiceStatus)));
         // The client engine's console prints, forwarded in process by the

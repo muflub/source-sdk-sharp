@@ -30,7 +30,7 @@ public unsafe class ClientAdapterRegistrationTests
 
     private static EngineSide Attached(FakeShimRoot root)
     {
-        var side = new EngineSide(Side.Client);
+        var side = EngineSide.Create(Side.Client);
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return side;
     }
@@ -436,7 +436,7 @@ public unsafe class ClientAdapterRegistrationTests
     [Fact]
     public void OverAnUnattachedEngineTheRegistrationRefuses()
     {
-        var refusal = Assert.Throws<InvalidOperationException>(() => Composed(new EngineSide(Side.Client)));
+        var refusal = Assert.Throws<InvalidOperationException>(() => Composed(EngineSide.Create(Side.Client)));
         Assert.Contains("before its shim areas were attached", refusal.Message);
     }
 }

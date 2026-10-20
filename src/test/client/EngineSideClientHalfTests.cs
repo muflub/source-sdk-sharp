@@ -23,7 +23,7 @@ public class EngineSideClientHalfTests
 
     private static EngineSide Attached(FakeShimRoot root)
     {
-        var side = new EngineSide(Side.Client);
+        var side = EngineSide.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return side;
@@ -34,7 +34,7 @@ public class EngineSideClientHalfTests
     // client composition over a fake root reaches slots the fake leaves null.
     private static EngineSide Client()
     {
-        var side = new EngineSide(Side.Client);
+        var side = EngineSide.Create(Side.Client);
         side.Initialize();
         return side;
     }

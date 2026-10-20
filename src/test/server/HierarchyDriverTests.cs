@@ -159,7 +159,7 @@ public class HierarchyDriverTests
     private static (FakeWorld World, HierarchyDriver Driver) Fresh()
     {
         var world = new FakeWorld();
-        return (world, new HierarchyDriver(world));
+        return (world, HierarchyDriver.For(world));
     }
 
     //=========================================================================//

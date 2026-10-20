@@ -41,7 +41,7 @@ public class EngineBoundTests
     private static object Holder(string property)
         => typeof(EngineServices).Assembly.GetType("SourceSharp.Abi.EngineBoundSet")!
                .GetProperty(property, BindingFlags.NonPublic | BindingFlags.Instance)!
-               .GetValue(new EngineSide(Side.Server).Bound)!;
+               .GetValue(EngineSide.Create(Side.Server).Bound)!;
 
     private static string VersionOf(string property)
         => (string)Holder(property).GetType()
@@ -59,9 +59,9 @@ public class EngineBoundTests
         // but the REASON names the version string it asked for, which is the
         // thing under test.
         string clientWhy = Assert.Throws<InterfaceAcquisitionException>(
-            () => EngineBound.ModelInfo(new EngineSide(Side.Client))).Message;
+            () => EngineBound.ModelInfo(EngineSide.Create(Side.Client))).Message;
         string serverWhy = Assert.Throws<InterfaceAcquisitionException>(
-            () => EngineBound.ModelInfo(new EngineSide(Side.Server))).Message;
+            () => EngineBound.ModelInfo(EngineSide.Create(Side.Server))).Message;
 
         Assert.Contains("VModelInfoClient006", clientWhy);
         Assert.DoesNotContain("VModelInfoServer004", clientWhy);
@@ -77,9 +77,9 @@ public class EngineBoundTests
         // engine and answers through that engine's own factory, never the
         // thread's active side or a process-wide slot. Two engines of the SAME
         // side (two game instances) each acquire and hold their own.
-        var first = new EngineSide(Side.Server);
-        var second = new EngineSide(Side.Server);
-        var client = new EngineSide(Side.Client);
+        var first = EngineSide.Create(Side.Server);
+        var second = EngineSide.Create(Side.Server);
+        var client = EngineSide.Create(Side.Client);
         var asked = new List<(NativeInterfaceFactory Factory, Side Side)>();
 
         BoundInterface<object> Holder() => new("Test001", (NativeInterfaceFactory factory, Side side, out string why) =>
@@ -116,7 +116,7 @@ public class EngineBoundTests
         // per side), so the shared slot holds no acquirer until the server's
         // entry installs one; the client's never does.
         string why = Assert.Throws<InterfaceAcquisitionException>(
-            () => EngineBound.Server(new EngineSide(Side.Client))).Message;
+            () => EngineBound.Server(EngineSide.Create(Side.Client))).Message;
 
         Assert.Contains("VEngineServer023", why);
         Assert.Contains("binds no IVEngineServer", why);
@@ -125,7 +125,7 @@ public class EngineBoundTests
     [Fact]
     public void TheServerBindingAsksIVEngineServerThroughTheSidesOwnFactory()
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         EngineServerBinding.Bind(side);
 
         // No native half in a test process: the acquire fails, but in the
@@ -140,7 +140,7 @@ public class EngineBoundTests
     [Fact]
     public void UseServerInstallsTheAcquirerTheSideAsksThrough()
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         var asked = new List<(NativeInterfaceFactory Factory, Side Side)>();
 
         side.Bound.UseServer((NativeInterfaceFactory factory, Side s, out string why) =>
@@ -161,8 +161,8 @@ public class EngineBoundTests
     {
         // The set's whole shape: one per engine. A future edit that hoisted it
         // into a static would make every engine answer for whichever bound last.
-        var one = new EngineSide(Side.Server);
-        var two = new EngineSide(Side.Server);
+        var one = EngineSide.Create(Side.Server);
+        var two = EngineSide.Create(Side.Server);
 
         Assert.NotSame(one.Bound, two.Bound);
         Assert.NotSame(one.Bound.ModelInfo, two.Bound.ModelInfo);

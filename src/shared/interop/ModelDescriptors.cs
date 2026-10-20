@@ -64,14 +64,6 @@ public sealed class ModelDescriptors
     // Where a model this side cannot describe is said (statics to zero).
     private readonly ILog _log;
 
-    /// <summary>The cache of one side, over that side's engine.</summary>
-    internal ModelDescriptors(EngineSide side)
-        : this(model => EngineBound.ModelInfo(side).ModelIndex(model),
-               side.EntityGetModelName,
-               side.Log)
-    {
-    }
-
     /// <summary>
     /// The same over the two reads given: what the side's constructor
     /// passes, and what a fact passes instead of an engine.

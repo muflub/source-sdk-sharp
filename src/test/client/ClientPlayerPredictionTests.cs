@@ -186,7 +186,7 @@ public class ClientPlayerPredictionTests
         standalones.Entities.Add(player);
 
         var replay = new Replay();
-        var runner = MovementRunner.For(new ModuleEngine(new EngineSide(Side.Client)));
+        var runner = MovementRunner.For(new ModuleEngine(EngineSide.Create(Side.Client)));
 
         foreach (int command in ringCommands)
             replay.Ring.Add(command);
@@ -201,7 +201,7 @@ public class ClientPlayerPredictionTests
             Prediction = new ClientPlayerPrediction(new RecordingLog(), standalones, engine, replay,
                                                     runner,
                                                     null, new PredictionErrorRing(),
-                                                    new NetStateCatalog(TestServices.ClientGame, new RecordingLog())),
+                                                    NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog())),
         };
     }
 

@@ -37,7 +37,7 @@ public class EntityInjectionTests
         var registry = new ScriptedEntityRegistry();
         registry.RegisterAll(typeof(EntityInjectionTests).Assembly);
 
-        var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+        var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(EntityInjectionTests).Assembly);
 
         var system = new TestSystem(answer);

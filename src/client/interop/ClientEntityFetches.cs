@@ -159,7 +159,8 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The client weather's engine reads (lane c2-sims).
         services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(areas.Require<PrecipitationClientArea>()));
         // The client's physics callbacks' engine reads (lane c6-input).
-        var physics = new ClientPhysicsSlots(areas.Require<PhysicsClientArea>(), engine.Api.VPhysics);
+        var physics = new ClientPhysicsSlots(areas.Require<PhysicsClientArea>(), engine.Api.VPhysics,
+                                             new VPhysicsObjects(engine.Api.VPhysics));
         services.AddInstance<IClientImpactSoundWorld>(physics);
         // The level's environment: ClientPhysicsSystem makes it and writes it here.
         var environment = new ClientPhysicsEnvironment();

@@ -32,7 +32,7 @@ public class ConVarCommandLineTests
 
     private static ConVarRegistry Registry()
     {
-        var registry = new ConVarRegistry(TestServices.UnattachedConsole());
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(ConVarCommandLineTests).Assembly);
         return registry;
     }

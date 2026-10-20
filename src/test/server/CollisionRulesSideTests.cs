@@ -61,7 +61,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
     {
         // The silence this replaces: an unattached side used to return as if
         // it had registered.
-        var engine = new EngineSide(Side.Client);
+        var engine = EngineSide.Create(Side.Client);
         engine.Initialize();
 
         Assert.False(SideBindings.Of<IEngineCollisionRules>(engine).RegisterCollisionRules(CollisionRules.BuildMatrix()),
@@ -123,7 +123,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
 
     private EngineSide Attached(Side side)
     {
-        var api = new EngineSide(side);
+        var api = EngineSide.Create(side);
         api.Initialize();
 
         string why;

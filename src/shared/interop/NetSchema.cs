@@ -357,7 +357,7 @@ public static class NetSchema
         int payloadWords = tier?.Words ?? ( state.Size / 4 );
         int props        = tier?.Props ?? ( StandaloneSharedProps + payloadWords );
 
-        return new NetSchemaType(
+        return NetSchemaType.Create(
             state.ClassName, state.Type.Name, NetSchemaShell.Standalone,
             fields, state.Size, props, published, blobBytes, payloadWords, tiers);
     }
@@ -395,7 +395,7 @@ public static class NetSchema
         // this counted while the tables were per class.
         var tier = TierCarrying(tiers, NetShellKind.NetEntity, BlobBytesFor(fields));
 
-        return new NetSchemaType(
+        return NetSchemaType.Create(
             layout.ClassName, layout.ClassName, NetSchemaShell.NetEntity,
             fields, layout.Size,
             tier?.Props ?? fields.Count, published,
@@ -999,23 +999,14 @@ public sealed class NetSchemaType
     /// genuinely has. A static tier table used to answer this, which made the
     /// name depend on whatever a previous test had left behind.
     /// </param>
-    public NetSchemaType(string className, string typeName, NetSchemaShell shell,
+    public static NetSchemaType Create(string className, string typeName, NetSchemaShell shell,
                          IReadOnlyList<NetSchemaField> fields, int layoutBytes,
                          int propCount, bool published, int carriedBlobBytes = 0,
                          int payloadWords = 0,
                          INetTiers? tiers = null)
     {
-        ClassName  = className;
-        TypeName   = typeName;
-        Shell      = shell;
-        Fields     = fields;
-        LayoutBytes = layoutBytes;
-        PropCount  = propCount;
-        Published  = published;
-        PayloadWords = payloadWords;
-
-        TypeId     = NetSchema.TypeIdOf(className);
-        SchemaHash = NetSchema.SchemaHashOf(fields, layoutBytes);
+        uint typeId = NetSchema.TypeIdOf(className);
+        uint schemaHash = NetSchema.SchemaHashOf(fields, layoutBytes);
 
         // The class's own fields rounded to sixteen is a FLOOR, not the answer:
         // native reserves a whole TIER for an entity, so a twenty-byte layout
@@ -1027,18 +1018,41 @@ public sealed class NetSchemaType
         // carriedBlobBytes is THIS TYPE'S tier since Part 18, where it was the
         // whole hierarchy's. The floor stays, because with no tier table to read
         // there is nothing else to report.
-        BlobBytes  = Math.Max(NetSchema.BlobBytesFor(fields), carriedBlobBytes);
+        int blobBytes = Math.Max(NetSchema.BlobBytesFor(fields), carriedBlobBytes);
 
         // AFTER BlobBytes, because the table is the one carrying a blob that
         // size. A class has no table of its own since Step 6 — its entities are
         // created through a tier — so reporting DT_<classname> would be naming
         // something that does not exist.
-        TableName  = tiers is null
+        string tableName = tiers is null
             ? NetSchema.TableNameOf(className)
             : NetSchema.TableForType(
                 tiers,
                 shell == NetSchemaShell.Standalone ? NetShellKind.Standalone : NetShellKind.NetEntity,
-                BlobBytes, className);
+                blobBytes, className);
+
+        return new NetSchemaType(className, typeName, shell, fields, layoutBytes, propCount, published,
+                                 payloadWords, typeId, schemaHash, blobBytes, tableName);
+    }
+
+    // What Create worked out, kept: a constructor only saves what it is
+    // handed (plan_shim_areas_split phase 11 review).
+    private NetSchemaType(string className, string typeName, NetSchemaShell shell, IReadOnlyList<NetSchemaField> fields,
+                          int layoutBytes, int propCount, bool published, int payloadWords, uint typeId,
+                          uint schemaHash, int blobBytes, string tableName)
+    {
+        ClassName = className;
+        TypeName = typeName;
+        Shell = shell;
+        Fields = fields;
+        LayoutBytes = layoutBytes;
+        PropCount = propCount;
+        Published = published;
+        PayloadWords = payloadWords;
+        TypeId = typeId;
+        SchemaHash = schemaHash;
+        BlobBytes = blobBytes;
+        TableName = tableName;
     }
 
     /// <summary>The classname the two tables are keyed by.</summary>

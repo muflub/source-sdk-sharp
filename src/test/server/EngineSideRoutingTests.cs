@@ -17,7 +17,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
     [Fact]
     public void ASwitchedSlotIsAnsweredByItsVtableOnceAttached()
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();   // plan_client_vtables CC-last: there is no struct
 
         _root.Live("SourceSharpDebugOverlay001", nameof(ShimDebugOverlayFwd.OverlayCounts),
@@ -30,7 +30,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
     [Fact]
     public void AServerOnlySlotIsAbsentBeforeTheShimsAttach()
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();
 
         Assert.False(side.ShimsAttached);
@@ -39,7 +39,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
     [Fact]
     public void AServerOnlySlotCalledUnattachedThrowsRatherThanAnsweringZero()
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();
 
         // The side's area before the attach is a detached one, over no table:

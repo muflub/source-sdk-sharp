@@ -16,7 +16,7 @@ public class ClientModuleAdapterSeamTests
     [Fact]
     public void ComposingAModuleAsksTheAdaptersItWasHandedOnceOverItsOwnEngine()
     {
-        var engine = new ModuleEngine(new EngineSide(Side.Client));
+        var engine = new ModuleEngine(EngineSide.Create(Side.Client));
         var adapters = new FakeClientEngineAdapters();
 
         new ClientModule(engine, adapters).ComposeEngineAreas();
@@ -28,7 +28,7 @@ public class ClientModuleAdapterSeamTests
     [Fact]
     public void TheGameConstructorComposesTheRealAdaptersWhichRefuseAnUnattachedEngine()
     {
-        var module = new ClientModule(new ModuleEngine(new EngineSide(Side.Client)));
+        var module = new ClientModule(new ModuleEngine(EngineSide.Create(Side.Client)));
 
         var refusal = Assert.Throws<InvalidOperationException>(() => module.ComposeEngineAreas());
         Assert.Contains("before its shim areas were attached", refusal.Message);

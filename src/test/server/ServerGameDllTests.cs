@@ -101,7 +101,7 @@ public class ServerGameDllTests
         // precedes the parse rather than merely that both happened.
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        var dll = new ServerGameDll(new RecordingLog(), engine, new ConVarRegistry(TestServices.UnattachedConsole()), engine, commandLine, engine, engine, engine, engine,
+        var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, commandLine, engine, engine, engine, engine,
                                     stringTables, modTable,
                                     // Phase A3: the lifecycle driver MapLoadPreEntity
                                     // dispatches into. An empty container here, so the

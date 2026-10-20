@@ -61,7 +61,7 @@ public class ClientCommandHookTests
 
     private sealed class Rig
     {
-        public readonly EngineSide Engine = new(Side.Server);
+        public readonly EngineSide Engine = EngineSide.Create(Side.Server);
         public readonly ServerModule Module;
         public readonly RecordingEngine Double;
         public readonly List<(string Text, bool Warning)> Lines = [];
@@ -94,7 +94,7 @@ public class ClientCommandHookTests
                            "PlayerMovement.SnapEyeAngles", "EntityPhysics.SetNotSolid", "Players.RemoveAllItems",
                            "Players.Respawn", "Players.GetTeam");
 
-            var convars = new ConVarRegistry(TestServices.UnattachedConsole());
+            var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
             convars.RegisterAll(typeof(GameRules).Assembly);
             convars.Get<AllowSpectatorsConVar>()!.NotifyChanged("1", "0");   // stock's default
 

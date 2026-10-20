@@ -45,9 +45,9 @@ internal sealed unsafe partial class EngineSide
     // EngineSide.cs): the precache its break models use, and the shell's
     // velocity, eye and gravity members and the physics object its motion
     // host reads. Assigned with the shared four at each attach.
-    private PrecacheArea _precacheArea;
-    private TransformArea _transformArea;
-    private PhysicsArea _physicsArea;
+    private PrecacheArea _precacheArea = null!;
+    private TransformArea _transformArea = null!;
+    private PhysicsArea _physicsArea = null!;
 
     /// <summary>
     /// The server's own areas from <paramref name="areas"/>, at construction

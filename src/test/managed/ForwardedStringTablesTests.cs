@@ -117,7 +117,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     {
         if (serve)
             Serve("VEngineServerStringTable001");
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         side.Initialize();
         Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         return ForwardedStringTables.Acquire(side, _log);
@@ -126,7 +126,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     private ForwardedStringTables Client()
     {
         Serve("VEngineClientStringTable001");
-        var side = new EngineSide(Side.Client);
+        var side = EngineSide.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         return ForwardedStringTables.Acquire(side, _log);

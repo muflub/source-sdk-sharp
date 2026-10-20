@@ -53,7 +53,7 @@ public class IntermissionTests
         registry.KeyValue(P1, EntityNames.SsPlayer, "targetname", "a");
         registry.KeyValue(P2, EntityNames.SsPlayer, "targetname", "b");
 
-        var convars = new ConVarRegistry(UnattachedConsole());
+        var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         var console = new Console();
         var it = new Intermission(new RecordingLog(), convars, registry, engine, engine, engine, console, engine,

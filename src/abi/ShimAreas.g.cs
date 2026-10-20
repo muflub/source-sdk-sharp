@@ -28,6 +28,13 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
     public ShimRef(void* self, TFwd* table) { Self = self; Vt = table; }
 
     /// <summary>
+    /// The same object over the same table read as <typeparamref name="TBase"/>'s:
+    /// a derived area's table starts with exactly its base's slots.
+    /// </summary>
+    public ShimRef<TBase> As<TBase>() where TBase : unmanaged, IForwarderTable
+        => new(Self, (TBase*)Vt);
+
+    /// <summary>
     /// The table every typed call goes through. A detached area (one a side
     /// with no engine registers, over no table) refuses here with the reason
     /// rather than reading a null table: the attach guards keep product code
@@ -256,8 +263,8 @@ internal sealed unsafe class EventsServerArea : EventsArea
 {
     private readonly ShimRef<ShimEventsServerFwd> _shim;
 
-    internal EventsServerArea(ShimRef<ShimEventsServerFwd> shim)
-        : base(new ShimRef<ShimEventsFwd>(shim.Self, (ShimEventsFwd*)shim.Vt))
+    internal EventsServerArea(ShimRef<ShimEventsServerFwd> shim, ShimRef<ShimEventsFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -275,8 +282,8 @@ internal sealed unsafe class NetworkServerArea : NetworkArea
 {
     private readonly ShimRef<ShimNetworkServerFwd> _shim;
 
-    internal NetworkServerArea(ShimRef<ShimNetworkServerFwd> shim)
-        : base(new ShimRef<ShimNetworkFwd>(shim.Self, (ShimNetworkFwd*)shim.Vt))
+    internal NetworkServerArea(ShimRef<ShimNetworkServerFwd> shim, ShimRef<ShimNetworkFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -297,8 +304,8 @@ internal sealed unsafe class ModelsServerArea : ModelsArea
 {
     private readonly ShimRef<ShimModelsServerFwd> _shim;
 
-    internal ModelsServerArea(ShimRef<ShimModelsServerFwd> shim)
-        : base(new ShimRef<ShimModelsFwd>(shim.Self, (ShimModelsFwd*)shim.Vt))
+    internal ModelsServerArea(ShimRef<ShimModelsServerFwd> shim, ShimRef<ShimModelsFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -329,8 +336,8 @@ internal sealed unsafe class MovementServerArea : MovementArea
 {
     private readonly ShimRef<ShimMovementServerFwd> _shim;
 
-    internal MovementServerArea(ShimRef<ShimMovementServerFwd> shim)
-        : base(new ShimRef<ShimMovementFwd>(shim.Self, (ShimMovementFwd*)shim.Vt))
+    internal MovementServerArea(ShimRef<ShimMovementServerFwd> shim, ShimRef<ShimMovementFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -351,8 +358,8 @@ internal sealed unsafe class WorldServerArea : WorldArea
 {
     private readonly ShimRef<ShimWorldServerFwd> _shim;
 
-    internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim)
-        : base(new ShimRef<ShimWorldFwd>(shim.Self, (ShimWorldFwd*)shim.Vt))
+    internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim, ShimRef<ShimWorldFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -382,8 +389,8 @@ internal sealed unsafe class EntitiesServerArea : EntitiesArea
 {
     private readonly ShimRef<ShimEntitiesServerFwd> _shim;
 
-    internal EntitiesServerArea(ShimRef<ShimEntitiesServerFwd> shim)
-        : base(new ShimRef<ShimEntitiesFwd>(shim.Self, (ShimEntitiesFwd*)shim.Vt))
+    internal EntitiesServerArea(ShimRef<ShimEntitiesServerFwd> shim, ShimRef<ShimEntitiesFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -483,8 +490,8 @@ internal sealed unsafe class CollisionServerArea : CollisionArea
 {
     private readonly ShimRef<ShimCollisionServerFwd> _shim;
 
-    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim)
-        : base(new ShimRef<ShimCollisionFwd>(shim.Self, (ShimCollisionFwd*)shim.Vt))
+    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim, ShimRef<ShimCollisionFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -592,8 +599,8 @@ internal sealed unsafe class EffectsServerArea : EffectsArea
 {
     private readonly ShimRef<ShimEffectsServerFwd> _shim;
 
-    internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim)
-        : base(new ShimRef<ShimEffectsFwd>(shim.Self, (ShimEffectsFwd*)shim.Vt))
+    internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim, ShimRef<ShimEffectsFwd> asBase)
+        : base(asBase)
     {
         _shim = shim;
     }
@@ -1147,23 +1154,23 @@ internal static unsafe class ServerAreaRegistration
         Add(add,
             new EngineArea(engineBaseArea),
             new ConsoleServerArea(consoleServerArea),
-            new EventsServerArea(eventsServerArea),
-            new NetworkServerArea(networkServerArea),
-            new ModelsServerArea(modelsServerArea),
+            new EventsServerArea(eventsServerArea, eventsServerArea.As<ShimEventsFwd>()),
+            new NetworkServerArea(networkServerArea, networkServerArea.As<ShimNetworkFwd>()),
+            new ModelsServerArea(modelsServerArea, modelsServerArea.As<ShimModelsFwd>()),
             new PrecacheArea(precacheArea),
-            new MovementServerArea(movementServerArea),
-            new WorldServerArea(worldServerArea),
-            new EntitiesServerArea(entitiesServerArea),
+            new MovementServerArea(movementServerArea, movementServerArea.As<ShimMovementFwd>()),
+            new WorldServerArea(worldServerArea, worldServerArea.As<ShimWorldFwd>()),
+            new EntitiesServerArea(entitiesServerArea, entitiesServerArea.As<ShimEntitiesFwd>()),
             new EntityLifecycleArea(entityLifecycleArea),
             new TransformArea(transformArea),
             new HierarchyArea(hierarchyArea),
-            new CollisionServerArea(collisionServerArea),
+            new CollisionServerArea(collisionServerArea, collisionServerArea.As<ShimCollisionFwd>()),
             new PhysicsArea(physicsArea),
             new DamageArea(damageArea),
             new GameRulesArea(gameRulesArea),
             new PlayersArea(playersArea),
             new SoundArea(soundArea),
-            new EffectsServerArea(effectsServerArea),
+            new EffectsServerArea(effectsServerArea, effectsServerArea.As<ShimEffectsFwd>()),
             new DebugOverlayArea(debugOverlayArea),
             new UserMessagesArea(userMessagesArea),
             new DiagnosticsArea(diagnosticsArea),
@@ -1180,23 +1187,23 @@ internal static unsafe class ServerAreaRegistration
         => Add(add,
             new EngineArea(default),
             new ConsoleServerArea(default),
-            new EventsServerArea(default),
-            new NetworkServerArea(default),
-            new ModelsServerArea(default),
+            new EventsServerArea(default, default),
+            new NetworkServerArea(default, default),
+            new ModelsServerArea(default, default),
             new PrecacheArea(default),
-            new MovementServerArea(default),
-            new WorldServerArea(default),
-            new EntitiesServerArea(default),
+            new MovementServerArea(default, default),
+            new WorldServerArea(default, default),
+            new EntitiesServerArea(default, default),
             new EntityLifecycleArea(default),
             new TransformArea(default),
             new HierarchyArea(default),
-            new CollisionServerArea(default),
+            new CollisionServerArea(default, default),
             new PhysicsArea(default),
             new DamageArea(default),
             new GameRulesArea(default),
             new PlayersArea(default),
             new SoundArea(default),
-            new EffectsServerArea(default),
+            new EffectsServerArea(default, default),
             new DebugOverlayArea(default),
             new UserMessagesArea(default),
             new DiagnosticsArea(default),

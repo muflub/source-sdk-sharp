@@ -375,7 +375,7 @@ public partial class NetCompositeKindTests
     {
         var type = NetSchema.FromStandalone(NoTiers, WithAngle.NetLayout, published: true);
 
-        var asVectors = new NetSchemaType(
+        var asVectors = NetSchemaType.Create(
             type.ClassName, type.TypeName, type.Shell,
             type.Fields.Select(f => f.Kind == NetFieldKind.QAngle
                                         ? f with { Kind = NetFieldKind.Vector } : f).ToArray(),

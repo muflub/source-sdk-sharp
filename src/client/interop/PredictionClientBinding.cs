@@ -16,16 +16,25 @@ namespace SourceSharp.Client.Interop;
 /// <paramref name="movement"/> is the client composition's own movement
 /// runner (plan_abi_hotreload D8), the one its replay also drives.
 /// </remarks>
-public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideModule module, IClientModule game,
-                                                    MovementRunner movement) : IManagedPredictionClient
+public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideModule module,
+                                                    MovementRunner movement, MovementRules rules) : IManagedPredictionClient
 {
     // The module's three movement decisions, built once (statics to zero):
     // handed to the loop for each run and taken back after, so no closure
     // over this module is left in a loop that outlives it.
-    private readonly MovementRules _rules = new(
-        r => game.GetJumpScale(in r),
-        (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
-        (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
+    private readonly MovementRules _rules = rules;
+
+    /// <summary>
+    /// The binding over <paramref name="game"/>'s movement decisions, built
+    /// here once (phase 11 review: a constructor only keeps what it is handed).
+    /// </summary>
+    public static PredictionClientBinding For(Crossings crossings, ISideModule module, IClientModule game,
+                                              MovementRunner movement)
+        => new(crossings, module, movement,
+               new MovementRules(
+                   r => game.GetJumpScale(in r),
+                   (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
+                   (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m)));
 
     /// <summary>
     /// The WHOLE of ProcessMovement, in C#, for the client's native forwarder.

@@ -93,7 +93,7 @@ public sealed class ReloadPinTests
     }
 
     /// <summary>The side copy's own registry with its classes, over a fresh side's routes.</summary>
-    private static IRouteBinder SideRegistry(Assembly classes) => RegistryOver(new EngineSide(Side.Server), classes);
+    private static IRouteBinder SideRegistry(Assembly classes) => RegistryOver(EngineSide.Create(Side.Server), classes);
 
     //-------------------------------------------------------------------------
     // Which side a registry belongs to.
@@ -162,7 +162,7 @@ public sealed class ReloadPinTests
     public void ManagedCachesForgetDropsAllThreeRoutes()
     {
         var (context, assembly) = LoadSideCopy("forget-drops");
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         try
         {
             var registry = RegistryOver(side, assembly);
@@ -172,7 +172,7 @@ public sealed class ReloadPinTests
             Assert.NotNull(side.EntityIo.ServiceQueue);
             Assert.NotNull(side.Removal.Mark);
 
-            ManagedCaches.Forget(context, [new EngineSide(Side.Client), side]);
+            ManagedCaches.Forget(context, [EngineSide.Create(Side.Client), side]);
 
             Assert.Null(side.ShellLess.Answers);
             Assert.Null(side.EntityIo.Input);
@@ -196,8 +196,8 @@ public sealed class ReloadPinTests
         var (context, assembly) = LoadSideCopy("forget-handed");
         try
         {
-            var handed = new EngineSide(Side.Server);
-            var other = new EngineSide(Side.Server);
+            var handed = EngineSide.Create(Side.Server);
+            var other = EngineSide.Create(Side.Server);
             RegistryOver(handed, assembly);
             var kept = RegistryOver(other, assembly);
 
@@ -220,7 +220,7 @@ public sealed class ReloadPinTests
         var (context, assembly) = LoadSideCopy("forget-counts");
         try
         {
-            var side = new EngineSide(Side.Server);
+            var side = EngineSide.Create(Side.Server);
             RegistryOver(side, assembly);
 
             Assert.Equal(3, ManagedCaches.ForgetRoutes(side, context));
@@ -241,7 +241,7 @@ public sealed class ReloadPinTests
         var (stranger, _) = LoadSideCopy("forget-other-theirs");
         try
         {
-            var side = new EngineSide(Side.Server);
+            var side = EngineSide.Create(Side.Server);
             var registry = RegistryOver(side, assembly);
 
             Assert.Equal(0, ManagedCaches.ForgetRoutes(side, stranger));
@@ -320,7 +320,7 @@ public sealed class ReloadPinTests
     [Fact]
     public void DetachDropsOnlyTheRoutesStillBoundToThisRegistry()
     {
-        var side = new EngineSide(Side.Server);
+        var side = EngineSide.Create(Side.Server);
         var first = new ScriptedEntityRegistry(side.ShellLess, side.EntityIo, side.Removal);
 
         Assert.Equal(3, first.Detach());
