@@ -1865,7 +1865,10 @@ shim_cpp_files	src/sourcesharp	217
 # LOWERED 2026-10-19, 128642 -> 128553 (plan_server_native_v2 T5, the walk with the ceiling at 1; -89): standalone_player_sync.cpp's SourceSharpPlayerSync_Write with WriteF32, WriteAng and the header's SourceSharpPlayerExtras_t: no object of either DLL called the copy.
 # LOWERED 2026-10-19, 128553 -> 128511 (plan_server_native_v2 T5, the walk with the ceiling at 1; -42): shell_debugoverlays.cpp's DebugDrawLine and overlay_library's Overlay_LinePadded, its body: no server object called either.
 # LOWERED 2026-10-19, 128511 -> 128502 (plan_server_native_v2 T5, the walk with the ceiling at 1; -9): world_subject_dll.cpp's CGameTrace::DidHitWorld and DidHitNonWorldEntity: no server object called either.
-shim_lines	src/sourcesharp	128502
+# RAISED 2026-10-19, 128502 -> 128869 (+367, the walk at the C7 shadow manager S0/S1 landing on main 2ba84d1ca), deliberately:
+#   the render recorder's shadowmgr. hook family (shell_render_trace_client.cpp), the shadow manager's base witness for
+#   S2's byte-equal A/B (the lane measured the same +367 on its base 01c4ea691).
+shim_lines	src/sourcesharp	128869
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

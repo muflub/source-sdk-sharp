@@ -1,0 +1,1 @@
+{"placement": "origin", "entities": [{"classname": "prop_physics", "targetname": "shwcrate", "origin": [-4116, 4480, 100], "angles": [0, 30, 0], "keyvalues": {"model": "models/props_junk/wood_crate001a.mdl", "spawnflags": "0"}}]}

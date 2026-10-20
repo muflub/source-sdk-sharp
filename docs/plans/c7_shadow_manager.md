@@ -2,7 +2,8 @@
 
 Status: survey done 2026-10-19 at main a001d7a31 (worktree
 agent-a1c5c1e9284f43072, `make setup ROOT=../source-sdk-2013` and
-`make debug`). Reviewed 2026-10-19: Q1 and Q2 are ruled (Decisions). Nothing is implemented. The leaf system's plan
+`make debug`). Reviewed 2026-10-19: Q1 and Q2 are ruled (Decisions). S0 and S1 are built,
+unwired ("S0 and S1 as built", 2026-10-19); S2 is not started. The leaf system's plan
 (docs/plans/c7_leaf_system.md) is the model, and its section "What
 clientshadowmgr.cpp's rewrite inherits" is this plan's starting point.
 
@@ -539,6 +540,264 @@ and the switch is its own phase (ruled here, §8).
   the recordings' `cvar` lines.
 - The S0 witness adds a `shadowmgr.` hook family to the render recorder at
   the base, so base and tip record the same lines.
+
+## S0 and S1 as built (2026-10-19, lane worktree-agent-a4805d7500e632d68, base 01c4ea691)
+
+Commits, in order: ea24c250c (the recorder's `shadowmgr.` family),
+f396a4243 (the witness session), 07738583a (the oracle and its golden),
+8e5f8f8fa (the manager in C#), d926f2394 (the golden's layout rows and a
+handle dirtied twice), a55145ba2 (Q2's receive rule and the thin families'
+facts), and this section. Nothing is wired: the stock manager still runs.
+
+### S0: the oracle
+
+- src/test/oracle/native/shadowmgr_oracle_test.cpp compiles the pristine
+  clientshadowmgr.cpp (with the pristine iclientshadowmgr.h, igamesystem.h,
+  iclientunknown.h, iclientrenderable.h, toolframework/itoolentity.h and
+  public/collisionutils.cpp, each copied beside it) over stand-ins in
+  shadowmgr_stub/ (shadowmgr_harness.h says what is stock and what is
+  stand-in). The engine's IShadowMgr is a whole stand-in that keeps what it
+  is told; the leaf system offers each projection to the receivers
+  registered in its leaves and enumerates the shadows projected into them;
+  every renderable's GetBaseEntity() is NULL.
+- The golden is src/test/client/Fixtures/shadowmgr-stock.tsv (3.5 MB, README
+  beside it): every E (effect), Q (question and answer), R (answer) and M
+  (console) row stock wrote, floats as bits, after the stimulus rows (T, ENV,
+  CV, F, RCV, C) the replay rebuilds the world from, and L rows with the
+  engine answers' layouts. The scenario: a low-end lifetime without depth
+  textures, a -tools lifetime with render-to-texture on, and the game: blobs
+  on the three ortho axes, a brush model, overrides, no model, a transparent
+  shadow, a retired one, a sprite, an aiment, rings of receivers;
+  render-to-texture over a five-child hierarchy, seven big casters and a
+  huge one (the 256s overflow), a budget of two for two frames, a caster
+  grown across sizes, a fragment stolen from a caster that left the view, a
+  crowd of 257 that exhausts the 16s; four flashlights (two depth ones in
+  view, one out of it, one without shadows), version2, light-world and
+  models off, the depth resolution raised past the card, off, on and
+  unsupported, 1025 depth flashlights in one view; the proxies; a level
+  shutdown with shadows left and render-to-texture on.
+- Facts (4): StockProducesTheGolden; TheScenarioReachesEveryArm (177 arms of
+  D1-D9 and the proxies, every count non-zero, each named from the row stock
+  wrote or from a probe of the subject's own state taken just before it
+  decided, and held to the rows stock wrote next; the probes read the
+  subject's members, which the oracle opens with `#define private public`
+  over the subject's text alone); TheBaseEntityArmsFireZeroTimes (asked and
+  told NULL, never touched); TheFarmDiffersFromThePristineOnlyByTheEditFamilies
+  (a Myers diff of the farm's TU against the pristine, every hunk named by a
+  family, with a planted edit caught).
+- **Two corrections to §1, measured:** the pristine file resolves a
+  renderable through `ClientEntityList()` at 12 sites, each respelled (not
+  14; the 13th ClientEntityList() call is the clip plane's
+  GetBaseEntityFromHandle, which went with that family); and the fork has a
+  seventh edit family §1 does not list: DrawRenderToTextureDebugInfo's entity
+  index comes from the renderable's networkable, not its C_BaseEntity. It
+  moves only cl_drawshadowtexture's text; the managed port prints the fork's.
+- Reach counts (the fact's table, debug build): d1.create.blob 29,
+  d1.create.rtt 259, d1.create.brushflag 2, d1.create.norenderable 1,
+  d1.flashlight.depth 1028, d1.flashlight.nodepth 1, d1.retire 1,
+  d1.type.rttcollapsed 17; d2.init.lowend 1, d2.init.rtt 1,
+  d2.init.depthunsupported 1, d2.prerender.depthresize 1, d2.prerender.rtton
+  2, d2.prerender.rttoff 1, d2.levelinit.clamped 2, d2.restore 1, each
+  console command printing 1 and setting 1-2; d3.walk.handleorder 2,
+  d3.walk.stopsatretire 1, d3.transparent.keptdirty 1, d3.child.disabled 16,
+  d3.update.moved 362, d3.update.notmoved 4, d3.dirty.ignoredwhileupdating
+  1; d4.ortho 58 (axes 0/1/2: 3/2/4), d4.rtt 304, d4.bounds.childrenadded 9;
+  d5.version2 1026, d5.lightworld 7, d5.lightworld.off 1, d5.models.off 1;
+  d6.shadow.boxmiss 165, d6.plane.centers 106, d6.plane.separating 120,
+  d6.plane.none 67, d6.side.pos.culled 6, d6.side.pos.kept 108,
+  d6.side.neg.culled 42, d6.side.neg.kept 70, each receiver kind 4-181;
+  d7.enum.accepted 391, d7.budget.lod 16, d7.lod.back.texcoordsonly 5,
+  d7.alloc.keepnear 1, d7.alloc.keepold 30, d7.alloc.lower 4,
+  d7.alloc.none 1, d7.alloc.steal 1, d7.redraw.animating 5; d8.active.overflow
+  1, d8.lock.failed 10, d8.viewstate.v2.one 2; the proxies 1-3 each.
+- **Unreachable in stock, so no arm:** DrawRenderToTextureShadow's "Didn't
+  draw shadow hierarchy" (DrawShadowHierarchy always draws a non-NULL root,
+  and a NULL one dereferences first); BuildOrthoShadow's Vector2DMax to 10
+  (the bloat just before it makes every size at least 10); the threaded arm
+  and the X360 arms (§8).
+- **Found in stock** (README): a shadow retired during PreRender's walk (its
+  entity gone) frees its node under the walk, NextInorder of a freed node is
+  no node, and the walk ends; RemoveAll then drops the shadows after it in
+  handle order, unprojected, and their renderables keep the dirty bit, so
+  AddToDirtyShadowList( renderable ) refuses them from then on. The dirty set
+  is a multiset (CUtlRBTree::Insert does not refuse a key it holds), and the
+  walk visits each copy. SetViewFlashlightState hands
+  SetFlashlightRenderState the client handle.
+
+### S0: the base witness
+
+- The recorder's `shadowmgr.` family (ea24c250c) hooks the engine
+  IShadowMgr's 21 client calls and staticpropmgr's two shadow calls, armed
+  only with SOURCESHARP_RENDER_TRACE_SHADOWS=1, so a default trace and the
+  frozen recordings are untouched. It moved the shim ratchet (docs/shim-ratchet.tsv
+  shim_lines 129214 → 129581, RAISED), docs/shim-reasons.md's (a) row 33,562
+  → 33,929 (total 87,100 → 87,467) and the recorder's shim-scope fnmap and
+  rulings (28 INSTRUMENT rows).
+- tools/probes/sessions/c7-shadow-ab.steps (f396a4243): dm_lockdown poses 1-3
+  traced with r_shadowrendertotexture 0 and 1, the flashlight (impulse 100)
+  at pose 1 in each, a second map load, cs_cl_shadow_report around each
+  traced frame and a 10 s cs_cl_crossings window at each pose. Run at the
+  base in the lane's own instance (port 27463, its own TMPDIR, DEBUG_API_DIR
+  and DEBUG_API_UI_PORT 18463): 35 of 35 traces, 0 `EXCEPTION IN`, the join
+  confirmed. The recordings are kept for S2 in the lane's scratch
+  (/tmp/claude-1000/-home-lodle-git-source-sdk-sharp/d73ee15a-fd4b-4257-815b-3d15f4c86325/scratchpad/sh-witness/base/:
+  the 35 traces, console.log, sh-counts.tsv, sh-summary.tsv; /tmp, so
+  S2 re-records the base if they are gone).
+- **The brief's stimulus re-projects nothing at this base.** `r_shadowdir 0.1
+  0.1 -1` and `r_shadowdist 50` dirty every shadow, but every shadow is
+  already dirty every frame here, and a dirty one is re-projected only if
+  its origin or angles moved; a control frame traced just before the
+  stimulated one is the same value for value in both modes. So the session
+  adds what does reach the engine: a crate dropped in view at pose 1
+  (ProjectShadow, and with RTT 1 the clip planes and texcoords), the switch
+  to RTT and back (SetShadowMaterial, SetShadowTexCoord,
+  ClearExtraClipPlanes), and the flashlight frames. A trace is one
+  View_Render, so CreateShadowEx, DestroyShadow, UpdateFlashlightState and
+  ProjectFlashlight (entity create and delete, player simulation) never
+  fall inside one; no receiver call appeared in any traced frame.
+- What it shows (shadowmgr. lines per traced frame): pose 1 130 (RTT 0: 65
+  GetInfo, 65 EnableShadow) and 175 (RTT 1: 110 GetInfo, 65 EnableShadow);
+  pose 2 208 and 261; pose 3 208 and 288; the flashlight adds
+  GetFlashlightState 2 and SetFlashlightDepthTexture 1; the RTT switch 522
+  lines. cs_cl_shadow_report (held/rtt/simple/depth/lost/texturesDrawn):
+  pose 1 65/0/65/0/0/0 with RTT 0, 65/65/0/0/0/28 with RTT 1; poses 2-3 104
+  held; the flashlight adds a depth shadow with no renderable. Inbound
+  crossings per client frame (S3's baseline; total over client frames):
+
+  | pose | RTT 0 | RTT 1 |
+  |---|---|---|
+  | 1 | 65.46 | 66.47 |
+  | 1, flashlight on | 72.58 | 73.54 |
+  | 2 | 70.47 | 71.55 |
+  | 3 | 86.47 | 88.51 |
+  | 1 after the reload | 65.46 | 66.47 |
+
+### S1: the manager in C#
+
+- **The seams, call-shaped (ruled here, below).** SourceSharp.Client.Interface's
+  ShadowSeams.cs: IShadowEngine (the engine's IShadowMgr and the static prop
+  manager's two shadow calls), IShadowMaterials (the three materials, the
+  render targets, the restore callback, the depth formats and support, the
+  DX level and -tools), IShadowRenderContext (the render context, the model
+  and brush shadow draws, RenderShadowTexture's quad, the depth view),
+  IShadowWorld (CullBox, the ambient light, the BSP leaves, the frame),
+  IShadowRenderables (the renderables' shadow surface, by pointer) and
+  IShadowDebugOverlay, with their data structs (ShadowMatrix,
+  ShadowMatrix3x4, ShadowFrustum, ShadowEngineInfo, ShadowViewSetup,
+  ShadowDepthView). The logic's own: IShadowSettings (the ConVars, S2 binds
+  them to managed ConVars), IShadowConsole, IShadowLeafSystem with
+  IShadowLeafEnumerator (S2: LeafRegistry). src/client/interop/ShadowsAbi.cs:
+  the flag words (stock's public and private shadow flags, the create flags,
+  ShadowType_t, ShadowReceiver_t) and the raw layouts of ShadowInfo_t,
+  cplane_t and Frustum_t that S2's binding copies, held to the golden's L
+  rows.
+- **The manager** (src/client/managed/Render/Shadows, 8 files: the manager in
+  six partial files by family, ShadowTextureAllocator, ShadowContainers and
+  ShadowMath) is DI only, has no statics, and is an IReloadParticipant whose
+  save carries every shadow, the dirty multiset, the transparent list, the
+  atlas to the fragment, the depth textures and their locks, the modes and
+  stock's warn-once counters. ShadowMath ports the mathlib and collisionutils
+  functions term for term (QuaternionMatrix's double first column,
+  MatrixBuildPerspective's double tangent, ConcatTransforms' SSE order with
+  its masked +0.0f, RAD2DEG's float quotient, ComputeSeparatingPlane's bit
+  comparisons).
+- **The proxies (Q1):** MaterialProxies/ShadowProxies.cs, ShadowProxy and
+  ShadowModelProxy over IShadowProxySource (the manager). Unregistered.
+- **The receive rule (Q2):** ClientRenderPolicy.ReceivesProjectedTextures,
+  unwired; ClientRenderFacts gains NoReceiveShadow, RenderAlpha and
+  RenderMode.
+- **Facts:** ShadowManagerOracleTests (12: row for row, kind by kind between
+  the stimulus rows, a hot reload after every one of the scenario's 2,782
+  calls, and one per family: shadows, modes, projections, receivers, the
+  RTT pass, depth, dirty marks and console, proxies, debug), over 22,645
+  compared rows; ShadowManagerFactsTests (9), ShadowProxiesTests (7, a theory's three among them),
+  ClientReceivePolicyTests (6). Each fact was shown red against a throwing
+  stub (the manager's, the allocator's and the proxies' constructors or
+  Inits and the receive rule throwing): 31 of 34; the three that stayed green
+  hold constants the stub does not replace (the layouts, the degree factors,
+  the flag words) and are held red by mutations below.
+- **docs/todo.md's flashlight reload** (the module forgets the handle): the
+  manager's reload carries the flashlight's shadow
+  (AHotReloadCarriesAFlashlightsShadow). The entry closes in S2, when
+  LocalPlayerFlashlight's handle reaches this manager.
+
+#### Mutation proofs (sh-mut.py: a cp snapshot, sha256 before, mutated and restored, a fresh mtime on restore; 34 facts)
+
+| mutation | file | sha before → mutated | red |
+|---|---|---|---|
+| the dirty walk out of handle order (newest dirtied first) | ShadowManager.Scheduling.cs | 8bf4b78318e5 → 6c829835957b | 9 |
+| the transparent shadows not re-dirtied | ShadowManager.Scheduling.cs | → 03684c01dc41 | 6 |
+| the walk's end at a retired shadow "fixed" (the walk goes on) | ShadowManager.Scheduling.cs | → 0263d0db72f4 | 6 |
+| LRU order: a used fragment to its list's head, not its tail | ShadowTextureAllocator.cs | 1969a27c716d → ce13c3dbd997 | 7 |
+| the fragment-power overflow: no fall back to a smaller size | ShadowTextureAllocator.cs | → bbfa6c35807a | 7 |
+| the LOD fallback past the budget: every shadow drawn | ShadowManager.RenderToTexture.cs | 14c20b675cad → 0ef7ff926174 | 4 |
+| the animating source's redraw: its texture cleared like a still one's | ShadowManager.RenderToTexture.cs | → 27f379d39df0 | 4 |
+| the separating plane's side: the shadow's direction ignored | ShadowManager.Receivers.cs | 612634edb430 → 1a0fc06018b7 | 4 |
+| the side flipped for a shadow cast away from the plane | ShadowManager.Receivers.cs | → fbf2087acceb | 4 |
+| the side flipped for a shadow cast toward the plane | ShadowManager.Receivers.cs | → 157ff3de3f76 | 4 |
+| the dirty set refuses a handle it holds | ShadowContainers.cs | 1989efdee62d → df2c77af7c05 | 4 |
+| RAD2DEG "fixed" to (float)(180 / M_PI) | ShadowMath.cs | 1c07bde3862e → b56457c95380 | 5 |
+| the flashlight target's move children not walked | ShadowManager.Projection.cs | 2a4668e65c7d → edecc9f4cefd | 1 |
+| the reload drops a flashlight's state | ShadowManager.Debug.cs | abb3d8a8c86e → 49a833786bf7 | 1 |
+| the receive rule asks NODRAW after the flashlight arm | ClientRenderPolicy.cs | 6fd7956d37ea → 3b2e075735b6 | 1 |
+| the model proxy's offset and scale swapped | ShadowProxies.cs | 699108de5d76 → 8c273e5d502e | 5 |
+
+Each file was restored to its pre-mutation sha256. One planted change is
+an equivalent mutant and turned nothing red: `receiverDot <= sourceDot` to
+`<` on the toward side (612634edb430 → 67cd895a98a2), because a plane that
+separates two boxes cannot have both centres project equally on its
+normal, so the boundary is never met.
+
+### Rulings made here (2026-10-19, the S0/S1 lane)
+
+- **The seams are call-shaped, not op buffers.** §4 sketched ShadowNative as
+  Execute(ops), Facts(renderables) and query batches. S1 has no native side,
+  so the manager calls its seams one engine or renderable call at a time, in
+  stock's order, which keeps the port a transliteration the golden can hold.
+  S2's binding implements the seams over the HAND table: it queues what
+  answers nothing into the Execute op buffer and crosses (after flushing the
+  queue) for what answers; S3 measures it and batches the renderable
+  questions if the budget asks.
+- **A flashlight's state is the manager's copy.** BuildActiveShadowDepthList
+  and ComputeShadowDepthTextures read the state the manager last handed the
+  engine (stock asks the engine's GetFlashlightState, which answers the same
+  state); no crossing. FlashlightState has no DrawShadowFrustum, so the
+  per-light frustum overlay is not carried; r_flashlightdrawfrustum is.
+- **The proxies' atlas is FindTexture( "_rt_Shadows" ), once per atlas the
+  manager makes** (IShadowProxySource.AtlasPage), so a proxy holds one
+  reference to each atlas; -1 (NULL) while there is none.
+
+### Divergences (each held by a fact, or out of the golden's reach and named)
+
+- DrawShadowHierarchy with a NULL root draws nothing (stock dereferences it).
+- A shadow model proxy bound with a handle that names no shadow sets only its
+  texture (stock reads past its list).
+- A reused shadow slot starts zeroed (stock's CUtlLinkedList keeps the old
+  occupant's POD members; no read of one before a write is in the golden).
+- DebugDrawFrustum over a singular matrix draws from zeros (stock: from an
+  uninitialised one).
+- A duplicate dirty handle retired mid-walk: stock's Find may remove the
+  other copy; the managed walk stops when the count of the visited handle
+  drops (no such case in stock's scenario or the game).
+- The console's %.2f is .NET's "F2", which rounds an exact binary tie away
+  from zero where glibc rounds it to even; no printed value is a tie.
+- The fork's report omits its resolve line (SourceSharp_RenderableFromHandle's
+  native counters); S2 decides what the managed report prints there.
+- The engine block carries no render mode, so the receive rule's
+  "invisible blended entity" arm reads mode 0 until S2 gives it a source.
+
+### Open, for S2
+
+- Wire: the IManagedShadowsClient rows and the ShadowNative HAND table; the
+  seams' binding; the ConVars and commands as managed ConVars; the proxies'
+  registration by name; LeafRegistry implementing IShadowLeafSystem and
+  calling AddShadowToReceiver directly; the receive rule into
+  C_StandaloneEntity's answer (and the render mode into the block).
+- The witness at the tip: c7-shadow-ab.steps against the recordings above
+  (shadowmgr. lines, cs_cl_shadow_report counts, screenshots; Q2 changes the
+  receiver lines by design).
+- TheFarmDiffersFromThePristineOnlyByTheEditFamilies reads the farm's TU,
+  which S2's eviction removes: retire that fact with it.
 
 ## Decisions
 

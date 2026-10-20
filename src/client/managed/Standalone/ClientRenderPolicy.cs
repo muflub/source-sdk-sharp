@@ -82,6 +82,22 @@ public struct ClientRenderFacts
     /// <summary>The studio header's IK-chain count.</summary>
     public int IkChainCount;
 
+    /// <summary>
+    /// <c>EF_NORECEIVESHADOW</c> is set: the server said no shadow lands on
+    /// this. Read by <see cref="ClientRenderPolicy.ReceivesProjectedTextures"/>.
+    /// </summary>
+    public bool NoReceiveShadow;
+
+    /// <summary>
+    /// The render mode (<c>RenderMode_t</c>, <c>kRenderNormal</c> 0). The engine
+    /// block carries no render mode yet, so the pass reads 0 here; S2 of
+    /// docs/plans/c7_shadow_manager.md gives the receive rule its source.
+    /// </summary>
+    public int RenderMode;
+
+    /// <summary>The render colour's alpha, 0 to 255 (the block's RenderColorA).</summary>
+    public int RenderAlpha;
+
     /// <summary><c>mod_studio</c>, which is the only model type the shadow rule can grade.</summary>
     public const int Studio = 3;
 
@@ -381,6 +397,50 @@ public sealed class ClientRenderPolicy
         return flags;
     }
 
+    /// <summary><c>kRenderNormal</c>.</summary>
+    private const int RenderNormal = 0;
+
+    // engine/ishadowmgr.h's projected-texture kinds.
+    private const int ShadowFlagsFlashlight = 1 << 0;
+
+    /// <summary>
+    /// Whether a projected texture of the kinds in <paramref name="flags"/>
+    /// lands on the entity: stock's <c>C_BaseEntity::ShouldReceiveProjectedTextures</c>
+    /// (c_baseentity.cpp, the fork's lines 1458-1481), ported for Q2 of
+    /// docs/plans/c7_shadow_manager.md (user ruling 2026-10-19, "match stock").
+    ///
+    /// <para>
+    /// Nothing that is not drawn takes one. A flashlight (the flashlight bit
+    /// is tested first, so a mask of both kinds is asked as a flashlight)
+    /// lights everything but an invisible blended entity. A shadow lands on
+    /// anything but a studio model, unless EF_NORECEIVESHADOW says no:
+    /// studio models take their shadows in the render-to-texture pass, not as
+    /// projected decals. C_StandaloneEntity answers <c>false</c> for every
+    /// entity until S2 wires this in, so the flashlight lights only the world
+    /// and the engine's static props today.
+    /// </para>
+    /// </summary>
+    public static bool ReceivesProjectedTextures(in ClientRenderFacts facts, int flags)
+    {
+        if (facts.NoDraw)
+            return false;
+
+        if ((flags & ShadowFlagsFlashlight) != 0)
+        {
+            if (facts.RenderMode > RenderNormal && facts.RenderAlpha == 0)
+                return false;
+            return true;
+        }
+
+        if (facts.NoReceiveShadow)
+            return false;
+
+        if (facts.ModelType == ClientRenderFacts.Studio)
+            return false;
+
+        return true;
+    }
+
     /// <summary>Every choice, from every fact. The whole of the policy in one call.</summary>
     public static ClientRenderChoices Decide(in ClientRenderFacts facts)
     {
@@ -611,6 +671,7 @@ public sealed class ClientRenderPolicy
     private static readonly int FadeStyleOffset = Tail(nameof(EngineBlockClientTail.FadeStyle));
     private static readonly int ShadowChoiceOffset = Tail(nameof(EngineBlockClientTail.ShadowChoice));
     private static readonly int ModelTypeOffset = Tail(nameof(EngineBlockClientTail.ModelType));
+    private static readonly int RenderAlphaOffset = Tail(nameof(EngineBlockClientTail.RenderColorA));
 
     private static readonly int DrawnOffset = Tail(nameof(EngineBlockClientTail.Drawn));
     private static readonly int HideWhenOwnerSeenOffset = Tail(nameof(EngineBlockClientTail.HideWhenOwnerSeen));
@@ -661,6 +722,8 @@ public sealed class ClientRenderPolicy
     {
         Dormant             = ReadInt(block, DormantOffset) != 0,
         NoDraw              = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoDraw) != 0,
+        NoReceiveShadow     = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoReceiveShadow) != 0,
+        RenderAlpha         = block[RenderAlphaOffset],
         ViewModel           = ReadInt(block, ViewModelOffset) != 0,
         CustomDraw          = ReadInt(block, CustomDrawOffset) != 0,
         Translucent         = ReadInt(block, TranslucentOffset) != 0,
