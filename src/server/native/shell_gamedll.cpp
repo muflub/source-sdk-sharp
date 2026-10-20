@@ -35,6 +35,8 @@
 #include "shell_gamedll_internal.h"
 #include "shell_factory.h"
 #include "ss_string.h"
+#include "server_state.h"     // m_pDll / m_pLevel (plan_server_native_v2 T6)
+#include "shell_shim_root_server.h"  // m_ShimRoot, the bootstrap object managed is handed (T6)
 
 //-----------------------------------------------------------------------------
 // THE DELEGATE IS GONE -- plan_gamedll.md T4, closed at Phase 7a.
@@ -95,6 +97,11 @@ public:
                  CreateInterfaceFn fileSystemFactory,
                  CGlobalVars *pGlobals) override
     {
+        // THE DLL TIER FIRST (plan_globals.md §2, plan_server_native_v2 T6):
+        // everything DLLInit and the managed load reach that is DLL state lives
+        // in it, so it exists before any of them runs. DLLShutdown ends it last.
+        m_pDll.Begin();
+
         m_pEngineFactory = engineFactory;
         m_pPhysicsFactory = physicsFactory;
         m_pFileSystemFactory = fileSystemFactory;
@@ -355,6 +362,12 @@ public:
         m_pEngine = nullptr;
         m_pCVar = nullptr;
 
+        // THE TIERS LAST, level then DLL: nothing above may still reach them,
+        // and a level the engine never shut down is ended here rather than
+        // leaked. The engine calls this after a FAILED DLLInit too, where the
+        // DLL tier exists (DLLInit's first line) and ends the same way.
+        m_pLevel.End();
+        m_pDll.End();
         // g_pSharedChangeInfo is deliberately NOT cleared, because stock does
         // not clear it either -- its DLLShutdown unwinds the tiers and nothing
         // else. It points at engine-owned storage that outlives this DLL, and
@@ -426,6 +439,10 @@ public:
         // (plan_engineapi_vtables D5: a class by value cannot cross a vtable
         // managed writes). Field-assigned rather than positional: its members
         // are four interchangeable `const char *`.
+        // THE LEVEL TIER (T6): a new object for every map, before the map's
+        // load reaches anything that keeps per-map state.
+        m_pLevel.Begin();
+
         SourceSharpMapLoad load = {};
         load.pMapName = pMapName;
         load.pMapEntities = pMapEntities;
@@ -450,6 +467,10 @@ public:
         // over nine native steps -- three of which are the named list's
         // shutdown passes, walked backwards.
         ManagedRuntimeServer()->OnMapUnload();
+
+        // ...and gone once the map's teardown has run: the next LevelInit
+        // cannot see this map's per-map state, because it no longer exists.
+        m_pLevel.End();
     }
 
     void ServerActivate(edict_t *pEdictList, int edictCount, int clientMax) override
@@ -1331,6 +1352,10 @@ public:
     // ShellGameDll_Managed() at the bottom of this file.
     CManagedHolders &Managed() { return m_Managed; }
 
+    CServerDllState *Dll() const { return m_pDll.Get(); }
+    CServerLevelState *Level() const { return m_pLevel.Get(); }
+    CShimRootServer &ShimRoot() { return m_ShimRoot; }
+
 private:
     // PART 7'S SPELLING, KEPT, now that there is no counter behind it.
     //
@@ -1415,6 +1440,17 @@ private:
 
     IVEngineServer *m_pEngine = {};
     ICvar *m_pCVar = {};
+
+    // THE TWO HEAP TIERS (server_state.h): DLLInit..DLLShutdown and
+    // LevelInit..LevelShutdown. The root is the one static; these are not.
+    CStateTier< CServerDllState > m_pDll;
+    CStateTier< CServerLevelState > m_pLevel;
+
+    // THE SHIM ROOT, by value (plan_server_native_v2 T6): the one native
+    // object LoadSideV2 hands managed, beside SSFwd_ShimRoot, and every other
+    // area is acquired from it. By value rather than in m_pDll because it is
+    // stateless beyond its areas and managed may hold it for the DLL's life.
+    CShimRootServer m_ShimRoot;
 };
 
 namespace
@@ -1445,6 +1481,21 @@ namespace
 CManagedHolders &ShellGameDll_Managed()
 {
     return s_gameShellDll.Managed();
+}
+
+CServerDllState *ShellGameDll_Dll()
+{
+    return s_gameShellDll.Dll();
+}
+
+CServerLevelState *ShellGameDll_Level()
+{
+    return s_gameShellDll.Level();
+}
+
+CShimRootServer &ShellGameDll_ShimRoot()
+{
+    return s_gameShellDll.ShimRoot();
 }
 
 bool ShellGameDll_TransmitCaptureBegin( int nRecipientEdict )

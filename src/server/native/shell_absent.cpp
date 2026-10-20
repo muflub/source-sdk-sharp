@@ -46,7 +46,7 @@
 //
 //   SYMBOL                                      IMPORTED BY         DIES WITH
 //   ------------------------------------------- ------------------- -----------
-//   g_iszFuncBrushClassname                     world_adapter       lane S2
+//   g_iszFuncBrushClassname                     (went, T6: nothing read it)
 //   PostFrameNavigationSystem                   shell_serversystems lane S2
 //     (+ CPostFrameNavigationHook's four members, which are that object's
 //      body: the row in kServerSystems[] is shell_serversystems.cpp:346)
@@ -124,27 +124,10 @@ class CFunctor;
 
 
 //=============================================================================
-// THE AI, ABSENT (was shell_ai_absent.cpp).
-//
-// Phase 7 is decided: this mod will not port Source's AI, it will design its own
-// in C#. None of ai_*.cpp is in the build, and these are what lets the rest link
-// without it.
-//
-// THE LOUD STUBS AND THE AI_ABSENT MACRO ARE GONE -- plan_shim.md 4a item 11,
-// lane 5a-physresidue. Every stub in this file that ASSERTED was one of the
-// three "UNREACHABLE" ones, and all three were kept for mapentities.o, which
-// Phase 2c evicted from server_csharp.vpc. A stub kept for a caller that has
-// left is not a loud stub; it is a definition with no creditor, which is the
-// drift the membership rule at the top of this file exists to prevent. So the
-// deletion is that rule applied, not an exception to it.
-//
-// What survives is the other kind and says so at each body: "empty because
-// there is genuinely nothing to do" is a claim about the behaviour, and the
-// distinction from "empty because unreachable" is kept by there no longer
-// being any of the second kind here to confuse it with.
+// THE AI, ABSENT (was shell_ai_absent.cpp): EMPTY NOW. Its last survivor,
+// g_iszFuncBrushClassname, went in plan_server_native_v2 T6: CWorld::Precache
+// wrote it and nothing read it.
 //=============================================================================
-
-string_t g_iszFuncBrushClassname = NULL_STRING;
 
 //=============================================================================
 // THE DEFERRED-NAVIGATION GAME SYSTEM (was shell_ai_orphans.cpp).

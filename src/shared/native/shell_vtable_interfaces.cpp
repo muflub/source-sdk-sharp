@@ -309,6 +309,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 
 	if ( eType == SOURCESHARP_FACTORY_INTERNAL )
 	{
+#ifdef CLIENT_DLL
 		// EXEMPT FROM THE NOT-YET-AVAILABLE CASE, and it is the only kind that
 		// is: these singletons are ours and exist from DLL load, so there is no
 		// captured factory to be waiting for.
@@ -322,6 +323,14 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 		}
 
 		return pShim;
+#else
+		// THE SERVER'S ROOT ANSWERS THIS KIND ITSELF (plan_server_native_v2 T6):
+		// CShimRootServer::AcquireInterface serves it from its own members and
+		// never reaches here with it, so a caller that does is told no.
+		SourceSharp_SayAcquireReason( pError, nErrorBytes,
+		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		return NULL;
+#endif
 	}
 
 	// THE NAME IS RESOLVED BEFORE ANY ENGINE FACTORY IS ASKED: a name this side

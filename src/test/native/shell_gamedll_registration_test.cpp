@@ -937,5 +937,6 @@ TEST( ShellGameDllPointers, TheMeterIsAnsweredByIdentityInOnePlace )
 	ASSERT_FALSE( strTiers.empty() );
 	ASSERT_FALSE( strTe.empty() );
 	EXPECT_NE( std::string::npos, strTiers.find( "g_pTierClasses[ i ] == pClass" ) );
-	EXPECT_NE( std::string::npos, strTe.find( "g_TeBuilt[ i ].pClass == pClass" ) );
+	// The TE tables are the DLL tier's since plan_server_native_v2 T6.
+	EXPECT_NE( std::string::npos, strTe.find( "pTe->m_Built[ i ].pClass == pClass" ) );
 }

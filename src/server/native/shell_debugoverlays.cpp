@@ -79,7 +79,6 @@ CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict );
 bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut );
 #include "shell_diagnostics.h"
 #include "PlayerState.h"
-#include "entity_debug_globals.h"
 
 
 // Defined elsewhere in the server and reached by name, exactly as
@@ -98,73 +97,21 @@ bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut );
 //=============================================================================//
 
 //-----------------------------------------------------------------------------
-// Where the overlays are being looked at from, once a frame, BY HANDLE.
+// Where the overlays are being looked at from, once a frame: NOWHERE, and that
+// is what this build has always answered.
 //
-// Six of debugoverlay_shared.cpp's entries clip against the local player and had
-// all become `#ifdef SOURCESHARP return;` — a silent no-op each, which is what
-// plan_entity.md §7 forbids. The player never went away; what went away was the
-// pointer type they asked it through. This asks by slot instead:
-//
-//   EntityDebug_SelectingPlayer()   the slot the picker is on, or -1
-//   engine->PEntityOfEntIndex       that slot's edict
-//   SourceSharp_ClientViewOrigin    where managed code last said the eyes are,
-//                                   cached in the engine block and stamped with
-//                                   the frame, so this costs a crossing only if
-//                                   nothing else has asked this frame
-//   SourceSharp_PlayerStateForEdict CPlayerState::v_angle, which the usercmd
-//                                   path writes and which IS the eye angles
-//
-// Not one of those is an entity pointer and not one of them is a cast.
-//
-// GATED, AND THE GATE IS ABOUT THE CROSSING BUDGET. plan_entity.md's rule is
-// that a phase may only LOWER crossings per frame, and SourceSharp_ClientViewOrigin
-// asks managed code for an ear position on a frame nobody else has asked on. So
-// the viewer is only established when something is actually going to draw:
-// the picker is on, the trace visualiser is on, or `developer` is non-zero.
-// With all three off this costs one cvar read and no crossing at all, which is
-// every frame of a normal game.
+// The viewer used to be established from the player the debug picker was on
+// (EntityDebug_SelectingPlayer), gated on the picker, r_visualizetraces or
+// `developer` being on. Nothing in either DLL ever set the picker: stock's
+// ent_* picker commands were never ported, so the slot was -1 for the process
+// and every arm past the gate cleared the viewer. plan_server_native_v2 T6
+// deleted the picker's two globals, the two ConVarRefs the gate read and the
+// unreachable arm; what is left is the answer every frame already got, so a
+// clipped overlay counts as "no viewer" exactly as before.
 //-----------------------------------------------------------------------------
 static void SourceSharp_EstablishOverlayViewer()
 {
-	static ConVarRef s_VisualizeTraces( "r_visualizetraces" );
-	static ConVarRef s_Developer( "developer" );
-
-	const bool bWanted =
-		EntityDebug_InSelect() ||
-		( s_VisualizeTraces.IsValid() && s_VisualizeTraces.GetBool() ) ||
-		( s_Developer.IsValid() && s_Developer.GetInt() > 0 );
-
-	if ( !bWanted )
-	{
-		Overlay_ClearViewer();
-		return;
-	}
-
-	const int nSlot = EntityDebug_SelectingPlayer();
-
-	if ( nSlot <= 0 || nSlot > gpGlobals->maxClients )
-	{
-		Overlay_ClearViewer();
-		return;
-	}
-
-	edict_t *pEdict = engine->PEntityOfEntIndex( nSlot );
-
-	Vector vecEye;
-	if ( pEdict == NULL || !SourceSharp_ClientViewOrigin( pEdict, &vecEye ) )
-	{
-		// No player on that slot. Stock drew nothing here too; the difference
-		// is that Overlay_Counts().nNoViewer now says how often.
-		Overlay_ClearViewer();
-		return;
-	}
-
-	CPlayerState *pState = SourceSharp_PlayerStateForEdict( pEdict );
-
-	Vector vecForward;
-	AngleVectors( pState ? pState->v_angle : vec3_angle, &vecForward );
-
-	Overlay_SetViewer( vecEye, vecForward );
+	Overlay_ClearViewer();
 }
 
 //=============================================================================//

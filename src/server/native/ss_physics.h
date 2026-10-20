@@ -37,7 +37,6 @@
 class IServerEntity;
 class IServerNetworkable;
 class CSoundPatch;
-class CEntityList;   // g_pShadowEntities' type: held, never allocated (physics.cpp)
 class IPhysicsFluidController;
 struct PhysicsOwner_t;
 struct vehicleparams_t;
@@ -86,8 +85,6 @@ struct masscenteroverride_t
 // VPhysics' collision solver, collision events and object events are managed's
 // own tables (plan_physics_managed B2.1/B2.2, plan_physics_bones_native_zero
 // 2.1): physics.cpp keeps no handler of its own.
-
-extern CEntityList *g_pShadowEntities;
 
 // Defined in physics.cpp, used there ahead of their definitions.
 void PhysCollisionScreenShake( ss::gamevcollisionevent_t *pEvent, int index );

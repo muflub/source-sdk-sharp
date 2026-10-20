@@ -28,6 +28,7 @@
 
 #ifndef CLIENT_DLL
 	#include "dt_send.h"
+	#include "server_state.h"   // the DLL tier the server's type table lives in (T6)
 #endif
 
 
@@ -64,11 +65,23 @@ static void SourceSharpPayload_BuildPropNames( void )
 // it, and a second table per shell would answer differently depending on who
 // asked.
 //-----------------------------------------------------------------------------
+#ifdef CLIENT_DLL
 CSourceSharpTypeTable &SourceSharp_NetTypes( void )
 {
 	static CSourceSharpTypeTable s_Types;
 	return s_Types;
 }
+#else
+// THE SERVER'S IS THE DLL TIER'S (plan_server_native_v2 T6): a member of
+// CServerDllState, built in DLLInit before the managed load publishes a type
+// and destroyed at the end of DLLShutdown. Every reader runs inside that window
+// (registration, entity creation, the engine's GetServerClass during a level).
+CSourceSharpTypeTable &SourceSharp_NetTypes( void )
+{
+	AssertMsg( ShellGameDll_Dll(), "the net type table was asked for outside DLLInit..DLLShutdown" );
+	return ShellGameDll_Dll()->m_NetTypes;
+}
+#endif
 
 const char *SourceSharpPayload_PropName( int iWord )
 {

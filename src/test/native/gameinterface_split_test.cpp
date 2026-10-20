@@ -692,7 +692,8 @@ TEST( GameInterfaceSplit, EveryEngineGlobalIsStillDefinedExactlyOnce )
 		// game/server/timedeventmgr.cpp -- nothing could ever register with it
 		// -- so it is no longer one of the globals this file must define, and
 		// an entry for a global that must not exist is the opposite claim.
-		"floatg_flServerCurTime=0.0f;",
+		// "floatg_flServerCurTime=0.0f;" went the same way in
+		// plan_server_native_v2 T6: its one reader is in neither DLL.
 	};
 	for ( size_t i = 0; i < sizeof( kGlobalDefs ) / sizeof( kGlobalDefs[ 0 ] ); i++ )
 	{

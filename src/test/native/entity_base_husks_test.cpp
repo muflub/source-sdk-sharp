@@ -178,10 +178,11 @@ struct File_t
 // implied by the assertion it guards: `GetRecentNPCSpeech` is a kKept needle
 // below, and an anchor containing it would satisfy that needle for free.
 // RE-POINTED AGAIN IN P5: GetRecentNPCSpeech went, and the AI section's one
-// survivor is g_iszFuncBrushClassname, a kKept needle -- so the anchor is the
-// rest of its line, its initialiser, which no other section has.
+// survivor was g_iszFuncBrushClassname. RE-POINTED IN plan_server_native_v2
+// T6: that went too (nothing read it), the AI section is empty, and the
+// anchor is the file's one remaining definition.
 const File_t kAiAbsent     = { "sourcesharp/game/server/shell_absent.cpp",
-	"= NULL_STRING;" };
+	"void UTIL_BloodSpray(" };
 // RE-POINTED IN plan_server_native_min P1: PostFrameNavigationSystem went
 // with its hook, so the anchor was RadiusDamage's definition; that went in
 // plan_server_native_v2 T2, and the anchor is ss::SetPlayerSurface's.
@@ -313,9 +314,13 @@ TEST( EntityBaseHusks, TheAiStubFileHasNoBehaviourOrNavigatorStubsLeft )
 TEST( EntityBaseHusks, TheAiStubFileStillDefinesWhatIsStillCalled )
 {
 	const std::string s = Load( kAiAbsent );
-	static const char *kKept[] = {
-		"g_iszFuncBrushClassname",
-	};
+
+	// THE LAST KEPT NAME WENT IN plan_server_native_v2 T6:
+	// g_iszFuncBrushClassname, written by CWorld::Precache and read by nothing
+	// (nm: no server importer but the writer). The AI section keeps nothing.
+	EXPECT_EQ( s.find( "g_iszFuncBrushClassname" ), std::string::npos )
+		<< "shell_absent.cpp defines g_iszFuncBrushClassname again; nothing "
+		   "read it when T6 deleted it.";
 
 	// THREE MORE LEFT IN P5 (plan_server_novalve.md): world_adapter stopped
 	// calling the empty AI loaders (lane E 27), and `nm --undefined-only` over
@@ -404,12 +409,6 @@ TEST( EntityBaseHusks, TheAiStubFileStillDefinesWhatIsStillCalled )
 			<< "shell_absent.cpp defines " << kGoneInPhase1b[ i ] << " again. "
 			   "Nothing on the server link line imported it when Phase 1b "
 			   "deleted it; if a caller has returned, say which in the commit.";
-	}
-	for ( size_t i = 0; i < sizeof( kKept ) / sizeof( kKept[ 0 ] ); i++ )
-	{
-		EXPECT_NE( s.find( kKept[ i ] ), std::string::npos )
-			<< kKept[ i ] << " left shell_ai_absent.cpp but something on the "
-			   "server link line still names it";
 	}
 
 	// NPC_CheckBrushExclude WAS THE SIXTEENTH NAME ON THIS LIST and it is now

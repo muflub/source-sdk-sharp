@@ -393,6 +393,69 @@ move):
    the signal handler and ConVar change callbacks; a gtest pins the calling
    files (plan_globals §2.3).
 
+**T6 part 1, re-measured at main f087134f5 (2026-10-19)** (`make globals-census`,
+debug server, 98 objects on the link edge; `tools/globals-census` reads them
+with readelf):
+
+| what | number |
+|---|--:|
+| link_level (`docs/globals-ledger.tsv` rows) | 225; object level 247; 1,411,344 bytes |
+| objects with a static initialiser | 85 of 98 (the ratchet row read 104: lowered to 85) |
+| dispositions before | UNRULED 123, MEMBER 51, CONST 30, MANAGED 9, FLOOR 8, DEAD 4 |
+| UNRULED by census category | other 66, engine-iface-ptr 34, abi-block 9, datatable 9, convar 4, string pool 1; the big blocks `g_EntitySlots` 163,856 B, `s_SlotTable` 81,936 B, `s_Types` 43,016 B (`g_TeRegistry` went in T4b) |
+| dispositions after step 2 | UNRULED 0, MEMBER 133, CONST 35, DEAD 29, MANAGED 18, FLOOR 10 |
+
+Two rulings differ from the step-1 text above: `BoundaryProbes()::s_Probes` is
+MEMBER Diagnostics, not DEAD, because `tools/live-gate`'s join step reads
+`ss_boundary_probe_report` in debug; and the engine pointers read only inside
+the acquisition (`datacache`, `enginesound`, `g_pVoiceServer`, `scenefilecache`,
+`soundemitterbase`, `sv_cheats`) are DEAD as globals, their refuse-if-missing
+checks kept as locals. `g_pSharedChangeInfo` and the two `bitvec.h` tables need
+a fork edit to go further (plan_globals G2.4), so they wait for the user.
+
+**T6 part 1 done (2026-10-19, lane t6-globals, steps 1-3 and step 4's first
+item; not yet on main).** Measured at the lane's tip the same way (debug
+server, 98 objects): link_level 225 -> **186**; object level 1,411,344 ->
+**1,116,807 B**; MEMBER 123, CONST 35, MANAGED 18, FLOOR 10, DEAD 0, UNRULED 0;
+85 objects with a static initialiser (unchanged). What landed:
+
+- every DEAD row went (3a-3h), including two the rulings exposed:
+  `g_TePrediction` (its last caller was the multi-damage apply) and the server's
+  `cvar` (client-only now). `IShimFrame::SetServerCurTime` and
+  `IShimLevel::ResetServerTime` are `SS_RETIRED` empty slots awaiting one
+  `--reorder` pass (docs/abi-retirements.md).
+- the scaffolding (4a, 4b): `server_state.h`'s `CStateTier<T>` behind the root's
+  `m_pDll` (DLLInit..DLLShutdown) and `m_pLevel` (LevelInit..LevelShutdown);
+  `CShimRootServer`, the bootstrap object, a by-value member of the root whose
+  `Acquire` is the server's row set (SourceSharp_InternalFactory is the
+  client's alone).
+- the abi blocks (5a-5c): EntitySlots (`g_EntitySlots`, `s_SlotTable`),
+  NetTypes (`s_Types`) and TempEnts (`g_TeBuilt` and four siblings) are
+  `CServerDllState` members.
+
+**What is left of T6, measured at the lane's tip** (MEMBER rows by owner,
+`docs/globals-ledger.tsv`):
+
+| step | owner (tier) | rows | bytes |
+|---|---|--:|--:|
+| 4 | EngineBinding (ROOT): `engine`, `gpGlobals` (duplicates of m_pEngine/m_pGlobals), `g_pCVar`, `mdlcache`, `s_factories`, the 3 by-value interface objects + shared app systems, `g_pSharedChangeInfo` (needs the fork's edict.h `#ifndef SOURCESHARP`) | 21 | 209 |
+| 4 | Diagnostics (DLL 27, ROOT 3, LEVEL 1; movement counters 2) | 33 | ~13,750 |
+| 4 | Console (DLL): `g_LineBuffer` (1 MB) and convar_port's registration state | 11 | 1,049,035 |
+| 4 | Overlaps (LEVEL) | 5 | 77 |
+| 4 | World (DLL 3, LEVEL 2) | 5 | 542 |
+| 4 | NetTables (DLL 7: the tier tables, world table, payload names; LEVEL 1) and StringTables (LEVEL 7) | 15 | 2,834 |
+| 4 | GameRules (LEVEL), GameEvents (DLL 2), StringPool (LEVEL), Precache (DLL) | 5 | 129 |
+| 4 | Physics (DLL 5, LEVEL 2: `physenv`, `g_PhysWorldObject`) | 7 | 184 |
+| 4 | Players (DLL 4 + players/player-shadow subsystems 4) | 8 | 16,868 |
+| 4 | the rest: EntityFactories 2, EntityShells 3, ManagedBridge (DLL 4, ROOT 2: g_ShimFrame/g_ShimLevel), EntitySlots' world serial 1, TempEnts' s_EffectServer 1 | 13 | 925 |
+| 5 | static initialisers: 85 of 98 objects (tools/globals-census summary) | | |
+| 6 | C callbacks with no user-data argument: the spew hook (shell_diagnostics.cpp SpewOutputFunc), the assert notify (SetAssertFailedNotifyFunc), the global ConVar change callback (sourcesharp_gamesystem.cpp); the signal/SDL watch is FLOOR already (g_ExitWatch) | 3 sites | |
+
+The free `SourceSharp_*` entry points of the moved owners still reach the DLL
+tier through the root's accessor (`ShellGameDll_Dll()`); routing them through
+`this` on their IShim area (plan_globals §2 route 2) is the remaining half of
+each owner's move.
+
 Exit: `link_level` = the FLOOR rows D6 allows (target: 1 object plus the
 callback accessor and whatever of (b)/(c) the ruling keeps), 0 UNRULED, 0
 MEMBER, 0 DEAD; `objects_with_a_static_initialiser` at the floor; the daily

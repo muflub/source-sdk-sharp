@@ -170,12 +170,12 @@ TEST( PhysicsMoveScope, TheFileIsStillTheSizeTheScopeWasTakenOn )
 	// the file has changed, the rulings have not been re-derived and the
 	// document is a historical record rather than a plan.
 	const int nLines = CountLines( ReadRel( kPhysics ) );
-	EXPECT_EQ( 534, nLines )
+	EXPECT_EQ( 474, nLines )
 		<< "game/server/physics.cpp is now " << nLines << " lines, not the "
-		   "534 docs/physics-move-scope.md was measured on. RE-MEASURE the "
+		   "474 docs/physics-move-scope.md was measured on. RE-MEASURE the "
 		   "scope (tools/physics-scope/fnmap, then tools/physics-scope/classify)"
 		   " and update the document's section 1 and its totals table; do not "
-		   "just edit the number. It was 542 until the physics frame's forward went with kServerSystems[] (plan_server_native_v2 T4e), 547 until the dead gamesound.h include went, and 4,291 until plan_shim.md \u00a78's "
+		   "just edit the number. It was 534 until the shadow list's refusal went (plan_server_native_v2 T6), 542 until the physics frame's forward went with kServerSystems[] (plan_server_native_v2 T4e), 547 until the dead gamesound.h include went, and 4,291 until plan_shim.md \u00a78's "
 		   "reason-letter marker added one COMMENT line, and 4,292 until lane "
 		   "g-vdisp's virtual-mesh skip added 18 lines to one INSTRUMENT "
 		   "function, and 4,310 until the attribution header replaced the "
@@ -216,10 +216,11 @@ TEST( PhysicsMoveScope, TheFileIsStillTheSizeTheScopeWasTakenOn )
 		   "(2.6), and 538 until the owner batch held the velocity managed "
 		   "hands over (plan_physics_bones_perf C2), and 542 / 187 until the "
 		   "physics frame's forward went with kServerSystems[] (plan_server_native_v2 "
-		   "T4e); all thirty-seven re-runs are "
+		   "T4e), and 534 / 181 until the shadow list's refusal went (T6); all "
+		   "thirty-eight re-runs are "
 		   "recorded "
 		   "in the document's section 1.";
-	EXPECT_NE( Doc().find( "534 raw / 181 code" ), std::string::npos )
+	EXPECT_NE( Doc().find( "474 raw / 162 code" ), std::string::npos )
 		<< "the document no longer states the line split it was measured on";
 }
 
@@ -875,9 +876,10 @@ TEST( PhysicsMoveScope, TheTotalsTableSumsToItsOwnTotal )
 	// the event ring went; 11 / 135 until 2.6 moved the world build; 10 / 130
 	// until the owner batch held managed's velocity (plan_physics_bones_perf C2);
 	// 10 / 135 until the physics frame's forward went with kServerSystems[]
-	// (plan_server_native_v2 T4e).
+	// (plan_server_native_v2 T4e); 9 / 129 until the shadow list's refusal
+	// went (plan_server_native_v2 T6).
 	EXPECT_EQ( 9, statedFns );
-	EXPECT_EQ( 129, statedLineTotal );
+	EXPECT_EQ( 112, statedLineTotal );
 }
 
 // plan_physics_bones_native_zero 2.3: the queued impact and break sounds are
@@ -1099,15 +1101,15 @@ TEST( PhysicsMoveScope, TheDocumentsTotalsStillFollowFromTheRulings )
 	// The headline the document states in prose (:33, :47, :95, :360) and the
 	// number the rulings actually sum to. Two artefacts, made differently.
 	EXPECT_NE( std::string::npos,
-	           run.m_szOut.find( "TOTAL         9 functions    129 lines" ) )
-		<< "the rulings no longer sum to the 9 / 129 the document states "
+	           run.m_szOut.find( "TOTAL         9 functions    112 lines" ) )
+		<< "the rulings no longer sum to the 9 / 112 the document states "
 		   "in four places. One of the two moved and the other did not:\n"
 		   << run.m_szOut;
 
 	EXPECT_NE( std::string::npos, Doc().find( "all 9 functions" ) )
 		<< "the document stopped saying 9 functions";
-	EXPECT_NE( std::string::npos, Doc().find( "all 129 lines" ) )
-		<< "the document stopped saying 129 lines";
+	EXPECT_NE( std::string::npos, Doc().find( "all 112 lines" ) )
+		<< "the document stopped saying 112 lines";
 }
 
 // Each verdict row of section 2 is the classifier's count for that verdict,

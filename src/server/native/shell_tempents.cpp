@@ -38,48 +38,31 @@
 extern IVEngineServer *engine;
 #include "shell_tempents.h"
 #include "shell_tempents_internal.h"
-#include "ss_te_prediction.h"
 #include "sourcesharp.h"
 #include "dt_send.h"
 #include "server_class.h"
 #include "shell_tempents_store.h"
 #include "imanaged_areas.h"   // plan_engineapi_vtables E13: the server's IManagedTempEnts
+#include "server_state.h"     // CServerTempEnts, the DLL tier's (T6)
 
 #include <string.h>
 #include <set>
 #include <string>
 
 //-----------------------------------------------------------------------------
-// One built table. The props, the table and the class are leaked on purpose: a
-// SendTable is read by the engine for the life of the process, and there is no
-// point at which they could be freed and nothing would notice.
+// THE TABLES LIVE IN THE GAME DLL'S DLL TIER (CServerTempEnts, server_state.h;
+// plan_server_native_v2 T6): they were file-scope statics. NULL outside
+// DLLInit..DLLShutdown, when there is nothing built and nothing to build into.
 //-----------------------------------------------------------------------------
-enum { SOURCESHARP_TE_MAX_TABLES = 64 };
-
-struct SourceSharpTeBuilt_t
+static CServerTempEnts *TempEnts()
 {
-	SendProp    *pProps;
-	int          nProps;
-	SendTable   *pTable;
-	ServerClass *pClass;      // NULL for a table registered without one
-	const char  *pClassName;  // interned: what a managed reload asks for again
-	uint32_t     nShapeHash;
-};
+	CServerDllState *pDll = ShellGameDll_Dll();
+	return pDll ? &pDll->m_TempEnts : NULL;
+}
 
-static SourceSharpTeBuilt_t g_TeBuilt[ SOURCESHARP_TE_MAX_TABLES ];
-static int                  g_nTeBuilt = 0;
-static bool                 g_bTeClosed = false;
-
-//-----------------------------------------------------------------------------
-// The names the engine keeps by pointer for the table's lifetime: prop names,
-// table names and class names. A std::set node never moves, so c_str() is
-// stable for the life of the set; the same text twice is the same pointer.
-//-----------------------------------------------------------------------------
-static std::set< std::string > g_TeNames;
-
-static const char *InternName( const char *pName )
+static const char *InternName( CServerTempEnts &te, const char *pName )
 {
-	return g_TeNames.emplace( pName ).first->c_str();
+	return te.m_Names.emplace( pName ).first->c_str();
 }
 
 //-----------------------------------------------------------------------------
@@ -87,22 +70,26 @@ static const char *InternName( const char *pName )
 //-----------------------------------------------------------------------------
 SendTable *SourceSharpTe_BuiltTable( int i )
 {
-	return ( i >= 0 && i < g_nTeBuilt ) ? g_TeBuilt[ i ].pTable : NULL;
+	CServerTempEnts *pTe = TempEnts();
+	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[ i ].pTable : NULL;
 }
 
 ServerClass *SourceSharpTe_BuiltClass( int i )
 {
-	return ( i >= 0 && i < g_nTeBuilt ) ? g_TeBuilt[ i ].pClass : NULL;
+	CServerTempEnts *pTe = TempEnts();
+	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[ i ].pClass : NULL;
 }
 
 int SourceSharpTe_BuiltCount( void )
 {
-	return g_nTeBuilt;
+	CServerTempEnts *pTe = TempEnts();
+	return pTe ? pTe->m_nBuilt : 0;
 }
 
 bool SourceSharpTe_RegistrationClosed( void )
 {
-	return g_bTeClosed;
+	CServerTempEnts *pTe = TempEnts();
+	return pTe ? pTe->m_bClosed : false;
 }
 
 //=============================================================================//
@@ -112,29 +99,30 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
                                   SourceSharpTeBuiltTable_t *pOut )
 {
 	SourceSharpTeTableBlock_t block;
-
-	if ( !pOut || !SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, &block ) )
+	CServerTempEnts *pTe = TempEnts();
+	if ( !pOut || !pTe || !SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, &block ) )
 		return -1;
+	CServerTempEnts &te = *pTe;
 
 	// A CLASS BUILT BY AN EARLIER LOAD answers its table. The engine walked the
 	// class list once, at DLL init, so a managed reload cannot build new tables
 	// and must not try; what it needs back is the handle. Whether the class
 	// changed shape is managed's to judge, from the hash it gave the first time.
-	for ( int i = 0; i < g_nTeBuilt; i++ )
+	for ( int i = 0; i < te.m_nBuilt; i++ )
 	{
-		if ( strcmp( g_TeBuilt[ i ].pClassName, block.pClassName ) )
+		if ( strcmp( te.m_Built[ i ].pClassName, block.pClassName ) )
 			continue;
 
 		pOut->bExisted   = 1;
-		pOut->nShapeHash = g_TeBuilt[ i ].nShapeHash;
-		pOut->pSendTable = g_TeBuilt[ i ].pTable;
-		pOut->pClassId   = g_TeBuilt[ i ].pClass ? &g_TeBuilt[ i ].pClass->m_ClassID : NULL;
+		pOut->nShapeHash = te.m_Built[ i ].nShapeHash;
+		pOut->pSendTable = te.m_Built[ i ].pTable;
+		pOut->pClassId   = te.m_Built[ i ].pClass ? &te.m_Built[ i ].pClass->m_ClassID : NULL;
 		return i;
 	}
 
 	// The window. A ServerClass built after the engine's one walk of the class
 	// list is not in it, and nothing would ever report it.
-	if ( g_bTeClosed || g_nTeBuilt >= SOURCESHARP_TE_MAX_TABLES )
+	if ( te.m_bClosed || te.m_nBuilt >= SOURCESHARP_TE_MAX_TABLES )
 		return -1;
 
 	const int nProps = block.header.nProps;
@@ -146,26 +134,26 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 		const char *pName = SourceSharpTe_BlockName( block, row.oName );
 
 		// A nested table is one built before this one, by handle.
-		SendTable *pNested = ( row.hDataTable >= 0 && row.hDataTable < g_nTeBuilt )
-			? g_TeBuilt[ row.hDataTable ].pTable : NULL;
+		SendTable *pNested = ( row.hDataTable >= 0 && row.hDataTable < te.m_nBuilt )
+			? te.m_Built[ row.hDataTable ].pTable : NULL;
 
-		if ( !pName || !SourceSharpTe_StoreProp( row, InternName( pName ), pNested, &pProps[ i ] ) )
+		if ( !pName || !SourceSharpTe_StoreProp( row, InternName( te, pName ), pNested, &pProps[ i ] ) )
 		{
 			delete[] pProps;
 			return -1;
 		}
 	}
 
-	const int iHandle = g_nTeBuilt;
-	SourceSharpTeBuilt_t &built = g_TeBuilt[ iHandle ];
+	const int iHandle = te.m_nBuilt;
+	SourceSharpTeBuilt_t &built = te.m_Built[ iHandle ];
 
 	built.pProps     = pProps;
 	built.nProps     = nProps;
-	built.pTable     = new SendTable( pProps, nProps, InternName( block.pTableName ) );
-	built.pClassName = InternName( block.pClassName );
+	built.pTable     = new SendTable( pProps, nProps, InternName( te, block.pTableName ) );
+	built.pClassName = InternName( te, block.pClassName );
 	built.nShapeHash = block.header.nShapeHash;
 	built.pClass     = block.header.bRegisterClass ? new ServerClass( built.pClassName, built.pTable ) : NULL;
-	g_nTeBuilt = iHandle + 1;
+	te.m_nBuilt = iHandle + 1;
 
 	pOut->bExisted   = 0;
 	pOut->nShapeHash = built.nShapeHash;
@@ -180,40 +168,33 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 //-----------------------------------------------------------------------------
 void SourceSharp_TempEntCloseRegistration( void )
 {
-	if ( g_bTeClosed )
+	CServerTempEnts *pTe = TempEnts();
+	if ( !pTe || pTe->m_bClosed )
 		return;
+	CServerTempEnts &te = *pTe;
 
-	g_bTeClosed = true;
+	te.m_bClosed = true;
 
 	int nClasses = 0;
 
-	for ( int i = 0; i < g_nTeBuilt; i++ )
+	for ( int i = 0; i < te.m_nBuilt; i++ )
 	{
-		if ( g_TeBuilt[i].pClass )
+		if ( te.m_Built[i].pClass )
 			nClasses++;
 	}
 
 	Msg( "[SourceSharp] temp entities: %d table(s), %d ServerClass(es); "
-	     "registration closed\n", g_nTeBuilt, nClasses );
+	     "registration closed\n", te.m_nBuilt, nClasses );
 }
 
 //=============================================================================//
-// THE PREDICTION HOST.
-//
-// It was a bare IPredictionSystem whose constructor linked it into
-// g_pPredictionSystems, so that SuppressHostEvents would reach this channel.
-// Nothing on the server walks that list (nm: no SuppressEvents,
-// SuppressHostEvents or CDisablePredictionFiltering in server.so), and the one
-// reader of the host -- takedamageinfo_library.cpp's ApplyMultiDamage -- asks
-// this object directly, so it is the host alone now (P5 lane SP).
-// suppress_host_dead_test.cpp fails if a writer of a live host appears.
+// THE PREDICTION HOST WENT (plan_server_native_v2 T6). It held the temp entity
+// subsystem's suppress host for one reader, ApplyMultiDamage, which saved and
+// restored it around TakeDamage; the server's multi-damage accumulator was
+// never filled and went in T6 3e, and with it the only caller of
+// SourceSharpTe_PredictionSystem. Nothing set a host, so the host was always
+// NULL: suppress_host_dead_test.cpp holds that no writer comes back.
 //=============================================================================//
-static ss::TePrediction g_TePrediction;
-
-ss::TePrediction *SourceSharpTe_PredictionSystem( void )
-{
-	return &g_TePrediction;
-}
 
 //=============================================================================//
 // THE ROUND TRIP FOR THE NATIVE TE_*() CALLERS (shell_te_forwards.cpp).
@@ -224,7 +205,6 @@ ss::TePrediction *SourceSharpTe_PredictionSystem( void )
 // managed sends NOTHING, rather than a blob it made up. One scratch blob: this
 // runs on the server's thread inside one call and nothing yields in between.
 //=============================================================================//
-static unsigned char g_TeScratch[ 512 ];
 
 bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
                             const float *pFloats, int nFloats,
@@ -232,27 +212,28 @@ bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
 {
 	// E13: the server's managed-built area.
 	IManagedTempEnts *pTempEnts = ManagedTempEnts();
+	CServerTempEnts *pTe = TempEnts();
 
-	if ( !pTempEnts )
+	if ( !pTempEnts || !pTe )
 		return false;
 
 	int hClass = -1;
 
 	const int nBytes = pTempEnts->OnNativeTempEntity( nId, pFloats, nFloats, pInts, nInts,
-	                                                  g_TeScratch, (int)sizeof( g_TeScratch ),
+	                                                  pTe->m_Scratch, (int)sizeof( pTe->m_Scratch ),
 	                                                  &hClass );
 
-	if ( nBytes <= 0 || hClass < 0 || hClass >= g_nTeBuilt )
+	if ( nBytes <= 0 || hClass < 0 || hClass >= pTe->m_nBuilt )
 		return false;
 
-	if ( !g_TeBuilt[ hClass ].pTable || !g_TeBuilt[ hClass ].pClass )
+	if ( !pTe->m_Built[ hClass ].pTable || !pTe->m_Built[ hClass ].pClass )
 		return false;
 
 	Assert( !filter.IsReliable() && !filter.IsInitMessage() );
 	Assert( flDelay >= -1 && flDelay <= 1 );
 
-	engine->PlaybackTempEntity( filter, flDelay, g_TeScratch, g_TeBuilt[ hClass ].pTable,
-	                            g_TeBuilt[ hClass ].pClass->m_ClassID );
+	engine->PlaybackTempEntity( filter, flDelay, pTe->m_Scratch, pTe->m_Built[ hClass ].pTable,
+	                            pTe->m_Built[ hClass ].pClass->m_ClassID );
 	return true;
 }
 
@@ -263,12 +244,13 @@ bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
 //-----------------------------------------------------------------------------
 bool SourceSharp_IsTempEntServerClass( const ServerClass *pClass )
 {
-	if ( pClass == NULL )
+	CServerTempEnts *pTe = TempEnts();
+	if ( pClass == NULL || pTe == NULL )
 		return false;
 
-	for ( int i = 0; i < g_nTeBuilt; i++ )
+	for ( int i = 0; i < pTe->m_nBuilt; i++ )
 	{
-		if ( g_TeBuilt[ i ].pClass == pClass )
+		if ( pTe->m_Built[ i ].pClass == pClass )
 			return true;
 	}
 

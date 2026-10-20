@@ -99,8 +99,8 @@
 //   this build (shell_ai_absent.cpp); g_OneWayTransition is read only by the
 //   save cluster's transition arm, which is refused.
 //
-// NO FILE-SCOPE STATE. The only mutable thing named below is g_flServerCurTime,
-// which is stock's, defined at gameinterface.cpp:1057 outside the class.
+// NO FILE-SCOPE STATE. g_flServerCurTime, stock's clock and the one mutable
+// thing this file used to name, went in plan_server_native_v2 T6.
 //
 //=============================================================================
 
@@ -143,11 +143,6 @@ extern IVEngineServer *engine;
 extern IFileSystem *filesystem;
 extern IMDLCache *mdlcache;
 
-// gameinterface.cpp:1057, outside the class. Read by CBaseProjectile's
-// CollideWithTeammates think (baseprojectile.cpp:231) -- a clock that is not
-// affected by rollback, which is why it is not just gpGlobals->curtime at the
-// point of use.
-extern float g_flServerCurTime;
 
 // The two steps whose bodies are in shell_propdata.cpp rather than here, and
 // which therefore still need a declaration. Every other step is a method of the
@@ -417,9 +412,9 @@ public:
 	//-----------------------------------------------------------------------------
 	// STEP 1 -- gameinterface.cpp:1064.
 	//-----------------------------------------------------------------------------
+	// RETIRED SLOT: the clock it reset had no reader (T6); empty, at its index.
 	virtual void ResetServerTime() OVERRIDE
 	{
-		g_flServerCurTime = gpGlobals->curtime;
 	}
 
 	//-----------------------------------------------------------------------------

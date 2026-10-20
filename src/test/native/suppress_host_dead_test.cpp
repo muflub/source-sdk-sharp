@@ -343,13 +343,13 @@ TEST( SuppressHostDead, PlayerCppIsNotCompiledAtAll )
 }
 
 //-----------------------------------------------------------------------------
-// takedamageinfo.cpp writes, and what it writes is what it read.
-//
-// This is the one COMPILED, UNGUARDED writer in the tree, so "the host is
-// always NULL" rests entirely on it being a save/restore pair rather than a
-// source of hosts.
+// takedamageinfo.cpp WROTE, a save/restore pair inside ApplyMultiDamage, and
+// that was the one compiled, unguarded writer in the tree. plan_server_native_v2
+// T6 made the multi-damage accumulator client-only (nothing on the server ever
+// filled it), so the server compiles NO writer here at all -- a stronger form
+// of "the host is always NULL" than the pair was.
 //-----------------------------------------------------------------------------
-TEST( SuppressHostDead, TakeDamageInfosOnlyWriteIsARestoreOfWhatItRead )
+TEST( SuppressHostDead, TakeDamageInfoCompilesNoSuppressHostWrite )
 {
 	REQUIRE_THE_BUILD_READ();
 	ASSERT_TRUE( IsBuilt( kTakeDamageInfo ) )
@@ -358,24 +358,16 @@ TEST( SuppressHostDead, TakeDamageInfosOnlyWriteIsARestoreOfWhatItRead )
 	const std::string s = ReadSrcFile( kTakeDamageInfo );
 	ASSERT_FALSE( s.empty() ) << kTakeDamageInfo << " read as empty";
 
+	// The positive arm: the reader still sees the file's compiled code.
+	ASSERT_FALSE( CompiledLinesNaming( s, "ImpulseScale(" ).empty() )
+		<< "the scanner found no compiled ImpulseScale in " << kTakeDamageInfo
+		<< "; a zero below would be the scanner's, not the file's.";
+
 	const std::vector< std::string > writes =
 		CompiledLinesNaming( s, "SetSuppressHost(" );
-
-	ASSERT_EQ( (size_t)2, writes.size() )
-		<< kTakeDamageInfo << " has " << writes.size() << " compiled "
-		<< "suppress-host writes, not the save/restore pair.";
-
-	// The pair, in order: clear, then put back the saved value.
-	EXPECT_NE( std::string::npos, writes[ 0 ].find( "NULL" ) )
-		<< "the first write is no longer a clear: " << writes[ 0 ];
-	EXPECT_NE( std::string::npos, writes[ 1 ].find( "host" ) )
-		<< "the second write no longer restores the saved `host`: " << writes[ 1 ];
-
-	// And `host` really is what GetSuppressHost answered, rather than something
-	// this function chose.
-	EXPECT_NE( std::string::npos, s.find( "host = pTe->GetSuppressHost();" ) )
-		<< kTakeDamageInfo << " no longer reads the host it restores. If it "
-		   "starts CHOOSING one, the host is no longer always NULL.";
+	EXPECT_EQ( (size_t)0, writes.size() )
+		<< kTakeDamageInfo << " compiles " << writes.size() << " suppress-host "
+		<< "writes again. If one CHOOSES a host, the host is no longer always NULL.";
 }
 
 //-----------------------------------------------------------------------------

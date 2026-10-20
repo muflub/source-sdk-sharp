@@ -156,34 +156,11 @@ protected:
 	bool        m_bForceFriendlyFire;
 	float       m_flDamageForForce;
 	ECritType   m_eCritType;
-
-	DECLARE_SIMPLE_DATADESC();
 };
 
-// Several hits on one target in one burst, delivered as one.
-class CMultiDamage : public CTakeDamageInfo
-{
-	DECLARE_CLASS( CMultiDamage, CTakeDamageInfo );
-public:
-	CMultiDamage();
-
-	// Clear when the target's handle resolves to nothing.
-	bool IsClear( void )                       { return GetTarget() == NULL; }
-	IGameEntity *GetTarget() const             { return m_hTarget; }
-	const CBaseHandle &GetTargetHandle() const { return m_hTarget; }
-
-	void Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType, int iKillType );
-
-protected:
-	DamageInfoHandle m_hTarget;
-
-	DECLARE_SIMPLE_DATADESC();
-};
-
-// The accumulator, and its two operations.
-extern CMultiDamage g_MultiDamage;
-void ClearMultiDamage( void );
-void ApplyMultiDamage( void );
+// CMultiDamage, g_MultiDamage and ClearMultiDamage/ApplyMultiDamage are the
+// client's only (plan_server_native_v2 T6): nothing on the server accumulated
+// into the accumulator, so it was always clear. The datadesc went with it.
 
 // The damage-force helpers: an impulse to push a mass at a speed, and the
 // force a blast imparts.

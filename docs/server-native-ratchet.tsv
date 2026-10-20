@@ -8,7 +8,7 @@ src/server/native/server_util_library.cpp	13
 src/server/native/shell_absent.cpp	12
 src/server/native/shell_clientsteps.cpp	16
 src/server/native/shell_commandclient.cpp	11
-src/server/native/shell_debugoverlays.cpp	87
+src/server/native/shell_debugoverlays.cpp	60
 src/server/native/shell_debugoverlays_debug.cpp	6
 src/server/native/shell_dispatch.cpp	24
 src/server/native/shell_engineboundary_debug.cpp	44
@@ -42,7 +42,7 @@ src/server/native/shell_standalone_player_debug.cpp	34
 src/server/native/shell_stringtables.cpp	51
 src/server/native/shell_te_forwards.cpp	181
 src/server/native/shell_te_forwards_debug.cpp	42
-src/server/native/shell_tempents.cpp	48
+src/server/native/shell_tempents.cpp	54
 src/server/native/shell_tempents_debug.cpp	130
 src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
@@ -64,12 +64,12 @@ src/shared/native/shell_acquire_reasons.cpp	15
 src/shared/native/shell_diagnostics.cpp	274
 src/shared/native/shell_diagnostics_debug.cpp	8
 src/shared/native/shell_gameevents.cpp	37
-src/shared/native/shell_gamerules.cpp	83
+src/shared/native/shell_gamerules.cpp	73
 src/shared/native/shell_movement.cpp	192
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
 src/shared/native/sourcesharp_gamesystem.cpp	33
 src/shared/native/standalone_player_sync.cpp	62
-src/shared/native/takedamageinfo_library.cpp	125
+src/shared/native/takedamageinfo_library.cpp	111
 src/shared/native/util_shared_library.cpp	82
 src/shared/native/world_net_sync.cpp	104

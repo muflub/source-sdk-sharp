@@ -509,7 +509,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// </summary>
     private bool SpawnTheMap(in MapLoad load)
     {
-        _level.ResetServerTime();
+        // Stock's first step reset g_flServerCurTime. IShimLevel.ResetServerTime
+        // is a retired slot: the clock had no reader in either DLL and went
+        // (plan_server_native_v2 T6), so the arm starts with the manifests.
 
         // The shell's own TODO at shell_gamedll.cpp:364, both halves of it.
         // THE PARTICLE MANIFESTS, IN C# -- plan_server_novalve.md P2.1. These
@@ -1306,7 +1308,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
             _frame.SetFrameTime(_frame.GetFrameTime() * 2.0f);
         }
 
-        _frame.SetServerCurTime();
+        // Stock's step 5 set g_flServerCurTime. IShimFrame.SetServerCurTime is
+        // a retired slot: the clock had no reader in either DLL and went
+        // (plan_server_native_v2 T6).
         float oldFrameTime = _frame.GetFrameTime();
 
         // "Delete anything that was marked for deletion outside of server

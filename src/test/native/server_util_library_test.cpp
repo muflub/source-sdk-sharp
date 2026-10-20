@@ -329,8 +329,8 @@ TEST( ServerUtilLibrary, NoNeedleIsSatisfiedByProseAlone )
 //=============================================================================//
 // 8. THE EMITTERS' MODEL INDICES ARE DECLARED HERE AND DEFINED IN combatweapon
 //
-// g_sModelIndexSmoke, g_sModelIndexBubbles, g_sModelIndexBloodDrop and
-// g_sModelIndexBloodSpray are combatweapon.cpp's. util.cpp reached them by
+// g_sModelIndexSmoke is combatweapon.cpp's (world_adapter.cpp's now; its
+// three siblings had no reader left and went in plan_server_native_v2 T6). util.cpp reached them by
 // `extern short`, and so does this file. DEFINING one here instead links --
 // a `short x;` at namespace scope is a tentative definition -- and gives the
 // emitters a model index that is always zero, which draws nothing and reports
@@ -343,10 +343,9 @@ TEST( ServerUtilLibrary, TheModelIndicesAreDeclaredNeverDefined )
 	ASSERT_FALSE( lib.empty() );
 
 	static const char *const kIndices[] = {
-		"g_sModelIndexSmoke", "g_sModelIndexBubbles",
-		"g_sModelIndexBloodDrop", "g_sModelIndexBloodSpray",
+		"g_sModelIndexSmoke",
 	};
-	for ( size_t i = 0; i < 4; i++ )
+	for ( size_t i = 0; i < sizeof( kIndices ) / sizeof( kIndices[ 0 ] ); i++ )
 	{
 		const std::string decl = std::string( "extern short " ) + kIndices[ i ] + ";";
 		EXPECT_EQ( 1u, CountOf( lib, decl ) )

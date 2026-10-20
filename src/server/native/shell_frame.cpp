@@ -157,9 +157,6 @@ void StandaloneEntities_Finish();
 // Declared exactly the way stock's GameFrame declares them -- as function-local
 // externs, because none of the three has a header (gameinterface.cpp:1347-1349).
 
-// gameinterface.cpp:1057, outside the class. shell_level.cpp names it too;
-// it is the rollback-independent server clock.
-extern float g_flServerCurTime;
 
 // client.cpp / player.cpp's, reached by stock's GameFrame without a header of
 // its own either.
@@ -240,12 +237,13 @@ public:
 	}
 
 	//-------------------------------------------------------------------------
-	// STEP 5 -- gameinterface.cpp:1339. The clock CBaseProjectile's
-	// collide-with-teammates think reads, which is not affected by rollback.
+	// RETIRED SLOT -- stock's step 5 (gameinterface.cpp:1339), the clock
+	// CBaseProjectile's collide-with-teammates think read. That reader is in
+	// neither DLL, so the clock (g_flServerCurTime) went in
+	// plan_server_native_v2 T6 and managed no longer calls this.
 	//-------------------------------------------------------------------------
 	virtual void SetServerCurTime() OVERRIDE
 	{
-		g_flServerCurTime = gpGlobals->curtime;
 	}
 
 	//-------------------------------------------------------------------------

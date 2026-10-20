@@ -453,8 +453,7 @@ set(server_novalve_sources
     # P5 lane SP: ss_util.h (engine, ss::INDEXENT) in place of cbase.h; the
     # dead prediction-system instance gone (833ee78).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_recipientfilter.cpp
-    # P5 lane SP: ss::TePrediction in (0bfbce4); engine and CCommand from
-    # public/ headers in place of cbase.h.
+    # P5 lane SP: engine and CCommand from public/ headers in place of cbase.h.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents.cpp
     # plan_server_native_v2 T4b: the managed plan's block, read and stored;
     # dt_send.h and the ABI header.

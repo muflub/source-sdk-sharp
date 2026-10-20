@@ -4984,11 +4984,6 @@ ss_cpptest_engine_headers(ss_physics_shared_test
 ss_cpptest_engine_headers(ss_effect_dispatch_test
     SOURCES sourcesharp/test/ss_effect_dispatch_test.cpp)
 
-# plan_server_novalve.md P5 lane SP -- ss::TePrediction answers the suppress
-# host it was given, and NULL when fresh (ss_te_prediction_test.cpp).
-ss_cpptest(ss_te_prediction_test
-    SOURCES sourcesharp/test/ss_te_prediction_test.cpp)
-
 # THE CENSUS TIER (cmake/SourceSharpTests.cmake ss_census): the tests that
 # drive the census tools over the real build, 2-15 s each (ctest at
 # 79d3b8af: globals_client_ledger 14.8, orphan_reach 8.3, entity_gates 6.9,
@@ -5183,6 +5178,15 @@ ss_cpptest(ss_bitblock_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/ss_bitblock_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/bitbuf_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
+
+# server_state.h's heap tiers (plan_server_native_v2 T6, plan_globals.md §2):
+# the level reset is structural only if a Begin after an End is a new object.
+ss_cpptest(server_state_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_state_test.cpp)
 
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.

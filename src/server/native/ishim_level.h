@@ -54,7 +54,9 @@ public:
 	// LEVELINIT'S STEPS, in the fill's order.
 	//-------------------------------------------------------------------------
 
-	// gpGlobals->curtime back to zero for the new map.
+	// SS_RETIRED ResetServerTime lane=t6-globals g_flServerCurTime had no reader (baseprojectile.cpp is in neither DLL); managed no longer calls it
+	// Was g_flServerCurTime = gpGlobals->curtime at the new map. Empty; slot
+	// kept at its index (slot 0) until the table's next --reorder pass.
 	virtual void ResetServerTime() = 0;
 
 	// The particle manifest, and then the map's own. TWO steps because they are
