@@ -63,8 +63,9 @@ public class ShimAreaTypedCallsTests
         var rows = Rows();
         // The positive arm: the walk reaches the rows it claims to check. A
         // floor for the reader, not the population: 500 -> 400 when
-        // plan_server_native_v2 T2 deleted the dead slots (499 left).
-        Assert.True(rows.Count > 400, $"the tsv walk found {rows.Count} slot rows");
+        // plan_server_native_v2 T2 deleted the dead slots (499 left); 400 ->
+        // 350 when T4f retired the five server trace slots (400 left).
+        Assert.True(rows.Count > 350, $"the tsv walk found {rows.Count} slot rows");
 
         var missing = new List<string>();
         foreach (var (slot, kind, side) in rows)
@@ -191,7 +192,8 @@ public class ShimAreaTypedCallsTests
             .Distinct().ToList();
 
         // The positive arm: the walk reaches the typed calls it claims to check.
-        Assert.True(typed.Count > 400,
+        // A floor, not the population: 400 -> 350 at T4f (400 left).
+        Assert.True(typed.Count > 350,
             $"the walk over ShimAreas.g.cs found {typed.Count} typed calls");
 
         // Product source, comments stripped so a mention in prose is not a

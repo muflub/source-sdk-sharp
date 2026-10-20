@@ -253,6 +253,10 @@ FORWARD = [
             # plan_server_native_v2 T4d: the area portal records (AreaPortals)
             # and the per-client walk ClientSetupVisibility asks managed for.
             'SetAreaPortalState', 'GetAreaPortalPlane', 'SetAreaPortalStates',
+            # plan_server_native_v2 T4f: a map decal's permanent traced form
+            # (EffectsOverTempEnts.PaintDecal, where SourceSharp_PaintDecal
+            # stored it).
+            'StaticDecal',
         ],
     ),
     dict(
@@ -527,6 +531,9 @@ FORWARD = [
         # (2026-10-19: PointContents, which a both-sides slot used to make).
         methods=[
             'GetPointContents',
+            # plan_server_native_v2 T4f: every server trace, over the managed
+            # trace filter (fwd_trace_filter.cpp) as its ITraceFilter.
+            'TraceRay',
         ],
     ),
     dict(
@@ -604,6 +611,23 @@ HAND = [
         slots=[
             ('SizeOf', 'int', ''),
             ('Construct', 'void *', 'void *, IManagedRecipientFilter *'),
+        ],
+    ),
+    # plan_server_native_v2 T4f: the ITraceFilter IEngineTrace::TraceRay calls
+    # back per candidate entity, built in the managed block's reserved words over
+    # the managed rule (fwd_trace_filter.cpp) with the trace type managed chose,
+    # which the object answers itself (the engine asks it about four times a
+    # trace), and HandleOf, which turns the entity a trace names
+    # (trace_t::m_pEnt) into its handle. Server only.
+    dict(
+        table='TraceFilter',
+        side='server',
+        self_type='void',
+        include='fwd_trace_filter.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('Construct', 'void *', 'void *, IManagedTraceFilter *, int32_t'),
+            ('HandleOf', 'uint32_t', 'IHandleEntity *'),
         ],
     ),
     dict(

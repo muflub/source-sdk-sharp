@@ -194,21 +194,23 @@ public unsafe partial class ManagedVtableTests
         // phase 5 is each vphysics callback: libss_fwd builds the Valve object
         // (a vptr and its managed target) in the words after the table, so it
         // lives and dies with the block. Exactly those six, and exactly the
-        // object's two words (kManagedPhysicsCallbackWords). plan_server_native_v2
+        // object's words (kManagedPhysicsCallbackWords). plan_server_native_v2
         // T4a adds the seventh, the recipient filter EmitSound calls back,
-        // which libss_fwd_server builds the same way.
+        // which libss_fwd_server builds the same way; T4f the eighth, the trace
+        // filter TraceRay calls per candidate, whose object also holds the trace
+        // type managed chose: three words since T4f (kManagedPhysicsCallbackWords).
         string[] callbacks =
         [
             "ManagedPhysicsObjectEventTable", "ManagedPhysicsCollisionEventTable", "ManagedPhysicsCollisionSolverTable",
             "ManagedPhysicsConstraintEventTable", "ManagedMotionEventTable", "ManagedVPhysicsKeyHandlerTable",
-            "ManagedRecipientFilterTable",
+            "ManagedRecipientFilterTable", "ManagedTraceFilterTable",
         ];
         var layouts = ManagedWrittenLayouts().ToList();
 
         Assert.NotEmpty(layouts);   // the stimulus: the managed-written layouts are read
         Assert.Equal(callbacks.Order(), layouts.Where(x => x.Attribute.ReservedWords != 0).Select(x => x.Layout.Name).Order());
         Assert.All(layouts.Where(x => callbacks.Contains(x.Layout.Name)),
-            x => Assert.True(x.Attribute.ReservedWords == 2, $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
+            x => Assert.True(x.Attribute.ReservedWords == 3, $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
     }
 
     [Fact]

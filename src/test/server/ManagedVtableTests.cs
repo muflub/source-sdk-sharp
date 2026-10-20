@@ -455,9 +455,11 @@ public unsafe partial class ManagedVtableTests
         // The recipient filter EmitSound calls back (plan_server_native_v2 T4a),
         // libss_fwd_server's object over managed's table, the same shape.
         Assert.Equal(LayoutHashes(typeof(ManagedRecipientFilterTable)), hashes["IManagedRecipientFilter"]);
+        // The trace filter TraceRay calls per candidate (plan_server_native_v2 T4f), the same shape.
+        Assert.Equal(LayoutHashes(typeof(ManagedTraceFilterTable)), hashes["IManagedTraceFilter"]);
         Assert.DoesNotContain("IPhysicsObjectEvent", hashes.Keys);   // no Valve layout is written by managed any more
         Assert.Equal(LayoutHashes(typeof(ManagedSoundEmitterTable)), hashes["IManagedSoundEmitter"]);
-        Assert.Equal(26, hashes.Count);   // 26 with IManagedFrame retired (plan_server_native_v2 T4e); 27 with IManagedRecipientFilter and IManagedSoundEmitter, IManagedSoundController retired (plan_server_native_v2 T4a); 18 since plan_side_isolation P2: IManagedUserMessages; 19 with B2.1; 20 with B2.2; 21 with IManagedConsoleOutput (docs/todo.md's console capture); 22 with IPhysicsCollisionSolver (plan_physics_bones_native_zero 2.1); 23 with IManagedBones (physics_bones_native_zero 1.1); 24 with IPhysicsConstraintEvent (2.2); 25 with IMotionEvent (2.4); 26 with IVPhysicsKeyHandler (2.6)
+        Assert.Equal(27, hashes.Count);   // 27 with IManagedTraceFilter (plan_server_native_v2 T4f); 26 with IManagedFrame retired (plan_server_native_v2 T4e); 27 with IManagedRecipientFilter and IManagedSoundEmitter, IManagedSoundController retired (plan_server_native_v2 T4a); 18 since plan_side_isolation P2: IManagedUserMessages; 19 with B2.1; 20 with B2.2; 21 with IManagedConsoleOutput (docs/todo.md's console capture); 22 with IPhysicsCollisionSolver (plan_physics_bones_native_zero 2.1); 23 with IManagedBones (physics_bones_native_zero 1.1); 24 with IPhysicsConstraintEvent (2.2); 25 with IMotionEvent (2.4); 26 with IVPhysicsKeyHandler (2.6)
     }
 
     private static uint[] LayoutHashes(Type layout)

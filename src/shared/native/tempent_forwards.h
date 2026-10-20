@@ -47,7 +47,11 @@
 // TE_MuzzleFlash, whose only callers were ss::IEffects methods no server TU
 // called. And two more in T4d -- TE_Explosion and TE_LargeFunnel, whose only
 // callers were the ExplosionEffect and FunnelEffect slots EffectsOverTempEnts
-// had already replaced.
+// had already replaced. And two in T4f -- TE_BSPDecal and TE_ProjectDecal,
+// whose only callers were the PaintDecal slot; EffectsOverTempEnts sends those
+// temp entities itself now. The server's TE_Bubbles went with the BubbleEffect
+// slot too, and its id stays live: the client's shell_te_forwards_client.cpp
+// still forwards one.
 //
 //===========================================================================//
 
@@ -60,7 +64,7 @@
 enum SourceSharpTeForward_t
 {
 	SOURCESHARP_TE_FWD_ARMOR_RICOCHET              =  0,   // TE_ArmorRicochet -> ArmorRicochet   RESERVED
-	SOURCESHARP_TE_FWD_BSP_DECAL                   =  1,   // TE_BSPDecal -> BSPDecal
+	SOURCESHARP_TE_FWD_BSP_DECAL                   =  1,   // TE_BSPDecal -> BSPDecal   RESERVED
 	SOURCESHARP_TE_FWD_BEAM_POINTS                 =  2,   // TE_BeamPoints -> BeamPoints   RESERVED
 	SOURCESHARP_TE_FWD_BLOOD_STREAM                =  3,   // TE_BloodStream -> BloodStream
 	SOURCESHARP_TE_FWD_BUBBLE_TRAIL                =  4,   // TE_BubbleTrail -> BubbleTrail   RESERVED
@@ -73,7 +77,7 @@ enum SourceSharpTeForward_t
 	SOURCESHARP_TE_FWD_LARGE_FUNNEL                = 11,   // TE_LargeFunnel -> LargeFunnel   RESERVED
 	SOURCESHARP_TE_FWD_METAL_SPARKS                = 12,   // TE_MetalSparks -> MetalSparks   RESERVED
 	SOURCESHARP_TE_FWD_MUZZLE_FLASH                = 13,   // TE_MuzzleFlash -> MuzzleFlash   RESERVED
-	SOURCESHARP_TE_FWD_PROJECT_DECAL               = 14,   // TE_ProjectDecal -> ProjectDecal
+	SOURCESHARP_TE_FWD_PROJECT_DECAL               = 14,   // TE_ProjectDecal -> ProjectDecal   RESERVED
 	SOURCESHARP_TE_FWD_SMOKE                       = 15,   // TE_Smoke -> Smoke
 	SOURCESHARP_TE_FWD_SPARKS                      = 16,   // TE_Sparks -> Sparks
 	SOURCESHARP_TE_FWD_WORLD_DECAL                 = 17,   // TE_WorldDecal -> WorldDecal

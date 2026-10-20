@@ -76,7 +76,8 @@ ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_trace_filter.cpp)
 
 # plan_engine_forwarders.md section 6: the client library's Steam callback,
 # built in memory the test hands it and driven through CCallbackBase's
@@ -135,7 +136,8 @@ ss_cpptest_engine_headers(fwd_physics_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_physics_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_trace_filter.cpp)
 
 # plan_server_native_v2 T4a: the IRecipientFilter libss_fwd_server builds in a
 # managed block's reserved words, driven through its Valve interface as
@@ -146,7 +148,21 @@ ss_cpptest_engine_headers(fwd_recipient_filter_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_recipient_filter_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_trace_filter.cpp)
+
+# plan_server_native_v2 T4f: the ITraceFilter libss_fwd_server builds in a
+# managed block's reserved words, driven through its Valve interface as
+# IEngineTrace::TraceRay drives it, and the handle a trace's entity answers.
+# The server's library is compiled in.
+ss_cpptest_engine_headers(fwd_trace_filter_test
+    DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_trace_filter_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_trace_filter.cpp)
 
 ss_cpptest_engine_headers(fwd_shim_test
     DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
@@ -154,7 +170,8 @@ ss_cpptest_engine_headers(fwd_shim_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shim_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_trace_filter.cpp)
 
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all

@@ -110,4 +110,19 @@ public class TeForwardDispatchTests
             "TE_Bubbles forwards CTEBubbles, which is the name both sides pair on and "
           + "the one ClientTempEnts.PlayLocally looks the player up by");
     }
+
+    /// <summary>
+    /// A RESERVED id builds nothing: TE_BSPDecal and TE_ProjectDecal lost their
+    /// last native sender at plan_server_native_v2 T4f (the managed
+    /// EffectsOverTempEnts sends those temp entities itself), so their arms went.
+    /// </summary>
+    [Fact]
+    public void TheIdsT4fReservedBuildNothing()
+    {
+        float[] f = [1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f];
+        int[]   i = [1, 2, 3];
+
+        Assert.Null(TeForwardDispatch.Build(TeForward.BSPDecal, f, i));
+        Assert.Null(TeForwardDispatch.Build(TeForward.ProjectDecal, f, i));
+    }
 }

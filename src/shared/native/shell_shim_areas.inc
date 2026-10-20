@@ -96,25 +96,17 @@ int32_t CShimMovementServer::PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveT
 	{ return ::SourceSharp_PlayerSetMoveType( hPlayer, nMoveType ); }
 void CShimMovementServer::PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow )
 	{ return ::SourceSharp_PlayerSetSlowMovement( hPlayer, bSlow ); }
+void CShimMovementServer::MoveTraceThrough( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter )
+	{ return ::SourceSharp_MoveTraceThrough( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut, pFilter ); }
 
-int32_t CShimWorldServer::TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit )
-	{ return ::SourceSharp_TraceLine( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit ); }
-int32_t CShimWorldServer::TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid )
-	{ return ::SourceSharp_TraceHull( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, hIgnore, pOutHit, pOutStartSolid ); }
-int32_t CShimWorldServer::TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup )
-	{ return ::SourceSharp_TraceLineSurface( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit, pOutSurfaceProps, pOutSurfaceFlags, pOutHitgroup ); }
 void CShimWorldServer::AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ )
 	{ return ::SourceSharp_AngleVectorsFromForward( pForwardXYZ, pOutRightXYZ, pOutUpXYZ ); }
-int32_t CShimWorldServer::WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime )
-	{ return ::SourceSharp_WaterSurfaceBelow( pStartXYZ, pOutXYZ, pOutSlime ); }
 int32_t CShimWorldServer::EntityModelSurfaceProp( uint32_t hEntity )
 	{ return ::SourceSharp_EntityModelSurfaceProp( hEntity ); }
 int32_t CShimWorldServer::InvisibleRangeReach()
 	{ return ::SourceSharp_InvisibleRangeReach(); }
 void CShimWorldServer::SetSkyboxParams( const SourceSharpSkyboxParams * pParams )
 	{ return ::SourceSharp_SetSkyboxParams( pParams ); }
-int32_t CShimWorldServer::EntityTraceHull( uint32_t hEntity, const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, float * pOutEndXYZ )
-	{ return ::SourceSharp_EntityTraceHull( hEntity, pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOutEndXYZ ); }
 
 int32_t CShimEntitiesServer::EntityGetIndex( uint32_t hEntity )
 	{ return ::SourceSharp_EntityGetIndex( hEntity ); }
@@ -297,12 +289,8 @@ void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
 
 void CShimEffectsServer::ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir )
 	{ return ::SourceSharp_ViewPunch( pOrigin, pPunchPYR, flRadius, bInAir ); }
-void CShimEffectsServer::BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed )
-	{ return ::SourceSharp_BubbleEffect( hEntity, nCount, flSpeed ); }
 void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags )
 	{ return ::SourceSharp_BloodEffect( pOriginXYZ, pDirXYZ, nColor, flAmount, bStream, nSprayFlags ); }
-int32_t CShimEffectsServer::PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority )
-	{ return ::SourceSharp_PaintDecal( nTexture, pOriginXYZ, pAnglesXYZ, flProjectDistance, bPermanent, bLowPriority ); }
 int32_t CShimEffectsServer::TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut )
 	{ return ::SourceSharp_TempEntBuild( pBlock, nBlockBytes, pOut ); }
 

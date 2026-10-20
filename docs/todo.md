@@ -347,6 +347,39 @@ its exit:
   wants IMaterial / IMaterialVar forwarders) and AngleVectorsFromForward (the
   client's pane split is native and the two must agree to the bit).
 
+## The server trace filter in C# (plan_server_native_v2 T4f): what stayed native, and follow-ups
+
+Measured at the lane's tip (2026-10-19). T4f moved the per-candidate trace rule
+to managed (TraceFilterRules over libss_fwd_server's ITraceFilter), and every
+server trace with it: TraceLine/TraceHull/EntityTraceHull, WaterSurfaceBelow,
+PaintDecal's traced and permanent forms, BubbleEffect and the movement hull's
+MoveTrace. The T4d bullets above for the traces and PaintDecal are done.
+
+- **r_visualizetraces draws nothing for server traces any more.** The native
+  UTIL_Trace* inlines drew each trace when the engine's ConVar was set; the
+  managed route has no debug-overlay draw. A divergence of a debug aid only; a
+  managed draw over IVDebugOverlay would restore it.
+- **Trace cost.** Debug, dm_lockdown, 30 s at rest: line trace mean 3.9 -> 4.7 us
+  (+1 ShouldHitEntity crossing a frame). Levers if the perf pass wants it: cache
+  the candidate's block pointer by handle for the trace's duration, or batch the
+  candidates of one trace.
+- **MovePass has no fact**: its slot (GetPlayerHandle) is [SuppressGCTransition],
+  which a managed fake cannot stand in for in a test host. The live gate's move
+  and jump steps cover it.
+- **The native recipient filters left**: shell_usermessage_send.cpp's three
+  (UserMessageSend), CWorld::DecalTrace's broadcast filter (with
+  UTIL_DecalTrace's native callers), TE_DispatchEffect and the TE forwards'
+  debug arms. The managed recipient filter object (fwd_recipient_filter.cpp) is
+  the exit for each; none is a trace.
+- **CSourceSharpGameRules::ShouldCollide, s_CollisionRules and
+  IShimCollision::RegisterCollisionRules** have no server caller left (the
+  managed rule reads the same rows); the vtable keeps them linked. Retiring the
+  slot is a --reorder on a shared row, for a later lane.
+- **Stock shape-clause divergences kept** (TraceFilterRules' summary): the
+  transparent / MOVETYPE_PUSH / debris skips stock makes were never answered for
+  this hierarchy, and a move is not where they change. The client's filter still
+  reads every entity as the static-prop case (trace_filter_library.cpp).
+
 ## The client's sound emit path in C#: follow-ups and divergences
 
 - **CLOSED 2026-10-19: gamesound.h is dead on both sides.** Nothing defines

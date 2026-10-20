@@ -262,22 +262,20 @@ TEST( TraceFilterLibrary, TheNineDeadFiltersAreStillDeclaredForUnportedCallers )
 // moved into sourcesharp/game/shared/util_shared_library.cpp, which is the file
 // this test already reads. Both vpc rows went with it.
 //
-// ss::CTraceFilterSimple (ss_tracefilter.h, P5 lane E) is the server's R5
-// spelling of the same filter. It must ASK the legacy filter rather than carry
-// a copy of its rules, or the two drift: one body of rules, two class names.
-TEST( TraceFilterLibrary, TheSimpleFilterIsOneBodyNamedPerSide )
+// ss::CTraceFilterSimple (P5 lane E's server spelling of the same filter) is
+// gone with the server's native trace filter; one body of rules is left.
+TEST( TraceFilterLibrary, TheSimpleFilterIsOneBodyAndTheClientsOnly )
 {
-	// P5: the server's ss::CTraceFilterSimple used to build a
-	// ::CTraceFilterSimple and ask it. When shell_movement.cpp, its last
-	// legacy user, moved to the R5 set, the body moved in instead: the client
-	// compiles it as util_shared.h's class, the server as its own.
+	// plan_server_native_v2 T4f: the server's half (ss::CTraceFilterSimple, its
+	// shape clause and ownership rule) went to managed TraceFilterRules, and the
+	// one body left is the client's, under util_shared.h's name.
 	const std::string lib = ReadFile( kLibrary );
 	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
 
-	EXPECT_EQ( 1u, CountOf( lib, "#ifdef CLIENT_DLL\n#define SS_SIMPLE_FILTER CTraceFilterSimple\n#else\n" ) )
+	EXPECT_EQ( 1u, CountOf( lib, "#define SS_SIMPLE_FILTER CTraceFilterSimple\n" ) )
 		<< "the client no longer compiles the simple filter as util_shared.h's class";
-	EXPECT_EQ( 1u, CountOf( lib, "#define SS_SIMPLE_FILTER ss::CTraceFilterSimple\n#endif" ) )
-		<< "the server no longer compiles the simple filter as its own ss:: class";
+	EXPECT_EQ( 0u, CountOf( lib, "#define SS_SIMPLE_FILTER ss::CTraceFilterSimple" ) )
+		<< "the server's native filter is back; its rule is managed's (TraceFilterRules)";
 
 	const size_t at = lib.find( "bool SS_SIMPLE_FILTER::ShouldHitEntity(" );
 	ASSERT_NE( std::string::npos, at );
@@ -315,9 +313,15 @@ TEST( TraceFilterLibrary, TheStockFileIsGoneSoNothingCanBeLeftBehindInIt )
 // on one side only compiles green there and breaks the other later.
 //=============================================================================//
 
-TEST( TraceFilterLibrary, TheServerCompilesIt )
+TEST( TraceFilterLibrary, TheServerNoLongerCompilesIt )
 {
-	ExpectCompiledOnce( cmake_graph::kServer, kLibrarySource );
+	// plan_server_native_v2 T4f: every server trace runs the managed rule over
+	// libss_fwd_server's ITraceFilter, so nothing in server.so imports this TU.
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kLibrarySource ) )
+		<< kLibrarySource << " is back in server_sourcesharp; the server's trace "
+		   "filter is managed's (TraceFilterRules) and this TU is the client's";
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kLibrarySource ) )
+		<< "and the client still compiles it, which is what makes the absence above a move";
 }
 
 TEST( TraceFilterLibrary, TheClientCompilesIt )
@@ -345,13 +349,15 @@ TEST( TraceFilterLibrary, BothSidesCompileTheStaticsLibraryToo )
 // engine's own r_visualizetraces through SourceSharp_EngineVisualizeTraces(),
 // which a server-only compile definition substitutes for the name in stock
 // util_shared.h's extern and its inline reads.
-TEST( TraceFilterLibrary, TheVisualiseConVarIsDefinedInTheLibraryForTheClientOnly )
+TEST( TraceFilterLibrary, TheVisualiseConVarIsDefinedInTheLibraryForTheClient )
 {
+	// The client's own ConVar. The server's reader of the engine's
+	// (SourceSharp_EngineVisualizeTraces) left with the server's native traces
+	// at plan_server_native_v2 T4f.
 	const std::string lib = ReadFile( kLibrary );
 	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
-	EXPECT_EQ( 1u, CountOf( lib, "#ifdef CLIENT_DLL\n"
-	                             "ConVar r_visualizetraces( \"r_visualizetraces\"" ) );
-	EXPECT_EQ( 1u, CountOf( lib, "#else\nConVar *SourceSharp_EngineVisualizeTraces()" ) );
+	EXPECT_EQ( 1u, CountOf( lib, "ConVar r_visualizetraces( \"r_visualizetraces\"" ) );
+	EXPECT_EQ( 0u, CountOf( lib, "SourceSharp_EngineVisualizeTraces" ) );
 }
 
 static size_t EntriesCarrying( const std::string &strTarget, const std::string &strNeedle )
@@ -363,16 +369,17 @@ static size_t EntriesCarrying( const std::string &strTarget, const std::string &
 	return n;
 }
 
-TEST( TraceFilterLibrary, EveryServerTuReadsTheEnginesVisualiseConVarAndNoClientTuDoes )
+TEST( TraceFilterLibrary, NoTuOnEitherSideTakesTheServersVisualiseMacro )
 {
-	const std::string kDefine = "-Dr_visualizetraces=\"(*SourceSharp_EngineVisualizeTraces())\"";
-	const size_t nServer = cmake_graph::TargetEntries( cmake_graph::kServer ).size();
-	ASSERT_GT( nServer, 0u );
-	EXPECT_EQ( nServer, EntriesCarrying( cmake_graph::kServer, kDefine ) )
-		<< "a server TU compiles util_shared.h's `extern ConVar r_visualizetraces` "
-		   "as a real extern, and server.so declares no such object any more";
+	// The macro turned util_shared.h's `extern ConVar r_visualizetraces` into a
+	// read of the engine's for server TUs. No server TU traces through those
+	// inlines any more (plan_server_native_v2 T4f), so the macro and the
+	// function it named are gone; the client declares its own ConVar.
+	ASSERT_GT( cmake_graph::TargetEntries( cmake_graph::kServer ).size(), 0u );
+	EXPECT_EQ( 0u, EntriesCarrying( cmake_graph::kServer, "-Dr_visualizetraces=" ) )
+		<< "the server's r_visualizetraces macro is back with nothing to name";
 	EXPECT_EQ( 0u, EntriesCarrying( cmake_graph::kClient, "-Dr_visualizetraces=" ) )
-		<< "the client declares its own r_visualizetraces and must not take the server's macro";
+		<< "the client declares its own r_visualizetraces and must not take a macro";
 }
 
 TEST( TraceFilterLibrary, TheVisualiseConVarIsDefinedNowhereElse )

@@ -24,7 +24,7 @@ public unsafe class PhysicsCallbackObjectsTests
 
     [Fact]
     public void ACallbackTableReservesTheWordsTheObjectIsBuiltIn()
-        => Assert.Equal(2, IPhysicsConstraintEventSink__ManagedVtable.ReservedWords);
+        => Assert.Equal(3, IPhysicsConstraintEventSink__ManagedVtable.ReservedWords);   // three since the trace filter holds its type (T4f)
 
     [Fact]
     public void TheObjectIsBuiltInTheBlocksReservedWordsOverTheBlock()
@@ -60,12 +60,12 @@ public unsafe class PhysicsCallbackObjectsTests
     public void ALibraryThatBuildsInMoreThanTheBlockReservesIsRefusedNamingBoth()
     {
         using var vtables = new ManagedVtables();
-        using var callbacks = new FakePhysicsCallbacks(sizeOf: 24);
+        using var callbacks = new FakePhysicsCallbacks(sizeOf: 32);
 
         var thrown = Assert.Throws<InvalidOperationException>(() => callbacks.Objects.ConstraintEvent(Block(vtables)));
 
-        Assert.Contains("24 byte(s)", thrown.Message);
-        Assert.Contains("reserves 16", thrown.Message);
+        Assert.Contains("32 byte(s)", thrown.Message);
+        Assert.Contains("reserves 24", thrown.Message);
     }
 
     [Fact]

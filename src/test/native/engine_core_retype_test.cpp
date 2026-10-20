@@ -244,6 +244,9 @@ const std::string &UtilShared()     { static std::string s = CodeOnly( Read( "sh
 // for the shim, whole and unedited. Every assertion below that named a filter
 // body reads this instead; what each one asserts is unchanged.
 const std::string &TraceFilterLib() { static std::string s = CodeOnly( Read( "../sourcesharp/game/shared/trace_filter_library.cpp" ) ); return s; }
+// plan_server_native_v2 T4f: the server's trace rule, managed (the native
+// server arms above left for it).
+const std::string &TraceRulesCs() { static std::string s = CodeOnly( Read( "../sourcesharp/managed/SourceSharp.Server.Interop/TraceFilterRules.cs" ) ); return s; }
 // Phase 4 EXIT: the shared-random family (SeedFileLineHash and the four
 // SharedRandom* bodies) left util_shared.cpp for util_shared_library.cpp,
 // whole and unedited, because SharedRandomInt was game/shared/animation.cpp's
@@ -529,53 +532,28 @@ TEST( PredictionVacuity, PlayerCommandIsStillOutOfTheServerProject )
 
 TEST( SharedTraceFilters, EveryRetypedArmResolvesThroughAnyEntity )
 {
+	// THE SERVER ARMS LEFT FOR MANAGED (plan_server_native_v2 T4f). The native
+	// file is the client's arm only, and resolves nothing of the parallel
+	// hierarchy; the server's rule resolves each candidate in C# -- a static
+	// prop by its handle's serial, a game entity by its engine block -- and
+	// CHECKS the answer, which is the property this fact was written for.
 	const std::string &strCpp = TraceFilterLib();
 	ASSERT_FALSE( strCpp.empty() );
+	EXPECT_EQ( CountOf( strCpp, "AnyEntityOf(" ), 0 )
+		<< "a server arm is back in the native filter; the server's rule is managed's";
+	EXPECT_EQ( CountOf( strCpp, "GameEntityFromEntityHandle(" ), 0 )
+		<< "a server arm is back in the native filter; the server's rule is managed's";
 
-	// The survivors, and they are the ones every trace on both link lines
-	// actually reaches: util_shared.h's three UTIL_Trace* inlines construct
-	// CTraceFilterSimple, whose ShouldHitEntity calls StandardFilterRules,
-	// which calls StandaloneFilterRules. Its one body is spelled
-	// SS_SIMPLE_FILTER:: since P5 (the server's class is ss::CTraceFilterSimple).
-	static const char *kFilters[] = {
-		"bool PassServerEntityFilter",
-		"SS_SIMPLE_FILTER::ShouldHitEntity",
-	};
-
-	for ( size_t i = 0; i < sizeof( kFilters ) / sizeof( kFilters[ 0 ] ); i++ )
-	{
-		const std::string strBody = BodyAfter( strCpp, kFilters[ i ] );
-		ASSERT_FALSE( strBody.empty() ) << kFilters[ i ] << " was not found";
-
-		const std::string strArm = ServerArmOf( strBody );
-		ASSERT_FALSE( strArm.empty() )
-			<< kFilters[ i ] << " has no SourceSharp server arm; it is back to "
-			   "resolving one hierarchy and reading NULL as absence";
-
-		// Two spellings, one rule. PassServerEntityFilter needs an
-		// AnyEntity_t because it compares two candidates and one of them can
-		// be on either hierarchy; CTraceFilterSimple asks for the game entity
-		// and is written as an `if` over the answer. Both RESOLVE and both
-		// CHECK, which is the property that was missing before.
-		const bool bAny = strArm.find( "AnyEntityOf(" ) != std::string::npos;
-		const bool bGame = strArm.find( "GameEntityFromEntityHandle(" ) != std::string::npos;
-		EXPECT_TRUE( bAny || bGame )
-			<< kFilters[ i ] << " resolves through neither AnyEntityOf nor "
-			   "GameEntityFromEntityHandle, so it is reading one hierarchy "
-			   "again and NULL as absence";
-
-		const bool bChecked = strArm.find( "IsValid()" ) != std::string::npos
-			|| strArm.find( "if ( IGameEntity *" ) != std::string::npos;
-		EXPECT_TRUE( bChecked )
-			<< kFilters[ i ] << " stopped checking that the resolve answered";
-
-		// The needle is the OLD resolver on its own. Both live spellings end
-		// in it, so it is matched with its leading boundary rather than as a
-		// substring -- which is the mistake that made this row unfalsifiable
-		// the first time it was written.
-		EXPECT_EQ( CountOf( strArm, " EntityFromEntityHandle(" ), 0 )
-			<< kFilters[ i ] << " is resolving one hierarchy again";
-	}
+	const std::string &strCs = TraceRulesCs();
+	ASSERT_FALSE( strCs.empty() ) << "TraceFilterRules.cs did not load";
+	const std::string strBody = BodyAfter( strCs, "public bool ShouldHitEntity(in TraceFilterQuery query" );
+	ASSERT_FALSE( strBody.empty() ) << "TraceFilterRules.ShouldHitEntity was not found";
+	EXPECT_NE( strBody.find( "!IsStaticProp(rawCandidate)" ), std::string::npos )
+		<< "the managed rule no longer tells a static prop from a game entity";
+	EXPECT_NE( strBody.find( "_candidates.TryRead(touch, out candidate)" ), std::string::npos )
+		<< "the managed rule no longer resolves the candidate to a game entity";
+	EXPECT_NE( strBody.find( "if (!game)" ), std::string::npos )
+		<< "the managed rule no longer checks what it resolved";
 }
 
 // TheLosFilterChecksBeforeItAsks IS RETIRED WITH ITS SUBJECT -- lane 3f.
@@ -626,17 +604,15 @@ TEST( SharedTraceFilters, TheDeletedFiltersHaveNotComeBack )
 
 TEST( SharedTraceFilters, OwnershipIsComparedAsHandles )
 {
-	const std::string strBody = BodyAfter( TraceFilterLib(), "bool PassServerEntityFilter" );
-	ASSERT_FALSE( strBody.empty() );
+	// In C# since plan_server_native_v2 T4f: the block stores the owner as a
+	// handle, and the pass entity's owner is read once per trace.
+	const std::string strBody = BodyAfter( TraceRulesCs(), "public bool ShouldHitEntity(in TraceFilterQuery query" );
+	ASSERT_FALSE( strBody.empty() )
+		<< "TraceFilterRules.ShouldHitEntity was not found, so ownership is compared nowhere";
 
-	const std::string strArm = ServerArmOf( strBody );
-	ASSERT_FALSE( strArm.empty() )
-		<< "PassServerEntityFilter is back to comparing CBaseEntity pointers, so "
-		   "a managed projectile clips against the thing that fired it";
-
-	EXPECT_NE( strArm.find( "GetOwnerHandle() == pPass" ), std::string::npos );
-	EXPECT_NE( strArm.find( "GetOwnerHandle() == pTouch" ), std::string::npos );
-	EXPECT_EQ( CountOf( strArm, "GetOwnerEntity" ), 0 );
+	EXPECT_NE( strBody.find( "candidate.Owner == query.Pass" ), std::string::npos );
+	EXPECT_NE( strBody.find( "query.PassOwner == touch" ), std::string::npos );
+	EXPECT_EQ( CountOf( strBody, "GetOwnerEntity" ), 0 );
 }
 
 TEST( SharedTraceFilters, TheNeutralsAreTheOnesTheFiltersWereWrittenAgainst )
@@ -864,31 +840,31 @@ TEST( ModelThroughTheIndex, TheServerGetModelIndexIsTheBareFieldRead )
 	// The class-scope absence read game/server/baseentity.h, which is compiled
 	// by nothing since plan_server_novalve.md P5 and left the farm in P6; the
 	// header's own absence (EveryFileWasReallyOpened) replaces it.
+	//
+	// THE BRUSH CLAUSE IS MANAGED'S SINCE plan_server_native_v2 T4f: the model
+	// index is the engine block's Head.ModelIndex (what IServerEntity::
+	// GetModelIndex answers for this hierarchy) and the model type the server's
+	// model info's, asked only when the mask leaves the answer open.
+	const std::string &strCs = TraceRulesCs();
+	ASSERT_FALSE( strCs.empty() );
+	EXPECT_EQ( CountOf( strCs, "_candidates.IsBrushModel(candidate.ModelIndex)" ), 1 )
+		<< "the shape clause no longer takes the model type off the candidate's "
+		   "model index. That read is the brush clause of the standard filter "
+		   "rule, and without it every managed brush is waved through every "
+		   "world-only trace as though it were a static prop.";
 
+	const std::string strCandidates = CodeOnly( Read( "../sourcesharp/managed/SourceSharp.Server.Interop/ServerTracer.cs" ) );
+	ASSERT_FALSE( strCandidates.empty() );
+	EXPECT_EQ( CountOf( strCandidates, "OffsetInBlockOf(nameof(EngineBlockHead.ModelIndex))" ), 1 )
+		<< "the candidate's model index is no longer the block's Head.ModelIndex";
+
+	// EntityFromEntityHandle is DELETED tree-wide; the native file (the
+	// client's arm) still must not resolve through it.
 	const std::string &strLib = TraceFilterLib();
 	ASSERT_FALSE( strLib.empty() );
-
-	EXPECT_EQ( CountOf( strLib,
-		"modelinfo->GetModelType( modelinfo->GetModel( pServerEntity->GetModelIndex() ) ) == mod_brush," ), 1 )
-		<< "StandaloneFilterRules no longer takes the model type off "
-		   "IServerEntity::GetModelIndex. That read is the brush clause of the "
-		   "standard filter rule, and without it every managed brush is waved "
-		   "through every world-only trace as though it were a static prop -- "
-		   "which is what cost the blast's blocking rule outright.";
-
-	// EntityFromEntityHandle is DELETED tree-wide -- one of four families that
-	// bottomed out in IServerUnknown/IClientUnknown::GetBaseEntity(), every
-	// implementation of which is `mov $0x0,%eax; ret`. Its replacement,
-	// GameEntityFromEntityHandle, asks the virtual GetGameEntity() and CONTAINS
-	// the old name as a substring -- so the old name is counted by subtraction,
-	// not by a bare find.
-	EXPECT_EQ( CountOf( strLib, "EntityFromEntityHandle" )
-	         - CountOf( strLib, "GameEntityFromEntityHandle" ), 0 )
+	EXPECT_EQ( CountOf( strLib, "EntityFromEntityHandle" ), 0 )
 		<< "the deleted SDK arm's resolver is back. It answered a constant "
 		   "NULL, so anything branching on it has only one reachable arm.";
-	EXPECT_LT( 0, CountOf( strLib, "GameEntityFromEntityHandle( pHandleEntity )" ) )
-		<< "the live successor is gone too, so the filters resolve nothing at "
-		   "all -- which is not what the deletion of the dead resolver bought.";
 }
 
 // READ THE ASSERTIONS, NOT THE NAME. THE PER-SIDE PAIR IS GONE AND THE SIDE
@@ -919,19 +895,21 @@ TEST( ModelThroughTheIndex, TheClientGetModelIsNotThatAndKeepsItsOwnArm )
 		   "reachable only through EntityFromEntityHandle, which answers a "
 		   "constant NULL.";
 
-	// The side guard survives, and so does the shape clause it selects.
-	EXPECT_EQ( CountOf( strLib,
-		"static bool StandaloneFilterRules( IHandleEntity *pHandleEntity, int fContentsMask )" ), 1 )
+	// The parallel hierarchy's shape clause is the server's, in C# since
+	// plan_server_native_v2 T4f; the native file is the client's and has none.
+	EXPECT_EQ( CountOf( strLib, "StandaloneFilterRules" ), 0 )
+		<< "the server's shape clause is back in the native file";
+	EXPECT_EQ( CountOf( TraceRulesCs(), "private bool ShapePasses(in TraceCandidate candidate, int contentsMask)" ), 1 )
 		<< "the parallel hierarchy's shape clause is gone, so a managed brush "
 		   "is waved through every world-only trace again.";
 
 	const std::string strLibRaw = Read( "../sourcesharp/game/shared/trace_filter_library.cpp" );
 	ASSERT_FALSE( strLibRaw.empty() );
 	EXPECT_NE( strLibRaw.find( "THE CLIENT GAP IS UNCHANGED AND STILL OPEN" ), std::string::npos )
-		<< "the file no longer records that StandaloneFilterRules is "
-		   "`#ifndef CLIENT_DLL`, so on the CLIENT a managed entity is still "
-		   "filtered as though it were a static prop. That is a known, written "
-		   "-down divergence; losing the note turns it into a silent one.";
+		<< "the file no longer records that the shape clause is the server's, so "
+		   "on the CLIENT a managed entity is still filtered as though it were a "
+		   "static prop. That is a known, written-down divergence; losing the "
+		   "note turns it into a silent one.";
 }
 
 //=============================================================================//

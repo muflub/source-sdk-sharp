@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using Xunit;
 
@@ -18,61 +17,59 @@ namespace SourceSharp.Tests;
 /// MASK_BLOCKLOS 0x4041             MASK_OPAQUE_AND_NPCS|CONTENTS_WINDOW 0x2004083
 /// </code>
 ///
-/// Recorded through a fake root (the three slots are not
-/// [SuppressGCTransition]). The recorder is static, as an unmanaged callback
-/// must be, and only this class's facts, which xUnit runs one at a time, touch it.
+/// Recorded through a recording trace route (plan_server_native_v2 T4f: the
+/// three slots retired and the side traces through IEngineTrace::TraceRay over
+/// the managed filter), installed on a side attached to a fake root.
 /// </summary>
-public sealed unsafe class TraceMaskFoldTests : System.IDisposable
+public sealed class TraceMaskFoldTests : System.IDisposable
 {
-    private const string WorldServer = "SourceSharpWorldServer001";
-
-    private static int s_Mask;
-
-    [UnmanagedCallersOnly]
-    private static int Line(void* self, float* s, float* e, int mask, uint ignore,
-                            float* fraction, float* endPos, float* normal, uint* hit)
+    private sealed class Recorder : IServerTraceRoute
     {
-        s_Mask = mask;
-        *fraction = 1f;
-        *hit = 0;
-        return 0;
-    }
+        public int Mask = -2;
+        public EntityHandle Pass;
+        public int Group = -1;
 
-    [UnmanagedCallersOnly]
-    private static int Surface(void* self, float* s, float* e, int mask, uint ignore,
-                               float* fraction, float* endPos, float* normal, uint* hit,
-                               int* props, int* flags, int* group)
-    {
-        s_Mask = mask;
-        *fraction = 1f;
-        *hit = 0;
-        return 0;
-    }
+        public ServerTrace Line(Vector start, Vector end, uint mask, EntityHandle pass, int collisionGroup)
+            => Record(mask, pass, collisionGroup);
 
-    [UnmanagedCallersOnly]
-    private static int Hull(void* self, float* s, float* e, float* mins, float* maxs, int mask,
-                            uint ignore, uint* hit, int* startSolid)
-    {
-        s_Mask = mask;
-        *hit = 0;
-        *startSolid = 0;
-        return 0;
+        public ServerTrace Hull(Vector start, Vector end, Vector mins, Vector maxs, uint mask,
+                                EntityHandle pass, int collisionGroup)
+            => Record(mask, pass, collisionGroup);
+
+        public int PointContents(Vector point) => 0;
+
+        public readonly List<(EntityHandle Pass, int Group)> Entered = [];
+        public int Exits;
+        public nint Filter = 0xF11;
+
+        public nint Enter(EntityHandle pass, int collisionGroup)
+        {
+            Entered.Add((pass, collisionGroup));
+            return Filter;
+        }
+
+        public void Exit() => Exits++;
+
+        private ServerTrace Record(uint mask, EntityHandle pass, int group)
+        {
+            Mask = (int)mask;
+            Pass = pass;
+            Group = group;
+            return new ServerTrace(new EngineGameTrace { Fraction = 1f }, EntityHandle.None);
+        }
     }
 
     private readonly FakeShimRoot _root = new();
     private readonly EngineSide _side = new(Side.Server);
+    private readonly Recorder _traces = new();
+
+    private int s_Mask => _traces.Mask;
 
     public TraceMaskFoldTests()
     {
-        s_Mask = -2;
-        _root.Live(WorldServer, "TraceLine",
-                   (nint)(delegate* unmanaged<void*, float*, float*, int, uint, float*, float*, float*, uint*, int>)&Line)
-             .Live(WorldServer, "TraceLineSurface",
-                   (nint)(delegate* unmanaged<void*, float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int*, int>)&Surface)
-             .Live(WorldServer, "TraceHull",
-                   (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, uint, uint*, int*, int>)&Hull);
         _side.Initialize();
         Assert.True(_side.AttachShims(_root.Bind(), out string why), why);
+        _side.Tracer = _traces;
     }
 
     public void Dispose() => _root.Dispose();
@@ -114,5 +111,45 @@ public sealed unsafe class TraceMaskFoldTests : System.IDisposable
         _side.TraceHull(Vector.Zero, new Vector(0, 0, 1), new Vector(-1, -1, -1), new Vector(1, 1, 1), mask);
 
         Assert.Equal(engine, s_Mask);
+    }
+
+    [Fact]
+    public void ALineTraceSkipsTheCallersEntityWithNoGroup()
+    {
+        var shooter = new EntityHandle(2u | (9u << 12));
+        _side.TraceLine(Vector.Zero, new Vector(0, 0, 1), TraceMask.Shot, shooter);
+
+        Assert.Equal(shooter, _traces.Pass);
+        Assert.Equal(0, _traces.Group);   // COLLISION_GROUP_NONE
+    }
+
+    [Fact]
+    public void AnOmittedIgnoreIsNoPassEntity()
+    {
+        _side.TraceLine(Vector.Zero, new Vector(0, 0, 1), TraceMask.Solid);
+
+        Assert.Equal(EntityHandle.None, _traces.Pass);
+    }
+
+    [Fact]
+    public void AnEntitySweepCarriesItsOwnMaskGroupAndEntity()
+    {
+        var player = new EntityHandle(1u | (4u << 12));
+        _side.EntityTraceHull(player, Vector.Zero, new Vector(0, 0, 1), new Vector(-16, -16, 0), new Vector(16, 16, 72),
+                              0x1234u, 8);
+
+        Assert.Equal(0x1234, s_Mask);
+        Assert.Equal(player, _traces.Pass);
+        Assert.Equal(8, _traces.Group);
+    }
+
+    [Fact]
+    public void WithNoRouteTheSideTracesNothingAndSaysClear()
+    {
+        _side.Tracer = null;
+        TraceResult tr = _side.TraceLine(Vector.Zero, new Vector(0, 0, 1), TraceMask.Solid);
+
+        Assert.False(tr.Hit);
+        Assert.Equal(-2, s_Mask);
     }
 }

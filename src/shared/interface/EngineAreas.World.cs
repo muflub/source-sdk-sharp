@@ -211,7 +211,12 @@ public interface IEngineEffects
     /// <inheritdoc cref="EngineSide.BloodEffect"/>
     void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None);
 
-    /// <inheritdoc cref="EngineSide.BubbleEffect"/>
+    /// <summary>
+    /// Bubbles rising out of an entity's volume. Takes the entity rather than a
+    /// pair of corners, because the volume is the brush the mapper drew and its
+    /// world-space bounds are the engine block's (the server's answer is
+    /// SourceSharp.Server's EffectsOverTempEnts since plan_server_native_v2 T4f).
+    /// </summary>
     void BubbleEffect(EntityHandle entity, int count, float speed);
 
     /// <inheritdoc cref="EngineSide.TempEntRegister"/>
@@ -431,7 +436,17 @@ public interface IEngineEffects
     /// <param name="type">Stock's MUZZLEFLASH_TYPE_DEFAULT is 1, which is the only value stock's env_muzzleflash ever passes.</param>
     void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1);
 
-    /// <inheritdoc cref="EngineSide.PaintDecal"/>
+    /// <summary>
+    /// Paints one map decal. <paramref name="angles"/> picks the FORM: null
+    /// traces a short line through <paramref name="origin"/> and stamps whatever
+    /// it found (<c>infodecal</c>); a value throws the mark along that facing for
+    /// <paramref name="projectDistance"/> units (<c>info_projecteddecal</c>).
+    /// <paramref name="permanent"/> picks the DELIVERY: a traced permanent decal
+    /// is stored against what it hit (<c>IVEngineServer::StaticDecal</c>, the
+    /// signon data a late joiner reads); everything else goes to whoever is
+    /// connected now. True when something was painted. The server's answer is
+    /// SourceSharp.Server's EffectsOverTempEnts since plan_server_native_v2 T4f.
+    /// </summary>
     bool PaintDecal(int texture, Vector origin, Vector? angles, float projectDistance, bool permanent, bool lowPriority);
 
 

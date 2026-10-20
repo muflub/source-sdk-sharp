@@ -31,28 +31,17 @@
 // WHAT DID NOT MOVE, AND WHY — because a row of Part 8's table that quietly
 // stopped being mentioned is exactly the shape this port is scored against:
 //
-//   BubbleEffect  needs the entity's WORLD-SPACE AABB and a MASK_WATER trace
-//                 straight up out of the top of it. SourceSharpEntity_t's own
-//                 comment refuses the Origin() + Bounds() substitution ("not
-//                 exactly the identity in floating point"), and TraceMask has no
-//                 water-only member -- BrushesAndWater stops at a ceiling. Part
-//                 8 says "trace stays native", and a native trace whose ANSWER
-//                 reached C# would be a second ABI slot. One was granted for
-//                 this lane and it went to EffectDispatchIndex, so this row
-//                 stays on SourceSharp_BubbleEffect, whose te->Bubbles already
-//                 ends at the managed DT_TEBubbles through lane D's forward.
-//
-//   PaintDecal    both of its te-> calls are inseparable from native work. The
-//                 permanent projected form calls filter.MakeInitMessage(), which
-//                 puts the decal in the SIGNON data so a late joiner still sees
-//                 it -- and TeFilter carries no init-message bit, deliberately:
-//                 shell_tempents.cpp refuses a reliable or init-message filter,
-//                 which is what CBaseTempEntity::Create asserts. Every unnamed
-//                 info_projecteddecal in a map paints permanent at level init
-//                 (Decals.cs:150), so this is the live path and not a corner.
-//                 The traced forms need trace_t itself -- the entity index, its
-//                 model index and the position in ITS frame -- which is the
-//                 reason PaintDecal was one ABI call to begin with.
+//   BubbleEffect  MOVED in plan_server_native_v2 T4f. It stayed native for its
+//   PaintDecal    traces: the bubbles' MASK_WATER line up out of the volume, and
+//                 the decal's short line whose trace_t named the entity, its
+//                 model and the position in its frame. Managed traces through
+//                 IEngineTrace::TraceRay over the managed filter now and reads
+//                 the engine's trace_t itself, so both are answered below: the
+//                 bubbles over ITempEnts.Bubbles, the decal over
+//                 ITempEnts.ProjectDecal / BSPDecal and IVEngineServer::
+//                 StaticDecal. The projected form's MakeInitMessage was never
+//                 read by the engine's PlaybackTempEntity (it copies only the
+//                 recipients), so the TeFilter's missing init bit costs nothing.
 //
 //   BloodEffect   its three arms are UTIL_BloodStream, UTIL_BloodDrips and
 //                 UTIL_BloodSpray. RE-MEASURED BY LANE SRV, and the sentence
@@ -93,7 +82,11 @@
 // slots. Nothing about them changed in this commit: they fire today exactly as
 // they fired before it.
 
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
 using SourceSharp.Abi;
+using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
@@ -125,19 +118,27 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     private readonly ITempEnts _temps;
     private readonly IEngineSound _sound;
     private readonly IEngineEntities _entities;
+    private readonly IEffectsWorld _world;
+    private readonly Action<string> _warning;
 
     /// <param name="engine">
     /// The REAL engine binding, which every member this class does not override
     /// is forwarded to. Never this object: a decorator that forwarded to its own
     /// contract would be an infinite loop the moment anything asked for a rope.
     /// </param>
+    /// <param name="world">The traces, the static decal and the sprite precache
+    /// <see cref="PaintDecal"/> and <see cref="BubbleEffect"/> ask for.</param>
+    /// <param name="warning">Where a refused decal says so.</param>
     public EffectsOverTempEnts(IEngineEffects engine, ITempEnts temps,
-                               IEngineSound sound, IEngineEntities entities)
+                               IEngineSound sound, IEngineEntities entities,
+                               IEffectsWorld world, Action<string> warning)
         : base(engine)
     {
         _temps = temps;
         _sound = sound;
         _entities = entities;
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _warning = warning ?? throw new ArgumentNullException(nameof(warning));
     }
 
     //=========================================================================
@@ -475,5 +476,159 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
         int index = _entities.GetIndex(entity);
 
         return index > 0 ? index : 0;
+    }
+
+    //=========================================================================
+    // THE TWO TRACED EFFECTS (plan_server_native_v2 T4f). They stayed native
+    // because their traces did: the managed trace (IEngineTrace::TraceRay over
+    // the managed filter) and the engine's own trace_t made both portable.
+    // SourceSharp_PaintDecal and SourceSharp_BubbleEffect, line for line.
+    //=========================================================================
+
+    // bspflags.h
+    private const uint MaskSolid = 0x1u | 0x4000u | 0x2u | 0x2000000u | 0x8u;
+    private const uint MaskSolidBrushOnly = 0x1u | 0x4000u | 0x2u | 0x8u;
+    private const uint MaskWater = 0x20u | 0x4000u | 0x10u;
+
+    private static readonly int OriginOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.Origin));
+    private static readonly int MinsOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.Mins));
+    private static readonly int MaxsOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.Maxs));
+    private static readonly int ModelOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.ModelIndex));
+    private static readonly int TransformOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.WorldTransform));
+
+    /// <summary>
+    /// Paints one map decal, in whichever of the four forms was asked for.
+    ///
+    /// <para>
+    /// <paramref name="angles"/> picks the form. Non-null throws the mark along
+    /// that facing (info_projecteddecal), and needs no trace here because the
+    /// engine's own projection does one. Null traces a short line through the
+    /// position and stamps what it found (infodecal): five units either side,
+    /// stock's box, deliberately tiny -- a decal is placed ON a surface by the
+    /// mapper, not thrown at one.
+    /// </para>
+    ///
+    /// <para>
+    /// THE PROJECTED FORM GOES TO WHOEVER IS CONNECTED, PERMANENT OR NOT.
+    /// Stock (and the native shim) called <c>MakeInitMessage()</c> on the
+    /// permanent one's filter, and <c>IVEngineServer::PlaybackTempEntity</c>
+    /// never reads it: the engine copies the filter's recipients into the event
+    /// and nothing else. So the init bit
+    /// changed nothing, and a broadcast is the whole of the delivery.
+    /// </para>
+    ///
+    /// <para>
+    /// A FIX RIDES ALONG: both temp entity forms were dead since 5a1941ff3,
+    /// which deleted the native <c>SourceSharpTe_SuppressFilter</c> guard and
+    /// left its <c>return 1;</c> in front of <c>TE_ProjectDecal</c> and
+    /// <c>TE_BSPDecal</c>: every projected and every sprayed decal answered
+    /// "painted" and sent nothing.
+    /// </para>
+    ///
+    /// <para>
+    /// The permanent traced form is stored against the entity the trace hit and
+    /// its model, in that entity's frame, so a decal on a door moves with it;
+    /// an entity with no model is refused, as stock refuses it.
+    /// </para>
+    /// </summary>
+    public override bool PaintDecal(int texture, Vector origin, Vector? angles, float projectDistance,
+                                    bool permanent, bool lowPriority)
+    {
+        if (texture < 0)
+            return false;
+
+        if (angles is { } facing)
+        {
+            _temps.ProjectDecal(TeFilters.Broadcast, 0f, origin, QAngle.FromVector(facing), projectDistance, texture);
+            return true;
+        }
+
+        var box = new Vector(5f, 5f, 5f);
+        if (_world.Trace(origin - box, origin + box, permanent ? MaskSolid : MaskSolidBrushOnly) is not { } trace)
+            return false;
+
+        // The surface of EITHER hierarchy, by handle: index 0 is the world, and
+        // anything that is not an entity at all (a static prop) answers 0 too,
+        // which is the answer it always had.
+        int entityIndex = trace.Hit == EntityHandle.None ? 0 : Math.Max(0, _world.EntityIndex(trace.Hit));
+
+        if (!permanent)
+        {
+            // The sprayed form: one temp entity, in world space, to whoever is
+            // connected. The engine works out the surface for itself.
+            _temps.BSPDecal(TeFilters.Broadcast, 0f, origin, entityIndex, texture);
+            return true;
+        }
+
+        Vector position = origin;
+        int modelIndex = 0;
+
+        Span<byte> block = entityIndex != 0 ? _world.Block(trace.Hit) : Span<byte>.Empty;
+        if (block.Length >= TransformOffset + Unsafe.SizeOf<Transform>())
+        {
+            modelIndex = MemoryMarshal.Read<int>(block[ModelOffset..]);
+            position = InverseTransformPoint(origin, MemoryMarshal.Read<Transform>(block[TransformOffset..]));
+
+            if (modelIndex == 0)
+            {
+                (string className, string name) = _world.Names(trace.Hit);
+                _warning($"[SourceSharp] decal would have hit entity {entityIndex} (class:{className}, "
+                         + $"name:{name}) with modelindex 0; suppressed\n");
+                return false;
+            }
+        }
+
+        _world.StaticDecal(position, texture, entityIndex, modelIndex, lowPriority);
+        return true;
+    }
+
+    /// <summary>
+    /// Bubbles rising out of an entity's volume: <c>te->Bubbles</c> rather than
+    /// <c>te->Fizz</c>, because Fizz networks an entity index the client
+    /// resolves through its own list (NULL for this hierarchy) while Bubbles
+    /// carries the corners themselves. The height is worked out here, once: out
+    /// of the top of the volume, up a MASK_WATER line, until the water ends; a
+    /// volume with no water above it gets its own height, as stock's client does.
+    /// </summary>
+    public override void BubbleEffect(EntityHandle entity, int count, float speed)
+    {
+        Span<byte> block = _world.Block(entity);
+        if (block.Length < Math.Max(OriginOffset, Math.Max(MinsOffset, MaxsOffset)) + Unsafe.SizeOf<Vector>())
+            return;
+
+        // CStandaloneEntity::WorldSpaceSurroundingBounds: origin + mins .. origin + maxs, never rotated.
+        Vector at = MemoryMarshal.Read<Vector>(block[OriginOffset..]);
+        Vector mins = at + MemoryMarshal.Read<Vector>(block[MinsOffset..]);
+        Vector maxs = at + MemoryMarshal.Read<Vector>(block[MaxsOffset..]);
+
+        // The bubble's own sprite, not the brush's model: the brush is invisible.
+        int sprite = _world.PrecacheModel("sprites/bubble.vmt");
+        if (sprite <= 0)
+            return;
+
+        var top = new Vector((mins.X + maxs.X) * 0.5f, (mins.Y + maxs.Y) * 0.5f, maxs.Z);
+        float height = maxs.Z - mins.Z;
+
+        if (_world.Trace(top, top + new Vector(0f, 0f, 1024f), MaskWater) is { } trace && trace.Trace.Fraction < 1f)
+            height = trace.Trace.EndPos.Z - mins.Z;
+
+        _temps.Bubbles(TeFilters.Broadcast, 0f, mins, maxs, height, sprite, count, speed);
+    }
+
+    /// <summary>
+    /// <c>VectorITransform( in, matrix, out )</c> (mathlib.cpp): the point in
+    /// the frame <paramref name="frame"/> maps to the world, for a frame whose
+    /// rotation is orthonormal.
+    /// </summary>
+    internal static Vector InverseTransformPoint(Vector point, Transform frame)
+    {
+        float x = point.X - frame.M03;
+        float y = point.Y - frame.M13;
+        float z = point.Z - frame.M23;
+
+        return new Vector(
+            x * frame.M00 + y * frame.M10 + z * frame.M20,
+            x * frame.M01 + y * frame.M11 + z * frame.M21,
+            x * frame.M02 + y * frame.M12 + z * frame.M22);
     }
 }

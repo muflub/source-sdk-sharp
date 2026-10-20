@@ -153,40 +153,49 @@ def parse_tsv(text):
 # ---------------------------------------------------------------------------
 # The live measurement.
 # ---------------------------------------------------------------------------
-def console_offset(path):
-    """Bytes of the console written so far; a window starts here so boot's
-    map-spawn burst never pollutes a rate."""
-    try:
-        return os.path.getsize(path)
-    except OSError:
-        return 0
+def console_offset(mirror):
+    """Lines of the console read so far; a window starts here so boot's
+    map-spawn burst never pollutes a rate.
+
+    THE CONSOLE IS /console's RING, read through live-gate's ConsoleMirror
+    (2026-10-19, plan_server_native_v2 T4f). This read console.log by byte
+    offset through lg.console_file, and /console names a file only for a game
+    launched with +con_logfile -- which the gate's server is not -- so the tool
+    refused every run with "/console names no console file". The mirror follows
+    the game's own ring however it was launched."""
+    mirror.refresh()
+    return len(mirror.lines)
 
 
-def read_window(path, start):
-    """The console text appended after byte `start`.
-
-    No waiting here on purpose: console.log is flushed on the engine's own
-    schedule, and `wait_quiet` is the one place that decides the writer has
-    gone quiet. A second wait in here would cap-and-race it.
-    """
-    if not path or not os.path.exists(path):
-        raise RuntimeError("the console file %s vanished mid-window" % path)
-    with open(path, "r", errors="replace") as fh:
-        fh.seek(start)
-        return fh.read()
+def read_window(mirror, start, lost_at_start=0):
+    """The console text appended after line `start`. A window the ring wrapped
+    past while it was open is refused: a count missing lines is not a count."""
+    mirror.refresh()
+    if mirror.lost > lost_at_start:
+        raise RuntimeError("the console ring dropped %d line(s) inside a window; refresh more often"
+                           % (mirror.lost - lost_at_start))
+    return "\n".join(mirror.lines[start:])
 
 
-def wait_quiet(path, seconds=3.0):
-    """Until console.log stops growing, capped at `seconds`."""
+def wait_quiet(mirror, seconds=3.0):
+    """Until the console stops growing, capped at `seconds`."""
     deadline = time.time() + seconds
-    last = console_offset(path)
+    last = console_offset(mirror)
     while time.time() < deadline:
         time.sleep(0.4)
-        now = console_offset(path)
+        now = console_offset(mirror)
         if now == last:
             return
         last = now
 
+
+def keep_reading(mirror, seconds):
+    """`seconds` of wall time, reading the ring every half second so a hot
+    window (verbosity 2 prints every call) cannot wrap it unread."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        time.sleep(min(0.5, max(0.0, deadline - time.time())))
+        mirror.refresh()
 
 def json_load(path):
     import json
@@ -230,12 +239,13 @@ def measure(lg, scratch, mapname, rest_seconds):
         if got != "2":
             raise RuntimeError("sv_sourcesharp_verbose did not take effect (reads %r)" % got)
 
-        console = lg.console_file(api)
+        console = lg.ConsoleMirror(api)
 
         # Boot: everything up to here is the map's spawn burst. Count it but
         # keep it out of both windows — A11's census had exactly these two
         # windows, and it is the load window below that covers precache.
-        boot = count_traces(read_window(console, 0))
+        console.refresh()
+        boot = count_traces("\n".join(console.lines))
 
         # One connected client, so the player-driven paths run. The join is
         # ASSERTED by a non-zero player count on the server — a client that
@@ -279,9 +289,10 @@ def measure(lg, scratch, mapname, rest_seconds):
         # -- rest window ------------------------------------------------------
         mark = lg.crossings_mark(api)
         start = console_offset(console)
-        time.sleep(rest_seconds)
+        lost = console.lost
+        keep_reading(console, rest_seconds)
         wait_quiet(console)
-        counts["rest"] = count_traces(read_window(console, start))
+        counts["rest"] = count_traces(read_window(console, start, lost))
         frames["rest"] = lg.crossings_since(api, mark).get("serverFrames", 0)
         if frames["rest"] <= 0:
             raise RuntimeError("the rest window recorded no server frames — "
@@ -290,14 +301,20 @@ def measure(lg, scratch, mapname, rest_seconds):
         # -- load window: the same map again ------------------------------------
         mark = lg.crossings_mark(api)
         start = console_offset(console)
+        lost = console.lost
         api.cmd("map %s" % mapname)
-        if not api.wait_for(lambda: api.census()[0] == scen["entities"], 180.0, 1.0):
+
+        def reloaded():
+            console.refresh()
+            return api.census()[0] == scen["entities"]
+
+        if not api.wait_for(reloaded, 180.0, 0.5):
             if not api.alive():
                 raise RuntimeError("the server died during the map reload")
             raise RuntimeError("the census never saw %s's %d-entity census again "
                                "after `map %s`" % (mapname, scen["entities"], mapname))
         wait_quiet(console, 6.0)
-        counts["load"] = count_traces(read_window(console, start))
+        counts["load"] = count_traces(read_window(console, start, lost))
         frames["load"] = lg.crossings_since(api, mark).get("serverFrames", 0)
         if frames["load"] <= 0:
             raise RuntimeError("the load window recorded no server frames")

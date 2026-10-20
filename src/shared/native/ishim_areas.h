@@ -293,20 +293,16 @@ public:
 	virtual void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) = 0;
 	virtual int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) = 0;
 	virtual void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) = 0;
+	virtual void MoveTraceThrough( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter ) = 0;
 };
 
 abstract_class IShimWorldServer
 {
 public:
-	virtual int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) = 0;
-	virtual int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) = 0;
-	virtual int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) = 0;
 	virtual void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) = 0;
-	virtual int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) = 0;
 	virtual int32_t EntityModelSurfaceProp( uint32_t hEntity ) = 0;
 	virtual int32_t InvisibleRangeReach() = 0;
 	virtual void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) = 0;
-	virtual int32_t EntityTraceHull( uint32_t hEntity, const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, float * pOutEndXYZ ) = 0;
 };
 
 abstract_class IShimEntitiesServer : public IShimEntities
@@ -350,9 +346,7 @@ abstract_class IShimEffectsServer
 {
 public:
 	virtual void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) = 0;
-	virtual void BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed ) = 0;
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
-	virtual int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) = 0;
 	// plan_server_native_v2 T4b: one temp entity table, planned in C#, stored
 	// into SendProps (shell_tempents.cpp). The block is length-prefixed
 	// (sourcesharp.h, SourceSharpTeTableHeader_t). Answers the handle, or -1.

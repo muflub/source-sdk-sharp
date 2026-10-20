@@ -628,7 +628,7 @@ public unsafe struct ManagedBonesTable
 }
 
 /// <summary>The table managed writes for <c>IManagedPhysicsObjectEvent</c> (<c>SSManagedPhysicsObjectEventTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedPhysicsObjectEvent", ReservedWords = 2)]
+[ImplementedByManaged("IManagedPhysicsObjectEvent", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedPhysicsObjectEventTable
 {
@@ -650,7 +650,7 @@ public unsafe struct ManagedPhysicsObjectEventTable
 }
 
 /// <summary>The table managed writes for <c>IManagedPhysicsConstraintEvent</c> (<c>SSManagedPhysicsConstraintEventTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedPhysicsConstraintEvent", ReservedWords = 2)]
+[ImplementedByManaged("IManagedPhysicsConstraintEvent", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedPhysicsConstraintEventTable
 {
@@ -668,7 +668,7 @@ public unsafe struct ManagedPhysicsConstraintEventTable
 }
 
 /// <summary>The table managed writes for <c>IManagedMotionEvent</c> (<c>SSManagedMotionEventTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedMotionEvent", ReservedWords = 2)]
+[ImplementedByManaged("IManagedMotionEvent", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedMotionEventTable
 {
@@ -683,6 +683,24 @@ public unsafe struct ManagedMotionEventTable
     // 2: int32_t Simulate( void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular )
     [SlotHash(0xe23bf65f)]
     public delegate* unmanaged<void*, void*, void*, float, void*, void*, int> Simulate;
+}
+
+/// <summary>The table managed writes for <c>IManagedTraceFilter</c> (<c>SSManagedTraceFilterTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedTraceFilter", ReservedWords = 3)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedTraceFilterTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t ShouldHitEntity( uint32_t hEntity, int32_t nContentsMask )
+    [SlotHash(0xbabc0fee)]
+    public delegate* unmanaged<void*, uint, int, int> ShouldHitEntity;
 }
 
 /// <summary>The table managed writes for <c>IManagedSoundEmitter</c> (<c>SSManagedSoundEmitterTable</c> native-side).</summary>

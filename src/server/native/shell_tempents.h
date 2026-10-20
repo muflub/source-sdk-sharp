@@ -110,16 +110,6 @@ ss::TePrediction *SourceSharpTe_PredictionSystem( void );
 void TE_BloodStream( IRecipientFilter& filter, float delay,
 	const Vector* org, const Vector* dir, int r, int g, int b, int a, int amount );
 
-void TE_BSPDecal( IRecipientFilter& filter, float delay,
-	const Vector* pos, int entity, int index );
-
-void TE_ProjectDecal( IRecipientFilter& filter, float delay,
-	const Vector* pos, const QAngle *angles, float distance, int index );
-
-void TE_Bubbles( IRecipientFilter& filter, float delay,
-	const Vector* mins, const Vector* maxs, float height, int modelindex,
-	int count, float speed );
-
 void TE_Decal( IRecipientFilter& filter, float delay,
 	const Vector* pos, const Vector* start, int entity, int hitbox, int index );
 

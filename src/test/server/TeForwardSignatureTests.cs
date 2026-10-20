@@ -61,8 +61,10 @@ public class TeForwardSignatureTests
         // reserved three more (TE_Dust, TE_MetalSparks, TE_MuzzleFlash, whose only
         // callers were ss::IEffects methods no server TU called): 11 ids then. T4d
         // reserved TE_Explosion and TE_LargeFunnel (their callers were slots
-        // EffectsOverTempEnts had replaced): 9 ids now.
-        Assert.True(arms.Count >= 9,
+        // EffectsOverTempEnts had replaced): 9 ids then. T4f reserved TE_BSPDecal
+        // and TE_ProjectDecal (the PaintDecal slot, which EffectsOverTempEnts
+        // answers itself now; TE_Bubbles stays, the client forwards it): 7 ids now.
+        Assert.True(arms.Count >= 7,
             $"only {arms.Count} dispatcher arm(s) were parsed out of TeForwardDispatch.cs. "
           + "The arm pattern stopped matching rather than the arms going away — with an "
           + "empty arm table every comparison below is vacuous and this fact would be "
@@ -127,8 +129,10 @@ public class TeForwardSignatureTests
         // reserved three more (TE_Dust, TE_MetalSparks, TE_MuzzleFlash, whose only
         // callers were ss::IEffects methods no server TU called): 11 ids then. T4d
         // reserved TE_Explosion and TE_LargeFunnel (their callers were slots
-        // EffectsOverTempEnts had replaced): 9 ids now.
-        Assert.True(checkedForwards >= 11,
+        // EffectsOverTempEnts had replaced): 9 ids then. T4f reserved TE_BSPDecal
+        // and TE_ProjectDecal (the PaintDecal slot, which EffectsOverTempEnts
+        // answers itself now; TE_Bubbles stays, the client forwards it): 7 ids now.
+        Assert.True(checkedForwards >= 8,
             $"only {checkedForwards} forward(s) were matched to an arm, which is far fewer than "
           + "there are — the packing or the arm pattern stopped matching rather than agreeing");
 
@@ -192,15 +196,17 @@ public class TeForwardSignatureTests
         // reserved three more (TE_Dust, TE_MetalSparks, TE_MuzzleFlash, whose only
         // callers were ss::IEffects methods no server TU called): 11 ids then. T4d
         // reserved TE_Explosion and TE_LargeFunnel (their callers were slots
-        // EffectsOverTempEnts had replaced): 9 ids now.
-        Assert.True(forwarded.Count >= 9,
+        // EffectsOverTempEnts had replaced): 9 ids then. T4f reserved TE_BSPDecal
+        // and TE_ProjectDecal (the PaintDecal slot, which EffectsOverTempEnts
+        // answers itself now; TE_Bubbles stays, the client forwards it): 7 ids now.
+        Assert.True(forwarded.Count >= 7,
             $"only {forwarded.Count} native forward id(s) were found across the "
           + "shell_te_fwd_*.cpp. The call pattern stopped matching rather than the "
           + "forwards going away, and an empty forward set makes this fact vacuous");
 
         var arms = ArmsOf(File.ReadAllText(dispatch));
 
-        Assert.True(arms.Count >= 9,
+        Assert.True(arms.Count >= 7,
             $"only {arms.Count} dispatcher arm(s) were parsed out of TeForwardDispatch.cs. "
           + "With an empty arm table there is nothing to be an orphan and this fact would "
           + "be green having checked nothing");

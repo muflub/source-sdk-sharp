@@ -815,10 +815,12 @@ TEST( TempEntForwardersCollapsed, TheForwardIdTableCoversEveryIdTheTwoForwarders
 	// BUBBLE_TRAIL, ENERGY_SPLASH; the three plan_server_native_v2 T4b
 	// reserved: DUST, METAL_SPARKS, MUZZLE_FLASH (their ss::IEffects callers had
 	// none); and the two T4d reserved: EXPLOSION, LARGE_FUNNEL (their callers
-	// were slots EffectsOverTempEnts had replaced). Moves only with a
-	// deliberate change.
-	EXPECT_EQ( nReserved, 9 )
-		<< "tempent_forwards.h marks nine ids RESERVED since plan_server_native_v2 T4d";
+	// were slots EffectsOverTempEnts had replaced); and the two T4f reserved:
+	// BSP_DECAL, PROJECT_DECAL (their caller was the PaintDecal slot, which
+	// EffectsOverTempEnts answers itself now). Moves only with a deliberate
+	// change.
+	EXPECT_EQ( nReserved, 11 )
+		<< "tempent_forwards.h marks eleven ids RESERVED since plan_server_native_v2 T4f";
 
 	std::string strList;
 	for ( size_t i = 0; i < unused.size(); i++ )

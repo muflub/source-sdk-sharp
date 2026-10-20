@@ -55,30 +55,15 @@ public static class TeForwardDispatch
     public static TempEntState? Build(TeForward id, ReadOnlySpan<float> f, ReadOnlySpan<int> i)
         => id switch
         {
-            TeForward.BSPDecal                 => BSPDecal(f, i),
             TeForward.BloodStream              => BloodStream(f, i),
             TeForward.Bubbles                  => Bubbles(f, i),
             TeForward.Decal                    => Decal(f, i),
-            TeForward.ProjectDecal             => ProjectDecal(f, i),
             TeForward.Smoke                    => Smoke(f, i),
             TeForward.Sparks                   => Sparks(f, i),
             TeForward.TeDispatchEffect         => TeDispatchEffect(f, i),
             TeForward.WorldDecal               => WorldDecal(f, i),
             _                         => null,
         };
-
-    private static TempEntState? BSPDecal(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 3 || i.Length < 2)
-            return null;
-
-        return new TeBspDecal
-        {
-            Origin = new Vector(f[0], f[1], f[2]),
-            Entity = i[0],
-            Index  = i[1],
-        };
-    }
 
     private static TempEntState? BloodStream(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
     {
@@ -122,20 +107,6 @@ public static class TeForwardDispatch
             Entity = i[0],
             Hitbox = i[1],
             Index  = i[2],
-        };
-    }
-
-    private static TempEntState? ProjectDecal(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 7 || i.Length < 1)
-            return null;
-
-        return new TeProjectedDecal
-        {
-            Origin   = new Vector(f[0], f[1], f[2]),
-            Rotation = new Vector(f[3], f[4], f[5]),
-            Distance = f[6],
-            Index    = i[0],
         };
     }
 

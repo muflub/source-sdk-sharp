@@ -587,8 +587,6 @@ CWorld::CWorld( )
 	// two engine interfaces ever read, so it went inside the member that
 	// answers for it. Both members are constructed before this body runs.
 
-	m_nImpacts = 0;
-
 	AttachToEdictZero();
 
 	// THE ACTIVITY AND EVENT REGISTRIES ARE GONE -- plan_shim.md Phase 2d.
@@ -891,8 +889,6 @@ void CWorld::ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomI
 	data.m_nEntIndex    = RequiredEdictIndex();
 
 	DispatchEffect( pCustomImpactName ? pCustomImpactName : "Impact", data );
-
-	m_nImpacts++;
 }
 
 void CWorld::Spawn( void )
@@ -1042,40 +1038,11 @@ void CWorld::Precache( void )
 	g_iszFuncBrushClassname = AllocPooledString("func_brush");
 }
 
-// cs_sv_world (the world's networked state, on demand) and cs_sv_trace_subject
-// (which hierarchy a trace came back with) are diagnostics: they live in
-// world_adapter_debug.cpp, which only a debug build compiles.
-
-//-----------------------------------------------------------------------------
-// THE GETTERS, AND WHERE THEY READ FROM NOW.
-//
-// Each of the five below used to read a CNetworkVar member. It reads the blob
-// at an offset C# published instead, through world_net_sync.cpp -- which is the
-// SAME FILE the client's half of this class reads through, compiled into both
-// DLLs, so the two sides cannot disagree about what a field is called or where
-// inside the blob it sits.
-//
-// MEASURED BEFORE THE PORT AND WORTH RECORDING: none of GetWorldBounds,
-// GetWaveHeight, GetStartDark or IsColdWorld has a single caller in the 143
-// .cpp this server compiles. Their callers -- ai_network.cpp, player.cpp,
-// nav_edit.cpp, testfunctions.cpp, test_stressentities.cpp -- are all files
-// this build does not compile. They are kept because they are the shim's stated
-// surface and because a getter deleted for having no caller is a getter the
-// next lane has to re-derive; nothing here is on a hot path.
-//
-// GetDisplayTitle and SetDisplayTitle ARE GONE, with m_bDisplayTitle and with
-// the `gametitle` key that filled it -- see CWorld::KeyValue for the
-// measurement (zero compiled callers) and for what that loses. A getter kept
-// over a member nothing writes answers a constant false, and a plausible false
-// reads like data.
-//-----------------------------------------------------------------------------
-void CWorld::GetWorldBounds( Vector &vecMins, Vector &vecMaxs )
-{
-	ResolveFields();
-
-	vecMins = SourceSharpWorld_ReadVector( DataBlob(), m_Fields.nWorldMins );
-	vecMaxs = SourceSharpWorld_ReadVector( DataBlob(), m_Fields.nWorldMaxs );
-}
+// cs_sv_world (the world's networked state, on demand) is a diagnostic: it
+// lives in world_adapter_debug.cpp, which only a debug build compiles.
+// cs_sv_trace_subject (which hierarchy a trace came back with) went at
+// plan_server_native_v2 T4f with the native trace filter it borrowed, and
+// GetWorldBounds and ImpactCount, which only it read, with it.
 
 // CPRECACHE_REGISTER WAS HERE (game/shared/precache_register.cpp, folded in at
 // plan_server_all.md Wave 2): a static-init list of "call me at level load"

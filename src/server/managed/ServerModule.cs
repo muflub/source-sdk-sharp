@@ -114,6 +114,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The liveness gate's independent oracle, over this side's own slot.
         _services.AddInstance(new LivenessSlotReference(_engine));
 
+        // What the server's traces cost (plan_server_native_v2 T4f): timed by
+        // the side's trace members, printed by cs_sv_trace_cost.
+        var traceCost = new ServerTraceCost();
+        _services.AddInstance(traceCost);
+        ServerTraceRouting.RouteCost(_engine, traceCost);
+
         // This load's Steam game server, handed to the engine host binding the
         // next line builds (P1 run 3: an instance per load, not a static; it
         // binds on first use, so a cs_sv_reload needs no new activation).
@@ -396,6 +402,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private ServerSounds? _serverSounds;
     private SoundEmitterSystem? _soundSystem;
     private ManagedVtable? _recipientFilter;
+
+    // The block libss_fwd_server's trace filter is built in (plan_server_native_v2 T4f).
+    private ManagedVtable? _traceFilter;
 
     private ManagedVtable? _physicsObjectEvents;
     private ManagedVtable? _physicsCollisionEvents;
@@ -1442,7 +1451,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IEngineEffects>(new EffectsOverTempEnts(
             nativeEffects, temps,
             _services.Require<IEngineSound>(),
-            _services.Require<IEngineEntities>()));
+            _services.Require<IEngineEntities>(),
+            new EngineEffectsWorld(_engine, _services.Require<IEngineEntities>(),
+                                   _services.Require<IEnginePrecache>()),
+            text => Log.Warning(text)));
 
         // plan_entity.md §3.8: the physics event ring's consumer. AFTER the
         // IEngineEffects replacement above, deliberately -- dust from a physics
@@ -3037,6 +3049,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         BuildSounds(vtables);
 
+        // The server's traces (plan_server_native_v2 T4f): IEngineTrace::
+        // TraceRay through its forwarder, over the trace filter libss_fwd_server
+        // builds in a managed block, which the managed trace rule answers.
+        _traceFilter = ServerTraceRouting.Build(_engine, vtables, CollisionRules.BuildMatrix(), out string tracesWhy);
+        if (_traceFilter is null)
+            Log.Warning($"[SourceSharp/Server] no trace filter, so the server traces nothing: {tracesWhy}\n");
+
         // The objects vphysics is handed as its callbacks are libss_fwd_server's
         // (plan_forwarders_everywhere.md phase 5), each built in its block.
         PhysicsCallbackObjects? callbackObjects = PhysicsCallbackObjects.Acquire(_engine, out string callbacksWhy);
@@ -3296,9 +3315,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // block is about to be freed.
         ServerSoundRouting.Route(_engine, null);
         _serverSounds = null;
+        // The same for the traces: nothing may trace through a filter whose
+        // block is about to be freed.
+        ServerTraceRouting.Unroute(_engine);
         _vtables?.ReleaseCallerHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
-                                   _physicsConstraintEvents, _physicsMotionEvents, _solidKeys, _recipientFilter);
+                                   _physicsConstraintEvents, _physicsMotionEvents, _solidKeys, _recipientFilter,
+                                   _traceFilter);
         _recipientFilter = null;
+        _traceFilter = null;
         _solidKeys = null;
         _physicsWorld = null;
         if (_entityPhysics is not null)

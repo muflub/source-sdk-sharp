@@ -168,7 +168,7 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 const File_t kShellEntityApi = { "sourcesharp/game/server/shell_entityapi.cpp",
 	"int32_t SourceSharp_GetPlayerTeam(" };
 const File_t kShellWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
-	"SourceSharp_TraceLine" };
+	"SourceSharp_SetSkyboxParams(" };   // the trace slots left at plan_server_native_v2 T4f
 
 std::string Load( const File_t &f )
 {

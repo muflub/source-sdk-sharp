@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 29 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 30 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -120,6 +120,9 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // void IVEngineServer::SetAreaPortalStates( const int *, const int *, int )
     public delegate* unmanaged<void*, void*, void*, int, void> SetAreaPortalStates;
+
+    // void IVEngineServer::StaticDecal( const Vector &, int, int, int, bool )
+    public delegate* unmanaged<void*, void*, int, int, int, byte, void> StaticDecal;
 }
 
 /// <summary>
@@ -168,4 +171,24 @@ internal unsafe struct GameEventManagerFwd : IForwarderTable
 
     // void IGameEventManager2::FreeEvent( IGameEvent * )
     public delegate* unmanaged<void*, void*, void> FreeEvent;
+}
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_TraceFilter): 3 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct TraceFilterFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_TraceFilter";
+
+    // int SSFwd_TraceFilter_SizeOf( void )
+    public delegate* unmanaged<int> SizeOf;
+
+    // void * SSFwd_TraceFilter_Construct( void *, IManagedTraceFilter *, int32_t )
+    public delegate* unmanaged<void*, void*, int, void*> Construct;
+
+    // uint32_t SSFwd_TraceFilter_HandleOf( IHandleEntity * )
+    public delegate* unmanaged<void*, uint> HandleOf;
 }

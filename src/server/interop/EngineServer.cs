@@ -142,6 +142,10 @@ public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, Sour
     /// <inheritdoc/>
     public bool IsDecalPrecached(string name) => Ask(_fwd->IsDecalPrecached, _self, name);
 
+    /// <inheritdoc/>
+    public void StaticDecal(Vector originInEntitySpace, int decalIndex, int entityIndex, int modelIndex, bool lowPriority)
+        => _fwd->StaticDecal(_self, &originInEntitySpace, decalIndex, entityIndex, modelIndex, lowPriority ? (byte)1 : (byte)0);
+
     // IAreaPortalEngine, EXPLICITLY: the area portal records' three calls
     // (plan_server_native_v2 T4d) are offered to what holds that interface and
     // to nothing that holds IVtableEngineServer (VtableBindingTests).

@@ -103,16 +103,6 @@ public unsafe class EntityHandleInversionTests : IDisposable
         return n / 2;
     }
 
-    [UnmanagedCallersOnly]
-    private static int RecordTraceIgnore(void* self, float* start, float* end, int mask, uint ignore,
-                                         float* fraction, float* endPos, float* normal, uint* hit)
-    {
-        t_seen = new[] { ignore };
-        *fraction = 1f;
-        *hit = 0xFFFF_FFFFu;
-        return 0;
-    }
-
     private EngineSide Attached(string area, string slot, nint fn)
     {
         var side = new EngineSide(Side.Server);
@@ -206,17 +196,5 @@ public unsafe class EntityHandleInversionTests : IDisposable
 
         Assert.True(n > 0, "the report reached the slot");
         Assert.Equal(Raw, new[] { into[0].A.Value, into[0].B.Value, into[1].A.Value, into[1].B.Value }[..(2 * n)]);
-    }
-
-    [Fact]
-    public void AnOmittedTraceIgnoreReachesNativeAsTheInvalidHandle()
-    {
-        t_seen = null;
-        var side = Attached("SourceSharpWorldServer001", nameof(ShimWorldServerFwd.TraceLine),
-                            (nint)(delegate* unmanaged<void*, float*, float*, int, uint, float*, float*, float*, uint*, int>)&RecordTraceIgnore);
-
-        side.TraceLine(Vector.Zero, new Vector(0f, 0f, 64f), TraceMask.Solid);
-
-        Assert.Equal(new[] { 0xFFFF_FFFFu }, t_seen);
     }
 }

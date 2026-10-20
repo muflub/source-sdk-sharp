@@ -1764,6 +1764,14 @@ internal sealed unsafe partial class EngineSide
 
     private partial void SidePatchStop(int patch) => ClientShims.SoundscapeClient.SoundPatchStop(patch);
 
+    // The client's movement trace is its own slot's, over the client's filter
+    // (plan_server_native_v2 T4f moved only the server's).
+    private partial void SideMoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
+                                       EntityHandle player, MoveTraceBlob* blob)
+        => OwnShims.Movement.MoveTrace(start, end, mins, maxs, (int)mask, collisionGroup, blob);
+
+    private partial EntityHandle SideMovePass(int entIndex) => EntityHandle.None;
+
     private partial void SidePatchState(int patch, out int entIndex, out bool filterActive)
     {
         int index = -1;

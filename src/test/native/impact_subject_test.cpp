@@ -38,8 +38,10 @@
 // into SourceSharp.Server/EntityMotion.cs: the shell no longer traces the step,
 // no longer decides what an impact means, and no longer calls OnManagedImpact
 // at all. The narrowing this file bans has one place left where it could be
-// spelled — SourceSharp_TraceLine's *pOutHit write, which is what every
-// managed impact in the build now reads — so BAN A follows it there. The
+// spelled — the handle of the trace's entity (SourceSharp_TraceLine's *pOutHit
+// write until plan_server_native_v2 T4f, libss_fwd_server's
+// SSFwd_TraceFilter_HandleOf since), which is what every managed impact in the
+// build now reads — so BAN A follows it there. The
 // other two halves are untouched: OnManagedImpact still exists, is still
 // declared IHandleEntity-wide, and still crosses by the wide spelling; nothing
 // calls it, and the request in .claude/entity-port/abi-requests/2f.md asks for
@@ -280,14 +282,17 @@ std::string Joined( const std::vector< Hit_t > &hits )
 // to managed code are SourceSharp.Server/EntityMotion.cs now, and the trace
 // itself is the ABI's TraceLine slot. So the call site this file used to ban a
 // narrowing at does not exist any more -- and the narrowing it banned would now
-// be spelled in SourceSharp_TraceLine, which is where the trace's subject is
-// turned into a handle for C# to read.
+// be spelled where the trace's subject is turned into a handle for C# to read
+// (SourceSharp_TraceLine until plan_server_native_v2 T4f; see BAN A).
 //
 // The ban followed the subject rather than being deleted with the caller. What
 // it protects is unchanged: what a projectile hit must be nameable whichever
 // hierarchy it lives on.
 const char *kShellBase      = "game/server/shell_standalone_base.cpp";
-const char *kTrace          = "game/server/shell_worldquery.cpp";
+// plan_server_native_v2 T4f: the ONE place a trace's subject becomes a handle
+// is libss_fwd_server's SSFwd_TraceFilter_HandleOf now (managed traces through
+// IEngineTrace::TraceRay and asks it of trace_t::m_pEnt), so the ban followed it.
+const char *kTrace          = "fwd/fwd_trace_filter.cpp";
 const char *kShellScripted  = "game/server/shell_dispatch.cpp";
 const char *kShellHeader    = "game/server/shell_standalone.h";
 
@@ -308,12 +313,9 @@ TEST( ImpactSubjectBan, TheFilesTheBanIsAboutWereActuallyRead )
 
 	// And the anchors exist, so "no hits" below means "no narrowing" rather
 	// than "the call got renamed out from under this file".
-	EXPECT_FALSE( LinesNaming( CodeLines( kTrace ), "SourceSharp_TraceLine(" ).empty() )
-		<< "nothing in " << kTrace << " defines the trace slot any more, so the "
-		   "ban on narrowing its subject is looking at nothing";
-	EXPECT_FALSE( LinesNaming( CodeLines( kTrace ), "SourceSharp_TraceLineInto(" ).empty() )
-		<< "nothing in " << kTrace << " defines the body the two trace slots "
-		   "share, which is where the subject is named -- see the note above "
+	EXPECT_FALSE( LinesNaming( CodeLines( kTrace ), "SSFwd_TraceFilter_HandleOf(" ).empty() )
+		<< "nothing in " << kTrace << " defines the handle of a trace's entity "
+		   "any more, which is where the subject is named -- see the note above "
 		   "TheTraceNamesWhatItHitWidely";
 	EXPECT_FALSE( LinesNaming( CodeLines( kShellScripted ), "OnManagedImpact" ).empty() )
 		<< "nothing in " << kShellScripted << " implements OnManagedImpact any more";
@@ -385,70 +387,47 @@ std::vector< Hit_t > Naming( const std::vector< Hit_t > &body, const char *pszNe
 //
 // This used to read shell_standalone_base.cpp, where UpdateFlight called
 // OnManagedImpact( tr.m_pEnt ) directly. Step 2f made the projectile ask the
-// ABI for the trace instead, so the one place a trace's subject becomes a
-// handle for C# is SourceSharp_TraceLine's pOutHit write -- and every managed
-// impact in the build now reads that word. Narrowing it here would do to every
-// projectile what the original bug did to one.
+// ABI for the trace instead, and the one place a trace's subject became a
+// handle for C# was SourceSharp_TraceLine's pOutHit write (then the body it
+// shared with SourceSharp_TraceLineSurface, SourceSharp_TraceLineInto).
 //
-// SCOPED TO THE ONE FUNCTION, for TheScriptedImpactCrossesWidely's reason
-// exactly. shell_worldquery.cpp writes pOutHit four times: twice as the "hit
-// nothing" default at the top of a slot, and twice as the answer -- and the
-// swept-hull slot's answer is a different question this file is not about. A
-// whole-file ban fires on the defaults and has to be argued with, and a ban
-// somebody has to argue with is a ban somebody deletes.
-//
-// THE BAN FOLLOWED ITS SUBJECT AGAIN, and this file has done that once before
-// (the block at the top of it records the first move, out of
-// shell_standalone_base.cpp). Lane `fx-impact` appended a SECOND trace slot,
-// SourceSharp_TraceLineSurface -- the same line, plus the surfaceprop and the
-// SURF_* flags of the face that stopped it, which a bullet's impact effect
-// cannot be dispatched without -- and hoisted the one shared body both slots
-// call rather than copying it. So the pOutHit ANSWER now lives in
-// SourceSharp_TraceLineInto, and SourceSharp_TraceLine is a two-line arm over
-// it.
-//
-// THE BAN IS UNCHANGED IN SUBSTANCE AND THAT IS THE WHOLE POINT OF MOVING IT:
-// there is still exactly ONE place in the build where a trace's subject becomes
-// a handle for C# to read, and it is still forbidden to narrow it. Anchoring on
-// the shared body covers BOTH slots at once, where anchoring on either arm
-// would have covered one and left the other unguarded -- which is the failure a
-// copied body would have introduced silently.
+// THE BAN FOLLOWED ITS SUBJECT A THIRD TIME (plan_server_native_v2 T4f). The
+// server's traces are managed's now: ServerTracer calls IEngineTrace::TraceRay
+// through its forwarder and hands the trace's m_pEnt to libss_fwd_server's
+// SSFwd_TraceFilter_HandleOf, which asks the engine's entity for its own
+// handle. That is still exactly ONE place in the build where a trace's subject
+// becomes a handle for C# to read, for every trace at once, and it is still
+// forbidden to narrow it: every managed impact reads that word, and narrowing
+// it would do to every projectile what the original bug did to one.
 TEST( ImpactSubjectBan, TheTraceNamesWhatItHitWidely )
 {
 	const std::vector< Hit_t > body =
-		BodyOf( CodeLines( kTrace ), "int32_t SourceSharp_TraceLineInto(" );
+		BodyOf( CodeLines( kTrace ), "uint32_t SSFwd_TraceFilter_HandleOf(" );
 
 	ASSERT_FALSE( body.empty() )
-		<< "no SourceSharp_TraceLineInto body found in " << kTrace
-		<< ", so this ban is looking at nothing. If the shared body was folded "
-		   "back into the slots, this ban has to follow it again -- and there "
-		   "will then be TWO bodies to cover, not one";
+		<< "no SSFwd_TraceFilter_HandleOf body found in " << kTrace
+		<< ", so this ban is looking at nothing. If the handle of a trace's "
+		   "entity is named somewhere else now, this ban has to follow it again";
 
-	// The ANSWER, not the default: the line that turns the trace's own entity
-	// into the word C# reads.
-	const std::vector< Hit_t > answer = Naming( Naming( body, "pOutHit" ), "ss::TraceHit( tr )" );
+	// The ANSWER: the line that asks the engine's entity for its own handle,
+	// which every hierarchy (and the world) answers.
+	const std::vector< Hit_t > answer = Naming( body, "GetRefEHandle()" );
 
 	ASSERT_FALSE( answer.empty() )
 		<< "the trace no longer tells C# what it hit at all -- nothing in "
-		   "SourceSharp_TraceLine writes ss::TraceHit( tr ) (the stored tr.m_pEnt) out through pOutHit";
+		   "SSFwd_TraceFilter_HandleOf asks the entity for its handle";
 
-	for ( size_t i = 0; i < answer.size(); i++ )
+	for ( size_t i = 0; i < body.size(); i++ )
 	{
-		EXPECT_TRUE( answer[ i ].strText.find( "TraceEntity(" ) == std::string::npos )
+		EXPECT_TRUE( body[ i ].strText.find( "TraceEntity(" ) == std::string::npos )
 			<< "the trace's subject is narrowed through TraceEntity(), which "
 			   "answers NULL for the parallel hierarchy:\n    line "
-			<< answer[ i ].nLine << ": " << answer[ i ].strText;
+			<< body[ i ].nLine << ": " << body[ i ].strText;
 
-		EXPECT_TRUE( answer[ i ].strText.find( "SourceSharp_HandleFromEntity(" ) == std::string::npos )
-			<< "the trace's subject crosses by the CBaseEntity-only spelling, "
-			   "which is the invalid handle for everything on the parallel "
-			   "hierarchy:\n    line "
-			<< answer[ i ].nLine << ": " << answer[ i ].strText;
-
-		EXPECT_TRUE( answer[ i ].strText.find( "SourceSharp_HandleFromAnyEntity(" ) != std::string::npos )
-			<< "the trace does not name its subject by the wide handle spelling "
-			   "at all:\n    line "
-			<< answer[ i ].nLine << ": " << answer[ i ].strText;
+		EXPECT_TRUE( body[ i ].strText.find( "GameEntityFromEntityHandle(" ) == std::string::npos )
+			<< "the trace's subject is narrowed to a game entity, which answers "
+			   "NULL for the world and a static prop:\n    line "
+			<< body[ i ].nLine << ": " << body[ i ].strText;
 	}
 }
 
