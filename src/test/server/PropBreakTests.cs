@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 
 using SourceSharp.Abi;
 using SourceSharp.Server;
@@ -380,44 +379,5 @@ public class PropBreakTests
 
         Assert.True(Breaker(engine).Precache("models/crate.mdl") == 3,
                     "the count is stock's m_iNumBreakableChunks, which is what decides whether a gib breaks again");
-    }
-
-    //-------------------------------------------------------------------------
-    // The two spawnflag numbers are the engine's, not this file's.
-    //-------------------------------------------------------------------------
-
-    /// <summary>
-    /// Both flags are copies of a #define in props_shared.h, and only the NUMBER
-    /// crosses. A renumbering nobody mirrored would make every piece inherit
-    /// motion-disabled from a bolted-down crate, or stop counting gibs — neither
-    /// of which produces an error anywhere.
-    /// </summary>
-    [Fact]
-    public void TheSpawnFlagsAreTheOnesPropsSharedDeclares()
-    {
-        string? header = RepoLayout.FindSdkFile(Path.Combine("src", "game", "shared", "props_shared.h"));
-
-        if (header is null)
-        {
-            Assert.True(true, "props_shared.h found for the spawnflag check (skipped, not found)");
-            return;
-        }
-
-        string text = File.ReadAllText(header);
-
-        Assert.True(Flag(text, "SF_PHYSPROP_MOTIONDISABLED") == PropBreak.SpawnFlagMotionDisabled,
-                    "SpawnFlagMotionDisabled is SF_PHYSPROP_MOTIONDISABLED");
-
-        Assert.True(Flag(text, "SF_PHYSPROP_IS_GIB") == PropBreak.SpawnFlagIsGib,
-                    "SpawnFlagIsGib is SF_PHYSPROP_IS_GIB");
-    }
-
-    private static int Flag(string text, string name)
-    {
-        var m = Regex.Match(text, @"#define\s+" + Regex.Escape(name) + @"\s+0x([0-9A-Fa-f]+)");
-
-        Assert.True(m.Success, $"props_shared.h declares {name}");
-
-        return Convert.ToInt32(m.Groups[1].Value, 16);
     }
 }

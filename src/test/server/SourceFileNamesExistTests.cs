@@ -546,7 +546,10 @@ public sealed partial class SourceFileNamesExistTests
     /// 47 TO 46 AT plan_server_native_v2 T4f: TempEntFizzTests' bubble-path
     /// fact reads the managed EffectsOverTempEnts.cs, which is in this
     /// repository and fails rather than skips when it is missing.
-    private const int VacuousAssertionSites = 46;
+    /// 46 TO 45 AT the props_shared.h link's removal: PropBreakTests' spawnflag
+    /// fact skipped with Assert.True(true) when the farm had no props_shared.h;
+    /// it is PropBreakSpawnFlagsOracleTests now, which reads the pristine clone.
+    private const int VacuousAssertionSites = 45;
 
     private static readonly Regex Vacuous = new(
         @"\bAssert\s*\.\s*(?:True\s*\(\s*true|False\s*\(\s*false)\b",

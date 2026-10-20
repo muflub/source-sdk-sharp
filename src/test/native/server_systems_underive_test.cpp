@@ -308,9 +308,14 @@ const Site kSites[] =
 	// both projects still compile it, and its stock base is still only named
 	// inside a CLIENT_DLL arm.
 	{ "sourcesharp/game/shared/gamestringpool.cpp",     kShared },
-	{ "game/shared/props_shared.h",                     kShared },
-	{ "game/shared/ragdoll_shared.h",                   kShared },
-	{ "game/shared/gamestats.h",                        kShared },
+	// props_shared.h's row went 2026-10-19: no DLL compiles it (ninja deps of
+	// both targets, debug), so it had no arm for this fact to be about. So did
+	// ragdoll_shared.h's: the client compiles it, but its system's base is
+	// gone and only a comment names one. gamestats.h is the client's alone
+	// since the server stopped including it (same measurement): unguarded is
+	// right there, and kClientOnly's fact refuses it if the server compiles it
+	// again.
+	{ "game/shared/gamestats.h",                        kClientOnly },
 	// sound_emitter.cpp's row (kClientOnly since plan_server_native_v2 T4a's
 	// precache path) went with the file: the client's emit path is C#'s, and its
 	// CSoundEmitterSystem row is shell_soundemitter_client.cpp's, over

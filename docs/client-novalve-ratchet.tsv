@@ -362,4 +362,9 @@ logic-lines	7515
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	510
+# LOWERED 2026-10-19, sdk-links 510 -> 374 (tools/client-novalve-census at the sdk-links reconciliation on main f087134f5):
+#   31 links deleted that no build reads (debug, release, oracle, probe; the Windows arms checked by hand). The other
+#   ~105 are RELABELLING, not porting: sdk-census now counts libss_fwd_server/client and libss_particles as their side's,
+#   so 96 headers libss_fwd_server compiles moved client -> shared, 10 lines client -> tests (read only by tests) and
+#   tier1/stringpool.h client -> libs. Hand-edited.
+sdk-links	374

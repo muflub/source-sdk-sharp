@@ -14,8 +14,10 @@ The farm links the union of five lists (tools/setup). A file is in exactly
 one, decided by which targets of the CMake build use it (either
 configuration):
 
-  client  only client.so's graph (client_sourcesharp) uses it
-  server  only server.so's graph (server_sourcesharp)
+  client  only client.so's graph (client_sourcesharp) uses it, or a library
+          shipped beside it for the client alone (libss_particles.so,
+          libss_fwd_client.so)
+  server  only server.so's graph (server_sourcesharp, libss_fwd_server.so)
   shared  both DLLs (or the managed host library, libmanaged_host.so)
   libs    only the Valve static libraries (tier1, mathlib, raytrace)
   tests   nothing above: only test targets compile it, or only a traced run
@@ -38,8 +40,11 @@ delete lines, and this finds the lines nobody deleted.
 """
 
 import argparse
+import contextlib
+import io
 import os
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -55,17 +60,31 @@ LIBS = ("tier1", "mathlib", "raytrace")
 LOCAL_PREFIX = "src/sourcesharp/"
 # CMake target -> consumer. Anything else (a *_test, gtest, ss_cpptest_*) is
 # a test target.
+# The side libraries ship in bin/linux64 beside their game DLL and are its
+# graph: libss_particles.so binds particles.a and dmxloader.a for client.so
+# (plan_particles_so.md), and libss_fwd_<side>.so is the forwarder table that
+# side's managed code calls (src/fwd/native). Read as test targets, they had
+# particles.a and the vphysics headers "belong in tests".
+SIDE_LIBS = {"ss_particles": "client", "ss_fwd_client": "client",
+             "ss_fwd_server": "server"}
 TARGETS = {"client_sourcesharp": "client", "server_sourcesharp": "server",
-           "sourcesharp": "host", **{lib: "libs" for lib in LIBS}}
+           "sourcesharp": "host", **SIDE_LIBS, **{lib: "libs" for lib in LIBS}}
 # A link step's output -> consumer (ninja -t commands has no .dir/ there).
 OUTPUTS = {"client.so": "client", "server.so": "server",
            "libmanaged_host.so": "host",
+           **{f"lib{t}.so": side for t, side in SIDE_LIBS.items()},
            **{f"lib{lib}.a": "libs" for lib in LIBS}}
+# Build trees beside farm/<config>/build that also compile farm files: the
+# oracle tests' own tree (the oracle-<config> preset, built by make
+# test-full) and the client probe build (tools/client-probe-link). The
+# census read only the game's tree, and called utlbidirectionalset.h unused
+# while leafsystem_oracle_test compiled it.
+ASIDE_TREES = ("build-oracle", "build-probes")
 LIST_HEAD = {
-    "client": "fork files that only client.so's graph (client_sourcesharp) "
-              "uses",
-    "server": "fork files that only server.so's graph (server_sourcesharp) "
-              "uses",
+    "client": "fork files that only client.so's graph (client_sourcesharp, "
+              "libss_particles.so, libss_fwd_client.so) uses",
+    "server": "fork files that only server.so's graph (server_sourcesharp, "
+              "libss_fwd_server.so) uses",
     "shared": "fork files both DLLs use (or the managed host library)",
     "libs": "fork files that only the Valve static libraries use (tier1, "
             "mathlib, raytrace)",
@@ -80,8 +99,11 @@ def list_path(repo, name):
 
 
 def read_list(path):
+    """A list's paths. A missing list is refused: read as empty, its lines
+    would be judged by nobody and the check would pass."""
     if not os.path.exists(path):
-        return []
+        raise SystemExit(f"{path} is missing (tools/setup links the union "
+                         "of sdk-links/*.txt)")
     return [l.strip() for l in open(path)
             if l.strip() and not l.lstrip().startswith("#")]
 
@@ -117,13 +139,101 @@ def consumer_of_output(path):
     return "tests"
 
 
-def graph_uses(repo, cfg):
-    """{farm-relative path: {consumer}} the CMake build of `cfg` reads."""
+DEPS_MAGIC = b"# ninjadeps\n"
+
+
+def read_deps_log(path):
+    """{output: (mtime_ns, [inputs])} from a ninja deps log (version 4),
+    read here rather than by `ninja -t deps`. That tool opens the log to
+    write: it truncates a log whose last record is partial and may recompact
+    it, so run beside a build of the same tree (the checks leg runs beside
+    the native leg) it could cut the record the build was appending. Read
+    only, a partial last record is just the end. A later record for an
+    output replaces an earlier one, as ninja's own load does."""
+    with open(path, "rb") as f:
+        data = f.read()
+    if not data.startswith(DEPS_MAGIC) or len(data) < len(DEPS_MAGIC) + 4:
+        raise SystemExit(f"{path}: not a ninja deps log")
+    pos = len(DEPS_MAGIC)
+    (version,) = struct.unpack_from("<i", data, pos)
+    if version != 4:
+        raise SystemExit(f"{path}: deps log version {version}, this reads 4")
+    pos += 4
+    names = []
+    deps = {}
+    while pos + 4 <= len(data):
+        (size,) = struct.unpack_from("<I", data, pos)
+        is_deps = bool(size & 0x80000000)
+        size &= 0x7FFFFFFF
+        if pos + 4 + size > len(data):
+            break
+        body = data[pos + 4:pos + 4 + size]
+        pos += 4 + size
+        if is_deps:
+            if size < 12 or size % 4:
+                break
+            out, lo, hi = struct.unpack_from("<iII", body, 0)
+            ids = struct.unpack_from(f"<{(size - 12) // 4}i", body, 12)
+            if out >= len(names) or any(i >= len(names) for i in ids):
+                break
+            deps[names[out]] = ((hi << 32) | lo, [names[i] for i in ids])
+        else:
+            if size < 4:
+                break
+            (check,) = struct.unpack_from("<I", body, size - 4)
+            if (~check & 0xFFFFFFFF) != len(names):
+                break
+            names.append(body[:size - 4].rstrip(b"\0").decode())
+    return deps
+
+
+def deps_entries(build):
+    """[(output, valid, inputs)] for every output of `build` that the deps log
+    records and the manifest still builds (`ninja -t targets all` loads only
+    the manifest), as `ninja -t deps` lists them: an entry is stale when the
+    output is missing or newer than its record."""
+    path = os.path.join(build, ".ninja_deps")
+    if not os.path.exists(path):
+        return []
+    live = set()
+    targets = subprocess.run(["ninja", "-C", build, "-t", "targets", "all"],
+                             capture_output=True, text=True, check=True).stdout
+    for line in targets.splitlines():
+        live.add(line.rsplit(": ", 1)[0])
+    out = []
+    for name, (mtime, inputs) in sorted(read_deps_log(path).items()):
+        if name not in live:
+            continue
+        p = name if os.path.isabs(name) else os.path.join(build, name)
+        try:
+            disk = os.stat(p).st_mtime_ns
+        except FileNotFoundError:
+            disk = 0
+        out.append((name, bool(disk) and disk <= mtime, inputs))
+    return out
+
+
+def graph_uses(repo, cfg, tree="build", aside=False):
+    """{farm-relative path: {consumer}} the CMake build of `cfg` reads.
+
+    aside: a build tree beside the game's (ASIDE_TREES), read as evidence
+    that a test still compiles a file: every use in it is a test's, a tree
+    never configured or never built reads as nothing, and a stale entry is
+    skipped (the tree's last build still read it). A line only such a tree
+    uses belongs in tests.txt, which is trusted when the tree is absent, so
+    an absent tree never turns a needed line into an unused one there."""
     farm = os.path.join(repo, "farm", cfg)
-    build = os.path.join(farm, "build")
+    build = os.path.join(farm, tree)
     if not os.path.exists(os.path.join(build, "build.ninja")):
+        if aside:
+            return {}, 0
         raise SystemExit(f"no CMake build at {build}: run make {cfg} first")
     uses = {}
+
+    def attribute(out):
+        if aside:
+            return "tests"
+        return consumer_of_object(out) or consumer_of_output(out)
 
     def add(path, who):
         if not os.path.isabs(path):
@@ -132,32 +242,25 @@ def graph_uses(repo, cfg):
         if r:
             uses.setdefault(r, set()).add(who)
 
-    deps = subprocess.run(["ninja", "-C", build, "-t", "deps"],
-                          capture_output=True, text=True, check=True).stdout
     n_objects = 0
-    who = None
-    for line in deps.splitlines():
-        if not line.startswith(" "):
-            if "#deps" not in line:
-                who = None
+    for out, valid, inputs in deps_entries(build):
+        if not valid:
+            if aside:
                 continue
-            n_objects += 1
-            if "(VALID)" not in line:
-                raise SystemExit(f"{cfg}: stale deps entry, rebuild: "
-                                 f"{line[:120]}")
-            out = line.split(":")[0]
-            who = consumer_of_object(out) or consumer_of_output(out)
-            continue
-        if who:
-            add(line.strip(), who)
+            raise SystemExit(f"{cfg}: stale deps entry, rebuild: {out}")
+        n_objects += 1
+        who = attribute(out)
+        for path in inputs:
+            add(path, who)
     if n_objects == 0:
+        if aside:
+            return {}, 0
         raise SystemExit(f"{cfg}: ninja recorded no deps (never built?)")
     cmds = subprocess.run(["ninja", "-C", build, "-t", "commands"],
                           capture_output=True, text=True, check=True).stdout
     for cmd in cmds.splitlines():
         m = re.search(r"\s-o\s+(\S+)", cmd)
-        out = m.group(1) if m else ""
-        who = consumer_of_object(out) or consumer_of_output(out)
+        who = attribute(m.group(1) if m else "")
         for tok in re.findall(r"(?:^|\s)(\S+\.(?:a|so|cpp|c|cc|h|txt))"
                               r"(?=\s|$)", cmd):
             add(tok, who)
@@ -249,10 +352,27 @@ def write_lists(repo, want, before):
             f"# {len(paths)} links here; {total} in all lists (were {before})",
         ]
         head += [f"#   {groups[k]:5d} {k}" for k in sorted(groups)]
+        head += [n for p, n in read_notes(list_path(repo, name))
+                 if p in paths]
         with open(list_path(repo, name), "w") as f:
             f.write("\n".join(head) + "\n")
             for x in paths:
                 f.write(x + "\n")
+
+
+def read_notes(path):
+    """[(path, line)] of a list's `## <path>: why` notes: the hand-written
+    reason a line is kept that the graph cannot show (a test that opens the
+    file at run time, a check that compiles it). --write keeps a note while
+    its path stays in that list, and drops it with the line."""
+    if not os.path.exists(path):
+        return []
+    out = []
+    for line in open(path):
+        m = re.match(r"##\s+(\S+?):\s", line)
+        if m:
+            out.append((m.group(1), line.rstrip("\n")))
+    return out
 
 
 def gather(repo, configs):
@@ -262,6 +382,21 @@ def gather(repo, configs):
         print(f"graph {cfg}: {n} objects, {len(u)} farm paths")
         for p, w in u.items():
             uses.setdefault(p, set()).update(w)
+        for tree in ASIDE_TREES:
+            # tools/client-probe-link reconfigures build-probes, and the
+            # checks-full leg runs it beside this one: a manifest ninja cannot
+            # load mid-regeneration leaves the tree unread, which an aside
+            # tree's reading never needs (it cannot turn a fail into a pass).
+            try:
+                u, n = graph_uses(repo, cfg, tree, aside=True)
+                note = (f"{n} objects, {len(u)} farm paths (as tests)" if n
+                        else "not built, not read")
+            except subprocess.CalledProcessError as e:
+                u, n = {}, 0
+                note = f"ninja could not load it now (exit {e.returncode}), not read"
+            print(f"graph {cfg}/{tree}: {note}")
+            for p, w in u.items():
+                uses.setdefault(p, set()).update(w)
     return uses
 
 
@@ -301,6 +436,76 @@ def self_test():
         except SystemExit as e:
             refused = "no deps" in str(e) or "ninja" in str(e)
         ok(refused, "an unbuilt graph is refused, not read as empty")
+        got = graph_uses(repo, "debug", "build-oracle", aside=True)
+        ok(got == ({}, 0), "an aside tree never configured reads as nothing, "
+           f"not as a refusal ({got})")
+        os.makedirs(os.path.join(farm, "build-oracle"))
+        with open(os.path.join(farm, "build-oracle", "build.ninja"), "w") as f:
+            f.write("")
+        got = graph_uses(repo, "debug", "build-oracle", aside=True)
+        ok(got == ({}, 0), f"an aside tree never built reads as nothing ({got})")
+        # A built tree: one object of client.so's target whose depfile names
+        # a farm header, recorded by ninja itself. The game's tree attributes
+        # it to the client; the same tree read aside, to a test.
+        hdr = os.path.join(farm, "src", "game", "a.h")
+        os.makedirs(os.path.dirname(hdr))
+        open(hdr, "w").close()
+        obj = "CMakeFiles/client_sourcesharp.dir/x.o"
+        for tree in ("build", "build-oracle"):
+            with open(os.path.join(farm, tree, "build.ninja"), "w") as f:
+                f.write("rule cc\n"
+                        "  command = mkdir -p CMakeFiles/client_sourcesharp.dir"
+                        f" && echo '$out: {hdr}' > $out.d && touch $out\n"
+                        "  depfile = $out.d\n  deps = gcc\n"
+                        f"build {obj}: cc\n")
+            subprocess.run(["ninja", "-C", os.path.join(farm, tree)],
+                           capture_output=True, check=True)
+        game, _ = graph_uses(repo, "debug")
+        aside, n = graph_uses(repo, "debug", "build-oracle", aside=True)
+        ok(game.get("src/game/a.h") == {"client"},
+           f"the game's tree attributes a header to its target ({game})")
+        ok(n == 1 and aside.get("src/game/a.h") == {"tests"},
+           f"an aside tree attributes the same object to a test ({aside})")
+        # The deps log is read, never written: cut its last record short and
+        # the reader stops at the cut, and the file is byte for byte what it
+        # was (ninja -t deps would have truncated it).
+        log = os.path.join(farm, "build", ".ninja_deps")
+        whole = open(log, "rb").read()
+        with open(log, "wb") as f:
+            f.write(whole[:-3])
+        got = read_deps_log(log)
+        ok(got == {} and open(log, "rb").read() == whole[:-3],
+           f"a partial last record ends the read and the log is untouched "
+           f"({got})")
+        with open(log, "wb") as f:
+            f.write(whole)
+        got = read_deps_log(log)
+        ok(list(got) == [obj] and got[obj][1] == [hdr],
+           f"the whole log reads back the one object's header ({got})")
+        out = os.path.join(farm, "build", obj)
+        st = os.stat(out)
+        os.utime(out, ns=(st.st_atime_ns, got[obj][0] + 10 ** 9))
+        try:
+            graph_uses(repo, "debug")
+            refused = False
+        except SystemExit as e:
+            refused = "stale" in str(e)
+        ok(refused, "an object newer than its deps record is refused as stale")
+        # An aside manifest ninja cannot load (caught mid-regeneration) is
+        # not read; the game's tree with the same fault is refused.
+        os.utime(out, ns=(st.st_atime_ns, st.st_mtime_ns))
+        with open(os.path.join(farm, "build-oracle", "build.ninja"), "a") as f:
+            f.write("build broken: no_such_rule\n")
+        printed = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(printed):
+                got = gather(repo, ["debug"])
+        except (SystemExit, subprocess.CalledProcessError):
+            got = None
+        ok(got is not None and got.get("src/game/a.h") == {"client"} and
+           "build-oracle: ninja could not load" in printed.getvalue(),
+           f"an aside tree ninja cannot load is left unread "
+           f"({printed.getvalue()!r})")
 
     # Who uses a file decides its list.
     ok(consumer_of_object("CMakeFiles/client_sourcesharp.dir/src/x.cpp.o")
@@ -310,6 +515,14 @@ def self_test():
        and consumer_of_output("out/server.so") == "server" and
        consumer_of_output("/b/bin/debug/cpptest/foo_test") == "tests",
        "an object or a link output is attributed to its target")
+    ok(consumer_of_object("CMakeFiles/ss_particles.dir/src/p.cpp.o")
+       == "client" and
+       consumer_of_object("CMakeFiles/ss_fwd_client.dir/f.cpp.o") == "client"
+       and consumer_of_object("CMakeFiles/ss_fwd_server.dir/f.cpp.o")
+       == "server" and
+       consumer_of_output("out/libss_particles.so") == "client" and
+       consumer_of_output("out/libss_fwd_server.so") == "server",
+       "a side library shipped beside a game DLL is that side's, not a test")
     cases = {("client",): "client", ("server",): "server",
              ("client", "server"): "shared", ("client", "libs"): "client",
              ("host",): "shared", ("libs",): "libs",
@@ -349,6 +562,23 @@ def self_test():
     want, probs = census(good, uses, {"traced.h"})
     ok(probs == [] and want["traced.h"] == "tests",
        "a retaken trace that opens it keeps it in tests")
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "sdk-links"))
+        with open(list_path(d, "tests"), "w") as f:
+            f.write("# a list\n## t.cpp: a test opens it\n"
+                    "## gone.h: its line is deleted\nt.cpp\ngone.h\n")
+        write_lists(d, {"t.cpp": "tests", "gone.h": None, "a.h": "client"}, 3)
+        text = open(list_path(d, "tests")).read()
+        ok("## t.cpp: a test opens it\n" in text and "gone.h" not in text and
+           read_list(list_path(d, "tests")) == ["t.cpp"],
+           "--write keeps a kept line's note and drops a deleted line's")
+        os.unlink(list_path(d, "libs"))
+        try:
+            read_lists(d)
+            refused = False
+        except SystemExit as e:
+            refused = "libs.txt is missing" in str(e)
+        ok(refused, "a missing list is refused, not read as empty")
     print("self-test", "FAILED" if bad else "passed")
     return 1 if bad else 0
 

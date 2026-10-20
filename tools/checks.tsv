@@ -14,6 +14,7 @@ managed-areas	routine	tools/managed-areas --self-test && tools/managed-areas
 launcher-name-test	routine	tools/launcher-name-test --self-test && tools/launcher-name-test
 valve-text-audit	routine	tools/valve-text-audit --self-test && tools/valve-text-audit
 valve-header	routine	tools/valve-header --self-test && tools/valve-header check
+sdk-census	routine	tools/sdk-census --self-test && tools/sdk-census --config $SOURCESHARP_CONFIG
 convar-ref-census	routine	tools/convar-ref-census --self-test
 novalve-snapshot	routine	tools/novalve-snapshot --self-test
 abi-parity	routine	tools/abi-parity --self-test && tools/abi-parity --config $SOURCESHARP_CONFIG

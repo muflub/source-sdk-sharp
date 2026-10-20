@@ -1106,7 +1106,9 @@ entity-ratchet:
 # fails if a list names a fork file nothing uses (not the build graph of either
 # configuration, and not a traced read recorded in tests.txt), or a file whose
 # use moved to another list. Re-take the trace with tools/sdk-census --trace
-# LOG --write.
+# LOG --write. The checks leg runs it over $(CONFIG)'s graph alone
+# (tools/checks.tsv, routine): a release tree this checkout has not rebuilt
+# is stale, and would answer for code that has since moved.
 sdk-census:
 	@tools/sdk-census
 
