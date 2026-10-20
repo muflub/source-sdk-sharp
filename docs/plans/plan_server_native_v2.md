@@ -492,6 +492,14 @@ together), rather than keep retired placeholders. The user also asked that
 all of this branch's work be squashed and landed on main once main is
 updated.
 
+**RULED 2026-10-19 (user):** "Remove tests that test unused code." When T5
+deletes code with no caller in either DLL (shown by `--print-gc-sections` in
+both release and debug, and nm over both link lines), every test whose
+subject is only that code goes with it, in the same commit, which names
+them. Test hooks that drive live code (ExitWatch_*ForTest) stay; a test file
+that also covers live code loses only the dead subject's facts; code that is
+server-dead but client-live moves to a client-only file and keeps its tests.
+
 **RULED 2026-10-19 (user):** D6 "keep it as is": the three shapes (C
 callbacks with no user-data argument, the ConVar/ConCommand objects the
 engine holds, the registration list heads static initialisers build) stay
