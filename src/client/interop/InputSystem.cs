@@ -4,7 +4,7 @@ namespace SourceSharp.Abi;
 /// The input system's names for buttons, as the key bindings form needs them:
 /// a key captured as a ButtonCode_t is bound by name (<c>bind w +forward</c>).
 /// </summary>
-public interface IVtableInputSystem
+public interface IFwdInputSystem
 {
     /// <summary>inputsystem's name for <paramref name="buttonCode"/> (<c>w</c>, <c>SPACE</c>, <c>MOUSE1</c>), or null.</summary>
     string? ButtonName(int buttonCode);
@@ -15,7 +15,7 @@ public interface IVtableInputSystem
 /// ButtonCodeToString is reached. The client's appSystemFactory answers
 /// InputSystemVersion001; the server has no input system.
 /// </summary>
-public sealed unsafe class InputSystem : IVtableInputSystem
+public sealed unsafe class InputSystem : IFwdInputSystem
 {
     public const string InterfaceVersion = "InputSystemVersion001";
 
@@ -33,7 +33,7 @@ public sealed unsafe class InputSystem : IVtableInputSystem
     }
 
     /// <summary>The input system, or null with the reason, acquired through <paramref name="engine"/>'s factory.</summary>
-    public static IVtableInputSystem? Acquire(ModuleEngine engine, out string why)
+    public static IFwdInputSystem? Acquire(ModuleEngine engine, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
         return Forwarders.TryAcquire<InputSystemFwd>(

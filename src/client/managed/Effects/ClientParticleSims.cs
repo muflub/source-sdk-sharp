@@ -54,9 +54,9 @@ public interface IClientWorldLight
 }
 
 /// <summary>The real one, over IVEngineClient, acquired on first use.</summary>
-public sealed class ClientWorldLight(Func<IVtableEngineClient?> acquire) : IClientWorldLight
+public sealed class ClientWorldLight(Func<IFwdEngineClient?> acquire) : IClientWorldLight
 {
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
 
     public Vector LightForPoint(Vector position, bool clamp)
     {

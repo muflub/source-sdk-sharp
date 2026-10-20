@@ -5,7 +5,7 @@ namespace SourceSharp.Abi;
 /// members the server's model components need: whether a script sound exists,
 /// and its name as the table spells it. plan_server_novalve.md P3.
 /// </summary>
-public interface IVtableSoundEmitter
+public interface IFwdSoundEmitter
 {
     /// <summary>The script sound's index, or -1 when the table has no such sound.</summary>
     int SoundIndex(string name);
@@ -14,7 +14,7 @@ public interface IVtableSoundEmitter
     string? SoundName(int index);
 }
 
-public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
+public sealed unsafe class SoundEmitterBase : IFwdSoundEmitter
 {
     public const string InterfaceVersion = "VSoundEmitter002";
 
@@ -31,7 +31,7 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
     /// From the engine's factory, through <paramref name="engine"/>'s own side
     /// (plan_abi_hotreload D8); null, with the reason, when it does not answer.
     /// </summary>
-    public static IVtableSoundEmitter? Acquire(ModuleEngine engine, out string why)
+    public static IFwdSoundEmitter? Acquire(ModuleEngine engine, out string why)
         => Forwarders.TryAcquire<SoundEmitterSystemFwd>((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, SourceSharpFactoryType.AppSystem,
                InterfaceVersion, out void* self, out SoundEmitterSystemFwd* table, out why)
             ? new SoundEmitterBase(self, table)

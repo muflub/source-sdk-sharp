@@ -84,7 +84,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// this acquire rather than the engine (plan_shim_areas_split phase 8), so
     /// only the root names <see cref="ModuleEngine"/>.
     /// </summary>
-    private IVtableEngineClient? AcquireEngineClient() => EngineClient.Acquire(_engine, out _);
+    private IFwdEngineClient? AcquireEngineClient() => EngineClient.Acquire(_engine, out _);
 
     public ClientModule(ModuleEngine engine)
         : this(engine, new ClientEntityFetches())
@@ -232,7 +232,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     // The input system for the UI's key names, said once when it cannot be had.
     private bool _inputRefused;
 
-    private IVtableInputSystem? AcquireInputSystem()
+    private IFwdInputSystem? AcquireInputSystem()
     {
         var input = InputSystem.Acquire(_engine, out string why);
         if (input is null && !_inputRefused)
@@ -410,7 +410,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // And its engine client, for what reports the engine's refusal
         // (cs_vtable_client) rather than naming the engine.
-        _services.AddInstance<IVtableEngineClientSource>(new VtableEngineClientSource(_engine));
+        _services.AddInstance<IFwdEngineClientSource>(new FwdEngineClientSource(_engine));
 
         // This side's build stamps (statics to zero): its SideState's, which
         // the HUD's corner stamp reads.
@@ -1203,7 +1203,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // half): posed in managed code from the engine's model cache, copied
         // as bytes. A reload participant (the merge sources, scales, poses,
         // layers and clocks C# set cross cs_cl_reload).
-        IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
+        IFwdPhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
         if (surfaceProps is null)
             Log.Warning($"[SourceSharp/Client] no VPhysics surface table for the hitbox trace: {surfaceWhy}\n");
         _skeletons = new ClientSkeletons(ClientStandaloneBlocks.For(_engine), ClientSequenceStore.For(_engine),
@@ -2447,14 +2447,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 Log.Warning($"[SourceSharp/Client] physics: no static prop manager ({staticPropsWhy}); the static props make no objects\n");
             _physicsWorldVPhysics = PhysicsWorldVPhysics.Acquire(_engine, _services.Require<IClientPhysicsEngine>().Environment,
                                                                  staticProps, keys, out string worldWhy);
-            IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string propsWhy);
+            IFwdPhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string propsWhy);
             if (_physicsWorldVPhysics is null || surfaceProps is null)
             {
                 Log.Warning($"[SourceSharp/Client] no world physics build: {worldWhy} {propsWhy}\n");
             }
             else
             {
-                IVtableSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
+                IFwdSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
                 if (emitter is null)
                     Log.Warning($"[SourceSharp/Client] the surface sounds' handles stay invalid: {emitterWhy}\n");
 
@@ -2496,7 +2496,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _steamContext = new Steam.ClientSteamContext(steam, Log);
         _steamContext.Activate();
 
-        IVtableEngineClient? engineClient = EngineClient.Acquire(_engine, out string why);
+        IFwdEngineClient? engineClient = EngineClient.Acquire(_engine, out string why);
         if (engineClient is not ISteamLaunchCommands commands)
         {
             Log.Warning($"[SourceSharp/Steam] no Steam callbacks: the engine client did not bind ({why})\n");

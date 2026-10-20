@@ -164,7 +164,7 @@ public unsafe class ClientSideEngineTests : IDisposable
                 (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintFirst,
                 (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintSecond);
 
-            IVtableEngineClient? client = EngineClient.Acquire(new ModuleEngine(first), out string why);
+            IFwdEngineClient? client = EngineClient.Acquire(new ModuleEngine(first), out string why);
             Assert.True(client is not null, why);
 
             client.ConsolePrintAt(3, "hello");

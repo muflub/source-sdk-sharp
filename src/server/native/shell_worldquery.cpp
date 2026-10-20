@@ -1036,7 +1036,7 @@ int32_t SourceSharp_PrecacheModel( const char *pszModel )
 // plan_native_api.md Phase 4.
 //
 // Both were GetModel followed by one question about the model, and both are
-// now IVtableModelInfo.FrameCountAt / TypeAt, which do the same two calls
+// now IFwdModelInfo.FrameCountAt / TypeAt, which do the same two calls
 // through the same interface with no shim in between. The DECISIONS moved
 // with them and are tested there: -1 for an index that names no model and
 // never 0, because 0 is a real frame count; and ModelType.Bad where -1 is

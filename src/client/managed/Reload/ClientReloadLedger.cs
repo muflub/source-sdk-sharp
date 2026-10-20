@@ -159,9 +159,9 @@ public sealed class ClientReloadLedger(ReloadStore store, IGameClock clock, ILog
 }
 
 /// <summary>Queues the client's managed reload through the engine (cs_cl_reload's fixed text).</summary>
-public sealed class ClientReloadRequester(Func<IVtableEngineClient?> acquire)
+public sealed class ClientReloadRequester(Func<IFwdEngineClient?> acquire)
 {
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
 
     /// <summary>Whether a request was accepted by this build; the reload replaces the build that answers.</summary>
     public bool Pending { get; private set; }

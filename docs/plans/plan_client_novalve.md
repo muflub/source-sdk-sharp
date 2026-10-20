@@ -1066,7 +1066,7 @@ Ruled by the user on 2026-10-04:
   step that fires on a lagged client (`net_fakelag`) and reads the projectile
   on the client before the server's entity arrives, then one entity after it.
 - **Managed code may run console commands** (user, 2026-10-05, lifting the
-  earlier rule "as more and more is in managed code"). `IVtableEngineClient`
+  earlier rule "as more and more is in managed code"). `IFwdEngineClient`
   no longer has to keep `ClientCmd` behind fixed-text members; free text
   (the UI console window's `SubmitConsoleLine` first) goes to the engine's
   command buffer, which runs it locally or forwards it to the server as stock

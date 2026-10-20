@@ -58,7 +58,7 @@ public class EngineAreaTests
           // AcquireInterface is called by Forwarders.TryAcquire and by
           // nothing else ever; the other four are C++ proxies for calls a fixed unmanaged
           // signature cannot spell, reached only through the one-line
-          // delegations on EngineClient. Game code asks IVtableEngineClient for
+          // delegations on EngineClient. Game code asks IFwdEngineClient for
           // a level name -- it never asks Engine for a vtable.
           //
           // Putting them on an area would publish the raw interface pointer to

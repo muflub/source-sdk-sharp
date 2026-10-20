@@ -37,7 +37,7 @@ namespace SourceSharp.Abi;
 /// over the engine's object and libss_fwd_server's tables, is Server.Interop's
 /// <c>EngineServer</c> (plan_engine_forwarders.md, one library per side).
 /// </summary>
-public interface IVtableEngineServer
+public interface IFwdEngineServer
 {
     /// <summary>
     /// <c>INTERFACEVERSION_VENGINESERVER</c>. The CURRENT name — the older ones

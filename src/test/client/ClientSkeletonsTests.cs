@@ -80,7 +80,7 @@ public unsafe class ClientSkeletonsTests
         public void Dispose() => NativeMemory.Free(_globals);
     }
 
-    private sealed class Props : IVtablePhysicsSurfaceProps
+    private sealed class Props : IFwdPhysicsSurfaceProps
     {
         public int ParseSurfaceData(string fileName, string text) => 0;
         public int SurfacePropCount() => 0;

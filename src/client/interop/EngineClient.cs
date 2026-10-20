@@ -1,13 +1,12 @@
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <see cref="IVtableEngineClient"/> over the engine's own object, called
-/// through its forwarder table (<see cref="EngineClientFwd"/>; the interface's
-/// name predates the forwarders). Also the input host's
+/// <see cref="IFwdEngineClient"/> over the engine's own object, called
+/// through its forwarder table (<see cref="EngineClientFwd"/>). Also the input host's
 /// <see cref="Client.Input.IClientInputEngine"/>, implemented explicitly so the
 /// class offers game code exactly its interface.
 /// </summary>
-public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchCommands, Client.Input.IClientInputEngine
+public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, Client.Input.IClientInputEngine
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -44,7 +43,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
     /// <paramref name="engine"/>'s own interface factory. Null on the server,
     /// which is not an error: this interface exists only on the client.
     /// </summary>
-    public static IVtableEngineClient? Acquire(ModuleEngine engine, out string why)
+    public static IFwdEngineClient? Acquire(ModuleEngine engine, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
         EngineSide side = engine.Api;
@@ -256,12 +255,12 @@ internal unsafe struct PlayerInfoT
 }
 
 /// <summary>
-/// The real <see cref="IVtableEngineClientSource"/>: <see cref="EngineClient.Acquire"/>
+/// The real <see cref="IFwdEngineClientSource"/>: <see cref="EngineClient.Acquire"/>
 /// over the composition's own engine, which the client's root registers.
 /// </summary>
-internal sealed class VtableEngineClientSource(ModuleEngine engine) : IVtableEngineClientSource
+internal sealed class FwdEngineClientSource(ModuleEngine engine) : IFwdEngineClientSource
 {
     private readonly ModuleEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-    public IVtableEngineClient? Acquire(out string why) => EngineClient.Acquire(_engine, out why);
+    public IFwdEngineClient? Acquire(out string why) => EngineClient.Acquire(_engine, out why);
 }

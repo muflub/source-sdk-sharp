@@ -716,7 +716,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     internal ModelDescriptors? Models { get; set; }
 
     /// <summary>The sound script table ModelPrecacheComponents filters against. Set by ServerModule.</summary>
-    internal IVtableSoundEmitter? SoundScripts { get; set; }
+    internal IFwdSoundEmitter? SoundScripts { get; set; }
 
     /// <inheritdoc/>
     public void ModelPrecacheComponents(string modelName)

@@ -2,7 +2,7 @@ extern alias client;
 // The client's interop is referenced under the client alias alone, since it
 // compiles its own copy of the shared interop (plan_shim_areas_split phase 3).
 using EngineClient = client::SourceSharp.Abi.EngineClient;
-using IVtableEngineClient = client::SourceSharp.Abi.IVtableEngineClient;
+using IFwdEngineClient = client::SourceSharp.Abi.IFwdEngineClient;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -254,7 +254,7 @@ public unsafe class VtableBindingTests
         // What game code is offered is the seam's surface: the client's
         // implementation is reached only through it (plan_shim_areas_split
         // phase 10).
-        string[] offered = PublicMethodsOf(typeof(IVtableEngineClient));
+        string[] offered = PublicMethodsOf(typeof(IFwdEngineClient));
 
         Assert.Contains("SubmitConsoleLine", offered);
         foreach (string forbidden in new[]
@@ -312,10 +312,10 @@ public unsafe class VtableBindingTests
         foreach ((Type impl, Type contract) in new[]
                  {
                      (typeof(UniformRandomStream), typeof(IUniformRandom)),
-                     (typeof(EngineModelInfo), typeof(IVtableModelInfo)),
-                     (typeof(EngineBaseFileSystem), typeof(IVtableBaseFileSystem)),
-                     (typeof(EngineClient), typeof(IVtableEngineClient)),
-                     (typeof(EngineServer), typeof(IVtableEngineServer)),
+                     (typeof(EngineModelInfo), typeof(IFwdModelInfo)),
+                     (typeof(EngineBaseFileSystem), typeof(IFwdBaseFileSystem)),
+                     (typeof(EngineClient), typeof(IFwdEngineClient)),
+                     (typeof(EngineServer), typeof(IFwdEngineServer)),
                  })
         {
             string[] offered = PublicMethodsOf(impl).OrderBy(n => n).ToArray();
@@ -384,10 +384,10 @@ public unsafe class VtableBindingTests
         foreach ((Type impl, Type contract) in new[]
                  {
                      (typeof(UniformRandomStream), typeof(IUniformRandom)),
-                     (typeof(EngineModelInfo), typeof(IVtableModelInfo)),
-                     (typeof(EngineBaseFileSystem), typeof(IVtableBaseFileSystem)),
-                     (typeof(EngineClient), typeof(IVtableEngineClient)),
-                     (typeof(EngineServer), typeof(IVtableEngineServer)),
+                     (typeof(EngineModelInfo), typeof(IFwdModelInfo)),
+                     (typeof(EngineBaseFileSystem), typeof(IFwdBaseFileSystem)),
+                     (typeof(EngineClient), typeof(IFwdEngineClient)),
+                     (typeof(EngineServer), typeof(IFwdEngineServer)),
                  })
         {
             MethodInfo acquire = impl.GetMethod("Acquire", BindingFlags.Public

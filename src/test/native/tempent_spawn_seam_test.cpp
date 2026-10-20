@@ -750,7 +750,7 @@ TEST( TempEntSpawnSeam, TheSpawnSlotsAreImplementedHereAndWiredThere )
 	//-------------------------------------------------------------------------
 	EXPECT_EQ( 0, CountOf( wq, "int32_tSourceSharp_ModelFrameCount(" ) )
 		<< "the shell arms of ModelFrameCount are back. They were removed in the "
-		   "Phase 4 batch because IVtableModelInfo.FrameCountAt does the same two "
+		   "Phase 4 batch because IFwdModelInfo.FrameCountAt does the same two "
 		   "calls with no shim in between; a re-added arm is a second answer to one "
 		   "question.";
 

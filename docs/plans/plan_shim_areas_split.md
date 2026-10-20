@@ -516,7 +516,7 @@ Open: none.
     `ClientReloadRequester`). The client root hands each the acquire its other
     engine-client services already took, now one method,
     `AcquireEngineClient`.
-  - `cs_vtable_client` takes `IVtableEngineClientSource`, a new seam in
+  - `cs_vtable_client` takes `IFwdEngineClientSource`, a new seam in
     Client.Interface: the engine client, or the reason it was refused. It
     cannot be named `IEngine...`, because `EngineServices` enrols every
     `IEngine*` interface beside a same-named class as an engine area.

@@ -27,7 +27,7 @@ public readonly record struct BreakModelFields(
 /// (the user's call, 2026-09-29; plan_server_novalve.md).
 ///
 /// <para>
-/// <b>THE TEXT</b> is <see cref="IVtableModelInfo.CollisionKeyValueText"/>'s: the
+/// <b>THE TEXT</b> is <see cref="IFwdModelInfo.CollisionKeyValueText"/>'s: the
 /// .phy's keyvalues, blocks of <c>name { "key" "value" ... }</c> at the top
 /// level. Every block is kept or skipped whole; only blocks named "break"
 /// (compared case-insensitively, as <c>strcmpi</c> did) are returned.

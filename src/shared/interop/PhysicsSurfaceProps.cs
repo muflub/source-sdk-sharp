@@ -8,7 +8,7 @@ namespace SourceSharp.Abi;
 /// handed to VPhysics' own parser exactly as physics_shared.cpp's
 /// PhysParseSurfaceData did.
 /// </summary>
-public interface IVtablePhysicsSurfaceProps
+public interface IFwdPhysicsSurfaceProps
 {
     /// <summary><c>ParseSurfaceData( pFileName, pTextfile )</c>: VPhysics parses one file's text.</summary>
     int ParseSurfaceData(string fileName, string text);
@@ -27,7 +27,7 @@ public interface IVtablePhysicsSurfaceProps
     int SurfaceIndex(string name);
 }
 
-public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVPhysicsSurfaceSounds
+public sealed unsafe class PhysicsSurfaceProps : IFwdPhysicsSurfaceProps, IVPhysicsSurfaceSounds
 {
     private const int MaxSoundName = 128;
 
@@ -47,7 +47,7 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
     /// own side (plan_abi_hotreload D8); null, with the reason, when it does
     /// not answer.
     /// </summary>
-    public static IVtablePhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
+    public static IFwdPhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
         => Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(
                (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
                SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out PhysicsSurfacePropsFwd* table, out why)

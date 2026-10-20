@@ -105,8 +105,8 @@ public unsafe class ConvertedEntryTests
         return self;
     }
 
-    private static IVtableModelInfo ModelInfoOver(void* self, void** table)
-        => (IVtableModelInfo)NewImpl(typeof(EngineModelInfo), self, table);
+    private static IFwdModelInfo ModelInfoOver(void* self, void** table)
+        => (IFwdModelInfo)NewImpl(typeof(EngineModelInfo), self, table);
 
     /// <summary>
     /// An impl class over a table this test built. The constructors are private
@@ -138,7 +138,7 @@ public unsafe class ConvertedEntryTests
         s_ModelForIndex = 0x1234;
 
         void* self = FakeModelInfo(out void** table);
-        IVtableModelInfo info = ModelInfoOver(self, table);
+        IFwdModelInfo info = ModelInfoOver(self, table);
 
         // 42 and not 3: the frame-count slot and not the type slot beside it.
         Assert.Equal(42, info.FrameCountAt(7));
@@ -156,7 +156,7 @@ public unsafe class ConvertedEntryTests
         s_ModelForIndex = 0x1234;
 
         void* self = FakeModelInfo(out void** table);
-        IVtableModelInfo info = ModelInfoOver(self, table);
+        IFwdModelInfo info = ModelInfoOver(self, table);
 
         Assert.Equal(-1, info.FrameCountAt(9));   // GetModel answers null
 
@@ -173,7 +173,7 @@ public unsafe class ConvertedEntryTests
         s_ModelForIndex = 0x1234;
 
         void* self = FakeModelInfo(out void** table);
-        IVtableModelInfo info = ModelInfoOver(self, table);
+        IFwdModelInfo info = ModelInfoOver(self, table);
 
         Assert.Equal(-1, info.FrameCountAt(0));
         Assert.Equal(-1, info.FrameCountAt(-3));
@@ -188,7 +188,7 @@ public unsafe class ConvertedEntryTests
         s_ModelForIndex = 0x1234;
 
         void* self = FakeModelInfo(out void** table);
-        IVtableModelInfo info = ModelInfoOver(self, table);
+        IFwdModelInfo info = ModelInfoOver(self, table);
 
         // Studio and not 42-reinterpreted: the type slot and not the frame
         // count beside it. Both take a model pointer and both answer an int,
@@ -209,7 +209,7 @@ public unsafe class ConvertedEntryTests
         s_ModelForIndex = 0x1234;
 
         void* self = FakeModelInfo(out void** table);
-        IVtableModelInfo info = ModelInfoOver(self, table);
+        IFwdModelInfo info = ModelInfoOver(self, table);
 
         Assert.Equal(ModelType.Bad, info.TypeAt(9));
 
@@ -250,7 +250,7 @@ public unsafe class ConvertedEntryTests
             var side = EngineSide.Create(Side.Client);
             Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
-            IVtableEngineClient? client = EngineClient.Acquire(new ModuleEngine(side), out string why);
+            IFwdEngineClient? client = EngineClient.Acquire(new ModuleEngine(side), out string why);
             Assert.True(client is not null, why);
             client.Reconnect();
 
@@ -296,8 +296,8 @@ public unsafe class ConvertedEntryTests
         return self;
     }
 
-    private static IVtableBaseFileSystem FilesOver(void* self, void** table)
-        => (IVtableBaseFileSystem)NewImpl(typeof(EngineBaseFileSystem), self, table);
+    private static IFwdBaseFileSystem FilesOver(void* self, void** table)
+        => (IFwdBaseFileSystem)NewImpl(typeof(EngineBaseFileSystem), self, table);
 
     [Fact]
     public void FileExistsCallsFileExistsAndNotTheSizeForwarder()
@@ -324,7 +324,7 @@ public unsafe class ConvertedEntryTests
         // own words. The seam answers 0 from the size slot either way, so this
         // fact fails outright if the exists question is dropped.
         void* self = FakeFileSystem(out void** table);
-        IVtableBaseFileSystem files = FilesOver(self, table);
+        IFwdBaseFileSystem files = FilesOver(self, table);
 
         s_Exists = 1;
         Assert.True(files.FileExists("empty.txt", "GAME"));
@@ -347,7 +347,7 @@ public unsafe class ConvertedEntryTests
     {
         // THE FACT THE IMPL-PAIR ONE COULD NOT BE. A mutation arm that dropped
         // the exists question from IEngineFiles.GameFileSize stayed GREEN
-        // against a fact written on IVtableBaseFileSystem, because that fact
+        // against a fact written on IFwdBaseFileSystem, because that fact
         // never reached this member -- so the arm measured nothing at all,
         // which is worse than a red.
         //

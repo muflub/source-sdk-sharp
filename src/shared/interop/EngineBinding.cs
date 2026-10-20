@@ -343,7 +343,7 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
 
     private readonly EngineArea _engineBaseArea;
 
-    private readonly IVtableBaseFileSystem? _files;
+    private readonly IFwdBaseFileSystem? _files;
 
     /// <summary>
     /// The one a test builds, over a named filesystem.
@@ -355,7 +355,7 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
     /// this member -- the arm measured nothing, which is worse than a red.
     /// </para>
     /// </summary>
-    internal EngineFiles(EngineSide side, EngineArea engineBaseArea, IVtableBaseFileSystem files)
+    internal EngineFiles(EngineSide side, EngineArea engineBaseArea, IFwdBaseFileSystem files)
         : this(side, engineBaseArea) => _files = files;
 
     /// <summary>The one the container builds, over the real engine filesystem.</summary>
@@ -368,7 +368,7 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
     // LAZY, and it has to be: areas are constructed on both sides before
     // anything asks them for anything, and acquiring in the constructor would
     // fail while the container was being built.
-    private IVtableBaseFileSystem Files => _files ?? EngineBound.Files(E);
+    private IFwdBaseFileSystem Files => _files ?? EngineBound.Files(E);
 
     // -1 AND 0 ARE DIFFERENT ANSWERS AND THIS IS WHERE THAT IS DECIDED NOW.
     // IBaseFileSystem::Size answers 0 both for an empty file and for one that
@@ -1050,7 +1050,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
         if (string.IsNullOrEmpty(modelName))
             return null;
 
-        IVtableModelInfo info = EngineBound.ModelInfo(E);
+        IFwdModelInfo info = EngineBound.ModelInfo(E);
         int index = info.ModelIndex(modelName);
 
         return index <= 0 ? null : info.KeyValueText(info.Model(index));

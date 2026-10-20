@@ -60,7 +60,7 @@ public class ServerSkeletonsTests
         public byte[]? IncludeAnimBlock(int modelIndex, string includeName, int block) => null;
     }
 
-    private sealed class Props : IVtablePhysicsSurfaceProps
+    private sealed class Props : IFwdPhysicsSurfaceProps
     {
         public List<string> Asked { get; } = [];
         public int ParseSurfaceData(string fileName, string text) => 0;

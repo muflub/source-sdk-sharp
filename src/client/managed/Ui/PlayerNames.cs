@@ -30,9 +30,9 @@ public interface IPlayerNames
 }
 
 /// <summary><see cref="IPlayerNames"/> over the engine's player info.</summary>
-public sealed class EnginePlayerNames(Func<IVtableEngineClient?> engine, IPlayerNameFilter filter) : IPlayerNames
+public sealed class EnginePlayerNames(Func<IFwdEngineClient?> engine, IPlayerNameFilter filter) : IPlayerNames
 {
-    private IVtableEngineClient? _engine;
+    private IFwdEngineClient? _engine;
 
     public bool TryGet(int slot, out ClientPlayerInfo info)
     {

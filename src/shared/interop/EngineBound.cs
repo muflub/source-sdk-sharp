@@ -88,7 +88,7 @@ internal sealed partial class EngineBoundSet
         new(UniformRandomStream.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => UniformRandomStream.Acquire(factory, out why));
 
-    internal BoundInterface<IVtableBaseFileSystem> Files { get; } =
+    internal BoundInterface<IFwdBaseFileSystem> Files { get; } =
         new(EngineBaseFileSystem.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => EngineBaseFileSystem.Acquire(factory, out why));
 
@@ -97,14 +97,14 @@ internal sealed partial class EngineBoundSet
     // side's own -- so a server that asked for the client spelling would get
     // the client's model info on a listen server and nothing at all on a
     // dedicated one.
-    internal BoundInterface<IVtableModelInfo> ModelInfo { get; } =
+    internal BoundInterface<IFwdModelInfo> ModelInfo { get; } =
         new(EngineModelInfo.ServerInterfaceVersion, EngineBound.AcquireModelInfo);
 }
 
 /// <summary>The bound interfaces, read off the side asking: stateless forwarders.</summary>
 internal static partial class EngineBound
 {
-    internal static IVtableModelInfo? AcquireModelInfo(NativeInterfaceFactory factory, Side side, out string why)
+    internal static IFwdModelInfo? AcquireModelInfo(NativeInterfaceFactory factory, Side side, out string why)
         => EngineModelInfo.Acquire(factory, out why, ModelInfoVersion(side));
 
     internal static string ModelInfoVersion(Side side)
@@ -116,8 +116,8 @@ internal static partial class EngineBound
     internal static IUniformRandom Random(EngineSide side) => side.Bound.Random.For(side);
 
     /// <summary><c>VBaseFileSystem011</c>, this side's.</summary>
-    internal static IVtableBaseFileSystem Files(EngineSide side) => side.Bound.Files.For(side);
+    internal static IFwdBaseFileSystem Files(EngineSide side) => side.Bound.Files.For(side);
 
     /// <summary>The side's own model info.</summary>
-    internal static IVtableModelInfo ModelInfo(EngineSide side) => side.Bound.ModelInfo.For(side);
+    internal static IFwdModelInfo ModelInfo(EngineSide side) => side.Bound.ModelInfo.For(side);
 }

@@ -11,7 +11,7 @@ namespace SourceSharp.Abi;
 /// <c>ModuleEngine</c>; only the server's root builds the real one. It is
 /// declared here and not in <c>SourceSharp.Server.Interface</c> because the
 /// interfaces it hands back (<see cref="IUniformRandom"/>,
-/// <see cref="IVtableModelInfo"/>, ...) live in the interop beside their
+/// <see cref="IFwdModelInfo"/>, ...) live in the interop beside their
 /// bindings.
 /// </para>
 /// </summary>
@@ -21,13 +21,13 @@ public interface IServerEngineInterfaces
     IUniformRandom? RandomStream(out string why);
 
     /// <summary><c>VModelInfoServer004</c>, or null with the engine's reason.</summary>
-    IVtableModelInfo? ModelInfo(out string why);
+    IFwdModelInfo? ModelInfo(out string why);
 
     /// <summary><c>VBaseFileSystem011</c>, or null with the engine's reason.</summary>
-    IVtableBaseFileSystem? BaseFileSystem(out string why);
+    IFwdBaseFileSystem? BaseFileSystem(out string why);
 
     /// <summary><c>IVEngineServer</c>, or null with the engine's reason.</summary>
-    IVtableEngineServer? EngineServer(out string why);
+    IFwdEngineServer? EngineServer(out string why);
 
     /// <summary><see cref="ShimProbes.EngineClient"/>: expected to refuse on the server.</summary>
     string EngineClientProbe();
@@ -46,11 +46,11 @@ internal sealed class ServerEngineInterfaces(ModuleEngine engine) : IServerEngin
 
     public IUniformRandom? RandomStream(out string why) => UniformRandomStream.Acquire(_engine, out why);
 
-    public IVtableModelInfo? ModelInfo(out string why) => SourceSharp.Abi.EngineModelInfo.Acquire(_engine, out why);
+    public IFwdModelInfo? ModelInfo(out string why) => SourceSharp.Abi.EngineModelInfo.Acquire(_engine, out why);
 
-    public IVtableBaseFileSystem? BaseFileSystem(out string why) => EngineBaseFileSystem.Acquire(_engine, out why);
+    public IFwdBaseFileSystem? BaseFileSystem(out string why) => EngineBaseFileSystem.Acquire(_engine, out why);
 
-    public IVtableEngineServer? EngineServer(out string why) => SourceSharp.Abi.EngineServer.Acquire(_engine, out why);
+    public IFwdEngineServer? EngineServer(out string why) => SourceSharp.Abi.EngineServer.Acquire(_engine, out why);
 
     public string EngineClientProbe() => ShimProbes.EngineClient(_engine);
 

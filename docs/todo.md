@@ -706,12 +706,12 @@ The client binds the engine's IInputSystem (`InputSystemVersion001`, the generat
 - `ClientInputDevices` (`src/client/interop/Input/ClientInputNative.cs`, the game input's
   `IInputDevices`): raw mouse accumulators, the joystick axes, rumble, the analog pad and
   the Steam Controller (over libsteam_api's flat API).
-- `InputSystem` (`src/client/interop/InputSystem.cs`, `IVtableInputSystem`): only
+- `InputSystem` (`src/client/interop/InputSystem.cs`, `IFwdInputSystem`): only
   `ButtonCodeToString`, for the UI's key bindings form (`EngineKeyBindingStore`,
   acquired by `ClientModule.AcquireInputSystem`).
 
 Fold them into one service registered in the client container, with the two contracts as
-its faces (or `IVtableInputSystem` as one more member of the input's device surface), so
+its faces (or `IFwdInputSystem` as one more member of the input's device surface), so
 the vtable is acquired once, a missing input system is reported once, and the UI and the
 game input cannot disagree about whether there is one. Pure plumbing, no behaviour change:
 the facts to keep green are `InputStockOracleTests` (the device reads in the replay) and the

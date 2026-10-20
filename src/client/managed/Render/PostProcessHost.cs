@@ -15,14 +15,14 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
     private readonly IFxRender? _fx;
     private readonly IEngineConsole? _console;
     private readonly ILog? _log;
-    private readonly Func<IVtableEngineClient?> _engine;
+    private readonly Func<IFwdEngineClient?> _engine;
     private readonly Dictionary<string, int> _materials = new(StringComparer.Ordinal);
     private readonly RenderPlanBuilder _builder = new();
     private readonly PostProgramEffects _effects = new();
     private readonly PostOpsWriter _writer;
 
     public PostProcessHost(IHooks<IPostProcessContributor> contributors, IFxRender fx,
-                           IEngineConsole console, ILog log, Func<IVtableEngineClient?> engine)
+                           IEngineConsole console, ILog log, Func<IFwdEngineClient?> engine)
         : this(engine, contributors)
     {
         _fx = fx;
@@ -30,7 +30,7 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
         _log = log;
     }
 
-    internal PostProcessHost(Func<IVtableEngineClient?> engine, IHooks<IPostProcessContributor>? contributors = null)
+    internal PostProcessHost(Func<IFwdEngineClient?> engine, IHooks<IPostProcessContributor>? contributors = null)
     {
         _engine = engine;
         Planner = new PostProcessPlanner(() => _engine()?.GameDirectory() ?? string.Empty, contributors);

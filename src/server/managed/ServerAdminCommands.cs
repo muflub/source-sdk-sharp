@@ -28,7 +28,7 @@ namespace SourceSharp.Server;
 /// classes because "<c>Engine.GetCommandClient()</c> is half of it;
 /// <c>engine-&gt;IsDedicatedServer()</c> has no slot". It does:
 /// <c>IEngineHost.IsDedicatedServer</c> is bound through
-/// <c>IVtableEngineServer.IsDedicatedServer()</c>
+/// <c>IFwdEngineServer.IsDedicatedServer()</c>
 /// (<c>EngineBinding.cs:51</c>, <c>EngineServer.cs:170</c>) and
 /// <c>DevCommandsLive.cs:606</c> has been reading it for <c>ent_fire</c>'s own
 /// issuer rule. The note was true when it was written and is not now.

@@ -29,9 +29,9 @@ public unsafe class VtableAcquireCommandTests
     private sealed class Interfaces : IServerEngineInterfaces
     {
         public IUniformRandom? RandomStream(out string why) { why = ""; return new SevenRandom(); }
-        public IVtableModelInfo? ModelInfo(out string why) { why = "no model info"; return null; }
-        public IVtableBaseFileSystem? BaseFileSystem(out string why) { why = "no filesystem"; return null; }
-        public IVtableEngineServer? EngineServer(out string why) { why = "no engine server"; return null; }
+        public IFwdModelInfo? ModelInfo(out string why) { why = "no model info"; return null; }
+        public IFwdBaseFileSystem? BaseFileSystem(out string why) { why = "no filesystem"; return null; }
+        public IFwdEngineServer? EngineServer(out string why) { why = "no engine server"; return null; }
         public string EngineClientProbe() => "client probe";
         public string FrameProbe() => "frame probe";
         public string LevelProbe() => "level probe";

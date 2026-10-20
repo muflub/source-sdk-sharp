@@ -277,7 +277,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // hitbox trace reads.
     private readonly StandaloneSkeletonRoute _skeletonRoute = new();
     private ServerSkeletons _skeletons = null!;
-    private IVtablePhysicsSurfaceProps? _surfaceProps;
+    private IFwdPhysicsSurfaceProps? _surfaceProps;
 
     // The live entities of the three classes the engine asks about from
     // outside any one of them: fires (heat in a radius), ragdoll magnets (a
@@ -960,7 +960,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // P2.4. It was PhysParseSurfaceData in CPhysicsHook::Init (tier1's
         // KeyValues over the manifest); the files it names still go to VPhysics'
         // own parser, from here.
-        IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
+        IFwdPhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
         if (surfaceProps is null)
             Log.Warning($"[SourceSharp/Server] no VPhysics surface table to parse into: {surfaceWhy}\n");
         else
@@ -3016,7 +3016,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             }
             else
             {
-                IVtableSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
+                IFwdSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
                 if (emitter is null)
                     Log.Warning($"[SourceSharp/Server] the surface sounds' handles stay invalid: {emitterWhy}\n");
 
