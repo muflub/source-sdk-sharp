@@ -1891,3 +1891,14 @@ not a port.
 Next step: a 10-run base series at a commit before C7's render ports, then
 trace the leaf registry's insert for entry 264 (c7_shadow_manager.md, "S2
 and S3 as built", Open).
+
+## bitvec.h's two tables leave with the native PVS/PAS filters (user ruling 2026-10-20)
+
+`firstBitLUT` and `g_StartMask` (bitvec.h, ruled CONST) are emitted into
+server.so only by `ss::CRecipientFilter::AddPlayersFromBitMask`
+(ss_recipient_filter.cpp), called from `AddRecipientsByPVS/PAS`
+(shell_recipientfilter.cpp), which `ss::CPVSFilter`/`CPASFilter` use in
+shell_te_forwards.cpp (397, 470, 481) and server_util_library.cpp (210). When
+those callers move to managed (RecipientFilter.cs already ports the bit walk),
+delete AddPlayersFromBitMask and the tables go with it; check with
+`make globals-census` that the two ledger rows vanished. No fork edit.
