@@ -28,10 +28,6 @@
 #include "iclientrenderable.h"
 #include "bsptreedata.h"
 #include "clientleafsystem.h"
-#include "ehandle.h"
-class IGameEntity;
-typedef CHandle< IGameEntity > EHANDLE;
-#include "iclientshadowmgr.h"
 #include "detailobjectsystem.h"
 #include "imanaged_areas_client.h"
 
@@ -160,16 +156,6 @@ bool Rec_AreAnyLeavesVisible( void *, int *pLeaves, int n )
 	return n > 0 && pLeaves[ 0 ] == 4;
 }
 
-void Rec_AddShadowToReceiver( void *, ClientShadowHandle_t h, IClientRenderable *p, ShadowReceiver_t type )
-{
-	Call( "AddShadowToReceiver " + std::to_string( h ) + " " + std::to_string( reinterpret_cast< FakeRenderable * >( p )->id ) + " " + std::to_string( (int)type ) );
-}
-
-void Rec_RemoveAllShadowsFromReceiver( void *, IClientRenderable *p, ShadowReceiver_t type )
-{
-	Call( "RemoveAllShadowsFromReceiver " + std::to_string( reinterpret_cast< FakeRenderable * >( p )->id ) + " " + std::to_string( (int)type ) );
-}
-
 std::vector< FakeRenderable > g_details;
 IClientRenderable *Rec_GetDetailModel( void *, int idx )
 {
@@ -254,15 +240,6 @@ struct RenderTable : FakeTable
 	RenderTable() { Put( &IVRenderView::AreAnyLeavesVisible, (void *)&Rec_AreAnyLeavesVisible ); }
 };
 
-struct ShadowTable : FakeTable
-{
-	ShadowTable()
-	{
-		Put( &IClientShadowMgr::AddShadowToReceiver, (void *)&Rec_AddShadowToReceiver );
-		Put( &IClientShadowMgr::RemoveAllShadowsFromReceiver, (void *)&Rec_RemoveAllShadowsFromReceiver );
-	}
-};
-
 struct DetailTable : FakeTable
 {
 	DetailTable() { Put( &IDetailObjectSystem::GetDetailModel, (void *)&Rec_GetDetailModel ); }
@@ -271,18 +248,15 @@ struct DetailTable : FakeTable
 EngineTable g_engineTable;
 ModelInfoTable g_modelInfoTable;
 RenderTable g_renderTable;
-ShadowTable g_shadowTable;
 DetailTable g_detailTable;
 FakeObject g_engineObject = { g_engineTable.slots };
 FakeObject g_modelInfoObject = { g_modelInfoTable.slots };
 FakeObject g_renderObject = { g_renderTable.slots };
-FakeObject g_shadowObject = { g_shadowTable.slots };
 FakeObject g_detailObject = { g_detailTable.slots };
 
 IVEngineClient *g_pEngine = reinterpret_cast< IVEngineClient * >( &g_engineObject );
 IVModelInfoClient *g_pModelInfo = reinterpret_cast< IVModelInfoClient * >( &g_modelInfoObject );
 IVRenderView *g_pRender = reinterpret_cast< IVRenderView * >( &g_renderObject );
-IClientShadowMgr *g_pShadowMgr = reinterpret_cast< IClientShadowMgr * >( &g_shadowObject );
 CGlobalVarsBase g_globals( false );
 CGlobalVarsBase *g_pGlobals = &g_globals;
 
@@ -450,7 +424,12 @@ void M_Pending( IManagedLeafSystemClient *, const int32_t *pEntries, int32_t n )
 	g_pending.push_back( PendingLine( "Pending", pEntries, n ) );
 	Call( "M.Pending " + std::to_string( n ) );
 }
-int32_t M_AddShadow( IManagedLeafSystemClient *, int32_t user, int32_t flags ) { return user + flags; }
+int32_t M_AddShadow( IManagedLeafSystemClient *, int32_t user, int32_t flags )
+{
+	Call( "M.AddShadow " + std::to_string( user ) + " " + std::to_string( flags ) );
+	return user + flags;
+}
+void M_RemoveShadow( IManagedLeafSystemClient *, int32_t h ) { Call( "M.RemoveShadow " + std::to_string( h ) ); }
 int32_t M_ProjectShadow( IManagedLeafSystemClient *, int32_t h, const int32_t *pLeaves, int32_t n, int64_t *pOps, int32_t nMax )
 {
 	g_leaves.assign( pLeaves, pLeaves + n );
@@ -460,6 +439,7 @@ int32_t M_ProjectShadow( IManagedLeafSystemClient *, int32_t h, const int32_t *p
 int32_t M_EnumerateShadowsInLeaves( IManagedLeafSystemClient *, const uint16_t *pLeaves, int32_t n, int64_t *pOps, int32_t nMax )
 {
 	g_leaves.assign( pLeaves, pLeaves + n );
+	Call( "M.EnumerateShadowsInLeaves" );
 	return HandOver( pOps, nMax );
 }
 
@@ -484,6 +464,7 @@ SSManagedLeafSystemClientTable ManagedTable()
 	t.BuildRenderablesList = M_BuildRenderablesList;
 	t.CollateViewModelRenderables = M_CollateViewModelRenderables;
 	t.AddShadow = M_AddShadow;
+	t.RemoveShadow = M_RemoveShadow;
 	t.ProjectShadow = M_ProjectShadow;
 	t.ProjectFlashlight = M_ProjectShadow;
 	t.EnumerateShadowsInLeaves = M_EnumerateShadowsInLeaves;
@@ -519,7 +500,6 @@ SSLeafSystemEnv Env( IManagedLeafSystemClient *const *ppTarget )
 	env.ppEngine = &g_pEngine;
 	env.ppModelInfo = &g_pModelInfo;
 	env.ppRender = &g_pRender;
-	env.ppShadowMgr = &g_pShadowMgr;
 	env.ppGlobals = &g_pGlobals;
 	env.pfnDetailObjectSystem = DetailSystem;
 	env.pfnAppendRenderable = Append;
@@ -545,6 +525,7 @@ struct Built
 		g_nTakeOps = 0;
 		g_appended.clear();
 		g_pending.clear();
+		g_leaves.clear();
 	}
 };
 
@@ -573,7 +554,7 @@ TEST( FwdLeafSystem, ConstructRefusesWithoutMemoryOrAnEnvironment )
 	SSLeafSystemEnv env = Env( &g_pManaged );
 	EXPECT_EQ( nullptr, construct( nullptr, &env ) );
 	EXPECT_EQ( nullptr, construct( storage, nullptr ) );
-	env.ppShadowMgr = nullptr;
+	env.ppGlobals = nullptr;
 	EXPECT_EQ( nullptr, construct( storage, &env ) );
 	env = Env( &g_pManaged );
 	EXPECT_NE( nullptr, construct( storage, &env ) );
@@ -636,10 +617,10 @@ TEST( FwdLeafSystem, RemoveRenderableCarriesOutWhatManagedAnswersInOrder )
 	FakeRenderable r = Make( 2 );
 	r.handle = 5;
 	Op( 3, (intptr_t)&r, INVALID_CLIENT_RENDER_HANDLE );   // SetRenderHandle
-	Op( 2, (intptr_t)&r, 0, 2 );                          // RemoveAllShadowsFromReceiver, studio
+	Op( 2, (intptr_t)&r, 0, 2 );                          // a retired kind (the shadow manager's): carried out as nothing
 	b.pSystem->RemoveRenderable( 5 );
 	EXPECT_EQ( INVALID_CLIENT_RENDER_HANDLE, r.handle );
-	const std::vector< std::string > expected = { "M.RemoveRenderable 5", "RemoveAllShadowsFromReceiver 2 2" };
+	const std::vector< std::string > expected = { "M.RemoveRenderable 5" };
 	EXPECT_EQ( expected, g_calls );
 	EXPECT_EQ( 0, g_nTakeOps ) << "a short answer is not drained further";
 }
@@ -746,7 +727,10 @@ TEST( FwdLeafSystem, TheTranslucentLeafPassHandsTheGlobalFrameOver )
 	EXPECT_EQ( (void *)b.pSystem, g_pSystemHanded ) << "the blend batch's flush needs the leaf system";
 }
 
-TEST( FwdLeafSystem, EnumerateShadowsInLeavesCallsTheCallerBackPerShadow )
+// C7 cluster 12 S2: the shadow half's one caller was the C++ shadow manager;
+// the managed manager calls the managed leaf system in-process, so the five
+// overrides reach nothing, and an answer queued for them is never asked for.
+TEST( FwdLeafSystem, TheShadowHalfCallsNothing )
 {
 	struct CEnum : public IClientLeafShadowEnum
 	{
@@ -754,13 +738,19 @@ TEST( FwdLeafSystem, EnumerateShadowsInLeavesCallsTheCallerBackPerShadow )
 		void EnumShadow( ClientShadowHandle_t h ) override { seen.push_back( h ); }
 	} e;
 	Built b;
+	FakeRenderable r = Make( 4 );
 	Op( 8, 0, 100 );
-	Op( 8, 0, 101 );
-	Op( 8, 0, 7 );
+	Op( 1, (intptr_t)&r, 102, 0 );
 	LeafIndex_t leaves[ 2 ] = { 1, 2 };
+	const int projected[ 2 ] = { 6, 3 };
+	EXPECT_EQ( (ClientLeafShadowHandle_t)CLIENT_LEAF_SHADOW_INVALID_HANDLE, b.pSystem->AddShadow( 100, 5 ) );
+	b.pSystem->RemoveShadow( 3 );
+	b.pSystem->ProjectShadow( 12, 2, projected );
+	b.pSystem->ProjectFlashlight( 12, 2, projected );
 	b.pSystem->EnumerateShadowsInLeaves( 2, leaves, &e );
-	const std::vector< int > expected = { 100, 101, 7 };
-	EXPECT_EQ( expected, e.seen );
+	EXPECT_TRUE( e.seen.empty() );
+	EXPECT_TRUE( g_calls.empty() ) << g_calls.front();
+	EXPECT_TRUE( g_leaves.empty() );
 }
 
 TEST( FwdLeafSystem, TheViewModelsAreAppendedToTheVectorTheirSplitNames )
@@ -798,21 +788,6 @@ TEST( FwdLeafSystem, SubSystemDataManagedReplacesIsDeletedAndAShutdownDeletesThe
 		"M.SetSubSystemDataInLeaf 1 5", "deleted 99", "M.SetSubSystemDataInLeaf 2 6", "deleted 31", "deleted 32",
 	};
 	EXPECT_EQ( expected, g_calls );
-}
-
-TEST( FwdLeafSystem, ShadowsAreProjectedAndTheirReceiversAddedAsAnswered )
-{
-	Built b;
-	FakeRenderable r = Make( 4 ), s = Make( 9 );
-	Op( 1, (intptr_t)&r, 102, 0 );
-	Op( 1, (intptr_t)&s, 102, 1 );
-	const int leaves[ 2 ] = { 6, 3 };
-	b.pSystem->ProjectFlashlight( 12, 2, leaves );
-	const std::vector< std::string > expected = { "M.ProjectShadow 12", "AddShadowToReceiver 102 4 0", "AddShadowToReceiver 102 9 1" };
-	EXPECT_EQ( expected, g_calls );
-	const std::vector< int > handed = { 6, 3 };
-	EXPECT_EQ( handed, g_leaves );
-	EXPECT_EQ( 105, b.pSystem->AddShadow( 100, 5 ) );
 }
 
 TEST( FwdLeafSystem, TheStaticPropsLeavesAreHandedOver )

@@ -126,3 +126,58 @@ TEST( ClientC7Evicted, TheClientsIViewRenderForwardsNothing )
 	EXPECT_EQ( std::string::npos, ours.find( "g_DefaultViewRender" ) );
 	EXPECT_EQ( std::string::npos, ours.find( "SS_FORWARD" ) );
 }
+
+// C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md): clientshadowmgr.cpp, the
+// client's last fork TU, left; the manager is managed's. What the engine holds
+// pointers to and the row the walk reaches it by are shell_shadows_client.cpp's,
+// the two proxies are registered by name over the managed host, and no file of
+// ours calls the stock object through its interface's global.
+TEST( ClientC7Evicted, TheShadowManagerLeftAndItsResidueIsOurs )
+{
+	EXPECT_TRUE( Read( "game/client/clientshadowmgr.cpp" ).empty() ) << "clientshadowmgr.cpp is back in the farm";
+
+	const std::string shadows = Read( "sourcesharp/game/client/shell_shadows_client.cpp" );
+	ASSERT_FALSE( shadows.empty() );
+	const char *kNames[] =
+	{
+		"CClientSystem *ClientShadowMgrGameSystem()",
+		"void ShadowRestoreFunc( int )",
+		"void *ShadowEnv_Acquire()",
+		"class CShadowMgrGameSystem final : public CClientSystemPerFrame",
+		"CShadowPendingQueue s_Queue;",
+	};
+	for ( const char *pszName : kNames )
+		EXPECT_NE( std::string::npos, shadows.find( pszName ) ) << "shell_shadows_client.cpp no longer defines " << pszName;
+
+	const std::string proxies = Read( "sourcesharp/game/client/shell_material_proxy_client.cpp" );
+	ASSERT_FALSE( proxies.empty() );
+	EXPECT_NE( std::string::npos, proxies.find( "X( 47, Shadow ) X( 48, ShadowModel )" ) )
+		<< "the Shadow and ShadowModel proxies are not registered over the managed host";
+
+	const char *kOurs[] =
+	{
+		"sourcesharp/game/client/shell_clientsystems.cpp",
+		"sourcesharp/game/client/shell_standalone_client.cpp",
+		"sourcesharp/game/client/shell_view_executor_client.cpp",
+		"sourcesharp/game/client/shell_worldrender.cpp",
+		"sourcesharp/game/client/shell_render_trace_client.cpp",
+		"sourcesharp/game/client/shell_leaf_system_client.cpp",
+	};
+	for ( const char *pszFile : kOurs )
+	{
+		const std::string text = Read( pszFile );
+		ASSERT_FALSE( text.empty() ) << pszFile;
+		// The code, with each line's // comment cut (the shells' prose quotes stock's calls).
+		std::string code;
+		for ( size_t at = 0; at < text.size(); )
+		{
+			size_t end = text.find( '\n', at );
+			if ( end == std::string::npos )
+				end = text.size();
+			const std::string line = text.substr( at, end - at );
+			code += line.substr( 0, line.find( "//" ) ) + "\n";
+			at = end + 1;
+		}
+		EXPECT_EQ( std::string::npos, code.find( "g_pClientShadowMgr" ) ) << pszFile << " names the stock shadow manager again";
+	}
+}

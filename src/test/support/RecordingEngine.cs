@@ -806,10 +806,9 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) => RecordVoid("EntityRender.SetCustomDraw", entity, mins, maxs);
     void IEngineEntityRender.SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) => RecordVoid("EntityRender.SetBlending", entity, translucent, ignoreZ, alpha);
     void IEngineEntityRender.SetShadowCast(EntityHandle entity, ShadowCastChoice choice) => RecordVoid("EntityRender.SetShadowCast", entity, choice);
-    ShadowCast IEngineEntityRender.ShadowCast(EntityHandle entity, out ShadowCastChoice asked, out bool hasShadow)
+    ShadowCast IEngineEntityRender.ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = Value<ShadowCastChoice>("EntityRender.ShadowCast.asked");
-        hasShadow = Value<bool>("EntityRender.ShadowCast.hasShadow");
         return Record<ShadowCast>("EntityRender.ShadowCast", entity);
     }
     void IEngineEntityRender.SetFade(EntityHandle entity, FadeStyle style, float startDistance, float endDistance, float minimumAlpha) => RecordVoid("EntityRender.SetFade", entity, style, startDistance, endDistance, minimumAlpha);

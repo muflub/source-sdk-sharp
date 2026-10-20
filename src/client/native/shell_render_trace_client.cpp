@@ -59,7 +59,7 @@
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/itexture.h"
 #include "view_shared.h"
-#include "iclientshadowmgr.h"
+#include "ss_fwd.h"
 #include "engine/ishadowmgr.h"
 #include "mathlib/vmatrix.h"
 
@@ -81,6 +81,7 @@ bool              g_bActive = false;
 CUtlVector<char>  g_Text;
 CUtlVector<const void *> g_WorldLists;	// a world list's ordinal is its index here
 const void       *g_pClientBase = NULL;
+const void       *g_pShadowsBase = NULL;	// libss_fwd_client, whose ShadowNative carries out the shadow manager's calls
 
 // Inside the shadow manager's own frame work (its render-to-texture refresh,
 // which redraws only the shadows that went dirty, so it differs frame to
@@ -113,15 +114,27 @@ void Line( const char *pszFormat, ... )
 // True when the call came from client.so. dladdr names the module that holds
 // the return address; the engine's own calls on the hooked objects come from
 // engine.so or materialsystem.so and are not the client's.
-bool FromClient( const void *pReturn )
+//
+// AND FROM libss_fwd_client's SHADOW TABLE, the shadow manager's (C7 cluster 12
+// S2): the managed manager's engine calls are carried out there
+// (fwd_shadows.cpp), where stock's were client.so's. Inside the shadow
+// manager's frame work (the `~` lines) a call from that library is the
+// manager's; the engine shadow manager's and the static props' shadow hooks
+// take it anywhere, as the manager is the only caller of them there.
+bool FromClient( const void *pReturn, bool bShadowHook )
 {
 	if ( !g_bActive )
 		return false;
 	SSModuleInfo info;
-	return SS_ModuleOfAddress( pReturn, &info ) && info.pBase == g_pClientBase;
+	if ( !SS_ModuleOfAddress( pReturn, &info ) )
+		return false;
+	if ( info.pBase == g_pClientBase )
+		return true;
+	return g_pShadowsBase && info.pBase == g_pShadowsBase && ( bShadowHook || g_nShadowDepth > 0 );
 }
 
-#define SS_FROM_CLIENT() FromClient( SS_RETURN_ADDRESS() )
+#define SS_FROM_CLIENT() FromClient( SS_RETURN_ADDRESS(), false )
+#define SS_FROM_SHADOWS() FromClient( SS_RETURN_ADDRESS(), true )
 
 const char *TextureName( ITexture *pTexture )
 {
@@ -272,11 +285,6 @@ enum HookIndex_t
 	kHook_DrawPortals,
 	kHook_IsSkyboxVisibleFromPoint,
 	kHook_GrabPreColorCorrectedFrame,
-	kHook_PreRender,
-	kHook_AdvanceFrame,
-	kHook_ComputeShadowTextures,
-	kHook_ComputeShadowDepthTextures,
-	kHook_UnlockAllShadowDepthTextures,
 	// The mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1).
 	kHook_Bind,
 	kHook_GetDynamicMesh,
@@ -994,51 +1002,6 @@ void H_GrabPreColorCorrectedFrame( IVEngineClient *self, int x, int y, int w, in
 	SS_CALL( GrabPreColorCorrectedFrame, void (*)( IVEngineClient *, int, int, int, int ) )( self, x, y, w, h );
 }
 
-// IClientShadowMgr (client.so's own object) -----------------------------------
-void H_PreRender( IClientShadowMgr *self )
-{
-	const bool bClient = SS_FROM_CLIENT();
-	if ( bClient )
-		Line( "shadow.PreRender" );
-	++g_nShadowDepth;
-	SS_CALL( PreRender, void (*)( IClientShadowMgr * ) )( self );
-	--g_nShadowDepth;
-}
-
-void H_AdvanceFrame( IClientShadowMgr *self )
-{
-	if ( SS_FROM_CLIENT() )
-		Line( "shadow.AdvanceFrame" );
-	++g_nShadowDepth;
-	SS_CALL( AdvanceFrame, void (*)( IClientShadowMgr * ) )( self );
-	--g_nShadowDepth;
-}
-
-void H_ComputeShadowTextures( IClientShadowMgr *self, const CViewSetup &view, int leafCount, LeafIndex_t *pLeafList )
-{
-	if ( SS_FROM_CLIENT() )
-		Line( "shadow.ComputeShadowTextures	leaves=%d", leafCount );
-	++g_nShadowDepth;
-	SS_CALL( ComputeShadowTextures, void (*)( IClientShadowMgr *, const CViewSetup &, int, LeafIndex_t * ) )( self, view, leafCount, pLeafList );
-	--g_nShadowDepth;
-}
-
-void H_ComputeShadowDepthTextures( IClientShadowMgr *self, const CViewSetup &view )
-{
-	if ( SS_FROM_CLIENT() )
-		Line( "shadow.ComputeShadowDepthTextures" );
-	++g_nShadowDepth;
-	SS_CALL( ComputeShadowDepthTextures, void (*)( IClientShadowMgr *, const CViewSetup & ) )( self, view );
-	--g_nShadowDepth;
-}
-
-void H_UnlockAllShadowDepthTextures( IClientShadowMgr *self )
-{
-	if ( SS_FROM_CLIENT() )
-		Line( "shadow.UnlockAllShadowDepthTextures" );
-	SS_CALL( UnlockAllShadowDepthTextures, void (*)( IClientShadowMgr * ) )( self );
-}
-
 // THE MESH AND OCCLUSION-QUERY HOOKS, armed only when the game was started with
 // SOURCESHARP_RENDER_TRACE_MESHES=1 (tools/probes/sessions/c7-render-small-ab.steps):
 // the frozen recordings and the live compare were taken without them, so a
@@ -1285,7 +1248,7 @@ void FlashlightText( const FlashlightState_t &state, char *pOut, int nOut )
 // IShadowMgr -----------------------------------------------------------------
 ShadowHandle_t H_CreateShadowEx( IShadowMgr *self, IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy, int nFlags )
 {
-	const bool bClient = SS_FROM_CLIENT();
+	const bool bClient = SS_FROM_SHADOWS();
 	const ShadowHandle_t h = SS_CALL( CreateShadowEx, ShadowHandle_t (*)( IShadowMgr *, IMaterial *, IMaterial *, void *, int ) )( self, pMaterial, pModelMaterial, pBindProxy, nFlags );
 	if ( bClient )
 		Line( "shadowmgr.CreateShadowEx\tmaterial=%s model=%s proxy=%d flags=0x%x => %d", MaterialName( pMaterial ),
@@ -1295,14 +1258,14 @@ ShadowHandle_t H_CreateShadowEx( IShadowMgr *self, IMaterial *pMaterial, IMateri
 
 void H_DestroyShadow( IShadowMgr *self, ShadowHandle_t h )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.DestroyShadow\t%d", (int)h );
 	SS_CALL( DestroyShadow, void (*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
 }
 
 void H_SetShadowMaterial( IShadowMgr *self, ShadowHandle_t h, IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.SetShadowMaterial\t%d material=%s model=%s proxy=%d", (int)h, MaterialName( pMaterial ),
 		      MaterialName( pModelMaterial ), (int)(intp)pBindProxy );
 	SS_CALL( SetShadowMaterial, void (*)( IShadowMgr *, ShadowHandle_t, IMaterial *, IMaterial *, void * ) )( self, h, pMaterial, pModelMaterial, pBindProxy );
@@ -1312,7 +1275,7 @@ void H_ProjectShadow( IShadowMgr *self, ShadowHandle_t h, const Vector &origin, 
                       const Vector2D &size, int nLeafCount, const int *pLeafList, float flMaxHeight, float flFalloffOffset,
                       float flFalloffAmount, const Vector &casterOrigin )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 	{
 		char szMatrix[ 320 ], szLeaves[ 448 ];
 		MatrixText( worldToShadow, szMatrix, sizeof( szMatrix ) );
@@ -1329,7 +1292,7 @@ void H_ProjectShadow( IShadowMgr *self, ShadowHandle_t h, const Vector &origin, 
 
 void H_ProjectFlashlight( IShadowMgr *self, ShadowHandle_t h, const VMatrix &worldToShadow, int nLeafCount, const int *pLeafList )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 	{
 		char szMatrix[ 320 ], szLeaves[ 448 ];
 		MatrixText( worldToShadow, szMatrix, sizeof( szMatrix ) );
@@ -1341,7 +1304,7 @@ void H_ProjectFlashlight( IShadowMgr *self, ShadowHandle_t h, const VMatrix &wor
 
 const ShadowInfo_t &H_GetInfo( IShadowMgr *self, ShadowHandle_t h )
 {
-	const bool bClient = SS_FROM_CLIENT();
+	const bool bClient = SS_FROM_SHADOWS();
 	const ShadowInfo_t &info = SS_CALL( GetInfo, const ShadowInfo_t &(*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
 	if ( bClient )
 	{
@@ -1356,7 +1319,7 @@ const ShadowInfo_t &H_GetInfo( IShadowMgr *self, ShadowHandle_t h )
 
 const Frustum_t &H_GetFlashlightFrustum( IShadowMgr *self, ShadowHandle_t h )
 {
-	const bool bClient = SS_FROM_CLIENT();
+	const bool bClient = SS_FROM_SHADOWS();
 	const Frustum_t &frustum = SS_CALL( GetFlashlightFrustum, const Frustum_t &(*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
 	if ( bClient )
 	{
@@ -1376,7 +1339,7 @@ const Frustum_t &H_GetFlashlightFrustum( IShadowMgr *self, ShadowHandle_t h )
 
 void H_AddShadowToBrushModel( IShadowMgr *self, ShadowHandle_t h, model_t *pModel, const Vector &origin, const QAngle &angles )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.AddShadowToBrushModel\t%d model=%s origin=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g", (int)h,
 		      modelinfo->GetModelName( pModel ), origin.x, origin.y, origin.z, angles.x, angles.y, angles.z );
 	SS_CALL( AddShadowToBrushModel, void (*)( IShadowMgr *, ShadowHandle_t, model_t *, const Vector &, const QAngle & ) )( self, h, pModel, origin, angles );
@@ -1384,63 +1347,63 @@ void H_AddShadowToBrushModel( IShadowMgr *self, ShadowHandle_t h, model_t *pMode
 
 void H_RemoveAllShadowsFromBrushModel( IShadowMgr *self, model_t *pModel )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.RemoveAllShadowsFromBrushModel\tmodel=%s", modelinfo->GetModelName( pModel ) );
 	SS_CALL( RemoveAllShadowsFromBrushModel, void (*)( IShadowMgr *, model_t * ) )( self, pModel );
 }
 
 void H_SetShadowTexCoord( IShadowMgr *self, ShadowHandle_t h, float x, float y, float w, float hgt )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.SetShadowTexCoord\t%d %.9g,%.9g,%.9g,%.9g", (int)h, x, y, w, hgt );
 	SS_CALL( SetShadowTexCoord, void (*)( IShadowMgr *, ShadowHandle_t, float, float, float, float ) )( self, h, x, y, w, hgt );
 }
 
 void H_AddShadowToModel( IShadowMgr *self, ShadowHandle_t h, ModelInstanceHandle_t instance )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.AddShadowToModel\t%d instance=%d", (int)h, (int)instance );
 	SS_CALL( AddShadowToModel, void (*)( IShadowMgr *, ShadowHandle_t, ModelInstanceHandle_t ) )( self, h, instance );
 }
 
 void H_RemoveAllShadowsFromModel( IShadowMgr *self, ModelInstanceHandle_t instance )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.RemoveAllShadowsFromModel\tinstance=%d", (int)instance );
 	SS_CALL( RemoveAllShadowsFromModel, void (*)( IShadowMgr *, ModelInstanceHandle_t ) )( self, instance );
 }
 
 void H_ClearExtraClipPlanes( IShadowMgr *self, ShadowHandle_t h )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.ClearExtraClipPlanes\t%d", (int)h );
 	SS_CALL( ClearExtraClipPlanes, void (*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
 }
 
 void H_AddExtraClipPlane( IShadowMgr *self, ShadowHandle_t h, const Vector &normal, float flDist )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.AddExtraClipPlane\t%d normal=%.9g,%.9g,%.9g dist=%.9g", (int)h, normal.x, normal.y, normal.z, flDist );
 	SS_CALL( AddExtraClipPlane, void (*)( IShadowMgr *, ShadowHandle_t, const Vector &, float ) )( self, h, normal, flDist );
 }
 
 void H_EnableShadow( IShadowMgr *self, ShadowHandle_t h, bool bEnable )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.EnableShadow\t%d %d", (int)h, bEnable ? 1 : 0 );
 	SS_CALL( EnableShadow, void (*)( IShadowMgr *, ShadowHandle_t, bool ) )( self, h, bEnable );
 }
 
 void H_SetFalloffBias( IShadowMgr *self, ShadowHandle_t h, unsigned char ucBias )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.SetFalloffBias\t%d %d", (int)h, (int)ucBias );
 	SS_CALL( SetFalloffBias, void (*)( IShadowMgr *, ShadowHandle_t, unsigned char ) )( self, h, ucBias );
 }
 
 void H_UpdateFlashlightState( IShadowMgr *self, ShadowHandle_t h, const FlashlightState_t &state )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 	{
 		char szState[ 900 ];
 		FlashlightText( state, szState, sizeof( szState ) );
@@ -1451,7 +1414,7 @@ void H_UpdateFlashlightState( IShadowMgr *self, ShadowHandle_t h, const Flashlig
 
 void H_AddFlashlightRenderable( IShadowMgr *self, ShadowHandle_t h, IClientRenderable *pRenderable )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 	{
 		char szRenderable[ 320 ];
 		RenderableText( pRenderable, szRenderable, sizeof( szRenderable ) );
@@ -1462,14 +1425,14 @@ void H_AddFlashlightRenderable( IShadowMgr *self, ShadowHandle_t h, IClientRende
 
 void H_SetFlashlightDepthTexture( IShadowMgr *self, ShadowHandle_t h, ITexture *pTexture, unsigned char ucStencilBit )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.SetFlashlightDepthTexture\t%d texture=%s stencil=%d", (int)h, TextureName( pTexture ), (int)ucStencilBit );
 	SS_CALL( SetFlashlightDepthTexture, void (*)( IShadowMgr *, ShadowHandle_t, ITexture *, unsigned char ) )( self, h, pTexture, ucStencilBit );
 }
 
 const FlashlightState_t &H_GetFlashlightState( IShadowMgr *self, ShadowHandle_t h )
 {
-	const bool bClient = SS_FROM_CLIENT();
+	const bool bClient = SS_FROM_SHADOWS();
 	const FlashlightState_t &state = SS_CALL( GetFlashlightState, const FlashlightState_t &(*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
 	if ( bClient )
 	{
@@ -1482,7 +1445,7 @@ const FlashlightState_t &H_GetFlashlightState( IShadowMgr *self, ShadowHandle_t 
 
 void H_SetFlashlightRenderState( IShadowMgr *self, ShadowHandle_t h )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 		Line( "shadowmgr.SetFlashlightRenderState\t%d", (int)h );
 	SS_CALL( SetFlashlightRenderState, void (*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
 }
@@ -1490,7 +1453,7 @@ void H_SetFlashlightRenderState( IShadowMgr *self, ShadowHandle_t h )
 // IStaticPropMgrClient's shadow methods --------------------------------------
 void H_AddShadowToStaticProp( IStaticPropMgrClient *self, unsigned short h, IClientRenderable *pRenderable )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 	{
 		char szRenderable[ 320 ];
 		RenderableText( pRenderable, szRenderable, sizeof( szRenderable ) );
@@ -1501,7 +1464,7 @@ void H_AddShadowToStaticProp( IStaticPropMgrClient *self, unsigned short h, ICli
 
 void H_RemoveAllShadowsFromStaticProp( IStaticPropMgrClient *self, IClientRenderable *pRenderable )
 {
-	if ( SS_FROM_CLIENT() )
+	if ( SS_FROM_SHADOWS() )
 	{
 		char szRenderable[ 320 ];
 		RenderableText( pRenderable, szRenderable, sizeof( szRenderable ) );
@@ -1605,12 +1568,6 @@ bool InstallAll( IMatRenderContext *pContext, bool bShadows )
 	SS_INSTALL( engine, &IVEngineClient::IsSkyboxVisibleFromPoint, IsSkyboxVisibleFromPoint );
 	SS_INSTALL( engine, &IVEngineClient::GrabPreColorCorrectedFrame, GrabPreColorCorrectedFrame );
 
-	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::PreRender, PreRender );
-	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::AdvanceFrame, AdvanceFrame );
-	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::ComputeShadowTextures, ComputeShadowTextures );
-	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::ComputeShadowDepthTextures, ComputeShadowDepthTextures );
-	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::UnlockAllShadowDepthTextures, UnlockAllShadowDepthTextures );
-
 	if ( g_bMeshes )
 	{
 		SS_INSTALL( pContext, &IMatRenderContext::Bind, Bind );
@@ -1659,7 +1616,7 @@ bool InstallAll( IMatRenderContext *pContext, bool bShadows )
 
 bool RenderTrace::Begin()
 {
-	if ( g_bActive || !render || !modelrender || !staticpropmgr || !engine || !materials || !g_pClientShadowMgr )
+	if ( g_bActive || !render || !modelrender || !staticpropmgr || !engine || !materials )
 		return false;
 
 	if ( !g_pClientBase )
@@ -1668,6 +1625,13 @@ bool RenderTrace::Begin()
 		if ( !SS_ModuleOfAddress( (void *)&RenderTrace::Begin, &info ) )
 			return false;
 		g_pClientBase = info.pBase;
+	}
+	if ( !g_pShadowsBase )
+	{
+		const SSForwarderTable *pTable = SSFwdClient_Table( "SSFwd_Shadows" );
+		SSModuleInfo info;
+		if ( pTable && pTable->nSlots > 0 && SS_ModuleOfAddress( pTable->ppSlots[ 0 ], &info ) )
+			g_pShadowsBase = info.pBase;
 	}
 
 	g_Text.RemoveAll();
@@ -1720,6 +1684,25 @@ void RenderTrace::Note( const char *pszFormat, ... )
 	va_start( args, pszFormat );
 	Append( pszFormat, args );
 	va_end( args );
+}
+
+void RenderTrace::ShadowEnter( const char *pszLine )
+{
+	if ( g_bActive )
+		Line( "%s", pszLine );
+	++g_nShadowDepth;
+}
+
+void RenderTrace::ShadowLeave()
+{
+	if ( g_nShadowDepth > 0 )
+		--g_nShadowDepth;
+}
+
+void RenderTrace::ShadowNote( const char *pszLine )
+{
+	if ( g_bActive )
+		Line( "%s", pszLine );
 }
 
 void RenderTrace::NoteLong( const char *pszPrefix, const char *pszText )

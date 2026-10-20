@@ -32,7 +32,10 @@
 // THE TWO DIRECTIONS. up: a stock TU in the server reddens
 // TheServerCompilesNoStockTu; a client count above its ceiling reddens the
 // ratchet. gone: when the client reaches zero, the "> 0" half reddens and says
-// the ceiling is stale.
+// the ceiling is stale. It did, on 2026-10-19 (C7 cluster 12 S2:
+// clientshadowmgr.cpp, the client's last fork TU, left client.so): the
+// client's ceiling is 0 and its fact is TheClientCompilesNoStockTu, the
+// server's shape.
 //
 //=============================================================================//
 
@@ -163,29 +166,38 @@ TEST( ShimVpcStockRows, TheServerCompilesNoStockTu )
 }
 
 //-----------------------------------------------------------------------------
-// The positive control, taken from the TREE: the same count must find the
-// stock TUs the client still has.
+// And the client, which reached the same exit (2026-10-19, C7 cluster 12 S2:
+// clientshadowmgr.cpp, the client's last fork TU, left client.so).
+//
+// This was TheClientStillHasStockTusAndTheyOnlyGoDown: a ceiling, and a "> 0"
+// half that was the count's positive control taken from the tree and that
+// said, when the client reached zero, to lower the ceiling to 0 and retire the
+// expectation. docs/shim-ratchet.tsv's client_stock_tus row is 0 now, and the
+// fact is the server's, inverted rather than deleted: a stock TU returning to
+// the client reddens it. The count's positive control is what the server's
+// half above uses: the client compiles sourcesharp/ TUs (so the list was read
+// and the count is not zero for want of rows) and every source it compiles is
+// classified, so a fourth root cannot hide a stock TU from the zero.
 //-----------------------------------------------------------------------------
-TEST( ShimVpcStockRows, TheClientStillHasStockTusAndTheyOnlyGoDown )
+TEST( ShimVpcStockRows, TheClientCompilesNoStockTu )
 {
 	const long lCeiling = RatchetCeiling( "client_stock_tus" );
-	ASSERT_GE( lCeiling, 0 )
-		<< "docs/shim-ratchet.tsv has no client_stock_tus row, so there is no "
-		   "ceiling to compare against and this test measures nothing";
+	ASSERT_EQ( 0, lCeiling ) << "docs/shim-ratchet.tsv's client_stock_tus row is "
+		"missing or not zero";
 
 	const Counts c = CountSources( cmake_graph::kClient );
-
-	EXPECT_GT( c.nStock, 0 )
-		<< "the client compiles no stock TU. Either the count stopped matching "
-		   "-- in which case TheServerCompilesNoStockTu is passing vacuously -- "
-		   "or the client's stock TUs are gone, and then the ceiling of "
-		<< lCeiling << " must be lowered to 0 and this expectation retired.";
-
-	EXPECT_LE( (long)c.nStock, lCeiling )
-		<< "client_sourcesharp now compiles " << c.nStock << " stock TUs against "
-		   "a recorded ceiling of " << lCeiling << ". The client's stock list may "
-		   "only shrink. If a TU genuinely had to come back, say why in "
-		   "plan_shim.md and raise the row deliberately.";
+	EXPECT_GT( c.nShim, 0 ) << "client_sourcesharp compiles no sourcesharp/ TU at all, "
+		"so the zero below is a list that was not read";
+	EXPECT_EQ( c.nSources, c.nShim + c.nStock )
+		<< "every source the client compiles is under sourcesharp/, game/ or "
+		   "public/. A source under some fourth root is not covered by this "
+		   "ratchet and has to be classified before it lands.";
+	EXPECT_EQ( c.nStock, 0 )
+		<< "client_sourcesharp (src/client/native/CMakeLists.txt) compiles "
+		<< c.nStock << " TU(s) under game/ or public/. It compiled none once "
+		   "clientshadowmgr.cpp left (C7 cluster 12 S2): Valve code the client "
+		   "needs is changed in the fork, and a file that must stay native "
+		   "relocates under src/sourcesharp/.";
 }
 
 //-----------------------------------------------------------------------------
@@ -198,5 +210,5 @@ TEST( ShimVpcStockRows, TheCountTellsAStockTuFromARelocatedOne )
 	EXPECT_FALSE( IsStock( "sourcesharp/game/server/shell_frame.cpp" ) )
 		<< "a RELOCATED file's path still contains the word game and is not a "
 		   "stock TU -- this is the whole difference Phase 2 created";
-	EXPECT_FALSE( IsStock( "sourcesharp/public/collisionutils.cpp" ) );
+	EXPECT_FALSE( IsStock( "sourcesharp/public/dt_send.cpp" ) );
 }

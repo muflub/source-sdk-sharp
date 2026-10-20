@@ -2820,7 +2820,7 @@ internal unsafe struct ShimConVarsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimFlashlightClient</c> through its forwarders (SSFwd_ShimFlashlightClient): 6 slot(s).
+/// <c>IShimFlashlightClient</c> through its forwarders (SSFwd_ShimFlashlightClient): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimFlashlightClientFwd : IForwarderTable
@@ -2833,18 +2833,6 @@ internal unsafe struct ShimFlashlightClientFwd : IForwarderTable
 
     // int32_t IShimFlashlightClient::FlashlightSupportsBorderColor( void )
     public delegate* unmanaged<void*, int> FlashlightSupportsBorderColor;
-
-    // int32_t IShimFlashlightClient::FlashlightCreate( const SourceSharpFlashlightState * )
-    public delegate* unmanaged<void*, void*, int> FlashlightCreate;
-
-    // void IShimFlashlightClient::FlashlightUpdate( int32_t, const SourceSharpFlashlightState * )
-    public delegate* unmanaged<void*, int, void*, void> FlashlightUpdate;
-
-    // void IShimFlashlightClient::FlashlightProject( int32_t )
-    public delegate* unmanaged<void*, int, void> FlashlightProject;
-
-    // void IShimFlashlightClient::FlashlightDestroy( int32_t )
-    public delegate* unmanaged<void*, int, void> FlashlightDestroy;
 }
 
 /// <summary>

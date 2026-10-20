@@ -41,8 +41,8 @@ public class MaterialProxyFactoryTests
         List<string> native = NativeNames();
         var managed = Factory().Names.ToHashSet(StringComparer.Ordinal);
 
-        // The cluster 1 names, viewpostprocess.cpp's MotionBlur and engine_post (C7), particle_proxies.cpp's ParticleSphereProxy.
-        Assert.True(native.Count == 47 && native.Distinct().Count() == 47, $"47 distinct names in the trampoline, not {native.Count}");
+        // The cluster 1 names, viewpostprocess.cpp's MotionBlur and engine_post (C7), particle_proxies.cpp's ParticleSphereProxy, clientshadowmgr.cpp's Shadow and ShadowModel (C7 cluster 12 S2).
+        Assert.True(native.Count == 49 && native.Distinct().Count() == 49, $"49 distinct names in the trampoline, not {native.Count}");
         string[] nativeOnly = native.Where(n => !managed.Contains(n)).ToArray();
         string[] managedOnly = managed.Where(n => !native.Contains(n)).ToArray();
         Assert.True(nativeOnly.Length == 0, "registered by native, answered by nobody: " + string.Join(", ", nativeOnly));

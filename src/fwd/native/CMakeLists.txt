@@ -121,7 +121,16 @@ target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp PROPERTIES
     COMPILE_DEFINITIONS CLIENT_DLL
     INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
-foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_trace_filter.cpp fwd_leaf_system.cpp)
+# And the client shadow manager's native table (fwd_shadows.cpp, C7 cluster 12
+# S2): the engine calls and questions of the managed manager, carried out over
+# client.so's environment. Client code too (iclientrenderable.h and the view's
+# CViewSetup), and its one class (the leaf collector the BSP query calls back)
+# has virtuals, as the leaf system's.
+target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_shadows.cpp)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_shadows.cpp PROPERTIES
+    COMPILE_DEFINITIONS CLIENT_DLL
+    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
+foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_trace_filter.cpp fwd_leaf_system.cpp fwd_shadows.cpp)
   if(SS_IS_MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)
   else()

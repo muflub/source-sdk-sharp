@@ -1558,14 +1558,28 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// and nHere 2 -> 0 when glow_overlay.cpp and c_pixel_visibility.cpp left
 	// (C7 glow overlays and pixel visibility, the same lane: 4 scanned,
 	// clientshadowmgr.cpp the one compiled under game/).
+	//
+	// AND THEN THE CLIENT EMPTIED ITS game/ ROWS TOO, which is the server's
+	// Phase 2 exit reached on the other side: clientshadowmgr.cpp, the client's
+	// last fork TU, left client.so with C7 cluster 12 S2 (2026-10-19; the
+	// shadow manager is managed's, src/client/managed/Render/Shadows/). The
+	// client scan reads 3 files now, all of them the libraries ClientScan names
+	// by path (trace_filter_library.cpp, util_shared_library.cpp,
+	// takedamageinfo_library.cpp), and the walk of game/client and game/shared
+	// reads none -- it still opens them, which is what the nSkipped arm below
+	// proves. So the arms take the server's shape: nHere is inverted rather
+	// than lowered (0 is the exit condition, not a broken parse), the files
+	// floor is the three named libraries (> 3 -> >= 3: the walk contributes
+	// nothing for it to be above), and the ratio arm is vacuous by construction
+	// until a row reappears under game/.
 	const ScanResult_t &client = ClientScan();
-	EXPECT_GT( client.nFiles, 3 )
-		<< "scanned " << client.nFiles << " client files -- too few to mean "
-		<< "anything, and low enough that the $File parse is the first thing "
-		<< "to suspect";
-	EXPECT_GT( client.nHere, 0 )
-		<< "client_sourcesharp compiles " << client.nHere << " entries under "
-		<< "game/ -- too few for the ratio below to mean anything";
+	EXPECT_GE( client.nFiles, 3 )
+		<< "scanned " << client.nFiles << " client files -- fewer than the three "
+		<< "libraries ClientScan names by path, so the reader is broken";
+	EXPECT_EQ( 0, client.nHere )
+		<< "client_sourcesharp compiles " << client.nHere << " entr(y/ies) under "
+		<< "game/. It compiled none once clientshadowmgr.cpp left (C7 cluster 12 "
+		<< "S2); a row reappearing here is a stock file re-entering the build.";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )
 		<< "scanned " << client.nFiles << " files out of " << client.nHere
 		<< " entries client_sourcesharp compiles UNDER game/, below 90%. Files "
@@ -1591,7 +1605,12 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// after them on the fork (clientshadowmgr.cpp's 4,484 and the three
 	// libraries' 1,292); upstream's clientshadowmgr.cpp is 4,335 lines, so
 	// about 5,627 there. 5,000 holds on both.
-	EXPECT_GT( client.nLines, 5000 )
+	// 5,000 -> 500 when clientshadowmgr.cpp left with C7 cluster 12 S2
+	// (2026-10-19): 1,021 scanned after it, all of it our three libraries
+	// (94 + 584 + 343 lines, so the same on a fork tree and an upstream one).
+	// The per-file arm above is the one that cannot go stale; this floor keeps
+	// about half the measurement as headroom for the libraries shrinking.
+	EXPECT_GT( client.nLines, 500 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )
@@ -1738,11 +1757,22 @@ TEST( SdkPlayerCast, TheEvictionListWasParsedAndIsLoadBearing )
 	//
 	// clientleafsystem.cpp took the job on the same grounds mapentities.cpp
 	// took it on the server, and left client.so with C7 cluster 12 L2 (the leaf
-	// system is managed's). clientshadowmgr.cpp takes it now: still compiled,
-	// so a file the list must report as compiled.
-	EXPECT_FALSE( IsEvicted( "client", "clientshadowmgr.cpp" ) )
+	// system is managed's). clientshadowmgr.cpp took it then, and left client.so
+	// with C7 cluster 12 S2 (2026-10-19), the client's last fork TU to go.
+	// trace_filter_library.cpp takes it now, on the grounds shell_mapparse.cpp
+	// took it on the server: compiled into client_sourcesharp, and a file the
+	// client ban reads by name (kTraceFilterLibrary), so a file where the ban
+	// has teeth rather than merely a file in the build.
+	EXPECT_FALSE( IsEvicted( "client", "trace_filter_library.cpp" ) )
 		<< "the client source list reports a compiled file as evicted; every "
 		<< "ban above it is scanning nothing";
+	// And clientshadowmgr.cpp inverted rather than deleted, as
+	// cliententitylist.cpp is below.
+	EXPECT_TRUE( IsEvicted( "client", "clientshadowmgr.cpp" ) )
+		<< "game/client/clientshadowmgr.cpp is in the client build again. It left "
+		<< "with C7 cluster 12 S2 and the managed shadow manager replaced it, so "
+		<< "this is a resurrection rather than a drift -- move the assertion, do "
+		<< "not delete it.";
 
 	// And cliententitylist.cpp inverted rather than deleted, so that putting it
 	// back reds this and its six cross-edges come back under the ban with
@@ -1952,11 +1982,16 @@ TEST( SdkPlayerCast, TheScannerReadEveryFileOfTheOriginalInventory )
 
 	const ScanResult_t &client = ClientScan();
 	// clientleafsystem.cpp left client.so with C7 cluster 12 L2, so it left
-	// the inventory too; the shadow manager, which stays, is read below.
+	// the inventory too. The shadow manager followed it with C7 cluster 12 S2
+	// (2026-10-19: clientshadowmgr.cpp, the client's last fork TU, left
+	// client.so), so its row is inverted the same way. Both absences rest on
+	// the trace-filter row below, which proves the client scan read a file.
 	EXPECT_FALSE( ScannedFileNamed( client, "client/clientleafsystem.cpp" ) )
 		<< "clientleafsystem.cpp is in the client scan again: the stock leaf "
 		<< "system is back in client.so.";
-	EXPECT_TRUE( ScannedFileNamed( client, "client/clientshadowmgr.cpp" ) );
+	EXPECT_FALSE( ScannedFileNamed( client, "client/clientshadowmgr.cpp" ) )
+		<< "clientshadowmgr.cpp is in the client scan again: the stock shadow "
+		<< "manager is back in client.so (it is managed since C7 cluster 12 S2).";
 
 	// client/cliententitylist.cpp STOOD HERE and the flip evicted it, the
 	// client's half of the same commit. The list itself is
@@ -2381,10 +2416,17 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// it until the residue wave; then the file left client.so (SFM is dead,
 	// user ruling 2026-10-19), so the scan no longer reads it at all. The read
 	// of a sibling that stays is proved first, so the absence is the file
-	// leaving and not the scanner going quiet.
-	EXPECT_TRUE( ScannedFileNamed( client, "client/clientshadowmgr.cpp" ) )
-		<< "clientshadowmgr.cpp is not in the client scan, so the absence below "
-		<< "proves nothing about the scanner.";
+	// leaving and not the scanner going quiet. The sibling was
+	// clientshadowmgr.cpp until it, the client's last fork TU, left client.so
+	// with C7 cluster 12 S2 (2026-10-19); it is trace_filter_library.cpp now,
+	// which ClientScan reads by path and the client still compiles. A scanner
+	// that read nothing fails this row, so the absences after it are evidence.
+	EXPECT_TRUE( ScannedFileNamed( client, "shared/trace_filter_library.cpp" ) )
+		<< "trace_filter_library.cpp is not in the client scan, so the absences "
+		<< "below prove nothing about the scanner.";
+	EXPECT_FALSE( ScannedFileNamed( client, "client/clientshadowmgr.cpp" ) )
+		<< "clientshadowmgr.cpp is in the client scan again: the stock shadow "
+		<< "manager is back in client.so (it is managed since C7 cluster 12 S2).";
 	EXPECT_FALSE( ScannedFileNamed( client, "client/toolframework_client.cpp" ) )
 		<< "toolframework_client.cpp is in the client scan again: the tool "
 		<< "framework is back in client.so.";
@@ -2415,7 +2457,7 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// cluster 12 (2026-10-18): flashlighteffect.cpp left client.so, and its
 	// CTraceFilterSkipPlayerAndViewModel resolver with it (the managed
 	// flashlight's filter resolves the hit by handle, flashlight_trace_filter.h).
-	// Its absence is asserted below with clientshadowmgr.cpp proved read.
+	// Its absence is asserted below with a sibling proved read.
 	// 2 -> 1 in C7 cluster 12 L2 (2026-10-19): clientleafsystem.cpp left
 	// client.so, and its dead dump's SDKEntityFromRenderable with it; the
 	// trace-filter family, named above, is the class's one armed spelling left.

@@ -90,8 +90,9 @@ public struct ClientRenderFacts
 
     /// <summary>
     /// The render mode (<c>RenderMode_t</c>, <c>kRenderNormal</c> 0). The engine
-    /// block carries no render mode yet, so the pass reads 0 here; S2 of
-    /// docs/plans/c7_shadow_manager.md gives the receive rule its source.
+    /// block carries no RenderMode_t: the pass reads <c>kRenderTransTexture</c>
+    /// for an entity its managed class blends (the shell's Translucent, which
+    /// SetBlending writes) and <c>kRenderNormal</c> otherwise (C7 cluster 12 S2).
     /// </summary>
     public int RenderMode;
 
@@ -136,6 +137,14 @@ public struct ClientRenderChoices
 
     /// <summary>The bits <c>CreateShadow</c> is given.</summary>
     public ClientShadowFlag ShadowFlags;
+
+    /// <summary>
+    /// What <c>ShouldReceiveProjectedTextures</c> answers, for a shadow and
+    /// for a flashlight (<see cref="ClientShadowFlag.ReceivesShadows"/>,
+    /// <see cref="ClientShadowFlag.ReceivesFlashlight"/>; C7 cluster 12 S2):
+    /// written into the block's ShadowFlags word above the shadow flags.
+    /// </summary>
+    public ClientShadowFlag Receives;
 }
 
 /// <summary>
@@ -402,6 +411,10 @@ public sealed class ClientRenderPolicy
 
     // engine/ishadowmgr.h's projected-texture kinds.
     private const int ShadowFlagsFlashlight = 1 << 0;
+    private const int ShadowFlagsShadow = 1 << 1;
+
+    /// <summary><c>kRenderTransTexture</c>: what the policy reads for an entity a managed class blends.</summary>
+    private const int RenderTransTexture = 2;
 
     /// <summary>
     /// Whether a projected texture of the kinds in <paramref name="flags"/>
@@ -415,9 +428,8 @@ public sealed class ClientRenderPolicy
     /// lights everything but an invisible blended entity. A shadow lands on
     /// anything but a studio model, unless EF_NORECEIVESHADOW says no:
     /// studio models take their shadows in the render-to-texture pass, not as
-    /// projected decals. C_StandaloneEntity answers <c>false</c> for every
-    /// entity until S2 wires this in, so the flashlight lights only the world
-    /// and the engine's static props today.
+    /// projected decals. C_StandaloneEntity answers it from the block
+    /// (<see cref="Receives"/>), since S2.
     /// </para>
     /// </summary>
     public static bool ReceivesProjectedTextures(in ClientRenderFacts facts, int flags)
@@ -454,8 +466,21 @@ public sealed class ClientRenderPolicy
             Group             = Group(facts),
             Shadow            = shadow,
             ShadowFlags       = ShadowFlags(shadow),
+            Receives          = Receives(facts),
         };
     }
+
+    /// <summary>
+    /// <see cref="ReceivesProjectedTextures"/> for each kind, as the block
+    /// carries them: what C_StandaloneEntity::ShouldReceiveProjectedTextures
+    /// answers (Q2).
+    /// </summary>
+    public static ClientShadowFlag Receives(in ClientRenderFacts facts)
+        => (ReceivesProjectedTextures(facts, ShadowFlagsShadow) ? ClientShadowFlag.ReceivesShadows : ClientShadowFlag.None)
+         | (ReceivesProjectedTextures(facts, ShadowFlagsFlashlight) ? ClientShadowFlag.ReceivesFlashlight : ClientShadowFlag.None);
+
+    /// <summary>The block's ShadowFlags word's receive answers.</summary>
+    public const ClientShadowFlag ReceiveMask = ClientShadowFlag.ReceivesShadows | ClientShadowFlag.ReceivesFlashlight;
 
     //-------------------------------------------------------------------------
     // THE PASS.
@@ -724,6 +749,10 @@ public sealed class ClientRenderPolicy
         NoDraw              = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoDraw) != 0,
         NoReceiveShadow     = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoReceiveShadow) != 0,
         RenderAlpha         = block[RenderAlphaOffset],
+        // The render mode: the block carries no RenderMode_t, and an entity's
+        // only blending is what its managed class asked for (SetBlending, the
+        // shell's Translucent): a blended entity's mode is past kRenderNormal.
+        RenderMode          = ReadInt(block, TranslucentOffset) != 0 ? RenderTransTexture : RenderNormal,
         ViewModel           = ReadInt(block, ViewModelOffset) != 0,
         CustomDraw          = ReadInt(block, CustomDrawOffset) != 0,
         Translucent         = ReadInt(block, TranslucentOffset) != 0,
@@ -740,7 +769,7 @@ public sealed class ClientRenderPolicy
         WriteInt(block, TransparentOffset, choices.Transparent ? 1 : 0);
         WriteInt(block, RenderGroupOffset, (int)choices.Group);
         WriteInt(block, ShadowTypeOffset, (int)choices.Shadow);
-        WriteInt(block, ShadowFlagsOffset, (int)choices.ShadowFlags);
+        WriteInt(block, ShadowFlagsOffset, (int)(choices.ShadowFlags | (choices.Receives & ReceiveMask)));
 
         // LAST, and that ordering is the whole of the handshake. The shell
         // applies an entity's policy when this serial differs from the one it
@@ -762,7 +791,8 @@ public sealed class ClientRenderPolicy
         Transparent       = ReadInt(block, TransparentOffset) != 0,
         Group             = (ClientRenderGroup)ReadInt(block, RenderGroupOffset),
         Shadow            = (ShadowCast)ReadInt(block, ShadowTypeOffset),
-        ShadowFlags       = (ClientShadowFlag)ReadInt(block, ShadowFlagsOffset),
+        ShadowFlags       = (ClientShadowFlag)ReadInt(block, ShadowFlagsOffset) & ~ReceiveMask,
+        Receives          = (ClientShadowFlag)ReadInt(block, ShadowFlagsOffset) & ReceiveMask,
     };
 
     private static int ReadInt(ReadOnlySpan<byte> block, int offset)

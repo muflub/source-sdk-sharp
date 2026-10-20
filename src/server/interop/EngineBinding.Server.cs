@@ -1388,10 +1388,9 @@ internal sealed unsafe partial class EngineEntityRender
     public void SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) { }
     public void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) { }
     public void SetShadowCast(EntityHandle entity, ShadowCastChoice choice) { }
-    public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked, out bool hasShadow)
+    public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = ShadowCastChoice.Auto;
-        hasShadow = false;
         return SourceSharp.Abi.ShadowCast.Unknown;
     }
     public void SetFade(EntityHandle entity, FadeStyle style, float startDistance, float endDistance, float minimumAlpha = 0f) { }

@@ -357,3 +357,38 @@ public interface IShadowDebugOverlay
 
     void AddTextOverlay(in Vector origin, int lineOffset, string text);
 }
+
+/// <summary>
+/// The managed shadow manager as native reaches it (IManagedShadowsClient,
+/// docs/managed-interfaces.tsv; C7 cluster 12 S2): kClientSystems[]'s
+/// CClientShadowMgr row, the plan's shadow ops, the material system's restore
+/// callback, and the shells' queue (three int32 an entry:
+/// shell_shadows_client.h's kinds), which the frame's calls carry and
+/// apply first. Each call carries its engine calls out before it returns.
+/// </summary>
+public interface IClientShadowsHost
+{
+    bool Init();
+
+    void Shutdown();
+
+    void LevelInitPreEntity();
+
+    void LevelShutdownPostEntity();
+
+    void PreRender(ReadOnlySpan<int> pending);
+
+    void AdvanceFrame(ReadOnlySpan<int> pending);
+
+    void ComputeShadowTextures(ReadOnlySpan<int> leaves, ReadOnlySpan<int> pending);
+
+    void ComputeShadowDepthTextures(in ShadowViewSetup view, ReadOnlySpan<int> pending);
+
+    void UnlockAllShadowDepthTextures(ReadOnlySpan<int> pending);
+
+    void RestoreRenderState();
+
+    void RenderShadowTexture(int width, int height);
+
+    void Pending(ReadOnlySpan<int> entries);
+}

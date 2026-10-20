@@ -378,7 +378,11 @@ public partial class EngineApiCensusTests
     // FxSpriteGlowFraction, FxGlowSightDistance, ParticlesPixelVisible and
     // BeamHaloVisibility retired with c_pixel_visibility.cpp: every glow asks the
     // managed PixelVisibilitySystem (249 - 4 = 245).
-    private const int ClientOnly = 245;
+    // C7 cluster 12 S2's deletion: IShimFlashlightClient's FlashlightCreate,
+    // FlashlightUpdate, FlashlightProject and FlashlightDestroy retired; the
+    // flashlight hands its projected texture to the managed shadow manager
+    // in-process (245 - 4 = 241).
+    private const int ClientOnly = 241;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

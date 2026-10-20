@@ -4,7 +4,7 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 99 links here; 545 in all lists (were 576)
+# 99 links here; 540 in all lists (were 541)
 #       1 src/devtools
 #      98 src/public
 src/devtools/version_script.linux.txt

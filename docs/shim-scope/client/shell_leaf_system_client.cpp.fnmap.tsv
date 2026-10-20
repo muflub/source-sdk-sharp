@@ -3,7 +3,7 @@
 16	SLOT-HELP	void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absMins, Vector &absMaxs )
 4	SLOT-HELP	void AppendRenderable( void *pVector, IClientRenderable *pRenderable )
 4	SLOT-HELP	IDetailObjectSystem *DetailSystem()
-16	HOOK	IClientLeafSystem *BuildLeafSystem()
+15	HOOK	IClientLeafSystem *BuildLeafSystem()
 4	HOOK	void *CreateLeafSystem()
 1	HOOK	[CLeafSystemGameSystem] char const *Name() override
 5	HOOK	[CLeafSystemGameSystem] void LevelInitPreEntity() override

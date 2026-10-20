@@ -69,8 +69,14 @@ TEST( ClientC8Evicted, TheEmptyPrecacheRegistryLeft )
 TEST( ClientC8Evicted, CdllUtilLeft )
 {
 	EXPECT_TRUE( Read( "game/client/cdll_util.cpp" ).empty() ) << "cdll_util.cpp is back in the farm";
-	// The root resolved: a sibling the client still compiles.
-	EXPECT_FALSE( Read( "game/client/clientshadowmgr.cpp" ).empty() );
+	// The root resolved: a sibling in the same farm directory that is still
+	// linked. This was clientshadowmgr.cpp until it, the client's last fork TU,
+	// left client.so with C7 cluster 12 S2 (2026-10-19); no fork .cpp is
+	// compiled under game/client now, so the sibling is cdll_util.cpp's own
+	// header, which client.so's TUs still include (sdk-links/client.txt). An
+	// unresolved root reads it empty, and the eviction check above could not
+	// tell that from a gone file.
+	EXPECT_FALSE( Read( "game/client/cdll_util.h" ).empty() ) << "the farm's game/client did not resolve";
 }
 
 // game_entity_relays.h's client sites (docs/client-shell.md 2.2), the two in

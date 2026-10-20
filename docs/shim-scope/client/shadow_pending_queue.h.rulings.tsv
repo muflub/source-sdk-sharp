@@ -1,0 +1,14 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[CShadowPendingQueue] CShadowPendingQueue()	SLOT-HELP	the shells' queue, empty
+[CShadowPendingQueue] void SetSink(	SLOT-HELP	where a full queue is handed over (IManagedShadowsClient::Pending)
+[CShadowPendingQueue] void Dirty(	SLOT-HELP	a moved entity's entry, ORed into its queued one: the manager refuses a renderable already dirty, so the second says only the texture bit
+[CShadowPendingQueue] void Refresh(	SLOT-HELP	an entity's shadow as its block says, appended
+[CShadowPendingQueue] void Destroy(	SLOT-HELP	an entity's shadow gone, its earlier entries dropped (the renderable may be freed before the hand-over)
+[CShadowPendingQueue] int32_t Take(	SLOT-HELP	the entries for a call that carries them, copied into its buffer and emptied
+[CShadowPendingQueue] void HandOver()	SLOT-HELP	the entries to the sink, emptied, as a copy
+[CShadowPendingQueue] void Clear()	SLOT-HELP	the entries dropped with no manager to tell
+[CShadowPendingQueue] int Count()	INSTRUMENT	the queue's length
+[CShadowPendingQueue] const int32_t *Entries()	INSTRUMENT	the queue's entries
+[CShadowPendingQueue] int HandedOver()	INSTRUMENT	the hand-overs made
+[CShadowPendingQueue] void Append(	SLOT-HELP	an entry at the end, a full queue handed over first

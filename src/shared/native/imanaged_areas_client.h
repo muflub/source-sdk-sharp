@@ -1319,6 +1319,56 @@ static const uint32_t kIManagedGlowClientSlotHashes[] = {
 static const int32_t kIManagedGlowClientSlotCount = 5;
 static_assert( sizeof( SSManagedGlowClientTable ) == 5 * sizeof( void * ), "SSManagedGlowClientTable is one pointer per slot" );
 
+class IManagedShadowsClient;
+
+// The table managed writes for IManagedShadowsClient: Release, Validate, then the TSV's order.
+struct SSManagedShadowsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *Init )( IManagedShadowsClient *self );
+	void ( *Shutdown )( IManagedShadowsClient *self );
+	void ( *LevelInitPreEntity )( IManagedShadowsClient *self );
+	void ( *LevelShutdownPostEntity )( IManagedShadowsClient *self );
+	void ( *PreRender )( IManagedShadowsClient *self, const int32_t *pPending, int32_t nPending );
+	void ( *AdvanceFrame )( IManagedShadowsClient *self, const int32_t *pPending, int32_t nPending );
+	void ( *ComputeShadowTextures )( IManagedShadowsClient *self, const uint16_t *pLeaves, int32_t nLeafCount, const int32_t *pPending, int32_t nPending );
+	void ( *ComputeShadowDepthTextures )( IManagedShadowsClient *self, const float *pView, int32_t nViewFloats, const int32_t *pPending, int32_t nPending );
+	void ( *UnlockAllShadowDepthTextures )( IManagedShadowsClient *self, const int32_t *pPending, int32_t nPending );
+	void ( *RestoreRenderState )( IManagedShadowsClient *self );
+	void ( *RenderShadowTexture )( IManagedShadowsClient *self, int32_t nWidth, int32_t nHeight );
+	void ( *Pending )( IManagedShadowsClient *self, const int32_t *pEntries, int32_t nCount );
+};
+
+class IManagedShadowsClient : public IManagedObject
+{
+public:
+	explicit IManagedShadowsClient( const SSManagedShadowsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t Init() { return Table()->Init( this ); }
+	void Shutdown() { Table()->Shutdown( this ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void LevelShutdownPostEntity() { Table()->LevelShutdownPostEntity( this ); }
+	void PreRender( const int32_t *pPending, int32_t nPending ) { Table()->PreRender( this, pPending, nPending ); }
+	void AdvanceFrame( const int32_t *pPending, int32_t nPending ) { Table()->AdvanceFrame( this, pPending, nPending ); }
+	void ComputeShadowTextures( const uint16_t *pLeaves, int32_t nLeafCount, const int32_t *pPending, int32_t nPending ) { Table()->ComputeShadowTextures( this, pLeaves, nLeafCount, pPending, nPending ); }
+	void ComputeShadowDepthTextures( const float *pView, int32_t nViewFloats, const int32_t *pPending, int32_t nPending ) { Table()->ComputeShadowDepthTextures( this, pView, nViewFloats, pPending, nPending ); }
+	void UnlockAllShadowDepthTextures( const int32_t *pPending, int32_t nPending ) { Table()->UnlockAllShadowDepthTextures( this, pPending, nPending ); }
+	void RestoreRenderState() { Table()->RestoreRenderState( this ); }
+	void RenderShadowTexture( int32_t nWidth, int32_t nHeight ) { Table()->RenderShadowTexture( this, nWidth, nHeight ); }
+	void Pending( const int32_t *pEntries, int32_t nCount ) { Table()->Pending( this, pEntries, nCount ); }
+
+private:
+	const SSManagedShadowsClientTable *Table() const { return static_cast< const SSManagedShadowsClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedShadowsClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x2acf7c51, 0x2acf7c51,
+	0xca302c1c, 0xca302c1c, 0x2acf7c51, 0x07e0f4c4, 0x7fb639b8, 0x2acf7c51,
+};
+static const int32_t kIManagedShadowsClientSlotCount = 14;
+static_assert( sizeof( SSManagedShadowsClientTable ) == 14 * sizeof( void * ), "SSManagedShadowsClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1352,6 +1402,7 @@ IManagedSoundEmitterClient *ManagedSoundEmitterClient();   // this load's area, 
 IManagedClientSystemsClient *ManagedClientSystemsClient();   // this load's area, or NULL outside a load
 IManagedPixelVisClient *ManagedPixelVisClient();   // this load's area, or NULL outside a load
 IManagedGlowClient *ManagedGlowClient();   // this load's area, or NULL outside a load
+IManagedShadowsClient *ManagedShadowsClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

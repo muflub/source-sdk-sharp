@@ -12,8 +12,7 @@
 // LeafRegistry and RenderableListBuilder) -- but two kinds of caller reach it
 // through C++ vtables: the engine, which asks client.so for ClientLeafSystem002
 // and calls IClientLeafSystemEngine's four methods for its static props, and
-// the C++ left in client.so (clientshadowmgr.cpp in the fork, our shells),
-// which call IClientLeafSystem. So the object they call is built here,
+// the C++ left in client.so (our shells), which call IClientLeafSystem. So the object they call is built here,
 // deriving IClientLeafSystem, and each override calls one slot of the managed
 // area IManagedLeafSystemClient (generated from docs/managed-interfaces.tsv),
 // as fwd_physics.cpp's and fwd_steam.cpp's classes do for vphysics and Steam.
@@ -21,10 +20,9 @@
 // IT DECIDES NOTHING. Each override hands managed its arguments (and what the
 // renderable or engine says that the call needs: a model's kind, the leaf
 // count), then carries out what managed answers: a render handle written into
-// a renderable (IClientRenderable::RenderHandle() is a reference), the shadow
-// manager told a receiver gained or lost shadows, a sub-system's data deleted,
-// the render list written, the view models appended, each shadow enumerated
-// through the caller's IClientLeafShadowEnum. Those come back as operations
+// a renderable (IClientRenderable::RenderHandle() is a reference), a
+// sub-system's data deleted, the render list written, the view models
+// appended. Those come back as operations
 // (four int64 words each, SourceSharp.Client.Interop.LeafOpKind), in the
 // order stock did them, and Drain executes them; a reply longer than the
 // buffer is fetched with TakeOps. The `if`s below are bounds and null
@@ -36,6 +34,10 @@
 // kept in order and reach managed in the arguments of the calls made every
 // frame (PreRender and the per-view three), in a blend batch's answer, or
 // (before any other call, or when the queue is full) through Pending.
+//
+// THE SHADOW HALF calls nothing (C7 cluster 12 S2): its one caller was the C++
+// shadow manager, and the managed manager calls the managed leaf system
+// in-process. Its five overrides answer an invalid handle and do nothing.
 //
 // THE BATCHES below the class are the other direction: the questions the
 // managed registry asks native, each one call for any number of renderables,
@@ -60,12 +62,6 @@
 #include "iclientrenderable.h"
 #include "bsptreedata.h"
 #include "clientleafsystem.h"
-// iclientshadowmgr.h names EHANDLE, which the client's cbase.h chain defines
-// (c_baseentity.h); this file has no entity, so it says the same typedef.
-#include "ehandle.h"
-class IGameEntity;
-typedef CHandle< IGameEntity > EHANDLE;
-#include "iclientshadowmgr.h"
 #include "detailobjectsystem.h"
 #include "imanaged_areas_client.h"
 
@@ -82,16 +78,14 @@ void operator delete( void *, size_t ) noexcept {}
 namespace
 {
 	// SourceSharp.Client.Interop.LeafOpKind.
+	// 1, 2 and 8 were the shadow manager's (retired at S2).
 	enum
 	{
-		OP_ADD_SHADOW_TO_RECEIVER = 1,
-		OP_REMOVE_ALL_SHADOWS_FROM_RECEIVER = 2,
 		OP_SET_RENDER_HANDLE = 3,
 		OP_DELETE_SUBSYSTEM_DATA = 4,
 		OP_LIST_ENTRY = 5,
 		OP_LIST_OVERFLOW = 6,
 		OP_VIEW_MODEL = 7,
-		OP_ENUM_SHADOW = 8,
 	};
 
 	enum
@@ -114,10 +108,9 @@ namespace
 	// one: a zeroing initialiser is a memset, which this library does not have.
 	struct DrainTarget_t
 	{
-		DrainTarget_t() : pList( nullptr ), pEnum( nullptr ), pOpaque( nullptr ), pTranslucent( nullptr ) {}
+		DrainTarget_t() : pList( nullptr ), pOpaque( nullptr ), pTranslucent( nullptr ) {}
 
 		CClientRenderablesList *pList;
-		IClientLeafShadowEnum *pEnum;
 		void *pOpaque;
 		void *pTranslucent;
 	};
@@ -354,46 +347,19 @@ namespace
 				pTarget->DrawSmallEntities( enable ? 1 : 0 );
 		}
 
-		ClientLeafShadowHandle_t AddShadow( ClientShadowHandle_t userId, unsigned short flags ) override
+		// The shadow half: no caller since S2 (see the header).
+		ClientLeafShadowHandle_t AddShadow( ClientShadowHandle_t, unsigned short ) override
 		{
-			IManagedLeafSystemClient *pTarget = Target();
-			return pTarget ? (ClientLeafShadowHandle_t)pTarget->AddShadow( userId, flags ) : (ClientLeafShadowHandle_t)CLIENT_LEAF_SHADOW_INVALID_HANDLE;
+			return (ClientLeafShadowHandle_t)CLIENT_LEAF_SHADOW_INVALID_HANDLE;
 		}
 
-		void RemoveShadow( ClientLeafShadowHandle_t h ) override
-		{
-			if ( IManagedLeafSystemClient *pTarget = Target() )
-				pTarget->RemoveShadow( h );
-		}
+		void RemoveShadow( ClientLeafShadowHandle_t ) override {}
 
-		void ProjectShadow( ClientLeafShadowHandle_t handle, int nLeafCount, const int *pLeafList ) override
-		{
-			if ( IManagedLeafSystemClient *pTarget = Target() )
-			{
-				int64_t ops[ OP_WORDS * OP_CHUNK ];
-				Drain( pTarget, ops, pTarget->ProjectShadow( handle, pLeafList, nLeafCount, ops, OP_CHUNK ), DrainTarget_t() );
-			}
-		}
+		void ProjectShadow( ClientLeafShadowHandle_t, int, const int * ) override {}
 
-		void ProjectFlashlight( ClientLeafShadowHandle_t handle, int nLeafCount, const int *pLeafList ) override
-		{
-			if ( IManagedLeafSystemClient *pTarget = Target() )
-			{
-				int64_t ops[ OP_WORDS * OP_CHUNK ];
-				Drain( pTarget, ops, pTarget->ProjectFlashlight( handle, pLeafList, nLeafCount, ops, OP_CHUNK ), DrainTarget_t() );
-			}
-		}
+		void ProjectFlashlight( ClientLeafShadowHandle_t, int, const int * ) override {}
 
-		void EnumerateShadowsInLeaves( int leafCount, LeafIndex_t *pLeaves, IClientLeafShadowEnum *pEnum ) override
-		{
-			IManagedLeafSystemClient *pTarget = Target();
-			if ( !pTarget || !pEnum )
-				return;
-			DrainTarget_t target;
-			target.pEnum = pEnum;
-			int64_t ops[ OP_WORDS * OP_CHUNK ];
-			Drain( pTarget, ops, pTarget->EnumerateShadowsInLeaves( pLeaves, leafCount, ops, OP_CHUNK ), target );
-		}
+		void EnumerateShadowsInLeaves( int, LeafIndex_t *, IClientLeafShadowEnum * ) override {}
 
 		int GetRenderableLeaves( ClientRenderHandle_t handle, int leaves[ 128 ] ) override
 		{
@@ -512,18 +478,9 @@ namespace
 
 		void Execute( const int64_t *op, const DrainTarget_t &target )
 		{
-			IClientShadowMgr *pShadowMgr = *m_pEnv->ppShadowMgr;
 			IClientRenderable *pRenderable = reinterpret_cast< IClientRenderable * >( (intptr_t)op[ 1 ] );
 			switch ( op[ 0 ] )
 			{
-			case OP_ADD_SHADOW_TO_RECEIVER:
-				if ( pShadowMgr && pRenderable )
-					pShadowMgr->AddShadowToReceiver( (ClientShadowHandle_t)op[ 2 ], pRenderable, (ShadowReceiver_t)op[ 3 ] );
-				break;
-			case OP_REMOVE_ALL_SHADOWS_FROM_RECEIVER:
-				if ( pShadowMgr && pRenderable )
-					pShadowMgr->RemoveAllShadowsFromReceiver( pRenderable, (ShadowReceiver_t)op[ 3 ] );
-				break;
 			case OP_SET_RENDER_HANDLE:
 				if ( pRenderable )
 					pRenderable->RenderHandle() = (ClientRenderHandle_t)op[ 2 ];
@@ -564,10 +521,6 @@ namespace
 					m_pEnv->pfnAppendRenderable( pVector, pRenderable );
 				break;
 			}
-			case OP_ENUM_SHADOW:
-				if ( target.pEnum )
-					target.pEnum->EnumShadow( (ClientShadowHandle_t)op[ 2 ] );
-				break;
 			default:
 				break;
 			}
@@ -611,8 +564,7 @@ int SSFwd_LeafSystem_SizeOf()
 
 void *SSFwd_LeafSystem_Construct( void *pMemory, const SSLeafSystemEnv *pEnv )
 {
-	if ( !pMemory || !pEnv || !pEnv->ppTarget || !pEnv->ppEngine || !pEnv->ppModelInfo || !pEnv->ppRender || !pEnv->ppShadowMgr
-	     || !pEnv->ppGlobals )
+	if ( !pMemory || !pEnv || !pEnv->ppTarget || !pEnv->ppEngine || !pEnv->ppModelInfo || !pEnv->ppRender || !pEnv->ppGlobals )
 		return nullptr;
 	return static_cast< IClientLeafSystem * >( new ( pMemory ) SSClientLeafSystem( pEnv ) );
 }

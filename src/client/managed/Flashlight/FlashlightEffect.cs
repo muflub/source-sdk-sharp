@@ -19,6 +19,18 @@ namespace SourceSharp.Client.Flashlight;
 /// </summary>
 public interface IFlashlightWorld : IFlashlightSlots
 {
+    /// <summary>CreateFlashlight; the shadow handle, or -1.</summary>
+    int Create(in FlashlightState state);
+
+    /// <summary>UpdateFlashlightState.</summary>
+    void Update(int handle, in FlashlightState state);
+
+    /// <summary>UpdateProjectedTexture( handle, true ).</summary>
+    void Project(int handle);
+
+    /// <summary>DestroyFlashlight.</summary>
+    void Destroy(int handle);
+
     /// <summary>The engine's dynamic light, keyed: asking again moves it.</summary>
     void DynamicLightUpdate(in DynamicLight light);
 
@@ -172,6 +184,13 @@ public sealed class FlashlightEffect
     /// shadow manager destroys every shadow itself, so a handle kept past it
     /// names nothing.
     /// </summary>
+    /// <summary>
+    /// Takes over the projected texture a previous build made (the reload
+    /// carry, <see cref="LocalPlayerFlashlight"/>): the next update moves it
+    /// rather than making a second one.
+    /// </summary>
+    public void AdoptHandle(int handle) => Handle = handle;
+
     public void ForgetHandle()
     {
         Handle = InvalidHandle;

@@ -42,8 +42,7 @@ src/sourcesharp/fwd	files	src/fwd/native
 # Relocated Valve code, kept local by user decision 2026-09-27: the fork's
 # src/sourcesharp/{public,common}, flat in src/shared/native. One `file` row
 # each, so nothing else of src/shared/native is linked into those farm
-# directories (and the game/shared `files` row above skips these five).
-src/sourcesharp/public/collisionutils.cpp	file	src/shared/native/collisionutils.cpp
+# directories (and the game/shared `files` row above skips them).
 src/sourcesharp/public/dt_send.cpp	file	src/shared/native/dt_send.cpp
 src/sourcesharp/public/dt_utlvector_common.cpp	file	src/shared/native/dt_utlvector_common.cpp
 src/sourcesharp/common/steamid.cpp	file	src/shared/native/steamid.cpp

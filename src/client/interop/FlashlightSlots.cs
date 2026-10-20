@@ -8,10 +8,11 @@ public readonly record struct FlashlightTrace(bool Hit, float Fraction, Vector E
 /// <summary>
 /// What the managed flashlight (SourceSharp.Client.Flashlight, C7 cluster 12)
 /// asks native and tells it: the client traces with stock's
-/// CTraceFilterSkipPlayerAndViewModel, the shadow manager's four flashlight
-/// calls and the texture they name (IShimFlashlightClient), the engine's DX
-/// level and the debug overlay (engine forwarders). Each is one call carried
-/// out; every decision is the caller's.
+/// CTraceFilterSkipPlayerAndViewModel, the flashlight texture and the border
+/// colour support (IShimFlashlightClient), the engine's DX level and the debug
+/// overlay (engine forwarders). Each is one call carried out; every decision
+/// is the caller's. The shadow manager's four flashlight calls are managed
+/// since C7 cluster 12 S2 (IFlashlightWorld, over IFlashlightShadows).
 /// </summary>
 public interface IFlashlightSlots
 {
@@ -23,18 +24,6 @@ public interface IFlashlightSlots
 
     /// <summary>A texture held by name for the shadow manager; its id, or -1.</summary>
     int Texture(string name);
-
-    /// <summary>CreateFlashlight; the shadow handle, or -1.</summary>
-    int Create(in FlashlightState state);
-
-    /// <summary>UpdateFlashlightState.</summary>
-    void Update(int handle, in FlashlightState state);
-
-    /// <summary>UpdateProjectedTexture( handle, true ).</summary>
-    void Project(int handle);
-
-    /// <summary>DestroyFlashlight.</summary>
-    void Destroy(int handle);
 
     /// <summary>UTIL_TraceHull with stock's flashlight filter.</summary>
     FlashlightTrace TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask);
@@ -85,28 +74,6 @@ internal sealed unsafe class FlashlightSlots(EngineSide api, IFlashlightClientAr
         byte[] bytes = Vtable.Utf8(name);
         fixed (byte* p = bytes)
             return flashlight.FlashlightTexture(p);
-    }
-
-    public int Create(in FlashlightState state)
-    {
-        fixed (FlashlightState* p = &state)
-            return flashlight.FlashlightCreate(p);
-    }
-
-    public void Update(int handle, in FlashlightState state)
-    {
-        fixed (FlashlightState* p = &state)
-            flashlight.FlashlightUpdate(handle, p);
-    }
-
-    public void Project(int handle)
-    {
-        flashlight.FlashlightProject(handle);
-    }
-
-    public void Destroy(int handle)
-    {
-        flashlight.FlashlightDestroy(handle);
     }
 
     public FlashlightTrace TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask)

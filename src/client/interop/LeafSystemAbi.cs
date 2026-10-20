@@ -105,11 +105,9 @@ public static class LeafQuery
 /// </summary>
 public enum LeafOpKind
 {
-    /// <summary>IClientShadowMgr::AddShadowToReceiver: renderable, shadow, receiver kind.</summary>
-    AddShadowToReceiver = 1,
-
-    /// <summary>IClientShadowMgr::RemoveAllShadowsFromReceiver: renderable, -, receiver kind.</summary>
-    RemoveAllShadowsFromReceiver = 2,
+    // 1 and 2 were the C++ shadow manager's AddShadowToReceiver and
+    // RemoveAllShadowsFromReceiver, 8 IClientLeafShadowEnum::EnumShadow: the
+    // managed shadow manager takes all three in-process since C7 cluster 12 S2.
 
     /// <summary>IClientRenderable::RenderHandle() = the handle: renderable, handle.</summary>
     SetRenderHandle = 3,
@@ -125,9 +123,6 @@ public enum LeafOpKind
 
     /// <summary>One view model, split: renderable, 1 translucent or 0 opaque.</summary>
     ViewModel = 7,
-
-    /// <summary>IClientLeafShadowEnum::EnumShadow: -, the shadow's user id.</summary>
-    EnumShadow = 8,
 }
 
 /// <summary>One carried-out operation (see <see cref="LeafOpKind"/>).</summary>
@@ -227,10 +222,6 @@ public interface IClientLeafSystemHost
     void ComputeTranslucentRenderLeaf(ReadOnlySpan<int> leaves, int frameNumber, int viewId, int globalFrame, nint system);
     void BuildRenderablesList(in LeafView view);
     void CollateViewModelRenderables(nint system);
-    int AddShadow(int userId, int flags);
-    void RemoveShadow(int handle);
-    void ProjectShadow(int handle, ReadOnlySpan<int> leaves);
-    void EnumerateShadowsInLeaves(ReadOnlySpan<int> leaves);
 }
 
 /// <summary>

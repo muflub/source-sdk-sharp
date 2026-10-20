@@ -97,11 +97,6 @@ void RenderTrace::End(	INSTRUMENT	the recorder's on/off and its text, armed only
 bool RenderTrace::Active(	INSTRUMENT	the recorder's on/off and its text, armed only for a frame managed asked to record
 const char *RenderTrace::Text(	INSTRUMENT	the recorder's on/off and its text, armed only for a frame managed asked to record
 void RenderTrace::Note(	INSTRUMENT	the recorder's on/off and its text, armed only for a frame managed asked to record
-void H_PreRender(	INSTRUMENT	a recorder hook on the shadow manager: logs the client's call, marks what it does inside, forwards
-void H_AdvanceFrame(	INSTRUMENT	a recorder hook on the shadow manager: logs the client's call, marks what it does inside, forwards
-void H_ComputeShadowTextures(	INSTRUMENT	a recorder hook on the shadow manager: logs the client's call, marks what it does inside, forwards
-void H_ComputeShadowDepthTextures(	INSTRUMENT	a recorder hook on the shadow manager: logs the client's call, marks what it does inside, forwards
-void H_UnlockAllShadowDepthTextures(	INSTRUMENT	a recorder hook on the shadow manager: logs the client's call, marks what it does inside, forwards
 void RenderTrace::NoteLong(	INSTRUMENT	the recorder's long note line
 bool H_LeafContainsTranslucentSurfaces(	INSTRUMENT	records LeafContainsTranslucentSurfaces' answer as a q line, the offline facts' translucent answers
 void MaterialVarLines(	INSTRUMENT	a recorded frame's screen-space material parameters as bound (q lines), for the frozen post-processing facts

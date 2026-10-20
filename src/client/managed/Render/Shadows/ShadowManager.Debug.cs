@@ -215,9 +215,10 @@ public sealed partial class ShadowManager
     /// <summary>
     /// The fork's <c>cs_cl_shadow_report</c>: each shadow (its entity, where
     /// it was last projected from and its renderable's render origin, its
-    /// kind, its render frame) and the totals. The fork's resolve line counts
-    /// SourceSharp_RenderableFromHandle's asks, which native keeps; S2 decides
-    /// what the managed report prints there.
+    /// kind, its render frame) and the totals. The fork's resolve line counted
+    /// SourceSharp_RenderableFromHandle's asks; that resolver went with
+    /// clientshadowmgr.cpp at S2, so each shadow says only whether its
+    /// renderable resolves now.
     /// </summary>
     public void PrintShadowReport(bool resetCounters)
     {

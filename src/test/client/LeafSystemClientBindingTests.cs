@@ -77,9 +77,21 @@ public unsafe class LeafSystemClientBindingTests
         public int DrawLeaf => -1;
     }
 
+    // The managed shadow manager's receiver calls (C7 cluster 12 S2), held.
+    private sealed class HeldReceivers : SourceSharp.Client.Render.Shadows.IShadowReceivers
+    {
+        public readonly List<(nint Renderable, int Kind)> Cleared = [];
+
+        public void AddShadowToReceiver(int shadow, nint renderable, int kind) { }
+
+        public void RemoveAllShadowsFromReceiver(nint renderable, int kind) => Cleared.Add((renderable, kind));
+    }
+
+    private static List<(nint Renderable, int Kind)> Cleared(LeafRegistry registry) => ((HeldReceivers)registry.Receivers!).Cleared;
+
     private static (LeafSystemClientBinding Binding, LeafRegistry Registry, Crossings Crossings) Make()
     {
-        var registry = new LeafRegistry(new Native());
+        var registry = new LeafRegistry(new Native()) { Receivers = new HeldReceivers() };
         var system = new ClientLeafSystem(registry, new RenderableListBuilder(registry, new Settings()));
         var crossings = new Crossings();
         return (new LeafSystemClientBinding(crossings, new StandardErrorLog(), system), registry, crossings);
@@ -88,24 +100,23 @@ public unsafe class LeafSystemClientBindingTests
     [Fact]
     public void ARenderableIsRegisteredAndRemovedWithItsOperationsWrittenOut()
     {
-        var (binding, _, crossings) = Make();
+        var (binding, registry, crossings) = Make();
         binding.LevelInitPreEntity(8);
         int handle = binding.AddRenderable((void*)0x150, 7, 3);   // opaque entity, a studio model
         Assert.Equal(0, handle);
         var ops = new long[4 * 8];
         fixed (long* p = ops)
         {
-            Assert.Equal(1, binding.PreRender(null, 0, p, 8));   // the first insert's receivers cleared
-            Assert.Equal((long)LeafOpKind.RemoveAllShadowsFromReceiver, ops[0]);
-            Assert.Equal(0x150, ops[1]);
-            Assert.Equal(2, ops[3]);
+            // The first insert's receivers cleared, by the managed manager in-process (S2): no operation.
+            Assert.Equal(0, binding.PreRender(null, 0, p, 8));
+            Assert.Equal([((nint)0x150, 2)], Cleared(registry));
 
-            Assert.Equal(2, binding.RemoveRenderable(handle, p, 8));
+            Assert.Equal(1, binding.RemoveRenderable(handle, p, 8));
         }
         Assert.Equal((long)LeafOpKind.SetRenderHandle, ops[0]);
         Assert.Equal(0x150, ops[1]);
         Assert.Equal(0xFFFF, ops[2]);
-        Assert.Equal((long)LeafOpKind.RemoveAllShadowsFromReceiver, ops[4]);
+        Assert.Equal([((nint)0x150, 2), ((nint)0x150, 2)], Cleared(registry));
         Assert.Equal(1, crossings.Read(CrossingOp.ClientLeafAddRenderable));
         Assert.Equal(1, crossings.Read(CrossingOp.ClientLeafPreRender));
         Assert.Equal(1, crossings.Read(CrossingOp.ClientLeafRemoveRenderable));
@@ -116,13 +127,13 @@ public unsafe class LeafSystemClientBindingTests
     public void AnAnswerLongerThanTheBufferWaitsForTakeOps()
     {
         var (binding, registry, crossings) = Make();
-        binding.LevelInitPreEntity(8);
+        binding.LevelInitPreEntity(10);
         for (int i = 0; i < 10; i++)
-            binding.AddRenderable((void*)(0x100 + i), 7, 1);   // brush models: each insert clears its receivers
+            binding.SetSubSystemDataInLeaf(i, 0, (void*)(0x100 + i));   // each leaf's data is deleted at the level's end
         var ops = new long[4 * 4];
         fixed (long* p = ops)
         {
-            Assert.Equal(4, binding.PreRender(null, 0, p, 4));
+            Assert.Equal(4, binding.LevelShutdownPostEntity(p, 4));
             Assert.Equal(6, registry.PendingOps);
             Assert.Equal(4, binding.TakeOps(p, 4));
             Assert.Equal(2, binding.TakeOps(p, 4));
@@ -204,11 +215,12 @@ public unsafe class LeafSystemClientBindingTests
         // RenderableChanged, then two group changes: the last group stands, and
         // the renderable is dirty again, so this PreRender clears its receivers.
         int[] entries = [1, handle, 0, 2, handle, 8, 2, handle, 6];
+        int clearedBefore = Cleared(registry).Count;
         fixed (int* e = entries)
         fixed (long* p = ops)
-            Assert.Equal(1, binding.PreRender(e, 3, p, 8));
+            Assert.Equal(0, binding.PreRender(e, 3, p, 8));
         Assert.Equal(6, registry.Info(handle).Group);
-        Assert.Equal((long)LeafOpKind.RemoveAllShadowsFromReceiver, ops[0]);
+        Assert.Equal(clearedBefore + 1, Cleared(registry).Count);
         Assert.Equal(2, crossings.Read(CrossingOp.ClientLeafPreRender));
         Assert.Equal(0, crossings.Read(CrossingOp.ClientLeafPending));
         Assert.Equal(0, crossings.Read(CrossingOp.ClientLeafRenderableChanged));
@@ -290,6 +302,28 @@ public unsafe class LeafSystemClientBindingTests
         Assert.Equal(1, crossings.Read(CrossingOp.ClientLeafAddRenderable));
     }
 
+    [Fact]
+    public void TheRetiredShadowSlotsAnswerTheRefusalAndAreCounted()
+    {
+        var (binding, registry, crossings) = Make();
+        binding.LevelInitPreEntity(8);
+        int[] leaves = [1, 2];
+        var ops = new long[4 * 8];
+        fixed (int* l = leaves)
+        fixed (long* p = ops)
+        {
+            Assert.Equal(0xFFFF, binding.AddShadow(5, 2));
+            binding.RemoveShadow(0);
+            Assert.Equal(0, binding.ProjectShadow(0, l, 2, p, 8));
+            Assert.Equal(0, binding.ProjectFlashlight(0, l, 2, p, 8));
+            Assert.Equal(0, binding.EnumerateShadowsInLeaves(l, 2, p, 8));
+        }
+        Assert.Equal(0, registry.ShadowEnum);   // nothing reached the registry
+        foreach (CrossingOp op in new[] { CrossingOp.ClientLeafAddShadow, CrossingOp.ClientLeafRemoveShadow, CrossingOp.ClientLeafProjectShadow,
+                                          CrossingOp.ClientLeafProjectFlashlight, CrossingOp.ClientLeafEnumerateShadowsInLeaves })
+            Assert.Equal(1, crossings.Read(op));
+    }
+
     private sealed class Throwing : IClientLeafSystemHost
     {
         private static Exception E() => new InvalidOperationException("the test's host throws");
@@ -319,9 +353,5 @@ public unsafe class LeafSystemClientBindingTests
         public void ComputeTranslucentRenderLeaf(ReadOnlySpan<int> leaves, int frameNumber, int viewId, int globalFrame, nint system) => throw E();
         public void BuildRenderablesList(in LeafView view) => throw E();
         public void CollateViewModelRenderables(nint system) => throw E();
-        public int AddShadow(int userId, int flags) => throw E();
-        public void RemoveShadow(int handle) => throw E();
-        public void ProjectShadow(int handle, ReadOnlySpan<int> leaves) => throw E();
-        public void EnumerateShadowsInLeaves(ReadOnlySpan<int> leaves) => throw E();
     }
 }

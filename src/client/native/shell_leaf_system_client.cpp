@@ -25,7 +25,6 @@
 #include "cbase.h"
 #include "mathlib/mathlib.h"
 #include "clientleafsystem.h"
-#include "iclientshadowmgr.h"
 #include "detailobjectsystem.h"
 #include "tier1/interface.h"
 #include "ss_fwd.h"
@@ -83,7 +82,6 @@ namespace
 		s_Env.ppEngine = &engine;
 		s_Env.ppModelInfo = &modelinfo;
 		s_Env.ppRender = &render;
-		s_Env.ppShadowMgr = &g_pClientShadowMgr;
 		s_Env.ppGlobals = &gpGlobals;
 		s_Env.pfnDetailObjectSystem = DetailSystem;
 		s_Env.pfnAppendRenderable = AppendRenderable;

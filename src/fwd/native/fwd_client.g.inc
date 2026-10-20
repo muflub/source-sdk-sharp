@@ -24,6 +24,7 @@
 #include "fwd_leaf_system.h"
 #include "fwd_physics.h"
 #include "fwd_recipient_filter.h"
+#include "fwd_shadows.h"
 #include "fwd_steam.h"
 #include "inputsystem/iinputsystem.h"
 #include "networkstringtabledefs.h"
@@ -3094,31 +3095,19 @@ static void *const s_ShimConVarsClientSlots[] = {
 static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimFlashlightClient: 6 forwarder(s) over IShimFlashlightClient.
+// ShimFlashlightClient: 2 forwarder(s) over IShimFlashlightClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimFlashlightClient::FlashlightTexture( const char * )
 static int32_t SSFwd_ShimFlashlightClient_FlashlightTexture( IShimFlashlightClient *self, const char * a0 ) { return self->FlashlightTexture( a0 ); }
 // int32_t IShimFlashlightClient::FlashlightSupportsBorderColor( void )
 static int32_t SSFwd_ShimFlashlightClient_FlashlightSupportsBorderColor( IShimFlashlightClient *self ) { return self->FlashlightSupportsBorderColor(); }
-// int32_t IShimFlashlightClient::FlashlightCreate( const SourceSharpFlashlightState * )
-static int32_t SSFwd_ShimFlashlightClient_FlashlightCreate( IShimFlashlightClient *self, const SourceSharpFlashlightState * a0 ) { return self->FlashlightCreate( a0 ); }
-// void IShimFlashlightClient::FlashlightUpdate( int32_t, const SourceSharpFlashlightState * )
-static void SSFwd_ShimFlashlightClient_FlashlightUpdate( IShimFlashlightClient *self, int32_t a0, const SourceSharpFlashlightState * a1 ) { self->FlashlightUpdate( a0, a1 ); }
-// void IShimFlashlightClient::FlashlightProject( int32_t )
-static void SSFwd_ShimFlashlightClient_FlashlightProject( IShimFlashlightClient *self, int32_t a0 ) { self->FlashlightProject( a0 ); }
-// void IShimFlashlightClient::FlashlightDestroy( int32_t )
-static void SSFwd_ShimFlashlightClient_FlashlightDestroy( IShimFlashlightClient *self, int32_t a0 ) { self->FlashlightDestroy( a0 ); }
 
 static void *const s_ShimFlashlightClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightTexture ),
 	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightSupportsBorderColor ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightCreate ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightUpdate ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightProject ),
-	reinterpret_cast< void * >( &SSFwd_ShimFlashlightClient_FlashlightDestroy ),
 };
 
-static const SSForwarderTable s_ShimFlashlightClientTable = { s_ShimFlashlightClientSlots, 6 };
+static const SSForwarderTable s_ShimFlashlightClientTable = { s_ShimFlashlightClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // PhysicsCallbacks: 7 function(s) over void, declared in fwd_physics.h.
@@ -3199,6 +3188,17 @@ static void *const s_LeafSystemSlots[] = {
 };
 
 static const SSForwarderTable s_LeafSystemTable = { s_LeafSystemSlots, 9 };
+
+//-----------------------------------------------------------------------------
+// Shadows: 1 function(s) over void, declared in fwd_shadows.h.
+//-----------------------------------------------------------------------------
+// int32_t SSFwd_Shadows_Run( const SSShadowEnv *, const int32_t *, int32_t, int32_t *, int32_t )
+
+static void *const s_ShadowsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_Shadows_Run ),
+};
+
+static const SSForwarderTable s_ShadowsTable = { s_ShadowsSlots, 1 };
 
 // The tables by the name managed asks for, SSFwd_<table>.
 static const SSForwarderNamed s_ForwarderTables[] = {
@@ -3286,4 +3286,5 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_RecipientFilter", &s_RecipientFilterTable },
 	{ "SSFwd_SteamCallback", &s_SteamCallbackTable },
 	{ "SSFwd_LeafSystem", &s_LeafSystemTable },
+	{ "SSFwd_Shadows", &s_ShadowsTable },
 };

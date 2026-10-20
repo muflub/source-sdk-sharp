@@ -31,8 +31,16 @@ public interface IFlashlightViewerSource
 /// the eye's vectors (FLASHLIGHT_DISTANCE); with it off, the effect is deleted.
 /// </summary>
 public sealed class LocalPlayerFlashlight(IFlashlightViewerSource viewers, IFlashlightWorld world,
-                                          IFlashlightSettings settings)
+                                          IFlashlightSettings settings) : IReloadParticipant
 {
+    /// <summary>The section's first word: what says the next is a flashlight's shadow handle.</summary>
+    public const int Magic = 0x464C5331; // "FLS1"
+
+    // The shadow handle a previous build's effect held, which the managed
+    // shadow manager carried across the reload too: the first effect adopts
+    // it, or (the light went off meanwhile) it is destroyed.
+    private int _carried = FlashlightEffect.InvalidHandle;
+
     /// <summary>FLASHLIGHT_DISTANCE (c_baseplayer.cpp).</summary>
     public const int FlashlightDistance = 1000;
 
@@ -54,6 +62,11 @@ public sealed class LocalPlayerFlashlight(IFlashlightViewerSource viewers, IFlas
                 Effect = new FlashlightEffect(viewer.Index, world, settings);
                 Made++;
                 Effect.TurnOn();
+                if (_carried != FlashlightEffect.InvalidHandle)
+                {
+                    Effect.AdoptHandle(_carried);
+                    _carried = FlashlightEffect.InvalidHandle;
+                }
             }
 
             MoveVec.AngleVectors(viewer.EyeAngles.AsVector(), out Vector forward, out Vector right, out Vector up);
@@ -65,6 +78,25 @@ public sealed class LocalPlayerFlashlight(IFlashlightViewerSource viewers, IFlas
             effect.Release();
             Effect = null;
         }
+        else if (_carried != FlashlightEffect.InvalidHandle)
+        {
+            world.Destroy(_carried);
+            _carried = FlashlightEffect.InvalidHandle;
+        }
+    }
+
+    /// <summary>The effect's shadow handle, for the reloaded build (docs/todo.md's "hot reload forgets the shadow handle").</summary>
+    public void Save(ReloadWriter writer)
+    {
+        writer.Write(Magic);
+        writer.Write(Effect?.Handle ?? _carried);
+    }
+
+    public void Restore(ReloadReader reader)
+    {
+        if (reader.ReadInt() != Magic)
+            throw new ReloadFormatException("not a flashlight's shadow handle");
+        _carried = reader.ReadInt();
     }
 
     /// <summary>
@@ -75,6 +107,7 @@ public sealed class LocalPlayerFlashlight(IFlashlightViewerSource viewers, IFlas
     {
         Effect?.ForgetHandle();
         Effect = null;
+        _carried = FlashlightEffect.InvalidHandle;
     }
 
     public string Report()

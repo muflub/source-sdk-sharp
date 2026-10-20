@@ -10,7 +10,8 @@ namespace SourceSharp.Client.Render.LeafSystem;
 /// surface <see cref="LeafSystemClientBinding"/> marshals to, each call timed
 /// into <see cref="LeafSystemStats"/> (L3).
 /// </summary>
-public sealed class ClientLeafSystem(LeafRegistry registry, RenderableListBuilder builder, LeafSystemStats stats) : IClientLeafSystemHost
+public sealed class ClientLeafSystem(LeafRegistry registry, RenderableListBuilder builder, LeafSystemStats stats)
+    : IClientLeafSystemHost, Shadows.IShadowLeafSystem
 {
     public ClientLeafSystem(LeafRegistry registry, RenderableListBuilder builder) : this(registry, builder, new LeafSystemStats()) { }
 
@@ -184,10 +185,16 @@ public sealed class ClientLeafSystem(LeafRegistry registry, RenderableListBuilde
         stats.Add(LeafSystemStats.Kind.Shadows, t);
     }
 
-    public void EnumerateShadowsInLeaves(ReadOnlySpan<int> leaves)
+    // The shadow manager's half (C7 cluster 12 S2): the managed manager calls
+    // these in the same process.
+
+    /// <summary>ProjectFlashlight: stock's body is ProjectShadow's but for an assert.</summary>
+    public void ProjectFlashlight(int handle, ReadOnlySpan<int> leaves) => ProjectShadow(handle, leaves);
+
+    public void EnumerateShadowsInLeaves(ReadOnlySpan<int> leaves, Shadows.IShadowLeafEnumerator enumerator)
     {
         long t = Now();
-        registry.EnumerateShadowsInLeaves(leaves);
+        registry.EnumerateShadowsInLeaves(leaves, enumerator);
         stats.Add(LeafSystemStats.Kind.Shadows, t);
     }
 }

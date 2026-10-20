@@ -169,6 +169,9 @@ public sealed partial class ShadowManager : IReloadParticipant, IShadowProxySour
     /// <summary>The engine shadow behind a client shadow.</summary>
     public int EngineShadowOf(int handle) => _shadows[handle].ShadowHandle;
 
+    /// <summary>The entity a client shadow is for (InvalidEntity for a flashlight).</summary>
+    public uint EntityOf(int handle) => _shadows[handle].Entity;
+
     //-------------------------------------------------------------------------
     // D2: initialisation, shutdown, the modes.
     //-------------------------------------------------------------------------

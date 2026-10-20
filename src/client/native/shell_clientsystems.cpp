@@ -122,17 +122,14 @@ CClientSystem *ClientSystem_Physics();
 //-----------------------------------------------------------------------------
 class IClientLeafSystem;
 class IDetailObjectSystem;
-class IClientShadowMgr;
 class CClientEffectPrecacheSystem;
 
 IClientLeafSystem *ClientLeafSystem();
 IDetailObjectSystem *DetailObjectSystem();
 CClientEffectPrecacheSystem *ClientEffectPrecacheSystem( void );
-extern IClientShadowMgr *g_pClientShadowMgr;
 
 #include "clientleafsystem.h"
 #include "detailobjectsystem.h"
-#include "iclientshadowmgr.h"
 #include "clienteffectprecachesystem.h"
 
 // The leaf system's row is shell_leaf_system_client.cpp's adapter: the leaf
@@ -141,7 +138,11 @@ extern IClientShadowMgr *g_pClientShadowMgr;
 CClientSystem *ClientLeafSystemGameSystem();
 static CClientSystem *ClientLeafGameSystem()          { return ClientLeafSystemGameSystem(); }
 static CClientSystem *DetailObjectGameSystem()        { return DetailObjectSystem(); }
-static CClientSystem *ClientShadowGameSystem()        { return g_pClientShadowMgr; }
+// The shadow manager's row is shell_shadows_client.cpp's adapter: the
+// manager is managed's (C7 cluster 12 S2), and the adapter hands it the
+// stages stock's CClientShadowMgr had bodies for.
+CClientSystem *ClientShadowMgrGameSystem();
+static CClientSystem *ClientShadowGameSystem()        { return ClientShadowMgrGameSystem(); }
 static CClientSystem *ClientEffectPrecacheGameSystem(){ return ClientEffectPrecacheSystem(); }
 
 //-----------------------------------------------------------------------------
@@ -197,6 +198,8 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 // of the rows name a datum (`g_pClientLeafSystem`, `g_pClientShadowMgr`,
 // `g_ClientThinkList`) rather than an accessor: `ClientLeafSystem()` and
 // `ClientThinkList()` are header inlines and define no symbol of their own.
+// (`g_pClientShadowMgr` went with clientshadowmgr.cpp at C7 cluster 12 S2; that
+// row names its adapter, `ClientShadowMgrGameSystem`, now.)
 //
 // SIXTEEN of the 38 resolve into the 78-TU atomic SCC. Fourteen of those sixteen
 // are §6 STAYS-NATIVE files, which is the wave brief's point restated as a
@@ -221,7 +224,10 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 //     managed's ViewportClientSystem, and the row is that file's adapter, which
 //     hands each stage to it (IManagedClientSystemsClient::Stage).
 // RULING | CClientEffectPrecacheSystem | STAYS | sourcesharp/game/client/shell_effects_list_client.cpp | ClientEffectPrecacheSystem
-// RULING | CClientShadowMgr | STAYS | game/client/clientshadowmgr.cpp | g_pClientShadowMgr
+// RULING | CClientShadowMgr | STAYS | sourcesharp/game/client/shell_shadows_client.cpp | ClientShadowMgrGameSystem
+//   ^ RE-HOMED at C7 cluster 12 S2: clientshadowmgr.cpp left client.so, the
+//     shadow manager is managed's (IManagedShadowsClient), and the row is that
+//     file's client-system adapter.
 // RULING | C_SoundscapeSystem | STAYS | sourcesharp/game/client/shell_soundscape_audio_client.cpp | ClientSoundscapeSystem
 // RULING | CSourceSharpStandaloneClientSystem | STAYS | sourcesharp/game/client/shell_standalone_client.cpp | ClientSystem_StandaloneClient
 // RULING | CGlowOverlaySystem | STAYS | sourcesharp/game/client/shell_managed_clientsystems_client.cpp | ClientSystem_ManagedGlowOverlay

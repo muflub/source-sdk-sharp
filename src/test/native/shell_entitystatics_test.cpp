@@ -486,8 +486,11 @@ std::vector< std::string > ClientCompiledSources()
 // path only the vpc's continuation row carried, which proved the walker had
 // followed the second spelling; that spelling is gone with VPC, and the file
 // is still compiled, so it stays as the anchor.
-// (bone_setup.cpp until it left at plan_physics_bones_native_zero Phase 3.)
-const char *const kClientProofOfRead = "sourcesharp/public/collisionutils.cpp";
+// (bone_setup.cpp until it left at plan_physics_bones_native_zero Phase 3;
+// collisionutils.cpp until C7 cluster 12 S2 deleted it. steamid.cpp is the
+// client's SteamID class, which the engine's handshake needs as long as there
+// is a client.)
+const char *const kClientProofOfRead = "sourcesharp/common/steamid.cpp";
 
 const char *const kEntityStatics = "sourcesharp/game/client/shell_entitystatics.cpp";
 

@@ -169,6 +169,11 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pGlowClient )
 		return false;
 
+	pObject = pRoot->Acquire( "IManagedShadowsClient" );
+	areas.m_pShadowsClient = ManagedAccept< IManagedShadowsClient >( pObject, kIManagedShadowsClientSlotHashes, kIManagedShadowsClientSlotCount, pWhy, nWhy );
+	if ( !areas.m_pShadowsClient )
+		return false;
+
 	return true;
 }
 
@@ -236,6 +241,8 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pGlowClient, kIManagedGlowClientSlotHashes, kIManagedGlowClientSlotCount, pWhy, nWhy ) )
 		return false;
+	if ( !ManagedAcceptObject( areas.m_pShadowsClient, kIManagedShadowsClientSlotHashes, kIManagedShadowsClientSlotCount, pWhy, nWhy ) )
+		return false;
 	return true;
 }
 
@@ -272,6 +279,7 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pClientSystemsClient );
 	ManagedRelease( areas.m_pPixelVisClient );
 	ManagedRelease( areas.m_pGlowClient );
+	ManagedRelease( areas.m_pShadowsClient );
 }
 
 IManagedCommandsClient *ManagedCommandsClient()
@@ -427,4 +435,9 @@ IManagedPixelVisClient *ManagedPixelVisClient()
 IManagedGlowClient *ManagedGlowClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pGlowClient;
+}
+
+IManagedShadowsClient *ManagedShadowsClient()
+{
+	return ShellClientDll_Managed().m_Areas.m_pShadowsClient;
 }

@@ -20,7 +20,6 @@
 #include <stdint.h>
 
 class IClientRenderable;
-class IClientShadowMgr;
 class IDetailObjectSystem;
 class IManagedLeafSystemClient;
 class IVEngineClient;
@@ -37,7 +36,6 @@ struct SSLeafSystemEnv
 	IVEngineClient *const *ppEngine;
 	IVModelInfoClient *const *ppModelInfo;
 	IVRenderView *const *ppRender;
-	IClientShadowMgr *const *ppShadowMgr;
 	CGlobalVarsBase *const *ppGlobals;
 	IDetailObjectSystem *( *pfnDetailObjectSystem )();
 	// CUtlVector< IClientRenderable * >::AddToTail, which allocates: the

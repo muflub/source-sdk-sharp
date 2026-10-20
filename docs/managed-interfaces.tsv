@@ -374,6 +374,9 @@ IManagedLeafSystemClient	DetailLeaves	void	int32_t nFrame, const uint16_t *pLeav
 IManagedLeafSystemClient	ComputeTranslucentRenderLeaf	void	const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending
 IManagedLeafSystemClient	BuildRenderablesList	int32_t	const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending
 IManagedLeafSystemClient	CollateViewModelRenderables	int32_t	int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending
+# AddShadow, RemoveShadow, ProjectShadow, ProjectFlashlight and EnumerateShadowsInLeaves are RETIRED at C7
+# cluster 12 S2 (the managed shadow manager calls the managed leaf system in-process; the forwarder's five
+# overrides call nothing): the binding answers the refusal. The table only appends.
 IManagedLeafSystemClient	AddShadow	int32_t	int32_t nUserId, int32_t nFlags
 IManagedLeafSystemClient	RemoveShadow	void	int32_t nHandle
 IManagedLeafSystemClient	ProjectShadow	int32_t	int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
@@ -414,3 +417,24 @@ IManagedPixelVisClient	EndScene	void	void
 IManagedGlowClient	DrawOverlays	int32_t	const float *pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t *pCmds, int32_t nCmdWords
 IManagedGlowClient	Commands	int32_t	int32_t *pCmds, int32_t nCmdWords
 IManagedGlowClient	UpdateSkyOverlays	void	const float *pOrigin, float flZFar, int32_t bCacheFullSceneState
+# C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md): the client shadow manager, managed's (SourceSharp.Client's
+# Render/Shadows). kClientSystems[]'s CClientShadowMgr row (shell_shadows_client.cpp's adapter) hands it Init (1, or
+# 0 to refuse the client's start-up), Shutdown, the two level stages and PreRender; the plan's shadow ops (the view
+# executor) its frame work; the material system's restore callback RestoreRenderState. What the shells queued since
+# the last call (nPending entries of three int32: 1 dirty, entity handle, 1 when the render-to-texture texture is
+# dirty too; 2 refresh, entity handle, shadow type | shadow flags << 8; 3 destroy, entity handle) rides in
+# the arguments of the frame's slots (PreRender, AdvanceFrame, ComputeShadowTextures, ComputeShadowDepthTextures,
+# UnlockAllShadowDepthTextures: S3 measured two Pending crossings a frame when only PreRender carried it); any other
+# slot called with entries queued, or a full queue, hands them over through Pending first. ComputeShadowDepthTextures' view is origin, angles, zNear, zFar, fov, aspect (10 floats).
+IManagedShadowsClient	Init	int32_t	void
+IManagedShadowsClient	Shutdown	void	void
+IManagedShadowsClient	LevelInitPreEntity	void	void
+IManagedShadowsClient	LevelShutdownPostEntity	void	void
+IManagedShadowsClient	PreRender	void	const int32_t *pPending, int32_t nPending
+IManagedShadowsClient	AdvanceFrame	void	const int32_t *pPending, int32_t nPending
+IManagedShadowsClient	ComputeShadowTextures	void	const uint16_t *pLeaves, int32_t nLeafCount, const int32_t *pPending, int32_t nPending
+IManagedShadowsClient	ComputeShadowDepthTextures	void	const float *pView, int32_t nViewFloats, const int32_t *pPending, int32_t nPending
+IManagedShadowsClient	UnlockAllShadowDepthTextures	void	const int32_t *pPending, int32_t nPending
+IManagedShadowsClient	RestoreRenderState	void	void
+IManagedShadowsClient	RenderShadowTexture	void	int32_t nWidth, int32_t nHeight
+IManagedShadowsClient	Pending	void	const int32_t *pEntries, int32_t nCount

@@ -37,6 +37,14 @@ namespace RenderTrace
 	// a trace is running.
 	void Note( const char *pszFormat, ... );
 
+	// The shadow manager's frame work (C7 cluster 12 S2, shell_shadows_client.cpp):
+	// ShadowEnter records its `shadow.` line and marks every line until the
+	// matching ShadowLeave `~`, as the calls the manager makes inside it are
+	// its own; ShadowNote is a `shadow.` line with no work inside it.
+	void ShadowEnter( const char *pszLine );
+	void ShadowLeave();
+	void ShadowNote( const char *pszLine );
+
 	// A line too long for Note's buffer: pszPrefix then pszText, verbatim.
 	void NoteLong( const char *pszPrefix, const char *pszText );
 }

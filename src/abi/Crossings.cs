@@ -976,6 +976,30 @@ public enum CrossingOp
     ClientSaveWriteFields = 392,
     /// <summary>IManagedSaveRestoreClient::SaveReadFields: one DECALLIST or MUSICLIST struct read back, one per decal and song per load (the client save codec). CLIENT ONLY.</summary>
     ClientSaveReadFields = 393,
+    /// <summary>IManagedShadowsClient::Init: the CClientShadowMgr row's Init: the shadow materials, the render-to-texture and depth targets the modes ask for (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsInit = 394,
+    /// <summary>IManagedShadowsClient::Shutdown: the row's Shutdown: every reference released (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsShutdown = 395,
+    /// <summary>IManagedShadowsClient::LevelInitPreEntity: the row's LevelInitPreEntity: the ambient shadow colour, clamped (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsLevelInitPreEntity = 396,
+    /// <summary>IManagedShadowsClient::LevelShutdownPostEntity: the row's LevelShutdownPostEntity: the shadows left removed (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsLevelShutdownPostEntity = 397,
+    /// <summary>IManagedShadowsClient::PreRender: the walk's and the plan's PreRender, with the shells' queue: the modes and the dirty walk, once or twice a frame (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsPreRender = 398,
+    /// <summary>IManagedShadowsClient::AdvanceFrame: the plan's ShadowAdvanceFrame op: the atlas's frame (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsAdvanceFrame = 399,
+    /// <summary>IManagedShadowsClient::ComputeShadowTextures: the plan's per-world-view render-to-texture pass (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsComputeShadowTextures = 400,
+    /// <summary>IManagedShadowsClient::ComputeShadowDepthTextures: the plan's flashlight depth views (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsComputeShadowDepthTextures = 401,
+    /// <summary>IManagedShadowsClient::UnlockAllShadowDepthTextures: the plan's depth-texture unlock (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsUnlockAllShadowDepthTextures = 402,
+    /// <summary>IManagedShadowsClient::RestoreRenderState: the material system's restore callback (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsRestoreRenderState = 403,
+    /// <summary>IManagedShadowsClient::RenderShadowTexture: cl_drawshadowtexture's overlay (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsRenderShadowTexture = 404,
+    /// <summary>IManagedShadowsClient::Pending: the shells' queue handed over before another call, or when full (C7 cluster 12 S2). CLIENT ONLY.</summary>
+    ClientShadowsPending = 405,
 }
 
 /// <summary>

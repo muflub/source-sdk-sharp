@@ -282,7 +282,9 @@ struct EngineBlockClientTail_t
 	// A ShadowType_t: the ANSWER, from ShadowChoice and the model facts below.
 	int32_t     ShadowType;
 
-	// The SHADOW_FLAGS_* bits CreateShadow is given.
+	// The SHADOW_FLAGS_* bits CreateShadow is given, and above them (1 << 29,
+	// 1 << 30) the policy's ShouldReceiveProjectedTextures answers for a shadow
+	// and for a flashlight, which CreateShadow is not given.
 	int32_t     ShadowFlags;
 
 	// ---- render policy: what managed code decided FROM, that it also owns --

@@ -36,16 +36,14 @@ render plan still emits RENDER_OP_ClientSystemsPostRender (RenderOpKind 15),
 and the frozen render recordings name it, so the op and the walk stayed.
 Retiring both is one plan-op change plus the recordings' re-freeze.
 
-## The tools-off stand-ins leave with their last Valve importer
+## The tools-off stand-ins left with their last Valve importer: done 2026-10-19
 
-shell_tools_off_client.cpp (2026-10-19) defines ToolsEnabled and
-ToolFramework_RecordMaterialParams only because clientshadowmgr.cpp, a fork
-TU still compiled into client.so, names them (nm -u over its object,
-2026-10-18). `clienttools` and ToolFramework_PostToolMessage left with
-flashlighteffect.cpp (C7 cluster 12, 2026-10-18), their only importer. When
-clientshadowmgr.cpp leaves, delete the file, its test, its (x) row in
-docs/shim-reasons.md and the toolframework_client.h /
-toolframework/itoolentity.h links in sdk-links/client.txt.
+shell_tools_off_client.cpp, its test and its (x) row went in C7 cluster 12
+S2's deletion (docs/plans/c7_shadow_manager.md): clientshadowmgr.cpp, which
+named ToolsEnabled and ToolFramework_RecordMaterialParams, left client.so in
+the switch, and `nm -A -u` over the 138 link-edge objects found no other
+importer (client.so links no static archive); make sdk-census dropped the
+headers nothing reads now.
 
 
 ## physics_debug.cpp's commands, managed: two small follow-ups (closed)
@@ -1736,14 +1734,12 @@ docs/client-novalve-rulings.tsv the `ported` reason). Left open, each small:
   gives a non-local entity with EF_DIMLIGHT a dynamic light at its origin.
   Only the local player's projected texture is ported; another player with
   the light on shows nothing on this client.
-- **Hot reload forgets the shadow handle.** LocalPlayerFlashlight holds the
-  shadow manager's handle in managed state, and the module's Shutdown does
-  not destroy it (whether the shadow manager is still up when the module
-  shuts down at process exit was not established). Read from the code, not
-  run: a `cs_cl_reload` with the light on would make a second effect and
-  leave the first projected texture alive until level shutdown (the shadow
-  manager frees every shadow there). The fix is a reload carry of the
-  handle, as ClientBoneBatchCarry carries the bone table.
+- **Hot reload forgot the shadow handle: closed 2026-10-19** (C7 cluster 12
+  S2, docs/plans/c7_shadow_manager.md). The shadow manager is managed and
+  carries every shadow across `cs_cl_reload` (S1's
+  AHotReloadCarriesAFlashlightsShadow), and LocalPlayerFlashlight is an
+  IReloadParticipant that carries the effect's handle: the reloaded build's
+  first effect adopts it, or destroys it when the light went off meanwhile.
 - **The debris arm of the trace filter cannot fire.** A client shell's
   collision group is not networked (C_StandaloneEntity answers NONE), so
   stock's skip of COLLISION_GROUP_DEBRIS / INTERACTIVE_DEBRIS never matches.
@@ -1787,8 +1783,9 @@ out/client.so, and `tools/client-novalve-census`.
   (tier0_vprof_client.cpp), so the client's nodes no longer show in the
   engine's `vprof` report or budget panel. Still open: libss_particles.so
   still has DT_NEEDED on both (particles lane); and no live run has reached a
-  client job on vstdlib's pool (the fork's threaded leaf/shadow branches are
-  hard-wired off, and the mod's content defines no new-style effect the
+  client job on vstdlib's pool (the fork's threaded leaf and shadow branches
+  left with their TUs, clientleafsystem.cpp at C7 cluster 12 L2 and
+  clientshadowmgr.cpp at S2, neither ported; and the mod's content defines no new-style effect the
   threaded particle branch would simulate), so that binding is held by
   tier_bindings_client_test alone.
 - **flashlighteffect.cpp** was ruled `port`; it is ported and left client.so

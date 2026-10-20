@@ -13,9 +13,11 @@ public sealed class MaterialProxyFactory
 {
     private readonly Dictionary<string, Func<MaterialProxy>> _make;
 
-    public MaterialProxyFactory(ILog log, IProxyMath math, Func<bool> developer, IPostProxyValues? post = null)
+    public MaterialProxyFactory(ILog log, IProxyMath math, Func<bool> developer, IPostProxyValues? post = null,
+                                Render.Shadows.IShadowProxySource? shadows = null)
     {
         IPostProxyValues postValues = post ?? new NoPostValues();
+        Render.Shadows.IShadowProxySource shadowSource = shadows ?? new NoShadows();
         _make = new Dictionary<string, Func<MaterialProxy>>(StringComparer.Ordinal)
         {
             // mathproxy.cpp
@@ -73,6 +75,9 @@ public sealed class MaterialProxyFactory
             ["engine_post"] = () => new EnginePostProxy(postValues),
             // particle_proxies.cpp
             ["ParticleSphereProxy"] = () => new ParticleSphereProxy(),
+            // clientshadowmgr.cpp's two (C7 cluster 12 S2; Q1, "move to c#")
+            ["Shadow"] = () => new ShadowProxy(shadowSource),
+            ["ShadowModel"] = () => new ShadowModelProxy(shadowSource),
         };
     }
 
@@ -81,6 +86,18 @@ public sealed class MaterialProxyFactory
 
     /// <summary>A fresh proxy for <paramref name="name"/>, or null for a name this client does not answer.</summary>
     public MaterialProxy? Create(string name) => _make.TryGetValue(name, out Func<MaterialProxy>? make) ? make() : null;
+}
+
+/// <summary>No shadow manager: no atlas, and no shadow a handle names.</summary>
+internal sealed class NoShadows : Render.Shadows.IShadowProxySource
+{
+    public int AtlasPage => 0;
+
+    public bool TryGetShadowInfo(int clientShadowHandle, out Interop.ShadowEngineInfo info)
+    {
+        info = default;
+        return false;
+    }
 }
 
 /// <summary>No post program: the values a fresh one would bind (zeros, bloom on).</summary>

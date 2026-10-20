@@ -47,7 +47,7 @@ TEST( CMakeGraphReal, ALocalPathMapsBackToItsFarmSpelling )
 {
 	EXPECT_EQ( "sourcesharp/game/server/physics.cpp", RepoToFarm( "src/server/native/physics.cpp" ) );
 	EXPECT_EQ( "sourcesharp/game/shared/shell_shared.cpp", RepoToFarm( "src/shared/native/shell_shared.cpp" ) );
-	EXPECT_EQ( "sourcesharp/public/collisionutils.cpp", RepoToFarm( "src/shared/native/collisionutils.cpp" ) );
+	EXPECT_EQ( "sourcesharp/public/dt_send.cpp", RepoToFarm( "src/shared/native/dt_send.cpp" ) );
 	EXPECT_EQ( "sourcesharp/game/server/shell_gamedll.cpp",
 	           FarmRelative( RepoRoot() + "/src/server/native/shell_gamedll.cpp" ) );
 	bool bThrew = false;

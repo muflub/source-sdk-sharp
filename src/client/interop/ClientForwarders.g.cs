@@ -391,3 +391,17 @@ internal unsafe struct LeafSystemFwd : IForwarderTable
     // void SSFwd_LeafSystem_DetailModels( void *, const int32_t *, int32_t, void ** )
     public delegate* unmanaged<void*, void*, int, void*, void> DetailModels;
 }
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_Shadows): 1 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ShadowsFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_Shadows";
+
+    // int32_t SSFwd_Shadows_Run( const SSShadowEnv *, const int32_t *, int32_t, int32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, int, void*, int, int> Run;
+}

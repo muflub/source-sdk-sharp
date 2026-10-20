@@ -756,6 +756,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                                                _services.Require<Render.PixelVisibility.PixelVisHost>())));
         // The plan's glow overlay ops (C7): the draw carries out managed's
         // commands, the sky update asks the sky overlays' obstruction.
+        // The client shadow manager (C7 cluster 12 S2): kClientSystems[]'s
+        // CClientShadowMgr row, the plan's shadow ops and the restore callback.
+        _bindings.Add("IManagedShadowsClient",
+                      v => ManagedAreaFactory.Create(v, new ShadowsClientBinding(_engine.Crossings, Log,
+                                                                               _services.Require<IClientShadowsHost>())));
         _bindings.Add("IManagedGlowClient",
                       v => ManagedAreaFactory.Create(v, new GlowClientBinding(_engine.Crossings, Log,
                                                                             _services.Require<Render.GlowOverlays.GlowHost>())));
@@ -952,6 +957,50 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IClientLeafSystemHost>(locator => new Render.LeafSystem.ClientLeafSystem(
             locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.RenderableListBuilder>(),
             locator.Require<Render.LeafSystem.LeafSystemStats>()));
+        // The client shadow manager (C7 cluster 12 S2): managed's, over the
+        // forwarder library's ShadowNative table and client.so's environment;
+        // its leaf half is the leaf system's (in the same process), its
+        // receivers the registry's calls back, its ConVars managed declarations
+        // (and the engine's five and viewrender's one, through the watch); an
+        // IReloadParticipant, as
+        // is the entities' half (their shadow handles and dirty bits).
+        _services.AddFactory<ShadowNative>(_ => ShadowNative.Acquire(_engine, out string why)
+                                                ?? throw new InvalidOperationException("the client shadow manager's native table: " + why));
+        _services.AddFactory<Render.Shadows.EntityShadows>(locator => new Render.Shadows.EntityShadows(locator.Require<ShadowNative>()));
+        _services.AddFactory<Render.Shadows.IEntityShadowState>(locator => locator.Require<Render.Shadows.EntityShadows>());
+        _services.AddFactory<Render.Shadows.ShadowConVars>(locator =>
+        {
+            var shadowConVars = new Render.Shadows.ShadowConVars(_convars,
+                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue),
+                locator.Require<IEngineConsole>());
+            shadowConVars.Start();
+            _shadowConVars = shadowConVars;
+            return shadowConVars;
+        });
+        _services.AddFactory<Render.Shadows.ShadowManager>(locator =>
+        {
+            ShadowNative native = locator.Require<ShadowNative>();
+            return new Render.Shadows.ShadowManager(native, native, native, native, locator.Require<Render.Shadows.EntityShadows>(), native,
+                (Render.LeafSystem.ClientLeafSystem)locator.Require<IClientLeafSystemHost>(),
+                locator.Require<Render.Shadows.ShadowConVars>(), new Render.Shadows.ShadowConsole(locator.Require<IEngineConsole>()));
+        });
+        _services.AddFactory<Render.Shadows.ShadowSystemStats>(locator => new Render.Shadows.ShadowSystemStats
+        {
+            Outbound = locator.Require<ShadowNative>().Calls,
+        });
+        _services.AddFactory<Render.Shadows.ClientShadowSystem>(locator =>
+        {
+            var system = new Render.Shadows.ClientShadowSystem(locator.Require<Render.Shadows.ShadowManager>(), locator.Require<ShadowNative>(),
+                                                               locator.Require<Render.Shadows.EntityShadows>(),
+                                                               locator.Require<Render.Shadows.ShadowSystemStats>());
+            // The registry's receivers are the manager's, in the same process.
+            locator.Require<Render.LeafSystem.LeafRegistry>().Receivers = system;
+            return system;
+        });
+        _services.AddFactory<IClientShadowsHost>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
+        _services.AddFactory<Render.Shadows.IShadowProxySource>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
+        _services.AddFactory<Render.Shadows.IShadowWorldControl>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
+        _services.AddFactory<Render.Shadows.IFlashlightShadows>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
         _services.AddFactory<IClientRenderPlan>(locator => locator.Require<Render.RenderPlanHost>());
         _services.AddFactory<MaterialProxies.IMaterialProxyReadings>(
             locator => (MaterialProxies.MaterialProxyHost)locator.Require<IClientMaterialProxies>());
@@ -1950,7 +1999,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                        ClientStandaloneBlocks.For(_engine),
                                                        _services.Require<ViewReadout>()),
             new Flashlight.FlashlightWorld(flashlightSlots,
-                                           _services.Require<IEngineVisibility>()),
+                                           _services.Require<IEngineVisibility>(),
+                                           _services.Require<Render.Shadows.IFlashlightShadows>()),
             flashlightSettings);
         _services.AddInstance(_flashlight);
 
@@ -2311,6 +2361,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Flashlight.LocalPlayerFlashlight? _flashlight;
     private Flashlight.FlashlightConVars? _flashlightSettings;
     private Render.LeafSystem.LeafListConVars? _leafConVars;
+    private Render.Shadows.ShadowConVars? _shadowConVars;
     private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
@@ -2553,6 +2604,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The leaf system's (C7 cluster 12 L2): r_portalsopenall, the engine's.
         if (_leafConVars is { } leafConVars && leafConVars.OnChanged(id, newValue))
+            return;
+
+        // The shadow manager's (C7 cluster 12 S2): r_shadowrendertotexture, r_flashlightdepthtexture,
+        // r_shadows, r_shadows_gamecontrol and r_flashlight_version2, the engine's, and viewrender's
+        // cl_drawshadowtexture.
+        if (_shadowConVars is { } shadowConVars && shadowConVars.OnChanged(id, newValue))
             return;
 
         // building_cubemaps, the engine's, which the pixel visibility and the glow overlays read (C7).

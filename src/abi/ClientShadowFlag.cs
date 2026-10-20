@@ -19,4 +19,19 @@ public enum ClientShadowFlag
 
     /// <summary>That slot has to be re-rendered as the skeleton moves.</summary>
     AnimatingSource = 1 << 3,
+
+    /// <summary>
+    /// NOT A SHADOW FLAG: the render policy's answer to
+    /// <c>ShouldReceiveProjectedTextures( SHADOW_FLAGS_SHADOW )</c>, carried in
+    /// the block's ShadowFlags word above every SHADOW_FLAGS_* bit (C7 cluster
+    /// 12 S2, Q2 "match stock"). The shell answers the question from it and
+    /// hands CreateShadow the word without it.
+    /// </summary>
+    ReceivesShadows = 1 << 29,
+
+    /// <summary>
+    /// NOT A SHADOW FLAG either: the answer to
+    /// <c>ShouldReceiveProjectedTextures( SHADOW_FLAGS_FLASHLIGHT )</c>.
+    /// </summary>
+    ReceivesFlashlight = 1 << 30,
 }

@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,710 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,831 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,691 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,159 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 34,533 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,845 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,694 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,496 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,449 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,160 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 | 1 |  |  | 16 | 9,345 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,889 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,009 |
-| x | NO LETTER FITS | 7 | 1 | 3 |  | 2 |  | 19 | 4,407 |
-|  | **total** | **75** | **33** | **75** | **3** | **2** | **1** | **217** | **86,761** |
+| x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,363 |
+|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **84,438** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -220,6 +220,8 @@ Then the client's temp entity tables moved to managed planning (2026-10-19, meas
 Then lane C7 small render TUs landed (2026-10-19, measured by the walk at the lane rebased onto main 1d344bb23): rendertexture.cpp, ScreenSpaceEffects.cpp, vgui_game_viewport.cpp, warp_overlay.cpp, glow_overlay.cpp and c_pixel_visibility.cpp left client.so, their decisions managed. (a) 61 -> 63 files and 34,491 -> 35,021 lines is shell_pixelvis_client.cpp (+248), shell_glow_client.cpp (+208) and shell_render_targets_client.cpp (+85), the executors of what managed decides, and the render trace's mesh and occlusion-query hooks (shell_render_trace_client.cpp +195), less shell_explosion_overlay.cpp (-162), the fireball's backend (shell_te_backends_client.cpp -30) and ParticlesPixelVisible's body (shell_managed_particles.cpp -18); (c) 26 -> 27 files and 3,829 -> 3,932 is shell_managed_clientsystems_client.cpp (+103), kClientSystems[]'s rows over managed systems; (e) +39 is the client trace's glow and solid arms (shell_worldquery_client.cpp); (b) +10, (g) +1 and (x) +3 follow; 89,872 lines in the table.
 
 Then the render recorder gained the shadowmgr. hook family (C7 shadow manager S0, 2026-10-19, measured by the walk at the landing on main 2ba84d1ca): (a) 33,386 -> 33,753 is shell_render_trace_client.cpp's IShadowMgr and static-prop shadow hooks, armed by SOURCESHARP_RENDER_TRACE_SHADOWS=1, the base witness S2's A/B compares against; 86,860 lines in the table.
+
+Then clientshadowmgr.cpp, the last Valve TU, left client.so (C7 shadow manager S2, 2026-10-20, measured by the walk at the landing on main 29ec64f57): (a) 33,710 -> 34,533 and client 32 -> 31 files is shell_shadows_client.cpp (the environment ShadowNative carries the calls out over), the pending queue and the shells re-pointed, net of what went; (d) 9,159 -> 9,496 is the shadow block's layout; (g) 16 -> 15 files and 9,345 -> 5,889 is collisionutils.cpp, deleted with the mathlib forwards only the manager imported; (x) 19 -> 18 files is shell_tools_off_client.cpp, deleted (its row in the no-letter table goes); (b) +14 and (c) +3 follow; 215 files and 84,438 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
@@ -437,7 +439,6 @@ close produces. **This is the number the port exists to drive to zero.**
 | `sourcesharp/game/client/tier0_spew_client.cpp` | 27 | tier0's `DevWarning( level )`, which only client objects call (bone_setup, shell_clientdll, the temp-entity shells); beside the shared tier0_spew_port.cpp because the server does not need it (user ruling 2026-10-12) | those call sites asking managed logging, or their TUs leaving |
 | `sourcesharp/game/client/tier1_client.cpp` | 174 | tier1's small members client.so still calls, so each object leaves its link: checksum_crc.cpp's CRC32 functions over ss_crc32.h (sentence.cpp, shell_input.cpp, SharedRandom's seed), rangecheckedvar.cpp's g_bDoRangeChecks (sequence_Transitioner.cpp) and mempool.cpp's CUtlMemoryPool (clientleafsystem.cpp, viewrender.cpp, the temp-entity pools, the view executor) | each name's last native caller leaving |
 | `sourcesharp/game/client/particles_lib/particles_tier2_stubs.cpp` | 73 | what particles.a imports from tier2.a (CBeamSegDraw's Start/NextSeg/End and vtable, RenderWireframeBox/Sphere), defined as counted no-ops so tier2.a left client.so (user ruling 2026-10-12); moved into libss_particles.so with particles.a (plan_particles_so.md), its counts read back through ISSParticleLib::Counters. Native because particles.a calls them in-process | real tier2 ports in the library, or particles.a's rope and debug-wireframe draws through managed |
-| `sourcesharp/game/client/shell_tools_off_client.cpp` | 44 | the names the one Valve TU still compiled into client.so that names the tool framework links against, after toolframework_client.cpp and entity_client_tools.cpp left (SFM is dead, user ruling 2026-10-19): `ToolsEnabled` (false) and `ToolFramework_RecordMaterialParams` for clientshadowmgr.cpp. `clienttools` and `ToolFramework_PostToolMessage` went with flashlighteffect.cpp (C7 cluster 12, 2026-10-18) | clientshadowmgr.cpp's eviction |
 
 
 ## Link libraries, re-measured at the close

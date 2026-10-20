@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-bool ToolsEnabled()	LIVE-API	clientshadowmgr.o imports it (nm -u over client.so's link inputs, 2026-10-19); answers tools-off: SFM is dead (user ruling 2026-10-19)
-void ToolFramework_RecordMaterialParams( IMaterial * )	LIVE-API	clientshadowmgr.o imports it (nm -u over client.so's link inputs, 2026-10-19); answers tools-off: SFM is dead (user ruling 2026-10-19)

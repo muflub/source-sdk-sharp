@@ -799,6 +799,266 @@ normal, so the boundary is never met.
 - TheFarmDiffersFromThePristineOnlyByTheEditFamilies reads the farm's TU,
   which S2's eviction removes: retire that fact with it.
 
+## S2 and S3 as built (2026-10-20, lane worktree-agent-a0609c0462febd219, base cd01c2887)
+
+The commits, in order: the switch (11e885ed3), the queue's copy fix (645f7d8aa), the
+queue's 512 entries (e88699d0b), the deletion (968201cec), and this section with the S3
+session (tools/probes/sessions/c7-shadow-s3.steps). The lane rewrote its own history
+twice before landing, to keep each commit's checks green (tags
+archive/s2-lane-pre-squash, -2 and -3 hold the earlier shas); the measurements
+below name the sha they ran at: c7c7a17c8 is the switch's first form (the
+same sources, and an sdk-links list that dropped utlmultilist.h, which the
+oracles still compile), ee23411a1 and f6c3f0b33 + the deletion are the
+deletion's tree.
+
+### What was built
+
+- **ShadowNative is one HAND slot.** `SSFwd_Shadows_Run( env, records,
+  answers )` in libss_fwd_client (src/fwd/native/fwd_shadows.cpp): a buffer of
+  records `[kind, nPayload, payload...]`, kinds 1-49 effects (the engine's
+  IShadowMgr and static-prop shadow calls, the render context, the material
+  system, the debug overlay) and 64-96 questions (82 kinds in all). Effects are
+  queued; a question sends the queue with it and is always the last record;
+  ClientShadowSystem flushes when the outermost call into the manager returns.
+  S1's call-shaped seams are ShadowNative.cs over it. fwd_shadows_test holds
+  every kind over fakes (91 facts).
+- **The environment is client.so's** (shell_shadows_client.cpp), served by
+  name through client.so's internal factory (SourceSharpShadowEnv001) and handed
+  to every run: the engine pointers, the reference tables for the shadow
+  materials, render targets and the flashlight's spotlight textures, the
+  restore callback, RenderableOf, the depth texture's view and
+  cl_drawshadowtexture's quad.
+- **IManagedShadowsClient** (12 rows, CrossingOps 394-405): Init, Shutdown,
+  LevelInitPreEntity, LevelShutdownPostEntity, the five frame slots
+  (AdvanceFrame, PreRender, ComputeShadowTextures, ComputeShadowDepthTextures,
+  UnlockAllShadowDepthTextures), RestoreRenderState, RenderShadowTexture and
+  Pending. kClientSystems[] keeps stock's CClientShadowMgr row
+  (CShadowMgrGameSystem); the view executor's six shadow ops call the frame
+  slots.
+- **The shells' queue** (shadow_pending_queue.h): an entity's dirty mark,
+  refresh (type and flags) and destroy, three int32 an entry; a second dirty
+  mark ORs into the first, a destroy drops the entity's earlier entries, a full
+  queue is handed over (Pending). The five frame slots carry it in their
+  arguments, as a copy; any other slot hands it over first.
+- **EntityShadows** holds an entity's shadow handle and dirty bit (stock's
+  m_ShadowHandle and EFL_DIRTY_SHADOWUPDATE), keyed by entity and renderable,
+  and answers the manager's ShadowHandle, IsShadowDirty and MarkShadowDirty of a
+  renderable itself; C_StandaloneEntity's members went in the deletion.
+- **In-process callers:** the leaf registry's receivers and EnumShadow
+  (IShadowReceivers, IShadowLeafEnumerator), the flashlight (IFlashlightShadows,
+  through FlashlightWorld), shadow_control (IShadowWorldControl), and the Shadow
+  and ShadowModel proxies through the managed proxy host (IShadowProxySource,
+  user ruling Q1).
+- **The receive rule** (user ruling Q2): ClientRenderPolicy writes both
+  answers into the block's ShadowFlags word (ClientShadowFlag.ReceivesShadows,
+  1 << 29; ReceivesFlashlight, 1 << 30); C_StandaloneEntity's
+  ShouldReceiveProjectedTextures reads the one the mask names; the refresh entry
+  masks the flags to 16 bits.
+- **The ConVars:** ShadowConVars.cs declares the five client.so ones of the C0
+  snapshot (r_flashlightdepthres, r_flashlightdrawfrustum, r_flashlightmodels,
+  r_shadowmaxrendered, r_threaded_client_shadow_manager) and the commands
+  (r_shadowdir, r_shadowangles, r_shadowcolor, r_shadowdist,
+  r_shadowblobbycutoff and cs_cl_shadow_report, r_shadowbreak in a debug build,
+  and S3's cs_cl_shadow_stats); r_shadowrendertotexture,
+  r_flashlightdepthtexture, r_shadows, r_shadows_gamecontrol and
+  r_flashlight_version2 are the engine's and are read or set by name.
+- **The trace:** the render trace's shadow lines are the executor's
+  (RenderTrace::ShadowEnter/Leave/Note at shell_shadows_client's calls); the
+  five IClientShadowMgr hooks went with the TU.
+
+### Rulings made here (2026-10-19/20, the S2/S3 lane)
+
+- R1, commit order: the switch carries clientshadowmgr.cpp out of the link,
+  because its statics (ten ConVars, seven commands, the two proxy
+  registrations) collide with the replacement's. The deletion and its
+  bookkeeping followed in their own commits.
+- R2, one HAND slot with records rather than a forwarder row per engine
+  call: the manager makes about 1,200-2,900 native calls a frame at these
+  poses, almost all questions.
+- R3, the environment by name through client.so's own factory, so the
+  forwarder library holds no client global.
+- R4, the entity's handle and dirty bit are managed (EntityShadows); the
+  shells queue rather than call.
+- R5, the engine owns five of the manager's ConVars (the first live run
+  refused the load, ConVarOwnership, while two were declared);
+  ClientShadowSystemTests holds the declarations to the C0 snapshot.
+- R6, Q2's storage is two bits above the SHADOW_FLAGS_* bits: no block
+  layout change. The render mode is kRenderTransTexture for a blended entity,
+  kRenderNormal otherwise (the block carries none).
+- R7, the witness is compared by the stable set (canonical shadowmgr. lines
+  both base runs hold), kind counts, scenebytes, the engine-read cvars and
+  cs_cl_shadow_report, because two base runs differ (shadow handles, atlas
+  texcoords, settling casters).
+- R8, the queue rides in the frame slots' arguments (S3 at the switch's
+  first build counted two Pending crossings a frame), and leaves as a copy.
+- R9, the deletion follows the importers: `nm -A -u` over the 138 link-edge
+  objects (client.so links no static archive) named clientshadowmgr.cpp as the
+  last importer of shell_renderable_facts.cpp, shell_tools_off_client.cpp,
+  every collisionutils.cpp symbol (its only compiler was client.so, so the file
+  is deleted, not only ComputeSeparatingPlane) and nineteen mathlib_port_client
+  forwards; `make debug GC_SECTIONS=0` links and tools/nogc-relink relinks both
+  DLLs after it.
+- R10, the leaf forwarder's five shadow rows stay in IManagedLeafSystemClient
+  (the table only appends; L2's RenderLeafList precedent) and the binding
+  answers the refusal, counted. IShimFlashlightClient's four manager slots
+  retired with a named `tools/engine-forwarders --write --reorder`.
+- R11, iclientshadowmgr.h stays in sdk-links: c_baseentity.h includes it, in
+  90 client TUs.
+
+### Divergences (each held by a fact, or named)
+
+- D1, GetFlashlightState: S1's ruling (the manager uses its own copy) leaves
+  out stock's two GetFlashlightState questions per flashlight frame (the
+  witness's rtt*-flash traces: 2, 2 -> 0).
+- D2, FirstMoveChild and NextMovePeer answer 0: no renderable is a
+  C_BaseEntity on this link line.
+- D3, cs_cl_renderable_report and its lost-renderable counter went with
+  shell_renderable_facts.cpp; cs_cl_shadow_report counts and names the shadows
+  whose renderable does not resolve (renderable_subject_test).
+- D4, the render mode from Translucent (R6).
+- D5, the native StandaloneShadowCast's has-shadow answer is written 0 and the
+  managed query no longer asks for it: EntityShadows holds the handle
+  (IEntityShadowState, the dev API's).
+
+### The live A/B (c7-shadow-ab.steps, dm_lockdown, debug, port 27563)
+
+Two base runs at cd01c2887 (base, base2) are not byte-equal to each other:
+shadow handles, atlas texcoords and the values of the shadows whose casters
+settle differently move (32-55 canonical lines a trace). So each of the 35
+traces is compared on the lines both base runs hold (5,225), each
+shadowmgr. kind's count against the two bases' range, the scenebytes, the
+five engine-read cvars, and the 28 cs_cl_shadow_report counts (held, rtt,
+simple, depth, none, lost, rttActive) per tagged window.
+
+- **A clean run at the tip** (witness-un1, at the deletion's tree): every
+  report equal (28 of 28), scenebytes equal in all 35 traces, cvars equal, 0
+  `EXCEPTION IN`, 0 `could not acquire "`. 5 of the 5,225 stable lines missing:
+  stock's four GetFlashlightState questions (D1) and one line of the crate in
+  flight. The new lines are Q2's by design: 1,103 RemoveAllShadowsFromModel,
+  378 RemoveAllShadowsFromBrushModel, 182 AddShadowToBrushModel, 2
+  AddShadowToModel and 2 AddFlashlightRenderable (the flashlight lights the
+  crate), the GetInfo answers for the new receivers' shadows, 23
+  GetFlashlightFrustum per flashlit trace (the flashlight's receivers), and 1-2
+  crate-in-flight lines in the drop traces.
+- **The control** (witness-tip-noq2, the switch's tree with the policy's
+  receive answers forced false, restored by sha): the new lines fell to the
+  base-vs-base2 noise per trace, receivers 0, every kind's count in the bases'
+  range, the reports equal. The switch alone is behaviour-equal within the
+  noise; Q2 accounts for every receiver line above.
+- **The flashlit crate** (c7-shadow-s3.steps, rtt0-p1-noflash.jpg and
+  rtt0-p1-flash.jpg at the deletion's tree): mean luma of the crate's front
+  85.2 -> 105.9 and top 71.5 -> 97.3 with the flashlight on, a patch of floor
+  outside the beam 61.8 -> 61.8.
+- **One intermittent difference, not attributed.** In 2 of 9 runs at the tip
+  (the switch's commit, and the deletion's first run) entity entry 264 at
+  (-3722, 4082, 49.8) had no shadow after the second map load in RTT mode
+  (reports 64 against 65, rtt-off's and reload-rtt1-p1's), its shadow made at
+  the RTT switch never rendered (renderFrame -1), and those two traces' scene
+  held one entry fewer (190 -> 189). The 0 of 3 runs before (base, base2, the
+  switch's tree before commit) and 7 of 9 at the tip (4 with a trace of
+  entity 264's queue entries, 3 without) kept it. At a 2-in-9 rate, P(0 of 3)
+  is 0.47, so three base runs cannot clear the base. A reload session without
+  the A/B's earlier windows (s2-repro: map, RTT on, pose 3, reload, pose 1)
+  kept it twice. The deletion's failing run also showed a six-entry rotation
+  in the scenebytes of the RTT-on and pose 2/3 traces (the same six entities
+  in another order); the switch's failing run and the clean run compared
+  (un1) did not. The queue's aliasing (fixed in the copy fix)
+  was a real bug found chasing it, but not its cause: it recurs with the fix.
+  Open below.
+
+The witness traces, reports and screenshots are in the lane's scratch
+(witness-base, -base2, -tip2, -tip3, -tip4, -tip-noq2, -instr, -li1..3, -un1..3).
+
+### S3: the cost (c7-shadow-s3.steps and c7-shadow-ab.steps' crossings windows, debug)
+
+Crossings are cs_cl_crossings over 10 s windows (about 600 client frames) on
+dm_lockdown in a debug build; the manager's own calls, time, queue and native
+runs are cs_cl_shadow_stats (S3's instrument, ShadowSystemStats) in the same
+windows. Base is cd01c2887 (c7-shadow-ab.steps' windows); the tip is the
+deletion's tree.
+
+| window | base /frame | tip /frame | delta | manager us/frame | native runs /frame (records, questions) |
+|---|--:|--:|--:|--:|---|
+| rtt0-p1 | 65.47 | 70.46 | +5.0 | 219.7 | 1,203 (1,268, 1,167) |
+| rtt0-p1, flashlight | 72.47 | 76.47 | +4.0 | 504.8 | 1,596 (1,708, 1,554) |
+| rtt0-p3 | 86.47 | 91.47 | +5.0 | 281.9 | 1,637 (1,741, 1,577) |
+| rtt1-p1 | 66.55 | 71.47 | +4.9 | 322.9 | 1,862 (1,945, 1,823) |
+| rtt1-p1, flashlight | 73.47 | 77.47 | +4.0 | 586.1 | 2,244 (2,373, 2,200) |
+| rtt1-p3 | 88.47 | 94.47 | +6.0 | 443.0 | 2,791 (2,912, 2,729) |
+| reload, rtt1-p1 | 66.47 | 71.47 | +5.0 | 313.9 | 1,834 (1,916, 1,797) |
+| reload, rtt0-p1 | 65.53 | 70.47 | +4.9 | 216.2 | 1,195 (1,260, 1,159) |
+
+- **The plus:** the manager's own slots, six a frame in every window
+  (AdvanceFrame 1, PreRender 2, ComputeShadowTextures 1,
+  ComputeShadowDepthTextures 1, UnlockAllShadowDepthTextures 1); the queue
+  rides in them (Pending 0 a frame at every window since the 512-entry queue;
+  at 256 it was handed over once a frame wherever more than 256 entries
+  queued, 248-269 a frame, 18-25 us).
+- **The minus:** the leaf forwarder's EnumerateShadowsInLeaves (1 a frame,
+  RTT on) and ProjectFlashlight (1 a frame, flashlight on), and one TakeOps a
+  frame (the receivers' operations are in-process): -1 to -2.
+- **Q1's per-bind crossings:** ClientMaterialProxyBind rises by 1 a frame at
+  rtt1-p1 and the reload (2 -> 3) and by 3 at rtt1-p3 (1 -> 4): the Shadow
+  proxy's binds of the RTT shadow decals. With RTT off (the default) it
+  binds none (0 change at every rtt0 window).
+- **Where the managed time goes** (rtt0-p1): PreRender 90.5 us (the dirty
+  walk), the receivers 108.9 us (127 calls a frame from the leaf registry,
+  each asking native whether the renderable receives), the RTT pass 17.2 us;
+  with the flashlight on the depth textures add 165.8 us and the flashlight's
+  four calls 102 us; with RTT on ComputeShadowTextures is 115-187 us.
+- **The native runs are questions:** 1.04-1.07 records a run; the largest
+  run is 17 records (RTT on). Effects batch; questions do not, because each is
+  asked where stock asked it.
+- **Budget:** the port-budget ruling allows the rise (+4 to +6 inbound a
+  frame). The batching candidates for the perf pass, measured here: the
+  receivers' ShouldReceiveProjectedTextures (127-152 a frame) answered from the
+  leaf registry's own Receives batch, which already asks the same question for
+  its inserts; the dirty walk's renderable facts (origin, angles, bounds, model
+  per dirty shadow, 162-284 queue entries a frame) asked in one batch per
+  PreRender in the leaf registry's Facts shape. A cache of RenderableOf was
+  considered and refused: a caster deleted before its DESTROY is applied would
+  answer a freed renderable.
+
+### Mutation proofs (a cp snapshot, sha256 before, mutated, restored with a fresh mtime, sha256 equal)
+
+| mutation | file | red |
+|---|---|---|
+| a held shadow is created again on refresh | ClientShadowSystem.cs | ARefreshCreatesTheEntitysShadowOnceAndASecondKeepsIt |
+| a retired shadow destroyed again | ClientShadowSystem.cs | AShadowTheManagerRetiredIsNotDestroyedAgainByTheEntitysDestroy |
+| the dirty entry's texture bit ignored | ClientShadowSystem.cs | ADirtyMarkWithTheTextureBitMarksTheTextureDirty |
+| Q2's two answers swapped | ClientRenderPolicy.cs | TheReceiveAnswersAreWrittenAboveTheShadowFlags |
+| Q2's render mode always normal | ClientRenderPolicy.cs | ABlendedInvisibleEntityTakesNoFlashlight |
+| Q1's ShadowModel made as Shadow | MaterialProxyFactory.cs | TheShadowModelProxyWritesWhatTheEnginesInfoSaysThroughTheHost |
+| the queue read one word an entry | ShadowsClientBinding.cs | TheBindingHandsEachSlotToTheHostAndCountsItsCrossing |
+| a throwing Init refuses start-up | ShadowsClientBinding.cs | AThrowingHostRefusesNothingAndEverySlotIsCaught |
+| a second dirty mark appended | shadow_pending_queue.h | ASecondDirtyMarkCollapsesIntoTheFirstAndKeepsTheTextureBit |
+| a destroy keeps earlier entries | shadow_pending_queue.h | ADestroyDropsTheEntitysEarlierEntriesAndNoOthers |
+| a full queue not handed over | shadow_pending_queue.h | AFullQueueIsHandedOverBeforeTheNextEntry |
+| Take hands the queue's own array (the pre-fix code) | shadow_pending_queue.h | WhatIsQueuedWhileTheCallReadsTheTakenEntriesLeavesThemIntact (six expectations) |
+| the forwarder's AddShadow reaches managed | fwd_leaf_system.cpp | FwdLeafSystem.TheShadowHalfCallsNothing |
+| a retired binding slot answers operations | LeafSystemClientBinding.cs | TheRetiredShadowSlotsAnswerTheRefusalAndAreCounted |
+
+fwd_shadows_test's facts were each shown red against a scratch copy of
+fwd_shadows.cpp with the kind's arm broken (the two short-record pointer bugs
+they found are fixed in the switch).
+
+### Open
+
+- The intermittent missing shadow of entity entry 264 after the second map
+  load (2 of 9 runs at the tip, 0 of 3 before; above). Next: more base runs
+  in a tree at cd01c2887 to measure the base's rate, and a trace of the leaf
+  registry's insert for that entity in a failing run (the scene's missing
+  entry says it may not be drawn at all, which is the leaf system's, not the
+  shadow manager's).
+- The batching above, in the perf pass.
+- iclientshadowmgr.h stays in sdk-links while c_baseentity.h includes it.
+- mathlib_port_stock_test still holds ss_mathlib's inlines of the deleted
+  forwards (VectorITransform, VectorIRotate, GeneratePerspectiveFrustum, ...)
+  to stock; no DLL calls them now.
+- The C0 snapshot (docs/novalve-snapshot/client-c0/client-commands-contract.txt)
+  still lists cs_cl_renderable_report; the snapshot is C0's, and the command
+  left at S2's deletion (D3).
+
 ## Decisions
 
 - 2026-10-19 (user, Q1: "move to c#"): the Shadow and ShadowModel proxies

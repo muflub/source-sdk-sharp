@@ -4,16 +4,18 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 23 links here; 545 in all lists (were 576)
+# 24 links here; 540 in all lists (were 541)
 #       1 src/common
-#       6 src/game
+#       5 src/game
 #       4 src/lib
-#      12 src/public
+#      14 src/public
 ## src/lib/public/linux64/bitmap.a: client_no_bitmap_vtf_test runs nm over it (NoNameEitherArchiveDefinesIsInClientSo)
 ## src/lib/public/linux64/tier2.a: client_no_tier2_test runs nm over it (EveryTier2NameInEachLibraryIsOneOfOurObjects)
 ## src/lib/public/linux64/tier3.a: client_no_tier3_test runs nm over it (EveryTier3NameInClientSoIsOneOfOurObjects)
 ## src/lib/public/linux64/vtf.a: client_no_bitmap_vtf_test runs nm over it (NoNameEitherArchiveDefinesIsInClientSo)
+## src/public/collisionutils.h: precipitation_oracle_test compiles it (farm/<config>/build-oracle, src/test/oracle/native/precipitation_stub/precip_harness.h; the pristine collisionutils.cpp beside the shadow manager's oracle)
 ## src/public/tier1/utlbidirectionalset.h: leafsystem_oracle_test compiles it (farm/<config>/build-oracle, src/test/oracle/native/leafsystem_stub/leafsystem_gather.h)
+## src/public/tier1/utlmultilist.h: shadowmgr_oracle_test and pixelvis_oracle_test compile it (farm/<config>/build-oracle: the pristine clientshadowmgr.cpp, src/test/oracle/native/pixelvis_stub/pixelvis_harness.h)
 ## src/public/vphysics/object_hash.h: tools/client-novalve-census compiles it: a root in docs/client-fork-roots.txt
 src/common/qlimits.h
 src/game/client/c_te_legacytempents.cpp
@@ -26,6 +28,7 @@ src/lib/public/linux64/tier2.a
 src/lib/public/linux64/tier3.a
 src/lib/public/linux64/vtf.a
 src/public/bone_setup.h
+src/public/collisionutils.h
 src/public/dt_send.h
 src/public/game/server/iplayerinfo.h
 src/public/ivoiceserver.h
@@ -34,6 +37,7 @@ src/public/steam/isteamapps.h
 src/public/steam/isteamfriends.h
 src/public/steam/isteamuser.h
 src/public/tier1/utlbidirectionalset.h
+src/public/tier1/utlmultilist.h
 src/public/toolframework/iserverenginetools.h
 src/public/vphysics/object_hash.h
 src/public/vphysics/vehicles.h

@@ -12,7 +12,7 @@ set_target_properties(client_sourcesharp PROPERTIES OUTPUT_NAME client PREFIX ""
 # and paths from the environment, which server.so makes unwrapped too.
 ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP)
 
-# 246 translation units, sorted: the Valve files that still come from the fork
+# 242 translation units, sorted: the Valve files that still come from the fork
 # first, then this repo's, each group alphabetically (link order is this order;
 # the live gate runs on it). This repo's files are named where they live
 # (${CMAKE_CURRENT_SOURCE_DIR}/..., ${PROJECT_SOURCE_DIR}/src/...); only the
@@ -20,7 +20,6 @@ ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP)
 # (${SS_SRC}/..., sdk-links/). tools/cmakegraph.py and its twins map a local
 # path back to its farm spelling through tools/module-map.tsv.
 set(client_sourcesharp_sources
-    ${SS_SRC}/game/client/clientshadowmgr.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/client_util_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/managed_runtime_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_beam_render.cpp
@@ -42,7 +41,6 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effects_list_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_effects_sim.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_entitystatics.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_flashlight_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud_framework.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_impact_effects.cpp
@@ -107,8 +105,8 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/engineabi_recv.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/engineabi_recv_names.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/generic_payload_client.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_renderable_facts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_rope_render.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_shadows_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundscape_audio_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_centerprint_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_loadingdisc_client.cpp
@@ -129,7 +127,6 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_legacy_tempents_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_store_client.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_tools_off_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_usermessages_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_facts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_targets.cpp
@@ -154,7 +151,6 @@ set(client_sourcesharp_sources
     # wraps on this target. Named at its server path, as src/test/native does.
     ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/collisionproperty.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/collisionutils.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/dt_utlvector_common.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/dt_element_names.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/entity_shared_statics.cpp

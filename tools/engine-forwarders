@@ -668,6 +668,19 @@ HAND = [
             ('DetailModels', 'void', 'void *, const int32_t *, int32_t, void **'),
         ],
     ),
+    # C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md): the client shadow
+    # manager's one native function, Run, which carries out a buffer of
+    # records (fwd_shadows.h) over the environment client.so built: the engine
+    # calls the managed manager makes, and the questions it asks.
+    dict(
+        table='Shadows',
+        side='client',
+        self_type='void',
+        include='fwd_shadows.h',
+        slots=[
+            ('Run', 'int32_t', 'const SSShadowEnv *, const int32_t *, int32_t, int32_t *, int32_t'),
+        ],
+    ),
 ]
 
 PREFIX = 'SSFwd_'
