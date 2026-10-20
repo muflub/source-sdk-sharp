@@ -192,9 +192,6 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     public void ActivateAllEntities() => Vtbl->ActivateAllEntities(_self);
 
     /// <inheritdoc/>
-    public void InitPostEntitySystems() => Vtbl->InitPostEntitySystems(_self);
-
-    /// <inheritdoc/>
     public void SetPrecacheAllowed(bool allowed)
         => Vtbl->SetPrecacheAllowed(_self, allowed ? 1 : 0);
 
@@ -202,13 +199,7 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     public bool IsPrecacheAllowed() => Vtbl->IsPrecacheAllowed(_self) != 0;
 
     /// <inheritdoc/>
-    public void ShutdownPreClearSteamSystems() => Vtbl->ShutdownPreClearSteamSystems(_self);
-
-    /// <inheritdoc/>
     public void ClearSteamAPIContext() => Vtbl->ClearSteamAPIContext(_self);
-
-    /// <inheritdoc/>
-    public void ShutdownPreEntitySystems() => Vtbl->ShutdownPreEntitySystems(_self);
 
     /// <inheritdoc/>
     public void ShutdownStandaloneEntities() => Vtbl->ShutdownStandaloneEntities(_self);
@@ -218,9 +209,6 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
 
     /// <inheritdoc/>
     public void ClearEntityList() => Vtbl->ClearEntityList(_self);
-
-    /// <inheritdoc/>
-    public void ShutdownPostEntitySystems() => Vtbl->ShutdownPostEntitySystems(_self);
 
     /// <inheritdoc/>
     public void UncacheAllParticleSystems() => Vtbl->UncacheAllParticleSystems(_self);
@@ -248,6 +236,30 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
         fixed (byte* p = bytes)
             return Vtbl->LoadSaveGameState(_self, p, createPlayers ? 1 : 0) != 0;
     }
+
+    /// <inheritdoc/>
+    public void SetLoadType(MapLoadType how) => Vtbl->SetLoadType(_self, (int)how);
+
+    /// <inheritdoc/>
+    public bool PhysicsInit() => Vtbl->PhysicsInit(_self) != 0;
+
+    /// <inheritdoc/>
+    public void PhysicsLevelInitPreEntity() => Vtbl->PhysicsLevelInitPreEntity(_self);
+
+    /// <inheritdoc/>
+    public void PhysicsLevelInitPostEntity() => Vtbl->PhysicsLevelInitPostEntity(_self);
+
+    /// <inheritdoc/>
+    public void PhysicsLevelShutdownPreEntity() => Vtbl->PhysicsLevelShutdownPreEntity(_self);
+
+    /// <inheritdoc/>
+    public void PhysicsLevelShutdownPostEntity() => Vtbl->PhysicsLevelShutdownPostEntity(_self);
+
+    /// <inheritdoc/>
+    public void StringPoolLevelShutdownPostEntity() => Vtbl->StringPoolLevelShutdownPostEntity(_self);
+
+    /// <inheritdoc/>
+    public void ResetEntitySlots() => Vtbl->ResetEntitySlots(_self);
 
     /// <inheritdoc/>
     public byte[]? ReadFileOnPath(string path, string pathId)

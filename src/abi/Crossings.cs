@@ -45,13 +45,23 @@ public enum CrossingOp
     /// </summary>
     ReloadCheckServer = 0,
     UnloadServer = 1,
-    ServerFrame = 2,
-    ServerFramePreThink = 3,
-    ServerFramePostThink = 4,
+    /// <summary>IManagedClientSystemsClient::Stage: one stage of a kClientSystems[] row whose system is managed's (C7, vgui_game_viewport.cpp's row first). CLIENT ONLY.</summary>
+    /// <remarks>Value 2 since plan_server_native_v2 T4e retired ServerFrame (it was 396): the ops stay contiguous.</remarks>
+    ClientSystemStage = 2,
+    /// <summary>IManagedPixelVisClient::EndView: a view's end asks the managed pixel visibility for the proxies to draw (C7, c_pixel_visibility.cpp). CLIENT ONLY.</summary>
+    /// <remarks>Value 3 since plan_server_native_v2 T4e retired ServerFramePreThink (it was 397): the ops stay contiguous.</remarks>
+    ClientPixelVisEndView = 3,
+    /// <summary>IManagedRenderClient::ScreenSpaceEffectsStage: the view's level start or end runs the managed screen-space effect manager's Init or Shutdown (C7 screen-space effects). CLIENT ONLY.</summary>
+    /// <remarks>Value 4 since plan_server_native_v2 T4e retired ServerFramePostThink (it was 395): the ops stay contiguous.</remarks>
+    ClientScreenSpaceEffectsStage = 4,
     ClientFrame = 5,
-    ServerLevelInit = 6,
+    /// <summary>IManagedPixelVisClient::Commands: a view's end whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
+    /// <remarks>Value 6 since plan_server_native_v2 T4e retired ServerLevelInit (it was 398): the ops stay contiguous.</remarks>
+    ClientPixelVisCommands = 6,
     ClientLevelInit = 7,
-    ServerLevelShutdown = 8,
+    /// <summary>IManagedPixelVisClient::EndScene: the scene's end frees the sets and queries nobody asked about. CLIENT ONLY.</summary>
+    /// <remarks>Value 8 since plan_server_native_v2 T4e retired ServerLevelShutdown (it was 399): the ops stay contiguous.</remarks>
+    ClientPixelVisEndScene = 8,
     ClientLevelShutdown = 9,
     ServerConCommand = 10,
     ClientConCommand = 11,
@@ -80,7 +90,9 @@ public enum CrossingOp
     ServerSteamGameServerActivated = 34,
     ServerSteamGameServerShutdown = 35,
     ServerMapLoadPreEntity = 36,
-    ServerMapUnloadPreEntity = 37,
+    /// <summary>IManagedGlowClient::DrawOverlays: the plan's glow overlay draw asks the managed system for its commands (C7, glow_overlay.cpp). CLIENT ONLY.</summary>
+    /// <remarks>Value 37 since plan_server_native_v2 T4e retired ServerMapUnloadPreEntity (it was 400): the ops stay contiguous.</remarks>
+    ClientGlowDrawOverlays = 37,
     ServerSkyboxAreaForClient = 38,
     ServerEarPositionForClient = 39,
     ServerTemplatesAddNamed = 40,
@@ -96,7 +108,9 @@ public enum CrossingOp
     ServerGetGameDescription = 50,
     ServerOnClientPutInServer = 51,
     ServerOnClientActive = 52,
-    ServerOnClientGamePrecache = 53,
+    /// <summary>IManagedResources::ModelPrecacheCheck: Precache_Model's late-precache warning, decided in managed, once per model precache (plan_server_native_v2 T4e).</summary>
+    /// <remarks>Value 53 since plan_server_native_v2 T4e retired ServerOnClientGamePrecache (it was 396): the ops stay contiguous.</remarks>
+    ServerModelPrecacheCheck = 53,
     ServerOnRespawn = 54,
     ServerConVarChanged = 55,
     ClientConVarChanged = 56,
@@ -252,12 +266,9 @@ public enum CrossingOp
     // arm), so the client's per-frame crossing count falls with this step
     // rather than rising. cs_cl_crossings is where that is read.
     ClientPredictionUpdate = 108,
-    // The server's physics frame, managed (plan_physics_bones_native_zero 2.3):
-    // CPhysicsHook::FrameUpdatePostEntityThink forwarding to PhysicsFrame. ONE
-    // crossing per server frame. It took 122 when ServerPhysicsEvents, the
-    // event ring's drain, retired with the ring: PhysicsFrame posts the
-    // step's events to the router with no crossing at all.
-    ServerPhysicsFrame = 109,
+    /// <summary>IManagedGlowClient::Commands: a draw whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
+    /// <remarks>Value 109 since plan_server_native_v2 T4e retired ServerPhysicsFrame (it was 401): the ops stay contiguous.</remarks>
+    ClientGlowCommands = 109,
 
 
 
@@ -872,8 +883,9 @@ public enum CrossingOp
     ClientRenderLeafList = 345,
     /// <summary>IManagedRenderClient::RenderLeafViewModels: the view models' opaque/translucent split, once per CollateViewModelRenderables (C7 cluster 12 L1). CLIENT ONLY.</summary>
     ClientRenderLeafViewModels = 346,
-    /// <summary>IManagedSoundEmitter::ServerSoundSystemInit: the SourceSharpManaged row's Init runs the managed SoundEmitterSystem's (ModInit) first (plan_server_native_v2 T4a, the precache path).</summary>
-    ServerSoundSystemInit = 347,
+    /// <summary>IManagedGlowClient::UpdateSkyOverlays: the sky overlays' obstruction. CLIENT ONLY.</summary>
+    /// <remarks>Value 347 since plan_server_native_v2 T4e retired ServerSoundSystemInit (it was 402): the ops stay contiguous.</remarks>
+    ClientGlowUpdateSkyOverlays = 347,
     /// <summary>IManagedSoundEmitter::ServerPrecacheScriptSound: the world's and EffectsPrecache's script precaches, to the managed SoundEmitterSystem (plan_server_native_v2 T4a, the precache path).</summary>
     ServerPrecacheScriptSound = 348,
     /// <summary>IManagedSaveRestore::SaveInit: the save block allocated and placed by the managed SaveGameSession, once per save (plan_server_native_v2 T4c).</summary>
@@ -967,22 +979,6 @@ public enum CrossingOp
     ClientSaveReadFields = 393,
     /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
     ServerAreaPortalVisibility = 394,
-    /// <summary>IManagedRenderClient::ScreenSpaceEffectsStage: the view's level start or end runs the managed screen-space effect manager's Init or Shutdown (C7 screen-space effects). CLIENT ONLY.</summary>
-    ClientScreenSpaceEffectsStage = 395,
-    /// <summary>IManagedClientSystemsClient::Stage: one stage of a kClientSystems[] row whose system is managed's (C7, vgui_game_viewport.cpp's row first). CLIENT ONLY.</summary>
-    ClientSystemStage = 396,
-    /// <summary>IManagedPixelVisClient::EndView: a view's end asks the managed pixel visibility for the proxies to draw (C7, c_pixel_visibility.cpp). CLIENT ONLY.</summary>
-    ClientPixelVisEndView = 397,
-    /// <summary>IManagedPixelVisClient::Commands: a view's end whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
-    ClientPixelVisCommands = 398,
-    /// <summary>IManagedPixelVisClient::EndScene: the scene's end frees the sets and queries nobody asked about. CLIENT ONLY.</summary>
-    ClientPixelVisEndScene = 399,
-    /// <summary>IManagedGlowClient::DrawOverlays: the plan's glow overlay draw asks the managed system for its commands (C7, glow_overlay.cpp). CLIENT ONLY.</summary>
-    ClientGlowDrawOverlays = 400,
-    /// <summary>IManagedGlowClient::Commands: a draw whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
-    ClientGlowCommands = 401,
-    /// <summary>IManagedGlowClient::UpdateSkyOverlays: the sky overlays' obstruction. CLIENT ONLY.</summary>
-    ClientGlowUpdateSkyOverlays = 402,
 }
 
 /// <summary>
@@ -1213,14 +1209,13 @@ public sealed class Crossings
     /// The denominator for "crossings per frame" on the server.
     ///
     /// <para>
-    /// <see cref="CrossingOp.ServerFrame"/> and not
-    /// <see cref="CrossingOp.ServerGameFrame"/>: both run once a frame, but
-    /// ServerFrame is the managed module's own frame hook and exists whether or
-    /// not the shell game DLL is wired, so it is the one that is there in every
-    /// configuration a measurement might be taken in.
+    /// <see cref="CrossingOp.ServerGameFrame"/>: <c>IServerGameDLL::GameFrame</c>'s
+    /// one crossing, once a frame. It was <c>ServerFrame</c>, the managed frame
+    /// row's own hook, until plan_server_native_v2 T4e made that a managed call
+    /// with no crossing (<c>ServerSystems</c>).
     /// </para>
     /// </summary>
-    public long ServerFrames => Read(CrossingOp.ServerFrame);
+    public long ServerFrames => Read(CrossingOp.ServerGameFrame);
 
     /// <summary>The same for the client. See <see cref="ServerFrames"/>.</summary>
     public long ClientFrames => Read(CrossingOp.ClientFrame);

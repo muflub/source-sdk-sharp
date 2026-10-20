@@ -107,19 +107,10 @@ public:
 	// one field write, both plain floats, no call, 1.000 crossings a frame.
 	virtual void SetServerCurTime() = 0;
 
-	// The named list's pre-entity-think pass. The MANAGED frame's PreThink runs
-	// inside this, as a row of kServerSystems[], which is why it is one step
-	// rather than two calls around a managed one.
-	virtual void ServerSystemsPreThink() = 0;
-
 	// SS_RETIRED PhysicsRunThinkFunctions lane=3b-enginebind physics_main.cpp left the vpc; the SimThink list has no members and the thinks are managed
 	// Stock's every-entity think pass. The body is empty and the slot is kept
 	// at its index until the SourceSharpFrame002 pass; see shell_frame.cpp.
 	virtual void PhysicsRunThinkFunctions( int32_t bSimulating ) = 0;
-
-	// The named list's post-entity-think pass. The managed frame's Frame runs
-	// inside this one.
-	virtual void ServerSystemsPostThink() = 0;
 
 	// SS_RETIRED ServiceEventQueue lane=3b-enginebind the native queue and every producer that posted into it left the vpc; the managed EntityIoQueue is the queue
 	// "service event queue, firing off any actions whos time has come" --
@@ -146,8 +137,6 @@ public:
 	// in release for now", and it is what makes every NDebugOverlay call in
 	// managed code visible.
 	virtual void DrawAllDebugOverlays() = 0;
-
-	virtual void ServerSystemsPreClientUpdate() = 0;
 
 	// The parallel hierarchy's post-think steps. Separate rather than one
 	// because the order BETWEEN them was a COMMENT in C++ ("Players first, so
@@ -179,6 +168,21 @@ public:
 	// SS_RETIRED DeliverToSdkEntities lane=3b-enginebind all four stock classes it walked to are absent from the armed build; returns 0 and the managed directory is the whole population
 	virtual int32_t DeliverToSdkEntities( const char *pTarget, const char *pInput,
 	                                      const char *pValue ) = 0;
+
+	// plan_server_native_v2 T4e: one NetworkStateChanged per entity whose
+	// managed state was written this frame -- what the managed row's native
+	// half did after the managed frame, when kServerSystems[] walked it. The
+	// position, after the managed frame and before the snapshot, is managed's
+	// (ServerSystems.FramePostThink).
+	virtual void DrainEntitySlots() = 0;
+
+	// plan_server_native_v2 T4e: mdlcache->BeginLock() / EndLock(), the
+	// MDLCACHE_CRITICAL_SECTION every system's stage ran inside when
+	// kServerSystems[]'s walk was native (stock's igamesystem.cpp walks take
+	// it per system). The managed row's stages take it through these two,
+	// paired, around the stage.
+	virtual void BeginModelCacheLock() = 0;
+	virtual void EndModelCacheLock() = 0;
 
 	// NEW METHODS GO HERE, AT THE END. See the append-only rule above.
 };

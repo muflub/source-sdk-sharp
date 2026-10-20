@@ -8,23 +8,27 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// Managed code never aliases a convar the engine defines. The native
-/// registration answers <see cref="ConVarRegistry.EngineOwnedId"/> for such a
-/// name (convar_ownership.h) and the registry refuses to start, naming every
-/// offending declaration.
+/// Managed code never aliases a convar the engine defines. The registry asks
+/// native for the flags of what the engine already holds under each name and
+/// refuses one carrying neither DLL's bit (<see cref="ConVarOwnership"/>,
+/// convar_ownership.h's rule until plan_server_native_v2 T4e), then refuses to
+/// start, naming every offending declaration.
 /// </summary>
 public class ConVarEngineOwnershipTests
 {
     private sealed class FakeBackend : IConVarBackend
     {
         public readonly HashSet<string> EngineOwned = new(StringComparer.OrdinalIgnoreCase);
+        public readonly Dictionary<string, int> Held = new(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> Registered = new();
         private int _next;
 
+        public int ExistingFlags(string name)
+            => EngineOwned.Contains(name) ? (int)ConVarFlags.Replicated
+             : Held.TryGetValue(name, out int flags) ? flags : -1;
+
         public int Register(string name, string defaultValue, string help, int flags, float? min, float? max)
         {
-            if (EngineOwned.Contains(name))
-                return ConVarRegistry.EngineOwnedId;
             Registered.Add(name);
             return _next++;
         }
@@ -46,11 +50,73 @@ public class ConVarEngineOwnershipTests
     [ConVar("ss_test_engine_two", "0")]
     private sealed class EngineTwo : BoolConVar { }
 
+    // ---- the rule, from convar_ownership.h (whose gtests these are now) -------
+
     [Fact]
-    public void TheEngineOwnedAnswerIsNativesMinusTwo()
+    public void NoDllFlagIsTheEngines()
+        => Assert.True(ConVarOwnership.OwnedByEngine(0));
+
+    [Fact]
+    public void OtherFlagsDoNotMakeItOurs()
+        => Assert.True(ConVarOwnership.OwnedByEngine(
+            (int)(ConVarFlags.Replicated | ConVarFlags.Archive | ConVarFlags.Cheat | ConVarFlags.Notify)));
+
+    [Fact]
+    public void TheServersIsNotTheEngines()
     {
-        // SOURCESHARP_CONVAR_ENGINE_OWNED in convar_ownership.h.
-        Assert.Equal(-2, ConVarRegistry.EngineOwnedId);
+        Assert.False(ConVarOwnership.OwnedByEngine((int)ConVarFlags.GameDll));
+        Assert.False(ConVarOwnership.OwnedByEngine((int)(ConVarFlags.GameDll | ConVarFlags.Replicated)));
+    }
+
+    [Fact]
+    public void TheClientsIsNotTheEngines()
+        => Assert.False(ConVarOwnership.OwnedByEngine((int)ConVarFlags.ClientDll));
+
+    /// <summary>A name the engine holds nothing under is nobody's yet: -1 refuses nothing.</summary>
+    [Fact]
+    public void NoSuchVariableIsNobodys()
+        => Assert.False(ConVarOwnership.OwnedByEngine(-1));
+
+    /// <summary>
+    /// Any answer below zero is "none", not a flag word read bit by bit: -16
+    /// carries neither DLL bit, and is still nobody's.
+    /// </summary>
+    [Fact]
+    public void ANegativeAnswerIsNeverReadAsFlags()
+        => Assert.False(ConVarOwnership.OwnedByEngine(-16));
+
+    // ---- the registry's use of it -----------------------------------------
+
+    /// <summary>
+    /// A name the server already registered (its FCVAR_GAMEDLL bit) is a
+    /// replicated pair, not the engine's: the declaration registers.
+    /// </summary>
+    [Fact]
+    public void ANameAGameDllHoldsIsRegisteredNotRefused()
+    {
+        var backend = new FakeBackend();
+        backend.Held["ss_test_ours_a"] = (int)(ConVarFlags.GameDll | ConVarFlags.Replicated);
+        var registry = new ConVarRegistry(backend);
+
+        Assert.Equal(1, registry.RegisterTypes(new[] { typeof(OursA) }));
+        Assert.Equal(new[] { "ss_test_ours_a" }, backend.Registered);
+    }
+
+    /// <summary>The refusal says so in the words native printed, and builds no carrier.</summary>
+    [Fact]
+    public void AnEngineOwnedNameIsRefusedOutLoudAndNeverRegistered()
+    {
+        var backend = new FakeBackend();
+        backend.EngineOwned.Add("ss_test_engine_one");
+        var log = new RecordingLog();
+        var registry = new ConVarRegistry(backend, log);
+
+        Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes(new[] { typeof(EngineOne) }));
+
+        Assert.Empty(backend.Registered);
+        Assert.Contains(log.Lines, l => l.Warning && l.Text ==
+            "[SourceSharp] C# declared convar 'ss_test_engine_one', which the engine defines: refused. "
+            + "Read the engine's by name instead of declaring it.\n");
     }
 
     [Fact]
@@ -125,6 +191,7 @@ public class ConVarEngineOwnershipTests
     public void EachRegistryRegistersThroughItsOwnConsole()
     {
         RecordingEngine Console(int id) => TestServices.Fake()
+            .Returns("Console.FindConVarFlags", -1)
             .Returns("Console.RegisterConVar", id)
             .Returns("Console.FindConVarValue", "2");
 

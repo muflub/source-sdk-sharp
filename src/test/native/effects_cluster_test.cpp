@@ -332,8 +332,10 @@ TEST( EffectsCluster, TheFlipTookEveryHeldTuAndEveryHolder )
 	// server.so kept nothing of it but TU-local constant initialisers. So the
 	// server's proof that the file list read at all is now a file it does
 	// compile, and the row itself is pinned where it lives.
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_serversystems.cpp" ) )
-		<< "the server's source list does not name shell_serversystems.cpp, so the "
+	// (shell_serversystems.cpp was that file until it left with kServerSystems[],
+	// plan_server_native_v2 T4e.)
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_frame.cpp" ) )
+		<< "the server's source list does not name shell_frame.cpp, so the "
 		<< "six absences above are vacuous rather than measured.";
 	// plan_physics_bones_native_zero Phase 3 retired the §6 pin: the file's
 	// primitives and key handlers are SourceSharp.Client's RagdollSolver, and

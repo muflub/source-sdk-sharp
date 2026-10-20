@@ -46,7 +46,6 @@
 #include "ss_util.h"            // engine, ss::FStrEq, ss::INDEXENT, ss::UTIL_TraceLine
 #include "ss_shareddefs.h"      // ss::kLanguageEnglish / kLanguageGerman, ss::kDmgBullet
 #include "ss_gamestringpool.h"  // AllocPooledString
-#include "ss_precache_register.h"
 #include "engine/ivmodelinfo.h"
 #include "shell_tempents.h"
 #include "ss_soundent.h"
@@ -67,7 +66,6 @@ extern CGlobalVars  *gpGlobals;
 // longer includes: enginecallback.h, util.h, client.h and ai_utils.h.
 void PrecacheParticleSystem( const char *pParticleSystemName );
 void SENTENCEG_Init();
-void ClientGamePrecache( void );
 extern string_t g_iszFuncBrushClassname;   // shell_absent.cpp; nothing reads it
 
 #include "precache_model.h"
@@ -93,16 +91,11 @@ extern string_t g_iszFuncBrushClassname;   // shell_absent.cpp; nothing reads it
 // and the calls below name the free functions directly.
 #include "entity_shared_statics.h"
 
-#include "managed_convar_ref.h"
 #include "native_command_body.h"
 #include "ss_recipient_filter.h"
 #include "ss_entityfactory.h"   // ss::IEntityFactory, for CWorldFactory
-#include "imanaged_areas.h"   // plan_server_native_v2 T4a: the script precache, IManagedSoundEmitter
-
-// g_Language IS DECLARED IN C# (SourceSharp.Server.GLanguageConVar),
-// plan_server_novalve.md P2.3b; this reads and writes it by name. The write
-// below happens at worldspawn's Precache, after managed registration.
-static CManagedConVarRef s_Language( "g_Language" );
+// g_Language's English write and the gibs it picks are managed's world
+// precache since plan_server_native_v2 T4e; s_Language went with them.
 
 
 // Owned here since 13c: player.cpp defined it and left with the player
@@ -119,32 +112,24 @@ IGameEntity						*g_pLastSpawn = NULL;
 // also did is gone with the scripts' readers: the per-weapon data is a managed
 // table now.
 //-----------------------------------------------------------------------------
-short		g_sModelIndexLaser;			// holds the index for the laser beam
-const char	*g_pModelNameLaser = "sprites/laserbeam.vmt";
-short		g_sModelIndexLaserDot;		// holds the index for the laser beam dot
-short		g_sModelIndexFireball;		// holds the index for the fireball
 short		g_sModelIndexSmoke;			// holds the index for the smoke cloud
-short		g_sModelIndexWExplosion;	// holds the index for the underwater explosion
 short		g_sModelIndexBubbles;		// holds the index for the bubbles model
 short		g_sModelIndexBloodDrop;		// holds the sprite index for the initial blood
 short		g_sModelIndexBloodSpray;	// holds the sprite index for splattered blood
 
+// THE FOUR WHOSE INDICES NATIVE CODE READS (UTIL_Smoke, UTIL_BloodStream,
+// UTIL_BloodDrips, UTIL_Bubbles in server_util_library.cpp, through
+// ss::Effects and the TE forwards). The rest of stock's W_Precache -- the
+// fireball, the underwater fireball, the laser and its dot (globals nothing
+// read), the three blood-impact particle systems and the bubble trail -- is
+// managed's world precache (plan_server_native_v2 T4e). These four go when
+// their readers do.
 static void W_Precache(void)
 {
-	g_sModelIndexFireball = Precache_Model("sprites/zerogxplode.vmt");// fireball
-	g_sModelIndexWExplosion = Precache_Model("sprites/WXplo1.vmt");// underwater fireball
 	g_sModelIndexSmoke = Precache_Model("sprites/steam1.vmt");// smoke
 	g_sModelIndexBubbles = Precache_Model("sprites/bubble.vmt");//bubbles
 	g_sModelIndexBloodSpray = Precache_Model("sprites/bloodspray.vmt"); // initial blood
 	g_sModelIndexBloodDrop = Precache_Model("sprites/blood.vmt"); // splattered blood
-	g_sModelIndexLaser = Precache_Model( (char *)g_pModelNameLaser );
-	g_sModelIndexLaserDot = Precache_Model("sprites/laserdot.vmt");
-
-	PrecacheParticleSystem( "blood_impact_red_01" );
-	PrecacheParticleSystem( "blood_impact_green_01" );
-	PrecacheParticleSystem( "blood_impact_yellow_01" );
-
-	Precache_Model("effects/bubble.vmt");//bubble trails
 }
 
 //=======================
@@ -1020,13 +1005,9 @@ void CWorld::Precache( void )
 	g_fGameOver = false;
 	g_pLastSpawn = NULL;
 
-	ConVarRef stepsize( "sv_stepsize" );
-	stepsize.SetValue( 18 );
-
-	ConVarRef roomtype( "room_type" );
-	roomtype.SetValue( 0 );
-
-	// Set up game rules
+	// Set up game rules. The native rules object stays while native code reads
+	// g_pGameRules; its Init answered true and did nothing, and is no longer
+	// called (plan_server_native_v2 T4e).
 	Assert( !g_pGameRules );
 	if (g_pGameRules)
 	{
@@ -1035,130 +1016,28 @@ void CWorld::Precache( void )
 
 	InstallGameRules();
 	Assert( g_pGameRules );
-	g_pGameRules->Init();
 
 	ss::SoundEnt_Init();
 
-	// Only allow precaching between LevelInitPreEntity and PostEntity
-	EntityPrecache_SetAllowed( true );
-	// PHASE 7: the pass that is NOT driven from the shell.
-	//
-	// Stock calls IGameSystem::LevelInitPreEntityAllSystems from right here --
-	// inside the world entity's own precache -- and not from LevelInit. With
-	// -shellgamedll nothing has called InitAllSystems, so s_GameSystems is EMPTY
-	// and the stock call would walk nothing: nine systems' pre-entity stage would
-	// stop, silently, including CPhysicsHook's, which is what creates physenv.
-	//
-	// So this asks shell_serversystems.cpp, which picks the table in shell mode
-	// and stock's list in delegate mode.
-	SourceSharp_LevelInitPreEntityAllSystems( STRING( GetModelName() ) );
+	// THE REST OF STOCK'S SEQUENCE IS MANAGED'S (plan_server_native_v2 T4e):
+	// ServerGameDll.MapLoadPreEntity sets sv_stepsize and room_type, opens the
+	// precache window, runs the pre-entity pass -- which stock reaches from right
+	// here, inside the world entity's own precache, and whose first row,
+	// CPhysicsHook, creates physenv -- and then precaches what the world always
+	// had: the sprites and particles W_Precache named, the player model
+	// ClientGamePrecache did, the gibs, the water sounds and the six effect
+	// sounds the precache register's one registrant did. The no-op rules calls
+	// (CreateStandardEntities, Precache, InitDefaultAIRelationships) are not
+	// made. Native keeps what native state holds: the sentence file's
+	// once-per-process read and the four sprites whose indices the native
+	// effect helpers read.
+	SourceSharp_ManagedLevelInitPreEntity( STRING( gpGlobals->mapname ) );
 
-	// Create the player resource
-	g_pGameRules->CreateStandardEntities();
-
-	// UNDONE: Make most of these things server systems or precache_registers
-	// =================================================
-	//	Activities
-	// =================================================
-	// Nothing to register: the activity and event registries went in Phase
-	// 2d, and their empty Register* hooks in plan_server_native_v2 T2.
-
-	// InitBodyQue stood here (plan_server_native_min P1): a no-op stub; the
-	// corpse pool is Corpses.cs's decision.
-// init sentence group playback stuff from sentences.txt.
-// ok to call this multiple times, calls after first are ignored.
-
+	// init sentence group playback stuff from sentences.txt.
+	// ok to call this multiple times, calls after first are ignored.
 	SENTENCEG_Init();
 
-	// Precache standard particle systems: in C# now (plan_server_novalve.md
-	// P2.1). ServerGameDll precaches the manifests' always-precache set right
-	// after it parses them, earlier in this same level load.
-
-// the area based ambient sounds MUST be the first precache_sounds
-
-// player precaches     
-	W_Precache ();									// get weapon precaches
-
-	// ClientGamePrecache(), NOT ClientPrecache().
-	//
-	// Stock's ClientPrecache() was twenty-three asset names followed by a call
-	// to ClientGamePrecache(). The twenty-three are managed now
-	// (SourceSharp.Server/ClientAssets.cs, swept by PrecacheRegistry.PrecacheAll
-	// out of ServerModule's LevelInit), so what is left of the stock function is
-	// the chain -- and the chain's target is already the shim's, in
-	// shell_server.cpp two files over. Calling it directly is what removes
-	// game/server/client.cpp's last cross-TU consumer.
-	//
-	// THE ONE THING THAT CHANGED IS WHEN, and it is worth stating rather than
-	// discovering. This call happens inside CWorld::Precache, i.e. during
-	// worldspawn's spawn; the [Precache] sweep happens in LevelInit, later in
-	// the same load and in the same window Flames.Precache already uses. Both
-	// are before the precache window closes (ServerGameDll's
-	// SetPrecacheAllowed(false)), and the model string table is networked, so
-	// nothing on either side depends on the ORDER two names were added in.
-	ClientGamePrecache();
-	g_pGameRules->Precache();
-	// PRECACHE ALL TEMP ENT STUFF -- AND IT IS NOT HERE ANY MORE.
-	//
-	// This was CBaseTempEntity::PrecacheTempEnts(), which walked the linked list
-	// of temp entity singletons calling each one's Precache(). basetempentity.cpp
-	// went with plan_tmp.md Part 7 and the list it walked had been empty since
-	// the last te_*.cpp was evicted: a singleton joins that list from its own
-	// constructor, and there are no more constructors.
-	//
-	// The four overrides that did anything -- CTESprite (sprites/gunsmoke.vmt),
-	// CTEFizz (sprites/bubble.vmt) and CTEBreakModel / CTEPhysicsProp (both
-	// models/gibs/hgibs.mdl) -- are SourceSharp.Server.TempEnts.Precache(),
-	// called from ServerModule's LevelInit. plan 3.6 names that destination and
-	// lanes C, D and E each moved their line there as they ported.
-
-	s_Language.SetValue( ss::kLanguageEnglish );	// TODO use VGUI to get current language
-
-	if ( s_Language.GetInt() == ss::kLanguageGerman )
-	{
-		Precache_Model( "models/germangibs.mdl" );
-	}
-	else
-	{
-		Precache_Model( "models/gibs/hgibs.mdl" );
-	}
-
-	// The script precache is the managed SoundEmitterSystem's
-	// (plan_server_native_v2 T4a, the precache path), through the load's area.
-	if ( IManagedSoundEmitter *pEmitter = ManagedSoundEmitter() )
-	{
-		pEmitter->ServerPrecacheScriptSound( "BaseEntity.EnterWater" );
-		pEmitter->ServerPrecacheScriptSound( "BaseEntity.ExitWater" );
-	}
-
-	// THE DEFAULT LIGHT STYLES ARE MANAGED (plan_server_native_v2 T4d): stock's
-	// table and style 63 are written by DefaultLightStyles at
-	// LevelInitPreEntity, a few lines up in SourceSharp_LevelInitPreEntityAllSystems,
-	// still before any map entity spawns.
-
-	// STOCK LOADED THE AI NETWORKS AND SCHEDULES HERE (P5 lane E deleted the
-	// calls). This mod ports no Source AI, and shell_absent.cpp's bodies were
-	// an empty CAI_NetworkManager::InitializeAINetworks and a LoadAllSchedules
-	// that returned false, which nothing read. The calls did nothing.
-	// =================================================
-	//	Initialize NPC Relationships
-	// =================================================
-	g_pGameRules->InitDefaultAIRelationships();
-	// CBaseCombatCharacter::InitInteractionSystem() left with the player
-	// cluster (13c) — the interaction registry only ever served NPC/combat
-	// classes this build does not compile.
-
-	// Call all registered precachers. See the block at the foot of this file
-	// for why the three functions behind that call are now in it.
-	ss::CPrecacheRegister::Precache();
-
-	// The chapter title is C#'s decision. Stock spends the key here on a
-	// native env_message; env_message is managed, and even stock's own path
-	// showed nobody on a multiplayer server (CMessage::Use falls back to
-	// UTIL_GetLocalPlayer, NULL when maxClients > 1, and no SF_MESSAGE_ALL).
-	// C# holds the key (ServerGameDll.WorldKeyValue, plan_server_native_v2
-	// T4d) for the level and announces it once per player on first spawn; see
-	// ChapterTitle.cs and docs/divergences.md.
+	W_Precache();
 
 	g_iszFuncBrushClassname = AllocPooledString("func_brush");
 }
@@ -1198,61 +1077,8 @@ void CWorld::GetWorldBounds( Vector &vecMins, Vector &vecMaxs )
 	vecMaxs = SourceSharpWorld_ReadVector( DataBlob(), m_Fields.nWorldMaxs );
 }
 
-//-----------------------------------------------------------------------------
-// CPrecacheRegister, folded in from game/shared/precache_register.cpp
-// (plan_server_all.md Wave 2).
-//
-// Thirty-nine lines: a singly-linked list of "call me at level load" callbacks,
-// pushed onto by static constructors, walked once by LevelInit above. Its whole
-// external contract is the constructor and the walk, and neither carries a
-// decision -- which is the test section 2 of the plan sets for a relocation, as
-// opposed to the "this is engine-ish" that is not one.
-//
-// It has TWO consumers and both are shim files: this one calls Precache(), and
-// shell_absent.cpp registers the one and only thing on the list --
-// SS_PRECACHE_REGISTER_FN( EffectsPrecache ), six game sounds the managed side
-// plays. Every other PRECACHE_REGISTER in the tree is in a file this build does
-// not compile: vguiscreen.cpp, team_train_watcher.cpp, EntityFlame.cpp,
-// player.cpp, effects.cpp and the tf/ set.
-//
-// WHY THE MECHANISM SURVIVED A LIST OF ONE. With a single registrant this could
-// have collapsed to a direct call to EffectsPrecache, deleting the file rather
-// than moving it. It did not, because the list is an EXTENSION POINT and the
-// cost of keeping it is nine lines: the next shell that needs something
-// precached at level load registers itself, in the place stock's own code
-// registers, instead of editing this function and hoping the next person finds
-// it. Collapsing it would also make the ORDER of two future registrants a thing
-// somebody has to rediscover.
-//
-// The class is ss::CPrecacheRegister (P5 lane E): server.so's own, declared in
-// ss_precache_register.h with the one macro still used. The client keeps the
-// fork's class and header in its own DLL.
-//-----------------------------------------------------------------------------
-
-namespace ss
-{
-
-static CPrecacheRegister *g_pPrecacheRegisters = 0;
-
-CPrecacheRegister::CPrecacheRegister( PrecacheFn fn, const void *pUser )
-{
-	m_Fn = fn;
-	m_pUser = const_cast<void *>( pUser );
-
-	m_pNext = g_pPrecacheRegisters;
-	g_pPrecacheRegisters = this;
-}
-
-void CPrecacheRegister::Precache()
-{
-	for ( CPrecacheRegister *pCur = g_pPrecacheRegisters; pCur; pCur = pCur->m_pNext )
-	{
-		pCur->m_Fn( pCur->m_pUser );
-	}
-}
-
-} // namespace ss
-
-// CPrecacheRegister::PrecacheFn_Other WAS HERE (P5 lane E). Only the
-// PRECACHE_REGISTER and PRECACHE_WEAPON_REGISTER macros name it, and no server
-// TU uses either, so server.so never kept it (--gc-sections dropped it).
+// CPRECACHE_REGISTER WAS HERE (game/shared/precache_register.cpp, folded in at
+// plan_server_all.md Wave 2): a static-init list of "call me at level load"
+// callbacks with ONE registrant, shell_absent.cpp's EffectsPrecache (six game
+// sounds). The six are managed's world precache since plan_server_native_v2
+// T4e, so the list, its walk and its header went with them.

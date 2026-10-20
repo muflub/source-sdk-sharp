@@ -142,6 +142,11 @@
 #include "ishim_frame.h"
 #include "shell_server.h"
 #include "shell_standalone_player.h"
+#include "datacache/imdlcache.h"
+
+// The engine's model cache (connected with the tiers): the managed row's
+// stages take its lock through BeginModelCacheLock / EndModelCacheLock.
+extern IMDLCache *mdlcache;
 
 
 // The parallel hierarchy's per-frame drive, declared where it is used rather
@@ -173,6 +178,10 @@ bool EntitySim_IsSimulatingOnAlternateTicks( void );
 // gameinterface.cpp:468. NOT behind _DEBUG -- stock's own comment beside the
 // call is "allow this in release for now".
 void DrawAllDebugOverlays( void );
+
+// shell_entityslots.cpp: one NetworkStateChanged per entity a managed write
+// dirtied this frame.
+int SourceSharp_DrainEntitySlots( void );
 
 namespace
 {
@@ -240,21 +249,6 @@ public:
 	}
 
 	//-------------------------------------------------------------------------
-	// STEPS 6 and 7 -- gameinterface.cpp:1355 and :1379. The named list's two
-	// per-frame passes, forwards.
-	//
-	// THE MANAGED FRAME IS INSIDE THESE. See the header comment:
-	// SourceSharpManaged is a row of kServerSystems[] at the position
-	// CSourceSharpSystem held, so FramePreThink runs in the first and Frame in
-	// the second, each with the same native neighbours before and after it that
-	// stock gives them.
-	//-------------------------------------------------------------------------
-	virtual void ServerSystemsPreThink() OVERRIDE
-	{
-		SourceSharp_ServerSystemsFramePreThink();
-	}
-
-	//-------------------------------------------------------------------------
 	// RETIRED SLOT -- stock's step 8, every entity's think function.
 	//
 	// Physics_RunThinkFunctions is physics_main.cpp's and that file left the
@@ -272,11 +266,6 @@ public:
 	virtual void PhysicsRunThinkFunctions( int32_t bSimulating ) OVERRIDE
 	{
 		(void)bSimulating;
-	}
-
-	virtual void ServerSystemsPostThink() OVERRIDE
-	{
-		SourceSharp_ServerSystemsFramePostThink();
 	}
 
 	//-------------------------------------------------------------------------
@@ -361,11 +350,6 @@ public:
 		::DrawAllDebugOverlays();
 	}
 
-	virtual void ServerSystemsPreClientUpdate() OVERRIDE
-	{
-		SourceSharp_ServerSystemsPreClientUpdate();
-	}
-
 	//-------------------------------------------------------------------------
 	// THE PARALLEL HIERARCHY'S THREE POST-THINK STEPS -- plan_gamedll_after.md
 	// Phase A3, the fifth "C" system.
@@ -429,6 +413,23 @@ public:
 	{
 		(void)pTarget; (void)pInput; (void)pValue;
 		return 0;
+	}
+
+	// plan_server_native_v2 T4e: the managed row's native half after the
+	// managed frame, at the position managed's ServerSystems gives it.
+	virtual void DrainEntitySlots() OVERRIDE
+	{
+		SourceSharp_DrainEntitySlots();
+	}
+
+	virtual void BeginModelCacheLock() OVERRIDE
+	{
+		mdlcache->BeginLock();
+	}
+
+	virtual void EndModelCacheLock() OVERRIDE
+	{
+		mdlcache->EndLock();
 	}
 };
 

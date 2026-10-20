@@ -187,8 +187,12 @@ const File_t kAiAbsent     = { "sourcesharp/game/server/shell_absent.cpp",
 // plan_server_native_v2 T2, and the anchor is ss::SetPlayerSurface's.
 const File_t kAiOrphans    = { "sourcesharp/game/server/shell_absent.cpp",
 	"void ss::SetPlayerSurface(" };
+// The anchor was EffectsPrecache's definition until it went managed
+// (plan_server_native_v2 T4e); UTIL_BloodSpray's is still this file's.
 const File_t kEntOrphans   = { "sourcesharp/game/server/shell_absent.cpp",
-	"void EffectsPrecache(" };
+	"void UTIL_BloodSpray(" };
+const File_t kWorldPrecache = { "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs",
+	"private void WorldPrecache()" };
 // kEntityList STOOD HERE and went with its only needle (4a item 11, lane
 // 5a-physresidue): `game/server/entitylist.cpp` is a stock TU with no object on
 // either link line, so nothing this file asserts can be founded on its text.
@@ -224,8 +228,10 @@ const File_t kTraceFilterLib = { "sourcesharp/game/shared/trace_filter_library.c
 	"SS_SIMPLE_FILTER::ShouldHitEntity" };
 const File_t kShellMovement = { "sourcesharp/game/shared/shell_movement.cpp",
 	"CShellGameMovement::WorldEffect" };
+// Anchored on the world's precache since its precache register went
+// (plan_server_native_v2 T4e).
 const File_t kWorldAdapter = { "sourcesharp/game/server/world_adapter.cpp",
-	"CPrecacheRegister" };
+	"void CWorld::Precache( void )" };
 
 std::string Load( const File_t &f )
 {
@@ -776,7 +782,8 @@ TEST( EntityBaseHusks, TheEntityOrphansKeepWhatIsStillNamed )
 	static const char *kKept[] = {
 		"ss::SetPlayerSurface",
 		// RadiusDamage left in plan_server_native_v2 T2: no managed caller.
-		"UTIL_BloodSpray", "EffectsPrecache",
+		// EffectsPrecache left in T4e: its sounds are the world's precache.
+		"UTIL_BloodSpray",
 	};
 	for ( size_t i = 0; i < sizeof( kKept ) / sizeof( kKept[ 0 ] ); i++ )
 	{
@@ -865,22 +872,24 @@ TEST( EntityBaseHusks, OnlyTheHandleShapedSurfaceFunnelIsDefined )
 		   "env_player_surface_trigger";
 }
 
-TEST( EntityBaseHusks, TheSelfRegisteringPrecacheIsKeptEvenThoughNothingNamesIt )
+TEST( EntityBaseHusks, TheSelfRegisteringPrecacheWentManagedWithItsSounds )
 {
-	// The instrument's blind spot, pinned so nobody deletes EffectsPrecache on
-	// the strength of `4a-owes` naming nothing: it is on a list walked at level
-	// load, and world_adapter.cpp is what walks it.
+	// The instrument's blind spot used to be pinned here: EffectsPrecache was
+	// reached through CPrecacheRegister's list, never by symbol, so a deletion
+	// driven by `4a-owes` would have taken six live game sounds with it. Since
+	// plan_server_native_v2 T4e the six are managed's world precache, and the
+	// list and its one registrant went: neither may come back beside it.
 	const std::string s = Load( kEntOrphans );
-	EXPECT_NE( s.find( "PRECACHE_REGISTER_FN( EffectsPrecache )" ), std::string::npos )
-		<< "EffectsPrecache lost its registration. `tools/4a-owes` names it "
-		   "nowhere BY DESIGN -- it is reached through CPrecacheRegister's list, "
-		   "not by symbol -- so an owes-driven deletion would take six live "
-		   "game sounds with it.";
+	EXPECT_EQ( s.find( "PRECACHE_REGISTER_FN( EffectsPrecache )" ), std::string::npos );
+	EXPECT_EQ( s.find( "void EffectsPrecache(" ), std::string::npos );
 
 	const std::string strWorld = Load( kWorldAdapter );
-	EXPECT_NE( strWorld.find( "CPrecacheRegister" ), std::string::npos )
-		<< "world_adapter.cpp no longer carries the precache list that "
-		   "EffectsPrecache registers itself on";
+	EXPECT_EQ( strWorld.find( "CPrecacheRegister" ), std::string::npos )
+		<< "world_adapter.cpp walks a precache register again";
+
+	const std::string strManaged = Load( kWorldPrecache );
+	EXPECT_NE( strManaged.find( "\"BaseExplosionEffect.Sound\"" ), std::string::npos )
+		<< "the world's precache lost the effect sounds the register carried";
 }
 
 TEST( EntityBaseHusks, TheGlueFileExistsAndIsOne )

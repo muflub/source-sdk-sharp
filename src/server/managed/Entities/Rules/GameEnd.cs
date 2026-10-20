@@ -22,9 +22,6 @@ public sealed class GameEnd : ScriptedEntity
     [ScriptedEvent("EndGame")]
     private void OnEndGame()
     {
-        if (_intermission is not null)
-            _intermission.Begin(Host.CurrentTime);
-        else
-            Host.EndRound();
+        _intermission?.Begin(Host.CurrentTime);
     }
 }

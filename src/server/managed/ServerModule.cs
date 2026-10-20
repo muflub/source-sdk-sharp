@@ -232,7 +232,31 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         => new(_engine.Crossings, Log, this, _liveness, _services.Require<EntityRemovalRoutes>(), _services.Require<ShellLessRoutes>());
 
     /// <summary>The frame handler the root builds, which clears this composition's liveness mirror at level shutdown.</summary>
-    internal FrameBinding NewFrameBinding() => new(_engine.Crossings, Log, this, _liveness, _engine.Models, _engine.Breaks);
+
+    /// <summary>
+    /// The SourceSharpManaged row of what was kServerSystems[] (plan_server_native_v2
+    /// T4e): this module's stage bodies, and the level caches its shutdown clears.
+    /// </summary>
+    internal ManagedSystemRow NewSystemRow()
+        => new(Log, this, SoundSystemInit, map => _gameDll.PreEntityParticipants(map),
+               () => _gameDll.ShutdownPreEntityParticipants(), () => _physicsFrame?.Frame(),
+               _liveness, _engine.Models, _engine.Breaks);
+
+    /// <summary><c>engine-&gt;IsModelPrecached( name )</c>, through IVEngineServer's forwarders.</summary>
+    private bool ModelAlreadyPrecached(string name)
+        => (_engineServer ??= EngineServer.Acquire(_engine, out _)) is { } server && server.IsModelPrecached(name);
+
+    private IVtableEngineServer? _engineServer;
+
+    /// <summary>The managed row's Init: the sound emitter system's script table.</summary>
+    private bool SoundSystemInit()
+    {
+        if (_soundSystem is { } built)
+            return built.Init();
+
+        Log.Warning("[SourceSharp/Server] the sound scripts cannot load: no sound emitter system\n");
+        return false;
+    }
 
     /// <summary>
     /// The server's systems, as everything built afterwards reaches them.
@@ -694,7 +718,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedRuntimeServer",
                       v => ServerInteropAreas.Runtime(v, _engine.Crossings, Log, this));
         _bindings.Add("IManagedPhysicsFrame",
-                      v => ManagedAreaFactory.Create(v, new PhysicsFrameBinding(_engine.Crossings, () => _physicsFrame?.Frame(),
+                      v => ManagedAreaFactory.Create(v, new PhysicsFrameBinding(_engine.Crossings,
                                                                                 () => _physicsWorld)));
         // The engine's console prints, forwarded in process by the display
         // func native installs on ICvar at area acquire (docs/todo.md's
@@ -713,7 +737,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedSoundEmitter",
                       v => ManagedAreaFactory.Create(v, new SoundEmitterBinding(_engine.Crossings,
                                                                                 new MoveSoundsOf(() => _serverSounds),
-                                                                                new SoundSystemOf(() => _soundSystem, Log))));
+                                                                                new SoundSystemOf(() => _soundSystem))));
         _bindings.Add("IManagedSoundEnt",
                       v => ManagedAreaFactory.Create(v, new SoundEntBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedHierarchy",
@@ -737,8 +761,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedPlayerCommands",
                       v => ManagedAreaFactory.Create(v, new PlayerCommandsBinding(_engine.Crossings, Log, this, this, _movement, _playerCommands,
                                                              () => _playerShadow?.Value ?? true)));
-        _bindings.Add("IManagedFrame",
-                      v => ManagedAreaFactory.Create(v, NewFrameBinding()));
         // The engine's hitbox traces against a standalone entity's skeleton
         // (plan physics_bones_native_zero step 1.1). Built when native
         // acquires the area, by which time the skeletons exist.
@@ -1886,6 +1908,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _gameDll.ParticlePrecache = _services.Require<IEnginePrecache>();
         _gameDll.ModelText = _services.Require<IEngineEntityRender>();
         _gameDll.Models = _services.Require<ModelDescriptors>();
+        // Precache_Model's late-precache warning, managed's since plan_server_native_v2 T4e.
+        _gameDll.LatePrecache = new LatePrecache(ModelAlreadyPrecached, DeveloperMessage);
+
+        // kServerSystems[]'s order, managed's since plan_server_native_v2 T4e.
+        _gameDll.Systems = new ServerSystems(_services.Require<IEngineLevel>(), _services.Require<IEngineFrame>(),
+                                             NewSystemRow(), Log);
         _gameDll.SoundScripts = SoundEmitterBase.Acquire(_engine, out string soundWhy);
         if (_gameDll.SoundScripts is null)
             Log.Warning($"[SourceSharp/Server] no sound script table for model sounds: {soundWhy}\n");
@@ -1912,6 +1940,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the suite builds these objects by hand and none of them runs this
         // method.
         _gameDll.FrameParticipants = FramePreClientUpdate;
+        _gameDll.FrameEndParticipants = FramePostThink;
 
         Log.Msg($"[SourceSharp/Server] lifecycle: {_lifecycle.Participants.Count} " +
                 $"participant(s) -- {string.Join(", ", _lifecycle.Participants.Select(p => p.GetType().Name))}\n");
@@ -3211,20 +3240,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             LocalCommandLine.Has(_services.Require<ILocalCommandLine>().Args, "-makereslists"),
             () => _gameDll.CurrentMap, text => Log.Warning(text), DeveloperMessage);
         _gameDll.SoundSystem = _soundSystem;
+        _gameDll.PrecacheScriptSound = name => _soundSystem?.PrecacheScriptSound(name);
     }
 
     /// <summary>The system's two native edges, to whichever system the module has built (none before the root).</summary>
-    private sealed class SoundSystemOf(Func<SoundEmitterSystem?> system, ILog log) : ISoundSystemSink
+    private sealed class SoundSystemOf(Func<SoundEmitterSystem?> system) : ISoundSystemSink
     {
-        public bool SystemInit()
-        {
-            if (system() is { } built)
-                return built.Init();
-
-            log.Warning("[SourceSharp/Server] the sound scripts cannot load: no sound emitter system\n");
-            return false;
-        }
-
         public void PrecacheScriptSound(string soundName) => system()?.PrecacheScriptSound(soundName);
     }
 
@@ -3765,9 +3786,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                    entIndex, reliable: true);
         _reloadInvites.Invited(entIndex);
     }
-
-    public void OnClientGamePrecache()
-        => Log.Msg("[SourceSharp/Server] precache\n");
 
     public void OnRespawn(int entIndex, bool copyCorpse)
         => Log.Msg($"[SourceSharp/Server] respawn entity {entIndex}\n");

@@ -120,12 +120,20 @@
 #include "shell_standalone.h"
 #include "shell_resolve.h"
 #include "ss_world.h"
+#include "shell_serversystem.h"
 
 
 // The parallel hierarchy's teardown, declared where it is used rather than
 // given a header whose only reader would be this file. Defined in
 // shell_standalone_base.cpp.
 void StandaloneEntities_LevelShutdown();
+
+// The two native systems whose stages IShimLevel carries out, and the slot
+// table's reset (plan_server_native_v2 T4e): physics.cpp, gamestringpool.cpp
+// and shell_entityslots.cpp, declared where they are used.
+CServerSystem *PhysicsGameSystem();
+CServerSystem *GameStringSystem();
+void SourceSharp_ResetEntitySlots( void );
 
 extern INetworkStringTable *g_pStringTableInfoPanel;
 
@@ -574,19 +582,6 @@ public:
 	{
 	}
 
-	//-----------------------------------------------------------------------------
-	// gameinterface.cpp:1252 and :1253. "No more precaching after
-	// PostEntityAllSystems!!!" is stock's own shout, and it is why these are two
-	// steps in an order rather than one call: the close has to follow the pass.
-	//
-	// The named list's LevelInitPostEntity pass is where the MANAGED level init
-	// happens too -- SourceSharpManaged is a row in it, at stock's position.
-	//-----------------------------------------------------------------------------
-	virtual void InitPostEntitySystems() OVERRIDE
-	{
-		SourceSharp_ServerSystemsLevelInitPostEntity();
-	}
-
 	virtual void SetPrecacheAllowed( int32_t bAllowed ) OVERRIDE
 	{
 		EntityPrecache_SetAllowed( bAllowed != 0 );
@@ -596,11 +591,6 @@ public:
 	// LEVELSHUTDOWN'S STEPS, gameinterface.cpp:1511-1559, in stock's order --
 	// which C# owns. Every one of the six below is one line of that body.
 	//-----------------------------------------------------------------------------
-	virtual void ShutdownPreClearSteamSystems() OVERRIDE
-	{
-		SourceSharp_ServerSystemsLevelShutdownPreClearSteamAPIContext();
-	}
-
 	//-----------------------------------------------------------------------------
 	// steamgameserverapicontext->Clear(). A SEPARATE step from the pass above it
 	// because that is the whole reason the pass has "PreClearSteamAPIContext" in
@@ -617,12 +607,6 @@ public:
 		// RETIRED, not removed: IShimLevel is append-only. The Steam game
 		// server context is C#'s own (plan_server_novalve.md P2.5), and
 		// ServerGameDll.MapUnload clears it at this point in the sequence.
-	}
-
-	virtual void ShutdownPreEntitySystems() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION();
-		SourceSharp_ServerSystemsLevelShutdownPreEntity();
 	}
 
 	//-----------------------------------------------------------------------------
@@ -711,11 +695,6 @@ public:
 		// The SDK list, which armed is empty and gone -- entitylist.cpp is a removal
 		// set row. What Clear() would still have had to reach is the world, and the
 		// line above already did that.
-	}
-
-	virtual void ShutdownPostEntitySystems() OVERRIDE
-	{
-		SourceSharp_ServerSystemsLevelShutdownPostEntity();
 	}
 
 	//-----------------------------------------------------------------------------
@@ -840,6 +819,62 @@ public:
 	virtual int32_t IsPrecacheAllowed() OVERRIDE
 	{
 		return EntityPrecache_IsAllowed() ? 1 : 0;
+	}
+
+	// plan_server_native_v2 T4e: the arm's load type, chosen by managed.
+	virtual void SetLoadType( int32_t eLoadType ) OVERRIDE
+	{
+		gpGlobals->eLoadType = (MapLoadType_t)eLoadType;
+	}
+
+	//-------------------------------------------------------------------------
+	// plan_server_native_v2 T4e: THE TWO NATIVE SYSTEMS' STAGES. kServerSystems[]
+	// and its walks are gone; the order is managed's ServerSystems. Each takes
+	// the model-cache lock its walk took (stock's igamesystem.cpp takes it per
+	// system), and runs one stage of one system.
+	//-------------------------------------------------------------------------
+	virtual int32_t PhysicsInit() OVERRIDE
+	{
+		MDLCACHE_CRITICAL_SECTION();
+		return PhysicsGameSystem()->Init() ? 1 : 0;
+	}
+
+	virtual void PhysicsLevelInitPreEntity() OVERRIDE
+	{
+		MDLCACHE_CRITICAL_SECTION();
+		PhysicsGameSystem()->LevelInitPreEntity();
+	}
+
+	virtual void PhysicsLevelInitPostEntity() OVERRIDE
+	{
+		MDLCACHE_CRITICAL_SECTION();
+		PhysicsGameSystem()->LevelInitPostEntity();
+	}
+
+	virtual void PhysicsLevelShutdownPreEntity() OVERRIDE
+	{
+		MDLCACHE_CRITICAL_SECTION();
+		PhysicsGameSystem()->LevelShutdownPreEntity();
+	}
+
+	virtual void PhysicsLevelShutdownPostEntity() OVERRIDE
+	{
+		MDLCACHE_CRITICAL_SECTION();
+		PhysicsGameSystem()->LevelShutdownPostEntity();
+	}
+
+	virtual void StringPoolLevelShutdownPostEntity() OVERRIDE
+	{
+		MDLCACHE_CRITICAL_SECTION();
+		GameStringSystem()->LevelShutdownPostEntity();
+	}
+
+	// Every entity control-block slot closed: after the managed level's end
+	// rather than before it, because a state object is entitled to write during
+	// its entity's teardown.
+	virtual void ResetEntitySlots() OVERRIDE
+	{
+		SourceSharp_ResetEntitySlots();
 	}
 };
 

@@ -60,10 +60,39 @@ public sealed class ConVarAttribute : Attribute
 /// How the registry registers a convar and a bound convar sets and reads it:
 /// the engine in the game, a fake in a test (the Engine table is process-wide).
 /// </summary>
+/// <summary>
+/// <b>Who owns a console variable's name</b> (the user's rule, 2026-09-29): a
+/// managed declaration never aliases a convar the engine defines. Each game
+/// DLL's registration ORs in its own identifier -- FCVAR_GAMEDLL for server.so,
+/// FCVAR_CLIENTDLL for client.so -- and nothing else sets either, so a variable
+/// carrying neither was declared by the engine or one of its modules (material
+/// system, vgui, ...). A client declaration whose name the server already
+/// registered is not refused: that is a replicated pair. Native's
+/// convar_ownership.h decided this until plan_server_native_v2 T4e.
+/// </summary>
+public static class ConVarOwnership
+{
+    /// <summary>
+    /// True when a variable the engine holds, with these flags, belongs to
+    /// neither game DLL. <paramref name="existingFlags"/> below zero is "the
+    /// engine holds no such variable", which nobody owns yet.
+    /// </summary>
+    public static bool OwnedByEngine(int existingFlags)
+        => existingFlags >= 0
+        && (existingFlags & (int)(ConVarFlags.GameDll | ConVarFlags.ClientDll)) == 0;
+}
+
 internal interface IConVarBackend
 {
     /// <summary>The id of the native registration, or below zero when refused.</summary>
     int Register(string name, string defaultValue, string help, int flags, float? min, float? max);
+
+    /// <summary>
+    /// The flags of the variable the engine already holds under a name, or -1
+    /// when it holds none: what <see cref="ConVarOwnership.OwnedByEngine"/> reads.
+    /// A backend with no engine behind it holds nothing.
+    /// </summary>
+    int ExistingFlags(string name) => -1;
     void Set(int id, string value);
     string Get(int id);
 
@@ -84,6 +113,8 @@ internal sealed class EngineConVarBackend : IConVarBackend
 
     public int Register(string name, string defaultValue, string help, int flags, float? min, float? max)
         => _console.RegisterConVar(name, defaultValue, help, flags, min, max);
+
+    public int ExistingFlags(string name) => _console is IConVarFlagReader flags ? flags.FindConVarFlags(name) : -1;
     public void Set(int id, string value) => _console.SetConVarValue(id, value);
     public string Get(int id) => _console.GetConVarValue(id);
     public string? ValueOf(string name) => NativeConsole.ValueOf(_console, name);
@@ -476,15 +507,6 @@ public sealed class ConVarRegistry
     private readonly Dictionary<string, ConVarCommandLinePolicy> _policies =
         new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// The native registration's answer for a name the ENGINE already defines
-    /// (SOURCESHARP_CONVAR_ENGINE_OWNED, convar_ownership.h). Managed code never
-    /// aliases an engine convar with its own declaration: it reads the engine's
-    /// by name (IEngineConsole.FindConVarValue), and a declaration of one stops
-    /// the module at startup.
-    /// </summary>
-    public const int EngineOwnedId = -2;
-
     private readonly IConVarBackend _backend;
 
     private static string SideOf(string assembly) =>
@@ -595,14 +617,22 @@ public sealed class ConVarRegistry
             _policies[attr.Name] = new ConVarCommandLinePolicy(
                 attr.Name, attr.DefaultValue, attr.Flags);
 
-            int id = _backend.Register(attr.Name, attr.DefaultValue, attr.Help,
-                                       unchecked((int)attr.Flags), min, max);
-
-            if (id == EngineOwnedId)
+            // A NAME THE ENGINE OWNS IS REFUSED, NOT ALIASED (the user's rule,
+            // 2026-09-29), decided here since plan_server_native_v2 T4e: native
+            // answers the flags of what it already holds under the name, and
+            // a variable carrying neither DLL's bit is the engine's own. No
+            // carrier is built; the walk's end turns the list into a startup
+            // failure naming every class.
+            if (ConVarOwnership.OwnedByEngine(_backend.ExistingFlags(attr.Name)))
             {
+                _log.Warning($"[SourceSharp] C# declared convar '{attr.Name}', which the engine defines: refused. "
+                           + "Read the engine's by name instead of declaring it.\n");
                 engineOwned.Add($"'{attr.Name}' ({type.FullName})");
                 continue;
             }
+
+            int id = _backend.Register(attr.Name, attr.DefaultValue, attr.Help,
+                                       unchecked((int)attr.Flags), min, max);
 
             // A refused ConVar is still bound, to its declared default and an id
             // of -1. Dropping it would make Get<T>() return null and the policy

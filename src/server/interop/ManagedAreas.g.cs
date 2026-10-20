@@ -12,7 +12,6 @@ namespace SourceSharp.Server.Interop;
 [ManagedVtable(typeof(ManagedPhysicsFrameTable))]
 public unsafe interface IManagedPhysicsFrame
 {
-    void Frame();
     void* CreateWorld();
     int PrecacheSurfaceSounds();
 }
@@ -25,6 +24,7 @@ public unsafe interface IManagedResources
     int ServerDecalTranslateForGameMaterial(byte* a0, int a1, byte* a2, int a3);
     int ServerPropDataRandomChunkModel(byte* a0, int a1, byte* a2, int a3);
     void ModelPrecacheComponents(byte* a0);
+    void ModelPrecacheCheck(byte* a0, byte a1);
 }
 
 [ManagedVtable(typeof(ManagedSaveRestoreTable))]
@@ -83,7 +83,6 @@ public unsafe interface IManagedClients
     int OnClientConnect(byte* a0, byte* a1, byte* a2, int a3);
     void OnClientPutInServer(int a0, byte* a1);
     void OnClientActive(int a0, int a1);
-    void OnClientGamePrecache();
     void OnRespawn(int a0, int a1);
     void OnPlayerSpawn(uint a0);
     void OnPlayerSpawned(uint a0);
@@ -146,16 +145,6 @@ public unsafe interface IManagedPlayerCommands
     void OnPlayerSurfaceChanged(uint a0, int a1);
 }
 
-[ManagedVtable(typeof(ManagedFrameTable))]
-public unsafe interface IManagedFrame
-{
-    void Frame(float a0);
-    void FramePreThink(float a0);
-    void FramePostThink(float a0);
-    void LevelInit(byte* a0);
-    void LevelShutdown();
-}
-
 [ManagedVtable(typeof(ManagedConsoleOutputTable))]
 public unsafe interface IManagedConsoleOutput
 {
@@ -174,7 +163,6 @@ public unsafe interface IManagedSoundEmitter
 {
     void ServerMoveSound(int a0, void* a1, int a2, byte* a3, float a4, int a5, int a6, int a7);
     void ServerMoveSoundScript(int a0, void* a1, byte* a2);
-    byte ServerSoundSystemInit();
     void ServerPrecacheScriptSound(byte* a0);
 }
 
@@ -209,8 +197,6 @@ public static class ManagedAreaFactory
         => IManagedNetState__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedPlayerCommands target)
         => IManagedPlayerCommands__ManagedVtable.Create(vtables, target);
-    public static ManagedVtable Create(ManagedVtables vtables, IManagedFrame target)
-        => IManagedFrame__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedConsoleOutput target)
         => IManagedConsoleOutput__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedBones target)

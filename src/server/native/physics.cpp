@@ -136,7 +136,7 @@ IPhysicsSurfaceProps	*physprops = NULL;
 
 
 
-class CPhysicsHook : public CServerSystemPerFrame
+class CPhysicsHook : public CServerSystem
 {
 public:
 	virtual const char *Name() { return "CPhysicsHook"; }
@@ -146,7 +146,6 @@ public:
 	virtual void LevelInitPostEntity();
 	virtual void LevelShutdownPreEntity();
 	virtual void LevelShutdownPostEntity();
-	virtual void FrameUpdatePostEntityThink();
 
 	void FlushVehicleScripts() {}
 
@@ -386,19 +385,12 @@ void CPhysicsHook::LevelShutdownPostEntity()
 
 
 
-// called after entities think
-//
-// THE PHYSICS FRAME IS MANAGED'S (plan_physics_bones_native_zero 2.3):
-// SourceSharp.Server PhysicsFrame decides whether to step, how long, and what
-// the step tells the game, and calls IPhysicsEnvironment through vphysics' own
-// table. This system keeps its row in the server systems, so the step runs
-// where stock's did, and forwards. The area is resolved per call: managed
-// hot-reloads, and a pointer kept here would name the previous load's table.
-void CPhysicsHook::FrameUpdatePostEntityThink( )
-{
-	if ( IManagedPhysicsFrame *pFrame = ManagedPhysicsFrame() )
-		pFrame->Frame();
-}
+// THE PHYSICS FRAME IS MANAGED'S (plan_physics_bones_native_zero 2.3), AND SO
+// IS ITS POSITION (plan_server_native_v2 T4e): SourceSharp.Server
+// PhysicsFrame decides whether to step, how long, and what the step tells the
+// game, and ServerSystems.FramePostThink runs it at this system's position in
+// the post-entity-think pass, before the managed frame. CPhysicsHook's
+// FrameUpdatePostEntityThink only forwarded there, so it went with the walk.
 
 //-----------------------------------------------------------------------------
 // THE QUEUED IMPACT AND BREAK SOUNDS ARE MANAGED'S (plan_physics_bones_native_zero

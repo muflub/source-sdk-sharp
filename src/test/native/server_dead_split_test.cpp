@@ -82,7 +82,9 @@ TEST( ServerDeadSplit, NoServerObjectImportsASplitSymbolAndServerSoDoesNotDefine
 {
 	size_t nObjects = 0;
 	const std::string undef = NmRun( "nm -u" + ObjectsOf( cmake_graph::kServer, &nObjects ) );
-	ASSERT_GT( nObjects, 100u ) << "the server's link edge named too few objects";
+	// 80, not 100: the server's link edge is 100 objects since
+	// plan_server_native_v2 T4e (shell_serversystems.o left).
+	ASSERT_GT( nObjects, 80u ) << "the server's link edge named too few objects";
 	// Proof of read: something the server does import.
 	ASSERT_TRUE( HasLine( undef, " U malloc" ) ) << "nm -u over the server objects read nothing";
 

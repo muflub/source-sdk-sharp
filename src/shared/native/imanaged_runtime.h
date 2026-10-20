@@ -35,10 +35,7 @@ struct SSManagedRuntimeServerTable
 	bool ( *OnGameStart )( IManagedRuntimeServer *self );
 	void ( *OnGamePostStart )( IManagedRuntimeServer *self );
 	void ( *OnGameStop )( IManagedRuntimeServer *self );
-	bool ( *OnMapLoad_Transition )( IManagedRuntimeServer *self, const SourceSharpMapLoad *pLoad );
-	bool ( *OnMapLoad_LoadGame )( IManagedRuntimeServer *self, const SourceSharpMapLoad *pLoad );
-	bool ( *OnMapLoad_Background )( IManagedRuntimeServer *self, const SourceSharpMapLoad *pLoad );
-	bool ( *OnMapLoad_NewGame )( IManagedRuntimeServer *self, const SourceSharpMapLoad *pLoad );
+	bool ( *OnMapLoad )( IManagedRuntimeServer *self, const SourceSharpMapLoad *pLoad, bool loadGame, bool background );
 	void ( *OnMapUnload )( IManagedRuntimeServer *self );
 	void ( *OnServerActivate )( IManagedRuntimeServer *self );
 	void ( *OnGameFrame )( IManagedRuntimeServer *self, bool simulating );
@@ -57,7 +54,6 @@ struct SSManagedRuntimeServerTable
 	void ( *OnSteamGameServerActivated )( IManagedRuntimeServer *self );
 	void ( *OnSteamGameServerShutdown )( IManagedRuntimeServer *self );
 	void ( *OnMapLoadPreEntity )( IManagedRuntimeServer *self, const char *pszMapName );
-	void ( *OnMapUnloadPreEntity )( IManagedRuntimeServer *self );
 	int ( *OnWorldKeyValue )( IManagedRuntimeServer *self, uint32_t hWorld, const char *pKey, const char *pValue );
 	void ( *OnGetGameDescription )( IManagedRuntimeServer *self, char *pOut, int nOutSize );
 };
@@ -71,10 +67,7 @@ public:
 	bool OnGameStart() { return Table()->OnGameStart( this ); }
 	void OnGamePostStart() { Table()->OnGamePostStart( this ); }
 	void OnGameStop() { Table()->OnGameStop( this ); }
-	bool OnMapLoad_Transition( const SourceSharpMapLoad *pLoad ) { return Table()->OnMapLoad_Transition( this, pLoad ); }
-	bool OnMapLoad_LoadGame( const SourceSharpMapLoad *pLoad ) { return Table()->OnMapLoad_LoadGame( this, pLoad ); }
-	bool OnMapLoad_Background( const SourceSharpMapLoad *pLoad ) { return Table()->OnMapLoad_Background( this, pLoad ); }
-	bool OnMapLoad_NewGame( const SourceSharpMapLoad *pLoad ) { return Table()->OnMapLoad_NewGame( this, pLoad ); }
+	bool OnMapLoad( const SourceSharpMapLoad *pLoad, bool loadGame, bool background ) { return Table()->OnMapLoad( this, pLoad, loadGame, background ); }
 	void OnMapUnload() { Table()->OnMapUnload( this ); }
 	void OnServerActivate() { Table()->OnServerActivate( this ); }
 	void OnGameFrame( bool simulating ) { Table()->OnGameFrame( this, simulating ); }
@@ -93,7 +86,6 @@ public:
 	void OnSteamGameServerActivated() { Table()->OnSteamGameServerActivated( this ); }
 	void OnSteamGameServerShutdown() { Table()->OnSteamGameServerShutdown( this ); }
 	void OnMapLoadPreEntity( const char *pszMapName ) { Table()->OnMapLoadPreEntity( this, pszMapName ); }
-	void OnMapUnloadPreEntity() { Table()->OnMapUnloadPreEntity( this ); }
 	int OnWorldKeyValue( uint32_t hWorld, const char *pKey, const char *pValue ) { return Table()->OnWorldKeyValue( this, hWorld, pKey, pValue ); }
 	void OnGetGameDescription( char *pOut, int nOutSize ) { Table()->OnGetGameDescription( this, pOut, nOutSize ); }
 
@@ -102,13 +94,13 @@ private:
 };
 
 static const uint32_t kIManagedRuntimeServerSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xbe023354, 0xbe023354, 0x07e0f4c4, 0x07e0f4c4, 0xa4166c88, 0xa4166c88,
-	0xa4166c88, 0xa4166c88, 0x07e0f4c4, 0x07e0f4c4, 0xffa5785e, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4,
-	0x611715b4, 0xbe023354, 0x3169518e, 0x3169518e, 0x298326e5, 0xde10bc09, 0xffa5785e, 0x3169518e,
-	0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x3aa7ebf0, 0x07e0f4c4, 0xdcf0f1f1, 0x3e98ef21,
+	0x07e0f4c4, 0x0d54c15e, 0xbe023354, 0xbe023354, 0x07e0f4c4, 0x07e0f4c4, 0xad4eea04, 0x07e0f4c4,
+	0x07e0f4c4, 0xffa5785e, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x611715b4, 0xbe023354, 0x3169518e,
+	0x3169518e, 0x298326e5, 0xde10bc09, 0xffa5785e, 0x3169518e, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4,
+	0x3aa7ebf0, 0xdcf0f1f1, 0x3e98ef21,
 };
-static const int32_t kIManagedRuntimeServerSlotCount = 31;
-static_assert( sizeof( SSManagedRuntimeServerTable ) == 31 * sizeof( void * ), "SSManagedRuntimeServerTable is one pointer per slot" );
+static const int32_t kIManagedRuntimeServerSlotCount = 27;
+static_assert( sizeof( SSManagedRuntimeServerTable ) == 27 * sizeof( void * ), "SSManagedRuntimeServerTable is one pointer per slot" );
 
 #endif // !CLIENT_DLL
 

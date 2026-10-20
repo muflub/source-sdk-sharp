@@ -88,14 +88,11 @@ int Precache_Model( const char *name, bool bPreload )
 		return -1;
 	}
 
-	// Warn on out of order precache
-	if ( !EntityPrecache_IsAllowed() )
-	{
-		if ( !engine->IsModelPrecached( name ) )
-		{
-			DevMsg( "Late precache of %s -- not necessarily a bug now that we allow ~everything to be dynamically loaded.\n", name );
-		}
-	}
+	// "Warn on out of order precache" is managed's LatePrecache
+	// (plan_server_native_v2 T4e), told the name and the window's flag; every
+	// precache, managed's and native's, arrives here.
+	if ( IManagedResources *pArea = ManagedResources() )
+		pArea->ModelPrecacheCheck( name, EntityPrecache_IsAllowed() );
 
 	int idx = engine->PrecacheModel( name, bPreload );
 	if ( idx != -1 )

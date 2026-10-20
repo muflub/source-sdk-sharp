@@ -76,4 +76,16 @@ public sealed unsafe class ResourcesBinding(Crossings crossings, ILog log, IServ
         if (a0 != null)
             game.Level.ModelPrecacheComponents(Utf8(a0));
     }
+
+    /// <summary>
+    /// Precache_Model's "warn on out of order precache", decided here
+    /// (plan_server_native_v2 T4e): native hands over the name and its
+    /// precache window's flag.
+    /// </summary>
+    public void ModelPrecacheCheck(byte* a0, byte a1)
+    {
+        Enter(CrossingOp.ServerModelPrecacheCheck);
+        if (a0 != null)
+            game.Level.ModelPrecacheCheck(Utf8(a0), a1 != 0);
+    }
 }

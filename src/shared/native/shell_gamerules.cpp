@@ -627,7 +627,6 @@ bool CSourceSharpGameRules::ClientConnected( edict_t *pEntity, const char *pszNa
 // The control block's second drain of the frame. Declared here rather than in a
 // header because shell_entityslots.cpp is the whole of its interface and one
 // other caller does not earn one.
-int SourceSharp_DrainEntitySlotsLate( void );
 #endif // !CLIENT_DLL
 
 //-----------------------------------------------------------------------------
@@ -666,23 +665,10 @@ void CSourceSharpGameRules::EndGameFrame( void )
 		ss::ApplyMultiDamage();
 	}
 
-	// The LAST of the frame's three managed points. gameinterface.cpp calls
-	// this after ServiceEventQueue and UpdateAllClientData, which is what makes
-	// it different from FrameUpdatePostEntityThink rather than a second copy of
-	// it: an entity input delivered this frame has been acted on by now.
-	//
-	// BEFORE the late drain, not after. The drain is what turns this frame's
-	// managed writes into one NetworkStateChanged per entity that actually
-	// changed, and a participant here is entitled to write -- so running it
-	// after the drain would hold its writes until the NEXT frame's drain, one
-	// tick late, which is the exact failure the late drain was added to
-	// prevent. The drain below therefore has to be the last thing in the frame,
-	// and this has to be above it.
-	// E18: the managed-built IManagedFrame.
-	if ( IManagedFrame *pFrame = ManagedFrame() )
-		pFrame->FramePostThink( gpGlobals->frametime );
-
-	SourceSharp_DrainEntitySlotsLate();
+	// THE FRAME'S LAST MANAGED POINT AND THE LATE DRAIN ARE MANAGED'S CALLS
+	// (plan_server_native_v2 T4e): ServerGameDll.GameFrame runs them right
+	// after this, in this order -- the point after the I/O queue and the
+	// client data, the drain last -- with no hop back through native.
 }
 
 // g_pPlayerResource is gone. Nothing ever assigned it (CreateStandardEntities

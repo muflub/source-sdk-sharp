@@ -106,20 +106,16 @@ public:
 
 	// SS_RETIRED ActivateAllEntities lane=3b-enginebind every line of stock's walk reaches the hierarchy server_csharp.vpc evicts; _spawner.ActivateAll() is the whole pass
 	virtual void ActivateAllEntities() = 0;
-	virtual void InitPostEntitySystems() = 0;
 
 	virtual void SetPrecacheAllowed( int32_t bAllowed ) = 0;
 
-	virtual void ShutdownPreClearSteamSystems() = 0;
 	virtual void ClearSteamAPIContext() = 0;
-	virtual void ShutdownPreEntitySystems() = 0;
 
 	// The parallel hierarchy's teardown, before the SDK entity list is cleared.
 	virtual void ShutdownStandaloneEntities() = 0;
 
 	virtual void ShutdownSoundEnt() = 0;
 	virtual void ClearEntityList() = 0;
-	virtual void ShutdownPostEntitySystems() = 0;
 
 	// Uncache, then rebuild. Stock's reason for the first, in its own words:
 	// otherwise every particle system leaks into the particle precache string
@@ -190,6 +186,31 @@ public:
 	// the flag itself stays native, where the world's precache sets it.
 	//-------------------------------------------------------------------------
 	virtual int32_t IsPrecacheAllowed() = 0;
+
+	//-------------------------------------------------------------------------
+	// plan_server_native_v2 T4e: gpGlobals->eLoadType = eLoadType, the first
+	// line of each LevelInit arm. Which arm is managed's (MapLoadArms); this
+	// writes the MapLoadType_t it chose.
+	//-------------------------------------------------------------------------
+	virtual void SetLoadType( int32_t eLoadType ) = 0;
+
+	//-------------------------------------------------------------------------
+	// plan_server_native_v2 T4e: THE NATIVE SYSTEMS' STAGES, one step each.
+	// kServerSystems[] and its walks are gone: the ORDER -- the string pool
+	// first in and last out, physics before the managed row on the way in and
+	// after it on the way out -- is managed's (ServerSystems.cs), and each
+	// line below is one stage of one native system, carried out.
+	//-------------------------------------------------------------------------
+	virtual int32_t PhysicsInit() = 0;
+	virtual void PhysicsLevelInitPreEntity() = 0;
+	virtual void PhysicsLevelInitPostEntity() = 0;
+	virtual void PhysicsLevelShutdownPreEntity() = 0;
+	virtual void PhysicsLevelShutdownPostEntity() = 0;
+	virtual void StringPoolLevelShutdownPostEntity() = 0;
+
+	// Every entity control-block slot closed, after the managed level's end:
+	// what the managed row's native half did after IManagedFrame::LevelShutdown.
+	virtual void ResetEntitySlots() = 0;
 
 	// NEW METHODS GO HERE, AT THE END.
 };

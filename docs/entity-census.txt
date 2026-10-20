@@ -1,3 +1,6 @@
+# 2026-10-19, plan_server_native_v2 T4e (kServerSystems[]'s order to C#), ported onto main 6c140a054: shell_serversystems.cpp
+#   left the server link: server objects 101 -> 100, shim 101 -> 100 (debug build); no cross-edge moved. Hand-applied from
+#   tools/entity-census's diff.
 # 2026-10-19, lane C7 small render TUs rebased onto main 1d344bb23, re-measured at the tip: rendertexture.cpp,
 #   ScreenSpaceEffects.cpp, vgui_game_viewport.cpp, warp_overlay.cpp, glow_overlay.cpp and c_pixel_visibility.cpp left
 #   client.so and four executors joined it (shell_render_targets_client.cpp, shell_managed_clientsystems_client.cpp,
@@ -925,11 +928,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 101       138
+objects linked                                                 100       138
   ... stock game/server | game/client                            0         1
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        101       137
+  ... SourceSharp shim (sourcesharp/**)                        100       137
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

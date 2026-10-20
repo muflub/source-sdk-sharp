@@ -75,7 +75,6 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_scripted.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sentences.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_server.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_serversystems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sharedappsystems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone.cpp
@@ -301,7 +300,6 @@ set(server_novalve_sources
     # P5 wave 6: cbase.h out (they used only gpGlobals / mdlcache / CCommand /
     # gameeventmanager from it, now declared or included directly); every
     # function they define compared identical before and after (objdump).
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_serversystems.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/generic_payload.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_gameevents.cpp
     # P5 wave 7: shell_standalone.h reaches only public/ and our own headers
@@ -526,7 +524,8 @@ endif()
 
 # NO RTTI IN RELEASE server.so (2026-10-01). Nothing in release asks for a type
 # at run time: the one real dynamic_cast (shell_serversystems.cpp's per-frame
-# walk) asks IsPerFrame() instead. The three left are inside Asserts
+# walk, gone with the table in plan_server_native_v2 T4e) asked IsPerFrame()
+# instead. The three left are inside Asserts
 # (SourceSharp_ShellOf x2, SourceSharp_PlayerOf), so debug keeps RTTI and with it
 # their exact check that every IGameEntity is a shell. IGameEntity has no
 # identity virtual to ask instead. The cost: a new dynamic_cast or typeid

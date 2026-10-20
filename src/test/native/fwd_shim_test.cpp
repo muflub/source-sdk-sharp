@@ -37,20 +37,20 @@ enum
 	kGetFrameTime,
 	kSetFrameTime,
 	kSetServerCurTime,
-	kServerSystemsPreThink,
 	kPhysicsRunThinkFunctions,
-	kServerSystemsPostThink,
 	kServiceEventQueue,
 	kUpdateAllClientData,
 	kEndGameFrame,
 	kFireNetworkPropertyEvents,
 	kGamestatsUpdateConnection,
 	kDrawAllDebugOverlays,
-	kServerSystemsPreClientUpdate,
 	kStandalonePlayerCommands,
 	kStandaloneUpdate,
 	kStandaloneFinish,
 	kDeliverToSdkEntities,
+	kDrainEntitySlots,
+	kBeginModelCacheLock,
+	kEndModelCacheLock,
 	kShimFrameSlots
 };
 
@@ -63,16 +63,13 @@ public:
 	float GetFrameTime() override { return Ran( kGetFrameTime ), 0.015f; }
 	void SetFrameTime( float flFrameTime ) override { Ran( kSetFrameTime ); flSet = flFrameTime; }
 	void SetServerCurTime() override { Ran( kSetServerCurTime ); }
-	void ServerSystemsPreThink() override { Ran( kServerSystemsPreThink ); }
 	void PhysicsRunThinkFunctions( int32_t bSimulating ) override { Ran( kPhysicsRunThinkFunctions ); nSimulating = bSimulating; }
-	void ServerSystemsPostThink() override { Ran( kServerSystemsPostThink ); }
 	void ServiceEventQueue() override { Ran( kServiceEventQueue ); }
 	void UpdateAllClientData() override { Ran( kUpdateAllClientData ); }
 	void EndGameFrame() override { Ran( kEndGameFrame ); }
 	void FireNetworkPropertyEvents() override { Ran( kFireNetworkPropertyEvents ); }
 	void GamestatsUpdateConnection() override { Ran( kGamestatsUpdateConnection ); }
 	void DrawAllDebugOverlays() override { Ran( kDrawAllDebugOverlays ); }
-	void ServerSystemsPreClientUpdate() override { Ran( kServerSystemsPreClientUpdate ); }
 	void StandalonePlayerCommands() override { Ran( kStandalonePlayerCommands ); }
 	void StandaloneUpdate() override { Ran( kStandaloneUpdate ); }
 	void StandaloneFinish() override { Ran( kStandaloneFinish ); }
@@ -84,6 +81,9 @@ public:
 		pValue = pszValue;
 		return 3;
 	}
+	void DrainEntitySlots() override { Ran( kDrainEntitySlots ); }
+	void BeginModelCacheLock() override { Ran( kBeginModelCacheLock ); }
+	void EndModelCacheLock() override { Ran( kEndModelCacheLock ); }
 
 	int nLast = -1;
 	int nCalls = 0;
@@ -117,10 +117,11 @@ F Slot( int nSlot )
 
 // Every void, no-argument step, by slot.
 const int kVoidSteps[] = {
-	kSetServerCurTime, kServerSystemsPreThink, kServerSystemsPostThink, kServiceEventQueue,
+	kSetServerCurTime, kServiceEventQueue,
 	kUpdateAllClientData, kEndGameFrame, kFireNetworkPropertyEvents, kGamestatsUpdateConnection,
-	kDrawAllDebugOverlays, kServerSystemsPreClientUpdate, kStandalonePlayerCommands,
-	kStandaloneUpdate, kStandaloneFinish,
+	kDrawAllDebugOverlays, kStandalonePlayerCommands,
+	kStandaloneUpdate, kStandaloneFinish, kDrainEntitySlots, kBeginModelCacheLock,
+	kEndModelCacheLock,
 };
 
 } // namespace
@@ -362,28 +363,36 @@ TEST( FwdShimCounts, TheRootIsThreeSlots )
 	ExpectServedCount( "SSFwd_ShimRoot", VTableHook::MemberOf( &IShimRoot::Release ).slot + 1, 3 );
 }
 
-TEST( FwdShimCounts, TheConsoleIsElevenSlots )
+TEST( FwdShimCounts, TheConsoleIsTwelveSlots )
 {
 	// The ten console slots of the old engine struct, in its order, then
-	// RevertNamedConVar.
+	// RevertNamedConVar, then FindConVarFlags (plan_server_native_v2 T4e).
 	ExpectServedCount( "SSFwd_ShimConsole",
-	                   VTableHook::MemberOf( &IShimConsole::ConsoleSnapshotEntry ).slot + 1, 11 );
+	                   VTableHook::MemberOf( &IShimConsole::FindConVarFlags ).slot + 1, 12 );
 }
 
 TEST( FwdShimCounts, TheFrameIsNineteenSlots )
 {
 	// Seventeen until StandaloneRunFrame split into StandaloneUpdate and
 	// StandaloneFinish; eighteen until DeliverToSdkEntities was appended.
+	// Nineteen again at plan_server_native_v2 T4e: the three system walks
+	// (ServerSystemsPreThink, ServerSystemsPostThink,
+	// ServerSystemsPreClientUpdate) retired, DrainEntitySlots,
+	// BeginModelCacheLock and EndModelCacheLock appended.
 	ExpectServedCount( "SSFwd_ShimFrame",
-	                   VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot + 1, 19 );
+	                   VTableHook::MemberOf( &IShimFrame::EndModelCacheLock ).slot + 1, 19 );
 }
 
-TEST( FwdShimCounts, TheLevelIsTwentySevenSlots )
+TEST( FwdShimCounts, TheLevelIsThirtyOneSlots )
 {
 	// Twenty-two until LoadSaveGameState, twenty-three until FileSizeOnPath and
 	// ReadFileOnPath, twenty-five until SpawnWorld, twenty-six until
-	// IsPrecacheAllowed (plan_server_native_v2 T4a): each appended.
-	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::IsPrecacheAllowed ).slot + 1, 27 );
+	// IsPrecacheAllowed (plan_server_native_v2 T4a), twenty-seven until
+	// SetLoadType (T4e): each appended. Then T4e's systems: the four walks
+	// (InitPostEntitySystems, ShutdownPreClearSteamSystems,
+	// ShutdownPreEntitySystems, ShutdownPostEntitySystems) retired and the
+	// seven system stages appended, PhysicsInit to ResetEntitySlots.
+	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::ResetEntitySlots ).slot + 1, 31 );
 }
 
 //-----------------------------------------------------------------------------

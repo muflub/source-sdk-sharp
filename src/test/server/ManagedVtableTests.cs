@@ -437,7 +437,9 @@ public unsafe partial class ManagedVtableTests
         // The root comes from SourceSharp.Shared, reached through the server's references.
         Assert.Equal(LayoutHashes(typeof(ManagedRootTable)), hashes["IManagedRoot"]);
         Assert.Equal(LayoutHashes(typeof(ManagedRuntimeServerTable)), hashes["IManagedRuntimeServer"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedFrameTable)), hashes["IManagedFrame"]);
+        // IManagedFrame STOOD HERE: its last slot, FramePostThink, retired at
+        // plan_server_native_v2 T4e (managed calls the frame points itself).
+        Assert.DoesNotContain("IManagedFrame", hashes.Keys);
         // vphysics' callbacks: managed writes a table of its own for each and
         // libss_fwd builds the Valve object over it (plan_forwarders_everywhere.md
         // phase 5), so their hashes ride along under the managed names.
@@ -455,7 +457,7 @@ public unsafe partial class ManagedVtableTests
         Assert.Equal(LayoutHashes(typeof(ManagedRecipientFilterTable)), hashes["IManagedRecipientFilter"]);
         Assert.DoesNotContain("IPhysicsObjectEvent", hashes.Keys);   // no Valve layout is written by managed any more
         Assert.Equal(LayoutHashes(typeof(ManagedSoundEmitterTable)), hashes["IManagedSoundEmitter"]);
-        Assert.Equal(27, hashes.Count);   // 27 with IManagedRecipientFilter and IManagedSoundEmitter, IManagedSoundController retired (plan_server_native_v2 T4a); 18 since plan_side_isolation P2: IManagedUserMessages; 19 with B2.1; 20 with B2.2; 21 with IManagedConsoleOutput (docs/todo.md's console capture); 22 with IPhysicsCollisionSolver (plan_physics_bones_native_zero 2.1); 23 with IManagedBones (physics_bones_native_zero 1.1); 24 with IPhysicsConstraintEvent (2.2); 25 with IMotionEvent (2.4); 26 with IVPhysicsKeyHandler (2.6)
+        Assert.Equal(26, hashes.Count);   // 26 with IManagedFrame retired (plan_server_native_v2 T4e); 27 with IManagedRecipientFilter and IManagedSoundEmitter, IManagedSoundController retired (plan_server_native_v2 T4a); 18 since plan_side_isolation P2: IManagedUserMessages; 19 with B2.1; 20 with B2.2; 21 with IManagedConsoleOutput (docs/todo.md's console capture); 22 with IPhysicsCollisionSolver (plan_physics_bones_native_zero 2.1); 23 with IManagedBones (physics_bones_native_zero 1.1); 24 with IPhysicsConstraintEvent (2.2); 25 with IMotionEvent (2.4); 26 with IVPhysicsKeyHandler (2.6)
     }
 
     private static uint[] LayoutHashes(Type layout)

@@ -6,7 +6,6 @@ CPhysicsHook::LevelInitPreEntity	HOOK	creates physenv and binds the three vphysi
 CPhysicsHook::LevelInitPostEntity	HOOK	engine-driven game-system slot
 CPhysicsHook::LevelShutdownPreEntity	HOOK	engine-driven game-system slot
 CPhysicsHook::LevelShutdownPostEntity	HOOK	engine-driven game-system slot
-CPhysicsHook::FrameUpdatePostEntityThink	HOOK	engine-driven game-system slot; forwards to managed's PhysicsFrame (IManagedPhysicsFrame)
 PhysicsWorldOwner	BOUNDARY	the compare against the world's object managed hands native (g_PhysWorldObject); physicsowner.h's inline PhysicsOwnerOf calls it, from SourceSharp_PhysicsUpdateOwners in this file only. Was LIVE-API; re-ruled 2026-10-18: nm -C over server.so's 119 link-line objects (farm/debug, at 8605b6ea1) finds it defined (T) in physics.cpp.o and undefined in none
 SourceSharp_PhysicsUpdateOwners	LIVE-API	IShimPhysics slot: the owners' transform update managed's PhysicsFrame asks after each simulate (plan_physics_bones_native_zero 2.3)
 #

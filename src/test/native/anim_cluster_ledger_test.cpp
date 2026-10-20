@@ -127,7 +127,9 @@ const char *kRagdollShared = "sourcesharp/game/shared/ragdoll_shared.cpp";
 const char *kPhysicsShared = "sourcesharp/game/shared/physics_shared.cpp";
 const char *kPhysicsSharedClient = "sourcesharp/game/client/shell_physics_client.cpp";   // shell_physics_shared_client.cpp until it left with fork physics.cpp (2026-10-18)
 
-const char *kServerSystems = "sourcesharp/game/server/shell_serversystems.cpp";
+// The server's proof-of-read: a file it compiles. shell_serversystems.cpp
+// until it left with kServerSystems[] (plan_server_native_v2 T4e).
+const char *kServerSystems = "sourcesharp/game/server/shell_frame.cpp";
 const char *kLevelSteps    = "sourcesharp/game/server/shell_level.cpp";
 const char *kWorldAdapter  = "sourcesharp/game/server/world_adapter.cpp";
 const char *kWorldQuery    = "sourcesharp/game/server/shell_worldquery.cpp";
@@ -253,7 +255,7 @@ TEST( AnimClusterLedger, TheFlipTookThreeOfTheseRowsAndRagdollSharedLeftBothSide
 	EXPECT_EQ( 1, CountNamed( cmake_graph::kClient, "game/client/shell_physics_client.cpp" ) );
 	EXPECT_TRUE( ReadFile( kRagdollShared ).empty() ) << kRagdollShared << " is back on disk.";
 	EXPECT_TRUE( ReadFile( kPhysicsShared ).empty() ) << kPhysicsShared << " is back on disk.";
-	EXPECT_EQ( 1, CountNamed( S, "game/server/shell_serversystems.cpp" ) );
+	EXPECT_EQ( 1, CountNamed( S, "game/server/shell_frame.cpp" ) );   // shell_serversystems.cpp until T4e
 
 	// animation.cpp DID leave, and it is the only row here that changed sides.
 	// plan_shim.md Phase 2d deleted it with the whole activity-ordinal family
@@ -681,7 +683,8 @@ TEST( AnimClusterLedger, TheActivityOrdinalFamilyIsGoneFromDiskAndFromBothTarget
 	{
 		// Proof-of-read: a file the target DOES compile (the client's is
 		// shell_physics_shared_client.cpp since physics_shared.cpp left at
-		// plan_physics_bones_native_zero 2.6; the server's is shell_serversystems).
+		// plan_physics_bones_native_zero 2.6; the server's is shell_frame.cpp,
+		// shell_serversystems.cpp until plan_server_native_v2 T4e).
 		const char *pProof = ( v == 0 ) ? kServerSystems : "game/client/shell_physics_client.cpp";
 		ASSERT_EQ( 1, CountNamed( kTargets[ v ], pProof ) )
 			<< kTargets[ v ] << "'s source list does not name " << pProof;

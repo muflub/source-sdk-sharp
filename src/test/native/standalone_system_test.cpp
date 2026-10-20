@@ -109,6 +109,19 @@ std::string Read( const char *pszRel )
 	return StripComments( ReadRaw( pszRel ) );
 }
 
+// Whether a file is in the tree at all, for a fact that a file stays gone (a
+// missing file there is the pass, so it is not read through ReadRaw, whose
+// miss is a failure).
+bool Exists( const char *pszRel )
+{
+	const char *pszRoot = SrcRoot();
+	EXPECT_TRUE( pszRoot != NULL ) << "cannot locate src/ from the test's cwd";
+	if ( !pszRoot )
+		return true;
+	std::ifstream file( ( std::string( pszRoot ) + "/" + pszRel ).c_str(), std::ios::binary );
+	return file.is_open();
+}
+
 int CountOf( const std::string &hay, const std::string &needle )
 {
 	int n = 0;
@@ -121,7 +134,12 @@ const char *kStandalone = "sourcesharp/game/server/shell_standalone.cpp";
 const char *kGameDll    = "sourcesharp/game/server/shell_gamedll.cpp";
 const char *kModule     = "sourcesharp/managed/SourceSharp.Server/ServerModule.cs";
 const char *kPublish    = "sourcesharp/managed/SourceSharp.Shared.Interop/StandaloneNetStates.cs";
+// kServerSystems[]'s file until plan_server_native_v2 T4e made its order
+// managed's; read only to hold that it stays gone.
 const char *kTable      = "sourcesharp/game/server/shell_serversystems.cpp";
+const char *kLevel      = "sourcesharp/game/server/shell_level.cpp";
+const char *kSystems    = "sourcesharp/managed/SourceSharp.Server/ServerSystems.cs";
+const char *kStages     = "sourcesharp/managed/SourceSharp.Server/LifecycleStages.cs";
 const char *kGameSystem = "sourcesharp/game/shared/sourcesharp_gamesystem.cpp";
 // Where a slot is wired since the struct fill went: each side's generated
 // shim-area forwards, and the slot table they are generated from. src/../docs
@@ -234,24 +252,27 @@ TEST( StandaloneSystem, TheRegistrationHasExactlyOneReachableFirstCaller )
 		   "so the class list can be walked before it is built";
 }
 
-TEST( StandaloneSystem, TheManagedRuntimeIsUpBeforeTheSystemTableIsWalked )
+TEST( StandaloneSystem, TheManagedRuntimeIsUpBeforeTheSystemsInit )
 {
 	const std::string src = Read( kGameDll );
 	ASSERT_FALSE( src.empty() );
 
-	// The ORDER inside DLLInit, which is what makes the deleted Init dead. Read
-	// as two positions rather than as two presences, because both calls being
-	// there is not the fact -- the fact is which is first.
+	// The ORDER inside DLLInit, which is what makes the deleted Init dead. The
+	// game systems' Init is the first thing OnSystemStart does since
+	// kServerSystems[]'s order went managed (plan_server_native_v2 T4e:
+	// ServerSystems.Init), so the runtime is up by construction before any
+	// system's Init -- read as two positions, because both calls being there
+	// is not the fact.
 	const size_t load = src.find( "LoadManagedRuntime(this)" );
-	const size_t init = src.find( "SourceSharp_ServerSystemsInit()" );
+	const size_t init = src.find( "->OnSystemStart()" );
 
 	ASSERT_NE( load, std::string::npos ) << "DLLInit no longer brings the CLR up here";
-	ASSERT_NE( init, std::string::npos ) << "DLLInit no longer walks the system table here";
+	ASSERT_NE( init, std::string::npos ) << "DLLInit no longer starts the systems here";
 
 	EXPECT_LT( load, init )
-		<< "the system table is walked BEFORE the managed runtime loads, so the "
-		   "standalone tiers would not yet be registered when a row's Init ran -- "
-		   "which is the state the deleted Init was correct for";
+		<< "the systems start BEFORE the managed runtime loads, so the standalone "
+		   "tiers would not yet be registered when a system's Init ran -- which is "
+		   "the state the deleted Init was correct for";
 }
 
 TEST( StandaloneSystem, TheManagedSidePublishesTheHierarchyUnconditionally )
@@ -287,116 +308,65 @@ TEST( StandaloneSystem, TheManagedSidePublishesTheHierarchyUnconditionally )
 
 TEST( StandaloneSystem, TheManagedRowDrivesThePreEntityHalfOfShutdown )
 {
-	const std::string table = Read( kTable );
-	ASSERT_FALSE( table.empty() );
+	// The pass is managed's since plan_server_native_v2 T4e (ServerSystems):
+	// the managed row's pre-entity shutdown stage, then CPhysicsHook's, the
+	// table backwards. Its behaviour is ServerSystemsTests'; this holds the
+	// shape mutation S7 found: the call must be IN the pre-entity pass, not
+	// bolted onto the post-entity one, where it would run after the entity
+	// list is cleared.
+	const std::string systems = Read( kSystems );
+	ASSERT_FALSE( systems.empty() );
 
-	EXPECT_EQ( 1, CountOf( table, "SourceSharp_ManagedLevelShutdownPreEntity();" ) )
-		<< "exactly one call, from the row that owns the managed frame";
+	const size_t stage = systems.find( "public void LevelShutdownPreEntity()" );
+	const size_t next = systems.find( "public void LevelShutdownPostEntity()" );
+	ASSERT_NE( stage, std::string::npos ) << "ServerSystems has no pre-entity shutdown pass";
+	ASSERT_NE( next, std::string::npos );
+	ASSERT_LT( stage, next ) << "the two passes are not in the order this check reads them in";
 
-	const size_t stage = table.find( "virtual void LevelShutdownPreEntity() OVERRIDE" );
-
-	ASSERT_NE( stage, std::string::npos )
-		<< "the row does not override the pre-entity shutdown stage at all, so the "
-		   "stage has no caller again -- the state this phase found it in";
-
-	// AND THE CALL IS INSIDE THAT OVERRIDE, which is the half the two checks
-	// above cannot say and the half that matters.
-	//
-	// MUTATION S7 SURVIVED THE FIRST VERSION OF THIS FACT. It left the override
-	// in place with an empty body and moved the call into
-	// LevelShutdownPostEntity: one call, an override present, both clauses
-	// green -- and the participants then run AFTER gEntList.Clear(), which is
-	// the entire difference between the two hooks and the reason the row's own
-	// comment says "PRE-entity, not post". A fact that asserts a call exists
-	// and a stage exists says nothing about the call being in the stage.
-	const size_t next = table.find( "\n\tvirtual ", stage + 1 );
-	ASSERT_NE( next, std::string::npos )
-		<< "the pre-entity shutdown override is the last member of the row's class, "
-		   "so this check's window runs to end-of-file and would be satisfied by a "
-		   "call anywhere below it";
-
-	const size_t call = table.find( "SourceSharp_ManagedLevelShutdownPreEntity();" );
+	const size_t call = systems.find( "managed.LevelShutdownPreEntity();" );
+	const size_t physics = systems.find( "level.PhysicsLevelShutdownPreEntity();" );
 	ASSERT_NE( call, std::string::npos );
+	ASSERT_NE( physics, std::string::npos );
 
+	EXPECT_EQ( 1, CountOf( systems, "managed.LevelShutdownPreEntity();" ) );
 	EXPECT_TRUE( call > stage && call < next )
-		<< "the pre-entity shutdown call is not inside the pre-entity shutdown "
-		   "override. Bolted onto LevelShutdownPostEntity it still runs, exactly "
-		   "once per level change -- after gEntList.Clear(), with every entity a "
-		   "participant might let go of already gone";
+		<< "the managed row's pre-entity shutdown stage is not inside the pre-entity pass";
+	EXPECT_LT( call, physics ) << "the pass is not backwards: physics shut down before the managed row";
 }
 
-TEST( StandaloneSystem, ThePreEntityShutdownBodyIsGuardedOffTheClient )
+TEST( StandaloneSystem, ThePreEntityShutdownBodyLeftWithTheTable )
 {
-	// sourcesharp_gamesystem.cpp compiles into client.so as well, and the five
-	// bodies beside this one are inside one `#ifndef CLIENT_DLL` block that runs
-	// for several hundred lines. A body written just outside it exists on the
-	// client, where ServerMapUnloadPreEntity is a null slot.
-	//
-	// BOTH DIRECTIONS, because the tree already recorded what the forward-only
-	// version misses: closing the block ABOVE the body and reopening it inside
-	// leaves nothing between the body and its neighbour, so a forward search
-	// for an #endif finds none and the check stays green with the body on the
-	// wrong side of the line.
+	// It was sourcesharp_gamesystem.cpp's body, called from the table's managed
+	// row, and it called the runtime's OnMapUnloadPreEntity. Since T4e managed
+	// runs the stage itself (ServerGameDll.ShutdownPreEntityParticipants), so
+	// neither the body nor the slot is left to guard off the client.
 	const std::string gs = Read( kGameSystem );
 	ASSERT_FALSE( gs.empty() );
-
-	const size_t body = gs.find( "void SourceSharp_ManagedLevelShutdownPreEntity(" );
-	const size_t next = gs.find( "void SourceSharp_ManagedLevelShutdown(" );
-	ASSERT_NE( body, std::string::npos );
-	ASSERT_NE( next, std::string::npos );
-	ASSERT_LT( body, next ) << "the two bodies are not in the order this check reads them in";
-
-	const size_t opener = gs.rfind( "#ifndef CLIENT_DLL", body );
-	ASSERT_NE( opener, std::string::npos );
-
-	EXPECT_EQ( 0, CountOf( gs.substr( opener, body - opener ), "#endif" ) )
-		<< "the guard that encloses the pre-entity shutdown body was closed before "
-		   "it, so the body is on the client's side of the line";
-	EXPECT_EQ( 0, CountOf( gs.substr( body, next - body ), "#endif" ) )
-		<< "the pre-entity shutdown body is outside the #ifndef CLIENT_DLL block "
-		   "the other five are in";
-
-	// AND NO GUARD IS OPENED INSIDE THE BODY, which is the third clause and the
-	// one the realistic edit needs.
-	//
-	// The edit that puts this body on the client is not "close the guard above
-	// it" on its own -- closing it and REOPENING it above the body leaves the
-	// body guarded and changes nothing, which is a mutation with no observable
-	// difference and is correct to survive. The edit that costs something closes
-	// the guard above the body and reopens it INSIDE, so the body's SIGNATURE is
-	// compiled on the client while its statements are not. The backward clause
-	// above catches that only because there is then an #endif between the
-	// enclosing opener and the body; this clause catches it directly, and says
-	// so where a reader can see which shape is which.
-	EXPECT_EQ( 0, CountOf( gs.substr( body, next - body ), "#ifndef CLIENT_DLL" ) )
-		<< "a guard is opened INSIDE the pre-entity shutdown body, which puts its "
-		   "signature on the client and its statements on the server";
+	EXPECT_EQ( 0, CountOf( gs, "void SourceSharp_ManagedLevelShutdownPreEntity(" ) );
+	EXPECT_EQ( 1, CountOf( gs, "void SourceSharp_ManagedLevelInitPreEntity(" ) )
+		<< "the control: the edge body that is left is found by the same read";
 }
 
-TEST( StandaloneSystem, ThePreEntityPairIsARuntimeSlotThatCannotBeLeftUnfilled )
+TEST( StandaloneSystem, ThePreEntityLoadIsARuntimeSlotAndTheUnloadIsNot )
 {
-	// It was a ManagedApi slot that SOURCESHARP_SHELL_REQUIRED had to name, or a
-	// managed build that did not fill it would come up and silently stop
-	// dispatching the pre-entity stages. Since plan_engineapi_vtables E1 the
-	// pair is IManagedRuntimeServer's: a slot of the table managed writes
-	// (ManagedVtableGenerator refuses a missing method), so nothing can leave
-	// it null. The required list itself is gone (E17b), and the class and its
-	// table are generated into imanaged_runtime.h (plan_managed_vtable_reload.md
-	// L0c; plan_forwarders_everywhere.md phase 4: a C struct, no virtual).
+	// Since plan_engineapi_vtables E1 the pre-entity pair was IManagedRuntimeServer's.
+	// The load half stays: the WORLD's precache reaches it from native. The
+	// unload half retired at plan_server_native_v2 T4e: managed's ServerSystems
+	// runs that pass, so nothing native calls it.
 	const std::string decl = Read( "sourcesharp/game/shared/imanaged_runtime.h" );
 	ASSERT_FALSE( decl.empty() );
 
 	EXPECT_EQ( 1, CountOf( decl, "void ( *OnMapLoadPreEntity )( IManagedRuntimeServer *self, const char *pszMapName );" ) );
-	EXPECT_EQ( 1, CountOf( decl, "void ( *OnMapUnloadPreEntity )( IManagedRuntimeServer *self );" ) );
+	EXPECT_EQ( 0, CountOf( decl, "OnMapUnloadPreEntity" ) );
 }
 
-TEST( StandaloneSystem, TheMapUnloadSlotIsARuntimeMethodNotAStructField )
+TEST( StandaloneSystem, TheMapUnloadSlotIsNoStructField )
 {
 	const std::string abi = Read( kAbiHeader );
 	ASSERT_FALSE( abi.empty() );
 
 	// It was appended to the ManagedApi struct after ServerWorldKeyValue; since
-	// plan_engineapi_vtables E1 both are methods of the managed-built
+	// plan_engineapi_vtables E1 both were methods of the managed-built
 	// IManagedRuntimeServer, E-last removed the server's fields and
 	// plan_client_vtables CE-last the struct itself. Neither may come back as
 	// a function pointer anywhere in the ABI header.
@@ -404,9 +374,6 @@ TEST( StandaloneSystem, TheMapUnloadSlotIsARuntimeMethodNotAStructField )
 	EXPECT_EQ( 0, CountOf( abi, "(*ServerWorldKeyValue)" ) );
 	EXPECT_EQ( 1, CountOf( abi, "(*SourceSharpLogFn)" ) )
 		<< "the control: the header's surviving function pointer is found by the same needle";
-
-	const std::string runtime = Read( "sourcesharp/game/shared/imanaged_runtime.h" );
-	EXPECT_EQ( 1, CountOf( runtime, "void ( *OnMapUnloadPreEntity )( IManagedRuntimeServer *self );" ) );
 }
 
 TEST( StandaloneSystem, TheDispatchIsNotAlsoWrittenIntoMapUnload )
@@ -452,55 +419,40 @@ TEST( StandaloneSystem, TheDispatchIsNotAlsoWrittenIntoMapUnload )
 // counts them.
 //=============================================================================//
 
-TEST( StandaloneSystem, TheRowIsGoneAndTheTableSaysItMoved )
+TEST( StandaloneSystem, TheRowIsGoneAndTheTableWithIt )
 {
-	const std::string table = Read( kTable );
-	ASSERT_FALSE( table.empty() );
+	// kServerSystems[] went managed (plan_server_native_v2 T4e); the native
+	// systems' stages are shell_level.cpp's steps, and the standalone system is
+	// not one of them, nor is its accessor.
+	const std::string level = Read( kLevel );
+	ASSERT_FALSE( level.empty() );
 
-	// The ROW, spelled as a row -- name and accessor between braces. Matching on
-	// the bare class name would also hit the paragraph naming it as a removal,
-	// which is why comments are stripped and why the needle is the row's shape.
-	EXPECT_EQ( 0, CountOf( table, "{ \"CSourceSharpStandaloneSystem\"," ) )
-		<< "the row is back, so the hierarchy is driven twice a frame";
-	EXPECT_EQ( 0, CountOf( table, "StandaloneGameSystem" ) )
-		<< "the accessor is still declared here, which is a row waiting to be "
-		   "written";
+	EXPECT_EQ( 0, CountOf( level, "StandaloneGameSystem" ) )
+		<< "the accessor is back, which is a row waiting to be written";
+	EXPECT_FALSE( Exists( kTable ) ) << kTable << " is back";
 
-	// VACUITY GUARD: the row needle shape finds a row that IS still there.
-	EXPECT_EQ( 1, CountOf( table, "{ \"CPhysicsHook\"," ) )
-		<< "the row needle matches nothing at all, so the zeroes above say nothing";
+	// VACUITY GUARD: the steps' needle finds the system they DO run.
+	EXPECT_GE( CountOf( level, "PhysicsGameSystem()->" ), 1 )
+		<< "the steps' needle matches nothing at all, so the zero above says nothing";
 }
 
-TEST( StandaloneSystem, TheRemovalCarriesItsReasonInTheTable )
+TEST( StandaloneSystem, TheRemovalCarriesItsReasonWhereItsStagesAre )
 {
-	// A row deleted without a reason is indistinguishable from one forgotten --
-	// the rule the other nine non-rows are written under. Read from the RAW file
-	// rather than the stripped text, because the reason IS a comment.
-	//
-	// ONE WINDOW, bounded at the next entry, which is the shape
-	// c_systems_managed_test.cpp had to reach in three tries: an "appears at
-	// all" test is satisfied by another system's verdict, and a whole-file COUNT
-	// is stale by construction the moment a later phase adds a removal.
-	const std::string raw = ReadRaw( kTable );
+	// A row deleted without a reason is indistinguishable from one forgotten.
+	// The reason was the table's comment; since the table went it is the
+	// managed stages' own (LifecycleStages.cs), read RAW because it IS a
+	// comment, in the window that ends at the stage it explains.
+	const std::string raw = ReadRaw( kStages );
 	ASSERT_FALSE( raw.empty() );
 
-	const size_t at = raw.find( "//   CSourceSharpStandaloneSystem" );
-	ASSERT_NE( at, std::string::npos )
-		<< "CSourceSharpStandaloneSystem is not in the table's list of what is "
-		   "NOT a row, so a reader cannot tell it from a row somebody forgot";
+	const size_t stage = raw.find( "Standalone = 1100," );
+	ASSERT_NE( stage, std::string::npos );
+	const size_t open = raw.rfind( "// ----", stage );
+	ASSERT_NE( open, std::string::npos );
 
-	const size_t next = raw.find( "\n//   C", at + 1 );
-	const std::string block = raw.substr( at, next == std::string::npos
-	                                          ? std::string::npos : next - at );
-
-	EXPECT_NE( block.find( "NOT DELETED: MOVED" ), std::string::npos )
-		<< "its own block does not say it MOVED, so a reader cannot tell it from "
-		   "the ones that were deleted";
-
-	// And WHERE to, which is the half a bare verdict leaves out. Three steps and
-	// two files: a reader who wants the drive has to be able to find it.
-	EXPECT_NE( block.find( "StandaloneHierarchy" ), std::string::npos )
-		<< "the block does not name what runs the two stages now";
+	const std::string block = raw.substr( open, stage - open );
+	EXPECT_NE( block.find( "CSourceSharpStandaloneSystem" ), std::string::npos )
+		<< "the stage's own block does not name the row it took over";
 }
 
 TEST( StandaloneSystem, TheThreeFrameStepsAreThreeBecauseTheOrderIsADecision )

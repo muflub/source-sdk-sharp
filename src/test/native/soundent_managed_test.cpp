@@ -118,7 +118,10 @@ int CountOf( const std::string &hay, const std::string &needle )
 	return n;
 }
 
-const char *kTable        = "sourcesharp/game/server/shell_serversystems.cpp";
+// kServerSystems[]'s file went at plan_server_native_v2 T4e; the native
+// systems' steps and the managed stages are where its rows' reasons are now.
+const char *kLevel        = "sourcesharp/game/server/shell_level.cpp";
+const char *kStages       = "sourcesharp/managed/SourceSharp.Server/LifecycleStages.cs";
 const char *kShim         = "sourcesharp/game/server/shell_soundent.cpp";
 const char *kShellSound   = "sourcesharp/game/server/shell_sound.cpp";
 // The disconnect path -- CServerGameClients::ClientDisconnect. It was in
@@ -212,64 +215,40 @@ int TableRows( const std::string &tsv, const std::string &slot )
 
 TEST( SoundEntManaged, TheRowIsGone )
 {
-	const std::string table = Read( kTable );
-	ASSERT_FALSE( table.empty() );
+	// The table it left went too (plan_server_native_v2 T4e): the native
+	// systems' stages are shell_level.cpp's steps, and CSoundEnt is not one,
+	// nor is the accessor that existed only so the table could name it.
+	const std::string level = Read( kLevel );
+	ASSERT_FALSE( level.empty() );
 
-	// The ROW, spelled as a row. Matching the bare class name would also hit
-	// the paragraph naming it as a removal, which is why comments are stripped
-	// and why the needle is the row's shape.
-	EXPECT_EQ( 0, CountOf( table, "{ \"CSoundEnt\"," ) );
+	EXPECT_EQ( 0, CountOf( level, "SoundEntGameSystem" ) );
 
-	// ...and the accessor that existed only so the table could name it.
-	EXPECT_EQ( 0, CountOf( table, "SoundEntGameSystem" ) );
-
-	// VACUITY GUARD. Both counts are zero, and zero is also what a file that
-	// failed to open answers. A row that IS still there proves the needle shape
-	// finds one.
-	EXPECT_EQ( 1, CountOf( table, "{ \"CPhysicsHook\"," ) )
-		<< "the row needle matches nothing at all, so the zeroes above say "
-		   "nothing either";
+	// VACUITY GUARD: the steps' needle finds the system they DO run.
+	EXPECT_GE( CountOf( level, "PhysicsGameSystem()->" ), 1 )
+		<< "the steps' needle matches nothing at all, so the zero above says nothing";
 }
 
-TEST( SoundEntManaged, TheRemovalCarriesItsReasonInTheTable )
+TEST( SoundEntManaged, TheRemovalCarriesItsReasonWhereItsStageIs )
 {
 	// A row deleted without a reason is indistinguishable from one forgotten.
-	// Read RAW, because the reason IS a comment.
-	const std::string raw = ReadRaw( kTable );
+	// The reason was the table's comment; since the table went
+	// (plan_server_native_v2 T4e) it is the managed stages' own, in
+	// LifecycleStages.cs: the paragraph above SoundController's value, bounded
+	// at it, names both systems the pair moved, and FrameStage carries the one
+	// stage CSoundEnt had. Read RAW, because the reason IS a comment.
+	const std::string raw = ReadRaw( kStages );
 	ASSERT_FALSE( raw.empty() );
 
-	const size_t at = raw.find( "//   CSoundEnt " );
-	ASSERT_NE( at, std::string::npos )
-		<< "CSoundEnt is not in the table's list of systems that are NOT rows, "
-		   "so a reader cannot tell it was moved rather than forgotten";
+	const size_t stage = raw.find( "SoundController = 1000," );
+	ASSERT_NE( stage, std::string::npos );
+	const size_t open = raw.rfind( "// ----", stage );
+	ASSERT_NE( open, std::string::npos );
 
-	// The verdict has to be inside CSoundEnt's OWN block rather than anywhere
-	// in the file. This is the ledger's H1 defect -- a verdict word surviving
-	// elsewhere in the same file -- met by bounding the window at the next
-	// entry rather than running it to end-of-file.
-	//
-	// AND THE BOUND IS "THE NEXT ENTRY", NOT A NAMED ONE. It said
-	// `find( "//   CSourceSharpEventLog", at )`, which is the SAME DEFECT one
-	// step further out: the window is only CSoundEnt's for as long as
-	// CSourceSharpEventLog happens to be the entry after it. Phase A3's fifth
-	// system inserted //   CSourceSharpStandaloneSystem between the two, this
-	// window silently grew to cover that block as well, and mutation E2 --
-	// taking the verdict off CSoundEnt -- SURVIVED, satisfied by another
-	// system's. Found by the harness, not by reading the test.
-	// c_systems_managed_test.cpp's twin already bounds on "\n//   C" and was
-	// unaffected.
-	const size_t next = raw.find( "\n//   C", at + 1 );
-	ASSERT_NE( next, std::string::npos )
-		<< "CSoundEnt's is the last entry in the list of what is NOT a row, so "
-		   "this window would run to end-of-file and any later verdict would "
-		   "satisfy it";
-
-	const std::string block = raw.substr( at, next - at );
-
-	EXPECT_NE( block.find( "NOT DELETED: MOVED" ), std::string::npos )
-		<< "the row's block does not say it moved";
-	EXPECT_NE( block.find( "FrameStage.SoundEnt" ), std::string::npos )
-		<< "the row's block does not say WHERE it moved to";
+	const std::string block = raw.substr( open, stage - open );
+	EXPECT_NE( block.find( "CSoundEnt" ), std::string::npos )
+		<< "the block does not name CSoundEnt as one of the two that moved";
+	EXPECT_NE( raw.find( "    SoundEnt = " ), std::string::npos )
+		<< "FrameStage has no SoundEnt stage, so nothing says WHERE it moved to";
 }
 
 //=============================================================================//
@@ -580,41 +559,37 @@ TEST( SoundEntManaged, TheTwoEngineSlotsAreGoneFromBothSidesOfTheBoundary )
 
 TEST( SoundControllerManaged, TheRowIsGone )
 {
-	const std::string table = Read( kTable );
-	ASSERT_FALSE( table.empty() );
+	const std::string level = Read( kLevel );
+	ASSERT_FALSE( level.empty() );
 
-	EXPECT_EQ( 0, CountOf( table, "{ \"CSoundControllerImp\"," ) );
-	EXPECT_EQ( 0, CountOf( table, "SoundControllerGameSystem" ) );
+	EXPECT_EQ( 0, CountOf( level, "SoundControllerGameSystem" ) );
 
 	// VACUITY GUARD, as above.
-	EXPECT_EQ( 1, CountOf( table, "{ \"CPhysicsHook\"," ) );
+	EXPECT_GE( CountOf( level, "PhysicsGameSystem()->" ), 1 );
 }
 
-TEST( SoundControllerManaged, TheRemovalCarriesItsReasonInTheTable )
+TEST( SoundControllerManaged, TheRemovalCarriesItsReasonWhereItsStagesAre )
 {
-	const std::string raw = ReadRaw( kTable );
+	// As SoundEntManaged's twin: the paragraph that bounds at SoundController's
+	// own value names the system, and both of its stages exist -- the level one
+	// it bounds at and the per-frame one in FrameStage.
+	const std::string raw = ReadRaw( kStages );
 	ASSERT_FALSE( raw.empty() );
 
-	const size_t at = raw.find( "//   CSoundControllerImp " );
-	ASSERT_NE( at, std::string::npos )
-		<< "CSoundControllerImp is not in the table's list of systems that are "
-		   "NOT rows";
+	const size_t stage = raw.find( "SoundController = 1000," );
+	ASSERT_NE( stage, std::string::npos );
+	const size_t open = raw.rfind( "// ----", stage );
+	ASSERT_NE( open, std::string::npos );
 
-	// Bounded at the NEXT entry rather than run to end-of-file: the ledger's H1
-	// defect is a verdict word surviving elsewhere in the same file.
-	// "The next entry", not a named one -- see TheRemovalCarriesItsReasonInTheTable
-	// above for the mutation that got past the named form.
-	const size_t next = raw.find( "\n//   C", at + 1 );
-	ASSERT_NE( next, std::string::npos );
+	const std::string block = raw.substr( open, stage - open );
+	EXPECT_NE( block.find( "CSoundControllerImp" ), std::string::npos )
+		<< "the block does not name CSoundControllerImp";
 
-	const std::string block = raw.substr( at, next - at );
-
-	EXPECT_NE( block.find( "NOT DELETED: MOVED" ), std::string::npos );
-	EXPECT_NE( block.find( "FrameStage.SoundController" ), std::string::npos )
-		<< "the block does not say WHERE the per-frame half went";
-	EXPECT_NE( block.find( "LifecycleStage.SoundController" ), std::string::npos )
-		<< "the block does not say where the LEVEL half went, and this system has "
-		   "two stages where CSoundEnt had one";
+	const size_t frame = raw.find( "public enum FrameStage" );
+	ASSERT_NE( frame, std::string::npos );
+	EXPECT_NE( raw.find( "    SoundController = ", frame ), std::string::npos )
+		<< "FrameStage has no SoundController stage, so nothing says where the "
+		   "per-frame half went";
 }
 
 TEST( SoundControllerManaged, NeitherSoundenvelopeCppNorTheShimIsInTheServersProject )
@@ -761,17 +736,10 @@ TEST( SoundControllerManaged, ThePreClientUpdateStageHasAProductionCaller )
 	EXPECT_EQ( 1, CountOf( module, "_frames?.PreClientUpdate(frameTime)" ) )
 		<< "FramePreClientUpdate does not reach the driver";
 
-	// AND IT RUNS AFTER THE NATIVE WALK, which is an ordering claim rather than
-	// a wiring one. The only other row declaring PreClientUpdate is CPhysicsHook
-	// at index 1, and stock ran it first.
-	const size_t walk = gameDll.find( "_frame.ServerSystemsPreClientUpdate();" );
-	const size_t call = gameDll.find( "FrameParticipants?.Invoke(" );
-
-	ASSERT_NE( walk, std::string::npos );
-	ASSERT_NE( call, std::string::npos );
-
-	EXPECT_LT( walk, call )
-		<< "the managed participants are dispatched BEFORE the native table walk, "
-		   "which moves the sound controller ahead of CPhysicsHook -- stock ran "
-		   "the physics hook first";
+	// THE NATIVE WALK IT RAN AFTER IS GONE (plan_server_native_v2 T4e): no row
+	// of kServerSystems[] declared PreClientUpdate once CPhysicsHook's impact
+	// sounds went managed, so there is nothing for the participants to follow
+	// and nothing may come back ahead of them.
+	EXPECT_EQ( 0, CountOf( gameDll, "ServerSystemsPreClientUpdate" ) )
+		<< "a native PreClientUpdate walk is back";
 }

@@ -37,7 +37,6 @@ struct CManagedAreas
 	IManagedCommands *m_pCommands;
 	IManagedNetState *m_pNetState;
 	IManagedPlayerCommands *m_pPlayerCommands;
-	IManagedFrame *m_pFrame;
 	IManagedConsoleOutput *m_pConsoleOutput;
 	IManagedBones *m_pBones;
 	IManagedSoundEmitter *m_pSoundEmitter;
@@ -72,7 +71,6 @@ inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 		&& !holders.m_Areas.m_pCommands
 		&& !holders.m_Areas.m_pNetState
 		&& !holders.m_Areas.m_pPlayerCommands
-		&& !holders.m_Areas.m_pFrame
 		&& !holders.m_Areas.m_pConsoleOutput
 		&& !holders.m_Areas.m_pBones
 		&& !holders.m_Areas.m_pSoundEmitter;

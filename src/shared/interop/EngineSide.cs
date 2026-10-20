@@ -508,6 +508,21 @@ internal sealed unsafe partial class EngineSide
         }
     }
 
+    /// <summary>
+    /// The flags of the variable the engine holds under <paramref name="name"/>,
+    /// or -1 for none (IShimConsole::FindConVarFlags, plan_server_native_v2 T4e).
+    /// </summary>
+    public int FindConVarFlags(string name)
+    {
+        if (!s_Initialized || !OwnShimsAttached || name.Length == 0) return -1;
+
+        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* pName = nameBytes)
+        {
+            return OwnShims.Console.FindConVarFlags(pName);
+        }
+    }
+
     public void SetConVarValue(int id, string value)
     {
         if (!s_Initialized || !OwnShimsAttached) return;

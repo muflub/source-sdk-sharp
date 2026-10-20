@@ -175,6 +175,9 @@ const char *const kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp
 // and named by no assertion here.
 const File_t kOrphans = { "sourcesharp/game/server/shell_absent.cpp",
 	"void ss::SetPlayerSurface(" };
+// The world's precache, which took EffectsPrecache's six sounds (T4e).
+const File_t kWorldPrecache = { "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs",
+	"private void WorldPrecache()" };
 const File_t kWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
 	"void SourceSharp_BloodEffect(" };
 // The client's reader of the spray bits is C# since lane c5-particles
@@ -259,20 +262,21 @@ TEST( EffectsEvicted, TheShellDefinesBothTenantsExactlyOnce )
 		   "and its one live caller is SourceSharp_BloodEffect — our own shim, "
 		   "acting for the managed env_blood";
 
-	EXPECT_EQ( CountOf( s, "void EffectsPrecache(" ), 1u )
-		<< "shell_entity_orphans.cpp defines EffectsPrecache once";
-
-	EXPECT_EQ( CountOf( s, "PRECACHE_REGISTER_FN( EffectsPrecache )" ), 1u )
-		<< "and registers it exactly once. THIS IS THE ONE NO LINKER CHECKS: "
-		   "nothing names EffectsPrecache, so losing the registration costs no "
-		   "diagnostic at all — it costs the splash, the underwater bullet "
-		   "impact, the ricochet and BaseExplosionEffect.Sound, each silent the "
-		   "first time the managed side plays it";
+	// The second tenant, EffectsPrecache, left with its register at
+	// plan_server_native_v2 T4e: its six sounds are managed's world precache
+	// (ServerGameDll.WorldPrecache), held below. Neither the function nor a
+	// registration may come back beside it: two precache paths for one list.
+	EXPECT_EQ( CountOf( s, "void EffectsPrecache(" ), 0u );
+	EXPECT_EQ( CountOf( s, "PRECACHE_REGISTER_FN( EffectsPrecache )" ), 0u );
 }
 
-TEST( EffectsEvicted, TheShellPrecachesEverySoundEffectsCppDid )
+TEST( EffectsEvicted, TheWorldPrecachesEverySoundEffectsCppDid )
 {
-	const std::string s = Load( kOrphans );
+	// Managed's world precache since plan_server_native_v2 T4e: losing one of
+	// these costs no diagnostic at all -- it costs the splash, the underwater
+	// bullet impact, the ricochet and BaseExplosionEffect.Sound, each silent
+	// the first time the managed side plays it.
+	const std::string s = Load( kWorldPrecache );
 
 	// Stock's five unconditional ones and the multiplayer one. Named
 	// individually rather than counted, because a count of six is satisfied by
@@ -289,7 +293,7 @@ TEST( EffectsEvicted, TheShellPrecachesEverySoundEffectsCppDid )
 	for ( size_t i = 0; i < sizeof( kSounds ) / sizeof( kSounds[ 0 ] ); i++ )
 	{
 		EXPECT_NE( s.find( kSounds[ i ] ), std::string::npos )
-			<< "the lifted EffectsPrecache still precaches " << kSounds[ i ];
+			<< "the world's precache still precaches " << kSounds[ i ];
 	}
 }
 

@@ -122,13 +122,6 @@ public interface IEngineLevel
     /// </summary>
     void ActivateAllEntities();
 
-    /// <summary>
-    /// The named list's LevelInitPostEntity pass — kServerSystems[] forwards.
-    /// The managed level init happens inside it, because SourceSharpManaged is
-    /// a row of that table at the position CSourceSharpSystem held.
-    /// </summary>
-    void InitPostEntitySystems();
-
     /// <summary>Opens or closes the precache window.</summary>
     void SetPrecacheAllowed(bool allowed);
 
@@ -139,17 +132,11 @@ public interface IEngineLevel
     /// </summary>
     bool IsPrecacheAllowed();
 
-    /// <summary>The named list's pre-clear-steam shutdown pass, backwards.</summary>
-    void ShutdownPreClearSteamSystems();
-
     /// <summary>
     /// Clears the steam game-server context. AFTER the pass named for it, which
     /// is the entire reason that pass has a name of its own.
     /// </summary>
     void ClearSteamAPIContext();
-
-    /// <summary>The named list's pre-entity shutdown pass. Entities still exist.</summary>
-    void ShutdownPreEntitySystems();
 
     /// <summary>
     /// Removes every entity on the parallel hierarchy — plan_gamedll_after.md
@@ -170,12 +157,6 @@ public interface IEngineLevel
     /// shutdown passes, which is what those two names are FOR.
     /// </summary>
     void ClearEntityList();
-
-    /// <summary>
-    /// The named list's post-entity shutdown pass, backwards. The managed level
-    /// shutdown happens inside it, for the same reason the level init does.
-    /// </summary>
-    void ShutdownPostEntitySystems();
 
     /// <summary>
     /// Uncaches every particle system. Stock's reason, in its own words:
@@ -230,6 +211,44 @@ public interface IEngineLevel
     /// caller's, which is why this is a step and not a decision.
     /// </returns>
     bool LoadSaveGameState(string mapName, bool createPlayers);
+
+    /// <summary>
+    /// <c>gpGlobals-&gt;eLoadType = how</c>: stock's first line in each arm of
+    /// <c>CServerGameDLL::LevelInit</c>. Which arm is C#'s
+    /// (<c>MapLoadArms</c>, plan_server_native_v2 T4e); this writes it.
+    /// </summary>
+    void SetLoadType(MapLoadType how);
+
+    // ---- plan_server_native_v2 T4e: the two native systems' stages -------
+    //
+    // kServerSystems[] and its walks are managed's now (ServerSystems): each
+    // member below is one stage of one native system, which native carries
+    // out under the model-cache lock its walk took.
+
+    /// <summary><c>CPhysicsHook::Init</c>: the three vphysics interfaces, by
+    /// name. False refuses the server's start-up.</summary>
+    bool PhysicsInit();
+
+    /// <summary><c>CPhysicsHook::LevelInitPreEntity</c>: the level's environment.</summary>
+    void PhysicsLevelInitPreEntity();
+
+    /// <summary><c>CPhysicsHook::LevelInitPostEntity</c>: the physics unpaused.</summary>
+    void PhysicsLevelInitPostEntity();
+
+    /// <summary><c>CPhysicsHook::LevelShutdownPreEntity</c>: quick delete on.</summary>
+    void PhysicsLevelShutdownPreEntity();
+
+    /// <summary><c>CPhysicsHook::LevelShutdownPostEntity</c>: the environment destroyed.</summary>
+    void PhysicsLevelShutdownPostEntity();
+
+    /// <summary><c>CGameStringPool::LevelShutdownPostEntity</c>: every pooled string freed.</summary>
+    void StringPoolLevelShutdownPostEntity();
+
+    /// <summary>
+    /// Every entity control-block slot closed: the managed row's native half
+    /// after the managed level's end.
+    /// </summary>
+    void ResetEntitySlots();
 }
 
 /// <summary>

@@ -44,6 +44,13 @@ public:
 	virtual void RevertNamedConVar( const char *pName ) = 0;
 	virtual int32_t ConsoleSnapshot() = 0;
 	virtual int32_t ConsoleSnapshotEntry( int32_t nIndex, SourceSharpConsoleEntry *pOut ) = 0;
+
+	// plan_server_native_v2 T4e: the flags of the console variable the engine
+	// holds under pName -- every bit IsFlagSet answers, so a replicated child
+	// reads as its parent -- or -1 when there is none. The refusal of a name
+	// the engine owns (neither FCVAR_GAMEDLL nor FCVAR_CLIENTDLL) is managed's
+	// (ConVarOwnership); this reads the bits it decides on.
+	virtual int32_t FindConVarFlags( const char *pName ) = 0;
 };
 
 #endif // ISHIM_CONSOLE_H

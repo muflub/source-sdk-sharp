@@ -205,7 +205,6 @@ abstract_class IShimGameRules
 public:
 	virtual void RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy * pPolicy ) = 0;
 	virtual void RegisterDamageRules( const SourceSharpDamageRules * pRules ) = 0;
-	virtual void EndRound() = 0;
 };
 
 abstract_class IShimPlayers

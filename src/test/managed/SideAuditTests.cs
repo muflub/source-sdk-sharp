@@ -522,6 +522,9 @@ public class SideAuditTests
         // RegisterWeaponType went in plan_server_native_v2 T2: its table had
         // no reader on either side.
         "SetConVarValue", "SetNamedConVarValue", "RevertNamedConVar", "Warning",
+        // plan_server_native_v2 T4e: both sides' convar registries refuse an
+        // engine-owned name, so both read the flags.
+        "FindConVarFlags",
     };
 
     private static readonly HashSet<string> DualWired = new(StringComparer.Ordinal)

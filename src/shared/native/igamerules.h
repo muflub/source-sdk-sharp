@@ -146,7 +146,10 @@ public:
 	virtual void CreateCustomNetworkStringTables( void ) = 0;
 	virtual void CreateStandardEntities( void ) = 0;
 	virtual void EndGameFrame( void ) = 0;
-	virtual void EndMultiplayerGame( void ) = 0;
+	// EndMultiplayerGame IS NOT HERE since plan_server_native_v2 T4e. Its one
+	// caller was SourceSharp_EndRound (IShimGameRules::EndRound), the fallback
+	// for managed rules built without an intermission; the body it reached was
+	// empty, and managed now only marks the round over.
 	virtual void InitDefaultAIRelationships( void ) = 0;
 	// LevelShutdown IS NOT HERE. This interface lists what CALLS INTO the rules,
 	// and LevelShutdown had exactly one caller in this build -- CWorld's

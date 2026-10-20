@@ -33,9 +33,12 @@ public class PhysicsSharedEvictionTests
     [Fact]
     public void TheServersDataObjectSystemAndNativePairHashLeftWithIt()
     {
-        string systems = Code("src", "server", "native", "shell_serversystems.cpp");
-        Assert.Contains("kServerSystems[]", systems);
-        Assert.DoesNotContain("DataObjectAccessGameSystem", systems);
+        // The systems table this read went with kServerSystems[]
+        // (plan_server_native_v2 T4e); the native systems' stages are
+        // shell_level.cpp's steps now, and none is the data-object system.
+        string level = Code("src", "server", "native", "shell_level.cpp");
+        Assert.Contains("PhysicsGameSystem()->LevelInitPreEntity();", level);
+        Assert.DoesNotContain("DataObjectAccessGameSystem", level);
 
         string physics = Code("src", "server", "native", "physics.cpp");
         Assert.Contains("CPhysicsHook::LevelInitPreEntity", physics);

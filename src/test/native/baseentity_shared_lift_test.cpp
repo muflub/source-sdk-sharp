@@ -854,7 +854,11 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// is still asked on the client's live path, by
 		// StandaloneInterpolationAmount() in shell_standalone_client.cpp, which
 		// is the row at the foot of this table.
-		{ "game/server/world_adapter.cpp",             "EntityPrecache_SetAllowed",              1, true },
+		// world_adapter.cpp's window opening is managed's world precache since
+		// plan_server_native_v2 T4e: it opens the window through IShimLevel's
+		// SetPrecacheAllowed, the one native call left.
+		{ "game/server/world_adapter.cpp",             "EntityPrecache_SetAllowed",              0, true },
+		{ "game/server/shell_level.cpp",               "EntityPrecache_SetAllowed",              1, true },
 		{ "game/server/shell_standalone_player.cpp",   "EntityPrediction_SetSeedFromCommand",    2, true },
 		{ "game/client/shell_prediction.cpp",          "EntityPrediction_SetSeedFromCommand",    2, true },
 		{ "game/client/shell_standalone_client.cpp",   "EntitySim_IsSimulatingOnAlternateTicks", 1, true },

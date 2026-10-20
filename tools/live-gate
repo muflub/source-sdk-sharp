@@ -115,10 +115,12 @@ moves from "never up" to "up only on evidence": lowering takes one sample,
 raising takes MIN_SAMPLES_FOR_TOTAL. See that constant, and the budget file's
 own header, for why that is a correction rather than a relaxation.
 
-Four ops are checked as INVARIANTS rather than against a ceiling, because the
-plan states them as exactly one per frame: ServerFrame, ServerFramePreThink,
-ServerFramePostThink, ServerGameFrame. A rate of 2.0 there is not a budget
-overrun, it is a frame being dispatched twice.
+One op is checked as an INVARIANT rather than against a ceiling, because the
+plan states it as exactly one per frame: ServerGameFrame. A rate of 2.0 there
+is not a budget overrun, it is a frame being dispatched twice. ServerFrame,
+ServerFramePreThink and ServerFramePostThink were three more until
+plan_server_native_v2 T4e: managed calls those frame points itself now, inside
+the one ServerGameFrame crossing, so they are no crossings at all.
 
 =============================================================================
 WHAT COSTS TIME IF IT IS NOT WRITTEN DOWN
@@ -285,10 +287,9 @@ SIGTERM_KEPT_LOG = os.path.join(ROOT, "tools", ".live-gate-sigterm.log")
 # had already been rmtree'd with the scratch directory.
 SECONDCLIENT_KEPT_LOG = os.path.join(ROOT, "tools", ".live-gate-client2.log")
 
-# The four ops the plan states as one-per-server-frame. Checked as invariants,
+# The ops the plan states as one-per-server-frame. Checked as invariants,
 # not against a ceiling: see the header.
-PER_FRAME_OPS = ("ServerFrame", "ServerFramePreThink", "ServerFramePostThink",
-                 "ServerGameFrame")
+PER_FRAME_OPS = ("ServerGameFrame",)
 
 # How far a measured 1.000/frame may drift before it is a defect rather than
 # the reset landing between two ops of the same frame.
@@ -779,7 +780,7 @@ BUDGET_HEADER = """\
 # So what else guards these four stages? Honestly: less than guards the other
 # thirteen, and that is worth knowing rather than papering over.
 #
-#   * the PER_FRAME_OPS invariants (ServerFrame and friends, exactly one per
+#   * the PER_FRAME_OPS invariants (ServerGameFrame and friends, exactly one per
 #     server frame) do NOT apply: they need >= 30 frames, and a 1/8 reset
 #     artefact is bigger than their 0.05 tolerance.
 #   * the four stages' WORK is nearly all counted somewhere else. `join`'s
@@ -10778,8 +10779,8 @@ def self_test():
         run_step(gate, "join", {}, recorded, {})
         ok(recorded == [("join", 99999, 40)],
            "negative control: the next step is back on the server's counters (%r)" % recorded)
-        ok(any(f[0] == "join" and "ServerFrame" in f[1] for f in gate.failures),
-           "and a server window still is (no ServerFrame ops in 40 frames is red)")
+        ok(any(f[0] == "join" and "ServerGameFrame" in f[1] for f in gate.failures),
+           "and a server window still is (no ServerGameFrame ops in 40 frames is red)")
         # The fault check runs on every step: the render step above was clean.
         api.log = ["[SourceSharp] ok", "[SourceSharp] ===== EXCEPTION IN IManagedX.Y (managed)"]
         gate2 = Gate(api, {"playerClass": "player"}, verbose=False)

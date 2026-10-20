@@ -171,6 +171,7 @@ internal sealed unsafe class ConsoleArea
     public void RevertNamedConVar(byte* a0) { _shim.Vt->RevertNamedConVar(_shim.Self, a0); }
     public int ConsoleSnapshot() { return _shim.Vt->ConsoleSnapshot(_shim.Self); }
     public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) { return _shim.Vt->ConsoleSnapshotEntry(_shim.Self, a0, a1); }
+    public int FindConVarFlags(byte* a0) { return _shim.Vt->FindConVarFlags(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -462,7 +463,6 @@ internal sealed unsafe class GameRulesArea
 
     public void RegisterGameRulesPolicy(GameRulesPolicyBlob* a0) { _shim.Vt->RegisterGameRulesPolicy(_shim.Self, a0); }
     public void RegisterDamageRules(DamageRuleMasks* a0) { _shim.Vt->RegisterDamageRules(_shim.Self, a0); }
-    public void EndRound() { _shim.Vt->EndRound(_shim.Self); }
 }
 
 /// <summary>

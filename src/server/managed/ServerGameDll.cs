@@ -266,6 +266,12 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// <inheritdoc/>
     public bool SystemStart()
     {
+        // The game systems' Init first, in kServerSystems[]'s order
+        // (plan_server_native_v2 T4e): physics, then the managed row's sound
+        // emitter system. A refusal stops the server, as InitAllSystems' did.
+        if (Systems is { } systems && !systems.Init())
+            return false;
+
         _systemStarted = true;
         return true;
     }
@@ -444,6 +450,36 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     }
 
     /// <summary>
+    /// <inheritdoc cref="IServerLevel.MapLoad"/>
+    ///
+    /// <para>
+    /// The transition arm still names itself as a refusal, in the words and on
+    /// the channel the shell's <c>ShellGameDll_Unreachable</c> used when the
+    /// choice was C++'s: <c>grep -c REFUSED</c> over console.log stays the tally.
+    /// </para>
+    /// </summary>
+    public bool MapLoad(in MapLoad load, MapLoadType how)
+    {
+        _level.SetLoadType(how);
+
+        switch (how)
+        {
+            case MapLoadType.Transition:
+                _log.Warning("[SourceSharp] REFUSED: IServerGameDLL::LevelInit (transition) was called. "
+                           + "plan_gamedll.md Part 7 argues this method is unreachable in this build, "
+                           + "so it is a no-op -- if you are reading this, that argument was wrong for "
+                           + "this method. `grep -c REFUSED` over console.log is the tally.\n");
+                return MapLoadTransition(in load);
+            case MapLoadType.LoadGame:
+                return MapLoadSaveGame(in load);
+            case MapLoadType.Background:
+                return MapLoadBackground(in load);
+            default:
+                return MapLoadNewGame(in load);
+        }
+    }
+
+    /// <summary>
     /// <b>The order, and it is the whole of this class's contribution to a map
     /// load.</b>
     ///
@@ -617,16 +653,16 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// </para>
     /// </summary>
     /// <summary>
-    /// The PRE-ENTITY half of level init.
-    ///
-    /// <para>
-    /// <b>Nothing native here, and that is the whole shape of Phase A3.</b> The
-    /// two systems that moved — <c>CPropData</c> and
-    /// <c>CDecalEmitterSystem</c> — are <see cref="IGameLifecycle"/>
-    /// participants now, so what this method does is dispatch, exactly as
-    /// <c>ServerModule.LevelInit</c> does for the PostEntity half. Whatever
-    /// native step either of them still needs, each asks for itself.
-    /// </para>
+    /// The PRE-ENTITY half of level init, and <b>the world entity's precache
+    /// around it</b> (plan_server_native_v2 T4e): CWorld::Precache (world.cpp)
+    /// calls this from inside the world's own precache, where stock ran its
+    /// sequence, and this runs the sequence -- the two movement convars, the
+    /// precache window opened, the pre-entity pass (kServerSystems[]'s order:
+    /// CPhysicsHook, then every pre-entity participant), then
+    /// <see cref="WorldPrecache"/>. Native keeps what native state holds,
+    /// around this call: the rules object and the sound entity before it, the
+    /// sentence file's once-per-process read and the four sprites native code
+    /// reads the indices of after it.
     ///
     /// <para>
     /// <b>The map name is NOT stored.</b> <see cref="CurrentMap"/> is set by the
@@ -636,10 +672,110 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// </summary>
     public void MapLoadPreEntity(string mapName)
     {
+        WorldPrecacheOpening();
+
+        // The pass, in kServerSystems[]'s order (plan_server_native_v2 T4e):
+        // CPhysicsHook builds the level's environment, then the managed row --
+        // PreEntityParticipants below. Without the table (a test's dll) the
+        // managed row is the whole pass.
+        if (Systems is { } systems)
+            systems.LevelInitPreEntity(mapName);
+        else
+            PreEntityParticipants(mapName);
+
+        WorldPrecache();
+    }
+
+    /// <summary>
+    /// CWorld::Precache's opening, before the pre-entity pass: stock's two
+    /// movement convars, and the precache window opened -- "Only allow
+    /// precaching between LevelInitPreEntity and PostEntity".
+    /// </summary>
+    private void WorldPrecacheOpening()
+    {
+        _console.SetConVarValueByName("sv_stepsize", "18");
+        _console.SetConVarValueByName("room_type", "0");
+
+        _level.SetPrecacheAllowed(true);
+    }
+
+
+    /// <summary>
+    /// What the world entity always precaches, after the pre-entity pass and in
+    /// stock's order (world.cpp's CWorld::Precache): W_Precache's sprites and
+    /// particle systems (less the four native effect helpers read the indices
+    /// of), ClientGamePrecache's player model and the managed precache point,
+    /// the gibs for the language, the water sounds, and the six sounds
+    /// effects.cpp registered through PRECACHE_REGISTER_FN -- HudChat.Message
+    /// only on a multiplayer server.
+    /// </summary>
+    private void WorldPrecache()
+    {
+        IEnginePrecache? precache = ParticlePrecache;
+
+        // W_Precache, in its order, less the four whose indices native code
+        // reads (smoke, bubbles, blood spray, blood drop: world_adapter.cpp).
+        precache?.PrecacheModel("sprites/zerogxplode.vmt");  // fireball
+        precache?.PrecacheModel("sprites/WXplo1.vmt");       // underwater fireball
+        precache?.PrecacheModel("sprites/laserbeam.vmt");    // the laser beam
+        precache?.PrecacheModel("sprites/laserdot.vmt");     // the laser dot
+        precache?.PrecacheParticleSystem("blood_impact_red_01");
+        precache?.PrecacheParticleSystem("blood_impact_green_01");
+        precache?.PrecacheParticleSystem("blood_impact_yellow_01");
+        precache?.PrecacheModel("effects/bubble.vmt");       // bubble trails
+
+        // ClientGamePrecache: "The engine requires the player model to be
+        // precached before anyone spawns", then the managed precache point.
+        precache?.PrecacheModel("models/player/male_01.mdl");
+        _log.Msg("[SourceSharp/Server] precache\n");
+
+        // Stock sets the language to English and reads it back; the German arm
+        // is a reader that answers German.
+        _console.SetConVarValueByName("g_Language", LanguageEnglish);
+        precache?.PrecacheModel(_console.FindConVarValue("g_Language") == LanguageGerman
+            ? "models/germangibs.mdl" : "models/gibs/hgibs.mdl");
+
+        PrecacheScriptSound?.Invoke("BaseEntity.EnterWater");
+        PrecacheScriptSound?.Invoke("BaseEntity.ExitWater");
+
+        // effects.cpp's PRECACHE_REGISTER_FN( EffectsPrecache ).
+        PrecacheScriptSound?.Invoke("Underwater.BulletImpact");
+        PrecacheScriptSound?.Invoke("FX_RicochetSound.Ricochet");
+        PrecacheScriptSound?.Invoke("Physics.WaterSplash");
+        PrecacheScriptSound?.Invoke("BaseExplosionEffect.Sound");
+        PrecacheScriptSound?.Invoke("Splash.SplashSound");
+
+        if (MaxClients() > 1)
+            PrecacheScriptSound?.Invoke("HudChat.Message");
+    }
+
+    // ss_shareddefs.h's kLanguageEnglish and kLanguageGerman, as g_Language spells them.
+    private const string LanguageEnglish = "0";
+    private const string LanguageGerman = "1";
+
+    /// <summary><c>gpGlobals-&gt;maxClients</c>, or 0 before the engine has published the globals.</summary>
+    private int MaxClients()
+    {
+        Globals globals = _environment.Globals;
+        return globals.IsAvailable ? globals.MaxClients : 0;
+    }
+
+    /// <summary>
+    /// A game sound script's precache (the managed SoundEmitterSystem's). Set
+    /// by ServerModule; a dll without it (a test's) precaches no script sound.
+    /// </summary>
+    internal Action<string>? PrecacheScriptSound { get; set; }
+
+    /// <summary>
+    /// The managed row's pre-entity stage: the sound emitter system's level
+    /// start, then every pre-entity participant.
+    /// </summary>
+    internal void PreEntityParticipants(string mapName)
+    {
         // FIRST, before any participant: the sound emitter system's level
         // start (the map's overrides, the preload), which was the
         // CSoundEmitterSystem row's LevelInitPreEntity, the row before the
-        // SourceSharpManaged row this runs from (plan_server_native_v2 T4a).
+        // SourceSharpManaged row (plan_server_native_v2 T4a).
         SoundSystem?.LevelInitPreEntity();
 
         _lifecycle.LevelInitPreEntity(mapName);
@@ -649,23 +785,22 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// The PRE-ENTITY half of level shutdown.
     ///
     /// <para>
-    /// <b>Nothing native here, and it is the mirror of
-    /// <see cref="MapLoadPreEntity"/>.</b> What this method does is dispatch —
-    /// the native pre-entity pass is still <c>_level.ShutdownPreEntitySystems()</c>
-    /// inside <see cref="MapUnload"/>, and this runs from INSIDE it, because the
-    /// <c>SourceSharpManaged</c> row is one of the rows that pass walks.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>It is reached from the row and not called from <see cref="MapUnload"/>,
-    /// and that is a position rather than a preference.</b> The pass walks
-    /// <c>kServerSystems[]</c> BACKWARDS, so a dispatch written here would run
-    /// either before every row or after every one — and the two participants
-    /// that need it, <c>SoundController</c> and <c>StandaloneHierarchy</c>, both
-    /// inherit their position from rows that sat in the middle of that walk.
+    /// <b>The mirror of <see cref="MapLoadPreEntity"/>.</b> The pass is
+    /// kServerSystems[]'s backwards (plan_server_native_v2 T4e): the managed
+    /// row, then CPhysicsHook's quick delete. <see cref="MapUnload"/> runs it
+    /// between the steam clear and the sound entity's teardown.
     /// </para>
     /// </summary>
     public void MapUnloadPreEntity()
+    {
+        if (Systems is { } systems)
+            systems.LevelShutdownPreEntity();
+        else
+            ShutdownPreEntityParticipants();
+    }
+
+    /// <summary>The managed row's pre-entity shutdown stage: every participant's.</summary>
+    internal void ShutdownPreEntityParticipants()
     {
         _lifecycle.LevelShutdownPreEntity();
     }
@@ -683,13 +818,14 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         _worldNet.Unbind();
         ChapterTitle = string.Empty;
 
-        _level.ShutdownPreClearSteamSystems();
-
+        // STOCK'S LevelShutdownPreClearSteamAPIContextAllSystems HAS NO LINE:
+        // no row of kServerSystems[] declared the stage (ServerSystemsTests).
+        //
         // The Steam context clear is C#'s own (plan_server_novalve.md P2.5):
         // IShimLevel's ClearSteamAPIContext step is retired.
         _host.SteamGameServerClear();
 
-        _level.ShutdownPreEntitySystems();
+        MapUnloadPreEntity();
 
         // "YWB: This entity pointer is going away now and is corrupting memory
         // on level transitions/restarts" -- stock's comment, and the reason this
@@ -697,7 +833,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         _level.ShutdownSoundEnt();
         _level.ClearEntityList();
 
-        _level.ShutdownPostEntitySystems();
+        // The post-entity pass, backwards: the managed level shutdown, physics,
+        // and the string pool last (ServerSystems.LevelShutdownPostEntity).
+        Systems?.LevelShutdownPostEntity();
 
         // "In case we quit out during initial load" -- stock's comment. The
         // precache window is closed on the way out as well as at activate,
@@ -723,6 +861,14 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// </summary>
     internal SoundEmitterSystem? SoundSystem { get; set; }
 
+    /// <summary>
+    /// kServerSystems[]'s order (plan_server_native_v2 T4e): the native systems'
+    /// stages around the managed row's. Set by <see cref="ServerModule"/>; a
+    /// dll built without it (a test's) runs no game-system pass but the managed
+    /// row's pre-entity halves.
+    /// </summary>
+    internal ServerSystems? Systems { get; set; }
+
     /// <summary>The model text and sequences ModelPrecacheComponents reads. Set by ServerModule.</summary>
     internal IEngineEntityRender? ModelText { get; set; }
 
@@ -733,6 +879,12 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     internal IVtableSoundEmitter? SoundScripts { get; set; }
 
     /// <inheritdoc/>
+    /// <inheritdoc cref="IServerLevel.ModelPrecacheCheck"/>
+    public void ModelPrecacheCheck(string modelName, bool allowed) => LatePrecache?.CheckModel(modelName, allowed);
+
+    /// <summary>The late-precache warning's rule. Set by ServerModule; a dll without it (a test's) warns nothing.</summary>
+    internal LatePrecache? LatePrecache { get; set; }
+
     public void ModelPrecacheComponents(string modelName)
     {
         if (ModelText is null || ParticlePrecache is null || Models is null)
@@ -885,10 +1037,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         // managed memory.
         _spawner.ActivateAll();
 
-        // The named list's LevelInitPostEntity pass, and the managed level init
-        // is a ROW in it rather than a line here -- see the summary on
-        // MapUnload for why that position is load-bearing.
-        _level.InitPostEntitySystems();
+        // The named list's LevelInitPostEntity pass: CPhysicsHook, then the
+        // managed level init (ServerSystems.LevelInitPostEntity).
+        Systems?.LevelInitPostEntity(_currentMap);
 
         // "No more precaching after PostEntityAllSystems!!!" -- stock's own
         // shout, and the reason this is the step immediately after it.
@@ -1162,9 +1313,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         // frameloop (e.g., in response to concommand)"
         _entities.CleanupDeleteList();
 
-        // The named list's pre-entity-think pass. The managed FramePreThink is
-        // a row in it.
-        _frame.ServerSystemsPreThink();
+        // The named list's pre-entity-think pass: the managed FramePreThink is
+        // its one row (ServerSystems.FramePreThink).
+        Systems?.FramePreThink(oldFrameTime);
 
         _frame.GamestatsUpdateConnection();
 
@@ -1177,10 +1328,10 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         // very next statement (plan_entity.md 3.4, step 1g). The deferred-delete
         // cleanup that was step 8's other effect ran a step earlier, above.
 
-        // The named list's post-entity-think pass. The managed frame — every
-        // IFrameLifecycle.OnThink, the dev API's pump, the entity-slot drain —
-        // is a row in it.
-        _frame.ServerSystemsPostThink();
+        // The named list's post-entity-think pass: the physics step, then the
+        // managed frame — every IFrameLifecycle.OnThink, the dev API's pump —
+        // then the entity-slot drain (ServerSystems.FramePostThink).
+        Systems?.FramePostThink(oldFrameTime);
 
         // "service event queue, firing off any actions whos time has come"
         //
@@ -1231,9 +1382,16 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
 
         _frame.UpdateAllClientData();
 
-        // The rules' end of frame, which is where the THIRD managed point and
-        // the late entity-slot drain both live.
+        // The rules' end of frame (CGameRules::EndGameFrame): the native rules
+        // object's unapplied-multidamage diagnostic, then the THIRD managed
+        // point -- after the I/O queue and the client data, so an input
+        // delivered this frame has been acted on -- then the late entity-slot
+        // drain, last, so nothing the point writes waits a tick. The point and
+        // the drain were the rules object's own calls, through
+        // IManagedFrame::FramePostThink, until plan_server_native_v2 T4e.
         _frame.EndGameFrame();
+        FrameEndParticipants?.Invoke(oldFrameTime);
+        _frame.DrainEntitySlots();
 
         // "Any entities that detect network state changes on a timer do it here."
         // NO ENTITY DOES: IShimFrame.FireNetworkPropertyEvents is a retired slot.
@@ -1261,7 +1419,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         // NDebugOverlay call from managed code visible at all.
         _frame.DrawAllDebugOverlays();
 
-        _frame.ServerSystemsPreClientUpdate();
+        // THE NAMED LIST'S PreClientUpdate PASS HAS NO LINE: no row of
+        // kServerSystems[] declared the stage once CPhysicsHook's impact sounds
+        // went managed (ServerSystemsTests, plan_server_native_v2 T4e).
 
         // THE MANAGED PARTICIPANTS, AND THEY RUN AFTER THE NATIVE WALK.
         //
@@ -1292,6 +1452,13 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// until then, and null in a test that builds this object alone.
     /// </summary>
     public Action<float>? FrameParticipants { get; set; }
+
+    /// <summary>
+    /// The frame's last managed point, every <c>IFrameLifecycle.OnPostThink</c>
+    /// (CGameRules::EndGameFrame's). Set by <c>ServerModule</c>; null in a test
+    /// that builds this object alone.
+    /// </summary>
+    public Action<float>? FrameEndParticipants { get; set; }
 
     // ---- IServerListing ----------------------------------------------------
     //

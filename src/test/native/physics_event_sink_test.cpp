@@ -252,17 +252,29 @@ TEST( PhysicsEventSink, NothingBindsASinkAnyMore )
 	EXPECT_EQ( 0, CountOf( Code( kBinder ), "PhysicsEvents(" ) );
 }
 
-TEST( PhysicsEventSink, TheHookForwardsItsFrameToTheManagedArea )
+TEST( PhysicsEventSink, TheHooksFramePositionIsManagedsAndTheForwardIsGone )
 {
-	// CPhysicsHook keeps its row in the server systems, so the step runs where
-	// stock's did, and forwards; the area is asked on every call (managed
-	// hot-reloads), never kept.
+	// CPhysicsHook's FrameUpdatePostEntityThink only forwarded to managed's
+	// PhysicsFrame through IManagedPhysicsFrame::Frame. Since kServerSystems[]'s
+	// order went managed (plan_server_native_v2 T4e) ServerSystems runs the
+	// step at the row's position itself, so the forward, its slot and the
+	// round trip are gone; the area's world build and sound precache stay.
 	const std::string strPhysics = Code( "sourcesharp/game/server/physics.cpp" );
+	const std::string strSystems = Code( "sourcesharp/managed/SourceSharp.Server/ServerSystems.cs" );
 	ASSERT_FALSE( strPhysics.empty() );
+	ASSERT_FALSE( strSystems.empty() );
 
-	EXPECT_EQ( 1, CountOf( strPhysics, "void CPhysicsHook::FrameUpdatePostEntityThink( )" ) );
-	EXPECT_EQ( 1, CountOf( strPhysics, "IManagedPhysicsFrame *pFrame = ManagedPhysicsFrame()" ) );
-	EXPECT_EQ( 1, CountOf( strPhysics, "pFrame->Frame();" ) );
+	EXPECT_EQ( 0, CountOf( strPhysics, "FrameUpdatePostEntityThink" ) );
+	EXPECT_EQ( 0, CountOf( strPhysics, "->Frame();" ) );
+	EXPECT_EQ( 1, CountOf( strPhysics, "IManagedPhysicsFrame *pPhysicsFrame = ManagedPhysicsFrame();" ) )
+		<< "the control: the area the level start asks is still read by the same needle shape";
+
+	// And the step runs in the post-think pass, before the managed frame.
+	const size_t physics = strSystems.find( "managed.PhysicsFrame();" );
+	const size_t frame = strSystems.find( "managed.Frame(frameTime);" );
+	ASSERT_NE( physics, std::string::npos );
+	ASSERT_NE( frame, std::string::npos );
+	EXPECT_LT( physics, frame );
 }
 
 TEST( PhysicsEventSink, ThePhysicsFramesDecisionsAreManaged )

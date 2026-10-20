@@ -27,14 +27,6 @@ public sealed unsafe class SoundEmitterBindingTests
     private sealed class SystemSink : ISoundSystemSink
     {
         public readonly List<string> Precached = [];
-        public bool InitAnswer;
-        public int Inits;
-
-        public bool SystemInit()
-        {
-            Inits++;
-            return InitAnswer;
-        }
 
         public void PrecacheScriptSound(string soundName) => Precached.Add(soundName);
     }
@@ -43,16 +35,6 @@ public sealed unsafe class SoundEmitterBindingTests
     private readonly SystemSink _system = new();
 
     private SoundEmitterBinding Binding() => new(new Crossings(), _sink, _system);
-
-    [Fact]
-    public void SystemInitIsTheSystemsAnswerAsOneOrZero()
-    {
-        _system.InitAnswer = true;
-        Assert.Equal((byte)1, Binding().ServerSoundSystemInit());
-        _system.InitAnswer = false;
-        Assert.Equal((byte)0, Binding().ServerSoundSystemInit());
-        Assert.Equal(2, _system.Inits);
-    }
 
     [Fact]
     public void AScriptPrecacheArrivesAsItsNameAndANullOneReachesNothing()

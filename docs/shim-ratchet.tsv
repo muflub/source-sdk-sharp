@@ -362,7 +362,9 @@ client_stock_tus	src/client/native/CMakeLists.txt	1
 #   render targets the material system holds; shell_managed_clientsystems_client.cpp, kClientSystems[]'s rows over
 #   managed systems; shell_pixelvis_client.cpp, the occlusion query objects; shell_glow_client.cpp, the overlays'
 #   draw), less shell_explosion_overlay.cpp.
-shim_cpp_files	src/sourcesharp	216
+# LOWERED 2026-10-19, 216 -> 215 (plan_server_native_v2 T4e, ported onto main 6c140a054; the walk read with the ceiling
+#   at 1): shell_serversystems.cpp deleted with kServerSystems[].
+shim_cpp_files	src/sourcesharp	215
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1803,7 +1805,12 @@ shim_cpp_files	src/sourcesharp	216
 #   shell_glow_client.h, glow_trace_filter.h), the managed rows' generated and hand-kept declarations, and the
 #   render trace's mesh and occlusion-query hooks, less shell_explosion_overlay.cpp (-162) and the native glows' four
 #   retired slot bodies. The six fork TUs they replace (about 2,600 lines) left client.so and are outside the walk.
-shim_lines	src/sourcesharp	132566
+# LOWERED 2026-10-19, 132566 -> 131191 (plan_server_native_v2 T4e, ported onto main 6c140a054; the walk with the ceiling
+#   at 1; -1375, the lane's delta on its old base a1418f8d3 to the line): LevelInit's four arms one slot;
+#   shell_serversystems.cpp deleted with kServerSystems[] and its walks; Precache_Model's late-precache rule; CWorld::
+#   Precache's sequence with ss_precache_register.h; the engine-owned convar refusal with convar_ownership.h (net of
+#   IShimConsole::FindConVarFlags); SourceSharp_DrainEntitySlotsLate and IManagedFrame; IShimGameRules::EndRound.
+shim_lines	src/sourcesharp	131191
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

@@ -18,10 +18,7 @@ public unsafe interface IServerRuntime
     byte OnGameStart();
     void OnGamePostStart();
     void OnGameStop();
-    byte OnMapLoad_Transition(void* pLoad);
-    byte OnMapLoad_LoadGame(void* pLoad);
-    byte OnMapLoad_Background(void* pLoad);
-    byte OnMapLoad_NewGame(void* pLoad);
+    byte OnMapLoad(void* pLoad, byte loadGame, byte background);
     void OnMapUnload();
     void OnServerActivate();
     void OnGameFrame(byte simulating);
@@ -40,7 +37,6 @@ public unsafe interface IServerRuntime
     void OnSteamGameServerActivated();
     void OnSteamGameServerShutdown();
     void OnMapLoadPreEntity(byte* pszMapName);
-    void OnMapUnloadPreEntity();
     int OnWorldKeyValue(uint hWorld, byte* pKey, byte* pValue);
     void OnGetGameDescription(byte* pOut, int nOutSize);
 }
@@ -81,28 +77,31 @@ public sealed unsafe class ServerRuntimeBinding(Crossings crossings, ILog log, I
 
     public void OnGameStop() { Enter(CrossingOp.ServerGameStop); game.Lifetime.GameStop(); }
 
-    public byte OnMapLoad_Transition(void* pLoad)
+    /// <summary>
+    /// <c>LevelInit</c>, one slot (plan_server_native_v2 T4e): the arm is
+    /// <see cref="MapLoadArms.For"/>'s, from the two bools and whether the
+    /// engine's <c>pOldLevel</c> was a pointer at all, and each arm keeps its
+    /// own crossing count.
+    /// </summary>
+    public byte OnMapLoad(void* pLoad, byte loadGame, byte background)
     {
-        Enter(CrossingOp.ServerMapLoadTransition);
-        return pLoad == null ? (byte)0 : B(game.Level.MapLoadTransition(Borrow((MapLoadRaw*)pLoad)));
-    }
+        if (pLoad == null)
+            return 0;
 
-    public byte OnMapLoad_LoadGame(void* pLoad)
-    {
-        Enter(CrossingOp.ServerMapLoadSaveGame);
-        return pLoad == null ? (byte)0 : B(game.Level.MapLoadSaveGame(Borrow((MapLoadRaw*)pLoad)));
-    }
+        MapLoadRaw* raw = (MapLoadRaw*)pLoad;
+        MapLoadType how = MapLoadArms.For(loadGame != 0, raw->OldLevel != null, background != 0);
 
-    public byte OnMapLoad_Background(void* pLoad)
-    {
-        Enter(CrossingOp.ServerMapLoadBackground);
-        return pLoad == null ? (byte)0 : B(game.Level.MapLoadBackground(Borrow((MapLoadRaw*)pLoad)));
-    }
+        // ONE COUNT PER ARM, as when each arm was its own slot: the live gate's
+        // save-load step reads ServerMapLoadSaveGame.
+        switch (how)
+        {
+            case MapLoadType.Transition: Enter(CrossingOp.ServerMapLoadTransition); break;
+            case MapLoadType.LoadGame: Enter(CrossingOp.ServerMapLoadSaveGame); break;
+            case MapLoadType.Background: Enter(CrossingOp.ServerMapLoadBackground); break;
+            default: Enter(CrossingOp.ServerMapLoadNewGame); break;
+        }
 
-    public byte OnMapLoad_NewGame(void* pLoad)
-    {
-        Enter(CrossingOp.ServerMapLoadNewGame);
-        return pLoad == null ? (byte)0 : B(game.Level.MapLoadNewGame(Borrow((MapLoadRaw*)pLoad)));
+        return B(game.Level.MapLoad(Borrow(raw), how));
     }
 
     public void OnMapUnload() { Enter(CrossingOp.ServerMapUnload); game.Level.MapUnload(); }
@@ -203,8 +202,6 @@ public sealed unsafe class ServerRuntimeBinding(Crossings crossings, ILog log, I
         Enter(CrossingOp.ServerMapLoadPreEntity);
         game.Level.MapLoadPreEntity(Utf8(pszMapName));
     }
-
-    public void OnMapUnloadPreEntity() { Enter(CrossingOp.ServerMapUnloadPreEntity); game.Level.MapUnloadPreEntity(); }
 
     public void OnGetGameDescription(byte* pOut, int nOutSize)
     {

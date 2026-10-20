@@ -182,22 +182,23 @@ const char *kEffects = "sourcesharp/game/server/shell_absent.cpp";
 
 TEST( Shard2Lifts, EffectsPrecacheAsksTheFreeSoundFunction )
 {
+	// EffectsPrecache left this file at plan_server_native_v2 T4e: its six
+	// script sounds are managed's world precache (ServerGameDll.WorldPrecache,
+	// through the SoundEmitterSystem's own precache). The lift still holds where
+	// it was guarded: nothing here asks the class scope, the free function or
+	// the managed area for a script precache.
 	const std::string code = CodeOf( kEffects );
 
-	ASSERT_TRUE( Has( code, "void EffectsPrecache" ) )
-		<< "EffectsPrecache's anchor moved; this test is reading the wrong file";
+	ASSERT_TRUE( Has( code, "void UTIL_BloodSpray" ) )
+		<< "the file's anchor moved; this test is reading the wrong file";
 
 	EXPECT_EQ( 0, CountOf( code, "CBaseEntity::PrecacheScriptSound" ) )
-		<< "EffectsPrecache asks the class again -- that scope is what Phase 13 deletes";
-	// plan_server_native_v2 T4a's precache path: the free function left
-	// server.so with the native sound emitter system; the script precache is
-	// the managed SoundEmitterSystem's, through IManagedSoundEmitter.
+		<< "the class scope is asked again -- that scope is what Phase 13 deletes";
 	EXPECT_EQ( 0, CountOf( code, "GameSound_PrecacheScript(" ) )
 		<< "server.so defines no GameSound_PrecacheScript any more";
-	EXPECT_EQ( 6, CountOf( code, "ServerPrecacheScriptSound(" ) )
-		<< "EffectsPrecache's six scripts go to the managed system";
-	EXPECT_TRUE( Has( code, "#include \"imanaged_areas.h\"" ) )
-		<< "the area's declaration has to be included, not inherited";
+	EXPECT_EQ( 0, CountOf( code, "ServerPrecacheScriptSound(" ) )
+		<< "a native script precache is back beside the world's managed one";
+	EXPECT_EQ( 0, CountOf( code, "void EffectsPrecache" ) );
 }
 
 //=============================================================================//

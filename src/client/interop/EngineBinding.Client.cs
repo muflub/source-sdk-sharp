@@ -281,13 +281,6 @@ internal sealed partial class EngineGameRulesPolicy
     public void RegisterPolicy(GameRulesPolicyBlob policy) { }
 }
 
-internal sealed partial class EngineHost
-{
-    // The server's members, as a client engine answers them: what each one's
-    // attach guard answered here, where the server's areas are never attached.
-    public void EndRound() { }
-}
-
 internal sealed partial class EngineHud
 {
     public int LocalPlayerIndex => E.GetLocalPlayerIndex();

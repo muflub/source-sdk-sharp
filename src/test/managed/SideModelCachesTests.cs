@@ -151,10 +151,12 @@ public class SideModelCachesTests
             Assert.Same(engineB.Breaks, b.Services.Require<BreakModels>());
             Assert.NotSame(engineA.Models, engineB.Models);
 
-            // The level-shutdown handler each root builds clears its own.
-            var frame = b.NewFrameBinding();
-            Assert.Same(engineB.Models, Held<ModelDescriptors>(frame));
-            Assert.Same(engineB.Breaks, Held<BreakModels>(frame));
+            // The level-shutdown handler each root builds clears its own: the
+            // managed system row (plan_server_native_v2 T4e; it was the frame
+            // binding's LevelShutdown slot).
+            var row = b.NewSystemRow();
+            Assert.Same(engineB.Models, Held<ModelDescriptors>(row));
+            Assert.Same(engineB.Breaks, Held<BreakModels>(row));
         }
         finally
         {
@@ -174,7 +176,8 @@ public class SideModelCachesTests
         breaks.Count(Model);
         Assert.Equal(1, breaks.Parses);
 
-        new SourceSharp.Server.Interop.FrameBinding(new Crossings(), new RecordingLog(), new QuietModule(), new LivenessMirror(), mine, breaks).LevelShutdown();
+        new SourceSharp.Server.ManagedSystemRow(new RecordingLog(), new QuietModule(), () => true, _ => { }, () => { }, () => { },
+                                                new LivenessMirror(), mine, breaks).LevelShutdownPostEntity();
 
         Assert.Equal(0, mine.CachedCount);
         Assert.Equal(0, breaks.Parses);

@@ -3,22 +3,18 @@ using SourceSharp.Abi;
 namespace SourceSharp.Server.Interop;
 
 /// <summary>
-/// The server's physics frame, managed-built (plan_physics_bones_native_zero
-/// 2.3): CPhysicsHook::FrameUpdatePostEntityThink forwards here once per
-/// server frame, and <paramref name="frame"/> decides and makes the step.
+/// What CPhysicsHook's level start asks of managed, managed-built
+/// (plan_physics_bones_native_zero 2.3). The physics frame was a slot here too
+/// until plan_server_native_v2 T4e: CPhysicsHook::FrameUpdatePostEntityThink
+/// only forwarded to it, and ServerSystems now runs the step at that row's
+/// position itself.
 /// </summary>
-public sealed unsafe class PhysicsFrameBinding(Crossings crossings, Action frame, Func<IServerPhysicsWorld?> world)
+public sealed unsafe class PhysicsFrameBinding(Crossings crossings, Func<IServerPhysicsWorld?> world)
     : IManagedPhysicsFrame
 {
-    public PhysicsFrameBinding(Crossings crossings, Action frame)
-        : this(crossings, frame, () => null)
+    public PhysicsFrameBinding(Crossings crossings)
+        : this(crossings, () => null)
     {
-    }
-
-    public void Frame()
-    {
-        crossings.Count(CrossingOp.ServerPhysicsFrame);
-        frame();
     }
 
     // CPhysicsHook::LevelInitPreEntity, after it makes the environment: 0 when

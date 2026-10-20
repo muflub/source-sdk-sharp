@@ -275,8 +275,6 @@ void CShimGameRules::RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *
 	{ return ::SourceSharp_RegisterGameRulesPolicy( pPolicy ); }
 void CShimGameRules::RegisterDamageRules( const SourceSharpDamageRules * pRules )
 	{ return ::SourceSharp_RegisterDamageRules( pRules ); }
-void CShimGameRules::EndRound()
-	{ return ::SourceSharp_EndRound(); }
 
 uint32_t CShimPlayers::GetPlayerHandle( int32_t nPlayerIndex )
 	{ return ::SourceSharp_GetPlayerHandle( nPlayerIndex ); }
