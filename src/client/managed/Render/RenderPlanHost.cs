@@ -25,8 +25,9 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     /// <summary>The game's: the debug overlays' materials are found through <paramref name="fx"/> by the names <paramref name="console"/> holds.</summary>
     public RenderPlanHost(IFxRender fx, IEngineConsole console, PostProcessHost post, ViewEffectsHost viewEffects,
-                          IUniformRandom random, DemoViewCamera demoCamera)
+                          IUniformRandom random, DemoViewCamera demoCamera, ScreenSpaceEffectManager screenEffects)
     {
+        _screenEffects = screenEffects;
         _demoCamera = demoCamera;
         _fx = fx;
         _console = console;
@@ -146,6 +147,12 @@ public sealed class RenderPlanHost : IClientRenderPlan
     {
     }
 
+    /// <summary>A test's: no engine, the screen-space effects <paramref name="screenEffects"/>.</summary>
+    internal RenderPlanHost(ScreenSpaceEffectManager screenEffects)
+    {
+        _screenEffects = screenEffects;
+    }
+
     /// <param name="post">The post program the plan's post ops ask for.</param>
     internal RenderPlanHost(PostProcessHost post)
     {
@@ -194,6 +201,19 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     private readonly DemoViewCamera? _demoCamera;
 
+    // ScreenSpaceEffects.cpp's manager: its Init and Shutdown at the view's
+    // level start and end, its RenderEffects in the frame's plan.
+    private readonly ScreenSpaceEffectManager? _screenEffects;
+
+    /// <summary>CViewRender::LevelInit's InitScreenSpaceEffects (0) and LevelShutdown's ShutdownScreenSpaceEffects (1).</summary>
+    public void ScreenSpaceEffectsStage(int stage)
+    {
+        if (stage == 0)
+            _screenEffects?.Init();
+        else if (stage == 1)
+            _screenEffects?.Shutdown();
+    }
+
     public int ViewDemoCamera(int stage, ReadOnlySpan<float> input, Span<float> output)
     {
         if (_demoCamera is null)
@@ -237,7 +257,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
             input.FreezeFlash = _freeze.Flash;
         }
         ReadOnlySpan<MonitorView> monitors = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_monitors);
-        bool planned = RenderPlanner.Plan(input, _builder, monitors, DebugMaterials());
+        bool planned = RenderPlanner.Plan(input, _builder, monitors, DebugMaterials(), _screenEffects);
         if (planned && input.FreezeTake != 0)
         {
             lock (_lock)

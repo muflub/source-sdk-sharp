@@ -182,6 +182,13 @@ public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IC
         catch (Exception e) { ManagedVtable.Fail(log, "IManagedRenderClient.ViewEffectsFadeParams", e); }
     }
 
+    public void ScreenSpaceEffectsStage(int a0)
+    {
+        crossings.Count(CrossingOp.ClientScreenSpaceEffectsStage);
+        try { plan.ScreenSpaceEffectsStage(a0); }
+        catch (Exception e) { ManagedVtable.Fail(log, "IManagedRenderClient.ScreenSpaceEffectsStage", e); }
+    }
+
     public void ViewEffectsReset(int a0)
     {
         crossings.Count(CrossingOp.ClientViewEffectsReset);

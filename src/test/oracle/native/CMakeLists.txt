@@ -940,3 +940,40 @@ ss_cpptest_tier1(rendertexture_oracle_test
             ${CMAKE_CURRENT_BINARY_DIR}/rendertexture_subject/rendertexture.cpp
             ${msu_stock})
 endif()
+
+# THE SCREEN-SPACE EFFECTS ORACLE (C7, ScreenSpaceEffects.cpp): stock's
+# CScreenSpaceEffectManager -- the registration list's order, Init's
+# -filmgrain parameter and the enabled flag kept across each effect's Init,
+# the case-blind lookup and its warning, parameters, enable and disable by
+# name and by effect, disable-all, render and shutdown -- and CExampleEffect,
+# run offline from the PRISTINE game/client/ScreenSpaceEffects.cpp over
+# recording effects registered before and after it (sse_stub/sse_harness.h
+# says what is stock and what is stand-in), held to the golden
+# src/test/client/Fixtures/screenspaceeffects-stock.tsv, which the managed
+# ScreenSpaceEffectManager's facts replay. tier1 for KeyValues and the string
+# functions, tier0 for CommandLine; the pristine MaterialSystemUtil.cpp for
+# CExampleEffect's CMaterialReference. The -Wno- flags are for VALVE'S CODE
+# and headers: the MSVC pragmas, platform.h's dangling else, the material
+# headers' unused fields and constructor order, and imesh.h's hidden
+# overloads.
+set(sse_stock "${SS_VALVE_SRC}/game/client/ScreenSpaceEffects.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${sse_stock}" OR NOT EXISTS "${msu_stock}")
+  ss_oracle_missing(screenspaceeffects_oracle_test "no ${sse_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and its own header are COPIED, byte for byte, into their own
+# directory before they are included: their quoted #includes would otherwise
+# find game/client's real headers beside them ahead of the stand-ins.
+configure_file("${sse_stock}" "${CMAKE_CURRENT_BINARY_DIR}/sse_subject/ScreenSpaceEffects.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/ScreenSpaceEffects.h" "${CMAKE_CURRENT_BINARY_DIR}/sse_subject/ScreenSpaceEffects.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(screenspaceeffects_oracle_test
+    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-private-field -Wno-reorder-ctor
+            -Wno-overloaded-virtual -Wno-unused-function -Wno-unused-variable
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/sse_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/sse_subject
+             ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/screenspaceeffects_oracle_test.cpp
+            ${msu_stock})
+endif()

@@ -1123,8 +1123,9 @@ CLIENT_FLOOR_CHAINS = {
     "CClientEffectRegistration::s_pHead":
         "the DECLARE_CLIENT_EFFECT list, walked in shell_effect_dispatch_client.cpp "
         "for the managed dispatch table",
-    "CScreenSpaceEffectRegistration::s_pHead":
-        "the screen-space effect list, walked in ScreenSpaceEffects.cpp",
+    # CScreenSpaceEffectRegistration::s_pHead stood here: its list and its
+    # walker left client.so with ScreenSpaceEffects.cpp (C7, 2026-10-19); the
+    # manager and its registrations are managed's ScreenSpaceEffectManager.
     "CHudElementHelper::m_sHelpers":
         "the DECLARE_HUDELEMENT list, walked in shell_hud_framework.cpp",
 }
@@ -1159,10 +1160,6 @@ CLIENT_FLOOR_SUBJECT = (
     ("CClientEffectRegistration::s_pHead",
      "sourcesharp/game/client/shell_effect_dispatch_client.cpp",
      "pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext"),
-    ("CScreenSpaceEffectRegistration::s_pHead",
-     "game/client/ScreenSpaceEffects.cpp",
-     "pReg=CScreenSpaceEffectRegistration::s_pHead; pReg!=NULL; "
-     "pReg=pReg->m_pNext"),
     ("CHudElementHelper::m_sHelpers",
      "sourcesharp/game/client/shell_hud_framework.cpp",
      "p = m_sHelpers; p; p = p->GetNext()"),
@@ -1896,17 +1893,19 @@ def self_test():
        == "UNRULED",
        "a registration node NOT in the list is still UNRULED on the client: "
        "the floor is a grep somebody did, not a shape")
-    ok(len(CLIENT_FLOOR_ROOTS) == 4 and len(CLIENT_FLOOR_CHAINS) == 4
+    ok(len(CLIENT_FLOOR_ROOTS) == 4 and len(CLIENT_FLOOR_CHAINS) == 3
        and not (set(CLIENT_FLOOR_ROOTS) & set(CLIENT_FLOOR_CHAINS)),
-       "four roots and four chains, disjoint -- the two groups are different "
+       "four roots and three chains, disjoint -- the two groups are different "
        "evidence and merging them would hide which was checked how")
     ok(all(CLIENT_FLOOR_REASON[n] for n in CLIENT_FLOOR_BY_NAME),
        "every client floor carries a written reason: a disposition with no "
        "evidence is worse than UNRULED because it looks settled")
-    ok(len(CLIENT_FLOOR_BY_NAME) == 8,
-       "the client floor is eight names: four CreateInterface roots and four "
+    ok(len(CLIENT_FLOOR_BY_NAME) == 7,
+       "the client floor is seven names: four CreateInterface roots and three "
        "walked registration chains (got %d; CUserMessageRegister's left with "
-       "c_user_message_register.cpp, lane HC 2026-10-04)" % len(CLIENT_FLOOR_BY_NAME))
+       "c_user_message_register.cpp, lane HC 2026-10-04, and "
+       "CScreenSpaceEffectRegistration's with ScreenSpaceEffects.cpp, C7 "
+       "2026-10-19)" % len(CLIENT_FLOOR_BY_NAME))
     ok(len(CLIENT_FLOOR_SUBJECT) == len(CLIENT_FLOOR_BY_NAME)
        and {r[0] for r in CLIENT_FLOOR_SUBJECT} == set(CLIENT_FLOOR_BY_NAME),
        "every client floor name is pinned by a subject row, and no subject "

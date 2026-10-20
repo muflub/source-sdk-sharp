@@ -57,11 +57,19 @@ public static class RenderPlanner
     /// <summary>The plan with the debug overlays' materials (C7 step 2), which only the host can look up.</summary>
     public static bool Plan(in RenderInputs input, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors,
                             DebugOverlayMaterials debug)
+        => Plan(input, b, monitors, debug, null);
+
+    /// <summary>
+    /// The same, with the screen-space effects (ScreenSpaceEffects.cpp's
+    /// manager), which draw into the plan where stock's RenderEffects drew.
+    /// </summary>
+    public static bool Plan(in RenderInputs input, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors,
+                            DebugOverlayMaterials debug, ScreenSpaceEffectManager? screenEffects)
     {
         b.Clear();
         if (input.GlassInView != 0)
             return false;
-        var frame = new Frame(input, b, debug);
+        var frame = new Frame(input, b, debug, screenEffects);
         frame.RenderView(monitors);
         return true;
     }
@@ -85,10 +93,12 @@ public static class RenderPlanner
     private static int CvInt(in RenderInputs input, RenderCvar c) => (int)input.Cvar(c);
 
     /// <summary>One RenderView's planning state: the inputs and the ops so far.</summary>
-    private readonly struct Frame(RenderInputs input, RenderPlanBuilder b, DebugOverlayMaterials debug = default)
+    private readonly struct Frame(RenderInputs input, RenderPlanBuilder b, DebugOverlayMaterials debug = default,
+                                  ScreenSpaceEffectManager? screenEffects = null)
     {
         private readonly RenderInputs _in = input;
         private readonly DebugOverlayMaterials _debug = debug;
+        private readonly ScreenSpaceEffectManager? _screenEffects = screenEffects;
 
         private struct WaterInfo
         {
@@ -188,8 +198,10 @@ public static class RenderPlanner
                 b.Rect(RenderOpKind.EnginePostProcessing, view.X, view.Y, view.Width, view.Height, _in.FlashlightOn != 0 ? 1 : 0);
 
             b.Rect(RenderOpKind.GrabPreColorCorrectedFrame, view.X, view.Y, view.Width, view.Height);
+            // g_pScreenSpaceEffects->RenderEffects( 0, 0, view.width, view.height ):
+            // each effect appends its own ops here (none is enabled in this build).
             if (_in.IsHammerRunning == 0)
-                b.Rect(RenderOpKind.ScreenSpaceEffects, 0, 0, view.Width, view.Height);
+                _screenEffects?.RenderEffects(0, 0, view.Width, view.Height, b);
             if (_in.HdrType == HdrInteger)
                 b.ToneMapScaleLinear(1f, 1f, 1f);
 

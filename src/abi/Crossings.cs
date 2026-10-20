@@ -967,6 +967,8 @@ public enum CrossingOp
     ClientSaveReadFields = 393,
     /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
     ServerAreaPortalVisibility = 394,
+    /// <summary>IManagedRenderClient::ScreenSpaceEffectsStage: the view's level start or end runs the managed screen-space effect manager's Init or Shutdown (C7 screen-space effects). CLIENT ONLY.</summary>
+    ClientScreenSpaceEffectsStage = 395,
 }
 
 /// <summary>

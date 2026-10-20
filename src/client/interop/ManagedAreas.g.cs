@@ -261,6 +261,7 @@ public unsafe interface IManagedRenderClient
     int ViewDemoCamera(int a0, void* a1, void* a2);
     int RenderLeafList(void* a0, void* a1, int a2);
     int RenderLeafViewModels(void* a0, void* a1, int a2);
+    void ScreenSpaceEffectsStage(int a0);
 }
 
 [ManagedVtable(typeof(ManagedInputClientTable))]

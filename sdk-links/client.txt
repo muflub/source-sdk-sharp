@@ -12,8 +12,6 @@
 src/common/replay/ireplayscreenshotsystem.h
 src/common/steamcommon.h
 src/common/xbox/xboxstubs.h
-src/game/client/ScreenSpaceEffects.cpp
-src/game/client/ScreenSpaceEffects.h
 src/game/client/animationlayer.h
 src/game/client/bone_merge_cache.h
 src/game/client/bonetoworldarray.h

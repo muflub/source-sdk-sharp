@@ -75,7 +75,6 @@
 #include "c_func_reflective_glass.h"
 #include "vgui_int.h"
 #include "ienginevgui.h"
-#include "ScreenSpaceEffects.h"
 #include "engine/IEngineTrace.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "materialsystem/materialsystem_config.h"
@@ -204,7 +203,6 @@ enum RenderOpKind_t
 	RENDER_OP_ScreenOverlay = 70,
 	RENDER_OP_EnginePostProcessing = 71,
 	RENDER_OP_GrabPreColorCorrectedFrame = 72,
-	RENDER_OP_ScreenSpaceEffects = 73,
 	RENDER_OP_ToneMapScaleLinear = 74,
 	RENDER_OP_SaveRenderTarget = 75,
 	RENDER_OP_SetRenderTargetSaved = 76,
@@ -1666,7 +1664,6 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			break;
 		case RENDER_OP_EnginePostProcessing: RunPostProgram( 0, setup, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0, false ); break;
 		case RENDER_OP_GrabPreColorCorrectedFrame: engine->GrabPreColorCorrectedFrame( op.I[0], op.I[1], op.I[2], op.I[3] ); break;
-		case RENDER_OP_ScreenSpaceEffects: g_pScreenSpaceEffects->RenderEffects( op.I[0], op.I[1], op.I[2], op.I[3] ); break;
 		case RENDER_OP_ToneMapScaleLinear: { CMatRenderContextPtr ctx( materials ); ctx->SetToneMappingScaleLinear( Vector( op.F[0], op.F[1], op.F[2] ) ); break; }
 		case RENDER_OP_SaveRenderTarget: { CMatRenderContextPtr ctx( materials ); state.m_pSavedRenderTarget = ctx->GetRenderTarget(); break; }
 		case RENDER_OP_SetRenderTargetSaved: { CMatRenderContextPtr ctx( materials ); ctx->SetRenderTarget( state.m_pSavedRenderTarget ); break; }

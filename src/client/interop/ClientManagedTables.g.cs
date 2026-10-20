@@ -945,6 +945,10 @@ public unsafe struct ManagedRenderClientTable
     // 17: int32_t RenderLeafViewModels( const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords )
     [SlotHash(0x6fc25d72)]
     public delegate* unmanaged<void*, void*, void*, int, int> RenderLeafViewModels;
+
+    // 18: void ScreenSpaceEffectsStage( int32_t nStage )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> ScreenSpaceEffectsStage;
 }
 
 /// <summary>The table managed writes for <c>IManagedInputClient</c> (<c>SSManagedInputClientTable</c> native-side).</summary>
