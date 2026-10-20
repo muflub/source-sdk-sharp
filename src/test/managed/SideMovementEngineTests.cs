@@ -80,8 +80,8 @@ public unsafe class SideMovementEngineTests : IDisposable
             (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveSeven,
             (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveNine);
 
-        var mine = new PlayerRunMoveStages(new MovementRunner(new ModuleEngine(first)));
-        var theirs = new PlayerRunMoveStages(new MovementRunner(new ModuleEngine(second)));
+        var mine = PlayerRunMoveStages.For(MovementRunner.For(new ModuleEngine(first)));
+        var theirs = PlayerRunMoveStages.For(MovementRunner.For(new ModuleEngine(second)));
 
         Assert.Equal(7, mine.RunMove(Player, 0, 1));
         Assert.Equal(9, theirs.RunMove(Player, 0, 1));
@@ -95,8 +95,8 @@ public unsafe class SideMovementEngineTests : IDisposable
             (nint)(delegate* unmanaged<void*, void*, int, int>)&ContentsSeven,
             (nint)(delegate* unmanaged<void*, void*, int, int>)&ContentsNine);
 
-        var mine = new MovementRunner(new ModuleEngine(first));
-        _ = new MovementRunner(new ModuleEngine(second));
+        var mine = MovementRunner.For(new ModuleEngine(first));
+        _ = MovementRunner.For(new ModuleEngine(second));
 
         Assert.Equal(7, mine.World.PointContents(Vector.Zero, 0));
         Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
@@ -109,7 +109,7 @@ public unsafe class SideMovementEngineTests : IDisposable
 
     /// <summary>The command loop's stages over <paramref name="side"/>, as its runner builds them.</summary>
     private static PlayerRunMoveStages StagesOver(EngineSide side)
-        => new(new MovementRunner(new ModuleEngine(side)));
+        => PlayerRunMoveStages.For(MovementRunner.For(new ModuleEngine(side)));
 
     [Fact]
     public void ThePlayerShadowProbesTheSideItsBodiesWereBuiltOver()
@@ -155,8 +155,8 @@ public unsafe class SideMovementEngineTests : IDisposable
         s_firstCalls = s_secondCalls = 0;
 
         EngineSide firstSide = Attached(_first, Side.Server);
-        var mine = new PlayerRunMoveStages(new MovementRunner(new ModuleEngine(firstSide)));
-        _ = new MovementRunner(new ModuleEngine(Attached(_second, Side.Server)));
+        var mine = PlayerRunMoveStages.For(MovementRunner.For(new ModuleEngine(firstSide)));
+        _ = MovementRunner.For(new ModuleEngine(Attached(_second, Side.Server)));
         _queue.Shadow.Bodies = BodiesOver(firstSide);
 
         var player = new EntityHandle(0x0D8C_0001u);

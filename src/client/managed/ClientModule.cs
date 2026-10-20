@@ -366,7 +366,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_engine.Breaks);
 
         // The mirror gate's independent oracle, over this side's own slots.
-        _services.AddInstance(new StandaloneSlotReference(_engine, _skeletonRoute));
+        _services.AddInstance(StandaloneSlotReference.For(_engine, _skeletonRoute));
 
         // The client's three entity fetches and the other engine adapters,
         // built here and handed to the IEngineEntities binding the next line
@@ -398,7 +398,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The prediction's world carries stock's client move helper
         // (ClientPredictionMoveWorld, lane c6-input): the predicted swim
         // sound, and the helper's no-op answers taken here.
-        _movement = new MovementRunner(_engine, world => new ClientPredictionMoveWorld(world,
+        _movement = MovementRunner.For(_engine, world => new ClientPredictionMoveWorld(world,
             () => _prediction?.PredictingHost ?? EntityHandle.None,
             () => _prediction?.FirstRunOfFunctions ?? false,
             _services.Require<IEngineSound>()));
@@ -1206,7 +1206,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
         if (surfaceProps is null)
             Log.Warning($"[SourceSharp/Client] no VPhysics surface table for the hitbox trace: {surfaceWhy}\n");
-        _skeletons = new ClientSkeletons(new ClientStandaloneBlocks(_engine), new ClientSequenceStore(_engine),
+        _skeletons = new ClientSkeletons(ClientStandaloneBlocks.For(_engine), ClientSequenceStore.For(_engine),
                                          new SourceSharp.Shared.Bones.StudioModels(_engine.StudioMemory()),
                                          index => _standalones.GetByIndex(index)?.Handle,
                                          _services.Require<IEngineEnvironment>(), Log,
@@ -1242,11 +1242,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                                _services.Require<IEngineConsole>(),
                                                                _convars.Get<Ragdolls.RagdollSleepAfterTimeConVar>()
                                                                ?? throw new InvalidOperationException("ragdoll_sleepaftertime is not registered"));
-            var ragdollBlocks = new ClientStandaloneBlocks(_engine);
+            var ragdollBlocks = ClientStandaloneBlocks.For(_engine);
             _ragdolls = new Ragdolls.ClientRagdolls(
                 _ragdollPhysics, new Ragdolls.RagdollSolver(_ragdollPhysics, Log, () => ragdollWorld.Developer),
                 new Ragdolls.ClientRagdollPoses(_skeletons, ragdollBlocks),
-                new Ragdolls.ClientRagdollTails(ragdollBlocks, new StandaloneRagdollStore(_engine)),
+                new Ragdolls.ClientRagdollTails(ragdollBlocks, StandaloneRagdollStore.For(_engine)),
                 new Ragdolls.ClientRagdollClock(_services.Require<IEngineEnvironment>()), ragdollWorld,
                 new Ragdolls.ClientRagdollNames(), Log);
             _services.AddInstance<Ragdolls.IClientRagdolls>(_ragdolls);

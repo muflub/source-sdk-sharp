@@ -126,7 +126,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // What sends a user message by key (plan_side_isolation §2.2a): this
         // side's registry for the id, IShimUserMessages for the engine.
-        _services.AddInstance<IUserMessageSender>(new UserMessageSender(_userMessages, new UserMessageOutbox(_engine), Log));
+        _services.AddInstance<IUserMessageSender>(new UserMessageSender(_userMessages, UserMessageOutbox.For(_engine), Log));
 
         // The side's clock with its areas (plan_abi_hotreload D8): the registry
         // below stamps outputs, thinks and saves with it, and there is no
@@ -174,7 +174,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the player-command binding runs the
         // movement crossing, the command stages and the shadow through it.
-        _movement = new MovementRunner(_engine);
+        _movement = MovementRunner.For(_engine);
         _services.AddInstance(_movement);
 
         // And its player command queues and shadow run (statics to zero), for
@@ -217,7 +217,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                _services.Require<ShellLessRoutes>(),
                                                _services.Require<EntityIoRoutes>(),
                                                _services.Require<EntityRemovalRoutes>(),
-                                               _services, new ServerEntityEngine(_engine));
+                                               _services, ServerEntityEngine.For(_engine));
 
         _livenessAttachment = _engine.AttachLiveness(_liveness);
 

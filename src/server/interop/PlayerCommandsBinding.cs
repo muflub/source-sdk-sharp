@@ -29,7 +29,7 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
 
     // The command loop's PlayerRunMove stages, over the same side as the
     // runner (they were MovementRunner's, which both sides build).
-    private readonly PlayerRunMoveStages _stages = new(movement);
+    private readonly PlayerRunMoveStages _stages = PlayerRunMoveStages.For(movement);
 
     private void Enter(CrossingOp op)
     {

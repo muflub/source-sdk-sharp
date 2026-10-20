@@ -119,11 +119,13 @@ public class ShimAreaInjectionCensusTests
     /// the client's adapter registration (<c>ClientEntityFetches.AddTo</c>,
     /// which the module calls once while it composes, and which is an
     /// instance method only so a fact can hand in another), and otherwise only
-    /// in a constructor or a static factory, which takes the areas it hands on
-    /// once. An instance method that read it would be
-    /// looking an area up per call, which is the container again behind a
-    /// different name. A lambda is its closure's method, so one written in a
-    /// constructor that read the registry per call is caught too.
+    /// in a static factory (<c>For</c>, <c>ForEngine</c>, <c>Acquire</c>), which
+    /// takes the areas once and hands them to a constructor. A constructor
+    /// takes its areas; it never looks them up (review of phase 11), and an
+    /// instance method that read the registry would be looking an area up per
+    /// call, which is the container again behind a different name. A lambda
+    /// is its closure's method, so one written in a factory that read the
+    /// registry per call is caught too.
     /// </summary>
     [Fact]
     public void OnlyCompositionReadsTheSidesAreas()
@@ -155,7 +157,7 @@ public class ShimAreaInjectionCensusTests
 
                     bool composition = outer.Name is "EngineSide" or "ModuleEngine"
                                     || (outer.Name == "ClientEntityFetches" && method.Name == "AddTo")
-                                    || (type == outer && (method.IsConstructor || method.IsStatic));
+                                    || (type == outer && method.IsStatic && !method.IsConstructor);
                     if (!composition)
                         lookups.Add(where);
                 }
@@ -164,7 +166,7 @@ public class ShimAreaInjectionCensusTests
 
         // The positive arm: the walk finds the composition that does read it.
         Assert.Contains(readers, r => r.EndsWith("EngineServices.Build", StringComparison.Ordinal));
-        Assert.Contains(readers, r => r.EndsWith("ClientInputHost..ctor", StringComparison.Ordinal));
+        Assert.Contains(readers, r => r.EndsWith("ClientInputHost.For", StringComparison.Ordinal));
         Assert.True(lookups.Count == 0, "the side's areas looked up outside composition:\n" + string.Join("\n", lookups));
     }
 

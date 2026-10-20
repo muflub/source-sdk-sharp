@@ -29,18 +29,14 @@ public sealed class ServerEntityEngine
     private readonly WorldServerArea _world;
     private readonly NetworkServerArea _network;
 
-    /// <summary>Over a composition's engine.</summary>
-    public ServerEntityEngine(ModuleEngine engine)
-        : this((engine ?? throw new ArgumentNullException(nameof(engine))).Api)
-    {
-    }
+    /// <summary>Over a composition's engine, with the areas its calls reach taken from it here once.</summary>
+    public static ServerEntityEngine For(ModuleEngine engine)
+        => For((engine ?? throw new ArgumentNullException(nameof(engine))).Api);
 
-    /// <summary>Over <paramref name="side"/>, with the areas its calls reach taken from it.</summary>
-    internal ServerEntityEngine(EngineSide side)
-        : this(side, side.Areas.Require<EntityLifecycleArea>(), side.Areas.Require<WorldServerArea>(),
-               side.Areas.Require<NetworkServerArea>())
-    {
-    }
+    /// <inheritdoc cref="For(ModuleEngine)"/>
+    internal static ServerEntityEngine For(EngineSide side)
+        => new(side, side.Areas.Require<EntityLifecycleArea>(), side.Areas.Require<WorldServerArea>(),
+               side.Areas.Require<NetworkServerArea>());
 
     /// <summary>The side this forwards to.</summary>
     internal EngineSide Api { get; }
@@ -84,6 +80,6 @@ public sealed class ServerEntityEngine
         // And its clock, as the game's composition registers one: what a
         // registry stamps outputs, thinks and saves with.
         engine.AddInstance<IGameClock>(new EngineClock(side));
-        return (engine, new ServerEntityEngine(side));
+        return (engine, For(side));
     }
 }

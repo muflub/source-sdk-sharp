@@ -27,24 +27,31 @@ public sealed unsafe class MovementRunner
     private long _ran;
     private long _declined;
 
-    public MovementRunner(ModuleEngine engine)
-        : this(engine, null)
-    {
-    }
-
-    /// <param name="engine">This side's engine.</param>
+    /// <param name="side">This side's engine.</param>
+    /// <param name="movement">That side's movement area, which the engine's world moves through.</param>
     /// <param name="clientWorld">
     /// The client prediction's world over the engine's (<see cref="ClientLoop"/>):
     /// the client puts stock's client move helper there (lane c6-input). Null
     /// runs the loop on the engine's world itself.
     /// </param>
-    public MovementRunner(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld)
+    internal MovementRunner(EngineSide side, MovementArea movement, Func<IMoveWorld, IMoveWorld>? clientWorld)
+    {
+        Api = side ?? throw new ArgumentNullException(nameof(side));
+        _world = new MovementBridge.EngineMoveWorld(Api, movement);
+        _isServer = side.Side == Side.Server;
+        _clientWorld = clientWorld?.Invoke(_world);
+    }
+
+    /// <summary>
+    /// The runner over <paramref name="engine"/>'s side and its movement area,
+    /// taken here once (plan_shim_areas_split phase 11).
+    /// </summary>
+    /// <param name="engine">This side's engine.</param>
+    /// <param name="clientWorld">The client prediction's world over the engine's; null runs on the engine's.</param>
+    public static MovementRunner For(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        Api = engine.Api;
-        _world = new MovementBridge.EngineMoveWorld(Api, Api.Areas.Require<MovementArea>());
-        _isServer = engine.Side == Side.Server;
-        _clientWorld = clientWorld?.Invoke(_world);
+        return new MovementRunner(engine.Api, engine.Api.Areas.Require<MovementArea>(), clientWorld);
     }
 
     private readonly IMoveWorld? _clientWorld;

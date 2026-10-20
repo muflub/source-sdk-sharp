@@ -108,7 +108,7 @@ public class RouteInjectionTests
     /// asks that one's reader and never the other's.
     /// </summary>
     private static MovementRunner ServerRunner()
-        => new(new ModuleEngine(new EngineSide(Side.Server)));
+        => MovementRunner.For(new ModuleEngine(new EngineSide(Side.Server)));
 
     [Fact]
     public void EachCompositionsRunReadsItsOwnShadowSwitch()

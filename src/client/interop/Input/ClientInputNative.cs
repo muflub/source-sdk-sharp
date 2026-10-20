@@ -20,91 +20,51 @@ public sealed unsafe class ClientInputHost : IInputHost
     // the HUD's facts and the view-angle calls below are its slots.
     private readonly InputClientArea _input;
     private readonly IEngineConsole _console;
-    private readonly Func<IVtableEngineClient?> _engineClient;
-    private readonly NativeInterfaceFactory _interfaces;
-    private void* _self;
-    private EngineClientFwd* _fwd;
-    private bool _asked;
 
-    internal ClientInputHost(ModuleEngine engine, IEngineConsole console)
+    // The engine client, handed in: null where there is none (the server, a
+    // side with no engine), and then every engine-client answer is its default.
+    private readonly IEngineClientInput? _engineClient;
+
+    internal ClientInputHost(InputClientArea input, IEngineConsole console, IEngineClientInput? engineClient)
     {
-        _input = engine.Api.Areas.Require<InputClientArea>();
-        _interfaces = engine.Api.Interfaces;
-        _console = console;
-        _engineClient = () => EngineClient.Acquire(engine, out _);
+        _input = input ?? throw new ArgumentNullException(nameof(input));
+        _console = console ?? throw new ArgumentNullException(nameof(console));
+        _engineClient = engineClient;
     }
 
-    /// <summary>The client's input host, over the engine of <paramref name="engine"/>.</summary>
-    public static IInputHost For(ModuleEngine engine, IEngineConsole console) => new ClientInputHost(engine, console);
+    /// <summary>
+    /// The client's input host, over the engine of <paramref name="engine"/>:
+    /// its input area and its engine client, taken here once.
+    /// </summary>
+    public static IInputHost For(ModuleEngine engine, IEngineConsole console)
+        => new ClientInputHost(engine.Api.Areas.Require<InputClientArea>(), console,
+                               EngineClient.Acquire(engine, out _) as IEngineClientInput);
 
-    private bool Bound()
-    {
-        if (!_asked)
-        {
-            _asked = true;
-            if (Forwarders.TryAcquire<EngineClientFwd>(_interfaces, SourceSharpFactoryType.AppSystem,
-                                                    EngineClient.InterfaceVersion, out void* self, out EngineClientFwd* table, out _))
-            {
-                _self = self;
-                _fwd = table;
-            }
-        }
-        return _fwd != null;
-    }
+    public InputAngles GetViewAngles() => _engineClient?.GetViewAngles() ?? default;
 
-    public InputAngles GetViewAngles()
-    {
-        if (!Bound())
-            return default;
-        float* a = stackalloc float[3];
-        _fwd->GetViewAngles(_self, a);
-        return new InputAngles(a[0], a[1], a[2]);
-    }
-
-    public void SetViewAngles(InputAngles angles)
-    {
-        if (!Bound())
-            return;
-        float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
-        _fwd->SetViewAngles(_self, a);
-    }
+    public void SetViewAngles(InputAngles angles) => _engineClient?.SetViewAngles(angles);
 
     public void GetScreenSize(out int width, out int height)
     {
-        int w = 0, h = 0;
-        if (Bound())
-            _fwd->GetScreenSize(_self, &w, &h);
-        width = w;
-        height = h;
+        width = height = 0;
+        _engineClient?.GetScreenSize(out width, out height);
     }
 
-    public bool IsPaused => Bound() && _fwd->IsPaused(_self) != 0;
+    public bool IsPaused => _engineClient?.IsPaused ?? false;
 
     public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)
     {
-        int dx = 0, dy = 0;
-        // NULL where the engine is built without SDL (Valve's Windows engine
-        // has no GetMouseDelta): then there is no delta to read.
-        if (Bound() && _fwd->GetMouseDelta != null)
-            _fwd->GetMouseDelta(_self, &dx, &dy, (byte)(ignoreNextMouseDelta ? 1 : 0));
-        x = dx;
-        y = dy;
+        x = y = 0;
+        _engineClient?.GetMouseDelta(out x, out y, ignoreNextMouseDelta);
     }
 
-    public void ClientCmdUnrestricted(string command)
-    {
-        if (!Bound())
-            return;
-        byte[] bytes = Vtable.Utf8(command);
-        fixed (byte* p = bytes)
-            _fwd->ClientCmd_Unrestricted(_self, p);
-    }
+    public void ClientCmdUnrestricted(string command) => _engineClient?.ClientCmdUnrestricted(command);
 
     public string? EngineConVar(string name) => _console.FindConVarValue(name);
 
     public void Msg(string text) => _console.Msg(text);
 
-    public void ConsolePrintAt(int line, string text) => _engineClient()?.ConsolePrintAt(line, text);
+    public void ConsolePrintAt(int line, string text) => _engineClient?.ConsolePrintAt(line, text);
 
     public bool CursorVisible
     {

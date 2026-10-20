@@ -196,12 +196,17 @@ public sealed unsafe class ClientStandaloneBlocks : IStandaloneBlocks
     private readonly EngineSide _api;
     private readonly StandaloneClientArea _standalone;
 
-    /// <summary>Over <paramref name="engine"/>'s side and its standalone area.</summary>
-    public ClientStandaloneBlocks(ModuleEngine engine)
+    internal ClientStandaloneBlocks(EngineSide side, StandaloneClientArea standalone)
+    {
+        _api = side ?? throw new ArgumentNullException(nameof(side));
+        _standalone = standalone ?? throw new ArgumentNullException(nameof(standalone));
+    }
+
+    /// <summary>Over <paramref name="engine"/>'s side and its standalone area, taken here once.</summary>
+    public static ClientStandaloneBlocks For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        _api = engine.Api;
-        _standalone = _api.Areas.Require<StandaloneClientArea>();
+        return new ClientStandaloneBlocks(engine.Api, engine.Api.Areas.Require<StandaloneClientArea>());
     }
 
     public Span<byte> Block(EntityHandle entity)
@@ -222,12 +227,17 @@ public sealed class ClientSequenceStore : IClientSequenceStore
     private readonly EngineSide _api;
     private readonly StandaloneClientArea _standalone;
 
-    /// <summary>Over <paramref name="engine"/>'s side and its standalone area.</summary>
-    public ClientSequenceStore(ModuleEngine engine)
+    internal ClientSequenceStore(EngineSide side, StandaloneClientArea standalone)
+    {
+        _api = side ?? throw new ArgumentNullException(nameof(side));
+        _standalone = standalone ?? throw new ArgumentNullException(nameof(standalone));
+    }
+
+    /// <summary>Over <paramref name="engine"/>'s side and its standalone area, taken here once.</summary>
+    public static ClientSequenceStore For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        _api = engine.Api;
-        _standalone = _api.Areas.Require<StandaloneClientArea>();
+        return new ClientSequenceStore(engine.Api, engine.Api.Areas.Require<StandaloneClientArea>());
     }
 
     public void Store(EntityHandle entity, int sequence, float playbackRate, float animTime, float duration,
@@ -245,12 +255,17 @@ public sealed class StandaloneRagdollStore : IStandaloneRagdollStore
     private readonly EngineSide _api;
     private readonly StandaloneClientArea _standalone;
 
-    /// <summary>Over <paramref name="engine"/>'s side and its standalone area.</summary>
-    public StandaloneRagdollStore(ModuleEngine engine)
+    internal StandaloneRagdollStore(EngineSide side, StandaloneClientArea standalone)
+    {
+        _api = side ?? throw new ArgumentNullException(nameof(side));
+        _standalone = standalone ?? throw new ArgumentNullException(nameof(standalone));
+    }
+
+    /// <summary>Over <paramref name="engine"/>'s side and its standalone area, taken here once.</summary>
+    public static StandaloneRagdollStore For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        _api = engine.Api;
-        _standalone = _api.Areas.Require<StandaloneClientArea>();
+        return new StandaloneRagdollStore(engine.Api, engine.Api.Areas.Require<StandaloneClientArea>());
     }
 
     public void SetRagdoll(EntityHandle entity, bool isRagdoll)

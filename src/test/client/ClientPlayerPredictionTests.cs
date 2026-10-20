@@ -186,7 +186,7 @@ public class ClientPlayerPredictionTests
         standalones.Entities.Add(player);
 
         var replay = new Replay();
-        var runner = new MovementRunner(new ModuleEngine(new EngineSide(Side.Client)));
+        var runner = MovementRunner.For(new ModuleEngine(new EngineSide(Side.Client)));
 
         foreach (int command in ringCommands)
             replay.Ring.Add(command);

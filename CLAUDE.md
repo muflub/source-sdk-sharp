@@ -223,8 +223,8 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
 - **A shim area is handed to the code that calls it; nothing holds the areas
   as a set.** A binding or adapter takes the `*Area` classes it calls by
   constructor, and `EngineServices.Build` fills them from the side's
-  registration (`EngineSide.Areas`), which only composition reads (a
-  constructor, a static factory, `ModuleEngine`). `EngineSide` keeps only the
+  registration (`EngineSide.Areas`), which only composition reads (a static
+  factory such as `For`, `ModuleEngine`); a constructor never looks one up. `EngineSide` keeps only the
   areas its own services read (its log, globals, model names, break models and
   motion host). `ShimAreaInjectionCensusTests` holds all three. Why: the
   containers (`ShimAreas`, `ClientShimAreas`) let every binding reach every

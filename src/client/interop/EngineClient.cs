@@ -2,9 +2,12 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// <see cref="IVtableEngineClient"/> over the engine's own object, called
-/// through its vtable.
+/// through its forwarder table (<see cref="EngineClientFwd"/>; the interface's
+/// name predates the forwarders). Also the input host's
+/// <see cref="Client.Input.IEngineClientInput"/>, implemented explicitly so the
+/// class offers game code exactly its interface.
 /// </summary>
-public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchCommands
+public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchCommands, Client.Input.IEngineClientInput
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -185,6 +188,53 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
     /// <inheritdoc/>
     public bool TryLightForPointFast(in Vector position, bool clamp, out Vector light)
         => _side.TryGetLightForPointFast(_view, _self, position, clamp, out light);
+
+    /// <inheritdoc/>
+    Client.Input.InputAngles Client.Input.IEngineClientInput.GetViewAngles()
+    {
+        float* a = stackalloc float[3];
+        _fwd->GetViewAngles(_self, a);
+        return new Client.Input.InputAngles(a[0], a[1], a[2]);
+    }
+
+    /// <inheritdoc/>
+    void Client.Input.IEngineClientInput.SetViewAngles(Client.Input.InputAngles angles)
+    {
+        float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
+        _fwd->SetViewAngles(_self, a);
+    }
+
+    /// <inheritdoc/>
+    void Client.Input.IEngineClientInput.GetScreenSize(out int width, out int height)
+    {
+        int w = 0, h = 0;
+        _fwd->GetScreenSize(_self, &w, &h);
+        width = w;
+        height = h;
+    }
+
+    /// <inheritdoc/>
+    bool Client.Input.IEngineClientInput.IsPaused => _fwd->IsPaused(_self) != 0;
+
+    /// <inheritdoc/>
+    void Client.Input.IEngineClientInput.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)
+    {
+        int dx = 0, dy = 0;
+        // NULL where the engine is built without SDL (Valve's Windows engine
+        // has no GetMouseDelta): then there is no delta to read.
+        if (_fwd->GetMouseDelta != null)
+            _fwd->GetMouseDelta(_self, &dx, &dy, (byte)(ignoreNextMouseDelta ? 1 : 0));
+        x = dx;
+        y = dy;
+    }
+
+    /// <inheritdoc/>
+    void Client.Input.IEngineClientInput.ClientCmdUnrestricted(string command)
+    {
+        byte[] bytes = Vtable.Utf8(command);
+        fixed (byte* p = bytes)
+            _fwd->ClientCmd_Unrestricted(_self, p);
+    }
 }
 
 /// <summary>

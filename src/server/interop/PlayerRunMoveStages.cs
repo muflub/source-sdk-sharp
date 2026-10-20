@@ -18,16 +18,25 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed class PlayerRunMoveStages
 {
-    public PlayerRunMoveStages(MovementRunner movement)
+    internal PlayerRunMoveStages(EngineSide side, MovementServerArea movement, WorldServerArea world)
     {
+        Api = side ?? throw new ArgumentNullException(nameof(side));
         ArgumentNullException.ThrowIfNull(movement);
-        Api = movement.Api;
+        _world = world ?? throw new ArgumentNullException(nameof(world));
 
         // Built once, so the per-frame command loop allocates no delegate.
-        EngineSide api = Api;
-        MovementServerArea area = api.Areas.Require<MovementServerArea>();
-        _world = api.Areas.Require<WorldServerArea>();
-        RunMove = (player, index, stage) => RunMoveVia(api, area, player, index, stage);
+        RunMove = (player, index, stage) => RunMoveVia(side, movement, player, index, stage);
+    }
+
+    /// <summary>
+    /// The stages over <paramref name="movement"/>'s side, with the areas they
+    /// call taken from it here once (plan_shim_areas_split phase 11).
+    /// </summary>
+    public static PlayerRunMoveStages For(MovementRunner movement)
+    {
+        ArgumentNullException.ThrowIfNull(movement);
+        EngineSide side = movement.Api;
+        return new PlayerRunMoveStages(side, side.Areas.Require<MovementServerArea>(), side.Areas.Require<WorldServerArea>());
     }
 
     /// <summary>The side these stages run on: the runner's.</summary>
