@@ -53,7 +53,7 @@ public class PlayerNamesTests
     [Fact]
     public void TheServiceFiltersTheEnginesNameAndKeepsTheRest()
     {
-        var names = new EnginePlayerNames(OneBob, new Shout());
+        var names = new EnginePlayerNames(OneBob(), new Shout());
         Assert.True(names.TryGet(2, out var info));
         Assert.Equal(new ClientPlayerInfo("<BOB>", 7, true, "STEAM_1:0:2"), info);
     }
@@ -61,9 +61,9 @@ public class PlayerNamesTests
     [Fact]
     public void AnUnknownSlotIsNotFound()
     {
-        var names = new EnginePlayerNames(OneBob, new Shout());
+        var names = new EnginePlayerNames(OneBob(), new Shout());
         Assert.False(names.TryGet(3, out _));
-        Assert.False(new EnginePlayerNames(() => null, new Shout()).TryGet(2, out _));
+        Assert.False(new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new Shout()).TryGet(2, out _));
     }
 
     // ---- the Steam filter (UTIL_GetFilteredPlayerName) ----
@@ -127,7 +127,7 @@ public class PlayerNamesTests
         return s;
     }
 
-    private static IPlayerNames Names() => new EnginePlayerNames(OneBob, new Shout());
+    private static IPlayerNames Names() => new EnginePlayerNames(OneBob(), new Shout());
 
     [Fact]
     public void TheKillFeedShowsTheFilteredName()
@@ -163,7 +163,7 @@ public class PlayerNamesTests
     {
         var engine = Fake().Returns("Hud.LocalPlayerIndex", 1).Returns("Environment.Globals", default(Globals))
                           .Returns("Console.FindConVarValue", (string?)null);
-        var scores = new ScoreboardUi(BobConnected(), engine, () => null, Names(), engine, engine);
+        var scores = new ScoreboardUi(BobConnected(), engine, new DefaultForwarders.NoEngineClient(), Names(), engine, engine);
         scores.Refresh();
         Assert.Equal(1, scores.PlayerCount);
         Assert.Equal("<BOB>", scores.Player(0).Name);

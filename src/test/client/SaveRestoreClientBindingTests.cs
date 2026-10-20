@@ -51,6 +51,14 @@ public sealed unsafe class SaveRestoreClientBindingTests : IDisposable
     }
 
     /// <summary>The engine's allocator: what IVEngineClient::SaveAllocMemory answers, recorded.</summary>
+    // An engine that refuses IVEngineClient: the registered allocator throws
+    // at its first call, as a bound slot does.
+    private sealed class RefusedMemory : ISaveMemory
+    {
+        public void* SaveAlloc(nuint count, nuint size) => throw new InvalidOperationException("boom");
+        public void SaveFree(void* block) => throw new InvalidOperationException("boom");
+    }
+
     private sealed class EngineMemory(SaveRestoreClientBindingTests owner) : ISaveMemory
     {
         public int Allocs { get; private set; }
@@ -134,8 +142,8 @@ public sealed unsafe class SaveRestoreClientBindingTests : IDisposable
         return block;
     }
 
-    private SaveRestoreClientBinding Binding(Crossings crossings, ISaveMemory? memory)
-        => new(crossings, _log, new NoModule(), new SaveBlockSession(_log, () => memory, traceBlocks: false));
+    private SaveRestoreClientBinding Binding(Crossings crossings, ISaveMemory memory)
+        => new(crossings, _log, new NoModule(), new SaveBlockSession(_log, memory, traceBlocks: false));
 
     [Fact]
     public void TheBindingsSlotsDriveTheSessionAndCountTheirCrossings()
@@ -172,16 +180,8 @@ public sealed unsafe class SaveRestoreClientBindingTests : IDisposable
     public void ABindingSlotThatThrowsAnswersARefusal()
     {
         var binding = new SaveRestoreClientBinding(new Crossings(), _log, new NoModule(),
-                                                   new SaveBlockSession(_log, () => throw new InvalidOperationException("boom"),
-                                                                        traceBlocks: false));
+                                                   new SaveBlockSession(_log, new RefusedMemory(), traceBlocks: false));
         Assert.True(binding.SaveInit(0, 0f) == null);
-    }
-
-    [Fact]
-    public void NoEngineAllocatorRefusesTheClientSaveLoudly()
-    {
-        Assert.True(Binding(new Crossings(), null).SaveInit(0, 0f) == null);
-        Assert.Contains(_log.Warnings, w => w.Contains("SaveInit: no engine interface"));
     }
 
     // One block per decal: the client's blocks are not narrated, its SaveInit is.

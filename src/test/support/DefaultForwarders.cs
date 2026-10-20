@@ -47,15 +47,18 @@ internal static class DefaultForwarders
     }
 
     /// <summary>No surface table: no names, no indices, the default surface's movement answers.</summary>
-    internal sealed class NoSurfaceProps : IFwdPhysicsSurfaceProps
+    internal sealed class NoSurfaceProps : IFwdPhysicsSurfaceProps, IVPhysicsSurfaceSounds
     {
+        public SurfaceImpactSounds? Sounds(int surfaceProps) => null;
+
         public int ParseSurfaceData(string fileName, string text) => 0;
 
         public int SurfacePropCount() => 0;
 
         public string? PropName(int index) => null;
 
-        public int SurfaceIndex(string name) => -1;
+        // VPhysics answers its default surface for a name it lacks.
+        public int SurfaceIndex(string name) => 0;
 
         public int GameMaterial(int surfaceProps) => 0;
 
@@ -156,8 +159,24 @@ internal static class DefaultForwarders
 
 #if TEST_SUPPORT_SERVER
     /// <summary>An engine server with no level answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
-    internal sealed class NoEngineServer : IFwdEngineServer
+    internal sealed unsafe class NoEngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine
     {
+        // No allocator: a save is refused, said by the save session.
+        public void* SaveAlloc(nuint count, nuint size) => null;
+
+        public void SaveFree(void* block) { }
+
+        // No portals: every one left open, as with no plane.
+        public void SetAreaPortalState(int portalNumber, bool open) { }
+
+        public void SetAreaPortalStates(ReadOnlySpan<int> portalNumbers, ReadOnlySpan<int> isOpen) { }
+
+        public bool GetAreaPortalPlane(Vector viewOrigin, int portalKey, out Vector normal, out float distance)
+        {
+            (normal, distance) = (default, 0f);
+            return false;
+        }
+
         public string? GameDir() => null;
 
         public string? MapEntitiesString() => null;
@@ -228,8 +247,27 @@ internal static class DefaultForwarders
     }
 #else
     /// <summary>An engine client in no game answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
-    internal sealed class NoEngineClient : IFwdEngineClient
+    internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine
     {
+        // No allocator: a save is refused, said by the save session.
+        public void* SaveAlloc(nuint count, nuint size) => null;
+
+        public void SaveFree(void* block) { }
+
+        // The input host's engine: level angles, no screen, never paused, no
+        // mouse, commands go nowhere. ConsolePrintAt is the IFwd one.
+        Client.Input.InputAngles Client.Input.IClientInputEngine.GetViewAngles() => default;
+
+        void Client.Input.IClientInputEngine.SetViewAngles(Client.Input.InputAngles angles) { }
+
+        void Client.Input.IClientInputEngine.GetScreenSize(out int width, out int height) => (width, height) = (0, 0);
+
+        bool Client.Input.IClientInputEngine.IsPaused => false;
+
+        void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
+
+        void Client.Input.IClientInputEngine.ClientCmdUnrestricted(string command) { }
+
         public string? LevelName() => null;
 
         public string? GameDirectory() => null;

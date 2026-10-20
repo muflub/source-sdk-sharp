@@ -18,56 +18,30 @@ public unsafe class VtableAcquireCommandTests
         public void Warning(string message) => Lines.Add("W:" + message);
     }
 
-    private sealed class SevenRandom : IUniformRandom
-    {
-        public float RandomFloat(float min, float max) => min;
-        public int RandomInt(int min, int max) => min;
-    }
-
-    /// <summary>One random stream that binds; every other interface refused with its own reason.</summary>
+    /// <summary>Each probe answers its own name, so the order they print in is visible.</summary>
     private sealed class Interfaces : IServerEngineInterfaces
     {
-        public IUniformRandom? RandomStream(out string why) { why = ""; return new SevenRandom(); }
-        public IFwdModelInfo? ModelInfo(out string why) { why = "no model info"; return null; }
-        public IFwdBaseFileSystem? BaseFileSystem(out string why) { why = "no filesystem"; return null; }
-        public IFwdEngineServer? EngineServer(out string why) { why = "no engine server"; return null; }
+        public string RandomStreamProbe() => "random probe";
+        public string ModelInfoProbe() => "model info probe";
+        public string BaseFileSystemProbe() => "filesystem probe";
+        public string EngineServerProbe() => "engine server probe";
         public string EngineClientProbe() => "client probe";
         public string FrameProbe() => "frame probe";
         public string LevelProbe() => "level probe";
     }
 
     [Fact]
-    public void ABoundInterfaceIsReportedWithWhatItAnswered()
+    public void EveryProbeLineIsPrintedAsTheSeamComposedItInOrder()
     {
         var log = new ListLog();
 
         new VtableAcquireCommand(new Interfaces(), log).Execute("");
 
-        Assert.Contains("[SourceSharp/Vtable] IUniformRandomStream: bound, RandomInt(7,7) = 7\n", log.Lines);
-    }
-
-    [Fact]
-    public void ARefusedInterfaceIsReportedWithTheEnginesReason()
-    {
-        var log = new ListLog();
-
-        new VtableAcquireCommand(new Interfaces(), log).Execute("");
-
-        Assert.Contains("[SourceSharp/Vtable] IVModelInfo: REFUSED — no model info\n", log.Lines);
-        Assert.Contains("[SourceSharp/Vtable] IBaseFileSystem: REFUSED — no filesystem\n", log.Lines);
-        Assert.Contains("[SourceSharp/Vtable] IVEngineServer: REFUSED — no engine server\n", log.Lines);
-    }
-
-    [Fact]
-    public void TheShimProbeLinesArePrintedAsTheSeamComposedThem()
-    {
-        var log = new ListLog();
-
-        new VtableAcquireCommand(new Interfaces(), log).Execute("");
-
-        Assert.Equal(["[SourceSharp/Vtable] client probe\n", "[SourceSharp/Vtable] frame probe\n",
+        Assert.Equal(["[SourceSharp/Vtable] random probe\n", "[SourceSharp/Vtable] model info probe\n",
+                      "[SourceSharp/Vtable] filesystem probe\n", "[SourceSharp/Vtable] engine server probe\n",
+                      "[SourceSharp/Vtable] client probe\n", "[SourceSharp/Vtable] frame probe\n",
                       "[SourceSharp/Vtable] level probe\n"],
-                     log.Lines.Skip(log.Lines.Count - 3));
+                     log.Lines);
     }
 
     /// <summary>
@@ -87,13 +61,20 @@ public unsafe class VtableAcquireCommandTests
         // acquires when asked.
         using var root = new FakeShimRoot();
         int word = 0;
-        root.Interface(UniformRandomStream.InterfaceVersion, &word).Forwarders<UniformRandomStreamFwd>();
+        root.Interface(UniformRandomStream.InterfaceVersion, &word).Forwarders(out UniformRandomStreamFwd* stream);
+        stream->RandomInt = &Low;
         Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
-        Assert.NotNull(answered.RandomStream(out _));
-        Assert.Null(refused.RandomStream(out string why));
-        Assert.False(string.IsNullOrEmpty(why), "a refusal carries the engine's reason");
+        // The line says the stream bound and what its call answered.
+        Assert.Equal("IUniformRandomStream: bound, RandomInt(7,7) = 7", answered.RandomStreamProbe());
+        Assert.StartsWith("IUniformRandomStream: REFUSED — ", refused.RandomStreamProbe(), StringComparison.Ordinal);
+        Assert.True(refused.RandomStreamProbe().Length > "IUniformRandomStream: REFUSED — ".Length,
+                    "a refusal carries the engine's reason");
     }
+
+    // RandomInt( min, max ) answering min: the probe's call reaches the slot.
+    [System.Runtime.InteropServices.UnmanagedCallersOnly]
+    private static int Low(void* self, int min, int max) => min;
 
     [Fact]
     public void TheRegisteredProbesAskTheRootsEngine()
@@ -103,9 +84,11 @@ public unsafe class VtableAcquireCommandTests
         Assert.StartsWith("IShimFrame: REFUSED", interfaces.FrameProbe(), StringComparison.Ordinal);
         Assert.StartsWith("IShimLevel: REFUSED", interfaces.LevelProbe(), StringComparison.Ordinal);
         Assert.Contains("REFUSED", interfaces.EngineClientProbe(), StringComparison.Ordinal);
-        Assert.Null(interfaces.ModelInfo(out _));
-        Assert.Null(interfaces.BaseFileSystem(out _));
-        Assert.Null(interfaces.EngineServer(out _));
+        // A test side's held defaults answer calls, never the probes: a probe
+        // asks the factory itself.
+        Assert.StartsWith("IVModelInfo: REFUSED", interfaces.ModelInfoProbe(), StringComparison.Ordinal);
+        Assert.StartsWith("IBaseFileSystem: REFUSED", interfaces.BaseFileSystemProbe(), StringComparison.Ordinal);
+        Assert.StartsWith("IVEngineServer: REFUSED", interfaces.EngineServerProbe(), StringComparison.Ordinal);
     }
 
     private static IServerEngineInterfaces Composed(EngineSide side)

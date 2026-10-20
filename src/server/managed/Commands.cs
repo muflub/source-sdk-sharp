@@ -356,49 +356,18 @@ public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog lo
 {
     public void Execute(string args)
     {
-        Report("IUniformRandomStream", engine.RandomStream(out string why), why,
-               stream => $"RandomInt(7,7) = {((IUniformRandom)stream).RandomInt(7, 7)}");
-
-        // MODEL INDEX 1 IS THE WORLD, on every BSP -- so the index answers
-        // itself, and the two by-index members converted in Phase 3 are asked
-        // about it beside the lookup. A brush model is mod_brush(1), which is
-        // the .bsp's own structure and not something the engine chose, and a
-        // world model has exactly one frame.
-        Report("IVModelInfo", engine.ModelInfo(out why), why,
-               info => $"ModelIndex(\"maps/dm_lockdown.bsp\") = "
-                       + $"{((IFwdModelInfo)info).ModelIndex("maps/dm_lockdown.bsp")}, "
-                       + $"TypeAt(1) = {((IFwdModelInfo)info).TypeAt(1)}, "
-                       + $"FrameCountAt(1) = {((IFwdModelInfo)info).FrameCountAt(1)}, "
-                       + $"FrameCountAt(0) = {((IFwdModelInfo)info).FrameCountAt(0)}");
-
-        // AND THE PAIR THAT TELLS AN EMPTY FILE FROM A MISSING ONE, which is
-        // what Phase 3 converted FilesGameFileSize onto. Size answers 0 for
-        // both; exists is the question that separates them, and the second
-        // source is `stat`.
-        Report("IBaseFileSystem", engine.BaseFileSystem(out why), why,
-               files => $"FileSize(\"gameinfo.txt\", \"MOD\") = "
-                        + $"{((IFwdBaseFileSystem)files).FileSize("gameinfo.txt", "MOD")}, "
-                        + $"FileExists(\"gameinfo.txt\", \"GAME\") = "
-                        + $"{((IFwdBaseFileSystem)files).FileExists("gameinfo.txt", "GAME")}, "
-                        + $"FileExists(\"nothing_is_here.txt\", \"GAME\") = "
-                        + $"{((IFwdBaseFileSystem)files).FileExists("nothing_is_here.txt", "GAME")}");
-
-        // THE THREE READS PHASE 3 EXPOSED, beside the game dir. EntityCount is
-        // the EDICT count and is held against the live gate's own census, which
-        // counts managed entities -- they are not the same population and the
-        // probe line printing both is what says so out loud. IsDedicatedServer
-        // is false on the listen server every gate here runs.
-        Report("IVEngineServer", engine.EngineServer(out why), why,
-               server => $"GameDir() = {((IFwdEngineServer)server).GameDir()}, "
-                         + $"IsDedicatedServer() = {((IFwdEngineServer)server).IsDedicatedServer()}, "
-                         + $"EntityCount() = {((IFwdEngineServer)server).EntityCount()}, "
-                         + $"GetArea(0,0,64) = {((IFwdEngineServer)server).GetArea(new Vector(0f, 0f, 64f))}");
+        // Each line is the seam's: the acquire, and what the bound interface
+        // answered or the engine's reason for refusing it, composed in the
+        // interop where the acquire is (ServerEngineInterfaces).
+        Print(engine.RandomStreamProbe());
+        Print(engine.ModelInfoProbe());
+        Print(engine.BaseFileSystemProbe());
+        Print(engine.EngineServerProbe());
 
         // Expected to refuse on this side. Reported rather than skipped: a
         // refusal that is never printed is indistinguishable from a call nobody
         // made.
-        // The acquire is ShimProbes' since EngineClient moved to Client.Interop.
-        log.Msg($"[SourceSharp/Vtable] {engine.EngineClientProbe()}\n");
+        Print(engine.EngineClientProbe());
 
         // THE SHIM LAYER, through the SAME acquire and the same dispatch --
         // plan_native_api.md Phase 2. The only difference from the five above
@@ -410,18 +379,9 @@ public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog lo
         // every line here: the tick through the shim's own vtable, and the
         // engine's CGlobalVars read through the independent data pointer beside
         // it.
-        log.Msg($"[SourceSharp/Vtable] {engine.FrameProbe()}\n");
-        log.Msg($"[SourceSharp/Vtable] {engine.LevelProbe()}\n");
+        Print(engine.FrameProbe());
+        Print(engine.LevelProbe());
     }
 
-    private void Report(string name, object? bound, string why, Func<object, string> call)
-    {
-        if (bound is null)
-        {
-            log.Msg($"[SourceSharp/Vtable] {name}: REFUSED — {why}\n");
-            return;
-        }
-
-        log.Msg($"[SourceSharp/Vtable] {name}: bound, {call(bound)}\n");
-    }
+    private void Print(string line) => log.Msg($"[SourceSharp/Vtable] {line}\n");
 }

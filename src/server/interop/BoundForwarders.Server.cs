@@ -44,3 +44,23 @@ internal sealed class BoundFileSystem(EngineSide side) : IFwdFileSystem
     public void CreateDirHierarchy(string path, string pathId)
         => EngineBound.FileSystem(side).CreateDirHierarchy(path, pathId);
 }
+
+/// <summary>
+/// The area portal records' three IVEngineServer calls, over the same bound
+/// slot as the rest of <see cref="BoundEngineServer"/> (EngineServer answers
+/// them; the shared half is in BoundForwarders.cs).
+/// </summary>
+internal sealed partial class BoundEngineServer : SourceSharp.Server.Interop.IAreaPortalEngine
+{
+    private SourceSharp.Server.Interop.IAreaPortalEngine Portals
+        => (SourceSharp.Server.Interop.IAreaPortalEngine)EngineBound.Server(side);
+
+    public void SetAreaPortalState(int portalNumber, bool open)
+        => Portals.SetAreaPortalState(portalNumber, open);
+
+    public void SetAreaPortalStates(ReadOnlySpan<int> portalNumbers, ReadOnlySpan<int> isOpen)
+        => Portals.SetAreaPortalStates(portalNumbers, isOpen);
+
+    public bool GetAreaPortalPlane(Vector viewOrigin, int portalKey, out Vector normal, out float distance)
+        => Portals.GetAreaPortalPlane(viewOrigin, portalKey, out normal, out distance);
+}

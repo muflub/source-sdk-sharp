@@ -56,6 +56,10 @@ public static partial class EngineServices
     {
         int count = 0;
 
+        // THE ENGINE INTERFACES FIRST, NON-NULL (AddForwarders): a binding
+        // that calls one takes it by constructor.
+        AddForwarders(services, side);
+
         foreach (var (contract, binding) in Bindings(side, services))
         {
             services.AddInstance(contract, binding);
@@ -87,9 +91,6 @@ public static partial class EngineServices
         // so registering them asks the engine nothing.
         services.AddInstance(side.VPhysics);
 
-        // AND THE ENGINE INTERFACES, NON-NULL (AddForwarders).
-        AddForwarders(services, side);
-
         return count;
     }
 
@@ -104,7 +105,9 @@ public static partial class EngineServices
     internal static void AddForwarders(ServiceContainer services, EngineSide side)
     {
         services.AddInstance<IFwdSoundEmitter>(new BoundSoundEmitter(side));
-        services.AddInstance<IFwdPhysicsSurfaceProps>(new BoundSurfaceProps(side));
+        var surfaces = new BoundSurfaceProps(side);
+        services.AddInstance<IFwdPhysicsSurfaceProps>(surfaces);
+        services.AddInstance<IVPhysicsSurfaceSounds>(surfaces);
         services.AddInstance<IFwdBaseFileSystem>(new BoundBaseFileSystem(side));
         services.AddInstance<IFwdModelInfo>(new BoundModelInfo(side));
         services.AddInstance<IFwdDebugOverlay>(new BoundDebugOverlay(side));

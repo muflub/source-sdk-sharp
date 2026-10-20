@@ -6,7 +6,12 @@ public static partial class EngineServices
     // shared file's IVEngineServer, whose acquirer EngineServerBinding installs).
     static partial void AddSideForwarders(ServiceContainer services, EngineSide side)
     {
-        services.AddInstance<IFwdEngineServer>(new BoundEngineServer(side));
+        // And its slices, the same object: the save allocator and the area
+        // portal records' three calls.
+        var server = new BoundEngineServer(side);
+        services.AddInstance<IFwdEngineServer>(server);
+        services.AddInstance<ISaveMemory>(server);
+        services.AddInstance<SourceSharp.Server.Interop.IAreaPortalEngine>(server);
         services.AddInstance<IFwdEngineSoundServer>(new BoundSoundServer(side));
         services.AddInstance<IFwdFileSystem>(new BoundFileSystem(side));
     }

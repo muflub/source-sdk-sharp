@@ -158,7 +158,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     // The shadow's bodies over one side (plan_physics_bones_native_zero 2.5).
     // No vphysics table at all: the facts slot answers 0, so nothing past it runs.
     private static PlayerShadowBodies BodiesOver(EngineSide side)
-        => PlayerShadowBodies.ForEngine(new ModuleEngine(side), new VPhysicsShadowCalls(null, null, TestVPhysics.None()), () => true, _ => { });
+        => PlayerShadowBodies.ForEngine(new ModuleEngine(side), new VPhysicsShadowCalls(null, new DefaultForwarders.NoSurfaceProps(), TestVPhysics.None()), () => true, _ => { });
 
     [Fact]
     public void ThePlayerShadowProbesTheSideItsBodiesWereBuiltOver()

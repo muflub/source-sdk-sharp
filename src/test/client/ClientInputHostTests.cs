@@ -147,11 +147,14 @@ public sealed unsafe class ClientInputHostTests
     }
 
     // The host as the client's composition builds it (phase 11 review: by
-    // injection, no static): the game's adapters register the engine client,
-    // and the module builds the host over the side's input area and them.
+    // injection, no static): the side's engine interfaces register the engine
+    // client (EngineServices.AddForwarders, as AddTo does), the game's
+    // adapters the rest, and the module builds the host over the side's
+    // input area and them.
     private static IInputHost Composed(ModuleEngine engine)
     {
         var services = new ServiceContainer().AddInstance<IEngineConsole>(new NullConsole());
+        EngineServices.AddForwarders(services, engine.Api);
         new ClientEntityFetches().AddTo(services, engine);
         // By type: the census lets a fact read the class's shape, never hold it.
         return (IInputHost)engine.Create(typeof(ClientInputHost), services);
@@ -175,14 +178,18 @@ public sealed unsafe class ClientInputHostTests
     }
 
     /// <summary>
-    /// An engine that does not serve IVEngineClient fails the host's build,
-    /// with the engine's reason, rather than handing it nothing.
+    /// An engine that does not serve IVEngineClient: the host is built (its
+    /// engine client is the registered one, acquired at its first call), and
+    /// that first call throws, naming the interface, rather than answering
+    /// defaults for an engine client nobody has.
     /// </summary>
     [Fact]
-    public void AnEngineWithNoEngineClientFailsTheBuildWithItsReason()
+    public void AnEngineWithNoEngineClientThrowsAtTheFirstCallNamingIt()
     {
-        var refusal = Assert.ThrowsAny<Exception>(() => Composed(new ModuleEngine(TestSides.Create(Side.Client))));
-        Assert.Contains("the input host has no engine client", refusal.ToString());
+        IInputHost host = Composed(new ModuleEngine(TestSides.WithoutForwarders(Side.Client)));
+
+        var refusal = Assert.Throws<InterfaceAcquisitionException>(() => host.IsPaused);
+        Assert.Contains(EngineClient.InterfaceVersion, refusal.Message);
     }
 
     private sealed class NullConsole : IEngineConsole

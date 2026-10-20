@@ -78,8 +78,12 @@ internal sealed class BoundSoundEmitter(EngineSide side) : IFwdSoundEmitter
 /// registers, so a consumer is handed the interface by constructor before the
 /// engine serves it, and never a null.
 /// </summary>
-internal sealed class BoundSurfaceProps(EngineSide side) : IFwdPhysicsSurfaceProps
+internal sealed class BoundSurfaceProps(EngineSide side) : IFwdPhysicsSurfaceProps, IVPhysicsSurfaceSounds
 {
+    // The same table's sounds (PhysicsSurfaceProps answers both).
+    public SurfaceImpactSounds? Sounds(int surfaceProps)
+        => ((IVPhysicsSurfaceSounds)EngineBound.SurfaceProps(side)).Sounds(surfaceProps);
+
     public int ParseSurfaceData(string fileName, string text)
         => EngineBound.SurfaceProps(side).ParseSurfaceData(fileName, text);
 
@@ -193,8 +197,15 @@ internal sealed class BoundDebugOverlay(EngineSide side) : IFwdDebugOverlay
 /// registers, so a consumer is handed the interface by constructor before the
 /// engine serves it, and never a null.
 /// </summary>
-internal sealed class BoundEngineServer(EngineSide side) : IFwdEngineServer
+internal sealed unsafe partial class BoundEngineServer(EngineSide side) : IFwdEngineServer, ISaveMemory
 {
+    // The save allocator is the same IVEngineServer (EngineServer answers both).
+    public void* SaveAlloc(nuint count, nuint size)
+        => ((ISaveMemory)EngineBound.Server(side)).SaveAlloc(count, size);
+
+    public void SaveFree(void* block)
+        => ((ISaveMemory)EngineBound.Server(side)).SaveFree(block);
+
     public string? GameDir()
         => EngineBound.Server(side).GameDir();
 

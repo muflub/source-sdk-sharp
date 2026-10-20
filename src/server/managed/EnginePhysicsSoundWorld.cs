@@ -10,7 +10,7 @@ namespace SourceSharp.Server;
 /// carry-out; the batch decides (plan_physics_bones_native_zero 2.3).
 /// </summary>
 public sealed class EnginePhysicsSoundWorld(IEngineEntityPhysics physics, IEngineEntities entities,
-                                            IVPhysicsInspect objects, IVPhysicsSurfaceSounds? surfaces,
+                                            IVPhysicsInspect objects, IVPhysicsSurfaceSounds surfaces,
                                             IEngineSound sound)
     : IPhysicsSoundWorld
 {
@@ -31,7 +31,7 @@ public sealed class EnginePhysicsSoundWorld(IEngineEntityPhysics physics, IEngin
         return (entities.GetOrigin(entity), objects.MaterialIndex(o));
     }
 
-    public SurfaceImpactSounds? Surface(int surfaceProps) => surfaces?.Sounds(surfaceProps);
+    public SurfaceImpactSounds? Surface(int surfaceProps) => surfaces.Sounds(surfaceProps);
 
     public bool Emit(string soundName, Vector origin, int channel, float volume)
         => sound.EmitWorldSoundScript(soundName, origin, channel, volume);

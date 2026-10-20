@@ -334,41 +334,22 @@ internal sealed unsafe partial class EngineStringTables : IEngineStringTables
 /// <summary>The real engine, for <see cref="IEngineFiles"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineFiles : IEngineFiles
 {
-    // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
-    // answers for, always. Every container that builds one passes it: a side's
-    // own, and that side's transitional defaults (EngineSide.Defaults).
-    private readonly EngineSide _side;
-
-    private EngineSide E => _side;
-
     private readonly IEngineArea _engineBaseArea;
 
-    private readonly IFwdBaseFileSystem? _files;
+    // The side's filesystem, as its composition registered it: acquired at
+    // its first call, never null. A fact hands a named one, so the -1 rule
+    // below is driven at the site that owns it (a mutation arm that dropped
+    // the exists question stayed GREEN against a fact written on the impl
+    // pair, because that fact never reached this member).
+    private readonly IFwdBaseFileSystem _files;
 
-    /// <summary>
-    /// The one a test builds, over a named filesystem.
-    ///
-    /// <para>
-    /// <b>The seam is here so the −1 rule can be driven at the site that owns
-    /// it.</b> A mutation arm that dropped the exists question stayed GREEN
-    /// against a fact written on the impl pair, because that fact never reached
-    /// this member -- the arm measured nothing, which is worse than a red.
-    /// </para>
-    /// </summary>
-    internal EngineFiles(EngineSide side, IEngineArea engineBaseArea, IFwdBaseFileSystem files)
-        : this(side, engineBaseArea) => _files = files;
-
-    /// <summary>The one the container builds, over the real engine filesystem.</summary>
-    public EngineFiles(EngineSide side, IEngineArea engineBaseArea)
+    public EngineFiles(IEngineArea engineBaseArea, IFwdBaseFileSystem files)
     {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
         _engineBaseArea = engineBaseArea ?? throw new ArgumentNullException(nameof(engineBaseArea));
+        _files = files ?? throw new ArgumentNullException(nameof(files));
     }
 
-    // LAZY, and it has to be: areas are constructed on both sides before
-    // anything asks them for anything, and acquiring in the constructor would
-    // fail while the container was being built.
-    private IFwdBaseFileSystem Files => _files ?? EngineBound.Files(E);
+    private IFwdBaseFileSystem Files => _files;
 
     // -1 AND 0 ARE DIFFERENT ANSWERS AND THIS IS WHERE THAT IS DECIDED NOW.
     // IBaseFileSystem::Size answers 0 both for an empty file and for one that
@@ -393,7 +374,7 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
     public byte[]? ReadGameFileBytes(string path) => ReadFileOnPath(path, GameSearchPath);
 
     public byte[]? ReadFileOnPath(string path, string pathId)
-        => string.IsNullOrEmpty(path) || string.IsNullOrEmpty(pathId) ? null : EngineBound.Files(E).ReadAll(path, pathId);
+        => string.IsNullOrEmpty(path) || string.IsNullOrEmpty(pathId) ? null : _files.ReadAll(path, pathId);
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameEvents"/>. Every member is one call.</summary>

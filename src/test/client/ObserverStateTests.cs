@@ -209,7 +209,7 @@ public class ObserverStateTests
         var sent = new List<string>();
         var log = new RecordingLog();
         return (new SpectatorCommandRunner(new SpectatorCommands(), new Observer(mode, ""), log,
-                                           () => new ChatFeedTests.RecordingEngineClient(sent)), sent, log);
+                                           new ChatFeedTests.RecordingEngineClient(sent)), sent, log);
     }
 
     [Fact]

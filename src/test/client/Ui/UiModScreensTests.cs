@@ -42,7 +42,7 @@ public sealed class UiModScreensTests : IDisposable
         var hud = new Hud(new RecordingLog(), _engine, _engine, new DamageMessage(), new HudMsgMessage(),
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         return ClientUi.Build(services, new RecordingLog(), hud, hud.Messages, hud.Hints, hud.Build, new UiHostKit.NoArsenal(),
-                              null, () => null, () => null);
+                              null, new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
     }
 
     [Fact]

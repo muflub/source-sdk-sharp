@@ -30,14 +30,11 @@ public interface IPlayerNames
 }
 
 /// <summary><see cref="IPlayerNames"/> over the engine's player info.</summary>
-public sealed class EnginePlayerNames(Func<IFwdEngineClient?> engine, IPlayerNameFilter filter) : IPlayerNames
+public sealed class EnginePlayerNames(IFwdEngineClient engine, IPlayerNameFilter filter) : IPlayerNames
 {
-    private IFwdEngineClient? _engine;
-
     public bool TryGet(int slot, out ClientPlayerInfo info)
     {
-        _engine ??= engine();
-        if (_engine is not { } e || !e.TryGetPlayerInfo(slot, out info))
+        if (!engine.TryGetPlayerInfo(slot, out info))
         {
             info = default;
             return false;

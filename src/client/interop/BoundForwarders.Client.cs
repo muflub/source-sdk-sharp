@@ -11,8 +11,28 @@ namespace SourceSharp.Abi;
 /// registers, so a consumer is handed the interface by constructor before the
 /// engine serves it, and never a null.
 /// </summary>
-internal sealed class BoundEngineClient(EngineSide side) : IFwdEngineClient
+internal sealed unsafe class BoundEngineClient(EngineSide side)
+    : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine
 {
+    // The engine client's other slices, the same object (EngineClient answers
+    // every one), so a consumer is handed the slice it calls and no more.
+    // ISteamLaunchCommands' one member is IFwdEngineClient's own.
+    private Client.Input.IClientInputEngine Input => (Client.Input.IClientInputEngine)EngineBound.Client(side);
+
+    void* ISaveMemory.SaveAlloc(nuint count, nuint size)
+        => ((ISaveMemory)EngineBound.Client(side)).SaveAlloc(count, size);
+
+    void ISaveMemory.SaveFree(void* block)
+        => ((ISaveMemory)EngineBound.Client(side)).SaveFree(block);
+
+    Client.Input.InputAngles Client.Input.IClientInputEngine.GetViewAngles() => Input.GetViewAngles();
+    void Client.Input.IClientInputEngine.SetViewAngles(Client.Input.InputAngles angles) => Input.SetViewAngles(angles);
+    void Client.Input.IClientInputEngine.GetScreenSize(out int width, out int height) => Input.GetScreenSize(out width, out height);
+    bool Client.Input.IClientInputEngine.IsPaused => Input.IsPaused;
+    void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => Input.GetMouseDelta(out x, out y, ignoreNextMouseDelta);
+    void Client.Input.IClientInputEngine.ClientCmdUnrestricted(string command) => Input.ClientCmdUnrestricted(command);
+    void Client.Input.IClientInputEngine.ConsolePrintAt(int position, string text) => Input.ConsolePrintAt(position, text);
+
     public string? LevelName()
         => EngineBound.Client(side).LevelName();
 

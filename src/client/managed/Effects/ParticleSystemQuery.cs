@@ -22,21 +22,12 @@ public interface IParticleQueryEngine
 }
 
 /// <summary>The real one, over IVEngineClient, acquired on first use. Not in game, and black, with no engine.</summary>
-public sealed class ParticleQueryEngine(Func<IFwdEngineClient?> acquire) : IParticleQueryEngine
+public sealed class ParticleQueryEngine(IFwdEngineClient engine) : IParticleQueryEngine
 {
-    private IFwdEngineClient? _engine;
-
-    public bool IsInGame()
-    {
-        _engine ??= acquire();
-        return _engine is not null && _engine.IsInGame();
-    }
+    public bool IsInGame() => engine.IsInGame();
 
     public Vector LightForPoint(Vector position, bool clamp)
-    {
-        _engine ??= acquire();
-        return _engine is not null && _engine.TryLightForPoint(position, clamp, out Vector light) ? light : default;
-    }
+        => engine.TryLightForPoint(position, clamp, out Vector light) ? light : default;
 }
 
 /// <summary>

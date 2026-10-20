@@ -54,8 +54,8 @@ public class ScoreboardMaxPlayersTests
     // commit, test-first commits included).
     private static ScoreboardUi Scores(RecordingEngine engine)
     {
-        return new ScoreboardUi(new UiHostKit.NoStandalones(), engine, () => null,
-                                new EnginePlayerNames(() => null, new IdentityNameFilter()), engine, engine);
+        return new ScoreboardUi(new UiHostKit.NoStandalones(), engine, new DefaultForwarders.NoEngineClient(),
+                                new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), engine, engine);
     }
 
     [Fact]

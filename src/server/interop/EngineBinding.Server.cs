@@ -1470,16 +1470,21 @@ internal sealed unsafe partial class EngineHost
 
 internal sealed unsafe partial class EngineHud
 {
-    // The side the overlay forwarder is acquired through.
+    // The side whose player moves a view punch reaches.
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
 
+    // The side's overlay, as its composition registered it: one that draws
+    // nothing on a server with none (a dedicated one), never null.
+    private readonly IFwdDebugOverlay _overlay;
+
     private readonly IDebugOverlayArea _debugOverlayArea;
 
-    public EngineHud(EngineSide side, IDebugOverlayArea debugOverlayArea)
+    public EngineHud(EngineSide side, IFwdDebugOverlay overlay, IDebugOverlayArea debugOverlayArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
         _debugOverlayArea = debugOverlayArea ?? throw new ArgumentNullException(nameof(debugOverlayArea));
     }
 
@@ -1491,21 +1496,7 @@ internal sealed unsafe partial class EngineHud
         if (text is null)
             return;
 
-        Overlay()?.TextAtPosition(origin, line, duration, r, g, b, a, text);
-    }
-
-    private IFwdDebugOverlay? _overlay;
-    private bool _overlayAsked;
-
-    private IFwdDebugOverlay? Overlay()
-    {
-        if (!_overlayAsked)
-        {
-            _overlayAsked = true;
-            _overlay = EngineDebugOverlay.Acquire(E.Interfaces, out _);
-        }
-
-        return _overlay;
+        _overlay.TextAtPosition(origin, line, duration, r, g, b, a, text);
     }
 
     /// <summary>

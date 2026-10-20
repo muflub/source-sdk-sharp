@@ -65,27 +65,26 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     private readonly IGameClock _clock;
     private readonly ILog _log;
     private readonly AnimThreeWayBlendConVar? _threeWayBlend;
-    private readonly IFwdPhysicsSurfaceProps? _surfaceProps;
+    private readonly IFwdPhysicsSurfaceProps _surfaceProps;
     private readonly ServerBoneDriver _driver;
     private readonly BoneEntityStates _states = new();
     private readonly Dictionary<string, int> _surfaceIndices = new(StringComparer.Ordinal);
-    private readonly SurfacePropReader? _surfaceReader;
+    private readonly SurfacePropReader _surfaceReader;
 
     /// <summary>Scales a reload carried, for skeletons not yet asked about in this composition.</summary>
     private readonly Dictionary<EntityHandle, float> _carriedScales = [];
 
     public ServerSkeletons(IStandaloneBlocks blocks, StudioModels models, IGameClock clock, ILog log,
-                           AnimThreeWayBlendConVar? threeWayBlend = null,
-                           IFwdPhysicsSurfaceProps? surfaceProps = null)
+                           IFwdPhysicsSurfaceProps surfaceProps, AnimThreeWayBlendConVar? threeWayBlend = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _models = models ?? throw new ArgumentNullException(nameof(models));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _threeWayBlend = threeWayBlend;
-        _surfaceProps = surfaceProps;
+        _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
         _driver = new ServerBoneDriver(models);
-        _surfaceReader = surfaceProps is null ? null : new SurfacePropReader(SurfaceIndexOf);
+        _surfaceReader = SurfaceIndexOf;
     }
 
     /// <inheritdoc/>
@@ -434,7 +433,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
 
         if (!_surfaceIndices.TryGetValue(name, out int index))
         {
-            index = _surfaceProps!.SurfaceIndex(name);
+            index = _surfaceProps.SurfaceIndex(name);
             _surfaceIndices.Add(name, index);
         }
 

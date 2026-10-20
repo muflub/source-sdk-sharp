@@ -272,12 +272,12 @@ internal unsafe struct PlayerInfoT
 }
 
 /// <summary>
-/// The real <see cref="IFwdEngineClientSource"/>: <see cref="EngineClient.Acquire"/>
-/// over the composition's own engine, which the client's root registers.
+/// The real <see cref="IFwdEngineClientProbe"/>: the engine client asked of
+/// the composition's own side, which the client's root registers.
 /// </summary>
-internal sealed class FwdEngineClientSource(ModuleEngine engine) : IFwdEngineClientSource
+internal sealed class FwdEngineClientProbe(ModuleEngine engine) : IFwdEngineClientProbe
 {
     private readonly ModuleEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-    public IFwdEngineClient? Acquire(out string why) => EngineClient.Acquire(_engine, out why);
+    public bool Served(out string why) => EngineClient.Acquire(_engine.Api, out why) is not null;
 }

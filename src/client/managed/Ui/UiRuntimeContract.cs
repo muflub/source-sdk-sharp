@@ -83,7 +83,7 @@ public interface IUiRuntime : IUiClientEvents, IDisposable
 /// <summary>What the UI host's composition is given: the core's sources and services.</summary>
 public sealed record UiRuntimeServices(
     ServiceContainer Services, ILog Log, Hud Hud, ILocalArsenal Arsenal, UiScaleConVar? Scale,
-    Func<IFwdEngineClient?> Engine, Func<IFwdInputSystem?> Input, Func<IClientStringTables?>? StringTables = null);
+    IFwdEngineClient Engine, IFwdInputSystem Input, Func<IClientStringTables?>? StringTables = null);
 
 /// <summary>The UI host assembly's entry: the one public type implementing this is constructed and asked.</summary>
 public interface IUiRuntimeFactory
