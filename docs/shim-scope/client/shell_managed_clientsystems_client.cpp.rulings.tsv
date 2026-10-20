@@ -1,0 +1,12 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+explicit CManagedClientSystemRow(	SLOT-HELP	the row adapter's name, the one kClientSystems[] walks it under (C7)
+bool Init() override	SLOT	CClientSystem::Init, walked by SourceSharp_ClientSystemsInit: managed's answer for the row (its 0 refuses start-up, as a native row's false does)
+void PostInit() override	SLOT	CClientSystem::PostInit: managed's stage for the row
+void Shutdown() override	SLOT	CClientSystem::Shutdown: managed's stage for the row
+void LevelInitPreEntity() override	SLOT	CClientSystem::LevelInitPreEntity: managed's stage for the row
+void LevelInitPostEntity() override	SLOT	CClientSystem::LevelInitPostEntity: managed's stage for the row
+void LevelShutdownPreEntity() override	SLOT	CClientSystem::LevelShutdownPreEntity: managed's stage for the row
+void LevelShutdownPostEntity() override	SLOT	CClientSystem::LevelShutdownPostEntity: managed's stage for the row
+int32_t Stage( int32_t nStage )	SLOT-HELP	IManagedClientSystemsClient::Stage by the row's name; -1 with no managed load, and one warning for a row managed does not know
+CClientSystem *ClientSystem_ManagedViewport()	HOOK	kClientSystems[]'s CViewportClientSystem row: the adapter over managed's ViewportClientSystem

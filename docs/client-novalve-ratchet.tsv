@@ -1,6 +1,8 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, C7 viewport system (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: vgui_game_viewport.cpp left client.so (CViewportClientSystem is managed's ViewportClientSystem, its row the adapter's): fork-src 5 -> 4, fork-hdr-not-allowed 306 -> 305, fork-hdr-total 470 -> 469, incdir-forbidden-tus 141 -> 140, sdk-links 518 -> 517 (the .cpp); logic-lines 7566 unchanged. Hand-edited.
+# 2026-10-19, C7 viewport system (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_managed_clientsystems_client.cpp (the kClientSystems[] row adapter for managed client systems) joins client.so: incdir-forbidden-tus 140 -> 141 RAISED (the one new TU; vgui_game_viewport.cpp's eviction takes one out); logic-lines 7566 unchanged (the adapter ruled SLOT, SLOT-HELP and HOOK, ClientModeLayout BOUNDARY). Hand-edited.
 # 2026-10-19, C7 screen-space effects (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: ScreenSpaceEffects.cpp left client.so (its manager and CExampleEffect are ScreenSpaceEffectManager's): fork-src 6 -> 5, fork-hdr-not-allowed 308 -> 306, fork-hdr-total 472 -> 470, incdir-forbidden-tus 141 -> 140, sdk-links 520 -> 518 (the .cpp and ScreenSpaceEffects.h, which only it read: make sdk-census); logic-lines 7566 unchanged. Hand-edited.
 # 2026-10-19, C7 render textures (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: rendertexture.cpp left client.so (its decisions are RenderTargetCatalog's, its references the store's): fork-src 7 -> 6, fork-hdr-not-allowed 309 -> 308, fork-hdr-total 473 -> 472, incdir-forbidden-tus 142 -> 141, sdk-links 521 -> 520 (the .cpp; rendertexture.h stays, view_scene.h includes it); logic-lines 7566 unchanged (rendertexture.h's two imported names, ruled LIVE-API). Hand-edited.
 # 2026-10-19, C7 render textures (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_render_targets_client.cpp (the store carrying out RenderTargetCatalog's rows) joins client.so: incdir-forbidden-tus 141 -> 142 RAISED (the one new TU, compiled with the client target's include dirs; rendertexture.cpp's eviction takes one out); logic-lines 7566 unchanged (the new functions ruled SLOT, SLOT-HELP, BOUNDARY and LIVE-API). Hand-edited.
@@ -282,9 +284,9 @@
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
 # 2026-10-19, C7 cluster 12 L2, the eviction: clientleafsystem.cpp left client.so (tools/client-novalve-census): fork-hdr-not-allowed 311 -> 309,
 #   fork-hdr-total 475 -> 473, fork-src 8 -> 7, incdir-forbidden-tus 142 -> 141, sdk-links 522 -> 521. Hand-edited.
-fork-hdr-not-allowed	306
-fork-hdr-total	470
-fork-src	5
+fork-hdr-not-allowed	305
+fork-hdr-total	469
+fork-src	4
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -353,4 +355,4 @@ logic-lines	7566
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	518
+sdk-links	517

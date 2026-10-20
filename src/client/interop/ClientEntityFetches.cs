@@ -77,6 +77,9 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The second cameras' render targets (lane camproto).
         services.AddInstance<IViewTargets>(new ClientViewTargets(areas.ViewClient));
 
+        // The client mode's layout (C7, the viewport system's Init).
+        services.AddInstance<IClientModeLayout>(new ClientModeLayoutSlot(areas.UiClient));
+
         // The named render targets' store (C7, rendertexture.cpp's getters).
         services.AddInstance<IRenderTargetTable>(new ClientRenderTargetTable(areas.ViewClient));
 

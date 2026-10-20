@@ -558,6 +558,7 @@ public:
 	void UiSetCursor( int32_t nShape ) override;
 	int32_t UiDebugOverlayText( int32_t nIndex, float * pOutX, float * pOutY, int32_t * pOutLine, uint32_t * pOutRgba, uint8_t * pText, int32_t nTextBytes ) override;
 	void UiDebugOverlayClearDead() override;
+	void ClientModeLayout() override;
 };
 
 class CShimParticlesClient final : public IShimParticlesClient

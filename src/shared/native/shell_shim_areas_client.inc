@@ -350,6 +350,8 @@ int32_t CShimUiClient::UiDebugOverlayText( int32_t nIndex, float * pOutX, float 
 	{ return ::SourceSharp_UiDebugOverlayText( nIndex, pOutX, pOutY, pOutLine, pOutRgba, pText, nTextBytes ); }
 void CShimUiClient::UiDebugOverlayClearDead()
 	{ return ::SourceSharp_UiDebugOverlayClearDead(); }
+void CShimUiClient::ClientModeLayout()
+	{ return ::SourceSharp_ClientModeLayout(); }
 
 int32_t CShimParticlesClient::ParticlesCreate( uint32_t hOwner, int32_t nChannel, const char * pszMaterial, float flCullRadius, int32_t bAlwaysSimulate )
 	{ return ::SourceSharp_ParticlesCreate( hOwner, nChannel, pszMaterial, flCullRadius, bAlwaysSimulate ); }

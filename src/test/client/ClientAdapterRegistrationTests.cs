@@ -441,6 +441,20 @@ public unsafe class ClientAdapterRegistrationTests
         Assert.Equal((4, 3), (bytes, line));
     }
 
+    [ThreadStatic] private static int t_layouts;
+
+    [UnmanagedCallersOnly] private static void CountLayout(void* self) => t_layouts++;
+
+    [Fact]
+    public void TheRegisteredClientModeLayoutCallsThroughTheUiArea()
+    {
+        t_layouts = 0;
+        Through<IClientModeLayout, int>("SourceSharpUiClient001", nameof(ShimUiClientFwd.ClientModeLayout),
+                                        (nint)(delegate* unmanaged<void*, void>)&CountLayout,
+                                        l => { l.Layout(); return 0; });
+        Assert.Equal(1, t_layouts);
+    }
+
     [Fact]
     public void TheRegisteredUiSurfaceCallsThroughTheUiArea()
     {

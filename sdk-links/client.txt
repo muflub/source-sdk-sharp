@@ -126,7 +126,6 @@ src/game/client/tempent.h
 src/game/client/timedevent.h
 src/game/client/toolframework_client.h
 src/game/client/vgui_basepanel.h
-src/game/client/vgui_game_viewport.cpp
 src/game/client/vgui_int.h
 src/game/client/vguicenterprint.h
 src/game/client/view.h

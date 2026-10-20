@@ -353,6 +353,11 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   statics (g_ScreenSpaceEffectManager, g_pScreenSpaceEffects, exampleeffect_effect, exampleeffect_reg and the FLOOR
 #   CScreenSpaceEffectRegistration::s_pHead, whose row and floor rule went with its walker; make globals-client-ledger:
 #   4 pruned; make globals-client-census gate PASS).
+# RAISED 2026-10-19, 704 -> 705 (C7 viewport system, the replacement): shell_managed_clientsystems_client.cpp's row
+#   adapter (ClientSystem_ManagedViewport()::s_Row), ruled MEMBER ClientSystems:DLL (make globals-client-ledger: 1 added;
+#   gate PASS). vgui_game_viewport.cpp's g_ViewportClientSystem leaves with its eviction.
+# LOWERED 2026-10-19, 705 -> 704 (C7 viewport system, the eviction): vgui_game_viewport.o's g_ViewportClientSystem left
+#   (make globals-client-ledger: 1 pruned; gate PASS).
 client_globals_link_level	src/game/client	704
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
@@ -389,7 +394,8 @@ client_globals_link_level	src/game/client	704
 #   managed now, the two depth biases read by name): 697 -> 679 LOWERED (make globals-client-census: unruled 679).
 # LOWERED 2026-10-19, 669 -> 656 (C7 render textures, the eviction): rendertexture.o's 13 UNRULED rows pruned.
 # LOWERED 2026-10-19, 656 -> 652 (C7 screen-space effects, the eviction): ScreenSpaceEffects.o's four UNRULED rows pruned.
-client_globals_unruled	docs/globals-client-ledger.tsv	652
+# LOWERED 2026-10-19, 652 -> 651 (C7 viewport system, the eviction): g_ViewportClientSystem's UNRULED row pruned.
+client_globals_unruled	docs/globals-client-ledger.tsv	651
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 # LOWERED 2026-10-19, 14 -> 13 (C7 screen-space effects, the eviction): CScreenSpaceEffectRegistration::s_pHead's list and
@@ -465,6 +471,11 @@ client_globals_floor	docs/globals-client-ledger.tsv	13
 #   (tools/globals-census summary --side client: objects_with_a_static_initialiser 120).
 # LOWERED 2026-10-19, 120 -> 119 (C7 screen-space effects, the eviction): ScreenSpaceEffects.o's registration constructors
 #   left (tools/globals-census summary --side client: objects_with_a_static_initialiser 119).
+# RAISED 2026-10-19, 119 -> 120 (C7 viewport system, the replacement): shell_managed_clientsystems_client.o joins client.so
+#   with cbase.h's header initialisers (its own row is a function-local static, constructed on first use);
+#   vgui_game_viewport.o's eviction takes one out.
+# LOWERED 2026-10-19, 120 -> 119 (C7 viewport system, the eviction): vgui_game_viewport.o left (tools/globals-census
+#   summary --side client: objects_with_a_static_initialiser 119).
 client_globals_objects_with_static_init	src/game/client	119
 client_globals_reconcile_unattributed	src/game/client	0
 # RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static

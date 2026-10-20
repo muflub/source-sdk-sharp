@@ -61,6 +61,7 @@
 9	SLOT	[CSourceSharpClientMode] virtual int KeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) OVERRIDE
 25	UNRULED	[CSourceSharpClientMode] virtual void OverrideView( CViewSetup *pSetup ) OVERRIDE
 4	SLOT-HELP	vgui::VPANEL SourceSharp_ClientViewportPanel()
+4	BOUNDARY	void SourceSharp_ClientModeLayout( void )
 5	UNRULED	IClientMode *GetClientModeNormal()
 1	UNRULED	[CSourceSharpModeManager] virtual void Init() OVERRIDE
 1	UNRULED	[CSourceSharpModeManager] virtual void SwitchMode( bool commander, bool force ) OVERRIDE

@@ -345,10 +345,10 @@ TEST( FwdShimAreas, ShimDiagnosticsClientIs2Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimUiClientIs21Slots )
+TEST( FwdShimAreas, ShimUiClientIs22Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimUiClient::UiDebugOverlayClearDead ).slot + 1;
-	EXPECT_EQ( 21, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimUiClient::ClientModeLayout ).slot + 1;
+	EXPECT_EQ( 22, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimUiClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

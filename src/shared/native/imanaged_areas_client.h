@@ -1230,6 +1230,33 @@ static const uint32_t kIManagedSoundEmitterClientSlotHashes[] = {
 static const int32_t kIManagedSoundEmitterClientSlotCount = 9;
 static_assert( sizeof( SSManagedSoundEmitterClientTable ) == 9 * sizeof( void * ), "SSManagedSoundEmitterClientTable is one pointer per slot" );
 
+class IManagedClientSystemsClient;
+
+// The table managed writes for IManagedClientSystemsClient: Release, Validate, then the TSV's order.
+struct SSManagedClientSystemsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *Stage )( IManagedClientSystemsClient *self, const char *pszSystem, int32_t nStage );
+};
+
+class IManagedClientSystemsClient : public IManagedObject
+{
+public:
+	explicit IManagedClientSystemsClient( const SSManagedClientSystemsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t Stage( const char *pszSystem, int32_t nStage ) { return Table()->Stage( this, pszSystem, nStage ); }
+
+private:
+	const SSManagedClientSystemsClientTable *Table() const { return static_cast< const SSManagedClientSystemsClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedClientSystemsClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0x3169518e,
+};
+static const int32_t kIManagedClientSystemsClientSlotCount = 3;
+static_assert( sizeof( SSManagedClientSystemsClientTable ) == 3 * sizeof( void * ), "SSManagedClientSystemsClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1260,6 +1287,7 @@ IManagedPhysicsClient *ManagedPhysicsClient();   // this load's area, or NULL ou
 IManagedDetailPropsClient *ManagedDetailPropsClient();   // this load's area, or NULL outside a load
 IManagedLeafSystemClient *ManagedLeafSystemClient();   // this load's area, or NULL outside a load
 IManagedSoundEmitterClient *ManagedSoundEmitterClient();   // this load's area, or NULL outside a load
+IManagedClientSystemsClient *ManagedClientSystemsClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

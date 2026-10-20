@@ -124,7 +124,6 @@ glow_overlay.o	_ZZN12CGlowOverlay4DrawEbE19nHDRColorScaleCache	CGlowOverlay::Dra
 	cl_sun_decay_rate	cl_sun_decay_rate	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	g_GlowOverlaySystem	g_GlowOverlaySystem	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	56	UNRULED		
 	g_flOverlayRange	g_flOverlayRange	game/client/glow_overlay.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
-vgui_game_viewport.o	_ZL22g_ViewportClientSystem	g_ViewportClientSystem	game/client/vgui_game_viewport.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 	_ZN18PrecacheEffectWarp20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectWarp::ClientEffectRegister::m_pszMaterials	game/client/warp_overlay.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
 	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	game/client/warp_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 steamid.o	_ZZNK8CSteamID6RenderEvE4nBuf	CSteamID::Render() const::nBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	4	DEAD		the linker drops it: nothing in the shipped .so reads it
@@ -202,7 +201,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1144	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1152	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -372,6 +371,7 @@ shell_legacy_tempents_client.o	_ZL10g_TempEnts	g_TempEnts	sourcesharp/game/clien
 	tempents	tempents	sourcesharp/game/client/shell_legacy_tempents_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_loadingdisc_client.o	_ZL13g_LoadingDisc	g_LoadingDisc	sourcesharp/game/client/shell_loadingdisc_client.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	loadingdisc	loadingdisc	sourcesharp/game/client/shell_loadingdisc_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
+shell_managed_clientsystems_client.o	_ZZ28ClientSystem_ManagedViewportvE5s_Row	ClientSystem_ManagedViewport()::s_Row	sourcesharp/game/client/shell_managed_clientsystems_client.cpp	LOCAL	bss	function-local	32	MEMBER	ClientSystems:DLL	reset_today=n/a: the row's adapter lives for the DLL's life, as kClientSystems[] walks it from Init to Shutdown. It holds the row's name and a warned-once flag; every stage is managed's ViewportClientSystem's (IManagedClientSystemsClient::Stage). Decides nothing (C7, vgui_game_viewport.cpp)
 	_ZN24PrecacheEffectBloodSpray20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectBloodSpray::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_managed_particles.cpp	GLOBAL	data	class-or-namespace	32	UNRULED		
 	_ZN24PrecacheEffectBloodSpray29register_ClientEffectRegisterE	PrecacheEffectBloodSpray::register_ClientEffectRegister	sourcesharp/game/client/shell_managed_particles.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN23PrecacheEffectExplosion20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectExplosion::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_managed_particles.cpp	GLOBAL	data	class-or-namespace	72	UNRULED		

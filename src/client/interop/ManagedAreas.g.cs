@@ -390,6 +390,12 @@ public unsafe interface IManagedSoundEmitterClient
     void ClientSoundEmitCloseCaption(void* a0, int a1, byte* a2, float a3, int a4);
 }
 
+[ManagedVtable(typeof(ManagedClientSystemsClientTable))]
+public unsafe interface IManagedClientSystemsClient
+{
+    int Stage(byte* a0, int a1);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -449,4 +455,6 @@ public static class ManagedAreaFactory
         => IManagedLeafSystemClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedSoundEmitterClient target)
         => IManagedSoundEmitterClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedClientSystemsClient target)
+        => IManagedClientSystemsClient__ManagedVtable.Create(vtables, target);
 }
