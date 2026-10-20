@@ -820,6 +820,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<MaterialProxies.IPostProxyValues>(locator => locator.Require<Render.PostProcessHost>());
         _services.AddFactory<Render.DemoViewCamera>(locator => new Render.DemoViewCamera(
             button => _inputService?.KeyState(button) ?? 0f, () => locator.Require<Render.ClDemoviewoverrideConVar>().Value));
+        // ScreenSpaceEffects.cpp's manager (C7 screen-space effects), with
+        // stock's one registration: run at the view's level start and end,
+        // drawn into the plan; an IReloadParticipant, so each effect's flag
+        // crosses cs_cl_reload.
+        _services.AddFactory<Render.ScreenSpaceEffectManager>(locator => Render.ScreenSpaceEffectManager.WithStockEffects(
+            w => Log.Warning(w), p => LocalCommandLine.Has(locator.Require<ILocalCommandLine>().Args, p)));
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
         // The leaf system's registry and its decisions over it (C7 cluster 12
         // L2); the registry is an IReloadParticipant, so every renderable,

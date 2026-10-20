@@ -264,6 +264,9 @@ IManagedRenderClient	ViewDemoCamera	int32_t	int32_t nStage, const float *pIn, fl
 # system is IManagedLeafSystemClient's): the binding answers -1. The table only appends.
 IManagedRenderClient	RenderLeafList	int32_t	const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords
 IManagedRenderClient	RenderLeafViewModels	int32_t	const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords
+# ScreenSpaceEffectsStage (C7 screen-space effects): the view's level start (0) and end (1), where stock's
+# CViewRender ran InitScreenSpaceEffects and ShutdownScreenSpaceEffects, run the managed manager's.
+IManagedRenderClient	ScreenSpaceEffectsStage	void	int32_t nStage
 IManagedInputClient	InputInit	void	int32_t bNoMouse
 IManagedInputClient	InputShutdown	void	void
 IManagedInputClient	InputLevelInit	void	void

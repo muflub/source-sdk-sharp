@@ -164,6 +164,9 @@ public interface IClientRenderPlan
     /// </summary>
     int ViewDemoCamera(int stage, ReadOnlySpan<float> input, Span<float> output);
 
+    /// <summary>The screen-space effects' level start (0: Init) and end (1: Shutdown), from CViewRender::LevelInit and LevelShutdown.</summary>
+    void ScreenSpaceEffectsStage(int stage);
+
     /// <summary>A fade from native into the view effects (the engine's View_Fade, the world's start-dark fade).</summary>
     void ViewEffectsFade(int duration, int holdTime, int flags, byte r, byte g, byte b, byte a, float curTime);
 
@@ -524,7 +527,10 @@ public enum RenderOpKind
 {
     // 56, 57 and 58 were Draw3DDebuggingInfo, Draw2DDebuggingInfo and
     // GenerateOverdraw, viewdebug.cpp's entry points; the plan places their
-    // pieces now (C7 step 2), and the numbers are not reused.
+    // pieces now (C7 step 2), and the numbers are not reused. 73 was
+    // ScreenSpaceEffects, g_pScreenSpaceEffects->RenderEffects: the manager is
+    // managed's and its effects append their own ops in the plan (C7
+    // screen-space effects); the number is not reused.
     None = 0,
     SceneBegin = 1,
     SceneEnd = 2,
@@ -632,8 +638,6 @@ public enum RenderOpKind
     EnginePostProcessing = 71,
     /// <summary>I0..I3 x, y, w, h.</summary>
     GrabPreColorCorrectedFrame = 72,
-    /// <summary>I0..I3 x, y, w, h.</summary>
-    ScreenSpaceEffects = 73,
     /// <summary>F0..F2.</summary>
     ToneMapScaleLinear = 74,
     SaveRenderTarget = 75,

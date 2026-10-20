@@ -1549,13 +1549,15 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// 12 L2, 2026-10-19, on main 62e8b7d00 plus the lane: 10 scanned, 7 compiled
 	// under game/). nHere 6 -> 5 when rendertexture.cpp left (C7 render
 	// textures, 2026-10-19, on main a001d7a31 plus the lane: 6 compiled under
+	// game/). Files 8 -> 7 and nHere 5 -> 4 when ScreenSpaceEffects.cpp left
+	// (C7 screen-space effects, the same lane: 8 scanned, 5 compiled under
 	// game/).
 	const ScanResult_t &client = ClientScan();
-	EXPECT_GT( client.nFiles, 8 )
+	EXPECT_GT( client.nFiles, 7 )
 		<< "scanned " << client.nFiles << " client files -- too few to mean "
 		<< "anything, and low enough that the $File parse is the first thing "
 		<< "to suspect";
-	EXPECT_GT( client.nHere, 5 )
+	EXPECT_GT( client.nHere, 4 )
 		<< "client_sourcesharp compiles " << client.nHere << " entries under "
 		<< "game/ -- too few for the ratio below to mean anything";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )

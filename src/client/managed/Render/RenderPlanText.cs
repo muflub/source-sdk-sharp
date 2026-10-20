@@ -410,7 +410,6 @@ public static class RenderPlanText
                 case RenderOpKind.SmokeFogOverlay:
                 case RenderOpKind.ScreenOverlay:
                 case RenderOpKind.EnginePostProcessing:
-                case RenderOpKind.ScreenSpaceEffects:
                 case RenderOpKind.Upscale:
                 case RenderOpKind.FreezeFrameDraw:
                 case RenderOpKind.FreezeFrameCapture:

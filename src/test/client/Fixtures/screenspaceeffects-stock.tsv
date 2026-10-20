@@ -1,0 +1,86 @@
+S	init
+E	filmgrain	IsEnabled	0
+E	filmgrain	Init
+E	filmgrain	Enable	0
+E	beta	IsEnabled	1
+E	beta	Init
+E	beta	Enable	1
+E	alpha	IsEnabled	0
+E	alpha	Init
+E	alpha	Enable	0
+S	get	alpha
+G	alpha
+S	get	ALPHA
+G	alpha
+S	get	ExampleEffect
+G	exampleeffect
+S	get	missing
+W	Could not find screen space effect missing
+G	(null)
+S	get	hollow
+G	(null)
+S	setparams-name	alpha	kv1	one
+E	alpha	SetParameters	kv1	one
+S	setparams-name	missing	kv2	two
+W	Could not find screen space effect missing
+S	setparams-name	hollow	kv3	three
+S	setparams-effect	beta	kv4	four
+E	beta	SetParameters	kv4	four
+S	setparams-effect	-	kv5	five
+S	setparams-name	exampleeffect	kv6	six	1
+S	setparams-effect	filmgrain	-	-
+E	filmgrain	SetParameters	(null)	(null)
+S	enable-name	alpha
+E	alpha	Enable	1
+S	enable-name	missing
+W	Could not find screen space effect missing
+S	enable-effect	beta
+E	beta	Enable	1
+S	enable-effect	-
+S	enable-name	exampleeffect
+S	example-enabled
+X	0
+S	render	1	2	640	480
+E	filmgrain	Render	1	2	640	480
+E	beta	Render	1	2	640	480
+E	alpha	Render	1	2	640	480
+S	disable-name	alpha
+E	alpha	Enable	0
+S	disable-name	missing
+W	Could not find screen space effect missing
+S	disable-effect	beta
+E	beta	Enable	0
+S	disable-effect	-
+S	enable-name	filmgrain
+E	filmgrain	Enable	1
+S	disableall
+E	filmgrain	Enable	0
+E	beta	Enable	0
+E	alpha	Enable	0
+S	render	0	0	1280	720
+E	filmgrain	Render	0	0	1280	720
+E	beta	Render	0	0	1280	720
+E	alpha	Render	0	0	1280	720
+S	shutdown
+E	filmgrain	Shutdown
+E	beta	Shutdown
+E	alpha	Shutdown
+S	init	game -filmgrain
+E	filmgrain	Enable	1
+E	filmgrain	IsEnabled	1
+E	filmgrain	Init
+E	filmgrain	Enable	1
+E	beta	IsEnabled	0
+E	beta	Init
+E	beta	Enable	0
+E	alpha	IsEnabled	0
+E	alpha	Init
+E	alpha	Enable	0
+S	render	0	0	1280	720
+E	filmgrain	Render	0	0	1280	720
+E	beta	Render	0	0	1280	720
+E	alpha	Render	0	0	1280	720
+S	shutdown
+E	filmgrain	Shutdown
+E	beta	Shutdown
+E	alpha	Shutdown

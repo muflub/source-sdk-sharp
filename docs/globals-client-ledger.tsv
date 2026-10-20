@@ -77,11 +77,6 @@
 #       consumer plus a lifetime tier on a client root (MEMBER).
 #
 home	mangled	name	tu	bind	kind	scope	size	disposition	owner	reason
-	_ZN30CScreenSpaceEffectRegistration7s_pHeadE	CScreenSpaceEffectRegistration::s_pHead	game/client/ScreenSpaceEffects.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		the screen-space effect list, walked in ScreenSpaceEffects.cpp
-	exampleeffect_effect	exampleeffect_effect	game/client/ScreenSpaceEffects.cpp	GLOBAL	bss	file-or-global	24	UNRULED		
-	exampleeffect_reg	exampleeffect_reg	game/client/ScreenSpaceEffects.cpp	GLOBAL	bss	file-or-global	24	UNRULED		
-	g_ScreenSpaceEffectManager	g_ScreenSpaceEffectManager	game/client/ScreenSpaceEffects.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-	g_pScreenSpaceEffects	g_pScreenSpaceEffects	game/client/ScreenSpaceEffects.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 	_ZN22PrecacheOcclusionProxy20ClientEffectRegister14m_pszMaterialsE	PrecacheOcclusionProxy::ClientEffectRegister::m_pszMaterials	game/client/c_pixel_visibility.cpp	GLOBAL	data	class-or-namespace	16	UNRULED		
 	_ZN22PrecacheOcclusionProxy29register_ClientEffectRegisterE	PrecacheOcclusionProxy::register_ClientEffectRegister	game/client/c_pixel_visibility.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 c_pixel_visibility.o	_ZL23g_PixelVisibilitySystem	g_PixelVisibilitySystem	game/client/c_pixel_visibility.cpp	LOCAL	bss	file-or-global	208	UNRULED		

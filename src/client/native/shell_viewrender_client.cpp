@@ -30,7 +30,6 @@
 #include "view.h"
 #include "iviewrender_beams.h"
 #include "c_te_legacytempents.h"
-#include "ScreenSpaceEffects.h"
 #include "view_facts.h"
 #include "iinput.h"
 #include "c_baseplayer.h"
@@ -74,13 +73,17 @@ public:
 		m_nBuildRenderablesListsNumber = 0;
 		SourceSharp_FreezeFrame( 0.0f );
 		ReleaseScreenOverlay();
-		g_pScreenSpaceEffects->InitScreenSpaceEffects();
+		// InitScreenSpaceEffects: the manager is managed's (C7 screen-space effects).
+		if ( IManagedRenderClient *pManaged = ManagedRenderClient() )
+			pManaged->ScreenSpaceEffectsStage( 0 );
 	}
 
 	// CViewRender::LevelShutdown.
 	void LevelShutdown( void ) override
 	{
-		g_pScreenSpaceEffects->ShutdownScreenSpaceEffects();
+		// ShutdownScreenSpaceEffects, managed's.
+		if ( IManagedRenderClient *pManaged = ManagedRenderClient() )
+			pManaged->ScreenSpaceEffectsStage( 1 );
 		m_nCurrentViewID = VIEW_NONE;
 	}
 

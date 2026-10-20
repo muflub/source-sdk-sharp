@@ -23,7 +23,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/c_pixel_visibility.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
-    ${SS_SRC}/game/client/ScreenSpaceEffects.cpp
     ${SS_SRC}/game/client/vgui_game_viewport.cpp
     ${SS_SRC}/game/client/warp_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/client_util_library.cpp
