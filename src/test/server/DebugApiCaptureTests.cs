@@ -48,7 +48,13 @@ public sealed class DebugApiCaptureTests : IDisposable
         File.AppendAllLines(_file, [chatter, .. lines]);
     }
 
-    private DebugApiServer Serve(bool tail = true)
+    // THE DEADLINE IS THE GAME'S OWN (3 s) for a fact that passes on a hit: the
+    // capture returns as soon as its closing marker lands, so a long deadline
+    // costs nothing on a fast run, and a loaded runner (server facts run 16 at
+    // a time) is not a failure. 300 ms failed once on win-x64 at 6b046c13a with
+    // an empty capture. Only the facts that expect no closing marker wait the
+    // deadline out, so only they pass a short one.
+    private DebugApiServer Serve(bool tail = true, bool waitsTheDeadlineOut = false)
     {
         // -debugapisocket, as every started test server does: on the fixed TCP
         // port a second server (another test class, a game, a peer's run) wins
@@ -57,7 +63,7 @@ public sealed class DebugApiCaptureTests : IDisposable
             world: new FakeDebugWorld(),
             console: new DebugConsoleHook(() => [], () => [], _ => null, () => [], _ => null, Execute)), TestDebugApiServers.OwnSocket())
         {
-            CaptureTimeout = TimeSpan.FromMilliseconds(300),
+            CaptureTimeout = waitsTheDeadlineOut ? TimeSpan.FromMilliseconds(300) : TimeSpan.FromSeconds(3),
         };
 
         if (tail)
@@ -123,14 +129,14 @@ public sealed class DebugApiCaptureTests : IDisposable
     public void A_closing_marker_that_never_arrives_is_reported_incomplete()
     {
         _dropEnd = true;
-        using var server = Serve();
+        using var server = Serve(waitsTheDeadlineOut: true);
         Assert.False(Captured(server, "cs_sv_playershadow").GetProperty("complete").GetBoolean());
     }
 
     [Fact]
     public void Without_a_console_file_the_capture_says_it_saw_only_the_managed_log()
     {
-        using var server = Serve(tail: false);
+        using var server = Serve(tail: false, waitsTheDeadlineOut: true);
         var captured = Captured(server, "cs_sv_playershadow");
         Assert.False(captured.GetProperty("complete").GetBoolean());
         Assert.StartsWith("managed log only", captured.GetProperty("source").GetString(), StringComparison.Ordinal);
