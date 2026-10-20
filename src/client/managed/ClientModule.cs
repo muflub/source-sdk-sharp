@@ -1735,7 +1735,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // closes the gate.
         var inputCvars = new Input.InputCvars();
         int inputConVars = inputCvars.Bind(_convars.All);
-        var inputHost = Input.ClientInputHost.For(_engine, _services.Require<IEngineConsole>());
+        var inputHost = _engine.Create<Input.ClientInputHost>(_services);
         var inputDevices = Input.ClientInputDevices.For(_engine, Log);
         // The input mailbox: the sample times native stores and the no-op
         // answers native carries out, without a crossing either way.

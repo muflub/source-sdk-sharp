@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Input;
+using SourceSharp.Client.Interop;
 using Xunit;
 
 namespace SourceSharp.Tests;
@@ -39,7 +40,7 @@ public sealed unsafe class ClientInputHostTests
         var side = TestSides.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
-        return ClientInputHost.For(new ModuleEngine(side), new NullConsole());
+        return Composed(new ModuleEngine(side));
     }
 
     [Fact]
@@ -115,7 +116,7 @@ public sealed unsafe class ClientInputHostTests
         var side = TestSides.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
-        return ClientInputHost.For(new ModuleEngine(side), new NullConsole());
+        return Composed(new ModuleEngine(side));
     }
 
     [Fact]
@@ -145,24 +146,43 @@ public sealed unsafe class ClientInputHostTests
         Assert.Equal("+jump", s_Command);
     }
 
+    // The host as the client's composition builds it (phase 11 review: by
+    // injection, no static): the game's adapters register the engine client,
+    // and the module builds the host over the side's input area and them.
+    private static IInputHost Composed(ModuleEngine engine)
+    {
+        var services = new ServiceContainer().AddInstance<IEngineConsole>(new NullConsole());
+        new ClientEntityFetches().AddTo(services, engine);
+        // By type: the census lets a fact read the class's shape, never hold it.
+        return (IInputHost)engine.Create(typeof(ClientInputHost), services);
+    }
+
     /// <summary>
-    /// A side whose engine serves no engine client (the server, a test's side
-    /// with no engine) hands the host none, and every engine-client answer is
-    /// its default rather than a crash.
+    /// The host is only ever the client's, so its engine client is never null:
+    /// the constructor refuses one rather than answering defaults for it.
     /// </summary>
     [Fact]
-    public void WithNoEngineClientEveryAnswerIsItsDefault()
+    public void TheHostRefusesANullEngineClient()
     {
-        IInputHost host = ClientInputHost.For(new ModuleEngine(TestSides.Create(Side.Client)), new NullConsole());
+        var side = TestSides.Create(Side.Client);
+        var input = side.Areas.Require<IInputClientArea>();
+        var constructor = Assert.Single(typeof(ClientInputHost).GetConstructors());
 
-        host.GetScreenSize(out int width, out int height);
-        host.GetMouseDelta(out int x, out int y, ignoreNextMouseDelta: false);
-        host.ClientCmdUnrestricted("+jump");
-        host.ConsolePrintAt(0, "nothing");
+        var thrown = Assert.Throws<System.Reflection.TargetInvocationException>(
+            () => constructor.Invoke([input, new NullConsole(), null]));
+        var refusal = Assert.IsType<ArgumentNullException>(thrown.InnerException);
+        Assert.Equal("engineClient", refusal.ParamName);
+    }
 
-        Assert.Equal(default, host.GetViewAngles());
-        Assert.Equal((0, 0, 0, 0), (width, height, x, y));
-        Assert.False(host.IsPaused);
+    /// <summary>
+    /// An engine that does not serve IVEngineClient fails the host's build,
+    /// with the engine's reason, rather than handing it nothing.
+    /// </summary>
+    [Fact]
+    public void AnEngineWithNoEngineClientFailsTheBuildWithItsReason()
+    {
+        var refusal = Assert.ThrowsAny<Exception>(() => Composed(new ModuleEngine(TestSides.Create(Side.Client))));
+        Assert.Contains("the input host has no engine client", refusal.ToString());
     }
 
     private sealed class NullConsole : IEngineConsole

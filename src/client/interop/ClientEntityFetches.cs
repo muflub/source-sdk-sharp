@@ -70,6 +70,14 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // (plan_client_novalve §2 cluster 5).
         services.AddInstance<IClientBeamExecutor>(new ClientBeamExecutor(areas.Require<IEffectsRenderClientArea>()));
 
+        // The engine client's input calls, for the input host (phase 11
+        // review: injected, never null). Acquired when the host is built, at
+        // Initialize, so a composition that never builds one never asks; an
+        // engine that refuses IVEngineClient fails that build with its reason.
+        services.AddFactory<Client.Input.IClientInputEngine>(_ =>
+            (Client.Input.IClientInputEngine)(EngineClient.Acquire(engine, out string why)
+                ?? throw new InvalidOperationException($"the input host has no engine client: {why}")));
+
         // The UI's draw primitives (plan_client_ui U2), for VguiBackend.
         services.AddInstance<IUiSurface>(new ClientUiSurface(areas.Require<IUiClientArea>()));
         services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(areas.Require<IUiClientArea>()));

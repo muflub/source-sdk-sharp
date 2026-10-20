@@ -14,57 +14,48 @@ namespace SourceSharp.Client.Input;
 //=============================================================================
 
 /// <summary><see cref="IInputHost"/> in the game.</summary>
-public sealed unsafe class ClientInputHost : IInputHost
+internal sealed unsafe class ClientInputHost : IInputHost
 {
     // The side's input area (plan_shim_areas_split phase 11): the cursor,
     // the HUD's facts and the view-angle calls below are its slots.
     private readonly IInputClientArea _input;
     private readonly IEngineConsole _console;
 
-    // The engine client, handed in: null where there is none (the server, a
-    // side with no engine), and then every engine-client answer is its default.
-    private readonly IClientInputEngine? _engineClient;
+    // The engine client's input calls, handed in: the client always has one
+    // (this host is never built on the server), so never null.
+    private readonly IClientInputEngine _engineClient;
 
-    internal ClientInputHost(IInputClientArea input, IEngineConsole console, IClientInputEngine? engineClient)
+    /// <summary>
+    /// Built by the client's composition (<see cref="ModuleEngine.Create{T}"/>):
+    /// the input area from the side, the console and the engine client from
+    /// the container, where the game's adapters registered it
+    /// (<see cref="ClientEntityFetches"/>) and a test's register a double.
+    /// </summary>
+    public ClientInputHost(IInputClientArea input, IEngineConsole console, IClientInputEngine engineClient)
     {
         _input = input ?? throw new ArgumentNullException(nameof(input));
         _console = console ?? throw new ArgumentNullException(nameof(console));
-        _engineClient = engineClient;
+        _engineClient = engineClient ?? throw new ArgumentNullException(nameof(engineClient));
     }
 
-    /// <summary>
-    /// The client's input host, over the engine of <paramref name="engine"/>:
-    /// its input area and its engine client, taken here once.
-    /// </summary>
-    public static IInputHost For(ModuleEngine engine, IEngineConsole console)
-        => new ClientInputHost(engine.Api.Areas.Require<IInputClientArea>(), console,
-                               EngineClient.Acquire(engine, out _) as IClientInputEngine);
+    public InputAngles GetViewAngles() => _engineClient.GetViewAngles();
 
-    public InputAngles GetViewAngles() => _engineClient?.GetViewAngles() ?? default;
+    public void SetViewAngles(InputAngles angles) => _engineClient.SetViewAngles(angles);
 
-    public void SetViewAngles(InputAngles angles) => _engineClient?.SetViewAngles(angles);
+    public void GetScreenSize(out int width, out int height) => _engineClient.GetScreenSize(out width, out height);
 
-    public void GetScreenSize(out int width, out int height)
-    {
-        width = height = 0;
-        _engineClient?.GetScreenSize(out width, out height);
-    }
-
-    public bool IsPaused => _engineClient?.IsPaused ?? false;
+    public bool IsPaused => _engineClient.IsPaused;
 
     public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)
-    {
-        x = y = 0;
-        _engineClient?.GetMouseDelta(out x, out y, ignoreNextMouseDelta);
-    }
+        => _engineClient.GetMouseDelta(out x, out y, ignoreNextMouseDelta);
 
-    public void ClientCmdUnrestricted(string command) => _engineClient?.ClientCmdUnrestricted(command);
+    public void ClientCmdUnrestricted(string command) => _engineClient.ClientCmdUnrestricted(command);
 
     public string? EngineConVar(string name) => _console.FindConVarValue(name);
 
     public void Msg(string text) => _console.Msg(text);
 
-    public void ConsolePrintAt(int line, string text) => _engineClient?.ConsolePrintAt(line, text);
+    public void ConsolePrintAt(int line, string text) => _engineClient.ConsolePrintAt(line, text);
 
     public bool CursorVisible
     {

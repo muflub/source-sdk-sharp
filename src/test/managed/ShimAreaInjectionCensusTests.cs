@@ -175,7 +175,7 @@ public class ShimAreaInjectionCensusTests
 
         // The positive arm: the walk finds the composition that does read it.
         Assert.Contains(readers, r => r.EndsWith("EngineServices.Build", StringComparison.Ordinal));
-        Assert.Contains(readers, r => r.EndsWith("ClientInputHost.For", StringComparison.Ordinal));
+        Assert.Contains(readers, r => r.EndsWith("ClientEntityFetches.AddTo", StringComparison.Ordinal));
         Assert.True(lookups.Count == 0, "the side's areas looked up outside composition:\n" + string.Join("\n", lookups));
     }
 

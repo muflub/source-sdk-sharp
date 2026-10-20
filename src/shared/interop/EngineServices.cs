@@ -184,6 +184,18 @@ public static partial class EngineServices
         => type.IsInterface && type.Assembly == typeof(ShimRoot).Assembly
         && type.Name.StartsWith('I') && type.Name.EndsWith("Area", StringComparison.Ordinal);
 
+    /// <summary>
+    /// <paramref name="implementation"/>, built as a binding is: its areas from
+    /// <paramref name="side"/>, the rest from <paramref name="from"/>
+    /// (<see cref="ModuleEngine.Create{T}"/>).
+    /// </summary>
+    internal static object Create(Type implementation, EngineSide side, IServiceLocator from)
+    {
+        ArgumentNullException.ThrowIfNull(side);
+        ArgumentNullException.ThrowIfNull(from);
+        return Build(implementation, side, from);
+    }
+
     private static object Build(Type implementation, EngineSide side, IServiceLocator from)
     {
         var constructors = implementation.GetConstructors()

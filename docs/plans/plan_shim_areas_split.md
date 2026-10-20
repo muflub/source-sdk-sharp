@@ -689,8 +689,17 @@ Open: none.
     the area, and a side over the defaults answers them. Mutation proofs: the
     registration handing areas by class, and the defaults losing their
     "nothing" table, each turn the generator's self-test red.
-  - Not done in this round: managed logic still takes `IFwd*` engine
-    interfaces as nullable (79 sites, `Func<IFwdEngineClient?>`,
-    `IClientInputEngine?`, `IInputMailbox?`), acquired lazily from the
-    engine's factories; giving those a non-null source in tests is the next
-    step the ruling implies.
+  - `ClientInputHost` (review, 2026-10-20: "this should never be nullable
+    or null as this is the ClientInputHost class"; "why cant this be
+    injected via dep injection? Shouldnt need a static for this"): its
+    engine client is non-null and the static `For` is gone. The module
+    builds it with `ModuleEngine.Create<T>(services)`, which builds a type as
+    the bindings are built (areas from the side, the rest from the
+    container). The game's adapters (`ClientEntityFetches`) register
+    `IClientInputEngine` as a factory over the acquired engine client, which
+    fails the build with the engine's reason if refused; a test's
+    `FakeClientEngineAdapters` registers a generated default double.
+  - Not done in this round: other managed logic still takes `IFwd*` engine
+    interfaces as nullable (`Func<IFwdEngineClient?>`, `IInputMailbox?`, about
+    75 sites), acquired lazily from the engine's factories; giving those a
+    non-null, injected source is the next step the ruling implies.
