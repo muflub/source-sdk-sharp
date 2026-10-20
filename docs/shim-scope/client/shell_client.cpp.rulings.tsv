@@ -65,3 +65,4 @@ void ShellClient_ViewerSeenEnd(	SLOT-HELP	restores SeesOwner and the body's leaf
 void SourceSharp_ViewOverrideSet(	SLOT	IShimViewClient::ViewOverrideSet: keeps the view managed's ObserverCamera decided for OverrideView
 static bool ApplyViewOverride(	SLOT-HELP	carries out managed's observer view in OverrideView: the view, the engine angles when asked, stock's shake
 static void ApplyManagedShake(	BOUNDARY	CViewEffects::CalcShake and ApplyShake carried out: managed's offset and roll added to the view at factor 1
+void SourceSharp_ClientModeLayout( void )	BOUNDARY	IShimUiClient::ClientModeLayout: g_pClientMode->Layout(), when managed's ViewportClientSystem asks (C7)

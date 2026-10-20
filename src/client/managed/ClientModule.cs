@@ -744,6 +744,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedLeafSystemClient",
                       v => ManagedAreaFactory.Create(v, new LeafSystemClientBinding(
                           _engine.Crossings, Log, _services.Require<IClientLeafSystemHost>())));
+        // kClientSystems[] rows whose system is managed's (C7): each row's
+        // adapter asks its system's stages by the row's name.
+        _bindings.Add("IManagedClientSystemsClient",
+                      v => ManagedAreaFactory.Create(v, new ClientSystemsClientBinding(_engine.Crossings, Log,
+                                                                                    _services.Require<ClientSystems.ManagedClientSystems>())));
         _bindings.Add("IManagedWorldTextClient",
                       v => ManagedAreaFactory.Create(v, new WorldTextClientBinding(_engine.Crossings, Log,
                                                                                   new Effects.ClientWorldTexts(_standalones))));
@@ -827,6 +832,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.ScreenSpaceEffectManager>(locator => Render.ScreenSpaceEffectManager.WithStockEffects(
             w => Log.Warning(w), p => LocalCommandLine.Has(locator.Require<ILocalCommandLine>().Args, p)));
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
+        // The kClientSystems[] rows whose system is managed's (C7): the
+        // viewport system (vgui_game_viewport.cpp's CViewportClientSystem).
+        _services.AddFactory<ClientSystems.ManagedClientSystems>(locator =>
+        {
+            var systems = new ClientSystems.ManagedClientSystems();
+            systems.Register(new ClientSystems.ViewportClientSystem(locator.Require<IClientModeLayout>()));
+            return systems;
+        });
         // The leaf system's registry and its decisions over it (C7 cluster 12
         // L2); the registry is an IReloadParticipant, so every renderable,
         // leaf and shadow crosses cs_cl_reload. Its native batches are the

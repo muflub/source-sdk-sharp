@@ -93,7 +93,7 @@
 //-----------------------------------------------------------------------------
 CClientSystem *GameStringSystem();
 CClientSystem *ClientSystem_SoundEmitter();
-CClientSystem *ViewportClientSystem();
+CClientSystem *ClientSystem_ManagedViewport();
 CClientSystem *ClientSoundscapeSystem();
 
 CClientSystem *ClientSystem_StandaloneClient();
@@ -216,7 +216,10 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 //     system is managed's behind libss_fwd_client's forwarder, and the row is
 //     that file's client-system adapter (the forwarder has no RTTI for the walk).
 // RULING | CDetailObjectSystem | STAYS | sourcesharp/game/client/shell_detail_props.cpp | DetailObjectSystem
-// RULING | CViewportClientSystem | STAYS | game/client/vgui_game_viewport.cpp | ViewportClientSystem
+// RULING | CViewportClientSystem | STAYS | sourcesharp/game/client/shell_managed_clientsystems_client.cpp | ClientSystem_ManagedViewport
+//   ^ RE-HOMED at C7: vgui_game_viewport.cpp left client.so; the system is
+//     managed's ViewportClientSystem, and the row is that file's adapter, which
+//     hands each stage to it (IManagedClientSystemsClient::Stage).
 // RULING | CClientEffectPrecacheSystem | STAYS | sourcesharp/game/client/shell_effects_list_client.cpp | ClientEffectPrecacheSystem
 // RULING | CClientShadowMgr | STAYS | game/client/clientshadowmgr.cpp | g_pClientShadowMgr
 // RULING | C_SoundscapeSystem | STAYS | sourcesharp/game/client/shell_soundscape_audio_client.cpp | ClientSoundscapeSystem
@@ -285,7 +288,7 @@ static const ClientSystemRow_t kClientSystems[] =
 	{ "CClientLeafSystem",                  ClientLeafGameSystem },
 	{ "CDetailObjectSystem",                DetailObjectGameSystem },
 
-	{ "CViewportClientSystem",              ViewportClientSystem },
+	{ "CViewportClientSystem",              ClientSystem_ManagedViewport },
 	{ "CClientEffectPrecacheSystem",        ClientEffectPrecacheGameSystem },
 	{ "CClientShadowMgr",                   ClientShadowGameSystem },
 

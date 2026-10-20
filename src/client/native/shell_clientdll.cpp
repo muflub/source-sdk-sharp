@@ -891,8 +891,6 @@ CShellClientDLL::CShellClientDLL()
 }
 
 
-extern CClientSystem *ViewportClientSystem();
-
 
 //-----------------------------------------------------------------------------
 // SteamVR is deleted (plan_client_novalve C1, user ruling 2026-10-04), and so

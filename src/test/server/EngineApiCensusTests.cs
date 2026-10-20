@@ -347,7 +347,8 @@ public partial class EngineApiCensusTests
     // The client's tables planned in C# too: TempEntBuildClient (242 + 1 = 243),
     // and TempEntRegister retired (243 - 1 = 242).
     // C7 render textures: RenderTargetDeclare, the client's named render targets (242 + 1 = 243).
-    private const int ClientOnly = 243;
+    // C7 viewport system: ClientModeLayout, the client mode's layout (243 + 1 = 244).
+    private const int ClientOnly = 244;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

@@ -23,7 +23,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/c_pixel_visibility.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
-    ${SS_SRC}/game/client/vgui_game_viewport.cpp
     ${SS_SRC}/game/client/warp_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/client_util_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/managed_runtime_client.cpp
@@ -36,6 +35,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_clientdll_voicehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_cliententitylist.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_clientsystems.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_managed_clientsystems_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_decals_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_detail_props.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_dust_render.cpp

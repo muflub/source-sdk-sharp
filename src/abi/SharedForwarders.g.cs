@@ -2364,7 +2364,7 @@ internal unsafe struct ShimDiagnosticsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimUiClient</c> through its forwarders (SSFwd_ShimUiClient): 21 slot(s).
+/// <c>IShimUiClient</c> through its forwarders (SSFwd_ShimUiClient): 22 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimUiClientFwd : IForwarderTable
@@ -2434,6 +2434,9 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
 
     // void IShimUiClient::UiDebugOverlayClearDead( void )
     public delegate* unmanaged<void*, void> UiDebugOverlayClearDead;
+
+    // void IShimUiClient::ClientModeLayout( void )
+    public delegate* unmanaged<void*, void> ClientModeLayout;
 }
 
 /// <summary>

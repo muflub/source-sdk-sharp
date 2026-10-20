@@ -306,6 +306,9 @@ public class SideAuditTests
         // The named render targets' store (C7, rendertexture.cpp's getters):
         // the material system's render targets exist only in client.so.
         "RenderTargetDeclare",
+        // The client mode's layout (C7, the viewport system's Init): the
+        // client mode exists only in client.so.
+        "ClientModeLayout",
         "InputMailbox",
         "SpriteTrailDestroy", "SpriteTrailUpdate",
         "StandaloneSetBlending",

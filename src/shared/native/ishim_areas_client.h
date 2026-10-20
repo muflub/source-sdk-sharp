@@ -261,6 +261,9 @@ public:
 	virtual void UiSetCursor( int32_t nShape ) = 0;
 	virtual int32_t UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine, uint32_t *pOutRgba, uint8_t *pText, int32_t nTextBytes ) = 0;
 	virtual void UiDebugOverlayClearDead( void ) = 0;
+	// g_pClientMode->Layout() (C7, vgui_game_viewport.cpp's CViewportClientSystem
+	// asked it at its Init; managed's ViewportClientSystem asks it now).
+	virtual void ClientModeLayout( void ) = 0;
 };
 
 // plan_client_novalve C2 (lane c2-sims): the executor for the client's simple

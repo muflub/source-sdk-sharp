@@ -354,6 +354,7 @@ UiSetMenuInput	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetMenuInp
 UiSetCursor	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetCursor	int, void	
 UiDebugOverlayText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayText	int, float*, float*, int*, uint*, byte*, int, int	
 UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayClearDead	void	
+ClientModeLayout	EngineApi	IShimUiClient	client		client	-	SourceSharp_ClientModeLayout	void	
 SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetRoomType	int, void	
 SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetPlayerDsp	int, void	
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMainView	float*, void	

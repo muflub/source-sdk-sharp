@@ -800,6 +800,7 @@ internal sealed unsafe class UiClientArea
     public void UiSetCursor(int a0) { _shim.Vt->UiSetCursor(_shim.Self, a0); }
     public int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6) { return _shim.Vt->UiDebugOverlayText(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void UiDebugOverlayClearDead() { _shim.Vt->UiDebugOverlayClearDead(_shim.Self); }
+    public void ClientModeLayout() { _shim.Vt->ClientModeLayout(_shim.Self); }
 }
 
 /// <summary>

@@ -977,3 +977,31 @@ ss_cpptest_tier1(screenspaceeffects_oracle_test
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/screenspaceeffects_oracle_test.cpp
             ${msu_stock})
 endif()
+
+# THE VIEWPORT SYSTEM ORACLE (C7, vgui_game_viewport.cpp): stock's
+# CViewportClientSystem -- its name, its per-frame answer, Init laying the
+# client mode out and every other stage empty -- run offline from the PRISTINE
+# game/client/vgui_game_viewport.cpp over a recording client mode
+# (viewport_stub/viewport_harness.h says what is stock and what is stand-in),
+# held to the golden src/test/client/Fixtures/viewport-stock.tsv, which the
+# managed ViewportClientSystem's facts replay. tier0's platform header only;
+# no library is reached. -Wno-unknown-pragmas for VALVE'S HEADERS.
+set(viewport_stock "${SS_VALVE_SRC}/game/client/vgui_game_viewport.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${viewport_stock}")
+  ss_oracle_missing(viewport_oracle_test "no ${viewport_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and the game system header it was written against are COPIED,
+# byte for byte, into their own directory before they are included: their
+# quoted #includes would otherwise find game/client's real headers beside them
+# ahead of the stand-ins.
+configure_file("${viewport_stock}" "${CMAKE_CURRENT_BINARY_DIR}/viewport_subject/vgui_game_viewport.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/igamesystem.h" "${CMAKE_CURRENT_BINARY_DIR}/viewport_subject/igamesystem.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(viewport_oracle_test
+    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/viewport_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/viewport_subject
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/viewport_oracle_test.cpp)
+endif()

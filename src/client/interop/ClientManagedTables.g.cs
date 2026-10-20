@@ -1436,3 +1436,21 @@ public unsafe struct ManagedSoundEmitterClientTable
     [SlotHash(0x56501132)]
     public delegate* unmanaged<void*, void*, int, byte*, float, int, void> ClientSoundEmitCloseCaption;
 }
+
+/// <summary>The table managed writes for <c>IManagedClientSystemsClient</c> (<c>SSManagedClientSystemsClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedClientSystemsClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedClientSystemsClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t Stage( const char *pszSystem, int32_t nStage )
+    [SlotHash(0x3169518e)]
+    public delegate* unmanaged<void*, byte*, int, int> Stage;
+}

@@ -407,3 +407,7 @@ IManagedSoundEmitterClient	ClientSoundLevelShutdownPostEntity	void	void
 IManagedSoundEmitterClient	ClientSoundEmit	void	const int32_t *pRecipients, int32_t nEntIndex, int32_t nChannel, const char *pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float *pOrigin, float flSoundTime, float *pflDuration, int32_t nOptions, int32_t nSpeakerEntity, int32_t *pnHandle
 IManagedSoundEmitterClient	ClientSoundStop	void	int32_t nEntIndex, int32_t nChannel, const char *pSample
 IManagedSoundEmitterClient	ClientSoundEmitCloseCaption	void	const int32_t *pRecipients, int32_t nEntIndex, const char *pToken, float flDuration, int32_t bWarnIfMissing
+# C7 (vgui_game_viewport.cpp first): a kClientSystems[] row whose system is managed's. The native adapter
+# (shell_managed_clientsystems_client.cpp) hands each of the row's stages (ClientSystemStage's numbers) to the
+# managed system of the row's name: Init's answer is 1 or 0, another stage's 1, an unknown row or stage -1.
+IManagedClientSystemsClient	Stage	int32_t	const char *pszSystem, int32_t nStage

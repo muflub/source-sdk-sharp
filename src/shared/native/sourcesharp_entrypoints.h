@@ -250,7 +250,7 @@ int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 249 slots.
+// CLIENT ONLY -- 250 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -317,6 +317,7 @@ int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
 int32_t SourceSharp_ClientIsLowViolence( void );
 void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ );
+void SourceSharp_ClientModeLayout( void );
 void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,
                                     float flScale, int32_t nType );
 int32_t SourceSharp_ClientNetChannel( float *pOut, int32_t nOut );

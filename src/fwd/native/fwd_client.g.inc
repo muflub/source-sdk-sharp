@@ -2647,7 +2647,7 @@ static void *const s_ShimDiagnosticsClientSlots[] = {
 static const SSForwarderTable s_ShimDiagnosticsClientTable = { s_ShimDiagnosticsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimUiClient: 21 forwarder(s) over IShimUiClient.
+// ShimUiClient: 22 forwarder(s) over IShimUiClient.
 //-----------------------------------------------------------------------------
 // void IShimUiClient::UiDrawFilledRect( int32_t, int32_t, int32_t, int32_t, uint32_t )
 static void SSFwd_ShimUiClient_UiDrawFilledRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawFilledRect( a0, a1, a2, a3, a4 ); }
@@ -2691,6 +2691,8 @@ static void SSFwd_ShimUiClient_UiSetCursor( IShimUiClient *self, int32_t a0 ) { 
 static int32_t SSFwd_ShimUiClient_UiDebugOverlayText( IShimUiClient *self, int32_t a0, float * a1, float * a2, int32_t * a3, uint32_t * a4, uint8_t * a5, int32_t a6 ) { return self->UiDebugOverlayText( a0, a1, a2, a3, a4, a5, a6 ); }
 // void IShimUiClient::UiDebugOverlayClearDead( void )
 static void SSFwd_ShimUiClient_UiDebugOverlayClearDead( IShimUiClient *self ) { self->UiDebugOverlayClearDead(); }
+// void IShimUiClient::ClientModeLayout( void )
+static void SSFwd_ShimUiClient_ClientModeLayout( IShimUiClient *self ) { self->ClientModeLayout(); }
 
 static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawFilledRect ),
@@ -2714,9 +2716,10 @@ static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiSetCursor ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDebugOverlayText ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDebugOverlayClearDead ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_ClientModeLayout ),
 };
 
-static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 21 };
+static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 22 };
 
 //-----------------------------------------------------------------------------
 // ShimParticlesClient: 20 forwarder(s) over IShimParticlesClient.

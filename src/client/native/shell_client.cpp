@@ -595,6 +595,13 @@ vgui::VPANEL SourceSharp_ClientViewportPanel()
 	return g_ClientMode.GetViewportVPanel();
 }
 
+// IShimUiClient::ClientModeLayout: the client mode's Layout, when managed asks
+// (C7: the viewport system's Init, vgui_game_viewport.cpp's).
+void SourceSharp_ClientModeLayout( void )
+{
+	g_pClientMode->Layout();
+}
+
 IClientMode *GetClientModeNormal()
 {
 	// Called constantly by the view/HUD code, so only trace when asked.

@@ -969,6 +969,8 @@ public enum CrossingOp
     ServerAreaPortalVisibility = 394,
     /// <summary>IManagedRenderClient::ScreenSpaceEffectsStage: the view's level start or end runs the managed screen-space effect manager's Init or Shutdown (C7 screen-space effects). CLIENT ONLY.</summary>
     ClientScreenSpaceEffectsStage = 395,
+    /// <summary>IManagedClientSystemsClient::Stage: one stage of a kClientSystems[] row whose system is managed's (C7, vgui_game_viewport.cpp's row first). CLIENT ONLY.</summary>
+    ClientSystemStage = 396,
 }
 
 /// <summary>
