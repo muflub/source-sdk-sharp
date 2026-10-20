@@ -138,6 +138,24 @@ public class EngineBoundTests
     }
 
     [Fact]
+    public void TheServerBindingSurvivesTheAttach()
+    {
+        // SideLoad.Load installs the server's acquirer before the attach, and
+        // the attach starts a fresh bound set. The set it starts must keep the
+        // acquirer: a map load on the 82181773 tree threw "binds no
+        // IVEngineServer" from every IsDedicatedServer and level init.
+        var side = TestSides.Create(Side.Server);
+        EngineServerBinding.Bind(side);
+        using var root = new FakeShimRoot();
+
+        Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+
+        string why = Assert.Throws<InterfaceAcquisitionException>(() => EngineBound.Server(side)).Message;
+        Assert.Contains("VEngineServer023", why);
+        Assert.DoesNotContain("binds no IVEngineServer", why);
+    }
+
+    [Fact]
     public void UseServerInstallsTheAcquirerTheSideAsksThrough()
     {
         var side = TestSides.Create(Side.Server);

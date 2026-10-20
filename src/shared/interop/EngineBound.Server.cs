@@ -13,6 +13,12 @@ internal sealed partial class EngineBoundSet
 
     internal BoundInterface<IFwdEngineServer> Server => _server;
 
+    /// <summary>
+    /// A set that holds nothing yet and keeps the acquirer installed here: the
+    /// attach starts one, after SideLoad.Load has installed the server's.
+    /// </summary>
+    internal EngineBoundSet Unheld() => new() { _server = _server.Unheld() };
+
     /// <summary>The server side's acquirer for IVEngineServer, installed before first use.</summary>
     internal void UseServer(BoundInterface<IFwdEngineServer>.Acquirer acquire)
         => _server = new(IFwdEngineServer.InterfaceVersion, acquire ?? throw new ArgumentNullException(nameof(acquire)));
