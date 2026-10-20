@@ -82,8 +82,6 @@ float CShimMovementServer::CurrentGravity()
 	{ return ::SourceSharp_CurrentGravity(); }
 void CShimMovementServer::RegisterMovementParams( const SourceSharpMovementParams * pParams )
 	{ return ::SourceSharp_RegisterMovementParams( pParams ); }
-int32_t CShimMovementServer::PlayerRunMove( uint32_t hPlayer, int32_t nIndex, int32_t nStage )
-	{ return ::SourceSharp_PlayerRunMove( hPlayer, nIndex, nStage ); }
 int32_t CShimMovementServer::PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts * pOut )
 	{ return ::SourceSharp_PlayerShadowFacts( hPlayer, pOut ); }
 int32_t CShimMovementServer::PlayerShadowAdopt( uint32_t hPlayer, void * pStand, void * pCrouch, void * pController )
@@ -94,10 +92,18 @@ void CShimMovementServer::PlayerShadowCommit( uint32_t hPlayer, int32_t nState, 
 	{ return ::SourceSharp_PlayerShadowCommit( hPlayer, nState, bAfterCommand ); }
 int32_t CShimMovementServer::PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
 	{ return ::SourceSharp_PlayerSetMoveType( hPlayer, nMoveType ); }
-void CShimMovementServer::PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow )
-	{ return ::SourceSharp_PlayerSetSlowMovement( hPlayer, bSlow ); }
-void CShimMovementServer::MoveTraceThrough( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter )
-	{ return ::SourceSharp_MoveTraceThrough( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut, pFilter ); }
+int32_t CShimMovementServer::PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts * pFacts )
+	{ return ::SourceSharp_PlayerCommandBegin( hPlayer, pFacts ); }
+void CShimMovementServer::PlayerCommandView( uint32_t hPlayer, const float * pAnglePYR, int32_t nFixAngle )
+	{ return ::SourceSharp_PlayerCommandView( hPlayer, pAnglePYR, nFixAngle ); }
+void CShimMovementServer::PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult * pResult )
+	{ return ::SourceSharp_PlayerCommandFinish( hPlayer, pResult ); }
+void CShimMovementServer::MoveTraceServer( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter, uint32_t * pOutHandles )
+	{ return ::SourceSharp_MoveTraceServer( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut, pFilter, pOutHandles ); }
+int32_t CShimMovementServer::PlayerFallDamage( uint32_t hPlayer, float flDamage )
+	{ return ::SourceSharp_PlayerFallDamage( hPlayer, flDamage ); }
+void CShimMovementServer::PlayerSyncEngineSide( uint32_t hPlayer )
+	{ return ::SourceSharp_PlayerSyncEngineSide( hPlayer ); }
 
 void CShimWorldServer::AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ )
 	{ return ::SourceSharp_AngleVectorsFromForward( pForwardXYZ, pOutRightXYZ, pOutUpXYZ ); }
@@ -188,8 +194,6 @@ void CShimTransform::EntityGetVelocity( uint32_t hEntity, float * pOutXYZ )
 	{ return ::SourceSharp_EntityGetVelocity( hEntity, pOutXYZ ); }
 void CShimTransform::EntitySetVelocity( uint32_t hEntity, const float * pXYZ )
 	{ return ::SourceSharp_EntitySetVelocity( hEntity, pXYZ ); }
-void CShimTransform::EntityAddBaseVelocity( uint32_t hEntity, const float * pVelocityXYZ )
-	{ return ::SourceSharp_EntityAddBaseVelocity( hEntity, pVelocityXYZ ); }
 void CShimTransform::EntityGetAngularVelocity( uint32_t hEntity, float * pOutPYR )
 	{ return ::SourceSharp_EntityGetAngularVelocity( hEntity, pOutPYR ); }
 void CShimTransform::EntitySetAngularVelocity( uint32_t hEntity, const float * pPYR )
@@ -287,8 +291,6 @@ int32_t CShimPlayers::ClientsStandalonePlayerEarPosition( int32_t iEdict, float 
 void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
 	{ return ::SourceSharp_PlayerSetTeam( hPlayer, nTeam ); }
 
-void CShimEffectsServer::ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir )
-	{ return ::SourceSharp_ViewPunch( pOrigin, pPunchPYR, flRadius, bInAir ); }
 void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags )
 	{ return ::SourceSharp_BloodEffect( pOriginXYZ, pDirXYZ, nColor, flAmount, bStream, nSprayFlags ); }
 int32_t CShimEffectsServer::TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut )

@@ -45,14 +45,17 @@ MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, f
 MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	
 CurrentGravity	EngineApi	IShimMovement	shared		both	-	SourceSharp_CurrentGravity	float	
 RegisterMovementParams	EngineApi	IShimMovement	shared		both	-	SourceSharp_RegisterMovementParams	MovementParams*, void	
-PlayerRunMove	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerRunMove	uint, int, int, int	
 PlayerShadowFacts	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowFacts	uint, PlayerShadowFacts*, int	
 PlayerShadowAdopt	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowAdopt	uint, nint, nint, nint, int	
 PlayerShadowRelease	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowRelease	uint, void	
 PlayerShadowCommit	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowCommit	uint, int, int, void	
 PlayerSetMoveType	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetMoveType	uint, int, int	
-PlayerSetSlowMovement	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetSlowMovement	uint, int, void	
-MoveTraceThrough	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_MoveTraceThrough	float*, float*, float*, float*, int, int, MoveTraceBlob*, nint, void	
+PlayerCommandBegin	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerCommandBegin	uint, PlayerCommandFacts*, int	
+PlayerCommandView	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerCommandView	uint, float*, int, void	
+PlayerCommandFinish	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerCommandFinish	uint, PlayerCommandResult*, void	
+MoveTraceServer	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_MoveTraceServer	float*, float*, float*, float*, int, int, MoveTraceBlob*, nint, uint*, void	
+PlayerFallDamage	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerFallDamage	uint, float, int	
+PlayerSyncEngineSide	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSyncEngineSide	uint, void	
 AngleVectorsFromForward	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
 EntityModelSurfaceProp	EngineApi	IShimWorldServer	server		server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
 InvisibleRangeReach	EngineApi	IShimWorldServer	server		server	-	SourceSharp_InvisibleRangeReach	int	
@@ -96,7 +99,6 @@ EntitySetAngles	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetA
 EntityTeleport	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityTeleport	uint, float*, float*, int, void	
 EntityGetVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetVelocity	uint, float*, void	
 EntitySetVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetVelocity	uint, float*, void	
-EntityAddBaseVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityAddBaseVelocity	uint, float*, void	
 EntityGetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetAngularVelocity	uint, float*, void	
 EntitySetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetAngularVelocity	uint, float*, void	
 EntityGetEyePosition	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyePosition	uint, float*, void	
@@ -142,7 +144,6 @@ PlayerSetObserverMode	EngineApi	IShimPlayers	server		server	-	SourceSharp_Player
 PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSnapEyeAngles	uint, float*, void	
 ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
 PlayerSetTeam	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetTeam	uint, int, void	
-ViewPunch	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_ViewPunch	float*, float*, float, int, void	
 BloodEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_BloodEffect	float*, float*, int, float, int, int, void	
 TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_TempEntBuild	void*, int, TeBuiltTable*, int	
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	

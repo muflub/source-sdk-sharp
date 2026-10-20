@@ -205,32 +205,60 @@ TEST( ServerTusEvicted, NoCompiledFileCallsMoveHelperServer )
 		<< "shell_frame.cpp now calls MoveHelperServer()";
 }
 
-TEST( ServerTusEvicted, TheSingletonStorageIsDeclaredExactlyOnceAndInTheShim )
-{
-	const std::string player = Code( ReadFile( kShimPlayer ) );
-	ASSERT_FALSE( player.empty() );
-	// P5: the storage is ss::IMoveHelper's (ss_movehelper.h), defined in full
-	// where IMPLEMENT_MOVEHELPER() used to expand.
-	EXPECT_EQ( 1u, CountOf( player, "ss::IMoveHelper *ss::IMoveHelper::sm_pSingleton = 0;" ) )
-		<< "imovehelper.h says to put this in the file that IMPLEMENTS the "
-		   "IMoveHelper, and CStandaloneMoveHelper here is the only one this "
-		   "build constructs";
+// The move helper's singleton storage and the standalone helper that installed
+// itself went with the server's native command path (plan_server_native_v2
+// T4g): the helper's work is ServerMoveWorld's, in managed.
 
-	// The half that re-read the evicted movehelper_server.cpp for its own
-	// IMPLEMENT_MOVEHELPER() was culled when that file left the source tree
-	// (server.so does not compile it).
+// The view punch walk and the slow-movement word left native in
+// plan_server_native_v2 T4g: the punch's velocity and the stasis field's slow
+// movement are movement state, which the managed command loop owns
+// (ServerPlayerMovement.ViewPunch / SetSlowMovement over the records). Their
+// slots (IShimEffectsServer.ViewPunch, IShimMovementServer.PlayerSetSlowMovement)
+// were retired with them, and the reach rules' header went with its one caller.
+TEST( ServerTusEvicted, TheViewPunchWalkAndTheSlowMovementWordAreManaged )
+{
+	const std::string scripted = Code( ReadFile( "sourcesharp/game/server/shell_scripted.cpp" ) );
+	ASSERT_NE( 0u, CountOf( scripted, "void SourceSharp_EntityGetAngularVelocity(" ) )
+		<< "the anchor is gone: this read proves nothing about shell_scripted.cpp";
+	EXPECT_EQ( 0u, CountOf( scripted, "UTIL_ViewPunch(" ) )
+		<< "the native punch walk is back; ServerPlayerMovement.ViewPunch walks the records";
+	EXPECT_EQ( 0u, CountOf( scripted, "SourceSharp_ViewPunch(" ) )
+		<< "the ViewPunch slot body is back";
+
+	const std::string entityapi = Code( ReadFile( "sourcesharp/game/server/shell_entityapi.cpp" ) );
+	ASSERT_NE( 0u, CountOf( entityapi, "void SourceSharp_ApplyDamage(" ) )
+		<< "the anchor is gone: this read proves nothing about shell_entityapi.cpp";
+	EXPECT_EQ( 0u, CountOf( entityapi, "SourceSharp_PlayerSetSlowMovement(" ) )
+		<< "the slow-movement slot body is back; the record holds the word";
+
+	const std::string player = Code( ReadFile( "sourcesharp/game/server/shell_standalone_player.h" ) );
+	ASSERT_NE( 0u, CountOf( player, "const char *PlayerName() const" ) )
+		<< "the anchor is gone: this read proves nothing about shell_standalone_player.h";
+	EXPECT_EQ( 0u, CountOf( player, "void ViewPunch(" ) )
+		<< "the native player takes a punch again";
+
+	ASSERT_TRUE( Exists( "sourcesharp/game/shared/shell_movement.cpp" ) )
+		<< "the shared directory did not resolve";
+	EXPECT_FALSE( Exists( "sourcesharp/game/shared/view_effect_reach.h" ) )
+		<< "the reach rules' header is back with no native caller";
 }
 
-TEST( ServerTusEvicted, TheStandaloneMoveHelperIsStillTheOneThatInstallsItself )
+// A player's base velocity left native in plan_server_native_v2 T4g: the push,
+// the ground release and the unstick nudge are the managed record's
+// (ServerPlayerMovement.AddBaseVelocity), and so are the once-per-entity
+// refusals. The IShimTransform slot and the rule's header went with them.
+TEST( ServerTusEvicted, ThePlayerBaseVelocityIsManaged )
 {
-	const std::string player = Code( ReadFile( kShimPlayer ) );
-	ASSERT_FALSE( player.empty() );
-	// With the ARGUMENT: `SetSingleton( this )` is the install, and a bare
-	// `SetSingleton` would also match the declaration in imovehelper.h if this
-	// file ever grew one.
-	EXPECT_EQ( 1u, CountOf( player, "SetSingleton( this );" ) )
-		<< "nothing installs an IMoveHelper any more, so MoveHelper() answers "
-		   "NULL and the movement loop's AddToTouched dereferences it";
-	EXPECT_EQ( 1u, CountOf( player, "s_StandaloneMoveHelper.Install( this );" ) )
-		<< "and the install site the command loop scopes is gone";
+	const std::string worldquery = Code( ReadFile( "sourcesharp/game/server/shell_worldquery.cpp" ) );
+	ASSERT_NE( 0u, CountOf( worldquery, "void SourceSharp_EntityTakeDamage(" ) )
+		<< "the anchor is gone: this read proves nothing about shell_worldquery.cpp";
+	EXPECT_EQ( 0u, CountOf( worldquery, "void SourceSharp_EntityAddBaseVelocity(" ) )
+		<< "the native base-velocity push is back; the managed record holds the channel";
+	EXPECT_EQ( 0u, CountOf( worldquery, "MvSetBaseVelocity(" ) )
+		<< "native writes a player's base velocity again";
+
+	ASSERT_TRUE( Exists( "sourcesharp/game/server/shell_worldquery.cpp" ) )
+		<< "the server directory did not resolve";
+	EXPECT_FALSE( Exists( "sourcesharp/game/server/standalone_basevelocity.h" ) )
+		<< "the push rule's header is back with no native caller";
 }

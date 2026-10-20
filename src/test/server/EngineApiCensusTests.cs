@@ -201,7 +201,19 @@ public partial class EngineApiCensusTests
     // managed temp entities (120 - 2 = 118).
     // plan_server_native_v2 T4f: IShimMovementServer gains MoveTraceThrough, the
     // movement hull through the managed trace filter (118 + 1 = 119).
-    private const int ServerOnly = 119;
+    // plan_server_native_v2 T4g (2026-10-19): IShimMovementServer gains the
+    // managed command loop's engine side, PlayerCommandBegin / View / Finish,
+    // MoveTraceServer and PlayerFallDamage (119 + 5 = 124), and
+    // PlayerSyncEngineSide, the engine side's three words published beside
+    // the managed movement state (124 + 1 = 125). Then PlayerRunMove and
+    // MoveTraceThrough retired, the native command stages and the old hull
+    // trace the managed command loop replaced (125 - 2 = 123). Then
+    // IShimMovementServer.PlayerSetSlowMovement and IShimEffectsServer.ViewPunch
+    // retired: the slow-movement word and the punch are the managed record's
+    // (123 - 2 = 121). Then IShimTransform.EntityAddBaseVelocity retired: a
+    // player's base velocity is the managed record's and nothing else has the
+    // channel (121 - 1 = 120).
+    private const int ServerOnly = 120;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

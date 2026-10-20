@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 30 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 31 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -123,6 +123,9 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // void IVEngineServer::StaticDecal( const Vector &, int, int, int, bool )
     public delegate* unmanaged<void*, void*, int, int, int, byte, void> StaticDecal;
+
+    // float IVEngineServer::Time( void )
+    public delegate* unmanaged<void*, float> Time;
 }
 
 /// <summary>

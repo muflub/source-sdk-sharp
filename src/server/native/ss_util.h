@@ -59,8 +59,6 @@ bool UTIL_IsCommandIssuedByServerAdmin( void );
 bool UTIL_ShouldShowBlood( int bloodColor );				// util_shared_library.cpp
 void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName );	// server_util_library.cpp
 
-void UTIL_ViewPunch( const Vector &center, QAngle angPunch, float radius, bool bInAir );	// shell_scripted.cpp
-
 void DebugDrawLine( const Vector &vecAbsStart, const Vector &vecAbsEnd,
                     int r, int g, int b, bool test, float duration );
 extern float k_flMaxEntityEulerAngle;                      // entity_shared_statics.cpp

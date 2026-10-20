@@ -193,6 +193,15 @@ inline int SourceSharpPlayerSync_EncodeGround( const CBaseHandle &handle )
 	return SourceSharpGroundWire_Encode( handle.GetEntryIndex() );
 }
 
+#ifndef CLIENT_DLL
+// The server's engine side -> blob (plan_server_native_v2 T4g): the shell's
+// origin, health and whether it is alive, the three words native holds. The
+// movement state is the managed command loop's, which publishes the rest.
+void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
+                                            const SourceSharpPlayerFields_t &fields,
+                                            const Vector &vecOrigin, int nHealth, bool bAlive );
+#endif
+
 // Native state -> blob. Called after every command on the server and after
 // every replayed command on the client, so the blob IS the player at that
 // command — which is what the ring copies and what the wire sends.

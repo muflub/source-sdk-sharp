@@ -374,10 +374,12 @@ public abstract class FloatConVar : ConVar<float>
     // 600 and 384. A whole-string parse read those as 0.
     protected override float Parse(string raw) => Atof(raw);
 
+    // Through a double, as atof is (strtod, then the carrier's float cast):
+    // a straight float parse rounds once and can land one ulp away.
     internal static float Atof(string raw)
     {
-        if (float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
-            return v;
+        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double v))
+            return (float)v;
         for (int end = raw.Length - 1; end > 0; end--)
         {
             if (double.TryParse(raw.AsSpan(0, end), NumberStyles.Float, CultureInfo.InvariantCulture, out double prefix))

@@ -653,27 +653,9 @@ int32_t SourceSharp_PlayerGetObserverMode( uint32_t hPlayer )
 	return SOURCESHARP_OBS_NONE;
 }
 
-//-----------------------------------------------------------------------------
-// Whether a player wades rather than walks.
-//
-// Stock sets this together with PFLAG_VPHYSICS_MOTIONCONTROLLER
-// (triggers.cpp:4689); that flag is managed state now (SsPlayer.PhysicsFlags,
-// read by PlayerShadowRecovery), so the caller sets it beside this call.
-//
-// STOCK BUG, reproduced rather than fixed: m_bSlowMovement is a CNetworkVar that
-// playerlocaldata.cpp never adds to the send table, and its datadesc line is
-// commented out -- while gamemovement.cpp reads it on BOTH sides. So the client
-// never learns it is set and predicts full speed, in stock exactly as here.
-// Setting it from managed code therefore behaves identically to stock, including
-// the misprediction; fixing it would mean a send table change, which is a
-// different decision from this call.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow )
-{
-	// Read into the movement block: no jump in a stasis field (gamemovement.cpp:2401).
-	if ( CStandalonePlayer *pPlayer = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-		pPlayer->MvLocal().m_bSlowMovement = ( bSlow != 0 );
-}
+// SourceSharp_PlayerSetSlowMovement went in plan_server_native_v2 T4g: the
+// slow-movement word is the managed record's (ServerPlayerMovement.SetSlowMovement),
+// stock's unsent-network-var misprediction included.
 
 // SourceSharp_EntityBecomePhysicsTrigger (BecomeTrigger / RemoveTrigger on
 // the entity's object) is managed's since plan_physics_bones_native_zero (the

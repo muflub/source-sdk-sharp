@@ -5,19 +5,19 @@ namespace SourceSharp.Server.Interop;
 
 /// <summary>
 /// The server's player-command path, managed-built (plan_engineapi_vtables
-/// E17): ProcessMovement, the batched usercmd decode and run, and the surface
-/// notice. These are the Entry.cs thunks' server bodies, moved. Movement and
-/// the run fail to 0 and the surface notice is void, so the generated catch
-/// suits them. A decode that faults answers -1, so it keeps its own catch.
+/// E17): the batched usercmd decode and run. The run fails to 0, so the
+/// generated catch suits it. A decode that faults answers -1, so it keeps its own catch. The
+/// movement crossing went with plan_server_native_v2 T4g: the commands'
+/// stages and the loop are managed (<see cref="ServerPlayerCommands"/>).
 /// </summary>
 /// <remarks>
-/// <paramref name="movement"/> is the composition's own movement runner
-/// (plan_abi_hotreload D8): the movement crossing, the per-command stages and
-/// the player shadow all run on the side it was built over.
+/// <paramref name="engine"/> is the composition's own (plan_abi_hotreload
+/// D8): the per-command stages and the player shadow run on its side.
 /// </remarks>
 public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, ISideModule module, IServerModule game,
-                                                  MovementRunner movement, PlayerCommandQueue commands,
-                                                  Func<bool> shadowEnabled) : IManagedPlayerCommands
+                                                  PlayerCommandQueue commands, Func<bool> shadowEnabled,
+                                                  ServerPlayerCommands? serverCommands = null,
+                                                  ModuleEngine? engine = null) : IManagedPlayerCommands
 {
     // The module's three movement decisions, built once (statics to zero):
     // handed to the loop for each run and taken back after, so no closure
@@ -27,9 +27,24 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
         (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
         (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
 
-    // The command loop's PlayerRunMove stages, over the same side as the
-    // runner (they were MovementRunner's, which both sides build).
-    private readonly PlayerRunMoveStages _stages = new(movement);
+    // The server's command stages (plan_server_native_v2 T4g), handed the
+    // module's three movement decisions once.
+    private readonly ServerPlayerCommands? _serverCommands = WithRules(serverCommands, game);
+
+    private static int Refuse(EntityHandle player, int index, int stage, in UserCmd cmd) => 0;
+
+    private static ServerPlayerCommands? WithRules(ServerPlayerCommands? commands, IServerModule game)
+    {
+        if (commands is not null)
+        {
+            commands.Rules = new MovementRules(
+                r => game.GetJumpScale(in r),
+                (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
+                (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
+        }
+
+        return commands;
+    }
 
     private void Enter(CrossingOp op)
     {
@@ -37,25 +52,19 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
     }
 
     /// <summary>
-    /// The WHOLE of ProcessMovement, in C#. Unlike the thunk this replaces,
-    /// the three movement decisions are pointed at this module only for the
-    /// call: the runner hands them to its loop and puts the previous rules
-    /// back after, so no closure over this module is left in a loop that
-    /// outlives it, and a nested crossing's rules stay intact.
+    /// The frame's queue, run: one crossing per player per frame. The tick
+    /// base is placed for the batch first, as RunQueuedCommands placed it
+    /// (AdjustPlayerTimeBase), then each command runs its managed stages.
     /// </summary>
-    public int MoveProcessMovement(void* a0)
-    {
-        Enter(CrossingOp.ServerMoveProcessMovement);
-        if (a0 == null) return 0;
-
-        return movement.ProcessMovement((MoveStateBlob*)a0, _rules);
-    }
-
-    /// <summary>The frame's queue, run: one crossing per player per frame.</summary>
     public int PlayerRunCommands(uint a0, int a1)
     {
         Enter(CrossingOp.ServerPlayerRunCommands);
-        return commands.Run(new EntityHandle(a0), a1, _stages, module, game, shadowEnabled());
+        var player = new EntityHandle(a0);
+        _serverCommands?.AdjustTickBase(player, a1);
+
+        // No command stages (a binding built without them) refuses each
+        // command at its prepare, as native refused a player it had not got.
+        return commands.Run(player, a1, _serverCommands?.Stage ?? new PlayerCommandStage(Refuse), engine?.Api, module, game, shadowEnabled());
     }
 
     /// <summary>One packet, whole: decoded, queued, and answered in run order.</summary>
@@ -82,9 +91,4 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
         }
     }
 
-    public void OnPlayerSurfaceChanged(uint a0, int a1)
-    {
-        Enter(CrossingOp.ServerOnPlayerSurfaceChanged);
-        game.OnPlayerSurfaceChanged(new EntityHandle(a0), a1);
-    }
 }

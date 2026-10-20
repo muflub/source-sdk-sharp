@@ -90,6 +90,13 @@ public interface IVtableEngineServer
     /// </summary>
     int EntityCount();
 
+    /// <summary>
+    /// <c>engine-&gt;Time()</c>: the engine's wall clock, which the movement
+    /// loop's CheckStuck throttle reads (plan_server_native_v2 T4g; it was
+    /// FillConstants' <c>flEngineTime</c>).
+    /// </summary>
+    float Time();
+
     //-------------------------------------------------------------------------
     // FIVE MEMBERS FROM plan_server_native_v2 T3, each the engine call a
     // one-call slot made (shell_entityapi.cpp, shell_worldquery.cpp).

@@ -45,8 +45,7 @@
 //
 //=============================================================================//
 
-#include "ss_util.h"            // engine, UTIL_ViewPunch
-#include "view_effect_reach.h"   // the punch walk's reach rules
+#include "ss_util.h"            // engine
 #include "vphysics_interface.h"
 #include "ss_physics.h"
 #include "ss_physics_shared.h"     // g_PhysWorldObject
@@ -490,146 +489,10 @@ static IPhysicsObject *SourceSharp_PhysicsOf( uint32_t hEntity )
 // StandaloneEntity_DeliverInput.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// THE PUNCH WALK, here beside the slot body that is its one caller. It lived in
-// shell_vieweffects.cpp with the screen shake and the screen fade; those are
-// user messages and left for C#'s ScreenEffects (user-message payload model,
-// 2026-10-04), and the punch -- which writes each native player's punch angle
-// rather than sending anything -- came here with the file's deletion. Its reach
-// rules are view_effect_reach.h's, engine-free and gtested.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// THE SUBJECT OF A VIEW EFFECT, ON WHICHEVER HIERARCHY HOLDS IT.
-//
-// The loops that lived here -- UTIL_ScreenShake, UTIL_ScreenShakeObject,
-// UTIL_ViewPunch and UTIL_ScreenFadeAll -- each walked the player slots asking
-// UTIL_PlayerByIndex for a CBasePlayer, and this mod makes no CBasePlayers. So
-// every one of them skipped every slot: not one screen shake, screen fade or
-// view punch had reached anybody since the port began. Every explosion's shake,
-// every env_fade, every kick from a hit, silently discarded -- the same shape
-// as the recipient filters, which is the fix this is copied from.
-//
-// A SLOT IS A FACT THE ENGINE STATES; THE CLASS OF THE OBJECT IN IT IS NOT. So
-// this type is what the loops ask instead: it holds whichever kind is there and
-// answers the five questions the loops actually put -- is anybody here, are
-// they standing on something, where is their box, where is their origin, and
-// take this punch. The message itself never needed a pointer at all: a filter
-// stores INDICES, and CSingleUserRecipientFilter has taken one since the
-// recipient-filter fix.
-//
-// BOTH ARMS, AND UNDER SOURCESHARP THERE IS ONLY ONE. The SDK arm is what this
-// tree's other builds compile -- these are stock SDK loops and they still have
-// to serve a real CBasePlayer -- but in THIS build it is compiled out entirely
-// rather than left as a NULL that is checked. Two reasons, and the second is
-// the one that decided it:
-//
-//   1. There is no CBasePlayer to be in a slot. server_csharp.vpc evicts
-//      player.cpp and its whole hierarchy, so `nm -C server.so` finds no
-//      CBasePlayer vtable; UTIL_PlayerByIndex answers NULL by CONSTRUCTION and
-//      says so in its own comment (see UTIL_SDKPlayerFromEdict in util.h). A
-//      branch that cannot be taken is better deleted than checked.
-//
-//   2. CBasePlayer::ViewPunch IS NOT LINKED. It lives in baseplayer_shared.cpp,
-//      which the same .vpc evicts, so merely NAMING it in a branch nothing can
-//      reach fails the link -- which is how this was found: the release build
-//      folded the dead branch away and was clean, and the _DEBUG build, which
-//      does not, would not link. The compiled-out arm is therefore the only
-//      form that is true in both configurations.
-//-----------------------------------------------------------------------------
-struct ViewEffectPlayer_t
-{
-	CStandalonePlayer *pStandalone;
-
-
-	bool IsValid() const              { return pStandalone != NULL; }
-	bool IsOnGround() const           { return ( pStandalone->MvGetFlags() & FL_ONGROUND ) != 0; }
-	Vector WorldSpaceCenter() const   { return pStandalone->WorldSpaceCenter(); }
-	Vector AbsOrigin() const          { return pStandalone->GetAbsOrigin(); }
-
-	// GroundEntity() WAS HERE AND HAD NO CALLER. Its own comment said "only
-	// UTIL_ScreenShakeObject reads this"; `grep -rn '\.GroundEntity()'` over
-	// src/ finds nothing, so the sentence had gone stale. Its body was
-	// `EntityFromEntityHandle( pStandalone->MvGetGroundEntity() )`, a constant
-	// NULL in this build, so nothing was lost by it going.
-
-	// The top of this player's parent chain, as an SDK entity: NULL, always.
-	// Nothing parents a player here, and the player is not a CBaseEntity to
-	// answer with. CBaseEntity::GetRootMoveParent returns `this` for an
-	// unparented entity and so is never NULL, which is what makes NULL usable
-	// as "not the object you are asking about".
-	IGameEntity *RootMoveParent() const { return NULL; }
-
-	void ViewPunch( const QAngle &angPunch ) const { pStandalone->ViewPunch( angPunch ); }
-
-};
-
-static ViewEffectPlayer_t ViewEffectPlayerBySlot( int nSlot )
-{
-	ViewEffectPlayer_t player;
-
-	player.pStandalone = CStandalonePlayer::FromIndex( nSlot );
-
-	return player;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Punches the view of all clients within radius.
-//			If radius is 0, punches all clients.
-// Input  : center - Center of punch, radius is measured from here.
-//			radius - Radius of effect, 0 punches all clients.
-//			bInAir - if this is false, then it will only punch players standing on the ground.
-//-----------------------------------------------------------------------------
-void UTIL_ViewPunch( const Vector &center, QAngle angPunch, float radius, bool bInAir )
-{
-	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
-	{
-		ViewEffectPlayer_t player = ViewEffectPlayerBySlot( i );
-
-		if ( !player.IsValid() )
-			continue;
-
-		//
-		// Only apply the punch to players that are on the ground unless doing an air punch.
-		//
-		if ( !ViewEffectReach::PunchReachesPlayer( player.IsOnGround(), bInAir ) )
-			continue;
-
-		// Measured from the player's ORIGIN rather than the centre of their
-		// box, which is where this differs from the shake above. Stock's split,
-		// kept.
-		Vector delta = center - player.AbsOrigin();
-		const float flScale = ViewEffectReach::PunchScale( delta.Length(), radius );
-
-		if ( !ViewEffectReach::InRange( flScale ) )
-			continue;
-
-		QAngle angTemp = angPunch;
-		angTemp *= flScale;
-
-		player.ViewPunch( angTemp );
-	}
-}
-
-//-----------------------------------------------------------------------------
-// A kick to the view of everyone in range.
-//
-// Not a shake: a shake is a rattle over a duration and this is one shove, which
-// is what a mapper reaches for when something lands rather than when something
-// rumbles.
-//-----------------------------------------------------------------------------
-void SourceSharp_ViewPunch( const float *pOrigin, const float *pPunchPYR,
-                            float flRadius, int32_t bInAir )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOrigin || !pPunchPYR )
-		return;
-
-	UTIL_ViewPunch( Vector( pOrigin[0], pOrigin[1], pOrigin[2] ),
-	                QAngle( pPunchPYR[0], pPunchPYR[1], pPunchPYR[2] ),
-	                flRadius, bInAir != 0 );
-}
+// THE PUNCH WALK (UTIL_ViewPunch and its slot body) went to managed in
+// plan_server_native_v2 T4g: the punch is movement state, and
+// ServerPlayerMovement.ViewPunch walks the managed records with the same
+// reach rules (ServerPlayerMovementRulesTests).
 
 //-----------------------------------------------------------------------------
 // How fast it is turning, read back: the shell's own member, which a sensor

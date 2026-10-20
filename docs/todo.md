@@ -380,6 +380,69 @@ MoveTrace. The T4d bullets above for the traces and PaintDecal are done.
   this hierarchy, and a move is not where they change. The client's filter still
   reads every entity as the static-prop case (trace_filter_library.cpp).
 
+## The server's player commands in C# (plan_server_native_v2 T4g): what stayed native, and follow-ups
+
+Measured at the lane's tip (2026-10-19). T4g moved the server's user-command
+path to managed: the tick base adjust, RunCommand's prepare (clock, angle
+sanity, fixangle, base-velocity fold, SetupMove), the movement loop called
+directly over a per-player managed record (ServerPlayerMoves), FinishMove and
+the body pitch, the move helper's decisions (ServerMoveWorld: touches, sounds,
+fall damage, the surface), the 30-word PlayerSync copy (PlayerMovePublisher
+writes the movement words; native writes origin, health and alive), the
+movement constants (ServerMoveConstants), the view punch, the slow-movement
+word and a player's base velocity. Debug server.so .text 389,111 -> 359,607
+bytes; native C++ -1,094 lines; movemath and 3d-cmdgate pass before and after.
+
+What stayed native, and why (each is an engine vtable, a struct the engine
+reads by layout, or a pointer it holds):
+
+- **PlayerCommandBegin / View / Finish** (shell_standalone_player.cpp): the
+  facts a command needs from the engine-held player (v_angle, fixangle, the
+  CPlayerState the engine reads by layout), SetAbsOrigin / SetAbsAngles on the
+  edict the engine networks, and TouchTriggers (engine's trigger sweep).
+- **MoveTraceServer**: the hull trace is IEngineTrace through the managed
+  filter (T4f); native hands back the hit and the ground as handles.
+- **PlayerFallDamage**: the shell's damage path (TakeDamage on the standalone
+  player); its decision is managed's (ServerMoveWorld.PlayerFallingDamage).
+- **PlayerSyncEngineSide / SyncToBlob**: origin, health and alive are the
+  engine side's words in the blob the client reads by layout.
+- **QueuedUsercmds**: the count of decoded commands waiting for the frame's
+  one PlayerRunCommands crossing; the commands are managed's.
+- **The native mirrors** (flags, move type, view offset, velocity, base
+  velocity, ground, fall velocity), written by PlayerCommandFinish, because
+  native readers remain: shell_worldquery's EntityGetState (overlaid by the
+  managed route for players), standalone_relays' move type,
+  shell_entityapi's PlayerSetMoveType return and EntityGetEyePosition
+  (EyePosition over the view offset, which GetPlayerShootOrigin also reads),
+  and shell_standalone_player_debug.cpp. Each reader is the exit: move it to the
+  record and the mirror goes.
+
+Follow-ups:
+
+- **IMovementPlayer on the server's CStandalonePlayer.** Nothing on the server
+  runs the loop over it now (MvCurrentCommandNumber answers 0). Dropping the
+  base and the members only the loop read (water jump, swim/step sound
+  times, surface data, ladder normal, stuck, crouch counts) needs a
+  per-use audit of the shared headers the client still compiles.
+- **shell_movement.cpp's server-dead parts** are behind CLIENT_DLL in the
+  shared file (the client's preprocessed TU is byte-identical, __LINE__
+  masked). Moving them to src/client/native is the server-dead-to-client-only
+  ruling's next step.
+- **The client's FL_BASEVELOCITY is 1u<<5** (ClientPlayerPrediction.cs:556)
+  where public/const.h has 1<<24 in the multiplayer block (1<<23 in the
+  other) and the server's ServerCommandRules uses 1<<24. Likely a client
+  prediction bug; needs a fact against const.h.
+- **The client never calls SetAreaState**: the area bits had no wire since T2;
+  T4g deleted the server's copy.
+- **Divergence: damage between commands no longer republishes the movement
+  words** (stock's TakeDamage did not either; the old native SyncToBlob did).
+  The next command publishes them.
+- **A hot reload seeds the record from the published state**, so the ground
+  handle is not restored until the next ground trace.
+- **tools/slot-census.tsv** needs a live regeneration for the retired slots
+  (PlayerRunMove, MoveTraceThrough, PlayerSetSlowMovement, ViewPunch,
+  EntityAddBaseVelocity).
+
 ## The client's sound emit path in C#: follow-ups and divergences
 
 - **CLOSED 2026-10-19: gamesound.h is dead on both sides.** Nothing defines

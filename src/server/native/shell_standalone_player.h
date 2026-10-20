@@ -123,16 +123,6 @@ public:
 		return GetAbsOrigin() + ( OBBMins() + OBBMaxs() ) * 0.5f;
 	}
 
-	// A shove to the view, from an explosion or an env_viewpunch.
-	//
-	// CBasePlayer::ViewPunch's body, which is one compound-assign: the punch is
-	// a VELOCITY on the view angle, and CGameMovement::DecayPunchAngle springs
-	// it back to zero over the following ticks. Stock's two gates are gone
-	// rather than ported -- sv_suppress_viewpunch is declared in
-	// baseplayer_shared.cpp, which server_csharp.vpc evicts, and this player is
-	// never in a vehicle (MvIsInAVehicle is a flat false).
-	void ViewPunch( const QAngle &angleOffset );
-
 	const char *PlayerName() const { return m_szPlayerName; }
 	void SetPlayerName( const char *pName );
 
@@ -142,7 +132,7 @@ public:
 	// the last known command.
 	// plan_server_novalve.md P2.2: the commands C# decoded, planned and queued
 	// for this player, in run order; appended as CUserCmds for the run loop.
-	void QueueDecodedUsercmds( const SourceSharpDecodedUserCmd *pCmds, int nCount );
+	void QueuedUsercmds( int nCount );
 	void RunQueuedCommands();
 
 	// plan_entity.md step 3d. ONE QUEUED COMMAND, BY INDEX, for the managed run
@@ -150,17 +140,8 @@ public:
 	// the ABI slot is a free function by necessity, which is the same reason
 	// step 3e's four movement members are public on CGameMovement.
 	//
-	// THREE STAGES, split exactly where the managed calls were: 0 prepares the
-	// command, 1 moves the player, 2 tears down and publishes. The loop calls
-	// phase 0 between 0 and 1 and phase 1 + the buttons between 1 and 2, which
-	// is where the single native function had them. False for an index this
-	// queue does not have or a stage that is not one of the three.
-	bool RunCommandStage( int nIndex, int nStage );
-
 	// What the managed loop is being asked to run this frame.
-	int  PendingCommandCount() const { return m_PendingCmds.Count(); }
-
-	int  TickBase() const { return m_nTickBase; }
+	int  PendingCommandCount() const { return m_nPendingCmds; }
 
 	// Native state -> blob (9c5); see the definition.
 	void SyncToBlob();
@@ -213,7 +194,7 @@ public:
 	virtual int             MvEntIndex() const OVERRIDE { return EntIndex(); }
 	virtual int             MvCurrentCommandNumber() const OVERRIDE
 	{
-		return m_pCurrentCommand ? m_pCurrentCommand->command_number : 0;
+		return 0;   // the command is the managed loop's (T4g)
 	}
 	virtual bool            MvIsServer() const OVERRIDE { return true; }
 	virtual bool            MvIsAlive() const OVERRIDE { return GetHealth() > 0 && !PlayerState().deadflag; }
@@ -314,6 +295,11 @@ public:
 	// read the player, hold the pointers it built, and write what a command
 	// leaves on the player. Nothing here decides.
 	void ShadowFacts( SourceSharpPlayerShadowFacts *pOut );
+
+	// One managed command's two engine-side halves (plan_server_native_v2
+	// T4g): what the engine's side holds, and the move's result carried out.
+	void CommandFacts( SourceSharpPlayerCommandFacts *pOut );
+	void FinishCommand( const SourceSharpPlayerCommandResult &result );
 	void AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCrouch, IPhysicsPlayerController *pController );
 	void CommitShadow( int nState, bool bAfterCommand );
 
@@ -328,19 +314,6 @@ public:
 	// 94% of a push ran the full-force arm). The decision is
 	// PlayerShadowBodies.TouchedMoveablePhysics; native records the touch list.
 
-	// One entity the move ran into, recorded for managed's touched-physics
-	// decision (the facts' touch list): its handle, and whether it was the
-	// ground at that moment. A fact, not a judgement.
-	void RecordMoveTouch( const CBaseHandle &hTouched )
-	{
-		if ( m_nMoveTouched < SOURCESHARP_PLAYER_TOUCH_MAX )
-		{
-			m_hMoveTouched[ m_nMoveTouched ] = (uint32_t)hTouched.ToInt();
-			if ( hTouched == GroundHandle() )
-				m_fMoveTouchedGround |= 1u << m_nMoveTouched;
-		}
-		m_nMoveTouched++;
-	}
 
 	// What this player is standing on, for the one rule that has to know:
 	// stock's Touch ignores the ground, because leaning on the floor is not
@@ -366,10 +339,6 @@ protected:
 	virtual void OnManagedKilled( IGameEntity *pAttacker ) OVERRIDE;
 
 private:
-	// Stage 1's body -- see RunCommandStage.
-	bool RunCommandMove( ss::CUserCmd *pCmd );
-
-
 	// Which hull is in the solver. Stock's SetVCollisionState (player.cpp:8620)
 	// with VPhysicsSwapObject dropped -- see the definition for why the shell's
 	// own m_pPhysics is deliberately left NULL.
@@ -436,17 +405,10 @@ private:
 	// when the environment that owned them has gone.
 	IPhysicsEnvironment       *m_pShadowEnv;
 	int                       m_nVCollisionState;
-	// The last command's touch list (RecordMoveTouch), cleared where stock
-	// clears m_touchedPhysObject.
-	int32_t                   m_nMoveTouched;
-	uint32_t                  m_fMoveTouchedGround;
-	uint32_t                  m_hMoveTouched[ SOURCESHARP_PLAYER_TOUCH_MAX ];
-
-	// The command clock and queue.
-	int            m_nTickBase;
+	// The frame guard and how many commands are waiting: the commands, their
+	// clock and the tick base are the managed command loop's (T4g).
 	int            m_nSimulationTick;
-	ss::CUserCmd  *m_pCurrentCommand;
-	CUtlVector< ss::CUserCmd > m_PendingCmds;
+	int            m_nPendingCmds;
 
 	char           m_szPlayerName[ 128 ];
 };

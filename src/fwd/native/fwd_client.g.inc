@@ -1612,7 +1612,7 @@ static void *const s_ShimPrecacheSlots[] = {
 static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 1 };
 
 //-----------------------------------------------------------------------------
-// ShimMovementServer: 12 forwarder(s) over IShimMovementServer.
+// ShimMovementServer: 15 forwarder(s) over IShimMovementServer.
 //-----------------------------------------------------------------------------
 // void IShimMovement::MoveTrace( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult * )
 static void SSFwd_ShimMovementServer_MoveTrace( IShimMovementServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6 ) { self->MoveTrace( a0, a1, a2, a3, a4, a5, a6 ); }
@@ -1622,8 +1622,6 @@ static int32_t SSFwd_ShimMovementServer_MoveEffect( IShimMovementServer *self, i
 static float SSFwd_ShimMovementServer_CurrentGravity( IShimMovementServer *self ) { return self->CurrentGravity(); }
 // void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
 static void SSFwd_ShimMovementServer_RegisterMovementParams( IShimMovementServer *self, const SourceSharpMovementParams * a0 ) { self->RegisterMovementParams( a0 ); }
-// int32_t IShimMovementServer::PlayerRunMove( uint32_t, int32_t, int32_t )
-static int32_t SSFwd_ShimMovementServer_PlayerRunMove( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { return self->PlayerRunMove( a0, a1, a2 ); }
 // int32_t IShimMovementServer::PlayerShadowFacts( uint32_t, SourceSharpPlayerShadowFacts * )
 static int32_t SSFwd_ShimMovementServer_PlayerShadowFacts( IShimMovementServer *self, uint32_t a0, SourceSharpPlayerShadowFacts * a1 ) { return self->PlayerShadowFacts( a0, a1 ); }
 // int32_t IShimMovementServer::PlayerShadowAdopt( uint32_t, void *, void *, void * )
@@ -1634,27 +1632,38 @@ static void SSFwd_ShimMovementServer_PlayerShadowRelease( IShimMovementServer *s
 static void SSFwd_ShimMovementServer_PlayerShadowCommit( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerShadowCommit( a0, a1, a2 ); }
 // int32_t IShimMovementServer::PlayerSetMoveType( uint32_t, int32_t )
 static int32_t SSFwd_ShimMovementServer_PlayerSetMoveType( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { return self->PlayerSetMoveType( a0, a1 ); }
-// void IShimMovementServer::PlayerSetSlowMovement( uint32_t, int32_t )
-static void SSFwd_ShimMovementServer_PlayerSetSlowMovement( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetSlowMovement( a0, a1 ); }
-// void IShimMovementServer::MoveTraceThrough( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult *, void * )
-static void SSFwd_ShimMovementServer_MoveTraceThrough( IShimMovementServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6, void * a7 ) { self->MoveTraceThrough( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// int32_t IShimMovementServer::PlayerCommandBegin( uint32_t, SourceSharpPlayerCommandFacts * )
+static int32_t SSFwd_ShimMovementServer_PlayerCommandBegin( IShimMovementServer *self, uint32_t a0, SourceSharpPlayerCommandFacts * a1 ) { return self->PlayerCommandBegin( a0, a1 ); }
+// void IShimMovementServer::PlayerCommandView( uint32_t, const float *, int32_t )
+static void SSFwd_ShimMovementServer_PlayerCommandView( IShimMovementServer *self, uint32_t a0, const float * a1, int32_t a2 ) { self->PlayerCommandView( a0, a1, a2 ); }
+// void IShimMovementServer::PlayerCommandFinish( uint32_t, const SourceSharpPlayerCommandResult * )
+static void SSFwd_ShimMovementServer_PlayerCommandFinish( IShimMovementServer *self, uint32_t a0, const SourceSharpPlayerCommandResult * a1 ) { self->PlayerCommandFinish( a0, a1 ); }
+// void IShimMovementServer::MoveTraceServer( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult *, void *, uint32_t * )
+static void SSFwd_ShimMovementServer_MoveTraceServer( IShimMovementServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6, void * a7, uint32_t * a8 ) { self->MoveTraceServer( a0, a1, a2, a3, a4, a5, a6, a7, a8 ); }
+// int32_t IShimMovementServer::PlayerFallDamage( uint32_t, float )
+static int32_t SSFwd_ShimMovementServer_PlayerFallDamage( IShimMovementServer *self, uint32_t a0, float a1 ) { return self->PlayerFallDamage( a0, a1 ); }
+// void IShimMovementServer::PlayerSyncEngineSide( uint32_t )
+static void SSFwd_ShimMovementServer_PlayerSyncEngineSide( IShimMovementServer *self, uint32_t a0 ) { self->PlayerSyncEngineSide( a0 ); }
 
 static void *const s_ShimMovementServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveTrace ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_CurrentGravity ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_RegisterMovementParams ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerRunMove ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowFacts ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowAdopt ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowRelease ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowCommit ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetMoveType ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetSlowMovement ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveTraceThrough ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerCommandBegin ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerCommandView ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerCommandFinish ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveTraceServer ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerFallDamage ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSyncEngineSide ),
 };
 
-static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 12 };
+static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 15 };
 
 //-----------------------------------------------------------------------------
 // ShimWorldServer: 4 forwarder(s) over IShimWorldServer.
@@ -1798,7 +1807,7 @@ static void *const s_ShimEntityLifecycleSlots[] = {
 static const SSForwarderTable s_ShimEntityLifecycleTable = { s_ShimEntityLifecycleSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// ShimTransform: 14 forwarder(s) over IShimTransform.
+// ShimTransform: 13 forwarder(s) over IShimTransform.
 //-----------------------------------------------------------------------------
 // void IShimTransform::EntitySetOrigin( uint32_t, const float * )
 static void SSFwd_ShimTransform_EntitySetOrigin( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetOrigin( a0, a1 ); }
@@ -1810,8 +1819,6 @@ static void SSFwd_ShimTransform_EntityTeleport( IShimTransform *self, uint32_t a
 static void SSFwd_ShimTransform_EntityGetVelocity( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetVelocity( a0, a1 ); }
 // void IShimTransform::EntitySetVelocity( uint32_t, const float * )
 static void SSFwd_ShimTransform_EntitySetVelocity( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetVelocity( a0, a1 ); }
-// void IShimTransform::EntityAddBaseVelocity( uint32_t, const float * )
-static void SSFwd_ShimTransform_EntityAddBaseVelocity( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntityAddBaseVelocity( a0, a1 ); }
 // void IShimTransform::EntityGetAngularVelocity( uint32_t, float * )
 static void SSFwd_ShimTransform_EntityGetAngularVelocity( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetAngularVelocity( a0, a1 ); }
 // void IShimTransform::EntitySetAngularVelocity( uint32_t, const float * )
@@ -1835,7 +1842,6 @@ static void *const s_ShimTransformSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityTeleport ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetVelocity ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetVelocity ),
-	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityAddBaseVelocity ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetAngularVelocity ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetAngularVelocity ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetEyePosition ),
@@ -1846,7 +1852,7 @@ static void *const s_ShimTransformSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetBounce ),
 };
 
-static const SSForwarderTable s_ShimTransformTable = { s_ShimTransformSlots, 14 };
+static const SSForwarderTable s_ShimTransformTable = { s_ShimTransformSlots, 13 };
 
 //-----------------------------------------------------------------------------
 // ShimHierarchy: 7 forwarder(s) over IShimHierarchy.
@@ -2014,22 +2020,19 @@ static void *const s_ShimPlayersSlots[] = {
 static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 9 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsServer: 3 forwarder(s) over IShimEffectsServer.
+// ShimEffectsServer: 2 forwarder(s) over IShimEffectsServer.
 //-----------------------------------------------------------------------------
-// void IShimEffectsServer::ViewPunch( const float *, const float *, float, int32_t )
-static void SSFwd_ShimEffectsServer_ViewPunch( IShimEffectsServer *self, const float * a0, const float * a1, float a2, int32_t a3 ) { self->ViewPunch( a0, a1, a2, a3 ); }
 // void IShimEffectsServer::BloodEffect( const float *, const float *, int32_t, float, int32_t, int32_t )
 static void SSFwd_ShimEffectsServer_BloodEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5 ) { self->BloodEffect( a0, a1, a2, a3, a4, a5 ); }
 // int32_t IShimEffectsServer::TempEntBuild( const void *, int32_t, SourceSharpTeBuiltTable_t * )
 static int32_t SSFwd_ShimEffectsServer_TempEntBuild( IShimEffectsServer *self, const void * a0, int32_t a1, SourceSharpTeBuiltTable_t * a2 ) { return self->TempEntBuild( a0, a1, a2 ); }
 
 static void *const s_ShimEffectsServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ViewPunch ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntBuild ),
 };
 
-static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 3 };
+static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // ShimDebugOverlay: 4 forwarder(s) over IShimDebugOverlay.

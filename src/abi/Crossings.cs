@@ -171,7 +171,9 @@ public enum CrossingOp
     ClientStandaloneRemoved = 77,
     ClientStandaloneDormancyChanged = 78,
     ServerSelectSpawnPoint = 79,
-    ServerOnPlayerSurfaceChanged = 80,
+    /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
+    /// <remarks>Value 80 since plan_server_native_v2 T4g retired ServerOnPlayerSurfaceChanged (it was 394): the movement's surface change reaches the module from the managed movement world, not across from native, so the ops stay contiguous.</remarks>
+    ServerAreaPortalVisibility = 80,
     ClientNetStateFieldOffset = 81,
     ClientNetStateFieldBits = 82,
     ServerReloadSave = 83,
@@ -361,12 +363,9 @@ public enum CrossingOp
     ServerNetStateFieldOffset = 122,
     ServerNetStateFieldBits = 123,
 
-    /// <summary>
-    /// plan_engineapi_vtables E17: the server's ProcessMovement, counted by
-    /// PlayerCommandsBinding since the shared thunk became the client's
-    /// (<see cref="ClientMoveProcessMovement"/>).
-    /// </summary>
-    ServerMoveProcessMovement = 124,
+    /// <summary>IManagedTraceFilter::ShouldHitEntity: the engine asks the managed trace filter about one candidate entity, mid-trace, once per candidate per server trace (plan_server_native_v2 T4f).</summary>
+    /// <remarks>Value 124 since plan_server_native_v2 T4g retired ServerMoveProcessMovement (it was 395): the server's movement loop is called from the managed command loop, not across from native, so the ops stay contiguous.</remarks>
+    ServerTraceFilterShouldHitEntity = 124,
 
     /// <summary>
     /// The client's three entries from native (plan_side_entries SE1), beside
@@ -977,10 +976,6 @@ public enum CrossingOp
     ClientSaveWriteFields = 392,
     /// <summary>IManagedSaveRestoreClient::SaveReadFields: one DECALLIST or MUSICLIST struct read back, one per decal and song per load (the client save codec). CLIENT ONLY.</summary>
     ClientSaveReadFields = 393,
-    /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
-    ServerAreaPortalVisibility = 394,
-    /// <summary>IManagedTraceFilter::ShouldHitEntity: the engine asks the managed trace filter about one candidate entity, mid-trace, once per candidate per server trace (plan_server_native_v2 T4f).</summary>
-    ServerTraceFilterShouldHitEntity = 395,
 }
 
 /// <summary>

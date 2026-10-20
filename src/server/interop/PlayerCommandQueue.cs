@@ -364,12 +364,12 @@ public sealed unsafe class PlayerCommandQueue
     /// The <c>PlayerRunCommands</c> crossing: the frame's queue, run.
     ///
     /// <para>
-    /// ONE CROSSING FOR THE WHOLE QUEUE. Per command it drives native's three
-    /// stages (the <c>PlayerRunMove</c> slot) and puts the sink's calls
-    /// between them, in the places the single native function had them:
-    /// prepare, phase 0, move, phase 1, buttons, finish-and-publish. Every
-    /// split is argued in <c>PlayerRunMove</c>'s comment in
-    /// <c>sourcesharp.h</c>.
+    /// ONE CROSSING FOR THE WHOLE QUEUE. Per command it drives the command's
+    /// three stages (<see cref="ServerPlayerCommands"/>, managed since
+    /// plan_server_native_v2 T4g; native's <c>PlayerRunMove</c> stages before)
+    /// and puts the sink's calls between them, in the places the single native
+    /// function had them: prepare, phase 0, move, phase 1, buttons,
+    /// finish-and-publish.
     /// </para>
     ///
     /// <para>
@@ -386,12 +386,11 @@ public sealed unsafe class PlayerCommandQueue
     /// <c>sourcesharp_player_shadow</c>, read by the caller off its own side's
     /// convar (plan_abi_hotreload D7: it was the static <c>PlayerShadow.Switch</c>).
     /// </param>
-    public int Run(EntityHandle player, int nativeCount, PlayerRunMoveStages stages,
-                          ISideModule? module, IServerModule? serverModule, bool shadowEnabled)
-        => Run(player, nativeCount, new ModuleSink(module, serverModule), stages.RunMove,
-               shadowEnabled, stages.Api);
+    internal int Run(EntityHandle player, int nativeCount, PlayerCommandStage stage,
+                     EngineSide? side, ISideModule? module, IServerModule? serverModule, bool shadowEnabled)
+        => Run(player, nativeCount, new ModuleSink(module, serverModule), stage, shadowEnabled, side);
 
-    /// <inheritdoc cref="Run(EntityHandle,int,PlayerRunMoveStages,ISideModule,IServerModule,bool)"/>
+    /// <inheritdoc cref="Run(EntityHandle,int,PlayerCommandStage,EngineSide,ISideModule,IServerModule,bool)"/>
     /// <param name="sink">
     /// The per-command decisions, narrowed to the two the loop actually makes.
     /// <see cref="ModuleSink"/> is the shipped one and forwards to the side's
@@ -399,8 +398,8 @@ public sealed unsafe class PlayerCommandQueue
     /// sink neither boxes nor allocates on a path that runs every frame.
     /// </param>
     /// <param name="runMove">
-    /// How to reach native for one command's stage —
-    /// <see cref="PlayerRunMoveStages.RunMove"/> in the shipped path.
+    /// One command's stage — <see cref="SourceSharp.Server.Interop.ServerPlayerCommands.Stage"/>
+    /// in the shipped path.
     ///
     /// <para>
     /// A PARAMETER AND NOT A FIELD. The order this loop puts the decisions in
@@ -415,7 +414,7 @@ public sealed unsafe class PlayerCommandQueue
     /// <param name="side">The side whose shadow steps; null steps none (a fact's
     /// loop, which has no engine).</param>
     internal int Run<TSink>(EntityHandle player, int nativeCount, TSink sink,
-                                   Func<EntityHandle, int, int, int> runMove,
+                                   PlayerCommandStage runMove,
                                    bool shadowEnabled = true, EngineSide? side = null)
         where TSink : IPlayerCommandSink
     {
@@ -441,12 +440,13 @@ public sealed unsafe class PlayerCommandQueue
             // runs AFTER it because that is where the native loop ran it, and a
             // phase 0 before it would see no current command and the previous
             // command's seed.
-            if (runMove(player, i, 0) == 0)
+            if (runMove(player, i, 0, in cmd) == 0)
             {
-                // The refusal PlayerRunMove documents. Stopping is right: every
-                // later index in this queue names a command native does not
-                // have either, and running the module's per-command decisions
-                // for a move that did not happen is worse than dropping them.
+                // The player is not there to run it (PlayerCommandBegin found
+                // no player). Stopping is right: every later command in this
+                // queue is the same player's, and running the module's
+                // per-command decisions for a move that did not happen is worse
+                // than dropping them.
                 _log.Warning($"[SourceSharp] native refused player command {i} of {count}; "
                             + "the rest of this queue is dropped.\n");
                 break;
@@ -459,7 +459,7 @@ public sealed unsafe class PlayerCommandQueue
             sink.Command(player, in cmd, 0);
 
             // Stage 1: the move.
-            runMove(player, i, 1);
+            runMove(player, i, 1, in cmd);
 
             // Phase 1 — RunPostThink's moment: the command has moved the player
             // and whatever fires from where they NOW stand aims right.
@@ -470,7 +470,7 @@ public sealed unsafe class PlayerCommandQueue
 
             // Stage 2: the teardown and the publish, after the decisions, which
             // is where the native loop had them.
-            runMove(player, i, 2);
+            runMove(player, i, 2, in cmd);
 
             // AND THE SHADOW FOLLOWS THE PLAYER, which is where stock puts it
             // too: CBasePlayer::PhysicsSimulate calls UpdateVPhysicsPosition
@@ -633,6 +633,13 @@ public sealed unsafe class PlayerCommandQueue
 /// would have made the order checkable only against a thirty-method double.
 /// </para>
 /// </summary>
+/// <summary>
+/// One command's stage (0 the prepare, 1 the move, 2 the finish), for the
+/// command <paramref name="cmd"/> at <paramref name="index"/> of the queue.
+/// Answers 0 to refuse, which stage 0 uses to stop the queue.
+/// </summary>
+public delegate int PlayerCommandStage(EntityHandle player, int index, int stage, in UserCmd cmd);
+
 public interface IPlayerCommandSink
 {
     /// <summary>

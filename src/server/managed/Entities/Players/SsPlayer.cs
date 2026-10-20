@@ -58,14 +58,20 @@ public sealed class SsPlayer : ScriptedEntity
     // for this player goes when it does. Null for a player built without one.
     private readonly PlayerCommandQueue? _commands;
 
+    // This composition's players' movement state (plan_server_native_v2 T4g),
+    // whose record for this player goes when it does.
+    private readonly SourceSharp.Server.Interop.ServerPlayerMoves? _moves;
+
     public SsPlayer(IEngineEntityRender render, IEnginePlayers players, PhysicsDamageQueue impacts,
                     FluidTouches fluid, IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
                     IEngineHost? host = null, DamageInflictors? inflictors = null,
                     IPlayerShadows? shadows = null, IGameRules? rules = null, ConVarRegistry? convars = null,
                     ModelDescriptors? models = null, IGameClock? clock = null,
-                    SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null)
+                    SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null,
+                    SourceSharp.Server.Interop.ServerPlayerMoves? moves = null)
     {
+        _moves = moves;
         _shadows = shadows;
         _host = host;
         _inflictors = inflictors;
@@ -319,6 +325,7 @@ public sealed class SsPlayer : ScriptedEntity
     public override void OnRemoved()
     {
         _commands?.Forget(Handle);
+        _moves?.Forget(Handle);
         _removals?.PlayerRemoved(Entities.GetIndex(Handle));
     }
 

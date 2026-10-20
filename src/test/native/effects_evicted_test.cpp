@@ -170,11 +170,12 @@ const char *const kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp
 // file names it, which is this family's rule that an anchor must not be implied
 // by the thing it guards.
 // RE-POINTED AGAIN in plan_server_native_v2 T2: RadiusDamage went (no managed
-// caller; its sound-ledger arm is BlastSweep's now). ss::SetPlayerSurface is
-// the same kind of row: in this file, live (shell_movement's surface funnel),
-// and named by no assertion here.
+// caller; its sound-ledger arm is BlastSweep's now). RE-POINTED in
+// plan_server_native_v2 T4g: ss::SetPlayerSurface went with the server's native
+// command path; UTIL_BloodSpray is the same kind of row: in this file, live
+// (the managed env_blood and bullet impacts), and named by no assertion here.
 const File_t kOrphans = { "sourcesharp/game/server/shell_absent.cpp",
-	"void ss::SetPlayerSurface(" };
+	"void UTIL_BloodSpray(" };
 // The world's precache, which took EffectsPrecache's six sounds (T4e).
 const File_t kWorldPrecache = { "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs",
 	"private void WorldPrecache()" };

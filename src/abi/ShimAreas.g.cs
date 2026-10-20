@@ -269,14 +269,17 @@ internal sealed unsafe class MovementServerArea : MovementArea
         _shim = shim;
     }
 
-    public int PlayerRunMove(uint a0, int a1, int a2) { return _shim.Vt->PlayerRunMove(_shim.Self, a0, a1, a2); }
     public int PlayerShadowFacts(uint a0, PlayerShadowFacts* a1) { return _shim.Vt->PlayerShadowFacts(_shim.Self, a0, a1); }
     public int PlayerShadowAdopt(uint a0, nint a1, nint a2, nint a3) { return _shim.Vt->PlayerShadowAdopt(_shim.Self, a0, (void*)a1, (void*)a2, (void*)a3); }
     public void PlayerShadowRelease(uint a0) { _shim.Vt->PlayerShadowRelease(_shim.Self, a0); }
     public void PlayerShadowCommit(uint a0, int a1, int a2) { _shim.Vt->PlayerShadowCommit(_shim.Self, a0, a1, a2); }
     public int PlayerSetMoveType(uint a0, int a1) { return _shim.Vt->PlayerSetMoveType(_shim.Self, a0, a1); }
-    public void PlayerSetSlowMovement(uint a0, int a1) { _shim.Vt->PlayerSetSlowMovement(_shim.Self, a0, a1); }
-    public void MoveTraceThrough(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6, nint a7) { _shim.Vt->MoveTraceThrough(_shim.Self, a0, a1, a2, a3, a4, a5, a6, (void*)a7); }
+    public int PlayerCommandBegin(uint a0, PlayerCommandFacts* a1) { return _shim.Vt->PlayerCommandBegin(_shim.Self, a0, a1); }
+    public void PlayerCommandView(uint a0, float* a1, int a2) { _shim.Vt->PlayerCommandView(_shim.Self, a0, a1, a2); }
+    public void PlayerCommandFinish(uint a0, PlayerCommandResult* a1) { _shim.Vt->PlayerCommandFinish(_shim.Self, a0, a1); }
+    public void MoveTraceServer(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6, nint a7, uint* a8) { _shim.Vt->MoveTraceServer(_shim.Self, a0, a1, a2, a3, a4, a5, a6, (void*)a7, a8); }
+    public int PlayerFallDamage(uint a0, float a1) { return _shim.Vt->PlayerFallDamage(_shim.Self, a0, a1); }
+    public void PlayerSyncEngineSide(uint a0) { _shim.Vt->PlayerSyncEngineSide(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -364,7 +367,6 @@ internal sealed unsafe class TransformArea
     public void EntityTeleport(uint a0, float* a1, float* a2, int a3) { _shim.Vt->EntityTeleport(_shim.Self, a0, a1, a2, a3); }
     public void EntityGetVelocity(uint a0, float* a1) { _shim.Vt->EntityGetVelocity(_shim.Self, a0, a1); }
     public void EntitySetVelocity(uint a0, float* a1) { _shim.Vt->EntitySetVelocity(_shim.Self, a0, a1); }
-    public void EntityAddBaseVelocity(uint a0, float* a1) { _shim.Vt->EntityAddBaseVelocity(_shim.Self, a0, a1); }
     public void EntityGetAngularVelocity(uint a0, float* a1) { _shim.Vt->EntityGetAngularVelocity(_shim.Self, a0, a1); }
     public void EntitySetAngularVelocity(uint a0, float* a1) { _shim.Vt->EntitySetAngularVelocity(_shim.Self, a0, a1); }
     public void EntityGetEyePosition(uint a0, float* a1) { _shim.Vt->EntityGetEyePosition(_shim.Self, a0, a1); }
@@ -490,7 +492,6 @@ internal sealed unsafe class EffectsServerArea
 
     internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim) { _shim = shim; }
 
-    public void ViewPunch(float* a0, float* a1, float a2, int a3) { _shim.Vt->ViewPunch(_shim.Self, a0, a1, a2, a3); }
     public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Vt->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Vt->TempEntBuild(_shim.Self, a0, a1, a2); }
 }

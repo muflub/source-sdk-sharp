@@ -77,20 +77,9 @@ public unsafe class SideMovementEngineTests : IDisposable
     // The server's movement runner and the command loop beside it.
     //-------------------------------------------------------------------------
 
-    [Fact]
-    public void EachRunnersCommandStagesRunOnItsOwnSide()
-    {
-        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerFwd.PlayerRunMove),
-            (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveSeven,
-            (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveNine);
-
-        var mine = new PlayerRunMoveStages(new MovementRunner(new ModuleEngine(first)));
-        var theirs = new PlayerRunMoveStages(new MovementRunner(new ModuleEngine(second)));
-
-        Assert.Equal(7, mine.RunMove(Player, 0, 1));
-        Assert.Equal(9, theirs.RunMove(Player, 0, 1));
-        Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
-    }
+    // Each runner's command stages asking their own side is
+    // ServerCommandSideTests' since the stages are managed
+    // (plan_server_native_v2 T4g); PlayerRunMove's slot is retired.
 
     // The world's point contents go through each side's own IEngineTrace
     // (2026-10-19), where the MovePointContents slot answered.
@@ -199,48 +188,6 @@ public unsafe class SideMovementEngineTests : IDisposable
         Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
     }
 
-    [Fact]
-    public void TheCommandLoopRunsItsStagesAndShadowOnItsRunnersSide()
-    {
-        // Both slots live on both roots; the second side answers differently
-        // and must never be asked.
-        _first.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerRunMove),
-                    (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveOne);
-        _first.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerShadowFacts),
-                    (nint)(delegate* unmanaged<void*, uint, void*, int>)&ProbeFirst);
-        _second.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerRunMove),
-                     (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveNine);
-        _second.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerShadowFacts),
-                     (nint)(delegate* unmanaged<void*, uint, void*, int>)&ProbeSecond);
-        s_firstCalls = s_secondCalls = 0;
-
-        EngineSide firstSide = Attached(_first, Side.Server);
-        var mine = new PlayerRunMoveStages(new MovementRunner(new ModuleEngine(firstSide)));
-        _ = new MovementRunner(new ModuleEngine(Attached(_second, Side.Server)));
-        _queue.Shadow.Bodies = BodiesOver(firstSide);
-
-        var player = new EntityHandle(0x0D8C_0001u);
-        _queue.Forget(player);
-        try
-        {
-            UserCmd[] cmds = [new() { StructSize = (uint)sizeof(int), CommandNumber = 1 }];
-            int[] order = new int[256];
-            fixed (UserCmd* pCmds = cmds)
-            fixed (int* pOrder = order)
-                Assert.True(_queue.Queue(player, pCmds, 1, 1, 0, pOrder, order.Length) == 1,
-                            "one command was queued");
-
-            Assert.Equal(1, _queue.Run(player, 1, mine, null, null, shadowEnabled: true));
-        }
-        finally
-        {
-            _queue.Forget(player);
-        }
-
-        // Three stages and one shadow probe, all on the first side.
-        Assert.Equal((4, 0), (s_firstCalls, s_secondCalls));
-    }
-
     //-------------------------------------------------------------------------
     // A networked state's blob, bound on its registry's side.
     //-------------------------------------------------------------------------
@@ -334,15 +281,6 @@ public unsafe class SideMovementEngineTests : IDisposable
         s_secondCalls++;
         return null;
     }
-
-    [UnmanagedCallersOnly]
-    private static int RunMoveSeven(void* self, uint player, int index, int stage) { s_firstCalls++; return 7; }
-
-    [UnmanagedCallersOnly]
-    private static int RunMoveOne(void* self, uint player, int index, int stage) { s_firstCalls++; return 1; }
-
-    [UnmanagedCallersOnly]
-    private static int RunMoveNine(void* self, uint player, int index, int stage) { s_secondCalls++; return 9; }
 
     [UnmanagedCallersOnly]
     private static int ContentsSeven(void* self, void* point, void* entity) { s_firstCalls++; return 7; }

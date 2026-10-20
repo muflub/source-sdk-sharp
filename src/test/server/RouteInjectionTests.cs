@@ -107,17 +107,14 @@ public class RouteInjectionTests
     /// Two compositions' bindings each read their OWN switch: a run through one
     /// asks that one's reader and never the other's.
     /// </summary>
-    private static MovementRunner ServerRunner()
-        => new(new ModuleEngine(new EngineSide(Side.Server)));
-
     [Fact]
     public void EachCompositionsRunReadsItsOwnShadowSwitch()
     {
         int askedFirst = 0, askedSecond = 0;
         var first = new SourceSharp.Server.Interop.PlayerCommandsBinding(new Crossings(), new RecordingLog(), 
-            null!, null!, ServerRunner(), new PlayerCommandQueue(new RecordingLog()), () => { askedFirst++; return false; });
+            null!, null!, new PlayerCommandQueue(new RecordingLog()), () => { askedFirst++; return false; });
         var second = new SourceSharp.Server.Interop.PlayerCommandsBinding(new Crossings(), new RecordingLog(), 
-            null!, null!, ServerRunner(), new PlayerCommandQueue(new RecordingLog()), () => { askedSecond++; return true; });
+            null!, null!, new PlayerCommandQueue(new RecordingLog()), () => { askedSecond++; return true; });
 
         var player = new EntityHandle(0x7FFF_0FEEu);
         try

@@ -274,12 +274,12 @@ TEST( ShellGameMovement, TheManagedSideHasNotStartedArmDoesNotReturn )
 	//     if ( !pApi || !pApi->MoveProcessMovement || !pState )
 	//         return false;
 	// and the caller then ran stock's PlayerMove()/FinishMove().
-	// Since plan_engineapi_vtables E17 the server asks its managed-built
-	// IManagedPlayerCommands, and since plan_client_vtables CE8 the client
-	// its IManagedPredictionClient; both arms share the one test, and fall
-	// into the same fatal.
+	// Since plan_client_vtables CE8 the client asks its
+	// IManagedPredictionClient; the crossing is the client's alone since
+	// plan_server_native_v2 T4g (the server's commands run in managed and
+	// the server's 0 arm is SourceSharp_MovementRequireManaged's fatal).
 	EXPECT_TRUE( Has( Shim(),
-		"#endif"
+		"IManagedPredictionClient*pCommands=ManagedPredictionClient();"
 		"if(!pCommands||!pState)"
 		"SourceSharp_MovementFatal(kMovementFatal_NoManagedSide,0);" ) )
 		<< "the movement boundary answers something for a managed side that has "
@@ -543,12 +543,14 @@ TEST( ShellGameMovement, TheReportCountsTheOneCrossingThatHasACaller )
 
 	// EVERY indexing of the counter array, counted, so a restored forwarder that
 	// carries its own counter is caught by this fact as well as by the one
-	// above. Two sites, and they are the two arms of one measurement: the
-	// server's crossing bumps it, and the client's bracket bumps it for the
-	// replay that called managed code directly.
-	EXPECT_EQ( 2, CountOf( Shim(), "MoveCounters()[" ) )
+	// above. Three sites, and they are the arms of one measurement: the
+	// client's native crossing (the client's alone since plan_server_native_v2
+	// T4g) bumps it, the client's bracket bumps it for the replay that called
+	// managed code directly, and the server's managed command loop bumps it
+	// through SourceSharp_MoveNoteServerCommand (PlayerCommandFinish).
+	EXPECT_EQ( 3, CountOf( Shim(), "MoveCounters()[" ) )
 		<< "the number of places that bump a movement counter has changed.";
-	EXPECT_EQ( 2, CountOf( Shim(), "MoveCounters()[kMoveProcessMovement]++;" ) )
+	EXPECT_EQ( 3, CountOf( Shim(), "MoveCounters()[kMoveProcessMovement]++;" ) )
 		<< "something other than the whole-loop crossing bumps a movement counter.";
 
 	// And the refusal half, which is the other thing the report prints and is

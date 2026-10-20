@@ -80,6 +80,8 @@ public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, Sour
     /// <inheritdoc/>
     public int EntityCount() => _fwd->GetEntityCount(_self);
 
+    public float Time() => _fwd->Time(_self);
+
     /// <inheritdoc/>
     public int PlayerUserId(int entIndex)
     {

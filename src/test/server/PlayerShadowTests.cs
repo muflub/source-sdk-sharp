@@ -326,7 +326,7 @@ public unsafe class PlayerShadowTests
             Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "managed",
                          "SourceSharp.Server.Interop", "PlayerCommandQueue.cs")));
 
-        int stage2 = loop.IndexOf("runMove(player, i, 2);", StringComparison.Ordinal);
+        int stage2 = loop.IndexOf("runMove(player, i, 2, in cmd);", StringComparison.Ordinal);
         int step = loop.IndexOf("Shadow.Step(side, player, i, shadowEnabled);", StringComparison.Ordinal);
 
         Assert.True(stage2 >= 0, "stage 2 is still driven from the managed loop");
@@ -700,44 +700,29 @@ public unsafe class PlayerShadowTests
     }
 
     /// <summary>
-    /// <b>STOCK'S m_touchedPhysObject IS PORTED, AND IT IS NOT A DETAIL.</b>
-    ///
-    /// <para>
-    /// Both arms of <c>PostThinkVPhysics</c> that soften the shove are gated on
-    /// it. Measured with the controller's own <c>IsInContact()</c> standing in
-    /// for it, it was true on 359 of 5760 updates, so 94% of a push ran the
-    /// full-force arm and the gate's crate outran the player pushing it — 119
-    /// units of crate against 74 of player. With the flag ported, the same four
-    /// rounds read 66-68 units of crate every time.
-    /// </para>
+    /// The move's touch list is RECORDED by the movement's world and judged by
+    /// PlayerShadowBodies (PlayerShadowBodiesTests hold the judgement, stock's
+    /// four tests and the ground). It was the native move helper's
+    /// (CStandaloneMoveHelper::AddToTouched -> RecordMoveTouch) until
+    /// plan_server_native_v2 T4g made the server's commands managed: the world
+    /// keeps stock's one-report-per-entity dedupe and asks nothing else; the
+    /// clear at a command's start is ServerPlayerCommandsTests'.
     /// </summary>
     [Fact]
-    public void TheTouchListIsClearedAtTheStartOfEveryCommand()
+    public void TheMovesWorldRecordsItsTouchesAndDecidesNothing()
     {
-        var clear = PlayerCode.IndexOf("m_nMoveTouched = 0;", StringComparison.Ordinal);
-
-        Assert.True(clear >= 0, "the per-command clear is still there");
-        Assert.True(clear < PlayerCode.IndexOf("m_pCurrentCommand = ucmd;", StringComparison.Ordinal),
-            "and it happens BEFORE the command is adopted, which is where stock "
-          + "clears m_touchedPhysObject (player.cpp:3801, the first line of PlayerRunCommand)");
-    }
-
-    /// <summary>
-    /// The move helper's touch list is RECORDED natively and judged in managed
-    /// (PlayerShadowBodiesTests hold the judgement, stock's four tests and the
-    /// ground). Native asking IsMoveable() again would be the decision back.
-    /// </summary>
-    [Fact]
-    public void NativeRecordsTheMovesTouchesAndDecidesNothing()
-    {
-        var addBody = Regex.Match(PlayerCode,
-            @"virtual bool AddToTouched\( const CGameTrace &tr, const Vector &impactvelocity \) OVERRIDE\s*\{(.*?)\n\t\}",
+        string world = AbiParityTests.CodeOnly(File.ReadAllText(
+            RepoLayout.Repo("src", "server", "interop", "ServerMoveWorld.cs")));
+        var addBody = Regex.Match(world,
+            @"public void AddToTouched\(in MoveTrace trace, in Vector velocity\)\s*\{(.*?)\n    \}",
             RegexOptions.Singleline);
 
-        Assert.True(addBody.Success, "the move helper still notes what it ran into");
-        Assert.Contains("RecordMoveTouch(", addBody.Groups[1].Value);
+        Assert.True(addBody.Success, "the world still notes what the move ran into");
+        Assert.Contains("_touchList.Contains(hit)", addBody.Groups[1].Value);
+        Assert.Contains("Host?.RecordTouch(hit)", addBody.Groups[1].Value);
+        Assert.DoesNotContain("IsMoveable", world);
         Assert.DoesNotContain("IsMoveable", PlayerCode);
-        Assert.DoesNotContain("NoteTouchedPhysics", PlayerCode);
+        Assert.DoesNotContain("RecordMoveTouch", PlayerCode);
     }
 
     /// <summary>

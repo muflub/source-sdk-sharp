@@ -209,3 +209,20 @@ void SourceSharpPlayerSync_Write( unsigned char *pBlob,
 	WriteVec( pBlob, fields.nLadderNormal,  pPlayer->MvLadderNormal() );
 	WriteVec( pBlob, fields.nWaterJumpVel,  pPlayer->MvWaterJumpVel() );
 }
+
+#ifndef CLIENT_DLL
+//-----------------------------------------------------------------------------
+// The server's engine side -> blob (plan_server_native_v2 T4g).
+//-----------------------------------------------------------------------------
+void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
+                                            const SourceSharpPlayerFields_t &fields,
+                                            const Vector &vecOrigin, int nHealth, bool bAlive )
+{
+	if ( !pBlob || !fields.IsCurrent() )
+		return;
+
+	WriteI32( pBlob, fields.nHealth, nHealth );
+	SourceSharpPayload_WritePacked( pBlob, fields.Alive, bAlive ? 1u : 0u );
+	WriteVec( pBlob, fields.nOrigin, vecOrigin );
+}
+#endif

@@ -666,8 +666,11 @@ TEST( CppAliasShardT3, TheCloseWaveTookTheShimsDeadArmsWhole )
 	const std::string strPlayer = CodeOf( kShellPlayerS );
 	ASSERT_FALSE( strPlayer.empty() ) << kShellPlayerS << " did not open.";
 
-	ASSERT_TRUE( Has( strPlayer, "IsWorldEntity( const CBaseHandle &handle )" ) )
-		<< kShellPlayerS << " no longer defines IsWorldEntity; the absences"
+	// The move helper's IsWorldEntity went with the server's native command
+	// path (plan_server_native_v2 T4g); the spawn is what proves the file is
+	// still the player's, so the absences below prove something.
+	ASSERT_TRUE( Has( strPlayer, "void CStandalonePlayer::Spawn()" ) )
+		<< kShellPlayerS << " no longer defines the player's spawn; the absences"
 		   " below would prove nothing.";
 	EXPECT_EQ( 0, GuardCount( kShellPlayerS ) )
 		<< kShellPlayerS << " carries a `#ifndef SS_CBASEENTITY_ALIAS` again.";
@@ -930,11 +933,9 @@ TEST( CppAliasShardT3, TheServerIsWorldEntityArmedArmMatchesItsClientTwin )
 		<< strAnswer << "`. It is the ORIGINAL of the server's armed arm; if it"
 		   " changed, the server's copy is now wrong and this test is what says so.";
 
-	EXPECT_TRUE( Has( strServer, strAnswer ) )
-		<< "the SERVER CStandaloneMoveHelper::IsWorldEntity's armed arm no longer"
-		   " matches its client twin's answer. CBaseEntity::Instance( 0 ) is a"
-		   " static of the doomed class and cannot be the armed answer.";
-
+	// THE SERVER TWIN IS GONE (plan_server_native_v2 T4g): the server's move
+	// helper went with its native command path, and the managed movement world
+	// asks no IsWorldEntity. The client's line is what is left to pin.
 	// THE SDK ARM IS GONE, AND WHAT THE CLAUSE HERE USED TO BUY IS BOUGHT
 	// BETTER BY ITS ABSENCE.
 	//
@@ -964,9 +965,6 @@ TEST( CppAliasShardT3, TheServerIsWorldEntityArmedArmMatchesItsClientTwin )
 	// above is an absence; this is what stops it passing over a file whose
 	// IsWorldEntity was deleted outright.
 	bool bFound = false;
-	EXPECT_EQ( ARM_ALWAYS, ArmOfFirst( kShellPlayerS, strAnswer.c_str(), &bFound ) );
-	EXPECT_TRUE( bFound )
-		<< "the server's armed answer is gone from " << kShellPlayerS;
 	EXPECT_EQ( ARM_ALWAYS, ArmOfFirst( kShellPlayerC, strAnswer.c_str(), &bFound ) );
 	EXPECT_TRUE( bFound )
 		<< "the client twin's answer is gone from " << kShellPlayerC;

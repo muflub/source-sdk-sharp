@@ -34,7 +34,6 @@
 #include "shell_standalone_class.h"
 #include "shell_standalone_player.h"
 #include "standalone_movetype.h"
-#include "standalone_basevelocity.h"
 #include "standalone_relays.h"
 #include "said_once_per_id.h"
 #include "sourcesharp.h"
@@ -371,158 +370,13 @@ int32_t SourceSharp_EntityGetState( uint32_t hEntity, int32_t *pOutMoveType )
 // 2026-10-12): EntityPhysicsMotion.ApplyForceCenter, through PhysicsObjectVtbl.
 // Its slot left with it.
 
-//-----------------------------------------------------------------------------
-// Shoving a player.
-//
-// Base velocity is the engine's "carried along by something" channel — a
-// conveyor, a lift, a blast — and it is the only one that survives the movement
-// code, which recomputes ordinary velocity from the player's input every tick.
-//
-// The ground check is not incidental. A player standing on the floor absorbs an
-// upward push entirely: the move code sees them supported and cancels it. So
-// anything pushing up has to lift them off first, which is what the nudge does.
-//
-// TWO ARMS, and the second one is the fix. This resolved `.pBase` and returned
-// in silence when that was NULL — which is EVERY PLAYER IN THIS MOD, because the
-// standalone player is on the parallel hierarchy. So the one channel that can
-// move a person did nothing for people:
-//
-//   Riders.Ride    -- every func_conveyor and every stationary belt carried
-//                     nobody. Measured at d85f4f0d: a player stood on
-//                     ss_sandbox's belts_belt (speed 100) with the belt
-//                     correctly resolved as their ground and did not move one
-//                     unit in four seconds; ss_ground read base=(0.0 0.0 0.0)
-//                     throughout.
-//   PointPush      -- point_push moved no player, flag set or not.
-//   PhysExplosion  -- env_physexplosion's "push player" shoved nobody.
-//
-// Not one of the three reported anything. That silence is the thing being
-// removed here as much as the no-op is: a subject this cannot find now SAYS SO,
-// once per entity, because a push that quietly does not happen is the exact
-// failure mode that let this survive for as long as the standalone player has
-// existed.
-//
-// The arithmetic is standalone_basevelocity.h, shared by both arms and gtested,
-// because two arms are what drift — one accumulating where the other overwrites,
-// or one releasing the ground where the other does not, shows up only as a belt
-// that works for crates and not for people.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntityAddBaseVelocity( uint32_t hEntity, const float *pVelocityXYZ )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pVelocityXYZ )
-		return;
-
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	const Vector vecRaw( pVelocityXYZ[0], pVelocityXYZ[1], pVelocityXYZ[2] );
-
-	if ( ent.pStandalone )
-	{
-		// Only a MOVEMENT player has this channel on this side. A managed brush
-		// is moved by its own stepper or by the solver, and neither reads base
-		// velocity — so a push aimed at one is not a thing that silently fails,
-		// it is a thing that was never going to work, and it says so.
-		if ( !ent.pStandalone->IsPlayer() )
-		{
-			// NO COMPILED CALLER CAN REACH THIS TODAY, and that is written down
-			// rather than left to be rediscovered. Riders.Ride and PointPush
-			// both filter on MOVETYPE_WALK or _STEP before they push, and
-			// StandaloneMoveType_Report gives a non-player standalone entity
-			// VPHYSICS or NONE and nothing else; PhysExplosion's push arm is
-			// behind the PLAYER flag. So this is a guard against the day one of
-			// those rules changes, not a live message.
-			//
-			// It is here anyway for the reason the view-effects lane gave for
-			// fixing a dead UTIL_ScreenShakeObject: leaving one of two arms
-			// silent is the exact trap that produced the whole NULL-subject
-			// inventory. The branch BELOW is the one that was live and mute --
-			// every player, every tick, for as long as this function has
-			// existed.
-			//
-			// Once per entity, not once per tick: a push field runs at 20Hz and
-			// a belt every frame, so an unconditional Warning here would be the
-			// noise that gets a diagnostic switched off. The set is keyed by
-			// handle, which is what makes "this brush" distinguishable from
-			// "that brush" in a log full of both.
-			static CSaidOncePerId s_SaidNotAPlayer;
-
-			if ( s_SaidNotAPlayer.FirstTime( hEntity ) )
-			{
-				Warning( "[SourceSharp] AddBaseVelocity: '%s' is on the parallel hierarchy "
-				         "and is not a player, so it has no base-velocity channel; the push "
-				         "was ignored. Push a physics object with ApplyForceCenter, or move "
-				         "it.\n",
-				         StandaloneEntity_Name( ent.pStandalone ) );
-			}
-
-			return;
-		}
-
-		CStandalonePlayer *pPlayer = SourceSharp_PlayerOf( ent.pStandalone );
-
-		const bool bUnconsumed = ( pPlayer->MvGetFlags() & FL_BASEVELOCITY ) != 0;
-		const Vector &vecCurrent = pPlayer->MvGetBaseVelocity();
-
-		Vector vecPush;
-		StandaloneBaseVelocity_Accumulate( bUnconsumed,
-		                                   vecCurrent.x, vecCurrent.y, vecCurrent.z,
-		                                   vecRaw.x, vecRaw.y, vecRaw.z,
-		                                   &vecPush.x, &vecPush.y, &vecPush.z );
-
-		if ( StandaloneBaseVelocity_ReleasesGround( vecPush.z,
-		                                            ( pPlayer->MvGetFlags() & FL_ONGROUND ) != 0 ) )
-		{
-			// The ground is an IHandleEntity on this side, which the riders lane
-			// established -- a standalone player's floor is as often a managed
-			// brush as a native one.
-			pPlayer->MvSetGroundEntity( NULL );
-			pPlayer->MvRemoveFlag( FL_ONGROUND );
-
-			Vector vecOrigin = pPlayer->GetAbsOrigin();
-			vecOrigin.z += SOURCESHARP_BASEVELOCITY_UNSTICK;
-			pPlayer->SetAbsOrigin( vecOrigin );
-		}
-
-		pPlayer->MvSetBaseVelocity( vecPush );
-		pPlayer->MvAddFlag( FL_BASEVELOCITY );
-		return;
-	}
-
-	IGameEntity *pEntity = ent.pBase;
-
-	if ( !pEntity )
-	{
-		// Neither arm. The handle named nothing at all -- a removed entity or a
-		// reused slot -- and a push into the void used to be indistinguishable
-		// from a push that landed.
-		static CSaidOncePerId s_SaidNoEntity;
-
-		if ( s_SaidNoEntity.FirstTime( hEntity ) )
-		{
-			Warning( "[SourceSharp] AddBaseVelocity: handle %u resolves to no entity on "
-			         "either hierarchy; the push was ignored.\n", hEntity );
-		}
-
-		return;
-	}
-
-	// THE SDK ARM. Base velocity is SDK movement state end to end -- GetFlags,
-	// GetBaseVelocity, SetBaseVelocity, AddFlag and SetGroundEntity are all
-	// CBaseEntity's own, and igameentity.h's "THE TWELVE" answers GetFlags for
-	// the whole family: FL_* is SDK movement state and never crosses. The
-	// parallel hierarchy's answer is the MvSet*/MvGet* block above, which is
-	// where a standalone player's base velocity already lives.
-	//
-	// ARMED THIS TAIL IS UNREACHABLE, not merely unwritten. ent.pBase comes
-	// from IServerUnknown::GetBaseEntity() (shell_standalone_base.cpp), which
-	// answers only for the SDK's hierarchy -- so armed it is NULL for every
-	// handle and the `!pEntity` warning above is the arm's only exit. That
-	// warning is also the right thing to say there: on a tree with no SDK
-	// entities, a handle that reached this line named nothing on either
-	// hierarchy, which is exactly what it reports.
-}
+// SourceSharp_EntityAddBaseVelocity (shoving a player: a conveyor, a lift, a
+// blast, through the base-velocity channel the movement code does not undo)
+// went in plan_server_native_v2 T4g. A player's base velocity is the managed
+// command loop's record, so the push, the ground release and the unstick nudge
+// are ServerPlayerMovement.AddBaseVelocity's, and so are the once-per-entity
+// refusals for a push at anything else. Its IShimTransform slot left with it,
+// and standalone_basevelocity.h's rule with its one caller.
 
 //-----------------------------------------------------------------------------
 // Damage from an emitter, and the force that comes with it.

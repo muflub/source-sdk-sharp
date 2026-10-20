@@ -570,21 +570,13 @@ public unsafe struct ManagedPlayerCommandsTable
     [SlotHash(0x0d54c15e)]
     public delegate* unmanaged<void*, void*, int, int> Validate;
 
-    // 2: int32_t MoveProcessMovement( SourceSharpMoveState *pState )
-    [SlotHash(0x1134ef71)]
-    public delegate* unmanaged<void*, void*, int> MoveProcessMovement;
-
-    // 3: int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount )
+    // 2: int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount )
     [SlotHash(0xbabc0fee)]
     public delegate* unmanaged<void*, uint, int, int> PlayerRunCommands;
 
-    // 4: int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead )
+    // 3: int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead )
     [SlotHash(0x889faf12)]
     public delegate* unmanaged<void*, uint, void*, int, int, int, int, int, int, void*, int, void*, int> PlayerDecodeCommands;
-
-    // 5: void OnPlayerSurfaceChanged( uint32_t hPlayer, int32_t nGameMaterial )
-    [SlotHash(0x8d177001)]
-    public delegate* unmanaged<void*, uint, int, void> OnPlayerSurfaceChanged;
 }
 
 /// <summary>The table managed writes for <c>IManagedConsoleOutput</c> (<c>SSManagedConsoleOutputTable</c> native-side).</summary>

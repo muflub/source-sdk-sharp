@@ -151,7 +151,6 @@ public:
 	virtual void EntityTeleport( uint32_t hEntity, const float * pOrigin, const float * pAngles, int32_t bZeroVelocity ) = 0;
 	virtual void EntityGetVelocity( uint32_t hEntity, float * pOutXYZ ) = 0;
 	virtual void EntitySetVelocity( uint32_t hEntity, const float * pXYZ ) = 0;
-	virtual void EntityAddBaseVelocity( uint32_t hEntity, const float * pVelocityXYZ ) = 0;
 	virtual void EntityGetAngularVelocity( uint32_t hEntity, float * pOutPYR ) = 0;
 	virtual void EntitySetAngularVelocity( uint32_t hEntity, const float * pPYR ) = 0;
 	virtual void EntityGetEyePosition( uint32_t hEntity, float * pOutXYZ ) = 0;
@@ -286,14 +285,17 @@ public:
 abstract_class IShimMovementServer : public IShimMovement
 {
 public:
-	virtual int32_t PlayerRunMove( uint32_t hPlayer, int32_t nIndex, int32_t nStage ) = 0;
 	virtual int32_t PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts * pOut ) = 0;
 	virtual int32_t PlayerShadowAdopt( uint32_t hPlayer, void * pStand, void * pCrouch, void * pController ) = 0;
 	virtual void PlayerShadowRelease( uint32_t hPlayer ) = 0;
 	virtual void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) = 0;
 	virtual int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) = 0;
-	virtual void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) = 0;
-	virtual void MoveTraceThrough( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter ) = 0;
+	virtual int32_t PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts * pFacts ) = 0;
+	virtual void PlayerCommandView( uint32_t hPlayer, const float * pAnglePYR, int32_t nFixAngle ) = 0;
+	virtual void PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult * pResult ) = 0;
+	virtual void MoveTraceServer( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter, uint32_t * pOutHandles ) = 0;
+	virtual int32_t PlayerFallDamage( uint32_t hPlayer, float flDamage ) = 0;
+	virtual void PlayerSyncEngineSide( uint32_t hPlayer ) = 0;
 };
 
 abstract_class IShimWorldServer
@@ -345,7 +347,6 @@ public:
 abstract_class IShimEffectsServer
 {
 public:
-	virtual void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) = 0;
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
 	// plan_server_native_v2 T4b: one temp entity table, planned in C#, stored
 	// into SendProps (shell_tempents.cpp). The block is length-prefixed

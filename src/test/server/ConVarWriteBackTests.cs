@@ -70,6 +70,21 @@ public class ConVarWriteBackTests
     }
 
     [Fact]
+    public void AFloatIsRoundedThroughADoubleAsAtofRoundsIt()
+    {
+        // The engine's carrier reads (float)atof (convar_port.cpp's
+        // InternalSetValue): the text to the nearest double, then that double
+        // to the nearest float. 1 + 2^-24 + 1.09e-19 is nearest the double
+        // 1 + 2^-24, a tie between 1 and 1 + 2^-23 that rounds to even: 1.
+        // Read straight to a float it is past the tie: 1 + 2^-23. The server's
+        // movement read these convars natively until plan_server_native_v2 T4g,
+        // so a managed read that rounds once is a different friction.
+        var (v, _) = Bound("1.00000005960464477550");
+
+        Assert.True(v.Value == 1.0f, $"(float)atof is 1, the cache read {v.Value:R}");
+    }
+
+    [Fact]
     public void AWriteWhoseCallbackWasDroppedStillReachesTheCache()
     {
         var (v, b) = Bound("800");

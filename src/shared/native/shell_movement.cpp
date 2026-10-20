@@ -51,23 +51,15 @@
 #include "ss_playerlocaldata.h"
 #endif
 #include "imovementplayer.h"
+// The IGameMovement shim and its move helper are the client's: the server's
+// movement and its helper's work are managed (plan_server_native_v2 T4g).
 #ifdef CLIENT_DLL
 #include "igamemovement.h"
-#else
-#include "ss_gamemovement.h"	// the server's CMoveData / IGameMovement are server.so's own
-using ss::CMoveData;
-using ss::IGameMovement;
 #endif
-// The move helper, per side: the client's imovehelper.h; on the server,
-// server.so's own ss::IMoveHelper (ss_movehelper.h; the engine never calls it).
 #ifdef CLIENT_DLL
 #include "imovehelper.h"
 #define SS_MOVE_HELPER() MoveHelper()
 #define SS_PLAYER_ANIM( n ) ( (PLAYER_ANIM)( n ) )
-#else
-#include "ss_movehelper.h"
-#define SS_MOVE_HELPER() ss::MoveHelper()
-#define SS_PLAYER_ANIM( n ) ( n )
 #endif
 #ifdef CLIENT_DLL
 #include "movevars_shared.h"
@@ -100,9 +92,7 @@ using ss::IGameMovement;
 #include "ss_shareddefs.h"
 #include "world_subject.h"        // SourceSharp_IsTheWorld, each side's own
 extern CGlobalVars *gpGlobals;
-float GetCurrentGravity( void );   // movevars_shared.cpp
 #define RUMBLE_FLAGS_NONE        ss::kRumbleFlagsNone
-#define TICK_INTERVAL            ( gpGlobals->interval_per_tick )
 #define VEC_VIEW_SCALED( player )          ( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
 #define VEC_HULL_MIN_SCALED( player )      ( g_pGameRules->GetViewVectors()->m_vHullMin * player->GetModelScale() )
 #define VEC_HULL_MAX_SCALED( player )      ( g_pGameRules->GetViewVectors()->m_vHullMax * player->GetModelScale() )
@@ -113,8 +103,6 @@ float GetCurrentGravity( void );   // movevars_shared.cpp
 // directly rather than given a second inline definition here.
 IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
 #define SS_HANDLE_ENTITY( h ) SourceSharp_EntityFromHandle( h )
-// env_player_surface_trigger's funnel, server.so's own (shell_absent.cpp).
-namespace ss { void SetPlayerSurface( const CBaseHandle &, char ); }
 #include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 #endif
 #ifdef CLIENT_DLL
@@ -339,15 +327,13 @@ static unsigned int *MoveCounters()
 // field is a float or an int32_t, so there is no padding to argue about.
 COMPILE_TIME_ASSERT( sizeof( SourceSharpMoveState ) == 147 * 4 );
 
+// THE CLIENT'S ALONE since plan_server_native_v2 T4g: the server's commands
+// run in managed (ServerPlayerCommands), which calls the loop directly.
+#ifdef CLIENT_DLL
 bool SourceSharp_MoveProcessMovement( SourceSharpMoveState *pState )
 {
-	// The side's managed-built area: E17 on the server, plan_client_vtables
-	// CE8 on the client.
-#ifndef CLIENT_DLL
-	IManagedPlayerCommands *pCommands = ManagedPlayerCommands();
-#else
+	// The side's managed-built area: plan_client_vtables CE8.
 	IManagedPredictionClient *pCommands = ManagedPredictionClient();
-#endif
 
 	// THE DELETED FALLBACK. Both of these used to `return false` and the caller
 	// ran stock movement. NEITHER RETURNS NOW.
@@ -372,6 +358,7 @@ bool SourceSharp_MoveProcessMovement( SourceSharpMoveState *pState )
 	MoveCounters()[ kMoveProcessMovement ]++;
 	return true;
 }
+#endif // CLIENT_DLL
 
 //-----------------------------------------------------------------------------
 // plan_entity.md step 6f -- THE SAME COUNT, FROM THE CLIENT'S BRACKET.
@@ -389,6 +376,18 @@ bool SourceSharp_MoveProcessMovement( SourceSharpMoveState *pState )
 //-----------------------------------------------------------------------------
 #ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
 void SourceSharp_MoveNoteManagedCommand()
+{
+	MoveCounters()[ kMoveProcessMovement ]++;
+}
+#endif
+
+#ifndef CLIENT_DLL
+//-----------------------------------------------------------------------------
+// The same count from the SERVER'S managed command loop (plan_server_native_v2
+// T4g), which calls the movement loop as managed code like the client's
+// replay: PlayerCommandFinish bumps it once per command the loop ran.
+//-----------------------------------------------------------------------------
+void SourceSharp_MoveNoteServerCommand()
 {
 	MoveCounters()[ kMoveProcessMovement ]++;
 }
@@ -521,7 +520,11 @@ void SourceSharp_MoveManagedReport()
 //-----------------------------------------------------------------------------
 
 // [MD] I'll remove this eventually. For now, I want the ability to A/B the optimizations.
+// The client's fill reads it; the server's constant is ServerMoveConstants'
+// (plan_server_native_v2 T4g).
+#ifdef CLIENT_DLL
 bool g_bMovementOptimizations = true;
+#endif
 
 //-----------------------------------------------------------------------------
 // The A/B switch, and it is the gate for this whole item rather than a comfort.
@@ -569,6 +572,15 @@ static bool MovementManaged()
 {
 	return !sourcesharp_movement_managed.IsValid() || sourcesharp_movement_managed.GetBool();
 }
+
+// The managed command loop's question before each command (plan_server_native_v2
+// T4g): the 0 arm selects a movement this build does not have, so it is fatal,
+// as ProcessMovement made it.
+void SourceSharp_MovementRequireManaged()
+{
+	if ( !MovementManaged() )
+		SourceSharp_MovementFatal( kMovementFatal_NoStock, 0 );
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -585,6 +597,10 @@ static bool MovementManaged()
 // latches stock kept as members, the last standable ground a serviced trace
 // found, and the point-contents cache.
 //-----------------------------------------------------------------------------
+// THE CLIENT'S ALONE since plan_server_native_v2 T4g (Decision 4's second
+// half: the server's export went in T2, its object here, now that the server's
+// movement state and command path are managed).
+#ifdef CLIENT_DLL
 class CShellGameMovement : public IGameMovement
 {
 public:
@@ -607,14 +623,8 @@ public:
 
 	// ---- the crossing and the four things it is serviced with -----------
 	bool			RunManagedCommand( void );
+#ifdef CLIENT_DLL
 	void			FillConstants( struct SourceSharpMoveState *pState );
-#ifndef CLIENT_DLL
-	// THE SERVER'S FILTER IS MANAGED'S (plan_server_native_v2 T4f): the
-	// ITraceFilter libss_fwd_server built over the managed trace rule, handed
-	// in by SourceSharp_MoveTraceThrough for the one trace it asks for, with
-	// the rule's query (the moved player, the group) already named on the
-	// managed side. NULL outside that call.
-	ITraceFilter *m_pTraceThrough = NULL;
 #endif
 	void			WorldTrace( const float *pStart, const float *pEnd,
 	                            const float *pMins, const float *pMaxs,
@@ -676,10 +686,9 @@ private:
 static CShellGameMovement g_ShellGameMovement;
 IGameMovement *g_pGameMovement = ( IGameMovement * )&g_ShellGameMovement;
 
-#ifdef CLIENT_DLL
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellGameMovement, IGameMovement,
 	INTERFACENAME_GAMEMOVEMENT, g_ShellGameMovement );
-#endif
+#endif // CLIENT_DLL
 // The server's export went in plan_server_native_v2 T2 (ruling 4, 2026-10-11):
 // no engine binary asks for the name, and server.so's callers use the global.
 
@@ -754,6 +763,7 @@ void SourceSharp_MovementFatal( int nReason, int nDetail )
 // commands a second per player is a log nobody reads, which is its own kind of
 // silence; the count is what cs_{sv,cl}_move_managed_report prints.
 //-----------------------------------------------------------------------------
+#ifdef CLIENT_DLL   // the server's commands are managed since plan_server_native_v2 T4g
 static void SourceSharp_MovementRefused( int nReason, int nDetail )
 {
 	if ( nReason < 0 || nReason >= kMovementFatal_Count )
@@ -772,6 +782,8 @@ static void SourceSharp_MovementRefused( int nReason, int nDetail )
 
 	Warning( "%s", szMessage );
 }
+#endif // CLIENT_DLL
+
 
 unsigned int SourceSharp_MovementRefusalCount( int nReason )
 {
@@ -797,6 +809,7 @@ unsigned int SourceSharp_MovementRefusalCount( int nReason )
 // moved is the code; what changed is which object holds the four fields.
 //=============================================================================
 
+#ifdef CLIENT_DLL   // the server's commands are managed since plan_server_native_v2 T4g
 // The mover whose command is being run, for the ABI slots. Set for the duration
 // of ONE crossing and cleared after it, so a slot called from anywhere else
 // answers nothing rather than answering about whoever moved last.
@@ -810,12 +823,15 @@ static CShellGameMovement **ActiveMover()
 	static CShellGameMovement *s_pActive = NULL;
 	return &s_pActive;
 }
+#endif // CLIENT_DLL
+
 
 static void SS3E_FillVec( float *pOut, const Vector &v )
 {
 	pOut[0] = v.x; pOut[1] = v.y; pOut[2] = v.z;
 }
 
+#ifdef CLIENT_DLL   // the server's commands are managed since plan_server_native_v2 T4g
 // QAngle is not a Vector and the compiler is right to say so. Three floats
 // either way, and the crossing carries three floats -- but the overload keeps
 // the DISTINCTION at every call site, which is the whole reason QAngle exists.
@@ -828,46 +844,32 @@ static QAngle SS3E_ReadAng( const float *p )
 {
 	return QAngle( p[0], p[1], p[2] );
 }
+#endif // CLIENT_DLL
+
 
 static Vector SS3E_ReadVec( const float *p )
 {
 	return Vector( p[0], p[1], p[2] );
 }
 
-// The movement ConVars the state fill reads (plan_server_novalve.md P2.3). On
-// the SERVER they are C#'s declarations (SourceSharp.Server/MoveVars.cs), read
-// here by name; the CLIENT still declares them in movevars_shared.cpp and reads
-// its own objects, as it always did. SS_MOVEVAR names whichever this side has.
+// The movement ConVars the client's state fill reads: the client declares them
+// in movevars_shared.cpp and reads its own objects. The SERVER's constants are
+// managed's own (plan_server_native_v2 T4g, ServerMoveConstants), so this fill
+// and the convar refs it read on that side are the client's alone.
 #ifdef CLIENT_DLL
 #define SS_MOVEVAR( name ) name
-#else
-#define SS_MOVEVAR( name ) s_cv_##name
-static CManagedConVarRef s_cv_sv_friction( "sv_friction" );
-static CManagedConVarRef s_cv_sv_accelerate( "sv_accelerate" );
-static CManagedConVarRef s_cv_sv_airaccelerate( "sv_airaccelerate" );
-static CManagedConVarRef s_cv_sv_stopspeed( "sv_stopspeed" );
-static CManagedConVarRef s_cv_sv_maxvelocity( "sv_maxvelocity" );
-static CManagedConVarRef s_cv_sv_maxspeed( "sv_maxspeed" );
-static CManagedConVarRef s_cv_sv_bounce( "sv_bounce" );
-static CManagedConVarRef s_cv_sv_rollangle( "sv_rollangle" );
-static CManagedConVarRef s_cv_sv_rollspeed( "sv_rollspeed" );
-static CManagedConVarRef s_cv_sv_noclipspeed( "sv_noclipspeed" );
-static CManagedConVarRef s_cv_sv_noclipaccelerate( "sv_noclipaccelerate" );
-static CManagedConVarRef s_cv_sv_specspeed( "sv_specspeed" );
-static CManagedConVarRef s_cv_sv_specaccelerate( "sv_specaccelerate" );
-static CManagedConVarRef s_cv_sv_specnoclip( "sv_specnoclip" );
 #endif
 
+#ifdef CLIENT_DLL
 //-----------------------------------------------------------------------------
-// THE CONSTANT WORDS OF THE CROSSING, filled in one place because two callers
-// need exactly them and a second copy is a drift class: the server's own
-// SourceSharpProcessMovement below, and -- step 6f -- the CLIENT'S MANAGED
-// REPLAY, which owns the player's state itself and asks native only for the
-// numbers that are not the player's.
+// THE CONSTANT WORDS OF THE CROSSING, for the CLIENT'S MANAGED REPLAY (step 6f),
+// which owns the player's state itself and asks native only for the numbers
+// that are not the player's. The server's are managed's own since
+// plan_server_native_v2 T4g (ServerMoveConstants).
 //
 // Read fresh rather than cached: every one is a convar an operator can move
 // mid-round, and a cached copy is a staleness class the movement code cannot
-// detect. 46 words a command; the cost is in step 3e's handover.
+// detect. 46 words a command.
 //-----------------------------------------------------------------------------
 void CShellGameMovement::FillConstants( SourceSharpMoveState *pState )
 {
@@ -913,7 +915,9 @@ void CShellGameMovement::FillConstants( SourceSharpMoveState *pState )
 	SS3E_FillVec( pState->vecCvObsHullMax,     vv->m_vObsHullMax );
 	SS3E_FillVec( pState->vecCvDeadViewHeight, vv->m_vDeadViewHeight );
 }
+#endif // CLIENT_DLL
 
+#ifdef CLIENT_DLL   // the server's commands are managed since plan_server_native_v2 T4g
 bool CShellGameMovement::RunManagedCommand( void )
 {
 	SourceSharpMoveState state;
@@ -992,6 +996,8 @@ bool CShellGameMovement::RunManagedCommand( void )
 	state.bSlowMovement         = player->MvLocal().m_bSlowMovement ? 1 : 0;
 	state.bIsServer             = player->MvIsServer() ? 1 : 0;
 
+	// The constant words: the client's fill; the server's are managed's own
+	// (plan_server_native_v2 T4g), so on that side they stay zero.
 	FillConstants( &state );
 
 	// ---- the crossing -----------------------------------------------------
@@ -1108,13 +1114,7 @@ void CShellGameMovement::WorldTrace( const float *pStart, const float *pEnd,
 	Ray_t ray;
 	ray.Init( SS3E_ReadVec( pStart ), SS3E_ReadVec( pEnd ),
 	          SS3E_ReadVec( pMins ), SS3E_ReadVec( pMaxs ) );
-#ifdef CLIENT_DLL
 	UTIL_TraceRay( ray, (unsigned int)nMask, SS_HANDLE_ENTITY( mv->m_nPlayerHandle ), nCollisionGroup, &pm );
-#else
-	// The server's arm: the managed filter SourceSharp_MoveTraceThrough handed
-	// in decides what the hull may hit (plan_server_native_v2 T4f).
-	enginetrace->TraceRay( ray, (unsigned int)nMask, m_pTraceThrough, &pm );
-#endif
 
 	IHandleEntity *pGround = MovementGroundFromTrace( pm );
 
@@ -1206,15 +1206,9 @@ int CShellGameMovement::WorldEffect( int nKind, const float *pXYZ, float flValue
 		break;
 
 	case SOURCESHARP_MOVE_EFFECT_SPLASH:
-#ifndef CLIENT_DLL
-		player->MvSplash();
-#endif
 		break;
 
 	case SOURCESHARP_MOVE_EFFECT_RUMBLE:
-#ifndef CLIENT_DLL
-		player->MvRumbleEffect( (unsigned char)nValue, 0, RUMBLE_FLAGS_NONE );
-#endif
 		break;
 
 	case SOURCESHARP_MOVE_EFFECT_RESET_DUCK_LATCHED:
@@ -1222,9 +1216,6 @@ int CShellGameMovement::WorldEffect( int nKind, const float *pXYZ, float flValue
 		break;
 
 	case SOURCESHARP_MOVE_EFFECT_SET_PLAYER_SURFACE:
-#ifndef CLIENT_DLL
-		ss::SetPlayerSurface( mv->m_nPlayerHandle, (char)nValue );
-#endif
 		break;
 
 	default:
@@ -1233,6 +1224,8 @@ int CShellGameMovement::WorldEffect( int nKind, const float *pXYZ, float flValue
 
 	return 1;
 }
+#endif // CLIENT_DLL
+
 
 //-----------------------------------------------------------------------------
 // The four ABI slots, forwarding to whichever mover is mid-crossing.
@@ -1252,15 +1245,12 @@ void SourceSharp_MoveTrace( const float *pStart, const float *pEnd,
 
 	memset( pOut, 0, sizeof( *pOut ) );
 
-	CShellGameMovement *pMover = *ActiveMover();
 #ifdef CLIENT_DLL
+	CShellGameMovement *pMover = *ActiveMover();
 	if ( !pMover )
-#else
-	// THE SERVER TRACES THROUGH SourceSharp_MoveTraceThrough (plan_server_native_v2
-	// T4f), with managed's filter: this shared slot has none to give the server's
-	// WorldTrace, so on the server it is the refusal below, always.
-	if ( !pMover || !pMover->m_pTraceThrough )
 #endif
+	// THE SERVER REFUSES ALWAYS: its hull traces through SourceSharp_MoveTraceServer
+	// with managed's filter (plan_server_native_v2 T4f, T4g).
 	{
 		// Blocked at the start, which is the safe refusal: a caller outside a
 		// crossing gets "you cannot go anywhere", never "the way is clear".
@@ -1270,32 +1260,34 @@ void SourceSharp_MoveTrace( const float *pStart, const float *pEnd,
 		return;
 	}
 
+#ifdef CLIENT_DLL
 	pMover->WorldTrace( pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut );
+#endif
 }
 
 #ifndef CLIENT_DLL
 //-----------------------------------------------------------------------------
-// The server's movement trace, through the managed trace filter
-// (plan_server_native_v2 T4f). What a hull may hit is managed's decision: the
-// managed side names its query (the moved player as the pass entity, the
-// collision group) before it calls this, and pFilter is the ITraceFilter
-// libss_fwd_server built over that rule. This carries the trace out: the same
-// WorldTrace as the shared slot, the trace kept for AddToTouched and the
-// ground remembered. The same refusal as the shared slot outside a crossing,
-// and without a filter to trace with.
+// THE SERVER'S MOVEMENT HULL TRACE, FOR THE MANAGED COMMAND LOOP
+// (plan_server_native_v2 T4g). The same trace as WorldTrace, through the
+// managed filter, with no mover behind it: what the loop does with the trace
+// -- the touch it reports, the ground it remembers -- is managed's, so this
+// answers the two entities those need as handles (pOutHandles[0] the entity
+// the trace hit, [1] the standable ground MovementGroundFromTrace found; the
+// invalid handle for none). Without a filter it refuses as the slots above do.
 //-----------------------------------------------------------------------------
-void SourceSharp_MoveTraceThrough( const float *pStart, const float *pEnd,
-                                   const float *pMins, const float *pMaxs,
-                                   int32_t nMask, int32_t nCollisionGroup,
-                                   SourceSharpMoveTraceResult *pOut, void *pFilter )
+void SourceSharp_MoveTraceServer( const float *pStart, const float *pEnd,
+                                  const float *pMins, const float *pMaxs,
+                                  int32_t nMask, int32_t nCollisionGroup,
+                                  SourceSharpMoveTraceResult *pOut, void *pFilter,
+                                  uint32_t *pOutHandles )
 {
-	if ( !pOut )
+	if ( !pOut || !pOutHandles )
 		return;
 
 	memset( pOut, 0, sizeof( *pOut ) );
+	pOutHandles[0] = pOutHandles[1] = INVALID_EHANDLE_INDEX;
 
-	CShellGameMovement *pMover = *ActiveMover();
-	if ( !pMover || !pFilter )
+	if ( !pFilter )
 	{
 		pOut->bStartSolid = 1;
 		pOut->bAllSolid = 1;
@@ -1303,20 +1295,48 @@ void SourceSharp_MoveTraceThrough( const float *pStart, const float *pEnd,
 		return;
 	}
 
-	ITraceFilter *pPrevious = pMover->m_pTraceThrough;
-	pMover->m_pTraceThrough = static_cast< ITraceFilter * >( pFilter );
-	pMover->WorldTrace( pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut );
-	pMover->m_pTraceThrough = pPrevious;
+	trace_t pm;
+	Ray_t ray;
+	ray.Init( SS3E_ReadVec( pStart ), SS3E_ReadVec( pEnd ),
+	          SS3E_ReadVec( pMins ), SS3E_ReadVec( pMaxs ) );
+	enginetrace->TraceRay( ray, (unsigned int)nMask, static_cast< ITraceFilter * >( pFilter ), &pm );
+
+	IHandleEntity *pGround = MovementGroundFromTrace( pm );
+
+	pOut->flFraction = pm.fraction;
+	SS3E_FillVec( pOut->vecEndPos, pm.endpos );
+	SS3E_FillVec( pOut->vecPlaneNormal, pm.plane.normal );
+	pOut->flPlaneDist    = pm.plane.dist;
+	pOut->bStartSolid    = pm.startsolid ? 1 : 0;
+	pOut->bAllSolid      = pm.allsolid ? 1 : 0;
+	pOut->nSurfaceProps  = pm.surface.surfaceProps;
+	pOut->nSurfaceFlags  = pm.surface.flags;
+	pOut->nContents      = pm.contents;
+	pOut->bHasGround     = pGround ? 1 : 0;
+	SS3E_FillVec( pOut->vecGroundVelocity, MovementGroundVelocity( pGround ) );
+	pOut->bHasEntity     = pm.m_pEnt ? 1 : 0;
+	pOut->bHitWorld      = SourceSharp_IsTheWorld( ss::TraceHit( pm ) ) ? 1 : 0;
+
+	if ( pm.m_pEnt )
+		pOutHandles[0] = (uint32_t)ss::TraceHit( pm )->GetRefEHandle().ToInt();
+	if ( pGround )
+		pOutHandles[1] = (uint32_t)pGround->GetRefEHandle().ToInt();
 }
 #endif
 
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue )
 {
+#ifdef CLIENT_DLL
 	CShellGameMovement *pMover = *ActiveMover();
 	if ( !pMover )
 		return 1;
 
 	return pMover->WorldEffect( nKind, pXYZ, flValue, nValue );
+#else
+	// The server's movement answers its own effects (ServerMoveWorld, T4g).
+	(void)nKind; (void)pXYZ; (void)flValue; (void)nValue;
+	return 1;
+#endif
 }
 
 #ifdef CLIENT_DLL
@@ -1447,6 +1467,7 @@ void SourceSharp_MoveEndClientCommand( int32_t bRan, int32_t *pOutGroundIndex )
 // kind `.claude/entity-port` has three recorded cases of.
 //=============================================================================
 
+#ifdef CLIENT_DLL   // the server's commands are managed since plan_server_native_v2 T4g
 CShellGameMovement::CShellGameMovement( void )
 {
 	player           = NULL;
@@ -1554,7 +1575,6 @@ void CShellGameMovement::FinishTrackPredictionErrors( IMovementPlayer *pPlayer )
 {
 }
 
-#ifdef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Stock's body is empty at PREDICTION_ERROR_CHECK_LEVEL 0 and this one is too.
 // The varargs are consumed rather than ignored so a caller with a bad format
@@ -1604,7 +1624,6 @@ Vector CShellGameMovement::GetPlayerViewOffset( bool ducked ) const
 
 	return ducked ? VEC_DUCK_VIEW_SCALED( player ) : VEC_VIEW_SCALED( player );
 }
-#endif // CLIENT_DLL: the four stock members (see the class)
 
 //=============================================================================
 // The two CGameMovement members the servicing half reached through, moved with
@@ -1616,7 +1635,6 @@ Vector CShellGameMovement::GetPlayerViewOffset( bool ducked ) const
 //-----------------------------------------------------------------------------
 void CShellGameMovement::ResetDuckLatched()
 {
-#ifdef CLIENT_DLL
 	// NULL-GUARDED SINCE STEP 6f, for WorldEffect's reason: there is no client
 	// IMovementPlayer any more. Nothing is lost -- the shell this used to reach
 	// answered MvInFirstPersonView() true unconditionally, so the latch reset
@@ -1625,5 +1643,6 @@ void CShellGameMovement::ResetDuckLatched()
 	// SOURCESHARP_MOVE_EFFECT_RESET_DUCK_LATCHED on every duck.
 	if ( player && !player->MvInFirstPersonView() )
 		player->MvResetLatched();
-#endif
 }
+#endif // CLIENT_DLL
+

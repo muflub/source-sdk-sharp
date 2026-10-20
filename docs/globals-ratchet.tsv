@@ -328,7 +328,13 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-19, 264 -> 262 (plan_server_native_v2 T4f, the server trace filter to C#): trace_filter_library.cpp
 #   left the server with SourceSharp_EngineVisualizeTraces's function-local s_pResolved, and world_adapter_debug.cpp's
 #   cs_sv_trace_subject command node went with the command. `make globals-ledger` -> 262 rows.
-globals_link_level	src/sourcesharp/game/server	262
+# LOWERED 2026-10-19, 262 -> 237 (plan_server_native_v2 T4g, the server's player commands to C#): 262 -> 247 when
+#   the server's FillConstants went (shell_movement.cpp's fourteen s_cv_sv_* refs and the optimizations flag);
+#   247 -> 239 with the native command path (the move helper s_StandaloneMoveHelper and IMoveHelper's singleton,
+#   g_ShellGameMovement, ActiveMover's s_pActive, g_MoveData/g_pMoveData, client-only now); 239 -> 237 with
+#   SourceSharp_EntityAddBaseVelocity's two once-per-id sets (the refusal is the managed route's).
+#   `make globals-ledger` -> 237 rows.
+globals_link_level	src/sourcesharp/game/server	237
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the

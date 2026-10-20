@@ -729,14 +729,9 @@ ss_cpptest(movement_ground_writeback_test
 # because the managed rule also has to make the overlap decision the engine's
 # box walk used to make for it.
 
-# The base-velocity push rule. The third arm of the same story: the crossing
-# that hands a rider a belt's motion resolved a CBaseEntity and returned in
-# silence for the standalone player, so Riders.Ride moved nobody and said
-# nothing. Fixing it means two arms, and two arms drift -- an overwrite where
-# the other sums, a missing ground release. The shared rule is engine-free in a
-# header so both arms provably use the same one.
-ss_cpptest(standalone_basevelocity_test
-    SOURCES sourcesharp/test/standalone_basevelocity_test.cpp)
+# standalone_basevelocity_test went with standalone_basevelocity.h
+# (plan_server_native_v2 T4g): a player's base velocity is the managed record's,
+# and the push rule's facts are ServerPlayerMovementRulesTests'.
 
 # Which movetype a standalone entity reports across the ABI. The other half of
 # the same lift: the rider rule above kept a passenger from BLOCKING the brush,
@@ -1063,17 +1058,9 @@ ss_cpptest(standard_filter_shape_test
 ss_cpptest(model_name_test
     SOURCES sourcesharp/test/model_name_test.cpp)
 
-# Who a view punch reaches, and how hard (view_effect_reach.h; the shake rules
-# went with their last native caller, lane HC 2026-10-04 -- ScreenEffectsTests
-# holds them). The three loops in util.cpp resolved each player slot
-# as a CBasePlayer, got NULL, and `continue`d -- so the falloff, the on-ground
-# gate and the transmit gate were never WRONG, they were never RUN. Every
-# explosion in the game has been silently shaking nobody. Fixing the subject
-# makes all of it live at once, which is the argument for pinning it before the
-# switch is flipped rather than after. Header-only and engine-free: none of
-# these rules ever needed an entity, only a distance and two flags.
-ss_cpptest(view_effect_reach_test
-    SOURCES sourcesharp/test/view_effect_reach_test.cpp)
+# view_effect_reach_test went with view_effect_reach.h (plan_server_native_v2
+# T4g): the punch walk is managed (ServerPlayerMovement.ViewPunch) and its reach
+# rules are ServerPlayerMovementRulesTests'.
 
 # player_name_match_test went with player_name_match.h and
 # shell_playerslots.cpp (plan_server_native_min P1): the slot-walk family is
@@ -1368,11 +1355,6 @@ ss_cpptest(shell_effect_registry_test
 # happen.
 ss_cpptest(shell_leaf_link_test
     SOURCES sourcesharp/test/shell_leaf_link_test.cpp)
-
-# Where a player's tick base is put (tickbase_rule.h): stock's
-# AdjustPlayerTimeBase, which the port had re-basing on idle frames.
-ss_cpptest(tickbase_rule_test
-    SOURCES sourcesharp/test/tickbase_rule_test.cpp)
 
 # THE TWO "NPCs AND THE PLAYER" FILTERS ARE GONE, AND THE RULE WITH THEM --
 # plan_shim.md §5 3f, lane 3f. `npc_filter_rule.h` had exactly one includer,

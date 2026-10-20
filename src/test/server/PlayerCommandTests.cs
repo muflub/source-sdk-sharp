@@ -284,7 +284,7 @@ public class PlayerCommandTests
         var trace = new List<string>();
         var module = new RecordingModule(trace);
 
-        _queue.Run(player, 1, module, (_, i, stage) =>
+        _queue.Run(player, 1, module, (_, i, stage, in _) =>
         {
             trace.Add($"native:{i}:{stage}");
             return 1;
@@ -305,7 +305,7 @@ public class PlayerCommandTests
         var trace = new List<string>();
         var module = new RecordingModule(trace);
 
-        int ran = _queue.Run(player, 3, module, (_, i, stage) =>
+        int ran = _queue.Run(player, 3, module, (_, i, stage, in _) =>
         {
             trace.Add($"native:{i}:{stage}");
             return 1;
@@ -334,7 +334,7 @@ public class PlayerCommandTests
         var trace = new List<string>();
         var module = new RecordingModule(trace);
 
-        _queue.Run(player, 2, module, (_, _, _) => 1);
+        _queue.Run(player, 2, module, (_, _, _, in _) => 1);
 
         // Oldest first, so Attack then Jump.
         Assert.Equal(new[] { (int)InputButtons.Attack, (int)InputButtons.Jump },
@@ -352,7 +352,7 @@ public class PlayerCommandTests
         var module = new RecordingModule(trace);
 
         int ran = _queue.Run(player, 3, module,
-                                         (_, i, stage) => i == 1 && stage == 0 ? 0 : 1);
+                                         (_, i, stage, in _) => i == 1 && stage == 0 ? 0 : 1);
 
         Assert.Equal(1, ran);
         Assert.Equal(1, trace.Count(t => t == "phase1"));
@@ -370,7 +370,7 @@ public class PlayerCommandTests
         var trace = new List<string>();
         var module = new RecordingModule(trace);
 
-        int ran = _queue.Run(player, 1, module, (_, _, _) => 1);
+        int ran = _queue.Run(player, 1, module, (_, _, _, in _) => 1);
 
         Assert.Equal(1, ran);
     }
@@ -382,7 +382,7 @@ public class PlayerCommandTests
         _queue.Forget(player);
         QueueNumbered(player, new[] { 2, 1 }, totalCmds: 2, dropped: 0);
 
-        _queue.Run(player, 2, NoSink, (_, _, _) => 1);
+        _queue.Run(player, 2, NoSink, (_, _, _, in _) => 1);
 
         Assert.Equal(0, _queue.Depth(player));
     }
@@ -406,7 +406,7 @@ public class PlayerCommandTests
 
         Assert.Equal(0, _queue.Counters().Ran);
 
-        _queue.Run(player, 4, NoSink, (_, _, _) => 1);
+        _queue.Run(player, 4, NoSink, (_, _, _, in _) => 1);
 
         var (batches, queued, ran) = _queue.Counters();
 
@@ -424,7 +424,7 @@ public class PlayerCommandTests
         _queue.ResetCounters();
 
         QueueNumbered(player, new[] { 4, 3, 2, 1 }, totalCmds: 4, dropped: 0);
-        _queue.Run(player, 4, NoSink, (_, _, _) => 0);
+        _queue.Run(player, 4, NoSink, (_, _, _, in _) => 0);
 
         var (batches, _, ran) = _queue.Counters();
 
@@ -561,18 +561,6 @@ public class PlayerCommandTests
     }
 
     [Fact]
-    public void TheThreePerCommandCrossingsAreGoneFromTheNativeLoop()
-    {
-        // OnStandalonePlayerCommand at phase 0 and phase 1, and
-        // OnPlayerRunCommand: three crossings per command, and the whole cost
-        // this step removed. They are managed calls inside the loop now.
-        string body = NativeFunction("bool CStandalonePlayer::RunCommandStage");
-
-        Assert.DoesNotContain("OnStandalonePlayerCommand", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("OnPlayerRunCommand", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void NoCommandCrossingSurvivesAnywhereInTheServersPlayerFile()
     {
         // The per-function facts above cannot see a call that moved to a helper.
@@ -592,106 +580,6 @@ public class PlayerCommandTests
 
         Assert.Contains("INVALID_EHANDLE_INDEX", body, StringComparison.Ordinal);
         Assert.Contains("ManagedHandle() == hPlayer", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TheSeedIsSETInTheStageBEFOREPhaseZeroAndCLEAREDInTheStageAFTERPhaseOne()
-    {
-        // SharedRandom* reads the seed the command set, and both managed phases
-        // are between the stages. A seed set after phase 0 would leave a
-        // pre-think seedless; one cleared before phase 1 would leave the weapon
-        // frame seedless. Both are silent divergences from what the single
-        // native function did, and both are what the three-stage split exists
-        // to prevent.
-        string stage = NativeFunction("bool CStandalonePlayer::RunCommandStage");
-
-        int clear = stage.IndexOf("EntityPrediction_SetSeedFromCommand( NULL )", StringComparison.Ordinal);
-        int set = stage.IndexOf("EntityPrediction_SetSeedFromCommand( ucmd )", StringComparison.Ordinal);
-        int stageTwo = stage.IndexOf("nStage == 2", StringComparison.Ordinal);
-
-        Assert.True(set > 0, "stage 0 sets the seed from the command");
-        Assert.True(clear > 0, "stage 2 clears it");
-        Assert.True(clear > stageTwo && stageTwo > 0, "the clear is inside stage 2");
-        Assert.True(set > clear, "the set is in stage 0, which is written after the stage 2 arm");
-    }
-
-    [Fact]
-    public void ARefusingStageSetsNothingBeforeItRefuses()
-    {
-        // WHY RunQueuedCommands NEEDS NO BELT-AND-BRACES TEARDOWN. A refusal
-        // stops the managed loop, and the command that refused must therefore
-        // not have left the seed or the current command set behind it — or the
-        // seed would stay live outside a usercmd and every SharedRandom* after
-        // it would be answering from a command that is over.
-        //
-        // The property is an ORDER inside the function: both refusal checks
-        // come before the first assignment.
-        string stage = NativeFunction("bool CStandalonePlayer::RunCommandStage");
-
-        int indexCheck = stage.IndexOf("nIndex >= m_PendingCmds.Count()", StringComparison.Ordinal);
-        int stageCheck = stage.IndexOf("nStage < 0 || nStage > 2", StringComparison.Ordinal);
-        int set = stage.IndexOf("EntityPrediction_SetSeedFromCommand( ucmd )", StringComparison.Ordinal);
-        int current = stage.IndexOf("m_pCurrentCommand = ucmd", StringComparison.Ordinal);
-
-        Assert.True(indexCheck > 0 && stageCheck > indexCheck, "both refusals are stated");
-        Assert.True(set > stageCheck, "the seed is set after both refusal checks");
-        Assert.True(current > stageCheck, "the current command is set after both refusal checks");
-    }
-
-    [Fact]
-    public void TheSeedTeardownIsTheCOMMANDSAndNotTheQUEUES()
-    {
-        // engine_core_retype_test.cpp's PredictionSeed pins TWO
-        // EntityPrediction_SetSeedFromCommand call sites in this file, one per
-        // direction, and that count is right: a third here would be a repeat of
-        // a teardown the command already does — see the comment in
-        // RunQueuedCommands and the fact above for why it is not needed.
-        string body = NativeFunction("void CStandalonePlayer::RunQueuedCommands");
-
-        Assert.DoesNotContain("EntityPrediction_SetSeedFromCommand", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ThePublishIsTheLASTStageAndSoRunsAfterTheDecisions()
-    {
-        string stage = NativeFunction("bool CStandalonePlayer::RunCommandStage");
-        int guard = stage.IndexOf("nStage == 2", StringComparison.Ordinal);
-        int sync = stage.IndexOf("SyncToBlob()", StringComparison.Ordinal);
-
-        Assert.True(guard >= 0 && sync > guard,
-                    "SyncToBlob is the body of stage 2, not the tail of an earlier one");
-    }
-
-    [Fact]
-    public void TheTickbaseStepIsInTheSAMEStageAsThePublish()
-    {
-        // The native function incremented the tickbase AFTER the buttons and
-        // immediately before SyncToBlob, and SyncToBlob writes the tickbase into
-        // the blob. Splitting them would send the wire a tickbase one command
-        // out of step with the origin beside it.
-        string stage = NativeFunction("bool CStandalonePlayer::RunCommandStage");
-        int step = stage.IndexOf("m_nTickBase++", StringComparison.Ordinal);
-        int guard = stage.IndexOf("nStage == 2", StringComparison.Ordinal);
-        int sync = stage.IndexOf("SyncToBlob()", StringComparison.Ordinal);
-
-        Assert.True(step > guard && step < sync,
-                    "the tickbase step is between stage 2's guard and its publish");
-    }
-
-    [Fact]
-    public void TheMoveStageCarriesTheMovementBracketAndNothingElseDoes()
-    {
-        // Step 3e's bracket -- CGameMovement::player is set by
-        // StartTrackPredictionErrors and asserted against inside ProcessMovement.
-        string move = NativeFunction("bool CStandalonePlayer::RunCommandMove");
-
-        Assert.Contains("StartTrackPredictionErrors", move, StringComparison.Ordinal);
-        Assert.Contains("ProcessMovement", move, StringComparison.Ordinal);
-        Assert.Contains("FinishTrackPredictionErrors", move, StringComparison.Ordinal);
-
-        string stage = NativeFunction("bool CStandalonePlayer::RunCommandStage");
-
-        Assert.DoesNotContain("StartTrackPredictionErrors", stage, StringComparison.Ordinal);
     }
 
     //-------------------------------------------------------------------------
@@ -744,7 +632,7 @@ public class PlayerCommandTests
         var seen = new List<UserCmd>();
         var module = new CapturingModule(seen);
 
-        int ran = _queue.Run(player, expected, module, (_, _, _) => 1);
+        int ran = _queue.Run(player, expected, module, (_, _, _, in _) => 1);
 
         Assert.Equal(expected, ran);
 

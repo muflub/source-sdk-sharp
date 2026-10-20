@@ -1829,7 +1829,23 @@ shim_cpp_files	src/sourcesharp	216
 #   native trace filter went -- trace_filter_library.cpp's server half (ss::CTraceFilterSimple, the parallel-hierarchy
 #   shape clause, the engine r_visualizetraces reader), ss_tracefilter.h, ss_util.h's filter-building trace inlines --
 #   and cs_sv_trace_subject with CWorld::GetWorldBounds and ImpactCount, which only it read.
-shim_lines	src/sourcesharp	130271
+# RAISED 2026-10-19, 130271 -> 130525 (plan_server_native_v2 T4g 6, measured by the walk; net of T4g 1 and 4's
+#   removals, the dead area-bits copy and the server's FillConstants with its fourteen convar refs): the managed server
+#   command loop's engine side, five IShimMovementServer slots (PlayerCommandBegin/View/Finish, MoveTraceServer,
+#   PlayerFallDamage), their two blobs in sourcesharp.h and the generated forwarders, added beside the native command
+#   path they replace; the next commits switch to them and delete that path (RunCommandStage, the native
+#   IGameMovement, the move helper).
+# RAISED 2026-10-19, 130525 -> 130553 (plan_server_native_v2 T4g 7, measured by the walk): the switch to the managed
+#   command loop adds the engine side's three-word sync (PlayerSyncEngineSide, SourceSharpPlayerSync_WriteEngineSide)
+#   beside the managed publish; the next commit deletes the native command path the switch left without a caller.
+# LOWERED 2026-10-19, 130553 -> 129726 (plan_server_native_v2 T4g 8, the walk with the ceiling at 1; -827): the
+#   server's native command path the managed loop replaced -- RunCommandStage, RunCommandMove, CStandaloneMoveHelper and
+#   IMoveHelper's singleton, the CUserCmd copies, the tick base rule (tickbase_rule.h), ss_gamemovement.h,
+#   ss_movehelper.h, shell_movement.cpp's server IGameMovement object and crossing (client-only now), the
+#   MoveTraceThrough and PlayerRunMove slots, and the surface funnel.
+# LOWERED 2026-10-19, 129726 -> 129436 (plan_server_native_v2 T4g, the walk with the ceiling at 1; -290): the view punch walk (UTIL_ViewPunch, its subject and slot body, CStandalonePlayer::ViewPunch, view_effect_reach.h) and SourceSharp_PlayerSetSlowMovement, both the managed record's now.
+# LOWERED 2026-10-19, 129436 -> 129214 (plan_server_native_v2 T4g, the walk with the ceiling at 1; -222): SourceSharp_EntityAddBaseVelocity and standalone_basevelocity.h (with its gtest): a player's base velocity is the managed record's.
+shim_lines	src/sourcesharp	129214
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

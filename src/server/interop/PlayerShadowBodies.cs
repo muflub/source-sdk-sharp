@@ -141,10 +141,19 @@ public sealed class PlayerShadowBodies : IPlayerShadows
     /// carries out handed to <see cref="Teleport"/> afterwards.
     /// </summary>
     public static PlayerShadowBodies ForEngine(ModuleEngine engine, IVPhysicsShadowCalls v, Func<bool> enabled,
-                                               Action<string> warning)
+                                               Action<string> warning,
+                                               SourceSharp.Server.Interop.ServerPlayerMoves? moves = null,
+                                               SourceSharp.Server.Interop.ServerMoveData? data = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        var bodies = new PlayerShadowBodies(new EnginePlayerShadowNative(engine.Api), v, enabled, warning,
+
+        // The movement words are the managed command loop's when it runs
+        // (plan_server_native_v2 T4g).
+        IPlayerShadowNative native = new EnginePlayerShadowNative(engine.Api);
+        if (moves is not null && data is not null)
+            native = new SourceSharp.Server.Interop.MovedPlayerShadowNative(native, moves, data);
+
+        var bodies = new PlayerShadowBodies(native, v, enabled, warning,
                                             new EnginePlayerTouchWorld(engine.Api));
         engine.Api.Teleported = bodies.Teleport;
         return bodies;
