@@ -18,7 +18,12 @@
 // the method and the arguments that say what was asked (a view's whole
 // CViewSetup, a render target's name, a clip plane, a draw's entity index and
 // model). Stock's viewrender and the plan's executor both draw through the same
-// four pointers, so the two paths are recorded by the same instrument.
+// four pointers, so the two paths are recorded by the same instrument. Two
+// families are armed only by the environment, so that a default trace keeps
+// the frozen recordings' lines: the dynamic meshes and occlusion queries
+// (SOURCESHARP_RENDER_TRACE_MESHES=1) and the engine shadow manager, `shadowmgr`
+// (IShadowMgr), with the static prop manager's two shadow methods
+// (SOURCESHARP_RENDER_TRACE_SHADOWS=1).
 //
 // HOW. Each hooked method's slot in its object's vtable is overwritten in
 // place for the frame (the page's protection is lifted for the write and put
@@ -55,6 +60,8 @@
 #include "materialsystem/itexture.h"
 #include "view_shared.h"
 #include "iclientshadowmgr.h"
+#include "engine/ishadowmgr.h"
+#include "mathlib/vmatrix.h"
 
 #include "ss_platform.h"
 #include <stdarg.h>
@@ -281,6 +288,30 @@ enum HookIndex_t
 	kHook_EndOcclusionQueryDrawing,
 	kHook_OcclusionQuery_GetNumPixelsRendered,
 	kHook_ComputePixelDiameterOfSphere,
+	// The engine shadow manager's hooks (SOURCESHARP_RENDER_TRACE_SHADOWS=1).
+	kHook_CreateShadowEx,
+	kHook_DestroyShadow,
+	kHook_SetShadowMaterial,
+	kHook_ProjectShadow,
+	kHook_ProjectFlashlight,
+	kHook_GetInfo,
+	kHook_GetFlashlightFrustum,
+	kHook_AddShadowToBrushModel,
+	kHook_RemoveAllShadowsFromBrushModel,
+	kHook_SetShadowTexCoord,
+	kHook_AddShadowToModel,
+	kHook_RemoveAllShadowsFromModel,
+	kHook_ClearExtraClipPlanes,
+	kHook_AddExtraClipPlane,
+	kHook_EnableShadow,
+	kHook_SetFalloffBias,
+	kHook_UpdateFlashlightState,
+	kHook_AddFlashlightRenderable,
+	kHook_SetFlashlightDepthTexture,
+	kHook_GetFlashlightState,
+	kHook_SetFlashlightRenderState,
+	kHook_AddShadowToStaticProp,
+	kHook_RemoveAllShadowsFromStaticProp,
 	kHookCount
 };
 
@@ -1174,10 +1205,315 @@ float H_ComputePixelDiameterOfSphere( IMatRenderContext *self, const Vector &ori
 	return f;
 }
 
+// THE SHADOW HOOKS, armed only when the game was started with
+// SOURCESHARP_RENDER_TRACE_SHADOWS=1 (tools/probes/sessions/c7-shadow-ab.steps),
+// for the same reason as the mesh hooks: the frozen recordings were taken
+// without them. They witness what the client's shadow manager
+// (clientshadowmgr.cpp) asks the engine's (`shadowmgr`, IShadowMgr) and the
+// static prop manager's two shadow methods: every shadow created, destroyed,
+// re-materialed, projected (its whole matrix and leaf list), enabled, clipped
+// and handed its receivers, and the flashlight's state and depth texture. The
+// base witness of docs/plans/c7_shadow_manager.md S0. GetInfo,
+// GetFlashlightFrustum and GetFlashlightState are `q` lines (answers).
+//
+// Shadow and model-instance handles print as the engine's numbers (its
+// allocation order, the same for one session's script); materials and textures
+// by name; a renderable as `ent:<index>`, or for one with no entity (a static
+// prop) `prop:<model>@<origin>`; matrices in full; a leaf list as its count, an
+// FNV-1a hash of the indices and, when it is short, the indices.
+unsigned int HashInts( const int *pList, int nCount )
+{
+	unsigned int h = 2166136261u;
+	const unsigned char *p = (const unsigned char *)pList;
+	for ( int i = 0; pList && i < nCount * (int)sizeof( int ); i++ )
+		h = ( h ^ p[ i ] ) * 16777619u;
+	return h;
+}
+
+void LeafText( int nCount, const int *pList, char *pOut, int nOut )
+{
+	int n = V_snprintf( pOut, nOut, "%d:%08x", nCount, HashInts( pList, nCount ) );
+	for ( int i = 0; pList && nCount <= 32 && i < nCount && n > 0 && n < nOut - 16; i++ )
+		n += V_snprintf( pOut + n, nOut - n, "%c%d", i ? ',' : '=', pList[ i ] );
+}
+
+void MatrixText( const VMatrix &m, char *pOut, int nOut )
+{
+	V_snprintf( pOut, nOut, "%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g",
+		m[0][0], m[0][1], m[0][2], m[0][3], m[1][0], m[1][1], m[1][2], m[1][3],
+		m[2][0], m[2][1], m[2][2], m[2][3], m[3][0], m[3][1], m[3][2], m[3][3] );
+}
+
+void RenderableText( IClientRenderable *pRenderable, char *pOut, int nOut )
+{
+	if ( !pRenderable )
+	{
+		V_snprintf( pOut, nOut, "-" );
+		return;
+	}
+	IClientUnknown *pUnknown = pRenderable->GetIClientUnknown();
+	IClientEntity *pEntity = pUnknown ? pUnknown->GetIClientEntity() : NULL;
+	if ( pEntity )
+	{
+		V_snprintf( pOut, nOut, "ent:%d", pEntity->entindex() );
+		return;
+	}
+	const model_t *pModel = pRenderable->GetModel();
+	const Vector &origin = pRenderable->GetRenderOrigin();
+	V_snprintf( pOut, nOut, "prop:%s@%.9g,%.9g,%.9g", pModel ? modelinfo->GetModelName( pModel ) : "-", origin.x, origin.y, origin.z );
+}
+
+void FlashlightText( const FlashlightState_t &state, char *pOut, int nOut )
+{
+	FlashlightState_t s = state;	// the scissor getters are not const
+	V_snprintf( pOut, nOut,
+		"origin=%.9g,%.9g,%.9g quat=%.9g,%.9g,%.9g,%.9g z=%.9g,%.9g fov=%.9g,%.9g atten=%.9g,%.9g,%.9g "
+		"color=%.9g,%.9g,%.9g,%.9g texture=%s frame=%d shadows=%d drawfrustum=%d res=%.9g filter=%.9g "
+		"slopebias=%.9g bias=%.9g jitter=%.9g shadowatten=%.9g quality=%d scissor=%d:%d,%d,%d,%d",
+		s.m_vecLightOrigin.x, s.m_vecLightOrigin.y, s.m_vecLightOrigin.z,
+		s.m_quatOrientation.x, s.m_quatOrientation.y, s.m_quatOrientation.z, s.m_quatOrientation.w,
+		s.m_NearZ, s.m_FarZ, s.m_fHorizontalFOVDegrees, s.m_fVerticalFOVDegrees,
+		s.m_fQuadraticAtten, s.m_fLinearAtten, s.m_fConstantAtten,
+		s.m_Color[0], s.m_Color[1], s.m_Color[2], s.m_Color[3],
+		TextureName( s.m_pSpotlightTexture ), s.m_nSpotlightTextureFrame,
+		s.m_bEnableShadows ? 1 : 0, s.m_bDrawShadowFrustum ? 1 : 0, s.m_flShadowMapResolution,
+		s.m_flShadowFilterSize, s.m_flShadowSlopeScaleDepthBias, s.m_flShadowDepthBias,
+		s.m_flShadowJitterSeed, s.m_flShadowAtten, s.m_nShadowQuality,
+		s.DoScissor() ? 1 : 0, s.GetLeft(), s.GetTop(), s.GetRight(), s.GetBottom() );
+}
+
+// IShadowMgr -----------------------------------------------------------------
+ShadowHandle_t H_CreateShadowEx( IShadowMgr *self, IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy, int nFlags )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const ShadowHandle_t h = SS_CALL( CreateShadowEx, ShadowHandle_t (*)( IShadowMgr *, IMaterial *, IMaterial *, void *, int ) )( self, pMaterial, pModelMaterial, pBindProxy, nFlags );
+	if ( bClient )
+		Line( "shadowmgr.CreateShadowEx\tmaterial=%s model=%s proxy=%d flags=0x%x => %d", MaterialName( pMaterial ),
+		      MaterialName( pModelMaterial ), (int)(intp)pBindProxy, nFlags, (int)h );
+	return h;
+}
+
+void H_DestroyShadow( IShadowMgr *self, ShadowHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.DestroyShadow\t%d", (int)h );
+	SS_CALL( DestroyShadow, void (*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
+}
+
+void H_SetShadowMaterial( IShadowMgr *self, ShadowHandle_t h, IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.SetShadowMaterial\t%d material=%s model=%s proxy=%d", (int)h, MaterialName( pMaterial ),
+		      MaterialName( pModelMaterial ), (int)(intp)pBindProxy );
+	SS_CALL( SetShadowMaterial, void (*)( IShadowMgr *, ShadowHandle_t, IMaterial *, IMaterial *, void * ) )( self, h, pMaterial, pModelMaterial, pBindProxy );
+}
+
+void H_ProjectShadow( IShadowMgr *self, ShadowHandle_t h, const Vector &origin, const Vector &dir, const VMatrix &worldToShadow,
+                      const Vector2D &size, int nLeafCount, const int *pLeafList, float flMaxHeight, float flFalloffOffset,
+                      float flFalloffAmount, const Vector &casterOrigin )
+{
+	if ( SS_FROM_CLIENT() )
+	{
+		char szMatrix[ 320 ], szLeaves[ 448 ];
+		MatrixText( worldToShadow, szMatrix, sizeof( szMatrix ) );
+		LeafText( nLeafCount, pLeafList, szLeaves, sizeof( szLeaves ) );
+		Line( "shadowmgr.ProjectShadow\t%d origin=%.9g,%.9g,%.9g dir=%.9g,%.9g,%.9g size=%.9g,%.9g maxheight=%.9g "
+		      "falloff=%.9g,%.9g caster=%.9g,%.9g,%.9g matrix=%s leaves=%s",
+		      (int)h, origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, size.x, size.y, flMaxHeight,
+		      flFalloffOffset, flFalloffAmount, casterOrigin.x, casterOrigin.y, casterOrigin.z, szMatrix, szLeaves );
+	}
+	SS_CALL( ProjectShadow, void (*)( IShadowMgr *, ShadowHandle_t, const Vector &, const Vector &, const VMatrix &, const Vector2D &,
+	                                  int, const int *, float, float, float, const Vector & ) )(
+		self, h, origin, dir, worldToShadow, size, nLeafCount, pLeafList, flMaxHeight, flFalloffOffset, flFalloffAmount, casterOrigin );
+}
+
+void H_ProjectFlashlight( IShadowMgr *self, ShadowHandle_t h, const VMatrix &worldToShadow, int nLeafCount, const int *pLeafList )
+{
+	if ( SS_FROM_CLIENT() )
+	{
+		char szMatrix[ 320 ], szLeaves[ 448 ];
+		MatrixText( worldToShadow, szMatrix, sizeof( szMatrix ) );
+		LeafText( nLeafCount, pLeafList, szLeaves, sizeof( szLeaves ) );
+		Line( "shadowmgr.ProjectFlashlight\t%d matrix=%s leaves=%s", (int)h, szMatrix, szLeaves );
+	}
+	SS_CALL( ProjectFlashlight, void (*)( IShadowMgr *, ShadowHandle_t, const VMatrix &, int, const int * ) )( self, h, worldToShadow, nLeafCount, pLeafList );
+}
+
+const ShadowInfo_t &H_GetInfo( IShadowMgr *self, ShadowHandle_t h )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const ShadowInfo_t &info = SS_CALL( GetInfo, const ShadowInfo_t &(*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
+	if ( bClient )
+	{
+		char szMatrix[ 320 ];
+		MatrixText( info.m_WorldToShadow, szMatrix, sizeof( szMatrix ) );
+		Line( "q\tshadowmgr.GetInfo\t%d => falloff=%.9g,%.9g,%.9g tex=%.9g,%.9g,%.9g,%.9g bias=%d matrix=%s", (int)h,
+		      info.m_FalloffOffset, info.m_MaxDist, info.m_FalloffAmount, info.m_TexOrigin.x, info.m_TexOrigin.y,
+		      info.m_TexSize.x, info.m_TexSize.y, (int)info.m_FalloffBias, szMatrix );
+	}
+	return info;
+}
+
+const Frustum_t &H_GetFlashlightFrustum( IShadowMgr *self, ShadowHandle_t h )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const Frustum_t &frustum = SS_CALL( GetFlashlightFrustum, const Frustum_t &(*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
+	if ( bClient )
+	{
+		char szPlanes[ 720 ];
+		int n = 0;
+		szPlanes[ 0 ] = 0;
+		for ( int i = 0; i < FRUSTUM_NUMPLANES && n >= 0 && n < (int)sizeof( szPlanes ) - 120; i++ )
+		{
+			const cplane_t *p = frustum.GetPlane( i );
+			n += V_snprintf( szPlanes + n, sizeof( szPlanes ) - n, " %.9g,%.9g,%.9g,%.9g/%d", p->normal.x, p->normal.y, p->normal.z,
+			                 p->dist, (int)p->type );
+		}
+		Line( "q\tshadowmgr.GetFlashlightFrustum\t%d =>%s", (int)h, szPlanes );
+	}
+	return frustum;
+}
+
+void H_AddShadowToBrushModel( IShadowMgr *self, ShadowHandle_t h, model_t *pModel, const Vector &origin, const QAngle &angles )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.AddShadowToBrushModel\t%d model=%s origin=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g", (int)h,
+		      modelinfo->GetModelName( pModel ), origin.x, origin.y, origin.z, angles.x, angles.y, angles.z );
+	SS_CALL( AddShadowToBrushModel, void (*)( IShadowMgr *, ShadowHandle_t, model_t *, const Vector &, const QAngle & ) )( self, h, pModel, origin, angles );
+}
+
+void H_RemoveAllShadowsFromBrushModel( IShadowMgr *self, model_t *pModel )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.RemoveAllShadowsFromBrushModel\tmodel=%s", modelinfo->GetModelName( pModel ) );
+	SS_CALL( RemoveAllShadowsFromBrushModel, void (*)( IShadowMgr *, model_t * ) )( self, pModel );
+}
+
+void H_SetShadowTexCoord( IShadowMgr *self, ShadowHandle_t h, float x, float y, float w, float hgt )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.SetShadowTexCoord\t%d %.9g,%.9g,%.9g,%.9g", (int)h, x, y, w, hgt );
+	SS_CALL( SetShadowTexCoord, void (*)( IShadowMgr *, ShadowHandle_t, float, float, float, float ) )( self, h, x, y, w, hgt );
+}
+
+void H_AddShadowToModel( IShadowMgr *self, ShadowHandle_t h, ModelInstanceHandle_t instance )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.AddShadowToModel\t%d instance=%d", (int)h, (int)instance );
+	SS_CALL( AddShadowToModel, void (*)( IShadowMgr *, ShadowHandle_t, ModelInstanceHandle_t ) )( self, h, instance );
+}
+
+void H_RemoveAllShadowsFromModel( IShadowMgr *self, ModelInstanceHandle_t instance )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.RemoveAllShadowsFromModel\tinstance=%d", (int)instance );
+	SS_CALL( RemoveAllShadowsFromModel, void (*)( IShadowMgr *, ModelInstanceHandle_t ) )( self, instance );
+}
+
+void H_ClearExtraClipPlanes( IShadowMgr *self, ShadowHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.ClearExtraClipPlanes\t%d", (int)h );
+	SS_CALL( ClearExtraClipPlanes, void (*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
+}
+
+void H_AddExtraClipPlane( IShadowMgr *self, ShadowHandle_t h, const Vector &normal, float flDist )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.AddExtraClipPlane\t%d normal=%.9g,%.9g,%.9g dist=%.9g", (int)h, normal.x, normal.y, normal.z, flDist );
+	SS_CALL( AddExtraClipPlane, void (*)( IShadowMgr *, ShadowHandle_t, const Vector &, float ) )( self, h, normal, flDist );
+}
+
+void H_EnableShadow( IShadowMgr *self, ShadowHandle_t h, bool bEnable )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.EnableShadow\t%d %d", (int)h, bEnable ? 1 : 0 );
+	SS_CALL( EnableShadow, void (*)( IShadowMgr *, ShadowHandle_t, bool ) )( self, h, bEnable );
+}
+
+void H_SetFalloffBias( IShadowMgr *self, ShadowHandle_t h, unsigned char ucBias )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.SetFalloffBias\t%d %d", (int)h, (int)ucBias );
+	SS_CALL( SetFalloffBias, void (*)( IShadowMgr *, ShadowHandle_t, unsigned char ) )( self, h, ucBias );
+}
+
+void H_UpdateFlashlightState( IShadowMgr *self, ShadowHandle_t h, const FlashlightState_t &state )
+{
+	if ( SS_FROM_CLIENT() )
+	{
+		char szState[ 900 ];
+		FlashlightText( state, szState, sizeof( szState ) );
+		Line( "shadowmgr.UpdateFlashlightState\t%d %s", (int)h, szState );
+	}
+	SS_CALL( UpdateFlashlightState, void (*)( IShadowMgr *, ShadowHandle_t, const FlashlightState_t & ) )( self, h, state );
+}
+
+void H_AddFlashlightRenderable( IShadowMgr *self, ShadowHandle_t h, IClientRenderable *pRenderable )
+{
+	if ( SS_FROM_CLIENT() )
+	{
+		char szRenderable[ 320 ];
+		RenderableText( pRenderable, szRenderable, sizeof( szRenderable ) );
+		Line( "shadowmgr.AddFlashlightRenderable\t%d renderable=%s", (int)h, szRenderable );
+	}
+	SS_CALL( AddFlashlightRenderable, void (*)( IShadowMgr *, ShadowHandle_t, IClientRenderable * ) )( self, h, pRenderable );
+}
+
+void H_SetFlashlightDepthTexture( IShadowMgr *self, ShadowHandle_t h, ITexture *pTexture, unsigned char ucStencilBit )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.SetFlashlightDepthTexture\t%d texture=%s stencil=%d", (int)h, TextureName( pTexture ), (int)ucStencilBit );
+	SS_CALL( SetFlashlightDepthTexture, void (*)( IShadowMgr *, ShadowHandle_t, ITexture *, unsigned char ) )( self, h, pTexture, ucStencilBit );
+}
+
+const FlashlightState_t &H_GetFlashlightState( IShadowMgr *self, ShadowHandle_t h )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const FlashlightState_t &state = SS_CALL( GetFlashlightState, const FlashlightState_t &(*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
+	if ( bClient )
+	{
+		char szState[ 900 ];
+		FlashlightText( state, szState, sizeof( szState ) );
+		Line( "q\tshadowmgr.GetFlashlightState\t%d => %s", (int)h, szState );
+	}
+	return state;
+}
+
+void H_SetFlashlightRenderState( IShadowMgr *self, ShadowHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "shadowmgr.SetFlashlightRenderState\t%d", (int)h );
+	SS_CALL( SetFlashlightRenderState, void (*)( IShadowMgr *, ShadowHandle_t ) )( self, h );
+}
+
+// IStaticPropMgrClient's shadow methods --------------------------------------
+void H_AddShadowToStaticProp( IStaticPropMgrClient *self, unsigned short h, IClientRenderable *pRenderable )
+{
+	if ( SS_FROM_CLIENT() )
+	{
+		char szRenderable[ 320 ];
+		RenderableText( pRenderable, szRenderable, sizeof( szRenderable ) );
+		Line( "props.AddShadowToStaticProp\t%d renderable=%s", (int)h, szRenderable );
+	}
+	SS_CALL( AddShadowToStaticProp, void (*)( IStaticPropMgrClient *, unsigned short, IClientRenderable * ) )( self, h, pRenderable );
+}
+
+void H_RemoveAllShadowsFromStaticProp( IStaticPropMgrClient *self, IClientRenderable *pRenderable )
+{
+	if ( SS_FROM_CLIENT() )
+	{
+		char szRenderable[ 320 ];
+		RenderableText( pRenderable, szRenderable, sizeof( szRenderable ) );
+		Line( "props.RemoveAllShadowsFromStaticProp\trenderable=%s", szRenderable );
+	}
+	SS_CALL( RemoveAllShadowsFromStaticProp, void (*)( IStaticPropMgrClient *, IClientRenderable * ) )( self, pRenderable );
+}
+
 #define SS_INSTALL( object, pmf, name ) \
 	bOk = bOk && Install( object, pmf, (void *)&H_##name, &g_Originals[ kHook_##name ] )
 
-bool InstallAll( IMatRenderContext *pContext )
+bool InstallAll( IMatRenderContext *pContext, bool bShadows )
 {
 	bool bOk = true;
 
@@ -1289,6 +1625,33 @@ bool InstallAll( IMatRenderContext *pContext )
 		SS_INSTALL( pContext, &IMatRenderContext::ComputePixelDiameterOfSphere, ComputePixelDiameterOfSphere );
 	}
 
+	if ( bShadows )
+	{
+		SS_INSTALL( shadowmgr, &IShadowMgr::CreateShadowEx, CreateShadowEx );
+		SS_INSTALL( shadowmgr, &IShadowMgr::DestroyShadow, DestroyShadow );
+		SS_INSTALL( shadowmgr, &IShadowMgr::SetShadowMaterial, SetShadowMaterial );
+		SS_INSTALL( shadowmgr, &IShadowMgr::ProjectShadow, ProjectShadow );
+		SS_INSTALL( shadowmgr, &IShadowMgr::ProjectFlashlight, ProjectFlashlight );
+		SS_INSTALL( shadowmgr, &IShadowMgr::GetInfo, GetInfo );
+		SS_INSTALL( shadowmgr, &IShadowMgr::GetFlashlightFrustum, GetFlashlightFrustum );
+		SS_INSTALL( shadowmgr, &IShadowMgr::AddShadowToBrushModel, AddShadowToBrushModel );
+		SS_INSTALL( shadowmgr, &IShadowMgr::RemoveAllShadowsFromBrushModel, RemoveAllShadowsFromBrushModel );
+		SS_INSTALL( shadowmgr, &IShadowMgr::SetShadowTexCoord, SetShadowTexCoord );
+		SS_INSTALL( shadowmgr, &IShadowMgr::AddShadowToModel, AddShadowToModel );
+		SS_INSTALL( shadowmgr, &IShadowMgr::RemoveAllShadowsFromModel, RemoveAllShadowsFromModel );
+		SS_INSTALL( shadowmgr, &IShadowMgr::ClearExtraClipPlanes, ClearExtraClipPlanes );
+		SS_INSTALL( shadowmgr, &IShadowMgr::AddExtraClipPlane, AddExtraClipPlane );
+		SS_INSTALL( shadowmgr, &IShadowMgr::EnableShadow, EnableShadow );
+		SS_INSTALL( shadowmgr, &IShadowMgr::SetFalloffBias, SetFalloffBias );
+		SS_INSTALL( shadowmgr, &IShadowMgr::UpdateFlashlightState, UpdateFlashlightState );
+		SS_INSTALL( shadowmgr, &IShadowMgr::AddFlashlightRenderable, AddFlashlightRenderable );
+		SS_INSTALL( shadowmgr, &IShadowMgr::SetFlashlightDepthTexture, SetFlashlightDepthTexture );
+		SS_INSTALL( shadowmgr, &IShadowMgr::GetFlashlightState, GetFlashlightState );
+		SS_INSTALL( shadowmgr, &IShadowMgr::SetFlashlightRenderState, SetFlashlightRenderState );
+		SS_INSTALL( staticpropmgr, &IStaticPropMgrClient::AddShadowToStaticProp, AddShadowToStaticProp );
+		SS_INSTALL( staticpropmgr, &IStaticPropMgrClient::RemoveAllShadowsFromStaticProp, RemoveAllShadowsFromStaticProp );
+	}
+
 	return bOk;
 }
 
@@ -1314,9 +1677,13 @@ bool RenderTrace::Begin()
 	g_nMeshHooks = 0;
 	const char *pszMeshes = getenv( "SOURCESHARP_RENDER_TRACE_MESHES" );
 	g_bMeshes = pszMeshes && pszMeshes[ 0 ] == '1';
+	const char *pszShadows = getenv( "SOURCESHARP_RENDER_TRACE_SHADOWS" );
+	const bool bShadows = pszShadows && pszShadows[ 0 ] == '1';
+	if ( bShadows && !shadowmgr )
+		return false;
 
 	CMatRenderContextPtr pContext( materials );
-	if ( !InstallAll( pContext ) )
+	if ( !InstallAll( pContext, bShadows ) )
 	{
 		RemoveAll();
 		Warning( "[SourceSharp] render trace: a hook could not be installed; no trace\n" );

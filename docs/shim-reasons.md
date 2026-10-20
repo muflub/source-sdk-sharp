@@ -67,7 +67,7 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,386 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,753 |
 | b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,751 |
 | c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,744 |
 | d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,134 |
@@ -76,7 +76,7 @@ marker is the answer to "why is this native at all", not a full account.
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 | 1 |  |  | 16 | 9,345 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,009 |
 | x | NO LETTER FITS | 7 | 1 | 3 |  | 2 |  | 19 | 4,424 |
-|  | **total** | **75** | **33** | **75** | **3** | **2** | **1** | **217** | **86,493** |
+|  | **total** | **75** | **33** | **75** | **3** | **2** | **1** | **217** | **86,860** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -218,6 +218,8 @@ Then the client save codec moved to managed (2026-10-19, measured by the walk at
 Then the client's temp entity tables moved to managed planning (2026-10-19, measured by the walk at the landing on main 6c0c02d09): (d) 22 -> 23 files and 9,444 -> 9,492 lines is shell_tempents_store_client.cpp, which stores the managed plan as the RecvProp/RecvTable/ClientClass the engine reads by layout; (b) 16,646 -> 15,900 is tempent_schema.h and the native registration path, deleted, with the dead local Begin/Set*/Play path; (h) -10 follows; 90,163 lines in the table.
 
 Then lane C7 small render TUs landed (2026-10-19, measured by the walk at the lane rebased onto main 1d344bb23): rendertexture.cpp, ScreenSpaceEffects.cpp, vgui_game_viewport.cpp, warp_overlay.cpp, glow_overlay.cpp and c_pixel_visibility.cpp left client.so, their decisions managed. (a) 61 -> 63 files and 34,491 -> 35,021 lines is shell_pixelvis_client.cpp (+248), shell_glow_client.cpp (+208) and shell_render_targets_client.cpp (+85), the executors of what managed decides, and the render trace's mesh and occlusion-query hooks (shell_render_trace_client.cpp +195), less shell_explosion_overlay.cpp (-162), the fireball's backend (shell_te_backends_client.cpp -30) and ParticlesPixelVisible's body (shell_managed_particles.cpp -18); (c) 26 -> 27 files and 3,829 -> 3,932 is shell_managed_clientsystems_client.cpp (+103), kClientSystems[]'s rows over managed systems; (e) +39 is the client trace's glow and solid arms (shell_worldquery_client.cpp); (b) +10, (g) +1 and (x) +3 follow; 89,872 lines in the table.
+
+Then the render recorder gained the shadowmgr. hook family (C7 shadow manager S0, 2026-10-19, measured by the walk at the landing on main 2ba84d1ca): (a) 33,386 -> 33,753 is shell_render_trace_client.cpp's IShadowMgr and static-prop shadow hooks, armed by SOURCESHARP_RENDER_TRACE_SHADOWS=1, the base witness S2's A/B compares against; 86,860 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

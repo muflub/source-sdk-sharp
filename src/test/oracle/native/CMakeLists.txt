@@ -322,7 +322,7 @@ ss_cpptest_mathlib(precipitation_oracle_test
              ${SS_VALVE_SRC}/game/client ${SS_VALVE_SRC}/game/shared
              sourcesharp/test
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/precipitation_oracle_test.cpp
-            ${SS_VALVE_SRC}/public/collisionutils.cpp)
+            ${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/collisionutils.cpp)
 endif()
 
 # THE VOICE BAN ORACLE (lane ui, C3 step 4, plan cluster 15): stock's
@@ -867,6 +867,57 @@ ss_cpptest_mathlib(leafsystem_oracle_test
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/leafsystem_oracle_test.cpp
             ${SS_VALVE_SRC}/tier1/mempool.cpp
     LIBS atomic)
+endif()
+
+# THE SHADOW MANAGER ORACLE (C7 cluster 12, docs/plans/c7_shadow_manager.md
+# S0): stock's CClientShadowMgr as the client compiles it -- the shadows and
+# their kinds, the modes, the dirty set, the blob, render-to-texture and
+# flashlight projections, the receivers, the render-to-texture pass with its
+# budget, LOD and atlas, the flashlight depth textures, the debug overlays
+# and the two material proxies -- run offline from the PRISTINE
+# game/client/clientshadowmgr.cpp over a scripted world
+# (shadowmgr_stub/shadowmgr_harness.h says what is stock and what is
+# stand-in), held to the golden src/test/client/Fixtures/shadowmgr-stock.tsv,
+# which the managed shadow manager's ShadowManagerOracleTests replay.
+# mathlib for the vector and matrix functions, the frustum and the AABB of a
+# projection; the pristine public/collisionutils.cpp for the separating plane
+# and the box-sphere test (client.so carries neither as Valve's). _DEBUG
+# compiles the subject's r_shadowbreak and its debug consistency checks, as
+# the debug client has them (NO_MALLOC_OVERRIDE, as the client builds). The
+# -Wno- flags are for VALVE'S CODE: the MSVC pragmas, the threaded arm's
+# unused helpers and locals, collisionutils.cpp's sign compares and unused
+# statics, and the pristine iclientrenderable.h's GetRefEHandle, which binds
+# a null reference.
+set(shadowmgr_stock "${SS_VALVE_SRC}/game/client/clientshadowmgr.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${shadowmgr_stock}")
+  ss_oracle_missing(shadowmgr_oracle_test "no ${shadowmgr_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and the headers it was written against are COPIED, byte for
+# byte, into their own directory before they are included: their quoted
+# #includes would otherwise find game/client's real headers beside them
+# ahead of the stand-ins. The renderable interfaces and itoolentity.h are the
+# pristine ones: the farm's answer GetBaseEntity() with SourceSharp's
+# IGameEntity, and the subject asks it for a C_BaseEntity.
+configure_file("${shadowmgr_stock}" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/clientshadowmgr.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/iclientshadowmgr.h" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/iclientshadowmgr.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/igamesystem.h" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/igamesystem.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/iclientunknown.h" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/iclientunknown.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/iclientrenderable.h" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/iclientrenderable.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/toolframework/itoolentity.h" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/toolframework/itoolentity.h" COPYONLY)
+# collisionutils.cpp is copied too, so its quoted includes find the farm's
+# library headers (the ones the linked libraries were built against).
+configure_file("${SS_VALVE_SRC}/public/collisionutils.cpp" "${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/collisionutils.cpp" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(shadowmgr_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL _DEBUG NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-unused-private-field -Wno-null-dereference -Wno-sign-compare -Wno-reorder-ctor
+            -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/shadowmgr_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shadowmgr_oracle_test.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/shadowmgr_subject/collisionutils.cpp)
 endif()
 
 # THE CLIENT SOUND EMITTER ORACLE (the client port of sound_emitter.cpp's emit

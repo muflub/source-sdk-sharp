@@ -1,0 +1,252 @@
+# C7 shadow manager, S0's base witness (docs/plans/c7_shadow_manager.md): what the client's shadow
+# manager asks the engine's, at fixed poses, recorded before clientshadowmgr.cpp moves and again at each
+# step after (run at each build and compare the traces' `shadowmgr.` and `props.*Shadow*` lines). The
+# poses are c7-leaf-ab.steps' three on dm_lockdown. The whole set runs with r_shadowrendertotexture 0
+# and then again with 1, with the flashlight on (impulse 100) for one traced frame in each mode; the map
+# is then loaded a second time in the same process and pose 1 traced again in both modes. The recorder's
+# shadow hooks are armed by the environment, so the frozen render recordings keep their lines:
+#   INSTANCE=0 tools/probes/c0-session OUT tools/probes/sessions/c7-shadow-ab.steps --no-probe-build \
+#     --port P --env SOURCESHARP_RENDER_TRACE_SHADOWS=1
+# (INSTANCE=0 because c0-session's waits read the tree's mods/test/console.log.) A trace is one
+# View_Render: calls the manager makes outside it (a shadow's creation and destruction, the flashlight's
+# UpdateFlashlightState and ProjectFlashlight, which C_BasePlayer's simulation drives) are not in it.
+#
+# THE STIMULUS, before each `traced` frame, in the same command line as the trace request so that the
+# next frame is the traced one: `r_shadowdist 50; r_shadowdir 0.1 0.1 -1`. r_shadowdir alone is not
+# enough: CClientShadowMgr::SetShadowDirection calls UpdateAllShadows only while render-to-texture
+# shadows are active (r_shadowrendertotexture 1), so with 0 it dirties nothing. SetShadowDistance
+# always calls UpdateAllShadows, and 50 is its default (CClientShadowMgr::Init's SetShadowDistance( 50 )),
+# so it changes no value and puts every shadow on the dirty list in both modes.
+# WHAT IT DOES NOT DO: re-project. UpdateAllShadows queues every shadow, and PreRender's dirty walk
+# calls UpdateShadow( handle, false ) on each, which asks GetInfo and EnableShadow and then re-projects
+# only a caster whose render origin or angles moved. And at this base every shadow is on the dirty list
+# every frame anyway (the `-control` frame, traced at pose 1 just before the stimulated one with no
+# stimulus, had the same shadowmgr lines, value for value, at 01c4ea691), so the stimulated frame
+# witnesses the dirty walk: a GetInfo and an EnableShadow per shadow. ProjectShadow and the rest come
+# from three other stimuli:
+#   - a crate (c7-shadow-ab.json) dropped from about a hundred units in view at pose 1 in each mode and
+#     traced in nine frames, three of them 0.3 s after the spawn, while it falls (a re-projection in
+#     each: ProjectShadow, and in render-to-texture mode its clip planes, texture coordinates and
+#     texture), the rest after it has come to rest (none). Lowering sv_gravity does not slow the fall:
+#     tried at 01c4ea691, the crate fell at full speed;
+#   - the switch to render-to-texture (rtt-on-1..3: InitRenderToTextureShadows' SetShadowMaterial per
+#     shadow, then the textures allocated and drawn) and back after the reload (rtt-off-1..2:
+#     SetShadowMaterial, SetShadowTexCoord and ClearExtraClipPlanes per shadow);
+#   - the flashlight's depth texture and render state (SetFlashlightDepthTexture, GetFlashlightState).
+#
+# The MOTD is closed (cs_sv_showpanel 1 info 0) so that the screenshots of the drop show it.
+#
+# Each pose also records, as console lines between `SHW <tag> ...` echo markers:
+#   - cs_cl_crossings over a 10 s window at the pose (the `crossings-window` marker's report: its total
+#     over its client frames is the inbound crossings per frame, S3's baseline);
+#   - cs_cl_shadow_report reset just before the traced frame and just after it (held, rtt, simple,
+#     depth, lostRenderable, texturesDrawn; the `after` report's texturesDrawn counts the frames in
+#     between).
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd cs_sv_showpanel 1 info 0
+cmd r_shadowrendertotexture 0
+sleep 2
+# ---- r_shadowrendertotexture 0 ----
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd echo SHW rtt0-p1 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt0-p1 crossings-window
+cmd cs_cl_crossings reset
+cmd cs_cl_render_trace {out}/rtt0-p1-control.txt
+wait recorded \d+ lines to .*/rtt0-p1-control\.txt 20
+cmd echo SHW rtt0-p1 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt0-p1.txt
+wait recorded \d+ lines to .*/rtt0-p1\.txt 20
+cmd echo SHW rtt0-p1 report-after
+cmd cs_cl_shadow_report reset
+api place tools/probes/sessions/c7-shadow-ab.json
+sleep 0.3
+cmd echo SHW rtt0-p1-drop report-before
+cmd cs_cl_shadow_report reset
+cmd cs_cl_render_trace {out}/rtt0-p1-drop-a.txt; cs_cl_render_trace {out}/rtt0-p1-drop-b.txt; cs_cl_render_trace {out}/rtt0-p1-drop-c.txt
+wait recorded \d+ lines to .*/rtt0-p1-drop-c\.txt 20
+shot rtt0-p1-drop
+sleep 0.5
+cmd cs_cl_render_trace {out}/rtt0-p1-drop-d.txt; cs_cl_render_trace {out}/rtt0-p1-drop-e.txt
+wait recorded \d+ lines to .*/rtt0-p1-drop-e\.txt 20
+sleep 0.5
+cmd cs_cl_render_trace {out}/rtt0-p1-drop-f.txt; cs_cl_render_trace {out}/rtt0-p1-drop-g.txt
+wait recorded \d+ lines to .*/rtt0-p1-drop-g\.txt 20
+sleep 0.5
+cmd cs_cl_render_trace {out}/rtt0-p1-drop-h.txt; cs_cl_render_trace {out}/rtt0-p1-drop-i.txt
+wait recorded \d+ lines to .*/rtt0-p1-drop-i\.txt 20
+cmd echo SHW rtt0-p1-drop report-after
+cmd cs_cl_shadow_report reset
+sleep 3
+api remove name=shwcrate
+sleep 1
+cmd impulse 100
+sleep 2
+cmd echo SHW rtt0-p1-flash crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt0-p1-flash crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW rtt0-p1-flash report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt0-p1-flash.txt
+wait recorded \d+ lines to .*/rtt0-p1-flash\.txt 20
+cmd echo SHW rtt0-p1-flash report-after
+cmd cs_cl_shadow_report reset
+cmd impulse 100
+sleep 2
+api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
+sleep 2
+cmd echo SHW rtt0-p2 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt0-p2 crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW rtt0-p2 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt0-p2.txt
+wait recorded \d+ lines to .*/rtt0-p2\.txt 20
+cmd echo SHW rtt0-p2 report-after
+cmd cs_cl_shadow_report reset
+api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
+sleep 2
+cmd echo SHW rtt0-p3 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt0-p3 crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW rtt0-p3 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt0-p3.txt
+wait recorded \d+ lines to .*/rtt0-p3\.txt 20
+cmd echo SHW rtt0-p3 report-after
+cmd cs_cl_shadow_report reset
+# ---- the switch to render-to-texture, three frames from the one the manager switches in ----
+cmd echo SHW rtt-on report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowrendertotexture 1; cs_cl_render_trace {out}/rtt-on-1.txt; cs_cl_render_trace {out}/rtt-on-2.txt; cs_cl_render_trace {out}/rtt-on-3.txt
+wait recorded \d+ lines to .*/rtt-on-3\.txt 20
+cmd echo SHW rtt-on report-after
+cmd cs_cl_shadow_report reset
+sleep 2
+# ---- r_shadowrendertotexture 1 ----
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd echo SHW rtt1-p1 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt1-p1 crossings-window
+cmd cs_cl_crossings reset
+cmd cs_cl_render_trace {out}/rtt1-p1-control.txt
+wait recorded \d+ lines to .*/rtt1-p1-control\.txt 20
+cmd echo SHW rtt1-p1 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt1-p1.txt
+wait recorded \d+ lines to .*/rtt1-p1\.txt 20
+cmd echo SHW rtt1-p1 report-after
+cmd cs_cl_shadow_report reset
+api place tools/probes/sessions/c7-shadow-ab.json
+sleep 0.3
+cmd echo SHW rtt1-p1-drop report-before
+cmd cs_cl_shadow_report reset
+cmd cs_cl_render_trace {out}/rtt1-p1-drop-a.txt; cs_cl_render_trace {out}/rtt1-p1-drop-b.txt; cs_cl_render_trace {out}/rtt1-p1-drop-c.txt
+wait recorded \d+ lines to .*/rtt1-p1-drop-c\.txt 20
+shot rtt1-p1-drop
+sleep 0.5
+cmd cs_cl_render_trace {out}/rtt1-p1-drop-d.txt; cs_cl_render_trace {out}/rtt1-p1-drop-e.txt
+wait recorded \d+ lines to .*/rtt1-p1-drop-e\.txt 20
+sleep 0.5
+cmd cs_cl_render_trace {out}/rtt1-p1-drop-f.txt; cs_cl_render_trace {out}/rtt1-p1-drop-g.txt
+wait recorded \d+ lines to .*/rtt1-p1-drop-g\.txt 20
+sleep 0.5
+cmd cs_cl_render_trace {out}/rtt1-p1-drop-h.txt; cs_cl_render_trace {out}/rtt1-p1-drop-i.txt
+wait recorded \d+ lines to .*/rtt1-p1-drop-i\.txt 20
+cmd echo SHW rtt1-p1-drop report-after
+cmd cs_cl_shadow_report reset
+sleep 3
+api remove name=shwcrate
+sleep 1
+cmd impulse 100
+sleep 2
+cmd echo SHW rtt1-p1-flash crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt1-p1-flash crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW rtt1-p1-flash report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt1-p1-flash.txt
+wait recorded \d+ lines to .*/rtt1-p1-flash\.txt 20
+cmd echo SHW rtt1-p1-flash report-after
+cmd cs_cl_shadow_report reset
+cmd impulse 100
+sleep 2
+api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
+sleep 2
+cmd echo SHW rtt1-p2 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt1-p2 crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW rtt1-p2 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt1-p2.txt
+wait recorded \d+ lines to .*/rtt1-p2\.txt 20
+cmd echo SHW rtt1-p2 report-after
+cmd cs_cl_shadow_report reset
+api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
+sleep 2
+cmd echo SHW rtt1-p3 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW rtt1-p3 crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW rtt1-p3 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/rtt1-p3.txt
+wait recorded \d+ lines to .*/rtt1-p3\.txt 20
+cmd echo SHW rtt1-p3 report-after
+cmd cs_cl_shadow_report reset
+# ---- the second map load: pose 1 again, in both modes ----
+cmd map dm_lockdown
+sleep 25
+cmd sv_cheats 1
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd echo SHW reload-rtt1-p1 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW reload-rtt1-p1 crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW reload-rtt1-p1 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/reload-rtt1-p1.txt
+wait recorded \d+ lines to .*/reload-rtt1-p1\.txt 60
+cmd echo SHW reload-rtt1-p1 report-after
+cmd cs_cl_shadow_report reset
+cmd echo SHW rtt-off report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowrendertotexture 0; cs_cl_render_trace {out}/rtt-off-1.txt; cs_cl_render_trace {out}/rtt-off-2.txt
+wait recorded \d+ lines to .*/rtt-off-2\.txt 20
+cmd echo SHW rtt-off report-after
+cmd cs_cl_shadow_report reset
+sleep 2
+cmd echo SHW reload-rtt0-p1 crossings-start
+cmd cs_cl_crossings reset
+sleep 10
+cmd echo SHW reload-rtt0-p1 crossings-window
+cmd cs_cl_crossings reset
+cmd echo SHW reload-rtt0-p1 report-before
+cmd cs_cl_shadow_report reset
+cmd r_shadowdist 50; r_shadowdir 0.1 0.1 -1; cs_cl_render_trace {out}/reload-rtt0-p1.txt
+wait recorded \d+ lines to .*/reload-rtt0-p1\.txt 20
+cmd echo SHW reload-rtt0-p1 report-after
+cmd cs_cl_shadow_report reset
+quit
