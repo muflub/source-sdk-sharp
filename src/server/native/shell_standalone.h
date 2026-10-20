@@ -1260,7 +1260,6 @@ bool StandaloneHierarchy_IsParented( const CStandaloneEntity *pChild );
 void StandaloneHierarchy_SetParentName( CStandaloneEntity *pChild, const char *pParentName );
 void StandaloneHierarchy_SetParentAttachmentName( CStandaloneEntity *pChild,
                                                   const char *pAttachmentName );
-void StandaloneHierarchy_ResolveParentNames();
 
 // The two halves of a move. A parent that moved carries its children; a child
 // that moved itself has a new offset from its parent.

@@ -33,6 +33,7 @@
 //   * the SDK tail of CPASAttenuationFilter::Filter. Every recipient index
 //     names a connected client and every connected client is a standalone
 //     player, so the arm above it had already `continue`d for all of them.
+//     (The class itself went at plan_server_native_v2 T5: nothing built one.)
 //
 // SIX §3.16 CAST SITES WENT WITH THOSE THREE BLOCKS: two C-style casts to a
 // base entity pointer, two ToBasePlayer calls and two uses of the base
@@ -115,73 +116,6 @@ void ss::CRecipientFilter::AddRecipientsByPAS( const Vector& origin )
 // THE HANDLE-SHAPED CONSTRUCTOR WENT (plan_server_native_v2 T4a) with its one
 // caller, shell_sound.cpp's entity emit: ServerSounds.EntityEmitSound builds
 // the same filter in C#, around the entity's centre at the script's level.
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : origin - 
-//			ATTN_NORM - 
-//-----------------------------------------------------------------------------
-void ss::CPASAttenuationFilter::Filter( const Vector& origin, float attenuation /*= ATTN_NORM*/ )
-{
-	// Don't crop for attenuation in single player
-	if ( gpGlobals->maxClients == 1 )
-		return;
-
-	// CPASFilter adds them by pure PVS in constructor
-	if ( attenuation <= 0 )
-		return;
-
-	// Now remove recipients that are outside sound radius
-	Vector vecRelative;
-
-	int c = GetRecipientCount();
-	
-	for ( int i = c - 1; i >= 0; i-- )
-	{
-		int index = GetRecipientIndex( i );
-
-		// The standalone player's ears, the same arm CServerGameClients::
-		// ClientEarPosition already carries. Instance() below answers NULL for
-		// a parallel-hierarchy player, so before the recipient filters were
-		// fixed this loop never ran at all -- the filter was EMPTY, c was 0,
-		// and the Assert could not fire. Populating the filters made the loop
-		// run and the assert fire on the first sound near a player.
-		//
-		// The `continue` on the assert path is not harmless: it KEEPS the
-		// recipient, so a sound that should have been cropped by distance was
-		// audible at any range. Cropping this arm restores that.
-		if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict(
-		         engine->PEntityOfEntIndex( index ) ) )
-		{
-			// Neither HLTV nor a replay bot can be a standalone player, so the
-			// exemption below does not apply here.
-			VectorSubtract( pStandalone->EyePosition(), origin, vecRelative );
-			if ( VectorLength( vecRelative ) >
-			     ( 2 * SOUND_NORMAL_CLIP_DIST ) / attenuation )
-			{
-				RemoveRecipientByPlayerIndex( index );
-			}
-
-			continue;
-		}
-
-		// STOCK'S SDK TAIL WAS HERE, and every recipient had already taken the
-		// arm above it. A recipient index names a CONNECTED CLIENT, and every
-		// connected client in this build is a standalone player -- so the
-		// `continue` above has already cropped or kept each one and this tail
-		// could not be reached.
-		//
-		// Its three asks all died with the hierarchy they were about:
-		// CBaseEntity::Instance is a static of a class this port does not build
-		// players on; IsPlayer is a game question the engine never asks; and
-		// EarPosition is CBasePlayer's. ToBasePlayer is not a retype for it
-		// either -- it answers NULL for a player on the parallel hierarchy by
-		// construction.
-		//
-		// The HLTV/Replay exemption went with it and is not lost: neither can be
-		// a standalone player, which is what the arm above already records.
-	}
-}
 
 // RecipientFilter_RemoveIfNotCloseCaptioning WENT (plan_server_native_v2 T4a)
 // with sound_emitter.cpp's server caption, its one importer: the rule is

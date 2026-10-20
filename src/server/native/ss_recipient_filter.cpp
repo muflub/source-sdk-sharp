@@ -82,13 +82,6 @@ void ss::CRecipientFilter::AddRecipientByPlayerIndex( int playerindex )
 
 
 
-void ss::CRecipientFilter::RemoveRecipientByPlayerIndex( int playerindex )
-{
-	Assert( playerindex >= 1 && playerindex <= ABSOLUTE_PLAYER_LIMIT );
-
-	{ auto it = std::find( m_Recipients.begin(), m_Recipients.end(), playerindex ); if ( it != m_Recipients.end() ) m_Recipients.erase( it ); }
-}
-
 
 
 // AddRecipientsByTeam, RemoveRecipientsByTeam and RemoveRecipientsNotOnTeam

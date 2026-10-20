@@ -116,8 +116,6 @@ shell_decals.o	_ZZL17ShellDecalEmittervE9s_Emitter	ShellDecalEmitter()::s_Emitte
 	enginesound	enginesound	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	enginetrace	enginetrace	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	g_bCheckForChainedActivate	g_bCheckForChainedActivate	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
-	g_bReceivedChainedActivate	g_bReceivedChainedActivate	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
 	g_flServerCurTime	g_flServerCurTime	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
 	g_pSharedChangeInfo	g_pSharedChangeInfo	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pStringTableClientSideChoreoScenes	g_pStringTableClientSideChoreoScenes	sourcesharp/game/server/shell_engineboundary.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
@@ -156,9 +154,7 @@ shell_gametags.o	_ZN12_GLOBAL__N_116s_ServerGameTagsE	(anonymous namespace)::s_S
 shell_globals.o	_ZZN12_GLOBAL__N_120HandleFromGameEntityEPK11CBaseEntityE16s_pLastComplaint	(anonymous namespace)::HandleFromGameEntity(CBaseEntity const*)::s_pLastComplaint	sourcesharp/game/server/shell_globals.cpp	LOCAL	bss	function-local	8	UNRULED		
 	g_bUseNetworkVars	g_bUseNetworkVars	sourcesharp/game/server/shell_globals.cpp	GLOBAL	data	file-or-global	1	UNRULED		
 	g_fGameOver	g_fGameOver	sourcesharp/game/server/shell_globals.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
-	g_iSkillLevel	g_iSkillLevel	sourcesharp/game/server/shell_globals.cpp	GLOBAL	bss	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 	g_pServerClassHead	g_pServerClassHead	sourcesharp/game/server/shell_globals.cpp	GLOBAL	bss	file-or-global	8	FLOOR		static-init registration named in plan_globals.md 2
-	g_vecAttackDir	g_vecAttackDir	sourcesharp/game/server/shell_globals.cpp	GLOBAL	bss	file-or-global	12	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_globals.o	_ZL11s_factories	s_factories	sourcesharp/game/server/shell_globals.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 shell_globals.o	_ZZNK2ss9variant_t8ToStringEvE5szBuf	ss::variant_t::ToString() const::szBuf	sourcesharp/game/server/shell_globals.cpp	LOCAL	bss	function-local	512	UNRULED		
 shell_level.o	_ZL11g_ShimLevel	g_ShimLevel	sourcesharp/game/server/shell_level.cpp	LOCAL	data	file-or-global	8	UNRULED		
@@ -234,12 +230,6 @@ convar_port.o	_ZN12_GLOBAL__N_116s_nRegisterFlagsE	(anonymous namespace)::s_nReg
 	_ZN14ConCommandBase11s_pAccessorE	ConCommandBase::s_pAccessor	sourcesharp/game/shared/convar_port.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN14ConCommandBase18s_pConCommandBasesE	ConCommandBase::s_pConCommandBases	sourcesharp/game/shared/convar_port.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 convar_port.o	_ZZN9ConVarRef4InitEPKcbE23s_bWarnedWithoutConsole	ConVarRef::Init(char const*, bool)::s_bWarnedWithoutConsole	sourcesharp/game/shared/convar_port.cpp	LOCAL	bss	function-local	1	UNRULED		
-	k_flMaxEntityEulerAngle	k_flMaxEntityEulerAngle	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	UNRULED		
-	k_flMaxEntityPosCoord	k_flMaxEntityPosCoord	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
-	k_flMaxEntitySpeed	k_flMaxEntitySpeed	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
-	k_flMaxEntitySpinRate	k_flMaxEntitySpinRate	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
-	s_nPredictionRandomSeed	s_nPredictionRandomSeed	sourcesharp/game/shared/entity_shared_statics.cpp	WEAK	data	file-or-global	4	UNRULED		
-	s_nPredictionRandomSeedServer	s_nPredictionRandomSeedServer	sourcesharp/game/shared/entity_shared_statics.cpp	WEAK	data	file-or-global	4	UNRULED		
 entity_shared_statics.o	_ZL17sv_alternateticks	sv_alternateticks	sourcesharp/game/shared/entity_shared_statics.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 gamestringpool.o	_ZL16g_GameStringPool	g_GameStringPool	sourcesharp/game/shared/gamestringpool.cpp	LOCAL	bss	file-or-global	64	UNRULED		
 	_ZZN18CNativeCommandBody4HeadEvE7s_pHead	CNativeCommandBody::Head()::s_pHead	sourcesharp/game/shared/gamestringpool_debug.cpp	WEAK	bss	function-local	8	CONST	-	reset_today=n/a. The head of the SS_NATIVE_COMMAND list (native_command_body.h), written only by the nodes' static constructors
@@ -311,10 +301,8 @@ tier0_spew_port.o	_ZN12_GLOBAL__N_16t_TypeE	(anonymous namespace)::t_Type	source
 tier0_spew_port.o	_ZN12_GLOBAL__N_111t_bInEngineE	(anonymous namespace)::t_bInEngine	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	tls	function-local	1	MEMBER	Diagnostics:DLL	reset_today=per call. thread_local: set while a line is in the engine's tier0 spew slot, so a slot that leads back into server.so's writes to ICvar instead of recursing (tier0_spew_port.cpp).
 tier0_spew_port.o	_ZN12_GLOBAL__N_17t_nLineE	(anonymous namespace)::t_nLine	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	tls	function-local	4	MEMBER	Diagnostics:DLL	reset_today=per call. thread_local: the assert line _SpewInfo records for _SpewMessage's "file (line) :" prefix.
 tier0_spew_port.o	_ZN12_GLOBAL__N_17t_pFileE	(anonymous namespace)::t_pFile	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	tls	function-local	8	MEMBER	Diagnostics:DLL	reset_today=per call. thread_local: the assert file _SpewInfo records for _SpewMessage's "file (line) :" prefix.
-tier0_thread_port.o	_ZZ17GetCPUInformationE6s_Info	GetCPUInformation::s_Info	sourcesharp/game/shared/tier0_thread_port.cpp	LOCAL	bss	class-or-namespace	72	CONST	Diagnostics:DLL	reset_today=NO (never changes). tier0's GetCPUInformation answer, measured once by CPUID on first call and read-only after (tier0_thread_port.cpp, P4); libmathlib.a's MathLib_Init is the caller.
 	cvar	cvar	sourcesharp/game/shared/tier_connect.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pCVar	g_pCVar	sourcesharp/game/shared/tier_connect.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	g_pUtlSortVectorQSortContext	g_pUtlSortVectorQSortContext	sourcesharp/game/shared/tier_connect.cpp	GLOBAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 	mdlcache	mdlcache	sourcesharp/game/shared/tier_connect.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 tier_connect.o	_ZL17s_bTier1Connected	s_bTier1Connected	sourcesharp/game/shared/tier_connect.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 util_shared_library.o	_ZL10s_Language	s_Language	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	MANAGED	SourceSharp.Server.GLanguageConVar	reset_today=n/a. A CManagedConVarRef: a by-name handle on the ConVar C# declares (plan_server_novalve.md P2.3b); holds a cached pointer into the engine registry and no value of its own

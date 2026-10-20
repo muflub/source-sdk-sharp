@@ -635,59 +635,13 @@ TEST( T1WorldTest, IsWorldEntityLeftWithItsDeadFloodList )
 //=============================================================================//
 
 //-----------------------------------------------------------------------------
-// A sound's OWNER. `m_hOwner.Get()` is CHandle<CBaseEntity>::Get(), which
-// resolves the stored EHANDLE to a CBaseEntity and answers NULL for an owner on
-// the parallel hierarchy -- so a sound made by a managed entity reported no
-// owner at all, and every listen filter testing "who made this" saw a world
-// noise.
-//
-// shell_resolve.h: "the handle is the one number that never cared which side
-// its owner lived on."
-//
-//=============================================================================
-// RE-POINTED by plan_gamedll_after.md Phase A3's second pair, and the property
-// is the same one -- what moved is where it lives.
-//
-// This used to read shell_sound.cpp's SourceSharp_SoundEntQuery, the engine
-// slot that handed CSoundEnt's list to managed code. game/server/soundent.cpp
-// has left server_csharp.vpc, the pool is SourceSharp.Server's SoundEnt, and
-// that slot is gone with it -- so the fact's subject was deleted by the phase
-// and it failed on a tree where nothing was wrong. This tree's recorded "a
-// mutation that stops reaching its subject", met by a FACT rather than a
-// mutation.
-//
-// THE SURVIVING SUBJECT IS THE OTHER DIRECTION. shell_soundent.cpp's
-// ss::SoundEnt_InsertSound (CSoundEnt::InsertSound forwards to it since P5 lane
-// SP gave it an R5 spelling) is where a native caller's owner now crosses, and the
-// same question applies to it: is the owner read as a HANDLE, or resolved to a
-// CBaseEntity first?
-//
-// AND THE THIRD EXPECTATION INVERTS, which is why this is a re-point and not a
-// rename. Reading the list, the handle is already stored and
-// SourceSharp_HandleFromAnyEntity must NOT appear -- calling it would mean
-// something had been resolved and re-derived. WRITING the list, the caller has
-// a pointer and the helper is exactly the right thing: it asks the
-// IHandleEntity face, which both hierarchies answer. Its CBaseEntity-only
-// sibling, SourceSharp_HandleFromEntity, is the spelling that would reintroduce
-// the bug.
+// TEST( T1SoundOwner, TheOwnerHandleIsNotResolvedThroughAnEntityFirst ) stood
+// here and read shell_soundent.cpp's ss::SoundEnt_InsertSound, which handed a
+// sound's owner and target to the managed pool as handles. That function went
+// at plan_server_native_v2 T5 (no server object called it): sound hints enter
+// the managed SoundEnt from managed code, where the owner is an EntityHandle
+// by type.
 //-----------------------------------------------------------------------------
-TEST( T1SoundOwner, TheOwnerHandleIsNotResolvedThroughAnEntityFirst )
-{
-	const std::string code = CodeOf( "sourcesharp/game/server/shell_soundent.cpp" );
-	ASSERT_FALSE( code.empty() );
-
-	const std::string body = BodyAfter( code, "void ss::SoundEnt_InsertSound(" );
-	ASSERT_FALSE( body.empty() ) << "ss::SoundEnt_InsertSound is gone or unparseable";
-
-	// The owner AND the target, which is two of them: stock stores both as
-	// EHANDLEs and both are read by the same rule.
-	EXPECT_EQ( 2, CountOf( body, "SourceSharp_HandleFromAnyEntity(" ) );
-
-	// The three spellings that would put the bug back.
-	EXPECT_EQ( 0, CountOf( body, "SourceSharp_HandleFromEntity(" ) );
-	EXPECT_EQ( 0, CountOf( body, "->GetRefEHandle()" ) );
-	EXPECT_EQ( 0, CountOf( body, ".Get()" ) );
-}
 
 
 //=============================================================================//

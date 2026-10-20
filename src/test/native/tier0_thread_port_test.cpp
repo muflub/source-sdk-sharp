@@ -1,8 +1,8 @@
-//========= SourceSharp — server.so's own tier0 thread and platform calls =====//
+//========= SourceSharp — client.so's own tier0 thread calls =================//
 //
-// tier0_thread_port.cpp: ThreadGetCurrentId, CThreadFastMutex's contended
-// Lock and Plat_IsInDebugSession, defined in server.so for the fork headers'
-// inline code (plan_server_novalve.md P4). This binary links NO tier0, so
+// tier0_thread_port.cpp: ThreadGetCurrentId and CThreadFastMutex's contended
+// Lock, defined in client.so for the fork headers' inline code
+// (plan_server_novalve.md P4, then plan_client_novalve C9). This binary links NO tier0, so
 // every call below reaches the port. ss_clock.h, which replaced our own
 // Plat_FloatTime calls, is held here too.
 //
@@ -108,43 +108,6 @@ TEST( Tier0ThreadPort, TheContendedLockWaitsForTheOwnerToLetGo )
 	s_Mutex.Unlock();
 	waiter.join();
 	EXPECT_TRUE( bGot.load() );
-}
-
-TEST( Tier0ThreadPort, NoDebuggerIsReportedWhenNothingTracesTheProcess )
-{
-	// The positive arm needs a tracer; this binary runs under ctest, untraced.
-	// Check that premise from /proc first, so a debug run does not read as a bug.
-	FILE *f = fopen( "/proc/self/status", "r" );
-	ASSERT_NE( nullptr, f );
-	char szLine[ 256 ];
-	long tracer = -1;
-	while ( fgets( szLine, sizeof( szLine ), f ) )
-		if ( sscanf( szLine, "TracerPid: %ld", &tracer ) == 1 )
-			break;
-	fclose( f );
-	ASSERT_EQ( 0, tracer ) << "this run is traced; the fact cannot be taken";
-
-	EXPECT_FALSE( Plat_IsInDebugSession() );
-}
-
-TEST( Tier0ThreadPort, CpuInformationHasEveryX86_64BaselineFlagMathlibReads )
-{
-	const CPUInformation *pInfo = GetCPUInformation();
-	ASSERT_NE( nullptr, pInfo );
-	EXPECT_EQ( (int)sizeof( CPUInformation ), pInfo->m_Size );
-	// x86-64 guarantees MMX, SSE and SSE2: MathLib_Init takes its SSE paths on these.
-	EXPECT_TRUE( pInfo->m_bMMX );
-	EXPECT_TRUE( pInfo->m_bSSE );
-	EXPECT_TRUE( pInfo->m_bSSE2 );
-	EXPECT_FALSE( pInfo->m_b3DNow );
-	EXPECT_GE( pInfo->m_nLogicalProcessors, 1 );
-	ASSERT_NE( nullptr, pInfo->m_szProcessorID );
-	ASSERT_NE( nullptr, pInfo->m_szProcessorBrand );
-}
-
-TEST( Tier0ThreadPort, CpuInformationIsOneAnswerForTheProcess )
-{
-	EXPECT_EQ( GetCPUInformation(), GetCPUInformation() );
 }
 
 TEST( SsClock, CountsFromNearZeroAndMeasuresASleep )

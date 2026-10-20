@@ -110,18 +110,4 @@ void *FindLoadedSymbol( const char *pszFile, const char *pszSymbol )
 #endif
 }
 
-void *RequireLoadedSymbol( const char *pszFile, const char *pszSymbol )
-{
-	void *pSymbol = FindLoadedSymbol( pszFile, pszSymbol );
-	if ( !pSymbol )
-	{
-		fprintf( stderr, "[SourceSharp] %s: no loaded %s defines it. This module binds it "
-		                 "to the copy the engine loaded and links no other; stopping.\n",
-		         pszSymbol, pszFile );
-		fflush( stderr );
-		abort();
-	}
-	return pSymbol;
-}
-
 } // namespace ss

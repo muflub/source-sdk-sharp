@@ -468,19 +468,6 @@ void StandaloneHierarchy_SetParentAttachmentName( CStandaloneEntity *pChild,
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Once per map load, from mapentities.cpp, after every entity has spawned. A
-// third pass, and it has to be a third one: the names exist from parse time, but
-// the OFFSET a child keeps is measured from where the two of them ended up.
-//-----------------------------------------------------------------------------
-void StandaloneHierarchy_ResolveParentNames()
-{
-	IManagedHierarchy *pApi = HierarchyApi();
-
-	if ( pApi )
-		pApi->HierarchyResolveParentNames();
-}
-
 //=============================================================================//
 // Teardown.
 //=============================================================================//

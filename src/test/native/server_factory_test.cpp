@@ -99,14 +99,8 @@ TEST( ServerFactory, TheReturnCodeIsOptional )
 	EXPECT_EQ( (void *)&g_Objects[5], CreateInterface( "ServerGameTags001", nullptr ) );
 }
 
-TEST( ServerFactory, TheFactoryThisIsCreateInterface )
-{
-	CreateInterfaceFn fn = Sys_GetFactoryThis();
-	ASSERT_NE( nullptr, fn );
-	int rc = -1;
-	EXPECT_EQ( (void *)&g_Objects[5], fn( "ServerGameTags001", &rc ) );
-	EXPECT_EQ( IFACE_OK, rc );
-}
+// Sys_GetFactoryThis went (plan_server_native_v2 T5): no server object
+// imported it; the engine reaches the factory through the CreateInterface export.
 
 // IEffects001 LEFT THE TABLE (P5 lane SP). The string is in no engine binary:
 // of the 90 .so files under Source SDK Base 2013 Multiplayer only the stock

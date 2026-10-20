@@ -25,6 +25,11 @@
 //   server_class.cpp  g_pServerClassHead
 //   networkvar.cpp    g_bUseNetworkVars
 //
+// SIX SINCE plan_server_native_v2 T5 (2026-10-19): g_vecAttackDir and
+// g_iSkillLevel went, no object on server.so's link importing either (nm U),
+// and their needles below went with them (user ruling 2026-10-19: tests of
+// unused code go with it).
+//
 //=============================================================================//
 
 #include <string>
@@ -176,10 +181,6 @@ TEST( ServerGlobalsMerge, TheEightDefinitionsAreAllHereAndEachExactlyOnce )
 
 	struct Def_t { const char *pszNeedle; const char *pszWhy; };
 	static const Def_t kDefs[] = {
-		{ "Vectorg_vecAttackDir;",
-		  "globals.cpp's attack direction" },
-		{ "intg_iSkillLevel;",
-		  "globals.cpp's skill level" },
 		{ "boolg_fGameOver;",
 		  "globals.cpp's game-over flag" },
 		// ss:: since P5 lane R: server.so's own list type (ss_init_factory.h).

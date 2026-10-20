@@ -254,23 +254,6 @@ IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 //-----------------------------------------------------------------------------
 float g_flServerCurTime = 0.0f;
 
-//-----------------------------------------------------------------------------
-// The chained-Activate debug pair. DEBUG-ONLY IN STOCK AND STILL IS: the macros
-// that read them are `((void)0)` in a release build, so these two definitions
-// exist only where an AssertMsg can fire.
-//
-// Their writers and readers are in three other files -- baseentity.cpp's
-// CBaseEntity::Activate, hl2/npc_citizen17.cpp, and shell_level.cpp's
-// activate-all-entities step, which is where the BeginCheckChainedActivate /
-// EndCheckChainedActivate pair went when stock's ServerActivate was deleted.
-// All three declare them extern at the point of use, which is stock's own
-// arrangement for them.
-//-----------------------------------------------------------------------------
-#ifdef DEBUG
-bool g_bReceivedChainedActivate;
-bool g_bCheckForChainedActivate;
-#endif
-
 //=============================================================================//
 // 2. THE ACQUISITION -- was shell_engineinterfaces.cpp
 //=============================================================================//

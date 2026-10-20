@@ -94,11 +94,6 @@ bool StandaloneEntity_IsPlayer( const IGameEntity *pEnt );
 // on a side being MOVETYPE_VPHYSICS.
 int StandaloneEntity_MoveType( const IGameEntity *pEnt );
 
-// The root of the entity's move-parent chain as a packed handle, or its own
-// handle when nothing carries it. Stock's GetRootMoveParent, which
-// ShouldCollide compares so that one hierarchy never collides with itself.
-uint32_t StandaloneEntity_RootParentHandle( const IGameEntity *pEnt );
-
 // The solver's object, or NULL for something the solver does not move. What a
 // blast weighs a blocker by: stock scales the damage a thing in the way absorbs
 // by its mass, and mass is a property of the object rather than of the entity.

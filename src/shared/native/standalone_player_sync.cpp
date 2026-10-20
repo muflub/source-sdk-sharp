@@ -133,12 +133,6 @@ bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields )
 // The byte movers. memcpy per field rather than a struct: the blob's layout
 // is C#'s and nothing here may assume adjacency.
 //-----------------------------------------------------------------------------
-static inline void WriteF32( unsigned char *pBlob, int nOffset, float flValue )
-{
-	if ( nOffset >= 0 )
-		memcpy( pBlob + nOffset, &flValue, sizeof( flValue ) );
-}
-
 static inline void WriteI32( unsigned char *pBlob, int nOffset, int nValue )
 {
 	if ( nOffset >= 0 )
@@ -152,62 +146,6 @@ static inline void WriteVec( unsigned char *pBlob, int nOffset, const Vector &ve
 		float xyz[3] = { vec.x, vec.y, vec.z };
 		memcpy( pBlob + nOffset, xyz, sizeof( xyz ) );
 	}
-}
-
-static inline void WriteAng( unsigned char *pBlob, int nOffset, const QAngle &ang )
-{
-	if ( nOffset >= 0 )
-	{
-		float pyr[3] = { ang.x, ang.y, ang.z };
-		memcpy( pBlob + nOffset, pyr, sizeof( pyr ) );
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Native -> blob.
-//-----------------------------------------------------------------------------
-void SourceSharpPlayerSync_Write( unsigned char *pBlob,
-                                  const SourceSharpPlayerFields_t &fields,
-                                  IMovementPlayer *pPlayer,
-                                  const SourceSharpPlayerExtras_t &extras )
-{
-	if ( !pBlob || !pPlayer || !fields.IsCurrent() )
-		return;
-
-	MvLocalData_t &local = pPlayer->MvLocal();
-
-	WriteI32( pBlob, fields.nHealth,          extras.nHealth );
-	WriteF32( pBlob, fields.nMaxSpeed,        extras.flMaxSpeed );
-	WriteF32( pBlob, fields.nFallVelocity,    local.m_flFallVelocity );
-	WriteF32( pBlob, fields.nDuckTime,        local.m_flDucktime );
-	WriteF32( pBlob, fields.nDuckJumpTime,    local.m_flDuckJumpTime );
-	WriteF32( pBlob, fields.nJumpTime,        local.m_flJumpTime );
-	WriteF32( pBlob, fields.nStepSize,        local.m_flStepSize );
-	WriteF32( pBlob, fields.nWaterJumpTime,   pPlayer->MvWaterJumpTime() );
-	WriteF32( pBlob, fields.nSurfaceFriction, pPlayer->MvSurfaceFriction() );
-	WriteF32( pBlob, fields.nOldForwardMove,  local.m_flOldForwardMove );
-	WriteI32( pBlob, fields.nFlags,           pPlayer->MvGetFlags() );
-	WriteI32( pBlob, fields.nOldButtons,      local.m_nOldButtons );
-	WriteI32( pBlob, fields.nTickBase,        extras.nTickBase );
-	WriteI32( pBlob, fields.nGroundEntity,    extras.nGroundEntity );
-
-	SourceSharpPayload_WritePacked( pBlob, fields.Alive,             extras.bAlive ? 1u : 0u );
-	SourceSharpPayload_WritePacked( pBlob, fields.Ducked,            local.m_bDucked ? 1u : 0u );
-	SourceSharpPayload_WritePacked( pBlob, fields.Ducking,           local.m_bDucking ? 1u : 0u );
-	SourceSharpPayload_WritePacked( pBlob, fields.InDuckJump,        local.m_bInDuckJump ? 1u : 0u );
-	SourceSharpPayload_WritePacked( pBlob, fields.AllowAutoMovement, local.m_bAllowAutoMovement ? 1u : 0u );
-	SourceSharpPayload_WritePacked( pBlob, fields.WaterLevel,        (unsigned int)pPlayer->MvGetWaterLevel() );
-	SourceSharpPayload_WritePacked( pBlob, fields.WaterType,         (unsigned int)pPlayer->MvGetWaterType() );
-	SourceSharpPayload_WritePacked( pBlob, fields.MoveType,          (unsigned int)pPlayer->MvGetMoveType() );
-
-	WriteVec( pBlob, fields.nOrigin,        extras.vecOrigin );
-	WriteVec( pBlob, fields.nVelocity,      extras.vecVelocity );
-	WriteVec( pBlob, fields.nBaseVelocity,  pPlayer->MvGetBaseVelocity() );
-	WriteVec( pBlob, fields.nViewOffset,    pPlayer->MvGetViewOffset() );
-	WriteAng( pBlob, fields.nPunchAngle,    local.m_vecPunchAngle );
-	WriteAng( pBlob, fields.nPunchAngleVel, local.m_vecPunchAngleVel );
-	WriteVec( pBlob, fields.nLadderNormal,  pPlayer->MvLadderNormal() );
-	WriteVec( pBlob, fields.nWaterJumpVel,  pPlayer->MvWaterJumpVel() );
 }
 
 #ifndef CLIENT_DLL

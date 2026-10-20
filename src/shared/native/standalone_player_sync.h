@@ -22,13 +22,6 @@
 // not resolve syncs as nothing — and says so once — rather than writing into
 // whatever used to be there.
 //
-// Everything here speaks IMovementPlayer plus a small extras block, because
-// the two player classes share the interface and almost nothing else: the
-// members the loop touches are reached through the same Mv asks the loop
-// itself makes, and the values the interface deliberately does not carry
-// (origin, velocity, tick base, health, and the ground handle) travel beside
-// it for the caller to apply with its own class's setters.
-//
 //=============================================================================//
 #ifndef SOURCESHARP_STANDALONE_PLAYER_SYNC_H
 #define SOURCESHARP_STANDALONE_PLAYER_SYNC_H
@@ -146,28 +139,16 @@ inline bool SourceSharp_NetStateAsk( SourceSharpNetStateAsk_t *pAsk )
 bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields );
 
 //-----------------------------------------------------------------------------
-// The values IMovementPlayer deliberately does not carry.
+// SourceSharpPlayerExtras_t and SourceSharpPlayerSync_Write, the native state
+// -> blob copy of the movement words, went at plan_server_native_v2 T5: no
+// object of either DLL called the copy (nm U over both link edges). The
+// server's movement words are the managed command loop's (PlayerMovePublisher);
+// what native still writes is WriteEngineSide's three below.
 //
-// THE GROUND HANDLE is here rather than behind an Mv ask on purpose. The
-// interface hands out a resolved IHandleEntity *, and resolving is exactly
-// what must not happen on this path: the two sides keep a bare CBaseHandle,
-// the blob carries its two numbers (ground_handle_wire.h), and each side puts
-// the word back into its own member with its own list untouched. A crossing
-// through a pointer would turn "the server was standing on entity 43" into
-// "entity 43 does not exist on this client YET", which is a NULL ground and
-// the very contradiction the field exists to remove.
+// THE GROUND HANDLE travels as an index word (ground_handle_wire.h), never as a
+// resolved pointer: a crossing through a pointer would turn "the server was
+// standing on entity 43" into "entity 43 does not exist on this client YET".
 //-----------------------------------------------------------------------------
-struct SourceSharpPlayerExtras_t
-{
-	Vector vecOrigin;
-	Vector vecVelocity;
-	float  flMaxSpeed;
-	int    nTickBase;
-	int    nHealth;
-	int    nGroundEntity;   // GROUNDWIRE_NONE when not standing on anything
-	bool   bAlive;
-};
-
 //-----------------------------------------------------------------------------
 // The ground handle, both ways, and the one place the engine's own bit widths
 // are checked against the numbers ground_handle_wire.h restates. Inline here
@@ -201,13 +182,5 @@ void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
                                             const SourceSharpPlayerFields_t &fields,
                                             const Vector &vecOrigin, int nHealth, bool bAlive );
 #endif
-
-// Native state -> blob. Called after every command on the server and after
-// every replayed command on the client, so the blob IS the player at that
-// command — which is what the ring copies and what the wire sends.
-void SourceSharpPlayerSync_Write( unsigned char *pBlob,
-                                  const SourceSharpPlayerFields_t &fields,
-                                  IMovementPlayer *pPlayer,
-                                  const SourceSharpPlayerExtras_t &extras );
 
 #endif // SOURCESHARP_STANDALONE_PLAYER_SYNC_H

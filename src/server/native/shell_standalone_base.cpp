@@ -267,20 +267,6 @@ Vector SourceSharpEntity_t::Center() const
 	return Origin() + ( vecMins + vecMaxs ) * 0.5f;
 }
 
-int SourceSharpEntity_t::SoundSourceIndex() const
-{
-	// entindex() rather than anything cleverer, because that is exactly what
-	// CBaseEntity::EmitSound passes for itself.
-
-	if ( !pStandalone )
-		return SOUND_FROM_WORLD;
-
-	// -1 is what EntIndex answers for an entity with no edict, and it is not a
-	// sound source: SOUND_FROM_LOCAL_PLAYER has that value on the client.
-	const int nIndex = pStandalone->EntIndex();
-	return nIndex > 0 ? nIndex : SOUND_FROM_WORLD;
-}
-
 //-----------------------------------------------------------------------------
 // The three things the ENGINE needs to store something ON an entity rather than
 // loose in the world: which entity, which model, and the frame the model's own
@@ -307,16 +293,6 @@ int SourceSharpEntity_t::EntityIndex() const
 	// to anything the client has heard of" has always meant engine-side.
 	const int nIndex = pStandalone->EntIndex();
 	return nIndex > 0 ? nIndex : 0;
-}
-
-int SourceSharpEntity_t::ModelIndex() const
-{
-	// Brush model 1, through the interface every hierarchy answers.
-	if ( pWorld )
-		return pWorld->GetModelIndex();
-
-
-	return pStandalone ? pStandalone->GetModelIndex() : 0;
 }
 
 const matrix3x4_t &SourceSharpEntity_t::EntityToWorld() const
@@ -353,12 +329,6 @@ const char *SourceSharpEntity_t::Classname() const
 
 
 	return pStandalone ? pStandalone->GetClassname() : "";
-}
-
-const char *SourceSharpEntity_t::Name() const
-{
-
-	return pStandalone ? pStandalone->GetEntityName() : "";
 }
 
 IPhysicsObject *SourceSharpEntity_t::Physics() const

@@ -262,17 +262,6 @@ void Overlay_Line( const Vector &origin, const Vector &target,
 }
 
 //=============================================================================//
-// THE PADDED LINE
-//=============================================================================//
-
-void Overlay_LinePadded( const Vector &vecAbsStart, const Vector &vecAbsEnd,
-                         int r, int g, int b, bool bNoDepthTest, float flDuration )
-{
-	Overlay_Line( vecAbsStart + Vector( 0, 0, 0.1f ), vecAbsEnd + Vector( 0, 0, 0.1f ),
-	              r, g, b, bNoDepthTest, flDuration );
-}
-
-//=============================================================================//
 // THE POOL
 //=============================================================================//
 

@@ -111,13 +111,11 @@ const char *const kClientProofOfRead = "sourcesharp/game/shared/shell_shared.cpp
 
 const char *const kMovedDefinitions[] = {
 	"void UTIL_ClearTrace( trace_t &trace )",
-	"void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )",
 	// The three temp-entity emitters, and the four helpers they could not
 	// leave behind. 4e listed the emitters as unmoved because at that point
 	// moving one CONVERTED an edge instead of removing one -- the helpers were
 	// still in util.cpp. Taking all seven leaves nothing next door to land on.
 	"void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount )",
-	"void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName )",
 	"void UTIL_Smoke( const Vector &origin, const float scale, const float framerate )",
 };
 const size_t kNumMoved = sizeof( kMovedDefinitions ) / sizeof( kMovedDefinitions[ 0 ] );
@@ -148,6 +146,11 @@ const char *const kGoneInTheCull[] = {
 	"class CCheckClient : public CServerSystem",
 	"class CWaterTraceFilter : public CTraceFilter",
 	"CCheckClient g_CheckClient(",
+	// GONE IN plan_server_native_v2 T5: no server object imported either (nm U
+	// over the link edge). The managed motor port holds the axis snap
+	// (MotorTests).
+	"void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )",
+	"void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName )",
 };
 
 // The objects. Each of these is state, and each fails a different way if it is

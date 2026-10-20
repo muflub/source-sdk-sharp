@@ -149,17 +149,6 @@ void Overlay_Line( const Vector &origin, const Vector &target,
                    int r, int g, int b, bool bNoDepthTest, float flDuration );
 
 //-----------------------------------------------------------------------------
-// THE PADDED LINE. `DebugDrawLine`'s body: the same line, lifted a tenth of a
-// unit so that a trace drawn along a floor is not z-fighting with it.
-//
-// This is the entry `util_shared.h:349` declares and the `r_visualizetraces`
-// arm of every inline UTIL_Trace* calls — nineteen objects in the server name
-// it, which is why it is a library entry and not a private helper.
-//-----------------------------------------------------------------------------
-void Overlay_LinePadded( const Vector &vecAbsStart, const Vector &vecAbsEnd,
-                         int r, int g, int b, bool bNoDepthTest, float flDuration );
-
-//-----------------------------------------------------------------------------
 // THE OVERLAY LINE POOL. Twenty slots, oldest reused, drawn once a frame.
 // ndebugoverlay.cpp's `m_debugOverlayLine` / `m_nDebugOverlayIndex` pair and
 // its three functions, with the file-scope globals replaced by the accessor

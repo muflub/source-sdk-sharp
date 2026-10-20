@@ -42,7 +42,6 @@
 //=============================================================================//
 
 #include "tier0/dbg.h"
-#include "tier0/mem.h"         // MemAllocOOMError
 #include "icvar.h"
 #include "Color.h"
 #include "tier1/convar.h"
@@ -259,13 +258,6 @@ bool ShouldUseNewAssertDialog()
 	return false;
 }
 
-// libmathlib.a asks before two of its asserts. Nothing hushes them: whether an
-// assert stops the game is shell_diagnostics' policy (-assertlog), not this.
-bool HushAsserts()
-{
-	return false;
-}
-
 bool DoNewAssertDialog( const tchar *pFile, int line, const tchar *pExpression )
 {
 	return false;
@@ -307,14 +299,6 @@ void Tier0_DevSpewV( int level, SpewType_t type, const tchar *pMsg, va_list args
 		SpewV( type, pMsg, args );
 }
 
-void DevMsg( int level, const tchar *pMsg, ... )
-{
-	va_list args;
-	va_start( args, pMsg );
-	Tier0_DevSpewV( level, SPEW_MESSAGE, pMsg, args );
-	va_end( args );
-}
-
 // The C++-linkage overloads: their import names are mangled, so SS_BIND_IMPORT
 // cannot bind them. Neither DLL links tier0.lib (client.dll since plan_client_
 // novalve C9), so the linker binds each import of one to these (LNK4217).
@@ -353,17 +337,6 @@ void Error( const tchar *pMsg, ... )
 	SourceSharp_FatalReport( "ERROR", szText );
 }
 
-//-----------------------------------------------------------------------------
-// MemAllocOOMError: tier0/memalloc.h's POSIX allocation inlines (the
-// NO_MALLOC_OVERRIDE arm, plan_server_novalve.md P5 step 5) call it when malloc
-// or memalign answers NULL. tier0's ends the process; so does this, through
-// Error and the fatal report.
-//-----------------------------------------------------------------------------
-void MemAllocOOMError( size_t nSize )
-{
-	Error( "out of memory: an allocation of %zu bytes failed\n", nSize );
-}
-
 // Every call in this module of the functions above, made through the
 // import pointer, reaches these definitions (ss_platform.h).
 SS_BIND_IMPORT( Msg )
@@ -374,9 +347,6 @@ SS_BIND_IMPORT( _SpewMessage )
 SS_BIND_IMPORT( SpewOutputFunc )
 SS_BIND_IMPORT( GetSpewOutputFunc )
 SS_BIND_IMPORT( ShouldUseNewAssertDialog )
-SS_BIND_IMPORT( HushAsserts )
 SS_BIND_IMPORT( DoNewAssertDialog )
 SS_BIND_IMPORT( SetAssertFailedNotifyFunc )
 SS_BIND_IMPORT( CallAssertFailedNotifyFunc )
-SS_BIND_IMPORT( MemAllocOOMError )
-SS_BIND_IMPORT_AS( DevMsg, void ( * )( int, const tchar *, ... ) )

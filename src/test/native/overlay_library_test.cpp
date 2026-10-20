@@ -456,34 +456,9 @@ TEST_F( OverlayLibrary, BoxIsDrawnUnrotated )
 	EXPECT_EQ( 6, g_Recorder.boxes[0].a );
 }
 
-//=============================================================================//
-// THE PADDED LINE -- DebugDrawLine's body
-//=============================================================================//
-
-TEST_F( OverlayLibrary, PaddedLineLiftsBothEndsInZOnly )
-{
-	debugoverlay = &g_Recorder;
-	SetLookingAlongX();
-
-	Overlay_LinePadded( Vector( 10, 20, 30 ), Vector( 200, 40, 50 ), 1, 2, 3, false, 0 );
-
-	ASSERT_EQ( 1u, g_Recorder.lines.size() );
-	EXPECT_FLOAT_EQ( 10.0f, g_Recorder.lines[0].vecOrigin.x );
-	EXPECT_FLOAT_EQ( 20.0f, g_Recorder.lines[0].vecOrigin.y );
-	EXPECT_FLOAT_EQ( 30.1f, g_Recorder.lines[0].vecOrigin.z );
-	EXPECT_FLOAT_EQ( 50.1f, g_Recorder.lines[0].vecDest.z );
-}
-
-TEST_F( OverlayLibrary, PaddedLineIsClippedLikeAnyOtherLine )
-{
-	debugoverlay = &g_Recorder;
-	SetLookingAlongX();
-
-	Overlay_LinePadded( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ), 1, 2, 3, false, 0 );
-
-	EXPECT_EQ( 0u, g_Recorder.lines.size() );
-	EXPECT_EQ( 1u, Overlay_Counts().nClipped );
-}
+// THE PADDED LINE's two facts (PaddedLineLiftsBothEndsInZOnly,
+// PaddedLineIsClippedLikeAnyOtherLine) went with Overlay_LinePadded and
+// DebugDrawLine at plan_server_native_v2 T5: no server object called either.
 
 //=============================================================================//
 // THE POOL

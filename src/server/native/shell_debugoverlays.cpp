@@ -85,27 +85,9 @@ bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut );
 // Defined elsewhere in the server and reached by name, exactly as
 // gameinterface.cpp reached them. There is no header that declares this one.
 
-//-----------------------------------------------------------------------------
-// THE PADDED LINE, and the reason it lives in a shim file rather than in the
-// library beside its body.
-//
-// `util_shared.h:349` declares DebugDrawLine and the `r_visualizetraces` arm of
-// every inline UTIL_Trace* calls it, so NINETEEN objects in this server name the
-// symbol — most of them without a line of their own source mentioning it. It was
-// defined in game/server/ndebugoverlay.cpp, which is one of the two files 4c
-// exists to empty, and every one of those nineteen references was a shim->stock
-// cross-edge into it.
-//
-// It cannot go in overlay_library.cpp: the client already defines DebugDrawLine
-// in game/client/vgui_debugoverlaypanel.cpp, and the library is meant to compile
-// into BOTH sides in step 7. So the SERVER's definition lives in the server's
-// overlay shim, which is this file, and the body is one call.
-//-----------------------------------------------------------------------------
-void DebugDrawLine( const Vector &vecAbsStart, const Vector &vecAbsEnd,
-                    int r, int g, int b, bool test, float duration )
-{
-	Overlay_LinePadded( vecAbsStart, vecAbsEnd, r, g, b, test, duration );
-}
+// DebugDrawLine WENT (plan_server_native_v2 T5): no server object named it any
+// more (nm U over the link edge), and --gc-sections had dropped it. Its body,
+// Overlay_LinePadded, went with it.
 
 // clear_debug_overlays, which empties the engine's overlay list at once, is a
 // diagnostic: it lives in shell_debugoverlays_debug.cpp, which only a debug

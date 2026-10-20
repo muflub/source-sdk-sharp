@@ -154,17 +154,8 @@ CWorld *SourceSharp_WorldFromHandle( const CBaseHandle &handle )
 	return pWorld;
 }
 
-bool CGameTrace::DidHitWorld() const
-{
-	// ONE COMPARISON, ONE PLACE. This used to spell the pointer compare itself;
-	// it now asks the free function above, so a trace and a bare handle cannot
-	// come to different conclusions about the same object.
-	return SourceSharp_IsTheWorld( ss::TraceHitHandle( m_pEnt ) );
-}
-
-
-bool CGameTrace::DidHitNonWorldEntity() const
-{
-	return m_pEnt != NULL && !DidHitWorld();
-}
+// CGameTrace::DidHitWorld and DidHitNonWorldEntity WENT (plan_server_native_v2
+// T5): no server object called either (nm U over the link edge), so the server,
+// like the client since C6, defines no CGameTrace member. A native caller asks
+// SourceSharp_IsTheWorld( ss::TraceHitHandle( tr.m_pEnt ) ), the one comparison.
 

@@ -1,3 +1,5 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
 void DevWarning( int level	HOST	dbg.h's DevWarning( level ) over tier0_spew_port.cpp's Tier0_DevSpewV (C9 tier0)
+void DevMsg( int level	HOST	dbg.h's DevMsg( level ) over tier0_spew_port.cpp's Tier0_DevSpewV (C9 tier0; from tier0_spew_port.cpp at plan_server_native_v2 T5)
+void MemAllocOOMError( size_t nSize )	HOST	mem.h's MemAllocOOMError for memalloc.h's POSIX inlines, ending the process through Error (C9 tier0; from tier0_spew_port.cpp at plan_server_native_v2 T5)

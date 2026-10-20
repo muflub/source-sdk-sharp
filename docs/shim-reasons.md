@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,562 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,757 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,762 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,308 |
-| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,562 |
-| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,168 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,419 |
-| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,005 |
-| x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,557 |
-|  | **total** | **75** | **34** | **73** | **3** | **2** | **1** | **216** | **87,100** |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 63 | 33,386 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,751 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,744 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,134 |
+| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,553 |
+| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,147 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 | 1 |  |  | 16 | 9,345 |
+| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,009 |
+| x | NO LETTER FITS | 7 | 1 | 3 |  | 2 |  | 19 | 4,424 |
+|  | **total** | **75** | **33** | **75** | **3** | **2** | **1** | **217** | **86,493** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -371,6 +371,7 @@ Then lane C7 small render TUs landed (2026-10-19, measured by the walk at the la
 
 #### (g) leaf math over mdl/bsp data consumed by renderer or physics — 21 files, 21,639 lines
 
+`sourcesharp/game/client/mathlib_port_client.cpp`  
 `sourcesharp/game/client/shell_client_orphans.cpp`  
 `sourcesharp/game/client/shell_embers_render.cpp`  
 `sourcesharp/game/client/shell_impact_effects.cpp`  
@@ -421,7 +422,7 @@ close produces. **This is the number the port exists to drive to zero.**
 | `sourcesharp/game/server/alloc_check.cpp` | 637 | nothing the engine asks for: it is the `__wrap_` half of the debug build's allocation link hook (plan_server_novalve.md §3.6), proving no block is freed across the engine/mod boundary. It compiles to nothing outside `SS_ALLOC_CHECK` | the release build carries no checker, so none; it leaves only if the no-cross-free rule gets another instrument |
 | `sourcesharp/game/server/shell_absent.cpp` | 342 | eleven definitions that an object on the server link line still imports. The file states its own exit condition as zero and does not reach it | the last importer of each of the eleven |
 | `sourcesharp/game/shared/tier0_spew_port.cpp` | 356 | tier0's spew and assert entry points (Msg, Warning, DevMsg, Error, the five functions every Assert expands to, the spew slot), defined in server.so so it links no libtier0 (plan_server_novalve.md P4). Native code calls them through `public/tier0/dbg.h` | P5's header move: no server object calling a `dbg.h` function |
-| `sourcesharp/game/shared/tier0_thread_port.cpp` | 202 | the tier0 thread and platform calls fork-header inlines make: `ThreadGetCurrentId` and `CThreadFastMutex::Lock( id, sleep )` (studio.h's `CStudioHdr` holds two fast mutexes) and `Plat_IsInDebugSession` (`DebuggerBreak`, in `_DEBUG` asserts and tslist.h), defined in server.so so it links no libtier0 for them. Our own code uses std for these (collisionproperty's partition lock, ss_clock.h) | P5's header move: when no server object includes threadtools.h or platform.h's `DebuggerBreak` |
+| `sourcesharp/game/client/tier0_thread_port.cpp` | 120 | the tier0 thread calls fork-header inlines make: `ThreadGetCurrentId` and `CThreadFastMutex::Lock( id, sleep )`, defined in client.so so it links no libtier0 for them (server.so's objects import none since plan_server_native_v2 T5, which also deleted `Plat_IsInDebugSession` and `GetCPUInformation`: no importer on either side). Our own code uses std for these (ss_clock.h) | when no client object includes threadtools.h's `CThreadFastMutex` |
 | `sourcesharp/game/client/vstdlib_random_port.cpp` | 144 | vstdlib's `RandomSeed`/`RandomInt`/`RandomFloat`/`RandomFloatExp` over one server-owned stream of the same generator (the P0 random probe: callers need the algorithm, not vstdlib's shared instance), so server.so links no libvstdlib. Callers: `randoverride.cpp`'s `rand()`, `bone_setup`'s attachment pick, `SharedRandom*` | its callers moving managed: `SharedRandom*` with usercmd prediction, the attachment pick with bone setup, `rand()` with randoverride.cpp's deletion |
 | `sourcesharp/game/shared/ss_command_line.cpp` | 157 | this process's command line from `/proc/self/cmdline` and the launcher's `SOURCESHARP_ARGS`, in place of tier0's `CommandLine()`, with LocalCommandLine.cs's matching: native still decides `-assertlog`/`-assertstack` (shell_diagnostics), `-makereslists` (sound_emitter), and serves `SourceSharp_CommandLineHasParam`/`GetParamValue` to managed | managed answering its command-line questions from `ProcessCommandLine` (the two EngineApi slots retired) and the two native decisions moving with it |
 | `sourcesharp/game/server/shell_decals.cpp` | 162 | the three decal-name lookups (ss_decals.h), each a forward to SourceSharp.Server's DecalEmitter. It was (a) while `decalsystem` was an IDecalEmitterSystem the tree called through; that pointer left with its last caller (P5 lane SP), so the honest letter is none | `world_adapter.cpp`'s `CWorld::DecalTrace` asking managed code itself |

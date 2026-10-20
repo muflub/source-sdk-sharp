@@ -311,10 +311,10 @@ TEST( SoundEntManaged, TheShimDefinesEveryEntryPointTheTreeStillCalls )
 	const std::string shim = Read( kShim );
 	ASSERT_FALSE( shim.empty() );
 
-	// ss_soundent.h's five, which every native caller spells since P5 lane SP.
+	// ss_soundent.h's four, which every native caller spells since P5 lane SP.
+	// SoundEnt_InsertSound went at plan_server_native_v2 T5 (no server caller).
 	EXPECT_EQ( 1, CountOf( shim, "bool ss::SoundEnt_Init()" ) );
 	EXPECT_EQ( 1, CountOf( shim, "void ss::SoundEnt_Shutdown()" ) );
-	EXPECT_EQ( 1, CountOf( shim, "void ss::SoundEnt_InsertSound(" ) );
 	EXPECT_EQ( 1, CountOf( shim, "void ss::SoundEnt_ResetClientSound(" ) );
 	EXPECT_EQ( 1, CountOf( shim, "int ss::SoundEnt_ClientSoundIndex(" ) );
 
@@ -330,7 +330,8 @@ TEST( SoundEntManaged, EveryForwardingStaticGuardsANullManagedTable )
 	const std::string shim = Read( kShim );
 	ASSERT_FALSE( shim.empty() );
 
-	// FOUR asks and FOUR guards. The fifth static, ClientSoundIndex, asks
+	// THREE asks and THREE guards since plan_server_native_v2 T5 took
+	// SoundEnt_InsertSound (no server caller). The last static, ClientSoundIndex, asks
 	// nothing -- it is arithmetic on an edict -- so it neither has nor needs a
 	// guard, and counting "one guard per ask" rather than "one per function" is
 	// what keeps that from reading as a missing one.
@@ -342,8 +343,8 @@ TEST( SoundEntManaged, EveryForwardingStaticGuardsANullManagedTable )
 	// caught here by the count being one too high rather than by reading it.
 	//
 	// Since plan_engineapi_vtables E7 each asks for the managed-built area.
-	EXPECT_EQ( 4, CountOf( shim, "IManagedSoundEnt *pApi = ManagedSoundEnt();" ) );
-	EXPECT_EQ( 4, CountOf( shim, "if ( pApi == NULL )" ) );
+	EXPECT_EQ( 3, CountOf( shim, "IManagedSoundEnt *pApi = ManagedSoundEnt();" ) );
+	EXPECT_EQ( 3, CountOf( shim, "if ( pApi == NULL )" ) );
 }
 
 TEST( SoundEntManaged, TheShimHoldsNoFileScopeState )
@@ -359,25 +360,10 @@ TEST( SoundEntManaged, TheShimHoldsNoFileScopeState )
 		<< "shell_soundent.cpp has grown a static; nothing here needs one";
 }
 
-TEST( SoundEntManaged, TheOwnerAndTargetCrossAsHandlesRatherThanPointers )
-{
-	const std::string shim = Read( kShim );
-	ASSERT_FALSE( shim.empty() );
-
-	// shell_sound.cpp's own recorded correction, applied in the other
-	// direction: resolving an EHANDLE through CHandle<CBaseEntity>::Get()
-	// answers NULL for an owner on the parallel hierarchy, so a noise made by a
-	// managed entity was reported as a world noise. The handle is the one
-	// identity both hierarchies share.
-	EXPECT_EQ( 2, CountOf( shim, "SourceSharp_HandleFromAnyEntity(" ) )
-		<< "the owner and the target must BOTH cross as handles";
-
-	// And the two shapes that would undo it.
-	EXPECT_EQ( 0, CountOf( shim, "->GetRefEHandle()" ) );
-	EXPECT_EQ( 0, CountOf( shim, "SourceSharp_HandleFromEntity(" ) )
-		<< "HandleFromEntity is the CBaseEntity-only spelling; a noise from a "
-		   "managed entity would be credited to nobody";
-}
+// TEST( SoundEntManaged, TheOwnerAndTargetCrossAsHandlesRatherThanPointers )
+// stood here: its subject was ss::SoundEnt_InsertSound's owner and target
+// crossing as handles, and that function went at plan_server_native_v2 T5 (no
+// server caller; user ruling 2026-10-19, tests of unused code go with it).
 
 //=============================================================================//
 // 4. NOTHING NATIVE HOLDS A CSound * ANY MORE

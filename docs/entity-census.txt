@@ -1,3 +1,9 @@
+# 2026-10-19, plan_server_native_v2 T5: tier0_thread_port.cpp left the server link for src/client/native (no server
+#   object imports it): server objects 99 -> 98, shim 99 -> 98 (debug build); no cross-edge moved. Hand-applied from
+#   tools/entity-census's diff.
+# 2026-10-19, plan_server_native_v2 T5 (substrate collapse): mathlib_port.cpp's members only client.so imports moved to
+#   the client-only mathlib_port_client.cpp: client objects 138 -> 139, shim 137 -> 138 (debug build); no cross-edge moved.
+#   Hand-applied from tools/entity-census's diff.
 # 2026-10-19, plan_server_native_v2 T4f (the server trace filter to C#): trace_filter_library.cpp left the server link
 #   (its remaining text is the client's arm): server objects 100 -> 99, shim 100 -> 99 (debug build); ToEngineIface
 #   server shim 14 in 9 -> 12 in 7 files, client shim 13 in 6 -> 12 in 5 (the server arms and ss_tracefilter.h went;
@@ -932,11 +938,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                  99       138
+objects linked                                                  98       139
   ... stock game/server | game/client                            0         1
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                         99       137
+  ... SourceSharp shim (sourcesharp/**)                         98       138
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

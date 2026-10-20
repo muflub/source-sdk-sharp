@@ -378,7 +378,13 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   g_PixelVisibilitySystem and pixelvis_debug went with the files; PrecacheEffectGlow's two rows moved to
 #   shell_glow_client.o and PrecacheOcclusionProxy's two to shell_pixelvis_client.o, rulings carried
 #   (make globals-client-ledger: 12 pruned; gate PASS).
-client_globals_link_level	src/game/client	701
+# LOWERED 2026-10-19, 701 -> 700 (plan_server_native_v2 T5, mathlib_port.cpp's members nobody imports): power2_n
+#   went with them (make globals-client-ledger: 1 pruned; gate PASS).
+# LOWERED 2026-10-19, 700 -> 699 (plan_server_native_v2 T5, tier0_thread_port.cpp's members nobody imports):
+#   GetCPUInformation's s_Info went with it (make globals-client-ledger: 1 pruned; gate PASS).
+# LOWERED 2026-10-19, 699 -> 695 (plan_server_native_v2 T5): the same four went from client.so (make
+#   globals-client-ledger: 4 pruned; gate PASS).
+client_globals_link_level	src/game/client	695
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -517,7 +523,11 @@ client_globals_floor	docs/globals-client-ledger.tsv	13
 #   c_pixel_visibility.o left; their precache registrations' initialisers run in shell_glow_client.o and
 #   shell_pixelvis_client.o, which had one already (tools/globals-census summary --side client:
 #   objects_with_a_static_initialiser 117).
-client_globals_objects_with_static_init	src/game/client	117
+# RAISED 2026-10-19, 117 -> 118, deliberately (plan_server_native_v2 T5): mathlib_port.cpp's members only client.so
+#   imports moved to the client-only mathlib_port_client.cpp (user ruling 2026-10-12: a shared TU keeps only what both
+#   DLLs import). The new object's initialiser is the header statics every mathlib.h includer carries (vector2d.h's
+#   vec2_origin and its kin, ruled vec-header constants, no ledger row); it adds no state (link_level unchanged at 700).
+client_globals_objects_with_static_init	src/game/client	118
 client_globals_reconcile_unattributed	src/game/client	0
 # RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static
 #   initialisers 129 -> 130. UTIL_IsLowViolence moved from the shared util_shared_library.cpp to client_util_library.cpp

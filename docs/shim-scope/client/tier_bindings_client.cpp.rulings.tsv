@@ -36,3 +36,4 @@ void CThreadSpinRWLock::UnlockRead()	BOUNDARY	(Windows) tier0.dll's member, by i
 void CThreadSpinRWLock::UnlockWrite()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
 void CThreadSpinRWLock::SpinLockForWrite(	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
 void SS_EmitTier0ThreadInlines(	LIVE-API	(Windows) emits tier0's inline CThreadMutex/CThreadSpinRWLock members, which fork objects import where MSVC did not inline them (MSVC link without tier0.lib: LNK2001 in CI, 2026-10-19); never called
+void *ss::RequireLoadedSymbol( const char *pszFile, const char *pszSymbol )	HOST	loaded_symbol.h's lookup that stops the process when the engine's tier0/vstdlib lacks a name (from loaded_symbol.cpp at plan_server_native_v2 T5)

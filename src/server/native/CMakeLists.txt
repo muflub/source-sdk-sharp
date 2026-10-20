@@ -18,7 +18,6 @@ ss_sdk_target(server_sourcesharp PROJECTDIR game/server RPATH_ORIGIN NO_WRAP
 set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/alloc_check.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
@@ -264,7 +263,6 @@ set(server_legacy_includes
 set(server_novalve_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/alloc_check.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
@@ -539,10 +537,10 @@ if(NOT SS_IS_MSVC)
 endif()
 
 # server.dll links no tier0 either (P4). The headers declare tier0's
-# functions __declspec(dllimport); tier0_thread_port.cpp and
-# tier0_spew_port.cpp define them here all the same and bind every import of
+# functions __declspec(dllimport); tier0_spew_port.cpp defines them here all
+# the same and bind every import of
 # one to the definition (SS_BIND_IMPORT, ss_platform.h), as server.so's
-# hidden definitions bind its calls. Those two files read tier0's headers with
+# hidden definitions bind its calls. That file reads tier0's headers with
 # STATIC_TIER0, which makes the declarations plain: MSVC exports a definition
 # of a dllimport-declared function, and server.dll exported 21 of them beside
 # CreateInterface (game_dll_exports_test). A compile definition, not a
@@ -550,7 +548,6 @@ endif()
 if(SS_IS_MSVC)
   set_property(SOURCE
       ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
-      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     TARGET_DIRECTORY server_sourcesharp
     APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
 endif()

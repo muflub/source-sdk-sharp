@@ -264,7 +264,6 @@ const std::string &BaseEntSharedH() { static std::string s = CodeOnly( Read( "sh
 // two other lifted statics that had kept it there. What this section asserts is
 // unchanged -- the setter writes entity_prediction_seed.h's storage and keeps
 // the -1 arm -- only its address moved.
-const std::string &EntStaticsC()    { static std::string s = CodeOnly( Read( "../sourcesharp/game/shared/entity_shared_statics.cpp" ) ); return s; }
 // BaseEntSharedFwdC() WAS HERE, reading shared/baseentity_shared_forwarders.cpp
 // for CBaseEntity::SetPredictionRandomSeed's class-scope name. That quarantine
 // is retired -- every caller in this build names the free function directly --
@@ -680,8 +679,11 @@ TEST( PredictionSeed, TheSeedHasExactlyOneWayIn )
 	// for the behaviour. (The check that the old address in
 	// game/shared/baseentity_shared.cpp is empty left with that file: neither
 	// DLL compiles it, so a copy there cannot link -- culled 2026-09-27.)
-	const std::string strSet = BodyAfter( EntStaticsC(), "void EntityPrediction_SetSeedFromCommand(" );
-	ASSERT_FALSE( strSet.empty() ) << "the setter is gone from sourcesharp/game/shared/entity_shared_statics.cpp";
+	// plan_server_native_v2 T5 moved it once more, beside its one caller: the
+	// server's commands are managed (T4g), so only client.so imports it.
+	const std::string strSet = BodyAfter( CodeOnly( Read( "../sourcesharp/game/client/shell_prediction.cpp" ) ),
+	                                      "void EntityPrediction_SetSeedFromCommand(" );
+	ASSERT_FALSE( strSet.empty() ) << "the setter is gone from sourcesharp/game/client/shell_prediction.cpp";
 
 	EXPECT_NE( strSet.find( "EntityPrediction_SetSeed(" ), std::string::npos )
 		<< "the prediction seed setter writes its own storage again, so "
@@ -712,7 +714,10 @@ TEST( PredictionSeed, TheSeedHasExactlyOneWayIn )
 	EXPECT_EQ( CountOf( ShellPlayerSvC(), "EntityPrediction_SetSeedFromCommand(" ), 0 )
 		<< "the server player seeds the native prediction seed again; nothing on"
 		   " the server reads it.";
-	EXPECT_EQ( CountOf( ShellPlayerClC(), "EntityPrediction_SetSeedFromCommand(" ), 2 )
+	// Its definition lives in that file too since plan_server_native_v2 T5, so
+	// the calls are the mentions less the one definition.
+	EXPECT_EQ( CountOf( ShellPlayerClC(), "void EntityPrediction_SetSeedFromCommand(" ), 1 );
+	EXPECT_EQ( CountOf( ShellPlayerClC(), "EntityPrediction_SetSeedFromCommand(" ) - 1, 2 )
 		<< "the client replay bracket no longer seeds through the lifted free\n"
 		   " function. Both calls are load-bearing: the set on the way in and the\n"
 		   " NULL clear on the way out.";

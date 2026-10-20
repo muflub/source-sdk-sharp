@@ -63,15 +63,9 @@ TEST_F( SsRecipientFilter, OnlySlotsOneToMaxClientsAreAccepted )
 	EXPECT_EQ( ( std::vector< int >{ 4 } ), Slots( f ) );
 }
 
-TEST_F( SsRecipientFilter, RemovingASlotKeepsTheRestInOrder )
-{
-	ss::CRecipientFilter f;
-	for ( int i : { 1, 2, 3 } )
-		f.AddRecipientByPlayerIndex( i );
-	f.RemoveRecipientByPlayerIndex( 2 );
-	f.RemoveRecipientByPlayerIndex( 4 );
-	EXPECT_EQ( ( std::vector< int >{ 1, 3 } ), Slots( f ) );
-}
+// RemoveRecipientByPlayerIndex went (plan_server_native_v2 T5) with
+// CPASAttenuationFilter::Filter, its one importer; RecipientFilter.cs holds the
+// managed removal.
 
 TEST_F( SsRecipientFilter, AnIndexOutsideTheListAnswersMinusOne )
 {

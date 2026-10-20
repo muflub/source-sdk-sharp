@@ -58,7 +58,6 @@
 //-----------------------------------------------------------------------------
 ICvar *cvar = NULL;
 ICvar *g_pCVar = NULL;
-void *g_pUtlSortVectorQSortContext = NULL;
 
 static bool s_bTier1Connected = false;
 

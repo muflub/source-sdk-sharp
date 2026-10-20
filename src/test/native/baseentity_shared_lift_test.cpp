@@ -743,7 +743,11 @@ struct Lifted_t
 	// A FOURTH since plan_server_native_v2 T2 (2026-10-18): the tracer helper
 	// was compiled only into the client, so it left the shared source for the
 	// client's utility library (client_util_library.cpp).
-	enum Home_t { kInStaticsHeader, kInStaticsSource, kInClientUtilLibrary };
+	//
+	// A FIFTH since plan_server_native_v2 T5 (2026-10-19): the seed setter's
+	// server arm had no importer once the server's commands went managed (T4g),
+	// so its client arm moved beside its one caller, shell_prediction.cpp.
+	enum Home_t { kInStaticsHeader, kInStaticsSource, kInClientUtilLibrary, kInClientPrediction };
 	Home_t      eHome;
 };
 
@@ -752,7 +756,7 @@ const Lifted_t kLifted[] =
 	{ "IsPrecacheAllowed",            "EntityPrecache_IsAllowed",                true,  Lifted_t::kInStaticsHeader },
 	{ "SetAllowPrecache",             "EntityPrecache_SetAllowed",               true,  Lifted_t::kInStaticsHeader },
 	{ "IsSimulatingOnAlternateTicks", "EntitySim_IsSimulatingOnAlternateTicks",  true,  Lifted_t::kInStaticsSource },
-	{ "SetPredictionRandomSeed",      "EntityPrediction_SetSeedFromCommand",     true,  Lifted_t::kInStaticsSource },
+	{ "SetPredictionRandomSeed",      "EntityPrediction_SetSeedFromCommand",     true,  Lifted_t::kInClientPrediction },
 	{ "ComputeTracerStartPosition",   "EntityTracer_ComputeStartPosition",       false, Lifted_t::kInClientUtilLibrary },
 };
 
@@ -861,7 +865,9 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		{ "game/server/shell_level.cpp",               "EntityPrecache_SetAllowed",              1, true },
 		// 0 since plan_server_native_v2 T4g: the server's commands are managed.
 		{ "game/server/shell_standalone_player.cpp",   "EntityPrediction_SetSeedFromCommand",    0, true },
-		{ "game/client/shell_prediction.cpp",          "EntityPrediction_SetSeedFromCommand",    2, true },
+		// 3 since plan_server_native_v2 T5: its two calls and its definition,
+		// which moved here from entity_shared_statics.cpp (no server importer).
+		{ "game/client/shell_prediction.cpp",          "EntityPrediction_SetSeedFromCommand",    3, true },
 		{ "game/client/shell_standalone_client.cpp",   "EntitySim_IsSimulatingOnAlternateTicks", 1, true },
 	};
 	const size_t kNumExpect = sizeof( kExpect ) / sizeof( kExpect[ 0 ] );
@@ -975,6 +981,20 @@ TEST( BaseEntitySharedLift, EachFreeFunctionIsDefinedWhereItWasSaidToBe )
 				<< "entity_shared_statics.h. The precache pair lives there "
 				<< "because the flag they read is the static data member, and "
 				<< "the storage had to leave the class with them.";
+			continue;
+		}
+
+		if ( kLifted[ i ].eHome == Lifted_t::kInClientPrediction )
+		{
+			const std::string strPrediction = ReadShellFile( "game/client/shell_prediction.cpp" );
+			ASSERT_FALSE( strPrediction.empty() ) << "game/client/shell_prediction.cpp did not load";
+			EXPECT_TRUE( DefinedFree( strPrediction, kLifted[ i ].pszFree ) )
+				<< kLifted[ i ].pszFree << " is not defined at namespace scope in "
+				<< "game/client/shell_prediction.cpp, where plan_server_native_v2 "
+				<< "T5 moved it out of the shared entity_shared_statics.cpp.";
+			EXPECT_FALSE( DefinedFree( StaticsSource(), kLifted[ i ].pszFree ) )
+				<< kLifted[ i ].pszFree << " is defined in the shared "
+				<< "entity_shared_statics.cpp again, which server.so compiles too.";
 			continue;
 		}
 
@@ -1165,45 +1185,18 @@ TEST( BaseEntitySharedNullSubject, TheDispatchWentSoTheGuardWentWithIt )
 	// Both halves are asserted, because "the guard is gone" on its own is also
 	// true of a function that dispatches unguarded -- which is precisely the
 	// segfault this inventory is about.
-	const std::string strBody = FreeFunctionBody( ServerUtilLibrarySource(), "UTIL_ImpactTrace" );
-	ASSERT_FALSE( strBody.empty() )
-		<< "UTIL_ImpactTrace is gone from "
-		   "sourcesharp/game/server/server_util_library.cpp, where it moved";
-
-	EXPECT_EQ( std::string::npos, strBody.find( "TraceEntity(" ) )
-		<< "UTIL_ImpactTrace asks TraceEntity again. That family is deleted -- "
-		<< "it was a constant NULL in both DLLs -- and GameEntityFromEntityHandle "
-		<< "/ TraceGameEntity are what replaced it.";
-
-	// EXACTLY ONE dispatch through a pointer, and it is the world's. Written as
-	// a count rather than "no `->ImpactTrace(`", because the world dispatch IS
-	// one and a bare absence check would have to be deleted to accommodate it --
-	// at which point a second, unguarded dispatch would go unnoticed.
-	size_t nDispatches = 0;
-	for ( size_t pos = strBody.find( "->ImpactTrace(" ); pos != std::string::npos;
-	      pos = strBody.find( "->ImpactTrace(", pos + 1 ) )
-		nDispatches++;
-
-	EXPECT_EQ( 1u, nDispatches )
-		<< "UTIL_ImpactTrace does not dispatch exactly once. Every path that "
-		<< "reaches CBaseEntity::ImpactTrace reaches its unguarded dereference "
-		<< "of the narrowed trace entity -- the dm_lockdown skylight segfault -- "
-		<< "and the guard that used to stand in front of it is gone.";
-
-	EXPECT_EQ( std::string::npos, strBody.find( "pEntity->ImpactTrace(" ) )
-		<< "UTIL_ImpactTrace dispatches to an SDK entity again.";
-
-	// The live successor: the world answers for itself, and that dispatch is
-	// inside the world test rather than in front of a general one.
-	EXPECT_NE( std::string::npos, strBody.find( "SourceSharp_IsTheWorld(ss::TraceHit(*pTrace))" ) )
-		<< "UTIL_ImpactTrace no longer asks whether the trace hit the world. "
-		<< "Without that it emits no impact effect on level geometry at all, "
-		<< "which is almost every impact in the game and reads as a renderer "
-		<< "bug.";
-
-	EXPECT_NE( std::string::npos, strBody.find( "pWorld->ImpactTrace(pTrace,iDamageType,pCustomImpactName)" ) )
-		<< "UTIL_ImpactTrace no longer hands the world its own ImpactTrace. "
-		<< "That call is the whole of what the function does now.";
+	//
+	// AND THEN THE DISPATCH ITSELF WENT (plan_server_native_v2 T5): no server
+	// object imported UTIL_ImpactTrace or CWorld::ImpactTrace any more (nm U
+	// over the link edge; --gc-sections dropped both), and both were deleted. With no function there is no dispatch to
+	// an SDK entity left anywhere: asserted as the function's absence, with a
+	// proof of read on the file it lived in.
+	const std::string strSource = ServerUtilLibrarySource();
+	ASSERT_NE( std::string::npos, strSource.find( "UTIL_ClearTrace" ) )
+		<< "sourcesharp/game/server/server_util_library.cpp read as something else";
+	EXPECT_TRUE( FreeFunctionBody( strSource, "UTIL_ImpactTrace" ).empty() )
+		<< "UTIL_ImpactTrace is back in server_util_library.cpp; if it dispatches "
+		<< "again, the unguarded CBaseEntity::ImpactTrace dereference is reachable.";
 }
 
 //=============================================================================

@@ -69,7 +69,6 @@ public:
 
 	// One slot, 1..maxClients; anything else, or a slot already listed, is ignored.
 	void AddRecipientByPlayerIndex( int playerindex );
-	void RemoveRecipientByPlayerIndex( int playerindex );
 	void RemoveAllRecipients( void ) { m_Recipients.clear(); }
 
 	void AddPlayersFromBitMask( CBitVec< ABSOLUTE_PLAYER_LIMIT > &playerbits );
@@ -117,27 +116,9 @@ public:
 	explicit CPASFilter( const Vector &origin ) { AddRecipientsByPAS( origin ); }
 };
 
-// The PAS of a point, narrowed to the players within a sound's audible range.
-class CPASAttenuationFilter : public CPASFilter
-{
-public:
-	CPASAttenuationFilter( void ) {}
-	CPASAttenuationFilter( IGameEntity *entity, soundlevel_t soundlevel );
-	CPASAttenuationFilter( IGameEntity *entity, float attenuation = ATTN_NORM );
-	CPASAttenuationFilter( const Vector &origin, soundlevel_t soundlevel )
-		: CPASFilter( origin )
-	{
-		Filter( origin, SNDLVL_TO_ATTN( soundlevel ) );
-	}
-	CPASAttenuationFilter( const Vector &origin, float attenuation = ATTN_NORM )
-		: CPASFilter( origin )
-	{
-		Filter( origin, attenuation );
-	}
-
-	// Drops the listed players farther from origin than the attenuation reaches.
-	void Filter( const Vector &origin, float attenuation = ATTN_NORM );
-};
+// CPASAttenuationFilter went (plan_server_native_v2 T5): no server object
+// built one, so its Filter had no caller (nm U over the link edge). The
+// attenuation crop is the managed SoundRecipients'.
 
 // Whoever can see a point (its potentially visible set).
 class CPVSFilter : public CRecipientFilter

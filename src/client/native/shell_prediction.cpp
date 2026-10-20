@@ -70,6 +70,23 @@
 #include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
+// The prediction seed carried by one usercmd, or -1 for "not inside a usercmd"
+// when handed NULL. From entity_shared_statics.cpp (plan_server_native_v2 T5:
+// the server's command path is managed's, so no server object imports it).
+//-----------------------------------------------------------------------------
+void EntityPrediction_SetSeedFromCommand( const EntityPredictionCmd_t *cmd )
+{
+	if ( !cmd )
+	{
+		EntityPrediction_SetSeed( -1 );
+
+		return;
+	}
+
+	EntityPrediction_SetSeed( cmd->random_seed );
+}
+
+//-----------------------------------------------------------------------------
 // 9c6: prediction.cpp and predictioncopy.cpp are out of the build, and this
 // is what was actually left of the stock machine — the base class reduced to
 // the behaviour it has had since 13c evicted C_BasePlayer. Every player-driven

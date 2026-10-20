@@ -513,13 +513,6 @@ public:
 	// constructor.
 	void AttachToEdictZero();
 
-	// Bullet holes and blood on level geometry. This was CBaseEntity
-	// ::ImpactTrace, reached by UTIL_DecalTrace resolving the trace to a
-	// CBaseEntity; there is no CBaseEntity to resolve to now, so the world
-	// answers for itself. It is the BRUSH arm of stock's function and nothing
-	// else -- worldspawn has no physics object to push and no gibs to spawn.
-	void ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName );
-
 private:
 	//-------------------------------------------------------------------------
 	// THERE IS NO DECLARE_DATADESC, AND THERE IS NO BEGIN_DATADESC EITHER.

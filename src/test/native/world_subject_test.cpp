@@ -139,7 +139,9 @@ const File_t kAnyEntity = { "sourcesharp/game/server/anyentity.h", "AnyEntityOf"
 // followed rather than the assertion softened: ReadAnchored fails loudly on
 // a file it cannot read, so a stale path here would have been a red test
 // and never a vacuous pass.
-const File_t kTraceDll = { "sourcesharp/game/server/world_subject_dll.cpp", "CGameTrace::DidHitWorld" };
+// Anchored on SourceSharp_WorldFromHandle since plan_server_native_v2 T5 took
+// CGameTrace's two members (no server caller).
+const File_t kTraceDll = { "sourcesharp/game/server/world_subject_dll.cpp", "SourceSharp_WorldFromHandle" };
 // MOVED BY C6 (lane c6-input): game/client/gametrace_client.cpp left client.so,
 // and the client's SourceSharp_IsTheWorld went to world_adapter_client.cpp,
 // beside the world it compares against. Its callers ask it directly; the
@@ -439,12 +441,12 @@ TEST( WorldSubject, BothDllsAskTheSharedRuleRatherThanComparingThemselves )
 		<< "the client no longer routes its world comparison through the "
 		   "shared rule.";
 
-	EXPECT_NE( dll.find( "boolCGameTrace::DidHitWorld()const{returnSourceSharp_IsTheWorld(ss::TraceHitHandle(m_pEnt));}" ),
-	           std::string::npos )
-		<< "the server's DidHitWorld has stopped being the free function's one "
-		   "caller, so a trace and a bare handle can now disagree.";
-	// The client has no DidHitWorld at all since C6: its callers ask the free
-	// function, so there is no second spelling to drift.
+	// Neither DLL has a DidHitWorld since plan_server_native_v2 T5 (the client
+	// since C6): callers ask the free function, so there is no second spelling
+	// to drift.
+	EXPECT_EQ( dll.find( "CGameTrace::DidHitWorld" ), std::string::npos )
+		<< "the server defines a CGameTrace member again; a native caller asks "
+		   "SourceSharp_IsTheWorld directly.";
 	EXPECT_EQ( cli.find( "CGameTrace::DidHitWorld" ), std::string::npos )
 		<< "the client defines a CGameTrace member again; its callers ask "
 		   "SourceSharp_IsTheWorld directly.";

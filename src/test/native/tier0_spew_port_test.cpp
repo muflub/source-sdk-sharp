@@ -167,11 +167,6 @@ TEST_F( Tier0SpewPort, AnAssertReachesTheSlotAsAnAssertWithFileAndLine )
 	EXPECT_EQ( SPEW_MESSAGE, g_Hooked.back().type );
 }
 
-TEST_F( Tier0SpewPort, NothingHushesMathlibsAsserts )
-{
-	EXPECT_FALSE( HushAsserts() );
-}
-
 TEST_F( Tier0SpewPort, NoAssertAsksForADialog )
 {
 	EXPECT_FALSE( ShouldUseNewAssertDialog() );

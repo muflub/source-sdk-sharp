@@ -323,7 +323,9 @@ its exit:
 - **CWorld::DecalTrace and CWorld::ImpactTrace** are reached virtually from the
   native UTIL_DecalTrace / UTIL_ImpactTrace (util_shared_library.cpp,
   server_util_library.cpp); they move with those callers, and TE_Decal,
-  TE_WorldDecal and DispatchEffect("Impact") with them.
+  TE_WorldDecal and DispatchEffect("Impact") with them. **ImpactTrace DONE
+  2026-10-19 (T5):** UTIL_ImpactTrace and CWorld::ImpactTrace had no importer
+  and went; CWorld::DecalTrace stays with UTIL_DecalTrace.
 - **W_Precache and CPrecacheRegister** fill g_sModelIndex* globals the native
   util libraries and TE forwards read; they go when those readers do.
 - **CWorld::Precache's sequence** (game rules install, sound ent, the
@@ -442,6 +444,59 @@ Follow-ups:
 - **tools/slot-census.tsv** needs a live regeneration for the retired slots
   (PlayerRunMove, MoveTraceThrough, PlayerSetSlowMovement, ViewPunch,
   EntityAddBaseVelocity).
+
+## Substrate collapse (plan_server_native_v2 T5): what stayed native, and follow-ups
+
+Measured at the lane's tip (2026-10-19; nm U over both link edges, the
+symbol in the linked .so as the liveness check). T5 deleted or moved every
+definition server.so's objects no longer import, except these, each with the
+reason it was left:
+
+- **Client-only imports kept in a shared TU as a seam.** `Tier0_DevSpewV`
+  (tier0_spew_port.cpp) is imported only by tier0_spew_client.cpp's
+  DevWarning/DevMsg( level ), and `SourceSharp_LogStub` (shell_diagnostics.cpp)
+  only by client objects' SOURCESHARP_STUB macros; both are thin bodies over the
+  file's own static helpers (SpewV and DeveloperAt; SourceSharp_DiagPrint).
+  Moving them means exporting those helpers: a header change, not a deletion.
+- **UTIL_Tracer** (util_shared_library.cpp) is server-dead; its one client
+  importer is client_util_library.cpp's UTIL_ParticleTracer, itself dropped by
+  the client's --gc-sections. blood_family_move_test and
+  client_entity_resolve_test pin it where it is. Delete both with the client's
+  dead-tail pass, or move it beside its importer.
+- **shell_movement.cpp's server-dead arms** (the T4g bullet above), including
+  `SourceSharp_MovementParams`, live on the client through the TU's own caller.
+- **The header-inline relays.** `StandaloneEntity_IsPlayer`,
+  `StandaloneEntity_OwnerHandle` (with `CStandaloneEntity::OwnerHandleEntity`),
+  `PhysicsStandaloneToucher` (with `CStandaloneEntity::AsToucher`) and
+  `GameEntity_ModelIndex` have no importer, but anyentity.h's and
+  physicsowner.h's inline accessors name them, so they go with an audit of
+  those two headers (AnyEntity_t, PhysicsOwner_t), which the client compiles
+  too. GameEntityRelayEvictionTests pins GameEntity_ModelIndex's declaration.
+- **dt_send.cpp**: `SendTable::SendTable()`, `~SendTable()` and the
+  `CNonModifiedPointerProxy` constructor have no importer. The proxy
+  constructor is what builds `s_pNonModifiedPointerProxyHead`, a D6 FLOOR row;
+  both go with the standalone shell's move (the SendPropInt/Vector/String
+  bullet above), not on their own.
+- **Managed-table slots with no native caller now**:
+  `IManagedHierarchy.HierarchyResolveParentNames` (MapSpawner runs the pass in
+  managed) and `IManagedSoundEnt.ServerSoundEntInsert` (sound hints enter
+  SoundEnt in managed); the generated `ManagedSoundEmitter()` accessor has no
+  native caller either. Retiring a managed-interfaces row is a --reorder on
+  both sides: a later lane's, with the ABI tail serialised.
+- **Kept on purpose**: alloc_check.cpp's `__wrap_*` set (the debug allocation
+  checker; a wrap with no caller is the guard for the day one appears),
+  exit_watch.cpp's `ExitWatch_*ForTest` (test hooks that drive the live exit
+  watch), `CStandaloneEntity::operator delete( void *, int )` (the pair of its
+  placement new), and `SourceSharpPlayerSync_WriteEngineSide`, a server-only
+  arm in the shared standalone_player_sync.cpp.
+- **On the client**: the mathlib members only collisionutils.cpp reaches
+  (`AngleIMatrix` with a position, `BoxOnPlaneSide`, `VectorIRotate`,
+  `VectorITransform`, the `Four_*` constants, `g_SIMD_clear_wmask`) are
+  dropped by the client's --gc-sections with collisionutils.cpp's sections;
+  they go when the client's dead TUs do. mathlib_port.h keeps ss_mathlib::
+  twins with no non-test caller (AngleQuaternion, Approach,
+  BasisToQuaternion, Catmull_Rom_Spline, MatrixVectors, the three-argument
+  VectorAngles, kPower2N), held to stock by mathlib_port_stock_test.
 
 ## The client's sound emit path in C#: follow-ups and divergences
 
