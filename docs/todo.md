@@ -1872,3 +1872,22 @@ state), so the evidence is the full-gate log and the self-test.
   missing), is now PropBreakSpawnFlagsOracleTests (oracle-managed), which
   reads the pristine clone. sdk-links/tests.txt dropped the line, and
   make sdk-census reads 544 links with 0 unused.
+
+## Entity entry 264 sometimes undrawn after dm_lockdown's second map load (2026-10-20)
+
+Seen by the C7 shadow manager S2 lane in 2 of 9 tip runs (at c7c7a17c8
+and ee23411a1). Entity entry 264, at (-3722, 4082, 49.8), had no shadow
+after the second `map dm_lockdown` in RTT mode, and its scene held one
+entry fewer (190 -> 189), so it is not drawn at all. The lane's 3 base
+runs did not show it, but P(0 of 3 | 2-in-9) = 0.47 clears nothing.
+
+Evidence that it predates the shadow manager: the small render TUs lane
+(2026-10-19, its rt-live A/B) saw the same entry missing from
+reload-pose1 and reload-explosion. That entity is the respawning shotgun
+pickup, and that lane's base run `base2`, with none of its changes, lacked
+it too. So this is most likely the pickup's respawn timing at the reload,
+not a port.
+
+Next step: a 10-run base series at a commit before C7's render ports, then
+trace the leaf registry's insert for entry 264 (c7_shadow_manager.md, "S2
+and S3 as built", Open).
