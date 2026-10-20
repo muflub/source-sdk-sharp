@@ -206,6 +206,13 @@ public static unsafe class MovementBridge
 
         internal EngineMoveWorld(EngineSide api) => _api = api;
 
+        /// <summary>
+        /// The player the crossing in progress moves, which the server's trace
+        /// filter skips (plan_server_native_v2 T4f); named by the runner for the
+        /// crossing and put back after it.
+        /// </summary>
+        internal EntityHandle Player { get; set; }
+
         public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs,
                                uint mask, int collisionGroup)
         {
@@ -218,7 +225,7 @@ public static unsafe class MovementBridge
             float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
             MoveTraceBlob blob = default;
-            _api.OwnShims.Movement.MoveTrace(s, e, lo, hi, (int)mask, collisionGroup, &blob);
+            _api.MoveTrace(s, e, lo, hi, mask, collisionGroup, Player, &blob);
 
             return new MoveTrace
             {

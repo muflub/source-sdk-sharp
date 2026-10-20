@@ -131,10 +131,11 @@ CORE = {'IManagedRoot': False, 'IManagedRuntimeServer': True, 'IManagedRuntimeCl
 # C++ vtable, so libss_fwd_<side> builds that object (fwd_physics.cpp) and its
 # overrides call these tables. Not areas: built on demand, one per handler.
 # Each block reserves CALLBACK_WORDS words after word 0, where the native
-# object is built (its vptr and its pointer back to the block), so it lives,
+# object is built (its vptr, its pointer back to the block and, for the trace
+# filter, the trace type managed chose), so it lives,
 # survives a reload and is freed exactly as the block is. The value is the C#
 # file the table goes in: the assembly whose code builds it.
-CALLBACK_WORDS = 2
+CALLBACK_WORDS = 3
 OUT_CALLBACKS = 'src/fwd/native/imanaged_physics_callbacks.h'
 CALLBACKS = {
     'IManagedPhysicsObjectEvent': 'server',
@@ -148,6 +149,11 @@ CALLBACKS = {
     # recipients the managed SoundEmitter chose; shared since the client's
     # emitter is managed too.
     'IManagedRecipientFilter': 'shared',
+    # plan_server_native_v2 T4f: the ITraceFilter IEngineTrace::TraceRay calls
+    # per candidate, built by libss_fwd_server (fwd_trace_filter.cpp) over the
+    # managed rule (TraceFilterRules); server only, the client's traces keep
+    # their own filters.
+    'IManagedTraceFilter': 'server',
 }
 
 

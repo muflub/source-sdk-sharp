@@ -56,6 +56,12 @@ function(ss_fwd_library side)
   target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${side}.cpp
                                 ${CMAKE_CURRENT_SOURCE_DIR}/fwd_physics.cpp
                                 ${CMAKE_CURRENT_SOURCE_DIR}/fwd_recipient_filter.cpp)
+  # fwd_trace_filter.cpp: the ITraceFilter IEngineTrace::TraceRay calls per
+  # candidate entity over the managed trace rule (plan_server_native_v2 T4f),
+  # the same shape; the server's only.
+  if(side STREQUAL server)
+    target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_trace_filter.cpp)
+  endif()
 
   # ${SS_SRC} itself for our own interfaces (plan_forwarders_everywhere.md),
   # which the generated file includes by their farm path,
@@ -115,7 +121,7 @@ target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp PROPERTIES
     COMPILE_DEFINITIONS CLIENT_DLL
     INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
-foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_leaf_system.cpp)
+foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_trace_filter.cpp fwd_leaf_system.cpp)
   if(SS_IS_MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)
   else()

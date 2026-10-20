@@ -704,15 +704,12 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
                                            uint mask, int collisionGroup)
     {
-        if (!s_Initialized || !ServerAttached) return new EntityHullTrace(start, true, true);
+        if (!s_Initialized || !ServerAttached || Tracer is not { } tracer) return new EntityHullTrace(start, true, true);
 
-        float* s0 = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e0 = stackalloc float[3] { end.X, end.Y, end.Z };
-        float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
-        float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
-        float* outEnd = stackalloc float[3];
-        int bits = ServerShims.WorldServer.EntityTraceHull(entity.Value, s0, e0, lo, hi, (int)mask, collisionGroup, outEnd);
-        return new EntityHullTrace(new Vector(outEnd[0], outEnd[1], outEnd[2]), (bits & 1) != 0, (bits & 2) != 0);
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Hull(start, end, mins, maxs, mask, entity, collisionGroup);
+        TraceCost.EntityHull.Stop(cost);
+        return ServerTraceResults.EntityHull(t);
     }
 
     public bool PlayerIsAlive(EntityHandle player)
@@ -2317,25 +2314,14 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     public TraceResult TraceLine(Vector start, Vector end, TraceMask mask,
                                         EntityHandle ignore = default)
     {
-        if (!s_Initialized || !ServerAttached)
+        if (!s_Initialized || !ServerAttached || Tracer is not { } tracer)
             return new TraceResult(false, 1f, end, Vector.Zero, EntityHandle.None);
 
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
-        float* endPos = stackalloc float[3];
-        float* normal = stackalloc float[3];
-        float fraction;
-        uint hit;
-
-        int stopped = ServerShims.WorldServer.TraceLine(s, e, TraceMasks.Line(mask), Skippable(ignore),
-                                    &fraction, endPos, normal, &hit);
-
-        return new TraceResult(
-            stopped != 0,
-            fraction,
-            new Vector(endPos[0], endPos[1], endPos[2]),
-            new Vector(normal[0], normal[1], normal[2]),
-            new EntityHandle(hit));
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Line(start, end, (uint)TraceMasks.Line(mask), new EntityHandle(Skippable(ignore)),
+                                    CollisionGroupNone);
+        TraceCost.Line.Stop(cost);
+        return ServerTraceResults.Line(t);
     }
 
     /// <summary>
@@ -2366,32 +2352,14 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     public SurfaceTraceResult TraceLineSurface(Vector start, Vector end, TraceMask mask,
                                                       EntityHandle ignore = default)
     {
-        if (!s_Initialized || !ServerAttached)
+        if (!s_Initialized || !ServerAttached || Tracer is not { } tracer)
             return new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
 
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
-        float* endPos = stackalloc float[3];
-        float* normal = stackalloc float[3];
-        float fraction;
-        uint hit;
-        int surfaceProps;
-        int surfaceFlags;
-        int hitGroup;
-
-        int stopped = ServerShims.WorldServer.TraceLineSurface(s, e, TraceMasks.Line(mask), Skippable(ignore),
-                                           &fraction, endPos, normal, &hit,
-                                           &surfaceProps, &surfaceFlags, &hitGroup);
-
-        return new SurfaceTraceResult(
-            stopped != 0,
-            fraction,
-            new Vector(endPos[0], endPos[1], endPos[2]),
-            new Vector(normal[0], normal[1], normal[2]),
-            new EntityHandle(hit),
-            surfaceProps,
-            surfaceFlags,
-            (HitGroup)hitGroup);
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Line(start, end, (uint)TraceMasks.Line(mask), new EntityHandle(Skippable(ignore)),
+                                    CollisionGroupNone);
+        TraceCost.Line.Stop(cost);
+        return ServerTraceResults.Surface(t);
     }
 
     /// <summary>
@@ -2409,19 +2377,14 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs,
                                        TraceMask mask, EntityHandle ignore = default)
     {
-        if (!s_Initialized || !ServerAttached)
+        if (!s_Initialized || !ServerAttached || Tracer is not { } tracer)
             return new HullResult(false, false, EntityHandle.None);
 
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
-        float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
-        float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
-        uint hit;
-        int startSolid;
-
-        int blocked = ServerShims.WorldServer.TraceHull(s, e, lo, hi, TraceMasks.Hull(mask), Skippable(ignore), &hit, &startSolid);
-
-        return new HullResult(blocked != 0, startSolid != 0, new EntityHandle(hit));
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Hull(start, end, mins, maxs, (uint)TraceMasks.Hull(mask),
+                                    new EntityHandle(Skippable(ignore)), CollisionGroupNone);
+        TraceCost.Hull.Stop(cost);
+        return ServerTraceResults.Hull(t);
     }
 
     // TemplateReconnectIO AND TemplateSchedulePrecache STOOD HERE, and they are
@@ -2823,45 +2786,6 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     }
 
     /// <summary>
-    /// Paints one map decal. See PaintDecal in sourcesharp.h.
-    ///
-    /// <para>
-    /// <paramref name="angles"/> picks the FORM: null traces a short line
-    /// through <paramref name="origin"/> and stamps whatever it found, which is
-    /// <c>infodecal</c>; a value throws the mark along that facing for
-    /// <paramref name="projectDistance"/> units, which is
-    /// <c>info_projecteddecal</c>.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="permanent"/> picks the DELIVERY, and it is the whole
-    /// difference between a decal a map was built with and one it sprayed
-    /// later: permanent goes into the signon data and reaches a client that
-    /// joins an hour afterwards, temporary goes out once to whoever is
-    /// connected now.
-    /// </para>
-    /// </summary>
-    public bool PaintDecal(int texture, Vector origin, Vector? angles,
-                                  float projectDistance, bool permanent, bool lowPriority)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        float* a = stackalloc float[3];
-
-        if (angles.HasValue)
-        {
-            a[0] = angles.Value.X;
-            a[1] = angles.Value.Y;
-            a[2] = angles.Value.Z;
-        }
-
-        return ServerShims.EffectsServer.PaintDecal(texture, o, angles.HasValue ? a : null, projectDistance,
-                              permanent ? 1 : 0, lowPriority ? 1 : 0) != 0;
-    }
-
-
-    /// <summary>
     /// One line in the engine's debug overlay, between two world points.
     ///
     /// <para>
@@ -3025,20 +2949,6 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     }
 
 
-    /// <summary>
-    /// Bubbles rising out of an entity's volume.
-    ///
-    /// <para>
-    /// Takes the entity rather than a pair of corners, because the volume is
-    /// the brush the mapper drew and its world-space bounds are the engine's to
-    /// read.
-    /// </para>
-    /// </summary>
-    public void BubbleEffect(EntityHandle entity, int count, float speed)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.EffectsServer.BubbleEffect(entity.Value, count, speed);
-    }
 
 
 
@@ -3056,20 +2966,13 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     /// </summary>
     public WaterBelow WaterSurfaceBelow(Vector start)
     {
-        if (!s_Initialized || !ServerAttached)
+        if (!s_Initialized || !ServerAttached || Tracer is not { } tracer)
             return new WaterBelow(false, false, false, start);
 
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* surface = stackalloc float[3];
-        int slime;
-
-        int answer = ServerShims.WorldServer.WaterSurfaceBelow(s, surface, &slime);
-
-        return new WaterBelow(
-            Submerged: answer < 0,
-            Found: answer > 0,
-            Slime: slime != 0,
-            Surface: answer > 0 ? new Vector(surface[0], surface[1], surface[2]) : start);
+        long cost = CostMeter.Start();
+        WaterBelow below = SourceSharp.Server.Interop.WaterQuery.Below(tracer, start);
+        TraceCost.Water.Stop(cost);
+        return below;
     }
 
 
@@ -3326,10 +3229,58 @@ internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
     // server's composition installs (ServerSoundRouting).
     internal IServerSoundRoute? ServerSounds { get; set; }
 
+    // What the server's traces cost (plan_server_native_v2 T4f): timed around
+    // each trace member, read by cs_sv_trace_cost. The composition installs the
+    // instance it registers (ServerTraceRouting.RouteCost).
+    internal ServerTraceCost TraceCost { get; set; } = new();
+
+    // THE SERVER'S TRACES ARE MANAGED (plan_server_native_v2 T4f): IEngineTrace::
+    // TraceRay through its forwarder over libss_fwd_server's trace filter, which
+    // the managed trace rule answers. The composition installs it
+    // (ServerTraceRouting.Build); without one the side traces nothing.
+    internal IServerTraceRoute? Tracer { get; set; }
+
+    // COLLISION_GROUP_NONE: the group every trace of this side's but the
+    // entity sweep asks with, as CTraceFilterSimple( ignore, COLLISION_GROUP_NONE ) did.
+    private const int CollisionGroupNone = 0;
+
     private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption)
         => ServerSounds?.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
 
     private partial void SidePatchStop(int patch) => ServerSounds?.SoundPatchStop(patch);
+
+    // THE MOVEMENT LOOP'S HULL, THROUGH THE MANAGED FILTER (plan_server_native_v2
+    // T4f): the query is CTraceFilterSimple( player, group ), as
+    // shell_movement.cpp's UTIL_TraceRay asked, and native carries the trace
+    // out (it keeps the trace_t AddToTouched replays and the ground it found).
+    // Without a filter the side refuses as native refuses outside a crossing:
+    // blocked at the start, never "the way is clear".
+    private partial void SideMoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
+                                       EntityHandle player, MoveTraceBlob* blob)
+    {
+        if (Tracer is not { } tracer)
+        {
+            *blob = default;
+            blob->StartSolid = 1;
+            blob->AllSolid = 1;
+            blob->EndPosX = start[0];
+            blob->EndPosY = start[1];
+            blob->EndPosZ = start[2];
+            return;
+        }
+
+        nint filter = tracer.Enter(player, collisionGroup);
+        try
+        {
+            ServerShims.MovementServer.MoveTraceThrough(start, end, mins, maxs, (int)mask, collisionGroup, blob, filter);
+        }
+        finally
+        {
+            tracer.Exit();
+        }
+    }
+
+    private partial EntityHandle SideMovePass(int entIndex) => GetPlayerHandle(entIndex);
 
     private partial void SidePatchState(int patch, out int entIndex, out bool filterActive)
     {

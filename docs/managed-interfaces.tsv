@@ -326,6 +326,7 @@ IManagedRecipientFilter	IsReliable	int32_t	void
 IManagedRecipientFilter	IsInitMessage	int32_t	void
 IManagedRecipientFilter	GetRecipientCount	int32_t	void
 IManagedRecipientFilter	GetRecipientIndex	int32_t	int32_t nSlot
+IManagedTraceFilter	ShouldHitEntity	int32_t	uint32_t hEntity, int32_t nContentsMask
 IManagedPhysicsClient	LevelInitPreEntity	void	void
 IManagedPhysicsClient	LevelInitPostEntity	void	void
 IManagedPhysicsClient	LevelShutdownPreEntity	void	void

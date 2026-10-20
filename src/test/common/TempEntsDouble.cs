@@ -58,6 +58,9 @@ internal abstract class TempEntsDouble : ITempEnts
     public virtual void Fizz(TeFilter filter, float delay, int entIndex,
                              int modelIndex, int density, int current) { }
 
+    public virtual void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
+                                int modelIndex, int count, float speed) { }
+
     public virtual void Impact(TeFilter filter, float delay, Vector position,
                                Vector normal, int type) { }
 

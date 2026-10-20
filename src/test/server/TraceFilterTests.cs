@@ -206,7 +206,9 @@ public class TraceFilterTests
         string server = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "server", "native", "shell_worldquery.cpp")));
         string client = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
 
-        Assert.True(server.Contains("SourceSharp_TraceLineInto", StringComparison.Ordinal), "the server's trace body was read");
+        // The trace bodies left with plan_server_native_v2 T4f (managed traces
+        // through IEngineTrace::TraceRay); what is left of the file is read.
+        Assert.True(Regex.Matches(server, @"\bSourceSharp_\w+\(").Count > 5, "the server's world query was read");
         Assert.NotEmpty(Regex.Matches(client, Pattern));
         Assert.Empty(Regex.Matches(server, Pattern));
     }

@@ -78,7 +78,6 @@ public static class NativeCommands
         new("cs_sv_te_dump") { Help = "Every registered temp entity: its props as the ENGINE holds them, beside what C# declared" },
         // world_adapter_debug.cpp
         new("cs_sv_world") { Help = "Print worldspawn's networked state as the server holds it" },
-        new("cs_sv_trace_subject") { Help = "SourceSharp: trace at level geometry and print which hierarchy answered" },
         // gamestringpool_debug.cpp
         new("dumpgamestringtable") { Help = "Dump the contents of the game string table to the console.", Flags = ConVarFlags.Cheat },
         // generic_payload_debug.cpp

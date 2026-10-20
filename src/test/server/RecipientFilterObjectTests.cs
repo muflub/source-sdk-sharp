@@ -25,7 +25,7 @@ public sealed unsafe class RecipientFilterObjectTests : IDisposable
     private const nint Marker = 0xF1;
 
     [UnmanagedCallersOnly] private static int SizeOf16() => 16;
-    [UnmanagedCallersOnly] private static int SizeOf24() => 24;
+    [UnmanagedCallersOnly] private static int SizeOf32() => 32;
 
     [UnmanagedCallersOnly]
     private static void* Construct(void* memory, void* target)
@@ -109,7 +109,7 @@ public sealed unsafe class RecipientFilterObjectTests : IDisposable
 
     [Fact]
     public void TheBlockReservesTheWordsTheFilterIsBuiltIn()
-        => Assert.Equal(2, IRecipientFilterSink__ManagedVtable.ReservedWords);
+        => Assert.Equal(3, IRecipientFilterSink__ManagedVtable.ReservedWords);   // three since the trace filter holds its type (T4f)
 
     [Fact]
     public void TheFilterIsBuiltInTheBlocksReservedWordsOverTheBlock()
@@ -127,12 +127,12 @@ public sealed unsafe class RecipientFilterObjectTests : IDisposable
     public void ALibraryThatBuildsInMoreThanTheBlockReservesIsRefusedNamingBoth()
     {
         using var vtables = new ManagedVtables();
-        _table->SizeOf = &SizeOf24;
+        _table->SizeOf = &SizeOf32;
 
         var thrown = Assert.Throws<InvalidOperationException>(
             () => new RecipientFilterObject(_table).Build(RecipientFilterSink.Create(vtables, new RecipientFilterSink())));
 
-        Assert.Contains("24 byte(s)", thrown.Message);
-        Assert.Contains("reserves 16", thrown.Message);
+        Assert.Contains("32 byte(s)", thrown.Message);
+        Assert.Contains("reserves 24", thrown.Message);
     }
 }

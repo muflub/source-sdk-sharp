@@ -710,24 +710,21 @@ public class TempEntFizzTests
     [Fact]
     public void TheServerSideSubstitutionIsStillNamedAndStillTracked()
     {
-        string? worldquery = RepoLayout.FindSdkFile(Path.Combine("game", "server", "shell_worldquery.cpp"));
+        // The server's bubble path is managed since plan_server_native_v2 T4f:
+        // EffectsOverTempEnts.BubbleEffect, where SourceSharp_BubbleEffect was.
+        string path = RepoLayout.Repo("src", "server", "managed", "EffectsOverTempEnts.cs");
+        Assert.True(File.Exists(path), $"{path} holds the server's bubble path");
 
-        if (worldquery is null)
-        {
-            Assert.True(true, "shell_worldquery.cpp found for the substitution (skipped, not found)");
-            return;
-        }
+        string text = File.ReadAllText(path);
 
-        string text = File.ReadAllText(worldquery);
+        int at = text.IndexOf("public override void BubbleEffect(", StringComparison.Ordinal);
+        Assert.True(at >= 0, "EffectsOverTempEnts.BubbleEffect is still the server's bubble path");
 
-        int at = text.IndexOf("void SourceSharp_BubbleEffect(", StringComparison.Ordinal);
-        Assert.True(at >= 0, "SourceSharp_BubbleEffect is still the server's bubble path");
-
-        int close = text.IndexOf("\n}", at, StringComparison.Ordinal);
+        int close = text.IndexOf("\n    }", at, StringComparison.Ordinal);
         string body = text[at..close];
 
-        Assert.True(body.Contains("TE_Bubbles(", StringComparison.Ordinal),
-            "and it still sends TE_Bubbles rather than TE_Fizz. That is the half of row C6's "
+        Assert.True(body.Contains("_temps.Bubbles(", StringComparison.Ordinal) && !body.Contains("Fizz(", StringComparison.Ordinal),
+            "and it still sends Bubbles rather than Fizz. That is the half of row C6's "
           + "title this lane did not close: the client can fizz now, so the substitution is "
           + "unblocked, but flipping it blind would risk the one thing the lane contract "
           + "forbids — an effect that fires today ceasing to");

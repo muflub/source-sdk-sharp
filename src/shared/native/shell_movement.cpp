@@ -96,12 +96,11 @@ using ss::IGameMovement;
 // own headers, the stock macro names aliased to their ss:: spellings so the
 // shared body reads the same on both sides.
 #include "vphysics_interface.h"   // IPhysicsSurfaceProps, surfacedata_t
-#include "ss_util.h"               // engine, enginetrace, ss::UTIL_TraceRay
+#include "ss_util.h"               // engine, enginetrace
 #include "ss_shareddefs.h"
 #include "world_subject.h"        // SourceSharp_IsTheWorld, each side's own
 extern CGlobalVars *gpGlobals;
 float GetCurrentGravity( void );   // movevars_shared.cpp
-using ss::UTIL_TraceRay;
 #define RUMBLE_FLAGS_NONE        ss::kRumbleFlagsNone
 #define TICK_INTERVAL            ( gpGlobals->interval_per_tick )
 #define VEC_VIEW_SCALED( player )          ( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
@@ -609,6 +608,14 @@ public:
 	// ---- the crossing and the four things it is serviced with -----------
 	bool			RunManagedCommand( void );
 	void			FillConstants( struct SourceSharpMoveState *pState );
+#ifndef CLIENT_DLL
+	// THE SERVER'S FILTER IS MANAGED'S (plan_server_native_v2 T4f): the
+	// ITraceFilter libss_fwd_server built over the managed trace rule, handed
+	// in by SourceSharp_MoveTraceThrough for the one trace it asks for, with
+	// the rule's query (the moved player, the group) already named on the
+	// managed side. NULL outside that call.
+	ITraceFilter *m_pTraceThrough = NULL;
+#endif
 	void			WorldTrace( const float *pStart, const float *pEnd,
 	                            const float *pMins, const float *pMaxs,
 	                            int nMask, int nCollisionGroup,
@@ -1101,7 +1108,13 @@ void CShellGameMovement::WorldTrace( const float *pStart, const float *pEnd,
 	Ray_t ray;
 	ray.Init( SS3E_ReadVec( pStart ), SS3E_ReadVec( pEnd ),
 	          SS3E_ReadVec( pMins ), SS3E_ReadVec( pMaxs ) );
+#ifdef CLIENT_DLL
 	UTIL_TraceRay( ray, (unsigned int)nMask, SS_HANDLE_ENTITY( mv->m_nPlayerHandle ), nCollisionGroup, &pm );
+#else
+	// The server's arm: the managed filter SourceSharp_MoveTraceThrough handed
+	// in decides what the hull may hit (plan_server_native_v2 T4f).
+	enginetrace->TraceRay( ray, (unsigned int)nMask, m_pTraceThrough, &pm );
+#endif
 
 	IHandleEntity *pGround = MovementGroundFromTrace( pm );
 
@@ -1240,7 +1253,14 @@ void SourceSharp_MoveTrace( const float *pStart, const float *pEnd,
 	memset( pOut, 0, sizeof( *pOut ) );
 
 	CShellGameMovement *pMover = *ActiveMover();
+#ifdef CLIENT_DLL
 	if ( !pMover )
+#else
+	// THE SERVER TRACES THROUGH SourceSharp_MoveTraceThrough (plan_server_native_v2
+	// T4f), with managed's filter: this shared slot has none to give the server's
+	// WorldTrace, so on the server it is the refusal below, always.
+	if ( !pMover || !pMover->m_pTraceThrough )
+#endif
 	{
 		// Blocked at the start, which is the safe refusal: a caller outside a
 		// crossing gets "you cannot go anywhere", never "the way is clear".
@@ -1252,6 +1272,43 @@ void SourceSharp_MoveTrace( const float *pStart, const float *pEnd,
 
 	pMover->WorldTrace( pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut );
 }
+
+#ifndef CLIENT_DLL
+//-----------------------------------------------------------------------------
+// The server's movement trace, through the managed trace filter
+// (plan_server_native_v2 T4f). What a hull may hit is managed's decision: the
+// managed side names its query (the moved player as the pass entity, the
+// collision group) before it calls this, and pFilter is the ITraceFilter
+// libss_fwd_server built over that rule. This carries the trace out: the same
+// WorldTrace as the shared slot, the trace kept for AddToTouched and the
+// ground remembered. The same refusal as the shared slot outside a crossing,
+// and without a filter to trace with.
+//-----------------------------------------------------------------------------
+void SourceSharp_MoveTraceThrough( const float *pStart, const float *pEnd,
+                                   const float *pMins, const float *pMaxs,
+                                   int32_t nMask, int32_t nCollisionGroup,
+                                   SourceSharpMoveTraceResult *pOut, void *pFilter )
+{
+	if ( !pOut )
+		return;
+
+	memset( pOut, 0, sizeof( *pOut ) );
+
+	CShellGameMovement *pMover = *ActiveMover();
+	if ( !pMover || !pFilter )
+	{
+		pOut->bStartSolid = 1;
+		pOut->bAllSolid = 1;
+		SS3E_FillVec( pOut->vecEndPos, SS3E_ReadVec( pStart ) );
+		return;
+	}
+
+	ITraceFilter *pPrevious = pMover->m_pTraceThrough;
+	pMover->m_pTraceThrough = static_cast< ITraceFilter * >( pFilter );
+	pMover->WorldTrace( pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut );
+	pMover->m_pTraceThrough = pPrevious;
+}
+#endif
 
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue )
 {

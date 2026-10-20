@@ -364,7 +364,10 @@ client_stock_tus	src/client/native/CMakeLists.txt	1
 #   draw), less shell_explosion_overlay.cpp.
 # LOWERED 2026-10-19, 216 -> 215 (plan_server_native_v2 T4e, ported onto main 6c140a054; the walk read with the ceiling
 #   at 1): shell_serversystems.cpp deleted with kServerSystems[].
-shim_cpp_files	src/sourcesharp	215
+# RAISED 2026-10-19, 215 -> 216 (plan_server_native_v2 T4f), deliberately: fwd_trace_filter.cpp (a), the
+#   ITraceFilter libss_fwd_server builds for IEngineTrace::TraceRay over the managed trace rule (Recipe E;
+#   Decision 2), which the engine calls through its vtable per candidate. Exit: none while the engine calls it.
+shim_cpp_files	src/sourcesharp	216
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1810,7 +1813,23 @@ shim_cpp_files	src/sourcesharp	215
 #   shell_serversystems.cpp deleted with kServerSystems[] and its walks; Precache_Model's late-precache rule; CWorld::
 #   Precache's sequence with ss_precache_register.h; the engine-owned convar refusal with convar_ownership.h (net of
 #   IShimConsole::FindConVarFlags); SourceSharp_DrainEntitySlotsLate and IManagedFrame; IShimGameRules::EndRound.
-shim_lines	src/sourcesharp	131191
+# LOWERED 2026-10-19, 131191 -> 131132 (plan_server_native_v2 T4f, the walk with the ceiling at 1; -59): the server's
+#   five trace slot bodies left shell_worldquery.cpp (-283), less libss_fwd_server's trace filter
+#   (fwd_trace_filter.cpp/.h) and trace_layout.h, the Ray_t and trace_t rows managed builds and reads; PaintDecal's HOT trace and its note.
+# RAISED 2026-10-19, 131132 -> 131138 (+6, measured by the walk), deliberately (plan_server_native_v2 T4f): the trace
+#   filter holds the trace type managed built it with, which the engine asks about four times a trace (6.3 inbound
+#   crossings a server frame at rest on dm_lockdown, now none): its field, its construct parameter and the note why.
+# LOWERED 2026-10-19, 131138 -> 130833 (plan_server_native_v2 T4f, the walk with the ceiling at 1; -305): PaintDecal
+#   and BubbleEffect left shell_worldquery.cpp, and TE_BSPDecal, TE_Bubbles and TE_ProjectDecal shell_te_forwards.cpp.
+# RAISED 2026-10-19, 130833 -> 130897 (+64, measured by the walk), deliberately (plan_server_native_v2 T4f): the
+#   server's movement hull traces through the managed trace filter -- SourceSharp_MoveTraceThrough, the member it
+#   points WorldTrace at, the server arm of the trace and the shared slot's server refusal, and the generated slot --
+#   so the native rule (ss::CTraceFilterSimple, trace_filter_library.cpp's server half) can go next.
+# LOWERED 2026-10-19, 130897 -> 130271 (plan_server_native_v2 T4f, the walk with the ceiling at 1; -626): the server's
+#   native trace filter went -- trace_filter_library.cpp's server half (ss::CTraceFilterSimple, the parallel-hierarchy
+#   shape clause, the engine r_visualizetraces reader), ss_tracefilter.h, ss_util.h's filter-building trace inlines --
+#   and cs_sv_trace_subject with CWorld::GetWorldBounds and ImpactCount, which only it read.
+shim_lines	src/sourcesharp	130271
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

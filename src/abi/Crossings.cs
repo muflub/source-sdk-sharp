@@ -979,6 +979,8 @@ public enum CrossingOp
     ClientSaveReadFields = 393,
     /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
     ServerAreaPortalVisibility = 394,
+    /// <summary>IManagedTraceFilter::ShouldHitEntity: the engine asks the managed trace filter about one candidate entity, mid-trace, once per candidate per server trace (plan_server_native_v2 T4f).</summary>
+    ServerTraceFilterShouldHitEntity = 395,
 }
 
 /// <summary>

@@ -61,7 +61,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 131 slots.
+// SERVER ONLY -- 125 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -78,7 +78,6 @@ void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float f
                                    const float *pPositionXYZ );
 void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor,
                               float flAmount, int32_t bStream, int32_t nSprayFlags );
-void SourceSharp_BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed );
 int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ );
 uint32_t SourceSharp_CreateEntity( const char *pClassName );
 void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount );
@@ -170,10 +169,6 @@ void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float f
                                    const float *pForceOriginXYZ, int32_t bPhysicsOnly );
 void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin, const float *pAngles,
                                  int32_t bZeroVelocity );
-int32_t SourceSharp_EntityTraceHull( uint32_t hEntity, const float *pStartXYZ,
-                                     const float *pEndXYZ, const float *pMinsXYZ,
-                                     const float *pMaxsXYZ, int32_t nMask,
-                                     int32_t nCollisionGroup, float *pOutEndXYZ );
 void SourceSharp_EventSetBool( void *hEvent, const char *pKey, int32_t bValue );
 void SourceSharp_EventSetFloat( void *hEvent, const char *pKey, float flValue );
 void SourceSharp_EventSetInt( void *hEvent, const char *pKey, int32_t nValue );
@@ -188,13 +183,14 @@ int32_t SourceSharp_GetPlayerTeam( uint32_t hPlayer );
 int32_t SourceSharp_InvisibleRangeReach( void );
 uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPackedKeys,
                                      int32_t nBytes );
+void SourceSharp_MoveTraceThrough( const float *pStartXYZ, const float *pEndXYZ,
+                                   const float *pMinsXYZ, const float *pMaxsXYZ, int32_t nMask,
+                                   int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut,
+                                   void *pFilter );
 void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
                                 uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
                                 int32_t *pOutViewerSet );
 void SourceSharp_OverlayResetCounts( void );
-int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
-                                const float *pAnglesXYZ, float flProjectDistance,
-                                int32_t bPermanent, int32_t bLowPriority );
 void *SourceSharp_PhysicsEnvironmentPointer( void );
 int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,
                                          uint32_t *pOutOwners );
@@ -229,23 +225,10 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
                                         const int32_t *pPackBytes, const float *pOriginsXYZ,
                                         const float *pAnglesPYR, int32_t nCount,
                                         uint32_t *pOutHandles, int32_t nMax );
-int32_t SourceSharp_TraceHull( const float *pStartXYZ, const float *pEndXYZ,
-                               const float *pMinsXYZ, const float *pMaxsXYZ, int32_t nMask,
-                               uint32_t hIgnore, uint32_t *pOutHit, int32_t *pOutStartSolid );
-int32_t SourceSharp_TraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
-                               uint32_t hIgnore, float *pOutFraction, float *pOutEndXYZ,
-                               float *pOutNormalXYZ, uint32_t *pOutHit );
-int32_t SourceSharp_TraceLineSurface( const float *pStartXYZ, const float *pEndXYZ,
-                                      int32_t nMask, uint32_t hIgnore, float *pOutFraction,
-                                      float *pOutEndXYZ, float *pOutNormalXYZ,
-                                      uint32_t *pOutHit, int32_t *pOutSurfaceProps,
-                                      int32_t *pOutSurfaceFlags, int32_t *pOutHitgroup );
 int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes,
                                      int32_t nPlayerIndex, int32_t bReliable );
 void SourceSharp_ViewPunch( const float *pOrigin, const float *pPunchPYR, float flRadius,
                             int32_t bInAir );
-int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
-                                       int32_t *pOutSlime );
 #endif
 
 //---------------------------------------------------------------------------

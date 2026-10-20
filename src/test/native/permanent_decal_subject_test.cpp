@@ -300,7 +300,10 @@ const char *kWorldQuery   = "game/server/shell_worldquery.cpp";
 const char *kResolveHdr   = "game/server/shell_resolve.h";
 const char *kStandaloneCpp = "game/server/shell_standalone_base.cpp";
 
-const char *kDecalFn      = "SourceSharp_PaintDecal(";
+// plan_server_native_v2 T4f: the decal is managed's now, and bans A and B
+// followed it there: EffectsOverTempEnts.PaintDecal, read as text.
+const char *kDecalCs      = "managed/SourceSharp.Server/EffectsOverTempEnts.cs";
+const char *kDecalFn      = "public override bool PaintDecal(";
 const char *kFrameFn      = "SourceSharpEntity_t::EntityToWorld()";
 
 // THE CHECK THAT WOULD OTHERWISE NOT BE ABLE TO FAIL. Every ban below asserts
@@ -320,34 +323,36 @@ TEST( PermanentDecalBan, TheFilesTheBanIsAboutWereActuallyRead )
 	// And the two bodies the bans read are findable, so "no hits" below means
 	// "no narrowing" rather than "the function got renamed out from under this
 	// file".
-	ASSERT_FALSE( BodyOf( CodeLines( kWorldQuery ), kDecalFn ).empty() )
-		<< "no " << kDecalFn << " body in " << kWorldQuery;
+	ASSERT_FALSE( BodyOf( CodeLines( kDecalCs ), kDecalFn ).empty() )
+		<< "no " << kDecalFn << " body in " << kDecalCs;
 	ASSERT_FALSE( BodyOf( CodeLines( kStandaloneCpp ), kFrameFn ).empty() )
 		<< "no " << kFrameFn << " body in " << kStandaloneCpp;
 }
 
 // BAN A — the decal must not narrow its subject, and must cross by the handle.
 //
-// PROVEN RED: put `CBaseEntity *pHit = TraceEntity( trace );` back into
-// SourceSharp_PaintDecal and the first EXPECT fails, naming the line.
+// THE BAN FOLLOWED ITS SUBJECT INTO C# (plan_server_native_v2 T4f). The trace
+// is managed's, and its m_pEnt crosses as the entity's own handle
+// (SSFwd_TraceFilter_HandleOf; impact_subject_test's BAN A holds that), so the
+// decal names its subject by trace.Hit and asks everything else of it by handle.
+//
+// PROVEN RED: narrow the subject to a game entity in PaintDecal (anything
+// spelled GameEntity) and the first EXPECT fails; stop asking the index of
+// trace.Hit and the second does.
 TEST( PermanentDecalBan, TheDecalNamesWhatItHitWidely )
 {
-	const std::vector< Hit_t > body = BodyOf( CodeLines( kWorldQuery ), kDecalFn );
+	const std::vector< Hit_t > body = BodyOf( CodeLines( kDecalCs ), kDecalFn );
 
-	const std::vector< Hit_t > narrow = Naming( body, "TraceEntity(" );
+	const std::vector< Hit_t > narrow = Naming( body, "GameEntity" );
 
 	EXPECT_TRUE( narrow.empty() )
-		<< "the decal's subject is narrowed through TraceEntity(), which answers "
-		   "NULL for the parallel hierarchy — and this site turns that NULL into "
-		   "entity index 0, the world:" << Joined( narrow );
+		<< "the decal's subject is narrowed to a game entity, which answers "
+		   "nothing for the world and a static prop — and this site turns that "
+		   "nothing into entity index 0, the world:" << Joined( narrow );
 
-	EXPECT_FALSE( Naming( body, "SourceSharp_HandleFromAnyEntity(" ).empty() )
-		<< "the decal does not name its subject by the wide handle spelling at "
-		   "all, so an entity outside the SDK cannot be its subject";
-
-	EXPECT_FALSE( Naming( body, "ss::TraceHit( trace )" ).empty() )
-		<< "the decal no longer reads the trace's own m_pEnt, so what it does "
-		   "read needs re-reading against this ban";
+	EXPECT_FALSE( Naming( body, "EntityIndex(trace.Hit)" ).empty() )
+		<< "the decal does not name its subject by the handle the trace "
+		   "answered, so what it does read needs re-reading against this ban";
 }
 
 // BAN B — and it must take the FRAME from the same projection, not from
@@ -356,20 +361,19 @@ TEST( PermanentDecalBan, TheDecalNamesWhatItHitWidely )
 // NULL for every entity on the parallel hierarchy — so it would be a null
 // dereference on exactly the case this change is for.
 //
-// PROVEN RED: spell `pHit->EntityToWorldTransform()` back into the body and the
-// first EXPECT fails; delete the EntityToWorld() call and the second does.
+// IN C# (plan_server_native_v2 T4f) THE FRAME IS THE BLOCK'S WorldTransform,
+// which is CollisionToWorldTransform on the parallel hierarchy and therefore the
+// projection's own answer for it (BAN C pins that arm): the one hierarchy a
+// decal can hit. A transform read off anything else -- the origin and angles
+// recomposed, say -- is the HALF ONE disagreement.
+//
+// PROVEN RED: read the frame from anything but WorldTransform and the EXPECT fails.
 TEST( PermanentDecalBan, TheDecalTakesItsFrameFromTheProjection )
 {
-	const std::vector< Hit_t > body = BodyOf( CodeLines( kWorldQuery ), kDecalFn );
+	const std::vector< Hit_t > body = BodyOf( CodeLines( kDecalCs ), kDecalFn );
 
-	const std::vector< Hit_t > direct = Naming( body, "EntityToWorldTransform(" );
-
-	EXPECT_TRUE( direct.empty() )
-		<< "the decal reads the SDK arm's transform directly, which is NULL for "
-		   "every entity on the parallel hierarchy:" << Joined( direct );
-
-	EXPECT_FALSE( Naming( body, "EntityToWorld()" ).empty() )
-		<< "the decal does not ask the projection for its frame at all";
+	EXPECT_FALSE( Naming( body, "InverseTransformPoint(origin, MemoryMarshal.Read<Transform>(block[TransformOffset..]))" ).empty() )
+		<< "the decal does not take its frame from the block's WorldTransform";
 }
 
 // BAN C — the projection's two arms must stay two arms.

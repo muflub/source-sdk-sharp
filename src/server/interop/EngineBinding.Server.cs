@@ -49,7 +49,8 @@ internal sealed partial class EngineEffects
 {
     public void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) => E.BloodEffect(origin, direction, color, amount, stream, sprayFlags);
 
-    public void BubbleEffect(EntityHandle entity, int count, float speed) => E.BubbleEffect(entity, count, speed);
+    // No engine answer since plan_server_native_v2 T4f: the server answers this from a managed trace and a managed temp entity (EffectsOverTempEnts).
+    public void BubbleEffect(EntityHandle entity, int count, float speed) { }
 
     public void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay) => E.TempEntPlayback(handle, blob, filter, delay);
 
@@ -67,7 +68,8 @@ internal sealed partial class EngineEffects
     // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
     public void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1) { }
 
-    public bool PaintDecal(int texture, Vector origin, Vector? angles, float projectDistance, bool permanent, bool lowPriority) => E.PaintDecal(texture, origin, angles, projectDistance, permanent, lowPriority);
+    // No engine answer since plan_server_native_v2 T4f: the server answers this from a managed trace, managed temp entities and IVEngineServer::StaticDecal (EffectsOverTempEnts).
+    public bool PaintDecal(int texture, Vector origin, Vector? angles, float projectDistance, bool permanent, bool lowPriority) => false;
 
     // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
     public void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null) { }

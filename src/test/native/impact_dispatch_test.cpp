@@ -188,8 +188,6 @@ const char *kCallback = "game/client/shell_impact_effects.cpp";
 const char *kArsenal  = "managed/SourceSharp.Server/Arsenal.cs";
 const char *kAbi      = "host/sourcesharp.h";
 const char *kTrace    = "game/server/shell_worldquery.cpp";
-// The server's slots since plan_engineapi_vtables C6c: shim-area methods.
-const char *kAreas    = "game/shared/ishim_areas.h";
 
 //-----------------------------------------------------------------------------
 // THE CHECK THAT WOULD OTHERWISE NOT BE ABLE TO FAIL.
@@ -346,55 +344,14 @@ TEST( ImpactDispatch, TheShotAsksForTheSurfaceAndNotTheNarrowTrace )
 }
 
 //-----------------------------------------------------------------------------
-// THE ABI APPENDED RATHER THAN WIDENED.
-//
-// sourcesharp.h's own argument, made at ClientTraceLine against this very slot:
-// widening a shipped slot is the cost a later lane should not be made to pay,
-// and TraceLine is the hottest slot in the API at 1.573 crossings per server
-// frame at rest. So the narrow declaration must still be there, unchanged, with
-// the wide one beside it.
+// THE TWO TRACE SLOTS AND THEIR "NO SURFACE IS -1" RULE LEFT NATIVE
+// (plan_server_native_v2 T4f). TraceLine and TraceLineSurface retired with the
+// server's other trace slots: managed traces through IEngineTrace::TraceRay over
+// the managed trace filter and reads the engine's trace_t itself, so there is no
+// shipped slot left to widen. The rule that a line which hit nothing names
+// surfaceprop -1 rather than `default` (index 0) is ServerTraceResults.Surface's
+// now, held by ServerTraceResultsTests.ALineThatHitNothingNamesNoSurface.
 //-----------------------------------------------------------------------------
-TEST( ImpactDispatch, TheAbiAppendedTheSurfaceTraceRatherThanWideningTheNarrowOne )
-{
-	// Server shim-area methods since C6c, one declaration line each.
-	const std::vector< std::string > lines = CodeLines( kAreas );
-
-	EXPECT_EQ( 1, CountNaming( lines, " TraceLineSurface(" ) )
-		<< "one appended slot for the trace that answers a surface";
-	EXPECT_EQ( 1, CountNaming( lines, " TraceLine(" ) )
-		<< "and the narrow slot still declared";
-	EXPECT_EQ( 1, CountNaming( lines, "float * pOutNormalXYZ, uint32_t * pOutHit ) = 0;" ) )
-		<< "with its parameter list ENDING where it always did. A surfaceprop "
-		   "out-parameter appended to this line would be a widening of a "
-		   "shipped slot wearing an append's clothes.";
-}
-
-//-----------------------------------------------------------------------------
-// AND "NO SURFACE" IS -1 AND NOT ZERO.
-//
-// Surfaceprop index 0 is a real surface (`default`), so a zero would be an
-// answer a caller could act on while meaning "I do not know" -- the shape this
-// port has been caught by before, and the reason the ABI's own text says -1.
-//-----------------------------------------------------------------------------
-TEST( ImpactDispatch, ATraceThatHitNothingNamesNoSurfaceRatherThanSurfaceZero )
-{
-	const std::vector< std::string > lines = CodeLines( kTrace );
-
-	EXPECT_NE( -1, FirstNaming( lines, "*pOutSurfaceProps = -1;" ) )
-		<< "the trace must initialise the surfaceprop out to -1 before it "
-		   "traces, so a line that hit nothing does not report the `default` "
-		   "surface as though it had hit one";
-
-	const int nGuard = FirstNaming( lines, "if ( tr.DidHit() )" );
-	const int nWrite = FirstNaming( lines, "*pOutSurfaceProps = tr.surface.surfaceProps;" );
-
-	ASSERT_NE( -1, nGuard );
-	ASSERT_NE( -1, nWrite );
-	EXPECT_LT( nGuard, nWrite )
-		<< "and it must only overwrite that when the line WAS stopped: a trace "
-		   "that ran its whole length has a csurface_t full of whatever the "
-		   "engine left there";
-}
 
 //=============================================================================
 // AND THE CHOICE ABOVE IT IS MANAGED (plan_shim.md §6, lane 4b-effects).

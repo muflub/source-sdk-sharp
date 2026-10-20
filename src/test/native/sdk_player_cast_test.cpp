@@ -2192,9 +2192,16 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// own row red and nobody else's, which is the point: the failure then names
 	// the file whose eviction caused it, instead of a count that says only that
 	// some number fell.
-	EXPECT_TRUE( HitsInFileEnding( server.EveryResolverHits, "shared/trace_filter_library.cpp" ) )
-		<< "Ban C's predicate finds nothing in the shim's trace-filter family, "
-		<< "which is where two thirds of the server's class lives."
+	// trace_filter_library.cpp's SERVER ROW IS RETIRED BY plan_server_native_v2
+	// T4f, and it was the last file that held the class on the server: the
+	// server's trace filter is managed's (TraceFilterRules), server.so no longer
+	// compiles the file, and the resolver sites were its server arms. So the
+	// row goes red for the reason the paragraph above wants -- the file whose
+	// eviction caused it -- and is retired with its subject, not re-pointed:
+	// there is no armed spelling of the class left on the server.
+	EXPECT_FALSE( HitsInFileEnding( server.EveryResolverHits, "shared/trace_filter_library.cpp" ) )
+		<< "Ban C's predicate finds the class in the trace-filter family again; "
+		<< "its server arms are managed's (plan_server_native_v2 T4f)."
 		<< Describe( server.EveryResolverHits );
 	// game/shared/util_shared.cpp's ROW IS RETIRED BY plan_shim.md PHASE 2c,
 	// lane 2-utilshared, AND THE NOTE ABOVE SAID EXACTLY WHAT TO DO WITH IT:
@@ -2285,9 +2292,14 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// holds every site the server has. The floor is kept only as the vacuity
 	// guard its own text describes -- a predicate narrowed to its own self-test
 	// finds zero, and zero is what this refuses.
-	EXPECT_GE( server.EveryResolverHits.size(), 1u )
-		<< "the Ban C predicate no longer finds the class the dry run "
-		   "enumerated; its zero above proves nothing." << Describe( server.EveryResolverHits );
+	//
+	// 1 -> 0 BY plan_server_native_v2 T4f: the trace-filter family's server arms,
+	// the class's last armed spelling on the server, went to managed. The
+	// vacuity guard is now the quoted-line fixtures above alone, which prove
+	// the predicate recognises the class without the tree holding any.
+	EXPECT_EQ( server.EveryResolverHits.size(), 0u )
+		<< "the Ban C predicate finds the class on the server again."
+		<< Describe( server.EveryResolverHits );
 
 	// AND THE CLIENT FLOOR WAS SET AT THE MEASUREMENT, which is exactly what
 	// the paragraph above forbids. It read 30 with 30 hits in the tree, so the
@@ -2348,8 +2360,12 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// And the eviction is asserted as an ABSENCE in its own right below, with
 	// the file proved READ, so "toolframework_client.cpp stopped being scanned"
 	// cannot be mistaken for "toolframework_client.cpp is clean".
-	EXPECT_TRUE( HitsInFileEnding( client.EveryResolverHits, "shared/trace_filter_library.cpp" ) )
-		<< "Ban C's predicate finds nothing in the shim's trace-filter family "
+	// The client's trace_filter_library.cpp row went with the server's arms
+	// (plan_server_native_v2 T4f): the scan reads source, so the client found
+	// the class in the file's #ifndef CLIENT_DLL blocks; the file is the
+	// client's arm only now and holds none.
+	EXPECT_FALSE( HitsInFileEnding( client.EveryResolverHits, "shared/trace_filter_library.cpp" ) )
+		<< "Ban C's predicate finds the class in the trace-filter family again "
 		<< "on the client." << Describe( client.EveryResolverHits );
 	// clientleafsystem.cpp's row (its AddRenderableToLeaf dump, under a
 	// DUMP_RENDERABLE_LEAFS nothing defines) left with the file at C7 cluster
@@ -2403,7 +2419,9 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// 2 -> 1 in C7 cluster 12 L2 (2026-10-19): clientleafsystem.cpp left
 	// client.so, and its dead dump's SDKEntityFromRenderable with it; the
 	// trace-filter family, named above, is the class's one armed spelling left.
-	EXPECT_GE( client.EveryResolverHits.size(), 1u )
+	// 1 -> 0 BY plan_server_native_v2 T4f, the server's reason: the trace-filter
+	// family's server arms were the last spelling the client's source scan saw.
+	EXPECT_EQ( client.EveryResolverHits.size(), 0u )
 		<< "the same, on the client." << Describe( client.EveryResolverHits );
 
 }

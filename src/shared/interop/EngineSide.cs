@@ -1211,6 +1211,23 @@ internal sealed unsafe partial class EngineSide
 
     // Each side's own patch arm (plan_server_native_v2 T4a): the server's
     // patches are the managed SoundEmitter's, the client's IShimSoundscapeClient's.
+    /// <summary>
+    /// The movement loop's hull trace (plan_server_native_v2 T4f): the server
+    /// traces through the managed trace filter, skipping
+    /// <paramref name="player"/> (SourceSharp_MoveTraceThrough); the client
+    /// through its own slot's filter.
+    /// </summary>
+    internal void MoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
+                            EntityHandle player, MoveTraceBlob* blob)
+        => SideMoveTrace(start, end, mins, maxs, mask, collisionGroup, player, blob);
+
+    /// <summary>The entity a movement trace skips: the player at that edict index on the server, none on the client.</summary>
+    internal EntityHandle MovePass(int entIndex) => SideMovePass(entIndex);
+
+    private partial void SideMoveTrace(float* start, float* end, float* mins, float* maxs, uint mask, int collisionGroup,
+                                       EntityHandle player, MoveTraceBlob* blob);
+    private partial EntityHandle SideMovePass(int entIndex);
+
     private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption);
     private partial void SidePatchStop(int patch);
     private partial void SidePatchState(int patch, out int entIndex, out bool filterActive);

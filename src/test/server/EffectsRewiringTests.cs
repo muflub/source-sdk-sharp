@@ -2,6 +2,7 @@ using System.Reflection;
 
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 
 using Xunit;
@@ -398,36 +399,17 @@ public class EffectsRewiringTests
     }
 
     // ---------------------------------------------------------------------
-    // The three rows of Part 8's table that did NOT move, and the reason each
-    // is still native. A row that quietly stopped being mentioned is the shape
-    // this port is scored against, so each is asserted rather than described.
+    // The row of Part 8's table that did NOT move, and the reason it is still
+    // native. BubbleEffect and PaintDecal moved at plan_server_native_v2 T4f
+    // (EffectsTracedTests); a row that quietly stopped being mentioned is the
+    // shape this port is scored against, so the one left is asserted rather
+    // than described.
     // ---------------------------------------------------------------------
 
     [Fact]
-    public void TheThreeRowsThatCouldNotMoveStillReachTheEngineUntouched()
+    public void TheRowThatCouldNotMoveStillReachesTheEngineUntouched()
     {
         var (effects, temps, engine) = Rig();
-
-        // PaintDecal answers a bool, and this double is strict: a return nobody
-        // stubbed is an error naming it rather than a silent zero. Stubbed true
-        // so the forward's ANSWER is asserted too -- a forward that swallowed
-        // the return would be as quiet as one that swallowed the call.
-        engine.Returns("Effects.PaintDecal", true);
-
-        // BubbleEffect: wants the entity's world-space AABB and a MASK_WATER
-        // trace up out of the top of it. TraceMask has no water-only member and
-        // SourceSharpEntity_t refuses the Origin() + Bounds() substitution in
-        // its own comment, so the trace stays native (Part 8 says so) and a
-        // native trace whose ANSWER reached C# is a second ABI slot.
-        effects.BubbleEffect(new EntityHandle(3), count: 8, speed: 2f);
-
-        // PaintDecal: the permanent projected form calls MakeInitMessage(), and
-        // TeFilter carries no init-message bit on purpose. Every unnamed
-        // info_projecteddecal paints permanent at level init.
-        Assert.True(effects.PaintDecal(4, Vector.Zero, new Vector(0f, 90f, 0f), 64f,
-                                       permanent: true, lowPriority: false),
-            "and the answer comes back: PaintDecal tells its caller whether anything was "
-          + "actually marked, and Decals.cs counts on it");
 
         // BloodEffect: RE-MEASURED BY LANE SRV, and the reason changed. The
         // violence gate is UTIL_ShouldShowBlood -- two convar reads, reachable
@@ -438,14 +420,12 @@ public class EffectsRewiringTests
         // asserts every clause of that against stock's own .cpp read off disk.
         effects.BloodEffect(Vector.Zero, new Vector(1f, 0f, 0f), BloodColor.Red, 50f);
 
-        Assert.True(engine.CountOf("Effects.BubbleEffect") == 1, "the bubbles are still the shim's");
-        Assert.True(engine.CountOf("Effects.PaintDecal") == 1, "the decal is still the shim's");
         Assert.True(engine.CountOf("Effects.BloodEffect") == 1, "the blood is still the shim's");
 
         Assert.True(temps.Count == 0,
-            "and none of the three sent a temp entity from managed code. They fire today exactly "
-          + "as they fired before the rewiring, which is the constraint: no intermediate state "
-          + "where an effect that fires today stops firing");
+            "and it sent no temp entity from managed code. It fires today exactly as it fired "
+          + "before the rewiring, which is the constraint: no intermediate state where an effect "
+          + "that fires today stops firing");
     }
 
     // ---------------------------------------------------------------------
@@ -511,7 +491,10 @@ public class EffectsRewiringTests
 
         // The one member whose stock behaviour is to refuse the arguments a
         // reflective sweep can invent. Named rather than skipped silently.
-        var refusesTheSweep = new HashSet<string>(StringComparer.Ordinal) { "FunnelEffect" };
+        // BubbleEffect (plan_server_native_v2 T4f) refuses an entity with no
+        // engine block, which is every handle the sweep can invent: the volume
+        // the bubbles rise out of is the block's bounds.
+        var refusesTheSweep = new HashSet<string>(StringComparer.Ordinal) { "FunnelEffect", "BubbleEffect" };
 
         // And the one that cannot be invoked by reflection at all: its blob is
         // a ReadOnlySpan<byte>, and a ref struct cannot be boxed into an
@@ -561,35 +544,32 @@ public class EffectsRewiringTests
           + "which is an effect that has stopped happening with nothing anywhere saying so: "
           + string.Join(", ", silent));
 
-        // Seven and not eight: FunnelEffect is the one that refused the sweep,
-        // and it is in refusesTheSweep above rather than in either list.
-        Assert.True(moved.Count == 7,
-            "seven members answered from managed temp entity tables (FunnelEffect is the "
-          + "eighth and refuses a zero sprite index): " + string.Join(", ", moved));
+        // Eight: the seven Part 8 rows that answer the sweep and PaintDecal
+        // (plan_server_native_v2 T4f). FunnelEffect and BubbleEffect refused the
+        // sweep, and are in refusesTheSweep above rather than in either list.
+        Assert.True(moved.Count == 8,
+            "eight members answered from managed temp entity tables (FunnelEffect refuses a zero "
+          + "sprite index, BubbleEffect an entity with no block): " + string.Join(", ", moved));
 
         foreach (string expected in new[]
         {
             "SparkEffect", "ExplosionEffect", "MuzzleFlashEffect", "DustEffect",
-            "ImpactEffect", "SplashEffect", "TracerEffect",
+            "ImpactEffect", "SplashEffect", "TracerEffect", "PaintDecal",
         })
         {
             Assert.True(moved.Contains(expected),
-                $"{expected} is a Part 8 row and is answered over ITempEnts");
+                $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 42,
-            "and forty-two reached the engine unchanged — fifty less the seven "
-          + "that moved and the one that refused the sweep (the three FireEffect "
-          + "forwards and BloodDecal went with their slots, plan_server_native_v2 "
-          + "T2, ClientExplosionFireball with the glow overlays' port, C7): " + forwarded.Count + " found");
+        Assert.True(forwarded.Count == 40,
+            "and forty reached the engine unchanged — fifty less the eight that moved and the two "
+          + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
+          + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
+          + "C7; BubbleEffect and PaintDecal moved at T4f): " + forwarded.Count + " found");
 
-        foreach (string expected in new[] { "BubbleEffect", "PaintDecal", "BloodEffect" })
-        {
-            Assert.True(forwarded.Contains(expected),
-                $"{expected} is the Part 8 row that could not move, and it still reaches the "
-              + "engine — a row of that table doing nothing at all would be worse than one that "
-              + "did not move");
-        }
+        Assert.True(forwarded.Contains("BloodEffect"),
+            "BloodEffect is the Part 8 row that could not move, and it still reaches the engine — a "
+          + "row of that table doing nothing at all would be worse than one that did not move");
     }
 
     /// <summary>
@@ -643,7 +623,28 @@ public class EffectsRewiringTests
         var engine = TestServices.Fake();
         var temps = new RecordingTempEnts();
 
-        return (new EffectsOverTempEnts(engine, temps, engine, engine), temps, engine);
+        return (new EffectsOverTempEnts(engine, temps, engine, engine, new OpenWorld(), _ => { }), temps, engine);
+    }
+
+    /// <summary>
+    /// The traced effects' world for the rig: every trace runs its whole length
+    /// and names nothing, the sprite precaches. EffectsTracedTests drives the
+    /// traced effects through a recording one.
+    /// </summary>
+    private sealed class OpenWorld : IEffectsWorld
+    {
+        public ServerTrace? Trace(Vector start, Vector end, uint mask)
+            => new ServerTrace(new EngineGameTrace { Fraction = 1f, EndPos = end }, EntityHandle.None);
+
+        public void StaticDecal(Vector originInEntitySpace, int decalIndex, int entityIndex, int modelIndex, bool lowPriority) { }
+
+        public int PrecacheModel(string name) => 1;
+
+        public int EntityIndex(EntityHandle entity) => -1;
+
+        public Span<byte> Block(EntityHandle entity) => Span<byte>.Empty;
+
+        public (string ClassName, string Name) Names(EntityHandle entity) => ("", "");
     }
 
     /// <summary>One call an <see cref="ITempEnts"/> was asked to make.</summary>
@@ -706,6 +707,17 @@ public class EffectsRewiringTests
                                          int modelIndex, int reversed)
             => _calls.Add(new("LargeFunnel", filter, delay,
                               new object?[] { position, modelIndex, reversed }));
+
+        public override void BSPDecal(TeFilter filter, float delay, Vector position, int entity, int index)
+            => _calls.Add(new("BSPDecal", filter, delay, new object?[] { position, entity, index }));
+
+        public override void ProjectDecal(TeFilter filter, float delay, Vector position, QAngle angles,
+                                          float distance, int index)
+            => _calls.Add(new("ProjectDecal", filter, delay, new object?[] { position, angles, distance, index }));
+
+        public override void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
+                                     int modelIndex, int count, float speed)
+            => _calls.Add(new("Bubbles", filter, delay, new object?[] { mins, maxs, height, modelIndex, count, speed }));
 
         public override void Dust(TeFilter filter, float delay, Vector position, Vector direction,
                                   float size, float speed)

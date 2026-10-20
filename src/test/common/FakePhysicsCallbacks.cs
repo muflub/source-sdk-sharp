@@ -21,7 +21,7 @@ internal sealed unsafe class FakePhysicsCallbacks : IDisposable
     public FakePhysicsCallbacks(int sizeOf = 16)
     {
         _table = (PhysicsCallbacksFwd*)NativeMemory.AllocZeroed((nuint)sizeof(PhysicsCallbacksFwd));
-        _table->SizeOf = sizeOf <= 16 ? &SizeOf16 : &SizeOf24;
+        _table->SizeOf = sizeOf <= 16 ? &SizeOf16 : sizeOf <= 24 ? &SizeOf24 : &SizeOf32;
         _table->ConstructObjectEvent = &BuildObjectEvent;
         _table->ConstructCollisionEvent = &BuildCollisionEvent;
         _table->ConstructCollisionSolver = &BuildCollisionSolver;
@@ -41,6 +41,7 @@ internal sealed unsafe class FakePhysicsCallbacks : IDisposable
 
     [UnmanagedCallersOnly] private static int SizeOf16() => 16;
     [UnmanagedCallersOnly] private static int SizeOf24() => 24;
+    [UnmanagedCallersOnly] private static int SizeOf32() => 32;
 
     private static void* Build(void* memory, void* target, nint kind)
     {

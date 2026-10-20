@@ -74,7 +74,7 @@ public partial class EngineApiAreasTests
         var missing = rows.Where(r => LayoutField(r) is null).Select(r => $"{r.Slot} ({r.Interface})").ToList();
         var suppressed = rows.Where(r => LayoutField(r) is { } f && IsSuppressed(f)).Select(r => r.Slot).ToHashSet();
 
-        Assert.True(rows.Count > 400, $"compared every slot's row ({rows.Count})");
+        Assert.True(rows.Count > 350, $"compared every slot's row ({rows.Count})");   // a floor: 400 -> 350 at T4f (399 left)
         Assert.Empty(missing);
         Assert.True(suppressed.Count > 0, $"read the suppressed layout fields ({suppressed.Count})");
         Assert.Empty(rows.Where(r => r.Suppress != suppressed.Contains(r.Slot)).Select(r => r.Slot));
@@ -90,7 +90,7 @@ public partial class EngineApiAreasTests
     {
         var rows = Rows();
 
-        Assert.True(rows.Count(r => r.Struct == "EngineApi") > 400, "read the table's engine rows");
+        Assert.True(rows.Count(r => r.Struct == "EngineApi") > 350, "read the table's engine rows");   // a floor: 400 -> 350 at T4f
         Assert.Empty(rows.Where(r => r.Struct == "ManagedApi").Select(r => r.Slot));
     }
 
@@ -130,7 +130,7 @@ public partial class EngineApiAreasTests
                 wrong.Add($"{r.Slot}: managed {r.Managed}, layout {string.Join(", ", layout)}");
         }
 
-        Assert.True(checkedTypes > 400, $"compared {checkedTypes} signatures");
+        Assert.True(checkedTypes > 350, $"compared {checkedTypes} signatures");   // a floor: 400 -> 350 at T4f
         Assert.Empty(wrong);
     }
 

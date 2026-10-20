@@ -217,15 +217,11 @@ const File_t kMapEntities  = { "sourcesharp/game/server/shell_mapparse.cpp",
 // until plan_server_native_v2 T2 moved that, a client-only arm, to client_util_library.cpp.)
 const File_t kUtilShared   = { "sourcesharp/game/shared/util_shared_library.cpp",
 	"bool UTIL_ShouldShowBlood(" };
-// plan_entity.md step 4e: the shared trace-filter family left util_shared.cpp
-// for this shim. It is read here for one reason only -- it is the other TU that
-// DECLARES NPC_CheckBrushExclude, so it is the other place a caller could
-// reappear. Anchored on a filter body rather than on that declaration, per the
-// rule above: an anchor equal to the assertion cannot catch a rename.
-// Re-pointed in P5: the one body is spelled SS_SIMPLE_FILTER:: (the server's
-// class is ss::CTraceFilterSimple, the client's util_shared.h's).
-const File_t kTraceFilterLib = { "sourcesharp/game/shared/trace_filter_library.cpp",
-	"SS_SIMPLE_FILTER::ShouldHitEntity" };
+// plan_server_native_v2 T4f: the server's trace rule is managed's, so the
+// group-rules clause below reads it there; the native trace_filter_library.cpp
+// is the client's arm only.
+const File_t kTraceRules = { "sourcesharp/managed/SourceSharp.Server.Interop/TraceFilterRules.cs",
+	"public bool ShouldHitEntity(in TraceFilterQuery query" };
 const File_t kShellMovement = { "sourcesharp/game/shared/shell_movement.cpp",
 	"CShellGameMovement::WorldEffect" };
 // Anchored on the world's precache since its precache register went
@@ -580,23 +576,26 @@ TEST( EntityBaseHusks, EveryKeptAiStubStillHasTheCallerItWasKeptFor )
 	// of how these filters are written, not of how many there happen to be
 	// today, and re-widening a search because the file got smaller is how the
 	// next one of these goes quietly green.
-	const std::string strTraceLib = Load( kTraceFilterLib );
-	const size_t iAsk = strTraceLib.find( "pGameEntity->ShouldCollide( m_collisionGroup, contentsMask )" );
+	// THE ASK FOLLOWED THE RULE INTO C# (plan_server_native_v2 T4f): every
+	// server trace runs TraceFilterRules.ShouldHitEntity now, and the native
+	// CTraceFilterSimple left is the client's, which has no game entity to ask.
+	// Anchored on the method, the clause read only after it, for the reason
+	// this paragraph's predecessor gave.
+	const std::string strRules = Load( kTraceRules );
+	const size_t iAsk = strRules.find( "public bool ShouldHitEntity(in TraceFilterQuery query" );
 	ASSERT_NE( std::string::npos, iAsk )
-		<< "CTraceFilterSimple::ShouldHitEntity no longer asks the entity "
-		   "whether it should collide, so the anchor for the clause below has "
-		   "moved. Re-point it rather than widening the search: an unanchored "
-		   "search matches the wrong filter.";
+		<< "TraceFilterRules.ShouldHitEntity is gone, so the anchor for the clause "
+		   "below has moved. Re-point it rather than widening the search.";
 
-	const std::string strAfterAsk = strTraceLib.substr( iAsk, 600 );
-	EXPECT_NE( strAfterAsk.find( "g_pGameRules->ShouldCollide( m_collisionGroup," ),
+	const std::string strAfterAsk = strRules.substr( iAsk, 2600 );
+	EXPECT_NE( strAfterAsk.find( "GroupsCollide(query.CollisionGroup, candidate.CollisionGroup)" ),
 	           std::string::npos )
-		<< "the shared trace filter stopped asking the game rules about the "
+		<< "the trace rule stopped asking the game rules' matrix about the "
 		   "collision-group pair. That ask IS the successor to the NPC brush "
 		   "exclusion: armed there is no NPC for the exclusion to be about, and "
 		   "the group rules are what decides the same question for every entity "
 		   "that is not one. Without this clause the absence above would be "
-		   "satisfied by deleting the filter entirely. Text after the anchor "
+		   "satisfied by deleting the rule entirely. Text after the anchor "
 		   "was: "
 		<< strAfterAsk;
 }

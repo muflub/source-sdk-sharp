@@ -165,7 +165,9 @@ public sealed unsafe class MovementRunner
         }
 
         MovementRules previous = loop.Rules;
+        EntityHandle previousPlayer = _world.Player;
         loop.Rules = rules;
+        _world.Player = Api.MovePass(state.EntIndex);
         bool ran;
         try
         {
@@ -174,6 +176,7 @@ public sealed unsafe class MovementRunner
         finally
         {
             loop.Rules = previous;
+            _world.Player = previousPlayer;
         }
 
         if (!ran)

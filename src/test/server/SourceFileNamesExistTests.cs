@@ -543,7 +543,10 @@ public sealed partial class SourceFileNamesExistTests
     /// 48 TO 47 AT plan_server_native_v2 T4b: TempEntEffectDataTests'
     /// read of dt_send.cpp's SendPropDataTable went with the function; the
     /// collapsible rule is asked of SendPropPlan instead.
-    private const int VacuousAssertionSites = 47;
+    /// 47 TO 46 AT plan_server_native_v2 T4f: TempEntFizzTests' bubble-path
+    /// fact reads the managed EffectsOverTempEnts.cs, which is in this
+    /// repository and fails rather than skips when it is missing.
+    private const int VacuousAssertionSites = 46;
 
     private static readonly Regex Vacuous = new(
         @"\bAssert\s*\.\s*(?:True\s*\(\s*true|False\s*\(\s*false)\b",

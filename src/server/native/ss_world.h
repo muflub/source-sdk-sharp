@@ -419,18 +419,6 @@ public:
 	virtual void VPhysicsCollision( int index, ss::gamevcollisionevent_t *pEvent ) {}
 	virtual void VPhysicsFriction( IPhysicsObject *pObject, float energy, int surfaceProps, int surfacePropsHit ) {}
 
-	//-------------------------------------------------------------------------
-	// The getters, OUT OF LINE NOW.
-	//
-	// They were inline reads of members; a member is not what they read any
-	// more, and the arithmetic behind them -- ask C# where the field is, then
-	// read the blob -- is not something to emit into every caller.
-	// GetWaveHeight, GetStartDark, SetStartDark and IsColdWorld had no caller
-	// and went in the server gc cull (2026-10-01); a caller that comes back
-	// brings its getter with it.
-	//-------------------------------------------------------------------------
-	void  GetWorldBounds( Vector &vecMins, Vector &vecMaxs );
-
 	// The ten, printed. Called from Spawn -- once the map's keys have landed --
 	// and from cs_sv_world. See SourceSharpWorld_Report for why this ships.
 	void  ReportNetState();
@@ -532,15 +520,6 @@ public:
 	// else -- worldspawn has no physics object to push and no gibs to spawn.
 	void ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName );
 
-	// HOW MANY BULLET HOLES THIS LEVEL HAS PUT ON THE WORLD, and it is a
-	// diagnostic rather than state: cs_sv_trace_subject reads it either side of
-	// one impact so that "decals on level geometry still reach the world" can be
-	// SHOWN rather than asserted. Without it that path's failure mode is
-	// invisible -- UTIL_ImpactTrace's `!pEntity` return is silent, and the
-	// symptom is walls that stop taking bullet holes, which reads as a renderer
-	// bug. The same reason SourceSharpWorld_Report ships.
-	int ImpactCount() const { return m_nImpacts; }
-
 private:
 	//-------------------------------------------------------------------------
 	// THERE IS NO DECLARE_DATADESC, AND THERE IS NO BEGIN_DATADESC EITHER.
@@ -587,9 +566,6 @@ private:
 
 	int          m_nModelIndex;
 	string_t     m_iszModelName;
-
-	// See ImpactCount above.
-	int          m_nImpacts;
 
 	//-------------------------------------------------------------------------
 	// THE TWO INTERFACES THE ENGINE ASKS FOR BY POINTER, HELD RATHER THAN

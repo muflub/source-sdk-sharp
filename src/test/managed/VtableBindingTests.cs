@@ -274,10 +274,12 @@ public unsafe class VtableBindingTests
         // arrives as one member named for its purpose; the raw slots and what
         // creates or precaches stay absent. plan_server_native_v2 T4a (the
         // audit's FOLD EngineServerVtbl.EmitAmbientSound) adds the ambient
-        // emit, which the managed SoundEmitter's ambient path ends in.
+        // emit, which the managed SoundEmitter's ambient path ends in. T4f adds
+        // StaticDecal, which a map's permanent traced decal ends in
+        // (EffectsOverTempEnts.PaintDecal, where SourceSharp_PaintDecal called it).
         string[] offered = PublicMethodsOf(typeof(EngineServer));
 
-        foreach (string named in new[] { "ServerCommandNow", "SetView", "LightStyle", "EmitAmbientSound" })
+        foreach (string named in new[] { "ServerCommandNow", "SetView", "LightStyle", "EmitAmbientSound", "StaticDecal" })
             Assert.Contains(named, offered);
 
         foreach (string forbidden in new[]

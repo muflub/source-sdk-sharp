@@ -353,7 +353,7 @@ TEST( EffectsCluster, TheFlipTookEveryHeldTuAndEveryHolder )
 //-----------------------------------------------------------------------------
 TEST( EffectsCluster, TheGibAndDissolveSlotsAreGone )
 {
-	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_TraceLine" ) );
+	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_SetSkyboxParams(" ) );
 
 	ASSERT_FALSE( wq.empty() );
 

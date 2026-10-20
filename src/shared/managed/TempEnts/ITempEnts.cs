@@ -136,6 +136,15 @@ public interface ITempEnts
     /// </summary>
     void Fizz(TeFilter filter, float delay, int entIndex,
               int modelIndex, int density, int current);
+
+    /// <summary>
+    /// Bubbles rising out of a box of water. <c>te_bubbles.cpp</c>'s
+    /// <c>TE_Bubbles</c>: the corners themselves, the height they rise, the
+    /// sprite, how many and how fast (plan_server_native_v2 T4f: the managed
+    /// BubbleEffect, where SourceSharp_BubbleEffect called the native forward).
+    /// </summary>
+    void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
+                 int modelIndex, int count, float speed);
     // ------------------------------------------------------------------
     // Lane F's three ledger rows. The lane's other three classes —
     // BeamSpline, ClientProjectile and MuzzleFlash — keep their native

@@ -42,6 +42,7 @@ public enum TeForward
 {
     /// <summary>RESERVED: no native forwarder since the server gc cull; kept so no id moves.</summary>
     ArmorRicochet            = 0,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4f; kept so no id moves.</summary>
     BSPDecal                 = 1,
     /// <summary>RESERVED: no native forwarder since the server gc cull; kept so no id moves.</summary>
     BeamPoints               = 2,
@@ -63,6 +64,7 @@ public enum TeForward
     MetalSparks              = 12,
     /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4b; kept so no id moves.</summary>
     MuzzleFlash              = 13,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4f; kept so no id moves.</summary>
     ProjectDecal             = 14,
     Smoke                    = 15,
     Sparks                   = 16,

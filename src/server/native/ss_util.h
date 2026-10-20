@@ -18,15 +18,15 @@
 //   (shell_commandclient.cpp), UTIL_ShouldShowBlood, UTIL_RemoveImmediate,
 //   CreateEntityByName (its default the one baseentity.h gave it), the view
 //   punch (shell_scripted.cpp; the shake and the fade are C#'s),
-//   DebugDrawLine (shell_debugoverlays.cpp) and SourceSharp_EngineVisualizeTraces
-//   (trace_filter_library.cpp, what the r_visualizetraces macro expands to).
+//   and DebugDrawLine (shell_debugoverlays.cpp). SourceSharp_EngineVisualizeTraces
+//   left with the server's trace filter (plan_server_native_v2 T4f).
 //
 //   The fork's INLINE helpers would be a second body under a Valve name, so
 //   they are ss::. Each body is the inline it replaces: FStrEq over C strings, INDEXENT, ENTINDEX for
-//   an edict, UTIL_PointContents, and both UTIL_TraceLine overloads -- over a caller's filter, and
-//   over an ss::CTraceFilterSimple (ss_tracefilter.h) built from an ignore
-//   entity and a collision group -- UTIL_TraceHull's ignore-and-group
-//   overload (lane SP) and UTIL_TraceRay.
+//   an edict, and UTIL_TraceLine over a caller's filter. The overloads over an
+//   ss::CTraceFilterSimple (UTIL_TraceLine's and UTIL_TraceHull's ignore-and-group
+//   forms, UTIL_TraceRay) and UTIL_PointContents went with the server's native
+//   trace filter (plan_server_native_v2 T4f): the game's rule is managed's.
 //=============================================================================//
 
 #ifndef SS_UTIL_H
@@ -44,7 +44,6 @@
 #include "shake.h"
 #include "tier1/convar.h"
 #include "tier1/strtools.h"
-#include "ss_tracefilter.h"
 
 #include "igameentity_fwd.h"
 class IServerNetworkable;
@@ -64,7 +63,6 @@ void UTIL_ViewPunch( const Vector &center, QAngle angPunch, float radius, bool b
 
 void DebugDrawLine( const Vector &vecAbsStart, const Vector &vecAbsEnd,
                     int r, int g, int b, bool test, float duration );
-ConVar *SourceSharp_EngineVisualizeTraces();
 extern float k_flMaxEntityEulerAngle;                      // entity_shared_statics.cpp
 
 namespace ss
@@ -95,9 +93,6 @@ inline edict_t *INDEXENT( int iEdictNum )
 	return engine->PEntityOfEntIndex( iEdictNum );
 }
 
-//-----------------------------------------------------------------------------
-// The contents at a point, as the engine's trace answers them.
-//-----------------------------------------------------------------------------
 // baseentity_shared.h's sanity bound on an entity's Euler angles.
 inline bool IsEntityQAngleReasonable( const QAngle &q )
 {
@@ -108,31 +103,11 @@ inline bool IsEntityQAngleReasonable( const QAngle &q )
 		q.z > -r && q.z < r;
 }
 
-inline int UTIL_PointContents( const Vector &vec )
-{
-	return enginetrace->GetPointContents( vec );
-}
-
 //-----------------------------------------------------------------------------
-// Line traces, drawn when r_visualizetraces is on. On the server that name is a
-// macro (the target's -D) for SourceSharp_EngineVisualizeTraces(), the
-// engine's convar.
+// A line through the world over the caller's own filter. The game's traces
+// are managed's since plan_server_native_v2 T4f (ServerTracer, over the
+// managed trace rule); this is what a native diagnostic traces with.
 //-----------------------------------------------------------------------------
-inline void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-                            const IHandleEntity *ignore, int collisionGroup, trace_t *ptr )
-{
-	Ray_t ray;
-	ray.Init( vecAbsStart, vecAbsEnd );
-	CTraceFilterSimple traceFilter( ignore, collisionGroup );
-
-	enginetrace->TraceRay( ray, mask, &traceFilter, ptr );
-
-	if ( r_visualizetraces.GetBool() )
-	{
-		DebugDrawLine( ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f );
-	}
-}
-
 inline void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
                             ITraceFilter *pFilter, trace_t *ptr )
 {
@@ -140,49 +115,6 @@ inline void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, 
 	ray.Init( vecAbsStart, vecAbsEnd );
 
 	enginetrace->TraceRay( ray, mask, pFilter, ptr );
-
-	if ( r_visualizetraces.GetBool() )
-	{
-		DebugDrawLine( ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f );
-	}
-}
-
-//-----------------------------------------------------------------------------
-// A hull trace over an ss::CTraceFilterSimple built from an ignore entity and a
-// collision group (P5 lane SP, for shell_worldquery.cpp's SourceSharp_TraceHull):
-// util_shared.h's inline overload, drawn yellow when r_visualizetraces is on.
-//-----------------------------------------------------------------------------
-inline void UTIL_TraceHull( const Vector &vecAbsStart, const Vector &vecAbsEnd, const Vector &hullMin,
-                            const Vector &hullMax, unsigned int mask, const IHandleEntity *ignore,
-                            int collisionGroup, trace_t *ptr )
-{
-	Ray_t ray;
-	ray.Init( vecAbsStart, vecAbsEnd, hullMin, hullMax );
-	CTraceFilterSimple traceFilter( ignore, collisionGroup );
-
-	enginetrace->TraceRay( ray, mask, &traceFilter, ptr );
-
-	if ( r_visualizetraces.GetBool() )
-	{
-		DebugDrawLine( ptr->startpos, ptr->endpos, 255, 255, 0, true, -1.0f );
-	}
-}
-
-//-----------------------------------------------------------------------------
-// A ray trace over an ss::CTraceFilterSimple (P5, for physics_shared.cpp's
-// vehicle traces): util_shared.h's inline, drawn red when r_visualizetraces is on.
-//-----------------------------------------------------------------------------
-inline void UTIL_TraceRay( const Ray_t &ray, unsigned int mask, const IHandleEntity *ignore,
-                           int collisionGroup, trace_t *ptr, ShouldHitFunc_t pExtraShouldHitCheckFn = NULL )
-{
-	CTraceFilterSimple traceFilter( ignore, collisionGroup, pExtraShouldHitCheckFn );
-
-	enginetrace->TraceRay( ray, mask, &traceFilter, ptr );
-
-	if ( r_visualizetraces.GetBool() )
-	{
-		DebugDrawLine( ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f );
-	}
 }
 
 } // namespace ss

@@ -125,39 +125,6 @@ static int EffectNameIndex( const char *pName )
 }
 
 
-//-----------------------------------------------------------------------------
-// moved verbatim from shell_te_fwd_b.cpp
-//-----------------------------------------------------------------------------
-// te_bspdecal.cpp's TE_BSPDecal, over the managed DT_TEBSPDecal.
-//
-// Stock dereferences pos without checking and so does everything that calls it;
-// the NULL guard here is this file's, not a behaviour change, and it turns a
-// crash into a decal that does not appear.
-//-----------------------------------------------------------------------------
-void TE_BSPDecal( IRecipientFilter& filter, float delay,
-	const Vector* pos, int entity, int index )
-{
-	// Stock returns rather than substituting here, so the guard is the
-	// forward's and not the dispatcher's: C# never sees a null pointer.
-	if ( !pos )
-		return;
-
-	const float f[] =
-	{
-		pos->x,
-		pos->y,
-		pos->z,
-	};
-
-	const int i[] =
-	{
-		entity,
-		index,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_BSP_DECAL, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
-}
-
 
 //-----------------------------------------------------------------------------
 // moved verbatim from shell_te_fwd_d.cpp
@@ -194,36 +161,6 @@ void TE_BloodStream( IRecipientFilter& filter, float delay,
 	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_BLOOD_STREAM, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
 }
 
-
-//-----------------------------------------------------------------------------
-// moved verbatim from shell_te_fwd_d.cpp
-//-----------------------------------------------------------------------------
-// te_bubbles.cpp's TE_Bubbles, over the managed DT_TEBubbles. Two live callers:
-// UTIL_Bubbles and SourceSharp_BubbleEffect, which is every managed env_bubbles.
-//-----------------------------------------------------------------------------
-void TE_Bubbles( IRecipientFilter& filter, float delay,
-	const Vector* mins, const Vector* maxs, float height, int modelindex, int count, float speed )
-{
-	const float f[] =
-	{
-		mins->x,
-		mins->y,
-		mins->z,
-		maxs->x,
-		maxs->y,
-		maxs->z,
-		height,
-		speed,
-	};
-
-	const int i[] =
-	{
-		modelindex,
-		count,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_BUBBLES, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
-}
 
 //-----------------------------------------------------------------------------
 // moved verbatim from shell_te_fwd_b.cpp
@@ -340,44 +277,6 @@ void TE_DispatchEffect( IRecipientFilter& filter, float delay,
 	};
 
 	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_TE_DISPATCH_EFFECT, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
-}
-
-//-----------------------------------------------------------------------------
-// moved verbatim from shell_te_fwd_b.cpp
-//-----------------------------------------------------------------------------
-// te_projecteddecal.cpp's TE_ProjectDecal, over the managed DT_TEProjectedDecal.
-//
-// The angles go through SetVector because the BLOB does not know the difference
-// -- three floats either way -- and the wire does: DT_TEProjectedDecal declares
-// m_angRotation as SendPropQAngles, which anglemods each component into its
-// declared [0,360] on the way out. That is the declaration's business, in
-// TeProjectedDecal.cs, and nothing here has an opinion about it.
-//-----------------------------------------------------------------------------
-void TE_ProjectDecal( IRecipientFilter& filer, float delay,
-	const Vector* pos, const QAngle *angles, float distance, int index )
-{
-	// Stock returns rather than substituting here, so the guard is the
-	// forward's and not the dispatcher's: C# never sees a null pointer.
-	if ( !pos || !angles )
-		return;
-
-	const float f[] =
-	{
-		pos->x,
-		pos->y,
-		pos->z,
-		angles->x,
-		angles->y,
-		angles->z,
-		distance,
-	};
-
-	const int i[] =
-	{
-		index,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_PROJECT_DECAL, filer, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
 }
 
 //-----------------------------------------------------------------------------

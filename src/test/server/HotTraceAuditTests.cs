@@ -48,8 +48,10 @@ public class HotTraceAuditTests
     /// </summary>
     private static readonly string[] Demoted =
     {
-        "SourceSharp_TraceLine",             // 1.573/frame; 26,015 lines a session
-        "SourceSharp_EntityTraceHull",       // PlayerShadowRecovery's fit test; 4,314 lines a session
+        // SourceSharp_TraceLine (1.573/frame; 26,015 lines a session) and
+        // SourceSharp_EntityTraceHull (PlayerShadowRecovery's fit test; 4,314
+        // lines a session) left with their slots: plan_server_native_v2 T4f
+        // traces through IEngineTrace::TraceRay over the managed filter.
         // SourceSharp_PrecacheDecal (0.612/frame load) left with its slot:
         // plan_server_native_v2 T4d folded it onto IVEngineServer (DecalPrecache).
         "SourceSharp_PrecacheModel",         // 0.405/frame load; 197 lines a map load

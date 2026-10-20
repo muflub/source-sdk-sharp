@@ -94,20 +94,16 @@ public:
 	void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) override;
 	int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) override;
 	void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) override;
+	void MoveTraceThrough( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter ) override;
 };
 
 class CShimWorldServer final : public IShimWorldServer
 {
 public:
-	int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) override;
-	int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) override;
-	int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) override;
 	void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) override;
-	int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) override;
 	int32_t EntityModelSurfaceProp( uint32_t hEntity ) override;
 	int32_t InvisibleRangeReach() override;
 	void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) override;
-	int32_t EntityTraceHull( uint32_t hEntity, const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, float * pOutEndXYZ ) override;
 };
 
 class CShimEntitiesServer final : public IShimEntitiesServer
@@ -244,9 +240,7 @@ class CShimEffectsServer final : public IShimEffectsServer
 {
 public:
 	void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) override;
-	void BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed ) override;
 	void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) override;
-	int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) override;
 	int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) override;
 };
 

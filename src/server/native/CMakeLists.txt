@@ -119,7 +119,6 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/sourcesharp_gamesystem.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/standalone_player_sync.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/takedamageinfo_library.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/trace_filter_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/util_shared_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/world_net_sync.cpp
 )
@@ -178,12 +177,6 @@ target_compile_definitions(server_sourcesharp PRIVATE
     SOURCESHARP
     SOURCESHARP_SHELL_GAMEDLL
     SS_CBASEENTITY_ALIAS
-    # plan_server_novalve.md P2.3b: stock util_shared.h's UTIL_Trace* inlines
-    # read `extern ConVar r_visualizetraces`. This turns that extern into a
-    # function declaration and each read into a call that answers the
-    # ENGINE's r_visualizetraces (engine.so declares it), so server.so needs
-    # no ConVar object of that name. trace_filter_library.cpp defines it.
-    "r_visualizetraces=(*SourceSharp_EngineVisualizeTraces())"
     # plan_server_novalve.md P5 step 5: tier0/memalloc.h's arm for a module
     # with no tier0 allocator. Its MemAlloc_* tracking hooks and
     # MEM_ALLOC_CREDIT_* become no-ops, so CUtlMemory's inline growth, which
@@ -459,8 +452,6 @@ set(server_novalve_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_player.cpp
     # P5 (integrator, engineapi's TU): the server arm's stock macros aliased to ss:: spellings.
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_movement.cpp
-    # P5 (integrator, lane E's TU): the server arm on tier1/convar.h, ivmodelinfo.h, ss_entityhandle.h.
-    ${PROJECT_SOURCE_DIR}/src/shared/native/trace_filter_library.cpp
     # P5 lane SP: ss_util.h (engine, ss::INDEXENT) in place of cbase.h; the
     # dead prediction-system instance gone (833ee78).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_recipientfilter.cpp

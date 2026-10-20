@@ -178,6 +178,13 @@ public interface IVtableEngineServer
     bool IsDecalPrecached(string name);
 
     /// <summary>
+    /// <c>StaticDecal( originInEntitySpace, decalIndex, entityIndex, modelIndex,
+    /// lowpriority )</c>: a decal stored against an entity and its model, in the
+    /// signon data (plan_server_native_v2 T4f: PaintDecal's permanent traced form).
+    /// </summary>
+    void StaticDecal(Vector originInEntitySpace, int decalIndex, int entityIndex, int modelIndex, bool lowPriority);
+
+    /// <summary>
     /// <c>Message_DetermineMulticastRecipients( usepas, origin, playerbits )</c>:
     /// the PAS (or PVS) of a point as a bit per player slot, bit N being
     /// player N + 1, written into <paramref name="playerBits"/>

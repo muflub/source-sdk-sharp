@@ -309,6 +309,28 @@ public sealed class TempEnts : ITempEnts
         _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
     }
 
+    /// <inheritdoc/>
+    public void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
+                        int modelIndex, int count, float speed)
+    {
+        var state = new TeBubbles
+        {
+            Mins       = mins,
+            Maxs       = maxs,
+            Height     = height,
+            ModelIndex = modelIndex,
+            Count      = count,
+            Speed      = speed,
+        };
+
+        TempEntType? type = Resolve(state);
+
+        if (type is null)
+            return;
+
+        _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
+    }
+
     // Lane F's three behaviour-ledger rows (plan Part 1.1 S2, S3, S6). Two
     // of them have no native entry point at all — nothing has been able to
     // send DT_TEImpact or DT_TEGaussExplosion in this build — so these

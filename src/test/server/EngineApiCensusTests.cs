@@ -192,7 +192,16 @@ public partial class EngineApiCensusTests
     // 126).
     // plan_server_native_v2 T4e: IShimGameRules::EndRound retired: the
     // native EndMultiplayerGame it reached was empty (126 - 1 = 125).
-    private const int ServerOnly = 125;
+    // plan_server_native_v2 T4f: IShimWorldServer's TraceLine, TraceHull,
+    // TraceLineSurface, WaterSurfaceBelow and EntityTraceHull retired: managed
+    // traces through IEngineTrace::TraceRay over the managed trace filter
+    // (125 - 5 = 120).
+    // plan_server_native_v2 T4f: IShimEffectsServer's PaintDecal and BubbleEffect
+    // retired: EffectsOverTempEnts answers both over the managed trace and the
+    // managed temp entities (120 - 2 = 118).
+    // plan_server_native_v2 T4f: IShimMovementServer gains MoveTraceThrough, the
+    // movement hull through the managed trace filter (118 + 1 = 119).
+    private const int ServerOnly = 119;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

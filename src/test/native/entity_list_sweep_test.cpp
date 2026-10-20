@@ -214,7 +214,7 @@ const char *const kToucher       = "sourcesharp/game/server/toucher.h";
 const char *const kSoundEnvelope = "sourcesharp/game/server/shell_soundenvelope.cpp";
 const char *const kStandalone    = "sourcesharp/game/server/shell_standalone.cpp";
 const char *const kWorldAdapter  = "sourcesharp/game/server/world_adapter.cpp";
-// cs_sv_trace_subject is a diagnostic and is compiled only into a debug build.
+// cs_sv_world is a diagnostic and is compiled only into a debug build.
 const char *const kWorldAdapterDebug = "sourcesharp/game/server/world_adapter_debug.cpp";
 // WHERE THE REFUSAL LIVES NOW. It was sourcesharp/game/shared/gameentity_handle
 // .cpp, one translation unit in both DLLs holding one function; plan_entity.md's
@@ -1289,48 +1289,27 @@ TEST( EntityListSweep, TheClassnameFinderStillAnswersForTheWorldFirst )
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-// READ THE ASSERTIONS, NOT THE NAME. Two of the three clauses below were the
-// other way round until the close, and the spelling they turned on has changed
-// meaning underneath them.
+// cs_sv_trace_subject PRINTED THE TWO ARMS BESIDE EACH OTHER, the slot table's
+// and TraceGameEntity's, so that their coming apart could be seen. It borrowed
+// the server's native trace filter, and that filter went to managed at
+// plan_server_native_v2 T4f (TraceFilterRules), so the command went with it,
+// with CWorld::GetWorldBounds and ImpactCount, which only it read.
 //
-// `TraceEntity` WAS the cast: util_shared.h's C-style cast of tr.m_pEnt to the
-// server-entity interface followed by ->GetBaseEntity(). Every one of the eight
-// implementations of GetBaseEntity() in the two DLLs is `mov $0x0,%eax; ret`,
-// so that arm answered NULL for everything and was deleted as dead code with
-// its whole family (brief item 3). `TraceGameEntity` is its LIVE SUCCESSOR and
-// is not a cast of the kind gate 3 counts: it asks the virtual GetGameEntity(),
-// which every hierarchy in this build really implements.
-//
-// So the fact keeps its shape -- TWO ARMS PRINTED BESIDE EACH OTHER, because
-// the two coming apart is the failure this command exists to catch -- and the
-// arm that is required has swapped identity. The last clause is what stops that
-// being a rename: it reads TraceGameEntity's own definition and requires it to
-// reach the virtual, so "not a cast" is checked where it is true rather than
-// asserted where it is convenient.
+// What stays true without it is the successor's shape: TraceGameEntity, which
+// the client still calls, is the virtual route and not the deleted cast.
 //-----------------------------------------------------------------------------
-TEST( EntityListSweep, TheTraceSubjectCommandPrintsTheTablesAnswerRatherThanACast )
+TEST( EntityListSweep, TheTraceSubjectCommandIsGoneAndTheSuccessorIsNotACast )
 {
 	const std::string src = Code( kWorldAdapterDebug );
 	ASSERT_FALSE( src.empty() ) << kWorldAdapterDebug << " read back empty.";
+	EXPECT_TRUE( Has( src, "SS_NATIVE_COMMAND( cs_sv_world )" ) )
+		<< "the file's other diagnostic is gone, so the absence below reads an "
+		   "empty subject.";
+	EXPECT_FALSE( Has( src, "cs_sv_trace_subject" ) )
+		<< "the trace diagnostic is back. Its filter was the server's native one, "
+		   "which is managed's since plan_server_native_v2 T4f.";
 
-	EXPECT_TRUE( Has( src, "SourceSharp_ShellFromHandleEntity( ss::TraceHit( tr ) )" ) )
-		<< "the slot table's arm is gone. It is the one that can tell 'not one of "
-		   "ours' from 'one of ours': it asks the object for its handle through a "
-		   "virtual it really has and indexes the table, so a static prop, a "
-		   "detail model or a recycled entry all answer NULL.";
-
-	EXPECT_TRUE( Has( src, "TraceGameEntity( tr )" ) )
-		<< "the other arm is gone and there is nothing left to compare the table "
-		   "against. A one-armed diagnostic cannot report the disagreement it was "
-		   "written to find.";
-
-	EXPECT_FALSE( Has( src, "TraceEntity( tr )" ) )
-		<< "the DELETED arm is back. TraceEntity bottoms out in "
-		   "IServerUnknown::GetBaseEntity(), which is `mov $0x0,%eax; ret` in "
-		   "both DLLs -- printing it would put a column of NULLs beside the "
-		   "table's answer and read as a permanent disagreement.";
-
-	// AND THE SUCCESSOR IS NOT A CAST WHERE IT IS DEFINED.
+	// THE SUCCESSOR IS NOT A CAST WHERE IT IS DEFINED.
 	const std::string util = Code( "game/shared/util_shared.h" );
 	ASSERT_FALSE( util.empty() ) << "util_shared.h read back empty.";
 	const std::string body = BodyOf( util, "inline IGameEntity *TraceGameEntity( const trace_t &tr )" );

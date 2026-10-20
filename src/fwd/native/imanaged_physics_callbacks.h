@@ -11,7 +11,7 @@
 // (and of the IRecipientFilter EmitSound calls back, fwd_recipient_filter.cpp).
 // libss_fwd_<side> builds the object vphysics calls (fwd_physics.cpp), deriving
 // IPhysicsCollisionEvent and the rest, and its overrides call these through the
-// table managed wrote. The object lives in the block's 2 reserved words after
+// table managed wrote. The object lives in the block's 3 reserved words after
 // word 0, so it is the block's, across a reload too. Engine types cross as void *.
 
 #ifndef IMANAGED_PHYSICS_CALLBACKS_H
@@ -248,7 +248,34 @@ static const uint32_t kIManagedRecipientFilterSlotHashes[] = {
 static const int32_t kIManagedRecipientFilterSlotCount = 6;
 static_assert( sizeof( SSManagedRecipientFilterTable ) == 6 * sizeof( void * ), "SSManagedRecipientFilterTable is one pointer per slot" );
 
+class IManagedTraceFilter;
+
+// The table managed writes for IManagedTraceFilter: Release, Validate, then the TSV's order.
+struct SSManagedTraceFilterTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *ShouldHitEntity )( IManagedTraceFilter *self, uint32_t hEntity, int32_t nContentsMask );
+};
+
+class IManagedTraceFilter : public IManagedObject
+{
+public:
+	explicit IManagedTraceFilter( const SSManagedTraceFilterTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t ShouldHitEntity( uint32_t hEntity, int32_t nContentsMask ) { return Table()->ShouldHitEntity( this, hEntity, nContentsMask ); }
+
+private:
+	const SSManagedTraceFilterTable *Table() const { return static_cast< const SSManagedTraceFilterTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedTraceFilterSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xbabc0fee,
+};
+static const int32_t kIManagedTraceFilterSlotCount = 3;
+static_assert( sizeof( SSManagedTraceFilterTable ) == 3 * sizeof( void * ), "SSManagedTraceFilterTable is one pointer per slot" );
+
 // The words a block reserves for the object libss_fwd builds in it.
-static const int32_t kManagedPhysicsCallbackWords = 2;
+static const int32_t kManagedPhysicsCallbackWords = 3;
 
 #endif // IMANAGED_PHYSICS_CALLBACKS_H

@@ -32,7 +32,7 @@ public unsafe struct ManagedRootTable
 }
 
 /// <summary>The table managed writes for <c>IManagedPhysicsCollisionEvent</c> (<c>SSManagedPhysicsCollisionEventTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedPhysicsCollisionEvent", ReservedWords = 2)]
+[ImplementedByManaged("IManagedPhysicsCollisionEvent", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedPhysicsCollisionEventTable
 {
@@ -86,7 +86,7 @@ public unsafe struct ManagedPhysicsCollisionEventTable
 }
 
 /// <summary>The table managed writes for <c>IManagedPhysicsCollisionSolver</c> (<c>SSManagedPhysicsCollisionSolverTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedPhysicsCollisionSolver", ReservedWords = 2)]
+[ImplementedByManaged("IManagedPhysicsCollisionSolver", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedPhysicsCollisionSolverTable
 {
@@ -120,7 +120,7 @@ public unsafe struct ManagedPhysicsCollisionSolverTable
 }
 
 /// <summary>The table managed writes for <c>IManagedVPhysicsKeyHandler</c> (<c>SSManagedVPhysicsKeyHandlerTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedVPhysicsKeyHandler", ReservedWords = 2)]
+[ImplementedByManaged("IManagedVPhysicsKeyHandler", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedVPhysicsKeyHandlerTable
 {
@@ -142,7 +142,7 @@ public unsafe struct ManagedVPhysicsKeyHandlerTable
 }
 
 /// <summary>The table managed writes for <c>IManagedRecipientFilter</c> (<c>SSManagedRecipientFilterTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedRecipientFilter", ReservedWords = 2)]
+[ImplementedByManaged("IManagedRecipientFilter", ReservedWords = 3)]
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ManagedRecipientFilterTable
 {
