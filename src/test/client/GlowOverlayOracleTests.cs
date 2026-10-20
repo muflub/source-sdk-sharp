@@ -313,10 +313,87 @@ public class GlowOverlayOracleTests
         Assert.Equal(stock.TakeWhile(r => r.StartsWith("P\t", StringComparison.Ordinal)), rows);
     }
 
+    // A computed position's allowance on a CPU whose rsqrtss is not the
+    // recording machine's (StockRsqrt): 2^-18 of the row's largest coordinate.
+    // The quads and the sight traces are built on normalised vectors, and the
+    // estimate's last bits move a corner or an end point by a few ulps after
+    // the Newton step (13 ulps of a 1.9 in a row of 98.8, 1.5e-8 of it, on an
+    // Intel Xeon); a wrong size, axis or distance moves it by far more than
+    // 3.8e-6 of the row.
+    private const float RsqBound = 1.0f / 262144.0f;
+
+    /// <summary>
+    /// Whether a managed row is stock's but for its computed positions' last
+    /// bits. A MESH row: the same vertex count, the same colours and texture
+    /// coordinates bit for bit, each position coordinate within
+    /// <see cref="RsqBound"/> of the row's largest. A T row (a sight trace):
+    /// the start and end within the bound, the mask and the answer bit for
+    /// bit. Any other row must be equal.
+    /// </summary>
+    internal static bool CloseRow(string expected, string actual)
+    {
+        if (expected == actual)
+            return true;
+
+        string[] e = expected.Split('\t'), a = actual.Split('\t');
+        if (e.Length != a.Length || e[0] != a[0])
+            return false;
+
+        var stock = new List<float>();
+        var port = new List<float>();
+        switch (e[0])
+        {
+            case "MESH":
+                if (e[1] != a[1] || e[2] != a[2])
+                    return false;
+                for (int i = 3; i < e.Length; i++)
+                {
+                    string[] ev = e[i].Split('/'), av = a[i].Split('/');
+                    if (ev.Length != 3 || av.Length != 3 || ev[1] != av[1] || ev[2] != av[2])
+                        return false;
+                    if (!Positions(ev[0].Split(','), av[0].Split(','), stock, port))
+                        return false;
+                }
+                break;
+
+            case "T":
+                if (e.Length != 12 || !e.AsSpan(7).SequenceEqual(a.AsSpan(7)))
+                    return false;
+                if (!Positions(e[1..7], a[1..7], stock, port))
+                    return false;
+                break;
+
+            default:
+                return false;
+        }
+
+        float scale = Math.Max(1f, stock.Max(MathF.Abs));
+        return stock.Zip(port).All(p => MathF.Abs(p.First - p.Second) <= scale * RsqBound);
+    }
+
+    private static bool Positions(string[] expected, string[] actual, List<float> stock, List<float> port)
+    {
+        if (expected.Length % 3 != 0 || expected.Length != actual.Length)
+            return false;
+        stock.AddRange(expected.Select(Float));
+        port.AddRange(actual.Select(Float));
+        return true;
+    }
+
+    /// <summary>
+    /// A step's rows against stock's: equal, or, on a CPU whose rsqrtss is not
+    /// the recording machine's, equal but for computed positions within
+    /// <see cref="RsqBound"/> (<see cref="CloseRow"/>).
+    /// </summary>
+    internal static bool SameRows(IReadOnlyList<string> expected, IReadOnlyList<string> actual, bool exact)
+        => expected.SequenceEqual(actual)
+           || (!exact && expected.Count == actual.Count && expected.Zip(actual).All(p => CloseRow(p.First, p.Second)));
+
     [Fact]
     public void EveryStepDoesWhatStocksDid()
     {
         var rig = new Rig();
+        bool exact = StockRsqrt.MatchesRecording();
         List<string> stock = Stock();
         int i = stock.FindIndex(r => r.StartsWith("S\t", StringComparison.Ordinal));
         int steps = 0, held = 0;
@@ -330,13 +407,91 @@ public class GlowOverlayOracleTests
             rig.Log.Clear();
             rig.Expected = new Queue<string[]>(expected.Select(r => r.Split('\t')));
             rig.Step(s[2..].Split('\t'));
-            Assert.True(expected.SequenceEqual(rig.Log),
-                        $"step {steps} {s.Replace('\t', ' ')}:\n  stock   {string.Join("\n          ", expected)}\n  managed {string.Join("\n          ", rig.Log)}");
+            Assert.True(SameRows(expected, rig.Log, exact),
+                        $"step {steps} {s.Replace('\t', ' ')} ({(exact ? "bit for bit" : "positions within the rsqrtss bound")}):\n  stock   {string.Join("\n          ", expected)}\n  managed {string.Join("\n          ", rig.Log)}");
             steps++;
             held += expected.Count;
         }
         Assert.True(steps > 120 && held > 900, $"{steps} steps, {held} rows held");
     }
+
+    // Step 14's first sun quad as stock drew it and as the port drew it on an
+    // Intel Xeon (CI run 39386441712): the positions a few ulps apart, the rest
+    // the same bits.
+    private const string StockSunQuad =
+        "MESH\t2\t4\t42c59e82,c17daa09,3ff53fc5/29353aff/00000000,3f800000\t42c29cf4,c1baf428,3ff53fc5/29353aff/3f800000,3f800000" +
+        "\t42c29cf4,c1baf428,bff53fc5/29353aff/3f800000,00000000\t42c59e82,c17daa09,bff53fc5/29353aff/00000000,00000000";
+
+    private const string IntelSunQuad =
+        "MESH\t2\t4\t42c59e80,c17daa02,3ff53fd2/29353aff/00000000,3f800000\t42c29cf2,c1baf427,3ff53fd2/29353aff/3f800000,3f800000" +
+        "\t42c29cf2,c1baf427,bff53fd2/29353aff/3f800000,00000000\t42c59e80,c17daa02,bff53fd2/29353aff/00000000,00000000";
+
+    [Fact]
+    public void AnotherMakersRsqrtMovesTheSunQuadWithinTheBound()
+    {
+        Assert.NotEqual(StockSunQuad, IntelSunQuad);
+        Assert.True(CloseRow(StockSunQuad, IntelSunQuad), "the Xeon's quad is stock's but for its positions' last bits");
+    }
+
+    [Fact]
+    public void AQuadMovedByMoreThanTheBoundIsRefused()
+    {
+        // 42c59e82 is 98.8096; 42c5a000 is 98.8125, 2.9e-3 away: 2.9e-5 of the row, about eight times the bound.
+        string moved = StockSunQuad.Replace("42c59e82,c17daa09,3ff53fc5/29353aff/00000000", "42c5a000,c17daa09,3ff53fc5/29353aff/00000000",
+                                            StringComparison.Ordinal);
+        Assert.NotEqual(StockSunQuad, moved);
+        Assert.False(CloseRow(StockSunQuad, moved));
+    }
+
+    [Fact]
+    public void AQuadsColourAndTextureCoordinatesStayExact()
+    {
+        string recoloured = IntelSunQuad.Replace("/29353aff/3f800000,00000000", "/29353bff/3f800000,00000000", StringComparison.Ordinal);
+        string remapped = IntelSunQuad.Replace("/29353aff/3f800000,00000000", "/29353aff/3f800001,00000000", StringComparison.Ordinal);
+        Assert.True(recoloured != IntelSunQuad && remapped != IntelSunQuad, "the stimuli changed the row");
+        Assert.False(CloseRow(StockSunQuad, recoloured));
+        Assert.False(CloseRow(StockSunQuad, remapped));
+    }
+
+    // Step 72's first sight trace as stock asked it and as the port asked it
+    // on an Intel Xeon: the end point an ulp apart, the mask and answer equal.
+    private const string StockTrace = "T\t00000000\t00000000\t00000000\t47400000\t46315cac\t46cb3197\t00000001\t0\t0\t3f800000\t0";
+    private const string IntelTrace = "T\t00000000\t00000000\t00000000\t473fffff\t46315cab\t46cb3196\t00000001\t0\t0\t3f800000\t0";
+
+    [Fact]
+    public void AnotherMakersRsqrtMovesATracesEndWithinTheBound()
+    {
+        Assert.NotEqual(StockTrace, IntelTrace);
+        Assert.True(CloseRow(StockTrace, IntelTrace), "the Xeon's trace is stock's but for its end's last bit");
+    }
+
+    [Fact]
+    public void ATracesAnswerAndMaskStayExact()
+    {
+        string answered = IntelTrace.Replace("\t3f800000\t0", "\t3f000000\t0", StringComparison.Ordinal);
+        string masked = IntelTrace.Replace("\t00000001\t", "\t00000003\t", StringComparison.Ordinal);
+        string moved = StockTrace.Replace("\t47400000\t", "\t47410000\t", StringComparison.Ordinal);
+        Assert.True(answered != IntelTrace && masked != IntelTrace && moved != StockTrace, "the stimuli changed the row");
+        Assert.False(CloseRow(StockTrace, answered));
+        Assert.False(CloseRow(StockTrace, masked));
+        Assert.False(CloseRow(StockTrace, moved));
+    }
+
+    [Fact]
+    public void OnlyMeshAndTraceRowsAreGivenTheBound()
+    {
+        Assert.False(CloseRow("HS\tsun/overlay\t3fc00000", "HS\tsun/overlay\t3fc00001"));
+        Assert.False(SameRows(["PA\t1", StockSunQuad], ["PA\t2", IntelSunQuad], exact: false));
+        Assert.True(SameRows(["PA\t1", StockSunQuad], ["PA\t1", IntelSunQuad], exact: false));
+    }
+
+    [Fact]
+    public void OnTheRecordingMakersCpuTheRowsMustBeBitForBit()
+        => Assert.False(SameRows([StockSunQuad], [IntelSunQuad], exact: true));
+
+    [Fact]
+    public void TheRsqrtProbesAreRead()
+        => Assert.True(StockRsqrt.Probes().Count >= 8, $"{StockRsqrt.Probes().Count} probes");
 
     [Fact]
     public void ARampOverlayFadesAndGrowsForATenthOfASecond()
