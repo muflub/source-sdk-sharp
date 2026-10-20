@@ -727,6 +727,12 @@ internal sealed unsafe class ViewClientArea
     public int RenderViewToTarget(int a0, ViewTargetSetup* a1) { return _shim.Vt->RenderViewToTarget(_shim.Self, a0, a1); }
     public int ViewTargetInfo(int a0, int* a1) { return _shim.Vt->ViewTargetInfo(_shim.Self, a0, a1); }
     public int RenderTargetDeclare(int a0, byte* a1, byte* a2, int a3, int a4, int a5) { return _shim.Vt->RenderTargetDeclare(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int PixelVisQueryCreate() { return _shim.Vt->PixelVisQueryCreate(_shim.Self); }
+    public void PixelVisQueryDestroy(int a0) { _shim.Vt->PixelVisQueryDestroy(_shim.Self, a0); }
+    public void PixelVisQueryReset(int a0) { _shim.Vt->PixelVisQueryReset(_shim.Self, a0); }
+    public void PixelVisQueryPixels(int a0, int a1, int* a2) { _shim.Vt->PixelVisQueryPixels(_shim.Self, a0, a1, a2); }
+    public void PixelVisDiameters(float* a0, int a1, float* a2) { _shim.Vt->PixelVisDiameters(_shim.Self, a0, a1, a2); }
+    public int PixelVisView(float* a0, int a1) { return _shim.Vt->PixelVisView(_shim.Self, a0, a1); }
 }
 
 /// <summary>

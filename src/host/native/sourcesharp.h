@@ -825,6 +825,14 @@ typedef enum
 	// back from a grating it shines through. Wired on BOTH arms, for
 	// SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW = 7,
+
+	// MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS -- what a glow's sight
+	// line stops on (c_pixel_visibility.cpp's GlowSightDistance, C7): solid,
+	// moveable and opaque contents, monsters and debris; no glass. Not
+	// SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW: that stops on glass, and a
+	// glow behind a window would go out. Wired on BOTH arms, for
+	// SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_GLOW_SIGHT = 8,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a
@@ -875,6 +883,12 @@ typedef enum
 	// prop) is hit. What the flashlight traces with (C7 cluster 12). Wired on
 	// both client traces.
 	SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL = 4,
+
+	// c_pixel_visibility.cpp's CTraceFilterGlow: CTraceFilterSimple( NULL,
+	// COLLISION_GROUP_NONE ) that only an entity whose collideable is
+	// SOLID_VPHYSICS or SOLID_BSP may stop. What a glow's sight line traces with
+	// (C7 pixel visibility). Wired on both client traces.
+	SOURCESHARP_TRACE_FILTER_GLOW = 5,
 } SourceSharpTraceFilter;
 
 // Which piece of the client's world render state ClientSetWorldRenderState is

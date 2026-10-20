@@ -105,3 +105,16 @@ void H_UnlockAllShadowDepthTextures(	INSTRUMENT	a recorder hook on the shadow ma
 void RenderTrace::NoteLong(	INSTRUMENT	the recorder's long note line
 bool H_LeafContainsTranslucentSurfaces(	INSTRUMENT	records LeafContainsTranslucentSurfaces' answer as a q line, the offline facts' translucent answers
 void MaterialVarLines(	INSTRUMENT	a recorded frame's screen-space material parameters as bound (q lines), for the frozen post-processing facts
+int Query( const void *h )	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void H_UnlockMesh(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void HookMesh(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void H_Bind(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+IMesh *H_GetDynamicMesh(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+bool H_EnableClipping(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+OcclusionQueryObjectHandle_t H_CreateOcclusionQueryObject(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void H_DestroyOcclusionQueryObject(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void H_ResetOcclusionQueryObject(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void H_BeginOcclusionQueryDrawing(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+void H_EndOcclusionQueryDrawing(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+int H_OcclusionQuery_GetNumPixelsRendered(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)
+float H_ComputePixelDiameterOfSphere(	INSTRUMENT	the recorder's mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): a line per call client.so makes, forwarded to the original (C7)

@@ -72,6 +72,7 @@
 // a file whose only purpose is its name.
 #include "shell_te_backend_args.h"
 #include "flashlight_trace_filter.h"
+#include "glow_trace_filter.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -109,6 +110,24 @@ public:
 			return true;
 		return SkipPlayerAndViewModelHits( pShell->IsPlayerShell(), pShell->Block().Client.ViewModel != 0,
 		                                   pShell->GetCollisionGroup() );
+	}
+};
+
+// c_pixel_visibility.cpp's CTraceFilterGlow, whose TU leaves client.so with the
+// pixel visibility port (C7): a CTraceFilterSimple with no pass entity that
+// only a VPHYSICS or BSP collideable may stop. glow_trace_filter.h's rule over
+// the solid type is held to the pristine class by pixelvis_oracle_test.
+class CGlowSightFilter : public CTraceFilterSimple
+{
+public:
+	CGlowSightFilter() : CTraceFilterSimple( NULL, COLLISION_GROUP_NONE ) {}
+	virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
+	{
+		IClientUnknown *pUnk = (IClientUnknown *)pHandleEntity;
+		ICollideable *pCollide = pUnk->GetCollideable();
+		if ( !GlowSightAdmits( pCollide->GetSolid() ) )
+			return false;
+		return CTraceFilterSimple::ShouldHitEntity( pHandleEntity, contentsMask );
 	}
 };
 } // namespace
@@ -193,6 +212,9 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	// The flashlight's direction mask (C7 cluster 12), on both arms.
 	else if ( req.nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
 		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
+	// A glow's sight line (C7 pixel visibility): no glass. On both arms.
+	else if ( req.nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
+		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
 
 	trace_t tr;
 
@@ -235,6 +257,11 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	else if ( nFilter == SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL )
 	{
 		CSkipPlayerAndViewModelFilter traceFilter;
+		UTIL_TraceLine( vecStart, vecEnd, nTraceMask, &traceFilter, &tr );
+	}
+	else if ( nFilter == SOURCESHARP_TRACE_FILTER_GLOW )
+	{
+		CGlowSightFilter traceFilter;
 		UTIL_TraceLine( vecStart, vecEnd, nTraceMask, &traceFilter, &tr );
 	}
 	else
@@ -336,6 +363,8 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 		nTraceMask = MASK_SHOT;
 	else if ( nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
 		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
+	else if ( nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
+		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
 
 	IClientEntity *pEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
 	IHandleEntity *pPass = pEnt ? static_cast< IClientUnknown * >( pEnt ) : NULL;
@@ -359,6 +388,11 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 	else if ( nFilter == SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL )
 	{
 		CSkipPlayerAndViewModelFilter traceFilter;
+		UTIL_TraceHull( vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr );
+	}
+	else if ( nFilter == SOURCESHARP_TRACE_FILTER_GLOW )
+	{
+		CGlowSightFilter traceFilter;
 		UTIL_TraceHull( vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr );
 	}
 	else

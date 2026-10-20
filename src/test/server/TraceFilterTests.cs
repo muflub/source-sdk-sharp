@@ -57,8 +57,8 @@ public class TraceFilterTests
             native[m.Groups[1].Value] = int.Parse(m.Groups[2].Value);
         }
 
-        Assert.True(native.Count == 5,
-            $"the header declares five filter modes and this found {native.Count} — the pattern "
+        Assert.True(native.Count == 6,
+            $"the header declares six filter modes and this found {native.Count} — the pattern "
           + "stopped matching rather than found a disagreement");
 
         // HIT_ALL -> HitAll, WORLD_ONLY -> WorldOnly.
@@ -69,6 +69,7 @@ public class TraceFilterTests
             ("WORLD_ONLY", TraceFilter.WorldOnly),
             ("NO_NPCS_OR_PLAYER", TraceFilter.NoNpcsOrPlayer),
             ("SKIP_PLAYER_AND_VIEW_MODEL", TraceFilter.SkipPlayerAndViewModel),
+            ("GLOW", TraceFilter.Glow),
         ];
 
         foreach ((string nativeName, TraceFilter managed) in pairs)
@@ -162,6 +163,7 @@ public class TraceFilterTests
             ("SOLID", TraceMask.Solid),
             ("BLOCKLOS", TraceMask.BlockLos),
             ("OPAQUE_AND_NPCS_WINDOW", TraceMask.OpaqueAndNpcsWindow),
+            ("GLOW_SIGHT", TraceMask.GlowSight),
         ];
         Assert.Equal(pairs.Length, native.Count);
         Assert.Equal(pairs.Length, Enum.GetValues<TraceMask>().Length);
@@ -218,6 +220,32 @@ public class TraceFilterTests
         string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
         int found = Regex.Matches(code,
             @"else\s+if\s*\(\s*nFilter\s*==\s*SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL\s*\)\s*\{\s*CSkipPlayerAndViewModelFilter\s+traceFilter\s*;\s*UTIL_Trace(?:Line|Hull)\(").Count;
+        Assert.Equal(2, found);
+    }
+
+    /// <summary>
+    /// A glow's sight mask (C7 pixel visibility) is mapped on every native arm
+    /// that maps masks, the client's line and hull traces, each to MASK_OPAQUE
+    /// | CONTENTS_MONSTER | CONTENTS_DEBRIS. The server's is managed
+    /// TraceMasks' (TraceMaskFoldTests holds its row).
+    /// </summary>
+    [Theory]
+    [InlineData("client", "shell_worldquery_client.cpp", 2)]
+    public void TheGlowSightMaskIsMappedOnEachArm(string side, string file, int arms)
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_GLOW_SIGHT\s*\)\s*nTraceMask\s*=\s*MASK_OPAQUE\s*\|\s*CONTENTS_MONSTER\s*\|\s*CONTENTS_DEBRIS\s*;").Count;
+        Assert.Equal(arms, found);
+    }
+
+    /// <summary>The glow filter is wired on both client traces, each to the stock filter's class.</summary>
+    [Fact]
+    public void TheGlowFilterIsWiredOnBothClientTraces()
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*nFilter\s*==\s*SOURCESHARP_TRACE_FILTER_GLOW\s*\)\s*\{\s*CGlowSightFilter\s+traceFilter\s*;\s*UTIL_Trace(?:Line|Hull)\(").Count;
         Assert.Equal(2, found);
     }
 

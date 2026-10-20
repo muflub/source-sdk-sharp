@@ -5,7 +5,7 @@ namespace SourceSharp.Client.Interop;
 /// <summary>The real answers, over the slots; a missing shim answers "not visible".</summary>
 internal sealed unsafe class ClientFxSpriteGlowSlots(FxClientArea fxClient) : IFxSpriteGlow
 {
-    public float FractionVisible(in Vector position, float proxySize, float proxyAspect)
+    public float FractionVisible(in Vector position, float proxySize, float proxyAspect, ref int queryHandle)
     {
         float* p = stackalloc float[] { position.X, position.Y, position.Z };
         return fxClient.FxSpriteGlowFraction(p, proxySize, proxyAspect);
@@ -64,8 +64,8 @@ internal sealed unsafe class ClientFxSpriteDrawSlots(FxClientArea fxClient) : IF
 /// <summary>The request's and the plan's float counts (SS_SPRITE_IN_FLOATS, SS_SPRITE_OUT_FLOATS).</summary>
 public static class ClientSpriteRequest
 {
-    public const int InFloats = 38;
-    public const int OutFloats = 22;
+    public const int InFloats = 39;
+    public const int OutFloats = 23;
 }
 
 /// <summary>What native's sprite-trail renderable reaches (IManagedFxClient's SpriteTrailTick / SpriteTrailDraw).</summary>

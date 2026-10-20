@@ -6,8 +6,13 @@
 # so the trace is asked for right after the temp entity is fired and again a frame later), and the
 # screen-space effects in the post pass. Two frames at the first pose measure the frame-to-frame noise;
 # the map is then loaded again in the same process (the second map load) and the first pose recorded
-# once more. Every build carries the recorder:
-#   tools/probes/c0-session OUT tools/probes/sessions/c7-render-small-ab.steps --no-probe-build --port P
+# once more. Every build carries the recorder; its mesh and occlusion-query hooks are armed by the
+# environment, so the dynamic meshes (with their vertices), the bound materials, the clipping switch and
+# the query objects are lines too:
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-render-small-ab.steps --no-probe-build --port P \
+#     --env SOURCESHARP_RENDER_TRACE_MESHES=1
+# The fireball's first frames draw nothing (its pixel visibility fades in from 0); a temp entity reaches the
+# client a frame or more after it is fired, so the explosion is traced at three delays.
 wait managed client module initialized 120
 cmd map dm_lockdown
 wait first paint 240
@@ -22,12 +27,20 @@ cmd cs_cl_render_trace {out}/pose1-b.txt
 wait recorded \d+ lines to .*pose1-b 20
 shot pose1
 cmd cs_te_fire explosion -4116 4400 64
+sleep 0.05
 cmd cs_cl_render_trace {out}/explosion-a.txt
 wait recorded \d+ lines to .*explosion-a 20
+sleep 1
 cmd cs_te_fire explosion -4116 4400 64
-sleep 0.03
+sleep 0.1
 cmd cs_cl_render_trace {out}/explosion-b.txt
 wait recorded \d+ lines to .*explosion-b 20
+sleep 1
+cmd cs_te_fire explosion -4116 4400 64
+sleep 0.15
+cmd cs_cl_render_trace {out}/explosion-c.txt
+wait recorded \d+ lines to .*explosion-c 20
+sleep 1
 cmd cs_te_fire explosion -4116 4400 64
 sleep 0.05
 shot explosion
@@ -51,6 +64,7 @@ cmd cs_cl_render_trace {out}/reload-pose1.txt
 wait recorded \d+ lines to .*reload-pose1 60
 shot reload-pose1
 cmd cs_te_fire explosion -4116 4400 64
+sleep 0.05
 cmd cs_cl_render_trace {out}/reload-explosion.txt
 wait recorded \d+ lines to .*reload-explosion 20
 quit

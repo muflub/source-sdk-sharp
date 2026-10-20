@@ -509,6 +509,12 @@ public:
 	int32_t RenderViewToTarget( int32_t nTarget, const SourceSharpViewTargetSetup * pSetup ) override;
 	int32_t ViewTargetInfo( int32_t nTarget, int32_t * pOut4 ) override;
 	int32_t RenderTargetDeclare( int32_t nSlot, const char * pszName, const char * pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder ) override;
+	int32_t PixelVisQueryCreate() override;
+	void PixelVisQueryDestroy( int32_t nQuery ) override;
+	void PixelVisQueryReset( int32_t nQuery ) override;
+	void PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t * pOut ) override;
+	void PixelVisDiameters( const float * pSpheres, int32_t nSpheres, float * pOut ) override;
+	int32_t PixelVisView( float * pOut, int32_t nFloats ) override;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient

@@ -10,3 +10,4 @@
 1	SLOT	[CManagedClientSystemRow] void LevelShutdownPostEntity() override
 13	SLOT-HELP	[CManagedClientSystemRow] int32_t Stage( int32_t nStage )
 5	HOOK	CClientSystem *ClientSystem_ManagedViewport()
+5	HOOK	CClientSystem *ClientSystem_ManagedPixelVisibility()

@@ -126,7 +126,7 @@ public class ClientSpriteRendererTests
         public readonly List<string> Wrong = [];
         public int Asked;
 
-        public float FractionVisible(in Vector position, float proxySize, float proxyAspect)
+        public float FractionVisible(in Vector position, float proxySize, float proxyAspect, ref int queryHandle)
         {
             Asked++;
             if (vis is null)
@@ -525,7 +525,7 @@ public class ClientSpriteRendererTests
 
     private sealed class FixedGlow(float frac, float dist) : IFxSpriteGlow
     {
-        public float FractionVisible(in Vector position, float proxySize, float proxyAspect) => frac;
+        public float FractionVisible(in Vector position, float proxySize, float proxyAspect, ref int queryHandle) => frac;
         public float SightDistance(in Vector position) => dist;
     }
 

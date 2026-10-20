@@ -19,7 +19,8 @@
 // as a native row's false does. With no managed load, or a row managed does not
 // know, there is nothing to ask and nothing refuses (the second is said once).
 //
-// The rows: CViewportClientSystem (vgui_game_viewport.cpp, C7).
+// The rows: CViewportClientSystem (vgui_game_viewport.cpp, C7),
+// CPixelVisibilitySystem (c_pixel_visibility.cpp, C7).
 //=============================================================================//
 
 #include "cbase.h"
@@ -83,5 +84,12 @@ private:
 CClientSystem *ClientSystem_ManagedViewport()
 {
 	static CManagedClientSystemRow s_Row( "CViewportClientSystem" );
+	return &s_Row;
+}
+
+// kClientSystems[]'s "CPixelVisibilitySystem": PixelVisibilitySystem (C#).
+CClientSystem *ClientSystem_ManagedPixelVisibility()
+{
+	static CManagedClientSystemRow s_Row( "CPixelVisibilitySystem" );
 	return &s_Row;
 }

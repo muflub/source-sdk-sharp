@@ -411,3 +411,10 @@ IManagedSoundEmitterClient	ClientSoundEmitCloseCaption	void	const int32_t *pReci
 # (shell_managed_clientsystems_client.cpp) hands each of the row's stages (ClientSystemStage's numbers) to the
 # managed system of the row's name: Init's answer is 1 or 0, another stage's 1, an unknown row or stage -1.
 IManagedClientSystemsClient	Stage	int32_t	const char *pszSystem, int32_t nStage
+# C7 pixel visibility (c_pixel_visibility.cpp): the plan's PixelVisEndCurrentView op hands managed the current view
+# (id, origin, forward, right, up, the world-to-screen matrix: 29 floats) and carries out the proxies it answers with,
+# int32 words (shell_pixelvis_client.cpp's SS_PIXELVIS_CMD_*): the count of words is the answer, and when it is more
+# than nCmdWords native grows its buffer and asks Commands for the same words. EndScene is the scene's end.
+IManagedPixelVisClient	EndView	int32_t	const float *pView, int32_t nViewFloats, int32_t *pCmds, int32_t nCmdWords
+IManagedPixelVisClient	Commands	int32_t	int32_t *pCmds, int32_t nCmdWords
+IManagedPixelVisClient	EndScene	void	void

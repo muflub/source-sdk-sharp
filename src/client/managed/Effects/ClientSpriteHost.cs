@@ -16,11 +16,12 @@ public sealed class ClientSpriteHost(SpriteRenderer renderer, IFxSpriteGlow glow
         InDown = 6, InWidth = 7, InHeight = 8, InOrigin = 9, InEffectOrigin = 12, InAngles = 15, InRenderMode = 18,
         InRenderFx = 19, InAlpha = 20, InR = 21, InG = 22, InB = 23, InScale = 24, InWorldSpaceScale = 25,
         InHdrColorScale = 26, InBlend = 27, InViewForward = 28, InViewRight = 31, InViewUp = 34, InGlowProxySize = 37,
-        InFloats = 38;
+        InQueryHandle = 38,
+        InFloats = 39;
 
     // SS_SPRITE_OUT_*.
     public const int OutDrawn = 0, OutSetBlend = 1, OutBlend = 2, OutQuad = 3, OutWireframe = 4, OutRgba = 5,
-        OutCorners = 9, OutHdrColorScale = 21, OutFloats = 22;
+        OutCorners = 9, OutHdrColorScale = 21, OutQueryHandle = 22, OutFloats = 23;
 
     /// <summary>Sprites planned since the load (cs_cl_fx_report).</summary>
     public long Planned { get; private set; }
@@ -48,6 +49,7 @@ public sealed class ClientSpriteHost(SpriteRenderer renderer, IFxSpriteGlow glow
             Blend = input[InBlend],
             ViewForward = V(input, InViewForward), ViewRight = V(input, InViewRight), ViewUp = V(input, InViewUp),
             GlowProxySize = input[InGlowProxySize],
+            QueryHandle = BitConverter.SingleToInt32Bits(input[InQueryHandle]),
         };
 
         SpriteDrawPlan plan = renderer.Plan(req, glow);
@@ -68,6 +70,7 @@ public sealed class ClientSpriteHost(SpriteRenderer renderer, IFxSpriteGlow glow
         Put(output, OutCorners + 6, plan.P2);
         Put(output, OutCorners + 9, plan.P3);
         output[OutHdrColorScale] = plan.HdrColorScale;
+        output[OutQueryHandle] = BitConverter.Int32BitsToSingle(plan.QueryHandle);
         return OutFloats;
     }
 

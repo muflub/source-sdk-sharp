@@ -250,7 +250,7 @@ int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 250 slots.
+// CLIENT ONLY -- 256 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -525,6 +525,12 @@ void SourceSharp_PhysicsClientSplashLighting( const float *pPoint, float *pOut4 
 int32_t SourceSharp_PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHard,
                                                int32_t nHard, char *pSoft, int32_t nSoft,
                                                float *pOut3 );
+void SourceSharp_PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut );
+int32_t SourceSharp_PixelVisQueryCreate( void );
+void SourceSharp_PixelVisQueryDestroy( int32_t nQuery );
+void SourceSharp_PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t *pOut );
+void SourceSharp_PixelVisQueryReset( int32_t nQuery );
+int32_t SourceSharp_PixelVisView( float *pOut, int32_t nFloats );
 int32_t SourceSharp_PrecipitationInPvs( uint32_t hOwner );
 int32_t SourceSharp_PrecipitationPlayer( float *pOut );
 int32_t SourceSharp_PrecipitationPointContents( const float *pXYZ );

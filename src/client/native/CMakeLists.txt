@@ -136,6 +136,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_facts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_targets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_render_targets_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_pixelvis_client.cpp
     # C7 (§3.3): View_Render's body -- the per-frame path question and the
     # render plan's executor -- and the recorder that measures both paths.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_executor_client.cpp

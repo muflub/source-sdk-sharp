@@ -22,3 +22,6 @@ int32_t SourceSharp_FxSpriteDrawEnd(	BOUNDARY	the direct path's second half: car
 int32_t SourceSharp_FxSpriteDrawStore(	SLOT	IShimFxSpriteDraw::Store: keeps the plan managed made in the view's batch for the sprite's own DrawModel
 int SourceSharp_SpriteExecuteStored(	BOUNDARY	carries out a stored managed plan at DrawModel; a blend that moved since the batch hands the draw back to the per-entity crossing
 void SourceSharp_SpriteStoredClear(	SLOT-HELP	drops the stored plans at a new batch and at level shutdown
+static float HandleBits(	SLOT-HELP	the renderer's pixel visibility handle, its bits carried in the request's float slot
+static pixelvis_handle_t HandleOf(	SLOT-HELP	the plan's float slot read back as the handle the renderer keeps
+static void StorePlanQuery(	SLOT-HELP	the direct path's handle, as managed's plan left it, stored on the renderer the request came from

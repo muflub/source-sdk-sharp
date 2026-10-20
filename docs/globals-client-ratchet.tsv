@@ -358,7 +358,14 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   gate PASS). vgui_game_viewport.cpp's g_ViewportClientSystem leaves with its eviction.
 # LOWERED 2026-10-19, 705 -> 704 (C7 viewport system, the eviction): vgui_game_viewport.o's g_ViewportClientSystem left
 #   (make globals-client-ledger: 1 pruned; gate PASS).
-client_globals_link_level	src/game/client	704
+# RAISED 2026-10-19, 704 -> 708 (C7, 5d8deb7d0's render-trace mesh and occlusion-query hooks, ledgered after the fact):
+#   the instrument's four new statics (g_MeshHooks, g_nMeshHooks, g_bMeshes, g_Queries), UNRULED as the rest of
+#   shell_render_trace_client.o's are; g_Originals grew 704 -> 784 bytes (make globals-client-ledger: 4 added; gate PASS).
+# RAISED 2026-10-19, 708 -> 711 (C7 pixel visibility, the replacement): shell_pixelvis_client.o's query table and command
+#   buffer (s_Queries, s_Commands, MEMBER PixelVis:DLL) and the adapter's CPixelVisibilitySystem row
+#   (ClientSystem_ManagedPixelVisibility()::s_Row, MEMBER ClientSystems:DLL); make globals-client-ledger: 3 added; gate
+#   PASS. c_pixel_visibility.o's own statics leave with its eviction, after glow_overlay.cpp's.
+client_globals_link_level	src/game/client	711
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -395,7 +402,9 @@ client_globals_link_level	src/game/client	704
 # LOWERED 2026-10-19, 669 -> 656 (C7 render textures, the eviction): rendertexture.o's 13 UNRULED rows pruned.
 # LOWERED 2026-10-19, 656 -> 652 (C7 screen-space effects, the eviction): ScreenSpaceEffects.o's four UNRULED rows pruned.
 # LOWERED 2026-10-19, 652 -> 651 (C7 viewport system, the eviction): g_ViewportClientSystem's UNRULED row pruned.
-client_globals_unruled	docs/globals-client-ledger.tsv	651
+# RAISED 2026-10-19, 651 -> 655 (C7, 5d8deb7d0's render-trace hooks, ledgered after the fact): the instrument's four new
+#   statics, UNRULED as its other rows are (make globals-client-census: unruled 655).
+client_globals_unruled	docs/globals-client-ledger.tsv	655
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 # LOWERED 2026-10-19, 14 -> 13 (C7 screen-space effects, the eviction): CScreenSpaceEffectRegistration::s_pHead's list and
@@ -476,7 +485,10 @@ client_globals_floor	docs/globals-client-ledger.tsv	13
 #   vgui_game_viewport.o's eviction takes one out.
 # LOWERED 2026-10-19, 120 -> 119 (C7 viewport system, the eviction): vgui_game_viewport.o left (tools/globals-census
 #   summary --side client: objects_with_a_static_initialiser 119).
-client_globals_objects_with_static_init	src/game/client	119
+# RAISED 2026-10-19, 119 -> 120 (C7 pixel visibility, the replacement): shell_pixelvis_client.o joins client.so; its two
+#   CUtlVectors have constructors, and cbase.h's header initialisers come with the TU (tools/globals-census summary
+#   --side client: objects_with_a_static_initialiser 120). c_pixel_visibility.o's eviction takes one out.
+client_globals_objects_with_static_init	src/game/client	120
 client_globals_reconcile_unattributed	src/game/client	0
 # RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static
 #   initialisers 129 -> 130. UTIL_IsLowViolence moved from the shared util_shared_library.cpp to client_util_library.cpp

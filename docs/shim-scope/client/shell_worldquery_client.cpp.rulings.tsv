@@ -7,3 +7,5 @@ int32_t SourceSharp_ClientTraceHull(	SLOT	IShimViewClient::ClientTraceHull: UTIL
 int32_t SourceSharp_ClientEntityRenderPose(	SLOT	IShimViewClient::ClientEntityRenderPose: an entity's drawn origin and angles by index
 [CSkipPlayerAndViewModelFilter] virtual bool ShouldHitEntity(	SLOT-HELP	flashlighteffect.cpp's CTraceFilterSkipPlayerAndViewModel over this tree's shells (C7 cluster 12): the three facts asked of the shell, the rule is flashlight_trace_filter.h's
 int32_t SourceSharp_ClientTraceLine(	SLOT	IShimViewClient::ClientTraceLine: UTIL_TraceLine with the stock filter and mask managed names, as ClientTraceHull (ruled 2026-10-18 by the C7 flashlight lane, which added a mask and a filter to both)
+[CGlowSightFilter] CGlowSightFilter()	SLOT-HELP	CTraceFilterGlow's base: CTraceFilterSimple with no pass entity and COLLISION_GROUP_NONE, as stock constructed it
+[CGlowSightFilter] virtual bool ShouldHitEntity(	SLOT-HELP	c_pixel_visibility.cpp's CTraceFilterGlow over the hit's collideable (C7 pixel visibility): the solid type asked, the rule is glow_trace_filter.h's, then CTraceFilterSimple's

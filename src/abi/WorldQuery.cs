@@ -52,6 +52,14 @@ public enum TraceFilter
     /// groups. What the flashlight traces with (C7 cluster 12).
     /// </summary>
     SkipPlayerAndViewModel = 4,
+
+    /// <summary>
+    /// c_pixel_visibility.cpp's <c>CTraceFilterGlow</c>: a
+    /// <c>CTraceFilterSimple</c> with no pass entity that only an entity whose
+    /// collideable is <c>SOLID_VPHYSICS</c> or <c>SOLID_BSP</c> may stop. What a
+    /// glow's sight line traces with (C7 pixel visibility).
+    /// </summary>
+    Glow = 5,
 }
 
 /// <summary>
@@ -159,6 +167,14 @@ public enum TraceMask
     /// <see cref="All"/>'s reason.
     /// </summary>
     OpaqueAndNpcsWindow = 7,
+
+    /// <summary>
+    /// <c>MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS</c> — what a glow's
+    /// sight line stops on (c_pixel_visibility.cpp's <c>GlowSightDistance</c>,
+    /// C7): no glass, so a glow behind a window stays lit. Mapped on BOTH arms
+    /// of the ABI for <see cref="All"/>'s reason.
+    /// </summary>
+    GlowSight = 8,
 }
 
 /// <summary>

@@ -1005,3 +1005,40 @@ ss_cpptest_tier1(viewport_oracle_test
              ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/viewport_oracle_test.cpp)
 endif()
+
+# THE PIXEL VISIBILITY ORACLE (C7, c_pixel_visibility.cpp): stock's
+# CPixelVisibilitySystem -- the query sets and their serial handles, a query
+# per set per view, the fade over the pixel counts, the proxies drawn at each
+# view's end, the scene's end freeing what went unused, the level's start and
+# end, the sight-line fallback and its glow trace filter, the view shift and
+# the ConVars -- run offline from the PRISTINE game/client/c_pixel_visibility.cpp
+# over a scripted world and vtable doubles of the material system
+# (pixelvis_stub/pixelvis_harness.h says what is stock and what is stand-in),
+# held to the golden src/test/client/Fixtures/pixelvis-stock.tsv, which the
+# managed PixelVisibilitySystem's facts replay. mathlib for VectorNormalize and
+# Approach, tier1 for the ConVars, their callback and CUtlMultiList, the
+# pristine tier2.a for CMeshBuilder's index generators. The -Wno-
+# flags are for VALVE'S CODE and headers: the MSVC pragmas, the subject's
+# unused statics and locals, platform.h's dangling else, the material
+# headers' unused fields and constructor order, and imesh.h's hidden overloads.
+set(pixelvis_stock "${SS_VALVE_SRC}/game/client/c_pixel_visibility.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${pixelvis_stock}" OR NOT EXISTS "${tier2_stock}")
+  ss_oracle_missing(pixelvis_oracle_test "no ${pixelvis_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and its own header are COPIED, byte for byte, into their own
+# directory before they are included: their quoted #includes would otherwise
+# find game/client's real headers beside them ahead of the stand-ins.
+configure_file("${pixelvis_stock}" "${CMAKE_CURRENT_BINARY_DIR}/pixelvis_subject/c_pixel_visibility.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/c_pixel_visibility.h" "${CMAKE_CURRENT_BINARY_DIR}/pixelvis_subject/c_pixel_visibility.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(pixelvis_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-unused-private-field -Wno-dangling-else -Wno-reorder-ctor -Wno-overloaded-virtual
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/pixelvis_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/pixelvis_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+             ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/client/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/pixelvis_oracle_test.cpp
+    LIBS ${tier2_stock})
+endif()

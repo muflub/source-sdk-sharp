@@ -264,6 +264,12 @@ EntitiesUpdateVisibilityAll	EngineApi	IShimViewClient	client		client	-	SourceSha
 RenderViewToTarget	EngineApi	IShimViewClient	client		client	-	SourceSharp_RenderViewToTarget	int, ViewTargetSetup*, int	
 ViewTargetInfo	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewTargetInfo	int, int*, int	
 RenderTargetDeclare	EngineApi	IShimViewClient	client		client	-	SourceSharp_RenderTargetDeclare	int, byte*, byte*, int, int, int, int	
+PixelVisQueryCreate	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisQueryCreate	int	
+PixelVisQueryDestroy	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisQueryDestroy	int, void	
+PixelVisQueryReset	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisQueryReset	int, void	
+PixelVisQueryPixels	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisQueryPixels	int, int, int*, void	
+PixelVisDiameters	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisDiameters	float*, int, float*, void	
+PixelVisView	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisView	float*, int, int	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	

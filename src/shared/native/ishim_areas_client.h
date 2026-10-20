@@ -199,6 +199,12 @@ public:
 	// RenderTargetCatalog decided them; shell_render_targets_client.cpp finds
 	// on the slot's first use and drops the reference at the release.
 	virtual int32_t RenderTargetDeclare( int32_t nSlot, const char *pszName, const char *pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder ) = 0;
+	virtual int32_t PixelVisQueryCreate() = 0;
+	virtual void PixelVisQueryDestroy( int32_t nQuery ) = 0;
+	virtual void PixelVisQueryReset( int32_t nQuery ) = 0;
+	virtual void PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t *pOut ) = 0;
+	virtual void PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut ) = 0;
+	virtual int32_t PixelVisView( float *pOut, int32_t nFloats ) = 0;
 };
 
 // plan_side_isolation §2.2a: the client half of user messages. Managed reads a

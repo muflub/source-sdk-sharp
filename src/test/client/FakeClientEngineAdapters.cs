@@ -33,7 +33,7 @@ internal sealed class FakeClientEngineAdapters : IClientEngineAdapters
         typeof(IClientSplashCarryOut),
         typeof(IFxRender),
         typeof(IFxSpriteDraw),
-        typeof(IFxSpriteGlow),
+        typeof(IPixelVisSlots),
         typeof(INativeParticleExecutor),
         typeof(IRenderTargetTable),
     ];

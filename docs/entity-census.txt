@@ -957,7 +957,7 @@ GetBaseEntity           0 in 0 files          0 in 0 files          0 in 0 files
 GetContainingEntity     0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 GetGameData             0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 EHANDLE                 0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
-ToEngineIface           0 in 0 files          14 in 9 files         1 in 1 files          12 in 6 files       
+ToEngineIface           0 in 0 files          14 in 9 files         1 in 1 files          13 in 6 files       
 
 == 3. SHIM -> STOCK CROSS-EDGES, PER STOCK TU ==
 # FLOOR. Sorted by edges. A TU at 0 is one nothing in the shim links

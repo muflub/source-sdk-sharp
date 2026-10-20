@@ -2249,7 +2249,7 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 17 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 23 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2307,6 +2307,24 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::RenderTargetDeclare( int32_t, const char *, const char *, int32_t, int32_t, int32_t )
     public delegate* unmanaged<void*, int, byte*, byte*, int, int, int, int> RenderTargetDeclare;
+
+    // int32_t IShimViewClient::PixelVisQueryCreate( void )
+    public delegate* unmanaged<void*, int> PixelVisQueryCreate;
+
+    // void IShimViewClient::PixelVisQueryDestroy( int32_t )
+    public delegate* unmanaged<void*, int, void> PixelVisQueryDestroy;
+
+    // void IShimViewClient::PixelVisQueryReset( int32_t )
+    public delegate* unmanaged<void*, int, void> PixelVisQueryReset;
+
+    // void IShimViewClient::PixelVisQueryPixels( int32_t, int32_t, int32_t * )
+    public delegate* unmanaged<void*, int, int, void*, void> PixelVisQueryPixels;
+
+    // void IShimViewClient::PixelVisDiameters( const float *, int32_t, float * )
+    public delegate* unmanaged<void*, void*, int, void*, void> PixelVisDiameters;
+
+    // int32_t IShimViewClient::PixelVisView( float *, int32_t )
+    public delegate* unmanaged<void*, void*, int, int> PixelVisView;
 }
 
 /// <summary>

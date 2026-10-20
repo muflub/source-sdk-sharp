@@ -56,6 +56,9 @@ public struct SpriteDrawRequest
 
     /// <summary>The glow's pixel-visibility proxy size.</summary>
     public float GlowProxySize;
+
+    /// <summary>The renderer's pixel-visibility handle, as it kept it.</summary>
+    public int QueryHandle;
 }
 
 /// <summary>What native carries out for one sprite draw.</summary>
@@ -82,6 +85,9 @@ public struct SpriteDrawPlan
     public Vector P0, P1, P2, P3;
 
     public float HdrColorScale;
+
+    /// <summary>The renderer's pixel-visibility handle as the glow question left it, kept by the renderer.</summary>
+    public int QueryHandle;
 }
 
 /// <summary>
@@ -104,7 +110,7 @@ public sealed class SpriteRenderer
     /// <summary>One <c>DrawSprite</c>.</summary>
     public SpriteDrawPlan Plan(in SpriteDrawRequest req, IFxSpriteGlow glow)
     {
-        var plan = new SpriteDrawPlan();
+        var plan = new SpriteDrawPlan { QueryHandle = req.QueryHandle };
 
         if (req.DrawSprites == 0)
             return plan;
@@ -127,7 +133,7 @@ public sealed class SpriteRenderer
 
             if (ClientSpriteRenderRules.UsesGlowBlend(req.RenderMode))
             {
-                blend *= GlowBlend(req, glow, ref scale);
+                blend *= GlowBlend(req, glow, ref scale, ref plan.QueryHandle);
 
                 // Fade out the sprite depending on distance from the view origin.
                 r = (int)(r * blend);
@@ -182,9 +188,9 @@ public sealed class SpriteRenderer
     }
 
     // C_SpriteRenderer::GlowBlend, then StandardGlowBlend.
-    private static float GlowBlend(in SpriteDrawRequest req, IFxSpriteGlow glow, ref float scale)
+    private static float GlowBlend(in SpriteDrawRequest req, IFxSpriteGlow glow, ref float scale, ref int queryHandle)
     {
-        float brightness = glow.FractionVisible(req.EffectOrigin, req.GlowProxySize, Aspect(req));
+        float brightness = glow.FractionVisible(req.EffectOrigin, req.GlowProxySize, Aspect(req), ref queryHandle);
         if (brightness <= 0.0f)
             return 0.0f;
 

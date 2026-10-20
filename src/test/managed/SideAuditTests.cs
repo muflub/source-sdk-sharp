@@ -309,6 +309,11 @@ public class SideAuditTests
         // The client mode's layout (C7, the viewport system's Init): the
         // client mode exists only in client.so.
         "ClientModeLayout",
+        // The pixel visibility's slots (C7, c_pixel_visibility.cpp): the
+        // render context's occlusion queries and the current view are
+        // client.so's.
+        "PixelVisQueryCreate", "PixelVisQueryDestroy", "PixelVisQueryReset", "PixelVisQueryPixels",
+        "PixelVisDiameters", "PixelVisView",
         "InputMailbox",
         "SpriteTrailDestroy", "SpriteTrailUpdate",
         "StandaloneSetBlending",

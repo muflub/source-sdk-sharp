@@ -3,14 +3,15 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>
-/// The two engine answers a sprite's glow blend reads, asked while the sprite
-/// is being planned (IShimFxClient's FxSpriteGlowFraction and
-/// FxGlowSightDistance over the renderer native left for the plan).
+/// The two answers a sprite's glow blend reads, asked while the sprite is
+/// being planned: the managed pixel visibility's, on the handle the request
+/// carries from the renderer (SS_SPRITE_IN_QUERY_HANDLE), which the plan hands
+/// back for the renderer to keep (SS_SPRITE_OUT_QUERY_HANDLE).
 /// </summary>
 public interface IFxSpriteGlow
 {
-    /// <summary><c>PixelVisibility_FractionVisible</c> on the planned sprite's query handle.</summary>
-    float FractionVisible(in Vector position, float proxySize, float proxyAspect);
+    /// <summary><c>PixelVisibility_FractionVisible</c> on the planned sprite's query handle, which the renderer keeps.</summary>
+    float FractionVisible(in Vector position, float proxySize, float proxyAspect, ref int queryHandle);
 
     /// <summary><c>GlowSightDistance( position, false )</c>.</summary>
     float SightDistance(in Vector position);
