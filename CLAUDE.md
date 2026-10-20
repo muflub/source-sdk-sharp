@@ -240,6 +240,19 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   slots answer the same (`src/test/common/DefaultSlots.cs`). Why: the guards
   made every binding take its side only to ask a question production always
   answers yes, and hid in tests what a missing engine really does.
+- **Engine interfaces (`IFwd*`, `IUniformRandom` and the slices the same
+  objects answer) are injected, never null** (user ruling 2026-10-20).
+  `EngineServices.AddForwarders` registers a forwarder over each side's bound
+  slot (`BoundForwarders*.cs`), before the area bindings; it asks the engine
+  at its first call and throws there, naming the interface. A consumer takes
+  the interface by constructor: no `Func<IFwdX?>`, no null branch, no public
+  `Acquire` answering null. A test side holds defaults that answer nothing
+  (`src/test/support/DefaultForwarders.cs`) until a fake root is attached.
+  Only the acquisition layer (each wrapper's internal `Acquire`, the bound
+  slots) sees a null; `NullableEngineInterfaceCensus` holds that over both
+  sides' assemblies. A diagnostic that reports a refusal asks through a probe
+  in the interop that answers a line (`ServerEngineInterfaces`,
+  `IFwdEngineClientProbe`).
 - **An interop constructor saves its parameters into fields and does nothing
   else** (Abi, Server.Interop, Client.Interop; user ruling 2026-10-20). What
   it would look up, acquire or build is handed to it, and a static factory
