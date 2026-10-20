@@ -270,6 +270,17 @@ enum HookIndex_t
 	kHook_ComputeShadowTextures,
 	kHook_ComputeShadowDepthTextures,
 	kHook_UnlockAllShadowDepthTextures,
+	// The mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1).
+	kHook_Bind,
+	kHook_GetDynamicMesh,
+	kHook_EnableClipping,
+	kHook_CreateOcclusionQueryObject,
+	kHook_DestroyOcclusionQueryObject,
+	kHook_ResetOcclusionQueryObject,
+	kHook_BeginOcclusionQueryDrawing,
+	kHook_EndOcclusionQueryDrawing,
+	kHook_OcclusionQuery_GetNumPixelsRendered,
+	kHook_ComputePixelDiameterOfSphere,
 	kHookCount
 };
 
@@ -997,6 +1008,172 @@ void H_UnlockAllShadowDepthTextures( IClientShadowMgr *self )
 	SS_CALL( UnlockAllShadowDepthTextures, void (*)( IClientShadowMgr * ) )( self );
 }
 
+// THE MESH AND OCCLUSION-QUERY HOOKS, armed only when the game was started with
+// SOURCESHARP_RENDER_TRACE_MESHES=1 (tools/probes/sessions/c7-render-small-ab.steps):
+// the frozen recordings and the live compare were taken without them, so a
+// default trace keeps their lines. They witness the draws that go through
+// dynamic meshes and occlusion queries -- pixel visibility's proxies and the
+// glow overlays' quads (C7) -- which a call trace otherwise cannot see: the
+// material bound, each dynamic mesh with its vertices as UnlockMesh is handed
+// them, the clipping switch, and every query object by the order it first
+// appeared. The pixel counts and sphere diameters are `q` lines (answers).
+bool g_bMeshes = false;
+CUtlVector<const void *> g_Queries;	// a query object's ordinal is its index here
+
+int Query( const void *h )
+{
+	if ( !h )
+		return -1;
+	int i = g_Queries.Find( h );
+	if ( i < 0 )
+		i = g_Queries.AddToTail( h );
+	return i;
+}
+
+// IMesh::UnlockMesh, by the vtable of the mesh it was installed on: dynamic
+// meshes of more than one class may be handed out, and each class has its own
+// original.
+struct MeshHook_t
+{
+	void **pVtable;
+	void *pOriginal;
+};
+MeshHook_t g_MeshHooks[ 8 ];
+int g_nMeshHooks = 0;
+
+void H_UnlockMesh( IMesh *self, int nVertexCount, int nIndexCount, MeshDesc_t &desc )
+{
+	void **pVtable = *(void ***)self;
+	void *pOriginal = NULL;
+	for ( int i = 0; i < g_nMeshHooks; i++ )
+	{
+		if ( g_MeshHooks[ i ].pVtable == pVtable )
+			pOriginal = g_MeshHooks[ i ].pOriginal;
+	}
+	if ( SS_FROM_CLIENT() )
+	{
+		char szVerts[ 900 ];
+		int n = 0;
+		szVerts[ 0 ] = 0;
+		for ( int v = 0; v < nVertexCount && v < 12 && desc.m_pPosition && n < (int)sizeof( szVerts ) - 80; v++ )
+		{
+			const float *p = (const float *)( (const unsigned char *)desc.m_pPosition + v * desc.m_VertexSize_Position );
+			n += V_snprintf( szVerts + n, sizeof( szVerts ) - n, " %.9g,%.9g,%.9g", p[ 0 ], p[ 1 ], p[ 2 ] );
+			if ( desc.m_pColor && desc.m_VertexSize_Color )
+			{
+				const unsigned char *c = desc.m_pColor + v * desc.m_VertexSize_Color;
+				n += V_snprintf( szVerts + n, sizeof( szVerts ) - n, "/%02x%02x%02x%02x", c[ 0 ], c[ 1 ], c[ 2 ], c[ 3 ] );
+			}
+		}
+		Line( "mesh.Unlock\tverts=%d indices=%d%s", nVertexCount, nIndexCount, szVerts );
+	}
+	if ( pOriginal )
+		( (void (*)( IMesh *, int, int, MeshDesc_t & ))pOriginal )( self, nVertexCount, nIndexCount, desc );
+}
+
+void HookMesh( IMesh *pMesh )
+{
+	if ( !pMesh || g_nMeshHooks >= (int)ARRAYSIZE( g_MeshHooks ) )
+		return;
+	void **pVtable = *(void ***)pMesh;
+	for ( int i = 0; i < g_nMeshHooks; i++ )
+	{
+		if ( g_MeshHooks[ i ].pVtable == pVtable )
+			return;
+	}
+	VTableSlotPatch::Patch patch;
+	if ( !VTableSlotPatch::Install( pMesh, &IMesh::UnlockMesh, (void *)&H_UnlockMesh, &patch ) )
+		return;
+	g_MeshHooks[ g_nMeshHooks ].pVtable = pVtable;
+	g_MeshHooks[ g_nMeshHooks ].pOriginal = patch.pOriginal;
+	g_nMeshHooks++;
+	g_Patches.AddToTail( patch );
+}
+
+void H_Bind( IMatRenderContext *self, IMaterial *pMaterial, void *pProxyData )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "ctx.Bind\tmaterial=%s", MaterialName( pMaterial ) );
+	SS_CALL( Bind, void (*)( IMatRenderContext *, IMaterial *, void * ) )( self, pMaterial, pProxyData );
+}
+
+IMesh *H_GetDynamicMesh( IMatRenderContext *self, bool bBuffered, IMesh *pVertexOverride, IMesh *pIndexOverride, IMaterial *pAutoBind )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	IMesh *pMesh = SS_CALL( GetDynamicMesh, IMesh *(*)( IMatRenderContext *, bool, IMesh *, IMesh *, IMaterial * ) )( self, bBuffered, pVertexOverride, pIndexOverride, pAutoBind );
+	if ( bClient )
+	{
+		Line( "ctx.GetDynamicMesh\tbuffered=%d override=%d,%d material=%s", bBuffered ? 1 : 0, pVertexOverride ? 1 : 0,
+		      pIndexOverride ? 1 : 0, MaterialName( pAutoBind ) );
+		HookMesh( pMesh );
+	}
+	return pMesh;
+}
+
+bool H_EnableClipping( IMatRenderContext *self, bool bEnable )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const bool bWas = SS_CALL( EnableClipping, bool (*)( IMatRenderContext *, bool ) )( self, bEnable );
+	if ( bClient )
+		Line( "ctx.EnableClipping\t%d was=%d", bEnable ? 1 : 0, bWas ? 1 : 0 );
+	return bWas;
+}
+
+OcclusionQueryObjectHandle_t H_CreateOcclusionQueryObject( IMatRenderContext *self )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	OcclusionQueryObjectHandle_t h = SS_CALL( CreateOcclusionQueryObject, OcclusionQueryObjectHandle_t (*)( IMatRenderContext * ) )( self );
+	if ( bClient )
+		Line( "ctx.CreateOcclusionQueryObject\t#%d", Query( h ) );
+	return h;
+}
+
+void H_DestroyOcclusionQueryObject( IMatRenderContext *self, OcclusionQueryObjectHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "ctx.DestroyOcclusionQueryObject\t#%d", Query( h ) );
+	SS_CALL( DestroyOcclusionQueryObject, void (*)( IMatRenderContext *, OcclusionQueryObjectHandle_t ) )( self, h );
+}
+
+void H_ResetOcclusionQueryObject( IMatRenderContext *self, OcclusionQueryObjectHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "ctx.ResetOcclusionQueryObject\t#%d", Query( h ) );
+	SS_CALL( ResetOcclusionQueryObject, void (*)( IMatRenderContext *, OcclusionQueryObjectHandle_t ) )( self, h );
+}
+
+void H_BeginOcclusionQueryDrawing( IMatRenderContext *self, OcclusionQueryObjectHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "ctx.BeginOcclusionQueryDrawing\t#%d", Query( h ) );
+	SS_CALL( BeginOcclusionQueryDrawing, void (*)( IMatRenderContext *, OcclusionQueryObjectHandle_t ) )( self, h );
+}
+
+void H_EndOcclusionQueryDrawing( IMatRenderContext *self, OcclusionQueryObjectHandle_t h )
+{
+	if ( SS_FROM_CLIENT() )
+		Line( "ctx.EndOcclusionQueryDrawing\t#%d", Query( h ) );
+	SS_CALL( EndOcclusionQueryDrawing, void (*)( IMatRenderContext *, OcclusionQueryObjectHandle_t ) )( self, h );
+}
+
+int H_OcclusionQuery_GetNumPixelsRendered( IMatRenderContext *self, OcclusionQueryObjectHandle_t h )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const int n = SS_CALL( OcclusionQuery_GetNumPixelsRendered, int (*)( IMatRenderContext *, OcclusionQueryObjectHandle_t ) )( self, h );
+	if ( bClient )
+		Line( "q\tOcclusionQuery_GetNumPixelsRendered\t#%d=%d", Query( h ), n );
+	return n;
+}
+
+float H_ComputePixelDiameterOfSphere( IMatRenderContext *self, const Vector &origin, float flRadius )
+{
+	const bool bClient = SS_FROM_CLIENT();
+	const float f = SS_CALL( ComputePixelDiameterOfSphere, float (*)( IMatRenderContext *, const Vector &, float ) )( self, origin, flRadius );
+	if ( bClient )
+		Line( "q\tComputePixelDiameterOfSphere\t%.9g,%.9g,%.9g r=%.9g=%.9g", origin.x, origin.y, origin.z, flRadius, f );
+	return f;
+}
+
 #define SS_INSTALL( object, pmf, name ) \
 	bOk = bOk && Install( object, pmf, (void *)&H_##name, &g_Originals[ kHook_##name ] )
 
@@ -1098,6 +1275,20 @@ bool InstallAll( IMatRenderContext *pContext )
 	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::ComputeShadowDepthTextures, ComputeShadowDepthTextures );
 	SS_INSTALL( g_pClientShadowMgr, &IClientShadowMgr::UnlockAllShadowDepthTextures, UnlockAllShadowDepthTextures );
 
+	if ( g_bMeshes )
+	{
+		SS_INSTALL( pContext, &IMatRenderContext::Bind, Bind );
+		SS_INSTALL( pContext, &IMatRenderContext::GetDynamicMesh, GetDynamicMesh );
+		SS_INSTALL( pContext, &IMatRenderContext::EnableClipping, EnableClipping );
+		SS_INSTALL( pContext, &IMatRenderContext::CreateOcclusionQueryObject, CreateOcclusionQueryObject );
+		SS_INSTALL( pContext, &IMatRenderContext::DestroyOcclusionQueryObject, DestroyOcclusionQueryObject );
+		SS_INSTALL( pContext, &IMatRenderContext::ResetOcclusionQueryObject, ResetOcclusionQueryObject );
+		SS_INSTALL( pContext, &IMatRenderContext::BeginOcclusionQueryDrawing, BeginOcclusionQueryDrawing );
+		SS_INSTALL( pContext, &IMatRenderContext::EndOcclusionQueryDrawing, EndOcclusionQueryDrawing );
+		SS_INSTALL( pContext, &IMatRenderContext::OcclusionQuery_GetNumPixelsRendered, OcclusionQuery_GetNumPixelsRendered );
+		SS_INSTALL( pContext, &IMatRenderContext::ComputePixelDiameterOfSphere, ComputePixelDiameterOfSphere );
+	}
+
 	return bOk;
 }
 
@@ -1119,6 +1310,10 @@ bool RenderTrace::Begin()
 	g_Text.RemoveAll();
 	g_WorldLists.RemoveAll();
 	g_nShadowDepth = 0;
+	g_Queries.RemoveAll();
+	g_nMeshHooks = 0;
+	const char *pszMeshes = getenv( "SOURCESHARP_RENDER_TRACE_MESHES" );
+	g_bMeshes = pszMeshes && pszMeshes[ 0 ] == '1';
 
 	CMatRenderContextPtr pContext( materials );
 	if ( !InstallAll( pContext ) )

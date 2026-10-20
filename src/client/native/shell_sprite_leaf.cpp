@@ -112,18 +112,39 @@ enum
 	SS_SPRITE_IN_HDR_COLOR_SCALE, SS_SPRITE_IN_BLEND,
 	SS_SPRITE_IN_VIEW_FORWARD, SS_SPRITE_IN_VIEW_RIGHT = SS_SPRITE_IN_VIEW_FORWARD + 3, SS_SPRITE_IN_VIEW_UP = SS_SPRITE_IN_VIEW_RIGHT + 3,
 	SS_SPRITE_IN_GLOW_PROXY_SIZE = SS_SPRITE_IN_VIEW_UP + 3,
+	// The renderer's pixel visibility handle (an int, its bits in the float),
+	// which managed's pixel visibility asks with (C7).
+	SS_SPRITE_IN_QUERY_HANDLE,
 	SS_SPRITE_IN_FLOATS,
 };
-COMPILE_TIME_ASSERT( SS_SPRITE_IN_FLOATS == 38 );
+COMPILE_TIME_ASSERT( SS_SPRITE_IN_FLOATS == 39 );
 
 // The plan.
 enum
 {
 	SS_SPRITE_OUT_DRAWN = 0, SS_SPRITE_OUT_SET_BLEND, SS_SPRITE_OUT_BLEND, SS_SPRITE_OUT_QUAD, SS_SPRITE_OUT_WIREFRAME,
 	SS_SPRITE_OUT_RGBA, SS_SPRITE_OUT_CORNERS = SS_SPRITE_OUT_RGBA + 4, SS_SPRITE_OUT_HDR_COLOR_SCALE = SS_SPRITE_OUT_CORNERS + 12,
+	// The handle as the question left it, stored back on the renderer.
+	SS_SPRITE_OUT_QUERY_HANDLE,
 	SS_SPRITE_OUT_FLOATS,
 };
-COMPILE_TIME_ASSERT( SS_SPRITE_OUT_FLOATS == 22 );
+COMPILE_TIME_ASSERT( SS_SPRITE_OUT_FLOATS == 23 );
+
+static float HandleBits( pixelvis_handle_t h )
+{
+	float f;
+	memcpy( &f, &h, sizeof( f ) );
+	return f;
+}
+
+static pixelvis_handle_t HandleOf( float f )
+{
+	pixelvis_handle_t h;
+	memcpy( &h, &f, sizeof( h ) );
+	return h;
+}
+
+COMPILE_TIME_ASSERT( sizeof( pixelvis_handle_t ) == sizeof( float ) );
 
 // The renderer whose sprite is being planned: its query handle, for the glow
 // question asked from inside the plan. Sprites are drawn one at a time on the
@@ -290,6 +311,7 @@ int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, co
 	if ( !GatherSprite( entity, model, origin, angles, frame, attachedto, attachmentindex, rendermode, renderfx,
 	                    alpha, r, g, b, scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, in, pending ) )
 		return 0;
+	in[ SS_SPRITE_IN_QUERY_HANDLE ] = HandleBits( pQuery ? *pQuery : 0 );
 
 	float out[ SS_SPRITE_OUT_FLOATS ];
 	s_pPlanQuery = pQuery;
@@ -298,6 +320,8 @@ int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, co
 
 	if ( nPlanned != SS_SPRITE_OUT_FLOATS )
 		return 0;
+	if ( pQuery )
+		*pQuery = HandleOf( out[ SS_SPRITE_OUT_QUERY_HANDLE ] );
 
 	return ExecuteSprite( pending, out );
 }
@@ -322,16 +346,25 @@ int SourceSharp_SpriteDrawBegin( pixelvis_handle_t *pQuery, IClientEntity *entit
 	                            r, g, b, scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn,
 	                            s_DirectPending ) )
 		return 0;
+	pIn[ SS_SPRITE_IN_QUERY_HANDLE ] = HandleBits( pQuery ? *pQuery : 0 );
 
 	s_bDirectPending = true;
 	s_pPlanQuery = pQuery;
 	return SS_SPRITE_IN_FLOATS;
 }
 
+// The direct path's handle, as the plan left it, back on the renderer.
+static void StorePlanQuery( const float *pOut )
+{
+	if ( s_pPlanQuery && pOut )
+		*s_pPlanQuery = HandleOf( pOut[ SS_SPRITE_OUT_QUERY_HANDLE ] );
+}
+
 int32_t SourceSharp_FxSpriteDrawEnd( const float *pOut )
 {
 
 	const bool bPending = s_bDirectPending;
+	StorePlanQuery( pOut );
 	s_bDirectPending = false;
 	s_pPlanQuery = NULL;
 
@@ -356,6 +389,7 @@ static CUtlMap<IClientEntity *, SpriteStored_t> s_StoredSprites( DefLessFunc( IC
 int32_t SourceSharp_FxSpriteDrawStore( const float *pOut )
 {
 	const bool bPending = s_bDirectPending;
+	StorePlanQuery( pOut );
 	s_bDirectPending = false;
 	s_pPlanQuery = NULL;
 

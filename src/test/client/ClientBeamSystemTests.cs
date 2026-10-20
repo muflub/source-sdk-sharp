@@ -112,6 +112,15 @@ public class ClientBeamSystemTests
             => Draws.Add($"mesh {primitive} {vertices.Length / 9}");
     }
 
+    // Every halo's sight line is clear.
+    private sealed class AllVisible : IPixelVisibility
+    {
+        public float FractionVisible(in PixelVisParams p, ref int queryHandle) => 1;
+        public float FractionVisibleNoHandle(in Vector position) => 1;
+        public bool IsAvailable => true;
+        public float GlowSightDistance(in Vector glowOrigin, bool shouldTrace) => 1;
+    }
+
     private sealed class Rig
     {
         public readonly RecordingEngine Engine = new();
@@ -133,7 +142,7 @@ public class ClientBeamSystemTests
                 () => EngineConVars.TryGetValue((string)Engine.Last("Console.FindConVarValue")!.Value.Arg(0)!,
                                                 out string? v) ? v : null);
 
-            Beams = new ClientBeamSystem(Exec, Clock, Engine, Log);
+            Beams = new ClientBeamSystem(Exec, Clock, Engine, Log, new AllVisible());
         }
 
         public void Set(string name, string value) => EngineConVars[name] = value;

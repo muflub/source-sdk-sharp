@@ -1454,3 +1454,29 @@ public unsafe struct ManagedClientSystemsClientTable
     [SlotHash(0x3169518e)]
     public delegate* unmanaged<void*, byte*, int, int> Stage;
 }
+
+/// <summary>The table managed writes for <c>IManagedPixelVisClient</c> (<c>SSManagedPixelVisClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedPixelVisClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedPixelVisClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t EndView( const float *pView, int32_t nViewFloats, int32_t *pCmds, int32_t nCmdWords )
+    [SlotHash(0xfa64b18d)]
+    public delegate* unmanaged<void*, void*, int, void*, int, int> EndView;
+
+    // 3: int32_t Commands( int32_t *pCmds, int32_t nCmdWords )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Commands;
+
+    // 4: void EndScene( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> EndScene;
+}

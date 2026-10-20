@@ -971,6 +971,12 @@ public enum CrossingOp
     ClientScreenSpaceEffectsStage = 395,
     /// <summary>IManagedClientSystemsClient::Stage: one stage of a kClientSystems[] row whose system is managed's (C7, vgui_game_viewport.cpp's row first). CLIENT ONLY.</summary>
     ClientSystemStage = 396,
+    /// <summary>IManagedPixelVisClient::EndView: a view's end asks the managed pixel visibility for the proxies to draw (C7, c_pixel_visibility.cpp). CLIENT ONLY.</summary>
+    ClientPixelVisEndView = 397,
+    /// <summary>IManagedPixelVisClient::Commands: a view's end whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
+    ClientPixelVisCommands = 398,
+    /// <summary>IManagedPixelVisClient::EndScene: the scene's end frees the sets and queries nobody asked about. CLIENT ONLY.</summary>
+    ClientPixelVisEndScene = 399,
 }
 
 /// <summary>

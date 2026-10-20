@@ -396,6 +396,14 @@ public unsafe interface IManagedClientSystemsClient
     int Stage(byte* a0, int a1);
 }
 
+[ManagedVtable(typeof(ManagedPixelVisClientTable))]
+public unsafe interface IManagedPixelVisClient
+{
+    int EndView(void* a0, int a1, void* a2, int a3);
+    int Commands(void* a0, int a1);
+    void EndScene();
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -457,4 +465,6 @@ public static class ManagedAreaFactory
         => IManagedSoundEmitterClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedClientSystemsClient target)
         => IManagedClientSystemsClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedPixelVisClient target)
+        => IManagedPixelVisClient__ManagedVtable.Create(vtables, target);
 }

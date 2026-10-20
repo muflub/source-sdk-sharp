@@ -61,6 +61,7 @@
 #include "ivieweffects.h"
 #include "glow_overlay.h"
 #include "c_pixel_visibility.h"
+#include "shell_pixelvis_client.h"
 #include "clientsideeffects.h"
 #include "smoke_fog_overlay.h"
 #include "c_effects.h"
@@ -1621,8 +1622,10 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_PostClearColor4ub:
 			PostOp( op );
 			break;
-		case RENDER_OP_PixelVisEndCurrentView: PixelVisibility_EndCurrentView(); break;
-		case RENDER_OP_PixelVisEndScene: PixelVisibility_EndScene(); break;
+		// c_pixel_visibility.cpp's system first, for its last caller
+		// (glow_overlay.cpp), then managed's (every other glow).
+		case RENDER_OP_PixelVisEndCurrentView: PixelVisibility_EndCurrentView(); ShellPixelVisEndView(); break;
+		case RENDER_OP_PixelVisEndScene: PixelVisibility_EndScene(); ShellPixelVisEndScene(); break;
 		case RENDER_OP_Flush: { CMatRenderContextPtr ctx( materials ); ctx->Flush( op.I[0] != 0 ); break; }
 		case RENDER_OP_CopyRefractionTarget:
 		{

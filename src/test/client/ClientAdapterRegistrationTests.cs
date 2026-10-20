@@ -53,7 +53,6 @@ public unsafe class ClientAdapterRegistrationTests
     [UnmanagedCallersOnly] private static int One(void* self) => 1;
     [UnmanagedCallersOnly] private static int Seven(void* self) => 7;
     [UnmanagedCallersOnly] private static int Nine(void* self, void* output) => 9;
-    [UnmanagedCallersOnly] private static float HalfAboveZ(void* self, float* position) => position[2] + 0.5f;
 
     [Fact]
     public void TheRegisteredFxSuppressionAsksTheFxArea()
@@ -74,12 +73,6 @@ public unsafe class ClientAdapterRegistrationTests
     public void TheRegisteredFxPrecacheAsksTheFxArea()
         => Assert.Equal(7, Through<IFxPrecache, int>(Fx, nameof(ShimFxClientFwd.FxPrecacheCount),
                                                      (nint)(delegate* unmanaged<void*, int>)&Seven, p => p.Count()));
-
-    [Fact]
-    public void TheRegisteredSpriteGlowAsksTheFxArea()
-        => Assert.Equal(3.5f, Through<IFxSpriteGlow, float>(Fx, nameof(ShimFxClientFwd.FxGlowSightDistance),
-                                                            (nint)(delegate* unmanaged<void*, float*, float>)&HalfAboveZ,
-                                                            g => g.SightDistance(new Vector(1, 2, 3))));
 
     [Fact]
     public void TheRegisteredSpriteDrawAsksTheFxArea()
@@ -120,13 +113,6 @@ public unsafe class ClientAdapterRegistrationTests
         return floats;
     }
 
-    [UnmanagedCallersOnly]
-    private static float VisibleThreeQuarters(void* self, float* origin, int* handle)
-    {
-        *handle = 4;
-        return 0.75f;
-    }
-
     [UnmanagedCallersOnly] private static void SeeDestroy(void* self, uint owner, int channel) => t_seen = [owner, channel];
     [UnmanagedCallersOnly] private static void SeeMeshDestroy(void* self, uint owner) => t_seen = [owner];
     [UnmanagedCallersOnly] private static void SeeWind(void* self, float* wind, float* sway, int winds) => t_seen = [winds, wind[0]];
@@ -159,17 +145,6 @@ public unsafe class ClientAdapterRegistrationTests
         => Assert.Equal((0.5f, 3f), Through<IClientPlaneTrace, (float, float)>(Particles, nameof(ShimParticlesClientFwd.ParticlesTraceLine),
                                                                                (nint)(delegate* unmanaged<void*, float*, float*, int, float*, int, int>)&PlaneTraceHalf,
                                                                                t => t.TraceLine(Vector.Zero, new Vector(0, 0, 64), 3) is var r ? (r.Fraction, r.PlaneDist) : default));
-
-    [Fact]
-    public void TheRegisteredPixelVisibilityAsksTheParticlesArea()
-    {
-        int handle = 0;
-        float visible = Through<IParticlePixelVisibility, float>(Particles, nameof(ShimParticlesClientFwd.ParticlesPixelVisible),
-                                                                 (nint)(delegate* unmanaged<void*, float*, int*, float>)&VisibleThreeQuarters,
-                                                                 v => v.FractionVisible(Vector.Zero, ref handle));
-
-        Assert.Equal((0.75f, 4), (visible, handle));
-    }
 
     [Fact]
     public void TheRegisteredExecutorDestroysThroughTheParticlesArea()
@@ -269,6 +244,40 @@ public unsafe class ClientAdapterRegistrationTests
                                                          v => v.Info(3, out var i) ? i : default);
 
         Assert.Equal(new ViewTargetInfo(640, 480, 3, 2), info);
+    }
+
+    // The pixel visibility's query counts (C7): the visible query's count and the counting query's.
+    [UnmanagedCallersOnly]
+    private static void QueryPixelsOf(void* self, int visible, int count, int* answer)
+    {
+        answer[0] = visible * 10;
+        answer[1] = count * 10;
+    }
+
+    [Fact]
+    public void TheRegisteredPixelVisSlotsCountThroughTheViewArea()
+    {
+        var counts = Through<IPixelVisSlots, (int, int)>(View, nameof(ShimViewClientFwd.PixelVisQueryPixels),
+                                                         (nint)(delegate* unmanaged<void*, int, int, int*, void>)&QueryPixelsOf,
+                                                         s => { s.QueryPixels(3, 4, out int v, out int c); return (v, c); });
+        Assert.Equal((30, 40), counts);
+    }
+
+    // The current view: its id, and the origin's x in the first float.
+    [UnmanagedCallersOnly]
+    private static int ViewSix(void* self, float* output, int floats)
+    {
+        output[0] = 12.5f;
+        return 6;
+    }
+
+    [Fact]
+    public void TheRegisteredPixelVisSlotsReadTheViewThroughTheViewArea()
+    {
+        var view = Through<IPixelVisSlots, CurrentViewState>(View, nameof(ShimViewClientFwd.PixelVisView),
+                                                             (nint)(delegate* unmanaged<void*, float*, int, int>)&ViewSix,
+                                                             s => s.View());
+        Assert.Equal((6, 12.5f), (view.Id, view.Origin.X));
     }
 
     [ThreadStatic] private static string? t_declared;

@@ -127,8 +127,10 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
             services.AddInstance<IParticleCollections>(collections);
         var particleView = new ClientParticleViewSlots(areas.ParticlesClient, particleLibrary);
         services.AddInstance<IParticleViewSource>(particleView);
-        services.AddInstance<IParticlePixelVisibility>(particleView);
         services.AddInstance<IParticleThrottle>(particleView);
+        // The pixel visibility's engine slots (C7): IParticlePixelVisibility and
+        // IFxSpriteGlow are the managed PixelVisibilitySystem's (ClientModule).
+        services.AddInstance<IPixelVisSlots>(new ClientPixelVisSlots(areas.ViewClient));
         services.AddInstance(new ParticleViews(particleView));
         // The dust motes' brush test (lane c5-particles).
         services.AddInstance<IClientBrushContents>(new ClientBrushContents(areas.ParticlesClient));
@@ -153,7 +155,6 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
 
         // The client-side effect list's carry-out (cluster 3).
         services.AddInstance<IFxRender>(new ClientFxRenderSlots(areas.FxClient));
-        services.AddInstance<IFxSpriteGlow>(new ClientFxSpriteGlowSlots(areas.FxClient));
         services.AddInstance<IFxSpriteDraw>(new ClientFxSpriteDrawSlots(areas.FxClient));
         services.AddInstance<IFxPrecache>(new ClientFxPrecacheSlots(areas.FxClient));
 

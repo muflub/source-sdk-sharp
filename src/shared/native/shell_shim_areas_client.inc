@@ -288,6 +288,18 @@ int32_t CShimViewClient::ViewTargetInfo( int32_t nTarget, int32_t * pOut4 )
 	{ return ::SourceSharp_ViewTargetInfo( nTarget, pOut4 ); }
 int32_t CShimViewClient::RenderTargetDeclare( int32_t nSlot, const char * pszName, const char * pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder )
 	{ return ::SourceSharp_RenderTargetDeclare( nSlot, pszName, pszGroup, bComplain, nCreationFlags, nReleaseOrder ); }
+int32_t CShimViewClient::PixelVisQueryCreate()
+	{ return ::SourceSharp_PixelVisQueryCreate(); }
+void CShimViewClient::PixelVisQueryDestroy( int32_t nQuery )
+	{ return ::SourceSharp_PixelVisQueryDestroy( nQuery ); }
+void CShimViewClient::PixelVisQueryReset( int32_t nQuery )
+	{ return ::SourceSharp_PixelVisQueryReset( nQuery ); }
+void CShimViewClient::PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t * pOut )
+	{ return ::SourceSharp_PixelVisQueryPixels( nVisible, nCount, pOut ); }
+void CShimViewClient::PixelVisDiameters( const float * pSpheres, int32_t nSpheres, float * pOut )
+	{ return ::SourceSharp_PixelVisDiameters( pSpheres, nSpheres, pOut ); }
+int32_t CShimViewClient::PixelVisView( float * pOut, int32_t nFloats )
+	{ return ::SourceSharp_PixelVisView( pOut, nFloats ); }
 
 int32_t CShimUserMessagesClient::ClientViewportQuery( const char * pPanel )
 	{ return ::SourceSharp_ClientViewportQuery( pPanel ); }

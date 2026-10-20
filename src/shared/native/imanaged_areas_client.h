@@ -1257,6 +1257,37 @@ static const uint32_t kIManagedClientSystemsClientSlotHashes[] = {
 static const int32_t kIManagedClientSystemsClientSlotCount = 3;
 static_assert( sizeof( SSManagedClientSystemsClientTable ) == 3 * sizeof( void * ), "SSManagedClientSystemsClientTable is one pointer per slot" );
 
+class IManagedPixelVisClient;
+
+// The table managed writes for IManagedPixelVisClient: Release, Validate, then the TSV's order.
+struct SSManagedPixelVisClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *EndView )( IManagedPixelVisClient *self, const float *pView, int32_t nViewFloats, int32_t *pCmds, int32_t nCmdWords );
+	int32_t ( *Commands )( IManagedPixelVisClient *self, int32_t *pCmds, int32_t nCmdWords );
+	void ( *EndScene )( IManagedPixelVisClient *self );
+};
+
+class IManagedPixelVisClient : public IManagedObject
+{
+public:
+	explicit IManagedPixelVisClient( const SSManagedPixelVisClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t EndView( const float *pView, int32_t nViewFloats, int32_t *pCmds, int32_t nCmdWords ) { return Table()->EndView( this, pView, nViewFloats, pCmds, nCmdWords ); }
+	int32_t Commands( int32_t *pCmds, int32_t nCmdWords ) { return Table()->Commands( this, pCmds, nCmdWords ); }
+	void EndScene() { Table()->EndScene( this ); }
+
+private:
+	const SSManagedPixelVisClientTable *Table() const { return static_cast< const SSManagedPixelVisClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedPixelVisClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xfa64b18d, 0x0d54c15e, 0x07e0f4c4,
+};
+static const int32_t kIManagedPixelVisClientSlotCount = 5;
+static_assert( sizeof( SSManagedPixelVisClientTable ) == 5 * sizeof( void * ), "SSManagedPixelVisClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1288,6 +1319,7 @@ IManagedDetailPropsClient *ManagedDetailPropsClient();   // this load's area, or
 IManagedLeafSystemClient *ManagedLeafSystemClient();   // this load's area, or NULL outside a load
 IManagedSoundEmitterClient *ManagedSoundEmitterClient();   // this load's area, or NULL outside a load
 IManagedClientSystemsClient *ManagedClientSystemsClient();   // this load's area, or NULL outside a load
+IManagedPixelVisClient *ManagedPixelVisClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

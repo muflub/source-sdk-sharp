@@ -72,6 +72,7 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private const int LifecycleInit = 0, LifecycleShutdown = 1, LifecycleClear = 2;
 
     private readonly IClientBeamExecutor _executor;
+    private readonly IPixelVisibility _pixelVis;
     private readonly IGameClock _clock;
     private readonly IEngineConsole _console;
     private readonly ILog _log;
@@ -84,9 +85,10 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private BeamSystem _system;
     private long _created, _refused, _updates, _draws;
 
-    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log)
+    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log, IPixelVisibility pixelVis)
     {
         _executor = executor;
+        _pixelVis = pixelVis;
         _clock = clock;
         _console = console;
         _log = log;
@@ -440,7 +442,8 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
             return culled;
         }
 
-        public float HaloVisibility(Beam beam, in Vector origin, float proxySize) => X.HaloVisibility(origin, proxySize);
+        // Stock's beam never set its query handle: the handle-less question, a sight line.
+        public float HaloVisibility(Beam beam, in Vector origin, float proxySize) => owner._pixelVis.FractionVisibleNoHandle(origin);
 
         public Vector ScreenPosition(in Vector point) => X.ScreenPosition(point);
 

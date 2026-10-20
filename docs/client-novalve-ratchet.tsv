@@ -1,6 +1,7 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, C7 pixel visibility (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_pixelvis_client.cpp (the occlusion query table and the executor of the proxies managed answers a view's end with) joins client.so: incdir-forbidden-tus 140 -> 141 RAISED (the one new TU; c_pixel_visibility.cpp's eviction, after glow_overlay.cpp's, takes one out); logic-lines 7566 unchanged (the new functions ruled SLOT, SLOT-HELP and HOOK). Hand-edited.
 # 2026-10-19, C7 viewport system (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: vgui_game_viewport.cpp left client.so (CViewportClientSystem is managed's ViewportClientSystem, its row the adapter's): fork-src 5 -> 4, fork-hdr-not-allowed 306 -> 305, fork-hdr-total 470 -> 469, incdir-forbidden-tus 141 -> 140, sdk-links 518 -> 517 (the .cpp); logic-lines 7566 unchanged. Hand-edited.
 # 2026-10-19, C7 viewport system (the replacement), measured by tools/client-novalve-census on the lane at main a001d7a31: shell_managed_clientsystems_client.cpp (the kClientSystems[] row adapter for managed client systems) joins client.so: incdir-forbidden-tus 140 -> 141 RAISED (the one new TU; vgui_game_viewport.cpp's eviction takes one out); logic-lines 7566 unchanged (the adapter ruled SLOT, SLOT-HELP and HOOK, ClientModeLayout BOUNDARY). Hand-edited.
 # 2026-10-19, C7 screen-space effects (the eviction), measured by tools/client-novalve-census on the lane at main a001d7a31: ScreenSpaceEffects.cpp left client.so (its manager and CExampleEffect are ScreenSpaceEffectManager's): fork-src 6 -> 5, fork-hdr-not-allowed 308 -> 306, fork-hdr-total 472 -> 470, incdir-forbidden-tus 141 -> 140, sdk-links 520 -> 518 (the .cpp and ScreenSpaceEffects.h, which only it read: make sdk-census); logic-lines 7566 unchanged. Hand-edited.
@@ -329,7 +330,7 @@ incdir-forbidden	6
 #   SLOT-HELP/HOOK (tools/shim-scope), so logic-lines stays 8301. Hand-edited.
 # RAISED 2026-10-19, incdir-forbidden-tus 140 -> 141 (the client temp entity landing on main 6c0c02d09), deliberately: the new
 #   TU shell_tempents_store_client.cpp, which stores the managed plan as engine-read RecvTables (dt_recv.h).
-incdir-forbidden-tus	140
+incdir-forbidden-tus	141
 link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
 # 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row

@@ -38,7 +38,8 @@ public class ManagedClientSystemsAbiTests
         var rows = Regex.Matches(Native(), @"static CManagedClientSystemRow s_Row\( ""(\w+)"" \);")
                         .Select(m => m.Groups[1].Value).ToList();
         Assert.NotEmpty(rows);
-        var names = new[] { new ViewportClientSystem(new NullLayout()).Name };
+        var names = new[] { new ViewportClientSystem(new NullLayout()).Name,
+                            new SourceSharp.Client.Render.PixelVisibility.PixelVisibilityClientSystem(null!).Name };
         foreach (string row in rows)
             Assert.Contains(row, names);
     }

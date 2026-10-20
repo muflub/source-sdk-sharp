@@ -10,3 +10,4 @@ void LevelShutdownPreEntity() override	SLOT	CClientSystem::LevelShutdownPreEntit
 void LevelShutdownPostEntity() override	SLOT	CClientSystem::LevelShutdownPostEntity: managed's stage for the row
 int32_t Stage( int32_t nStage )	SLOT-HELP	IManagedClientSystemsClient::Stage by the row's name; -1 with no managed load, and one warning for a row managed does not know
 CClientSystem *ClientSystem_ManagedViewport()	HOOK	kClientSystems[]'s CViewportClientSystem row: the adapter over managed's ViewportClientSystem
+CClientSystem *ClientSystem_ManagedPixelVisibility()	HOOK	kClientSystems[]'s CPixelVisibilitySystem row: the adapter over managed's PixelVisibilitySystem

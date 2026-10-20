@@ -749,6 +749,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedClientSystemsClient",
                       v => ManagedAreaFactory.Create(v, new ClientSystemsClientBinding(_engine.Crossings, Log,
                                                                                     _services.Require<ClientSystems.ManagedClientSystems>())));
+        // The plan's pixel visibility ops (C7): a view's end draws managed's
+        // proxies, the scene's end frees what nobody asked about.
+        _bindings.Add("IManagedPixelVisClient",
+                      v => ManagedAreaFactory.Create(v, new PixelVisClientBinding(_engine.Crossings, Log,
+                                                                               _services.Require<Render.PixelVisibility.PixelVisHost>())));
         _bindings.Add("IManagedWorldTextClient",
                       v => ManagedAreaFactory.Create(v, new WorldTextClientBinding(_engine.Crossings, Log,
                                                                                   new Effects.ClientWorldTexts(_standalones))));
@@ -838,8 +843,40 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             var systems = new ClientSystems.ManagedClientSystems();
             systems.Register(new ClientSystems.ViewportClientSystem(locator.Require<IClientModeLayout>()));
+            systems.Register(new Render.PixelVisibility.PixelVisibilityClientSystem(
+                locator.Require<Render.PixelVisibility.PixelVisibilitySystem>()));
             return systems;
         });
+        // The client's pixel visibility (C7, c_pixel_visibility.cpp): the
+        // system every glow asks (sprites, particle glows, beam halos), its
+        // engine over IShimViewClient's slots, and the ConVars it reads by name
+        // while c_pixel_visibility.cpp and glow_overlay.cpp declare them. An
+        // IReloadParticipant: a reload carries the level's materials.
+        _services.AddFactory<Render.PixelVisibility.PixelVisSettings>(locator =>
+        {
+            var settings = new Render.PixelVisibility.PixelVisSettings(
+                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
+            settings.Start();
+            _pixelVisSettings = settings;
+            return settings;
+        });
+        _services.AddFactory<Render.PixelVisibility.ClientPixelVisEngine>(locator => new Render.PixelVisibility.ClientPixelVisEngine(
+            locator.Require<IPixelVisSlots>(), locator.Require<IFxRender>(), locator.Require<IEngineWorldQuery>(),
+            locator.Require<IFlashlightSlots>().DXSupportLevel, Log, locator.Require<IEngineConsole>().FindConVarValue));
+        _services.AddFactory<Render.PixelVisibility.PixelVisibilitySystem>(locator =>
+        {
+            var engine = locator.Require<Render.PixelVisibility.ClientPixelVisEngine>();
+            var settings = locator.Require<Render.PixelVisibility.PixelVisSettings>();
+            var system = new Render.PixelVisibility.PixelVisibilitySystem(engine, engine,
+                new Render.PixelVisibility.PixelVisFrame(locator.Require<IEngineEnvironment>()), settings);
+            settings.DrawChanged = system.ShowQueries;
+            return system;
+        });
+        _services.AddFactory<IPixelVisibility>(locator => locator.Require<Render.PixelVisibility.PixelVisibilitySystem>());
+        _services.AddFactory<IParticlePixelVisibility>(locator => new Render.PixelVisibility.ParticlePixelVisibility(locator.Require<IPixelVisibility>()));
+        _services.AddFactory<IFxSpriteGlow>(locator => new Render.PixelVisibility.PixelVisSpriteGlow(locator.Require<IPixelVisibility>()));
+        _services.AddFactory<Render.PixelVisibility.PixelVisHost>(locator =>
+            new Render.PixelVisibility.PixelVisHost(locator.Require<Render.PixelVisibility.PixelVisibilitySystem>()));
         // The leaf system's registry and its decisions over it (C7 cluster 12
         // L2); the registry is an IReloadParticipant, so every renderable,
         // leaf and shadow crosses cs_cl_reload. Its native batches are the
@@ -2222,6 +2259,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Flashlight.LocalPlayerFlashlight? _flashlight;
     private Flashlight.FlashlightConVars? _flashlightSettings;
     private Render.LeafSystem.LeafListConVars? _leafConVars;
+    private Render.PixelVisibility.PixelVisSettings? _pixelVisSettings;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
 
@@ -2463,6 +2501,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The leaf system's (C7 cluster 12 L2): r_portalsopenall, the engine's.
         if (_leafConVars is { } leafConVars && leafConVars.OnChanged(id, newValue))
+            return;
+
+        // The pixel visibility's (C7), read by name while their files declare them.
+        if (_pixelVisSettings is { } pixelVisSettings && pixelVisSettings.OnChanged(id, newValue))
             return;
 
         if (!_convars.NotifyChanged(id, newValue, oldValue))

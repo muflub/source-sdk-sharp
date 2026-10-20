@@ -2536,7 +2536,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 17 forwarder(s) over IShimViewClient.
+// ShimViewClient: 23 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2572,6 +2572,18 @@ static int32_t SSFwd_ShimViewClient_RenderViewToTarget( IShimViewClient *self, i
 static int32_t SSFwd_ShimViewClient_ViewTargetInfo( IShimViewClient *self, int32_t a0, int32_t * a1 ) { return self->ViewTargetInfo( a0, a1 ); }
 // int32_t IShimViewClient::RenderTargetDeclare( int32_t, const char *, const char *, int32_t, int32_t, int32_t )
 static int32_t SSFwd_ShimViewClient_RenderTargetDeclare( IShimViewClient *self, int32_t a0, const char * a1, const char * a2, int32_t a3, int32_t a4, int32_t a5 ) { return self->RenderTargetDeclare( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimViewClient::PixelVisQueryCreate( void )
+static int32_t SSFwd_ShimViewClient_PixelVisQueryCreate( IShimViewClient *self ) { return self->PixelVisQueryCreate(); }
+// void IShimViewClient::PixelVisQueryDestroy( int32_t )
+static void SSFwd_ShimViewClient_PixelVisQueryDestroy( IShimViewClient *self, int32_t a0 ) { self->PixelVisQueryDestroy( a0 ); }
+// void IShimViewClient::PixelVisQueryReset( int32_t )
+static void SSFwd_ShimViewClient_PixelVisQueryReset( IShimViewClient *self, int32_t a0 ) { self->PixelVisQueryReset( a0 ); }
+// void IShimViewClient::PixelVisQueryPixels( int32_t, int32_t, int32_t * )
+static void SSFwd_ShimViewClient_PixelVisQueryPixels( IShimViewClient *self, int32_t a0, int32_t a1, int32_t * a2 ) { self->PixelVisQueryPixels( a0, a1, a2 ); }
+// void IShimViewClient::PixelVisDiameters( const float *, int32_t, float * )
+static void SSFwd_ShimViewClient_PixelVisDiameters( IShimViewClient *self, const float * a0, int32_t a1, float * a2 ) { self->PixelVisDiameters( a0, a1, a2 ); }
+// int32_t IShimViewClient::PixelVisView( float *, int32_t )
+static int32_t SSFwd_ShimViewClient_PixelVisView( IShimViewClient *self, float * a0, int32_t a1 ) { return self->PixelVisView( a0, a1 ); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
@@ -2591,9 +2603,15 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_RenderViewToTarget ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ViewTargetInfo ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_RenderTargetDeclare ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisQueryCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisQueryDestroy ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisQueryReset ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisQueryPixels ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisDiameters ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisView ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 17 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 23 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.
