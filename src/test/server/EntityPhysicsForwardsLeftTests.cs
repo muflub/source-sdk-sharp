@@ -21,7 +21,7 @@ public class EntityPhysicsForwardsLeftTests
         { "EntityEnableMotion", "Motion.EnableMotion(entity, enable);", "->EnableMotion((void*)o, enable ? (byte)1 : (byte)0)" },
         { "EntityPhysicsWake", "Motion.Wake(entity);", "->Wake((void*)o)" },
         { "EntityPhysicsSleep", "Motion.Sleep(entity);", "->Sleep((void*)o)" },
-        { "EntityApplyVelocityImpulse", "Motion.ApplyVelocityImpulse(h, impulse);", "->AddVelocity((void*)o, &linear, null)" },
+        { "EntityApplyVelocityImpulse", "motion.ApplyVelocityImpulse(h, impulse);", "->AddVelocity((void*)o, &linear, null)" },
         { "EntityApplyForceCenter", "Motion.ApplyForceCenter(entity, force);", "->ApplyForceCenter((void*)o, &force)" },
         { "EntityApplyForceOffset", "Motion.ApplyForceOffset(entity, force, worldPoint);", "->ApplyForceOffset((void*)o, &force, &worldPoint)" },
         { "EntityApplyTorque", "Motion.ApplyTorque(entity, torque);", "->ApplyTorqueCenter((void*)o, &torque)" },

@@ -564,3 +564,4 @@ src/fwd/native/fwd_shadows.cpp	native code built against SDK headers: the manage
 src/fwd/native/fwd_shadows.h	native code built against SDK headers: the shadow manager table's environment and record kinds
 src/client/managed/Render/Shadows/ShadowConVars.cs	ports clientshadowmgr.cpp's ConVars (names, defaults, flags) and console commands (r_shadowdir, r_shadowangles, r_shadowcolor, r_shadowdist, r_shadowblobbycutoff, r_shadowbreak, cs_cl_shadow_report)
 src/client/managed/Render/Shadows/ClientShadowSystem.cs	ports C_BaseEntity::CreateShadow and DestroyShadow's arms (c_baseentity.cpp) and the entity's shadow handle and dirty bit (m_ShadowHandle, EFL_DIRTY_SHADOWUPDATE), over the managed CClientShadowMgr
+src/server/managed/Entities/Triggers/PlayerCommandTouches.cs	ports the per-command trigger touch of CMoveHelperServer::ProcessImpacts (movehelper_server.cpp: PhysicsTouchTriggers after each command)

@@ -98,12 +98,17 @@
     "trigger_multiple *20, whose ONLY connection is OnStartTouch -> PlaySound.",
     "Chosen for being inert: dm_lockdown's other triggers Explode walls and Kill",
     "brushes, and a gate that rearranges the map it is measuring cannot then",
-    "compare a census against it."
+    "compare a census against it.",
+    "wind: fan_wind, the trigger_push over the same floor (speed 800, toward the",
+    "fan), which the fan's angular-velocity sensor enables once the fan spins up.",
+    "It blows a player in the room about, as stock's does, which the step's",
+    "shadow catch-ups cannot measure; the step turns it off and back on after."
   ],
   "trigger": {
     "class":   "trigger_multiple",
     "inside":  [-3395, 5838, 92],
-    "outside": [-3843, 2894, 0]
+    "outside": [-3843, 2894, 0],
+    "wind":    "fan_wind"
   },
 
   "_door": [

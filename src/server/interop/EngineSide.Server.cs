@@ -457,10 +457,23 @@ internal sealed unsafe partial class EngineSide
     /// an upward push does nothing unless the ground is let go of first.
     /// </summary>
     public void EntityApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround)
+        => ApplyVelocityImpulse(PlayerMoves, Motion, h, impulse, clearGround);
+
+    /// <summary>
+    /// The impulse's two homes. A player's velocity and ground are its movement
+    /// record's (plan_server_native_v2 T4g), so <paramref name="players"/> takes
+    /// a player's whole impulse; the player's physics object is its shadow,
+    /// which the next move overwrites, so an impulse there was lost. Anything
+    /// else is <paramref name="motion"/>'s: the solver's object, where
+    /// clearGround has nothing to write (EntityPhysicsMotion's remarks).
+    /// </summary>
+    internal static void ApplyVelocityImpulse(IServerPlayerMovementRoute? players, EntityPhysicsMotion motion,
+                                              EntityHandle h, Vector impulse, bool clearGround)
     {
-        // clearGround is the non-simulated arm's, and that arm writes nothing
-        // (EntityPhysicsMotion's remarks): the native forward ignored it too.
-        Motion.ApplyVelocityImpulse(h, impulse);
+        if (players?.ApplyVelocityImpulse(h, impulse, clearGround) == true)
+            return;
+
+        motion.ApplyVelocityImpulse(h, impulse);
     }
 
     public void EntitySetGravity(EntityHandle h, float gravity)

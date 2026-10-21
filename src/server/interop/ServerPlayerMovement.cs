@@ -120,6 +120,49 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
         return true;
     }
 
+    /// <summary>
+    /// Stock's <c>CBaseEntity::ApplyAbsVelocityImpulse</c> (baseentity_shared.cpp)
+    /// on a player, which is never MOVETYPE_VPHYSICS, so stock's arm is the one
+    /// that adds the impulse to <c>GetAbsVelocity()</c>. A player's velocity is
+    /// its record's (plan_server_native_v2 T4g): the shadow's, which the
+    /// physics-object arm would write, is overwritten by the next move.
+    ///
+    /// <para>
+    /// The impulse passes stock's safety check first: a zero impulse adds
+    /// nothing, <c>CheckEntityVelocity</c> clamps a fast one and discards an
+    /// absurd one, with stock's warning. <paramref name="clearGround"/> is the
+    /// caller's <c>SetGroundEntity( NULL )</c> after it (CTriggerPush's
+    /// push-once arm): the ground and FL_ONGROUND go, and nothing more. No
+    /// unstick: that is the base-velocity arm's (<see cref="AddBaseVelocity"/>),
+    /// not this one's. It is let go even when the impulse is not added, as the
+    /// caller's separate call would be.
+    /// </para>
+    /// </summary>
+    public bool ApplyVelocityImpulse(EntityHandle entity, Vector impulse, bool clearGround)
+    {
+        if (Player(entity) is not { } m)
+            return false;
+
+        MoveState s = m.Move;
+
+        if (impulse.X != 0f || impulse.Y != 0f || impulse.Z != 0f)
+        {
+            if (EntityPhysicsMotion.CheckEntityVelocity(ref impulse) < 0)
+                api.Warning(FormattableString.Invariant(
+                    $"Discarding ApplyAbsVelocityImpulse({impulse.X:F6},{impulse.Y:F6},{impulse.Z:F6}) on {entity}\n"));
+            else
+                s.Velocity += impulse;
+        }
+
+        if (clearGround)
+        {
+            m.Ground = EntityHandle.None;
+            s.Flags &= ~GameMovement.FlOnGround;
+        }
+
+        return true;
+    }
+
     /// <summary>Whether this is the first push refused for <paramref name="entity"/>.</summary>
     internal bool FirstRefusal(EntityHandle entity) => _refused.Add(entity);
 

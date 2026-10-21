@@ -78,6 +78,28 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
 
     private int Move(in UserCmd cmd) => _commands.Stage(Player, 0, 1, in cmd);
 
+    private sealed class Impacts : IPlayerCommandImpacts
+    {
+        public readonly List<(EntityHandle Player, bool Finished)> Calls = new();
+        public Func<bool>? Finished;
+        public void ProcessImpacts(EntityHandle player) => Calls.Add((player, Finished?.Invoke() ?? false));
+    }
+
+    [Fact]
+    public void EachMoveProcessesTheImpactsOnceAfterTheLoopRan()
+    {
+        // Stock's RunCommand: ProcessMovement, FinishMove, ProcessImpacts --
+        // once per command, after the move (the loop's count says it ran).
+        var impacts = new Impacts();
+        impacts.Finished = () => _commands.Ran == 1;
+        _commands.Impacts = impacts;
+        var cmd = new UserCmd { CommandNumber = 1 };
+
+        Move(in cmd);
+
+        Assert.Equal([(Player, true)], impacts.Calls);
+    }
+
     [Fact]
     public void AMoveRunsTheLoop()
     {
@@ -363,6 +385,111 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
 
         Assert.Equal((true, false, true),
                      (route.FirstRefusal(Crate), route.FirstRefusal(Crate), route.FirstRefusal(Lift)));
+    }
+
+    /// <summary>
+    /// The server's entities area with <see cref="Player"/> a player and
+    /// nothing else: the default area answers no for everything, so a route
+    /// over it never reaches a record.
+    /// </summary>
+    private sealed class OnePlayer : DefaultEntitiesArea, IEntitiesServerArea
+    {
+        private readonly DefaultEntitiesServerArea _rest = new();
+
+        public int EntityIsPlayer(uint a0) => a0 == Player.Value ? 1 : 0;
+        public void EntityGetClassName(uint a0, byte* a1, int a2) => _rest.EntityGetClassName(a0, a1, a2);
+        public void EntityGetName(uint a0, byte* a1, int a2) => _rest.EntityGetName(a0, a1, a2);
+        public int EntityGetState(uint a0, int* a1) => _rest.EntityGetState(a0, a1);
+        public uint FindEntityByClassname(uint a0, byte* a1) => _rest.FindEntityByClassname(a0, a1);
+        public int EntitiesInSphere(float* a0, float a1, uint* a2, int a3) => _rest.EntitiesInSphere(a0, a1, a2, a3);
+        public int EntitySetKeyValue(uint a0, byte* a1, byte* a2) => _rest.EntitySetKeyValue(a0, a1, a2);
+        public void EntityGetSpawnOrigin(uint a0, float* a1) => _rest.EntityGetSpawnOrigin(a0, a1);
+        public void EntityGetSpawnAngles(uint a0, float* a1) => _rest.EntityGetSpawnAngles(a0, a1);
+        public int EntityGetSpawnFlags(uint a0) => _rest.EntityGetSpawnFlags(a0);
+        public void EntitySetSpawnFlags(uint a0, int a1) => _rest.EntitySetSpawnFlags(a0, a1);
+        public int EntityGetHealth(uint a0) => _rest.EntityGetHealth(a0);
+        public void EntitySetHealth(uint a0, int a1) => _rest.EntitySetHealth(a0, a1);
+        public void EntitySetVisible(uint a0, int a1) => _rest.EntitySetVisible(a0, a1);
+        public void EntitySetOwner(uint a0, uint a1) => _rest.EntitySetOwner(a0, a1);
+        public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) => _rest.EntitiesStandalonePlayerSkyboxArea(a0, a1);
+    }
+
+    private ServerPlayerMovement PlayerRoute() => new(_engine.Api, new OnePlayer(), _moves, _commands);
+
+    /// <summary>A player standing on <see cref="Lift"/>, moving at <paramref name="velocity"/>.</summary>
+    private ServerPlayerMove Standing(Vector velocity)
+    {
+        ServerPlayerMove m = _moves.For(Player);
+        m.Ground = Lift;
+        m.Move.Flags |= GameMovement.FlOnGround;
+        m.Move.Velocity = velocity;
+        return m;
+    }
+
+    [Fact]
+    public void AnImpulseAddsToAPlayersRecordedVelocity()
+    {
+        // Stock's ApplyAbsVelocityImpulse on a MOVETYPE_WALK entity adds to
+        // its abs velocity; a player's is its record's (T4g). The shadow, where
+        // the impulse used to go, is overwritten by the next move.
+        ServerPlayerMove m = Standing(new Vector(10f, 0f, 0f));
+
+        bool taken = PlayerRoute().ApplyVelocityImpulse(Player, new Vector(0f, 5f, 200f), clearGround: false);
+
+        Assert.True(taken && m.Move.Velocity.Equals(new Vector(10f, 5f, 200f)),
+                    $"taken {taken}, velocity {m.Move.Velocity}");
+    }
+
+    [Fact]
+    public void AnImpulseThatClearsTheGroundLetsGoOfIt()
+    {
+        // SetGroundEntity( NULL ): the ground and FL_ONGROUND go. (No unstick:
+        // that is AddBaseVelocity's, and CTriggerPush's push-once arm has none.)
+        ServerPlayerMove m = Standing(Vector.Zero);
+
+        PlayerRoute().ApplyVelocityImpulse(Player, new Vector(0f, 0f, 200f), clearGround: true);
+
+        Assert.True(m.Ground == EntityHandle.None && (m.Move.Flags & GameMovement.FlOnGround) == 0,
+                    $"ground {m.Ground}, flags {m.Move.Flags}");
+    }
+
+    [Fact]
+    public void AnImpulseThatKeepsTheGroundKeepsIt()
+    {
+        ServerPlayerMove m = Standing(Vector.Zero);
+
+        PlayerRoute().ApplyVelocityImpulse(Player, new Vector(0f, 0f, 200f), clearGround: false);
+
+        Assert.True(m.Ground == Lift && (m.Move.Flags & GameMovement.FlOnGround) != 0,
+                    $"ground {m.Ground}, flags {m.Move.Flags}");
+    }
+
+    [Fact]
+    public void AnImpulseAtANonPlayerIsNotTheRoutes()
+        => Assert.False(PlayerRoute().ApplyVelocityImpulse(Crate, new Vector(0f, 0f, 200f), clearGround: true));
+
+    [Fact]
+    public void AnAbsurdImpulseIsDiscarded()
+    {
+        // CheckEntityVelocity's -1: past a hundred times k_flMaxEntitySpeed
+        // the impulse is dropped, not clamped.
+        ServerPlayerMove m = Standing(new Vector(1f, 2f, 3f));
+
+        bool taken = PlayerRoute().ApplyVelocityImpulse(Player, new Vector(0f, 0f, EntityPhysicsMotion.MaxEntitySpeed * 200f),
+                                                        clearGround: false);
+
+        Assert.True(taken && m.Move.Velocity.Equals(new Vector(1f, 2f, 3f)), $"taken {taken}, velocity {m.Move.Velocity}");
+    }
+
+    [Fact]
+    public void AFastImpulseIsClampedToTheMaximum()
+    {
+        ServerPlayerMove m = Standing(Vector.Zero);
+
+        PlayerRoute().ApplyVelocityImpulse(Player, new Vector(0f, 0f, EntityPhysicsMotion.MaxEntitySpeed * 2f),
+                                           clearGround: false);
+
+        Assert.True(MathF.Abs(m.Move.Velocity.Z - EntityPhysicsMotion.MaxEntitySpeed) < 0.01f, $"{m.Move.Velocity}");
     }
 
     [Fact]

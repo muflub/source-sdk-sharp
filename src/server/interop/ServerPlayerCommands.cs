@@ -21,6 +21,20 @@ public interface IPlayerMovePublisher
 }
 
 /// <summary>
+/// Stock's <c>moveHelper-&gt;ProcessImpacts()</c> (player_command.cpp
+/// RunCommand, after FinishMove): the player's trigger touches, once per
+/// command. Stock's CMoveHelperServer::ProcessImpacts runs
+/// <c>PhysicsTouchTriggers</c>, which calls <c>Touch</c> on every trigger the
+/// player is in; a trigger_push's base velocity is set there and consumed by
+/// the next command's CheckMovingGround, so it is renewed exactly once per
+/// command. The server's logic answers it (the triggers are its).
+/// </summary>
+public interface IPlayerCommandImpacts
+{
+    void ProcessImpacts(EntityHandle player);
+}
+
+/// <summary>
 /// The words that outlived a command, and a player, natively: the global
 /// CMoveData's three outputs the next command read back in (g_pMoveData's
 /// m_outStepHeight, m_outWishVel, m_outJumpVel) and the mover's two latches
@@ -112,6 +126,9 @@ public sealed class ServerPlayerCommands
 
     /// <summary>The module's three movement decisions, handed to the loop for each run.</summary>
     public MovementRules Rules { get; set; } = MovementRules.Stock;
+
+    /// <summary>The per-command trigger touches (<see cref="IPlayerCommandImpacts"/>); null touches nothing.</summary>
+    public IPlayerCommandImpacts? Impacts { get; set; }
 
     /// <summary>The three stages, as <see cref="PlayerCommandQueue.Run"/> calls them. Built once.</summary>
     public PlayerCommandStage Stage => _stage ??= RunStage;
@@ -294,6 +311,9 @@ public sealed class ServerPlayerCommands
 
         _world.Host = null;
         _world.ResetTouchList();
+
+        // ProcessImpacts, after FinishMove as stock's RunCommand orders them.
+        Impacts?.ProcessImpacts(player);
         return true;
     }
 
