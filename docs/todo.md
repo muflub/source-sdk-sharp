@@ -886,24 +886,38 @@ list the four, and no CMakeLists.txt or cmake/ file names sdk::bitmap,
 sdk::tier2, sdk::tier3 or sdk::vtf. **Owner:** none named (build; CI checks
 it). **Next:** delete the four lines and let CI's Windows job prove it.
 
-## Entity entry 264 sometimes undrawn after dm_lockdown's second map load (2026-10-20)
+## Entity entry 264 sometimes undrawn after dm_lockdown's second map load: fixed 2026-10-20
 
-Seen by the C7 shadow manager S2 lane in 2 of 9 tip runs (at c7c7a17c8
-and ee23411a1). Entity entry 264, at (-3722, 4082, 49.8), had no shadow
-after the second `map dm_lockdown` in RTT mode, and its scene held one
-entry fewer (190 -> 189), so it is not drawn at all. The lane's 3 base
-runs did not show it, but P(0 of 3 | 2-in-9) = 0.47 clears nothing.
+Not a render bug, and not the reload's. Entry 264 is a weapon_shotgun pickup at
+(-3722, 4082, 49.8), and the player had TAKEN it: the probe sessions teleport
+the player to pose 1 (-4116, 4600) through `/player/teleport`, and the
+standalone teleport (SourceSharp_EntityTeleport) moved through SetAbsOrigin,
+whose funnel sweeps the trigger touch from the OLD origin (engine->SolidMoved
+with a previous origin is a ray). From two of dm_lockdown's ten spawn points,
+(-2739, 2563) and (-2932, 3218), the straight line to pose 1 passes within the
+pickup's box (closest approach 30 and 29 units on an axis, against 32), so the
+teleport collected the shotgun and its respawn hid it (EF_NODRAW for 20 s).
+The second map load was only a second random spawn. Stock's TeleportEntity
+moves by UTIL_SetOrigin with bFireTriggers false and touches nothing.
 
-Evidence that it predates the shadow manager: the small render TUs lane
-(2026-10-19, its rt-live A/B) saw the same entry missing from
-reload-pose1 and reload-explosion. That entity is the respawning shotgun
-pickup, and that lane's base run `base2`, with none of its changes, lacked
-it too. So this is most likely the pickup's respawn timing at the reload,
-not a port.
+Measured at 4c808928c (debug, `bg-264c.steps`: map, pose 1, trace, map again,
+pose 1, trace; 10 runs = 20 loads): entry 264 undrawn in 6 of 20 loads, every
+one of the 6 after a spawn at one of those two points and none of the 14
+others; the console said `#1 took weapon_shotgun` after the pose-1 teleport,
+and the policy pass decided it with nodraw=True. Reproduced on demand by
+teleporting to (-2932, 3218) and then to pose 1.
 
-Next step: a 10-run base series at a commit before C7's render ports, then
-trace the leaf registry's insert for entry 264 (c7_shadow_manager.md, "S2
-and S3 as built", Open).
+Fixed by CStandaloneEntity::TeleportTo (shell_standalone_base.cpp): the
+teleport writes origin and angles once and tells the funnel not to touch
+triggers; the entity's next move asks (a player's next command touches where it
+stands). Facts: EntityBaseCluster.AStandaloneTeleportTouchesNoTriggerOnTheWay
+(red on the pre-fix sources, green after). Live, after: the same crossing
+teleport took nothing and pose 1's trace drew entity 264; the control,
+a teleport onto the shotgun, still took it; live-gate pickup, move, damage,
+projectile and spectate pass (2 passes).
+Not carried: children of a teleported entity are moved by the hierarchy's own
+setters and still sweep from their old origins (stock teleports them without
+triggers too); no map here parents anything to a teleported entity.
 
 **Owner:** the client port (C7 shadow and leaf). **Next:** as written.
 

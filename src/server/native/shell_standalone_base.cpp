@@ -1073,7 +1073,7 @@ void CStandaloneEntity::SetAbsTransform( const Vector &vecOrigin, const QAngle &
 // vecPrevOrigin is what the trigger half needs and is the one thing that cannot
 // be recovered once the block has been written, which is why the op carries it.
 //-----------------------------------------------------------------------------
-void CStandaloneEntity::OnPositionChanged( const Vector &vecPrevOrigin )
+void CStandaloneEntity::OnPositionChanged( const Vector &vecPrevOrigin, bool bTouchTriggers )
 {
 	AngleMatrix( Block().Head.Angles, Block().Head.Origin, Block().Head.WorldTransform );
 
@@ -1106,8 +1106,9 @@ void CStandaloneEntity::OnPositionChanged( const Vector &vecPrevOrigin )
 	// on this hierarchy goes through — the solver's, a scripted move, a flight,
 	// a parent dragging a child — and CBaseEntity's equivalent is likewise
 	// immediate rather than deferred. A trigger fired a frame late is a trigger
-	// a fast prop has already left.
-	TouchTriggers( vecPrevOrigin );
+	// a fast prop has already left. A teleport (TeleportTo) touches nothing.
+	if ( bTouchTriggers )
+		TouchTriggers( vecPrevOrigin );
 }
 
 //-----------------------------------------------------------------------------
@@ -1128,6 +1129,18 @@ void CStandaloneEntity::SetAbsOrigin( const Vector &vecOrigin )
 void CStandaloneEntity::SetAbsAngles( const QAngle &angles )
 {
 	SetAbsTransform( Block().Head.Origin, angles );
+	StandaloneHierarchy_ChildMoved( this );
+}
+
+// TeleportEntity's UTIL_SetOrigin without bFireTriggers: the funnel's sweep from
+// the old origin took every pickup on the line (docs/todo.md, entity entry 264).
+void CStandaloneEntity::TeleportTo( const Vector &vecOrigin, const QAngle *pAngles )
+{
+	Block().Head.Origin = vecOrigin;
+	if ( pAngles )
+		Block().Head.Angles = *pAngles;
+
+	OnPositionChanged( vecOrigin, false );
 	StandaloneHierarchy_ChildMoved( this );
 }
 

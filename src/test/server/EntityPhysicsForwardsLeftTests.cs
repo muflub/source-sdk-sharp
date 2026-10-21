@@ -125,7 +125,7 @@ public class EntityPhysicsForwardsLeftTests
     {
         string body = Body(Code("src", "server", "native", "shell_entityapi.cpp"), "void SourceSharp_EntityTeleport(");
 
-        Assert.Contains("ent.pStandalone->SetAbsOrigin( vecOrigin );", body);
+        Assert.Contains("ent.pStandalone->TeleportTo( vecOrigin, pAngles ? &angles : NULL );", body);
         Assert.DoesNotContain("SetPosition", body);
         Assert.DoesNotContain("GetPhysics", body);
         Assert.DoesNotContain("Wake", body);

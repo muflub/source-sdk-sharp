@@ -873,18 +873,9 @@ void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin,
 	Vector vecZero( 0, 0, 0 );
 
 
-	// The same operation spelled out, because there is no Teleport to call: the
-	// unlink-and-relink CBaseEntity::Teleport does is what SetAbsOrigin does on
-	// this side, and it is one call rather than an ordering to get wrong.
-	//
-	// Angles BEFORE the origin. SetAbsAngles only stores; SetAbsOrigin is what
-	// rebuilds the transform, moves the entity in the partition and marks the
-	// edict, so it has to be the last of the two or the client is told about the
-	// old facing.
-	if ( pAngles )
-		ent.pStandalone->SetAbsAngles( angles );
-
-	ent.pStandalone->SetAbsOrigin( vecOrigin );
+	// CBaseEntity::Teleport's relink, in one write and with no trigger sweep
+	// (TeleportEntity's UTIL_SetOrigin does not fire triggers).
+	ent.pStandalone->TeleportTo( vecOrigin, pAngles ? &angles : NULL );
 
 	// Through SetVelocity rather than by clearing a member, because that is also
 	// what ends an arc in flight -- a teleported projectile asked to stop must

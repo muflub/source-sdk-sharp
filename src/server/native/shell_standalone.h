@@ -288,7 +288,7 @@ public:
 	// (shell_standalone_base.cpp). SetAbsTransform is one caller;
 	// ENTITY_OP_POSITION_CHANGED is the other, which is how managed code that
 	// writes the block itself says it has moved (plan_entity.md step 1b).
-	void OnPositionChanged( const Vector &vecPrevOrigin );
+	void OnPositionChanged( const Vector &vecPrevOrigin, bool bTouchTriggers = true );
 
 	// The offset of one EngineBlockHead_t field, measured from the block's own
 	// base -- which is what both MarkBlockChanged and the SendProp builder in
@@ -624,6 +624,9 @@ public:
 	bool IsVisible() const { return ( Block().Head.Effects & EF_NODRAW ) == 0; }
 
 	virtual void SetAbsOrigin( const Vector &vecOrigin );
+
+	// SetAbsOrigin (and the angles) touching no trigger: stock's TeleportEntity.
+	void TeleportTo( const Vector &vecOrigin, const QAngle *pAngles );
 
 	// A real function, and it has to be one: the transform is built from the
 	// angles as well as the origin, so an angles write that did not rebuild it

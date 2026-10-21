@@ -346,7 +346,7 @@ TEST( EntityBaseCluster, TheStandaloneTeleportStillDoesNotSayItWasADiscontinuity
 	ASSERT_NE( std::string::npos, end );
 	const std::string body = src.substr( at, end - at );
 
-	EXPECT_TRUE( Has( body, "pStandalone->SetAbsOrigin( vecOrigin );" ) )
+	EXPECT_TRUE( Has( body, "pStandalone->TeleportTo( vecOrigin, pAngles ? &angles : NULL );" ) )
 		<< "the standalone teleport arm changed shape; re-read it against "
 		<< "CBaseEntity::Teleport before trusting the OpenDefects entry.";
 	EXPECT_EQ( 0, CountOf( body, "InterpolationFrame" ) )
@@ -354,6 +354,52 @@ TEST( EntityBaseCluster, TheStandaloneTeleportStillDoesNotSayItWasADiscontinuity
 		<< "If that is the fix, DELETE the OpenDefects entry 'An entity that "
 		<< "teleports is drawn sliding to where it went' -- this fact exists to "
 		<< "make the list expire with the bug.";
+}
+
+// The body of the function whose definition starts with pszSignature, up to
+// its closing brace at column 0; empty when the definition is not there.
+std::string BodyOf( const std::string &strSrc, const char *pszSignature )
+{
+	const size_t at = strSrc.find( pszSignature );
+	if ( at == std::string::npos )
+		return std::string();
+	const size_t end = strSrc.find( "\n}", at );
+	if ( end == std::string::npos )
+		return std::string();
+	return strSrc.substr( at, end - at );
+}
+
+TEST( EntityBaseCluster, AStandaloneTeleportTouchesNoTriggerOnTheWay )
+{
+	// Stock's TeleportEntity moves by UTIL_SetOrigin with bFireTriggers false:
+	// a teleport touches nothing, on the way or where it lands. The standalone
+	// arm went through SetAbsOrigin, whose funnel sweeps from the OLD origin
+	// (engine->SolidMoved with a previous origin is a ray), so a teleport took
+	// every pickup on the line between the two points (docs/todo.md, entity
+	// entry 264: the shotgun a dev-API teleport a room away collected).
+	const std::string api = ReadStripped( "sourcesharp/game/server/shell_entityapi.cpp" );
+	RequireAnchor( api, "shell_entityapi.cpp", "void SourceSharp_EntitySetGravity(" );
+	const std::string teleport = BodyOf( api, "void SourceSharp_EntityTeleport(" );
+	ASSERT_FALSE( teleport.empty() ) << "SourceSharp_EntityTeleport is not defined in shell_entityapi.cpp";
+	EXPECT_EQ( 1, CountOf( teleport, "ent.pStandalone->TeleportTo( vecOrigin, pAngles ? &angles : NULL );" ) )
+		<< "the teleport no longer moves through TeleportTo, the move without a trigger sweep";
+	EXPECT_EQ( 0, CountOf( teleport, "SetAbsOrigin(" ) + CountOf( teleport, "SetAbsAngles(" )
+	              + CountOf( teleport, "SetAbsTransform(" ) )
+		<< "the teleport moves through a setter whose funnel sweeps from the old origin";
+
+	const std::string base = ReadStripped( "sourcesharp/game/server/shell_standalone_base.cpp" );
+	RequireAnchor( base, "shell_standalone_base.cpp", "void CStandaloneEntity::SetAbsAngles(" );
+	const std::string to = BodyOf( base, "void CStandaloneEntity::TeleportTo( const Vector &vecOrigin, const QAngle *pAngles )" );
+	ASSERT_FALSE( to.empty() ) << "CStandaloneEntity::TeleportTo is not defined in shell_standalone_base.cpp";
+	EXPECT_EQ( 1, CountOf( to, "OnPositionChanged( vecOrigin, false );" ) )
+		<< "TeleportTo must tell the funnel not to touch triggers";
+	EXPECT_EQ( 0, CountOf( to, "TouchTriggers(" ) ) << "TeleportTo touches triggers itself";
+
+	const std::string funnel = BodyOf( base, "void CStandaloneEntity::OnPositionChanged( const Vector &vecPrevOrigin, bool bTouchTriggers )" );
+	ASSERT_FALSE( funnel.empty() ) << "the move funnel's definition changed shape";
+	EXPECT_EQ( 1, CountOf( funnel, "TouchTriggers(" ) ) << "the funnel's one trigger touch moved or doubled";
+	EXPECT_EQ( 1, CountOf( funnel, "if ( bTouchTriggers )\n\t\tTouchTriggers( vecPrevOrigin );" ) )
+		<< "the funnel's trigger touch is no longer gated on bTouchTriggers";
 }
 
 //=============================================================================//
