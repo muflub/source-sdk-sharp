@@ -1249,8 +1249,9 @@ internal sealed unsafe partial class EngineEntityRender
     /// <summary>
     /// Which skin of a model is drawn. Silently does nothing for an entity with
     /// no animating model, which is what stock does too. Client only: the
-    /// server's body was empty and went in plan_server_native_v2 T2, so a
-    /// skin chosen on the server reaches no client (docs/todo.md).
+    /// server's body was empty and went in plan_server_native_v2 T2; a skin
+    /// the server picks reaches the client through the networked state
+    /// (346d1022f).
     /// </summary>
     public void SetSkin(EntityHandle entity, int skin)
     {

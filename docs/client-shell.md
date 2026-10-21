@@ -339,8 +339,10 @@ carry the ≈1,200 figure into another plan.
 **Closed 2026-10-19.** The relays left first, then the client's live
 `GetGameEntity()` readers moved to the slot table and `C_StandaloneEntity`
 dropped `public IGameEntity` and the six slots (`GetCollisionGroup` stays,
-`ICollideable`'s); see docs/todo.md's section of the same name for the
-measurements and the fork-declared signatures kept. What follows is the record.
+`ICollideable`'s); the measurements and the fork-declared signatures kept are
+in docs/todo.md's section of the same name as of 4c808928c
+(`git show 4c808928c:docs/todo.md`; the closed section left the file
+2026-10-20). What follows is the record.
 
 `C_StandaloneEntity` implements six `IGameEntity` methods — `ShouldCollide`,
 `Touch`, `StartTouch`, `EndTouch`, `VPhysicsUpdate`, and `GetCollisionGroup`

@@ -74,8 +74,8 @@ public enum JoinTeamResult
 /// </para>
 ///
 /// <para>
-/// Not ported, each named: the team change itself (spectate and jointeam do
-/// only the observer half); the HUD's HIDEHUD_HEALTH and stock's health of 1
+/// Not ported, each named: the team change's rate limit (the change itself is
+/// Teams.Join's, which fires player_team); the HUD's HIDEHUD_HEALTH and stock's health of 1
 /// and LIFE_DEAD while observing (the managed player's life is its own);
 /// mp_fadetoblack; the fog controller copy in CheckObserverSettings; the
 /// SteamID forms of a spec_player argument; spec_goto; the spectator GUI
