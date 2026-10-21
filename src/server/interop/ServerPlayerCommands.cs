@@ -111,7 +111,10 @@ public sealed class ServerPlayerCommands
     /// </summary>
     /// <param name="sounds">The movement's noises (the swim stroke, a landing), to the managed SoundEmitter.</param>
     /// <param name="game">The module the surface change goes to; null sends it nowhere.</param>
-    public static ServerPlayerCommands For(ModuleEngine engine, ServerPlayerMoves moves, ServerMoveData data,
+    /// <param name="trace">The side's engine trace, as its composition registered it.</param>
+    /// <param name="surfaces">The side's surface table, as its composition registered it.</param>
+    public static ServerPlayerCommands For(ModuleEngine engine, IFwdEngineTrace trace, IFwdPhysicsSurfaceProps surfaces,
+                                           ServerPlayerMoves moves, ServerMoveData data,
                                            IMoveSoundSink sounds, IServerModule? game,
                                            MovementRunner movement, Func<MoveFrameConstants> constants,
                                            IPlayerMovePublisher publisher, IEngineEnvironment environment)
@@ -119,7 +122,7 @@ public sealed class ServerPlayerCommands
         ArgumentNullException.ThrowIfNull(engine);
         EngineSide api = engine.Api;
         IMovementServerArea movementArea = api.Areas.Require<IMovementServerArea>();
-        var world = new ServerMoveWorld(api, movementArea, sounds, game);
+        var world = new ServerMoveWorld(api, movementArea, trace, surfaces, sounds, game);
         return new ServerPlayerCommands(api, movementArea, world, new GameMovement(world, default), moves, data,
                                         movement, constants, publisher, environment);
     }

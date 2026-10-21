@@ -28,6 +28,13 @@ internal static class TestSides
     }
 
     /// <summary>
+    /// The movement runner a composition builds over <paramref name="engine"/>:
+    /// over the side's engine trace and surface table, as AddTo registers them.
+    /// </summary>
+    public static MovementRunner Movement(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld = null)
+        => MovementRunner.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api), clientWorld);
+
+    /// <summary>
     /// A new <paramref name="side"/> over its default areas whose engine
     /// interfaces hold no default, so each one asks the side's own factory
     /// (which, with no native half, refuses, naming the interface): for facts

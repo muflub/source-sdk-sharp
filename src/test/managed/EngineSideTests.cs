@@ -70,16 +70,18 @@ public unsafe class EngineSideTests
         server.Initialize();
         Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
-        MoveSurface sand = server.Surfaces.Of(3);
+        // Each side's container is handed a table over its own surface props.
+        var services = new ServiceContainer().AddInstance(new StandaloneMirror());
+        EngineServices.AddTo(services, server);
+        var others = new ServiceContainer().AddInstance(new StandaloneMirror());
+        EngineServices.AddTo(others, other);
+
+        MoveSurface sand = services.Require<PhysicsSurfaces>().Of(3);
         Assert.True(sand.Valid, "the attached side's table answers through its own slot");
         Assert.Equal('N', (char)sand.Material);
         Assert.Equal(1300f, sand.Density);
 
-        Assert.False(other.Surfaces.Of(3).Valid, "an unattached side's table answers default");
-
-        var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddTo(services, server);
-        Assert.Same(server.Surfaces, services.Require<PhysicsSurfaces>());
+        Assert.False(others.Require<PhysicsSurfaces>().Of(3).Valid, "an unattached side's table answers default");
         NativeMemory.Free(s_Sand);
         NativeMemory.Free(self);
     }

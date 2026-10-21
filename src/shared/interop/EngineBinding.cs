@@ -40,12 +40,6 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
 
     private readonly IConsoleArea _consoleArea;
 
-    public void ExecuteServerCommand(string command)
-    {
-        if (!string.IsNullOrEmpty(command))
-            EngineBound.Server(E).ServerCommandNow(command);
-    }
-
     /// <summary>
     /// One native convar's value by name. Null when the engine knows no such
     /// convar, and null for a command, which has no value to read.
@@ -226,6 +220,9 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
 /// <summary>The real engine, for <see cref="IEngineHost"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineHost : IEngineHost
 {
+    // The side's random stream, as its composition registered it.
+    private readonly IUniformRandom _random;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
@@ -244,9 +241,8 @@ internal sealed unsafe partial class EngineHost : IEngineHost
     public float CurrentTime => E.CurrentTime;
     public bool IsInitialized => E.IsInitialized;
     public string ManagedDirectory => E.ManagedDirectory;
-    public float RandomFloat(float min, float max) => EngineBound.Random(E).RandomFloat(min, max);
-    public int RandomInt(int min, int max) => EngineBound.Random(E).RandomInt(min, max);
-    public bool IsDedicatedServer => EngineBound.Server(E).IsDedicatedServer();
+    public float RandomFloat(float min, float max) => _random.RandomFloat(min, max);
+    public int RandomInt(int min, int max) => _random.RandomInt(min, max);
     // plan_server_novalve.md P2.5: C#'s own, through the flat API; server.so no
     // longer links libsteam_api.so.
     public bool SteamGameServerReacquire() => _steam.Reacquire();
@@ -258,26 +254,27 @@ internal sealed unsafe partial class EngineHost : IEngineHost
 /// <summary>The real engine, for <see cref="IEnginePrecache"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EnginePrecache : IEnginePrecache
 {
+    // The side's model info, as its composition registered it.
+    private readonly IFwdModelInfo _modelInfo;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-    public int ModelFrameCount(int modelIndex) => EngineBound.ModelInfo(E).FrameCountAt(modelIndex);
-    public ModelType ModelTypeOf(int modelIndex) => EngineBound.ModelInfo(E).TypeAt(modelIndex);
+    public int ModelFrameCount(int modelIndex) => _modelInfo.FrameCountAt(modelIndex);
+    public ModelType ModelTypeOf(int modelIndex) => _modelInfo.TypeAt(modelIndex);
     // Answered in C# (BreakModels), parsed once per model per level.
     public int BreakPieceCount(string model) => E.Breaks.Count(model);
     public bool BreakPieceAt(string model, int index, float defaultBurstScale, CollisionGroup defaultCollisionGroup, out string pieceModel, out BreakPiece piece)
         => E.Breaks.PieceAt(model, index, defaultBurstScale, defaultCollisionGroup, out pieceModel, out piece);
 }
 
-// AND SIX MEMBERS IN THIS FILE NOW CALL A BOUND ENGINE INTERFACE RATHER THAN
-// THE GOD-CLASS -- plan_native_api.md Phase 3, the per-entry route beside the
-// per-area one. They read `EngineBound.<Interface>(E).<Method>` instead of
-// `Engine.<Slot>`, so a reader can tell which members have moved by looking at
-// the right-hand side and nothing else. Their flat ABI fields are orphans and
-// leave in the next removal batch.
+// THE BINDINGS THAT CALL AN ENGINE INTERFACE take it by constructor, as the
+// side's composition registered it (EngineServices.AddForwarders runs before
+// the bindings are built); an IVEngineServer member is the server partial's,
+// and the client's answers it as a client engine does.
 //
 // ENGINEFRAME IS NOT IN THIS FILE ANY MORE -- plan_native_api.md Phase 2, and
 // it is the first area to leave it.
@@ -583,7 +580,6 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
     private readonly IClientReplayEngine _clientReplay;
 
     public IClientReplayEngine ClientReplay => _clientReplay;
-    public int Count() => EngineBound.Server(E).EntityCount();
     // No engine answer since plan_server_native_v2 T2: the SDK entity list's map references went with the list; nothing native holds one to purge.
     public void PurgeMapRefs() { }
     /// <summary>
@@ -799,6 +795,9 @@ internal sealed unsafe partial class EngineEntityPhysics : IEngineEntityPhysics
 /// </summary>
 internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
 {
+    // The side's model info, as its composition registered it.
+    private readonly IFwdModelInfo _modelInfo;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
@@ -865,7 +864,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
         if (string.IsNullOrEmpty(modelName))
             return null;
 
-        IFwdModelInfo info = EngineBound.ModelInfo(E);
+        IFwdModelInfo info = _modelInfo;
         int index = info.ModelIndex(modelName);
 
         return index <= 0 ? null : info.KeyValueText(info.Model(index));
@@ -1229,26 +1228,16 @@ internal sealed unsafe partial class EnginePlayers : IEnginePlayers
 
     // No engine answer since plan_server_native_v2 T2: the view model is the Arsenal's to name and it does not yet.
     public EntityHandle GetViewModelEntity(EntityHandle player) => EntityHandle.None;
-    public int GetUserId(EntityHandle player) => E.EntityIsValid(player) ? EngineBound.Server(E).PlayerUserId(player.EntryIndex) : 0;
     // No engine answer since plan_server_native_v2 T2: ammo is the Arsenal's; ArsenalPlayers gives it to its players.
     public int GiveAmmo(EntityHandle player, int count, string ammoName) => 0;
     // No engine answer since plan_server_native_v2 T2: items are the Arsenal's; ArsenalPlayers gives them to its players.
     public bool GiveItem(EntityHandle player, string className) => false;
     // No engine answer since plan_server_native_v2 T2: holstering is the Arsenal's to do and it does not yet (player_speedmod asks; docs/todo.md).
     public bool HolsterActiveWeapon(EntityHandle player) => false;
-    public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => E.EntityIsValid(player) && EngineBound.Server(E).BoxInPvs(EyePosition(player), mins, maxs);
-
-    /// <summary>Where the player's eyes are, as the server's slot answers it.</summary>
-    private partial Vector EyePosition(EntityHandle player);
     // No engine answer since plan_server_native_v2 T2: only the Arsenal's players carry items, and ArsenalPlayers strips theirs.
     public void RemoveAllItems(EntityHandle player, bool stripSuit) { }
     // No engine answer since plan_server_native_v2 T2: CBasePlayer::SetFOV left with CBasePlayer; env_zoom asks.
     public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f) { }
-    public void SetViewEntity(EntityHandle player, EntityHandle view)
-    {
-        if (E.EntityIsValid(player))
-            EngineBound.Server(E).SetView(player.EntryIndex, E.EntityIsValid(view) ? view.EntryIndex : -1);
-    }
 
     // No engine answer since plan_server_native_v2 T2: there is no SDK player
     // on the server, so there are no SDK ears; the standalone arm above answers.
@@ -1316,6 +1305,12 @@ internal sealed unsafe partial class EngineHud : IEngineHud
 /// <summary>The real engine, for <see cref="IEngineWorldQuery"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineWorldQuery : IEngineWorldQuery
 {
+    // The side's surface table, as its composition registered it.
+    private readonly IFwdPhysicsSurfaceProps _surfaceProps;
+
+    // The side's engine trace, as its composition registered it.
+    private readonly IFwdEngineTrace _trace;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
@@ -1323,17 +1318,22 @@ internal sealed unsafe partial class EngineWorldQuery : IEngineWorldQuery
 
     private EngineSide E => _side;
 
-    public int GetArea(Vector origin) => EngineBound.Server(E).GetArea(origin);
-    public Contents PointContents(Vector origin) => (Contents)EngineBound.Trace(E).PointContents(origin);
+    public Contents PointContents(Vector origin) => (Contents)_trace.PointContents(origin);
     // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a slot made
     // the same call: the guard is its.
     public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
-        => surfaceProp < 0 ? 0 : (SurfaceMaterial)EngineBound.SurfaceProps(E).GameMaterial(surfaceProp);
+        => surfaceProp < 0 ? 0 : (SurfaceMaterial)_surfaceProps.GameMaterial(surfaceProp);
 }
 
 /// <summary>The real engine, for <see cref="IEngineSound"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineSound : IEngineSound
 {
+    // The side's surface table, as its composition registered it.
+    private readonly IFwdPhysicsSurfaceProps _surfaceProps;
+
+    // The side's sound script table, as its composition registered it.
+    private readonly IFwdSoundEmitter _soundEmitter;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
@@ -1402,7 +1402,7 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     // Through ISoundEmitterSystemBase's forwarders since 2026-10-19, where the
     // SoundScriptParameters slot made the same calls on both sides.
     public SoundScriptParams? SoundScriptParameters(string soundName)
-        => !string.IsNullOrEmpty(soundName) ? EngineBound.SoundEmitter(E).ScriptParameters(soundName) : null;
+        => !string.IsNullOrEmpty(soundName) ? _soundEmitter.ScriptParameters(soundName) : null;
 
     /// <summary>
     /// A sound patch on the entity, heard from where it stands
@@ -1420,7 +1420,7 @@ internal sealed unsafe partial class EngineSound : IEngineSound
     // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where the
     // SurfaceScrapeSound slot read the same two names.
     public string? SurfaceScrapeSound(int surfaceProps, bool smooth)
-        => EngineBound.SurfaceProps(E).ScrapeSound(surfaceProps, smooth);
+        => _surfaceProps.ScrapeSound(surfaceProps, smooth);
 
     // Each side's own patch arm (plan_server_native_v2 T4a): the server's
     // patches are the managed SoundEmitter's route, the client's its
@@ -1468,12 +1468,6 @@ internal sealed unsafe partial class EngineVisibility : IEngineVisibility
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-    public void SetLightStyle(int style, string pattern)
-    {
-        // The engine's 64 styles (MAX_LIGHTSTYLES); the slot's guard, moved here.
-        if (style >= 0 && style < 64 && pattern is not null)
-            EngineBound.Server(E).LightStyle(style, pattern);
-    }
 
     // No engine answer since plan_server_native_v2 T2: there is no SDK player
     // on the server to have a skybox area; the standalone arm below answers.

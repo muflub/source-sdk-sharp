@@ -279,7 +279,6 @@ internal sealed unsafe partial class EngineSide
         _engineArea = areas.Require<IEngineArea>();
         _entitiesArea = areas.Require<IEntitiesArea>();
         _modelsArea = areas.Require<IModelsArea>();
-        Surfaces = new PhysicsSurfaces(this);
         OwnAreas(areas);
     }
 
@@ -327,7 +326,6 @@ internal sealed unsafe partial class EngineSide
     /// Made again at the attach, over the attached movement area, which is
     /// before any composition registers it.
     /// </summary>
-    internal PhysicsSurfaces Surfaces { get; private set; } = null!;
 
     internal Side Side => _side;
 

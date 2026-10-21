@@ -336,3 +336,13 @@ public sealed unsafe class EngineModelInfo : IFwdModelInfo
     private static ModelType Kind(int answer)
         => answer is < 0 or > (int)ModelType.Studio ? ModelType.Bad : (ModelType)answer;
 }
+
+/// <summary>
+/// Which IVModelInfo spelling a side asks for: its own. Both are served on
+/// both sides for the table length, but the object behind each is that side's.
+/// </summary>
+internal static class EngineModelInfoVersion
+{
+    internal static string For(Side side)
+        => side == Side.Client ? EngineModelInfo.ClientInterfaceVersion : EngineModelInfo.ServerInterfaceVersion;
+}

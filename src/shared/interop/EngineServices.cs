@@ -75,9 +75,10 @@ public static partial class EngineServices
         services.AddInstance(side.EntityIo);
         services.AddInstance(side.Removal);
 
-        // The side's surfaceprop table, over its own routing (it was a static
-        // that read Engine.Current). Not an engine area either.
-        services.AddInstance(side.Surfaces);
+        // The side's surfaceprop table, over the surface props AddForwarders
+        // registered (it was a static that read Engine.Current). Not an engine
+        // area either.
+        services.AddInstance(new PhysicsSurfaces(services.Require<IFwdPhysicsSurfaceProps>()));
 
         // AND THE SIDE'S LOG (statics to zero: it was the static Log): an ILog
         // over this side's own console, which everything this composition
@@ -107,12 +108,17 @@ public static partial class EngineServices
     internal static void AddForwarders(ServiceContainer services, EngineSide side)
     {
         services.AddInstance(EngineBound.Random(side));
+        services.AddInstance(EngineBound.Trace(side));
         services.AddInstance(EngineBound.SoundEmitter(side));
         IFwdPhysicsSurfaceProps surfaces = EngineBound.SurfaceProps(side);
         services.AddInstance(surfaces);
         services.AddInstance(Slice<IVPhysicsSurfaceSounds>(surfaces));
         services.AddInstance(EngineBound.Files(side));
-        services.AddInstance(EngineBound.ModelInfo(side));
+        IFwdModelInfo modelInfo = EngineBound.ModelInfo(side);
+        services.AddInstance(modelInfo);
+        // The model cache read as bytes (plan physics_bones_native_zero step
+        // 1.2): what the managed skeletons build their studio headers from.
+        services.AddInstance<IStudioMemory>(new EngineStudioMemory(modelInfo));
         services.AddInstance(EngineBound.DebugOverlay(side));
         AddSideForwarders(services, side);
     }

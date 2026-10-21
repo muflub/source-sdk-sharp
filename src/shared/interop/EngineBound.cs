@@ -151,12 +151,7 @@ internal sealed partial class EngineBoundSet
 internal static partial class EngineBound
 {
     internal static IFwdModelInfo? AcquireModelInfo(NativeInterfaceFactory factory, Side side, out string why)
-        => EngineModelInfo.Acquire(factory, out why, ModelInfoVersion(side));
-
-    internal static string ModelInfoVersion(Side side)
-        => side == Side.Client
-               ? EngineModelInfo.ClientInterfaceVersion
-               : EngineModelInfo.ServerInterfaceVersion;
+        => EngineModelInfo.Acquire(factory, out why, EngineModelInfoVersion.For(side));
 
     /// <summary><c>VEngineRandom001</c>, this side's.</summary>
     internal static IUniformRandom Random(EngineSide side) => side.Bound.Random.For(side);

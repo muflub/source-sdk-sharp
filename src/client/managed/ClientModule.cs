@@ -406,7 +406,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The prediction's world carries stock's client move helper
         // (ClientPredictionMoveWorld, lane c6-input): the predicted swim
         // sound, and the helper's no-op answers taken here.
-        _movement = MovementRunner.For(_engine, world => new ClientPredictionMoveWorld(world,
+        _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _services.Require<IFwdPhysicsSurfaceProps>(),
+            world => new ClientPredictionMoveWorld(world,
             () => _prediction?.PredictingHost ?? EntityHandle.None,
             () => _prediction?.FirstRunOfFunctions ?? false,
             _clientSounds));
@@ -1414,7 +1415,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // as bytes. A reload participant (the merge sources, scales, poses,
         // layers and clocks C# set cross cs_cl_reload).
         _skeletons = new ClientSkeletons(ClientStandaloneBlocks.For(_engine), ClientSequenceStore.For(_engine),
-                                         new SourceSharp.Shared.Bones.StudioModels(_engine.StudioMemory()),
+                                         new SourceSharp.Shared.Bones.StudioModels(_services.Require<IStudioMemory>()),
                                          index => _standalones.GetByIndex(index)?.Handle,
                                          _services.Require<IEngineEnvironment>(), Log,
                                          _services.Require<IFwdPhysicsSurfaceProps>(),

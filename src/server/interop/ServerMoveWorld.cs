@@ -34,7 +34,8 @@ namespace SourceSharp.Server.Interop;
 /// the ground write-back names), and the point-contents cache.
 /// </para>
 /// </summary>
-internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea movement, IMoveSoundSink sounds,
+internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea movement,
+                                             IFwdEngineTrace trace, IFwdPhysicsSurfaceProps surfaces, IMoveSoundSink sounds,
                                              IServerModule? game) : IMoveWorld
 {
     private readonly MovePointContentsCache _pointContents = new();
@@ -106,7 +107,7 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
         if (_pointContents.TryGet(point, slot, out int cached))
             return cached;
 
-        int contents = EngineBound.Trace(api).PointContents(point);
+        int contents = trace.PointContents(point);
         _pointContents.Store(point, slot, contents);
         return contents;
     }
@@ -114,7 +115,7 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
     public void ResetPointContentsCache(bool optimizations) => _pointContents.Reset(optimizations);
 
     public MoveSurface Surface(int surfaceProps)
-        => EngineBound.SurfaceProps(api).Surface(surfaceProps);
+        => surfaces.Surface(surfaceProps);
 
     /// <summary>A new command's helper, and the loop's own ResetTouchList.</summary>
     public void ResetTouchList() => _touchList.Clear();

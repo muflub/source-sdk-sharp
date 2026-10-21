@@ -138,7 +138,9 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         services.AddInstance(new ParticleViews(particleView));
         // The dust motes' brush test (lane c5-particles).
         services.AddInstance<IClientBrushContents>(new ClientBrushContents(areas.Require<IParticlesClientArea>()));
-        services.AddInstance<IClientModelNames>(new ClientModelNames(engine.Api));
+        // Over the model info the side's composition registers after these
+        // adapters (EngineServices.AddForwarders): built on first resolve.
+        services.AddFactory<IClientModelNames>(s => new ClientModelNames(s.Require<IFwdModelInfo>()));
         services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(areas.Require<IParticlesClientArea>()));
         // point_worldtext's native text renderer (lane c2-sims): its lifetime.
         services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(areas.Require<IParticlesClientArea>()));

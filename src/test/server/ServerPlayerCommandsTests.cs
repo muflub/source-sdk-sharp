@@ -55,8 +55,8 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         _globals->interval_per_tick = 0.015f;
         _globals->frametime = 0.015f;
         _globals->maxClients = 2;
-        _commands = ServerPlayerCommands.For(_engine, _moves, _data, new NoSounds(), null,
-                                             MovementRunner.For(_engine), Frame, _published,
+        _commands = ServerPlayerCommands.For(_engine, EngineBound.Trace(_engine.Api), EngineBound.SurfaceProps(_engine.Api), _moves, _data, new NoSounds(), null,
+                                             TestSides.Movement(_engine), Frame, _published,
                                              new Env { Raw = _globals });
     }
 

@@ -185,7 +185,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the player-command binding runs the
         // movement crossing, the command stages and the shadow through it.
-        _movement = MovementRunner.For(_engine);
+        _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _surfaceProps);
         _services.AddInstance(_movement);
 
         // THE SERVER'S COMMANDS RUN IN MANAGED (plan_server_native_v2 T4g):
@@ -194,7 +194,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the route that answers game code's calls on a player's movement
         // state from those records.
         _playerMoves.Seed = (player, move) => _entities?.Get(player) is SsPlayer p && PlayerMovePublisher.Seed(p.State, move);
-        _serverCommands = ServerPlayerCommands.For(_engine, _playerMoves, _moveData,
+        _serverCommands = ServerPlayerCommands.For(_engine, _services.Require<IFwdEngineTrace>(), _surfaceProps,
+                                                   _playerMoves, _moveData,
                                                    new MoveSoundsOf(() => _serverSounds), this, _movement,
                                                    NewMoveConstants().Read,
                                                    new PlayerMovePublisher(h => _entities?.Get(h) as SsPlayer),
@@ -752,7 +753,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IGameThreadLiveness>(_gameThread);
         _services.AddInstance<IFrameScheduler>(_scheduler);
         _services.AddInstance<ILevelInfo>(_levelInfo);
-        _services.AddInstance(EngineServices.ClientInfo(_engine));
+        _services.AddInstance(EngineServices.ClientInfo(_engineServer));
         _services.Add<IConnectedClients, EngineClients>();
         _services.Add<IBoundPort, ProcBoundPort>();
         _services.Add<IServerConsole, ServerConsole>();
@@ -1856,7 +1857,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // A lifecycle participant (level shutdown drops every skeleton and
         // image), so registered before the driver below.
         _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
-                                         new StudioModels(_engine.StudioMemory()),
+                                         new StudioModels(_services.Require<IStudioMemory>()),
                                          _services.Require<IGameClock>(), Log,
                                          _surfaceProps, _convars.Get<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
@@ -3080,7 +3081,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The server's traces (plan_server_native_v2 T4f): IEngineTrace::
         // TraceRay through its forwarder, over the trace filter libss_fwd_server
         // builds in a managed block, which the managed trace rule answers.
-        _traceFilter = ServerTraceRouting.Build(_engine, vtables, CollisionRules.BuildMatrix(), out string tracesWhy);
+        _traceFilter = ServerTraceRouting.Build(_engine, vtables, CollisionRules.BuildMatrix(), _services.Require<IFwdModelInfo>(),
+                                                _services.Require<IFwdEngineTrace>(), out string tracesWhy);
         if (_traceFilter is null)
             Log.Warning($"[SourceSharp/Server] no trace filter, so the server traces nothing: {tracesWhy}\n");
 

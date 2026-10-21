@@ -75,7 +75,7 @@ public sealed unsafe class SurfacePropFoldTests : System.IDisposable
         Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         _world = SideBindings.Of<IEngineWorldQuery>(side);
         _sound = SideBindings.Of<IEngineSound>(side);
-        _surfaces = side.Surfaces;
+        _surfaces = new PhysicsSurfaces(EngineBound.SurfaceProps(side));
     }
 
     public void Dispose()

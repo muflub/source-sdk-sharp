@@ -283,7 +283,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
                                                               PhysicsSurfaceProps.InterfaceVersion,
                                                               out void* props, out PhysicsSurfacePropsFwd* propsFwd, out why)
             || !Forwarders.TryAcquire<ModelInfoFwd>(factory, SourceSharpFactoryType.AppSystem,
-                                                 EngineBound.ModelInfoVersion(engine.Api.Side),
+                                                 EngineModelInfoVersion.For(engine.Api.Side),
                                                  out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why))
         {
             return null;

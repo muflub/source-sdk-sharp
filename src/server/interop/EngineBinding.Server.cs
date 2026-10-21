@@ -27,11 +27,15 @@ internal sealed unsafe partial class EngineBrushMovement
 
 internal sealed unsafe partial class EngineConsole
 {
+    // The server's IVEngineServer, as its composition registered it.
+    private readonly IFwdEngineServer _server;
+
     private readonly IConsoleServerArea _consoleServerArea;
 
-    public EngineConsole(EngineSide side, IConsoleArea consoleArea, IConsoleServerArea consoleServerArea)
+    public EngineConsole(EngineSide side, IFwdEngineServer server, IConsoleArea consoleArea, IConsoleServerArea consoleServerArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
         _consoleArea = consoleArea ?? throw new ArgumentNullException(nameof(consoleArea));
         _consoleServerArea = consoleServerArea ?? throw new ArgumentNullException(nameof(consoleServerArea));
     }
@@ -52,6 +56,11 @@ internal sealed unsafe partial class EngineConsole
     {
         var bytes = Encoding.UTF8.GetBytes(command + "\0");
         fixed (byte* p = bytes) { _consoleServerArea.SendClientCommand(player.Value, p); }
+    }
+    public void ExecuteServerCommand(string command)
+    {
+        if (!string.IsNullOrEmpty(command))
+            _server.ServerCommandNow(command);
     }
 }
 
@@ -334,6 +343,9 @@ internal sealed unsafe partial class EngineEffects
 
 internal sealed unsafe partial class EngineEntities
 {
+    // The server's IVEngineServer, as its composition registered it.
+    private readonly IFwdEngineServer _server;
+
     private readonly INetworkServerArea _networkServerArea;
     private readonly ICollisionServerArea _collisionServerArea;
     private readonly IEntitiesServerArea _entitiesServerArea;
@@ -348,7 +360,7 @@ internal sealed unsafe partial class EngineEntities
     /// ones answered there (their slots are client-only, so every Has_ was
     /// false).
     /// </summary>
-    public EngineEntities(EngineSide side,
+    public EngineEntities(EngineSide side, IFwdEngineServer server,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
                           INetworkServerArea networkServerArea,
@@ -358,7 +370,7 @@ internal sealed unsafe partial class EngineEntities
                           IHierarchyArea hierarchyArea,
                           IPhysicsArea physicsArea,
                           ITransformArea transformArea)
-        : this(side, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, networkServerArea, collisionServerArea, entitiesServerArea, entityLifecycleArea, hierarchyArea, physicsArea, transformArea)
     {
     }
@@ -368,7 +380,7 @@ internal sealed unsafe partial class EngineEntities
     /// its managed skeletons once the composition fills the route (plan
     /// physics_bones_native_zero step 1.2).
     /// </summary>
-    public EngineEntities(EngineSide side,
+    public EngineEntities(EngineSide side, IFwdEngineServer server,
                           StandaloneSkeletonRoute skeletons,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
@@ -379,7 +391,7 @@ internal sealed unsafe partial class EngineEntities
                           IHierarchyArea hierarchyArea,
                           IPhysicsArea physicsArea,
                           ITransformArea transformArea)
-        : this(side, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, networkServerArea, collisionServerArea, entitiesServerArea, entityLifecycleArea, hierarchyArea, physicsArea, transformArea)
     {
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
@@ -392,7 +404,7 @@ internal sealed unsafe partial class EngineEntities
     /// EngineServices.Build picks this constructor when the container holds
     /// all three.
     /// </summary>
-    public EngineEntities(EngineSide side,
+    public EngineEntities(EngineSide side, IFwdEngineServer server,
                           IInterpolationBlocks interpolationBlocks,
                           IRenderPolicyBlocks renderPolicyBlocks,
                           IClientReplayEngine clientReplay,
@@ -407,6 +419,7 @@ internal sealed unsafe partial class EngineEntities
                           ITransformArea transformArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
         _interpolationBlocks = interpolationBlocks ?? throw new ArgumentNullException(nameof(interpolationBlocks));
         _renderPolicyBlocks = renderPolicyBlocks ?? throw new ArgumentNullException(nameof(renderPolicyBlocks));
         _clientReplay = clientReplay ?? throw new ArgumentNullException(nameof(clientReplay));
@@ -1159,6 +1172,7 @@ internal sealed unsafe partial class EngineEntities
     // attach guard answered here, where the client's areas are never attached.
     public int UpdateVisibilityAll() => 0;
 
+    public int Count() => _server.EntityCount();
 }
 
 internal sealed unsafe partial class EngineEntityPhysics
@@ -1315,13 +1329,13 @@ internal sealed unsafe partial class EngineEntityRender
     /// the push handlers.
     /// </para>
     /// </summary>
-    public EngineEntityRender(EngineSide side,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
                               StandaloneMirror mirror,
                               IModelsArea modelsArea,
                               IEntitiesServerArea entitiesServerArea,
                               IModelsServerArea modelsServerArea,
                               INetworkServerArea networkServerArea)
-        : this(side,
+        : this(side, modelInfo,
                mirror,
                new StandaloneSkeletonRoute(),
                modelsArea,
@@ -1338,7 +1352,7 @@ internal sealed unsafe partial class EngineEntityRender
     /// and native only before that. EngineServices.Build picks this
     /// constructor when the container holds a route.
     /// </summary>
-    public EngineEntityRender(EngineSide side,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
                               StandaloneMirror mirror,
                               StandaloneSkeletonRoute skeletons,
                               IModelsArea modelsArea,
@@ -1347,6 +1361,7 @@ internal sealed unsafe partial class EngineEntityRender
                               INetworkServerArea networkServerArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
         _mirror = mirror;
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
         _modelsArea = modelsArea ?? throw new ArgumentNullException(nameof(modelsArea));
@@ -1459,13 +1474,19 @@ internal sealed unsafe partial class EngineGameRulesPolicy
 
 internal sealed unsafe partial class EngineHost
 {
-    public EngineHost(EngineSide side) : this(side, new NoSteamGameServer()) { }
+    // The server's IVEngineServer, as its composition registered it.
+    private readonly IFwdEngineServer _server;
 
-    public EngineHost(EngineSide side, ISteamGameServer steam)
+    public EngineHost(EngineSide side, IFwdEngineServer server, IUniformRandom random) : this(side, server, random, new NoSteamGameServer()) { }
+
+    public EngineHost(EngineSide side, IFwdEngineServer server, IUniformRandom random, ISteamGameServer steam)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
+        _random = random ?? throw new ArgumentNullException(nameof(random));
         _steam = steam ?? throw new ArgumentNullException(nameof(steam));
     }
+    public bool IsDedicatedServer => _server.IsDedicatedServer();
 }
 
 internal sealed unsafe partial class EngineHud
@@ -1834,6 +1855,9 @@ internal sealed unsafe partial class EnginePlayerMovement
 
 internal sealed unsafe partial class EnginePlayers
 {
+    // The server's IVEngineServer, as its composition registered it.
+    private readonly IFwdEngineServer _server;
+
     private readonly IConsoleServerArea _consoleServerArea;
     private readonly IEntitiesServerArea _entitiesServerArea;
     private readonly IPlayersArea _playersArea;
@@ -1841,7 +1865,7 @@ internal sealed unsafe partial class EnginePlayers
     private readonly ITransformArea _transformArea;
     private readonly IEntityLifecycleArea _entityLifecycleArea;
 
-    public EnginePlayers(EngineSide side,
+    public EnginePlayers(EngineSide side, IFwdEngineServer server,
                          IConsoleServerArea consoleServerArea,
                          IEntitiesServerArea entitiesServerArea,
                          IPlayersArea playersArea,
@@ -1850,6 +1874,7 @@ internal sealed unsafe partial class EnginePlayers
                          IEntityLifecycleArea entityLifecycleArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
         _consoleServerArea = consoleServerArea ?? throw new ArgumentNullException(nameof(consoleServerArea));
         _entitiesServerArea = entitiesServerArea ?? throw new ArgumentNullException(nameof(entitiesServerArea));
         _playersArea = playersArea ?? throw new ArgumentNullException(nameof(playersArea));
@@ -2054,24 +2079,39 @@ internal sealed unsafe partial class EnginePlayers
         {
             var player = GetPlayerHandle(slot);
 
-            if (player != EntityHandle.None && EngineBound.Server(E).PlayerUserId(player.EntryIndex) == userId)
+            if (player != EntityHandle.None && _server.PlayerUserId(player.EntryIndex) == userId)
                 return player;
         }
 
         return EntityHandle.None;
     }
 
-    private partial Vector EyePosition(EntityHandle player) => E.EntityGetEyePosition(player);
+    /// <summary>Where the player's eyes are, as the server's slot answers it.</summary>
+    private Vector EyePosition(EntityHandle player) => E.EntityGetEyePosition(player);
 
     /// <summary>Handle for a player slot (1..maxplayers), or None if absent.</summary>
     private EntityHandle GetPlayerHandle(int playerIndex) => E.GetPlayerHandle(playerIndex);
+    public int GetUserId(EntityHandle player) => E.EntityIsValid(player) ? _server.PlayerUserId(player.EntryIndex) : 0;
+
+    public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => E.EntityIsValid(player) && _server.BoxInPvs(EyePosition(player), mins, maxs);
+
+    public void SetViewEntity(EntityHandle player, EntityHandle view)
+    {
+        if (E.EntityIsValid(player))
+            _server.SetView(player.EntryIndex, E.EntityIsValid(view) ? view.EntryIndex : -1);
+    }
 }
 
 internal sealed unsafe partial class EnginePrecache
 {
-    public EnginePrecache(EngineSide side)
+    // The server's IVEngineServer, as its composition registered it: the decals'.
+    private readonly IFwdEngineServer _server;
+
+    public EnginePrecache(EngineSide side, IFwdEngineServer server, IFwdModelInfo modelInfo)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
+        _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
     }
 
     // Through the string tables' forwarders since 2026-10-19, where the
@@ -2111,9 +2151,9 @@ internal sealed unsafe partial class EnginePrecache
     {
         public bool PrecacheAllowed() => precache.DecalLevel.IsPrecacheAllowed();
 
-        public bool IsDecalPrecached(string name) => EngineBound.Server(precache.E).IsDecalPrecached(name);
+        public bool IsDecalPrecached(string name) => precache._server.IsDecalPrecached(name);
 
-        public int PrecacheDecal(string name, bool preload) => EngineBound.Server(precache.E).PrecacheDecal(name, preload);
+        public int PrecacheDecal(string name, bool preload) => precache._server.PrecacheDecal(name, preload);
 
         public void Warning(string text) => precache.E.Warning(text);
     }
@@ -2325,9 +2365,11 @@ internal sealed unsafe partial class EngineScripted
 
 internal sealed unsafe partial class EngineSound
 {
-    public EngineSound(EngineSide side)
+    public EngineSound(EngineSide side, IFwdPhysicsSurfaceProps surfaceProps, IFwdSoundEmitter soundEmitter)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
+        _soundEmitter = soundEmitter ?? throw new ArgumentNullException(nameof(soundEmitter));
     }
 
     /// <summary>
@@ -2513,12 +2555,16 @@ internal sealed unsafe partial class EngineSound
 
 internal sealed unsafe partial class EngineVisibility
 {
+    // The server's IVEngineServer, as its composition registered it.
+    private readonly IFwdEngineServer _server;
+
     private readonly IEntitiesServerArea _entitiesServerArea;
     private readonly IWorldServerArea _worldServerArea;
 
-    public EngineVisibility(EngineSide side, IEntitiesServerArea entitiesServerArea, IWorldServerArea worldServerArea)
+    public EngineVisibility(EngineSide side, IFwdEngineServer server, IEntitiesServerArea entitiesServerArea, IWorldServerArea worldServerArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
         _entitiesServerArea = entitiesServerArea ?? throw new ArgumentNullException(nameof(entitiesServerArea));
         _worldServerArea = worldServerArea ?? throw new ArgumentNullException(nameof(worldServerArea));
     }
@@ -2575,6 +2621,12 @@ internal sealed unsafe partial class EngineVisibility
     public void ClearViewerFogParams() { }
     public void SetViewerSkyboxParams(in SkyboxParams parameters) { }
     public void ClearViewerSkyboxParams() { }
+    public void SetLightStyle(int style, string pattern)
+    {
+        // The engine's 64 styles (MAX_LIGHTSTYLES); the slot's guard, moved here.
+        if (style >= 0 && style < 64 && pattern is not null)
+            _server.LightStyle(style, pattern);
+    }
 }
 
 internal sealed unsafe partial class EngineWeapons
@@ -2590,13 +2642,16 @@ internal sealed unsafe partial class EngineWeapons
 
 internal sealed unsafe partial class EngineWorldQuery
 {
+    // The server's IVEngineServer, as its composition registered it.
+    private readonly IFwdEngineServer _server;
+
     private readonly IEntitiesServerArea _entitiesServerArea;
     private readonly IWorldServerArea _worldServerArea;
     private readonly ITransformArea _transformArea;
     private readonly IEntityLifecycleArea _entityLifecycleArea;
     private readonly IPlayersArea _playersArea;
 
-    public EngineWorldQuery(EngineSide side,
+    public EngineWorldQuery(EngineSide side, IFwdEngineServer server, IFwdPhysicsSurfaceProps surfaceProps, IFwdEngineTrace trace,
                             IEntitiesServerArea entitiesServerArea,
                             IWorldServerArea worldServerArea,
                             ITransformArea transformArea,
@@ -2604,6 +2659,9 @@ internal sealed unsafe partial class EngineWorldQuery
                             IPlayersArea playersArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _server = server ?? throw new ArgumentNullException(nameof(server));
+        _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
+        _trace = trace ?? throw new ArgumentNullException(nameof(trace));
         _entitiesServerArea = entitiesServerArea ?? throw new ArgumentNullException(nameof(entitiesServerArea));
         _worldServerArea = worldServerArea ?? throw new ArgumentNullException(nameof(worldServerArea));
         _transformArea = transformArea ?? throw new ArgumentNullException(nameof(transformArea));
@@ -2673,7 +2731,7 @@ internal sealed unsafe partial class EngineWorldQuery
     // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a slot made
     // the same call: the guard is its.
     public int SurfacePropIndex(string name)
-        => string.IsNullOrEmpty(name) ? -1 : EngineBound.SurfaceProps(E).SurfaceIndex(name);
+        => string.IsNullOrEmpty(name) ? -1 : _surfaceProps.SurfaceIndex(name);
 
     // THE SERVER'S TRACES ARE MANAGED (plan_server_native_v2 T4f): each is the
     // side's, over the trace route the composition installs.
@@ -2742,4 +2800,5 @@ internal sealed unsafe partial class EngineWorldQuery
     public ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask,
                                              TraceFilter filter, int passEntityIndex = -1)
         => new ClientTraceResult(false, 1f, end, Vector.Zero, 0, -1, -1, 0);
+    public int GetArea(Vector origin) => _server.GetArea(origin);
 }

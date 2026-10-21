@@ -98,8 +98,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     {
         var (first, second) = TwoTraces();
 
-        var mine = MovementRunner.For(new ModuleEngine(first));
-        _ = MovementRunner.For(new ModuleEngine(second));
+        var mine = TestSides.Movement(new ModuleEngine(first));
+        _ = TestSides.Movement(new ModuleEngine(second));
 
         Assert.Equal(7, mine.World.PointContents(Vector.Zero, 0));
         Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
@@ -108,7 +108,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void ASlotAnswersAgainForAPointWithinAUnit()
     {
-        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
 
         world.PointContents(new Vector(0, 0, 0), 1);
@@ -122,7 +122,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void EachSlotIsItsOwnAndSlotMinusOneIsNeverCached()
     {
-        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
 
         world.PointContents(Vector.Zero, 0);
@@ -135,7 +135,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void AResetForgetsEverySlot()
     {
-        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
         world.PointContents(Vector.Zero, 0);
 
@@ -147,7 +147,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void WithoutTheOptimizationsNothingIsCached()
     {
-        var world = MovementRunner.For(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: false);
 
         world.PointContents(Vector.Zero, 0);

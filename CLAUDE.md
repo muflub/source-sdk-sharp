@@ -248,7 +248,11 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   holds the engine's factories by then, so one the engine refuses fails the
   composition there, naming it. A consumer takes the interface by
   constructor: no `Func<IFwdX?>`, no null branch, no public `Acquire`
-  answering null. A test side holds defaults that answer nothing
+  answering null, and no `EngineBound.X(side)` lookup outside the
+  acquisition layer (`EngineBoundCallerCensus` reads the IL). A binding's
+  constructor names the interfaces it calls; an `IVEngineServer` member is the
+  server partial's, and the client's partial answers it as a client engine
+  does. A test side holds defaults that answer nothing
   (`src/test/support/DefaultForwarders.cs`); a fake root serves every engine
   interface and forwarder table with default slots, as it serves the areas,
   and a fact refuses one with `FakeShimRoot.Refuse`.

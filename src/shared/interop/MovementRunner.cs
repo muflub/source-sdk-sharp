@@ -48,11 +48,14 @@ public sealed unsafe class MovementRunner
     /// taken here once (plan_shim_areas_split phase 11).
     /// </summary>
     /// <param name="engine">This side's engine.</param>
+    /// <param name="trace">The side's engine trace, as its composition registered it.</param>
+    /// <param name="surfaces">The side's surface table, as its composition registered it.</param>
     /// <param name="clientWorld">The client prediction's world over the engine's; null runs on the engine's.</param>
-    public static MovementRunner For(ModuleEngine engine, Func<IMoveWorld, IMoveWorld>? clientWorld = null)
+    public static MovementRunner For(ModuleEngine engine, IFwdEngineTrace trace, IFwdPhysicsSurfaceProps surfaces,
+                                     Func<IMoveWorld, IMoveWorld>? clientWorld = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Api.Areas.Require<IMovementArea>());
+        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Api.Areas.Require<IMovementArea>(), trace, surfaces);
         return new MovementRunner(engine.Api, world, engine.Side == Side.Server, clientWorld?.Invoke(world));
     }
 

@@ -423,17 +423,16 @@ internal sealed unsafe class ClientPlaneTrace(IParticlesClientArea particlesClie
     }
 }
 
-/// <summary>The real one, over this side's IVModelInfoClient.</summary>
-internal sealed class ClientModelNames(EngineSide side) : IClientModelNames
+/// <summary>The real one, over this side's IVModelInfoClient, as its composition registered it.</summary>
+internal sealed class ClientModelNames(IFwdModelInfo info) : IClientModelNames
 {
     public string? NameOf(int modelIndex)
     {
-        var info = EngineBound.ModelInfo(side);
         nint model = info.Model(modelIndex);
         return model == 0 ? null : info.ModelName(model);
     }
 
-    public int IndexOf(string name) => EngineBound.ModelInfo(side).ModelIndex(name);
+    public int IndexOf(string name) => info.ModelIndex(name);
 }
 
 /// <summary>The real one, over the api.</summary>
