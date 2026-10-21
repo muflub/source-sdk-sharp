@@ -1044,12 +1044,12 @@ they found are fixed in the switch).
 
 ### Open
 
-- The intermittent missing shadow of entity entry 264 after the second map
-  load (2 of 9 runs at the tip, 0 of 3 before; above). Next: more base runs
-  in a tree at cd01c2887 to measure the base's rate, and a trace of the leaf
-  registry's insert for that entity in a failing run (the scene's missing
-  entry says it may not be drawn at all, which is the leaf system's, not the
-  shadow manager's).
+- CLOSED 2026-10-20: the intermittent missing shadow of entity entry 264
+  after the second map load was neither the shadow manager's nor the leaf
+  system's. The session's teleport to pose 1 swept the trigger touch from the
+  player's spawn and, from two of the ten spawn points, took the shotgun
+  pickup that entry is (hidden for its respawn). The standalone teleport no
+  longer sweeps (CStandaloneEntity::TeleportTo; docs/todo.md has the numbers).
 - The batching above, in the perf pass.
 - iclientshadowmgr.h stays in sdk-links while c_baseentity.h includes it.
 - mathlib_port_stock_test still holds ss_mathlib's inlines of the deleted

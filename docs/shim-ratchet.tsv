@@ -1875,7 +1875,10 @@ shim_cpp_files	src/sourcesharp	215
 # LOWERED 2026-10-20, 128960 -> 126911 (-2049, the walk at the C7 shadow manager S2 landing on main 29ec64f57, read with the ceiling
 #   at 1): the deletion (collisionutils.cpp, shell_renderable_facts.cpp, shell_tools_off_client.cpp, 19 mathlib forwards), net of
 #   the switch's shell_shadows_client.cpp, queue and re-pointed shells (the lane measured 130741 -> 126848 on its base).
-shim_lines	src/sourcesharp	126911
+# RAISED 2026-10-20, 126911 -> 126918 (+7, the walk with the fix): CStandaloneEntity::TeleportTo, the move a teleport
+#   makes without the funnel's trigger sweep (stock's TeleportEntity), net of SourceSharp_EntityTeleport's two setter calls.
+#   It binds the teleport that took every pickup on its line (docs/todo.md, entity entry 264).
+shim_lines	src/sourcesharp	126918
 # RAISED 2026-10-19, 128502 -> 128520 (plan_server_native_v2 T6, +18 net): the root's scaffolding is new text -- server_state.h (the two heap tiers m_pDll/m_pLevel) and shell_shim_root_server.h (the server's shim root as a member of the game DLL object, Acquire folded from SourceSharp_InternalFactory) -- and it binds what T6 moves off file-scope statics; T6 3a-3g's dead-global deletions paid for all but 18 lines of it.
 # RAISED 2026-10-19, 128520 -> 128571 (plan_server_native_v2 T6 5a, +51): the entity control block and slot table moved from file-scope statics into the DLL tier (CServerDllState); every shell_entityslots.cpp entry point now resolves the tier and answers "no entity" outside DLLInit..DLLShutdown, and server_state.h names the two members and their lifetime. It binds the 245,792 B those two statics held.
 # RAISED 2026-10-19, 128571 -> 128593 (plan_server_native_v2 T6 5b, +22): the server's net type table moved from SourceSharp_NetTypes()'s function-local static into the DLL tier (CServerDllState::m_NetTypes); generic_payload.cpp gains the server's accessor beside the client's unchanged one, and server_state.h names the member and its lifetime. It binds the 43,016 B that static held.
