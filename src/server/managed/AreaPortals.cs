@@ -77,16 +77,13 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
         public Vector Maxs;
     }
 
-    private readonly Func<IAreaPortalEngine?> _acquire;
-    private IAreaPortalEngine? _bound;
+    private readonly IAreaPortalEngine _engine;
     private readonly List<Record> _records = new();
     private readonly Dictionary<uint, Record> _byToken = new();
     private uint _lastToken;
 
-    /// <param name="engine">Acquires IVEngineServer's portal calls; asked until it answers, then held.</param>
-    public AreaPortals(Func<IAreaPortalEngine?> engine) => _acquire = engine;
-
-    private IAreaPortalEngine? Engine() => _bound ??= _acquire();
+    /// <param name="engine">IVEngineServer's portal calls: the side's registered ones (the engine server).</param>
+    public AreaPortals(IAreaPortalEngine engine) => _engine = engine;
 
     /// <summary>How many records there are; the debug readout's and the facts' count.</summary>
     public int Count => _records.Count;
@@ -102,7 +99,7 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
         _records.Add(record);
         _byToken[record.Token] = record;
 
-        Engine()?.SetAreaPortalState(portalNumber, true);
+        _engine.SetAreaPortalState(portalNumber, true);
         return record.Token;
     }
 
@@ -117,7 +114,7 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
         if (!_byToken.Remove(portal, out Record? record))
             return;
 
-        Engine()?.SetAreaPortalState(record.Number, true);
+        _engine.SetAreaPortalState(record.Number, true);
         _records.Remove(record);
     }
 
@@ -128,7 +125,7 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
             return;
 
         record.Open = open;
-        Engine()?.SetAreaPortalState(record.Number, open);
+        _engine.SetAreaPortalState(record.Number, open);
     }
 
     /// <inheritdoc/>
@@ -151,7 +148,7 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
     /// </summary>
     public int Visibility(Vector origin, float fovDistanceAdjustFactor, Span<byte> portalBits)
     {
-        IAreaPortalEngine? engine = Engine();
+        IAreaPortalEngine engine = _engine;
         Span<int> numbers = stackalloc int[Batch];
         Span<int> open = stackalloc int[Batch];
         int n = 0;
@@ -165,7 +162,7 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
 
             if (++n >= Batch)
             {
-                engine?.SetAreaPortalStates(numbers, open);
+                engine.SetAreaPortalStates(numbers, open);
                 n = 0;
             }
 
@@ -183,19 +180,19 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
             }
         }
 
-        engine?.SetAreaPortalStates(numbers[..n], open[..n]);
+        engine.SetAreaPortalStates(numbers[..n], open[..n]);
         return -1;
     }
 
     /// <summary>CAreaPortal::UpdateVisibility: whether the server sends what is beyond it.</summary>
-    private static bool UpdateVisibility(IAreaPortalEngine? engine, Record record, Vector origin,
+    private static bool UpdateVisibility(IAreaPortalEngine engine, Record record, Vector origin,
                                          float fovDistanceAdjustFactor, ref bool openOnClient)
     {
         if (ClosedByState(record, origin, fovDistanceAdjustFactor, ref openOnClient))
             return false;
 
         // Left open when the engine has no plane for it.
-        if (engine is null || !engine.GetAreaPortalPlane(origin, record.Number, out Vector normal, out float distance))
+        if (!engine.GetAreaPortalPlane(origin, record.Number, out Vector normal, out float distance))
             return true;
 
         // VPlane::DistTo: the dot product, then the distance.

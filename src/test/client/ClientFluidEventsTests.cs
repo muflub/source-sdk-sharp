@@ -127,17 +127,6 @@ public class ClientFluidEventsTests
     }
 
     [Fact]
-    public void WithNoEngineRandomStreamThereIsNoSplash()
-    {
-        var w = new World();
-        w.Owners[1] = Word(A);
-        var f = new ClientFluidEvents(w, null, () => 0f);
-        f.FluidStartTouch(1, 9);
-        Assert.Empty(w.Effects);
-        Assert.Equal(0, f.Splashes);
-    }
-
-    [Fact]
     public void ClearForgetsEveryEntry()
     {
         var (f, _, at) = Rig();

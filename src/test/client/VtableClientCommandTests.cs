@@ -5,15 +5,15 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// <c>cs_vtable_client</c> takes the engine client through a seam
-/// (plan_shim_areas_split phase 8): the command's facts drive a fake of it, and
-/// the real one is held through the client root's registration.
+/// <c>cs_vtable_client</c> takes a probe of the engine client and the engine
+/// client itself (plan_shim_areas_split phase 8): the command's facts drive
+/// fakes of both, and the real probe is held through the client root's registration.
 /// </summary>
 public unsafe class VtableClientCommandTests
 {
-    private sealed class Source(IFwdEngineClient? client, string why) : IFwdEngineClientSource
+    private sealed class Probe(bool served, string why) : IFwdEngineClientProbe
     {
-        public IFwdEngineClient? Acquire(out string reason) { reason = why; return client; }
+        public bool Served(out string reason) { reason = why; return served; }
     }
 
     private sealed class Client : IFwdEngineClient
@@ -45,9 +45,12 @@ public unsafe class VtableClientCommandTests
     {
         var log = new RecordingLog();
 
-        new VtableClientCommand(new Source(null, "not served"), log).Execute("");
+        var client = new Client();
+
+        new VtableClientCommand(new Probe(false, "not served"), client, log).Execute("");
 
         Assert.Equal(["[SourceSharp/Vtable] IVEngineClient: REFUSED — not served\n"], log.Lines.Select(l => l.Text));
+        Assert.Empty(client.Printed);
     }
 
     [Fact]
@@ -56,7 +59,7 @@ public unsafe class VtableClientCommandTests
         var log = new RecordingLog();
         var client = new Client();
 
-        new VtableClientCommand(new Source(client, ""), log).Execute("");
+        new VtableClientCommand(new Probe(true, ""), client, log).Execute("");
 
         Assert.Contains("[SourceSharp/Vtable] IVEngineClient: bound, LevelName() = maps/ss_sandbox.bsp, "
                         + "GameDirectory() = mod_test, ProtocolVersion() = 24\n", log.Lines.Select(l => l.Text));
@@ -66,38 +69,35 @@ public unsafe class VtableClientCommandTests
     }
 
     /// <summary>
-    /// The root registers the real source over its own engine: of two
-    /// compositions, only the one whose root serves the engine client binds it,
+    /// The root registers the real probe over its own engine: of two
+    /// compositions, only the one whose root serves the engine client says so,
     /// and the other refuses with a reason rather than borrowing the first's.
     /// </summary>
     [Fact]
-    public void TheRootRegistersTheSourceOverItsOwnEngine()
+    public void TheRootRegistersTheProbeOverItsOwnEngine()
     {
         var served = TestSides.Create(Side.Client);
         var bare = TestSides.Create(Side.Client);
-        IFwdEngineClientSource servedSource = Composed(served);
-        IFwdEngineClientSource bareSource = Composed(bare);
+        IFwdEngineClientProbe servedProbe = Composed(served);
+        IFwdEngineClientProbe bareProbe = Composed(bare);
 
-        // Attached after the composition, which the source allows because it
-        // acquires when asked: a composition over a fake root would build
+        // Attached after the composition, which the probe allows because it
+        // asks when asked: a composition over a fake root would build
         // services that call slots the fake leaves unfilled.
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(EngineClient.InterfaceVersion, &word).Forwarders<EngineClientFwd>();
         Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
-        IFwdEngineClient? answered = servedSource.Acquire(out _);
-        IFwdEngineClient? refused = bareSource.Acquire(out string why);
-
-        Assert.NotNull(answered);
-        Assert.Null(refused);
+        Assert.True(servedProbe.Served(out _));
+        Assert.False(bareProbe.Served(out string why));
         Assert.False(string.IsNullOrEmpty(why), "a refusal carries the engine's reason");
     }
 
-    private static IFwdEngineClientSource Composed(EngineSide side)
+    private static IFwdEngineClientProbe Composed(EngineSide side)
     {
         var module = new ClientModule(new ModuleEngine(side), new FakeClientEngineAdapters());
         module.ComposeEngineAreas();
-        return module.Services.Require<IFwdEngineClientSource>();
+        return module.Services.Require<IFwdEngineClientProbe>();
     }
 }

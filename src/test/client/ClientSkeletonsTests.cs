@@ -228,7 +228,7 @@ public unsafe class ClientSkeletonsTests
             Indices[5] = Entity;
             Skeletons = new ClientSkeletons(Blocks, Store, new StudioModels(Memory),
                                             i => Indices.TryGetValue(i, out EntityHandle h) ? h : null,
-                                            Environment, Log, null, new Props(), () => Ragdolls);
+                                            Environment, Log, new Props(), null, () => Ragdolls);
         }
 
         public bool Setup(EntityHandle entity, float[] output, int mask = UsedByAnything, float time = 1f) =>

@@ -181,10 +181,8 @@ public sealed class SpectatorCommands
 /// the engine has no server to send to while one plays.
 /// </summary>
 public sealed class SpectatorCommandRunner(SpectatorCommands decide, IObserverSource observer, ILog log,
-                                           Func<IFwdEngineClient?> engine)
+                                           IFwdEngineClient engine)
 {
-    private IFwdEngineClient? _engine;
-
     public void Run(string name, string args)
     {
         var parts = ShowInfo.Split(args);
@@ -195,7 +193,7 @@ public sealed class SpectatorCommandRunner(SpectatorCommands decide, IObserverSo
         if (usage)
             log.Msg(SpectatorCommands.PlayerUsage);
         if (line is not null)
-            (_engine ??= engine())?.SpectatorServerCommand(line);
+            engine.SpectatorServerCommand(line);
     }
 }
 

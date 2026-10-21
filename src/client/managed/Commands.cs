@@ -240,14 +240,12 @@ public sealed class BecomeRagdollCommand : IConCommand
 /// </summary>
 [ConCommand("cs_vtable_client", Help = "Acquire IVEngineClient through its vtable and "
                                      + "exercise the four C++ proxies")]
-public sealed class VtableClientCommand(IFwdEngineClientSource engine, ILog log) : IConCommand
+public sealed class VtableClientCommand(IFwdEngineClientProbe probe, IFwdEngineClient client, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
         // Through this composition's own engine (plan_abi_hotreload D8).
-        IFwdEngineClient? client = engine.Acquire(out string why);
-
-        if (client is null)
+        if (!probe.Served(out string why))
         {
             log.Msg($"[SourceSharp/Vtable] IVEngineClient: REFUSED — {why}\n");
             return;

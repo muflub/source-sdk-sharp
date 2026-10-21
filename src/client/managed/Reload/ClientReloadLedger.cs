@@ -159,22 +159,15 @@ public sealed class ClientReloadLedger(ReloadStore store, IGameClock clock, ILog
 }
 
 /// <summary>Queues the client's managed reload through the engine (cs_cl_reload's fixed text).</summary>
-public sealed class ClientReloadRequester(Func<IFwdEngineClient?> acquire)
+public sealed class ClientReloadRequester(IFwdEngineClient engine)
 {
-    private IFwdEngineClient? _engine;
-
     /// <summary>Whether a request was accepted by this build; the reload replaces the build that answers.</summary>
     public bool Pending { get; private set; }
 
-    /// <summary>False when there is no engine client to ask.</summary>
-    public bool Request()
+    /// <summary>Asks the engine client to reload at its next frame boundary.</summary>
+    public void Request()
     {
-        _engine ??= acquire();
-        if (_engine is null)
-            return false;
-
-        _engine.RequestManagedReload();
+        engine.RequestManagedReload();
         Pending = true;
-        return true;
     }
 }

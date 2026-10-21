@@ -147,11 +147,14 @@ public sealed unsafe class ClientInputHostTests
     }
 
     // The host as the client's composition builds it (phase 11 review: by
-    // injection, no static): the game's adapters register the engine client,
-    // and the module builds the host over the side's input area and them.
+    // injection, no static): the side's engine interfaces register the engine
+    // client (EngineServices.AddForwarders, as AddTo does), the game's
+    // adapters the rest, and the module builds the host over the side's
+    // input area and them.
     private static IInputHost Composed(ModuleEngine engine)
     {
         var services = new ServiceContainer().AddInstance<IEngineConsole>(new NullConsole());
+        EngineServices.AddForwarders(services, engine.Api);
         new ClientEntityFetches().AddTo(services, engine);
         // By type: the census lets a fact read the class's shape, never hold it.
         return (IInputHost)engine.Create(typeof(ClientInputHost), services);
@@ -172,17 +175,6 @@ public sealed unsafe class ClientInputHostTests
             () => constructor.Invoke([input, new NullConsole(), null]));
         var refusal = Assert.IsType<ArgumentNullException>(thrown.InnerException);
         Assert.Equal("engineClient", refusal.ParamName);
-    }
-
-    /// <summary>
-    /// An engine that does not serve IVEngineClient fails the host's build,
-    /// with the engine's reason, rather than handing it nothing.
-    /// </summary>
-    [Fact]
-    public void AnEngineWithNoEngineClientFailsTheBuildWithItsReason()
-    {
-        var refusal = Assert.ThrowsAny<Exception>(() => Composed(new ModuleEngine(TestSides.Create(Side.Client))));
-        Assert.Contains("the input host has no engine client", refusal.ToString());
     }
 
     private sealed class NullConsole : IEngineConsole

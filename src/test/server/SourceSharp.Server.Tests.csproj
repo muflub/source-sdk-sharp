@@ -45,6 +45,8 @@
     <Compile Include="..\common\UserMessageFixtures.cs" Link="common\UserMessageFixtures.cs" />
     <Compile Include="..\common\SideReach.cs" Link="common\SideReach.cs" />
     <Compile Include="..\common\SeamCensus.cs" Link="common\SeamCensus.cs" />
+    <Compile Include="..\common\NullableEngineInterfaceCensus.cs" Link="common\NullableEngineInterfaceCensus.cs" />
+    <Compile Include="..\common\EngineBoundCallerCensus.cs" Link="common\EngineBoundCallerCensus.cs" />
     <Compile Include="..\common\EngineApiCensusTests.Helpers.cs" Link="common\EngineApiCensusTests.Helpers.cs" />
     <Compile Include="..\common\TestConVars.cs" Link="common\TestConVars.cs" />
     <Compile Include="..\common\RecordingUserMessageEngine.cs" Link="common\RecordingUserMessageEngine.cs" />

@@ -54,15 +54,10 @@ public interface IClientWorldLight
 }
 
 /// <summary>The real one, over IVEngineClient, acquired on first use.</summary>
-public sealed class ClientWorldLight(Func<IFwdEngineClient?> acquire) : IClientWorldLight
+public sealed class ClientWorldLight(IFwdEngineClient engine) : IClientWorldLight
 {
-    private IFwdEngineClient? _engine;
-
     public Vector LightForPoint(Vector position, bool clamp)
-    {
-        _engine ??= acquire();
-        return _engine is not null && _engine.TryLightForPoint(position, clamp, out Vector light) ? light : default;
-    }
+        => engine.TryLightForPoint(position, clamp, out Vector light) ? light : default;
 }
 
 /// <summary>A sim's quad as the executor reads it.</summary>

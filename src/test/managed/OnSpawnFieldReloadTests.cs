@@ -129,7 +129,7 @@ public class OnSpawnFieldReloadTests
         services.AddInstance(new DamageHitGroups());
         // plan_server_native_v2 T4d: the area portal records func_areaportal and
         // func_areaportalwindow keep, over no engine.
-        services.AddInstance<IAreaPortals>(new AreaPortals(() => null));
+        services.AddInstance<IAreaPortals>(new AreaPortals(new DefaultForwarders.NoEngineServer()));
         services.AddInstance(services.Create<Arsenal>());
         services.AddInstance<IPhysicsConversion>(new NoConversion());
         services.AddInstance<IPlayerFlashlight>(

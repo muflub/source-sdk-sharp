@@ -122,7 +122,8 @@ public class BoneTraceFlatTests
     public void AnUntestedTraceIsNotWrittenBack()
     {
         // No block: not a standalone entity, nothing tested, nothing written.
-        var skeletons = new ServerSkeletons(new NoBlocks(), new StudioModels(new NoMemory()), new NoClock(), new RecordingLog());
+        var skeletons = new ServerSkeletons(new NoBlocks(), new StudioModels(new NoMemory()), new NoClock(), new RecordingLog(),
+                                            new DefaultForwarders.NoSurfaceProps());
         float[] floats = { 9f, 9f, 9f, 9f, 9f, 9f, 9f, 9f, 9f, 9f, 9f };
         int[] ints = new int[BoneTraceFlat.TraceInts];
 

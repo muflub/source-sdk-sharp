@@ -63,14 +63,10 @@ public sealed unsafe class PhysicsSurfaceProps : IFwdPhysicsSurfaceProps, IVPhys
     }
 
     /// <summary>
-    /// From the physics module's factory, through <paramref name="engine"/>'s
-    /// own side (plan_abi_hotreload D8); null, with the reason, when it does
+    /// From the physics module's factory, through the side's
+    /// own factory (plan_abi_hotreload D8); null, with the reason, when it does
     /// not answer.
     /// </summary>
-    public static IFwdPhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
-
-    /// <summary>The same, through one side's own factory: what EngineBound holds per side.</summary>
     internal static IFwdPhysicsSurfaceProps? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(
                factory, SourceSharpFactoryType.Physics, InterfaceVersion,

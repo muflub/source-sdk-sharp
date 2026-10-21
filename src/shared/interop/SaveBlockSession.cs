@@ -183,7 +183,7 @@ public sealed unsafe class SaveBlockSession
     public const int TokenSlots = 0xfff;
 
     private readonly ILog _log;
-    private readonly Func<ISaveMemory?> _memoryOf;
+    private readonly ISaveMemory _memory;
     private readonly bool _traceBlocks;
 
     // The name an unnamed field goes under. Native memory, never freed: the
@@ -196,15 +196,15 @@ public sealed unsafe class SaveBlockSession
     private byte* Unnamed => _unnamed != null ? _unnamed : _unnamed = NativeName("<unnamed>");
 
     /// <summary>
-    /// A session over the engine's allocator as it is when a save starts: the
-    /// engine interface is asked at SaveInit, not when the module is built.
+    /// A session over the engine's allocator: the side's registered one,
+    /// which the composition acquired with the engine client or server.
     /// <paramref name="traceBlocks"/> narrates every field block (the
     /// server's few dozen); SaveInit and every refusal are always said.
     /// </summary>
-    public SaveBlockSession(ILog log, Func<ISaveMemory?> memoryOf, bool traceBlocks)
+    public SaveBlockSession(ILog log, ISaveMemory memory, bool traceBlocks)
     {
         _log = log;
-        _memoryOf = memoryOf;
+        _memory = memory ?? throw new ArgumentNullException(nameof(memory));
         _traceBlocks = traceBlocks;
     }
 
@@ -225,13 +225,7 @@ public sealed unsafe class SaveBlockSession
     /// </summary>
     public void* Init(int size, float curTime)
     {
-        ISaveMemory? memory = _memoryOf();
-        if (memory is null)
-        {
-            _log.Warning("[SourceSharp] SaveInit: no engine interface -- the save cannot be sized "
-                         + "and will abort SILENTLY at the engine's call site\n");
-            return null;
-        }
+        ISaveMemory memory = _memory;
 
         // The engine passes 0 and we choose; a size it does pass is honoured.
         if (size <= 0)

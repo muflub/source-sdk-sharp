@@ -72,7 +72,7 @@ public static class ClientUi
 
     public static UiHost Build(ServiceContainer services, ILog log, Hud hud, HudMessages messages, HudHints hints,
                                HudBuildStamp build, ILocalArsenal arsenal, UiScaleConVar? scale,
-                               Func<IFwdEngineClient?> engine, Func<IFwdInputSystem?> input,
+                               IFwdEngineClient engine, IFwdInputSystem input,
                                Func<IClientStringTables?>? stringTables = null)
     {
         var screen = services.Require<IEngineHud>();

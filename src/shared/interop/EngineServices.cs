@@ -56,6 +56,10 @@ public static partial class EngineServices
     {
         int count = 0;
 
+        // THE ENGINE INTERFACES FIRST, NON-NULL (AddForwarders): a binding
+        // that calls one takes it by constructor.
+        AddForwarders(services, side);
+
         foreach (var (contract, binding) in Bindings(side, services))
         {
             services.AddInstance(contract, binding);
@@ -71,9 +75,10 @@ public static partial class EngineServices
         services.AddInstance(side.EntityIo);
         services.AddInstance(side.Removal);
 
-        // The side's surfaceprop table, over its own routing (it was a static
-        // that read Engine.Current). Not an engine area either.
-        services.AddInstance(side.Surfaces);
+        // The side's surfaceprop table, over the surface props AddForwarders
+        // registered (it was a static that read Engine.Current). Not an engine
+        // area either.
+        services.AddInstance(new PhysicsSurfaces(services.Require<IFwdPhysicsSurfaceProps>()));
 
         // AND THE SIDE'S LOG (statics to zero: it was the static Log): an ILog
         // over this side's own console, which everything this composition
@@ -89,6 +94,46 @@ public static partial class EngineServices
 
         return count;
     }
+
+    /// <summary>
+    /// The engine interfaces, non-null: each acquired now through the side's
+    /// bound slot (<see cref="EngineBound"/>) and registered as the object the
+    /// slot holds. A side composes after its root is attached, inside the
+    /// game DLL's Init, which has the engine's factories by then (both shells
+    /// store them before they load managed), so every interface is there to
+    /// acquire. One the engine refuses fails the composition here, naming it,
+    /// as native's Init refuses to start without one. A consumer is handed
+    /// the interface by constructor and never checks it for null.
+    /// </summary>
+    internal static void AddForwarders(ServiceContainer services, EngineSide side)
+    {
+        services.AddInstance(EngineBound.Random(side));
+        services.AddInstance(EngineBound.Trace(side));
+        services.AddInstance(EngineBound.SoundEmitter(side));
+        IFwdPhysicsSurfaceProps surfaces = EngineBound.SurfaceProps(side);
+        services.AddInstance(surfaces);
+        services.AddInstance(Slice<IVPhysicsSurfaceSounds>(surfaces));
+        services.AddInstance(EngineBound.Files(side));
+        IFwdModelInfo modelInfo = EngineBound.ModelInfo(side);
+        services.AddInstance(modelInfo);
+        // The model cache read as bytes (plan physics_bones_native_zero step
+        // 1.2): what the managed skeletons build their studio headers from.
+        services.AddInstance<IStudioMemory>(new EngineStudioMemory(modelInfo));
+        services.AddInstance(EngineBound.DebugOverlay(side));
+        AddSideForwarders(services, side);
+    }
+
+    /// <summary>
+    /// One of the engine's slices that the same object answers (the save
+    /// allocator on the engine server and client, the surface sounds on the
+    /// surface table): the wrapper implements it, and so does a test default.
+    /// </summary>
+    internal static T Slice<T>(object engine) where T : class
+        => engine as T ?? throw new InvalidOperationException(
+               $"{engine.GetType().Name} does not answer {typeof(T).Name}, the slice of it a composition registers");
+
+    /// <summary>The side's own engine interfaces, as <see cref="AddForwarders"/> registers the shared ones.</summary>
+    static partial void AddSideForwarders(ServiceContainer services, EngineSide side);
 
     public static bool IsArea(Type contract)
         => contract.IsInterface

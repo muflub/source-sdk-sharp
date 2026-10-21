@@ -29,10 +29,6 @@ public sealed unsafe class EngineFileSystemServer : IFwdFileSystem
     }
 
     /// <summary>The engine's filesystem, from the FILESYSTEM factory, or null with the reason.</summary>
-    public static IFwdFileSystem? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
-
-    /// <summary>The same, through one side's own interface factory.</summary>
     internal static IFwdFileSystem? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<FileSystemFwd>(factory, SourceSharpFactoryType.FileSystem,
                InterfaceVersion, out void* self, out FileSystemFwd* table, out why)

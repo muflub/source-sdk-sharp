@@ -147,7 +147,7 @@ public class ServerSkeletonsTests
         {
             Memory.Models[Model] = Chain();
             Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f));
-            Skeletons = new ServerSkeletons(Blocks, new StudioModels(Memory), Clock, Log, null, Props);
+            Skeletons = new ServerSkeletons(Blocks, new StudioModels(Memory), Clock, Log, Props);
         }
 
         public EngineBlock Read(EntityHandle entity) => MemoryMarshal.Read<EngineBlock>(Blocks.Held[entity]);

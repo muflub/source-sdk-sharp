@@ -41,7 +41,7 @@ public interface IClientFluidWorld : IClientSplashWorld
 /// transform, and UpdateFluidEvents' two-second expiry, once a frame
 /// (plan_client_novalve C6, cluster 9; lane c6-input).
 /// </summary>
-public sealed class ClientFluidEvents(IClientFluidWorld world, IUniformRandom? random, Func<float> curTime) : IClientFluidSink
+public sealed class ClientFluidEvents(IClientFluidWorld world, IUniformRandom random, Func<float> curTime) : IClientFluidSink
 {
     /// <summary>FLUID_TIME_MAX: how long an entry is kept, and what a new one answers.</summary>
     private const float FluidTimeMax = 2.0f;
@@ -94,10 +94,7 @@ public sealed class ClientFluidEvents(IClientFluidWorld world, IUniformRandom? r
     /// <summary>PhysicsSplash: the plan at the owner's transform, each effect carried out.</summary>
     private void Splash(nint physicsObject, nint fluid, EntityHandle owner)
     {
-        // Stock's draws come from the engine's stream; a client without one throws no splash.
-        if (random is null)
-            return;
-
+        // Stock's draws come from the engine's stream.
         (Vector normal, float dist) = world.SurfacePlane(fluid);
         (Vector origin, Vector angles) = world.OwnerTransform(owner);
 

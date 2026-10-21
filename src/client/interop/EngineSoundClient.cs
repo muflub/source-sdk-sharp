@@ -52,10 +52,6 @@ public sealed unsafe class EngineSoundClient : IFwdEngineSoundClient
     }
 
     /// <summary>The client's engine sound, or null with the reason (null on the server).</summary>
-    public static IFwdEngineSoundClient? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
-
-    /// <summary>The same, through one side's own interface factory.</summary>
     internal static IFwdEngineSoundClient? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<EngineSoundFwd>(factory, SourceSharpFactoryType.AppSystem,
                InterfaceVersion, out void* self, out EngineSoundFwd* table, out why)

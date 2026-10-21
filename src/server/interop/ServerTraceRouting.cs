@@ -16,7 +16,8 @@ public static class ServerTraceRouting
     /// and EngineTraceServer003. Null, with the reason, when libss_fwd_server
     /// serves no trace filter; the side then traces nothing.
     /// </summary>
-    public static ManagedVtable? Build(ModuleEngine engine, ManagedVtables vtables, uint[] collisionRows, out string why)
+    public static ManagedVtable? Build(ModuleEngine engine, ManagedVtables vtables, uint[] collisionRows,
+                                       IFwdModelInfo modelInfo, IFwdEngineTrace trace, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(vtables);
@@ -28,12 +29,12 @@ public static class ServerTraceRouting
         EngineSide side = engine.Api;
         INetworkServerArea network = side.Areas.Require<INetworkServerArea>();
         var candidates = new EngineTraceCandidates(h => side.GetEntityBlock(network, h), side.EntityGetIndex,
-                                                   EngineBound.ModelInfo(side));
+                                                   modelInfo);
         var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, collisionRows), engine.Crossings);
         ManagedVtable block = TraceFilterSink.Create(vtables, sink);
         nint nativeFilter = filters.Build(block, TraceFilterRules.TraceEverything);
 
-        side.Tracer = new ServerTracer(EngineBound.Trace(side), sink, filters, nativeFilter);
+        side.Tracer = new ServerTracer(trace, sink, filters, nativeFilter);
         return block;
     }
 

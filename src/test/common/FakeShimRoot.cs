@@ -10,7 +10,10 @@ namespace SourceSharp.Tests;
 /// and a forwarder table under the table's own name
 /// (plan_forwarders_everywhere.md) whose every slot answers its default
 /// (<see cref="DefaultSlots"/>), except the slots a test fills with
-/// <see cref="Live"/>. The root object's second word holds a handle to this
+/// <see cref="Live"/>. Every engine interface the interop wraps is served the
+/// same way through the root's factory, since a composition acquires each one
+/// as it registers it; a fact serves its own with <see cref="Interface"/> and
+/// <see cref="Forwarders{TFwd}()"/>, or refuses one with <see cref="Refuse"/>. The root object's second word holds a handle to this
 /// instance, so tests in parallel classes each answer from their own table.
 /// </summary>
 internal sealed unsafe class FakeShimRoot : IDisposable
@@ -55,6 +58,82 @@ internal sealed unsafe class FakeShimRoot : IDisposable
 
             Serve(version, ShimAreaTypes.FwdOf(area));
         }
+
+        // Every engine interface a wrapper in either side's interop acquires:
+        // a class implementing an IFwd* interface (or the random stream) over
+        // a forwarder table it holds as _fwd, under each *InterfaceVersion it
+        // declares. Found by shape, so a new wrapper is served the day it is
+        // written.
+        // The interop assemblies hold the wrappers (the generated areas are the
+        // Abi's): this project's own, and any other side's already loaded.
+        IEnumerable<Assembly> interops = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => a.GetName().Name is { } n && n.StartsWith("SourceSharp.", StringComparison.Ordinal)
+                        && n.EndsWith(".Interop", StringComparison.Ordinal))
+            .Append(typeof(EngineSide).Assembly)
+            .Distinct();
+        foreach (Assembly interop in interops)
+        {
+            foreach (Type wrapper in interop.GetTypes())
+            {
+                if (!wrapper.IsClass || !wrapper.GetInterfaces().Any(i => i.Name.StartsWith("IFwd", StringComparison.Ordinal) || i.Name == "IUniformRandom"))
+                    continue;
+                if (wrapper.GetField("_fwd", BindingFlags.NonPublic | BindingFlags.Instance)?.FieldType is not { IsPointer: true } pointer)
+                    continue;
+
+                Type fwd = pointer.GetElementType()!;
+                foreach (FieldInfo version in wrapper.GetFields(BindingFlags.Public | BindingFlags.Static))
+                {
+                    if (version.IsLiteral && version.Name.EndsWith("InterfaceVersion", StringComparison.Ordinal)
+                        && version.GetRawConstantValue() is string name)
+                        ServeInterface(name, fwd);
+                }
+            }
+        }
+
+        // And every other forwarder table, under its own name: a wrapper may
+        // take a second one (IVEngineServer's net channel info), and a fact
+        // that serves its own replaces it.
+        foreach (Assembly tables in interops.Append(typeof(ForwarderTableHeader).Assembly).Distinct())
+        {
+            foreach (Type fwd in tables.GetTypes())
+            {
+                if (fwd.IsValueType && typeof(IForwarderTable).IsAssignableFrom(fwd))
+                    ServeTable(fwd);
+            }
+        }
+    }
+
+    // One engine interface: an object nothing reads under its version, and a
+    // default-filled table under its table's name, each once.
+    private void ServeInterface(string version, Type fwd)
+    {
+        _interfaces.TryAdd(version, (nint)Alloc(1));
+        ServeTable(fwd);
+    }
+
+    // A forwarder table whose every slot answers its default, under its name, once.
+    private void ServeTable(Type fwd)
+    {
+        string tableName = (string)fwd.GetProperty("TableName", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
+        if (_interfaces.ContainsKey(tableName))
+            return;
+
+        int count = Marshal.SizeOf(fwd) / sizeof(nint);
+        var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        header->Slots = (void**)Alloc(count);
+        header->SlotCount = count;
+        DefaultSlots.Fill(fwd, (nint*)header->Slots);
+        _interfaces[tableName] = (nint)header;
+    }
+
+    /// <summary>
+    /// Refuses <paramref name="version"/> from now on, as an engine that does
+    /// not serve it: its acquire answers null (with <see cref="Refusal"/>).
+    /// </summary>
+    public FakeShimRoot Refuse(string version)
+    {
+        _interfaces.Remove(version);
+        return this;
     }
 
     /// <summary>

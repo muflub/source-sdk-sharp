@@ -877,8 +877,12 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// <summary>The server's model descriptors, whose sequences ModelPrecacheComponents reads. Set by ServerModule.</summary>
     internal ModelDescriptors? Models { get; set; }
 
-    /// <summary>The sound script table ModelPrecacheComponents filters against. Set by ServerModule.</summary>
-    internal IFwdSoundEmitter? SoundScripts { get; set; }
+    /// <summary>
+    /// The sound script table ModelPrecacheComponents filters against: the
+    /// side's registered one, never null. Set by ServerModule with
+    /// <see cref="ModelText"/> and <see cref="Models"/>, which that pass checks.
+    /// </summary>
+    internal IFwdSoundEmitter SoundScripts { get; set; } = null!;
 
     /// <inheritdoc/>
     /// <inheritdoc cref="IServerLevel.ModelPrecacheCheck"/>
@@ -910,26 +914,23 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
 
         // 1. SOUNDS: the model sounds cache's list, rebuilt here every time --
         // each name the sound table holds, once, by the table's own spelling.
-        if (SoundScripts is not null)
+        var seen = new HashSet<int>();
+        var indices = new List<int>();
+        foreach (string name in ModelComponents.SoundNames(sequences, modelName, w => _log.Warning(w + "\n")))
         {
-            var seen = new HashSet<int>();
-            var indices = new List<int>();
-            foreach (string name in ModelComponents.SoundNames(sequences, modelName, w => _log.Warning(w + "\n")))
-            {
-                int index = SoundScripts.SoundIndex(name);
-                if (index != -1 && seen.Add(index))
-                    indices.Add(index);
-            }
+            int index = SoundScripts.SoundIndex(name);
+            if (index != -1 && seen.Add(index))
+                indices.Add(index);
+        }
 
-            foreach (int index in indices)
-            {
-                string? sound = SoundScripts.SoundName(index);
-                if (sound is null)
-                    continue;
-                ParticlePrecache.PrecacheSound(sound);
-                if (snapshot)
-                    _log.Msg($"[novalve-snapshot:model-sound] {modelName} {sound}\n");
-            }
+        foreach (int index in indices)
+        {
+            string? sound = SoundScripts.SoundName(index);
+            if (sound is null)
+                continue;
+            ParticlePrecache.PrecacheSound(sound);
+            if (snapshot)
+                _log.Msg($"[novalve-snapshot:model-sound] {modelName} {sound}\n");
         }
 
         // 2. THE $keyvalues "Particles" SYSTEMS.

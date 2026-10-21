@@ -37,7 +37,6 @@ internal sealed class FakeClientEngineAdapters : IClientEngineAdapters
         typeof(IPixelVisSlots),
         typeof(INativeParticleExecutor),
         typeof(IRenderTargetTable),
-        typeof(SourceSharp.Client.Input.IClientInputEngine),
     ];
 
     /// <summary>How many times a composition asked for the adapters.</summary>

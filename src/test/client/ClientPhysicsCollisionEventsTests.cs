@@ -227,7 +227,7 @@ public class PhysicsClientCommandTests
         system.Simulate();
         log.Lines.Clear();
         new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld(), new NoWorld()), new ClientCollisionSolver(new NoFacts()),
-                                 new ClientFluidEvents(new NoFluidWorld(), null, () => 0f),
+                                 new ClientFluidEvents(new NoFluidWorld(), new SourceSharp.Abi.DefaultForwarders.LowestRandom(), () => 0f),
                                  new SourceSharp.Shared.FrictionSounds(new RecordingEngine(), new NoRamps(),
                                                                        new NoSurfaces(), new NoEffects())).Execute("");
         // The step's cost is a measurement, so it is matched rather than spelled.
@@ -238,7 +238,7 @@ public class PhysicsClientCommandTests
 
         log.Lines.Clear();
         new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld(), new NoWorld()), new ClientCollisionSolver(new NoFacts()),
-                                 new ClientFluidEvents(new NoFluidWorld(), null, () => 0f),
+                                 new ClientFluidEvents(new NoFluidWorld(), new SourceSharp.Abi.DefaultForwarders.LowestRandom(), () => 0f),
                                  new SourceSharp.Shared.FrictionSounds(new RecordingEngine(), new NoRamps(),
                                                                        new NoSurfaces(), new NoEffects())).Execute("reset");
         Assert.Equal(0, system.Steps);

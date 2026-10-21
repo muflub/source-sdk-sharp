@@ -59,9 +59,9 @@ public class EngineBoundTests
         // but the REASON names the version string it asked for, which is the
         // thing under test.
         string clientWhy = Assert.Throws<InterfaceAcquisitionException>(
-            () => EngineBound.ModelInfo(TestSides.Create(Side.Client))).Message;
+            () => EngineBound.ModelInfo(TestSides.WithoutForwarders(Side.Client))).Message;
         string serverWhy = Assert.Throws<InterfaceAcquisitionException>(
-            () => EngineBound.ModelInfo(TestSides.Create(Side.Server))).Message;
+            () => EngineBound.ModelInfo(TestSides.WithoutForwarders(Side.Server))).Message;
 
         Assert.Contains("VModelInfoClient006", clientWhy);
         Assert.DoesNotContain("VModelInfoServer004", clientWhy);
@@ -116,7 +116,7 @@ public class EngineBoundTests
         // per side), so the shared slot holds no acquirer until the server's
         // entry installs one; the client's never does.
         string why = Assert.Throws<InterfaceAcquisitionException>(
-            () => EngineBound.Server(TestSides.Create(Side.Client))).Message;
+            () => EngineBound.Server(TestSides.WithoutForwarders(Side.Client))).Message;
 
         Assert.Contains("VEngineServer023", why);
         Assert.Contains("binds no IVEngineServer", why);
@@ -146,7 +146,9 @@ public class EngineBoundTests
         // IVEngineServer" from every IsDedicatedServer and level init.
         var side = TestSides.Create(Side.Server);
         EngineServerBinding.Bind(side);
-        using var root = new FakeShimRoot();
+        // A root that refuses IVEngineServer, so the acquire's answer says
+        // where it was asked: the factory, not an unbound slot.
+        using var root = new FakeShimRoot().Refuse(EngineServer.InterfaceVersion);
 
         Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 

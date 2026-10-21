@@ -41,13 +41,12 @@ public interface IEffectsWorld
 /// Precache_Model): the world precached it at level load (W_Precache), so it
 /// answers the index and warns of nothing, as the engine's own did.
 /// </summary>
-public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities entities, IEnginePrecache precache)
+public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities entities, IEnginePrecache precache,
+                                       IFwdEngineServer server)
     : IEffectsWorld
 {
     // COLLISION_GROUP_NONE.
     private const int CollisionGroupNone = 0;
-
-    private IFwdEngineServer? _server;
 
     /// <inheritdoc/>
     public ServerTrace? Trace(Vector start, Vector end, uint mask)
@@ -57,7 +56,7 @@ public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities enti
 
     /// <inheritdoc/>
     public void StaticDecal(Vector originInEntitySpace, int decalIndex, int entityIndex, int modelIndex, bool lowPriority)
-        => Server().StaticDecal(originInEntitySpace, decalIndex, entityIndex, modelIndex, lowPriority);
+        => server.StaticDecal(originInEntitySpace, decalIndex, entityIndex, modelIndex, lowPriority);
 
     /// <inheritdoc/>
     public int PrecacheModel(string name) => precache.PrecacheModel(name);
@@ -71,8 +70,4 @@ public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities enti
     /// <inheritdoc/>
     public (string ClassName, string Name) Names(EntityHandle entity)
         => (entities.GetClassName(entity), entities.GetName(entity));
-
-    private IFwdEngineServer Server()
-        => _server ??= EngineServer.Acquire(engine, out string why)
-                       ?? throw new InvalidOperationException("the effects world has no engine server: " + why);
 }

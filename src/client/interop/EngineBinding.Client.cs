@@ -56,6 +56,9 @@ internal sealed unsafe partial class EngineConsole
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void SendClientCommand(EntityHandle player, string command) { }
+    // The server's members, as a client engine answers them: the client has
+    // no IVEngineServer, and nothing on the client asks these.
+    public void ExecuteServerCommand(string command) { }
 }
 
 internal sealed unsafe partial class EngineDamage
@@ -1017,6 +1020,9 @@ internal sealed unsafe partial class EngineEntities
         angles = default;
         return false;
     }
+    // The server's members, as a client engine answers them: the client has
+    // no IVEngineServer, and nothing on the client asks these.
+    public int Count() => 0;
 }
 
 internal sealed unsafe partial class EngineEntityPhysics
@@ -1072,11 +1078,11 @@ internal sealed unsafe partial class EngineEntityRender
     /// the push handlers.
     /// </para>
     /// </summary>
-    public EngineEntityRender(EngineSide side,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
                               StandaloneMirror mirror,
                               IModelsArea modelsArea,
                               IStandaloneClientArea standaloneClientArea)
-        : this(side, mirror, new StandaloneSkeletonRoute(), modelsArea, standaloneClientArea)
+        : this(side, modelInfo, mirror, new StandaloneSkeletonRoute(), modelsArea, standaloneClientArea)
     {
     }
 
@@ -1087,13 +1093,14 @@ internal sealed unsafe partial class EngineEntityRender
     /// and native only before that. EngineServices.Build picks this
     /// constructor when the container holds a route.
     /// </summary>
-    public EngineEntityRender(EngineSide side,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
                               StandaloneMirror mirror,
                               StandaloneSkeletonRoute skeletons,
                               IModelsArea modelsArea,
                               IStandaloneClientArea standaloneClientArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
         _mirror = mirror;
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
         _modelsArea = modelsArea ?? throw new ArgumentNullException(nameof(modelsArea));
@@ -1247,13 +1254,17 @@ internal sealed unsafe partial class EngineGameRulesPolicy
 
 internal sealed unsafe partial class EngineHost
 {
-    public EngineHost(EngineSide side) : this(side, new NoSteamGameServer()) { }
+    public EngineHost(EngineSide side, IUniformRandom random) : this(side, random, new NoSteamGameServer()) { }
 
-    public EngineHost(EngineSide side, ISteamGameServer steam)
+    public EngineHost(EngineSide side, IUniformRandom random, ISteamGameServer steam)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _random = random ?? throw new ArgumentNullException(nameof(random));
         _steam = steam ?? throw new ArgumentNullException(nameof(steam));
     }
+    // The server's members, as a client engine answers them: the client has
+    // no IVEngineServer, and nothing on the client asks these.
+    public bool IsDedicatedServer => false;
 }
 
 internal sealed unsafe partial class EngineHud
@@ -1526,14 +1537,21 @@ internal sealed unsafe partial class EnginePlayers
         return false;
     }
     public EntityHandle FindByUserId(int userId) => EntityHandle.None;
-    private partial Vector EyePosition(EntityHandle player) => default;
+    // The server's members, as a client engine answers them: the client has
+    // no IVEngineServer, and nothing on the client asks these.
+    public int GetUserId(EntityHandle player) => 0;
+
+    public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => false;
+
+    public void SetViewEntity(EntityHandle player, EntityHandle view) { }
 }
 
 internal sealed unsafe partial class EnginePrecache
 {
-    public EnginePrecache(EngineSide side)
+    public EnginePrecache(EngineSide side, IFwdModelInfo modelInfo)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
     }
 
     // The server's members, as a client engine answers them: what each one's
@@ -1564,9 +1582,11 @@ internal sealed unsafe partial class EngineSound
 
     private readonly ISoundscapeClientArea _soundscapeClientArea;
 
-    public EngineSound(EngineSide side, ISoundscapeClientArea soundscapeClientArea)
+    public EngineSound(EngineSide side, IFwdPhysicsSurfaceProps surfaceProps, IFwdSoundEmitter soundEmitter, ISoundscapeClientArea soundscapeClientArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
+        _soundEmitter = soundEmitter ?? throw new ArgumentNullException(nameof(soundEmitter));
         _soundscapeClientArea = soundscapeClientArea ?? throw new ArgumentNullException(nameof(soundscapeClientArea));
     }
 
@@ -1769,6 +1789,10 @@ internal sealed unsafe partial class EngineVisibility
         area = 0;
         return false;
     }
+
+    // The server's members, as a client engine answers them: the client has
+    // no IVEngineServer, and nothing on the client asks these.
+    public void SetLightStyle(int style, string pattern) { }
 }
 
 internal sealed unsafe partial class EngineWeapons
@@ -1799,12 +1823,14 @@ internal sealed unsafe partial class EngineWorldQuery
     private readonly ITempEntBackendsClientArea _tempEntBackendsClientArea;
     private readonly ITempEntPoolClientArea _tempEntPoolClientArea;
 
-    public EngineWorldQuery(EngineSide side,
+    public EngineWorldQuery(EngineSide side, IFwdPhysicsSurfaceProps surfaceProps, IFwdEngineTrace trace,
                             ITempEntBackendsClientArea tempEntBackendsClientArea,
                             ITempEntPoolClientArea tempEntPoolClientArea,
                             IViewClientArea viewClientArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
+        _trace = trace ?? throw new ArgumentNullException(nameof(trace));
         _tempEntBackendsClientArea = tempEntBackendsClientArea ?? throw new ArgumentNullException(nameof(tempEntBackendsClientArea));
         _tempEntPoolClientArea = tempEntPoolClientArea ?? throw new ArgumentNullException(nameof(tempEntPoolClientArea));
         _viewClientArea = viewClientArea ?? throw new ArgumentNullException(nameof(viewClientArea));
@@ -1970,4 +1996,7 @@ internal sealed unsafe partial class EngineWorldQuery
     public int EntityModelSurfaceProp(EntityHandle entity) => -1;
     public int SurfacePropIndex(string name) => -1;
 
+    // The server's members, as a client engine answers them: the client has
+    // no IVEngineServer, and nothing on the client asks these.
+    public int GetArea(Vector origin) => 0;
 }

@@ -28,6 +28,13 @@ public sealed unsafe class SaveGameSessionTests : IDisposable
     }
 
     /// <summary>The engine's allocator: calloc, and a record of every free.</summary>
+    // An allocator that throws: an engine fault in the middle of a save.
+    private sealed class RefusedMemory : ISaveMemory
+    {
+        public void* SaveAlloc(nuint count, nuint size) => throw new InvalidOperationException("boom");
+        public void SaveFree(void* block) => throw new InvalidOperationException("boom");
+    }
+
     private sealed class EngineMemory(SaveArena arena) : ISaveMemory
     {
         public int RefuseCall { get; init; } = -1;
@@ -143,13 +150,6 @@ public sealed unsafe class SaveGameSessionTests : IDisposable
         // (the entity table, bAsync), the token table is InitSymbolTable's memset.
         Assert.False(new ReadOnlySpan<byte>((byte*)block + 1536, SaveRestoreLayout.SizeOf - 1536).ContainsAnyExcept((byte)0));
         Assert.False(new ReadOnlySpan<byte>((void*)memory.Answered[1], 0xfff * sizeof(nint)).ContainsAnyExcept((byte)0));
-    }
-
-    [Fact]
-    public void NoEngineAllocatorRefusesLoudly()
-    {
-        Assert.True(new SaveGameSession(_log, (ISaveMemory?)null).Init(0, 0f) == null);
-        Assert.Contains(_log.Warnings, w => w.Contains("no engine interface"));
     }
 
     [Fact]
@@ -505,7 +505,7 @@ public sealed unsafe class SaveGameSessionTests : IDisposable
     public void ABindingSlotThatThrowsAnswersARefusal()
     {
         var binding = new SaveRestoreBinding(new Crossings(), _log, new WorldModule([]),
-                                             new SaveGameSession(_log, () => throw new InvalidOperationException("boom")));
+                                             new SaveGameSession(_log, new RefusedMemory()));
         Assert.True(binding.SaveInit(0, 0f) == null);
     }
 }

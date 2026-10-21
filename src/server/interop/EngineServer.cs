@@ -38,17 +38,10 @@ public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceS
     /// not an error: this interface exists only on the server.
     ///
     /// <para>
-    /// Through <paramref name="engine"/>'s own side's interface factory
+    /// Through the side's own interface factory
     /// (plan_abi_hotreload D8), never the process-wide one that followed the
     /// thread's active side.
     /// </para>
-    /// </summary>
-    public static IFwdEngineServer? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
-
-    /// <summary>
-    /// The same, through one side's own interface factory (plan_abi_hotreload
-    /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
     internal static IFwdEngineServer? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<EngineServerFwd>(

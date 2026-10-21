@@ -36,8 +36,7 @@ public sealed class ClientDebugReload(ClientReloadLedger ledger, ClientReloadReq
         if (requester.Pending)
             return new DebugClientReloadRequest(true, "already queued", ledger.Sequence);
 
-        return requester.Request()
-            ? new DebugClientReloadRequest(true, "queued for the next frame boundary", ledger.Sequence)
-            : new DebugClientReloadRequest(false, "no engine client to queue it through", ledger.Sequence);
+        requester.Request();
+        return new DebugClientReloadRequest(true, "queued for the next frame boundary", ledger.Sequence);
     }
 }
