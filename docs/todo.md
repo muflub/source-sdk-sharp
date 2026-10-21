@@ -11,8 +11,8 @@ lists the closed ones that code or docs still cite.
 
 Entries by owner (the file keeps its order; this is the index):
 
-- **The live gate** (tools/live-gate, tools/daily-gate): live-gate
-  ui-teammenu; live-gate's fault check across a hot reload; chat's second
+- **The live gate** (tools/live-gate, tools/daily-gate): live-gate's
+  fault check across a hot reload; chat's second
   client exits during connect; no step covers screen shakes and fades; a
   rename cannot be driven on a Steam client.
 - **The server lane** (plan_server_native_v2): player-movement controls and
@@ -20,7 +20,7 @@ Entries by owner (the file keeps its order; this is the index):
   native caller went in T2; the sound emit path (T4a); temp entities and
   datatables (T4b); entity API and world (T4d); the trace filter (T4f); the
   player commands (T4g); substrate collapse (T5); bitvec.h's two tables (T6);
-  the spectator port's gaps.
+  the spectator port's gaps; trigger_push not lifting a player.
 - **The client port** (plan_client_novalve C7/C9): the PostRender stage;
   entity dissolve (client render first); the client's sound emit path; client
   port follow-ups (small); the render plan (C7) follow-ups; the render debug
@@ -39,19 +39,6 @@ Entries by owner (the file keeps its order; this is the index):
 - **User directions waiting on a stage**: the usercmd wire format.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
-
-## live-gate ui-teammenu: the team menu's click sends no jointeam the server hears
-
-At main 760ca80fc (2026-10-19, both passes) the step's three rounds open the
-UI's team menu, take the mouse and draw AUTO ASSIGN, then fail "the click sent
-jointeam 0 and the server heard it"; the menu closes and gives the mouse back.
-It is the one step the full live gate fails there, and the daily gate's reports
-at 43171f0c1 (2026-10-16..18) failed the same three rows. TF2 Stage 0's 0.5
-work rerouted jointeam (ITeams, IJoinTeamPolicy, IClientCommandHook), which is
-the first place to look. Repro: make live-gate LIVE_ARGS='--steps ui-teammenu'.
-
-**Owner:** the live gate, with TF2 Stage 0's jointeam route (a bug lane may
-hold it). **Next:** the repro above.
 
 ## live-gate's fault check does not see across a hot reload
 
@@ -625,10 +612,10 @@ Added 2026-10-11 by the C7 lane (client-r-c7, on client-novalve 7289d410).
 - **A monitor view draws no water** (C7 item 6): the render plan's monitor pass reuses the frame's water inputs, which are the main eye's, so it plans the monitor dry rather than asking GetVisibleFogVolume at the monitor's origin as stock's DrawOneMonitor does. Gather a fog-volume answer per queued monitor when a second camera can look at water.
 - **The native second-camera draw is still the fallback** (C7 item 6; re-measured 2026-10-20 at 4c808928c): `cs_cl_render_plan` is gone (grep finds no reader), but ViewCameraService.Pass hands a view to native's queue (`targets.Render`, shell_view_targets.cpp's ShellViewTargets_RenderQueued from the client mode's PreRender, as VIEW_MAIN with pixel visibility off) whenever `PlannedQueue` is unset or refuses (ViewCameraService.cs:83). Next: find whether a running game ever takes that arm; if not, delete the native draw and its IShimViewClient slot.
 - **Reflective glass is the one frame the plan hands back** (re-measured 2026-10-20 at 4c808928c): RenderPlanner.Plan returns null when `IsReflectiveGlassInView` answers true (false in this build), and its remarks (RenderPlanner.cs:24-26) say stock's code then draws the frame, but viewrender.cpp left client.so on 2026-10-12 (docs/client_evictions.md). A freeze frame is planned now (FreezeFrame.cs, RenderInputs.FreezeActive). Next, before any map has reflective glass: port the glass view, or say what a null plan draws today.
-- **FX_AntlionImpact needs entity world bounds** (lane c5-particles, 2026-10-11 at the port-forward f40c9d78). Stock's gate reads the hit entity's bounding radius and returns without one; the client ABI carries no entity bounds, so `ShardEffects.AntlionImpact` (ported, `AntlionImpactStockTests`) is reached by no caller yet. Needs a client read of an entity's world-space bounds, then the impact route can pass the radius.
-- **Numbered muzzle flashes use the local player as the view entity** (lane c5-particles). `CL_EVENT_MUZZLEFLASH*` (FireObsoleteEvent) puts the world-space flash on the client's view entity; this ABI does not read the engine's view entity, so `IViewEntity` answers the local player and a `point_viewcontrol` camera is not it.
-- **The debris dust's draw order** (lane c5-particles). `ImpactSprays` hands each burst's sheets to the executor in first-use material order; stock's sheets sort within the particle manager by their own insertion. Not seen to differ live; check against a recorded multi-material burst when the sort is next touched.
-- **The debris dust's wind bit** (lane c5-particles). Stock never writes `SimpleParticle::m_iFlags` on a spawn, so a puff is wind-blown whenever the reused pool memory's bit 0 is set; the port spawns 0 (no wind) by decision, and the oracle replays the recorded byte (`SimpleEmitter.cs`, Fixtures/README-smoketrail-stock.md). Decide whether any effect should be wind-blown on purpose.
+- **FX_AntlionImpact needs entity world bounds** (lane c5-particles, 2026-10-11 at the port-forward f40c9d78). Stock's gate reads the hit entity's bounding radius and returns without one; the client ABI carries no entity bounds, so `ShardEffects.AntlionImpact` (ported, `AntlionImpactStockTests`) is reached by no caller yet. Needs a client read of an entity's world-space bounds, then the impact route can pass the radius. — re-read 2026-10-20 against the pristine c_impact_effects.cpp (621-655): the radius is NOT needed. Stock computes vWorldMins/vWorldMaxs from `BoundingRadius()` and never reads them (the emitter's box is `spawnOffset ± 32`), so the gate is only "the trace hit an entity", and every hit of UTIL_ImpactTrace has one (the world is an entity). What stops it is the native arm: `ApplyImpactChoice`'s SS_IMPACT_ACT_ANTLION case (shell_impact_effects.cpp) has no managed call to make, and adding one is a new IManagedParticlesClient slot (beside ImpactMetalSpark: start, end, hit-an-entity), so it WAITS FOR THE ABI CLEANUP. Then ShardEffects.AntlionImpact takes a bool for the gate instead of the radius. Unreachable in this mod meanwhile: CHAR_TEX_ANTLION is an antlion model's surface, and neither map has one.
+- **Numbered muzzle flashes use the local player as the view entity** (lane c5-particles). `CL_EVENT_MUZZLEFLASH*` (FireObsoleteEvent) puts the world-space flash on the client's view entity; this ABI does not read the engine's view entity, so `IViewEntity` answers the local player and a `point_viewcontrol` camera is not it. — checked 2026-10-20: stock reads `render->GetViewEntity()` (c_baseanimating.cpp:4372), an IVRenderView method no client forwarder row carries yet. The fix is one appended FORWARD row for it on the client side and an `IViewEntity` over it (the index through `IClientStandalones.GetByIndex`, as LocalViewEntity does now), so it WAITS FOR THE ABI CLEANUP. No map here has a point_viewcontrol that fires a numbered muzzle flash, so it is not reachable live.
+- **The debris dust's draw order** (lane c5-particles). `ImpactSprays` hands each burst's sheets to the executor in first-use material order; stock's sheets sort within the particle manager by their own insertion. Not seen to differ live; check against a recorded multi-material burst when the sort is next touched. — re-read 2026-10-20 against the pristine particlemgr.cpp: stock draws ONE emitter's materials in first-use order (GetEffectMaterial appends a CEffectMaterial on a material group's first particle, :1033, and RenderEffect walks that list, :348), within one renderable. The port's order inside a sheet is the same, but ImpactSprays starts one effect per sheet (ImpactSprays.cs:139-140), so the order BETWEEN two materials is the leaf system's translucent sort of separate renderables sharing one sort origin, not first use. Not a few lines: the fix is one effect that draws its sheets in list order (or a per-effect sub-order key). Testable then by a planner fact, no recording needed.
+- **The debris dust's wind bit** (lane c5-particles). Stock never writes `SimpleParticle::m_iFlags` on a spawn, so a puff is wind-blown whenever the reused pool memory's bit 0 is set; the port spawns 0 (no wind) by decision, and the oracle replays the recorded byte (`SimpleEmitter.cs`, Fixtures/README-smoketrail-stock.md). Decide whether any effect should be wind-blown on purpose. — 2026-10-20: a choice, not a bug (stock's bit is whatever the pool's reused memory held); nothing to fix until someone wants wind.
 - **particle/particledefault is missing** from the mounted content too (lane c5-particles, 2026-10-11): the debug line and blood stream temp entities (TeParticles) draw the missing-material checker; the VMT exists only in sourcetest_pak_dir.vpk, which this mod does not mount, so stock's CTEParticleRenderer asked for the same absent material. Ship it or mount it.
 - **sprites/flare6 is missing** from this content (lane c5-particles): the large funnel (`LargeFunnel`) draws the missing-material checkerboard, in stock's build and ours alike (side-by-side screenshots taken when the funnel temp entity was wired to LargeFunnel). Ship the material or pick an existing one.
 - **7e: the client never sees a managed particle owner move** (measured 2026-10-11 on plain main 20ebb23a, scratch worktree, `tools/7e-particle-sound-gate`, 3 runs: 3 of 3 red, identically). The harness moves the flame's owner 400 units on the server ("the harness actually MOVED the entity" PASS), and the client's copy moves 0.0 units ("the CLIENT saw the move" FAIL), so "the system FOLLOWED the handle" and "the sort origin followed" are NOT REACHED. The sound half of the gate passes. Same result on lane client-r-particles at b4a7d443, so the lane did not cause it. Suspect: the moved origin is not networked to the client copy of a managed entity (or the harness's move bypasses the networked origin).
@@ -885,6 +872,27 @@ Re-checked 2026-10-20 at 4c808928c: sdk-links/windows.txt:13,19,20,22 still
 list the four, and no CMakeLists.txt or cmake/ file names sdk::bitmap,
 sdk::tier2, sdk::tier3 or sdk::vtf. **Owner:** none named (build; CI checks
 it). **Next:** delete the four lines and let CI's Windows job prove it.
+
+## trigger_push does not lift a player; belt riding is not predicted (2026-10-20)
+
+Found by the client bugs lane at 44b552294 (debug, ss_sandbox, `make map`).
+- **trigger_push:** a player put in the sandbox's push volume (station
+  `forces`, (1056, -1200), pushdir up, speed 200), or dropped into it from z
+  200, was not lifted (z 0.87 for 4 s; landed and stayed at z 8.03). Our
+  TriggerPush shoves with a velocity impulse (ApplyVelocityImpulse), and
+  EngineSide.EntityApplyVelocityImpulse's remark says its non-simulated arm
+  writes nothing, which a player is. Stock's CTriggerPush::Touch gives a
+  player base velocity and FL_BASEVELOCITY instead. Not root-caused.
+- **Belt prediction:** on the func_conveyor at (320, -2040), the client
+  mispredicts 82 times in 4 s with the FL_BASEVELOCITY fix (b16adebd4) and 81
+  with the old bit, and 0 standing beside it. The client does not replay
+  the belt's push; stock's client does not either (prediction.cpp's
+  CheckMovingGround conveyor arm is under `#if 0`).
+
+**Owner:** the server lane (trigger_push); the client port (belt prediction,
+a decision beyond stock). **Next:** confirm trigger_push's player arm against
+stock's CTriggerPush::Touch; porting the `#if 0` arm needs the ground
+entity's conveyor speed on the client, and a ruling.
 
 ## Entity entry 264 sometimes undrawn after dm_lockdown's second map load: fixed 2026-10-20
 
