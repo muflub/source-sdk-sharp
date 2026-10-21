@@ -319,7 +319,6 @@ internal sealed unsafe partial class EngineEffects
         origin = Vector.Zero;
         return false;
     }
-    public bool TempEntPoolSimulate(int slot, float frameTime, int frameNumber) => false;
     public bool TempEntPoolAddVisible(int slot) => false;
     public bool TempEntPoolCreate(int slot, Vector origin, int modelIndex, int priority) => false;
     public bool TempEntPoolWriteSpawn(int slot, in TempEntSpawn spawn) => false;
@@ -1387,7 +1386,6 @@ internal sealed unsafe partial class EngineEntityRender
     // attach guard answered here, where the client's areas are never attached.
     public void SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) { }
     public void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) { }
-    public void SetShadowCast(EntityHandle entity, ShadowCastChoice choice) { }
     public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = ShadowCastChoice.Auto;
@@ -1417,15 +1415,6 @@ internal sealed unsafe partial class EngineGameEvents
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
         fixed (byte* p = bytes) { _eventsServerArea.EventSetInt(handle, p, value); }
-    }
-
-    /// <summary>Sets a float field.</summary>
-    public void EventSetFloat(IntPtr handle, string key, float value)
-    {
-        if (handle == IntPtr.Zero) return;
-
-        var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { _eventsServerArea.EventSetFloat(handle, p, value); }
     }
 
     /// <summary>Sets a bool field.</summary>
@@ -1584,15 +1573,6 @@ OverlayReadout()
     }
 
     /// <summary>
-    /// Zeroes the four counters <see cref="OverlayReadout"/> reports, so a
-    /// caller can read an interval rather than a running total.
-    /// </summary>
-    public void OverlayResetCounts()
-    {
-        _debugOverlayArea.OverlayResetCounts();
-    }
-
-    /// <summary>
     /// One line in the engine's debug overlay, between two world points.
     ///
     /// <para>
@@ -1734,36 +1714,6 @@ internal sealed unsafe partial class EngineNetworking
             return Span<byte>.Empty;
 
         return new Span<byte>(p, size);
-    }
-
-    /// <summary>
-    /// Announces a blob write that did not go through a bound state.
-    ///
-    /// <para>
-    /// Fetching a blob used to mark the entity changed by itself — on reads as
-    /// well as writes, because native could not tell them apart. Part 9 deletes
-    /// that, so the writes with no state object behind them say so themselves.
-    /// </para>
-    ///
-    /// <para>
-    /// IT HAS NO PRODUCTION CALLER ANY MORE. The one it had was
-    /// <c>EntityData.TryWrite</c>, the older layout model's write path, which
-    /// step 8a deleted — every write goes through a generated blob-backed
-    /// property (<c>NetBlobView</c>) now, and that path marks the entity itself.
-    /// Left in place rather than removed: this is a general engine-area member
-    /// with an ABI slot behind it, and reaping it is a separate decision from
-    /// 8a's. Recorded in <c>.claude/entity-port/requests/8a.md</c> §4 so it is
-    /// not re-derived.
-    /// </para>
-    ///
-    /// <para>
-    /// Deliberately not called by any read. That asymmetry is the whole
-    /// behaviour change of the step.
-    /// </para>
-    /// </summary>
-    public void MarkEntityStateChanged(EntityHandle h)
-    {
-        _networkServerArea.EntityMarkStateChanged(h.Value);
     }
 
     public void MarkEntityBlockChanged(EntityHandle h, int blockOffset) => E.MarkEntityBlockChanged(_networkServerArea, h, blockOffset);

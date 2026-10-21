@@ -20,17 +20,11 @@ namespace SourceSharp.Client.Interop;
 /// </para>
 ///
 /// <para>
-/// OnTempEntPoolAlloc and OnTempEntEjectBrass are RETIRED SLOTS, not forwarders.
-/// Their only native callers were the SourceSharpTePool_Reserve/Bind/Release/
-/// EjectBrass exports, deleted with the tempents cutover that moved every spawn
-/// to the managed side; the shell's shell flow goes through
-/// IManagedFxClient::TempEntEjectBrass now. The generated
-/// IManagedTempEntsClient still declares both — the area's slot table is the
-/// ABI, and its slots leave in the serialised pass (docs/managed-interfaces.tsv
-/// rows 142/145), not with their last caller — so they answer their fault
-/// values (-1 = "no slot", 0 = the generated answer) and count nothing: an op
-/// whose thunk stopped crossing reports a permanent zero, which is
-/// CrossingsAuditTests' reason the ops are gone too.
+/// OnTempEntPoolAlloc and OnTempEntEjectBrass left the area in the serialised
+/// ABI pass (docs/abi-retirements.md, 2026-10-20). Their only native callers
+/// were the SourceSharpTePool_Reserve/Bind/Release/EjectBrass exports, deleted
+/// with the tempents cutover; the shell flow goes through
+/// IManagedFxClient::TempEntEjectBrass.
 /// </para>
 /// </summary>
 public sealed unsafe class TempEntsClientBinding(Crossings crossings, ILog log, IClientModule client) : IManagedTempEntsClient
@@ -68,13 +62,6 @@ public sealed unsafe class TempEntsClientBinding(Crossings crossings, ILog log, 
         }
     }
 
-    /// <summary>
-    /// Retired slot; see the class summary. -1 is what "the pool
-    /// gives you nothing" already meant, so a stale call degrades to "no gib
-    /// this time" and nothing else.
-    /// </summary>
-    public int OnTempEntPoolAlloc(int a0) => -1;
-
     /// <summary>One frame of the pool: CTempEnts::Update's body.</summary>
     public void OnTempEntPoolUpdate(float a0)
     {
@@ -88,11 +75,6 @@ public sealed unsafe class TempEntsClientBinding(Crossings crossings, ILog log, 
         crossings.Count(CrossingOp.ClientTempEntPoolClear);
         client.TempEntPoolClear();
     }
-
-    /// <summary>Retired slot; see the class summary. 0 is the generated
-    /// thunk's own answer, and the old body returned it for a record that was
-    /// not written — a value native reported and did not act on.</summary>
-    public int OnTempEntEjectBrass(int a0, int a1, void* a2, void* a3) => 0;
 
     /// <summary>
     /// Which effect family an impact is. A null name buffer becomes an empty

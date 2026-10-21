@@ -237,7 +237,6 @@ public:
 	virtual int32_t DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a ) = 0;
 	virtual void AddLineOverlay( const float * pStartXYZ, const float * pEndXYZ, int32_t r, int32_t g, int32_t b, int32_t bNoDepthTest, float flDuration ) = 0;
 	virtual void OverlayCounts( uint32_t * pOutDrawn, uint32_t * pOutClipped, uint32_t * pOutNoViewer, uint32_t * pOutNoOverlay, int32_t * pOutViewerSet ) = 0;
-	virtual void OverlayResetCounts() = 0;
 };
 
 abstract_class IShimDiagnostics
@@ -259,7 +258,6 @@ abstract_class IShimEventsServer : public IShimEvents
 {
 public:
 	virtual void EventSetInt( void * hEvent, const char * pKey, int32_t nValue ) = 0;
-	virtual void EventSetFloat( void * hEvent, const char * pKey, float flValue ) = 0;
 	virtual void EventSetBool( void * hEvent, const char * pKey, int32_t bValue ) = 0;
 	virtual void EventSetString( void * hEvent, const char * pKey, const char * pValue ) = 0;
 };
@@ -269,7 +267,6 @@ abstract_class IShimNetworkServer : public IShimNetwork
 public:
 	virtual void * EntityGetDataBlob( uint32_t hEntity, int32_t * pOutSize ) = 0;
 	virtual void * EntityBindBlob( uint32_t hEntity, int32_t * pOutSize, SourceSharpEntitySlot_t ** pOutSlot, uint32_t * pOutSerial ) = 0;
-	virtual void EntityMarkStateChanged( uint32_t hEntity ) = 0;
 	virtual void EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset ) = 0;
 	virtual int32_t EntityPayloadAgreement( uint32_t hEntity, int32_t * pOutWords, int32_t * pOutFirstBadWord ) = 0;
 	virtual void * EntityGetEngineBlock( uint32_t hEntity, int32_t * pOutSize ) = 0;

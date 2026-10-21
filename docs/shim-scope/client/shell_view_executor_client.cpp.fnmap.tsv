@@ -45,7 +45,7 @@
 15	BOUNDARY	void Upscale( const CViewSetup &setup )
 25	SLOT-HELP	void FreezeFrameDraw( int x, int y, int w, int h, int nFlashAlpha )
 10	SLOT-HELP	void FlushListCache()
-371	SLOT-HELP	void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
+370	SLOT-HELP	void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 28	BOUNDARY	void ViewScene( CPlanView *pView, const SourceSharpRenderOp_t &op, int nOpIndex )
 21	SLOT-HELP	void DrawProgramEntity( CPlanView *pView, const SourceSharpRenderOp_t &op )
 28	SLOT-HELP	void FrameBufferForEntity( const SourceSharpRenderOp_t &op )

@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 31 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 30 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -48,9 +48,6 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // int IVEngineServer::GetArea( const Vector & )
     public delegate* unmanaged<void*, void*, int> GetArea;
-
-    // const char * IVEngineServer::GetMapEntitiesString( void )
-    public delegate* unmanaged<void*, byte*> GetMapEntitiesString;
 
     // const CSteamID * IVEngineServer::GetClientSteamIDByPlayerIndex( int )
     public delegate* unmanaged<void*, int, void*> GetClientSteamIDByPlayerIndex;
@@ -158,7 +155,7 @@ internal unsafe struct StaticPropMgrServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IGameEventManager2</c> through its forwarders (SSFwd_GameEventManager): 3 slot(s).
+/// <c>IGameEventManager2</c> through its forwarders (SSFwd_GameEventManager): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct GameEventManagerFwd : IForwarderTable
@@ -171,9 +168,6 @@ internal unsafe struct GameEventManagerFwd : IForwarderTable
 
     // bool IGameEventManager2::FireEvent( IGameEvent *, bool )
     public delegate* unmanaged<void*, void*, byte, byte> FireEvent;
-
-    // void IGameEventManager2::FreeEvent( IGameEvent * )
-    public delegate* unmanaged<void*, void*, void> FreeEvent;
 }
 
 /// <summary>

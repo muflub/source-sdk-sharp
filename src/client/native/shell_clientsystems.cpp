@@ -504,24 +504,17 @@ void SourceSharp_ClientSystemsLevelShutdownPostEntity( void )
 }
 
 //-----------------------------------------------------------------------------
-// The three per-frame stages.
+// The two per-frame stages.
 //
 // PreRender and Update both reach real bodies every frame in a shipping run --
-// eight SourceSharp render systems and the managed frame between them. PostRender
-// reaches NO body: its one, CToolFrameworkClient's, was deleted with the tool
-// framework (SFM is dead, user ruling 2026-10-19). The stage stays wired
-// because the render plan names it (RENDER_OP_ClientSystemsPostRender); it is
-// written down here because "wired" and "does something" are two different
-// claims and Phase 7a paid for the difference.
+// eight SourceSharp render systems and the managed frame between them.
+// PostRender, the third, reached NO body once CToolFrameworkClient's went with
+// the tool framework (SFM is dead, user ruling 2026-10-19), and it left with
+// its render-plan op in the serialised ABI pass (2026-10-20).
 //-----------------------------------------------------------------------------
 void SourceSharp_ClientSystemsPreRender( void )
 {
 	WalkForwardPerFrame( &CClientSystemPerFrame::PreRender );
-}
-
-void SourceSharp_ClientSystemsPostRender( void )
-{
-	WalkForwardPerFrame( &CClientSystemPerFrame::PostRender );
 }
 
 //-----------------------------------------------------------------------------

@@ -205,7 +205,6 @@ public interface IClientLeafSystemHost
     int AddRenderable(nint renderable, int group, int modelType);
     void RemoveRenderable(int handle);
     void AddRenderableToLeaves(int handle, ReadOnlySpan<int> leaves);
-    void ChangeRenderableRenderGroup(int handle, int group);
     void SetRenderGroup(int handle, int group);
     void RenderableChanged(int handle);
     void EnableAlternateSorting(int handle, bool enable);

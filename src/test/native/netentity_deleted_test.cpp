@@ -554,16 +554,17 @@ TEST( NetEntityDeleted, NothingAnywhereInTheTreeNamesTheFourReapedSlots )
 	EXPECT_TRUE( bStockClient ) << "game/client/c_baseentity.h was not read";
 	EXPECT_TRUE( bShim ) << "sourcesharp/game/server/shell_dispatch.cpp was not read";
 
-	// THE POSITIVE CONTROL FOR THE SEARCH ITSELF. `OnCreateMove` is a live slot
-	// and the shim reaches it, so the same find() over the same collected
-	// bodies must hit. A needle that matches nothing anywhere is how a
-	// whole-tree absence check passes while reading nothing useful.
+	// THE POSITIVE CONTROL FOR THE SEARCH ITSELF. `OnTempEntPoolUpdate` is a
+	// live slot and the shim reaches it, so the same find() over the same
+	// collected bodies must hit. A needle that matches nothing anywhere is how
+	// a whole-tree absence check passes while reading nothing useful. (It was
+	// OnCreateMove until IManagedHudClient left in the serialised ABI pass.)
 	size_t nLiveHits = 0;
 	for ( size_t i = 0; i < files.size(); i++ )
-		if ( files[ i ].second.find( "OnCreateMove" ) != std::string::npos )
+		if ( files[ i ].second.find( "OnTempEntPoolUpdate" ) != std::string::npos )
 			nLiveHits++;
 	EXPECT_GT( nLiveHits, 0u )
-		<< "not one of the " << files.size() << " files read names OnCreateMove, "
+		<< "not one of the " << files.size() << " files read names OnTempEntPoolUpdate, "
 		   "a slot the shim demonstrably reaches. The bodies being searched are "
 		   "not the files being counted.";
 

@@ -29,7 +29,4 @@ CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallba
 // Whether Steam holds the callback: unregister it before freeing it only then.
 bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback );
 
-// The id Steam filed the callback under when it registered it; 0 before.
-int SSFwd_SteamCallback_CallbackId( CCallbackBase *pCallback );
-
 #endif // FWD_STEAM_H

@@ -184,12 +184,6 @@ void SourceSharp_EventSetInt( void *hEvent, const char *pKey, int32_t nValue )
 		pEvent->SetInt( pKey, nValue );
 }
 
-void SourceSharp_EventSetFloat( void *hEvent, const char *pKey, float flValue )
-{
-	if ( IGameEvent *pEvent = (IGameEvent *)hEvent; pEvent && pKey )
-		pEvent->SetFloat( pKey, flValue );
-}
-
 void SourceSharp_EventSetBool( void *hEvent, const char *pKey, int32_t bValue )
 {
 	if ( IGameEvent *pEvent = (IGameEvent *)hEvent; pEvent && pKey )

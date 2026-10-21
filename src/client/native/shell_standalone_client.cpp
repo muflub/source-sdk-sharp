@@ -3577,33 +3577,20 @@ void SourceSharp_StandaloneSetBlending( uint32_t hEntity, int32_t bTranslucent,
 }
 
 //-----------------------------------------------------------------------------
-// Whether this entity casts a shadow. See StandaloneSetShadowCast in
-// sourcesharp.h and ClientRenderPolicy.Shadow.
-//-----------------------------------------------------------------------------
-void SourceSharp_StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice )
-{
-	if ( C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity ) )
-		pEntity->SetShadowCast( (int)nChoice );
-}
-
-//-----------------------------------------------------------------------------
 // What it is casting, and what it was ASKED to cast. Two answers because they
 // are two different facts and the pair is what names a problem: "auto" plus
 // "casting nothing" is a model with nothing to cast with, while "simple" plus
 // "casting nothing" is an entity that is not being drawn at all.
 //
-// The third out, whether the client shadow manager holds a handle, is written
-// 0: the managed manager holds the handles since C7 cluster 12 S2 and answers
-// it itself (IEntityShadowState.HasShadow); managed passes NULL.
+// A third out, whether the client shadow manager held a handle, went in the
+// serialised ABI pass (2026-10-20): the managed manager holds the handles
+// since C7 cluster 12 S2 and answers it itself (IEntityShadowState.HasShadow),
+// and managed passed NULL for it.
 //-----------------------------------------------------------------------------
-int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice,
-                                          int32_t *pOutHasShadow )
+int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice )
 {
 	if ( pOutChoice )
 		*pOutChoice = STANDALONE_SHADOW_CHOICE_AUTO;
-
-	if ( pOutHasShadow )
-		*pOutHasShadow = 0;
 
 	C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity );
 

@@ -32,8 +32,6 @@ const char * CShimEventsServer::EventGetString( void * hEvent, const char * pKey
 	{ return ::SourceSharp_EventGetString( hEvent, pKey ); }
 void CShimEventsServer::EventSetInt( void * hEvent, const char * pKey, int32_t nValue )
 	{ return ::SourceSharp_EventSetInt( hEvent, pKey, nValue ); }
-void CShimEventsServer::EventSetFloat( void * hEvent, const char * pKey, float flValue )
-	{ return ::SourceSharp_EventSetFloat( hEvent, pKey, flValue ); }
 void CShimEventsServer::EventSetBool( void * hEvent, const char * pKey, int32_t bValue )
 	{ return ::SourceSharp_EventSetBool( hEvent, pKey, bValue ); }
 void CShimEventsServer::EventSetString( void * hEvent, const char * pKey, const char * pValue )
@@ -51,8 +49,6 @@ void * CShimNetworkServer::EntityGetDataBlob( uint32_t hEntity, int32_t * pOutSi
 	{ return ::SourceSharp_EntityGetDataBlob( hEntity, pOutSize ); }
 void * CShimNetworkServer::EntityBindBlob( uint32_t hEntity, int32_t * pOutSize, SourceSharpEntitySlot_t ** pOutSlot, uint32_t * pOutSerial )
 	{ return ::SourceSharp_EntityBindBlob( hEntity, pOutSize, pOutSlot, pOutSerial ); }
-void CShimNetworkServer::EntityMarkStateChanged( uint32_t hEntity )
-	{ return ::SourceSharp_EntityMarkStateChanged( hEntity ); }
 void CShimNetworkServer::EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset )
 	{ return ::SourceSharp_EntityMarkBlockChanged( hEntity, nBlockOffset ); }
 int32_t CShimNetworkServer::EntityPayloadAgreement( uint32_t hEntity, int32_t * pOutWords, int32_t * pOutFirstBadWord )
@@ -302,8 +298,6 @@ void CShimDebugOverlay::AddLineOverlay( const float * pStartXYZ, const float * p
 	{ return ::SourceSharp_AddLineOverlay( pStartXYZ, pEndXYZ, r, g, b, bNoDepthTest, flDuration ); }
 void CShimDebugOverlay::OverlayCounts( uint32_t * pOutDrawn, uint32_t * pOutClipped, uint32_t * pOutNoViewer, uint32_t * pOutNoOverlay, int32_t * pOutViewerSet )
 	{ return ::SourceSharp_OverlayCounts( pOutDrawn, pOutClipped, pOutNoViewer, pOutNoOverlay, pOutViewerSet ); }
-void CShimDebugOverlay::OverlayResetCounts()
-	{ return ::SourceSharp_OverlayResetCounts(); }
 
 int32_t CShimUserMessages::UserMessageSend( int32_t nMsgId, const unsigned char * pData, int32_t nBytes, int32_t nPlayerIndex, int32_t bReliable )
 	{ return ::SourceSharp_UserMessageSend( nMsgId, pData, nBytes, nPlayerIndex, bReliable ); }

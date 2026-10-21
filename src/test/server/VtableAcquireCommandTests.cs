@@ -22,7 +22,6 @@ public unsafe class VtableAcquireCommandTests
     {
         public float RandomFloat(float min, float max) => min;
         public int RandomInt(int min, int max) => min;
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     /// <summary>One random stream that binds; every other interface refused with its own reason.</summary>

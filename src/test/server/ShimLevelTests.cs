@@ -35,68 +35,71 @@ public unsafe class ShimLevelTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimLevelTableHasThirtyOneSlots()
+    public void TheShimLevelTableHasTwentySlots()
         //
         // Twenty-two until the save lane's stage 2 appended LoadSaveGameState;
         // twenty-three until plan_server_novalve P2.1 appended FileSizeOnPath
         // and ReadFileOnPath; twenty-five until P5 appended SpawnWorld;
         // twenty-six until plan_server_native_v2 T4a appended IsPrecacheAllowed;
         // twenty-seven until T4e appended SetLoadType; thirty-one after T4e's
-        // four system walks retired and its seven system stages appended.
-        => Assert.Equal(31, Forwarders.SlotCount<ShimLevelFwd>());
+        // four system walks retired and its seven system stages appended;
+        // twenty after the serialised ABI pass (2026-10-20) removed the eleven
+        // retired steps (tools/engine-forwarders --reorder).
+        => Assert.Equal(20, Forwarders.SlotCount<ShimLevelFwd>());
 
     [Fact]
     public void EveryShimLevelFieldIsPointerSized()
-        => Assert.Equal(31 * sizeof(void*), sizeof(ShimLevelFwd));
+        => Assert.Equal(20 * sizeof(void*), sizeof(ShimLevelFwd));
 
     [Fact]
-    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotThirty()
+    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotNineteen()
     {
-        // Four lower after plan_server_native_v2 T4e retired the four system
-        // walks (tools/engine-forwarders --reorder): InitPostEntitySystems,
-        // ShutdownPreClearSteamSystems, ShutdownPreEntitySystems and
-        // ShutdownPostEntitySystems.
-        Assert.Equal(0, SlotOf("ResetServerTime"));
-        Assert.Equal(18, SlotOf("LoadSaveGameState"));
-        Assert.Equal(19, SlotOf("FileSizeOnPath"));
-        Assert.Equal(20, SlotOf("ReadFileOnPath"));
-        Assert.Equal(21, SlotOf("SpawnWorld"));
-        Assert.Equal(22, SlotOf("IsPrecacheAllowed"));
-        Assert.Equal(23, SlotOf("SetLoadType"));
-        Assert.Equal(24, SlotOf("PhysicsInit"));
-        Assert.Equal(30, SlotOf("ResetEntitySlots"));
+        // Eleven lower after the serialised ABI pass (2026-10-20) took the
+        // retired steps out: ResetServerTime, the two particle manifests,
+        // ParseAllEntities, ResetDeleteList, ActivateAllEntities,
+        // ClearSteamAPIContext, the particle uncache and rebuild, and the two
+        // prop-data steps.
+        Assert.Equal(0, SlotOf("PrecachePointTemplates"));
+        Assert.Equal(7, SlotOf("LoadSaveGameState"));
+        Assert.Equal(8, SlotOf("FileSizeOnPath"));
+        Assert.Equal(9, SlotOf("ReadFileOnPath"));
+        Assert.Equal(10, SlotOf("SpawnWorld"));
+        Assert.Equal(11, SlotOf("IsPrecacheAllowed"));
+        Assert.Equal(12, SlotOf("SetLoadType"));
+        Assert.Equal(13, SlotOf("PhysicsInit"));
+        Assert.Equal(19, SlotOf("ResetEntitySlots"));
     }
 
     [Fact]
-    public void TheNewSlotWasAPPENDEDAndDidNotMoveTheOnesBeforeIt()
-        // THE CHECK THE COUNT CANNOT MAKE. `managed <= native` protects against
-        // an append and against nothing else, so a method INSERTED in the
-        // middle passes every count there is and silently misbinds every slot
-        // below it. PropDataClearFile was the last field before stage 2 added
-        // LoadSaveGameState; it was at 21 until plan_server_native_v2 T4e's
-        // deliberate --reorder took four walks out above it, and is at 17.
-        => Assert.Equal(17, SlotOf("PropDataClearFile"));
+    public void TheRetiredStepsAreGoneFromTheTable()
+    {
+        // The pass's pin: a retired step restored to ishim_level.h is a field
+        // here again. The positive arm is a live step read the same way.
+        foreach (string gone in new[] { "ResetServerTime", "ParseParticleManifest", "ParseParticleManifestForMap",
+                                        "ParseAllEntities", "ResetDeleteList", "ActivateAllEntities",
+                                        "ClearSteamAPIContext", "UncacheAllParticleSystems",
+                                        "RecreateParticleDictionary", "PropDataLoadFile", "PropDataClearFile" })
+            Assert.Null(typeof(ShimLevelFwd).GetField(gone));
+        Assert.NotNull(typeof(ShimLevelFwd).GetField("ClearEntityList"));
+    }
 
     [Fact]
-    public void ResetDeleteListIsSlotSeven()
+    public void ClearEntityListIsSlotSix()
         // A MIDDLE SLOT, named. The two ends agreeing says nothing about the
-        // twenty in between, and a reorder in the middle is precisely what the
-        // `managed <= native` span check cannot see.
-        => Assert.Equal(7, SlotOf("ResetDeleteList"));
+        // slots in between, and a reorder in the middle is precisely what the
+        // `managed <= native` span check cannot see. (ResetDeleteList, slot
+        // seven, was the named one until the serialised ABI pass removed it.)
+        => Assert.Equal(6, SlotOf("ClearEntityList"));
 
     //-------------------------------------------------------------------------
     // 2. DISPATCH, over a table this file builds.
     //-------------------------------------------------------------------------
 
-    private static int s_DeleteListAnswer;
     private static int s_PrecacheAllowedSaw;
     private static int s_PrecacheAllowedAnswer;
     private static int s_TemplateCountSaw;
     private static string? s_MapNameSaw;
     private static int s_ClearEntityListCalls;
-
-    [UnmanagedCallersOnly]
-    private static int ResetDeleteListAnswers(void* self) => s_DeleteListAnswer;
 
     [UnmanagedCallersOnly]
     private static void SetPrecacheAllowedRecords(void* self, int allowed)
@@ -122,8 +125,6 @@ public unsafe class ShimLevelTests
         table = (void**)NativeMemory.AllocZeroed(
             (nuint)Forwarders.SlotCount<ShimLevelFwd>(), (nuint)sizeof(void*));
 
-        table[SlotOf("ResetDeleteList")] =
-            (delegate* unmanaged<void*, int>)&ResetDeleteListAnswers;
         table[SlotOf("SetPrecacheAllowed")] =
             (delegate* unmanaged<void*, int, void>)&SetPrecacheAllowedRecords;
         table[SlotOf("IsPrecacheAllowed")] =
@@ -154,19 +155,6 @@ public unsafe class ShimLevelTests
                  .GetField(field, BindingFlags.NonPublic | BindingFlags.Instance)!
                  .SetValue(target, value);
 
-    [Fact]
-    public void ResetDeleteListAnswersThroughItsOwnSlot()
-    {
-        s_DeleteListAnswer = 5;
-
-        void* self = FakeShim(out void** table);
-
-        Assert.Equal(5, BoundTo(self, table).ResetDeleteList());
-
-        NativeMemory.Free(table);
-        NativeMemory.Free(self);
-    }
-
     /// <summary>
     /// The container's level acquires through ITS OWN side's root
     /// (plan_abi_hotreload D8), not the process-wide factory that follows the
@@ -176,7 +164,7 @@ public unsafe class ShimLevelTests
     [Fact]
     public void ALevelAcquiresThroughItsOwnSidesRoot()
     {
-        s_DeleteListAnswer = 6;
+        s_PrecacheAllowedAnswer = 1;
         void* self = FakeShim(out void** table);
         var header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
         try
@@ -189,11 +177,11 @@ public unsafe class ShimLevelTests
                 .Interface(ShimLevelFwd.TableName, header);
             Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
 
-            Assert.Equal(6, SideBindings.Of<IEngineLevel>(served).ResetDeleteList());
+            Assert.True(SideBindings.Of<IEngineLevel>(served).IsPrecacheAllowed());
 
             // The control: a side with no root behind it refuses the same call.
             var unserved = TestSides.Create(Side.Server);
-            Assert.Throws<InterfaceAcquisitionException>(() => SideBindings.Of<IEngineLevel>(unserved).ResetDeleteList());
+            Assert.Throws<InterfaceAcquisitionException>(() => SideBindings.Of<IEngineLevel>(unserved).IsPrecacheAllowed());
         }
         finally
         {

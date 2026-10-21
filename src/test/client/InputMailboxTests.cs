@@ -139,7 +139,6 @@ public class InputMailboxTests
         private readonly Random _rng = new(seed);
         public float RandomFloat(float min, float max) => min + (float)_rng.NextDouble() * (max - min);
         public int RandomInt(int min, int max) => _rng.Next(min, max + 1);
-        public float RandomFloatExp(float min, float max, float exponent) => RandomFloat(min, max);
     }
 
     [Fact]

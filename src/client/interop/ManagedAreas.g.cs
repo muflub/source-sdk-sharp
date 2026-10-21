@@ -48,21 +48,13 @@ public unsafe interface IManagedPredictionClient
     int ThirdPersonCamera(void* a0);
 }
 
-[ManagedVtable(typeof(ManagedHudClientTable))]
-public unsafe interface IManagedHudClient
-{
-    void OnCreateMove(void* a0, float a1, int a2);
-}
-
 [ManagedVtable(typeof(ManagedTempEntsClientTable))]
 public unsafe interface IManagedTempEntsClient
 {
     void OnTempEntity(int a0, byte* a1, int a2);
     int OnNativeTempEntity(int a0, void* a1, int a2, void* a3, int a4, void* a5, int a6, void* a7);
-    int OnTempEntPoolAlloc(int a0);
     void OnTempEntPoolUpdate(float a0);
     void OnTempEntPoolClear();
-    int OnTempEntEjectBrass(int a0, int a1, void* a2, void* a3);
     int OnImpactChoice(void* a0, int a1, void* a2, int a3, byte* a4, int a5, byte* a6, int a7);
 }
 
@@ -222,7 +214,6 @@ public unsafe interface IManagedPrecipitationClient
 [ManagedVtable(typeof(ManagedConsoleOutputClientTable))]
 public unsafe interface IManagedConsoleOutputClient
 {
-    void ClientConsoleLine(byte* a0, int a1);
     void ClientConsoleBufferAttach(void* a0);
 }
 
@@ -259,8 +250,6 @@ public unsafe interface IManagedRenderClient
     void ViewScreenshot(void* a0, int a1, int a2, void* a3);
     void ViewFreezeFrame(float a0, float a1);
     int ViewDemoCamera(int a0, void* a1, void* a2);
-    int RenderLeafList(void* a0, void* a1, int a2);
-    int RenderLeafViewModels(void* a0, void* a1, int a2);
     void ScreenSpaceEffectsStage(int a0);
 }
 
@@ -352,7 +341,6 @@ public unsafe interface IManagedLeafSystemClient
     int AddRenderable(void* a0, int a1, int a2);
     int RemoveRenderable(int a0, void* a1, int a2);
     int AddRenderableToLeaves(int a0, void* a1, int a2, void* a3, int a4);
-    void ChangeRenderableRenderGroup(int a0, int a1);
     void SetRenderGroup(int a0, int a1);
     void RenderableChanged(int a0);
     void EnableAlternateSorting(int a0, int a1);
@@ -370,11 +358,6 @@ public unsafe interface IManagedLeafSystemClient
     void ComputeTranslucentRenderLeaf(void* a0, int a1, int a2, int a3, int a4, void* a5, void* a6, int a7);
     int BuildRenderablesList(void* a0, int a1, void* a2, int a3, int a4, int a5, void* a6, void* a7, int a8, void* a9, int a10);
     int CollateViewModelRenderables(void* a0, int a1, void* a2, void* a3, int a4);
-    int AddShadow(int a0, int a1);
-    void RemoveShadow(int a0);
-    int ProjectShadow(int a0, void* a1, int a2, void* a3, int a4);
-    int ProjectFlashlight(int a0, void* a1, int a2, void* a3, int a4);
-    int EnumerateShadowsInLeaves(void* a0, int a1, void* a2, int a3);
     void Pending(void* a0, int a1);
 }
 
@@ -442,8 +425,6 @@ public static class ManagedAreaFactory
         => IManagedStandaloneClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedPredictionClient target)
         => IManagedPredictionClient__ManagedVtable.Create(vtables, target);
-    public static ManagedVtable Create(ManagedVtables vtables, IManagedHudClient target)
-        => IManagedHudClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedTempEntsClient target)
         => IManagedTempEntsClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedSaveRestoreClient target)

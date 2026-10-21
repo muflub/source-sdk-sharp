@@ -15,4 +15,3 @@
 1	UNRULED	[CClientSystemPerFrame] virtual bool IsPerFrame()
 1	UNRULED	[CClientSystemPerFrame] virtual void PreRender()
 1	UNRULED	[CClientSystemPerFrame] virtual void Update( float frametime )
-1	UNRULED	[CClientSystemPerFrame] virtual void PostRender()

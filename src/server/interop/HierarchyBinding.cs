@@ -50,10 +50,6 @@ public sealed unsafe class HierarchyBinding(Crossings crossings, IHierarchyHost 
         Driver?.SetParentAttachmentName(new EntityHandle(a0), Utf8(a1));
     }
 
-    public int HierarchyEntityRemoved(uint a0) { Enter(CrossingOp.ServerHierarchyEntityRemoved); return Driver?.EntityRemoved(new EntityHandle(a0)) ?? 0; }
-
-    public int HierarchyResolveParentNames() { Enter(CrossingOp.ServerHierarchyResolveParentNames); return Driver?.ResolveParentNames() ?? 0; }
-
     public int HierarchyToLocal(uint a0, void* a1, void* a2) { Enter(CrossingOp.ServerHierarchyToLocal); return Convert(a0, (float*)a1, (float*)a2, toLocal: true); }
 
     public int HierarchyToWorld(uint a0, void* a1, void* a2) { Enter(CrossingOp.ServerHierarchyToWorld); return Convert(a0, (float*)a1, (float*)a2, toLocal: false); }

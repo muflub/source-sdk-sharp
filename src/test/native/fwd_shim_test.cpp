@@ -36,18 +36,12 @@ enum
 	kTickCount,
 	kGetFrameTime,
 	kSetFrameTime,
-	kSetServerCurTime,
-	kPhysicsRunThinkFunctions,
-	kServiceEventQueue,
 	kUpdateAllClientData,
 	kEndGameFrame,
-	kFireNetworkPropertyEvents,
 	kGamestatsUpdateConnection,
 	kDrawAllDebugOverlays,
 	kStandalonePlayerCommands,
-	kStandaloneUpdate,
 	kStandaloneFinish,
-	kDeliverToSdkEntities,
 	kDrainEntitySlots,
 	kBeginModelCacheLock,
 	kEndModelCacheLock,
@@ -62,25 +56,12 @@ public:
 	int32_t TickCount() override { return Ran( kTickCount ), 4242; }
 	float GetFrameTime() override { return Ran( kGetFrameTime ), 0.015f; }
 	void SetFrameTime( float flFrameTime ) override { Ran( kSetFrameTime ); flSet = flFrameTime; }
-	void SetServerCurTime() override { Ran( kSetServerCurTime ); }
-	void PhysicsRunThinkFunctions( int32_t bSimulating ) override { Ran( kPhysicsRunThinkFunctions ); nSimulating = bSimulating; }
-	void ServiceEventQueue() override { Ran( kServiceEventQueue ); }
 	void UpdateAllClientData() override { Ran( kUpdateAllClientData ); }
 	void EndGameFrame() override { Ran( kEndGameFrame ); }
-	void FireNetworkPropertyEvents() override { Ran( kFireNetworkPropertyEvents ); }
 	void GamestatsUpdateConnection() override { Ran( kGamestatsUpdateConnection ); }
 	void DrawAllDebugOverlays() override { Ran( kDrawAllDebugOverlays ); }
 	void StandalonePlayerCommands() override { Ran( kStandalonePlayerCommands ); }
-	void StandaloneUpdate() override { Ran( kStandaloneUpdate ); }
 	void StandaloneFinish() override { Ran( kStandaloneFinish ); }
-	int32_t DeliverToSdkEntities( const char *pszTarget, const char *pszInput, const char *pszValue ) override
-	{
-		Ran( kDeliverToSdkEntities );
-		pTarget = pszTarget;
-		pInput = pszInput;
-		pValue = pszValue;
-		return 3;
-	}
 	void DrainEntitySlots() override { Ran( kDrainEntitySlots ); }
 	void BeginModelCacheLock() override { Ran( kBeginModelCacheLock ); }
 	void EndModelCacheLock() override { Ran( kEndModelCacheLock ); }
@@ -88,10 +69,6 @@ public:
 	int nLast = -1;
 	int nCalls = 0;
 	float flSet = 0.0f;
-	int32_t nSimulating = -1;
-	const char *pTarget = nullptr;
-	const char *pInput = nullptr;
-	const char *pValue = nullptr;
 
 private:
 	void Ran( int nSlot )
@@ -117,10 +94,9 @@ F Slot( int nSlot )
 
 // Every void, no-argument step, by slot.
 const int kVoidSteps[] = {
-	kSetServerCurTime, kServiceEventQueue,
-	kUpdateAllClientData, kEndGameFrame, kFireNetworkPropertyEvents, kGamestatsUpdateConnection,
+	kUpdateAllClientData, kEndGameFrame, kGamestatsUpdateConnection,
 	kDrawAllDebugOverlays, kStandalonePlayerCommands,
-	kStandaloneUpdate, kStandaloneFinish, kDrainEntitySlots, kBeginModelCacheLock,
+	kStandaloneFinish, kDrainEntitySlots, kBeginModelCacheLock,
 	kEndModelCacheLock,
 };
 
@@ -157,17 +133,13 @@ TEST( FwdShim, TickCountAndGetFrameTimeAnswerFromTheirOwnMethods )
 	EXPECT_EQ( kGetFrameTime, frame.nLast );
 }
 
-TEST( FwdShim, SetFrameTimeAndPhysicsRunThinkFunctionsForwardTheirArgument )
+TEST( FwdShim, SetFrameTimeForwardsItsArgument )
 {
 	RecordingFrame frame;
 
 	Slot< void ( * )( IShimFrame *, float ) >( kSetFrameTime )( &frame, 0.25f );
 	EXPECT_EQ( kSetFrameTime, frame.nLast );
 	EXPECT_FLOAT_EQ( 0.25f, frame.flSet );
-
-	Slot< void ( * )( IShimFrame *, int32_t ) >( kPhysicsRunThinkFunctions )( &frame, 1 );
-	EXPECT_EQ( kPhysicsRunThinkFunctions, frame.nLast );
-	EXPECT_EQ( 1, frame.nSimulating );
 }
 
 TEST( FwdShim, EachVoidStepReachesItsOwnMethodOnce )
@@ -179,20 +151,6 @@ TEST( FwdShim, EachVoidStepReachesItsOwnMethodOnce )
 		EXPECT_EQ( nSlot, frame.nLast ) << nSlot;
 		EXPECT_EQ( 1, frame.nCalls ) << nSlot;
 	}
-}
-
-TEST( FwdShim, DeliverToSdkEntitiesForwardsItsThreeStringsInOrder )
-{
-	RecordingFrame frame;
-	const char *pszTarget = "door", *pszInput = "Open", *pszValue = "";
-
-	EXPECT_EQ( 3, ( Slot< int32_t ( * )( IShimFrame *, const char *, const char *, const char * ) >(
-		kDeliverToSdkEntities )( &frame, pszTarget, pszInput, pszValue ) ) );
-
-	EXPECT_EQ( kDeliverToSdkEntities, frame.nLast );
-	EXPECT_EQ( pszTarget, frame.pTarget );
-	EXPECT_EQ( pszInput, frame.pInput );
-	EXPECT_EQ( pszValue, frame.pValue );
 }
 
 TEST( FwdShim, TheInternalFactoryServesTheFrameTable )
@@ -223,9 +181,8 @@ public:
 	int32_t EventGetBool( void *, const char * ) override { return nLast = 3, 0; }
 	const char *EventGetString( void *, const char * ) override { return nLast = 4, "four"; }
 	void EventSetInt( void *, const char *, int32_t nValue ) override { nLast = 6; nSet = nValue; }
-	void EventSetFloat( void *, const char *, float ) override { nLast = 7; }
-	void EventSetBool( void *, const char *, int32_t ) override { nLast = 8; }
-	void EventSetString( void *, const char *, const char *pszValue ) override { nLast = 9; pName = pszValue; }
+	void EventSetBool( void *, const char *, int32_t ) override { nLast = 7; }
+	void EventSetString( void *, const char *, const char *pszValue ) override { nLast = 8; pName = pszValue; }
 
 	int nLast = -1;
 	int32_t nSet = 0;
@@ -245,10 +202,11 @@ const SSForwarderTable &EventsServerTable()
 TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
 {
 	const SSForwarderTable &table = EventsServerTable();
-	// IShimEvents' 5, then IShimEventsServer's 4 setters (EventCreate, EventFire
+	// IShimEvents' 5, then IShimEventsServer's 3 setters (EventCreate, EventFire
 	// and EventFree went in plan_server_native_v2 T3: IGameEventManager2's
-	// forwarders make those calls from managed).
-	ASSERT_EQ( 9, table.nSlots );
+	// forwarders make those calls from managed; EventSetFloat, which nothing
+	// called, in the serialised ABI pass).
+	ASSERT_EQ( 8, table.nSlots );
 
 	RecordingEvents events;
 	const char *pszName = "player_death";
@@ -268,8 +226,8 @@ TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
 
 	const char *pszValue = "v";
 	reinterpret_cast< void ( * )( IShimEventsServer *, void *, const char *, const char * ) >(
-		table.ppSlots[ 8 ] )( &events, nullptr, "k", pszValue );
-	EXPECT_EQ( 9, events.nLast );
+		table.ppSlots[ 7 ] )( &events, nullptr, "k", pszValue );
+	EXPECT_EQ( 8, events.nLast );
 	EXPECT_EQ( pszValue, events.pName );
 }
 
@@ -371,19 +329,20 @@ TEST( FwdShimCounts, TheConsoleIsTwelveSlots )
 	                   VTableHook::MemberOf( &IShimConsole::FindConVarFlags ).slot + 1, 12 );
 }
 
-TEST( FwdShimCounts, TheFrameIsNineteenSlots )
+TEST( FwdShimCounts, TheFrameIsThirteenSlots )
 {
 	// Seventeen until StandaloneRunFrame split into StandaloneUpdate and
 	// StandaloneFinish; eighteen until DeliverToSdkEntities was appended.
 	// Nineteen again at plan_server_native_v2 T4e: the three system walks
 	// (ServerSystemsPreThink, ServerSystemsPostThink,
 	// ServerSystemsPreClientUpdate) retired, DrainEntitySlots,
-	// BeginModelCacheLock and EndModelCacheLock appended.
+	// BeginModelCacheLock and EndModelCacheLock appended. Thirteen after the
+	// serialised ABI pass (2026-10-20) took the six retired steps out.
 	ExpectServedCount( "SSFwd_ShimFrame",
-	                   VTableHook::MemberOf( &IShimFrame::EndModelCacheLock ).slot + 1, 19 );
+	                   VTableHook::MemberOf( &IShimFrame::EndModelCacheLock ).slot + 1, 13 );
 }
 
-TEST( FwdShimCounts, TheLevelIsThirtyOneSlots )
+TEST( FwdShimCounts, TheLevelIsTwentySlots )
 {
 	// Twenty-two until LoadSaveGameState, twenty-three until FileSizeOnPath and
 	// ReadFileOnPath, twenty-five until SpawnWorld, twenty-six until
@@ -391,8 +350,10 @@ TEST( FwdShimCounts, TheLevelIsThirtyOneSlots )
 	// SetLoadType (T4e): each appended. Then T4e's systems: the four walks
 	// (InitPostEntitySystems, ShutdownPreClearSteamSystems,
 	// ShutdownPreEntitySystems, ShutdownPostEntitySystems) retired and the
-	// seven system stages appended, PhysicsInit to ResetEntitySlots.
-	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::ResetEntitySlots ).slot + 1, 31 );
+	// seven system stages appended, PhysicsInit to ResetEntitySlots. Twenty
+	// after the serialised ABI pass (2026-10-20) took the eleven retired
+	// steps out.
+	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::ResetEntitySlots ).slot + 1, 20 );
 }
 
 //-----------------------------------------------------------------------------

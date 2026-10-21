@@ -64,8 +64,6 @@ namespace
 		// whether to unregister.
 		bool IsRegistered() const { return ( m_nCallbackFlags & k_ECallbackFlagsRegistered ) != 0; }
 
-		int CallbackId() const { return m_iCallback; }
-
 	private:
 		IManagedSteamCallback *m_pTarget;
 		int m_nPayloadBytes;
@@ -93,10 +91,4 @@ CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallba
 bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback )
 {
 	return pCallback && static_cast< SSSteamCallback * >( pCallback )->IsRegistered();
-}
-
-// The id Steam filed the callback under when it registered it; 0 before.
-int SSFwd_SteamCallback_CallbackId( CCallbackBase *pCallback )
-{
-	return pCallback ? static_cast< SSSteamCallback * >( pCallback )->CallbackId() : 0;
 }

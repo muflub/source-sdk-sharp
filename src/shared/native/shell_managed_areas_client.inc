@@ -39,11 +39,6 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pPredictionClient )
 		return false;
 
-	pObject = pRoot->Acquire( "IManagedHudClient" );
-	areas.m_pHudClient = ManagedAccept< IManagedHudClient >( pObject, kIManagedHudClientSlotHashes, kIManagedHudClientSlotCount, pWhy, nWhy );
-	if ( !areas.m_pHudClient )
-		return false;
-
 	pObject = pRoot->Acquire( "IManagedTempEntsClient" );
 	areas.m_pTempEntsClient = ManagedAccept< IManagedTempEntsClient >( pObject, kIManagedTempEntsClientSlotHashes, kIManagedTempEntsClientSlotCount, pWhy, nWhy );
 	if ( !areas.m_pTempEntsClient )
@@ -189,8 +184,6 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pPredictionClient, kIManagedPredictionClientSlotHashes, kIManagedPredictionClientSlotCount, pWhy, nWhy ) )
 		return false;
-	if ( !ManagedAcceptObject( areas.m_pHudClient, kIManagedHudClientSlotHashes, kIManagedHudClientSlotCount, pWhy, nWhy ) )
-		return false;
 	if ( !ManagedAcceptObject( areas.m_pTempEntsClient, kIManagedTempEntsClientSlotHashes, kIManagedTempEntsClientSlotCount, pWhy, nWhy ) )
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pSaveRestoreClient, kIManagedSaveRestoreClientSlotHashes, kIManagedSaveRestoreClientSlotCount, pWhy, nWhy ) )
@@ -253,7 +246,6 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pUserMessagesClient );
 	ManagedRelease( areas.m_pStandaloneClient );
 	ManagedRelease( areas.m_pPredictionClient );
-	ManagedRelease( areas.m_pHudClient );
 	ManagedRelease( areas.m_pTempEntsClient );
 	ManagedRelease( areas.m_pSaveRestoreClient );
 	ManagedRelease( areas.m_pBeamsClient );
@@ -305,11 +297,6 @@ IManagedStandaloneClient *ManagedStandaloneClient()
 IManagedPredictionClient *ManagedPredictionClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pPredictionClient;
-}
-
-IManagedHudClient *ManagedHudClient()
-{
-	return ShellClientDll_Managed().m_Areas.m_pHudClient;
 }
 
 IManagedTempEntsClient *ManagedTempEntsClient()

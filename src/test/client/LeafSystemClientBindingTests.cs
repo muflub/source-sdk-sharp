@@ -302,28 +302,6 @@ public unsafe class LeafSystemClientBindingTests
         Assert.Equal(1, crossings.Read(CrossingOp.ClientLeafAddRenderable));
     }
 
-    [Fact]
-    public void TheRetiredShadowSlotsAnswerTheRefusalAndAreCounted()
-    {
-        var (binding, registry, crossings) = Make();
-        binding.LevelInitPreEntity(8);
-        int[] leaves = [1, 2];
-        var ops = new long[4 * 8];
-        fixed (int* l = leaves)
-        fixed (long* p = ops)
-        {
-            Assert.Equal(0xFFFF, binding.AddShadow(5, 2));
-            binding.RemoveShadow(0);
-            Assert.Equal(0, binding.ProjectShadow(0, l, 2, p, 8));
-            Assert.Equal(0, binding.ProjectFlashlight(0, l, 2, p, 8));
-            Assert.Equal(0, binding.EnumerateShadowsInLeaves(l, 2, p, 8));
-        }
-        Assert.Equal(0, registry.ShadowEnum);   // nothing reached the registry
-        foreach (CrossingOp op in new[] { CrossingOp.ClientLeafAddShadow, CrossingOp.ClientLeafRemoveShadow, CrossingOp.ClientLeafProjectShadow,
-                                          CrossingOp.ClientLeafProjectFlashlight, CrossingOp.ClientLeafEnumerateShadowsInLeaves })
-            Assert.Equal(1, crossings.Read(op));
-    }
-
     private sealed class Throwing : IClientLeafSystemHost
     {
         private static Exception E() => new InvalidOperationException("the test's host throws");
@@ -336,7 +314,6 @@ public unsafe class LeafSystemClientBindingTests
         public int AddRenderable(nint renderable, int group, int modelType) => throw E();
         public void RemoveRenderable(int handle) => throw E();
         public void AddRenderableToLeaves(int handle, ReadOnlySpan<int> leaves) => throw E();
-        public void ChangeRenderableRenderGroup(int handle, int group) => throw E();
         public void SetRenderGroup(int handle, int group) => throw E();
         public void RenderableChanged(int handle) => throw E();
         public void EnableAlternateSorting(int handle, bool enable) => throw E();

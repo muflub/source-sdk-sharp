@@ -10,10 +10,12 @@ namespace SourceSharp.Server.Interop;
 /// (plan_engineapi_vtables E9): the Entry.cs thunks' bodies and their dispatch
 /// helpers, moved. Dispatch keeps its own catch, because a failed FilterPasses
 /// answers -1 ("no answer") where the generated thunk's catch would answer 0
-/// ("refused"); TemplatesAddNamed keeps its -1 likewise.
+/// ("refused"). OnEntityIgnite, OnFireAddHeatInRadius, OnRagdollMagnetForce,
+/// the two ShellLessFind* and TemplatesAddNamed had no native caller and left
+/// in the serialised ABI pass (docs/abi-retirements.md, 2026-10-20).
 /// </summary>
 public sealed unsafe class EntitiesBinding(Crossings crossings, ILog log, IServerModule game, LivenessMirror liveness,
-                                            EntityRemovalRoutes removal, ShellLessRoutes shellLess) : IManagedEntities
+                                            EntityRemovalRoutes removal) : IManagedEntities
 {
     // The ops' names for a failure's report, made on the first failure rather
     // than in the constructor.
@@ -134,69 +136,5 @@ public sealed unsafe class EntitiesBinding(Crossings crossings, ILog log, IServe
     {
         Enter(CrossingOp.ServerEntityRemoveRequested);
         return removal.Remove(new EntityHandle(a0)) ? 1 : 0;
-    }
-
-    public void OnEntityIgnite(uint a0, float a1, float a2)
-    {
-        Enter(CrossingOp.ServerOnEntityIgnite);
-        game.OnEntityIgnite(new EntityHandle(a0), a1, a2);
-    }
-
-    public void OnFireAddHeatInRadius(void* a0, float a1, float a2)
-    {
-        Enter(CrossingOp.ServerOnFireAddHeatInRadius);
-        float* origin = (float*)a0;
-        game.AddFireHeatInRadius(new Vector(origin[0], origin[1], origin[2]), a1, a2);
-    }
-
-    public int OnRagdollMagnetForce(uint a0, void* a1, void* a2)
-    {
-        Enter(CrossingOp.ServerOnRagdollMagnetForce);
-        float* centre = (float*)a1, outForce = (float*)a2;
-        if (centre == null || outForce == null)
-            return 0;
-
-        if (game.OnRagdollMagnetForce(new EntityHandle(a0), new Vector(centre[0], centre[1], centre[2])) is not Vector pull)
-            return 0;
-
-        outForce[0] = pull.X;
-        outForce[1] = pull.Y;
-        outForce[2] = pull.Z;
-        return 1;
-    }
-
-    public int ShellLessFindByName(byte* a0, void* a1, int a2)
-    {
-        Enter(CrossingOp.ServerShellLessFindByName);
-        return ShellLessFind(a0, (uint*)a1, a2, byClassname: false);
-    }
-
-    public int ShellLessFindByClassname(byte* a0, void* a1, int a2)
-    {
-        Enter(CrossingOp.ServerShellLessFindByClassname);
-        return ShellLessFind(a0, (uint*)a1, a2, byClassname: true);
-    }
-
-    private int ShellLessFind(byte* pQuery, uint* pOut, int nOutMax, bool byClassname)
-    {
-        if (pQuery == null)
-            return 0;
-
-        Span<uint> into = pOut == null || nOutMax <= 0 ? Span<uint>.Empty : new Span<uint>(pOut, nOutMax);
-        return shellLess.Find(Utf8(pQuery), byClassname, into);
-    }
-
-    public int TemplatesAddNamed(byte* a0, byte* a1, byte* a2, int a3)
-    {
-        Enter(CrossingOp.ServerTemplatesAddNamed);
-        try
-        {
-            if (a2 == null || a3 <= 0) return -1;
-
-            var mapData = new byte[a3];
-            new ReadOnlySpan<byte>(a2, a3).CopyTo(mapData);
-            return game.Templates.Add(Utf8(a0), Utf8(a1), mapData);
-        }
-        catch (Exception e) { ManagedVtable.Fail(log, "IManagedEntities.TemplatesAddNamed", e); return -1; }
     }
 }

@@ -55,7 +55,6 @@ enum
 	kSizeOf,
 	kConstruct,
 	kIsRegistered,
-	kCallbackId,
 	kSteamCallbackSlots
 };
 
@@ -81,8 +80,6 @@ CCallbackBase *Build( void *pMemory, IManagedSteamCallback *pTarget, int nPayloa
 }
 
 bool IsRegistered( CCallbackBase *pCallback ) { return Slot< bool ( * )( CCallbackBase * ) >( kIsRegistered )( pCallback ); }
-
-int CallbackId( CCallbackBase *pCallback ) { return Slot< int ( * )( CCallbackBase * ) >( kCallbackId )( pCallback ); }
 
 // The managed side: counts its runs and keeps the last payload. Managed builds
 // this object as a block whose first word is its table (plan_forwarders_
@@ -149,7 +146,7 @@ TEST( FwdSteam, ConstructBuildsTheCallbackInTheMemoryItIsGiven )
 
 	EXPECT_EQ( static_cast< void * >( memory.bytes ), static_cast< void * >( pCallback ) );
 	EXPECT_FALSE( IsRegistered( pCallback ) );
-	EXPECT_EQ( 0, CallbackId( pCallback ) );
+	EXPECT_EQ( 0, pCallback->GetICallback() );
 	EXPECT_EQ( 0, target.nRuns );
 }
 
@@ -213,7 +210,7 @@ TEST( FwdSteam, EachCallbackRunsItsOwnTarget )
 	EXPECT_EQ( 4, pB->GetCallbackSizeBytes() );
 }
 
-TEST( FwdSteam, IsRegisteredAndTheIdFollowWhatSteamWrites )
+TEST( FwdSteam, IsRegisteredFollowsWhatSteamWrites )
 {
 	Memory memory;
 	RecordingTarget target;
@@ -221,17 +218,15 @@ TEST( FwdSteam, IsRegisteredAndTheIdFollowWhatSteamWrites )
 
 	CCallbackMgr::Register( pCallback, 101 );
 	EXPECT_TRUE( IsRegistered( pCallback ) );
-	EXPECT_EQ( 101, CallbackId( pCallback ) );
 	EXPECT_EQ( 101, pCallback->GetICallback() );
 
 	CCallbackMgr::Unregister( pCallback );
 	EXPECT_FALSE( IsRegistered( pCallback ) );
 }
 
-TEST( FwdSteam, NoCallbackIsNotRegisteredAndHasNoId )
+TEST( FwdSteam, NoCallbackIsNotRegistered )
 {
 	EXPECT_FALSE( IsRegistered( nullptr ) );
-	EXPECT_EQ( 0, CallbackId( nullptr ) );
 }
 
 TEST( FwdSteam, NeitherReleaseNorValidateIsCalledByTheCallback )
@@ -273,19 +268,18 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 	}
 }
 
-TEST( FwdSteam, TheParticleLibraryTableIsFortyEightSlotsAsTheCompilerCountsThem )
+TEST( FwdSteam, TheParticleLibraryTableIsTheNineManagedCalls )
 {
 	// libss_particles.so's ISSParticleLib, which only the client calls, so its
-	// table is the client library's alone: Connect, Disconnect, Mgr, Counters,
-	// then the 41 particles.a members client.so forwards, then C7 particles
-	// phase 3's batch step and bounds pair. No virtual
-	// destructor; read off the last member, so an append the table missed
-	// shows here. (Held to the old generated layout until
-	// plan_forwarders_everywhere.md phase 6.)
+	// table is the client library's alone. The interface is 48 methods
+	// (Connect, Disconnect, Mgr, Counters, the 41 particles.a members client.so
+	// forwards, the batch step and the bounds pair), read off the last member;
+	// client.so calls it through its C++ vtable. The forwarder table carries
+	// only the nine managed calls since the serialised ABI pass (2026-10-20).
 	const int compiler = VTableHook::MemberOf( &ISSParticleLib::CollectionSetBounds ).slot + 1;
 	EXPECT_EQ( 48, compiler );
 
 	const SSForwarderTable *pTable = SSFwdClient_Table( "SSFwd_ParticleLib" );
 	ASSERT_NE( nullptr, pTable );
-	EXPECT_EQ( compiler, pTable->nSlots );
+	EXPECT_EQ( 9, pTable->nSlots );
 }

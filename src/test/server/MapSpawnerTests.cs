@@ -198,24 +198,14 @@ public sealed class MapSpawnerTests
             return _inner.SpawnWorld(keys);
         }
 
-        public void ResetServerTime() => _inner.ResetServerTime();
-        public void ParseParticleManifest() => _inner.ParseParticleManifest();
-        public void ParseParticleManifestForMap(string m) => _inner.ParseParticleManifestForMap(m);
         public void PrecachePointTemplates(IReadOnlyList<TemplateSpawn> t) => _inner.PrecachePointTemplates(t);
         public void SetLowViolence(string m) => _inner.SetLowViolence(m);
         public void LoadMessageOfTheDay() => _inner.LoadMessageOfTheDay();
-        public int ResetDeleteList() => _inner.ResetDeleteList();
-        public void ActivateAllEntities() => _inner.ActivateAllEntities();
         public void SetPrecacheAllowed(bool a) => _inner.SetPrecacheAllowed(a);
         public bool IsPrecacheAllowed() => _inner.IsPrecacheAllowed();
-        public void ClearSteamAPIContext() => _inner.ClearSteamAPIContext();
         public void ShutdownStandaloneEntities() => _inner.ShutdownStandaloneEntities();
         public void ShutdownSoundEnt() => _inner.ShutdownSoundEnt();
         public void ClearEntityList() => _inner.ClearEntityList();
-        public void UncacheAllParticleSystems() => _inner.UncacheAllParticleSystems();
-        public void RecreateParticleDictionary() => _inner.RecreateParticleDictionary();
-        public void PropDataLoadFile() => _inner.PropDataLoadFile();
-        public void PropDataClearFile() => _inner.PropDataClearFile();
         public bool LoadSaveGameState(string m, bool c) => _inner.LoadSaveGameState(m, c);
         public void SetLoadType(MapLoadType how) => _inner.SetLoadType(how);
         public bool PhysicsInit() => _inner.PhysicsInit();

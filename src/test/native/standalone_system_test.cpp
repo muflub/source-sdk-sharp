@@ -475,9 +475,10 @@ TEST( StandaloneSystem, TheThreeFrameStepsAreThreeBecauseTheOrderIsADecision )
 	// THE STEPS ARE VTABLE METHODS NOW, not free functions. plan_shim.md 5 3a
 	// (lane 3b-enginebind) folded shell_framesteps.cpp's free functions into
 	// the CShimFrame methods that used to forward to them, so the needles are
-	// the methods. WHAT IS PINNED IS UNCHANGED: three of them, not one.
+	// the methods. Two of them since the serialised ABI pass (2026-10-20)
+	// removed StandaloneUpdate, whose body had been empty since P1.
 	EXPECT_EQ( 1, CountOf( steps, "virtual void StandalonePlayerCommands() OVERRIDE" ) );
-	EXPECT_EQ( 1, CountOf( steps, "virtual void StandaloneUpdate() OVERRIDE" ) );
+	EXPECT_EQ( 0, CountOf( steps, "StandaloneUpdate" ) );
 	EXPECT_EQ( 1, CountOf( steps, "virtual void StandaloneFinish() OVERRIDE" ) );
 
 	// NO THINK LEFT ON THIS SIDE. A native step that dispatched a think would be
@@ -496,9 +497,9 @@ TEST( StandaloneSystem, TheThreeFrameStepsAreThreeBecauseTheOrderIsADecision )
 	// deeper: the bodies are inside a class now, so a step's one call is
 	// indented twice. The forward DECLARATIONS are still at file scope with no
 	// tab at all, which is what the anchor is for.
-	// StandaloneUpdate's body is EMPTY since plan_server_native_min P1:
 	// StandaloneEntities_Update was an empty body the managed frame never
-	// reached, so the slot stays and the call went. No call, at any indent.
+	// reached (plan_server_native_min P1), and its slot left in the serialised
+	// ABI pass. No call, at any indent.
 	EXPECT_EQ( 0, CountOf( steps, "StandaloneEntities_Update();" ) );
 	EXPECT_EQ( 1, CountOf( steps, "\n\t\tStandaloneEntities_Finish();" ) );
 
@@ -808,7 +809,6 @@ TEST( StandaloneSystem, TheThreeEngineSlotsHaveLeftTheFlatTableAndMustNotReturn 
 	// file's exact spacing -- and a needle that stops matching because somebody
 	// reformatted a line is a check that failed for a reason nobody meant.
 	EXPECT_LE( 1, CountOf( frame, "StandalonePlayerCommands" ) );
-	EXPECT_LE( 1, CountOf( frame, "StandaloneUpdate" ) );
 	EXPECT_LE( 1, CountOf( frame, "StandaloneFinish" ) );
 	EXPECT_LE( 1, CountOf( level, "ShutdownStandaloneEntities" ) );
 
@@ -828,7 +828,6 @@ TEST( StandaloneSystem, TheThreeEngineSlotsHaveLeftTheFlatTableAndMustNotReturn 
 	ASSERT_FALSE( levelShim.empty() );
 
 	EXPECT_EQ( 1, CountOf( frame, "virtual void StandalonePlayerCommands() OVERRIDE\n\t{" ) );
-	EXPECT_EQ( 1, CountOf( frame, "virtual void StandaloneUpdate() OVERRIDE\n\t{" ) );
 	EXPECT_EQ( 1, CountOf( frame, "virtual void StandaloneFinish() OVERRIDE\n\t{" ) );
 	// ONE, NOT TWO, AND THERE IS NO SECOND FILE ANY MORE. This required the
 	// forward declaration at the top of shell_levelshim.cpp AND the one-line

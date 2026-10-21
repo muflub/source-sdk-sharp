@@ -21,14 +21,15 @@ Entries by owner (the file keeps its order; this is the index):
   datatables (T4b); entity API and world (T4d); the trace filter (T4f); the
   player commands (T4g); substrate collapse (T5); bitvec.h's two tables (T6);
   the spectator port's gaps; trigger_push's two divergences.
-- **The client port** (plan_client_novalve C7/C9): the PostRender stage;
+- **The client port** (plan_client_novalve C7/C9):
   entity dissolve (client render first); the client's sound emit path; client
   port follow-ups (small); the render plan (C7) follow-ups; the render debug
   views to Debug.Api; one managed input system; C7 particles; the new-style
   effects' camera object; QueueOverlayRenderView; the client flashlight;
   Client C9; entity entry 264 after the second map load.
-- **The ABI tail** (serialised): the "Serialised ABI cleanup" row under client
-  port follow-ups; the managed-interfaces rows T2 and T5 name.
+- **The ABI tail**: the serialised pass ran 2026-10-20 (docs/abi-retirements.md);
+  its follow-up is "Game logic the ABI pass left unreferenced" under client
+  port follow-ups.
 - **TF2**: the stage-0 class-script fixture; Pyro vision's facts.
 - **descent and the host**: the hosted-reload hazard; descent-death P3-P6.
 - **Unowned infrastructure**: the vtable trap's re-entry; -assertstack per
@@ -54,25 +55,6 @@ marking the log before the reload, would close it.
 (tools/live-gate:9828 at 4c808928c). **Next:** mark the managed log before the
 reload, or read /console beside it, and give the hot-reload step a self-test
 row that fails when a pre-reload EXCEPTION line goes unread.
-
-## The client systems' PostRender stage reaches no body
-
-Added 2026-10-19 with SFM's removal (user ruling: "SFM is dead, remove it").
-CToolFrameworkClient was the one kClientSystems[] row with a PostRender body;
-its row left with toolframework_client.cpp, so
-SourceSharp_ClientSystemsPostRender walks the table and calls nothing. The
-render plan still emits RENDER_OP_ClientSystemsPostRender (RenderOpKind 15)
-twice a frame (RenderPlanner.cs:421 in the 3D sky view, :467 in the main
-scene), and RenderPlanText.cs:401 reads it as a section of the frozen render
-recordings, so the op and the walk stayed. Re-measured 2026-10-20 at
-4c808928c, after the leaf and shadow ports: no kClientSystems[] row has a
-PostRender body (shell_clientsystems.cpp:507-524; the old-style particles'
-PostRender is the client mode's, shell_client.cpp:420). Retiring both is one
-plan-op change plus the recordings' re-freeze.
-
-**Owner:** the client port (C7 render plan). **Next:** drop the op from both
-RenderPlanner sites, the executor case and the walk, and re-freeze the render
-recordings in the same commit.
 
 ## Player-movement controls and entity fields that answer nothing: ports owed
 
@@ -151,12 +133,10 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   server gc cull, and the orphaned enum in T2. A managed sender of `TeBubbleTrail`
   owes the clamp.
 
-Re-measured 2026-10-20 at 4c808928c: `IManagedClients GetPlayerRelationship`
-is still docs/managed-interfaces.tsv:79 with no native caller (grep over
-src/*.cpp and *.h finds the generated table only), and no managed code sends
-a TeBubbleTrail (grep). **Owner:** the server lane; the row's retirement rides
-the serialised ABI tail. **Next:** retire the row; add the 255 clamp with the
-first managed TeBubbleTrail sender.
+`IManagedClients GetPlayerRelationship` was retired 2026-10-20 by the
+serialised ABI pass (docs/abi-retirements.md). No managed code sends a
+TeBubbleTrail yet (grep, 4c808928c). **Owner:** the server lane. **Next:** add
+the 255 clamp with the first managed TeBubbleTrail sender.
 
 ## The sound emit path in C# (plan_server_native_v2 T4a step 1): follow-ups
 
@@ -405,12 +385,9 @@ reason it was left:
   constructor is what builds `s_pNonModifiedPointerProxyHead`, a D6 FLOOR row;
   both go with the standalone shell's move (the SendPropInt/Vector/String
   bullet above), not on their own.
-- **Managed-table slots with no native caller now**:
-  `IManagedHierarchy.HierarchyResolveParentNames` (MapSpawner runs the pass in
-  managed) and `IManagedSoundEnt.ServerSoundEntInsert` (sound hints enter
-  SoundEnt in managed); the generated `ManagedSoundEmitter()` accessor has no
-  native caller either. Retiring a managed-interfaces row is a --reorder on
-  both sides: a later lane's, with the ABI tail serialised.
+- **Managed-table slots with no native caller**: `IManagedHierarchy.HierarchyResolveParentNames`,
+  `IManagedSoundEnt.ServerSoundEntInsert` and the `ManagedSoundEmitter()` accessor's
+  interface were retired 2026-10-20 by the serialised ABI pass (docs/abi-retirements.md).
 - **Kept on purpose**: alloc_check.cpp's `__wrap_*` set (the debug allocation
   checker; a wrap with no caller is the guard for the day one appears),
   exit_watch.cpp's `ExitWatch_*ForTest` (test hooks that drive the live exit
@@ -423,8 +400,7 @@ reason it was left:
   mathlib_port_stock_test. (The client members only collisionutils.cpp reached
   went with it at C7 S2, mathlib_port_client.cpp's header.)
 
-**Owner:** the server lane, the client's dead-tail pass for UTIL_Tracer, and
-the serialised ABI tail for the managed-interfaces rows. **Next:** each row's
+**Owner:** the server lane, and the client's dead-tail pass for UTIL_Tracer. **Next:** each row's
 exit, as written.
 
 ## The client's sound emit path in C#: follow-ups and divergences
@@ -545,12 +521,12 @@ Added 2026-10-05 from the client no-Valve lanes (plan_client_novalve.md), merged
 - **Server browser has no data source.** No master-server or LAN query exists yet; it opens empty (C4: Steam matchmaking over the managed flat API).
 - **MOTD HTML.** HTML/URL MOTDs fall back to `motd_text` as stock does with HTML off; a web view (Steam HTML surface, already probed in C0) is the later option.
 - **Client physics props: what ClientPhysicsProps still does not carry** (it ports CTempEnts::PhysicsProp and C_PhysPropClientside, 73b64446d): the respawn zones (no map prop_physics_multiplayer path), a piece's motion-disabled flag, the skin-family clamp, and prop shadows (temp entities cast none).
-- **Serialised ABI cleanup** (one pass, renumbering CrossingOps once): remove the uncalled `DrawSprite`/`DrawSpriteOffset` slots and their `IEngineEffects` members, and `IManagedTempEntsClient`'s two dead callback slots with their `imanaged_areas.tsv` rows. Measured 2026-10-08 at 37c2e4a7: the DrawSprite slots ARE still called — `EngineSide.DrawSprite/Offset` (client shim slots 0/1 of IShimEffectsRenderClient) have live managed callers (`EngineBinding`, and `ClientPlasma`/`ClientSprite`/`ClientSpriteHost` through `IClientSpriteDraw`, which is the render-budget plan path and must stay). The census before cutting: which of the two vtable slots, if either, an engine-body still reaches — the engine binaries, not `nm`. (The tempent pool half closed 2026-10-09; see the row above.) Also in this pass: `IManagedConsoleOutput::ConsoleLine` and `IManagedConsoleOutputClient::ClientConsoleLine`, uncalled since console-batch (2026-10-11: the forwarder appends to its line buffer and managed drains it through `ConsoleBufferAttach`), with their rows in `docs/managed-interfaces.tsv` and the `ServerConsoleLine`/`ClientConsoleLine` CrossingOps.
+- **Game logic the ABI pass left unreferenced** (2026-10-20, docs/abi-retirements.md): `ShellLessRoutes.Find`, `PropData.RandomChunkModel`, the `Templates.Add` the native map parse used, `PhysRagdollMagnet.Best` and `C_StandaloneEntity::SetShadowCast` lost their last callers with their slots. Each is a port of stock logic, so the next dead-code pass decides each one (port-dead-stock-arms ruling) rather than the ABI pass. The pass's census was two levels deep (a slot's wrapper, then the wrapper's callers) plus the compiler; a third-level chain the census could not see is that pass's question too.
 - **Render budget headroom:** `ClientStandaloneDraw` (4-7 per client frame, the standalone entity shell's per-entity draw) is now the main driver of the `render` step; batching it is C7 render-plan work. `ClientFxSmokeFogPlan` costs a steady 1 per frame and could fold into a per-frame call.
 - **Stock undefined behaviour in the Int and SelectFirstIfNonZero proxies, ported as four-wide.** Added 2026-10-11 (lane c5-proxies, 37ad7f31, ported to f56bc32c). mathproxy.cpp reads a four-wide result through a three-wide `Vector`; in the recorded debug build the fourth float overruns onto the `vecSize` local, so stock writes `SetVecValue( a, 0 )`. The port writes all four components (`Vec4Temp`, `MathProxies.cs`), and the oracle replay names exactly those writes as the allowed disagreements (`TheOverrunBindsAreTheFourWideVectorResultsOnly`). A different compiler or the release build may lay the stack out differently, so the oracle's ruling holds for the recorded build only; re-record in release before relying on it there.
 
-**Owner:** the client port; the Serialised ABI cleanup row is the ABI
-tail's (left as its lane wrote it). **Next:** the server browser waits on
+**Owner:** the client port; the unreferenced game logic is the next
+dead-code pass's. **Next:** the server browser waits on
 C4's matchmaking; the MOTD web view and the physics props' gaps have no
 date; re-record the proxy oracle in release before a release build relies
 on it; the render budget row is the perf pass's.
@@ -1024,8 +1000,9 @@ and where its record lives now.
 - **Client port follow-ups, closed rows**: the scoreboard's max players
   (ScoreboardMaxPlayersTests, UiLoaderTests, UiHostKit, MenuSources.cs), the
   console window's engine prints (ConsoleUiEngineFeedTests, MenuSources.cs), the
-  dead tempent pool (TempEntPoolRetirementTests; the "Serialised ABI cleanup"
-  row's "row above"), the crossbow bolt's ragdoll pin (e9b0c2dee; divergence:
+  dead tempent pool (TempEntPoolRetirementTests), the serialised ABI cleanup
+  (docs/abi-retirements.md, 2026-10-20), the PostRender stage (its op and walk
+  went in that pass), the crossbow bolt's ragdoll pin (e9b0c2dee; divergence:
   of two bodies on one line the nearer is pinned), ss_bolt's BoltImpact, the
   snowfall tolerance and the client trace on props: closed 2026-10-08..19.
 - **Live-gate step fixes**: impact-damage's fall origin (tools/live-gate:2947),

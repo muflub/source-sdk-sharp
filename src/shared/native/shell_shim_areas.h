@@ -44,7 +44,6 @@ public:
 	int32_t EventGetBool( void * hEvent, const char * pKey ) override;
 	const char * EventGetString( void * hEvent, const char * pKey ) override;
 	void EventSetInt( void * hEvent, const char * pKey, int32_t nValue ) override;
-	void EventSetFloat( void * hEvent, const char * pKey, float flValue ) override;
 	void EventSetBool( void * hEvent, const char * pKey, int32_t bValue ) override;
 	void EventSetString( void * hEvent, const char * pKey, const char * pValue ) override;
 };
@@ -58,7 +57,6 @@ public:
 	int32_t WorldNetDeclare( int32_t nBlobBytes ) override;
 	void * EntityGetDataBlob( uint32_t hEntity, int32_t * pOutSize ) override;
 	void * EntityBindBlob( uint32_t hEntity, int32_t * pOutSize, SourceSharpEntitySlot_t ** pOutSlot, uint32_t * pOutSerial ) override;
-	void EntityMarkStateChanged( uint32_t hEntity ) override;
 	void EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset ) override;
 	int32_t EntityPayloadAgreement( uint32_t hEntity, int32_t * pOutWords, int32_t * pOutFirstBadWord ) override;
 	void * EntityGetEngineBlock( uint32_t hEntity, int32_t * pOutSize ) override;
@@ -251,7 +249,6 @@ public:
 	int32_t DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a ) override;
 	void AddLineOverlay( const float * pStartXYZ, const float * pEndXYZ, int32_t r, int32_t g, int32_t b, int32_t bNoDepthTest, float flDuration ) override;
 	void OverlayCounts( uint32_t * pOutDrawn, uint32_t * pOutClipped, uint32_t * pOutNoViewer, uint32_t * pOutNoOverlay, int32_t * pOutViewerSet ) override;
-	void OverlayResetCounts() override;
 };
 
 class CShimUserMessages final : public IShimUserMessages
@@ -393,7 +390,6 @@ public:
 	int32_t TempEntPoolReadLife( int32_t nSlot, SourceSharpTempEntLife_t * pOutLife ) override;
 	int32_t TempEntPoolReadStatics( int32_t nSlot, SourceSharpTempEntStatics_t * pOut ) override;
 	int32_t TempEntPoolReadTransform( int32_t nSlot, SourceSharpTempEntTransform_t * pOutTransform ) override;
-	int32_t TempEntPoolSimulate( int32_t nSlot, float flFrameTime, int32_t nFrameNumber ) override;
 	int32_t TempEntPoolWriteLife( int32_t nSlot, const SourceSharpTempEntLife_t * pLife ) override;
 	int32_t TempEntPoolWriteSpawn( int32_t nSlot, const SourceSharpTempEntSpawn_t * pSpawn ) override;
 	int32_t TempEntPoolWriteTransform( int32_t nSlot, const SourceSharpTempEntTransform_t * pTransform ) override;
@@ -468,9 +464,8 @@ public:
 	void StandaloneSetCustomDraw( uint32_t hEntity, const float * pMinsXYZ, const float * pMaxsXYZ ) override;
 	void StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist, float flMinAlpha ) override;
 	void StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex ) override;
-	void StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice ) override;
 	void StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable ) override;
-	int32_t StandaloneShadowCast( uint32_t hEntity, int32_t * pOutChoice, int32_t * pOutHasShadow ) override;
+	int32_t StandaloneShadowCast( uint32_t hEntity, int32_t * pOutChoice ) override;
 	void SurfaceSetEdges( uint32_t hEntity, const unsigned char * pEdges, int32_t nCount ) override;
 	int32_t ClientRecvProp( int32_t iIndex, char * pOutClass, int32_t nClassBytes, char * pOutTable, int32_t nTableBytes, char * pOutProp, int32_t nPropBytes, int32_t * pOutType, int32_t * pOutFlags, int32_t * pOutOffset, int32_t * pOutElements ) override;
 	int32_t ClientSchemaRefusal( int32_t iIndex, uint32_t * pOutTypeId, uint32_t * pOutExpected, uint32_t * pOutSeen, int32_t * pOutCount, char * pOutClass, int32_t nClassBytes, int32_t * pOutRefusedUpdates ) override;
@@ -551,7 +546,6 @@ public:
 	int32_t UiFontCreate( const char * pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags ) override;
 	void UiFontMetrics( int32_t nFont, int32_t * pOutTall, int32_t * pOutAscent ) override;
 	int32_t UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t * pOutAdvances ) override;
-	void UiScreenSize( int32_t * pOutWide, int32_t * pOutTall ) override;
 	void UiPlaySound( const char * pPath ) override;
 	void UiSetMenuInput( int32_t bMouse, int32_t bKeyboard ) override;
 	void UiSetCursor( int32_t nShape ) override;

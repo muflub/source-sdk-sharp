@@ -530,7 +530,10 @@ public enum RenderOpKind
     // pieces now (C7 step 2), and the numbers are not reused. 73 was
     // ScreenSpaceEffects, g_pScreenSpaceEffects->RenderEffects: the manager is
     // managed's and its effects append their own ops in the plan (C7
-    // screen-space effects); the number is not reused.
+    // screen-space effects); the number is not reused. 15 was
+    // ClientSystemsPostRender, the client systems' PostRender walk, which
+    // reached no body once SFM's tool framework went (2026-10-19); it left in
+    // the serialised ABI pass (2026-10-20) and the number is not reused.
     None = 0,
     SceneBegin = 1,
     SceneEnd = 2,
@@ -551,7 +554,6 @@ public enum RenderOpKind
     ShadowComputeDepthTextures = 12,
     ShadowUnlockDepthTextures = 13,
     ClientSystemsPreRender = 14,
-    ClientSystemsPostRender = 15,
     /// <summary>I0 no-vis; F0..2 the vis origin. The engine's answer is kept for <see cref="ClearColorToFogIfRadialVis"/> and <see cref="ClearForView"/>.</summary>
     ViewSetupVisEx = 16,
     /// <summary>When the last ViewSetupVisEx answered radial vis: the clear colour becomes the fog colour, and a view's clear may add colour.</summary>

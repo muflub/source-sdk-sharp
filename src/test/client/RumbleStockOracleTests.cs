@@ -58,7 +58,6 @@ public class RumbleStockOracleTests
         }
 
         public int RandomInt(int min, int max) => throw new InvalidOperationException("the mixer draws floats only");
-        public float RandomFloatExp(float min, float max, float exponent) => throw new InvalidOperationException("the mixer draws floats only");
     }
 
     [Fact]

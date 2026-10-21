@@ -98,7 +98,6 @@ internal sealed unsafe class DefaultConsoleServerArea : IConsoleServerArea
 internal sealed unsafe class DefaultEventsServerArea : DefaultEventsArea, IEventsServerArea
 {
     public void EventSetInt(IntPtr a0, byte* a1, int a2) { }
-    public void EventSetFloat(IntPtr a0, byte* a1, float a2) { }
     public void EventSetBool(IntPtr a0, byte* a1, int a2) { }
     public void EventSetString(IntPtr a0, byte* a1, byte* a2) { }
 }
@@ -108,7 +107,6 @@ internal sealed unsafe class DefaultNetworkServerArea : DefaultNetworkArea, INet
 {
     public void* EntityGetDataBlob(uint a0, int* a1) => default;
     public void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3) => default;
-    public void EntityMarkStateChanged(uint a0) { }
     public void EntityMarkBlockChanged(uint a0, int a1) { }
     public int EntityPayloadAgreement(uint a0, int* a1, int* a2) => default;
     public void* EntityGetEngineBlock(uint a0, int* a1) => default;
@@ -289,7 +287,6 @@ internal sealed unsafe class DefaultDebugOverlayArea : IDebugOverlayArea
     public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) => default;
     public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { }
     public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { }
-    public void OverlayResetCounts() { }
 }
 
 /// <summary><see cref="IUserMessagesArea"/> for a test with no engine: every call answers its default.</summary>
@@ -339,7 +336,6 @@ internal sealed unsafe class DefaultTempEntPoolClientArea : ITempEntPoolClientAr
     public int TempEntPoolReadLife(int a0, TempEntLife* a1) => default;
     public int TempEntPoolReadStatics(int a0, TempEntStatics* a1) => default;
     public int TempEntPoolReadTransform(int a0, TempEntTransform* a1) => default;
-    public int TempEntPoolSimulate(int a0, float a1, int a2) => default;
     public int TempEntPoolWriteLife(int a0, TempEntLife* a1) => default;
     public int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1) => default;
     public int TempEntPoolWriteTransform(int a0, TempEntTransform* a1) => default;
@@ -414,9 +410,8 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetCustomDraw(uint a0, float* a1, float* a2) { }
     public void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4) { }
     public void StandaloneSetOverlayModel(uint a0, int a1) { }
-    public void StandaloneSetShadowCast(uint a0, int a1) { }
     public void StandaloneSetViewModel(uint a0, int a1) { }
-    public int StandaloneShadowCast(uint a0, int* a1, int* a2) => default;
+    public int StandaloneShadowCast(uint a0, int* a1) => default;
     public void SurfaceSetEdges(uint a0, byte* a1, int a2) { }
     public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) => default;
     public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) => default;
@@ -497,7 +492,6 @@ internal sealed unsafe class DefaultUiClientArea : IUiClientArea
     public int UiFontCreate(byte* a0, int a1, int a2, int a3) => default;
     public void UiFontMetrics(int a0, int* a1, int* a2) { }
     public int UiFontAdvances(int a0, int a1, int a2, int* a3) => default;
-    public void UiScreenSize(int* a0, int* a1) { }
     public void UiPlaySound(byte* a0) { }
     public void UiSetMenuInput(int a0, int a1) { }
     public void UiSetCursor(int a0) { }

@@ -6,7 +6,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server.Interop;
 
 /// <summary>
-/// Decals, prop-data chunk models and model precache components, managed-built
+/// Decals and model precache components, managed-built
 /// (plan_engineapi_vtables E3): the Entry.cs thunks' bodies, moved. Each answer
 /// that failed to -1 (<see cref="NameBuffer.NoAnswer"/>) keeps that answer: the
 /// generated thunk's own catch would answer 0, which is a decal index and a
@@ -51,21 +51,6 @@ public sealed unsafe class ResourcesBinding(Crossings crossings, ILog log, IServ
         catch (Exception e)
         {
             ManagedVtable.Fail(log, "IManagedResources.ServerDecalTranslateForGameMaterial", e);
-            return NameBuffer.NoAnswer;
-        }
-    }
-
-    public int ServerPropDataRandomChunkModel(byte* a0, int a1, byte* a2, int a3)
-    {
-        Enter(CrossingOp.ServerPropDataRandomChunkModel);
-        try
-        {
-            if (a2 == null || a3 <= 0 || a0 == null) return NameBuffer.NoAnswer;
-            return NameBuffer.Write(game.PropData.RandomChunkModel(Utf8(a0), a1), new Span<byte>(a2, a3));
-        }
-        catch (Exception e)
-        {
-            ManagedVtable.Fail(log, "IManagedResources.ServerPropDataRandomChunkModel", e);
             return NameBuffer.NoAnswer;
         }
     }

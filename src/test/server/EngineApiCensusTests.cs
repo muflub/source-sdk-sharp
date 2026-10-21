@@ -212,8 +212,10 @@ public partial class EngineApiCensusTests
     // retired: the slow-movement word and the punch are the managed record's
     // (123 - 2 = 121). Then IShimTransform.EntityAddBaseVelocity retired: a
     // player's base velocity is the managed record's and nothing else has the
-    // channel (121 - 1 = 120).
-    private const int ServerOnly = 120;
+    // channel (121 - 1 = 120). The serialised ABI pass (2026-10-20):
+    // EventSetFloat, OverlayResetCounts and EntityMarkStateChanged, which only
+    // tests called (120 - 3 = 117).
+    private const int ServerOnly = 117;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -382,7 +384,11 @@ public partial class EngineApiCensusTests
     // FlashlightUpdate, FlashlightProject and FlashlightDestroy retired; the
     // flashlight hands its projected texture to the managed shadow manager
     // in-process (245 - 4 = 241).
-    private const int ClientOnly = 241;
+    // The serialised ABI pass (2026-10-20): TempEntPoolSimulate, uncalled since
+    // the managed pool integrates every tempent (241 - 1 = 240), and
+    // StandaloneSetShadowCast and UiScreenSize, which only tests called
+    // (240 - 2 = 238).
+    private const int ClientOnly = 238;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

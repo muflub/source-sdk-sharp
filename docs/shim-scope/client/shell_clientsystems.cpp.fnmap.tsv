@@ -18,5 +18,4 @@
 4	UNRULED	void SourceSharp_ClientSystemsLevelShutdownPreEntity( void )
 4	UNRULED	void SourceSharp_ClientSystemsLevelShutdownPostEntity( void )
 4	UNRULED	void SourceSharp_ClientSystemsPreRender( void )
-4	UNRULED	void SourceSharp_ClientSystemsPostRender( void )
 12	UNRULED	void SourceSharp_ClientSystemsUpdate( float frametime )

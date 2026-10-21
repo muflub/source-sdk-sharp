@@ -115,8 +115,8 @@ IUploadGameStats *gamestatsuploader = NULL;
 // only thing that could put an entity into its heap was
 // CServerNetworkProperty::SetUpdateInterval, which had no caller in any
 // compiled translation unit, so the manager was an empty heap walked once per
-// frame forever. See shell_frame.cpp's FrameFireNetworkPropertyEvents,
-// which is the step that walked it.
+// frame forever. IShimFrame::FireNetworkPropertyEvents, the step that walked
+// it, left in the serialised ABI pass (2026-10-20).
 
 // g_MapEntityRefs is gone: its only writer was CMapLoadEntityFilter
 // (gameinterface.h), which no compiled TU uses, and nothing read it; the one
@@ -249,8 +249,8 @@ IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 // g_flServerCurTime, the rollback-independent server clock, went in
 // plan_server_native_v2 T6: its one reader was game/shared/baseprojectile.cpp,
 // which neither DLL compiles, so the frame and the level reset wrote it for
-// nobody. IShimFrame::SetServerCurTime and IShimLevel::ResetServerTime are
-// retired slots now.
+// nobody. IShimFrame::SetServerCurTime and IShimLevel::ResetServerTime, the
+// slots that wrote it, left in the serialised ABI pass (2026-10-20).
 
 //=============================================================================//
 // 2. THE ACQUISITION -- was shell_engineinterfaces.cpp

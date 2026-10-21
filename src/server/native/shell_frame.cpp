@@ -86,16 +86,12 @@
 //   stock -- stock's own comment says "allow this in release for now".
 //
 //=============================================================================
-// FOUR RETIRED SLOTS, KEPT AT THEIR INDICES.
-//
-// PhysicsRunThinkFunctions, ServiceEventQueue, FireNetworkPropertyEvents and
-// DeliverToSdkEntities do nothing and can do nothing: each one's subject left
-// the vpc. They are marked retired in ishim_frame.h and in the generated
-// managed layout, their managed callers are gone, and the full argument for
-// each is a row in docs/abi-retirements.md. THE SLOTS THEMSELVES STAY: a vtable
-// slot removed from the middle renumbers every slot after it, managed binds by
-// index, and the span check does not catch a reorder. They go together, in one
-// deliberate pass, at a SourceSharpFrame002 version string.
+// THE RETIRED SLOTS ARE GONE. PhysicsRunThinkFunctions, ServiceEventQueue,
+// FireNetworkPropertyEvents, DeliverToSdkEntities, SetServerCurTime and
+// StandaloneUpdate did nothing and could do nothing: each one's subject left
+// the vpc. The serialised ABI pass (docs/abi-retirements.md, 2026-10-20)
+// removed them from ishim_frame.h and the forwarder table in one deliberate
+// --reorder.
 //
 // The refusal objects that used to warn from these four bodies are gone with
 // the bodies. They were reach counters for an argument nothing can now reach:
@@ -237,51 +233,6 @@ public:
 	}
 
 	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- stock's step 5 (gameinterface.cpp:1339), the clock
-	// CBaseProjectile's collide-with-teammates think read. That reader is in
-	// neither DLL, so the clock (g_flServerCurTime) went in
-	// plan_server_native_v2 T6 and managed no longer calls this.
-	//-------------------------------------------------------------------------
-	virtual void SetServerCurTime() OVERRIDE
-	{
-	}
-
-	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- stock's step 8, every entity's think function.
-	//
-	// Physics_RunThinkFunctions is physics_main.cpp's and that file left the
-	// vpc; the SimThink list it walks is defined only there and in
-	// entitylist.cpp, both out; and under the entity alias there is no native
-	// entity object that could be on the list. The thinks are managed:
-	// ThinkScheduler drains through EntityDirectory.RunFrame, driven from
-	// StandaloneHierarchy's per-frame hook on the NEXT step,
-	// ServerSystemsPostThink (plan_entity.md §3.4, step 1g). The one non-think
-	// effect, the deferred-delete cleanup, already ran a step earlier from
-	// managed code.
-	//
-	// The slot keeps its index. See the retired-slot note in the header.
-	//-------------------------------------------------------------------------
-	virtual void PhysicsRunThinkFunctions( int32_t bSimulating ) OVERRIDE
-	{
-		(void)bSimulating;
-	}
-
-	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- stock's step 9, "service event queue, firing off any
-	// actions whos time has come".
-	//
-	// The native queue is defined in cbase.cpp, which left the vpc, and so did
-	// every producer that posted into it -- the ent_fire console command in
-	// baseentity.cpp and the output-firing path in entityoutput.cpp, neither TU
-	// in the armed build. No armed server TU adds an event, so there is nothing
-	// to service. The entity I/O queue armed is the managed EntityIoQueue and
-	// C# services it at stock's own position in GameFrame.
-	//-------------------------------------------------------------------------
-	virtual void ServiceEventQueue() OVERRIDE
-	{
-	}
-
-	//-------------------------------------------------------------------------
 	// STEP 10 -- gameinterface.cpp:1389. Stock's own comment is "FIXME: Should
 	// this only occur on the final tick?", carried across unanswered: this is a
 	// transliteration, and answering an open question in it would be a change
@@ -306,26 +257,6 @@ public:
 	{
 		if ( g_pGameRules )
 			g_pGameRules->EndGameFrame();
-	}
-
-	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- stock's step 12, "Any entities that detect network state
-	// changes on a timer do it here."
-	//
-	// NO ENTITY DOES, AND NONE COULD, and the body has been empty since two
-	// lanes met in it: plan_shim.md Phase 1d deleted g_NetworkPropertyEventMgr
-	// with game/server/timedeventmgr.cpp -- CServerNetworkProperty::
-	// SetUpdateInterval was the only thing that could register an entity with
-	// that manager and it had no caller in any compiled TU -- and 1c-sv deleted
-	// ShellGameDll_RecordStep with the step-order ring. Each side of that merge
-	// had removed the other's only statement.
-	//
-	// THIS ONE IS THE LANE'S OWN FINDING: plan_shim.md §5 3a names THREE frame
-	// slots to retire and this is a fourth. An empty body with no work left in
-	// it is the same claim the other three make.
-	//-------------------------------------------------------------------------
-	virtual void FireNetworkPropertyEvents() OVERRIDE
-	{
 	}
 
 	//-------------------------------------------------------------------------
@@ -384,33 +315,9 @@ public:
 		CStandalonePlayer::RunAllQueuedCommands();
 	}
 
-	virtual void StandaloneUpdate() OVERRIDE
-	{
-		// StandaloneEntities_Update went (plan_server_native_min P1): an empty
-		// body behind a slot the managed frame has never called.
-	}
-
 	virtual void StandaloneFinish() OVERRIDE
 	{
 		StandaloneEntities_Finish();
-	}
-
-	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- the SDK hierarchy's half of one entity I/O delivery.
-	//
-	// This leaf existed to reach four stock classes the managed EntityDirectory
-	// does not hold: the dissolver, the two ragdoll kinds and the physics
-	// solver. Every one of their defining translation units is absent from the
-	// armed build, so the hierarchy it walked has no members at all, and the
-	// pair of passes it called left with cbase.cpp and have no other armed
-	// caller. The managed directory is the whole population now, and it already
-	// warns once per distinct target and input that nothing took it.
-	//-------------------------------------------------------------------------
-	virtual int32_t DeliverToSdkEntities( const char *pTarget, const char *pInput,
-	                                      const char *pValue ) OVERRIDE
-	{
-		(void)pTarget; (void)pInput; (void)pValue;
-		return 0;
 	}
 
 	// plan_server_native_v2 T4e: the managed row's native half after the

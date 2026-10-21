@@ -49,11 +49,6 @@ public interface IFwdEngineServer
     /// <summary>The mod directory the engine is running out of, or null.</summary>
     string? GameDir();
 
-    /// <summary>
-    /// The map's pristine entity lump, as the .bsp holds it, or null.
-    /// </summary>
-    string? MapEntitiesString();
-
     /// <summary>Whether a model path is in the server's precache table.</summary>
     bool IsModelPrecached(string path);
 

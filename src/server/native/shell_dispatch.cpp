@@ -504,11 +504,11 @@ int32_t SourceSharp_EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceS
 //
 // nBlockOffset is measured INSIDE the block; MarkBlockChanged adds BlockBase(),
 // which is the number managed code cannot know. One edict_t::StateChanged(
-// offset ) and nothing else -- never FL_FULL_EDICT_CHANGED, which is the whole
-// distinction between this slot and EntityMarkStateChanged beside it.
+// offset ) and nothing else -- never FL_FULL_EDICT_CHANGED (the whole-edict
+// mark the retired EntityMarkStateChanged slot made; the serialised ABI
+// cleanup of 2026-10-20 removed it, as only tests called it).
 //
-// A handle that is not on this hierarchy is a silent no-op, the shape
-// SourceSharp_EntityMarkStateChanged already has.
+// A handle that is not on this hierarchy is a silent no-op.
 //-----------------------------------------------------------------------------
 void SourceSharp_EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset )
 {

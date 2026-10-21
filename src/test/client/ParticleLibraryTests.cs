@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text;
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
@@ -30,26 +29,29 @@ public unsafe class ParticleLibraryTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheParticleLibTableHasFortyEightSlots()
-        // 45, then C7 particles phase 3's three (the batch step and the
-        // bounds pair), appended.
-        => Assert.Equal(48, Forwarders.SlotCount<ParticleLibFwd>());
+    public void TheParticleLibTableHasNineSlots()
+        // 48 while the row was every=True; the serialised ABI pass (2026-10-20)
+        // named the nine ParticleLibrary calls, and client.so's own calls go
+        // through the C++ vtable, which no forwarder is needed for.
+        => Assert.Equal(9, Forwarders.SlotCount<ParticleLibFwd>());
 
     [Fact]
-    public void ConnectIsSlotZeroAndTheAnchorIsTheLast()
+    public void TheSlotsAreTheRowsNamesInItsOrder()
     {
-        Assert.Equal(0, SlotOf("Connect"));
-        Assert.Equal(44, SlotOf("MgrUncacheAllParticleSystems"));
-        Assert.Equal(47, SlotOf("CollectionSetBounds"));
+        Assert.Equal(0, SlotOf("Mgr"));
+        Assert.Equal(4, SlotOf("MgrParticleThrottleScaling"));
+        Assert.Equal(8, SlotOf("CollectionSetBounds"));
     }
 
     [Fact]
-    public void TheSlotsTheBindingReachesAreWhereTheHeaderPutsThem()
+    public void AForwarderNoManagedCodeCallsIsNoField()
     {
-        Assert.Equal(2, SlotOf("Mgr"));
-        Assert.Equal(35, SlotOf("MgrGetParticleSystemCount"));
-        Assert.Equal(36, SlotOf("MgrGetParticleSystemNameFromIndex"));
-        Assert.Equal(38, SlotOf("MgrParticleThrottleScaling"));
+        // The pass's pin: the 39 the row stopped naming are not fields, read
+        // the same way as a live one.
+        foreach (string gone in new[] { "Connect", "Disconnect", "Counters", "MgrInit", "MgrGetParticleSystemCount",
+                                        "MgrGetParticleSystemNameFromIndex", "MgrUncacheAllParticleSystems" })
+            Assert.Null(typeof(ParticleLibFwd).GetField(gone));
+        Assert.NotNull(typeof(ParticleLibFwd).GetField("MgrParticleThrottleScaling"));
     }
 
     [Fact]
@@ -63,10 +65,6 @@ public unsafe class ParticleLibraryTests
 
     private static readonly nint FakeManager = 0x5150;
     private static nint s_ThrottleSawManager;
-    private static nint s_NameSawManager;
-    private static int s_NameSawIndex;
-    private static readonly byte[] s_Name = Encoding.UTF8.GetBytes("env_fire_small\0");
-    private static GCHandle s_NamePin;
 
     [UnmanagedCallersOnly]
     private static void* MgrAnswers(void* self) => (void*)FakeManager;
@@ -76,17 +74,6 @@ public unsafe class ParticleLibraryTests
     {
         s_ThrottleSawManager = (nint)mgr;
         return 0.25f;
-    }
-
-    [UnmanagedCallersOnly]
-    private static int CountAnswers(void* self, void* mgr) => 3;
-
-    [UnmanagedCallersOnly]
-    private static byte* NameRecords(void* self, void* mgr, int index)
-    {
-        s_NameSawManager = (nint)mgr;
-        s_NameSawIndex = index;
-        return (byte*)s_NamePin.AddrOfPinnedObject();
     }
 
     /// <summary>
@@ -105,8 +92,6 @@ public unsafe class ParticleLibraryTests
             Table = (void**)NativeMemory.AllocZeroed((nuint)Forwarders.SlotCount<ParticleLibFwd>(), (nuint)sizeof(void*));
             Table[SlotOf("Mgr")] = (delegate* unmanaged<void*, void*>)&MgrAnswers;
             Table[SlotOf("MgrParticleThrottleScaling")] = (delegate* unmanaged<void*, void*, float>)&ThrottleRecords;
-            Table[SlotOf("MgrGetParticleSystemCount")] = (delegate* unmanaged<void*, void*, int>)&CountAnswers;
-            Table[SlotOf("MgrGetParticleSystemNameFromIndex")] = (delegate* unmanaged<void*, void*, int, byte*>)&NameRecords;
             Self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
             Header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
             Header->Slots = Table;
@@ -137,7 +122,7 @@ public unsafe class ParticleLibraryTests
     [Fact]
     public void ThrottleScalingAsksTheManagerTheLibraryHandsBack()
     {
-        using var served = new Served(48);
+        using var served = new Served(9);
         s_ThrottleSawManager = 0;
 
         Assert.Equal(0.25f, Over(served).ThrottleScaling());
@@ -145,42 +130,11 @@ public unsafe class ParticleLibraryTests
     }
 
     [Fact]
-    public void ASystemNameIsReadThroughTheManagerByIndex()
-    {
-        s_NamePin = GCHandle.Alloc(s_Name, GCHandleType.Pinned);
-        try
-        {
-            using var served = new Served(48);
-            s_NameSawIndex = -1;
-
-            Assert.Equal("env_fire_small", Over(served).SystemName(2));
-            Assert.Equal(2, s_NameSawIndex);
-            Assert.Equal(FakeManager, s_NameSawManager);
-        }
-        finally
-        {
-            s_NamePin.Free();
-        }
-    }
-
-    [Fact]
-    public void AnIndexPastTheCountIsNullAndNeverReachesTheLibrary()
-    {
-        using var served = new Served(48);
-        s_NameSawIndex = -1;
-        ParticleLibrary library = Over(served);
-
-        Assert.Null(library.SystemName(3));
-        Assert.Null(library.SystemName(-1));
-        Assert.Equal(-1, s_NameSawIndex);
-    }
-
-    [Fact]
     public void ALibraryWithFewerSlotsThanTheLayoutIsRefused()
     {
-        // The count rule: managed <= native. A table of 47 slots cannot hold
-        // the 48 this struct reaches.
-        using var served = new Served(47);
+        // The count rule: managed <= native. A table of 8 slots cannot hold
+        // the 9 this struct reaches.
+        using var served = new Served(8);
         Assert.Throws<InterfaceAcquisitionException>(() => Over(served).ThrottleScaling());
     }
 

@@ -91,14 +91,6 @@ internal sealed unsafe class ClientUiSurface(IUiClientArea uiClient) : IUiSurfac
             return uiClient.UiFontAdvances(font, first, advances.Length, p);
     }
 
-    public void ScreenSize(out int wide, out int tall)
-    {
-        int w = 0, t = 0;
-        uiClient.UiScreenSize(&w, &t);
-        wide = w;
-        tall = t;
-    }
-
     public void PlaySound(string path)
     {
         fixed (byte* p = Utf8(path))

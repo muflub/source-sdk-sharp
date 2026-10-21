@@ -244,17 +244,9 @@ void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ,
 //
 // NATIVE COUNTS AND MANAGED REPORTS, because debug-api's log is managed-only --
 // anything native prints goes to console.log where the gate cannot read it.
-// The counters are cumulative since the last reset; managed code resets them
-// when it wants a per-interval reading.
+// The counters are cumulative since the level began; the reset managed could
+// ask for left in the serialised ABI pass (2026-10-20) with no caller.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// Zero the four counters, so a caller can read an interval rather than a total.
-//-----------------------------------------------------------------------------
-void SourceSharp_OverlayResetCounts( void )
-{
-	Overlay_ResetCounts();
-}
-
 void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
                                 uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
                                 int32_t *pOutViewerSet )

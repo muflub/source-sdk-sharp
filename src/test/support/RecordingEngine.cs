@@ -417,9 +417,6 @@ public sealed class RecordingEngine :
     // Level -- plan_gamedll.md Part 4's nine steps, seven of which live here.
     // The lump is recorded as its LENGTH, like every other span argument: a ref
     // struct does not box, and the length is what a test asserts anyway.
-    void IEngineLevel.ResetServerTime() => RecordVoid("Level.ResetServerTime");
-    void IEngineLevel.ParseParticleManifest() => RecordVoid("Level.ParseParticleManifest");
-    void IEngineLevel.ParseParticleManifestForMap(string mapName) => RecordVoid("Level.ParseParticleManifestForMap", mapName);
     // THE BYTES AND NOT THE LENGTH -- plan_entity.md step 2d. What reaches this
     // step is no longer the whole lump: MapSpawner keeps the blocks whose class
     // the managed registry owns and hands down the residue, so a fact about this
@@ -432,21 +429,13 @@ public sealed class RecordingEngine :
     // Phase 7 -- ServerActivate's and LevelShutdown's steps. Same shape: the
     // recording is the CALL LIST, which is what lets one fact assert an order
     // spanning two areas as a single sequence.
-    int IEngineLevel.ResetDeleteList() => Record<int>("Level.ResetDeleteList");
-    void IEngineLevel.ActivateAllEntities() => RecordVoid("Level.ActivateAllEntities");
     void IEngineLevel.SetPrecacheAllowed(bool allowed) => RecordVoid("Level.SetPrecacheAllowed", allowed);
     bool IEngineLevel.IsPrecacheAllowed() => Record<bool>("Level.IsPrecacheAllowed");
     void IEngineLevel.SetLoadType(MapLoadType how) => RecordVoid("Level.SetLoadType", how);
-    void IEngineLevel.ClearSteamAPIContext() => RecordVoid("Level.ClearSteamAPIContext");
     void IEngineLevel.ShutdownStandaloneEntities() => RecordVoid("Level.ShutdownStandaloneEntities");
     void IEngineLevel.ShutdownSoundEnt() => RecordVoid("Level.ShutdownSoundEnt");
     void IEngineLevel.ClearEntityList() => RecordVoid("Level.ClearEntityList");
-    void IEngineLevel.UncacheAllParticleSystems() => RecordVoid("Level.UncacheAllParticleSystems");
-    void IEngineLevel.RecreateParticleDictionary() => RecordVoid("Level.RecreateParticleDictionary");
 
-    // Phase A3 -- CPropData's two remaining native steps.
-    void IEngineLevel.PropDataLoadFile() => RecordVoid("Level.PropDataLoadFile");
-    void IEngineLevel.PropDataClearFile() => RecordVoid("Level.PropDataClearFile");
     bool IEngineLevel.LoadSaveGameState(string mapName, bool createPlayers) => Record<bool>("Level.LoadSaveGameState", mapName, createPlayers);
 
     // plan_server_native_v2 T4e -- the two native systems' stages, which
@@ -479,19 +468,12 @@ public sealed class RecordingEngine :
     int IEngineFrame.TickCount() => Record<int>("Frame.TickCount");
     float IEngineFrame.GetFrameTime() => Record<float>("Frame.GetFrameTime");
     void IEngineFrame.SetFrameTime(float frameTime) => RecordVoid("Frame.SetFrameTime", frameTime);
-    void IEngineFrame.SetServerCurTime() => RecordVoid("Frame.SetServerCurTime");
-    void IEngineFrame.PhysicsRunThinkFunctions(bool simulating) => RecordVoid("Frame.PhysicsRunThinkFunctions", simulating);
-    void IEngineFrame.ServiceEventQueue() => RecordVoid("Frame.ServiceEventQueue");
     void IEngineFrame.UpdateAllClientData() => RecordVoid("Frame.UpdateAllClientData");
     void IEngineFrame.EndGameFrame() => RecordVoid("Frame.EndGameFrame");
-    void IEngineFrame.FireNetworkPropertyEvents() => RecordVoid("Frame.FireNetworkPropertyEvents");
     void IEngineFrame.GamestatsUpdateConnection() => RecordVoid("Frame.GamestatsUpdateConnection");
     void IEngineFrame.DrawAllDebugOverlays() => RecordVoid("Frame.DrawAllDebugOverlays");
     void IEngineFrame.StandalonePlayerCommands() => RecordVoid("Frame.StandalonePlayerCommands");
-    void IEngineFrame.StandaloneUpdate() => RecordVoid("Frame.StandaloneUpdate");
     void IEngineFrame.StandaloneFinish() => RecordVoid("Frame.StandaloneFinish");
-    int IEngineFrame.DeliverToSdkEntities(string target, string input, string? value)
-        => Record<int>("Frame.DeliverToSdkEntities", target, input, value);
     void IEngineFrame.DrainEntitySlots() => RecordVoid("Frame.DrainEntitySlots");
     void IEngineFrame.BeginModelCacheLock() => RecordVoid("Frame.BeginModelCacheLock");
     void IEngineFrame.EndModelCacheLock() => RecordVoid("Frame.EndModelCacheLock");
@@ -582,11 +564,9 @@ public sealed class RecordingEngine :
     void IEngineGameEvents.ListenForGameEvent(string name) => RecordVoid("GameEvents.ListenForGameEvent", name);
     IntPtr IEngineGameEvents.EventCreate(string name) => Record<IntPtr>("GameEvents.EventCreate", name);
     void IEngineGameEvents.EventSetInt(IntPtr handle, string key, int value) => RecordVoid("GameEvents.EventSetInt", handle, key, value);
-    void IEngineGameEvents.EventSetFloat(IntPtr handle, string key, float value) => RecordVoid("GameEvents.EventSetFloat", handle, key, value);
     void IEngineGameEvents.EventSetBool(IntPtr handle, string key, bool value) => RecordVoid("GameEvents.EventSetBool", handle, key, value);
     void IEngineGameEvents.EventSetString(IntPtr handle, string key, string value) => RecordVoid("GameEvents.EventSetString", handle, key, value);
     bool IEngineGameEvents.EventFire(IntPtr handle) => Record<bool>("GameEvents.EventFire", handle);
-    void IEngineGameEvents.EventFree(IntPtr handle) => RecordVoid("GameEvents.EventFree", handle);
 
     // Networking
     PayloadAgreement IEngineNetworking.CheckPayloadAgreement(EntityHandle h) => Record<PayloadAgreement>("Networking.CheckPayloadAgreement", h);
@@ -603,7 +583,6 @@ public sealed class RecordingEngine :
         RecordVoid("Networking.GetEntityBlob", h);
         return default;
     }
-    void IEngineNetworking.MarkEntityStateChanged(EntityHandle h) => RecordVoid("Networking.MarkEntityStateChanged", h);
     void IEngineNetworking.MarkEntityBlockChanged(EntityHandle h, int blockOffset) => RecordVoid("Networking.MarkEntityBlockChanged", h, blockOffset);
     int IEngineNetworking.NetHierarchyDeclare(int blobBytes) => Record<int>("Networking.NetHierarchyDeclare", blobBytes);
     int IEngineNetworking.WorldNetDeclare(int blobBytes) => Record<int>("Networking.WorldNetDeclare", blobBytes);
@@ -805,7 +784,6 @@ public sealed class RecordingEngine :
     float IEngineEntityRender.SequenceGroundSpeed(EntityHandle entity, int sequence) => Record<float>("EntityRender.SequenceGroundSpeed", entity, sequence);
     void IEngineEntityRender.SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) => RecordVoid("EntityRender.SetCustomDraw", entity, mins, maxs);
     void IEngineEntityRender.SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) => RecordVoid("EntityRender.SetBlending", entity, translucent, ignoreZ, alpha);
-    void IEngineEntityRender.SetShadowCast(EntityHandle entity, ShadowCastChoice choice) => RecordVoid("EntityRender.SetShadowCast", entity, choice);
     ShadowCast IEngineEntityRender.ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = Value<ShadowCastChoice>("EntityRender.ShadowCast.asked");
@@ -1000,7 +978,6 @@ public sealed class RecordingEngine :
     void IEngineHud.DrawWorldText(Vector origin, int line, string text, float duration, int r, int g, int b, int a) => RecordVoid("Hud.DrawWorldText", origin, line, text, duration, r, g, b, a);
     bool IEngineHud.DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r, int g, int b, int a) => Record<bool>("Hud.DrawEntityOverlay", entity, line, text ?? string.Empty, duration, r, g, b, a);
     (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) IEngineHud.OverlayReadout() => Record<(uint, uint, uint, uint, bool)>("Hud.OverlayReadout");
-    void IEngineHud.OverlayResetCounts() => RecordVoid("Hud.OverlayResetCounts");
 
     // IEngineDiagnostics: recorded; the spans are left as the caller passed them.
     int IEngineDiagnostics.PlayerShadowCounts(Span<int> into) => Record<int>("Diagnostics.PlayerShadowCounts");
@@ -1143,7 +1120,6 @@ public sealed class RecordingEngine :
     // describe a tempent to do it.
     int IEngineEffects.TempEntPoolCapacity() => Record<int>("Effects.TempEntPoolCapacity");
     void IEngineEffects.TempEntPoolDestroy(int slot) => RecordVoid("Effects.TempEntPoolDestroy", slot);
-    bool IEngineEffects.TempEntPoolSimulate(int slot, float frameTime, int frameNumber) => Record<bool>("Effects.TempEntPoolSimulate", slot, frameTime, frameNumber);
     bool IEngineEffects.TempEntPoolAddVisible(int slot) => Record<bool>("Effects.TempEntPoolAddVisible", slot);
     bool IEngineEffects.TempEntPoolWriteLife(int slot, in TempEntLife life)
     {

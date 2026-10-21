@@ -279,9 +279,10 @@ void SourceSharp_EntitySetOrigin( uint32_t hEntity, const float *pXYZ )
 // them for as long as somebody watched it, which is the exact cost the payload
 // design cannot afford at 512 props.
 //
-// A write that does NOT go through a bound state — EntityData.TryWrite, which
-// takes a handle and a field layout and has no state object anywhere —
-// announces itself through SourceSharp_EntityMarkStateChanged instead.
+// Every managed write goes through a bound state. The unbound path
+// (EntityData.TryWrite and its EntityMarkStateChanged slot) is gone; the
+// serialised ABI cleanup of 2026-10-20 removed the slot, which only tests
+// still called.
 //
 // The pointer's lifetime is the entity's. A caller that keeps it must hold a
 // control-block slot and its serial with it, and SourceSharp_EntityBindBlob is

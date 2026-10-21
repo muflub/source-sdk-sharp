@@ -280,8 +280,10 @@ TEST( ServerWave1, GameInterfaceNoLongerResetsAWindNothingCreates )
 	// method -- and this test went red on the anchor rather than passing over a
 	// file whose steps it could no longer find, which is what the anchor is
 	// for. It is the method now.
+	// RE-ANCHORED (serialised ABI pass, 2026-10-20): ResetServerTime, the
+	// first step, left IShimLevel; PrecachePointTemplates is the first now.
 	const std::string gi = Tight( "sourcesharp/game/server/shell_level.cpp",
-	                              "virtual void ResetServerTime() OVERRIDE" );
+	                              "virtual void PrecachePointTemplates(" );
 	ASSERT_FALSE( gi.empty() );
 
 	EXPECT_EQ( gi.find( "ResetWindspeed()" ), std::string::npos )

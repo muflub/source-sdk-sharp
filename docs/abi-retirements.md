@@ -859,3 +859,75 @@ the two bodies are empty, managed (ServerGameDll) no longer calls either, and
 both headers carry `SS_RETIRED <slot> lane=t6-globals`. The slots stay at their
 indices: removing them is a `tools/engine-forwarders --write --reorder` of both
 tables, left for one serialised pass rather than taken by this lane.
+
+## The serialised ABI cleanup pass (2026-10-20, lane abi-cleanup)
+
+One pass over every generated interop table (docs/managed-interfaces.tsv,
+docs/engineapi-areas.tsv and the hand-kept shim headers, tools/engine-forwarders'
+FORWARD and HAND rows), from a census of each row's live caller on the side
+that calls it: a native call site in a shipped TU for a native->managed row, a
+managed call site outside tests for a managed->native row or a FORWARD method.
+A row whose only callers were tests went with those tests (the 2026-10-19
+ruling). None of the 111 interface version names this tree serves occurs in a
+string of the 43 shipped engine binaries, so no removed slot is one the engine
+asks for by name. Each family is one commit; the generators ran with
+`--reorder` (a deliberate break: rebuild both sides), and the CrossingOps the
+removed bindings counted were held as retired members until the pass's last
+commit renumbered the enum once.
+
+| family | slot | table | why it went |
+|---|---|---|---|
+| temp entities | `OnTempEntPoolAlloc`, `OnTempEntEjectBrass` | IManagedTempEntsClient | no native caller since the SourceSharpTePool_* exports were deleted (2026-10-09); the bindings answered fault values |
+| temp entities | `TempEntPoolSimulate` | IShimTempEntPoolClient | no managed caller: the managed pool integrates every tempent itself (ClientTempEntPool) |
+| console | `ConsoleLine` | IManagedConsoleOutput | uncalled since console-batch (2026-10-11): the forwarder appends to its line buffer, which managed drains after `ConsoleBufferAttach` |
+| console | `ClientConsoleLine` | IManagedConsoleOutputClient | the same, on the client |
+| server | `ServerSoundEntInsert` | IManagedSoundEnt | only tests called it (managed_accept_test, soundent_managed_test): every insert is managed (`SoundEnt.Insert`) |
+| server | `HierarchyEntityRemoved`, `HierarchyResolveParentNames` | IManagedHierarchy | no native caller since T5 deleted the native twin; the managed directory calls `HierarchyDriver.EntityRemoved` and `MapSpawner` calls `ResolveParentNames` directly |
+| server | `OnRespawn`, `GetPlayerRelationship` | IManagedClients | no native caller; `IServerModule`'s two members, `ServerModule`'s bodies (a log line, and the `mp_friendlyfire` relationship nothing asked) and the `PlayerRelationship` enum went with them |
+| server | `ServerPropDataRandomChunkModel` | IManagedResources | no native caller: `CPropData::GetRandomChunkModel`'s server arm left server.so |
+| server | `OnEntityIgnite`, `OnFireAddHeatInRadius`, `OnRagdollMagnetForce` | IManagedEntities | no native caller (the SDK entities that asked are absent from the armed build); `IServerModule`'s three members and `ServerModule`'s forwarding bodies went too |
+| server | `ShellLessFindByName`, `ShellLessFindByClassname`, `TemplatesAddNamed` | IManagedEntities | no native caller: the map parse and the entity finds are managed |
+| server | IManagedSoundEmitter (`ServerMoveSound`, `ServerMoveSoundScript`, `ServerPrecacheScriptSound`) | the whole interface | no native caller: the move helper is managed (`ServerMoveWorld` calls `IMoveSoundSink` directly) and the world's precache is C#'s; `SoundEmitterBinding` and `ISoundSystemSink` went, `IMoveSoundSink` moved to its own file |
+| client | IManagedHudClient (`OnCreateMove`) | the whole interface | no native caller since lane c6-input: the command is ClientInput's and the module calls its after-hook itself; `HudClientBinding` and `IClientModule.OnCreateMove` went |
+| client | `RenderLeafList`, `RenderLeafViewModels` | IManagedRenderClient | retired at C7 cluster 12 L2 (the leaf system is managed's, asked through IManagedLeafSystemClient); the bindings answered -1 |
+| client | `AddShadow`, `RemoveShadow`, `ProjectShadow`, `ProjectFlashlight`, `EnumerateShadowsInLeaves` | IManagedLeafSystemClient | retired at C7 cluster 12 S2: the managed shadow manager calls ClientLeafSystem in-process (IShadowLeafSystem); the C++ IClientLeafSystem methods stay (the engine holds that vtable) and answer the refusal natively |
+| client | `ChangeRenderableRenderGroup` | IManagedLeafSystemClient | queued since L3 (the forwarder hands it over in a batch, `LeafPending`), never called as a slot; `IClientLeafSystemHost`'s member and `ClientLeafSystem`'s body went |
+| retired shim slots | `SetServerCurTime`, `PhysicsRunThinkFunctions`, `ServiceEventQueue`, `FireNetworkPropertyEvents`, `StandaloneUpdate`, `DeliverToSdkEntities` | IShimFrame (ShimFrameVtbl, every=True) | empty bodies managed no longer called: the SS_RETIRED markers of T6 and 3b-enginebind, and StandaloneUpdate (empty since plan_server_native_min P1); 19 -> 13 slots |
+| retired shim slots | `ResetServerTime`, `ParseParticleManifest`, `ParseParticleManifestForMap`, `ParseAllEntities`, `ResetDeleteList`, `ActivateAllEntities`, `ClearSteamAPIContext`, `UncacheAllParticleSystems`, `RecreateParticleDictionary`, `PropDataLoadFile`, `PropDataClearFile` | IShimLevel (ShimLevelVtbl, every=True) | retired in place by T6, 3b-enginebind and plan_server_novalve P2.1/P2.4/P2.5/P5, each "kept at its index"; no managed caller; 31 -> 20 slots |
+| shim areas | `EventSetFloat` | IShimEventsServer | only tests called `IEngineGameEvents.EventSetFloat`; no event this game fires has a float field set by managed (re-add as an append when one does) |
+| shim areas | `OverlayResetCounts` | IShimDebugOverlay | only tests called `IEngineHud.OverlayResetCounts`; the readout reports counts since the level began |
+| shim areas | `EntityMarkStateChanged` | IShimNetworkServer | no production caller since step 8a deleted `EntityData.TryWrite` (the binding's own doc said so); every write marks through `NetBlobView` |
+| shim areas | `StandaloneSetShadowCast` | IShimStandaloneClient | only tests called `IEngineEntityRender.SetShadowCast`; `C_StandaloneEntity::SetShadowCast` is left with no caller (recorded for a later pass) |
+| shim areas | `UiScreenSize` | IShimUiClient | only tests called `IClientUiSurface.ScreenSize` |
+| dead parameter | `StandaloneShadowCast`'s `pOutHasShadow` | IShimStandaloneClient | always passed NULL since C7 cluster 12 S2 (the managed shadow manager answers HasShadow itself); the slot keeps the entity and the choice's out |
+| FORWARD | `RandomFloatExp` | UniformRandomStreamVtbl | `IUniformRandom.RandomFloatExp` had no production caller (only test fakes implemented it); the member, `UniformRandomStream`'s and `EngineRandom`'s bodies and the fakes' copies went |
+| FORWARD | `GetFileTime` | BaseFileSystemVtbl | `IFwdBaseFileSystem.FileTime` had no caller |
+| FORWARD | `GetMapEntitiesString` | EngineServerVtbl | `IFwdEngineServer.MapEntitiesString` had no caller: the map lump arrives in the map load |
+| FORWARD | `FreeEvent` | GameEventManagerVtbl | `IEngineGameEvents.EventFree` had only test callers: every event managed creates is fired, and the engine's FireEvent frees it |
+| HAND | `CallbackId` | SteamCallback | no managed reader: `SteamCallbacks` keys its callbacks itself; `SSFwd_SteamCallback_CallbackId` and the member it read went |
+| FORWARD | 39 of ParticleLibVtbl's 48 (all but `Mgr`, `CollectionBloatBoundsUsingControlPoint`, `MgrCommitProfileInformation`, `MgrDumpProfileInformation`, `MgrParticleThrottleScaling`, `MgrSetLastSimulationTime`, `CollectionSimulateBatch`, `CollectionGetBounds`, `CollectionSetBounds`) | ParticleLibVtbl | the row was `every=True`, but client.so calls ISSParticleLib through its C++ vtable and only `ParticleLibrary` calls the forwarders; the row names its nine now. `IParticleLibrary.SystemCount`/`SystemName`, whose only callers were tests, went with `MgrGetParticleSystemCount`/`...NameFromIndex` |
+| render plan op | `ClientSystemsPostRender` (RenderOpKind 15) | RenderPlanAbi.cs / shell_view_executor_client.cpp | its walk reached no body since SFM's tool framework went (2026-10-19); the op, `SourceSharp_ClientSystemsPostRender` and `CClientSystemPerFrame::PostRender` went. The frozen render recordings record engine calls, and the walk made none, so they are unchanged. 15 is not reused (the op numbers have holes by design) |
+
+THE RENUMBER. The bindings of 26 removed native->managed slots counted 26
+CrossingOps. Each family's commit kept its ops as enum members, listed in
+`CrossingsAuditTests`' retired list, so every commit stayed green; the pass's
+last commit deleted the 26 and renumbered `CrossingOp` once, densely in
+declaration order: **406 members (0..405) -> 380 (0..379)**. The 13
+per-member "Value N since" remarks that tracked earlier hole-filling went
+with it. `CrossingsAuditTests.AnOpTheAbiPassRemovedIsNoMember` names the 26,
+and `CrossingsTests.OpValuesAreContiguousFromZero` holds the density.
+
+KEPT, AND WHY. `IShimEffectsRenderClient::DrawSprite` and `DrawSpriteOffset`:
+live managed callers (`ClientSprite`, `ClientPlasma`, `ClientSpriteHost`,
+`DetailPropSystem` through `IEngineEffects`), and no engine binary names any
+interface this tree serves, so no engine body can reach either slot.
+`CSourceSharpGameRules::ShouldCollide` is a C++ vtable and
+`IManagedPhysicsCollisionSolver::ShouldCollide` is live. The C++
+`IClientLeafSystem` shadow methods stay: the engine holds ClientLeafSystem002.
+ISSParticleLib's 48 methods stay: client.so calls them through the C++
+vtable; only the forwarder table shrank.
+
+WHAT THE REMOVALS LEFT UNREFERENCED, for a later pass rather than this one
+(they are game logic, not ABI): `ShellLessRoutes.Find`,
+`PropData.RandomChunkModel`, the `Templates.Add` the map parse used,
+`PhysRagdollMagnet.Best`, and `C_StandaloneEntity::SetShadowCast`.

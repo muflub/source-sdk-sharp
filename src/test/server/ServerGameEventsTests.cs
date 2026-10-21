@@ -16,7 +16,7 @@ public sealed unsafe class ServerGameEventsTests
 {
     private static nint s_Self, s_Event, s_Answer;
     private static string? s_Name;
-    private static int s_Flag, s_Creates, s_Fires, s_Frees;
+    private static int s_Flag, s_Creates, s_Fires;
     private static byte s_FireAnswer;
 
     [UnmanagedCallersOnly]
@@ -37,14 +37,6 @@ public sealed unsafe class ServerGameEventsTests
         s_Event = (nint)e;
         s_Flag = dontBroadcast;
         return s_FireAnswer;
-    }
-
-    [UnmanagedCallersOnly]
-    private static void Free(void* self, void* e)
-    {
-        s_Frees++;
-        s_Self = (nint)self;
-        s_Event = (nint)e;
     }
 
     private static ModuleEngine ServerOver(FakeShimRoot root)
@@ -68,10 +60,9 @@ public sealed unsafe class ServerGameEventsTests
             Root.Interface(ServerGameEvents.InterfaceVersion, Self).Forwarders(out GameEventManagerFwd* fwd);
             fwd->CreateEvent = &Create;
             fwd->FireEvent = &Fire;
-            fwd->FreeEvent = &Free;
             Events = ServerGameEvents.Acquire(ServerOver(Root), Inner, Log, out string why)
                 ?? throw new System.InvalidOperationException(why);
-            s_Creates = s_Fires = s_Frees = 0;
+            s_Creates = s_Fires = 0;
             s_Flag = -1;
             s_Answer = 0;
             s_FireAnswer = 0;
@@ -133,25 +124,13 @@ public sealed unsafe class ServerGameEventsTests
     }
 
     [Fact]
-    public void ZeroIsNeitherFiredNorFreed()
+    public void ZeroIsNotFired()
     {
         using var rig = new Rig();
 
         Assert.False(rig.Events.EventFire(nint.Zero));
-        rig.Events.EventFree(nint.Zero);
 
-        Assert.Equal((0, 0), (s_Fires, s_Frees));
-    }
-
-    [Fact]
-    public void FreeingHandsTheEventBack()
-    {
-        using var rig = new Rig();
-
-        rig.Events.EventFree((nint)0x88);
-
-        Assert.Equal(1, s_Frees);
-        Assert.Equal(((nint)rig.Self, (nint)0x88), (s_Self, s_Event));
+        Assert.Equal(0, s_Fires);
     }
 
     [Fact]
@@ -165,7 +144,7 @@ public sealed unsafe class ServerGameEventsTests
 
         Assert.Equal(new[] { "GameEvents.EventSetInt", "GameEvents.EventSetString", "GameEvents.ListenForGameEvent" },
                      rig.Inner.Calls.Select(c => c.Member).ToArray());
-        Assert.Equal(0, s_Creates + s_Fires + s_Frees);
+        Assert.Equal(0, s_Creates + s_Fires);
     }
 
     [Fact]

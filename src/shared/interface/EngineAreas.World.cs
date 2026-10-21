@@ -338,9 +338,6 @@ public interface IEngineEffects
     bool ClientEntityOrigin(int entityIndex, out Vector origin);
     bool TempEntPoolWriteLife(int slot, in TempEntLife life);
 
-    /// <inheritdoc cref="EngineSide.TempEntPoolSimulate"/>
-    bool TempEntPoolSimulate(int slot, float frameTime, int frameNumber);
-
     /// <inheritdoc cref="EngineSide.TempEntPoolAddVisible"/>
     bool TempEntPoolAddVisible(int slot);
 

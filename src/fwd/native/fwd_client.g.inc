@@ -95,14 +95,12 @@ static void *const s_ModelInfoSlots[] = {
 static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// BaseFileSystem: 8 forwarder(s) over IBaseFileSystem.
+// BaseFileSystem: 7 forwarder(s) over IBaseFileSystem.
 //-----------------------------------------------------------------------------
 // unsigned int IBaseFileSystem::Size( const char *, const char * )
 static unsigned int SSFwd_BaseFileSystem_Size_2( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->Size( a0, a1 ); }
 // bool IBaseFileSystem::FileExists( const char *, const char * )
 static bool SSFwd_BaseFileSystem_FileExists( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->FileExists( a0, a1 ); }
-// long IBaseFileSystem::GetFileTime( const char *, const char * )
-static long SSFwd_BaseFileSystem_GetFileTime( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->GetFileTime( a0, a1 ); }
 // FileHandle_t IBaseFileSystem::Open( const char *, const char *, const char * )
 static FileHandle_t SSFwd_BaseFileSystem_Open( IBaseFileSystem *self, const char * a0, const char * a1, const char * a2 ) { return self->Open( a0, a1, a2 ); }
 // unsigned int IBaseFileSystem::Size( FileHandle_t )
@@ -117,7 +115,6 @@ static int SSFwd_BaseFileSystem_Write( IBaseFileSystem *self, void const * a0, i
 static void *const s_BaseFileSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Size_2 ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_FileExists ),
-	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_GetFileTime ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Open ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Size ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Read ),
@@ -125,7 +122,7 @@ static void *const s_BaseFileSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Write ),
 };
 
-static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 8 };
+static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
 // EngineClient: 25 forwarder(s) over IVEngineClient.
@@ -218,22 +215,19 @@ static void *const s_EngineClientSlots[] = {
 static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 25 };
 
 //-----------------------------------------------------------------------------
-// UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.
+// UniformRandomStream: 2 forwarder(s) over IUniformRandomStream.
 //-----------------------------------------------------------------------------
 // float IUniformRandomStream::RandomFloat( float, float )
 static float SSFwd_UniformRandomStream_RandomFloat( IUniformRandomStream *self, float a0, float a1 ) { return self->RandomFloat( a0, a1 ); }
 // int IUniformRandomStream::RandomInt( int, int )
 static int SSFwd_UniformRandomStream_RandomInt( IUniformRandomStream *self, int a0, int a1 ) { return self->RandomInt( a0, a1 ); }
-// float IUniformRandomStream::RandomFloatExp( float, float, float )
-static float SSFwd_UniformRandomStream_RandomFloatExp( IUniformRandomStream *self, float a0, float a1, float a2 ) { return self->RandomFloatExp( a0, a1, a2 ); }
 
 static void *const s_UniformRandomStreamSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_UniformRandomStream_RandomFloat ),
 	reinterpret_cast< void * >( &SSFwd_UniformRandomStream_RandomInt ),
-	reinterpret_cast< void * >( &SSFwd_UniformRandomStream_RandomFloatExp ),
 };
 
-static const SSForwarderTable s_UniformRandomStreamTable = { s_UniformRandomStreamSlots, 3 };
+static const SSForwarderTable s_UniformRandomStreamTable = { s_UniformRandomStreamSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // InputSystem: 10 forwarder(s) over IInputSystem.
@@ -1055,7 +1049,7 @@ static void *const s_VPhysicsKeyParserSlots[] = {
 static const SSForwarderTable s_VPhysicsKeyParserTable = { s_VPhysicsKeyParserSlots, 8 };
 
 //-----------------------------------------------------------------------------
-// ShimFrame: 19 forwarder(s) over IShimFrame.
+// ShimFrame: 13 forwarder(s) over IShimFrame.
 //-----------------------------------------------------------------------------
 // int32_t IShimFrame::IsSimulatingOnAlternateTicks( void )
 static int32_t SSFwd_ShimFrame_IsSimulatingOnAlternateTicks( IShimFrame *self ) { return self->IsSimulatingOnAlternateTicks(); }
@@ -1065,30 +1059,18 @@ static int32_t SSFwd_ShimFrame_TickCount( IShimFrame *self ) { return self->Tick
 static float SSFwd_ShimFrame_GetFrameTime( IShimFrame *self ) { return self->GetFrameTime(); }
 // void IShimFrame::SetFrameTime( float )
 static void SSFwd_ShimFrame_SetFrameTime( IShimFrame *self, float a0 ) { self->SetFrameTime( a0 ); }
-// void IShimFrame::SetServerCurTime( void )
-static void SSFwd_ShimFrame_SetServerCurTime( IShimFrame *self ) { self->SetServerCurTime(); }
-// void IShimFrame::PhysicsRunThinkFunctions( int32_t )
-static void SSFwd_ShimFrame_PhysicsRunThinkFunctions( IShimFrame *self, int32_t a0 ) { self->PhysicsRunThinkFunctions( a0 ); }
-// void IShimFrame::ServiceEventQueue( void )
-static void SSFwd_ShimFrame_ServiceEventQueue( IShimFrame *self ) { self->ServiceEventQueue(); }
 // void IShimFrame::UpdateAllClientData( void )
 static void SSFwd_ShimFrame_UpdateAllClientData( IShimFrame *self ) { self->UpdateAllClientData(); }
 // void IShimFrame::EndGameFrame( void )
 static void SSFwd_ShimFrame_EndGameFrame( IShimFrame *self ) { self->EndGameFrame(); }
-// void IShimFrame::FireNetworkPropertyEvents( void )
-static void SSFwd_ShimFrame_FireNetworkPropertyEvents( IShimFrame *self ) { self->FireNetworkPropertyEvents(); }
 // void IShimFrame::GamestatsUpdateConnection( void )
 static void SSFwd_ShimFrame_GamestatsUpdateConnection( IShimFrame *self ) { self->GamestatsUpdateConnection(); }
 // void IShimFrame::DrawAllDebugOverlays( void )
 static void SSFwd_ShimFrame_DrawAllDebugOverlays( IShimFrame *self ) { self->DrawAllDebugOverlays(); }
 // void IShimFrame::StandalonePlayerCommands( void )
 static void SSFwd_ShimFrame_StandalonePlayerCommands( IShimFrame *self ) { self->StandalonePlayerCommands(); }
-// void IShimFrame::StandaloneUpdate( void )
-static void SSFwd_ShimFrame_StandaloneUpdate( IShimFrame *self ) { self->StandaloneUpdate(); }
 // void IShimFrame::StandaloneFinish( void )
 static void SSFwd_ShimFrame_StandaloneFinish( IShimFrame *self ) { self->StandaloneFinish(); }
-// int32_t IShimFrame::DeliverToSdkEntities( const char *, const char *, const char * )
-static int32_t SSFwd_ShimFrame_DeliverToSdkEntities( IShimFrame *self, const char * a0, const char * a1, const char * a2 ) { return self->DeliverToSdkEntities( a0, a1, a2 ); }
 // void IShimFrame::DrainEntitySlots( void )
 static void SSFwd_ShimFrame_DrainEntitySlots( IShimFrame *self ) { self->DrainEntitySlots(); }
 // void IShimFrame::BeginModelCacheLock( void )
@@ -1101,64 +1083,36 @@ static void *const s_ShimFrameSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_TickCount ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_GetFrameTime ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetFrameTime ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetServerCurTime ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_PhysicsRunThinkFunctions ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServiceEventQueue ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_UpdateAllClientData ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndGameFrame ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_FireNetworkPropertyEvents ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_GamestatsUpdateConnection ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_DrawAllDebugOverlays ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandalonePlayerCommands ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneUpdate ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneFinish ),
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_DeliverToSdkEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_DrainEntitySlots ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_BeginModelCacheLock ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndModelCacheLock ),
 };
 
-static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
+static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// ShimLevel: 31 forwarder(s) over IShimLevel.
+// ShimLevel: 20 forwarder(s) over IShimLevel.
 //-----------------------------------------------------------------------------
-// void IShimLevel::ResetServerTime( void )
-static void SSFwd_ShimLevel_ResetServerTime( IShimLevel *self ) { self->ResetServerTime(); }
-// void IShimLevel::ParseParticleManifest( void )
-static void SSFwd_ShimLevel_ParseParticleManifest( IShimLevel *self ) { self->ParseParticleManifest(); }
-// void IShimLevel::ParseParticleManifestForMap( const char * )
-static void SSFwd_ShimLevel_ParseParticleManifestForMap( IShimLevel *self, const char * a0 ) { self->ParseParticleManifestForMap( a0 ); }
-// void IShimLevel::ParseAllEntities( const char * )
-static void SSFwd_ShimLevel_ParseAllEntities( IShimLevel *self, const char * a0 ) { self->ParseAllEntities( a0 ); }
 // void IShimLevel::PrecachePointTemplates( const char *, const int32_t *, int32_t )
 static void SSFwd_ShimLevel_PrecachePointTemplates( IShimLevel *self, const char * a0, const int32_t * a1, int32_t a2 ) { self->PrecachePointTemplates( a0, a1, a2 ); }
 // void IShimLevel::SetLowViolence( const char * )
 static void SSFwd_ShimLevel_SetLowViolence( IShimLevel *self, const char * a0 ) { self->SetLowViolence( a0 ); }
 // void IShimLevel::LoadMessageOfTheDay( void )
 static void SSFwd_ShimLevel_LoadMessageOfTheDay( IShimLevel *self ) { self->LoadMessageOfTheDay(); }
-// int32_t IShimLevel::ResetDeleteList( void )
-static int32_t SSFwd_ShimLevel_ResetDeleteList( IShimLevel *self ) { return self->ResetDeleteList(); }
-// void IShimLevel::ActivateAllEntities( void )
-static void SSFwd_ShimLevel_ActivateAllEntities( IShimLevel *self ) { self->ActivateAllEntities(); }
 // void IShimLevel::SetPrecacheAllowed( int32_t )
 static void SSFwd_ShimLevel_SetPrecacheAllowed( IShimLevel *self, int32_t a0 ) { self->SetPrecacheAllowed( a0 ); }
-// void IShimLevel::ClearSteamAPIContext( void )
-static void SSFwd_ShimLevel_ClearSteamAPIContext( IShimLevel *self ) { self->ClearSteamAPIContext(); }
 // void IShimLevel::ShutdownStandaloneEntities( void )
 static void SSFwd_ShimLevel_ShutdownStandaloneEntities( IShimLevel *self ) { self->ShutdownStandaloneEntities(); }
 // void IShimLevel::ShutdownSoundEnt( void )
 static void SSFwd_ShimLevel_ShutdownSoundEnt( IShimLevel *self ) { self->ShutdownSoundEnt(); }
 // void IShimLevel::ClearEntityList( void )
 static void SSFwd_ShimLevel_ClearEntityList( IShimLevel *self ) { self->ClearEntityList(); }
-// void IShimLevel::UncacheAllParticleSystems( void )
-static void SSFwd_ShimLevel_UncacheAllParticleSystems( IShimLevel *self ) { self->UncacheAllParticleSystems(); }
-// void IShimLevel::RecreateParticleDictionary( void )
-static void SSFwd_ShimLevel_RecreateParticleDictionary( IShimLevel *self ) { self->RecreateParticleDictionary(); }
-// void IShimLevel::PropDataLoadFile( void )
-static void SSFwd_ShimLevel_PropDataLoadFile( IShimLevel *self ) { self->PropDataLoadFile(); }
-// void IShimLevel::PropDataClearFile( void )
-static void SSFwd_ShimLevel_PropDataClearFile( IShimLevel *self ) { self->PropDataClearFile(); }
 // int32_t IShimLevel::LoadSaveGameState( const char *, int32_t )
 static int32_t SSFwd_ShimLevel_LoadSaveGameState( IShimLevel *self, const char * a0, int32_t a1 ) { return self->LoadSaveGameState( a0, a1 ); }
 // int32_t IShimLevel::FileSizeOnPath( const char *, const char * )
@@ -1187,24 +1141,13 @@ static void SSFwd_ShimLevel_StringPoolLevelShutdownPostEntity( IShimLevel *self 
 static void SSFwd_ShimLevel_ResetEntitySlots( IShimLevel *self ) { self->ResetEntitySlots(); }
 
 static void *const s_ShimLevelSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetServerTime ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifest ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifestForMap ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseAllEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_PrecachePointTemplates ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetLowViolence ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadMessageOfTheDay ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetDeleteList ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ActivateAllEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetPrecacheAllowed ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearSteamAPIContext ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownStandaloneEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownSoundEnt ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearEntityList ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_UncacheAllParticleSystems ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_RecreateParticleDictionary ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataLoadFile ),
-	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataClearFile ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadSaveGameState ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_FileSizeOnPath ),
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ReadFileOnPath ),
@@ -1220,7 +1163,7 @@ static void *const s_ShimLevelSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetEntitySlots ),
 };
 
-static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 31 };
+static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 20 };
 
 //-----------------------------------------------------------------------------
 // ShimRoot: 3 forwarder(s) over IShimRoot.
@@ -1241,98 +1184,20 @@ static void *const s_ShimRootSlots[] = {
 static const SSForwarderTable s_ShimRootTable = { s_ShimRootSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ParticleLib: 48 forwarder(s) over ISSParticleLib.
+// ParticleLib: 9 forwarder(s) over ISSParticleLib.
 //-----------------------------------------------------------------------------
-// bool ISSParticleLib::Connect( CreateInterfaceFn )
-static bool SSFwd_ParticleLib_Connect( ISSParticleLib *self, CreateInterfaceFn a0 ) { return self->Connect( a0 ); }
-// void ISSParticleLib::Disconnect( void )
-static void SSFwd_ParticleLib_Disconnect( ISSParticleLib *self ) { self->Disconnect(); }
 // CParticleSystemMgr * ISSParticleLib::Mgr( void )
 static CParticleSystemMgr * SSFwd_ParticleLib_Mgr( ISSParticleLib *self ) { return self->Mgr(); }
-// void ISSParticleLib::Counters( SSParticleLibCounters_t * )
-static void SSFwd_ParticleLib_Counters( ISSParticleLib *self, SSParticleLibCounters_t * a0 ) { self->Counters( a0 ); }
-// void * ISSParticleLib::CollectionNew( size_t )
-static void * SSFwd_ParticleLib_CollectionNew( ISSParticleLib *self, size_t a0 ) { return self->CollectionNew( a0 ); }
-// void ISSParticleLib::CollectionDelete( void * )
-static void SSFwd_ParticleLib_CollectionDelete( ISSParticleLib *self, void * a0 ) { self->CollectionDelete( a0 ); }
-// void ISSParticleLib::CollectionConstruct( CParticleCollection * )
-static void SSFwd_ParticleLib_CollectionConstruct( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionConstruct( a0 ); }
-// void ISSParticleLib::CollectionDestruct( CParticleCollection * )
-static void SSFwd_ParticleLib_CollectionDestruct( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionDestruct( a0 ); }
-// bool ISSParticleLib::CollectionInitDef( CParticleCollection *, CParticleSystemDefinition * )
-static bool SSFwd_ParticleLib_CollectionInitDef( ISSParticleLib *self, CParticleCollection * a0, CParticleSystemDefinition * a1 ) { return self->CollectionInitDef( a0, a1 ); }
-// bool ISSParticleLib::CollectionInitName( CParticleCollection *, const char * )
-static bool SSFwd_ParticleLib_CollectionInitName( ISSParticleLib *self, CParticleCollection * a0, const char * a1 ) { return self->CollectionInitName( a0, a1 ); }
 // void ISSParticleLib::CollectionBloatBoundsUsingControlPoint( CParticleCollection * )
 static void SSFwd_ParticleLib_CollectionBloatBoundsUsingControlPoint( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionBloatBoundsUsingControlPoint( a0 ); }
-// int ISSParticleLib::CollectionGetHighestControlPoint( const CParticleCollection * )
-static int SSFwd_ParticleLib_CollectionGetHighestControlPoint( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionGetHighestControlPoint( a0 ); }
-// const char * ISSParticleLib::CollectionGetName( const CParticleCollection * )
-static const char * SSFwd_ParticleLib_CollectionGetName( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionGetName( a0 ); }
-// bool ISSParticleLib::CollectionHasMoved( const CParticleCollection * )
-static bool SSFwd_ParticleLib_CollectionHasMoved( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionHasMoved( a0 ); }
-// bool ISSParticleLib::CollectionIsFinished( CParticleCollection * )
-static bool SSFwd_ParticleLib_CollectionIsFinished( ISSParticleLib *self, CParticleCollection * a0 ) { return self->CollectionIsFinished( a0 ); }
-// bool ISSParticleLib::CollectionIsTranslucent( const CParticleCollection * )
-static bool SSFwd_ParticleLib_CollectionIsTranslucent( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionIsTranslucent( a0 ); }
-// bool ISSParticleLib::CollectionIsTwoPass( const CParticleCollection * )
-static bool SSFwd_ParticleLib_CollectionIsTwoPass( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionIsTwoPass( a0 ); }
-// void ISSParticleLib::CollectionRender( CParticleCollection *, IMatRenderContext *, bool, void * )
-static void SSFwd_ParticleLib_CollectionRender( ISSParticleLib *self, CParticleCollection * a0, IMatRenderContext * a1, bool a2, void * a3 ) { self->CollectionRender( a0, a1, a2, a3 ); }
-// void ISSParticleLib::CollectionSetDormant( CParticleCollection *, bool )
-static void SSFwd_ParticleLib_CollectionSetDormant( ISSParticleLib *self, CParticleCollection * a0, bool a1 ) { self->CollectionSetDormant( a0, a1 ); }
-// void ISSParticleLib::CollectionSimulate( CParticleCollection *, float, bool )
-static void SSFwd_ParticleLib_CollectionSimulate( ISSParticleLib *self, CParticleCollection * a0, float a1, bool a2 ) { self->CollectionSimulate( a0, a1, a2 ); }
-// void ISSParticleLib::CollectionStopEmission( CParticleCollection *, bool, bool, bool )
-static void SSFwd_ParticleLib_CollectionStopEmission( ISSParticleLib *self, CParticleCollection * a0, bool a1, bool a2, bool a3 ) { self->CollectionStopEmission( a0, a1, a2, a3 ); }
-// bool ISSParticleLib::CollectionUsesFullFrameBufferTexture( const CParticleCollection *, bool )
-static bool SSFwd_ParticleLib_CollectionUsesFullFrameBufferTexture( ISSParticleLib *self, const CParticleCollection * a0, bool a1 ) { return self->CollectionUsesFullFrameBufferTexture( a0, a1 ); }
-// bool ISSParticleLib::CollectionUsesPowerOfTwoFrameBufferTexture( const CParticleCollection *, bool )
-static bool SSFwd_ParticleLib_CollectionUsesPowerOfTwoFrameBufferTexture( ISSParticleLib *self, const CParticleCollection * a0, bool a1 ) { return self->CollectionUsesPowerOfTwoFrameBufferTexture( a0, a1 ); }
-// IMaterial * ISSParticleLib::DefinitionGetMaterial( const CParticleSystemDefinition * )
-static IMaterial * SSFwd_ParticleLib_DefinitionGetMaterial( ISSParticleLib *self, const CParticleSystemDefinition * a0 ) { return self->DefinitionGetMaterial( a0 ); }
-// bool ISSParticleLib::DefinitionShouldAlwaysPrecache( const CParticleSystemDefinition * )
-static bool SSFwd_ParticleLib_DefinitionShouldAlwaysPrecache( ISSParticleLib *self, const CParticleSystemDefinition * a0 ) { return self->DefinitionShouldAlwaysPrecache( a0 ); }
-// void ISSParticleLib::MgrAddBuiltinRenderingOperators( CParticleSystemMgr * )
-static void SSFwd_ParticleLib_MgrAddBuiltinRenderingOperators( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrAddBuiltinRenderingOperators( a0 ); }
-// void ISSParticleLib::MgrAddBuiltinSimulationOperators( CParticleSystemMgr * )
-static void SSFwd_ParticleLib_MgrAddBuiltinSimulationOperators( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrAddBuiltinSimulationOperators( a0 ); }
-// void ISSParticleLib::MgrAddToRenderCache( CParticleSystemMgr *, CParticleCollection * )
-static void SSFwd_ParticleLib_MgrAddToRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0, CParticleCollection * a1 ) { self->MgrAddToRenderCache( a0, a1 ); }
 // void ISSParticleLib::MgrCommitProfileInformation( CParticleSystemMgr *, bool )
 static void SSFwd_ParticleLib_MgrCommitProfileInformation( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrCommitProfileInformation( a0, a1 ); }
-// bool ISSParticleLib::MgrDebugFrameWarningNeededTestAndReset( CParticleSystemMgr * )
-static bool SSFwd_ParticleLib_MgrDebugFrameWarningNeededTestAndReset( ISSParticleLib *self, CParticleSystemMgr * a0 ) { return self->MgrDebugFrameWarningNeededTestAndReset( a0 ); }
-// void ISSParticleLib::MgrDecommitTempMemory( CParticleSystemMgr * )
-static void SSFwd_ParticleLib_MgrDecommitTempMemory( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrDecommitTempMemory( a0 ); }
-// void ISSParticleLib::MgrDrawRenderCache( CParticleSystemMgr *, bool )
-static void SSFwd_ParticleLib_MgrDrawRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrDrawRenderCache( a0, a1 ); }
 // void ISSParticleLib::MgrDumpProfileInformation( CParticleSystemMgr * )
 static void SSFwd_ParticleLib_MgrDumpProfileInformation( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrDumpProfileInformation( a0 ); }
-// CParticleSystemDefinition * ISSParticleLib::MgrFindParticleSystem( CParticleSystemMgr *, const char * )
-static CParticleSystemDefinition * SSFwd_ParticleLib_MgrFindParticleSystem( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1 ) { return self->MgrFindParticleSystem( a0, a1 ); }
-// float ISSParticleLib::MgrGetLastSimulationTime( const CParticleSystemMgr * )
-static float SSFwd_ParticleLib_MgrGetLastSimulationTime( ISSParticleLib *self, const CParticleSystemMgr * a0 ) { return self->MgrGetLastSimulationTime( a0 ); }
-// int ISSParticleLib::MgrGetParticleSystemCount( CParticleSystemMgr * )
-static int SSFwd_ParticleLib_MgrGetParticleSystemCount( ISSParticleLib *self, CParticleSystemMgr * a0 ) { return self->MgrGetParticleSystemCount( a0 ); }
-// const char * ISSParticleLib::MgrGetParticleSystemNameFromIndex( CParticleSystemMgr *, int )
-static const char * SSFwd_ParticleLib_MgrGetParticleSystemNameFromIndex( ISSParticleLib *self, CParticleSystemMgr * a0, int a1 ) { return self->MgrGetParticleSystemNameFromIndex( a0, a1 ); }
-// bool ISSParticleLib::MgrInit( CParticleSystemMgr *, IParticleSystemQuery * )
-static bool SSFwd_ParticleLib_MgrInit( ISSParticleLib *self, CParticleSystemMgr * a0, IParticleSystemQuery * a1 ) { return self->MgrInit( a0, a1 ); }
 // float ISSParticleLib::MgrParticleThrottleScaling( const CParticleSystemMgr * )
 static float SSFwd_ParticleLib_MgrParticleThrottleScaling( ISSParticleLib *self, const CParticleSystemMgr * a0 ) { return self->MgrParticleThrottleScaling( a0 ); }
-// void ISSParticleLib::MgrPrecacheParticleSystem( CParticleSystemMgr *, const char * )
-static void SSFwd_ParticleLib_MgrPrecacheParticleSystem( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1 ) { self->MgrPrecacheParticleSystem( a0, a1 ); }
-// bool ISSParticleLib::MgrReadParticleConfigFile( CParticleSystemMgr *, const char *, bool, bool )
-static bool SSFwd_ParticleLib_MgrReadParticleConfigFile( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1, bool a2, bool a3 ) { return self->MgrReadParticleConfigFile( a0, a1, a2, a3 ); }
-// void ISSParticleLib::MgrResetRenderCache( CParticleSystemMgr * )
-static void SSFwd_ParticleLib_MgrResetRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrResetRenderCache( a0 ); }
 // void ISSParticleLib::MgrSetLastSimulationTime( CParticleSystemMgr *, float )
 static void SSFwd_ParticleLib_MgrSetLastSimulationTime( ISSParticleLib *self, CParticleSystemMgr * a0, float a1 ) { self->MgrSetLastSimulationTime( a0, a1 ); }
-// void ISSParticleLib::MgrShouldLoadSheets( CParticleSystemMgr *, bool )
-static void SSFwd_ParticleLib_MgrShouldLoadSheets( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrShouldLoadSheets( a0, a1 ); }
-// void ISSParticleLib::MgrUncacheAllParticleSystems( CParticleSystemMgr * )
-static void SSFwd_ParticleLib_MgrUncacheAllParticleSystems( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrUncacheAllParticleSystems( a0 ); }
 // void ISSParticleLib::CollectionSimulateBatch( const SSParticleSimEntry_t *, int, SSParticleSimResult_t * )
 static void SSFwd_ParticleLib_CollectionSimulateBatch( ISSParticleLib *self, const SSParticleSimEntry_t * a0, int a1, SSParticleSimResult_t * a2 ) { self->CollectionSimulateBatch( a0, a1, a2 ); }
 // void ISSParticleLib::CollectionGetBounds( const CParticleCollection *, float *, float * )
@@ -1341,57 +1206,18 @@ static void SSFwd_ParticleLib_CollectionGetBounds( ISSParticleLib *self, const C
 static void SSFwd_ParticleLib_CollectionSetBounds( ISSParticleLib *self, CParticleCollection * a0, const float * a1, const float * a2 ) { self->CollectionSetBounds( a0, a1, a2 ); }
 
 static void *const s_ParticleLibSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_Connect ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_Disconnect ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_Mgr ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_Counters ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionNew ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionDelete ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionConstruct ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionDestruct ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionInitDef ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionInitName ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionBloatBoundsUsingControlPoint ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetHighestControlPoint ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetName ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionHasMoved ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsFinished ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsTranslucent ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsTwoPass ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionRender ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSetDormant ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSimulate ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionStopEmission ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionUsesFullFrameBufferTexture ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionUsesPowerOfTwoFrameBufferTexture ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_DefinitionGetMaterial ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_DefinitionShouldAlwaysPrecache ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddBuiltinRenderingOperators ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddBuiltinSimulationOperators ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddToRenderCache ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrCommitProfileInformation ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDebugFrameWarningNeededTestAndReset ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDecommitTempMemory ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDrawRenderCache ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDumpProfileInformation ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrFindParticleSystem ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetLastSimulationTime ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetParticleSystemCount ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetParticleSystemNameFromIndex ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrInit ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrParticleThrottleScaling ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrPrecacheParticleSystem ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrReadParticleConfigFile ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrResetRenderCache ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrSetLastSimulationTime ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrShouldLoadSheets ),
-	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrUncacheAllParticleSystems ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSimulateBatch ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetBounds ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSetBounds ),
 };
 
-static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 48 };
+static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 9 };
 
 //-----------------------------------------------------------------------------
 // DebugOverlay: 3 forwarder(s) over IVDebugOverlay.
@@ -1502,7 +1328,7 @@ static void *const s_ShimConsoleServerSlots[] = {
 static const SSForwarderTable s_ShimConsoleServerTable = { s_ShimConsoleServerSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimEventsServer: 9 forwarder(s) over IShimEventsServer.
+// ShimEventsServer: 8 forwarder(s) over IShimEventsServer.
 //-----------------------------------------------------------------------------
 // void IShimEvents::ListenForGameEvent( const char * )
 static void SSFwd_ShimEventsServer_ListenForGameEvent( IShimEventsServer *self, const char * a0 ) { self->ListenForGameEvent( a0 ); }
@@ -1516,8 +1342,6 @@ static int32_t SSFwd_ShimEventsServer_EventGetBool( IShimEventsServer *self, voi
 static const char * SSFwd_ShimEventsServer_EventGetString( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetString( a0, a1 ); }
 // void IShimEventsServer::EventSetInt( void *, const char *, int32_t )
 static void SSFwd_ShimEventsServer_EventSetInt( IShimEventsServer *self, void * a0, const char * a1, int32_t a2 ) { self->EventSetInt( a0, a1, a2 ); }
-// void IShimEventsServer::EventSetFloat( void *, const char *, float )
-static void SSFwd_ShimEventsServer_EventSetFloat( IShimEventsServer *self, void * a0, const char * a1, float a2 ) { self->EventSetFloat( a0, a1, a2 ); }
 // void IShimEventsServer::EventSetBool( void *, const char *, int32_t )
 static void SSFwd_ShimEventsServer_EventSetBool( IShimEventsServer *self, void * a0, const char * a1, int32_t a2 ) { self->EventSetBool( a0, a1, a2 ); }
 // void IShimEventsServer::EventSetString( void *, const char *, const char * )
@@ -1530,15 +1354,14 @@ static void *const s_ShimEventsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetBool ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetString ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetInt ),
-	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetFloat ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetBool ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetString ),
 };
 
-static const SSForwarderTable s_ShimEventsServerTable = { s_ShimEventsServerSlots, 9 };
+static const SSForwarderTable s_ShimEventsServerTable = { s_ShimEventsServerSlots, 8 };
 
 //-----------------------------------------------------------------------------
-// ShimNetworkServer: 11 forwarder(s) over IShimNetworkServer.
+// ShimNetworkServer: 10 forwarder(s) over IShimNetworkServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimNetwork::NetHierarchyDeclare( int32_t )
 static int32_t SSFwd_ShimNetworkServer_NetHierarchyDeclare( IShimNetworkServer *self, int32_t a0 ) { return self->NetHierarchyDeclare( a0 ); }
@@ -1552,8 +1375,6 @@ static int32_t SSFwd_ShimNetworkServer_WorldNetDeclare( IShimNetworkServer *self
 static void * SSFwd_ShimNetworkServer_EntityGetDataBlob( IShimNetworkServer *self, uint32_t a0, int32_t * a1 ) { return self->EntityGetDataBlob( a0, a1 ); }
 // void * IShimNetworkServer::EntityBindBlob( uint32_t, int32_t *, SourceSharpEntitySlot_t * *, uint32_t * )
 static void * SSFwd_ShimNetworkServer_EntityBindBlob( IShimNetworkServer *self, uint32_t a0, int32_t * a1, SourceSharpEntitySlot_t * * a2, uint32_t * a3 ) { return self->EntityBindBlob( a0, a1, a2, a3 ); }
-// void IShimNetworkServer::EntityMarkStateChanged( uint32_t )
-static void SSFwd_ShimNetworkServer_EntityMarkStateChanged( IShimNetworkServer *self, uint32_t a0 ) { self->EntityMarkStateChanged( a0 ); }
 // void IShimNetworkServer::EntityMarkBlockChanged( uint32_t, int32_t )
 static void SSFwd_ShimNetworkServer_EntityMarkBlockChanged( IShimNetworkServer *self, uint32_t a0, int32_t a1 ) { self->EntityMarkBlockChanged( a0, a1 ); }
 // int32_t IShimNetworkServer::EntityPayloadAgreement( uint32_t, int32_t *, int32_t * )
@@ -1570,14 +1391,13 @@ static void *const s_ShimNetworkServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_WorldNetDeclare ),
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityGetDataBlob ),
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityBindBlob ),
-	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityMarkStateChanged ),
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityMarkBlockChanged ),
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityPayloadAgreement ),
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityGetEngineBlock ),
 	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntitySetTransmitAlways ),
 };
 
-static const SSForwarderTable s_ShimNetworkServerTable = { s_ShimNetworkServerSlots, 11 };
+static const SSForwarderTable s_ShimNetworkServerTable = { s_ShimNetworkServerSlots, 10 };
 
 //-----------------------------------------------------------------------------
 // ShimModelsServer: 4 forwarder(s) over IShimModelsServer.
@@ -2036,7 +1856,7 @@ static void *const s_ShimEffectsServerSlots[] = {
 static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimDebugOverlay: 4 forwarder(s) over IShimDebugOverlay.
+// ShimDebugOverlay: 3 forwarder(s) over IShimDebugOverlay.
 //-----------------------------------------------------------------------------
 // int32_t IShimDebugOverlay::DrawEntityOverlay( uint32_t, int32_t, const char *, float, int32_t, int32_t, int32_t, int32_t )
 static int32_t SSFwd_ShimDebugOverlay_DrawEntityOverlay( IShimDebugOverlay *self, uint32_t a0, int32_t a1, const char * a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7 ) { return self->DrawEntityOverlay( a0, a1, a2, a3, a4, a5, a6, a7 ); }
@@ -2044,17 +1864,14 @@ static int32_t SSFwd_ShimDebugOverlay_DrawEntityOverlay( IShimDebugOverlay *self
 static void SSFwd_ShimDebugOverlay_AddLineOverlay( IShimDebugOverlay *self, const float * a0, const float * a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5, float a6 ) { self->AddLineOverlay( a0, a1, a2, a3, a4, a5, a6 ); }
 // void IShimDebugOverlay::OverlayCounts( uint32_t *, uint32_t *, uint32_t *, uint32_t *, int32_t * )
 static void SSFwd_ShimDebugOverlay_OverlayCounts( IShimDebugOverlay *self, uint32_t * a0, uint32_t * a1, uint32_t * a2, uint32_t * a3, int32_t * a4 ) { self->OverlayCounts( a0, a1, a2, a3, a4 ); }
-// void IShimDebugOverlay::OverlayResetCounts( void )
-static void SSFwd_ShimDebugOverlay_OverlayResetCounts( IShimDebugOverlay *self ) { self->OverlayResetCounts(); }
 
 static void *const s_ShimDebugOverlaySlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_DrawEntityOverlay ),
 	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_AddLineOverlay ),
 	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_OverlayCounts ),
-	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_OverlayResetCounts ),
 };
 
-static const SSForwarderTable s_ShimDebugOverlayTable = { s_ShimDebugOverlaySlots, 4 };
+static const SSForwarderTable s_ShimDebugOverlayTable = { s_ShimDebugOverlaySlots, 3 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessages: 1 forwarder(s) over IShimUserMessages.
@@ -2252,7 +2069,7 @@ static void *const s_ShimPredictionClientSlots[] = {
 static const SSForwarderTable s_ShimPredictionClientTable = { s_ShimPredictionClientSlots, 4 };
 
 //-----------------------------------------------------------------------------
-// ShimTempEntPoolClient: 14 forwarder(s) over IShimTempEntPoolClient.
+// ShimTempEntPoolClient: 13 forwarder(s) over IShimTempEntPoolClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimTempEntPoolClient::ClientEntityModelBounds( int32_t, float *, float *, float * )
 static int32_t SSFwd_ShimTempEntPoolClient_ClientEntityModelBounds( IShimTempEntPoolClient *self, int32_t a0, float * a1, float * a2, float * a3 ) { return self->ClientEntityModelBounds( a0, a1, a2, a3 ); }
@@ -2274,8 +2091,6 @@ static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolReadLife( IShimTempEntPool
 static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolReadStatics( IShimTempEntPoolClient *self, int32_t a0, SourceSharpTempEntStatics_t * a1 ) { return self->TempEntPoolReadStatics( a0, a1 ); }
 // int32_t IShimTempEntPoolClient::TempEntPoolReadTransform( int32_t, SourceSharpTempEntTransform_t * )
 static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolReadTransform( IShimTempEntPoolClient *self, int32_t a0, SourceSharpTempEntTransform_t * a1 ) { return self->TempEntPoolReadTransform( a0, a1 ); }
-// int32_t IShimTempEntPoolClient::TempEntPoolSimulate( int32_t, float, int32_t )
-static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolSimulate( IShimTempEntPoolClient *self, int32_t a0, float a1, int32_t a2 ) { return self->TempEntPoolSimulate( a0, a1, a2 ); }
 // int32_t IShimTempEntPoolClient::TempEntPoolWriteLife( int32_t, const SourceSharpTempEntLife_t * )
 static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolWriteLife( IShimTempEntPoolClient *self, int32_t a0, const SourceSharpTempEntLife_t * a1 ) { return self->TempEntPoolWriteLife( a0, a1 ); }
 // int32_t IShimTempEntPoolClient::TempEntPoolWriteSpawn( int32_t, const SourceSharpTempEntSpawn_t * )
@@ -2294,13 +2109,12 @@ static void *const s_ShimTempEntPoolClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolReadLife ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolReadStatics ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolReadTransform ),
-	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolSimulate ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolWriteLife ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolWriteSpawn ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolWriteTransform ),
 };
 
-static const SSForwarderTable s_ShimTempEntPoolClientTable = { s_ShimTempEntPoolClientSlots, 14 };
+static const SSForwarderTable s_ShimTempEntPoolClientTable = { s_ShimTempEntPoolClientSlots, 13 };
 
 //-----------------------------------------------------------------------------
 // ShimTempEntBackendsClient: 17 forwarder(s) over IShimTempEntBackendsClient.
@@ -2459,7 +2273,7 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 29 };
 
 //-----------------------------------------------------------------------------
-// ShimStandaloneClient: 21 forwarder(s) over IShimStandaloneClient.
+// ShimStandaloneClient: 20 forwarder(s) over IShimStandaloneClient.
 //-----------------------------------------------------------------------------
 // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
@@ -2481,12 +2295,10 @@ static void SSFwd_ShimStandaloneClient_StandaloneSetCustomDraw( IShimStandaloneC
 static void SSFwd_ShimStandaloneClient_StandaloneSetFade( IShimStandaloneClient *self, uint32_t a0, int32_t a1, float a2, float a3, float a4 ) { self->StandaloneSetFade( a0, a1, a2, a3, a4 ); }
 // void IShimStandaloneClient::StandaloneSetOverlayModel( uint32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_StandaloneSetOverlayModel( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetOverlayModel( a0, a1 ); }
-// void IShimStandaloneClient::StandaloneSetShadowCast( uint32_t, int32_t )
-static void SSFwd_ShimStandaloneClient_StandaloneSetShadowCast( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetShadowCast( a0, a1 ); }
 // void IShimStandaloneClient::StandaloneSetViewModel( uint32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_StandaloneSetViewModel( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetViewModel( a0, a1 ); }
-// int32_t IShimStandaloneClient::StandaloneShadowCast( uint32_t, int32_t *, int32_t * )
-static int32_t SSFwd_ShimStandaloneClient_StandaloneShadowCast( IShimStandaloneClient *self, uint32_t a0, int32_t * a1, int32_t * a2 ) { return self->StandaloneShadowCast( a0, a1, a2 ); }
+// int32_t IShimStandaloneClient::StandaloneShadowCast( uint32_t, int32_t * )
+static int32_t SSFwd_ShimStandaloneClient_StandaloneShadowCast( IShimStandaloneClient *self, uint32_t a0, int32_t * a1 ) { return self->StandaloneShadowCast( a0, a1 ); }
 // void IShimStandaloneClient::SurfaceSetEdges( uint32_t, const unsigned char *, int32_t )
 static void SSFwd_ShimStandaloneClient_SurfaceSetEdges( IShimStandaloneClient *self, uint32_t a0, const unsigned char * a1, int32_t a2 ) { self->SurfaceSetEdges( a0, a1, a2 ); }
 // int32_t IShimStandaloneClient::ClientRecvProp( int32_t, char *, int32_t, char *, int32_t, char *, int32_t, int32_t *, int32_t *, int32_t *, int32_t * )
@@ -2515,7 +2327,6 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetCustomDraw ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetFade ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetOverlayModel ),
-	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetShadowCast ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetViewModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneShadowCast ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetEdges ),
@@ -2528,7 +2339,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_RegisterAmmoType ),
 };
 
-static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 21 };
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 20 };
 
 //-----------------------------------------------------------------------------
 // ShimViewClient: 24 forwarder(s) over IShimViewClient.
@@ -2663,7 +2474,7 @@ static void *const s_ShimDiagnosticsClientSlots[] = {
 static const SSForwarderTable s_ShimDiagnosticsClientTable = { s_ShimDiagnosticsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimUiClient: 22 forwarder(s) over IShimUiClient.
+// ShimUiClient: 21 forwarder(s) over IShimUiClient.
 //-----------------------------------------------------------------------------
 // void IShimUiClient::UiDrawFilledRect( int32_t, int32_t, int32_t, int32_t, uint32_t )
 static void SSFwd_ShimUiClient_UiDrawFilledRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawFilledRect( a0, a1, a2, a3, a4 ); }
@@ -2695,8 +2506,6 @@ static int32_t SSFwd_ShimUiClient_UiFontCreate( IShimUiClient *self, const char 
 static void SSFwd_ShimUiClient_UiFontMetrics( IShimUiClient *self, int32_t a0, int32_t * a1, int32_t * a2 ) { self->UiFontMetrics( a0, a1, a2 ); }
 // int32_t IShimUiClient::UiFontAdvances( int32_t, int32_t, int32_t, int32_t * )
 static int32_t SSFwd_ShimUiClient_UiFontAdvances( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t * a3 ) { return self->UiFontAdvances( a0, a1, a2, a3 ); }
-// void IShimUiClient::UiScreenSize( int32_t *, int32_t * )
-static void SSFwd_ShimUiClient_UiScreenSize( IShimUiClient *self, int32_t * a0, int32_t * a1 ) { self->UiScreenSize( a0, a1 ); }
 // void IShimUiClient::UiPlaySound( const char * )
 static void SSFwd_ShimUiClient_UiPlaySound( IShimUiClient *self, const char * a0 ) { self->UiPlaySound( a0 ); }
 // void IShimUiClient::UiSetMenuInput( int32_t, int32_t )
@@ -2726,7 +2535,6 @@ static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontCreate ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontMetrics ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontAdvances ),
-	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiScreenSize ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiPlaySound ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiSetMenuInput ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiSetCursor ),
@@ -2735,7 +2543,7 @@ static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_ClientModeLayout ),
 };
 
-static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 22 };
+static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
 // ShimParticlesClient: 19 forwarder(s) over IShimParticlesClient.
@@ -3146,21 +2954,19 @@ static void *const s_RecipientFilterSlots[] = {
 static const SSForwarderTable s_RecipientFilterTable = { s_RecipientFilterSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// SteamCallback: 4 function(s) over CCallbackBase, declared in fwd_steam.h.
+// SteamCallback: 3 function(s) over CCallbackBase, declared in fwd_steam.h.
 //-----------------------------------------------------------------------------
 // int SSFwd_SteamCallback_SizeOf( void )
 // CCallbackBase * SSFwd_SteamCallback_Construct( void *, IManagedSteamCallback *, int )
 // bool SSFwd_SteamCallback_IsRegistered( CCallbackBase * )
-// int SSFwd_SteamCallback_CallbackId( CCallbackBase * )
 
 static void *const s_SteamCallbackSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_SteamCallback_SizeOf ),
 	reinterpret_cast< void * >( &SSFwd_SteamCallback_Construct ),
 	reinterpret_cast< void * >( &SSFwd_SteamCallback_IsRegistered ),
-	reinterpret_cast< void * >( &SSFwd_SteamCallback_CallbackId ),
 };
 
-static const SSForwarderTable s_SteamCallbackTable = { s_SteamCallbackSlots, 4 };
+static const SSForwarderTable s_SteamCallbackTable = { s_SteamCallbackSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // LeafSystem: 9 function(s) over void, declared in fwd_leaf_system.h.

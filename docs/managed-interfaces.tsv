@@ -35,7 +35,6 @@ IManagedPhysicsFrame	PrecacheSurfaceSounds	int32_t	void
 IManagedResources	ServerDecalIndexForName	int32_t	const char *pszName
 IManagedResources	ServerDecalNameForIndex	int32_t	int32_t nIndex, char *pOut, int32_t nOutSize
 IManagedResources	ServerDecalTranslateForGameMaterial	int32_t	const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize
-IManagedResources	ServerPropDataRandomChunkModel	int32_t	const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize
 IManagedResources	ModelPrecacheComponents	void	const char *pszModelName
 IManagedResources	ModelPrecacheCheck	void	const char *pszModelName, bool bAllowed
 IManagedSaveRestore	ReloadSave	int32_t	void
@@ -47,7 +46,6 @@ IManagedSaveRestore	SaveWriteBody	int32_t	void *pSave
 IManagedSaveRestore	SaveReadBody	int32_t	void *pSave
 IManagedSoundEnt	ServerSoundEntInit	void	int32_t nMaxClients, float flCurTime
 IManagedSoundEnt	ServerSoundEntShutdown	void	void
-IManagedSoundEnt	ServerSoundEntInsert	void	int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget
 IManagedSoundEnt	ServerSoundEntResetClientSound	void	int32_t nIndex
 IManagedHierarchy	HierarchyParentMoved	void	uint32_t hParent
 IManagedHierarchy	HierarchyChildMoved	void	uint32_t hChild
@@ -55,28 +53,18 @@ IManagedHierarchy	HierarchySetParent	int32_t	uint32_t hChild, uint32_t hParent, 
 IManagedHierarchy	HierarchyGetParentAttachment	int32_t	uint32_t hChild
 IManagedHierarchy	HierarchySetParentName	void	uint32_t hChild, const char *pParentName
 IManagedHierarchy	HierarchySetParentAttachmentName	void	uint32_t hChild, const char *pAttachmentName
-IManagedHierarchy	HierarchyEntityRemoved	int32_t	uint32_t hEntity
-IManagedHierarchy	HierarchyResolveParentNames	int32_t	void
 IManagedHierarchy	HierarchyToLocal	int32_t	uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR
 IManagedHierarchy	HierarchyToWorld	int32_t	uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR
 IManagedHierarchy	HierarchySetLocal	void	uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR
 IManagedEntities	Dispatch	int32_t	uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs
 IManagedEntities	EntityRemoveRequested	int32_t	uint32_t hEntity
-IManagedEntities	OnEntityIgnite	void	uint32_t hEntity, float flLifetime, float flSize
-IManagedEntities	OnFireAddHeatInRadius	void	const float *pOriginXYZ, float flRadius, float flHeat
-IManagedEntities	OnRagdollMagnetForce	int32_t	uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ
-IManagedEntities	ShellLessFindByName	int32_t	const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax
-IManagedEntities	ShellLessFindByClassname	int32_t	const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax
-IManagedEntities	TemplatesAddNamed	int32_t	const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen
 IManagedClients	OnClientConnect	int32_t	const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize
 IManagedClients	OnClientPutInServer	void	int32_t nEntIndex, const char *pPlayerName
 IManagedClients	OnClientActive	void	int32_t nEntIndex, int32_t bLoadGame
-IManagedClients	OnRespawn	void	int32_t nEntIndex, int32_t bCopyCorpse
 IManagedClients	OnPlayerSpawn	void	uint32_t hPlayer
 IManagedClients	OnPlayerSpawned	void	uint32_t hPlayer
 IManagedClients	OnPlayerKilled	void	uint32_t hPlayer, uint32_t hAttacker
 IManagedClients	OnSelectSpawnPoint	uint32_t	uint32_t hPlayer
-IManagedClients	GetPlayerRelationship	int32_t	uint32_t hPlayer, uint32_t hTarget
 IManagedClients	ServerSkyboxAreaForClient	int32_t	int32_t iClientEdict, int32_t *pOutArea
 IManagedClients	ServerEarPositionForClient	int32_t	int32_t iClientEdict, float *pOutXYZ
 IManagedClients	OnClientNetMessage	int32_t	int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen
@@ -117,13 +105,10 @@ IManagedStandaloneClient	OnStandaloneDrawBatch	void	const uint32_t *pHandles, in
 IManagedPredictionClient	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
 IManagedPredictionClient	ClientPredictionUpdate	void	int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived
 IManagedPredictionClient	ThirdPersonCamera	int32_t	SourceSharpThirdPersonCamera *pIo
-IManagedHudClient	OnCreateMove	void	SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive
 IManagedTempEntsClient	OnTempEntity	void	int32_t hClass, const unsigned char *pBlob, int32_t nBytes
 IManagedTempEntsClient	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
-IManagedTempEntsClient	OnTempEntPoolAlloc	int32_t	int32_t nPriority
 IManagedTempEntsClient	OnTempEntPoolUpdate	void	float flFrameTime
 IManagedTempEntsClient	OnTempEntPoolClear	void	void
-IManagedTempEntsClient	OnTempEntEjectBrass	int32_t	int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR
 IManagedTempEntsClient	OnImpactChoice	int32_t	const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax
 IManagedSaveRestoreClient	ReloadSave	int32_t	void
 IManagedSaveRestoreClient	ReloadRestore	int32_t	void
@@ -223,9 +208,7 @@ IManagedSoundscapesClient	ClientSoundscapesLevelInit	void	const char *pMapName
 IManagedSoundscapesClient	ClientSoundscapesUpdate	void	float flFrameTime
 IManagedSoundscapesClient	ClientSoundscapesLevelShutdown	void	void
 IManagedPrecipitationClient	PrecipitationRender	int32_t	const float *pView, float *pTracers, int32_t nMaxTracers, float *pSplashes, int32_t nMaxSplashes, int32_t *pnSplashes
-IManagedConsoleOutput	ConsoleLine	void	const char *pText, int32_t nWarning
 IManagedConsoleOutput	ConsoleBufferAttach	void	void *pBuffer
-IManagedConsoleOutputClient	ClientConsoleLine	void	const char *pText, int32_t nWarning
 IManagedConsoleOutputClient	ClientConsoleBufferAttach	void	void *pBuffer
 IManagedMaterialFilesClient	SpriteMaterial	int32_t	const char *pszSpriteName, uint8_t *pBlock, int32_t nBlockBytes
 IManagedMaterialFilesClient	EncodeImage	int32_t	int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo, const uint8_t *pPixelBlock, int32_t nPixelBlockBytes, uint8_t *pOut, int32_t nOutBytes
@@ -250,8 +233,6 @@ IManagedRenderClient	ViewFreezeFrame	void	float flFreezeTime, float flCurTime
 IManagedRenderClient	ViewDemoCamera	int32_t	int32_t nStage, const float *pIn, float *pOut
 # RenderLeafList and RenderLeafViewModels are C7 cluster 12 L1's, RETIRED at L2 (the leaf
 # system is IManagedLeafSystemClient's): the binding answers -1. The table only appends.
-IManagedRenderClient	RenderLeafList	int32_t	const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords
-IManagedRenderClient	RenderLeafViewModels	int32_t	const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords
 # ScreenSpaceEffectsStage (C7 screen-space effects): the view's level start (0) and end (1), where stock's
 # CViewRender ran InitScreenSpaceEffects and ShutdownScreenSpaceEffects, run the managed manager's.
 IManagedRenderClient	ScreenSpaceEffectsStage	void	int32_t nStage
@@ -339,9 +320,6 @@ IManagedDetailPropsClient	DetailBuildLists	void *	const float *pViewOriginXYZ, c
 IManagedDetailPropsClient	DetailBeginTranslucent	void	void
 IManagedDetailPropsClient	DetailPrepare	void *	int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright
 IManagedDetailPropsClient	DetailEmit	void *	int32_t nMaxQuads
-IManagedSoundEmitter	ServerMoveSound	void	int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch
-IManagedSoundEmitter	ServerMoveSoundScript	void	int32_t nEntIndex, const float *pOrigin, const char *pSoundName
-IManagedSoundEmitter	ServerPrecacheScriptSound	void	const char *pSoundName
 # C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system's
 # registry and decisions are managed's. libss_fwd_client's forwarder class
 # (src/fwd/native/fwd_leaf_system.cpp) answers IClientLeafSystem and the
@@ -356,7 +334,6 @@ IManagedLeafSystemClient	CreateRenderableHandle	int32_t	void *pRenderable, int32
 IManagedLeafSystemClient	AddRenderable	int32_t	void *pRenderable, int32_t nGroup, int32_t nModelType
 IManagedLeafSystemClient	RemoveRenderable	int32_t	int32_t nHandle, int64_t *pOps, int32_t nMaxOps
 IManagedLeafSystemClient	AddRenderableToLeaves	int32_t	int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
-IManagedLeafSystemClient	ChangeRenderableRenderGroup	void	int32_t nHandle, int32_t nGroup
 IManagedLeafSystemClient	SetRenderGroup	void	int32_t nHandle, int32_t nGroup
 IManagedLeafSystemClient	RenderableChanged	void	int32_t nHandle
 IManagedLeafSystemClient	EnableAlternateSorting	void	int32_t nHandle, int32_t bEnable
@@ -377,11 +354,6 @@ IManagedLeafSystemClient	CollateViewModelRenderables	int32_t	int64_t *pOps, int3
 # AddShadow, RemoveShadow, ProjectShadow, ProjectFlashlight and EnumerateShadowsInLeaves are RETIRED at C7
 # cluster 12 S2 (the managed shadow manager calls the managed leaf system in-process; the forwarder's five
 # overrides call nothing): the binding answers the refusal. The table only appends.
-IManagedLeafSystemClient	AddShadow	int32_t	int32_t nUserId, int32_t nFlags
-IManagedLeafSystemClient	RemoveShadow	void	int32_t nHandle
-IManagedLeafSystemClient	ProjectShadow	int32_t	int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
-IManagedLeafSystemClient	ProjectFlashlight	int32_t	int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
-IManagedLeafSystemClient	EnumerateShadowsInLeaves	int32_t	const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
 # L3's batching: RenderableChanged, ChangeRenderableRenderGroup and SetRenderGroup (per
 # renderable, per frame) are queued in the forwarder, nCount entries of three int32
 # (1 RenderableChanged handle; 2 ChangeRenderableRenderGroup handle, group; 3

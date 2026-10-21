@@ -31,5 +31,4 @@ public sealed class EngineRandom(Func<IUniformRandom?> acquire, ILog log) : IUni
 
     public int RandomInt(int min, int max) => Stream()?.RandomInt(min, max) ?? min;
 
-    public float RandomFloatExp(float min, float max, float exponent) => Stream()?.RandomFloatExp(min, max, exponent) ?? min;
 }

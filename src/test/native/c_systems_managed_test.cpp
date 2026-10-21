@@ -463,10 +463,14 @@ TEST( CSystemsManaged, ThePropDataStepsAreRetiredAndTheirFileIsGone )
 		if ( !isspace( (unsigned char)c ) )
 			level.push_back( c );
 	ASSERT_FALSE( level.empty() );
-	EXPECT_EQ( 1, CountOf( level, "virtualvoidPropDataLoadFile()OVERRIDE{}" ) )
-		<< "PropDataLoadFile's body is not the retired, empty one";
-	EXPECT_EQ( 1, CountOf( level, "virtualvoidPropDataClearFile()OVERRIDE{}" ) )
-		<< "PropDataClearFile's body is not the retired, empty one";
+	// The two retired steps left IShimLevel in the serialised ABI pass
+	// (2026-10-20): no body at all, while a live level step is still read here.
+	EXPECT_EQ( 0, CountOf( level, "PropDataLoadFile" ) )
+		<< "PropDataLoadFile is back in shell_level.cpp";
+	EXPECT_EQ( 0, CountOf( level, "PropDataClearFile" ) )
+		<< "PropDataClearFile is back in shell_level.cpp";
+	EXPECT_EQ( 1, CountOf( level, "virtualvoidClearEntityList()OVERRIDE{" ) )
+		<< "the control: the live step ClearEntityList is found by the same read";
 	EXPECT_EQ( 0, CountOf( level, "g_PropDataSystem" ) );
 }
 

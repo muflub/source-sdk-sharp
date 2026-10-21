@@ -398,7 +398,6 @@ public static class RenderPlanText
                     break;
                 // The helpers whose own draws depend on what is in view: any lines.
                 case RenderOpKind.ClientSystemsPreRender:
-                case RenderOpKind.ClientSystemsPostRender:
                 case RenderOpKind.GlowDrawOverlays:
                 case RenderOpKind.GlowUpdateSkyOverlays:
                 case RenderOpKind.DrawPrecipitation:

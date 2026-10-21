@@ -42,7 +42,6 @@ public class ViewEffectsTests
 
         public int RandomInt(int min, int max) => throw new InvalidOperationException("stock draws no int here");
 
-        public float RandomFloatExp(float min, float max, float exponent) => throw new InvalidOperationException();
     }
 
     private sealed record Tally(int Frames, int Draws, int ShakingFrames, int FadingFrames, int Shakes, int Fades);
@@ -193,7 +192,6 @@ public class ViewEffectsTests
 
         public int RandomInt(int min, int max) => min;
 
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     [Fact]
@@ -248,7 +246,6 @@ public class ViewEffectsTests
 
         public int RandomInt(int min, int max) => min;
 
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     // CalcShake retires a shake with FastRemove: the last shake takes its slot,

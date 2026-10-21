@@ -341,9 +341,6 @@ public interface IEngineHud
     /// <inheritdoc cref="EngineSide.OverlayReadout"/>
     (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) OverlayReadout();
 
-    /// <inheritdoc cref="EngineSide.OverlayResetCounts"/>
-    void OverlayResetCounts();
-
     /// <inheritdoc cref="EngineSide.AddLineOverlay"/>
     void AddLineOverlay(Vector start, Vector end, int r, int g, int b,
                         bool noDepthTest = true, float duration = 0f);

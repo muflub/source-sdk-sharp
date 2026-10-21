@@ -39,7 +39,6 @@ struct CManagedAreas
 	IManagedPlayerCommands *m_pPlayerCommands;
 	IManagedConsoleOutput *m_pConsoleOutput;
 	IManagedBones *m_pBones;
-	IManagedSoundEmitter *m_pSoundEmitter;
 };
 
 struct CManagedHolders
@@ -72,8 +71,7 @@ inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 		&& !holders.m_Areas.m_pNetState
 		&& !holders.m_Areas.m_pPlayerCommands
 		&& !holders.m_Areas.m_pConsoleOutput
-		&& !holders.m_Areas.m_pBones
-		&& !holders.m_Areas.m_pSoundEmitter;
+		&& !holders.m_Areas.m_pBones;
 }
 
 // Every area from the root, each accepted through its Validate; false with the

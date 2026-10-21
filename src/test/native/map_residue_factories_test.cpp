@@ -469,20 +469,18 @@ TEST( MapResidueFactories, TheLevelStepReachesTheWorldThroughSpawnWorld )
 		   "on the first decal that traces.";
 }
 
-TEST( MapResidueFactories, TheRetiredTextStepRefusesOutLoudAndParsesNothing )
+TEST( MapResidueFactories, TheRetiredTextStepIsGoneAndSpawnWorldIsTheStep )
 {
+	// The text step was retired at P5 and left IShimLevel in the serialised
+	// ABI pass (2026-10-20): native has no step that takes map text at all.
 	const std::string steps = NoWhitespace(
 		ReadStripped( "sourcesharp/game/server/shell_level.cpp" ) );
 	ASSERT_FALSE( steps.empty() ) << "could not read shell_level.cpp";
 
-	const size_t at = steps.find( "virtualvoidParseAllEntities(constchar*pMapEntities)OVERRIDE" );
-	ASSERT_NE( at, std::string::npos ) << "the retired slot's body is gone (the slot must stay)";
-	const std::string body = steps.substr( at, steps.find( '}', at ) - at );
-
-	EXPECT_NE( body.find( "Warning(" ), std::string::npos )
-		<< "the retired step no longer says so; a caller reaching it builds no world silently.";
-	EXPECT_EQ( body.find( "MapEntity_" ), std::string::npos )
-		<< "the retired step parses map text again.";
+	EXPECT_EQ( steps.find( "ParseAllEntities(" ), std::string::npos )
+		<< "a text step is back in shell_level.cpp; managed parses the map.";
+	EXPECT_NE( steps.find( "virtualint32_tSpawnWorld(" ), std::string::npos )
+		<< "the control: SpawnWorld, the step that replaced it, is found by the same read.";
 }
 
 TEST( MapResidueFactories, TheWorldOnlyTextParseIsGone )

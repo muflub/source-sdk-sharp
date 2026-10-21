@@ -412,9 +412,6 @@ struct SoundEntCalls
 	void *pSelf = nullptr;
 	int32_t nA = 0;
 	float flB = 0.0f;
-	const float *pXYZ = nullptr;
-	uint32_t hOwner = 0;
-	uint32_t hTarget = 0;
 };
 
 SoundEntCalls g_SoundEnt;
@@ -433,21 +430,9 @@ void SoundEntShutdown( IManagedSoundEnt *self )
 	g_SoundEnt.pSelf = self;
 }
 
-void SoundEntInsert( IManagedSoundEnt *self, int32_t nType, const float *pXYZ, int32_t, float flDuration,
-                     uint32_t hOwner, int32_t, uint32_t hTarget )
-{
-	g_SoundEnt.nSlot = 4;
-	g_SoundEnt.pSelf = self;
-	g_SoundEnt.nA = nType;
-	g_SoundEnt.pXYZ = pXYZ;
-	g_SoundEnt.flB = flDuration;
-	g_SoundEnt.hOwner = hOwner;
-	g_SoundEnt.hTarget = hTarget;
-}
-
 void SoundEntReset( IManagedSoundEnt *self, int32_t nIndex )
 {
-	g_SoundEnt.nSlot = 5;
+	g_SoundEnt.nSlot = 4;
 	g_SoundEnt.pSelf = self;
 	g_SoundEnt.nA = nIndex;
 }
@@ -466,7 +451,7 @@ int32_t SoundEntValidated( IManagedObject *self, const uint32_t *, int32_t nSlot
 }
 
 const SSManagedSoundEntTable kSoundEntTable = {
-	&SoundEntReleased, &SoundEntValidated, &SoundEntInit, &SoundEntShutdown, &SoundEntInsert, &SoundEntReset,
+	&SoundEntReleased, &SoundEntValidated, &SoundEntInit, &SoundEntShutdown, &SoundEntReset,
 };
 
 } // namespace
@@ -474,7 +459,6 @@ const SSManagedSoundEntTable kSoundEntTable = {
 TEST( ManagedAccept, EachMethodCallsItsOwnSlotWithTheObjectAndItsArguments )
 {
 	IManagedSoundEnt area( &kSoundEntTable );
-	const float xyz[ 3 ] = { 1.0f, 2.0f, 3.0f };
 
 	area.ServerSoundEntInit( 24, 1.5f );
 	EXPECT_EQ( 2, g_SoundEnt.nSlot );
@@ -485,16 +469,8 @@ TEST( ManagedAccept, EachMethodCallsItsOwnSlotWithTheObjectAndItsArguments )
 	area.ServerSoundEntShutdown();
 	EXPECT_EQ( 3, g_SoundEnt.nSlot );
 
-	area.ServerSoundEntInsert( 7, xyz, 100, 0.25f, 0x11u, 4, 0x22u );
-	EXPECT_EQ( 4, g_SoundEnt.nSlot );
-	EXPECT_EQ( 7, g_SoundEnt.nA );
-	EXPECT_EQ( xyz, g_SoundEnt.pXYZ );
-	EXPECT_FLOAT_EQ( 0.25f, g_SoundEnt.flB );
-	EXPECT_EQ( 0x11u, g_SoundEnt.hOwner );
-	EXPECT_EQ( 0x22u, g_SoundEnt.hTarget );
-
 	area.ServerSoundEntResetClientSound( 9 );
-	EXPECT_EQ( 5, g_SoundEnt.nSlot );
+	EXPECT_EQ( 4, g_SoundEnt.nSlot );
 	EXPECT_EQ( 9, g_SoundEnt.nA );
 
 	// And the base's two, through the base, on the same table.

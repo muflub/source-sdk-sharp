@@ -22,7 +22,6 @@ EventGetFloat	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetFloat	Int
 EventGetBool	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetBool	IntPtr, byte*, int	
 EventGetString	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetString	IntPtr, byte*, byte*	
 EventSetInt	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetInt	IntPtr, byte*, int, void	
-EventSetFloat	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetFloat	IntPtr, byte*, float, void	
 EventSetBool	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetBool	IntPtr, byte*, int, void	
 EventSetString	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetString	IntPtr, byte*, byte*, void	
 NetHierarchyDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetHierarchyDeclare	int, int	
@@ -31,7 +30,6 @@ NetTierInfo	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetTierInfo	int, i
 WorldNetDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_WorldNetDeclare	int, int	
 EntityGetDataBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	S	SourceSharp_EntityGetDataBlob	uint, int*, void*	
 EntityBindBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityBindBlob	uint, int*, EntitySlot**, uint*, void*	
-EntityMarkStateChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityMarkStateChanged	uint, void	
 EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityMarkBlockChanged	uint, int, void	
 EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityPayloadAgreement	uint, int*, int*, int	
 EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityGetEngineBlock	uint, int*, void*	
@@ -149,7 +147,6 @@ TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_TempEntBu
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
 AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_AddLineOverlay	float*, float*, int, int, int, int, float, void	
 OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_OverlayCounts	uint*, uint*, uint*, uint*, int*, void	
-OverlayResetCounts	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_OverlayResetCounts	void	
 GetLocalPlayerHealth	EngineApi	IShimHudClient	client		client	S	SourceSharp_GetLocalPlayerHealth	int	
 GetLocalPlayerIndex	EngineApi	IShimHudClient	client		client	-	SourceSharp_GetLocalPlayerIndex	int	
 HudLocalise	EngineApi	IShimHudClient	client		client	-	SourceSharp_HudLocalise	byte*, byte*, int, void	
@@ -169,7 +166,6 @@ TempEntPoolDestroy	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp
 TempEntPoolReadLife	EngineApi	IShimTempEntPoolClient	client		client	S	SourceSharp_TempEntPoolReadLife	int, TempEntLife*, int	
 TempEntPoolReadStatics	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolReadStatics	int, TempEntStatics*, int	
 TempEntPoolReadTransform	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolReadTransform	int, TempEntTransform*, int	
-TempEntPoolSimulate	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolSimulate	int, float, int, int	
 TempEntPoolWriteLife	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteLife	int, TempEntLife*, int	
 TempEntPoolWriteSpawn	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteSpawn	int, TempEntSpawn*, int	
 TempEntPoolWriteTransform	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteTransform	int, TempEntTransform*, int	
@@ -229,9 +225,8 @@ StandaloneSetBlending	EngineApi	IShimStandaloneClient	client		client	-	SourceSha
 StandaloneSetCustomDraw	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetCustomDraw	uint, float*, float*, void	
 StandaloneSetFade	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetFade	uint, int, float, float, float, void	
 StandaloneSetOverlayModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetOverlayModel	uint, int, void	
-StandaloneSetShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetShadowCast	uint, int, void	
 StandaloneSetViewModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetViewModel	uint, int, void	
-StandaloneShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneShadowCast	uint, int*, int*, int	
+StandaloneShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneShadowCast	uint, int*, int	
 SurfaceSetEdges	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetEdges	uint, byte*, int, void	
 ClientRecvProp	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientRecvProp	int, byte*, int, byte*, int, byte*, int, int*, int*, int*, int*, int	
 ClientSchemaRefusal	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientSchemaRefusal	int, uint*, uint*, uint*, int*, byte*, int, int*, int	
@@ -292,7 +287,6 @@ UiFontAddFile	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAddFile
 UiFontCreate	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontCreate	byte*, int, int, int, int	
 UiFontMetrics	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontMetrics	int, int*, int*, void	
 UiFontAdvances	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAdvances	int, int, int, int*, int	
-UiScreenSize	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiScreenSize	int*, int*, void	
 UiPlaySound	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiPlaySound	byte*, void	
 ParticlesCreate	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesCreate	uint, int, byte*, float, int, int	
 ParticlesConfigure	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesConfigure	uint, int, float, void	

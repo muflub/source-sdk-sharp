@@ -12,12 +12,6 @@ public interface IParticleLibrary
     /// <summary><c>CParticleSystemMgr::ParticleThrottleScaling</c>: 1 unrestricted .. 0 fully.</summary>
     float ThrottleScaling();
 
-    /// <summary><c>CParticleSystemMgr::GetParticleSystemCount</c>: the definitions loaded.</summary>
-    int SystemCount();
-
-    /// <summary><c>CParticleSystemMgr::GetParticleSystemNameFromIndex</c>, or null past the end.</summary>
-    string? SystemName(int index);
-
     /// <summary><c>CParticleSystemMgr::DumpProfileInformation</c>: the kept timings, to particle_profile.csv.</summary>
     void DumpProfileInformation();
 }
@@ -96,15 +90,6 @@ internal sealed unsafe class ParticleLibrary(NativeInterfaceFactory factory) : I
 
     /// <inheritdoc/>
     public float ThrottleScaling() => Vtbl->MgrParticleThrottleScaling(_self, Manager);
-
-    /// <inheritdoc/>
-    public int SystemCount() => Vtbl->MgrGetParticleSystemCount(_self, Manager);
-
-    /// <inheritdoc/>
-    public string? SystemName(int index)
-        => index >= 0 && index < SystemCount()
-            ? Vtable.TextOf(Vtbl->MgrGetParticleSystemNameFromIndex(_self, Manager, index), MaxName)
-            : null;
 
     /// <inheritdoc/>
     public void DumpProfileInformation() => Vtbl->MgrDumpProfileInformation(_self, Manager);

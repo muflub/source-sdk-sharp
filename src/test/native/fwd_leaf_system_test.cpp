@@ -411,10 +411,6 @@ std::string PendingLine( const char *pName, const int32_t *pEntries, int32_t n )
 }
 // The queued calls' own slots: a call that reached one crossed on its own.
 void M_RenderableChanged( IManagedLeafSystemClient *, int32_t handle ) { Call( "M.RenderableChanged " + std::to_string( handle ) ); }
-void M_ChangeRenderableRenderGroup( IManagedLeafSystemClient *, int32_t handle, int32_t group )
-{
-	Call( "M.ChangeRenderableRenderGroup " + std::to_string( handle ) + " " + std::to_string( group ) );
-}
 void M_SetRenderGroup( IManagedLeafSystemClient *, int32_t handle, int32_t group )
 {
 	Call( "M.SetRenderGroup " + std::to_string( handle ) + " " + std::to_string( group ) );
@@ -423,24 +419,6 @@ void M_Pending( IManagedLeafSystemClient *, const int32_t *pEntries, int32_t n )
 {
 	g_pending.push_back( PendingLine( "Pending", pEntries, n ) );
 	Call( "M.Pending " + std::to_string( n ) );
-}
-int32_t M_AddShadow( IManagedLeafSystemClient *, int32_t user, int32_t flags )
-{
-	Call( "M.AddShadow " + std::to_string( user ) + " " + std::to_string( flags ) );
-	return user + flags;
-}
-void M_RemoveShadow( IManagedLeafSystemClient *, int32_t h ) { Call( "M.RemoveShadow " + std::to_string( h ) ); }
-int32_t M_ProjectShadow( IManagedLeafSystemClient *, int32_t h, const int32_t *pLeaves, int32_t n, int64_t *pOps, int32_t nMax )
-{
-	g_leaves.assign( pLeaves, pLeaves + n );
-	Call( "M.ProjectShadow " + std::to_string( h ) );
-	return HandOver( pOps, nMax );
-}
-int32_t M_EnumerateShadowsInLeaves( IManagedLeafSystemClient *, const uint16_t *pLeaves, int32_t n, int64_t *pOps, int32_t nMax )
-{
-	g_leaves.assign( pLeaves, pLeaves + n );
-	Call( "M.EnumerateShadowsInLeaves" );
-	return HandOver( pOps, nMax );
 }
 
 SSManagedLeafSystemClientTable ManagedTable()
@@ -463,14 +441,8 @@ SSManagedLeafSystemClientTable ManagedTable()
 	t.ComputeTranslucentRenderLeaf = M_ComputeTranslucentRenderLeaf;
 	t.BuildRenderablesList = M_BuildRenderablesList;
 	t.CollateViewModelRenderables = M_CollateViewModelRenderables;
-	t.AddShadow = M_AddShadow;
-	t.RemoveShadow = M_RemoveShadow;
-	t.ProjectShadow = M_ProjectShadow;
-	t.ProjectFlashlight = M_ProjectShadow;
-	t.EnumerateShadowsInLeaves = M_EnumerateShadowsInLeaves;
 	t.Pending = M_Pending;
 	t.RenderableChanged = M_RenderableChanged;
-	t.ChangeRenderableRenderGroup = M_ChangeRenderableRenderGroup;
 	t.SetRenderGroup = M_SetRenderGroup;
 	return t;
 }

@@ -28,7 +28,6 @@ struct CManagedAreasClient
 	IManagedUserMessagesClient *m_pUserMessagesClient;
 	IManagedStandaloneClient *m_pStandaloneClient;
 	IManagedPredictionClient *m_pPredictionClient;
-	IManagedHudClient *m_pHudClient;
 	IManagedTempEntsClient *m_pTempEntsClient;
 	IManagedSaveRestoreClient *m_pSaveRestoreClient;
 	IManagedBeamsClient *m_pBeamsClient;
@@ -80,7 +79,6 @@ inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )
 		&& !holders.m_Areas.m_pUserMessagesClient
 		&& !holders.m_Areas.m_pStandaloneClient
 		&& !holders.m_Areas.m_pPredictionClient
-		&& !holders.m_Areas.m_pHudClient
 		&& !holders.m_Areas.m_pTempEntsClient
 		&& !holders.m_Areas.m_pSaveRestoreClient
 		&& !holders.m_Areas.m_pBeamsClient

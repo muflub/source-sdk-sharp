@@ -287,14 +287,6 @@ int32_t SourceSharp_UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCoun
 	return nCount;
 }
 
-void SourceSharp_UiScreenSize( int32_t *pOutWide, int32_t *pOutTall )
-{
-	int nWide = 0, nTall = 0;
-	surface()->GetScreenSize( nWide, nTall );
-	if ( pOutWide ) *pOutWide = nWide;
-	if ( pOutTall ) *pOutTall = nTall;
-}
-
 void SourceSharp_UiPlaySound( const char *pPath )
 {
 	if ( pPath && pPath[ 0 ] )

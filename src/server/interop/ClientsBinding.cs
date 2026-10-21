@@ -50,9 +50,6 @@ public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServer
 
     public void OnClientActive(int a0, int a1) { Enter(CrossingOp.ServerOnClientActive); game.OnClientActive(a0, a1 != 0); }
 
-
-    public void OnRespawn(int a0, int a1) { Enter(CrossingOp.ServerOnRespawn); game.OnRespawn(a0, a1 != 0); }
-
     public void OnPlayerSpawn(uint a0) { Enter(CrossingOp.ServerOnPlayerSpawn); game.OnPlayerSpawn(new EntityHandle(a0)); }
 
     public void OnPlayerSpawned(uint a0) { Enter(CrossingOp.ServerOnPlayerSpawned); game.OnPlayerSpawned(new EntityHandle(a0)); }
@@ -64,17 +61,6 @@ public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServer
     }
 
     public uint OnSelectSpawnPoint(uint a0) { Enter(CrossingOp.ServerSelectSpawnPoint); return game.SelectSpawnPoint(new EntityHandle(a0)).Value; }
-
-    public int GetPlayerRelationship(uint a0, uint a1)
-    {
-        Enter(CrossingOp.ServerGetPlayerRelationship);
-        try { return (int)game.GetPlayerRelationship(new EntityHandle(a0), new EntityHandle(a1)); }
-        catch (Exception e)
-        {
-            ManagedVtable.Fail(log, "IManagedClients.GetPlayerRelationship", e);
-            return (int)PlayerRelationship.UseStockRule;
-        }
-    }
 
     public int ServerSkyboxAreaForClient(int a0, void* a1)
     {

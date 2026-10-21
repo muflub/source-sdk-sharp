@@ -283,7 +283,7 @@ public class SideAuditTests
         "UiDrawFilledRect", "UiDrawFilledRectFade", "UiDrawOutlinedRect", "UiDrawLine",
         "UiDrawTexturedRect", "UiDrawPolygon", "UiDrawText", "UiMeasureText", "UiSetClip",
         "UiTextureCreate", "UiTextureUpload", "UiFontAddFile", "UiFontCreate", "UiFontMetrics",
-        "UiFontAdvances", "UiScreenSize", "UiPlaySound", "UiSetMenuInput", "UiSetCursor", "UiDebugOverlayText", "UiDebugOverlayClearDead",
+        "UiFontAdvances", "UiPlaySound", "UiSetMenuInput", "UiSetCursor", "UiDebugOverlayText", "UiDebugOverlayClearDead",
         // The managed input's native asks (cluster 13, lane c6-input): vgui's
         // cursor, the HUD, the view, prediction and the viewport are the client's.
         "InputCursorState", "InputGetCursorPos", "InputSetCursorPos", "InputSetCursorArrow",
@@ -322,7 +322,7 @@ public class SideAuditTests
         // hard-coded invalid, so the client shadow manager held nothing and
         // projected nothing. Moving these to BothSides would be a claim the
         // server has a shadow to report, which it does not.
-        "StandaloneSetShadowCast", "StandaloneShadowCast",
+        "StandaloneShadowCast",
         "StandaloneSetCustomDraw", "StandaloneSetFade",
         "StandaloneSetOverlayModel", "StandaloneSetViewModel",
         // (Phase 5's pose parameters, the animation clock's two reads, the
@@ -368,7 +368,7 @@ public class SideAuditTests
         // this note exists instead.
         "TempEntPoolCapacity", "TempEntPoolDestroy",
         "TempEntPoolReadLife", "TempEntPoolWriteLife",
-        "TempEntPoolSimulate", "TempEntPoolAddVisible",
+        "TempEntPoolAddVisible",
         "TempEntPoolReadTransform", "TempEntPoolWriteTransform", "ClientEntityOrigin",
         // C-Phase 6 lane FRAME's two, and client-only for the six above them's
         // reason: TempEntPoolReadStatics reaches the same pool of drawables,

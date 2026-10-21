@@ -62,10 +62,6 @@ public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceS
     public string? GameDir() => Fill(_fwd->GetGameDir, _self, Vtable.MaxPath);
 
     /// <inheritdoc/>
-    public string? MapEntitiesString()
-        => Vtable.TextOf(_fwd->GetMapEntitiesString(_self), Vtable.MaxEntityString);
-
-    /// <inheritdoc/>
     public bool IsModelPrecached(string path) => Ask(_fwd->IsModelPrecached, _self, path);
 
     /// <inheritdoc/>

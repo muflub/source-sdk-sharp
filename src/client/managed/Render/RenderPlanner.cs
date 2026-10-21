@@ -418,7 +418,6 @@ public static class RenderPlanner
             b.Add(RenderOpKind.GlowUpdateSkyOverlays, [sky.CacheFullSceneState], [sky.ZFar]);
             b.Op(RenderOpKind.PixelVisEndCurrentView);
             b.Op(RenderOpKind.Skybox3DAreaBitsRestore);
-            b.Op(RenderOpKind.ClientSystemsPostRender);
             b.Op(RenderOpKind.FinishCurrentView);
             b.Op(RenderOpKind.PopView);
             b.Op(RenderOpKind.WorldViewEnd);
@@ -464,7 +463,6 @@ public static class RenderPlanner
             b.Op(RenderOpKind.DrawLineFile);
             b.Op(RenderOpKind.ClientEffectsDraw);
             b.AddInt(RenderOpKind.SetFXCreationAllowed, 0);
-            b.Op(RenderOpKind.ClientSystemsPostRender);
             b.Op(RenderOpKind.FinishCurrentView);
             if (CvBool(_in, RenderCvar.r_flashlightdepthtexture))
                 b.Op(RenderOpKind.ShadowUnlockDepthTextures);

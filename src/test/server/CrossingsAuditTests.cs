@@ -63,6 +63,22 @@ public class CrossingsAuditTests
     };
 
     /// <summary>
+    /// The ops the serialised ABI pass (2026-10-20) removed with their
+    /// bindings, before it renumbered <see cref="CrossingOp"/> once. None may
+    /// come back without the binding that counts it, which the equality fact
+    /// below also catches; this names them, so a restored member reads as what
+    /// it is.
+    /// </summary>
+    private static readonly string[] RemovedByTheAbiPass =
+    {
+        "ServerConsoleLine", "ClientConsoleLine",
+        "ServerSoundEntInsert", "ServerOnRespawn", "ServerGetPlayerRelationship", "ServerHierarchyEntityRemoved", "ServerHierarchyResolveParentNames",
+        "ServerTemplatesAddNamed", "ServerPropDataRandomChunkModel", "ServerOnFireAddHeatInRadius", "ServerOnEntityIgnite", "ServerOnRagdollMagnetForce", "ServerShellLessFindByName", "ServerShellLessFindByClassname", "ServerMoveSound", "ServerMoveSoundScript", "ServerPrecacheScriptSound",
+        "ClientOnCreateMove", "ClientRenderLeafList", "ClientRenderLeafViewModels",
+        "ClientLeafChangeRenderableRenderGroup", "ClientLeafAddShadow", "ClientLeafRemoveShadow", "ClientLeafProjectShadow", "ClientLeafProjectFlashlight", "ClientLeafEnumerateShadowsInLeaves",
+    };
+
+    /// <summary>
     /// Every <c>[UnmanagedCallersOnly]</c> method in <c>Entry.cs</c>, as
     /// (name, the text of its body from the opening brace on).
     ///
@@ -209,20 +225,16 @@ public class CrossingsAuditTests
         Assert.Equal(ops, counted);
     }
 
-    /// <summary>
-    /// The reader of the counters is not one of the things counted. A live gate
-    /// polling the report once a frame would otherwise find one crossing a frame
-    /// that nothing in the game does, and every budget would be a budget on the
-    /// instrument.
-    ///
-    /// <para>
-    /// The reader left Entry.cs for the client's managed-built
-    /// <c>DiagnosticsClientBinding</c> (plan_client_vtables CE9a), as the
-    /// server's did for <c>DiagnosticsBinding</c> (E14), so this reads the
-    /// binding methods: each must exist and count nothing. The body runs from
-    /// the signature to the next member, comments stripped.
-    /// </para>
-    /// </summary>
+    [Fact]
+    public void AnOpTheAbiPassRemovedIsNoMember()
+    {
+        var names = Enum.GetNames<CrossingOp>();
+
+        foreach (string op in RemovedByTheAbiPass)
+            Assert.DoesNotContain(op, names);
+        Assert.Contains("ClientTempEntPoolUpdate", names);   // the control: a live op, read the same way
+    }
+
     [Fact]
     public void CrossingsReportIsNotCounted()
     {

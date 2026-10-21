@@ -62,19 +62,6 @@ public interface IFwdBaseFileSystem
     uint FileSize(string fileName, string pathId);
 
     /// <summary>
-    /// When a file on a search path was last written, in seconds since the Unix
-    /// epoch, or 0 when it is not there.
-    ///
-    /// <para>
-    /// The engine's own answer is a <c>long</c> holding <c>st_mtime</c>, so this
-    /// is that number and not a <see cref="DateTime"/>: converting it here would
-    /// put a timezone and a calendar between the slot and the thing its answer
-    /// is compared against.
-    /// </para>
-    /// </summary>
-    long FileTime(string fileName, string pathId);
-
-    /// <summary>
     /// Whether a file is on a search path at all.
     ///
     /// <para>
@@ -184,17 +171,6 @@ public sealed unsafe class EngineBaseFileSystem : IFwdBaseFileSystem
         fixed (byte* n = name)
         fixed (byte* p = path)
             return _fwd->Size_2(_self, n, p);
-    }
-
-    /// <inheritdoc/>
-    public long FileTime(string fileName, string pathId)
-    {
-        byte[] name = Vtable.Utf8(fileName);
-        byte[] path = Vtable.Utf8(pathId);
-
-        fixed (byte* n = name)
-        fixed (byte* p = path)
-            return _fwd->GetFileTime(_self, n, p);
     }
 
     /// <inheritdoc/>

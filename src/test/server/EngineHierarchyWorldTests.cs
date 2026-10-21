@@ -160,12 +160,14 @@ public class EngineHierarchyWorldTests
                          .Select(m => m.Groups[1].Value)
                          .ToHashSet(StringComparer.Ordinal);
 
+        // Nine since the serialised ABI pass (2026-10-20) removed
+        // HierarchyEntityRemoved and HierarchyResolveParentNames with their ops.
         var counters = Enum.GetNames<CrossingOp>()
                            .Where(n => n.StartsWith("ServerHierarchy", StringComparison.Ordinal))
                            .Select(n => n["Server".Length..])
                            .ToHashSet(StringComparer.Ordinal);
 
-        Assert.Equal(11, slots.Count);
+        Assert.Equal(9, slots.Count);
         Assert.Equal(slots.OrderBy(s => s), counters.OrderBy(s => s));
     }
 

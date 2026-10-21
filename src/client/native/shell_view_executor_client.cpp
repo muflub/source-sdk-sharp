@@ -149,7 +149,7 @@ enum RenderOpKind_t
 	RENDER_OP_ShadowComputeDepthTextures = 12,
 	RENDER_OP_ShadowUnlockDepthTextures = 13,
 	RENDER_OP_ClientSystemsPreRender = 14,
-	RENDER_OP_ClientSystemsPostRender = 15,
+	// 15 was ClientSystemsPostRender (serialised ABI pass, 2026-10-20); not reused.
 	RENDER_OP_ViewSetupVisEx = 16,
 	RENDER_OP_ClearColorToFogIfRadialVis = 17,
 	RENDER_OP_SetClearColorToFogColor = 18,
@@ -1363,7 +1363,6 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_ShadowComputeDepthTextures: ShellShadows_ComputeShadowDepthTextures( setup ); break;
 		case RENDER_OP_ShadowUnlockDepthTextures: ShellShadows_UnlockAllShadowDepthTextures(); break;
 		case RENDER_OP_ClientSystemsPreRender: SourceSharp_ClientSystemsPreRender(); break;
-		case RENDER_OP_ClientSystemsPostRender: SourceSharp_ClientSystemsPostRender(); break;
 		case RENDER_OP_ViewSetupVisEx:
 		{
 			Vector origin( op.F[0], op.F[1], op.F[2] );

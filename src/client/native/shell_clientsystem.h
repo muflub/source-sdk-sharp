@@ -58,7 +58,6 @@
 //   LevelShutdownPostEntity     SourceSharp_ClientSystemsLevelShutdownPostEntity
 //   PreRender                   SourceSharp_ClientSystemsPreRender
 //   Update                      SourceSharp_ClientSystemsUpdate
-//   PostRender                  SourceSharp_ClientSystemsPostRender
 //
 //=============================================================================
 // FOUR OF STOCK'S STAGES ARE ABSENT, and each one is a MEASUREMENT rather than
@@ -97,14 +96,13 @@
 // callback.
 //
 //=============================================================================
-// AND ONE STAGE IS KEPT WITH ITS MEASUREMENT WRITTEN DOWN
+// AND A FIFTH, PostRender, WENT LAST
 //
-// PostRender has a driver (the render plan's ClientSystemsPostRender op) and
-// NO non-empty body in the whole client. Its one, CToolFrameworkClient's
-// `if ( m_pTools ) m_pTools->PostRenderAllTools()`, was deleted with the tool
-// framework: SFM is dead (user ruling 2026-10-19). The stage walks the table
-// and reaches nothing; it is recorded here because "wired" and "does
-// something" are not the same claim and Phase 7a paid for the difference.
+// It had a driver (the render plan's ClientSystemsPostRender op) and NO
+// non-empty body in the whole client once CToolFrameworkClient's
+// `if ( m_pTools ) m_pTools->PostRenderAllTools()` was deleted with the tool
+// framework (SFM is dead, user ruling 2026-10-19). The stage, its walk and the
+// op left in the serialised ABI pass (2026-10-20).
 //
 //=============================================================================
 
@@ -186,7 +184,6 @@ public:
 
 	virtual void PreRender() {}
 	virtual void Update( float frametime ) { NOTE_UNUSED( frametime ); }
-	virtual void PostRender() {}
 };
 
 //-----------------------------------------------------------------------------
@@ -232,7 +229,6 @@ void SourceSharp_ClientSystemsLevelShutdownPostEntity( void );
 
 void SourceSharp_ClientSystemsPreRender( void );
 void SourceSharp_ClientSystemsUpdate( float frametime );
-void SourceSharp_ClientSystemsPostRender( void );
 
 // What the table holds, so a test can read the list the client is actually
 // running rather than a copy of it.

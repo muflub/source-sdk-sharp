@@ -81,25 +81,6 @@ public interface IEngineFrame
     void SetFrameTime(float frameTime);
 
     /// <summary>
-    /// Stamps the rollback-independent server clock for this frame. Read by
-    /// CBaseProjectile's collide-with-teammates think, which is why it is not
-    /// just curtime at the point of use.
-    /// </summary>
-    void SetServerCurTime();
-
-    /// <summary>
-    /// Every entity's think for this frame. Between the two system passes,
-    /// which is the whole reason they are named Pre- and PostEntityThink.
-    /// </summary>
-    void PhysicsRunThinkFunctions(bool simulating);
-
-    /// <summary>
-    /// Fires every entity I/O whose time has come. After the think pass, so an
-    /// output written this frame is delivered this frame.
-    /// </summary>
-    void ServiceEventQueue();
-
-    /// <summary>
     /// Refreshes every connected client's per-frame data. Stock's comment here
     /// is "FIXME: Should this only occur on the final tick?", carried across
     /// unanswered — answering an open question inside a transliteration would
@@ -122,12 +103,6 @@ public interface IEngineFrame
     /// </summary>
     void EndGameFrame();
 
-    /// <summary>
-    /// Fires the timed network-property events. Stock's comment: "Any entities
-    /// that detect network state changes on a timer do it here."
-    /// </summary>
-    void FireNetworkPropertyEvents();
-
     /// <summary>Services the stats uploader's connection.</summary>
     void GamestatsUpdateConnection();
 
@@ -146,50 +121,11 @@ public interface IEngineFrame
     void StandalonePlayerCommands();
 
     /// <summary>
-    /// The parallel hierarchy's touch links, movement and flight — everything a
-    /// think should see the CURRENT frame's answer to.
-    ///
-    /// <para>
-    /// The first half of what was one <c>StandaloneRunFrame</c> step. Step 1g
-    /// took the thinks out of it: they are managed now
-    /// (<see cref="EntityDirectory.RunFrame"/>) and they run BETWEEN this and
-    /// <see cref="StandaloneFinish"/>. That is the whole reason it is two
-    /// steps — the order around the thinks is load-bearing in both directions,
-    /// and <c>shell_standalone_base.cpp</c> argues each half.
-    /// </para>
-    /// </summary>
-    void StandaloneUpdate();
-
-    /// <summary>
     /// The parallel hierarchy's attachment composition and deferred deletes —
     /// everything that has to see what the thinks did. The second half; see
     /// <see cref="StandaloneUpdate"/>.
     /// </summary>
     void StandaloneFinish();
-
-    /// <summary>
-    /// THE SDK HIERARCHY'S HALF OF ONE ENTITY I/O DELIVERY — the sub-ioqueue
-    /// lane. Answers how many SDK entities took the input.
-    ///
-    /// <para>
-    /// NOT a frame step. The managed I/O queue asks it for ONE event, and only
-    /// when the managed directory answered nothing at all — so nothing can be
-    /// delivered twice, and an idle frame never calls it. It exists because the
-    /// compiled stock TUs still construct <c>CEntityDissolve</c>,
-    /// <c>CRagdollProp</c>, <c>CRagdollBoogie</c> and
-    /// <c>CPhysicsEntitySolver</c> at runtime, those are on the other
-    /// hierarchy, and <c>CEventQueue::ServiceEvents</c> used to be the one
-    /// thing that reached them.
-    /// </para>
-    ///
-    /// <para>
-    /// The activator does not cross: <c>AcceptInput</c> takes a
-    /// <c>CBaseEntity *</c> and a managed activator has none to be, which is
-    /// the degrade <c>activator.h</c> already describes and which the native
-    /// queue already made.
-    /// </para>
-    /// </summary>
-    int DeliverToSdkEntities(string target, string input, string? value);
 
     /// <summary>
     /// One <c>NetworkStateChanged</c> per entity whose managed state was written

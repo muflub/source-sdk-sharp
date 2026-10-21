@@ -319,9 +319,6 @@ public interface IEngineGameEvents
     /// <inheritdoc cref="EngineSide.EventSetInt"/>
     void EventSetInt(IntPtr handle, string key, int value);
 
-    /// <inheritdoc cref="EngineSide.EventSetFloat"/>
-    void EventSetFloat(IntPtr handle, string key, float value);
-
     /// <inheritdoc cref="EngineSide.EventSetBool"/>
     void EventSetBool(IntPtr handle, string key, bool value);
 
@@ -331,8 +328,6 @@ public interface IEngineGameEvents
     /// <summary>Fires an event (the engine's FireEvent, which frees it); whether the engine took it.</summary>
     bool EventFire(IntPtr handle);
 
-    /// <summary>Frees an event that was created and will not be fired.</summary>
-    void EventFree(IntPtr handle);
 }
 
 /// <summary>
@@ -355,9 +350,6 @@ public interface IEngineNetworking
 
     /// <inheritdoc cref="EngineSide.GetEntityBlob"/>
     Span<byte> GetEntityBlob(EntityHandle h);
-
-    /// <inheritdoc cref="EngineSide.MarkEntityStateChanged"/>
-    void MarkEntityStateChanged(EntityHandle h);
 
     /// <inheritdoc cref="EngineSide.MarkEntityBlockChanged"/>
     void MarkEntityBlockChanged(EntityHandle h, int blockOffset);
