@@ -223,7 +223,7 @@ Then the render recorder gained the shadowmgr. hook family (C7 shadow manager S0
 
 Then clientshadowmgr.cpp, the last Valve TU, left client.so (C7 shadow manager S2, 2026-10-20, measured by the walk at the landing on main 29ec64f57): (a) 33,710 -> 34,533 and client 32 -> 31 files is shell_shadows_client.cpp (the environment ShadowNative carries the calls out over), the pending queue and the shells re-pointed, net of what went; (d) 9,159 -> 9,496 is the shadow block's layout; (g) 16 -> 15 files and 9,345 -> 5,889 is collisionutils.cpp, deleted with the mathlib forwards only the manager imported; (x) 19 -> 18 files is shell_tools_off_client.cpp, deleted (its row in the no-letter table goes); (b) +14 and (c) +3 follow; 215 files and 84,438 lines in the table.
 
-Then the standalone teleport stopped sweeping triggers (2026-10-20, the walk at ca653e871's successor): (a) 34,533 -> 34,546 (CStandaloneEntity::TeleportTo and the funnel's flag in shell_standalone_base.cpp/shell_standalone.h) and (d) 9,496 -> 9,487 (SourceSharp_EntityTeleport's two setter calls and their comment, in shell_entityapi.cpp).
+Then the standalone teleport stopped sweeping triggers (2026-10-20, the walk at 44b552294): (a) 34,533 -> 34,546 (CStandaloneEntity::TeleportTo and the funnel's flag in shell_standalone_base.cpp/shell_standalone.h) and (d) 9,496 -> 9,487 (SourceSharp_EntityTeleport's two setter calls and their comment, in shell_entityapi.cpp).
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
