@@ -127,8 +127,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         int areas = _engine.AddTo(_services);
 
-        // The engine interfaces this module calls itself, as AddTo registered
-        // them: never null, each acquired at its first call.
+        // The engine interfaces this module calls itself, as AddTo acquired
+        // and registered them: never null.
         _engineServer = _services.Require<IFwdEngineServer>();
         _surfaceProps = _services.Require<IFwdPhysicsSurfaceProps>();
 

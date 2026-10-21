@@ -336,8 +336,8 @@ internal sealed unsafe partial class EngineFiles : IEngineFiles
 {
     private readonly IEngineArea _engineBaseArea;
 
-    // The side's filesystem, as its composition registered it: acquired at
-    // its first call, never null. A fact hands a named one, so the -1 rule
+    // The side's filesystem, as its composition acquired and registered it,
+    // never null. A fact hands a named one, so the -1 rule
     // below is driven at the site that owns it (a mutation arm that dropped
     // the exists question stayed GREEN against a fact written on the impl
     // pair, because that fact never reached this member).

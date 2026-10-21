@@ -1,12 +1,10 @@
 namespace SourceSharp.Abi;
 
 // THE CLIENT'S OWN ENGINE INTERFACES, bound on first use like the shared ones
-// (EngineBound.cs): IVEngineClient and IEngineSound's client spelling exist
-// only in client.so, and IInputSystem is asked for by the client alone. They
-// exist once the client DLL is up, which is after the module registers what
-// it composes, so a consumer is handed a forwarder that acquires on its first
-// call (BoundForwarders.Client.cs) and throws, naming the interface, if the
-// engine refuses it.
+// (EngineBound.cs): IVEngineClient and IEngineSound's client spelling are the
+// client's, and IInputSystem is asked for by the client alone. The composition
+// acquires them as it registers them (EngineServices.Client.cs), inside
+// CShellClientDLL::Init, which holds the engine's factory by then.
 
 internal sealed partial class EngineBoundSet
 {

@@ -2,17 +2,17 @@ namespace SourceSharp.Abi;
 
 public static partial class EngineServices
 {
-    // The server's own engine interfaces (BoundForwarders.Server.cs, and the
-    // shared file's IVEngineServer, whose acquirer EngineServerBinding installs).
+    // The server's own engine interfaces: IVEngineServer (whose acquirer
+    // EngineServerBinding installs) and its slices, the save allocator and
+    // the area portal records' three calls, the same object; the engine
+    // sound and the filesystem.
     static partial void AddSideForwarders(ServiceContainer services, EngineSide side)
     {
-        // And its slices, the same object: the save allocator and the area
-        // portal records' three calls.
-        var server = new BoundEngineServer(side);
-        services.AddInstance<IFwdEngineServer>(server);
-        services.AddInstance<ISaveMemory>(server);
-        services.AddInstance<SourceSharp.Server.Interop.IAreaPortalEngine>(server);
-        services.AddInstance<IFwdEngineSoundServer>(new BoundSoundServer(side));
-        services.AddInstance<IFwdFileSystem>(new BoundFileSystem(side));
+        IFwdEngineServer server = EngineBound.Server(side);
+        services.AddInstance(server);
+        services.AddInstance(Slice<ISaveMemory>(server));
+        services.AddInstance(Slice<SourceSharp.Server.Interop.IAreaPortalEngine>(server));
+        services.AddInstance(EngineBound.SoundServer(side));
+        services.AddInstance(EngineBound.FileSystem(side));
     }
 }

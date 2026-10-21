@@ -177,21 +177,6 @@ public sealed unsafe class ClientInputHostTests
         Assert.Equal("engineClient", refusal.ParamName);
     }
 
-    /// <summary>
-    /// An engine that does not serve IVEngineClient: the host is built (its
-    /// engine client is the registered one, acquired at its first call), and
-    /// that first call throws, naming the interface, rather than answering
-    /// defaults for an engine client nobody has.
-    /// </summary>
-    [Fact]
-    public void AnEngineWithNoEngineClientThrowsAtTheFirstCallNamingIt()
-    {
-        IInputHost host = Composed(new ModuleEngine(TestSides.WithoutForwarders(Side.Client)));
-
-        var refusal = Assert.Throws<InterfaceAcquisitionException>(() => host.IsPaused);
-        Assert.Contains(EngineClient.InterfaceVersion, refusal.Message);
-    }
-
     private sealed class NullConsole : IEngineConsole
     {
         public void Msg(string message) { }

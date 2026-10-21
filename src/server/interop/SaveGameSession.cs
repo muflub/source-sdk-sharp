@@ -64,8 +64,8 @@ public sealed unsafe class SaveGameSession
     private byte* BlobChunkName => _blobChunk != null ? _blobChunk : _blobChunk = SaveBlockSession.NativeName("BLOB");
 
     /// <summary>
-    /// A session over the engine's allocator: the side's registered one, which
-    /// asks the engine at its first call (at SaveInit), not when the module is built.
+    /// A session over the engine's allocator: the side's registered one, the
+    /// engine server the composition acquired.
     /// </summary>
     public SaveGameSession(ILog log, ISaveMemory memory)
     {

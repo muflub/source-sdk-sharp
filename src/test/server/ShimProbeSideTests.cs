@@ -70,7 +70,7 @@ public sealed unsafe class ShimProbeSideTests
     [Fact]
     public void TheLevelProbeSaysWhenTheObjectIsServedAndItsForwardersAreNot()
     {
-        string answer = Level(_ => { });
+        string answer = Level(root => root.Refuse(ShimLevelFwd.TableName));
 
         Assert.StartsWith("IShimLevel: bound, but its forwarders are REFUSED — ", answer);
         Assert.Contains(ShimLevelFwd.TableName, answer);

@@ -51,8 +51,7 @@ public sealed unsafe class SaveRestoreClientBindingTests : IDisposable
     }
 
     /// <summary>The engine's allocator: what IVEngineClient::SaveAllocMemory answers, recorded.</summary>
-    // An engine that refuses IVEngineClient: the registered allocator throws
-    // at its first call, as a bound slot does.
+    // An allocator that throws: an engine fault in the middle of a save.
     private sealed class RefusedMemory : ISaveMemory
     {
         public void* SaveAlloc(nuint count, nuint size) => throw new InvalidOperationException("boom");

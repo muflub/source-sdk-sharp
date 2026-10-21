@@ -95,25 +95,36 @@ public static partial class EngineServices
     }
 
     /// <summary>
-    /// The engine interfaces, non-null. Each is a forwarder over the side's
-    /// bound slot (BoundForwarders.cs), which acquires on its first call: most
-    /// exist only once the side's DLL is up, after this registration, so
-    /// registering asks the engine nothing. A consumer is handed the interface
-    /// by constructor and never checks it for null; a refusal throws at the
-    /// call, naming the interface.
+    /// The engine interfaces, non-null: each acquired now through the side's
+    /// bound slot (<see cref="EngineBound"/>) and registered as the object the
+    /// slot holds. A side composes after its root is attached, inside the
+    /// game DLL's Init, which has the engine's factories by then (both shells
+    /// store them before they load managed), so every interface is there to
+    /// acquire. One the engine refuses fails the composition here, naming it,
+    /// as native's Init refuses to start without one. A consumer is handed
+    /// the interface by constructor and never checks it for null.
     /// </summary>
     internal static void AddForwarders(ServiceContainer services, EngineSide side)
     {
-        services.AddInstance<IUniformRandom>(new BoundRandom(side));
-        services.AddInstance<IFwdSoundEmitter>(new BoundSoundEmitter(side));
-        var surfaces = new BoundSurfaceProps(side);
-        services.AddInstance<IFwdPhysicsSurfaceProps>(surfaces);
-        services.AddInstance<IVPhysicsSurfaceSounds>(surfaces);
-        services.AddInstance<IFwdBaseFileSystem>(new BoundBaseFileSystem(side));
-        services.AddInstance<IFwdModelInfo>(new BoundModelInfo(side));
-        services.AddInstance<IFwdDebugOverlay>(new BoundDebugOverlay(side));
+        services.AddInstance(EngineBound.Random(side));
+        services.AddInstance(EngineBound.SoundEmitter(side));
+        IFwdPhysicsSurfaceProps surfaces = EngineBound.SurfaceProps(side);
+        services.AddInstance(surfaces);
+        services.AddInstance(Slice<IVPhysicsSurfaceSounds>(surfaces));
+        services.AddInstance(EngineBound.Files(side));
+        services.AddInstance(EngineBound.ModelInfo(side));
+        services.AddInstance(EngineBound.DebugOverlay(side));
         AddSideForwarders(services, side);
     }
+
+    /// <summary>
+    /// One of the engine's slices that the same object answers (the save
+    /// allocator on the engine server and client, the surface sounds on the
+    /// surface table): the wrapper implements it, and so does a test default.
+    /// </summary>
+    internal static T Slice<T>(object engine) where T : class
+        => engine as T ?? throw new InvalidOperationException(
+               $"{engine.GetType().Name} does not answer {typeof(T).Name}, the slice of it a composition registers");
 
     /// <summary>The side's own engine interfaces, as <see cref="AddForwarders"/> registers the shared ones.</summary>
     static partial void AddSideForwarders(ServiceContainer services, EngineSide side);

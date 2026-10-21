@@ -242,12 +242,16 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   answers yes, and hid in tests what a missing engine really does.
 - **Engine interfaces (`IFwd*`, `IUniformRandom` and the slices the same
   objects answer) are injected, never null** (user ruling 2026-10-20).
-  `EngineServices.AddForwarders` registers a forwarder over each side's bound
-  slot (`BoundForwarders*.cs`), before the area bindings; it asks the engine
-  at its first call and throws there, naming the interface. A consumer takes
-  the interface by constructor: no `Func<IFwdX?>`, no null branch, no public
-  `Acquire` answering null. A test side holds defaults that answer nothing
-  (`src/test/support/DefaultForwarders.cs`) until a fake root is attached.
+  `EngineServices.AddForwarders` acquires each through the side's bound slot
+  and registers the object the slot holds, before the area bindings. A side
+  composes after its root is attached, inside the game DLL's Init, which
+  holds the engine's factories by then, so one the engine refuses fails the
+  composition there, naming it. A consumer takes the interface by
+  constructor: no `Func<IFwdX?>`, no null branch, no public `Acquire`
+  answering null. A test side holds defaults that answer nothing
+  (`src/test/support/DefaultForwarders.cs`); a fake root serves every engine
+  interface and forwarder table with default slots, as it serves the areas,
+  and a fact refuses one with `FakeShimRoot.Refuse`.
   Only the acquisition layer (each wrapper's internal `Acquire`, the bound
   slots) sees a null; `NullableEngineInterfaceCensus` holds that over both
   sides' assemblies. A diagnostic that reports a refusal asks through a probe

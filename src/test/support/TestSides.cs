@@ -17,6 +17,12 @@ internal static class TestSides
     public static EngineSide Create(Side side, SideState state)
     {
         EngineSide engine = WithoutForwarders(side, state);
+#if TEST_SUPPORT_SERVER
+        // As the server's load does before anything can ask (SideLoad's
+        // bindSide): the server interop composes every side it builds, so the
+        // slot carries IVEngineServer's acquirer across a fact's attach.
+        EngineServerBinding.Bind(engine);
+#endif
         DefaultForwarders.HoldOn(engine);
         return engine;
     }

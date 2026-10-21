@@ -82,7 +82,7 @@ public sealed class AreaPortals : IAreaPortals, IGameLifecycle, ISaveCustom
     private readonly Dictionary<uint, Record> _byToken = new();
     private uint _lastToken;
 
-    /// <param name="engine">IVEngineServer's portal calls: the side's registered ones, acquired at their first call.</param>
+    /// <param name="engine">IVEngineServer's portal calls: the side's registered ones (the engine server).</param>
     public AreaPortals(IAreaPortalEngine engine) => _engine = engine;
 
     /// <summary>How many records there are; the debug readout's and the facts' count.</summary>

@@ -146,7 +146,9 @@ public class EngineBoundTests
         // IVEngineServer" from every IsDedicatedServer and level init.
         var side = TestSides.Create(Side.Server);
         EngineServerBinding.Bind(side);
-        using var root = new FakeShimRoot();
+        // A root that refuses IVEngineServer, so the acquire's answer says
+        // where it was asked: the factory, not an unbound slot.
+        using var root = new FakeShimRoot().Refuse(EngineServer.InterfaceVersion);
 
         Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 

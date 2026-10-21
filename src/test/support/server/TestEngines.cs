@@ -13,8 +13,8 @@ internal static class TestEngines
     /// <summary>A new server side over the default areas, and its engine container.</summary>
     public static (ServiceContainer Engine, ServerEntityEngine Side) Server()
     {
+        // TestSides binds IVEngineServer's acquirer, as the game's load does.
         var side = TestSides.Create(Side.Server);
-        EngineServerBinding.Bind(side);
         var engine = new ServiceContainer();
 
         // The render binding takes the side's mirror in its constructor.

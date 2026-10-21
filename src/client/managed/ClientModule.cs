@@ -80,9 +80,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     /// <summary>
     /// This composition's <c>IVEngineClient</c> and input system, as AddTo
-    /// registered them over its own engine (plan_abi_hotreload D8): never
-    /// null, each acquired at its first call, so the services built here are
-    /// handed them before client.so serves them.
+    /// acquired and registered them over its own engine (plan_abi_hotreload
+    /// D8): never null.
     /// </summary>
     private IFwdEngineClient _engineClient = null!;
 

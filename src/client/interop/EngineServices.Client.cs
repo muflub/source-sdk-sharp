@@ -2,17 +2,17 @@ namespace SourceSharp.Abi;
 
 public static partial class EngineServices
 {
-    // The client's own engine interfaces (BoundForwarders.Client.cs).
+    // The client's own engine interfaces: IVEngineClient and its slices, the
+    // Steam launch's connect, the save allocator and the input host's engine
+    // calls, the same object; the input system and the engine sound.
     static partial void AddSideForwarders(ServiceContainer services, EngineSide side)
     {
-        // And its slices, the same object: the Steam launch's connect, the
-        // save allocator and the input host's engine calls.
-        var client = new BoundEngineClient(side);
-        services.AddInstance<IFwdEngineClient>(client);
-        services.AddInstance<ISteamLaunchCommands>(client);
-        services.AddInstance<ISaveMemory>(client);
-        services.AddInstance<Client.Input.IClientInputEngine>(client);
-        services.AddInstance<IFwdInputSystem>(new BoundInputSystem(side));
-        services.AddInstance<IFwdEngineSoundClient>(new BoundSoundClient(side));
+        IFwdEngineClient client = EngineBound.Client(side);
+        services.AddInstance(client);
+        services.AddInstance(Slice<ISteamLaunchCommands>(client));
+        services.AddInstance(Slice<ISaveMemory>(client));
+        services.AddInstance(Slice<Client.Input.IClientInputEngine>(client));
+        services.AddInstance(EngineBound.InputSystem(side));
+        services.AddInstance(EngineBound.SoundClient(side));
     }
 }

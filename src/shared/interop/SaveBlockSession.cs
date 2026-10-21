@@ -196,9 +196,8 @@ public sealed unsafe class SaveBlockSession
     private byte* Unnamed => _unnamed != null ? _unnamed : _unnamed = NativeName("<unnamed>");
 
     /// <summary>
-    /// A session over the engine's allocator. The composition hands the
-    /// side's registered one, which asks the engine at its first call (at
-    /// SaveInit), not when the module is built.
+    /// A session over the engine's allocator: the side's registered one,
+    /// which the composition acquired with the engine client or server.
     /// <paramref name="traceBlocks"/> narrates every field block (the
     /// server's few dozen); SaveInit and every refusal are always said.
     /// </summary>
