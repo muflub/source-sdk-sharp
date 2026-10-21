@@ -336,7 +336,6 @@ internal sealed unsafe class ConsoleServerArea : IConsoleServerArea
 internal unsafe interface IEventsServerArea : IEventsArea
 {
     void EventSetInt(IntPtr a0, byte* a1, int a2);
-    void EventSetFloat(IntPtr a0, byte* a1, float a2);
     void EventSetBool(IntPtr a0, byte* a1, int a2);
     void EventSetString(IntPtr a0, byte* a1, byte* a2);
 }
@@ -355,7 +354,6 @@ internal sealed unsafe class EventsServerArea : EventsArea, IEventsServerArea
     }
 
     public void EventSetInt(IntPtr a0, byte* a1, int a2) { _shim.Table->EventSetInt(_shim.Self, (void*)a0, a1, a2); }
-    public void EventSetFloat(IntPtr a0, byte* a1, float a2) { _shim.Table->EventSetFloat(_shim.Self, (void*)a0, a1, a2); }
     public void EventSetBool(IntPtr a0, byte* a1, int a2) { _shim.Table->EventSetBool(_shim.Self, (void*)a0, a1, a2); }
     public void EventSetString(IntPtr a0, byte* a1, byte* a2) { _shim.Table->EventSetString(_shim.Self, (void*)a0, a1, a2); }
 }
@@ -368,7 +366,6 @@ internal unsafe interface INetworkServerArea : INetworkArea
 {
     void* EntityGetDataBlob(uint a0, int* a1);
     void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3);
-    void EntityMarkStateChanged(uint a0);
     void EntityMarkBlockChanged(uint a0, int a1);
     int EntityPayloadAgreement(uint a0, int* a1, int* a2);
     void* EntityGetEngineBlock(uint a0, int* a1);
@@ -390,7 +387,6 @@ internal sealed unsafe class NetworkServerArea : NetworkArea, INetworkServerArea
 
     public void* EntityGetDataBlob(uint a0, int* a1) { return _shim.Table->EntityGetDataBlob(_shim.Self, a0, a1); }
     public void* EntityBindBlob(uint a0, int* a1, EntitySlot** a2, uint* a3) { return _shim.Table->EntityBindBlob(_shim.Self, a0, a1, a2, a3); }
-    public void EntityMarkStateChanged(uint a0) { _shim.Table->EntityMarkStateChanged(_shim.Self, a0); }
     public void EntityMarkBlockChanged(uint a0, int a1) { _shim.Table->EntityMarkBlockChanged(_shim.Self, a0, a1); }
     public int EntityPayloadAgreement(uint a0, int* a1, int* a2) { return _shim.Table->EntityPayloadAgreement(_shim.Self, a0, a1, a2); }
     public void* EntityGetEngineBlock(uint a0, int* a1) { return _shim.Table->EntityGetEngineBlock(_shim.Self, a0, a1); }
@@ -884,7 +880,6 @@ internal unsafe interface IDebugOverlayArea
     int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7);
     void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6);
     void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4);
-    void OverlayResetCounts();
 }
 
 /// <summary>
@@ -899,7 +894,6 @@ internal sealed unsafe class DebugOverlayArea : IDebugOverlayArea
     public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { return _shim.Table->DrawEntityOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { _shim.Table->AddLineOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { _shim.Table->OverlayCounts(_shim.Self, a0, a1, a2, a3, a4); }
-    public void OverlayResetCounts() { _shim.Table->OverlayResetCounts(_shim.Self); }
 }
 
 /// <summary>
@@ -1022,7 +1016,6 @@ internal unsafe interface ITempEntPoolClientArea
     int TempEntPoolReadLife(int a0, TempEntLife* a1);
     int TempEntPoolReadStatics(int a0, TempEntStatics* a1);
     int TempEntPoolReadTransform(int a0, TempEntTransform* a1);
-    int TempEntPoolSimulate(int a0, float a1, int a2);
     int TempEntPoolWriteLife(int a0, TempEntLife* a1);
     int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1);
     int TempEntPoolWriteTransform(int a0, TempEntTransform* a1);
@@ -1047,7 +1040,6 @@ internal sealed unsafe class TempEntPoolClientArea : ITempEntPoolClientArea
     public int TempEntPoolReadLife(int a0, TempEntLife* a1) { return _shim.Table->TempEntPoolReadLife(_shim.Self, a0, a1); }
     public int TempEntPoolReadStatics(int a0, TempEntStatics* a1) { return _shim.Table->TempEntPoolReadStatics(_shim.Self, a0, a1); }
     public int TempEntPoolReadTransform(int a0, TempEntTransform* a1) { return _shim.Table->TempEntPoolReadTransform(_shim.Self, a0, a1); }
-    public int TempEntPoolSimulate(int a0, float a1, int a2) { return _shim.Table->TempEntPoolSimulate(_shim.Self, a0, a1, a2); }
     public int TempEntPoolWriteLife(int a0, TempEntLife* a1) { return _shim.Table->TempEntPoolWriteLife(_shim.Self, a0, a1); }
     public int TempEntPoolWriteSpawn(int a0, TempEntSpawn* a1) { return _shim.Table->TempEntPoolWriteSpawn(_shim.Self, a0, a1); }
     public int TempEntPoolWriteTransform(int a0, TempEntTransform* a1) { return _shim.Table->TempEntPoolWriteTransform(_shim.Self, a0, a1); }
@@ -1199,9 +1191,8 @@ internal unsafe interface IStandaloneClientArea
     void StandaloneSetCustomDraw(uint a0, float* a1, float* a2);
     void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4);
     void StandaloneSetOverlayModel(uint a0, int a1);
-    void StandaloneSetShadowCast(uint a0, int a1);
     void StandaloneSetViewModel(uint a0, int a1);
-    int StandaloneShadowCast(uint a0, int* a1, int* a2);
+    int StandaloneShadowCast(uint a0, int* a1);
     void SurfaceSetEdges(uint a0, byte* a1, int a2);
     int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10);
     int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7);
@@ -1231,9 +1222,8 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetCustomDraw(uint a0, float* a1, float* a2) { _shim.Table->StandaloneSetCustomDraw(_shim.Self, a0, a1, a2); }
     public void StandaloneSetFade(uint a0, int a1, float a2, float a3, float a4) { _shim.Table->StandaloneSetFade(_shim.Self, a0, a1, a2, a3, a4); }
     public void StandaloneSetOverlayModel(uint a0, int a1) { _shim.Table->StandaloneSetOverlayModel(_shim.Self, a0, a1); }
-    public void StandaloneSetShadowCast(uint a0, int a1) { _shim.Table->StandaloneSetShadowCast(_shim.Self, a0, a1); }
     public void StandaloneSetViewModel(uint a0, int a1) { _shim.Table->StandaloneSetViewModel(_shim.Self, a0, a1); }
-    public int StandaloneShadowCast(uint a0, int* a1, int* a2) { return _shim.Table->StandaloneShadowCast(_shim.Self, a0, a1, a2); }
+    public int StandaloneShadowCast(uint a0, int* a1) { return _shim.Table->StandaloneShadowCast(_shim.Self, a0, a1); }
     public void SurfaceSetEdges(uint a0, byte* a1, int a2) { _shim.Table->SurfaceSetEdges(_shim.Self, a0, a1, a2); }
     public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) { return _shim.Table->ClientRecvProp(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
     public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) { return _shim.Table->ClientSchemaRefusal(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
@@ -1405,7 +1395,6 @@ internal unsafe interface IUiClientArea
     int UiFontCreate(byte* a0, int a1, int a2, int a3);
     void UiFontMetrics(int a0, int* a1, int* a2);
     int UiFontAdvances(int a0, int a1, int a2, int* a3);
-    void UiScreenSize(int* a0, int* a1);
     void UiPlaySound(byte* a0);
     void UiSetMenuInput(int a0, int a1);
     void UiSetCursor(int a0);
@@ -1438,7 +1427,6 @@ internal sealed unsafe class UiClientArea : IUiClientArea
     public int UiFontCreate(byte* a0, int a1, int a2, int a3) { return _shim.Table->UiFontCreate(_shim.Self, a0, a1, a2, a3); }
     public void UiFontMetrics(int a0, int* a1, int* a2) { _shim.Table->UiFontMetrics(_shim.Self, a0, a1, a2); }
     public int UiFontAdvances(int a0, int a1, int a2, int* a3) { return _shim.Table->UiFontAdvances(_shim.Self, a0, a1, a2, a3); }
-    public void UiScreenSize(int* a0, int* a1) { _shim.Table->UiScreenSize(_shim.Self, a0, a1); }
     public void UiPlaySound(byte* a0) { _shim.Table->UiPlaySound(_shim.Self, a0); }
     public void UiSetMenuInput(int a0, int a1) { _shim.Table->UiSetMenuInput(_shim.Self, a0, a1); }
     public void UiSetCursor(int a0) { _shim.Table->UiSetCursor(_shim.Self, a0); }

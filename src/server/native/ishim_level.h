@@ -54,22 +54,6 @@ public:
 	// LEVELINIT'S STEPS, in the fill's order.
 	//-------------------------------------------------------------------------
 
-	// SS_RETIRED ResetServerTime lane=t6-globals g_flServerCurTime had no reader (baseprojectile.cpp is in neither DLL); managed no longer calls it
-	// Was g_flServerCurTime = gpGlobals->curtime at the new map. Empty; slot
-	// kept at its index (slot 0) until the table's next --reorder pass.
-	virtual void ResetServerTime() = 0;
-
-	// The particle manifest, and then the map's own. TWO steps because they are
-	// two calls doing two things -- stock's are two lines and a step that ran
-	// both would be a decision about their order.
-	virtual void ParseParticleManifest() = 0;
-	virtual void ParseParticleManifestForMap( const char *pMapName ) = 0;
-
-	// RETIRED (plan_server_novalve.md P5): the map's entity residue as text,
-	// parsed here. The world now arrives parsed through SpawnWorld at the tail;
-	// this slot keeps its index and refuses out loud.
-	virtual void ParseAllEntities( const char *pMapEntities ) = 0;
-
 	// The point_templates' contents, precached.
 	//
 	// THE BODY IS EMPTY AND THE SLOT IS NOT RETIRED, which is a distinction
@@ -100,40 +84,13 @@ public:
 	// SERVERACTIVATE'S AND LEVELSHUTDOWN'S STEPS.
 	//-------------------------------------------------------------------------
 
-	// SS_RETIRED ResetDeleteList lane=3b-enginebind armed there is no SDK delete list, so the count is a constant 0 and asking costs a crossing per level
-	// How many entities the delete list held when it was reset. Armed the
-	// answer cannot be anything but 0; the parallel hierarchy's own count is
-	// EntityDirectory.PendingRemovalCount, which is managed and free to read.
-	virtual int32_t ResetDeleteList() = 0;
-
-	// SS_RETIRED ActivateAllEntities lane=3b-enginebind every line of stock's walk reaches the hierarchy server_csharp.vpc evicts; _spawner.ActivateAll() is the whole pass
-	virtual void ActivateAllEntities() = 0;
-
 	virtual void SetPrecacheAllowed( int32_t bAllowed ) = 0;
-
-	virtual void ClearSteamAPIContext() = 0;
 
 	// The parallel hierarchy's teardown, before the SDK entity list is cleared.
 	virtual void ShutdownStandaloneEntities() = 0;
 
 	virtual void ShutdownSoundEnt() = 0;
 	virtual void ClearEntityList() = 0;
-
-	// Uncache, then rebuild. Stock's reason for the first, in its own words:
-	// otherwise every particle system leaks into the particle precache string
-	// table on every change of level.
-	virtual void UncacheAllParticleSystems() = 0;
-	virtual void RecreateParticleDictionary() = 0;
-
-	//-------------------------------------------------------------------------
-	// CPropData'S TWO REMAINING NATIVE STEPS. On this interface rather than an
-	// IShimPropData of their own because they are LEVEL steps: the load is
-	// LevelInitPreEntity's and the clear is LevelShutdownPostEntity's, and an
-	// area with two members whose whole lifecycle is another area's is a
-	// taxonomy nobody asked for.
-	//-------------------------------------------------------------------------
-	virtual void PropDataLoadFile() = 0;
-	virtual void PropDataClearFile() = 0;
 
 	//-------------------------------------------------------------------------
 	// THE SAVEGAME ARM'S ONE STEP -- docs/managed-saverestore.md stage 2.

@@ -99,7 +99,6 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual bool TempEntPoolWriteTransform(int slot, in TempEntTransform transform) => Inner.TempEntPoolWriteTransform(slot, in transform);
     public virtual float CurrentGravity() => Inner.CurrentGravity();
     public virtual bool ClientEntityOrigin(int entityIndex, out Vector origin) => Inner.ClientEntityOrigin(entityIndex, out origin);
-    public virtual bool TempEntPoolSimulate(int slot, float frameTime, int frameNumber) => Inner.TempEntPoolSimulate(slot, frameTime, frameNumber);
     public virtual bool TempEntPoolAddVisible(int slot) => Inner.TempEntPoolAddVisible(slot);
 
     // C-Phase 5's four, on the same pool. Here for this class's own reason: a

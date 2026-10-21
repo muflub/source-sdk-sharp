@@ -1,15 +1,14 @@
-using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 
 namespace SourceSharp.Server.Interop;
 
 /// <summary>
 /// The engine console's prints, delivered in process (docs/todo.md's console
-/// capture item): the body of <c>IManagedConsoleOutput::ConsoleLine</c>, which
-/// the native forwarder — installed on ICvar at area acquire — calls
-/// synchronously on the printing thread. The text is the engine's already
-/// formatted line, UTF-8, consumed here and never kept; <c>nWarning</c> is the
-/// decorated channel (ColorPrint), not Print/DPrint's plain one.
+/// capture item): the native forwarder — installed on ICvar at area acquire —
+/// appends each print to its line buffer, and this binding hands that buffer to
+/// the side's lines once per load (<c>ConsoleBufferAttach</c>). The one-line
+/// slot, <c>ConsoleLine</c>, uncalled since console-batch (2026-10-11), left in
+/// the serialised ABI pass (docs/abi-retirements.md, 2026-10-20).
 /// </summary>
 public sealed unsafe class ConsoleDisplayBinding : IManagedConsoleOutput
 {
@@ -23,24 +22,6 @@ public sealed unsafe class ConsoleDisplayBinding : IManagedConsoleOutput
     {
         this.crossings = crossings;
         _lines = lines;
-    }
-
-    // UNCALLED SINCE CONSOLE-BATCH (2026-10-11): native appends to its line
-    // buffer instead (ConsoleBufferAttach). The slot stays until the
-    // serialised ABI cleanup (docs/todo.md) renumbers once.
-    public void ConsoleLine(byte* a0, int a1)
-    {
-        // A NULL text is not a print: nothing is counted or dispatched.
-        if (a0 is null)
-            return;
-
-        // The crossing is counted, then the engine's already-formatted line —
-        // NUL-terminated UTF-8 on the printing thread's stack, decoded here
-        // and never kept — goes to the side's lines verbatim, warning flag
-        // and trailing newline included: the same shape a managed print takes.
-        crossings.Count(CrossingOp.ServerConsoleLine);
-        var text = Marshal.PtrToStringUTF8((nint)a0) ?? string.Empty;
-        _lines.Line(text, a1 != 0);
     }
 
     public void ConsoleBufferAttach(void* a0)

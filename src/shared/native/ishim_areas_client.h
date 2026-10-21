@@ -74,7 +74,6 @@ public:
 	virtual int32_t TempEntPoolReadLife( int32_t nSlot, SourceSharpTempEntLife_t *pOutLife ) = 0;
 	virtual int32_t TempEntPoolReadStatics( int32_t nSlot, SourceSharpTempEntStatics_t *pOut ) = 0;
 	virtual int32_t TempEntPoolReadTransform( int32_t nSlot, SourceSharpTempEntTransform_t *pOutTransform ) = 0;
-	virtual int32_t TempEntPoolSimulate( int32_t nSlot, float flFrameTime, int32_t nFrameNumber ) = 0;
 	virtual int32_t TempEntPoolWriteLife( int32_t nSlot, const SourceSharpTempEntLife_t *pLife ) = 0;
 	virtual int32_t TempEntPoolWriteSpawn( int32_t nSlot, const SourceSharpTempEntSpawn_t *pSpawn ) = 0;
 	virtual int32_t TempEntPoolWriteTransform( int32_t nSlot, const SourceSharpTempEntTransform_t *pTransform ) = 0;
@@ -152,9 +151,8 @@ public:
 	virtual void StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ ) = 0;
 	virtual void StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist, float flMinAlpha ) = 0;
 	virtual void StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex ) = 0;
-	virtual void StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice ) = 0;
 	virtual void StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable ) = 0;
-	virtual int32_t StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice, int32_t *pOutHasShadow ) = 0;
+	virtual int32_t StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice ) = 0;
 	virtual void SurfaceSetEdges( uint32_t hEntity, const unsigned char *pEdges, int32_t nCount ) = 0;
 	virtual int32_t ClientRecvProp( int32_t iIndex, char *pOutClass, int32_t nClassBytes, char *pOutTable, int32_t nTableBytes, char *pOutProp, int32_t nPropBytes, int32_t *pOutType, int32_t *pOutFlags, int32_t *pOutOffset, int32_t *pOutElements ) = 0;
 	virtual int32_t ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected, uint32_t *pOutSeen, int32_t *pOutCount, char *pOutClass, int32_t nClassBytes, int32_t *pOutRefusedUpdates ) = 0;
@@ -260,7 +258,6 @@ public:
 	virtual int32_t UiFontCreate( const char *pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags ) = 0;
 	virtual void UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutAscent ) = 0;
 	virtual int32_t UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t *pOutAdvances ) = 0;
-	virtual void UiScreenSize( int32_t *pOutWide, int32_t *pOutTall ) = 0;
 	virtual void UiPlaySound( const char *pPath ) = 0;
 	virtual void UiSetMenuInput( int32_t bMouse, int32_t bKeyboard ) = 0;
 	virtual void UiSetCursor( int32_t nShape ) = 0;

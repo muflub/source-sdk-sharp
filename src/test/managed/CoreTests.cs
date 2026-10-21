@@ -564,22 +564,17 @@ public class CoreTests
         Assert.True((int)Decision.No  == 0, "Decision.No is 0");
         Assert.True((int)Decision.Yes == 1, "Decision.Yes is 1");
 
-        Assert.True((int)PlayerRelationship.UseStockRule == -1, "PlayerRelationship.UseStockRule is -1");
-        Assert.True((int)PlayerRelationship.NotTeammate == 0, "PlayerRelationship.NotTeammate is 0");
-        Assert.True((int)PlayerRelationship.Teammate    == 1, "PlayerRelationship.Teammate is 1");
-
         Assert.True((int)CommandResult.NotHandled == 0, "CommandResult.NotHandled is 0");
         Assert.True((int)CommandResult.Handled    == 1, "CommandResult.Handled is 1");
 
         // Native tests "< 0" for "C# declined", so every deferral member must be
         // negative — that is what lets the shell stay unchanged as members are
         // added.
-        Assert.True((int)Decision.UseStockRule < 0 && (int)PlayerRelationship.UseStockRule < 0, "every deferral value is negative");
+        Assert.True((int)Decision.UseStockRule < 0, "every deferral value is negative");
 
         // And every decided value must be non-negative, or the shell would read
         // a real answer as a deferral.
         Assert.True((int)Decision.No >= 0 && (int)Decision.Yes >= 0 &&
-            (int)PlayerRelationship.NotTeammate >= 0 && (int)PlayerRelationship.Teammate >= 0 &&
             (int)CommandResult.NotHandled >= 0 && (int)CommandResult.Handled >= 0, "every decided value is non-negative");
     }
 

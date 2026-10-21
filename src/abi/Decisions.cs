@@ -5,8 +5,9 @@ namespace SourceSharp.Abi;
 // These replace bool, bool? and bare int. The problem with the old signatures
 // was not that they were wrong but that they were unreadable at the call site:
 // GetPlayerRelationship returned bool?, where null meant "use the stock rule"
-// and true meant "teammate", and AllowFlashlight returned an int whose 1/0/-1
-// meaning lived only in a comment.
+// and true meant "teammate" (its slot, and the PlayerRelationship enum that
+// replaced the bool?, left in the serialised ABI pass, 2026-10-20), and
+// AllowFlashlight returned an int whose 1/0/-1 meaning lived only in a comment.
 //
 // The underlying values are pinned to what the ABI already sends, so native is
 // unchanged — the shell still reads an int32 and still treats a negative as
@@ -26,16 +27,6 @@ public enum Decision
 
     No  = 0,
     Yes = 1,
-}
-
-/// <summary>How two players relate, or a deferral to the stock rule.</summary>
-public enum PlayerRelationship
-{
-    /// <summary>C# has no opinion; the shell applies Source's own rule.</summary>
-    UseStockRule = -1,
-
-    NotTeammate = 0,
-    Teammate    = 1,
 }
 
 /// <summary>

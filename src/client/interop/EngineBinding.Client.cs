@@ -623,25 +623,6 @@ internal sealed unsafe partial class EngineEffects
     }
 
     /// <summary>
-    /// One step of the physics — <c>C_LocalTempEntity::Frame</c>. False when
-    /// the tempent asked to die, which is an animating sprite that ran off its
-    /// last frame.
-    ///
-    /// <para>
-    /// STILL NATIVE, and not because the pool is: the collision arm needs
-    /// <c>UTIL_TraceLine</c> and a whole <c>trace_t</c>, and this build's client
-    /// has no trace at all — the ABI's is wired <c>#ifndef CLIENT_DLL</c>. That
-    /// is the same wall <c>docs/te-ledger.md</c> records for
-    /// <c>CTEProjectedDecal</c>, and it is what holds ledger rows C4 and C5
-    /// open.
-    /// </para>
-    /// </summary>
-    public bool TempEntPoolSimulate(int slot, float frameTime, int frameNumber)
-    {
-        return _tempEntPoolClientArea.TempEntPoolSimulate(slot, frameTime, frameNumber) != 0;
-    }
-
-    /// <summary>
     /// <c>CTempEnts::AddVisibleTempEntity</c> — put it back in the leaf system
     /// for this frame. False when it cannot be drawn at all, which for stock
     /// means it has no model.
@@ -1160,34 +1141,6 @@ internal sealed unsafe partial class EngineEntityRender
     }
 
     /// <summary>
-    /// Overrules the model about whether this entity casts a shadow.
-    /// Client-side.
-    ///
-    /// <para>
-    /// <see cref="ShadowCastChoice.Auto"/> is the stock rule and is right for
-    /// nearly everything: a studio model casts, a brush model and a sprite do
-    /// not. The two overrides are for the cases stock also has one for —
-    /// EF_NOSHADOW and prop_dynamic's <c>disableshadows</c> are both
-    /// <see cref="ShadowCastChoice.Never"/>, and
-    /// <see cref="ShadowCastChoice.Simple"/> is the only way an entity that
-    /// draws ITSELF can cast anything, since it has no studio header to be
-    /// judged by.
-    /// </para>
-    ///
-    /// <para>
-    /// Neither override can make an entity cast that is not being drawn, nor
-    /// make the viewmodel cast. Both are refused in
-    /// <c>shadow_cast_policy.h</c> before the choice is read, and for the same
-    /// reason: a shadow under something the viewer cannot see has no object to
-    /// explain it.
-    /// </para>
-    /// </summary>
-    public void SetShadowCast(EntityHandle entity, ShadowCastChoice choice)
-    {
-        _standaloneClientArea.StandaloneSetShadowCast(entity.Value, (int)choice);
-    }
-
-    /// <summary>
     /// What this entity is casting right now and what it was asked to cast.
     /// Client-side.
     ///
@@ -1203,7 +1156,7 @@ internal sealed unsafe partial class EngineEntityRender
         asked = ShadowCastChoice.Auto;
 
         int choice = 0;
-        int cast = _standaloneClientArea.StandaloneShadowCast(entity.Value, &choice, null);
+        int cast = _standaloneClientArea.StandaloneShadowCast(entity.Value, &choice);
 
         asked = (ShadowCastChoice)choice;
 
@@ -1277,7 +1230,6 @@ internal sealed unsafe partial class EngineGameEvents
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void EventSetInt(IntPtr handle, string key, int value) { }
-    public void EventSetFloat(IntPtr handle, string key, float value) { }
     public void EventSetBool(IntPtr handle, string key, bool value) { }
     public void EventSetString(IntPtr handle, string key, string value) { }
 }
@@ -1473,7 +1425,6 @@ internal sealed unsafe partial class EngineHud
     public void DrawWorldText(Vector origin, int line, string text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) { }
     public bool DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) => false;
     public (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) OverlayReadout() => (0, 0, 0, 0, false);
-    public void OverlayResetCounts() { }
     public void AddLineOverlay(Vector start, Vector end, int r, int g, int b, bool noDepthTest = true, float duration = 0f) { }
     public void ViewPunch(Vector origin, Vector punch, float radius, bool inAir = false) { }
 
@@ -1519,7 +1470,6 @@ internal sealed unsafe partial class EngineNetworking
         return EntityState.None;
     }
     public Span<byte> GetEntityBlob(EntityHandle h) => Span<byte>.Empty;
-    public void MarkEntityStateChanged(EntityHandle h) { }
     public void MarkEntityBlockChanged(EntityHandle h, int blockOffset) { }
 }
 

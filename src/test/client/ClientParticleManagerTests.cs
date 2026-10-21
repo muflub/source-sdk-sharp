@@ -72,7 +72,6 @@ public class ClientParticleManagerTests
             Asked.Add((min, max));
             return Answer;
         }
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     private sealed class NoView : IParticleViewSource

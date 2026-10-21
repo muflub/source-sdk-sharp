@@ -6,9 +6,11 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// plan_client_vtables CE4: the client's HUD paint and CreateMove reach managed
-/// code through the managed-built IManagedHudClient, not the ManagedApi table.
-/// Read from the code (comments stripped), so a commented-out call cannot stand
-/// in for a live one.
+/// code through managed-built areas, not the ManagedApi table. The HUD paint is
+/// IManagedUiClient's; IManagedHudClient, whose last slot was the CreateMove
+/// after-hook managed now calls itself, left in the serialised ABI pass
+/// (2026-10-20). Read from the code (comments stripped), so a commented-out
+/// call cannot stand in for a live one.
 /// </summary>
 public class ClientHudAreaTests
 {
@@ -69,11 +71,14 @@ public class ClientHudAreaTests
     }
 
     [Fact]
-    public void TheClientRegistersTheBinding()
+    public void TheClientRegistersNoHudArea()
     {
+        // IManagedHudClient is gone: no binding is registered for it, while the
+        // UI area the HUD paints through still is (the positive arm).
         string module = Code("src", "client", "managed", "ClientModule.cs");
 
-        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedHudClient"",\s*v => ManagedAreaFactory\.Create\(v, new HudClientBinding\(_engine\.Crossings, this\)\)\);"),
-                       module);
+        Assert.DoesNotContain("\"IManagedHudClient\"", module);
+        Assert.DoesNotContain("HudClientBinding", module);
+        Assert.Contains("_bindings.Add(\"IManagedUiClient\"", module);
     }
 }

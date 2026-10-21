@@ -414,7 +414,6 @@ public class UiFidelityTests
             return advances.Length;
         }
 
-        public void ScreenSize(out int wide, out int tall) => (wide, tall) = (1920, 1080);
 
         public void PlaySound(string path)
         {

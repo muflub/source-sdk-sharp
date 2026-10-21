@@ -445,7 +445,7 @@ TEST( SoundEntManaged, TheShellsSoundFileNoLongerWalksTheList )
 // 5. THE ABI: FOUR SLOTS ADDED, TWO REMOVED, AND THE FOUR ARE REQUIRED
 //=============================================================================//
 
-TEST( SoundEntManaged, TheFourManagedSlotsAreAreaMethodsAndNotRequired )
+TEST( SoundEntManaged, TheThreeManagedSlotsAreAreaMethodsAndNotRequired )
 {
 	const std::string abi = Read( kAbiHeader );
 	const std::string rt  = Read( kRuntime );
@@ -456,11 +456,19 @@ TEST( SoundEntManaged, TheFourManagedSlotsAreAreaMethodsAndNotRequired )
 	{
 		"ServerSoundEntInit",
 		"ServerSoundEntShutdown",
-		"ServerSoundEntInsert",
 		"ServerSoundEntResetClientSound",
 	};
 
-	// Since plan_engineapi_vtables E7 the four are methods of the managed-built
+	// ServerSoundEntInsert, the fourth, left in the serialised ABI pass
+	// (2026-10-20): every insert is managed (SoundEnt.Insert), and its only
+	// native callers were tests. It is not a method of the area again.
+	{
+		const std::string areasHeader = Read( kAreas2 );
+		ASSERT_FALSE( areasHeader.empty() );
+		EXPECT_EQ( 0, CountOf( areasHeader, " ServerSoundEntInsert(" ) );
+	}
+
+	// Since plan_engineapi_vtables E7 the three are methods of the managed-built
 	// IManagedSoundEnt, which the generated table cannot leave unfilled -- the
 	// "required" guard is structural -- and the retired rows are not required.
 	const std::string areas = Read( kAreas2 );

@@ -38,16 +38,6 @@ namespace SourceSharp.Abi;
 /// </summary>
 public interface IEngineLevel
 {
-    /// <summary>
-    /// Resets the rollback-independent server clock. First step of a load.
-    /// </summary>
-    void ResetServerTime();
-
-    /// <summary>The game-wide particle manifest.</summary>
-    void ParseParticleManifest();
-
-    /// <summary>The map's own particle manifest, if it has one.</summary>
-    void ParseParticleManifestForMap(string mapName);
 
     /// <summary>
     /// Builds and spawns the world from the map's <c>worldspawn</c> block, given
@@ -108,20 +98,6 @@ public interface IEngineLevel
     // dictionary. A single member would have crossed the boundary once and
     // carried across the one thing worth reading.
 
-    /// <summary>
-    /// Empties the entity delete queue and answers how many were in it. The
-    /// COUNT rather than a bool: stock prints an error when it is non-zero, and
-    /// that test is the decision, so it does not belong in the step.
-    /// </summary>
-    int ResetDeleteList();
-
-    /// <summary>
-    /// Stock's activate walk over every live entity. This is what turns the
-    /// parsed map into the running one: decals apply themselves and go,
-    /// compile-time lights go, spotlights make their endpoints.
-    /// </summary>
-    void ActivateAllEntities();
-
     /// <summary>Opens or closes the precache window.</summary>
     void SetPrecacheAllowed(bool allowed);
 
@@ -131,12 +107,6 @@ public interface IEngineLevel
     /// sound precache warns "Late precache of" when it is shut.
     /// </summary>
     bool IsPrecacheAllowed();
-
-    /// <summary>
-    /// Clears the steam game-server context. AFTER the pass named for it, which
-    /// is the entire reason that pass has a name of its own.
-    /// </summary>
-    void ClearSteamAPIContext();
 
     /// <summary>
     /// Removes every entity on the parallel hierarchy — plan_gamedll_after.md
@@ -158,37 +128,12 @@ public interface IEngineLevel
     /// </summary>
     void ClearEntityList();
 
-    /// <summary>
-    /// Uncaches every particle system. Stock's reason, in its own words:
-    /// otherwise they leak into the particle precache string table on every
-    /// change of level.
-    /// </summary>
-    void UncacheAllParticleSystems();
-
-    /// <summary>
-    /// Rebuilds the particle dictionary. A separate step from the uncache above
-    /// it because they are two calls doing two things, which is the same reason
-    /// the two particle manifests are two steps.
-    /// </summary>
-    void RecreateParticleDictionary();
-
     // ---- plan_gamedll_after.md Phase A3 -------------------------------------
     //
     // CPropData's two remaining native steps, HERE rather than in an area of
     // their own, because they are what they look like: one runs at level init
     // pre-entity and one at level shutdown post-entity, which is what every
     // other member of this interface is.
-
-    /// <summary>
-    /// <c>CPropData::LevelInitPreEntity</c>'s KeyValues load of
-    /// <c>scripts/propdata.txt</c>. The tree stays native — see
-    /// the <c>PropDataLoadFile</c> slot for the blocker.
-    /// </summary>
-    void PropDataLoadFile();
-
-    /// <summary><c>CPropData::LevelShutdownPostEntity</c>'s free of the same
-    /// tree.</summary>
-    void PropDataClearFile();
 
     /// <summary>
     /// <c>engine-&gt;LoadGameState( mapName, createPlayers )</c> — the call that

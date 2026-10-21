@@ -24,7 +24,6 @@ public class ClientSplashPlanTests
             return min + (max - min) * 0.25f;
         }
         public int RandomInt(int min, int max) => min;
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     private sealed class World(int contents) : IClientSplashWorld

@@ -71,13 +71,6 @@ public sealed unsafe class ServerGameEvents : IEngineGameEvents
     public bool EventFire(IntPtr handle)
         => handle != IntPtr.Zero && _fwd->FireEvent(_self, (void*)handle, 0) != 0;
 
-    /// <summary>Frees an event made by <see cref="EventCreate"/> that was not fired.</summary>
-    public void EventFree(IntPtr handle)
-    {
-        if (handle != IntPtr.Zero)
-            _fwd->FreeEvent(_self, (void*)handle);
-    }
-
     /// <inheritdoc/>
     public bool EventGetBool(IntPtr handle, string key) => _inner.EventGetBool(handle, key);
 
@@ -95,9 +88,6 @@ public sealed unsafe class ServerGameEvents : IEngineGameEvents
 
     /// <inheritdoc/>
     public void EventSetInt(IntPtr handle, string key, int value) => _inner.EventSetInt(handle, key, value);
-
-    /// <inheritdoc/>
-    public void EventSetFloat(IntPtr handle, string key, float value) => _inner.EventSetFloat(handle, key, value);
 
     /// <inheritdoc/>
     public void EventSetBool(IntPtr handle, string key, bool value) => _inner.EventSetBool(handle, key, value);

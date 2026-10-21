@@ -197,24 +197,6 @@ void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
 }
 
 //-----------------------------------------------------------------------------
-// ABI: announce a write that did NOT go through a bound state.
-//
-// EntityData.TryWrite reaches an entity's blob by handle and field layout with
-// no state object anywhere — the player's diagnostic fields and the
-// runtime-networked entity's are written that way. Those writes used to be
-// announced as a side effect of fetching the blob, and this step deletes that
-// side effect, so they say so themselves.
-//
-// Deliberately NOT called by any read. That asymmetry is the entire behaviour
-// change of this step, and it is only expressible because the write and the
-// fetch are now separate calls.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntityMarkStateChanged( uint32_t hEntity )
-{
-	SourceSharp_MarkStateChanged( hEntity );
-}
-
-//-----------------------------------------------------------------------------
 // Closes an entity's slot. Called from the destructor of every shell that
 // carries a blob.
 //

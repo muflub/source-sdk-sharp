@@ -360,7 +360,9 @@ link-forbidden	1
 # LOWERED 2026-10-19, logic-lines 8696 -> 7566 (-1130, tools/shim-scope at the client temp entity landing on main 6c0c02d09):
 #   tempent_schema.h and the native registration path deleted; the store and the receiving shell's husk ruled carrying out
 #   (the lane measured 9514 -> 8384 on its base). Hand-edited.
-logic-lines	7457
+# LOWERED 2026-10-20, logic-lines 7457 -> 7435 (tools/shim-scope at the serialised ABI cleanup's landing on main c5c8df3d2):
+#   the dead slots' native bodies went with their rows. Hand-edited.
+logic-lines	7435
 native-convar-decls	68
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

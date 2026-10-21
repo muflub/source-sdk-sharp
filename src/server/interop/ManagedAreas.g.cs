@@ -22,7 +22,6 @@ public unsafe interface IManagedResources
     int ServerDecalIndexForName(byte* a0);
     int ServerDecalNameForIndex(int a0, byte* a1, int a2);
     int ServerDecalTranslateForGameMaterial(byte* a0, int a1, byte* a2, int a3);
-    int ServerPropDataRandomChunkModel(byte* a0, int a1, byte* a2, int a3);
     void ModelPrecacheComponents(byte* a0);
     void ModelPrecacheCheck(byte* a0, byte a1);
 }
@@ -44,7 +43,6 @@ public unsafe interface IManagedSoundEnt
 {
     void ServerSoundEntInit(int a0, float a1);
     void ServerSoundEntShutdown();
-    void ServerSoundEntInsert(int a0, void* a1, int a2, float a3, uint a4, int a5, uint a6);
     void ServerSoundEntResetClientSound(int a0);
 }
 
@@ -57,8 +55,6 @@ public unsafe interface IManagedHierarchy
     int HierarchyGetParentAttachment(uint a0);
     void HierarchySetParentName(uint a0, byte* a1);
     void HierarchySetParentAttachmentName(uint a0, byte* a1);
-    int HierarchyEntityRemoved(uint a0);
-    int HierarchyResolveParentNames();
     int HierarchyToLocal(uint a0, void* a1, void* a2);
     int HierarchyToWorld(uint a0, void* a1, void* a2);
     void HierarchySetLocal(uint a0, void* a1, void* a2);
@@ -69,12 +65,6 @@ public unsafe interface IManagedEntities
 {
     int Dispatch(uint a0, int a1, void* a2);
     int EntityRemoveRequested(uint a0);
-    void OnEntityIgnite(uint a0, float a1, float a2);
-    void OnFireAddHeatInRadius(void* a0, float a1, float a2);
-    int OnRagdollMagnetForce(uint a0, void* a1, void* a2);
-    int ShellLessFindByName(byte* a0, void* a1, int a2);
-    int ShellLessFindByClassname(byte* a0, void* a1, int a2);
-    int TemplatesAddNamed(byte* a0, byte* a1, byte* a2, int a3);
 }
 
 [ManagedVtable(typeof(ManagedClientsTable))]
@@ -83,12 +73,10 @@ public unsafe interface IManagedClients
     int OnClientConnect(byte* a0, byte* a1, byte* a2, int a3);
     void OnClientPutInServer(int a0, byte* a1);
     void OnClientActive(int a0, int a1);
-    void OnRespawn(int a0, int a1);
     void OnPlayerSpawn(uint a0);
     void OnPlayerSpawned(uint a0);
     void OnPlayerKilled(uint a0, uint a1);
     uint OnSelectSpawnPoint(uint a0);
-    int GetPlayerRelationship(uint a0, uint a1);
     int ServerSkyboxAreaForClient(int a0, void* a1);
     int ServerEarPositionForClient(int a0, void* a1);
     int OnClientNetMessage(int a0, byte* a1, void* a2, int a3);
@@ -146,7 +134,6 @@ public unsafe interface IManagedPlayerCommands
 [ManagedVtable(typeof(ManagedConsoleOutputTable))]
 public unsafe interface IManagedConsoleOutput
 {
-    void ConsoleLine(byte* a0, int a1);
     void ConsoleBufferAttach(void* a0);
 }
 
@@ -154,14 +141,6 @@ public unsafe interface IManagedConsoleOutput
 public unsafe interface IManagedBones
 {
     int TestHitboxes(uint a0, void* a1, void* a2, int a3, void* a4, void* a5);
-}
-
-[ManagedVtable(typeof(ManagedSoundEmitterTable))]
-public unsafe interface IManagedSoundEmitter
-{
-    void ServerMoveSound(int a0, void* a1, int a2, byte* a3, float a4, int a5, int a6, int a7);
-    void ServerMoveSoundScript(int a0, void* a1, byte* a2);
-    void ServerPrecacheScriptSound(byte* a0);
 }
 
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
@@ -199,6 +178,4 @@ public static class ManagedAreaFactory
         => IManagedConsoleOutput__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedBones target)
         => IManagedBones__ManagedVtable.Create(vtables, target);
-    public static ManagedVtable Create(ManagedVtables vtables, IManagedSoundEmitter target)
-        => IManagedSoundEmitter__ManagedVtable.Create(vtables, target);
 }

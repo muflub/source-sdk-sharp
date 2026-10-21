@@ -81,16 +81,16 @@ public unsafe class VtableBindingTests
 
     /// <summary>
     /// An object and a forwarder table the size of UniformRandomStreamFwd, with
-    /// a distinct function in each slot: RandomFloat's answers 111, RandomInt's
-    /// sums its arguments, and RandomFloatExp's slot holds a function of
-    /// RandomFloat's own shape that answers 999, for the fact that swaps them.
+    /// a distinct function in each slot: RandomFloat's answers 111 and
+    /// RandomInt's sums its arguments. (The swap fact puts a function of
+    /// RandomFloat's own shape that answers 999 in RandomInt's slot: the third
+    /// slot it used, RandomFloatExp, left in the serialised ABI pass.)
     /// </summary>
     private static void* FakeStream(out void** table)
     {
         table = (void**)NativeMemory.AllocZeroed(
             (nuint)Forwarders.SlotCount<UniformRandomStreamFwd>(), (nuint)sizeof(void*));
 
-        table[Slot("RandomFloatExp")] = (delegate* unmanaged<void*, float, float, float>)&SlotZeroAnswers;
         table[Slot("RandomFloat")] = (delegate* unmanaged<void*, float, float, float>)&SlotOneAnswers;
         table[Slot("RandomInt")] = (delegate* unmanaged<void*, int, int, int>)&SlotTwoAnswers;
 
@@ -117,7 +117,7 @@ public unsafe class VtableBindingTests
         void* self = FakeStream(out void** table);
         IUniformRandom stream = NewStream(self, table);
 
-        // 111 is the RandomFloat slot's answer and 999 the one beside it.
+        // 111 is the RandomFloat slot's answer.
         Assert.Equal(111f, stream.RandomFloat(0f, 1f));
 
         NativeMemory.Free(table);
@@ -135,9 +135,10 @@ public unsafe class VtableBindingTests
         // the binding is keyed on a name, only on where the field sits.
         // Written out rather than as a tuple swap: `void*` may not be a type
         // argument, and a tuple is generic.
+        table[Slot("RandomInt")] = (delegate* unmanaged<void*, float, float, float>)&SlotZeroAnswers;
         void* first = table[Slot("RandomFloat")];
-        table[Slot("RandomFloat")] = table[Slot("RandomFloatExp")];
-        table[Slot("RandomFloatExp")] = first;
+        table[Slot("RandomFloat")] = table[Slot("RandomInt")];
+        table[Slot("RandomInt")] = first;
 
         Assert.Equal(999f, stream.RandomFloat(0f, 1f));
 

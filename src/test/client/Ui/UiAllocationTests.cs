@@ -181,7 +181,6 @@ public class UiAllocationTests(ITestOutputHelper output)
             advances.Fill(9);
             return advances.Length;
         }
-        public void ScreenSize(out int wide, out int tall) => (wide, tall) = (1920, 1080);
         public void PlaySound(string path) { }
         public void SetMenuInput(bool mouse, bool keyboard) { }
         public void SetCursor(int shape) { }

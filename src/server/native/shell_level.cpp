@@ -38,11 +38,10 @@
 // reasons. Written out here because "the plan said four and the tree has two"
 // is exactly the gap a later reader would otherwise have to re-derive.
 //
-// RETIRED -- ResetDeleteList and ActivateAllEntities. Each one's subject left
-// the vpc: there is no SDK delete list for the first to count (it returned a
-// literal 0) and every line of stock's activate walk reaches the evicted
-// hierarchy. Both are marked in ishim_level.h and have rows in
-// docs/abi-retirements.md, and both managed callers go in the same commit.
+// RETIRED, AND REMOVED IN THE SERIALISED ABI PASS (2026-10-20) --
+// ResetDeleteList and ActivateAllEntities. Each one's subject left the vpc:
+// there is no SDK delete list for the first to count (it returned a literal 0)
+// and every line of stock's activate walk reaches the evicted hierarchy.
 //
 // NOT RETIRED, BODY EMPTIED -- PrecachePointTemplates. Its body did nothing and
 // is gone, but a RETIRED SLOT IS NOT CALLED, and this call's POSITION is what
@@ -409,63 +408,6 @@ class CShimLevel : public IShimLevel
 public:
 	// NO FIELDS, AND NONE IS COMING.
 
-	//-----------------------------------------------------------------------------
-	// STEP 1 -- gameinterface.cpp:1064.
-	//-----------------------------------------------------------------------------
-	// RETIRED SLOT: the clock it reset had no reader (T6); empty, at its index.
-	virtual void ResetServerTime() OVERRIDE
-	{
-	}
-
-	//-----------------------------------------------------------------------------
-	// STEP 2 -- gameinterface.cpp:1096. The game's particle manifest.
-	//
-	// TWO STEPS AND NOT ONE, which is a deliberate divergence from Part 4's sketch
-	// (it writes a single `Level.ParseParticleEffects(load.MapName)`). These are
-	// two different files with two different lifetimes -- the game-wide manifest
-	// and the map's own, which most maps do not have -- and they are two calls in
-	// stock. Collapsing them into one native step would put the sequence in C++,
-	// which is the one thing the rule above forbids.
-	//
-	// This closes half of the shell's TODO at shell_gamedll.cpp:364.
-	//-----------------------------------------------------------------------------
-	virtual void ParseParticleManifest() OVERRIDE
-	{
-		// RETIRED, not removed: IShimLevel is append-only. The manifests are
-		// read in C# since plan_server_novalve.md P2.1 (ParticleManifest.cs)
-		// and nothing calls this slot; server.so no longer links particles.a.
-	}
-
-	//-----------------------------------------------------------------------------
-	// STEP 3 -- gameinterface.cpp:1099. Tony's per-map manifest, if the map has one.
-	// The other half of the shell's TODO.
-	//-----------------------------------------------------------------------------
-	virtual void ParseParticleManifestForMap( const char *pMapName ) OVERRIDE
-	{
-		// RETIRED with ParseParticleManifest above, for the same reason.
-		(void)pMapName;
-	}
-
-	//-----------------------------------------------------------------------------
-	// STEP 5 -- gameinterface.cpp:1163-1164, RETIRED (plan_server_novalve.md P5).
-	//
-	// This took the map's entity residue as TEXT and parsed it here for the one
-	// block native still builds, worldspawn. Parsing is a decision about the
-	// text, so it moved to C#: MapSpawner picks the worldspawn block out of the
-	// lump it has already split (MapEntityBlock) and calls SpawnWorld, at the
-	// interface's tail, with the pairs. The slot keeps its index and REFUSES
-	// out loud: a caller reaching it builds no world, and the level that
-	// follows faults inside the engine on its first trace, so the console line
-	// is the cheap place to learn why.
-	//-----------------------------------------------------------------------------
-	virtual void ParseAllEntities( const char *pMapEntities ) OVERRIDE
-	{
-		(void)pMapEntities;
-		Warning( "[SourceSharp] IShimLevel::ParseAllEntities is retired: native no "
-		         "longer parses map text. The world arrives parsed through "
-		         "IShimLevel::SpawnWorld. No world was built.\n" );
-	}
-
 	//-------------------------------------------------------------------------
 	// STEP 6 -- gameinterface.cpp:1178. AN EMPTY BODY THAT IS STILL CALLED, and
 	// the difference between that and a retired slot is the whole of this note.
@@ -528,50 +470,6 @@ public:
 	{
 	}
 
-	//-----------------------------------------------------------------------------
-	// gameinterface.cpp:1228. Stock tests the answer and prints; the TEST is the
-	// decision, so this returns the count and C# decides what to say about it.
-	//-----------------------------------------------------------------------------
-	//
-	// THE PARALLEL HIERARCHY'S QUEUE IS EMPTY BY THIS POINT and is not counted here
-	// -- plan_entity.md step 2c. The last step of the map load above drains it
-	// (EntityRemovalRoutes.FreeNow, paired with EntitiesCleanupDeleteList), so
-	// there is nothing left for this to discard and no second count for C# to have
-	// to add to stock's. If that ever stops being true the symptom is a managed
-	// entity that spawns already marked, which EntityDirectory.PendingRemovalCount
-	// reads directly.
-	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- "how many SDK entities were still queued for deletion
-	// when the level started".
-	//
-	// ZERO IS THE TRUE ANSWER ARMED, not a stub's, and that is exactly why the
-	// slot is retired rather than kept: armed there is no SDK queue to hold
-	// one, so the number cannot be anything else and asking costs a crossing
-	// per level to be told a constant. ServerGameDll.ServerActivate tested it
-	// and warned on a non-zero; the parallel hierarchy's own count is
-	// EntityDirectory.PendingRemovalCount, which is managed and free to read.
-	//-------------------------------------------------------------------------
-	virtual int32_t ResetDeleteList() OVERRIDE
-	{
-		return 0;
-	}
-
-	//-------------------------------------------------------------------------
-	// RETIRED SLOT -- stock's ServerActivate walk (gameinterface.cpp:1233-1250).
-	//
-	// THE SDK HALF OF THE WALK, and there is no SDK half: every line of stock's
-	// walk reaches the hierarchy server_csharp.vpc evicts, so the body has been
-	// empty since the eviction. The parallel hierarchy's half is
-	// _spawner.ActivateAll() in ServerGameDll.ServerActivate, immediately after
-	// where this call was, in managed memory with no crossing -- so armed, that
-	// is the whole of ServerActivate's activation pass and the ORDER is
-	// unchanged: the two hierarchies were already activated in the order their
-	// entities were made.
-	//-------------------------------------------------------------------------
-	virtual void ActivateAllEntities() OVERRIDE
-	{
-	}
-
 	virtual void SetPrecacheAllowed( int32_t bAllowed ) OVERRIDE
 	{
 		EntityPrecache_SetAllowed( bAllowed != 0 );
@@ -579,25 +477,8 @@ public:
 
 	//-----------------------------------------------------------------------------
 	// LEVELSHUTDOWN'S STEPS, gameinterface.cpp:1511-1559, in stock's order --
-	// which C# owns. Every one of the six below is one line of that body.
+	// which C# owns. Every one of the three below is one line of that body.
 	//-----------------------------------------------------------------------------
-	//-----------------------------------------------------------------------------
-	// steamgameserverapicontext->Clear(). A SEPARATE step from the pass above it
-	// because that is the whole reason the pass has "PreClearSteamAPIContext" in
-	// its name: a system that reads the steam context has to be told before it goes.
-	//-----------------------------------------------------------------------------
-	// A2: this forwards now rather than holding its own ->Clear(). The other
-	// caller is IServerGameDLL::GameServerSteamAPIShutdown, which arrives on a path
-	// that is not a level shutdown at all; two spellings of one operation is the
-	// disagreement TODO #5 refused, so there is ONE body and it lives in
-	// shell_steamcontext.cpp beside its partner. Pinned by
-	// SteamContextSources.TheContextIsClearedInExactlyOnePlace.
-	virtual void ClearSteamAPIContext() OVERRIDE
-	{
-		// RETIRED, not removed: IShimLevel is append-only. The Steam game
-		// server context is C#'s own (plan_server_novalve.md P2.5), and
-		// ServerGameDll.MapUnload clears it at this point in the sequence.
-	}
 
 	//-----------------------------------------------------------------------------
 	// THE PARALLEL HIERARCHY'S TEARDOWN -- plan_gamedll_after.md Phase A3, the
@@ -685,39 +566,6 @@ public:
 		// The SDK list, which armed is empty and gone -- entitylist.cpp is a removal
 		// set row. What Clear() would still have had to reach is the world, and the
 		// line above already did that.
-	}
-
-	//-----------------------------------------------------------------------------
-	// gameinterface.cpp:1545-1546, and stock's comment says why the first exists:
-	// "Uncache all the particle systems on level shutdown otherwise we leak them
-	// constantly on changelevel in the particle precache stringtable list."
-	//
-	// TWO STEPS, for the reason ParseParticleEffects and ParseParticleEffectsMap
-	// are two: they are two calls doing two things, and one step would put the
-	// sequence in C++.
-	//-----------------------------------------------------------------------------
-	virtual void UncacheAllParticleSystems() OVERRIDE
-	{
-		// RETIRED (plan_server_novalve.md P2.1): the manager these two told to
-		// uncache and rebuild is not in server.so any more; ParticleManifest
-		// forgets its definitions at the same point of the level shutdown.
-	}
-
-	virtual void RecreateParticleDictionary() OVERRIDE
-	{
-		// RETIRED with UncacheAllParticleSystems above.
-	}
-
-	virtual void PropDataLoadFile() OVERRIDE
-	{
-		// RETIRED, not removed: IShimLevel is append-only. propdata.txt is
-		// C#'s on the server (plan_server_novalve.md P2.4): PropData parses it
-		// and resolves a model's prop data itself, so no native tree is loaded.
-	}
-
-	virtual void PropDataClearFile() OVERRIDE
-	{
-		// RETIRED with PropDataLoadFile above, for the same reason.
 	}
 
 	//-----------------------------------------------------------------------------

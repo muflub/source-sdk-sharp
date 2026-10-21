@@ -41,8 +41,6 @@ public interface IUniformRandom
     /// <summary>An int in <c>[min, max]</c>.</summary>
     int RandomInt(int min, int max);
 
-    /// <summary>An exponentially weighted float.</summary>
-    float RandomFloatExp(float min, float max, float exponent);
 }
 
 /// <summary>
@@ -104,7 +102,4 @@ public sealed unsafe class UniformRandomStream : IUniformRandom
     /// <inheritdoc/>
     public int RandomInt(int min, int max) => _fwd->RandomInt(_self, min, max);
 
-    /// <inheritdoc/>
-    public float RandomFloatExp(float min, float max, float exponent)
-        => _fwd->RandomFloatExp(_self, min, max, exponent);
 }

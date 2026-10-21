@@ -13,7 +13,6 @@ public interface IClientModule
     ///
     /// This runs every tick, so avoid allocating here.
     /// </summary>
-    void OnCreateMove(ref UserCmd cmd, float inputSampleTime, bool active);
 
     /// <summary>
     /// Routes an arriving temp entity to whichever managed class plays it.

@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 34,546 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,845 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,694 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,487 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 34,256 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,830 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,686 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,470 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,449 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,160 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,889 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,009 |
 | x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,363 |
-|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **84,442** |
+|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **84,112** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -224,6 +224,8 @@ Then the render recorder gained the shadowmgr. hook family (C7 shadow manager S0
 Then clientshadowmgr.cpp, the last Valve TU, left client.so (C7 shadow manager S2, 2026-10-20, measured by the walk at the landing on main 29ec64f57): (a) 33,710 -> 34,533 and client 32 -> 31 files is shell_shadows_client.cpp (the environment ShadowNative carries the calls out over), the pending queue and the shells re-pointed, net of what went; (d) 9,159 -> 9,496 is the shadow block's layout; (g) 16 -> 15 files and 9,345 -> 5,889 is collisionutils.cpp, deleted with the mathlib forwards only the manager imported; (x) 19 -> 18 files is shell_tools_off_client.cpp, deleted (its row in the no-letter table goes); (b) +14 and (c) +3 follow; 215 files and 84,438 lines in the table.
 
 Then the standalone teleport stopped sweeping triggers (2026-10-20, the walk at 44b552294): (a) 34,533 -> 34,546 (CStandaloneEntity::TeleportTo and the funnel's flag in shell_standalone_base.cpp/shell_standalone.h) and (d) 9,496 -> 9,487 (SourceSharp_EntityTeleport's two setter calls and their comment, in shell_entityapi.cpp).
+
+Then the serialised ABI cleanup ran (2026-10-20, measured by the walk at the landing on main c5c8df3d2): the dead slots' shim bodies and hand-kept virtuals went, (a) 34,546 -> 34,256, (b) 15,845 -> 15,830, (c) 3,694 -> 3,686, (d) 9,487 -> 9,469; no file left or changed its letter; 84,111 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

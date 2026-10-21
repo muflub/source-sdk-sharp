@@ -104,8 +104,6 @@ int32_t CShimTempEntPoolClient::TempEntPoolReadStatics( int32_t nSlot, SourceSha
 	{ return ::SourceSharp_TempEntPoolReadStatics( nSlot, pOut ); }
 int32_t CShimTempEntPoolClient::TempEntPoolReadTransform( int32_t nSlot, SourceSharpTempEntTransform_t * pOutTransform )
 	{ return ::SourceSharp_TempEntPoolReadTransform( nSlot, pOutTransform ); }
-int32_t CShimTempEntPoolClient::TempEntPoolSimulate( int32_t nSlot, float flFrameTime, int32_t nFrameNumber )
-	{ return ::SourceSharp_TempEntPoolSimulate( nSlot, flFrameTime, nFrameNumber ); }
 int32_t CShimTempEntPoolClient::TempEntPoolWriteLife( int32_t nSlot, const SourceSharpTempEntLife_t * pLife )
 	{ return ::SourceSharp_TempEntPoolWriteLife( nSlot, pLife ); }
 int32_t CShimTempEntPoolClient::TempEntPoolWriteSpawn( int32_t nSlot, const SourceSharpTempEntSpawn_t * pSpawn )
@@ -227,12 +225,10 @@ void CShimStandaloneClient::StandaloneSetFade( uint32_t hEntity, int32_t nStyle,
 	{ return ::SourceSharp_StandaloneSetFade( hEntity, nStyle, flStartDist, flEndDist, flMinAlpha ); }
 void CShimStandaloneClient::StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex )
 	{ return ::SourceSharp_StandaloneSetOverlayModel( hEntity, nModelIndex ); }
-void CShimStandaloneClient::StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice )
-	{ return ::SourceSharp_StandaloneSetShadowCast( hEntity, nChoice ); }
 void CShimStandaloneClient::StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable )
 	{ return ::SourceSharp_StandaloneSetViewModel( hEntity, bEnable ); }
-int32_t CShimStandaloneClient::StandaloneShadowCast( uint32_t hEntity, int32_t * pOutChoice, int32_t * pOutHasShadow )
-	{ return ::SourceSharp_StandaloneShadowCast( hEntity, pOutChoice, pOutHasShadow ); }
+int32_t CShimStandaloneClient::StandaloneShadowCast( uint32_t hEntity, int32_t * pOutChoice )
+	{ return ::SourceSharp_StandaloneShadowCast( hEntity, pOutChoice ); }
 void CShimStandaloneClient::SurfaceSetEdges( uint32_t hEntity, const unsigned char * pEdges, int32_t nCount )
 	{ return ::SourceSharp_SurfaceSetEdges( hEntity, pEdges, nCount ); }
 int32_t CShimStandaloneClient::ClientRecvProp( int32_t iIndex, char * pOutClass, int32_t nClassBytes, char * pOutTable, int32_t nTableBytes, char * pOutProp, int32_t nPropBytes, int32_t * pOutType, int32_t * pOutFlags, int32_t * pOutOffset, int32_t * pOutElements )
@@ -348,8 +344,6 @@ void CShimUiClient::UiFontMetrics( int32_t nFont, int32_t * pOutTall, int32_t * 
 	{ return ::SourceSharp_UiFontMetrics( nFont, pOutTall, pOutAscent ); }
 int32_t CShimUiClient::UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t * pOutAdvances )
 	{ return ::SourceSharp_UiFontAdvances( nFont, nFirst, nCount, pOutAdvances ); }
-void CShimUiClient::UiScreenSize( int32_t * pOutWide, int32_t * pOutTall )
-	{ return ::SourceSharp_UiScreenSize( pOutWide, pOutTall ); }
 void CShimUiClient::UiPlaySound( const char * pPath )
 	{ return ::SourceSharp_UiPlaySound( pPath ); }
 void CShimUiClient::UiSetMenuInput( int32_t bMouse, int32_t bKeyboard )

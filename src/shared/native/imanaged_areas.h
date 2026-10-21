@@ -66,7 +66,6 @@ struct SSManagedResourcesTable
 	int32_t ( *ServerDecalIndexForName )( IManagedResources *self, const char *pszName );
 	int32_t ( *ServerDecalNameForIndex )( IManagedResources *self, int32_t nIndex, char *pOut, int32_t nOutSize );
 	int32_t ( *ServerDecalTranslateForGameMaterial )( IManagedResources *self, const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize );
-	int32_t ( *ServerPropDataRandomChunkModel )( IManagedResources *self, const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize );
 	void ( *ModelPrecacheComponents )( IManagedResources *self, const char *pszModelName );
 	void ( *ModelPrecacheCheck )( IManagedResources *self, const char *pszModelName, bool bAllowed );
 };
@@ -79,7 +78,6 @@ public:
 	int32_t ServerDecalIndexForName( const char *pszName ) { return Table()->ServerDecalIndexForName( this, pszName ); }
 	int32_t ServerDecalNameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalNameForIndex( this, nIndex, pOut, nOutSize ); }
 	int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalTranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize ); }
-	int32_t ServerPropDataRandomChunkModel( const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize ) { return Table()->ServerPropDataRandomChunkModel( this, pszSection, nMaxSize, pOut, nOutSize ); }
 	void ModelPrecacheComponents( const char *pszModelName ) { Table()->ModelPrecacheComponents( this, pszModelName ); }
 	void ModelPrecacheCheck( const char *pszModelName, bool bAllowed ) { Table()->ModelPrecacheCheck( this, pszModelName, bAllowed ); }
 
@@ -88,10 +86,10 @@ private:
 };
 
 static const uint32_t kIManagedResourcesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x256306e9, 0x3aa7ebf0, 0x296debda,
+	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x3aa7ebf0, 0x296debda,
 };
-static const int32_t kIManagedResourcesSlotCount = 8;
-static_assert( sizeof( SSManagedResourcesTable ) == 8 * sizeof( void * ), "SSManagedResourcesTable is one pointer per slot" );
+static const int32_t kIManagedResourcesSlotCount = 7;
+static_assert( sizeof( SSManagedResourcesTable ) == 7 * sizeof( void * ), "SSManagedResourcesTable is one pointer per slot" );
 
 class IManagedSaveRestore;
 
@@ -142,7 +140,6 @@ struct SSManagedSoundEntTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *ServerSoundEntInit )( IManagedSoundEnt *self, int32_t nMaxClients, float flCurTime );
 	void ( *ServerSoundEntShutdown )( IManagedSoundEnt *self );
-	void ( *ServerSoundEntInsert )( IManagedSoundEnt *self, int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget );
 	void ( *ServerSoundEntResetClientSound )( IManagedSoundEnt *self, int32_t nIndex );
 };
 
@@ -153,7 +150,6 @@ public:
 
 	void ServerSoundEntInit( int32_t nMaxClients, float flCurTime ) { Table()->ServerSoundEntInit( this, nMaxClients, flCurTime ); }
 	void ServerSoundEntShutdown() { Table()->ServerSoundEntShutdown( this ); }
-	void ServerSoundEntInsert( int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget ) { Table()->ServerSoundEntInsert( this, nType, pXYZ, nVolume, flDuration, hOwner, nChannel, hTarget ); }
 	void ServerSoundEntResetClientSound( int32_t nIndex ) { Table()->ServerSoundEntResetClientSound( this, nIndex ); }
 
 private:
@@ -161,10 +157,10 @@ private:
 };
 
 static const uint32_t kIManagedSoundEntSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x7579bac3, 0x07e0f4c4, 0xcf29a9c5, 0xc83e311d,
+	0x07e0f4c4, 0x0d54c15e, 0x7579bac3, 0x07e0f4c4, 0xc83e311d,
 };
-static const int32_t kIManagedSoundEntSlotCount = 6;
-static_assert( sizeof( SSManagedSoundEntTable ) == 6 * sizeof( void * ), "SSManagedSoundEntTable is one pointer per slot" );
+static const int32_t kIManagedSoundEntSlotCount = 5;
+static_assert( sizeof( SSManagedSoundEntTable ) == 5 * sizeof( void * ), "SSManagedSoundEntTable is one pointer per slot" );
 
 class IManagedHierarchy;
 
@@ -179,8 +175,6 @@ struct SSManagedHierarchyTable
 	int32_t ( *HierarchyGetParentAttachment )( IManagedHierarchy *self, uint32_t hChild );
 	void ( *HierarchySetParentName )( IManagedHierarchy *self, uint32_t hChild, const char *pParentName );
 	void ( *HierarchySetParentAttachmentName )( IManagedHierarchy *self, uint32_t hChild, const char *pAttachmentName );
-	int32_t ( *HierarchyEntityRemoved )( IManagedHierarchy *self, uint32_t hEntity );
-	int32_t ( *HierarchyResolveParentNames )( IManagedHierarchy *self );
 	int32_t ( *HierarchyToLocal )( IManagedHierarchy *self, uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR );
 	int32_t ( *HierarchyToWorld )( IManagedHierarchy *self, uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR );
 	void ( *HierarchySetLocal )( IManagedHierarchy *self, uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR );
@@ -197,8 +191,6 @@ public:
 	int32_t HierarchyGetParentAttachment( uint32_t hChild ) { return Table()->HierarchyGetParentAttachment( this, hChild ); }
 	void HierarchySetParentName( uint32_t hChild, const char *pParentName ) { Table()->HierarchySetParentName( this, hChild, pParentName ); }
 	void HierarchySetParentAttachmentName( uint32_t hChild, const char *pAttachmentName ) { Table()->HierarchySetParentAttachmentName( this, hChild, pAttachmentName ); }
-	int32_t HierarchyEntityRemoved( uint32_t hEntity ) { return Table()->HierarchyEntityRemoved( this, hEntity ); }
-	int32_t HierarchyResolveParentNames() { return Table()->HierarchyResolveParentNames( this ); }
 	int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) { return Table()->HierarchyToLocal( this, hChild, pOriginXYZ, pAnglesPYR ); }
 	int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) { return Table()->HierarchyToWorld( this, hChild, pOriginXYZ, pAnglesPYR ); }
 	void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR ) { Table()->HierarchySetLocal( this, hChild, pOriginXYZ, pAnglesPYR ); }
@@ -209,10 +201,10 @@ private:
 
 static const uint32_t kIManagedHierarchySlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x8a6f1a50, 0x8a6f1a50, 0x18f4833a, 0xe0e1e121, 0xaf0c4354, 0xaf0c4354,
-	0xe0e1e121, 0x9d8d9245, 0x8ff15189, 0x8ff15189, 0x542fda88,
+	0x8ff15189, 0x8ff15189, 0x542fda88,
 };
-static const int32_t kIManagedHierarchySlotCount = 13;
-static_assert( sizeof( SSManagedHierarchyTable ) == 13 * sizeof( void * ), "SSManagedHierarchyTable is one pointer per slot" );
+static const int32_t kIManagedHierarchySlotCount = 11;
+static_assert( sizeof( SSManagedHierarchyTable ) == 11 * sizeof( void * ), "SSManagedHierarchyTable is one pointer per slot" );
 
 class IManagedEntities;
 
@@ -223,12 +215,6 @@ struct SSManagedEntitiesTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	int32_t ( *Dispatch )( IManagedEntities *self, uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs );
 	int32_t ( *EntityRemoveRequested )( IManagedEntities *self, uint32_t hEntity );
-	void ( *OnEntityIgnite )( IManagedEntities *self, uint32_t hEntity, float flLifetime, float flSize );
-	void ( *OnFireAddHeatInRadius )( IManagedEntities *self, const float *pOriginXYZ, float flRadius, float flHeat );
-	int32_t ( *OnRagdollMagnetForce )( IManagedEntities *self, uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ );
-	int32_t ( *ShellLessFindByName )( IManagedEntities *self, const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax );
-	int32_t ( *ShellLessFindByClassname )( IManagedEntities *self, const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax );
-	int32_t ( *TemplatesAddNamed )( IManagedEntities *self, const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen );
 };
 
 class IManagedEntities : public IManagedObject
@@ -238,23 +224,16 @@ public:
 
 	int32_t Dispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs ) { return Table()->Dispatch( this, hEntity, nOp, pArgs ); }
 	int32_t EntityRemoveRequested( uint32_t hEntity ) { return Table()->EntityRemoveRequested( this, hEntity ); }
-	void OnEntityIgnite( uint32_t hEntity, float flLifetime, float flSize ) { Table()->OnEntityIgnite( this, hEntity, flLifetime, flSize ); }
-	void OnFireAddHeatInRadius( const float *pOriginXYZ, float flRadius, float flHeat ) { Table()->OnFireAddHeatInRadius( this, pOriginXYZ, flRadius, flHeat ); }
-	int32_t OnRagdollMagnetForce( uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ ) { return Table()->OnRagdollMagnetForce( this, hVictim, pCenterXYZ, pOutForceXYZ ); }
-	int32_t ShellLessFindByName( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax ) { return Table()->ShellLessFindByName( this, pQuery, pOutHandles, nOutMax ); }
-	int32_t ShellLessFindByClassname( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax ) { return Table()->ShellLessFindByClassname( this, pQuery, pOutHandles, nOutMax ); }
-	int32_t TemplatesAddNamed( const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen ) { return Table()->TemplatesAddNamed( this, pszName, pszClassname, pszMapData, nLen ); }
 
 private:
 	const SSManagedEntitiesTable *Table() const { return static_cast< const SSManagedEntitiesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedEntitiesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x4e69f0b6, 0xe0e1e121, 0x8e72cafc, 0x07296bac, 0x8ff15189, 0x491c72c2,
-	0x491c72c2, 0x994fbbfe,
+	0x07e0f4c4, 0x0d54c15e, 0x4e69f0b6, 0xe0e1e121,
 };
-static const int32_t kIManagedEntitiesSlotCount = 10;
-static_assert( sizeof( SSManagedEntitiesTable ) == 10 * sizeof( void * ), "SSManagedEntitiesTable is one pointer per slot" );
+static const int32_t kIManagedEntitiesSlotCount = 4;
+static_assert( sizeof( SSManagedEntitiesTable ) == 4 * sizeof( void * ), "SSManagedEntitiesTable is one pointer per slot" );
 
 class IManagedClients;
 
@@ -266,12 +245,10 @@ struct SSManagedClientsTable
 	int32_t ( *OnClientConnect )( IManagedClients *self, const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize );
 	void ( *OnClientPutInServer )( IManagedClients *self, int32_t nEntIndex, const char *pPlayerName );
 	void ( *OnClientActive )( IManagedClients *self, int32_t nEntIndex, int32_t bLoadGame );
-	void ( *OnRespawn )( IManagedClients *self, int32_t nEntIndex, int32_t bCopyCorpse );
 	void ( *OnPlayerSpawn )( IManagedClients *self, uint32_t hPlayer );
 	void ( *OnPlayerSpawned )( IManagedClients *self, uint32_t hPlayer );
 	void ( *OnPlayerKilled )( IManagedClients *self, uint32_t hPlayer, uint32_t hAttacker );
 	uint32_t ( *OnSelectSpawnPoint )( IManagedClients *self, uint32_t hPlayer );
-	int32_t ( *GetPlayerRelationship )( IManagedClients *self, uint32_t hPlayer, uint32_t hTarget );
 	int32_t ( *ServerSkyboxAreaForClient )( IManagedClients *self, int32_t iClientEdict, int32_t *pOutArea );
 	int32_t ( *ServerEarPositionForClient )( IManagedClients *self, int32_t iClientEdict, float *pOutXYZ );
 	int32_t ( *OnClientNetMessage )( IManagedClients *self, int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen );
@@ -288,12 +265,10 @@ public:
 	int32_t OnClientConnect( const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize ) { return Table()->OnClientConnect( this, pName, pAddress, pReject, nRejectSize ); }
 	void OnClientPutInServer( int32_t nEntIndex, const char *pPlayerName ) { Table()->OnClientPutInServer( this, nEntIndex, pPlayerName ); }
 	void OnClientActive( int32_t nEntIndex, int32_t bLoadGame ) { Table()->OnClientActive( this, nEntIndex, bLoadGame ); }
-	void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse ) { Table()->OnRespawn( this, nEntIndex, bCopyCorpse ); }
 	void OnPlayerSpawn( uint32_t hPlayer ) { Table()->OnPlayerSpawn( this, hPlayer ); }
 	void OnPlayerSpawned( uint32_t hPlayer ) { Table()->OnPlayerSpawned( this, hPlayer ); }
 	void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker ) { Table()->OnPlayerKilled( this, hPlayer, hAttacker ); }
 	uint32_t OnSelectSpawnPoint( uint32_t hPlayer ) { return Table()->OnSelectSpawnPoint( this, hPlayer ); }
-	int32_t GetPlayerRelationship( uint32_t hPlayer, uint32_t hTarget ) { return Table()->GetPlayerRelationship( this, hPlayer, hTarget ); }
 	int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea ) { return Table()->ServerSkyboxAreaForClient( this, iClientEdict, pOutArea ); }
 	int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ ) { return Table()->ServerEarPositionForClient( this, iClientEdict, pOutXYZ ); }
 	int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen ) { return Table()->OnClientNetMessage( this, nEntIndex, pKey, pData, nLen ); }
@@ -306,12 +281,11 @@ private:
 };
 
 static const uint32_t kIManagedClientsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x994fbbfe, 0xeed27821, 0x7fb639b8, 0x7fb639b8, 0x8a6f1a50, 0x8a6f1a50,
-	0xc2a9f6e4, 0x021a56ce, 0x9e9fda65, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a, 0xa45f061a,
-	0x9546130c,
+	0x07e0f4c4, 0x0d54c15e, 0x994fbbfe, 0xeed27821, 0x7fb639b8, 0x8a6f1a50, 0x8a6f1a50, 0xc2a9f6e4,
+	0x021a56ce, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a, 0xa45f061a, 0x9546130c,
 };
-static const int32_t kIManagedClientsSlotCount = 17;
-static_assert( sizeof( SSManagedClientsTable ) == 17 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
+static const int32_t kIManagedClientsSlotCount = 15;
+static_assert( sizeof( SSManagedClientsTable ) == 15 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
 
 class IManagedEvents;
 
@@ -517,7 +491,6 @@ struct SSManagedConsoleOutputTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ConsoleLine )( IManagedConsoleOutput *self, const char *pText, int32_t nWarning );
 	void ( *ConsoleBufferAttach )( IManagedConsoleOutput *self, void *pBuffer );
 };
 
@@ -526,7 +499,6 @@ class IManagedConsoleOutput : public IManagedObject
 public:
 	explicit IManagedConsoleOutput( const SSManagedConsoleOutputTable *pTable ) : IManagedObject( pTable ) {}
 
-	void ConsoleLine( const char *pText, int32_t nWarning ) { Table()->ConsoleLine( this, pText, nWarning ); }
 	void ConsoleBufferAttach( void *pBuffer ) { Table()->ConsoleBufferAttach( this, pBuffer ); }
 
 private:
@@ -534,10 +506,10 @@ private:
 };
 
 static const uint32_t kIManagedConsoleOutputSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x3e98ef21, 0xde3e0200,
+	0x07e0f4c4, 0x0d54c15e, 0xde3e0200,
 };
-static const int32_t kIManagedConsoleOutputSlotCount = 4;
-static_assert( sizeof( SSManagedConsoleOutputTable ) == 4 * sizeof( void * ), "SSManagedConsoleOutputTable is one pointer per slot" );
+static const int32_t kIManagedConsoleOutputSlotCount = 3;
+static_assert( sizeof( SSManagedConsoleOutputTable ) == 3 * sizeof( void * ), "SSManagedConsoleOutputTable is one pointer per slot" );
 
 class IManagedBones;
 
@@ -566,37 +538,6 @@ static const uint32_t kIManagedBonesSlotHashes[] = {
 static const int32_t kIManagedBonesSlotCount = 3;
 static_assert( sizeof( SSManagedBonesTable ) == 3 * sizeof( void * ), "SSManagedBonesTable is one pointer per slot" );
 
-class IManagedSoundEmitter;
-
-// The table managed writes for IManagedSoundEmitter: Release, Validate, then the TSV's order.
-struct SSManagedSoundEmitterTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ServerMoveSound )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch );
-	void ( *ServerMoveSoundScript )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, const char *pSoundName );
-	void ( *ServerPrecacheScriptSound )( IManagedSoundEmitter *self, const char *pSoundName );
-};
-
-class IManagedSoundEmitter : public IManagedObject
-{
-public:
-	explicit IManagedSoundEmitter( const SSManagedSoundEmitterTable *pTable ) : IManagedObject( pTable ) {}
-
-	void ServerMoveSound( int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch ) { Table()->ServerMoveSound( this, nEntIndex, pOrigin, nChannel, pSample, flVolume, nSoundLevel, nFlags, nPitch ); }
-	void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName ) { Table()->ServerMoveSoundScript( this, nEntIndex, pOrigin, pSoundName ); }
-	void ServerPrecacheScriptSound( const char *pSoundName ) { Table()->ServerPrecacheScriptSound( this, pSoundName ); }
-
-private:
-	const SSManagedSoundEmitterTable *Table() const { return static_cast< const SSManagedSoundEmitterTable * >( m_pTable ); }
-};
-
-static const uint32_t kIManagedSoundEmitterSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xa452a32f, 0x5cb9e839, 0x3aa7ebf0,
-};
-static const int32_t kIManagedSoundEmitterSlotCount = 5;
-static_assert( sizeof( SSManagedSoundEmitterTable ) == 5 * sizeof( void * ), "SSManagedSoundEmitterTable is one pointer per slot" );
-
 IManagedPhysicsFrame *ManagedPhysicsFrame();   // this load's area, or NULL outside a load
 IManagedResources *ManagedResources();   // this load's area, or NULL outside a load
 IManagedSaveRestore *ManagedSaveRestore();   // this load's area, or NULL outside a load
@@ -613,7 +554,6 @@ IManagedNetState *ManagedNetState();   // this load's area, or NULL outside a lo
 IManagedPlayerCommands *ManagedPlayerCommands();   // this load's area, or NULL outside a load
 IManagedConsoleOutput *ManagedConsoleOutput();   // this load's area, or NULL outside a load
 IManagedBones *ManagedBones();   // this load's area, or NULL outside a load
-IManagedSoundEmitter *ManagedSoundEmitter();   // this load's area, or NULL outside a load
 
 #endif // !CLIENT_DLL
 

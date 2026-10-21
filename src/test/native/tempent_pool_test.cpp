@@ -301,14 +301,16 @@ TEST( TempEntPoolSeam, TheRenderStateGoesBackThroughTempentHsOwnSetters )
 }
 
 //-----------------------------------------------------------------------------
-// The six ABI slots exist here and are WIRED. A declared slot nobody wires is
+// The five ABI slots exist here and are WIRED. A declared slot nobody wires is
 // a null pointer every guarded call in Engine.cs skips in silence -- and for
 // these that silence is a pool that allocates and never frees.
 //-----------------------------------------------------------------------------
-TEST( TempEntPoolSeam, AllSixSlotsAreImplementedHereAndWiredThere )
+TEST( TempEntPoolSeam, AllFiveSlotsAreImplementedHereAndWiredThere )
 {
 	// DECLARED is IShimTempEntPoolClient's method since plan_client_vtables
-	// CC-last deleted the engine API struct the six were fields of.
+	// CC-last deleted the engine API struct they were fields of.
+	// TempEntPoolSimulate, the sixth, left in the serialised ABI pass
+	// (2026-10-20): the managed pool integrates every tempent itself.
 	const std::string pool  = ReadSquashed( kPoolCpp );
 	const std::string sys   = ReadSquashed( kClientAreas );
 	const std::string areas = ReadSquashed( kClientAreasH );
@@ -323,14 +325,13 @@ TEST( TempEntPoolSeam, AllSixSlotsAreImplementedHereAndWiredThere )
 		"TempEntPoolDestroy",
 		"TempEntPoolReadLife",
 		"TempEntPoolWriteLife",
-		"TempEntPoolSimulate",
 		"TempEntPoolAddVisible",
 	};
 
 	for ( size_t i = 0; i < sizeof( kSlots ) / sizeof( kSlots[ 0 ] ); i++ )
 	{
 		// Squashed text: "virtual<ret><Name>(", the name running straight on
-		// from its return type, which is int32_t or void for these six.
+		// from its return type, which is int32_t or void for these five.
 		const std::string decl = std::string( kSlots[ i ] ) + "(";
 		EXPECT_EQ( 1, CountOf( areas, "virtualint32_t" + decl ) + CountOf( areas, "virtualvoid" + decl ) )
 			<< kSlots[ i ] << " is declared in ishim_areas_client.h.";
@@ -344,14 +345,20 @@ TEST( TempEntPoolSeam, AllSixSlotsAreImplementedHereAndWiredThere )
 			   "body in shell_shim_areas_client.inc. Declared and unwired is a null "
 			   "pointer Engine.cs skips without a word.";
 	}
+
+	// The sixth is GONE, declaration and body: a slot that came back would be
+	// a native integrator beside the managed one. The positive arm is the five
+	// above, found in the same two strings.
+	EXPECT_EQ( 0, CountOf( areas, "TempEntPoolSimulate(" ) )
+		<< "TempEntPoolSimulate is declared in ishim_areas_client.h again.";
+	EXPECT_EQ( 0, CountOf( pool, "SourceSharp_TempEntPoolSimulate(" ) )
+		<< "TempEntPoolSimulate has a body in shell_te_pool_client.cpp again.";
 }
 
 // The frame and the level teardown still go the other way. The two callbacks
-// the retired exports used to invoke are asserted DEAD HERE and ALIVE THERE:
-// still declared in IManagedTempEntsClient (the area's slots leave in the
-// serialised ABI pass, which renumbers the layout), and called from nothing.
-// A slot kept while its caller was deleted is honest bookkeeping; a slot whose
-// body was deleted too would leave the generated vtable pointing at nothing.
+// the retired exports used to invoke are GONE: the serialised ABI pass
+// (2026-10-20) removed their slots from IManagedTempEntsClient, so neither is
+// declared in the table native reads nor called from the pool.
 TEST( TempEntPoolSeam, TheTwoLiveCallbacksAreCalledFromNativeAndTheDeadOnesAreNot )
 {
 	const std::string abi    = ReadSquashed( kManagedAreasH );
@@ -378,17 +385,17 @@ TEST( TempEntPoolSeam, TheTwoLiveCallbacksAreCalledFromNativeAndTheDeadOnesAreNo
 			   "gib and shell casing in the game silently not spawning.";
 	}
 
-	// DEAD, and kept as a slot: still declared, called from nowhere. The
-	// positive arm against a vacuous read is the two assertions above finding
-	// the live spellings in the SAME two strings this half scans.
+	// GONE: not declared, called from nowhere. The positive arm against a
+	// vacuous read is the two assertions above finding the live spellings in
+	// the SAME two strings this half scans.
 	static const char *kDead[] = { "OnTempEntPoolAlloc", "OnTempEntEjectBrass" };
 
 	for ( size_t i = 0; i < sizeof( kDead ) / sizeof( kDead[ 0 ] ); i++ )
 	{
 		const std::string decl = std::string( "int32_t(*" ) + kDead[ i ] + ")(";
-		EXPECT_NE( abi.find( decl ), std::string::npos )
-			<< kDead[ i ] << " stays DECLARED: the area's slot table is the ABI, "
-			   "and its slots leave in the serialised pass, not with their last caller.";
+		EXPECT_EQ( abi.find( decl ), std::string::npos )
+			<< kDead[ i ] << " is DECLARED again: the serialised ABI pass removed "
+			   "the slot with its last caller.";
 
 		const std::string call = std::string( "pTempEnts->" ) + kDead[ i ] + "(";
 		EXPECT_EQ( 0, CountOf( pool, call ) )

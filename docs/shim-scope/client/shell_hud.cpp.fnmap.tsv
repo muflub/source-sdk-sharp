@@ -19,7 +19,6 @@
 11	SLOT	int32_t SourceSharp_UiFontCreate( const char *pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags )
 9	SLOT	void SourceSharp_UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutAscent )
 12	SLOT	int32_t SourceSharp_UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t *pOutAdvances )
-7	SLOT	void SourceSharp_UiScreenSize( int32_t *pOutWide, int32_t *pOutTall )
 5	SLOT	void SourceSharp_UiPlaySound( const char *pPath )
 5	UNRULED	int32_t SourceSharp_GetLocalPlayerIndex( void )
 6	UNRULED	int32_t SourceSharp_GetLocalPlayerHealth( void )

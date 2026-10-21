@@ -79,21 +79,6 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     }
 
     /// <inheritdoc/>
-    public void ResetServerTime() => Vtbl->ResetServerTime(_self);
-
-    /// <inheritdoc/>
-    public void ParseParticleManifest() => Vtbl->ParseParticleManifest(_self);
-
-    /// <inheritdoc/>
-    public void ParseParticleManifestForMap(string mapName)
-    {
-        byte[] bytes = Vtable.Utf8(mapName);
-
-        fixed (byte* p = bytes)
-            Vtbl->ParseParticleManifestForMap(_self, p);
-    }
-
-    /// <inheritdoc/>
     public bool SpawnWorld(IReadOnlyList<KeyValuePair<string, string>> keys)
     {
         // Each key and value as its own NUL-terminated UTF-8 copy, pinned for
@@ -181,20 +166,11 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     public void LoadMessageOfTheDay() => Vtbl->LoadMessageOfTheDay(_self);
 
     /// <inheritdoc/>
-    public int ResetDeleteList() => Vtbl->ResetDeleteList(_self);
-
-    /// <inheritdoc/>
-    public void ActivateAllEntities() => Vtbl->ActivateAllEntities(_self);
-
-    /// <inheritdoc/>
     public void SetPrecacheAllowed(bool allowed)
         => Vtbl->SetPrecacheAllowed(_self, allowed ? 1 : 0);
 
     /// <inheritdoc/>
     public bool IsPrecacheAllowed() => Vtbl->IsPrecacheAllowed(_self) != 0;
-
-    /// <inheritdoc/>
-    public void ClearSteamAPIContext() => Vtbl->ClearSteamAPIContext(_self);
 
     /// <inheritdoc/>
     public void ShutdownStandaloneEntities() => Vtbl->ShutdownStandaloneEntities(_self);
@@ -204,18 +180,6 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
 
     /// <inheritdoc/>
     public void ClearEntityList() => Vtbl->ClearEntityList(_self);
-
-    /// <inheritdoc/>
-    public void UncacheAllParticleSystems() => Vtbl->UncacheAllParticleSystems(_self);
-
-    /// <inheritdoc/>
-    public void RecreateParticleDictionary() => Vtbl->RecreateParticleDictionary(_self);
-
-    /// <inheritdoc/>
-    public void PropDataLoadFile() => Vtbl->PropDataLoadFile(_self);
-
-    /// <inheritdoc/>
-    public void PropDataClearFile() => Vtbl->PropDataClearFile(_self);
 
     /// <inheritdoc/>
     public bool LoadSaveGameState(string mapName, bool createPlayers)

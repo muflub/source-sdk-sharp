@@ -1,13 +1,14 @@
-using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
 /// <summary>
 /// The client engine's console prints, delivered in process (docs/todo.md's
-/// console capture item): the body of
-/// <c>IManagedConsoleOutputClient::ClientConsoleLine</c>, the mirror of the
-/// server's <c>ConsoleDisplayBinding</c> for the client side's area.
+/// console capture item): the mirror of the server's
+/// <c>ConsoleDisplayBinding</c> for the client side's area, whose one slot left
+/// is the buffer hand-over (<c>ClientConsoleBufferAttach</c>).
+/// <c>ClientConsoleLine</c>, uncalled since console-batch, left in the
+/// serialised ABI pass (2026-10-20).
 /// </summary>
 public sealed unsafe class ConsoleDisplayClientBinding : IManagedConsoleOutputClient
 {
@@ -21,22 +22,6 @@ public sealed unsafe class ConsoleDisplayClientBinding : IManagedConsoleOutputCl
     {
         this.crossings = crossings;
         _lines = lines;
-    }
-
-    // UNCALLED SINCE CONSOLE-BATCH (2026-10-11): native appends to its line
-    // buffer instead (ConsoleBufferAttach). The slot stays until the
-    // serialised ABI cleanup (docs/todo.md) renumbers once.
-    public void ClientConsoleLine(byte* a0, int a1)
-    {
-        // A NULL text is not a print: nothing is counted or dispatched.
-        if (a0 is null)
-            return;
-
-        // The mirror of the server's thunk: decode the engine's UTF-8 line and
-        // hand it to this side's lines verbatim.
-        crossings.Count(CrossingOp.ClientConsoleLine);
-        var text = Marshal.PtrToStringUTF8((nint)a0) ?? string.Empty;
-        _lines.Line(text, a1 != 0);
     }
 
     public void ClientConsoleBufferAttach(void* a0)

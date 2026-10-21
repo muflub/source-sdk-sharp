@@ -81,13 +81,6 @@ public sealed class ClientLeafSystem(LeafRegistry registry, RenderableListBuilde
         stats.Add(LeafSystemStats.Kind.AddOrRemove, t);
     }
 
-    public void ChangeRenderableRenderGroup(int handle, int group)
-    {
-        long t = Now();
-        registry.ChangeRenderableRenderGroup(handle, group);
-        stats.Add(LeafSystemStats.Kind.Other, t);
-    }
-
     public void SetRenderGroup(int handle, int group)
     {
         long t = Now();

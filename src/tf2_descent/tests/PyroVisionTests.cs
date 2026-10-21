@@ -107,7 +107,6 @@ public sealed class PyroVisionTests
 
         public int RandomInt(int min, int max) => min;
 
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     /// <summary>The convars by name, as the engine answers them.</summary>

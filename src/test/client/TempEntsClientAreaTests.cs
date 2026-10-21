@@ -15,8 +15,7 @@ public class TempEntsClientAreaTests
     private static readonly string[] Slots =
     [
         "OnTempEntity", "OnNativeTempEntity", "OnImpactChoice",
-        "OnTempEntPoolAlloc", "OnTempEntPoolUpdate",
-        "OnTempEntPoolClear", "OnTempEntEjectBrass",
+        "OnTempEntPoolUpdate", "OnTempEntPoolClear",
     ];
 
     // Each native caller and the calls it makes on the area, with their counts.
@@ -26,13 +25,8 @@ public class TempEntsClientAreaTests
         // second caller and had no caller of its own (deleted, 2026-10-19).
         ("shell_tempents_client.cpp", "OnTempEntity", 1),
         ("shell_tempents_client.cpp", "OnNativeTempEntity", 1),
-        // The retired exports were these two callbacks' only callers; the
-        // slots stay in IManagedTempEntsClient (their removal is the
-        // serialised ABI follow-up), but nothing may call them again.
-        ("shell_te_pool_client.cpp", "OnTempEntPoolAlloc", 0),
         ("shell_te_pool_client.cpp", "OnTempEntPoolUpdate", 1),
         ("shell_te_pool_client.cpp", "OnTempEntPoolClear", 1),
-        ("shell_te_pool_client.cpp", "OnTempEntEjectBrass", 0),
         ("shell_impact_effects.cpp", "OnImpactChoice", 1),
     ];
 

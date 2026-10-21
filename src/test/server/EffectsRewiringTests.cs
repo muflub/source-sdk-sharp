@@ -459,10 +459,10 @@ public class EffectsRewiringTests
                                             .OrderBy(m => m.Name, StringComparer.Ordinal)
                                             .ToList();
 
-        Assert.True(members.Count == 50,
-            $"IEngineEffects has fifty members ({members.Count} found) — if this "
+        Assert.True(members.Count == 49,
+            $"IEngineEffects has forty-nine members ({members.Count} found) — if this "
           + "number moved, a member arrived and this sweep is the thing that decides whether "
-          + "it was wired. It has moved twenty-three times (the twenty-third DOWN: C7 glow overlays took ClientExplosionFireball, the fireball's flash being the managed GlowOverlaySystem's; the twenty-second DOWN: plan_server_native_v2 T2 took BloodDecal, whose decal was never painted (UTIL_DecalTrace's subject was NULL) and which is managed BloodDecals now; the twenty-first DOWN: plan_server_native_v2 T2 took FireEffectCreate, FireEffectEnable and FireEffectScale, retired refusals no managed code called (env_fire is ss_firesmoke); the twentieth DOWN: lane c5-particles took ClientBloodStream and ClientShowLine, CTEParticleRenderer's two effects being C# (TeParticles); the nineteenth DOWN: lane c5-particles took ClientDust, the dust puff being C# (DustPuff); the eighteenth DOWN: lane c5-particles took DustUpdate and DustDestroy, the dust motes being C# (DustVolumeSim); the seventeenth DOWN: lane c5-particles took ClientLargeFunnel, the funnel being C# (LargeFunnel); the sixteenth DOWN: lane c5-particles took ClientBloodPuff, the blood sprite's puff being C# (ImpactSprays.Blood); the fifteenth DOWN: lane c5-particles took ClientShatterSurface, the shattered pane being C# (ShardEffects); the fourteenth DOWN: lane c5-particles took ClientExplosionCore and ClientExplosionWater, fx_explosion.cpp's effects being C# (ExplosionEffects); the thirteenth DOWN: lane c5-particles took ClientGaussExplosion, the gauss discharge being C# (SparkEffects.GaussExplosion); the twelfth DOWN: lane c2-fx took TempEntPoolPlaySound, the tempent frame playing its bounce sound in C# (TempEntSounds); the eleventh DOWN: lane c2-fx took ClientDispatchEffect, whose one caller dispatches through the client's managed table now; the ninth DOWN: the C2 rope port took "
+          + "it was wired. It has moved twenty-four times (the twenty-fourth DOWN: the serialised ABI pass took TempEntPoolSimulate, the managed pool integrating every tempent itself; the twenty-third DOWN: C7 glow overlays took ClientExplosionFireball, the fireball's flash being the managed GlowOverlaySystem's; the twenty-second DOWN: plan_server_native_v2 T2 took BloodDecal, whose decal was never painted (UTIL_DecalTrace's subject was NULL) and which is managed BloodDecals now; the twenty-first DOWN: plan_server_native_v2 T2 took FireEffectCreate, FireEffectEnable and FireEffectScale, retired refusals no managed code called (env_fire is ss_firesmoke); the twentieth DOWN: lane c5-particles took ClientBloodStream and ClientShowLine, CTEParticleRenderer's two effects being C# (TeParticles); the nineteenth DOWN: lane c5-particles took ClientDust, the dust puff being C# (DustPuff); the eighteenth DOWN: lane c5-particles took DustUpdate and DustDestroy, the dust motes being C# (DustVolumeSim); the seventeenth DOWN: lane c5-particles took ClientLargeFunnel, the funnel being C# (LargeFunnel); the sixteenth DOWN: lane c5-particles took ClientBloodPuff, the blood sprite's puff being C# (ImpactSprays.Blood); the fifteenth DOWN: lane c5-particles took ClientShatterSurface, the shattered pane being C# (ShardEffects); the fourteenth DOWN: lane c5-particles took ClientExplosionCore and ClientExplosionWater, fx_explosion.cpp's effects being C# (ExplosionEffects); the thirteenth DOWN: lane c5-particles took ClientGaussExplosion, the gauss discharge being C# (SparkEffects.GaussExplosion); the twelfth DOWN: lane c2-fx took TempEntPoolPlaySound, the tempent frame playing its bounce sound in C# (TempEntSounds); the eleventh DOWN: lane c2-fx took ClientDispatchEffect, whose one caller dispatches through the client's managed table now; the ninth DOWN: the C2 rope port took "
           + "RopeUpdate and RopeDestroy, the rope being C#'s now; the tenth DOWN: the C2 beam "
           + "port took the six BeamCreate* creators, DrawBeamPoints and DrawBeamQuadratic, "
           + "the beams being C#'s now): C-Phase 2 added fifteen client backends, "
@@ -561,11 +561,12 @@ public class EffectsRewiringTests
                 $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 40,
-            "and forty reached the engine unchanged — fifty less the eight that moved and the two "
+        Assert.True(forwarded.Count == 39,
+            "and thirty-nine reached the engine unchanged — forty-nine less the eight that moved and the two "
           + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
           + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
-          + "C7; BubbleEffect and PaintDecal moved at T4f): " + forwarded.Count + " found");
+          + "C7; BubbleEffect and PaintDecal moved at T4f; TempEntPoolSimulate left in the serialised "
+          + "ABI pass): " + forwarded.Count + " found");
 
         Assert.True(forwarded.Contains("BloodEffect"),
             "BloodEffect is the Part 8 row that could not move, and it still reaches the engine — a "

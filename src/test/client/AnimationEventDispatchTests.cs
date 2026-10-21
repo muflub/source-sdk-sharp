@@ -1244,7 +1244,6 @@ public class AnimationEventPumpTests
         public void SetModel(EntityHandle entity, string model) => throw Refuse(nameof(SetModel));
         // Added when the shadow lane extended IEngineEntityRender; these doubles
         // predate it and none of their tests reach a shadow.
-        public void SetShadowCast(EntityHandle entity, ShadowCastChoice choice) => throw Refuse(nameof(SetShadowCast));
         public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked) => throw Refuse(nameof(ShadowCast));
         public void SetOverlayModel(EntityHandle entity, int modelIndex) => throw Refuse(nameof(SetOverlayModel));
         public void SetModelScale(EntityHandle entity, float scale) => throw Refuse(nameof(SetModelScale));

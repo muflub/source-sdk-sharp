@@ -523,17 +523,14 @@ TEST( SrvShimRulings, TheSdkActivateWalkIsGoneAndTheStepSurvivesItAsARecordedNoO
 	// _spawner.ActivateAll() is the WHOLE activation pass rather than one side
 	// of a pair.
 	//
-	// SO WHAT IS PINNED HERE IS THE DECLARATION, NOT A CALLER. The method must
-	// still exist at its index -- a retired vtable slot that is deleted rather
-	// than emptied renumbers every slot after it, managed binds by index, and
-	// the span check does not catch a reorder. That is the failure this needle
-	// now stands in front of.
-	const int nFunc = FirstLineWith( lines, "virtual void ActivateAllEntities() OVERRIDE" );
-	ASSERT_GE( nFunc, 0 )
-		<< "IShimLevel::ActivateAllEntities is gone from " << kLevelSteps
-		<< ". It is RETIRED, which means emptied and kept at its index -- "
-		   "deleting it renumbers every IShimLevel slot after it and managed "
-		   "binds by index.";
+	// AND THE SLOT ITSELF LEFT in the serialised ABI pass (2026-10-20), which
+	// renumbered IShimLevel once with tools/engine-forwarders --reorder: what is
+	// pinned now is that the method is GONE, with a live step found by the same
+	// read as the control.
+	EXPECT_EQ( -1, FirstLineWith( lines, "ActivateAllEntities" ) )
+		<< "IShimLevel::ActivateAllEntities is back in " << kLevelSteps;
+	ASSERT_GE( FirstLineWith( lines, "virtual void SetPrecacheAllowed( int32_t bAllowed ) OVERRIDE" ), 0 )
+		<< "the control: a live level step is not found in " << kLevelSteps;
 
 	// THE SECOND HALF OF THIS FACT IS RETIRED. It read
 	// `ShellGameDll_RecordStep( "LevelActivateAllEntities" )` and said "the
@@ -546,9 +543,8 @@ TEST( SrvShimRulings, TheSdkActivateWalkIsGoneAndTheStepSurvivesItAsARecordedNoO
 	// never evidence anybody could read, and the assertion was pinning an
 	// instrument rather than the step.
 	//
-	// WHAT STILL ANSWERS THE SAME QUESTION: the ASSERT above. An activation
-	// pass that stopped happening shows up as this function being gone, which
-	// is the failure the managed pairing actually cares about.
+	// WHAT ANSWERS THE SAME QUESTION NOW is managed: _spawner.ActivateAll() is
+	// the whole activation pass, in ServerGameDll.ServerActivate.
 }
 
 } // namespace

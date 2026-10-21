@@ -257,7 +257,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     /// <summary>The entity dispatch the root builds, which feeds this composition's liveness mirror.</summary>
     internal EntitiesBinding NewEntitiesBinding()
-        => new(_engine.Crossings, Log, this, _liveness, _services.Require<EntityRemovalRoutes>(), _services.Require<ShellLessRoutes>());
+        => new(_engine.Crossings, Log, this, _liveness, _services.Require<EntityRemovalRoutes>());
 
     /// <summary>The frame handler the root builds, which clears this composition's liveness mirror at level shutdown.</summary>
 
@@ -666,7 +666,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private SpawnHealthConVar? _spawnHealth;
     private AllowFlashlightConVar? _allowFlashlight;
     private BannedNamesConVar? _bannedNames;
-    private FriendlyFireConVar? _friendlyFire;
 
 
     public void Initialize(Side side)
@@ -779,12 +778,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedSaveRestore",
                       v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this,
                                                                                new SaveGameSession(Log, () => EngineServer.Acquire(_engine, out _) as ISaveMemory))));
-        // The standalone player's move helper's two sounds (plan_server_native_v2
-        // T4a), to the emitter BuildManagedRoot builds.
-        _bindings.Add("IManagedSoundEmitter",
-                      v => ManagedAreaFactory.Create(v, new SoundEmitterBinding(_engine.Crossings,
-                                                                                new MoveSoundsOf(() => _serverSounds),
-                                                                                new SoundSystemOf(() => _soundSystem))));
         _bindings.Add("IManagedSoundEnt",
                       v => ManagedAreaFactory.Create(v, new SoundEntBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedHierarchy",
@@ -2042,7 +2035,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         int layoutCount = _layouts.DiscoverAll(Game);
         Log.Msg($"[SourceSharp/Server] discovered {layoutCount} entity layout(s), " +
                    $"fingerprint 0x{_layouts.Fingerprint:X8}\n");
-        _friendlyFire    = _convars.Get<FriendlyFireConVar>();
 
         // plan_map_load P5: compile this side's methods off the main thread
         // while the game starts, so the first map load does not JIT them. The
@@ -2930,12 +2922,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _                             => outcome.ToString(),
     };
 
-    /// <summary>Everyone is hostile unless the ConVar says otherwise.</summary>
-    public PlayerRelationship GetPlayerRelationship(EntityHandle player, EntityHandle target)
-        => _friendlyFire?.Value == false
-            ? PlayerRelationship.Teammate
-            : PlayerRelationship.UseStockRule;
-
     /// <summary>
     /// Hot reload, the way out: every live entity's state into the ABI, which is
     /// the only thing that outlives this assembly.
@@ -3309,12 +3295,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             () => _gameDll.CurrentMap, text => Log.Warning(text), DeveloperMessage);
         _gameDll.SoundSystem = _soundSystem;
         _gameDll.PrecacheScriptSound = name => _soundSystem?.PrecacheScriptSound(name);
-    }
-
-    /// <summary>The system's two native edges, to whichever system the module has built (none before the root).</summary>
-    private sealed class SoundSystemOf(Func<SoundEmitterSystem?> system) : ISoundSystemSink
-    {
-        public void PrecacheScriptSound(string soundName) => system()?.PrecacheScriptSound(soundName);
     }
 
     /// <summary>The move helper's sounds, to whichever emitter the module has built (none before the root).</summary>
@@ -3863,9 +3843,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _reloadInvites.Invited(entIndex);
     }
 
-    public void OnRespawn(int entIndex, bool copyCorpse)
-        => Log.Msg($"[SourceSharp/Server] respawn entity {entIndex}\n");
-
     // OnNetEntitySpawned went with the entity it populated. It wrote one
     // distinctive value per field type so the client could CHECK the round trip
     // — the only managed proof that a generated SendTable and its generated
@@ -4115,17 +4092,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     }
 
     /// <summary>
-    /// A ragdoll magnet, asked by the SDK entity that has just died. The whole
-    /// decision is here because the whole of a magnet is here: which magnets
-    /// exist, which of them reaches this body, and how hard it pulls.
-    /// </summary>
-    public Vector? OnRagdollMagnetForce(EntityHandle victim, Vector centre)
-    {
-        PhysRagdollMagnet? magnet = PhysRagdollMagnet.Best(_magnets, victim, centre);
-
-        return magnet?.PullOn(centre);
-    }
-    /// <summary>
     /// How much of a jump a player gets (ABI slot). The answer is the side's
     /// resolved <see cref="MovementRules"/> pack — the core's identity, or the
     /// one mod that registered <see cref="IMovementRules"/> — which is also
@@ -4141,19 +4107,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial)
         => _movementRules.Rules.MaxSpeed(playerIndex, maxSpeed, ducking, groundMaterial);
-
-    public void AddFireHeatInRadius(Vector origin, float radius, float heat)
-    {
-        foreach (var fire in EnvFire.InRadius(_fires, origin, radius))
-            fire.AddHeat(heat);
-    }
-
-    /// <summary>
-    /// A native entity being set alight, asking for the flame it can no longer
-    /// build. See OnEntityIgnite in sourcesharp.h.
-    /// </summary>
-    public void OnEntityIgnite(EntityHandle entity, float lifetime, float size)
-        => _flames.Ignite(entity, lifetime, size);
 
     // The engine's InfoPanel table, through its own string-table interfaces. A
     // server whose container cannot be acquired still loads (the message of the

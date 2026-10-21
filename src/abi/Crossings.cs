@@ -10,7 +10,10 @@ namespace SourceSharp.Abi;
 /// native carries a <c>CrossingOp</c> number: the native side reads the report
 /// as text, keyed by NAME. So this enum may be reordered and appended to
 /// without an ABI version bump, and a lane that adds a thunk adds its name here
-/// in the same commit. <c>CrossingsAuditTests</c> is what makes "in the
+/// in the same commit. The serialised ABI pass (2026-10-20) removed the 26 ops
+/// whose bindings had left with their slots and renumbered the rest once,
+/// densely in declaration order; the per-member "Value N since" remarks that
+/// tracked earlier hole-filling went with that renumber. <c>CrossingsAuditTests</c> is what makes "in the
 /// same commit" true rather than hoped for — it reads each side's own entry
 /// and the bindings, and fails when the lists disagree.
 /// </para>
@@ -46,21 +49,16 @@ public enum CrossingOp
     ReloadCheckServer = 0,
     UnloadServer = 1,
     /// <summary>IManagedClientSystemsClient::Stage: one stage of a kClientSystems[] row whose system is managed's (C7, vgui_game_viewport.cpp's row first). CLIENT ONLY.</summary>
-    /// <remarks>Value 2 since plan_server_native_v2 T4e retired ServerFrame (it was 396): the ops stay contiguous.</remarks>
     ClientSystemStage = 2,
     /// <summary>IManagedPixelVisClient::EndView: a view's end asks the managed pixel visibility for the proxies to draw (C7, c_pixel_visibility.cpp). CLIENT ONLY.</summary>
-    /// <remarks>Value 3 since plan_server_native_v2 T4e retired ServerFramePreThink (it was 397): the ops stay contiguous.</remarks>
     ClientPixelVisEndView = 3,
     /// <summary>IManagedRenderClient::ScreenSpaceEffectsStage: the view's level start or end runs the managed screen-space effect manager's Init or Shutdown (C7 screen-space effects). CLIENT ONLY.</summary>
-    /// <remarks>Value 4 since plan_server_native_v2 T4e retired ServerFramePostThink (it was 395): the ops stay contiguous.</remarks>
     ClientScreenSpaceEffectsStage = 4,
     ClientFrame = 5,
     /// <summary>IManagedPixelVisClient::Commands: a view's end whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
-    /// <remarks>Value 6 since plan_server_native_v2 T4e retired ServerLevelInit (it was 398): the ops stay contiguous.</remarks>
     ClientPixelVisCommands = 6,
     ClientLevelInit = 7,
     /// <summary>IManagedPixelVisClient::EndScene: the scene's end frees the sets and queries nobody asked about. CLIENT ONLY.</summary>
-    /// <remarks>Value 8 since plan_server_native_v2 T4e retired ServerLevelShutdown (it was 399): the ops stay contiguous.</remarks>
     ClientPixelVisEndScene = 8,
     ClientLevelShutdown = 9,
     ServerConCommand = 10,
@@ -91,43 +89,35 @@ public enum CrossingOp
     ServerSteamGameServerShutdown = 35,
     ServerMapLoadPreEntity = 36,
     /// <summary>IManagedGlowClient::DrawOverlays: the plan's glow overlay draw asks the managed system for its commands (C7, glow_overlay.cpp). CLIENT ONLY.</summary>
-    /// <remarks>Value 37 since plan_server_native_v2 T4e retired ServerMapUnloadPreEntity (it was 400): the ops stay contiguous.</remarks>
     ClientGlowDrawOverlays = 37,
     ServerSkyboxAreaForClient = 38,
     ServerEarPositionForClient = 39,
-    ServerTemplatesAddNamed = 40,
-    ServerDecalIndexForName = 41,
-    ServerDecalNameForIndex = 42,
-    ServerDecalTranslateForGameMaterial = 43,
-    ServerPropDataRandomChunkModel = 44,
-    ServerSoundEntInit = 45,
-    ServerSoundEntShutdown = 46,
-    ServerSoundEntInsert = 47,
-    ServerSoundEntResetClientSound = 48,
-    ServerStatusLines = 49,
-    ServerGetGameDescription = 50,
-    ServerOnClientPutInServer = 51,
-    ServerOnClientActive = 52,
+    ServerDecalIndexForName = 40,
+    ServerDecalNameForIndex = 41,
+    ServerDecalTranslateForGameMaterial = 42,
+    ServerSoundEntInit = 43,
+    ServerSoundEntShutdown = 44,
+    ServerSoundEntResetClientSound = 45,
+    ServerStatusLines = 46,
+    ServerGetGameDescription = 47,
+    ServerOnClientPutInServer = 48,
+    ServerOnClientActive = 49,
     /// <summary>IManagedResources::ModelPrecacheCheck: Precache_Model's late-precache warning, decided in managed, once per model precache (plan_server_native_v2 T4e).</summary>
-    /// <remarks>Value 53 since plan_server_native_v2 T4e retired ServerOnClientGamePrecache (it was 396): the ops stay contiguous.</remarks>
-    ServerModelPrecacheCheck = 53,
-    ServerOnRespawn = 54,
-    ServerConVarChanged = 55,
-    ClientConVarChanged = 56,
-    ServerOnPlayerSpawn = 57,
-    ServerOnPlayerKilled = 58,
-    ServerOnClientConnect = 59,
-    ServerOnClientCommand = 60,
-    ServerGetPlayerRelationship = 61,
-    ClientOnCreateMove = 62,
-    ClientOnUserMessage = 63,
-    ClientNativeTempEntity = 64,
-    ClientOnTempEntity = 65,
-    ClientTempEntPoolUpdate = 66,
-    ClientTempEntPoolClear = 67,
-    ServerOnGameEvent = 68,
-    ClientOnGameEvent = 69,
-    ServerOnPlayerSpawned = 70,
+    ServerModelPrecacheCheck = 50,
+    ServerConVarChanged = 51,
+    ClientConVarChanged = 52,
+    ServerOnPlayerSpawn = 53,
+    ServerOnPlayerKilled = 54,
+    ServerOnClientConnect = 55,
+    ServerOnClientCommand = 56,
+    ClientOnUserMessage = 57,
+    ClientNativeTempEntity = 58,
+    ClientOnTempEntity = 59,
+    ClientTempEntPoolUpdate = 60,
+    ClientTempEntPoolClear = 61,
+    ServerOnGameEvent = 62,
+    ClientOnGameEvent = 63,
+    ServerOnPlayerSpawned = 64,
     // EIGHTEEN MORE OPS ARE GONE, on the anim-list pair's reasoning exactly --
     // plan_shim.md §5, the third ABI tail (lane 4e-abi, ABI 249).
     //
@@ -162,34 +152,30 @@ public enum CrossingOp
     // name table derived from the enum itself, and nothing native reads
     // them. The ABI SLOTS that fed these two are marked SS_RETIRED and left
     // in place, which is the thing a lane must not renumber.
-    ServerOnFireAddHeatInRadius = 71,
-    ServerOnEntityIgnite = 72,
-    ClientStandaloneCreate = 73,
-    ClientStandaloneDraw = 74,
-    ClientStandaloneSpawn = 75,
-    ClientStandaloneDataChanged = 76,
-    ClientStandaloneRemoved = 77,
-    ClientStandaloneDormancyChanged = 78,
-    ServerSelectSpawnPoint = 79,
+    ClientStandaloneCreate = 65,
+    ClientStandaloneDraw = 66,
+    ClientStandaloneSpawn = 67,
+    ClientStandaloneDataChanged = 68,
+    ClientStandaloneRemoved = 69,
+    ClientStandaloneDormancyChanged = 70,
+    ServerSelectSpawnPoint = 71,
     /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
-    /// <remarks>Value 80 since plan_server_native_v2 T4g retired ServerOnPlayerSurfaceChanged (it was 394): the movement's surface change reaches the module from the managed movement world, not across from native, so the ops stay contiguous.</remarks>
-    ServerAreaPortalVisibility = 80,
-    ClientNetStateFieldOffset = 81,
-    ClientNetStateFieldBits = 82,
-    ServerReloadSave = 83,
-    ServerReloadRestore = 84,
-    ClientReloadSave = 85,
-    ClientReloadRestore = 86,
+    ServerAreaPortalVisibility = 72,
+    ClientNetStateFieldOffset = 73,
+    ClientNetStateFieldBits = 74,
+    ServerReloadSave = 75,
+    ServerReloadRestore = 76,
+    ClientReloadSave = 77,
+    ClientReloadRestore = 78,
     /// <summary>IManagedSaveRestore::SaveWriteBody: IServerGameDLL::Save's one body block, the managed world, once per save. Was ServerSaveCollect (the entity block's retired SaveCollectEntities slot) until plan_server_native_v2 T4c; the value is kept.</summary>
-    ServerSaveWriteBody = 87,
+    ServerSaveWriteBody = 79,
     /// <summary>IManagedSaveRestore::SaveReadBody: IServerGameDLL::Restore's body block, once per load. Was ServerSaveRestore (SaveRestoreEntities) until plan_server_native_v2 T4c; the value is kept.</summary>
-    ServerSaveReadBody = 88,
-    ServerOnRagdollMagnetForce = 89,
+    ServerSaveReadBody = 80,
     /// <summary>IManagedUiClient::Paint, once per root panel a frame (plan_client_ui U2): the HUD's paint, which was ClientOnHudPaint. CLIENT ONLY.</summary>
-    ClientUiPaint = 90,
-    ServerWorldKeyValue = 91,
-    ClientStage = 92,
-    ServerDispatch = 93,
+    ClientUiPaint = 81,
+    ServerWorldKeyValue = 82,
+    ClientStage = 83,
+    ServerDispatch = 84,
 
     // Parenting, step 2h made live. ELEVEN THUNKS AND NOT FIFTEEN CALL SITES:
     // "is this entity parented" and "who carries it" are answered from the
@@ -201,17 +187,15 @@ public enum CrossingOp
     // ChildMoved only for one something carries. In a map that parents nothing
     // every counter below stays at zero, which is what makes them worth reading
     // in `cs_sv_crossings`.
-    ServerHierarchyParentMoved = 94,
-    ServerHierarchyChildMoved = 95,
-    ServerHierarchySetParent = 96,
-    ServerHierarchyGetParentAttachment = 97,
-    ServerHierarchySetParentName = 98,
-    ServerHierarchySetParentAttachmentName = 99,
-    ServerHierarchyEntityRemoved = 100,
-    ServerHierarchyResolveParentNames = 101,
-    ServerHierarchyToLocal = 102,
-    ServerHierarchyToWorld = 103,
-    ServerHierarchySetLocal = 104,
+    ServerHierarchyParentMoved = 85,
+    ServerHierarchyChildMoved = 86,
+    ServerHierarchySetParent = 87,
+    ServerHierarchyGetParentAttachment = 88,
+    ServerHierarchySetParentName = 89,
+    ServerHierarchySetParentAttachmentName = 90,
+    ServerHierarchyToLocal = 91,
+    ServerHierarchyToWorld = 92,
+    ServerHierarchySetLocal = 93,
 
     /// <summary>
     /// plan_entity.md step 2c. Native code asking the directory to mark an
@@ -227,7 +211,7 @@ public enum CrossingOp
     /// which native caller is left.
     /// </para>
     /// </summary>
-    ServerEntityRemoveRequested = 105,
+    ServerEntityRemoveRequested = 94,
     // plan_entity.md step 3e. ONE crossing per command per player: the whole of
     // ProcessMovement.
     //
@@ -237,7 +221,7 @@ public enum CrossingOp
     // cs_sv_move_managed_report and cs_cl_move_managed_report, which count in
     // the NATIVE forwarder and can therefore tell "the managed body ran" from
     // "the managed body was asked for"; tools/movemath-gate reads those.
-    ClientMoveProcessMovement = 106,
+    ClientMoveProcessMovement = 95,
 
     /// <summary>
     /// plan_entity.md step 3d. ONE crossing per <c>ProcessUsercmds</c>, WHATEVER
@@ -257,7 +241,7 @@ public enum CrossingOp
     /// run. It does not grow with the queue's depth — the loop is managed and
     /// the three per-command calls it replaced are ordinary method calls now.
     /// </summary>
-    ServerPlayerRunCommands = 107,
+    ServerPlayerRunCommands = 96,
     // plan_entity.md step 6f. ONE crossing per CLIENT FRAME, not one per
     // replayed command: IPrediction::Update forwarded whole, and everything
     // under it -- the ring compare, the basis restore, the movement loop and
@@ -267,29 +251,15 @@ public enum CrossingOp
     // ClientOnStandalonePlayerCommand phases and MoveProcessMovement's client
     // arm), so the client's per-frame crossing count falls with this step
     // rather than rising. cs_cl_crossings is where that is read.
-    ClientPredictionUpdate = 108,
+    ClientPredictionUpdate = 97,
     /// <summary>IManagedGlowClient::Commands: a draw whose commands did not fit asks for them again into a larger buffer. CLIENT ONLY.</summary>
-    /// <remarks>Value 109 since plan_server_native_v2 T4e retired ServerPhysicsFrame (it was 401): the ops stay contiguous.</remarks>
-    ClientGlowCommands = 109,
-
-
-
-    // plan_entity.md step 8e-entfire. NOT per frame: these are entered only
-    // when the event queue services an event that names a target, and when
-    // `ent_fire` asks whether anything answers to a word before it queues one.
-    // A frame with no I/O in it enters neither.
-    //
-    // They exist because a shell-less entity is in NO native list -- no edict,
-    // no index, no C++ object -- so the only index that holds one is this
-    // side's, and native code asking for one has to cross to reach it.
-    ServerShellLessFindByName = 110,
-    ServerShellLessFindByClassname = 111,
+    ClientGlowCommands = 98,
 
     // An impact's dust (FX_DustImpact, dirt and sand), asked once per impact by
     // shell_impact_effects.cpp (lane c5-particles). CLIENT ONLY. It took 125 when
     // ClientImpactEffectParams retired with the native impact emitters: the
     // blocks are built by the managed effects themselves now.
-    ClientParticlesImpactDust = 112,
+    ClientParticlesImpactDust = 99,
 
     /// <summary>
     /// A sprite draw asking the managed planner (shell_sprite_leaf.cpp's
@@ -297,14 +267,14 @@ public enum CrossingOp
     /// It took the value of ClientSpriteRenderRules, the once-a-level rule
     /// table it replaced. CLIENT ONLY.
     /// </summary>
-    ClientFxSpritePlan = 113,
+    ClientFxSpritePlan = 100,
 
     // plan_entity.md §3.10, the policy-player lane. CLIENT ONLY, and entered
     // only while `thirdperson` is on -- a developer command, not a mode this mod
     // ships in. So this op reads 0 in every ordinary frame and twice per frame
     // in third person, which is what makes it worth counting separately rather
     // than folding into a client-view op.
-    ClientThirdPersonCamera = 114,
+    ClientThirdPersonCamera = 101,
 
     /// <summary>
     /// IBaseClientDLL::InvalidateMdlCache, lane diag-visibility. CLIENT ONLY,
@@ -312,7 +282,7 @@ public enum CrossingOp
     /// (both FCVAR_CHEAT) and from the engine's own model reload, so it reads 0
     /// in every ordinary session.
     /// </summary>
-    ClientInvalidateMdlCache = 115,
+    ClientInvalidateMdlCache = 102,
 
     /// <summary>
     /// Which effect family an impact is, plan_shim.md §6 lane 4b-effects.
@@ -321,7 +291,7 @@ public enum CrossingOp
     /// crosses twice (this, then ImpactEffectParams for the family it chose)
     /// where it crossed once.
     /// </summary>
-    ClientImpactChoice = 116,
+    ClientImpactChoice = 103,
 
     /// <summary>
     /// One packet of user commands, decoded, planned and queued in C# —
@@ -329,80 +299,79 @@ public enum CrossingOp
     /// the retired <c>ServerPlayerCommands</c> crossing (which was the plan alone,
     /// after a native decode) at one crossing per packet.
     /// </summary>
-    ServerPlayerDecodeCommands = 117,
+    ServerPlayerDecodeCommands = 104,
 
     /// <summary>
     /// A newly precached model's components (sounds, particles), precached in
     /// C# — plan_server_novalve.md P2.4/P3. SERVER ONLY. One per new model.
     /// </summary>
-    ServerModelPrecacheComponents = 118,
+    ServerModelPrecacheComponents = 105,
 
     /// <summary>
     /// A new user command's random seed (MD5_PseudoRandom of its number),
     /// answered in C#. CLIENT ONLY. One per command the client creates.
     /// </summary>
-    ClientMd5PseudoRandom = 119,
+    ClientMd5PseudoRandom = 106,
 
     /// <summary>
     /// plan_engineapi_vtables.md step A3: the server's load with its shim
     /// root. Once per side load, like <see cref="LoadSide"/>.
     /// </summary>
-    LoadServer = 120,
+    LoadServer = 107,
 
     /// <summary>
     /// plan_engineapi_vtables E13: the server's native temp-entity forward,
     /// counted by TempEntsBinding since the shared thunk became the client's
     /// (<see cref="ClientNativeTempEntity"/>).
     /// </summary>
-    ServerNativeTempEntity = 121,
+    ServerNativeTempEntity = 108,
 
     /// <summary>
     /// plan_engineapi_vtables E16: the server's net-state layout asks, counted by
     /// NetStateLayoutBinding since the shared thunks became the client's.
     /// </summary>
-    ServerNetStateFieldOffset = 122,
-    ServerNetStateFieldBits = 123,
+    ServerNetStateFieldOffset = 109,
+    ServerNetStateFieldBits = 110,
 
     /// <summary>IManagedTraceFilter::ShouldHitEntity: the engine asks the managed trace filter about one candidate entity, mid-trace, once per candidate per server trace (plan_server_native_v2 T4f).</summary>
-    /// <remarks>Value 124 since plan_server_native_v2 T4g retired ServerMoveProcessMovement (it was 395): the server's movement loop is called from the managed command loop, not across from native, so the ops stay contiguous.</remarks>
-    ServerTraceFilterShouldHitEntity = 124,
+    ServerTraceFilterShouldHitEntity = 111,
 
     /// <summary>
     /// The client's three entries from native (plan_side_entries SE1), beside
     /// the server's (LoadServer, ReloadCheckServer, UnloadServer): one per side,
     /// so no side travels as an argument.
     /// </summary>
-    LoadClient = 125,
-    ReloadCheckClient = 126,
-    UnloadClient = 127,
+    LoadClient = 112,
+    ReloadCheckClient = 113,
+    UnloadClient = 114,
 
     /// <summary>
     /// Each side's managed build stamp (plan_side_entries SE2, the integrator's
     /// ruling A): the Bootstrap's fourth call into the side's own entry, right
     /// after its Load, once the module's start-up has read its assemblies.
     /// </summary>
-    StampedServer = 128,
-    StampedClient = 129,
+    StampedServer = 115,
+    StampedClient = 116,
 
     /// <summary>
     /// The client asking, at each level's LevelInitPreEntity, whether the
     /// particle definitions must be re-read from disk or only re-precached
     /// (plan_map_load P8). CLIENT ONLY, once per level.
     /// </summary>
-    ClientParticlesNeedFullReload = 130,
+    ClientParticlesNeedFullReload = 117,
 
     /// <summary>
     /// A listen server's spawn asking the client which materials to reload in
     /// place of the engine's full ReloadMaterials(NULL) (plan_map_load P1).
     /// CLIENT ONLY, once per spawn.
     /// </summary>
-    ClientMapMaterialReload = 131,
+    ClientMapMaterialReload = 118,
 
     /// <summary>A client's SourceSharp net message (ss_client_message.h) reaching the server.</summary>
-    ServerOnClientNetMessage = 132,
+    ServerOnClientNetMessage = 119,
 
     /// <summary>IManagedUiClient::ScreenSizeChanged, on a video-mode change. CLIENT ONLY.</summary>
-    ClientUiScreenSizeChanged = 133,
+    ClientUiScreenSizeChanged = 120,
 
     /// <summary>
     /// The client's decal tables (decals.cpp's CDecalEmitterSystem, lane
@@ -410,12 +379,12 @@ public enum CrossingOp
     /// impact effects and temp entities ask (shell_decals_client.cpp).
     /// CLIENT ONLY.
     /// </summary>
-    ClientDecalsInit = 134,
-    ClientDecalsLevelInitPreEntity = 135,
-    ClientDecalsShutdown = 136,
-    ClientDecalIndexForName = 137,
-    ClientDecalNameForIndex = 138,
-    ClientDecalTranslate = 139,
+    ClientDecalsInit = 121,
+    ClientDecalsLevelInitPreEntity = 122,
+    ClientDecalsShutdown = 123,
+    ClientDecalIndexForName = 124,
+    ClientDecalNameForIndex = 125,
+    ClientDecalTranslate = 126,
 
     /// <summary>
     /// The old-style particle manager's crossings (C7 particles phase 2.3):
@@ -424,35 +393,35 @@ public enum CrossingOp
     /// of the sims' three per-effect steps (Emit, Simulate, Draw), which are
     /// calls inside managed now. CLIENT ONLY.
     /// </summary>
-    ClientParticlesFrame = 140,
-    ClientParticlesDrawBegin = 141,
-    ClientParticlesDrawEnd = 142,
+    ClientParticlesFrame = 127,
+    ClientParticlesDrawBegin = 128,
+    ClientParticlesDrawEnd = 129,
 
     /// <summary>
     /// point_worldtext's glyph quads, asked per draw by the native text mesh
     /// renderer (shell_worldtext_render.cpp, lane c2-sims). CLIENT ONLY.
     /// </summary>
-    ClientWorldTextDraw = 143,
+    ClientWorldTextDraw = 130,
     /// <summary>
     /// A native caller's effect dispatch (<c>DispatchEffectToCallback</c>)
     /// reaching the managed dispatch table, plan_client_novalve §2 cluster 4.
     /// CLIENT ONLY. One per dispatch a native effect or forward raises.
     /// </summary>
-    ClientDispatchEffectIn = 144,
+    ClientDispatchEffectIn = 131,
 
     /// <summary>
     /// The client's IEffects thunk (shell_effects_client.cpp) carrying one call
     /// to ClientEffects' decision, plan_client_novalve §2 cluster 3. CLIENT
     /// ONLY. One per IEffects call a native caller makes.
     /// </summary>
-    ClientFxSmoke = 145,
-    ClientFxSparks = 146,
-    ClientFxDust = 147,
-    ClientFxMuzzleFlash = 148,
-    ClientFxMetalSparks = 149,
-    ClientFxEnergySplash = 150,
-    ClientFxRicochet = 151,
-    ClientFxSuppressEffectsSounds = 152,
+    ClientFxSmoke = 132,
+    ClientFxSparks = 133,
+    ClientFxDust = 134,
+    ClientFxMuzzleFlash = 135,
+    ClientFxMetalSparks = 136,
+    ClientFxEnergySplash = 137,
+    ClientFxRicochet = 138,
+    ClientFxSuppressEffectsSounds = 139,
 
     /// <summary>
     /// The client-side effect list's native entries (shell_effects_list_client.cpp)
@@ -460,68 +429,67 @@ public enum CrossingOp
     /// flush, the level start, and the FX_Add*/FX_TracerSound calls the fork's
     /// effect TUs make. CLIENT ONLY.
     /// </summary>
-    ClientFxDrawEffects = 153,
-    ClientFxFlushEffects = 154,
-    ClientFxEffectsLevelInit = 155,
-    ClientFxAddLine = 156,
-    ClientFxAddQuad = 157,
-    ClientFxAddStaticLine = 158,
-    ClientFxAddDiscreetLine = 159,
-    ClientFxTracerSound = 160,
-    ClientFxAddQuadNamed = 161,
-
+    ClientFxDrawEffects = 140,
+    ClientFxFlushEffects = 141,
+    ClientFxEffectsLevelInit = 142,
+    ClientFxAddLine = 143,
+    ClientFxAddQuad = 144,
+    ClientFxAddStaticLine = 145,
+    ClientFxAddDiscreetLine = 146,
+    ClientFxTracerSound = 147,
+    ClientFxAddQuadNamed = 148,
 
     /// <summary>
     /// A managed env_spritetrail's renderable reaching ClientSpriteTrails:
     /// once a frame per trail to tick (PreRender), once per draw. CLIENT ONLY.
     /// </summary>
-    ClientFxSpriteTrailTick = 162,
-    ClientFxSpriteTrailDraw = 163,
+    ClientFxSpriteTrailTick = 149,
+    ClientFxSpriteTrailDraw = 150,
 
     /// <summary>
     /// The client effect precache system's level start and end reaching
     /// ClientEffectPrecache: twice a level. CLIENT ONLY.
     /// </summary>
-    ClientFxEffectsPrecache = 164,
+    ClientFxEffectsPrecache = 151,
 
     /// <summary>
     /// The smoke fog overlay asking SmokeFogOverlay whether to draw: once a
     /// frame. CLIENT ONLY.
     /// </summary>
-    ClientFxSmokeFogPlan = 165,
+    ClientFxSmokeFogPlan = 152,
 
     /// <summary>IManagedUiClient::Input, one per event the menu root receives (plan_client_ui U3). CLIENT ONLY.</summary>
-    ClientUiInput = 166,
+    ClientUiInput = 153,
 
     /// <summary>IManagedUiClient::ViewportPanel, a viewport panel shown or hidden (+showscores, VGUIMenu). CLIENT ONLY.</summary>
-    ClientUiViewportPanel = 167,
+    ClientUiViewportPanel = 154,
 
     /// <summary>
     /// The client's sound envelope controller (sound cluster 17, lane c2-sims):
     /// shell_soundenvelope_client.cpp's calls into the shared controller. CLIENT ONLY.
     /// </summary>
-    ClientSoundControllerCreate = 168,
-    ClientSoundControllerDestroy = 169,
-    ClientSoundControllerPlay = 170,
-    ClientSoundControllerPlayEnvelope = 171,
-    ClientSoundControllerChangePitch = 172,
-    ClientSoundControllerChangeVolume = 173,
-    ClientSoundControllerGetPitch = 174,
-    ClientSoundControllerGetVolume = 175,
-    ClientSoundControllerFadeOut = 176,
-    ClientSoundControllerCommandAdd = 177,
-    ClientSoundControllerCommandClear = 178,
-    ClientSoundControllerReset = 179,
-    ClientSoundControllerShutdown = 180,
+    ClientSoundControllerCreate = 155,
+    ClientSoundControllerDestroy = 156,
+    ClientSoundControllerPlay = 157,
+    ClientSoundControllerPlayEnvelope = 158,
+    ClientSoundControllerChangePitch = 159,
+    ClientSoundControllerChangeVolume = 160,
+    ClientSoundControllerGetPitch = 161,
+    ClientSoundControllerGetVolume = 162,
+    ClientSoundControllerFadeOut = 163,
+    ClientSoundControllerCommandAdd = 164,
+    ClientSoundControllerCommandClear = 165,
+    ClientSoundControllerReset = 166,
+    ClientSoundControllerShutdown = 167,
 
     /// <summary>
     /// The client soundscape system's client-system shell
     /// (shell_soundscape_audio_client.cpp) reaching ClientSoundscapes: a level
     /// init and a level shutdown per level, an Update per frame. CLIENT ONLY.
     /// </summary>
-    ClientSoundscapesLevelInit = 181,
-    ClientSoundscapesUpdate = 182,
-    ClientSoundscapesLevelShutdown = 183,
+    ClientSoundscapesLevelInit = 168,
+    ClientSoundscapesUpdate = 169,
+    ClientSoundscapesLevelShutdown = 170,
 
     /// <summary>
     /// The legacy tempents' thunk (shell_legacy_tempents_client.cpp) reaching
@@ -529,151 +497,143 @@ public enum CrossingOp
     /// tempent a frame, the rest per flash, casing, attach, bounce and level.
     /// CLIENT ONLY.
     /// </summary>
-    ClientFxTempEntIsTransparent = 184,
-    ClientFxTempEntRenderGroup = 185,
-    ClientFxTempEntBlend = 186,
-    ClientFxTempEntOccludedAlpha = 187,
-    ClientFxTempEntLightingOrigin = 188,
-    ClientFxTempEntMuzzleFlash = 189,
-    ClientFxTempEntEjectBrass = 190,
-    ClientFxTempEntAttach = 191,
-    ClientFxTempEntsLevelInit = 192,
+    ClientFxTempEntIsTransparent = 171,
+    ClientFxTempEntRenderGroup = 172,
+    ClientFxTempEntBlend = 173,
+    ClientFxTempEntOccludedAlpha = 174,
+    ClientFxTempEntLightingOrigin = 175,
+    ClientFxTempEntMuzzleFlash = 176,
+    ClientFxTempEntEjectBrass = 177,
+    ClientFxTempEntAttach = 178,
+    ClientFxTempEntsLevelInit = 179,
 
     /// <summary>
     /// The client weather's render plan (shell_precipitation_client.cpp's
     /// DrawPrecipitation reaching PrecipitationSystem): once a render pass that
     /// draws the weather. CLIENT ONLY.
     /// </summary>
-    ClientPrecipitationRender = 193,
+    ClientPrecipitationRender = 180,
 
     /// <summary>
     /// vphysics' IPhysicsObjectEvent::ObjectWake, on managed's own table
     /// (plan_physics_managed B2.1). Mid-step: queued, routed after.
     /// </summary>
-    ServerPhysicsObjectWake = 194,
+    ServerPhysicsObjectWake = 181,
 
     /// <summary>IPhysicsObjectEvent::ObjectSleep, the same.</summary>
-    ServerPhysicsObjectSleep = 195,
-
+    ServerPhysicsObjectSleep = 182,
 
     // vphysics' IPhysicsCollisionEvent on managed's own table (plan_physics_managed
     // B2.2), one op per slot in Valve's order; a slot not yet taken over
     // forwards to native's handler.
 
     /// <summary>IPhysicsCollisionEvent::PreCollision.</summary>
-    ServerPhysicsCollisionPreCollision = 196,
+    ServerPhysicsCollisionPreCollision = 183,
 
     /// <summary>IPhysicsCollisionEvent::PostCollision.</summary>
-    ServerPhysicsCollisionPostCollision = 197,
+    ServerPhysicsCollisionPostCollision = 184,
 
     /// <summary>IPhysicsCollisionEvent::Friction.</summary>
-    ServerPhysicsCollisionFriction = 198,
+    ServerPhysicsCollisionFriction = 185,
 
     /// <summary>IPhysicsCollisionEvent::StartTouch.</summary>
-    ServerPhysicsCollisionStartTouch = 199,
+    ServerPhysicsCollisionStartTouch = 186,
 
     /// <summary>IPhysicsCollisionEvent::EndTouch.</summary>
-    ServerPhysicsCollisionEndTouch = 200,
+    ServerPhysicsCollisionEndTouch = 187,
 
     /// <summary>IPhysicsCollisionEvent::FluidStartTouch.</summary>
-    ServerPhysicsCollisionFluidStartTouch = 201,
+    ServerPhysicsCollisionFluidStartTouch = 188,
 
     /// <summary>IPhysicsCollisionEvent::FluidEndTouch.</summary>
-    ServerPhysicsCollisionFluidEndTouch = 202,
+    ServerPhysicsCollisionFluidEndTouch = 189,
 
     /// <summary>IPhysicsCollisionEvent::PostSimulationFrame.</summary>
-    ServerPhysicsCollisionPostSimulationFrame = 203,
+    ServerPhysicsCollisionPostSimulationFrame = 190,
 
     /// <summary>IPhysicsCollisionEvent::ObjectEnterTrigger.</summary>
-    ServerPhysicsCollisionObjectEnterTrigger = 204,
+    ServerPhysicsCollisionObjectEnterTrigger = 191,
 
     /// <summary>IPhysicsCollisionEvent::ObjectLeaveTrigger.</summary>
-    ServerPhysicsCollisionObjectLeaveTrigger = 205,
-
-    /// <summary>IManagedConsoleOutput::ConsoleLine: an engine print handed to managed.</summary>
-    ServerConsoleLine = 206,
-
-    /// <summary>IManagedConsoleOutputClient::ClientConsoleLine: the client engine's print.</summary>
-    ClientConsoleLine = 207,
+    ServerPhysicsCollisionObjectLeaveTrigger = 192,
 
     /// <summary>
     /// The material proxies (lane c5-proxies): the trampoline's Init, each
     /// OnBind (per bound material per frame: the hot one), Release, and
     /// CMatStubHandler's per-frame mat_stub question. CLIENT ONLY.
     /// </summary>
-    ClientMaterialProxyInit = 208,
-    ClientMaterialProxyBind = 209,
-    ClientMaterialProxyRelease = 210,
-    ClientMaterialProxyMatStub = 211,
+    ClientMaterialProxyInit = 193,
+    ClientMaterialProxyBind = 194,
+    ClientMaterialProxyRelease = 195,
+    ClientMaterialProxyMatStub = 196,
 
     /// <summary>IManagedUiClient::CenterPrint, the engine's ICenterPrint (VCENTERPRINT002) print. CLIENT ONLY.</summary>
-    ClientUiCenterPrint = 212,
+    ClientUiCenterPrint = 197,
 
     /// <summary>IManagedUiClient::CenterClear, the engine's ICenterPrint clear (level change). CLIENT ONLY.</summary>
-    ClientUiCenterClear = 213,
+    ClientUiCenterClear = 198,
 
     /// <summary>IManagedUiClient::PlaqueState, the engine facts the loading and paused plaques are decided from (on change only). CLIENT ONLY.</summary>
-    ClientUiPlaqueState = 214,
+    ClientUiPlaqueState = 199,
 
     /// <summary>IManagedUiClient::VoiceStatus, the engine's IClientDLL::VoiceStatus (a speaker started or stopped). CLIENT ONLY.</summary>
-    ClientUiVoiceStatus = 215,
+    ClientUiVoiceStatus = 200,
 
     /// <summary>IManagedUiClient::KeyInput, a key the engine offers the client mode (stock ClientModeShared::KeyInput). CLIENT ONLY.</summary>
-    ClientUiKeyInput = 216,
+    ClientUiKeyInput = 201,
 
     /// <summary>IManagedUiClient::VoiceIsBlocked, whether this client muted a player (IGameClientExports). CLIENT ONLY.</summary>
-    ClientUiVoiceIsBlocked = 217,
+    ClientUiVoiceIsBlocked = 202,
 
     /// <summary>IManagedUiClient::VoiceToggleBlocked, a player's mute flipped (IGameClientExports). CLIENT ONLY.</summary>
-    ClientUiVoiceToggleBlocked = 218,
+    ClientUiVoiceToggleBlocked = 203,
 
     /// <summary>IManagedClients::OnClientSettingsChanged: a client's userinfo changed (CTeamplayRules::ClientSettingsChanged's name half).</summary>
-    ServerOnClientSettingsChanged = 219,
+    ServerOnClientSettingsChanged = 204,
 
     /// <summary>IManagedConsoleOutput::ConsoleBufferAttach: the forwarder's line buffer, once per load.</summary>
-    ServerConsoleBufferAttach = 220,
+    ServerConsoleBufferAttach = 205,
 
     /// <summary>IManagedConsoleOutputClient::ClientConsoleBufferAttach: the client forwarder's line buffer.</summary>
-    ClientConsoleBufferAttach = 221,
-
+    ClientConsoleBufferAttach = 206,
 
     // vphysics' IPhysicsCollisionSolver on managed's own table
     // (plan_physics_bones_native_zero 2.1), one op per slot in Valve's order;
     // asked mid-step.
 
     /// <summary>IPhysicsCollisionSolver::ShouldCollide.</summary>
-    ServerPhysicsSolverShouldCollide = 222,
+    ServerPhysicsSolverShouldCollide = 207,
 
     /// <summary>IPhysicsCollisionSolver::ShouldSolvePenetration.</summary>
-    ServerPhysicsSolverShouldSolvePenetration = 223,
+    ServerPhysicsSolverShouldSolvePenetration = 208,
 
     /// <summary>IPhysicsCollisionSolver::ShouldFreezeObject.</summary>
-    ServerPhysicsSolverShouldFreezeObject = 224,
+    ServerPhysicsSolverShouldFreezeObject = 209,
 
     /// <summary>IPhysicsCollisionSolver::AdditionalCollisionChecksThisTick.</summary>
-    ServerPhysicsSolverAdditionalCollisionChecksThisTick = 225,
+    ServerPhysicsSolverAdditionalCollisionChecksThisTick = 210,
 
     /// <summary>IPhysicsCollisionSolver::ShouldFreezeContacts.</summary>
-    ServerPhysicsSolverShouldFreezeContacts = 226,
+    ServerPhysicsSolverShouldFreezeContacts = 211,
 
     /// <summary>IManagedBones::TestHitboxes: an engine trace against a standalone entity's posed hitboxes.</summary>
-    ServerBonesTestHitboxes = 227,
+    ServerBonesTestHitboxes = 212,
 
     /// <summary>IManagedClients::ServerTransmitAlwaysForClient, CheckTransmit's per-recipient "always send" edict (stock ShouldTransmit's own-player arm).</summary>
-    ServerTransmitAlwaysForClient = 228,
+    ServerTransmitAlwaysForClient = 213,
     /// <summary>
     /// The render plan (plan_client_novalve C7): View_Render's per-frame
     /// question (which path draws the frame, and is it recorded), and a
     /// recorded frame's text handed back. CLIENT ONLY.
     /// </summary>
-    ClientRenderFrame = 229,
-    ClientRenderTraceDone = 230,
+    ClientRenderFrame = 214,
+    ClientRenderTraceDone = 215,
 
     /// <summary>The render plan for one RenderView: the executor hands the inputs, managed writes the ops. CLIENT ONLY.</summary>
-    ClientRenderPlanBuild = 231,
+    ClientRenderPlanBuild = 216,
 
     /// <summary>A view's custom-draw entities prepared in one crossing (C7 item 7, shell_standalone_client.cpp's draw batch). CLIENT ONLY.</summary>
-    ClientStandaloneDrawBatch = 232,
+    ClientStandaloneDrawBatch = 217,
 
     /// <summary>
     /// The particle query particles.a calls back (IParticleSystemQuery, its
@@ -681,325 +641,303 @@ public enum CrossingOp
     /// the native thunk (shell_managed_particles.cpp, lane c5-particles).
     /// CLIENT ONLY.
     /// </summary>
-    ClientParticleQueryCollisionGroup = 233,
-    ClientParticleQueryLighting = 234,
-    ClientParticleQueryTrace = 235,
-    ClientParticleQueryHitBoxPoints = 236,
-    ClientParticleQueryHitBoxInfo = 237,
+    ClientParticleQueryCollisionGroup = 218,
+    ClientParticleQueryLighting = 219,
+    ClientParticleQueryTrace = 220,
+    ClientParticleQueryHitBoxPoints = 221,
+    ClientParticleQueryHitBoxInfo = 222,
     /// <summary>An impact's debris (FX_DebrisFlecks: the flecks and the dust behind them), asked once per impact by shell_impact_effects.cpp (lane c5-particles). CLIENT ONLY.</summary>
-    ClientParticlesImpactDebris = 238,
+    ClientParticlesImpactDebris = 223,
 
     /// <summary>An impact's metal spark, asked once per metal impact by shell_impact_effects.cpp (lane c5-particles). CLIENT ONLY.</summary>
-    ClientParticlesImpactMetalSpark = 239,
+    ClientParticlesImpactMetalSpark = 224,
 
     /// <summary>A splash or ripple fx_water drew, asked by the native code that still calls it (physics.cpp's splashes, the rain's ripple; lane c5-particles). CLIENT ONLY.</summary>
-    ClientParticlesWaterSplash = 240,
+    ClientParticlesWaterSplash = 225,
 
     /// <summary><c>UTIL_GetNormalizedColorTintAndLuminosity</c>, asked by physics.cpp's splash lighting (lane c5-particles). CLIENT ONLY.</summary>
-    ClientParticlesSplashTint = 241,
+    ClientParticlesSplashTint = 226,
 
     /// <summary>A frame's rain tracers' corners, one crossing per precipitation render (shell_precipitation_client.cpp's DrawPrecipitation; lane c5-particles). CLIENT ONLY.</summary>
-    ClientParticlesTracerQuads = 242,
+    ClientParticlesTracerQuads = 227,
     /// <summary>A world view's draws over its lists, asked once a view with its scene (C7 step 2, shell_view_executor_client.cpp's ViewScene op). CLIENT ONLY.</summary>
-    ClientRenderViewProgram = 243,
+    ClientRenderViewProgram = 228,
     /// <summary>viewpostprocess.cpp's passes as a program of ops, asked at the plan's EnginePostProcessing and MotionBlur ops (C7 post-processing). CLIENT ONLY.</summary>
-    ClientRenderPostProgram = 244,
+    ClientRenderPostProgram = 229,
 
     /// <summary>
     /// The client's input (cluster 13, lane c6-input): the native IInput thunk
     /// set's calls into ClientInput, one per IManagedInputClient slot. CLIENT ONLY.
     /// </summary>
-    ClientInputInit = 245,
-    ClientInputShutdown = 246,
-    ClientInputLevelInit = 247,
-    ClientInputCreateMove = 248,
-    ClientInputExtraMouseSample = 249,
-    ClientInputGetButtonBits = 250,
-    ClientInputMakeWeaponSelection = 251,
-    ClientInputKeyState = 252,
-    ClientInputKeyEvent = 253,
-    ClientInputIsKeyDown = 254,
-    ClientInputJoystickAdvanced = 255,
-    ClientInputAccumulateMouse = 256,
-    ClientInputActivateMouse = 257,
-    ClientInputDeactivateMouse = 258,
-    ClientInputClearStates = 259,
-    ClientInputGetLookSpring = 260,
-    ClientInputGetFullscreenMousePos = 261,
-    ClientInputSetFullscreenMousePos = 262,
-    ClientInputResetMouse = 263,
-    ClientInputGetLastForwardMove = 264,
-    ClientInputJoystickAxes = 265,
-    ClientInputClearInputButton = 266,
-    ClientInputCamThink = 267,
-    ClientInputCamOp = 268,
-    ClientInputCamOrthographicSize = 269,
-    ClientInputCamSetCameraThirdData = 270,
-    ClientInputSetPreferredGameActionSet = 271,
-    ClientInputGetPreferredGameActionSet = 272,
-    ClientInputSetGameActionSetFlags = 273,
-    ClientInputEnableJoystickMode = 274,
-    ClientInputIsSteamControllerActive = 275,
-    ClientInputThirdPersonInit = 276,
-    ClientInputRumbleScreenShake = 277,
-    ClientInputRumbleStopAll = 278,
+    ClientInputInit = 230,
+    ClientInputShutdown = 231,
+    ClientInputLevelInit = 232,
+    ClientInputCreateMove = 233,
+    ClientInputExtraMouseSample = 234,
+    ClientInputGetButtonBits = 235,
+    ClientInputMakeWeaponSelection = 236,
+    ClientInputKeyState = 237,
+    ClientInputKeyEvent = 238,
+    ClientInputIsKeyDown = 239,
+    ClientInputJoystickAdvanced = 240,
+    ClientInputAccumulateMouse = 241,
+    ClientInputActivateMouse = 242,
+    ClientInputDeactivateMouse = 243,
+    ClientInputClearStates = 244,
+    ClientInputGetLookSpring = 245,
+    ClientInputGetFullscreenMousePos = 246,
+    ClientInputSetFullscreenMousePos = 247,
+    ClientInputResetMouse = 248,
+    ClientInputGetLastForwardMove = 249,
+    ClientInputJoystickAxes = 250,
+    ClientInputClearInputButton = 251,
+    ClientInputCamThink = 252,
+    ClientInputCamOp = 253,
+    ClientInputCamOrthographicSize = 254,
+    ClientInputCamSetCameraThirdData = 255,
+    ClientInputSetPreferredGameActionSet = 256,
+    ClientInputGetPreferredGameActionSet = 257,
+    ClientInputSetGameActionSetFlags = 258,
+    ClientInputEnableJoystickMode = 259,
+    ClientInputIsSteamControllerActive = 260,
+    ClientInputThirdPersonInit = 261,
+    ClientInputRumbleScreenShake = 262,
+    ClientInputRumbleStopAll = 263,
 
     /// <summary>
     /// The client's IPhysicsCollisionEvent on managed's own table (plan_client_novalve
     /// C6, cluster 9; lane c6-input): one op per slot in Valve's order; a slot not yet
     /// taken over forwards to native's g_Collisions. CLIENT ONLY.
     /// </summary>
-    ClientPhysicsPreCollision = 279,
-    ClientPhysicsPostCollision = 280,
-    ClientPhysicsFriction = 281,
-    ClientPhysicsStartTouch = 282,
-    ClientPhysicsEndTouch = 283,
-    ClientPhysicsFluidStartTouch = 284,
-    ClientPhysicsFluidEndTouch = 285,
-    ClientPhysicsPostSimulationFrame = 286,
-    ClientPhysicsObjectEnterTrigger = 287,
-    ClientPhysicsObjectLeaveTrigger = 288,
+    ClientPhysicsPreCollision = 264,
+    ClientPhysicsPostCollision = 265,
+    ClientPhysicsFriction = 266,
+    ClientPhysicsStartTouch = 267,
+    ClientPhysicsEndTouch = 268,
+    ClientPhysicsFluidStartTouch = 269,
+    ClientPhysicsFluidEndTouch = 270,
+    ClientPhysicsPostSimulationFrame = 271,
+    ClientPhysicsObjectEnterTrigger = 272,
+    ClientPhysicsObjectLeaveTrigger = 273,
 
     /// <summary>The client's IPhysicsCollisionSolver on managed's own table (lane c6-input), one op per slot. CLIENT ONLY.</summary>
-    ClientPhysicsShouldCollide = 289,
-    ClientPhysicsShouldSolvePenetration = 290,
-    ClientPhysicsShouldFreezeObject = 291,
-    ClientPhysicsAdditionalCollisionChecks = 292,
-    ClientPhysicsShouldFreezeContacts = 293,
+    ClientPhysicsShouldCollide = 274,
+    ClientPhysicsShouldSolvePenetration = 275,
+    ClientPhysicsShouldFreezeObject = 276,
+    ClientPhysicsAdditionalCollisionChecks = 277,
+    ClientPhysicsShouldFreezeContacts = 278,
 
     // vphysics' IPhysicsConstraintEvent and IMotionEvent on managed's own
     // tables (plan_physics_bones_native_zero 2.2/2.4). Simulate is asked
     // mid-step, once per object a controller acts on. SERVER.
 
     /// <summary>IPhysicsConstraintEvent::ConstraintBroken.</summary>
-    ServerPhysicsConstraintBroken = 294,
+    ServerPhysicsConstraintBroken = 279,
 
     /// <summary>IMotionEvent::Simulate.</summary>
-    ServerPhysicsMotionSimulate = 295,
+    ServerPhysicsMotionSimulate = 280,
 
     /// <summary>IManagedBonesClient (plan physics_bones_native_zero 1.1-1.2, client half): the engine's skeleton asks of a standalone entity. CLIENT ONLY.</summary>
-    ClientBonesSetupBones = 296,
-    ClientBonesTestHitboxes = 297,
-    ClientBonesGetAttachment = 298,
-    ClientBonesLookupAttachment = 299,
+    ClientBonesSetupBones = 281,
+    ClientBonesTestHitboxes = 282,
+    ClientBonesGetAttachment = 283,
+    ClientBonesLookupAttachment = 284,
 
     /// <summary>IManagedBonesClient::PoseModel: a legacy temp entity's model posed at sequence 0 (no entity behind it). CLIENT ONLY.</summary>
-    ClientBonesPoseModel = 300,
+    ClientBonesPoseModel = 285,
 
     /// <summary>IManagedPhysicsClient: the client physics system's level events (pre/post entity init), forwarded by native's CPhysicsSystem row. They took IManagedRagdollsClient's 313/314 when the step called the ragdolls itself (the client physics leftovers, 2026-10-18). CLIENT ONLY.</summary>
-    ClientPhysicsLevelInitPreEntity = 301,
-    ClientPhysicsLevelInitPostEntity = 302,
+    ClientPhysicsLevelInitPreEntity = 286,
+    ClientPhysicsLevelInitPostEntity = 287,
 
     /// <summary>IVPhysicsKeyHandler on managed's custom-block table: one key of a ragdoll's .phy block (collision rules, animated friction), and its defaults, asked from inside vphysics' parse. CLIENT ONLY.</summary>
-    ClientRagdollKeyValue = 303,
-    ClientRagdollKeyDefaults = 304,
+    ClientRagdollKeyValue = 288,
+    ClientRagdollKeyDefaults = 289,
 
     /// <summary>IVPhysicsKeyHandler on managed's solid-defaults table (stock's g_SolidSetup): a solid's unparsed key, and its defaults. CLIENT ONLY.</summary>
-    ClientRagdollSolidKeyValue = 305,
-    ClientRagdollSolidDefaults = 306,
+    ClientRagdollSolidKeyValue = 290,
+    ClientRagdollSolidDefaults = 291,
 
     /// <summary>IManagedPhysicsFrame (plan physics_bones_native_zero 2.6): the level's world physics built and the surface sounds precached, each asked by native's CPhysicsHook. SERVER ONLY.</summary>
-    ServerPhysicsCreateWorld = 307,
-    ServerPhysicsPrecacheSurfaceSounds = 308,
+    ServerPhysicsCreateWorld = 292,
+    ServerPhysicsPrecacheSurfaceSounds = 293,
     // 322 was ServerPhysicsParseModelSolid until native's InitPhysics retired
     // (2026-10-12), then ClientSolidDefaults until g_SolidSetup left with fork
     // physics.cpp (2026-10-18); ClientPhysicsLevelShutdownPreEntity has it now.
 
     /// <summary>IVPhysicsKeyHandler on the server's solid-defaults table (stock's g_SolidSetup): a solid's unparsed key, and its defaults, asked from inside vphysics' parse. SERVER ONLY.</summary>
-    ServerSolidKeyValue = 309,
-    ServerSolidDefaults = 310,
+    ServerSolidKeyValue = 294,
+    ServerSolidDefaults = 295,
 
     /// <summary>IManagedPhysicsClient (plan physics_bones_native_zero 2.6): the surface property manifest parsed, asked by native's PhysicsDLLInit. CLIENT ONLY.</summary>
-    ClientPhysicsParseSurfaceData = 311,
+    ClientPhysicsParseSurfaceData = 296,
 
     /// <summary>IManagedPhysicsClient: the level's shutdown events, the step and the reset (the client physics leftovers, 2026-10-18), in the numbers CreateWorld, PrecacheSurfaceSounds and g_SolidSetup's two slots left: the world, the precache and the static props' key table are ClientPhysicsSystem's own now. CLIENT ONLY.</summary>
-    ClientPhysicsLevelShutdownPreEntity = 312,
-    ClientPhysicsLevelShutdownPostEntity = 313,
-    ClientPhysicsSimulate = 314,
-    ClientPhysicsReset = 315,
+    ClientPhysicsLevelShutdownPreEntity = 297,
+    ClientPhysicsLevelShutdownPostEntity = 298,
+    ClientPhysicsSimulate = 299,
+    ClientPhysicsReset = 300,
     /// <summary>A fade from native (the engine's View_Fade, the world's start-dark fade) into the managed view effects (C7). CLIENT ONLY.</summary>
-    ClientViewEffectsFade = 316,
+    ClientViewEffectsFade = 301,
     /// <summary>The view's CalcShake, once a frame: the managed view effects' offset and roll (C7). CLIENT ONLY.</summary>
-    ClientViewEffectsCalcShake = 317,
+    ClientViewEffectsCalcShake = 302,
     /// <summary>The renderer's GetFadeParams, once a frame (C7). CLIENT ONLY.</summary>
-    ClientViewEffectsFadeParams = 318,
+    ClientViewEffectsFadeParams = 303,
     /// <summary>The level's view-effects reset and the clears (C7). CLIENT ONLY.</summary>
-    ClientViewEffectsReset = 319,
+    ClientViewEffectsReset = 304,
 
     /// <summary>IManagedBonesClient::BoneBatch (plan_physics_bones_perf A2): once a frame, at its first SetupBones ask, the frame's skeletons posed ahead and the table native answers the rest of the frame's asks from. CLIENT ONLY.</summary>
-    ClientBonesBatch = 320,
+    ClientBonesBatch = 305,
     /// <summary>A shadow-depth view's plan, asked by the shadow manager inside the frame's ShadowComputeDepthTextures op (C7 step 3). CLIENT ONLY.</summary>
-    ClientRenderShadowDepthPlan = 321,
+    ClientRenderShadowDepthPlan = 306,
     /// <summary>CViewRender::SetUpViews' planes and FOV, once a frame before the client mode's override (C7 step 3). CLIENT ONLY.</summary>
-    ClientViewSetUp = 322,
+    ClientViewSetUp = 307,
     /// <summary>IManagedInputClient::InputEncodeUserCmd.</summary>
-    ClientInputEncodeUserCmd = 323,
+    ClientInputEncodeUserCmd = 308,
     /// <summary>IManagedInputClient::InputDecodeUserCmd.</summary>
-    ClientInputDecodeUserCmd = 324,
+    ClientInputDecodeUserCmd = 309,
     /// <summary>IManagedParticlesClient::ManifestFiles: a particle manifest's file list, read in C# (C9 KeyValues K1). CLIENT ONLY.</summary>
-    ClientParticlesManifestFiles = 325,
+    ClientParticlesManifestFiles = 310,
     /// <summary>The save-game screenshot's view (CViewRender::WriteSaveGameScreenshotOfSize), once a screenshot (C7 step 3). CLIENT ONLY.</summary>
-    ClientViewScreenshot = 326,
+    ClientViewScreenshot = 311,
     /// <summary>CViewRender::FreezeFrame into the managed freeze state (test_freezeframe; C7 step 3). CLIENT ONLY.</summary>
-    ClientViewFreezeFrame = 327,
+    ClientViewFreezeFrame = 312,
     /// <summary>IManagedMaterialFilesClient::SpriteMaterial: a sprite model's material name and .vmt, read in C# (C9 KeyValues K4). CLIENT ONLY.</summary>
-    ClientMaterialFilesSpriteMaterial = 328,
+    ClientMaterialFilesSpriteMaterial = 313,
     /// <summary>The demo free camera (view.cpp's CalcDemoViewOverride), twice a frame while a demo plays (C7 step 3). CLIENT ONLY.</summary>
-    ClientViewDemoCamera = 329,
+    ClientViewDemoCamera = 314,
     /// <summary>The old-style particle manager's frame code (CParticleMgr::IncrementFrameCode), once per scene view (C7 particles phase 2.3). CLIENT ONLY.</summary>
-    ClientParticlesFrameCode = 330,
+    ClientParticlesFrameCode = 315,
     /// <summary>The old-style particle manager's PostRender, once a frame (C7 particles phase 2.3). CLIENT ONLY.</summary>
-    ClientParticlesPostRender = 331,
+    ClientParticlesPostRender = 316,
 
     /// <summary>IManagedMaterialFilesClient::EncodeImage: a screenshot's pixels encoded as its TGA or VTF file in C# (C9: bitmap.a and vtf.a off client.so). CLIENT ONLY.</summary>
-    ClientMaterialFilesEncodeImage = 332,
+    ClientMaterialFilesEncodeImage = 317,
 
     /// <summary>IManagedDetailPropsClient::DetailInit: the detail props' Init, once (C7 cluster 10). CLIENT ONLY.</summary>
-    ClientDetailInit = 333,
+    ClientDetailInit = 318,
     /// <summary>IManagedDetailPropsClient::DetailLevelInitPreEntity: the detail lump parsed in C#, once a level. CLIENT ONLY.</summary>
-    ClientDetailLevelInitPreEntity = 334,
+    ClientDetailLevelInitPreEntity = 319,
     /// <summary>IManagedDetailPropsClient::DetailLevelInitPostEntity: the fades restored and the sprite material named, once a level. CLIENT ONLY.</summary>
-    ClientDetailLevelInitPostEntity = 335,
+    ClientDetailLevelInitPostEntity = 320,
     /// <summary>IManagedDetailPropsClient::DetailLevelShutdownPreEntity, once a level. CLIENT ONLY.</summary>
-    ClientDetailLevelShutdownPreEntity = 336,
+    ClientDetailLevelShutdownPreEntity = 321,
     /// <summary>IManagedDetailPropsClient::DetailBuildLists: a view's fade and model states, once per view that builds entities. CLIENT ONLY.</summary>
-    ClientDetailBuildLists = 337,
+    ClientDetailBuildLists = 322,
     /// <summary>IManagedDetailPropsClient::DetailBeginTranslucent, once per translucent pass. CLIENT ONLY.</summary>
-    ClientDetailBeginTranslucent = 338,
+    ClientDetailBeginTranslucent = 323,
     /// <summary>IManagedDetailPropsClient::DetailPrepare: one of a translucent draw's halves, up to its render context. CLIENT ONLY.</summary>
-    ClientDetailPrepare = 339,
+    ClientDetailPrepare = 324,
     /// <summary>IManagedDetailPropsClient::DetailEmit: a prepared draw's quads. CLIENT ONLY.</summary>
-    ClientDetailEmit = 340,
+    ClientDetailEmit = 325,
     /// <summary>The new-style particle effects' frame (CParticleMgr::UpdateNewEffects), once a frame; the library steps the listed collections during it (C7 particles phase 3). CLIENT ONLY.</summary>
-    ClientParticlesNewEffectsFrame = 341,
+    ClientParticlesNewEffectsFrame = 326,
     /// <summary>One new-style effect's draw decisions (CNewParticleEffect::DrawModel), per drawn effect per view (C7 particles phase 3). CLIENT ONLY.</summary>
-    ClientParticlesNewEffectDraw = 342,
-    /// <summary>IManagedSoundEmitter::ServerMoveSound: the movement's IMoveHelper::StartSound with its parameters, to the managed SoundEmitter (plan_server_native_v2 T4a).</summary>
-    ServerMoveSound = 343,
-    /// <summary>IManagedSoundEmitter::ServerMoveSoundScript: the movement's IMoveHelper::StartSound by script name (plan_server_native_v2 T4a).</summary>
-    ServerMoveSoundScript = 344,
-    /// <summary>IManagedRenderClient::RenderLeafList: one view's render list from its leaf-system buffer, once per view that draws entities (C7 cluster 12 L1). CLIENT ONLY.</summary>
-    ClientRenderLeafList = 345,
-    /// <summary>IManagedRenderClient::RenderLeafViewModels: the view models' opaque/translucent split, once per CollateViewModelRenderables (C7 cluster 12 L1). CLIENT ONLY.</summary>
-    ClientRenderLeafViewModels = 346,
+    ClientParticlesNewEffectDraw = 327,
     /// <summary>IManagedGlowClient::UpdateSkyOverlays: the sky overlays' obstruction. CLIENT ONLY.</summary>
-    /// <remarks>Value 347 since plan_server_native_v2 T4e retired ServerSoundSystemInit (it was 402): the ops stay contiguous.</remarks>
-    ClientGlowUpdateSkyOverlays = 347,
-    /// <summary>IManagedSoundEmitter::ServerPrecacheScriptSound: the world's and EffectsPrecache's script precaches, to the managed SoundEmitterSystem (plan_server_native_v2 T4a, the precache path).</summary>
-    ServerPrecacheScriptSound = 348,
+    ClientGlowUpdateSkyOverlays = 328,
     /// <summary>IManagedSaveRestore::SaveInit: the save block allocated and placed by the managed SaveGameSession, once per save (plan_server_native_v2 T4c).</summary>
-    ServerSaveInit = 349,
+    ServerSaveInit = 329,
     /// <summary>IManagedSaveRestore::SaveWriteFields: one of the engine's own structs into the save through the managed codec, a few dozen per save (plan_server_native_v2 T4c).</summary>
-    ServerSaveWriteFields = 350,
+    ServerSaveWriteFields = 330,
     /// <summary>IManagedSaveRestore::SaveReadFields: one of the engine's own structs read back, a few dozen per load (plan_server_native_v2 T4c).</summary>
-    ServerSaveReadFields = 351,
+    ServerSaveReadFields = 331,
     /// <summary>IManagedLeafSystemClient::LevelInitPreEntity: the level's leaves made, at LevelInitPreEntity (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafLevelInitPreEntity = 352,
+    ClientLeafLevelInitPreEntity = 332,
     /// <summary>IManagedLeafSystemClient::LevelShutdownPostEntity: the registry purged and the sub-systems' data handed back to delete, at LevelShutdownPostEntity (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafLevelShutdownPostEntity = 353,
+    ClientLeafLevelShutdownPostEntity = 333,
     /// <summary>IManagedLeafSystemClient::PreRender: the dirty renderables re-inserted into their leaves, once a frame (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafPreRender = 354,
+    ClientLeafPreRender = 334,
     /// <summary>IManagedLeafSystemClient::TakeOps: the rest of an answer's operations, when they filled the forwarder's buffer (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafTakeOps = 355,
+    ClientLeafTakeOps = 335,
     /// <summary>IManagedLeafSystemClient::CreateRenderableHandle: a renderable registered by handle (the engine's static props; particles) (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafCreateRenderableHandle = 356,
+    ClientLeafCreateRenderableHandle = 336,
     /// <summary>IManagedLeafSystemClient::AddRenderable: a renderable registered in a group, inserted at the next PreRender (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafAddRenderable = 357,
+    ClientLeafAddRenderable = 337,
     /// <summary>IManagedLeafSystemClient::RemoveRenderable: a renderable removed (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafRemoveRenderable = 358,
+    ClientLeafRemoveRenderable = 338,
     /// <summary>IManagedLeafSystemClient::AddRenderableToLeaves: the engine's static prop into the leaves it computed (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafAddRenderableToLeaves = 359,
-    /// <summary>IManagedLeafSystemClient::ChangeRenderableRenderGroup: the engine's static-prop fade between opaque and translucent (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafChangeRenderableRenderGroup = 360,
+    ClientLeafAddRenderableToLeaves = 339,
     /// <summary>IManagedLeafSystemClient::SetRenderGroup: a renderable's render group set (a temp entity's blend sets one) (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafSetRenderGroup = 361,
+    ClientLeafSetRenderGroup = 340,
     /// <summary>IManagedLeafSystemClient::RenderableChanged: a renderable moved or changed bounds: dirty until PreRender (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafRenderableChanged = 362,
+    ClientLeafRenderableChanged = 341,
     /// <summary>IManagedLeafSystemClient::EnableAlternateSorting: a translucent renderable's alternate sorting set (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafEnableAlternateSorting = 363,
+    ClientLeafEnableAlternateSorting = 342,
     /// <summary>IManagedLeafSystemClient::DrawStaticProps: the static props' switch (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafDrawStaticProps = 364,
+    ClientLeafDrawStaticProps = 343,
     /// <summary>IManagedLeafSystemClient::DrawSmallEntities: the small entities' switch (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafDrawSmallEntities = 365,
+    ClientLeafDrawSmallEntities = 344,
     /// <summary>IManagedLeafSystemClient::GetRenderableLeaves: a renderable's leaves (IsRenderableInPVS, GetRenderableLeaves) (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafGetRenderableLeaves = 366,
+    ClientLeafGetRenderableLeaves = 345,
     /// <summary>IManagedLeafSystemClient::GetRenderableLeaf: one step of a walk over a renderable's leaves (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafGetRenderableLeaf = 367,
+    ClientLeafGetRenderableLeaf = 346,
     /// <summary>IManagedLeafSystemClient::SetSubSystemDataInLeaf: a leaf's sub-system data set (the detail props' fast-sprite marker) (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafSetSubSystemDataInLeaf = 368,
+    ClientLeafSetSubSystemDataInLeaf = 347,
     /// <summary>IManagedLeafSystemClient::GetSubSystemDataInLeaf: a leaf's sub-system data asked (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafGetSubSystemDataInLeaf = 369,
+    ClientLeafGetSubSystemDataInLeaf = 348,
     /// <summary>IManagedLeafSystemClient::SetDetailObjectsInLeaf: a leaf's detail objects set, at level load (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafSetDetailObjectsInLeaf = 370,
+    ClientLeafSetDetailObjectsInLeaf = 349,
     /// <summary>IManagedLeafSystemClient::GetDetailObjectsInLeaf: a leaf's detail objects asked (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafGetDetailObjectsInLeaf = 371,
+    ClientLeafGetDetailObjectsInLeaf = 350,
     /// <summary>IManagedLeafSystemClient::DrawDetailObjectsInLeaf: a leaf in the detail props' sphere marked, per leaf per detail build (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafDrawDetailObjectsInLeaf = 372,
+    ClientLeafDrawDetailObjectsInLeaf = 351,
     /// <summary>IManagedLeafSystemClient::ShouldDrawDetailObjectsInLeaf: decision 3 for one leaf (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafShouldDrawDetailObjectsInLeaf = 373,
+    ClientLeafShouldDrawDetailObjectsInLeaf = 352,
     /// <summary>IManagedLeafSystemClient::DetailLeaves: decision 3 for a view's leaves, once per view scene (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafDetailLeaves = 374,
+    ClientLeafDetailLeaves = 353,
     /// <summary>IManagedLeafSystemClient::ComputeTranslucentRenderLeaf: a view's blends and translucent leaves, once per view with a translucent-leaf pass (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafComputeTranslucentRenderLeaf = 375,
+    ClientLeafComputeTranslucentRenderLeaf = 354,
     /// <summary>IManagedLeafSystemClient::BuildRenderablesList: a view's render list, once per view that draws entities (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafBuildRenderablesList = 376,
+    ClientLeafBuildRenderablesList = 355,
     /// <summary>IManagedLeafSystemClient::CollateViewModelRenderables: the view models' split, once per view-model draw (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafCollateViewModelRenderables = 377,
-    /// <summary>IManagedLeafSystemClient::AddShadow: a shadow or flashlight registered (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafAddShadow = 378,
-    /// <summary>IManagedLeafSystemClient::RemoveShadow: a shadow or flashlight removed (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafRemoveShadow = 379,
-    /// <summary>IManagedLeafSystemClient::ProjectShadow: a shadow projected into leaves, per shadow update (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafProjectShadow = 380,
-    /// <summary>IManagedLeafSystemClient::ProjectFlashlight: a flashlight projected into leaves, per flashlight update (C7 cluster 12 L2). CLIENT ONLY.</summary>
-    ClientLeafProjectFlashlight = 381,
-    ClientLeafEnumerateShadowsInLeaves = 382,
+    ClientLeafCollateViewModelRenderables = 356,
     /// <summary>IManagedLeafSystemClient::Pending: the RenderableChanged and ChangeRenderableRenderGroup calls the forwarder queued, in order, before the next call or at a blend batch's end (C7 cluster 12 L3). CLIENT ONLY.</summary>
-    ClientLeafPending = 383,
+    ClientLeafPending = 357,
     /// <summary>IManagedSoundEmitterClient::ClientSoundSystemInit: the CSoundEmitterSystem row's Init, the client's script table loaded by the managed ClientSoundEmitterSystem (ModInit). CLIENT ONLY.</summary>
-    ClientSoundSystemInit = 384,
+    ClientSoundSystemInit = 358,
     /// <summary>IManagedSoundEmitterClient::ClientSoundSystemShutdown: the row's Shutdown (ModShutdown). CLIENT ONLY.</summary>
-    ClientSoundSystemShutdown = 385,
+    ClientSoundSystemShutdown = 359,
     /// <summary>IManagedSoundEmitterClient::ClientSoundLevelInitPreEntity: the row's LevelInitPreEntity, the level's own override script. CLIENT ONLY.</summary>
-    ClientSoundLevelInitPreEntity = 386,
+    ClientSoundLevelInitPreEntity = 360,
     /// <summary>IManagedSoundEmitterClient::ClientSoundLevelShutdownPostEntity: the row's LevelShutdownPostEntity, the overrides cleared. CLIENT ONLY.</summary>
-    ClientSoundLevelShutdownPostEntity = 387,
+    ClientSoundLevelShutdownPostEntity = 361,
     /// <summary>IManagedSoundEmitterClient::ClientSoundEmit: a native caller's GameSound_Emit (an impact, a sound patch, a broadcast), to the managed ClientSoundEmitter. CLIENT ONLY.</summary>
-    ClientSoundEmit = 388,
+    ClientSoundEmit = 362,
     /// <summary>IManagedSoundEmitterClient::ClientSoundStop: a native caller's GameSound_Stop (a sound patch). CLIENT ONLY.</summary>
-    ClientSoundStop = 389,
+    ClientSoundStop = 363,
     /// <summary>IManagedSoundEmitterClient::ClientSoundEmitCloseCaption: a native caller's GameSound_EmitCloseCaption (a sound patch's caption). CLIENT ONLY.</summary>
-    ClientSoundEmitCloseCaption = 390,
+    ClientSoundEmitCloseCaption = 364,
     /// <summary>IManagedSaveRestoreClient::SaveInit: the client state file's block allocated and placed by the shared SaveBlockSession, once per save (the client save codec). CLIENT ONLY.</summary>
-    ClientSaveInit = 391,
+    ClientSaveInit = 365,
     /// <summary>IManagedSaveRestoreClient::SaveWriteFields: one DECALLIST or MUSICLIST struct into the client state file through the managed codec, one per decal and song per save (the client save codec). CLIENT ONLY.</summary>
-    ClientSaveWriteFields = 392,
+    ClientSaveWriteFields = 366,
     /// <summary>IManagedSaveRestoreClient::SaveReadFields: one DECALLIST or MUSICLIST struct read back, one per decal and song per load (the client save codec). CLIENT ONLY.</summary>
-    ClientSaveReadFields = 393,
+    ClientSaveReadFields = 367,
     /// <summary>IManagedShadowsClient::Init: the CClientShadowMgr row's Init: the shadow materials, the render-to-texture and depth targets the modes ask for (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsInit = 394,
+    ClientShadowsInit = 368,
     /// <summary>IManagedShadowsClient::Shutdown: the row's Shutdown: every reference released (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsShutdown = 395,
+    ClientShadowsShutdown = 369,
     /// <summary>IManagedShadowsClient::LevelInitPreEntity: the row's LevelInitPreEntity: the ambient shadow colour, clamped (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsLevelInitPreEntity = 396,
+    ClientShadowsLevelInitPreEntity = 370,
     /// <summary>IManagedShadowsClient::LevelShutdownPostEntity: the row's LevelShutdownPostEntity: the shadows left removed (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsLevelShutdownPostEntity = 397,
+    ClientShadowsLevelShutdownPostEntity = 371,
     /// <summary>IManagedShadowsClient::PreRender: the walk's and the plan's PreRender, with the shells' queue: the modes and the dirty walk, once or twice a frame (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsPreRender = 398,
+    ClientShadowsPreRender = 372,
     /// <summary>IManagedShadowsClient::AdvanceFrame: the plan's ShadowAdvanceFrame op: the atlas's frame (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsAdvanceFrame = 399,
+    ClientShadowsAdvanceFrame = 373,
     /// <summary>IManagedShadowsClient::ComputeShadowTextures: the plan's per-world-view render-to-texture pass (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsComputeShadowTextures = 400,
+    ClientShadowsComputeShadowTextures = 374,
     /// <summary>IManagedShadowsClient::ComputeShadowDepthTextures: the plan's flashlight depth views (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsComputeShadowDepthTextures = 401,
+    ClientShadowsComputeShadowDepthTextures = 375,
     /// <summary>IManagedShadowsClient::UnlockAllShadowDepthTextures: the plan's depth-texture unlock (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsUnlockAllShadowDepthTextures = 402,
+    ClientShadowsUnlockAllShadowDepthTextures = 376,
     /// <summary>IManagedShadowsClient::RestoreRenderState: the material system's restore callback (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsRestoreRenderState = 403,
+    ClientShadowsRestoreRenderState = 377,
     /// <summary>IManagedShadowsClient::RenderShadowTexture: cl_drawshadowtexture's overlay (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsRenderShadowTexture = 404,
+    ClientShadowsRenderShadowTexture = 378,
     /// <summary>IManagedShadowsClient::Pending: the shells' queue handed over before another call, or when full (C7 cluster 12 S2). CLIENT ONLY.</summary>
-    ClientShadowsPending = 405,
+    ClientShadowsPending = 379,
 }
 
 /// <summary>

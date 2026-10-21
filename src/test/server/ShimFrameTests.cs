@@ -44,7 +44,7 @@ public unsafe class ShimFrameTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimFrameTableHasNineteenSlots()
+    public void TheShimFrameTableHasThirteenSlots()
         // One forwarder per method IShimFrame declares (an every=True row in
         // tools/engine-forwarders), and nothing else.
         //
@@ -53,8 +53,9 @@ public unsafe class ShimFrameTests
         // run between them (plan_entity.md §3.4); eighteen until the
         // sub-ioqueue lane appended DeliverToSdkEntities. Nineteen again after
         // plan_server_native_v2 T4e retired the three system walks and appended
-        // DrainEntitySlots and the model-cache lock's two ends.
-        => Assert.Equal(19, Forwarders.SlotCount<ShimFrameFwd>());
+        // DrainEntitySlots and the model-cache lock's two ends. Thirteen after
+        // the serialised ABI pass (2026-10-20) removed the six retired steps.
+        => Assert.Equal(13, Forwarders.SlotCount<ShimFrameFwd>());
 
     [Fact]
     public void EveryShimFrameFieldIsPointerSized()
@@ -63,11 +64,11 @@ public unsafe class ShimFrameTests
         // describing one is its field count times eight and nothing else. A
         // field that was not pointer-sized would make every slot below it read
         // the wrong entry.
-        Assert.Equal(19 * sizeof(void*), sizeof(ShimFrameFwd));
+        Assert.Equal(13 * sizeof(void*), sizeof(ShimFrameFwd));
     }
 
     [Fact]
-    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotEighteen()
+    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotTwelve()
     {
         // The generated file's own claim, read as BYTE OFFSETS rather than as
         // an order in a listing -- which is what the ABI actually cares about.
@@ -77,27 +78,37 @@ public unsafe class ShimFrameTests
         int last = (int)Marshal.OffsetOf(layout, "EndModelCacheLock");
 
         Assert.Equal(0, first);
-        Assert.Equal(18 * sizeof(void*), last);
+        Assert.Equal(12 * sizeof(void*), last);
     }
 
     [Fact]
-    public void PhysicsRunThinkFunctionsIsSlotFive()
+    public void UpdateAllClientDataIsSlotFour()
         // A MIDDLE SLOT, named, because the two ends agreeing does not say the
-        // eighteen in between are in the header's order -- and a reorder in
-        // the middle is precisely what the span check cannot see. Six until
-        // plan_server_native_v2 T4e's --reorder took ServerSystemsPreThink out
-        // above it.
-        => Assert.Equal(5 * sizeof(void*),
+        // slots in between are in the header's order -- and a reorder in the
+        // middle is precisely what the span check cannot see.
+        // (PhysicsRunThinkFunctions, slot five, was the named one until the
+        // serialised ABI pass removed it.)
+        => Assert.Equal(4 * sizeof(void*),
                         (int)Marshal.OffsetOf(typeof(ShimFrameFwd),
-                                              "PhysicsRunThinkFunctions"));
+                                              "UpdateAllClientData"));
+
+    [Fact]
+    public void TheRetiredStepsAreGoneFromTheTable()
+    {
+        // The pass's pin: a retired step restored to ishim_frame.h is a field
+        // here again. The positive arm is a live step read the same way.
+        foreach (string gone in new[] { "SetServerCurTime", "PhysicsRunThinkFunctions", "ServiceEventQueue",
+                                        "FireNetworkPropertyEvents", "StandaloneUpdate", "DeliverToSdkEntities" })
+            Assert.Null(typeof(ShimFrameFwd).GetField(gone));
+        Assert.NotNull(typeof(ShimFrameFwd).GetField("StandaloneFinish"));
+    }
 
     //-------------------------------------------------------------------------
     // 2. DISPATCH, over a table this file builds.
     //-------------------------------------------------------------------------
 
     private static int s_TickAnswer;
-    private static int s_PhysicsSawSimulating;
-    private static int s_ServiceEventQueueCalls;
+    private static int s_UpdateAllClientDataCalls;
 
     [UnmanagedCallersOnly]
     private static int TickCountAnswers(void* self) => s_TickAnswer;
@@ -106,16 +117,12 @@ public unsafe class ShimFrameTests
     private static float GetFrameTimeAnswers(void* self) => 0.015f;
 
     [UnmanagedCallersOnly]
-    private static void PhysicsRecords(void* self, int simulating)
-        => s_PhysicsSawSimulating = simulating;
-
-    [UnmanagedCallersOnly]
-    private static void ServiceEventQueueCounts(void* self)
-        => s_ServiceEventQueueCalls++;
+    private static void UpdateAllClientDataCounts(void* self)
+        => s_UpdateAllClientDataCalls++;
 
     /// <summary>
     /// A forwarder table of the struct's length with a distinct function in
-    /// the four slots the facts below reach, written by index, and an object
+    /// the three slots the facts below reach, written by index, and an object
     /// it is called on. Nothing reads the object: a forwarder table is handed
     /// the object, it does not live in it.
     /// </summary>
@@ -125,8 +132,7 @@ public unsafe class ShimFrameTests
 
         table[1] = (delegate* unmanaged<void*, int>)&TickCountAnswers;
         table[2] = (delegate* unmanaged<void*, float>)&GetFrameTimeAnswers;
-        table[5] = (delegate* unmanaged<void*, int, void>)&PhysicsRecords;
-        table[6] = (delegate* unmanaged<void*, void>)&ServiceEventQueueCounts;
+        table[4] = (delegate* unmanaged<void*, void>)&UpdateAllClientDataCounts;
 
         return NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
     }
@@ -201,50 +207,16 @@ public unsafe class ShimFrameTests
     }
 
     [Fact]
-    public void PhysicsRunThinkFunctionsPassesTrueAsOne()
-    {
-        // C# `bool` is NOT blittable in an unmanaged function pointer, so the
-        // generated struct spells the parameter `int` and the conversion happens
-        // at the one-line call site rather than in a hidden marshaller. The flat
-        // ABI field it replaces was `void (*)( int32_t )` for the same reason.
-        s_PhysicsSawSimulating = -1;
-
-        void* self = FakeShim(out void** table);
-        IEngineFrame frame = BoundTo(self, table);
-
-        frame.PhysicsRunThinkFunctions(true);
-        Assert.Equal(1, s_PhysicsSawSimulating);
-
-        NativeMemory.Free(table);
-        NativeMemory.Free(self);
-    }
-
-    [Fact]
-    public void PhysicsRunThinkFunctionsPassesFalseAsZero()
-    {
-        s_PhysicsSawSimulating = -1;
-
-        void* self = FakeShim(out void** table);
-        IEngineFrame frame = BoundTo(self, table);
-
-        frame.PhysicsRunThinkFunctions(false);
-        Assert.Equal(0, s_PhysicsSawSimulating);
-
-        NativeMemory.Free(table);
-        NativeMemory.Free(self);
-    }
-
-    [Fact]
     public void AVoidStepReachesItsOwnSlotAndIsCalledExactlyOnce()
     {
-        s_ServiceEventQueueCalls = 0;
+        s_UpdateAllClientDataCalls = 0;
 
         void* self = FakeShim(out void** table);
         IEngineFrame frame = BoundTo(self, table);
 
-        frame.ServiceEventQueue();
+        frame.UpdateAllClientData();
 
-        Assert.Equal(1, s_ServiceEventQueueCalls);
+        Assert.Equal(1, s_UpdateAllClientDataCalls);
 
         NativeMemory.Free(table);
         NativeMemory.Free(self);
@@ -337,7 +309,7 @@ public unsafe class ShimFrameTests
         // bug, and it now says so at the site that asked.
         var frame = RefusedArea(TestSides.Create(Side.Server), out var root);
         using var _ = root;
-        Assert.Throws<InterfaceAcquisitionException>(() => frame.ServiceEventQueue());
+        Assert.Throws<InterfaceAcquisitionException>(() => frame.UpdateAllClientData());
     }
 
     //-------------------------------------------------------------------------
@@ -406,19 +378,19 @@ public unsafe class ShimFrameTests
         // nothing, so a library that gained one must still bind an assembly
         // compiled before it. Driven through the factory seam, because there is
         // no native half in this process.
-        Assert.True(AcquireAgainstNative(nativeEntries: 20, out string why),
+        Assert.True(AcquireAgainstNative(nativeEntries: 14, out string why),
                     $"a shorter managed struct binds: {why}");
     }
 
     [Fact]
     public void AStructLongerThanTheServedTableIsRefusedNamingBothNumbers()
     {
-        Assert.False(AcquireAgainstNative(nativeEntries: 18, out string why),
+        Assert.False(AcquireAgainstNative(nativeEntries: 12, out string why),
                      "a managed struct expecting more slots than native serves "
                      + "must not bind");
 
-        Assert.Contains("18", why);
-        Assert.Contains("19", why);
+        Assert.Contains("12", why);
+        Assert.Contains("13", why);
     }
 
     [Fact]

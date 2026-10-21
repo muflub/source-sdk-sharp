@@ -136,13 +136,6 @@ public sealed unsafe class LeafSystemClientBinding(Crossings crossings, ILog log
         catch (Exception e) { return Fail(nameof(AddRenderableToLeaves), e); }
     }
 
-    public void ChangeRenderableRenderGroup(int a0, int a1)
-    {
-        crossings.Count(CrossingOp.ClientLeafChangeRenderableRenderGroup);
-        try { host.ChangeRenderableRenderGroup(a0 & 0xFFFF, a1); }
-        catch (Exception e) { Fail(nameof(ChangeRenderableRenderGroup), e); }
-    }
-
     public void SetRenderGroup(int a0, int a1)
     {
         crossings.Count(CrossingOp.ClientLeafSetRenderGroup);
@@ -305,38 +298,6 @@ public sealed unsafe class LeafSystemClientBinding(Crossings crossings, ILog log
             return Answer(a0, a1);
         }
         catch (Exception e) { return Fail(nameof(CollateViewModelRenderables), e); }
-    }
-
-    // RETIRED SLOTS (C7 cluster 12 S2's deletion): the leaf system's shadow
-    // half was the C++ shadow manager's, and the managed manager calls
-    // ClientLeafSystem in-process (IShadowLeafSystem). The table only appends,
-    // so the five slots stay, answer the refusal (an invalid handle, no
-    // operations), and are still counted: a count above zero is a caller
-    // nobody expected.
-    public int AddShadow(int a0, int a1)
-    {
-        crossings.Count(CrossingOp.ClientLeafAddShadow);
-        return InvalidHandle;
-    }
-
-    public void RemoveShadow(int a0) => crossings.Count(CrossingOp.ClientLeafRemoveShadow);
-
-    public int ProjectShadow(int a0, void* a1, int a2, void* a3, int a4)
-    {
-        crossings.Count(CrossingOp.ClientLeafProjectShadow);
-        return 0;
-    }
-
-    public int ProjectFlashlight(int a0, void* a1, int a2, void* a3, int a4)
-    {
-        crossings.Count(CrossingOp.ClientLeafProjectFlashlight);
-        return 0;
-    }
-
-    public int EnumerateShadowsInLeaves(void* a0, int a1, void* a2, int a3)
-    {
-        crossings.Count(CrossingOp.ClientLeafEnumerateShadowsInLeaves);
-        return 0;
     }
 
     // The forwarder's queue (LeafPending) a slot carries in its arguments,

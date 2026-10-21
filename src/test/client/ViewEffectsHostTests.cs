@@ -26,7 +26,6 @@ public class ViewEffectsHostTests
 
         public int RandomInt(int min, int max) => min;
 
-        public float RandomFloatExp(float min, float max, float exponent) => min;
     }
 
     private static (ViewEffectsHost Host, RenderPlanHost Plan, Clock Clock, List<float> Rumble) Rig()

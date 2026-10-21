@@ -438,8 +438,6 @@ internal sealed unsafe partial class EngineGameEvents : IEngineGameEvents
     public IntPtr EventCreate(string name) => IntPtr.Zero;
     // No engine answer since plan_server_native_v2 T2: the server fires events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
     public bool EventFire(IntPtr handle) => false;
-    // No engine answer since plan_server_native_v2 T2: the server frees events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
-    public void EventFree(IntPtr handle) { }
 }
 
 /// <summary>The real engine, for <see cref="IEngineNetworking"/>. Every member is one call.</summary>

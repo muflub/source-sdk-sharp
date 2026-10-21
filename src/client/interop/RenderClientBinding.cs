@@ -13,22 +13,6 @@ namespace SourceSharp.Client.Interop;
 public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IClientRenderPlan plan)
     : IManagedRenderClient
 {
-    // RETIRED SLOTS (C7 cluster 12 L1's leaf lists): the leaf system is
-    // managed's since L2 and native asks it through IManagedLeafSystemClient.
-    // The table only appends, so the two slots stay, answer -1 (no list), and
-    // are still counted: a count above zero is a caller nobody expected.
-    public int RenderLeafList(void* a0, void* a1, int a2)
-    {
-        crossings.Count(CrossingOp.ClientRenderLeafList);
-        return -1;
-    }
-
-    public int RenderLeafViewModels(void* a0, void* a1, int a2)
-    {
-        crossings.Count(CrossingOp.ClientRenderLeafViewModels);
-        return -1;
-    }
-
     public int RenderFrame(void* a0, void* a1)
     {
         crossings.Count(CrossingOp.ClientRenderFrame);

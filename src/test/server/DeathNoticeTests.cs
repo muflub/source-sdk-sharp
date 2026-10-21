@@ -44,7 +44,6 @@ public class DeathNoticeTests
             return h;
         }
         public void EventSetInt(IntPtr h, string key, int value) => _live[h].Fields[key] = value;
-        public void EventSetFloat(IntPtr h, string key, float value) => _live[h].Fields[key] = value;
         public void EventSetBool(IntPtr h, string key, bool value) => _live[h].Fields[key] = value;
         public void EventSetString(IntPtr h, string key, string value) => _live[h].Fields[key] = value;
         public bool EventFire(IntPtr h)
@@ -55,7 +54,6 @@ public class DeathNoticeTests
             _live.Remove(h);
             return true;
         }
-        public void EventFree(IntPtr h) => _live.Remove(h);
         public int EventGetInt(IntPtr h, string key) => _live[h].Fields.TryGetValue(key, out var v) && v is int i ? i : 0;
         public float EventGetFloat(IntPtr h, string key) => _live[h].Fields.TryGetValue(key, out var v) && v is float f ? f : 0f;
         public bool EventGetBool(IntPtr h, string key) => _live[h].Fields.TryGetValue(key, out var v) && v is bool b && b;

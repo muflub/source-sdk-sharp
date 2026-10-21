@@ -19,7 +19,6 @@ int32_t SourceSharp_UiFontAddFile(	SLOT	IShimUiClient: ISurface::AddCustomFontFi
 int32_t SourceSharp_UiFontCreate(	SLOT	IShimUiClient: ISurface::CreateFont + SetFontGlyphSet at the tall managed code computed
 void SourceSharp_UiFontMetrics(	SLOT	IShimUiClient: ISurface::GetFontTall and GetFontAscent
 int32_t SourceSharp_UiFontAdvances(	SLOT	IShimUiClient: ISurface::GetCharABCwide over a range
-void SourceSharp_UiScreenSize(	SLOT	IShimUiClient: ISurface::GetScreenSize
 void SourceSharp_UiPlaySound(	SLOT	IShimUiClient: ISurface::PlaySound
 [CSourceSharpHud] virtual void Paint(	SLOT	vgui::Panel::Paint, the engine's paint pass: forwarded to IManagedUiClient::Paint inside the paint window
 [CSourceSharpHud] virtual void OnScreenSizeChanged(	SLOT	vgui::Panel's video-mode message, forwarded to IManagedUiClient::ScreenSizeChanged

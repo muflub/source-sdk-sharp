@@ -8,8 +8,9 @@
 //========= SourceSharp — the frame's native steps, as an interface ==========//
 //
 // plan_native_api.md Part 4, and the pilot of it. Seventeen flat ABI fields
-// became seventeen slots of one vtable, and two have been appended since, so it
-// is NINETEEN now -- reached by the same acquire-by-name,
+// became seventeen slots of one vtable; appends and retirements since leave
+// THIRTEEN after the serialised ABI pass (2026-10-20) -- reached by the same
+// acquire-by-name,
 // call-by-vtable mechanism the five ENGINE interfaces already use — the
 // difference being only which factory answers: SOURCESHARP_FACTORY_INTERNAL
 // rather than the engine's.
@@ -50,12 +51,12 @@
 // public/vstdlib/random.h:28, where the declaration is commented out.
 //
 //-----------------------------------------------------------------------------
-// THE ORDER IS THE FILL'S ORDER, and it is not arbitrary. These nineteen
+// THE ORDER IS THE FILL'S ORDER, and it is not arbitrary. These thirteen
 // methods appear here in the order sourcesharp.h declares the fields they
 // replace, so that the header, the layout, the impl and the facade can all be
 // read against each other in one direction. It is NOT the order the frame runs
 // in — that order is in C#, in ServerGameDll.cs, which is the whole point of
-// there being nineteen steps rather than one GameFrame().
+// there being thirteen steps rather than one GameFrame().
 //
 //=============================================================================//
 
@@ -102,22 +103,6 @@ public:
 	// frame, which is why the pair is asymmetric.
 	virtual void SetFrameTime( float flFrameTime ) = 0;
 
-	// SS_RETIRED SetServerCurTime lane=t6-globals g_flServerCurTime had no reader (baseprojectile.cpp is in neither DLL); managed no longer calls it
-	// Was g_flServerCurTime = gpGlobals->curtime, the rollback-independent
-	// server clock. The body is empty and the slot is kept at its index until
-	// the table's next --reorder pass; see shell_frame.cpp.
-	virtual void SetServerCurTime() = 0;
-
-	// SS_RETIRED PhysicsRunThinkFunctions lane=3b-enginebind physics_main.cpp left the vpc; the SimThink list has no members and the thinks are managed
-	// Stock's every-entity think pass. The body is empty and the slot is kept
-	// at its index until the SourceSharpFrame002 pass; see shell_frame.cpp.
-	virtual void PhysicsRunThinkFunctions( int32_t bSimulating ) = 0;
-
-	// SS_RETIRED ServiceEventQueue lane=3b-enginebind the native queue and every producer that posted into it left the vpc; the managed EntityIoQueue is the queue
-	// "service event queue, firing off any actions whos time has come" --
-	// stock's comment and stock's spelling. Empty; slot kept at its index.
-	virtual void ServiceEventQueue() = 0;
-
 	virtual void UpdateAllClientData() = 0;
 
 	// The rules' end of frame, where the third managed frame point lives. The
@@ -126,11 +111,6 @@ public:
 	// need a second step to ask and the answer would be stale by the time it
 	// acted on it.
 	virtual void EndGameFrame() = 0;
-
-	// SS_RETIRED FireNetworkPropertyEvents lane=3b-enginebind g_NetworkPropertyEventMgr went with timedeventmgr.cpp at Phase 1d; nothing could ever register
-	// "Any entities that detect network state changes on a timer do it here."
-	// Empty since two lanes met in it; slot kept at its index.
-	virtual void FireNetworkPropertyEvents() = 0;
 
 	virtual void GamestatsUpdateConnection() = 0;
 
@@ -154,21 +134,7 @@ public:
 	// that has to see what the thinks did. Which side each belongs on is
 	// argued in shell_standalone_base.cpp, and the order is now stated in C#.
 	virtual void StandalonePlayerCommands() = 0;
-	virtual void StandaloneUpdate() = 0;
 	virtual void StandaloneFinish() = 0;
-
-	// THE SDK HIERARCHY'S HALF OF ONE ENTITY I/O DELIVERY -- the sub-ioqueue
-	// lane. NOT a frame step: the managed queue asks it for ONE event, and only
-	// when the managed directory answered nothing at all, so nothing can be
-	// delivered twice. Answers how many SDK entities took the input.
-	//
-	// It is on this interface rather than a new one because the queue's frame
-	// step is, and because a second interface for one leaf would be a second
-	// vtable to keep in step for no gain.
-	//
-	// SS_RETIRED DeliverToSdkEntities lane=3b-enginebind all four stock classes it walked to are absent from the armed build; returns 0 and the managed directory is the whole population
-	virtual int32_t DeliverToSdkEntities( const char *pTarget, const char *pInput,
-	                                      const char *pValue ) = 0;
 
 	// plan_server_native_v2 T4e: one NetworkStateChanged per entity whose
 	// managed state was written this frame -- what the managed row's native

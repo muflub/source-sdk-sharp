@@ -98,11 +98,6 @@ public class ParticleCollisionOracleTests
             return min;
         }
 
-        public float RandomFloatExp(float min, float max, float exponent)
-        {
-            Wrong.Add("RandomFloatExp");
-            return min;
-        }
     }
 
     [Fact]

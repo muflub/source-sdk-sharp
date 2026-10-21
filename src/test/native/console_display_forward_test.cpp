@@ -47,9 +47,7 @@ public:
 
 	CConsoleLineBuffer *m_pBuffer = nullptr;
 	int m_nAttaches = 0;
-	int m_nLines = 0;
 
-	void Line() { ++m_nLines; }
 	void Attach( void *pBuffer );
 
 	/// The lines buffered since the last drain, onto g_SinkLines.
@@ -67,13 +65,12 @@ private:
 	// The forwarder never validates (acceptance is ManagedAccept's job at
 	// acquire); -1 is the agree answer managed_accept_test's fake gives.
 	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
-	static void Lined( IManagedConsoleOutput *self, const char *, int32_t ) { Of( self )->Line(); }
 	static void Attached( IManagedConsoleOutput *self, void *pBuffer ) { Of( self )->Attach( pBuffer ); }
 
 	static const SSManagedConsoleOutputTable kTable;
 };
 
-const SSManagedConsoleOutputTable CSinkArea::kTable = { &Released, &Validated, &Lined, &Attached };
+const SSManagedConsoleOutputTable CSinkArea::kTable = { &Released, &Validated, &Attached };
 
 /// The forwarder's buffer, as the last attach handed it: one per DLL, so
 /// every test sees the same memory and its sequence runs on across tests.
@@ -173,14 +170,19 @@ TEST_F( ConsoleDisplayForward, TheBufferHandedOverCarriesTheHalfSizeTheReaderRea
 	EXPECT_EQ( kConsoleLineHalfBytes, g_AreaA.m_pBuffer->m_Header.nHalfBytes );
 }
 
+// The point of the buffer: a print crosses nothing. The area HAS no per-line
+// slot since the serialised ABI pass (2026-10-20): Release, Validate and the
+// buffer hand-over are the whole table, so a line slot that came back would
+// change its size here.
+static_assert( sizeof( SSManagedConsoleOutputTable ) == 3 * sizeof( void * ),
+               "IManagedConsoleOutput's table is Release, Validate and ConsoleBufferAttach" );
+
 TEST_F( ConsoleDisplayForward, APrintCrossesNothing )
 {
-	// The point of the buffer: the area's per-line slot is never called.
 	ConsoleDisplay_Install( &m_Cvar );
 	for ( int i = 0; i < 100; ++i )
 		Installed()->Print( "a line\n" );
-	EXPECT_EQ( 0, g_AreaA.m_nLines );
-	EXPECT_EQ( 100u, Drained().size() ) << "and every line is in the buffer";
+	EXPECT_EQ( 100u, Drained().size() ) << "every line is in the buffer";
 }
 
 TEST_F( ConsoleDisplayForward, PrintForwardsTheExactTextAsNormal )
@@ -364,13 +366,12 @@ private:
 	static CTrapArea *Of( void *self ) { return static_cast< CTrapArea * >( self ); }
 	static void Released( IManagedObject * ) {}
 	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
-	static void Lined( IManagedConsoleOutput *self, const char *, int32_t ) { Of( self )->Hit(); }
 	static void Attached( IManagedConsoleOutput *self, void * ) { Of( self )->Hit(); }
 
 	static const SSManagedConsoleOutputTable kTable;
 };
 
-const SSManagedConsoleOutputTable CTrapArea::kTable = { &Released, &Validated, &Lined, &Attached };
+const SSManagedConsoleOutputTable CTrapArea::kTable = { &Released, &Validated, &Attached };
 
 TEST_F( ConsoleDisplayForward, WithoutTheGapAReinstallOverADetachedAreaHitsTheTrap )
 {

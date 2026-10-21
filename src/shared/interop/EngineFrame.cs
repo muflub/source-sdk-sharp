@@ -167,23 +167,10 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     public void SetFrameTime(float frameTime) => Vtbl->SetFrameTime(_self, frameTime);
 
     /// <inheritdoc/>
-    public void SetServerCurTime() => Vtbl->SetServerCurTime(_self);
-
-    /// <inheritdoc/>
-    public void PhysicsRunThinkFunctions(bool simulating)
-        => Vtbl->PhysicsRunThinkFunctions(_self, simulating ? 1 : 0);
-
-    /// <inheritdoc/>
-    public void ServiceEventQueue() => Vtbl->ServiceEventQueue(_self);
-
-    /// <inheritdoc/>
     public void UpdateAllClientData() => Vtbl->UpdateAllClientData(_self);
 
     /// <inheritdoc/>
     public void EndGameFrame() => Vtbl->EndGameFrame(_self);
-
-    /// <inheritdoc/>
-    public void FireNetworkPropertyEvents() => Vtbl->FireNetworkPropertyEvents(_self);
 
     /// <inheritdoc/>
     public void GamestatsUpdateConnection() => Vtbl->GamestatsUpdateConnection(_self);
@@ -195,30 +182,7 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     public void StandalonePlayerCommands() => Vtbl->StandalonePlayerCommands(_self);
 
     /// <inheritdoc/>
-    public void StandaloneUpdate() => Vtbl->StandaloneUpdate(_self);
-
-    /// <inheritdoc/>
     public void StandaloneFinish() => Vtbl->StandaloneFinish(_self);
-
-    /// <inheritdoc/>
-    /// <remarks>
-    /// THE ONE MEMBER OF THIS AREA THAT IS NOT A FRAME STEP, and the one that
-    /// allocates. It runs per EVENT the managed directory could not place —
-    /// never per frame — so the three encodes are paid by a misdelivery and by
-    /// nothing else. A frame in which every input found a managed target does
-    /// not reach this line at all.
-    /// </remarks>
-    public int DeliverToSdkEntities(string target, string input, string? value)
-    {
-        byte[] t = Vtable.Utf8(target);
-        byte[] i = Vtable.Utf8(input);
-        byte[] v = Vtable.Utf8(value ?? string.Empty);
-
-        fixed (byte* pt = t)
-        fixed (byte* pi = i)
-        fixed (byte* pv = v)
-            return Vtbl->DeliverToSdkEntities(_self, pt, pi, pv);
-    }
 
     /// <inheritdoc/>
     public void DrainEntitySlots() => Vtbl->DrainEntitySlots(_self);

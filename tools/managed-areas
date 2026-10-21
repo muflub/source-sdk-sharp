@@ -787,14 +787,14 @@ def self_test():
     expect('a returning method returns its slot\'s answer, and a parameter the TSV leaves unnamed is named',
            named_parameters('int32_t, const char *pName') == [('int32_t a0', 'a0'), ('const char *pName', 'pName')])
     expect('the table struct is held to one pointer per slot by the compiler',
-           'static_assert( sizeof( SSManagedSoundEntTable ) == 6 * sizeof( void * )' in iface)
+           'static_assert( sizeof( SSManagedSoundEntTable ) == 5 * sizeof( void * )' in iface)
     tables = out[OUT_TABLES_SERVER]
     expect('each table is in the assembly that builds it: the root in the shared interop, a server area in '
            'Server.Interop, a client area and the Steam callback in Client.Interop',
            'struct ManagedRootTable' in out[OUT_TABLES] and 'struct ManagedSoundEntTable' not in out[OUT_TABLES]
            and table_file('IManagedRuntimeServer') == OUT_TABLES_SERVER
            and table_file('IManagedSteamCallback') == OUT_TABLES_CLIENT
-           and table_file('IManagedHudClient') == OUT_TABLES_CLIENT)
+           and table_file('IManagedUiClient') == OUT_TABLES_CLIENT)
     expect('the C# table carries the same order and each slot\'s hash, as ManagedVtableGenerator reads it',
            '[ImplementedByManaged("IManagedSoundEnt")]' in tables
            and 'public unsafe struct ManagedSoundEntTable' in tables
@@ -804,7 +804,7 @@ def self_test():
            '#include "imanaged_core.h"' in out[OUT_IFACE])
     expect('its compiled slot hashes and count are emitted, one per slot',
            'static const uint32_t kIManagedSoundEntSlotHashes[]' in out[OUT_IFACE]
-           and 'static const int32_t kIManagedSoundEntSlotCount = 6;' in out[OUT_IFACE])
+           and 'static const int32_t kIManagedSoundEntSlotCount = 5;' in out[OUT_IFACE])
     expect('no virtual destructor is emitted', '~' not in out[OUT_IFACE])
     expect('it is accepted through Validate, against its compiled hashes',
            'ManagedAccept< IManagedSoundEnt >( pObject, kIManagedSoundEntSlotHashes, '

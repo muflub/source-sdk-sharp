@@ -210,8 +210,7 @@ public sealed class ConsoleLines
     }
 
     /// <summary>
-    /// One line a managed print said (or, from the legacy
-    /// <c>ConsoleLine</c> slot, one the engine handed over directly). It takes
+    /// One line a managed print said. It takes
     /// the next number after every engine line buffered so far, which are
     /// delivered first.
     /// </summary>

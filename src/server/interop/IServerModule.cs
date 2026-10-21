@@ -23,7 +23,6 @@ public interface IServerModule : ITempEntBlobs
     /// player takes the name in its <c>name</c> convar (the native SetPlayerName).
     /// </summary>
     bool OnClientSettingsChanged(int entIndex);
-    void OnRespawn(int entIndex, bool copyCorpse);
 
     // --- gameplay decisions ---
 
@@ -67,9 +66,6 @@ public interface IServerModule : ITempEntBlobs
     /// through to the stock handler.
     /// </summary>
     CommandResult OnClientCommand(EntityHandle player, string command);
-
-    /// <summary>How two players relate, or a deferral to the stock rule.</summary>
-    PlayerRelationship GetPlayerRelationship(EntityHandle player, EntityHandle target);
 
     // OnNetEntitySpawned went with the deleted shell, and its ABI slot was
     // REAPED at 240 — see host/sourcesharp.h.
@@ -173,24 +169,6 @@ public interface IServerModule : ITempEntBlobs
     int OnScriptedFilterPasses(EntityHandle filter, EntityHandle entity, int damageType, bool damage);
 
     /// <summary>
-    /// The extra shove a ragdoll magnet gives a body that has just died, or
-    /// null when no magnet applies.
-    ///
-    /// <para>
-    /// Asked once per death by the SDK, which has already looked for a magnet of
-    /// its own and found none. Null rather than a zero vector, because "no
-    /// magnet" and "a magnet pulling with no force" are different states and the
-    /// caller reports them differently.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="centre"/> is where the body was when it died. It arrives
-    /// with the question rather than being read back off the handle, since by
-    /// the time anything else looks the entity may have been moved or removed.
-    /// </para>
-    /// </summary>
-    Vector? OnRagdollMagnetForce(EntityHandle victim, Vector centre);
-    /// <summary>
     /// How much of a jump a player gets: 1 is the ordinary jump, 0 refuses it.
     ///
     /// Declared on BOTH module interfaces because movement is predicted and the
@@ -212,32 +190,6 @@ public interface IServerModule : ITempEntBlobs
     /// the engine's own speed factors.
     /// </summary>
     float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial);
-
-    /// <summary>
-    /// Something native and burning is warming any fire near it.
-    ///
-    /// The fires are managed now, so the engine cannot reach them itself. This
-    /// is the way back in — see OnFireAddHeatInRadius in sourcesharp.h.
-    /// </summary>
-    void AddFireHeatInRadius(Vector origin, float radius, float heat);
-
-    /// <summary>
-    /// A NATIVE entity is being set alight and needs a flame.
-    ///
-    /// <para>
-    /// The flame is <c>ss_entityflame</c>, a managed entity, so
-    /// <c>CBaseAnimating::Ignite</c> and the flaming gib in <c>effects.cpp</c>
-    /// have nothing native left to construct and ask here instead. See
-    /// OnEntityIgnite in sourcesharp.h.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="size"/> is stock's optional override in world units;
-    /// zero means "measure the target", which is what
-    /// <c>CEntityFlame::Create</c> did from its collision bounds.
-    /// </para>
-    /// </summary>
-    void OnEntityIgnite(EntityHandle entity, float lifetime, float size);
 
     //-------------------------------------------------------------------------
     // The game DLL, in the five subjects it splits into.

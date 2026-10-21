@@ -96,11 +96,6 @@ bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy
 	if ( !areas.m_pBones )
 		return false;
 
-	pObject = pRoot->Acquire( "IManagedSoundEmitter" );
-	areas.m_pSoundEmitter = ManagedAccept< IManagedSoundEmitter >( pObject, kIManagedSoundEmitterSlotHashes, kIManagedSoundEmitterSlotCount, pWhy, nWhy );
-	if ( !areas.m_pSoundEmitter )
-		return false;
-
 	return true;
 }
 
@@ -138,8 +133,6 @@ bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pBones, kIManagedBonesSlotHashes, kIManagedBonesSlotCount, pWhy, nWhy ) )
 		return false;
-	if ( !ManagedAcceptObject( areas.m_pSoundEmitter, kIManagedSoundEmitterSlotHashes, kIManagedSoundEmitterSlotCount, pWhy, nWhy ) )
-		return false;
 	return true;
 }
 
@@ -161,7 +154,6 @@ void ManagedAreas_Release( CManagedAreas &areas )
 	ManagedRelease( areas.m_pPlayerCommands );
 	ManagedRelease( areas.m_pConsoleOutput );
 	ManagedRelease( areas.m_pBones );
-	ManagedRelease( areas.m_pSoundEmitter );
 }
 
 IManagedPhysicsFrame *ManagedPhysicsFrame()
@@ -242,11 +234,6 @@ IManagedConsoleOutput *ManagedConsoleOutput()
 IManagedBones *ManagedBones()
 {
 	return ShellGameDll_Managed().m_Areas.m_pBones;
-}
-
-IManagedSoundEmitter *ManagedSoundEmitter()
-{
-	return ShellGameDll_Managed().m_Areas.m_pSoundEmitter;
 }
 
 #endif // !CLIENT_DLL

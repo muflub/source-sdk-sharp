@@ -61,7 +61,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 126 slots.
+// SERVER ONLY -- 123 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -131,7 +131,6 @@ void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ );
 int32_t SourceSharp_EntityIsPlayer( uint32_t hEntity );
 int32_t SourceSharp_EntityIsValid( uint32_t hEntity );
 void SourceSharp_EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset );
-void SourceSharp_EntityMarkStateChanged( uint32_t hEntity );
 int32_t SourceSharp_EntityModelSurfaceProp( uint32_t hEntity );
 int32_t SourceSharp_EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs );
 int32_t SourceSharp_EntityParentProbe( uint32_t hEntity );
@@ -169,7 +168,6 @@ void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float f
 void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin, const float *pAngles,
                                  int32_t bZeroVelocity );
 void SourceSharp_EventSetBool( void *hEvent, const char *pKey, int32_t bValue );
-void SourceSharp_EventSetFloat( void *hEvent, const char *pKey, float flValue );
 void SourceSharp_EventSetInt( void *hEvent, const char *pKey, int32_t nValue );
 void SourceSharp_EventSetString( void *hEvent, const char *pKey, const char *pValue );
 int32_t SourceSharp_ExitWatchArm( const char *pRecordPath );
@@ -189,7 +187,6 @@ void SourceSharp_MoveTraceServer( const float *pStartXYZ, const float *pEndXYZ,
 void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
                                 uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
                                 int32_t *pOutViewerSet );
-void SourceSharp_OverlayResetCounts( void );
 void *SourceSharp_PhysicsEnvironmentPointer( void );
 int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,
                                          uint32_t *pOutOwners );
@@ -235,7 +232,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 247 slots.
+// CLIENT ONLY -- 244 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -557,10 +554,8 @@ void SourceSharp_StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flSt
                                     float flEndDist, float flMinAlpha );
 void SourceSharp_StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex );
 void SourceSharp_StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll );
-void SourceSharp_StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice );
 void SourceSharp_StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable );
-int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice,
-                                          int32_t *pOutHasShadow );
+int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice );
 void SourceSharp_StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence,
                                           float flPlaybackRate, float flAnimTime,
                                           float flDuration, int32_t bLooping );
@@ -577,8 +572,6 @@ int32_t SourceSharp_TempEntPoolReadLife( int32_t nSlot, SourceSharpTempEntLife_t
 int32_t SourceSharp_TempEntPoolReadStatics( int32_t nSlot, SourceSharpTempEntStatics_t *pOut );
 int32_t SourceSharp_TempEntPoolReadTransform( int32_t nSlot,
                                               SourceSharpTempEntTransform_t *pOutTransform );
-int32_t SourceSharp_TempEntPoolSimulate( int32_t nSlot, float flFrameTime,
-                                         int32_t nFrameNumber );
 int32_t SourceSharp_TempEntPoolWriteLife( int32_t nSlot,
                                           const SourceSharpTempEntLife_t *pLife );
 int32_t SourceSharp_TempEntPoolWriteSpawn( int32_t nSlot,
@@ -613,7 +606,6 @@ void SourceSharp_UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutA
 void SourceSharp_UiMeasureText( int32_t nFont, const uint16_t *pText, int32_t nLength,
                                 int32_t *pOutWidth, int32_t *pOutHeight );
 void SourceSharp_UiPlaySound( const char *pPath );
-void SourceSharp_UiScreenSize( int32_t *pOutWide, int32_t *pOutTall );
 void SourceSharp_UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1 );
 void SourceSharp_UiSetCursor( int32_t nShape );
 void SourceSharp_UiSetMenuInput( int32_t bMouse, int32_t bKeyboard );

@@ -129,13 +129,12 @@ public class OverlayContractTests
     }
 
     [Fact]
-    public void ResettingTheCountersIsItsOwnCall()
+    public void TheCountersHaveNoResetCall()
     {
-        var fake = new RecordingEngine();
-
-        ((IEngineHud)fake).OverlayResetCounts();
-
-        Assert.True(fake.Called("Hud.OverlayResetCounts"));
+        // OverlayResetCounts had no managed caller and left IShimDebugOverlay in
+        // the serialised ABI pass (2026-10-20); the readout stays (the control).
+        Assert.Null(typeof(IEngineHud).GetMethod("OverlayResetCounts"));
+        Assert.NotNull(typeof(IEngineHud).GetMethod("OverlayReadout"));
     }
 
     //-------------------------------------------------------------------------

@@ -660,7 +660,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                       v => ManagedAreaFactory.Create(v, NewStandaloneBinding()));
         _bindings.Add("IManagedPredictionClient",
                       v => ManagedAreaFactory.Create(v, PredictionClientBinding.For(_engine.Crossings, this, this, _movement)));
-        _bindings.Add("IManagedHudClient", v => ManagedAreaFactory.Create(v, new HudClientBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUiClient", v => ManagedAreaFactory.Create(v, new UiClientBinding(_engine.Crossings, () => _ui, () => _centre, () => _disc, () => _voiceEvents, () => _keys, () => _voiceStatus)));
         // The client engine's console prints, forwarded in process by the
         // display func native installs on the client's ICvar at area acquire

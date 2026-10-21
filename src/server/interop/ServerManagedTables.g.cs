@@ -174,15 +174,11 @@ public unsafe struct ManagedResourcesTable
     [SlotHash(0x256306e9)]
     public delegate* unmanaged<void*, byte*, int, byte*, int, int> ServerDecalTranslateForGameMaterial;
 
-    // 5: int32_t ServerPropDataRandomChunkModel( const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize )
-    [SlotHash(0x256306e9)]
-    public delegate* unmanaged<void*, byte*, int, byte*, int, int> ServerPropDataRandomChunkModel;
-
-    // 6: void ModelPrecacheComponents( const char *pszModelName )
+    // 5: void ModelPrecacheComponents( const char *pszModelName )
     [SlotHash(0x3aa7ebf0)]
     public delegate* unmanaged<void*, byte*, void> ModelPrecacheComponents;
 
-    // 7: void ModelPrecacheCheck( const char *pszModelName, bool bAllowed )
+    // 6: void ModelPrecacheCheck( const char *pszModelName, bool bAllowed )
     [SlotHash(0x296debda)]
     public delegate* unmanaged<void*, byte*, byte, void> ModelPrecacheCheck;
 }
@@ -250,11 +246,7 @@ public unsafe struct ManagedSoundEntTable
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> ServerSoundEntShutdown;
 
-    // 4: void ServerSoundEntInsert( int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget )
-    [SlotHash(0xcf29a9c5)]
-    public delegate* unmanaged<void*, int, void*, int, float, uint, int, uint, void> ServerSoundEntInsert;
-
-    // 5: void ServerSoundEntResetClientSound( int32_t nIndex )
+    // 4: void ServerSoundEntResetClientSound( int32_t nIndex )
     [SlotHash(0xc83e311d)]
     public delegate* unmanaged<void*, int, void> ServerSoundEntResetClientSound;
 }
@@ -296,23 +288,15 @@ public unsafe struct ManagedHierarchyTable
     [SlotHash(0xaf0c4354)]
     public delegate* unmanaged<void*, uint, byte*, void> HierarchySetParentAttachmentName;
 
-    // 8: int32_t HierarchyEntityRemoved( uint32_t hEntity )
-    [SlotHash(0xe0e1e121)]
-    public delegate* unmanaged<void*, uint, int> HierarchyEntityRemoved;
-
-    // 9: int32_t HierarchyResolveParentNames( void )
-    [SlotHash(0x9d8d9245)]
-    public delegate* unmanaged<void*, int> HierarchyResolveParentNames;
-
-    // 10: int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR )
+    // 8: int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR )
     [SlotHash(0x8ff15189)]
     public delegate* unmanaged<void*, uint, void*, void*, int> HierarchyToLocal;
 
-    // 11: int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR )
+    // 9: int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR )
     [SlotHash(0x8ff15189)]
     public delegate* unmanaged<void*, uint, void*, void*, int> HierarchyToWorld;
 
-    // 12: void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR )
+    // 10: void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR )
     [SlotHash(0x542fda88)]
     public delegate* unmanaged<void*, uint, void*, void*, void> HierarchySetLocal;
 }
@@ -337,30 +321,6 @@ public unsafe struct ManagedEntitiesTable
     // 3: int32_t EntityRemoveRequested( uint32_t hEntity )
     [SlotHash(0xe0e1e121)]
     public delegate* unmanaged<void*, uint, int> EntityRemoveRequested;
-
-    // 4: void OnEntityIgnite( uint32_t hEntity, float flLifetime, float flSize )
-    [SlotHash(0x8e72cafc)]
-    public delegate* unmanaged<void*, uint, float, float, void> OnEntityIgnite;
-
-    // 5: void OnFireAddHeatInRadius( const float *pOriginXYZ, float flRadius, float flHeat )
-    [SlotHash(0x07296bac)]
-    public delegate* unmanaged<void*, void*, float, float, void> OnFireAddHeatInRadius;
-
-    // 6: int32_t OnRagdollMagnetForce( uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ )
-    [SlotHash(0x8ff15189)]
-    public delegate* unmanaged<void*, uint, void*, void*, int> OnRagdollMagnetForce;
-
-    // 7: int32_t ShellLessFindByName( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax )
-    [SlotHash(0x491c72c2)]
-    public delegate* unmanaged<void*, byte*, void*, int, int> ShellLessFindByName;
-
-    // 8: int32_t ShellLessFindByClassname( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax )
-    [SlotHash(0x491c72c2)]
-    public delegate* unmanaged<void*, byte*, void*, int, int> ShellLessFindByClassname;
-
-    // 9: int32_t TemplatesAddNamed( const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen )
-    [SlotHash(0x994fbbfe)]
-    public delegate* unmanaged<void*, byte*, byte*, byte*, int, int> TemplatesAddNamed;
 }
 
 /// <summary>The table managed writes for <c>IManagedClients</c> (<c>SSManagedClientsTable</c> native-side).</summary>
@@ -388,51 +348,43 @@ public unsafe struct ManagedClientsTable
     [SlotHash(0x7fb639b8)]
     public delegate* unmanaged<void*, int, int, void> OnClientActive;
 
-    // 5: void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse )
-    [SlotHash(0x7fb639b8)]
-    public delegate* unmanaged<void*, int, int, void> OnRespawn;
-
-    // 6: void OnPlayerSpawn( uint32_t hPlayer )
+    // 5: void OnPlayerSpawn( uint32_t hPlayer )
     [SlotHash(0x8a6f1a50)]
     public delegate* unmanaged<void*, uint, void> OnPlayerSpawn;
 
-    // 7: void OnPlayerSpawned( uint32_t hPlayer )
+    // 6: void OnPlayerSpawned( uint32_t hPlayer )
     [SlotHash(0x8a6f1a50)]
     public delegate* unmanaged<void*, uint, void> OnPlayerSpawned;
 
-    // 8: void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker )
+    // 7: void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker )
     [SlotHash(0xc2a9f6e4)]
     public delegate* unmanaged<void*, uint, uint, void> OnPlayerKilled;
 
-    // 9: uint32_t OnSelectSpawnPoint( uint32_t hPlayer )
+    // 8: uint32_t OnSelectSpawnPoint( uint32_t hPlayer )
     [SlotHash(0x021a56ce)]
     public delegate* unmanaged<void*, uint, uint> OnSelectSpawnPoint;
 
-    // 10: int32_t GetPlayerRelationship( uint32_t hPlayer, uint32_t hTarget )
-    [SlotHash(0x9e9fda65)]
-    public delegate* unmanaged<void*, uint, uint, int> GetPlayerRelationship;
-
-    // 11: int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea )
+    // 9: int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea )
     [SlotHash(0x17365172)]
     public delegate* unmanaged<void*, int, void*, int> ServerSkyboxAreaForClient;
 
-    // 12: int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ )
+    // 10: int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ )
     [SlotHash(0x17365172)]
     public delegate* unmanaged<void*, int, void*, int> ServerEarPositionForClient;
 
-    // 13: int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen )
+    // 11: int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen )
     [SlotHash(0x4a9e65fd)]
     public delegate* unmanaged<void*, int, byte*, void*, int, int> OnClientNetMessage;
 
-    // 14: int32_t OnClientSettingsChanged( int32_t nEntIndex )
+    // 12: int32_t OnClientSettingsChanged( int32_t nEntIndex )
     [SlotHash(0xa45f061a)]
     public delegate* unmanaged<void*, int, int> OnClientSettingsChanged;
 
-    // 15: int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict )
+    // 13: int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict )
     [SlotHash(0xa45f061a)]
     public delegate* unmanaged<void*, int, int> ServerTransmitAlwaysForClient;
 
-    // 16: int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes )
+    // 14: int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes )
     [SlotHash(0x9546130c)]
     public delegate* unmanaged<void*, void*, float, void*, int, int> ServerAreaPortalVisibility;
 }
@@ -592,11 +544,7 @@ public unsafe struct ManagedConsoleOutputTable
     [SlotHash(0x0d54c15e)]
     public delegate* unmanaged<void*, void*, int, int> Validate;
 
-    // 2: void ConsoleLine( const char *pText, int32_t nWarning )
-    [SlotHash(0x3e98ef21)]
-    public delegate* unmanaged<void*, byte*, int, void> ConsoleLine;
-
-    // 3: void ConsoleBufferAttach( void *pBuffer )
+    // 2: void ConsoleBufferAttach( void *pBuffer )
     [SlotHash(0xde3e0200)]
     public delegate* unmanaged<void*, void*, void> ConsoleBufferAttach;
 }
@@ -693,30 +641,4 @@ public unsafe struct ManagedTraceFilterTable
     // 2: int32_t ShouldHitEntity( uint32_t hEntity, int32_t nContentsMask )
     [SlotHash(0xbabc0fee)]
     public delegate* unmanaged<void*, uint, int, int> ShouldHitEntity;
-}
-
-/// <summary>The table managed writes for <c>IManagedSoundEmitter</c> (<c>SSManagedSoundEmitterTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedSoundEmitter")]
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct ManagedSoundEmitterTable
-{
-    // 0: void Release( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> Release;
-
-    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
-    [SlotHash(0x0d54c15e)]
-    public delegate* unmanaged<void*, void*, int, int> Validate;
-
-    // 2: void ServerMoveSound( int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch )
-    [SlotHash(0xa452a32f)]
-    public delegate* unmanaged<void*, int, void*, int, byte*, float, int, int, int, void> ServerMoveSound;
-
-    // 3: void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName )
-    [SlotHash(0x5cb9e839)]
-    public delegate* unmanaged<void*, int, void*, byte*, void> ServerMoveSoundScript;
-
-    // 4: void ServerPrecacheScriptSound( const char *pSoundName )
-    [SlotHash(0x3aa7ebf0)]
-    public delegate* unmanaged<void*, byte*, void> ServerPrecacheScriptSound;
 }

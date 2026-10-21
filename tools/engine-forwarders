@@ -173,7 +173,7 @@ FORWARD = [
     dict(
         struct='BaseFileSystemVtbl',
         methods=[
-            'Size_2', 'FileExists', 'GetFileTime',
+            'Size_2', 'FileExists',
             # The user's 2026-10-19 ruling exposed file handles to managed: the
             # game-file reads are Open/Size/Read/Close here, not four shim slots.
             'Open', 'Size', 'Read', 'Close',
@@ -226,7 +226,7 @@ FORWARD = [
         side='server',
         methods=[
             'IsDedicatedServer', 'GetEntityCount', 'GetPlayerNetInfo',
-            'GetClientConVarValue', 'GetArea', 'GetMapEntitiesString',
+            'GetClientConVarValue', 'GetArea',
             'GetClientSteamIDByPlayerIndex',
             # Passed as values to EngineServer's Fill and Ask helpers.
             'GetGameDir', 'IsModelPrecached',
@@ -266,7 +266,7 @@ FORWARD = [
     dict(
         struct='UniformRandomStreamVtbl',
         methods=[
-            'RandomFloat', 'RandomInt', 'RandomFloatExp',
+            'RandomFloat', 'RandomInt',
         ],
     ),
     dict(
@@ -500,10 +500,9 @@ FORWARD = [
         every=True,
     ),
     # Phase 3: the level steps (ishim_level.h, served by the server alone,
-    # called from EngineLevel in Shared.Interop), the shim root itself
+    # called from EngineLevel in Shared.Interop) and the shim root itself
     # (ishim_root.h, whose table native hands managed at load: managed needs a
-    # table to ask for any other), and libss_particles' ISSParticleLib, which
-    # only the client's ParticleLibrary calls.
+    # table to ask for any other).
     dict(
         struct='ShimLevelVtbl',
         every=True,
@@ -512,10 +511,18 @@ FORWARD = [
         struct='ShimRootVtbl',
         every=True,
     ),
+    # libss_particles' ISSParticleLib. NOT every=True since the serialised ABI
+    # pass (2026-10-20): client.so's native particle code calls the interface
+    # through its C++ vtable, and managed (the client's ParticleLibrary) calls
+    # these nine; the other 39 forwarders had no managed caller.
     dict(
         struct='ParticleLibVtbl',
         side='client',
-        every=True,
+        methods=[
+            'Mgr', 'CollectionBloatBoundsUsingControlPoint', 'MgrCommitProfileInformation',
+            'MgrDumpProfileInformation', 'MgrParticleThrottleScaling', 'MgrSetLastSimulationTime',
+            'CollectionSimulateBatch', 'CollectionGetBounds', 'CollectionSetBounds',
+        ],
     ),
     dict(
         struct='DebugOverlayVtbl',
@@ -547,7 +554,7 @@ FORWARD = [
         # creates, fires and frees an event through the manager, where the
         # EventCreate / EventFire / EventFree slots used to make each call.
         methods=[
-            'CreateEvent', 'FireEvent', 'FreeEvent',
+            'CreateEvent', 'FireEvent',
         ],
     ),
 ]
@@ -580,8 +587,9 @@ FORWARD += [
 # deriving CCallbackBase, so the order of its two Run overloads is the
 # compiler's and managed writes only IManagedSteamCallback, one slot. Managed
 # allocates SizeOf bytes (the library has no heap), Construct builds the
-# callback in them over its managed side, and IsRegistered and CallbackId read
-# what Steam keeps in it.
+# callback in them over its managed side, and IsRegistered reads what Steam
+# keeps in it. (CallbackId, the id Steam filed it under, had no managed reader
+# and left in the serialised ABI pass, 2026-10-20.)
 # ---------------------------------------------------------------------------
 HAND = [
     # plan_forwarders_everywhere.md phase 5: the vphysics callbacks, built in
@@ -643,7 +651,6 @@ HAND = [
             ('SizeOf', 'int', ''),
             ('Construct', 'CCallbackBase *', 'void *, IManagedSteamCallback *, int'),
             ('IsRegistered', 'bool', 'CCallbackBase *'),
-            ('CallbackId', 'int', 'CCallbackBase *'),
         ],
     ),
     # C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system.

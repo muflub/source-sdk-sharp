@@ -105,8 +105,7 @@
 7	UNRULED	void C_StandaloneEntity::SetCustomDraw( const Vector &mins, const Vector &maxs )
 7	UNRULED	void C_StandaloneEntity::SetBlending( bool bTranslucent, bool bIgnoreZ, int nAlpha )
 6	UNRULED	void SourceSharp_StandaloneSetBlending( uint32_t hEntity, int32_t bTranslucent,
-5	UNRULED	void SourceSharp_StandaloneSetShadowCast( uint32_t hEntity, int32_t nChoice )
-14	UNRULED	int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice,
+11	UNRULED	int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice )
 13	UNRULED	void SourceSharp_ClientEntityGetOrigin( uint32_t hEntity, float *pOutXYZ )
 13	UNRULED	void SourceSharp_ClientEntityGetAngles( uint32_t hEntity, float *pOutPYR )
 16	UNRULED	void C_StandaloneEntity::SetViewModelPass( bool bEnable )

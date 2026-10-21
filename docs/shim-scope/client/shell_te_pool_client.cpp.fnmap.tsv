@@ -11,7 +11,6 @@
 12	UNRULED	void SourceSharp_TempEntPoolDestroy( int32_t nSlot )
 17	UNRULED	int32_t SourceSharp_TempEntPoolReadLife( int32_t nSlot, SourceSharpTempEntLife_t *pOutLife )
 17	UNRULED	int32_t SourceSharp_TempEntPoolWriteLife( int32_t nSlot, const SourceSharpTempEntLife_t *pLife )
-9	UNRULED	int32_t SourceSharp_TempEntPoolSimulate( int32_t nSlot, float flFrameTime, int32_t nFrameNumber )
 4	UNRULED	static void VecOut( float *pOut, const Vector &v )
 4	UNRULED	static void AngOut( float *pOut, const QAngle &a )
 19	UNRULED	int32_t SourceSharp_TempEntPoolReadTransform( int32_t nSlot,

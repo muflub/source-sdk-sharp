@@ -53,9 +53,6 @@ public unsafe class SteamCallbacksTests
         private static byte IsRegistered(void* callback)
             => callback != null && (((byte*)callback)[16] & 1) != 0 ? (byte)1 : (byte)0;
 
-        [UnmanagedCallersOnly]
-        private static int CallbackId(void* callback) => callback == null ? 0 : ((int*)callback)[5];
-
         /// <summary>Fills <paramref name="fwd"/>; with <paramref name="builds"/> false, Construct builds nothing.</summary>
         public static void Fill(SteamCallbackFwd* fwd, bool builds = true)
         {
@@ -64,7 +61,6 @@ public unsafe class SteamCallbacksTests
                 ? (delegate* unmanaged<void*, void*, int, void*>)&Construct
                 : &Refuse;
             fwd->IsRegistered = &IsRegistered;
-            fwd->CallbackId = &CallbackId;
         }
 
         /// <summary>The managed block the callback was built over.</summary>

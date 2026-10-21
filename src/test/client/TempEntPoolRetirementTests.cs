@@ -135,32 +135,31 @@ public unsafe class TempEntPoolRetirementTests
     }
 
     /// <summary>
-    /// The binding's retired slots answer their fault values (-1, 0) without
-    /// reaching the module: they exist only because the generated
-    /// <c>IManagedTempEntsClient</c> interface still declares the slots
-    /// (removing the slots themselves is the serialised ABI follow-up,
-    /// docs/managed-interfaces.tsv rows 142/145), and their only native callers
-    /// died with the exports. -1/0 are the fault answers the binding already
-    /// kept for a thrown module call — SS_TEMPENTS_NO_CALLER's treatment for a
-    /// body nobody rings.
+    /// The two callbacks the retired exports invoked left
+    /// <c>IManagedTempEntsClient</c> in the serialised ABI pass
+    /// (docs/abi-retirements.md, 2026-10-20): no row in
+    /// docs/managed-interfaces.tsv, no slot in the table native reads, no
+    /// member in the contract managed builds. A slot that came back would be a
+    /// second native path into a body nothing audits. The positive arms are the
+    /// live Update slot of the same interface, in the same files.
     /// </summary>
     [Fact]
-    public void TheRetiredSlotsAnswerTheirFaultValuesWithoutReachingTheModule()
+    public void TheRetiredCallbacksAreGoneFromTheArea()
     {
-        var client = new FaultOnCallClientModule();
-        var binding = new TempEntsClientBinding(new SourceSharp.Abi.Crossings(), new RecordingLog(), client);
+        string tsv = File.ReadAllText(RepoLayout.Repo("docs", "managed-interfaces.tsv"));
+        string header = Code("src", "shared", "native", "imanaged_areas_client.h");
+        string contract = Code("src", "client", "interop", "ManagedAreas.g.cs");
 
-        Assert.Equal(-1, binding.OnTempEntPoolAlloc(3));
-        float* angles = stackalloc float[3] { 1, 2, 3 };
-        float* gun = stackalloc float[3] { 4, 5, 6 };
-        Assert.Equal(0, binding.OnTempEntEjectBrass(9, 1, angles, gun));
+        foreach (string slot in new[] { "OnTempEntPoolAlloc", "OnTempEntEjectBrass" })
+        {
+            Assert.DoesNotContain("IManagedTempEntsClient\t" + slot + "\t", tsv);
+            Assert.DoesNotContain("( *" + slot + " )(", header);
+            Assert.DoesNotContain(" " + slot + "(", contract);
+        }
 
-        Assert.Empty(client.Ran);
-
-        // The walk reaches the binding: the LIVE callbacks still reach the module.
-        binding.OnTempEntPoolUpdate(0.016f);
-        binding.OnTempEntPoolClear();
-        Assert.Equal(["TempEntPoolUpdate", "TempEntPoolClear"], client.Ran);
+        Assert.Contains("IManagedTempEntsClient\tOnTempEntPoolUpdate\t", tsv);
+        Assert.Contains("( *OnTempEntPoolUpdate )(", header);
+        Assert.Contains(" OnTempEntPoolUpdate(", contract);
     }
 
     /// <summary>
@@ -226,7 +225,6 @@ public unsafe class TempEntPoolRetirementTests
         public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output, Span<byte> particleName, Span<byte> decalName)
         { Ran_(nameof(ImpactChoice)); return 0; }
 
-        public void OnCreateMove(ref UserCmd cmd, float inputSampleTime, bool active) => throw new NotSupportedException();
         public void DispatchUserMessage(int index, ReadOnlySpan<byte> payload) => throw new NotSupportedException();
         public float GetJumpScale(in JumpRequest request) => throw new NotSupportedException();
         public float GetFrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial) => throw new NotSupportedException();

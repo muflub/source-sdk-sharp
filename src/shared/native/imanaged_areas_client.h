@@ -179,33 +179,6 @@ static const uint32_t kIManagedPredictionClientSlotHashes[] = {
 static const int32_t kIManagedPredictionClientSlotCount = 5;
 static_assert( sizeof( SSManagedPredictionClientTable ) == 5 * sizeof( void * ), "SSManagedPredictionClientTable is one pointer per slot" );
 
-class IManagedHudClient;
-
-// The table managed writes for IManagedHudClient: Release, Validate, then the TSV's order.
-struct SSManagedHudClientTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *OnCreateMove )( IManagedHudClient *self, SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive );
-};
-
-class IManagedHudClient : public IManagedObject
-{
-public:
-	explicit IManagedHudClient( const SSManagedHudClientTable *pTable ) : IManagedObject( pTable ) {}
-
-	void OnCreateMove( SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive ) { Table()->OnCreateMove( this, pCmd, flInputSampleTime, bActive ); }
-
-private:
-	const SSManagedHudClientTable *Table() const { return static_cast< const SSManagedHudClientTable * >( m_pTable ); }
-};
-
-static const uint32_t kIManagedHudClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x93d74047,
-};
-static const int32_t kIManagedHudClientSlotCount = 3;
-static_assert( sizeof( SSManagedHudClientTable ) == 3 * sizeof( void * ), "SSManagedHudClientTable is one pointer per slot" );
-
 class IManagedTempEntsClient;
 
 // The table managed writes for IManagedTempEntsClient: Release, Validate, then the TSV's order.
@@ -215,10 +188,8 @@ struct SSManagedTempEntsClientTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *OnTempEntity )( IManagedTempEntsClient *self, int32_t hClass, const unsigned char *pBlob, int32_t nBytes );
 	int32_t ( *OnNativeTempEntity )( IManagedTempEntsClient *self, int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut );
-	int32_t ( *OnTempEntPoolAlloc )( IManagedTempEntsClient *self, int32_t nPriority );
 	void ( *OnTempEntPoolUpdate )( IManagedTempEntsClient *self, float flFrameTime );
 	void ( *OnTempEntPoolClear )( IManagedTempEntsClient *self );
-	int32_t ( *OnTempEntEjectBrass )( IManagedTempEntsClient *self, int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR );
 	int32_t ( *OnImpactChoice )( IManagedTempEntsClient *self, const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax );
 };
 
@@ -229,10 +200,8 @@ public:
 
 	void OnTempEntity( int32_t hClass, const unsigned char *pBlob, int32_t nBytes ) { Table()->OnTempEntity( this, hClass, pBlob, nBytes ); }
 	int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut ) { return Table()->OnNativeTempEntity( this, nId, pFloats, nFloats, pInts, nInts, pBlobOut, nBlobMax, pClassOut ); }
-	int32_t OnTempEntPoolAlloc( int32_t nPriority ) { return Table()->OnTempEntPoolAlloc( this, nPriority ); }
 	void OnTempEntPoolUpdate( float flFrameTime ) { Table()->OnTempEntPoolUpdate( this, flFrameTime ); }
 	void OnTempEntPoolClear() { Table()->OnTempEntPoolClear( this ); }
-	int32_t OnTempEntEjectBrass( int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR ) { return Table()->OnTempEntEjectBrass( this, nSlot, nType, pAnglesPYR, pGunAnglesPYR ); }
 	int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax ) { return Table()->OnImpactChoice( this, pIn, nIn, pOut, nOutMax, pParticleNameOut, nParticleNameMax, pDecalNameOut, nDecalNameMax ); }
 
 private:
@@ -240,11 +209,10 @@ private:
 };
 
 static const uint32_t kIManagedTempEntsClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0x4febfaf5, 0xa45f061a, 0xb86ff9be, 0x07e0f4c4, 0x173af7c1,
-	0x055e06f1,
+	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0x4febfaf5, 0xb86ff9be, 0x07e0f4c4, 0x055e06f1,
 };
-static const int32_t kIManagedTempEntsClientSlotCount = 9;
-static_assert( sizeof( SSManagedTempEntsClientTable ) == 9 * sizeof( void * ), "SSManagedTempEntsClientTable is one pointer per slot" );
+static const int32_t kIManagedTempEntsClientSlotCount = 7;
+static_assert( sizeof( SSManagedTempEntsClientTable ) == 7 * sizeof( void * ), "SSManagedTempEntsClientTable is one pointer per slot" );
 
 class IManagedSaveRestoreClient;
 
@@ -732,7 +700,6 @@ struct SSManagedConsoleOutputClientTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ClientConsoleLine )( IManagedConsoleOutputClient *self, const char *pText, int32_t nWarning );
 	void ( *ClientConsoleBufferAttach )( IManagedConsoleOutputClient *self, void *pBuffer );
 };
 
@@ -741,7 +708,6 @@ class IManagedConsoleOutputClient : public IManagedObject
 public:
 	explicit IManagedConsoleOutputClient( const SSManagedConsoleOutputClientTable *pTable ) : IManagedObject( pTable ) {}
 
-	void ClientConsoleLine( const char *pText, int32_t nWarning ) { Table()->ClientConsoleLine( this, pText, nWarning ); }
 	void ClientConsoleBufferAttach( void *pBuffer ) { Table()->ClientConsoleBufferAttach( this, pBuffer ); }
 
 private:
@@ -749,10 +715,10 @@ private:
 };
 
 static const uint32_t kIManagedConsoleOutputClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x3e98ef21, 0xde3e0200,
+	0x07e0f4c4, 0x0d54c15e, 0xde3e0200,
 };
-static const int32_t kIManagedConsoleOutputClientSlotCount = 4;
-static_assert( sizeof( SSManagedConsoleOutputClientTable ) == 4 * sizeof( void * ), "SSManagedConsoleOutputClientTable is one pointer per slot" );
+static const int32_t kIManagedConsoleOutputClientSlotCount = 3;
+static_assert( sizeof( SSManagedConsoleOutputClientTable ) == 3 * sizeof( void * ), "SSManagedConsoleOutputClientTable is one pointer per slot" );
 
 class IManagedMaterialFilesClient;
 
@@ -837,8 +803,6 @@ struct SSManagedRenderClientTable
 	void ( *ViewScreenshot )( IManagedRenderClient *self, const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut );
 	void ( *ViewFreezeFrame )( IManagedRenderClient *self, float flFreezeTime, float flCurTime );
 	int32_t ( *ViewDemoCamera )( IManagedRenderClient *self, int32_t nStage, const float *pIn, float *pOut );
-	int32_t ( *RenderLeafList )( IManagedRenderClient *self, const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords );
-	int32_t ( *RenderLeafViewModels )( IManagedRenderClient *self, const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords );
 	void ( *ScreenSpaceEffectsStage )( IManagedRenderClient *self, int32_t nStage );
 };
 
@@ -861,8 +825,6 @@ public:
 	void ViewScreenshot( const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut ) { Table()->ViewScreenshot( this, pEye, nWidth, nHeight, pOut ); }
 	void ViewFreezeFrame( float flFreezeTime, float flCurTime ) { Table()->ViewFreezeFrame( this, flFreezeTime, flCurTime ); }
 	int32_t ViewDemoCamera( int32_t nStage, const float *pIn, float *pOut ) { return Table()->ViewDemoCamera( this, nStage, pIn, pOut ); }
-	int32_t RenderLeafList( const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords ) { return Table()->RenderLeafList( this, pView, pAnswer, nAnswerWords ); }
-	int32_t RenderLeafViewModels( const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords ) { return Table()->RenderLeafViewModels( this, pGroups, pAnswer, nAnswerWords ); }
 	void ScreenSpaceEffectsStage( int32_t nStage ) { Table()->ScreenSpaceEffectsStage( this, nStage ); }
 
 private:
@@ -872,10 +834,10 @@ private:
 static const uint32_t kIManagedRenderClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x8ba8bb2d, 0xdec81a24, 0x6fc25d72, 0xfa64b18d, 0x6fc25d72, 0xf95861ef,
 	0xa853d22c, 0x62a4de56, 0xc83e311d, 0x123c2a4a, 0xd70db9bc, 0x6d136a90, 0xbdc8b950, 0xd6707e4a,
-	0x6fc25d72, 0x6fc25d72, 0xc83e311d,
+	0xc83e311d,
 };
-static const int32_t kIManagedRenderClientSlotCount = 19;
-static_assert( sizeof( SSManagedRenderClientTable ) == 19 * sizeof( void * ), "SSManagedRenderClientTable is one pointer per slot" );
+static const int32_t kIManagedRenderClientSlotCount = 17;
+static_assert( sizeof( SSManagedRenderClientTable ) == 17 * sizeof( void * ), "SSManagedRenderClientTable is one pointer per slot" );
 
 class IManagedInputClient;
 
@@ -1112,7 +1074,6 @@ struct SSManagedLeafSystemClientTable
 	int32_t ( *AddRenderable )( IManagedLeafSystemClient *self, void *pRenderable, int32_t nGroup, int32_t nModelType );
 	int32_t ( *RemoveRenderable )( IManagedLeafSystemClient *self, int32_t nHandle, int64_t *pOps, int32_t nMaxOps );
 	int32_t ( *AddRenderableToLeaves )( IManagedLeafSystemClient *self, int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
-	void ( *ChangeRenderableRenderGroup )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t nGroup );
 	void ( *SetRenderGroup )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t nGroup );
 	void ( *RenderableChanged )( IManagedLeafSystemClient *self, int32_t nHandle );
 	void ( *EnableAlternateSorting )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t bEnable );
@@ -1130,11 +1091,6 @@ struct SSManagedLeafSystemClientTable
 	void ( *ComputeTranslucentRenderLeaf )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending );
 	int32_t ( *BuildRenderablesList )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending );
 	int32_t ( *CollateViewModelRenderables )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending );
-	int32_t ( *AddShadow )( IManagedLeafSystemClient *self, int32_t nUserId, int32_t nFlags );
-	void ( *RemoveShadow )( IManagedLeafSystemClient *self, int32_t nHandle );
-	int32_t ( *ProjectShadow )( IManagedLeafSystemClient *self, int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
-	int32_t ( *ProjectFlashlight )( IManagedLeafSystemClient *self, int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
-	int32_t ( *EnumerateShadowsInLeaves )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
 	void ( *Pending )( IManagedLeafSystemClient *self, const int32_t *pEntries, int32_t nCount );
 };
 
@@ -1151,7 +1107,6 @@ public:
 	int32_t AddRenderable( void *pRenderable, int32_t nGroup, int32_t nModelType ) { return Table()->AddRenderable( this, pRenderable, nGroup, nModelType ); }
 	int32_t RemoveRenderable( int32_t nHandle, int64_t *pOps, int32_t nMaxOps ) { return Table()->RemoveRenderable( this, nHandle, pOps, nMaxOps ); }
 	int32_t AddRenderableToLeaves( int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->AddRenderableToLeaves( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps ); }
-	void ChangeRenderableRenderGroup( int32_t nHandle, int32_t nGroup ) { Table()->ChangeRenderableRenderGroup( this, nHandle, nGroup ); }
 	void SetRenderGroup( int32_t nHandle, int32_t nGroup ) { Table()->SetRenderGroup( this, nHandle, nGroup ); }
 	void RenderableChanged( int32_t nHandle ) { Table()->RenderableChanged( this, nHandle ); }
 	void EnableAlternateSorting( int32_t nHandle, int32_t bEnable ) { Table()->EnableAlternateSorting( this, nHandle, bEnable ); }
@@ -1169,11 +1124,6 @@ public:
 	void ComputeTranslucentRenderLeaf( const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending ) { Table()->ComputeTranslucentRenderLeaf( this, pLeaves, nLeafCount, nRenderFrame, nViewId, nGlobalFrame, pSystem, pPending, nPending ); }
 	int32_t BuildRenderablesList( const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending ) { return Table()->BuildRenderablesList( this, pLeaves, nLeafCount, pOriginForward, nRenderFrame, nDetailFrame, nFlags, pDetailSystem, pOps, nMaxOps, pPending, nPending ); }
 	int32_t CollateViewModelRenderables( int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending ) { return Table()->CollateViewModelRenderables( this, pOps, nMaxOps, pSystem, pPending, nPending ); }
-	int32_t AddShadow( int32_t nUserId, int32_t nFlags ) { return Table()->AddShadow( this, nUserId, nFlags ); }
-	void RemoveShadow( int32_t nHandle ) { Table()->RemoveShadow( this, nHandle ); }
-	int32_t ProjectShadow( int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->ProjectShadow( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps ); }
-	int32_t ProjectFlashlight( int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->ProjectFlashlight( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps ); }
-	int32_t EnumerateShadowsInLeaves( const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->EnumerateShadowsInLeaves( this, pLeaves, nLeafCount, pOps, nMaxOps ); }
 	void Pending( const int32_t *pEntries, int32_t nCount ) { Table()->Pending( this, pEntries, nCount ); }
 
 private:
@@ -1182,13 +1132,12 @@ private:
 
 static const uint32_t kIManagedLeafSystemClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xc83e311d, 0x0d54c15e, 0xfa64b18d, 0x0d54c15e, 0x20773269, 0x370c7b55,
-	0x77ae56a1, 0xdd939b22, 0x7fb639b8, 0x7fb639b8, 0xc83e311d, 0x7fb639b8, 0xc83e311d, 0xc83e311d,
-	0x17365172, 0x888dc39e, 0x510b5592, 0x920e2abe, 0x4811e619, 0x17365172, 0x878fb6d4, 0xecb3ae59,
-	0xcaf05fac, 0x57de1a71, 0x0ea4a385, 0xa2568725, 0xecb3ae59, 0xc83e311d, 0xdd939b22, 0xdd939b22,
-	0xfa64b18d, 0x2acf7c51,
+	0x77ae56a1, 0xdd939b22, 0x7fb639b8, 0xc83e311d, 0x7fb639b8, 0xc83e311d, 0xc83e311d, 0x17365172,
+	0x888dc39e, 0x510b5592, 0x920e2abe, 0x4811e619, 0x17365172, 0x878fb6d4, 0xecb3ae59, 0xcaf05fac,
+	0x57de1a71, 0x0ea4a385, 0xa2568725, 0x2acf7c51,
 };
-static const int32_t kIManagedLeafSystemClientSlotCount = 34;
-static_assert( sizeof( SSManagedLeafSystemClientTable ) == 34 * sizeof( void * ), "SSManagedLeafSystemClientTable is one pointer per slot" );
+static const int32_t kIManagedLeafSystemClientSlotCount = 28;
+static_assert( sizeof( SSManagedLeafSystemClientTable ) == 28 * sizeof( void * ), "SSManagedLeafSystemClientTable is one pointer per slot" );
 
 class IManagedSoundEmitterClient;
 
@@ -1376,7 +1325,6 @@ IManagedEventsClient *ManagedEventsClient();   // this load's area, or NULL outs
 IManagedUserMessagesClient *ManagedUserMessagesClient();   // this load's area, or NULL outside a load
 IManagedStandaloneClient *ManagedStandaloneClient();   // this load's area, or NULL outside a load
 IManagedPredictionClient *ManagedPredictionClient();   // this load's area, or NULL outside a load
-IManagedHudClient *ManagedHudClient();   // this load's area, or NULL outside a load
 IManagedTempEntsClient *ManagedTempEntsClient();   // this load's area, or NULL outside a load
 IManagedSaveRestoreClient *ManagedSaveRestoreClient();   // this load's area, or NULL outside a load
 IManagedBeamsClient *ManagedBeamsClient();   // this load's area, or NULL outside a load

@@ -541,9 +541,6 @@ public interface IEngineEntityRender
     /// <inheritdoc cref="EngineSide.StandaloneSetBlending"/>
     void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha);
 
-    /// <inheritdoc cref="EngineSide.StandaloneSetShadowCast"/>
-    void SetShadowCast(EntityHandle entity, ShadowCastChoice choice);
-
     /// <inheritdoc cref="EngineSide.StandaloneShadowCast"/>
     ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked);
 

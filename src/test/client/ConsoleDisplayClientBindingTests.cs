@@ -10,51 +10,21 @@ namespace SourceSharp.Tests;
 /// </summary>
 public sealed unsafe class ConsoleDisplayClientBindingTests
 {
+    /// <summary>
+    /// The one-line slot left the client's area in the serialised ABI pass
+    /// (2026-10-20): no row, no contract member. The buffer hand-over is the
+    /// positive arm.
+    /// </summary>
     [Fact]
-    public void An_engine_print_lands_in_the_sides_lines_as_a_message()
+    public void The_one_line_slot_is_gone_and_the_buffer_hand_over_stays()
     {
-        var lines = new ConsoleLines();
-        var seen = new List<(string Text, bool Warning)>();
-        lines.Tap = (text, warning) => seen.Add((text, warning));
+        string tsv = File.ReadAllText(RepoLayout.Repo("docs", "managed-interfaces.tsv"));
+        string contract = File.ReadAllText(RepoLayout.Repo("src", "client", "interop", "ManagedAreas.g.cs"));
 
-        var binding = new ConsoleDisplayClientBinding(new Crossings(), lines);
-        byte[] utf8 = "client engine said hello\n\0"u8.ToArray();
-        fixed (byte* p = utf8)
-        {
-            binding.ClientConsoleLine(p, 0);
-        }
-
-        Assert.Equal([("client engine said hello\n", false)], seen);
-    }
-
-    [Fact]
-    public void A_warning_print_lands_flagged_as_a_warning()
-    {
-        var lines = new ConsoleLines();
-        var seen = new List<(string Text, bool Warning)>();
-        lines.Tap = (text, warning) => seen.Add((text, warning));
-
-        var binding = new ConsoleDisplayClientBinding(new Crossings(), lines);
-        byte[] utf8 = "careful\n\0"u8.ToArray();
-        fixed (byte* p = utf8)
-        {
-            binding.ClientConsoleLine(p, 1);
-        }
-
-        Assert.Equal([("careful\n", true)], seen);
-    }
-
-    [Fact]
-    public void A_null_pointer_is_not_dispatched()
-    {
-        var lines = new ConsoleLines();
-        int calls = 0;
-        lines.Tap = (_, _) => calls++;
-
-        var binding = new ConsoleDisplayClientBinding(new Crossings(), lines);
-        binding.ClientConsoleLine(null, 0);
-
-        Assert.Equal(0, calls);
+        Assert.DoesNotContain("IManagedConsoleOutputClient\tClientConsoleLine\t", tsv);
+        Assert.DoesNotContain(" ClientConsoleLine(", contract);
+        Assert.Contains("IManagedConsoleOutputClient\tClientConsoleBufferAttach\t", tsv);
+        Assert.Contains(" ClientConsoleBufferAttach(", contract);
     }
 
     [Fact]

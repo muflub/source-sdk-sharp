@@ -188,7 +188,7 @@ std::string BodyOf( const std::string &file, const char *pszSignature )
 	return std::string();
 }
 
-// The ten stages, and this list is the SUBJECT of two facts rather than a
+// The nine stages, and this list is the SUBJECT of two facts rather than a
 // convenience: it is compared against the base's declarations in one direction
 // and against the walkers' dispatches in the other.
 const char *kStages[] =
@@ -196,7 +196,7 @@ const char *kStages[] =
 	"Init", "PostInit", "Shutdown",
 	"LevelInitPreEntity", "LevelInitPostEntity",
 	"LevelShutdownPreEntity", "LevelShutdownPostEntity",
-	"PreRender", "Update", "PostRender",
+	"PreRender", "Update",
 };
 const int kStageCount = (int)( sizeof( kStages ) / sizeof( kStages[ 0 ] ) );
 
@@ -360,15 +360,15 @@ TEST( ClientSystemsTable, BothWalkersReadTheOneArrayAndThereIsNoSecondList )
 	EXPECT_NE( bwd.find( "i = kClientSystemCount; --i >= 0" ), std::string::npos );
 }
 
-TEST( ClientSystemsTable, TheThreePerFrameStagesAllWalkForward )
+TEST( ClientSystemsTable, TheTwoPerFrameStagesAllWalkForward )
 {
-	// PreRender, Update and PostRender are not shutdown stages: a frame is not a
-	// teardown, and walking one backwards would silently reverse draw order.
+	// PreRender and Update are not shutdown stages: a frame is not a teardown,
+	// and walking one backwards would silently reverse draw order. (PostRender,
+	// the third, reached no body and left in the serialised ABI pass.)
 	const std::string t = StripComments( Read( kTableFile ) );
 	const char *kFrame[] =
 	{
 		"SourceSharp_ClientSystemsPreRender",
-		"SourceSharp_ClientSystemsPostRender",
 		"SourceSharp_ClientSystemsUpdate",
 	};
 	for ( size_t i = 0; i < sizeof( kFrame ) / sizeof( kFrame[ 0 ] ); i++ )
@@ -445,7 +445,7 @@ TEST( ClientSystemsTable, TheBaseDeclaresExactlyTheStagesTheWalkersDispatch )
 			if ( v == kStages[ s ] ) bKnown = true;
 
 		EXPECT_TRUE( bKnown ) << "the base declares a virtual '" << v
-			<< "' that is not one of the ten stages -- so no walker dispatches it "
+			<< "' that is not one of the nine stages -- so no walker dispatches it "
 			<< "and it is a callback nothing can reach, which is exactly the shape "
 			<< "this phase removed from stock";
 	}

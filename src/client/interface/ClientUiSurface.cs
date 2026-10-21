@@ -45,8 +45,6 @@ public interface IUiSurface
     /// <summary>Each character's advance (a + b + c) from <paramref name="first"/> on; how many it filled.</summary>
     int FontAdvances(int font, int first, Span<int> advances);
 
-    void ScreenSize(out int wide, out int tall);
-
     void PlaySound(string path);
 
     /// <summary>Whether the menu root takes the mouse and the keyboard (a screen that wants them is open).</summary>

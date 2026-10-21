@@ -78,6 +78,19 @@ public class RenderPlanAbiParityTests
         Assert.Equal(native.Sum(f => f.Words) * 4, size);
     }
 
+    /// <summary>
+    /// The serialised ABI pass (2026-10-20) took ClientSystemsPostRender out of
+    /// the plan: its walk reached no body. Its number, 15, is not reused; the
+    /// pre-render walk beside it is the positive arm.
+    /// </summary>
+    [Fact]
+    public void ThePostRenderWalkIsNotAnOpAndFifteenIsNotReused()
+    {
+        Assert.False(Enum.IsDefined(typeof(RenderOpKind), 15));
+        Assert.DoesNotContain("ClientSystemsPostRender", Enum.GetNames<RenderOpKind>());
+        Assert.Equal(14, (int)RenderOpKind.ClientSystemsPreRender);
+    }
+
     [Fact]
     public void TheFrameInStructMatchesTheHeader()
         => Match("SourceSharpRenderFrameIn_t", typeof(RenderFrameIn), Unsafe.SizeOf<RenderFrameIn>());

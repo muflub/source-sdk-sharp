@@ -284,23 +284,6 @@ int32_t SourceSharp_TempEntPoolWriteLife( int32_t nSlot, const SourceSharpTempEn
 }
 
 //-----------------------------------------------------------------------------
-// One physics step. C_LocalTempEntity::Frame, whose `false` means the tempent
-// asked to die -- an animating sprite that ran off its last frame.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_TempEntPoolSimulate( int32_t nSlot, float flFrameTime, int32_t nFrameNumber )
-{
-	if ( !ValidSlot( nSlot ) )
-		return 0;
-
-	C_LocalTempEntity *pTemp = g_pTempEntSlots[ nSlot ];
-
-	if ( !pTemp )
-		return 0;
-
-	return pTemp->Frame( flFrameTime, nFrameNumber ) ? 1 : 0;
-}
-
-//-----------------------------------------------------------------------------
 // The transform C# owns (behaviour ledger row C4).
 //
 // Read once when the managed pool takes a tempent over, written once per frame

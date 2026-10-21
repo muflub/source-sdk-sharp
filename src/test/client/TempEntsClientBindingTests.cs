@@ -38,7 +38,6 @@ public unsafe class TempEntsClientBindingTests
         { Reached(nameof(ImpactChoice)); return 0; }
 
         // Not this binding's: a call here is a wiring fault, never a default answer.
-        public void OnCreateMove(ref UserCmd cmd, float inputSampleTime, bool active) => throw new NotSupportedException();
         public void DispatchUserMessage(int index, ReadOnlySpan<byte> payload) => throw new NotSupportedException();
         public float GetJumpScale(in JumpRequest request) => throw new NotSupportedException();
         public float GetFrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial) => throw new NotSupportedException();
@@ -55,15 +54,6 @@ public unsafe class TempEntsClientBindingTests
 
     private readonly FakeClient _client = new();
     private TempEntsClientBinding Binding => new(new Crossings(), new RecordingLog(), _client);
-
-    [Fact]
-    public void ARetiredAllocAnswersMinusOneWithoutTouchingTheModule()
-    {
-        // -1 is what "the pool gives you nothing" already meant; the slot
-        // stays only because the generated interface still declares it.
-        Assert.Equal(-1, Binding.OnTempEntPoolAlloc(3));
-        Assert.Empty(_client.Calls);
-    }
 
     [Fact]
     public void ALivePoolUpdateStillReachesTheModule()
@@ -105,18 +95,6 @@ public unsafe class TempEntsClientBindingTests
         int* pOut = stackalloc int[3];
         Assert.Equal(-1, Binding.OnImpactChoice(pIn, 2, pOut, 3, null, 0, null, 0));
         Assert.Equal(["ImpactChoice"], _client.Calls);
-    }
-
-    [Fact]
-    public void ARetiredEjectBrassAnswersZeroWithoutTouchingTheModule()
-    {
-        // 0 is what the old body answered for a record it did not write, and
-        // the shell flow that used to arrive here goes through
-        // IManagedFxClient::TempEntEjectBrass now.
-        float* angles = stackalloc float[3] { 1, 2, 3 };
-        float* gun = stackalloc float[3] { 4, 5, 6 };
-        Assert.Equal(0, Binding.OnTempEntEjectBrass(9, 1, angles, gun));
-        Assert.Empty(_client.Calls);
     }
 
     [Fact]
