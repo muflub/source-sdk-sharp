@@ -20,7 +20,7 @@ Entries by owner (the file keeps its order; this is the index):
   native caller went in T2; the sound emit path (T4a); temp entities and
   datatables (T4b); entity API and world (T4d); the trace filter (T4f); the
   player commands (T4g); substrate collapse (T5); bitvec.h's two tables (T6);
-  the spectator port's gaps; trigger_push not lifting a player.
+  the spectator port's gaps; trigger_push's two divergences.
 - **The client port** (plan_client_novalve C7/C9): the PostRender stage;
   entity dissolve (client render first); the client's sound emit path; client
   port follow-ups (small); the render plan (C7) follow-ups; the render debug
@@ -873,26 +873,60 @@ list the four, and no CMakeLists.txt or cmake/ file names sdk::bitmap,
 sdk::tier2, sdk::tier3 or sdk::vtf. **Owner:** none named (build; CI checks
 it). **Next:** delete the four lines and let CI's Windows job prove it.
 
-## trigger_push does not lift a player; belt riding is not predicted (2026-10-20)
+## Belt riding is not predicted; trigger_push leftovers (2026-10-20)
 
 Found by the client bugs lane at 44b552294 (debug, ss_sandbox, `make map`).
-- **trigger_push:** a player put in the sandbox's push volume (station
-  `forces`, (1056, -1200), pushdir up, speed 200), or dropped into it from z
-  200, was not lifted (z 0.87 for 4 s; landed and stayed at z 8.03). Our
-  TriggerPush shoves with a velocity impulse (ApplyVelocityImpulse), and
-  EngineSide.EntityApplyVelocityImpulse's remark says its non-simulated arm
-  writes nothing, which a player is. Stock's CTriggerPush::Touch gives a
-  player base velocity and FL_BASEVELOCITY instead. Not root-caused.
+- **trigger_push lifts a player: fixed 2026-10-20.** Root cause: a velocity
+  impulse on a player went to its physics object, the shadow, which the next
+  move overwrites (the player's velocity is the movement record's since T4g).
+  EngineSide.EntityApplyVelocityImpulse now asks the player movement route
+  first, and TriggerPush is stock's CTriggerPush::Touch arm for arm: not
+  solid, MOVETYPE_PUSH/NONE, parented or noclip is skipped; push-once
+  impulses and removes; VPHYSICS gets ApplyForceCenter(speed*dir*100*
+  frametime) every tick; a player gets AddBaseVelocity(speed*dir) on entry
+  and after each of their commands (stock's ProcessImpacts, through
+  PlayerCommandTouches), never per tick: pushed per tick, the ticks between
+  one batch's commands added the push up two or three times and the
+  commands it was not renewed for folded it into the velocity for good
+  (dm_lockdown's fan_wind flung the live gate's player). Left as
+  divergences: (1) a non-player that is not VPHYSICS is not pushed, where
+  stock gives it base velocity: only a player has a base-velocity channel
+  here (before the fix its impulse reached no object either); (2) the
+  volume's `wait` gates entry, so a toucher entering within `wait` of the
+  last entry is not pushed unless the push think is already running, where
+  stock's Touch has no wait. The HL2_DLL ladder hack does not apply: no
+  server TU is built with HL2_DLL.
+- **The sandbox's `forces` push cannot lift a player, in stock either.**
+  Stock's StartGravity (gamemovement.cpp) folds a vertical base velocity
+  into the velocity as base.z * frametime per command and zeroes it, so an
+  upward push only beats gravity above sv_gravity (600): forces_push's 200
+  holds a player about a unit off the floor (the push's unstick), measured
+  at 98db7cb6f as z 10.1-12.4 over a floor at 9.25 (9.25 flat at
+  c5c8df3d2). Raise its speed in Sandbox.cs if the station should show a
+  lift.
+- **A volume switched on ignores who is already in it.** TriggerVolume
+  drops OnTouch while disabled and keeps no occupant it was off for, and
+  Enable re-scans nothing, so a player standing in a trigger when it is
+  enabled is not inside until they leave and come back. Stock's
+  CBaseTrigger::Enable calls PhysicsTouchTriggers, which touches them at
+  once. Found by the live gate's trigger step (2026-10-20), which crosses
+  into dm_lockdown's fan_wind after enabling it for that reason.
+- **Riders push per tick (suspected, not measured).** Riders.Ride hands a
+  belt's rider AddBaseVelocity every tick, the cadence trigger_push was
+  found to multiply and fold into the velocity above; stock's conveyor
+  reaches the player per command. It may be part of the belt mispredictions
+  below.
 - **Belt prediction:** on the func_conveyor at (320, -2040), the client
   mispredicts 82 times in 4 s with the FL_BASEVELOCITY fix (b16adebd4) and 81
   with the old bit, and 0 standing beside it. The client does not replay
   the belt's push; stock's client does not either (prediction.cpp's
   CheckMovingGround conveyor arm is under `#if 0`).
 
-**Owner:** the server lane (trigger_push); the client port (belt prediction,
-a decision beyond stock). **Next:** confirm trigger_push's player arm against
-stock's CTriggerPush::Touch; porting the `#if 0` arm needs the ground
-entity's conveyor speed on the client, and a ruling.
+**Owner:** the server lane (the trigger_push divergences); the client port
+(belt prediction, a decision beyond stock). **Next:** the two trigger_push
+divergences need a non-player base velocity and a wait-free touch; porting
+the `#if 0` arm needs the ground entity's conveyor speed on the client, and
+a ruling.
 
 ## Entity entry 264 sometimes undrawn after dm_lockdown's second map load: fixed 2026-10-20
 

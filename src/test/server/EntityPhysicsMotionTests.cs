@@ -88,6 +88,70 @@ public class EntityPhysicsMotionTests
         return (new EntityPhysicsMotion(host, v), v, host);
     }
 
+    // ---- which home an impulse goes to (EngineSide's routing) --------------
+
+    private static readonly EntityHandle Walker = new(0x0004_0001u);
+
+    /// <summary>The player movement route, answering for <see cref="Walker"/> alone and logging what it took.</summary>
+    private sealed class WalkerMoves : IServerPlayerMovementRoute
+    {
+        public readonly List<string> Log = [];
+
+        public bool ApplyVelocityImpulse(EntityHandle entity, Vector impulse, bool clearGround)
+        {
+            if (entity != Walker)
+                return false;
+
+            Log.Add($"impulse {impulse} {clearGround}");
+            return true;
+        }
+
+        public bool PlayerState(EntityHandle entity, out MoveType moveType, out bool onGround)
+            => throw new InvalidOperationException("not asked");
+
+        public MoveType SetMoveType(EntityHandle player, MoveType moveType) => throw new InvalidOperationException("not asked");
+        public void SetSlowMovement(EntityHandle player, bool slow) => throw new InvalidOperationException("not asked");
+        public void SetObserverMode(EntityHandle player, int mode) => throw new InvalidOperationException("not asked");
+        public bool AddBaseVelocity(EntityHandle entity, Vector velocity) => throw new InvalidOperationException("not asked");
+        public void ViewPunch(Vector center, Vector punch, float radius, bool inAir) => throw new InvalidOperationException("not asked");
+    }
+
+    [Fact]
+    public void APlayersImpulseGoesToItsMovementRecordNotItsShadow()
+    {
+        // A player's object is its shadow, which the next move overwrites
+        // (plan_server_native_v2 T4g): the impulse used to land there and
+        // vanish, which is why trigger_push lifted nobody.
+        var (m, v, _) = Make();
+        var moves = new WalkerMoves();
+
+        EngineSide.ApplyVelocityImpulse(moves, m, Walker, new Vector(0f, 0f, 200f), clearGround: true);
+
+        Assert.Equal([$"impulse {new Vector(0f, 0f, 200f)} True"], moves.Log);
+        Assert.DoesNotContain(v.Log, c => c.StartsWith("AddVelocity", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void APropsImpulseGoesToItsObject()
+    {
+        var (m, v, _) = Make();
+        var moves = new WalkerMoves();
+
+        EngineSide.ApplyVelocityImpulse(moves, m, Crate, new Vector(0f, 0f, 200f), clearGround: true);
+
+        Assert.Equal((0, $"AddVelocity {new Vector(0f, 0f, 200f)}"), (moves.Log.Count, v.Log.Single()));
+    }
+
+    [Fact]
+    public void WithNoRouteEveryImpulseGoesToTheObject()
+    {
+        var (m, v, _) = Make();
+
+        EngineSide.ApplyVelocityImpulse(null, m, Walker, new Vector(0f, 0f, 200f), clearGround: false);
+
+        Assert.Equal($"AddVelocity {new Vector(0f, 0f, 200f)}", v.Log.Single());
+    }
+
     // ---- which home a velocity lives in (stock's GetVelocity) --------------
 
     [Fact]

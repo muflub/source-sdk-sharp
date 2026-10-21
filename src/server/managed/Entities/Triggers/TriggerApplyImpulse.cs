@@ -40,12 +40,15 @@ public sealed class TriggerApplyImpulse : TriggerVolume
     }
 
     // Only on the input, not on touch: the map decides when the kick happens.
+    // Stock's InputApplyImpulse is ApplyAbsVelocityImpulse and nothing more:
+    // the ground is kept (a player kicked upwards fast enough leaves it by
+    // the movement's own rule).
     [ScriptedEvent("ApplyImpulse")] private void OnImpulseRequested()
     {
         foreach (var toucher in Inside)
         {
             if (Entities.IsValid(toucher))
-                Entities.ApplyVelocityImpulse(toucher, _direction * TriggerApplyImpulseVars.Force, clearGround: true);
+                Entities.ApplyVelocityImpulse(toucher, _direction * TriggerApplyImpulseVars.Force, clearGround: false);
         }
     }
 

@@ -3930,10 +3930,61 @@ def step_push_prop(g):
 
 
 def step_trigger(g):
-    """7. enter and leave a trigger."""
+    """7. enter and leave a trigger.
+
+    IN STILL AIR. The scenario's wind (a trigger_push over the trigger's floor)
+    blows a player in the room towards the fan, as stock's does: the landed
+    player is not where they landed, and one teleported out carries the wind's
+    velocity on arrival, so neither shadow catch-up ever sees them arrive. It
+    pushed nobody until trigger_push reached players (2026-10-20). Off for the
+    step, and back on after: the fan's sensor turned it on at level start.
+
+    AND THEN IT MUST BLOW, or turning it off proves nothing: on for certain
+    (Enable, not the fan's say-so), a player dropped into the room at the
+    inside point is carried WIND_CARRIES units or more across the floor. At
+    c5c8df3d2 they fell straight down: trigger_push's impulse landed on the
+    player's shadow. LAST, because a player blown against the fan slows it and
+    its sensor turns the wind back on when it spins up again: the still-air
+    half would not stay still after it."""
     g.cheats()
     trigger = g.scen["trigger"]
+    wind = trigger.get("wind")
+    if wind:
+        g.api.fire(wind, "Disable")
+    try:
+        _trigger_in_still_air(g, trigger)
+        if wind:
+            # From outside: a volume switched on does not take in who was
+            # already standing in it (TriggerVolume keeps no occupant it was
+            # off for; stock's Enable re-touches, docs/todo.md), so the
+            # player crosses into it.
+            g.api.fire(wind, "Enable")
+            g.teleport(trigger["outside"], settle=1.5)
+            g.teleport(trigger["inside"], settle=0.0)
+            time.sleep(1.5)
+            here = g.player_origin()
+            carried = distance(here[:2], trigger["inside"][:2]) if here else None
+            g.check(carried is not None and carried >= WIND_CARRIES,
+                    "the room's wind (%s, a trigger_push) carried the player %s units (>= %d)"
+                    % (wind, "%.1f" % carried if carried is not None else None, WIND_CARRIES))
+            # Out of the room and at rest, so no later step inherits the
+            # wind's velocity (a teleport keeps it).
+            g.api.fire(wind, "Disable")
+            g.teleport(trigger["outside"], settle=1.5)
+    finally:
+        if wind:
+            g.api.fire(wind, "Enable")
 
+
+# How far dm_lockdown's fan_wind (speed 800, pushdir 30 180 0) must carry a
+# player in 1.5 s. Measured at 98db7cb6f: from x -3395 to about -3535 against
+# the fan, 134 to 145 units over three passes; at c5c8df3d2, 0. A quarter of
+# it is the bar.
+WIND_CARRIES = 32
+
+
+def _trigger_in_still_air(g, trigger):
+    """step_trigger's body, with the scenario's wind off."""
     g.teleport(trigger["outside"], settle=1.5)
     since = g.api.events_next()
     g.teleport(trigger["inside"], settle=0.0)

@@ -197,6 +197,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_playerMoves);
         _services.AddInstance(_moveData);
         _services.AddInstance(_serverCommands);
+
+        // Stock's ProcessImpacts: the triggers a player is in touch them once
+        // per command (trigger_push's base velocity, renewed per command).
+        var commandTouches = new PlayerCommandTouches(h => _entities?.Get(h));
+        _serverCommands.Impacts = commandTouches;
+        _services.AddInstance(commandTouches);
         ServerPlayerMovementRouting.Route(_engine, ServerPlayerMovement.For(_engine, _playerMoves, _serverCommands));
 
         // And its player command queues and shadow run (statics to zero), for

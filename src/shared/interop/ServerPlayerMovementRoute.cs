@@ -28,6 +28,15 @@ public interface IServerPlayerMovementRoute
     /// <summary>A push into a player's base velocity. False, said once per entity, when the entity is not a player.</summary>
     bool AddBaseVelocity(EntityHandle entity, Vector velocity);
 
+    /// <summary>
+    /// Stock's <c>ApplyAbsVelocityImpulse</c> on a player, whose move type is
+    /// never VPHYSICS: the impulse is added to the velocity its record holds,
+    /// and <paramref name="clearGround"/> lets go of the ground as
+    /// <c>SetGroundEntity( NULL )</c> does. False when <paramref name="entity"/>
+    /// is not a player.
+    /// </summary>
+    bool ApplyVelocityImpulse(EntityHandle entity, Vector impulse, bool clearGround);
+
     /// <summary>UTIL_ViewPunch: every player in reach shoved.</summary>
     void ViewPunch(Vector center, Vector punch, float radius, bool inAir);
 }
