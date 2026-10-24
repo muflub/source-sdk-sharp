@@ -79,6 +79,8 @@
     <Compile Include="..\common\SeamCensus.cs" Link="common\SeamCensus.cs" />
     <Compile Include="..\common\NullableEngineInterfaceCensus.cs" Link="common\NullableEngineInterfaceCensus.cs" />
     <Compile Include="..\common\EngineBoundCallerCensus.cs" Link="common\EngineBoundCallerCensus.cs" />
+    <Compile Include="..\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\common\HooksCensus.cs" Link="common\HooksCensus.cs" />
     <Compile Include="..\common\ShimAreaTypes.cs" Link="common\ShimAreaTypes.cs" />
     <Compile Include="..\common\FakePhysicsCallbacks.cs" Link="common\FakePhysicsCallbacks.cs" />
     <Compile Include="..\common\TestVPhysics.cs" Link="common\TestVPhysics.cs" />

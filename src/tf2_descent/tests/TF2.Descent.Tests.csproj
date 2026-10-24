@@ -27,4 +27,10 @@
     <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The core's censuses, run over this mod's assemblies too (HooksCensusTests). -->
+    <Compile Include="..\..\test\common\NullableEngineInterfaceCensus.cs" Link="common\NullableEngineInterfaceCensus.cs" />
+    <Compile Include="..\..\test\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\..\test\common\HooksCensus.cs" Link="common\HooksCensus.cs" />
+  </ItemGroup>
 </Project>

@@ -50,6 +50,14 @@ internal static class NullableEngineInterfaceCensus
     /// and so could not fail, is visible).
     /// </summary>
     public static (List<string> Nullable, int Mentions) Scan(IEnumerable<Type> types)
+        => Scan(types, IsEngineInterface);
+
+    /// <summary>
+    /// <see cref="Scan(IEnumerable{Type})"/> for the interfaces
+    /// <paramref name="covered"/> picks: the same walk, the same exemption,
+    /// for another rule of the same shape (<see cref="HooksCensus"/>).
+    /// </summary>
+    public static (List<string> Nullable, int Mentions) Scan(IEnumerable<Type> types, Func<Type, bool> covered)
     {
         var context = new NullabilityInfoContext();
         var found = new List<string>();
@@ -85,7 +93,7 @@ internal static class NullableEngineInterfaceCensus
         void Check(NullabilityInfo info, string where)
         {
             bool mentioned = false, nullable = false;
-            Walk(info, ref mentioned, ref nullable);
+            Walk(info, covered, ref mentioned, ref nullable);
             if (mentioned)
                 mentions++;
             if (nullable)
@@ -93,10 +101,10 @@ internal static class NullableEngineInterfaceCensus
         }
     }
 
-    private static void Walk(NullabilityInfo info, ref bool mentioned, ref bool nullable)
+    private static void Walk(NullabilityInfo info, Func<Type, bool> covered, ref bool mentioned, ref bool nullable)
     {
         Type type = info.Type.IsByRef ? info.Type.GetElementType()! : info.Type;
-        if (IsEngineInterface(type))
+        if (covered(type))
         {
             mentioned = true;
             if (info.ReadState == NullabilityState.Nullable || info.WriteState == NullabilityState.Nullable)
@@ -104,9 +112,9 @@ internal static class NullableEngineInterfaceCensus
         }
 
         if (info.ElementType is { } element)
-            Walk(element, ref mentioned, ref nullable);
+            Walk(element, covered, ref mentioned, ref nullable);
         foreach (NullabilityInfo argument in info.GenericTypeArguments)
-            Walk(argument, ref mentioned, ref nullable);
+            Walk(argument, covered, ref mentioned, ref nullable);
     }
 
     // The type itself, or the outermost type a compiler-generated one (a

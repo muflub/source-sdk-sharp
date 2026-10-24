@@ -261,6 +261,15 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   sides' assemblies. A diagnostic that reports a refusal asks through a probe
   in the interop that answers a line (`ServerEngineInterfaces`,
   `IFwdEngineClientProbe`).
+- **Hooks (`IHooks<T>`) follow the same rule: injected, never null.** A
+  service or message takes the hooks it dispatches to by constructor, as the
+  side registered them (the module's `AddFactory<IHooks<T>>`, a mod's
+  `AddHooks<T>`); a set that no mod fills is empty, never null. No
+  `IHooks<T>? x = null` parameter and no `Resolve<IHooks<T>>() is { }`
+  branch: a composition root that holds a set it registered asks with
+  `Require`. A test hands an empty or listed set (`ListHooks<T>` in
+  `src/test/support`). `HooksCensus` holds both over the core's and the
+  descent mod's assemblies (`HooksCensus*Tests`).
 - **An interop constructor saves its parameters into fields and does nothing
   else** (Abi, Server.Interop, Client.Interop; user ruling 2026-10-20). What
   it would look up, acquire or build is handed to it, and a static factory
