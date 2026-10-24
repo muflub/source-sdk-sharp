@@ -30,7 +30,7 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
         _log = log;
     }
 
-    internal PostProcessHost(IFwdEngineClient engine, IHooks<IPostProcessContributor>? contributors = null)
+    internal PostProcessHost(IFwdEngineClient engine, IHooks<IPostProcessContributor> contributors)
     {
         _engine = engine;
         Planner = new PostProcessPlanner(() => _engine.GameDirectory() ?? string.Empty, contributors);

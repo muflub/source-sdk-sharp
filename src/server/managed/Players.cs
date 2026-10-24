@@ -65,7 +65,7 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
     /// right outcome.
     /// </summary>
     public Players(ILog log, IEngineEntities entities, IEnginePlayers players,
-                   IGameClock clock, IPlayerButtons buttons, IHooks<IRespawnGate>? gates = null,
+                   IGameClock clock, IPlayerButtons buttons, IHooks<IRespawnGate> gates,
                    IEntityDirectory? directory = null, Observers? observers = null)
     {
         _directory = directory;
@@ -98,7 +98,7 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
     internal void AttachModes(GameModes modes) => _modes = modes;
 
     /// <summary>The mods' vetoes on respawning. See <see cref="MayRespawn"/>.</summary>
-    private readonly IHooks<IRespawnGate>? _gates;
+    private readonly IHooks<IRespawnGate> _gates;
 
     /// <summary>
     /// Whether every <see cref="IRespawnGate"/> lets <paramref name="player"/>
@@ -107,9 +107,6 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
     /// </summary>
     private bool MayRespawn(EntityHandle player)
     {
-        if (_gates is null)
-            return true;
-
         int entIndex = _entities.GetIndex(player);
 
         foreach (var gate in _gates.All)

@@ -141,8 +141,8 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly MpTimeLimitConVar? _mpTimeLimit;
     private float _levelStartedAt;
     private readonly GameModes? _modes;
-    private readonly IHooks<IDamageRule>? _damageRules;
-    private readonly IHooks<ILoadoutProvider>? _loadoutProviders;
+    private readonly IHooks<IDamageRule> _damageRules;
+    private readonly IHooks<ILoadoutProvider> _loadoutProviders;
 
     /// <summary>
     /// The mode the proxy is answering for, or null — before any proxy,
@@ -155,10 +155,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 
     public GameRules(ILog log, ConVarRegistry convars, IEngineHost host, IEnginePlayers players,
                      IEngineEntities entities, IScoreboard scoreboard,
-                     IGameEvent<PlayerDeathArgs> deaths, Intermission? intermission = null,
-                     ConVarRegistry? mpConVars = null, GameModes? modes = null,
-                     IHooks<IDamageRule>? damageRules = null,
-                     IHooks<ILoadoutProvider>? loadout = null)
+                     IGameEvent<PlayerDeathArgs> deaths,
+                     IHooks<IDamageRule> damageRules,
+                     IHooks<ILoadoutProvider> loadout,
+                     Intermission? intermission = null,
+                     ConVarRegistry? mpConVars = null, GameModes? modes = null)
     {
         // The mode proxy (tf2 stage 0.7). OPTIONAL and null means the game
         // before it: every question below answers with this class's own
@@ -228,38 +229,35 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         IReadOnlyList<string> weapons = Loadout;
         IReadOnlyList<(string, int)> ammo = StartingAmmo;
 
-        if (_loadoutProviders is { } providers)
+        // One pass, keeping the LAST provider that answered each column.
+        // A provider is asked for both columns inside one try: a provider
+        // that throws after answering one has not finished answering, so
+        // neither pointer moves and the kit before it stands (the throw
+        // is named on the log — the rule IDamageRule's dispatch applies
+        // to its thrower, for the same reason).
+        List<string>? bestWeapons = null;
+        List<(string, int)>? bestAmmo = null;
+        foreach (var provider in _loadoutProviders.All)
         {
-            // One pass, keeping the LAST provider that answered each column.
-            // A provider is asked for both columns inside one try: a provider
-            // that throws after answering one has not finished answering, so
-            // neither pointer moves and the kit before it stands (the throw
-            // is named on the log — the rule IDamageRule's dispatch applies
-            // to its thrower, for the same reason).
-            List<string>? bestWeapons = null;
-            List<(string, int)>? bestAmmo = null;
-            foreach (var provider in providers.All)
+            try
             {
-                try
-                {
-                    List<string> w = [.. provider.Weapons(player)];
-                    List<(string, int)> a = [.. provider.Ammo(player)];
-                    if (w.Count > 0) bestWeapons = w;
-                    if (a.Count > 0) bestAmmo = a;
-                }
-                catch (Exception e)
-                {
-                    _log.Warning($"[SourceSharp/Rules] loadout provider {provider.GetType().FullName} threw: {e.Message}\n");
-                }
+                List<string> w = [.. provider.Weapons(player)];
+                List<(string, int)> a = [.. provider.Ammo(player)];
+                if (w.Count > 0) bestWeapons = w;
+                if (a.Count > 0) bestAmmo = a;
             }
-
-            // De-duped by name, last entry for a name winning — the plan's
-            // "last answer wins per slot" over one provider's list.
-            if (bestWeapons is not null)
-                weapons = Dedupe(bestWeapons, w => w);
-            if (bestAmmo is not null)
-                ammo = Dedupe(bestAmmo, a => a.Item1);
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] loadout provider {provider.GetType().FullName} threw: {e.Message}\n");
+            }
         }
+
+        // De-duped by name, last entry for a name winning — the plan's
+        // "last answer wins per slot" over one provider's list.
+        if (bestWeapons is not null)
+            weapons = Dedupe(bestWeapons, w => w);
+        if (bestAmmo is not null)
+            ammo = Dedupe(bestAmmo, a => a.Item1);
 
         return (weapons, ammo);
     }
@@ -353,12 +351,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private Decision AskDamageRules(EntityHandle victim, EntityHandle attacker, float damage, int damageType,
                                     HitGroup hitGroup)
     {
-        if (_damageRules is not { } rules)
-            return Decision.UseStockRule;
-
         var hit = new DamageContext(victim, attacker, damage, damageType, hitGroup);
 
-        foreach (var rule in rules.All)
+        foreach (var rule in _damageRules.All)
         {
             try
             {

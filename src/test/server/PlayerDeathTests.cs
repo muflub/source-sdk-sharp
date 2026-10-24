@@ -85,7 +85,7 @@ public class PlayerDeathTests
                                                                            IPlayerFlashlight? flashlight = null)
     {
         var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)), engine);
-        var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons) { DropWeaponOnDeath = false };
+        var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons, new ListHooks<IRespawnGate>()) { DropWeaponOnDeath = false };
         var hook = new Heard { ReadDeaths = () => players[Player].Deaths };
         var hooks = withHook ? new ListHooks<IPlayerDeathHook>(hook) : new ListHooks<IPlayerDeathHook>();
         return (new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine, hooks,
@@ -221,7 +221,7 @@ public class PlayerDeathTests
         engine.Returns("Players.IsAlive", false);
 
         var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons,
-                                  gates.Length == 0 ? null : new ListHooks<IRespawnGate>(gates))
+                                  new ListHooks<IRespawnGate>(gates))
         {
             DropWeaponOnDeath = false,   // the weapon is not this file's subject
         };

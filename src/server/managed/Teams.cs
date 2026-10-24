@@ -141,7 +141,7 @@ public sealed class Teams : ITeams
     private readonly IEngineGameEvents _events;
     private readonly PlayerNames? _names;
     private readonly IServiceLocator? _services;
-    private readonly IHooks<ISpawnSelector>? _selectors;
+    private readonly IHooks<ISpawnSelector> _selectors;
     private readonly GameModes? _modes;
     private readonly IChat? _chat;
 
@@ -151,8 +151,9 @@ public sealed class Teams : ITeams
 
     public Teams(ILog log, IEnginePlayers players, IEngineEntities entities, IEntityDirectory directory,
                  IPlayerDirectory roster, Observers observers, IGameClock clock, IEngineGameEvents events,
+                 IHooks<ISpawnSelector> selectors,
                  PlayerNames? names = null, IServiceLocator? services = null,
-                 IHooks<ISpawnSelector>? selectors = null, GameModes? modes = null, IChat? chat = null)
+                 GameModes? modes = null, IChat? chat = null)
     {
         _log = log;
         _players = players;
@@ -340,10 +341,7 @@ public sealed class Teams : ITeams
             && fromMode != EntityHandle.None)
             return fromMode;
 
-        if (_selectors is not { } selectors)
-            return EntityHandle.None;
-
-        foreach (var selector in selectors.All)
+        foreach (var selector in _selectors.All)
         {
             EntityHandle spot = Ask(selector, player);
             if (spot != EntityHandle.None)

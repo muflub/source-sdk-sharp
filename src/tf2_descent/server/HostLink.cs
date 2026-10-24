@@ -31,8 +31,8 @@ public sealed partial class HostLink : IHostLink
     private readonly ILog _log;
     private readonly PathModuleSource _module;
     private readonly IHooks<IHostConnectionHook> _connection;
-    private readonly IHooks<IHopReadyHold>? _readyHolds;
-    private readonly IHooks<IHostCommandHook>? _commands;
+    private readonly IHooks<IHopReadyHold> _readyHolds;
+    private readonly IHooks<IHostCommandHook> _commands;
     private readonly IModInfo? _mod;
 
     // Whether this is a dedicated server (Decide); unknown counts as dedicated,
@@ -55,12 +55,12 @@ public sealed partial class HostLink : IHostLink
         ILog log,
         PathModuleSource module,
         IHooks<IHostConnectionHook> connection,
-        IHooks<IHostCommandHook>? commands = null,
-        IHooks<ILeaseHook>? leases = null,
+        IHooks<IHostCommandHook> commands,
+        IHooks<ILeaseHook> leases,
+        IHooks<IHopReadyHold> readyHolds,
         IEngineHost? engine = null,
         IModInfo? mod = null,
-        IGameBuild? build = null,
-        IHooks<IHopReadyHold>? readyHolds = null)
+        IGameBuild? build = null)
     {
         _engine = engine;
         _mod = mod;
@@ -304,7 +304,7 @@ public sealed partial class HostLink : IHostLink
     }
 
     private void ToGame(string what, Action<IHostCommandHook> call) =>
-        _game.Post(() => _commands?.Each(what, call));
+        _game.Post(() => _commands.Each(what, call));
 
     /// <summary>Answers an Exec with what the command printed.</summary>
     public void ReplyExec(string commandId, string output) => Send(async _ =>

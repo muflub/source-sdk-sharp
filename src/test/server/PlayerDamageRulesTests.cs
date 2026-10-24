@@ -47,7 +47,8 @@ public class PlayerDamageRulesTests
                              Fake().Returns("Entities.IsValid", true),
                              new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog()),
                              new PlayerDeathEvent(),
-                             damageRules: rule is null ? null : new ListHooks<IDamageRule>(rule));
+                             damageRules: rule is null ? new ListHooks<IDamageRule>() : new ListHooks<IDamageRule>(rule),
+                             loadout: new ListHooks<ILoadoutProvider>());
     }
 
     internal static SsPlayer Player(IGameRules? rules)

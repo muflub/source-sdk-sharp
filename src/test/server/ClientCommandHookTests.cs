@@ -108,8 +108,9 @@ public class ClientCommandHookTests
             // file's subject, the store is).
             Double.Returns("GameEvents.EventCreate", IntPtr.Zero);
             services.AddInstance<ITeams>(new Teams(new RecordingLog(), Double, Double, registry,
-                                                   new Players(new RecordingLog(), Double, Double, Double, TestServices.NoButtons),
-                                                   observers, Double, Double));
+                                                   new Players(new RecordingLog(), Double, Double, Double, TestServices.NoButtons,
+                                                               new ListHooks<IRespawnGate>()),
+                                                   observers, Double, Double, new ListHooks<ISpawnSelector>()));
             // The throw warning leaves through the module's Log — the side's
             // own console — which routes to the side's ConsoleLines while no
             // engine is attached; the tap is how the fact reads it.

@@ -44,7 +44,8 @@ public sealed class HostLinkTests
     }
 
     private static HostLink Link(GameThread game, ILocalCommandLine? args = null) =>
-        new(args ?? new CommandLine(), new Env(), game, game, new NullLog(), new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>());
+        new(args ?? new CommandLine(), new Env(), game, game, new NullLog(), new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>(),
+            new NoHooks<IHostCommandHook>(), new NoHooks<ILeaseHook>(), new NoHooks<IHopReadyHold>());
 
     //-------------------------------------------------------------------------
     // Hosted or unhosted
@@ -217,7 +218,8 @@ public sealed class HostLinkTests
         long now = 0;
         var game = new GameThread(() => now);
         long clock = 0;
-        var link = new HostLink(new CommandLine(), new Env(), game, game, new NullLog(), new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>())
+        var link = new HostLink(new CommandLine(), new Env(), game, game, new NullLog(), new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>(),
+            new NoHooks<IHostCommandHook>(), new NoHooks<ILeaseHook>(), new NoHooks<IHopReadyHold>())
         {
             Clock = () => clock,
         };
@@ -276,9 +278,11 @@ public sealed class HostLinkTests
         var game = new GameThread();
         var withBuild = new HostLink(new CommandLine(), new Env(), game, game, new NullLog(),
                                      new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>(),
+            new NoHooks<IHostCommandHook>(), new NoHooks<ILeaseHook>(), new NoHooks<IHopReadyHold>(),
                                      mod: new Mod(), build: new Build());
         var without = new HostLink(new CommandLine(), new Env(), game, game, new NullLog(),
-                                   new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>());
+                                   new PathModuleSource(new Mod()), new NoHooks<IHostConnectionHook>(),
+            new NoHooks<IHostCommandHook>(), new NoHooks<ILeaseHook>(), new NoHooks<IHopReadyHold>());
 
         Assert.NotNull(withBuild.Options.DeclaredModules);
         Assert.Equal(2, withBuild.Options.DeclaredModules!().Count());

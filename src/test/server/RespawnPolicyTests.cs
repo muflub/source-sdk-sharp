@@ -25,6 +25,16 @@ public class RespawnPolicyTests
         public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }
     }
 
+    // The rig's mode pickers: handed to the proxy at construction, as the
+    // module hands it the registered chain, and named by Use before the
+    // first level asks them.
+    private sealed class SelectorList : IHooks<IGameModeSelector>
+    {
+        public readonly List<IGameModeSelector> Items = new();
+        public IReadOnlyList<IGameModeSelector> All => Items;
+        public void Each(string what, Action<IGameModeSelector> call) { foreach (var h in Items) call(h); }
+    }
+
     /// <summary>
     /// The policy under test: both numbers settable, both asks counted, and
     /// the handle it was asked for recorded (the wave fact and the
@@ -93,6 +103,7 @@ public class RespawnPolicyTests
         public readonly ServiceContainer Services = TestServices.Services();
         public readonly GameModes Modes;
         public readonly Players Roster;
+        private readonly SelectorList _selectors = new();
 
         public Rig()
         {
@@ -101,10 +112,8 @@ public class RespawnPolicyTests
             Engine.Returns("Entities.IsValid", true);
             Engine.Returns("Entities.GetIndex", PlayerIndex);
             Engine.Returns("Players.IsAlive", false);
-            Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>());
-
-            Modes = new GameModes(Log, Engine, Services, ConVars);
-            Roster = new Players(Log, Engine, Engine, Engine, NoButtons)
+            Modes = new GameModes(Log, Engine, Services, ConVars, _selectors);
+            Roster = new Players(Log, Engine, Engine, Engine, NoButtons, new ListHooks<IRespawnGate>())
             {
                 DropWeaponOnDeath = false,   // the weapon is not this file's subject
             };
@@ -115,7 +124,8 @@ public class RespawnPolicyTests
         public void Use(IGameMode mode)
         {
             Services.AddInstance(mode.GetType(), mode);
-            Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(new Selector(mode.Id)));
+            _selectors.Items.Clear();
+            _selectors.Items.Add(new Selector(mode.Id));
         }
 
         /// <summary>Kills the player at now=0 and starts the death cam.</summary>

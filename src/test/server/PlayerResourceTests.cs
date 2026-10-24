@@ -41,7 +41,7 @@ public class PlayerResourceTests
         engine.Returns("Players.GetHandle",
                        anyoneConnected ? new EntityHandle(7) : EntityHandle.None);
 
-        roster = new Players(new RecordingLog(), engine, engine, engine, TestServices.NoButtons);
+        roster = new Players(new RecordingLog(), engine, engine, engine, TestServices.NoButtons, new ListHooks<IRespawnGate>());
         services.AddInstance<IPlayerDirectory>(roster);
         if (clients is not null)
             services.AddInstance(clients);

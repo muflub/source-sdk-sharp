@@ -16,7 +16,7 @@ public class PostProcessHostTests
     [Fact]
     public void AProgramComesBackThroughThePlanAndCountsItsKind()
     {
-        var post = new PostProcessHost(new DefaultForwarders.NoEngineClient());
+        var post = new PostProcessHost(new DefaultForwarders.NoEngineClient(), new ListHooks<IPostProcessContributor>());
         IClientRenderPlan host = new RenderPlanHost(post);
         var input = new PostProcessInputs { Kind = (int)PostProgramKind.EnginePost, Width = 1280, Height = 720, HdrType = 0, EngineDxLevel = 95 };
         var ops = new RenderOp[64];
@@ -30,7 +30,7 @@ public class PostProcessHostTests
     [Fact]
     public void AProgramLongerThanNativesBufferIsDeclined()
     {
-        var post = new PostProcessHost(new DefaultForwarders.NoEngineClient());
+        var post = new PostProcessHost(new DefaultForwarders.NoEngineClient(), new ListHooks<IPostProcessContributor>());
         var input = new PostProcessInputs { Kind = (int)PostProgramKind.EnginePost, Width = 1280, Height = 720, EngineDxLevel = 95 };
         Assert.Equal(-1, post.Build(input, Span<RenderOp>.Empty));
     }
@@ -38,7 +38,7 @@ public class PostProcessHostTests
     [Fact]
     public void TheProxiesReadTheProgramsValues()
     {
-        var post = new PostProcessHost(new DefaultForwarders.NoEngineClient());
+        var post = new PostProcessHost(new DefaultForwarders.NoEngineClient(), new ListHooks<IPostProcessContributor>());
         SourceSharp.Client.MaterialProxies.IPostProxyValues values = post;
         Assert.Equal(1, values.EnginePost.BloomEnable);
         post.Planner.MotionBlur.Update(new MotionBlurFrame(1f, default, default, 90f, 1.5f, false, 10f, 20f, 1f, 1f, 1f));

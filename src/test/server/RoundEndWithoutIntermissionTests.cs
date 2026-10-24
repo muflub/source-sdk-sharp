@@ -24,7 +24,7 @@ public class RoundEndWithoutIntermissionTests
         convars.RegisterAll(typeof(GameRules).Assembly);
         var deaths = new PlayerDeathEvent();
         var board = new Scoreboard(engine, new PlayerDisconnectEvent(), new RecordingLog());
-        var rules = new GameRules(new RecordingLog(), convars, engine, engine, engine, board, deaths, null);
+        var rules = new GameRules(new RecordingLog(), convars, engine, engine, engine, board, deaths, new ListHooks<IDamageRule>(), new ListHooks<ILoadoutProvider>(), null);
         engine.Clear();
 
         rules.EndRound();

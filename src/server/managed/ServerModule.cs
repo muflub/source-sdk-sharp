@@ -174,6 +174,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // dispatcher (the 0.6 facts) never reach Initialize.
         _services.AddFactory<IHooks<IClientCommandHook>>(
             locator => new Hooks<IClientCommandHook>(locator, locator.Require<ILog>()));
+        _clientCommandHooks = _services.Require<IHooks<IClientCommandHook>>();
 
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the player-command binding runs the
@@ -284,6 +285,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         => _engineServer.IsModelPrecached(name);
 
     private IFwdEngineServer _engineServer = null!;
+
+    // The mods' client command hooks, as Initialize registered them: asked
+    // before the core's own verbs (ClientCommand).
+    private IHooks<IClientCommandHook> _clientCommandHooks = null!;
 
     /// <summary>The managed row's Init: the sound emitter system's script table.</summary>
     private bool SoundSystemInit()
@@ -2732,8 +2737,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // action and it happened. A hook that throws is named in the log and
         // skipped: the chain carries on, and an unclaimed word falls through
         // to the core's own verbs below, exactly as before this seam existed.
-        if (parts.Length >= 1 && _services.Resolve<IHooks<IClientCommandHook>>() is { } hooks)
+        if (parts.Length >= 1)
         {
+            IHooks<IClientCommandHook> hooks = _clientCommandHooks;
             // The args once, as a view over the split: no copy per hook asked.
             ReadOnlySpan<string> args = parts.AsSpan(1);
             foreach (var hook in hooks.All)

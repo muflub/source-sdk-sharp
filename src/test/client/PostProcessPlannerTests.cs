@@ -107,7 +107,7 @@ public class PostProcessPlannerTests
                                                                                     PostProcessPlanner? planner = null)
     {
         var names = new Materials();
-        planner ??= new PostProcessPlanner(() => "mods/test");
+        planner ??= new PostProcessPlanner(() => "mods/test", new ListHooks<IPostProcessContributor>());
         var builder = new RenderPlanBuilder();
         var effects = new PostProgramEffects();
         var writer = new PostOpsWriter(builder, names.Of);
@@ -237,7 +237,7 @@ public class PostProcessPlannerTests
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
         input.ColorCorrectionActive = 1;
         input.SetCvar(PostCvar.mat_colorcorrection, 1f); // 0 in the recorded config
-        var planner = new PostProcessPlanner(() => "mods/test");
+        var planner = new PostProcessPlanner(() => "mods/test", new ListHooks<IPostProcessContributor>());
         (RenderOp[] first, Materials names, _) = Program(input, warmFrames: 0, planner);
         Assert.DoesNotContain(first, o => o.Kind == (int)RenderOpKind.PostDrawRect && names.Name(o.GetI(0)) == "dev/engine_post");
         (RenderOp[] second, names, _) = Program(input, warmFrames: 0, planner);
@@ -315,7 +315,7 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-sandbox-default");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        var planner = new PostProcessPlanner(() => "mods/test");
+        var planner = new PostProcessPlanner(() => "mods/test", new ListHooks<IPostProcessContributor>());
         int Mask() => Program(input, warmFrames: 0, planner).Ops.Single(o => o.Kind == (int)RenderOpKind.PostReadbackNext).GetI(0);
         Assert.Equal(0, Mask());      // frame 1 issued bucket 0
         Assert.Equal(0, Mask());      // frame 2 issued bucket 1
@@ -352,7 +352,7 @@ public class PostProcessPlannerTests
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
         for (int b = 0; b < 32; b++)
             input.SetReadback(b, 1000);
-        var planner = new PostProcessPlanner(() => "mods/test");
+        var planner = new PostProcessPlanner(() => "mods/test", new ListHooks<IPostProcessContributor>());
         RenderOp[] ops = [];
         for (int f = 0; f < 40; f++)
             ops = Program(input, warmFrames: 0, planner).Ops;

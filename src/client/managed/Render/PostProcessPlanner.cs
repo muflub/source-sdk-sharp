@@ -47,7 +47,7 @@ public readonly record struct EnginePostValues(
 /// blur pass with its values. One per client: what stock kept in statics is
 /// this object's.
 /// </summary>
-public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostProcessContributor>? contributors = null)
+public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostProcessContributor> contributors)
 {
     private const int HdrNone = 0, HdrInteger = 1, HdrFloat = 2;
     private const int HistogramBarSize = 200;
@@ -275,7 +275,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
                     }
 
                     // Stock's pyro-vision point: a mod's own pass.
-                    if (contributors != null && contributors.All.Count > 0)
+                    if (contributors.All.Count > 0)
                     {
                         _vision.Inputs = input;
                         _vision.FrameBufferUpdated = fbUpdated;

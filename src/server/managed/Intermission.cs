@@ -40,7 +40,7 @@ public interface IRoundEndGate
 /// </summary>
 public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirectory directory, IEngineEntities entities,
                                  IEnginePlayerMovement players, IUserMessageSender messages, IServerConsole console,
-                                 IEngineFiles files, IHooks<IRoundEndGate>? gates = null)
+                                 IEngineFiles files, IHooks<IRoundEndGate> gates)
 {
     /// <summary>The scoreboard's viewport panel name (PANEL_SCOREBOARD).</summary>
     public const string ScoresPanel = "scores";
@@ -49,7 +49,7 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
     private readonly NextLevelConVar? _nextLevel = convars.Get<NextLevelConVar>();
     private readonly MapCycleFileConVar? _mapCycle = convars.Get<MapCycleFileConVar>();
 
-    private readonly IHooks<IRoundEndGate>? _gates = gates;
+    private readonly IHooks<IRoundEndGate> _gates = gates;
 
     private string _mapName = string.Empty;
     private float _endsAt;
@@ -108,9 +108,6 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
     /// <summary>Whether every gate lets the round end. A gate that throws is logged and does not veto.</summary>
     private bool MayEndRound()
     {
-        if (_gates is null)
-            return true;
-
         foreach (var gate in _gates.All)
         {
             try

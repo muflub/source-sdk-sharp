@@ -31,7 +31,7 @@ public class PlayerFragTests
         return new Players(new RecordingLog(), entities,
                            Fake().Ignores("Players.IsAlive", "Players.GetObserverMode", "Players.DropActiveWeapon",
                                           "Players.GetActiveWeaponEntity", "Players.RemoveAllItems"),
-                           Fake(), NoButtons);
+                           Fake(), NoButtons, new ListHooks<IRespawnGate>());
     }
 
     [Fact]

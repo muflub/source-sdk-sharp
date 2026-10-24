@@ -27,7 +27,7 @@ public class PlayerTests
     [Fact]
     public void Waiting()
     {
-        var players = new Players(new RecordingLog(), Fake().Ignores("Entities.GetEyeAngles").Returns("Entities.IsPlayer", true), Fake().Ignores("Players.IsAlive", "Players.GetObserverMode", "Players.DropActiveWeapon", "Players.GetActiveWeaponEntity"), Fake(), TestServices.NoButtons);
+        var players = new Players(new RecordingLog(), Fake().Ignores("Entities.GetEyeAngles").Returns("Entities.IsPlayer", true), Fake().Ignores("Players.IsAlive", "Players.GetObserverMode", "Players.DropActiveWeapon", "Players.GetActiveWeaponEntity"), Fake(), TestServices.NoButtons, new ListHooks<IRespawnGate>());
         players.RespawnDelay = 5f;
 
         // Alive: nothing to wait for.
@@ -55,7 +55,7 @@ public class PlayerTests
     [Fact]
     public void Lifetime()
     {
-        var players = new Players(new RecordingLog(), Fake().Ignores("Entities.GetEyeAngles").Returns("Entities.IsPlayer", true), Fake().Ignores("Players.IsAlive", "Players.GetObserverMode", "Players.DropActiveWeapon", "Players.GetActiveWeaponEntity"), Fake(), TestServices.NoButtons);
+        var players = new Players(new RecordingLog(), Fake().Ignores("Entities.GetEyeAngles").Returns("Entities.IsPlayer", true), Fake().Ignores("Players.IsAlive", "Players.GetObserverMode", "Players.DropActiveWeapon", "Players.GetActiveWeaponEntity"), Fake(), TestServices.NoButtons, new ListHooks<IRespawnGate>());
 
         Assert.True(!players.Knows(A), "nothing is known about a player who has done nothing");
 

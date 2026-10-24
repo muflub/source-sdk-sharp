@@ -30,7 +30,7 @@ public sealed partial class HostLink
     private readonly Dictionary<string, Held> _held = new(StringComparer.Ordinal);
 
     /// <summary>The hook told when a player's lease is lost; set by the constructor.</summary>
-    private IHooks<ILeaseHook>? _leaseHooks;
+    private readonly IHooks<ILeaseHook> _leaseHooks;
 
     /// <summary>
     /// Spec §5, the join: PlayerJoined, the character (created on the hub only),
@@ -87,7 +87,7 @@ public sealed partial class HostLink
 
             var lease = leased.Value;
             lease.LeaseLost += (_, why, detail) =>
-                _game.Post(() => _leaseHooks?.Each(nameof(ILeaseHook.OnLeaseLost), h => h.OnLeaseLost(steamId, why, detail)));
+                _game.Post(() => _leaseHooks.Each(nameof(ILeaseHook.OnLeaseLost), h => h.OnLeaseLost(steamId, why, detail)));
 
             IReserve? reserve = null;
             int reached = character.ReachedDepth;
@@ -186,7 +186,7 @@ public sealed partial class HostLink
         // the game keeps the instance down while a dead player's death screen
         // shows (plan_descent_death §4 M2.3). A hold that throws is logged
         // and the hop goes on — Ready is never lost to a broken hold.
-        var ready = await ReadyAfterHold(_readyHolds?.All, hop.SteamId, hop.Ready, _log);
+        var ready = await ReadyAfterHold(_readyHolds.All, hop.SteamId, hop.Ready, _log);
         if (!ready.Ok)
             _log.Warning($"[TF2Descent] hop of {hop.SteamId} not acknowledged: {ready.Refusal!.Error} ({ready.Refusal.Reason})\n");
         return ready.Ok;
@@ -199,23 +199,21 @@ public sealed partial class HostLink
     /// fatal — a service left waiting for nothing is worse than a screen cut
     /// short.
     /// </summary>
-    internal static async Task<HostResult> ReadyAfterHold(IReadOnlyList<IHopReadyHold>? holds, string steamId,
+    internal static async Task<HostResult> ReadyAfterHold(IReadOnlyList<IHopReadyHold> holds, string steamId,
                                                           Func<Task<HostResult>> ready, ILog log)
     {
-        if (holds is not null)
+        foreach (var hold in holds)
         {
-            foreach (var hold in holds)
+            try
             {
-                try
-                {
-                    await hold.BeforeReady(steamId);
-                }
-                catch (Exception e)
-                {
-                    log.Warning($"[TF2Descent] hop of {steamId} held before Ready failed: {e.Message}\n");
-                }
+                await hold.BeforeReady(steamId);
+            }
+            catch (Exception e)
+            {
+                log.Warning($"[TF2Descent] hop of {steamId} held before Ready failed: {e.Message}\n");
             }
         }
+
         return await ready();
     }
 }

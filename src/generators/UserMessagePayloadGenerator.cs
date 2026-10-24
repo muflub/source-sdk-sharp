@@ -28,7 +28,7 @@ namespace SourceSharp.Generators;
 /// and the handler, which names it:
 /// <code>
 /// [UserMessage("notice")]
-/// public sealed class NoticeMessage(IHooks&lt;INoticeHook&gt;? hooks) : IUserMessage&lt;Notice&gt;
+/// public sealed class NoticeMessage(IHooks&lt;INoticeHook&gt; hooks) : IUserMessage&lt;Notice&gt;
 /// {
 ///     public void OnReceived(Notice message) => ...;
 /// }

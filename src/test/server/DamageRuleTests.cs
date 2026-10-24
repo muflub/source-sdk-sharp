@@ -64,7 +64,7 @@ public class DamageRuleTests
             => new(Log, ConVars, _host, _players,
                    Fake().Returns("Entities.IsValid", false),
                    new Scoreboard(_host, new PlayerDisconnectEvent(), new RecordingLog()),
-                   new PlayerDeathEvent(), damageRules: chain);
+                   new PlayerDeathEvent(), damageRules: chain ?? new ListHooks<IDamageRule>(), loadout: new ListHooks<ILoadoutProvider>());
 
         public void FriendlyFire(string value) => ConVars.Get<FriendlyFireConVar>()!.Bind(-1, "sv_friendlyfire", value);
         public void SpawnProtect(string value) => ConVars.Get<SpawnProtectConVar>()!.Bind(-1, "cs_sv_spawn_protect", value);
@@ -136,7 +136,7 @@ public class DamageRuleTests
                                Fake().Returns("Host.ActiveSide", Side.Server), teamRig,
                                Fake().Returns("Entities.IsValid", true),
                                new Scoreboard(Fake().Returns("Host.ActiveSide", Side.Server), new PlayerDisconnectEvent(), new RecordingLog()),
-                               new PlayerDeathEvent(), damageRules: new ListHooks<IDamageRule>(yes));
+                               new PlayerDeathEvent(), damageRules: new ListHooks<IDamageRule>(yes), loadout: new ListHooks<ILoadoutProvider>());
         Assert.True(ff.CanTakeDamage(Victim, Attacker, 10f, 0, 0f) == Decision.No,
             "friendly fire off holds a hit a YES rule tried to open");
     }

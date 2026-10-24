@@ -51,6 +51,9 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
     private readonly ILog _log;
     private readonly IGameClock _clock;
     private readonly IServiceLocator _services;
+
+    // The mods' mode pickers, asked once a level (Pick).
+    private readonly IHooks<IGameModeSelector> _selectors;
     private readonly SvModeSwitchWarmupConVar? _switchWarmup;
     private readonly MpWaitingForPlayersTimeConVar? _waitingTime;
 
@@ -67,11 +70,13 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
     private IGameMode? _active;
     private float? _warmupEndsAt;
 
-    public GameModes(ILog log, IGameClock clock, IServiceLocator services, ConVarRegistry convars)
+    public GameModes(ILog log, IGameClock clock, IServiceLocator services, ConVarRegistry convars,
+                     IHooks<IGameModeSelector> selectors)
     {
         _log = log;
         _clock = clock;
         _services = services;
+        _selectors = selectors;
         _switchWarmup = convars.Get<SvModeSwitchWarmupConVar>();
         _waitingTime = convars.Get<MpWaitingForPlayersTimeConVar>();
     }
@@ -160,24 +165,21 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         _picked = true;
 
         string? asked = null;
-        if (_services.Resolve<IHooks<IGameModeSelector>>() is { } chain)
+        foreach (var selector in _selectors.All)
         {
-            foreach (var selector in chain.All)
+            try
             {
-                try
+                if (selector.PickMode() is { Length: > 0 } picked)
                 {
-                    if (selector.PickMode() is { Length: > 0 } picked)
-                    {
-                        asked = picked;
-                        break;
-                    }
+                    asked = picked;
+                    break;
                 }
-                catch (Exception e)
-                {
-                    // A broken selector is no opinion, not no mode: no mode
-                    // is no round machine, and the game would not start.
-                    _log.Warning($"[SourceSharp/Modes] mode selector {selector.GetType().FullName} threw: {e}\n");
-                }
+            }
+            catch (Exception e)
+            {
+                // A broken selector is no opinion, not no mode: no mode
+                // is no round machine, and the game would not start.
+                _log.Warning($"[SourceSharp/Modes] mode selector {selector.GetType().FullName} threw: {e}\n");
             }
         }
 

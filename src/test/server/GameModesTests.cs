@@ -36,6 +36,16 @@ public class GameModesTests
         public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }
     }
 
+    // The rig's mode pickers: handed to the proxy at construction, as the
+    // module hands it the registered chain, and filled by a fact before the
+    // first level asks them.
+    private sealed class SelectorList : IHooks<IGameModeSelector>
+    {
+        public readonly List<IGameModeSelector> Items = new();
+        public IReadOnlyList<IGameModeSelector> All => Items;
+        public void Each(string what, Action<IGameModeSelector> call) { foreach (var h in Items) call(h); }
+    }
+
     private static readonly EntityHandle Player = new(0x0001_0001u);
 
     /// <summary>The machine under a mode: records every dispatch it receives.</summary>
@@ -127,6 +137,7 @@ public class GameModesTests
         public readonly GameRules Rules;
         public readonly ServiceContainer Services = TestServices.Services();
         public readonly GameModes Modes;
+        private readonly SelectorList _selectors = new();
 
         public Rig()
         {
@@ -141,15 +152,14 @@ public class GameModesTests
             Host.Ignores("Players.FindByUserId", "Players.GiveItem", "Players.GiveAmmo");
 
             Board = new Scoreboard(Host, new PlayerDisconnectEvent(), new RecordingLog());
-            Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>());
 
             // The module's order: the proxy before the rules (the rules take
             // it as their mode owner), the rules before Attach (the proxy
             // takes the machine that is the round's default).
-            Modes = new GameModes(Log, Host, Services, ConVars);
+            Modes = new GameModes(Log, Host, Services, ConVars, _selectors);
             Rules = new GameRules(RulesLog, ConVars, Host, Host,
                                   TestServices.Fake().Returns("Entities.IsValid", false), Board, Deaths,
-                                  modes: Modes);
+                                  new ListHooks<IDamageRule>(), new ListHooks<ILoadoutProvider>(), modes: Modes);
             Modes.Attach(Rules);
             Services.AddInstance(Modes);
         }
@@ -158,7 +168,10 @@ public class GameModesTests
         public void Register(IGameMode mode) => Services.AddInstance(mode.GetType(), mode);
 
         public void Selectors(params IGameModeSelector[] selectors)
-            => Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(selectors));
+        {
+            _selectors.Items.Clear();
+            _selectors.Items.AddRange(selectors);
+        }
 
         public void SetTime(float now) => Host.Returns("Clock.Now", now).Returns("Host.CurrentTime", now);
         public void Warmup(float seconds) => ConVars.Get<SvModeSwitchWarmupConVar>()!.Bind(-1, "sv_mode_switch_warmup", seconds.ToString(System.Globalization.CultureInfo.InvariantCulture));

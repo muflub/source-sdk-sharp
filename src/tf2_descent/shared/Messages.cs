@@ -38,17 +38,14 @@ public partial struct Notice
 }
 
 [UserMessage(Name)]
-public sealed class NoticeMessage(IHooks<INoticeHook>? hooks) : IUserMessage<Notice>
+public sealed class NoticeMessage(IHooks<INoticeHook> hooks) : IUserMessage<Notice>
 {
-    /// <summary>For a side that registers the declaration without dispatching it.</summary>
-    public NoticeMessage() : this(null) { }
-
     public const string Name = "notice";
 
     public void OnReceived(Notice message)
     {
         string text = message.Text;
-        hooks?.Each(nameof(INoticeHook.OnNotice), h => h.OnNotice(text));
+        hooks.Each(nameof(INoticeHook.OnNotice), h => h.OnNotice(text));
     }
 }
 
@@ -67,18 +64,15 @@ public partial struct Instance
 }
 
 [UserMessage(Name)]
-public sealed class InstanceMessage(IHooks<IInstanceHook>? hooks) : IUserMessage<Instance>
+public sealed class InstanceMessage(IHooks<IInstanceHook> hooks) : IUserMessage<Instance>
 {
-    /// <summary>For a side that registers the declaration without dispatching it.</summary>
-    public InstanceMessage() : this(null) { }
-
     public const string Name = "instance";
 
     public void OnReceived(Instance message)
     {
         string kind = message.Kind;
         int depth = message.Depth;
-        hooks?.Each(nameof(IInstanceHook.OnInstance), h => h.OnInstance(kind, depth));
+        hooks.Each(nameof(IInstanceHook.OnInstance), h => h.OnInstance(kind, depth));
     }
 }
 /// <summary>The client is told which level comes next, so it can fetch the map before the hop.</summary>
@@ -109,11 +103,8 @@ public partial struct NextLevel
 /// it in the background. Stock clients only download at connect.
 /// </summary>
 [UserMessage(Name)]
-public sealed class NextLevelMessage(IHooks<INextLevelHook>? hooks) : IUserMessage<NextLevel>
+public sealed class NextLevelMessage(IHooks<INextLevelHook> hooks) : IUserMessage<NextLevel>
 {
-    /// <summary>For a side that registers the declaration without dispatching it.</summary>
-    public NextLevelMessage() : this(null) { }
-
     public const string Name = "next_level";
 
     public void OnReceived(NextLevel message)
@@ -126,7 +117,7 @@ public sealed class NextLevelMessage(IHooks<INextLevelHook>? hooks) : IUserMessa
 
         int depth = message.Depth;
         string map = message.Map, url = message.Url;
-        hooks?.Each(nameof(INextLevelHook.OnNextLevel), h => h.OnNextLevel(depth, map, url, sha256));
+        hooks.Each(nameof(INextLevelHook.OnNextLevel), h => h.OnNextLevel(depth, map, url, sha256));
     }
 }
 
@@ -165,11 +156,8 @@ public partial struct Reauth
 }
 
 [UserMessage(Name)]
-public sealed class ReauthMessage(IHooks<IReauthHook>? hooks) : IUserMessage<Reauth>
+public sealed class ReauthMessage(IHooks<IReauthHook> hooks) : IUserMessage<Reauth>
 {
-    /// <summary>For a side that registers the declaration without dispatching it.</summary>
-    public ReauthMessage() : this(null) { }
-
     public const string Name = "reauth";
 
     /// <summary>The payload, or null when the nonce cannot travel back (<see cref="TicketReply.IsNonce"/>).</summary>
@@ -185,7 +173,7 @@ public sealed class ReauthMessage(IHooks<IReauthHook>? hooks) : IUserMessage<Rea
             || !ulong.TryParse(message.Server, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong id))
             return;
 
-        hooks?.Each(nameof(IReauthHook.OnReauth), h => h.OnReauth(nonce, id));
+        hooks.Each(nameof(IReauthHook.OnReauth), h => h.OnReauth(nonce, id));
     }
 }
 

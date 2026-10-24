@@ -59,7 +59,7 @@ public class ScoringTests
 
             Rules = new GameRules(new RecordingLog(), ConVars, Host,
                 Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GetTeam"),
-                Fake().Returns("Entities.IsValid", false), Board, Deaths);
+                Fake().Returns("Entities.IsValid", false), Board, Deaths, new ListHooks<IDamageRule>(), new ListHooks<ILoadoutProvider>());
 
             Rules.ResetRound();
             Board.Reset();

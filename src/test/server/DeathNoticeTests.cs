@@ -145,7 +145,7 @@ public class DeathNoticeTests
         var rules = new GameRules(log, convars, host,
                                   Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GetTeam"),
                                   Fake().Returns("Entities.IsValid", false), board,
-                                  services.Require<IGameEvent<PlayerDeathArgs>>());
+                                  services.Require<IGameEvent<PlayerDeathArgs>>(), new ListHooks<IDamageRule>(), new ListHooks<ILoadoutProvider>());
         rules.ResetRound();
         board.Reset();
 

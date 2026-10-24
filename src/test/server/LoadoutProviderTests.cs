@@ -70,7 +70,7 @@ public class LoadoutProviderTests
             => new(Log, ConVars, _host, _players,
                    Fake().Returns("Entities.IsValid", false),
                    new Scoreboard(_host, new PlayerDisconnectEvent(), new RecordingLog()),
-                   new PlayerDeathEvent(), loadout: chain);
+                   new PlayerDeathEvent(), damageRules: new ListHooks<IDamageRule>(), loadout: chain ?? new ListHooks<ILoadoutProvider>());
 
         /// <summary>
         /// The weapon class names one spawn's grant passed to the engine.

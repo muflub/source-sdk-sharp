@@ -53,7 +53,7 @@ public sealed partial class ServiceFlowTests
         engine.Returns("Host.CurrentTime", 0f);
         var console = new ReloadingConsole(players, 3);
         var it = new Intermission(w.Log, ConVarRegistry.For(engine), new NoEntities(), engine, engine, engine, console, engine,
-                                  gates.Length == 0 ? null : new Hooks<IRoundEndGate>(gates));
+                                  new Hooks<IRoundEndGate>(gates));
         it.LevelInit("tf2_descent-1-0123456789abcdef", 0f);
         return (w, players, it, console, engine);
     }

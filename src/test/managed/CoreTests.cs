@@ -917,7 +917,8 @@ public class CoreTests
         var rules = new GameRules(new RecordingLog(), convars, host,
             Fake().Ignores("Players.GiveItem", "Players.GiveAmmo", "Players.FindByUserId",
                            "Players.GetTeam", "Players.GetUserId"),
-            Fake().Returns("Entities.IsValid", false), board, deaths);
+            Fake().Returns("Entities.IsValid", false), board, deaths,
+            new ListHooks<IDamageRule>(), new ListHooks<ILoadoutProvider>());
 
         var victim   = new EntityHandle(0x0001_0001u);
         var attacker = new EntityHandle(0x0002_0001u);

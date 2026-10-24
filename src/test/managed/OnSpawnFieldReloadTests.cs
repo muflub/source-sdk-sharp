@@ -121,7 +121,7 @@ public class OnSpawnFieldReloadTests
         services.AddInstance<IViewControlHolders>(new ViewControlHolders());
         services.AddInstance<IVoteIndices>(new VoteIndices());
         services.AddInstance<ISoundscapes>(new Soundscapes(log, engine, engine, engine, engine, engine));
-        services.AddInstance<IPlayerDirectory>(new Players(log, engine, engine, engine, NoButtons));
+        services.AddInstance<IPlayerDirectory>(new Players(log, engine, engine, engine, NoButtons, new ListHooks<IRespawnGate>()));
         services.AddInstance<IPlayerButtons>(NoButtons);
         services.AddInstance(new PvsCheckClient(registry, engine, engine));
         services.AddInstance<ITeFire>(

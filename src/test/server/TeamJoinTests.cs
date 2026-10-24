@@ -127,7 +127,7 @@ public class TeamJoinTests
                 services.AddInstance(policy.GetType(), policy);
 
             return new(Log, Engine, Engine, Registry, roster ?? new NoRecords(),
-                       Observers, Engine, Engine, null, services, selectors);
+                       Observers, Engine, Engine, selectors ?? new ListHooks<ISpawnSelector>(), null, services);
         }
     }
 
@@ -623,7 +623,7 @@ public class TeamJoinTests
         var chain = new Selector(ChainSpot);
         var (services, teams) = Composed(rig, c =>
         {
-            var modes = new GameModes(rig.Log, rig.Engine, c, rig.ConVars);
+            var modes = new GameModes(rig.Log, rig.Engine, c, rig.ConVars, new ListHooks<IGameModeSelector>());
             c.AddInstance(modes);
             c.AddInstance(mode.GetType(), mode);
         });

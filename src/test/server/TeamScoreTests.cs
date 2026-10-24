@@ -89,7 +89,7 @@ public class TeamScoreTests
 
             Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>());
             Services.AddInstance<IPlayerDirectory>(
-                new Players(new RecordingLog(), _engine, _engine, _engine, NoButtons));
+                new Players(new RecordingLog(), _engine, _engine, _engine, NoButtons, new ListHooks<IRespawnGate>()));
 
             Registry.RegisterAll(typeof(PlayerResource).Assembly);
             Registry.Services = Services;
@@ -109,7 +109,8 @@ public class TeamScoreTests
             // GameModesTests does — the container cannot fill its convars
             // parameter, which is why ServerModule hands it built.
             Modes = new GameModes(new RecordingLog(),
-                                  Fake().Returns("Clock.Now", 0f), Services, ConVars);
+                                  Fake().Returns("Clock.Now", 0f), Services, ConVars,
+                                  Services.Require<IHooks<IGameModeSelector>>());
             Services.AddInstance(Modes);
             var handle = new EntityHandle(90);
             Registry.Spawn(handle, EntityNames.PlayerManager);
