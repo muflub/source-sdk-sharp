@@ -104,13 +104,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // those same areas, so they cannot be built first.
         _services.AddInstance(_skeletonRoute);
 
-        // This side's model caches, its engine's own (plan_abi_hotreload D8):
-        // the render binding reads them through that engine, and the
-        // model-descriptor report and the game DLL's model precache are handed
-        // them from here. The frame binding clears them at level shutdown.
-        _services.AddInstance(_engine.Models);
-        _services.AddInstance(_engine.Breaks);
-
         // The liveness gate's independent oracle, over this side's own slot.
         _services.AddInstance(LivenessSlotReference.For(_engine));
 
@@ -274,7 +267,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     internal ManagedSystemRow NewSystemRow()
         => new(Log, this, SoundSystemInit, map => _gameDll.PreEntityParticipants(map),
                () => _gameDll.ShutdownPreEntityParticipants(), () => _physicsFrame?.Frame(),
-               _liveness, _engine.Models, _engine.Breaks);
+               _liveness, _services.Require<ModelDescriptors>(), _services.Require<BreakModels>());
 
     /// <summary>
     /// The server's movement constants from this module's own declarations
@@ -1866,7 +1859,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The model descriptors are read from the same studio headers
         // (studio.cpp's eviction): sequences, events, attachments and each
         // sequence's default duration.
-        _descriptorAttachment = _engine.Models.AttachSource(new StudioModelDescriptor(_skeletons.Models));
+        _descriptorAttachment = _services.Require<ModelDescriptors>().AttachSource(new StudioModelDescriptor(_skeletons.Models));
 
         // THE FLIP: every bone question the engine bindings answer -- the
         // attachments, the cached count, the matrices, the sequence, the scale

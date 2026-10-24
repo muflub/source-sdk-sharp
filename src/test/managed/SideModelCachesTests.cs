@@ -111,21 +111,30 @@ public class SideModelCachesTests
         Assert.Equal(0, breaks.Parses);
     }
 
+    // A side's model caches as its composition registers them, over the
+    // model info it registers first.
+    private static (ModelDescriptors Models, BreakModels Breaks) Caches(EngineSide side)
+    {
+        var services = new ServiceContainer();
+        EngineServices.AddBindingServices(services, side);
+        return (services.Require<ModelDescriptors>(), services.Require<BreakModels>());
+    }
+
     [Fact]
-    public void OnlyTheServersEngineSideHandsItsBreaksAPrecache()
+    public void OnlyTheServersCompositionHandsItsBreaksAPrecache()
     {
         static object? PrecacheOf(BreakModels b)
             => typeof(BreakModels).GetField("_precache", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(b);
 
-        Assert.NotNull(PrecacheOf(TestSides.Create(Side.Server).Breaks));
-        Assert.Null(PrecacheOf(TestSides.Create(Side.Client).Breaks));
+        Assert.NotNull(PrecacheOf(Caches(TestSides.Create(Side.Server)).Breaks));
+        Assert.Null(PrecacheOf(Caches(TestSides.Create(Side.Client)).Breaks));
     }
 
     [Fact]
-    public void EachEngineOwnsItsModelCachesAndItsBreakListsReadItsDescriptors()
+    public void EachCompositionOwnsItsModelCachesAndItsBreakListsReadItsDescriptors()
     {
-        var first = TestSides.Create(Side.Server);
-        var second = TestSides.Create(Side.Server);
+        var first = Caches(TestSides.Create(Side.Server));
+        var second = Caches(TestSides.Create(Side.Server));
 
         Assert.NotSame(first.Models, second.Models);
         Assert.NotSame(first.Breaks, second.Breaks);
@@ -134,29 +143,43 @@ public class SideModelCachesTests
     }
 
     [Fact]
-    public void TwoServerCompositionsRegisterAndClearTheirOwnEnginesCaches()
+    public void ACompositionsModelCachesAskTheModelInfoItRegistered()
     {
-        var engineA = new ModuleEngine(TestSides.Create(Side.Server));
-        var engineB = new ModuleEngine(TestSides.Create(Side.Server));
-        var a = new ServerModule(engineA);
-        var b = new ServerModule(engineB);
+        // The model info the composition registered, not one looked up
+        // through the side: a descriptor miss reaches the instance in the
+        // container.
+        var side = TestSides.Create(Side.Server);
+        var services = new ServiceContainer();
+        var modelInfo = new CountingModelInfo();
+        services.AddInstance<IFwdModelInfo>(modelInfo);
+        EngineServices.AddModelCaches(services, side);
+
+        services.Require<ModelDescriptors>().ForModel(Model);
+        services.Require<BreakModels>().Count(Model);
+
+        Assert.Equal(2, modelInfo.IndexAsks);
+        Assert.Equal(1, modelInfo.CollisionTextAsks);
+    }
+
+    [Fact]
+    public void TwoServerCompositionsRegisterAndClearTheirOwnCaches()
+    {
+        var a = new ServerModule(new ModuleEngine(TestSides.Create(Side.Server)));
+        var b = new ServerModule(new ModuleEngine(TestSides.Create(Side.Server)));
         a.ComposeEngineAreas();
         b.ComposeEngineAreas();
 
         try
         {
-            Assert.Same(engineA.Models, a.Services.Require<ModelDescriptors>());
-            Assert.Same(engineB.Models, b.Services.Require<ModelDescriptors>());
-            Assert.Same(engineA.Breaks, a.Services.Require<BreakModels>());
-            Assert.Same(engineB.Breaks, b.Services.Require<BreakModels>());
-            Assert.NotSame(engineA.Models, engineB.Models);
+            Assert.NotSame(a.Services.Require<ModelDescriptors>(), b.Services.Require<ModelDescriptors>());
+            Assert.NotSame(a.Services.Require<BreakModels>(), b.Services.Require<BreakModels>());
 
             // The level-shutdown handler each root builds clears its own: the
             // managed system row (plan_server_native_v2 T4e; it was the frame
             // binding's LevelShutdown slot).
             var row = b.NewSystemRow();
-            Assert.Same(engineB.Models, Held<ModelDescriptors>(row));
-            Assert.Same(engineB.Breaks, Held<BreakModels>(row));
+            Assert.Same(b.Services.Require<ModelDescriptors>(), Held<ModelDescriptors>(row));
+            Assert.Same(b.Services.Require<BreakModels>(), Held<BreakModels>(row));
         }
         finally
         {
@@ -209,6 +232,26 @@ public class SideModelCachesTests
                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
                .Single(f => f.FieldType == typeof(T))
                .GetValue(holder)!;
+
+    // A model info that counts the two asks the model caches make.
+    private sealed class CountingModelInfo : IFwdModelInfo
+    {
+        public int IndexAsks;
+        public int CollisionTextAsks;
+
+        public int ModelIndex(string name) { IndexAsks++; return 7; }
+
+        public string? CollisionKeyValueText(int modelIndex) { CollisionTextAsks++; return Crate; }
+
+        public nint Model(int modelIndex) => default;
+        public string? ModelName(nint model) => null;
+        public ModelType ModelTypeOf(nint model) => default;
+        public int FrameCountAt(int modelIndex) => default;
+        public ModelType TypeAt(int modelIndex) => default;
+        public string? KeyValueText(nint model) => null;
+        public byte[]? StudioImage(int modelIndex, string? includeName) => null;
+        public byte[]? StudioAnimBlock(int modelIndex, string? includeName, int block) => null;
+    }
 
     private sealed class QuietModule : ISideModule
     {

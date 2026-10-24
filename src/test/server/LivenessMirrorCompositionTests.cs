@@ -132,7 +132,7 @@ public class LivenessMirrorCompositionTests
             Assert.True(Valid(engine, Prop), "alive before the shutdown (the positive arm)");
 
             new ManagedSystemRow(new RecordingLog(), new QuietModule(), () => true, _ => { }, () => { }, () => { },
-                                 module.Services.Require<LivenessMirror>(), engine.Models, engine.Breaks).LevelShutdownPostEntity();
+                                 module.Services.Require<LivenessMirror>(), module.Services.Require<ModelDescriptors>(), module.Services.Require<BreakModels>()).LevelShutdownPostEntity();
 
             Assert.Equal(0, module.Services.Require<LivenessMirror>().RecordCount);
         }

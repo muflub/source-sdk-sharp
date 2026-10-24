@@ -79,7 +79,7 @@ internal sealed unsafe partial class EngineSide
     /// client engine built in this assembly (a cross-side fact) has none, as
     /// the client's slot was null.
     /// </summary>
-    private Func<string, int>? OwnModelPrecache => _side == Side.Server ? PrecacheModel : null;
+    internal Func<string, int>? OwnModelPrecache => _side == Side.Server ? PrecacheModel : null;
 
     /// <summary>
     /// The entity's one-object vphysics calls (plan_physics_bones_native_zero,

@@ -115,21 +115,11 @@ public sealed partial class ModuleEngine
     public IDisposable AttachLiveness(LivenessMirror mirror) => Api.AttachLiveness(mirror);
 
     /// <summary>
-    /// This engine's model descriptors (plan_abi_hotreload D8): the side's own
-    /// cache, which its render binding reads. The module registers it for what
-    /// else asks a model's table and clears it at level shutdown.
-    /// </summary>
-    public ModelDescriptors Models => Api.Models;
-
-    /// <summary>
     /// This side's vphysics forwarder tables (plan_engine_forwarders.md): what a
     /// vphysics service is built over, so it calls objects through their
     /// forwarders rather than reading their vptrs. Bound on first use.
     /// </summary>
     public VPhysicsTables VPhysics => Api.VPhysics;
-
-    /// <summary>This engine's break-piece lists, cleared with <see cref="Models"/>.</summary>
-    public BreakModels Breaks => Api.Breaks;
 
     /// <summary>This engine's game clock (plan_engineapi_vtables B5).</summary>
     public IGameClock Clock() => new EngineClock(Api);

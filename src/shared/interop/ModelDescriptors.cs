@@ -21,9 +21,9 @@ namespace SourceSharp.Abi;
 /// managed runtime serves BOTH DLLs on a listen server, so a single dictionary
 /// would hand the client's answer to the server and the other way round. They
 /// would usually agree, and "usually" is how this kind of bug survives review.
-/// Each side's engine owns its own (<c>EngineSide.Models</c>, plan_abi_hotreload
-/// D8): the render binding reads it through the side it is bound to, and the
-/// module hands it to the rest by constructor. It used to be one static class
+/// Each side's composition owns its own (<c>EngineServices.AddModelCaches</c>,
+/// plan_abi_hotreload D8), over that side's registered model info: the render
+/// binding and the rest are handed it by constructor. It used to be one static class
 /// whose two tables were chosen by the thread's active side, so two game
 /// instances in one process shared them. By NAME rather than by index because a
 /// model index is the side's own string-table slot and the name is the thing
