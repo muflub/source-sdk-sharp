@@ -170,14 +170,14 @@ public unsafe class VtableBindingTests
     [Fact]
     public void AcquireRefusesWithoutTheNativeHalf()
     {
-        Assert.Null(UniformRandomStream.Acquire(Unattached(), out string why));
+        Assert.Null(UniformRandomStream.Acquire(Unattached().Api.Interfaces, out string why));
         Assert.False(string.IsNullOrWhiteSpace(why));
     }
 
     [Fact]
     public void TheRefusalNamesTheInterfaceItWasAskedFor()
     {
-        UniformRandomStream.Acquire(Unattached(), out string why);
+        UniformRandomStream.Acquire(Unattached().Api.Interfaces, out string why);
         Assert.Contains("VEngineRandom001", why);
     }
 
@@ -207,10 +207,10 @@ public unsafe class VtableBindingTests
     [Fact]
     public void EveryFactoryRefusesRatherThanThrowingWithNoNativeHalf()
     {
-        Assert.Null(EngineModelInfo.Acquire(Unattached(), out _));
-        Assert.Null(EngineBaseFileSystem.Acquire(Unattached(), out _));
-        Assert.Null(EngineClient.Acquire(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client)), out _));
-        Assert.Null(EngineServer.Acquire(Unattached(), out _));
+        Assert.Null(EngineModelInfo.Acquire(Unattached().Api.Interfaces, out _, EngineModelInfo.ServerInterfaceVersion));
+        Assert.Null(EngineBaseFileSystem.Acquire(Unattached().Api.Interfaces, out _));
+        Assert.Null(EngineClient.Acquire(client::SourceSharp.Abi.TestSides.Create(Side.Client), out _));
+        Assert.Null(EngineServer.Acquire(Unattached().Api.Interfaces, out _));
     }
 
     /// <summary>
@@ -364,20 +364,27 @@ public unsafe class VtableBindingTests
     }
 
     [Fact]
-    public void AcquireIsTheONLYStaticMethodOnAnImplClass()
+    public void AcquireIsTheONLYStaticMethodOnAnImplClassAndNoneIsPublic()
     {
         // The counterpart to PublicMethodsOf excluding it: something has to
         // notice if a SECOND static appears, or the exclusion above would hide
-        // it from every other test in this file.
+        // it from every other test in this file. And none is public: the only
+        // acquire is the side's bound slot's (EngineBound), and what a
+        // composition is handed is the registered interface, never a null
+        // (2026-10-20 ruling: managed logic never holds a null interface).
         foreach (Type impl in new[]
                  {
                      typeof(UniformRandomStream), typeof(EngineModelInfo),
                      typeof(EngineBaseFileSystem), typeof(EngineClient), typeof(EngineServer),
                  })
         {
+            Assert.Empty(impl.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly));
+
             string[] statics = impl
-                .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .GetMethods(BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .Where(m => m.IsAssembly)
                 .Select(m => m.Name)
+                .Distinct()
                 .ToArray();
 
             Assert.Equal(new[] { "Acquire" }, statics);
@@ -399,7 +406,7 @@ public unsafe class VtableBindingTests
                      (typeof(EngineServer), typeof(IFwdEngineServer)),
                  })
         {
-            MethodInfo acquire = impl.GetMethod("Acquire", BindingFlags.Public
+            MethodInfo acquire = impl.GetMethod("Acquire", BindingFlags.NonPublic
                                                 | BindingFlags.Static | BindingFlags.DeclaredOnly)!;
 
             Assert.Equal(contract, acquire.ReturnType);

@@ -85,9 +85,9 @@ public sealed unsafe class ServerCommandSideTests : IDisposable
         env.Raw->interval_per_tick = 0.015f;
         env.Raw->maxClients = 2;
 
-        var commands = ServerPlayerCommands.For(engine, new ServerPlayerMoves(), new ServerMoveData(),
+        var commands = ServerPlayerCommands.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api), new ServerPlayerMoves(), new ServerMoveData(),
                                                 new NoSounds(), null,
-                                                MovementRunner.For(engine), () => default, new NoPublish(), env);
+                                                TestSides.Movement(engine), () => default, new NoPublish(), env);
 
         var cmd = new UserCmd { CommandNumber = 1 };
         Assert.Equal(1, commands.Stage(Player, 0, 0, in cmd));

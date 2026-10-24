@@ -117,8 +117,10 @@ public class EngineAreaTests
     [Fact]
     public void NoBindingCanBeBuiltWithoutItsSide()
     {
+        var side = TestSides.Create(Side.Server);
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var bindings = EngineServices.Bindings(TestSides.Create(Side.Server), composition).ToArray();
+        EngineServices.AddForwarders(composition, side);
+        var bindings = EngineServices.Bindings(side, composition).ToArray();
         Assert.True(bindings.Length > 20, $"{bindings.Length} bindings reflected over");
 
         var sideless = bindings
@@ -186,8 +188,10 @@ public class EngineAreaTests
         // so this is what catches an area added with no binding behind it.
         // Built over a container holding what a side's composition registers
         // before its areas (the render binding's mirror, plan_abi_hotreload D7).
+        var side = TestSides.Create(Side.Server);
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        var bindings = EngineServices.Bindings(TestSides.Create(Side.Server), composition).ToArray();
+        EngineServices.AddForwarders(composition, side);
+        var bindings = EngineServices.Bindings(side, composition).ToArray();
 
         Assert.True(bindings.Length == areas.Length, "every area has a binding");
 

@@ -31,7 +31,7 @@ public class ClientKeyInputTests
         var chat = new Chat();
         var observer = new Observer();
         var sent = new List<string>();
-        return (new ClientKeyInput(chat, observer, () => new ChatFeedTests.RecordingEngineClient(sent)), chat, observer, sent);
+        return (new ClientKeyInput(chat, observer, new ChatFeedTests.RecordingEngineClient(sent)), chat, observer, sent);
     }
 
     [Fact]

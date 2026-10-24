@@ -112,10 +112,10 @@ public class ClientReloadRouteTests
         public void Warning(string message) { }
     }
 
-    private static (ClientDebugReload Route, ClientReloadRequester Requester) Route(string? cheats)
+    private static (ClientDebugReload Route, ClientReloadRequester Requester) Route(string? cheats, List<string>? sent = null)
     {
         var (_, fresh, _, _) = Pair();
-        var requester = new ClientReloadRequester(() => null);
+        var requester = new ClientReloadRequester(new ChatFeedTests.RecordingEngineClient(sent ?? []));
         return (new ClientDebugReload(fresh, requester, new Console(cheats)), requester);
     }
 
@@ -131,14 +131,16 @@ public class ClientReloadRouteTests
     }
 
     [Fact]
-    public void With_cheats_and_no_engine_the_trigger_says_so()
+    public void With_cheats_the_trigger_asks_the_engine_and_is_queued()
     {
         // The positive arm of the gate: past the cheat check, to the engine.
-        var (route, _) = Route(cheats: "1");
+        var sent = new List<string>();
+        var (route, requester) = Route(cheats: "1", sent);
         var answer = route.Trigger();
 
-        Assert.False(answer.Accepted);
-        Assert.Contains("no engine client", answer.Reason, StringComparison.Ordinal);
+        Assert.True(answer.Accepted);
+        Assert.Equal(["reload"], sent);
+        Assert.True(requester.Pending);
     }
 
     private sealed class FixedReload(DebugClientReload reload) : IDebugClientReload

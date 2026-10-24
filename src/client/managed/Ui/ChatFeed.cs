@@ -177,7 +177,7 @@ public sealed class ChatPlayers(IClientStandalones standalones, IPlayerNames nam
 /// <c>say_team "…"</c> through the console and closes; Esc closes; the keys
 /// and characters come from the menu root while the chat input is open.
 /// </summary>
-public sealed class ChatInputUi(Func<IFwdEngineClient?> engine) : IChatInputSource
+public sealed class ChatInputUi(IFwdEngineClient engine) : IChatInputSource
 {
     /// <summary>The longest line stock's input takes (MAX_CHARS_PER_LINE 128).</summary>
     public const int MaxChars = 127;
@@ -236,7 +236,7 @@ public sealed class ChatInputUi(Func<IFwdEngineClient?> engine) : IChatInputSour
     {
         string line = _input.Trim();
         if (line.Length > 0)
-            engine()?.SubmitConsoleLine($"{(TeamOnly ? "say_team" : "say")} \"{line.Replace('"', '\'')}\"");
+            engine.SubmitConsoleLine($"{(TeamOnly ? "say_team" : "say")} \"{line.Replace('"', '\'')}\"");
         _input = string.Empty;
         Caret = 0;
         Closed?.Invoke();

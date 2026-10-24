@@ -114,7 +114,7 @@ public class ChatFeedTests
     {
         var sent = new List<string>();
         var client = new RecordingEngineClient(sent);
-        var input = new ChatInputUi(() => client);
+        var input = new ChatInputUi(client);
         bool closed = false;
         input.Closed = () => closed = true;
         input.Begin(teamOnly: false);
@@ -132,7 +132,7 @@ public class ChatFeedTests
     public void Escape_closes_and_sends_nothing()
     {
         var sent = new List<string>();
-        var input = new ChatInputUi(() => new RecordingEngineClient(sent));
+        var input = new ChatInputUi(new RecordingEngineClient(sent));
         bool closed = false;
         input.Closed = () => closed = true;
         input.Begin(false);
@@ -158,8 +158,8 @@ public class ChatFeedTests
         public bool TryGetPlayerInfo(int entIndex, out ClientPlayerInfo info) { info = default; return false; }
         public void JoinTeam(int team) { }
         public void ConnectFromSteamLaunch(string connectLine) { }
-        public void Reconnect() { }
-        public void RequestManagedReload() { }
+        public void Reconnect() => sent.Add("reconnect");
+        public void RequestManagedReload() => sent.Add("reload");
         public void ConsolePrintAt(int position, string text) { }
         public void ConsolePrintAt(int position, float timeToLive, float red, float green, float blue, bool fixedWidthFont, string text) { }
         public bool TryLightForPoint(in Vector position, bool clamp, out Vector light) { light = default; return false; }

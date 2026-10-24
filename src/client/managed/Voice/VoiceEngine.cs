@@ -4,14 +4,12 @@ using SourceSharp.Client.Interop;
 namespace SourceSharp.Client.Voice;
 
 /// <summary><see cref="IVoiceEngine"/> over the engine client and voice_modenable.</summary>
-public sealed class VoiceEngine(Func<IFwdEngineClient?> engine, VoiceModEnableConVar? modEnable) : IVoiceEngine
+public sealed class VoiceEngine(IFwdEngineClient engine, VoiceModEnableConVar? modEnable) : IVoiceEngine
 {
-    private IFwdEngineClient? _engine;
-
     public string? GuidOf(int client)
-        => (_engine ??= engine()) is { } e && e.TryGetPlayerInfo(client, out var info) ? info.Guid : null;
+        => engine.TryGetPlayerInfo(client, out var info) ? info.Guid : null;
 
-    public void ServerCommand(string line, bool reliable) => (_engine ??= engine())?.VoiceServerCommand(line, reliable);
+    public void ServerCommand(string line, bool reliable) => engine.VoiceServerCommand(line, reliable);
 
     public void EnableVoice() => modEnable?.SetValue(true);
 }

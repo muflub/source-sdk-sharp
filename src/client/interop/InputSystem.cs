@@ -32,12 +32,11 @@ public sealed unsafe class InputSystem : IFwdInputSystem
         _fwd = table;
     }
 
-    /// <summary>The input system, or null with the reason, acquired through <paramref name="engine"/>'s factory.</summary>
-    public static IFwdInputSystem? Acquire(ModuleEngine engine, out string why)
+    /// <summary>The input system, or null with the reason, acquired through the side's factory.</summary>
+    internal static IFwdInputSystem? Acquire(NativeInterfaceFactory factory, out string why)
     {
-        ArgumentNullException.ThrowIfNull(engine);
         return Forwarders.TryAcquire<InputSystemFwd>(
-                   engine.Api.Interfaces, SourceSharpFactoryType.AppSystem,
+                   factory, SourceSharpFactoryType.AppSystem,
                    InterfaceVersion, out void* self, out InputSystemFwd* table, out why)
             ? new InputSystem(self, table)
             : null;

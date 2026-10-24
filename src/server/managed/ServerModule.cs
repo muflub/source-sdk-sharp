@@ -127,6 +127,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         int areas = _engine.AddTo(_services);
 
+        // The engine interfaces this module calls itself, as AddTo acquired
+        // and registered them: never null.
+        _engineServer = _services.Require<IFwdEngineServer>();
+        _surfaceProps = _services.Require<IFwdPhysicsSurfaceProps>();
+
         _convars = ConVarRegistry.For(_services.Require<IEngineConsole>());
         _userMessages = new UserMessageRegistry(Log, receives: false);
 
@@ -180,7 +185,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the player-command binding runs the
         // movement crossing, the command stages and the shadow through it.
-        _movement = MovementRunner.For(_engine);
+        _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _surfaceProps);
         _services.AddInstance(_movement);
 
         // THE SERVER'S COMMANDS RUN IN MANAGED (plan_server_native_v2 T4g):
@@ -189,7 +194,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the route that answers game code's calls on a player's movement
         // state from those records.
         _playerMoves.Seed = (player, move) => _entities?.Get(player) is SsPlayer p && PlayerMovePublisher.Seed(p.State, move);
-        _serverCommands = ServerPlayerCommands.For(_engine, _playerMoves, _moveData,
+        _serverCommands = ServerPlayerCommands.For(_engine, _services.Require<IFwdEngineTrace>(), _surfaceProps,
+                                                   _playerMoves, _moveData,
                                                    new MoveSoundsOf(() => _serverSounds), this, _movement,
                                                    NewMoveConstants().Read,
                                                    new PlayerMovePublisher(h => _entities?.Get(h) as SsPlayer),
@@ -278,13 +284,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     internal ServerMoveConstants NewMoveConstants()
         => new(_convars, () => _movementRules?.Constants ?? Movement.Current,
                _services.Require<IEngineEnvironment>(),
-               () => (_engineServer ??= EngineServer.Acquire(_engine, out _))?.Time() ?? 0f);
+               () => _engineServer.Time());
 
     /// <summary><c>engine-&gt;IsModelPrecached( name )</c>, through IVEngineServer's forwarders.</summary>
     private bool ModelAlreadyPrecached(string name)
-        => (_engineServer ??= EngineServer.Acquire(_engine, out _)) is { } server && server.IsModelPrecached(name);
+        => _engineServer.IsModelPrecached(name);
 
-    private IFwdEngineServer? _engineServer;
+    private IFwdEngineServer _engineServer = null!;
 
     /// <summary>The managed row's Init: the sound emitter system's script table.</summary>
     private bool SoundSystemInit()
@@ -339,7 +345,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // hitbox trace reads.
     private readonly StandaloneSkeletonRoute _skeletonRoute = new();
     private ServerSkeletons _skeletons = null!;
-    private IFwdPhysicsSurfaceProps? _surfaceProps;
+    private IFwdPhysicsSurfaceProps _surfaceProps = null!;
 
     // The live entities of the three classes the engine asks about from
     // outside any one of them: fires (heat in a radius), ragdoll magnets (a
@@ -747,7 +753,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IGameThreadLiveness>(_gameThread);
         _services.AddInstance<IFrameScheduler>(_scheduler);
         _services.AddInstance<ILevelInfo>(_levelInfo);
-        _services.AddInstance(EngineServices.ClientInfo(_engine));
+        _services.AddInstance(EngineServices.ClientInfo(_engineServer));
         _services.Add<IConnectedClients, EngineClients>();
         _services.Add<IBoundPort, ProcBoundPort>();
         _services.Add<IServerConsole, ServerConsole>();
@@ -777,7 +783,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                       v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedSaveRestore",
                       v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this,
-                                                                               new SaveGameSession(Log, () => EngineServer.Acquire(_engine, out _) as ISaveMemory))));
+                                                                               new SaveGameSession(Log, _services.Require<ISaveMemory>()))));
         _bindings.Add("IManagedSoundEnt",
                       v => ManagedAreaFactory.Create(v, new SoundEntBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedHierarchy",
@@ -1055,17 +1061,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // P2.4. It was PhysParseSurfaceData in CPhysicsHook::Init (tier1's
         // KeyValues over the manifest); the files it names still go to VPhysics'
         // own parser, from here.
-        IFwdPhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string surfaceWhy);
-        if (surfaceProps is null)
-            Log.Warning($"[SourceSharp/Server] no VPhysics surface table to parse into: {surfaceWhy}\n");
-        else
-        {
-            Log.Msg($"[SourceSharp/Server] surface properties: " +
-                    $"{_services.Create<SurfacePropertyManifest>().Load(surfaceProps)} file(s) parsed\n");
-
-            // The skeletons' hitbox trace names a hit's surfaceprop from it.
-            _surfaceProps = surfaceProps;
-        }
+        // The skeletons' hitbox trace names a hit's surfaceprop from the same table.
+        Log.Msg($"[SourceSharp/Server] surface properties: " +
+                $"{_services.Create<SurfacePropertyManifest>().Load(_surfaceProps)} file(s) parsed\n");
 
         // The same phase's second pair. CSoundEnt differs from those two in one
         // way that shows here: it has MANAGED callers as well as the shim's --
@@ -1136,7 +1134,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The area portal records (plan_server_native_v2 T4d), before the
         // clients: ClientSetupVisibility's walk is IServerClients', over these.
         // By the concrete type as well, which is how the lifecycle finds it.
-        var areaPortals = new AreaPortals(() => EngineServer.Acquire(_engine, out _) as IAreaPortalEngine);
+        var areaPortals = new AreaPortals(_services.Require<IAreaPortalEngine>());
         _services.AddInstance(areaPortals);
         _services.AddInstance<IAreaPortals>(areaPortals);
 
@@ -1485,7 +1483,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IEngineSound>(),
             _services.Require<IEngineEntities>(),
             new EngineEffectsWorld(_engine, _services.Require<IEngineEntities>(),
-                                   _services.Require<IEnginePrecache>()),
+                                   _services.Require<IEnginePrecache>(), _engineServer),
             text => Log.Warning(text)));
 
         // plan_entity.md §3.8: the physics event ring's consumer. AFTER the
@@ -1505,7 +1503,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Before any map entity too: a breaking prop queues into it.
         var physicsSounds = new PhysicsSoundBatch(new EnginePhysicsSoundWorld(
             _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsInspect(_engine.VPhysics),
-            _surfaceProps as IVPhysicsSurfaceSounds, _services.Require<IEngineSound>()));
+            _services.Require<IVPhysicsSurfaceSounds>(), _services.Require<IEngineSound>()));
         _services.AddInstance(physicsSounds);
         // Which entities touch fluid (I2): the props and the player read it.
         var fluid = new FluidTouches(new EngineSurfaceDensity(_services.Require<PhysicsSurfaces>()));
@@ -1529,8 +1527,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         IVPhysicsCollision? physicsCollision = PhysicsCollision.Acquire(_engine, out string collisionWhy);
         if (physicsCollision is null)
             Log.Warning($"[SourceSharp/Server] no VPhysics collision table: player shadows cannot be built: {collisionWhy}\n");
-        if (_surfaceProps is null)
-            Log.Warning("[SourceSharp/Server] no VPhysics surface table: player shadows use surfaceprop 0\n");
         var shadowBodies = PlayerShadowBodies.ForEngine(
             _engine, new VPhysicsShadowCalls(physicsCollision, _surfaceProps, _engine.VPhysics),
             () => _playerShadow?.Value ?? true, text => Log.Warning(text), _playerMoves, _moveData);
@@ -1861,9 +1857,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // A lifecycle participant (level shutdown drops every skeleton and
         // image), so registered before the driver below.
         _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
-                                         new StudioModels(_engine.StudioMemory()),
+                                         new StudioModels(_services.Require<IStudioMemory>()),
                                          _services.Require<IGameClock>(), Log,
-                                         _convars.Get<AnimThreeWayBlendConVar>(), _surfaceProps);
+                                         _surfaceProps, _convars.Get<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
@@ -1958,9 +1954,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // kServerSystems[]'s order, managed's since plan_server_native_v2 T4e.
         _gameDll.Systems = new ServerSystems(_services.Require<IEngineLevel>(), _services.Require<IEngineFrame>(),
                                              NewSystemRow(), Log);
-        _gameDll.SoundScripts = SoundEmitterBase.Acquire(_engine, out string soundWhy);
-        if (_gameDll.SoundScripts is null)
-            Log.Warning($"[SourceSharp/Server] no sound script table for model sounds: {soundWhy}\n");
+        _gameDll.SoundScripts = _services.Require<IFwdSoundEmitter>();
 
         _services.AddInstance<IServerLifetime>(_gameDll);
         _services.AddInstance<IServerLevel>(_gameDll);
@@ -3087,7 +3081,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The server's traces (plan_server_native_v2 T4f): IEngineTrace::
         // TraceRay through its forwarder, over the trace filter libss_fwd_server
         // builds in a managed block, which the managed trace rule answers.
-        _traceFilter = ServerTraceRouting.Build(_engine, vtables, CollisionRules.BuildMatrix(), out string tracesWhy);
+        _traceFilter = ServerTraceRouting.Build(_engine, vtables, CollisionRules.BuildMatrix(), _services.Require<IFwdModelInfo>(),
+                                                _services.Require<IFwdEngineTrace>(), out string tracesWhy);
         if (_traceFilter is null)
             Log.Warning($"[SourceSharp/Server] no trace filter, so the server traces nothing: {tracesWhy}\n");
 
@@ -3163,13 +3158,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             }
             else
             {
-                IFwdSoundEmitter? emitter = SoundEmitterBase.Acquire(_engine, out string emitterWhy);
-                if (emitter is null)
-                    Log.Warning($"[SourceSharp/Server] the surface sounds' handles stay invalid: {emitterWhy}\n");
+                IFwdSoundEmitter emitter = _services.Require<IFwdSoundEmitter>();
 
                 _physicsWorld = new ServerPhysicsWorld(_physicsWorldVPhysics, _physicsWorldVPhysics,
                     ServerPhysicsWorld.ServerPrecache(_services.Require<IEnginePrecache>().PrecacheSound,
-                                                      emitter is null ? null : emitter.SoundIndex),
+                                                      emitter.SoundIndex),
                     solidKeys.Solids.DefaultName);
 
                 // An entity's physics object (InitPhysics to managed): made
@@ -3213,21 +3206,20 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// table, the server's engine sound and engine server through their
     /// forwarders, and the native IRecipientFilter libss_fwd_server builds in
     /// a managed block, which every emit points at its recipients. The side's
-    /// sound members are routed to it. Without any of the four the server
-    /// makes no sound, and says why.
+    /// sound members are routed to it. The three engine interfaces are the
+    /// registered ones; without the recipient filter the server makes no
+    /// sound, and says why.
     /// </summary>
     private void BuildSounds(ManagedVtables vtables)
     {
-        IFwdSoundEmitter? scripts = SoundEmitterBase.Acquire(_engine, out string scriptsWhy);
-        IFwdEngineSoundServer? sound = EngineSoundServer.Acquire(_engine, out string soundWhy);
-        BuildSoundSystem(scripts, scriptsWhy, sound, soundWhy);
-        IFwdEngineServer? server = EngineServer.Acquire(_engine, out string serverWhy);
+        var scripts = _services.Require<IFwdSoundEmitter>();
+        var sound = _services.Require<IFwdEngineSoundServer>();
+        BuildSoundSystem(scripts, sound);
+        IFwdEngineServer server = _engineServer;
         RecipientFilterObject? filters = RecipientFilterObject.Acquire(_engine, out string filtersWhy);
-        if (scripts is null || sound is null || server is null || filters is null)
+        if (filters is null)
         {
-            Log.Warning("[SourceSharp/Server] no sound emitter: "
-                        + (scripts is null ? scriptsWhy : sound is null ? soundWhy : server is null ? serverWhy : filtersWhy)
-                        + "\n");
+            Log.Warning($"[SourceSharp/Server] no sound emitter: {filtersWhy}\n");
             return;
         }
 
@@ -3276,18 +3268,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// ServerGameDll.MapLoadPreEntity, the level's end last in LevelShutdown,
     /// its Shutdown last in the final unload's Shutdown.
     /// </summary>
-    private void BuildSoundSystem(IFwdSoundEmitter? scripts, string scriptsWhy,
-                                  IFwdEngineSoundServer? sound, string soundWhy)
+    private void BuildSoundSystem(IFwdSoundEmitter scripts, IFwdEngineSoundServer sound)
     {
-        IFwdBaseFileSystem? files = EngineBaseFileSystem.Acquire(_engine, out string filesWhy);
-        IFwdFileSystem? dirs = EngineFileSystemServer.Acquire(_engine, out string dirsWhy);
-        if (scripts is null || sound is null || files is null || dirs is null)
-        {
-            Log.Warning("[SourceSharp/Server] no sound emitter system, so no sound is precached: "
-                        + (scripts is null ? scriptsWhy : sound is null ? soundWhy : files is null ? filesWhy : dirsWhy)
-                        + "\n");
-            return;
-        }
+        var files = _services.Require<IFwdBaseFileSystem>();
+        var dirs = _services.Require<IFwdFileSystem>();
 
         _soundSystem = new SoundEmitterSystem(
             new SoundPrecacheEngine(scripts, sound, files, dirs, _services.Require<IEngineLevel>()),

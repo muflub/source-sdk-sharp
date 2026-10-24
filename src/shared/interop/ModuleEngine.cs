@@ -134,9 +134,4 @@ public sealed partial class ModuleEngine
     /// <summary>This engine's game clock (plan_engineapi_vtables B5).</summary>
     public IGameClock Clock() => new EngineClock(Api);
 
-    /// <summary>
-    /// This engine's model cache, read as bytes (plan physics_bones_native_zero
-    /// step 1.2): what the managed skeleton builds its studio headers from.
-    /// </summary>
-    public IStudioMemory StudioMemory() => new EngineStudioMemory(Api);
 }

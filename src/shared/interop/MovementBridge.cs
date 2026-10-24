@@ -200,17 +200,22 @@ public static unsafe class MovementBridge
     {
         // The side and its movement area, given by the runner that owns this
         // world (plan_abi_hotreload D8); it was Engine.Current.Slots per call.
-        // The side for its bound interfaces (the trace, the surface props) and
-        // its movement trace, which each side runs its own way.
+        // The side for its movement trace, which each side runs its own way,
+        // and the side's trace and surface table, as its composition
+        // registered them.
         private readonly EngineSide _api;
         private readonly IMovementArea _movement;
+        private readonly IFwdEngineTrace _trace;
+        private readonly IFwdPhysicsSurfaceProps _surfaces;
 
         private readonly MovePointContentsCache _pointContents = new();
 
-        internal EngineMoveWorld(EngineSide api, IMovementArea movement)
+        internal EngineMoveWorld(EngineSide api, IMovementArea movement, IFwdEngineTrace trace, IFwdPhysicsSurfaceProps surfaces)
         {
             _api = api ?? throw new ArgumentNullException(nameof(api));
             _movement = movement ?? throw new ArgumentNullException(nameof(movement));
+            _trace = trace ?? throw new ArgumentNullException(nameof(trace));
+            _surfaces = surfaces ?? throw new ArgumentNullException(nameof(surfaces));
         }
 
         /// <summary>
@@ -254,7 +259,7 @@ public static unsafe class MovementBridge
             if (_pointContents.TryGet(point, slot, out int cached))
                 return cached;
 
-            int contents = EngineBound.Trace(_api).PointContents(point);
+            int contents = _trace.PointContents(point);
             _pointContents.Store(point, slot, contents);
             return contents;
         }
@@ -262,7 +267,7 @@ public static unsafe class MovementBridge
         public void ResetPointContentsCache(bool optimizations) => _pointContents.Reset(optimizations);
 
         public MoveSurface Surface(int surfaceProps)
-            => EngineBound.SurfaceProps(_api).Surface(surfaceProps);
+            => _surfaces.Surface(surfaceProps);
 
         private int Effect(MoveEffectKind kind, in Vector xyz, float value, int flag)
         {

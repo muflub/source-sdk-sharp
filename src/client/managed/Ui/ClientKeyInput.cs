@@ -30,12 +30,10 @@ namespace SourceSharp.Client.Vgui;
 /// The chat key opened nothing before this: the fork's StartMessageMode lost
 /// its CHudChat, and KeyInput still used the key.
 /// </summary>
-public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, Func<IFwdEngineClient?> engine)
+public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, IFwdEngineClient engine)
     : IClientKeyEvents
 {
     public const int EngineRuns = 1, Used = 0, NoDecision = UiClientBinding.KeyNoDecision;
-
-    private IFwdEngineClient? _engine;
 
     public int KeyInput(bool down, ClientKeyBinding binding, bool consoleVisible, int maxClients)
     {
@@ -74,9 +72,5 @@ public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, F
         }
     }
 
-    private void Run(SpectatorKeyCommand command)
-    {
-        _engine ??= engine();
-        _engine?.SpectatorCommand(command);
-    }
+    private void Run(SpectatorKeyCommand command) => engine.SpectatorCommand(command);
 }

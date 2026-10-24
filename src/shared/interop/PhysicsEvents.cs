@@ -379,15 +379,15 @@ public struct PhysicsEvent
 /// </summary>
 public sealed class PhysicsSurfaces
 {
-    // The side whose IPhysicsSurfaceProps forwarders answer (EngineBound),
-    // since 2026-10-19, where a movement slot read the same table.
-    private readonly EngineSide _api;
+    // The side's IPhysicsSurfaceProps, as its composition registered it
+    // (2026-10-19: a movement slot read the same table).
+    private readonly IFwdPhysicsSurfaceProps _surfaces;
 
-    internal PhysicsSurfaces(EngineSide api)
+    internal PhysicsSurfaces(IFwdPhysicsSurfaceProps surfaces)
     {
-        _api = api ?? throw new ArgumentNullException(nameof(api));
+        _surfaces = surfaces ?? throw new ArgumentNullException(nameof(surfaces));
     }
 
     /// <summary>The surfaceprop at that index, or <c>default</c>.</summary>
-    public MoveSurface Of(int surfaceProps) => EngineBound.SurfaceProps(_api).Surface(surfaceProps);
+    public MoveSurface Of(int surfaceProps) => _surfaces.Surface(surfaceProps);
 }

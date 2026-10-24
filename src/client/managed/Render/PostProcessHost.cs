@@ -15,14 +15,14 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
     private readonly IFxRender? _fx;
     private readonly IEngineConsole? _console;
     private readonly ILog? _log;
-    private readonly Func<IFwdEngineClient?> _engine;
+    private readonly IFwdEngineClient _engine;
     private readonly Dictionary<string, int> _materials = new(StringComparer.Ordinal);
     private readonly RenderPlanBuilder _builder = new();
     private readonly PostProgramEffects _effects = new();
     private readonly PostOpsWriter _writer;
 
     public PostProcessHost(IHooks<IPostProcessContributor> contributors, IFxRender fx,
-                           IEngineConsole console, ILog log, Func<IFwdEngineClient?> engine)
+                           IEngineConsole console, ILog log, IFwdEngineClient engine)
         : this(engine, contributors)
     {
         _fx = fx;
@@ -30,10 +30,10 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
         _log = log;
     }
 
-    internal PostProcessHost(Func<IFwdEngineClient?> engine, IHooks<IPostProcessContributor>? contributors = null)
+    internal PostProcessHost(IFwdEngineClient engine, IHooks<IPostProcessContributor>? contributors = null)
     {
         _engine = engine;
-        Planner = new PostProcessPlanner(() => _engine()?.GameDirectory() ?? string.Empty, contributors);
+        Planner = new PostProcessPlanner(() => _engine.GameDirectory() ?? string.Empty, contributors);
         _writer = new PostOpsWriter(_builder, Material);
     }
 
@@ -70,11 +70,8 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
 
         foreach ((string name, string value) in _effects.CvarWrites)
             _console?.SetConVarValueByName(name, value);
-        if (_effects.Prints.Count > 0 && _engine() is { } engine)
-        {
-            foreach ((int line, string text) in _effects.Prints)
-                engine.ConsolePrintAt(line, text);
-        }
+        foreach ((int line, string text) in _effects.Prints)
+            _engine.ConsolePrintAt(line, text);
         foreach (string message in _effects.DevMessages)
             _log?.Msg(message);
 

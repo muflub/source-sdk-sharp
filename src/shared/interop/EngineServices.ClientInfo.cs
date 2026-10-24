@@ -5,20 +5,20 @@ public static partial class EngineServices
     /// <summary>
     /// What the server engine knows about each connected client: its SteamID
     /// and its address (plan_host_sdk §2.3). Server only: the client engine has
-    /// no IVEngineServer. Over <paramref name="engine"/>, the composing
+    /// no IVEngineServer. Over <paramref name="server"/>, the composing
     /// module's own (plan_abi_hotreload D8).
     /// </summary>
-    public static IClientInfo ClientInfo(ModuleEngine engine)
-        => new EngineClientInfo((engine ?? throw new ArgumentNullException(nameof(engine))).Api);
+    public static IClientInfo ClientInfo(IFwdEngineServer server)
+        => new EngineClientInfo(server ?? throw new ArgumentNullException(nameof(server)));
 
-    private sealed class EngineClientInfo(EngineSide side) : IClientInfo
+    private sealed class EngineClientInfo(IFwdEngineServer server) : IClientInfo
     {
-        public ulong SteamId64(int entIndex) => EngineBound.Server(side).ClientSteamId(entIndex);
+        public ulong SteamId64(int entIndex) => server.ClientSteamId(entIndex);
 
-        public string? Address(int entIndex) => EngineBound.Server(side).ClientAddress(entIndex);
+        public string? Address(int entIndex) => server.ClientAddress(entIndex);
 
-        public float? AvgLatency(int entIndex) => EngineBound.Server(side).ClientAvgLatency(entIndex);
+        public float? AvgLatency(int entIndex) => server.ClientAvgLatency(entIndex);
 
-        public string? ClientConVar(int entIndex, string name) => EngineBound.Server(side).ClientConVarValue(entIndex, name);
+        public string? ClientConVar(int entIndex, string name) => server.ClientConVarValue(entIndex, name);
     }
 }

@@ -53,7 +53,7 @@ public sealed class AreaPortalsTests
     private readonly Engine _engine = new();
     private readonly AreaPortals _portals;
 
-    public AreaPortalsTests() => _portals = new AreaPortals(() => _engine);
+    public AreaPortalsTests() => _portals = new AreaPortals(_engine);
 
     private byte[] Walk(Vector origin, float fov = 1f)
     {
@@ -293,7 +293,7 @@ public sealed class AreaPortalsTests
 
         var record = new ReloadRecord("SourceSharp.Server.AreaPortals");
         Assert.IsAssignableFrom<ISaveCustom>(_portals).OnSave(new SaveRecordAccess(record, record.Owner, new RecordingLog()));
-        var after = new AreaPortals(() => _engine);
+        var after = new AreaPortals(_engine);
         Assert.IsAssignableFrom<ISaveCustom>(after).OnRestore(new SaveRecordAccess(record, record.Owner, new RecordingLog()));
 
         Assert.Equal(_portals.Describe(), after.Describe());

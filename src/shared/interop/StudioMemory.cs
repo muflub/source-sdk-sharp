@@ -5,14 +5,15 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed class EngineStudioMemory : IStudioMemory
 {
-    private readonly EngineSide _side;
+    // The side's IVModelInfo, as its composition registered it.
+    private readonly IFwdModelInfo _info;
 
-    internal EngineStudioMemory(EngineSide side)
+    internal EngineStudioMemory(IFwdModelInfo info)
     {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
+        _info = info ?? throw new ArgumentNullException(nameof(info));
     }
 
-    private IFwdModelInfo Info => EngineBound.ModelInfo(_side);
+    private IFwdModelInfo Info => _info;
 
     public byte[]? ModelImage(int modelIndex) => Info.StudioImage(modelIndex, null);
 

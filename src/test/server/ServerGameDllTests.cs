@@ -2221,7 +2221,7 @@ public class ServerGameDllTests
     {
         var (dll, _) = Build();
         var skeletons = new SourceSharp.Server.ServerSkeletons(new NoBlocks(), new SourceSharp.Shared.Bones.StudioModels(new NoMemory()),
-                                                               new NoClock(), new RecordingLog());
+                                                               new NoClock(), new RecordingLog(), new DefaultForwarders.NoSurfaceProps());
         skeletons.States.GetOrCreate(new EntityHandle(0x00010003u)).CacheKey.ModelIndex = 5;
         dll.Skeletons = skeletons;
 

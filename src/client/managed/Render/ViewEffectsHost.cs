@@ -23,16 +23,16 @@ public sealed class ViewEffectsHost
     private readonly IUniformRandom _random;
     private readonly IGameClock _clock;
     private readonly Func<bool> _show;
-    private readonly Func<IFwdEngineClient?> _engine;
+    private readonly IFwdEngineClient _engine;
     private readonly Action<float>? _rumble;
 
-    public ViewEffectsHost(IUniformRandom random, IGameClock clock, ShakeShowConVar show, Func<IFwdEngineClient?> engine,
+    public ViewEffectsHost(IUniformRandom random, IGameClock clock, ShakeShowConVar show, IFwdEngineClient engine,
                            Action<float>? rumble)
         : this(random, clock, () => show.Value, engine, rumble)
     {
     }
 
-    internal ViewEffectsHost(IUniformRandom random, IGameClock clock, Func<bool> show, Func<IFwdEngineClient?> engine, Action<float>? rumble)
+    internal ViewEffectsHost(IUniformRandom random, IGameClock clock, Func<bool> show, IFwdEngineClient engine, Action<float>? rumble)
     {
         _random = random;
         _clock = clock;
@@ -54,9 +54,8 @@ public sealed class ViewEffectsHost
     /// <summary>CalcShake for this frame's view; its rumble angle to the mixer, shake_show's lines to the overlay.</summary>
     public ShakeFrame CalcShake(float curTime, float frameTime)
     {
-        IFwdEngineClient? engine = _show() ? _engine() : null;
         ShakeFrame f = Effects.CalcShake(curTime, frameTime, _random,
-            engine is null ? null : (index, text) => engine.ConsolePrintAt(index, 2.0f, 1.0f, 0.8f, 0.1f, true, text));
+            _show() ? (index, text) => _engine.ConsolePrintAt(index, 2.0f, 1.0f, 0.8f, 0.1f, true, text) : null);
         _rumble?.Invoke(f.RumbleAngle);
         return f;
     }

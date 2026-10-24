@@ -61,7 +61,7 @@ public sealed class UiLoaderTests : IDisposable
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         var services = UiHostKit.RuntimeServices(_engine, _surface, _dir,
             k => listedInMods && k == ModInfo.Keys.ClientUiAssemblies ? string.Join(';', modAssemblies ?? []) : null);
-        var s = new UiRuntimeServices(services, new RecordingLog(), hud, new UiHostKit.NoArsenal(), null, () => null, () => null);
+        var s = new UiRuntimeServices(services, new RecordingLog(), hud, new UiHostKit.NoArsenal(), null, new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
         return new UiLoader(new RecordingLog(), _engine, _dir, () => s, parent: AssemblyLoadContext.Default,
                             modAssemblies: modAssemblies) { DrawHud = drawHud };
     }
@@ -267,7 +267,7 @@ public sealed class UiLoaderTests : IDisposable
         var hud = new Hud(log, _engine, _engine, new DamageMessage(), new HudMsgMessage(),
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         var services = new ServiceContainer();
-        var s = new UiRuntimeServices(services, log, hud, new UiHostKit.NoArsenal(), null, () => null, () => null);
+        var s = new UiRuntimeServices(services, log, hud, new UiHostKit.NoArsenal(), null, new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
         var l = new UiLoader(log, _engine, _dir, () => s, parent: AssemblyLoadContext.Default,
                              modAssemblies: ["NoSuchMod.Ui"])
         {

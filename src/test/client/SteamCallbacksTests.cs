@@ -313,7 +313,7 @@ public unsafe class SteamCallbacksTests
     [Fact]
     public void NoCallbacksWhereTheFactoryServesNoCallbackTable()
     {
-        using var root = new FakeShimRoot();   // serves no SSFwd_SteamCallback
+        using var root = new FakeShimRoot().Refuse("SSFwd_SteamCallback");
         var side = TestSides.Create(Side.Client);
         side.Initialize();
         Assert.True(side.AttachOwnShims(root.Bind(), out string attach), attach);

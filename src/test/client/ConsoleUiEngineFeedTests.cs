@@ -17,7 +17,7 @@ public sealed class ConsoleUiEngineFeedTests
     public void An_engine_line_appears_in_the_window()
     {
         var lines = new ConsoleLines();
-        var ui = new ConsoleUi(() => null, lines);
+        var ui = new ConsoleUi(new DefaultForwarders.NoEngineClient(), lines);
 
         lines.Line("playershadow: enabled=1\n", isWarning: false);
 
@@ -29,7 +29,7 @@ public sealed class ConsoleUiEngineFeedTests
     public void An_engine_warning_is_severity_warning()
     {
         var lines = new ConsoleLines();
-        var ui = new ConsoleUi(() => null, lines);
+        var ui = new ConsoleUi(new DefaultForwarders.NoEngineClient(), lines);
 
         lines.Line("careful\n", isWarning: true);
 
@@ -43,7 +43,7 @@ public sealed class ConsoleUiEngineFeedTests
         // Submit already echoes "] status" locally; the engine echoes the
         // same text back through the feed, and the window shows one row.
         var lines = new ConsoleLines();
-        var ui = new ConsoleUi(() => null, lines);
+        var ui = new ConsoleUi(new DefaultForwarders.NoEngineClient(), lines);
 
         ui.Char('s');
         ui.Char('t');
@@ -64,7 +64,7 @@ public sealed class ConsoleUiEngineFeedTests
     public void Dispose_stops_the_flow()
     {
         var lines = new ConsoleLines();
-        var ui = new ConsoleUi(() => null, lines);
+        var ui = new ConsoleUi(new DefaultForwarders.NoEngineClient(), lines);
         ui.Dispose();
 
         lines.Line("after teardown\n", isWarning: false);
@@ -77,7 +77,7 @@ public sealed class ConsoleUiEngineFeedTests
     public void Without_lines_the_window_keeps_only_typed_rows()
     {
         // The old shape still works: no engine source, typed echoes only.
-        var ui = new ConsoleUi(() => null);
+        var ui = new ConsoleUi(new DefaultForwarders.NoEngineClient());
         ui.Char('x');
         ui.Key(UiKey.Enter);
 

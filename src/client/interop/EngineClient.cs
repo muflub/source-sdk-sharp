@@ -40,14 +40,11 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     /// <summary>
     /// The engine client, or null with the reason, acquired through
-    /// <paramref name="engine"/>'s own interface factory. Null on the server,
+    /// the side's own interface factory. Null on the server,
     /// which is not an error: this interface exists only on the client.
     /// </summary>
-    public static IFwdEngineClient? Acquire(ModuleEngine engine, out string why)
+    internal static IFwdEngineClient? Acquire(EngineSide side, out string why)
     {
-        ArgumentNullException.ThrowIfNull(engine);
-        EngineSide side = engine.Api;
-
         return Forwarders.TryAcquire<EngineClientFwd>(
                    side.Interfaces, SourceSharpFactoryType.AppSystem,
                    InterfaceVersion, out void* self, out EngineClientFwd* table, out why)
@@ -271,12 +268,12 @@ internal unsafe struct PlayerInfoT
 }
 
 /// <summary>
-/// The real <see cref="IFwdEngineClientSource"/>: <see cref="EngineClient.Acquire"/>
-/// over the composition's own engine, which the client's root registers.
+/// The real <see cref="IFwdEngineClientProbe"/>: the engine client asked of
+/// the composition's own side, which the client's root registers.
 /// </summary>
-internal sealed class FwdEngineClientSource(ModuleEngine engine) : IFwdEngineClientSource
+internal sealed class FwdEngineClientProbe(ModuleEngine engine) : IFwdEngineClientProbe
 {
     private readonly ModuleEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-    public IFwdEngineClient? Acquire(out string why) => EngineClient.Acquire(_engine, out why);
+    public bool Served(out string why) => EngineClient.Acquire(_engine.Api, out why) is not null;
 }

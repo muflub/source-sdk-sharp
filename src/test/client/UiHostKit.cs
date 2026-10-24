@@ -45,8 +45,8 @@ internal static class UiHostKit
         var hud = new Hud(new RecordingLog(), engine, engine, new DamageMessage(), new HudMsgMessage(),
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         var player = new LocalPlayerUi(engine, new NoArsenal(), hud);
-        var scores = new ScoreboardUi(new NoStandalones(), engine, () => null, new EnginePlayerNames(() => null, new IdentityNameFilter()), engine, engine);
-        menus ??= new UiMenus(scores, new TeamMenuUi(scores, engine, () => null, new RecordingLog()), new MotdUi(), new ConsoleUi(() => null));
+        var scores = new ScoreboardUi(new NoStandalones(), engine, new DefaultForwarders.NoEngineClient(), new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), engine, engine);
+        menus ??= new UiMenus(scores, new TeamMenuUi(scores, engine, new DefaultForwarders.NoEngineClient(), new RecordingLog()), new MotdUi(), new ConsoleUi(new DefaultForwarders.NoEngineClient()));
         var windows = new UiWindows(new MemoryWindowStore());
         var theme = SourceSharpTheme.Create();
         return new UiHost(new RecordingLog(), engine,
@@ -72,12 +72,12 @@ internal static class UiHostKit
             .AddInstance<IModInfo>(new ModInfo(k => k == ModInfo.Keys.ManagedDir || k == ModInfo.Keys.GameDir ? dir : modData?.Invoke(k)))
             .AddInstance<IUiSurface>(surface)
             .AddInstance<IClientStandalones>(new NoStandalones())
-            .AddInstance<IPlayerNames>(new EnginePlayerNames(() => null, new IdentityNameFilter()))
+            .AddInstance<IPlayerNames>(new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()))
             .AddInstance<IEngineEnvironment>(engine)
             .AddInstance<IKillFeedSource>(new NoKills())
             .AddInstance<ICentrePrintSource>(new CentrePrint(engine))
             .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
-            .AddInstance<IChatInputSource>(new ChatInputUi(() => null))
+            .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))
             .AddInstance<ILoadingDiscSource>(new LoadingDisc(engine))
             .AddInstance<IDebugOverlaySource>(new NoOverlay())
             .AddInstance<IVoiceSource>(new VoiceSpeakers(new NoVoicePlayers()));

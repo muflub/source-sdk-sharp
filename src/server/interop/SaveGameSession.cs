@@ -43,14 +43,13 @@ public sealed unsafe class SaveGameSession
     public const string EntityBlock = "SSENTITY";
 
     private readonly ILog _log;
-    private readonly ISaveMemory? _memory;
-    private readonly Func<ISaveMemory?>? _memoryOf;
+    private readonly ISaveMemory _memory;
 
-    // The block session, made on first use over whichever allocator the
-    // session was given (a constructor only stores, by the interop layer's rule).
+    // The block session, made on first use over the session's allocator (a
+    // constructor only stores, by the interop layer's rule).
     private SaveBlockSession? _blocks;
 
-    private SaveBlockSession Blocks => _blocks ??= new SaveBlockSession(_log, _memoryOf ?? (() => _memory), traceBlocks: true);
+    private SaveBlockSession Blocks => _blocks ??= new SaveBlockSession(_log, _memory, traceBlocks: true);
 
     // NUL-terminated names the token table holds BY POINTER: the engine reads
     // them back when it writes the table into the .sav, after the call that
@@ -64,21 +63,14 @@ public sealed unsafe class SaveGameSession
 
     private byte* BlobChunkName => _blobChunk != null ? _blobChunk : _blobChunk = SaveBlockSession.NativeName("BLOB");
 
-    /// <summary>A session over the engine's allocator (null: every SaveInit refuses, loudly).</summary>
-    public SaveGameSession(ILog log, ISaveMemory? memory)
-    {
-        _log = log;
-        _memory = memory;
-    }
-
     /// <summary>
-    /// A session over the engine's allocator as it is when a save starts: the
-    /// engine interface is asked at SaveInit, not when the module is built.
+    /// A session over the engine's allocator: the side's registered one, the
+    /// engine server the composition acquired.
     /// </summary>
-    public SaveGameSession(ILog log, Func<ISaveMemory?> memoryOf)
+    public SaveGameSession(ILog log, ISaveMemory memory)
     {
         _log = log;
-        _memoryOf = memoryOf;
+        _memory = memory ?? throw new ArgumentNullException(nameof(memory));
     }
 
     /// <summary>SaveInit (<see cref="SaveBlockSession.Init"/>).</summary>

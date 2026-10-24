@@ -17,6 +17,16 @@ public interface IFwdDebugOverlay
 }
 
 /// <summary>
+/// The overlay of a side the engine serves none to (a dedicated server): it
+/// draws nothing, which is what such a server shows.
+/// </summary>
+internal sealed class NoDebugOverlay : IFwdDebugOverlay
+{
+    /// <inheritdoc/>
+    public void TextAtPosition(Vector origin, int line, float duration, int r, int g, int b, int a, string text) { }
+}
+
+/// <summary>
 /// <see cref="IFwdDebugOverlay"/> over DebugOverlayFwd (2026-10-19), where
 /// the DrawWorldText shim slot made the same call through overlay_library's
 /// Overlay_TextAtPosition.

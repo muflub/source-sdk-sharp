@@ -109,9 +109,9 @@ public class SaveRestoreClientAreaTests
     {
         string module = Code("src", "client", "managed", "ClientModule.cs");
 
-        // The save game's session over the engine client's allocator, asked
-        // at SaveInit (the client save codec).
-        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedSaveRestoreClient"",\s*v => ManagedAreaFactory\.Create\(v, new SaveRestoreClientBinding\(_engine\.Crossings, Log, this,\s*new SaveBlockSession\(Log, \(\) => EngineClient\.Acquire\(_engine, out _\) as ISaveMemory, traceBlocks: false\)\)\)\);"),
+        // The save game's session over the engine client's allocator, the
+        // registered one, which asks the engine at SaveInit (the client save codec).
+        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedSaveRestoreClient"",\s*v => ManagedAreaFactory\.Create\(v, new SaveRestoreClientBinding\(_engine\.Crossings, Log, this,\s*new SaveBlockSession\(Log, _services\.Require<ISaveMemory>\(\), traceBlocks: false\)\)\)\);"),
                        module);
     }
 
@@ -133,7 +133,7 @@ public class SaveRestoreClientAreaTests
     }
 
     // The save game's session, which these reload facts never reach.
-    private static SaveBlockSession NoSession() => new(new RecordingLog(), () => null, traceBlocks: false);
+    private static SaveBlockSession NoSession() => new(new RecordingLog(), new DefaultForwarders.NoEngineClient(), traceBlocks: false);
 
     [Fact]
     public unsafe void EachSlotAnswersTheModulesValue()

@@ -110,13 +110,9 @@ public sealed unsafe class SoundEmitterBase : IFwdSoundEmitter
     }
 
     /// <summary>
-    /// From the engine's factory, through <paramref name="engine"/>'s own side
+    /// From the engine's factory, through the side's own factory
     /// (plan_abi_hotreload D8); null, with the reason, when it does not answer.
     /// </summary>
-    public static IFwdSoundEmitter? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
-
-    /// <summary>The same, through one side's own factory: what EngineBound holds per side.</summary>
     internal static IFwdSoundEmitter? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire<SoundEmitterSystemFwd>(factory, SourceSharpFactoryType.AppSystem,
                InterfaceVersion, out void* self, out SoundEmitterSystemFwd* table, out why)

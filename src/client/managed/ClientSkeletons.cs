@@ -53,7 +53,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     private readonly IEngineEnvironment _environment;
     private readonly ILog _log;
     private readonly ClAnimThreeWayBlendConVar? _threeWayBlend;
-    private readonly IFwdPhysicsSurfaceProps? _surfaceProps;
+    private readonly IFwdPhysicsSurfaceProps _surfaceProps;
     private readonly ClientBoneDriver _driver;
     private readonly BoneEntityStates _states = new();
     private readonly ClientBoneBatch _batch = ClientBoneBatch.Allocate();
@@ -63,7 +63,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     // no entry), for the flip counters below.
     private readonly Dictionary<EntityHandle, (int Frame, int Answered)> _flips = [];
     private readonly Dictionary<string, int> _surfaceIndices = new(StringComparer.Ordinal);
-    private readonly SurfacePropReader? _surfaceReader;
+    private readonly SurfacePropReader _surfaceReader;
 
     // The ragdoll answer of the ask in flight. A token rather than the native
     // id: a nested ask (a merge source) never carries one, and its state's
@@ -83,8 +83,8 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
 
     public ClientSkeletons(IStandaloneBlocks blocks, IClientSequenceStore store, StudioModels models,
                            Func<int, EntityHandle?> handleAt, IEngineEnvironment environment, ILog log,
+                           IFwdPhysicsSurfaceProps surfaceProps,
                            ClAnimThreeWayBlendConVar? threeWayBlend = null,
-                           IFwdPhysicsSurfaceProps? surfaceProps = null,
                            Func<Ragdolls.IClientRagdolls?>? ragdolls = null)
     {
         _ragdolls = ragdolls;
@@ -95,9 +95,9 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _threeWayBlend = threeWayBlend;
-        _surfaceProps = surfaceProps;
+        _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
         _driver = new ClientBoneDriver(new World(this));
-        _surfaceReader = surfaceProps is null ? null : new SurfacePropReader(SurfaceIndexOf);
+        _surfaceReader = SurfaceIndexOf;
     }
 
     /// <summary>The per-entity states, for the facts and the reports.</summary>
@@ -774,7 +774,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
 
         if (!_surfaceIndices.TryGetValue(name, out int index))
         {
-            index = _surfaceProps!.SurfaceIndex(name);
+            index = _surfaceProps.SurfaceIndex(name);
             _surfaceIndices.Add(name, index);
         }
 

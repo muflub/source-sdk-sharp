@@ -65,6 +65,9 @@ public unsafe class CollisionRulesSideTests : IDisposable
         // refuses the call, naming the area, rather than answering anything.
         var engine = EngineSide.Create(Side.Client, new SideState(Side.Client));
         engine.Initialize();
+        // Its engine interfaces answer the test defaults, so the composition
+        // reaches the area: the subject is the area's refusal.
+        DefaultForwarders.HoldOn(engine);
 
         var refusal = Assert.Throws<InvalidOperationException>(
             () => SideBindings.Of<IEngineCollisionRules>(engine).RegisterCollisionRules(CollisionRules.BuildMatrix()));

@@ -58,9 +58,11 @@ public class EngineEnvironmentTests
         IEngineEnvironment env = Attached(root);
         root.Asked.Clear();
 
-        env.GetInterface("VEngineServer023");
+        // A name the composition did not already acquire (it acquires
+        // VEngineServer023 as it registers it, and the factory keeps it).
+        env.GetInterface("VEngineCvar007");
 
-        Assert.Equal([(SourceSharpFactoryType.AppSystem, "VEngineServer023")], root.Asked);
+        Assert.Equal([(SourceSharpFactoryType.AppSystem, "VEngineCvar007")], root.Asked);
     }
 
     [Fact]

@@ -11,7 +11,7 @@ namespace SourceSharp.Client.Vgui;
 /// the engine (GetPlayerInfo), sorted by frags. Refreshed by the host once a
 /// frame while the scoreboard is open; names are asked once per user id.
 /// </summary>
-public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, Func<IFwdEngineClient?> engine,
+public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, IFwdEngineClient engine,
                                  IPlayerNames names, IEngineConsole console, IEngineEnvironment environment) : IScoreboardSource
 {
     private const int Slots = PlayerResourceNetState.Slots;
@@ -22,7 +22,6 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
     private readonly int[] _nameUserIds = new int[Slots];
     private readonly bool[] _fake = new bool[Slots];
     private int _count, _teamCount;
-    private IFwdEngineClient? _engine;
     private Standalone.ClientPlayerResource? _resource;
 
     public string ServerName { get; private set; } = string.Empty;
@@ -64,12 +63,11 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 
     public void Refresh()
     {
-        _engine ??= engine();
         if (_resource is null || !standalones.Live().Contains(_resource))
             _resource = standalones.OfClass(EntityNames.PlayerManager).OfType<Standalone.ClientPlayerResource>().FirstOrDefault();
 
         ServerName = console.FindConVarValue("hostname") ?? string.Empty;
-        string level = _engine?.LevelName() ?? string.Empty;
+        string level = engine.LevelName() ?? string.Empty;
         MapName = Path.GetFileNameWithoutExtension(level);
 
         _count = 0;
@@ -144,7 +142,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 /// frags from the scoreboard's rows; a choice is sent to the server as
 /// <c>jointeam N</c> (0 auto-assign, 1 spectate) and closes the menu.
 /// </summary>
-public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, Func<IFwdEngineClient?> engine, ILog log)
+public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, IFwdEngineClient engine, ILog log)
     : ITeamMenuSource, ITeamMenuActions
 {
     private readonly TeamChoice[] _choices = new TeamChoice[2];
@@ -184,7 +182,7 @@ public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, Func<IFwd
     public void Choose(int team)
     {
         log.Msg($"[SourceSharp/Ui] team menu: jointeam {team}\n");
-        engine()?.JoinTeam(team);
+        engine.JoinTeam(team);
         Close?.Invoke();
     }
 
@@ -254,7 +252,7 @@ public sealed class MotdUi(Func<string, string?>? infoPanel = null) : IMotdSourc
 /// </param>
 public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsoleCompletionSource, IConsoleActions, IDisposable
 {
-    private readonly Func<IFwdEngineClient?> _engine;
+    private readonly IFwdEngineClient _engine;
     private readonly ConsoleLines? _engineLines;
     private readonly object _gate = new();
     private readonly Action<string, bool>? _previousTap;
@@ -274,7 +272,7 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     /// prints freely; an unbounded list would grow all session.</summary>
     public const int MaxLines = 1024;
 
-    public ConsoleUi(Func<IFwdEngineClient?> engine, ConsoleLines? lines = null)
+    public ConsoleUi(IFwdEngineClient engine, ConsoleLines? lines = null)
     {
         _engine = engine;
         _engineLines = lines;
@@ -360,7 +358,7 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
         }
         if (_history.Count == 0 || _history[^1] != line)
             _history.Add(line);
-        _engine()?.SubmitConsoleLine(line);
+        _engine.SubmitConsoleLine(line);
     }
 
     /// <summary>
@@ -466,21 +464,19 @@ public sealed class EngineConVarStore(IEngineConsole console) : IUiConVarStore
 /// as console lines, and a captured button's name from the input system.
 /// Names are upper case, as stock's keyboard options show them.
 /// </summary>
-public sealed class EngineKeyBindingStore(IEngineHud screen, Func<IFwdEngineClient?> engine, Func<IFwdInputSystem?> input)
+public sealed class EngineKeyBindingStore(IEngineHud screen, IFwdEngineClient engine, IFwdInputSystem input)
     : IUiKeyBindingStore
 {
-    private IFwdEngineClient? _engine;
-    private IFwdInputSystem? _input;
 
     public string? KeyFor(string command)
         => screen.LookupBinding(command) is { Length: > 0 } key ? key.ToUpperInvariant() : null;
 
     public void Bind(string key, string command)
-        => (_engine ??= engine())?.SubmitConsoleLine($"bind \"{key}\" \"{command}\"");
+        => engine.SubmitConsoleLine($"bind \"{key}\" \"{command}\"");
 
     public void Unbind(string key)
-        => (_engine ??= engine())?.SubmitConsoleLine($"unbind \"{key}\"");
+        => engine.SubmitConsoleLine($"unbind \"{key}\"");
 
     public string? KeyName(int buttonCode)
-        => (_input ??= input())?.ButtonName(buttonCode)?.ToUpperInvariant();
+        => input.ButtonName(buttonCode)?.ToUpperInvariant();
 }

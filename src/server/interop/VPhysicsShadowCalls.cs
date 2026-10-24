@@ -110,7 +110,7 @@ public interface IVPhysicsShadowCalls
 }
 
 /// <summary>The real vphysics. Holds only the two factory tables.</summary>
-public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IFwdPhysicsSurfaceProps? surfaces,
+public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IFwdPhysicsSurfaceProps surfaces,
                                                VPhysicsTables vphysics)
     : IVPhysicsShadowCalls
 {
@@ -124,7 +124,7 @@ public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IF
 
     public nint BoxCollide(Vector mins, Vector maxs) => collision?.BoxCollide(mins, maxs) ?? 0;
 
-    public int SurfaceIndex(string name) => surfaces?.SurfaceIndex(name) ?? 0;
+    public int SurfaceIndex(string name) => surfaces.SurfaceIndex(name);
 
     public nint CreatePolyObject(nint environment, nint collide, int surfaceProps, Vector origin, in VPhysicsObjectParams p)
     {
