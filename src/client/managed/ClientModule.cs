@@ -352,13 +352,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<IReloadSections>(new ReloadSections(_engine.Reload));
         _reloadSections = _services.Require<IReloadSections>();
 
-        // This side's model caches, its engine's own (plan_abi_hotreload D8):
-        // the render binding reads them through that engine, and the
-        // model-descriptor report is handed them from here. The runtime
-        // binding clears them at level shutdown.
-        _services.AddInstance(_engine.Models);
-        _services.AddInstance(_engine.Breaks);
-
         // The mirror gate's independent oracle, over this side's own slots.
         _services.AddInstance(StandaloneSlotReference.For(_engine, _skeletonRoute));
 
@@ -469,7 +462,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     internal StandaloneClientBinding NewStandaloneBinding() => new(_engine.Crossings, Log, this, _mirror, _netStates);
 
     /// <summary>The runtime handler the root builds, which clears this composition's mirror at level shutdown.</summary>
-    internal ClientRuntimeBinding NewRuntimeBinding() => new(_engine.Crossings, Log, this, _mirror, _engine.Models, _engine.Breaks);
+    internal ClientRuntimeBinding NewRuntimeBinding() => new(_engine.Crossings, Log, this, _mirror, _services.Require<ModelDescriptors>(), _services.Require<BreakModels>());
 
     // Log's sink for this side while the module is composed (plan_abi_hotreload
     // D5): the module's own ILog, attached at composition and taken back in
@@ -1430,7 +1423,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The model descriptors are read from the same studio headers
         // (studio.cpp's eviction): sequences, events, attachments and each
         // sequence's default duration.
-        _descriptorAttachment = _engine.Models.AttachSource(new SourceSharp.Shared.Bones.StudioModelDescriptor(_skeletons.Models));
+        _descriptorAttachment = _services.Require<ModelDescriptors>().AttachSource(new SourceSharp.Shared.Bones.StudioModelDescriptor(_skeletons.Models));
 
         // THE CLIENT'S RAGDOLLS (plan physics_bones_native_zero Phase 3):
         // ragdoll_shared.cpp, CRagdoll and ragdoll_library.cpp's table in

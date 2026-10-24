@@ -257,6 +257,9 @@ internal sealed unsafe partial class EnginePrecache : IEnginePrecache
     // The side's model info, as its composition registered it.
     private readonly IFwdModelInfo _modelInfo;
 
+    // The side's break-piece lists, as its composition registered them.
+    private readonly BreakModels _breaks;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
@@ -266,9 +269,9 @@ internal sealed unsafe partial class EnginePrecache : IEnginePrecache
     public int ModelFrameCount(int modelIndex) => _modelInfo.FrameCountAt(modelIndex);
     public ModelType ModelTypeOf(int modelIndex) => _modelInfo.TypeAt(modelIndex);
     // Answered in C# (BreakModels), parsed once per model per level.
-    public int BreakPieceCount(string model) => E.Breaks.Count(model);
+    public int BreakPieceCount(string model) => _breaks.Count(model);
     public bool BreakPieceAt(string model, int index, float defaultBurstScale, CollisionGroup defaultCollisionGroup, out string pieceModel, out BreakPiece piece)
-        => E.Breaks.PieceAt(model, index, defaultBurstScale, defaultCollisionGroup, out pieceModel, out piece);
+        => _breaks.PieceAt(model, index, defaultBurstScale, defaultCollisionGroup, out pieceModel, out piece);
 }
 
 // THE BINDINGS THAT CALL AN ENGINE INTERFACE take it by constructor, as the
@@ -798,6 +801,9 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     // The side's model info, as its composition registered it.
     private readonly IFwdModelInfo _modelInfo;
 
+    // The side's model descriptors, as its composition registered them.
+    private readonly ModelDescriptors _models;
+
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
     // own, and that side's transitional defaults (EngineSide.Defaults).
@@ -889,11 +895,11 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     // only shape that is the same on both sides by construction.
     //=========================================================================
     public int LookupSequence(EntityHandle entity, string name)
-        => E.Models.For(entity).LookupSequence(name);
+        => _models.For(entity).LookupSequence(name);
     public int LookupSequenceByActivity(EntityHandle entity, string activityName)
-        => E.Models.For(entity).LookupSequenceByActivity(activityName);
+        => _models.For(entity).LookupSequenceByActivity(activityName);
     public float SequenceDuration(EntityHandle entity, int sequence)
-        => E.Models.For(entity).SequenceDuration(sequence);
+        => _models.For(entity).SequenceDuration(sequence);
     public float SequenceGroundSpeed(EntityHandle entity, int sequence)
         => Client?.SequenceGroundSpeed(entity, sequence) ?? 0f;
 
@@ -919,9 +925,9 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
         return found;
     }
     public int AttachmentCount(EntityHandle entity)
-        => E.Models.For(entity).Attachments.Count;
+        => _models.For(entity).Attachments.Count;
     public string AttachmentName(EntityHandle entity, int attachment)
-        => E.Models.For(entity).AttachmentName(attachment);
+        => _models.For(entity).AttachmentName(attachment);
 
     /// <summary>
     /// How many bones the model has, and how many the BONE CACHE is holding.
@@ -940,7 +946,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     {
         cached = Skeletons?.CachedBoneCount(entity) ?? 0;
 
-        return E.Models.For(entity).BoneCount;
+        return _models.For(entity).BoneCount;
     }
     public StandaloneBones? BoneMatrices(EntityHandle entity)
         => Skeletons?.BoneMatrices(entity);
@@ -976,7 +982,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     /// <summary>Whether the engine stopped sending this entity, asked of the client's slot.</summary>
     private partial bool EngineIsDormant(EntityHandle entity);
     public int SequenceEventCount(EntityHandle entity, int sequence)
-        => E.Models.For(entity).EventsOf(sequence).Count;
+        => _models.For(entity).EventsOf(sequence).Count;
     /// <summary>
     /// Where the animation has got to — computed from managed's own record,
     /// with the cycle arithmetic <c>C_StandaloneEntity::SequenceCycle</c> uses
@@ -1044,7 +1050,7 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
         name = string.Empty;
         options = string.Empty;
 
-        IReadOnlyList<ModelSequenceEvent> events = E.Models.For(entity).EventsOf(sequence);
+        IReadOnlyList<ModelSequenceEvent> events = _models.For(entity).EventsOf(sequence);
 
         if (index < 0 || index >= events.Count)
             return false;

@@ -1329,13 +1329,13 @@ internal sealed unsafe partial class EngineEntityRender
     /// the push handlers.
     /// </para>
     /// </summary>
-    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo, ModelDescriptors models,
                               StandaloneMirror mirror,
                               IModelsArea modelsArea,
                               IEntitiesServerArea entitiesServerArea,
                               IModelsServerArea modelsServerArea,
                               INetworkServerArea networkServerArea)
-        : this(side, modelInfo,
+        : this(side, modelInfo, models,
                mirror,
                new StandaloneSkeletonRoute(),
                modelsArea,
@@ -1352,7 +1352,7 @@ internal sealed unsafe partial class EngineEntityRender
     /// and native only before that. EngineServices.Build picks this
     /// constructor when the container holds a route.
     /// </summary>
-    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo, ModelDescriptors models,
                               StandaloneMirror mirror,
                               StandaloneSkeletonRoute skeletons,
                               IModelsArea modelsArea,
@@ -1362,6 +1362,7 @@ internal sealed unsafe partial class EngineEntityRender
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
+        _models = models ?? throw new ArgumentNullException(nameof(models));
         _mirror = mirror;
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
         _modelsArea = modelsArea ?? throw new ArgumentNullException(nameof(modelsArea));
@@ -2107,11 +2108,12 @@ internal sealed unsafe partial class EnginePrecache
     // The server's IVEngineServer, as its composition registered it: the decals'.
     private readonly IFwdEngineServer _server;
 
-    public EnginePrecache(EngineSide side, IFwdEngineServer server, IFwdModelInfo modelInfo)
+    public EnginePrecache(EngineSide side, IFwdEngineServer server, IFwdModelInfo modelInfo, BreakModels breaks)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
+        _breaks = breaks ?? throw new ArgumentNullException(nameof(breaks));
     }
 
     // Through the string tables' forwarders since 2026-10-19, where the

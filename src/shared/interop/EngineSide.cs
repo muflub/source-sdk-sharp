@@ -171,27 +171,10 @@ internal sealed unsafe partial class EngineSide
     /// <summary>Where this side's removals are marked.</summary>
     internal EntityRemovalRoutes Removal { get; } = new();
 
-    // plan_abi_hotreload D8: this side's model caches, its own instances rather
-    // than one static pair chosen by the thread's active side. The render and
-    // precache bindings read them through the side they are bound to; the
-    // module hands them on (ModuleEngine) and clears them at level shutdown.
-
-    /// <summary>This side's model descriptors, cached per model per level.</summary>
-    internal ModelDescriptors Models
-        => _models ??= new ModelDescriptors(model => EngineBound.ModelInfo(this).ModelIndex(model), EntityGetModelName, Log);
-
-    private ModelDescriptors? _models;
-
-    /// <summary>
-    /// This side's break-piece lists, parsed once per model per level. The
-    /// precache is the server's (OwnModelPrecache, in each side's half): the
-    /// client hands none in and a missing model answers -1, as the null slot did.
-    /// </summary>
-    internal BreakModels Breaks
-        => _breaks ??= new BreakModels(model => EngineBound.ModelInfo(this).ModelIndex(model), OwnModelPrecache,
-                                       index => EngineBound.ModelInfo(this).CollisionKeyValueText(index), Models, Log);
-
-    private BreakModels? _breaks;
+    // plan_abi_hotreload D8: this side's model caches are its composition's
+    // own (EngineServices.AddTo builds them over the side's model info, its
+    // model names below and its OwnModelPrecache), and the bindings that read
+    // them are handed them by constructor.
 
     /// <summary>
     /// The handle a trace may be told to skip: <see cref="EntityHandle.None"/>

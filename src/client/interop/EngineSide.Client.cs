@@ -58,7 +58,7 @@ internal sealed unsafe partial class EngineSide
     /// The model precache the side's break models use: none, as the client's
     /// slot was null, so a missing model answers -1.
     /// </summary>
-    private Func<string, int>? OwnModelPrecache => null;
+    internal Func<string, int>? OwnModelPrecache => null;
 
     /// <summary>
     /// <c>IVEngineClient::Con_NPrintf</c>, which is varargs and so cannot be

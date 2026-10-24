@@ -24,9 +24,9 @@ namespace SourceSharp.Abi;
 /// </para>
 ///
 /// <para>
-/// <b>ONE INSTANCE PER SIDE</b> (plan_abi_hotreload D8): each side's engine owns
-/// its own (<c>EngineSide.Breaks</c>), over that side's model info, precache and
-/// descriptors. It used to be a static class whose two tables were chosen by
+/// <b>ONE INSTANCE PER SIDE</b> (plan_abi_hotreload D8): each side's composition
+/// owns its own (<c>EngineServices.AddModelCaches</c>), over that side's
+/// registered model info, precache and descriptors. It used to be a static class whose two tables were chosen by
 /// the thread's active side, so two game instances in one process shared them.
 /// </para>
 ///

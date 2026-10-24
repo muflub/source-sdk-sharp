@@ -56,9 +56,9 @@ public static partial class EngineServices
     {
         int count = 0;
 
-        // THE ENGINE INTERFACES FIRST, NON-NULL (AddForwarders): a binding
-        // that calls one takes it by constructor.
-        AddForwarders(services, side);
+        // WHAT THE BINDINGS ARE BUILT OVER FIRST: a binding takes it by
+        // constructor.
+        AddBindingServices(services, side);
 
         foreach (var (contract, binding) in Bindings(side, services))
         {
@@ -121,6 +121,36 @@ public static partial class EngineServices
         services.AddInstance<IStudioMemory>(new EngineStudioMemory(modelInfo));
         services.AddInstance(EngineBound.DebugOverlay(side));
         AddSideForwarders(services, side);
+    }
+
+    /// <summary>
+    /// What the side's bindings are built over, registered before them: the
+    /// engine interfaces, non-null (<see cref="AddForwarders"/>), then the
+    /// side's model caches over the model info those registered
+    /// (<see cref="AddModelCaches"/>). A container that builds bindings
+    /// outside <see cref="AddTo"/> registers this first, as AddTo does.
+    /// </summary>
+    internal static void AddBindingServices(ServiceContainer services, EngineSide side)
+    {
+        AddForwarders(services, side);
+        AddModelCaches(services, side);
+    }
+
+    /// <summary>
+    /// This side's model descriptors, cached per model per level, and its
+    /// break-piece lists, parsed once per model per level, both over the
+    /// model info the composition registered. The break models' precache is
+    /// the server's (<see cref="EngineSide.OwnModelPrecache"/>): the client
+    /// hands none in and a missing model answers -1, as the null slot did.
+    /// The frame or runtime binding clears both at level shutdown.
+    /// </summary>
+    internal static void AddModelCaches(ServiceContainer services, EngineSide side)
+    {
+        IFwdModelInfo modelInfo = services.Require<IFwdModelInfo>();
+        var models = new ModelDescriptors(modelInfo.ModelIndex, side.EntityGetModelName, side.Log);
+        services.AddInstance(models);
+        services.AddInstance(new BreakModels(modelInfo.ModelIndex, side.OwnModelPrecache,
+                                             modelInfo.CollisionKeyValueText, models, side.Log));
     }
 
     /// <summary>

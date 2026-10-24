@@ -14,16 +14,15 @@ namespace SourceSharp.Tests;
 internal static class EngineBoundCallerCensus
 {
     /// <summary>
-    /// The acquisition layer: the slots themselves, the composition that
-    /// acquires and registers each interface, and the side, whose own
-    /// services (its model names and break models) read its own slot.
+    /// The acquisition layer: the slots themselves and the composition that
+    /// acquires and registers each interface. The side's own model caches are
+    /// built by that composition over the model info it registered.
     /// </summary>
     public static readonly string[] Allowed =
     [
         "SourceSharp.Abi.EngineBound",
         "SourceSharp.Abi.EngineBoundSet",
         "SourceSharp.Abi.EngineServices",
-        "SourceSharp.Abi.EngineSide",
     ];
 
     private const string Bound = "SourceSharp.Abi.EngineBound";

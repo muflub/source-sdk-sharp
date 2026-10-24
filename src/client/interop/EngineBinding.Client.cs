@@ -1078,11 +1078,11 @@ internal sealed unsafe partial class EngineEntityRender
     /// the push handlers.
     /// </para>
     /// </summary>
-    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo, ModelDescriptors models,
                               StandaloneMirror mirror,
                               IModelsArea modelsArea,
                               IStandaloneClientArea standaloneClientArea)
-        : this(side, modelInfo, mirror, new StandaloneSkeletonRoute(), modelsArea, standaloneClientArea)
+        : this(side, modelInfo, models, mirror, new StandaloneSkeletonRoute(), modelsArea, standaloneClientArea)
     {
     }
 
@@ -1093,7 +1093,7 @@ internal sealed unsafe partial class EngineEntityRender
     /// and native only before that. EngineServices.Build picks this
     /// constructor when the container holds a route.
     /// </summary>
-    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo,
+    public EngineEntityRender(EngineSide side, IFwdModelInfo modelInfo, ModelDescriptors models,
                               StandaloneMirror mirror,
                               StandaloneSkeletonRoute skeletons,
                               IModelsArea modelsArea,
@@ -1101,6 +1101,7 @@ internal sealed unsafe partial class EngineEntityRender
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
+        _models = models ?? throw new ArgumentNullException(nameof(models));
         _mirror = mirror;
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
         _modelsArea = modelsArea ?? throw new ArgumentNullException(nameof(modelsArea));
@@ -1548,10 +1549,11 @@ internal sealed unsafe partial class EnginePlayers
 
 internal sealed unsafe partial class EnginePrecache
 {
-    public EnginePrecache(EngineSide side, IFwdModelInfo modelInfo)
+    public EnginePrecache(EngineSide side, IFwdModelInfo modelInfo, BreakModels breaks)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
+        _breaks = breaks ?? throw new ArgumentNullException(nameof(breaks));
     }
 
     // The server's members, as a client engine answers them: what each one's

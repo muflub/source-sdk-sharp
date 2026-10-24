@@ -91,9 +91,9 @@ public class SkeletonEvictionTests
 
         string server = File.ReadAllText(RepoLayout.Repo("src", "server", "managed", "ServerModule.cs"));
         string client = File.ReadAllText(RepoLayout.Repo("src", "client", "managed", "ClientModule.cs"));
-        Assert.Contains("_descriptorAttachment = _engine.Models.AttachSource(new StudioModelDescriptor(_skeletons.Models));",
+        Assert.Contains("_descriptorAttachment = _services.Require<ModelDescriptors>().AttachSource(new StudioModelDescriptor(_skeletons.Models));",
                         server, System.StringComparison.Ordinal);
-        Assert.Contains("_descriptorAttachment = _engine.Models.AttachSource(new SourceSharp.Shared.Bones.StudioModelDescriptor(_skeletons.Models));",
+        Assert.Contains("_descriptorAttachment = _services.Require<ModelDescriptors>().AttachSource(new SourceSharp.Shared.Bones.StudioModelDescriptor(_skeletons.Models));",
                         client, System.StringComparison.Ordinal);
     }
 }
