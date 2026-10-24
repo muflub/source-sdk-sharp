@@ -7,7 +7,7 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// The client's half of <c>SideModelCachesTests</c> (plan_abi_hotreload D8,
-/// lane d8e): a client composition registers and clears its own engine's model
+/// lane d8e): a client composition registers and clears its own model
 /// caches, and the client's level shutdown clears the caches it is handed and
 /// no others. Each side compiles its own copy of the shared interop
 /// (plan_shim_areas_split phase 3), and a client composition is built from the
@@ -24,22 +24,19 @@ public class ClientModelCachesTests
                _ => Model, new RecordingLog());
 
     [Fact]
-    public void TwoClientCompositionsRegisterAndClearTheirOwnEnginesCaches()
+    public void TwoClientCompositionsRegisterAndClearTheirOwnCaches()
     {
-        var engineA = new ModuleEngine(TestSides.Create(Side.Client));
-        var engineB = new ModuleEngine(TestSides.Create(Side.Client));
-        var a = new ClientModule(engineA, new FakeClientEngineAdapters());
-        var b = new ClientModule(engineB, new FakeClientEngineAdapters());
+        var a = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)), new FakeClientEngineAdapters());
+        var b = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)), new FakeClientEngineAdapters());
         a.ComposeEngineAreas();
         b.ComposeEngineAreas();
 
-        Assert.Same(engineA.Models, a.Services.Require<ModelDescriptors>());
-        Assert.Same(engineB.Models, b.Services.Require<ModelDescriptors>());
-        Assert.NotSame(engineA.Models, engineB.Models);
+        Assert.NotSame(a.Services.Require<ModelDescriptors>(), b.Services.Require<ModelDescriptors>());
+        Assert.NotSame(a.Services.Require<BreakModels>(), b.Services.Require<BreakModels>());
 
         var runtime = b.NewRuntimeBinding();
-        Assert.Same(engineB.Models, Held<ModelDescriptors>(runtime));
-        Assert.Same(engineB.Breaks, Held<BreakModels>(runtime));
+        Assert.Same(b.Services.Require<ModelDescriptors>(), Held<ModelDescriptors>(runtime));
+        Assert.Same(b.Services.Require<BreakModels>(), Held<BreakModels>(runtime));
     }
 
     [Fact]

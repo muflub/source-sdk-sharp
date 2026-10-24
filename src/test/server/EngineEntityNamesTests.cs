@@ -42,7 +42,7 @@ public class EngineEntityNamesTests
     private static IEngineEntityNames Binding(EngineSide side)
     {
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddForwarders(composition, side);
+        EngineServices.AddBindingServices(composition, side);
         foreach (var (contract, binding) in EngineServices.Bindings(side, composition))
         {
             if (contract == typeof(IEngineEntityNames))

@@ -119,7 +119,7 @@ public class EngineAreaTests
     {
         var side = TestSides.Create(Side.Server);
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddForwarders(composition, side);
+        EngineServices.AddBindingServices(composition, side);
         var bindings = EngineServices.Bindings(side, composition).ToArray();
         Assert.True(bindings.Length > 20, $"{bindings.Length} bindings reflected over");
 
@@ -190,7 +190,7 @@ public class EngineAreaTests
         // before its areas (the render binding's mirror, plan_abi_hotreload D7).
         var side = TestSides.Create(Side.Server);
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddForwarders(composition, side);
+        EngineServices.AddBindingServices(composition, side);
         var bindings = EngineServices.Bindings(side, composition).ToArray();
 
         Assert.True(bindings.Length == areas.Length, "every area has a binding");

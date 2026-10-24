@@ -174,7 +174,7 @@ public sealed unsafe class EngineModelInfo : IFwdModelInfo
     /// <param name="why">One line saying what failed. Empty on success.</param>
     /// <param name="interfaceVersion">
     /// Which spelling to ask for. Native serves both on both sides, so each
-    /// side asks for its own (<see cref="EngineBound.ModelInfoVersion"/>).
+    /// side asks for its own (<see cref="EngineModelInfoVersion.For"/>).
     /// </param>
     internal static IFwdModelInfo? Acquire(
         NativeInterfaceFactory factory, out string why, string interfaceVersion)

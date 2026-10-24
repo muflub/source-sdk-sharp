@@ -15,13 +15,13 @@ internal static class SideBindings
     /// <summary>
     /// The binding registered for <typeparamref name="T"/> over
     /// <paramref name="side"/>, built over a composition holding the side's
-    /// engine interfaces and <paramref name="composition"/>, each under its own type.
+    /// engine interfaces and model caches and <paramref name="composition"/>, each under its own type.
     /// </summary>
     public static T Of<T>(EngineSide side, params object[] composition) where T : class
     {
         var services = new ServiceContainer();
-        // The side's engine interfaces, as AddTo registers them first.
-        EngineServices.AddForwarders(services, side);
+        // What the side's bindings are built over, as AddTo registers it first.
+        EngineServices.AddBindingServices(services, side);
         foreach (object part in composition)
             services.AddInstance(part.GetType(), part);
         return (T)EngineServices.BindingFor(typeof(T), side, services);

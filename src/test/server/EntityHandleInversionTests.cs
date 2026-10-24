@@ -188,7 +188,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
         var side = Attached("SourceSharpCollisionServer001", nameof(ShimCollisionServerFwd.EntityOverlapReport),
                             (nint)(delegate* unmanaged<void*, uint*, int, int>)&WriteOverlaps);
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
-        EngineServices.AddForwarders(composition, side);
+        EngineServices.AddBindingServices(composition, side);
         var overlaps = (IEngineOverlaps)Assert.Single(EngineServices.Bindings(side, composition),
                                                       b => b.Contract == typeof(IEngineOverlaps)).Binding;
         var into = new OverlapPair[4];
