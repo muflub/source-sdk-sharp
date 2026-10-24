@@ -1032,23 +1032,88 @@ public class ShadowManagerOracleTests
         return f[0] == "E" && f.Length > 1 ? f[1] : f[0];
     }
 
-    /// <summary>Row for row, every row in stock's order.</summary>
+    // A float's allowance on a CPU whose rsqrtss is not the recording
+    // machine's (StockRsqrt), as GlowOverlayOracleTests allows its positions:
+    // 2^-18 of the largest float in its field. The projections, the matrices
+    // and the answers built on them start from a normalised vector, and the
+    // estimate's last bits move them by one or two ulps after the Newton step
+    // (3d088889 against 3d08888a, 41f00000 against 41efffff on an Intel CPU).
+    // A matrix's translation is a dot product of the origin with those axes
+    // and cancels, so it moves by more ulps of itself and fewer of its field
+    // (3f2262b0 against 3f2263b7, 1.6e-5 in a field whose largest is 30.7).
+    // A wrong size, axis or distance moves a float by far more than 3.8e-6 of
+    // its field.
+    private const float RsqBound = 1.0f / 262144.0f;
+
+    /// <summary>
+    /// Whether a managed row is stock's but for its floats' last bits: the
+    /// same fields, each equal, or a float field (eight hex digits, or several
+    /// joined by commas) whose every float is within <see cref="RsqBound"/> of
+    /// the field's largest. Text, counts, handles and anything else stay exact.
+    /// </summary>
+    internal static bool CloseRow(string expected, string actual)
+    {
+        if (expected == actual)
+            return true;
+
+        string[] e = expected.Split('\t'), a = actual.Split('\t');
+        if (e.Length != a.Length)
+            return false;
+
+        for (int i = 0; i < e.Length; i++)
+        {
+            if (e[i] != a[i] && !CloseFloats(e[i], a[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool CloseFloats(string expected, string actual)
+    {
+        string[] e = expected.Split(','), a = actual.Split(',');
+        if (e.Length != a.Length || !e.All(IsBits) || !a.All(IsBits))
+            return false;
+
+        float[] stock = e.Select(H).ToArray(), port = a.Select(H).ToArray();
+        if (stock.Concat(port).Any(f => !float.IsFinite(f)))
+            return false;
+
+        float scale = stock.Max(MathF.Abs);
+        return stock.Zip(port).All(p => MathF.Abs(p.First - p.Second) <= scale * RsqBound);
+    }
+
+    private static bool IsBits(string field) => field.Length == 8 && field.All(char.IsAsciiHexDigit);
+
+    /// <summary>
+    /// Two rows the same: equal, or, on a CPU whose rsqrtss is not the
+    /// recording machine's, equal but for floats within the bound
+    /// (<see cref="CloseRow"/>).
+    /// </summary>
+    internal static bool SameRow(string expected, string actual, bool exact)
+        => expected == actual || (!exact && CloseRow(expected, actual));
+
+    /// <summary>
+    /// Row for row, every row in stock's order: bit for bit on a CPU whose
+    /// rsqrtss is the recording machine's, and within the bound on any other.
+    /// </summary>
     internal static void AssertSame(List<string> golden, List<string> replay, Func<string, bool> which, int atLeast, string what)
     {
+        bool exact = StockRsqrt.MatchesRecording();
         var g = golden.Where(which).ToList();
         var r = replay.Where(which).ToList();
         Assert.True(g.Count >= atLeast, $"the golden holds only {g.Count} {what} rows");
         for (int i = 0; i < Math.Max(g.Count, r.Count); i++)
         {
             string a = i < g.Count ? g[i] : "<end>", b = i < r.Count ? r[i] : "<end>";
-            if (a != b)
+            if (!SameRow(a, b, exact))
             {
                 var context = new StringBuilder();
                 for (int k = Math.Max(0, i - 6); k < Math.Min(g.Count, i + 3); k++)
                     context.Append("\n  golden ").Append(g[k][..Math.Min(g[k].Length, 160)]);
                 for (int k = Math.Max(0, i - 6); k < Math.Min(r.Count, i + 3); k++)
                     context.Append("\n  managed ").Append(r[k][..Math.Min(r[k].Length, 160)]);
-                Assert.Fail($"{what} row {i}: stock wrote\n  {a[..Math.Min(a.Length, 240)]}\nand the managed manager\n  {b[..Math.Min(b.Length, 240)]}{context}");
+                Assert.Fail($"{what} row {i} ({(exact ? "bit for bit" : "floats within the rsqrtss bound")}): stock wrote\n  {a[..Math.Min(a.Length, 240)]}\nand the managed manager\n  {b[..Math.Min(b.Length, 240)]}{context}");
             }
         }
     }
@@ -1077,6 +1142,7 @@ public class ShadowManagerOracleTests
             return output;
         }
 
+        bool exact = StockRsqrt.MatchesRecording();
         List<List<string>> g = Stretches(golden), r = Stretches(replay);
         Assert.Equal(g.Count, r.Count);
         for (int s = 0; s < g.Count; s++)
@@ -1085,11 +1151,11 @@ public class ShadowManagerOracleTests
             {
                 var a = g[s].Where(l => What(l) == kind).ToList();
                 var b = r[s].Where(l => What(l) == kind).ToList();
-                if (!a.SequenceEqual(b))
+                if (a.Count != b.Count || !a.Zip(b).All(p => SameRow(p.First, p.Second, exact)))
                 {
                     string anchor = s > 0 ? g[s - 1].FirstOrDefault() ?? "" : "";
                     int i = 0;
-                    while (i < Math.Min(a.Count, b.Count) && a[i] == b[i])
+                    while (i < Math.Min(a.Count, b.Count) && SameRow(a[i], b[i], exact))
                         i++;
                     Assert.Fail($"after {anchor[..Math.Min(anchor.Length, 120)]}: the {kind} rows differ at {i}: stock {(i < a.Count ? a[i][..Math.Min(a[i].Length, 200)] : "<end>")}, managed {(i < b.Count ? b[i][..Math.Min(b[i].Length, 200)] : "<end>")}");
                 }
@@ -1193,5 +1259,93 @@ public class ShadowManagerOracleTests
     {
         List<string> replay = Replayed(out List<string> golden);
         AssertSame(golden, replay, l => What(l) is "dbg.AddLineOverlay" or "dbg.AddTextOverlay" || What(l).StartsWith("mesh.", StringComparison.Ordinal), 30, "debug");
+    }
+
+    // The first projection as stock wrote it and as the port wrote it on an
+    // Intel CPU (CI run 40139958430): the matrix and the size an ulp or two
+    // apart, the origin, the direction and the leaf answer the same bits.
+    private const string StockProjection =
+        "E\tsm.ProjectShadow\t0\t43160000,00000000,42c80000\t00000000,00000000,bf800000\t" +
+        "3d088889,00000000,00000000,c0900001,00000000,3d088889,00000000,3f000000,00000000,00000000,bf800000,42c80000,00000000,00000000,00000000,3f800000\t" +
+        "41f00000,41f00000\t1:1";
+
+    private const string IntelProjection =
+        "E\tsm.ProjectShadow\t0\t43160000,00000000,42c80000\t00000000,00000000,bf800000\t" +
+        "3d08888a,00000000,00000000,c0900002,00000000,3d08888a,00000000,3f000000,00000000,00000000,bf800000,42c80000,00000000,00000000,00000000,3f800000\t" +
+        "41efffff,41efffff\t1:1";
+
+    [Fact]
+    public void AnotherMakersRsqrtMovesAProjectionWithinTheBound()
+    {
+        Assert.NotEqual(StockProjection, IntelProjection);
+        Assert.True(CloseRow(StockProjection, IntelProjection), "the Intel projection is stock's but for its floats' last bits");
+    }
+
+    // Shadow 9's projection, whose matrix translation cancels: stock's and
+    // the Intel port's 3f2262b0 and 3f2263b7 are 263 ulps of themselves apart
+    // and 5e-7 of the field's largest (c1f5361f, 30.7).
+    private const string StockCancelling =
+        "E\tsm.ProjectShadow\t9\t4482b000,c1080000,42cf0000\t3dc7dd46,3e47dd46,bf79d497\t" +
+        "3cf1b1a3,2e72da63,3b415ae8,c1f5361f,2e5b21df,3cd6eaf6,3babef2b,3e384012,3dc7dd45,3e47dd45,bf79d495,3f2262b0,00000000,00000000,00000000,3f800000\t" +
+        "4206ede8,42158905\t1:1";
+
+    private const string IntelCancelling =
+        "E\tsm.ProjectShadow\t9\t4482b000,c1080000,42cf0000\t3dc7dd45,3e47dd45,bf79d496\t" +
+        "3cf1b1a3,00000000,3b415ae8,c1f5361f,2e5b21e0,3cd6eaf9,3babef2e,3e38400c,3dc7dd45,3e47dd46,bf79d497,3f2263b7,00000000,00000000,00000000,3f800000\t" +
+        "4206ede8,42158904\t1:1";
+
+    [Fact]
+    public void AMatrixTranslationThatCancelsIsHeldToItsField()
+    {
+        Assert.NotEqual(StockCancelling, IntelCancelling);
+        Assert.True(CloseRow(StockCancelling, IntelCancelling), "the translation moved by a few ulps of its field");
+    }
+
+    [Fact]
+    public void AProjectionMovedByMoreThanTheBoundIsRefused()
+    {
+        // 41f00000 is 30.0; 41f00100 is 30.0020, 6.7e-5 of it: about seventeen times the bound.
+        string moved = StockProjection.Replace("\t41f00000,41f00000\t", "\t41f00100,41f00000\t", StringComparison.Ordinal);
+        Assert.NotEqual(StockProjection, moved);
+        Assert.False(CloseRow(StockProjection, moved));
+    }
+
+    [Fact]
+    public void AFloatThatShouldCancelToZeroIsHeldToTheFieldsLargest()
+    {
+        // A zero entry of the matrix answering 1e-3 is no rounding: its field's largest is 100.
+        string drifted = StockProjection.Replace("00000000,00000000,bf800000,42c80000", "3a83126f,00000000,bf800000,42c80000", StringComparison.Ordinal);
+        Assert.NotEqual(StockProjection, drifted);
+        Assert.False(CloseRow(StockProjection, drifted));
+    }
+
+    [Fact]
+    public void AProjectionsTextCountsAndHandlesStayExact()
+    {
+        string renamed = IntelProjection.Replace("sm.ProjectShadow", "sm.ProjectFlashlight", StringComparison.Ordinal);
+        string rehandled = IntelProjection.Replace("ProjectShadow\t0\t", "ProjectShadow\t1\t", StringComparison.Ordinal);
+        string recounted = IntelProjection.Replace("\t1:1", "\t1:2", StringComparison.Ordinal);
+        string shortened = IntelProjection[..IntelProjection.LastIndexOf('\t')];
+        Assert.True(renamed != IntelProjection && rehandled != IntelProjection && recounted != IntelProjection, "the stimuli changed the row");
+        Assert.False(CloseRow(StockProjection, renamed));
+        Assert.False(CloseRow(StockProjection, rehandled));
+        Assert.False(CloseRow(StockProjection, recounted));
+        Assert.False(CloseRow(StockProjection, shortened));
+    }
+
+    [Fact]
+    public void AnAnswersBitsAreFloatsAndAHandleIsNot()
+    {
+        // An R row of three floats an ulp apart passes; an eight-digit handle
+        // read as bits is a denormal, and any other handle is far outside the bound.
+        Assert.True(CloseRow("R\t3dc7dd46,3e47dd46,bf79d497", "R\t3dc7dd45,3e47dd45,bf79d496"));
+        Assert.False(CloseRow("E\tleaf.mask\t00000001", "E\tleaf.mask\t00000003"));
+    }
+
+    [Fact]
+    public void OnTheRecordingMakersCpuTheRowsMustBeBitForBit()
+    {
+        Assert.False(SameRow(StockProjection, IntelProjection, exact: true));
+        Assert.True(SameRow(StockProjection, IntelProjection, exact: false));
     }
 }
