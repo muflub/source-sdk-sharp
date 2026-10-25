@@ -143,8 +143,8 @@ public sealed class PlayerShadowBodies : IPlayerShadows
 
     /// <summary>
     /// The server composition's bodies, over <paramref name="engine"/>'s own
-    /// side: native's half through its slots, and every teleport that side
-    /// carries out handed to <see cref="Teleport"/> afterwards.
+    /// side: native's half through its slots. The composition hands them the
+    /// side's teleports with <see cref="RouteTeleports"/>.
     /// </summary>
     public static PlayerShadowBodies ForEngine(ModuleEngine engine, IVPhysicsShadowCalls v, Func<bool> enabled,
                                                Action<string> warning,
@@ -162,9 +162,16 @@ public sealed class PlayerShadowBodies : IPlayerShadows
 
         var bodies = new PlayerShadowBodies(native, v, enabled, warning,
                                             new EnginePlayerTouchWorld(engine.Api, areas.Require<INetworkServerArea>()));
-        engine.Api.Teleported = bodies.Teleport;
         return bodies;
     }
+
+    /// <summary>
+    /// Every teleport the side carries out handed to <paramref name="bodies"/>
+    /// afterwards (null: told to nobody), through the route its composition
+    /// registered.
+    /// </summary>
+    public static void RouteTeleports(IServiceLocator services, PlayerShadowBodies? bodies)
+        => services.Require<SideRoute<Action<EntityHandle, Vector, bool>>>().Fill(bodies is null ? null : bodies.Teleport);
 
     /// <summary>The refusals of a non-finite value at the four places the game hands one over.</summary>
     public PhysicsNanGuard Nan { get; } = new();

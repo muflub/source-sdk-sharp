@@ -346,6 +346,9 @@ internal sealed unsafe partial class EngineEffects
 
 internal sealed unsafe partial class EngineEntities
 {
+    private readonly SideRoute<IServerPlayerMovementRoute> _playerMoves;
+    private readonly SideRoute<Action<EntityHandle, Vector, bool>> _teleported;
+
     private readonly ShellLessRoutes _shellLess;
     private readonly EntityIoRoutes _entityIo;
     private readonly EntityRemovalRoutes _removal;
@@ -368,7 +371,7 @@ internal sealed unsafe partial class EngineEntities
     /// ones answered there (their slots are client-only, so every Has_ was
     /// false).
     /// </summary>
-    public EngineEntities(EngineSide side, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
+    public EngineEntities(EngineSide side, SideRoute<IServerPlayerMovementRoute> playerMoves, SideRoute<Action<EntityHandle, Vector, bool>> teleported, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
                           INetworkServerArea networkServerArea,
@@ -378,7 +381,7 @@ internal sealed unsafe partial class EngineEntities
                           IHierarchyArea hierarchyArea,
                           IPhysicsArea physicsArea,
                           ITransformArea transformArea)
-        : this(side, shellLess, entityIo, removal, motion, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, playerMoves, teleported, shellLess, entityIo, removal, motion, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, networkServerArea, collisionServerArea, entitiesServerArea, entityLifecycleArea, hierarchyArea, physicsArea, transformArea)
     {
     }
@@ -388,7 +391,7 @@ internal sealed unsafe partial class EngineEntities
     /// its managed skeletons once the composition fills the route (plan
     /// physics_bones_native_zero step 1.2).
     /// </summary>
-    public EngineEntities(EngineSide side, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
+    public EngineEntities(EngineSide side, SideRoute<IServerPlayerMovementRoute> playerMoves, SideRoute<Action<EntityHandle, Vector, bool>> teleported, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
                           StandaloneSkeletonRoute skeletons,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
@@ -399,7 +402,7 @@ internal sealed unsafe partial class EngineEntities
                           IHierarchyArea hierarchyArea,
                           IPhysicsArea physicsArea,
                           ITransformArea transformArea)
-        : this(side, shellLess, entityIo, removal, motion, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, playerMoves, teleported, shellLess, entityIo, removal, motion, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, networkServerArea, collisionServerArea, entitiesServerArea, entityLifecycleArea, hierarchyArea, physicsArea, transformArea)
     {
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
@@ -412,7 +415,7 @@ internal sealed unsafe partial class EngineEntities
     /// EngineServices.Build picks this constructor when the container holds
     /// all three.
     /// </summary>
-    public EngineEntities(EngineSide side, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
+    public EngineEntities(EngineSide side, SideRoute<IServerPlayerMovementRoute> playerMoves, SideRoute<Action<EntityHandle, Vector, bool>> teleported, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
                           IInterpolationBlocks interpolationBlocks,
                           IRenderPolicyBlocks renderPolicyBlocks,
                           IClientReplayEngine clientReplay,
@@ -427,6 +430,8 @@ internal sealed unsafe partial class EngineEntities
                           ITransformArea transformArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _playerMoves = playerMoves ?? throw new ArgumentNullException(nameof(playerMoves));
+        _teleported = teleported ?? throw new ArgumentNullException(nameof(teleported));
         _shellLess = shellLess ?? throw new ArgumentNullException(nameof(shellLess));
         _entityIo = entityIo ?? throw new ArgumentNullException(nameof(entityIo));
         _removal = removal ?? throw new ArgumentNullException(nameof(removal));
@@ -456,7 +461,7 @@ internal sealed unsafe partial class EngineEntities
         // A player's base velocity is the managed command loop's
         // (plan_server_native_v2 T4g), and only a player has the channel: the
         // route refuses anything else and says so once per entity.
-        E.PlayerMoves?.AddBaseVelocity(entity, velocity);
+        _playerMoves.Target?.AddBaseVelocity(entity, velocity);
     }
 
     public void ApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround) => E.EntityApplyVelocityImpulse(h, impulse, clearGround);
@@ -737,7 +742,7 @@ internal sealed unsafe partial class EngineEntities
         // the entity now has when no angles were given).
         _motion.TeleportObject(h, origin, angles, zeroVelocity);
 
-        E.Teleported?.Invoke(h, origin, zeroVelocity);
+        _teleported.Target?.Invoke(h, origin, zeroVelocity);
     }
 
     /// <summary>
@@ -1504,6 +1509,8 @@ internal sealed unsafe partial class EngineHost
 
 internal sealed unsafe partial class EngineHud
 {
+    private readonly SideRoute<IServerPlayerMovementRoute> _playerMoves;
+
     // The side whose player moves a view punch reaches.
     private readonly EngineSide _side;
 
@@ -1515,9 +1522,10 @@ internal sealed unsafe partial class EngineHud
 
     private readonly IDebugOverlayArea _debugOverlayArea;
 
-    public EngineHud(EngineSide side, IFwdDebugOverlay overlay, IDebugOverlayArea debugOverlayArea)
+    public EngineHud(EngineSide side, SideRoute<IServerPlayerMovementRoute> playerMoves, IFwdDebugOverlay overlay, IDebugOverlayArea debugOverlayArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _playerMoves = playerMoves ?? throw new ArgumentNullException(nameof(playerMoves));
         _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
         _debugOverlayArea = debugOverlayArea ?? throw new ArgumentNullException(nameof(debugOverlayArea));
     }
@@ -1636,7 +1644,7 @@ OverlayReadout()
         // The punch is a player's movement state, the managed command loop's
         // (plan_server_native_v2 T4g): UTIL_ViewPunch over the records. With no
         // route installed there is no player to punch.
-        E.PlayerMoves?.ViewPunch(origin, punch, radius, inAir);
+        _playerMoves.Target?.ViewPunch(origin, punch, radius, inAir);
     }
 
     // The client's members, as a server engine answers them: what each one's
@@ -1653,15 +1661,18 @@ OverlayReadout()
 
 internal sealed unsafe partial class EngineNetworking
 {
+    private readonly SideRoute<IServerPlayerMovementRoute> _playerMoves;
+
     private readonly IEntitiesServerArea _entitiesServerArea;
     private readonly INetworkServerArea _networkServerArea;
 
-    public EngineNetworking(EngineSide side,
+    public EngineNetworking(EngineSide side, SideRoute<IServerPlayerMovementRoute> playerMoves,
                             IEntitiesServerArea entitiesServerArea,
                             INetworkArea networkArea,
                             INetworkServerArea networkServerArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _playerMoves = playerMoves ?? throw new ArgumentNullException(nameof(playerMoves));
         _entitiesServerArea = entitiesServerArea ?? throw new ArgumentNullException(nameof(entitiesServerArea));
         _networkArea = networkArea ?? throw new ArgumentNullException(nameof(networkArea));
         _networkServerArea = networkServerArea ?? throw new ArgumentNullException(nameof(networkServerArea));
@@ -1712,7 +1723,7 @@ internal sealed unsafe partial class EngineNetworking
 
         // A player's move type and ground are the managed record's
         // (plan_server_native_v2 T4g).
-        if ((state & EntityState.Player) != 0 && E.PlayerMoves is { } moves
+        if ((state & EntityState.Player) != 0 && _playerMoves.Target is { } moves
             && moves.PlayerState(entity, out MoveType playerMoveType, out bool onGround))
         {
             moveType = playerMoveType;
@@ -1791,15 +1802,18 @@ internal sealed unsafe partial class EngineOverlaps
 
 internal sealed unsafe partial class EnginePlayerMovement
 {
+    private readonly SideRoute<IServerPlayerMovementRoute> _playerMoves;
+
     private readonly IMovementServerArea _movementServerArea;
     private readonly IPlayersArea _playersArea;
 
-    public EnginePlayerMovement(EngineSide side,
+    public EnginePlayerMovement(EngineSide side, SideRoute<IServerPlayerMovementRoute> playerMoves,
                                 IMovementArea movementArea,
                                 IMovementServerArea movementServerArea,
                                 IPlayersArea playersArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _playerMoves = playerMoves ?? throw new ArgumentNullException(nameof(playerMoves));
         _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
         _movementServerArea = movementServerArea ?? throw new ArgumentNullException(nameof(movementServerArea));
         _playersArea = playersArea ?? throw new ArgumentNullException(nameof(playersArea));
@@ -1815,7 +1829,7 @@ internal sealed unsafe partial class EnginePlayerMovement
     /// </summary>
     public void SetSlowMovement(EntityHandle player, bool slow)
     {
-        E.PlayerMoves?.SetSlowMovement(player, slow);
+        _playerMoves.Target?.SetSlowMovement(player, slow);
     }
 
     /// <summary>
@@ -1840,7 +1854,7 @@ internal sealed unsafe partial class EnginePlayerMovement
         // The managed record's (plan_server_native_v2 T4g); native keeps its
         // own readers' copy.
         var native = (MoveType)_movementServerArea.PlayerSetMoveType(player.Value, (int)moveType);
-        return E.PlayerMoves is { } moves ? moves.SetMoveType(player, moveType) : native;
+        return _playerMoves.Target is { } moves ? moves.SetMoveType(player, moveType) : native;
     }
 
     /// <summary>
@@ -2117,15 +2131,18 @@ internal sealed unsafe partial class EnginePlayers
 
 internal sealed unsafe partial class EnginePrecache
 {
+    private readonly SideRoute<IServerSoundRoute> _sounds;
+
     private readonly NativeInterfaceFactory _interfaces;
     private readonly ILog _log;
 
     // The server's IVEngineServer, as its composition registered it: the decals'.
     private readonly IFwdEngineServer _server;
 
-    public EnginePrecache(EngineSide side, NativeInterfaceFactory interfaces, ILog log, IFwdEngineServer server, IFwdModelInfo modelInfo, BreakModels breaks)
+    public EnginePrecache(EngineSide side, SideRoute<IServerSoundRoute> sounds, NativeInterfaceFactory interfaces, ILog log, IFwdEngineServer server, IFwdModelInfo modelInfo, BreakModels breaks)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _sounds = sounds ?? throw new ArgumentNullException(nameof(sounds));
         _interfaces = interfaces ?? throw new ArgumentNullException(nameof(interfaces));
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _server = server ?? throw new ArgumentNullException(nameof(server));
@@ -2188,7 +2205,7 @@ internal sealed unsafe partial class EnginePrecache
     {
         if (soundName.Length == 0) return;
 
-        E.ServerSounds?.PrecacheSound(soundName);
+        _sounds.Target?.PrecacheSound(soundName);
     }
 }
 
@@ -2387,11 +2404,14 @@ internal sealed unsafe partial class EngineScripted
 
 internal sealed unsafe partial class EngineSound
 {
+    private readonly SideRoute<IServerSoundRoute> _sounds;
+
     private readonly ShellLessRoutes _shellLess;
 
-    public EngineSound(EngineSide side, ShellLessRoutes shellLess, IFwdPhysicsSurfaceProps surfaceProps, IFwdSoundEmitter soundEmitter)
+    public EngineSound(EngineSide side, SideRoute<IServerSoundRoute> sounds, ShellLessRoutes shellLess, IFwdPhysicsSurfaceProps surfaceProps, IFwdSoundEmitter soundEmitter)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _sounds = sounds ?? throw new ArgumentNullException(nameof(sounds));
         _shellLess = shellLess ?? throw new ArgumentNullException(nameof(shellLess));
         _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
         _soundEmitter = soundEmitter ?? throw new ArgumentNullException(nameof(soundEmitter));
@@ -2421,7 +2441,7 @@ internal sealed unsafe partial class EngineSound
     {
         if (soundName.Length == 0) return;
 
-        E.ServerSounds?.EmitAmbientSound(entIndex, origin, soundName, volume, soundLevel, flags, pitch);
+        _sounds.Target?.EmitAmbientSound(entIndex, origin, soundName, volume, soundLevel, flags, pitch);
     }
 
     /// <summary>
@@ -2435,7 +2455,7 @@ internal sealed unsafe partial class EngineSound
     {
         if (soundName.Length == 0) return false;
 
-        return E.ServerSounds?.EmitWorldSoundScript(soundName, origin, channel, volume) == true;
+        return _sounds.Target?.EmitWorldSoundScript(soundName, origin, channel, volume) == true;
     }
 
     /// <summary>
@@ -2464,7 +2484,7 @@ internal sealed unsafe partial class EngineSound
     {
         if (soundName.Length == 0) return;
 
-        E.ServerSounds?.EntityStopSound(entity, soundName);
+        _sounds.Target?.EntityStopSound(entity, soundName);
     }
 
     /// <summary>
@@ -2543,7 +2563,7 @@ internal sealed unsafe partial class EngineSound
             return;
         }
 
-        E.ServerSounds?.EntityEmitSound(entity, soundName);
+        _sounds.Target?.EntityEmitSound(entity, soundName);
     }
 
     /// <summary>A noise with no entity to come from.</summary>
@@ -2551,7 +2571,7 @@ internal sealed unsafe partial class EngineSound
     {
         if (soundName.Length == 0) return;
 
-        E.ServerSounds?.EmitSoundAtPosition(soundName, origin);
+        _sounds.Target?.EmitSoundAtPosition(soundName, origin);
     }
 
     // The client's members, as a server engine answers them: what each one's
@@ -2561,21 +2581,21 @@ internal sealed unsafe partial class EngineSound
     // THE SERVER'S SOUND PATCHES ARE MANAGED (plan_server_native_v2 T4a): the
     // managed SoundEmitter's route, which the server's composition installs.
     private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption)
-        => E.ServerSounds?.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
+        => _sounds.Target?.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
 
-    private partial void SidePatchStop(int patch) => E.ServerSounds?.SoundPatchStop(patch);
+    private partial void SidePatchStop(int patch) => _sounds.Target?.SoundPatchStop(patch);
 
     private partial void SidePatchState(int patch, out int entIndex, out bool filterActive)
     {
         entIndex = -1;
         filterActive = false;
-        E.ServerSounds?.SoundPatchState(patch, out entIndex, out filterActive);
+        _sounds.Target?.SoundPatchState(patch, out entIndex, out filterActive);
     }
 
-    private partial void SidePatchFree(int patch) => E.ServerSounds?.SoundPatchFree(patch);
+    private partial void SidePatchFree(int patch) => _sounds.Target?.SoundPatchFree(patch);
 
     private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
-        => E.ServerSounds?.SoundPatchCreate(entity, channel, soundName, soundLevel) ?? 0;
+        => _sounds.Target?.SoundPatchCreate(entity, channel, soundName, soundLevel) ?? 0;
 }
 
 internal sealed unsafe partial class EngineVisibility

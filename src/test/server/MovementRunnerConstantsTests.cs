@@ -86,7 +86,7 @@ public sealed unsafe class MovementRunnerConstantsTests
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         DefaultForwarders.HoldOn(side);
-        side.Tracer = new NoFilter();
+        side.Tracer.Fill(new NoFilter());
 
         var runner = TestSides.Movement(new ServerModuleEngine(side));
         MoveStateBlob blob = Airborne();

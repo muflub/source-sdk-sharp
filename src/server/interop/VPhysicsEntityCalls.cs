@@ -195,9 +195,10 @@ public sealed class EngineEntityPhysicsNative : IEntityPhysicsNative
         => _side.EntitySwapPhysicsObject(entity, physicsObject, out previous);
 
     /// <summary>
-    /// The module's side's <c>InitPhysics</c> and <c>SetPhysicsStatic</c>
-    /// answered by <paramref name="route"/> (null: they make nothing).
+    /// The side's <c>InitPhysics</c> and <c>SetPhysicsStatic</c> answered by
+    /// <paramref name="route"/> (null: they make nothing), through the route
+    /// its composition registered.
     /// </summary>
-    public static void Route(ModuleEngine engine, IEntityPhysicsRoute? route)
-        => (engine ?? throw new ArgumentNullException(nameof(engine))).Api.PhysicsInit = route;
+    public static void Route(IServiceLocator services, IEntityPhysicsRoute? route)
+        => services.Require<SideRoute<IEntityPhysicsRoute>>().Fill(route);
 }

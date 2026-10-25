@@ -51,7 +51,7 @@ public sealed class ServerSoundRouteTests : IDisposable
         var side = TestSides.Create(Side.Server);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
-        side.ServerSounds = route;
+        side.ServerSounds.Fill(route);
         return side;
     }
 
@@ -60,6 +60,25 @@ public sealed class ServerSoundRouteTests : IDisposable
     private static IEnginePrecache Precache(EngineSide side) => SideBindings.Of<IEnginePrecache>(side);
 
     private static readonly EntityHandle Door = new(64u | (1u << 16));
+
+    /// <summary>
+    /// The binding reads the route its composition registered
+    /// (plan_engineside_removal Phase 3), not the side's: here the side's is
+    /// empty and the registered one answers.
+    /// </summary>
+    [Fact]
+    public void TheBindingReadsTheRouteItsCompositionRegistered()
+    {
+        var route = new Route();
+        EngineSide side = Server(null);
+        var registered = new SideRoute<IServerSoundRoute>();
+        registered.Fill(route);
+
+        SideBindings.Of<IEngineSound>(side, registered).EntityEmitSound(Door, "Doors.Move1");
+
+        Assert.Equal(["Emit 10040 Doors.Move1"], route.Calls);
+        Assert.Null(side.ServerSounds.Target);
+    }
 
     [Fact]
     public void AnEntitysEmitAndStopReachTheRoute()

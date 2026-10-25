@@ -91,4 +91,28 @@ public class ModuleEngineSidesTests
         Assert.IsType<C.ClientModuleEngine>(engine);
         Assert.Same(side, engine.Api);
     }
+
+    /// <summary>
+    /// No route is a settable property on the side (plan_engineside_removal
+    /// Phase 3): what the composition builds late reaches the side's members
+    /// through a <c>SideRoute</c> its container registered, so nothing holding
+    /// the side can reassign where they go. The positive arm: the walk sees the
+    /// side's properties, and the server's routes among them.
+    /// </summary>
+    [Fact]
+    public void TheSideHasNoSettableProperty()
+    {
+        foreach (Type side in new[] { typeof(EngineSide), typeof(C.EngineSide) })
+        {
+            PropertyInfo[] properties = side.GetProperties(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public
+                                                           | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            Assert.NotEmpty(properties);
+            if (side == typeof(EngineSide))   // only the server has late routes
+                Assert.Contains(properties, p => p.PropertyType.IsGenericType
+                                              && p.PropertyType.GetGenericTypeDefinition().Name == "SideRoute`1");
+
+            var settable = properties.Where(p => p.SetMethod is { IsPrivate: false }).Select(p => p.Name).ToList();
+            Assert.True(settable.Count == 0, $"{side.Assembly.GetName().Name}: settable on the side: {string.Join(", ", settable)}");
+        }
+    }
 }

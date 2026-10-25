@@ -41,8 +41,8 @@ public interface IEffectsWorld
 /// Precache_Model): the world precached it at level load (W_Precache), so it
 /// answers the index and warns of nothing, as the engine's own did.
 /// </summary>
-public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities entities, IEnginePrecache precache,
-                                       IFwdEngineServer server)
+public sealed class EngineEffectsWorld(SideRoute<IServerTraceRoute> tracer, IEngineEntities entities,
+                                       IEnginePrecache precache, IFwdEngineServer server)
     : IEffectsWorld
 {
     // COLLISION_GROUP_NONE.
@@ -50,8 +50,8 @@ public sealed class EngineEffectsWorld(ModuleEngine engine, IEngineEntities enti
 
     /// <inheritdoc/>
     public ServerTrace? Trace(Vector start, Vector end, uint mask)
-        => ServerTraceRouting.TracerOf(engine) is { } tracer
-               ? tracer.Line(start, end, mask, EntityHandle.None, CollisionGroupNone)
+        => tracer.Target is { } route
+               ? route.Line(start, end, mask, EntityHandle.None, CollisionGroupNone)
                : null;
 
     /// <inheritdoc/>

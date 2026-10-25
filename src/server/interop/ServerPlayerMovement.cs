@@ -224,6 +224,6 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
 /// <summary>Installs the player movement route on a composition's own side (null removes it).</summary>
 public static class ServerPlayerMovementRouting
 {
-    public static void Route(ModuleEngine engine, IServerPlayerMovementRoute? route)
-        => (engine ?? throw new ArgumentNullException(nameof(engine))).Api.PlayerMoves = route;
+    public static void Route(IServiceLocator services, IServerPlayerMovementRoute? route)
+        => services.Require<SideRoute<IServerPlayerMovementRoute>>().Fill(route);
 }

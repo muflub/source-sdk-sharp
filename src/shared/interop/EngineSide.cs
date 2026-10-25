@@ -485,14 +485,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// Told of every teleport after native has carried it out: the server
-    /// composition hands a player's to its shadow (stock's TeleportEntity
-    /// moves a player's physics object with them; plan_physics_bones_native_zero
-    /// 2.5 made the shadow managed's). Null tells nobody.
-    /// </summary>
-    internal Action<EntityHandle, Vector, bool>? Teleported { get; set; }
-
-    /// <summary>
     /// Releases a player from any movement constraint. Nothing to release: the
     /// constraint sphere is not ported (plan_server_native_v2 T2 deleted the
     /// empty native setter; docs/todo.md).
@@ -534,14 +526,6 @@ internal sealed unsafe partial class EngineSide
         vt = _physicsCollisionFwd;
         return self != null;
     }
-
-    /// <summary>
-    /// The server's managed physics init (EntityPhysicsCreation), which
-    /// <see cref="EntityInitPhysics"/> and <see cref="EntitySetPhysicsStatic"/>
-    /// reach. Set by the server composition once vphysics answers; null makes
-    /// nothing. INTERNAL, like <see cref="Teleported"/>.
-    /// </summary>
-    internal IEntityPhysicsRoute? PhysicsInit { get; set; }
 
     /// <summary>
     /// The model this entity is using, as the name the map knows it by — "*23"
