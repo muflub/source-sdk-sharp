@@ -1,7 +1,7 @@
 # Plan: retire EngineSide
 
-Status: approved 2026-10-25; PR 1 in progress. Hooks (`IHooks<T>`) are out
-of scope.
+Status: approved 2026-10-25; PR 1 (Phases 0 to 3) done, in review. Hooks
+(`IHooks<T>`) are out of scope.
 
 ## Goal
 
@@ -187,6 +187,38 @@ Fewer, larger PRs (user ruling 2026-10-24), three in all:
    still go group by group.
 3. **Side-free and delete:** "No runtime side" and Phase 5, with the test
    migration.
+
+### PR 1 as built
+
+Where PR 1 departs from the phase text above, and what it leaves for PR 2
+and PR 3:
+
+- `SideAttachment` is built by `SideAttachment.Detached(side, state)` per
+  load and attached by `AttachShims(root, out why)` in each side's half,
+  rather than by one static `Attach(...)`. Its constructor stores; the
+  attach replaces the areas, the root and the bound set whole, and runs
+  what waits on it (`WhenAttached`), which is how `EngineSide` takes up the
+  attached areas while it still exists.
+- `ModuleEngine` is the abstract shared surface, compiled into both
+  interops, and `ServerModuleEngine` / `ClientModuleEngine` derive from it,
+  rather than delegating to a separate helper. Each side's half of the
+  attachment makes its own (`ModuleEngineOver`).
+- Interim until PR 3: `ModuleEngine` still wraps `EngineSide` (`Api`),
+  `EngineServices.AddTo` and `Build` still take the side, `TestSides.Create`
+  still returns `EngineSide`, and the side keeps its globals, `Log` and
+  `Lines` (registered, so consumers already take them by constructor).
+  `EnginePrecache` and `EngineStringTables` still ask the side's `Side` for
+  the string table container's version; "No runtime side" removes it.
+- Phase 2 also moved `VPhysicsTables` onto the attachment beside the
+  interface factory, gave the liveness mirror a holder (`SideLiveness`),
+  and has `ManagedCaches` search `SideRoutes` (the three routes) rather
+  than sides.
+- Phase 3's route objects are one generic `SideRoute<T>` (public, internal
+  members), registered by the server's container; the routing helpers fill
+  them through the composition's container, and the player shadows' teleport
+  hand-off has its own helper (`PlayerShadowBodies.RouteTeleports`).
+- The reach census: 179 server and 84 client pairs after Phase 1a, 145 and
+  55 at the end of PR 1.
 
 ## Risks
 
