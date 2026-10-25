@@ -87,7 +87,7 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(areas.Require<IViewClientArea>()));
 
         // The flashlight's executor and its traces (plan_client_novalve C7 cluster 12).
-        services.AddInstance<IFlashlightSlots>(new FlashlightSlots(engine.Api, areas.Require<IFlashlightClientArea>(),
+        services.AddInstance<IFlashlightSlots>(new FlashlightSlots(engine.Interfaces, areas.Require<IFlashlightClientArea>(),
                                                                areas.Require<IViewClientArea>()));
 
         // The net channel and the diagnostics ledgers, for the netgraph and
@@ -118,7 +118,7 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         IParticleLibrary? particleLibrary = services.Resolve<IParticleLibrary>();
         if (particleLibrary is null)
         {
-            particleLibrary = new ParticleLibrary(engine.Api.Interfaces);
+            particleLibrary = new ParticleLibrary(engine.Interfaces);
             services.AddInstance(particleLibrary);
         }
 
@@ -172,8 +172,8 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The client weather's engine reads (lane c2-sims).
         services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(areas.Require<IPrecipitationClientArea>()));
         // The client's physics callbacks' engine reads (lane c6-input).
-        var physics = new ClientPhysicsSlots(areas.Require<IPhysicsClientArea>(), engine.Api.VPhysics,
-                                             new VPhysicsObjects(engine.Api.VPhysics));
+        var physics = new ClientPhysicsSlots(areas.Require<IPhysicsClientArea>(), engine.VPhysics,
+                                             new VPhysicsObjects(engine.VPhysics));
         services.AddInstance<IClientImpactSoundWorld>(physics);
         // The level's environment: ClientPhysicsSystem makes it and writes it here.
         var environment = new ClientPhysicsEnvironment();

@@ -33,11 +33,11 @@ public static class ManagedCaches
     /// </summary>
     /// <param name="going">The context being unloaded.</param>
     /// <param name="sides">
-    /// The engine sides whose routes to search (plan_abi_hotreload D8): handed
+    /// The engine sides' routes to search (plan_abi_hotreload D8): handed
     /// in by whoever composed them, never looked up. A listen server passes
     /// both, since a client registry is the server's business too.
     /// </param>
-    internal static int Forget(AssemblyLoadContext going, IReadOnlyList<EngineSide> sides)
+    internal static int Forget(AssemblyLoadContext going, IReadOnlyList<SideRoutes> sides)
     {
         ArgumentNullException.ThrowIfNull(sides);
 
@@ -55,7 +55,7 @@ public static class ManagedCaches
         // the player's shadow switch (lane `defect-alc`), is gone with its
         // static: plan_abi_hotreload D7 hands the server's own convar to the
         // run instead.
-        foreach (EngineSide side in sides)
+        foreach (SideRoutes side in sides)
             forgotten += ForgetRoutes(side, going);
 
         return forgotten;
@@ -66,7 +66,7 @@ public static class ManagedCaches
     /// into them belongs to the going side, and each delegate or answer that
     /// came from it otherwise. Answers how many went.
     /// </summary>
-    internal static int ForgetRoutes(EngineSide side, AssemblyLoadContext going)
+    internal static int ForgetRoutes(SideRoutes side, AssemblyLoadContext going)
         => ForgetDeadRegistry(side, going)
          + side.ShellLess.Forget(going)
          + side.Removal.Forget(going)
@@ -93,7 +93,7 @@ public static class ManagedCaches
     /// whether IT belongs to the client context, gets false, and drops nothing.
     /// </para>
     /// </remarks>
-    private static int ForgetDeadRegistry(EngineSide side, AssemblyLoadContext going)
+    private static int ForgetDeadRegistry(SideRoutes side, AssemblyLoadContext going)
     {
         if (side.ShellLess.Answers is not IRouteBinder registry)
             return 0;
@@ -165,3 +165,11 @@ public interface IRouteBinder
     /// <summary>Whether this binder's own code comes from <paramref name="going"/>.</summary>
     bool BelongsTo(AssemblyLoadContext going);
 }
+
+/// <summary>
+/// One side's three routes up into its registry (plan_abi_hotreload D7), as
+/// <see cref="ManagedCaches"/> searches them on an unload: handed in by
+/// whoever composed the side (plan_engineside_removal Phase 2), so the net
+/// needs the routes and not the side that holds them.
+/// </summary>
+internal readonly record struct SideRoutes(ShellLessRoutes ShellLess, EntityRemovalRoutes Removal, EntityIoRoutes EntityIo);

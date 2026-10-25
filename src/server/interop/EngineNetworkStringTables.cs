@@ -73,9 +73,9 @@ public sealed unsafe class EngineStringTableDirectory : INetworkStringTableDirec
     /// </summary>
     public static INetworkStringTableDirectory? AcquireServer(ModuleEngine engine, out string why)
         => Forwarders.TryAcquire<NetworkStringTableContainerFwd>(
-               (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
+               (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces,
                SourceSharpFactoryType.AppSystem, ServerInterfaceVersion, out void* self, out NetworkStringTableContainerFwd* table, out why)
-           && Forwarders.TryAcquire(engine.Api.Interfaces, out NetworkStringTableFwd* tables, out why)
+           && Forwarders.TryAcquire(engine.Interfaces, out NetworkStringTableFwd* tables, out why)
             ? new EngineStringTableDirectory(self, table, tables, isServer: true)
             : null;
 

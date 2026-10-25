@@ -26,10 +26,10 @@ public sealed unsafe class NativeLeafCalls : ILeafNative
     public static NativeLeafCalls? Acquire(ModuleEngine engine, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        EngineSide side = engine.Api;
-        if (!Forwarders.TryAcquire(side.Interfaces, out LeafSystemFwd* table, out why))
+        NativeInterfaceFactory interfaces = engine.Interfaces;
+        if (!Forwarders.TryAcquire(interfaces, out LeafSystemFwd* table, out why))
             return null;
-        if (!side.Interfaces.TryCreate(SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion, out nint client, out string? error))
+        if (!interfaces.TryCreate(SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion, out nint client, out string? error))
         {
             why = error ?? "no engine client";
             return null;

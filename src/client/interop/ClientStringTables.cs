@@ -44,9 +44,9 @@ public sealed unsafe class ClientStringTables : IClientStringTables
     {
         ArgumentNullException.ThrowIfNull(engine);
         return Forwarders.TryAcquire<NetworkStringTableContainerFwd>(
-                   engine.Api.Interfaces, SourceSharpFactoryType.AppSystem, InterfaceVersion,
+                   engine.Interfaces, SourceSharpFactoryType.AppSystem, InterfaceVersion,
                    out void* self, out NetworkStringTableContainerFwd* table, out why)
-               && Forwarders.TryAcquire(engine.Api.Interfaces, out NetworkStringTableFwd* tables, out why)
+               && Forwarders.TryAcquire(engine.Interfaces, out NetworkStringTableFwd* tables, out why)
             ? new ClientStringTables(self, table, tables)
             : null;
     }

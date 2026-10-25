@@ -39,10 +39,12 @@ public class EngineEntityNamesTests
         public (long Allocated, long Released) AllocationTotals => throw new NotSupportedException();
     }
 
-    private static IEngineEntityNames Binding(EngineSide side)
+    private static IEngineEntityNames Binding(EngineSide side, ShellLessRoutes? routes = null)
     {
         var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
         EngineServices.AddBindingServices(composition, side);
+        if (routes is not null)
+            composition.AddInstance(routes);
         foreach (var (contract, binding) in EngineServices.Bindings(side, composition))
         {
             if (contract == typeof(IEngineEntityNames))
@@ -70,6 +72,24 @@ public class EngineEntityNamesTests
 
         Assert.Equal([Lamp], Walk(Binding(side).Named("lamp")));
         Assert.Equal("lamp", answers.Asked);
+    }
+
+    /// <summary>
+    /// The binding is handed the routes its composition registered
+    /// (plan_engineside_removal Phase 2), not the side's own: here the
+    /// side's are unbound and the registered ones answer.
+    /// </summary>
+    [Fact]
+    public void ANameIsAskedOfTheRegisteredRoutes()
+    {
+        var side = TestSides.Create(Side.Server);
+        var routes = new ShellLessRoutes();
+        var answers = new OneName();
+        routes.Bind(answers);
+
+        Assert.Equal([Lamp], Walk(Binding(side, routes).Named("lamp")));
+        Assert.Equal("lamp", answers.Asked);
+        Assert.Null(side.ShellLess.Mine);
     }
 
     [Fact]

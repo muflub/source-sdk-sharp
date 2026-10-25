@@ -45,20 +45,22 @@ internal sealed unsafe class ForwardedStringTables
     }
 
     /// <summary>
-    /// <paramref name="side"/>'s container. One that cannot be acquired is said
-    /// once, and every call on it then refuses as a missing container did.
-    /// Refusals go to <paramref name="log"/>, the side's own when none is given.
+    /// The <paramref name="side"/>'s container, acquired through its
+    /// <paramref name="interfaces"/>. One that cannot be acquired is said once,
+    /// to <paramref name="log"/>, and every call on it then refuses as a
+    /// missing container did.
     /// </summary>
-    internal static ForwardedStringTables Acquire(EngineSide side, ILog? log = null)
+    internal static ForwardedStringTables Acquire(NativeInterfaceFactory interfaces, Side side, ILog log)
     {
-        log ??= side.Log;
-        bool isServer = side.Side == Side.Server;
+        ArgumentNullException.ThrowIfNull(interfaces);
+        ArgumentNullException.ThrowIfNull(log);
+        bool isServer = side == Side.Server;
         string version = isServer ? "VEngineServerStringTable001" : "VEngineClientStringTable001";
 
         if (Forwarders.TryAcquire<NetworkStringTableContainerFwd>(
-                side.Interfaces, SourceSharpFactoryType.AppSystem, version,
+                interfaces, SourceSharpFactoryType.AppSystem, version,
                 out void* self, out NetworkStringTableContainerFwd* fwd, out string why)
-            && Forwarders.TryAcquire(side.Interfaces, out NetworkStringTableFwd* table, out why))
+            && Forwarders.TryAcquire(interfaces, out NetworkStringTableFwd* table, out why))
         {
             return new ForwardedStringTables(log, isServer, self, fwd, table);
         }

@@ -450,7 +450,7 @@ public static unsafe class SideLoad
             if (AssemblyLoadContext.GetLoadContext(typeof(SideLoad).Assembly) is { } going
                 && going != AssemblyLoadContext.Default)
             {
-                int forgotten = ManagedCaches.Forget(going, [session.Engine]);
+                int forgotten = ManagedCaches.Forget(going, [session.Engine.Routes]);
                 session.State.Reload.NoteCachesDropped(forgotten);
                 Trace(session.State.Log, $"UnloadSide({session.Side}): ABI forgot {forgotten} cached type(s)");
             }

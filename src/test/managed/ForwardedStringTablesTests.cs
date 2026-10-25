@@ -120,7 +120,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
         var side = TestSides.Create(Side.Server);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
-        return ForwardedStringTables.Acquire(side, _log);
+        return ForwardedStringTables.Acquire(side.Attachment.Interfaces, side.Side, _log);
     }
 
     private ForwardedStringTables Client()
@@ -129,7 +129,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
         var side = TestSides.Create(Side.Client);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
-        return ForwardedStringTables.Acquire(side, _log);
+        return ForwardedStringTables.Acquire(side.Attachment.Interfaces, side.Side, _log);
     }
 
     [Fact]

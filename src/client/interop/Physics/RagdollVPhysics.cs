@@ -60,7 +60,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     /// <summary>The four factory interfaces, from <paramref name="engine"/>'s own side; null with the reason when one does not answer.</summary>
     public static RagdollVPhysics? Acquire(ModuleEngine engine, IClientPhysicsEngine environment, out string why)
     {
-        NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces;
+        NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces;
 
         if (!Forwarders.TryAcquire<PhysicsFwd>(factory, SourceSharpFactoryType.Physics, "VPhysics031",
                                                out void* physics, out PhysicsFwd* physicsFwd, out why)
@@ -80,7 +80,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         byte* defaultName = (byte*)NativeMemory.AllocZeroed(8);
         "DEFAULT"u8.CopyTo(new Span<byte>(defaultName, 8));
         return new RagdollVPhysics(environment, physics, physicsFwd, collision, collisionFwd, props, propsFwd,
-                                   modelInfo, modelInfoFwd, engine.Api.VPhysics, defaultName);
+                                   modelInfo, modelInfoFwd, engine.VPhysics, defaultName);
     }
 
     /// <summary>

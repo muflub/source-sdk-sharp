@@ -66,11 +66,11 @@ public class ModuleEngineTests
 
         using (new ServerModuleEngine(first).AttachLiveness(mirror))
         {
-            Assert.Same(mirror, first.Liveness);
-            Assert.Null(second.Liveness);
+            Assert.Same(mirror, first.Liveness.Mirror);
+            Assert.Null(second.Liveness.Mirror);
         }
 
-        Assert.Null(first.Liveness);
+        Assert.Null(first.Liveness.Mirror);
     }
 
     [Fact]

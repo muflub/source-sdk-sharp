@@ -38,7 +38,7 @@ public sealed unsafe class TraceFilterObject : ITraceEntityHandles
 
     /// <summary>The server's builder, or null with the reason.</summary>
     public static TraceFilterObject? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
+        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces, out why);
 
     internal static TraceFilterObject? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire(factory, out TraceFilterFwd* table, out why)

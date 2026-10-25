@@ -33,7 +33,7 @@ public sealed unsafe class PhysicsCollision : IVPhysicsCollision
     /// </summary>
     public static IVPhysicsCollision? Acquire(ModuleEngine engine, out string why)
         => Forwarders.TryAcquire<PhysicsCollisionFwd>(
-               (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
+               (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces,
                SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out PhysicsCollisionFwd* table, out why)
             ? new PhysicsCollision(self, table)
             : null;

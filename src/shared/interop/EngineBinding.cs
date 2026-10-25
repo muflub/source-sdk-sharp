@@ -83,7 +83,7 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
         return EngineSide.FromUtf8(buf);
     }
 
-    public void Msg(string message) => E.Msg(message);
+    public void Msg(string message) => _log.Msg(message);
 
     /// <summary>
     /// Registers a console command. Native owns the ConCommand object for the
@@ -214,7 +214,7 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
         return true;
     }
 
-    public void Warning(string message) => E.Warning(message);
+    public void Warning(string message) => _log.Warning(message);
 }
 
 /// <summary>The real engine, for <see cref="IEngineHost"/>. Every member is one call.</summary>
@@ -311,7 +311,15 @@ internal sealed unsafe partial class EngineStringTables : IEngineStringTables
 
     private EngineSide E => _side;
 
-    public EngineStringTables(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly NativeInterfaceFactory _interfaces;
+    private readonly ILog _log;
+
+    public EngineStringTables(EngineSide side, NativeInterfaceFactory interfaces, ILog log)
+    {
+        _side = side ?? throw new ArgumentNullException(nameof(side));
+        _interfaces = interfaces ?? throw new ArgumentNullException(nameof(interfaces));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+    }
 
     public int Create(string name, int maxEntries) => Tables.Create(name, maxEntries);
     public int Find(string name) => Tables.Find(name);
@@ -324,7 +332,7 @@ internal sealed unsafe partial class EngineStringTables : IEngineStringTables
     // use (plan_server_native_v2 T3: the six slots and shell_stringtables.h's
     // CShellStringTables are this, over the forwarders).
     private ForwardedStringTables? _tables;
-    private ForwardedStringTables Tables => _tables ??= ForwardedStringTables.Acquire(_side);
+    private ForwardedStringTables Tables => _tables ??= ForwardedStringTables.Acquire(_interfaces, _side.Side, _log);
 }
 
 // ENGINELEVEL HAS GONE THE SAME WAY -- plan_native_api.md Phase 6, wave 2, and
@@ -609,11 +617,11 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
         // The SDK entity list's own delete list went with the list
         // (plan_server_native_v2 T2 deleted its empty native step); the
         // managed removal queue is the whole of it.
-        E.Removal.FreeNow();
+        _removal.FreeNow();
     }
     public List<EntityHandle> FindAllByName(string name, int limit = 512) => E.FindEntitiesByName(name, limit);
     public EntityHandle FindByName(string name) => E.FindEntityByName(name);
-    public bool FireInput(EntityHandle target, string input, string? value = null, EntityHandle activator = default) => E.EntityIo.FireInput(target, input, value, activator);
+    public bool FireInput(EntityHandle target, string input, string? value = null, EntityHandle activator = default) => _entityIo.FireInput(target, input, value, activator);
     public Vector GetAngles(EntityHandle h) => E.EntityGetAngles(h);
     // No engine answer since plan_server_native_v2 T2: armour left with CBasePlayer; Armour.cs is the managed owner.
     public int GetArmor(EntityHandle entity) => 0;
@@ -754,14 +762,12 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
 /// <summary>The real engine, for <see cref="IEngineEntityNames"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineEntityNames : IEngineEntityNames
 {
-    private readonly EngineSide _side;
+    private readonly ShellLessRoutes _shellLess;
 
-    private EngineSide E => _side;
-
-    public EngineEntityNames(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    public EngineEntityNames(ShellLessRoutes shellLess) => _shellLess = shellLess ?? throw new ArgumentNullException(nameof(shellLess));
 
     public NameMatches Named(string name, int limit = 512)
-        => name.Length == 0 || E.ShellLess.Mine is not { } side ? NameMatches.None : side.Named(name, limit);
+        => name.Length == 0 || _shellLess.Mine is not { } side ? NameMatches.None : side.Named(name, limit);
 }
 
 /// <summary>The real engine, for <see cref="IEngineOverlaps"/>. Every member is one call.</summary>

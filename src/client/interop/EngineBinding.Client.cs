@@ -47,9 +47,12 @@ internal sealed unsafe partial class EngineBrushMovement
 
 internal sealed unsafe partial class EngineConsole
 {
-    public EngineConsole(EngineSide side, IConsoleArea consoleArea)
+    private readonly ILog _log;
+
+    public EngineConsole(EngineSide side, ILog log, IConsoleArea consoleArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _consoleArea = consoleArea ?? throw new ArgumentNullException(nameof(consoleArea));
     }
 
@@ -881,6 +884,9 @@ internal sealed unsafe partial class EngineEffects
 
 internal sealed unsafe partial class EngineEntities
 {
+    private readonly EntityIoRoutes _entityIo;
+    private readonly EntityRemovalRoutes _removal;
+
     private readonly IViewClientArea _viewClientArea;
 
     /// <summary>
@@ -889,11 +895,11 @@ internal sealed unsafe partial class EngineEntities
     /// ones answered there (their slots are client-only, so every Has_ was
     /// false).
     /// </summary>
-    public EngineEntities(EngineSide side,
+    public EngineEntities(EngineSide side, EntityIoRoutes entityIo, EntityRemovalRoutes removal,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
                           IViewClientArea viewClientArea)
-        : this(side, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, entityIo, removal, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, viewClientArea)
     {
     }
@@ -903,12 +909,12 @@ internal sealed unsafe partial class EngineEntities
     /// its managed skeletons once the composition fills the route (plan
     /// physics_bones_native_zero step 1.2).
     /// </summary>
-    public EngineEntities(EngineSide side,
+    public EngineEntities(EngineSide side, EntityIoRoutes entityIo, EntityRemovalRoutes removal,
                           StandaloneSkeletonRoute skeletons,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
                           IViewClientArea viewClientArea)
-        : this(side, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, entityIo, removal, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, viewClientArea)
     {
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
@@ -921,7 +927,7 @@ internal sealed unsafe partial class EngineEntities
     /// EngineServices.Build picks this constructor when the container holds
     /// all three.
     /// </summary>
-    public EngineEntities(EngineSide side,
+    public EngineEntities(EngineSide side, EntityIoRoutes entityIo, EntityRemovalRoutes removal,
                           IInterpolationBlocks interpolationBlocks,
                           IRenderPolicyBlocks renderPolicyBlocks,
                           IClientReplayEngine clientReplay,
@@ -930,6 +936,8 @@ internal sealed unsafe partial class EngineEntities
                           IViewClientArea viewClientArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _entityIo = entityIo ?? throw new ArgumentNullException(nameof(entityIo));
+        _removal = removal ?? throw new ArgumentNullException(nameof(removal));
         _interpolationBlocks = interpolationBlocks ?? throw new ArgumentNullException(nameof(interpolationBlocks));
         _renderPolicyBlocks = renderPolicyBlocks ?? throw new ArgumentNullException(nameof(renderPolicyBlocks));
         _clientReplay = clientReplay ?? throw new ArgumentNullException(nameof(clientReplay));
@@ -1013,7 +1021,7 @@ internal sealed unsafe partial class EngineEntities
     public void SetSpawnFlags(EntityHandle entity, int spawnFlags) { }
     public void PositionChanged(EntityHandle entity, Vector previousOrigin) { }
     public IEnumerable<EntityHandle> FindAllByClassname(string className) => Array.Empty<EntityHandle>();
-    public void Remove(EntityHandle entity) => E.Removal.Remove(entity);
+    public void Remove(EntityHandle entity) => _removal.Remove(entity);
     private partial bool EngineAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles)
     {
         origin = default;

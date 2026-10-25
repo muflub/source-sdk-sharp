@@ -15,4 +15,9 @@ public static partial class EngineServices
         services.AddInstance(EngineBound.SoundServer(side));
         services.AddInstance(EngineBound.FileSystem(side));
     }
+
+    // The server's entity motion (teleports, velocity writes over vphysics),
+    // which its entity binding takes by constructor.
+    static partial void AddOwnServices(ServiceContainer services, EngineSide side)
+        => services.AddInstance(side.Motion);
 }

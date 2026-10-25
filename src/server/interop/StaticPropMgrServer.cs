@@ -26,7 +26,7 @@ public sealed unsafe class StaticPropMgrServer : IStaticPropPhysics
     /// </summary>
     public static IStaticPropPhysics? Acquire(ModuleEngine engine, out string why)
         => Forwarders.TryAcquire<StaticPropMgrServerFwd>(
-               (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
+               (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces,
                SourceSharpFactoryType.AppSystem, InterfaceVersion,
                out void* self, out StaticPropMgrServerFwd* table, out why)
             ? new StaticPropMgrServer(self, table)

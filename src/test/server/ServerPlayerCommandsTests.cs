@@ -414,7 +414,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) => _rest.EntitiesStandalonePlayerSkyboxArea(a0, a1);
     }
 
-    private ServerPlayerMovement PlayerRoute() => new(_engine.Api, new OnePlayer(), _moves, _commands);
+    private ServerPlayerMovement PlayerRoute() => new(_engine.Api, _engine.Log, new OnePlayer(), _moves, _commands);
 
     /// <summary>A player standing on <see cref="Lift"/>, moving at <paramref name="velocity"/>.</summary>
     private ServerPlayerMove Standing(Vector velocity)

@@ -27,14 +27,17 @@ internal sealed unsafe partial class EngineBrushMovement
 
 internal sealed unsafe partial class EngineConsole
 {
+    private readonly ILog _log;
+
     // The server's IVEngineServer, as its composition registered it.
     private readonly IFwdEngineServer _server;
 
     private readonly IConsoleServerArea _consoleServerArea;
 
-    public EngineConsole(EngineSide side, IFwdEngineServer server, IConsoleArea consoleArea, IConsoleServerArea consoleServerArea)
+    public EngineConsole(EngineSide side, ILog log, IFwdEngineServer server, IConsoleArea consoleArea, IConsoleServerArea consoleServerArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _consoleArea = consoleArea ?? throw new ArgumentNullException(nameof(consoleArea));
         _consoleServerArea = consoleServerArea ?? throw new ArgumentNullException(nameof(consoleServerArea));
@@ -343,6 +346,11 @@ internal sealed unsafe partial class EngineEffects
 
 internal sealed unsafe partial class EngineEntities
 {
+    private readonly ShellLessRoutes _shellLess;
+    private readonly EntityIoRoutes _entityIo;
+    private readonly EntityRemovalRoutes _removal;
+    private readonly EntityPhysicsMotion _motion;
+
     // The server's IVEngineServer, as its composition registered it.
     private readonly IFwdEngineServer _server;
 
@@ -360,7 +368,7 @@ internal sealed unsafe partial class EngineEntities
     /// ones answered there (their slots are client-only, so every Has_ was
     /// false).
     /// </summary>
-    public EngineEntities(EngineSide side, IFwdEngineServer server,
+    public EngineEntities(EngineSide side, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
                           INetworkServerArea networkServerArea,
@@ -370,7 +378,7 @@ internal sealed unsafe partial class EngineEntities
                           IHierarchyArea hierarchyArea,
                           IPhysicsArea physicsArea,
                           ITransformArea transformArea)
-        : this(side, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, shellLess, entityIo, removal, motion, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, networkServerArea, collisionServerArea, entitiesServerArea, entityLifecycleArea, hierarchyArea, physicsArea, transformArea)
     {
     }
@@ -380,7 +388,7 @@ internal sealed unsafe partial class EngineEntities
     /// its managed skeletons once the composition fills the route (plan
     /// physics_bones_native_zero step 1.2).
     /// </summary>
-    public EngineEntities(EngineSide side, IFwdEngineServer server,
+    public EngineEntities(EngineSide side, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
                           StandaloneSkeletonRoute skeletons,
                           IEntitiesArea entitiesArea,
                           IModelsArea modelsArea,
@@ -391,7 +399,7 @@ internal sealed unsafe partial class EngineEntities
                           IHierarchyArea hierarchyArea,
                           IPhysicsArea physicsArea,
                           ITransformArea transformArea)
-        : this(side, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
+        : this(side, shellLess, entityIo, removal, motion, server, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance,
                entitiesArea, modelsArea, networkServerArea, collisionServerArea, entitiesServerArea, entityLifecycleArea, hierarchyArea, physicsArea, transformArea)
     {
         _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
@@ -404,7 +412,7 @@ internal sealed unsafe partial class EngineEntities
     /// EngineServices.Build picks this constructor when the container holds
     /// all three.
     /// </summary>
-    public EngineEntities(EngineSide side, IFwdEngineServer server,
+    public EngineEntities(EngineSide side, ShellLessRoutes shellLess, EntityIoRoutes entityIo, EntityRemovalRoutes removal, EntityPhysicsMotion motion, IFwdEngineServer server,
                           IInterpolationBlocks interpolationBlocks,
                           IRenderPolicyBlocks renderPolicyBlocks,
                           IClientReplayEngine clientReplay,
@@ -419,6 +427,10 @@ internal sealed unsafe partial class EngineEntities
                           ITransformArea transformArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _shellLess = shellLess ?? throw new ArgumentNullException(nameof(shellLess));
+        _entityIo = entityIo ?? throw new ArgumentNullException(nameof(entityIo));
+        _removal = removal ?? throw new ArgumentNullException(nameof(removal));
+        _motion = motion ?? throw new ArgumentNullException(nameof(motion));
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _interpolationBlocks = interpolationBlocks ?? throw new ArgumentNullException(nameof(interpolationBlocks));
         _renderPolicyBlocks = renderPolicyBlocks ?? throw new ArgumentNullException(nameof(renderPolicyBlocks));
@@ -463,8 +475,8 @@ internal sealed unsafe partial class EngineEntities
         // ONE -- plan_entity.md step 2e. This is the runtime creator's route
         // (ent_create, a point_template instantiating its sources, a class
         // spawning a helper); MapSpawnCreate below is the map's.
-        if (E.ShellLess.ClassIsShellLess(className))
-            return E.ShellLess.Mine!.Create(className, default);
+        if (_shellLess.ClassIsShellLess(className))
+            return _shellLess.Mine!.Create(className, default);
 
         var bytes = Encoding.UTF8.GetBytes(className + "\0");
         fixed (byte* p = bytes) { return new EntityHandle(_entityLifecycleArea.CreateEntity(p)); }
@@ -489,7 +501,7 @@ internal sealed unsafe partial class EngineEntities
     {
         // A POINT -- step 2e. SOLID_NONE with no model is what the kind table
         // installed for Logical, so the shell's own bounds were zero too.
-        if (E.ShellLess.Claims(entity))
+        if (_shellLess.Claims(entity))
             return (Vector.Zero, Vector.Zero);
 
         float* lo = stackalloc float[3];
@@ -517,7 +529,7 @@ internal sealed unsafe partial class EngineEntities
     public int GetHealth(EntityHandle h)
     {
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (E.ShellLess.State(h) is { } shellLess)
+        if (_shellLess.State(h) is { } shellLess)
             return shellLess.Health;
 
         return _entitiesServerArea.EntityGetHealth(h.Value);
@@ -527,7 +539,7 @@ internal sealed unsafe partial class EngineEntities
     public string GetName(EntityHandle entity)
     {
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (E.ShellLess.State(entity) is { } shellLess)
+        if (_shellLess.State(entity) is { } shellLess)
             return shellLess.Name;
 
         const int bufSize = 128;
@@ -539,7 +551,7 @@ internal sealed unsafe partial class EngineEntities
     public Vector GetSpawnAngles(EntityHandle entity)
     {
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (E.ShellLess.State(entity) is { } shellLess)
+        if (_shellLess.State(entity) is { } shellLess)
             return shellLess.SpawnAngles;
 
         float* pyr = stackalloc float[3];
@@ -551,7 +563,7 @@ internal sealed unsafe partial class EngineEntities
     public int GetSpawnFlags(EntityHandle entity)
     {
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (E.ShellLess.State(entity) is { } shellLess)
+        if (_shellLess.State(entity) is { } shellLess)
             return shellLess.SpawnFlags;
 
         return _entitiesServerArea.EntityGetSpawnFlags(entity.Value);
@@ -564,7 +576,7 @@ internal sealed unsafe partial class EngineEntities
     public Vector GetSpawnOrigin(EntityHandle entity)
     {
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (E.ShellLess.State(entity) is { } shellLess)
+        if (_shellLess.State(entity) is { } shellLess)
             return shellLess.SpawnOrigin;
 
         float* xyz = stackalloc float[3];
@@ -583,7 +595,7 @@ internal sealed unsafe partial class EngineEntities
         // WorldSpaceCenter is the middle of the collision bounds, and a
         // shell-less entity has none: stock's CBaseEntity::WorldSpaceCenter
         // over a zero-extent OBB answers the origin exactly.
-        if (E.ShellLess.State(h) is { } shellLess)
+        if (_shellLess.State(h) is { } shellLess)
             return shellLess.Origin;
 
         float* xyz = stackalloc float[3];
@@ -603,7 +615,7 @@ internal sealed unsafe partial class EngineEntities
     /// <summary>Sets an entity's orientation.</summary>
     public void SetAngles(EntityHandle entity, Vector angles)
     {
-        if (E.ShellLess.State(entity) is { } shellLess)
+        if (_shellLess.State(entity) is { } shellLess)
         {
             shellLess.Angles = angles;
             return;
@@ -616,7 +628,7 @@ internal sealed unsafe partial class EngineEntities
     public void SetAngularVelocity(EntityHandle entity, Vector degreesPerSecond) => E.EntitySetAngularVelocity(entity, degreesPerSecond);
     public void SetHealth(EntityHandle h, int health)
     {
-        if (E.ShellLess.State(h) is { } shellLess)
+        if (_shellLess.State(h) is { } shellLess)
         {
             shellLess.Health = health;
             return;
@@ -642,8 +654,8 @@ internal sealed unsafe partial class EngineEntities
     public bool SetKeyValue(EntityHandle entity, string key, string value)
     {
         // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
-        if (E.ShellLess.Claims(entity))
-            return E.ShellLess.Mine!.KeyValue(entity, key, value);
+        if (_shellLess.Claims(entity))
+            return _shellLess.Mine!.KeyValue(entity, key, value);
 
         var keyBytes = Encoding.UTF8.GetBytes(key + "\0");
         var valueBytes = Encoding.UTF8.GetBytes(value + "\0");
@@ -723,7 +735,7 @@ internal sealed unsafe partial class EngineEntities
 
         // The solver half, after the entity has moved (it reads the facing
         // the entity now has when no angles were given).
-        E.Motion.TeleportObject(h, origin, angles, zeroVelocity);
+        _motion.TeleportObject(h, origin, angles, zeroVelocity);
 
         E.Teleported?.Invoke(h, origin, zeroVelocity);
     }
@@ -937,7 +949,7 @@ internal sealed unsafe partial class EngineEntities
         // AFTER the native ones and not interleaved: stock's walk is in entity
         // creation order and this preserves that for everything that has a
         // shell, rather than inventing an order for the whole list.
-        if (E.ShellLess.Mine is not { } side)
+        if (_shellLess.Mine is not { } side)
             yield break;
 
         var extra = new List<EntityHandle>();
@@ -971,7 +983,7 @@ internal sealed unsafe partial class EngineEntities
     /// </summary>
     public void Remove(EntityHandle entity)
     {
-        if (E.Removal.Remove(entity))
+        if (_removal.Remove(entity))
             return;
 
         _entityLifecycleArea.EntityRemove(entity.Value);
@@ -1126,8 +1138,8 @@ internal sealed unsafe partial class EngineEntities
         // the caller then hands every key to the registry exactly as it does
         // for an entity that has a shell, so nothing about the managed half of
         // a map load changes.
-        if (E.ShellLess.ClassIsShellLess(className))
-            return E.ShellLess.Mine!.Create(className, packedKeys);
+        if (_shellLess.ClassIsShellLess(className))
+            return _shellLess.Mine!.Create(className, packedKeys);
 
         var name = Encoding.UTF8.GetBytes(className + "\0");
 
@@ -2105,12 +2117,17 @@ internal sealed unsafe partial class EnginePlayers
 
 internal sealed unsafe partial class EnginePrecache
 {
+    private readonly NativeInterfaceFactory _interfaces;
+    private readonly ILog _log;
+
     // The server's IVEngineServer, as its composition registered it: the decals'.
     private readonly IFwdEngineServer _server;
 
-    public EnginePrecache(EngineSide side, IFwdEngineServer server, IFwdModelInfo modelInfo, BreakModels breaks)
+    public EnginePrecache(EngineSide side, NativeInterfaceFactory interfaces, ILog log, IFwdEngineServer server, IFwdModelInfo modelInfo, BreakModels breaks)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _interfaces = interfaces ?? throw new ArgumentNullException(nameof(interfaces));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
         _breaks = breaks ?? throw new ArgumentNullException(nameof(breaks));
@@ -2131,7 +2148,7 @@ internal sealed unsafe partial class EnginePrecache
     }
 
     private ForwardedStringTables? _tables;
-    private ForwardedStringTables Tables => _tables ??= ForwardedStringTables.Acquire(E);
+    private ForwardedStringTables Tables => _tables ??= ForwardedStringTables.Acquire(_interfaces, E.Side, _log);
 
     public void PrecacheMaterial(string material) => Precache("Materials", material);
 
@@ -2147,7 +2164,7 @@ internal sealed unsafe partial class EnginePrecache
     public int PrecacheDecal(string name) => DecalPrecache.Precache(new DecalPrecacheEngine(this), name);
 
     private EngineLevel? _decalLevel;
-    private EngineLevel DecalLevel => _decalLevel ??= new EngineLevel(E.Interfaces);
+    private EngineLevel DecalLevel => _decalLevel ??= new EngineLevel(_interfaces);
 
     private readonly struct DecalPrecacheEngine(EnginePrecache precache) : IDecalPrecacheEngine
     {
@@ -2157,7 +2174,7 @@ internal sealed unsafe partial class EnginePrecache
 
         public int PrecacheDecal(string name, bool preload) => precache._server.PrecacheDecal(name, preload);
 
-        public void Warning(string text) => precache.E.Warning(text);
+        public void Warning(string text) => precache._log.Warning(text);
     }
 
     /// <summary>
@@ -2177,11 +2194,14 @@ internal sealed unsafe partial class EnginePrecache
 
 internal sealed unsafe partial class EngineScripted
 {
+    private readonly ILog _log;
+
     private readonly IEntityLifecycleArea _entityLifecycleArea;
 
-    public EngineScripted(EngineSide side, IEntityLifecycleArea entityLifecycleArea)
+    public EngineScripted(EngineSide side, ILog log, IEntityLifecycleArea entityLifecycleArea)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _entityLifecycleArea = entityLifecycleArea ?? throw new ArgumentNullException(nameof(entityLifecycleArea));
     }
 
@@ -2357,7 +2377,7 @@ internal sealed unsafe partial class EngineScripted
 
         if (total > limit)
         {
-            E.Warning($"[SourceSharp] a template made {total} entities and only {limit} were handed " +
+            _log.Warning($"[SourceSharp] a template made {total} entities and only {limit} were handed " +
                      "back; the rest exist but nothing here can address them\n");
         }
 
@@ -2367,9 +2387,12 @@ internal sealed unsafe partial class EngineScripted
 
 internal sealed unsafe partial class EngineSound
 {
-    public EngineSound(EngineSide side, IFwdPhysicsSurfaceProps surfaceProps, IFwdSoundEmitter soundEmitter)
+    private readonly ShellLessRoutes _shellLess;
+
+    public EngineSound(EngineSide side, ShellLessRoutes shellLess, IFwdPhysicsSurfaceProps surfaceProps, IFwdSoundEmitter soundEmitter)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _shellLess = shellLess ?? throw new ArgumentNullException(nameof(shellLess));
         _surfaceProps = surfaceProps ?? throw new ArgumentNullException(nameof(surfaceProps));
         _soundEmitter = soundEmitter ?? throw new ArgumentNullException(nameof(soundEmitter));
     }
@@ -2508,14 +2531,14 @@ internal sealed unsafe partial class EngineSound
     {
         if (soundName.Length == 0) return;
 
-        if (E.ShellLess.State(entity) is { } shellLess)
+        if (_shellLess.State(entity) is { } shellLess)
         {
             // COUNTED BEFORE THE EMIT, and counted whether or not the engine
             // table is bound: this is the twin of logical.nativeReach, and what
             // it has to make observable is that the ROUTE was taken. Counting
             // after a call that returns early on an unbound table would report
             // zero for the very build a hermetic test runs in.
-            E.ShellLess.NoteSoundPlacedHere();
+            _shellLess.NoteSoundPlacedHere();
             EmitSoundAtPosition(soundName, shellLess.Origin);
             return;
         }

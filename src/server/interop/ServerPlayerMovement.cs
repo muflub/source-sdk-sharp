@@ -13,15 +13,17 @@ namespace SourceSharp.Server.Interop;
 public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
 {
     private readonly EngineSide api;
+    private readonly ILog _log;
     private readonly IEntitiesServerArea _entities;
     private readonly ServerPlayerMoves moves;
     private readonly ServerPlayerCommands commands;
     private readonly HashSet<EntityHandle> _refused = new();
 
-    internal ServerPlayerMovement(EngineSide api, IEntitiesServerArea entities, ServerPlayerMoves moves,
+    internal ServerPlayerMovement(EngineSide api, ILog log, IEntitiesServerArea entities, ServerPlayerMoves moves,
                                   ServerPlayerCommands commands)
     {
         this.api = api ?? throw new ArgumentNullException(nameof(api));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _entities = entities ?? throw new ArgumentNullException(nameof(entities));
         this.moves = moves ?? throw new ArgumentNullException(nameof(moves));
         this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
@@ -31,7 +33,7 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
     public static ServerPlayerMovement For(ModuleEngine engine, ServerPlayerMoves moves, ServerPlayerCommands commands)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new ServerPlayerMovement(engine.Api, engine.Attachment.Areas.Require<IEntitiesServerArea>(), moves, commands);
+        return new ServerPlayerMovement(engine.Api, engine.Log, engine.Attachment.Areas.Require<IEntitiesServerArea>(), moves, commands);
     }
 
     /// <summary>The lift off the floor an upward push gives (standalone_basevelocity.h's SOURCESHARP_BASEVELOCITY_UNSTICK, until T4g).</summary>
@@ -98,7 +100,7 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
         if (Player(entity) is not { } m)
         {
             if (FirstRefusal(entity))
-                api.Warning($"[SourceSharp] AddBaseVelocity: '{api.EntityGetClassName(_entities, entity)}' (handle " +
+                _log.Warning($"[SourceSharp] AddBaseVelocity: '{api.EntityGetClassName(_entities, entity)}' (handle " +
                             $"{entity.Value}) is not a player, so it has no base-velocity channel; the push " +
                             "was ignored. Push a physics object with ApplyForceCenter, or move it.\n");
 
@@ -148,7 +150,7 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
         if (impulse.X != 0f || impulse.Y != 0f || impulse.Z != 0f)
         {
             if (EntityPhysicsMotion.CheckEntityVelocity(ref impulse) < 0)
-                api.Warning(FormattableString.Invariant(
+                _log.Warning(FormattableString.Invariant(
                     $"Discarding ApplyAbsVelocityImpulse({impulse.X:F6},{impulse.Y:F6},{impulse.Z:F6}) on {entity}\n"));
             else
                 s.Velocity += impulse;

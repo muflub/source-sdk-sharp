@@ -49,7 +49,7 @@ internal sealed class ServerEngineInterfaces(ModuleEngine engine) : IServerEngin
 {
     private readonly ModuleEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-    private NativeInterfaceFactory Factory => _engine.Api.Interfaces;
+    private NativeInterfaceFactory Factory => _engine.Interfaces;
 
     public string RandomStreamProbe()
         => Line("IUniformRandomStream", UniformRandomStream.Acquire(Factory, out string why), why,

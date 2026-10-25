@@ -39,7 +39,7 @@ public interface IFlashlightSlots
 }
 
 /// <summary>The real slots: IShimFlashlightClient, IShimViewClient's traces, and two engine forwarder tables.</summary>
-internal sealed unsafe class FlashlightSlots(EngineSide api, IFlashlightClientArea flashlight, IViewClientArea view)
+internal sealed unsafe class FlashlightSlots(NativeInterfaceFactory interfaces, IFlashlightClientArea flashlight, IViewClientArea view)
     : IFlashlightSlots
 {
     private const string DebugOverlayVersion = "VDebugOverlay003";
@@ -55,9 +55,9 @@ internal sealed unsafe class FlashlightSlots(EngineSide api, IFlashlightClientAr
         if (_bound)
             return;
         _bound = true;
-        Forwarders.TryAcquire(api.Interfaces, SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion,
+        Forwarders.TryAcquire(interfaces, SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion,
                               out _engine, out _engineFwd, out _);
-        Forwarders.TryAcquire(api.Interfaces, SourceSharpFactoryType.AppSystem, DebugOverlayVersion,
+        Forwarders.TryAcquire(interfaces, SourceSharpFactoryType.AppSystem, DebugOverlayVersion,
                               out _overlay, out _overlayFwd, out _);
     }
 

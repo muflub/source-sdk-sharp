@@ -131,7 +131,13 @@ public abstract class ModuleEngine
     /// vphysics service is built over, so it calls objects through their
     /// forwarders rather than reading their vptrs. Bound on first use.
     /// </summary>
-    public VPhysicsTables VPhysics => Api.VPhysics;
+    public VPhysicsTables VPhysics => Attachment.VPhysics;
+
+    /// <summary>
+    /// This side's interface factory, over its shim root: what a static
+    /// factory acquires an engine interface through while it composes.
+    /// </summary>
+    internal NativeInterfaceFactory Interfaces => Attachment.Interfaces;
 
     /// <summary>This engine's game clock (plan_engineapi_vtables B5).</summary>
     public IGameClock Clock() => new EngineClock(Api);

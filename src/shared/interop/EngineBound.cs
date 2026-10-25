@@ -86,7 +86,7 @@ internal sealed class BoundInterface<T> where T : class
             return _held;
 
         string why = string.Empty;
-        T bound = (_acquire is not null ? _acquire(side.Interfaces, side.Side, out why) : _acquireOverSide!(side, out why))
+        T bound = (_acquire is not null ? _acquire(side.Attachment.Interfaces, side.Side, out why) : _acquireOverSide!(side, out why))
             ?? throw InterfaceAcquisitionException.FromReport(
                    SourceSharpFactoryType.AppSystem, _version, why);
 

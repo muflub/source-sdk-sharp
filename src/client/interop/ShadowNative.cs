@@ -168,10 +168,10 @@ public sealed unsafe class ShadowNative : IShadowEngine, IShadowMaterials, IShad
     public static ShadowNative? Acquire(ModuleEngine engine, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        EngineSide side = engine.Api;
-        if (!Forwarders.TryAcquire(side.Interfaces, out ShadowsFwd* table, out why))
+        NativeInterfaceFactory interfaces = engine.Interfaces;
+        if (!Forwarders.TryAcquire(interfaces, out ShadowsFwd* table, out why))
             return null;
-        if (!side.Interfaces.TryCreate(SourceSharpFactoryType.Internal, "SourceSharpShadowEnv001", out nint env, out string? error))
+        if (!interfaces.TryCreate(SourceSharpFactoryType.Internal, "SourceSharpShadowEnv001", out nint env, out string? error))
         {
             why = error ?? "client.so serves no shadow environment";
             return null;

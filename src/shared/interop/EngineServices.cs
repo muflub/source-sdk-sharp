@@ -66,31 +66,10 @@ public static partial class EngineServices
             count++;
         }
 
-        // AND THE SIDE'S THREE ROUTES UP INTO ITS REGISTRY (plan_abi_hotreload
-        // D7). They were static classes; they are this side's own instances, so
-        // the registry the composition builds binds into exactly the routes this
-        // side's engine reads, and two compositions over two sides share none.
-        // Not engine areas, so not in the count.
-        services.AddInstance(side.ShellLess);
-        services.AddInstance(side.EntityIo);
-        services.AddInstance(side.Removal);
-
         // The side's surfaceprop table, over the surface props AddForwarders
         // registered (it was a static that read Engine.Current). Not an engine
-        // area either.
+        // area.
         services.AddInstance(new PhysicsSurfaces(services.Require<IFwdPhysicsSurfaceProps>()));
-
-        // AND THE SIDE'S LOG (statics to zero: it was the static Log): an ILog
-        // over this side's own console, which everything this composition
-        // builds is handed by constructor, and the lines that console prints,
-        // for the dev API's tap and a console command's capture.
-        services.AddInstance(side.Log);
-        services.AddInstance(side.Lines);
-
-        // AND THE SIDE'S VPHYSICS FORWARDER TABLES (plan_engine_forwarders.md),
-        // which a vphysics service or command is built over. Bound on first use,
-        // so registering them asks the engine nothing.
-        services.AddInstance(side.VPhysics);
 
         return count;
     }
@@ -132,9 +111,48 @@ public static partial class EngineServices
     /// </summary>
     internal static void AddBindingServices(ServiceContainer services, EngineSide side)
     {
+        AddSideServices(services, side);
         AddForwarders(services, side);
         AddModelCaches(services, side);
     }
+
+    /// <summary>
+    /// The side's own services, which a binding or adapter takes by constructor
+    /// (plan_engineside_removal Phase 2) rather than reaching into the side for
+    /// them, so they are registered before any binding is built.
+    ///
+    /// <list type="bullet">
+    /// <item>Its interface factory, over its shim root, which a binding acquires
+    /// an engine object through.</item>
+    /// <item>Its three routes up into its registry (plan_abi_hotreload D7). They
+    /// were static classes; they are this side's own instances, so the registry
+    /// the composition builds binds into exactly the routes this side's engine
+    /// reads, and two compositions over two sides share none.</item>
+    /// <item>Its log (statics to zero: it was the static Log), over this side's
+    /// own console, and the lines that console prints, for the dev API's tap
+    /// and a console command's capture.</item>
+    /// <item>Its vphysics forwarder tables (plan_engine_forwarders.md), which a
+    /// vphysics service or command is built over. Bound on first use, so
+    /// registering them asks the engine nothing.</item>
+    /// <item>Its liveness holder, where the composition's liveness mirror is
+    /// attached.</item>
+    /// <item>And what only one side has (the server's entity motion).</item>
+    /// </list>
+    /// </summary>
+    internal static void AddSideServices(ServiceContainer services, EngineSide side)
+    {
+        services.AddInstance(side.Interfaces);
+        services.AddInstance(side.ShellLess);
+        services.AddInstance(side.EntityIo);
+        services.AddInstance(side.Removal);
+        services.AddInstance(side.Log);
+        services.AddInstance(side.Lines);
+        services.AddInstance(side.VPhysics);
+        services.AddInstance(side.Liveness);
+        AddOwnServices(services, side);
+    }
+
+    static partial void AddOwnServices(ServiceContainer services, EngineSide side);
 
     /// <summary>
     /// This side's model descriptors, cached per model per level, and its
@@ -286,7 +304,6 @@ public static partial class EngineServices
             {
                 Type wanted = parameters[i].ParameterType;
                 args[i] = wanted == typeof(EngineSide) ? side
-                        : wanted == typeof(NativeInterfaceFactory) ? side.Interfaces
                         : IsShimArea(wanted) ? side.Attachment.Areas.Resolve(wanted)
                         : from.Resolve(wanted);
 

@@ -27,6 +27,7 @@ internal sealed unsafe partial class SideAttachment
     private ServiceContainer _areas;
     private Action? _attached;
     private NativeInterfaceFactory? _interfaces;
+    private VPhysicsTables? _vphysics;
 
     // A constructor only saves what it is handed: the factories below build
     // the rest.
@@ -120,6 +121,14 @@ internal sealed unsafe partial class SideAttachment
     /// acquires through. There is no process-wide factory.
     /// </summary>
     internal NativeInterfaceFactory Interfaces => _interfaces ??= new NativeInterfaceFactory(AcquireInterface);
+
+    /// <summary>
+    /// This side's vphysics forwarder tables (plan_engine_forwarders.md), bound
+    /// from <see cref="Interfaces"/> on first use: what every vphysics service
+    /// of the side calls objects through. The attachment's, as the factory is,
+    /// so a module engine reaches them without the side.
+    /// </summary>
+    internal VPhysicsTables VPhysics => _vphysics ??= new VPhysicsTables(Interfaces);
 
     /// <summary>
     /// Has <paramref name="react"/> run at each attach, after the areas and the

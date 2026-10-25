@@ -75,7 +75,7 @@ public sealed unsafe class VPhysicsClientLevel : IClientPhysicsLevelCalls
     /// <summary><c>IPhysics</c> from <paramref name="engine"/>'s own side; null with the reason when it does not answer.</summary>
     public static VPhysicsClientLevel? Acquire(ModuleEngine engine, out string why)
     {
-        NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces;
+        NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces;
 
         if (!Forwarders.TryAcquire<PhysicsFwd>(factory, SourceSharpFactoryType.Physics, "VPhysics031",
                                                out void* physics, out PhysicsFwd* physicsFwd, out why))
@@ -83,7 +83,7 @@ public sealed unsafe class VPhysicsClientLevel : IClientPhysicsLevelCalls
             return null;
         }
 
-        return new VPhysicsClientLevel(physics, physicsFwd, engine.Api.VPhysics);
+        return new VPhysicsClientLevel(physics, physicsFwd, engine.VPhysics);
     }
 
     private PhysicsEnvironmentFwd* Env => _vphysics.PhysicsEnvironment;

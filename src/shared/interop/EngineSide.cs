@@ -90,17 +90,11 @@ internal sealed unsafe partial class EngineSide
         public void Warning(string message) => side.Warning(message);
     }
 
-    /// <summary>
-    /// This side's vphysics forwarder tables (plan_engine_forwarders.md), bound
-    /// from its own interface factory on first use: what every vphysics service
-    /// of the side calls objects through.
-    /// </summary>
-    internal VPhysicsTables VPhysics => _vphysics ??= new VPhysicsTables(Interfaces);
-
-    private VPhysicsTables? _vphysics;
+    /// <summary>The attachment's vphysics forwarder tables (<see cref="SideAttachment.VPhysics"/>).</summary>
+    internal VPhysicsTables VPhysics => _attachment.VPhysics;
 
 
-    /// <summary>The attachment's interface factory (until its users take it by constructor; plan Phase 2).</summary>
+    /// <summary>The attachment's interface factory (<see cref="SideAttachment.Interfaces"/>).</summary>
     internal NativeInterfaceFactory Interfaces => _attachment.Interfaces;
 
     // plan_abi_hotreload D7: the three routes up into the side's registry are
@@ -116,6 +110,9 @@ internal sealed unsafe partial class EngineSide
 
     /// <summary>Where this side's removals are marked.</summary>
     internal EntityRemovalRoutes Removal { get; } = new();
+
+    /// <summary>The three routes, as an unload's net searches them (<see cref="ManagedCaches.Forget"/>).</summary>
+    internal SideRoutes Routes => new(ShellLess, Removal, EntityIo);
 
     // plan_abi_hotreload D8: this side's model caches are its composition's
     // own (EngineServices.AddTo builds them over the side's model info, its
@@ -189,41 +186,17 @@ internal sealed unsafe partial class EngineSide
     }
 
     // plan_abi_hotreload D7: the liveness mirror EntityIsValid answers from is
-    // the server composition's, attached while it is composed and taken back
-    // at its Shutdown. Null means every ask crosses to the slot.
-    private LivenessMirror? _liveness;
+    // the server composition's, held by the side's liveness holder, which its
+    // container registers (plan_engineside_removal Phase 2).
 
-    /// <summary>The mirror attached now, for a fact; null when none is.</summary>
-    internal LivenessMirror? Liveness => _liveness;
+    /// <summary>Where <see cref="EntityIsValid"/> finds the composition's liveness mirror.</summary>
+    internal SideLiveness Liveness { get; } = new();
 
     /// <summary>
     /// Has <see cref="EntityIsValid"/> answer from <paramref name="mirror"/>
-    /// until the returned attachment is disposed, which puts back whatever was
-    /// attached before, and only if this mirror is still the one attached.
+    /// until the returned attachment is disposed (<see cref="SideLiveness.Attach"/>).
     /// </summary>
-    internal IDisposable AttachLiveness(LivenessMirror mirror)
-    {
-        var previous = _liveness;
-        _liveness = mirror;
-        return new LivenessAttachment(this, mirror, previous);
-    }
-
-    private sealed class LivenessAttachment(EngineSide side, LivenessMirror mirror, LivenessMirror? previous)
-        : IDisposable
-    {
-        private bool _disposed;
-
-        public void Dispose()
-        {
-            if (_disposed)
-                return;
-
-            _disposed = true;
-
-            if (ReferenceEquals(side._liveness, mirror))
-                side._liveness = previous;
-        }
-    }
+    internal IDisposable AttachLiveness(LivenessMirror mirror) => Liveness.Attach(mirror);
 
     /// <summary>
     /// This side's surfaceprop table, over this side's routing. It replaced the
@@ -382,7 +355,7 @@ internal sealed unsafe partial class EngineSide
         }
     }
 
-    public void Msg(string message)
+    internal void Msg(string message)
     {
         var bytes = Encoding.UTF8.GetBytes(message + "\0");
         fixed (byte* p = bytes)
@@ -402,7 +375,7 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>Prints a warning to the Source console.</summary>
-    public void Warning(string message)
+    internal void Warning(string message)
     {
         var bytes = Encoding.UTF8.GetBytes(message + "\0");
         fixed (byte* p = bytes)
@@ -456,7 +429,7 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return true;
 
-        if (_attachment.Side == Side.Server && _liveness is { Rerouted: true } liveness &&
+        if (_attachment.Side == Side.Server && Liveness.Mirror is { Rerouted: true } liveness &&
             liveness.TryLookup(h, out bool alive))
             return alive;
 

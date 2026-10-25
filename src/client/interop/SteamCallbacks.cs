@@ -107,7 +107,7 @@ public sealed unsafe class SteamCallbacks : ISteamCallbacks
     {
         ArgumentNullException.ThrowIfNull(engine);
 
-        return Forwarders.TryAcquire(engine.Api.Interfaces, out SteamCallbackFwd* fwd, out why)
+        return Forwarders.TryAcquire(engine.Interfaces, out SteamCallbackFwd* fwd, out why)
             ? new SteamCallbacks(vtables, steam, log, fwd)
             : null;
     }
