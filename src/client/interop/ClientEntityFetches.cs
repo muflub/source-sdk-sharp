@@ -48,7 +48,7 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(engine);
 
-        IServiceLocator areas = engine.Api.Areas;
+        IServiceLocator areas = engine.Attachment.Areas;
 
         services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(areas.Require<IStandaloneClientArea>()));
         services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(areas.Require<IStandaloneClientArea>()));

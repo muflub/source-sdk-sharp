@@ -52,7 +52,7 @@ public class EngineInterfaceRegistrationTests
         // registered is what the slot acquired, so a call is one call.
         EngineSide side = TestSides.Create(Side.Server);
         var sounds = new Durations();
-        side.Bound.SoundServer.Hold(sounds);
+        side.Attachment.Bound.SoundServer.Hold(sounds);
 
         Assert.Same(sounds, Registered(side).Require<IFwdEngineSoundServer>());
     }

@@ -9,7 +9,7 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal static class EngineServerBinding
 {
-    internal static void Bind(EngineSide side)
+    internal static void Bind(SideAttachment side)
     {
         ArgumentNullException.ThrowIfNull(side);
         side.Bound.UseServer((NativeInterfaceFactory factory, Side _, out string why) => EngineServer.Acquire(factory, out why));

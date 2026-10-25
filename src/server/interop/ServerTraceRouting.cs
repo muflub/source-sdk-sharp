@@ -27,7 +27,7 @@ public static class ServerTraceRouting
             return null;
 
         EngineSide side = engine.Api;
-        INetworkServerArea network = side.Areas.Require<INetworkServerArea>();
+        INetworkServerArea network = side.Attachment.Areas.Require<INetworkServerArea>();
         var candidates = new EngineTraceCandidates(h => side.GetEntityBlock(network, h), side.EntityGetIndex,
                                                    modelInfo);
         var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, collisionRows), engine.Crossings);

@@ -101,10 +101,10 @@ public unsafe class CollisionRulesClientSideTests : IDisposable
     private EngineSide Attached(Side side)
     {
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
 
         string why;
-        bool attached = api.AttachOwnShims(_root.Bind(), out why);
+        bool attached = api.Attachment.AttachShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

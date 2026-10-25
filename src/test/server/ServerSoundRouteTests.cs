@@ -49,8 +49,8 @@ public sealed class ServerSoundRouteTests : IDisposable
     private EngineSide Server(Route? route)
     {
         var side = TestSides.Create(Side.Server);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
         side.ServerSounds = route;
         return side;
     }

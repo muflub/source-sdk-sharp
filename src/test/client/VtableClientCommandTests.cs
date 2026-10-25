@@ -87,7 +87,7 @@ public unsafe class VtableClientCommandTests
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(EngineClient.InterfaceVersion, &word).Forwarders<EngineClientFwd>();
-        Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+        Assert.True(served.Attachment.AttachShims(root.Bind(), out string attachWhy), attachWhy);
 
         Assert.True(servedProbe.Served(out _));
         Assert.False(bareProbe.Served(out string why));

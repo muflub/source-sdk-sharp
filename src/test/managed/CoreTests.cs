@@ -46,10 +46,10 @@ public class CoreTests
         var server = TestSides.Create(Side.Server);
         var client = TestSides.Create(Side.Client);
 
-        Assert.True(!server.IsInitialized && !client.IsInitialized, "a fresh side is not initialised");
-        server.Initialize();
-        Assert.True(server.IsInitialized, "initialising the server side initialises it");
-        Assert.True(!client.IsInitialized, "and leaves the client side as it was");
+        Assert.True(!server.Attachment.IsInitialized && !client.Attachment.IsInitialized, "a fresh side is not initialised");
+        server.Attachment.Initialize();
+        Assert.True(server.Attachment.IsInitialized, "initialising the server side initialises it");
+        Assert.True(!client.Attachment.IsInitialized, "and leaves the client side as it was");
     }
 
     [Fact]

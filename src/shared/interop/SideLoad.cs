@@ -12,13 +12,17 @@ namespace SourceSharp.Shared.Interop;
 /// Lives in the side's own load context, so freeing the handle is what lets
 /// that context go.
 /// </summary>
-internal sealed class SideSession(Side side, EngineSide engine, SideFacts facts)
+internal sealed class SideSession(Side side, SideAttachment attachment, EngineSide engine, SideFacts facts)
 {
     public Side Side { get; } = side;
+
+    /// <summary>What this load attached to: the root, the areas, the factory and the state.</summary>
+    public SideAttachment Attachment { get; } = attachment;
+
     public EngineSide Engine { get; } = engine;
 
-    /// <summary>What the side keeps across its loads: the engine's own <see cref="SideState"/>.</summary>
-    public SideState State => Engine.State;
+    /// <summary>What the side keeps across its loads: the attachment's <see cref="SideState"/>.</summary>
+    public SideState State => Attachment.State;
 
     public ManagedVtables Vtables => State.Vtables;
     public SideFacts Facts { get; } = facts;
@@ -65,7 +69,7 @@ public static unsafe class SideLoad
     /// IVEngineServer, whose wrapper is Server.Interop's).
     /// </summary>
     internal static int Load(Side side, CrossingOp op, void* pShimRoot, void* pShimRootTable, void** ppManagedRoot,
-                             nint* pVtables, nint* pSession, byte* pFacts, Action<EngineSide>? bindSide)
+                             nint* pVtables, nint* pSession, byte* pFacts, Action<SideAttachment>? bindSide)
     {
         // statics to zero: the side's state, which outlives every load, held by
         // the Bootstrap as the one opaque handle it has always kept for the
@@ -98,7 +102,8 @@ public static unsafe class SideLoad
         // module, so the module is composed over this instance. Nothing of it
         // outlives the load: its routing is re-attached, its globals re-asked
         // and its caches re-filled by the next one.
-        EngineSide engine = EngineSide.Create(side, state);
+        SideAttachment attachment = SideAttachment.Detached(side, state);
+        EngineSide engine = EngineSide.Over(attachment);
         SideSession session;
 
         try
@@ -106,7 +111,7 @@ public static unsafe class SideLoad
             // What only one side's assembly can bind (the server's IVEngineServer,
             // whose wrapper is Server.Interop's): handed in by that side's entry,
             // before anything below can ask for it.
-            bindSide?.Invoke(engine);
+            bindSide?.Invoke(attachment);
 
             if (ppManagedRoot != null)
                 *ppManagedRoot = null;
@@ -116,7 +121,7 @@ public static unsafe class SideLoad
             // plan_managed_vtable_reload.md L3: the side's registry of
             // managed-built blocks is the state's, so it outlives every load
             // context the side's module comes and goes in.
-            session = new SideSession(side, engine, facts);
+            session = new SideSession(side, attachment, engine, facts);
             *pSession = GCHandle.ToIntPtr(GCHandle.Alloc(session));
 
             if (!ShimRoot.TryBind(pShimRoot, pShimRootTable, out ShimRoot? root, out string why))
@@ -144,7 +149,7 @@ public static unsafe class SideLoad
             // load, attached to this side's engine API (docs/engineapi-switched.txt).
             // The client attaches its shared bases instead (plan_client_vtables
             // CB; docs/engineapi-client-switched.txt).
-            bool attached = engine.AttachOwnShims(root!, out why);
+            bool attached = attachment.AttachShims(root!, out why);
             if (!attached)
             {
                 Trace(state.Log, $"LoadSideV2({side}) refused: {why}");
@@ -200,14 +205,14 @@ public static unsafe class SideLoad
         try
         {
             Side side = session.Side;
-            EngineSide engine = session.Engine;
+            SideAttachment attachment = session.Attachment;
             SideFacts facts = session.Facts;
 
             // Both sides arrive with their shim root bound (its ABI version
             // checked as it was bound). plan_client_vtables CC-last: there is no
             // engine struct; every slot is a shim-area method, routed once the
             // side's areas attach.
-            engine.Initialize();
+            attachment.Initialize();
 
             // Before anything else: process-wide handlers catch faults the
             // per-call try/catch cannot (other threads, unobserved Tasks).
@@ -216,7 +221,7 @@ public static unsafe class SideLoad
 
             // Published for the modules, which cannot work it out themselves:
             // they are loaded from memory and so have no Location to ask.
-            engine.ManagedDirectory = facts.ManagedDir;
+            attachment.ManagedDirectory = facts.ManagedDir;
 
             Trace(session.State.Log, $"LoadSide({side})");
 

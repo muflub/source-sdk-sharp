@@ -12,5 +12,5 @@ public sealed partial class ModuleEngine
     /// and unbound otherwise. A new instance per call: the server's composition
     /// asks once and registers it (plan_abi_hotreload D7).
     /// </summary>
-    public EntityFactories EntityFactories() => Api.BindEntityFactories(Api.Areas.Require<IEntityLifecycleArea>());
+    public EntityFactories EntityFactories() => Api.BindEntityFactories(Attachment.Areas.Require<IEntityLifecycleArea>());
 }

@@ -124,8 +124,9 @@ public class ShimAreaInjectionCensusTests
     }
 
     /// <summary>
-    /// The side's registry of areas is read where a consumer is put together
-    /// and nowhere else: by the side itself and its <c>ModuleEngine</c>, by
+    /// The side's registry of areas (<c>SideAttachment.Areas</c>) is read where
+    /// a consumer is put together and nowhere else: by the attachment, the
+    /// side over it and its <c>ModuleEngine</c>, by
     /// the client's adapter registration (<c>ClientEntityFetches.AddTo</c>,
     /// which the module calls once while it composes, and which is an
     /// instance method only so a fact can hand in another), and otherwise only
@@ -145,8 +146,8 @@ public class ShimAreaInjectionCensusTests
 
         foreach (Assembly assembly in Interops)
         {
-            Type side = assembly.GetType("SourceSharp.Abi.EngineSide", throwOnError: true)!;
-            MethodInfo getter = side.GetProperty("Areas", BindingFlags.Instance | BindingFlags.NonPublic)!.GetMethod!;
+            Type attachment = assembly.GetType("SourceSharp.Abi.SideAttachment", throwOnError: true)!;
+            MethodInfo getter = attachment.GetProperty("Areas", BindingFlags.Instance | BindingFlags.NonPublic)!.GetMethod!;
             byte[] call = [0x28, .. BitConverter.GetBytes(getter.MetadataToken)];
             byte[] callvirt = [0x6F, .. BitConverter.GetBytes(getter.MetadataToken)];
 
@@ -165,7 +166,7 @@ public class ShimAreaInjectionCensusTests
                     string where = $"{assembly.GetName().Name}: {type.FullName}.{method.Name}";
                     readers.Add(where);
 
-                    bool composition = outer.Name is "EngineSide" or "ModuleEngine"
+                    bool composition = outer.Name is "SideAttachment" or "EngineSide" or "ModuleEngine"
                                     || (outer.Name == "ClientEntityFetches" && method.Name == "AddTo")
                                     || (type == outer && method.IsStatic && !method.IsConstructor);
                     if (!composition)

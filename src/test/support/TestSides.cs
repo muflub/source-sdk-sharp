@@ -21,7 +21,7 @@ internal static class TestSides
         // As the server's load does before anything can ask (SideLoad's
         // bindSide): the server interop composes every side it builds, so the
         // slot carries IVEngineServer's acquirer across a fact's attach.
-        EngineServerBinding.Bind(engine);
+        EngineServerBinding.Bind(engine.Attachment);
 #endif
         DefaultForwarders.HoldOn(engine);
         return engine;
@@ -53,6 +53,6 @@ internal static class TestSides
 #else
         ClientAreaDefaults.AddTo((type, area) => areas.AddInstance(type, area));
 #endif
-        return EngineSide.Create(side, state, areas);
+        return EngineSide.Over(SideAttachment.Over(side, state, areas));
     }
 }

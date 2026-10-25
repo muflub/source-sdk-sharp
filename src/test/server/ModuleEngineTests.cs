@@ -26,9 +26,9 @@ public class ModuleEngineTests
     public void TwoCompositionsReadTheirOwnEnginesManagedDirectory()
     {
         var first = TestSides.Create(Side.Server);
-        first.ManagedDirectory = "first/bin/managed";
+        first.Attachment.ManagedDirectory = "first/bin/managed";
         var second = TestSides.Create(Side.Server);
-        second.ManagedDirectory = "second/bin/managed";
+        second.Attachment.ManagedDirectory = "second/bin/managed";
 
         var firstServices = new ServiceContainer();
         var secondServices = new ServiceContainer();

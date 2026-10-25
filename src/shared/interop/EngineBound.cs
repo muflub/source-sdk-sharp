@@ -154,23 +154,23 @@ internal static partial class EngineBound
         => EngineModelInfo.Acquire(factory, out why, EngineModelInfoVersion.For(side));
 
     /// <summary><c>VEngineRandom001</c>, this side's.</summary>
-    internal static IUniformRandom Random(EngineSide side) => side.Bound.Random.For(side);
+    internal static IUniformRandom Random(EngineSide side) => side.Attachment.Bound.Random.For(side);
 
     /// <summary><c>EngineTraceServer003</c> or <c>EngineTraceClient003</c>, this side's.</summary>
-    internal static IFwdEngineTrace Trace(EngineSide side) => side.Bound.Trace.For(side);
+    internal static IFwdEngineTrace Trace(EngineSide side) => side.Attachment.Bound.Trace.For(side);
 
     /// <summary><c>VSoundEmitter002</c>, this side's.</summary>
-    internal static IFwdSoundEmitter SoundEmitter(EngineSide side) => side.Bound.SoundEmitter.For(side);
+    internal static IFwdSoundEmitter SoundEmitter(EngineSide side) => side.Attachment.Bound.SoundEmitter.For(side);
 
     /// <summary><c>VPhysicsSurfaceProps001</c>, this side's.</summary>
-    internal static IFwdPhysicsSurfaceProps SurfaceProps(EngineSide side) => side.Bound.SurfaceProps.For(side);
+    internal static IFwdPhysicsSurfaceProps SurfaceProps(EngineSide side) => side.Attachment.Bound.SurfaceProps.For(side);
 
     /// <summary><c>VBaseFileSystem011</c>, this side's.</summary>
-    internal static IFwdBaseFileSystem Files(EngineSide side) => side.Bound.Files.For(side);
+    internal static IFwdBaseFileSystem Files(EngineSide side) => side.Attachment.Bound.Files.For(side);
 
     /// <summary>The side's own model info.</summary>
-    internal static IFwdModelInfo ModelInfo(EngineSide side) => side.Bound.ModelInfo.For(side);
+    internal static IFwdModelInfo ModelInfo(EngineSide side) => side.Attachment.Bound.ModelInfo.For(side);
 
     /// <summary><c>IVDebugOverlay</c>; one that draws nothing on a side with none (a dedicated server).</summary>
-    internal static IFwdDebugOverlay DebugOverlay(EngineSide side) => side.Bound.DebugOverlay.For(side);
+    internal static IFwdDebugOverlay DebugOverlay(EngineSide side) => side.Attachment.Bound.DebugOverlay.For(side);
 }

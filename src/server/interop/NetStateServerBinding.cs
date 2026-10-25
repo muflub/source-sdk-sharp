@@ -46,7 +46,7 @@ public static class NetStateServerBinding
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(engine);
-        state.Bind(engine.Api, engine.Api.Areas.Require<INetworkServerArea>(), handle);
+        state.Bind(engine.Api, engine.Attachment.Areas.Require<INetworkServerArea>(), handle);
     }
 
     /// <inheritdoc cref="Bind(NetState, ModuleEngine, EntityHandle)"/>
@@ -56,7 +56,7 @@ public static class NetStateServerBinding
     /// <param name="handle">The entity.</param>
     internal static void Bind(this NetState state, EngineSide side, INetworkServerArea network, EntityHandle handle)
     {
-        if (!side.IsInitialized)
+        if (!side.Attachment.IsInitialized)
         {
             state.BindLocal();
             return;

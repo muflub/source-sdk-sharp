@@ -18,7 +18,10 @@ namespace SourceSharp.Abi;
 internal static class DefaultForwarders
 {
     /// <summary>Holds the defaults on <paramref name="side"/>'s bound slots, for as long as it has no shim root.</summary>
-    public static void HoldOn(EngineSide side)
+    public static void HoldOn(EngineSide side) => HoldOn(side.Attachment);
+
+    /// <summary>Holds the defaults on <paramref name="side"/>'s bound slots, for as long as it has no shim root.</summary>
+    public static void HoldOn(SideAttachment side)
     {
         side.Bound.Random.Hold(new LowestRandom());
         side.Bound.Trace.Hold(new EmptyWorldTrace());

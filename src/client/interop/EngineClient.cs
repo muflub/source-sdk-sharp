@@ -48,7 +48,7 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
         return Forwarders.TryAcquire<EngineClientFwd>(
                    side.Interfaces, SourceSharpFactoryType.AppSystem,
                    InterfaceVersion, out void* self, out EngineClientFwd* table, out why)
-            ? new EngineClient(side, side.Areas.Require<IViewClientArea>(), self, table)
+            ? new EngineClient(side, side.Attachment.Areas.Require<IViewClientArea>(), self, table)
             : null;
     }
 

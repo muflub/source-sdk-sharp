@@ -41,7 +41,7 @@ public class EngineBoundTests
     private static object Holder(string property)
         => typeof(EngineServices).Assembly.GetType("SourceSharp.Abi.EngineBoundSet")!
                .GetProperty(property, BindingFlags.NonPublic | BindingFlags.Instance)!
-               .GetValue(TestSides.Create(Side.Server).Bound)!;
+               .GetValue(TestSides.Create(Side.Server).Attachment.Bound)!;
 
     private static string VersionOf(string property)
         => (string)Holder(property).GetType()
@@ -126,7 +126,7 @@ public class EngineBoundTests
     public void TheServerBindingAsksIVEngineServerThroughTheSidesOwnFactory()
     {
         var side = TestSides.Create(Side.Server);
-        EngineServerBinding.Bind(side);
+        EngineServerBinding.Bind(side.Attachment);
 
         // No native half in a test process: the acquire fails, but in the
         // factory, asking for the server's version string -- not in the
@@ -145,12 +145,12 @@ public class EngineBoundTests
         // acquirer: a map load on the 82181773 tree threw "binds no
         // IVEngineServer" from every IsDedicatedServer and level init.
         var side = TestSides.Create(Side.Server);
-        EngineServerBinding.Bind(side);
+        EngineServerBinding.Bind(side.Attachment);
         // A root that refuses IVEngineServer, so the acquire's answer says
         // where it was asked: the factory, not an unbound slot.
         using var root = new FakeShimRoot().Refuse(EngineServer.InterfaceVersion);
 
-        Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string attachWhy), attachWhy);
 
         string why = Assert.Throws<InterfaceAcquisitionException>(() => EngineBound.Server(side)).Message;
         Assert.Contains("VEngineServer023", why);
@@ -163,7 +163,7 @@ public class EngineBoundTests
         var side = TestSides.Create(Side.Server);
         var asked = new List<(NativeInterfaceFactory Factory, Side Side)>();
 
-        side.Bound.UseServer((NativeInterfaceFactory factory, Side s, out string why) =>
+        side.Attachment.Bound.UseServer((NativeInterfaceFactory factory, Side s, out string why) =>
         {
             asked.Add((factory, s));
             why = "the installed acquirer answered";
@@ -184,9 +184,9 @@ public class EngineBoundTests
         var one = TestSides.Create(Side.Server);
         var two = TestSides.Create(Side.Server);
 
-        Assert.NotSame(one.Bound, two.Bound);
-        Assert.NotSame(one.Bound.ModelInfo, two.Bound.ModelInfo);
-        Assert.Same(one.Bound, one.Bound);
+        Assert.NotSame(one.Attachment.Bound, two.Attachment.Bound);
+        Assert.NotSame(one.Attachment.Bound.ModelInfo, two.Attachment.Bound.ModelInfo);
+        Assert.Same(one.Attachment.Bound, one.Attachment.Bound);
     }
 
     [Fact]

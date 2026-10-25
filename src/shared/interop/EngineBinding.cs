@@ -239,8 +239,8 @@ internal sealed unsafe partial class EngineHost : IEngineHost
     // one side's, so the side its caller runs on is that side.
     public Side ActiveSide => E.Side;
     public float CurrentTime => E.CurrentTime;
-    public bool IsInitialized => E.IsInitialized;
-    public string ManagedDirectory => E.ManagedDirectory;
+    public bool IsInitialized => E.Attachment.IsInitialized;
+    public string ManagedDirectory => E.Attachment.ManagedDirectory;
     public float RandomFloat(float min, float max) => _random.RandomFloat(min, max);
     public int RandomInt(int min, int max) => _random.RandomInt(min, max);
     // plan_server_novalve.md P2.5: C#'s own, through the flat API; server.so no

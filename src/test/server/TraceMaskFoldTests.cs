@@ -67,8 +67,8 @@ public sealed class TraceMaskFoldTests : System.IDisposable
 
     public TraceMaskFoldTests()
     {
-        _side.Initialize();
-        Assert.True(_side.AttachOwnShims(_root.Bind(), out string why), why);
+        _side.Attachment.Initialize();
+        Assert.True(_side.Attachment.AttachShims(_root.Bind(), out string why), why);
         _side.Tracer = _traces;
     }
 

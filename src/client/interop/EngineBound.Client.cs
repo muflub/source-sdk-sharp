@@ -23,11 +23,11 @@ internal sealed partial class EngineBoundSet
 internal static partial class EngineBound
 {
     /// <summary><c>IVEngineClient</c>. Client side only.</summary>
-    internal static IFwdEngineClient Client(EngineSide side) => side.Bound.Client.For(side);
+    internal static IFwdEngineClient Client(EngineSide side) => side.Attachment.Bound.Client.For(side);
 
     /// <summary><c>IInputSystem</c>. Client side only.</summary>
-    internal static IFwdInputSystem InputSystem(EngineSide side) => side.Bound.InputSystem.For(side);
+    internal static IFwdInputSystem InputSystem(EngineSide side) => side.Attachment.Bound.InputSystem.For(side);
 
     /// <summary><c>IEngineSound</c>, the client's. Client side only.</summary>
-    internal static IFwdEngineSoundClient SoundClient(EngineSide side) => side.Bound.SoundClient.For(side);
+    internal static IFwdEngineSoundClient SoundClient(EngineSide side) => side.Attachment.Bound.SoundClient.For(side);
 }

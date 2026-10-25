@@ -118,8 +118,8 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
         if (serve)
             Serve("VEngineServerStringTable001");
         var side = TestSides.Create(Side.Server);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
         return ForwardedStringTables.Acquire(side, _log);
     }
 
@@ -127,8 +127,8 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     {
         Serve("VEngineClientStringTable001");
         var side = TestSides.Create(Side.Client);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
         return ForwardedStringTables.Acquire(side, _log);
     }
 
@@ -314,9 +314,9 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     {
         Serve(side == Side.Server ? "VEngineServerStringTable001" : "VEngineClientStringTable001");
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
         string why;
-        Assert.True(api.AttachOwnShims(_root.Bind(), out why), why);
+        Assert.True(api.Attachment.AttachShims(_root.Bind(), out why), why);
         return SideBindings.Of<IEnginePrecache>(api);
     }
 

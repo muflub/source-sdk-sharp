@@ -40,7 +40,7 @@ public sealed unsafe class ClientTempEntTables : ITempEntRecvTables
     public static ClientTempEntTables For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new ClientTempEntTables(engine.Api.Areas.Require<ITempEntBackendsClientArea>());
+        return new ClientTempEntTables(engine.Attachment.Areas.Require<ITempEntBackendsClientArea>());
     }
 
     /// <inheritdoc/>

@@ -39,8 +39,8 @@ public sealed unsafe class ServerSkinsTests
         root.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerFwd.EntityMarkBlockChanged),
                   (nint)(delegate* unmanaged<void*, uint, int, void>)&Mark);
         var side = TestSides.Create(Side.Server);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         s_Marks = 0;
         s_MarkedOffset = -1;
         return (ServerSkins.For(new ModuleEngine(side)), root);

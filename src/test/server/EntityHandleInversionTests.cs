@@ -106,9 +106,9 @@ public unsafe class EntityHandleInversionTests : IDisposable
     private EngineSide Attached(string area, string slot, nint fn)
     {
         var side = TestSides.Create(Side.Server);
-        side.Initialize();
+        side.Attachment.Initialize();
         _root.Live(area, slot, fn);
-        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
         return side;
     }
 
@@ -122,7 +122,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
         var side = Attached("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.DestroyShell),
                             (nint)(delegate* unmanaged<void*, uint*, int, void>)&RecordShells);
 
-        side.DestroyShells(side.Areas.Require<IEntityLifecycleArea>(), Handles(Raw));
+        side.DestroyShells(side.Attachment.Areas.Require<IEntityLifecycleArea>(), Handles(Raw));
 
         Assert.Equal(Raw, t_seen);
     }
@@ -137,7 +137,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
         for (int i = 0; i < raw.Length; i++)
             raw[i] = (uint)(i * 0x0001_0001);
 
-        side.DestroyShells(side.Areas.Require<IEntityLifecycleArea>(), Handles(raw));
+        side.DestroyShells(side.Attachment.Areas.Require<IEntityLifecycleArea>(), Handles(raw));
 
         Assert.Equal(raw, t_seen);
     }

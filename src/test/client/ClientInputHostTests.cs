@@ -38,8 +38,8 @@ public sealed unsafe class ClientInputHostTests
             : null;
 
         var side = TestSides.Create(Side.Client);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         return Composed(new ModuleEngine(side));
     }
 
@@ -114,8 +114,8 @@ public sealed unsafe class ClientInputHostTests
         fwd->ClientCmd_Unrestricted = &Unrestricted;
 
         var side = TestSides.Create(Side.Client);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         return Composed(new ModuleEngine(side));
     }
 
@@ -168,7 +168,7 @@ public sealed unsafe class ClientInputHostTests
     public void TheHostRefusesANullEngineClient()
     {
         var side = TestSides.Create(Side.Client);
-        var input = side.Areas.Require<IInputClientArea>();
+        var input = side.Attachment.Areas.Require<IInputClientArea>();
         var constructor = Assert.Single(typeof(ClientInputHost).GetConstructors());
 
         var thrown = Assert.Throws<System.Reflection.TargetInvocationException>(

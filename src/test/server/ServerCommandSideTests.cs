@@ -33,9 +33,9 @@ public sealed unsafe class ServerCommandSideTests : IDisposable
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
 
-        bool attached = api.AttachOwnShims(root.Bind(), out string why);
+        bool attached = api.Attachment.AttachShims(root.Bind(), out string why);
 
         Assert.True(attached, why);
         return api;

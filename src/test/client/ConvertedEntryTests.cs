@@ -248,7 +248,7 @@ public unsafe class ConvertedEntryTests
                 .Forwarders<EngineClientFwd>(out EngineClientFwd* table);
             ((nint*)table)[ClientCmdSlot] = (nint)(delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
             var side = TestSides.Create(Side.Client);
-            Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+            Assert.True(side.Attachment.AttachShims(root.Bind(), out string attachWhy), attachWhy);
 
             IFwdEngineClient? client = EngineClient.Acquire(side, out string why);
             Assert.True(client is not null, why);
@@ -365,7 +365,7 @@ public unsafe class ConvertedEntryTests
             table->FileExists = &FileExistsAnswers;
             table->Size_2 = &SizeByNameAnswers;
             var side = TestSides.Create(Side.Client);
-            Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+            Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
             var files = SideBindings.Of<IEngineFiles>(side);
 
             s_Exists = 1;

@@ -45,7 +45,7 @@ public class TwoClientInstanceTests
 
         public ClientModule Module { get; }
 
-        public SideState State => Engine.State;
+        public SideState State => Engine.Attachment.State;
 
         public List<string> Lines { get; } = new();
     }

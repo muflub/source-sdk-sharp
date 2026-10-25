@@ -21,21 +21,12 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed unsafe partial class EngineSide
 {
-    private readonly Side _side;
-    private bool _ready;
+    // What this side's load attached to (docs/plans/plan_engineside_removal.md
+    // Phase 1): the root, the areas, the bound interfaces and the factory are
+    // the attachment's, and composition reads them there.
+    private readonly SideAttachment _attachment;
     private nint _globals;
     private bool _globalsDecided;
-    private ShimRoot? _root;
-
-    // THE SIDE'S AREAS, BY TYPE (plan_shim_areas_split phase 11). Not a set
-    // anything reaches into: a binding or adapter is given the areas it calls
-    // in its constructor, by the composition that builds it
-    // (EngineServices.Build, ModuleEngine), which is the only reader of
-    // Areas. Every area is over no table until the attach, so a side with no
-    // engine composes, and a call before the attach throws, naming the area
-    // (ShimRef.Table): nothing checks for the attach, since the game composes
-    // only after it (LoadSideV2 attaches, then loads the module).
-    private ServiceContainer _areas = null!;
 
     // The areas the side's OWN services read: the ones made before any
     // composition exists, with the side (its log, its globals and clock, its
@@ -51,74 +42,30 @@ internal sealed unsafe partial class EngineSide
     private IEntitiesArea _entitiesArea = null!;
     private IModelsArea _modelsArea = null!;
 
-    // A constructor only saves what it is handed (phase 11 review): Create
+    // A constructor only saves what it is handed (phase 11 review): Over
     // builds the rest.
-    private EngineSide(Side side, SideState state)
+    private EngineSide(SideAttachment attachment)
     {
-        _side = side;
-        State = state;
+        _attachment = attachment;
     }
 
     /// <summary>
-    /// A side over the areas its maker hands it, with a state of its own: a
-    /// test's side, over the generated default areas
-    /// (<c>TestSides.Create</c>, src/test/support). Nothing in the side or its
-    /// consumers checks whether an engine is behind them, so a side with no
-    /// engine is given areas that answer defaults rather than none.
+    /// The side's services and helpers over <paramref name="attachment"/>: its
+    /// own areas taken now, from the attachment's detached or default ones,
+    /// and again at each attach.
     /// </summary>
-    internal static EngineSide Create(Side side, ServiceContainer areas) => Create(side, new SideState(side), areas);
-
-    /// <summary>
-    /// A side over <paramref name="state"/>, which must be the same side's, and
-    /// the areas its maker hands it: a test's side that shares a state.
-    /// </summary>
-    internal static EngineSide Create(Side side, SideState state, ServiceContainer areas)
+    internal static EngineSide Over(SideAttachment attachment)
     {
-        ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(areas);
-        if (state.Side != side)
-            throw new ArgumentException($"a {side} engine was handed the {state.Side} side's state", nameof(state));
-
-        var engine = new EngineSide(side, state);
-        engine.UseAreas(areas);
+        ArgumentNullException.ThrowIfNull(attachment);
+        var engine = new EngineSide(attachment);
+        engine.UseAreas(attachment.Areas);
+        attachment.WhenAttached(() => engine.UseAreas(attachment.Areas));
         return engine;
     }
 
-    /// <summary>
-    /// The side over <paramref name="state"/>, which must be the same side's,
-    /// with every area detached until the attach.
-    /// </summary>
-    internal static EngineSide Create(Side side, SideState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        if (state.Side != side)
-            throw new ArgumentException($"a {side} engine was handed the {state.Side} side's state", nameof(state));
+    /// <summary>What this side's load attached to (Phase 1 of plan_engineside_removal).</summary>
+    internal SideAttachment Attachment => _attachment;
 
-        var engine = new EngineSide(side, state);
-        engine.UseAreas(DetachedAreas());
-        return engine;
-    }
-
-    /// <summary>
-    /// This side's own interface factory (plan_abi_hotreload D8), over this
-    /// side's <see cref="AcquireInterface"/>: what everything bound to this
-    /// side acquires through. There is no process-wide factory any more; the
-    /// one that picked a side by the thread's marker is gone.
-    /// </summary>
-    /// <summary>
-    /// What this side keeps across its loads (statics to zero): the
-    /// managed-built registry, the crossing counters and the rest, handed in by
-    /// the side's load from the handle the Bootstrap keeps. A fresh one for an
-    /// engine composed without a load, so no two engines share one by default.
-    /// </summary>
-    internal SideState State { get; }
-
-    /// <summary>
-    /// The engine interfaces this side's area facades were converted onto,
-    /// acquired from this side's factory on first use and held for this
-    /// engine's life (statics to zero: they were four process-wide slots).
-    /// </summary>
-    internal EngineBoundSet Bound { get; private set; } = new();
 
     /// <summary>
     /// Every line this side's console prints, for the dev API's tap and a
@@ -153,9 +100,8 @@ internal sealed unsafe partial class EngineSide
     private VPhysicsTables? _vphysics;
 
 
-    internal NativeInterfaceFactory Interfaces => _interfaces ??= new NativeInterfaceFactory(AcquireInterface);
-
-    private NativeInterfaceFactory? _interfaces;
+    /// <summary>The attachment's interface factory (until its users take it by constructor; plan Phase 2).</summary>
+    internal NativeInterfaceFactory Interfaces => _attachment.Interfaces;
 
     // plan_abi_hotreload D7: the three routes up into the side's registry are
     // this side's own, not statics. EngineServices.AddTo registers them in the
@@ -232,32 +178,9 @@ internal sealed unsafe partial class EngineSide
         return found;
     }
 
-    /// <summary>The root the attached areas came from, or null before an attach.</summary>
-    internal ShimRoot? Root => _root;
-
-    /// <summary>
-    /// The side's areas by type: detached before the attach, the root's after.
-    /// For the composition that builds a consumer and hands it the areas it
-    /// calls, and for nothing else (ShimAreaInjectionCensusTests).
-    /// </summary>
-    internal IServiceLocator Areas => _areas;
-
-    /// <summary>The attach, once every area was taken: the side answers from these from now on.</summary>
-    private void Attached(ShimRoot root, ServiceContainer areas)
+    /// <summary>The side's own areas from <paramref name="areas"/>: the attachment's detached ones at Over, the root's at each attach.</summary>
+    private void UseAreas(IServiceLocator areas)
     {
-        _root = root;
-        // A fresh bound set: what is bound from now on is the root's, and a
-        // test side's held defaults (TestSides) must not answer for it. The
-        // acquirers installed before the attach (the server's IVEngineServer,
-        // EngineServerBinding through SideLoad.Load) carry over.
-        Bound = Bound.Unheld();
-        UseAreas(areas);
-    }
-
-    /// <summary>The side answers from <paramref name="areas"/> from now on: detached at Create, the root's at the attach.</summary>
-    private void UseAreas(ServiceContainer areas)
-    {
-        _areas = areas;
         _consoleArea = areas.Require<IConsoleArea>();
         _engineArea = areas.Require<IEngineArea>();
         _entitiesArea = areas.Require<IEntitiesArea>();
@@ -310,35 +233,8 @@ internal sealed unsafe partial class EngineSide
     /// before any composition registers it.
     /// </summary>
 
-    internal Side Side => _side;
+    internal Side Side => _attachment.Side;
 
-    /// <summary>
-    /// Where this side's managed assemblies were loaded from, as the bootstrap
-    /// knows it (plan_abi_hotreload D8: the static Engine's, per side now, and
-    /// set by the bootstrap on the side it loads).
-    ///
-    /// <para>
-    /// Told rather than discovered, because nothing loaded into the game can
-    /// work it out for itself: the load context reads each assembly into memory
-    /// so the files stay unlocked, which leaves Assembly.Location empty for
-    /// every one of them. Anything that then asked the runtime where it came
-    /// from got "" and fell back to a relative path — resolved against the
-    /// engine's working directory, which is the Steam install and not this mod.
-    /// </para>
-    ///
-    /// <para>Empty outside the game, where there is no bootstrap to say.</para>
-    /// </summary>
-    internal string ManagedDirectory { get; set; } = string.Empty;
-
-    private bool s_Initialized => _ready;
-
-    // plan_client_vtables CC-last: no struct; every slot is a shim-area method,
-    // called on the side's attached areas (ShimAreas.g.cs), each handed to the
-    // binding that calls it.
-    internal void Initialize()
-    {
-        _ready = true;
-    }
 
     /// <summary>
     /// This side's CGlobalVars, or 0 until the engine has answered with one that
@@ -349,7 +245,7 @@ internal sealed unsafe partial class EngineSide
         get
         {
             if (!_globalsDecided)
-                BindGlobalVars(_side, AskForGlobalVars());
+                BindGlobalVars(_attachment.Side, AskForGlobalVars());
 
             return _globals;
         }
@@ -374,8 +270,6 @@ internal sealed unsafe partial class EngineSide
             ReportAgreement(side, accepted);
     }
 
-
-    public bool IsInitialized => s_Initialized;
 
     /// <summary>
     /// One crossing, for the whole process, per side. Zero when this side has no
@@ -419,7 +313,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     private void ReportAgreement(Side side, nint pointer)
     {
-        if (_side != side)
+        if (_attachment.Side != side)
             return;
 
         var globals = new Globals(pointer);
@@ -562,7 +456,7 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return true;
 
-        if (_side == Side.Server && _liveness is { Rerouted: true } liveness &&
+        if (_attachment.Side == Side.Server && _liveness is { Rerouted: true } liveness &&
             liveness.TryLookup(h, out bool alive))
             return alive;
 
@@ -666,56 +560,6 @@ internal sealed unsafe partial class EngineSide
         self = _physicsCollision;
         vt = _physicsCollisionFwd;
         return self != null;
-    }
-    //-------------------------------------------------------------------------
-    // THE VTABLE BINDING'S FIVE NATIVE SLOTS.
-    //
-    // One to acquire an interface, and four proxies for calls a fixed unmanaged
-    // signature cannot spell at all. See docs/vtable-binding.md and
-    // sourcesharp/game/shared/shell_vtable_interfaces.cpp.
-    //
-    // The engine methods themselves are called through the forwarder
-    // libraries' generated tables (plan_engine_forwarders.md), which are
-    // acquired by name through this same slot.
-    //-------------------------------------------------------------------------
-
-    /// <summary>
-    /// The interface pointer for a factory kind and a version string, and, on
-    /// failure, native's reason.
-    ///
-    /// <para>
-    /// Null for a string this side does
-    /// not serve. That is not an error: <c>IVEngineClient</c> exists only on the
-    /// client and <c>IVEngineServer</c> only on the server.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>The signature is the ABI slot's, not a convenience over it</b> —
-    /// <see cref="NativeInterfaceFactory.AcquireFn"/> is this method's shape, so
-    /// the production factory is this method and a test's factory is a delegate
-    /// the test wrote. Anything friendlier here would be a second contract for
-    /// the fake to disagree with.
-    /// </para>
-    ///
-    /// <para>
-    /// When the slot is missing — before <c>LoadSide</c>, or in a test process
-    /// with no native half — the reason is written here rather than left to a
-    /// null return with an empty buffer, because "nothing was reported" and
-    /// "the boundary is not up" are different failures and only one of them is
-    /// worth reading a stack trace for.
-    /// </para>
-    /// </summary>
-    public unsafe void* AcquireInterface(
-        SourceSharpFactoryType type, byte* interfaceVersion,
-        byte* error, int errorBytes)
-    {
-        // Each side's shim root answers (plan_engineapi_vtables C5 for the
-        // server, plan_client_vtables CB for the client); there is no struct.
-        if (Root is { } root && interfaceVersion != null)
-            return root.AcquireInterface((int)type, interfaceVersion, error, errorBytes);
-
-        SayNoBoundary(error, errorBytes);
-        return null;
     }
 
     /// <summary>
@@ -854,19 +698,6 @@ internal sealed unsafe partial class EngineSide
         return (byte*)p;
     }
 
-    // The one reason managed itself can produce, in the same buffer and under
-    // the same rules native writes it: ASCII, truncating, terminated.
-    private static void SayNoBoundary(byte* error, int errorBytes)
-    {
-        if (error == null || errorBytes <= 0)
-            return;
-
-        ReadOnlySpan<byte> text = "the native half of this side is not initialised"u8;
-        int n = Math.Min(text.Length, errorBytes - 1);
-
-        text[..n].CopyTo(new Span<byte>(error, n));
-        error[n] = 0;
-    }
 
     /// <summary>
     /// A native UTF-8 string, or NULL AS NULL.

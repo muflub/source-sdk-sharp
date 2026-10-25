@@ -53,7 +53,7 @@ public class TwoInstanceTests
 
         public ScriptedEntityRegistry Registry => Module.Registry;
 
-        public SideState State => Engine.State;
+        public SideState State => Engine.Attachment.State;
 
         public List<string> Lines { get; } = new();
 

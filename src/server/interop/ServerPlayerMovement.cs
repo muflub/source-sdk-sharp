@@ -31,7 +31,7 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
     public static ServerPlayerMovement For(ModuleEngine engine, ServerPlayerMoves moves, ServerPlayerCommands commands)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new ServerPlayerMovement(engine.Api, engine.Api.Areas.Require<IEntitiesServerArea>(), moves, commands);
+        return new ServerPlayerMovement(engine.Api, engine.Attachment.Areas.Require<IEntitiesServerArea>(), moves, commands);
     }
 
     /// <summary>The lift off the floor an upward push gives (standalone_basevelocity.h's SOURCESHARP_BASEVELOCITY_UNSTICK, until T4g).</summary>

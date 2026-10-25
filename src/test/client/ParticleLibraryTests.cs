@@ -188,7 +188,7 @@ public unsafe class ParticleLibraryTests
     {
         using var root = new FakeShimRoot();
         var side = TestSides.Create(Side.Client);
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         var library = new CountingLibrary();
 
         Assert.Equal(0.5f, ViewSlots(side, library).ThrottleScaling());

@@ -155,7 +155,7 @@ public sealed class PlayerShadowBodies : IPlayerShadows
 
         // The movement words are the managed command loop's when it runs
         // (plan_server_native_v2 T4g).
-        var areas = engine.Api.Areas;
+        var areas = engine.Attachment.Areas;
         IPlayerShadowNative native = new EnginePlayerShadowNative(engine.Api, areas.Require<IMovementServerArea>());
         if (moves is not null && data is not null)
             native = new SourceSharp.Server.Interop.MovedPlayerShadowNative(native, moves, data);

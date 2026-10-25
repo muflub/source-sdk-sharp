@@ -46,13 +46,13 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
 
     /// <summary>The side's factories over its own lifecycle area, as ModuleEngine binds them.</summary>
     private static EntityFactories Factories(EngineSide side)
-        => side.BindEntityFactories(side.Areas.Require<IEntityLifecycleArea>());
+        => side.BindEntityFactories(side.Attachment.Areas.Require<IEntityLifecycleArea>());
 
     /// <summary>One ask of a fresh, unattached server side, over its own (detached) lifecycle area.</summary>
     private static T Fresh<T>(Func<EngineSide, IEntityLifecycleArea, T> ask)
     {
         var side = TestSides.Create(Side.Server);
-        return ask(side, side.Areas.Require<IEntityLifecycleArea>());
+        return ask(side, side.Attachment.Areas.Require<IEntityLifecycleArea>());
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
                    (nint)(delegate* unmanaged<void*, int>)&Count);
         _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.EntityFactoryRefusalCount),
                    (nint)(delegate* unmanaged<void*, int>)&Count);
-        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
         return side;
     }
 

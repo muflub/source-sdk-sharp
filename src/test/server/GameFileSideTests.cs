@@ -134,10 +134,10 @@ public unsafe class GameFileSideTests : IDisposable
     private IEngineFiles Files(Side side)
     {
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
 
         string why;
-        bool attached = api.AttachOwnShims(_root.Bind(), out why);
+        bool attached = api.Attachment.AttachShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return SideBindings.Of<IEngineFiles>(api);

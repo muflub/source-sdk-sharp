@@ -19,7 +19,7 @@ public sealed unsafe class UserMessageOutbox : IUserMessageOutbox
     public static UserMessageOutbox For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new UserMessageOutbox(engine.Api.Areas.Require<IUserMessagesArea>());
+        return new UserMessageOutbox(engine.Attachment.Areas.Require<IUserMessagesArea>());
     }
 
     /// <inheritdoc/>

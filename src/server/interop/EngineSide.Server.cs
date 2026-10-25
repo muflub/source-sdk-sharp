@@ -26,21 +26,6 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed unsafe partial class EngineSide
 {
-    /// <summary>
-    /// Attaches the side's own areas: every generated server area, acquired
-    /// all or none from the root and registered by type
-    /// (<see cref="ServerAreaRegistration"/>). Called from LoadSideV2.
-    /// </summary>
-    internal bool AttachOwnShims(ShimRoot root, out string why)
-    {
-        var areas = new ServiceContainer();
-        if (!ServerAreaRegistration.TryAcquire(root, (type, area) => areas.AddInstance(type, area), out why))
-            return false;
-
-        Attached(root, areas);
-        return true;
-    }
-
     // The areas the server's own services read (beside the shared four in
     // EngineSide.cs): the precache its break models use, the shell's
     // velocity, eye, origin and gravity members and the physics object its
@@ -66,20 +51,12 @@ internal sealed unsafe partial class EngineSide
         _motion = null;
     }
 
-    /// <summary>Every server area over no table: what the side holds before its attach.</summary>
-    private static ServiceContainer DetachedAreas()
-    {
-        var areas = new ServiceContainer();
-        ServerAreaRegistration.AddDetached((type, area) => areas.AddInstance(type, area));
-        return areas;
-    }
-
     /// <summary>
     /// The model precache the side's break models use: the server's own. A
     /// client engine built in this assembly (a cross-side fact) has none, as
     /// the client's slot was null.
     /// </summary>
-    internal Func<string, int>? OwnModelPrecache => _side == Side.Server ? PrecacheModel : null;
+    internal Func<string, int>? OwnModelPrecache => _attachment.Side == Side.Server ? PrecacheModel : null;
 
     /// <summary>
     /// The entity's one-object vphysics calls (plan_physics_bones_native_zero,
@@ -164,7 +141,7 @@ internal sealed unsafe partial class EngineSide
     {
         // The slots are the EntityLifecycle area's (the struct lost them in C6c),
         // which only the server registers.
-        if (_side != Side.Server)
+        if (_attachment.Side != Side.Server)
             return new EntityFactories();
 
         var factories = new EntityFactories

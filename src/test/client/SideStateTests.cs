@@ -132,8 +132,8 @@ public unsafe class SideStateTests
         var one = TestSides.Create(Side.Server);
         var two = TestSides.Create(Side.Server);
 
-        Assert.NotSame(one.State, two.State);
-        Assert.NotSame(one.State.Crossings, two.State.Crossings);
+        Assert.NotSame(one.Attachment.State, two.Attachment.State);
+        Assert.NotSame(one.Attachment.State.Crossings, two.Attachment.State.Crossings);
     }
 
     /// <summary>
@@ -205,7 +205,7 @@ public unsafe class SideStateTests
 
     [Fact]
     public void AnEngineRefusesTheOtherSidesState()
-        => Assert.Throws<ArgumentException>(() => EngineSide.Create(Side.Server, new SideState(Side.Client)));
+        => Assert.Throws<ArgumentException>(() => SideAttachment.Detached(Side.Server, new SideState(Side.Client)));
 
     private static void Free(nint handle)
     {

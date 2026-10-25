@@ -63,7 +63,7 @@ public unsafe class VtableAcquireCommandTests
         int word = 0;
         root.Interface(UniformRandomStream.InterfaceVersion, &word).Forwarders(out UniformRandomStreamFwd* stream);
         stream->RandomInt = &Low;
-        Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
+        Assert.True(served.Attachment.AttachShims(root.Bind(), out string attachWhy), attachWhy);
 
         // The line says the stream bound and what its call answered.
         Assert.Equal("IUniformRandomStream: bound, RandomInt(7,7) = 7", answered.RandomStreamProbe());

@@ -71,8 +71,8 @@ public sealed unsafe class SurfacePropFoldTests : System.IDisposable
         fwd->GetPhysicsProperties = &GetPhysics;
 
         var side = TestSides.Create(Side.Server);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
         _world = SideBindings.Of<IEngineWorldQuery>(side);
         _sound = SideBindings.Of<IEngineSound>(side);
         _surfaces = new PhysicsSurfaces(EngineBound.SurfaceProps(side));

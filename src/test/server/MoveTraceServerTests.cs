@@ -71,8 +71,8 @@ public sealed unsafe class MoveTraceServerTests : IDisposable
         s_filter = 0;
         _root.Live(MovementServer, nameof(ShimMovementServerFwd.MoveTraceServer),
                    (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, uint*, void>)&Through);
-        _side.Initialize();
-        Assert.True(_side.AttachOwnShims(_root.Bind(), out string why), why);
+        _side.Attachment.Initialize();
+        Assert.True(_side.Attachment.AttachShims(_root.Bind(), out string why), why);
         _side.Tracer = _traces;
     }
 
@@ -85,7 +85,7 @@ public sealed unsafe class MoveTraceServerTests : IDisposable
         float* lo = stackalloc float[3] { -16, -16, 0 };
         float* hi = stackalloc float[3] { 16, 16, 72 };
         MoveTraceBlob blob = default;
-        _side.MoveTrace(_side.Areas.Require<IMovementArea>(), s, e, lo, hi, mask, group, player, &blob);
+        _side.MoveTrace(_side.Attachment.Areas.Require<IMovementArea>(), s, e, lo, hi, mask, group, player, &blob);
         return blob;
     }
 
@@ -119,7 +119,7 @@ public sealed unsafe class MoveTraceServerTests : IDisposable
         float* hi = stackalloc float[3] { 16, 16, 72 };
         MoveTraceBlob blob = default;
 
-        _side.MoveTraceServer(_side.Areas.Require<IMovementServerArea>(), s, e, lo, hi, 1, 0, Player, &blob, out EntityHandle hit, out EntityHandle ground);
+        _side.MoveTraceServer(_side.Attachment.Areas.Require<IMovementServerArea>(), s, e, lo, hi, 1, 0, Player, &blob, out EntityHandle hit, out EntityHandle ground);
 
         Assert.True(hit == new EntityHandle(HitRaw) && ground == new EntityHandle(GroundRaw), $"hit {hit}, ground {ground}");
     }

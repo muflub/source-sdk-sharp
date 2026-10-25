@@ -55,10 +55,10 @@ public unsafe class ClientEntityIsValidTests : IDisposable
 
         using var other = new FakeShimRoot();
         var gone = TestSides.Create(Side.Server);
-        gone.Initialize();
+        gone.Attachment.Initialize();
         var (goneSelf, goneSlots) = Area(Gone);
         other.Area("SourceSharpEntitiesServer001", (void*)goneSelf, (void*)goneSlots);
-        Assert.True(gone.AttachOwnShims(other.Bind(), out string why), why);
+        Assert.True(gone.Attachment.AttachShims(other.Bind(), out string why), why);
         Assert.False(gone.EntityIsValid(Saved), "and gone when its slot does");
     }
 
@@ -104,10 +104,10 @@ public unsafe class ClientEntityIsValidTests : IDisposable
     private EngineSide Attached(Side side)
     {
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
 
         string why;
-        bool attached = api.AttachOwnShims(_root.Bind(), out why);
+        bool attached = api.Attachment.AttachShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

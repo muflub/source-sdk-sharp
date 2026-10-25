@@ -33,6 +33,9 @@ public sealed partial class ModuleEngine
     /// <summary>The side's engine API this handle stands for.</summary>
     internal EngineSide Api { get; }
 
+    /// <summary>What this side's load attached to: the areas, the factory and the state composition reads.</summary>
+    internal SideAttachment Attachment => Api.Attachment;
+
     /// <summary>Which side this engine is.</summary>
     public Side Side => Api.Side;
 
@@ -47,16 +50,16 @@ public sealed partial class ModuleEngine
     /// <see cref="SideState"/>'s, which outlive the module across reloads.
     /// The composition hands them to every binding that counts a crossing.
     /// </summary>
-    public Crossings Crossings => Api.State.Crossings;
+    public Crossings Crossings => Attachment.State.Crossings;
 
     /// <summary>This side's build stamps (statics to zero), its <see cref="SideState"/>'s.</summary>
-    public BuildInfo Build => Api.State.Build;
+    public BuildInfo Build => Attachment.State.Build;
 
     /// <summary>
     /// This side's reload store (statics to zero), its <see cref="SideState"/>'s:
     /// what a reload carries from the old module to the new one.
     /// </summary>
-    public ReloadStore Reload => Api.State.Reload;
+    public ReloadStore Reload => Attachment.State.Reload;
 
     /// <summary>
     /// Makes <paramref name="log"/> the console the side's own plumbing (its
@@ -69,7 +72,7 @@ public sealed partial class ModuleEngine
     public IDisposable AttachLog(ILog log)
     {
         ArgumentNullException.ThrowIfNull(log);
-        SideState state = Api.State;
+        SideState state = Attachment.State;
         ILog? previous = state.Log;
         state.Log = log;
         return new LogAttachment(state, log, previous);

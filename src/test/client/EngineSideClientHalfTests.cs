@@ -24,8 +24,8 @@ public class EngineSideClientHalfTests
     private static EngineSide Attached(FakeShimRoot root)
     {
         var side = TestSides.Create(Side.Client);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         return side;
     }
 
@@ -35,7 +35,7 @@ public class EngineSideClientHalfTests
     private static EngineSide Client()
     {
         var side = TestSides.Create(Side.Client);
-        side.Initialize();
+        side.Attachment.Initialize();
         return side;
     }
 
@@ -44,9 +44,9 @@ public class EngineSideClientHalfTests
     {
         using var root = new FakeShimRoot();
         EngineSide side = Attached(root);
-        Assert.NotNull(side.Root);
-        Assert.NotNull(side.Areas.Resolve(typeof(IHudClientArea)));
-        Assert.Null(side.Areas.Resolve(typeof(IEntitiesServerArea)));
+        Assert.NotNull(side.Attachment.Root);
+        Assert.NotNull(side.Attachment.Areas.Resolve(typeof(IHudClientArea)));
+        Assert.Null(side.Attachment.Areas.Resolve(typeof(IEntitiesServerArea)));
     }
 
     private const System.Reflection.BindingFlags Flags

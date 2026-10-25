@@ -21,8 +21,8 @@ public sealed unsafe class ShimProbeSideTests
         int word = 0;
         root.Interface(EngineLevel.InterfaceVersion, &word).Forwarders<ShimLevelFwd>();
 
-        served.Initialize();
-        Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
+        served.Attachment.Initialize();
+        Assert.True(served.Attachment.AttachShims(root.Bind(), out string why), why);
 
         string answered = ShimProbes.Level(new ModuleEngine(served));
         string refused = ShimProbes.Level(new ModuleEngine(bare));
@@ -43,8 +43,8 @@ public sealed unsafe class ShimProbeSideTests
         root.Interface(EngineLevel.InterfaceVersion, &word);
         serve(root);
 
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         return ShimProbes.Level(new ModuleEngine(side));
     }
 
@@ -88,8 +88,8 @@ public sealed unsafe class ShimProbeSideTests
             .Forwarders<NetworkStringTableContainerFwd>()
             .Forwarders<NetworkStringTableFwd>();
 
-        served.Initialize();
-        Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
+        served.Attachment.Initialize();
+        Assert.True(served.Attachment.AttachShims(root.Bind(), out string why), why);
 
         // The served engine's own root answers the container and its
         // forwarders, so its acquire binds; the bare engine has no root, and
@@ -112,8 +112,8 @@ public sealed unsafe class ShimProbeSideTests
             .Forwarders<EngineServerFwd>()
             .Forwarders<NetChannelInfoFwd>();
 
-        served.Initialize();
-        Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
+        served.Attachment.Initialize();
+        Assert.True(served.Attachment.AttachShims(root.Bind(), out string why), why);
 
         // As above: only the engine whose own root answers binds. cs_vtable
         // acquires this way, for the module it runs in.

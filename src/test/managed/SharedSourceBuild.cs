@@ -86,7 +86,7 @@ internal static class SharedSourceBuild
             """;
 
         // The per-side halves of the shared types (plan_shim_areas_split phase
-        // 7): EngineSide's, the bindings' and ModuleEngine's. The shared source
+        // 7): EngineSide's, SideAttachment's, the bindings' and ModuleEngine's. The shared source
         // calls their members (a slot both sides serve on OwnShims, a side's own
         // binding members), so it does not compile without one side's. The
         // server's stand in, with every body thrown away: what the audit holds
@@ -100,7 +100,7 @@ internal static class SharedSourceBuild
     }
 
     /// <summary>The server's halves of the shared interop's partial types.</summary>
-    private static readonly string[] SideHalves = ["EngineSide.Server.cs", "EngineBinding.Server.cs", "ModuleEngine.Server.cs"];
+    private static readonly string[] SideHalves = ["EngineSide.Server.cs", "SideAttachment.Server.cs", "EngineBinding.Server.cs", "ModuleEngine.Server.cs"];
 
     /// <summary>
     /// <paramref name="source"/> with every method, constructor, property and

@@ -39,9 +39,9 @@ public sealed unsafe class PointContentsFoldTests : System.IDisposable
         _root.Interface(version, _self).Forwarders(out EngineTraceFwd* fwd);
         fwd->GetPointContents = &Contents;
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
         string why;
-        bool ok = api.AttachOwnShims(_root.Bind(), out why);
+        bool ok = api.Attachment.AttachShims(_root.Bind(), out why);
         Assert.True(ok, why);
         return SideBindings.Of<IEngineWorldQuery>(api);
     }
