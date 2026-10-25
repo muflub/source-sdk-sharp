@@ -17,7 +17,7 @@ public class InstanceLogTests
 {
     private static ServerModule Composed(EngineSide engine)
     {
-        var module = new ServerModule(new ModuleEngine(engine));
+        var module = new ServerModule(new ServerModuleEngine(engine));
         module.ComposeEngineAreas();
         return module;
     }
@@ -62,7 +62,7 @@ public class InstanceLogTests
         var mine = new RecordingLog();
         engine.Attachment.State.Log = shim;
 
-        using (new ModuleEngine(engine).AttachLog(mine))
+        using (new ServerModuleEngine(engine).AttachLog(mine))
         {
             Assert.Same(mine, engine.Attachment.State.Log);
             Assert.Same(mine, engine.Attachment.State.Vtables.Log);   // the registry's thunks report through it too

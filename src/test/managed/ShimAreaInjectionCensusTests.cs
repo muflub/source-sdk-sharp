@@ -126,7 +126,8 @@ public class ShimAreaInjectionCensusTests
     /// <summary>
     /// The side's registry of areas (<c>SideAttachment.Areas</c>) is read where
     /// a consumer is put together and nowhere else: by the attachment, the
-    /// side over it and its <c>ModuleEngine</c>, by
+    /// side over it and its module engine (<c>ModuleEngine</c> and each side's
+    /// class over it), by
     /// the client's adapter registration (<c>ClientEntityFetches.AddTo</c>,
     /// which the module calls once while it composes, and which is an
     /// instance method only so a fact can hand in another), and otherwise only
@@ -166,7 +167,7 @@ public class ShimAreaInjectionCensusTests
                     string where = $"{assembly.GetName().Name}: {type.FullName}.{method.Name}";
                     readers.Add(where);
 
-                    bool composition = outer.Name is "SideAttachment" or "EngineSide" or "ModuleEngine"
+                    bool composition = outer.Name is "SideAttachment" or "EngineSide" or "ModuleEngine" or "ServerModuleEngine" or "ClientModuleEngine"
                                     || (outer.Name == "ClientEntityFetches" && method.Name == "AddTo")
                                     || (type == outer && method.IsStatic && !method.IsConstructor);
                     if (!composition)

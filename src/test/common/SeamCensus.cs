@@ -102,7 +102,8 @@ internal static class SeamCensus
             {
                 var t = md.GetTypeDefinition(h);
                 string name = FullName(md, h);
-                string? kind = name is "SourceSharp.Abi.EngineSide" or "SourceSharp.Abi.ModuleEngine" ? "wrapper"
+                string? kind = name is "SourceSharp.Abi.EngineSide" or "SourceSharp.Abi.ModuleEngine"
+                                      or "SourceSharp.Abi.ServerModuleEngine" or "SourceSharp.Abi.ClientModuleEngine" ? "wrapper"
                     : Implements(md, t, "SourceSharp.Abi.IForwarderTable") && IsValueType(md, t) ? "forwarder"
                     : FieldTypes(md, t, provider).Any(f => f.StartsWith("SourceSharp.Abi.ShimRef`1<", StringComparison.Ordinal)) ? "area"
                     : null;

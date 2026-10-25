@@ -197,7 +197,7 @@ public unsafe class VtableBindingTests
     [Fact]
     public void TheServerProbeReportsTheEngineClientRefused()
     {
-        string line = ShimProbes.EngineClient(new ModuleEngine(TestSides.Create(Side.Server)));
+        string line = ShimProbes.EngineClient(new ServerModuleEngine(TestSides.Create(Side.Server)));
 
         Assert.True(line.StartsWith("IVEngineClient: REFUSED", StringComparison.Ordinal)
                     && line.Contains("VEngineClient014", StringComparison.Ordinal),
@@ -217,7 +217,7 @@ public unsafe class VtableBindingTests
     /// A server engine of the test's own with no native half (plan_abi_hotreload
     /// D8): every acquire names the module it acquires for.
     /// </summary>
-    private static ModuleEngine Unattached() => new(TestSides.Create(Side.Server));
+    private static ServerModuleEngine Unattached() => new(TestSides.Create(Side.Server));
 
     //-------------------------------------------------------------------------
     // 2. POLICY, EXPRESSED ONLY BY ABSENCE.

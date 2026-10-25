@@ -48,15 +48,23 @@ public unsafe class SideStateTests
         void* root = null;
         nint state = 0, session = 0;
         var bound = new List<Side>();
+        bool detached = false;
         try
         {
             int rc;
             fixed (byte* pFacts = facts)
                 rc = SideLoad.Load(Side.Server, CrossingOp.LoadServer, null, null, &root, &state, &session, pFacts,
-                                   engine => bound.Add(engine.Side));
+                                   attachment =>
+                                   {
+                                       bound.Add(attachment.Side);
+                                       // Before the root binds: nothing attached, nothing initialised.
+                                       detached = attachment.Root is null && !attachment.IsInitialized;
+                                   });
 
             Assert.Equal(-4, rc);
             Assert.Equal(new[] { Side.Server }, bound);
+            Assert.True(detached, "the entry binds a detached attachment");
+            Assert.Same(SessionOf(session).Attachment.State, StateOf(state));
             Assert.Equal(0, SideLoad.Unload(CrossingOp.UnloadServer, session));
         }
         finally
@@ -66,6 +74,36 @@ public unsafe class SideStateTests
     }
 
     private static SideState StateOf(nint handle) => (SideState)GCHandle.FromIntPtr(handle).Target!;
+
+    private static SideSession SessionOf(nint handle) => (SideSession)GCHandle.FromIntPtr(handle).Target!;
+
+    /// <summary>
+    /// Every load builds its own attachment (a reload attaches afresh), over
+    /// the one state the side keeps across loads.
+    /// </summary>
+    [Fact]
+    public void EachLoadBuildsAFreshAttachmentOverTheKeptState()
+    {
+        nint handle = 0;
+        try
+        {
+            RefusedLoad(ref handle, out nint first);
+            RefusedLoad(ref handle, out nint second);
+
+            SideAttachment one = SessionOf(first).Attachment, two = SessionOf(second).Attachment;
+            Assert.NotSame(one, two);
+            Assert.NotSame(one.Bound, two.Bound);
+            Assert.Same(StateOf(handle), one.State);
+            Assert.Same(one.State, two.State);
+
+            SideLoad.Unload(CrossingOp.UnloadServer, first);
+            SideLoad.Unload(CrossingOp.UnloadServer, second);
+        }
+        finally
+        {
+            Free(handle);
+        }
+    }
 
     [Fact]
     public void SideLoadCountsTheEntrysOpOnTheStateItKeeps()

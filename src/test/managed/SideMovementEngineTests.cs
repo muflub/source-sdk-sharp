@@ -98,8 +98,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     {
         var (first, second) = TwoTraces();
 
-        var mine = TestSides.Movement(new ModuleEngine(first));
-        _ = TestSides.Movement(new ModuleEngine(second));
+        var mine = TestSides.Movement(new ServerModuleEngine(first));
+        _ = TestSides.Movement(new ServerModuleEngine(second));
 
         Assert.Equal(7, mine.World.PointContents(Vector.Zero, 0));
         Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
@@ -108,7 +108,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void ASlotAnswersAgainForAPointWithinAUnit()
     {
-        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ServerModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
 
         world.PointContents(new Vector(0, 0, 0), 1);
@@ -122,7 +122,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void EachSlotIsItsOwnAndSlotMinusOneIsNeverCached()
     {
-        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ServerModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
 
         world.PointContents(Vector.Zero, 0);
@@ -135,7 +135,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void AResetForgetsEverySlot()
     {
-        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ServerModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: true);
         world.PointContents(Vector.Zero, 0);
 
@@ -147,7 +147,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void WithoutTheOptimizationsNothingIsCached()
     {
-        var world = TestSides.Movement(new ModuleEngine(TwoTraces().First)).World;
+        var world = TestSides.Movement(new ServerModuleEngine(TwoTraces().First)).World;
         world.ResetPointContentsCache(optimizations: false);
 
         world.PointContents(Vector.Zero, 0);
@@ -158,7 +158,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     // The shadow's bodies over one side (plan_physics_bones_native_zero 2.5).
     // No vphysics table at all: the facts slot answers 0, so nothing past it runs.
     private static PlayerShadowBodies BodiesOver(EngineSide side)
-        => PlayerShadowBodies.ForEngine(new ModuleEngine(side), new VPhysicsShadowCalls(null, new DefaultForwarders.NoSurfaceProps(), TestVPhysics.None()), () => true, _ => { });
+        => PlayerShadowBodies.ForEngine(new ServerModuleEngine(side), new VPhysicsShadowCalls(null, new DefaultForwarders.NoSurfaceProps(), TestVPhysics.None()), () => true, _ => { });
 
     [Fact]
     public void ThePlayerShadowProbesTheSideItsBodiesWereBuiltOver()

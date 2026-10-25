@@ -28,7 +28,7 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ClientStageEntryTests
 {
-    private static ClientModule Fresh() => new(new ModuleEngine(TestSides.Create(Side.Client)));
+    private static ClientModule Fresh() => new(new ClientModuleEngine(TestSides.Create(Side.Client)));
 
     [Fact]
     public void BeforeAnyStageTheCurrentStageIsUndefined()

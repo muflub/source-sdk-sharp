@@ -21,10 +21,19 @@ namespace SourceSharp.Abi;
 /// its entity factory table — and cannot call the engine past the area
 /// interfaces.
 /// </para>
+///
+/// <para>
+/// <b>One class per side</b> (plan_engineside_removal Phase 1, user ruling
+/// 2026-10-25): this is their shared surface, compiled into both sides'
+/// interop, and abstract. The side's load makes <c>ServerModuleEngine</c> or
+/// <c>ClientModuleEngine</c>, and each side's module takes its own by
+/// constructor, so a composition root is bound to its side by its type: none
+/// asks at run time which side it was handed.
+/// </para>
 /// </summary>
-public sealed partial class ModuleEngine
+public abstract class ModuleEngine
 {
-    internal ModuleEngine(EngineSide api)
+    private protected ModuleEngine(EngineSide api)
     {
         ArgumentNullException.ThrowIfNull(api);
         Api = api;

@@ -45,7 +45,7 @@ public class LivenessMirrorCompositionTests
 
     private static ServerModule Composed(EngineSide engine)
     {
-        var module = new ServerModule(new ModuleEngine(engine));
+        var module = new ServerModule(new ServerModuleEngine(engine));
         module.ComposeEngineAreas();
         return module;
     }

@@ -17,7 +17,7 @@ public class ClientModuleAdapterSeamTests
     [Fact]
     public void ComposingAModuleAsksTheAdaptersItWasHandedOnceOverItsOwnEngine()
     {
-        var engine = new ModuleEngine(TestSides.Create(Side.Client));
+        var engine = new ClientModuleEngine(TestSides.Create(Side.Client));
         var adapters = new FakeClientEngineAdapters();
 
         new ClientModule(engine, adapters).ComposeEngineAreas();
@@ -33,7 +33,7 @@ public class ClientModuleAdapterSeamTests
         // so composing succeeds and an adapter answers its default. Nothing
         // asks whether an engine is attached (plan_shim_areas_split phase 11
         // review); FakeClientEngineAdapters above is the double a fact hands.
-        var module = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)));
+        var module = new ClientModule(new ClientModuleEngine(TestSides.Create(Side.Client)));
 
         module.ComposeEngineAreas();
 

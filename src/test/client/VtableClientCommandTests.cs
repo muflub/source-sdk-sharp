@@ -96,7 +96,7 @@ public unsafe class VtableClientCommandTests
 
     private static IFwdEngineClientProbe Composed(EngineSide side)
     {
-        var module = new ClientModule(new ModuleEngine(side), new FakeClientEngineAdapters());
+        var module = new ClientModule(new ClientModuleEngine(side), new FakeClientEngineAdapters());
         module.ComposeEngineAreas();
         return module.Services.Require<IFwdEngineClientProbe>();
     }

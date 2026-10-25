@@ -162,7 +162,7 @@ public unsafe class ParticleLibraryTests
     private static IParticleThrottle ViewSlots(EngineSide side, IParticleLibrary library)
     {
         var services = new ServiceContainer().AddInstance(library);
-        new ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        new ClientEntityFetches().AddTo(services, new ClientModuleEngine(side));
         return services.Require<IParticleThrottle>();
     }
 

@@ -31,7 +31,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // fact composing two modules passes two. It used to be looked up by side
     // through the static Engine, so two modules composed over one engine.
     private JitWarmup? _jitWarmup;
-    private readonly ModuleEngine _engine;
+    private readonly ServerModuleEngine _engine;
 
     /// <summary>
     /// This composition's log: its engine's, over the side's console (statics
@@ -40,7 +40,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     private ILog Log => _engine.Log;
 
-    public ServerModule(ModuleEngine engine)
+    public ServerModule(ServerModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
         _engine = engine;
@@ -1238,7 +1238,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Each world's blob on this composition's side, bound by handle
         // (plan_abi_hotreload D8: it bound through the static Engine). Built
         // here because only the server binds a world blob.
-        ModuleEngine worldEngine = _engine;
+        ServerModuleEngine worldEngine = _engine;
         _services.AddInstance<IWorldNetBinding>(new WorldNetBinding(world =>
         {
             var state = new WorldNetState();

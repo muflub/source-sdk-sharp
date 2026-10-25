@@ -78,7 +78,7 @@ public sealed unsafe class ServerCommandSideTests : IDisposable
                      (nint)(delegate* unmanaged<void*, uint, void*, int, void>)&ViewSecond);
         s_firstCalls = s_secondCalls = 0;
 
-        var engine = new ModuleEngine(Attached(_first, Side.Server));
+        var engine = new ServerModuleEngine(Attached(_first, Side.Server));
         _ = Attached(_second, Side.Server);
 
         using var env = new Globals1();

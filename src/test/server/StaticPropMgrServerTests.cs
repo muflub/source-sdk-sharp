@@ -31,7 +31,7 @@ public sealed unsafe class StaticPropMgrServerTests
         var side = TestSides.Create(Side.Server);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
-        return new ModuleEngine(side);
+        return new ServerModuleEngine(side);
     }
 
     [Fact]

@@ -115,7 +115,6 @@ SourceSharp.Abi.ManagedCaches	get_EntityIo
 SourceSharp.Abi.ManagedCaches	get_Removal
 SourceSharp.Abi.ManagedCaches	get_ShellLess
 SourceSharp.Abi.ModuleEngine	AttachLiveness
-SourceSharp.Abi.ModuleEngine	BindEntityFactories
 SourceSharp.Abi.ModuleEngine	get_Attachment
 SourceSharp.Abi.ModuleEngine	get_Log
 SourceSharp.Abi.ModuleEngine	get_Side
@@ -140,6 +139,7 @@ SourceSharp.Abi.ServerEntityEngine	get_Attachment
 SourceSharp.Abi.ServerEntityEngine	get_Lines
 SourceSharp.Abi.ServerEntityEngine	get_Log
 SourceSharp.Abi.ServerGameEvents	get_Interfaces
+SourceSharp.Abi.ServerModuleEngine	BindEntityFactories
 SourceSharp.Abi.ServerPlayerSequenceSlots	EntityGetEyeAngles
 SourceSharp.Abi.ServerPlayerSequenceSlots	EntityGetEyePosition
 SourceSharp.Abi.ServerPlayerSequenceSlots	EntityIsPlayer

@@ -88,7 +88,7 @@ public sealed unsafe class MovementRunnerConstantsTests
         DefaultForwarders.HoldOn(side);
         side.Tracer = new NoFilter();
 
-        var runner = TestSides.Movement(new ModuleEngine(side));
+        var runner = TestSides.Movement(new ServerModuleEngine(side));
         MoveStateBlob blob = Airborne();
         MoveFrameConstants frame = Frame(400f);
 

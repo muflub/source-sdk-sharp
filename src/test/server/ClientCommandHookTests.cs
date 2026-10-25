@@ -69,7 +69,7 @@ public class ClientCommandHookTests
 
         public Rig()
         {
-            Module = new ServerModule(new ModuleEngine(Engine));
+            Module = new ServerModule(new ServerModuleEngine(Engine));
             Module.ComposeEngineAreas();
 
             var services = (ServiceContainer)Module.Services;

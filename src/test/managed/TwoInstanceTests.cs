@@ -37,7 +37,7 @@ public class TwoInstanceTests
         public ServerInstance()
         {
             Engine = TestSides.Create(Side.Server);
-            Module = new ServerModule(new ModuleEngine(Engine));
+            Module = new ServerModule(new ServerModuleEngine(Engine));
             Module.ComposeEngineAreas();
 
             Registry.RegisterAll(typeof(TwoInstanceProbe).Assembly);

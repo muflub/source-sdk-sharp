@@ -93,7 +93,7 @@ public unsafe class VtableAcquireCommandTests
 
     private static IServerEngineInterfaces Composed(EngineSide side)
     {
-        var module = new ServerModule(new ModuleEngine(side));
+        var module = new ServerModule(new ServerModuleEngine(side));
         module.ComposeEngineAreas();
         return module.Services.Require<IServerEngineInterfaces>();
     }

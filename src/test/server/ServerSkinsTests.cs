@@ -43,7 +43,7 @@ public sealed unsafe class ServerSkinsTests
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         s_Marks = 0;
         s_MarkedOffset = -1;
-        return (ServerSkins.For(new ModuleEngine(side)), root);
+        return (ServerSkins.For(new ServerModuleEngine(side)), root);
     }
 
     [Fact]

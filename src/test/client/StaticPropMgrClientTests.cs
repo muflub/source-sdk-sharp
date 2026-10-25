@@ -30,7 +30,7 @@ public sealed unsafe class StaticPropMgrClientTests
         var side = TestSides.Create(Side.Client);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
-        return new ModuleEngine(side);
+        return new ClientModuleEngine(side);
     }
 
     [Fact]

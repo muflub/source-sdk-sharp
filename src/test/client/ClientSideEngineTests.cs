@@ -110,7 +110,7 @@ public unsafe class ClientSideEngineTests : IDisposable
     private static IEngineEntities ClientEntities(EngineSide side)
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ClientModuleEngine(side));
         EngineServices.AddTo(services, side);
         return services.Require<IEngineEntities>();
     }
@@ -122,7 +122,7 @@ public unsafe class ClientSideEngineTests : IDisposable
         using var root = new FakeShimRoot();
         var side = TestSides.Create(Side.Client);
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
-        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ClientModuleEngine(side));
         EngineServices.AddTo(services, side);
         var entities = services.Require<IEngineEntities>();
 

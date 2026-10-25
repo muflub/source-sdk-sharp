@@ -28,4 +28,10 @@ internal sealed partial class SideAttachment
         ServerAreaRegistration.AddDetached((type, area) => areas.AddInstance(type, area));
         return areas;
     }
+
+    /// <summary>
+    /// The module engine the side's module is composed over: the server's own
+    /// class, so the side's load never chooses one by asking which side it is.
+    /// </summary>
+    internal static ModuleEngine ModuleEngineOver(EngineSide engine) => new ServerModuleEngine(engine);
 }

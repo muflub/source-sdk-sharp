@@ -44,7 +44,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
     }
 
     private readonly CGlobalVarsRaw* _globals = (CGlobalVarsRaw*)NativeMemory.AllocZeroed((nuint)sizeof(CGlobalVarsRaw));
-    private readonly ModuleEngine _engine = new(TestSides.Create(Side.Server));
+    private readonly ServerModuleEngine _engine = new(TestSides.Create(Side.Server));
     private readonly ServerPlayerMoves _moves = new();
     private readonly ServerMoveData _data = new();
     private readonly Published _published = new();

@@ -288,7 +288,7 @@ public static unsafe class SideLoad
             return null;
         }
 
-        return (ISideModule)Activator.CreateInstance(modules[0], new ModuleEngine(session.Engine))!;
+        return (ISideModule)Activator.CreateInstance(modules[0], SideAttachment.ModuleEngineOver(session.Engine))!;
     }
 
     /// <summary>

@@ -37,6 +37,29 @@ public class SideAttachmentTests
         Assert.Equal(1, ran);
     }
 
+    /// <summary>
+    /// The areas attach all or none: a root that does not serve one leaves the
+    /// attachment as it was (no root, its detached areas, nothing waiting run)
+    /// and says which area it missed, which the load prints in its refusal.
+    /// The positive arm is the attach fact above, over the same root unwithheld.
+    /// </summary>
+    [Fact]
+    public void AWithheldAreaLeavesTheAttachmentDetachedAndNamesTheArea()
+    {
+        using var root = new FakeShimRoot().Withhold("SourceSharpEntitiesServer001");
+        var attachment = SideAttachment.Detached(Side.Server, new SideState(Side.Server));
+        object before = attachment.Areas.Require<IEntitiesServerArea>();
+        int ran = 0;
+        attachment.WhenAttached(() => ran++);
+
+        Assert.False(attachment.AttachShims(root.Bind(), out string why));
+
+        Assert.Contains("SourceSharpEntitiesServer001", why, StringComparison.Ordinal);
+        Assert.Null(attachment.Root);
+        Assert.Same(before, attachment.Areas.Require<IEntitiesServerArea>());
+        Assert.Equal(0, ran);
+    }
+
     [Fact]
     public void TheAttachMakesAFreshBoundSet()
     {

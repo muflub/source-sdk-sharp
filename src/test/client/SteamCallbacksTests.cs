@@ -149,7 +149,7 @@ public unsafe class SteamCallbacksTests
             side.Attachment.Initialize();
             Assert.True(side.Attachment.AttachShims(_root.Bind(), out string attach), attach);
 
-            Callbacks = SteamCallbacks.Acquire(new ModuleEngine(side), Vtables, Steam, log ?? new Log(), out string why)
+            Callbacks = SteamCallbacks.Acquire(new ClientModuleEngine(side), Vtables, Steam, log ?? new Log(), out string why)
                 ?? throw new InvalidOperationException(why);
         }
 
@@ -319,7 +319,7 @@ public unsafe class SteamCallbacksTests
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string attach), attach);
         using var vtables = new ManagedVtables();
 
-        SteamCallbacks? callbacks = SteamCallbacks.Acquire(new ModuleEngine(side), vtables, new SteamDouble(), new Log(), out string why);
+        SteamCallbacks? callbacks = SteamCallbacks.Acquire(new ClientModuleEngine(side), vtables, new SteamDouble(), new Log(), out string why);
 
         Assert.Null(callbacks);
         Assert.Contains("SSFwd_SteamCallback", why);

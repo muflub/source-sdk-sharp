@@ -66,7 +66,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     // fact composing two modules passes two. It used to be looked up by side
     // through the static Engine, so two modules composed over one engine.
     private JitWarmup? _jitWarmup;
-    private readonly ModuleEngine _engine;
+    private readonly ClientModuleEngine _engine;
 
     // Registers the adapters that call this side's shim areas: the real ones
     // in the game, fakes in a test that composes a module with no areas.
@@ -87,7 +87,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     private IFwdInputSystem _inputSystem = null!;
 
-    public ClientModule(ModuleEngine engine)
+    public ClientModule(ClientModuleEngine engine)
         : this(engine, new ClientEntityFetches())
     {
     }
@@ -97,7 +97,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// engine adapters (the seams that call shim areas): a test composition
     /// hands fakes, so composing a module never needs attached areas.
     /// </summary>
-    internal ClientModule(ModuleEngine engine, IClientEngineAdapters adapters)
+    internal ClientModule(ClientModuleEngine engine, IClientEngineAdapters adapters)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(adapters);

@@ -164,8 +164,8 @@ public class SideModelCachesTests
     [Fact]
     public void TwoServerCompositionsRegisterAndClearTheirOwnCaches()
     {
-        var a = new ServerModule(new ModuleEngine(TestSides.Create(Side.Server)));
-        var b = new ServerModule(new ModuleEngine(TestSides.Create(Side.Server)));
+        var a = new ServerModule(new ServerModuleEngine(TestSides.Create(Side.Server)));
+        var b = new ServerModule(new ServerModuleEngine(TestSides.Create(Side.Server)));
         a.ComposeEngineAreas();
         b.ComposeEngineAreas();
 

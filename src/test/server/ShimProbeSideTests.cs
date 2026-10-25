@@ -24,8 +24,8 @@ public sealed unsafe class ShimProbeSideTests
         served.Attachment.Initialize();
         Assert.True(served.Attachment.AttachShims(root.Bind(), out string why), why);
 
-        string answered = ShimProbes.Level(new ModuleEngine(served));
-        string refused = ShimProbes.Level(new ModuleEngine(bare));
+        string answered = ShimProbes.Level(new ServerModuleEngine(served));
+        string refused = ShimProbes.Level(new ServerModuleEngine(bare));
 
         Assert.True(answered.StartsWith("IShimLevel: bound", StringComparison.Ordinal),
                     $"the engine whose root serves the level interface binds it: {answered}");
@@ -45,7 +45,7 @@ public sealed unsafe class ShimProbeSideTests
 
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
-        return ShimProbes.Level(new ModuleEngine(side));
+        return ShimProbes.Level(new ServerModuleEngine(side));
     }
 
     [Fact]
@@ -94,9 +94,9 @@ public sealed unsafe class ShimProbeSideTests
         // The served engine's own root answers the container and its
         // forwarders, so its acquire binds; the bare engine has no root, and
         // does not borrow the first engine's.
-        Assert.True(EngineStringTableDirectory.AcquireServer(new ModuleEngine(served), out string servedWhy) is not null,
+        Assert.True(EngineStringTableDirectory.AcquireServer(new ServerModuleEngine(served), out string servedWhy) is not null,
                     $"the served engine reached its own root: {servedWhy}");
-        Assert.True(EngineStringTableDirectory.AcquireServer(new ModuleEngine(bare), out string bareWhy) is null,
+        Assert.True(EngineStringTableDirectory.AcquireServer(new ServerModuleEngine(bare), out string bareWhy) is null,
                     $"the other engine reached no root at all, not the first's: {bareWhy}");
     }
 

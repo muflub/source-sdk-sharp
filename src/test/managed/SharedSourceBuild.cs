@@ -100,7 +100,7 @@ internal static class SharedSourceBuild
     }
 
     /// <summary>The server's halves of the shared interop's partial types.</summary>
-    private static readonly string[] SideHalves = ["EngineSide.Server.cs", "SideAttachment.Server.cs", "EngineBinding.Server.cs", "ModuleEngine.Server.cs"];
+    private static readonly string[] SideHalves = ["EngineSide.Server.cs", "SideAttachment.Server.cs", "EngineBinding.Server.cs", "ServerModuleEngine.cs"];
 
     /// <summary>
     /// <paramref name="source"/> with every method, constructor, property and
@@ -124,10 +124,21 @@ internal static class SharedSourceBuild
             => Strip(node, node.Body, node.ExpressionBody,
                      n => n.WithBody(null).WithExpressionBody(Throw).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
 
+        // A base(...) call stays, its arguments made default!: a side's half can
+        // derive from a shared abstract type whose only constructor takes
+        // arguments (ServerModuleEngine), and dropping the call would not
+        // compile. Nothing the arguments named is referenced.
         public override SyntaxNode? VisitConstructorDeclaration(Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax node)
             => Strip(node, node.Body, node.ExpressionBody,
-                     n => n.WithInitializer(null).WithBody(null).WithExpressionBody(Throw)
+                     n => n.WithInitializer(BaseCall(n.Initializer)).WithBody(null).WithExpressionBody(Throw)
                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
+
+        private static Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorInitializerSyntax? BaseCall(
+            Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorInitializerSyntax? initializer)
+            => initializer is null || !initializer.IsKind(SyntaxKind.BaseConstructorInitializer)
+                ? null
+                : initializer.WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                      initializer.ArgumentList.Arguments.Select(_ => SyntaxFactory.Argument(SyntaxFactory.ParseExpression("default!"))))));
 
         public override SyntaxNode? VisitPropertyDeclaration(Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax node)
         {

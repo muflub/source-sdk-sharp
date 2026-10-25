@@ -26,8 +26,8 @@ public class ClientModelCachesTests
     [Fact]
     public void TwoClientCompositionsRegisterAndClearTheirOwnCaches()
     {
-        var a = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)), new FakeClientEngineAdapters());
-        var b = new ClientModule(new ModuleEngine(TestSides.Create(Side.Client)), new FakeClientEngineAdapters());
+        var a = new ClientModule(new ClientModuleEngine(TestSides.Create(Side.Client)), new FakeClientEngineAdapters());
+        var b = new ClientModule(new ClientModuleEngine(TestSides.Create(Side.Client)), new FakeClientEngineAdapters());
         a.ComposeEngineAreas();
         b.ComposeEngineAreas();
 

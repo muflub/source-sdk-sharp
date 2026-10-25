@@ -1,11 +1,19 @@
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// The server's half of <see cref="ModuleEngine"/> (plan_shim_areas_split
-/// phase 7): what only the server's composition asks of its engine.
+/// The server's <see cref="ModuleEngine"/> (plan_engineside_removal Phase 1):
+/// what <c>ServerModule</c> is composed over. Its own type, so the server's
+/// root takes it by constructor and cannot be handed the client's engine.
+/// Besides the shared surface, it holds what only the server's composition
+/// asks of its engine.
 /// </summary>
-public sealed partial class ModuleEngine
+public sealed class ServerModuleEngine : ModuleEngine
 {
+    internal ServerModuleEngine(EngineSide api)
+        : base(api)
+    {
+    }
+
     /// <summary>
     /// This engine's entity factory table, its providers bound to the native
     /// dictionary when the side has one (the server, with its shims attached)

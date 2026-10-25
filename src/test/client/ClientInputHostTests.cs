@@ -40,7 +40,7 @@ public sealed unsafe class ClientInputHostTests
         var side = TestSides.Create(Side.Client);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
-        return Composed(new ModuleEngine(side));
+        return Composed(new ClientModuleEngine(side));
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed unsafe class ClientInputHostTests
         var side = TestSides.Create(Side.Client);
         side.Attachment.Initialize();
         Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
-        return Composed(new ModuleEngine(side));
+        return Composed(new ClientModuleEngine(side));
     }
 
     [Fact]
