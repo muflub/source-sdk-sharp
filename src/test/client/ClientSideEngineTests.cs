@@ -37,10 +37,10 @@ public unsafe class ClientSideEngineTests : IDisposable
     private static EngineSide Attached(FakeShimRoot root, Side side)
     {
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
 
         string why;
-        bool attached = api.AttachOwnShims(root.Bind(), out why);
+        bool attached = api.Attachment.AttachShims(root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;
@@ -110,7 +110,7 @@ public unsafe class ClientSideEngineTests : IDisposable
     private static IEngineEntities ClientEntities(EngineSide side)
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
-        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ClientModuleEngine(side));
         EngineServices.AddTo(services, side);
         return services.Require<IEngineEntities>();
     }
@@ -121,8 +121,8 @@ public unsafe class ClientSideEngineTests : IDisposable
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         using var root = new FakeShimRoot();
         var side = TestSides.Create(Side.Client);
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
-        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
+        new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ClientModuleEngine(side));
         EngineServices.AddTo(services, side);
         var entities = services.Require<IEngineEntities>();
 

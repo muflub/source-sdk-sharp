@@ -23,7 +23,7 @@ internal static class TestEngines
 
         // And its clock, as the game's composition registers one: what a
         // registry stamps outputs, thinks and saves with.
-        engine.AddInstance<IGameClock>(new ModuleEngine(side).Clock());
+        engine.AddInstance<IGameClock>(new ServerModuleEngine(side).Clock());
         return (engine, ServerEntityEngine.For(side));
     }
 }

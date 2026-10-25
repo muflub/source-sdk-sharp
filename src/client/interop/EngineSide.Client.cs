@@ -26,33 +26,10 @@ namespace SourceSharp.Abi;
 internal sealed unsafe partial class EngineSide
 {
     /// <summary>
-    /// Attaches the side's own areas: the client's shared bases and its own,
-    /// acquired all or none from the root and registered by type
-    /// (<see cref="ClientAreaRegistration"/>). Called from LoadSideV2.
-    /// </summary>
-    internal bool AttachOwnShims(ShimRoot root, out string why)
-    {
-        var areas = new ServiceContainer();
-        if (!ClientAreaRegistration.TryAcquire(root, (type, area) => areas.AddInstance(type, area), out why))
-            return false;
-
-        Attached(root, areas);
-        return true;
-    }
-
-    /// <summary>
     /// The client's own services read only the shared four areas
     /// (EngineSide.cs), so there is nothing of the client's to take here.
     /// </summary>
     private static void OwnAreas(IServiceLocator areas) { }
-
-    /// <summary>Every client area over no table: what the side holds before its attach.</summary>
-    private static ServiceContainer DetachedAreas()
-    {
-        var areas = new ServiceContainer();
-        ClientAreaRegistration.AddDetached((type, area) => areas.AddInstance(type, area));
-        return areas;
-    }
 
     /// <summary>
     /// The model precache the side's break models use: none, as the client's

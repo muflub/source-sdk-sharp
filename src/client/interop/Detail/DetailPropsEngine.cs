@@ -12,7 +12,7 @@ namespace SourceSharp.Client.Detail;
 /// engine outlives every reload. A table that cannot be bound answers as an
 /// empty map would: no lump, no model, no light.
 /// </summary>
-internal sealed unsafe class DetailPropsEngine(EngineSide side, ILog log) : IDetailPropEngine
+internal sealed unsafe class DetailPropsEngine(NativeInterfaceFactory interfaces, ILog log) : IDetailPropEngine
 {
     private const string ModelInfoVersion = "VModelInfoClient006";
 
@@ -28,13 +28,13 @@ internal sealed unsafe class DetailPropsEngine(EngineSide side, ILog log) : IDet
             return _engineFwd != null && _modelInfoFwd != null;
         _bound = true;
 
-        if (!Forwarders.TryAcquire(side.Interfaces, SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion,
+        if (!Forwarders.TryAcquire(interfaces, SourceSharpFactoryType.AppSystem, EngineClient.InterfaceVersion,
                                    out _engine, out _engineFwd, out string why))
         {
             log.Warning($"[SourceSharp/Detail] the engine client is not bound ({why}): no detail props\n");
             return false;
         }
-        if (!Forwarders.TryAcquire(side.Interfaces, SourceSharpFactoryType.AppSystem, ModelInfoVersion,
+        if (!Forwarders.TryAcquire(interfaces, SourceSharpFactoryType.AppSystem, ModelInfoVersion,
                                    out _modelInfo, out _modelInfoFwd, out why))
         {
             log.Warning($"[SourceSharp/Detail] model info is not bound ({why}): no detail props\n");
@@ -99,5 +99,5 @@ internal sealed unsafe class DetailPropsEngine(EngineSide side, ILog log) : IDet
 public static class DetailPropsEngines
 {
     /// <summary>The detail props' engine on <paramref name="engine"/>'s own side.</summary>
-    public static IDetailPropEngine For(ModuleEngine engine, ILog log) => new DetailPropsEngine(engine.Api, log);
+    public static IDetailPropEngine For(ModuleEngine engine, ILog log) => new DetailPropsEngine(engine.Interfaces, log);
 }

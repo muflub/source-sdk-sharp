@@ -83,12 +83,12 @@ public sealed unsafe class MovementRunnerConstantsTests
         root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveTraceServer),
                   (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, uint*, void>)&Clear);
         EngineSide side = TestSides.Create(Side.Server);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         DefaultForwarders.HoldOn(side);
-        side.Tracer = new NoFilter();
+        side.Tracer.Fill(new NoFilter());
 
-        var runner = TestSides.Movement(new ModuleEngine(side));
+        var runner = TestSides.Movement(new ServerModuleEngine(side));
         MoveStateBlob blob = Airborne();
         MoveFrameConstants frame = Frame(400f);
 

@@ -71,7 +71,7 @@ public static unsafe class ShimProbes
         // The interface alone, not its forwarder table: the table is the
         // client's (Client.Interop, libss_fwd_client), and the question is
         // whether the server's engine answers the version string at all.
-        return engine.Api.Interfaces.TryCreate(
+        return engine.Interfaces.TryCreate(
                    SourceSharpFactoryType.AppSystem, EngineClientInterfaceVersion,
                    out _, out string? why)
             ? "IVEngineClient: SERVED on the server, which serves no such interface"
@@ -105,7 +105,7 @@ public static unsafe class ShimProbes
         ArgumentNullException.ThrowIfNull(engine);
 
         if (!Forwarders.TryAcquire(
-                engine.Api.Interfaces, SourceSharpFactoryType.Internal, EngineFrame.InterfaceVersion,
+                engine.Interfaces, SourceSharpFactoryType.Internal, EngineFrame.InterfaceVersion,
                 out void* self, out ShimFrameFwd* vtbl, out string why))
             return $"IShimFrame: REFUSED — {why}";
 
@@ -147,7 +147,7 @@ public static unsafe class ShimProbes
     {
         ArgumentNullException.ThrowIfNull(engine);
 
-        if (!engine.Api.Interfaces.TryCreate(
+        if (!engine.Interfaces.TryCreate(
                 SourceSharpFactoryType.Internal, EngineLevel.InterfaceVersion,
                 out nint _, out string? error))
             return $"IShimLevel: REFUSED — {error}";
@@ -156,7 +156,7 @@ public static unsafe class ShimProbes
         // managed calls the level through SSFwd_ShimLevel, never through the
         // object's vtable, so the count that matters is how many forwarders
         // the library serves against how many ShimLevelFwd reads.
-        if (!engine.Api.Interfaces.TryCreate(
+        if (!engine.Interfaces.TryCreate(
                 SourceSharpFactoryType.Internal, ShimLevelFwd.TableName,
                 out nint answer, out string? tableError) || answer == 0)
             return $"IShimLevel: bound, but its forwarders are REFUSED — {tableError ?? "no table"}";

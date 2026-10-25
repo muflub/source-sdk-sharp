@@ -204,7 +204,7 @@ public sealed unsafe class ClientStandaloneBlocks : IStandaloneBlocks
     public static ClientStandaloneBlocks For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new ClientStandaloneBlocks(engine.Api.Areas.Require<IStandaloneClientArea>());
+        return new ClientStandaloneBlocks(engine.Attachment.Areas.Require<IStandaloneClientArea>());
     }
 
     public Span<byte> Block(EntityHandle entity)
@@ -230,7 +230,7 @@ public sealed class ClientSequenceStore : IClientSequenceStore
     public static ClientSequenceStore For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new ClientSequenceStore(engine.Api.Areas.Require<IStandaloneClientArea>());
+        return new ClientSequenceStore(engine.Attachment.Areas.Require<IStandaloneClientArea>());
     }
 
     public void Store(EntityHandle entity, int sequence, float playbackRate, float animTime, float duration,
@@ -255,7 +255,7 @@ public sealed class StandaloneRagdollStore : IStandaloneRagdollStore
     public static StandaloneRagdollStore For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new StandaloneRagdollStore(engine.Api.Areas.Require<IStandaloneClientArea>());
+        return new StandaloneRagdollStore(engine.Attachment.Areas.Require<IStandaloneClientArea>());
     }
 
     public void SetRagdoll(EntityHandle entity, bool isRagdoll)

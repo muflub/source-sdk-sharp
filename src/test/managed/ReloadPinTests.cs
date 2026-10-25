@@ -172,7 +172,7 @@ public sealed class ReloadPinTests
             Assert.NotNull(side.EntityIo.ServiceQueue);
             Assert.NotNull(side.Removal.Mark);
 
-            ManagedCaches.Forget(context, [TestSides.Create(Side.Client), side]);
+            ManagedCaches.Forget(context, [TestSides.Create(Side.Client).Routes, side.Routes]);
 
             Assert.Null(side.ShellLess.Answers);
             Assert.Null(side.EntityIo.Input);
@@ -201,7 +201,7 @@ public sealed class ReloadPinTests
             RegistryOver(handed, assembly);
             var kept = RegistryOver(other, assembly);
 
-            Assert.True(ManagedCaches.Forget(context, [handed]) >= 3, "the handed side's three routes went");
+            Assert.True(ManagedCaches.Forget(context, [handed.Routes]) >= 3, "the handed side's three routes went");
 
             Assert.Null(handed.ShellLess.Answers);
             Assert.Same(kept, other.ShellLess.Answers);
@@ -223,7 +223,7 @@ public sealed class ReloadPinTests
             var side = TestSides.Create(Side.Server);
             RegistryOver(side, assembly);
 
-            Assert.Equal(3, ManagedCaches.ForgetRoutes(side, context));
+            Assert.Equal(3, ManagedCaches.ForgetRoutes(side.Routes, context));
         }
         finally
         {
@@ -244,7 +244,7 @@ public sealed class ReloadPinTests
             var side = TestSides.Create(Side.Server);
             var registry = RegistryOver(side, assembly);
 
-            Assert.Equal(0, ManagedCaches.ForgetRoutes(side, stranger));
+            Assert.Equal(0, ManagedCaches.ForgetRoutes(side.Routes, stranger));
 
             Assert.Same(registry, side.ShellLess.Answers);
             Assert.NotNull(side.EntityIo.Input);

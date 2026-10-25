@@ -64,8 +64,8 @@ public sealed unsafe class SolidityCompositionTests : System.IDisposable
              .Live(Collision, "EntityGetSolidType", (nint)(delegate* unmanaged<void*, uint, int>)&GetSolidType)
              .Live(Collision, "EntityGetSolidFlags", (nint)(delegate* unmanaged<void*, uint, int>)&GetSolidFlags)
              .Live(Entities, "EntitySetVisible", (nint)(delegate* unmanaged<void*, uint, int, void>)&SetVisible);
-        _side.Initialize();
-        Assert.True(_side.AttachOwnShims(_root.Bind(), out string why), why);
+        _side.Attachment.Initialize();
+        Assert.True(_side.Attachment.AttachShims(_root.Bind(), out string why), why);
     }
 
     public void Dispose() => _root.Dispose();

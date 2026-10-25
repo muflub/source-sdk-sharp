@@ -44,9 +44,10 @@ namespace SourceSharp.Abi;
 /// pointer or a resolver: a test builds one through its side too.
 /// </para>
 /// </summary>
-internal sealed class EngineEnvironment(EngineSide side) : IEngineEnvironment
+internal sealed class EngineEnvironment(EngineSide side, NativeInterfaceFactory interfaces) : IEngineEnvironment
 {
     private readonly EngineSide _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly NativeInterfaceFactory _interfaces = interfaces ?? throw new ArgumentNullException(nameof(interfaces));
 
     /// <inheritdoc/>
     public nint GetInterface(string name)
@@ -57,7 +58,7 @@ internal sealed class EngineEnvironment(EngineSide side) : IEngineEnvironment
         if (string.IsNullOrEmpty(name))
             return 0;
 
-        return _side.Interfaces.TryCreate(SourceSharpFactoryType.AppSystem, name, out nint self, out _) ? self : 0;
+        return _interfaces.TryCreate(SourceSharpFactoryType.AppSystem, name, out nint self, out _) ? self : 0;
     }
 
     /// <inheritdoc/>

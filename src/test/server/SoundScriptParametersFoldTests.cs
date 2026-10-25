@@ -66,9 +66,9 @@ public sealed unsafe class SoundScriptParametersFoldTests : System.IDisposable
         fwd->GetParametersForSound = &Parameters;
 
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
         string why;
-        Assert.True(api.AttachOwnShims(_root.Bind(), out why), why);
+        Assert.True(api.Attachment.AttachShims(_root.Bind(), out why), why);
         return SideBindings.Of<IEngineSound>(api);
     }
 

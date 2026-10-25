@@ -17,7 +17,7 @@ public class InstanceLogTests
 {
     private static ServerModule Composed(EngineSide engine)
     {
-        var module = new ServerModule(new ModuleEngine(engine));
+        var module = new ServerModule(new ServerModuleEngine(engine));
         module.ComposeEngineAreas();
         return module;
     }
@@ -60,15 +60,15 @@ public class InstanceLogTests
         var engine = TestSides.Create(Side.Server);
         var shim = new RecordingLog();
         var mine = new RecordingLog();
-        engine.State.Log = shim;
+        engine.Attachment.State.Log = shim;
 
-        using (new ModuleEngine(engine).AttachLog(mine))
+        using (new ServerModuleEngine(engine).AttachLog(mine))
         {
-            Assert.Same(mine, engine.State.Log);
-            Assert.Same(mine, engine.State.Vtables.Log);   // the registry's thunks report through it too
+            Assert.Same(mine, engine.Attachment.State.Log);
+            Assert.Same(mine, engine.Attachment.State.Vtables.Log);   // the registry's thunks report through it too
         }
 
-        Assert.Same(shim, engine.State.Log);
+        Assert.Same(shim, engine.Attachment.State.Log);
     }
 
     /// <summary>

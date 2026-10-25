@@ -26,21 +26,6 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed unsafe partial class EngineSide
 {
-    /// <summary>
-    /// Attaches the side's own areas: every generated server area, acquired
-    /// all or none from the root and registered by type
-    /// (<see cref="ServerAreaRegistration"/>). Called from LoadSideV2.
-    /// </summary>
-    internal bool AttachOwnShims(ShimRoot root, out string why)
-    {
-        var areas = new ServiceContainer();
-        if (!ServerAreaRegistration.TryAcquire(root, (type, area) => areas.AddInstance(type, area), out why))
-            return false;
-
-        Attached(root, areas);
-        return true;
-    }
-
     // The areas the server's own services read (beside the shared four in
     // EngineSide.cs): the precache its break models use, the shell's
     // velocity, eye, origin and gravity members and the physics object its
@@ -66,20 +51,12 @@ internal sealed unsafe partial class EngineSide
         _motion = null;
     }
 
-    /// <summary>Every server area over no table: what the side holds before its attach.</summary>
-    private static ServiceContainer DetachedAreas()
-    {
-        var areas = new ServiceContainer();
-        ServerAreaRegistration.AddDetached((type, area) => areas.AddInstance(type, area));
-        return areas;
-    }
-
     /// <summary>
     /// The model precache the side's break models use: the server's own. A
     /// client engine built in this assembly (a cross-side fact) has none, as
     /// the client's slot was null.
     /// </summary>
-    internal Func<string, int>? OwnModelPrecache => _side == Side.Server ? PrecacheModel : null;
+    internal Func<string, int>? OwnModelPrecache => _attachment.Side == Side.Server ? PrecacheModel : null;
 
     /// <summary>
     /// The entity's one-object vphysics calls (plan_physics_bones_native_zero,
@@ -164,7 +141,7 @@ internal sealed unsafe partial class EngineSide
     {
         // The slots are the EntityLifecycle area's (the struct lost them in C6c),
         // which only the server registers.
-        if (_side != Side.Server)
+        if (_attachment.Side != Side.Server)
             return new EntityFactories();
 
         var factories = new EntityFactories
@@ -353,7 +330,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     internal void PlayerSetObserverMode(IPlayersArea playersArea, EntityHandle player, ObserverMode mode)
     {
-        PlayerMoves?.SetObserverMode(player, (int)mode);
+        PlayerMoves.Target?.SetObserverMode(player, (int)mode);
         playersArea.PlayerSetObserverMode(player.Value, (int)mode);
     }
 
@@ -457,7 +434,7 @@ internal sealed unsafe partial class EngineSide
     /// an upward push does nothing unless the ground is let go of first.
     /// </summary>
     public void EntityApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround)
-        => ApplyVelocityImpulse(PlayerMoves, Motion, h, impulse, clearGround);
+        => ApplyVelocityImpulse(PlayerMoves.Target, Motion, h, impulse, clearGround);
 
     /// <summary>
     /// The impulse's two homes. A player's velocity and ground are its movement
@@ -725,7 +702,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void EntitySetPhysicsStatic(EntityHandle entity, bool isStatic)
     {
-        PhysicsInit?.SetStatic(entity, isStatic);
+        PhysicsInit.Target?.SetStatic(entity, isStatic);
     }
 
     /// <summary>
@@ -776,7 +753,7 @@ internal sealed unsafe partial class EngineSide
     /// already was, so calling twice is safe.
     /// </summary>
     public bool EntityInitPhysics(EntityHandle entity, bool asleep = false, bool debris = false)
-        => PhysicsInit?.Create(entity, isStatic: false, asleep, debris) == true;
+        => PhysicsInit.Target?.Create(entity, isStatic: false, asleep, debris) == true;
 
     /// <summary>
     /// What shape this entity presents to a trace, as the engine's own FSOLID_
@@ -851,26 +828,50 @@ internal sealed unsafe partial class EngineSide
     internal int EntityFactoryRefusalTimesAt(IEntityLifecycleArea lifecycleArea, int index)
         => lifecycleArea.EntityFactoryRefusalTimesAt(index);
 
+    // The server's late routes (plan_engineside_removal Phase 3): each made
+    // empty here, registered by the side's container (EngineServices.Server)
+    // before any binding is built, taken by constructor by the bindings that
+    // read it, and filled by the composition once what answers it exists.
+
     // THE SERVER'S SOUNDS ARE MANAGED (plan_server_native_v2 T4a): the emit
     // and patch calls go to the managed SoundEmitter's route, which the
-    // server's composition installs (ServerSoundRouting).
-    internal IServerSoundRoute? ServerSounds { get; set; }
+    // server's composition fills (ServerSoundRouting).
+    internal SideRoute<IServerSoundRoute> ServerSounds { get; } = new();
 
     // What the server's traces cost (plan_server_native_v2 T4f): timed around
-    // each trace member, read by cs_sv_trace_cost. The composition installs the
-    // instance it registers (ServerTraceRouting.RouteCost).
-    internal ServerTraceCost TraceCost { get; set; } = new();
+    // each trace member, read by cs_sv_trace_cost. Answers meters of its own
+    // until the composition fills it with the instance it registers
+    // (ServerTraceRouting.RouteCost).
+    internal SideRoute<ServerTraceCost> TraceCost => _traceCost ??= new(new ServerTraceCost());
+
+    private SideRoute<ServerTraceCost>? _traceCost;
 
     // THE SERVER'S TRACES ARE MANAGED (plan_server_native_v2 T4f): IEngineTrace::
     // TraceRay through its forwarder over libss_fwd_server's trace filter, which
-    // the managed trace rule answers. The composition installs it
+    // the managed trace rule answers. The composition fills it
     // (ServerTraceRouting.Build); without one the side traces nothing.
-    internal IServerTraceRoute? Tracer { get; set; }
+    internal SideRoute<IServerTraceRoute> Tracer { get; } = new();
 
     // A PLAYER'S MOVEMENT STATE IS MANAGED (plan_server_native_v2 T4g): the
     // calls game code makes on it are answered from the command loop's
-    // records, which the server's composition installs.
-    internal IServerPlayerMovementRoute? PlayerMoves { get; set; }
+    // records, which the server's composition fills.
+    internal SideRoute<IServerPlayerMovementRoute> PlayerMoves { get; } = new();
+
+    /// <summary>
+    /// The server's managed physics init (EntityPhysicsCreation), which
+    /// <see cref="EntityInitPhysics"/> and <see cref="EntitySetPhysicsStatic"/>
+    /// reach. Filled by the server composition once vphysics answers; empty
+    /// makes nothing.
+    /// </summary>
+    internal SideRoute<IEntityPhysicsRoute> PhysicsInit { get; } = new();
+
+    /// <summary>
+    /// Told of every teleport after native has carried it out: the server
+    /// composition hands a player's to its shadow (stock's TeleportEntity
+    /// moves a player's physics object with them; plan_physics_bones_native_zero
+    /// 2.5 made the shadow managed's). Empty tells nobody.
+    /// </summary>
+    internal SideRoute<Action<EntityHandle, Vector, bool>> Teleported { get; } = new();
 
     // COLLISION_GROUP_NONE: the group every trace of this side's but the
     // entity sweep asks with, as CTraceFilterSimple( ignore, COLLISION_GROUP_NONE ) did.
@@ -936,7 +937,7 @@ internal sealed unsafe partial class EngineSide
         hit = EntityHandle.None;
         ground = EntityHandle.None;
 
-        if (Tracer is not { } tracer)
+        if (Tracer.Target is not { } tracer)
         {
             *blob = default;
             blob->StartSolid = 1;
@@ -969,11 +970,11 @@ internal sealed unsafe partial class EngineSide
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
                                            uint mask, int collisionGroup)
     {
-        if (Tracer is not { } tracer) return new EntityHullTrace(start, true, true);
+        if (Tracer.Target is not { } tracer) return new EntityHullTrace(start, true, true);
 
         long cost = CostMeter.Start();
         ServerTrace t = tracer.Hull(start, end, mins, maxs, mask, entity, collisionGroup);
-        TraceCost.EntityHull.Stop(cost);
+        TraceCost.Target!.EntityHull.Stop(cost);
         return ServerTraceResults.EntityHull(t);
     }
 
@@ -981,13 +982,13 @@ internal sealed unsafe partial class EngineSide
     public TraceResult TraceLine(Vector start, Vector end, TraceMask mask,
                                         EntityHandle ignore = default)
     {
-        if (Tracer is not { } tracer)
+        if (Tracer.Target is not { } tracer)
             return new TraceResult(false, 1f, end, Vector.Zero, EntityHandle.None);
 
         long cost = CostMeter.Start();
         ServerTrace t = tracer.Line(start, end, (uint)TraceMasks.Line(mask), new EntityHandle(Skippable(ignore)),
                                     CollisionGroupNone);
-        TraceCost.Line.Stop(cost);
+        TraceCost.Target!.Line.Stop(cost);
         return ServerTraceResults.Line(t);
     }
 
@@ -1019,13 +1020,13 @@ internal sealed unsafe partial class EngineSide
     public SurfaceTraceResult TraceLineSurface(Vector start, Vector end, TraceMask mask,
                                                       EntityHandle ignore = default)
     {
-        if (Tracer is not { } tracer)
+        if (Tracer.Target is not { } tracer)
             return new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
 
         long cost = CostMeter.Start();
         ServerTrace t = tracer.Line(start, end, (uint)TraceMasks.Line(mask), new EntityHandle(Skippable(ignore)),
                                     CollisionGroupNone);
-        TraceCost.Line.Stop(cost);
+        TraceCost.Target!.Line.Stop(cost);
         return ServerTraceResults.Surface(t);
     }
 
@@ -1044,13 +1045,13 @@ internal sealed unsafe partial class EngineSide
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs,
                                        TraceMask mask, EntityHandle ignore = default)
     {
-        if (Tracer is not { } tracer)
+        if (Tracer.Target is not { } tracer)
             return new HullResult(false, false, EntityHandle.None);
 
         long cost = CostMeter.Start();
         ServerTrace t = tracer.Hull(start, end, mins, maxs, (uint)TraceMasks.Hull(mask),
                                     new EntityHandle(Skippable(ignore)), CollisionGroupNone);
-        TraceCost.Hull.Stop(cost);
+        TraceCost.Target!.Hull.Stop(cost);
         return ServerTraceResults.Hull(t);
     }
 
@@ -1066,12 +1067,12 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public WaterBelow WaterSurfaceBelow(Vector start)
     {
-        if (Tracer is not { } tracer)
+        if (Tracer.Target is not { } tracer)
             return new WaterBelow(false, false, false, start);
 
         long cost = CostMeter.Start();
         WaterBelow below = SourceSharp.Server.Interop.WaterQuery.Below(tracer, start);
-        TraceCost.Water.Stop(cost);
+        TraceCost.Target!.Water.Stop(cost);
         return below;
     }
 }

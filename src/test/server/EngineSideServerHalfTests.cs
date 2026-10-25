@@ -23,8 +23,8 @@ public class EngineSideServerHalfTests
     private static EngineSide Attached(FakeShimRoot root)
     {
         var side = TestSides.Create(Side.Server);
-        side.Initialize();
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         return side;
     }
 
@@ -32,7 +32,7 @@ public class EngineSideServerHalfTests
     public void AttachOwnShimsAttachesTheServersAreas()
     {
         using var root = new FakeShimRoot();
-        Assert.NotNull(Attached(root).Root);
+        Assert.NotNull(Attached(root).Attachment.Root);
     }
 
     [Fact]

@@ -2168,7 +2168,7 @@ public class MovementTests
     [Fact]
     public unsafe void TheBridgeRefusesANullState()
     {
-        var runner = TestSides.Movement(new ModuleEngine(TestSides.Create(Side.Server)));
+        var runner = TestSides.Movement(new ServerModuleEngine(TestSides.Create(Side.Server)));
         Assert.Equal(0, runner.ProcessMovement(null));
     }
 

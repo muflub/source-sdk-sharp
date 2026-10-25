@@ -40,7 +40,7 @@ public sealed unsafe class ServerGameEvents : IEngineGameEvents
     /// </summary>
     public static IEngineGameEvents? Acquire(ModuleEngine engine, IEngineGameEvents inner, ILog log, out string why)
         => Forwarders.TryAcquire<GameEventManagerFwd>(
-               (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
+               (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces,
                SourceSharpFactoryType.AppSystem, InterfaceVersion,
                out void* self, out GameEventManagerFwd* table, out why)
             ? new ServerGameEvents(inner ?? throw new ArgumentNullException(nameof(inner)),

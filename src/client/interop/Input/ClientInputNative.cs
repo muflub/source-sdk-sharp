@@ -145,7 +145,7 @@ public sealed unsafe class ClientInputDevices : IInputDevices
 
     /// <summary>The client's input system, from the engine's app-system factory.</summary>
     public static IInputDevices For(ModuleEngine engine, ILog log)
-        => new ClientInputDevices(engine.Api.Interfaces, new SteamControllerFlat(log));
+        => new ClientInputDevices(engine.Interfaces, new SteamControllerFlat(log));
 
     private bool Bound()
     {

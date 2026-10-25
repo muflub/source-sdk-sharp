@@ -121,7 +121,7 @@ public sealed class ServerPlayerCommands
     {
         ArgumentNullException.ThrowIfNull(engine);
         EngineSide api = engine.Api;
-        IMovementServerArea movementArea = api.Areas.Require<IMovementServerArea>();
+        IMovementServerArea movementArea = api.Attachment.Areas.Require<IMovementServerArea>();
         var world = new ServerMoveWorld(api, movementArea, trace, surfaces, sounds, game);
         return new ServerPlayerCommands(api, movementArea, world, new GameMovement(world, default), moves, data,
                                         movement, constants, publisher, environment);

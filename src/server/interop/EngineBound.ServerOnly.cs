@@ -19,8 +19,8 @@ internal sealed partial class EngineBoundSet
 internal static partial class EngineBound
 {
     /// <summary><c>IEngineSound</c>, the server's. Server side only.</summary>
-    internal static IFwdEngineSoundServer SoundServer(EngineSide side) => side.Bound.SoundServer.For(side);
+    internal static IFwdEngineSoundServer SoundServer(EngineSide side) => side.Attachment.Bound.SoundServer.For(side);
 
     /// <summary><c>IFileSystem</c>. Server side only.</summary>
-    internal static IFwdFileSystem FileSystem(EngineSide side) => side.Bound.FileSystem.For(side);
+    internal static IFwdFileSystem FileSystem(EngineSide side) => side.Attachment.Bound.FileSystem.For(side);
 }

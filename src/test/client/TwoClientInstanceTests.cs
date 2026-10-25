@@ -36,7 +36,7 @@ public class TwoClientInstanceTests
         public ClientInstance()
         {
             Engine = TestSides.Create(Side.Client);
-            Module = new ClientModule(new ModuleEngine(Engine), new FakeClientEngineAdapters());
+            Module = new ClientModule(new ClientModuleEngine(Engine), new FakeClientEngineAdapters());
             Module.ComposeEngineAreas();
             Module.Services.Require<ConsoleLines>().Tap = (text, _) => Lines.Add(text);
         }
@@ -45,7 +45,7 @@ public class TwoClientInstanceTests
 
         public ClientModule Module { get; }
 
-        public SideState State => Engine.State;
+        public SideState State => Engine.Attachment.State;
 
         public List<string> Lines { get; } = new();
     }

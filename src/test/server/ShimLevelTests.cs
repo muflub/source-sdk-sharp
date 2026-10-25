@@ -175,7 +175,7 @@ public unsafe class ShimLevelTests
             using var root = new FakeShimRoot()
                 .Interface(EngineLevel.InterfaceVersion, self)
                 .Interface(ShimLevelFwd.TableName, header);
-            Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
+            Assert.True(served.Attachment.AttachShims(root.Bind(), out string why), why);
 
             Assert.True(SideBindings.Of<IEngineLevel>(served).IsPrecacheAllowed());
 
@@ -342,7 +342,7 @@ public unsafe class ShimLevelTests
         // A side whose root serves no level area, reached as the side registers it.
         using var root = new FakeShimRoot();
         var side = TestSides.Create(Side.Server);
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         var refused = SideBindings.Of<IEngineLevel>(side);
 
         Assert.Throws<InterfaceAcquisitionException>(() => refused.ClearEntityList());

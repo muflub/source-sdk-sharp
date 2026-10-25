@@ -45,7 +45,7 @@ public class LivenessMirrorCompositionTests
 
     private static ServerModule Composed(EngineSide engine)
     {
-        var module = new ServerModule(new ModuleEngine(engine));
+        var module = new ServerModule(new ServerModuleEngine(engine));
         module.ComposeEngineAreas();
         return module;
     }
@@ -95,11 +95,11 @@ public class LivenessMirrorCompositionTests
         var module = Composed(out var engine);
         var mirror = module.Services.Require<LivenessMirror>();
 
-        Assert.Same(mirror, engine.Liveness);
+        Assert.Same(mirror, engine.Liveness.Mirror);
 
         module.Shutdown();
 
-        Assert.Null(engine.Liveness);
+        Assert.Null(engine.Liveness.Mirror);
     }
 
     [Fact]

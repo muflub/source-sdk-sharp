@@ -55,7 +55,7 @@ public sealed unsafe class MovementRunner
                                      Func<IMoveWorld, IMoveWorld>? clientWorld = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Api.Areas.Require<IMovementArea>(), trace, surfaces);
+        var world = new MovementBridge.EngineMoveWorld(engine.Api, engine.Attachment.Areas.Require<IMovementArea>(), trace, surfaces);
         return new MovementRunner(engine.Api, world, engine.Side == Side.Server, clientWorld?.Invoke(world));
     }
 

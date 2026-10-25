@@ -67,9 +67,9 @@ public sealed class TraceMaskFoldTests : System.IDisposable
 
     public TraceMaskFoldTests()
     {
-        _side.Initialize();
-        Assert.True(_side.AttachOwnShims(_root.Bind(), out string why), why);
-        _side.Tracer = _traces;
+        _side.Attachment.Initialize();
+        Assert.True(_side.Attachment.AttachShims(_root.Bind(), out string why), why);
+        _side.Tracer.Fill(_traces);
     }
 
     public void Dispose() => _root.Dispose();
@@ -146,7 +146,7 @@ public sealed class TraceMaskFoldTests : System.IDisposable
     [Fact]
     public void WithNoRouteTheSideTracesNothingAndSaysClear()
     {
-        _side.Tracer = null;
+        _side.Tracer.Fill(null);
         TraceResult tr = _side.TraceLine(Vector.Zero, new Vector(0, 0, 1), TraceMask.Solid);
 
         Assert.False(tr.Hit);

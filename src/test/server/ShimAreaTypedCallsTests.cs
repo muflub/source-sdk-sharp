@@ -110,29 +110,31 @@ public class ShimAreaTypedCallsTests
     }
 
     /// <summary>
-    /// The attach is <c>EngineSide</c>'s, the side object the areas are
-    /// registered with: one <c>AttachOwnShims</c> per side, and no accessor
-    /// for a set of areas (plan_shim_areas_split phase 11). Nothing asks
+    /// The attach is <c>SideAttachment</c>'s, the object the areas are
+    /// registered with: one <c>AttachShims</c> per side, and none on
+    /// <c>EngineSide</c> (plan_engineside_removal Phase 1). Nothing asks
     /// whether the attach happened (phase 11 review): the game composes
     /// only after it, and a call before it throws.
     /// </summary>
     [Fact]
-    public void EngineSideOwnsTheAttach()
+    public void TheAttachmentOwnsTheAttach()
     {
-        Assert.NotNull(EngineSideType.GetMethod("AttachOwnShims", InstanceBoth));
-        foreach (string gone in new[] { "AttachShims", "AttachClientShims" })
+        // The attach moved from EngineSide to SideAttachment
+        // (plan_engineside_removal Phase 1): the side has none of its own.
+        Assert.NotNull(typeof(SideAttachment).GetMethod("AttachShims", InstanceBoth));
+        foreach (string gone in new[] { "AttachOwnShims", "AttachShims", "AttachClientShims" })
             Assert.Null(EngineSideType.GetMethod(gone, InstanceBoth));
         foreach (string gone in new[] { "ServerAttached", "ClientAttached", "OwnShimsAttached",
                                         "ServerShims", "ClientShims", "OwnShims", "ShimsAttached" })
             Assert.Null(EngineSideType.GetProperty(gone, InstanceBoth));
 
-        // The server's EngineSide attaches the server's areas only: the
+        // The server's attachment attaches the server's areas only: the
         // client's attach is in the client's half (plan_shim_areas_split phase 7).
         using var root = new FakeShimRoot();
         var side = TestSides.Create(Side.Server);
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
-        Assert.NotNull(side.Areas.Resolve(typeof(IEntitiesServerArea)));
-        Assert.Null(side.Areas.Resolve(typeof(IHudClientArea)));
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
+        Assert.NotNull(side.Attachment.Areas.Resolve(typeof(IEntitiesServerArea)));
+        Assert.Null(side.Attachment.Areas.Resolve(typeof(IHudClientArea)));
         // A side object is not a router: no Slot_/Has_ members at all.
         Assert.Empty(EngineSideType.GetMethods(InstanceBoth)
             .Where(m => m.Name.StartsWith("Slot_", StringComparison.Ordinal)

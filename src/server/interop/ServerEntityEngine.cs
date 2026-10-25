@@ -35,17 +35,17 @@ public sealed class ServerEntityEngine
 
     /// <inheritdoc cref="For(ModuleEngine)"/>
     internal static ServerEntityEngine For(EngineSide side)
-        => new(side, side.Areas.Require<IEntityLifecycleArea>(), side.Areas.Require<IWorldServerArea>(),
-               side.Areas.Require<INetworkServerArea>());
+        => new(side, side.Attachment.Areas.Require<IEntityLifecycleArea>(), side.Attachment.Areas.Require<IWorldServerArea>(),
+               side.Attachment.Areas.Require<INetworkServerArea>());
 
     /// <summary>The side this forwards to.</summary>
     internal EngineSide Api { get; }
 
     /// <summary>The side's connection id stamps, its <see cref="SideState"/>'s (statics to zero).</summary>
-    public EventIdStamps Stamps => Api.State.Stamps;
+    public EventIdStamps Stamps => Api.Attachment.State.Stamps;
 
     /// <summary>The side's reload store, its <see cref="SideState"/>'s (statics to zero).</summary>
-    public ReloadStore Reload => Api.State.Reload;
+    public ReloadStore Reload => Api.Attachment.State.Reload;
 
     /// <summary>The side's log, over its own console (statics to zero).</summary>
     public ILog Log => Api.Log;

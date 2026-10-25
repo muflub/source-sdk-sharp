@@ -16,10 +16,12 @@ public static class ServerTraceRouting
     /// and EngineTraceServer003. Null, with the reason, when libss_fwd_server
     /// serves no trace filter; the side then traces nothing.
     /// </summary>
-    public static ManagedVtable? Build(ModuleEngine engine, ManagedVtables vtables, uint[] collisionRows,
-                                       IFwdModelInfo modelInfo, IFwdEngineTrace trace, out string why)
+    public static ManagedVtable? Build(ModuleEngine engine, IServiceLocator services, ManagedVtables vtables,
+                                       uint[] collisionRows, IFwdModelInfo modelInfo, IFwdEngineTrace trace,
+                                       out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(vtables);
 
         TraceFilterObject? filters = TraceFilterObject.Acquire(engine, out why);
@@ -27,27 +29,22 @@ public static class ServerTraceRouting
             return null;
 
         EngineSide side = engine.Api;
-        INetworkServerArea network = side.Areas.Require<INetworkServerArea>();
+        INetworkServerArea network = side.Attachment.Areas.Require<INetworkServerArea>();
         var candidates = new EngineTraceCandidates(h => side.GetEntityBlock(network, h), side.EntityGetIndex,
                                                    modelInfo);
         var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, collisionRows), engine.Crossings);
         ManagedVtable block = TraceFilterSink.Create(vtables, sink);
         nint nativeFilter = filters.Build(block, TraceFilterRules.TraceEverything);
 
-        side.Tracer = new ServerTracer(trace, sink, filters, nativeFilter);
+        services.Require<SideRoute<IServerTraceRoute>>().Fill(new ServerTracer(trace, sink, filters, nativeFilter));
         return block;
     }
 
-    /// <summary>The side's tracer, or null when it traces nothing (no trace filter was built).</summary>
-    public static IServerTraceRoute? TracerOf(ModuleEngine engine)
-        => (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Tracer;
-
     /// <summary>The side traces nothing any more: its tracer's block is about to be freed.</summary>
-    public static void Unroute(ModuleEngine engine)
-        => (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Tracer = null;
+    public static void Unroute(IServiceLocator services)
+        => services.Require<SideRoute<IServerTraceRoute>>().Fill(null);
 
-    /// <summary>The module's side's traces timed into <paramref name="cost"/>.</summary>
-    public static void RouteCost(ModuleEngine engine, ServerTraceCost cost)
-        => (engine ?? throw new ArgumentNullException(nameof(engine))).Api.TraceCost =
-               cost ?? throw new ArgumentNullException(nameof(cost));
+    /// <summary>The side's traces timed into <paramref name="cost"/>.</summary>
+    public static void RouteCost(IServiceLocator services, ServerTraceCost cost)
+        => services.Require<SideRoute<ServerTraceCost>>().Fill(cost ?? throw new ArgumentNullException(nameof(cost)));
 }

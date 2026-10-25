@@ -26,17 +26,17 @@ public class ModuleEngineTests
     public void TwoCompositionsReadTheirOwnEnginesManagedDirectory()
     {
         var first = TestSides.Create(Side.Server);
-        first.ManagedDirectory = "first/bin/managed";
+        first.Attachment.ManagedDirectory = "first/bin/managed";
         var second = TestSides.Create(Side.Server);
-        second.ManagedDirectory = "second/bin/managed";
+        second.Attachment.ManagedDirectory = "second/bin/managed";
 
         var firstServices = new ServiceContainer();
         var secondServices = new ServiceContainer();
         firstServices.AddInstance(new StandaloneMirror());
         secondServices.AddInstance(new StandaloneMirror());
 
-        Assert.True(new ModuleEngine(first).AddTo(firstServices) > 20, "every engine area registered");
-        new ModuleEngine(second).AddTo(secondServices);
+        Assert.True(new ServerModuleEngine(first).AddTo(firstServices) > 20, "every engine area registered");
+        new ServerModuleEngine(second).AddTo(secondServices);
 
         Assert.Equal("first/bin/managed", firstServices.Require<IEngineHost>().ManagedDirectory);
         Assert.Equal("second/bin/managed", secondServices.Require<IEngineHost>().ManagedDirectory);
@@ -53,8 +53,8 @@ public class ModuleEngineTests
         first.BindGlobalVars(Side.Server, (nint)(&early));
         second.BindGlobalVars(Side.Server, (nint)(&late));
 
-        Assert.Equal(3f, new ModuleEngine(first).Clock().Now);
-        Assert.Equal(7.5f, new ModuleEngine(second).Clock().Now);
+        Assert.Equal(3f, new ServerModuleEngine(first).Clock().Now);
+        Assert.Equal(7.5f, new ServerModuleEngine(second).Clock().Now);
     }
 
     [Fact]
@@ -64,20 +64,20 @@ public class ModuleEngineTests
         var second = TestSides.Create(Side.Server);
         var mirror = new LivenessMirror();
 
-        using (new ModuleEngine(first).AttachLiveness(mirror))
+        using (new ServerModuleEngine(first).AttachLiveness(mirror))
         {
-            Assert.Same(mirror, first.Liveness);
-            Assert.Null(second.Liveness);
+            Assert.Same(mirror, first.Liveness.Mirror);
+            Assert.Null(second.Liveness.Mirror);
         }
 
-        Assert.Null(first.Liveness);
+        Assert.Null(first.Liveness.Mirror);
     }
 
     [Fact]
     public void AModuleEngineSaysWhichSideItIs()
     {
-        Assert.Equal(Side.Client, new ModuleEngine(TestSides.Create(Side.Client)).Side);
-        Assert.Equal(Side.Server, new ModuleEngine(TestSides.Create(Side.Server)).Side);
+        Assert.Equal(Side.Client, new ServerModuleEngine(TestSides.Create(Side.Client)).Side);
+        Assert.Equal(Side.Server, new ServerModuleEngine(TestSides.Create(Side.Server)).Side);
     }
 
     [Fact]

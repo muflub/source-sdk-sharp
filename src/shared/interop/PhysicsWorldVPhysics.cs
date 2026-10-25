@@ -275,7 +275,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     public static PhysicsWorldVPhysics? Acquire(ModuleEngine engine, Func<nint> environment, IStaticPropPhysics? staticProps,
                                                 ISolidKeyTable keys, out string why)
     {
-        NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces;
+        NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces;
 
         if (!Forwarders.TryAcquire<PhysicsCollisionFwd>(factory, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
                                                         out void* collision, out PhysicsCollisionFwd* collisionFwd, out why)
@@ -290,7 +290,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         }
 
         return new PhysicsWorldVPhysics(environment, collision, (void**)collisionFwd, props, (void**)propsFwd,
-                                        modelInfo, (void**)modelInfoFwd, staticProps, keys, engine.Api.VPhysics);
+                                        modelInfo, (void**)modelInfoFwd, staticProps, keys, engine.VPhysics);
     }
 
     public void Dispose()

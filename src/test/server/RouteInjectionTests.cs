@@ -51,7 +51,7 @@ public class RouteInjectionTests
     [Fact]
     public void EachCompositionAsksForItsOwnFactoryTable()
     {
-        var engine = new ModuleEngine(TestSides.Create(Side.Server));
+        var engine = new ServerModuleEngine(TestSides.Create(Side.Server));
         Assert.NotSame(engine.EntityFactories(), engine.EntityFactories());
     }
 

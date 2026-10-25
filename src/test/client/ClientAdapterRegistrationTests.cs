@@ -24,14 +24,14 @@ public unsafe class ClientAdapterRegistrationTests
     private static ServiceContainer Composed(EngineSide side)
     {
         var services = new ServiceContainer();
-        new ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        new ClientEntityFetches().AddTo(services, new ClientModuleEngine(side));
         return services;
     }
 
     private static EngineSide Attached(FakeShimRoot root)
     {
         var side = TestSides.Create(Side.Client);
-        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
         return side;
     }
 
@@ -502,7 +502,7 @@ public unsafe class ClientAdapterRegistrationTests
     [Fact]
     public void OverAnUnattachedEngineTheFirstCallRefusesNamingTheArea()
     {
-        var services = Composed(EngineSide.Create(Side.Client, new SideState(Side.Client)));
+        var services = Composed(EngineSide.Over(SideAttachment.Detached(Side.Client, new SideState(Side.Client))));
 
         var refusal = Assert.Throws<InvalidOperationException>(() => services.Require<IUiSurface>().TextureCreate());
         Assert.Contains("SSFwd_ShimUiClient was called before the shim areas were attached", refusal.Message);

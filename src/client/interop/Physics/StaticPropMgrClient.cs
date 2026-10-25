@@ -24,7 +24,7 @@ public sealed unsafe class StaticPropMgrClient : IStaticPropPhysics
     /// <summary>The static prop manager from <paramref name="engine"/>'s own side's factory, or null with the reason.</summary>
     public static IStaticPropPhysics? Acquire(ModuleEngine engine, out string why)
         => Forwarders.TryAcquire<StaticPropMgrClientFwd>(
-               (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
+               (engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces,
                SourceSharpFactoryType.AppSystem, InterfaceVersion,
                out void* self, out StaticPropMgrClientFwd* table, out why)
             ? new StaticPropMgrClient(self, table)

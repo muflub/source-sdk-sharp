@@ -283,7 +283,7 @@ public class MovementRulesSeamTests
             new PlayerCommandQueue(new RecordingLog()), () => false);
         var clientBinding = PredictionClientBinding.For(
             new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(Resolved(clientHook)),
-            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
 
         var server = PackOf<MovementRules>(serverBinding);
         var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding);

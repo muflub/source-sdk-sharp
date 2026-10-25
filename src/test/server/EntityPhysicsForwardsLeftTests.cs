@@ -134,7 +134,7 @@ public class EntityPhysicsForwardsLeftTests
     [Fact]
     public void ManagedMovesTheObjectAfterTheTeleport()
     {
-        Assert.Contains("Motion.TeleportObject(h, origin, angles, zeroVelocity);",
+        Assert.Contains("_motion.TeleportObject(h, origin, angles, zeroVelocity);",
                         SideCode());
         Assert.Contains("->SetPosition((void*)o, &origin, &angles, isTeleport ? (byte)1 : (byte)0)",
                         Code("src", "shared", "interop", "EntityPhysicsMotion.cs"));

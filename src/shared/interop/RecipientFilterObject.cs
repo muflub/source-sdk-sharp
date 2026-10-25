@@ -84,7 +84,7 @@ public sealed unsafe class RecipientFilterObject
 
     /// <summary>The side's builder, or null with the reason.</summary>
     public static RecipientFilterObject? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
+        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces, out why);
 
     internal static RecipientFilterObject? Acquire(NativeInterfaceFactory factory, out string why)
         => Forwarders.TryAcquire(factory, out RecipientFilterFwd* table, out why)

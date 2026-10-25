@@ -31,7 +31,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // fact composing two modules passes two. It used to be looked up by side
     // through the static Engine, so two modules composed over one engine.
     private JitWarmup? _jitWarmup;
-    private readonly ModuleEngine _engine;
+    private readonly ServerModuleEngine _engine;
 
     /// <summary>
     /// This composition's log: its engine's, over the side's console (statics
@@ -40,7 +40,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     private ILog Log => _engine.Log;
 
-    public ServerModule(ModuleEngine engine)
+    public ServerModule(ServerModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
         _engine = engine;
@@ -111,7 +111,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the side's trace members, printed by cs_sv_trace_cost.
         var traceCost = new ServerTraceCost();
         _services.AddInstance(traceCost);
-        ServerTraceRouting.RouteCost(_engine, traceCost);
 
         // This load's Steam game server, handed to the engine host binding the
         // next line builds (P1 run 3: an instance per load, not a static; it
@@ -119,6 +118,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<ISteamGameServer>(new SteamGameServerFlat());
 
         int areas = _engine.AddTo(_services);
+
+        // The side's traces timed into the meters registered above, through
+        // the route AddTo registered (plan_engineside_removal Phase 3).
+        ServerTraceRouting.RouteCost(_services, traceCost);
 
         // The engine interfaces this module calls itself, as AddTo acquired
         // and registered them: never null.
@@ -202,7 +205,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var commandTouches = new PlayerCommandTouches(h => _entities?.Get(h));
         _serverCommands.Impacts = commandTouches;
         _services.AddInstance(commandTouches);
-        ServerPlayerMovementRouting.Route(_engine, ServerPlayerMovement.For(_engine, _playerMoves, _serverCommands));
+        ServerPlayerMovementRouting.Route(_services, ServerPlayerMovement.For(_engine, _playerMoves, _serverCommands));
 
         // And its player command queues and shadow run (statics to zero), for
         // the binding the root builds, the player's removal and the two
@@ -1238,7 +1241,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Each world's blob on this composition's side, bound by handle
         // (plan_abi_hotreload D8: it bound through the static Engine). Built
         // here because only the server binds a world blob.
-        ModuleEngine worldEngine = _engine;
+        ServerModuleEngine worldEngine = _engine;
         _services.AddInstance<IWorldNetBinding>(new WorldNetBinding(world =>
         {
             var state = new WorldNetState();
@@ -1475,7 +1478,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             nativeEffects, temps,
             _services.Require<IEngineSound>(),
             _services.Require<IEngineEntities>(),
-            new EngineEffectsWorld(_engine, _services.Require<IEngineEntities>(),
+            new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
                                    _services.Require<IEnginePrecache>(), _engineServer),
             text => Log.Warning(text)));
 
@@ -1523,6 +1526,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var shadowBodies = PlayerShadowBodies.ForEngine(
             _engine, new VPhysicsShadowCalls(physicsCollision, _surfaceProps, _engine.VPhysics),
             () => _playerShadow?.Value ?? true, text => Log.Warning(text), _playerMoves, _moveData);
+        PlayerShadowBodies.RouteTeleports(_services, shadowBodies);
         _services.AddInstance(shadowBodies);
         _services.AddInstance<IPlayerShadows>(shadowBodies);
         _playerCommands.Shadow.Bodies = shadowBodies;
@@ -3074,7 +3078,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The server's traces (plan_server_native_v2 T4f): IEngineTrace::
         // TraceRay through its forwarder, over the trace filter libss_fwd_server
         // builds in a managed block, which the managed trace rule answers.
-        _traceFilter = ServerTraceRouting.Build(_engine, vtables, CollisionRules.BuildMatrix(), _services.Require<IFwdModelInfo>(),
+        _traceFilter = ServerTraceRouting.Build(_engine, _services, vtables, CollisionRules.BuildMatrix(), _services.Require<IFwdModelInfo>(),
                                                 _services.Require<IFwdEngineTrace>(), out string tracesWhy);
         if (_traceFilter is null)
             Log.Warning($"[SourceSharp/Server] no trace filter, so the server traces nothing: {tracesWhy}\n");
@@ -3178,7 +3182,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                      EngineEntityPhysicsNative.ForEngine(_engine),
                                                      () => _standalone?.Parenting.Model, text => Log.Msg(text)),
                     _entityPhysicsCalls, _entityPhysics));
-                EngineEntityPhysicsNative.Route(_engine, _entityPhysics);
+                EngineEntityPhysicsNative.Route(_services, _entityPhysics);
                 _entities.SpawnPhysics = _entityPhysics;
             }
         }
@@ -3243,7 +3247,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                        text => Log.Msg(text), DeveloperMessage);
         _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
                                          text => Log.Warning(text), _soundSystem);
-        ServerSoundRouting.Route(_engine, _serverSounds);
+        ServerSoundRouting.Route(_services, _serverSounds);
 
         // The temp entities' send (plan_server_native_v2 T4b): the same managed
         // recipient filter, the same recipient rules, PlaybackTempEntity
@@ -3319,14 +3323,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // a reload keeps both with the root.
         // The sound route goes first: nothing may emit through a filter whose
         // block is about to be freed.
-        ServerSoundRouting.Route(_engine, null);
+        ServerSoundRouting.Route(_services, null);
         _serverSounds = null;
         // And the players' movement route: nothing answers a player's movement
         // state from this composition's records after it goes.
-        ServerPlayerMovementRouting.Route(_engine, null);
+        ServerPlayerMovementRouting.Route(_services, null);
         // The same for the traces: nothing may trace through a filter whose
         // block is about to be freed.
-        ServerTraceRouting.Unroute(_engine);
+        ServerTraceRouting.Unroute(_services);
         _vtables?.ReleaseCallerHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
                                    _physicsConstraintEvents, _physicsMotionEvents, _solidKeys, _recipientFilter,
                                    _traceFilter);
@@ -3336,7 +3340,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _physicsWorld = null;
         if (_entityPhysics is not null)
         {
-            EngineEntityPhysicsNative.Route(_engine, null);
+            EngineEntityPhysicsNative.Route(_services, null);
             _entities.SpawnPhysics = null;
             _entityPhysics = null;
         }

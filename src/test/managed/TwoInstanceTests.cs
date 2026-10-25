@@ -37,7 +37,7 @@ public class TwoInstanceTests
         public ServerInstance()
         {
             Engine = TestSides.Create(Side.Server);
-            Module = new ServerModule(new ModuleEngine(Engine));
+            Module = new ServerModule(new ServerModuleEngine(Engine));
             Module.ComposeEngineAreas();
 
             Registry.RegisterAll(typeof(TwoInstanceProbe).Assembly);
@@ -53,7 +53,7 @@ public class TwoInstanceTests
 
         public ScriptedEntityRegistry Registry => Module.Registry;
 
-        public SideState State => Engine.State;
+        public SideState State => Engine.Attachment.State;
 
         public List<string> Lines { get; } = new();
 

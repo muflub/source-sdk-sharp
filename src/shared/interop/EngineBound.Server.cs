@@ -33,5 +33,5 @@ internal sealed partial class EngineBoundSet
 internal static partial class EngineBound
 {
     /// <summary><c>IVEngineServer</c>. Server side only.</summary>
-    internal static IFwdEngineServer Server(EngineSide side) => side.Bound.Server.For(side);
+    internal static IFwdEngineServer Server(EngineSide side) => side.Attachment.Bound.Server.For(side);
 }

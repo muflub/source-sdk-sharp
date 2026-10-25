@@ -18,7 +18,7 @@ public unsafe class EngineSideTests
     {
         var side = TestSides.Create(Side.Server);
 
-        Assert.False(side.IsInitialized);
+        Assert.False(side.Attachment.IsInitialized);
         Assert.Equal(-1, SideBindings.Of<IEngineEntities>(side).GetIndex(new EntityHandle(1)));
     }
 
@@ -33,15 +33,15 @@ public unsafe class EngineSideTests
         using var root = new FakeShimRoot();
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
-        server.Initialize();
-        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
+        server.Attachment.Initialize();
+        Assert.True(server.Attachment.AttachShims(root.Bind(), out string why), why);
 
-        Assert.True(server.IsInitialized);
+        Assert.True(server.Attachment.IsInitialized);
         Assert.Equal(7, SideBindings.Of<IEngineEntities>(server).GetIndex(new EntityHandle(1)));
 
         // Impossible to state before B1: one static table per side, chosen by
         // the thread. Here the client instance was never given the table.
-        Assert.False(client.IsInitialized);
+        Assert.False(client.Attachment.IsInitialized);
         Assert.Equal(-1, SideBindings.Of<IEngineEntities>(client).GetIndex(new EntityHandle(1)));
     }
 
@@ -67,8 +67,8 @@ public unsafe class EngineSideTests
         root.Interface(PhysicsSurfaceProps.InterfaceVersion, self).Forwarders(out PhysicsSurfacePropsFwd* fwd);
         fwd->GetSurfaceData = &SurfaceIsSand;
         fwd->GetPhysicsProperties = &SandDensity;
-        server.Initialize();
-        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
+        server.Attachment.Initialize();
+        Assert.True(server.Attachment.AttachShims(root.Bind(), out string why), why);
 
         // Each side's container is handed a table over its own surface props.
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
@@ -106,8 +106,8 @@ public unsafe class EngineSideTests
         using var root = new FakeShimRoot();
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
-        server.Initialize();
-        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
+        server.Attachment.Initialize();
+        Assert.True(server.Attachment.AttachShims(root.Bind(), out string why), why);
 
         var serverServices = new ServiceContainer().AddInstance(new StandaloneMirror());
         var clientServices = new ServiceContainer().AddInstance(new StandaloneMirror());

@@ -15,4 +15,19 @@ public static partial class EngineServices
         services.AddInstance(EngineBound.SoundServer(side));
         services.AddInstance(EngineBound.FileSystem(side));
     }
+
+    // The server's entity motion (teleports, velocity writes over vphysics),
+    // which its entity binding takes by constructor, and its six late routes
+    // (plan_engineside_removal Phase 3), empty until the composition fills
+    // them: the bindings that read one take it by constructor.
+    static partial void AddOwnServices(ServiceContainer services, EngineSide side)
+    {
+        services.AddInstance(side.Motion);
+        services.AddInstance(side.ServerSounds);
+        services.AddInstance(side.TraceCost);
+        services.AddInstance(side.Tracer);
+        services.AddInstance(side.PlayerMoves);
+        services.AddInstance(side.PhysicsInit);
+        services.AddInstance(side.Teleported);
+    }
 }

@@ -63,8 +63,8 @@ public unsafe class CollisionRulesSideTests : IDisposable
         // it had registered. Nothing checks for the attach now (plan_shim_areas_split
         // phase 11 review); a side as its load makes it, before the attach,
         // refuses the call, naming the area, rather than answering anything.
-        var engine = EngineSide.Create(Side.Client, new SideState(Side.Client));
-        engine.Initialize();
+        var engine = EngineSide.Over(SideAttachment.Detached(Side.Client, new SideState(Side.Client)));
+        engine.Attachment.Initialize();
         // Its engine interfaces answer the test defaults, so the composition
         // reaches the area: the subject is the area's refusal.
         DefaultForwarders.HoldOn(engine);
@@ -131,10 +131,10 @@ public unsafe class CollisionRulesSideTests : IDisposable
     private EngineSide Attached(Side side)
     {
         var api = TestSides.Create(side);
-        api.Initialize();
+        api.Attachment.Initialize();
 
         string why;
-        bool attached = api.AttachOwnShims(_root.Bind(), out why);
+        bool attached = api.Attachment.AttachShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

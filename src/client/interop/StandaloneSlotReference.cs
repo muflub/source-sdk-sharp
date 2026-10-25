@@ -59,7 +59,7 @@ public sealed class StandaloneSlotReference
     public static StandaloneSlotReference For(ModuleEngine engine, StandaloneSkeletonRoute? skeletons = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new StandaloneSlotReference(engine.Api, engine.Api.Areas.Require<IStandaloneClientArea>(), skeletons);
+        return new StandaloneSlotReference(engine.Api, engine.Attachment.Areas.Require<IStandaloneClientArea>(), skeletons);
     }
 
     /// <summary>

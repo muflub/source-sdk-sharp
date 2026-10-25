@@ -900,11 +900,11 @@ public class LivenessMirrorTests
 
         using var a = side.AttachLiveness(first);
         var b = side.AttachLiveness(second);
-        Assert.Same(second, side.Liveness);
+        Assert.Same(second, side.Liveness.Mirror);
 
         b.Dispose();
 
-        Assert.Same(first, side.Liveness);
+        Assert.Same(first, side.Liveness.Mirror);
     }
 
     [Fact]
@@ -919,6 +919,6 @@ public class LivenessMirrorTests
 
         older.Dispose();
 
-        Assert.Same(newer, side.Liveness);
+        Assert.Same(newer, side.Liveness.Mirror);
     }
 }

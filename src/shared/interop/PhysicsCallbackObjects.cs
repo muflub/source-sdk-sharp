@@ -27,7 +27,7 @@ public sealed unsafe class PhysicsCallbackObjects
 
     /// <summary>The side's builder, from <paramref name="engine"/>'s own factory, or null with the reason.</summary>
     public static PhysicsCallbackObjects? Acquire(ModuleEngine engine, out string why)
-        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
+        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Interfaces, out why);
 
     /// <summary>The same, over a named factory.</summary>
     internal static PhysicsCallbackObjects? Acquire(NativeInterfaceFactory factory, out string why)

@@ -21,10 +21,19 @@ namespace SourceSharp.Abi;
 /// its entity factory table — and cannot call the engine past the area
 /// interfaces.
 /// </para>
+///
+/// <para>
+/// <b>One class per side</b> (plan_engineside_removal Phase 1, user ruling
+/// 2026-10-25): this is their shared surface, compiled into both sides'
+/// interop, and abstract. The side's load makes <c>ServerModuleEngine</c> or
+/// <c>ClientModuleEngine</c>, and each side's module takes its own by
+/// constructor, so a composition root is bound to its side by its type: none
+/// asks at run time which side it was handed.
+/// </para>
 /// </summary>
-public sealed partial class ModuleEngine
+public abstract class ModuleEngine
 {
-    internal ModuleEngine(EngineSide api)
+    private protected ModuleEngine(EngineSide api)
     {
         ArgumentNullException.ThrowIfNull(api);
         Api = api;
@@ -32,6 +41,9 @@ public sealed partial class ModuleEngine
 
     /// <summary>The side's engine API this handle stands for.</summary>
     internal EngineSide Api { get; }
+
+    /// <summary>What this side's load attached to: the areas, the factory and the state composition reads.</summary>
+    internal SideAttachment Attachment => Api.Attachment;
 
     /// <summary>Which side this engine is.</summary>
     public Side Side => Api.Side;
@@ -47,16 +59,16 @@ public sealed partial class ModuleEngine
     /// <see cref="SideState"/>'s, which outlive the module across reloads.
     /// The composition hands them to every binding that counts a crossing.
     /// </summary>
-    public Crossings Crossings => Api.State.Crossings;
+    public Crossings Crossings => Attachment.State.Crossings;
 
     /// <summary>This side's build stamps (statics to zero), its <see cref="SideState"/>'s.</summary>
-    public BuildInfo Build => Api.State.Build;
+    public BuildInfo Build => Attachment.State.Build;
 
     /// <summary>
     /// This side's reload store (statics to zero), its <see cref="SideState"/>'s:
     /// what a reload carries from the old module to the new one.
     /// </summary>
-    public ReloadStore Reload => Api.State.Reload;
+    public ReloadStore Reload => Attachment.State.Reload;
 
     /// <summary>
     /// Makes <paramref name="log"/> the console the side's own plumbing (its
@@ -69,7 +81,7 @@ public sealed partial class ModuleEngine
     public IDisposable AttachLog(ILog log)
     {
         ArgumentNullException.ThrowIfNull(log);
-        SideState state = Api.State;
+        SideState state = Attachment.State;
         ILog? previous = state.Log;
         state.Log = log;
         return new LogAttachment(state, log, previous);
@@ -119,7 +131,13 @@ public sealed partial class ModuleEngine
     /// vphysics service is built over, so it calls objects through their
     /// forwarders rather than reading their vptrs. Bound on first use.
     /// </summary>
-    public VPhysicsTables VPhysics => Api.VPhysics;
+    public VPhysicsTables VPhysics => Attachment.VPhysics;
+
+    /// <summary>
+    /// This side's interface factory, over its shim root: what a static
+    /// factory acquires an engine interface through while it composes.
+    /// </summary>
+    internal NativeInterfaceFactory Interfaces => Attachment.Interfaces;
 
     /// <summary>This engine's game clock (plan_engineapi_vtables B5).</summary>
     public IGameClock Clock() => new EngineClock(Api);

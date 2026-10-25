@@ -6,9 +6,9 @@ namespace SourceSharp.Server.Interop;
 public static class ServerSoundRouting
 {
     /// <summary>
-    /// The module's side's sound members answered by <paramref name="route"/>
-    /// (null: they make no sound).
+    /// The side's sound members answered by <paramref name="route"/> (null:
+    /// they make no sound), through the route its composition registered.
     /// </summary>
-    public static void Route(ModuleEngine engine, IServerSoundRoute? route)
-        => (engine ?? throw new ArgumentNullException(nameof(engine))).Api.ServerSounds = route;
+    public static void Route(IServiceLocator services, IServerSoundRoute? route)
+        => services.Require<SideRoute<IServerSoundRoute>>().Fill(route);
 }

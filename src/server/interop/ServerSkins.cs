@@ -38,7 +38,7 @@ public sealed class ServerSkins : IServerSkins
     public static ServerSkins For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new ServerSkins(engine.Api, engine.Api.Areas.Require<INetworkServerArea>());
+        return new ServerSkins(engine.Api, engine.Attachment.Areas.Require<INetworkServerArea>());
     }
 
     /// <inheritdoc/>

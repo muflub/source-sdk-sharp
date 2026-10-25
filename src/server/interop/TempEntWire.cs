@@ -41,7 +41,7 @@ public sealed unsafe class TempEntTables : ITempEntTables
     public static TempEntTables For(ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return new TempEntTables(engine.Api.Areas.Require<IEffectsServerArea>());
+        return new TempEntTables(engine.Attachment.Areas.Require<IEffectsServerArea>());
     }
 
     /// <inheritdoc/>
