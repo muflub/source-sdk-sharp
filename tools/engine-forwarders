@@ -379,6 +379,8 @@ FORWARD = [
             'CollideGetExtent', 'CollideGetAABB', 'BBoxToCollide',
             'VPhysicsKeyParserCreate', 'VPhysicsKeyParserDestroy',
             'SupportsVirtualMesh',
+            # A mass centre snapped to a world hinge's axis (PhysGetMassCenterOverride).
+            'CollideGetMassCenter',
         ],
     ),
     dict(
@@ -434,12 +436,17 @@ FORWARD = [
             # A brush mover's shadow (CBaseEntity::VPhysicsInitShadow and
             # UpdatePhysicsShadowToCurrentPosition).
             'SetShadow', 'UpdateShadow',
+            # A world hinge (CPhysHinge::CreateConstraint, Deactivate) and the
+            # pickup that refuses a hinged object (CBasePlayer::CanPickupObject).
+            'IsHinged', 'BecomeHinged', 'RemoveHinged',
         ],
     ),
     dict(
         struct='PhysicsShadowControllerVtbl',
         methods=[
             'IsPhysicallyControlled', 'GetLastImpulse',
+            # A pusher's reconcile (CheckPushedEntity): where its shadow was sent.
+            'GetTargetPosition',
         ],
     ),
     dict(

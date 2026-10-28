@@ -621,3 +621,7 @@ src/server/managed/PlayerUseFinder.cs	ports CBasePlayer::FindUseEntity and Inter
 src/server/managed/PlayerUse.cs	ports CHL2_Player::PlayerUse and ItemPostFrame's deny sound (hl2_player.cpp:2826, 3623)
 src/server/managed/PlayerPickupRules.cs	ports CBasePlayer::CanPickupObject (player.cpp:2814), CHL2MP_Player::PickupObject and hl2mp_allow_pickup (hl2mp_player.cpp:407-415), CHL2_Player::PickupObject (hl2_player.cpp:3154)
 src/server/managed/Entities/Items/WallCharger.cs	ports the wall chargers' Use, Off and Recharge (CNewWallHealth, item_healthkit.cpp:529-670; CNewRecharge, func_recharge.cpp:583-790)
+src/server/managed/PusherReconcile.cs	ports CBaseEntity::VPhysicsUpdatePusher, CheckPushedEntity and FindPhysicsBlocker (baseentity.cpp)
+src/server/managed/Entities/Triggers/VPhysicsTriggerVolume.cs	ports CBaseVPhysicsTrigger::Spawn, CreateVPhysics, InputEnable/InputDisable and PassesTriggerFilters (triggers.cpp)
+src/server/managed/MassCenterOverrides.cs	ports masscenteroverride_t, PhysSetMassCenterOverride and PhysGetMassCenterOverride (physics.h, physics.cpp)
+src/server/managed/Entities/Markers/InfoMassCenter.cs	ports CInfoMassCenter::Spawn (physobj.cpp)

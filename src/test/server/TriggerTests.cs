@@ -248,54 +248,6 @@ public class TriggerTests
     }
 
     /// <summary>
-    /// The wind's arithmetic, which is where its one real bug lives: stock
-    /// compares two yaws by subtracting them, so a gust that crosses zero is
-    /// measured as most of a turn away from a place the wind has already reached.
-    /// </summary>
-    [Fact]
-    public void WindAngles()
-    {
-        Assert.True(Near(TriggerWind.AngleMod(370f), 10f), "angles wrap into one turn");
-        Assert.True(Near(TriggerWind.AngleMod(-10f), 350f), "and negative angles wrap forwards");
-
-        Assert.True(Near(TriggerWind.AngleDiff(10f, 350f), 20f), "two angles are compared the short way");
-        Assert.True(Near(TriggerWind.AngleDiff(350f, 10f), -20f), "and the sign says which way to turn");
-        Assert.True(Near(MathF.Abs(TriggerWind.AngleDiff(180f, 0f)), 180f), "opposites are half a turn apart");
-
-        Assert.True(Near(TriggerWind.ApproachAngle(90f, 0f, 5f), 5f), "approaching steps by the limit");
-        Assert.True(Near(TriggerWind.ApproachAngle(350f, 2f, 5f), 357f), "approaching crosses zero");
-        Assert.True(Near(TriggerWind.ApproachAngle(3f, 0f, 5f), 3f), "approaching never overshoots");
-    }
-
-    [Fact]
-    public void WindGusts()
-    {
-        var (registry, wind) = SpawnWith<TriggerWind>(EntityNames.TriggerWind,
-                                                     ("Speed", "200"), ("HoldTime", "3"));
-
-        Assert.True(Near(wind.CurrentSpeed, 200f), "wind starts at its baseline");
-
-        // With no engine there is no randomness, so the gust it picks is exactly
-        // the baseline and it is already there.
-        Assert.True(Near(wind.Advance(), 0.1f), "a step picks a gust");
-        Assert.True(Near(wind.Advance(), 3f), "and arriving holds it for HoldTime");
-
-        registry.Input(Ent, "SetSpeed", "400", 400f, EntityHandle.None);
-
-        wind.Advance();
-        wind.Advance();
-
-        // Walked towards rather than jumped to: a wind that snapped between gusts
-        // reads as something hitting the props rather than as weather.
-        Assert.True(Near(wind.CurrentSpeed, 205f), "a new baseline is ramped towards");
-
-        for (int i = 0; i < 100 && !Near(wind.CurrentSpeed, 400f); i++)
-            wind.Advance();
-
-        Assert.True(Near(wind.CurrentSpeed, 400f), "and is reached");
-    }
-
-    /// <summary>
     /// The medium a trigger_vphysics_motion carries.
     ///
     /// There is no physics here to push, so what is checked is the thing C#

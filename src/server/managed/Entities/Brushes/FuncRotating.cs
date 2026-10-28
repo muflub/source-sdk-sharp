@@ -18,6 +18,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncRotating, ScriptedEntityKind.Brush)]
 public sealed class FuncRotating : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
     /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
     public override bool MovesAsPusher => true;
 

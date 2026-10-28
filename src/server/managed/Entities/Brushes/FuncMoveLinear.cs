@@ -26,6 +26,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncWaterAnalog, ScriptedEntityKind.Brush)]
 public sealed class FuncMoveLinear : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
     /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
     public override bool MovesAsPusher => true;
 
@@ -76,7 +79,7 @@ public sealed class FuncMoveLinear : ScriptedEntity
         // func_water_analog's CreateVPhysics: FSOLID_VOLUME_CONTENTS, so the
         // engine's point contents report the moving brush as water.
         if (IsWater)
-            SetSolidity(SolidType.Bsp, SolidFlags.VolumeContents);
+            SetSolidity(BrushSolidType, SolidFlags.VolumeContents);
 
         // CFuncMoveLinear::CreateVPhysics: a shadow, unless it is not solid
         // (water always has one).

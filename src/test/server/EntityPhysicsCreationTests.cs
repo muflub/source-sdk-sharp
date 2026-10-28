@@ -99,12 +99,26 @@ public class EntityPhysicsCreationTests
 
         public nint VirtualTerrainCollide(int index) => throw new NotSupportedException();
 
+        public Vector SolidMassCenter;
+
+        public Vector CollideMassCenter(nint solid) => SolidMassCenter;
+
         public void CreateStaticPropPhysics(nint environment) => throw new NotSupportedException();
 
         // ---- IVPhysicsEntityCalls -------------------------------------------
 
         public EntitySolid ReadSolid(nint solid)
             => solid == ScratchSolid && _copied ? Parsed : new EntitySolid(0, string.Empty, default);
+
+        /// <summary>The override written into the scratch solid, and where it was answered to be.</summary>
+        public Vector? WrittenMassCenter;
+        public const nint MassCenterSlot = 0x5540;
+
+        public nint WriteMassCenterOverride(nint solid, Vector local)
+        {
+            WrittenMassCenter = local;
+            return MassCenterSlot;
+        }
 
         public nint CreatePolyObject(nint environment, nint collide, int surfaceIndex, Vector origin, QAngle angles,
                                      in ObjectParams objectParams, bool isStatic)
@@ -225,13 +239,20 @@ public class EntityPhysicsCreationTests
         public bool SolidityBeforePhysics => SolidityFirst;
 
         public void Warning(string text) => Warnings.Add(text);
+
+        public string? MassCenterName;
+
+        public string? MassCenterOverrideName(EntityHandle entity) => MassCenterName;
     }
 
     private static (EntityPhysicsCreation Create, FakeVPhysics V, FakeHost Host) Make()
+        => Make(new MassCenterOverrides());
+
+    private static (EntityPhysicsCreation Create, FakeVPhysics V, FakeHost Host) Make(MassCenterOverrides massCenters)
     {
         var v = new FakeVPhysics();
         var host = new FakeHost(v);
-        return (new EntityPhysicsCreation(v, v, host), v, host);
+        return (new EntityPhysicsCreation(v, v, host, massCenters), v, host);
     }
 
     // prop_sphere: CPhysSphere::CreateVPhysics (props.cpp) builds a real
@@ -355,6 +376,50 @@ public class EntityPhysicsCreationTests
         c.EnableCollisions(Crate, false);
         c.EnableCollisions(Crate, true);
         Assert.Equal(["collisions 55 False", "collisions 55 True"], v.Calls.Where(l => l.StartsWith("collisions")));
+    }
+
+    [Fact]
+    public void A_class_that_consults_the_overrides_is_made_with_its_mass_centre()
+    {
+        var list = new MassCenterOverrides();
+        list.Add(MassCenterOverride.SnapToAxis("door", new Vector(0f, 0f, 0f), new Vector(0f, 0f, 1f)));
+        var (c, v, host) = Make(list);
+        host.Facts = host.Facts with { Origin = Vector.Zero, Angles = default };
+        host.MassCenterName = "door";
+        v.SolidMassCenter = new Vector(3f, 4f, 5f);
+
+        Assert.True(c.Create(Crate, isStatic: false, asleep: false, debris: false));
+
+        Assert.Equal(FakeVPhysics.MassCenterSlot, v.Made.Single().Params.MassCenterOverride);
+        Assert.Equal(new Vector(0f, 0f, 5f), v.WrittenMassCenter);
+    }
+
+    [Fact]
+    public void A_class_that_does_not_leaves_the_override_for_one_that_does()
+    {
+        var list = new MassCenterOverrides();
+        list.Add(MassCenterOverride.SnapToPoint("door", new Vector(1f, 0f, 0f)));
+        var (c, v, host) = Make(list);
+        host.MassCenterName = null;
+
+        Assert.True(c.Create(Crate, isStatic: false, asleep: false, debris: false));
+
+        Assert.Null(v.WrittenMassCenter);
+        Assert.Equal(1, list.Count);
+    }
+
+    [Fact]
+    public void A_static_object_never_consults_the_overrides()
+    {
+        var list = new MassCenterOverrides();
+        list.Add(MassCenterOverride.SnapToPoint("door", new Vector(1f, 0f, 0f)));
+        var (c, v, host) = Make(list);
+        host.MassCenterName = "door";
+
+        Assert.True(c.Create(Crate, isStatic: true, asleep: false, debris: false));
+
+        Assert.Null(v.WrittenMassCenter);
+        Assert.Equal(1, list.Count);
     }
 
     [Fact]

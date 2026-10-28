@@ -919,12 +919,13 @@ public static class Sandbox
         //
         // returnspeed 0, so it stays where it is put. A wheel that wound itself
         // back would move the slab on its own and the readout would be the
-        // spring rather than the player.
+        // spring rather than the player. Use-activates (1024), so it turns while
+        // +USE is held on it, and each hold turns it the other way.
         //---------------------------------------------------------------------
         site.Brush(EntityNames.MomentaryRotButton, "wheel",
             new(-16f, -32f, 8f), new(16f, 0f, 64f), Site.Switch,
             "speed", "60", "distance", "90", "returnspeed", "0",
-            "StartPosition", "0", "spawnflags", "0");
+            "StartPosition", "0", "spawnflags", ButtonUseActivates);
 
         site.Brush(EntityNames.FuncMovelinear, "gauge",
             new(-32f, 64f, 8f), new(32f, 128f, 40f), Site.Accent,
@@ -940,10 +941,10 @@ public static class Sandbox
         site.OnReset("lamp1", "Enable");
         site.OnReset("lamp2", "Enable");
 
-        // Only the wheel is put back, because putting the wheel back is what
-        // puts the gauge back: wound to nought it reports nought, and the slab
-        // follows the report rather than the button.
+        // Both are put back: SetPositionImmediately moves the wheel and tells
+        // nothing it drives, as stock's does, so the gauge is reset as well.
         site.OnReset("wheel", "SetPositionImmediately", "0");
+        site.OnReset("gauge", "SetPosition", "0");
     }
 
     private static void Movers(Site site)
@@ -1841,9 +1842,23 @@ public static class Sandbox
             "spawnflags", "8");
         site.Ent(EntityNames.PropPhysics, "hingearm", new(-32f, 64f, 128f), "model", Chair);
 
+        // hingeaxis is a POINT: the axis runs from the hinge to it, here straight up.
         site.Ent(EntityNames.PhysHinge, "hinge", new(-32f, 64f, 96f),
             "attach1", site.Name("hingebase"), "attach2", site.Name("hingearm"),
-            "hingeaxis", "0 0 1", "hingefriction", "0");
+            "hingeaxis", (site.At + new Point(-32f, 64f, 160f)).ToString(), "hingefriction", "0");
+
+        // Two crates hung from the world by an edge, on a hinge along x. The
+        // one that assumes world geometry (spawnflag 8) is hinged in place and
+        // has its mass centre moved onto the axis, so it hangs where it was
+        // put; the other swings down under its pivot. Each hinge comes before
+        // its crate: the override it leaves is taken when the crate is made.
+        foreach (var (suffix, flags, x) in new[] { ("swung", "0", -176f), ("balanced", "8", -96f) })
+        {
+            site.Ent(EntityNames.PhysHinge, suffix + "hinge", new(x, -72f, 112f),
+                "attach1", site.Name(suffix), "spawnflags", flags,
+                "hingeaxis", (site.At + new Point(x + 64f, -72f, 112f)).ToString());
+            site.Ent(EntityNames.PropPhysics, suffix, new(x, -96f, 112f), "model", Crate);
+        }
 
         site.Ent(EntityNames.PropPhysics, "ballbase", new(96f, 64f, 48f), "model", Crate,
             "spawnflags", "8");

@@ -30,24 +30,16 @@ namespace SourceSharp.Server;
 /// everything in it feels the same thing.
 /// </summary>
 [ScriptedEntity(EntityNames.TriggerVphysicsMotion, ScriptedEntityKind.Brush)]
-public sealed class TriggerVPhysicsMotion : TriggerVolume
+public sealed class TriggerVPhysicsMotion : VPhysicsTriggerVolume
 {
-    public TriggerVPhysicsMotion(IGameClock clock, IEngineNetworking net, IEngineEntityPhysics physics, IEnginePlayerMovement playerMovement,
+    public TriggerVPhysicsMotion(IGameClock clock, IEngineNetworking net, IEnginePlayerMovement playerMovement,
                                  IEngineMotionControllers motion, IEntityDirectory directory)
-        : base(clock)
+        : base(clock, net)
     {
         Directory = directory;
-        Net = net;
         Motion = motion;
-        Physics = physics;
         PlayerMovement = playerMovement;
     }
-
-    /// <summary>putting this entity’s state on the wire.</summary>
-    private readonly IEngineNetworking Net;
-
-    /// <summary>this entity as the solver sees it.</summary>
-    private readonly IEngineEntityPhysics Physics;
 
     /// <summary>how a player moves, and what may stop them.</summary>
     private readonly IEnginePlayerMovement PlayerMovement;
@@ -90,41 +82,6 @@ public sealed class TriggerVPhysicsMotion : TriggerVolume
         // the wind clears it.
         Vars.Wait = 0f;
 
-        // The three calls that make this a volume the SOLVER knows about, which
-        // is the only kind of volume a physics object can be reported entering.
-        //
-        // A brush trigger is normally described to the ENGINE — passable, and in
-        // the engine's trigger partition list — and for a player that is enough,
-        // because a player's touches come from the engine walking those lists.
-        // It is worth nothing at all for a crate. Everything on this mod's
-        // hierarchy is a CStandaloneEntity with no edict, so the engine's lists
-        // never pair two of them: measured here, a crate falling the length of
-        // this volume produced ZERO reports, with the trigger flag set and with
-        // the players-only relay taken out of the way as well.
-        //
-        // Stock reaches the same place from the opposite direction and says so
-        // out loud — CBaseVPhysicsTrigger::Spawn withholds FSOLID_TRIGGER on
-        // purpose, "or you'll get game collisions AND vphysics collisions" — so
-        // matching it means DROPPING the engine flag rather than keeping it as
-        // well. Measured with it dropped: the player is still reported entering
-        // and leaving, once each, because a player's shadow object is in the
-        // solver too. One path, and it is the path stock uses.
-        //
-        //   Static, because a volume does not fall. The shell builds a simulated
-        //   object for a Prop and none at all for a Brush, and this asks for the
-        //   third thing — an object the solver tests against and never steps —
-        //   which is what stock's VPhysicsInitStatic makes here.
-        //
-        //   Passable again, because making the object leaves the entity solid,
-        //   which is right for scenery and wrong for a volume.
-        //
-        //   And a trigger, which is the point of the other two: an object in the
-        //   solver's trigger list is tested for overlap and REPORTED rather than
-        //   solved against.
-        MakePhysicsStatic();
-        SetSolidity(BrushSolidity.None);
-        Physics.BecomePhysicsTrigger(Handle, true);
-
         _medium = MotionController.Unattached(Motion, MotionControllerKind.Medium);
         _mediumId = _medium?.Id.Value ?? 0u;
         Retune();
@@ -146,41 +103,6 @@ public sealed class TriggerVPhysicsMotion : TriggerVolume
         _mediumId = 0u;
     }
 
-    /// <summary>
-    /// Physics objects and players, and nothing else.
-    ///
-    /// The kind test is the medium's own rather than the base's: a force acts on
-    /// a physics object, so something the solver does not move has nothing for
-    /// this to reach. Stock asks the same question one line into
-    /// CBaseVPhysicsTrigger::PassesTriggerFilters, before it looks at a single
-    /// spawnflag.
-    ///
-    /// The spawnflags and the filter still decide among what is left, which is
-    /// why this ends by asking the base rather than only the filter.
-    /// </summary>
-    protected override bool Passes(EntityHandle toucher)
-    {
-        var state = Net.EntityGetState(toucher, out MoveType moveType);
-
-        if (moveType != MoveType.VPhysics && (state & EntityState.Player) == 0)
-            return false;
-
-        return base.Passes(toucher);
-    }
-
-    /// <summary>
-    /// Every toucher, not only players.
-    ///
-    /// The registry's default rule — a touch is a player's unless the class says
-    /// otherwise — is right for a pickup and exactly wrong here: a medium exists
-    /// to act on the things the solver moves, and a crate is the case it was
-    /// written for. Measured with everything else in this class fixed and this
-    /// line missing: the solver reported the crate, the registry dropped it
-    /// before this class could see it, and the crate fell at 245 units a second
-    /// through a well whose ceiling is 70.
-    /// </summary>
-    public override bool TouchedByAnything => true;
-
     protected override void Fire(EntityHandle toucher) => Hold(toucher);
 
     public override void OnEndTouch(EntityHandle toucher)
@@ -200,6 +122,8 @@ public sealed class TriggerVPhysicsMotion : TriggerVolume
     /// </summary>
     protected override void OnDisabledChanged()
     {
+        base.OnDisabledChanged();
+
         foreach (var toucher in Inside)
         {
             if (Disabled)

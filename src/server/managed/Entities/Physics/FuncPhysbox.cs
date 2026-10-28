@@ -34,7 +34,7 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.FuncPhysbox, ScriptedEntityKind.Brush)]
-public class FuncPhysbox : ScriptedEntity, IPhysGunTarget
+public class FuncPhysbox : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverride
 {
     /// <summary>CPhysBox::Spawn: DAMAGE_YES, or DAMAGE_EVENTS_ONLY -- never DAMAGE_NO.</summary>
     public override bool TakesDamage => true;

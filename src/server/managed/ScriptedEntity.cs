@@ -1744,6 +1744,9 @@ public abstract class ScriptedEntity
     /// <summary>Whether this entity's physics object collides at all.</summary>
     protected void EnablePhysicsCollisions(bool enable) => Physics.EnableCollisions(Handle, enable);
 
+    /// <summary>Stock's <c>IPhysicsObject::BecomeTrigger</c>: the solver reports what overlaps this entity's object.</summary>
+    protected void BecomePhysicsTrigger(bool isTrigger) => Physics.BecomePhysicsTrigger(Handle, isTrigger);
+
     /// <summary>Which collision group this entity is in: what it collides with and what passes through it.</summary>
     protected void SetCollisionGroup(CollisionGroup group) => Physics.SetCollisionGroup(Handle, group);
 
@@ -1775,8 +1778,32 @@ public abstract class ScriptedEntity
     /// <summary>Whether this brush is drawn.</summary>
     protected void SetVisible(bool visible) => Render.SetVisible(Handle, visible);
 
+    /// <summary>
+    /// The solid type <see cref="SetSolidity(BrushSolidity)"/> gives this brush:
+    /// SOLID_BSP, or SOLID_VPHYSICS for the movers stock's Spawn makes so
+    /// (doors, func_movelinear, func_rotating, the rotating buttons,
+    /// func_brush, func_tracktrain). A SOLID_VPHYSICS mover is one vphysics
+    /// may block (CBaseEntity::VPhysicsUpdatePusher); box traces meet its
+    /// collision model, rays its brushes.
+    /// </summary>
+    protected virtual SolidType BrushSolidType => SolidType.Bsp;
+
     /// <summary>What this brush does to something walking into it.</summary>
-    protected void SetSolidity(BrushSolidity solidity) => Physics.SetBrushSolidity(Handle, solidity);
+    protected void SetSolidity(BrushSolidity solidity)
+    {
+        if (BrushSolidType == SolidType.Bsp)
+        {
+            Physics.SetBrushSolidity(Handle, solidity);
+            return;
+        }
+
+        Entities.SetSolidity(Handle, BrushSolidType, solidity switch
+        {
+            BrushSolidity.None => SolidFlags.NotSolid,
+            BrushSolidity.Trigger => SolidFlags.NotSolid | SolidFlags.Trigger,
+            _ => SolidFlags.None,
+        });
+    }
 
     //-------------------------------------------------------------------------
     // PARENTING.

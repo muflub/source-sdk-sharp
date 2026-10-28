@@ -51,10 +51,11 @@ public interface IEngineConstraints
     void SetLinearMotor(uint constraint, float unitsPerSecond, float systemLoadScale);
 
     /// <summary>
-    /// Drives a hinge under power: degrees per second, and the torque the motor
-    /// is willing to spend reaching it.
+    /// CPhysHinge::InputSetVelocity: drives a hinge at degrees per second with
+    /// the torque scaled by the average inertia of the ends that can move, as
+    /// stock spends it, and wakes them.
     /// </summary>
-    void SetMotor(uint constraint, float degreesPerSecond, float maxTorque);
+    void SetHingeVelocity(uint constraint, float degreesPerSecond, float systemLoadScale);
 }
 
 /// <summary>

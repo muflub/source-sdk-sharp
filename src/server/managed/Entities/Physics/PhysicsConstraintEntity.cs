@@ -61,6 +61,12 @@ internal enum ConstraintSpawnFlag
     /// of their own.
     /// </summary>
     StartInactive = 0b0000_0100,
+
+    /// <summary>
+    /// SF_CONSTRAINT_ASSUME_WORLD_GEOMETRY: a hinge to the world makes its
+    /// object itself hinged, fixed in place and turning about one axis.
+    /// </summary>
+    AssumeWorldGeometry = 0b0000_1000,
 }
 
 public abstract class PhysicsConstraintEntity : ScriptedEntity

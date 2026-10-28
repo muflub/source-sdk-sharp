@@ -18,6 +18,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncRotButton, ScriptedEntityKind.Brush)]
 public sealed class FuncRotButton : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
     /// <summary>SF_BUTTON_USE_ACTIVATES: a player's +USE turns it.</summary>
     private const int UseActivatesFlag = 1024;
 

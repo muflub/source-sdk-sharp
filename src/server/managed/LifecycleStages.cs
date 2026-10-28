@@ -325,6 +325,13 @@ public enum LifecycleStage
     PhysicsSoundBatch = 2200,
 
     /// <summary>
+    /// MassCenterOverrides: the overrides no entity took go with the level
+    /// (CPhysicsHook's LevelShutdownPostEntity purged them). Nothing else
+    /// reads the list, so its order against the others does not matter.
+    /// </summary>
+    MassCenterOverrides = 2250,
+
+    /// <summary>
     /// PhysicsFrame (plan_physics_bones_native_zero 2.3): the level is paused
     /// for physics between its pre- and post-entity init (CPhysicsHook's
     /// m_bPaused). Nothing else reads the flag and no frame runs between the

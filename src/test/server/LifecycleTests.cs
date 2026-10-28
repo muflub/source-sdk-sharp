@@ -546,6 +546,8 @@ public class LifecycleTests
         (typeof(PhysicsSoundBatch), 2200),  // 2.3: the queued physics sounds go
                                             // with the level (CPhysicsHook's
                                             // LevelShutdownPostEntity emptied them).
+        (typeof(MassCenterOverrides), 2250),  // the mass-centre overrides nobody took
+                                              // go with the level (the same purge).
         (typeof(PhysWorldReport), 2100),  // 2.3: the SS-PHYSWORLD report's automatic run
                                           // at post-entity init (sourcesharp_physworld_report),
                                           // native's CPhysicsHook::LevelInitPostEntity's.

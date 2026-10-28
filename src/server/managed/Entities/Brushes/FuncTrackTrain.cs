@@ -41,6 +41,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncTracktrain, ScriptedEntityKind.Brush)]
 public sealed class FuncTrackTrain : TrainBrush
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
     public FuncTrackTrain(IGameClock clock, IEngineDamage damage,
                           IEnginePrecache precache, IEngineSound sound)
         : base(clock, damage, precache, sound)

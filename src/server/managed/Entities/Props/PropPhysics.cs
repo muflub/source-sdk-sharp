@@ -29,7 +29,7 @@ namespace SourceSharp.Server;
 // under names that differ for the editor's benefit.
 [ScriptedEntity(EntityNames.PhysicsProp, ScriptedEntityKind.Prop)]
 [ScriptedEntity(EntityNames.PropPhysicsOverride, ScriptedEntityKind.Prop)]
-public class PropPhysics : ScriptedEntity, IPhysGunTarget
+public class PropPhysics : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverride
 {
     public PropPhysics(IEngineDamage damage, IEngineEntityPhysics physics, IEngineWorldQuery world,
                        IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,

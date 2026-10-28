@@ -260,7 +260,7 @@ internal unsafe struct EngineSoundFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsCollision</c> through its forwarders (SSFwd_PhysicsCollision): 6 slot(s).
+/// <c>IPhysicsCollision</c> through its forwarders (SSFwd_PhysicsCollision): 7 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsCollisionFwd : IForwarderTable
@@ -285,6 +285,9 @@ internal unsafe struct PhysicsCollisionFwd : IForwarderTable
 
     // bool IPhysicsCollision::SupportsVirtualMesh( void )
     public delegate* unmanaged<void*, byte> SupportsVirtualMesh;
+
+    // void IPhysicsCollision::CollideGetMassCenter( CPhysCollide *, Vector * )
+    public delegate* unmanaged<void*, void*, void*, void> CollideGetMassCenter;
 }
 
 /// <summary>
@@ -446,7 +449,7 @@ internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsObject</c> through its forwarders (SSFwd_PhysicsObject): 61 slot(s).
+/// <c>IPhysicsObject</c> through its forwarders (SSFwd_PhysicsObject): 64 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsObjectFwd : IForwarderTable
@@ -636,10 +639,19 @@ internal unsafe struct PhysicsObjectFwd : IForwarderTable
 
     // void IPhysicsObject::UpdateShadow( const Vector &, const QAngle &, bool, float )
     public delegate* unmanaged<void*, void*, void*, byte, float, void> UpdateShadow;
+
+    // bool IPhysicsObject::IsHinged( void )
+    public delegate* unmanaged<void*, byte> IsHinged;
+
+    // void IPhysicsObject::BecomeHinged( int )
+    public delegate* unmanaged<void*, int, void> BecomeHinged;
+
+    // void IPhysicsObject::RemoveHinged( void )
+    public delegate* unmanaged<void*, void> RemoveHinged;
 }
 
 /// <summary>
-/// <c>IPhysicsShadowController</c> through its forwarders (SSFwd_PhysicsShadowController): 2 slot(s).
+/// <c>IPhysicsShadowController</c> through its forwarders (SSFwd_PhysicsShadowController): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsShadowControllerFwd : IForwarderTable
@@ -652,6 +664,9 @@ internal unsafe struct PhysicsShadowControllerFwd : IForwarderTable
 
     // void IPhysicsShadowController::GetLastImpulse( Vector * )
     public delegate* unmanaged<void*, void*, void> GetLastImpulse;
+
+    // float IPhysicsShadowController::GetTargetPosition( Vector *, QAngle * )
+    public delegate* unmanaged<void*, void*, void*, float> GetTargetPosition;
 }
 
 /// <summary>

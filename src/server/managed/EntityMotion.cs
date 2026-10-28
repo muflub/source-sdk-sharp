@@ -615,7 +615,79 @@ public sealed class EntityMotion
 
         /// <summary>What was last written to the shell, so an unchanged velocity costs no call.</summary>
         public Vector Velocity;
+
+        /// <summary>The last step's turn, in degrees a second (stock's local angular velocity).</summary>
+        public QAngle AngularVelocity;
+
+        /// <summary>The frame and the time of the last step, for the reconcile with vphysics.</summary>
+        public int Frame;
+        public float FrameTime;
+        public int ReconciledFrame = -1;
+
+        /// <summary>
+        /// This frame's push list (stock's PHYSICSPUSHLIST): where the mover
+        /// started and what it pushed by how much, so a reconcile that finds
+        /// vphysics blocked it can undo the frame.
+        /// </summary>
+        public bool HasList;
+        public Vector StartOrigin;
+        public QAngle StartAngles;
+        public readonly List<(EntityHandle Entity, Vector PushVec)> Pushed = new();
     }
+
+    /// <summary>A mover's last step, as the reconcile with vphysics reads it.</summary>
+    public readonly record struct PusherStep(int Frame, float FrameTime, Vector Velocity, QAngle AngularVelocity,
+                                             bool HasList, Vector StartOrigin, QAngle StartAngles);
+
+    private int _frame;
+
+    /// <summary>The mover's last step, or false for an entity that is not being pushed.</summary>
+    public bool TryPusherStep(EntityHandle handle, out PusherStep step)
+    {
+        if (!_pushers.TryGetValue(handle, out Push? push))
+        {
+            step = default;
+            return false;
+        }
+
+        step = new PusherStep(push.Frame, push.FrameTime, push.Velocity, push.AngularVelocity,
+                              push.HasList, push.StartOrigin, push.StartAngles);
+        return true;
+    }
+
+    /// <summary>The push list's entries; empty when this frame's step pushed nothing.</summary>
+    public IReadOnlyList<(EntityHandle Entity, Vector PushVec)> PushListOf(EntityHandle handle)
+        => _pushers.TryGetValue(handle, out Push? push) && push.HasList ? push.Pushed : [];
+
+    /// <summary>
+    /// Whether this frame's step has still to be reconciled, marking it done:
+    /// stock reconciles once, on the final vphysics tick.
+    /// </summary>
+    public bool BeginReconcile(EntityHandle handle)
+    {
+        if (!_pushers.TryGetValue(handle, out Push? push) || push.ReconciledFrame == push.Frame || push.Frame != _frame)
+            return false;
+
+        push.ReconciledFrame = push.Frame;
+        return true;
+    }
+
+    /// <summary>The mover put back where vphysics says it got to.</summary>
+    public void MoveBack(EntityHandle handle, Vector origin, QAngle angles) => Commit(handle, origin, angles);
+
+    /// <summary>A mover vphysics blocked, told what blocked it as a game push's blocker is.</summary>
+    public void PhysicsBlocked(EntityHandle mover, EntityHandle blocker)
+    {
+        LastBlocker = blocker;
+        ReportBlocked(mover, blocker, _entities.GetOrigin(mover));
+        _directory.Resolve(mover)?.OnBlocked(blocker);
+    }
+
+    /// <summary>One pushed entity's push undone (stock's SetAbsOrigin( origin - pushVec )).</summary>
+    public void UndoPush(EntityHandle entity, Vector pushVec)
+        => _entities.SetOrigin(entity, _entities.GetOrigin(entity) - pushVec);
+
+    private static float AngleDelta(float to, float from) => ((to - from) % 360f + 540f) % 360f - 180f;
 
     private readonly Dictionary<EntityHandle, Push> _pushers = new();
     private readonly List<EntityHandle> _pushOrder = new();
@@ -955,6 +1027,7 @@ public sealed class EntityMotion
     private int RunPushFrame(float frameTime)
     {
         PushedLastFrame = 0;
+        _frame++;
 
         if (_pushers.Count == 0)
             return 0;
@@ -1000,6 +1073,13 @@ public sealed class EntityMotion
         // that a mover which stops is measured as having stopped.
         Vector worldBefore = _entities.GetOrigin(handle);
 
+        // This frame's step, as the reconcile with vphysics reads it; the push
+        // list is the last frame's until a push this frame stores one.
+        push.Frame = _frame;
+        push.FrameTime = frameTime;
+        push.HasList = false;
+        push.Pushed.Clear();
+
         if (!push.MovingLinear && !push.MovingAngular && push.Spin == QAngle.Zero)
         {
             // STOPPED, and that has to be said out loud. Falling out with the
@@ -1012,6 +1092,7 @@ public sealed class EntityMotion
                 _entities.SetVelocity(handle, Vector.Zero);
             }
 
+            push.AngularVelocity = default;
             return false;
         }
 
@@ -1081,6 +1162,8 @@ public sealed class EntityMotion
 
                 if (blocker != EntityHandle.None)
                     Commit(handle, current, angCurrent);
+                else
+                    StorePushList(push, worldBefore, angCurrent);
             }
 
             if (blocker == EntityHandle.None)
@@ -1139,6 +1222,10 @@ public sealed class EntityMotion
                     blockedAt = to;
                     Commit(handle, current, angNext);
                 }
+                else
+                {
+                    StorePushList(push, worldBefore, angCurrent);
+                }
             }
 
             if (blocker == EntityHandle.None)
@@ -1175,6 +1262,13 @@ public sealed class EntityMotion
         // a native call for a value the shell already holds.
         Vector velocity = MoverMath.Velocity(worldBefore, worldAfter, frameTime);
 
+        // And how fast it turned, which the reconcile projects a blocked
+        // rotation onto (stock's GetLocalAngularVelocity).
+        QAngle facing = blocker == EntityHandle.None && moved ? angNext : angCurrent;
+        push.AngularVelocity = new QAngle(AngleDelta(facing.Pitch, angCurrent.Pitch) / frameTime,
+                                          AngleDelta(facing.Yaw, angCurrent.Yaw) / frameTime,
+                                          AngleDelta(facing.Roll, angCurrent.Roll) / frameTime);
+
         if (!Same(velocity, push.Velocity))
         {
             push.Velocity = velocity;
@@ -1201,6 +1295,27 @@ public sealed class EntityMotion
     /// </summary>
     private void Commit(EntityHandle handle, Vector origin, QAngle angles)
         => Parenting?.SetLocal(handle, origin, angles);
+
+    /// <summary>
+    /// CPhysicsPushedEntities::StoreMovedEntities: a push that moved somebody,
+    /// kept for a reconcile that may undo it. The last push of the frame wins,
+    /// as stock's one list per frame.
+    /// </summary>
+    private void StorePushList(Push push, Vector startOrigin, QAngle startAngles)
+    {
+        if (_pushed.Count == 0)
+            return;
+
+        push.HasList = true;
+        push.StartOrigin = startOrigin;
+        push.StartAngles = startAngles;
+        push.Pushed.Clear();
+        for (int i = 0; i < _pushed.Count; i++)
+        {
+            EntityHandle entity = _pushed.PushedAt(i);
+            push.Pushed.Add((entity, _entities.GetOrigin(entity) - _pushed.PushedStartAt(i)));
+        }
+    }
 
     /// <summary>
     /// WHO stopped a mover, said out loud on request.

@@ -5373,12 +5373,27 @@ def reload_probe(g, name):
     return g.api.entity(name=name)
 
 
+def probe_door_lip(height, distance):
+    """The lip that makes an upward func_door of this brush height travel
+    `distance`. PURE, so --self-test holds it.
+
+    Stock's CBaseDoor::Spawn has no distance key: the door travels its own
+    depth along movedir, less 2 (the bloat the engine adds on each side), less
+    the lip. So the lip says the distance, and a negative one carries a shallow
+    brush further than its own depth. The probe used `movedistance` until
+    dfd905868 dropped that non-stock key, and the 2-unit lift slab (*7) then
+    travelled nothing (hot-reload red from 2026-10-25)."""
+    return (height - 2.0) - distance
+
+
 def reload_door(g, name):
     """One func_door the step owns, opened and left standing open."""
+    model = g.scen["lift"]["brushModel"]
+    bounds = g.api.get("map")["brushModels"][int(model.lstrip("*"))]
+    height = bounds["maxs"][2] - bounds["mins"][2]
     g.api.cmd('ent_create func_door model %s targetname %s '
-              'movedir "-90 0 0" speed %d movedistance %d wait "-1"'
-              % (g.scen["lift"]["brushModel"], name,
-                 RELOAD_PROBE_SPEED, RELOAD_PROBE_DISTANCE))
+              'movedir "-90 0 0" speed %d lip %g wait "-1"'
+              % (model, name, RELOAD_PROBE_SPEED, probe_door_lip(height, RELOAD_PROBE_DISTANCE)))
     g.api.wait({"exists": 1, "name": name}, int(10.0 / TICK_SECONDS))
     return g.api.entity(name=name)
 
@@ -10164,6 +10179,12 @@ def self_test():
        "a door already clear of the player moves nobody")
     ok(reload_player_clear_of(you, you) is not None,
        "a door right on the player still sends them somewhere")
+
+    #-- probe_door_lip: the hot-reload door's travel, in stock's terms ---------
+    # dm_lockdown's *7 is a 2-unit slab (bounds z -1..1): its own depth less 2
+    # is nothing, so the whole 128 is the (negative) lip.
+    ok(probe_door_lip(2.0, 128) == -128.0, "a 2-unit slab travels 128 on a lip of -128")
+    ok((96.0 - 2.0) - probe_door_lip(96.0, 128) == 128.0, "and any brush depth travels exactly the distance asked")
 
     #-- think_survival: the hot-reload step's think-heap verdict --------------
     # The race this exists for (1 in 5-10 runs, 2026-10-11): item_ammo_pistol's

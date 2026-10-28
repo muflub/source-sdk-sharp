@@ -47,6 +47,9 @@ public enum SolidityMode
 [ScriptedEntity(EntityNames.FuncBrush, ScriptedEntityKind.Brush)]
 public sealed class FuncBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
     /// <summary>SF_IGNORE_PLAYERUSE (modelentities.h): a player's +USE passes it by.</summary>
     private const int IgnorePlayerUseFlag = 2;
 

@@ -180,7 +180,7 @@ public:
 	virtual void CollideGetAABB( Vector * pMins, Vector * pMaxs, const CPhysCollide *pCollide,
 								 const Vector &collideOrigin, const QAngle &collideAngles ) = 0;
 
-	virtual void unused_CollideGetMassCenter() = 0;
+	virtual void CollideGetMassCenter( CPhysCollide * pCollide, Vector * pOutMassCenter ) = 0;
 	virtual void unused_CollideSetMassCenter() = 0;
 	// get the approximate cross-sectional area projected orthographically on the bbox of the collide
 	// NOTE: These are fractional areas - unitless.  Basically this is the fraction of the OBB on each axis that
@@ -368,7 +368,7 @@ public:
 	virtual void unused_ObjectMaterialChanged() = 0;
 
 	//Basically get the last inputs to IPhysicsShadowController::Update(), returns last input to timeOffset in Update()
-	virtual void unused_GetTargetPosition() = 0;
+	virtual float GetTargetPosition( Vector * pPositionOut, QAngle * pAnglesOut ) = 0;
 
 	virtual void unused_GetTeleportDistance() = 0;
 	virtual void unused_GetMaxSpeed() = 0;
@@ -612,7 +612,7 @@ public:
 	virtual bool IsTrigger() const = 0;
 	virtual void
 	unused_IsFluid() = 0; // fluids are special triggers with fluid controllers attached, they return true to IsTrigger() as well!
-	virtual void unused_IsHinged() = 0;
+	virtual bool IsHinged() const = 0;
 	virtual bool IsCollisionEnabled() const = 0;
 	virtual void unused_IsGravityEnabled() = 0;
 	virtual void unused_IsDragEnabled() = 0;
@@ -765,9 +765,9 @@ public:
 	virtual void RemoveTrigger() = 0;
 
 	// sets the object to be hinged.  Fixed it place, but able to rotate around one axis.
-	virtual void unused_BecomeHinged() = 0;
+	virtual void BecomeHinged( int localAxis ) = 0;
 	// resets the object to original state
-	virtual void unused_RemoveHinged() = 0;
+	virtual void RemoveHinged() = 0;
 
 	// used to iterate the contact points of an object
 	virtual IPhysicsFrictionSnapshot *CreateFrictionSnapshot() = 0;

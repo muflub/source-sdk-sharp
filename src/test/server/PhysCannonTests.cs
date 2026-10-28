@@ -377,6 +377,7 @@ public class PhysCannonTests
         public void EnableDrag(nint o, bool enable) => Drag = enable;
         public void Wake(nint o) { }
         public bool IsMoveable(nint o) => true;
+        public bool IsHinged(nint o) => false;
         public ushort GameFlags(nint o) => Flags;
         public void SetGameFlags(nint o, ushort flags) => Flags = flags;
         public int MaterialIndex(nint o) => 0;

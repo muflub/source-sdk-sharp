@@ -61,6 +61,7 @@ public static partial class TestServices
         public void EnableDrag(nint o, bool enable) { }
         public void Wake(nint o) { }
         public bool IsMoveable(nint o) => true;
+        public bool IsHinged(nint o) => false;
         public ushort GameFlags(nint o) => 0;
         public void SetGameFlags(nint o, ushort flags) { }
         public int MaterialIndex(nint o) => 0;

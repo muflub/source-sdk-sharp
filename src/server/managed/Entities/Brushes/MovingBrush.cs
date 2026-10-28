@@ -59,6 +59,9 @@ internal enum RotationAxisFlag
 /// </summary>
 public abstract class MovingBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
     /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
     public override bool MovesAsPusher => true;
 
@@ -127,7 +130,7 @@ public abstract class MovingBrush : ScriptedEntity
         // CreateVPhysics adds FSOLID_VOLUME_CONTENTS, which is what makes the
         // engine's point contents report the moving brush as water.
         if (string.Equals(ClassName, EntityNames.FuncWater, StringComparison.OrdinalIgnoreCase))
-            SetSolidity(SolidType.Bsp, SolidFlags.VolumeContents);
+            SetSolidity(BrushSolidType, SolidFlags.VolumeContents);
         else
             SetSolidity(BrushSolidity.Solid);
         // CreateVPhysics: a shadow that follows it, which props meet.

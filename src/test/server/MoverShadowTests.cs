@@ -66,14 +66,40 @@ public class MoverShadowTests
     {
         var last = Spawned(className).Last("Entities.SetSolidity")!.Value;
 
-        Assert.Equal((SolidType.Bsp, SolidFlags.VolumeContents), (last.ArgAs<SolidType>(1), last.ArgAs<SolidFlags>(2)));
+        Assert.Equal((SolidType.VPhysics, SolidFlags.VolumeContents), (last.ArgAs<SolidType>(1), last.ArgAs<SolidFlags>(2)));
+    }
+
+    // The movers stock's Spawn makes SOLID_VPHYSICS, which vphysics may block
+    // (VPhysicsUpdatePusher skips a SOLID_BSP one). Census: stock 6, here 1.
+    [Theory]
+    [InlineData(EntityNames.FuncDoor)]
+    [InlineData(EntityNames.FuncDoorRotating)]
+    [InlineData(EntityNames.FuncMovelinear)]
+    [InlineData(EntityNames.MomentaryDoor)]
+    [InlineData(EntityNames.FuncRotButton)]
+    [InlineData(EntityNames.MomentaryRotButton)]
+    [InlineData(EntityNames.FuncRotating)]
+    [InlineData(EntityNames.FuncBrush)]
+    [InlineData(EntityNames.FuncReflectiveGlass)]
+    [InlineData(EntityNames.FuncTracktrain)]
+    public void A_vphysics_mover_is_solid_through_its_collision_model_and_not_water(string className)
+    {
+        var last = Spawned(className).Last("Entities.SetSolidity")!.Value;
+
+        Assert.Equal((SolidType.VPhysics, SolidFlags.None), (last.ArgAs<SolidType>(1), last.ArgAs<SolidFlags>(2)));
     }
 
     [Theory]
-    [InlineData(EntityNames.FuncDoor)]
-    [InlineData(EntityNames.FuncMovelinear)]
-    public void A_door_or_slide_is_not(string className)
-        => Assert.False(Spawned(className).Called("Entities.SetSolidity"));
+    [InlineData(EntityNames.FuncPlat)]
+    [InlineData(EntityNames.FuncButton)]
+    [InlineData(EntityNames.FuncTrain)]
+    public void A_bsp_mover_stays_a_brush(string className)
+    {
+        var engine = Spawned(className);
+
+        Assert.True(engine.Called("EntityPhysics.SetBrushSolidity"));
+        Assert.False(engine.Called("Entities.SetSolidity"));
+    }
 
     [Fact]
     public void A_not_solid_movelinear_has_no_shadow_but_water_always_does()

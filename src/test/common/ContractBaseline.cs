@@ -737,7 +737,7 @@ public static class ContractBaseline
     /// answers, which is the managed BASE's contract and not the union of all
     /// the classes'. <b>Twelve of the 67 entries are answered by between 1 and
     /// 33 managed classes each</b> — <c>input|Use</c> by 31, <c>key|speed</c> by
-    /// 33, <c>key|target</c> by 29 — and each of those lines stands in for the
+    /// 33, <c>key|target</c> by 30 — and each of those lines stands in for the
     /// ~212 compared classes that do NOT answer it. The <c>AnsweredBy</c> field
     /// records that count per entry and is pinned live, so the half-truth is now
     /// a number in the file rather than a sentence that was simply wrong.
@@ -1138,11 +1138,11 @@ public static class ContractBaseline
               + "offering it would not make it mean anything, so this entry is "
               + "arguably the one closest to being correctly refused rather than "
               + "closed."),
-        new("key|target", GroupIdentity, 29,
-            "Twenty-nine managed classes declare target for themselves. "
+        new("key|target", GroupIdentity, 30,
+            "Thirty managed classes declare target for themselves. "
               + "m_target on CBaseEntity is the generic \"the entity this one acts "
               + "on\" name, and like speed it means something different in each of "
-              + "the 29, so a base that offered it would be offering a field with "
+              + "the 30, so a base that offered it would be offering a field with "
               + "no agreed meaning."),
         new("key|teamnumber", GroupTeam, 0,
             "Teams exist on the player and nowhere else: there is no team "
@@ -1630,7 +1630,6 @@ public static class ContractBaseline
         "input|phys_ballsocket|ConstraintBroken",
         "input|phys_constraint|ConstraintBroken",
         "input|phys_hinge|ConstraintBroken",
-        "input|phys_hinge|SetHingeFriction",
         "input|phys_lengthconstraint|ConstraintBroken",
         "input|phys_magnet|BecomeRagdoll",
         "input|phys_magnet|Ignite",
@@ -2529,7 +2528,6 @@ public static class ContractBaseline
         "key|phys_hinge|reversalsoundthresholdSmall",
         "key|phys_hinge|slidesoundback",
         "key|phys_hinge|slidesoundfwd",
-        "key|phys_hinge|systemloadscale",
         "key|phys_hinge|teleportfollowdistance",
         "key|phys_lengthconstraint|constraintsystem",
         "key|phys_lengthconstraint|teleportfollowdistance",

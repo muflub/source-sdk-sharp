@@ -59,6 +59,9 @@ public interface IVPhysicsGrabCalls
 
     bool IsMoveable(nint physicsObject);
 
+    /// <summary><c>IsHinged()</c>: a world hinge's object, which no player may pick up.</summary>
+    bool IsHinged(nint physicsObject);
+
     ushort GameFlags(nint physicsObject);
 
     void SetGameFlags(nint physicsObject, ushort flags);
@@ -142,6 +145,8 @@ public sealed unsafe class VPhysicsGrabCalls : IVPhysicsGrabCalls
     public void Wake(nint o) => Obj->Wake((void*)o);
 
     public bool IsMoveable(nint o) => Obj->IsMoveable((void*)o) != 0;
+
+    public bool IsHinged(nint o) => Obj->IsHinged((void*)o) != 0;
 
     public ushort GameFlags(nint o) => Obj->GetGameFlags((void*)o);
 

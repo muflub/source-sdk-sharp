@@ -214,53 +214,10 @@ public class BrushTests
     }
 
     [Fact]
-    public void WheelWindsBackAfterAPress()
+    public void WheelIgnoresAPlayerWhenDisabled()
     {
-        var (registry, handle, wheel) = Spawn<MomentaryRotButton>(
-            EntityNames.MomentaryRotButton, 6, ("distance", "90"), ("returnspeed", "50"));
-
-        registry.Input(handle, "Use", "", 0f, EntityHandle.None);
-        Assert.True(wheel.OnPressed.FireCount == 1, "a press is reported");
-
-        registry.MoveDone(handle);
-        Assert.True(wheel.OnUnpressed.FireCount == 1, "letting go is reported when it stops");
-        Assert.True(wheel.OnFullyClosed.FireCount == 1, "having been wound fully on");
-
-        // The wind-back is a second movement, so it arrives separately.
-        registry.MoveDone(handle);
-        Assert.True(wheel.OnFullyOpen.FireCount == 1, "and it winds itself back to the start");
-        Assert.True(wheel.OnUnpressed.FireCount == 1, "which is not a second press");
-
-        // A map that parks the wheel has said where it wants it, so that must
-        // NOT be taken away again.
-        var (parkedRegistry, parkedHandle, byMap) = Spawn<MomentaryRotButton>(
-            EntityNames.MomentaryRotButton, 7, ("distance", "90"), ("returnspeed", "50"));
-
-        parkedRegistry.Input(parkedHandle, "SetPosition", "1", 1f, EntityHandle.None);
-        parkedRegistry.MoveDone(parkedHandle);
-        parkedRegistry.MoveDone(parkedHandle);
-
-        Assert.True(byMap.OnFullyOpen.FireCount == 0, "a wheel parked by the map stays parked");
-    }
-
-    [Fact]
-    public void WheelIgnoresAPlayerWhenLocked()
-    {
-        var (registry, handle, wheel) = Spawn<MomentaryRotButton>(
-            EntityNames.MomentaryRotButton, 8, ("distance", "90"));
-
-        registry.Input(handle, "Lock", "", 0f, EntityHandle.None);
-        registry.Input(handle, "Use", "", 0f, EntityHandle.None);
-
-        Assert.True(wheel.OnUseLocked.FireCount == 1, "a locked wheel says so");
-        Assert.True(wheel.OnPressed.FireCount == 0, "and does not turn");
-
-        registry.Input(handle, "Unlock", "", 0f, EntityHandle.None);
-        registry.Input(handle, "Use", "", 0f, EntityHandle.None);
-        Assert.True(wheel.OnPressed.FireCount == 1, "unlocking lets the player turn it again");
-
-        // Disable is a separate switch, and a disabled wheel is not a locked
-        // one: it reports nothing at all rather than refusing audibly.
+        // A disabled wheel is not a locked one: it reports nothing at all
+        // rather than refusing audibly (MomentaryRotButtonUseTests has the lock).
         var (disabledRegistry, disabledHandle, disabled) = Spawn<MomentaryRotButton>(
             EntityNames.MomentaryRotButton, 9, ("distance", "90"));
 

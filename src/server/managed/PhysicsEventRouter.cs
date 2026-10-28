@@ -29,10 +29,14 @@ public sealed class PhysicsEventRouter
     private readonly IGameClock _clock;
     private readonly PhysicsEntitySolver _solver;
 
+    /// <summary>The movers' reconcile with what the solver found (VPhysicsUpdatePusher).</summary>
+    private readonly PusherReconcile? _pushers;
+
     public PhysicsEventRouter(ScriptedEntityRegistry entities, PhysicsDamageQueue impacts, FluidTouches fluid,
                               FrictionSounds friction, PlayerShadowRecovery shadows, IGameClock clock,
-                              PhysicsEntitySolver solver)
+                              PhysicsEntitySolver solver, PusherReconcile? pushers = null)
     {
+        _pushers = pushers;
         _solver = solver;
         _shadows = shadows;
         _entities = entities;
@@ -206,6 +210,8 @@ public sealed class PhysicsEventRouter
                 case PhysicsEventKind.Update:
                     if (_entities.PhysicsUpdate(entity))
                         UpdatesDelivered++;
+                    // CBaseEntity::VPhysicsUpdate's MOVETYPE_PUSH arm.
+                    _pushers?.Updated(entity);
                     break;
 
                 // EFL_TOUCHING_FLUID: FluidStart carries the object's own

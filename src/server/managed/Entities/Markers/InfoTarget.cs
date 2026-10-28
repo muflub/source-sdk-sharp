@@ -10,7 +10,6 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.InfoTarget)]
 [ScriptedEntity(EntityNames.InfoTeleportDestination)]
 [ScriptedEntity(EntityNames.InfoLandmark)]
-[ScriptedEntity(EntityNames.InfoMassCenter)]
 public sealed class InfoTarget : ScriptedEntity
 {
 }

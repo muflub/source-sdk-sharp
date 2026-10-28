@@ -16,14 +16,19 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysHinge)]
 public sealed class PhysHinge : PhysicsConstraintEntity
 {
-    public PhysHinge(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
+    public PhysHinge(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs,
+                     MassCenterOverrides massCenters)
         : base(constraints, sound)
     {
         _pairs = pairs;
+        _massCenters = massCenters;
     }
 
     /// <summary>Where the family's "do not collide" pair is recorded (stock's PhysDisableEntityCollisions).</summary>
     private readonly EntityPairCollisions _pairs;
+
+    /// <summary>Where a world hinge leaves its object's mass centre (stock's PhysSetMassCenterOverride).</summary>
+    private readonly MassCenterOverrides _massCenters;
 
     /// <summary>
     /// The bits this entity shares with the rest of its family. See
@@ -33,6 +38,24 @@ public sealed class PhysHinge : PhysicsConstraintEntity
 
     /// <summary>What a map may set on this entity. See <see cref="PhysHingeVars"/>.</summary>
     [ScriptVars] public PhysHingeVars PhysHingeVars = new();
+
+    /// <summary>
+    /// CPhysHinge::Spawn's world hinge: the one named end's mass centre is
+    /// moved onto the hinge's axis when that end is made.
+    /// </summary>
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+
+        if (!FamilyFlags.HasFlag(ConstraintSpawnFlag.AssumeWorldGeometry))
+            return;
+
+        Vector axis = SnapToAxis((PhysHingeVars.HingeAxis - Origin).Normalized);
+        if (Vars.Attach1.Length == 0)
+            _massCenters.Add(MassCenterOverride.SnapToAxis(Vars.Attach2, Origin, axis));
+        else if (Vars.Attach2.Length == 0)
+            _massCenters.Add(MassCenterOverride.SnapToAxis(Vars.Attach1, Origin, axis));
+    }
 
     protected override Constraint? Build(EntityHandle a, EntityHandle b)
     {
@@ -51,7 +74,8 @@ public sealed class PhysHinge : PhysicsConstraintEntity
         // powered up.
         bool noCollide = FamilyFlags.HasFlag(ConstraintSpawnFlag.DisableCollision);
         Constraint? hinge = Constraint.Hinge(Constraints, a, b, Origin, SnapToAxis(direction.Normalized),
-                                             PhysHingeVars.Friction, ForceLimitKg, TorqueLimitKg);
+                                             PhysHingeVars.Friction, ForceLimitKg, TorqueLimitKg,
+                                             FamilyFlags.HasFlag(ConstraintSpawnFlag.AssumeWorldGeometry));
 
         // The pair the solver refuses is managed's (plan_physics_bones_native_zero
         // 2.1): recorded once the joint exists, as native's create did.
@@ -80,19 +104,20 @@ public sealed class PhysHinge : PhysicsConstraintEntity
     }
 
     /// <summary>
-    /// Drives the hinge. The value is degrees per second; zero lets it swing
-    /// free again.
-    ///
-    /// Stock scales the torque by the load on the joint so that a heavy door
-    /// and a light one open at the same rate. This does not, and the difference
-    /// shows on anything unusually heavy — worth knowing before blaming the
-    /// map.
+    /// Drives the hinge at degrees per second, the torque scaled by the load
+    /// on the joint so that a heavy door and a light one open at the same rate.
     /// </summary>
     [ScriptedEvent("SetAngularVelocity")]
     private void OnSetAngularVelocity(InputData input)
-        => Joint?.SetMotor(input.Number, MotorTorque);
+        => Joint?.SetHingeVelocity(input.Number, PhysHingeVars.SystemLoadScale);
 
-    private const float MotorTorque = 1000f;
+    /// <summary>InputSetHingeFriction: the friction the next joint is made with.</summary>
+    [ScriptedEvent("SetHingeFriction")]
+    private void OnSetHingeFriction(InputData input)
+    {
+        PhysHingeVars.Friction = input.Number;
+        Log.Msg($"Setting hinge friction to {input.Number.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}\n");
+    }
 }
 
 /// <summary>
@@ -110,4 +135,7 @@ public partial class PhysHingeVars
 
     [VarName("hingefriction")]
     public float Friction { get; set; }
+
+    [VarName("systemloadscale")]
+    public float SystemLoadScale { get; set; }
 }

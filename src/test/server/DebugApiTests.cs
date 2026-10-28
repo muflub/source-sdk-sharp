@@ -547,6 +547,35 @@ public class DebugApiTests
     /// The maps directory is named outright rather than deduced, because a test
     /// runs from the repository and the deduction is about a mod's layout.
     /// </summary>
+    /// <summary>
+    /// /map carries each brush model's bounds by index, which is what the live
+    /// gate sizes its probe door's travel by (stock's lip, not a movedistance).
+    /// </summary>
+    [Fact]
+    public void MapInfoCarriesEachBrushModelsBounds()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"sourcesharp-maps-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            File.WriteAllBytes(Path.Combine(directory, "test_models.bsp"), BspReportTests.MapWithBrushModels());
+            var server = DebugApiServer.ForTest(TestDebugHooks.Server(),
+                                                new DebugApiDirectories(DebugApiServer.DefaultSocketDirectory, directory));
+
+            using var doc = System.Text.Json.JsonDocument.Parse(Reply(server, "GET", "/map?map=test_models").Body);
+            var models = doc.RootElement.GetProperty("brushModels");
+
+            Assert.Equal(2, models.GetArrayLength());
+            Assert.Equal(new[] { -32f, -56f, -1f }, models[1].GetProperty("mins").EnumerateArray().Select(v => v.GetSingle()));
+            Assert.Equal(new[] { 32f, 56f, 1f }, models[1].GetProperty("maxs").EnumerateArray().Select(v => v.GetSingle()));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public void MapFileRouting()
     {

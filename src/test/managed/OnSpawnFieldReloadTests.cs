@@ -132,6 +132,8 @@ public class OnSpawnFieldReloadTests
         services.AddInstance<IAreaPortals>(new AreaPortals(new DefaultForwarders.NoEngineServer()));
         services.AddInstance(services.Create<Arsenal>());
         services.AddInstance<IPhysicsConversion>(new NoConversion());
+        // phys_hinge and info_mass_center leave their overrides in it at spawn.
+        services.AddInstance(new MassCenterOverrides());
         services.AddInstance<IPlayerFlashlight>(
             new PlayerFlashlight(new EngineEntityEffectBits(engine, engine), engine, engine));
         // The useable ladders func_useableladder and info_ladder_dismount join at spawn.

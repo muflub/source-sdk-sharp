@@ -27,6 +27,7 @@ public class PlayerPickupTests
         public float MassValue = 10f;
         public ushort Flags;
         public bool Moveable = true;
+        public bool Hinged;
         public (Vector Position, QAngle Angles) Position(nint o) => (Vector.Zero, default);
         public Vector ShadowPosition(nint o) => Vector.Zero;
         public float Mass(nint o) => MassValue;
@@ -36,6 +37,7 @@ public class PlayerPickupTests
         public void EnableDrag(nint o, bool enable) { }
         public void Wake(nint o) { }
         public bool IsMoveable(nint o) => Moveable;
+        public bool IsHinged(nint o) => Hinged;
         public ushort GameFlags(nint o) => Flags;
         public void SetGameFlags(nint o, ushort flags) { }
         public int MaterialIndex(nint o) => 0;
@@ -91,6 +93,10 @@ public class PlayerPickupTests
     [Fact]
     public void A_light_small_free_body_may_be_picked_up()
         => Assert.True(Rules(BodyEngine(), new Bodies()).CanPickupObject(Obj));
+
+    [Fact]
+    public void A_world_hinges_body_may_not_be_picked_up()
+        => Assert.False(Rules(BodyEngine(), new Bodies { Hinged = true }).CanPickupObject(Obj));
 
     [Fact]
     public void A_body_heavier_than_thirty_five_kilos_may_not()

@@ -136,13 +136,15 @@ public sealed class Constraint
     public static Constraint? Hinge(IEngineConstraints engine, EntityHandle a, EntityHandle b,
                                     Vector axisPoint, Vector axisDirection,
                                     float friction = 0f,
-                                    float forceLimit = 0f, float torqueLimit = 0f)
+                                    float forceLimit = 0f, float torqueLimit = 0f,
+                                    bool assumeWorldGeometry = false)
         => Make(engine, a, b, ConstraintKind.Hinge, stackalloc float[]
         {
             forceLimit, torqueLimit,
             axisPoint.X, axisPoint.Y, axisPoint.Z,
             axisDirection.X, axisDirection.Y, axisDirection.Z,
             friction,
+            assumeWorldGeometry ? 1f : 0f,
         });
 
     /// <summary>Free rotation about a single world point.</summary>
@@ -261,17 +263,11 @@ public sealed class Constraint
         });
 
     /// <summary>
-    /// Drives a hinge under power. Speed is degrees per second; the torque is
-    /// what the motor will spend reaching it, which is what makes a powered
-    /// door stall against something heavy rather than shove it through.
-    ///
-    /// Ignored by every other kind — a motor needs an axis to turn about.
+    /// CPhysHinge::InputSetVelocity: see <see cref="IEngineConstraints.SetHingeVelocity"/>.
+    /// Ignored by every other kind: a motor needs an axis to turn about.
     /// </summary>
-    public void SetMotor(float degreesPerSecond, float maxTorque)
-        => _engine.SetMotor(Id.Value, degreesPerSecond, maxTorque);
-
-    /// <summary>Stops driving, leaving the joint free.</summary>
-    public void StopMotor() => SetMotor(0f, 0f);
+    public void SetHingeVelocity(float degreesPerSecond, float systemLoadScale)
+        => _engine.SetHingeVelocity(Id.Value, degreesPerSecond, systemLoadScale);
 
     /// <summary>
     /// Drives a joint ALONG its axis instead of about one — a winch, a lift, a

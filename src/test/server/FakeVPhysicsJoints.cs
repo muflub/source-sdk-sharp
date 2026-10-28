@@ -24,6 +24,10 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
         public float AngularDrag = 1f;
         public (Vector Linear, Vector Angular) VelocityOffset = default;
         public (Vector Force, Vector Point)? VelocityOffsetAsked;
+        public Vector Inertia = new(1f, 2f, 2f);
+
+        /// <summary>The local axis BecomeHinged named, or -1 while it is free.</summary>
+        public int HingedAxis = -1;
     }
 
     public readonly Dictionary<nint, Body> Bodies = new();
@@ -118,6 +122,29 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
         // The fakes' poses are translations: local is world minus the origin.
         Vector origin = Position(physicsObject);
         return world - origin;
+    }
+
+    public Vector WorldToLocalVector(nint physicsObject, Vector world)
+    {
+        // The transpose of the pose's rotation.
+        var m = Of(physicsObject).Pose;
+        return new Vector(m[0, 0] * world.X + m[1, 0] * world.Y + m[2, 0] * world.Z,
+                          m[0, 1] * world.X + m[1, 1] * world.Y + m[2, 1] * world.Z,
+                          m[0, 2] * world.X + m[1, 2] * world.Y + m[2, 2] * world.Z);
+    }
+
+    public Vector Inertia(nint physicsObject) => Of(physicsObject).Inertia;
+
+    public void BecomeHinged(nint physicsObject, int localAxis)
+    {
+        Calls.Add($"BecomeHinged {localAxis}");
+        Of(physicsObject).HingedAxis = localAxis;
+    }
+
+    public void RemoveHinged(nint physicsObject)
+    {
+        Calls.Add("RemoveHinged");
+        Of(physicsObject).HingedAxis = -1;
     }
 
     public (Vector Linear, Vector Angular) VelocityOffset(nint physicsObject, Vector force, Vector worldPosition)

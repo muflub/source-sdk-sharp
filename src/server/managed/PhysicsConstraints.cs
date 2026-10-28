@@ -52,6 +52,9 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
         public EntityHandle A { get; } = a;
         public EntityHandle B { get; } = b;
         public ConstraintKind Kind { get; } = kind;
+
+        /// <summary>A world hinge that made its object hinged, which taking it down undoes.</summary>
+        public bool WorldHinged { get; set; }
     }
 
     /// <summary>One live spring.</summary>
@@ -160,6 +163,7 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
 
         nint worldObject = _world.WorldObject();
         nint constraint;
+        bool worldHinged = false;
 
         switch ((ConstraintKind)kind)
         {
@@ -209,6 +213,10 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
                 // The 1000 is stock's: hinge friction is in kg*in^2/s^2, and a
                 // mapper's number means the same here as in Hammer.
                 hinge.HingeAxis = ConstraintAxisLimit.Friction(0f, 0f, p[8] * 1000f);
+
+                // SF_CONSTRAINT_ASSUME_WORLD_GEOMETRY to the world: the object
+                // itself becomes hinged about the local axis the hinge's is.
+                worldHinged = p.Length > 9 && p[9] != 0f && WorldHinge(obj1 == worldObject, obj2, axis);
 
                 // The "do not collide" checkbox is PhysHinge's: it records the
                 // pair in EntityPairCollisions once the joint exists (2.1).
@@ -377,7 +385,7 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
         }
 
         var entry = new ConstraintEntry(constraint, world1 ? EntityHandle.None : a, world2 ? EntityHandle.None : b,
-                                        (ConstraintKind)kind);
+                                        (ConstraintKind)kind) { WorldHinged = worldHinged };
         uint id = _table.Bind(PhysicsJointKind.Constraint, entry);
 
         if (id == 0u)
@@ -398,6 +406,10 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
         if (_table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is not { } entry)
             return;
 
+        // CPhysHinge::Deactivate. NOTE: RemoveHinged() is always safe
+        if (entry.WorldHinged)
+            _vphysics.RemoveHinged(_vphysics.AttachedObject(entry.Pointer));
+
         _vphysics.Deactivate(entry.Pointer);
         _vphysics.DestroyConstraint(_world.Environment(), entry.Pointer);
 
@@ -408,20 +420,41 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
 
     public bool IsValid(uint constraint) => _table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is not null;
 
-    /// <summary>
-    /// Drives a hinge under power. A sleeping object ignores a motor entirely,
-    /// so the attached end is woken.
-    /// </summary>
-    public void SetMotor(uint constraint, float degreesPerSecond, float maxTorque)
+
+    public void SetHingeVelocity(uint constraint, float degreesPerSecond, float systemLoadScale)
     {
         if (_table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is not { Kind: ConstraintKind.Hinge } entry)
             return;
 
-        _vphysics.SetAngularMotor(entry.Pointer, degreesPerSecond, maxTorque);
-
+        nint reference = _vphysics.ReferenceObject(entry.Pointer);
         nint attached = _vphysics.AttachedObject(entry.Pointer);
-        if (attached != 0)
+        if (reference == 0 || attached == 0)
+            return;
+
+        float massLoad = 1f;
+        int numMasses = 0;
+
+        if (_vphysics.IsMoveable(reference))
+        {
+            massLoad = _vphysics.Inertia(reference).Length;
+            numMasses++;
+            _vphysics.Wake(reference);
+        }
+
+        if (_vphysics.IsMoveable(attached))
+        {
+            massLoad += _vphysics.Inertia(attached).Length;
+            numMasses++;
             _vphysics.Wake(attached);
+        }
+
+        if (numMasses > 0)
+            massLoad /= numMasses;
+
+        // Stock multiplies by the load scale twice.
+        float loadScale = systemLoadScale != 0f ? systemLoadScale : 1f;
+        _vphysics.SetAngularMotor(entry.Pointer, degreesPerSecond,
+            degreesPerSecond * loadScale * massLoad * loadScale * (1f / _world.TickInterval()));
     }
 
     /// <summary>
@@ -617,7 +650,8 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
                   .Set("ptr", ((long)entry.Pointer).ToString(System.Globalization.CultureInfo.InvariantCulture))
                   .Set("a", entry.A)
                   .Set("b", entry.B)
-                  .Set("ck", (int)entry.Kind);
+                  .Set("ck", (int)entry.Kind)
+                  .Set("wh", entry.WorldHinged ? 1 : 0);
         }
 
         foreach (var (id, entry) in _table.All<SpringEntry>(PhysicsJointKind.Spring))
@@ -647,9 +681,58 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
             var kind = (PhysicsJointKind)row.GetInt("kind");
             object entry = kind == PhysicsJointKind.Spring
                 ? new SpringEntry(pointer, row.GetHandle("a"), row.GetHandle("b"))
-                : new ConstraintEntry(pointer, row.GetHandle("a"), row.GetHandle("b"), (ConstraintKind)row.GetInt("ck"));
+                : new ConstraintEntry(pointer, row.GetHandle("a"), row.GetHandle("b"), (ConstraintKind)row.GetInt("ck"))
+                  {
+                      WorldHinged = row.GetInt("wh") != 0,
+                  };
             _table.Restore(id, kind, entry);
         }
+    }
+
+    /// <summary>
+    /// CPhysHinge::IsWorldHinge and its BecomeHinged: to the world, the
+    /// hinge's axis in the attached object's space, snapped, names one of its
+    /// axes, which the object is hinged about. False leaves it free.
+    /// </summary>
+    private bool WorldHinge(bool toWorld, nint attached, Vector worldAxis)
+    {
+        if (!toWorld)
+            return false;
+
+        Vector localHinge = PhysMotor.SnapToAxis(_vphysics.WorldToLocalVector(attached, worldAxis));
+        int hingeAxis = UnitAxisIndex(localHinge);
+        if (hingeAxis < 0)
+            return false;
+
+        _vphysics.BecomeHinged(attached, hingeAxis);
+        return true;
+    }
+
+    /// <summary>GetUnitAxisIndex (physconstraint.cpp): the one component that is exactly +-1, the rest 0; else -1.</summary>
+    internal static int UnitAxisIndex(Vector axis)
+    {
+        bool valid = false;
+        int index = -1;
+
+        for (int i = 0; i < 3; i++)
+        {
+            float c = i == 0 ? axis.X : i == 1 ? axis.Y : axis.Z;
+            if (c != 0f)
+            {
+                if (MathF.Abs(c) == 1f)
+                {
+                    if (index < 0)
+                    {
+                        index = i;
+                        valid = true;
+                        continue;
+                    }
+                }
+                valid = false;
+            }
+        }
+
+        return valid ? index : -1;
     }
 
     //-------------------------------------------------------------------------

@@ -348,6 +348,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // death's pull) and surface triggers (a player's footing). Registered in
     // the container for the entities that join them; each was a static list.
     private readonly EntityRoster<EnvFire> _fires = new();
+
+    // CPhysicsHook's mass-centre overrides: phys_hinge and info_mass_center
+    // leave them at spawn for the physics prop or physbox of that name.
+    private readonly MassCenterOverrides _massCenters = new();
     private readonly EntityRoster<PhysRagdollMagnet> _magnets = new();
     private readonly EntityRoster<EnvPlayerSurfaceTrigger> _surfaceTriggers = new();
 
@@ -1481,6 +1485,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsInspect(_engine.VPhysics),
             _services.Require<IVPhysicsSurfaceSounds>(), _services.Require<IEngineSound>()));
         _services.AddInstance(physicsSounds);
+        _services.AddInstance(_massCenters);
         // Which entities touch fluid (I2): the props and the player read it.
         var fluid = new FluidTouches(new EngineSurfaceDensity(_services.Require<PhysicsSurfaces>()));
         _services.AddInstance(fluid);
@@ -1569,7 +1574,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IGameClock>());
         _services.AddInstance(solver);
         _physicsRouter = new PhysicsEventRouter(_entities, impacts, fluid, friction, shadows,
-                                                _services.Require<IGameClock>(), solver);
+                                                _services.Require<IGameClock>(), solver,
+                                                new PusherReconcile(_entityMotion, _services.Require<IEngineEntities>(),
+                                                                    _services.Require<IEngineEntityPhysics>(),
+                                                                    solverObjects, solverObjects));
         _physicsEvents = new PhysicsCollisionResponse(
             new EnginePhysicsCollisionWorld(
                 _services.Require<IEngineEffects>(),
@@ -3177,7 +3185,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                     new EngineEntityPhysicsHost(_services.Require<IEngineEntities>(), entityPhysics,
                                                 _services.Require<IEngineEntityRender>(),
                                                 EngineEntityPhysicsNative.ForEngine(_engine), _entities,
-                                                () => solidityFirst?.Value ?? true, text => Log.Warning(text)));
+                                                () => solidityFirst?.Value ?? true, text => Log.Warning(text)),
+                    _massCenters);
                 _services.AddInstance(_entityPhysics);
                 // phys_convert's conversion (stock's physobj.cpp), over the same
                 // calls and the level's parenting registry.

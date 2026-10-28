@@ -19,7 +19,7 @@ public sealed class RecordingJointTables(RecordingEngine engine)
     void IEngineConstraints.Destroy(uint constraint) => engine.RecordCall("Constraints.Destroy", constraint);
     bool IEngineConstraints.IsValid(uint constraint) => engine.RecordAnswer<bool>("Constraints.IsValid", constraint);
     void IEngineConstraints.SetLinearMotor(uint constraint, float unitsPerSecond, float systemLoadScale) => engine.RecordCall("Constraints.SetLinearMotor", constraint, unitsPerSecond, systemLoadScale);
-    void IEngineConstraints.SetMotor(uint constraint, float degreesPerSecond, float maxTorque) => engine.RecordCall("Constraints.SetMotor", constraint, degreesPerSecond, maxTorque);
+    void IEngineConstraints.SetHingeVelocity(uint constraint, float degreesPerSecond, float systemLoadScale) => engine.RecordCall("Constraints.SetHingeVelocity", constraint, degreesPerSecond, systemLoadScale);
 
     // Springs
     int IEngineSprings.Count() => engine.RecordAnswer<int>("Springs.Count");

@@ -57,6 +57,20 @@ public interface IEntityPhysicsHost
 
     /// <summary>Where a refusal is said (native's Warning).</summary>
     void Warning(string text);
+
+    /// <summary>
+    /// The entity's name when its class consults the mass-centre overrides as
+    /// it is made (<see cref="ITakesMassCenterOverride"/>), else null.
+    /// </summary>
+    string? MassCenterOverrideName(EntityHandle entity);
+}
+
+/// <summary>
+/// A class whose CreateVPhysics calls PhysGetMassCenterOverride: stock's
+/// CPhysicsProp and CPhysBox, and nothing else.
+/// </summary>
+public interface ITakesMassCenterOverride
+{
 }
 
 /// <summary>
@@ -81,12 +95,15 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
     private readonly IPhysicsWorldVPhysics _world;
     private readonly IVPhysicsEntityCalls _v;
     private readonly IEntityPhysicsHost _host;
+    private readonly MassCenterOverrides _massCenters;
 
-    public EntityPhysicsCreation(IPhysicsWorldVPhysics world, IVPhysicsEntityCalls v, IEntityPhysicsHost host)
+    public EntityPhysicsCreation(IPhysicsWorldVPhysics world, IVPhysicsEntityCalls v, IEntityPhysicsHost host,
+                                 MassCenterOverrides massCenters)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _v = v ?? throw new ArgumentNullException(nameof(v));
         _host = host ?? throw new ArgumentNullException(nameof(host));
+        _massCenters = massCenters ?? throw new ArgumentNullException(nameof(massCenters));
     }
 
     /// <summary>Objects created since the module started.</summary>
@@ -254,6 +271,15 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         ObjectParams p = solid.Params;
         p.GameData = PhysicsGameData.FromHandle(f.Handle);
         p.Name = _world.NativeText(f.ClassName);
+
+        // PhysGetMassCenterOverride, which a physics prop's and a physbox's
+        // CreateVPhysics ask before making the object.
+        if (!isStatic && !ownSolidity && _host.MassCenterOverrideName(entity) is { } name
+            && _massCenters.TryTake(name, f.Origin, f.Angles,
+                                    _world.CollideMassCenter(_world.CollideSolid(collide, solid.Index)), out Vector local))
+        {
+            p.MassCenterOverride = _v.WriteMassCenterOverride(scratch, local);
+        }
 
         // Stock's order: the solidity BEFORE the create, because the create
         // calls back into ShouldCollide, which reads it. The flags are read

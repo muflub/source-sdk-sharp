@@ -461,7 +461,7 @@ static void *const s_PhysicsSlots[] = {
 static const SSForwarderTable s_PhysicsTable = { s_PhysicsSlots, 5 };
 
 //-----------------------------------------------------------------------------
-// PhysicsCollision: 6 forwarder(s) over IPhysicsCollision.
+// PhysicsCollision: 7 forwarder(s) over IPhysicsCollision.
 //-----------------------------------------------------------------------------
 // Vector IPhysicsCollision::CollideGetExtent( const CPhysCollide *, const Vector &, const QAngle &, const Vector & )
 static Vector SSFwd_PhysicsCollision_CollideGetExtent( IPhysicsCollision *self, const CPhysCollide * a0, const Vector & a1, const QAngle & a2, const Vector & a3 ) { return self->CollideGetExtent( a0, a1, a2, a3 ); }
@@ -475,6 +475,8 @@ static IVPhysicsKeyParser * SSFwd_PhysicsCollision_VPhysicsKeyParserCreate( IPhy
 static void SSFwd_PhysicsCollision_VPhysicsKeyParserDestroy( IPhysicsCollision *self, IVPhysicsKeyParser * a0 ) { self->VPhysicsKeyParserDestroy( a0 ); }
 // bool IPhysicsCollision::SupportsVirtualMesh( void )
 static bool SSFwd_PhysicsCollision_SupportsVirtualMesh( IPhysicsCollision *self ) { return self->SupportsVirtualMesh(); }
+// void IPhysicsCollision::CollideGetMassCenter( CPhysCollide *, Vector * )
+static void SSFwd_PhysicsCollision_CollideGetMassCenter( IPhysicsCollision *self, CPhysCollide * a0, Vector * a1 ) { self->CollideGetMassCenter( a0, a1 ); }
 
 static void *const s_PhysicsCollisionSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsCollision_CollideGetExtent ),
@@ -483,9 +485,10 @@ static void *const s_PhysicsCollisionSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsCollision_VPhysicsKeyParserCreate ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsCollision_VPhysicsKeyParserDestroy ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsCollision_SupportsVirtualMesh ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollision_CollideGetMassCenter ),
 };
 
-static const SSForwarderTable s_PhysicsCollisionTable = { s_PhysicsCollisionSlots, 6 };
+static const SSForwarderTable s_PhysicsCollisionTable = { s_PhysicsCollisionSlots, 7 };
 
 //-----------------------------------------------------------------------------
 // PhysicsSurfaceProps: 8 forwarder(s) over IPhysicsSurfaceProps.
@@ -644,7 +647,7 @@ static void *const s_PhysicsEnvironmentSlots[] = {
 static const SSForwarderTable s_PhysicsEnvironmentTable = { s_PhysicsEnvironmentSlots, 38 };
 
 //-----------------------------------------------------------------------------
-// PhysicsObject: 61 forwarder(s) over IPhysicsObject.
+// PhysicsObject: 64 forwarder(s) over IPhysicsObject.
 //-----------------------------------------------------------------------------
 // bool IPhysicsObject::IsStatic( void )
 static bool SSFwd_PhysicsObject_IsStatic( IPhysicsObject *self ) { return self->IsStatic(); }
@@ -768,6 +771,12 @@ static float SSFwd_PhysicsObject_ComputeShadowControl( IPhysicsObject *self, con
 static void SSFwd_PhysicsObject_SetShadow( IPhysicsObject *self, float a0, float a1, bool a2, bool a3 ) { self->SetShadow( a0, a1, a2, a3 ); }
 // void IPhysicsObject::UpdateShadow( const Vector &, const QAngle &, bool, float )
 static void SSFwd_PhysicsObject_UpdateShadow( IPhysicsObject *self, const Vector & a0, const QAngle & a1, bool a2, float a3 ) { self->UpdateShadow( a0, a1, a2, a3 ); }
+// bool IPhysicsObject::IsHinged( void )
+static bool SSFwd_PhysicsObject_IsHinged( IPhysicsObject *self ) { return self->IsHinged(); }
+// void IPhysicsObject::BecomeHinged( int )
+static void SSFwd_PhysicsObject_BecomeHinged( IPhysicsObject *self, int a0 ) { self->BecomeHinged( a0 ); }
+// void IPhysicsObject::RemoveHinged( void )
+static void SSFwd_PhysicsObject_RemoveHinged( IPhysicsObject *self ) { self->RemoveHinged(); }
 
 static void *const s_PhysicsObjectSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_IsStatic ),
@@ -831,24 +840,30 @@ static void *const s_PhysicsObjectSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_ComputeShadowControl ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_SetShadow ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_UpdateShadow ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_IsHinged ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_BecomeHinged ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_RemoveHinged ),
 };
 
-static const SSForwarderTable s_PhysicsObjectTable = { s_PhysicsObjectSlots, 61 };
+static const SSForwarderTable s_PhysicsObjectTable = { s_PhysicsObjectSlots, 64 };
 
 //-----------------------------------------------------------------------------
-// PhysicsShadowController: 2 forwarder(s) over IPhysicsShadowController.
+// PhysicsShadowController: 3 forwarder(s) over IPhysicsShadowController.
 //-----------------------------------------------------------------------------
 // bool IPhysicsShadowController::IsPhysicallyControlled( void )
 static bool SSFwd_PhysicsShadowController_IsPhysicallyControlled( IPhysicsShadowController *self ) { return self->IsPhysicallyControlled(); }
 // void IPhysicsShadowController::GetLastImpulse( Vector * )
 static void SSFwd_PhysicsShadowController_GetLastImpulse( IPhysicsShadowController *self, Vector * a0 ) { self->GetLastImpulse( a0 ); }
+// float IPhysicsShadowController::GetTargetPosition( Vector *, QAngle * )
+static float SSFwd_PhysicsShadowController_GetTargetPosition( IPhysicsShadowController *self, Vector * a0, QAngle * a1 ) { return self->GetTargetPosition( a0, a1 ); }
 
 static void *const s_PhysicsShadowControllerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsShadowController_IsPhysicallyControlled ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsShadowController_GetLastImpulse ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsShadowController_GetTargetPosition ),
 };
 
-static const SSForwarderTable s_PhysicsShadowControllerTable = { s_PhysicsShadowControllerSlots, 2 };
+static const SSForwarderTable s_PhysicsShadowControllerTable = { s_PhysicsShadowControllerSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // PhysicsMotionController: 3 forwarder(s) over IPhysicsMotionController.

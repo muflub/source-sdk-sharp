@@ -28,6 +28,13 @@ public interface IVPhysicsEntityCalls
     EntitySolid ReadSolid(nint solid);
 
     /// <summary>
+    /// Writes <paramref name="local"/> into the <c>solid_t</c>'s own
+    /// <c>massCenterOverride</c> and answers where it is, for
+    /// <c>params.massCenterOverride</c> to point at.
+    /// </summary>
+    nint WriteMassCenterOverride(nint solid, Vector local);
+
+    /// <summary>
     /// <c>physenv-&gt;CreatePolyObject</c>, or <c>CreatePolyObjectStatic</c>
     /// when <paramref name="isStatic"/>, at the pose given; 0 when vphysics makes none.
     /// </summary>
@@ -118,6 +125,16 @@ public sealed unsafe class VPhysicsEntityCalls : IVPhysicsEntityCalls, IDisposab
         return new EntitySolid(*(int*)(s + SolidLayout.Index),
                                Vtable.TextOf(s + SolidLayout.SurfaceProp, SolidLayout.NameCapacity) ?? string.Empty,
                                *(ObjectParams*)(s + SolidLayout.Params));
+    }
+
+    public nint WriteMassCenterOverride(nint solid, Vector local)
+    {
+        if (solid == 0)
+            return 0;
+
+        byte* at = (byte*)solid + SolidLayout.MassCenterOverride;
+        *(Vector*)at = local;
+        return (nint)at;
     }
 
     public nint CreatePolyObject(nint environment, nint collide, int surfaceIndex, Vector origin, QAngle angles,

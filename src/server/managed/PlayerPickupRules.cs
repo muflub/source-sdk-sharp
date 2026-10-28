@@ -67,8 +67,8 @@ public sealed class PlayerPickupRules
     /// CBasePlayer::CanPickupObject: moves with physics, light enough, small
     /// enough, not refused by its flags, and either free to move or allowed
     /// to be freed by the gravity gun. One object per entity on this side
-    /// (VPhysicsGetObjectList's list is the entity's object), and nothing here
-    /// is ever hinged: PhysHinge does not call BecomeHinged.
+    /// (VPhysicsGetObjectList's list is the entity's object), and not a world
+    /// hinge's object.
     /// </summary>
     public bool CanPickupObject(EntityHandle obj, float massLimit = MassLimit, float sizeLimit = SizeLimit)
     {
@@ -83,6 +83,9 @@ public sealed class PlayerPickupRules
             return false;
 
         if ((_v.GameFlags(phys) & NoPlayerPickup) != 0)
+            return false;
+
+        if (_v.IsHinged(phys))
             return false;
 
         if (massLimit > 0f && _v.Mass(phys) > massLimit)

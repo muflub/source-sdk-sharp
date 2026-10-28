@@ -787,6 +787,23 @@ public class BspReportTests
     /// that the endpoint hands the report out intact, and two different sample
     /// maps would let the two halves drift apart without either failing.
     /// </summary>
+    /// <summary>A map with two brush models: *0 the world, *1 a 64 x 112 x 2 slab.</summary>
+    internal static byte[] MapWithBrushModels()
+    {
+        var map = new Builder();
+
+        map.Text(0, "{\n\"classname\" \"worldspawn\"\n}\0");
+
+        var models = new byte[96];
+        Write(models, 0, -512f); Write(models, 4, -512f); Write(models, 8, -64f);
+        Write(models, 12, 512f); Write(models, 16, 512f); Write(models, 20, 64f);
+        Write(models, 48, -32f); Write(models, 52, -56f); Write(models, 56, -1f);
+        Write(models, 60, 32f); Write(models, 64, 56f); Write(models, 68, 1f);
+        map.Bytes(14, models);
+
+        return map.Build();
+    }
+
     internal static byte[] SampleMap()
     {
         var map = new Builder();

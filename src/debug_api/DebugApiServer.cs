@@ -3484,9 +3484,23 @@ public sealed class DebugApiServer : IDebugApi
                 .Append(",\"version\":").Append(contents.Version)
                 .Append(",\"entityCount\":").Append(contents.Entities.Count)
                 .Append(",\"brushModelCount\":").Append(contents.Models.Count)
-                .Append(",\"connectionCount\":").Append(contents.Entities.Sum(e => e.Connections.Count));
+                .Append(",\"connectionCount\":").Append(contents.Entities.Sum(e => e.Connections.Count))
+                .Append(",\"brushModels\":[");
 
-            return json.Append('}').ToString();
+            // Each brush model's bounds, by its index (*N): what a fixture sizes a mover by.
+            for (int i = 0; i < contents.Models.Count; i++)
+            {
+                if (i > 0)
+                    json.Append(',');
+
+                json.Append("{\"mins\":");
+                AppendVector(json, contents.Models[i].Mins);
+                json.Append(",\"maxs\":");
+                AppendVector(json, contents.Models[i].Maxs);
+                json.Append('}');
+            }
+
+            return json.Append("]}").ToString();
         }
         catch (Exception e)
         {
