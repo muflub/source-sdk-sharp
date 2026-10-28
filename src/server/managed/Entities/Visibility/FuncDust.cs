@@ -59,7 +59,7 @@ public sealed class FuncDust : ScriptedEntity
         // leaves it as, adding only FSOLID_NOT_SOLID — because the CLIENT asks
         // the brush "is this point inside you" for every place it considers
         // putting a mote, and a collideable with no shape answers no every time.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone(SolidFlags.VolumeContents);
         SetVisible(false);
 
         var state = State;

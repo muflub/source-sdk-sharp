@@ -965,6 +965,7 @@ internal sealed unsafe partial class EngineEntities
     public bool SetKeyValue(EntityHandle entity, string key, string value) => false;
     public void SetOrigin(EntityHandle h, Vector origin) { }
     public void SetOwner(EntityHandle h, EntityHandle owner) { }
+    public void SetClassName(EntityHandle h, string className) { }
     public void SetVelocity(EntityHandle h, Vector velocity) { }
     public void Spawn(EntityHandle entity) { }
     public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) { }

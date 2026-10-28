@@ -118,7 +118,7 @@ TEST( ParticleFollowMask, TheDefaultIsBitZero )
 {
 	// Written down rather than inferred: this constant is what
 	// SourceSharp_ParticleSystemStart stores for a system nobody configures,
-	// and every ss_firesmoke and ss_plasma in the game relies on it being
+	// and every _firesmoke and _plasma in the game relies on it being
 	// exactly point 0.
 	EXPECT_EQ( 1, (int)kSourceSharpParticleFollowDefault );
 	EXPECT_EQ( 31, (int)kSourceSharpParticleMaxFollowPoint );

@@ -424,7 +424,7 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Effects/SsGib.cs	yes	ports C
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/AiSound.cs	yes	ports CAISound::InputInsertSound/InputEmitAISound (soundent.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/AmbientGeneric.cs	yes	ports CAmbientGeneric ComputeSoundlevel dB formula and Spawn/Toggle logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/AmbientModulation.cs	yes	ports CAmbientGeneric fixed-point ramp/preset/LFO envelope arithmetic (sound.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvBeam.cs	no	simplified reinterpretation of persistent mode; no specific stock function ported
+src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvBeam.cs	yes	ports CEnvBeam (EnvBeam.cpp): Spawn, TurnOn/Off, UpdateThink, StrikeThink, Strike, Zap, RandomArea, RandomPoint, PassesTouchFilters
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvBeverage.cs	yes	ports CEnvBeverage::Use/Spawn dispense and skin-pick logic (effects.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvEntityIgniter.cs	yes	ports CEntityFlame::InputIgnite's walk-all-matching-names loop
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvEntityMaker.cs	yes	ports CEnvEntityMaker::SpawnEntity scatter formula and blocker room-check

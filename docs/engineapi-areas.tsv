@@ -76,6 +76,7 @@ EntitySetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceS
 EntitySetVisible	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetVisible	uint, int, void	
 EntitySetOwner	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntitySetOwner	uint, uint, void	
 EntitiesStandalonePlayerSkyboxArea	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitiesStandalonePlayerSkyboxArea	int, int*, int	
+EntitySetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetClassName	uint, byte*, void	
 CreateEntity	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_CreateEntity	byte*, uint	
 EntitySpawn	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntitySpawn	uint, void	
 EntityRemove	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityRemove	uint, void	

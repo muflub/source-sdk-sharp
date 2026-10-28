@@ -441,6 +441,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         public void EntitySetHealth(uint a0, int a1) => _rest.EntitySetHealth(a0, a1);
         public void EntitySetVisible(uint a0, int a1) => _rest.EntitySetVisible(a0, a1);
         public void EntitySetOwner(uint a0, uint a1) => _rest.EntitySetOwner(a0, a1);
+        public void EntitySetClassName(uint a0, byte* a1) => _rest.EntitySetClassName(a0, a1);
         public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) => _rest.EntitiesStandalonePlayerSkyboxArea(a0, a1);
     }
 

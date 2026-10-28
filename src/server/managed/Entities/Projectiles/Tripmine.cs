@@ -20,7 +20,7 @@ namespace SourceSharp.Server;
 /// <para>
 /// A physics prop with its motion off, in the weapon collision group, as
 /// stock's (<c>VPhysicsInitNormal</c>, then <c>EnableMotion( false )</c>).
-/// The beam is an <c>ss_beam</c>, this hierarchy's <c>CBeam</c>.
+/// The beam is a <c>beam</c>, this hierarchy's <c>CBeam</c>.
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.NpcTripmine, ScriptedEntityKind.Prop)]
@@ -199,7 +199,7 @@ public sealed class Tripmine : ScriptedEntity
         _phase = Phase.Watching;
 
         int sprite = Precache.PrecacheModel(BeamSprite);
-        _beam = Entities.Create(EntityNames.SsBeam);
+        _beam = Entities.Create(EntityNames.Beam);
 
         if (_beam == EntityHandle.None)
             return;

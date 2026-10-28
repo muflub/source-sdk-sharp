@@ -55,7 +55,7 @@ namespace SourceSharp.Client.Standalone;
 /// "the same body, in the same pose" a check rather than a hope.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsRagdoll)]
+[ClientStandaloneEntity(EntityNames.Hl2mpRagdoll)]
 public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 {
     // The marked and custom tiers are the base's walk (plan_client_novalve
@@ -73,7 +73,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     // this corpse collapses into is managed's, not a native library's.
     private readonly Ragdolls.IClientRagdolls _ragdolls;
 
-    public override string ClassName => EntityNames.SsRagdoll;
+    public override string ClassName => EntityNames.Hl2mpRagdoll;
 
     /// <summary>The same type the server writes through. See <see cref="RagdollNetState"/>.</summary>
     [NetState] public RagdollNetState State = new();

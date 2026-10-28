@@ -536,7 +536,7 @@ public class SaveTierTests
         one.Set("k", 1);
         var two = new SavedEntity(2u, "ss_pickup", "b");
         two.Set("k", 2);
-        var three = new SavedEntity(3u, "ss_beam", "c");
+        var three = new SavedEntity(3u, "beam", "c");
         three.Set("k", 3);
 
         var tally = SavedEntityCodec.Measure(new[] { one, two, three }, parts: null, io: null,

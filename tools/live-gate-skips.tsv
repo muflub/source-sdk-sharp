@@ -53,7 +53,7 @@
 #
 # ITS RECORDED REASON WAS RIGHT, and that is worth saying explicitly because
 # `lift`'s was half wrong and the next reader of this file should not assume
-# either way. It said "ss_player has no VPhysics shadow, so the player walks
+# either way. It said "player has no VPhysics shadow, so the player walks
 # into a prop, is stopped by it, and moves it 0.0 units". Measured per tick on
 # 3f's branch BEFORE anything changed (tools/3f-probe-push, on entity-port
 # 9f370367): the player accelerates for four ticks, covers 27.3 units, meets

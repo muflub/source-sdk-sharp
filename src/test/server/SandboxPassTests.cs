@@ -324,7 +324,7 @@ public class SandboxPassTests
         // vanishes from the report is a list nobody reads and therefore nobody
         // disagrees with, which is how a real regression gets absorbed.
         var absences = SandboxPass.AuditCoverage(
-            new[] { SourceSharp.Shared.EntityNames.SsGrenade },
+            new[] { SourceSharp.Shared.EntityNames.NpcGrenadeFrag },
             Array.Empty<SandboxPass.DeclaredEntity>());
 
         Assert.Single(absences);

@@ -57,6 +57,10 @@ public sealed class PropDynamic : ScriptedEntity
 
     public override void OnSpawn()
     {
+        // Condense classname's to one, except for "prop_dynamic_override" (CDynamicProp::Spawn).
+        if (string.Equals(ClassName, EntityNames.DynamicProp, StringComparison.OrdinalIgnoreCase))
+            SetClassName(EntityNames.PropDynamic);
+
         if (DynamicPropSpawn.Refusal(ClassName, Vars.Model, Precache, Render, PropDataTable) is { } refusal)
         {
             Log.Msg(DynamicPropSpawn.Line(ClassName, SpawnOrigin, refusal));
@@ -72,7 +76,7 @@ public sealed class PropDynamic : ScriptedEntity
         // classes derived from it keep SOLID_NONE (CDynamicProp::Spawn).
         SolidType solid = (SolidType)Vars.Solid;
         SolidFlags flags = SolidFlags.None;
-        if (solid == SolidType.None && ClassName is EntityNames.PropDynamic or EntityNames.DynamicProp)
+        if (solid == SolidType.None && ClassName is EntityNames.PropDynamic)
         {
             solid = SolidType.OrientedBox;
             flags = SolidFlags.NotSolid;
@@ -91,6 +95,11 @@ public sealed class PropDynamic : ScriptedEntity
 
         if (solid != SolidType.None && !noObject)
             InitStaticPhysics();
+
+        // Now condense all classnames to one: the override too, once the
+        // spawn has read it (CDynamicProp::Spawn after BaseClass::Spawn).
+        if (string.Equals(ClassName, EntityNames.PropDynamicOverride, StringComparison.OrdinalIgnoreCase))
+            SetClassName(EntityNames.PropDynamic);
 
         _visible = !Vars.StartDisabled;
         Apply();

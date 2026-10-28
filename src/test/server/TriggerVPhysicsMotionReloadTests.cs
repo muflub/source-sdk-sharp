@@ -53,7 +53,7 @@ public class TriggerVPhysicsMotionReloadTests
 
         var before = Registry(out var engine, player);
         if (player)
-            before.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+            before.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         before.KeyValue(Field, EntityNames.TriggerVphysicsMotion, "wait", "0");
         before.Spawn(Field, EntityNames.TriggerVphysicsMotion);
         before.Touch(Field, toucher);

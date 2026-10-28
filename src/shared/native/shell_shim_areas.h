@@ -133,6 +133,7 @@ public:
 	void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) override;
 	void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) override;
 	int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea ) override;
+	void EntitySetClassName( uint32_t hEntity, const char *pName ) override;
 };
 
 class CShimEntityLifecycle final : public IShimEntityLifecycle

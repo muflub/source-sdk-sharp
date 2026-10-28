@@ -250,7 +250,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     {
         public EntityHandle Player;
         public EntityHandle Weapon;     // ss_weapon, or None until first give
-        public EntityHandle ViewModel;  // ss_viewmodel, beside it
+        public EntityHandle ViewModel;  // predicted_viewmodel, beside it
         public readonly List<Owned> Weapons = new();
         public readonly Dictionary<string, int> Ammo = new(StringComparer.OrdinalIgnoreCase);
         public int ActiveSlot = -1;
@@ -277,11 +277,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// <para>
     /// <b>A DICTIONARY LOOKUP, NOT A CROSSING</b> — plan_crossings.md's D19
     /// residue, the <c>EntityGetClassName</c> row. It asked the shell for the
-    /// classname and compared it to <c>ss_player</c>; the registry that answers
+    /// classname and compared it to <c>player</c>; the registry that answers
     /// it now is the same object that already drives this entity's spawn, its
     /// keyvalues, its thinks, its inputs and its outputs, so there is no state
     /// here that did not already have to be right for the player to exist at
-    /// all. An <c>SsPlayer</c> instance IS what "the classname is ss_player"
+    /// all. An <c>SsPlayer</c> instance IS what "the classname is player"
     /// means on this side: <see cref="ScriptedEntityAttribute"/> binds the two,
     /// and the registry is keyed by the same push
     /// (<c>OnScriptedSpawn</c>/<c>OnScriptedRemoved</c>) that X5's liveness
@@ -738,7 +738,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         if (carry.ViewModel == EntityHandle.None || !_entities.IsValid(carry.ViewModel))
         {
-            carry.ViewModel = _entities.Create(EntityNames.SsViewModel);
+            carry.ViewModel = _entities.Create(EntityNames.PredictedViewModel);
             _entities.SetOrigin(carry.ViewModel, _entities.GetOrigin(carry.Player));
             _entities.Spawn(carry.ViewModel);
 
@@ -1217,7 +1217,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     // (multiplay_gamerules.cpp): RemoveAllItems( true ) -- "destroy all of the
     // players weapons and items" -- then DestroyViewModels. Forget is exactly
     // that here and had no caller, so a departed player's ss_weapon and
-    // ss_viewmodel stood in the world with their owner gone. Not called for a
+    // predicted_viewmodel stood in the world with their owner gone. Not called for a
     // level change, where the client stays (ClientLifecycleDriver says so).
     //-------------------------------------------------------------------------
     int IClientLifecycle.ClientLifecycleOrder => (int)LifecycleStage.Arsenal;
@@ -1235,7 +1235,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     // ACROSS A HOT RELOAD (2026-10-05). Every player's carry lived only in
     // _carries, which no reload carried: after cs_sv_reload every player owned
     // nothing in managed code -- weapons, clips, ammo pools, the active and the
-    // last weapon -- while their ss_weapon and ss_viewmodel stood on. Touching
+    // last weapon -- while their ss_weapon and predicted_viewmodel stood on. Touching
     // a weapon they already owned then took it as new and built a second pair
     // (the daily gate's "2 gained, a ss_weapon"). Weapons and ammo go by NAME,
     // never by table index: a build may reorder the table between the two.
@@ -1406,7 +1406,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         return lines;
     }
 
-    /// <summary>Test seam and readout: the carried ss_weapon and ss_viewmodel, None each when there is none.</summary>
+    /// <summary>Test seam and readout: the carried ss_weapon and predicted_viewmodel, None each when there is none.</summary>
     public (EntityHandle Weapon, EntityHandle ViewModel) CarriedPair(EntityHandle player)
         => _carries.TryGetValue(player.Value, out var carry)
             ? (carry.Weapon, carry.ViewModel)

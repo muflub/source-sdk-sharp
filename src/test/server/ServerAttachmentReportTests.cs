@@ -91,7 +91,7 @@ public class ServerAttachmentReportTests
 
         var render = (IEngineEntityRender)engine;
 
-        var lines = ServerAttachments.Report(One("ss_beam"), render);
+        var lines = ServerAttachments.Report(One("beam"), render);
 
         Assert.Contains("no skeleton", lines[0]);
         Assert.Contains("(no model)", lines[0]);

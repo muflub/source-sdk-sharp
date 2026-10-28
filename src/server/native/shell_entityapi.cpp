@@ -270,6 +270,19 @@ void SourceSharp_EntitySetModel( uint32_t hEntity, const char *pModel )
 	}
 }
 
+// The name the entity reports from here on; the class it was made as, which pairs
+// its native and managed halves and its network layout, stays.
+void SourceSharp_EntitySetClassName( uint32_t hEntity, const char *pName )
+{
+	if ( !pName || !pName[0] )
+		return;
+
+	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+
+	if ( ent.pStandalone )
+		ent.pStandalone->SetReportedClassname( pName );
+}
+
 // Handle-based iteration, so a walk spanning frames cannot hold a dangling pointer.
 uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pClassName )
 {

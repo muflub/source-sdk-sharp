@@ -62,7 +62,7 @@ public class ProjectileTouchTests
         registry.Services = services;
 
         var handle = new EntityHandle(1);
-        registry.Spawn(handle, EntityNames.SsRocket);
+        registry.Spawn(handle, EntityNames.RpgMissile);
 
         var rocket = (Rocket)registry.Get(handle)!;
 

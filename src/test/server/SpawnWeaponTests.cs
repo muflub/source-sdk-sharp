@@ -21,7 +21,7 @@ public class SpawnWeaponTests
     private static Arsenal Kitted()
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", 1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", Vector.Zero)
             .Returns("Entities.GetEyeAngles", Vector.Zero)
             .Returns("Players.GetShootOrigin", new Vector(0f, 0f, 64f))
@@ -31,7 +31,7 @@ public class SpawnWeaponTests
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out var entityEngine);
         entityEngine.Strict = false;
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
         var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,

@@ -46,6 +46,7 @@ A	src/server/native/shell_standalone_base.cpp	808	919	27	CStandaloneEntity::~CSt
 A	src/server/native/shell_standalone_base.cpp	928	939	8	void SourceSharp_SetPendingPlayerEdict( edict_t *pEdict )	KEEP-OUT		engine edict in transit ClientPutInServer -> PostConstruct
 A	src/server/native/shell_standalone_base.cpp	941	946	6	edict_t *SourceSharp_ClaimPendingPlayerEdict()	KEEP-OUT		pair of the row above
 A	src/server/native/shell_standalone_base.cpp	948	958	5	void CStandaloneEntity::SetClassname( const char *pName )	KEEP-OUT		classname copy + FNV type id (must agree with NetSchema.cs)
+A	src/server/native/shell_standalone_base.cpp	480	483	3	void CStandaloneEntity::SetReportedClassname( const char *pName )	KEEP-OUT		the reported classname copy; the type id stays the class desc's (stock-ab, 2026-10-27)
 A	src/server/native/shell_standalone_base.cpp	960	964	5	uint32_t CStandaloneEntity::ManagedHandle() const	KEEP-OUT		handle -> uint
 A	src/server/native/shell_standalone_base.cpp	966	969	4	const model_t *CStandaloneEntity::GetCollisionModel()	KEEP-THUNK		ICollideable::GetCollisionModel = modelinfo->GetModel(block index)
 A	src/server/native/shell_standalone_base.cpp	971	974	4	int CStandaloneEntity::EntIndex() const	KEEP-OUT		engine->IndexOfEdict
@@ -346,6 +347,7 @@ B1	src/server/native/shell_entityapi.cpp	1432	1442	9	void SourceSharp_EntitySetG
 B1	src/server/native/shell_entityapi.cpp	1444	1449	3	void SourceSharp_EntitySetFriction( uint32_t hEntity, float flFriction )	DELETE	FuncFriction.cs / SsGib.cs need a managed friction field	empty body; s2c EntitySetFriction
 B1	src/server/native/shell_entityapi.cpp	1458	1462	5	void SourceSharp_EntitySetBounce( uint32_t hEntity, int32_t nBounces )	KEEP-OUT	-	bounce count for the native projectile stepper (surface normal lives in the step trace)
 B1	src/server/native/shell_entityapi.cpp	1471	1481	9	void SourceSharp_EntitySetOwner( uint32_t hEntity, uint32_t hOwner )	KEEP-OUT	-	owner handle on the shell (trace filters read it natively)
+B1	src/server/native/shell_entityapi.cpp	273	282	7	void SourceSharp_EntitySetClassName( uint32_t hEntity, const char *pName )	KEEP-OUT	-	the classname the shell reports (engine and FindByClassname read it natively); managed decides the rename (stock-ab, 2026-10-27)
 B1	src/server/native/shell_entityapi.cpp	1493	1543	26	void SourceSharp_EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ )	MOVE	SsPlayer / EntityRef	player ? origin+view offset : origin; managed owns the view offset (PlayerNetState) and the origin; crossing: none
 B1	src/server/native/shell_entityapi.cpp	1545	1582	26	void SourceSharp_EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )	MOVE	SsPlayer / EntityRef	player ? CPlayerState.v_angle : Head.Angles; crossing: a v_angle read (CPlayerState layout) until managed owns it
 B1	src/server/native/shell_entityapi.cpp	1591	1612	13	void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ )	DONE	EntityRef (midpoint of blob bounds)	T4 2026-10-26: managed reads the engine block's origin and box (EntityHead.WorldSpaceCenter; the world is at the origin with no bounds); the slot and its native body deleted

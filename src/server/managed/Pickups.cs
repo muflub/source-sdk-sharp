@@ -377,7 +377,7 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
     /// every <see cref="PickupKind.RespawnDelay"/> seconds for as long as they
     /// stand there. Measured on dm_lockdown: hit for 17, the reply reads
     /// health 100 -&gt; 83, and the next line of the log is
-    /// "ss_player#1 took 'health': 83 -&gt; 100 health".
+    /// "player#1 took 'health': 83 -&gt; 100 health".
     /// </para>
     /// </summary>
     public const float ClearanceFromSpawn = 48f;

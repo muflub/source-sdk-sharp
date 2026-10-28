@@ -11,14 +11,14 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_bolt: what the crossbow fires, stock's CCrossbowBolt (weapon_crossbow.cpp).
+/// crossbow_bolt: what the crossbow fires, stock's CCrossbowBolt (weapon_crossbow.cpp).
 ///
 /// A single target hit, hard, with no splash — which is the crossbow's whole
 /// character and the thing a hitscan stand-in could not express. It travels
 /// fast enough to feel instant at duelling range and slow enough to be led at
 /// the length of a map, and that difference IS the weapon.
 /// </summary>
-[ScriptedEntity(EntityNames.SsBolt, ScriptedEntityKind.Projectile)]
+[ScriptedEntity(EntityNames.CrossbowBolt, ScriptedEntityKind.Projectile)]
 [Precache(PrecacheKind.Sound, HitBodySound)]
 [Precache(PrecacheKind.Sound, HitWorldSound)]
 [Precache(PrecacheKind.Sound, "Weapon_Crossbow.BoltSkewer")]
@@ -118,6 +118,7 @@ public sealed class Bolt : FlyingProjectile
         Entities.SetOrigin(_glow, Origin);
         Entities.Spawn(_glow);
         Entities.SetParent(_glow, Handle);
+        Physics.SetNotSolid(_glow, true);
         (Directory.Get(_glow) as SpriteBase)?.TurnOff();
     }
 

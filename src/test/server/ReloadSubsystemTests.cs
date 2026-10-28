@@ -45,7 +45,7 @@ public class ReloadSubsystemTests
     // before and after, which is a measurement rather than a contrivance:
     //
     //   before  BlobTooShortException: PlayerNetState needs 652 byte(s) and
-    //           entity 2 ('ss_player') offers 0
+    //           entity 2 ('player') offers 0
     //           server: managed reload complete -- 478 saved, -1 restored
     //   after   478 saved, 478 restored
     //

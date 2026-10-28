@@ -89,9 +89,10 @@ inline SourceSharpScriptedKindParams_t SourceSharp_ScriptedKindParams( int nKind
 			return p;
 
 		case SOURCESHARP_SCRIPTED_EFFECT:
+			// CBaseEntity's defaults: a point entity is SOLID_NONE with no flags.
 			p.bServerOnly = false;
 			p.nSolidType = SOURCESHARP_KIND_SOLID_NONE;
-			p.nSolidFlags = SOURCESHARP_KIND_FSOLID_NOT_SOLID;
+			p.nSolidFlags = 0;
 			p.bTouchEveryTick = false;
 			return p;
 
@@ -107,7 +108,7 @@ inline SourceSharpScriptedKindParams_t SourceSharp_ScriptedKindParams( int nKind
 		default:
 			p.bServerOnly = true;
 			p.nSolidType = SOURCESHARP_KIND_SOLID_NONE;
-			p.nSolidFlags = SOURCESHARP_KIND_FSOLID_NOT_SOLID;
+			p.nSolidFlags = 0;
 			p.bTouchEveryTick = false;
 			p.bShellLess = true;
 			return p;

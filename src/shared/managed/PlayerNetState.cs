@@ -40,7 +40,7 @@ namespace SourceSharp.Shared;
 /// extension owns that).
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsPlayer)]
+[StandaloneNetState(EntityNames.Player)]
 public partial class PlayerNetState
 {
     // ---- whole words, in declaration order --------------------------------

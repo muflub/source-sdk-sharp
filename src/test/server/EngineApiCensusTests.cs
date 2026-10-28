@@ -226,7 +226,10 @@ public partial class EngineApiCensusTests
     // block's origin and box (113 - 1 = 112).
     // IShimWorldServer.AngleVectorsFromForward retired: Angles.RightUp is
     // mathlib's arithmetic, bit for bit (112 - 1 = 111).
-    private const int ServerOnly = 111;
+    // IShimEntitiesServer.EntitySetClassName joined: stock's SetClassname at
+    // spawn, the reported name apart from the class (stock-ab, 2026-10-27;
+    // 111 + 1 = 112).
+    private const int ServerOnly = 112;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

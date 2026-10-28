@@ -31,7 +31,7 @@ public class Hl2mpFragThrowTests
         float now = 10f;
         Vector swept = default;   // the hull trace meets nothing: it ends where it was asked to
         var engine = TestServices.Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", 1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 0))
             .Returns("Entities.GetEyeAngles", new Vector(0, 0, 0))
             .Returns("Entities.GetAngles", new Vector(0, 0, 0))
@@ -50,7 +50,7 @@ public class Hl2mpFragThrowTests
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = TestServices.Services(out var spawned);
         spawned.Strict = false;   // what the thrown grenade asks of its own engine is FragGrenadeTests'.
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var arsenal = new Arsenal(new RecordingLog(), new WeaponSwitchTests.SpawningEntities(engine, registry),
                                   engine, engine, engine, engine, engine, engine, engine, registry, engine, new DamageHitGroups());

@@ -976,7 +976,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_flames);
 
         // The impulse cheats (stock's CheatImpulseCommands, gone with
-        // player.cpp at the -ss_player flip). Built AFTER the arsenal it gives
+        // player.cpp at the -player flip). Built AFTER the arsenal it gives
         // through, and BEFORE the players decorator below on purpose: the
         // alive check wants the plain answer, not the arsenal's bookkeeping.
         _impulses = _services.Create<ImpulseCheats>();
@@ -2610,7 +2610,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // class -- info_player_deathmatch, info_player_start -- is of kind
         // Logical, so as of this step it HAS no shell: the resolve answered
         // NULL, the whole `if ( pSpot )` block was skipped, and the player
-        // spawned at the world origin. Measured on dm_lockdown: ss_player at
+        // spawned at the world origin. Measured on dm_lockdown: player at
         // (-3893.09, 1413.9, 0.83) before, (0, 0, 0) after, with 24 of the 118
         // engine-invisible reaches in that run coming from that one resolve.
         //
@@ -3582,7 +3582,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // ServerActivate and before any client existed. Two groups of record
         // could not match anything at that instant and were held rather than
         // dropped: the entities the managed level init creates in
-        // ServerActivate (10 ss_pickup, 9 ss_beam on dm_lockdown), and the
+        // ServerActivate (10 ss_pickup, 9 beam on dm_lockdown), and the
         // PLAYER with its viewmodel and weapons, which cannot exist before a
         // client is active because the edict they bind to is a client's.
         //

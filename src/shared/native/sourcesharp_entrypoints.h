@@ -53,7 +53,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 113 slots.
+// SERVER ONLY -- 114 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -116,6 +116,7 @@ void SourceSharp_EntitySetAngles( uint32_t hEntity, const float *pPYR );
 void SourceSharp_EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR );
 void SourceSharp_EntitySetBounce( uint32_t hEntity, int32_t nBounces );
 void SourceSharp_EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ );
+void SourceSharp_EntitySetClassName( uint32_t hEntity, const char *pName );
 void SourceSharp_EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup );
 void SourceSharp_EntitySetGravity( uint32_t hEntity, float flGravity );
 void SourceSharp_EntitySetHealth( uint32_t hEntity, int32_t nHealth );

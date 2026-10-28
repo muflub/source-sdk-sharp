@@ -30,7 +30,7 @@ public class PickupUserMessageTests
               .Returns("Entities.IsValid", true)
               .Returns("Entities.GetIndex", Slot)
               .Returns("Entities.GetHealth", health)
-              .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+              .Returns("Entities.GetClassName", EntityNames.Player)
               .Returns("Players.IsAlive", true)
               .Returns("Clock.Now", 10f)
               .Returns("Entities.IsPlayer", true)
@@ -39,7 +39,7 @@ public class PickupUserMessageTests
                        "Entities.UseTriggerBounds");
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         return (registry, engine);
     }
 

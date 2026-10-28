@@ -34,6 +34,7 @@
 #include "imanaged_areas_client.h"
 
 #include "shell_beam_render.h"
+#include "world_aligned_bounds.h"
 
 static CUtlVector<C_StandaloneEntity *> g_StandaloneClients;
 
@@ -1002,26 +1003,34 @@ int C_StandaloneEntity::DrawExtras( int flags, bool bAfterModel )
 	return pStandalone ? pStandalone->OnStandaloneDrawExtras( (uint32_t)BlockHandle().ToInt(), flags ) : -1;
 }
 
+// Turned with the entity unless world-aligned (CCollisionProperty::WorldSpaceAABB).
 void C_StandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
 {
+	Vector vecMins, vecMaxs;
+	SourceSharp_CollisionBoundsToWorld( Block().Head.SolidType, Block().Head.SolidFlags, Block().Head.Mins,
+										Block().Head.Maxs, Block().Head.Origin, Block().Head.Angles, &vecMins,
+										&vecMaxs );
 	if ( pMins )
-		*pMins = Block().Head.Origin + Block().Head.Mins;
+		*pMins = vecMins;
 	if ( pMaxs )
-		*pMaxs = Block().Head.Origin + Block().Head.Maxs;
+		*pMaxs = vecMaxs;
 }
 
+// The render box placed and turned as CCollisionProperty::CollisionAABBToWorldAABB turns
+// a box, so a turned entity's centre is where stock's WorldSpaceCenter puts it.
 void C_StandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs )
 {
-	Vector vecMins, vecMaxs;
-	GetRenderBounds( vecMins, vecMaxs );
+	Vector vecLocalMins, vecLocalMaxs;
+	GetRenderBounds( vecLocalMins, vecLocalMaxs );
 
 	// GetRenderOrigin(): a ragdoll's networked origin stays where it was thrown from.
-	const Vector &vecOrigin = GetRenderOrigin();
-
+	Vector vecMins, vecMaxs;
+	SourceSharp_CollisionBoundsToWorld( Block().Head.SolidType, Block().Head.SolidFlags, vecLocalMins, vecLocalMaxs,
+										GetRenderOrigin(), GetRenderAngles(), &vecMins, &vecMaxs );
 	if ( pMins )
-		*pMins = vecOrigin + vecMins;
+		*pMins = vecMins;
 	if ( pMaxs )
-		*pMaxs = vecOrigin + vecMaxs;
+		*pMaxs = vecMaxs;
 }
 
 // The ClientClass name pairs with the ServerClass name.

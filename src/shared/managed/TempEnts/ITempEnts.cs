@@ -365,4 +365,28 @@ public interface ITempEnts
     /// </para>
     /// </summary>
     void DispatchEffect(TeFilter filter, float delay, string effectName, in TeEffectData data);
+
+    /// <summary><c>te_beampoints.cpp</c>'s <c>TE_BeamPoints</c>: a beam between two points.</summary>
+    void BeamPoints(TeFilter filter, float delay, Vector start, Vector end, in TeBeamLook look);
+
+    /// <summary>
+    /// <c>te_beamentpoint.cpp</c>'s <c>TE_BeamEntPoint</c>: from an entity (by
+    /// index) or, where the index is 0, a point, to an entity or a point.
+    /// </summary>
+    void BeamEntPoint(TeFilter filter, float delay, int startEntity, Vector start, int endEntity, Vector end,
+                      in TeBeamLook look);
+
+    /// <summary><c>te_beaments.cpp</c>'s <c>TE_BeamEnts</c>: a beam between two entities, by index.</summary>
+    void BeamEnts(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look);
+
+    /// <summary>
+    /// <c>te_beamring.cpp</c>'s <c>TE_BeamRing</c>: a ring through two
+    /// entities. Its end width is its width and it has no fade, as stock's.
+    /// </summary>
+    void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look, int flags = 0);
 }
+
+/// <summary>What stock's <c>te-&gt;Beam*</c> calls carry after their ends: the look and life of the beam.</summary>
+public readonly record struct TeBeamLook(int ModelIndex, int HaloIndex, int StartFrame, int FrameRate, float Life,
+                                         float Width, float EndWidth, int FadeLength, float Amplitude,
+                                         int R, int G, int B, int A, int Speed);

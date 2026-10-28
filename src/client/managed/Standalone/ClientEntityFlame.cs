@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client.Standalone;
 
 /// <summary>
-/// The client half of ss_entityflame: one particle system, started where the
+/// The client half of entityflame: one particle system, started where the
 /// flame is.
 ///
 /// <para>
@@ -45,7 +45,7 @@ namespace SourceSharp.Client.Standalone;
 /// <see cref="IEngineEffects.ParticleSystemFollowPoints"/>.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsEntityFlame)]
+[ClientStandaloneEntity(EntityNames.EntityFlame)]
 public sealed class ClientEntityFlame : ClientStandaloneEntity
 {
     public ClientEntityFlame(IEngineEntityRender render, IEngineEffects effects)
@@ -57,7 +57,7 @@ public sealed class ClientEntityFlame : ClientStandaloneEntity
     /// <summary>the small effects.</summary>
     private readonly IEngineEffects Effects;
 
-    public override string ClassName => EntityNames.SsEntityFlame;
+    public override string ClassName => EntityNames.EntityFlame;
 
     /// <summary>
     /// Which control points this flame's system is kept at. Bit 0 and bit 1,
@@ -92,7 +92,7 @@ public sealed class ClientEntityFlame : ClientStandaloneEntity
             // A name no .pcf defines. Said once per flame, and worth saying:
             // the difference between "the fire did not start" and "the fire is
             // drawing somewhere you are not looking" is otherwise invisible.
-            Log.Warning($"[SourceSharp] ss_entityflame: no particle system named '{FlameRules.ParticleSystem}'\n");
+            Log.Warning($"[SourceSharp] entityflame: no particle system named '{FlameRules.ParticleSystem}'\n");
             _burning = true;
             return;
         }
@@ -108,7 +108,7 @@ public sealed class ClientEntityFlame : ClientStandaloneEntity
         // the same evidence as "this one". The MASK is in it because a flame
         // drawing at the world origin and a flame drawing at what is burning
         // are the same log line without it.
-        Log.Msg($"[SourceSharp/Client] ss_entityflame: {FlameRules.ParticleSystem}, "
+        Log.Msg($"[SourceSharp/Client] entityflame: {FlameRules.ParticleSystem}, "
               + $"control points 0x{FollowPoints:X} {(fed ? "fed" : "REFUSED")}\n");
 
         _burning = true;

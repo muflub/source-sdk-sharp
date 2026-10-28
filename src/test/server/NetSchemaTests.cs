@@ -223,7 +223,7 @@ public partial class NetSchemaTests
         // The names the gtest pins, so a change to either implementation fails
         // in both suites rather than in one.
         Assert.True(NetSchema.TypeIdOf("ss_barrel") == 0xE456BA08u
-            && NetSchema.TypeIdOf("ss_beam") == 0xB0BBBAD3u
+            && NetSchema.TypeIdOf("beam") == 0xA75279FAu
             && NetSchema.TypeIdOf("func_breakable_surf") == 0x043470C0u, "and the hierarchy classes the gtest pins too");
 
         // A COLLISION is a build-time fact about a fixed set of strings, and

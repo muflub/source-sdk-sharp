@@ -42,7 +42,7 @@ public sealed class FuncPrecipitation : ScriptedEntity
         // Nothing collides with rain and nothing draws the brush. The volume
         // still matters: it is where the weather is, and the client emits
         // across the top of it.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(false);
 
         // Rain for anything the map did not say, which is stock's default and

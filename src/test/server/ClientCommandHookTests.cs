@@ -115,7 +115,7 @@ public class ClientCommandHookTests
             // engine is attached; the tap is how the fact reads it.
             services.Require<ConsoleLines>().Tap = (text, warning) => Lines.Add((text, warning));
 
-            registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "p0");
+            registry.KeyValue(Player, EntityNames.Player, "targetname", "p0");
             var p = (SsPlayer)registry.Get(Player)!;
             p.State.BindLocal();
             p.State.Alive = true;

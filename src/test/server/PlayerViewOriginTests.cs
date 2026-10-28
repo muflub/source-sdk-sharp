@@ -36,7 +36,7 @@ public class PlayerViewOriginTests
     private const string Standalone = "Players.TryStandalonePlayerEarPosition";
 
     /// <summary>
-    /// A directory that answers <c>OfClass(ss_player)</c> with exactly the
+    /// A directory that answers <c>OfClass(player)</c> with exactly the
     /// players a test put in it, and nothing else with anything.
     /// </summary>
     private sealed class PlayersOnly : IEntityDirectory
@@ -48,9 +48,9 @@ public class PlayerViewOriginTests
         public ScriptedEntity? FindByName(string name) => null;
 
         public IEnumerable<ScriptedEntity> OfClass(string className)
-            => className == EntityNames.SsPlayer ? Players : Array.Empty<ScriptedEntity>();
+            => className == EntityNames.Player ? Players : Array.Empty<ScriptedEntity>();
 
-        public bool IsRegistered(string className) => className == EntityNames.SsPlayer;
+        public bool IsRegistered(string className) => className == EntityNames.Player;
 
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
     }
@@ -180,7 +180,7 @@ public class PlayerViewOriginTests
     public void APlayerAtAnotherEdictDoesNotAnswer()
     {
         // The routing matches on the handle's ENTRY. A body that answered with
-        // "the first ss_player in the directory" would be right with one player
+        // "the first player in the directory" would be right with one player
         // and would give both clients the same ears with two.
         var directory = new PlayersOnly();
         directory.Players.Add(PlayerAt(2, new Vector(1f, 2f, 3f), new Vector(0f, 0f, 64f)));

@@ -50,7 +50,7 @@ public class EnvBeamOriginTests
               .ReturnsEachCall("EntityRender.GetModelName", () => engine.Calls.Last().ArgAs<EntityHandle>(0) == Start ? startModel : "")
               .ReturnsEachCall("Entities.GetClassName", () => engine.Calls.Last().ArgAs<EntityHandle>(0) == Start ? startClass : "");
 
-        registry.Spawn(Beam, EntityNames.SsBeam);
+        registry.Spawn(Beam, EntityNames.Beam);
         registry.KeyValue(Owner, EntityNames.EnvBeam, "texture", "sprites/laserbeam.vmt");
         registry.KeyValue(Owner, EntityNames.EnvBeam, "LightningStart", "a");
         registry.KeyValue(Owner, EntityNames.EnvBeam, "LightningEnd", "b");

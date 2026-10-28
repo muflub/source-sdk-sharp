@@ -436,10 +436,10 @@ public class ReloadStateTests
     //
     // Two live runs reloaded a game whose console said
     //
-    //   reload: ss_player '' (281477122) could not be rebuilt (PlayerNetState
-    //     needs 692 byte(s) and entity 2 ('ss_player') offers 0)
+    //   reload: player '' (281477122) could not be rebuilt (PlayerNetState
+    //     needs 692 byte(s) and entity 2 ('player') offers 0)
     //   reload: 480 of 481 entit(ies) restored; 1 FAILED to rebuild, first
-    //     'ss_player'
+    //     'player'
     //
     // and tools/live-gate's hot-reload step PASSED on both, including its
     // "every carried entity was put back" assertion. That assertion compared

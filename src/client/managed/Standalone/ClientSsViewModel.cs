@@ -37,7 +37,7 @@ namespace SourceSharp.Client.Standalone;
 /// that the same sequence must restart.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsViewModel)]
+[ClientStandaloneEntity(EntityNames.PredictedViewModel)]
 public sealed class ClientSsViewModel : ClientStandaloneEntity
 {
     private readonly IEngineHud _screen;
@@ -57,7 +57,7 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
         _effects = effects;
     }
 
-    public override string ClassName => EntityNames.SsViewModel;
+    public override string ClassName => EntityNames.PredictedViewModel;
 
     /// <summary>The same type the server writes through, decoded per update.</summary>
     [NetState] public ViewModelNetState State = new();
@@ -137,7 +137,7 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
     /// live.</b> Two writers reach here — the server's decode and the
     /// prediction replay — and they disagree whenever the prediction
     /// mispredicts, which for this entity it does and has been logging
-    /// ("MISPREDICTION on 'ss_viewmodel' — Sequence, AnimationParity"). The
+    /// ("MISPREDICTION on 'predicted_viewmodel' — Sequence, AnimationParity"). The
     /// server's OLDER parity then arrived after the replay had already
     /// presented the newer one, and a plain inequality read that as a second
     /// restart. The animation was invisibly restarting several times per shot;

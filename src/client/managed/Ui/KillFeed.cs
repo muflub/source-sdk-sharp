@@ -180,10 +180,10 @@ public static class KillIcons
             or "physcannon" or "physics" or "combine_ball" => weapon,
         // This mod's own projectiles reach the event under their own class names
         // (DeathNotice renames only weapon_/npc_/func_ and stock's few), and stock's.
-        "frag" or "grenade_frag" or EntityNames.SsGrenade => "frag",
-        "crossbow_bolt" or EntityNames.SsBolt => "crossbow",
-        "rpg_missile" or EntityNames.SsRocket => "rpg",
-        EntityNames.SsEnergyball => "combine_ball",
+        "frag" or "grenade_frag" or EntityNames.NpcGrenadeFrag => "frag",
+        "crossbow_bolt" or EntityNames.CrossbowBolt => "crossbow",
+        "rpg_missile" or EntityNames.RpgMissile => "rpg",
+        EntityNames.PropCombineBall => "combine_ball",
         EntityNames.SsBarrel => "physics",
         "smg1_grenade" or "env_explosion" or "explosion" => "explosion",
         "world" or "worldspawn" or "" => Skull,

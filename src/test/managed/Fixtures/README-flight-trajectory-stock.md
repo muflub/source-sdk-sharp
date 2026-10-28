@@ -20,26 +20,26 @@ itself.
 
    | weapon | projectile | what it covers |
    |---|---|---|
-   | `weapon_crossbow` | `ss_bolt` | gravity scale 0.15 — the falling arm, and a terminal impact on a wall |
-   | `weapon_rpg` | `ss_rocket` | gravity scale 0 — the flat arm, and a terminal impact |
-   | `weapon_ar2` (alt) | `ss_energyball` | bounces 8 — the reflect-and-lift arm |
+   | `weapon_crossbow` | `crossbow_bolt` | gravity scale 0.15 — the falling arm, and a terminal impact on a wall |
+   | `weapon_rpg` | `rpg_missile` | gravity scale 0 — the flat arm, and a terminal impact |
+   | `weapon_ar2` (alt) | `prop_combine_ball` | bounces 8 — the reflect-and-lift arm |
 
    The AR2 is aimed **down at the floor** and the player is moved off the spawn
-   first: `ss_energyball` ends its flight on touching anything that is not its
+   first: `prop_combine_ball` ends its flight on touching anything that is not its
    shooter, and `dm_lockdown` wraps its spawn points in `trigger_multiple`, so
    a ball fired from a spawn is over after one frame and never reaches a
    surface to come off.
 4. The probe was removed and the file restored by copy (`cp` + `touch`, never
    `git checkout --`).
 
-Rows: 10 `ss_bolt`, 16 `ss_rocket`, 4 `ss_energyball`. All three branches of
+Rows: 10 `crossbow_bolt`, 16 `rpg_missile`, 4 `prop_combine_ball`. All three branches of
 `UpdateFlight` appear:
 
 | branch | rows |
 |---|---|
 | clear step (`fraction >= 1`) | 27 |
-| blocked, no bounces left (flight ends) | 2 — one `ss_bolt`, one `ss_rocket` |
-| blocked with bounces (reflect, lift, count down) | 1 — `ss_energyball`, 8 → 7 |
+| blocked, no bounces left (flight ends) | 2 — one `crossbow_bolt`, one `rpg_missile` |
+| blocked with bounces (reflect, lift, count down) | 1 — `prop_combine_ball`, 8 → 7 |
 
 ## The columns
 

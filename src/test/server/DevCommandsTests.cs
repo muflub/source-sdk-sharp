@@ -1005,7 +1005,7 @@ public class DevCommandsTests
     //-------------------------------------------------------------------------
 
     /// <summary>An engine stubbed for everything the long form of a dump reads.</summary>
-    private static RecordingEngine Dumpable(RecordingEngine engine, string className = "ss_player")
+    private static RecordingEngine Dumpable(RecordingEngine engine, string className = "player")
         => Describable(engine, className)
             .Returns("Entities.GetOrigin", Vector.Zero)
             .Returns("Entities.GetAngles", Vector.Zero)
@@ -1014,7 +1014,7 @@ public class DevCommandsTests
             .Returns("Entities.GetBounds", (Vector.Zero, Vector.Zero))
             .Returns("Entities.GetSpawnFlags", 0);
 
-    private static NetSchemaType TwoFieldSchema(string className = "ss_player")
+    private static NetSchemaType TwoFieldSchema(string className = "player")
         => NetSchemaType.Create(className, "SsPlayerState", NetSchemaShell.Standalone,
                new[]
                {
@@ -1040,7 +1040,7 @@ public class DevCommandsTests
         var (context, engine, _, directory) = Rig();
         Dumpable(engine);
         directory.Classes.Add(new ScriptedClassInfo(
-            "ss_player", "Entity", "SsPlayer",
+            "player", "Entity", "SsPlayer",
             new[] { "AddOutput", "Kill", "SetHealth" },
             new[] { "OnDeath" },
             Array.Empty<ScriptedFieldInfo>(), 1));
@@ -1061,7 +1061,7 @@ public class DevCommandsTests
         var (context, engine, _, directory) = Rig();
         Dumpable(engine);
         directory.Classes.Add(new ScriptedClassInfo(
-            "ss_player", "Entity", "SsPlayer",
+            "player", "Entity", "SsPlayer",
             Array.Empty<string>(), Array.Empty<string>(),
             Array.Empty<ScriptedFieldInfo>(), 1));
 
@@ -1100,7 +1100,7 @@ public class DevCommandsTests
         var net = new FakeNetState
         {
             Schema = schema,
-            Blob = new NetEntityBlob(true, 11, Target.Value, "ss_player", Bytes(77, 25)),
+            Blob = new NetEntityBlob(true, 11, Target.Value, "player", Bytes(77, 25)),
         };
 
         string report = Dump(context, net, Target);
@@ -1134,7 +1134,7 @@ public class DevCommandsTests
             Schema = TwoFieldSchema(),
             // Room for the first field and not the second. Native sizes the
             // blob for the greediest class, so a short one is a real fault.
-            Blob = new NetEntityBlob(true, 11, Target.Value, "ss_player", new byte[4]),
+            Blob = new NetEntityBlob(true, 11, Target.Value, "player", new byte[4]),
         };
 
         string report = Dump(context, net, Target);
@@ -1181,13 +1181,13 @@ public class DevCommandsTests
         var (context, engine, _, directory) = Rig();
         Dumpable(engine);
         directory.Classes.Add(new ScriptedClassInfo(
-            "ss_player", "Entity", "SsPlayer", new[] { "Kill" }, new[] { "OnDeath" },
+            "player", "Entity", "SsPlayer", new[] { "Kill" }, new[] { "OnDeath" },
             Array.Empty<ScriptedFieldInfo>(), 1));
 
         var net = new FakeNetState
         {
             Schema = TwoFieldSchema(),
-            Blob = new NetEntityBlob(true, 11, Target.Value, "ss_player", Bytes(77, 25)),
+            Blob = new NetEntityBlob(true, 11, Target.Value, "player", Bytes(77, 25)),
         };
 
         string report = ((DescribeCommand)Build(typeof(EntNameCommand), context, net)).Report(Target);

@@ -57,7 +57,7 @@ public class SlamArsenalTests
         bool wall = ahead != WallProbe.Nothing;
 
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", 1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f))
             .Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f))
             .Returns("Entities.GetWorldSpaceCenter", new Vector(0f, 0f, 36f))
@@ -85,7 +85,7 @@ public class SlamArsenalTests
         // What the satchel and the tripmine ask of the engine as they spawn (their
         // glow, their facing) is not under test here.
         entityEngine.Strict = false;
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
 

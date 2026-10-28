@@ -146,6 +146,8 @@ void CShimEntitiesServer::EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
 	{ return ::SourceSharp_EntitySetOwner( hEntity, hOwner ); }
 int32_t CShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea )
 	{ return ::SourceSharp_EntitiesStandalonePlayerSkyboxArea( iEdict, pOutArea ); }
+void CShimEntitiesServer::EntitySetClassName( uint32_t hEntity, const char * pName )
+	{ return ::SourceSharp_EntitySetClassName( hEntity, pName ); }
 
 uint32_t CShimEntityLifecycle::CreateEntity( const char * pClassName )
 	{ return ::SourceSharp_CreateEntity( pClassName ); }

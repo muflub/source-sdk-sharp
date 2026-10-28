@@ -105,7 +105,7 @@ public class BoltImpactTests
         registry.Services = services;
 
         var handle = new EntityHandle(1);
-        registry.Spawn(handle, EntityNames.SsBolt);
+        registry.Spawn(handle, EntityNames.CrossbowBolt);
         var bolt = (Bolt)registry.Get(handle)!;
         bolt.FiredBy(TheShooter, FiredVelocity);
         seen?.Invoke(registry, services);
@@ -499,5 +499,15 @@ public class BoltImpactTests
         Assert.Contains(engine.Calls, c => c.Member == "Entities.Create" && (string)c.Args[0]! == EntityNames.EnvSprite);
         Assert.Contains(engine.Calls, c => c.Member == "Entities.SetKeyValue" && (string)c.Args[1]! == "model"
                                            && (string)c.Args[2]! == "sprites/light_glow02_noz.vmt");
+    }
+
+    [Fact]
+    public void TheGlowIsNotSolidAsFollowEntityLeavesIt()
+    {
+        var (_, engine, _) = ABolt();
+
+        var parented = engine.Calls.Last(c => c.Member == "Entities.SetParent");
+        Assert.Contains(engine.Calls, c => c.Member == "EntityPhysics.SetNotSolid"
+                                           && (EntityHandle)c.Args[0]! == (EntityHandle)parented.Args[0]! && (bool)c.Args[1]!);
     }
 }

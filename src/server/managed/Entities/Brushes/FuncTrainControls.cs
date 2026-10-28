@@ -55,7 +55,7 @@ public sealed class FuncTrainControls : ScriptedEntity
     public override void OnSpawn()
     {
         // A volume, not an obstacle, and nothing to look at.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(false);
 
         if (Vars.ParentName.Length == 0)

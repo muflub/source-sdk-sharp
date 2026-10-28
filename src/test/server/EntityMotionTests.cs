@@ -237,7 +237,7 @@ public class EntityMotionTests
     [Fact]
     public void TheBoltsWholeFlightSurvivesBeingChainedFrameToFrame()
     {
-        var bolt = StockTrajectory().Where(r => r.ClassName == "ss_bolt").ToList();
+        var bolt = StockTrajectory().Where(r => r.ClassName == "crossbow_bolt").ToList();
 
         Assert.True(bolt.Count >= 8, $"only {bolt.Count} recorded bolt frames");
 

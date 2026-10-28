@@ -52,7 +52,7 @@ public class StunstickTests
     private static Rig Armed(string weapon, bool hit = true, IMergedAttachments? attachments = null)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f))
             .Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f))
             .Returns("Players.GetShootOrigin", new Vector(0f, 0f, 64f))
@@ -69,7 +69,7 @@ public class StunstickTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
         var temps = new RecordingTemps();

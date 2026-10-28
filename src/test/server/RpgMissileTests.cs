@@ -9,7 +9,7 @@ using static SourceSharp.Tests.TestServices;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// ss_rocket as stock HL2MP's CMissile (shared/hl2mp/weapon_rpg.cpp): a
+/// rpg_missile as stock HL2MP's CMissile (shared/hl2mp/weapon_rpg.cpp): a
 /// lofted, falling launch on w_missile_launch; ignition three tenths of a
 /// second later (w_missile, Missile.Ignite, RPG_SPEED, the shooter's flash, a
 /// rocket trail); steering for its shooter's switched-on laser dot; the blast
@@ -118,7 +118,7 @@ public class RpgMissileTests
         registry.Services = services;
         rig = new Rig(registry, engine, blast, temps, motion, origins, screens);
 
-        registry.Spawn(Missile, EntityNames.SsRocket);
+        registry.Spawn(Missile, EntityNames.RpgMissile);
         rig.Rocket.FiredFromLauncher(Shooter, Vector.Zero, grace);
         return rig;
     }
@@ -221,6 +221,17 @@ public class RpgMissileTests
 
         Assert.Contains(rig.Engine.Calls, c => c.Member == "Entities.Create" && (string)c.Args[0]! == EntityNames.EnvRockettrail);
         Assert.Contains(rig.Engine.Calls, c => c.Member == "Entities.SetParent" && (EntityHandle)c.Args[1]! == Missile);
+    }
+
+    [Fact]
+    public void TheRocketTrailIsNotSolidAsFollowEntityLeavesIt()
+    {
+        var rig = Fired();
+        rig.ThinkAt(10.3f);
+
+        var parented = rig.Engine.Calls.Last(c => c.Member == "Entities.SetParent" && (EntityHandle)c.Args[1]! == Missile);
+        Assert.Contains(rig.Engine.Calls, c => c.Member == "EntityPhysics.SetNotSolid"
+                                               && (EntityHandle)c.Args[0]! == (EntityHandle)parented.Args[0]! && (bool)c.Args[1]!);
     }
 
     [Fact]

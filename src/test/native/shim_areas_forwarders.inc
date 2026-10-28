@@ -75,10 +75,10 @@ TEST( FwdShimAreas, ShimWorldServerIs3Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimEntitiesServerIs20Slots )
+TEST( FwdShimAreas, ShimEntitiesServerIs21Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea ).slot + 1;
-	EXPECT_EQ( 20, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEntitiesServer::EntitySetClassName ).slot + 1;
+	EXPECT_EQ( 21, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEntitiesServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

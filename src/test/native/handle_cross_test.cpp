@@ -338,7 +338,7 @@ TEST( SdkEntityResolver, TheServerPartitionRecognisesAStandaloneAndNotTheWorld )
 
 TEST( SdkEntityResolver, TheDeltaIsWhatTheLiveCrashSaw )
 {
-	// gameinterface.cpp:3328 ProcessUsercmds died with rdi = the ss_player's
+	// gameinterface.cpp:3328 ProcessUsercmds died with rdi = the player's
 	// IGameEntity view, PAST the handle table's address for the same object.
 	// The number is the layout's, not this test's; what is asserted is that
 	// there IS one, so the shape being reproduced is the shape that crashed.

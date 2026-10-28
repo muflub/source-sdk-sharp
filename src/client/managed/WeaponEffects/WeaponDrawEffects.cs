@@ -177,7 +177,7 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
 
     private ClientSsViewModel? LocalViewModel(int owner)
     {
-        foreach (ClientStandaloneEntity entity in _standalones.OfClass(EntityNames.SsViewModel))
+        foreach (ClientStandaloneEntity entity in _standalones.OfClass(EntityNames.PredictedViewModel))
         {
             if (entity is ClientSsViewModel { IsLocal: true } viewModel && viewModel.State.OwnerIndex == owner)
                 return viewModel;

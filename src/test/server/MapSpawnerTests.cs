@@ -149,6 +149,7 @@ public sealed class MapSpawnerTests
         public bool SetKeyValue(EntityHandle entity, string key, string value) => _engine.SetKeyValue(entity, key, value);
         public void SetOrigin(EntityHandle h, Vector origin) => _engine.SetOrigin(h, origin);
         public void SetOwner(EntityHandle h, EntityHandle owner) => _engine.SetOwner(h, owner);
+        public void SetClassName(EntityHandle h, string className) => _engine.SetClassName(h, className);
         public void SetVelocity(EntityHandle h, Vector velocity) => _engine.SetVelocity(h, velocity);
         public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) => _engine.Teleport(h, origin, angles, zeroVelocity);
         public bool SetParent(EntityHandle child, EntityHandle parent, int parentAttachment = 0) => _engine.SetParent(child, parent, parentAttachment);

@@ -31,7 +31,7 @@ public class EnvBeamLookTests
               .ReturnsEachCall("Entities.IsValid", () => made)
               .ReturnsEachCall("Entities.Create", () => { made = true; return Beam; });
 
-        registry.Spawn(Beam, EntityNames.SsBeam);
+        registry.Spawn(Beam, EntityNames.Beam);
         registry.KeyValue(Owner, EntityNames.EnvBeam, "texture", "sprites/laserbeam.vmt");
         registry.KeyValue(Owner, EntityNames.EnvBeam, "BoltWidth", "4");
         registry.Spawn(Owner, EntityNames.EnvBeam);

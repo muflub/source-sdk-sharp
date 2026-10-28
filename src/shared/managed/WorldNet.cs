@@ -27,7 +27,7 @@ namespace SourceSharp.Shared;
 /// NOTHING HERE READS THE VALUES BACK OUT FOR NATIVE, and that is deliberate.
 /// Native reads the blob at the offsets this declaration publishes through
 /// <c>NetStateFieldOffset</c> — the mechanism that slot exists for and the one
-/// <c>standalone_player_sync.cpp</c> already uses for <c>ss_player</c>'s
+/// <c>standalone_player_sync.cpp</c> already uses for <c>player</c>'s
 /// twenty-nine fields. A second route to the same bytes would be two things to
 /// keep in agreement, which is TODO #5's rule.
 /// </para>

@@ -30,7 +30,7 @@ namespace SourceSharp.Server;
 /// registered.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsPlayer, ScriptedEntityKind.Player)]
+[ScriptedEntity(EntityNames.Player, ScriptedEntityKind.Player)]
 public sealed class SsPlayer : ScriptedEntity
 {
     /// <summary>
@@ -393,7 +393,7 @@ public sealed class SsPlayer : ScriptedEntity
         _shadows?.Init(Handle, standMin, standMax, crouchMin, crouchMax,
                                 ShadowMass, PushMassLimit, PushSpeedLimit);
 
-        Log.Msg($"[SourceSharp/C#] ss_player spawned at {Origin}, {Health} health\n");
+        Log.Msg($"[SourceSharp/C#] player spawned at {Origin}, {Health} health\n");
     }
 
     /// <summary>
@@ -993,6 +993,6 @@ public sealed class SsPlayer : ScriptedEntity
         // death cycle hands out rides on it.
         _render.SetVisible(Handle, false);
 
-        Log.Msg("[SourceSharp/C#] ss_player died\n");
+        Log.Msg("[SourceSharp/C#] player died\n");
     }
 }

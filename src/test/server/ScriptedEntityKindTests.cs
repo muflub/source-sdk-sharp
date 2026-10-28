@@ -97,8 +97,8 @@ public sealed class ScriptedEntityKindTests
             .ToArray();
 
         Assert.True(
-            players.Length == 1 && players[0] == EntityNames.SsPlayer,
-            "the Player kind must be declared by exactly ss_player, found: "
+            players.Length == 1 && players[0] == EntityNames.Player,
+            "the Player kind must be declared by exactly player, found: "
             + string.Join(", ", players));
     }
 

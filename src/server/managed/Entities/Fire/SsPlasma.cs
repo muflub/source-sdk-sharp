@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_plasma: the flame a plasma fire is made of.
+/// _plasma: the flame a plasma fire is made of.
 ///
 /// <para>
 /// <see cref="SsFiresmoke"/>'s sibling and the other half of what
@@ -38,7 +38,7 @@ namespace SourceSharp.Server;
 /// without the precache that produced it.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsPlasma, ScriptedEntityKind.Effect)]
+[ScriptedEntity(EntityNames.Plasma, ScriptedEntityKind.Effect)]
 public sealed class SsPlasma : ScriptedEntity
 {
     public SsPlasma(IEnginePrecache precache)

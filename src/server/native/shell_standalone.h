@@ -219,6 +219,14 @@ public:
 
 	void SetClassname( const char *pName );
 
+	// The name the entity reports from here on, as stock's SetClassname renames a
+	// dynamic_prop at spawn. The type id, the managed half and the network layout
+	// stay keyed to the class it was made as.
+	void SetReportedClassname( const char *pName );
+
+	// The class it was made as: what its type id, net type and schema are keyed to.
+	const char *TypeName() const { return ( m_pClass && m_pClass->pClassName ) ? m_pClass->pClassName : m_szClassname; }
+
 	virtual const char *GetEntityName() const { return m_szName; }
 
 	// Decided by managed code; stored for player movement and scaled collision.
@@ -362,7 +370,7 @@ public:
 
 	char m_szClassname[64];
 
-	// m_nTypeId is FNV-1a of m_szClassname; the other two are stamped by GetServerClass.
+	// m_nTypeId is FNV-1a of TypeName(); the other two are stamped by GetServerClass.
 	uint32 m_nTypeId;
 	uint32 m_nSchemaHash;
 	uint32 m_nPayloadWords;

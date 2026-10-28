@@ -167,6 +167,7 @@ internal sealed unsafe class DefaultEntitiesServerArea : DefaultEntitiesArea, IE
     public void EntitySetVisible(uint a0, int a1) { }
     public void EntitySetOwner(uint a0, uint a1) { }
     public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) => default;
+    public void EntitySetClassName(uint a0, byte* a1) { }
 }
 
 /// <summary><see cref="IEntityLifecycleArea"/> for a test with no engine: every call answers its default.</summary>

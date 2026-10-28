@@ -46,7 +46,7 @@ namespace SourceSharp.Server;
 /// model index and two vectors rather than twenty-four bone transforms a tick.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsRagdoll, ScriptedEntityKind.Item)]
+[ScriptedEntity(EntityNames.Hl2mpRagdoll, ScriptedEntityKind.Item)]
 public sealed class SsRagdoll : ScriptedEntity
 {
     /// <summary>

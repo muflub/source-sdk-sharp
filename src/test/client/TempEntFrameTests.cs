@@ -839,7 +839,7 @@ public class TempEntFrameTests
             Velocity = new Vector(0f, 0f, -100f),
         }, Prepared());
 
-        through.Standalones.At(3, new Named(through.Engine, EntityNames.SsPlayer));
+        through.Standalones.At(3, new Named(through.Engine, EntityNames.Player));
         through.Engine.Returns("WorldQuery.ClientTraceLine",
             Hit(0.5f, new Vector(0f, 0f, 95f), new Vector(0f, 0f, 1f), entityIndex: 3));
 
@@ -890,7 +890,7 @@ public class TempEntFrameTests
             Velocity = new Vector(0f, 0f, -100f),
         }, Prepared(), gravity: 600f);
 
-        rig.Standalones.At(3, new Named(rig.Engine, EntityNames.SsPlayer));
+        rig.Standalones.At(3, new Named(rig.Engine, EntityNames.Player));
         rig.Engine.Returns("WorldQuery.ClientTraceLine",
             Hit(0.5f, new Vector(0f, 0f, 95f), new Vector(0f, 0f, 1f), entityIndex: 3));
 

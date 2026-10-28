@@ -221,7 +221,7 @@ public class WeaponBehaviourTests
                                         out WeaponSwitchTests.SpawningEntities spawned)
     {
         var engine = TestServices.Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", 1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
             .Returns("Entities.GetEyeAngles", new Vector(0, 0, 0))
             .Returns("Players.GetShootOrigin", new Vector(0, 0, 64))
@@ -233,7 +233,7 @@ public class WeaponBehaviourTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = TestServices.Services(out _);
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         spawned = new WeaponSwitchTests.SpawningEntities(engine, registry);
         var arsenal = new Arsenal(new RecordingLog(), spawned,

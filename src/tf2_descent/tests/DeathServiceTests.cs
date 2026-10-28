@@ -163,7 +163,7 @@ public sealed class DeathServiceTests
         public ScriptedEntity? Get(EntityHandle handle) => bodies.FirstOrDefault(b => b.Handle == handle);
         public ScriptedEntity? FindByName(string name) => null;
         public IEnumerable<ScriptedEntity> OfClass(string className) => Array.Empty<ScriptedEntity>();
-        public bool IsRegistered(string className) => className == EntityNames.SsRagdoll;
+        public bool IsRegistered(string className) => className == EntityNames.Hl2mpRagdoll;
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => Array.Empty<ScriptedClassInfo>();
     }
 

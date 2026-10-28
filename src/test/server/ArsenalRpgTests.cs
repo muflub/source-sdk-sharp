@@ -32,7 +32,7 @@ public class ArsenalRpgTests
     private static Rig Armed()
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f))
             .Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f))
             .Returns("Players.GetShootOrigin", new Vector(0f, 0f, 64f))
@@ -45,7 +45,7 @@ public class ArsenalRpgTests
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out var entityEngine);
         entityEngine.Strict = false;
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
         var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,
@@ -67,7 +67,7 @@ public class ArsenalRpgTests
         rig.Arsenal.OnPlayerCommand(Player, in cmd, firstTime: true);
     }
 
-    private static Rocket? TheMissile(Rig rig) => rig.Registry.OfClass(EntityNames.SsRocket).OfType<Rocket>().SingleOrDefault();
+    private static Rocket? TheMissile(Rig rig) => rig.Registry.OfClass(EntityNames.RpgMissile).OfType<Rocket>().SingleOrDefault();
 
     private static LaserDot? TheDot(Rig rig) => rig.Registry.OfClass(EntityNames.EnvLaserdot).OfType<LaserDot>().SingleOrDefault();
 

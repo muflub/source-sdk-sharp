@@ -743,7 +743,7 @@ public sealed class ClientPlayerPrediction
 
         ClearWitnessedPoke(acknowledged);
 
-        uint typeId = NetSchema.TypeIdOf(EntityNames.SsPlayer);
+        uint typeId = NetSchema.TypeIdOf(EntityNames.Player);
 
         // THE ENGINE BLOCK COMES FROM THE ARRIVAL ON BOTH SIDES. See
         // _declaredStart: nothing predicts it, so comparing it would report the
@@ -915,7 +915,7 @@ public sealed class ClientPlayerPrediction
         if (local <= 0)
             return null;
 
-        foreach (var entity in _standalones.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in _standalones.OfClass(EntityNames.Player))
         {
             if (entity is ClientSsPlayer player &&
                 (int)(player.Handle.Value & HandleEntryMask) == local)

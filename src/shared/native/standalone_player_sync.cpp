@@ -44,7 +44,7 @@ void SourceSharp_PlayerSyncInvalidate( const char *pReason )
 // One warning per failed resolve attempt, not per field.
 static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
-	const int nOffset = ask.pfnFieldOffset( "ss_player", pField );
+	const int nOffset = ask.pfnFieldOffset( "player", pField );
 
 	if ( nOffset < 0 )
 		*pbAll = false;
@@ -54,8 +54,8 @@ static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pFiel
 
 static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
-	const int nOffset = ask.pfnFieldOffset( "ss_player", pField );
-	const int nBits = ask.pfnFieldBits( "ss_player", pField );
+	const int nOffset = ask.pfnFieldOffset( "player", pField );
+	const int nBits = ask.pfnFieldBits( "player", pField );
 
 	SourceSharpPackedField_t field = SourceSharpPayload_Place( nOffset, nBits );
 
@@ -108,7 +108,7 @@ bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields )
 
 	if ( !bAll )
 	{
-		Warning( "[SourceSharp] player sync: ss_player's fields did not all resolve — "
+		Warning( "[SourceSharp] player sync: player's fields did not all resolve — "
 				 "is PlayerNetState published on this side?\n" );
 		return false;
 	}

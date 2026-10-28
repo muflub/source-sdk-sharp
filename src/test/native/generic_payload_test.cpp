@@ -301,7 +301,7 @@ TEST( PayloadTiers, BoundariesAreTheSmallestThatFits )
 
 	// The two rows added SECOND, and the ones that matter most: nine of the
 	// twenty classes that declare anything are 40 to 68 bytes, and every one of
-	// them used to answer 256 here. ss_beam is 52 and is 126 of the 1064
+	// them used to answer 256 here. beam is 52 and is 126 of the 1064
 	// hierarchy entities on ss_sandbox.
 	EXPECT_EQ( 1, SourceSharp_TierForSize( 33 ) );
 	EXPECT_EQ( 1, SourceSharp_TierForSize( 40 ) );
@@ -555,7 +555,7 @@ TEST( ClassNameHash, MatchesTheManagedCorpus )
 	EXPECT_EQ( 0x811C9DC5u, SourceSharp_HashClassName( "" ) );
 	EXPECT_EQ( 0xE40C292Cu, SourceSharp_HashClassName( "a" ) );
 	EXPECT_EQ( 0xE456BA08u, SourceSharp_HashClassName( "ss_barrel" ) );
-	EXPECT_EQ( 0xB0BBBAD3u, SourceSharp_HashClassName( "ss_beam" ) );
+	EXPECT_EQ( 0xA75279FAu, SourceSharp_HashClassName( "beam" ) );
 	EXPECT_EQ( 0x043470C0u, SourceSharp_HashClassName( "func_breakable_surf" ) );
 
 	// NULL is the empty string's answer rather than a crash: the caller is a
@@ -576,7 +576,7 @@ TEST( TypeTable, PublishesAndLooksUpBothWays )
 	CSourceSharpTypeTable types;
 
 	ASSERT_EQ( 0, types.Publish( "ss_barrel", 1, 0xAAAAAAAAu, 40, 1 ) );
-	ASSERT_EQ( 1, types.Publish( "ss_beam", 1, 0xBBBBBBBBu, 52, 1 ) );
+	ASSERT_EQ( 1, types.Publish( "beam", 1, 0xBBBBBBBBu, 52, 1 ) );
 
 	const SourceSharpNetType_t *pBarrel = types.ByName( "ss_barrel" );
 	ASSERT_TRUE( pBarrel != NULL );
@@ -587,9 +587,9 @@ TEST( TypeTable, PublishesAndLooksUpBothWays )
 
 	// The lookup the client actually makes: four bytes off the wire back into a
 	// name. This is the whole of what replaced the 64-byte m_szClassname.
-	const SourceSharpNetType_t *pById = types.ById( SourceSharp_HashClassName( "ss_beam" ) );
+	const SourceSharpNetType_t *pById = types.ById( SourceSharp_HashClassName( "beam" ) );
 	ASSERT_TRUE( pById != NULL );
-	EXPECT_STREQ( "ss_beam", pById->szClass );
+	EXPECT_STREQ( "beam", pById->szClass );
 
 	EXPECT_TRUE( types.ById( 0xDEADBEEFu ) == NULL );
 	EXPECT_TRUE( types.ByName( "nothing_published" ) == NULL );

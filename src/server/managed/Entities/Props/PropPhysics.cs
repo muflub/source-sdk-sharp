@@ -233,8 +233,17 @@ public class PropPhysics : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverr
 
     public override void OnSpawn()
     {
+        // Condense classname's to one, except for "prop_physics_override" (CPhysicsProp::Spawn).
+        if (string.Equals(ClassName, EntityNames.PhysicsProp, StringComparison.OrdinalIgnoreCase))
+            SetClassName(EntityNames.PropPhysics);
+
         if (Vars.Model.Length > 0)
             SetModel(Vars.Model);
+
+        // Now condense all classnames to one: the override too, once the
+        // spawn has read it (CPhysicsProp::Spawn after BaseClass::Spawn).
+        if (string.Equals(ClassName, EntityNames.PropPhysicsOverride, StringComparison.OrdinalIgnoreCase))
+            SetClassName(EntityNames.PropPhysics);
 
         // CPhysicsProp::Spawn (props.cpp:2497-2500; A32): the debris flag puts the
         // prop in COLLISION_GROUP_DEBRIS before its object is made (the shell

@@ -447,7 +447,7 @@ public class StandaloneMirrorTests
     /// <para>
     /// The write was briefly gated on <c>Rerouted</c> as well as on the side,
     /// so taking the census's "before" arm stopped feeding the mirror.
-    /// <c>cs_cl_mirror_check</c> reported <c>ss_viewmodel: starts mirror=167
+    /// <c>cs_cl_mirror_check</c> reported <c>predicted_viewmodel: starts mirror=167
     /// slot=185</c> — eighteen behind, growing by one per sequence change and
     /// never recovering, because nothing in a push mirror ever resynchronises.
     /// That is the failure mode Part C2 names, produced by the measurement

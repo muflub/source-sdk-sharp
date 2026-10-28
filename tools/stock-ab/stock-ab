@@ -613,6 +613,33 @@ def ammo_delta(before, after):
     return {"pools": pools, "clip": clip}
 
 
+# A press's ammo is read once the arsenal has held still this long: longer
+# than any reload (the crossbow's lands about 1.5 s after the shot), so a
+# reload in flight is never read half done.
+ARSENAL_STILL_SECONDS = 3.0
+ARSENAL_DEADLINE_SECONDS = 12.0
+ARSENAL_POLL_SECONDS = 0.5
+
+
+def settled(read, clock=time.monotonic, sleep=time.sleep, still=ARSENAL_STILL_SECONDS,
+            deadline=ARSENAL_DEADLINE_SECONDS, poll=ARSENAL_POLL_SECONDS):
+    """read() once it has answered the same for `still` seconds; the last
+    reading, and False, if it never held that long before `deadline`."""
+    start = clock()
+    last = read()
+    since = start
+    while True:
+        now = clock()
+        if now - since >= still:
+            return last, True
+        if now - start >= deadline:
+            return last, False
+        sleep(poll)
+        reading = read()
+        if reading != last:
+            last, since = reading, clock()
+
+
 def weapon_round(stock, sharp, weapon, camera, out, tool, opts):
     """One weapon in both games: equipped, idle, primary, secondary."""
     record = {"weapon": weapon}
@@ -656,14 +683,17 @@ def weapon_round(stock, sharp, weapon, camera, out, tool, opts):
             game.cmd("host_timescale 1")
         time.sleep(1.0)
         flash = (brightest(burst["stock"]), brightest(burst["sharp"]))
-        after = {"stock": stock.arsenal(), "sharp": sharp.arsenal()}
+        after, still = {}, {}
+        for side, game in (("stock", stock), ("sharp", sharp)):
+            after[side], still[side] = settled(game.arsenal)
         sounds = {"stock": sound_names(stock.console_since(marks["stock"])),
                   "sharp": sound_names(sharp.console_since(marks["sharp"]))}
         subprocess.run(tool + ["compare", "--out", out, "--name", "%s-%s" % (weapon, attack),
                                "--title", "%s %s" % (weapon, attack), "--threshold", str(opts.threshold),
                                "--tolerance", "100", flash[0], flash[0], flash[1], flash[1]],
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        record[attack] = {side: {"ammo": ammo_delta(before[side], after[side]), "sounds": sounds[side]}
+        record[attack] = {side: {"ammo": ammo_delta(before[side], after[side]), "sounds": sounds[side],
+                                 "settled": still[side]}
                           for side in ("stock", "sharp")}
         for path in burst["stock"] + burst["sharp"]:
             os.remove(path)
@@ -919,6 +949,18 @@ def self_test():
                              "ammo": {"pistol": 150}}, sharp_arsenal
     delta = ammo_delta(arsenal, sharp_arsenal)
     assert delta == {"pools": {}, "clip": -1}, delta
+    # settled: a reading that changes mid-wait restarts the still clock, and
+    # one that never holds runs out at the deadline, saying so.
+    t = [0.0]
+    readings = iter([1, 1, 0, 0, 0, 1] + [1] * 20)
+    got = settled(lambda: next(readings), clock=lambda: t[0],
+                  sleep=lambda d: t.__setitem__(0, t[0] + d), still=2.0, deadline=12.0, poll=0.5)
+    assert got == (1, True) and t[0] == 2.5 + 2.0, (got, t[0])
+    t = [0.0]
+    flips = iter(range(100))
+    got = settled(lambda: next(flips), clock=lambda: t[0],
+                  sleep=lambda d: t.__setitem__(0, t[0] + d), still=2.0, deadline=5.0, poll=0.5)
+    assert got[1] is False and t[0] == 5.0, (got, t[0])
     assert sound_names(["(sv) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 1)",
                         "(cl) EmitSound:  Raw wave emitted 'weapons/x.wav' (ent 3)", "noise"]) == \
         ["sv:Weapon_Pistol.Single", "cl:weapons/x.wav"]

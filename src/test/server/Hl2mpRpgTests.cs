@@ -126,7 +126,7 @@ public class Hl2mpRpgTests
 
         rig.Machine.RunCommand(rig.W, rig.Vm, Attack, 11.1f, effectsLive: true);
 
-        Assert.Equal(new[] { EntityNames.SsRocket }, rig.Arms.Missiles);
+        Assert.Equal(new[] { EntityNames.RpgMissile }, rig.Arms.Missiles);
         Assert.Equal(2, rig.W.Reserve);
         Assert.Equal(new[] { "Weapon_RPG.Single" }, rig.Arms.Sounds);
         Assert.Equal(RpgActivity.Primary, RpgState.Activity(rig.W.Special));

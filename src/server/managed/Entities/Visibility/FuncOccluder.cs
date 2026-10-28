@@ -49,7 +49,7 @@ public sealed class FuncOccluder : ScriptedEntity
     {
         // Nothing collides with it and nothing draws it. Both are stock:
         // SOLID_NONE, MOVETYPE_NONE, and a client half that declines to draw.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(false);
 
         State.Index  = Vars.OccluderNumber < 0 ? 0u : (uint)Vars.OccluderNumber;

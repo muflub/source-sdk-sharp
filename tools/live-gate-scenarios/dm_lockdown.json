@@ -56,12 +56,12 @@
     "mustHold":    [ "ss_te_tester" ],
     "_switchedPairs": [
       "Classes whose count is a lamp's STATE: a lit point_spotlight owns one",
-      "spotlight_end and one ss_beam. The weighed plate's drum lights one about",
+      "spotlight_end and one beam. The weighed plate's drum lights one about",
       "0.6s after level start and, in 9 of 40 visits (reload-probe, f48aeb1),",
       "leaves the plate and douses it at ~8s. The cross-visit equality forgives the two",
       "moving together and nothing else (census_drift in tools/live-gate)."
     ],
-    "switchedPairs": { "spotlight_end": "ss_beam" },
+    "switchedPairs": { "spotlight_end": "beam" },
     "_renderPoses": [
       "render-plan-sandbox compares at the spawn the client joins at and at these: under the",
       "mirror pool's surface (the under-water fixture's pose). ss_sandbox's view lists hold",
@@ -73,9 +73,9 @@
     ]
   },
 
-  "playerClass":  "ss_player",
+  "playerClass":  "player",
   "weaponClass":  "ss_weapon",
-  "ragdollClass": "ss_ragdoll",
+  "ragdollClass": "hl2mp_ragdoll",
 
   "_openFloor": [
     "Flat, walled-off floor in the yard south of the showers. The player is put",
@@ -166,7 +166,7 @@
     "",
     "FIRED FLAT, pitch 0, along openFloorAngles' yaw. The yard's far wall is",
     "367 units away at eye height and that is what step 2f's separate probe",
-    "recorded for both ss_bolt and ss_rocket standing here. At the scenario's",
+    "recorded for both crossbow_bolt and rpg_missile standing here. At the scenario's",
     "own 25-degrees-down angle a bolt is in the floor after 123.9 units, which",
     "is why this step sets its own pitch instead of reusing openFloorAngles.",
     "",
@@ -224,7 +224,7 @@
   ],
   "projectile": {
     "weapon":         "weapon_crossbow",
-    "class":          "ss_bolt",
+    "class":          "crossbow_bolt",
     "pitch":          0,
     "fireSeconds":    5.0,
     "settleSeconds":  1.5,

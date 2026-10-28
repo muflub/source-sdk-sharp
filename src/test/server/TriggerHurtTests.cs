@@ -159,8 +159,8 @@ public class TriggerHurtRadiationTests
         services.AddInstance<IEntityDirectory>(registry);
         services.AddInstance(new PvsCheckClient(registry, engine, engine));
         registry.Services = services;
-        registry.KeyValue(P1, EntityNames.SsPlayer, "targetname", "a");
-        registry.KeyValue(P2, EntityNames.SsPlayer, "targetname", "b");
+        registry.KeyValue(P1, EntityNames.Player, "targetname", "a");
+        registry.KeyValue(P2, EntityNames.Player, "targetname", "b");
         registry.KeyValue(Ent, EntityNames.TriggerHurt, "damagetype", ((int)DamageType.Radiation).ToString());
         registry.Spawn(Ent, EntityNames.TriggerHurt);
         Clock = t => now = t;

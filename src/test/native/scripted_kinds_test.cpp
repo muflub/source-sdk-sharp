@@ -228,6 +228,19 @@ TEST( ScriptedKindParams, EffectIsLogicalPlusAnEdict )
 }
 
 //-----------------------------------------------------------------------------
+// An effect spawns as stock's point entities do: SOLID_NONE and no solid flags.
+// The few stock classes that add FSOLID_NOT_SOLID (point_spotlight, anything
+// FollowEntity attaches) add it themselves.
+//-----------------------------------------------------------------------------
+TEST( ScriptedKindParams, EffectIsAPointEntityWithNoSolidFlags )
+{
+	SourceSharpScriptedKindParams_t effect = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT );
+
+	EXPECT_EQ( (int)SOURCESHARP_KIND_SOLID_NONE, effect.nSolidType );
+	EXPECT_EQ( 0, effect.nSolidFlags );
+}
+
+//-----------------------------------------------------------------------------
 // Nothing is solid AND a trigger AND not-solid in a combination Source rejects.
 // The one legal-looking contradiction is TRIGGER|NOT_SOLID, which is how Source
 // spells "in the trigger list, out of the solid one" — every OTHER kind that

@@ -157,7 +157,7 @@ public sealed class EnvFire : ScriptedEntity
         // particle system does not refuse -- it is simply not in the table the
         // client looks in, and nothing says so.
         //
-        // HERE rather than on ss_firesmoke, because a flame is built when a fire
+        // HERE rather than on _firesmoke, because a flame is built when a fire
         // catches and that is long after level init, which is the only moment a
         // precache is allowed. This entity is map-placed and spawns at the right
         // time.
@@ -262,7 +262,7 @@ public sealed class EnvFire : ScriptedEntity
         // by which one gets built.
         bool plasma = Vars.FireType == 1;
 
-        _effect = Entities.Create(plasma ? EntityNames.SsPlasma : EntityNames.SsFiresmoke);
+        _effect = Entities.Create(plasma ? EntityNames.Plasma : EntityNames.FireSmoke);
 
         if (!Entities.IsValid(_effect))
         {

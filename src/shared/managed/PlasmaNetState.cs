@@ -23,7 +23,7 @@ namespace SourceSharp.Shared;
 /// than assumed equal so that a mod parting them needs no wire change.
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsPlasma)]
+[StandaloneNetState(EntityNames.Plasma)]
 public partial class PlasmaNetState
 {
     /// <summary>

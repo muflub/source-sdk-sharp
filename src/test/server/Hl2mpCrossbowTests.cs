@@ -74,7 +74,7 @@ public class Hl2mpCrossbowTests
 
         machine.RunCommand(w, vm, Attack, 10f, effectsLive: true);
 
-        Assert.Equal(new[] { ("ss_bolt", 3500f, false) }, arms.Launches);
+        Assert.Equal(new[] { ("crossbow_bolt", 3500f, false) }, arms.Launches);
         Assert.Equal(new[] { "Weapon_Crossbow.Single", "Weapon_Crossbow.BoltFly" }, arms.Sounds);
         Assert.Equal(0, w.Clip);
         Assert.Equal((10.75f, 10.75f), (w.NextPrimaryAttack, w.NextSecondaryAttack));
@@ -136,7 +136,7 @@ public class Hl2mpCrossbowTests
 
         machine.RunCommand(w, vm, Attack, 10f, effectsLive: true);
 
-        Assert.Equal(new[] { ("ss_bolt", 1500f, false) }, arms.Launches);
+        Assert.Equal(new[] { ("crossbow_bolt", 1500f, false) }, arms.Launches);
     }
 
     [Fact]

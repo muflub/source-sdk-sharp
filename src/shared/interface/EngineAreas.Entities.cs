@@ -196,6 +196,13 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntitySetOwner"/>
     void SetOwner(EntityHandle h, EntityHandle owner);
 
+    /// <summary>
+    /// The classname an entity reports from here on, as stock's SetClassname
+    /// renames a dynamic_prop to prop_dynamic at spawn. The class it was made
+    /// as (its managed half and its network layout) stays.
+    /// </summary>
+    void SetClassName(EntityHandle h, string className);
+
     /// <inheritdoc cref="EngineSide.EntitySetVelocity"/>
     void SetVelocity(EntityHandle h, Vector velocity);
 
@@ -433,7 +440,7 @@ public interface IEngineEntityPhysics
     /// <inheritdoc cref="EngineSide.EntitySetCollisionGroup"/>
     void SetCollisionGroup(EntityHandle entity, CollisionGroup group);
 
-    /// <summary>a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).</summary>
+    /// <summary>a per-entity friction on the movement path is not ported (func_friction, gib ask).</summary>
     void SetFriction(EntityHandle h, float friction);
 
     /// <inheritdoc cref="EngineSide.EntitySetGravity"/>

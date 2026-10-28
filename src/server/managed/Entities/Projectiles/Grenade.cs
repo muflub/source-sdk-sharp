@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_grenade: the frag grenade, stock's CGrenadeFrag (grenade_frag.cpp) on
+/// npc_grenade_frag: the frag grenade, stock's CGrenadeFrag (grenade_frag.cpp) on
 /// CBaseGrenade's detonation (basegrenade_shared.cpp).
 ///
 /// <para>
@@ -21,7 +21,7 @@ namespace SourceSharp.Server;
 /// to the surface beneath it, the blast, a scorch, and BaseGrenade.Explode.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsGrenade, ScriptedEntityKind.Prop)]
+[ScriptedEntity(EntityNames.NpcGrenadeFrag, ScriptedEntityKind.Prop)]
 [Precache(PrecacheKind.Sound, BlipSound)]
 [Precache(PrecacheKind.Sound, ExplodeSound)]
 public sealed class Grenade : ScriptedEntity
@@ -171,6 +171,7 @@ public sealed class Grenade : ScriptedEntity
         Entities.SetOrigin(made, Origin);
         Entities.Spawn(made);
         Entities.SetParent(made, Handle, Math.Max(attachment, 0));
+        SetNotSolid(made, true);
         return made;
     }
 

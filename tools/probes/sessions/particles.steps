@@ -9,7 +9,7 @@ cmd sv_cheats 1
 cmd cs_cl_probe_pq
 cmd cs_cl_particle_report
 sleep 1
-cmd ent_create ss_firesmoke targetname c0fire
+cmd ent_create _firesmoke targetname c0fire
 sleep 6
 cmd cs_cl_particle_report
 shot fire
@@ -18,13 +18,13 @@ cmd ent_create env_explosion targetname c0boom iMagnitude 60
 sleep 1
 api fire env_explosion Explode
 sleep 3
-cmd ent_setname c0victim ss_player
+cmd ent_setname c0victim player
 cmd ent_create env_entity_igniter targetname c0ign target c0victim lifetime 10
 sleep 1
 api fire env_entity_igniter Ignite
 sleep 4
 cmd cs_cl_particle_report
-api hurt ss_player 5
+api hurt player 5
 sleep 2
 cmd cs_cl_probe_pq
 cmd disconnect

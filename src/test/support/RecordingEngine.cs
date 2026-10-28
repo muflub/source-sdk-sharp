@@ -645,6 +645,7 @@ public sealed class RecordingEngine :
     bool IEngineEntities.SetKeyValue(EntityHandle entity, string key, string value) => Record<bool>("Entities.SetKeyValue", entity, key, value);
     void IEngineEntities.SetOrigin(EntityHandle h, Vector origin) => RecordVoid("Entities.SetOrigin", h, origin);
     void IEngineEntities.SetOwner(EntityHandle h, EntityHandle owner) => RecordVoid("Entities.SetOwner", h, owner);
+    void IEngineEntities.SetClassName(EntityHandle h, string className) => RecordVoid("Entities.SetClassName", h, className);
     void IEngineEntities.SetVelocity(EntityHandle h, Vector velocity) => RecordVoid("Entities.SetVelocity", h, velocity);
     void IEngineEntities.Spawn(EntityHandle entity) => RecordVoid("Entities.Spawn", entity);
     void IEngineEntities.Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) => RecordVoid("Entities.Teleport", h, origin, angles, zeroVelocity);

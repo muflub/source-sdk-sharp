@@ -243,7 +243,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private void Compare(int acknowledged)
     {
         CompareOne(_weaponRing, _localWeapon!.State, EntityNames.SsWeapon, acknowledged);
-        CompareOne(_viewModelRing, _localViewModel!.State, EntityNames.SsViewModel, acknowledged);
+        CompareOne(_viewModelRing, _localViewModel!.State, EntityNames.PredictedViewModel, acknowledged);
     }
 
     private void CompareOne(PredictionRing ring, NetState arrivedState, string className, int acknowledged)
@@ -368,7 +368,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                 _localWeapon = weapon;
         }
 
-        foreach (var entity in _standalones.OfClass(EntityNames.SsViewModel))
+        foreach (var entity in _standalones.OfClass(EntityNames.PredictedViewModel))
         {
             if (entity is ClientSsViewModel viewModel && viewModel.State.OwnerIndex == localIndex)
                 _localViewModel = viewModel;

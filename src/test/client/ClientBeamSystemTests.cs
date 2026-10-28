@@ -276,7 +276,7 @@ public class ClientBeamSystemTests
         Assert.Equal(1, rig.Beams.Counters.Meshes);
     }
 
-    // An ss_beam's state as ClientBeam hands it over: a points beam 64 high.
+    // A beam's state as ClientBeam hands it over: a points beam 64 high.
     private static BeamInfo EntityBeam() => new()
     {
         Type = BeamType.Points,

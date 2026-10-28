@@ -10,7 +10,7 @@ namespace SourceSharp.Tests;
 ///
 /// <para>
 /// THIS EXISTS BECAUSE IT DRIFTED, and the way it failed is why a parity test
-/// is the right shape rather than care. <c>ss_plasma</c> needed
+/// is the right shape rather than care. <c>_plasma</c> needed
 /// <c>kRenderTransAddFrameBlend</c>, the mode that blends between two animation
 /// frames instead of snapping. The value was added to the managed enum as 13.
 /// It is 7.

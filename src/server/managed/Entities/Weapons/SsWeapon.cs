@@ -38,6 +38,9 @@ public sealed class SsWeapon : ScriptedEntity
     {
         State.WeaponTypeId = -1;
         State.Clip = -1;
+
+        // CBaseEntity::FollowEntity, which CBaseCombatWeapon::Equip attaches a carried weapon by.
+        SetNotSolid(true);
     }
 
     // No dressing method: Arsenal points this entity at each weapon's w_ model
@@ -58,11 +61,14 @@ public sealed class SsWeapon : ScriptedEntity
 /// is pressed rather than a round trip later.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsViewModel, ScriptedEntityKind.Effect)]
+[ScriptedEntity(EntityNames.PredictedViewModel, ScriptedEntityKind.Effect)]
 public sealed class SsViewModel : ScriptedEntity
 {
     /// <summary>The viewmodel's replicated — and predicted — state.</summary>
     [NetState] public ViewModelNetState State = new();
+
+    // CBaseEntity::FollowEntity, which CBasePlayer::CreateViewModel attaches it by.
+    public override void OnSpawn() => SetNotSolid(true);
 
     // Dressed by Arsenal through IEngineEntityRender.SetModel on every switch;
     // see SsWeapon above for why the dressing lives on the switcher's side.

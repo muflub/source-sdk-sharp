@@ -3,10 +3,10 @@
  *
  * The live bug (daily gate, 2026-10-05): the Arsenal kept every player's carry
  * -- owned weapons and clips, ammo pools, the active and last weapon, and the
- * handles of the carried ss_weapon/ss_viewmodel pair -- in a dictionary no
+ * handles of the carried ss_weapon/predicted_viewmodel pair -- in a dictionary no
  * reload carried. After cs_sv_reload every player owned nothing in managed
  * code; touching a weapon pickup they already owned then "took" it as new and
- * built a second ss_weapon and ss_viewmodel beside the first two, which the
+ * built a second ss_weapon and predicted_viewmodel beside the first two, which the
  * hot-reload step's census read as 2 entities gained. And a departing player's
  * pair stayed in the world with its owner gone, where stock's
  * CMultiplayRules::ClientDisconnected removes all their items and their view
@@ -34,7 +34,7 @@ public class ArsenalReloadTests
                               WeaponSwitchTests.SpawningEntities? sharedEntities = null)
     {
         var engine = sharedEngine ?? Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", 1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
             .Returns("Players.IsAlive", true)
             .Returns("Clock.Now", 10f).Ignores("EntityRender.LookupSequenceByActivity");
@@ -45,7 +45,7 @@ public class ArsenalReloadTests
             registry = new ScriptedEntityRegistry(TestEngines.Server());
             registry.RegisterAll(typeof(SsWeapon).Assembly);
             registry.Services = Services(out _);
-            registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+            registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         }
 
         var entities = sharedEntities ?? new WeaponSwitchTests.SpawningEntities(engine, registry);
@@ -95,7 +95,7 @@ public class ArsenalReloadTests
             $"(was {string.Join(", ", holdings)})");
         Assert.True(after.Arsenal.Pools(Player).OrderBy(p => p.Key).SequenceEqual(pools), "and the ammo pools");
         Assert.True(after.Arsenal.CarriedPair(Player) == pair && pair.Weapon != EntityHandle.None,
-            $"and the carried ss_weapon/ss_viewmodel handles ({after.Arsenal.CarriedPair(Player)}, was {pair})");
+            $"and the carried ss_weapon/predicted_viewmodel handles ({after.Arsenal.CarriedPair(Player)}, was {pair})");
         Assert.True(after.Arsenal.SwitchLast(Player) == SwitchOutcome.Switched,
             "and the last weapon, so lastinv still has somewhere to go");
     }
@@ -111,7 +111,7 @@ public class ArsenalReloadTests
 
         Assert.True(after.Entities.WeaponHandles.Count == weapons && after.Entities.ViewModelHandles.Count == viewModels,
             $"a crowbar the player already owns is a duplicate after the reload too: {after.Entities.WeaponHandles.Count - weapons} " +
-            $"new ss_weapon(s), {after.Entities.ViewModelHandles.Count - viewModels} new ss_viewmodel(s)");
+            $"new ss_weapon(s), {after.Entities.ViewModelHandles.Count - viewModels} new predicted_viewmodel(s)");
     }
 
     [Fact]

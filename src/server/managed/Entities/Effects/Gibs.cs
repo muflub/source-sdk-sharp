@@ -124,7 +124,7 @@ public sealed class Gibs
                         "See Gibs.Shoot.\n");
         }
 
-        var gib = _entities.Create(EntityNames.SsGib);
+        var gib = _entities.Create(EntityNames.Gib);
 
         // COMPARED WITH None RATHER THAN ASKED IsValid: IsValid is a live engine
         // call that resolves the handle's serial, and this handle was made half
@@ -170,7 +170,7 @@ public sealed class Gibs
     /// </summary>
     private bool ThrowRagdoll(string model, in GibShot shot)
     {
-        var body = _entities.Create(EntityNames.SsRagdoll);
+        var body = _entities.Create(EntityNames.Hl2mpRagdoll);
 
         if (body == EntityHandle.None)
         {

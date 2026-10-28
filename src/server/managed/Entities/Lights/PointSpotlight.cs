@@ -18,7 +18,7 @@ namespace SourceSharp.Server;
 /// the shaft of light you can see through the dust; and a
 /// <see cref="SpotlightEnd"/>, which is the pool on the floor. The first is a
 /// point entity nobody can see, and the other two are already managed — the
-/// beam is an <c>ss_beam</c>, the end is a C# class with its own client half.
+/// beam is a <c>beam</c>, the end is a C# class with its own client half.
 /// </para>
 ///
 /// <para>
@@ -260,7 +260,7 @@ public sealed class PointSpotlight : ScriptedEntity
 
         _lastTarget = target;
 
-        _beam = Entities.Create(EntityNames.SsBeam);
+        _beam = Entities.Create(EntityNames.Beam);
 
         if (Entities.IsValid(_beam))
         {
@@ -273,7 +273,7 @@ public sealed class PointSpotlight : ScriptedEntity
                                   (byte)Vars.Colour.X, (byte)Vars.Colour.Y, (byte)Vars.Colour.Z, 64);
             _managedBeam?.SetPoints(origin, target);
 
-            // Stock's CBeam draws whenever it exists; an ss_beam draws only
+            // Stock's CBeam draws whenever it exists; a beam draws only
             // when told to (SsBeam.Visible), and nothing told this one, so no
             // spotlight's shaft was ever drawn (SpotlightBeamTests).
             if (_managedBeam is not null)

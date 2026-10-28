@@ -54,7 +54,7 @@ void CStandaloneEntity::OnManagedSpawn()
 		return;
 
 	SourceSharpOpArgs args = EmptyOpArgs();
-	args.pText0 = GetClassname();
+	args.pText0 = TypeName();
 
 	DispatchOp( this, ENTITY_OP_SPAWN, args );
 }
@@ -65,7 +65,7 @@ bool CStandaloneEntity::OnManagedKeyValue( const char *szKeyName, const char *sz
 		return false;
 
 	SourceSharpOpArgs args = EmptyOpArgs();
-	args.pText0 = GetClassname();
+	args.pText0 = TypeName();
 	args.pText1 = szKeyName;
 	args.pText2 = szValue;
 

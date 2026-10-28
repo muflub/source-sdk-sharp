@@ -32,7 +32,7 @@ public class UiKillFeedIconTests
         }
         foreach (string n in new[]
                  {
-                     EntityNames.SsBolt, EntityNames.SsRocket, EntityNames.SsGrenade, EntityNames.SsEnergyball, EntityNames.SsBarrel,
+                     EntityNames.CrossbowBolt, EntityNames.RpgMissile, EntityNames.NpcGrenadeFrag, EntityNames.PropCombineBall, EntityNames.SsBarrel,
                      "crossbow_bolt", "rpg_missile", "grenade_frag", "smg1_grenade", "combine_ball", "physics", "world",
                  })
             names.Add(n);

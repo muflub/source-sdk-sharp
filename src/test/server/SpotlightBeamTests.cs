@@ -15,7 +15,7 @@ namespace SourceSharp.Tests;
 /// <para>
 /// Found side by side with stock (tools/stock-ab, 2026-10-25): every station
 /// beam on ss_sandbox was a green shaft in stock and nothing here, because the
-/// ss_beam a spotlight builds was never told to draw (its Visible flag
+/// beam a spotlight builds was never told to draw (its Visible flag
 /// defaults to off, and only env_laser and env_beam set it).
 /// </para>
 /// </summary>
@@ -51,7 +51,7 @@ public class SpotlightBeamTests
         // The end and the beam exist before the spotlight asks for them, so
         // that Entities.Create can hand their handles out in stock's order.
         registry.Spawn(End, EntityNames.SpotlightEnd);
-        registry.Spawn(Beam, EntityNames.SsBeam);
+        registry.Spawn(Beam, EntityNames.Beam);
 
         registry.KeyValue(Spot, EntityNames.PointSpotlight, "IgnoreSolid", "1");
         registry.KeyValue(Spot, EntityNames.PointSpotlight, "SpotlightLength", "120");

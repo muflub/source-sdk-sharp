@@ -9,7 +9,7 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// ss_gib, the managed replacement for <c>CGib</c> — <c>plan_entity.md</c>
+/// gib, the managed replacement for <c>CGib</c> — <c>plan_entity.md</c>
 /// step 4a.
 ///
 /// <para>
@@ -61,7 +61,7 @@ public class GibTests
 
         var handle = new EntityHandle(77u);
 
-        registry.Spawn(handle, EntityNames.SsGib);
+        registry.Spawn(handle, EntityNames.Gib);
         return ((SsGib)registry.Get(handle)!, engine);
     }
 

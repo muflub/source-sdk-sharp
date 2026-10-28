@@ -185,7 +185,7 @@ public sealed class PropDynamicOrnament : ScriptedEntity
         // Non-solid as well as invisible. Stock's AddSolidFlags(FSOLID_NOT_SOLID),
         // and without it a detached ornament is an invisible wall — the classic
         // symptom, and one a player finds long before a mapper does.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone(SolidFlags.NotSolid);
     }
 }
 

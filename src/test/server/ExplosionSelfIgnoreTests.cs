@@ -147,7 +147,7 @@ public class ExplosionSelfIgnoreTests
     [Fact]
     public void ARocketNamesItself()
     {
-        var (entity, engine, services) = Spawned(EntityNames.SsRocket);
+        var (entity, engine, services) = Spawned(EntityNames.RpgMissile);
 
         entity.OnTouch(AWall(engine));
 
@@ -161,8 +161,8 @@ public class ExplosionSelfIgnoreTests
     /// it, while the owner keeps the credit (lane player-msgs).
     /// </summary>
     [Theory]
-    [InlineData(EntityNames.SsRocket)]
-    [InlineData(EntityNames.SsEnergyball)]
+    [InlineData(EntityNames.RpgMissile)]
+    [InlineData(EntityNames.PropCombineBall)]
     public void A_projectile_is_its_blasts_inflictor(string className)
     {
         var (entity, engine, services) = Spawned(className, "Damage.Apply");
@@ -182,7 +182,7 @@ public class ExplosionSelfIgnoreTests
     [Fact]
     public void ARocketCarriesStocksNumbers()
     {
-        var (entity, engine, services) = Spawned(EntityNames.SsRocket);
+        var (entity, engine, services) = Spawned(EntityNames.RpgMissile);
 
         entity.OnTouch(AWall(engine));
 
@@ -198,7 +198,7 @@ public class ExplosionSelfIgnoreTests
     [Fact]
     public void AnEnergyBallNamesItself()
     {
-        var (entity, engine, services) = Spawned(EntityNames.SsEnergyball, "Damage.Apply");
+        var (entity, engine, services) = Spawned(EntityNames.PropCombineBall, "Damage.Apply");
 
         entity.OnTouch(AWall(engine));
 

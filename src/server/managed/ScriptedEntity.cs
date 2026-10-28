@@ -231,6 +231,20 @@ public abstract class ScriptedEntity
     public string ClassName { get; internal set; } = string.Empty;
 
     /// <summary>
+    /// CBaseEntity::SetClassname: the name this entity reports and is found by
+    /// from here on, in the engine and in the directory. What it was made as
+    /// stays, so a rename is only ever to another name of the same class.
+    /// </summary>
+    protected void SetClassName(string className)
+    {
+        Entities.SetClassName(Handle, className);
+        if (Owner is { } owner)
+            owner.Directory.SetClassName(this, className);
+        else
+            ClassName = className;
+    }
+
+    /// <summary>
     /// The name the mapper gave this entity, if any.
     ///
     /// <para>
@@ -1543,6 +1557,9 @@ public abstract class ScriptedEntity
     /// </summary>
     protected void SetNotSolid(bool notSolid) => Physics.SetNotSolid(Handle, notSolid);
 
+    /// <summary>FSOLID_NOT_SOLID on another entity, as FollowEntity sets it on what it attaches.</summary>
+    protected void SetNotSolid(EntityHandle entity, bool notSolid) => Physics.SetNotSolid(entity, notSolid);
+
     // EFL_NO_DAMAGE_FORCES, which the two inputs below set and clear.
     private bool _noDamageForces;
 
@@ -1787,6 +1804,13 @@ public abstract class ScriptedEntity
     /// collision model, rays its brushes.
     /// </summary>
     protected virtual SolidType BrushSolidType => SolidType.Bsp;
+
+    /// <summary>
+    /// SetSolid( SOLID_NONE ): out of every partition list, as stock leaves a
+    /// volume nothing traces or touches (func_illusionary, func_occluder, the
+    /// weather and dust volumes). Its bounds still answer.
+    /// </summary>
+    protected void SetSolidNone(SolidFlags flags = SolidFlags.None) => Entities.SetSolidity(Handle, SolidType.None, flags);
 
     /// <summary>What this brush does to something walking into it.</summary>
     protected void SetSolidity(BrushSolidity solidity)
@@ -2396,10 +2420,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     ///
     /// <list type="number">
     /// <item>the ones the managed level init creates in
-    /// <c>ServerActivate</c> — 10 <c>ss_pickup</c> and 9 <c>ss_beam</c> on
+    /// <c>ServerActivate</c> — 10 <c>ss_pickup</c> and 9 <c>beam</c> on
     /// <c>dm_lockdown</c>, measured;</item>
-    /// <item><b>the player and its kit</b> — <c>ss_player</c>,
-    /// <c>ss_viewmodel</c>, <c>ss_weapon</c> — which cannot exist before a
+    /// <item><b>the player and its kit</b> — <c>player</c>,
+    /// <c>predicted_viewmodel</c>, <c>ss_weapon</c> — which cannot exist before a
     /// client is active, because the edict they bind to is a client's.</item>
     /// </list>
     ///
@@ -4433,7 +4457,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             //
             //   EXCEPTION IN ServerReloadRestore
             //   BlobTooShortException: PlayerNetState needs 652 byte(s) and
-            //   entity 2 ('ss_player') offers 0
+            //   entity 2 ('player') offers 0
             //   server: managed reload complete -- 478 saved, -1 restored
             //
             // -- ONE entity with a zero-length blob threw out of NetState.Bind,

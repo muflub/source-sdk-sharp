@@ -198,7 +198,7 @@ public class ItemTests
     // 100 the instant they took their first damage:
     //
     //   HIT  {"healthBefore":100,"healthAfter":83}
-    //   log  [SourceSharp/Pickup] ss_player#1 took 'health': 83 -> 100 health
+    //   log  [SourceSharp/Pickup] player#1 took 'health': 83 -> 100 health
     //
     // and again every RespawnDelay seconds for as long as they stood there.
     // The rule under test is the one that makes that impossible: the pickup's

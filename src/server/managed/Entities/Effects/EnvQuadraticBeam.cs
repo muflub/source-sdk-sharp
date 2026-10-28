@@ -24,7 +24,7 @@ namespace SourceSharp.Server;
 ///
 /// <para>
 /// What is new is that managed code can now build one, the way
-/// <c>env_laser</c> builds an <c>ss_beam</c>: create the entity, find its
+/// <c>env_laser</c> builds a <c>beam</c>: create the entity, find its
 /// managed half, and set the spline. A deliberately un-wrapped factory — there
 /// is no caller for one yet, and a helper written for nobody is a helper
 /// written against a guess about who.
@@ -55,7 +55,7 @@ public sealed class EnvQuadraticBeam : ScriptedEntity
     /// The entity's own origin is set to the START as well, and that is not
     /// redundant: the shell transmits by PVS from the origin, so a beam left at
     /// the world origin would be culled for every player in the map. The same
-    /// arrangement <c>ss_beam</c> uses, and it records the same trap.
+    /// arrangement <c>beam</c> uses, and it records the same trap.
     /// </para>
     /// </summary>
     public void SetSpline(Vector start, Vector control, Vector target)

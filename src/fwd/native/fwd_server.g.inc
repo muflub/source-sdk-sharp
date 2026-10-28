@@ -1491,7 +1491,7 @@ static void *const s_ShimWorldServerSlots[] = {
 static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimEntitiesServer: 20 forwarder(s) over IShimEntitiesServer.
+// ShimEntitiesServer: 21 forwarder(s) over IShimEntitiesServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimEntities::EntityGetIndex( uint32_t )
 static int32_t SSFwd_ShimEntitiesServer_EntityGetIndex( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetIndex( a0 ); }
@@ -1533,6 +1533,8 @@ static void SSFwd_ShimEntitiesServer_EntitySetVisible( IShimEntitiesServer *self
 static void SSFwd_ShimEntitiesServer_EntitySetOwner( IShimEntitiesServer *self, uint32_t a0, uint32_t a1 ) { self->EntitySetOwner( a0, a1 ); }
 // int32_t IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t, int32_t * )
 static int32_t SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea( IShimEntitiesServer *self, int32_t a0, int32_t * a1 ) { return self->EntitiesStandalonePlayerSkyboxArea( a0, a1 ); }
+// void IShimEntitiesServer::EntitySetClassName( uint32_t, const char * )
+static void SSFwd_ShimEntitiesServer_EntitySetClassName( IShimEntitiesServer *self, uint32_t a0, const char * a1 ) { self->EntitySetClassName( a0, a1 ); }
 
 static void *const s_ShimEntitiesServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetIndex ),
@@ -1555,9 +1557,10 @@ static void *const s_ShimEntitiesServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetVisible ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetOwner ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetClassName ),
 };
 
-static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 20 };
+static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 21 };
 
 //-----------------------------------------------------------------------------
 // ShimEntityLifecycle: 14 forwarder(s) over IShimEntityLifecycle.

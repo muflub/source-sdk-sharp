@@ -27,7 +27,7 @@ public class WeaponDefaultClipTests
     private static Arsenal Arsenal()
     {
         var engine = Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", 1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
             .Returns("Players.IsAlive", true)
             .Returns("Clock.Now", 10f).Returns("EntityRender.SequenceDuration", 1f)
@@ -35,7 +35,7 @@ public class WeaponDefaultClipTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         return new Arsenal(new RecordingLog(), new WeaponSwitchTests.SpawningEntities(engine, registry), engine, engine,
                            engine, engine, engine, engine, engine, registry, engine, new DamageHitGroups());
     }

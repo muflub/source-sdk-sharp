@@ -992,7 +992,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// remove themselves during <c>Activate()</c> — decals, compile-time lights,
     /// a <c>logic_auto</c> that fires and goes — and four more are CREATED by
     /// the pass, which is the managed level-init's <c>ss_pickup</c>,
-    /// <c>ss_beam</c>, the <c>spotlight_end</c> a live <c>point_spotlight</c>
+    /// <c>beam</c>, the <c>spotlight_end</c> a live <c>point_spotlight</c>
     /// makes, and <c>player_manager</c>.
     /// </para>
     ///

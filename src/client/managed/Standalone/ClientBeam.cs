@@ -5,7 +5,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client.Standalone;
 
 /// <summary>
-/// The client half of ss_beam.
+/// The client half of beam.
 ///
 /// <para>
 /// Like <see cref="ClientBreakableSurf"/>, this does very little and is not
@@ -16,7 +16,7 @@ namespace SourceSharp.Client.Standalone;
 /// </para>
 /// <code>
 /// DataTable warning: No matching RecvTable for SendTable 'DT_ss_beam'.
-/// Client missing DT class ss_beam
+/// Client missing DT class beam
 /// </code>
 /// <para>
 /// — and then the client begins joining and stops. This file exists because
@@ -31,7 +31,7 @@ namespace SourceSharp.Client.Standalone;
 /// per frame, and the engine's own beam renderer already does it.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsBeam)]
+[ClientStandaloneEntity(EntityNames.Beam)]
 public sealed class ClientBeam : ClientStandaloneEntity
 {
     public ClientBeam(IEngineEntityRender render, IClientBeams beams)
@@ -45,7 +45,7 @@ public sealed class ClientBeam : ClientStandaloneEntity
 
 
 
-    public override string ClassName => EntityNames.SsBeam;
+    public override string ClassName => EntityNames.Beam;
 
     /// <summary>
     /// The same declaration the server writes through. Decoded by the registry
@@ -89,7 +89,7 @@ public sealed class ClientBeam : ClientStandaloneEntity
     /// In place, at this entity's DrawModel, and NOT batched: the batch runs
     /// after the frame's renderable lists are built, and the 0.01-second temp
     /// beam this used to make there joined the leaf system too late for this
-    /// frame and was retired before the next, so no ss_beam was ever drawn
+    /// frame and was retired before the next, so no beam was ever drawn
     /// (cs_cl_beams counted 0 draws; tools/stock-ab, 2026-10-25).
     /// </para>
     /// </summary>
@@ -112,7 +112,7 @@ public sealed class ClientBeam : ClientStandaloneEntity
             Amplitude = State.Noise,
             Brightness = State.Brightness,
             Speed = State.ScrollRate,
-            StartFrame = 0,
+            StartFrame = State.Frame,
             FrameRate = 0f,
             Red = State.Red,
             Green = State.Green,

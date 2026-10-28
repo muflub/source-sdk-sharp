@@ -256,9 +256,9 @@ public class SideAuditTests
 
         "ActivateOccluder", "ClientSetWorldRenderState",
         "DrawSprite", "DrawSpriteOffset",
-        // The flame: ss_plasma draws its seven sprites through the offset entry
-        // and ss_firesmoke owns a particle system between frames. Both are
-        // drawing, so both are this side only. ss_entityflame's follow mask is
+        // The flame: _plasma draws its seven sprites through the offset entry
+        // and _firesmoke owns a particle system between frames. Both are
+        // drawing, so both are this side only. entityflame's follow mask is
         // the same thing said about control points -- which point of a running
         // system is fed is a fact about the renderer's copy of it, and the
         // server has no copy.

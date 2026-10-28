@@ -69,6 +69,16 @@ internal abstract class TempEntsDouble : ITempEnts
     public virtual void Impact(TeFilter filter, float delay, Vector position,
                                Vector normal, int type) { }
 
+    public virtual void BeamPoints(TeFilter filter, float delay, Vector start, Vector end, in TeBeamLook look) { }
+
+    public virtual void BeamEntPoint(TeFilter filter, float delay, int startEntity, Vector start, int endEntity,
+                                     Vector end, in TeBeamLook look) { }
+
+    public virtual void BeamEnts(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look) { }
+
+    public virtual void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look,
+                                 int flags = 0) { }
+
     public virtual void GaussExplosion(TeFilter filter, float delay, Vector position,
                                        Vector direction, int type) { }
 

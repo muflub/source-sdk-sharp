@@ -49,7 +49,7 @@ public sealed class GameZonePlayer : ScriptedEntity
         // The brush is kept for its shape alone: nothing may walk into it and
         // nothing draws it. The volume is still there to be measured against,
         // because passable and absent are not the same thing.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(false);
     }
 

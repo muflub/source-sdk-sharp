@@ -500,6 +500,11 @@ void CStandaloneEntity::SetClassname( const char *pName )
 	m_nTypeId = SourceSharp_HashClassName( m_szClassname );
 }
 
+void CStandaloneEntity::SetReportedClassname( const char *pName )
+{
+	ss::StrCopy( m_szClassname, pName, sizeof( m_szClassname ) );
+}
+
 uint32_t CStandaloneEntity::ManagedHandle() const
 {
 	const CBaseHandle &h = GetRefEHandle();

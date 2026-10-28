@@ -37,7 +37,7 @@ namespace SourceSharp.Shared;
 ///   viewmodel share an owner, and the pairing goes through the player.
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsViewModel)]
+[StandaloneNetState(EntityNames.PredictedViewModel)]
 public partial class ViewModelNetState
 {
     /// <summary>Entindex of the player whose eyes this belongs to.</summary>

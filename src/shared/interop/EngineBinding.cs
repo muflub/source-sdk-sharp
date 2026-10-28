@@ -784,7 +784,7 @@ internal sealed unsafe partial class EngineEntityPhysics : IEngineEntityPhysics
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-    // No engine answer since plan_server_native_v2 T2: a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).
+    // No engine answer since plan_server_native_v2 T2: a per-entity friction on the movement path is not ported (func_friction, gib ask).
     public void SetFriction(EntityHandle h, float friction) { }
 }
 

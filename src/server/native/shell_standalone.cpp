@@ -514,7 +514,7 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 
 		unsigned int nWanted = 0;
 
-		if ( !SourceSharp_SchemaNeedsRestamp( SourceSharp_NetTypes(), pEnt->GetClassname(), pEnt->m_nSchemaHash,
+		if ( !SourceSharp_SchemaNeedsRestamp( SourceSharp_NetTypes(), pEnt->TypeName(), pEnt->m_nSchemaHash,
 											  &nWanted ) )
 		{
 			continue;
@@ -526,7 +526,7 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 		if ( nBlobBytes > 0 && pEnt->DataBlob() )
 			memset( pEnt->DataBlob(), 0, nBlobBytes );
 
-		const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( pEnt->GetClassname() );
+		const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( pEnt->TypeName() );
 
 		if ( pType && pType->iTier > pEnt->Tier() )
 		{
@@ -574,7 +574,7 @@ ServerClass *CStandaloneEntity::GetServerClass()
 
 	// Stamped here because the classname (factory) and type table (managed startup) both
 	// exist by the first time the engine asks.
-	const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( GetClassname() );
+	const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( TypeName() );
 
 	if ( pType )
 	{

@@ -31,7 +31,7 @@ public sealed class Trigger : ScriptedEntity
 {
     public override void OnSpawn()
     {
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(false);
     }
 }

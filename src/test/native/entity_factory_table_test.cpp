@@ -302,7 +302,7 @@ TEST( EntityFactoryTable, AReloadReinstallsEveryClassAndTheTableDoesNotGrow )
 
 	table.Install( &world, "worldspawn" );
 	table.Install( &prop, "ss_prop" );
-	table.Install( &player, "ss_player" );
+	table.Install( &player, "player" );
 	table.Install( &trigger, "ss_trigger" );
 
 	ASSERT_EQ( 4, table.Count() );
@@ -312,11 +312,11 @@ TEST( EntityFactoryTable, AReloadReinstallsEveryClassAndTheTableDoesNotGrow )
 	for ( int pass = 0; pass < 3; pass++ )
 	{
 		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &prop, "ss_prop" ) );
-		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &player, "ss_player" ) );
+		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &player, "player" ) );
 		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &trigger, "ss_trigger" ) );
 	}
 
 	EXPECT_EQ( 4, table.Count() );
-	EXPECT_EQ( &player, table.Find( "ss_player" ) );
+	EXPECT_EQ( &player, table.Find( "player" ) );
 	EXPECT_EQ( &world, table.Find( "worldspawn" ) );
 }

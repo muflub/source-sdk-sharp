@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_rocket: what the RPG fires, stock HL2MP's CMissile
+/// rpg_missile: what the RPG fires, stock HL2MP's CMissile
 /// (shared/hl2mp/weapon_rpg.cpp). The kill feed names it rpg_missile
 /// (<see cref="DeathNotice"/>).
 ///
@@ -32,7 +32,7 @@ namespace SourceSharp.Server;
 /// once. Nothing in this build deals that kind, as nothing in stock HL2MP does.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsRocket, ScriptedEntityKind.Projectile)]
+[ScriptedEntity(EntityNames.RpgMissile, ScriptedEntityKind.Projectile)]
 [Precache(PrecacheKind.Model, LaunchModel)]
 [Precache(PrecacheKind.Model, FlyingModel)]
 [Precache(PrecacheKind.Sound, IgniteSound)]
@@ -286,6 +286,7 @@ public sealed class Rocket : FlyingProjectile
         }
 
         Entities.SetParent(trail, Handle, attachment);
+        Physics.SetNotSolid(trail, true);
     }
 
     /// <summary>RocketTrail::SetLifetime( 999 ) at the creation, and ( 0.1f ) when it goes off.</summary>

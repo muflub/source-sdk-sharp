@@ -978,17 +978,6 @@ tools/stock-ab/patches' hooks) and runs it beside the test mod on
 ss_sandbox; `--map dm_lockdown` takes the census of another map. Found at
 the stock-ab branch's base 9074634e7 and still open after its fixes:
 
-- **Classname condensing.** Stock renames `dynamic_prop` and
-  `prop_dynamic_override` to `prop_dynamic`, and `physics_prop` and
-  `prop_physics_override` to `prop_physics`, as they spawn (props.cpp
-  CDynamicProp::Spawn, CPhysicsProp::Spawn). Here the classname is the
-  entity's type identity (CStandaloneEntity::SetClassname derives the type id
-  that pairs the native and managed halves and the network layout), so a
-  rename at spawn is a design question, not a port. What reads it: anything
-  that finds entities by classname (FindEntityByClassname, `ent_fire` by
-  class), and live-gate's phys-convert step, which names the class the map
-  placed. Owner: the server lane. Next: decide whether the type id may stay
-  keyed to the spawn name while the reported classname changes.
 - **Useable ladders: ported (lane stock-ab-ladders, 2026-10-25).**
   dm_lockdown's census now matches (3 func_useableladder, 14
   info_ladder_dismount, none moved), and a +USE mount, climb and top
@@ -1009,22 +998,6 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   dump the three crates every tick from map start in both games (stock's
   report comes after they have settled) and find the first tick they
   differ. Owner: the physics lane.
-- **A world hinge never makes its object hinged.** Stock's
-  `CPhysHinge::CreateConstraint` calls `BecomeHinged` on the object of a hinge
-  to the world (SF_CONSTRAINT_ASSUME_WORLD_GEOMETRY; physconstraint.cpp:724),
-  which IVP then integrates about that axis alone; PhysHinge only makes the
-  constraint. dm_lockdown's fan hinge (spawnflags 9) is one. IPhysicsObject's
-  `BecomeHinged` and `IsHinged` have no forwarder rows yet (CanPickupObject's
-  hinge test waits on the second). Owner: the physics lane.
-- **stock-ab's crossbow ammo check races the reload.** `--weapons all`
-  compares the ammo after +attack; the crossbow's reload lands either side of
-  the snapshot, so the check flips direction from run to run (2026-10-26:
-  matched 1 of 3 runs, and the two misses were opposite ways). Next: take
-  the snapshot after the weapon's next idle, not at a fixed delay.
-- **prop_dynamic may be SOLID_BSP.** PropDynamic.Apply calls the brush
-  SetSolidity after MakePhysicsStatic, which sets SOLID_BSP: the same call
-  left the wall chargers untraceable until de7b2bbd0. Next: compare stock's
-  ab_movetypes solidity for ss_sandbox's propsdyn_dyn, and drop the call if so.
 - **A wall charger shows only full and empty.** Stock holds the charger's
   "idle" cycle at 1 - juice/max (CNewWallHealth::StudioFrameAdvance,
   playback rate 0), so the tube drains as it is used; here a sequence's cycle
@@ -1033,19 +1006,6 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   a frozen cycle on the wire (the server's sequence clock to the client's
   StandaloneStoreSequence, and C_StandaloneEntity::SequenceCycle answering it
   when the rate is 0). Owner: the client lane.
-- **The client shell's surrounding box is unturned.**
-  C_StandaloneEntity::WorldSpaceSurroundingBounds and WorldSpaceTriggerBounds
-  add the box to the origin whatever the angles (the server's were fixed in
-  f252607bb). Only StandaloneFadePass reads the surrounding box, and stock's
-  fade measures from the OBB centre (cdll_util.cpp ComputeDistanceFade), so
-  for a turned, off-centre model the fade starts at a slightly different
-  distance. Next: compare the fade of a turned prop against the frozen stock
-  recordings before changing it.
-- **hud_fastswitch** is 0 in stock and 1 here: stock's slot keys open the HL2
-  weapon selection HUD (hud_weaponselection.cpp) and a click confirms; this
-  mod switches at once because it has no selection HUD.
-- **env_beam and env_laser** now draw through ClientBeam's stock path, but
-  with none of CBeam's flags, fade or halo: only point_spotlight sets them.
 
 ## Rulings and divergences recorded only here (not open work)
 
@@ -1098,7 +1058,7 @@ and where its record lives now.
   dead tempent pool (TempEntPoolRetirementTests), the serialised ABI cleanup
   (docs/abi-retirements.md, 2026-10-20), the PostRender stage (its op and walk
   went in that pass), the crossbow bolt's ragdoll pin (e9b0c2dee; divergence:
-  of two bodies on one line the nearer is pinned), ss_bolt's BoltImpact, the
+  of two bodies on one line the nearer is pinned), crossbow_bolt's BoltImpact, the
   snowfall tolerance and the client trace on props: closed 2026-10-08..19.
 - **Live-gate step fixes**: impact-damage's fall origin (tools/live-gate:2947),
   hot-reload's door (tools/live-gate:5808), spectate's ragdoll lifetime

@@ -724,18 +724,18 @@ CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &context, edict
 	if ( !pEdict )
 		return NULL;
 
-	ss::IEntityFactory *pFactory = ss::EntityFactoryDictionary()->FindFactory( "ss_player" );
+	ss::IEntityFactory *pFactory = ss::EntityFactoryDictionary()->FindFactory( "player" );
 
 	if ( !pFactory )
 	{
-		Warning( "[SourceSharp] standalone player: no 'ss_player' class was registered — "
-				 "is the managed assembly older than -ss_player?\n" );
+		Warning( "[SourceSharp] standalone player: no 'player' class was registered — "
+				 "is the managed assembly older than its player class?\n" );
 		return NULL;
 	}
 
 	SourceSharp_SetPendingPlayerEdict( context.m_Players, pEdict );
 
-	IServerNetworkable *pNet = pFactory->Create( "ss_player", context );
+	IServerNetworkable *pNet = pFactory->Create( "player", context );
 
 	// Normally claimed by PostConstruct; a failed creation must not leak it to the next entity.
 	SourceSharp_ClaimPendingPlayerEdict( context.m_Players );
@@ -743,7 +743,7 @@ CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &context, edict
 	if ( !pNet )
 		return NULL;
 
-	// The factory constructs CStandalonePlayer only for the bPlayer class, which ss_player is.
+	// The factory constructs CStandalonePlayer only for the bPlayer class, which player is.
 	CStandalonePlayer *pPlayer = SourceSharp_PlayerOf( SourceSharp_ShellOf( pNet ) );
 
 	const int nIndex = pPlayer->EntIndex();

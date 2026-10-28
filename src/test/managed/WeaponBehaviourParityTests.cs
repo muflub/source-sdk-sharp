@@ -110,7 +110,7 @@ public class WeaponBehaviourParityTests
         var created = new Queue<EntityHandle>([weapon, viewModel]);
 
         var engine = TestServices.Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", LocalPlayer)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
             .Returns("Players.IsAlive", true)
             .Returns("Clock.Now", Now).Ignores("EntityRender.LookupSequenceByActivity")
@@ -120,9 +120,9 @@ public class WeaponBehaviourParityTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = TestServices.Services(out _);
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         registry.Spawn(weapon, EntityNames.SsWeapon);
-        registry.Spawn(viewModel, EntityNames.SsViewModel);
+        registry.Spawn(viewModel, EntityNames.PredictedViewModel);
 
         var arsenal = new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
                                   engine, engine, registry, engine, new DamageHitGroups(),

@@ -45,7 +45,7 @@ public sealed class PhysCannonImpactEffect(IClientSparks sparks, IClientBeams be
 
         // Do special first-person fix-up: the attachment entity is the viewmodel.
         bool local = owner == screen.LocalPlayerIndex;
-        ClientStandaloneEntity? gun = Gun(local ? EntityNames.SsViewModel : EntityNames.SsWeapon, owner);
+        ClientStandaloneEntity? gun = Gun(local ? EntityNames.PredictedViewModel : EntityNames.SsWeapon, owner);
 
         if (gun is null || !render.GetAttachment(gun.Handle, 1, out Vector attachment, out _))
             return;

@@ -680,6 +680,12 @@ internal sealed unsafe partial class EngineEntities
         _entitiesServerArea.EntitySetOwner(h.Value, owner.Value);
     }
 
+    public void SetClassName(EntityHandle h, string className)
+    {
+        var bytes = Encoding.UTF8.GetBytes(className + "\0");
+        fixed (byte* p = bytes) { _entitiesServerArea.EntitySetClassName(h.Value, p); }
+    }
+
     public void SetVelocity(EntityHandle h, Vector velocity) => E.EntitySetVelocity(h, velocity);
     /// <summary>
     /// Spawns an entity that <see cref="CreateEntity"/> made.

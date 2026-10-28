@@ -43,7 +43,7 @@ public class PlayerMirrorTests
     [Fact]
     public void BothSayPlayerIsNoDivergence()
     {
-        Assert.Empty(Compare(EntityNames.SsPlayer, registrySaysPlayer: true));
+        Assert.Empty(Compare(EntityNames.Player, registrySaysPlayer: true));
     }
 
     [Fact]
@@ -55,10 +55,10 @@ public class PlayerMirrorTests
     [Fact]
     public void ASpawnPushThatNeverFiredIsReported()
     {
-        var rows = Compare(EntityNames.SsPlayer, registrySaysPlayer: false);
+        var rows = Compare(EntityNames.Player, registrySaysPlayer: false);
 
         Assert.True(rows.Count == 1 && !rows[0].Registry && rows[0].Slot,
-            "the engine calls it ss_player and the registry has no instance: the arsenal would "
+            "the engine calls it player and the registry has no instance: the arsenal would "
             + "refuse to serve a real player, and every pickup they walk over would fall through "
             + "to the native arm that answers nothing for a standalone");
     }
@@ -77,16 +77,16 @@ public class PlayerMirrorTests
     /// THE CASE RULE, PINNED. Stock matches classnames with <c>stricmp</c>, and
     /// a mutation arm on this project once stayed green because every fact
     /// named its subject in lower case. The comparison here is ORDINAL on
-    /// purpose: a shell that started answering <c>SS_PLAYER</c> is a divergence
+    /// purpose: a shell that started answering <c>PLAYER</c> is a divergence
     /// the gate must SEE, not one it normalises away before anybody can act on
     /// it.
     /// </summary>
     [Fact]
     public void AClassnameThatDiffersOnlyInCaseIsADivergence()
     {
-        var rows = Compare(EntityNames.SsPlayer.ToUpperInvariant(), registrySaysPlayer: true);
+        var rows = Compare(EntityNames.Player.ToUpperInvariant(), registrySaysPlayer: true);
 
-        Assert.True(rows.Count == 1 && rows[0].SlotClassName == "SS_PLAYER",
+        Assert.True(rows.Count == 1 && rows[0].SlotClassName == "PLAYER",
             "the slot's string is reported verbatim, so a case divergence is legible rather than "
             + "silently equal");
     }
@@ -214,7 +214,7 @@ public class PlayerMirrorTests
             "exactly two readings of the slot — one per direction of the walk; a pass that stops "
             + "asking the engine is a pass that agrees with managed whatever the shells did");
 
-        Assert.True(code.Contains("_directory.OfClass(EntityNames.SsPlayer)", StringComparison.Ordinal),
+        Assert.True(code.Contains("_directory.OfClass(EntityNames.Player)", StringComparison.Ordinal),
             "pass two walks what the registry holds — the direction a walk of the engine's list "
             + "structurally cannot see");
     }

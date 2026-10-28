@@ -362,7 +362,7 @@ public static class WeaponTypes
             DefaultClip = 60,   // weapon_ar2.txt's default_clip
             Secondary = new SecondaryFire(Interval: 1.5f)
             {
-                Projectile = EntityNames.SsEnergyball,
+                Projectile = EntityNames.PropCombineBall,
 
                 // Slower than the round it replaces, and it has to be: the
                 // whole point is a shot you can watch come back off a wall, and
@@ -418,7 +418,7 @@ public static class WeaponTypes
             DefaultClip = 5,   // weapon_crossbow.txt's default_clip
             // CWeaponCrossbow's fire, reload, scope and charge (the behaviour).
             Behaviour = Hl2mpWeaponBehaviours.Crossbow,
-            Projectile = "ss_bolt",
+            Projectile = "crossbow_bolt",
 
             // Stock's BOLT_AIR_VELOCITY. Fast enough to feel instant across a
             // room and slow enough to have to be led across a map — that gap IS
@@ -439,9 +439,9 @@ public static class WeaponTypes
             // CWeaponRPG: one guided missile at a time, the laser, the reload
             // its missile's death starts. The missile picks its own speeds
             // (Rocket: 300 lofted, then RPG_SPEED); this row's is RPG_SPEED for
-            // a mod that launches ss_rocket through the stock arms.
+            // a mod that launches rpg_missile through the stock arms.
             Behaviour = Hl2mpWeaponBehaviours.Rpg,
-            Projectile = "ss_rocket",
+            Projectile = "rpg_missile",
             LaunchSpeed = 1500f,
             AmmoName    = "RPG_Round",
             ViewModel   = "models/weapons/v_rpg.mdl",
@@ -456,7 +456,7 @@ public static class WeaponTypes
             // and double shots are common/null.wav, which WeaponSound never
             // plays: GetParametersForSound finds no script by that name.
             Behaviour = Hl2mpWeaponBehaviours.Frag,
-            Projectile = "ss_grenade",
+            Projectile = "npc_grenade_frag",
             LaunchSpeed = 900f,
             Thrown = true,
             AmmoName    = "Grenade",

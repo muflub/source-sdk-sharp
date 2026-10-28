@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_gib: one thrown piece of debris — <c>plan_entity.md</c> step 4a.
+/// gib: one thrown piece of debris — <c>plan_entity.md</c> step 4a.
 ///
 /// <para>
 /// IT REPLACES <c>CGib</c>, and the refusal it overturns is written down.
@@ -57,7 +57,7 @@ namespace SourceSharp.Server;
 /// chosen between.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsGib, ScriptedEntityKind.Projectile)]
+[ScriptedEntity(EntityNames.Gib, ScriptedEntityKind.Projectile)]
 public sealed class SsGib : ScriptedEntity
 {
     public SsGib(IEngineEntityPhysics physics, EntityMotion motion,

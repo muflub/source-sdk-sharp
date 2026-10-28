@@ -9,7 +9,7 @@ using static SourceSharp.Tests.ClientDoubles;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// ss_beam's client half draws as stock's C_Beam does: at its own DrawModel,
+/// beam's client half draws as stock's C_Beam does: at its own DrawModel,
 /// through <c>beams->DrawBeam( this )</c>, with the effects its server half
 /// networked.
 /// </summary>

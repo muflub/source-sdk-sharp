@@ -3,7 +3,7 @@
  *
  * The bug, as observed: death drops the active weapon as a pickup AT the
  * corpse, and the corpse's own touch took it straight back within the same
- * frame ("deployed weapon_smg1" printed under "ss_player died"). The dead
+ * frame ("deployed weapon_smg1" printed under "player died"). The dead
  * player kept an active weapon, the HUD kept painting it, and the respawn
  * inherited it on top of the loadout. A roaming dead observer also hoovered
  * a health kit at -150 health.
@@ -32,7 +32,7 @@ public class WeaponDeathTests
     private static (Arsenal arsenal, RecordingEngine engine) DeadWorld()
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Players.IsAlive", false);
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
@@ -45,7 +45,7 @@ public class WeaponDeathTests
         // plan-audit D19 measured Arsenal.IsStandalonePlayer asking the shell
         // for a classname 6.000 times a server frame and made it a registry
         // lookup. On a live server the two are the same fact -- SsPlayer IS the
-        // [ScriptedEntity] bound to "ss_player" -- but a fixture that answers
+        // [ScriptedEntity] bound to "player" -- but a fixture that answers
         // the classname and holds no instance is a player the ARSENAL can see
         // and the REGISTRY cannot, which is a state no running game is ever in.
         // The stand-in had drifted from the thing it stands in for; this is the
@@ -59,7 +59,7 @@ public class WeaponDeathTests
         // running server passes through; running OnSpawn here would put an
         // EntityRender.SetVisible into engine.Calls, which two facts in this
         // file read.
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var arsenal = new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
                                   engine, engine, registry, engine, new DamageHitGroups());
@@ -102,7 +102,7 @@ public class WeaponDeathTests
         LiveWorld()
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
             .Returns("Players.IsAlive", true)
             .Returns("Clock.Now", 10f);
@@ -117,7 +117,7 @@ public class WeaponDeathTests
         // plan-audit D19 measured Arsenal.IsStandalonePlayer asking the shell
         // for a classname 6.000 times a server frame and made it a registry
         // lookup. On a live server the two are the same fact -- SsPlayer IS the
-        // [ScriptedEntity] bound to "ss_player" -- but a fixture that answers
+        // [ScriptedEntity] bound to "player" -- but a fixture that answers
         // the classname and holds no instance is a player the ARSENAL can see
         // and the REGISTRY cannot, which is a state no running game is ever in.
         // The stand-in had drifted from the thing it stands in for; this is the
@@ -131,7 +131,7 @@ public class WeaponDeathTests
         // running server passes through; running OnSpawn here would put an
         // EntityRender.SetVisible into engine.Calls, which two facts in this
         // file read.
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
 

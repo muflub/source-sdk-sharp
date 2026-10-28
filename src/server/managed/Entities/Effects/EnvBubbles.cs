@@ -72,7 +72,7 @@ public sealed class EnvBubbles : ScriptedEntity
         // of, not a thing in the world — stock sets alpha to zero and solidity
         // to none for exactly that, and a brush shell defaults to solid.
         SetVisible(false);
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
 
         if ((SpawnFlags & StartOffFlag) != 0)
             return;

@@ -81,8 +81,8 @@ public class WeaponTests
         Assert.True(WeaponTypes.All.All(w => w.LaunchSpeed == 0f || w.Projectile.Length > 0), "no weapon launches something it did not name");
 
         // The gap this closes: both used to be hitscan.
-        Assert.True(WeaponCatalog.Stock().For("weapon_crossbow")!.Value.Projectile == EntityNames.SsBolt &&
-            WeaponCatalog.Stock().For("weapon_rpg")!.Value.Projectile == EntityNames.SsRocket, "the crossbow and the RPG launch rather than trace");
+        Assert.True(WeaponCatalog.Stock().For("weapon_crossbow")!.Value.Projectile == EntityNames.CrossbowBolt &&
+            WeaponCatalog.Stock().For("weapon_rpg")!.Value.Projectile == EntityNames.RpgMissile, "the crossbow and the RPG launch rather than trace");
 
         SecondaryFire();
     }

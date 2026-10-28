@@ -320,6 +320,7 @@ public:
 	virtual void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) = 0;
 	virtual void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) = 0;
 	virtual int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea ) = 0;
+	virtual void EntitySetClassName( uint32_t hEntity, const char *pName ) = 0;
 };
 
 abstract_class IShimCollisionServer : public IShimCollision

@@ -50,8 +50,8 @@ public class IntermissionTests
               .Ignores("PlayerMovement.SetFrozen");
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
-        registry.KeyValue(P1, EntityNames.SsPlayer, "targetname", "a");
-        registry.KeyValue(P2, EntityNames.SsPlayer, "targetname", "b");
+        registry.KeyValue(P1, EntityNames.Player, "targetname", "a");
+        registry.KeyValue(P2, EntityNames.Player, "targetname", "b");
 
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);

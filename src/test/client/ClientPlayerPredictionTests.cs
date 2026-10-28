@@ -180,7 +180,7 @@ public class ClientPlayerPredictionTests
         player.Enabled = false;
 
         // A player standing on the world with a plausible eye height, which is
-        // what a decoded ss_player looks like on the frame after it spawns.
+        // what a decoded player looks like on the frame after it spawns.
         player.State.Origin = new Vector(64f, 128f, 16f);
         player.State.ViewOffset = new Vector(0f, 0f, 64f);
         player.State.MaxSpeed = 320f;

@@ -59,7 +59,7 @@ public class PredictionRouteTests
                 standing += field.DifferingBytes;
         }
 
-        return new PredictionErrorRecord(sequence, command, 12, "ss_player", 120,
+        return new PredictionErrorRecord(sequence, command, 12, "player", 120,
             standing, 56, tolerated, DateTime.UnixEpoch, fields);
     }
 

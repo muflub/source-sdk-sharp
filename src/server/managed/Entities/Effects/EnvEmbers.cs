@@ -61,10 +61,9 @@ public sealed class EnvEmbers : ScriptedEntity
     public override void OnSpawn()
     {
         // A volume, not an obstacle, and drawn by nothing — the embers are drawn
-        // and the brush is not. The brush still has to be SOLID_BSP underneath,
-        // which is what BrushSolidity leaves it as, because the CLIENT reads its
-        // bounds to decide where an ember may appear.
-        SetSolidity(BrushSolidity.None);
+        // and the brush is not. SOLID_NONE as stock's CEmbers::Spawn leaves it:
+        // the client reads the model's bounds to decide where an ember may appear.
+        SetSolidNone();
         SetVisible(false);
 
         State.Density  = Vars.Density;

@@ -2176,10 +2176,10 @@ public static class Sandbox
         //
         // Both halves of that have gone. Parenting a standalone child to either
         // kind of parent landed in shell_standalone_hierarchy.cpp, and then the
-        // flame itself became managed (ss_entityflame), so the two entities are
+        // flame itself became managed (entityflame), so the two entities are
         // on the SAME hierarchy and the link is ordinary. Proved live rather
         // than assumed: while it burns, cs_sv_hierarchy reports
-        //   ss_entityflame '(unnamed)' -> standalone 'effects_burnme'
+        //   entityflame '(unnamed)' -> standalone 'effects_burnme'
         //   local 0.00 0.00 0.00
         // and the client says which particle system it started.
         //
@@ -4710,7 +4710,7 @@ public static class Sandbox
         //
         // Not wired to the reset button. Nothing in this build delivers world
         // fog to a client -- CBasePlayer::InitFogController and
-        // C_BasePlayer::GetFogParams both left with the -ss_player flip -- so a
+        // C_BasePlayer::GetFogParams both left with the -player flip -- so a
         // button promising a visible change would be promising one that cannot
         // happen. The entity answers its inputs and holds its state; when a fog
         // channel to the managed client exists, this is where it is driven from.
@@ -5039,7 +5039,7 @@ public static class Sandbox
         // the curve has zero length.
         //
         // What is new is that managed code can now BUILD one, the way env_laser
-        // builds an ss_beam. Nothing does yet, deliberately: a factory written
+        // builds a beam. Nothing does yet, deliberately: a factory written
         // for nobody is a factory written against a guess.
         //---------------------------------------------------------------------
         site.Ent(EntityNames.EnvQuadraticbeam, "curve", new(128f, 128f, 72f));

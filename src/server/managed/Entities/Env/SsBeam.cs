@@ -4,7 +4,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_beam: a line drawn between two points, and the first entity here whose
+/// beam: a line drawn between two points, and the first entity here whose
 /// entire client-side presence is a drawing.
 ///
 /// <para>
@@ -21,7 +21,7 @@ namespace SourceSharp.Server;
 /// one — <c>env_laser</c> being the first.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsBeam, ScriptedEntityKind.Effect)]
+[ScriptedEntity(EntityNames.Beam, ScriptedEntityKind.Effect)]
 public sealed class SsBeam : ScriptedEntity
 {
     /// <summary>
@@ -79,6 +79,27 @@ public sealed class SsBeam : ScriptedEntity
         State.HaloScale     = haloScale;
         State.HdrColorScale = hdrColorScale;
     }
+
+    /// <summary>CBeam's InputWidth: the width, and the end width with it.</summary>
+    public void SetWidth(float width, float endWidth)
+    {
+        State.Width = width;
+        State.EndWidth = endWidth;
+    }
+
+    /// <summary>CBeam::SetNoise.</summary>
+    public void SetNoise(float noise) => State.Noise = noise;
+
+    /// <summary>CBeam::SetColor: the render colour, its brightness kept.</summary>
+    public void SetColour(byte r, byte g, byte b)
+    {
+        State.Red = r;
+        State.Green = g;
+        State.Blue = b;
+    }
+
+    /// <summary>CBeam::SetFrame: the sprite frame drawn.</summary>
+    public void SetFrame(int frame) => State.Frame = frame;
 
     public override void OnSpawn()
     {

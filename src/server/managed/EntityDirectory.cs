@@ -81,6 +81,17 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     /// <summary>The classname index's key — the name the class was registered under.</summary>
     protected override string? ClassNameOf(ScriptedEntity entity) => entity.ClassName;
 
+    /// <summary>
+    /// CBaseEntity::SetClassname: <paramref name="entity"/> reports
+    /// <paramref name="className"/> from here on, and is found by it.
+    /// </summary>
+    public void SetClassName(ScriptedEntity entity, string className)
+    {
+        string was = entity.ClassName;
+        entity.ClassName = className;
+        Reclass(entity.Handle, was);
+    }
+
     /// <summary>The think heap this directory runs — <c>plan_entity.md</c> §3.5.</summary>
     public ThinkScheduler Think { get; } = new();
 

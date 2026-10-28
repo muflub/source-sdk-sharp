@@ -1345,7 +1345,7 @@ internal unsafe struct ShimWorldServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEntitiesServer</c> through its forwarders (SSFwd_ShimEntitiesServer): 20 slot(s).
+/// <c>IShimEntitiesServer</c> through its forwarders (SSFwd_ShimEntitiesServer): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEntitiesServerFwd : IForwarderTable
@@ -1412,6 +1412,9 @@ internal unsafe struct ShimEntitiesServerFwd : IForwarderTable
 
     // int32_t IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t, int32_t * )
     public delegate* unmanaged<void*, int, void*, int> EntitiesStandalonePlayerSkyboxArea;
+
+    // void IShimEntitiesServer::EntitySetClassName( uint32_t, const char * )
+    public delegate* unmanaged<void*, uint, byte*, void> EntitySetClassName;
 }
 
 /// <summary>

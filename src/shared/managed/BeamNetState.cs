@@ -19,7 +19,7 @@ namespace SourceSharp.Shared;
 /// up again.
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsBeam)]
+[StandaloneNetState(EntityNames.Beam)]
 public partial class BeamNetState
 {
     /// <summary>Where it starts. Not the entity's origin: a beam is drawn between two points, and neither has to be where it lives.</summary>
@@ -72,6 +72,9 @@ public partial class BeamNetState
 
     /// <summary>CBeam's m_flHDRColorScale. 1 is stock's default; SsBeam starts there.</summary>
     public partial float HdrColorScale { get; set; }
+
+    /// <summary>CBeam's m_flFrame: the sprite frame drawn (env_beam's framestart).</summary>
+    public partial int Frame { get; set; }
 }
 
 /// <summary>The <c>FBEAM_*</c> values a server sets in <see cref="BeamNetState.Flags"/> (beam_flags.h).</summary>

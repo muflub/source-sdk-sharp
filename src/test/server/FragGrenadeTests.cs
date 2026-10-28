@@ -9,7 +9,7 @@ using static SourceSharp.Tests.TestServices;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// ss_grenade as stock's CGrenadeFrag (grenade_frag.cpp) on CBaseGrenade's
+/// npc_grenade_frag as stock's CGrenadeFrag (grenade_frag.cpp) on CBaseGrenade's
 /// detonation (basegrenade_shared.cpp): it blips as it spawns and every
 /// second after, every 0.3 s in its last 1.5, and when its timer is up it
 /// goes off -- a fireball temp entity turned to the surface below, a blast
@@ -65,7 +65,7 @@ public class FragGrenadeTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Grenade).Assembly);
         registry.Services = services;
-        registry.Spawn(Thrown, EntityNames.SsGrenade);
+        registry.Spawn(Thrown, EntityNames.NpcGrenadeFrag);
         return new Rig(registry, engine, temps, blast, () => now, t => now = t);
     }
 
@@ -116,6 +116,17 @@ public class FragGrenadeTests
                       Key(engine, glow, "renderamt"), Key(engine, glow, "renderfx")));
         var parent = engine.Calls.Last(c => c.Member == "Entities.SetParent" && (EntityHandle)c.Args[0]! == glow);
         Assert.Equal((Thrown, 2), ((EntityHandle)parent.Args[1]!, (int)parent.Args[2]!));
+    }
+
+    [Fact]
+    public void TheGlowAndTrailAreNotSolidAsFollowEntityLeavesThem()
+    {
+        var engine = Spawned().Engine;
+        EntityHandle glow = Made(engine, EntityNames.EnvSprite), trail = Made(engine, EntityNames.EnvSpritetrail);
+
+        foreach (EntityHandle follower in new[] { glow, trail })
+            Assert.Contains(engine.Calls, c => c.Member == "EntityPhysics.SetNotSolid"
+                                               && (EntityHandle)c.Args[0]! == follower && (bool)c.Args[1]!);
     }
 
     [Fact]

@@ -20,10 +20,10 @@ namespace SourceSharp.Tests;
 ///
 /// <list type="number">
 /// <item>the entities the managed level init creates in <c>ServerActivate</c>
-/// (10 <c>ss_pickup</c> and 9 <c>ss_beam</c> on <c>dm_lockdown</c>, measured);
+/// (10 <c>ss_pickup</c> and 9 <c>beam</c> on <c>dm_lockdown</c>, measured);
 /// </item>
-/// <item><b>the player and its kit</b> — <c>ss_player</c>,
-/// <c>ss_viewmodel</c>, <c>ss_weapon</c> — because the edict they bind to
+/// <item><b>the player and its kit</b> — <c>player</c>,
+/// <c>predicted_viewmodel</c>, <c>ss_weapon</c> — because the edict they bind to
 /// belongs to a client, and no client is active yet.</item>
 /// </list>
 ///

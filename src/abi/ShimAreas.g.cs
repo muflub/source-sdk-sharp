@@ -529,6 +529,7 @@ internal unsafe interface IEntitiesServerArea : IEntitiesArea
     void EntitySetVisible(uint a0, int a1);
     void EntitySetOwner(uint a0, uint a1);
     int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1);
+    void EntitySetClassName(uint a0, byte* a1);
 }
 
 /// <summary>
@@ -560,6 +561,7 @@ internal sealed unsafe class EntitiesServerArea : EntitiesArea, IEntitiesServerA
     public void EntitySetVisible(uint a0, int a1) { _shim.Table->EntitySetVisible(_shim.Self, a0, a1); }
     public void EntitySetOwner(uint a0, uint a1) { _shim.Table->EntitySetOwner(_shim.Self, a0, a1); }
     public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) { return _shim.Table->EntitiesStandalonePlayerSkyboxArea(_shim.Self, a0, a1); }
+    public void EntitySetClassName(uint a0, byte* a1) { _shim.Table->EntitySetClassName(_shim.Self, a0, a1); }
 }
 
 /// <summary>

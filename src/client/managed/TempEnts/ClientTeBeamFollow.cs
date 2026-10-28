@@ -50,7 +50,7 @@ namespace SourceSharp.Client.TempEnts;
 /// GAIN. Following an entity IS the whole of this effect and there is no
 /// point-taking form to fall back to, so while the row was open this drew
 /// nothing at all — lane CA measured that entity 1 in this build is
-/// <c>ss_player</c>, which is managed, leaving the effect with no drawable
+/// <c>player</c>, which is managed, leaving the effect with no drawable
 /// subject anywhere. <c>IClientBeams.CreateBeamFollow</c> no longer refuses one,
 /// and the endpoint is re-resolved every frame through <c>cl_entitylist</c> so
 /// the trail tracks the entity as it moves.

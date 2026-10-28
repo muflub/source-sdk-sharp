@@ -61,7 +61,7 @@ public class WallChargerTests
               .ReturnsEachCall("EntityRender.LookupSequence",
                   () => (string)engine.Calls.Last().Args[1]! == "idle" ? 0 : 1);
 
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "user");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "user");
         registry.Spawn(Charger, className);
         return rig;
     }

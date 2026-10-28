@@ -40,7 +40,7 @@ public class WeaponMachineTests
         // the SLAM's two, eleven of the physcannon's (PhysCannonBehaviour), and
         // the pistol's accuracy penalty with its clock.
         Assert.Equal(38, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
-        Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
+        Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class WeaponMachineTests
         var state = StandaloneNetStates.Of(typeof(ViewModelNetState));
 
         Assert.Equal(1, _catalog.DescribeOffset(
-            NetSchema.TypeIdOf(EntityNames.SsViewModel), state["PlaybackRate"].Offset,
+            NetSchema.TypeIdOf(EntityNames.PredictedViewModel), state["PlaybackRate"].Offset,
             out string name, out _, out _, out _, out float tolerance));
         Assert.Equal("PlaybackRate", name);
         Assert.Equal(0.125f, tolerance); // baseviewmodel_shared.cpp's own number
@@ -303,7 +303,7 @@ public class WeaponMachineTests
         var arms = new RecordingArms();
         var row = new WeaponType("weapon_test_launcher", Interval: 1f)
         {
-            Projectile = "ss_rocket",
+            Projectile = "rpg_missile",
             LaunchSpeed = 1500f,
             AmmoName = "RPG_Round",
         };
@@ -312,7 +312,7 @@ public class WeaponMachineTests
         var (w, vm) = States("weapon_rpg", clip: -1, reserve: 2);
         w.WeaponTypeId = new WeaponCatalog(() => [new Source(row)]).IndexOf("weapon_test_launcher");
         machine.RunCommand(w, vm, Attack, now: 5f, effectsLive: true);
-        Assert.Equal(new[] { "ss_rocket" }, arms.Launches);
+        Assert.Equal(new[] { "rpg_missile" }, arms.Launches);
         Assert.Equal(1, w.Reserve);
     }
 

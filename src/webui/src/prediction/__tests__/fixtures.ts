@@ -79,7 +79,7 @@ export function record(over: Partial<PredictionRecord> = {}): PredictionRecord {
     sequence: 4020,
     command: 23824,
     typeId: 12,
-    class: 'ss_player',
+    class: 'player',
     blobBytes: 120,
     standingBytes: 14,
     firstDiffOffset: 56,

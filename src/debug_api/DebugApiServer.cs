@@ -3279,7 +3279,7 @@ public sealed class DebugApiServer : IDebugApi
 
                 // Never the world or a player: a cleanup glob that matched
                 // either would end the session it is cleaning up after.
-                if (world.GetIndex(entity) == 0 || world.GetClassName(entity) is "player" or "ss_player")
+                if (world.GetIndex(entity) == 0 || world.GetClassName(entity) is "player" or "player")
                     continue;
 
                 if (!string.IsNullOrEmpty(classGlob) && !Glob.Matches(classGlob, world.GetClassName(entity)))

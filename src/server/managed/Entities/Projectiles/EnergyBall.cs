@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_energyball: the AR2's alt-fire.
+/// prop_combine_ball: the AR2's alt-fire.
 ///
 /// Stock's combine ball, and the thing it does that no other projectile here
 /// does is SURVIVE hitting the world — it ricochets off walls and keeps going,
@@ -26,7 +26,7 @@ namespace SourceSharp.Server;
 /// makes that difference invisible.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsEnergyball, ScriptedEntityKind.Projectile)]
+[ScriptedEntity(EntityNames.PropCombineBall, ScriptedEntityKind.Projectile)]
 public sealed class EnergyBall : FlyingProjectile
 {
     public EnergyBall(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
