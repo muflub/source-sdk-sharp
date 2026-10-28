@@ -87,6 +87,10 @@ public abstract class TriggerVolume : ScriptedEntity
         SetSolidity(BrushSolidity.Trigger);
         SetVisible(false);
 
+        // InitTrigger: one that starts disabled is no trigger yet.
+        if (_disabled)
+            SetTriggerFlag(false);
+
         WarnIfNobodyIsWanted();
     }
 
@@ -142,13 +146,42 @@ public abstract class TriggerVolume : ScriptedEntity
     /// </summary>
     protected virtual void OnDisabledChanged() { }
 
+    /// <summary>CBaseTrigger::Enable and Disable, for a class that switches itself.</summary>
+    protected void SetEnabled(bool enabled) => SetDisabled(!enabled);
+
     private void SetDisabled(bool disabled)
     {
         if (disabled == _disabled)
             return;
 
         _disabled = disabled;
+        SetTriggerFlag(!disabled);
         OnDisabledChanged();
+    }
+
+    /// <summary>
+    /// Whether being on is FSOLID_TRIGGER, as CBaseTrigger's Enable and
+    /// Disable make it. trigger_brush (FL_DONTTOUCH) and the vphysics volumes
+    /// (their object's collisions) switch some other way.
+    /// </summary>
+    protected virtual bool OnIsTriggerFlag => true;
+
+    /// <summary>
+    /// CBaseTrigger::Enable and Disable: FSOLID_TRIGGER with being on. Off,
+    /// the volume leaves the frame's overlap walk, so whoever was inside is
+    /// told they left (stock fires OnEndTouch for a disabled trigger, by its
+    /// own FIXME); on again, whoever is inside arrives, as stock's
+    /// PhysicsTouchTriggers finds them.
+    /// </summary>
+    private void SetTriggerFlag(bool on)
+    {
+        if (!OnIsTriggerFlag)
+            return;
+
+        SolidFlags flags = Entities.GetSolidFlags(Handle);
+        SolidFlags wanted = on ? flags | SolidFlags.Trigger : flags & ~SolidFlags.Trigger;
+        if (wanted != flags)
+            SetSolidity(Entities.GetSolidType(Handle), wanted);
     }
 
     /// <summary>

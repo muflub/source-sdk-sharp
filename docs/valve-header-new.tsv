@@ -676,3 +676,4 @@ src/shared/managed/Bones/SequenceGraph.cs	ports GotoSequence (animation.cpp): a 
 src/server/native/edict_change.h	SourceSharp_MarkEdictChanged: ports CBaseEdict::StateChanged (edict.h) with the change accessor and change list handed in; T6 part 3
 src/server/native/edict_change.cpp	ports CBaseEdict::StateChanged( offset ) and StateChanged() (edict.h); T6 part 3
 src/client/native/standalone_model_instance.h	ports the model-change half of C_BaseEntity::SetModelPointer and C_BaseEntity::DestroyModelInstance (c_baseentity.cpp)
+src/server/managed/PlacedObjects.cs	ports CHL2MPRules::ManageObjectRelocation, AddLevelDesignerPlacedObject and GetObjectsOriginalParameters (hl2mp_gamerules.cpp): placed items and weapons sent home

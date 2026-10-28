@@ -48,6 +48,7 @@ public class CollisionGroupParityTests
             ["SS_COLLISION_GROUP_INTERACTIVE"]  = (int)CollisionGroup.Interactive,
             ["SS_COLLISION_GROUP_PROJECTILE"]   = (int)CollisionGroup.Projectile,
             ["SS_COLLISION_GROUP_BREAKABLE_GLASS"] = (int)CollisionGroup.BreakableGlass,
+            ["SS_COLLISION_GROUP_PASSABLE_DOOR"] = (int)CollisionGroup.PassableDoor,
         };
 
         Assert.True(native.Count == expected.Count,

@@ -60,6 +60,9 @@ public abstract class VPhysicsTriggerVolume : TriggerVolume
     /// <summary>InputEnable and InputDisable: the object's collisions follow the volume.</summary>
     protected override void OnDisabledChanged() => EnablePhysicsCollisions(!Disabled);
 
+    /// <summary>Never FSOLID_TRIGGER (CBaseVPhysicsTrigger::Spawn), so nothing to switch.</summary>
+    protected override bool OnIsTriggerFlag => false;
+
     /// <summary>PassesTriggerFilters: physics objects and players, then the spawnflags and the filter.</summary>
     protected override bool Passes(EntityHandle toucher)
     {

@@ -85,7 +85,8 @@ public class TriggerTests
         // recorded engine answers id 0, a refused medium -- what the static
         // engine answered here before, with no engine behind it.
         var services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType",
-                                "MotionControllers.Create", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
+                                "MotionControllers.Create", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid",
+                                "Entities.GetSolidFlags", "Entities.GetSolidType");
         // trigger_vphysics_motion reaches a player's managed flags through it.
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
@@ -164,7 +165,8 @@ public class TriggerTests
         // StartDisabled is read at spawn.
         var registry3 = new ScriptedEntityRegistry(TestEngines.Server());
         registry3.RegisterAll(typeof(TriggerMultiple).Assembly);
-        registry3.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
+        registry3.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid",
+                                      "Entities.GetSolidFlags", "Entities.GetSolidType");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "StartDisabled", "1");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "wait", "0");
         registry3.Spawn(Ent, EntityNames.TriggerMultiple);
@@ -173,6 +175,84 @@ public class TriggerTests
 
         registry3.Touch(Ent, Player);
         Assert.True(offAtStart.OnTrigger.FireCount == 0, "StartDisabled holds from spawn");
+    }
+
+    // A trigger whose solidity reads back what it was last set to: a brush's
+    // SetBrushSolidity or an explicit SetSolidity, whichever came last.
+    private static (ScriptedEntityRegistry, RecordingEngine) Solid(string className, params (string Key, string Value)[] keys)
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(TriggerMultiple).Assembly);
+        registry.Services = Services(out var engine);
+        engine.Strict = false;
+        engine.ReturnsEachCall("Entities.GetSolidFlags", () => FlagsOf(engine))
+              .ReturnsEachCall("Entities.GetSolidType", () => engine.Last("Entities.SetSolidity")?.ArgAs<SolidType>(1) ?? SolidType.Bsp);
+        foreach (var (key, value) in keys)
+            registry.KeyValue(Ent, className, key, value);
+        registry.Spawn(Ent, className);
+        return (registry, engine);
+    }
+
+    private static SolidFlags FlagsOf(RecordingEngine engine)
+    {
+        for (int i = engine.Calls.Count - 1; i >= 0; i--)
+        {
+            var call = engine.Calls[i];
+            if (call.Member == "Entities.SetSolidity")
+                return call.ArgAs<SolidFlags>(2);
+            if (call.Member == "EntityPhysics.SetBrushSolidity")
+                return call.ArgAs<BrushSolidity>(1) switch
+                {
+                    BrushSolidity.Trigger => SolidFlags.NotSolid | SolidFlags.Trigger,
+                    BrushSolidity.None => SolidFlags.NotSolid,
+                    _ => SolidFlags.None,
+                };
+        }
+
+        return SolidFlags.None;
+    }
+
+    /// <summary>
+    /// CBaseTrigger::Disable and Enable (triggers.cpp): FSOLID_TRIGGER goes
+    /// with being on, so a disabled volume leaves the engine's trigger walk
+    /// (whoever is inside is told they left, and told they arrived when it
+    /// comes back on). Found beside stock (dm_lockdown solidity census,
+    /// 2026-10-27): fan_wind and fan_gib_trigger, both disabled, were 0xc
+    /// here and 0x4 in stock.
+    /// </summary>
+    [Fact]
+    public void A_disabled_trigger_is_no_trigger_until_it_is_enabled()
+    {
+        var (registry, engine) = Solid(EntityNames.TriggerMultiple);
+        Assert.Equal(SolidFlags.NotSolid | SolidFlags.Trigger, FlagsOf(engine));
+
+        registry.Input(Ent, "Disable", "", 0f, EntityHandle.None);
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
+        Assert.Equal(SolidType.Bsp, engine.Last("Entities.SetSolidity")!.Value.ArgAs<SolidType>(1));
+        Assert.Single(engine.AllOf("Entities.SetSolidity"));
+
+        registry.Input(Ent, "Enable", "", 0f, EntityHandle.None);
+        Assert.Equal(SolidFlags.NotSolid | SolidFlags.Trigger, FlagsOf(engine));
+    }
+
+    /// <summary>InitTrigger: one keyed StartDisabled spawns without FSOLID_TRIGGER.</summary>
+    [Fact]
+    public void A_trigger_that_starts_disabled_spawns_as_no_trigger()
+    {
+        var (_, engine) = Solid(EntityNames.TriggerPush, ("StartDisabled", "1"));
+
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
+    }
+
+    /// <summary>CTriggerBrush's Disable is FL_DONTTOUCH: it stays a trigger.</summary>
+    [Fact]
+    public void A_disabled_trigger_brush_stays_a_trigger()
+    {
+        var (registry, engine) = Solid(EntityNames.TriggerBrush);
+
+        registry.Input(Ent, "Disable", "", 0f, EntityHandle.None);
+
+        Assert.Equal(SolidFlags.Trigger, FlagsOf(engine));
     }
 
     /// <summary>
@@ -245,6 +325,32 @@ public class TriggerTests
         registry.Input(Ent, "SetMagnitude", "-50", -50f, EntityHandle.None);
         registry.Input(Ent, "Impact", "", 0f, EntityHandle.None);
         Assert.True(impact.ImpactForce.LastValue == "-50 0 0", "a negative magnitude reverses it");
+    }
+
+    /// <summary>
+    /// CTriggerImpact: always starts disabled (no FSOLID_TRIGGER); Impact turns
+    /// it on for a tenth of a second, and what starts touching it then is
+    /// thrown, filter or none. Found beside stock (ss_sandbox solidity census,
+    /// 2026-10-27): ours was always on, 0xc where stock's is 0x4.
+    /// </summary>
+    [Fact]
+    public void An_impact_is_on_only_for_its_moment_and_throws_what_touches_it_then()
+    {
+        var (registry, engine) = Solid(EntityNames.TriggerImpact, ("Magnitude", "200"));
+        engine.Returns("EntityPhysics.PhysicsObject", (nint)0x1234);
+        var impact = (TriggerImpact)registry.Get(Ent)!;
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
+
+        impact.OnTouch(Other);
+        Assert.False(engine.Called("EntityPhysics.ApplyForceCenter"));
+
+        registry.Input(Ent, "Impact", "", 0f, EntityHandle.None);
+        Assert.Equal(SolidFlags.NotSolid | SolidFlags.Trigger, FlagsOf(engine));
+        impact.OnTouch(Other);
+        Assert.Equal(new Vector(200f, 0f, 0f), engine.Last("EntityPhysics.ApplyForceCenter")!.Value.ArgAs<Vector>(1));
+
+        impact.OnThink("ImpactOff");
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
     }
 
     /// <summary>

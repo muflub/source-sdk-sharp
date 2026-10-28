@@ -93,4 +93,55 @@ public class SpotlightBeamTests
 
         Assert.False(engine.Called("Entities.Remove"), "a named spotlight removes nothing");
     }
+
+    [Fact]
+    public void ASpotlightThatLostItsEndRemovesItsOldBeamBeforeBuildingANewOne()
+    {
+        // Stock's SpotlightUpdate: a target that has gone is SpotlightDestroy
+        // and then SpotlightCreate, so the beam is replaced, never doubled.
+        EntityHandle end2 = new(0x0004_0204u);
+        EntityHandle beam2 = new(0x0004_0205u);
+
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PointSpotlight).Assembly);
+        registry.Services = Services(out var engine);
+
+        var made = new Queue<EntityHandle>([End, Beam, end2, beam2]);
+        var alive = new HashSet<EntityHandle>();
+        engine.ReturnsEachCall("Entities.IsValid",
+                  () => alive.Contains((EntityHandle)engine.AllOf("Entities.IsValid").Last().Args[0]!))
+              .Returns("Entities.GetAngles", new Vector(90f, 0f, 0f))
+              .Returns("Precache.PrecacheModel", 7)
+              .Returns("Entities.GetOrigin", new Vector(1600f, 1004f, 188f))
+              .Returns("Entities.GetSpawnFlags", 1)
+              .Returns("Entities.GetName", "station_beam")
+              .ReturnsEachCall("Entities.Create", () =>
+              {
+                  EntityHandle next = made.Count > 0 ? made.Dequeue() : EntityHandle.None;
+                  alive.Add(next);
+                  return next;
+              });
+
+        registry.Spawn(End, EntityNames.SpotlightEnd);
+        registry.Spawn(Beam, EntityNames.Beam);
+        registry.Spawn(end2, EntityNames.SpotlightEnd);
+        registry.Spawn(beam2, EntityNames.Beam);
+
+        registry.KeyValue(Spot, EntityNames.PointSpotlight, "IgnoreSolid", "1");
+        registry.KeyValue(Spot, EntityNames.PointSpotlight, "SpotlightLength", "120");
+        registry.KeyValue(Spot, EntityNames.PointSpotlight, "SpotlightWidth", "14");
+        registry.Spawn(Spot, EntityNames.PointSpotlight);
+
+        registry.Think(Spot);
+        Assert.True(engine.CountOf("Entities.Create") == 2, "the spotlight never built its end and beam");
+
+        // The end goes; the beam it was paired with is still in the world.
+        alive.Remove(End);
+        registry.Think(Spot);
+
+        Assert.True(engine.CountOf("Entities.Create") == 4, "the spotlight did not rebuild after losing its end");
+        var removed = engine.AllOf("Entities.Remove").Select(c => (EntityHandle)c.Args[0]!).ToList();
+        Assert.Contains(Beam, removed);
+        Assert.DoesNotContain(beam2, removed);
+    }
 }

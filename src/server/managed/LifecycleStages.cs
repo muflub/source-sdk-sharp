@@ -95,6 +95,9 @@ public enum LifecycleStage
     /// <summary>Map and runtime pickups.</summary>
     Pickups = 200,
 
+    /// <summary>HL2MP's placed items and weapons, which hold entities until the level goes.</summary>
+    PlacedObjects = 210,
+
     /// <summary>Corpses, which hold entity handles.</summary>
     Corpses = 300,
 
@@ -403,6 +406,9 @@ public enum FrameStage
 
     /// <summary>The win check — where a mod decides the round is over.</summary>
     Rules = 300,
+
+    /// <summary>ManageObjectRelocation, which ends CHL2MPRules::Think.</summary>
+    PlacedObjects = 310,
 
     // ---- tf2 stage 0.7 (the mode proxy's warmup) ----------------------------
 

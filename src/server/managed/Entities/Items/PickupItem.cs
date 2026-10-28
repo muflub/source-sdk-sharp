@@ -14,15 +14,19 @@ namespace SourceSharp.Server;
 /// what happens when it is taken. A kind is then a handful of lines saying what
 /// it looks like and what it gives.
 /// </summary>
-public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
+public abstract class PickupItem : ScriptedEntity, IPhysGunTarget, IPlacedObject
 {
-    protected PickupItem(IEngineWorldQuery world)
+    protected PickupItem(IEngineWorldQuery world, PlacedObjects placed)
     {
         PickupWorld = world;
+        Placed = placed;
     }
 
     /// <summary>What the line of sight to a toucher is traced through (UTIL_ItemCanBeTouchedByPlayer).</summary>
     private readonly IEngineWorldQuery PickupWorld;
+
+    /// <summary>HL2MP's placed objects, which this joins once it has come to rest.</summary>
+    protected readonly PlacedObjects Placed;
 
     public readonly Output OnPlayerTouch = new();
 
@@ -58,8 +62,11 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
     /// <summary>Model the item wears. Applied during spawn, so it is precached.</summary>
     protected abstract string Model { get; }
 
-    /// <summary>Seconds before it comes back. Zero or less means it is gone for good.</summary>
-    protected virtual float RespawnDelay => 20f;
+    /// <summary>
+    /// Seconds before it comes back (FlItemRespawnTime). Zero or less means
+    /// it is gone for good.
+    /// </summary>
+    protected virtual float RespawnDelay => Placed.ItemRespawnTime;
 
     /// <summary>Half-extents of the trigger the player walks into.</summary>
     protected virtual float SizeX => 16f;
@@ -81,6 +88,40 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
     /// <summary>The think context that makes the item physical once its model is on it.</summary>
     public const string PhysicsContext = "ItemPhysics";
 
+    /// <summary>The think context that watches a falling item for its rest (HL2MP's CItem::FallThink).</summary>
+    public const string RestContext = "ItemRest";
+
+    /// <summary>How often the rest think looks.</summary>
+    public const float RestPoll = 0.1f;
+
+    /// <summary>
+    /// m_vOriginalSpawnOrigin and m_vOriginalSpawnAngles: where it came to
+    /// rest, which is where it respawns and where the rules send it back to.
+    /// </summary>
+    [SaveField] private Vector _homeOrigin;
+    [SaveField] private Vector _homeAngles;
+    [SaveField] private bool _hasHome;
+
+    /// <summary>Whether it has a home yet: an item once it has rested, a weapon once it has materialized.</summary>
+    protected bool HasHome => _hasHome;
+
+    /// <summary>The spot it lies on now becomes its home.</summary>
+    protected void SetHome()
+    {
+        _homeOrigin = Origin;
+        _homeAngles = Entities.GetAngles(Handle);
+        _hasHome = true;
+    }
+
+    Vector IPlacedObject.Origin => Origin;
+    Vector IPlacedObject.HomeOrigin => _homeOrigin;
+    Vector IPlacedObject.HomeAngles => _homeAngles;
+    float IPlacedObject.NextResetCheck { get; set; }
+
+    /// <summary>A weapon is checked on the weapons' respawn time (IsManagedObjectAWeapon).</summary>
+    protected virtual bool IsPlacedWeapon => false;
+    bool IPlacedObject.IsPlacedWeapon => IsPlacedWeapon;
+
     /// <summary>
     /// CItem::ObjectCaps (items.h): a +USE uses it. Its Use is the carry,
     /// which stock HL2MP refuses unless hl2mp_allow_pickup is on, so a use
@@ -100,23 +141,75 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
     /// </summary>
     protected virtual bool ReadyToFall() => true;
 
+    /// <summary>
+    /// Whether the physics object is made in the spawn itself, as CItem::Spawn
+    /// does: there before the map's first physics step, so what rests on an
+    /// item lands on it. A weapon's comes from a think instead (FallInit).
+    /// </summary>
+    protected virtual bool PhysicalAtSpawn => true;
+
+    /// <summary>CItem::PhysicsSolidMaskForEntity: player clips stop an item too.</summary>
+    public override uint PhysicsSolidMask => base.PhysicsSolidMask | (uint)GameMovement.ContentsPlayerClip;
+
+    /// <summary>How long the think that makes it physical waits, when it is not made at spawn.</summary>
+    protected virtual float FallDelay => 0f;
+
+    /// <summary>
+    /// What the spawn does before that think: a weapon's drop to the floor,
+    /// which stock's FallInit runs in the spawn itself, so it meets only what
+    /// the map spawned before it.
+    /// </summary>
+    protected virtual void PrepareFall() { }
+
     public override void OnSpawn()
     {
         SetModel(Model);
         OnModelSet();
         MakePickup(SizeX, SizeY, SizeZ);
 
-        // The model is applied after spawn returns, and the physics object is
-        // made from the model: a think at once, as stock's CItem::Spawn runs
-        // CreateItemVPhysicsObject after its subclass set the model.
-        SetContextThink(PhysicsContext, 0f);
+        if (PhysicalAtSpawn)
+        {
+            // CItem::Spawn: the FallThink only when the object was made.
+            if (BecomePhysical())
+                SetContextThink(RestContext, RestPoll);
+        }
+        else
+        {
+            PrepareFall();
+            SetContextThink(PhysicsContext, FallDelay);
+        }
     }
 
     public override void OnThink(string context)
     {
         if (context == PhysicsContext)
             BecomePhysical();
+        else if (context == RestContext)
+            WatchForRest();
     }
+
+    /// <summary>
+    /// HL2MP's CItem::FallThink: once the object is asleep, the spot it lies
+    /// on is its home and it joins the rules' placed objects; until then it
+    /// looks again a tenth of a second on.
+    /// </summary>
+    private void WatchForRest()
+    {
+        if (Placed.Asleep(Handle) != true)
+        {
+            SetContextThink(RestContext, RestPoll);
+            return;
+        }
+
+        SetHome();
+        Placed.Add(this);
+    }
+
+    /// <summary>
+    /// The object has been made, at the spawn's fall or a respawn's: a
+    /// weapon's Materialize, which takes its home and joins the rules.
+    /// </summary>
+    protected virtual void OnPhysical() { }
 
     /// <summary>
     /// Stock's CItem::Spawn and CreateItemVPhysicsObject: in
@@ -126,15 +219,17 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
     /// MakePickup set stays its trigger. A model with no collision stays the
     /// box it was (stock drops it to the floor instead).
     /// </summary>
-    private void BecomePhysical()
+    private bool BecomePhysical()
     {
+        bool made = false;
         if (ReadyToFall())
         {
             SetCollisionGroup(CollisionGroup.Weapon);
             (SolidType solid, SolidFlags flags) = PhysicalSolidity;
             Entities.SetSolidity(Handle, solid, flags);
 
-            if (!InitPhysics())
+            made = InitPhysics();
+            if (!made)
                 MakePickup(SizeX, SizeY, SizeZ);
             else if (solid != SolidType.VPhysics)
                 // VPhysicsInitNormal( SOLID_BBOX, ... ) keeps the box it was
@@ -145,6 +240,10 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
         // CItem::Spawn: the pickup box bloated, so a player takes it before
         // reaching its own box. After the solidity, which writes the flags.
         UseTriggerBounds(true, TriggerBloat);
+
+        if (made)
+            OnPhysical();
+        return made;
     }
 
     /// <summary>CItem::OnPhysGunPickup: the gravity gun's carry doubles the reach, and says so.</summary>
@@ -208,18 +307,22 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
 
         _taken = true;
         OnPlayerTouch.Fire();
+        OnTaken();
 
         // Hidden rather than removed when it will come back: a mapper may have
         // wired outputs to this entity, and those connections were bound when
         // the map loaded and cannot be rebuilt.
         if (RespawnDelay > 0f)
         {
-            // CItem::Respawn: no physics object while it waits, and back where
-            // the map put it.
+            // CItem::Respawn: no physics object while it waits, and back at
+            // its home (VecItemRespawnSpot). One taken before it ever rested
+            // has none; stock's would come back at the world's origin, ours
+            // where the map put it. Stock's UTIL_DropToFloor from there is
+            // left out: the home is where it lay.
             SetPickupEnabled(false);
             Entities.DestroyPhysics(Handle);
-            Origin = SpawnOrigin;
-            SetAngles(SpawnAngles);
+            Origin = _hasHome ? _homeOrigin : SpawnOrigin;
+            SetAngles(_hasHome ? _homeAngles : SpawnAngles);
             SetNextThink(RespawnDelay);
         }
         else
@@ -230,13 +333,20 @@ public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
         Log.Msg($"[SourceSharp/Item] {toucher} took {Describe()}\n");
     }
 
+    /// <summary>A player has taken it: a weapon leaves the rules' placed objects (CBaseCombatWeapon::Equip).</summary>
+    protected virtual void OnTaken() { }
+
     public override void OnThink()
     {
-        // CItem::Materialize: visible, touchable and physical again.
+        // CItem::Materialize: visible, touchable and physical again, with
+        // the charge that says so.
         _taken = false;
         SetPickupEnabled(true);
         BecomePhysical();
+        Placed.Charge(Handle);
     }
+
+    public override void OnRemoved() => Placed.Remove(this);
 
     /// <summary>
     /// Tops a player up to a cap, and reports whether anything was actually

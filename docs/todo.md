@@ -1030,17 +1030,6 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   the sv_ladder_useonly HUD hint and `ladderSurfaceProperties` on the ladder
   footstep (docs/divergences.md). CHL2GameMovement::CanAccelerate (always
   true, hl_gamemovement.cpp:1182) is ported with it. Owner: the server lane.
-- **One crate stack settles differently.** On dm_lockdown, the top
-  wood_crate001a keyed at (-3424, 3602, 72.2) bridges two crates at z 24:
-  stock's stays on top at z 60.5, ours slides and turns for about a second
-  (yaw 174 to 145), pushes the right-hand crate 28 units (stock 14) and falls
-  to the floor. Deterministic in both games over four census runs
-  (2026-10-26, stock-ab tip 1e40e6815). Not the props' creation: the solid,
-  surface and performance settings match stock's, and the spawn-time pause
-  (CPhysicsHook::m_bPaused) is ported (PhysicsFrame, PhysicsSolver). Next:
-  dump the three crates every tick from map start in both games (stock's
-  report comes after they have settled) and find the first tick they
-  differ. Owner: the physics lane.
 
 ## Rulings and divergences recorded only here (not open work)
 

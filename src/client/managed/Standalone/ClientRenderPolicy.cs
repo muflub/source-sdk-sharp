@@ -65,6 +65,9 @@ public struct ClientRenderFacts
     /// </summary>
     public bool NoDraw;
 
+    /// <summary>EF_NOSHADOW: the server said it casts nothing.</summary>
+    public bool NoShadow;
+
     /// <summary>Drawn in the viewmodel pass.</summary>
     public bool ViewModel;
 
@@ -426,7 +429,8 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
         if (facts.ViewModel)
             return ShadowCast.None;
 
-        if (facts.ShadowChoice == ShadowCastChoice.Never)
+        // C_BaseEntity::ShadowCastType: EF_NOSHADOW casts nothing, as EF_NODRAW does.
+        if (facts.NoShadow || facts.ShadowChoice == ShadowCastChoice.Never)
             return ShadowCast.None;
 
         // The cheap blob, for something the auto rule would refuse: an entity
@@ -869,6 +873,7 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
     {
         Dormant             = ReadInt(block, DormantOffset) != 0,
         NoDraw              = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoDraw) != 0,
+        NoShadow            = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoShadow) != 0,
         NoReceiveShadow     = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoReceiveShadow) != 0,
         RenderAlpha         = block[RenderAlphaOffset],
         // The render mode: the block carries no RenderMode_t, and an entity's

@@ -111,7 +111,18 @@ public sealed class PhysicsEntitySolver : IGameLifecycle, ISaveCustom
             ? (entity0, entity1)
             : (entity1, entity0);
 
-        // EntityPhysics_CreateSolver: none for a pair already not colliding.
+        Create(moving, blocker, SeparationSeconds, now);
+    }
+
+    /// <summary>
+    /// <c>EntityPhysics_CreateSolver( moving, blocker, true, separation )</c>:
+    /// none for a pair already not colliding; otherwise the pair stops
+    /// colliding and the blocker is debris until <paramref name="separationSeconds"/>
+    /// have passed (CPhysicsEntitySolver::Spawn). A door that crushes no one
+    /// asks for one with 4 s (CBaseDoor::Blocked).
+    /// </summary>
+    public void Create(EntityHandle moving, EntityHandle blocker, float separationSeconds, float now)
+    {
         if (_world.PairDisabled(moving, blocker))
             return;
 
@@ -121,7 +132,7 @@ public sealed class PhysicsEntitySolver : IGameLifecycle, ISaveCustom
         _world.SetGroup(blocker, CollisionGroup.Debris);
         _world.RecheckContactPoints(blocker);
 
-        _solvers.Add(new Solver(moving, blocker, now + SeparationSeconds, saved));
+        _solvers.Add(new Solver(moving, blocker, now + separationSeconds, saved));
         Created++;
     }
 

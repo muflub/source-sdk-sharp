@@ -66,6 +66,9 @@ public sealed class TriggerBrush : TriggerVolume
         SetSolidity(SolidType.Bsp, SolidFlags.Trigger);
     }
 
+    /// <summary>CTriggerBrush's Disable is FL_DONTTOUCH: it stays a trigger.</summary>
+    protected override bool OnIsTriggerFlag => false;
+
     protected override bool Passes(EntityHandle toucher)
     {
         if (Ignoring.HasFlag(IgnoreFlag.Touch))

@@ -147,6 +147,11 @@ public static partial class TestServices
         // Reachable with services.Resolve( typeof( IBlastSweep ) ).
         services.AddInstance<IBlastSweep>(new RecordingBlastSweep());
 
+        // HL2MP's placed objects, whose physics never sleeps here: a pickup
+        // a test spawns watches for a rest that does not come.
+        services.AddInstance(new SourceSharp.Server.PlacedObjects(engine, new NoPhysicsRest(), engine, engine, engine, engine));
+        services.AddInstance<SourceSharp.Server.IObjectStressQuery>(new FixedStress());
+
         // The RPG's laser dots, which a missile searches: a real roster, empty.
         services.AddInstance<IEntityRoster<SourceSharp.Server.LaserDot>>(new SourceSharp.Server.EntityRoster<SourceSharp.Server.LaserDot>());
 
@@ -436,3 +441,16 @@ public sealed class FakeSolverObjects : SourceSharp.Server.Interop.IVPhysicsSolv
     }
 }
 
+
+/// <summary>A world with no physics objects to ask: every entity's answer is that it has none.</summary>
+public sealed class NoPhysicsRest : SourceSharp.Server.IPhysicsRest
+{
+    public bool? Asleep(EntityHandle entity) => null;
+}
+
+/// <summary>A stress that answers what a test set it to: none until then.</summary>
+public sealed class FixedStress : SourceSharp.Server.IObjectStressQuery
+{
+    public float Kilograms;
+    public float StressOf(EntityHandle entity) => Kilograms;
+}

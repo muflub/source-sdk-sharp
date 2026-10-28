@@ -45,8 +45,8 @@ public sealed class WeaponPickup : PickupItem
     // and dress a mod weapon in a pistol's model.
     private readonly WeaponCatalog _weapons;
 
-    public WeaponPickup(Arsenal arsenal, IEngineWorldQuery world, WeaponCatalog? weapons = null)
-        : base(world)
+    public WeaponPickup(Arsenal arsenal, IEngineWorldQuery world, PlacedObjects placed, WeaponCatalog? weapons = null)
+        : base(world, placed)
     {
         _arsenal = arsenal;
         _world = world;
@@ -57,11 +57,29 @@ public sealed class WeaponPickup : PickupItem
     protected override string Model
         => _weapons.For(ClassName)?.WorldModel ?? "models/weapons/w_pistol.mdl";
 
+    /// <summary>FlWeaponRespawnTime: sv_hl2mp_weapon_respawn_time, not the items' time.</summary>
+    protected override float RespawnDelay => Placed.WeaponRespawnTime;
+
+    /// <summary>The rules check a weapon on the weapons' time.</summary>
+    protected override bool IsPlacedWeapon => true;
+
     /// <summary>
-    /// HL2MP's weapon respawn cadence rather than the items' 20 — a deathmatch
-    /// where the guns stay gone is a deathmatch decided by spawn order.
+    /// CWeaponHL2MPBase::Materialize: a respawning weapon's first spot on
+    /// the floor is its home, and it joins the rules' placed objects (again,
+    /// after a respawn). One keyed not to respawn joins nothing.
     /// </summary>
-    protected override float RespawnDelay => 20f;
+    protected override void OnPhysical()
+    {
+        if (!DropsToFloor)
+            return;
+
+        if (!HasHome)
+            SetHome();
+        Placed.Add(this);
+    }
+
+    /// <summary>CBaseCombatWeapon::Equip: RemoveLevelDesignerPlacedObject.</summary>
+    protected override void OnTaken() => Placed.Remove(this);
 
     /// <summary>CBaseCombatWeapon::Spawn: UseTriggerBounds( true, 36 ).</summary>
     protected override float TriggerBloat => 36f;
@@ -114,6 +132,40 @@ public sealed class WeaponPickup : PickupItem
             (_hullMins, _hullMaxs) = Entities.GetBounds(Handle);
     }
 
+    /// <summary>A weapon is no CItem: its object takes MASK_SOLID, player clips not included.</summary>
+    public override uint PhysicsSolidMask => EnginePushWorld.MaskSolid;
+
+    /// <summary>CBaseCombatWeapon::FallInit: the fall waits for its think.</summary>
+    protected override bool PhysicalAtSpawn => false;
+
+    /// <summary>FallInit's think: Materialize a tenth of a second after the spawn.</summary>
+    protected override float FallDelay => 0.1f;
+
+    // The spawn's drop, for the think that follows it: whether it found ground.
+    private bool? _landed;
+
+    /// <summary>FallInit: the drop to the floor runs in the spawn.</summary>
+    protected override void PrepareFall()
+    {
+        if (DropsToFloor)
+            _landed = Drop();
+    }
+
+    protected override bool ReadyToFall()
+    {
+        if (!DropsToFloor)
+            return true;
+
+        // The spawn already dropped it; a respawn drops it again.
+        if (_landed is { } landed)
+        {
+            _landed = null;
+            return landed;
+        }
+
+        return Drop();
+    }
+
     /// <summary>
     /// UTIL_DropToFloor (util.cpp) as HL2MP compiles it, with no start-solid
     /// check: the model's box swept down <see cref="DropDistance"/> as
@@ -122,11 +174,8 @@ public sealed class WeaponPickup : PickupItem
     /// found ground; with none in reach, or starting all solid, the weapon
     /// stays a trigger where it is.
     /// </summary>
-    protected override bool ReadyToFall()
+    private bool Drop()
     {
-        if (!DropsToFloor)
-            return true;
-
         Vector from = Origin;
         Vector to = from - new Vector(0f, 0f, DropDistance);
         EntityHullTrace tr = _world.EntityTraceHull(Handle, from, to, _hullMins, _hullMaxs,

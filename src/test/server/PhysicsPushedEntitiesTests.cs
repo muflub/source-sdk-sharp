@@ -29,8 +29,11 @@ public class PhysicsPushedEntitiesTests
     private sealed class AMover : ScriptedEntity
     {
         public readonly List<EntityHandle> BlockedBy = new();
+        public readonly List<string> Edges = new();
         public bool Unblockable;
-        public override void OnBlocked(EntityHandle other) => BlockedBy.Add(other);
+        public override void OnBlocked(EntityHandle other) { BlockedBy.Add(other); Edges.Add("blocked"); }
+        public override void OnStartBlocked(EntityHandle other) => Edges.Add("start " + other.Value);
+        public override void OnEndBlocked() => Edges.Add("end");
         public override bool UnblockableByPlayer => Unblockable;
     }
 
@@ -120,6 +123,44 @@ public class PhysicsPushedEntitiesTests
         // And it is STILL TRAVELLING: a door held by a player who then steps
         // aside must go on by itself.
         Assert.True(rig.Motion.IsPushing(Mover), "a blocked door stopped travelling");
+    }
+
+    /// <summary>
+    /// PerformPush (physics_main.cpp): StartBlocked once when the blocker
+    /// changes, Blocked every blocked frame, EndBlocked once when the push
+    /// gets through again. Found porting CBaseDoor, whose OnBlocked outputs
+    /// fire from StartBlocked and its OnUnblocked ones from EndBlocked.
+    /// </summary>
+    [Fact]
+    public void A_block_starts_once_holds_each_frame_and_ends_when_the_way_clears()
+    {
+        PushBoxWorld world = ADoorAndAPlayerInFrontOfIt(21f);
+        world.Add(Wall, new Vector(37f, 0f, 0f), new Vector(0f, -64f, 0f), new Vector(16f, 64f, 128f));
+        Rig rig = ARig(world);
+
+        rig.Motion.MoveToPosition(Mover, new Vector(64f, 0f, 0f), 100f);
+        rig.Motion.RunFrame(0.015f);
+        rig.Motion.RunFrame(0.015f);
+        world[Wall].Origin = new Vector(500f, 0f, 0f);
+        rig.Motion.RunFrame(0.015f);
+
+        Assert.Equal(new[] { "start " + Player.Value, "blocked", "blocked", "end" }, rig.Class.Edges);
+    }
+
+    /// <summary>A mover stopped while blocked pushes nothing the next frame, so its block ends.</summary>
+    [Fact]
+    public void A_mover_stopped_while_blocked_ends_its_block()
+    {
+        PushBoxWorld world = ADoorAndAPlayerInFrontOfIt(21f);
+        world.Add(Wall, new Vector(37f, 0f, 0f), new Vector(0f, -64f, 0f), new Vector(16f, 64f, 128f));
+        Rig rig = ARig(world);
+
+        rig.Motion.MoveToPosition(Mover, new Vector(64f, 0f, 0f), 100f);
+        rig.Motion.RunFrame(0.015f);
+        rig.Motion.StopMoving(Mover);
+        rig.Motion.RunFrame(0.015f);
+
+        Assert.Equal(new[] { "start " + Player.Value, "blocked", "end" }, rig.Class.Edges);
     }
 
     /// <summary>

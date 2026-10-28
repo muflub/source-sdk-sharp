@@ -16,7 +16,7 @@ with the SourceSharp-only classnames renamed (MapGen stockmap), and the test
 mod from bin/<config>. Both run the same engine binary from the Source SDK
 Base 2013 Multiplayer install, at 1280x720, with fresh settings. Then:
 
-  census   each server's entity list once the map has loaded (stock's
+  census   each server's entity list once the map's loose objects are at rest (stock's
            ab_dump_ents, SourceSharp's /entities), compared by classname and
            position
   cameras  one camera per station (MapGen stations) and one over the hall;
@@ -640,6 +640,42 @@ def settled(read, clock=time.monotonic, sleep=time.sleep, still=ARSENAL_STILL_SE
             last, since = reading, clock()
 
 
+# The census reads the map once its loose objects have come to rest: dumped
+# straight after the join, a frag still rolling was read at whatever point of
+# its roll each game had reached (the same path in both, 51 steps apart).
+CENSUS_STILL_SECONDS = 2.0
+CENSUS_DEADLINE_SECONDS = 30.0
+CENSUS_POLL_SECONDS = 1.0
+RESTING_CLASSES = ("prop_physics", "item_", "weapon_")
+
+
+def stock_resting(text):
+    """Where ab_dump_ents' loose objects are, to a tenth of a unit."""
+    rows = []
+    for line in text.splitlines():
+        f = line.split("\t")
+        if len(f) > 3 and f[1].startswith(RESTING_CLASSES):
+            rows.append((f[1], tuple(round(float(x), 1) for x in f[3].split())))
+    return sorted(rows)
+
+
+def sharp_resting(text):
+    """Where /entities' loose objects are, to a tenth of a unit."""
+    return sorted((e["classname"], tuple(round(float(x), 1) for x in e["origin"]))
+                  for e in json.loads(text)["entities"] if e["classname"].startswith(RESTING_CLASSES))
+
+
+def dump_at_rest(game, to, resting):
+    """The game's entity dump, written to `to` once its loose objects have
+    held still; False when they were still moving at the deadline."""
+    def read():
+        game.dump_entities(to)
+        with open(to) as f:
+            return resting(f.read())
+    return settled(read, still=CENSUS_STILL_SECONDS, deadline=CENSUS_DEADLINE_SECONDS,
+                   poll=CENSUS_POLL_SECONDS)[1]
+
+
 def weapon_round(stock, sharp, weapon, camera, out, tool, opts):
     """One weapon in both games: equipped, idle, primary, secondary."""
     record = {"weapon": weapon}
@@ -806,8 +842,10 @@ def run(opts):
         log("entity census")
         stock_ents = os.path.join(out, "stock-ents.tsv")
         sharp_ents = os.path.join(out, "sharp-ents.json")
-        stock.dump_entities(stock_ents)
-        sharp.dump_entities(sharp_ents)
+        for game, path, resting in ((stock, stock_ents, stock_resting), (sharp, sharp_ents, sharp_resting)):
+            if not dump_at_rest(game, path, resting):
+                log("%s: loose objects still moving after %ds; census read them moving"
+                    % (path, CENSUS_DEADLINE_SECONDS))
         census = subprocess.run(tool + ["census", stock_ents, sharp_ents, os.path.join(out, "census.json")],
                                 check=True, stdout=subprocess.PIPE, text=True).stdout
         print(census, end="", flush=True)
@@ -961,6 +999,14 @@ def self_test():
     got = settled(lambda: next(flips), clock=lambda: t[0],
                   sleep=lambda d: t.__setitem__(0, t[0] + d), still=2.0, deadline=5.0, poll=0.5)
     assert got[1] is False and t[0] == 5.0, (got, t[0])
+    stock_rows = "1\tweapon_frag\t\t-3902.352 4516.664 1.980\t41.5 -171.5 89.9\n" \
+                 "2\tfunc_door\t\t1 2 3\t0 0 0\n"
+    assert stock_resting(stock_rows) == [("weapon_frag", (-3902.4, 4516.7, 2.0))], stock_resting(stock_rows)
+    sharp_rows = json.dumps({"entities": [{"classname": "weapon_frag", "origin": [-3909.36, 4515.6, 2.24]},
+                                          {"classname": "func_door", "origin": [1, 2, 3]}]})
+    assert sharp_resting(sharp_rows) == [("weapon_frag", (-3909.4, 4515.6, 2.2))], sharp_resting(sharp_rows)
+    assert stock_resting(stock_rows.replace("1.980", "2.080")) != stock_resting(stock_rows), \
+        "a move of a tenth is a new reading"
     assert sound_names(["(sv) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 1)",
                         "(cl) EmitSound:  Raw wave emitted 'weapons/x.wav' (ent 3)", "noise"]) == \
         ["sv:Weapon_Pistol.Single", "cl:weapons/x.wav"]

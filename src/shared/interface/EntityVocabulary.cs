@@ -189,6 +189,13 @@ public enum CollisionGroup
     /// and a crossbow bolt flies on through it after the damage.
     /// </summary>
     BreakableGlass = 6,
+
+    /// <summary>
+    /// A door players walk through (SF_DOOR_NONSOLID_TO_PLAYER, CBaseDoor::
+    /// Spawn): the player's movement does not collide with it
+    /// (CGameRules::ShouldCollide), and nothing else changes.
+    /// </summary>
+    PassableDoor = 7,
 }
 
 /// <summary>

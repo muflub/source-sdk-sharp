@@ -37,7 +37,14 @@ public interface IServerSystemRow
     /// <summary>The managed frame's pre-entity-think point.</summary>
     void FramePreThink(float frameTime);
 
-    /// <summary>The managed frame: every <c>IFrameLifecycle.OnThink</c>.</summary>
+    /// <summary>
+    /// The entities' frame: the parallel hierarchy's movers, touches, thinks
+    /// and deletes, before the physics step as stock's GameFrame runs
+    /// Physics_RunThinkFunctions before FrameUpdatePostEntityThink.
+    /// </summary>
+    void EntitiesFrame(float frameTime);
+
+    /// <summary>The managed frame: every <c>IFrameLifecycle.OnThink</c> after the entities'.</summary>
     void Frame(float frameTime);
 
     /// <summary>
@@ -196,6 +203,7 @@ public sealed class ServerSystems(IEngineLevel level, IEngineFrame frame, IServe
         frame.BeginModelCacheLock();
         try
         {
+            managed.EntitiesFrame(frameTime);
             managed.PhysicsFrame();
             managed.Frame(frameTime);
             frame.DrainEntitySlots();
@@ -217,7 +225,8 @@ public sealed class ServerSystems(IEngineLevel level, IEngineFrame frame, IServe
 /// </summary>
 public sealed class ManagedSystemRow(ILog log, ISideModule module, Func<bool> soundInit,
                                      Action<string> preEntity, Action shutdownPreEntity, Action physicsFrame,
-                                     LivenessMirror liveness, ModelDescriptors models, BreakModels breaks)
+                                     LivenessMirror liveness, ModelDescriptors models, BreakModels breaks,
+                                     Action<float>? entitiesFrame = null)
     : IServerSystemRow
 {
     public bool Init()
@@ -275,6 +284,12 @@ public sealed class ManagedSystemRow(ILog log, ISideModule module, Func<bool> so
     {
         try { module.Frame(frameTime); }
         catch (Exception e) { ManagedVtable.Fail(log, "ServerSystems.Frame", e); }
+    }
+
+    public void EntitiesFrame(float frameTime)
+    {
+        try { entitiesFrame?.Invoke(frameTime); }
+        catch (Exception e) { ManagedVtable.Fail(log, "ServerSystems.EntitiesFrame", e); }
     }
 
     public void PhysicsFrame()

@@ -51,6 +51,8 @@ public class BrushTests
         var (registry, handle, door) = Spawn<FuncDoor>(EntityNames.FuncDoor, 30, ("wait", "-1"), ("speed", "64"));
         registry.Input(handle, "Open", "", 0f, EntityHandle.None);
 
+        // PerformPush: the block's start, then the frame's Blocked.
+        door.OnStartBlocked(new EntityHandle(0x0001_0001u));
         door.OnBlocked(new EntityHandle(0x0001_0001u));
 
         Assert.Equal(1, door.OnBlockedOpening.FireCount);
@@ -65,6 +67,8 @@ public class BrushTests
         var (registry, handle, door) = Spawn<FuncDoor>(EntityNames.FuncDoor, 31, ("wait", "4"), ("speed", "64"));
         registry.Input(handle, "Open", "", 0f, EntityHandle.None);
 
+        // PerformPush: the block's start, then the frame's Blocked.
+        door.OnStartBlocked(new EntityHandle(0x0001_0001u));
         door.OnBlocked(new EntityHandle(0x0001_0001u));
 
         Assert.Equal(1, door.OnBlockedOpening.FireCount);

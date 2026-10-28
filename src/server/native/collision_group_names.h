@@ -17,6 +17,7 @@ enum SourceSharpCollisionGroup_t
 	SS_COLLISION_GROUP_INTERACTIVE = 4,
 	SS_COLLISION_GROUP_PROJECTILE = 5,
 	SS_COLLISION_GROUP_BREAKABLE_GLASS = 6,
+	SS_COLLISION_GROUP_PASSABLE_DOOR = 7,
 };
 
 // The first row of a table is the neutral one, and every lookup falls back to it.

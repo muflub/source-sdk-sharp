@@ -47,6 +47,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PropDynamicOrnament, ScriptedEntityKind.Prop)]
 public sealed class PropDynamicOrnament : ScriptedEntity
 {
+    /// <summary>
+    /// No physics object at all: COrnamentProp is a CDynamicProp that keeps
+    /// SOLID_NONE (only a prop_dynamic of that name becomes an OBB), and
+    /// CDynamicProp::CreateVPhysics makes nothing for SOLID_NONE.
+    /// </summary>
+    public override bool SpawnsPhysics => false;
+
     public PropDynamicOrnament(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData)
     {
         Precache = precache;
@@ -75,11 +82,6 @@ public sealed class PropDynamicOrnament : ScriptedEntity
         }
 
         SetModel(Vars.Model);
-
-        // Solid-but-never-simulated, so the shell builds the right kind of
-        // physics object moments from now. It is made non-solid immediately
-        // below; this decides which KIND of object exists to be made non-solid.
-        MakePhysicsStatic();
 
         Detach();
 

@@ -756,6 +756,7 @@ static const CollisionGroupName_t s_CollisionGroupNames[] = {
 	{ SS_COLLISION_GROUP_INTERACTIVE, COLLISION_GROUP_INTERACTIVE },
 	{ SS_COLLISION_GROUP_PROJECTILE, COLLISION_GROUP_PROJECTILE },
 	{ SS_COLLISION_GROUP_BREAKABLE_GLASS, COLLISION_GROUP_BREAKABLE_GLASS },
+	{ SS_COLLISION_GROUP_PASSABLE_DOOR, COLLISION_GROUP_PASSABLE_DOOR },
 };
 
 static const int s_nCollisionGroupNames = sizeof( s_CollisionGroupNames ) / sizeof( s_CollisionGroupNames[0] );

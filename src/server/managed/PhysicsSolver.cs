@@ -69,6 +69,12 @@ public sealed class PhysicsSolver : IGameLifecycle, IPhysicsSolverAnswers
     /// <summary>The rules ShouldCollide evaluates.</summary>
     public PhysicsSolverRules Rules => _rules;
 
+    /// <summary>Told of every ShouldSolvePenetration ask (cs_sv_physics_watch's reading).</summary>
+    public Action<nint, nint>? PenetrationAsked { get; set; }
+
+    /// <summary>Told of every ShouldCollide answer and the clause that refused (cs_sv_physics_watch's reading).</summary>
+    public Action<nint, nint, int, CollisionRefusal>? CollideAsked { get; set; }
+
     /// <summary>The penetration ledger ShouldSolvePenetration keeps.</summary>
     public PhysicsPenetrationLedger Penetration => _penetration;
 
@@ -170,7 +176,7 @@ public sealed class PhysicsSolver : IGameLifecycle, IPhysicsSolverAnswers
             side.Solid = owner.Facts.Solid;
             side.SolidFlags = owner.Facts.SolidFlags;
             side.MoveType = owner.Facts.MoveType;
-            side.SolidMask = owner.Facts.IsPlayer ? GameMovement.MaskPlayerSolid : EnginePushWorld.MaskSolid;
+            side.SolidMask = owner.Facts.IsPlayer ? GameMovement.MaskPlayerSolid : owner.Facts.SolidMask;
         }
 
         side.GameFlags = _objects.GameFlags(physicsObject);
@@ -195,6 +201,7 @@ public sealed class PhysicsSolver : IGameLifecycle, IPhysicsSolverAnswers
     public int ShouldCollide(nint object0, nint object1, nint gameData0, nint gameData1)
     {
         int answer = Decide(object0, object1, gameData0, gameData1, out CollisionRefusal why);
+        CollideAsked?.Invoke(object0, object1, answer, why);
 
         CollideAsks++;
         if (_lastAskUnowned)
@@ -381,6 +388,7 @@ public sealed class PhysicsSolver : IGameLifecycle, IPhysicsSolverAnswers
     public int ShouldSolvePenetration(nint object0, nint object1, nint gameData0, nint gameData1)
     {
         PenetrationAsks++;
+        PenetrationAsked?.Invoke(object0, object1);
 
         // This can be asked as entities are made on the other side of a load.
         if (Paused)

@@ -261,6 +261,8 @@ public static class EntityNames
     /// <summary>The SMG1's alt-fire grenade, under stock's own name: CGrenadeAR2.</summary>
     public const string GrenadeAr2 = "grenade_ar2";
 
+    /// <summary>A func_plat's ride trigger: stock's CPlatTrigger, made by the platform, never by a map.</summary>
+    public const string PlatTrigger = "plat_trigger";
     public const string Plasma    = "_plasma";
     public const string Player    = "player";
 

@@ -40,9 +40,53 @@ public class PickupItemPhysicsTests
         engine.Returns("EntityPhysics.InitPhysics", physics);
         arrange?.Invoke(engine);
         registry.Spawn(Item, className);
-        engine.Clear();
-        ((PickupItem)registry.Get(Item)!).OnThink(PickupItem.PhysicsContext);
+
+        // An item is physical from its spawn; a weapon drops in its spawn and
+        // becomes physical in its think (FallInit, FallThink).
+        if (className.StartsWith("weapon_", StringComparison.Ordinal))
+            ((PickupItem)registry.Get(Item)!).OnThink(PickupItem.PhysicsContext);
+
         return (registry, engine);
+    }
+
+    /// <summary>
+    /// CItem::Spawn makes the object in the spawn itself, so it is there for
+    /// the map's first physics step. Found beside stock (dm_lockdown,
+    /// 2026-10-27, cs_sv_physics_watch): ours came a think later, and the
+    /// crate keyed on a healthkit fell past it on the first step, slid, and
+    /// knocked the stack above it to the floor; made at spawn, every object
+    /// in the stack matches stock's step for step to its resting pose.
+    /// </summary>
+    [Fact]
+    public void AnItemsObjectIsMadeInItsSpawnWithNoThinkToWaitFor()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PickupItem).Assembly);
+        registry.Services = Services(out var engine);
+        engine.Strict = false;
+        engine.Returns("EntityPhysics.InitPhysics", true);
+
+        registry.Spawn(Item, EntityNames.ItemHealthkit);
+
+        Assert.NotNull(engine.Last("EntityPhysics.InitPhysics"));
+    }
+
+    /// <summary>CBaseCombatWeapon::FallInit: a weapon's object waits for its fall's think.</summary>
+    [Fact]
+    public void AWeaponsObjectWaitsForItsThink()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PickupItem).Assembly);
+        var services = Services(out var engine);
+        services.AddInstance(new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
+                                         engine, engine, registry, engine, new DamageHitGroups()));
+        registry.Services = services;
+        engine.Strict = false;
+        engine.Returns("EntityPhysics.InitPhysics", true);
+
+        registry.Spawn(Item, EntityNames.WeaponSmg1);
+
+        Assert.Null(engine.Last("EntityPhysics.InitPhysics"));
     }
 
     [Theory]
@@ -121,6 +165,59 @@ public class PickupItemPhysicsTests
         int placed = engine.Calls.ToList().FindIndex(c => c.Member == "Entities.SetOrigin" && ((Vector)c.Args[1]!).Equals(Floor));
         int init = order.IndexOf("EntityPhysics.InitPhysics");
         Assert.True(placed >= 0 && init > placed, $"set on the floor, then made physical: {string.Join(", ", order)}");
+    }
+
+    /// <summary>
+    /// FallInit drops the weapon in its spawn, while the map is still
+    /// spawning, so the drop meets only what spawned before it. Found beside
+    /// stock (dm_lockdown, 2026-10-27): ours dropped from a think after the
+    /// whole map had spawned, and the ar2 over its own ammo, and three frags
+    /// beside frags that had already fallen, started solid and hung in the
+    /// air (stock's ar2 rests at z 4.5, ours stayed at 17).
+    /// </summary>
+    [Fact]
+    public void A_map_weapons_drop_runs_in_its_spawn_and_its_object_waits()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PickupItem).Assembly);
+        var services = Services(out var engine);
+        services.AddInstance(new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
+                                         engine, engine, registry, engine, new DamageHitGroups()));
+        registry.Services = services;
+        engine.Strict = false;
+        engine.Returns("EntityPhysics.InitPhysics", true).Returns("Clock.Now", 10f);
+        AFragOverTheFloor(engine, new EntityHullTrace(Floor, false, false, Fraction: 0.4f));
+        var thinks = new ThinkScheduler();
+        registry.KeyValue(Item, EntityNames.WeaponFrag, "classname", EntityNames.WeaponFrag);
+        ((PickupItem)registry.Get(Item)!).BindThinks(thinks);
+
+        registry.Spawn(Item, EntityNames.WeaponFrag);
+
+        Assert.True(engine.Called("WorldQuery.EntityTraceHull"), "dropped in the spawn");
+        Assert.Contains(engine.Calls, c => c.Member == "Entities.SetOrigin" && ((Vector)c.Args[1]!).Equals(Floor));
+        Assert.False(engine.Called("EntityPhysics.InitPhysics"), "physical only in FallThink");
+        Assert.Equal(10.1f, thinks.NextThinkTime(Item, PickupItem.PhysicsContext), 4);
+    }
+
+    /// <summary>
+    /// The think materializes on the spawn's answer and does not drop again:
+    /// what spawned after the weapon (its ammo, a frag that has since fallen)
+    /// is not in its way, as it was not in stock's.
+    /// </summary>
+    [Fact]
+    public void The_think_makes_it_physical_on_the_spawns_drop_without_dropping_again()
+    {
+        int sweeps = 0;
+        var (_, engine) = Spawned(EntityNames.WeaponFrag, arrange: e =>
+        {
+            AFragOverTheFloor(e, default);
+            e.ReturnsEachCall("WorldQuery.EntityTraceHull", () => sweeps++ == 0
+                ? new EntityHullTrace(Floor, false, false, Fraction: 0.4f)
+                : new EntityHullTrace(Floor, true, true));
+        });
+
+        Assert.Equal(1, sweeps);
+        Assert.True(engine.Called("EntityPhysics.InitPhysics"), "materialized on the spawn's drop");
     }
 
     [Fact]
@@ -306,5 +403,19 @@ public class PickupItemPhysicsTests
         Assert.Single(engine.AllOf("Entities.SetSolidity"));
         Assert.Equal((SolidType.VPhysics, SolidFlags.Trigger | SolidFlags.NotStandable), Settled(engine));
     }
-}
 
+    /// <summary>CItem::PhysicsSolidMaskForEntity adds player clips; a weapon is no CItem.</summary>
+    [Theory]
+    [InlineData(EntityNames.ItemHealthkit, true)]
+    [InlineData(EntityNames.ItemBattery, true)]
+    [InlineData(EntityNames.WeaponSmg1, false)]
+    public void An_items_object_is_stopped_by_player_clips_and_a_weapons_is_not(string className, bool clipped)
+    {
+        var (registry, _) = Spawned(className);
+
+        uint mask = registry.Get(Item)!.PhysicsSolidMask;
+
+        Assert.Equal(EnginePushWorld.MaskSolid, mask & ~(uint)GameMovement.ContentsPlayerClip);
+        Assert.Equal(clipped, (mask & (uint)GameMovement.ContentsPlayerClip) != 0);
+    }
+}

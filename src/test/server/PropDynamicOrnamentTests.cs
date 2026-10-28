@@ -89,6 +89,21 @@ public class PropDynamicOrnamentTests
     // ornament is useless as a fixture: it adds EF_NODRAW, so one that has never
     // been attached cannot be seen at all.
     //-------------------------------------------------------------------------
+    /// <summary>
+    /// COrnamentProp keeps SOLID_NONE, so CDynamicProp::CreateVPhysics makes
+    /// it no object, static or otherwise. Found beside stock (ss_sandbox
+    /// solidity census, 2026-10-27): ours made a static one, which the attach
+    /// then made a shadow.
+    /// </summary>
+    [Fact]
+    public void An_ornament_has_no_physics_object()
+    {
+        var registry = Registry(out var engine, ("model", "models/props/chair.mdl"));
+
+        Assert.False(engine.Called("EntityPhysics.SetPhysicsStatic"));
+        Assert.False(Ornament(registry).SpawnsPhysics);
+    }
+
     [Fact]
     public void AnUnattachedOrnamentRidesNothing()
     {

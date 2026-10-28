@@ -11649,7 +11649,7 @@ def self_test():
                 "trigger", "door", "lift", "healthItemClass", "ammoItemClass",
                 "ammoWeapon", "propModel", "projectile"):
         ok(key in scenario, "the dm_lockdown scenario carries %r" % key)
-    ok(scenario["entities"] == 485 and scenario["classes"] == 63,
+    ok(scenario["entities"] == 475 and scenario["classes"] == 62,
        "and the census this map is gated against")
 
     #-- the projectile step's threshold, which has to sit between two numbers -

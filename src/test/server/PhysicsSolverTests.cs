@@ -37,8 +37,9 @@ public class PhysicsSolverTests
     }
 
     private static SolverEntity Facts(int group = 0, int solid = 6, int solidFlags = 0, int moveType = 6,
-                                      bool player = false, EntityHandle owner = default, EntityHandle parent = default)
-        => new(group, solid, solidFlags, moveType, player, owner, parent);
+                                      bool player = false, EntityHandle owner = default, EntityHandle parent = default,
+                                      uint solidMask = EnginePushWorld.MaskSolid)
+        => new(group, solid, solidFlags, moveType, player, owner, parent, solidMask);
 
     private const nint Unowned = 0x0777;
 
@@ -278,6 +279,23 @@ public class PhysicsSolverTests
         Assert.Equal(1, _solver.ShouldCollide(Obj(A), Obj(C)));
         Assert.Equal(0, _solver.ShouldCollide(Obj(B), Obj(C)));
         Assert.Equal(1, _solver.Refusals(CollisionRefusal.Contents));
+    }
+
+    /// <summary>
+    /// An entity's own PhysicsSolidMaskForEntity is the contents clause's mask:
+    /// CItem's adds CONTENTS_PLAYERCLIP. Found beside stock (dm_lockdown,
+    /// 2026-10-27, cs_sv_physics_watch): a healthkit keyed inside a player
+    /// clip was pushed out of it in stock and left in it here.
+    /// </summary>
+    [Fact]
+    public void An_entitys_own_solid_mask_decides_what_it_collides_with()
+    {
+        const uint playerClip = 0x10000;
+        _objects.At(Obj(C)).Contents = playerClip;
+        _world.Facts[A] = Facts(solidMask: EnginePushWorld.MaskSolid | playerClip);
+
+        Assert.Equal(1, _solver.ShouldCollide(Obj(A), Obj(C)));
+        Assert.Equal(0, _solver.ShouldCollide(Obj(B), Obj(C)));
     }
 
     [Fact]

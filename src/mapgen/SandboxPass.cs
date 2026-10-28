@@ -234,10 +234,15 @@ public static class SandboxPass
                 + "point_spotlight and each creates one",
 
             [EntityNames.SsPickup] =
-                "spawned by the Pickups directory above each spawn point on the first rules "
-                + "tick. The directory deciding placement is the whole difference between it "
-                + "and the item_* classes; one placed by a map would be a pickup the directory "
-                + "does not know",
+                "spawned by the Pickups directory, at a player's feet by its console command. "
+                + "The directory deciding placement is the whole difference between it and the "
+                + "item_* classes; one placed by a map would be a pickup the directory does not "
+                + "know",
+
+            [EntityNames.PlatTrigger] =
+                "a func_plat's ride trigger, made by every func_plat that is not a toggle "
+                + "(CFuncPlat::Precache) and pointed at its platform. A map-placed one has no "
+                + "platform to send and does nothing",
 
             // ---- Eaten by the map compiler before a server ever sees it ----
             //

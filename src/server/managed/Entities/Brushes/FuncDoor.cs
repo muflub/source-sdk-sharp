@@ -26,33 +26,54 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncWater, ScriptedEntityKind.Brush)]
 public sealed class FuncDoor : MovingBrush
 {
-    /// <summary>SF_DOOR_PUSE: a player's +USE opens it.</summary>
-    private const int UseOpensFlag = 256;
-
-    /// <summary>CBaseDoor::ObjectCaps: usable, and found in the radius, when use opens it.</summary>
-    public override UseCaps ObjectCaps
-        => base.ObjectCaps | ((SpawnFlags & UseOpensFlag) != 0 ? UseCaps.ImpulseUse | UseCaps.UseInRadius : UseCaps.None);
-
-    public FuncDoor(IEnginePrecache precache, IEngineSound sound)
-        : base(precache, sound)
+    public FuncDoor(IEnginePrecache precache, IEngineSound sound, IEngineDamage damage, IEngineNetworking net,
+                    PhysicsEntitySolver solver)
+        : base(precache, sound, damage, net, solver)
     {
     }
 
     /// <summary>What a map may set on this entity. See <see cref="FuncDoorVars"/>.</summary>
     [ScriptVars] public FuncDoorVars FuncDoorVars = new();
 
-    protected override Vector ComputeOpenPosition()
-    {
-        // Stock's CBaseDoor::Spawn: the direction is the movedir key (the
-        // FGD's "Move Direction"), 0 0 0 -- +x -- when the map gives none.
-        // The angles are the brush's rotation and stay: a map that points a
-        // door with its angles has a door turned on its side, in stock and
-        // here (MoverDirectionTests).
-        var direction = Angles.Forward(FuncDoorVars.MoveDir);
+    /// <summary>
+    /// m_vecPosition1 and m_vecPosition2: where it sits shut and open, worked
+    /// out ONCE, at spawn, from the map's keys, which a hot reload does not
+    /// read again -- so they are carried. Uncarried, the rebuilt instance
+    /// held Vector.Zero and every close after a cs_sv_reload headed for the
+    /// world origin (OnSpawnFieldReloadTests).
+    /// </summary>
+    [SaveField] internal Vector ClosedPosition { get; private set; }
 
-        // The door travels its own depth along the direction, less the lip.
-        // It has no distance key: that is a rotating door's angle.
-        return ClosedPosition + direction * (DepthAlong(Entities.GetBoundsSize(Handle), direction) - FuncDoorVars.Lip);
+    [SaveField] internal Vector OpenPosition { get; private set; }
+
+    protected override bool IsRotatingDoor => false;
+
+    protected override (string Move, string Arrive, string Locked) DefaultSounds
+        => ("DoorSound.DefaultMove", "DoorSound.DefaultArrive", "DoorSound.DefaultLocked");
+
+    /// <summary>
+    /// CBaseDoor::Spawn: the travel is the movedir key (the FGD's "Move
+    /// Direction"), 0 0 0 -- +x -- when the map gives none, the brush's own
+    /// depth along it less the lip. The angles are the brush's rotation and
+    /// stay: a map that points a door with its angles has a door turned on its
+    /// side, in stock and here (MoverDirectionTests). spawnpos 1 or the
+    /// obsolete start-open flag put it at the open end.
+    /// </summary>
+    protected override void SpawnTravel()
+    {
+        ClosedPosition = SpawnOrigin;
+        var direction = Angles.Forward(Vars.MoveDir);
+        OpenPosition = ClosedPosition + direction * (DepthAlong(Entities.GetBoundsSize(Handle), direction) - FuncDoorVars.Lip);
+
+        if (Vars.SpawnPosition == 1 || Flags.HasFlag(DoorFlag.StartOpenObsolete))
+        {
+            Origin = OpenPosition;
+            State = ToggleState.AtTop;
+        }
+        else
+        {
+            State = ToggleState.AtBottom;
+        }
     }
 
     /// <summary>
@@ -65,7 +86,12 @@ public sealed class FuncDoor : MovingBrush
          + MathF.Abs(direction.Y * (boundsSize.Y - 2f))
          + MathF.Abs(direction.Z * (boundsSize.Z - 2f));
 
-    protected override void Travel(Vector destination) => MoveTo(destination, Vars.Speed);
+    protected override void TravelUp(float sign) => MoveTo(OpenPosition, Vars.Speed);
+
+    protected override void TravelDown() => MoveTo(ClosedPosition, Vars.Speed);
+
+    /// <summary>CBaseDoor::SetToggleState.</summary>
+    protected override void PlaceAt(ToggleState end) => Origin = end == ToggleState.AtTop ? OpenPosition : ClosedPosition;
 }
 
 /// <summary>
@@ -74,9 +100,6 @@ public sealed class FuncDoor : MovingBrush
 [ScriptVars]
 public partial class FuncDoorVars
 {
-    /// <summary>Which way it slides: the movedir key, written as angles.</summary>
-    public QAngle MoveDir { get; set; }
-
     /// <summary>How much of the brush stays behind when open.</summary>
     public float Lip { get; set; }
 }

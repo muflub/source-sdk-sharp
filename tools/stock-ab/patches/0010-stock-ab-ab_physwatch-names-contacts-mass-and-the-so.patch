@@ -1,0 +1,120 @@
+From d5c4d5e0162a0986ee760e122c63c585b76cb530 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Tue, 27 Oct 2026 20:39:57 -0700
+Subject: [PATCH] stock-ab: ab_physwatch names contacts, mass and the solver's
+ answers
+
+Each [PW] line carries the object's mass, sphere radius and friction
+contacts; [PWPEN] logs ShouldSolvePenetration asks and [PWCOL] every
+ShouldCollide answer (with each object's contents) for an object near the
+watched point. ShouldCollide is wrapped in every build to say it
+(ShouldCollide_2 is declared outside _DEBUG for that).
+---
+ src/game/server/physics.cpp              | 41 ++++++++++++++++++++----
+ src/game/server/physics_collisionevent.h |  2 --
+ 2 files changed, 34 insertions(+), 9 deletions(-)
+
+diff --git a/src/game/server/physics.cpp b/src/game/server/physics.cpp
+index f2b3e9d5..5fdbda6e 100644
+--- a/src/game/server/physics.cpp
++++ b/src/game/server/physics.cpp
+@@ -451,16 +451,25 @@ CCollisionEvent::CCollisionEvent()
+ 	m_lastTickFrictionError = 0;
+ }
+ 
++// stock-ab: ab_physwatch "x y z radius steps" (see PhysFrame).
++static ConVar ab_physwatch( "ab_physwatch", "", 0, "stock-ab: log awake physics objects near a point per step: x y z radius steps" );
++static bool AbWatchNear( IPhysicsObject *pObj )
++{
++	float wx, wy, wz, wr; int wn;
++	if ( !pObj || sscanf( ab_physwatch.GetString(), "%f %f %f %f %d", &wx, &wy, &wz, &wr, &wn ) != 5 )
++		return false;
++	Vector pos; pObj->GetPosition( &pos, NULL );
++	return ( pos - Vector( wx, wy, wz ) ).LengthSqr() <= wr * wr;
++}
++
+ int CCollisionEvent::ShouldCollide( IPhysicsObject *pObj0, IPhysicsObject *pObj1, void *pGameData0, void *pGameData1 )
+-#if _DEBUG
+ {
+ 	int x0 = ShouldCollide_2(pObj0, pObj1, pGameData0, pGameData1);
+-	int x1 = ShouldCollide_2(pObj1, pObj0, pGameData1, pGameData0);
+-	Assert(x0==x1);
++	if ( AbWatchNear( pObj0 ) || AbWatchNear( pObj1 ) )
++		Msg( "[PWCOL] %.3f %s 0x%x %s 0x%x %d\n", gpGlobals->curtime, pObj0->GetName(), pObj0->GetContents(), pObj1->GetName(), pObj1->GetContents(), x0 );
+ 	return x0;
+ }
+ int CCollisionEvent::ShouldCollide_2( IPhysicsObject *pObj0, IPhysicsObject *pObj1, void *pGameData0, void *pGameData1 )
+-#endif
+ {
+ 	CallbackContext check(this);
+ 
+@@ -967,6 +976,8 @@ static bool CanResolvePenetrationWithNPC( CBaseEntity *pEntity, IPhysicsObject *
+ int CCollisionEvent::ShouldSolvePenetration( IPhysicsObject *pObj0, IPhysicsObject *pObj1, void *pGameData0, void *pGameData1, float dt )
+ {
+ 	CallbackContext check(this);
++	if ( AbWatchNear( pObj0 ) || AbWatchNear( pObj1 ) )
++		Msg( "[PWPEN] %.3f %s %s\n", gpGlobals->curtime, pObj0->GetName(), pObj1->GetName() );
+ 	
+ 	// Pointers to the entity for each physics object
+ 	CBaseEntity *pEntity0 = static_cast<CBaseEntity *>(pGameData0);
+@@ -1752,7 +1763,6 @@ void PhysFrame( float deltaTime )
+ 
+ 	// stock-ab: ab_physwatch "x y z radius steps" -- every awake object near a point after each step.
+ 	{
+-		static ConVar ab_physwatch( "ab_physwatch", "", 0, "stock-ab: log awake physics objects near a point per step: x y z radius steps" );
+ 		static IPhysicsEnvironment *s_pWatchEnv = NULL;
+ 		static int s_nWatchStep = 0;
+ 		float wx, wy, wz, wr; int wn;
+@@ -1774,9 +1784,24 @@ void PhysFrame( float deltaTime )
+ 						pList[i]->GetVelocity( &vel, NULL );
+ 						if ( ( pos - Vector( wx, wy, wz ) ).LengthSqr() > wr * wr )
+ 							continue;
+-						Msg( "[PW] %d %.3f %s %.2f %.2f %.2f %.1f %.1f %.1f %.1f %.1f %.1f%s\n", s_nWatchStep, gpGlobals->curtime,
++						char szTouch[512] = "";
++						IPhysicsFrictionSnapshot *pSnap = pList[i]->CreateFrictionSnapshot();
++						if ( pSnap )
++						{
++							if ( pSnap->IsValid() )
++								Q_strncat( szTouch, " |", sizeof( szTouch ) );
++							while ( pSnap->IsValid() )
++							{
++								char szOne[96];
++								Q_snprintf( szOne, sizeof( szOne ), " %s:%.0f", pSnap->GetObject( 1 )->GetName(), pSnap->GetNormalForce() );
++								Q_strncat( szTouch, szOne, sizeof( szTouch ) );
++								pSnap->NextFrictionData();
++							}
++							pList[i]->DestroyFrictionSnapshot( pSnap );
++						}
++						Msg( "[PW] %d %.3f %s %.2f %.2f %.2f %.1f %.1f %.1f %.1f %.1f %.1f%s m%.1f r%.1f%s\n", s_nWatchStep, gpGlobals->curtime,
+ 							 pList[i]->GetName(), pos.x, pos.y, pos.z, ang.x, ang.y, ang.z, vel.x, vel.y, vel.z,
+-							 pList[i]->IsAsleep() ? " asleep" : "" );
++							 pList[i]->IsAsleep() ? " asleep" : "", pList[i]->GetMass(), pList[i]->GetSphereRadius(), szTouch );
+ 					}
+ 					stackfree( pList );
+ 				}
+@@ -1856,6 +1881,8 @@ void PhysEnableFloating( IPhysicsObject *pObject, bool bEnable )
+ // NOTE: PreCollision/PostCollision ALWAYS come in matched pairs!!!
+ void CCollisionEvent::PreCollision( vcollisionevent_t *pEvent )
+ {
++	if ( AbWatchNear( pEvent->pObjects[0] ) || AbWatchNear( pEvent->pObjects[1] ) )
++		Msg( "[PWHIT] %.3f %s %s\n", gpGlobals->curtime, pEvent->pObjects[0]->GetName(), pEvent->pObjects[1]->GetName() );
+ 	CallbackContext check(this);
+ 	m_gameEvent.Init( pEvent );
+ 
+diff --git a/src/game/server/physics_collisionevent.h b/src/game/server/physics_collisionevent.h
+index 67f91d3f..5fa81531 100644
+--- a/src/game/server/physics_collisionevent.h
++++ b/src/game/server/physics_collisionevent.h
+@@ -118,9 +118,7 @@ public:
+ 	bool IsInCallback() { return m_inCallback > 0 ? true : false; }
+ 
+ private:
+-#if _DEBUG
+ 	int		ShouldCollide_2( IPhysicsObject *pObj0, IPhysicsObject *pObj1, void *pGameData0, void *pGameData1 );
+-#endif
+ 
+ 	void UpdateFrictionSounds();
+ 	void UpdateTouchEvents();
+-- 
+2.53.0
+

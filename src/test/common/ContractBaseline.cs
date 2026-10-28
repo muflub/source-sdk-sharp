@@ -90,6 +90,10 @@ public static class ContractBaseline
         // GameModesTests today; the sandbox station pass will place it once
         // the porting batch lands, per CLAUDE.md). Stock never declared it.
         "game_mode_switch",
+        // Stock's own name, but made in code: CFuncPlat::Precache's
+        // CREATE_UNSAVED_ENTITY( CPlatTrigger, "plat_trigger" ), which no
+        // LINK_ENTITY_TO_CLASS declares, so the scan finds no declaration.
+        "plat_trigger",
         // plan_entity.md step 6e: the fixture SaveTierAgreementTests puts
         // through BOTH walks over the marked and custom tiers, so a difference
         // between them shows up as a key or a value and not as a guess.
@@ -934,7 +938,7 @@ public static class ContractBaseline
               + "of the build. TerminateScriptScope tears down that scope. Like "
               + "ClearContext it is the arm that would be a harmless no-op, and for "
               + "that reason is the one most worth writing down."),
-        new("input|Use", GroupUse, 40,
+        new("input|Use", GroupUse, 41,
             "FORTY managed classes answer Use themselves (31 until "
               + "func_physbox and func_physbox_multiplayer took CPhysBox::Use's "
               + "OnPlayerUse, plan_physics_managed A28; 33 until prop_physics, "
@@ -1120,7 +1124,7 @@ public static class ContractBaseline
               + "offering it would not make it mean anything, so this entry is "
               + "arguably the one closest to being correctly refused rather than "
               + "closed."),
-        new("key|target", GroupIdentity, 30,
+        new("key|target", GroupIdentity, 31,
             "Thirty managed classes declare target for themselves. "
               + "m_target on CBaseEntity is the generic \"the entity this one acts "
               + "on\" name, and like speed it means something different in each of "
@@ -1296,10 +1300,6 @@ public static class ContractBaseline
         "input|func_brush|SetInvert",
         "input|func_clip_vphysics|Disable",
         "input|func_clip_vphysics|Enable",
-        "input|func_door_rotating|SetSpeed",
-        "input|func_door_rotating|SetToggleState",
-        "input|func_door|SetSpeed",
-        "input|func_door|SetToggleState",
         "input|func_friction|DisableAndEndTouch",
         "input|func_friction|EndTouch",
         "input|func_friction|StartTouch",
@@ -1324,8 +1324,6 @@ public static class ContractBaseline
         "input|func_reflective_glass|SetExcluded",
         "input|func_reflective_glass|SetInvert",
         "input|func_rotating|StopAtStartPos",
-        "input|func_water|SetSpeed",
-        "input|func_water|SetToggleState",
         "input|gib|BecomeRagdoll",
         "input|gib|Ignite",
         "input|gib|IgniteHitboxFireScale",
@@ -2200,34 +2198,11 @@ public static class ContractBaseline
         "key|func_brush|solidbsp",
         "key|func_clip_vphysics|filtername",
         "key|func_door_rotating|WaveHeight",
-        "key|func_door_rotating|chainstodoor",
-        "key|func_door_rotating|closesound",
-        "key|func_door_rotating|dmg",
         "key|func_door_rotating|filtername",
-        "key|func_door_rotating|forceclosed",
-        "key|func_door_rotating|ignoredebris",
-        "key|func_door_rotating|locked_sound",
         "key|func_door_rotating|loopmovesound",
-        "key|func_door_rotating|movedir",
-        "key|func_door_rotating|solidbsp",
-        "key|func_door_rotating|spawnpos",
-        "key|func_door_rotating|startclosesound",
-        "key|func_door_rotating|unlocked_sound",
         "key|func_door|WaveHeight",
-        "key|func_door|chainstodoor",
-        "key|func_door|closesound",
-        "key|func_door|dmg",
         "key|func_door|filtername",
-        "key|func_door|forceclosed",
-        "key|func_door|ignoredebris",
-        "key|func_door|locked_sound",
         "key|func_door|loopmovesound",
-        "key|func_door|spawnpos",
-        "key|func_door|startclosesound",
-        "key|func_door|unlocked_sound",
-        "key|func_movelinear|BlockDamage",
-        "key|func_movelinear|StartSound",
-        "key|func_movelinear|StopSound",
         "key|func_physbox_multiplayer|Damagetype",
         "key|func_physbox_multiplayer|PerformanceMode",
         "key|func_physbox_multiplayer|PressureDelay",
@@ -2254,8 +2229,6 @@ public static class ContractBaseline
         "key|func_platrot|wait",
         "key|func_plat|lip",
         "key|func_plat|movesnd",
-        "key|func_plat|noise1",
-        "key|func_plat|noise2",
         "key|func_plat|stopsnd",
         "key|func_plat|volume",
         "key|func_plat|wait",
@@ -2289,21 +2262,9 @@ public static class ContractBaseline
         "key|func_train|movesnd",
         "key|func_train|stopsnd",
         "key|func_train|wait",
-        "key|func_water_analog|BlockDamage",
-        "key|func_water_analog|StartSound",
-        "key|func_water_analog|StopSound",
         "key|func_water|WaveHeight",
-        "key|func_water|chainstodoor",
-        "key|func_water|closesound",
-        "key|func_water|dmg",
         "key|func_water|filtername",
-        "key|func_water|forceclosed",
-        "key|func_water|ignoredebris",
-        "key|func_water|locked_sound",
         "key|func_water|loopmovesound",
-        "key|func_water|spawnpos",
-        "key|func_water|startclosesound",
-        "key|func_water|unlocked_sound",
         "key|game_end|master",
         "key|game_player_equip|master",
         "key|game_player_team|master",
@@ -2618,9 +2579,6 @@ public static class ContractBaseline
         "key|logic_script|Group13",
         "key|logic_script|Group14",
         "key|logic_script|Group16",
-        "key|momentary_door|BlockDamage",
-        "key|momentary_door|StartSound",
-        "key|momentary_door|StopSound",
         "key|momentary_rot_button|movedir",
         "key|npc_grenade_frag|LightingOrigin",
         "key|npc_grenade_frag|LightingOriginHack",
@@ -3061,18 +3019,9 @@ public static class ContractBaseline
         "output|env_wind|OnGustEnd",
         "output|env_wind|OnGustStart",
         "output|func_breakable_surf|OnHealthChanged",
-        "output|func_door_rotating|OnLockedUse",
-        "output|func_door_rotating|OnUnblockedClosing",
-        "output|func_door_rotating|OnUnblockedOpening",
-        "output|func_door|OnLockedUse",
-        "output|func_door|OnUnblockedClosing",
-        "output|func_door|OnUnblockedOpening",
         "output|func_friction|OnNotTouching",
         "output|func_friction|OnStartTouchAll",
         "output|func_friction|OnTouching",
-        "output|func_water|OnLockedUse",
-        "output|func_water|OnUnblockedClosing",
-        "output|func_water|OnUnblockedOpening",
         "output|gib|OnIgnite",
         "output|item_ammo_357_large|OnIgnite",
         "output|item_ammo_357|OnIgnite",

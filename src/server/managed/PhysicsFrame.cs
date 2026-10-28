@@ -112,6 +112,9 @@ public sealed class PhysicsFrame : IGameLifecycle
     /// <summary>Frames that stepped the solver, since the module started.</summary>
     public long Steps { get; private set; }
 
+    /// <summary>Called after every step with its environment (cs_sv_physics_watch's reading).</summary>
+    public Action<nint>? AfterStep { get; set; }
+
     /// <summary>
     /// The whole frame's wall time, one call a frame that stepped, its units
     /// the steps (two on alternate ticks): the solve, the active-object walk,
@@ -260,6 +263,8 @@ public sealed class PhysicsFrame : IGameLifecycle
         // hull, then each one's VPhysicsShadowUpdate (stock's shadow-entity
         // walk), in player order.
         PlayerWalk(env);
+
+        AfterStep?.Invoke(env);
 
         if (profile)
         {

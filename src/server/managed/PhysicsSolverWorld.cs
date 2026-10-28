@@ -7,10 +7,12 @@ namespace SourceSharp.Server;
 
 /// <summary>
 /// What the solver's answers read of an entity: its engine block's collision
-/// fields, whether it is a player, and what moves it.
+/// fields, whether it is a player, what moves it, and the contents it
+/// collides with (stock's PhysicsSolidMaskForEntity).
 /// </summary>
 public readonly record struct SolverEntity(int CollisionGroup, int Solid, int SolidFlags, int MoveType,
-                                           bool IsPlayer, EntityHandle Owner, EntityHandle Parent);
+                                           bool IsPlayer, EntityHandle Owner, EntityHandle Parent,
+                                           uint SolidMask = EnginePushWorld.MaskSolid);
 
 /// <summary>
 /// The engine facts managed's <c>IPhysicsCollisionSolver</c> answers from
@@ -37,7 +39,8 @@ public interface IPhysicsSolverWorld
 /// mover" whose shadow passes through the world (ShouldCollide).
 /// </summary>
 public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNetworking net,
-                                             IEngineEntityPhysics physics, Func<EntityHandle, bool>? movesAsPusher = null)
+                                             IEngineEntityPhysics physics, Func<EntityHandle, bool>? movesAsPusher = null,
+                                             Func<EntityHandle, uint?>? solidMask = null)
     : IPhysicsSolverWorld
 {
     private static readonly int SolidOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidType));
@@ -67,7 +70,8 @@ public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNe
             (int)moveType,
             entities.IsPlayer(entity),
             new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(OwnerOffset))),
-            new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(ParentOffset))));
+            new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(ParentOffset))),
+            solidMask?.Invoke(entity) ?? EnginePushWorld.MaskSolid);
         return true;
     }
 

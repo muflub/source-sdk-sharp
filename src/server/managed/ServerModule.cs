@@ -270,7 +270,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     internal ManagedSystemRow NewSystemRow()
         => new(Log, this, SoundSystemInit, map => _gameDll.PreEntityParticipants(map),
                () => _gameDll.ShutdownPreEntityParticipants(), () => _physicsFrame?.Frame(),
-               _liveness, _services.Require<ModelDescriptors>(), _services.Require<BreakModels>());
+               _liveness, _services.Require<ModelDescriptors>(), _services.Require<BreakModels>(), EntitiesFrame);
 
     /// <summary>
     /// The server's movement constants from this module's own declarations
@@ -1456,6 +1456,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // which the weapon machines resolve on their first command. After the
         // temp entities above, which carry its launch effect.
         _services.AddInstance<IVPhysicsGrabCalls>(new VPhysicsGrabCalls(_engine.VPhysics));
+        // HL2MP's placed items and weapons (hl2mp_gamerules.cpp): where each
+        // came to rest, and the relocation that sends a strayed one back.
+        // Before the map, whose pickups join it.
+        _services.AddInstance<IPhysicsRest>(new EnginePhysicsRest(_services.Require<IEngineEntityPhysics>(),
+                                                                  VPhysicsFrameCalls.For(_engine.VPhysics)));
+        _services.AddInstance(_services.Create<PlacedObjects>());
         _services.AddInstance<ITraceQueries>(new EngineTraceQueries(_services.Require<SideRoute<IServerTraceRoute>>()));
         _services.AddInstance<ICustomMotionControllers>(_services.Require<PhysicsMotionControllers>());
         // What a player's +USE may do with a prop or a physbox: their caps
@@ -1530,11 +1536,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // (plan_physics_bones_native_zero 2.1), and the entity pairs the game
         // disabled, which its ShouldCollide reads.
         var solverObjects = new VPhysicsSolverObjects(_engine.VPhysics);
+        _services.AddInstance<IVPhysicsSolverObjects>(solverObjects);
         var solverWorld = new EnginePhysicsSolverWorld(_services.Require<IEngineEntities>(),
                                                        _services.Require<IEngineNetworking>(),
                                                        _services.Require<IEngineEntityPhysics>(),
-                                                       h => _entities.Get(h) is { MovesAsPusher: true });
+                                                       h => _entities.Get(h) is { MovesAsPusher: true },
+                                                       h => _entities.Get(h)?.PhysicsSolidMask);
         _services.AddInstance<IPhysicsSolverWorld>(solverWorld);
+        // What a func_weight_button weighs: CalculateObjectStress on its object.
+        _services.AddInstance<IObjectStressQuery>(new EntityObjectStress(
+            new PlayerShadowStress(VPhysicsFrameCalls.For(_engine.VPhysics), solverWorld),
+            _services.Require<IEngineEntityPhysics>()));
         var pairs = new EntityPairCollisions(solverWorld, solverObjects);
         _services.AddInstance(pairs);
         _physicsSolver = new PhysicsSolver(solverWorld, solverObjects, new PhysicsSolverRules(), pairs,
@@ -1841,6 +1853,16 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 new PlayerShadowStress(frameCalls, _services.Require<IPhysicsSolverWorld>()),
                 () => directory.All.Select(p => p.Player), ev => _physicsRouter?.Post(ev),
                 () => timescale.Value, () => speeds.Value, text => Log.Msg(text), callbacks.EnsureInstalled);
+            var watchSetting = _convars.Get<PhysicsWatchConVar>()
+                ?? throw new InvalidOperationException("cs_sv_physics_watch is not registered");
+            var watch = new PhysicsWatch(_services.Require<IVPhysicsInspect>(), _services.Require<IVPhysicsSolverObjects>(),
+                                         _services.Require<IGameClock>(), Log, () => watchSetting.Value);
+            _physicsFrame.AfterStep = watch.AfterStep;
+            if (_physicsSolver is { } watchedSolver)
+            {
+                watchedSolver.PenetrationAsked = watch.Penetration;
+                watchedSolver.CollideAsked = watch.Collide;
+            }
             _services.AddInstance(_physicsFrame);
         }
 
@@ -2030,11 +2052,26 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _jitWarmup.Start("server", _jitWarmup.TypesOfContextOf(typeof(ServerModule).Assembly));
     }
 
+    /// <summary>
+    /// The entities' frame, before the physics step: the tick, then every
+    /// frame participant up to the parallel hierarchy (its movers, touches,
+    /// thinks and deletes), where stock's GameFrame runs
+    /// Physics_RunThinkFunctions. A think that makes a physics object makes it
+    /// for this frame's step, as stock's FallThink does.
+    /// </summary>
+    public void EntitiesFrame(float frameTime)
+    {
+        _ticks.Advance();
+        _frames.ThinkThrough((int)FrameStage.Standalone, frameTime);
+    }
+
     public void Frame(float frameTime)
     {
         // Deliberately allocation-free: this runs every tick, and a GC pause
         // here shows up as a frame hitch. See plan.md Part 1, risks.
-        _ticks.Advance();
+        // The tick advanced with the entities' frame, when it ran.
+        if (!_frames.EntitiesThought)
+            _ticks.Advance();
 
         // The penetration ledger's frame (stock's UpdatePenetrateEvents, after
         // the step), then the physics step's entity events, now that PhysFrame
@@ -2073,7 +2110,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // -- FrameUpdatePostEntityThink -- and it is where the soundscape and
         // arsenal updates went, followed by the three that used to be reached
         // through CSourceSharpGameRules::Think.
-        _frames.Think(frameTime);
+        _frames.ThinkRest(frameTime);
 
         // Anything the development API was asked to do runs here, on the game
         // thread. Its HTTP handlers answer on thread-pool threads and the engine

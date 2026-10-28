@@ -1429,6 +1429,13 @@ public abstract class ScriptedEntity
     public virtual bool SpawnsPhysics => true;
 
     /// <summary>
+    /// <c>PhysicsSolidMaskForEntity</c>: the contents this entity's physics
+    /// object collides with (ShouldCollide's contents clause). MASK_SOLID;
+    /// an item adds player clips, a missile hitboxes.
+    /// </summary>
+    public virtual uint PhysicsSolidMask => SourceSharp.Server.EnginePushWorld.MaskSolid;
+
+    /// <summary>
     /// Once per physics frame while the solver is moving this entity's object:
     /// stock's VPhysicsUpdate, called for each object on the active list.
     /// Delivered with the next drain.
@@ -1447,6 +1454,16 @@ public abstract class ScriptedEntity
     /// than settled by the engine.
     /// </summary>
     public virtual void OnBlocked(EntityHandle other) { }
+
+    /// <summary>
+    /// The mover's blocker has changed to <paramref name="other"/>: stock's
+    /// StartBlocked, said once when a push first fails against it, before
+    /// that frame's <see cref="OnBlocked"/>.
+    /// </summary>
+    public virtual void OnStartBlocked(EntityHandle other) { }
+
+    /// <summary>The blocker a push last failed against is no longer in the way: stock's EndBlocked.</summary>
+    public virtual void OnEndBlocked() { }
 
     /// <summary>
     /// Stock's <c>m_takedamage != DAMAGE_NO</c>, which decides, for one, whether
@@ -3003,9 +3020,63 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         if (instance.OnKeyValue(key, value))
             return true;
 
+        if (TakeBaseKey(instance, handle, lowered, value))
+            return true;
+
         _byClassName.TryGetValue(instance.ClassName, out var reg);
         ReportUnclaimed(instance, reg, key);
         return false;
+    }
+
+    /// <summary>
+    /// The keys CBaseEntity and CBaseAnimating take for every class that does
+    /// not take them itself: disableshadows (CBaseEntity::KeyValue's
+    /// EF_NOSHADOW, any entity), and for a model entity (a prop or an item)
+    /// skin, body (and SetBodyGroup) and modelscale, CBaseAnimating's
+    /// keyfields, set as the map writes them before the spawn.
+    /// </summary>
+    private bool TakeBaseKey(ScriptedEntity instance, EntityHandle handle, string lowered, string value)
+    {
+        bool animating = instance.RegisteredKind is ScriptedEntityKind.Prop or ScriptedEntityKind.Item;
+
+        switch (lowered)
+        {
+            case "disableshadows":
+                if (Atoi(value) != 0 && Services?.Resolve(typeof(SourceSharp.Server.IEntityEffectBits)) is SourceSharp.Server.IEntityEffectBits bits)
+                    bits.Set(handle, EntityEffect.NoShadow, true);
+                return true;
+
+            case "skin" when animating:
+                if (Services?.Resolve(typeof(IServerSkins)) is IServerSkins skins)
+                    skins.SetSkin(handle, Atoi(value));
+                return true;
+
+            // m_nBody: its keyfield, and SetBodyGroup, the input that is also a key.
+            case "body" or "setbodygroup" when animating:
+                if (Services?.Resolve(typeof(IServerSkins)) is IServerSkins bodies)
+                    bodies.SetBody(handle, Atoi(value));
+                return true;
+
+            case "modelscale" when animating:
+                if (float.TryParse(value, System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out float scale)
+                    && Services?.Resolve(typeof(IEngineEntityRender)) is IEngineEntityRender render)
+                    render.SetModelScale(handle, scale);
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>atoi: the leading integer, 0 when there is none.</summary>
+    private static int Atoi(string value)
+    {
+        ReadOnlySpan<char> s = value.AsSpan().TrimStart();
+        int end = s.Length > 0 && (s[0] == '-' || s[0] == '+') ? 1 : 0;
+        while (end < s.Length && char.IsAsciiDigit(s[end]))
+            end++;
+        return int.TryParse(s[..end], System.Globalization.NumberStyles.AllowLeadingSign,
+                            System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
     }
 
     /// <summary>

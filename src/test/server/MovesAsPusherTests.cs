@@ -39,7 +39,7 @@ public class MovesAsPusherTests
         "color_correction_volume", "env_bubbles", "env_embers", "func_areaportalwindow", "func_dustcloud",
         "func_dustmotes", "func_friction", "func_illusionary", "func_lod", "func_occluder", "func_physbox",
         "func_physbox_multiplayer", "func_precipitation", "func_pushable", "func_smokevolume",
-        "func_traincontrols", "func_weight_button", "game_zone_player", "simple_physics_brush", "trigger",
+        "func_traincontrols", "func_weight_button", "game_zone_player", "plat_trigger", "simple_physics_brush", "trigger",
         "trigger_apply_impulse", "trigger_brush", "trigger_cdaudio", "trigger_gravity", "trigger_hurt",
         "trigger_impact", "trigger_look", "trigger_multiple", "trigger_once", "trigger_playermovement",
         "trigger_proximity", "trigger_push", "trigger_remove", "trigger_serverragdoll", "trigger_soundscape",

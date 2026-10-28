@@ -37,6 +37,7 @@ public class MoverDirectionTests
         registry.RegisterAll(typeof(FuncDoor).Assembly);
         registry.Services = Services(out var engine);
         engine.Returns("Entities.GetSpawnOrigin", Drawn)
+              .Returns("Entities.GetOrigin", Drawn)
               .Returns("Entities.GetBoundsSize", Bounds)
               .Returns("Entities.GetSpawnAngles", new Vector(-90f, 0f, 0f));
 

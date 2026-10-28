@@ -13,7 +13,7 @@ namespace SourceSharp.Tests;
 /// behaviour rather than any particular item's contents.
 /// </summary>
 [ScriptedEntity("test_item", ScriptedEntityKind.Item)]
-public sealed class TestItem(IEngineWorldQuery world) : PickupItem(world)
+public sealed class TestItem(IEngineWorldQuery world, PlacedObjects placed) : PickupItem(world, placed)
 {
     protected override string Model => "models/test.mdl";
     protected override float RespawnDelay => Delay;
@@ -185,121 +185,26 @@ public class ItemTests
             return false;
         }
 
-        public int PopulateFromSpawnPoints(float heightAboveSpawn = 8f) => 0;
     }
-
-    //-------------------------------------------------------------------------
-    // WHERE A SPAWN POINT'S PICKUP GOES.
-    //
-    // Measured live on dm_lockdown before this was a rule: all ten pickups
-    // were placed eight units directly above a spawn point, and the player
-    // spawns at that same X/Y. So the player stood INSIDE the health kit --
-    // which gives nothing at full health, and therefore healed them back to
-    // 100 the instant they took their first damage:
-    //
-    //   HIT  {"healthBefore":100,"healthAfter":83}
-    //   log  [SourceSharp/Pickup] player#1 took 'health': 83 -> 100 health
-    //
-    // and again every RespawnDelay seconds for as long as they stood there.
-    // The rule under test is the one that makes that impossible: the pickup's
-    // trigger box must not intersect the hull of whoever spawns on the point,
-    // AT ANY FACING -- an offset that clears the axes and not the diagonals
-    // would leave a share of a map's spawn points still doing this.
-    //-------------------------------------------------------------------------
-
-    /// <summary>Do two axis-aligned boxes, given as centre and half-extents, meet?</summary>
-    private static bool Overlaps(Vector aCentre, Vector aHalf, Vector bCentre, Vector bHalf)
-        => MathF.Abs(aCentre.X - bCentre.X) < (aHalf.X + bHalf.X)
-        && MathF.Abs(aCentre.Y - bCentre.Y) < (aHalf.Y + bHalf.Y)
-        && MathF.Abs(aCentre.Z - bCentre.Z) < (aHalf.Z + bHalf.Z);
 
     /// <summary>
-    /// The player, as the shell places them: one unit above the point
-    /// (CStandalonePlayer::Spawn's lift) and VEC_HULL_MIN/MAX tall.
+    /// A level's first frames place nothing of their own: stock HL2MP puts no
+    /// pickup beside a spawn point, and dm_lockdown's census had ten more
+    /// entities than stock's for it (2026-10-27).
     /// </summary>
-    private static (Vector Centre, Vector Half) SpawningPlayerHull(Vector spawnPoint)
-        => (new Vector(spawnPoint.X, spawnPoint.Y, spawnPoint.Z + 1f + 36f),
-            new Vector(Pickups.PlayerHalfWidth, Pickups.PlayerHalfWidth, 36f));
-
-    /// <summary>
-    /// The pickup's trigger, as MakePickup builds it: half-extents in X and Y,
-    /// but 0..SizeZ in Z -- the box sits ON the origin rather than around it
-    /// (EngineSide.MakePickup; SolidityCompositionTests holds its box).
-    /// </summary>
-    private static (Vector Centre, Vector Half) PickupBox(Vector at)
-        => (new Vector(at.X, at.Y, at.Z + (Pickups.Health.SizeZ / 2f)),
-            new Vector(Pickups.Health.SizeX, Pickups.Health.SizeY, Pickups.Health.SizeZ / 2f));
-
     [Fact]
-    public void APickupNeverOverlapsTheHullOfWhoeverSpawnsOnThatPoint()
+    public void A_level_with_spawn_points_gets_no_pickups_of_ours()
     {
-        var point = new Vector(-3893.1f, 1413.9f, 8f);
-        var (playerCentre, playerHalf) = SpawningPlayerHull(point);
+        var engine = new RecordingEngine { Strict = false };
+        engine.Returns("Entities.FindAllByClassname", new[] { new EntityHandle(0x0002_0001u) })
+              .Returns("Entities.GetOrigin", new Vector(64f, 0f, 0f));
+        var pickups = new Pickups(new RecordingLog(), engine, engine, engine, engine);
 
-        // Every fifteen degrees of yaw, because the diagonals are the worst
-        // case and testing one facing would pass on an axis-only offset.
-        for (int yaw = 0; yaw < 360; yaw += 15)
-        {
-            var (pickupCentre, pickupHalf) =
-                PickupBox(Pickups.PlacementNear(point, new Vector(0f, yaw, 0f)));
+        ((IGameLifecycle)pickups).OnLevelInit("dm_lockdown");
+        ((IFrameLifecycle)pickups).OnThink(0.015f);
+        ((IFrameLifecycle)pickups).OnThink(0.015f);
 
-            Assert.False(Overlaps(playerCentre, playerHalf, pickupCentre, pickupHalf),
-                         $"a pickup on a spawn point facing yaw {yaw} is inside the player who spawns there");
-        }
-    }
-
-    [Fact]
-    public void APickupOnASpawnPointFacingStraightUpIsStillClearOfIt()
-    {
-        // A pitched facing has little or no XY direction to offset along, and
-        // -90 has exactly none: the fallback still has to clear the hull.
-        var point = new Vector(0f, 0f, 0f);
-        var (playerCentre, playerHalf) = SpawningPlayerHull(point);
-        var (pickupCentre, pickupHalf) =
-            PickupBox(Pickups.PlacementNear(point, new Vector(-90f, 0f, 0f)));
-
-        Assert.False(Overlaps(playerCentre, playerHalf, pickupCentre, pickupHalf),
-                     "a spawn point looking at the ceiling still gets a pickup beside it, not in it");
-    }
-
-    [Fact]
-    public void APickupIsPlacedAheadOfTheSpawnPointRatherThanBehindIt()
-    {
-        // Facing +X: the pickup goes the way the arriving player will be
-        // looking, which is the direction a mapper has already pointed at the
-        // open part of the room.
-        var placed = Pickups.PlacementNear(new Vector(100f, 200f, 8f), new Vector(0f, 0f, 0f));
-
-        Assert.True(placed.X > 100f, "the offset is along the facing, not against it");
-        Assert.Equal(200f, placed.Y, 3);
-    }
-
-    [Fact]
-    public void APickupKeepsTheHeightItWasAskedFor()
-    {
-        // The height is the caller's and the offset must not spend any of it:
-        // a facing with pitch would otherwise push the pickup into the floor.
-        var placed = Pickups.PlacementNear(new Vector(0f, 0f, 512f), new Vector(45f, 30f, 0f),
-                                           heightAboveSpawn: 8f);
-
-        Assert.Equal(520f, placed.Z, 3);
-    }
-
-    [Fact]
-    public void PlacementIsTheSameDistanceFromTheSpawnPointAtEveryFacing()
-    {
-        // The flattened facing is RENORMALISED. Without that a pitched spawn
-        // point keeps only the cosine of its offset and quietly lands closer
-        // to the player than any of the checks above chose.
-        var point = new Vector(0f, 0f, 0f);
-
-        for (int pitch = -60; pitch <= 60; pitch += 30)
-        {
-            var placed = Pickups.PlacementNear(point, new Vector(pitch, 37f, 0f));
-            float flat = MathF.Sqrt((placed.X * placed.X) + (placed.Y * placed.Y));
-
-            Assert.Equal(Pickups.ClearanceFromSpawn, flat, 2);
-        }
+        Assert.False(engine.Called("Entities.Create"));
     }
 
     [Fact]

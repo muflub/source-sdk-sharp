@@ -11,6 +11,8 @@ namespace SourceSharp.Shared;
 /// same sequence from an update that kept it.
 /// </summary>
 [StandaloneNetState(EntityNames.PropDynamic)]
+[StandaloneNetStateAlias(EntityNames.PropDynamicOverride)]
+[StandaloneNetStateAlias(EntityNames.DynamicProp)]
 public partial class PropDynamicNetState
 {
     /// <summary>The model's sequence index; read once <see cref="Starts"/> has moved.</summary>

@@ -398,7 +398,7 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/FuncWall.cs	no	trivi
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/FuncWallToggle.cs	yes	ports CFuncWallToggle::Spawn/TurnOn/TurnOff (bmodels.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/FuncWeightButton.cs	yes	ports CWeightButton::TriggerThink press/release latch (weight_button.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/MomentaryRotButton.cs	yes	ports CMomentaryRotButton::Spawn/UpdateSelf position-fraction math (buttons.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/MovingBrush.cs	no	original door state machine; not CBaseDoor::Blocked's actual damage/solver logic
+src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/MovingBrush.cs	yes	ports CBaseDoor (doors.cpp): toggle states, Use/DoorTouch/DoorActivate, DoorGoUp/HitTop/GoDown/HitBottom, Blocked/StartBlocked/EndBlocked, lock sounds, area portals
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/Riders.cs	no	explicitly rejects porting stock's push/carry; original box-overlap algorithm instead
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/TrainBrush.cs	yes	ports UTIL_ValidateSoundName's empty-or-"0" check (util.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Effects/EnvBlood.cs	yes	ports UTIL_RandomBloodVector's ±1/±1/0..1 bias (util.cpp)

@@ -613,6 +613,9 @@ public sealed class EntityMotion
         /// <summary>A continuous spin, which never arrives and so never reports.</summary>
         public QAngle Spin;
 
+        /// <summary>m_pBlocker: what the last step's push failed against, or none.</summary>
+        public EntityHandle Blocker;
+
         /// <summary>What was last written to the shell, so an unchanged velocity costs no call.</summary>
         public Vector Velocity;
 
@@ -670,6 +673,25 @@ public sealed class EntityMotion
 
         push.ReconciledFrame = push.Frame;
         return true;
+    }
+
+    /// <summary>
+    /// PerformPush's edges: when the step's blocker is not the last one, the
+    /// last one's block ends and the new one's starts, before the frame's
+    /// Blocked. A stopped mover pushes nothing, so its block ends too.
+    /// </summary>
+    private void BlockerEdges(EntityHandle handle, Push push, EntityHandle blocker)
+    {
+        EntityHandle previous = push.Blocker;
+        if (blocker == previous)
+            return;
+
+        push.Blocker = blocker;
+        ScriptedEntity? mover = _directory.Resolve(handle);
+        if (previous != EntityHandle.None)
+            mover?.OnEndBlocked();
+        if (blocker != EntityHandle.None)
+            mover?.OnStartBlocked(blocker);
     }
 
     /// <summary>The mover put back where vphysics says it got to.</summary>
@@ -1093,6 +1115,7 @@ public sealed class EntityMotion
             }
 
             push.AngularVelocity = default;
+            BlockerEdges(handle, push, EntityHandle.None);
             return false;
         }
 
@@ -1242,6 +1265,8 @@ public sealed class EntityMotion
 
         if (rotationPending)
             Commit(handle, current, angNext);
+
+        BlockerEdges(handle, push, blocker);
 
         if (blocker != EntityHandle.None)
         {

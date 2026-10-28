@@ -6,8 +6,8 @@ namespace SourceSharp.Server;
 /// <summary>An item that hands over a quantity of one ammo type.</summary>
 public abstract class AmmoItem : PickupItem
 {
-    public AmmoItem(IEnginePlayers players, IEngineWorldQuery world)
-        : base(world)
+    public AmmoItem(IEnginePlayers players, IEngineWorldQuery world, PlacedObjects placed)
+        : base(world, placed)
     {
         Players = players;
     }

@@ -429,6 +429,20 @@ public class ClientRenderPolicyTests
         Assert.Equal(ShadowCast.None, ClientRenderPolicy.Shadow(facts));
     }
 
+    /// <summary>
+    /// C_BaseEntity::ShadowCastType: EF_NOSHADOW casts nothing, which a map's
+    /// disableshadows key sets (CBaseEntity::KeyValue). Found 2026-10-27:
+    /// dm_lockdown keys it on 23 props and ours cast shadows from all of them.
+    /// </summary>
+    [Fact]
+    public void An_entity_marked_EF_NOSHADOW_casts_nothing()
+    {
+        var facts = Prop();
+        facts.NoShadow = true;
+
+        Assert.Equal(ShadowCast.None, ClientRenderPolicy.Shadow(facts));
+    }
+
     [Fact]
     public void SequencesUnavailableCastsNothing()
     {
@@ -833,6 +847,18 @@ public class ClientRenderPolicyTests
 
         int word = Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowFlags)));
         Assert.Equal(0, word & (int)ClientRenderPolicy.ReceiveMask);
+    }
+
+    /// <summary>The server's EF_NOSHADOW, read off the block's networked Effects word, writes no shadow.</summary>
+    [Fact]
+    public void A_networked_EF_NOSHADOW_is_written_into_the_block_as_no_shadow()
+    {
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadEffects, (int)EntityEffect.NoShadow);
+
+        Policy().Pass(blocks);
+
+        Assert.Equal((int)ShadowCast.None, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ShadowType))));
     }
 
     [Fact]

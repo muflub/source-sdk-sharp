@@ -4,7 +4,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 [ScriptedEntity(EntityNames.ItemBattery, ScriptedEntityKind.Item)]
-public sealed class ItemBattery(IUserMessageSender messages, IEngineWorldQuery world) : PickupItem(world)
+public sealed class ItemBattery(IUserMessageSender messages, IEngineWorldQuery world, PlacedObjects placed) : PickupItem(world, placed)
 {
     protected override string Model => "models/items/battery.mdl";
     protected override string Describe() => "a battery";

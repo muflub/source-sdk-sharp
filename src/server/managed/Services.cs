@@ -126,8 +126,6 @@ public interface IPickupDirectory
     /// <summary>A player walked into one. True if it was collected.</summary>
     bool OnTouched(EntityHandle entity, EntityHandle other, float now);
 
-    /// <summary>Puts one pickup above each of the map's spawn points.</summary>
-    int PopulateFromSpawnPoints(float heightAboveSpawn = 8f);
 }
 
 /// <summary>

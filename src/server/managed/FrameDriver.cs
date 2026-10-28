@@ -71,6 +71,36 @@ public sealed class FrameDriver
 
     public void Think(float frameTime) => Dispatch(1, "OnThink", frameTime);
 
+    /// <summary>
+    /// The think point for the participants up to and including
+    /// <paramref name="lastOrder"/>: the entities' frame, which stock runs
+    /// before the physics step (Physics_RunThinkFunctions).
+    /// <see cref="ThinkRest"/> runs the others after it.
+    /// </summary>
+    public void ThinkThrough(int lastOrder, float frameTime)
+    {
+        _thoughtThrough = lastOrder;
+        Dispatch(1, "OnThink", frameTime, int.MinValue, lastOrder);
+    }
+
+    /// <summary>Whether this frame's <see cref="ThinkThrough"/> has run and its <see cref="ThinkRest"/> has not.</summary>
+    public bool EntitiesThought => _thoughtThrough is not null;
+
+    /// <summary>
+    /// The think point for what follows the physics step: the participants
+    /// after the ones this frame's <see cref="ThinkThrough"/> ran, or all of
+    /// them when it did not run (a host that drives the frame in one call).
+    /// </summary>
+    public void ThinkRest(float frameTime)
+    {
+        int from = _thoughtThrough is int last ? last + 1 : int.MinValue;
+        _thoughtThrough = null;
+        Dispatch(1, "OnThink", frameTime, from, int.MaxValue);
+    }
+
+    // The order this frame's ThinkThrough ran up to, until its ThinkRest.
+    private int? _thoughtThrough;
+
     public void PostThink(float frameTime) => Dispatch(2, "OnPostThink", frameTime);
 
     /// <summary>
@@ -117,11 +147,13 @@ public sealed class FrameDriver
         _ => "OnPreClientUpdate",
     };
 
-    private void Dispatch(int point, string what, float frameTime)
+    private void Dispatch(int point, string what, float frameTime, int fromOrder = int.MinValue, int toOrder = int.MaxValue)
     {
         for (int i = 0; i < _participants.Count; i++)
         {
             var p = _participants[i];
+            if (p.FrameOrder < fromOrder || p.FrameOrder > toOrder)
+                continue;
 
             try
             {

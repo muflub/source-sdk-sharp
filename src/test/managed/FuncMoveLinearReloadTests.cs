@@ -34,7 +34,10 @@ public class FuncMoveLinearReloadTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncMoveLinear).Assembly);
         registry.Services = Services(out engine);
-        engine.Returns("Entities.GetSpawnOrigin", Drawn);
+        engine.Returns("Entities.GetSpawnOrigin", Drawn)
+              // Partway along the travel, so Open and Close both have somewhere to go:
+              // an input at the end it names moves nothing (CFuncMoveLinear::InputOpen).
+              .Returns("Entities.GetOrigin", Drawn + new Vector(0f, 0f, 1f));
         return registry;
     }
 

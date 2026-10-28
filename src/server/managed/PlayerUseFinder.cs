@@ -233,13 +233,16 @@ public sealed class PlayerUseFinder : IUseTargetFinder
     /// nearest <paramref name="world"/>, the box turned with the entity unless
     /// it is world-aligned (as SourceSharp_BoundsInEntitySpace rules).
     /// </summary>
-    public Vector NearestPoint(EntityHandle entity, Vector world)
-    {
-        Vector origin = _entities.GetOrigin(entity);
-        var (mins, maxs) = _entities.GetBounds(entity);
-        Vector angles = _entities.GetAngles(entity);
+    public Vector NearestPoint(EntityHandle entity, Vector world) => NearestPoint(_entities, entity, world);
 
-        if (!InEntitySpace(_entities.GetSolidType(entity), _entities.GetSolidFlags(entity))
+    /// <inheritdoc cref="NearestPoint(EntityHandle, Vector)"/>
+    public static Vector NearestPoint(IEngineEntities entities, EntityHandle entity, Vector world)
+    {
+        Vector origin = entities.GetOrigin(entity);
+        var (mins, maxs) = entities.GetBounds(entity);
+        Vector angles = entities.GetAngles(entity);
+
+        if (!InEntitySpace(entities.GetSolidType(entity), entities.GetSolidFlags(entity))
             || (angles.X == 0f && angles.Y == 0f && angles.Z == 0f))
         {
             return Clamp(world - origin, mins, maxs) + origin;

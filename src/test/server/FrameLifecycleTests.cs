@@ -125,6 +125,46 @@ public class FrameLifecycleTests
     }
 
     /// <summary>
+    /// The think point split at a stage: the entities' frame (up to and
+    /// including the stage) runs before the physics step, the rest after it.
+    /// </summary>
+    [Fact]
+    public void A_think_split_at_a_stage_runs_each_half_alone()
+    {
+        var log = new List<string>();
+        var services = new ServiceContainer();
+        services.AddInstance(new Recorder(log, 30, "late"));
+        services.AddInstance<IContract>(new Recorder(log, 10, "early"));
+        var driver = new FrameDriver(new RecordingLog(), services);
+
+        driver.ThinkThrough(10, 0.015f);
+        Assert.True(driver.EntitiesThought);
+        log.Add("|");
+        driver.ThinkRest(0.015f);
+
+        Assert.Equal(new[] { "early:think", "|", "late:think" }, log);
+        Assert.False(driver.EntitiesThought);
+    }
+
+    /// <summary>A frame whose entities' half never ran thinks every participant in its rest, once.</summary>
+    [Fact]
+    public void A_rest_with_no_entities_half_before_it_thinks_everyone()
+    {
+        var log = new List<string>();
+        var services = new ServiceContainer();
+        services.AddInstance(new Recorder(log, 30, "late"));
+        services.AddInstance<IContract>(new Recorder(log, 10, "early"));
+        var driver = new FrameDriver(new RecordingLog(), services);
+
+        driver.ThinkThrough(10, 0.015f);
+        driver.ThinkRest(0.015f);
+        log.Clear();
+        driver.ThinkRest(0.015f);
+
+        Assert.Equal(new[] { "early:think", "late:think" }, log);
+    }
+
+    /// <summary>
     /// FrameOrder is not LifecycleOrder. A service in both sequences has no
     /// reason for its position in one to decide its position in the other, and
     /// the two real participants prove it: Soundscapes is LAST in the level
@@ -735,6 +775,9 @@ public class FrameLifecycleTests
         // Inserted in the spacing's own gap (400/500); the recorded
         // participants keep their numbers.
         (typeof(PlayerComposites), 450),
+        // ManageObjectRelocation, which ends CHL2MPRules::Think: just after
+        // the rules, in the 300/400 gap.
+        (typeof(PlacedObjects), 310),
     };
 
     [Fact]

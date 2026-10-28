@@ -33,6 +33,26 @@ namespace SourceSharp.Abi;
 /// and what both generated tables are keyed by.
 /// </para>
 /// </summary>
+/// <summary>
+/// Another classname whose entities carry this same state: one entity class
+/// spawned under several names (prop_dynamic's prop_dynamic_override and
+/// dynamic_prop). Each name is its own declaration, with this layout, so each
+/// is published and allocated at the tier the layout needs; a name left
+/// undeclared is published stateless, and binding the state to its smallest
+/// blob refuses the entity.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true, Inherited = false)]
+public sealed class StandaloneNetStateAliasAttribute : Attribute
+{
+    public StandaloneNetStateAliasAttribute(string className)
+    {
+        ClassName = className;
+    }
+
+    /// <summary>The other entity classname.</summary>
+    public string ClassName { get; }
+}
+
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
 public sealed class StandaloneNetStateAttribute : Attribute
 {
@@ -239,7 +259,7 @@ public static class StandaloneNetStates
     {
         // KEY ORDER (plan_side_isolation §2.1): by classname, which both sides
         // derive from the same declaration whatever assembly it compiled into.
-        var states = found.Select(Of)
+        var states = found.SelectMany(WithAliases)
                           .OrderBy(s => s.ClassName, StringComparer.Ordinal)
                           .ToArray();
 
@@ -247,6 +267,16 @@ public static class StandaloneNetStates
         // NetStateCatalog's, which each composition builds over the same
         // declarations.
         return states;
+    }
+
+    /// <summary>A type's declaration, and the same layout under each of its aliases.</summary>
+    private static IEnumerable<StandaloneNetState> WithAliases(Type stateType)
+    {
+        StandaloneNetState state = Of(stateType);
+        yield return state;
+
+        foreach (var alias in stateType.GetCustomAttributes<StandaloneNetStateAliasAttribute>())
+            yield return new StandaloneNetState(alias.ClassName, state.Type, state.Size, state.Fields);
     }
 
     /// <summary>

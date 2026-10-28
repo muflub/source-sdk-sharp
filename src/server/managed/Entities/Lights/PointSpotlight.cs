@@ -310,8 +310,11 @@ public sealed class PointSpotlight : ScriptedEntity
             return;
         }
 
+        // Stock's SpotlightUpdate: an end that has gone takes the beam with it
+        // before both are made again, or every rebuild leaves a beam behind.
         if (!Entities.IsValid(_end))
         {
+            Destroy();
             Create();
             return;
         }

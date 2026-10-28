@@ -1,0 +1,62 @@
+From 913975d9dfdcfdca3befa5e99f7e0e332ee580d9 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Tue, 27 Oct 2026 20:07:58 -0700
+Subject: [PATCH] stock-ab: ab_physwatch logs every awake physics object near a
+ point, per step
+
+The stock half of cs_sv_physics_watch: "x y z radius steps" prints a [PW]
+line per awake object within the radius after each of a level's first
+steps (name, position, angles, velocity, asleep), the same format, so the
+two logs line up step for step.
+---
+ src/game/server/physics.cpp | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/src/game/server/physics.cpp b/src/game/server/physics.cpp
+index 279fd507..f2b3e9d5 100644
+--- a/src/game/server/physics.cpp
++++ b/src/game/server/physics.cpp
+@@ -1750,6 +1750,40 @@ void PhysFrame( float deltaTime )
+ 		}
+ 	}
+ 
++	// stock-ab: ab_physwatch "x y z radius steps" -- every awake object near a point after each step.
++	{
++		static ConVar ab_physwatch( "ab_physwatch", "", 0, "stock-ab: log awake physics objects near a point per step: x y z radius steps" );
++		static IPhysicsEnvironment *s_pWatchEnv = NULL;
++		static int s_nWatchStep = 0;
++		float wx, wy, wz, wr; int wn;
++		if ( sscanf( ab_physwatch.GetString(), "%f %f %f %f %d", &wx, &wy, &wz, &wr, &wn ) == 5 && wr > 0 && wn > 0 )
++		{
++			if ( physenv != s_pWatchEnv ) { s_pWatchEnv = physenv; s_nWatchStep = 0; }
++			if ( s_nWatchStep < wn )
++			{
++				s_nWatchStep++;
++				int n = physenv->GetActiveObjectCount();
++				if ( n )
++				{
++					IPhysicsObject **pList = (IPhysicsObject **)stackalloc( sizeof(IPhysicsObject *)*n );
++					physenv->GetActiveObjects( pList );
++					for ( int i = 0; i < n; i++ )
++					{
++						Vector pos; QAngle ang; Vector vel;
++						pList[i]->GetPosition( &pos, &ang );
++						pList[i]->GetVelocity( &vel, NULL );
++						if ( ( pos - Vector( wx, wy, wz ) ).LengthSqr() > wr * wr )
++							continue;
++						Msg( "[PW] %d %.3f %s %.2f %.2f %.2f %.1f %.1f %.1f %.1f %.1f %.1f%s\n", s_nWatchStep, gpGlobals->curtime,
++							 pList[i]->GetName(), pos.x, pos.y, pos.z, ang.x, ang.y, ang.z, vel.x, vel.y, vel.z,
++							 pList[i]->IsAsleep() ? " asleep" : "" );
++					}
++					stackfree( pList );
++				}
++			}
++		}
++	}
++
+ 	if ( bProfile )
+ 	{
+ 		simRealTime = engine->Time() - simRealTime;
+-- 
+2.53.0
+

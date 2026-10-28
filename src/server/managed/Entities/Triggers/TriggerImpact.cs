@@ -47,13 +47,13 @@ public sealed class TriggerImpact : TriggerVolume
     private const float ViewkickScale = 0.1f;
 
     /// <summary>
-    /// How long an impact keeps reaching things. Stock's tenth of a second, and
-    /// stock's reason: it turns its trigger flag on for that long so the engine
-    /// re-reports whatever is inside, which is how it finds anything at all.
-    /// This volume already knows who is inside, so the window only decides who
-    /// still counts if they ARRIVE in the moment the impact happens.
+    /// How long an impact keeps the volume on: stock's tenth of a second. It
+    /// turns its trigger flag on for that long so the engine reports whatever
+    /// is inside, and each of those starts touching and is thrown.
     /// </summary>
     private const float Window = 0.1f;
+
+    private const string OffContext = "ImpactOff";
 
     /// <summary>
     /// The shove direction, computed ONCE in <see cref="OnSpawn"/> from the
@@ -62,13 +62,14 @@ public sealed class TriggerImpact : TriggerVolume
     /// along <c>Vector.Zero</c> (OnSpawnFieldReloadTests).
     /// </summary>
     [SaveField] private Vector _direction;
-    private float _armedUntil;
 
     // A trigger_impact that only noticed players would have nothing to throw.
     public override bool TouchedByAnything => true;
 
     public override void OnSpawn()
     {
+        // CTriggerImpact::Spawn: "Always start disabled" -- no trigger until an Impact.
+        Vars.StartDisabled = true;
         base.OnSpawn();
 
         // Where the mapper pointed the brush.
@@ -85,29 +86,40 @@ public sealed class TriggerImpact : TriggerVolume
         Vars.Wait = 0f;
     }
 
+    /// <summary>
+    /// CTriggerImpact::InputImpact: the force on the output, then the volume on
+    /// long enough for whatever is inside to start touching it, and off again.
+    /// </summary>
     [ScriptedEvent("Impact")]
     private void OnImpactRequested()
     {
         ImpactForce.Fire(Text(_direction * TriggerImpactVars.Magnitude));
 
-        _armedUntil = Clock.Now + Window;
+        SetEnabled(true);
+        SetContextThink(OffContext, Window);
+    }
 
-        foreach (var toucher in Inside)
-        {
-            if (Entities.IsValid(toucher))
-                Shove(toucher);
-        }
+    public override void OnThink(string context)
+    {
+        if (context == OffContext)
+            SetEnabled(false);
     }
 
     [ScriptedEvent("SetMagnitude")]
     private void OnMagnitudeSet(float magnitude) => TriggerImpactVars.Magnitude = magnitude;
 
-    // Arriving during the window counts as having been there for it.
-    protected override void Fire(EntityHandle toucher)
+    /// <summary>
+    /// CTriggerImpact::StartTouch, which replaces CBaseTrigger's: whatever
+    /// starts touching it while it is on is thrown, with no filter and no
+    /// touch list.
+    /// </summary>
+    public override void OnTouch(EntityHandle toucher)
     {
-        if (Clock.Now < _armedUntil)
+        if (!Disabled)
             Shove(toucher);
     }
+
+    protected override void Fire(EntityHandle toucher) { }
 
     /// <summary>
     /// The force as three numbers, which is what the output carries.
@@ -133,7 +145,9 @@ public sealed class TriggerImpact : TriggerVolume
             Host.RandomFloat(-TriggerImpactVars.Noise, TriggerImpactVars.Noise),
             Host.RandomFloat(-TriggerImpactVars.Noise, TriggerImpactVars.Noise));
 
-        Physics.ApplyForceCenter(toucher, direction * TriggerImpactVars.Magnitude);
+        // Only what has a physics object is pushed.
+        if (Physics.PhysicsObject(toucher) != 0)
+            Physics.ApplyForceCenter(toucher, direction * TriggerImpactVars.Magnitude);
 
         if (TriggerImpactVars.Magnitude == 0f || !Entities.IsPlayer(toucher))
             return;

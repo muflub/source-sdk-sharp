@@ -6,8 +6,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.ItemAmmo357Large, ScriptedEntityKind.Item)]
 public sealed class ItemAmmo357Large : AmmoItem
 {
-    public ItemAmmo357Large(IEnginePlayers players, IEngineWorldQuery world)
-        : base(players, world)
+    public ItemAmmo357Large(IEnginePlayers players, IEngineWorldQuery world, PlacedObjects placed)
+        : base(players, world, placed)
     {
     }
 
