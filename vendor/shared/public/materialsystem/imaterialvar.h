@@ -118,32 +118,6 @@ public:
 		return m_intVal;
 	}
 
-#ifdef FAST_MATERIALVAR_ACCESS
-	FORCEINLINE int GetIntValue( void ) const
-	{
-		return GetIntValueFast();
-	}
-
-	FORCEINLINE float GetFloatValue( void ) const
-	{
-		return GetFloatValueFast();
-	}
-
-	FORCEINLINE float const* GetVecValue( ) const
-	{
-		return GetVecValueFast();
-	}
-
-	FORCEINLINE void GetVecValue( float *val, int numcomps ) const 
-	{
-		GetVecValueFast( val, numcomps );
-	}
-
-	FORCEINLINE int VectorSize() const
-	{
-		return VectorSizeFast();
-	}
-#else // !FAST_MATERIALVAR_ACCESS
 	FORCEINLINE int GetIntValue( void ) const
 	{
 		return GetIntValueInternal();
@@ -163,7 +137,6 @@ public:
 	{
 		return VectorSizeInternal();
 	}
-#endif
 
 private:
 

@@ -1,15 +1,6 @@
-//========= SourceSharp — accepting a managed-built object =================//
-//
-// plan_engineapi_vtables.md Phase D3, reshaped by plan_managed_vtable_reload.md
-// L1. Native takes a managed-built object only if the object's own Validate
-// (slot 1) agrees with the per-slot hashes the COMPILER's declaration was
-// generated with (k<I>SlotHashes, tools/managed-areas). A table built from an
-// older or newer header is refused here, naming the first slot that differs,
-// rather than called through a slot whose shape changed. L1b: every such
-// interface derives from IManagedObject, so the check is one function on the
-// base; the templates only add the type and prove the derivation.
-//
-//=============================================================================//
+// Accepting a managed-built object: its Validate (slot 1 of IManagedObject) must
+// agree with the slot hashes this binary was generated with, or it is refused
+// naming the first slot that differs.
 
 #pragma once
 
@@ -20,17 +11,12 @@
 
 #include "imanaged_core.h"
 
-
 // The object as an IManagedObject *, or NULL with the reason in pWhy.
 inline IManagedObject *ManagedAcceptObject( void *pObject, const uint32_t *pSlotHashes, int32_t nSlots,
                                             char *pWhy, size_t nWhy )
 {
-	// plan_managed_vtable_reload.md L1: the object says whether it is the shape
-	// this binary was compiled against. IManagedObject is every managed-built
-	// interface's primary base, so its Validate is slot 1 of whatever table
-	// managed built and calling it is safe on any object that is one at all;
-	// it answers -1 when managed's per-slot hashes equal these, else the first
-	// slot that differs (a count mismatch reports at the shorter count).
+	// Validate answers -1 when managed's slot hashes match, else the first slot
+	// that differs.
 	if ( !pSlotHashes || nSlots <= 0 )
 	{
 		snprintf( pWhy, nWhy, "no compiled slot hashes to check against" );

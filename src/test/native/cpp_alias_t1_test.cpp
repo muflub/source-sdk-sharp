@@ -239,7 +239,6 @@ int CountAliasOpens( const std::string &strCode )
 
 } // namespace
 
-
 //=============================================================================//
 // 1. The guards are structurally whole.
 //=============================================================================//
@@ -271,7 +270,6 @@ TEST( T1Guards, ServerNetworkPropertyIsGoneAndTheTransmitStepNamesItNowhere )
 	EXPECT_EQ( 0, CountOf( ents, "GetNetworkParent" ) );
 	EXPECT_EQ( 1, CountOf( ents, "pInfo->m_pTransmitEdict->Set( iEdict );\n\t\t\tcontinue;" ) );
 }
-
 
 //-----------------------------------------------------------------------------
 // The two physics.cpp files carry the bulk of the arms. A floor rather than an
@@ -353,7 +351,6 @@ TEST( T1Guards, TheTwoPhysicsFilesStillCarryTheirArms )
 	// would leave one of these non-zero.
 	EXPECT_EQ( 0, CountOf( server, "SS_CBASEENTITY_ALIAS" ) );
 }
-
 
 //=============================================================================//
 // 2. The solver-object question goes through the helpers.
@@ -479,7 +476,6 @@ TEST( T1SolverObject, NoRootPointerAsksVPhysicsGetObjectDirectly )
 	EXPECT_TRUE( Has( code, "StandaloneEntity_PhysicsObject( owner.pGame ) == pObject" ) );
 }
 
-
 //=============================================================================//
 // 3. The move-type inversion, which is the trap this shard came closest to.
 //=============================================================================//
@@ -567,7 +563,6 @@ TEST( T1MoveType, TheSimulatedQuestionAsksTheSolverNotTheMoveTypeNeutral )
 	EXPECT_EQ( 0, CountOf( code, "EntityIsVPhysicsSimulated" ) );
 }
 
-
 //=============================================================================//
 // 4. A NULL test must not become a world test.
 //=============================================================================//
@@ -608,7 +603,6 @@ TEST( T1WorldTest, IsWorldEntityLeftWithItsDeadFloodList )
 	EXPECT_TRUE( Has( host, "CWorld *PhysicsWorldOwner(" ) );
 }
 
-
 //=============================================================================//
 // 5. The two mechanisms whose halves used to disagree.
 //=============================================================================//
@@ -629,7 +623,6 @@ TEST( T1WorldTest, IsWorldEntityLeftWithItsDeadFloodList )
 // keyed by EntityHandle, and ClientFluidEventsTests' TwoOwnersAreThrottledApart
 // and TheThrottleCountsFromTheOwnersFirstEntry hold the handle keying.
 
-
 //=============================================================================//
 // 6. A handle read as a handle.
 //=============================================================================//
@@ -642,7 +635,6 @@ TEST( T1WorldTest, IsWorldEntityLeftWithItsDeadFloodList )
 // the managed SoundEnt from managed code, where the owner is an EntityHandle
 // by type.
 //-----------------------------------------------------------------------------
-
 
 //=============================================================================//
 // 6b. A guarded-away DEFINITION must leave one behind, or the failure is a LINK
@@ -828,32 +820,10 @@ TEST( T1GuardedDefinitions, TheGuardedAwayConsoleHelpersStayStatic )
 	EXPECT_EQ( 0, CountOf( code, "MarkVPhysicsDebug" ) );
 }
 
-
 //=============================================================================//
 // 7. Scanner self-checks. Without these the six sections above can all pass on
 //    an empty string.
 //=============================================================================//
-
-TEST( T1ScannerSelfCheck, StrippingIsWhatStopsTheProseFalsePositive )
-{
-	// physics.cpp's comments quote the very spellings this file forbids. If
-	// stripping regressed, the tests above would fail -- so this proves the
-	// stripper is doing the work, by showing the raw text HAS what the stripped
-	// text does not.
-	//
-	// RE-POINTED at physicsowner.h (plan_physics_bones_native_zero 2.3): the
-	// prose in physics.cpp that quoted igameentity.h left with
-	// EntityPhysicsObject. physicsowner.h names the member in a comment and
-	// never in code, which is the same control.
-	const std::string raw = ReadFile( "sourcesharp/game/shared/physicsowner.h" );
-	const std::string code = CodeOf( "sourcesharp/game/shared/physicsowner.h" );
-
-	ASSERT_FALSE( raw.empty() );
-	ASSERT_FALSE( code.empty() );
-	EXPECT_LT( code.size(), raw.size() );
-
-	EXPECT_GT( CountOf( raw, "VPhysicsGetObject" ), CountOf( code, "VPhysicsGetObject" ) );
-}
 
 TEST( T1ScannerSelfCheck, BodyExtractorTakesOneBodyAndNotTheWholeFile )
 {

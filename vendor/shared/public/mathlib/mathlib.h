@@ -23,10 +23,6 @@
 // FP exception clean so this not a turnkey operation.
 //#define FP_EXCEPTIONS_ENABLED
 
-#ifdef FP_EXCEPTIONS_ENABLED
-#include <float.h> // For _clearfp and _controlfp_s
-#endif
-
 // FPExceptionDisabler and FPExceptionEnabler taken from my blog post
 // at http://www.altdevblogaday.com/2012/04/20/exceptional-floating-point/
 
@@ -36,16 +32,8 @@
 class FPExceptionDisabler
 {
 public:
-#ifdef FP_EXCEPTIONS_ENABLED
-	FPExceptionDisabler();
-	~FPExceptionDisabler();
-
-private:
-	unsigned int mOldValues;
-#else
 	FPExceptionDisabler() {}
 	~FPExceptionDisabler() {}
-#endif
 
 private:
 	// Make the copy constructor and assignment operator private
@@ -62,20 +50,12 @@ class FPExceptionEnabler
 public:
 	// Overflow, divide-by-zero, and invalid-operation are the FP
 	// exceptions most frequently associated with bugs.
-#ifdef FP_EXCEPTIONS_ENABLED
-	FPExceptionEnabler(unsigned int enableBits = _EM_OVERFLOW | _EM_ZERODIVIDE | _EM_INVALID);
-	~FPExceptionEnabler();
-
-private:
-	unsigned int mOldValues;
-#else
 	FPExceptionEnabler(unsigned int enableBits = 0)
 	{
 	}
 	~FPExceptionEnabler()
 	{
 	}
-#endif
 
 private:
 	// Make the copy constructor and assignment operator private
@@ -139,13 +119,6 @@ struct cplane_t
 	byte	signbits;		// signx + (signy<<1) + (signz<<1)
 	byte	pad[2];
 
-#ifdef VECTOR_NO_SLOW_OPERATIONS
-	cplane_t() {}
-
-private:
-	// No copy constructors allowed if we're in optimal mode
-	cplane_t(const cplane_t& vOther);
-#endif
 };
 
 // structure offset for asm code
@@ -408,8 +381,6 @@ static inline float FLerp(float f1, float f2, float i1, float i2, float x)
   return f1+(f2-f1)*(x-i1)/(i2-i1);
 }
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 // YWB:  Specialization for interpolating euler angles via quaternions...
 template<> FORCEINLINE QAngle Lerp<QAngle>( float flPercent, const QAngle& q1, const QAngle& q2 )
 {
@@ -433,36 +404,6 @@ template<> FORCEINLINE QAngle Lerp<QAngle>( float flPercent, const QAngle& q1, c
 	QuaternionAngles( result, output );
 	return output;
 }
-
-#else
-
-#pragma error
-
-// NOTE NOTE: I haven't tested this!! It may not work! Check out interpolatedvar.cpp in the client dll to try it
-template<> FORCEINLINE QAngleByValue Lerp<QAngleByValue>( float flPercent, const QAngleByValue& q1, const QAngleByValue& q2 )
-{
-	// Avoid precision errors
-	if ( q1 == q2 )
-		return q1;
-
-	Quaternion src, dest;
-
-	// Convert to quaternions
-	AngleQuaternion( q1, src );
-	AngleQuaternion( q2, dest );
-
-	Quaternion result;
-
-	// Slerp
-	QuaternionSlerp( src, dest, flPercent, result );
-
-	// Convert to euler
-	QAngleByValue output;
-	QuaternionAngles( result, output );
-	return output;
-}
-
-#endif // VECTOR_NO_SLOW_OPERATIONS
 
 /// Same as swap(), but won't cause problems with std::swap
 template <class T> 

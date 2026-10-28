@@ -76,10 +76,6 @@ enum ImageFormat
 #include "togl/dxformats.h"
 #endif
 
-#ifdef USE_DXVK
-#include <d3d9.h>
-#endif
-
 // Color structures
 struct BGRA8888_t;
 struct BGRX8888_t;

@@ -4,34 +4,18 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the standalone player's local block, as server.so owns it
-//
-// plan_server_novalve.md P5. CPlayerLocalData (game/server/playerlocaldata.h)
-// and the three records embedded in it (game/shared/playernet_vars.h) are
-// server-only: the engine never reads them by layout. The client receives
-// them through DT_Local, whose send table shell_playerlocaldata.cpp builds from
-// THESE members' offsets, and decodes them by property name into its own
-// C_PlayerLocalData. Per the plan's naming rule they are therefore ss:: types,
-// built on public/ headers alone, never a second body under the Valve name.
-//
-// Members, types and order are the stock ones, so the send table, the save
-// datadesc and every reader (shell_movement.cpp's movement state, the area
-// bits in shell_gameclients.cpp, the managed skybox in StandaloneClientData_Update)
-// keep their meaning. Two departures:
-//   * fogplayerparams_t::m_hCtrl is a networked CBaseHandle rather than a
-//     CHandle<CFogController>: same layout and wire value (SendPropEHandle
-//     reads a CBaseHandle), and server.so has no CFogController.
-//   * CPlayerLocalData::UpdateAreaBits(CBasePlayer *) is not declared: its one
-//     caller went in P5 wave 8b.
-//=============================================================================//
+
+// The standalone player's local block: CPlayerLocalData and its embedded records, as
+// server.so's own ss:: types. Members, types and order are stock's. m_hCtrl is a plain
+// networked CBaseHandle, since server.so has no CFogController.
 #pragma once
 
-#include "const.h"          // MAX_AREA_STATE_BYTES, MAX_AREA_PORTAL_STATE_BYTES
+#include "const.h"
 #include "basehandle.h"
 #include "datamap.h"
 #include "networkvar.h"
 #include "mathlib/vector.h"
-#include "dt_send.h"         // EXTERN_SEND_TABLE
+#include "dt_send.h"
 
 class CSkyCamera;
 
@@ -52,9 +36,7 @@ struct fogparams_t
 	CNetworkColor32( colorSecondary );
 	CNetworkColor32( colorPrimaryLerpTo );      // the colours a lerp is heading for
 	CNetworkColor32( colorSecondaryLerpTo );
-	// Range, each beside the value a lerp is heading for. (Stock declares the
-	// lerp targets after farz/maxdensity; nothing reads this record by layout:
-	// DT_Local and the save datadesc address members by name.)
+	// Range, each beside its lerp target. Members are addressed by name, never by layout.
 	CNetworkVar( float, start );                // distance the fog begins at
 	CNetworkVar( float, end );                  // distance it reaches maxdensity at
 	CNetworkVar( float, startLerpTo );
@@ -151,9 +133,7 @@ public:
 	Vector m_vecOverViewpoint;             // a viewpoint overriding the player's
 	CSkyCamera *m_pOldSkyCamera;
 
-	// Stock declares these interleaved with the networked members above, in
-	// another order; nothing reads this class by layout (DT_Local and the save
-	// datadesc address members by name, and the engine never sees it).
+	// Stock interleaves these with the members above; nothing reads this class by layout.
 	CNetworkQAngle( m_vecPunchAngle );     // auto-decaying view angle adjustment
 	CNetworkQAngle( m_vecPunchAngleVel );
 	CNetworkVar( bool, m_bDrawViewmodel );
@@ -166,7 +146,6 @@ public:
 	CNetworkVarEmbedded( fogplayerparams_t, m_PlayerFog );
 	fogparams_t m_fog;
 	CNetworkVarEmbedded( audioparams_t, m_audio );
-
 
 	CNetworkString( m_szScriptOverlayMaterial, MAX_PATH );
 };

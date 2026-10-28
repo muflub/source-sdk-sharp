@@ -1,17 +1,5 @@
-//========= SourceSharp — a hitbox trace's ray and result, flattened ============//
-//
-// IManagedBones::TestHitboxes and IManagedBonesClient::TestHitboxes (plan
-// physics_bones_native_zero step 1.1, both sides) hand
-// managed code an engine Ray_t and trace_t as flat arrays rather than as the
-// structs: Ray_t is VectorAligned throughout and trace_t is CBaseTrace with a
-// csurface_t holding a char pointer, and neither layout is worth pinning on the
-// managed side for the twenty-odd numbers a hitbox trace reads and writes.
-//
-// THE INDICES ARE THE CONTRACT. SourceSharp.Shared.Interop's BoneTraceFlat declares
-// the same numbers, and BoneTraceFlatTests reads this header to hold them
-// equal: a field added on one side and not the other is red there, not a
-// trace that lands its hit on the wrong axis.
-//=============================================================================//
+// A hitbox trace's Ray_t and trace_t as flat arrays, for managed TestHitboxes.
+// The indices are an ABI: managed BoneTraceFlat declares the same numbers.
 
 #pragma once
 

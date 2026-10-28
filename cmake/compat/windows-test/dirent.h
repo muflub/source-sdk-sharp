@@ -3,8 +3,7 @@
 // three calls the tests make, opendir/readdir/closedir, over FindFirstFile;
 // d_name is the one field they read. "." and ".." are returned as POSIX
 // returns them, so a walker that skips them works unchanged.
-#ifndef SS_TEST_COMPAT_DIRENT_H
-#define SS_TEST_COMPAT_DIRENT_H
+#pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
 	#define WIN32_LEAN_AND_MEAN
@@ -81,5 +80,3 @@ inline int closedir( DIR *pDir )
 	free( pDir );
 	return 0;
 }
-
-#endif // SS_TEST_COMPAT_DIRENT_H

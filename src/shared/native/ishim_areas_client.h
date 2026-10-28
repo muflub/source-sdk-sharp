@@ -5,13 +5,9 @@
 //
 //=============================================================================//
 
-// THE CLIENT'S CONTRACT (hand-kept; tools/shim-areas reads it). Append-only: an edit is an ABI change.
-//
-// plan_client_vtables CC: every client-only EngineApi slot, as a slot of one of
-// these interfaces, served by the client's shim root by the version string
-// beside it. Kept apart from ishim_areas.h, whose methods are the server's
-// (EngineApiCensusTests reads that file as the server's slots). Rules as
-// ishim_areas.h: no virtual destructor, blittable arguments, APPEND-ONLY.
+// The client-only shim areas, served by the client's shim root by version string.
+// Hand-kept and read by tools/shim-areas. Slots are an ABI: append only, blittable
+// arguments, no virtual destructor.
 
 #pragma once
 
@@ -96,19 +92,14 @@ public:
 	virtual void ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate ) = 0;
 	virtual void ClientSparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirectionXYZ ) = 0;
 	virtual void EffectDispatchName( int32_t nIndex, char *pOut, int32_t nOutBytes ) = 0;
-	// The client's temp entity tables, planned in C# (ClientTempEntEngine) and
-	// stored by native: one length-prefixed block per table, and the size of the
-	// blob its receiving shell decodes into.
+	// Stores one length-prefixed temp entity table block, and the blob size its shell decodes into.
 	virtual int32_t TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut ) = 0;
-	// Lane M1-C: what the managed bullet impact (BulletImpactEffect) asks the
-	// engine and carries out: a MASK_SHOT trace, the two surface lighting
-	// reads behind GetColorForSurface, and the effect ledger's two rows.
+	// A bullet impact's MASK_SHOT trace, surface lighting reads and effect ledger rows.
 	virtual int32_t ClientShotTrace( const float *pStartXYZ, const float *pEndXYZ, int32_t nEntity, float *pOutFloats, int32_t nOutFloats, int32_t *pOutInts, int32_t nOutInts ) = 0;
 	virtual void ClientWorldLighting( const float *pStartXYZ, const float *pEndXYZ, float *pOut6 ) = 0;
 	virtual void ClientStaticPropLighting( const float *pStartXYZ, const float *pEndXYZ, const float *pNormalXYZ, int32_t nStaticProp, float *pOut6 ) = 0;
 	virtual void ClientImpactLedger( int32_t nFlecks, int32_t nDust ) = 0;
-	// Lane M1-C: a player's spray, as the managed PlayerSprays decided it: the
-	// logo material and the downloaded texture it is pointed at, by name.
+	// A player's spray: the logo material and the downloaded texture, by name.
 	virtual void ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char *pszMaterial, const char *pszTexture ) = 0;
 };
 
@@ -168,18 +159,13 @@ public:
 	virtual void StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll ) = 0;
 	virtual void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) = 0;
 	virtual void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) = 0;
-	// The world-space surrounding boxes of the shells the handles name, six
-	// floats each (mins, maxs), for managed's per-view fade (StandaloneFade);
-	// how many named a shell.
+	// Surrounding boxes (mins, maxs) of the shells the handles name; returns how many resolved.
 	virtual int32_t StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount, float *pOutMinsMaxs ) = 0;
-	// A broken surface's draw (shell_surface_render.cpp, lane M1-A): what the
-	// brush model says about its material, the materials managed chose, and
-	// the plan managed made.
+	// A broken surface's draw: the brush material facts, then the plan managed made.
 	virtual int32_t SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, int32_t nMaterialBytes, char *pOutCrack, int32_t nCrackBytes, int32_t *pOutHasCrack ) = 0;
 	virtual void SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int32_t nBytes, int32_t nFlags ) = 0;
 	virtual void SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_t nWords ) = 0;
-	// The entities managed's interpolation admitted (InterpolatedSet), which
-	// PreRender's walk re-transforms (lane M1-A).
+	// The entities interpolation admitted, which PreRender re-transforms.
 	virtual void ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount ) = 0;
 };
 
@@ -195,24 +181,16 @@ public:
 	virtual void SetViewerFogParams( const SourceSharpFogParams *pParams ) = 0;
 	virtual void SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams ) = 0;
 	virtual int32_t ClientTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ, int32_t *pOutHitbox, int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags ) = 0;
-	// The observer's view (plan_client_novalve C7 item 5): a hull trace with a
-	// stock filter and a pass entity, an entity's drawn pose by index, and the
-	// view the client mode's OverrideView draws this frame instead of the
-	// player's eye (managed decides it; 0 hands the view back).
+	// The observer's view: a hull trace, an entity's drawn pose, and the view override
+	// (0 hands the view back to the player's eye).
 	virtual int32_t ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ, int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex, float *pOutFraction, float *pOutEndXYZ ) = 0;
 	virtual int32_t ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ, float *pOutAngles ) = 0;
 	virtual void ViewOverrideSet( int32_t nActive, const float *pOriginXYZ, const float *pAngles, int32_t nSetViewAngles ) = 0;
 	virtual int32_t EntitiesUpdateVisibilityAll() = 0;
-	// A second camera into a named render target (lane camproto, ahead of
-	// plan_client_novalve C7): managed queues a view for this frame's render;
-	// shell_view_targets.cpp carries it out at the client mode's PreRender, the
-	// point stock's DrawMonitors draws, and answers the target's facts.
+	// A second camera into a named render target, drawn at the client mode's PreRender.
 	virtual int32_t RenderViewToTarget( int32_t nTarget, const SourceSharpViewTargetSetup *pSetup ) = 0;
 	virtual int32_t ViewTargetInfo( int32_t nTarget, int32_t *pOut4 ) = 0;
-	// rendertexture.cpp's getters (C7): one slot's texture, group, FindTexture
-	// arguments and place in the release's order, as managed's
-	// RenderTargetCatalog decided them; shell_render_targets_client.cpp finds
-	// on the slot's first use and drops the reference at the release.
+	// One render target slot's texture, group and FindTexture arguments.
 	virtual int32_t RenderTargetDeclare( int32_t nSlot, const char *pszName, const char *pszGroup, int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder ) = 0;
 	virtual int32_t PixelVisQueryCreate() = 0;
 	virtual void PixelVisQueryDestroy( int32_t nQuery ) = 0;
@@ -221,27 +199,19 @@ public:
 	virtual void PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut ) = 0;
 	virtual int32_t PixelVisView( float *pOut, int32_t nFloats ) = 0;
 	virtual int32_t GlowMaterialFind( const char *pszName, const char *pszGroup ) = 0;
-	// The colour-correction lookups on the render context (lane M1-A): the
-	// handle table is managed's (ColorLookupTable), which holds the opaque
-	// ColorCorrectionHandle_t these take and answer.
+	// Colour-correction lookups; the handle table is managed's.
 	virtual void * ColorLookupAdd( const char *pLookupFile ) = 0;
 	virtual void ColorLookupSetWeight( void *hLookup, float flWeight ) = 0;
 	virtual void ColorLookupRemove( void *hLookup ) = 0;
 	virtual void ColorLookupResetWeights() = 0;
-	// The client's standalone shells are in no spatial partition, so no
-	// engine trace can stop on one: this clips a ray against each entity the
-	// caller names (managed's directory is the list), solid ones only, and
-	// answers the nearest hit in ClientTraceLine's outs.
+	// Standalone shells are in no spatial partition, so this clips a ray against the
+	// named entities (solid ones only) and answers the nearest hit.
 	virtual int32_t ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ, int32_t *pOutHitbox, int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags ) = 0;
-	// A box swept through the world and clipped against the entities the
-	// caller names, as ClientClipRayToEntities clips a ray: the nearest stop,
-	// the index of what it stopped on and that entity's origin.
+	// The same for a box: the nearest stop, the entity it stopped on and its origin.
 	virtual int32_t ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex, const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction, float *pOutEndXYZ, int32_t *pOutEntityIndex, float *pOutEntityOriginXYZ ) = 0;
 };
 
-// plan_side_isolation §2.2a: the client half of user messages. Managed reads a
-// message's payload through the first and decides what it does; the rest carry
-// out what the stock hooks did, over values C# parsed.
+// User messages: managed reads the payload and decides; the rest carry out stock hooks.
 abstract_class IShimUserMessagesClient
 {
 public:
@@ -249,9 +219,7 @@ public:
 	virtual void ClientViewportShow( const char *pPanel, int32_t bShow, const unsigned char *pPairs, int32_t nPairBytes, int32_t nFlags ) = 0;
 };
 
-// The client's net channel: a SourceSharp message to the server
-// (ss_client_message.h), sent reliably. 1 when it was queued, 0 when there is
-// no channel or the message does not fit.
+// Sends a SourceSharp message to the server reliably; 1 when queued, 0 otherwise.
 abstract_class IShimNetClient
 {
 public:
@@ -261,9 +229,7 @@ public:
 	virtual int32_t ClientNetPacket( int32_t nFlow, int32_t nFrame, float *pOut, int32_t nOut ) = 0;
 };
 
-// The client's diagnostics ledgers, read for the dev API's absences route
-// (plan_client_novalve §4.4): the not-shipped capabilities and the client
-// DLL's refused methods, one row per index.
+// The client's diagnostics ledgers: not-shipped capabilities and refused methods.
 abstract_class IShimDiagnosticsClient
 {
 public:
@@ -271,10 +237,8 @@ public:
 	virtual int32_t ClientRefusal( int32_t iIndex, char *pOutMethod, int32_t nMethodBytes, int32_t *pOutCount, int32_t *pOutTotal ) = 0;
 };
 
-// The UI's draw primitives over vgui::ISurface (plan_client_ui §8 U2): what
-// VguiBackend turns a render list into. Each is one surface call; none decides
-// anything. Colours are packed 0xRRGGBBAA. Draw slots refuse outside a paint
-// pass (shell_ui.cpp). Text is UTF-16, as C# holds it.
+// UI draw primitives over vgui::ISurface. Colours are 0xRRGGBBAA, text is UTF-16, and
+// draw slots refuse outside a paint pass.
 abstract_class IShimUiClient
 {
 public:
@@ -298,15 +262,11 @@ public:
 	virtual void UiSetCursor( int32_t nShape ) = 0;
 	virtual int32_t UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine, uint32_t *pOutRgba, uint8_t *pText, int32_t nTextBytes ) = 0;
 	virtual void UiDebugOverlayClearDead( void ) = 0;
-	// g_pClientMode->Layout() (C7, vgui_game_viewport.cpp's CViewportClientSystem
-	// asked it at its Init; managed's ViewportClientSystem asks it now).
 	virtual void ClientModeLayout( void ) = 0;
 };
 
-// plan_client_novalve C2 (lane c2-sims): the executor for the client's simple
-// particle sims, which are C#'s (shell_managed_particles.cpp). One effect per
-// (owner, channel); managed decides the material, the cull radius and whether
-// it simulates out of view, and native registers it with CParticleMgr.
+// The executor for managed particle sims, one per (owner, channel), registered with
+// CParticleMgr.
 abstract_class IShimParticlesClient
 {
 public:
@@ -317,57 +277,42 @@ public:
 	virtual int32_t ParticlesTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, float *pOut, int32_t nOut ) = 0;
 	virtual int32_t WorldTextMeshUpdate( uint32_t hOwner, const char *pszMaterial, const float *pBounds, int32_t nFloats ) = 0;
 	virtual void WorldTextMeshDestroy( uint32_t hOwner ) = 0;
-	// /client/{slot}/particles (lane c5-particles): one started system by index, the count the return.
+	// One started system by index; returns the count.
 	virtual int32_t ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSystemInfo_t *pOut, char *pszName, int32_t nNameMax ) = 0;
-	// Full reads of the particle manifest's definitions since the process started.
 	virtual int32_t ParticleDefinitionReads() = 0;
-	// The particle query's calls that found no managed answer, per method (lane c5-particles); the count written.
+	// Particle query calls with no managed answer, per method; returns the count written.
 	virtual int32_t ParticleQueryUnanswered( int32_t *pOut, int32_t nMax ) = 0;
-	// One integer var of an executor's material (the lit sims' $USINGPIXELSHADER, lane c5-particles): 1 and the value, or 0.
+	// One integer material var of an executor's material: 1 and the value, or 0.
 	virtual int32_t ParticlesMaterialVarInt( uint32_t hOwner, int32_t nChannel, const char *pszVar, int32_t *pValue ) = 0;
-	// An executor for an ownerless effect at a world point (lane c5-particles), keyed by (0xFFFFFFFF, nId).
+	// An executor for an ownerless effect at a world point, keyed by (0xFFFFFFFF, nId).
 	virtual int32_t ParticlesCreateAt( int32_t nId, const char *pszMaterial, const float *pOriginXYZ, float flCullRadius, int32_t bAlwaysSimulate ) = 0;
-	// The ParticleEffect client effect's carry-out (lane c5-particles): a system's name by its table index, and a one-shot at a point.
 	virtual int32_t ParticleSystemNameFromIndex( int32_t nIndex, char *pszOut, int32_t nOutMax ) = 0;
 	virtual int32_t ParticleSystemOneShot( const char *pszName, const float *pSortOriginXYZ, const float *pPoints, int32_t nPoints, const float *pOrientation0 ) = 0;
-	// The particle collision's one trace (lane c5-particles): UTIL_TraceLine MASK_SOLID_BRUSHONLY, COLLISION_GROUP_NONE; out fraction, endpos xyz, normal xyz, dist, allsolid, startsolid.
+	// UTIL_TraceLine with MASK_SOLID_BRUSHONLY; out fraction, endpos xyz, normal xyz, ...
 	virtual int32_t ParticlesWorldTrace( const float *pStartXYZ, const float *pEndXYZ, float *pOut, int32_t nOut ) = 0;
-	// The view the particle manager is drawing (lane c5-particles): its model-view rows (12 floats), CurrentViewID(),
-	// and CurrentViewOrigin() / CurrentViewForward() (6 floats). Managed reads it once per view, when the key
-	// IManagedParticlesClient::Draw carries changes.
+	// The view being drawn: model-view rows (12 floats), view id, and origin/forward (6 floats).
 	virtual void ParticlesView( float *pModelView12, int32_t *pViewId, float *pOriginForward6 ) = 0;
-	// g_pParticleSystemMgr->ParticleThrottleScaling(): 1 unrestricted .. 0 fully, which the metal sparks scale their count by.
-	// A line through the world with the contents mask managed names (lane c5-particles: fx_water's MASK_WATER, fx_explosion's
-	// CONTENTS_SOLID), COLLISION_GROUP_NONE; out fraction, endpos xyz, normal xyz, startsolid, fractionleftsolid.
+	// 1 unrestricted .. 0 fully throttled.
+	// A line trace with the given contents mask; out fraction, endpos xyz, normal xyz,
+	// startsolid, fractionleftsolid.
 	virtual int32_t ParticlesTraceMask( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, float *pOut, int32_t nOut ) = 0;
-	// An executor's space (lane c5-particles: the temp entities' muzzle flashes, PoolEmitters): flags 1 its particles are in
-	// the entity attachment's space (CLocalSpaceEmitter), 2 placed for the view model's FOV (FLE_VIEWMODEL), 4 drawn
-	// before the view model (SetDrawBeforeViewModel).
+	// Flags: 1 attachment space, 2 view model FOV, 4 drawn before the view model.
 	virtual int32_t ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags, SourceSharpParticleFollow_t *pFollow ) = 0;
-	// The contents at a point inside a managed brush entity's own brush (lane c5-particles: the dust motes'
-	// spawn test, enginetrace->GetPointContents_Collideable over the owner as stock's SOLID_BSP dust volume).
+	// Contents at a point inside the owner brush entity's own brush.
 	virtual int32_t ParticlesBrushPointContents( uint32_t hOwner, const float *pPointXYZ ) = 0;
-	// Lane M1-C: a bullet impact's new-style particle system, its three
-	// oriented control points, the scale and the surface colour managed chose.
+	// A bullet impact's particle system with its three oriented control points.
 	virtual int32_t ParticleSystemImpact( const char *pszName, const float *pPoints, int32_t nEntity, float flScale, const float *pColorXYZ ) = 0;
 };
 
-// The client's effects (plan_client_novalve §2 clusters 3 and 4): the effect
-// registrations, read and run by walk index; the dispatch-by-name decision is
-// managed's (EffectDispatchTable).
+// The client's effects: registrations run by walk index, and the engine reads they need.
 abstract_class IShimFxClient
 {
 public:
 	virtual int32_t EffectRegistrationCount() = 0;
 	virtual int32_t EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize ) = 0;
 	virtual void EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData ) = 0;
-	// IEffects' FX_Dust, carried out for the managed decisions (ClientEffects;
-	// fx.cpp's routines are C#, FxEffects), and the two answers stock's SuppressTE reads.
 	virtual int32_t FxCanPredict() = 0;
 	virtual int32_t FxRecipientCount( const float *pOriginXYZ ) = 0;
-	// The client-side effect list's carry-out (ClientEffectList): materials by
-	// id, one quad-mesh draw, the view reads, the near-miss sound, and what the
-	// tracer effects ask of the engine and the entities.
 	virtual int32_t FxMaterialFind( const char *pName ) = 0;
 	virtual void FxMaterialAddRef( int32_t nMaterial ) = 0;
 	virtual void FxMaterialRelease( int32_t nMaterial ) = 0;
@@ -379,38 +324,27 @@ public:
 	virtual void FxViewAngles( float *pOutPYR ) = 0;
 	virtual int32_t FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize ) = 0;
 	virtual void FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ, const float *pAnglesPYR, int32_t nEntIndex ) = 0;
-	// The shell-eject effects' two (ShellEjectEffect): the owner's render
-	// angles, and the legacy temp entity pool's brass.
 	virtual int32_t FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR ) = 0;
 	virtual void FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR, int32_t nType ) = 0;
-	// A managed sprite planned in managed (ClientSpriteHost.DrawSprite): the
-	// request, then the plan carried out -- no crossing back for the plan.
+	// Draws a sprite from a managed plan.
 	virtual int32_t FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float *pIn ) = 0;
 	virtual int32_t FxSpriteDrawEnd( const float *pOut ) = 0;
 	virtual int32_t FxSpriteDrawStore( const float *pOut ) = 0;
-	// The client effect precache registry (ClientEffectPrecache): its size,
-	// one registration's Cache, and the two level-start caches.
 	virtual int32_t FxPrecacheCount() = 0;
 	virtual void FxPrecacheCache( int32_t nIndex, int32_t bPrecache ) = 0;
 	virtual void FxCacheUsedMaterials() = 0;
 	virtual void FxCacheMaterialHandles() = 0;
-	// The legacy tempents' muzzle flashes' engine reads (IFxFlashReads; their emitters are
-	// managed, PoolEmitters, lane c5-particles).
 	virtual int32_t FxRenderableAttachment( uint32_t hEntity, int32_t nAttachment, float *pOut6 ) = 0;
 	virtual int32_t FxHandleEntityIndex( uint32_t hEntity ) = 0;
 	virtual void FxElight( int32_t nKey, const float *pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent, float flRadius, float flDecay, float flDie ) = 0;
 	virtual void FxVectorRandom( float flLo, float flHi, float *pOutXYZ ) = 0;
 	virtual int32_t FxMaterialsCached() = 0;
-	// The tempents' bounce sounds (TempEntSounds), and the models they spawn by name.
 	virtual int32_t FxTempEntCreateNamed( int32_t nSlot, const float *pOriginXYZ, const char *pModel, int32_t nPriority ) = 0;
 	virtual void FxLoadModel( const char *pModel ) = 0;
 	virtual int32_t FxModelFrameCount( const char *pModel ) = 0;
 };
 
-// The client soundscape system's executors (sound cluster 17, lane c2-sims):
-// the engine calls managed ClientSoundscapes decides, carried out as stock's
-// C_SoundscapeSystem made them, and the listener's main view it places
-// sounds around.
+// Executors for the soundscape decisions managed makes, and the listener's main view.
 abstract_class IShimSoundscapeClient
 {
 public:
@@ -419,9 +353,6 @@ public:
 	virtual void SoundscapeMainView( float *pOut9 ) = 0;
 	virtual int32_t SoundscapeMakingResLists() = 0;
 	virtual void SoundscapeTouchSoundFile( const char *pszWave ) = 0;
-	// The client's sound patches (plan_server_native_v2 T4a): IShimEngine's
-	// five SoundPatch slots, the client's alone since the server's patches
-	// are managed (ServerSoundPatches).
 	virtual void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) = 0;
 	virtual void SoundPatchStop( int32_t hPatch ) = 0;
 	virtual void SoundPatchState( int32_t hPatch, int32_t *pnEntIndex, int32_t *pbFilterActive ) = 0;
@@ -429,9 +360,7 @@ public:
 	virtual int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char *pSoundName, int32_t nSoundLevel ) = 0;
 };
 
-// The client weather's world (plan_client_novalve C2, lane c2-sims): the
-// traces, contents, PVS, player, world bounds and screen width the managed
-// PrecipitationSystem asks, each one engine read.
+// The engine reads the managed precipitation system needs.
 abstract_class IShimPrecipitationClient
 {
 public:
@@ -444,11 +373,7 @@ public:
 	virtual int32_t PrecipitationScreenWidth() = 0;
 };
 
-// The material proxies (plan_client_novalve §2 cluster 1, lane c5-proxies):
-// what a managed proxy reads through the engine, by the proxy's handle --
-// FindVar and FindTexture at Init (native holds the pointers, managed the
-// slots), GetTextureValue, the bind argument as an entity, the view and the
-// world, a player's spray -- and the not-shipped row a refusal raises.
+// Engine reads for managed material proxies, by proxy handle; native holds the pointers.
 abstract_class IShimMaterialProxyClient
 {
 public:
@@ -461,10 +386,7 @@ public:
 	virtual void ProxyNotShipped( const char *pszCapability, const char *pszReason ) = 0;
 };
 
-// plan_client_novalve §2 cluster 13 (lane c6-input): what the managed input
-// (ClientInput) asks of the native client that the engine's own vtables do not
-// answer: vgui's cursor, the HUD's facts, the view's pitch drift, prediction's
-// view angles, the viewer seam and the viewport's scoreboard.
+// What managed input needs from the native client that the engine's vtables do not answer.
 abstract_class IShimInputClient
 {
 public:
@@ -482,9 +404,7 @@ public:
 	virtual void * InputMailbox() = 0;
 };
 
-// plan_client_novalve C6, cluster 9 (lane c6-input): what the client's managed
-// physics callbacks ask of the native client -- a surfaceprop's impact audio,
-// the emit of one impact sound, and the splash's reads and effects.
+// Surfaceprop impact audio, impact sound emit and splash effects for managed physics callbacks.
 abstract_class IShimPhysicsClient
 {
 public:
@@ -495,13 +415,8 @@ public:
 	virtual void PhysicsClientSplashEffect( int32_t nKind, const float *pOrigin, const float *pNormal, float flScale, const float *pColor, float flLifetime, float flAlpha ) = 0;
 };
 
-// plan_client_novalve C8 (lane c6-input): convars the managed client watches
-// and the values it decides for native objects the engine reads through
-// their vtable. ConVarsClientWatch names a convar (the engine's or ours) whose
-// changes the global change callback forwards through ConVarChanged with the
-// answered id (-1: no such convar). ConVarsClientSetValue stores a decided
-// value under a name native reads from (the server-bounded convars' GetFloat,
-// GetClientInterpAmount); 0 for a name nothing reads.
+// ConVarsClientWatch forwards a convar's changes through ConVarChanged (-1: no such convar).
+// ConVarsClientSetValue stores a value native reads; 0 for a name nothing reads.
 abstract_class IShimConVarsClient
 {
 public:
@@ -509,11 +424,7 @@ public:
 	virtual int32_t ConVarsClientSetValue( const char *pName, float flValue ) = 0;
 };
 
-// plan_client_novalve C7 cluster 12: the flashlight's two native asks
-// (shell_shadows_client.cpp). FlashlightTexture holds a texture by name and
-// answers its id (-1: none). The projected texture itself goes to the managed
-// shadow manager in-process since S2 (FlashlightWorld), and the four manager
-// slots that carried it here retired.
+// FlashlightTexture holds a texture by name and answers its id (-1: none).
 abstract_class IShimFlashlightClient
 {
 public:

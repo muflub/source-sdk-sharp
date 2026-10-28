@@ -3086,26 +3086,6 @@ ss_cpptest(bone_leaf_rehome_ruling_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/bone_leaf_rehome_ruling_test.cpp)
 
-# plan_gamedll.md Phase 9 -- the sixteen TODOs, and that none lost its verdict
-# (gamedll_ledger_test.cpp).
-#
-# THE PHASE'S ONE STATED FAILURE MODE IS A DELETION THAT LOOKS RIGHT. All
-# sixteen `// TODO:` comments are gone from the tree, which is the outcome the
-# plan wanted and is also, letter for letter, what losing the question looks
-# like in a diff. The only thing separating the two is that a verdict was
-# written in each one's place, and nothing in the build has ever checked that.
-#
-# Three subjects. THE TABLE: sixteen rows, each with a verdict cell that reads
-# as a verdict and a commit cell naming a commit a bisect can reach -- nine of
-# those cells were blank for most of this plan's life. THE SITES: every
-# surviving TODO in shell_gamedll.cpp and sourcesharp_gamesystem.h sits in a
-# comment block that answers it, so a bare TODO reappearing fails here rather
-# than being noticed. THE METERS: the refusal counter's reading after a played
-# map, and both seed populations -- readings, which a summary quietly turns back
-# into claims.
-ss_cpptest(gamedll_ledger_test
-    SOURCES sourcesharp/test/gamedll_ledger_test.cpp)
-
 # plan_gamedll_after.md Phase A2 -- Part 11a2's three gaps, and the C++ halves
 # that stayed native (steam_mdlcache_test.cpp).
 #

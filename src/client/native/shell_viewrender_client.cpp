@@ -5,21 +5,14 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the client's IViewRender ===========================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-// plan_client_novalve C7 step 3 (docs/plans/c7_step3_eviction.md): view.cpp,
-// viewrender.cpp and viewdebug.cpp left client.so, and this is what they gave
-// it. CShellViewRender is `view`: the frame's view is managed's decision
-// (ViewFrame: SetUpViews' planes and FOV, Render's eye), every view is the
-// render plan's (shell_view_executor_client.cpp), and this carries both out --
-// the client mode's override and hooks, the engine's main view and audio, the
-// 2D panels, the save-game screenshot. The view state those TUs kept in
-// statics (the main and current views) is this object's, and the names the
-// fork's TUs still call -- MainViewOrigin, CurrentViewForward,
-// SetupCurrentView, R_CullSphere, ... -- answer from it. The convars the fork's
-// TUs link against by object stay native here; the rest are managed
-// declarations (RenderViewConVars.cs).
-//=============================================================================//
+// The client's IViewRender (`view`). The frame's view is managed's decision
+// and every view is the render plan's; this carries both out: the client
+// mode's override and hooks, the engine's main view and audio, the 2D panels
+// and the save-game screenshot. It holds the main and current view state, and
+// the free functions fork TUs still call (MainViewOrigin, CurrentViewForward,
+// R_CullSphere, ...) answer from it. Convars fork TUs link against by object
+// stay native here.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,15 +79,12 @@
 #include "shell_diagnostics.h"
 #include "ss_image_encode.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 namespace
 {
 class CShellViewRender final : public IViewRender, public IReplayScreenshotSystem
 {
 public:
 
-	// CViewRender::Init: the beams and the temp entities.
 	void Init( void ) override
 	{
 		beams->InitBeams();
@@ -111,21 +101,18 @@ public:
 		m_nBuildRenderablesListsNumber = 0;
 		SourceSharp_FreezeFrame( 0.0f );
 		ReleaseScreenOverlay();
-		// InitScreenSpaceEffects: the manager is managed's (C7 screen-space effects).
+		// The screen-space effect manager is managed's.
 		if ( IManagedRenderClient *pManaged = ManagedRenderClient() )
 			pManaged->ScreenSpaceEffectsStage( 0 );
 	}
 
-	// CViewRender::LevelShutdown.
 	void LevelShutdown( void ) override
 	{
-		// ShutdownScreenSpaceEffects, managed's.
 		if ( IManagedRenderClient *pManaged = ManagedRenderClient() )
 			pManaged->ScreenSpaceEffectsStage( 1 );
 		m_nCurrentViewID = VIEW_NONE;
 	}
 
-	// CViewRender::Shutdown.
 	void Shutdown( void ) override
 	{
 		ReleaseScreenOverlay();
@@ -138,10 +125,8 @@ public:
 	void OnRenderStart() override { SetUpViews(); }
 	void SetUpViews();
 	void Render( vrect_t *rect ) override;
-	// CViewRender::RenderView is the render plan's: managed plans the view and
-	// the executor carries it out. A view the planner declines -- reflective
-	// glass, which this build never has in view -- or one with no managed
-	// client to plan it draws nothing, and says so once.
+	// RenderView is the render plan's. A view the planner declines, or one with
+	// no managed client to plan it, draws nothing and says so once.
 	void RenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
 	{
 		if ( SourceSharp_RenderView( setup, nClearFlags, whatToDraw ) || m_bSaidUnplanned )
@@ -150,15 +135,11 @@ public:
 		Warning( "[SourceSharp] view: a view with no plan to draw it (declined, or no managed client) draws nothing\n" );
 	}
 
-	// The draw flags of the view the executor is drawing (stock: the active renderer's).
+	// The draw flags of the view the executor is drawing.
 	int GetDrawFlags() override { return SourceSharp_ActiveViewDrawFlags(); }
-	// PITCH DRIFT IS NOT SHIPPED (view.cpp's ruling, kept): DriftPitch is the
-	// only reader of the state these two kept, and it has never run on this
-	// client -- the view angle is the engine's, with no second author. So
-	// `centerview` and managed input's stop have nothing to set.
+	// Pitch drift is not shipped: the view angle is the engine's alone.
 	void StartPitchDrift( void ) override {}
 	void StopPitchDrift( void ) override {}
-	// The frustum the engine's Push3DView fills and the culls read.
 	VPlane *GetFrustum() override { return m_Frustum; }
 	// r_drawbrushmodels, read by name (the engine's convar); drawn when it is missing, as stock.
 	bool ShouldDrawBrushModels( void ) override
@@ -166,9 +147,7 @@ public:
 		ConVarRef drawBrushModels( "r_drawbrushmodels", true );
 		return !drawBrushModels.IsValid() || drawBrushModels.GetInt() != 0;
 	}
-	// The mono eye SetUpViews made and Render widened (CViewRender's m_View).
 	const CViewSetup *GetPlayerViewSetup( void ) const override { return &m_View; }
-	// The view the plan is drawing, and the last one it drew between frames.
 	const CViewSetup *GetViewSetup( void ) const override { return &m_CurrentView; }
 
 	void SetCurrentView( const CViewSetup &setup ) { m_CurrentView = setup; }
@@ -177,7 +156,6 @@ public:
 
 	bool ForceNoVis() const { return m_bForceNoVis; }
 
-	// The view state (phase 4): the main view and the last one, the view being drawn.
 	ShellCamera_t m_Main;
 	Vector m_vecPrevMainOrigin = vec3_origin;
 	QAngle m_angPrevMainAngles = vec3_angle;
@@ -190,7 +168,6 @@ private:
 	bool m_bSaidNoDecision = false;
 	bool m_bSaidUnplanned = false;
 	CViewSetup m_View;
-	// CViewRender's constructor's distances.
 	float m_flCheapWaterStartDistance = 0.0f;
 	float m_flCheapWaterEndDistance = 0.1f;
 	IMaterial *m_pScreenOverlay = NULL;
@@ -245,12 +222,9 @@ public:
 			m_pScreenOverlay->DecrementReferenceCount();
 		m_pScreenOverlay = NULL;
 	}
-	// SAVEGAME_SCREENSHOT_WIDTH by SAVEGAME_SCREENSHOT_HEIGHT (view.cpp, PC).
 	void WriteSaveGameScreenshot( const char *pFilename ) override { WriteSaveGameScreenshotOfSize( pFilename, 180, 100, false, false ); }
 	void WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded, bool bWriteVTF ) override;
-	// REPLAY IS NOT SHIPPED (step 7g): there is no screenshot taker to hand a
-	// frame to. Both are IReplayScreenshotSystem's too, which this object is,
-	// as stock's was.
+	// Replay is not shipped. This object is also the IReplayScreenshotSystem.
 	void WriteReplayScreenshot( WriteReplayScreenshotParams_t &params ) override
 	{
 		SourceSharp_NotShipped( "replay screenshot",
@@ -258,9 +232,7 @@ public:
 			"build and there is no screenshot taker to hand the frame to" );
 	}
 	void UpdateReplayScreenshotCache() override {}
-	// NOT SHIPPED: stock kept this view and drew it inside its own RenderView,
-	// after the 3D scene; the render plan has no overlay-view arm, and nothing
-	// in this build calls it (docs/todo.md).
+	// Not shipped: the render plan has no overlay-view arm and nothing calls this.
 	void QueueOverlayRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
 	{
 		SourceSharp_NotShipped( "overlay render view (QueueOverlayRenderView)",
@@ -281,7 +253,6 @@ public:
 		return flFar;
 	}
 
-	// r_screenfademinsize and r_screenfademaxsize, read by name.
 	void GetScreenFadeDistances( float *pMin, float *pMax ) override
 	{
 		if ( pMin )
@@ -295,30 +266,22 @@ public:
 			*pMax = maxSize.IsValid() ? maxSize.GetFloat() : 0.0f;
 		}
 	}
-	// Who is being drawn right now: only the tool framework's material-proxy
-	// recording asked, and SFM is gone (user ruling 2026-10-19).
+	// Only the tool framework asked who is being drawn.
 	IGameEntity *GetCurrentlyDrawingEntity() override { return NULL; }
 	void SetCurrentlyDrawingEntity( IGameEntity *pEntity ) override {}
 	bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) override
 	{
-		// The shadow-depth view is the plan's (inside the frame's
-		// ShadowComputeDepthTextures op).
+		// The shadow-depth view is the plan's.
 		return SourceSharp_ShadowDepthView( pRenderTarget, pDepthTexture, shadowView );
 	}
-	// The freeze frame's state is managed's (its rule, CViewRender::FreezeFrame's;
-	// the plan draws and captures it).
+	// The freeze frame's state is managed's.
 	void FreezeFrame( float flFreezeTime ) override { SourceSharp_FreezeFrame( flFreezeTime ); }
 	IReplayScreenshotSystem *GetReplayScreenshotSystem() override { return this; }
 };
 
-//-----------------------------------------------------------------------------
-// CViewRender::Render (view.cpp), mono: managed decided the eye -- its FOVs,
-// viewport, aspect, clear and draw flags, the level overview (ViewFrame,
-// asked at View_Render) -- and this carries it out: the main view, the client
-// mode's hooks, the debug clears, the 3D view, the full-screen 2D panels.
-// The eye goes back into the player view (GetPlayerViewSetup's answer), as
-// stock's Render left it there.
-//-----------------------------------------------------------------------------
+// CViewRender::Render, mono: managed decided the eye (FOVs, viewport, aspect,
+// clear and draw flags, the level overview); this carries it out and leaves the
+// eye in the player view, as stock's Render did.
 void CShellViewRender::Render( vrect_t *rect )
 {
 	CViewSetup eye;
@@ -339,7 +302,6 @@ void CShellViewRender::Render( vrect_t *rect )
 	engine->EngineStats_BeginFrame();
 	m_bForceNoVis = false;
 
-	// The main view is the eye SetUpViews made, before the overview moves it.
 	CViewSetup &player = m_View;
 	render->SetMainView( player.origin, player.angles );
 
@@ -375,13 +337,9 @@ void CShellViewRender::Render( vrect_t *rect )
 	render->PopView( GetFrustum() );
 }
 
-//-----------------------------------------------------------------------------
-// CViewRender::WriteSaveGameScreenshotOfSize (view.cpp): the player's eye
-// drawn through the plan into the top left of the back buffer, read back, and
-// written as a TGA or VTF (padded to powers of two when asked) to //MOD/.
-// Managed decides the view (ViewFrame.Screenshot: the FOV widened to the
-// rectangle); this carries out the draw and the file.
-//-----------------------------------------------------------------------------
+// CViewRender::WriteSaveGameScreenshotOfSize: the player's eye drawn through the
+// plan into the top left of the back buffer, read back, and written as a TGA or
+// VTF to //MOD/. Managed decides the view; this carries out the draw and the file.
 void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded,
                                                      bool bWriteVTF )
 {
@@ -398,14 +356,11 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int
 	pRenderContext->MatrixMode( MATERIAL_VIEW );
 	pRenderContext->PushMatrix();
 
-	// The back buffer, with a viewport the screenshot's size.
 	pRenderContext->PushRenderTargetAndViewport( NULL, 0, 0, width, height );
 
-	// No HUD, no viewmodel.
 	RenderView( viewSetup, VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR, 0 );
 
-	// The pixels cross to managed once, which pads them and encodes the file
-	// (C9: ScreenshotEncoding, held to the pristine bitmap.a / vtf.a).
+	// The pixels cross to managed once, which pads them and encodes the file.
 	const int nPixelBytes = width * height * 3;
 	uint8_t *pBlock = ss::ImageEncodeBlock( nPixelBytes );
 	if ( !pBlock )
@@ -419,8 +374,8 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int
 	if ( !pFile )
 		Error( "Couldn't write bitmap data snapshot.\n" );
 
-	// The async write takes the file's memory (on the engine heap: the
-	// filesystem frees it with tier0's allocator).
+	// The async write takes the file's memory; it is on the engine heap because
+	// the filesystem frees it with tier0's allocator.
 	char szPathedFileName[ MAX_PATH ];
 	Q_snprintf( szPathedFileName, sizeof( szPathedFileName ), "//MOD/%s", pFilename );
 	filesystem->AsyncWrite( szPathedFileName, pFile, nFileBytes, true );
@@ -432,11 +387,8 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int
 	pRenderContext->PopMatrix();
 }
 
-//-----------------------------------------------------------------------------
-// The demo free camera (view.cpp's CalcDemoViewOverride): managed's
-// DemoViewCamera, around the engine's view angles and the input's extra
-// mouse sample it needs between its two steps.
-//-----------------------------------------------------------------------------
+// The demo free camera: managed's DemoViewCamera, around the engine's view
+// angles and the input's extra mouse sample it needs between its two steps.
 void DemoCamera( Vector &origin, QAngle &angles )
 {
 	IManagedRenderClient *pManaged = ManagedRenderClient();
@@ -456,16 +408,10 @@ void DemoCamera( Vector &origin, QAngle &angles )
 	angles.Init( out[ 3 ], out[ 4 ], out[ 5 ] );
 }
 
-//-----------------------------------------------------------------------------
-// CViewRender::SetUpViews (view.cpp), mono: managed decides the planes and
-// the FOV (ViewFrame, one ViewSetUp crossing); the client mode's override
-// puts the viewer's eye in (CSourceSharpClientMode::OverrideView), a view
-// entity overrides it, a playing demo may move it (stock let the tools move it
-// too, and gave them the audio state: deleted, SFM is dead, user ruling
-// 2026-10-19); then the
-// viewmodel's FOV follows the override's zoom, the bones open for the frame,
-// the main view and the engine's audio state take the eye.
-//-----------------------------------------------------------------------------
+// CViewRender::SetUpViews, mono: managed decides the planes and the FOV; the
+// client mode's override puts the viewer's eye in, a view entity overrides it,
+// and a playing demo may move it. Then the viewmodel's FOV follows the
+// override's zoom, and the main view and the engine's audio state take the eye.
 void CShellViewRender::SetUpViews()
 {
 	float flViewModelFovOffset = 0.0f;
@@ -476,20 +422,17 @@ void CShellViewRender::SetUpViews()
 	eye.m_bViewToProjectionOverride = false;
 	eye.m_eStereoEye = STEREO_EYE_MONO;
 
-	// Spatial partition access to the client's edicts, for the override.
 	::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, false );
 
-	// Names the refusal when the engine says this client watches a broadcast
-	// (the HLTV camera is not shipped).
+	// Names the refusal when the engine says this client watches a broadcast.
 	SourceSharp_HltvCameraAvailable();
 
-	// The view starts at nothing; the client mode's override fills it.
 	eye.origin.Init();
 	eye.angles.Init();
 	g_pClientMode->OverrideView( &eye );
 
 	// Looking out of something else's eyes (point_viewcontrol, a camera): the
-	// last word, after the override (view_facts.h).
+	// last word, after the override.
 	if ( !g_nKillCamMode )
 	{
 		Vector vecViewEntityOrigin;
@@ -510,7 +453,6 @@ void CShellViewRender::SetUpViews()
 
 	::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, true );
 
-	// The hearing origin, and the underwater DSP from the viewer's water level.
 	AudioState_t audioState;
 	audioState.m_Origin = eye.origin;
 	audioState.m_Angles = eye.angles;
@@ -523,9 +465,6 @@ void CShellViewRender::SetUpViews()
 CShellViewRender g_ShellViewRender;
 } // namespace
 
-//-----------------------------------------------------------------------------
-// The view state (C7 step 3 phase 4)
-//-----------------------------------------------------------------------------
 void ShellView_ComputeCamera( const Vector &vecOrigin, const QAngle &angles, ShellCamera_t &out )
 {
 	out.origin = vecOrigin;
@@ -574,14 +513,12 @@ void ShellView_SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, 
 	if ( !bEffects )
 		return;
 
-	// The fade distances, cached for the models drawn in this view.
 	float flScreenFadeMinSize, flScreenFadeMaxSize;
 	g_ShellViewRender.GetScreenFadeDistances( &flScreenFadeMinSize, &flScreenFadeMaxSize );
 	modelinfo->SetViewScreenFadeRange( flScreenFadeMinSize, flScreenFadeMaxSize );
 
-	// INT_RENDERPARM_WRITE_DEPTH_TO_DESTALPHA is 10 (public/renderparm.h,
-	// which client.so does not otherwise include); the frozen frames record
-	// it as `ctx.SetIntRenderingParameter 10=...` at every view.
+	// INT_RENDERPARM_WRITE_DEPTH_TO_DESTALPHA is 10 (public/renderparm.h, which
+	// client.so does not otherwise include).
 	const int kWriteDepthToDestAlpha = 10;
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->SetIntRenderingParameter( kWriteDepthToDestAlpha, ( nViewID == VIEW_MAIN || nViewID == VIEW_3DSKY ) ? 1 : 0 );
@@ -642,11 +579,7 @@ IViewRender *ShellViewRender()
 	return &g_ShellViewRender;
 }
 
-
-//-----------------------------------------------------------------------------
-// The names view.cpp, viewrender.cpp and viewdebug.cpp gave client.so that the
-// fork's TUs and ours still call, answered from CShellViewRender.
-//-----------------------------------------------------------------------------
+// The names fork TUs still call, answered from CShellViewRender.
 IViewRender *view = NULL;
 
 const Vector &MainViewOrigin() { return ShellView_Main().origin; }
@@ -675,7 +608,6 @@ void FinishCurrentView() { ShellView_FinishCurrentView(); }
 void AllowCurrentViewAccess( bool allow ) { ShellView_AllowCurrentViewAccess( allow ); }
 bool IsCurrentViewAccessAllowed() { return ShellView_CurrentViewAccessAllowed(); }
 
-// Whether a sphere is wholly outside any of the planes (a frustum cull).
 bool R_CullSphere( VPlane const *pPlanes, int nPlanes, Vector const *pCenter, float radius )
 {
 	for ( int i = 0; i < nPlanes; i++ )
@@ -686,19 +618,14 @@ bool R_CullSphere( VPlane const *pPlanes, int nPlanes, Vector const *pCenter, fl
 	return false;
 }
 
-//-----------------------------------------------------------------------------
-// The convars fork TUs link against by object (`extern ConVar ...`):
-// detailobjectsystem.cpp, glow_overlay.cpp, particlemgr.cpp, clientshadowmgr.cpp
-// and view_scene.h's wireframe test. The rest of these TUs' convars are
-// managed declarations (RenderViewConVars.cs).
-//-----------------------------------------------------------------------------
+// The convars fork TUs link against by object (`extern ConVar ...`); the rest
+// are managed declarations.
 ConVar mat_wireframe( "mat_wireframe", "0", FCVAR_CHEAT );
 const ConVar *sv_cheats = NULL;
 ConVar r_DrawDetailProps( "r_DrawDetailProps", "1", FCVAR_NONE, "0=Off, 1=Normal, 2=Wireframe" );
 ConVar cl_drawshadowtexture( "cl_drawshadowtexture", "0", FCVAR_CHEAT );
 
-// cl_software_cursor: its change hands vgui the larger software cursor (VR,
-// which also asked for it, is not shipped).
+// cl_software_cursor: its change hands vgui the larger software cursor.
 static void SoftwareCursorChanged( IConVar *pVar, const char *pOldValue, float flOldValue )
 {
 	vgui::surface()->SetSoftwareCursor( ( (ConVar *)pVar )->GetBool() );
@@ -706,9 +633,6 @@ static void SoftwareCursorChanged( IConVar *pVar, const char *pOldValue, float f
 static ConVar cl_software_cursor( "cl_software_cursor", "0", FCVAR_ARCHIVE,
 	"Switches the game to use a larger software cursor instead of the normal OS cursor", SoftwareCursorChanged );
 
-//-----------------------------------------------------------------------------
-// The console commands that work on the view itself.
-//-----------------------------------------------------------------------------
 // getpos and spec_pos: the main view, or ("2") the player's own position.
 static void ViewPosition( const CCommand &args, Vector &vecOrigin, QAngle &angles, bool &bPlayer )
 {
@@ -738,7 +662,7 @@ CON_COMMAND( getpos, "dump position and angles to the console" )
 	Warning( "%s %f %f %f\n", bPlayer ? "setang_exact" : "setang", a.x, a.y, a.z );
 }
 
-// centerview: pitch drift, which is not shipped (CShellViewRender::StartPitchDrift).
+// centerview: pitch drift, which is not shipped.
 static void CenterView()
 {
 	view->StartPitchDrift();
@@ -784,11 +708,8 @@ CON_COMMAND_F( r_screenoverlay, "Draw specified material as an overlay", FCVAR_C
 	view->SetScreenOverlayMaterial( pMaterial );
 }
 
-//-----------------------------------------------------------------------------
-// The post-processing materials viewrender.cpp precached for DX9 and up
-// (CLIENTEFFECT_REGISTER PrecachePostProcessingEffects): the client effect
-// precache registry holds them, and ClientEffectPrecache.cs decides when.
-//-----------------------------------------------------------------------------
+// The post-processing materials stock precached for DX9 and up; when they are
+// precached is managed's.
 namespace
 {
 const char *const kPostProcessingMaterials[] =

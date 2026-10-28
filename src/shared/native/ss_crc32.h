@@ -4,15 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier1's CRC-32, as checksum_crc.cpp computes it ====//
-//
-// The reflected CRC-32 of IEEE 802.3 (polynomial 0xEDB88320), started at
-// 0xFFFFFFFF and finished by XOR-ing 0xFFFFFFFF; the table is built at
-// compile time from the polynomial. Stock processes a word at a time where it
-// can; a byte at a time gives the same value. A length of zero or less
-// leaves the running value as it was. ss_crc32_oracle_test holds this to
-// pristine checksum_crc.cpp.
-//=============================================================================//
+// tier1's CRC-32 (reflected IEEE 802.3, polynomial 0xEDB88320), byte at a time;
+// stock's word-at-a-time loop gives the same value. A length of zero or less
+// leaves the running value unchanged.
 #pragma once
 
 #include <cstdint>

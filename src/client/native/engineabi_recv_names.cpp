@@ -5,18 +5,9 @@
 //
 //=============================================================================//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// THE VALVE NAMES client.so LINKS AGAINST, for the declarations in dt_recv.h,
-// client_class.h, networkvar.h and renamed_recvtable_compat.h (plan_client_
-// novalve C8). These replaced public/dt_recv.cpp, client_class.cpp,
-// networkvar.cpp and renamed_recvtable_compat.cpp on the client's link line.
-//
-// Each builder and proxy forwards to engineabi/recv.h's, which the oracle holds
-// to upstream. The proxies are real functions here rather than aliases because
-// their ADDRESSES are compared: g_StandardRecvProxies hands the engine these
-// pointers, the builders' defaults are taken from it, and the engine's local
-// backdoor copies a value directly when a prop's proxy is the standard one.
-//=============================================================================//
+// The Valve recv-table names client.so links against, forwarding to engineabi/recv.h.
+// The proxies are real functions rather than aliases because the engine compares their
+// addresses: it copies a value directly when a prop's proxy is the standard one.
 
 #include "engineabi/recv.h"
 
@@ -25,20 +16,13 @@
 #include "dt_common.h"
 #include "dt_recv.h"
 
-//-----------------------------------------------------------------------------
-// The lists the engine and the shells walk. Zero-initialised constants, so
-// they are in .bss and already empty before any static constructor adds to
-// them: the order of static initialisation across TUs does not matter.
-//-----------------------------------------------------------------------------
+// Zero-initialised, so empty before any static constructor adds to them.
 ClientClass *g_pClientClassHead = 0;
 CRenamedRecvTableInfo *g_pRenamedRecvTableInfoHead = 0;
 
 // Read by the network-var assertions in the shared headers (debug builds).
 bool g_bUseNetworkVars = true;
 
-//-----------------------------------------------------------------------------
-// The standard proxies, by their Valve names.
-//-----------------------------------------------------------------------------
 void RecvProxy_FloatToFloat( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
 	engineabi::recv::FloatToFloat( pData, pStruct, pOut );
@@ -74,9 +58,7 @@ void DataTableRecvProxy_StaticDataTable( const RecvProp *pProp, void **pOut, voi
 	engineabi::recv::StaticDataTable( pProp, pOut, pData, objectID );
 }
 
-//-----------------------------------------------------------------------------
-// The table GetStandardRecvProxies answers, over the names above.
-//-----------------------------------------------------------------------------
+// The table GetStandardRecvProxies answers.
 CStandardRecvProxies::CStandardRecvProxies()
 {
 	m_Int32ToInt8 = RecvProxy_Int32ToInt8;
@@ -88,9 +70,6 @@ CStandardRecvProxies::CStandardRecvProxies()
 
 CStandardRecvProxies g_StandardRecvProxies;
 
-//-----------------------------------------------------------------------------
-// The builders, by their Valve names.
-//-----------------------------------------------------------------------------
 RecvProp RecvPropFloat( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy )
 {
 	return engineabi::recv::Float( pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies );
@@ -123,15 +102,8 @@ RecvProp InternalRecvPropArray( const int elementCount, const int elementStride,
 	return engineabi::recv::ArrayLength( elementCount, elementStride, pName, proxy );
 }
 
-//-----------------------------------------------------------------------------
-// The out-of-line members dt_recv.h declares. A prop starts as one scalar
-// int with no name, proxy or table; a table starts unread by the engine.
-//
-// Two fields are set here that upstream leaves indeterminate,
-// m_StringBufferSize and m_pParentArrayPropName: every builder that reads
-// either sets it first, so zero changes no answer and makes a fresh prop's
-// bytes deterministic (the oracle compares field by field after the builder).
-//-----------------------------------------------------------------------------
+// m_StringBufferSize and m_pParentArrayPropName, indeterminate upstream, are zeroed so a
+// fresh prop's bytes are deterministic; every builder that reads them sets them first.
 RecvProp::RecvProp()
 {
 	m_pVarName = NULL;

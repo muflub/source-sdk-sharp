@@ -5,32 +5,11 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the client's glow overlays, carried out ===========//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve C7. glow_overlay.cpp's and warp_overlay.cpp's decisions
-// are managed's (SourceSharp.Client.Render.GlowOverlays.GlowOverlaySystem: the
-// list, the obstruction, the sprites' size, colour and basis, the cull); this
-// file hands it what it reads and carries out what it answers:
-//
-//   SourceSharp_GlowMaterialFind   IShimViewClient: materials->FindMaterial by
-//                                  name and group, as the overlays found theirs
-//                                  (no reference taken), named by the effect
-//                                  list's material id.
-//   ShellGlowDrawOverlays          the plan's GlowDrawOverlays op: the view (the
-//                                  current view, the view setup's zFar, the
-//                                  frustum's first five planes, the wireframe
-//                                  question, r_drawsprites) handed to
-//                                  IManagedGlowClient::DrawOverlays, and the
-//                                  commands it answers carried out: the
-//                                  clipping switch (its first answer kept), a
-//                                  material's $hdrcolorscale, a quad, a
-//                                  wireframe quad.
-//   ShellGlowUpdateSkyOverlays     the plan's GlowUpdateSkyOverlays op.
-//
-// No decision is made here: the ifs are bounds checks, null guards and the
-// switch over a command's kind.
-//=============================================================================//
+// Carries out the managed glow overlays (GlowOverlaySystem): material lookup by
+// name and group (no reference taken), the GlowDrawOverlays plan op (hands the
+// view to IManagedGlowClient::DrawOverlays and runs the commands it answers),
+// and the GlowUpdateSkyOverlays op.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,15 +45,8 @@
 #include "sourcesharp_entrypoints.h"
 #include "shell_glow_client.h"
 
-
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
-// glow_overlay.cpp's and warp_overlay.cpp's precache lists, which left with
-// them (C7): the overlays are C#'s (GlowOverlaySystem) and draw through the
-// executor below; the precache system is still native, so the materials stock's
-// two files registered are registered here, unchanged and in their files' order.
-//-----------------------------------------------------------------------------
+// The materials stock's glow_overlay.cpp and warp_overlay.cpp precached, in
+// their files' order.
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectGlow )
 CLIENTEFFECT_MATERIAL( "sun/overlay" )
 CLIENTEFFECT_MATERIAL( "sprites/light_glow02_add_noz" )

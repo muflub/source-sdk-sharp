@@ -163,14 +163,9 @@ public:
 	// is valid?
 	bool IsValid() const { return m_pString != NULL; }
 
-#if ! defined(SWIG)
 	// Don't let SWIG see the PRINTF_FORMAT_STRING attribute or it will complain.
 	int Format( PRINTF_FORMAT_STRING const char *pFormat, ... )  FMTFUNCTION( 2, 3 );
 	int FormatV( PRINTF_FORMAT_STRING const char *pFormat, va_list marker );
-#else
-	int Format( const char *pFormat, ... );
-	int FormatV( const char *pFormat, va_list marker );
-#endif
 
 	// Defining AltArgumentType_t hints that associative container classes should
 	// also implement Find/Insert/Remove functions that take const char* params.

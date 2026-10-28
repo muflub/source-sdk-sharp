@@ -12,21 +12,15 @@
 
 #include <set>
 
-// The debug build's record of the names handed out, one per side. Case-blind,
-// as the CUtlDict<int,int> they were (k_eDictCompareTypeCaseInsensitive); a
-// std::set, so this file instantiates no CUtlMemory and imports no g_pMemAlloc.
-// Client debug only, where its one reader is.
+// Debug-only record of the names handed out, case-insensitive. A std::set so this
+// file instantiates no CUtlMemory and imports no g_pMemAlloc.
 #if defined( CLIENT_DLL ) && defined( _DEBUG )
 typedef std::set< std::string, ss::CaselessLess > DataTableNames_t;
 static DataTableNames_t *g_STDict = 0;
 static DataTableNames_t *g_RTDict = 0;
 #endif
 
-// DT_ArrayElementNameForIdx and its table are in dt_element_names.cpp: the
-// send-table builders on the server need them and nothing else here
-// (plan_server_native_v2 T2), so server.so compiles that file and not this one.
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
+#ifdef CLIENT_DLL
 char* AllocateStringHelper2( const char *pFormat, va_list marker )
 {
 	char str[512];
@@ -41,8 +35,7 @@ char* AllocateStringHelper2( const char *pFormat, va_list marker )
 }
 #endif
 
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
+#ifdef CLIENT_DLL
 char* AllocateStringHelper( const char *pFormat, ... )
 {
 	va_list marker;
@@ -54,8 +47,7 @@ char* AllocateStringHelper( const char *pFormat, ... )
 }
 #endif
 
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
+#ifdef CLIENT_DLL
 char* AllocateUniqueDataTableName( bool bSendTable, const char *pFormat, ... )
 {
 	// Setup the string.
@@ -77,8 +69,7 @@ char* AllocateUniqueDataTableName( bool bSendTable, const char *pFormat, ... )
 	DataTableNames_t *pDict = bSendTable ? g_STDict : g_RTDict;
 	if ( !pDict->insert( pRet ).second )
 	{
-		// If it hits this, then they have 2 utlvectors in different data tables with the same name and the
-		// same size limit. The names of 
+		// Two utlvectors in different data tables have the same name and size limit.
 		Assert( false );
 	}
 #endif

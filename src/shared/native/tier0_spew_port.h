@@ -4,12 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier0_spew_port.cpp's one shared helper ============//
-//
-// A line at a developer level, written through this DLL's spew slot when
-// `developer` is at least that level. DevMsg( level ) is it with SPEW_MESSAGE;
-// the client's DevWarning( level ) (tier0_spew_client.cpp) with SPEW_WARNING.
-//=============================================================================//
+// A line at a developer level, written through this DLL's spew slot when `developer`
+// is at least that level.
 
 #pragma once
 

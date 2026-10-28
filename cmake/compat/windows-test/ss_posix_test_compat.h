@@ -3,8 +3,7 @@
 // temporary paths, on the Windows CRT, so a test about this tree's sources or
 // data runs the same on both platforms. A test whose subject is POSIX itself
 // (fork, dlopen, ELF, /proc, nm) is LINUX_ONLY instead and never sees this.
-#ifndef SS_POSIX_TEST_COMPAT_H
-#define SS_POSIX_TEST_COMPAT_H
+#pragma once
 
 #ifdef _MSC_VER
 
@@ -71,5 +70,3 @@ inline char *realpath( const char *pszPath, char *pszResolved )
 #define pclose _pclose
 
 #endif // _MSC_VER
-
-#endif // SS_POSIX_TEST_COMPAT_H

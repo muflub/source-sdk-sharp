@@ -32,8 +32,7 @@
 //
 //=============================================================================
 
-#ifndef SS_FLASHLIGHT_HARNESS_H
-#define SS_FLASHLIGHT_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -257,5 +256,3 @@ public:
 };
 #define HTOOLHANDLE_INVALID 0
 inline void ToolFramework_PostToolMessage( int hEntity, KeyValues *msg ) {}
-
-#endif // SS_FLASHLIGHT_HARNESS_H

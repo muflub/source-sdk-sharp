@@ -4,23 +4,12 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — one player command, as server.so holds it
-//
-// plan_server_novalve.md P5. game/shared/usercmd.h's CUserCmd is, on the
-// server, only a record our own code fills and reads: the engine never sees
-// it (commands arrive as bits, and P2.2 moved their decoding to C#, which
-// hands CStandalonePlayer::QueueDecodedUsercmds the fields below). Per the
-// plan's naming rule it is server.so's own type, ss::CUserCmd, on public/
-// headers alone. The client keeps Valve's CUserCmd, which it predicts with.
-//
-// What is not carried over: the virtual destructor (nothing deletes one
-// through a base), the CRC (the server checks none), the bit codec
-// (ReadUsercmd/WriteUsercmd; C# decodes), and entitygroundcontact (HL2_DLL
-// only, never defined here).
-//=============================================================================//
+// One player command as the server holds it, filled from C#'s decoding; the
+// engine never sees it. The client keeps Valve's CUserCmd.
+
 #pragma once
 
-#include "mathlib/vector.h"   // QAngle
+#include "mathlib/vector.h"
 
 namespace ss
 {

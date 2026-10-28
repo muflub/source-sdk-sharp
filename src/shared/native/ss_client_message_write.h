@@ -5,13 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's writer for CSourceSharpClientMessage ==//
-//
-// tier1's bf_write, so client.so and the tests only (server.so links no
-// tier1 and never sends one). The type first, as every net message's
-// WriteToBuffer writes it, then ss_client_message.h's wire.
-//
-//=============================================================================//
+// Writes a CSourceSharpClientMessage: the message type, then ss_client_message.h's wire.
+// Uses tier1's bf_write, so only client.so and the tests include it.
 
 #pragma once
 

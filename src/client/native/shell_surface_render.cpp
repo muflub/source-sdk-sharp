@@ -5,15 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — drawing a shattered pane of glass ==================//
 // SS_REASON a  a vtable the engine calls through
-//
-// See the header. The quad building below is stock's (c_func_breakablesurf.cpp's
-// DrawOneBlock, DrawOneEdge and DrawOneHighlight), nearly line for line: how
-// glass is drawn was never the part worth changing. What is drawn is
-// managed's plan (BreakableSurfaceDraw, lane M1-A), carried out in order.
-//
-//=============================================================================//
+// The quad building is stock's (c_func_breakablesurf.cpp's DrawOneBlock,
+// DrawOneEdge and DrawOneHighlight); what is drawn is managed code's plan.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,11 +47,7 @@
 #include "shell_standalone_client.h"
 #include "shell_diagnostics.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
 // The base texture of a material, which is what the detail swap replaces.
-//-----------------------------------------------------------------------------
 static ITexture *SurfaceBaseTexture( IMaterial *pMaterial )
 {
 	if ( !pMaterial )
@@ -86,20 +76,10 @@ CSourceSharpSurfaceRenderer::~CSourceSharpSurfaceRenderer()
 	SOURCESHARP_TRACE();
 }
 
-//=============================================================================//
-// Managed's choices.
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// The materials ClientBreakableSurf chose, referenced: the pieces' (from
-// TEXTURE_GROUP_OTHER for the debug stand-in, as stock found it), the solid
-// block's and the twelve edges', each with its base texture for the swap.
-//
-// The detail var is held only when managed says the pieces' material takes
-// the swap: stock's swap is a material proxy only a purpose-made cracked
-// material asks for, and writing $basetexture on any other would repaint the
-// window with a crack sprite.
-//-----------------------------------------------------------------------------
+// The materials managed code chose, each with its base texture for the swap.
+// The detail var is held only when managed code says the pieces' material takes
+// the swap: writing $basetexture on any other material would repaint the window
+// with a crack sprite.
 void CSourceSharpSurfaceRenderer::SetMaterials( const char *const *ppNames, int nFlags )
 {
 	if ( !ppNames )
@@ -137,10 +117,7 @@ void CSourceSharpSurfaceRenderer::SetMaterials( const char *const *ppNames, int 
 	}
 }
 
-//-----------------------------------------------------------------------------
-// The plan, kept until the next one: the header into the frame members, the
-// whole entries after it. A short or partial tail is dropped, not read.
-//-----------------------------------------------------------------------------
+// Kept until the next plan. A short or partial tail is dropped, not read.
 void CSourceSharpSurfaceRenderer::SetPlan( const int32_t *pWords, int nWords )
 {
 	m_Plan.RemoveAll();
@@ -166,18 +143,8 @@ void CSourceSharpSurfaceRenderer::SetDetailTexture( ITexture *pTexture )
 		m_pDetailVar->SetTextureValue( pTexture );
 }
 
-//=============================================================================//
-// Drawing.
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// The two directions a pane grid runs in, from the normal.
-//
-// The SERVER works these out from the same normal, through the same engine
-// functions (IShimWorldServer::AngleVectorsFromForward), to decide which pane
-// a shot broke; two implementations agreeing to the last bit is not something
-// to assume, so both ask the engine's mathlib.
-//-----------------------------------------------------------------------------
+// The pane grid's two directions from the normal, through the engine's mathlib,
+// as the server computes them to decide which pane a shot broke.
 void CSourceSharpSurfaceRenderer::Steps( Vector *pWidthStep, Vector *pHeightStep ) const
 {
 	QAngle vAngles;
@@ -193,8 +160,7 @@ void CSourceSharpSurfaceRenderer::BeginDraw()
 	if ( m_Plan.Count() == 0 || !m_bMaterialsReady )
 		return;
 
-	// Said once per surface, because "is this being drawn at all" is the only
-	// question that cannot be answered from outside the game.
+	// Said once per surface: nothing outside the game shows whether it is drawn.
 	if ( !m_bDrawReported )
 	{
 		m_bDrawReported = true;
@@ -212,21 +178,16 @@ void CSourceSharpSurfaceRenderer::EndDraw()
 	render->InstallBrushSurfaceRenderer( NULL );
 }
 
-//-----------------------------------------------------------------------------
-// The plan, carried out in its order. A solid run and an edge draw in the
-// pieces' material with the block's or the edge's texture swapped in, a
-// highlight in the edge material itself, a little off the surface; a new
-// mesh is begun whenever the material or the swapped texture changes, which
-// is what the plan's grouping keeps rare. An entry whose edge, style or side
-// is out of range is skipped: the words come across the ABI.
-//-----------------------------------------------------------------------------
+// Carries out the plan in order. A new mesh is begun whenever the material or
+// swapped texture changes. An entry whose edge, style or side is out of range is
+// skipped: the words come across the ABI.
 bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface( IClientEntity *pEntity,
                                                            IBrushSurface *pBrushSurface )
 {
 	NOTE_UNUSED( pEntity );
 
-	// Corner texture coordinates: the solid block's, then by side then by
-	// vertex for an edge and for a highlight (stock's three tables).
+	// Corner texture coordinates: the solid block's, then by side then by vertex
+	// for an edge and a highlight (stock's tables).
 	static const float s_Block[4][2] = { { 0, 1 }, { 0, 0 }, { 1, 0 }, { 1, 1 } };
 	static const float s_Edge[4][4][2] =
 	{
@@ -264,8 +225,8 @@ bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface( IClientEntity *pEntit
 			{
 				nBound = 0;
 				SetDetailTexture( m_pMaterialBoxTexture );
-				// Flushed because the base texture just changed underneath a
-				// material the context may already have bound.
+				// Flushed because the base texture changed under a material the context may
+				// already have bound.
 				pRenderContext->Flush( false );
 				pRenderContext->Bind( m_pCrackedMaterial );
 				pMesh = pRenderContext->GetDynamicMesh();
@@ -308,8 +269,7 @@ bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface( IClientEntity *pEntit
 				pMesh = pRenderContext->GetDynamicMesh( true, NULL, NULL, pMat );
 			}
 
-			// Pulled a little off the surface so it does not z-fight the face it
-			// is drawn against.
+			// Pulled a little off the surface so it does not z-fight.
 			const Vector vPos = m_vCorner + vWidthStep * w + vHeightStep * h + m_vNormal * 0.30f;
 			DrawQuad( pBrushSurface, pMesh, &builder, vPos, vWidthStep, vHeightStep, s_Highlight[nSide], true );
 		}
@@ -319,21 +279,15 @@ bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface( IClientEntity *pEntit
 	return false;
 }
 
-//-----------------------------------------------------------------------------
-// One quad, lit and textured as the surface it replaces.
-//
-// The texture and lightmap coordinates come from the BRUSH SURFACE rather than
-// being computed: the quad is a piece of a face the world builder already
-// mapped, and asking it is what keeps the glass lit like the wall it is in.
-// A highlight is the grout behind a fallen tile: flat-coloured, and without
-// the surface's own texture coordinates.
-//-----------------------------------------------------------------------------
+// One quad, with texture and lightmap coordinates from the brush surface so the
+// glass is lit like the face it is part of. A highlight is the grout behind a
+// fallen tile: flat-coloured, without the surface's coordinates.
 void CSourceSharpSurfaceRenderer::DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh,
                                             CMeshBuilder *pBuilder, const Vector &vStart,
                                             const Vector &vWStep, const Vector &vHStep,
                                             const float ( *pCorners )[2], bool bGrout )
 {
-	// The colour of grout, which is stock's and arrived at by eye.
+	// Stock's grout colour.
 	static const Vector s_Grout( 0.41f, 0.35f, 0.24f );
 
 	pBuilder->Begin( pMesh, MATERIAL_QUADS, 1 );
@@ -368,15 +322,8 @@ void CSourceSharpSurfaceRenderer::DrawQuad( IBrushSurface *pBrushSurface, IMesh 
 	pMesh->Draw();
 }
 
-//=============================================================================//
-// The ABI doors (IShimStandaloneClient), by handle.
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// What the brush model says about its material, for managed's choice: the
-// model's material count, and when it is exactly one, that material's name and
-// its $crackmaterial. -1 for a handle that names no shell.
-//-----------------------------------------------------------------------------
+// The brush model's material count and, when it is exactly one, that material's
+// name and its $crackmaterial. -1 for a handle that names no shell.
 int32_t SourceSharp_SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, int32_t nMaterialBytes,
                                           char *pOutCrack, int32_t nCrackBytes, int32_t *pOutHasCrack )
 {
@@ -425,11 +372,8 @@ int32_t SourceSharp_SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, 
 	return nMaterials;
 }
 
-//-----------------------------------------------------------------------------
-// The materials managed chose, NUL-separated in SurfaceSetMaterials' order;
-// the shell's surface renderer is made on this first ask. A block that does
-// not hold every name is refused.
-//-----------------------------------------------------------------------------
+// The materials managed code chose, NUL-separated in SurfaceSetMaterials' order;
+// the renderer is made on first ask. A block missing a name is refused.
 void SourceSharp_SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int32_t nBytes, int32_t nFlags )
 {
 	C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity );
@@ -458,17 +402,12 @@ void SourceSharp_SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int3
 	const bool bNew = pEntity->SurfaceRenderer( false ) == NULL;
 	pEntity->SurfaceRenderer( true )->SetMaterials( ppNames, nFlags );
 
-	// Said once per surface. Whether the renderer was ever attached is the
-	// first question when glass draws as a plain brush, and it cannot be
-	// answered from outside the game.
+	// Said once per surface: nothing outside the game shows whether it attached.
 	if ( bNew )
 		Msg( "[SourceSharp] standalone(client): entity %d has a surface renderer\n", pEntity->entindex() );
 }
 
-//-----------------------------------------------------------------------------
-// The plan managed made, onto the shell's surface renderer (made if it has
-// none yet).
-//-----------------------------------------------------------------------------
+// Hands the shell's surface renderer a plan, making the renderer if needed.
 void SourceSharp_SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_t nWords )
 {
 	C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity );

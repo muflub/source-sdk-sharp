@@ -74,11 +74,7 @@ public:
 	vec_t	Length() const;
 
 	// No copy constructors allowed if we're in optimal mode
-#ifdef VECTOR_NO_SLOW_OPERATIONS
-private:
-#else
 public:
-#endif
 	Vector4D(Vector4D const& vOther);
 
 	// No assignment operators either...

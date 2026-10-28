@@ -1,11 +1,7 @@
-// SourceSharp: one side's engine console lines, buffered for the managed side
-// to drain without a crossing (console-batch, 2026-10-11; one crossing per line
-// took the gate's map-change stage over budget). nSeq is the side's ONE line
-// counter, native and managed prints alike; compare numbers by (int32_t)(a - b).
-// The lock is held only for one line's copy or the consumer's swap, so a print
-// never waits on managed work. A line that does not fit is counted in
-// nOverflow, its number spent; native decides nothing. The layout is an ABI:
-// NativeConsoleBuffer.cs reads it, both sides' tests pin it.
+// One side's engine console lines, buffered for managed to drain. nSeq is the
+// side's single line counter; compare numbers by (int32_t)(a - b). The lock is
+// held only for one copy or swap. A line that does not fit is counted in
+// nOverflow. The layout is an ABI read by NativeConsoleBuffer.cs.
 
 #pragma once
 
@@ -31,12 +27,8 @@ struct ConsoleLineBufferHeader
 	uint32_t nReserved = 0;
 };
 
-// THE TWO ATOMIC WORDS ARE SHARED WITH MANAGED, which takes the lock with
-// Interlocked.CompareExchange on the same four bytes (NativeConsoleBuffer.cs)
-// and reads the counter at offset 0. So each must be exactly the plain word it
-// wraps -- lock-free (and so address-free, which is what lets another
-// language's atomic operate on it), four bytes, at the offsets the managed
-// layout names -- and the header must stay standard-layout for offsetof.
+// Managed takes the lock with Interlocked on the same four bytes and reads the
+// counter at offset 0, so both atomics must be lock-free plain 32-bit words.
 static_assert( std::atomic< uint32_t >::is_always_lock_free && sizeof( std::atomic< uint32_t > ) == 4,
 	"the line counter is read by managed as a plain uint32" );
 static_assert( std::atomic< int32_t >::is_always_lock_free && sizeof( std::atomic< int32_t > ) == 4,
@@ -61,7 +53,7 @@ inline uint32_t ConsoleLineRecordBytes( uint32_t nLength )
 class CConsoleLineBuffer
 {
 public:
-	CConsoleLineBuffer() = default;  // all zero, so a global one is .bss, not 1 MiB of .data (console_line_buffer_test)
+	CConsoleLineBuffer() = default;  // all zero, so a global one lands in .bss
 	void Publish() { m_Header.nHalfBytes = kConsoleLineHalfBytes; }  // before the reader has the address
 	CConsoleLineBuffer( const CConsoleLineBuffer & ) = delete;
 	CConsoleLineBuffer &operator=( const CConsoleLineBuffer & ) = delete;

@@ -5,16 +5,3 @@
 //			#include "tier0/valve_off.h"
 //			#include <external.h>
 //			#include "tier0/valve_on.h"
-
-#ifdef STEAM
-
-// Unicode-related #defines (see wchartypes.h)
-#undef char
-
-// Memory-related #defines
-#undef malloc
-#undef realloc
-#undef _expand
-#undef free
-
-#endif

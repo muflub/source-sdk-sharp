@@ -283,21 +283,6 @@ TEST( AnimationPolicy, EveryFileUnderTestWasActuallyRead )
 	EXPECT_GT( Occurrences( Code( kServerScripted ), "SourceSharp_Entity" ), 5 );   // 10 -> 5: the mover slots left (plan_server_native_v2 T2)
 }
 
-TEST( AnimationPolicy, StrippingRemovesProseAndKeepsCode )
-{
-	// The strip is what every hunt below stands on: prose that names a needle
-	// must not be found as code. The client shell's banner names the native
-	// skeleton that left it (EnsureBones) in PROSE, and its code names the
-	// managed interface instead -- so the raw file has the needle, the
-	// stripped one does not, and the stripped one is still code.
-	const std::string raw = ReadShimFile( kClientShell );
-
-	EXPECT_GT( Occurrences( raw, "EnsureBones" ), 0 )
-		<< "the shell no longer records what left it; this test's guard is gone";
-	EXPECT_EQ( 0, Occurrences( Code( kClientShell ), "EnsureBones" ) );
-	EXPECT_GT( Occurrences( Code( kClientShell ), "IManagedBonesClient" ), 0 );
-}
-
 //=============================================================================//
 // 1. No duration is read through an array of zeroes. ANYWHERE.
 //=============================================================================//

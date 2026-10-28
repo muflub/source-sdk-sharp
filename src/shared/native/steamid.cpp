@@ -6,21 +6,11 @@
 //=============================================================================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
 
-
-#if defined( STEAM ) || defined( HL1 )
-#include "stdafx.h"
-#else
 #include <stdio.h>
 #include "dbg.h"
 #include "steamcommon.h"
 #include "steam/steamclientpublic.h"
 #include "strtools.h"
-#endif
-
-#ifdef HL1
-#include "steamcommon.h"
-#include "steam/steamclientpublic.h"
-#endif
 
 #ifndef UINT64_MAX
 #define UINT64_MAX ((uint64)-1)
@@ -61,20 +51,12 @@ static const char *DecimalToUint64( const char *pchStr, uint64 unLimit,
     return pchStr;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Constructor
-// Input  : pchSteamID -		text representation of a Steam ID
-//-----------------------------------------------------------------------------
 CSteamID::CSteamID( const char *pchSteamID, EUniverse eDefaultUniverse /* = k_EUniverseInvalid */  )
 {
 	SetFromString( pchSteamID, eDefaultUniverse );
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Initializes a steam ID from a string
-// Input  : pchSteamID -		text representation of a Steam ID
-//-----------------------------------------------------------------------------
+// Initializes a steam ID from a string.
 void CSteamID::SetFromString( const char *pchSteamID, EUniverse eDefaultUniverse )
 {
 	uint nAccountID = 0;
@@ -92,7 +74,6 @@ void CSteamID::SetFromString( const char *pchSteamID, EUniverse eDefaultUniverse
 	if ( *pchSteamID == '[' )
 		pchSteamID++;
 
-	// BUGBUG Rich use the Q_ functions
 	if ( *pchSteamID == 'A' || *pchSteamID == 'a' )
 	{
 		// This is test only
@@ -491,14 +472,8 @@ bool CSteamID::SetFromStringStrict( const char *pchSteamID, EUniverse eDefaultUn
     return bValid;
 }
 
-
 #if defined( INCLUDED_STEAM2_USERID_STRUCTS ) 
-//-----------------------------------------------------------------------------
-// Purpose: Initializes a steam ID from a Steam2 ID string
-// Input:	pchSteam2ID -	Steam2 ID (as a string #:#:#) to convert
-//			eUniverse -		universe this ID belongs to
-// Output:	true if successful, false otherwise
-//-----------------------------------------------------------------------------
+// Initializes a steam ID from a Steam2 ID string (#:#:#).
 bool SteamIDFromSteam2String( const char *pchSteam2ID, EUniverse eUniverse, CSteamID *pSteamIDOut )
 {
 	Assert( pchSteam2ID );
@@ -531,11 +506,7 @@ bool SteamIDFromSteam2String( const char *pchSteam2ID, EUniverse eUniverse, CSte
 }
 #endif
 
-//-----------------------------------------------------------------------------
-// Purpose: Renders the steam ID to a buffer.  NOTE: for convenience of calling
-//			code, this code returns a pointer to a static buffer and is NOT thread-safe.
-// Output:  buffer with rendered Steam ID
-//-----------------------------------------------------------------------------
+// Renders the steam ID into a static buffer; not thread-safe.
 const char * CSteamID::Render() const
 {
 	// longest length of returned string is k_cBufLen
@@ -609,24 +580,14 @@ const char * CSteamID::Render() const
 	return pchBuf;
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Renders the passed-in steam ID to a buffer.  NOTE: for convenience of calling
-//			code, this code returns a pointer to a static buffer and is NOT thread-safe.
-// Input:	64-bit representation of Steam ID to render
-// Output:  buffer with rendered Steam ID
-//-----------------------------------------------------------------------------
+// Renders the passed-in steam ID into a static buffer; not thread-safe.
 const char * CSteamID::Render( uint64 ulSteamID )
 {
 	CSteamID steamID( ulSteamID );
 	return steamID.Render();
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: some steamIDs are for internal use only
-// This is really debug code, but we run with asserts on in retail, so ...
-//-----------------------------------------------------------------------------
+// Some steamIDs are for internal use only.
 bool CSteamID::BValidExternalSteamID() const
 {
 	if ( m_steamid.m_comp.m_EAccountType == k_EAccountTypePending )
@@ -638,104 +599,3 @@ bool CSteamID::BValidExternalSteamID() const
 	}
 	return true;
 }
-
-#ifdef STEAM
-//-----------------------------------------------------------------------------
-// Purpose:	Returns the matching chat steamID, with the default instance of 0
-// Input:	SteamID, either a Clan or a Chat type
-// Output:	SteamID with account type changed to chat, and the Clan flag set. 
-//			If account type was not chat to start with, instance will be set to 0
-//-----------------------------------------------------------------------------
-CSteamID ChatIDFromSteamID( const CSteamID &steamID )
-{
-	if ( steamID.GetEAccountType() == k_EAccountTypeChat )
-		return steamID;
-
-	return ChatIDFromClanID( steamID );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:	Returns the matching chat steamID, with the default instance of 0
-// Input:	SteamID, either a Clan type or a Chat type w/ the Clan flag set
-// Output:	SteamID with account type changed to clan.  
-//			If account type was not clan to start with, instance will be set to 0
-//-----------------------------------------------------------------------------
-CSteamID ClanIDFromSteamID( const CSteamID &steamID )
-{
-	if ( steamID.GetEAccountType() == k_EAccountTypeClan )
-		return steamID;
-
-	return ClanIDFromChatID( steamID );
-}
-
-
-// Asserts steamID type before conversion
-CSteamID ChatIDFromClanID( const CSteamID &steamIDClan )
-{
-	Assert( steamIDClan.GetEAccountType() == k_EAccountTypeClan );
-
-	return CSteamID( steamIDClan.GetAccountID(), k_EChatInstanceFlagClan, steamIDClan.GetEUniverse(), k_EAccountTypeChat );
-}
-
-
-// Asserts steamID type before conversion
-CSteamID ClanIDFromChatID( const CSteamID &steamIDChat )
-{
-	Assert( steamIDChat.GetEAccountType() == k_EAccountTypeChat );
-	Assert( k_EChatInstanceFlagClan & steamIDChat.GetUnAccountInstance() );
-
-	return CSteamID( steamIDChat.GetAccountID(), 0, steamIDChat.GetEUniverse(), k_EAccountTypeClan );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:	CGameID "hidden" functions
-//			move these somewhere else maybe
-//-----------------------------------------------------------------------------
-CGameID::CGameID( const char *pchGameID )
-{
-	m_ulGameID = 0;
-
-	sscanf( pchGameID, "%llu", &m_ulGameID );
-
-	switch ( m_gameID.m_nType )
-	{
-	case k_EGameIDTypeApp:
-	case k_EGameIDTypeGameMod:
-	case k_EGameIDTypeShortcut:
-	case k_EGameIDTypeP2P:
-		break;
-	default:
-		AssertMsg( false, "Unknown GameID type" );
-		m_ulGameID = 0;
-		break;
-	}
-}
-
-
-// renders this Game ID to string
-const char * CGameID::Render() const
-{
-	// longest buffer is log10(2**64) == 20 + 1 == 21
-	const int k_cBufLen = 21;
-
-	const int k_cBufs = 4;	// # of static bufs to use (so people can compose output with multiple calls to Render() )
-	static char rgchBuf[k_cBufs][k_cBufLen];
-	static int nBuf = 0;
-	char * pchBuf = rgchBuf[nBuf];	// get pointer to current static buf
-	nBuf ++;	// use next buffer for next call to this method
-	nBuf %= k_cBufs;
-
-	V_snprintf( pchBuf, k_cBufLen, "%llu", m_ulGameID );
-
-	return pchBuf;
-}
-
-// static method to render a uint64 representation of a Game ID to a string
-const char * CGameID::Render( uint64 ulGameID )
-{
-	CGameID nGameID( ulGameID );
-	return nGameID.Render();
-}
-#endif

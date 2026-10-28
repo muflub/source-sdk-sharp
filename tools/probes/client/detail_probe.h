@@ -26,8 +26,7 @@
 // The log is /tmp/do-dt-probe.<pid>.log. Nothing here exists in a default
 // build.
 
-#ifndef DETAIL_PROBE_H
-#define DETAIL_PROBE_H
+#pragma once
 
 #include "materialsystem/imesh.h"
 #include "tier1/convar.h"
@@ -131,5 +130,3 @@ private:
 		DetailProbeFrames() = args.ArgC() > 1 ? atoi( args[ 1 ] ) : 1;                               \
 		Msg( "detail probe: %d frame(s)\n", DetailProbeFrames() );                                 \
 	}
-
-#endif // DETAIL_PROBE_H

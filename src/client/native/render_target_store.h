@@ -5,20 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the render targets' references ====================//
-//
-// What rendertexture.cpp's getters held: one CTextureReference per named
-// render target, found on the slot's first use, with the material system's
-// release function registered at the first find and the declared references
-// dropped there. WHICH name a slot finds, in which group, and which references
-// the release drops in what order are managed's (RenderTargetCatalog, held to
-// the pristine file by RenderTargetCatalogOracleTests); this carries them out.
-// rendertexture_oracle_test runs it over the golden's table and holds its calls
-// to stock's.
-//
-// A header so the oracle compiles it against the pristine CTextureReference;
-// client.so's one instance is shell_render_targets_client.cpp's.
-//=============================================================================//
+// One CTextureReference per named render target, found on the slot's first use,
+// with the material system's release function registered at the first find.
+// Which name a slot finds and the release order are declared by managed code.
+// A header so the oracle test compiles it against the pristine CTextureReference.
 
 #pragma once
 
@@ -31,8 +21,7 @@
 extern IMaterialSystem *materials;
 
 // rendertexture.h's getters, one slot each in the header's order (the frame
-// buffers by index, the teeny textures by which). RenderTargetSlot (C#) is the
-// same list; RenderTargetStoreAbiTests holds the two equal.
+// buffers by index, the teeny textures by which). RenderTargetSlot (C#) matches.
 enum RenderTargetSlot_t
 {
 	SS_RT_PowerOfTwoFrameBuffer = 0,
@@ -76,7 +65,7 @@ public:
 	// The function the material system is handed: the owner's thunk to Release.
 	void SetReleaseFunc( MaterialBufferReleaseFunc_t pfn ) { m_pfnRelease = pfn; }
 
-	// Forgets every row and reference (the oracle's fresh double).
+	// Forgets every row and reference.
 	void Reset()
 	{
 		for ( int i = 0; i < SS_RT_COUNT; i++ )

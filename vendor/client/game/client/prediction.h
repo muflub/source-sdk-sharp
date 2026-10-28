@@ -47,9 +47,7 @@ public:
 	virtual bool	InPrediction( void ) const;
 	virtual bool	IsFirstTimePredicted( void ) const;
 
-#if !defined( NO_ENTITY_PREDICTION )
 	virtual int		GetIncomingPacketNumber( void ) const;
-#endif
 
 	// The engine needs to be able to access a few predicted values
 	virtual void	GetViewOrigin( Vector& org );
@@ -78,7 +76,6 @@ private:
 
 	void			Untouch( void );
 
-#if !defined( NO_ENTITY_PREDICTION )
 // Data
 protected:
 	// Last object the player was standing on
@@ -98,8 +95,6 @@ private:
 	int				m_bPreviousAckErrorTriggersFullLatchReset;
 	CUtlVector< CHandle< IGameEntity > > m_EntsWithPredictionErrorsInLastAck;
 	int				m_nIncomingPacketNumber;
-
-#endif
 
 };
  

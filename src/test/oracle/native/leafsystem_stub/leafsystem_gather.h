@@ -44,8 +44,7 @@
 //
 //=============================================================================
 
-#ifndef SS_LEAFSYSTEM_GATHER_H
-#define SS_LEAFSYSTEM_GATHER_H
+#pragma once
 
 #include <stdint.h>
 #include <string.h>
@@ -335,5 +334,3 @@ public:
 private:
 	typedef CLeafRegistryMirror::ClientLeaf_t ClientLeaf_tRef_t;
 };
-
-#endif // SS_LEAFSYSTEM_GATHER_H

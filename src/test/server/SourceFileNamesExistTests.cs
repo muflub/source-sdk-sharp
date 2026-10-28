@@ -205,9 +205,7 @@ public sealed partial class SourceFileNamesExistTests
         //     per-game usermessages lists). A file out of the build is out of the
         //     farm too, and the absence is the claim.
         //   * NEEDLES searched for in files that are there: HltvDroppedTests
-        //     (the replay headers and hltvdirector.h, in the shim's code) and
-        //     ContractBaseline's lifted needle `ai_networkmanager.cpp` (in
-        //     src/server/native/CMakeLists.txt).
+        //     (the replay headers and hltvdirector.h, in the shim's code).
         //   * LABELS: DebugOnlyAliasSitesTests hands its scanner in-memory text
         //     under the names cdll_client_int.cpp and client.cpp, and
         //     TempEntClientPool2Tests expects `props.cpp` inside a message.
@@ -219,7 +217,6 @@ public sealed partial class SourceFileNamesExistTests
         // EveryNameOnTheFixtureListIsGenuinelyAbsent keeps each honest: put the
         // file back in the farm and that fact goes red.
         "_debug.cpp",
-        "ai_networkmanager.cpp",
         "cdll_client_int.cpp",
         "client.cpp",
         "game/shared/gamerules.cpp",

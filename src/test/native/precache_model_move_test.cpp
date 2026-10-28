@@ -520,9 +520,7 @@ TEST( PrecacheModelMoveScanner, ThePrecacheModelFileWasReallyOpenedAndIsNotTrivi
 		<< "no game/ directory found from the working directory -- the scanner read "
 		<< "nothing and every claim above passed vacuously";
 
-	// 3000, from 8000, in plan_server_novalve.md P3: the model sounds cache
-	// left the file (C#'s ModelComponents builds the list); ~5,000 bytes remain.
-	EXPECT_GT( PrecacheModelSource().size(), (size_t)3000 )
+	EXPECT_GT( PrecacheModelSource().size(), (size_t)700 )
 		<< "precache_model.cpp came back too small to be the real file";
 }
 

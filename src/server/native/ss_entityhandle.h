@@ -4,15 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-// ss::GameEntityFromEntityHandle and ss::TraceGameEntity: what util_shared.h's
-// inlines of those names answer on the server, for code built on public/ headers (plan_server_novalve.md
-// P5, lane E). The body is the server arm of that inline, unchanged.
-//
-// SAFE BESIDE util_shared.h: it is ss::, declares nothing global with a default
-// argument, and needs only the static-prop manager and the IServerEntity chain.
-// So a header included by legacy TUs as well as R5 ones (anyentity.h) can use
-// it, which ss_util.h cannot offer.
-//=============================================================================//
+
+// ss::GameEntityFromEntityHandle and ss::TraceGameEntity, the server arms of
+// util_shared.h's inlines. Safe to include beside util_shared.h.
 
 #pragma once
 
@@ -21,9 +15,9 @@
 #include "gametrace.h"
 
 #include "igameentity_fwd.h"
-#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
+#include "trace_hit.h"
 
-extern IStaticPropMgrServer *staticpropmgr;   // shell_engineboundary.cpp
+extern IStaticPropMgrServer *staticpropmgr;
 
 namespace ss
 {

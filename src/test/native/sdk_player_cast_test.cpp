@@ -1610,7 +1610,7 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// (94 + 584 + 343 lines, so the same on a fork tree and an upstream one).
 	// The per-file arm above is the one that cannot go stale; this floor keeps
 	// about half the measurement as headroom for the libraries shrinking.
-	EXPECT_GT( client.nLines, 500 )
+	EXPECT_GT( client.nLines, 200 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )

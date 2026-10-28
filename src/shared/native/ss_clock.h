@@ -1,12 +1,5 @@
-//========= SourceSharp — seconds on a steady clock, from this DLL's start =====//
-//
-// tier0's Plat_FloatTime, for our own call sites, on std::chrono. Like
-// Plat_FloatTime it counts from a base taken early (here: the first call in
-// this DLL), so the value stays small enough for the float fields callers keep
-// it in (mstudioanimdesc_t::zeroframestalltime) to hold milliseconds. Only
-// differences and log stamps use it; nothing compares it with an engine time.
-//
-//=============================================================================//
+// Seconds on a steady clock since this DLL's first call, like Plat_FloatTime.
+// The late base keeps values small enough for float fields to hold milliseconds.
 
 #pragma once
 

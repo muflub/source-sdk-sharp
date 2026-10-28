@@ -4,23 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-// ss::variant_t: the typed value an entity input carries, server.so's own.
-//
-// The engine never sees one. It travels from the input relays
-// (standalone_relays.cpp) to CStandaloneEntity::AcceptInput and
-// OnManagedInput, whose bodies hand its text and its number to C#. So under
-// plan_server_novalve.md 3.1's naming rule it is not the fork's
-// game/server/variant_t.h class: it lives in namespace ss, and every legacy
-// TU that reaches the fork's ::variant_t through cbase.h sees a different
-// type, never a second body under the same name.
-//
-// The storage is the fork class's, field for field, so the copy and the
-// conversions compile to the same code. The entity slot is a plain
-// CBaseHandle where the fork held the typed handle over IGameEntity. Both are
-// one uint32, and the reads and writes the typed handle made are spelled out
-// in shell_globals.cpp. Members nothing in server.so called are not declared:
-// the save tables, Bool/Int/StringID/Color32 and the position-vector setter.
-//=============================================================================//
+// ss::variant_t: the typed value an entity input carries. Storage matches the
+// fork's variant_t field for field; the entity slot is a plain CBaseHandle.
 
 #pragma once
 

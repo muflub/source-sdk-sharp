@@ -4,20 +4,12 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — libss_particles.so's one export (plan_particles_so.md spike)
 // SS_REASON b  an interface resolved by name at load
-//
-// client.so links the library like any other (DT_NEEDED on its SONAME, the
-// import library on Windows) and takes ISSParticleLib from its one export,
-// SSParticleLib_Interface. Not CreateInterface: client.so exports one of its
-// own, so it could not name the library's.
-//
-// The library statically holds particles.a, dmxloader.a and the tier1 and
-// mathlib members they import, all local (version_script.txt exports only
-// SSParticleLib_Interface). Each slot of ISSParticleLib runs the particles.a
-// member the client named before the split; the client's thunks pass `this`
-// through.
-//=============================================================================//
+// libss_particles.so's one export. client.so takes ISSParticleLib from
+// SSParticleLib_Interface rather than CreateInterface, because it exports its
+// own CreateInterface. The library holds particles.a, dmxloader.a and the
+// tier1/mathlib members they import, all local; each slot runs the particles.a
+// member named, with `this` passed through.
 
 #include "ss_particles/iparticlelib.h"
 
@@ -31,8 +23,7 @@
 #include "tier1/convar.h"
 #include "tier1/tier1.h"
 
-// What particles.a imports from tier2 (it was compiled against tier2.a's
-// globals). The library resolves them itself, from the factory Connect gets.
+// What particles.a imports from tier2, resolved from the factory Connect gets.
 IFileSystem *g_pFullFileSystem = NULL;
 IMaterialSystem *g_pMaterialSystem = NULL;
 IMaterialSystem *materials = NULL;

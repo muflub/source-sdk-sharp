@@ -4,16 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the console carriers only client.so builds =========//
 // SS_REASON a  a vtable the engine calls through
-//
-// convar_port.cpp (src/shared/native) holds tier1 convar.cpp's members both
-// DLLs use. These are the constructors only client objects call -- the fork
-// TUs' `static ConVar x( name, default, flags, help[, callback] )` and
-// CON_COMMANDs, and particles.a's ConVars -- which the server's gc cull took
-// out of the port (the server declares its console in C#). What the server
-// does not need is client-only (user ruling 2026-10-12).
-//=============================================================================//
+// The ConCommand, ConVar and ConVarRef constructors only client objects call;
+// the members both DLLs use are in convar_port.cpp.
 
 #include "tier1/convar.h"
 #include "tier1/iconvar.h"

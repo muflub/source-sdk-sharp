@@ -1,8 +1,4 @@
-//========= SourceSharp — client.so's side of libss_particles.so (plan_particles_so.md spike)
-//
-// particles_lib_client.cpp loads the library when client.so loads; these are
-// the calls the rest of client.so makes on it.
-//=============================================================================//
+// client.so's calls on libss_particles.so.
 
 #pragma once
 
@@ -20,7 +16,6 @@ void ParticleLib_Disconnect();
 // The library's tier2 stand-in counters.
 void ParticleLib_Counters( SSParticleLibCounters_t *pOut );
 
-// The internal factory's row for SS_PARTICLE_LIB_INTERFACE_VERSION: the
-// library's ISSParticleLib (shell_internalfactory.cpp), so managed binds the
-// same object client.so's forwards call.
+// The internal factory's row for SS_PARTICLE_LIB_INTERFACE_VERSION, so managed
+// binds the same object client.so's forwards call.
 void *ParticleLib_Acquire();

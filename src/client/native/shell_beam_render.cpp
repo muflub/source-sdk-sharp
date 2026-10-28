@@ -5,38 +5,12 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the beam executor ==================================//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// plan_client_novalve.md §2 cluster 5. Everything a beam DECIDES is in C#
-// now (src/client/managed/Beams): creation by kind, lifetimes, noise, entity
-// endpoints, ring growth, follow trails, the reaping of a dead entity's beams,
-// and every vertex of every strip, quad and ring. What is left here is what
-// managed code cannot hold:
-//
-//   * `beams`, the IViewRenderBeams the engine-facing code still names
-//     (view.cpp's init and level clear, the frame's UpdateTempEntBeams, a
-//     shell's KillDeadBeams). Each call is forwarded to IManagedBeamsClient;
-//     nothing is answered here.
-//   * the renderables. A beam the leaf system sorts is a pointer it holds, so
-//     the pool of CBeamRenderable lives here; managed code adds, moves and
-//     removes them by a small integer, and their DrawModel calls back into
-//     managed code with that integer.
-//   * the draw. Binding a sprite's material (Draw_SetSpriteTexture), setting
-//     its $hdrcolorscale, a strip of the camera-facing vertices managed
-//     code's BeamSegDraw made (beam_strip_vertex.h) and a dynamic mesh over a
-//     vertex list: the material system's calls, in the order the managed
-//     builder makes them.
-//   * the reads: the view, model frame counts and indices, the facts an
-//     entity endpoint is decided from (which hierarchy, an attachment, the
-//     collision centre, the render origin), the PVS/frustum box tests, the
-//     halo's sight test and the overlay's screen position. The endpoint's
-//     route (shell_beam_endpoint_client.cpp's, behaviour ledger row C8) is
-//     C#'s now: BeamEndpoint in ClientBeamSystem.cs.
-//
-// The stock CViewRenderBeams and Beam_t left with this file; view_beams.cpp
-// goes from the build in the same commit (the `beams` symbol is this file's).
-//=============================================================================//
+// The beam executor; managed code decides everything about a beam. This holds
+// `beams` (forwarding to IManagedBeamsClient), the pool of leaf-system
+// renderables managed code moves by index, the material system draw calls, and
+// the reads managed code needs: the view, model frames, endpoint facts, box
+// tests, the halo's sight test and the overlay's screen position.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,15 +63,12 @@
 #include "shell_cliententitylist.h"
 #include "slot_table.h"
 // c_env_fog_controller.h before the player shell: C_StandalonePlayer's
-// CPlayerLocalData sets a CNetworkHandle< C_FogController >, which needs the
-// class complete (the reason shell_beam_endpoint_client.cpp gave for it).
+// CNetworkHandle< C_FogController > needs the class complete.
 #include "shell_standalone_client.h"
 #include "collideable_center.h"
 #include "imanaged_areas_client.h"
 #include "shell_beam_render.h"
 #include "ss_command_line.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
 
 namespace
 {
@@ -115,11 +86,8 @@ uint32_t RawFromEntity( IClientEntity *pEnt )
 	return pEnt ? (uint32_t)pEnt->GetRefEHandle().ToInt() : 0xFFFFFFFFu;
 }
 
-//-----------------------------------------------------------------------------
-// One leaf-system renderable per managed beam that asked to be drawn. Its
-// bounds and origin are managed code's (Beam.ComputeBounds, RenderOrigin);
-// the rest is stock Beam_t's: translucent, always drawn, full blend.
-//-----------------------------------------------------------------------------
+// One leaf-system renderable per drawn managed beam. Bounds and origin are
+// managed code's; the rest is stock Beam_t's: translucent, always drawn, full blend.
 class CBeamRenderable : public CDefaultClientRenderable
 {
 public:
@@ -193,13 +161,8 @@ enum BeamLifecycle_t
 	BEAM_LIFECYCLE_CLEAR,
 };
 
-//-----------------------------------------------------------------------------
-// `beams`: the interface the engine-facing code names, forwarding to C#.
-//
-// No code in this build creates a beam through it: the temp entity backends
-// and the effects call the managed beam system directly, so the creators are
-// absences (docs/shim-reasons.md) and answer no Beam_t.
-//-----------------------------------------------------------------------------
+// The interface engine-facing code names, forwarding to managed code. Nothing
+// creates a beam through it, so the creators answer no Beam_t.
 class CSourceSharpBeams : public IViewRenderBeams
 {
 public:
@@ -238,7 +201,6 @@ public:
 	void KillDeadBeams( IGameEntity *pDead ) override {}
 
 	// Not IViewRenderBeams': stock's takes the entity, and a shell is not one.
-	// A shell's removal reaches it by handle (SourceSharp_KillDeadBeams).
 	void KillDeadBeams( const CBaseHandle &hDeadEntity )
 	{
 		if ( IManagedBeamsClient *pBeams = ManagedBeamsClient() )
@@ -281,10 +243,6 @@ void SourceSharp_KillDeadBeams( const CBaseHandle &hDeadEntity )
 }
 
 IViewRenderBeams *beams = &g_SourceSharpBeams;
-
-//=============================================================================
-// The reads.
-//=============================================================================
 
 void SourceSharp_BeamView( int32_t bCurrentView, float *pOut42 )
 {
@@ -340,10 +298,10 @@ int32_t SourceSharp_BeamEntityHasModel( uint32_t hEntity )
 	return ( pEnt && pEnt->GetModel() ) ? 1 : 0;
 }
 
-// What a beam endpoint's position is decided from (ClientBeamSystem.cs's
-// BeamEndpoint): which hierarchy holds the handle, whether it renders and is a
-// player, and the three candidate points -- the attachment (asked only when
-// managed code says to), the collision centre and the render origin.
+// The facts a beam endpoint's position is decided from: which hierarchy holds
+// the handle, whether it renders and is a player, and the candidate points (the
+// attachment, asked only when managed code says to, the collision centre and the
+// render origin).
 enum BeamEntityFact_t
 {
 	BEAM_FACT_RESOLVED     = 0x01,
@@ -406,10 +364,6 @@ int32_t SourceSharp_BeamScreenPosition( const float *pPointXYZ, float *pOutScree
 	return behind;
 }
 
-//=============================================================================
-// The renderables.
-//=============================================================================
-
 int32_t SourceSharp_BeamRenderableAdd( const float *pOriginMinsMaxs9 )
 {
 	int nIndex;
@@ -446,15 +400,12 @@ void SourceSharp_BeamRenderableRemove( int32_t nRenderable )
 	if ( !p )
 		return;
 	ClientLeafSystem()->RemoveRenderable( p->RenderHandle() );
-	// Not reset by it when the index is already gone (level shutdown): a pooled beam must not keep it (2026-10-12).
+	// RemoveRenderable does not reset it when the index is already gone (level
+	// shutdown), and a pooled beam must not keep it.
 	p->RenderHandle() = INVALID_CLIENT_RENDER_HANDLE;
 	p->m_bLive = false;
 	g_FreeBeamRenderables.AddToTail( nRenderable );
 }
-
-//=============================================================================
-// The draw.
-//=============================================================================
 
 static IMaterial *g_pBeamWireframeMaterial;
 
@@ -464,8 +415,8 @@ static CEngineSprite *SpriteFor( int32_t nModelIndex )
 	return pModel ? (CEngineSprite *)modelinfo->GetModelExtraData( pModel ) : NULL;
 }
 
-// Draw_SetSpriteTexture (beamdraw.cpp, gone), with the wireframe choice made
-// by the caller: bind a sprite model's material for a frame and render mode.
+// Binds a sprite model's material for a frame and render mode
+// (Draw_SetSpriteTexture, with the wireframe choice made by the caller).
 CEngineSprite *SourceSharp_BindSpriteModel( const model_t *pModel, int nFrame, int nRenderMode, bool bWireframe )
 {
 	CEngineSprite *pSprite = pModel ? (CEngineSprite *)modelinfo->GetModelExtraData( pModel ) : NULL;
@@ -523,8 +474,7 @@ int32_t SourceSharp_BeamGlow( int32_t nModelIndex, int32_t bBind )
 	return 1;
 }
 
-// One strip over the bound material, as the vertices managed code's
-// BeamSegDraw made of it (beam_strip_vertex.h's layout, two a segment).
+// One strip over the bound material, two vertices a segment (beam_strip_vertex.h).
 void SourceSharp_BeamDrawStrip( const float *pVerts, int32_t nVerts )
 {
 	if ( !pVerts || nVerts < 4 || ( nVerts & 1 ) )

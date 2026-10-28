@@ -5,21 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- IClientDLLSharedAppSystems ========================//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_entity.md Phase 5, the 5b split. ONE CLASS, ONE FILE.
-//
-// The engine asks the client DLL, before it loads it properly, which shared
-// app systems it needs the launcher to bring up: soundemittersystem and
-// scenefilecache. That is the whole of this class, and it is answered from a
-// CUtlVector the class already owns -- so like CGameClientExports it carries
-// no file-scope state and needs no proxy.
-//
-// The server's counterpart is sourcesharp/game/server/shell_sharedappsystems.cpp,
-// which is already one class in one file; this is that shape on the client.
-//
-//===========================================================================//
+// The shared app systems the engine asks the client DLL for before loading it:
+// soundemittersystem and scenefilecache.
 #include "appframework/IAppSystemGroup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "scenefilecache/ISceneFileCache.h"
@@ -28,11 +16,6 @@
 #include "tier1/utlvector.h"
 #include "cdll_int.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
-// Purpose: the shared app systems the launcher must bring up for this client
-//-----------------------------------------------------------------------------
 class CClientDLLSharedAppSystems : public IClientDLLSharedAppSystems
 {
 public:

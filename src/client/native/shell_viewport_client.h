@@ -4,15 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client viewport, a raw panel ==================//
-//
-// plan_client_novalve C3 step 4. Stock's CBaseViewport was a vgui_controls
-// EditablePanel that built every viewport panel. Every panel by name is the
-// managed UI's (IManagedUiClient::ViewportPanel), so the viewport is a raw
-// vgui2 panel (shell_rawpanel_client.h) that the HUD and menu roots hang from,
-// that hides "all" on game_newmap as stock's did, and that asks the client mode
-// to lay it out again when the client root resizes.
-//=============================================================================//
+// The client viewport: a raw vgui2 panel the HUD and menu roots hang from. It hides "all"
+// on game_newmap and re-lays out the client mode when the root resizes.
 #pragma once
 
 #include "shell_rawpanel_client.h"
@@ -28,11 +21,9 @@ public:
 
 	void Start( IGameEventManager2 *pGameEventManager );
 
-	// ---- the raw panel's hooks ----
 	virtual void OnThink() OVERRIDE;
 	virtual void OnScreenSizeChanged( int nOldWide, int nOldTall ) OVERRIDE;
 
-	// ---- IViewPort ----
 	virtual void UpdateAllPanels( void ) OVERRIDE {}
 	virtual void ShowPanel( const char *pName, bool state ) OVERRIDE;
 	virtual void ShowPanel( IViewPortPanel *pPanel, bool state ) OVERRIDE;
@@ -41,7 +32,6 @@ public:
 	virtual IViewPortPanel *GetActivePanel( void ) OVERRIDE { return NULL; }
 	virtual void PostMessageToPanel( const char *pName, KeyValues *pKeyValues ) OVERRIDE;
 
-	// ---- IGameEventListener2 ----
 	virtual void FireGameEvent( IGameEvent *event ) OVERRIDE;
 
 private:

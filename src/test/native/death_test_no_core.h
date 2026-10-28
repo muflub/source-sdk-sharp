@@ -15,8 +15,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_TEST_DEATH_TEST_NO_CORE_H
-#define SOURCESHARP_TEST_DEATH_TEST_NO_CORE_H
+#pragma once
 
 #ifdef _WIN32
 // No core files to suppress on Windows: a crashed death-test child leaves no
@@ -27,5 +26,3 @@
 
 #define SS_DEATH_NO_CORE() ( (void)prctl( PR_SET_DUMPABLE, 0, 0, 0, 0 ) )
 #endif
-
-#endif // SOURCESHARP_TEST_DEATH_TEST_NO_CORE_H

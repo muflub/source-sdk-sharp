@@ -5,8 +5,7 @@
 // the bytes stock writes. Only the five calls the subject makes exist.
 //
 //=============================================================================//
-#ifndef VOICEBAN_STUB_FILESYSTEM_H
-#define VOICEBAN_STUB_FILESYSTEM_H
+#pragma once
 
 #include <cstring>
 #include <string>
@@ -57,5 +56,3 @@ public:
 };
 
 extern COracleFileSystem *filesystem;
-
-#endif // VOICEBAN_STUB_FILESYSTEM_H

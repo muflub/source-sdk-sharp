@@ -6,7 +6,6 @@
 #include "tier0/platform.h"
 
 // #define VTF_FILE_FORMAT_ONLY to just include the vtf header and none of the code declaration
-#ifndef VTF_FILE_FORMAT_ONLY
 
 // Forward declarations
 class CUtlBuffer;
@@ -294,8 +293,6 @@ public:
 };
 
 #include "mathlib/vector.h"
-
-#endif // VTF_FILE_FORMAT_ONLY
 
 // Disk format for VTF files ver. 7.2 and earlier
 // NOTE: After the header is the low-res image data

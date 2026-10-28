@@ -5,21 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's type table, and the tier ABI ==========//
 // SS_REASON f  a bit-level wire codec
-//
-// This file registered the runtime-networked entity's ClientClasses. That shell
-// is deleted — it was a C_BaseEntity, and step 6 makes C_BaseEntity an alias
-// for IGameEntity, so `new C_SourceSharpNetEntity()` would not have compiled.
-// The parallel hierarchy registers its own tiers in shell_standalone_client.cpp.
-//
-// What is left is the client's half of two ABI calls that were never about that
-// shell — publishing a managed type and reporting a tier — plus the dump
-// command over the table they build. The server's half is in
-// shell_standalone.cpp, and the two must stay mirrors: a type published on one
-// side and not the other is the failure with no symptom.
-//
-//=============================================================================//
+// The client's half of publishing a managed type and reporting a tier, plus a
+// walk of the recv tables. The server's half is in shell_standalone.cpp; the two
+// must stay mirrors, or a type published on one side has no pair on the other.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,21 +35,13 @@
 #include "generic_payload.h"
 #include "sourcesharp.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
-// One tier, as this side registered it — the client's half of what NetTiers
-// reads instead of projecting. Reports the props NATIVE BUILT rather than a
-// formula: a boundary rule with two implementations drifts silently.
-//-----------------------------------------------------------------------------
+// One tier as this side registered it, reporting the props native code built.
 int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable,
                                  int32_t *pOutBytes, int32_t *pOutWords,
                                  int32_t *pOutProps, int32_t *pOutLive )
 {
-	// No registration call: the hierarchy's tiers are registered at DLL init by
-	// CSourceSharpStandaloneClientSystem, SourceSharp_StandaloneTierIsInUse
-	// below forces them again, and everything else read here is a compile-time
-	// constant in generic_nettable.h.
+	// The tiers are registered at DLL init and SourceSharp_StandaloneTierIsInUse
+	// forces them again; the rest is compile-time constants.
 	if ( iTier < 0 || iTier >= SourceSharp_TierCount() )
 		return 0;
 
@@ -76,25 +57,16 @@ int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppO
 	if ( pOutProps )
 		*pOutProps = nReal + nWords;
 
-	// "Live" is the tier entities are actually CREATED THROUGH, which is not
-	// the same as the tier being registered. Every tier is registered so the
-	// class list the handshake negotiates is the full set and a type can grow
-	// into a bigger one without a rebuilt client — so a registered, empty tier
-	// is the ordinary state and means "room to grow into". A panel that showed
-	// every tier as live would be reporting the registration and calling it the
-	// assignment.
+	// "Live" is the tier entities are created through; every tier is registered so
+	// a type can grow into a bigger one, so a registered empty tier is normal.
 	if ( pOutLive )
 		*pOutLive = SourceSharp_StandaloneTierIsInUse( iTier ) ? 1 : 0;
 
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// C# publishing one managed type, client half. The mirror of the server's, and
-// it must stay one: the type table is what an arriving entity's type id is
-// resolved through, and a name only one side published is an entity the other
-// cannot pair with a managed class.
-//-----------------------------------------------------------------------------
+// Publishes one managed type, client half. Must mirror the server's: an
+// arriving entity's type id is resolved through this table.
 int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
                                     uint32_t nSchemaHash, int32_t nLayoutBytes,
                                     uint32_t *pOutTypeId )
@@ -105,8 +77,7 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 	if ( !pClassName || !pClassName[0] )
 		return -1;
 
-	// The retired shell is refused BY NAME rather than quietly taken for the
-	// live one. Mirror of the server's; keep the two identical.
+	// SS_SHELL_NETENTITY has no shell and is refused by name. Must mirror the server's.
 	if ( nShell == SS_SHELL_NETENTITY )
 	{
 		Warning( "[SourceSharp] type '%s': shell %d is the RETIRED runtime-networked "
@@ -116,10 +87,8 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 		return -1;
 	}
 
-	// THE TIER IS THE TYPE'S (Part 18) — the mirror of the server's, and it must
-	// stay one. Both sides reach it by the same rule from the same declared
-	// size, so a class is on the same tier on both without anything about the
-	// tier being on the wire.
+	// Both sides pick the tier by the same rule from the same declared size, so no
+	// tier goes on the wire. Must mirror the server's.
 	const int iTier = SourceSharp_TierForSize( nLayoutBytes );
 
 	if ( iTier < 0 )
@@ -142,19 +111,9 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 	return iTier;
 }
 
-//-----------------------------------------------------------------------------
-// THE CLIENT'S RECV TABLES AS THE ENGINE WALKS THEM, one prop per index, for
-// the dev API's /client/{slot}/nettables (plan_client_novalve §4.4).
-//
-// Mechanism only: this reports what the tables hold, and managed decides what
-// agrees with what. Every RecvTable reachable from the ClientClass list, each
-// once (a table a DPT_DataTable prop names is listed where it was first
-// reached), props in table order. iIndex past the end fills nothing; the
-// answer is always the total, so a caller asks index 0 and then walks.
-//
-// Walked per call rather than cached, so there is no static to keep in step
-// with a class list the engine owns; the route is a debug read.
-//-----------------------------------------------------------------------------
+// The client's recv tables as the engine walks them, one prop per index: every
+// table reachable from the ClientClass list once, props in table order. Answers
+// the total; an index past the end fills nothing. Walked per call, not cached.
 static void CopyName( char *pOut, int32_t nBytes, const char *pName )
 {
 	if ( pOut && nBytes > 0 )
@@ -216,12 +175,7 @@ int32_t SourceSharp_ClientRecvProp( int32_t iIndex, char *pOutClass, int32_t nCl
 	return nTotal;
 }
 
-//-----------------------------------------------------------------------------
-// The schema refusals' old reader: no managed caller since lane M1-C, when the
-// refusals became the managed gate's (ClientSchemaGate) and the dev API reads
-// them there. Kept because the shim tables only append; it answers none, and
-// the serialised ABI pass retires the row.
-//-----------------------------------------------------------------------------
+// Answers no refusals; kept because the shim tables only append.
 int32_t SourceSharp_ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected,
                                          uint32_t *pOutSeen, int32_t *pOutCount, char *pOutClass,
                                          int32_t nClassBytes, int32_t *pOutRefusedUpdates )

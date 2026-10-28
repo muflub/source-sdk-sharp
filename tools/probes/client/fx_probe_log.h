@@ -9,8 +9,7 @@
 // copies of fork TUs (probe_copies.cmake). One line per call to
 // SOURCESHARP_PROBE_LOG, tagged "fx"; the body is in fx_probes_debug.cpp.
 
-#ifndef FX_PROBE_LOG_H
-#define FX_PROBE_LOG_H
+#pragma once
 
 void FxProbeLog( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
 
@@ -19,5 +18,3 @@ void FxProbeLog( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) 
 // FxProbeRandomFloat( where stock says random->RandomFloat(.
 float FxProbeRandomFloat( float flLow, float flHigh );
 int FxProbeRandomInt( int iLow, int iHigh );
-
-#endif // FX_PROBE_LOG_H

@@ -64,13 +64,11 @@ typedef enum _D3DFORMAT
     D3DFMT_D24FS8               = 83,
 
 /* D3D9Ex only -- */
-#if !defined(D3D_DISABLE_9EX)
 
     /* Z-Stencil formats valid for CPU access */
     D3DFMT_D32_LOCKABLE         = 84,
     D3DFMT_S8_LOCKABLE          = 85,
 
-#endif // !D3D_DISABLE_9EX
 /* -- D3D9Ex only */
 
     D3DFMT_L16                  = 81,
@@ -98,7 +96,6 @@ typedef enum _D3DFORMAT
     D3DFMT_CxV8U8               = 117,
 
 /* D3D9Ex only -- */
-#if !defined(D3D_DISABLE_9EX)
 
     // Monochrome 1 bit per pixel format
     D3DFMT_A1                   = 118,
@@ -109,7 +106,6 @@ typedef enum _D3DFORMAT
     // Binary format indicating that the data has no inherent type
     D3DFMT_BINARYBUFFER         = 199,
     
-#endif // !D3D_DISABLE_9EX
 /* -- D3D9Ex only */
 
     // TOGL DEFINITIONS:

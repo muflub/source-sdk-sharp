@@ -5,32 +5,11 @@
 //
 //=============================================================================//
 
-//========= SourceSharp ======================================================//
 // SS_REASON b  an interface resolved by name at load
 //
-// IServerDLLSharedAppSystems -- THE TWO DLLs THE ENGINE LOADS ON OUR BEHALF.
-//
-// plan_gamedll_after.md Phase A9 step 1. Carried verbatim out of
-// game/server/gameinterface.cpp:3070-3103, which this phase deletes.
-//
-// THESE THREE METHODS CAN NEVER FORWARD TO MANAGED, AND THAT IS NOT A "NOT
-// PORTED YET". The engine asks a server DLL which shared libraries to bring up
-// *as app systems* -- soundemittersystem and scenefilecache -- during
-// AppSystemGroup startup, which is BEFORE it calls DLLInit. DLLInit is where
-// SourceSharp acquires the runtime: there is no CLR, no host, and no managed
-// assembly loaded at the moment Count()/GetDllName()/GetInterfaceName() are
-// called. A managed implementation is not a later refinement of this file, it
-// is impossible, and anyone reading the port's "everything goes to C#" rule
-// against this file should stop here rather than re-deriving it.
-//
-// So the answer stays two native constants, built in the constructor of a
-// singleton whose only job is to hold them.
-//
-// NO FILE-SCOPE STATE: m_Systems is a member, as it always was, and the
-// singleton is the anonymous-namespace object shell_gamedll.cpp already uses
-// for the same purpose.
-//
-//===========================================================================//
+// IServerDLLSharedAppSystems: the two DLLs the engine loads as app systems on the game's
+// behalf (gameinterface.cpp). Necessarily native: the engine asks before DLLInit, when
+// no managed runtime exists.
 
 #include "appframework/IAppSystemGroup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
@@ -39,7 +18,6 @@
 #include "shell_factory.h"
 
 #include <vector>
-
 
 class CServerDLLSharedAppSystems : public IServerDLLSharedAppSystems
 {

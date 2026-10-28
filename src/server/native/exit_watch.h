@@ -1,20 +1,6 @@
-//========= SourceSharp — who asked the process to end =======================//
-//
-// The dev API's exit record (debug-api lane, item 5): a game that ended without
-// the caller asking used to be classified from a log tail -- "the window was
-// closed, `quit` was typed, or it was sent SIGTERM" -- because nothing recorded
-// which. This is the native half, and it RECORDS FACTS ONLY:
-//
-//   - a signal: which one, and the sender's pid and uid (SA_SIGINFO), then the
-//     handler that was there before is run exactly as it would have been;
-//   - SDL's quit event and its window-close event, from an event watch;
-//   - a fatal stop (SourceSharp_FatalReport), written straight to the record
-//     file the managed side named, because managed code never runs again after.
-//
-// Which of these was "the" reason is decided by managed code
-// (Debug.Api's ExitRecord), never here.
-//
-//=============================================================================//
+// Records why the process ended: signals (with sender pid and uid), SDL quit and
+// window-close events, and fatal stops. It records facts only; managed code
+// decides which was the reason.
 
 #pragma once
 
@@ -53,17 +39,12 @@ int32_t ExitWatch_Arm( const char *pRecordPath );
 // Writes up to nMax facts (ExitWatchFact_t order) into pOut; returns how many.
 int32_t ExitWatch_Read( int32_t *pOut, int32_t nMax );
 
-// The shutdown half: every recorder Arm installed is taken back out -- the
-// signal handlers are restored and SDL's event watch is REMOVED, because the
-// module holding OnSdlEvent is about to be unmapped and SDL would still call
-// it (SIGTERM-exits-139: a jump into unmapped code on the last event pump).
-// The facts already recorded are kept: the managed side writes its exit
-// record after disarming. Returns the kExitWatch* bits that were installed
-// (0 when nothing was armed).
+// Removes every recorder Arm installed. SDL's event watch must go before this
+// module is unmapped, or SDL calls into unmapped code. Recorded facts are kept.
+// Returns the kExitWatch* bits that were installed.
 int32_t ExitWatch_Disarm();
 
-// The recorders themselves, exposed for the tests: what a signal and an SDL
-// event do when they arrive.
+// The recorders themselves, for the tests.
 void ExitWatch_OnSignalForTest( int nSigno, int nSenderPid, int nSenderUid );
 void ExitWatch_OnSdlEventForTest( const void *pEvent );
 

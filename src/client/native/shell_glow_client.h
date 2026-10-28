@@ -5,11 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the client's glow overlays, carried out ===========//
 // The command words IManagedGlowClient::DrawOverlays answers with (GlowCommand
-// in C#; GlowOverlayAbiTests holds the two equal), the view it is handed, and
-// the two plan ops' bodies (shell_glow_client.cpp).
-//=============================================================================//
+// in C# must match), the view it is handed, and the two plan ops' bodies.
 
 #pragma once
 

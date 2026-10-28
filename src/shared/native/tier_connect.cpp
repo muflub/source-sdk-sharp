@@ -1,23 +1,9 @@
-//========= SourceSharp — the engine interfaces the tier libraries connected ==//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_server_novalve.md P3. server.so does not link tier1, tier2 or tier3,
-// and their Connect*Libraries functions did one thing each for this DLL: look
-// an interface up in the engine's factory and keep it in a global the rest of
-// the code reads. This file does those lookups itself, into globals of the
-// same names and types, so every reader links as before.
-//
-// Added a tier at a time: each lookup lands in the commit that takes its
-// library off the link group.
-//
-//=============================================================================//
+// The tier libraries are not linked; this does their engine-factory lookups into
+// globals of the same names and types, so every reader links as before.
 
-// `cvar` is ours (defined below), but Valve's headers declare it DLL_EXPORT,
-// and defining it under that declaration exports it: dllexport on Windows,
-// default visibility past client.so's version script on Linux. Nothing imports
-// it from a game DLL (the engine has its own, the particles library its copy),
-// so this file reads those headers with DLL_EXPORT a plain C declaration and
-// the game DLLs export CreateInterface alone (game_dll_exports_test).
+// Valve's headers declare `cvar` DLL_EXPORT, and defining it here would export
+// it; nothing imports it from a game DLL, so DLL_EXPORT is a plain declaration.
 #include "tier0/platform.h"
 #undef DLL_EXPORT
 #define DLL_EXPORT extern "C"
@@ -35,30 +21,21 @@
 #include "vgui/IScheme.h"
 #include "vgui/ILocalize.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
-#include "tier3/tier3.h"	// the globals' declarations, vgui::ISystem's among them
+#include "tier3/tier3.h"
 #include "tier2/tier2.h"
 #include "filesystem.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 
-// public/vgui/ISystem.h's version string. The header is not one client.so
-// otherwise compiles, and the type is only forward-declared here (tier3.h).
+// public/vgui/ISystem.h's version string; that header is not compiled here.
 #define SS_VGUI_SYSTEM_INTERFACE_VERSION "VGUI_System010"
 #endif
 
-//-----------------------------------------------------------------------------
-// tier1: the console (both names tier1 gave it) and utlsortvector.h's qsort
-// context, which tier1.cpp also defined. Declared by public/tier1/tier1.h and
-// utlsortvector.h. The context must be defined here: a sort vector's template
-// names it, and without this definition the linker takes tier1.cpp's,
-// bringing its duplicates of the two above. Connected once; a second connect
-// leaves the first answers alone, as tier1's did. (g_pProcessUtils went in
-// C9's tier1 step: nm -u found no importer on either DLL's link, and both
-// link with GC_SECTIONS=0 without it.)
-//-----------------------------------------------------------------------------
+// tier1: the console and utlsortvector.h's qsort context. The context must be
+// defined here, or the linker takes tier1.cpp's along with its duplicates.
+// A second connect leaves the first answers alone.
 #ifdef CLIENT_DLL
-// `cvar` is the client's alone: four client objects read it and no server
-// object does (nm), so the server's went (plan_server_native_v2 T6).
+// The client's alone: no server object reads `cvar`.
 ICvar *cvar = NULL;
 #endif
 ICvar *g_pCVar = NULL;
@@ -94,8 +71,7 @@ void SourceSharp_DisconnectTier1()
 }
 
 #ifdef CLIENT_DLL
-// tier1.h's names for the client's connect (plan_client_novalve C9's tier1
-// step): ours, so tier1.o stays off the link.
+// tier1.h's names for the client's connect, so tier1.o stays off the link.
 void ConnectTier1Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 {
 	for ( int i = 0; i < nFactoryCount; i++ )
@@ -108,16 +84,7 @@ void DisconnectTier1Libraries()
 }
 #endif
 
-//-----------------------------------------------------------------------------
-// tier2's one lookup, g_pFullFileSystem, went with its only reader, the model
-// sounds cache (plan_server_novalve.md P3): nothing on the server reads it.
-//
-// THE CLIENT'S tier2 LOOKUPS (plan_client_novalve C9): the four globals
-// client.so's objects import from tier2.o (nm over the link edge), by the
-// names ConnectTier2Libraries asked the factory for. The other six tier2
-// lookups (input, network, debug texture info, VB alloc tracker, p4, mdllib,
-// queued loader, colour correction) have no client importer.
-//-----------------------------------------------------------------------------
+// tier2: the globals client.so's objects import from tier2.o.
 #ifdef CLIENT_DLL
 IFileSystem *g_pFullFileSystem = NULL;
 IMaterialSystem *materials = NULL;
@@ -133,8 +100,7 @@ void SourceSharp_ConnectTier2( CreateInterfaceFn engineFactory )
 	g_pMaterialSystem = materials = (IMaterialSystem *)engineFactory( MATERIAL_SYSTEM_INTERFACE_VERSION, NULL );
 	g_pMaterialSystemHardwareConfig = (IMaterialSystemHardwareConfig *)engineFactory(
 		MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL );
-	// plan_particles_so.md: libss_particles.so's own tier1/tier2 copies (the
-	// same lookups, into its globals) and its ConVars, from the same factory.
+	// libss_particles.so's own tier1/tier2 globals and ConVars, from the same factory.
 	if ( !ParticleLib_Connect( engineFactory ) )
 		Error( "[SourceSharp] libss_particles.so did not connect to the engine's interfaces\n" );
 }
@@ -147,9 +113,7 @@ void SourceSharp_DisconnectTier2()
 	g_pMaterialSystemHardwareConfig = NULL;
 }
 
-// tier2.h's two names, for the objects that still name them: the VR
-// stand-in's CTier2AppSystem base (under its CTier3AppSystem) names both in
-// its vtable, which alone would pull tier2.o off the archive.
+// Named in a CTier2AppSystem vtable, which would otherwise pull tier2.o in.
 void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 {
 	for ( int i = 0; i < nFactoryCount; i++ )
@@ -162,20 +126,11 @@ void DisconnectTier2Libraries()
 }
 #endif
 
-//-----------------------------------------------------------------------------
-// tier3: the one interface the server read from ConnectTier3Libraries.
-// Declared by public/tier3/tier3.h, which this file does not need to include.
-//-----------------------------------------------------------------------------
+// tier3: the one interface the server reads.
 IMDLCache *mdlcache = NULL;
 
 #ifdef CLIENT_DLL
-//-----------------------------------------------------------------------------
-// THE CLIENT'S tier3 LOOKUPS (plan_client_novalve C9): the eight more globals
-// client.so's objects import from tier3.o (nm over the link edge), each by the
-// interface name tier3's ConnectTier3Libraries asked the factory for. The
-// other nine tier3 defines (studio render, data cache, video ...) have no
-// client importer and are not defined.
-//-----------------------------------------------------------------------------
+// tier3: the globals client.so's objects import from tier3.o.
 IMatSystemSurface *g_pMatSystemSurface = NULL;
 vgui::ISurface *g_pVGuiSurface = NULL;
 vgui::IInput *g_pVGuiInput = NULL;
@@ -219,8 +174,3 @@ void SourceSharp_DisconnectTier3()
 	g_pMatSystemSurface = NULL;
 #endif
 }
-
-// tier3.h's ConnectTier3Libraries / DisconnectTier3Libraries had a client arm
-// here for the VR stand-in, whose CTier3AppSystem base named them; the stand-in
-// left shell_clientdll.cpp with no importer (lane M1-B, 2026-10-25), and with
-// it the last client reference.

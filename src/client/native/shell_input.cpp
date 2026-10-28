@@ -5,39 +5,18 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the input thunk set =================================//
 // SS_REASON b  an interface resolved by name at load
-//
-// IInput (game/client/iinput.h) AS A THUNK SET (plan_client_novalve §2
-// cluster 13, lane c6-input). Every decision stock's CInput made -- the key
-// buttons, the user command a frame's input builds, the mouse's filtering and
-// acceleration, the joystick's curves, the Steam Controller's actions, the
-// third-person camera -- is ClientInput's (src/client/managed/Input), reached
-// through IManagedInputClient. in_main.cpp, in_mouse.cpp, in_joystick.cpp,
-// in_steamcontroller.cpp, in_camera.cpp and cam_thirdperson.cpp left the build
-// with this file's rewrite, and c_rumble.cpp after it (the mixer is ClientRumble's).
-//
-// WHAT STAYS HERE IS WHAT THE ENGINE HOLDS OR READS:
-//
-//   - the CUserCmd ring and its verified copies, because the engine asks the
-//     DLL to encode commands out of it (WriteUsercmdDeltaToBuffer,
-//     EncodeUserCmdToBuffer) and prediction reads them back by pointer
-//     (GetUserCmd). Managed fills a field copy (SourceSharpDecodedUserCmd), so
-//     CUserCmd is no K2 row (docs/abi-parity.tsv);
-//   - kbutton_t tokens for the buttons other native code names by address
-//     (input.h's externs: view.cpp's demo camera asks KeyState(&in_forward)).
-//     Their state is managed's; a token is only an id;
+// IInput as a thunk set: every decision is managed ClientInput's, reached
+// through IManagedInputClient. What stays native is what the engine holds or
+// reads:
+//   - the CUserCmd ring and its verified copies: the engine asks the DLL to
+//     encode commands out of it, and prediction reads them back by pointer;
+//   - kbutton_t tokens for buttons other native code names by address; their
+//     state is managed's and a token is only an id;
 //   - g_ThirdPersonManager, because clientmode_shared.cpp calls its Init();
-//   - the IShimInputClient bodies: vgui's cursor, the HUD's facts, the view's
-//     pitch drift, prediction's view angles and the viewport's scoreboard.
-//
-// Until the managed runtime is up (and after it goes) every thunk answers what
-// an idle CInput would: nothing pressed, nothing moved.
-//
-// This file stays free of the vgui_controls headers: they carry
-// "using namespace vgui", which makes ::IInput ambiguous against vgui::IInput.
-//
-//=============================================================================//
+//   - the IShimInputClient bodies.
+// Until the managed runtime is up every thunk answers as an idle CInput would.
+// No vgui_controls headers: their "using namespace vgui" makes ::IInput ambiguous.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,17 +63,12 @@
 #include "ss_bitblock.h"
 #include "ss_command_line.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 // vgui_int.cpp's cursor, as in_mouse.cpp reached it.
 void GetVGUICursorPos( int &x, int &y );
 void SetVGUICursorPos( int x, int y );
 
-//-----------------------------------------------------------------------------
-// THE BUTTON TOKENS. input.h names these nine as globals; managed owns their
-// state, and each address is an id into KeyButtons.All (KeyButtons.cs: the
-// order of in_main.cpp's declarations). InputTokenIdsTests holds the ids.
-//-----------------------------------------------------------------------------
+// The button tokens input.h names as globals. Each address is an id into
+// KeyButtons.All, in in_main.cpp's declaration order; the state is managed's.
 kbutton_t in_speed;
 kbutton_t in_jlook;
 kbutton_t in_strafe;
@@ -121,8 +95,7 @@ static int32_t ButtonTokenId( const kbutton_t *pKey )
 	return -1;
 }
 
-// IInput's CAM_* operations, InputCamOp's argument (InputCamOps in
-// InputClientBinding.cs).
+// IInput's CAM_* operations, InputCamOp's argument (InputCamOps in C#).
 enum
 {
 	CAMOP_IS_THIRD_PERSON = 0,
@@ -138,26 +111,13 @@ enum
 	CAMOP_CAMERA_THIRD_THINK,
 };
 
-//-----------------------------------------------------------------------------
-// THE INPUT MAILBOX: one block both halves read without a crossing
-// (IShimInputClient::InputMailbox hands managed its address once).
-//
-// Two directions, and in each the decision stays managed's:
-//
-//   - native WRITES the two sample times (IN_SetSampleTime,
-//     Joystick_SetSampleTime) with a sequence number, and ClientInput applies
-//     a changed one right before it reads the value. A store is a plain
-//     assignment that only ClientInput reads, so applying the last one late is
-//     the same as applying each one on time;
-//   - managed PUBLISHES which calls would change nothing right now (activating
-//     an active mouse, deactivating an inactive one, a screen shake equal to
-//     the mixer's), and what CAM_IsThirdPerson answers. Native skips a call
-//     only when managed said it is a no-op; until the VALID bit is set it
-//     makes every call.
-//
-// Fixed-width words, no padding: InputMailboxLayoutTests holds the same
-// offsets and size on the managed side (InputMailbox.cs).
-//-----------------------------------------------------------------------------
+// The input mailbox: one block both halves read without a crossing.
+//   - native writes the two sample times with a sequence number, and
+//     ClientInput applies a changed one right before it reads the value;
+//   - managed publishes which calls would change nothing right now, and what
+//     CAM_IsThirdPerson answers. Native skips a call only when managed said it
+//     is a no-op; until the VALID bit is set it makes every call.
+// Fixed-width words, no padding: the layout must match InputMailbox.cs.
 struct SourceSharpInputMailbox
 {
 	uint32_t nStructSize;
@@ -195,7 +155,6 @@ enum
 	INPUT_SHAKE_SKIP_WHEN_EQUAL = 2,
 };
 
-//-----------------------------------------------------------------------------
 class CSourceSharpInput : public ::IInput
 {
 public:
@@ -283,13 +242,10 @@ public:
 			p->InputExtraMouseSample( frametime, active ? 1 : 0 );
 	}
 
-	// THE CODEC, over this file's ring: what the engine asks to put on the
-	// wire. A slot the ring has moved past answers the null command; a slot
-	// whose checksum moved since CreateMove answers the copy CreateMove
-	// verified (stock in_main.cpp's rules). The bits are managed's
-	// (UserCmdCodec, plan_client_novalve C9): each command crosses once, the
-	// encoded bits come back as one BitBlock, and native copies it into the
-	// engine's buffer whole (ss_bitblock.h).
+	// What the engine asks to put on the wire. A slot the ring has moved past
+	// answers the null command; a slot whose checksum moved since CreateMove
+	// answers the verified copy (stock's rules). Managed encodes each command
+	// into one BitBlock, which is copied into the engine's buffer whole.
 	virtual bool WriteUsercmdDeltaToBuffer( bf_write *buf, int from, int to, bool isnewcommand ) OVERRIDE
 	{
 		Assert( m_pCommands );
@@ -352,9 +308,7 @@ public:
 		return pSlot->command_number == sequence_number ? pSlot : NULL;
 	}
 
-	// Stock's slot takes the weapon entity. This build makes no
-	// C_BaseCombatWeapon (weapons are managed's), so no caller can name one;
-	// the selection is WeaponSelection's commands.
+	// No C_BaseCombatWeapon exists on this client; selection is managed.
 	virtual void MakeWeaponSelection( C_BaseCombatWeapon *pWeapon ) OVERRIDE {}
 
 	virtual float KeyState( kbutton_t *key ) OVERRIDE
@@ -377,8 +331,7 @@ public:
 		return 1;
 	}
 
-	// The engine's names (in_graph, in_jlook) as tokens; the state is managed's
-	// (IN_IsKeyDown asks it, shell_clientdll.cpp).
+	// The engine's names (in_graph, in_jlook) as tokens; the state is managed's.
 	virtual kbutton_t *FindKey( const char *name ) OVERRIDE
 	{
 		if ( !Q_stricmp( name, "in_graph" ) )
@@ -597,7 +550,7 @@ private:
 		CRC32_t m_crc;
 	};
 
-	// The most one encoded command takes (about 45 bytes: every field present).
+	// The most one encoded command takes (every field present).
 	enum { kMaxEncodedBytes = 64 };
 
 	// The fields a managed command carries, onto a CUserCmd (its number and
@@ -701,10 +654,8 @@ private:
 static CSourceSharpInput g_Input;
 ::IInput *input = &g_Input;
 
-//-----------------------------------------------------------------------------
-// g_ThirdPersonManager: clientmode_shared.cpp resets it at level shutdown.
-// The manager is managed's (ThirdPersonManager.cs); this object is the name.
-//-----------------------------------------------------------------------------
+// g_ThirdPersonManager: clientmode_shared.cpp resets it at level shutdown. The
+// manager is managed's; this object is the name.
 CThirdPersonManager::CThirdPersonManager( void )
 {
 }
@@ -717,15 +668,9 @@ void CThirdPersonManager::Init( void )
 
 CThirdPersonManager g_ThirdPersonManager;
 
-//-----------------------------------------------------------------------------
-// c_rumble.h's names (lane c6-input): the mixer is ClientRumble's, stepped by
-// the managed client frame, and the Rumble message reaches it in managed code
-// (ClientMessageEffects). These are the remaining native callers' way in.
-//-----------------------------------------------------------------------------
+// c_rumble.h's names for the remaining native callers; the mixer is managed's.
 
-// ClientModeShared::Update's, which this build does not call: the managed
-// client frame steps the mixer (ClientInputService.RumbleFrame) instead, so
-// this stays empty rather than step it twice.
+// The managed client frame steps the mixer, so this stays empty.
 void UpdateRumbleEffects()
 {
 }
@@ -746,9 +691,7 @@ void StopAllRumbleEffects( void )
 		p->InputRumbleStopAll();
 }
 
-//-----------------------------------------------------------------------------
 // IShimInputClient's bodies.
-//-----------------------------------------------------------------------------
 void SourceSharp_InputCursorState( int32_t *pVisible, int32_t *pLocked )
 {
 	vgui::ISurface *pSurface = vgui::surface();

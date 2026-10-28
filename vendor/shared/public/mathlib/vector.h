@@ -27,14 +27,10 @@
 
 // Used to make certain code easier to read.
 
-#ifdef VECTOR_PARANOIA
-#define CHECK_VALID( _v)	Assert( (_v).IsValid() )
-#else
 #ifdef GNUC
 #define CHECK_VALID( _v)
 #else
 #define CHECK_VALID( _v)	0
-#endif
 #endif
 
  // ** Note: this generates a temporary, don't hold reference!
@@ -49,11 +45,7 @@ public:
 	vec_t x, y, z;
 
 	// Construction/destruction:
-#ifdef VECTOR_PARANOIA
-	Vector();
-#else
 	Vector() = default;
-#endif
 	Vector(vec_t X, vec_t Y, vec_t Z);
 	explicit Vector(vec_t XYZ); ///< broadcast initialize
 
@@ -133,7 +125,6 @@ public:
 	operator VectorByValue &()				{ return *((VectorByValue *)(this)); }
 	operator const VectorByValue &() const	{ return *((const VectorByValue *)(this)); }
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
 	// copy constructors
 //	Vector(const Vector &vOther);
 
@@ -154,12 +145,6 @@ public:
 	Vector	Min(const Vector &vOther) const;
 	Vector	Max(const Vector &vOther) const;
 
-#else
-
-private:
-	// No copy constructors allowed if we're in optimal mode
-	Vector(const Vector& vOther);
-#endif
 };
 
 FORCEINLINE void NetworkVarConstruct( Vector &v ) { v.Zero(); }
@@ -289,14 +274,6 @@ public:
 		Init(X,Y,Z);
 	}
 
-#ifdef VECTOR_NO_SLOW_OPERATIONS
-
-private:
-	// No copy constructors allowed if we're in optimal mode
-	VectorAligned(const VectorAligned& vOther);
-	VectorAligned(const Vector &vOther);
-
-#else
 public:
 	explicit VectorAligned(const Vector &vOther) 
 	{
@@ -309,7 +286,6 @@ public:
 		return *this;
 	}
 	
-#endif
 	//float w;	// this space is used anyway
 } ALIGN16_POST;
 
@@ -352,13 +328,6 @@ void VectorLerp(const Vector& src1, const Vector& src2, vec_t t, Vector& dest );
 // Inlined Vector methods
 
 // constructors
-#ifdef VECTOR_PARANOIA
-inline Vector::Vector(void)									
-{
-	// Initialize to NAN to catch errors
-	x = y = z = VEC_T_NAN;
-}
-#endif
 
 inline Vector::Vector(vec_t X, vec_t Y, vec_t Z)						
 { 
@@ -778,8 +747,6 @@ inline vec_t Vector::DistTo(const Vector &vOther) const
 
 // Slow methods
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 // Returns a vector with the min or max in X, Y, and Z.
 inline Vector Vector::Min(const Vector &vOther) const
 {
@@ -860,8 +827,6 @@ inline Vector Vector::Cross(const Vector& vOther) const
 
 // 2D
 
-#endif //slow
-
 // Helper debugging stuff....
 
 // AngularImpulse
@@ -875,15 +840,7 @@ class RadianEuler;
 class Quaternion				// same data-layout as engine's vec4_t,
 {								//		which is a vec_t[4]
 public:
-#ifdef VECTOR_PARANOIA
-	Quaternion()
-	{ 
-		// Initialize to NAN to catch errors
-		x = y = z = w = VEC_T_NAN;
-	}
-#else
 	Quaternion() = default;
-#endif
 	Quaternion(vec_t ix, vec_t iy, vec_t iz, vec_t iw) : x(ix), y(iy), z(iz), w(iw) { }
 	Quaternion(RadianEuler const &angle);	// evil auto type promotion!!!
 
@@ -932,21 +889,12 @@ public:
 		Init(X,Y,Z,W);
 	}
 
-#ifdef VECTOR_NO_SLOW_OPERATIONS
-
-private:
-	// No copy constructors allowed if we're in optimal mode
-	QuaternionAligned(const QuaternionAligned& vOther);
-	QuaternionAligned(const Quaternion &vOther);
-
-#else
 public:
 	explicit QuaternionAligned(const Quaternion &vOther) 
 	{
 		Init(vOther.x, vOther.y, vOther.z, vOther.w);
 	}
 
-#endif
 } ALIGN16_POST;
 
 // Radian Euler angle aligned to axis (NOT ROLL/PITCH/YAW)
@@ -954,14 +902,7 @@ class QAngle;
 class RadianEuler
 {
 public:
-#ifdef VECTOR_PARANOIA
-	RadianEuler()
-	{
-		x = y = z = VEC_T_NAN;
-	}
-#else
 	RadianEuler() = default;
-#endif
 	RadianEuler(vec_t X, vec_t Y, vec_t Z)		{ x = X; y = Y; z = Z; }
 	RadianEuler(Quaternion const &q);	// evil auto type promotion!!!
 	RadianEuler(QAngle const &angles);	// evil auto type promotion!!!
@@ -1012,11 +953,7 @@ public:
 	vec_t x, y, z;
 
 	// Construction/destruction
-#ifdef VECTOR_PARANOIA
-	QAngle();
-#else
 	QAngle() = default;
-#endif
 	QAngle(vec_t X, vec_t Y, vec_t Z);
 //	QAngle(RadianEuler const &angles);	// evil auto type promotion!!!
 
@@ -1059,7 +996,6 @@ public:
 	// No assignment operators either...
 	QAngle& operator=( const QAngle& src );
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
 	// copy constructors
 
 	// arithmetic operations
@@ -1069,13 +1005,6 @@ public:
 	QAngle	operator-(const QAngle& v) const;
 	QAngle	operator*(float fl) const;
 	QAngle	operator/(float fl) const;
-#else
-
-private:
-	// No copy constructors allowed if we're in optimal mode
-	QAngle(const QAngle& vOther);
-
-#endif
 };
 
 FORCEINLINE void NetworkVarConstruct( QAngle &q ) { q.x = q.y = q.z = 0.0f; }
@@ -1100,13 +1029,6 @@ inline void VectorAdd( const QAngle& a, const QAngle& b, QAngle& result )
 }
 
 // constructors
-#ifdef VECTOR_PARANOIA
-inline QAngle::QAngle(void)									
-{ 
-	// Initialize to NAN to catch errors
-	x = y = z = VEC_T_NAN;
-}
-#endif
 
 inline QAngle::QAngle(vec_t X, vec_t Y, vec_t Z)						
 { 
@@ -1206,7 +1128,6 @@ inline vec_t QAngle::LengthSqr( ) const
 }
 	
 // arithmetic operations (SLOW!!)
-#ifndef VECTOR_NO_SLOW_OPERATIONS
 
 inline QAngle QAngle::operator*(float fl) const	
 { 
@@ -1216,8 +1137,6 @@ inline QAngle QAngle::operator*(float fl) const
 	res.z = z * fl;
 	return res;	
 }
-
-#endif // VECTOR_NO_SLOW_OPERATIONS
 
 FORCEINLINE vec_t InvRSquared( float const *v )
 {

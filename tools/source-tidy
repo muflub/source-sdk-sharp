@@ -5,6 +5,8 @@
     tools/source-tidy --write     rewrite them
     tools/source-tidy --self-test
     --report lists each file with what changes in it.
+The #pragma once rule also covers the headers under src/test, tools/probes
+and cmake/compat.
 
 WHAT CHANGES (user 2026-10-25):
 
@@ -12,7 +14,10 @@ WHAT CHANGES (user 2026-10-25):
     and the #endif that closes it go (the #define stays when another file
     tests the macro), and so does the `#ifdef _WIN32 / #pragma once` block,
     since clang and gcc honour the pragma too. vendor/ and our native headers.
-  * _X360 is never defined (no build targets the Xbox), and its arms go.
+  * _X360 is never defined (no build targets the Xbox), and its arms go; so
+    is every configuration macro a conditional tests that nothing defines
+    (never_defined(): no #define in any tree or SDK, no -D, no CMake name, no
+    compiler predefine), like TRACK_BLOCKING_IO.
   * a side guard is settled in a one-side file: vendor/server and
     src/server/native are GAME_DLL and not CLIENT_DLL, vendor/client and
     src/client/native the reverse, unless an object that reads the file says
@@ -37,6 +42,10 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENDOR = os.path.join(REPO, "vendor")
 OURS = [os.path.join(REPO, "src", d, "native") for d in ("client", "server", "shared", "fwd", "host", "engineabi")]
+# Headers that take only the #pragma once rule: the tests', the probes' and
+# the build's compatibility wrappers.
+GUARD_ONLY = [os.path.join(REPO, "src", "test"), os.path.join(REPO, "tools", "probes"),
+              os.path.join(REPO, "cmake", "compat")]
 SIDE_MACROS = ("CLIENT_DLL", "GAME_DLL")
 # Platforms no build of ours targets (user 2026-10-25: no Xbox): false everywhere.
 NEVER_DEFINED = {"_X360": False, "_XBOX": False, "PLATFORM_X360": False, "IN_XBOX_CODELINE": False,
@@ -200,6 +209,22 @@ def is_blank(nodes):
     return all(isinstance(n, str) and not n.strip() for n in nodes)
 
 
+# Where a directive line went: a blank line on each side of it becomes one.
+GONE = "\x00gone"
+
+
+def close_gaps(lines):
+    out = []
+    for i, line in enumerate(lines):
+        if line != GONE:
+            out.append(line)
+            continue
+        after = next((l for l in lines[i + 1:] if l != GONE), None)
+        if out and not out[-1].strip() and after is not None and not after.strip():
+            out.pop()
+    return out
+
+
 def render(nodes, known, out, notes):
     for n in nodes:
         if isinstance(n, str):
@@ -225,7 +250,9 @@ def render_block(b, known, out, notes):
         kept.append([kind, text if text != cond else None, children, raw])
     # An arm settled true with nothing before it: its lines, no directives.
     if kept and kept[0][0] == "else":
+        out.append(GONE)
         render(kept[0][2], known, out, notes)
+        out.append(GONE)
         return
     # Empty trailing #else, and a block left with nothing in it.
     while kept and kept[-1][0] == "else" and is_blank(kept[-1][2]):
@@ -233,6 +260,7 @@ def render_block(b, known, out, notes):
         notes.add("empty branch")
     if not kept or all(is_blank(k[2]) for k in kept):
         notes.add("empty branch")
+        out.append(GONE)
         return
     first = True
     for kind, text, children, raw in kept:
@@ -341,7 +369,7 @@ def tidy_text(text, known, vendored, header, referenced):
     render(tree, known, out, notes)
     result = []
     in_block = False
-    for line in "\n".join(out).split("\n"):
+    for line in close_gaps("\n".join(out).split("\n")):
         if vendored and not in_block and (EMPTY_COMMENT.match(line) or LABEL_COMMENT.match(line)):
             notes.add("empty comment")
             continue
@@ -427,9 +455,9 @@ def side_of_location(path, evidence):
     return {}
 
 
-def files():
+def files(roots=None):
     out = []
-    for root in [VENDOR] + OURS:
+    for root in roots or [VENDOR] + OURS:
         for d, _, names in os.walk(root):
             for n in names:
                 if n.endswith(SOURCE_EXT):
@@ -439,9 +467,21 @@ def files():
 
 def guard_references():
     """Macro names that appear outside their own guard lines, anywhere a
-    source of ours or a vendored file can see them."""
+    source of ours or a vendored file can see them, and a guard two files
+    use (a test stub standing in for a header by taking its guard)."""
     counts = {}
-    roots = [VENDOR, os.path.join(REPO, "src"), os.path.join(REPO, "tools", "probes")]
+    guard_files = {}
+    # The farm too: a test stub may define a fork header's guard so the real
+    # one skips itself, and only the fork's text shows that test.
+    roots = [VENDOR, os.path.join(REPO, "src"), os.path.join(REPO, "tools", "probes"),
+             os.path.join(REPO, "cmake"), os.path.join(REPO, "farm", "debug", "src")]
+    # And the pristine clone the oracle tests and libss_particles read
+    # (src/test/oracle/native/utlvector_stub shadows its utlblockmemory.h).
+    try:
+        with open(os.path.join(REPO, "valve-sdk.lock.local")) as f:
+            roots.append(os.path.join(f.read().split()[0], "src"))
+    except (OSError, IndexError):
+        pass
     word = re.compile(r"\b([A-Z_][A-Z0-9_]*_H(?:PP)?_?|[A-Z_][A-Z0-9_]*_INCLUDED)\b")
     for root in roots:
         for d, _, names in os.walk(root):
@@ -454,26 +494,109 @@ def guard_references():
                     continue
                 for line in text.split("\n"):
                     s = line.strip()
+                    m = re.match(r"^#\s*ifndef\s+(\w+)\s*$", s)
+                    if m:
+                        guard_files.setdefault(m.group(1), set()).add(os.path.realpath(os.path.join(d, n)))
                     if re.match(r"^#\s*(ifndef|define)\s+\w+\s*$", s) or re.match(r"^#\s*if\s+!\s*defined", s):
                         continue        # a guard's own two lines
                     if re.match(r"^#\s*endif", s):
                         continue
                     for w in word.findall(line):
                         counts[w] = counts.get(w, 0) + 1
-    return {w for w, c in counts.items() if c}
+    return {w for w, c in counts.items() if c} | {g for g, fs in guard_files.items() if len(fs) > 1}
+
+
+CONDITION = re.compile(r"^\s*#\s*(?:if|ifdef|ifndef|elif)\b(.*)$")
+DEFINE = re.compile(r"^\s*#\s*define\s+(\w+)")
+# Settled only when the name reads as a configuration macro: all capitals,
+# and not one a compiler flag can turn on (a sanitizer's).
+SETTLEABLE = re.compile(r"^_*[A-Z][A-Z0-9_]*$")
+FLAG_MACROS = re.compile(r"^__SANITIZE_|^__OPTIMIZE|^__NO_INLINE")
+
+
+def never_defined():
+    """The configuration macros a conditional in vendor/ or our sources tests
+    and nothing ever defines: no #define in vendor/, our tree, the pristine
+    clone or the system and Windows SDK headers; no -D on any compile line
+    and no name in a CMake file; no compiler's predefine for either target.
+    Their arms are dead in every build of ours."""
+    tested = set()
+    for path in files():
+        for line in open(path, encoding="latin-1"):
+            m = CONDITION.match(line)
+            if m:
+                body = re.sub(r"//.*|/\*.*?\*/", "", m.group(1))
+                tested.update(re.findall(r"\b([A-Za-z_]\w*)\b", body))
+    tested = {w for w in tested if SETTLEABLE.match(w) and not FLAG_MACROS.match(w)}
+    defined = set()
+    roots = [VENDOR, os.path.join(REPO, "src"), os.path.join(REPO, "tools", "probes"),
+             os.path.join(REPO, "cmake"), "/usr/include", os.path.expanduser("~/.xwin")]
+    try:
+        with open(os.path.join(REPO, "valve-sdk.lock.local")) as f:
+            roots.append(os.path.join(f.read().split()[0], "src"))
+    except (OSError, IndexError):
+        pass
+    for root in roots:
+        for d, _, names in os.walk(root):
+            for n in names:
+                if "." in n and not n.endswith(SOURCE_EXT + (".hh", ".hxx", ".tcc")):
+                    continue
+                try:
+                    with open(os.path.join(d, n), encoding="latin-1") as fh:
+                        for line in fh:
+                            m = DEFINE.match(line)
+                            if m:
+                                defined.add(m.group(1))
+                except OSError:
+                    continue
+    # Every name a CMake file spells may be a -D on some target's line.
+    for d, _, names in os.walk(REPO):
+        if os.sep + "farm" in d or os.sep + ".git" in d or os.sep + "bin" + os.sep in d + os.sep:
+            continue
+        for n in names:
+            if n == "CMakeLists.txt" or n.endswith(".cmake"):
+                defined.update(re.findall(r"\b([A-Za-z_]\w*)\b", open(os.path.join(d, n), encoding="latin-1").read()))
+    import glob
+    import json
+    for db in glob.glob(os.path.join(REPO, "farm", "*", "build*", "compile_commands.json")):
+        for e in json.load(open(db)):
+            defined.update(re.findall(r"[-/]D\s*([A-Za-z_]\w*)", e.get("command", "")))
+    for cmd in (["clang++-22", "-dM", "-E", "-x", "c++", "-std=c++17", "/dev/null"],
+                ["clang-cl-22", "--target=x86_64-pc-windows-msvc", "-Xclang", "-dM", "/E", "/TP", "/dev/null"],
+                ["gcc", "-dM", "-E", "-x", "c++", "/dev/null"]):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True).stdout
+        except OSError:
+            continue
+        defined.update(re.findall(r"#define (\w+)", out))
+    return tested - defined
 
 
 def run(write, report):
     sides = side_values()
     referenced = guard_references()
+    never = {m: False for m in never_defined()}
+    if report:
+        print("  never defined: " + " ".join(sorted(never)))
     changed = []
     for path in files():
         vendored = path.startswith(VENDOR + os.sep)
         header = path.endswith((".h", ".hpp"))
         known = side_of_location(path, sides.get(os.path.realpath(path), {}))
+        known.update(never)
         known.update(NEVER_DEFINED)
         text = open(path, encoding="latin-1", newline="").read()
         new, notes = tidy_text(text, known, vendored, header, referenced)
+        if new != text:
+            changed.append((os.path.relpath(path, REPO), sorted(notes)))
+            if write:
+                with open(path, "w", encoding="latin-1", newline="") as f:
+                    f.write(new)
+    for path in files(GUARD_ONLY):
+        if not path.endswith((".h", ".hpp")):
+            continue
+        text = open(path, encoding="latin-1", newline="").read()
+        new, notes = tidy_text(text, {}, False, True, referenced)
         if new != text:
             changed.append((os.path.relpath(path, REPO), sorted(notes)))
             if write:
@@ -529,6 +652,10 @@ def self_test():
     eq(tidy_text(t, {}, True, False, set())[0], "// real words\nint a;\n\nint b;\n",
        "vendor/: empty comments and blank runs go")
     eq(tidy_text(t, {}, False, False, set())[0], t, "our files keep their comments and blank lines")
+    eq(tidy_text("a\n\n#ifdef FOO\n\nb\n\n#endif\n\nc\n", {"FOO": True}, False, False, set())[0],
+       "a\n\nb\n\nc\n", "a settled arm's directives take one blank line each with them")
+    eq(tidy_text("a\n\n#ifdef FOO\nb\n#endif\n\nc\n", {"FOO": False}, False, False, set())[0],
+       "a\n\nc\n", "and so does a block that goes whole")
     t = "/// usage:\n///   {\n///   }\nint a;\n"
     eq(tidy_text(t, {}, True, False, set())[0], t, "a comment line holding a brace is content")
     t = "/*\n//\n*/\nint a;\n"

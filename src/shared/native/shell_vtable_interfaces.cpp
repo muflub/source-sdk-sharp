@@ -5,42 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the engine interfaces C# calls, by name =============//
 // SS_REASON b  an interface resolved by name at load
-//
-// TWO JOBS AND NOTHING ELSE.
-//
-//   1. Hand managed an interface pointer for a version string this side was
-//      built to serve.
-//   2. Four proxies, for the four slots on IVEngineClient013 that a managed
-//      `delegate* unmanaged<...>` cannot spell at all.
-//
-//-----------------------------------------------------------------------------
-// NO COUNT GOES WITH THE POINTER (plan_forwarders_everywhere.md).
-//
-// Managed once indexed these objects' vtables through structs generated from
-// the headers, so each acquire carried the compiler's slot count (the last
-// method's slot, read out of a pointer to it) and managed refused a struct
-// longer than it. Managed now calls every one of them through a generated
-// native forwarder (the forwarder libraries, src/fwd), compiled against the
-// same headers, so a slot is the compiler's to number and never managed's,
-// and a forwarder table carries its own count in its header. What is left
-// here is which names this side serves.
-//
-//-----------------------------------------------------------------------------
-// AND THE POINTERS ARE THE ONES THE ENGINE ALREADY HANDED THIS DLL.
-//
-// No dlopen, no CreateInterface, no factory lookup. `engine`, `modelinfo`,
-// `filesystem` and `random` are the globals the game DLL was given at DLLInit,
-// and the version string here is a KEY rather than something asked of a module.
-//
-// The filesystem is the one worth reading twice. IBaseFileSystem is a SECOND
-// base of CFileSystem_Stdio, so its subobject does not sit at the top of the
-// object -- and nothing here computes that. `static_cast<IBaseFileSystem *>`
-// makes the compiler emit the same adjustment it would emit at any other call
-// site, which is the only way to get it that cannot be off by eight.
-//
-//=============================================================================//
+// Hands managed the engine interface pointers this DLL was given, by version string, plus
+// client proxies for the IVEngineClient calls a managed function pointer cannot express.
 
 #ifdef CLIENT_DLL
 #include <stdio.h>
@@ -59,11 +26,8 @@
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #else
-// The server half is on public/ headers alone: the interfaces whose version
-// strings it serves, below, and server.so's own factory list.
 #include "eiface.h"
 #endif
-
 
 #ifdef CLIENT_DLL
 #include "con_nprint.h"
@@ -80,25 +44,15 @@
 #include "vstdlib/random.h"
 #include "networkstringtabledefs.h"
 
-// WHERE `random` COMES FROM, and it has to be said out loud: without this
-// header the name resolves to <stdlib.h>'s `long random( void )` and the
-// assignment below fails with "invalid conversion from 'long int (*)()'". The
-// interface pointer this file wants is game/shared/sharedInterface.h's
-// `extern IUniformRandomStream *random`, beside `filesystem` and the rest.
+// Without this, `random` resolves to <stdlib.h>'s random() rather than
+// sharedInterface.h's IUniformRandomStream *.
 #ifdef CLIENT_DLL
 #include "sharedInterface.h"
 #include "inputsystem/iinputsystem.h"
 #endif
 
-// STOCK ALREADY CAPTURED THE FACTORIES, so nothing here captures them again --
-// and that is what keeps this file free of file-scope state (CLAUDE.md's rule,
-// tools/statics-audit's baseline). The engine hands the game DLL its three
-// CreateInterfaceFn pointers and stock stores them: on the server at DLLInit
-// (shell_engineboundary.cpp:151, into shell_globals.cpp's s_factories) and on
-// the client at Init (cdll_client_int.cpp:983, into client_factorylist.cpp's).
-// The two structs are NOT the same shape -- the client has no fileSystemFactory
-// at all and spells the first member appSystemFactory -- which is why the two
-// headers cannot be collapsed and why FactoryFor() below is per side.
+// Stock already stores the engine's factories; the two sides' factorylist_t differ in
+// shape, hence the per-side FactoryFor().
 #ifdef CLIENT_DLL
 #include "client_factorylist.h"
 #else
@@ -112,25 +66,9 @@ using ss::FactoryList_Retrieve;
 #include "shell_diagnostics.h"
 #include "ss_string.h"
 
-
-
-//-----------------------------------------------------------------------------
-// THE SERVED SET: the engine interface versions this side answers for.
-//
-// No count goes with a name (plan_forwarders_everywhere.md): managed calls each
-// through a forwarder table, whose header carries its own slot count, so what
-// is left is which names this side serves. A name not listed is "this side
-// does not serve that name", which is a real answer rather than a missing one:
-// the server does not claim IVEngineClient, which only the client is built
-// against.
-//
-// SERVING IS DECIDED HERE RATHER THAN BY ASKING A FACTORY, and the difference
-// is visible on a listen server: engine.so registers VEngineClient014 and would
-// happily answer server.so for it. The object behind that name is the CLIENT's
-// engine interface with the client's own state, and handing it to server-side
-// managed code because a factory would answer is not a binding anybody asked
-// for. What this side was BUILT to serve is what it serves.
-//-----------------------------------------------------------------------------
+// The engine interface versions this side was built to serve. Decided here rather than
+// by asking a factory: on a listen server engine.so would hand server.so the client's
+// VEngineClient014.
 namespace
 {
 
@@ -142,10 +80,7 @@ bool SourceSharpServes( const char *pszVersion )
 	if ( !ss::StrICmp( pszVersion, "VEngineRandom001" ) )
 		return true;
 
-	// BOTH MODEL-INFO NAMES ARE SERVED ON BOTH SIDES. ivmodelinfo.h declares one
-	// IVModelInfo and the engine registers two objects of that class under two
-	// names, and one forwarder table calls either -- WHICH object comes back is
-	// the factory's answer rather than this list's.
+	// The engine registers two IVModelInfo objects; one forwarder table calls either.
 	if ( !ss::StrICmp( pszVersion, "VModelInfoServer004" )
 	     || !ss::StrICmp( pszVersion, "VModelInfoClient006" ) )
 		return true;
@@ -162,8 +97,6 @@ bool SourceSharpServes( const char *pszVersion )
 	if ( !ss::StrICmp( pszVersion, SOUNDEMITTERSYSTEM_INTERFACE_VERSION ) )
 		return true;
 
-	// One overlay object under one name for both sides: shared interop's
-	// EngineDebugOverlay and the client's flashlight trace visualiser.
 	if ( !ss::StrICmp( pszVersion, VDEBUG_OVERLAY_INTERFACE_VERSION ) )
 		return true;
 
@@ -171,25 +104,19 @@ bool SourceSharpServes( const char *pszVersion )
 	if ( !ss::StrICmp( pszVersion, "VEngineClient014" ) )
 		return true;
 
-	// The client's vphysics, from the physics factory its Init was handed.
 	if ( !ss::StrICmp( pszVersion, VPHYSICS_INTERFACE_VERSION ) )
 		return true;
 
 	if ( !ss::StrICmp( pszVersion, INPUTSYSTEM_INTERFACE_VERSION ) )
 		return true;
 
-	// The client's copy of the world, for the movement loop's point contents
-	// (GameMovement.CheckWater through EngineBound.Trace) in prediction.
+	// The client's world, for prediction's point contents.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_CLIENT ) )
 		return true;
 
-	// The client's static props, for the client's physics world.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_CLIENT ) )
 		return true;
 
-	// The engine's sound interface the managed ClientSoundEmitter, the tracers
-	// and the soundscapes emit through (EngineSoundClient: sound_emitter.cpp's
-	// client emit path, moved).
 	if ( !ss::StrICmp( pszVersion, IENGINESOUND_CLIENT_INTERFACE_VERSION ) )
 		return true;
 #else
@@ -199,33 +126,23 @@ bool SourceSharpServes( const char *pszVersion )
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_SERVER ) )
 		return true;
 
-	// The server's copy of the world, for the movement loop's point contents.
+	// The server's world, for the movement loop's point contents.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_SERVER ) )
 		return true;
 
-	// The game event manager ServerGameEvents fires through. Unserved, the
-	// server fired no game event at all (bd894daf1 to 01862e849: no
-	// player_death, no player_changename, no round end).
+	// Unserved, the server fires no game events at all.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_GAMEEVENTSMANAGER2 ) )
 		return true;
 
-	// The engine's sound interface the managed SoundEmitter emits through
-	// (EngineSoundServer, plan_server_native_v2 T4a).
 	if ( !ss::StrICmp( pszVersion, IENGINESOUND_SERVER_INTERFACE_VERSION ) )
 		return true;
 
-	// The whole filesystem, for its own CreateDirHierarchy: the managed
-	// SoundEmitterSystem's -makereslists precache log makes its reslists
-	// directory (plan_server_native_v2 T4a). Its IBaseFileSystem half is
-	// VBaseFileSystem011's, above.
+	// The whole filesystem, for CreateDirHierarchy; its IBaseFileSystem half is above.
 	if ( !ss::StrICmp( pszVersion, FILESYSTEM_INTERFACE_VERSION ) )
 		return true;
 #endif
 
-	// Each side's own container: engine.so registers both names on a listen
-	// server, and the other side's tables are not this side's to write. (The
-	// client's row sat inside the server's #else, so it never compiled:
-	// ServedInterfaceTests reads each side's preprocessed body.)
+	// Each side's own container; engine.so registers both names on a listen server.
 #ifdef CLIENT_DLL
 	if ( !ss::StrICmp( pszVersion, INTERFACENAME_NETWORKSTRINGTABLECLIENT ) )
 		return true;
@@ -237,19 +154,9 @@ bool SourceSharpServes( const char *pszVersion )
 	return false;
 }
 
-//-----------------------------------------------------------------------------
-// WHICH CreateInterfaceFn ANSWERS FOR A FACTORY KIND, ON THIS SIDE.
-//
-// The engine's factory pointers never cross the boundary; this is where the
-// enum turns into one of them. Read out of stock's stored list on every call
-// rather than cached, because a cache here would be file-scope state -- which
-// this port does not have (tools/statics-audit) -- and the read is a copy of
-// three pointers, once per acquire.
-//
-// NULL means "this side has no factory of that kind". *pbStored says whether
-// the list has been stored AT ALL, which is a different failure and gets a
-// different reason.
-//-----------------------------------------------------------------------------
+// The CreateInterfaceFn for a factory kind on this side, read from stock's stored list
+// on every call. NULL means no factory of that kind; *pbStored says whether the list
+// has been stored at all.
 CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
 {
 	factorylist_t factories;
@@ -259,21 +166,15 @@ CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
 #ifdef CLIENT_DLL
 	CreateInterfaceFn pAppSystem = factories.appSystemFactory;
 
-	// THE CLIENT HAS NO THIRD FACTORY. cdll_client_int.cpp asks appSystemFactory
-	// for FILESYSTEM_INTERFACE_VERSION, so that is where
-	// SOURCESHARP_FACTORY_FILESYSTEM goes on this side. A caller names the ROLE
-	// it wants; where the role lives on this side is not its business.
+	// The client has no filesystem factory; its appSystemFactory serves the filesystem.
 	CreateInterfaceFn pFileSystem = factories.appSystemFactory;
 #else
 	CreateInterfaceFn pAppSystem = factories.engineFactory;
 	CreateInterfaceFn pFileSystem = factories.fileSystemFactory;
 #endif
 
-	// STORED-NESS IS THE APPSYSTEM POINTER, because both sides set that member in
-	// the same call that sets the others. Before DLLInit (server) or Init
-	// (client) the whole struct is zero, and the engine calls
-	// IServerDLLSharedAppSystems methods before either -- before there is a CLR
-	// at all -- so this is defensive rather than expected.
+	// Both sides set appSystem in the same call as the others, so it marks the list
+	// stored. The engine calls IServerDLLSharedAppSystems before either Init.
 	*pbStored = ( pAppSystem != NULL );
 
 	switch ( eType )
@@ -287,27 +188,7 @@ CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
 
 } // namespace
 
-
-//-----------------------------------------------------------------------------
-// THE CLOSED SET OF FAILURE REASONS IS NOT IN THIS FILE, and that is on
-// purpose: shell_acquire_reasons.cpp holds it, because this translation unit
-// includes cbase.h and nothing that includes cbase.h can be compiled into a
-// standalone gtest. The set's guarantee -- closed, ASCII, no format specifier
-// -- is a claim about every member, so a test has to walk the real function
-// rather than a copy of the table. See that file's header and
-// sourcesharp/test/acquire_reason_test.cpp.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// THE ONE ACQUISITION ENTRY POINT.
-//
-// pError IS THE CALLER'S BUFFER and is written ONLY on failure, so a success
-// leaves whatever was there and managed never reads it -- which is why a stale
-// reason is unreportable rather than merely unlikely. It TRUNCATES rather than
-// refusing: a reason is prose for a human, and refusing to report a failure
-// because the report was long would be absurd. V_strncpy NUL-terminates within
-// the size it is given, so there is no helper to write here.
-//-----------------------------------------------------------------------------
+// pError is written only on failure, truncating.
 void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion,
                                     char *pError, int32_t nErrorBytes )
 {
@@ -324,9 +205,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 	if ( eType == SOURCESHARP_FACTORY_INTERNAL )
 	{
 #ifdef CLIENT_DLL
-		// EXEMPT FROM THE NOT-YET-AVAILABLE CASE, and it is the only kind that
-		// is: these singletons are ours and exist from DLL load, so there is no
-		// captured factory to be waiting for.
+		// Our own singletons exist from DLL load, so there is no factory to wait for.
 		void *pShim = SourceSharp_InternalFactory( pszVersion );
 
 		if ( !pShim )
@@ -338,19 +217,14 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 
 		return pShim;
 #else
-		// THE SERVER'S ROOT ANSWERS THIS KIND ITSELF (plan_server_native_v2 T6):
-		// CShimRootServer::AcquireInterface serves it from its own members and
-		// never reaches here with it, so a caller that does is told no.
+		// The server's root serves this kind itself and never reaches here.
 		SourceSharp_SayAcquireReason( pError, nErrorBytes,
 		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 		return NULL;
 #endif
 	}
 
-	// THE NAME IS RESOLVED BEFORE ANY ENGINE FACTORY IS ASKED: a name this side
-	// was not built to serve is refused without asking, so a factory that would
-	// answer for the other side's object (VEngineClient014 on a listen
-	// server's server.so) is never reached.
+	// Refused before any factory is asked, so another side's object is never reached.
 	if ( !SourceSharpServes( pszVersion ) )
 	{
 		SourceSharp_SayAcquireReason( pError, nErrorBytes,
@@ -379,9 +253,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 
 	if ( !pInterface )
 	{
-		// A FACTORY ANSWERS ONLY FOR WHAT IT REGISTERED. This is the reply for the
-		// genuinely optional, and for a name served by a factory of a different
-		// kind than the caller named.
+		// A factory answers only for what it registered.
 		SourceSharp_SayAcquireReason( pError, nErrorBytes,
 		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 		return NULL;
@@ -390,27 +262,10 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 	return pInterface;
 }
 
-
 #ifdef CLIENT_DLL
 
-//-----------------------------------------------------------------------------
-// THE FOUR PROXIES, and each exists because managed CANNOT make the call --
-// never because anybody decided it should not.
-//
-// A refusal that is a judgement is expressed by the impl class exposing no
-// method; a refusal that is a fact about the calling convention needs somewhere
-// for the call to happen, and that somewhere has to be C++.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Con_NPrintf is varargs, and a varargs call cannot be issued through a fixed
-// indirect signature at all.
-//
-// THE TEXT IS AN ARGUMENT AND NEVER THE FORMAT STRING. `Con_NPrintf( pos, text )`
-// would hand caller-controlled text to a printf format parser -- a "%s" in a
-// model name or a player's chat line reads the stack. `"%s"` as the format with
-// the text beside it is the whole fix and it costs nothing.
-//-----------------------------------------------------------------------------
+// Con_NPrintf is varargs, which managed cannot call. The text is passed as an argument,
+// never as the format string.
 void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszText )
 {
 	IVEngineClient *pEngine = static_cast< IVEngineClient * >( pEngineClient );
@@ -421,14 +276,7 @@ void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszT
 	pEngine->Con_NPrintf( nPos, "%s", pszText );
 }
 
-//-----------------------------------------------------------------------------
-// Con_NXPrintf, the same, with con_nprint_s FLATTENED INTO SCALARS.
-//
-// Managed does not spell the struct. Its layout is native's business, and a C#
-// copy of it would be a second declaration of a "structure [that] cannot be
-// changed by mods" (con_nprint.h's own words) with nothing holding the two in
-// step.
-//-----------------------------------------------------------------------------
+// Con_NXPrintf, with con_nprint_s flattened into scalars so managed need not mirror it.
 void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive,
                               const float *pColorRGB, int32_t bFixedWidthFont,
                               const char *pszText )
@@ -449,18 +297,8 @@ void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeT
 	pEngine->Con_NXPrintf( &info, "%s", pszText );
 }
 
-//-----------------------------------------------------------------------------
-// GetLightForPoint and GetLightForPointFast return `Vector` BY VALUE.
-//
-// A twelve-byte class of three floats is returned in xmm0 and xmm1 under the
-// SysV classification, and `delegate* unmanaged<...>` has no spelling for that
-// -- the return type is a class, not a scalar or a pointer. So the three floats
-// come back through a pointer instead, which is a shape managed can express and
-// the caller already owns the storage for.
-//
-// pOutXYZ is written ONLY on success, so "the light here is black" and "there
-// was no engine" stay distinguishable at the call site.
-//-----------------------------------------------------------------------------
+// GetLightForPoint(Fast) return Vector by value in xmm registers, which a managed function
+// pointer cannot express. pOutXYZ is written only on success.
 void SourceSharp_GetLightForPoint( void *pEngineClient, const float *pPosXYZ,
                                    int32_t bClamp, float *pOutXYZ )
 {

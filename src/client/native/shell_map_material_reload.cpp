@@ -4,36 +4,13 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the spawn's material reload, wired in =============//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_map_load P1. SourceSharp.Client's MapMaterialReloadWindow says what and
-// why, and decides; this installs the hooks that feed it and carry its plan out.
-// Four slots of two engine singletons are pointed at the functions below:
-// IFileSystem's AddSearchPath, BeginMapAccess and EndMapAccess, and
-// IMaterialSystem's ReloadMaterials. Each slot is the one the SDK header the
-// mod compiled against names (VTableHook::MemberOf, adjust 0, all four are
-// declared by the interface itself), and each original is called first or
-// instead, so with no managed answer every call behaves exactly as stock.
-//
-// THE STATE MACHINE IS MANAGED (2026-10-25). The three filesystem hooks hand
-// their call to IManagedRuntimeClient after the engine's own; the material
-// hook asks it for a plan -- make the call unchanged, or reload these names one
-// by one -- and does that.
-//
-// CLIENT SIDE. The material system is the renderer's, and client.so is loaded
-// exactly where there is one: a listen server's process and a client's, never
-// a dedicated server. Only a listen server's spawn reaches the slot armed; a
-// remote client never mounts a pak inside a spawn.
-//
-// THE PAK IS PASSED AS A FILE ON DISK. The spawn mounts "maps/<map>.bsp"; the
-// filesystem's own RelativePathToFullPath turns it into the file managed reads,
-// because the client has no read slot on the engine filesystem.
-//
-// UNDONE AT Shutdown, because the functions live in client.so: a slot left
-// pointing here would outlive the code it names.
-//
-//=============================================================================//
+// Hooks IFileSystem's AddSearchPath, BeginMapAccess and EndMapAccess and
+// IMaterialSystem's ReloadMaterials so managed code can narrow the spawn's
+// material reload. Each original runs first or instead, so with no managed
+// answer every call behaves as stock. Only a listen server's spawn reaches the
+// hooks. Uninstalled at Shutdown: the hooks live in client.so and must not
+// outlive it.
 #include "filesystem.h"
 #include "materialsystem/imaterialsystem.h"
 #include "tier0/dbg.h"
@@ -46,8 +23,8 @@
 
 namespace
 {
-// The hooks are called with the engine's object as `this`, so this is how they
-// reach their state. One per process; set by Install, cleared by Uninstall.
+// The hooks are called with the engine's object as `this`, so they reach their
+// state through this pointer. Set by Install, cleared by Uninstall.
 struct MapMaterialReloadHooks
 {
 	void **pFileSystemVtbl = nullptr;
@@ -55,8 +32,7 @@ struct MapMaterialReloadHooks
 	int nAddSearchPath = -1, nBeginMapAccess = -1, nEndMapAccess = -1, nReloadMaterials = -1;
 	void *pAddSearchPath = nullptr, *pBeginMapAccess = nullptr, *pEndMapAccess = nullptr, *pReloadMaterials = nullptr;
 
-	// Managed's plan, newline-joined names. Here rather than on the stack
-	// (the names of two paks) or as a static (one more global for nothing).
+	// Managed code's plan, newline-joined names; too large for the stack.
 	char szNames[ 256 * 1024 ];
 };
 
@@ -70,8 +46,8 @@ void HookAddSearchPath( IFileSystem *pThis, const char *pPath, const char *pPath
 {
 	( (AddSearchPathFn)s_pHooks->pAddSearchPath )( pThis, pPath, pPathID, addType );
 
-	// The path as a file on disk where the filesystem resolves one: the client
-	// has no read slot on the engine filesystem, so managed reads the pak.
+	// The client has no read slot on the engine filesystem, so managed code reads
+	// the pak as a file on disk.
 	char szFull[ MAX_PATH ];
 	const char *pFull = ( pPath && pPathID &&
 	                      pThis->RelativePathToFullPath( pPath, pPathID, szFull, sizeof( szFull ) ) ) ? szFull : pPath;
@@ -96,8 +72,8 @@ void HookEndMapAccess( IFileSystem *pThis )
 		pRuntime->MapMaterialMapAccess( 0 );
 }
 
-// Managed's plan carried out: -1 (or no managed side) is the call unchanged;
-// otherwise each newline-separated name is reloaded alone.
+// -1 (or no managed side) makes the call unchanged; otherwise each
+// newline-separated name is reloaded alone.
 void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
 {
 	ReloadMaterialsFn pOriginal = (ReloadMaterialsFn)s_pHooks->pReloadMaterials;

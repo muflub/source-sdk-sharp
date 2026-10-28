@@ -38,8 +38,7 @@
 //
 //=============================================================================
 
-#ifndef SS_SOUNDEMITTER_HARNESS_H
-#define SS_SOUNDEMITTER_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <string.h>
@@ -240,5 +239,3 @@ const char *GetCleanMapName( const char *pszUnCleanMapName, char ( &pszTmp )[ 25
 #ifndef VPROF_BUDGET
 #define VPROF_BUDGET( name, group )
 #endif
-
-#endif // SS_SOUNDEMITTER_HARNESS_H

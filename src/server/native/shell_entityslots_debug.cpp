@@ -5,30 +5,18 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — shell_entityslots.cpp's diagnostic console command ===//
 // SS_REASON c  static-init registration
-//
-// DEBUG BUILDS ONLY (user ruling 2026-10-01: debug commands live in debug files
-// that CMake compiles only for a debug build -- server_sourcesharp_debug_sources).
-// SourceSharp.Server's NativeCommands declares the matching row under #if DEBUG.
-//
-//=============================================================================//
 
-#include "const.h"            // MAX_EDICTS
+// Debug builds only.
+
+#include "const.h"
 #include "tier0/dbg.h"
 #include "slot_table.h"
 #include "sourcesharp.h"
 #include "native_command_body.h"
 
-//-----------------------------------------------------------------------------
-// What the slot table is holding. A DELTA is the measurement that matters here
-// too: bound should return to its level after a round of spawns and removes,
-// and a refusal count that moves is a bind the shell asked for and did not get.
-//
-// It prints no list, on purpose. There is nothing here that could produce one:
-// see slot_table.h on why the table has no iteration API and on the five
-// must-not-compile legs that keep it that way.
-//-----------------------------------------------------------------------------
+// The slot table's counts. Bound should return to its level after spawns and
+// removes; a growing refusal count is a bind the shell did not get.
 SS_NATIVE_COMMAND( cs_sv_slot_table )
 {
 	const CSourceSharpSlotTable &table = SourceSharp_SlotTable();

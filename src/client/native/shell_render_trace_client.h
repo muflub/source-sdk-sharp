@@ -1,16 +1,5 @@
-//========= SourceSharp — the render call recorder ============================//
-//
-// plan_client_novalve.md C7 step 1: the instrument the render plan is measured
-// with. Armed for exactly one View_Render, it records, in order, every call
-// client.so makes on the engine's render interfaces (IVRenderView,
-// IMatRenderContext, IVModelRender, IStaticPropMgrClient and the four render
-// members of IVEngineClient), one line each. OFF unless managed asks for a
-// frame; installing it is a slot write per hooked method and so is removing it.
-//
-// shell_render_trace_client.cpp says what each line holds and why the engine's
-// own calls on the same objects are not in it.
-//
-//=============================================================================//
+// Records, for one View_Render, every call client.so makes on the engine's
+// render interfaces, one line each. Off unless managed code asks for a frame.
 #pragma once
 
 #include <stdint.h>
@@ -33,10 +22,8 @@ namespace RenderTrace
 	// a trace is running.
 	void Note( const char *pszFormat, ... );
 
-	// The shadow manager's frame work (C7 cluster 12 S2, shell_shadows_client.cpp):
-	// ShadowEnter records its `shadow.` line and marks every line until the
-	// matching ShadowLeave `~`, as the calls the manager makes inside it are
-	// its own; ShadowNote is a `shadow.` line with no work inside it.
+	// ShadowEnter records its `shadow.` line and marks every line until the matching
+	// ShadowLeave as the shadow manager's own; ShadowNote is a `shadow.` line with no work.
 	void ShadowEnter( const char *pszLine );
 	void ShadowLeave();
 	void ShadowNote( const char *pszLine );

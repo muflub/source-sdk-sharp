@@ -5,34 +5,11 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
-
-//========= SourceSharp — the draw executor for the managed particle sims ====//
-//
-// plan_client_novalve C2 (lane c2-sims, the "our native files" row for the
-// sims): a CParticleMgr simple-particle sim (the steam jet first) is C#'s
-// (SourceSharp.Client.Effects), and this file is what stays native. One
-// CManagedParticleEffect per (owner, channel), registered with the particle
-// manager, whose three IParticleEffect calls each ask managed one question:
-//
-//   Update             IManagedParticlesClient::Emit: the frame's spawns, as
-//                      ids, which become particles in the manager, and the
-//                      bounds to hand SetBBox
-//   SimulateParticles  IManagedParticlesClient::Simulate: which of the
-//                      manager's particles (by id) are still alive
-//   RenderParticles    IManagedParticlesClient::Draw: each particle's quad
-//                      numbers, which particle_util.h's builders draw after
-//                      the view-space transform and sort the manager owns
-//
-// It decides nothing: which material, which builder, what colour, how big and
-// when a particle dies are all managed answers. The manager still decides
-// when each call happens (culling, the first frame, drawn-last-frame), which
-// is what keeps the managed sim's step identical to stock's.
-//
-// The particle the manager holds carries only the id managed gave it: the
-// manager re-orders its list (bucket sort, incremental swaps), so the pairing
-// is by id and never by position.
-//
-//=============================================================================//
+// The draw executor for the managed particle sims, and the client's side of the new-style
+// particle library. One CManagedParticleEffect per (owner, channel) is registered with the
+// particle manager; its Update, SimulateParticles and RenderParticles each ask managed one
+// question. The manager reorders its particles, so they pair with managed's by id, never
+// by position.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,9 +86,9 @@
 #include "shell_effect_ledger.h"
 #include "imanaged_areas_client.h"
 #include "sourcesharp.h"
-#include "shell_particle_mgr.h"	// the PMaterial table and the draw state (C7 particles phase 4)
+#include "shell_particle_mgr.h"
 #include "managed_convar_ref.h"
-#include "shell_new_particles.h"	// C7 particles phase 3: the new-style effects' shell
+#include "shell_new_particles.h"
 #include "particle_follow_mask.h"
 #include "shell_effect_registry.h"
 #include "shell_particle_systems.h"
@@ -119,17 +96,14 @@
 #include "shell_cliententitylist.h"
 #include "ss_bitblock.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-// shell_client_orphans.cpp: the view model FOV squash CLocalSpaceEmitter applied (FLE_VIEWMODEL).
+// The view model FOV squash CLocalSpaceEmitter applied (FLE_VIEWMODEL).
 extern void FormatViewModelAttachment( Vector &vOrigin, bool bInverse );
 
 using ss::BitBlockBits;
 using ss::BitBlockSetBits;
 using ss::kBitBlockHeaderBytes;
 
-// Managed's declarations (C7 particles phase 4, ParticleConVars), read by
-// name: DrawModel reads them.
+// Managed's convars, read by name.
 static CManagedConVarRef r_DrawParticles( "r_drawparticles" );
 static CManagedConVarRef cl_particle_show_bbox( "cl_particle_show_bbox" );
 static CManagedConVarRef cl_particle_show_bbox_cost( "cl_particle_show_bbox_cost" );
@@ -138,10 +112,7 @@ static CManagedConVarRef cl_particleeffect_aabb_buffer( "cl_particleeffect_aabb_
 namespace
 {
 
-//-----------------------------------------------------------------------------
-// The heatwave's quad: c_steamjet.cpp's RenderParticle_ColorSizePerturbNormal,
-// with the normal managed drew (stock drew it here, per vertex, from rand()).
-//-----------------------------------------------------------------------------
+// The heatwave's quad, with the normal managed computed.
 void RenderParticle_ColorSizeNormal( ParticleDraw *pDraw, const Vector &pos, const Vector &color,
                                      float alpha, float size, const Vector &vNorm )
 {
@@ -183,12 +154,8 @@ void RenderParticle_ColorSizeNormal( ParticleDraw *pDraw, const Vector &pos, con
 	pBuilder->AdvanceVertex();
 }
 
-//-----------------------------------------------------------------------------
-// Kind 4, a tracer's quad (lane c5-particles): four view-space corners managed
-// computed (TracerGeometry, c_tracer.cpp's geometry), wound start-minus,
-// start-plus, end-plus, end-minus with the texture run along the line, in one
-// float colour.
-//-----------------------------------------------------------------------------
+// Kind 4, a tracer's quad: four view-space corners from managed, wound start-minus,
+// start-plus, end-plus, end-minus with the texture along the line.
 void RenderTracerQuad( ParticleDraw *pDraw, const SourceSharpParticleQuad_t &q )
 {
 	CMeshBuilder *pBuilder = pDraw->GetMeshBuilder();
@@ -208,13 +175,9 @@ void RenderTracerQuad( ParticleDraw *pDraw, const SourceSharpParticleQuad_t &q )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Kind 5, a 3D particle's quad (lane c5-particles: Simple3DRules, stock's
-// RenderParticle_ColorSizeAngles): managed hands the world-space corner, the
-// face normal and the width and height edges (each scaled by the size); the
-// corners are walked as stock walked them and taken into the view the effect
-// draws in. Nothing is drawn below alpha 0.001.
-//-----------------------------------------------------------------------------
+// Kind 5, a 3D particle's quad: managed hands the world-space corner, face normal and
+// edges; the corners are walked as stock's and taken into the effect's view. Nothing is
+// drawn below alpha 0.001.
 void RenderAnglesQuad( ParticleDraw *pDraw, const SourceSharpParticleQuad_t &q, const VMatrix &mv )
 {
 	if ( q.Alpha < 0.001f )
@@ -254,12 +217,8 @@ void RenderAnglesQuad( ParticleDraw *pDraw, const SourceSharpParticleQuad_t &q, 
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Which view the particle manager is drawing, as a key: FNV-1a over its
-// model-view matrix and CurrentViewID(). Managed re-reads the view
-// (SourceSharp_ParticlesView) only when the key changes, so a frame costs one
-// read per view drawn, not one per effect.
-//-----------------------------------------------------------------------------
+// Which view the particle manager is drawing, as a key over its model-view matrix and
+// CurrentViewID(). Managed re-reads the view only when the key changes.
 int32_t ParticlesViewKey()
 {
 	const VMatrix &mv = ShellParticleDraw_ModelView();
@@ -283,22 +242,17 @@ public:
 	{
 		SetIdentityMatrix( m_LocalSpace );
 		SetIdentityMatrix( m_matRenderable );
-		// CParticleEffectBinding's constructor's box, until managed commits one.
+		// CParticleEffectBinding's initial box, until managed commits one.
 		m_Min.Init( -50, -50, -50 );
 		m_Max.Init( 50, 50, 50 );
 	}
 
-	// The space managed put this executor in (ParticlesSetSpace): an entity
-	// attachment's, as CLocalSpaceEmitter::Create took it, the view model's FOV
-	// squash, and the draw before the view model. Which, and on what, is
-	// managed's (PoolEmitters, for the temp entities' muzzle flashes).
-	// 8 and 16 (lane c5-particles): a singleton, drawn not through the leaf system
-	// but at DrawParticleSingletons' place, as particles_ez.cpp's singletons were;
-	// 16 the 3D sky's call, 8 the world's.
+	// The space managed put this executor in: an entity attachment's, the view model's FOV
+	// squash, drawn before the view model, or a singleton drawn at DrawParticleSingletons'
+	// place (16 for the 3D sky's call, 8 for the world's).
 	enum { kSpaceLocal = 1, kSpaceViewModel = 2, kSpaceBeforeViewModel = 4, kSpaceSingleton = 8, kSpaceSingletonSky = 16 };
 
-	// CParticleEffectBinding's FLAGS_ this renderable reads from managed's
-	// commit (particlemgr.h), and the seven its constructor sets.
+	// The CParticleEffectBinding FLAGS_ this renderable reads from managed's commit.
 	enum
 	{
 		kFlagCameraSpace = 1 << 7,
@@ -312,11 +266,9 @@ public:
 		return ( m_nSpaceFlags & kSpaceSingleton ) ? ( ( m_nSpaceFlags & kSpaceSingletonSky ) ? 1 : 0 ) : -1;
 	}
 
-	// particles_ez.cpp's DrawParticleSingletons body, for one executor.
 	void DrawAsSingleton() { DrawModel( 1 ); }
 
-	// The binding's half of the space is managed's (ClientParticleManager.SetSpace);
-	// this keeps where it draws and answers the follow.
+	// Managed holds the binding's half of the space; this keeps where it draws.
 	void SetSpace( uint32_t hEntity, int32_t nAttachment, int32_t nFlags, SourceSharpParticleFollow_t *pFollow )
 	{
 		m_hSpace = CBaseHandle( (int)( hEntity & ENT_ENTRY_MASK ), (int)( hEntity >> NUM_SERIAL_NUM_SHIFT_BITS ) );
@@ -328,10 +280,8 @@ public:
 			FollowSpace( pFollow );
 	}
 
-	// CLocalSpaceEmitter::SetupTransformMatrix, stock's: the attachment's
-	// matrix is the particles' space, its origin the sort origin, and the
-	// entity's bounding radius about it the world box. What it read goes to
-	// managed, whose binding holds the box and the transform.
+	// CLocalSpaceEmitter::SetupTransformMatrix: the attachment's matrix is the particles'
+	// space, its origin the sort origin. The reading goes to managed.
 	void FollowSpace( SourceSharpParticleFollow_t *pOut )
 	{
 		IClientRenderable *pRenderable = SourceSharp_ClientRenderableFromHandle( m_hSpace );
@@ -369,8 +319,7 @@ public:
 			ClientLeafSystem()->RemoveRenderable( m_hRenderHandle );
 	}
 
-	// CManagedParticleEffect::Start: its material, its cull radius, and into the
-	// leaf system (CParticleMgr::AddEffect's CreateRenderableHandle).
+	// Its material and cull radius, and into the leaf system.
 	bool Start( const char *pszMaterial, float flCullRadius )
 	{
 		m_hMaterial = ShellParticleMaterial_Find( pszMaterial );
@@ -381,7 +330,7 @@ public:
 		return true;
 	}
 
-	// SetParticleCullRadius: the leaf system is told when it changed.
+	// The leaf system is told when the cull radius changed.
 	void Configure( float flCullRadius )
 	{
 		if ( m_flCullRadius == flCullRadius )
@@ -391,12 +340,9 @@ public:
 			ClientLeafSystem()->RenderableChanged( m_hRenderHandle );
 	}
 
-	// The lit sim's lights (the smoke stack's): base colour 0..1, then the
-	// ambient and the directional light, each position, colour, intensity.
-	// Managed lights each quad itself (SphereLighting, lane c5-particles); what
-	// stays here is the one thing CParticleSphereRenderer did for the
-	// renderer: hand the directional light to the particle manager before the
-	// effect draws, for the materials that light on the GPU.
+	// Base colour 0..1, then the ambient and directional lights (position, colour,
+	// intensity). The directional light goes to the particle manager before the effect draws,
+	// for materials that light on the GPU.
 	void SetLights( const float *pLights )
 	{
 		m_bLit = true;
@@ -413,9 +359,7 @@ public:
 	int32_t SpaceFlags() const { return m_nSpaceFlags; }
 	int32_t ActiveParticles() const { return m_nActive; }
 
-	// This frame's read for managed's update (IManagedParticlesClient::Frame):
-	// where it stands, its material's frame-buffer needs, and the follow, which
-	// CManagedParticleEffect::Update ran inside the binding's update.
+	// This frame's read for managed: its place, its material's frame-buffer needs, and the follow.
 	void FillFrameIn( SourceSharpParticleFrameIn_t &in )
 	{
 		memset( &in, 0, sizeof( in ) );
@@ -442,8 +386,7 @@ public:
 		}
 	}
 
-	// Managed's binding after its update: what this renderable answers the
-	// leaf system with, and whether the leaf system must re-place it.
+	// Managed's binding after its update: what this answers the leaf system with.
 	void Commit( const SourceSharpParticleCommit_t &c )
 	{
 		m_Min.Init( c.MinXYZ[0], c.MinXYZ[1], c.MinXYZ[2] );
@@ -454,7 +397,6 @@ public:
 			ClientLeafSystem()->RenderableChanged( m_hRenderHandle );
 	}
 
-// IClientRenderable, CParticleEffectBinding's answers.
 public:
 	virtual const Vector &GetRenderOrigin() OVERRIDE { return GetAbsOrigin(); }
 	virtual const QAngle &GetRenderAngles() OVERRIDE { return vec3_angle; }
@@ -486,7 +428,7 @@ private:
 	{
 		if ( !m_hMaterial )
 			return NULL;
-		ShellParticleMaterial_Material( m_hMaterial );	// RepairPMaterial, as AddParticle did
+		ShellParticleMaterial_Material( m_hMaterial );
 		return m_hMaterial->m_pGroup ? m_hMaterial->m_pGroup->m_pPageMaterial : NULL;
 	}
 
@@ -514,13 +456,8 @@ private:
 	CUtlVector< uint8_t > m_KeyBuffer;
 };
 
-//-----------------------------------------------------------------------------
-// CParticleEffectBinding::RenderStart: the particles draw in camera space, so
-// the model and view go to identity for the draw (the view kept for the user
-// clip planes), and the lit sim hands its light over (StartRender). The
-// manager's model view, which the executor and ParticleSphereProxy read, was set
-// before managed was asked (DrawModel).
-//-----------------------------------------------------------------------------
+// The particles draw in camera space, so model and view go to identity for the draw (the
+// view kept for the user clip planes), and the lit sim hands over its light.
 void CManagedParticleEffect::RenderStart( VMatrix &tempModel, VMatrix &tempView )
 {
 	if ( m_nFlags & kFlagCameraSpace )
@@ -552,12 +489,8 @@ void CManagedParticleEffect::RenderEnd( VMatrix &tempModel, VMatrix &tempView )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// One material's draw (DrawMaterialParticles over the render iterator): the
-// material bound with the particle manager as its proxy argument, the quads in
-// the order managed listed them, a batch flushed every NUM_PARTICLES_PER_BATCH,
-// and each quad's sort key written for managed's sort.
-//-----------------------------------------------------------------------------
+// One material's draw: the particle manager bound as proxy argument, quads in managed's
+// order, flushed every NUM_PARTICLES_PER_BATCH, each quad's sort key written back.
 void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime, const SourceSharpParticleQuad_t *pQuads,
                                         int nQuads, float *pKeys )
 {
@@ -584,13 +517,10 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 		}
 		else if ( pQuad->Kind == 6 )
 		{
-			// The dust motes (DustVolumeSim, lane c5-particles): already in view
-			// space, their alpha and size taken from its depth by managed;
-			// stock's CDustEffect::RenderParticles drew them so.
+			// The dust motes: already in view space, alpha and size from depth decided by managed.
 			RenderParticle_Color255Size( pDraw, Vector( pQuad->PositionXYZ[0], pQuad->PositionXYZ[1], pQuad->PositionXYZ[2] ),
 			                             Vector( pQuad->ColorXYZ[0], pQuad->ColorXYZ[1], pQuad->ColorXYZ[2] ),
 			                             pQuad->Alpha, pQuad->Size );
-			// Step 7a's gate: one per mote handed to the mesh. shell_effect_ledger.h.
 			g_SourceSharpEffects.nDustMotes++;
 			flKey = pQuad->SortKey;
 		}
@@ -606,7 +536,7 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 			Vector vPos( pQuad->PositionXYZ[0], pQuad->PositionXYZ[1], pQuad->PositionXYZ[2] );
 			if ( m_nSpaceFlags & kSpaceLocal )
 			{
-				// CLocalSpaceEmitter::RenderParticles: local to world, then the view model's squash.
+				// Local to world, then the view model's squash.
 				Vector vWorld;
 				VectorTransform( vPos, m_LocalSpace, vWorld );
 				if ( m_nSpaceFlags & kSpaceViewModel )
@@ -633,7 +563,6 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 		}
 		pKeys[i] = flKey;
 
-		// CParticleRenderIterator::TestFlushBatch, once per particle iterated.
 		if ( ++nInBatch >= NUM_PARTICLES_PER_BATCH )
 		{
 			builder.End( false, true );
@@ -644,21 +573,15 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 	builder.End( false, true );
 }
 
-//-----------------------------------------------------------------------------
-// CParticleEffectBinding::DrawModel, carried out: managed decides whether it
-// draws, its frame time, the frame-buffer updates, the wireframe pass and the
-// debug box, and lists the quads in its binding's order; this draws them and
-// hands back each one's sort key, from which managed sorts the list.
-//-----------------------------------------------------------------------------
+// Managed decides whether it draws, the frame time, the frame-buffer updates and debug
+// passes, and lists the quads; this draws them and hands back each sort key.
 int CManagedParticleEffect::DrawModel( int flags )
 {
 	IManagedParticlesClient *pArea = ManagedParticlesClient();
 	if ( !pArea )
 		return 0;
 
-	// The model view this draw's particles are taken into (RenderStart's):
-	// the view in camera space, else the identity. Set before managed is asked,
-	// because its view read (SourceSharp_ParticlesView) is keyed by it.
+	// Set before managed is asked, because its view read is keyed by it.
 	if ( m_nFlags & kFlagCameraSpace )
 	{
 		CMatRenderContextPtr pRenderContext( materials );
@@ -688,8 +611,7 @@ int CManagedParticleEffect::DrawModel( int flags )
 	int nResult = pArea->DrawBegin( &in, m_DrawBuffer.Base(), m_DrawBuffer.Count() );
 	if ( nResult > m_DrawBuffer.Count() )
 	{
-		// Managed needs more room: it answered the size before deciding
-		// anything, so the second ask is the first draw decision.
+		// Managed answered the size it needs before deciding anything; ask again.
 		m_DrawBuffer.SetCount( nResult );
 		nResult = pArea->DrawBegin( &in, m_DrawBuffer.Base(), m_DrawBuffer.Count() );
 	}
@@ -727,11 +649,10 @@ int CManagedParticleEffect::DrawModel( int flags )
 	{
 		IMaterial *pMaterial = nPass == 0 ? pPage
 			: materials->FindMaterial( "debug/debugparticlewireframe", TEXTURE_GROUP_OTHER );
-		// The wireframe pass draws the same quads again (stock asked the sim to
-		// render twice; the managed sims' draws are pure, docs/todo.md).
+		// The wireframe pass draws the same quads again.
 		DrawQuads( pMaterial, flFrameTime, pQuads, nQuads, m_Keys.Base() );
 
-		// The keys back, one length-prefixed buffer: managed sorts from them.
+		// The sort keys back in one length-prefixed buffer.
 		BitBlockSetBits( m_KeyBuffer.Base(), nQuads * (int)sizeof( float ) * 8 );
 		V_memcpy( m_KeyBuffer.Base() + kBitBlockHeaderBytes, m_Keys.Base(), nQuads * sizeof( float ) );
 		pArea->DrawEnd( m_hOwner, m_nChannel, m_KeyBuffer.Base(), m_KeyBuffer.Count() );
@@ -748,9 +669,7 @@ int CManagedParticleEffect::DrawModel( int flags )
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// The live executors, one per (owner, channel), and the per-frame follow.
-//-----------------------------------------------------------------------------
+// The live executors, one per (owner, channel).
 static CUtlVector< CManagedParticleEffect * > g_ManagedParticles;
 
 static int ManagedParticles_Find( uint32_t hOwner, int32_t nChannel )
@@ -763,8 +682,7 @@ static int ManagedParticles_Find( uint32_t hOwner, int32_t nChannel )
 	return -1;
 }
 
-// An executor released by any route (the follow sweep when its owner went, level
-// shutdown, Destroy) is forgotten through the latch's callback.
+// An executor released by any route is forgotten through this callback.
 static void ManagedParticles_Forget( CShellParticleEffect *pEffect )
 {
 	for ( int i = g_ManagedParticles.Count() - 1; i >= 0; i-- )
@@ -795,11 +713,8 @@ int32_t SourceSharp_ParticlesCreate( uint32_t hOwner, int32_t nChannel, const ch
 	return 1;
 }
 
-// An executor for an effect no entity owns (lane c5-particles: the managed
-// CParticleMgr's ownerless effects, ClientParticleEffects), placed once at a
-// world point and keyed by the no-owner handle and the managed id. The follow
-// sweep leaves it where it was put; managed releases it (ParticlesDestroy)
-// when its effect is finished.
+// An executor for an ownerless effect, placed once at a world point and keyed by the
+// no-owner handle and the managed id. Managed releases it when the effect finishes.
 int32_t SourceSharp_ParticlesCreateAt( int32_t nId, const char *pszMaterial, const float *pOriginXYZ,
                                        float flCullRadius, int32_t bAlwaysSimulate )
 {
@@ -819,15 +734,8 @@ int32_t SourceSharp_ParticlesCreateAt( int32_t nId, const char *pszMaterial, con
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// particles_ez.cpp's DrawParticleSingletons, which viewrender.cpp calls at its
-// place in the translucent passes (and the render plan's ParticleSingletons op,
-// RENDER_OP_ParticleSingletons, at the same place). particles_ez.cpp's own
-// singletons left with lane c5-particles: their one filler, FX_Dust, is C#'s
-// DustPuff, whose executors managed put in the singleton space (8, and 16 for
-// the 3D sky's call). Each is drawn here, as stock drew its singleton's
-// binding; nothing else is.
-//-----------------------------------------------------------------------------
+// Called at its place in the translucent passes; draws the executors managed put in the
+// singleton space.
 void DrawParticleSingletons( bool bInSkybox )
 {
 	const int nPass = bInSkybox ? 1 : 0;
@@ -840,8 +748,7 @@ void DrawParticleSingletons( bool bInSkybox )
 	}
 }
 
-// The executor's space, and the follow it read (an attachment's space), which
-// managed's binding takes. 1 when the executor was found.
+// 1 when the executor was found.
 int32_t SourceSharp_ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags,
                                        SourceSharpParticleFollow_t *pFollow )
 {
@@ -852,12 +759,8 @@ int32_t SourceSharp_ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// CParticleMgr::UpdateAllEffects' old-style half, which is managed's
-// (ClientParticleManager.Frame): each live executor's read for the frame goes
-// over in one length-prefixed buffer, and each binding's state comes back in
-// another, which the executors answer the leaf system from.
-//-----------------------------------------------------------------------------
+// Each live executor's frame read goes to managed in one length-prefixed buffer, and each
+// binding's state comes back in another.
 
 void ShellParticles_Frame( float flFrameTime )
 {
@@ -865,7 +768,7 @@ void ShellParticles_Frame( float flFrameTime )
 	if ( !pArea )
 		return;
 
-	// On the stack for the usual executor counts (a few dozen); the heap past it.
+	// On the stack for the usual executor counts; the heap past it.
 	CUtlVectorFixedGrowable< uint8_t, 16384 > in;
 	CUtlVectorFixedGrowable< uint8_t, 4096 > out;
 	const int nExecutors = g_ManagedParticles.Count();
@@ -898,7 +801,6 @@ void ShellParticles_Frame( float flFrameTime )
 	}
 }
 
-// CParticleMgr::IncrementFrameCode and PostRender's old-style halves, managed's.
 void ShellParticles_FrameCode()
 {
 	if ( IManagedParticlesClient *pArea = ManagedParticlesClient() )
@@ -925,8 +827,7 @@ void SourceSharp_ParticlesSetLights( uint32_t hOwner, int32_t nChannel, const fl
 		g_ManagedParticles[i]->SetLights( pLights );
 }
 
-// One integer var of an executor's material, as CParticleSphereRenderer::Init
-// read $USINGPIXELSHADER: 1 and the value when the var is there, else 0.
+// 1 and the value when the var exists, else 0.
 int32_t SourceSharp_ParticlesMaterialVarInt( uint32_t hOwner, int32_t nChannel, const char *pszVar, int32_t *pValue )
 {
 	const int i = ManagedParticles_Find( hOwner, nChannel );
@@ -941,11 +842,8 @@ int32_t SourceSharp_ParticlesMaterialVarInt( uint32_t hOwner, int32_t nChannel, 
 	return 1;
 }
 
-// A world trace that answers the hit PLANE as well as the fraction: the smoke
-// volume's six-wall fade reads plane.dist, which the endpoint (pulled back by
-// DIST_EPSILON) does not give back. UTIL_TraceLine with no pass entity and
-// COLLISION_GROUP_NONE, as c_func_smokevolume.cpp's WorldTraceLine. Out:
-// fraction, normal xyz, dist. The count written, or 0.
+// A world trace that also answers the hit plane, which the smoke volume's wall fade reads.
+// Out: fraction, normal xyz, dist. Returns the count written, or 0.
 int32_t SourceSharp_ParticlesTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, float *pOut, int32_t nOut )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pOut || nOut < 5 )
@@ -968,15 +866,13 @@ void SourceSharp_ParticlesDestroy( uint32_t hOwner, int32_t nChannel )
 		g_ManagedParticles[i]->Release();
 }
 
-// The effect sits where its owner is, every frame: stock's effects were the
-// entity, and a physics_cannister drags a steam jet around as it tumbles.
+// Each effect sits at its owner every frame: a physics_cannister drags its steam jet.
 static void ManagedParticles_Follow()
 {
 	for ( int i = g_ManagedParticles.Count() - 1; i >= 0; i-- )
 	{
 		CManagedParticleEffect *pEffect = g_ManagedParticles[i];
 
-		// An ownerless effect stays where it was put.
 		if ( pEffect->Owner() == SOURCESHARP_PARTICLE_NO_OWNER )
 			continue;
 
@@ -991,14 +887,7 @@ static void ManagedParticles_Follow()
 	}
 }
 
-//-----------------------------------------------------------------------------
-// cs_cl_effect_kinds: every live executor (the managed trails, steam jets,
-// smoke stacks and smoke volumes, one per channel), where it is drawn this
-// frame and how many particles its binding is simulating. Instrumentation for
-// the live gates (the follow and the render), moved here from
-// shell_trail_render.cpp when the trails became executor clients (lane
-// c2-sims); it goes with the executor.
-//-----------------------------------------------------------------------------
+// Every live executor, where it draws this frame and how many particles it simulates.
 CON_COMMAND( cs_cl_effect_kinds,
              "every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
              "where it is drawn this frame and how many particles its binding is simulating" )
@@ -1038,82 +927,27 @@ static CSourceSharpManagedParticlesSystem g_ManagedParticlesSystem;
 
 CClientSystem *ClientSystem_ManagedParticles() { return &g_ManagedParticlesSystem; }
 
-//=============================================================================//
-// THE NEW-STYLE PARTICLE SYSTEMS (lane c5-particles)
+// The new-style particle systems the client starts, owned by the library. An owned system
+// (started by a managed entity) is held and kept at its owner by the sweep below; a
+// one-shot (an impact) is only watched and the manager removes it. Both are watched by a
+// weak reference so a stopped system stays listed until deleted.
 //
-// particles.a and dmxloader.a stay, bound like vphysics (user ruling,
-// 2026-10-04, plan_client_novalve §3.4). This half of the file is the client's
-// side of that binding: the new-style effects (CShellNewParticleEffect) the
-// client starts, whose collections the library owns, and what the dev API reads about them.
-//
-// TWO KINDS OF INSTANCE ARE STARTED HERE, and both are kept in one table:
-//
-//   owned     a named system a managed entity started (SourceSharp_Particle-
-//             SystemStart: ss_firesmoke, ss_entityflame). Held by a CSmartPtr,
-//             its control points kept at the owner by the follow sweep, and
-//             stopped when the owner stops it or goes.
-//   one-shot  a system an impact started at a world point (shell_impact_
-//             effects.cpp's DispatchNewParticleImpact). Not held: the manager
-//             removes it when it finishes, exactly as stock's local CSmartPtr
-//             let it. This table only WATCHES it, through a CUtlReference that
-//             the effect's destructor clears.
-//
-// Every instance is watched by a weak reference, so a stopped system burning
-// out is still listed until the manager deletes it. That is what
-// /client/{slot}/particles reports (plan_client_novalve §4.4).
-//
-// THE FLAME'S PARTICLE SYSTEM moved here from shell_sprite_render.cpp, where it
-// sat behind a banner because a new .cpp once needed a line in a .vpc. Its
-// comments came with it. It joined this file rather than a new one because a
-// new TU would raise the census's incdir-forbidden-tus ratchet; both halves
-// are the particles binding. The two hooks it needs from a client system,
-// PreRender and LevelShutdownPostEntity, are still called from the sprite
-// system's own, in the same place, so no system's order changed.
-//=============================================================================//
-
-//=============================================================================//
-// THE FLAME'S PARTICLE SYSTEM.
-//
-// ss_firesmoke is a named particle system and nothing else. Stock's C_FireSmoke
-// had already been worn down to that by the time this port reached it -- every
-// one of its update methods is an empty body, and Start() calls
-// ParticleProp()->Create() and returns -- so what moves to C# is the DECISION
-// (which of the eight systems, and where) and what stays is the one call.
-//
-// WHY THE EFFECT IS OWNERLESS. Stock passes the entity, and CParticleProperty
-// binds the system's control point to it so the flame follows. ParticleProp()
-// is a CBaseEntity member; C_StandaloneEntity is an IClientEntity on the
-// parallel hierarchy, has no such property, and cannot be given one without
-// becoming a C_BaseEntity again -- which is the whole thing this port is
-// undoing. So the system is created with a NULL owner and its control point is
-// driven from the owner's origin by the sweep below, which is the same shape
-// the sprite trails use and for a related reason.
-//=============================================================================//
+// A managed entity has no ParticleProp(), so its systems are created ownerless and their
+// control points are driven from the owner's origin.
 
 struct SourceSharpParticleSystem_t
 {
 	uint32_t                        hOwner;
 	CSmartPtr< CShellNewParticleEffect > pEffect;
 
-	// Which control points the sweep below keeps at the owner, as a bitmask.
-	//
-	// One is the DEFAULT and is not a placeholder: control point 0 alone is what
-	// this file fed before the flame arrived, and it is right for all eight of
-	// fire_01.pcf's env_fire_* systems, whose highest referenced control point is
-	// 0. burning_character is the first system here that reads control point 1 --
-	// its "Position on Model Random" initializer names it -- and an unfed control
-	// point is the world ORIGIN, so a flame whose CP1 nobody wrote emits at the
-	// centre of the map. See SourceSharp_ParticleSystemFollowPoints.
+	// Which control points the sweep keeps at the owner, as a bitmask. An unfed control point
+	// is the world origin.
 	int32_t                         nFollowMask;
 };
 
-// The third hand-rolled owner lookup; it is ShellEffects_Find too.
 static CUtlVector< SourceSharpParticleSystem_t > g_ParticleSystems;
 
-//-----------------------------------------------------------------------------
-// Every instance started here, watched. Heap entries: a CUtlReference links
-// itself into its object's list, so it must not be moved by a vector's growth.
-//-----------------------------------------------------------------------------
+// Heap entries: a CUtlReference links itself into its object's list and must not move.
 struct WatchedParticleSystem_t
 {
 	CUtlReference< CShellNewParticleEffect > ref;
@@ -1137,8 +971,7 @@ static void ReapWatchedParticleSystems()
 	}
 }
 
-// Reaps first, so the table is bounded by the live effects even when nobody
-// reads it.
+// Reaps first, so the table is bounded by the live effects.
 static void WatchParticleSystem( CShellNewParticleEffect *pEffect, uint32_t hOwner, int32_t nKind )
 {
 	ReapWatchedParticleSystems();
@@ -1151,8 +984,7 @@ static void WatchParticleSystem( CShellNewParticleEffect *pEffect, uint32_t hOwn
 	g_WatchedParticles.AddToTail( pWatch );
 }
 
-// The library's Create, for an owned system, watched for the route. A refused
-// name (no definition) is not watched: Start refuses it to managed.
+// A refused name is not watched: Start refuses it to managed.
 static CSmartPtr< CShellNewParticleEffect > CreateWatched( uint32_t hOwner, const char *pszName )
 {
 	CSmartPtr< CShellNewParticleEffect > pEffect = CShellNewParticleEffect::Create( pszName, "SourceSharpFlame" );
@@ -1161,13 +993,7 @@ static CSmartPtr< CShellNewParticleEffect > CreateWatched( uint32_t hOwner, cons
 	return pEffect;
 }
 
-//-----------------------------------------------------------------------------
-// Lets one entity's system finish, and forgets it.
-//
-// StopEmission rather than a release: the particles already in the air are a
-// second or two of fire that should burn out rather than blink away, which is
-// what stock's ~C_FireSmoke asks for with its own three arguments.
-//-----------------------------------------------------------------------------
+// StopEmission rather than a release, so particles already in the air burn out.
 static void ReleaseParticleSystemAt( int nIndex )
 {
 	CShellNewParticleEffect *pEffect = g_ParticleSystems[ nIndex ].pEffect.GetObject();
@@ -1178,13 +1004,7 @@ static void ReleaseParticleSystemAt( int nIndex )
 	g_ParticleSystems.Remove( nIndex );
 }
 
-//-----------------------------------------------------------------------------
-// Starts a named particle system for a managed entity.
-//
-// One at a time per entity: asking again replaces whatever was running, which
-// is what a flame that changed size would want and what stock's Start() gets
-// for free by only ever being called once.
-//-----------------------------------------------------------------------------
+// One system per entity: starting again replaces the running one.
 int32_t SourceSharp_ParticleSystemStart( uint32_t hOwner, const char *pszName )
 {
 	if ( !pszName || !pszName[0] )
@@ -1202,9 +1022,7 @@ int32_t SourceSharp_ParticleSystemStart( uint32_t hOwner, const char *pszName )
 
 	CSmartPtr< CShellNewParticleEffect > pEffect = CreateWatched( hOwner, pszName );
 
-	// A name no .pcf defines comes back as an effect with no definition behind
-	// it, which draws nothing and says nothing. Refused here so the managed
-	// side is told once, rather than one silent orphan accumulating per flame.
+	// A name no .pcf defines yields an effect that draws nothing; refuse it so managed knows.
 	if ( !pEffect.IsValid() || !pEffect->IsValid() )
 		return 0;
 
@@ -1221,32 +1039,10 @@ int32_t SourceSharp_ParticleSystemStart( uint32_t hOwner, const char *pszName )
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// Which control points of a running system stay at its owner.
-//
-// A SEPARATE CALL rather than an argument to Start, because Start's signature is
-// an ABI field six other lanes are appending beside and widening one in the
-// middle of that struct moves everything after it. This appends instead, and
-// the default it overrides is the behaviour every existing caller already has.
-//
-// WHY ANY OF IT IS NEEDED. A particle system's operators address the world
-// through numbered control points, and an operator whose point was never
-// written reads (0,0,0). Read out of the .pcf files rather than assumed:
-//
-//   fire_01.pcf   env_fire_{tiny,small,medium,large}[_smoke]  highest CP = 0
-//   burning_fx.pcf  burning_character and its four children   highest CP = 1
-//
-// burning_character's "Position on Model Random" initializer names control
-// point 1, and asks the particle query for points on the MODEL bound there.
-// Nothing can be bound: SetControlPointEntity takes a CBaseEntity and every
-// entity on this hierarchy is not one. CParticleSystemQuery::
-// GetRandomPointsOnControllingObjectHitBox then takes its `if ( !bSucesss )`
-// fallback and answers m_ControlPoints[1].m_Position for every point -- so the
-// flame draws at the map origin unless that point is fed.
-//
-// Returns 1 if the entity had a system to configure. A 0 means the flame asked
-// before it started one, which is a caller bug rather than a missing feature.
-//-----------------------------------------------------------------------------
+// Which control points of a running system stay at the owner. A separate call so Start's
+// ABI row is unchanged. Operators read an unwritten control point as the origin, and
+// burning_character's initializer reads control point 1. Returns 0 if the entity has no
+// system, which is a caller bug.
 int32_t SourceSharp_ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointMask )
 {
 	int nIndex = ShellEffects_Find( g_ParticleSystems, hOwner );
@@ -1254,19 +1050,13 @@ int32_t SourceSharp_ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointM
 	if ( nIndex < 0 )
 		return 0;
 
-	// Point 0 is always fed. It is where the system itself is placed at
-	// creation, and a mask that cleared it would leave the effect stranded at
-	// wherever it was born -- which is the bug this call exists to prevent,
-	// inverted.
+	// Point 0 is always fed: it is where the system is placed.
 	g_ParticleSystems[ nIndex ].nFollowMask =
 		SourceSharpParticleFollow_Normalise( nPointMask );
 
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// The flame goes out when its entity does.
-//-----------------------------------------------------------------------------
 void SourceSharp_ParticleSystemStop( uint32_t hOwner )
 {
 	int nIndex = ShellEffects_Find( g_ParticleSystems, hOwner );
@@ -1275,26 +1065,15 @@ void SourceSharp_ParticleSystemStop( uint32_t hOwner )
 		ReleaseParticleSystemAt( nIndex );
 }
 
-//-----------------------------------------------------------------------------
 // A one-shot an impact started: watched, not held.
-//-----------------------------------------------------------------------------
 void ShellParticles_WatchOneShot( CShellNewParticleEffect *pEffect )
 {
 	if ( pEffect )
 		WatchParticleSystem( pEffect, SOURCESHARP_PARTICLE_NO_OWNER, SOURCESHARP_PARTICLE_SYSTEM_ONE_SHOT );
 }
 
-//-----------------------------------------------------------------------------
-// Every managed particle system, put back where its entity is.
-//
-// The trails' sweep, for the trails' reason: an entity that only MOVED delivers
-// no data change at all, because its origin is a real prop outside the blob. A
-// system fed only on update would emit at the place its flame was created and
-// stay there while the flame walked off.
-//
-// Backwards, so that removing an entry mid-walk cannot make the sweep skip its
-// neighbour.
-//-----------------------------------------------------------------------------
+// Every managed particle system moved to its entity: a move alone raises no data change.
+// Backwards, since entries are removed mid-walk.
 void ShellParticles_PreRender()
 {
 	for ( int i = g_ParticleSystems.Count() - 1; i >= 0; i-- )
@@ -1309,20 +1088,14 @@ void ShellParticles_PreRender()
 
 		C_StandaloneEntity *pOwner = SourceSharp_StandaloneFromHandle( g_ParticleSystems[i].hOwner );
 
-		// The entity has gone without this side being told -- it left the PVS
-		// for good, or the level is coming down. Let the system finish rather
-		// than stranding it emitting at a dead entity's last position.
+		// The entity is gone; let the system finish rather than emit at its last position.
 		if ( !pOwner )
 		{
 			ReleaseParticleSystemAt( i );
 			continue;
 		}
 
-		// EVERY point the owner asked for, not only point 0. They all get the
-		// same position, which is what stock's C_EntityFlame does too --
-		// SetControlPointEntity( 0, pEntity ) and ( 1, pEntity ), one entity,
-		// twice -- because the second point is there to say WHAT is burning
-		// rather than where a second thing is.
+		// Every requested point gets the owner's position, as stock's C_EntityFlame binds both.
 		const Vector vecOrigin = pOwner->GetAbsOrigin();
 		const int32_t nMask = g_ParticleSystems[i].nFollowMask;
 
@@ -1331,16 +1104,11 @@ void ShellParticles_PreRender()
 			if ( SourceSharpParticleFollow_Wants( nMask, nPoint ) )
 				pEffect->SetControlPoint( nPoint, vecOrigin );
 		}
-		pEffect->SetSortOrigin( vecOrigin );	// stock UpdateControlPoint's last line: the leaf system culls by it
+		pEffect->SetSortOrigin( vecOrigin ); // the leaf system culls by it
 	}
 }
 
-//-----------------------------------------------------------------------------
-// The systems are stopped rather than merely forgotten. Unlike a renderer, a
-// new-style effect is a live simulation the particle manager holds a
-// reference to, and a level change is not a moment to let one burn out
-// gracefully.
-//-----------------------------------------------------------------------------
+// Stopped rather than forgotten: the particle manager holds a reference to each.
 void ShellParticles_LevelShutdown()
 {
 	for ( int i = g_ParticleSystems.Count() - 1; i >= 0; i-- )
@@ -1350,10 +1118,7 @@ void ShellParticles_LevelShutdown()
 	g_ParticleSystems.RemoveAll();
 }
 
-//-----------------------------------------------------------------------------
-// The dev API's read (/client/{slot}/particles): one watched instance by index,
-// the total the return. An index past the end writes nothing.
-//-----------------------------------------------------------------------------
+// The dev API's read: one watched instance by index; returns the total.
 static int CountParticles( CParticleCollection *pCollection )
 {
 	if ( !pCollection )
@@ -1381,7 +1146,6 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 	pOut->Owner = pWatch->hOwner;
 	pOut->Age = gpGlobals->curtime - pWatch->flStarted;
 
-	// Released: an owned system no row of the owned table holds any more.
 	const int nOwned = ShellEffects_Find( g_ParticleSystems, pWatch->hOwner );
 	const bool bHeld = nOwned >= 0 && g_ParticleSystems[ nOwned ].pEffect.GetObject() == pEffect;
 	pOut->Stopped = ( pWatch->nKind == SOURCESHARP_PARTICLE_SYSTEM_OWNED && !bHeld ) ? 1 : 0;
@@ -1410,35 +1174,10 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 	return nCount;
 }
 
-//=============================================================================//
-// THE PARTICLE QUERY (lane c5-particles, plan_client_novalve §3.4)
-//
-// IParticleSystemQuery is what particles.a calls back into the game for. It
-// was particlesystemquery.cpp's CParticleSystemQuery; it is a thunk now, and
-// what each answer IS comes from managed (SourceSharp.Client.Effects.
-// ParticleSystemQuery, replayed against the stock recording
-// Fixtures/particlequery-stock.tsv.gz). This carries the answers out.
-//
-// THE LIBRARY CALLS FIVE METHODS (C0 probe 1: every one of the 245 loaded
-// definitions started in turn): TraceLine, GetLightingAtPoint, the two
-// controlling-object hit-box methods and GetCollisionGroupFromName. Each asks
-// managed through IManagedParticlesClient.
-//
-// THE OTHER SIX ARE REFUSED: never called by any definition, so each one
-// warns and counts on the client's refusal tally (/client/{slot}/absences, a
-// row there is a failing gate) and answers as the interface's own inline
-// default does (GetPixelVisibility, which has none, answers stock's server
-// arm, 0; SetUpLightingEnvironment does nothing).
-//
-// UNANSWERED: a call that finds no managed area, or a managed answer that
-// failed. The collision-group names are read twice: once while the client's
-// Init loads the definitions, which is before the managed runtime exists
-// (14 calls at a9d8f9fd, measured by the recording probe's clock), and again
-// at the first level's full read (ParticleReloadPolicy: the first level
-// always re-reads), which replaces every definition before any effect can
-// exist. The first read is answered with the interface's own default,
-// COLLISION_GROUP_NONE, and counted here; the route reports the count.
-//=============================================================================//
+// The IParticleSystemQuery particles.a calls back into, with each answer from managed.
+// The six methods no definition calls warn and count as refusals. Calls with no managed
+// side (the collision-group reads during Init, before the runtime exists) answer the
+// interface's default and are counted.
 
 class CShellParticleSystemQuery : public CBaseAppSystem< IParticleSystemQuery >
 {
@@ -1449,9 +1188,7 @@ public:
 	{
 		IManagedParticlesClient *pArea = ManagedParticlesClient();
 		uint8_t rgba[4];
-		// Stock's s_LightMutex: the library simulates its systems on several
-		// threads at once (r_threaded_particles), and the engine's light
-		// lookup the answer is made from is not safe to enter twice.
+		// The library simulates on several threads, and the engine's light lookup is not reentrant.
 		AUTO_LOCK( m_LightMutex );
 		if ( pArea && pArea->QueryLighting( vecOrigin.Base(), rgba ) == 1 )
 			tint.SetColor( rgba[0], rgba[1], rgba[2], rgba[3] );
@@ -1502,8 +1239,7 @@ public:
 		if ( nAnswer == nNumPtsOut )
 			return;
 
-		// The stock function's own "fallback if anything goes wrong": every
-		// point at the control point.
+		// Stock's fallback: every point at the control point.
 		Unanswered_Add( kHitBoxPoints );
 		for ( int i = 0; i < nNumPtsOut; i++ )
 		{
@@ -1529,7 +1265,7 @@ public:
 		return 0;
 	}
 
-	// -- the six refused ----------------------------------------------------
+	// Never called by any definition: each warns and counts as a refusal.
 	virtual bool MovePointInsideControllingObject( CParticleCollection *, void *, Vector * ) OVERRIDE
 	{
 		ShellClientDll_RefuseExternal( "IParticleSystemQuery::MovePointInsideControllingObject" );
@@ -1573,7 +1309,7 @@ public:
 	}
 
 private:
-	// Interlocked: the library's worker threads call these concurrently.
+	// The library's worker threads call these concurrently.
 	void Unanswered_Add( int nMethod ) { ThreadInterlockedIncrement( &m_nUnanswered[ nMethod ] ); }
 
 	CThreadFastMutex m_LightMutex;
@@ -1582,18 +1318,11 @@ private:
 
 static CShellParticleSystemQuery s_ShellParticleQuery;
 
-// The global CParticleMgr::Init hands particles.a (particlemgr.cpp names it
-// extern), and the interface tools may ask for by name: both were
-// particlesystemquery.cpp's, which left the client with this thunk's arrival
-// (lane c5-particles). No engine binary names VParticleSystemQuery001
-// (strings over the 243750 install's bin/linux64); the registration is kept so
-// the client's exported interface set (K1) does not change.
+// The global CParticleMgr::Init hands particles.a, also registered by name.
 IParticleSystemQuery *g_pParticleSystemQuery = &s_ShellParticleQuery;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellParticleSystemQuery, IParticleSystemQuery, PARTICLE_SYSTEM_QUERY_INTERFACE_VERSION, s_ShellParticleQuery );
 
-// The particles route's readout: the unanswered calls, per method, in
-// CShellParticleSystemQuery's order (collision group, lighting, trace, hit-box
-// points, hit-box info). The count written.
+// The unanswered calls per method, in CShellParticleSystemQuery's order. Returns the count.
 int32_t SourceSharp_ParticleQueryUnanswered( int32_t *pOut, int32_t nMax )
 {
 	int32_t n = 0;
@@ -1602,12 +1331,8 @@ int32_t SourceSharp_ParticleQueryUnanswered( int32_t *pOut, int32_t nMax )
 	return n;
 }
 
-//-----------------------------------------------------------------------------
-// The ParticleEffect client effect's carry-out (lane c5-particles): what
-// stock's ParticleEffectCallback did with CNewParticleEffect for a dispatch at
-// a world point. Which name, which points and the orientation are managed's
-// (ParticleEffectHandler); this creates the system, watched as a one-shot.
-//-----------------------------------------------------------------------------
+// The ParticleEffect client effect's carry-out: managed chooses the name, points and
+// orientation; this creates the system as a watched one-shot.
 const char *GetParticleSystemNameFromIndex( int nIndex );
 
 int32_t SourceSharp_ParticleSystemNameFromIndex( int32_t nIndex, char *pszOut, int32_t nOutMax )
@@ -1619,8 +1344,8 @@ int32_t SourceSharp_ParticleSystemNameFromIndex( int32_t nIndex, char *pszOut, i
 	return Q_strlen( pszOut );
 }
 
-// pPoints: nPoints of (point, x, y, z), set in order. pOrientation0: control
-// point 0's forward, right and up. 1 when a definition answered the name.
+// pPoints: nPoints of (point, x, y, z). pOrientation0: control point 0's forward, right
+// and up. 1 when a definition answered the name.
 int32_t SourceSharp_ParticleSystemOneShot( const char *pszName, const float *pSortOriginXYZ, const float *pPoints,
                                            int32_t nPoints, const float *pOrientation0 )
 {
@@ -1641,13 +1366,8 @@ int32_t SourceSharp_ParticleSystemOneShot( const char *pszName, const float *pSo
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// The particle collision's world trace (lane c5-particles: ParticleCollision's
-// IParticleWorldTrace): UTIL_TraceLine( start, end, MASK_SOLID_BRUSHONLY,
-// NULL, COLLISION_GROUP_NONE ), as particle_collision.cpp made every one of
-// its traces. Out: fraction, endpos xyz, normal xyz, dist, allsolid,
-// startsolid. The count written.
-//-----------------------------------------------------------------------------
+// MASK_SOLID_BRUSHONLY, as particle_collision.cpp traced. Out: fraction, endpos xyz,
+// normal xyz, dist, allsolid, startsolid. Returns the count written.
 int32_t SourceSharp_ParticlesWorldTrace( const float *pStartXYZ, const float *pEndXYZ, float *pOut, int32_t nOut )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pOut || nOut < 10 )
@@ -1668,13 +1388,7 @@ int32_t SourceSharp_ParticlesWorldTrace( const float *pStartXYZ, const float *pE
 	return 10;
 }
 
-
-//-----------------------------------------------------------------------------
-// The view the particle manager is drawing (lane c5-particles): the model-view
-// matrix's three rows, as CTrailParticles' render read them, and
-// CurrentViewID(), which CSimpleGlowEmitter keys its visibility tests by, and
-// the view's origin and forward, which CSimple3DEmitter sorts and shades by.
-//-----------------------------------------------------------------------------
+// The model-view matrix's three rows, CurrentViewID(), and the view's origin and forward.
 void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pOriginForward6 )
 {
 	if ( pModelView12 )
@@ -1699,14 +1413,8 @@ void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pO
 	}
 }
 
-//-----------------------------------------------------------------------------
-// A line through the world with the contents mask managed names (lane
-// c5-particles: WaterSplashes' MASK_WATER ripple, ExplosionEffects'
-// CONTENTS_SOLID probes and MASK_WATER surface search):
-// UTIL_TraceLine( start, end, mask, NULL, COLLISION_GROUP_NONE ). Out:
-// fraction, endpos xyz, normal xyz, startsolid, fractionleftsolid. The count
-// written.
-//-----------------------------------------------------------------------------
+// A trace with managed's contents mask. Out: fraction, endpos xyz, normal xyz, startsolid,
+// fractionleftsolid. Returns the count written.
 int32_t SourceSharp_ParticlesTraceMask( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, float *pOut, int32_t nOut )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pOut || nOut < 9 )
@@ -1726,13 +1434,7 @@ int32_t SourceSharp_ParticlesTraceMask( const float *pStartXYZ, const float *pEn
 	return 9;
 }
 
-//-----------------------------------------------------------------------------
-// fx_water.cpp's four entry points, which native code still calls (lane
-// c5-particles): physics.cpp's PhysicsSplash (a prop hitting water) and the
-// rain's ripple (shell_effects_sim.cpp). The routines are C#'s (WaterSplashes,
-// WaterMath); each call here is one crossing with stock's arguments, and the
-// splash or the tint is decided there.
-//-----------------------------------------------------------------------------
+// fx_water.cpp's entry points native code still calls; managed decides each splash or tint.
 static void ManagedWaterSplash( int nKind, const Vector &origin, const Vector *pNormal, float flScale, const Vector *pColor,
                                 float flLifetime, float flAlpha )
 {
@@ -1756,8 +1458,7 @@ void FX_WaterRipple( const Vector &origin, float scale, Vector *pColor, float fl
 	ManagedWaterSplash( 2, origin, NULL, scale, pColor, flLifetime, flAlpha );
 }
 
-// Unanswered (no managed side), the tint is black and the luminosity 0: what
-// stock answers for a black light.
+// With no managed side, the tint is black and the luminosity 0, as for a black light.
 void UTIL_GetNormalizedColorTintAndLuminosity( const Vector &color, Vector *tint, float *luminosity )
 {
 	Vector vTint( 0, 0, 0 );
@@ -1770,12 +1471,7 @@ void UTIL_GetNormalizedColorTintAndLuminosity( const Vector &color, Vector *tint
 		*luminosity = flLuminosity;
 }
 
-//-----------------------------------------------------------------------------
-// fx_blood.cpp's precache list, which left with it (lane c5-particles): the
-// blood effects are C# (BloodEffects) and draw through the executors above,
-// and the precache system is still native, so the four materials stock's
-// fx_blood.cpp registered are registered here, unchanged.
-//-----------------------------------------------------------------------------
+// Materials the managed effects draw with, precached as the stock effect files did.
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectBloodSpray )
 CLIENTEFFECT_MATERIAL( "effects/blood_core" )
 CLIENTEFFECT_MATERIAL( "effects/blood_gore" )
@@ -1783,12 +1479,6 @@ CLIENTEFFECT_MATERIAL( "effects/blood_drop" )
 CLIENTEFFECT_MATERIAL( "effects/blood_puff" )
 CLIENTEFFECT_REGISTER_END()
 
-//-----------------------------------------------------------------------------
-// fx_explosion.cpp's precache list, which left with it (lane c5-particles):
-// the explosions are C# (ExplosionEffects) and draw through the executors
-// above and the effect list; the precache system is still native, so the nine
-// materials stock's fx_explosion.cpp registered are registered here, unchanged.
-//-----------------------------------------------------------------------------
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectExplosion )
 CLIENTEFFECT_MATERIAL( "effects/fire_cloud1" )
 CLIENTEFFECT_MATERIAL( "effects/fire_cloud2" )
@@ -1801,13 +1491,6 @@ CLIENTEFFECT_MATERIAL( "effects/splash3" )
 CLIENTEFFECT_MATERIAL( "effects/splashwake1" )
 CLIENTEFFECT_REGISTER_END()
 
-//-----------------------------------------------------------------------------
-// fx.cpp's precache list, which left with it (lane c5-particles): the muzzle
-// flashes are C# (FxEffects, MuzzleFlashes) and draw through the executors
-// above and the pool's emitters; the precache system is still native, so the
-// twelve materials stock's fx.cpp registered in this build (no TF_CLIENT_DLL,
-// CSTRIKE_DLL or HL2MP) are registered here, unchanged.
-//-----------------------------------------------------------------------------
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheMuzzleFlash )
 CLIENTEFFECT_MATERIAL( "effects/muzzleflash1" )
 CLIENTEFFECT_MATERIAL( "effects/muzzleflash2" )
@@ -1823,11 +1506,6 @@ CLIENTEFFECT_MATERIAL( "effects/combinemuzzle2" )
 CLIENTEFFECT_MATERIAL( "effects/combinemuzzle2_nocull" )
 CLIENTEFFECT_REGISTER_END()
 
-//-----------------------------------------------------------------------------
-// fx_water.cpp's precache list, which left with it (lane c5-particles): the
-// splashes are C# (WaterSplashes) and draw through the executors above, so the
-// four materials stock's fx_water.cpp registered are registered here, unchanged.
-//-----------------------------------------------------------------------------
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectSplash )
 CLIENTEFFECT_MATERIAL( "effects/splash1" )
 CLIENTEFFECT_MATERIAL( "effects/splash2" )
@@ -1835,13 +1513,6 @@ CLIENTEFFECT_MATERIAL( "effects/splash4" )
 CLIENTEFFECT_MATERIAL( "effects/slime1" )
 CLIENTEFFECT_REGISTER_END()
 
-//-----------------------------------------------------------------------------
-// fx_sparks.cpp's precache list, which left with it (lane c5-particles): the
-// sparks are C# (SparkEffects) and draw through the executors above and the
-// effect list, so the ten materials stock's fx_sparks.cpp registered are
-// registered here (sorted by name: the order a precache list names its
-// materials in decides nothing).
-//-----------------------------------------------------------------------------
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectSparks )
 CLIENTEFFECT_MATERIAL( "effects/combinemuzzle1_nocull" )
 CLIENTEFFECT_MATERIAL( "effects/combinemuzzle2_nocull" )

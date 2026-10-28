@@ -7,8 +7,7 @@
 // are set up through bitbuf.h's public fields (the constructors are
 // bitbuf.cpp's, which the client does not carry).
 
-#ifndef BITBUF_SCENARIO_H
-#define BITBUF_SCENARIO_H
+#pragma once
 
 #include "tier1/bitbuf.h"
 
@@ -118,5 +117,3 @@ inline std::string Run()
 	return out;
 }
 } // namespace bitbuf_scenario
-
-#endif // BITBUF_SCENARIO_H

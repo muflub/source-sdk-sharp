@@ -4,8 +4,7 @@
 // SOURCESHARP_CI is exactly "1" (CI's workflow sets it, nothing else does)
 // the test is skipped with the reason; everywhere else it runs and fails as
 // it always did.
-#ifndef SS_CI_SKIP_H
-#define SS_CI_SKIP_H
+#pragma once
 
 #include <cstdlib>
 #include <cstring>
@@ -31,5 +30,3 @@ namespace ss_test
 		if ( ::ss_test::OnCi() )                                               \
 			GTEST_SKIP() << "not on CI: " << ( reason );                       \
 	} while ( 0 )
-
-#endif // SS_CI_SKIP_H

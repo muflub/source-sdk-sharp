@@ -5,12 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- view_scene.cpp's FrustumTransform =================//
-// A point through a row-major 4x4 world-to-surface matrix, divided by w.
-// Answers 1 when the point is behind the eye (w under 0.001), its x and y then
-// pushed 100000 times out so it lands far off screen; 0 otherwise. z is 0.
-// Engine-free so the arithmetic has a test (view_frustum_transform_test).
-//=============================================================================//
+// A point through a row-major 4x4 world-to-surface matrix, divided by w. Answers 1, with
+// x and y pushed far off screen, when the point is behind the eye; 0 otherwise.
 
 #pragma once
 

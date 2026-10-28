@@ -16,10 +16,6 @@ struct ClientWorldListInfo_t;
 class C_BaseEntity;
 struct WriteReplayScreenshotParams_t;
 
-#ifdef HL2_EPISODIC
-	class CStunEffect;
-#endif // HL2_EPISODIC
-
 // This identifies the view for certain systems that are unique per view (e.g. pixel visibility)
 // NOTE: This is identifying which logical part of the scene an entity is being redered in
 // This is not identifying a particular render target necessarily.  This is mostly needed for entities that
@@ -85,10 +81,6 @@ public:
 	VPlane *		GetFrustum();
 	virtual int		GetDrawFlags() { return 0; }
 
-#ifdef PORTAL
-	virtual	void	EnableWorldFog() {};
-#endif
-
 protected:
 	// @MULTICORE (toml 8/11/2006): need to have per-view frustum. Change when move view stack to client
 	VPlane			*m_Frustum;
@@ -111,10 +103,6 @@ public:
 	virtual void	Draw() {};
 
 protected:
-
-#ifdef PORTAL
-	virtual bool	ShouldDrawPortals() { return true; }
-#endif
 
 	void ReleaseLists();
 
@@ -252,12 +240,6 @@ private:
 
 	virtual void unused_ViewDrawScene_Intro() = 0;
 
-#ifdef PORTAL 
-	// Intended for use in the middle of another ViewDrawScene call, this allows stencils to be drawn after opaques but before translucents are drawn in the main view.
-	void			ViewDrawScene_PortalStencil( const CViewSetup &view, ViewCustomVisibility_t *pCustomVisibility );
-	void			Draw3dSkyboxworld_Portal( const CViewSetup &view, int &nClearFlags, bool &bDrew3dSkybox, SkyboxVisibility_t &nSkyboxVisible, ITexture *pRenderTarget = NULL );
-#endif // PORTAL
-
 	// This stores the current view
  	CViewSetup		m_CurrentView;
 
@@ -290,14 +272,6 @@ private:
 	int					m_BaseDrawFlags;	// Set in ViewDrawScene and OR'd into m_DrawFlags as it goes.
 	C_BaseEntity		*m_pCurrentlyDrawingEntity;
 
-#if defined( CSTRIKE_DLL )
-	float				m_flLastFOV;
-#endif
-
-#ifdef PORTAL
-	friend class CPortalRender; //portal drawing needs muck with views in weird ways
-	friend class CPortalRenderable;
-#endif
 	int				m_BuildRenderableListsNumber;
 
 	friend class CBase3dView;
@@ -310,7 +284,4 @@ private:
 	bool			m_rbTakeFreezeFrame[ STEREO_EYE_MAX ];
 	float			m_flFreezeFrameUntil;
 
-#if defined( REPLAY_ENABLED )
-	CReplayScreenshotTaker	*m_pReplayScreenshotTaker;
-#endif
 };

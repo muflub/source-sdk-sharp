@@ -4,30 +4,14 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — vstdlib's random stream, owned by client.so =========//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//
-// plan_server_novalve.md P4 (the P0 random probe, section 7) wrote this for
-// server.so, whose callers needed vstdlib's ALGORITHM, not its process-wide
-// instance. The server stopped drawing; the file is client.so's now
-// (plan_client_novalve C9, 2026-10-12), one client-owned instance of the same
-// generator for randoverride.cpp's rand(), bone_setup's attachment pick,
-// util_shared_library's seeded draws, viewpostprocess and particles.a.
-// vstdlib_random_oracle_test holds it to the game's own libvstdlib.so, draw
-// for draw.
-//
-// The generator is Park-Miller's minimal standard (multiplier 16807, modulus
-// 2^31 - 1, by Schrage's method) behind a 32-entry Bays-Durham shuffle --
-// Numerical Recipes' ran1, which is what vstdlib's CUniformRandomStream is.
-// Seeding stores the seed negated, so the first draw after RandomSeed warms
-// the table up again. Defined with hidden visibility, as the tier0 ports are.
-//=============================================================================//
+// vstdlib's random stream for client.so: Park-Miller's minimal standard
+// (Schrage's method) behind a 32-entry Bays-Durham shuffle, which is
+// vstdlib's CUniformRandomStream. A seed is stored negated so the next draw
+// warms the table up again.
 
-// vstdlib.h declares these VSTDLIB_INTERFACE, dllimport on Windows, and MSVC
-// exports a definition of a dllimport function from the DLL that holds it. Read
-// as plain C declarations here, so client.dll exports none of them
-// (game_dll_exports_test); every other file's import binds to these through
-// SS_BIND_IMPORT below.
+// Declared as plain C here so client.dll exports none of these; other files'
+// imports bind to them through SS_BIND_IMPORT below.
 #if defined( _MSC_VER )
 	#undef VSTDLIB_INTERFACE
 	#define VSTDLIB_INTERFACE extern "C"
@@ -35,7 +19,7 @@
 
 #include <math.h>
 #include <mutex>
-#include "ss_platform.h"	// SS_BIND_IMPORT
+#include "ss_platform.h"
 #include "vstdlib/random.h"
 #ifdef _MSC_VER
 // This file defines functions the engine DLLs' headers declare dllimport

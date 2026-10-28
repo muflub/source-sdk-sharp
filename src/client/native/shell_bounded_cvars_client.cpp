@@ -6,22 +6,9 @@
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
 //
-// THE CLIENT'S SERVER-BOUNDED CONVARS, CARRIED OUT (plan_client_novalve C8,
-// lane c6-input; replaces game/client/cdll_bounded_cvars.cpp).
-//
-// The objects stay native because the engine calls them through their vtable:
-// the engine's client-state interp query finds cl_interp_ratio
-// by name, casts it to ConVar_ServerBounded and calls GetFloat. What each
-// answers is DECIDED IN C#: BoundedConVars watches every input (the client's
-// three, cl_updaterate, the server's sv_client_* and sv_*updaterate bounds),
-// recomputes stock's rules on any change and pushes the results through
-// IShimConVarsClient::ConVarsClientSetValue. GetFloat returns the stored value
-// -- no crossing per read -- and the client's own value until managed has
-// pushed one (stock's answer whenever the server's bounds are absent).
-//
-// The names, defaults, flags and help texts are stock's, held to the pristine
-// file by ClientBoundedConVarOracleTests.
-//=============================================================================//
+// The client's server-bounded convars. The engine finds cl_interp_ratio by name and calls
+// GetFloat through the vtable; managed computes the bounded values and pushes them, and
+// until it has, GetFloat answers the client's own value.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +29,6 @@
 #include "tier1/convar.h"
 #include "tier1/iconvar.h"
 #include "shell_convars_client.h"
-
 
 namespace
 {
@@ -74,8 +60,7 @@ ConVar_ServerBounded *cl_predict = &s_cl_predict;
 ConVar_ServerBounded *cl_interp_ratio = &s_cl_interp_ratio;
 ConVar_ServerBounded *cl_interp = &s_cl_interp;
 
-// Decided in C# (BoundedConVars.InterpAmountName); stock's own fallback, 0.1,
-// until managed has pushed one.
+// Stock's fallback, 0.1, until managed has pushed a value.
 float GetClientInterpAmount()
 {
 	float flDecided;

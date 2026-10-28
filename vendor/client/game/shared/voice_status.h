@@ -10,10 +10,6 @@
 #include "voice_banmgr.h"
 #include "hudelement.h"
 
-#ifdef VOICE_VOX_ENABLE
-extern ConVar voice_vox;
-#endif // VOICE_VOX_ENABLE
-
 class CVoiceStatus;
 class IMaterial;
 
@@ -118,9 +114,6 @@ private:
 
 	bool				m_bHeadLabelsDisabled;
 
-#ifdef VOICE_VOX_ENABLE
-	CountdownTimer		m_bAboveThresholdTimer;
-#endif // VOICE_VOX_ENABLE
 };
 
 // Get the (global) voice manager. 

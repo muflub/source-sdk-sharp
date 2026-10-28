@@ -4,28 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — mathlib's members only client.so calls ============//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// The global names mathlib.h declares that client.so's objects leave
-// undefined and server.so's do not (plan_server_native_v2 T5: a shared TU
-// keeps only what both DLLs import). Each forwards to its ss_mathlib:: twin in
-// mathlib_port.h; src/shared/native/mathlib_port.cpp holds the ones both DLLs
-// call. client.so links no libmathlib.a.
-//
-// C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md): nineteen went when
-// clientshadowmgr.cpp, their only client importer, left, and collisionutils.cpp
-// left the client's list with them (no client object imported any of its names):
-// AngleIMatrix (both), CrossProduct, VectorRotate, VectorIRotate,
-// BoxOnPlaneSide, ConcatTransforms, VectorITransform, MatrixInvert,
-// QuaternionMatrix, QuaternionAngles, SignbitsForPlane, R_CullBox,
-// GeneratePerspectiveFrustum, MatrixTranspose, VMatrix::Transpose,
-// MatrixBuildScale, MatrixBuildPerspective, CalculateAABBFromProjectionMatrix,
-// and sseconst.cpp's six constants. The managed manager ports what it needs
-// (ShadowMath.cs).
-//=============================================================================//
+// The mathlib.h names only client.so imports; each forwards to its ss_mathlib
+// twin. The ones both DLLs call are in src/shared/native/mathlib_port.cpp.
 #include "mathlib_port.h"
-
 
 void AngleMatrix( const QAngle &angles, matrix3x4_t &mat )
 {

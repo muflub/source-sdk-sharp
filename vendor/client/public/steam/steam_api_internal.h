@@ -57,8 +57,6 @@ S_API void S_CALLTYPE SteamAPI_UnregisterCallResult( class CCallbackBase *pCallb
 #define _STEAM_CALLBACK_GS( _, thisclass, func, param, var ) \
 	CCallback< thisclass, param, true > var; void func( param *pParam )
 
-#ifndef API_GEN
-
 template< class T, class P >
 inline CCallResult<T, P>::CCallResult()
 {
@@ -160,8 +158,6 @@ inline void CCallback< T, P, bGameserver >::Run( void *pvParam )
 	(m_pObj->*m_Func)((P *)pvParam);
 }
 
-#endif // #ifndef API_GEN
-
 // structure that contains client callback data
 // see callbacks documentation for more details
 #if defined( VALVE_CALLBACK_PACK_SMALL )
@@ -183,12 +179,7 @@ struct CallbackMsg_t
 #pragma pack( pop )
 
 // Macros to define steam callback structures.  Used internally for debugging
-#ifdef STEAM_CALLBACK_INSPECTION_ENABLED
-	#include "../../clientdll/steam_api_callback_inspection.h"
-#else
 	#define STEAM_CALLBACK_BEGIN( callbackname, callbackid )	struct callbackname { enum { k_iCallback = callbackid };
- 
-#endif
 
 // Forward declare all of the Steam interfaces.  (Do we really need to do this?)
 class ISteamClient;
@@ -262,11 +253,7 @@ enum { k_iSteamChatCallbacks = 5900 };
 
 // Macros used to annotate various Steamworks interfaces to generate the
 // flat API
-#ifdef API_GEN
-# define STEAM_CLANG_ATTR(ATTR) __attribute__((annotate( ATTR )))
-#else
 # define STEAM_CLANG_ATTR(ATTR)
-#endif
 
 #define STEAM_CALL_BACK(RESULT_TYPE) STEAM_CLANG_ATTR("callback:" #RESULT_TYPE ";")
 

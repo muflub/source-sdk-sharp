@@ -7,12 +7,6 @@
 #include "predictioncopy.h"
 #include "shared_classnames.h"
 
-#ifndef NO_ENTITY_PREDICTION
-
-#else
-#define UsePrediction() 0
-#endif
-
 // CLIENT DLL includes
 
 #include "iclassmap.h"
@@ -28,7 +22,6 @@ class SendTable;
 #define DECLARE_NETWORKCLASS_NOBASE()									\
 		DECLARE_CLIENTCLASS_NOBASE()
 
-#ifndef NO_ENTITY_PREDICTION
 #define DECLARE_PREDICTABLE_IMPL( MAYBE_OVERRIDE )						\
 	public:																\
 		static typedescription_t m_PredDesc[];							\
@@ -39,12 +32,6 @@ class SendTable;
 // With warnings set to inconsistent-override, marking this properly as override would create warnings in all old files.
 // Instead, as files are converted to use override, just upgrade to this
 
-#else
-#define DECLARE_PREDICTABLE()	template <typename T> friend datamap_t *PredMapInit(T *)
-#define DECLARE_PREDICTABLE_OVERRIDE()	DECLARE_PREDICTABLE()
-#endif
-
-#ifndef NO_ENTITY_PREDICTION
 #define BEGIN_PREDICTION_DATA( className ) \
 	datamap_t className::m_PredMap = { 0, 0, #className, &BaseClass::m_PredMap }; \
 	datamap_t *className::GetPredDescMap( void ) { return &m_PredMap; } \
@@ -69,26 +56,6 @@ class SendTable;
 		static typedescription_t predDesc[] = \
 		{ \
 		{ FIELD_VOID,0, {0,0},0,0,0,0,0,0}, /* so you can define "empty" tables */
-
-#else
-#define BEGIN_PREDICTION_DATA( className ) \
-	template <> inline datamap_t *PredMapInit<className>( className * ) \
-	{ \
-		if ( 0 ) \
-		{ \
-			typedef className classNameTypedef; \
-			typedescription_t predDesc[] = \
-			{ \
-				{ FIELD_VOID,0, {0,0},0,0,0,0,0,0},
-
-#define BEGIN_PREDICTION_DATA_NO_BASE( className ) BEGIN_PREDICTION_DATA( className )
-
-#define END_PREDICTION_DATA() \
-			}; \
-			predDesc[0].flags = 0; /* avoid compiler warning of unused data */ \
-		} \
-	}
-#endif
 
 // On the client .dll this creates a mapping between a classname and
 //  a client side class.  Probably could be templatized at some point.

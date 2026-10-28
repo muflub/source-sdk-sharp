@@ -4,19 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the server's effect record and its dispatch
-//
-// plan_server_novalve.md P5 (lane SP). game/shared/effect_dispatch_data.h's
-// CEffectData is, on the server, a record native code fills and
-// shell_te_forwards.cpp's TE_DispatchEffect reads field by field into the
-// managed temp entity (its wire form is DT_EffectData, built by SourceSharp.
-// Server, not by this layout). No engine reads it, so on the server it is
-// server.so's own type, in namespace ss, on public/ headers alone; the client
-// keeps its own. te_effect_dispatch.h's DispatchEffect is declared here over it.
-//
-// Same members in the same order with the same defaults, so every function
-// that builds one is compiled exactly as before.
-//=============================================================================//
+// The server's effect record, read field by field by TE_DispatchEffect.
+// Members, order and defaults match stock's CEffectData.
 
 #pragma once
 
@@ -69,10 +58,7 @@ struct CEffectData
 	bool					m_bControlPoint1;
 	EffectControlPoint_t	m_ControlPoint1;
 
-	// Stock's slot for the effect-name string-table index. Nothing on the
-	// server writes or reads it (TE_DispatchEffect passes EffectNameIndex
-	// separately); it stays only so this type's size, and so every frame that
-	// holds one, is what the callers were compiled with when it was respelled.
+	// Unused on the server; kept so the type's size matches stock's.
 	int		m_iEffectName;
 
 	CEffectData()
@@ -94,5 +80,5 @@ struct CEffectData
 
 } // namespace ss
 
-// Send the named effect to everyone in its PVS (shell_te_forwards.cpp).
+// Sends the named effect to everyone in its PVS.
 void DispatchEffect( const char *pName, const ss::CEffectData &data );

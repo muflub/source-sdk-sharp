@@ -36,9 +36,6 @@ struct MaterialSystemHardwareIdentifier_t
 
 struct MaterialSystem_Config_t
 {
-#ifdef CSS_PERF_TEST
-	bool WaitForVSync() const { return false; }//( m_Flags & MATSYS_VIDCFG_FLAGS_NO_WAIT_FOR_VSYNC ) == 0; }
-#endif
 
 	void SetFlag( unsigned int flag, bool val )
 	{

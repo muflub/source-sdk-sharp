@@ -8,8 +8,7 @@
 // which), a fresh block next to the last fresh one or in a new blob, the
 // alignment, the zeroing, and Count/PeakCount.
 
-#ifndef MEMPOOL_SCENARIO_H
-#define MEMPOOL_SCENARIO_H
+#pragma once
 
 #include "tier1/mempool.h"
 
@@ -124,5 +123,3 @@ inline std::string Run()
 	return out;
 }
 } // namespace mempool_scenario
-
-#endif // MEMPOOL_SCENARIO_H

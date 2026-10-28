@@ -5,36 +5,18 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the rope executor =================================//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// plan_client_novalve.md §2 cluster 6. Everything a rope DECIDES is in C#
-// now: the verlet ring, wind, gusts, shakes, the resting test, the endpoints,
-// the Catmull-Rom subdivision, the lighting and the FakeAA widths
-// (src/client/managed/Ropes). What is left here is what managed code cannot
-// hold, which is three handles and a mesh:
-//
-//   * the materials. A rope names its material; IMaterial pointers are the
-//     material system's, so this file finds them, keeps them referenced and
-//     answers a small integer for each (RopeMaterial).
-//   * the per-view render cache. viewrender asks IRopeManager to reset it
-//     before a view's opaque entities draw and to draw it after them; a rope's
-//     DrawModel (the managed owner's custom draw) hands its built strip in
-//     between (RopeDraw).
-//   * the mesh. Each strip arrives as the camera-facing vertices managed
-//     code's BeamSegDraw made of it (two a segment, beam_strip_vertex.h's
-//     layout), written into one triangle list per material. The FakeAA back
-//     pass, the solid pass and the shadow-depth pass are a kind switch on what
-//     managed code handed over.
-//
-// The material system may run its render calls on another thread. Then the
-// cache is copied into one of two frame buffers (OnRenderStart switches them)
-// and the draw is queued, which is what the stock CRopeManager did with its
-// memory stack.
-//
-// The stock C_RopeKeyframe, CRopeManager and their simulation left with this
-// file's rewrite; c_rope.cpp goes from the build in its own commit.
-//=============================================================================//
+// The rope executor. Every rope decision is managed's; this holds what managed
+// cannot:
+//   * the materials, kept referenced and answered as small integers;
+//   * the per-view render cache viewrender resets before a view's opaque
+//     entities and draws after them, filled by RopeDraw in between;
+//   * the mesh: each strip arrives as camera-facing vertices
+//     (beam_strip_vertex.h's layout), written into one triangle list per
+//     material.
+// When the material system renders on another thread, the cache is copied
+// into one of two frame buffers (OnRenderStart switches them) and the draw is
+// queued.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,10 +60,7 @@
 #include "vphysics_interface.h"
 #include "beam_strip_vertex.h"
 #include "shell_effect_ledger.h"
-#include "shell_clientsystem.h"	// plan_cworld_trace.md T4
-
-// memdbgon must be the last include file in a .cpp file!!!
-
+#include "shell_clientsystem.h"
 
 // RopeDraw's flags. Kinds, not decisions: managed code chose them.
 enum
@@ -90,9 +69,7 @@ enum
 	ROPE_DRAW_SOLID  = 0x2,   // draw the solid pass (rope_rendersolid)
 };
 
-//-----------------------------------------------------------------------------
 // The materials, by handle.
-//-----------------------------------------------------------------------------
 struct RopeMaterial_t
 {
 	char       szName[128];
@@ -160,9 +137,7 @@ static void RopeMaterials_Release()
 	g_RopeMaterials.RemoveAll();
 }
 
-//-----------------------------------------------------------------------------
 // One view's strips: where each sits in the segment pool, and how to draw it.
-//-----------------------------------------------------------------------------
 struct RopeStrip_t
 {
 	int nMaterial;
@@ -208,7 +183,7 @@ public:
 	// IRopeManager.
 	virtual void ResetRenderCache( void ) OVERRIDE { m_Cache.Clear(); }
 
-	// Nothing calls this any more: a rope reaches the cache through RopeDraw.
+	// A rope reaches the cache through RopeDraw instead.
 	virtual void AddToRenderCache( C_RopeKeyframe * ) OVERRIDE {}
 
 	virtual void DrawRenderCache( bool bShadowDepth ) OVERRIDE
@@ -352,12 +327,9 @@ IRopeManager *RopeManager()
 	return &g_RopeExecutor;
 }
 
-//-----------------------------------------------------------------------------
-// One rope's strip for the view being drawn, as the vertices managed code's
-// BeamSegDraw made of it (and the solid pass's, the same count or none: the
-// pass's mesh is sized by the strip's). Called from inside the managed owner's
-// DrawModel, between viewrender's ResetRenderCache and DrawRenderCache.
-//-----------------------------------------------------------------------------
+// One rope's strip for the view being drawn, and the solid pass's (the same
+// count or none). Called from the managed owner's DrawModel, between
+// viewrender's ResetRenderCache and DrawRenderCache.
 void SourceSharp_RopeDraw( int32_t nMaterial, const float *pVerts, int32_t nVerts,
                            const float *pSolid, int32_t nSolid, int32_t nFlags )
 {
@@ -369,9 +341,7 @@ void SourceSharp_RopeDraw( int32_t nMaterial, const float *pVerts, int32_t nVert
 	g_RopeExecutor.Add( nMaterial, pVerts, nVerts, pSolid, nSolid, nFlags );
 }
 
-//-----------------------------------------------------------------------------
 // The level's materials and caches go with it.
-//-----------------------------------------------------------------------------
 class CSourceSharpRopeSystem : public CClientSystem
 {
 public:
@@ -386,13 +356,10 @@ public:
 
 static CSourceSharpRopeSystem g_SourceSharpRopeSystem;
 
-// plan_cworld_trace.md T4: kClientSystems[] is the only thing that reaches this.
 CClientSystem *ClientSystem_Rope() { return &g_SourceSharpRopeSystem; }
 
-//-----------------------------------------------------------------------------
-// THE READS A MANAGED ROPE MAKES, each a pass-through onto the engine. Named
-// for what they read rather than for ropes: a beam asks the same view.
-//-----------------------------------------------------------------------------
+// The reads a managed rope or beam makes, each a pass-through onto the engine.
+//
 // The view being drawn (CurrentViewForward/Origin, and the render context's
 // world-space camera the strip faces: only inside a view, which is what
 // bCurrentView says the caller is), the main view's origin, the screen width,

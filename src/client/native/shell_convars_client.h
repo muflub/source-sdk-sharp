@@ -4,10 +4,7 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the managed client's convar watch and decided values
-//
-// shell_convars_client.cpp says what these are (plan_client_novalve C8).
-//=============================================================================//
+// The managed client's convar watch and decided values.
 #pragma once
 
 #include <stdint.h>

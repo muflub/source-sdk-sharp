@@ -1,46 +1,10 @@
-//========= SourceSharp ======================================================//
-//
-// ENGINE-BOUNDARY PROBES -- plan_entity.md Phase 0 step 0e.
-//
-// WHAT THIS IS FOR. Phase 1 and Phase 5 delete native entity machinery, and
-// the question they cannot answer from the source is "may this method answer
-// NULL?". Only two things settle that: the engine never calls it, or the
-// engine ignores what it returns. This counts calls so the first can be
-// measured, and it records WHERE EACH CALL CAME FROM so that each call site
-// is counted on its own.
-//
-// THE CALLER ADDRESS IS THE POINT, not the count. A count says a method ran;
-// a return address says which module ran it, and from which call site. Two
-// sites calling one method are two rows, not one merged total, so a site that
-// fires once at map load is not hidden behind one that fires every frame.
-// docs/engine-boundary.md carries what the runs showed; this file is only the
-// half that runs.
-//
-// UP TO kMaxCallers DISTINCT ADDRESSES PER METHOD, and an overflow count
-// beside them. A fixed table rather than a growing one because this runs
-// inside CheckTransmit, which the engine calls once per client per frame: an
-// allocation there would change the thing being measured. Eight is a fixed
-// ceiling, and the overflow counter is what says when it stopped being
-// enough, so the table can never quietly lie by being full.
-//
-// ENGINE-FREE ON PURPOSE. No cbase.h, no tier0, nothing Valve: the native test
-// suite compiles this header on its own (src/buildcpptests), and a probe that
-// could only be tested inside a running game is a probe nobody checks. The
-// report is produced as TEXT LINES and printed by the caller, so Msg() -- the
-// one part that needs the engine -- stays in the .cpp that owns the console
-// command.
-//
-// NOT ATOMIC, and it must not become so. Every method armed here is called on
-// the engine's main thread inside the game DLL's frame; a lock or an atomic in
-// CheckTransmit would cost more than the thing it measures. A torn count on
-// some future threaded caller would misreport a number nobody is reading as
-// exact anyway -- what the doc reads out of these is zero versus non-zero, and
-// which module the caller was.
-//
-//===========================================================================//
+// Engine-boundary probes: per-method call counts, null/non-null results and the
+// distinct return addresses that called, for finding out whether the engine
+// calls a method and from where. Engine-free so it can be tested; not atomic,
+// because every probed method runs on the main thread and an atomic in
+// CheckTransmit would cost more than it measures.
 
 #pragma once
-
 
 #include <stdint.h>
 #include <stdio.h>
@@ -48,21 +12,8 @@
 
 #include "ss_platform.h"
 
-//-----------------------------------------------------------------------------
-// Every probed method, in vtable order per interface.
-//
-// The three kBoundaryProbe_GetPlayerState_* entries are not methods: they are
-// the three ANSWERS GetPlayerState can give, counted separately because "the
-// engine called it 40,000 times" and "the standalone arm answered every one of
-// them" are different facts and Phase 1 needs the second one.
-//
-// STEP 3c CHANGED WHAT TWO OF THEM MEAN, and the labels below say so rather
-// than going on reading zero for a reason nobody would guess. The SDK arm is
-// DELETED, so its counter is unarmed and a zero there is an absence of code and
-// not an absence of calls; and the method can no longer answer NULL at all --
-// the third counter now counts the answer that used to be one, which is an edict
-// with no player of ours behind it.
-//-----------------------------------------------------------------------------
+// Every probed method, in vtable order per interface. The GetPlayerState_*
+// entries count which answer GetPlayerState gave.
 enum BoundaryProbeId_t
 {
 	// IServerGameEnts, vtable slots 2..7 (slots 0 and 1 are the destructor pair).
@@ -99,18 +50,8 @@ enum BoundaryProbeId_t
 	kBoundaryProbe_GetPlayerState_SDK,
 	kBoundaryProbe_GetPlayerState_Null,
 
-	// IClientEntityList, vtable slots 0..8 of the SECONDARY vtable --
-	// CClientEntityList inherits CBaseEntityList first, so the interface the
-	// engine holds is a subobject and its table starts 0x78 past the primary
-	// one. Verified by dumping `vtable for CClientEntityList` out of client.so;
-	// the order is icliententitylist.h's, unchanged.
-	//
-	// ONE ENUM FOR BOTH DLLs, and each side's report prints the whole table.
-	// server.so and client.so are separate shared objects with separate copies
-	// of the counters, so the client rows read zero in the server's report and
-	// the server rows read zero in the client's -- which is a fact about which
-	// DLL was asked, not a missing measurement. The report's header line names
-	// the side so the two cannot be confused.
+	// IClientEntityList, slots 0..8 of CClientEntityList's secondary vtable. Each
+	// DLL has its own counters, so the other side's rows read zero.
 	kBoundaryProbe_ClientList_GetClientNetworkable,
 	kBoundaryProbe_ClientList_GetClientNetworkableFromHandle,
 	kBoundaryProbe_ClientList_GetClientUnknownFromHandle,
@@ -124,10 +65,7 @@ enum BoundaryProbeId_t
 	kBoundaryProbeCount
 };
 
-//-----------------------------------------------------------------------------
-// The name a report line carries. A switch rather than a table so the header
-// holds no data at all and the compiler fails on an unhandled id.
-//-----------------------------------------------------------------------------
+// The name a report line carries.
 inline const char *BoundaryProbeName( int id )
 {
 	switch ( id )
@@ -176,18 +114,10 @@ inline const char *BoundaryProbeName( int id )
 	return "<unknown probe id>";
 }
 
-//-----------------------------------------------------------------------------
-// The counters.
-//-----------------------------------------------------------------------------
 class CBoundaryProbe
 {
 public:
-	// SIXTEEN, RAISED FROM EIGHT BY A MEASUREMENT. Eight looked generous; a
-	// live run put nine distinct sites on
-	// IClientEntityList::GetClientNetworkable and reported 1,789 calls as
-	// overflow. The overflow counter is what said so -- a table that silently
-	// dropped the ninth site would have left a caller out of the doc with
-	// nothing to show it had.
+	// The overflow counter says when this was not enough.
 	enum { kMaxCallers = 16 };
 
 	CBoundaryProbe() { Reset(); }
@@ -197,16 +127,13 @@ public:
 		memset( m_Methods, 0, sizeof( m_Methods ) );
 	}
 
-	// A call with no result worth counting (a void method, or one whose result
-	// this probe does not care about).
+	// A call whose result is not counted.
 	void Hit( int id, const void *pCaller )
 	{
 		Record( id, pCaller, kResultNotCounted );
 	}
 
-	// A call whose result is a pointer. The null/non-null split is the whole
-	// reason this method exists: a method that already answers NULL on every
-	// call is one Phase 1 can make answer NULL unconditionally.
+	// A call whose result is a pointer: counts null and non-null answers.
 	void HitPointerResult( int id, const void *pCaller, bool bResultWasNull )
 	{
 		Record( id, pCaller, bResultWasNull ? kResultNull : kResultNonNull );
@@ -232,15 +159,8 @@ public:
 		return m_Methods[ id ].nCallerHits[ slot ];
 	}
 
-	//-------------------------------------------------------------------------
-	// One report line for one probe id. Returns the number of characters that
-	// would have been written, snprintf-style, so a truncated line is
-	// detectable rather than silently short.
-	//
-	// A CALLER IS PRINTED AS module+0xOFFSET, never as an absolute address:
-	// the absolute one moves with ASLR, so two runs' reports could not be
-	// compared line for line.
-	//-------------------------------------------------------------------------
+	// One report line for one probe id. Returns what snprintf would have written.
+	// Callers print as module+0xOFFSET, which survives ASLR.
 	int FormatLine( int id, char *pBuf, int nBufLen ) const
 	{
 		if ( !Valid( id ) || nBufLen <= 0 )
@@ -285,10 +205,7 @@ public:
 		return nWritten;
 	}
 
-	//-------------------------------------------------------------------------
-	// "libfoo.so+0x1234" for an address inside a loaded module, and the raw
-	// pointer when the platform cannot say. Public so the test can pin it.
-	//-------------------------------------------------------------------------
+	// "libfoo.so+0x1234" for an address inside a loaded module, else the raw pointer.
 	static void DescribeAddress( const void *pAddr, char *pBuf, int nBufLen )
 	{
 		if ( nBufLen <= 0 )
@@ -324,9 +241,7 @@ private:
 
 	static bool Valid( int id ) { return id >= 0 && id < kBoundaryProbeCount; }
 
-	// Appends into a snprintf-style buffer at nSoFar, honouring truncation.
-	// Returns what snprintf would have written, so the caller's running total
-	// stays a "would have been" length rather than a clamped one.
+	// Appends at nSoFar, returning what snprintf would have written.
 	static int AppendTo( char *pBuf, int nBufLen, int nSoFar, const char *pszText )
 	{
 		if ( nSoFar >= nBufLen )
@@ -370,13 +285,7 @@ private:
 	Method_t m_Methods[ kBoundaryProbeCount ];
 };
 
-//-----------------------------------------------------------------------------
-// The one instance, FUNCTION-LOCAL rather than file-scope for the reason
-// shell_movement.cpp's MoveCounters() gives: tools/statics-audit holds
-// src/sourcesharp to a banked count of file-scope statics, and diagnostics is
-// not a reason to move that number. Two translation units arm it and one
-// console command reads it, so it cannot be a member of either singleton.
-//-----------------------------------------------------------------------------
+// Function-local, so it is not a file-scope static. Two translation units arm it.
 inline CBoundaryProbe &BoundaryProbes()
 {
 	static CBoundaryProbe s_Probes;

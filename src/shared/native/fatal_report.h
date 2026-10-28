@@ -1,14 +1,8 @@
-//========= SourceSharp — the one way this mod stops the process ==============//
-//
-// A failed assert (shell_diagnostics' spew hook) and Error() (server.so's tier0
-// port) both end here. See fatal_report.cpp.
-//
-//=============================================================================//
+// The one way this mod stops the process: failed asserts and Error() end here.
 
 #pragma once
 
-// The process's exit status when this mod stops it on purpose: -3 as the
-// 8-bit status the parent sees. The launcher (source#) keys on it.
+// -3 as the 8-bit status the parent sees; the launcher keys on it.
 enum { kSourceSharpFatalExitCode = 253 };
 
 // Reports pKind ("ASSERT", "ERROR") and pMsg with the stack to stderr and, when

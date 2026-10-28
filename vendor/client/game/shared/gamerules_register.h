@@ -3,15 +3,9 @@
 #pragma once
 
 // Each game rules class must register using this in it's .cpp file.
-#if !defined(_STATIC_LINKED)
 #define REGISTER_GAMERULES_CLASS( className ) \
 	void __CreateGameRules_##className() { new className; } \
 	static CGameRulesRegister __g_GameRulesRegister_##className( #className, __CreateGameRules_##className );
-#else
-#define REGISTER_GAMERULES_CLASS( className ) \
-	void MAKE_NAME_UNIQUE(__CreateGameRules_)##className() { new className; } \
-	static CGameRulesRegister __g_GameRulesRegister_##className( #className, MAKE_NAME_UNIQUE(__CreateGameRules_)##className );
-#endif
 
 class CGameRulesRegister
 {

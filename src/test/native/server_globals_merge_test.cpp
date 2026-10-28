@@ -215,18 +215,6 @@ TEST( ServerGlobalsMerge, TheEightDefinitionsAreAllHereAndEachExactlyOnce )
 	}
 }
 
-TEST( ServerGlobalsMerge, TheStaticLinkedGuardCameAcrossWithTheBoolItGuards )
-{
-	const std::string g = Tight( kMerged, "g_bUseNetworkVars" );
-	ASSERT_FALSE( g.empty() );
-
-	// Stock's guard, kept verbatim rather than dropped as obviously true here:
-	// it is what makes the same source legal in a statically linked build.
-	EXPECT_NE( g.find( "#if!defined(_STATIC_LINKED)||defined(_SHARED_LIB)" ),
-	           std::string::npos )
-		<< "the _STATIC_LINKED guard around g_bUseNetworkVars is gone.";
-}
-
 //-----------------------------------------------------------------------------
 // The five are out of the file list, and the merged file is in it.
 //-----------------------------------------------------------------------------

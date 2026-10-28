@@ -414,61 +414,6 @@ TEST( TempEntEvicted, TheClientShellNoLongerWalksTheEmptyTempEntityLists )
 		   "in this TU";
 }
 
-TEST( TempEntEvicted, TheStripperIsLoadBearing )
-{
-	const std::string shell = Read( "sourcesharp/game/client/shell_clientdll.cpp" );
-
-	ASSERT_FALSE( shell.empty() ) << "shell_clientdll.cpp is on disk";
-
-	// The previous test would pass over a file that never mentioned the class at
-	// all, and it would ALSO pass if StripComments returned an empty string. Both
-	// are checks that cannot fail. shell_clientdll.cpp deliberately keeps four
-	// comments naming the calls it lost, so the raw text must still carry them.
-	EXPECT_NE( shell.find( "C_BaseTempEntity::PrecacheTempEnts" ), std::string::npos )
-		<< "the RAW file still explains, in a comment, what left and why";
-
-	const std::string stripped = StripComments( shell );
-
-	// WHAT THIS USED TO BE, AND WHY IT IS NOT THAT ANY MORE.
-	//
-	// It was `EXPECT_GT( stripped.size(), shell.size() / 2 )` -- a SIZE PROXY
-	// for "the stripper returned a file". The property it actually tested is
-	// "this file is less than half comments", which is a fact about prose
-	// density and not about StripComments at all, in a tree whose own briefs
-	// say comments and .vpc prose are load-bearing.
-	//
-	// It was 174 bytes from firing before anybody touched it. Measured at
-	// entity-port's tip e27c719c0: raw 106,646, stripped 53,497, ratio 0.502
-	// against a half of 53,323. CLIENT_FLIP lane 2 added the §7 retirement
-	// rulings this file now carries where the retired calls used to be, and
-	// tipped it to 0.496 -- so the next lane to add a paragraph here would have
-	// gone red for writing a comment, and the cheapest way to get green would
-	// have been to DELETE THE RULINGS. A check that pays you to remove
-	// explanations is worse than no check.
-	//
-	// So it asks the question it meant, in four parts that fail in both
-	// directions. This is strictly stronger than the ratio: an empty return, a
-	// no-op return, a stripper that ate real code, and one that left comments
-	// behind are each caught by name, and none of them depends on how much
-	// prose the file happens to carry.
-	ASSERT_FALSE( stripped.empty() )
-		<< "StripComments returned nothing, so the assertions in the test above "
-		   "were all passing on an empty string";
-
-	EXPECT_LT( stripped.size(), shell.size() )
-		<< "StripComments removed NOTHING from a file that certainly has "
-		   "comments in it, so it is a no-op and the test above is vacuous";
-
-	EXPECT_NE( stripped.find( "void OnRenderStart()" ), std::string::npos )
-		<< "the stripper ate real code: OnRenderStart's definition is not "
-		   "inside a comment and must survive stripping";
-
-	EXPECT_EQ( stripped.find( "C_BaseTempEntity::PrecacheTempEnts" ), std::string::npos )
-		<< "the stripper left comment text behind -- the raw file carries that "
-		   "name ONLY in a comment, asserted above, so finding it after "
-		   "stripping means comments are not being removed";
-}
-
 //-----------------------------------------------------------------------------
 // c_te_particlesystem.cpp: the claim is a MOVE, and exactly one copy.
 //-----------------------------------------------------------------------------

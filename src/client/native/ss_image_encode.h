@@ -1,13 +1,6 @@
-//========= SourceSharp — a screenshot's file, encoded in C# =================//
-//
-// plan_client_novalve C9 (bitmap.a and vtf.a off client.so): native reads a
-// screenshot's pixels back and writes the file; what the file IS -- a TGA or
-// a VTF, padded to powers of two or not -- is managed's
-// (IManagedMaterialFilesClient::EncodeImage, ScreenshotEncoding.cs, held to
-// the pristine archives). The pixels cross once as a BitBlock: the caller
-// reads them into ImageEncodePixels( block ) and hands the block over.
-//
-//=============================================================================//
+// A screenshot's file, encoded in C#: native reads the pixels back and writes
+// the file; managed decides its format (TGA or VTF, padded or not). The pixels
+// cross once as a BitBlock filled by ImageEncodePixels.
 #pragma once
 
 #include "imanaged_areas_client.h"
@@ -37,9 +30,9 @@ inline uint8_t *ImageEncodeBlock( int nPixelBytes )
 inline unsigned char *ImageEncodePixels( uint8_t *pBlock ) { return pBlock + kBitBlockHeaderBytes; }
 
 // The file for the block's pixels, its size in *pnBytes; NULL when managed is
-// not up or refused (the answer in *pnBytes). On the engine heap when asked
-// (bEngineHeap: for a filesystem AsyncWrite that frees it, as the engine's
-// filesystem frees with tier0's allocator), else malloc()ed: free() it.
+// not up or refused (the answer in *pnBytes). On the engine heap when
+// bEngineHeap (for a filesystem AsyncWrite, which frees with tier0's
+// allocator), else malloc()ed: free() it.
 inline unsigned char *ImageEncode( ImageFileKind_t eKind, int nWidth, int nHeight, bool bPadPowerOfTwo,
                                    const uint8_t *pBlock, int nPixelBytes, int *pnBytes, bool bEngineHeap = false )
 {

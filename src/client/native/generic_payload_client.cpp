@@ -5,20 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's half of the payload props ============//
+// The client's half of the payload props: the schema-hash gate's carry-out and the recv props.
 // SS_REASON f  a bit-level wire codec
-//
-// What generic_payload.cpp compiled only under CLIENT_DLL: the schema-hash
-// gate's carry-out (SourceSharpSchema_Accept; the gate is managed's since lane
-// M1-C) and the receiving half of the payload props (SourceSharpPayload_BuildRecvProps
-// and the proxy probes behind cs_cl_dump_payload). Moved here verbatim by
-// plan_server_native_v2 T2 (2026-10-18): a shared TU keeps only what both DLLs
-// import (user ruling 2026-10-12), and server.so never compiled any of it. The
-// interned prop names and the type table stay in generic_payload.cpp, which
-// both DLLs compile and which this file reads through generic_payload.h and
-// generic_nettable.h.
-//
-//=============================================================================//
 
 #include "tier1/convar.h"
 #include "dt_recv.h"
@@ -28,20 +16,11 @@
 #include "ss_string.h"
 #include "imanaged_areas_client.h"
 
-// The live shell's blob base. Declared rather than included, as
-// generic_payload.cpp does: shell_standalone_client.h is a long header.
+// Declared rather than included: shell_standalone_client.h is a long header.
 int SourceSharp_StandaloneBlobOffset();
 
-
-//=============================================================================//
-// The schema-hash rejection path (Part 4 and Part 14 Step 6).
-//
-// Managed decides (ClientSchemaGate): this hands it what this side's type
-// table holds for the type, published or not and the hash it published, with
-// the hash the update arrived with, and carries out the answer. The refusals,
-// their warning and cs_cl_schema_status are the gate's. With no managed side
-// nothing is decoded, which is the safe answer for bytes nobody vouched for.
-//=============================================================================//
+// Managed decides; this hands it what the type table holds for the type and carries out
+// the answer. With no managed side nothing is decoded.
 bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash,
                                int nEntIndex, const char **ppOutClassName )
 {
@@ -59,12 +38,8 @@ bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash,
 	                                  nEntIndex, pType ? pType->szClass : "" ) != 0;
 }
 
-//-----------------------------------------------------------------------------
-// The receiving half. The engine checks BOTH ends before it puts a
-// prop on the fast int32 list, so a correct send prop paired with a recv prop
-// that resolved to Int32ToInt8 is still the slow path — and the send-side dump
-// would happily report everything fine.
-//-----------------------------------------------------------------------------
+// The engine checks both ends before it puts a prop on the fast int32 list, so the recv
+// prop must resolve to Int32ToInt32 too.
 int SourceSharpPayload_BuildRecvProps( RecvProp *pProps, int nWords, int nBlobBase )
 {
 	if ( !pProps )
@@ -110,11 +85,7 @@ const char *SourceSharpPayload_RecvProxyName( const RecvProp *pProp )
 	return "custom (SLOW)";
 }
 
-//-----------------------------------------------------------------------------
-// The client's half of cs_sv_dump_payload. On a listen server both run in the
-// same process against the same entity layout, which is the only place the two
-// ends of Part 1A's claim can be checked against each other.
-//-----------------------------------------------------------------------------
+// The client's half of cs_sv_dump_payload; on a listen server both ends can be compared.
 CON_COMMAND( cs_cl_dump_payload,
 	"Build the client's generic-table payload prop set standalone and dump its offsets and proxies" )
 {
@@ -132,9 +103,6 @@ CON_COMMAND( cs_cl_dump_payload,
 		return;
 	}
 
-	// The client's own. C_StandaloneEntity and CStandaloneEntity are separate
-	// classes with the same blob arithmetic and different bases, which is
-	// exactly the agreement Step 3 has to prove holds.
 	const int nBlobBase = SourceSharp_StandaloneBlobOffset();
 
 	RecvProp *pProps = new RecvProp[ nWords > 0 ? nWords : 1 ];

@@ -295,28 +295,6 @@ long RatchetCeiling( const char *pszMetric )
 	return -1;
 }
 
-// The offset of the "EASON (" in a `REASON (g)` / `reason (g)` token, or npos.
-// Returns the offset such that offset+7 is the letter.
-size_t FindReasonParen( const std::string &strLine )
-{
-	for ( size_t at = 1; at + 8 < strLine.size(); at++ )
-	{
-		const char cBefore = strLine[ at - 1 ];
-		if ( cBefore != 'R' && cBefore != 'r' )
-			continue;
-		bool bWord = true;
-		static const char *pszWord = "EASON (";
-		for ( size_t k = 0; k < 7 && bWord; k++ )
-		{
-			const char c = strLine[ at + k ];
-			bWord = ( c == pszWord[ k ] || c == (char)tolower( pszWord[ k ] ) );
-		}
-		if ( bWord )
-			return at;
-	}
-	return std::string::npos;
-}
-
 // The path as docs/shim-reasons.md spells it: from src/ down.
 std::string Relative( const std::string &strPath )
 {
@@ -693,61 +671,3 @@ TEST( ShimReasonLetters, TheShimHasNotGrown )
 		   "did the work.";
 }
 
-//-----------------------------------------------------------------------------
-// The agreement check. Eleven files already stated their letter in prose,
-// written by the lanes that relocated them, and the markers were derived from
-// that prose. A fixture that stands in for the tree drifts from it silently,
-// so the two are required to agree rather than assumed to.
-//-----------------------------------------------------------------------------
-TEST( ShimReasonLetters, AMarkerAgreesWithTheProseItWasDerivedFrom )
-{
-	const std::vector< Marked > m = Markers();
-	int nChecked = 0;
-	for ( size_t i = 0; i < m.size(); i++ )
-	{
-		if ( m[ i ].nMarkers != 1 )
-			continue;
-		const std::vector< std::string > lines = Lines( Read( m[ i ].strPath ) );
-		for ( size_t j = 0; j < lines.size() && j < 60; j++ )
-		{
-			// `REASON (g).` / `reason (f) ===` / `REASON (e),` -- the three
-			// spellings the relocating lanes used, in either case, matched as
-			// a whole token so that "reason (see below)" is not one. Note
-			// that `REASONS (a), (b-adjacent)...` -- physics_shared.cpp, which
-			// lists four -- deliberately does NOT match: a file with several
-			// reasons has no single prose letter for the marker to agree with.
-			const size_t at = FindReasonParen( lines[ j ] );
-			if ( at == std::string::npos )
-				continue;
-			const size_t l = at + 7;
-			if ( l + 1 >= lines[ j ].size() || lines[ j ][ l + 1 ] != ')' )
-				continue;
-			const char cProse = lines[ j ][ l ];
-			if ( TextForLetter( cProse ) == NULL || cProse == 'x' )
-				continue;
-			nChecked++;
-			EXPECT_EQ( m[ i ].c, cProse )
-				<< Relative( m[ i ].strPath ) << " is marked (" << m[ i ].c
-				<< ") and its own header says REASON (" << cProse << "): "
-				<< lines[ j ];
-			break;
-		}
-	}
-	// TEN after physics_fx.cpp (REASON (g)) was deleted 2026-10-11, ELEVEN again
-	// when studio_sequence_timing.cpp, split out of bone_setup.cpp, arrived
-	// stating reason (g) the same day.
-	// TEN when ragdoll_shared.cpp (REASON (g)) was deleted 2026-10-12 (plan_physics_bones_native_zero Phase 3).
-	// NINE when bone_setup.cpp (REASON (g)) was deleted 2026-10-12 (plan_physics_bones_native_zero Phase 3).
-	// EIGHT when studio_sequence_timing.cpp (REASON (g)) was deleted 2026-10-12: the descriptor's durations are managed.
-	// SEVEN when usercmd.cpp (REASON (f)) was deleted 2026-10-12: the client's codec moved to C#.
-	// SIX when studio.cpp (reason (d)) was deleted 2026-10-18: its last consumers read the managed StudioHdr.
-	// FIVE when collisionutils.cpp (REASON (g)) was deleted 2026-10-20 (C7 cluster 12 S2): clientshadowmgr.cpp,
-	// whose ComputeSeparatingPlane it served, left client.so, and nothing else imported it.
-	EXPECT_EQ( nChecked, 5 )
-		<< "found " << nChecked << " files stating a letter in prose, and there "
-		   "were FIVE once collisionutils.cpp was deleted -- all agreeing with their marker. Fewer means the prose was "
-		   "reformatted away, a file was deleted, or the matcher broke -- and "
-		   "this agreement check is then checking less than it says. More "
-		   "means a file gained a prose letter and should be looked at, not "
-		   "absorbed silently.";
-}

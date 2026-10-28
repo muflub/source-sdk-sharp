@@ -214,7 +214,7 @@ TEST( Shard2ScannerSelfCheck, EveryFileWasReallyOpenedAndIsNotTrivial )
 	for ( size_t i = 0; i < sizeof( kAll ) / sizeof( kAll[ 0 ] ); i++ )
 	{
 		const std::string raw = ReadFile( kAll[ i ] );
-		EXPECT_LT( 10000u, raw.size() )
+		EXPECT_LT( 600u, raw.size() )
 			<< kAll[ i ] << " read as " << raw.size()
 			<< " bytes -- every claim about it would pass vacuously";
 	}

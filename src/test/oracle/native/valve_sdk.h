@@ -10,8 +10,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_TEST_ORACLE_VALVE_SDK_H
-#define SOURCESHARP_TEST_ORACLE_VALVE_SDK_H
+#pragma once
 
 #include <cstdlib>
 #include <fstream>
@@ -50,5 +49,3 @@ inline std::string ReadValve( const std::string &rel )
 	return std::string( ( std::istreambuf_iterator<char>( f ) ),
 	                    std::istreambuf_iterator<char>() );
 }
-
-#endif // SOURCESHARP_TEST_ORACLE_VALVE_SDK_H

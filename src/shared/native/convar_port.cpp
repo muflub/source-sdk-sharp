@@ -5,24 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the console carriers, as server.so uses them =======//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_server_novalve.md P3, tier1 off the link. The engine's ICvar holds
-// ConVar and ConCommand objects this DLL built and calls them through
-// convar.h's vtables: every virtual member is here, with tier1's behaviour.
-// Every console variable and command server.so declares is declared in C#;
-// these are the carriers the managed registration builds
-// (sourcesharp_gamesystem.cpp), plus ConVarRef, the by-name read handle.
-//
-// Memory: a ConVar's value string is allocated and freed only by the members
-// below, so it never crosses to the engine's allocator.
-//
-// What is not here, because nothing in server.so calls it: CCommand's
-// out-of-line members (the engine tokenises, the DLL only reads), the
-// flag/description printers and UIConVarRef.
-//
-//=============================================================================//
+// The ConVar and ConCommand carriers server.so builds. The engine's ICvar calls them through
+// convar.h's vtables, so every virtual member is here with tier1's behaviour. A value string
+// is allocated and freed only here, never by the engine's allocator.
 
 #include "tier1/convar.h"
 #include "tier1/strtools.h"
@@ -51,10 +37,7 @@ static int StripDevelopmentOnly( int nFlags )
 	return SS_ALLOW_DEVELOPMENT_CVARS ? ( nFlags & ~FCVAR_DEVELOPMENTONLY ) : nFlags;
 }
 
-//-----------------------------------------------------------------------------
-// REGISTRATION. Carriers built before ConVar_Register wait on a list; once it
-// has run, a new carrier goes straight to the accessor.
-//-----------------------------------------------------------------------------
+// Carriers built before ConVar_Register wait on a list; after it, they register at once.
 ConCommandBase *ConCommandBase::s_pConCommandBases = NULL;
 IConCommandBaseAccessor *ConCommandBase::s_pAccessor = NULL;
 
@@ -115,9 +98,6 @@ void ConVar_Unregister()
 	s_bRegistered = false;
 }
 
-//-----------------------------------------------------------------------------
-// ConCommandBase
-//-----------------------------------------------------------------------------
 ConCommandBase::ConCommandBase( void )
 	: m_pNext( NULL ), m_bRegistered( false ), m_pszName( NULL ), m_pszHelpString( NULL ), m_nFlags( 0 )
 {
@@ -243,11 +223,8 @@ int ConCommand::AutoCompleteSuggest( const char *partial, CUtlVector< CUtlString
 	char suggestions[ COMMAND_COMPLETION_MAXITEMS ][ COMMAND_COMPLETION_ITEM_LENGTH ];
 	int nCount = m_fnCompletionCallback( partial, suggestions );
 
-	// THE ENGINE OWNS `commands` and destroys it -- every CUtlString in it and
-	// the vector's block -- with its own tier0 allocator. So each suggestion is
-	// appended with THAT allocator (engine_utlvector.h), where tier1's
-	// AddToTail here would have grown it with this module's (and instantiated
-	// CUtlMemory, whose growth imports g_pMemAlloc). No memory crosses.
+	// The engine owns `commands` and frees it with its own allocator, so suggestions are
+	// appended with that allocator too.
 	ss::IEngineHeap *pHeap = ss::FindEngineHeap();
 	ss::EngineUtlVectorLayout< ss::EngineUtlString > &vec =
 		ss::EngineUtlVectorLayoutOf< ss::EngineUtlString >( commands );
@@ -264,10 +241,7 @@ bool ConCommand::CanAutoComplete( void )
 	return m_bHasCompletionCallback;
 }
 
-//-----------------------------------------------------------------------------
-// ConVar. A variable's state lives on its PARENT (itself, for every variable
-// this DLL builds); the read accessors go through the parent as stock's did.
-//-----------------------------------------------------------------------------
+// A variable's state lives on its parent (itself, for every variable this DLL builds).
 ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags )
 {
 	Create( pName, pDefaultValue, flags );
@@ -570,10 +544,8 @@ void ConVar::SetDefault( const char *pszDefault )
 	m_pszDefaultValue = pszDefault ? pszDefault : "";
 }
 
-//-----------------------------------------------------------------------------
-// ConVarRef. A name the engine does not know resolves to one shared stand-in
-// that reads as zero and ignores writes; IsValid tells the two apart.
-//-----------------------------------------------------------------------------
+// ConVarRef: an unknown name resolves to a shared stand-in that reads zero and ignores
+// writes; IsValid tells the two apart.
 namespace
 {
 

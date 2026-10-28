@@ -5,20 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the factories the engine handed server.so ==========//
-//
-// plan_server_novalve.md P5. The engine passes the game DLL three
-// CreateInterfaceFn pointers at DLLInit; server.so stores them once
-// (shell_engineboundary.cpp) and hands them back to whatever needs one later
-// (the physics hook, the interface acquirer). Nothing outside server.so sees
-// the list, so per the plan's naming rule it is server.so's own type, in
-// namespace ss, on public/ headers alone. game/server/init_factory.h is no
-// longer included by any server TU, and its factorylist_t /
-// FactoryList_Store / FactoryList_Retrieve are no longer defined in server.so.
-// (The client stores its own, differently shaped list: client_factorylist.h.)
-//
-// shell_globals.cpp defines the two functions and holds the stored copy.
-//=============================================================================//
+// The three factories the engine hands server.so at DLLInit, stored once and handed back
+// later. Defined in shell_globals.cpp.
 
 #pragma once
 

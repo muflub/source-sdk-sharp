@@ -4,22 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the bit buffer members only client.so calls ========//
 // SS_REASON f  a bit-level wire codec
-//
-// bitbuf.h's out-of-line members client.so still calls (C9, tier1): the raw
-// whole-buffer copy in and out -- WriteBits, which copies a BitBlock's payload
-// (ss_bitblock.h) or a client message's bytes into an engine bf_write, and
-// ReadBits, which copies an engine bf_read's bits out -- and what bitbuf.h's
-// inline writers name in debug builds (GetDebugName, the error hook). Every
-// field-level encode is C#'s now (UserCmdCodec, the user-message payloads).
-// The buffers are the engine's; these write and read them by bitbuf.h's
-// layout and its inline single-word helpers. The server answered its half in
-// C# (plan_server_novalve 3.3), so these are client-only (ruling 2026-10-12).
-//
-// bitbuf_client_test holds them to pristine bitbuf.cpp's results, recorded by
-// bitbuf_stock_oracle_test (src/test/client/Fixtures/bitbuf-stock.tsv).
-//=============================================================================//
+// bitbuf.h's out-of-line members client.so calls: raw whole-buffer bit copies
+// in and out of engine bf_write/bf_read, and what the inline writers name in
+// debug builds. The buffers are the engine's, written by bitbuf.h's layout.
 
 #include "tier1/bitbuf.h"
 #include "tier0/platform.h"
@@ -27,8 +15,7 @@
 #include <cstdint>
 #include <cstring>
 
-// The debug builds' error hook. Nothing on client.so installs a handler
-// (SetBitBufErrorHandler has no caller), so there is nothing to call.
+// Debug builds' error hook; nothing on client.so installs a handler.
 void InternalBitBufErrorHandler( BitBufErrorType, const char * )
 {
 }
@@ -118,4 +105,3 @@ void bf_read::ReadBits( void *pOut, int nBits )
 	if ( left )
 		*dst = (unsigned char)ReadUBitLong( left );
 }
-

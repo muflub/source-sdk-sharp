@@ -4,41 +4,15 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier1's KeyValues and ILocalize members client.so links ==//
+// The members of tier1's KeyValues and ILocalize that client.so calls.
 // SS_REASON d  a layout the engine reads at fixed offsets
 //
-// plan_client_novalve C9, KeyValues K5. The members of tier1's KeyValues.cpp
-// and ilocalize.cpp that client.so's own objects call, so neither archive
-// member is linked: a KeyValues crosses into the engine and the material
-// system (a procedural material's .vmt, a material proxy's keys, a
-// panel's message), and they read it by tier1's layout, so the object is
-// tier1's class and its members are kept to tier1's behaviour. The TEXT
-// load is managed's (KeyValuesLoad); nothing here parses.
+// A KeyValues crosses into the engine and the material system, which read it by tier1's
+// layout, so this is tier1's class with tier1's behaviour.
 //
-// ILocalize::ConvertUnicodeToANSI is Q_UTF32ToUTF8 under its default policy
-// on POSIX, where wchar_t is UTF-32, and Q_UTF16ToUTF8 on Windows, where it
-// is UTF-16; ss_string.h's WideToUTF8 picks by wchar_t's size, and both
-// converters are held to pristine strtools_unicode.cpp by
-// ss_string_oracle_test.
-//
-// WHERE ITS MEMORY COMES FROM. A key is made and freed by vstdlib's
-// KeyValuesSystem (AllocKeyValuesMemory / FreeKeyValuesMemory), as tier1's
-// operator new and delete do, so one made here can be freed by the material
-// system and one it made can be freed here. A value string is on the engine
-// heap (libtier0.so's g_pMemAlloc, engine_heap.h): the material system frees
-// what it is handed with its own delete[], which is tier0's, and client.so's
-// own new[] has been glibc's since memoverride.cpp left (C1). KeyValuesSystem
-// is found in the loaded libvstdlib.so (loaded_symbol.h) at each use rather
-// than imported or cached: every caller in client.so is cold (a material
-// built, a panel message, a tool record, a proxy's Init), and nothing is kept.
-//
-// Not here, because nothing in client.so calls it: the text load (managed's),
-// the wide-string setters, copies, merges, the binary and file forms, and the
-// growable string table (tier1's default is the classic one, used here).
-// GetInt/GetFloat/GetString still read a TYPE_WSTRING key another module made.
-//
-// Exit: the last client caller of a KeyValues member leaving.
-//=============================================================================//
+// Keys are allocated through vstdlib's KeyValuesSystem, as tier1's operator new does, so
+// either side can free them. Value strings live on the engine heap because the material
+// system frees them with tier0's delete[]. KeyValuesSystem is looked up at each use.
 
 #include "tier1/ilocalize.h"
 #include "tier1/KeyValues.h"
@@ -59,9 +33,6 @@ int ILocalize::ConvertUnicodeToANSI( const wchar_t *unicode, char *ansi, int ans
 	return ss::WideToUTF8( unicode, ansi, ansiBufferSize );
 }
 
-//=============================================================================
-// KeyValues (tier1/KeyValues.cpp), the members client.so calls.
-//=============================================================================
 namespace
 {
 IKeyValuesSystem *KVSystem()

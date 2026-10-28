@@ -1294,7 +1294,6 @@ src/sourcesharp/test/entity_visibility_test.cpp	no	source scan of diagnostic too
 src/sourcesharp/test/entrypoint_decls_test.cpp	no	re-derives generated decls from same inputs as generator; own tooling, not Valve
 src/sourcesharp/test/exepath_test.cpp	no	drives own ReadLinkNullTerminated helper; no Valve logic
 src/sourcesharp/test/fog_wire_test.cpp	no	source/behavioral scan of fog-wire plumbing; no logic
-src/sourcesharp/test/gamedll_ledger_test.cpp	no	source scan of TODO/verdict table; no logic
 src/sourcesharp/test/gameevent_listener_lifetime_test.cpp	no	source scan of unhook call order; no logic
 src/sourcesharp/test/gameinterface_split_test.cpp	no	source scan of interface-registration facts; no logic
 src/sourcesharp/test/gamemovement_evicted_test.cpp	no	source scan confirming file removed from both vpcs; no logic

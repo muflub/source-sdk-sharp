@@ -5,25 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — give a block back to the allocator that made it ====//
-//
-// A vector an engine interface grows for its caller (IEngineTrace::
-// GetBrushesInAABB, IStaticPropMgr::GetAllStaticProps*, ...) is grown by the
-// engine's copy of tier1's template, so its block comes from tier0's allocator:
-// libtier0.so's g_pMemAlloc, the one engine.so, datacache.so and the rest
-// import. server.so does not link tier0 (plan_server_novalve.md P4), so that
-// block must go back through the same object, found where the engine already
-// loaded it: the loaded object whose file is libtier0.so, reopened
-// RTLD_NOLOAD, dlsym( "g_pMemAlloc" ).
-//
-// Only the first three methods of tier0's IMemAlloc are declared, in its order;
-// engine_heap_test holds their slots to public/tier0/memalloc.h.
-//
-// No libtier0 in the process means the block cannot have come from it: that is
-// a broken process, and it stops here, loudly, rather than leak or free into
-// the wrong heap.
-//
-//=============================================================================//
+// Frees blocks the engine's tier0 allocator made (vectors an engine interface grows
+// for its caller). server.so does not link tier0, so the allocator is found in the
+// loaded libtier0.so. No libtier0 in the process aborts rather than freeing into the wrong heap.
 
 #pragma once
 
@@ -32,7 +16,7 @@
 namespace ss
 {
 
-// tier0's IMemAlloc, as far as its third slot.
+// tier0's IMemAlloc, as far as its third slot; the slot order must match memalloc.h.
 class IEngineHeap
 {
 public:

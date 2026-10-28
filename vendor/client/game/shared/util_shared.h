@@ -14,10 +14,6 @@
 
 #include "cdll_client_int.h"
 
-#ifdef PORTAL
-#include "portal_util_shared.h"
-#endif
-
 // Forward declarations
 class CGameTrace;
 class CBasePlayer;

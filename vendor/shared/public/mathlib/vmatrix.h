@@ -98,22 +98,16 @@ public:
 // Matrix->vector operations.
 public:
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 	// Multiply by a vector (divides by w, assumes input w is 1).
 	Vector		operator*(const Vector &vVec) const;
-
-#endif
 
 // Matrix->plane operations.
 public:
 	// Transform the plane. The matrix can only contain translation and rotation.
 	void		TransformPlane( const VPlane &inPlane, VPlane &outPlane ) const;
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
 	// Just calls TransformPlane and returns the result.
 	VPlane		operator*(const VPlane &thePlane) const;
-#endif
 
 // Matrix->matrix operations.
 public:
@@ -123,11 +117,8 @@ public:
 	// Multiply two matrices (out = this * vm).
 	void		MatrixMul( const VMatrix &vm, VMatrix &out ) const;
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
 	// Just calls MatrixMul and returns the result.	
 	VMatrix		operator*(const VMatrix &mOther) const;
-
-#endif
 
 // Matrix operations.
 public:
@@ -345,8 +336,6 @@ inline void	VMatrix::Set3x4( matrix3x4_t& matrix3x4 ) const
 
 // Vector transformation
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 inline Vector VMatrix::operator*(const Vector &vVec) const
 {
 	Vector vRet;
@@ -356,8 +345,6 @@ inline Vector VMatrix::operator*(const Vector &vVec) const
 
 	return vRet;
 }
-
-#endif // VECTOR_NO_SLOW_OPERATIONS
 
 // Plane transformation
 inline void	VMatrix::TransformPlane( const VPlane &inPlane, VPlane &outPlane ) const

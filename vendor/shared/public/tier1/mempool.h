@@ -420,31 +420,6 @@ inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, COMPAC
 
 	m_Chunks.Sort( CompareChunk );
 
-#ifdef VALIDATE_ALIGNED_MEM_POOL
-	{
-		FreeBlock_t *p = m_pFirstFree;
-		while ( p )
-		{
-			if ( p->pNext && p > p->pNext )
-			{
-				__asm { int 3 }
-			}
-			p = p->pNext;
-		}
-
-		for ( int i = 0; i < m_Chunks.Count(); i++ )
-		{
-			if ( i + 1 < m_Chunks.Count() )
-			{
-				if ( m_Chunks[i] > m_Chunks[i + 1] )
-				{
-					__asm { int 3 }
-				}
-			}
-		}
-	}
-#endif
-
 	int i;
 
 	for ( i = 0; i < m_Chunks.Count(); i++ )

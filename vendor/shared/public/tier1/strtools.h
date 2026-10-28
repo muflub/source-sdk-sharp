@@ -110,19 +110,11 @@ inline int V_strcasecmp (const char *s1, const char *s2) { return V_stricmp(s1, 
 
 inline const char* V_strchr( const char *s, char c )
 {
-#if defined( USE_TIER0_STRTOOLS_FUNCTIONS )
-    return V_tier0_strchr( s, c );
-#else
     return ::strchr( s, c );
-#endif
 }
 inline char *V_strchr( char *s, char c )
 {
-#if defined( USE_TIER0_STRTOOLS_FUNCTIONS )
-    return (char*)V_tier0_strchr( s, c );
-#else
     return (char*)::strchr( s, c );
-#endif
 }
 
 // returns string immediately following prefix, (ie str+strlen(prefix)) or NULL if prefix not found
@@ -252,19 +244,7 @@ int Q_UTF16ToUChar32( const uchar16 *pUTF16, uchar32 &uValueOut, bool &bErrorOut
 #ifdef _WIN32
 #ifndef _VA_LIST_DEFINED
 
-#ifdef  _M_ALPHA
-
-struct va_list 
-{
-    char *a0;       /* pointer to first homed integer argument */
-    int offset;     /* byte offset of next parameter */
-};
-
-#else  // !_M_ALPHA
-
 typedef char *  va_list;
-
-#endif // !_M_ALPHA
 
 #define _VA_LIST_DEFINED
 
@@ -603,7 +583,6 @@ private:
 
 // NOTE: This is for backward compatability!
 // We need to DLL-export the Q methods in vstdlib but not link to them in other projects
-#if !defined( VSTDLIB_BACKWARD_COMPAT )
 
 #define Q_memset				V_memset
 #define Q_memcpy				V_memcpy
@@ -646,8 +625,6 @@ private:
 #define Q_strcat				V_strcat
 
 #define Q_StrTrim				V_StrTrim
-
-#endif // !defined( VSTDLIB_DLL_EXPORT )
 
 // Strip white space at the beginning and end of a string
 int V_StrTrim( char *pStr );

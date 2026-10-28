@@ -34,8 +34,7 @@
 //
 //=============================================================================
 
-#ifndef SS_PIXELVIS_HARNESS_H
-#define SS_PIXELVIS_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -198,5 +197,3 @@ struct PixelVisPrecache_t
 	};                              \
 	static PixelVisPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, ARRAYSIZE( s_pszRegisterMaterials ) ); \
 	}
-
-#endif // SS_PIXELVIS_HARNESS_H

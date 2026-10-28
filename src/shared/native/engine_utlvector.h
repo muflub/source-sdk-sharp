@@ -5,27 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a read-only view of an engine-built CUtlVector =====//
-//
-// Some of what server.so reads was built by another module: the model cache's
-// virtualmodel_t, and any CUtlVector an engine interface fills for its caller.
-// Reading one needs its LAYOUT, not tier1's template -- whose growth and purge
-// call tier0's allocator (utlmemory.h under memdbgon.h), which is what keeps
-// g_pMemAlloc in server.so's imports.
-//
-// The layout, from public/tier1/utlmemory.h and utlvector.h (the PC arm):
-//   CUtlMemory<T>   T *m_pMemory; int m_nAllocationCount; int m_nGrowSize;
-//   CUtlVector<T>   CUtlMemory<T> m_Memory; int m_Size; T *m_pElements;
-// (CUtlVector's one base, base_vector_t, is empty.) The elements are
-// m_pMemory[0 .. m_Size); m_pElements is a debugger copy of m_pMemory.
-//
-// EngineUtlVector is a VIEW: never constructed, grown or freed here -- the block
-// belongs to the module that built it. EngineFilledUtlVector is the one this
-// module owns the HANDLE of: an out-parameter the engine grows, released to the
-// engine's allocator. engine_utlvector_layout_oracle_test holds the layout to
-// the pristine CUtlVector, member by member, for several T.
-//
-//=============================================================================//
+// Views of CUtlVectors built by another module, by layout rather than tier1's template,
+// whose growth would pull in tier0's allocator. The blocks belong to their builder.
 
 #pragma once
 
@@ -37,8 +18,7 @@
 namespace ss
 {
 
-// The bytes, in CUtlVector<T>'s order. All zero is a default-constructed
-// CUtlVector: no block, no elements, the default growth policy.
+// CUtlVector<T>'s bytes (PC layout). All zero is a default-constructed vector.
 template < class T >
 struct EngineUtlVectorLayout
 {
@@ -71,12 +51,8 @@ struct EngineUtlVector : EngineUtlVectorLayout< T >
 	const T *end() const              { return m_pMemory + m_Size; }
 };
 
-//-----------------------------------------------------------------------------
-// An out-parameter an engine interface fills. It starts as a default-constructed
-// CUtlVector<T>, is handed to the engine as one (ForEngine), is read through the
-// view, and on destruction gives the block back to tier0's allocator, which is
-// the allocator the engine's copy of the template grew it with (engine_heap.h).
-//-----------------------------------------------------------------------------
+// An out-parameter an engine interface fills. Its block is freed with tier0's allocator,
+// the one the engine's copy of the template grew it with.
 template < class T >
 class EngineFilledUtlVector
 {
@@ -87,8 +63,7 @@ public:
 	EngineFilledUtlVector( const EngineFilledUtlVector & ) = delete;
 	EngineFilledUtlVector &operator=( const EngineFilledUtlVector & ) = delete;
 
-	// V is the interface's CUtlVector<T>, named by the caller, which has the
-	// engine header; this one does not.
+	// V is the interface's CUtlVector<T>, named by a caller that has the engine header.
 	template < class V >
 	V *ForEngine()
 	{
@@ -106,24 +81,9 @@ private:
 	EngineUtlVectorLayout< T > m_Vec;
 };
 
-
-//-----------------------------------------------------------------------------
-// APPENDING TO A VECTOR ANOTHER MODULE OWNS -- an in/out parameter the engine
-// passes in and destroys itself, with its own copy of tier1's template: e.g.
-// ConCommand::AutoCompleteSuggest's CUtlVector<CUtlString>. Its block, and
-// every block an element owns, must come from THAT module's allocator, so the
-// growth here goes through the heap given (FindEngineHeap()), never through
-// this module's malloc or tier1's CUtlMemory.
-//
-// The layout is CUtlVector<T>'s (above). Growth doubles (from 4), rounded up
-// to m_nGrowSize when one is set; any capacity >= the count is a valid state
-// for the owner's template to carry on from. m_pElements follows m_pMemory,
-// as CUtlVector::ResetDbgInfo keeps it. T is copied bytewise, so it must be
-// trivially copyable: a layout, not a class with a destructor.
-//
-// False, and nothing changed, for a vector over external memory (m_nGrowSize
-// < 0: CUtlMemory never grows those), no heap, or a heap that refuses.
-//-----------------------------------------------------------------------------
+// Appends to a vector another module owns and frees, e.g. AutoCompleteSuggest's
+// CUtlVector<CUtlString>: growth goes through that module's heap. T is copied bytewise.
+// False, with nothing changed, for external memory (m_nGrowSize < 0), no heap, or a refusal.
 template < class T >
 bool EngineUtlVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout< T > &vec, const T &value )
 {
@@ -165,11 +125,7 @@ EngineUtlVectorLayout< T > &EngineUtlVectorLayoutOf( V &vec )
 	return *reinterpret_cast< EngineUtlVectorLayout< T > * >( &vec );
 }
 
-//-----------------------------------------------------------------------------
-// CUtlString's layout (public/tier1/utlstring.h: one member, char *m_pString,
-// freed by the owner's CUtlString::Purge through its free()), and a copy of a
-// C string in the owner's heap to put in one.
-//-----------------------------------------------------------------------------
+// CUtlString's layout: one char *, freed by the owner's CUtlString::Purge.
 struct EngineUtlString
 {
 	char *m_pString;

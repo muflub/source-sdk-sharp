@@ -5,14 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the player's state, between the loop and the blob ==//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// See the header. Compiled into both DLLs — the field list, the ask and the
-// byte arithmetic must be the same code on the two sides or the ring compares
-// one spelling against the other.
-//
-//=============================================================================//
+// Compiled into both DLLs, so the field list and byte arithmetic are the same code.
 
 #ifdef CLIENT_DLL
 #include <stdio.h>
@@ -30,9 +24,7 @@
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
-// The client's player hierarchy (c_baseplayer.h), which completes C_FogController
-// for playernet_vars.h's fog handle. The server needs none of it: server.so has
-// no CBasePlayer (plan_server_novalve.md P5).
+// The client's player hierarchy completes C_FogController for playernet_vars.h.
 #include "client_entity.h"
 #endif
 #if defined( CLIENT_DLL )
@@ -43,10 +35,6 @@
 #include "PlayerState.h"
 #include "standalone_player_sync.h"
 
-
-//-----------------------------------------------------------------------------
-// The resolve generation.
-//-----------------------------------------------------------------------------
 static unsigned int g_nPlayerSyncGeneration = 1;
 
 unsigned int SourceSharp_PlayerSyncGeneration()
@@ -62,11 +50,7 @@ void SourceSharp_PlayerSyncInvalidate( const char *pReason )
 		pReason ? pReason : "unspecified", g_nPlayerSyncGeneration );
 }
 
-//-----------------------------------------------------------------------------
-// The ask. One warning per failed resolve attempt set, not per field — the
-// interesting fact is "the class is not published here", not 29 spellings
-// of it.
-//-----------------------------------------------------------------------------
+// One warning per failed resolve attempt, not per field.
 static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
 	const int nOffset = ask.pfnFieldOffset( "ss_player", pField );
@@ -143,10 +127,7 @@ bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields )
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// The byte movers. memcpy per field rather than a struct: the blob's layout
-// is C#'s and nothing here may assume adjacency.
-//-----------------------------------------------------------------------------
+// memcpy per field: the blob's layout is C#'s, so nothing may assume adjacency.
 static inline void WriteI32( unsigned char *pBlob, int nOffset, int nValue )
 {
 	if ( nOffset >= 0 )
@@ -163,9 +144,6 @@ static inline void WriteVec( unsigned char *pBlob, int nOffset, const Vector &ve
 }
 
 #ifndef CLIENT_DLL
-//-----------------------------------------------------------------------------
-// The server's engine side -> blob (plan_server_native_v2 T4g).
-//-----------------------------------------------------------------------------
 void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
                                             const SourceSharpPlayerFields_t &fields,
                                             const Vector &vecOrigin, int nHealth, bool bAlive )

@@ -67,16 +67,12 @@ inline const Vector &CMoveData::GetAbsOrigin() const
 	return m_vecAbsOrigin;
 }
 
-#if !defined( PLAYER_GETTING_STUCK_TESTING )
-
 // This is implemented with a more exhaustive test in gamemovement.cpp.  We check if the origin being requested is
 //  inside solid, which it never should be
 inline void CMoveData::SetAbsOrigin( const Vector &vec )
 {
 	m_vecAbsOrigin = vec;
 }
-
-#endif
 
 // Purpose: The basic player movement interface
 

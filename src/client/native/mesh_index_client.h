@@ -4,12 +4,7 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the index-buffer generators, ours
-//
-// public/tier2/meshutils.h's five functions (plan_client_novalve C9: tier2
-// leaves client.so). mesh_index_client.cpp holds these and the Valve names
-// over them; meshutils_oracle_test holds them to tier2.a's own object.
-//=============================================================================//
+// The index-buffer generators of public/tier2/meshutils.h.
 #pragma once
 
 namespace ss

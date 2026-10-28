@@ -6,24 +6,9 @@
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
 
-//========= SourceSharp — the client's decalsystem, a forward to C# ==========//
-//
-// plan_client_novalve cluster 18 (lane c2-sims). game/shared/decals.cpp's
-// CDecalEmitterSystem left client.so; its tables, its weighted pick and its
-// game-material translation are SourceSharp.Client's ClientDecals (over the
-// DecalScript the server's DecalEmitter shares). What stays is the binding:
-//
-//   * IDecalEmitterSystem, the vtable the client's two callers reach through
-//     `decalsystem` (shell_impact_effects.cpp, shell_te_backends_client.cpp),
-//     unedited -- each method one forward to IManagedDecalsClient;
-//   * the kClientSystems row (shell_clientsystems.cpp) whose Init, Shutdown
-//     and LevelInitPreEntity are stock's three steps, each one forward.
-//
-// The two name answers are copied into members, as the server's shell_decals
-// does: IDecalEmitterSystem returns `const char *`, and a pointer into managed
-// memory is not one native may hold.
-//
-//=============================================================================//
+// The client's IDecalEmitterSystem (`decalsystem`), each method one forward to
+// IManagedDecalsClient, and its client-system row. Name answers are copied into
+// members: native may not hold a pointer into managed memory.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,9 +28,6 @@
 #include "decals.h"
 #include "shell_clientsystem.h"
 #include "imanaged_areas_client.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
-
 
 class CShellDecalSystemClient : public IDecalEmitterSystem, public CClientSystem
 {
@@ -112,6 +94,5 @@ private:
 
 static CShellDecalSystemClient g_DecalSystem;
 
-// plan_cworld_trace.md T4: kClientSystems[] is the only thing that reaches this.
 CClientSystem *ClientSystem_DecalEmitter() { return &g_DecalSystem; }
 IDecalEmitterSystem *decalsystem = &g_DecalSystem;

@@ -4,21 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — CVoiceStatus as thunks to the managed voice manager //
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve C3 step 4, plan cluster 15. Stock's CVoiceStatus
-// (game/shared/voice_status.cpp) and its ban list (voice_banmgr.cpp) are
-// SourceSharp.Client's VoiceStatus and VoiceBanList now (the ban list held to
-// an oracle of stock's file format). The engine's VoiceStatus, the VoiceMask
-// and RequestState messages and the server commands are managed end to end.
-// What native code still asks of the object is answered here: the mute
-// questions IGameClientExports puts (IManagedUiClient::VoiceIsBlocked and
-// VoiceToggleBlocked), the squelch mode in_main.cpp stops (the helper's hook),
-// and the calls the shell and viewrender.cpp make that have nothing left to do.
-// The dead vgui free functions of stock's file (a bitmap image and a Panel's
-// bounds) went with it.
-//=============================================================================//
+// CVoiceStatus as thunks to the managed voice manager: the mute questions
+// IGameClientExports asks and the squelch mode in_main.cpp stops. The other
+// calls have nothing to do.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,9 +30,7 @@
 #include "voice_banmgr.h"
 #include "imanaged_areas_client.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-// The ban list is managed; the member CVoiceStatus's header still carries is never used.
+// The ban list is managed; this member of CVoiceStatus is never used.
 CVoiceBanMgr::CVoiceBanMgr() {}
 CVoiceBanMgr::~CVoiceBanMgr() {}
 
@@ -91,8 +78,7 @@ void CVoiceStatus::VidInit() {}
 void CVoiceStatus::Frame( double frametime ) {}
 void CVoiceStatus::UpdateSpeakerStatus( int entindex, bool bTalking ) {}
 
-// Stock's body visited each talking player and drew nothing (its draw arm was
-// an entity this build does not have).
+// Stock's body drew nothing for any entity this build has.
 void CVoiceStatus::DrawHeadLabels() {}
 
 bool CVoiceStatus::IsPlayerBlocked( int iPlayerIndex )
@@ -101,7 +87,7 @@ bool CVoiceStatus::IsPlayerBlocked( int iPlayerIndex )
 	return pUi && pUi->VoiceIsBlocked( iPlayerIndex ) != 0;
 }
 
-// Stock's flips the mute whatever it is asked; so does the managed one.
+// Toggles the mute whatever state is asked for, as stock does.
 void CVoiceStatus::SetPlayerBlockedState( int iPlayerIndex, bool blocked )
 {
 	if ( IManagedUiClient *pUi = ManagedUiClient() )

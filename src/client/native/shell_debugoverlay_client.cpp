@@ -4,19 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the debug overlay's text, native half ==============//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve C3. Stock's CDebugOverlay (game/client/
-// vgui_debugoverlaypanel.cpp) was a vgui Panel that walked the engine's
-// debug-overlay text list each paint and drew it. The panel is gone; the
-// managed UI draws the text, reading the list through two IShimUiClient
-// slots: one entry at a time, placed on the screen by the engine's own
-// ScreenPosition (as stock placed it), and the dead ones cleared after the
-// paint, as stock's Paint ended. vgui_int.cpp still creates and destroys the
-// panel object: those calls have nothing to do. DebugDrawLine, stock's helper
-// beside it, stays.
-//=============================================================================//
+// The engine's debug-overlay text list, read by the managed UI one entry at a
+// time and placed with the engine's ScreenPosition, as stock's panel did.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,11 +52,9 @@ void DebugDrawLine( const Vector& vecAbsStart, const Vector& vecAbsEnd, int r, i
 		debugoverlay->AddLineOverlay( vecAbsStart + Vector( 0, 0, 0.1 ), vecAbsEnd + Vector( 0, 0, 0.1 ), r, g, b, test, duration );
 }
 
-//-----------------------------------------------------------------------------
 // The text overlay at position nIndex of the engine's list: -1 past its end,
-// 0 when it has no text or is off the screen (stock skipped it), 1 with its
-// screen position, its line offset, its colour (0xRRGGBBAA) and its text.
-//-----------------------------------------------------------------------------
+// 0 when it has no text or is off the screen, 1 with its screen position, line
+// offset, colour (0xRRGGBBAA) and text.
 int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine,
                                         uint32_t *pOutRgba, uint8_t *pText, int32_t nTextBytes )
 {

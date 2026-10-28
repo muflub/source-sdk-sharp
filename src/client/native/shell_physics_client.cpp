@@ -4,28 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client physics' native half ===================//
 // SS_REASON a  a vtable the engine calls through
-//
-// Fork game/client/physics.cpp is off client.so (docs/client_evictions.md).
-// Its decisions are SourceSharp.Client's ClientPhysicsSystem (the level's
-// environment, the step, the teardown) and the managed collision tables
-// (ClientPhysicsCollisionEventBinding, ClientCollisionSolverBinding). What is
-// here is what a link edge or the engine forces:
-//
-//   the client system row "CPhysicsSystem" (kClientSystems[] walks it at its
-//     stock position) and the DLL's PhysicsDLLInit / PhysicsReset /
-//     PhysicsSimulate (shell_clientdll.cpp calls them by those names), each a
-//     forward to IManagedPhysicsClient;
-//   PhysicsDLLInit's acquisition of the vphysics pointers the client's shells
-//     read by name (physprops, physcollision; physics_shared.h), held here;
-//   IShimPhysicsClient's bodies: a surfaceprop's impact audio, the emit of one
-//     impact sound (PlayImpactSounds' carry-out), and the splash's reads and
-//     its three fx_water.h effects.
-//
-// The decisions -- which impacts sound, how loud, merged how, when the world
-// steps -- are managed's.
-//=============================================================================//
+// The native side of client physics: the CPhysicsSystem client system row, the DLL's
+// physics entry points and IShimPhysicsClient's bodies. The decisions are managed's.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,22 +35,11 @@
 #include "shell_clientsystem.h"
 #include "imanaged_areas_client.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-// Held pointers the client's shells read by name (physics_shared.h's
-// declarations): physprops by shell_impact_effects, shell_prediction,
-// shell_soundenvelope_client, shell_worldquery_client and the impact audio
-// below; physcollision by the collide extent below.
+// Read by name by the client's shells (physics_shared.h).
 IPhysicsSurfaceProps	*physprops = NULL;
 IPhysicsCollision		*physcollision = NULL;
 
-//-----------------------------------------------------------------------------
-// The DLL's physics entry points, as shell_clientdll.cpp names them.
-//-----------------------------------------------------------------------------
-
-// Stock's contract: the DLL's Init fails unless vphysics answers all three
-// interfaces. physprops and physcollision are kept for the shells that read
-// them by name; managed acquires its own.
+// The DLL's Init fails unless vphysics answers all three interfaces, as stock's does.
 bool PhysicsDLLInit( CreateInterfaceFn physicsFactory )
 {
 	if ( !physicsFactory( VPHYSICS_INTERFACE_VERSION, NULL ) ||
@@ -98,7 +68,7 @@ void PhysicsSimulate()
 		pPhysics->Simulate();
 }
 
-// kClientSystems[]'s "CPhysicsSystem" row: the four level events, forwarded.
+// The four level events, forwarded to managed.
 class CPhysicsSystem : public CClientSystem
 {
 public:

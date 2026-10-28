@@ -36,8 +36,7 @@
 //
 //=============================================================================
 
-#ifndef SS_LEAFSYSTEM_HARNESS_H
-#define SS_LEAFSYSTEM_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -218,5 +217,3 @@ LeafDetailSystem *DetailObjectSystem();
 // vstdlib/jobthread.h's ParallelProcess: the subject names it on its threaded
 // arms, which are compiled and never taken (`bThreaded = false`).
 template < typename... Args > inline void ParallelProcess( const char *, Args &&... ) {}
-
-#endif // SS_LEAFSYSTEM_HARNESS_H

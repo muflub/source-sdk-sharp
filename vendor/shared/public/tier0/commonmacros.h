@@ -44,7 +44,7 @@ inline bool IsPowerOfTwo( T value )
 
 // From crtdefs.h
 #if !defined(UNALIGNED)
-#if defined(_M_IA64) || defined(_M_AMD64)
+#if defined(_M_AMD64)
 #define UNALIGNED __unaligned
 #else
 #define UNALIGNED
@@ -69,14 +69,7 @@ extern "C++" // templates cannot be declared to have 'C' linkage
 template <typename T, size_t N>
 char (*RtlpNumberOf( UNALIGNED T (&)[N] ))[N];
 
-#ifdef _PREFAST_
-// The +0 is so that we can go:
-// size = ARRAYSIZE(array) * sizeof(array[0]) without triggering a /analyze
-// warning about multiplying sizeof.
-#define RTL_NUMBER_OF_V2(A) (sizeof(*RtlpNumberOf(A))+0)
-#else
 #define RTL_NUMBER_OF_V2(A) (sizeof(*RtlpNumberOf(A)))
-#endif
 
 // This does not work with:
 // void Foo()

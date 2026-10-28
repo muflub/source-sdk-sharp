@@ -5,32 +5,13 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- IVoiceStatusHelper ================================//
-//
-// plan_entity.md Phase 5, the 5b split. ONE CLASS, ONE FILE.
-//
-// The voice manager asks the game which colour to draw a speaking player's
-// name in, whether speaker labels may be shown, and to re-evaluate the cursor
-// when the voice UI changes. Three questions, three answers, and none of them
-// is about IBaseClientDLL.
-//
-// THE INSTANCE MOVED, WHICH IS THE POINT OF THE HEADER. Stock kept a
-// `static CHLVoiceStatusHelper g_VoiceStatusHelper;` at file scope and handed
-// its address to GetClientVoiceMgr()->Init(). plan.md 1a: nothing is a static
-// or a global. It is a MEMBER of CShellClientDLL now
-// (CShellClientDLL::m_VoiceStatusHelper) and Init passes &m_VoiceStatusHelper,
-// so there is exactly one, it is owned, and its lifetime is the client DLL's
-// -- which is what the file-scope static was approximating. The class has to
-// be declared where CShellClientDLL is compiled, hence this header.
-//
-//===========================================================================//
+// The voice manager's game callbacks: a speaking player's name colour, whether
+// speaker labels may show, and cursor updates. The instance is a member of
+// CShellClientDLL, so the class is declared where that is compiled.
 #pragma once
 
 #include "voice_status.h"
 
-//-----------------------------------------------------------------------------
-// Helper interface for voice.
-//-----------------------------------------------------------------------------
 class CHLVoiceStatusHelper : public IVoiceStatusHelper
 {
 public:

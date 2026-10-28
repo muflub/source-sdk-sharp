@@ -5,36 +5,15 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — temp entities, stored from a managed plan ===========//
 // SS_REASON a  a vtable the engine calls through
-//
-// The server half of the temp entity system, and since plan_server_native_v2
-// T4b it decides nothing. C# plans each table (TePropPlanner: which props, at
-// what offsets, under what names) and decides every field of every SendProp
-// (SendPropPlan: dt_send.cpp's NOSCALE rules, range multiplier, proxy choice
-// and collapsible flag); the registry's refusals and the event-cap pricing are
-// C#'s too (TeSchemaRegistry). One length-prefixed block per table crosses
-// (sourcesharp.h, SourceSharpTeTableHeader_t), and this file stores it.
-//
-// WHY ANY OF IT IS NATIVE, measured rather than assumed. The engine walks a
-// SendTable and its SendProps by C++ layout (a vptr, then the fields
-// dt_send.h declares), calls each prop's m_ProxyFn and compares it with
-// g_StandardSendProxies, and reaches the tables through ServerClass, which
-// links itself into g_pServerClassHead when it is constructed; the engine walks
-// that list exactly ONCE, at DLL init (it assigns the class ids then). So the objects are built here, during the window, and live for the
-// process. The send itself is managed: TempEnts calls PlaybackTempEntity through
-// the engine forwarder, with the managed recipient filter, the SendTable this
-// answered and the class id the engine wrote into the ServerClass.
-//
-// WHAT IS LEFT besides the store: the round trip for the native TE_*() callers
-// (SourceSharpTe_Forward), which hand a native IRecipientFilter that managed
-// code cannot read, and goes when they do.
-//
-//=============================================================================//
+
+// Builds and stores the temp entity SendTables and ServerClasses C# plans, one
+// length-prefixed block per table. Native because the engine reads SendTables by
+// C++ layout and walks the server class list once, at DLL init, so they are
+// built in that window and live for the process.
 
 #include "eiface.h"
 
-// The engine (connected in shell_engineboundary.cpp); cbase.h supplied it.
 extern IVEngineServer *engine;
 #include "shell_tempents.h"
 #include "shell_tempents_internal.h"
@@ -42,18 +21,14 @@ extern IVEngineServer *engine;
 #include "dt_send.h"
 #include "server_class.h"
 #include "shell_tempents_store.h"
-#include "imanaged_areas.h"   // plan_engineapi_vtables E13: the server's IManagedTempEnts
-#include "server_state.h"     // CServerTempEnts, the DLL tier's (T6)
+#include "imanaged_areas.h"
+#include "server_state.h"
 
 #include <string.h>
 #include <set>
 #include <string>
 
-//-----------------------------------------------------------------------------
-// THE TABLES LIVE IN THE GAME DLL'S DLL TIER (CServerTempEnts, server_state.h;
-// plan_server_native_v2 T6): they were file-scope statics. NULL outside
-// DLLInit..DLLShutdown, when there is nothing built and nothing to build into.
-//-----------------------------------------------------------------------------
+// The tables live in the DLL tier; NULL outside DLLInit..DLLShutdown.
 static CServerTempEnts *TempEnts()
 {
 	CServerDllState *pDll = ShellGameDll_Dll();
@@ -65,9 +40,7 @@ static const char *InternName( CServerTempEnts &te, const char *pName )
 	return te.m_Names.emplace( pName ).first->c_str();
 }
 
-//-----------------------------------------------------------------------------
 // The accessors the dump reads (shell_tempents_internal.h).
-//-----------------------------------------------------------------------------
 SendTable *SourceSharpTe_BuiltTable( int i )
 {
 	CServerTempEnts *pTe = TempEnts();
@@ -92,9 +65,6 @@ bool SourceSharpTe_RegistrationClosed( void )
 	return pTe ? pTe->m_bClosed : false;
 }
 
-//=============================================================================//
-// REGISTRATION: a block in, a table out.
-//=============================================================================//
 int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
                                   SourceSharpTeBuiltTable_t *pOut )
 {
@@ -104,10 +74,8 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 		return -1;
 	CServerTempEnts &te = *pTe;
 
-	// A CLASS BUILT BY AN EARLIER LOAD answers its table. The engine walked the
-	// class list once, at DLL init, so a managed reload cannot build new tables
-	// and must not try; what it needs back is the handle. Whether the class
-	// changed shape is managed's to judge, from the hash it gave the first time.
+	// A class built by an earlier load answers its table: the engine walked the class
+	// list once, so a managed reload cannot add tables.
 	for ( int i = 0; i < te.m_nBuilt; i++ )
 	{
 		if ( strcmp( te.m_Built[ i ].pClassName, block.pClassName ) )
@@ -120,8 +88,7 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 		return i;
 	}
 
-	// The window. A ServerClass built after the engine's one walk of the class
-	// list is not in it, and nothing would ever report it.
+	// A ServerClass built after the engine's one walk of the class list is never seen.
 	if ( te.m_bClosed || te.m_nBuilt >= SOURCESHARP_TE_MAX_TABLES )
 		return -1;
 
@@ -133,7 +100,6 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 		const SourceSharpSendPropRow_t row = SourceSharpTe_BlockRow( block, i );
 		const char *pName = SourceSharpTe_BlockName( block, row.oName );
 
-		// A nested table is one built before this one, by handle.
 		SendTable *pNested = ( row.hDataTable >= 0 && row.hDataTable < te.m_nBuilt )
 			? te.m_Built[ row.hDataTable ].pTable : NULL;
 
@@ -162,10 +128,7 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 	return iHandle;
 }
 
-//-----------------------------------------------------------------------------
-// Shuts the window. Called once, after managed has pushed its tables, from
-// wherever LoadSide returns.
-//-----------------------------------------------------------------------------
+// Closes the window, once managed has pushed its tables.
 void SourceSharp_TempEntCloseRegistration( void )
 {
 	CServerTempEnts *pTe = TempEnts();
@@ -187,30 +150,15 @@ void SourceSharp_TempEntCloseRegistration( void )
 	     "registration closed\n", te.m_nBuilt, nClasses );
 }
 
-//=============================================================================//
-// THE PREDICTION HOST WENT (plan_server_native_v2 T6). It held the temp entity
-// subsystem's suppress host for one reader, ApplyMultiDamage, which saved and
-// restored it around TakeDamage; the server's multi-damage accumulator was
-// never filled and went in T6 3e, and with it the only caller of
-// SourceSharpTe_PredictionSystem. Nothing set a host, so the host was always
-// NULL: suppress_host_dead_test.cpp holds that no writer comes back.
-//=============================================================================//
-
-//=============================================================================//
-// THE ROUND TRIP FOR THE NATIVE TE_*() CALLERS (shell_te_forwards.cpp).
-//
-// They pass their own IRecipientFilter, a native object managed code cannot
-// read, so managed packs the fields into the scratch blob and says which class;
-// this sends them through the engine with the caller's filter. A refusal from
-// managed sends NOTHING, rather than a blob it made up. One scratch blob: this
-// runs on the server's thread inside one call and nothing yields in between.
-//=============================================================================//
+// The native TE_*() callers pass an IRecipientFilter managed cannot read, so
+// managed packs the fields into the scratch blob and this sends them with the
+// caller's filter. A managed refusal sends nothing. One scratch blob suffices:
+// this runs on the server thread and nothing yields in between.
 
 bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
                             const float *pFloats, int nFloats,
                             const int *pInts, int nInts )
 {
-	// E13: the server's managed-built area.
 	IManagedTempEnts *pTempEnts = ManagedTempEnts();
 	CServerTempEnts *pTe = TempEnts();
 
@@ -237,11 +185,7 @@ bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// The other half of SourceSharp_IsManagedServerClass (plan_gamedll.md Part 5's
-// meter). Every ServerClass built here exists because a C# [TempEntity]
-// declared it, so it belongs in the managed column. By identity, not by name.
-//-----------------------------------------------------------------------------
+// Whether a ServerClass was built here from a C# [TempEntity], by identity.
 bool SourceSharp_IsTempEntServerClass( const ServerClass *pClass )
 {
 	CServerTempEnts *pTe = TempEnts();

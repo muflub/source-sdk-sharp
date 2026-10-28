@@ -7,7 +7,7 @@
 // to include this potentially multiple times (since we can deactivate debugging
 // by including memdbgoff.h)
 
-#if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
+#if !defined(NO_MALLOC_OVERRIDE)
 
 // SPECIAL NOTE #2: This must be the final include in a .cpp or .h file!!!
 
@@ -102,13 +102,9 @@ inline void *MemAlloc_InlineCallocMemset( void *pMem, size_t nCount, size_t nEle
 #define _malloc_dbg(s, t, f, l)	WHYCALLINGTHISDIRECTLY(s)
 
 #if !defined( POSIX )
-#if defined(__AFX_H__) && defined(DEBUG_NEW)
-	#define new DEBUG_NEW
-#else
 	#undef new
 	#define MEMALL_DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
 	#define new MEMALL_DEBUG_NEW
-#endif
 #endif
 
 #undef _strdup
@@ -226,11 +222,7 @@ inline wchar_t *MemAlloc_WcStrDup(const wchar_t *pString)
 #else
 
 #if defined(USE_MEM_DEBUG)
-#ifndef _STATIC_LINKED
 #pragma message ("Note: file includes crtdbg.h directly, therefore will cannot use memdbgon.h in non-debug build")
-#else
-#error "Error: file includes crtdbg.h directly, therefore will cannot use memdbgon.h in non-debug build. Not recoverable in static build"
-#endif
 #endif
 #endif // _INC_CRTDBG
 

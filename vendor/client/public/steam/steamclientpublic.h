@@ -80,9 +80,6 @@ public:
 	//			eAccountType -	Type of account
 	CSteamID( uint32 unAccountID, unsigned int unAccountInstance, EUniverse eUniverse, EAccountType eAccountType )
 	{
-#if defined(_SERVER) && defined(Assert)
-		Assert( ( k_EAccountTypeIndividual != eAccountType ) || ( unAccountInstance == k_unSteamUserDefaultInstance ) );	// enforce that for individual accounts, instance is always 1
-#endif // _SERVER
 		InstancedSet( unAccountID, unAccountInstance, eUniverse, eAccountType );
 	}
 
@@ -268,20 +265,6 @@ bool SteamIDFromSteam2String( const char *pchSteam2ID, EUniverse eUniverse, CSte
 // This steamID can come from a user game connection to a GS that isn't using the steam authentication system but still
 // wants to support the "Join Game" option in the friends list
 
-#ifdef STEAM
-// Returns the matching chat steamID, with the default instance of 0
-// If the steamID passed in is already of type k_EAccountTypeChat it will be returned with the same instance
-CSteamID ChatIDFromSteamID( const CSteamID &steamID );
-// Returns the matching clan steamID, with the default instance of 0
-// If the steamID passed in is already of type k_EAccountTypeClan it will be returned with the same instance
-CSteamID ClanIDFromSteamID( const CSteamID &steamID );
-// Asserts steamID type before conversion
-CSteamID ChatIDFromClanID( const CSteamID &steamIDClan );
-// Asserts steamID type before conversion
-CSteamID ClanIDFromChatID( const CSteamID &steamIDChat );
-
-#endif // _STEAM
-
 // Purpose: encapsulates an appID/modID pair
 class CGameID
 {
@@ -346,11 +329,6 @@ public:
 		m_ulGameID = ulGameID;
 	}
 
-#if !defined(VALVE_SHORTCUT_DEBUG)
-#else
-	uint32 AppID( bool bShortcutOK = false ) const;
-#endif
-
 	bool IsValid() const
 	{
 		// each type has it's own invalid fixed point:
@@ -409,7 +387,7 @@ public:
 // Define compile time assert macros to let us validate the structure sizes.
 #define VALVE_COMPILE_TIME_ASSERT( pred ) typedef char compile_time_assert_type[(pred) ? 1 : -1];
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__)
 // The 32-bit version of gcc has the alignment requirement for uint64 and double set to
 // 4 meaning that even with #pragma pack(8) these types will only be four-byte aligned.
 // The 64-bit version of gcc has the alignment requirement for these types set to

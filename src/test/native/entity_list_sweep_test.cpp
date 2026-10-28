@@ -318,17 +318,9 @@ TEST( EntityListSweep, TheRemainingSitesAreLifecycleOrStockWalksAndAreCounted )
 	// (plan_server_native_min P1); baseentity_statics.cpp was at zero since
 	// P5 lane E and is deleted, not counted.
 
-
-	EXPECT_EQ( 1, EntityListLines( kWorldAdapter ) )
-		<< "one, and it is a COMMENT about the level-shutdown order rather than "
-		   "a call. The world's registration and its removal were the other two "
-		   "and they are gone -- plan_entity.md §3.3, lane entlist-server: the "
-		   "world issues its own handle in AttachToEdictZero and "
-		   "SourceSharp_WorldFromHandle resolves it, because the slot table "
-		   "binds SHELLS and one type behind its void * is what makes its single "
-		   "static_cast sound. The release the purge used to perform moved with "
-		   "it -- see WorldRelease.TheLevelClearStepReleasesTheWorldBeforeIt"
-		   "ClearsTheList, which is what stops the crash that shipped once.";
+	EXPECT_EQ( 0, EntityListLines( kWorldAdapter ) )
+		<< "world_adapter.cpp names the SDK entity list again; the world issues "
+		   "its own handle and the slot table resolves it.";
 
 	EXPECT_EQ( 0, EntityListLines( "sourcesharp/game/server/shell_standalone_base.cpp" ) )
 		<< "the KEYSTONE file, and lane p4-flip's whole finding: two of the "
@@ -914,7 +906,7 @@ TEST( EntityListSweep, NoShimFileNamesTheCLIENTSEntityListInCodeEither )
 		<< named;
 }
 
-TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyInProse )
+TEST( EntityListSweep, NoShimFileCallsTheEntityList )
 {
 	const char *pRoot = SrcRoot();
 	ASSERT_TRUE( pRoot != NULL ) << "cannot find the source root";
@@ -931,9 +923,7 @@ TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyIn
 		   "every .cpp and .h under sourcesharp/game/{server,shared}; a short walk "
 		   "sums to a number that looks like progress.";
 
-	int nTotal = 0;
 	int nCode  = 0;
-	std::vector< std::string > carriers;
 	std::vector< std::string > callers;
 
 	for ( size_t i = 0; i < files.size(); i++ )
@@ -945,35 +935,6 @@ TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyIn
 		const std::string src( ( std::istreambuf_iterator< char >( in ) ),
 		                         std::istreambuf_iterator< char >() );
 
-		int nHere = 0;
-		size_t at = 0;
-
-		while ( at < src.size() )
-		{
-			const size_t eol = src.find( '\n', at );
-			const std::string line = src.substr(
-				at, ( eol == std::string::npos ) ? std::string::npos : eol - at );
-
-			if ( line.find( "gEntList." ) != std::string::npos
-				|| line.find( "g_pEntityList->" ) != std::string::npos )
-				nHere++;
-
-			if ( eol == std::string::npos )
-				break;
-
-			at = eol + 1;
-		}
-
-		if ( nHere > 0 )
-		{
-			nTotal += nHere;
-			carriers.push_back( files[i] );
-		}
-
-		// THE SAME FILE WITH THE COMMENTS TAKEN OUT. Five lines is small enough
-		// that "the shim stopped calling the list" and "somebody wrote a
-		// paragraph about the list" produce the same raw number, so the raw
-		// number can no longer be asserted on its own.
 		const std::string code = StripComments( src );
 		const int nCodeHere = LinesWith( code, "gEntList." )
 		                    + LinesWith( code, "g_pEntityList->" );
@@ -984,12 +945,7 @@ TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyIn
 		}
 	}
 
-	std::sort( carriers.begin(), carriers.end() );
 	std::sort( callers.begin(), callers.end() );
-
-	std::string named;
-	for ( size_t i = 0; i < carriers.size(); i++ )
-		named += "\n    " + carriers[i];
 
 	std::string namedCallers;
 	for ( size_t i = 0; i < callers.size(); i++ )
@@ -1004,57 +960,7 @@ TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyIn
 		   "requires zero; a call here is also a call into a list with no "
 		   "population, because armed no compiled server TU registers an entity "
 		   "of that hierarchy. The files calling it:" << namedCallers;
-
-	// AND THE RAW-TEXT SURFACE, pinned in both directions as it always was --
-	// the unit tools/entity-census counts in, so the two instruments can still
-	// be compared. It went 16 -> 5 at f288a5e11; all survivors are prose, which
-	// is what the zero above says.
-	//
-	// 5 -> 7 AT plan_shim.md PHASE 2a, AND NOT ONE WORD OF PROSE WAS WRITTEN.
-	// The two added lines are in game/server/physics.cpp, which lane 2-physics
-	// RELOCATED into sourcesharp/game/server/ -- Phase 2's exit condition is
-	// that server_csharp.vpc (now server_sourcesharp's CMakeLists list) names
-	// no row under game/, so a file that
-	// stays native leaves that tree instead. This scan is over the SHIM, so the
-	// file's existing comments arrived in its population unchanged. Same text,
-	// same translation unit, different directory.
-	//
-	// THE ZERO ABOVE IS WHAT MAKES THAT SAFE TO SAY rather than something to
-	// take on trust: physics.cpp appears in `carriers` and NOT in `callers`, so
-	// both of its lines are comments -- gEntList and
-	// CGlobalEntityList::FindEntityGeneric named in the block explaining why
-	// FindPhysicsObjectByName cannot resolve a name through the SDK list. The
-	// rule this fact enforces is unchanged in both directions: a call coming
-	// back still fails the zero, and a deleted paragraph still fails this.
-	// 7 -> 5 AT P5 LANE E: the two baseentity_statics lines described
-	// EntityCreate_NoSpawn's NotifyCreateEntity and the moved-not-lifted
-	// Instance forwarder. The first went with the dead function it was inside;
-	// the second with the header's history of statics that no longer exist.
-	// 5 -> 6 AT P5 LANE E, AND NOT ONE WORD OF PROSE WAS WRITTEN: anyentity.h
-	// left the overlay for src/server/native/, so its existing comment on the
-	// SDK list arrived in this scan's population unchanged -- the relocation
-	// case named below. The zero above still holds over it.
-	// 6 -> 4 ON 2026-10-18: the two lines (by then in physics_debug.cpp, where
-	// PhysicsCommand's refusal named gEntList and FindEntityGeneric) went with
-	// that file; physics_select resolves its subject in managed now. 4 -> 3 AT
-	// plan_server_native_min P1: shell_restoreentities.cpp is deleted, and its
-	// prose line (what the stock restore walk yields) went with it. 3 -> 2 AT
-	// plan_server_native_v2 T2: SourceSharp_FindBaseEntityByName went, and
-	// shell_standalone_hierarchy.cpp's prose line on FindEntityByName with it.
-	// The zero above is what makes that safe: no call came back.
-	EXPECT_EQ( 2, nTotal )
-		<< "the shim's raw-text entity-list surface moved. Both are COMMENTS "
-		   "-- world_adapter.cpp on the level-shutdown order, and anyentity.h on "
-		   "the arm it no longer has. If this "
-		   "number went UP, either a call came back (which the zero above catches), "
-		   "or a new paragraph was written, or a native file was relocated into "
-		   "the shim tree carrying comments it already had; if it went DOWN, a "
-		   "comment recording "
-		   "why something is NOT done was deleted, and that history is the only "
-		   "thing standing between this file and a re-litigation. The files "
-		   "carrying them:" << named;
 }
-
 
 //=============================================================================
 // 2. THE REVERSE SCAN IS GONE.

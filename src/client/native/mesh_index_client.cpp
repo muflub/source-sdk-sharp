@@ -4,15 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the index-buffer generators, ours
-//
 // SS_REASON g  leaf math over mdl/bsp data
 //
-// plan_client_novalve C9. Each writes nIndexCount indices for a primitive
-// over vertices starting at nFirstVertex. Held to tier2.a's meshutils.o by
-// meshutils_oracle_test; the Valve names client.so links are at the bottom,
-// outside the namespace, so the oracle can link the archive's beside these.
-//=============================================================================//
+// Index-buffer generators: each writes nIndexCount indices for a primitive over
+// vertices starting at nFirstVertex.
 
 #include "mesh_index_client.h"
 
@@ -63,9 +58,8 @@ void GenerateLineStrip( unsigned short *pIndices, int nIndexCount, int nFirstVer
 	}
 }
 
-// The closing segment first -- the loop's last vertex back to its first --
-// then the strip over the rest. As the archive's, the closing pair is written
-// whatever the count, a count of 0 included (it names vertex nFirstVertex - 1).
+// The closing segment first, then the strip over the rest. The closing pair is written
+// whatever the count, 0 included (it then names vertex nFirstVertex - 1), as tier2's is.
 void GenerateLineLoop( unsigned short *pIndices, int nIndexCount, int nFirstVertex )
 {
 	pIndices[ 0 ] = (unsigned short)( nFirstVertex + nIndexCount / 2 - 1 );

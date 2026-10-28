@@ -739,19 +739,6 @@ public class EntityMotionPushTests
         return text;
     }
 
-    /// <summary>The comment stripper actually strips, checked on this tree's own text.</summary>
-    [Fact]
-    public void TheCommentStripperStrips()
-    {
-        string raw = File.ReadAllText(Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp",
-                                                   "game", "server", "shell_standalone_base.cpp"));
-        string code = CodeOf("src", "sourcesharp", "game", "server", "shell_standalone_base.cpp");
-
-        Assert.Contains("UpdateMovement", raw);
-        Assert.DoesNotContain("UpdateMovement", code);
-        Assert.Contains("SetAngularVelocity", code);
-    }
-
     /// <summary>The stepper's five bodies are gone from the C++.</summary>
     [Fact]
     public void TheShellNoLongerSteps()

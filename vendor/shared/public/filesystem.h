@@ -125,102 +125,6 @@ enum DVDMode_t
 };
 
 // In non-retail builds, enable the file blocking access tracking stuff...
-#if defined( TRACK_BLOCKING_IO )
-enum FileBlockingWarning_t
-{
-	// Report how long synchronous i/o took to complete
-	FILESYSTEM_BLOCKING_SYNCHRONOUS = 0,
-	// Report how long async i/o took to complete if AsyncFileFinished caused it to load via "blocking" i/o
-	FILESYSTEM_BLOCKING_ASYNCHRONOUS_BLOCK,
-	// Report how long async i/o took to complete
-	FILESYSTEM_BLOCKING_ASYNCHRONOUS,
-	// Report how long the async "callback" took
-	FILESYSTEM_BLOCKING_CALLBACKTIMING,
-
-	FILESYSTEM_BLOCKING_NUMBINS,
-};
-
-#pragma pack(1)
-class FileBlockingItem
-{
-public:
-	enum
-	{
-		FB_ACCESS_OPEN = 1,
-		FB_ACCESS_CLOSE = 2,
-		FB_ACCESS_READ = 3,
-		FB_ACCESS_WRITE = 4,
-		FB_ACCESS_APPEND = 5,
-		FB_ACCESS_SIZE = 6
-	};
-
-	FileBlockingItem() :
-		m_ItemType( (FileBlockingWarning_t)0 ),
-		m_flElapsed( 0.0f ),
-		m_nAccessType( 0 )
-	{
-		SetFileName( NULL );
-	}
-
-	FileBlockingItem( int type, char const *filename, float elapsed, int accessType ) :
-		m_ItemType( (FileBlockingWarning_t)type ),
-		m_flElapsed( elapsed ),
-		m_nAccessType( accessType )
-	{
-		SetFileName( filename );
-	}
-
-	void SetFileName( char const *filename )
-	{
-		if ( !filename )
-		{
-			m_szFilename[ 0 ] = 0;
-			return;
-		}
-
-		int len = Q_strlen( filename );
-		if ( len >= sizeof( m_szFilename ) )
-		{
-			Q_strncpy( m_szFilename, &filename[ len - sizeof( m_szFilename ) + 1 ], sizeof( m_szFilename ) );
-		}
-		else
-		{
-			Q_strncpy( m_szFilename, filename, sizeof( m_szFilename ) );
-		}
-	}
-
-	char const *GetFileName() const
-	{
-		return m_szFilename;
-	}
-
-	FileBlockingWarning_t	m_ItemType;
-	float					m_flElapsed;
-	byte					m_nAccessType;
-private:
-
-	char					m_szFilename[ 32 ];
-};
-#pragma pack()
-
-class IBlockingFileItemList
-{
-public:
-	
-	// You can't call any of the below calls without locking first
-	virtual void	LockMutex() = 0;
-	virtual void	UnlockMutex() = 0;
-
-	virtual int		First() const = 0;
-	virtual int		Next( int i ) const = 0;
-	virtual int		InvalidIndex() const = 0;
-
-	virtual const	FileBlockingItem& Get( int index ) const = 0;
-
-	virtual void	Reset() = 0;
-};
-
-#endif // TRACK_BLOCKING_IO
 
 enum FilesystemMountRetval_t
 {
@@ -620,13 +524,6 @@ public:
 	virtual int				ReadFileEx( const char *pFileName, const char *pPath, void **ppBuf, bool bNullTerminate = false, bool bOptimalAlloc = false, int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = NULL ) = 0;
 
 	virtual FileNameHandle_t	FindFileName( char const *pFileName ) = 0;
-
-#if defined( TRACK_BLOCKING_IO )
-	virtual void			EnableBlockingFileAccessTracking( bool state ) = 0;
-	virtual bool			IsBlockingFileAccessEnabled() const = 0;
-
-	virtual IBlockingFileItemList *RetrieveBlockingFileAccessInfo() = 0;
-#endif
 
 	virtual void SetupPreloadData() = 0;
 	virtual void DiscardPreloadData() = 0;

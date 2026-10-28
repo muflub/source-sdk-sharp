@@ -5,41 +5,22 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — generic_payload.cpp's diagnostic console command ===//
 // SS_REASON c  static-init registration
-//
-// DEBUG BUILDS ONLY (user ruling 2026-10-01: debug commands live in debug files
-// that CMake compiles only for a debug build -- server_sourcesharp_debug_sources).
-// SourceSharp.Server's NativeCommands declares the matching row under #if DEBUG.
-//
-//=============================================================================//
+// Debug builds only.
 
 #include "tier0/dbg.h"
-#include "tier1/convar.h"     // CCommand
+#include "tier1/convar.h"
 #include "dt_send.h"
 #include "generic_payload.h"
 #include "native_command_body.h"
 #include "ss_string.h"
 
-// The live shell's blob base (shell_standalone_class.cpp). Declared rather than
-// included, as generic_payload.cpp does: shell_standalone.h is a thousand lines.
+// Declared here rather than including the large shell_standalone.h.
 int SourceSharp_StandaloneBlobOffset();
 
-
-//-----------------------------------------------------------------------------
-// Builds a payload prop set and dumps what it resolved to.
-//
-// The point of the command is the proxy column, not the offsets. An offset that
-// is wrong shows up the moment anything reads the blob; a prop that quietly fell
-// onto the engine's slow local-transfer list behaves identically to one that did
-// not, and there is no convar, no warning and no counter anywhere that would say
-// so. This is the only thing that reports it.
-//
-// Output is laid out to be read next to GET /nettable/<typeid> from the dev API —
-// same prefix, same columns in the same order — because from Step 3 onward the
-// two describe the same entity's state two different ways and have to be
-// comparable by eye.
-//-----------------------------------------------------------------------------
+// Builds a payload prop set and dumps what it resolved to. The proxy column matters:
+// a prop that fell onto the engine's slow local-transfer list behaves the same and
+// nothing else reports it.
 SS_NATIVE_COMMAND( cs_sv_dump_payload )
 {
 	int nBytes = 32;
@@ -56,10 +37,7 @@ SS_NATIVE_COMMAND( cs_sv_dump_payload )
 		return;
 	}
 
-	// The blob base the hierarchy actually uses, so the offsets printed are the
-	// offsets the props would get if a table were built around them today.
-	// Using 0 here would print arithmetic that is right and offsets that are
-	// not.
+	// The real blob base, so the offsets are the ones a table would get today.
 	const int nBlobBase = SourceSharp_StandaloneBlobOffset();
 
 	SendProp *pProps = new SendProp[ nWords > 0 ? nWords : 1 ];
@@ -94,8 +72,6 @@ SS_NATIVE_COMMAND( cs_sv_dump_payload )
 			bFast ? "" : "   <-- NOT ON THE FAST LOCAL-TRANSFER LIST" );
 	}
 
-	// Stated as a count rather than left to the reader to check: a single word
-	// out of 512 on the slow list is exactly the thing a per-line dump hides.
 	if ( nFast == nBuilt )
 	{
 		Msg( "[SourceSharp] payload dump: all %d prop(s) resolved to m_UInt32ToInt32 "

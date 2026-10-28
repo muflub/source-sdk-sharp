@@ -4,33 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client's sound envelope controller, a shim =====//
 // SS_REASON a  a vtable the engine calls through
-//
-// Sound cluster 17 (plan_client_novalve C2, lane c2-sims). The client's
-// CSoundControllerImp (game/shared/soundenvelope.cpp) is gone from client.so:
-// the RAMPS -- a volume or a pitch approaching a target at a rate -- the sound
-// list, the time-sorted command queue and the envelope expansion are C#'s,
-// SourceSharp.Shared.SoundEnvelopeController, the same class the server's
-// shell forwards to (shell_soundenvelope.cpp there), held bit for bit to the
-// stock client controller by SoundEnvelopeOracleTests. The client module
-// steps it once a frame.
-//
-// What is here is the half that is genuinely the engine's, the server
-// shell's split: a CSoundPatch is a recipient filter, an entity index, a
-// sound-script lookup and an EmitSound_t. The controller below answers
-// CSoundEnvelopeController::GetController() so its compiled callers -- the
-// client physics.cpp's friction sounds -- are unedited, and forwards every
-// decision to IManagedSoundControllerClient. A patch crosses as an int handle.
-//
-// THE ENTITY IS AN INDEX. Stock stored a handle to the entity at that index
-// and dropped a patch whose entity had gone. Its one client caller,
-// physics.cpp, always passes 0 (a client-side object has no index; the world
-// plays its sound), so the index is kept and reported as stock reported it.
-//
-// NO FILE-SCOPE STATE: the patch table is a member of the controller, which is
-// a function-local static (the server shell's shape).
-//=============================================================================//
+// The client's sound envelope controller. Managed runs the ramps, the sound list and the
+// command queue; a CSoundPatch here is the engine's half: a filter, an entity index, a
+// sound-script lookup and an EmitSound_t. A patch crosses as an int handle.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,14 +40,10 @@
 #include "imanaged_areas_client.h"
 #include "shell_standalone_client.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 namespace
 {
 
-// A copy of the filter the caller built: SoundCreate's filter is almost always
-// a stack object, and the patch outlives it. Stock's CCopyRecipientFilter,
-// reduced to what the client uses.
+// A copy of the caller's filter: it is usually a stack object, and the patch outlives it.
 class CClientCopyFilter : public IRecipientFilter
 {
 public:
@@ -115,8 +88,8 @@ public:
 		m_szScriptName[0] = 0;
 	}
 
-	// Stock's Init: a sound script is resolved to its wave, its level and its
-	// channel, and its volume becomes the multiplier the envelope scales.
+	// A sound script resolves to its wave, level and channel; its volume becomes the
+	// multiplier the envelope scales.
 	void Init( IRecipientFilter *pFilter, int nEntIndex, int nChannel, const char *pszSoundName,
 	           soundlevel_t soundlevel )
 	{
@@ -150,8 +123,8 @@ public:
 	bool FilterIsActive() const { return m_Filter.IsActive(); }
 	int EntIndex() const { return m_nEntIndex; }
 
-	// One emit, as managed decided it: stock's StartSound (bEmitCaption, with
-	// the base flags) or Update's change (SND_CHANGE_VOL always).
+	// One emit as managed decided it: a start (bEmitCaption, base flags) or a change
+	// (SND_CHANGE_VOL always).
 	void Emit( float flVolume01, float flPitch, int nFlags, float flStartTime, bool bEmitCaption )
 	{
 		if ( m_nEntIndex < 0 || !m_Filter.IsActive() )
@@ -227,15 +200,13 @@ public:
 		delete pSound;
 	}
 
-	// ---- CSoundEnvelopeController: every decision is managed's ----
-
 	virtual void SystemReset() OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
 			pApi->ClientSoundControllerReset();
 	}
 
-	// The client module steps the controller once a frame.
+	// The client module steps the managed controller once a frame.
 	virtual void SystemUpdate() OVERRIDE {}
 
 	virtual void Play( CSoundPatch *pSound, float volume, float pitch, float flStartTime ) OVERRIDE
@@ -278,8 +249,7 @@ public:
 		return Build( levelFilter, nEntIndex, channel, pSoundName, soundlevel );
 	}
 
-	// Stock's: no vision-filter translation on this overload, and the
-	// EmitSound_t's volume and pitch set at once.
+	// No vision-filter translation on this overload, as stock's.
 	virtual CSoundPatch *SoundCreate( IRecipientFilter &filter, int nEntIndex, const EmitSound_t &es ) OVERRIDE
 	{
 		CSoundPatch *pSound = Track( filter, nEntIndex, es.m_nChannel, es.m_pSoundName, es.m_SoundLevel );
@@ -312,8 +282,8 @@ public:
 			if ( pSound ) pApi->ClientSoundControllerChangeVolume( pSound->Handle(), volumeTarget, deltaTime );
 	}
 
-	// Stock's zero-time destroying fade is a destroy, and a destroy frees a
-	// native object, so it is answered here; every other fade is managed's.
+	// A zero-time destroying fade frees a native object, so it is handled here; every other
+	// fade is managed's.
 	virtual void SoundFadeOut( CSoundPatch *pSound, float deltaTime, bool destroyOnFadeout ) OVERRIDE
 	{
 		if ( !pSound )
@@ -353,8 +323,7 @@ public:
 		return envelope ? SoundPlayEnvelope( pSound, soundCommand, envelope->pPoints, envelope->nNumPoints ) : 0.0f;
 	}
 
-	// A server-only question (a player joining hears the looping sounds);
-	// stock's client never asks it.
+	// Server-only; the client never asks.
 	virtual void CheckLoopingSoundsForPlayer( CBasePlayer *pPlayer ) OVERRIDE {}
 
 	virtual string_t SoundGetName( CSoundPatch *pSound ) OVERRIDE
@@ -406,9 +375,6 @@ CSoundEnvelopeController &CSoundEnvelopeController::GetController()
 	return *ShellClientSoundController();
 }
 
-//-----------------------------------------------------------------------------
-// IShimEngine's patch slots, the client's bodies: what managed tells a patch.
-//-----------------------------------------------------------------------------
 void SourceSharp_ClientSoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags,
                                        float flStartTime, int32_t bEmitCaption )
 {
@@ -436,26 +402,9 @@ void SourceSharp_ClientSoundPatchFree( int32_t hPatch )
 	ShellClientSoundController()->Free( hPatch );
 }
 
-//-----------------------------------------------------------------------------
-// WHAT A MANAGED LOOPING SOUND NEEDS, on the client (plan_client_novalve C6,
-// cluster 9; lane c6-input): the server's SoundPatchCreate slot
-// (shell_soundenvelope.cpp) with this side's body, so the shared
-// FrictionSounds -- stock's PhysFrictionSound -- scrapes on either side. The
-// policy is C#'s; a patch on an entity is the engine's. A script's parameters
-// and a surface's scrape names read the engine's interfaces through their
-// forwarders since 2026-10-19.
-//-----------------------------------------------------------------------------
-
-// A sound patch on the entity, as stock's client PhysFrictionSound builds it:
-// SoundCreate( CPASAttenuationFilter( entity, level ), entindex, channel, name,
-// level ), and "clientside created entites doesn't have a valid entindex, let
-// 'world' play the sound for them". The handle the managed controller tracks
-// it by, or 0.
-//
-// The WORLD's handle (entry 0) is that arm asked for by name: managed hands it
-// for a clientside physics prop, which is no shell. The world is no shell
-// either, so it is entindex 0 at the world's origin. (The client's attenuation
-// filter is every local player whatever its origin.)
+// A sound patch on the entity, as stock's client PhysFrictionSound builds it, or 0.
+// Handle 0 is the world, which managed passes for a clientside physics prop: it plays at
+// entindex 0 at the world's origin.
 int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,
                                             const char *pSoundName, int32_t nSoundLevel )
 {

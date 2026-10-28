@@ -4,60 +4,41 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — client's tier0 and vstdlib, bound to the engine's ===//
 // SS_REASON d  a layout the engine reads at fixed offsets
+// client.so links no tier0 and no vstdlib. What its objects still take from them
+// is state only the engine's copies hold, so each name below is defined here
+// and reaches the definition in the library the engine already loaded
+// (loaded_symbol.h):
 //
-// plan_client_novalve C9: the client links no tier0 and no vstdlib (no
-// DT_NEEDED on libtier0.so/libvstdlib.so, no tier0.lib/vstdlib.lib), as the
-// server links neither. What its objects still take from them is state only
-// the engine's copies hold, so it is bound, not ported: each name below is
-// defined here and reaches the definition in the library the engine already
-// loaded (loaded_symbol.h), the way engine_heap.h reaches tier0's allocator.
-//
-//   CommandLine_Tier0     the engine's command line (clientshadowmgr's -tools,
-//                         ScreenSpaceEffects' -filmgrain): the one the
-//                         launcher built, not /proc/self/cmdline
-//   g_pThreadPool,        vstdlib's thread pool, which the client's parallel
-//   DestroyThreadPool     jobs run on (clientleafsystem, clientshadowmgr,
-//                         particlemgr), and its pools' destruction
+//   CommandLine_Tier0     the engine's command line, as the launcher built it
+//   g_pThreadPool,        vstdlib's thread pool the client's parallel jobs run
+//   DestroyThreadPool     on, and its pools' destruction
 //   CThreadEvent, CThreadSyncObject, CThreadRWLock, CThreadSpinRWLock members
-//                         tier0's own: their layout is tier0's, and a CJob's
-//                         completion event is set here and waited on in the
-//                         engine's pool (clientleafsystem's CJob::Abort,
-//                         tier1's utlsymbol)
-//   g_pMemAlloc           tier0's allocator, through which tier1's utlsymbol
-//                         member (compiled without NO_MALLOC_OVERRIDE)
-//                         allocates and frees
-//   g_pVCR                (Windows) tier0's VCR hooks, through which the
-//                         CThreadMutex::Lock emitted below enters its
-//                         critical section
+//                         tier0's own: a CJob's completion event is set here and
+//                         waited on in the engine's pool
+//   g_pMemAlloc           tier0's allocator, used by tier1's utlsymbol
+//   g_pVCR                (Windows) tier0's VCR hooks, used by CThreadMutex::Lock
 //
-// Each function is found once, on first call: the engine needs that tier0 and
-// vstdlib, so they outlive the client. The two pointers are copied when the
-// client loads, ahead of every C++ static initialiser, so no object sees them
-// empty. A missing library or name stops the process, naming both
-// (RequireLoadedSymbol): there is no other copy to fall back on.
+// Each function is found once, on first call; the engine keeps those libraries
+// loaded for the client's lifetime. The two pointers are copied when the client
+// loads, ahead of every C++ static initialiser. A missing library or name stops
+// the process, naming both.
 //
-// Linux (measured: the names lld reports with -ltier0/-lvstdlib taken off
-// client.so's link, with and without --gc-sections): no tier0 header is read.
-// The functions are defined under the names client objects import (asm
-// labels), with the arguments the Itanium ABI passes, so this file knows no
-// layout; constructor priority 101 copies the pointers.
+// Linux: no tier0 header is read. Functions are defined under the names client
+// objects import (asm labels) with the arguments the Itanium ABI passes;
+// constructor priority 101 copies the pointers.
 //
-// Windows (CI-verified only: no MSVC toolchain on the box this was written
-// on): tier0's headers are read with STATIC_TIER0 (CMakeLists.txt), so the
-// members are defined as plain members and the linker binds each dllimport of
-// one to its definition (LNK4217), as server.dll's ports are bound. Each finds
-// tier0.dll's own by its decorated name, which the compiler spells
-// (__FUNCDNAME__). The C names and the two pointers are bound with
-// SS_BIND_IMPORT (ss_platform.h); init_seg(lib) copies the pointers.
-//=============================================================================//
+// Windows: tier0's headers are read with STATIC_TIER0, so members are defined
+// plainly and the linker binds each dllimport to its definition (LNK4217).
+// Each finds tier0.dll's own by its decorated name (__FUNCDNAME__); the C names
+// and the two pointers are bound with SS_BIND_IMPORT; init_seg(lib) copies the
+// pointers.
 
 #include "loaded_symbol.h"
 
 #if defined( _WIN32 )
 	#include "tier0/threadtools.h"
-	#include "ss_platform.h"	// SS_BIND_IMPORT
+	#include "ss_platform.h"
 	#include <new>
 	#pragma warning( disable : 4073 )	// initializers put in library initialization area
 	#pragma init_seg( lib )
@@ -66,8 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// loaded_symbol.h's RequireLoadedSymbol, defined beside its one caller
-// (plan_server_native_v2 T5: no server object imports it).
+// loaded_symbol.h's RequireLoadedSymbol, defined beside its one caller.
 void *ss::RequireLoadedSymbol( const char *pszFile, const char *pszSymbol )
 {
 	void *pSymbol = FindLoadedSymbol( pszFile, pszSymbol );
@@ -257,14 +237,10 @@ void CThreadSpinRWLock::SpinLockForWrite( const uint32 threadId )
 	pfn( this, threadId );
 }
 
-// tier0's headers define these members inline, and a fork object that did not
-// inline one imports it from tier0.dll (clientleafsystem's and particlemgr's
-// CThreadMutex::Lock, tier1's utlsymbol's CThreadSpinRWLock constructor and
-// LockForWrite). Read plain here, they are emitted as this module's own (the
-// headers' bodies, on the object's own fields, as tier0's copies run) and the
-// linker binds each import to them (LNK4217). Calls compiled without
-// optimisation stay calls, so the compiler emits each member; nothing calls
-// this function.
+// tier0's headers define these members inline; a fork object that did not
+// inline one imports it from tier0.dll. Read plain here, they are emitted as
+// this module's own and the linker binds each import to them (LNK4217).
+// Nothing calls this function.
 #pragma optimize( "", off )
 void SS_EmitTier0ThreadInlines( CThreadMutex *pMutex, void *pSpinLock )
 {

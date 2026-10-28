@@ -5,46 +5,14 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the render plan's executor ==========================//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve.md §3.3 / C7. The engine calls IBaseClientDLL::View_Render
-// once a frame; CShellClientDLL hands the call here. Managed decides, through
-// IManagedRenderClient::RenderFrame, which path draws the frame (stock's
-// viewrender, or the render plan) and whether the frame is recorded by
-// shell_render_trace_client.cpp; a recorded frame's text goes back to managed
-// through RenderTraceDone.
-//
-// THE SEAM IS RenderView. Stock's CViewRender::Render (view.cpp) still builds
-// each eye's CViewSetup, clear flags and draw flags and paints the main menu
-// after; it hands them to the virtual RenderView, whose slot in CViewRender's
-// vtable this file overwrites (vtable_slot_patch.h) once, at the first frame.
-// On a plan frame the hook gathers RenderView's inputs (GatherInputs: the view,
-// the hardware answers, the convars, the fog volume and water material, the
-// viewer's fog and sky), asks managed for the plan (RenderPlanBuild), and runs
-// the ops; on a stock frame, or when managed declines, it calls stock's
-// RenderView. GetViewSetup's slot is overwritten too, so the setup the plan
-// draws is the one shell_glow_client.cpp reads, as stock's RenderView made it, and
-// FreezeFrame's, so the plan knows when stock's freeze frame is running.
-//
-// THE EXECUTOR DECIDES NOTHING. Each op is one engine call or one stock
-// primitive with the arguments managed chose (RenderOpKind in C# says what each
-// carries). Two ops act on an answer the engine gives mid-frame, and managed
-// says how: ViewSetupVisEx's radial-vis bit (ClearColorToFogIfRadialVis,
-// ClearForView) and the fog colour the render context holds after a fog volume
-// is set (ClearColorFromFogColor).
-//
-// WHAT IS STILL STOCK'S, CALLED FROM HERE (C7 step 2 moves each as the plan
-// owns it): a view's lists and draws are CRendering3dView's own primitives --
-// CPlanView derives from it and calls BuildWorldRenderLists (on a list-cache
-// miss), PruneWorldListInfo, BuildRenderableRenderLists, DrawWorld,
-// DrawOpaqueRenderables, DrawTranslucentRenderables,
-// DrawNoZBufferTranslucentRenderables and DrawTranslucentWorldInLeaves -- and
-// the post-processing, overlay, glow, debug and HUD helpers are the free
-// functions stock's RenderView calls. The world-list cache is this file's own
-// (stock's g_WorldListCache is a viewrender.cpp class).
-//
-//=============================================================================//
+// The render plan's executor. Each frame managed code decides, through
+// IManagedRenderClient::RenderFrame, how the frame is drawn and whether it is
+// recorded. CViewRender's RenderView, GetViewSetup and FreezeFrame slots are
+// overwritten once, at the first frame: the RenderView hook gathers its inputs,
+// asks managed code for the plan and runs its ops. Each op is one engine call or
+// one stock primitive with the arguments managed code chose; nothing is decided
+// here.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -133,7 +101,7 @@
 #include "networkvar.h"
 #include "playernet_vars.h"
 #include "texture_group_names.h"
-#include "shell_render_targets.h"   // the render targets managed declares (C7)
+#include "shell_render_targets.h"
 #include "shell_glow_client.h"
 #include "shell_pixelvis_client.h"
 #include "sourcesharp.h"
@@ -147,15 +115,13 @@
 #include "shell_view_targets.h"
 #include "ss_image_encode.h"
 
-bool SourceSharp_ColorCorrectionActive();	// shell_worldrender.cpp (C9: colorcorrectionmgr.cpp left)
+bool SourceSharp_ColorCorrectionActive();
 
 // shell_effects_list_client.cpp's material ids (IFxRender), as materials.
 IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial );
 #include "shell_view_executor_client.h"
 #include "ss_clock.h"
 #include "shell_particle_systems.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
 
 extern void UpdateClientRenderableInPVSStatus();
 extern IClientMode *GetClientModeNormal();
@@ -172,12 +138,10 @@ extern float g_flCustomAutoExposureMax;
 extern float g_flCustomBloomScale;
 extern float g_flCustomBloomScaleMinimum;
 
-
 namespace
 {
 
-// RenderOpKind (C#), same names and numbers; RenderPlanAbiParityTests holds
-// the two lists equal.
+// Must match RenderOpKind in C#.
 enum RenderOpKind_t
 {
 	RENDER_OP_None = 0,
@@ -195,7 +159,7 @@ enum RenderOpKind_t
 	RENDER_OP_ShadowComputeDepthTextures = 12,
 	RENDER_OP_ShadowUnlockDepthTextures = 13,
 	RENDER_OP_ClientSystemsPreRender = 14,
-	// 15 was ClientSystemsPostRender (serialised ABI pass, 2026-10-20); not reused.
+	// 15 is unused; do not reuse it.
 	RENDER_OP_ViewSetupVisEx = 16,
 	RENDER_OP_ClearColorToFogIfRadialVis = 17,
 	RENDER_OP_SetClearColorToFogColor = 18,
@@ -328,7 +292,7 @@ enum RenderOpKind_t
 	RENDER_OP_ForcedMaterialOverride = 149,
 };
 
-// RenderTarget (C#).
+// Must match RenderTarget in C#.
 enum RenderTarget_t
 {
 	RENDER_TARGET_None = 0,
@@ -341,9 +305,7 @@ enum RenderTarget_t
 	RENDER_TARGET_ShadowDepth = 7,
 };
 
-// The convars RenderView's decisions read, in RenderCvar's (C#) order. The
-// fog colours are strings; their three numbers take three slots each, after.
-// C7 post-processing: the convars PostProcessPlanner reads (managed's PostCvar, in order).
+// The convars the post-processing planner reads, in managed PostCvar order.
 const char *const kPostCvars[] =
 {
 	"mat_bloomscale", "mat_hdr_level", "mat_bloomamount_rate", "mat_debug_postprocessing_effects",
@@ -364,6 +326,8 @@ const char *const kPostCvars[] =
 };
 const int kPostCvarCount = (int)ARRAYSIZE( kPostCvars );
 
+// The convars RenderView's decisions read, in managed RenderCvar order. The fog
+// colours are strings; their three numbers take three slots each, after.
 const char *const kRenderCvars[] =
 {
 	"r_skybox", "r_3dsky", "mat_motion_blur_enabled", "building_cubemaps", "r_flashlightdepthtexture",
@@ -372,10 +336,10 @@ const char *const kRenderCvars[] =
 	"fog_endskybox", "fog_maxdensityskybox", "fog_enableskybox", "fog_radialskybox", "mat_drawwater",
 	"r_waterforceexpensive", "r_waterforcereflectentities", "r_WaterDrawReflection", "r_WaterDrawRefraction", "r_ForceWaterLeaf",
 	"mat_clipz", "r_eyewaterepsilon", "r_drawviewmodel", "r_drawentities",
-	// C7 step 2: the per-view draws' switches.
+	// The per-view draws' switches.
 	"r_drawopaquerenderables", "r_drawtranslucentrenderables", "r_drawtranslucentworld", "r_entityclips", "vcollide_wireframe",
 	"r_drawopaqueworld", "r_DrawDetailProps", "cl_maxrenderable_dist", "r_worldlistcache",
-	// C7 step 2: the 2D debug overlays' switches (viewdebug.cpp's Draw2DDebuggingInfo).
+	// The 2D debug overlays' switches (viewdebug.cpp's Draw2DDebuggingInfo).
 	"mat_yuv", "mat_hsv", "mat_showlightmappage", "cl_drawshadowtexture", "cl_shadowtextureoverlaysize", "mat_showwatertextures", "mat_wateroverlaysize", "mat_showcamerarendertarget", "mat_showframebuffertexture", "mat_framebuffercopyoverlaysize", "mat_drawTextureScale", "r_flashlightdrawdepth", "cl_overdraw_test",
 };
 const int kRenderCvarCount = ARRAYSIZE( kRenderCvars );
@@ -437,13 +401,9 @@ struct WorldListEntry_t
 	PlanWorldListInfo_t   *m_pInfo;
 };
 
-//-----------------------------------------------------------------------------
-// One view of the plan (C7 step 3 phase 1: no longer stock's CRendering3dView).
-// It holds the view's setup and lists and carries out the list builds the plan
-// asks for, with the plan's decisions; every draw over the lists is managed's
-// view program. While it is the innermost open view, view->GetDrawFlags()
-// answers its flags (C7 step 3: CShellViewRender's).
-//-----------------------------------------------------------------------------
+// One view of the plan: its setup and lists, and the list builds the plan asks
+// for. Every draw over the lists is managed code's view program. While it is the
+// innermost open view, view->GetDrawFlags() answers its flags.
 class CPlanView : public CRefCounted<>, protected CViewSetup
 {
 public:
@@ -472,14 +432,14 @@ public:
 	// BuildRenderableRenderLists, with SetupRenderablesList's decisions the plan made.
 	void Renderables( int nViewID, bool bEntities, bool bDetail, bool bTranslucent, float flRenderDistSq );
 
-	// C7 step 2: the view's lists, read by the scene gather and the program's ops.
+	// The view's lists, read by the scene gather and the program's ops.
 	IWorldRenderList *WorldList() const { return m_pWorldRenderList; }
 	WorldListInfo_t *WorldInfo() const { return m_pWorldListInfo; }
 	CClientRenderablesList *RenderList() const { return m_bBuiltRenderables ? m_pRenderablesList : NULL; }
 
-	// The view's draw program (managed's, from the scene) and where it is: the
-	// next section a list-dependent draw op runs, the entries' renderables in
-	// scene order, and the static props and detail leaves queued by its ops.
+	// The view's draw program and where it is: the next section a list-dependent
+	// draw op runs, the entries' renderables in scene order, and the static props
+	// and detail leaves queued by its ops.
 	bool                           m_bBuiltRenderables = false;
 	bool                           m_bHasProgram = false;
 	int                            m_nSectionStart = 0;
@@ -629,8 +589,7 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 		setupInfo.m_vecRenderOrigin = origin;
 		setupInfo.m_vecRenderForward = CurrentViewForward();
 		setupInfo.m_flRenderDistSq = flRenderDistSq;
-		// The leaf system is managed's (C7 cluster 12 L2): both calls are the
-		// forwarder's, and each answers from the managed registry.
+		// The leaf system is managed: both calls answer from the managed registry.
 		if ( !bShadowDepth )
 			ClientLeafSystem()->ComputeTranslucentRenderLeaf( info.m_LeafCount, info.m_pLeafList, info.m_pLeafFogVolume,
 			                                                  ShellViewRender_RenderablesListsNumber(), nViewID );
@@ -661,9 +620,7 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 	m_bBuiltRenderables = true;
 }
 
-//-----------------------------------------------------------------------------
-// The executor's state, one object made at the first frame.
-//-----------------------------------------------------------------------------
+// The executor's state, made at the first frame.
 struct ExecutorState_t
 {
 	bool                         m_bHooked = false;
@@ -676,10 +633,8 @@ struct ExecutorState_t
 	ITexture                    *m_pShadowDepth = NULL;
 	SourceSharpRenderOp_t        m_ShadowOps[ 256 ];
 
-	// view.cpp's decisions, made by managed each frame (C7 step 3 phase 2) and,
-	// until the eviction, held to what stock's CViewRender::Render handed
-	// RenderView: the frame's decision, whether the frame's first RenderView is
-	// still to be compared, and the mismatches since managed last heard.
+	// This frame's view decision from managed code, and whether the frame's first
+	// RenderView is still to be compared.
 	SourceSharpRenderFrameOut_t  m_FrameDecision = {};
 	bool                         m_bDecisionPending = false;
 
@@ -701,12 +656,11 @@ struct ExecutorState_t
 	CMaterialReference           m_ModulateSingleColor;
 	char                         m_szUnderwaterOverlay[ MAX_PATH ] = {};
 
-	// C7 post-processing: the histogram buckets' occlusion queries (created on
-	// first use, kept for the process, as stock's), and the buckets the next
-	// post crossing reads back.
+	// The histogram buckets' occlusion queries (created on first use, kept for the
+	// process, as stock's), and the buckets the next post crossing reads back.
 	OcclusionQueryObjectHandle_t m_PostQueries[ 32 ] = {};
 	int32_t                      m_nPostReadbackMask = 0;
-	// Draws over a view's lists that found no program section (C7 step 3 phase 1).
+	// Draws over a view's lists that found no program section.
 	int32_t                      m_nProgramMisses = 0;
 	// A post mesh being built (PostMeshBegin .. PostMeshEnd).
 	IMesh                       *m_pPostMesh = NULL;
@@ -860,9 +814,7 @@ int32_t ViewPlaneIntersectsWater( const CViewSetup &setup, float waterZ, int lea
 	return render->DoesBoxIntersectWaterVolume( mins, maxs, leafWaterDataID ) ? 1 : 0;
 }
 
-//-----------------------------------------------------------------------------
-// RenderView's inputs, gathered at its entry. Nothing here is decided.
-//-----------------------------------------------------------------------------
+// RenderView's inputs, gathered at its entry.
 void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, SourceSharpRenderInputs_t &in )
 {
 	ExecutorState_t &state = State();
@@ -882,7 +834,7 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 	in.ScreenAspect = engine->GetScreenAspectRatio();
 	in.ClientModeDrawFog = g_pClientMode->ShouldDrawFog() ? 1 : 0;
 	in.ClientModeDrawDetail = g_pClientMode->ShouldDrawDetailObjects() ? 1 : 0;
-	// The freeze frame's state is managed's (RenderPlanHost fills these three).
+	// Managed code fills the freeze frame's state.
 	in.FreezeActive = 0;
 	in.FreezeTake = 0;
 	in.FreezeFlash = 0.0f;
@@ -951,7 +903,7 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 	in.ThirdPersonSeesOwner = SourceSharp_ThirdPersonSeesOwner() ? 1 : 0;
 	in.ViewEntity = render->GetViewEntity();
 
-	// The screen fade, managed's (ViewEffects): stock's GetFadeParams.
+	// The screen fade, as stock's GetFadeParams, from managed code.
 	int32_t fade[5] = { 0, 0, 0, 0, 0 };
 	if ( IManagedRenderClient *p = ManagedRenderClient() )
 		p->ViewEffectsFadeParams( gpGlobals->curtime, fade );
@@ -976,9 +928,9 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 	ParseColor( fogColorSkybox.IsValid() ? fogColorSkybox.GetString() : NULL, &in.Cvars[ kRenderCvarFogColorSkybox ] );
 }
 
-// A struct as recorded lines: its bytes in hex, so managed reads back exactly
-// what this frame had (RenderPlanFixtureTests). `in`/`inbytes` are the frame's
-// RenderInputs; `scene`/`scenebytes` one view's scene.
+// A struct as recorded lines of hex bytes, so managed code reads back exactly
+// what this frame had. `in`/`inbytes` are the frame's inputs; `scene`/`scenebytes`
+// one view's scene.
 void NoteBytes( const char *pszHead, const char *pszBytesPrefix, const void *pData, int n )
 {
 	static const char kHex[] = "0123456789abcdef";
@@ -1000,10 +952,8 @@ void NoteInputs( const SourceSharpRenderInputs_t &in )
 	NoteBytes( "in", "inbytes\t", &in, (int)sizeof( in ) );
 }
 
-// A traced frame's surroundings by name (C7 step 3's frozen recordings): every
-// convar's value (`cvar`) and the engine's answers post-processing reads
-// (`env`). Keyed by name rather than laid out as a struct, so a recording made
-// before the stock path left still answers for an input a later port adds.
+// A traced frame's convars (`cvar`) and the engine answers post-processing reads
+// (`env`), keyed by name so recordings stay readable as inputs are added.
 void NoteFrameEnvironment()
 {
 	CMatRenderContextPtr pRenderContext( materials );
@@ -1022,8 +972,7 @@ void NoteFrameEnvironment()
 	RenderTrace::Note( "env\tsupportsps20\t%d", g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0 );
 	RenderTrace::Note( "env\ttonemapscalelinear\t%.9g,%.9g,%.9g", vScale.x, vScale.y, vScale.z );
 	RenderTrace::Note( "env\tviewport\t%d,%d,%d,%d", nVx, nVy, nVw, nVh );
-	// Session history the frame starts from: a frame's restore of its copy
-	// texture names it (RenderTrace.FrameStartCopyName).
+	// The frame's starting copy texture, which a frame's restore names.
 	ITexture *pCopy = pRenderContext->GetFrameBufferCopyTexture( 0 );
 	RenderTrace::Note( "env\tfbcopy0\t%s", pCopy ? pCopy->GetName() : "-" );
 	RenderTrace::Note( "env\tvideomodeheight\t%d", g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height );
@@ -1043,11 +992,8 @@ void NoteFrameEnvironment()
 	}
 }
 
-//-----------------------------------------------------------------------------
-// A view's scene (C7 step 2): what its lists hold, in SourceSharpViewScene_t's
-// shape, one buffer: the header, then the leaves, then the entries.
-//-----------------------------------------------------------------------------
-
+// A view's scene in SourceSharpViewScene_t's shape, one buffer: the header, then
+// the leaves, then the entries.
 
 struct ViewSceneBuffer_t
 {
@@ -1065,8 +1011,7 @@ struct ViewSceneBuffer_t
 COMPILE_TIME_ASSERT( RENDER_GROUP_COUNT == 14 );
 
 // Fills the buffer from a view's world list info and renderables list. A null
-// world list leaves every leaf's translucent answers 0 (the recorder's case:
-// stock's own asks are its `q` lines).
+// world list leaves every leaf's translucent answers 0.
 void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRenderablesList *pList, int nDetailFrame,
                      IWorldRenderList *pWorld, const int nTranslucentFlags[2], int nOpIndex )
 {
@@ -1087,12 +1032,11 @@ void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRend
 	pHeader->HasRenderables = pList ? 1 : 0;
 	pHeader->OpIndex = nOpIndex;
 
-	// A pruned list's remap; stock's ClientWorldListInfo_t (the stock path's
-	// lists) has the same shape after its base.
+	// A pruned list's remap; stock's ClientWorldListInfo_t has the same shape after its base.
 	const LeafIndex_t *pActual = pInfo ? static_cast<PlanWorldListInfo_t *>( static_cast<CRefCounted1<WorldListInfo_t> *>( pInfo ) )->m_pActualLeafIndex : NULL;
 	SourceSharpViewSceneLeaf_t *pLeaves = out.Leaves();
-	// Decision 3 for every leaf of the view in one crossing (the leaf system
-	// is managed's, C7 cluster 12 L2); none drawn with no managed answer.
+	// Every leaf's detail decision in one crossing to the managed leaf system; none
+	// drawn with no managed answer.
 	CUtlVector< int32_t > detail;
 	detail.SetCount( nLeaves );
 	for ( int i = 0; i < nLeaves; ++i )
@@ -1145,9 +1089,7 @@ void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRend
 	}
 }
 
-//-----------------------------------------------------------------------------
-// The ops
-//-----------------------------------------------------------------------------
+// The ops.
 ITexture *Target( int nTarget )
 {
 	switch ( nTarget )
@@ -1208,10 +1150,8 @@ void DrawRenderablesInList( CUtlVector< IClientRenderable * > &list, int flags )
 	}
 }
 
-// The viewmodels' pass: managed chose the view and whether the player's
-// viewmodel draws. (Stock also drew the tools' viewmodels and filtered one kind
-// out when ToolsEnabled(); that arm is deleted: SFM is dead, user ruling
-// 2026-10-19.)
+// The viewmodels' pass: managed code chose the view and whether the player's
+// viewmodel draws.
 void ViewModels( const CViewSetup &setup, bool bDrawPlayer )
 {
 	CMatRenderContextPtr pRenderContext( materials );
@@ -1325,8 +1265,8 @@ void Upscale( const CViewSetup &setup )
 	pCopyMaterial->DecrementReferenceCount();
 }
 
-// CFreezeFrameView::Setup's material and Draw's two rectangles (mono): the
-// captured frame, then the flash at the alpha managed worked out.
+// CFreezeFrameView's material and two rectangles: the captured frame, then the
+// flash at the alpha managed code worked out.
 void FreezeFrameDraw( int x, int y, int w, int h, int nFlashAlpha )
 {
 	ExecutorState_t &state = State();
@@ -1421,7 +1361,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_ClearColor3ub: { CMatRenderContextPtr ctx( materials ); ctx->ClearColor3ub( op.I[0], op.I[1], op.I[2] ); break; }
 		case RENDER_OP_ForcedMaterialOverride: modelrender->ForcedMaterialOverride( NULL, (OverrideType_t)op.I[0] ); break;
 		case RENDER_OP_ParticleIncrementFrameCode:
-			ShellParticles_FrameCode();	// the old-style effects', managed's
+			ShellParticles_FrameCode();	// the old-style effects' frame code
 			break;
 		case RENDER_OP_WorldViewBegin:
 		{
@@ -1527,9 +1467,8 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			if ( pView && pView->WorldList() )
 				render->DrawWorldLists( pView->WorldList(), (unsigned long)(unsigned int)op.I[0], op.F[0] );
 			break;
-		// C7 step 3 phase 1: the view's program is the only draw over its lists.
-		// A view without one draws nothing there; the first miss is said, and
-		// managed counts the declines it made (/render's viewProgramsDeclined).
+		// The view's program is the only draw over its lists. A view without one draws
+		// nothing there; the first miss is reported.
 		case RENDER_OP_DrawOpaque:
 		case RENDER_OP_DrawTranslucent:
 		case RENDER_OP_DrawNoZTranslucent:
@@ -1538,7 +1477,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 				Warning( "[SourceSharp] render plan: a world view drew over its lists with no program section (managed declined it); it draws nothing there\n" );
 			break;
 
-		// C7 step 2: the view's scene, and its program's ops.
+		// The view's scene, and its program's ops.
 		case RENDER_OP_ViewScene: if ( pView && nIndexBase >= 0 ) ViewScene( pView, op, nIndexBase + i ); break;
 		case RENDER_OP_SectionEnd: break;
 		case RENDER_OP_SetBlend: render->SetBlend( op.F[0] ); break;
@@ -1593,7 +1532,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_UpdateRefractTexture: UpdateRefractTexture(); break;
 		case RENDER_OP_UpdateScreenEffectTexture: UpdateScreenEffectTexture(); break;
 
-		// C7 item 6: the second camera's pass.
+		// The second camera's pass.
 		case RENDER_OP_ViewerSeenBegin: state.m_ViewerSeen.AddToTail( ShellClient_ViewerSeenBegin() ); break;
 		case RENDER_OP_ViewerSeenEnd:
 			if ( state.m_ViewerSeen.Count() )
@@ -1604,7 +1543,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 			break;
 		case RENDER_OP_ViewTargetDrawn: ShellViewTargets_NoteDrawn( op.I[0] ); break;
 
-		// C7 step 2: viewdebug.cpp's overlays, as managed placed them.
+		// viewdebug.cpp's overlays, as managed code placed them.
 		case RENDER_OP_DebugQuad: DebugQuad( op ); break;
 		case RENDER_OP_DebugScreenMaterial:
 			if ( IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] ) )
@@ -1745,9 +1684,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		}
 		case RENDER_OP_SetCurrentViewSetup:
 		{
-			// Stock's RenderView kept the view in CViewRender's m_CurrentView,
-			// which GetViewSetup answers between frames too; CShellViewRender
-			// keeps the plan's (the plan frames' stale SetMainView, 2026-10-11).
+			// GetViewSetup answers the view between frames too, so the plan's view is kept.
 			ShellViewRender_SetCurrentView( setup );
 			break;
 		}
@@ -1759,8 +1696,8 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 
 }
 
-// The view's scene, gathered once its lists are built, and managed's program
-// for it. A view managed gives no program draws with stock's primitives.
+// Gathers the view's scene once its lists are built and asks managed code for
+// its program.
 void ViewScene( CPlanView *pView, const SourceSharpRenderOp_t &op, int nOpIndex )
 {
 	pView->m_bHasProgram = false;
@@ -1794,8 +1731,8 @@ void ViewScene( CPlanView *pView, const SourceSharpRenderOp_t &op, int nOpIndex 
 }
 
 // Stock's DrawOpaqueRenderable/DrawTranslucentRenderable after the colour and
-// blend managed set: the draw, inside the renderable's clip plane when it has
-// one and managed honours them (r_entityclips).
+// blend managed code set, inside the renderable's clip plane when it has one and
+// r_entityclips honours it.
 void DrawProgramEntity( CPlanView *pView, const SourceSharpRenderOp_t &op )
 {
 	IClientRenderable *pEnt = pView->Entry( op.I[0] );
@@ -1808,8 +1745,8 @@ void DrawProgramEntity( CPlanView *pView, const SourceSharpRenderOp_t &op )
 		CMatRenderContextPtr ctx( materials );
 		ctx->PushCustomClipPlane( pClip );
 	}
-	// Stock draws a clipped depth box first under fast clipping
-	// (viewrender.cpp's DrawClippedDepthBox); not carried yet (docs/todo.md).
+	// Unlike stock, no clipped depth box is drawn first under fast clipping
+	// (viewrender.cpp's DrawClippedDepthBox).
 	pEnt->DrawModel( op.I[1] );
 	if ( bPushClip )
 	{
@@ -1849,10 +1786,9 @@ void FrameBufferForEntity( const SourceSharpRenderOp_t &op )
 	}
 }
 
-// viewdebug.cpp's overlay quad, every one of its helpers' shape: the material
-// managed found, at the rectangle and texture coordinates managed chose, white;
-// sized by the material's mapping when asked (RenderMaterial). An error
-// material draws nothing, as in stock.
+// viewdebug.cpp's overlay quad: the material managed code found, at its chosen
+// rectangle and texture coordinates, white; sized by the material's mapping when
+// asked. An error material draws nothing, as in stock.
 void DebugQuad( const SourceSharpRenderOp_t &op )
 {
 	IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
@@ -1888,8 +1824,7 @@ void DebugQuad( const SourceSharpRenderOp_t &op )
 	pMesh->Draw();
 }
 
-// C7 post-processing: viewpostprocess.cpp's render-context calls, as managed's
-// PostProcessPlanner asked for them.
+// viewpostprocess.cpp's render-context calls, as the managed planner asks.
 ITexture *PostTexture( int nTexture )
 {
 	switch ( nTexture )
@@ -1917,7 +1852,7 @@ void PostDumpTga( int nWidth, int nHeight, const char *pszName, int nIndex )
 		return;
 	pRenderContext->ReadPixels( 0, 0, nWidth, nHeight, ss::ImageEncodePixels( pBlock ), IMAGE_FORMAT_RGBA8888 );
 
-	// The TGA is encoded in C# (C9: ScreenshotEncoding, held to the pristine bitmap.a).
+	// The TGA is encoded in managed code.
 	int nFileBytes = 0;
 	unsigned char *pFile = ss::ImageEncode( ss::kImageTgaRgba, nWidth, nHeight, false, pBlock, nPixelBytes, &nFileBytes );
 	free( pBlock );
@@ -1937,8 +1872,8 @@ void PostDumpTga( int nWidth, int nHeight, const char *pszName, int nIndex )
 	free( pFile );
 }
 
-// C7 post-processing: what PostProcessPlanner reads here, then its program,
-// carried out. False when managed declined (stock's function draws then).
+// Gathers what the post-processing planner reads, then carries out its program.
+// False when managed code declined.
 bool RunPostProgram( int nKind, const CViewSetup &setup, int x, int y, int w, int h, bool bFlashlight, bool bPostVGui )
 {
 	IManagedRenderClient *pManaged = ManagedRenderClient();
@@ -2197,7 +2132,7 @@ void PostOp( const SourceSharpRenderOp_t &op )
 }
 
 // viewdebug.cpp's OverlayShowTexture: mat_drawTexture's texture on ___debug's
-// $basetexture, at 32, 32, the texture's size times the scale managed read.
+// $basetexture, at 32, 32, the texture's size times the scale.
 void DebugShowTexture( float flScale )
 {
 	ConVarRef drawTexture( "mat_drawTexture", true );
@@ -2229,8 +2164,7 @@ void DebugShowTexture( float flScale )
 	pMesh->Draw();
 }
 
-// A list-dependent draw op: its section of the view's program, or stock's
-// primitive when managed gave the view none.
+// A list-dependent draw op: its section of the view's program.
 bool RunSection( CPlanView *pView )
 {
 	int nStart = 0, nEnd = 0;
@@ -2256,11 +2190,8 @@ void Execute( const SourceSharpRenderOp_t *pOps, int nOps )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// The CViewRender hooks
-//-----------------------------------------------------------------------------
-// RenderView through the plan: the inputs, managed's plan, carried out. False when there is no plan to
-// draw it with (no managed client, the hooks not in, or the planner declined).
+// RenderView through the plan. False when there is no plan to draw it with (no
+// managed client, the hooks not in, or the planner declined).
 bool PlanRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw )
 {
 	ExecutorState_t &state = State();
@@ -2290,17 +2221,14 @@ bool PlanRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw )
 	return false;
 }
 
-
-
 // The leaf system's list for a view, captured as it is built: its custom-draw
-// entities are drawn from one batch (shell_standalone_client.cpp, C7 item 7).
+// entities are drawn from one batch.
 void AfterRenderablesList( const SetupRenderInfo_t &info )
 {
 	if ( info.m_pRenderList )
 		SourceSharp_StandaloneDrawBatchCapture( *info.m_pRenderList );
 
-	// The oracle (C7 step 2): on a recorded frame, either path, the scene the
-	// view's draws were decided over.
+	// On a recorded frame, the scene the view's draws were decided over.
 	if ( RenderTrace::Active() )
 	{
 		static const int kNoFlags[2] = { 0, 0 };
@@ -2317,9 +2245,9 @@ void H_BuildRenderablesList( IClientLeafSystem *self, const SetupRenderInfo_t &i
 	AfterRenderablesList( info );
 }
 
-// UpdateShadowDepthTexture, asked by the shadow manager inside a plan frame's
-// ShadowComputeDepthTextures op: managed plans CShadowDepthView's draw and it
-// runs here, inside the frame's plan. False with no plan to draw it in.
+// UpdateShadowDepthTexture inside a plan frame's ShadowComputeDepthTextures op:
+// managed code plans the shadow depth view and it runs inside the frame's plan.
+// False with no plan to draw it in.
 bool PlanShadowDepthView( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView )
 {
 	ExecutorState_t &state = State();
@@ -2428,10 +2356,8 @@ void GatherViewSetUp( SourceSharpViewSetUpIn_t &in )
 	in.ViewModelFov = g_pClientMode->GetViewModelFOV();
 }
 
-// CViewRender::Render's inputs: the engine's, the client mode's and the
-// convars, with the client mode's viewport adjustment made on a copy of the
-// rectangle (stock's ToolFramework_AdjustEngineViewport after it is deleted:
-// SFM is dead, user ruling 2026-10-19). Decides nothing.
+// CViewRender::Render's inputs: the engine's, the client mode's and the convars,
+// with the client mode's viewport adjustment made on a copy of the rectangle.
 void GatherFrame( const vrect_t &rect, const CViewSetup &eye, SourceSharpRenderFrameIn_t &in )
 {
 	FromViewSetup( eye, in.Eye );
@@ -2536,7 +2462,7 @@ void SourceSharp_ViewRender( vrect_t *rect )
 		NoteFrameEnvironment();
 	}
 
-	// Every frame is the plan's: stock's viewrender left client.so (C7 step 3).
+	// Every frame is drawn by the plan.
 	state.m_bPlanFrame = true;
 	const double flStart = ss::SecondsSinceStart();
 	view->Render( rect );

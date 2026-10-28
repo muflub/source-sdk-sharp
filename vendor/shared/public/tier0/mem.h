@@ -7,13 +7,9 @@
 
 #include "tier0/platform.h"
 
-#if !defined(STATIC_TIER0) && !defined(_STATIC_LINKED)
+#if !defined(STATIC_TIER0)
 
-#ifdef TIER0_DLL_EXPORT
-#  define MEM_INTERFACE DLL_EXPORT
-#else
 #  define MEM_INTERFACE DLL_IMPORT
-#endif
 
 #else // BUILD_AS_DLL
 
@@ -23,6 +19,6 @@
 
 MEM_INTERFACE void MemAllocOOMError( size_t nSize );
 
-#if defined(_LINUX) && !defined( USE_DXVK )
+#if defined(_LINUX)
 MEM_INTERFACE ;
 #endif

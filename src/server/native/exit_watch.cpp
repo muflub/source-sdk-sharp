@@ -1,12 +1,6 @@
-//========= SourceSharp — who asked the process to end =======================//
 // SS_REASON a  a vtable the engine calls through
-//
-// The letter: everything here is a function pointer called from a place
-// managed code cannot run -- a signal handler (async-signal context: no GC, no
-// allocation, no locks) and SDL's event watch, which SDL may call from its own
-// signal path. The two ABI slots are thin. See exit_watch.h for what is
-// recorded and why; nothing here decides anything.
-//=============================================================================//
+// Everything here runs where managed code cannot: a signal handler (no
+// allocation, no locks) and SDL's event watch.
 
 #include "exit_watch.h"
 
@@ -29,13 +23,8 @@
 namespace
 {
 
-// The signals a request to end arrives as. Not SIGSEGV and its family: those
-// are the runtime's (CoreCLR turns a fault into a NullReferenceException) and
-// a crash is the launcher's to report, by exit status. POSIX only: Windows
-// has no SIGHUP and no sigaction, and a console close or a taskkill reaches
-// a process another way (a console control handler, or no notice at all), so
-// there the signal half arms nothing and reports nothing -- the SDL half and
-// the fatal witness are the same.
+// Requests to end. Faults belong to the runtime and the launcher. POSIX only:
+// Windows has no SIGHUP or sigaction, so there the signal half arms nothing.
 #if !defined( _WIN32 )
 const int kWatched[] = { SIGTERM, SIGINT, SIGHUP };
 enum { kWatchedCount = sizeof( kWatched ) / sizeof( kWatched[0] ) };
@@ -43,20 +32,15 @@ enum { kWatchedCount = sizeof( kWatched ) / sizeof( kWatched[0] ) };
 enum { kWatchedCount = 3 };
 #endif
 
-// SDL2, as the platform names it: the copy the engine already has in the
-// process (launcher.so needs it); found, never loaded.
+// The SDL2 the launcher already loaded; found, never loaded.
 #if defined( _WIN32 )
 	#define SS_SDL_LIBRARY "SDL2.dll"
-#elif defined( __APPLE__ )
-	#define SS_SDL_LIBRARY "libSDL2-2.0.0.dylib"
 #else
 	#define SS_SDL_LIBRARY "libSDL2-2.0.so.0"
 #endif
 
-// SDL2's event numbers (SDL_events.h, SDL_video.h): SDL_QUIT, SDL_WINDOWEVENT
-// and SDL_WINDOWEVENT_CLOSE, and where SDL_WindowEvent keeps its sub-event
-// (after type, timestamp and windowID: three Uint32s). Spelled out rather than
-// included: server.so builds against no SDL headers.
+// SDL2's event numbers and SDL_WindowEvent's sub-event offset, spelled out
+// because server.so builds against no SDL headers.
 enum : uint32_t { kSdlQuit = 0x100, kSdlWindowEvent = 0x200 };
 enum : uint8_t { kSdlWindowEventClose = 14 };
 enum { kSdlWindowSubEventOffset = 12 };
@@ -65,8 +49,7 @@ typedef int ( *SdlEventFilter_t )( void *pUserData, void *pEvent );
 typedef void ( *SdlAddEventWatch_t )( SdlEventFilter_t pFilter, void *pUserData );
 typedef void ( *SdlDelEventWatch_t )( SdlEventFilter_t pFilter, void *pUserData );
 
-// All zero-initialised, so constant-initialised: no dynamic initialiser runs
-// for any of it, and every field is safe to touch from a signal handler.
+// Zero-initialised, so constant-initialised and safe to touch from a signal handler.
 struct ExitWatchState_t
 {
 	std::atomic< int32_t > nArmed;
@@ -84,8 +67,7 @@ struct ExitWatchState_t
 	struct sigaction prev[ kWatchedCount ];
 #endif
 
-	// Where a fatal stop writes its record. Written by the arm, on the game
-	// thread, before anything could be fatal on its behalf.
+	// Where a fatal stop writes its record. Set by the arm, on the game thread.
 	char szRecordPath[ 512 ];
 };
 
@@ -253,9 +235,7 @@ void RestoreSignals()
 }
 #endif
 
-// The SDL already in the process, or NULL: the copy the engine's launcher
-// loaded, never a load of our own (RTLD_NOLOAD; GetModuleHandle is a lookup).
-// A handle from here is given back with SdlRelease.
+// The SDL already in the process, or NULL (RTLD_NOLOAD). Release with SdlRelease.
 #if defined( _WIN32 )
 typedef HMODULE SdlHandle_t;
 SdlHandle_t SdlFind() { return ::GetModuleHandleA( SS_SDL_LIBRARY ); }
@@ -268,8 +248,6 @@ void *SdlSym( SdlHandle_t h, const char *pName ) { return dlsym( h, pName ); }
 void SdlRelease( SdlHandle_t h ) { dlclose( h ); }
 #endif
 
-// SDL is already in the process when there is a window (launcher.so needs it);
-// SdlFind finds that copy and never loads one.
 int32_t ArmSdl()
 {
 	SdlHandle_t pSdl = SdlFind();
@@ -318,9 +296,8 @@ int32_t ExitWatch_Arm( const char *pRecordPath )
 		g_ExitWatch.szRecordPath[ sizeof( g_ExitWatch.szRecordPath ) - 1 ] = '\0';
 	}
 
-	// Once per process. A managed reload arms again; installing a second
-	// recorder over the first would make the first one its "previous" handler
-	// and every signal would be counted twice.
+	// Once per process: a second recorder would chain to the first and count
+	// every signal twice.
 	if ( g_ExitWatch.nArmed.load() != 0 )
 		return g_ExitWatch.nArmed.load() & ~0x100;
 
@@ -330,13 +307,9 @@ int32_t ExitWatch_Arm( const char *pRecordPath )
 	return nArmed & ~0x100;
 }
 
-// The shutdown half. The signal handlers go back to what was there before the
-// arm, and SDL's event watch is REMOVED -- the module holding OnSdlEvent is
-// about to be unmapped, and SDL dispatches its list on every pump: the last
-// engine frame after this DLL is gone would jump into unmapped code (the
-// SIGTERM-exits-139 fault; see docs/todo.md and the coredump it cites).
-// The facts already recorded are KEPT: the managed side writes its exit
-// record after disarming, and the record must still tell the truth.
+// Restores the signal handlers and removes SDL's event watch before this module
+// is unmapped (SDL would otherwise call into unmapped code on the next pump).
+// Recorded facts are kept: managed writes its exit record after disarming.
 int32_t ExitWatch_Disarm()
 {
 	const int32_t nWasArmed = g_ExitWatch.nArmed.load() & ~0x100;
@@ -348,7 +321,6 @@ int32_t ExitWatch_Disarm()
 
 	if ( nWasArmed & kExitWatchSdl )
 	{
-		// Same shape as ArmSdl: the copy already in the process, never a load.
 		SdlHandle_t pSdl = SdlFind();
 		if ( pSdl )
 		{
@@ -359,8 +331,7 @@ int32_t ExitWatch_Disarm()
 		}
 	}
 
-	// Cleared so a later Arm installs again (a hot reload re-arms over the
-	// restored handlers, not over the stale snapshot).
+	// Cleared so a later Arm installs again.
 	g_ExitWatch.nArmed = 0;
 	return nWasArmed;
 }
@@ -417,13 +388,8 @@ void ExitWatch_ResetForTest()
 	g_ExitWatch.szRecordPath[ 0 ] = '\0';
 }
 
-//-----------------------------------------------------------------------------
-// A fatal stop's record. SourceSharp_FatalReport calls this (a weak reference:
-// client.so has no exit watch) just before it ends the process, and managed
-// code never runs again, so the facts are written here, to the file the
-// managed side named. The record says it was written by this path; it decides
-// nothing -- "fatal" is what SourceSharp_FatalReport is.
-//-----------------------------------------------------------------------------
+// A fatal stop's record, written to the path managed named, since managed code
+// never runs again. Weakly referenced by SourceSharp_FatalReport.
 extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg )
 {
 	if ( g_ExitWatch.szRecordPath[ 0 ] == '\0' )
@@ -459,9 +425,7 @@ extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg )
 #endif
 }
 
-//-----------------------------------------------------------------------------
 // The ABI slots (IShimDiagnostics).
-//-----------------------------------------------------------------------------
 int32_t SourceSharp_ExitWatchArm( const char *pRecordPath )
 {
 	return ExitWatch_Arm( pRecordPath );

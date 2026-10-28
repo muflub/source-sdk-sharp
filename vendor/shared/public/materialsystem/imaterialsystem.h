@@ -411,10 +411,6 @@ FORCEINLINE const char* GetRenderBackendName( RenderBackend_t eBackend )
 	switch ( eBackend )
 	{
 		default:
-#ifdef ALLOW_NOSHADERAPI
-		case RENDER_BACKEND_UNKNOWN: return "Unknown";
-		case RENDER_BACKEND_NULL:    return "Null";
-#endif
 		case RENDER_BACKEND_D3D9:    return "Direct3D 9";
 		case RENDER_BACKEND_TOGL:    return "OpenGL";
 		case RENDER_BACKEND_VULKAN:  return "Vulkan";
@@ -426,10 +422,6 @@ FORCEINLINE const char* GetRenderBackendShaderAPI( RenderBackend_t eBackend )
 	switch ( eBackend )
 	{
 		default:
-#ifdef ALLOW_NOSHADERAPI
-		case RENDER_BACKEND_UNKNOWN:
-		case RENDER_BACKEND_NULL:   return "shaderapiempty";
-#endif
 		case RENDER_BACKEND_D3D9:   return "shaderapidx9";
 		case RENDER_BACKEND_TOGL:   return "shaderapidx9";
 		case RENDER_BACKEND_VULKAN: return "shaderapivk";
@@ -438,10 +430,6 @@ FORCEINLINE const char* GetRenderBackendShaderAPI( RenderBackend_t eBackend )
 
 FORCEINLINE RenderBackend_t DetermineRenderBackend()
 {
-#ifdef ALLOW_NOSHADERAPI
-	if ( CommandLine()->FindParm( "-noshaderapi" ) )
-		return RENDER_BACKEND_NULL;
-#endif
 
 	if ( CommandLine()->FindParm( "-vulkan" ) )
 		return RENDER_BACKEND_VULKAN;
@@ -1575,22 +1563,5 @@ private:
 
 // Also be sure to enable PIX_INSTRUMENTATION in shaderdevicedx8.h
 //#define PIX_ENABLE 1		// set this to 1 and build engine/studiorender to enable pix events in the engine
-
-#if PIX_ENABLE
-#	define PIXEVENT PIXEvent _pixEvent
-#endif
-
-#ifdef MATERIAL_SYSTEM_DEBUG_CALL_QUEUE
-#include "tier1/callqueue.h"
-#include "tier1/fmtstr.h"
-static void DoMatSysQueueMark( IMaterialSystem *pMaterialSystem, const char *psz )
-{
-	CMatRenderContextPtr pRenderContext( pMaterialSystem );
-	if ( pRenderContext->GetCallQueue() ) 
-		pRenderContext->GetCallQueue()->QueueCall( Plat_DebugString, CUtlEnvelope<const char *>( psz ) );
-}
-
-#define MatSysQueueMark( pMaterialSystem, ...) DoMatSysQueueMark( pMaterialSystem, CFmtStr( __VA_ARGS__ ) )
-#endif
 
 #include "materialsystem/imaterialsystemhardwareconfig.h"

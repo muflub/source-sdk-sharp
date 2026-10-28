@@ -1,134 +1,46 @@
-//========= SourceSharp — IGameMovement, published by the shim ==============//
-//
-// plan_entity.md step 8f-igamemovement. `gamemovement.cpp` is leaving the
-// build, and IGameMovement is one of the four things `phase4-exit` measured as
-// holding it there: the engine's own interface macro named CGameMovement, so a
-// replacement had to be a concrete class rather than a forward. This header is
-// the seam that lets the file go.
-//
-// It declares TWO things and nothing else:
-//
-//   1. the reasons a movement command can be fatal; and
-//   2. the formatter for those, which is engine-free so it can be tested.
-//
-// IT DECLARED A THIRD UNTIL STEP 8f-remove, and what happened to it is worth
-// keeping. `SourceSharp_RegisterStockGameMovement` was the registration hook
-// `gamemovement.cpp` used to LEND the shim its stock CGameMovement while that
-// file was still compiled, and it pointed the only way it could: the stock file
-// called INTO the shim, and the shim named nothing the stock file defined. That
-// direction is what made 8f-remove exactly two `$File` rows — nothing in the
-// shim was left undefined by the file's going. A shim that had reached the
-// other way — `extern CGameMovement g_GameMovement;` — would have read
-// identically and would have pinned the file in the build forever.
-//
-// The file has now gone, so nobody registers, and a pointer that can only ever
-// be NULL is worse than no pointer: the tests beside it read as a live
-// fallback. The hook, the pointer and the three forwards to it were deleted in
-// the same commit as the two vpc rows. kMovementFatal_NoStock below is what the
-// A/B switch's 0 arm answers instead.
-//
-// WHY THE MESSAGES ARE FORMATTED HERE AND NOT AT THE Error() CALL.
-//
-// Error() is NORETURN, so the function that calls it cannot be unit tested: a
-// test that reached it would take the test binary down with it.
-// `managed_init_failure.h` solved this once already for the init failure
-// (SourceSharpInit_Format) and this is the same split for the same reason — the
-// TEXT is testable, the dying is not.
-//
-// The text matters more here than usual. This project has shipped EIGHT silent
-// losses and the two most recent are exactly the shape this file removes: a
-// path that quietly did nothing while everything around it reported success.
-// A build silently running stock movement instead of the managed loop is
-// indistinguishable from a working one right up until the two sides disagree
-// under prediction, so each reason below says what was asked for, what was
-// missing, and what the reader should do about it.
-//
-//=============================================================================//
+// The movement command fatal reasons, and an engine-free formatter for them so the
+// text is testable apart from the noreturn Error() call.
 
 #pragma once
 
 #include <stddef.h>
 #include <stdio.h>
 
-//-----------------------------------------------------------------------------
-// Formats one of the reasons below and hands it to Error(). DOES NOT RETURN.
-//
-// Lives in shell_gamemovement.cpp because Error() is tier0's and this header is
-// deliberately engine-free; the text it prints is SourceSharpMovement_Format's
-// and is testable on its own.
-//-----------------------------------------------------------------------------
+// Formats one of the reasons below and hands it to Error(). Does not return.
 void SourceSharp_MovementFatal( int nReason, int nDetail );
 
 #ifndef CLIENT_DLL
-// The server's managed command loop (plan_server_native_v2 T4g): the 0 arm's
-// fatal, asked before each command, and the movemath counter, bumped for each
-// command the loop ran. shell_movement.cpp, beside the switch and the counter.
+// The server's managed command loop: the fatal check asked before each command, and
+// the per-command counter.
 void SourceSharp_MovementRequireManaged();
 void SourceSharp_MoveNoteServerCommand();
 #endif
 
-//-----------------------------------------------------------------------------
-// HOW MUCH THE LANDING THAT IS ABOUT TO BE APPLIED DOES.
-//
-// SOURCESHARP_MOVE_EFFECT_FALLING_DAMAGE is the one move effect with an answer,
-// and IMoveHelper::PlayerFallingDamage() -- an SDK virtual this port does not
-// own -- takes no arguments. So the amount, which is managed's since the
-// policy-player lane, travels beside the call rather than through it.
-//
-// WHY IT IS NOT RECOMPUTED HERE, which is what the shim did before: the helper
-// only has the player's m_flFallVelocity MEMBER, and that is the value from
-// before the move that is landing them -- the loop's own fall velocity is still
-// in the managed state and is not written back until FinishMove. So the
-// threshold that armed the call and the number that scaled the damage read two
-// different inputs, and a fall could arm the call and then do nothing.
-// MoveMath.FallDamage is the one formula now and it is handed the velocity the
-// arming test used.
-//
-// A FUNCTION-LOCAL STATIC AND NOT A GLOBAL: one per DLL, which is exactly the
-// scope wanted -- the client's move helper ignores it and the server's reads it
-// -- and no .cpp has to own a definition for a float that is written and read
-// two lines apart on one thread.
-//
-// It is set immediately before the call and read immediately inside it. The
-// value left behind afterwards is meaningless and no caller may read it.
-//-----------------------------------------------------------------------------
+// The fall damage of the landing about to be applied. IMoveHelper::PlayerFallingDamage()
+// takes no arguments, so the amount travels beside the call. Set immediately before the
+// call and read inside it; meaningless afterwards.
 inline float &SourceSharpMovement_PendingFallDamage()
 {
 	static float s_flPendingFallDamage = 0.0f;
 	return s_flPendingFallDamage;
 }
 
-//-----------------------------------------------------------------------------
-// The three ways one movement command can have nothing to run it.
-//
-// NOTE WHAT IS NOT HERE: "the managed side has not started, so run the stock
-// body." That was a real arm of `SourceSharp_MoveProcessMovement` until this
-// step, and deleting it is the step's whole point. It is now
-// kMovementFatal_NoManagedSide.
-//-----------------------------------------------------------------------------
+// The ways one movement command can have nothing to run it.
 enum
 {
-	// The managed side has not started, or started without binding
-	// MoveProcessMovement. There is no stock body behind this any more.
+	// The managed side has not started, or started without binding MoveProcessMovement.
 	kMovementFatal_NoManagedSide = 0,
 
-	// `sourcesharp_movement_managed 0` on a build with no stock CGameMovement
-	// left in it. The operator asked for a body that is not there.
+	// `sourcesharp_movement_managed 0`, with no stock CGameMovement in the build.
 	kMovementFatal_NoStock = 1,
 
-	// The managed loop DECLINED the command's move type and there is no stock
-	// mover left to run it. UNREACHABLE as of step 8f-movetypes, which gave
-	// MOVETYPE_OBSERVER, _FLY and _FLYGRAVITY managed bodies — the last three
-	// declines step 3e had declared. Kept, counted and printed anyway: "the
-	// loop declines nothing" is a claim about Movement.ProcessMovement, and a
-	// counter is the only thing that can tell a reader the day it stops being
-	// true.
+	// The managed loop declined the command's move type. Unreachable today; still
+	// counted and printed.
 	kMovementFatal_Declined = 2,
 
 	kMovementFatal_Count = 3,
 };
 
-//-----------------------------------------------------------------------------
 inline const char *SourceSharpMovement_ReasonText( int nReason )
 {
 	switch ( nReason )
@@ -147,7 +59,6 @@ inline const char *SourceSharpMovement_ReasonText( int nReason )
 	}
 }
 
-//-----------------------------------------------------------------------------
 inline const char *SourceSharpMovement_Remedy( int nReason )
 {
 	switch ( nReason )
@@ -170,14 +81,8 @@ inline const char *SourceSharpMovement_Remedy( int nReason )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Formats one reason into pOut. `nDetail` is the move type for
-// kMovementFatal_Declined and is ignored otherwise.
-//
-// Engine-free on purpose: snprintf and string literals, nothing that needs
-// tier0 to be up. Always NUL-terminates when there is room for one byte.
-// Returns what snprintf returned, so a caller can see truncation.
-//-----------------------------------------------------------------------------
+// Formats one reason into pOut. `nDetail` is the move type for kMovementFatal_Declined.
+// Always NUL-terminates when cOut > 0; returns snprintf's result so truncation shows.
 inline int SourceSharpMovement_Format( char *pOut, size_t cOut,
                                        const char *pSide, int nReason, int nDetail )
 {
@@ -187,9 +92,7 @@ inline int SourceSharpMovement_Format( char *pOut, size_t cOut,
 	if ( !pSide || !pSide[0] )
 		pSide = "?";
 
-	// Printed only for the reason it means something for. A move type of 0 under
-	// the word FATAL on a reason that has nothing to do with move types reads as
-	// data and sends the reader looking for a player who does not exist.
+	// The move type is printed only for the reason it applies to.
 	char szDetail[128];
 	szDetail[0] = '\0';
 	if ( nReason == kMovementFatal_Declined )
@@ -212,10 +115,5 @@ inline int SourceSharpMovement_Format( char *pOut, size_t cOut,
 		SourceSharpMovement_Remedy( nReason ) );
 }
 
-//-----------------------------------------------------------------------------
-// Prints how many commands the managed movement loop ran on this side, and the
-// refusal counts. Defined in shell_movement.cpp, beside the counters it reads;
-// cs_cl_move_managed_report and the debug-only cs_sv_move_managed_report
-// (shell_movement_debug.cpp) are its two callers.
-//-----------------------------------------------------------------------------
+// Prints how many commands the managed movement loop ran on this side, and the refusal counts.
 void SourceSharp_MoveManagedReport();

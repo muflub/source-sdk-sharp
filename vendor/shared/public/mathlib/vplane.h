@@ -20,22 +20,13 @@ public:
 	// Return the distance from the point to the plane.
 	vec_t		DistTo(const Vector &vVec) const;
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 	// Get a point on the plane (normal*dist).
 	Vector		GetPointOnPlane() const;
-
-#endif
 
 public:
 	Vector		m_Normal;
 	vec_t		m_Dist;
 
-#ifdef VECTOR_NO_SLOW_OPERATIONS
-private:
-	// No copy constructors allowed if we're in optimal mode
-	VPlane(const VPlane& vOther);
-#endif
 };
 
 // Inlines.
@@ -57,11 +48,7 @@ inline vec_t VPlane::DistTo(const Vector &vVec) const
 	return vVec.Dot(m_Normal) - m_Dist;
 }
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 inline Vector VPlane::GetPointOnPlane() const
 {
 	return m_Normal * m_Dist;
 }
-
-#endif

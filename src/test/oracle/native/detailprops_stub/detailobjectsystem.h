@@ -8,8 +8,7 @@
 // interface, over a game system that declares only the members the harness
 // calls (upstream's IGameSystem has more, which CDetailObjectSystem defines as
 // plain members either way).
-#ifndef SS_DETAIL_STUB_DETAILOBJECTSYSTEM_H
-#define SS_DETAIL_STUB_DETAILOBJECTSYSTEM_H
+#pragma once
 
 #include "detail_harness.h"
 
@@ -36,5 +35,3 @@ public:
 };
 
 IDetailObjectSystem* DetailObjectSystem();
-
-#endif

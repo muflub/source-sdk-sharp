@@ -4,19 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — a vgui panel without vgui_controls =================//
-//
-// plan_client_novalve C3 step 4. vgui2 (the engine's vgui) holds panels as
-// VPANELs and calls back into the module that made each one through
-// vgui::IClientPanel. vgui_controls' Panel is one implementation of that
-// interface, with a scheme, a build mode, message maps, focus navigation and a
-// vtable of about two hundred methods; the client's own panels (the root, the
-// HUD and the menu layer, the viewport) use none of it. This is the interface
-// implemented directly: a panel that paints itself and its children as stock's
-// Panel::PaintTraverse did, finds the panel under the cursor as stock's
-// IsWithinTraverse did, and hands the input messages vgui2 sends it to virtual
-// hooks by name. Everything else answers as a plain, scheme-less panel.
-//=============================================================================//
+// A vgui2 panel implementing vgui::IClientPanel directly, without vgui_controls: it paints
+// itself and its children, hit-tests, and hands vgui2's input messages to virtual hooks.
 #pragma once
 
 #include "vgui/VGUI.h"
@@ -35,7 +24,6 @@ public:
 	explicit CSourceSharpRawPanel( const char *pszName );
 	virtual ~CSourceSharpRawPanel();
 
-	// ---- the panel's own hooks ----
 	virtual void Paint() {}
 	virtual void OnThink() {}
 	virtual void OnScreenSizeChanged( int nOldWide, int nOldTall ) {}
@@ -48,7 +36,6 @@ public:
 	virtual void OnKeyTyped( wchar_t unichar ) {}
 	virtual void OnKillFocus() {}
 
-	// ---- what the client asks of it, onto vgui2's IPanel ----
 	void SetParent( vgui::VPANEL parent );
 	void SetVisible( bool bVisible );
 	bool IsVisible();
@@ -63,7 +50,6 @@ public:
 	void MakePopup( bool bShowTaskbarIcon, bool bDisabled );
 	void FillScreen();
 
-	// ---- vgui::IClientPanel ----
 	virtual vgui::VPANEL GetVPanel() OVERRIDE { return m_hPanel; }
 	virtual void Think() OVERRIDE;
 	virtual void PerformApplySchemeSettings() OVERRIDE {}

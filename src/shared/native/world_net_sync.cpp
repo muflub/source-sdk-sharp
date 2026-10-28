@@ -5,26 +5,13 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — worldspawn's networked state, in one place =========//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// See the header. Compiled into both DLLs: the field names, the ask and the
-// byte arithmetic have to be the same code on the two sides, or one spelling is
-// compared against the other and the difference is a rendering bug with no log
-// line.
-//
-//=============================================================================//
 
 #include "world_net_sync.h"
 #include "sourcesharp.h"
 #include "standalone_player_sync.h"
 
-
-
-//-----------------------------------------------------------------------------
-// The ask. ONE warning per failed resolve, naming the class: the interesting
-// fact is "worldspawn is not published on this side", not ten spellings of it.
-//-----------------------------------------------------------------------------
+// One warning per failed resolve, naming the class, not one per field.
 static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
 	const int nOffset = ask.pfnFieldOffset( SOURCESHARP_WORLD_NETCLASS, pField );
@@ -57,11 +44,7 @@ bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields )
 
 	bool bAll = true;
 
-	// THE NAMES ARE THE C# PROPERTY NAMES, not stock's member spellings. A
-	// declaration is keyed by what it declares, and WorldNetState calls them
-	// WaveHeight and WorldMins where the old CNetworkVars were m_flWaveHeight
-	// and m_WorldMins. Changing one without the other resolves to -1 and reads
-	// as nothing, which is why the resolve reports rather than assuming.
+	// The C# property names, not stock's member spellings.
 	pFields->nWaveHeight              = ResolveOffset( ask, "WaveHeight", &bAll );
 	pFields->nMaxOccludeeArea         = ResolveOffset( ask, "MaxOccludeeArea", &bAll );
 	pFields->nMinOccluderArea         = ResolveOffset( ask, "MinOccluderArea", &bAll );
@@ -85,11 +68,7 @@ bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields )
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// The byte movers. memcpy per field rather than a struct, for
-// standalone_player_sync.cpp's reason: the blob's layout is C#'s and nothing
-// here may assume two fields are adjacent.
-//-----------------------------------------------------------------------------
+// memcpy per field: the blob's layout is C#'s, so no two fields are assumed adjacent.
 float SourceSharpWorld_ReadFloat( const unsigned char *pBlob, int nOffset )
 {
 	float flValue = 0.0f;
@@ -119,15 +98,8 @@ bool SourceSharpWorld_ReadFlag( const unsigned char *pBlob,
 	return SourceSharpPayload_ReadPacked( pBlob, field ) != 0;
 }
 
-//-----------------------------------------------------------------------------
-// The string, in place.
-//
-// THE TERMINATOR IS CHECKED RATHER THAN TRUSTED. These bytes came off the wire
-// on the client and out of a managed write on the server, and both do terminate
-// — but a run with no NUL in it would send every reader of the returned pointer
-// off the end of the entity's allocation, and the reader is the material system.
-// An unterminated field answers "" and says so once.
-//-----------------------------------------------------------------------------
+// The terminator is checked rather than trusted: an unterminated run would send the
+// material system off the end of the allocation. Answers "" then.
 const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBytes,
                                          int nOffset )
 {
@@ -140,26 +112,17 @@ const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBy
 			return (const char *)( pBlob + nOffset );
 	}
 
-	// Deliberately not a warning-per-call: this is reached from the detail
-	// sprite path, which asks once per level, and from the dev console.
 	return "";
 }
 
-//-----------------------------------------------------------------------------
-// The ten, printed. See the header for why this ships rather than being a probe.
-//
-// Two lines rather than one: a single Msg would run past the console's width and
-// the interesting half -- the string -- would be the half that got cut.
-//-----------------------------------------------------------------------------
+// Two lines, so the console width does not cut the string.
 void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob,
                               int nBlobBytes, const SourceSharpWorldFields_t &fields )
 {
 	if ( !pszSide )
 		pszSide = "?";
 
-	// SAID RATHER THAN LEFT AS ZEROES. An unresolved field set reads as ten
-	// defaults, which is exactly what a working world with an empty map would
-	// also read as -- so the two are told apart here and not by the reader.
+	// An unresolved set would print ten zeros indistinguishable from a real empty map.
 	if ( !fields.IsCurrent() )
 	{
 		Warning( "[SourceSharp/%s] worldspawn: field offsets did not resolve, so the ten "

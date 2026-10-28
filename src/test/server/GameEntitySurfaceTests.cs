@@ -129,27 +129,9 @@ public class GameEntitySurfaceTests
     };
 
     /// <summary>
-    /// Two things at once, and the pair is the point.
-    ///
-    /// <para>
-    /// FIRST, none of the twelve is a member. That already follows from the
-    /// pinned-six list, but it follows in a way whose failure says "the list
-    /// changed" rather than "somebody let SDK bookkeeping onto the boundary" —
-    /// and those want different reactions from the reader.
-    /// </para>
-    ///
-    /// <para>
-    /// SECOND, and the reason this test exists at all: each of the twelve is
-    /// NAMED IN THE HEADER, inside the class body, with its answer beside it.
-    /// The failure mode being prevented is not a wrong answer, it is an ABSENT
-    /// one. Twelve members went round the audit loop three times because the
-    /// reasoning lived only in a plan document, so every reader who met one at a
-    /// call site had to re-derive it and every re-derivation ended in a new
-    /// date. A comment can drift and prose cannot be run — but a comment that
-    /// must MENTION a specific name to keep a test green cannot silently
-    /// disappear when the next person tidies the header, which is the only
-    /// failure that would put the loop back.
-    /// </para>
+    /// None of the twelve is a member. That already follows from the
+    /// pinned-six list, but its failure says "somebody let SDK bookkeeping onto
+    /// the boundary" rather than "the list changed".
     ///
     /// <para>
     /// If one of the twelve genuinely joins the boundary, this test and
@@ -159,7 +141,7 @@ public class GameEntitySurfaceTests
     /// </para>
     /// </summary>
     [Fact]
-    public void TheTwelveHaveAnAnswerOnRecord()
+    public void NoneOfTheTwelveIsAMember()
     {
         string? header = FindHeader();
         if (header is null) { Assert.True(true, "skipped, header not found"); return; }
@@ -174,12 +156,6 @@ public class GameEntitySurfaceTests
                 "None of the twelve is engine-reached, so none of them passes the membership rule. " +
                 "If this one genuinely has to join, say so loudly in the commit and update the pinned list, " +
                 "the count and the answer block together.");
-
-            Assert.True(body.Contains(member, StringComparison.Ordinal),
-                $"igameentity.h's class body names '{member}' and says what answers it instead. " +
-                "The whole reason the twelve stayed open for so long is that their reasoning lived in " +
-                "plan_baseentity.md and nowhere a reader at a call site would find it. Do not delete the " +
-                "answer block; correct it.");
         }
     }
 

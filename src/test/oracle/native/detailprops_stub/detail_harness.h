@@ -31,8 +31,7 @@
 //
 //=============================================================================
 
-#ifndef SS_DETAIL_HARNESS_H
-#define SS_DETAIL_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -369,5 +368,3 @@ public:
 	HDRType_t GetHDRType() const;
 };
 extern CDetailHardwareConfig *g_pMaterialSystemHardwareConfig;
-
-#endif // SS_DETAIL_HARNESS_H

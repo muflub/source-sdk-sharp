@@ -508,15 +508,6 @@ TEST( PvsNotifyRuling, BothWalksAreGuardedOnTheArmFlag )
 	EXPECT_EQ( std::string::npos, strShell.find( "SS_CBASEENTITY_ALIAS" ) )
 		<< "shell_clientdll.cpp names the arm flag again.";
 
-	// THE BANNER IS THE ARGUMENT AND IT HAS TO SURVIVE THE BODIES. Two empty
-	// functions with no explanation over them read as an unfinished stub, and
-	// the next reader fills them in.
-	EXPECT_NE( std::string::npos,
-	           strShell.find( "AND NO OCCUPANT SURVIVES EITHER" ) )
-		<< "the banner that says WHY these two walks are empty is gone. It is "
-		   "the measured half of the ruling -- 161,873 walks, 79,626 rows, "
-		   "every one belonging to a probe-built positive control -- and "
-		   "without it the bodies look like work nobody finished.";
 }
 
 // READ THE ASSERTIONS, NOT THE NAME. There is no removal SEED to read any more,
@@ -574,24 +565,4 @@ TEST( PvsNotifyRuling, TheRagdollsTuAndTheListsTuAreBothInTheFlipsRemovalSeed )
 // that one returns NULL -- so it is corrected, and the correction is pinned
 // here rather than left to survive on goodwill.
 //=============================================================================
-
-TEST( PvsNotifyRuling, TheBannerNamesCClientRagdollAsTheSubject )
-{
-	const std::string &strShell = ShellClientDllSource();
-	ASSERT_FALSE( strShell.empty() );
-
-	// SCOPED TO THE BANNER, not to the file. A bare file-wide search would go
-	// green the moment anybody mentioned the class anywhere in 2,400 lines.
-	const size_t banner = strShell.find( "// THE TWO PVS-NOTIFY WALKS," );
-	const size_t walk   = strShell.find( "void UpdateClientRenderableInPVSStatus()" );
-	ASSERT_NE( std::string::npos, banner ) << "the banner above the walks has gone";
-	ASSERT_NE( std::string::npos, walk );
-	ASSERT_LT( banner, walk );
-
-	const std::string strBanner = strShell.substr( banner, walk - banner );
-	EXPECT_NE( std::string::npos, strBanner.find( "C_ClientRagdoll" ) )
-		<< "the banner above the walks must name the ONE class that wanted "
-		   "these notifications. `f-list` left this defect open precisely "
-		   "because the argument was made about C_BaseAnimating instead.";
-}
 

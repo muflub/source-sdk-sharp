@@ -5,19 +5,8 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
-//
-// The engine holds the installed IConsoleDisplayFunc and calls its three
-// methods through that vtable, on the printing thread, from inside the
-// engine's own console writes. Install/remove are the only decisions here;
-// forwarding is pure carry (docs/todo.md's console capture item).
-//
-// console-batch (2026-10-11): a print is appended to this DLL's console line
-// buffer (console_line_buffer.h) and crosses nothing; the managed side drains
-// the buffer itself, through the pointer handed to its area once per load
-// (ConsoleBufferAttach). One crossing per line was 13 per server frame across
-// a map change, the whole of the nightly gate's map-change overrun.
-//=============================================================================//
-
+// The engine calls the installed IConsoleDisplayFunc on the printing thread.
+// A print is appended to the line buffer, which the managed side drains itself.
 
 #include "basetypes.h"
 #include "icvar.h"
@@ -33,8 +22,7 @@
 namespace
 {
 
-/// The one forwarder per DLL: the engine's display-func list holds a raw
-/// pointer, so a second installation would double every line.
+// One per DLL: the engine's list holds a raw pointer, so a second install would double every line.
 class CConsoleDisplayForward final : public IConsoleDisplayFunc
 {
 public:
@@ -55,8 +43,8 @@ private:
 
 	std::atomic< bool > m_bAttached{ false };
 
-	// Every spew reaches ColorPrint, a Msg too (the engine's spew handler); its colour is the
-	// spew type's: warning (255,90,90), assert (255,20,20), error (20,70,255). Read back, not decided.
+	// Every spew reaches ColorPrint with its spew type's colour: warning (255,90,90),
+	// assert (255,20,20), error (20,70,255).
 	static bool IsEngineWarningColor( const Color &c )
 	{
 		return c.r() == 255 ? ( c.g() == 90 && c.b() == 90 ) || ( c.g() == 20 && c.b() == 20 )
@@ -64,7 +52,7 @@ private:
 	}
 };
 
-CConsoleLineBuffer g_LineBuffer;  // the lines outlive a reload; not a member: the forwarder's vtable would put 1 MiB in .data
+CConsoleLineBuffer g_LineBuffer;  // not a member: the forwarder's vtable would put 1 MiB in .data
 CConsoleDisplayForward g_Forwarder;
 ICvar *g_pInstalledCvar = NULL;
 
@@ -72,17 +60,12 @@ ICvar *g_pInstalledCvar = NULL;
 
 void CConsoleDisplayForward::Forward( const char *pText, int nWarning )
 {
-	// Installed-or-not is the ONE piece of state forwarding consults: it is
-	// the lifetime decision install/remove already made, and a pointer the
-	// engine captured before a Remove must stop re-entering this DLL.
+	// A pointer the engine captured before a Remove must stop re-entering this DLL.
 	if ( !g_pInstalledCvar || !pText )
 	{
 		return;
 	}
-	// Outside a load (before the first acquire, after the last release,
-	// during shutdown) there is no reader, and the line is dropped as it was
-	// before the buffer. A load not yet handed the buffer (an install made
-	// before its area was acquired) is handed it here, once.
+	// Outside a load there is no reader and the line is dropped.
 	if ( !Attach() )
 	{
 		return;
@@ -138,7 +121,6 @@ void ConsoleDisplay_Remove()
 	}
 	g_pInstalledCvar->RemoveConsoleDisplayFunc( &g_Forwarder );
 	g_pInstalledCvar = NULL;
-	// The next install is the next load's: it is handed the buffer again.
 	g_Forwarder.Detach();
 }
 

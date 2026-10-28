@@ -4,30 +4,21 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the managed client's convar watch and decided values
-//
 // SS_REASON b  an interface resolved by name at load
 //
-// IShimConVarsClient's two slots (plan_client_novalve C8, lane c6-input).
+// IShimConVarsClient's two slots.
 //
-// WATCH. tier1's ChangeStringValue calls every installed global change
-// callback for every convar in the process, the engine's replicated ones
-// included when the server's value arrives. The client's one callback
-// (sourcesharp_gamesystem.cpp's SourceSharp_OnConVarChanged) forwards our own
-// registry's names; a WATCHED name is forwarded too, through the same
-// ConVarChanged, under the id this answered. The table lives here, survives a
-// managed reload (a re-watch answers the same id) and is never shrunk.
+// Watch: tier1 calls every installed global change callback for every convar,
+// so a watched name is forwarded to managed's ConVarChanged under the id this
+// answered. The table survives a managed reload and never shrinks.
 //
-// VALUES. A value managed decided, stored under a name native code reads
-// without crossing (the server-bounded convars' GetFloat, the client's
-// interpolation amount). Mechanism only: what each value is, is C#'s.
-//=============================================================================//
+// Values: floats managed decided, stored under names native code reads without
+// crossing.
 
 #include "tier1/strtools.h"
 #include "icvar.h"
 #include "sourcesharp_entrypoints.h"
 #include "shell_convars_client.h"
-
 
 namespace
 {

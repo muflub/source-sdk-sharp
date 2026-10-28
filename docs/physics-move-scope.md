@@ -24,7 +24,7 @@ $ ./5a-codelines.sh src/server/native/physics.cpp
 raw=2994  code=1523  comment=1131  blank=340
 ```
 
-So: **474 raw / 162 code / 242 comment / 70 blank.** Prose is **60.2% of
+So: **229 raw / 161 code / 26 comment / 42 blank.** Prose was **60.2% of
 the non-blank lines** (283 of 470, when this was first written), not the 49% the plan quotes; the plan's
 figure is comment-over-code (283/187 = 151%) or a different stripper. Either
 way the point it was making stands and gets stronger: **less than half of this
@@ -521,6 +521,12 @@ so the refusal reported a state that could not change. 534 -> 474 raw,
 `fnmap.tsv` rewritten: still 9 functions, 129 -> 112 body lines
 (`LevelInitPreEntity` 41 -> 25, `LevelShutdownPostEntity` 13 -> 12, every
 definition 6 lines earlier); `classify` reads HOOK 6/95 -> 6/78, TOTAL 9/112.
+
+The native comments were cut to what the code needs (2026-10-26, comment-only:
+the code with comments stripped is identical). 474 -> 229 raw, 161 code
+unchanged, 243 -> 26 comment, 70 -> 42 blank. `fnmap` re-run and `fnmap.tsv`
+rewritten: the same 9 functions and body lines, every definition earlier;
+`classify` reads the same.
 
 Of the 162 code lines, **112 are inside a function body** across **9
 top-level definitions**. The other 50 are includes, file-scope globals and

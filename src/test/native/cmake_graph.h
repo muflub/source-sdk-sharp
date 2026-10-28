@@ -38,8 +38,7 @@
 // Header-only and engine-free, like every test here.
 //=============================================================================//
 
-#ifndef SOURCESHARP_TEST_CMAKE_GRAPH_H
-#define SOURCESHARP_TEST_CMAKE_GRAPH_H
+#pragma once
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -731,5 +730,3 @@ inline std::vector< std::string > LinkLibraries( const std::string &strTarget )
 }
 
 } // namespace cmake_graph
-
-#endif // SOURCESHARP_TEST_CMAKE_GRAPH_H

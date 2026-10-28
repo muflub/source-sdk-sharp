@@ -1,8 +1,4 @@
-//========= SourceSharp — the engine interfaces the tier libraries connected ==//
-//
-// plan_server_novalve.md P3: see tier_connect.cpp.
-//
-//=============================================================================//
+// The engine-factory lookups the tier libraries' Connect functions make.
 
 #pragma once
 

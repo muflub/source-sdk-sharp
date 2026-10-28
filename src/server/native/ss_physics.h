@@ -4,23 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — physics.cpp's own records and entry points
-//
-// plan_server_novalve.md P5. Replaces game/server/physics.h, and the collision
-// bookkeeping of game/shared/physics_shared.h, for server.so: physics.cpp is
-// its compiled includer on the server (the collision event handler's header
-// left with the handler, plan_physics_bones_native_zero 2.1).
-//
-// The records are server-only. VPhysics hands the game a vcollisionevent_t and
-// calls back through the three solver interfaces; everything below is what
-// physics.cpp keeps for itself between those calls, and no other object reads
-// it by layout (nm: physics.cpp exports PhysicsGameSystem,
-// PhysicsWorldOwner and the named PhysFrictionSound, none of which names a
-// record here). So the records are ss:: types, per the plan's naming rule.
-//
-// Only what physics.cpp uses ahead of its definition, or that the collision
-// event handler names, is declared.
-//=============================================================================//
+
+// physics.cpp's own records and entry points, as server.so's ss:: types. No other object
+// reads these records by layout.
 
 #pragma once
 
@@ -77,10 +63,6 @@ struct masscenteroverride_t
 };
 
 } // namespace ss
-
-// VPhysics' collision solver, collision events and object events are managed's
-// own tables (plan_physics_managed B2.1/B2.2, plan_physics_bones_native_zero
-// 2.1): physics.cpp keeps no handler of its own.
 
 // Defined in physics.cpp, used there ahead of their definitions.
 void PhysCollisionScreenShake( ss::gamevcollisionevent_t *pEvent, int index );

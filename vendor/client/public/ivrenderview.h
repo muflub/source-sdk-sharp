@@ -264,11 +264,4 @@ public:
 // change this when the new version is incompatable with the old
 #define VENGINE_RENDERVIEW_INTERFACE_VERSION	"VEngineRenderView014"
 
-#if defined(_STATIC_LINKED)
-namespace Client
-{
 extern IVRenderView *render;
-}
-#else
-extern IVRenderView *render;
-#endif

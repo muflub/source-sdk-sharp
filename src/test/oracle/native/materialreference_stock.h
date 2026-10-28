@@ -3,8 +3,7 @@
 // the names defined to Stock*, so the test can hold upstream's classes and
 // ours in one binary. materialreference_stock.cpp compiles upstream's bodies
 // under the same names.
-#ifndef SOURCESHARP_MATERIALREFERENCE_STOCK_H
-#define SOURCESHARP_MATERIALREFERENCE_STOCK_H
+#pragma once
 
 #include "materialsystem/MaterialSystemUtil.h"   // ours first: its guard is set
 
@@ -14,5 +13,3 @@
 #include "materialsystem/MaterialSystemUtil.h"
 #undef CMaterialReference
 #undef CTextureReference
-
-#endif

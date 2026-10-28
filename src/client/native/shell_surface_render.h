@@ -5,25 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — drawing a shattered pane of glass ==================//
-//
-// The native half of func_breakable_surf's draw, off C_BaseEntity.
-//
-// Stock's renderer is a C_BaseEntity that also implements IBrushRenderer, and
-// nothing on the parallel hierarchy is a C_BaseEntity — so it could not come
-// along unchanged. It did not need to be one: what it actually asks for is to
-// have the brush model drawn with itself installed as the surface renderer,
-// and the standalone shell can supply that.
-//
-// So this is NOT an entity, and since lane M1-A it decides nothing. Managed's
-// ClientBreakableSurf (BreakableSurfaceDraw) chooses the materials and makes
-// the plan: which panes still stand, in which runs, which edges are cracked
-// and in what order everything draws. This holds the material references it
-// named and, when the engine hands it the brush surface, builds the plan's
-// quads: their corners in the surface's frame and the surface's own texture
-// and lightmap coordinates at each vertex.
-//
-//=============================================================================//
+// Draws a broken func_breakable_surf pane: holds the materials managed code
+// named and, when the engine hands it the brush surface, builds the plan's quads
+// with the surface's texture and lightmap coordinates.
 #pragma once
 
 #include "materialsystem/imaterialvar.h"
@@ -38,11 +22,8 @@
 
 class CMeshBuilder;
 
-//-----------------------------------------------------------------------------
-// Which side of a pane an edge is on, and what shape that edge is. Stock's,
-// unchanged — these choose which of twelve edge materials draws and which
-// way its texture runs. PaneSide and PaneEdge in C# are the same numbers.
-//-----------------------------------------------------------------------------
+// Stock's values; they pick which of twelve edge materials draws and which way
+// its texture runs. PaneSide and PaneEdge in C# must match.
 enum SurfaceWinSide_t
 {
 	SURF_SIDE_BOTTOM,
@@ -63,14 +44,10 @@ enum SurfaceWinEdge_t
 #define SOURCESHARP_SURFACE_EDGE_TYPES  4
 #define SOURCESHARP_SURFACE_EDGE_STYLES 3
 
-//-----------------------------------------------------------------------------
-// The plan's words, as BreakableSurfaceDraw writes them (the C# constants of
-// the same names; BreakableSurfaceDrawTests pins the pair): a header of eight
-// floats' bits (the normal, the corner, the pane width and height), then
-// entries of four words (kind, column, row, argument). A solid run's argument
-// is its length in rows; an edge's or a highlight's packs the side (bits 0-1),
-// the edge shape (bits 2-3) and the style (bits 4 and up).
-//-----------------------------------------------------------------------------
+// The plan: a header of eight floats' bits (normal, corner, pane width and
+// height), then entries of four words (kind, column, row, argument). A solid
+// run's argument is its length in rows; an edge's or highlight's packs the side
+// (bits 0-1), edge shape (bits 2-3) and style (bits 4 and up). Must match C#.
 enum
 {
 	SURFACE_PLAN_HEADER_WORDS = 8,
@@ -101,24 +78,20 @@ struct SurfaceEdgeTexture_t
 	CTextureReference   m_pMaterialEdgeTexture;
 };
 
-//-----------------------------------------------------------------------------
-// One broken surface's draw. Owned by the shell (C_StandaloneEntity::
-// SurfaceRenderer), made when managed first hands it materials or a plan.
-//-----------------------------------------------------------------------------
+// One broken surface's draw, owned by the shell and made when managed code first
+// hands it materials or a plan.
 class CSourceSharpSurfaceRenderer : public IBrushRenderer
 {
 public:
 	CSourceSharpSurfaceRenderer();
 	virtual ~CSourceSharpSurfaceRenderer();
 
-	// The materials managed named, referenced.
 	void SetMaterials( const char *const *ppNames, int nFlags );
 
 	// What to draw, replacing the last plan; an empty one draws nothing.
 	void SetPlan( const int32_t *pWords, int nWords );
 
-	// Installed around the brush model's draw: the engine hands each brush
-	// surface to RenderBrushModelSurface while it is installed.
+	// The engine hands each brush surface to RenderBrushModelSurface while installed.
 	void BeginDraw();
 	void EndDraw();
 
@@ -132,7 +105,6 @@ private:
 	               const Vector &vStart, const Vector &vWStep, const Vector &vHStep,
 	               const float ( *pCorners )[2], bool bGrout );
 
-	// The plan's header and entries.
 	Vector m_vNormal;
 	Vector m_vCorner;
 	float  m_flPanelWidth;

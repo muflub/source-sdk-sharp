@@ -5,24 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the player's state, between the loop and the blob ==//
-//
-// Phase 9c5's join. The movement loop reads and writes NATIVE members — 9b
-// kept the loop native on purpose — while the wire format and the prediction
-// schema are ONE C# declaration (PlayerNetState). This header is the crossing
-// between those two facts: after every command the native state is written
-// into the blob at the offsets the declaration computed, and on every server
-// update the client adopts the blob back into its native state before the
-// replay runs on top.
-//
-// EVERY OFFSET IS ASKED, NEVER COPIED (Step 7's rule): resolved by field name
-// through NetStateFieldOffset/NetStateFieldBits, once per resolve generation.
-// A reload republishes the types and may move every field, so the generation
-// is bumped from the reload path and the next sync re-asks. A field that does
-// not resolve syncs as nothing — and says so once — rather than writing into
-// whatever used to be there.
-//
-//=============================================================================//
+// The player's native state and its blob. The blob's layout is a C# declaration
+// (PlayerNetState); every offset is asked by field name and cached per resolve
+// generation, which a managed reload bumps. A field that does not resolve syncs
+// as nothing, with one warning.
 #pragma once
 
 #include "basehandle.h"
@@ -31,17 +17,12 @@
 #include "ground_handle_wire.h"
 #include "sourcesharp.h"
 
-//-----------------------------------------------------------------------------
-// Bumped by the managed reload on both sides; every resolved field set whose
-// stamp disagrees re-asks before its next use.
-//-----------------------------------------------------------------------------
+// Bumped by a managed reload on both sides; stale field sets re-ask before use.
 unsigned int SourceSharp_PlayerSyncGeneration();
 void         SourceSharp_PlayerSyncInvalidate( const char *pReason );
 
-//-----------------------------------------------------------------------------
-// The resolved placements. Whole-storage fields keep a plain offset; the
-// narrow ones keep the packed placement the C# packer chose for them.
-//-----------------------------------------------------------------------------
+// The resolved placements: whole-storage fields keep an offset, narrow ones the
+// packed placement the C# packer chose.
 struct SourceSharpPlayerFields_t
 {
 	unsigned int nGeneration;   // 0 = never resolved
@@ -67,16 +48,10 @@ struct SourceSharpPlayerFields_t
 	}
 };
 
-// Asks the managed side for every placement. False — with one warning — when
-// the class is not published on this side yet; the caller tries again on the
-// next sync rather than remembering the failure.
-//-----------------------------------------------------------------------------
-// THE TWO LAYOUT ASKS, as this side reaches them (plan_engineapi_vtables E16).
-// The resolve loops below and in world_net_sync.cpp are shared; what they call
-// is not. The server asks its managed-built IManagedNetState, the client its
-// IManagedStandaloneClient (plan_client_vtables CE5). Both answer -1 for a
-// field that is not published.
-//-----------------------------------------------------------------------------
+// Asks the managed side for every placement. False, with one warning, when the
+// class is not published on this side yet; the caller retries on the next sync.
+//
+// This side's layout asks. Both answer -1 for a field that is not published.
 struct SourceSharpNetStateAsk_t
 {
 	int32_t ( *pfnFieldOffset )( const char *pClassName, const char *pFieldName );
@@ -134,31 +109,10 @@ inline bool SourceSharp_NetStateAsk( SourceSharpNetStateAsk_t *pAsk )
 
 bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields );
 
-//-----------------------------------------------------------------------------
-// SourceSharpPlayerExtras_t and SourceSharpPlayerSync_Write, the native state
-// -> blob copy of the movement words, went at plan_server_native_v2 T5: no
-// object of either DLL called the copy (nm U over both link edges). The
-// server's movement words are the managed command loop's (PlayerMovePublisher);
-// what native still writes is WriteEngineSide's three below.
-//
-// THE GROUND HANDLE travels as an index word (ground_handle_wire.h), never as a
-// resolved pointer: a crossing through a pointer would turn "the server was
-// standing on entity 43" into "entity 43 does not exist on this client YET".
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// The ground handle, both ways, and the one place the engine's own bit widths
-// are checked against the numbers ground_handle_wire.h restates. Inline here
-// rather than in that header because it is where CBaseHandle and const.h are
-// both in scope; the asserts are INSIDE the bodies because COMPILE_TIME_ASSERT
-// declares a fixed name and two of them at file scope collide.
-//
-// ENCODE ONLY. There is no DecodeGround here on purpose: the word carries an
-// entity INDEX and nothing else (ground_handle_wire.h says why, with the
-// measurement), so turning it back into a handle means asking THIS SIDE'S
-// entity list for the entity at that index and keeping the handle it hands
-// back. The two sides ask different lists, so each does it for itself --
-// C_StandalonePlayer::AdoptServerState is the only caller that needs to.
-//-----------------------------------------------------------------------------
+// The ground handle travels as an entry index word, never a resolved pointer.
+// Encode only: each side resolves the index through its own entity list. The
+// asserts check ground_handle_wire.h's restated widths; they sit inside the body
+// because COMPILE_TIME_ASSERT declares a fixed name.
 inline int SourceSharpPlayerSync_EncodeGround( const CBaseHandle &handle )
 {
 	COMPILE_TIME_ASSERT( GROUNDWIRE_INDEX_BITS == MAX_EDICT_BITS );
@@ -171,9 +125,8 @@ inline int SourceSharpPlayerSync_EncodeGround( const CBaseHandle &handle )
 }
 
 #ifndef CLIENT_DLL
-// The server's engine side -> blob (plan_server_native_v2 T4g): the shell's
-// origin, health and whether it is alive, the three words native holds. The
-// movement state is the managed command loop's, which publishes the rest.
+// The server's engine side to the blob: origin, health and alive, the words
+// native holds. The managed command loop publishes the rest.
 void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
                                             const SourceSharpPlayerFields_t &fields,
                                             const Vector &vecOrigin, int nHealth, bool bAlive );

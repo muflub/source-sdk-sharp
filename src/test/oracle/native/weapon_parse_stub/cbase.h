@@ -10,12 +10,9 @@
 //
 //=============================================================================
 
-#ifndef SOURCESHARP_TEST_WEAPONPARSE_CBASE_H
-#define SOURCESHARP_TEST_WEAPONPARSE_CBASE_H
+#pragma once
 
 #include <utlvector.h>
 #include "cdll_util.h"
 #include <util_shared.h>
 #include "weapon_parse.h"
-
-#endif // SOURCESHARP_TEST_WEAPONPARSE_CBASE_H

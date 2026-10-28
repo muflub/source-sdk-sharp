@@ -5,28 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — one resolver for a managed entity handle ===========//
-//
-// A handle names an ENTITY, not a C++ class. There used to be four spellings of
-// "turn a handle into an entity" — ResolveEntityHandle, ResolveHandle,
-// ResolveStandalone, ResolveEntity — and every ABI function that took a handle
-// chose among them, usually by trying one and falling back to another. Two
-// lookups per call, and a caller that picked the wrong half got NULL, which
-// reads as "no such entity" rather than as an error. That silence cost real
-// behaviour four separate times before this header existed.
-//
-// Now there is ONE resolve — SourceSharp_ResolveEntity — doing ONE entity-list
-// lookup, and everything else in this header is a typed projection of its
-// result. A projection cannot disagree with the resolve it projects, which is
-// the property the four spellings never had.
-//
-// The lookup is the same one the trace filter and the event queue use:
-// CBaseHandle -> LookupEntity (serial revalidated) -> IServerUnknown, then two
-// virtual asks that partition the world exactly — GetGameEntity() answers only
-// for the parallel hierarchy and GetBaseEntity() answers only for the SDK's,
-// so at most one arm of the result is ever set.
-//
-//=============================================================================//
+// Resolving a managed entity handle. SourceSharp_ResolveEntity does one
+// entity-list lookup (serial revalidated); everything else here is a projection
+// of its result. GetGameEntity() and GetBaseEntity() partition the hierarchies,
+// so at most one arm is set.
 #pragma once
 
 #include <stdint.h>
@@ -41,194 +23,77 @@ class IHandleEntity;
 class IPhysicsObject;
 struct edict_t;
 
-// Declared rather than included: mathlib/vector.h above does NOT define it —
-// it lives in mathlib/mathlib.h — and a reference return needs no definition.
-// Pulling mathlib.h in here would put it above every shell that includes this.
+// Declared, not included: it lives in mathlib/mathlib.h, which this header must not pull in.
 struct matrix3x4_t;
 
-//-----------------------------------------------------------------------------
-// A handle resolved to whichever hierarchy holds it.
-//
-// Every [ScriptedEntity] in this mod is on the parallel hierarchy, so an ABI
-// call that resolves only a CBaseEntity gets NULL for all of them, returns
-// early, and says so nowhere. That silence has cost real behaviour four
-// separate times: a game_zone_player that counted nobody, a door whose noise1
-// never played, `debug-api place` that could not place, and a train that put its
-// origin on each corner rather than its middle.
-//
-// So the asking is one call and the answering is one place. Only the questions
-// BOTH hierarchies can honestly answer are methods here; a call that needs a
-// CBaseAnimating, a CBaseCombatCharacter or a CTakeDamageInfo reads pBase
-// directly, because there is nothing on the other side to ask and inventing an
-// answer is worse than the neutral one.
-//
-// It carries out; it does not decide. Which entity, and what to do with it, is
-// still the caller's — and above the caller, C#'s.
-//-----------------------------------------------------------------------------
+// A handle resolved to whichever hierarchy holds it. Methods cover only what both
+// hierarchies can answer; a caller needing more reads pBase directly.
 struct SourceSharpEntity_t
 {
 	IGameEntity       *pBase;
 	CStandaloneEntity *pStandalone;
 
-	//-------------------------------------------------------------------------
-	// worldspawn, which is on NEITHER of those (plan_cworld_trace.md T3).
-	//
-	// The third arm, here for the same reason it is on AnyEntity_t and on
-	// PhysicsOwner_t: the two asks this resolver makes -- GetGameEntity() and
-	// GetBaseEntity() -- both answer NULL for the world, and this header's own
-	// contract is that "NULL in both arms means the handle did not resolve AT
-	// ALL". Without a third arm the world resolves as gone.
-	//
-	// IT WAS FOUND BY A LIVE RUN. SourceSharp_EntityGetDataBlob asks this
-	// resolver where the world's managed state lives; with the world reading as
-	// gone, every worldspawn key was refused with "entity 0 ('worldspawn')
-	// offers 0" and the world networked 76 zero words -- the same sentence,
-	// word for word, that world_adapter.cpp records the singleton assignment
-	// being moved to fix. Same symptom, different cause, and no offline gate
-	// saw either of them.
-	//-------------------------------------------------------------------------
+	// worldspawn, which neither GetGameEntity() nor GetBaseEntity() answers.
 	CWorld            *pWorld;
 
 	bool IsValid() const { return pBase != NULL || pStandalone != NULL || pWorld != NULL; }
 
 	// Whether this handle names the world.
 	bool IsWorld() const { return pWorld != NULL; }
-	// The entity as an IGameEntity, on either hierarchy: pBase, or the
-	// standalone entity's own GetGameEntity(). NULL when it did not resolve.
-	// What a CTakeDamageInfo's attacker and inflictor take: reading pBase alone
-	// named no managed attacker at all (plan_physics_managed A40).
+	// The entity as an IGameEntity on either hierarchy, or NULL. What a
+	// CTakeDamageInfo's attacker and inflictor take.
 	IGameEntity *GameEntity() const;
 
-	// Where it is.
 	const Vector &Origin() const;
 
-	// The collision box, as offsets FROM that origin. Origin-relative because a
-	// brush model's box is: a door is a slab somewhere in the map whose origin
-	// is usually at the world's, so the box and the position are two separate
-	// facts and folding them together loses one.
+	// The collision box, as offsets from Origin(); a brush model's origin is
+	// usually the world's, not the box's.
 	void Bounds( Vector *pOutMins, Vector *pOutMaxs ) const;
 
-	// The middle of that box, which is what anything positioning itself
-	// relative to a VOLUME means by "where it is".
 	Vector Center() const;
 
-	// The index the ENGINE stores something against — a decal, and anything
-	// else engine-side that names an entity by number rather than by pointer.
-	// 0 for an entity the client has never heard of, which is the world's
-	// index and is what "attached to nothing in particular" has always meant
-	// on that side.
-	// (The sound source's index, SoundSourceIndex, is the managed
-	// ServerSounds.SoundSourceIndex since plan_server_native_v2 T4a.)
+	// The index the engine stores things against (a decal, ...). 0 for an
+	// entity the client has never heard of.
 	int EntityIndex() const;
 
-	// The frame the entity's own model is expressed in — what turns a point in
-	// the world into a point ON the entity, and back.
-	//
-	// NOT ICollideable::CollisionToWorldTransform for the SDK arm. That is a
-	// DIFFERENT matrix on the branch CCollisionProperty takes for a
-	// SOLID_NONE, a SOLID_BBOX or an FSOLID_FORCE_WORLD_ALIGNED entity: it
-	// drops the rotation and keeps only the translation. The parallel
-	// hierarchy has no such branch — CStandaloneEntity::SetAbsTransform builds
-	// m_Transform with AngleMatrix from the origin AND the angles, every time,
-	// and CollisionToWorldTransform returns exactly that — so on that arm the
-	// two really are one matrix. Each arm therefore asks the thing that is
-	// right for it, which is the whole reason this is a projection and not a
-	// cast at the call site.
-	//
-	// AND IT COSTS ONE CONSUMER, measured rather than discovered later: the SDK
-	// arm's EntityToWorldTransform() is an inline in baseentity.h that calls
-	// CBaseEntity::CalcAbsolutePosition() when the transform is dirty, so
-	// shell_standalone_base.o needs that one symbol and joins the release
-	// server's consumer set (57 -> 58). The obvious way to avoid it is the
-	// substitution above, and that is not a trade -- it is the bug, on every
-	// SOLID_BBOX, SOLID_NONE and world-aligned entity. One call-bound need is
-	// what a correct answer costs here, and it dies with the alias exactly as
-	// every other member ask does.
+	// The frame the entity's model is expressed in. Not CollisionToWorldTransform
+	// on the SDK arm: that drops the rotation for SOLID_NONE, SOLID_BBOX and
+	// world-aligned entities.
 	const matrix3x4_t &EntityToWorld() const;
 
-	// What to call it in a diagnostic. Neither is the entity's identity — a
-	// handle is — but a warning that cannot name the thing it is about is a
-	// warning nobody can act on.
+	// For diagnostics only; the handle is the identity.
 	const char *Classname() const;
 
 	IPhysicsObject *Physics() const;
 
-	// What the engine's own collision code takes when it is told to skip
-	// something. Both hierarchies are IHandleEntity already, so neither needs
-	// converting and a trace can ignore either kind.
+	// What the engine's collision code takes to skip an entity.
 	IHandleEntity *ToHandleEntity() const;
 };
 
-//-----------------------------------------------------------------------------
-// THE resolve. One entity-list lookup, serial revalidated, both arms answered.
-//
-// NULL in both arms means the handle did not resolve AT ALL — the entity is
-// gone or the slot was reused. It no longer ever means "wrong hierarchy",
-// because there is no second call left to fall through to.
-//-----------------------------------------------------------------------------
+// The resolve. NULL in both arms means the entity is gone or its slot was reused.
 SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity );
 
-//-----------------------------------------------------------------------------
-// plan_entity.md step 2e -- THE ENGINE-INVISIBLE RANGE'S SAFETY COUNTER.
-//
-// Called by the resolver above, from the one arm that can see it happen: an
-// entry index in the engine-invisible half that the ENGINE'S OWN entity list
-// does not resolve. Defined in shell_scripted.cpp, with the whole argument for
-// what is counted and why it is counted natively rather than in managed code.
-//-----------------------------------------------------------------------------
+// Counts reaches into the engine-invisible index range that the engine's entity
+// list does not resolve (defined in shell_scripted.cpp).
 void    SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress );
 int32_t SourceSharp_InvisibleRangeReach( void );
 
-// The parallel hierarchy's arm alone, for the calls only that side can answer
-// (per-class tables, managed blobs, scripted state). A projection of
-// SourceSharp_ResolveEntity, not a second resolver.
+// The standalone arm alone, for calls only that side can answer.
 CStandaloneEntity *SourceSharp_ResolveStandalone( uint32_t hEntity );
 
-//-----------------------------------------------------------------------------
 // The other direction: the handle C# knows an entity by.
-//-----------------------------------------------------------------------------
 
-// From a CBaseEntity. INVALID_EHANDLE_INDEX for NULL.
+// INVALID_EHANDLE_INDEX for NULL.
 uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 
-// The SAME identity as a CBaseHandle, for the callers that want the two halves
-// rather than the packed number -- a networked ehandle's entry and serial, and
-// the restore list's entries.
-//
-// It exists because `pEntity->GetRefEHandle()` STOPS COMPILING at the alias:
-// IGameEntity is not an IHandleEntity and deliberately never will be
-// (igameentity.h, "duplicating them here would invite the two to disagree").
-// Both spellings above are therefore ONE guarded definition in
-// shell_entityapi.cpp rather than a guard at each of the six call sites, which
-// is also why the call sites read the same armed and unarmed.
+// The same identity as a CBaseHandle (entry and serial). IGameEntity is not an
+// IHandleEntity, so GetRefEHandle() is unavailable here.
 CBaseHandle SourceSharp_RefHandleFromEntity( IGameEntity *pEntity );
 
-// From an entity of EITHER hierarchy. Both are IHandleEntity already, and the
-// handle is the one number that never cared which side its owner lived on.
+// From an entity of either hierarchy.
 uint32_t SourceSharp_HandleFromAnyEntity( IHandleEntity *pHandleEntity );
 
-//-----------------------------------------------------------------------------
-// SourceSharp_ShellFromEdict, the edict-keyed resolver, is gone (server gc
-// cull, 2026-10-01): nothing called it and --print-gc-sections dropped it.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// SECTION 3.16 FAMILY 3, FOR A HEADER THAT MUST NOT SEE THE SHELL.
-//
-// SourceSharp_ShellFromHandleEntity (slot_table.h) is the family's replacement
-// and answers a CStandaloneEntity *. A caller that only wants the game-entity
-// boundary -- toucher.h is the one that matters, and it is read by 26 server
-// translation units -- would have to include shell_standalone.h to perform the
-// derived-to-base conversion, which is a 3,000-line header arriving in 26 TUs
-// to spell a conversion the compiler could do in one.
-//
-// So the conversion is performed ONCE, here, in a TU that already has the whole
-// shell type. Same table, same virtual, same NULL for anything that is not one
-// of ours; what differs is only which of the shell's faces comes back.
-//
-// This is NOT a second resolver in the sense 1c's handover forbids: it does not
-// index the table itself and it casts nothing -- it calls
-// SourceSharp_ShellFromHandleEntity and returns the answer through a base
-// pointer the compiler adjusts.
-//-----------------------------------------------------------------------------
+// The shell's IGameEntity face for an IHandleEntity, or NULL for anything not
+// one of ours. Lets headers that must not include shell_standalone.h make the
+// derived-to-base conversion.
 IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity );

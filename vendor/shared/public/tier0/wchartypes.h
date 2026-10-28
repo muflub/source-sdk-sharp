@@ -31,13 +31,6 @@ typedef unsigned char byte;
 #define WIDEN(x) WIDEN2(x)
 #define __WFILE__ WIDEN(__FILE__)
 
-#ifdef STEAM
-#ifndef _UNICODE
-#define FORCED_UNICODE
-#endif
-#define _UNICODE
-#endif
-
 #ifdef _WIN32
 #include <tchar.h>
 #else

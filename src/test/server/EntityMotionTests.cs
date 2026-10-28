@@ -1090,7 +1090,7 @@ public class EntityMotionTests
             RepoLayout.SdkTree, "src", "sourcesharp", "game", "server",
             "shell_standalone_base.cpp"));
 
-        Assert.Contains("StandaloneEntities_Update", text);
+        Assert.Contains("void CStandaloneEntity::MarkBlockChanged", text);
         Assert.DoesNotContain("pEnt->UpdateFlight();", text);
         Assert.DoesNotContain("void CStandaloneEntity::UpdateFlight()", text);
     }

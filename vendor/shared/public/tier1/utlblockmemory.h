@@ -13,13 +13,8 @@
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
 
-#ifdef UTBLOCKLMEMORY_TRACK
-#define UTLBLOCKMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlBlockMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#define UTLBLOCKMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlBlockMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#else
 #define UTLBLOCKMEMORY_TRACK_ALLOC()		((void)0)
 #define UTLBLOCKMEMORY_TRACK_FREE()		((void)0)
-#endif
 
 // The CUtlBlockMemory class:
 // A growable memory class that allocates non-sequential blocks, but is indexed sequentially

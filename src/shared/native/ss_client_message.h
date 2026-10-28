@@ -5,34 +5,14 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a client's message to the server, a net message =====//
+// A SourceSharp net message on the game's own channel, client to server: a key and up
+// to 4 KiB of bytes that managed code interprets. Type 60 is clear of the engine's
+// net_/clc_/svc_ ids; a channel drops a client that sends a type it did not register,
+// so the client sends this only to a server that asked it something first.
 //
-// A SourceSharp net message on the game's own channel, client to server: a key
-// naming who it is for and up to 4 KiB of bytes. The client sends it with
-// INetChannel::SendNetMsg (the client shim's SendServerMessage); the server
-// registers one on each client's channel (INetChannel::RegisterMessage, when
-// the client goes active) and hands what arrives to managed code, which
-// decides what it means. Native carries it; it never interprets it.
-//
-// THE TYPE ID IS OURS, NOT THE ENGINE'S. Source 2013's channels read a 6-bit
-// type (NETMSG_TYPE_BITS): net_ 0-7 and clc_ 8-17 on a server's channel, svc_
-// on a client's. 60 is clear of both. A channel that reads a type nobody
-// registered drops the client, so a client must send this only to a server
-// that registered it: one that asked it something first.
-//
-// HEADER-ONLY, AND NO tier1 ON THE READ SIDE. server.so does not link tier1
-// (plan_server_novalve.md P3), and bitbuf.h's inline readers call its error
-// handler in debug builds. The read decodes the buffer's bytes itself, least
-// significant bit first, then Seeks past them, as ProcessUsercmds hands its
-// bytes over. The write is the client's (it links tier1): a writer function
-// the client installs, using bf_write's own WriteUBitLong and WriteBytes. A
-// message with no writer refuses to write. ss_client_message_test holds the
-// client's writer and this reader to the same bits.
-//
-// Wire, after the type: key length (6 bits), the key's bytes, data length
-// (13 bits), the data's bytes.
-//
-//=============================================================================//
+// The read decodes bits itself because server.so links no tier1; the client installs
+// a bf_write-based writer. Wire, after the type: key length (6 bits), the key's bytes,
+// data length (13 bits), the data's bytes.
 
 #pragma once
 

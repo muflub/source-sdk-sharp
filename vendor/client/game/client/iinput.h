@@ -91,11 +91,6 @@ public:
 	virtual GameActionSet_t GetPreferredGameActionSet() = 0;
 	virtual void		SetGameActionSetFlags( GameActionSetFlags_t action_set_flags ) = 0;
 
-#if defined( HL2_CLIENT_DLL )
-	// IK back channel info
-	virtual void		AddIKGroundContactInfo( int entindex, float minheight, float maxheight ) = 0;
-#endif
-
 	virtual void		LevelInit( void ) = 0;
 
 	// Causes an input to have to be re-pressed to become active

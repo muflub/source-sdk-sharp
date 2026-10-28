@@ -5,17 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a managed temp entity plan, stored (client) =========//
-//
-// The client half of plan_server_native_v2 T4b. The block one planned table
-// crosses in (sourcesharp.h: SourceSharpTeTableHeader_t and
-// SourceSharpRecvPropRow_t rows, read by tempent_table_block.h), and one row
-// stored into one RecvProp. Carrying out only: every value in a row was decided
-// in C# (TePropPlanner, RecvPropPlan). Split from shell_tempents_client.cpp so a
-// gtest (tempent_recv_store_test.cpp) can reach it with the recv builders and
-// nothing else.
-//
-//=============================================================================//
+// A managed temp entity table plan, stored: the block one planned table crosses
+// in (SourceSharpTeTableHeader_t and SourceSharpRecvPropRow_t rows), and one row
+// stored into one RecvProp. Every value was decided in C#. Separate so a gtest
+// can reach it with the recv builders alone.
 #pragma once
 
 #include "sourcesharp.h"

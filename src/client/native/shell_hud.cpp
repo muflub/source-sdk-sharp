@@ -5,21 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the HUD, drawn from C# ==============================//
 // SS_REASON a  a vtable the engine calls through
-//
-// A single VGUI panel that does no layout and holds no state: the HUD's root
-// panel (plan_client_ui §8 U2). Once a frame it hands the UI the screen size
-// and the UI draws its HUD layer through IShimUiClient (shell_ui.cpp). What is
-// on it, and where, is decided there.
-//
-// The split is the same one used everywhere else in this mod — the shell owns
-// what genuinely needs the engine (a VGUI surface, a font, the paint pass) and
-// the behaviour lives in C#. The stock HL2MP equivalents are three separate
-// CHudElement subclasses totalling roughly 950 lines of C++; none of that
-// structure is needed once the drawing is immediate-mode.
-//
-//=============================================================================//
+// The UI's VGUI root panels and draw primitives. The HUD root does no layout and
+// holds no state: once a frame it hands the managed UI the screen size, and the
+// UI draws through IShimUiClient.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,29 +53,20 @@
 #include "sourcesharp_entrypoints.h"
 #include "shell_diagnostics.h"
 #include "sourcesharp.h"
-#include "imanaged_areas_client.h"   // IManagedUiClient (plan_client_ui U2)
-
-// memdbgon must be the last include file in a .cpp file!!!
+#include "imanaged_areas_client.h"
 
 using namespace vgui;
 
-//=============================================================================
-// THE UI'S DRAW PRIMITIVES (plan_client_ui §8 U2): IShimUiClient's bodies, one
-// vgui::ISurface call each. VguiBackend (src/client/managed/Ui) turns a render
-// list into these; what to draw, where, in which font and colour is decided
-// there. Colours arrive packed 0xRRGGBBAA; text arrives as UTF-16, which is how
-// C# holds it, and is widened here to the engine's wchar_t. The draw slots
-// refuse outside the paint window the root panel below opens, as the old HUD's
-// did: a draw from a C# timer would otherwise corrupt VGUI's state. Measuring,
-// fonts and textures are not draws and work at any time.
-//=============================================================================
+// IShimUiClient's draw primitives, one vgui::ISurface call each. Colours arrive
+// packed 0xRRGGBBAA; text arrives as UTF-16 and is widened to wchar_t. Draws are
+// refused outside the root panel's paint window, since a draw from elsewhere
+// would corrupt VGUI's state; measuring, fonts and textures work at any time.
 
 namespace
 {
-	// The UI's paint window: open only while a root panel's Paint calls
-	// IManagedUiClient::Paint, and the clip that panel's traversal set,
-	// restored when managed turns its own clip off and when the window closes.
-	// One zero-initialised POD: no static initialiser.
+	// Open only while a root panel's Paint calls IManagedUiClient::Paint; holds the
+	// clip that panel's traversal set, restored when managed code turns its clip
+	// off and when the window closes.
 	struct UiPaintWindow
 	{
 		bool bOpen;
@@ -96,8 +76,7 @@ namespace
 	};
 	UiPaintWindow g_UiPaint;
 
-	// One draw's text, widened. Longer runs are cut here: the toolkit elides
-	// long before this.
+	// One draw's text, widened; longer runs are cut.
 	const int kMaxText = 512;
 
 	// One polygon's vertices; the toolkit's corners use well under this.
@@ -317,58 +296,7 @@ void SourceSharp_UiPlaySound( const char *pPath )
 		surface()->PlaySound( pPath );
 }
 
-//-----------------------------------------------------------------------------
-// The local player's weapons.
-//
-// Read live from the player rather than cached: the HUD is drawn every frame
-// from whatever the client currently believes, and a cache would only add a way
-// for the display to disagree with the game.
-//-----------------------------------------------------------------------------
-// THE FIVE LOCAL-WEAPON SLOTS ARE GONE, AND THIS IS WHAT MADE THEM DELETABLE.
-//
-// They read the C_BasePlayer inventory, which retired with the class, and 13c
-// left them answering "no weapons here" -- 0, -1, -1, -1 and an empty string --
-// on the grounds that this is what they had observably answered since the
-// standalone player became the local player.
-//
-// WHAT THE RULINGS TABLE GOT WRONG, AND WHAT THE ADDENDUM PREDICTED. C3 called
-// all five DEAD because the only things naming them were Engine.cs and
-// EngineBinding.cs wrappers "with no caller". Managed does not name the slot,
-// it names the FACADE: SourceSharp.Client/Hud.cs:213-246 reads
-// Screen.LocalWeaponCount, .LocalActiveWeapon, .LocalWeaponName(i, buf),
-// .LocalWeaponClip and .LocalWeaponReserve every frame the HUD paints. Five
-// LIVE managed callers receiving nothing, which is a defect ledger and not a
-// retirement list.
-//
-// SO IT WAS FIXED AT THE MANAGED END AND THEN RETIRED. Hud.cs had two feeds: the
-// Arsenal (the standalone player's networked weapon state, decoded managed-side)
-// and this one as a fallback for when the Arsenal has no active weapon. The
-// fallback returned immediately on `count <= 0` and so drew nothing, every
-// frame, for every player. Lane 4c-render deleted the fallback -- the Arsenal is
-// the feed -- and retired the five slots with it. The five ABI fields stood
-// marked in sourcesharp.h and Abi.cs, with their assignments nulled, until the
-// serialised pass at ABI 249 removed them from both tables along with their
-// Engine.cs wrappers and the five IEngineHud facade members those sat behind.
-// They were left standing that long because removing a field from the middle of
-// either table renumbers every slot after it and AbiParityTests pins names in
-// order, so a lane doing it alone corrupts every lane still editing those files.
-//
-// WHAT WOULD CLOSE IT PROPERLY: the server networking the inventory behind the
-// active weapon. Hud.cs says so at the Arsenal feed -- "a list invented from one
-// entity would be a lie with a scrollbar" -- and that list would arrive managed,
-// not through five native slots reading a class that no longer exists.
-
-//-----------------------------------------------------------------------------
-// Local player health, or -1 when there is no local player — which is the case
-// in the menu and between levels, and is why this is not simply 0: a HUD needs
-// to tell "no player" from "dead".
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// WHO the viewer is: the entity index the engine gave this client, 0 when
-// there is no local player. The engine's answer directly, because it is the
-// same fact whichever hierarchy the player entity lives on — and it is how
-// managed code decides "is this entity mine" for the viewmodel and the HUD.
-//-----------------------------------------------------------------------------
+// The engine's entity index for this client, 0 when there is no local player.
 int32_t SourceSharp_GetLocalPlayerIndex( void )
 {
 	const int nIndex = engine->GetLocalPlayer();
@@ -377,55 +305,37 @@ int32_t SourceSharp_GetLocalPlayerIndex( void )
 
 int32_t SourceSharp_GetLocalPlayerHealth( void )
 {
-	// The standalone local player's health, PUBLISHED BY THE MANAGED PLAYER
-	// once a frame rather than read out of the blob at a quoted offset.
-	//
-	// IT WAS READ AT A QUOTED OFFSET FOR ONE BUILD AND THE HUD PRINTED
-	// 1544355841. standalone_player_state.h restated Health's placement as a
-	// #define "for the native readers that cannot ask C#", said the number was
-	// pinned from the other side by PlayerNetStateTests.TheLayoutIsThePinnedOne
-	// -- and no such test existed. So it was an unpinned second declaration of a
-	// layout that has grown a great deal since it was written, which is exactly
-	// the drift the port removes everywhere else. The header is deleted; this
-	// reads the one copy the managed player writes.
-	//
-	// -1 before the first prediction frame, which is what this answered before
-	// a player existed anyway.
+	// The health the managed player publishes each frame; -1 when there is no
+	// local player, so a HUD can tell "no player" from "dead".
 	if ( C_StandaloneEntity *pShell = SourceSharp_LocalPlayerShell() )
 		return pShell->PredictedHealth();
 
 	return -1;
 }
 
-//-----------------------------------------------------------------------------
-// player_info_t as EngineClient.cs's PlayerInfoT reads it (plan_client_ui U3).
+// player_info_t as managed code reads it.
 COMPILE_TIME_ASSERT( sizeof( player_info_t ) == 132 );
 COMPILE_TIME_ASSERT( offsetof( player_info_t, userID ) == 32 );
 COMPILE_TIME_ASSERT( offsetof( player_info_t, guid ) == 36 );
 COMPILE_TIME_ASSERT( offsetof( player_info_t, fakeplayer ) == 108 );
 
-//-----------------------------------------------------------------------------
-// THE MENU ROOT (plan_client_ui §8 U3): the UI's menu layer. A full-screen
-// popup that paints layer 1 and forwards its input to IManagedUiClient::Input,
-// one call per event. It takes the mouse and the keyboard only when managed
-// code asks (UiSetMenuInput: a screen that wants them is open); otherwise it
-// is drawn and transparent to input, and the game keeps its mouse.
-//-----------------------------------------------------------------------------
-vgui::VPANEL SourceSharp_ClientViewportPanel();   // shell_client.cpp
+// The UI's menu layer: a full-screen popup that paints layer 1 and forwards
+// input to IManagedUiClient::Input. It takes the mouse and keyboard only when
+// managed code asks; otherwise it is transparent to input.
+vgui::VPANEL SourceSharp_ClientViewportPanel();
 
 class CSourceSharpMenuRoot : public CSourceSharpRawPanel
 {
 public:
-	// The managed input kinds (UiInputKind), in its order.
+	// Managed code's UiInputKind values, in its order.
 	enum { MouseMove, MouseDown, MouseUp, Wheel, Key, Char, FocusLost };
 
 	explicit CSourceSharpMenuRoot( vgui::VPANEL parent )
 		: CSourceSharpRawPanel( "SourceSharpMenuRoot" )
 	{
 		SetParent( parent );
-		// A popup, as Panel::MakePopup( false, false ) made one: the surface
-		// counts a popup's input towards whether the cursor shows, and a plain
-		// child would never show it.
+		// A popup: the surface counts a popup's input towards whether the cursor
+		// shows, and a plain child would never show it.
 		MakePopup( false, false );
 		SetMouseInputEnabled( false );
 		SetKeyBoardInputEnabled( false );
@@ -494,7 +404,7 @@ void SourceSharp_UiSetMenuInput( int32_t bMouse, int32_t bKeyboard )
 
 void SourceSharp_UiSetCursor( int32_t nShape )
 {
-	// The managed cursor shapes (UiCursor), in its order, as vgui's cursors.
+	// Managed code's UiCursor values, in its order, as vgui cursors.
 	static const vgui::CursorCode s_Cursors[] =
 	{
 		vgui::dc_arrow, vgui::dc_sizeall, vgui::dc_sizewe, vgui::dc_sizens, vgui::dc_sizenwse, vgui::dc_sizenesw,
@@ -516,29 +426,23 @@ public:
 		const vgui::VPANEL parent = SourceSharp_ClientViewportPanel();
 		SetParent( parent );
 
-		// Hidden only when the player is dead. NOT HIDEHUD_MISCSTATUS, which
-		// means "trains, pickup history, death notices" and would hide a health
-		// readout for unrelated reasons.
+		// Hidden only when the player is dead; HIDEHUD_MISCSTATUS would hide it for
+		// unrelated reasons.
 		SetHiddenBits( HIDEHUD_PLAYERDEAD );
 		SetVisible( true );
 
-		// The canvas covers the screen. (It was sized in PerformLayout when it
-		// was a vgui_controls Panel, because HudLayout.res overwrote bounds set
-		// earlier; nothing lays this panel out from a script.)
+		// The canvas covers the screen.
 		FillScreen();
 
-		// The menu layer's root, beside the HUD's, owned by the viewport as
-		// its parent: made once, with the HUD.
+		// The menu layer's root, parented to the viewport, made once with the HUD.
 		if ( !g_UiPaint.pMenuRoot )
 			new CSourceSharpMenuRoot( parent );
 	}
 
 	virtual void Paint( void ) OVERRIDE
 	{
-		// The UI's HUD layer (plan_client_ui §8 U2): layer 0 is the HUD, drawn
-		// through IShimUiClient inside the UI's own paint window. The UI area is
-		// managed-built: NULL before the first load and after the last unload,
-		// which is when this is skipped.
+		// Layer 0 is the HUD. The UI area is NULL before the first load and after the
+		// last unload.
 		IManagedUiClient *pUi = ManagedUiClient();
 		if ( !pUi )
 			return;
@@ -551,8 +455,8 @@ public:
 		ShellUi_EndPaint();
 	}
 
-	// A video-mode change, forwarded so the UI drops what it sized for the old
-	// screen (fonts are rasterised per pixel height) the same frame.
+	// Forwarded so the UI drops what it sized for the old screen (fonts are
+	// rasterised per pixel height) the same frame.
 	virtual void OnScreenSizeChanged( int nOldWide, int nOldTall ) OVERRIDE
 	{
 		int nWide, nTall;
@@ -566,35 +470,14 @@ public:
 
 DECLARE_HUDELEMENT( CSourceSharpHud );
 
-//-----------------------------------------------------------------------------
-// WEAPON SWITCHING IS MANAGED (lane M1-B, 2026-10-25). The stock binds' nine
-// commands (invnext, invprev, lastinv, slot1..slot6) stood here as native
-// CON_COMMANDs forwarding a fixed line to the server's Arsenal; they are
-// SourceSharp.Client's WeaponSelection commands now, sending the same lines
-// through ServerCmd. weapon_selection.cpp, which registered the crashing stock
-// versions, stays out of the build.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// titles.txt, which is what env_message names.
-//
-// A HudText user message carries a NAME, never a sentence. The words live in
-// titles.txt along with where on screen they go, in what colour and for how
-// long — and the engine already parses that file into client_textmessage_t for
-// its own use. So this asks for the parsed entry rather than reimplementing a
-// parser managed code would then have to keep in step with the engine's.
-//
-// Copied out rather than pointed at. The engine reallocates that buffer on a
-// level change, so a managed side holding the pointer would be reading freed
-// text at exactly the moment a map wanted to say something.
-//-----------------------------------------------------------------------------
+// A titles.txt entry by name (what env_message and HudText name), as the engine
+// parsed it. Copied out: the engine reallocates that buffer on a level change.
 int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage *pOut )
 {
 	if ( !pName || !pName[0] || !pOut )
 		return 0;
 
-	// Exactly the name handed over: stock's leading-'#' rule
-	// (CHudMessage::MessageAdd) is HudMessages.TitleName's (lane M1-B).
+	// Exactly the name handed over; managed code applies stock's leading-'#' rule.
 	client_textmessage_t *pMessage = TextMessageGet( pName );
 
 	if ( !pMessage || !pMessage->pMessage )
@@ -624,14 +507,7 @@ int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// Which key a player has bound to a command.
-//
-// Hint text is written with %+use% tokens in it, because the sentence has to
-// name a key and only the client knows which one. Nothing is decided here: an
-// unbound command answers with an empty string, and what to draw for that is
-// the managed side's call.
-//-----------------------------------------------------------------------------
+// The key bound to a command, for hint text's %+use% tokens; empty when unbound.
 void SourceSharp_HudLookupBinding( const char *pBinding, char *pOut, int32_t nOutSize )
 {
 	if ( !pOut || nOutSize <= 0 )
@@ -647,13 +523,8 @@ void SourceSharp_HudLookupBinding( const char *pBinding, char *pOut, int32_t nOu
 		V_strncpy( pOut, pKey, nOutSize );
 }
 
-//-----------------------------------------------------------------------------
-// A "#Token" through the localisation tables.
-//
-// Writes the token back unchanged when there is no entry, so a caller can always
-// draw what it gets rather than having to decide what an absent translation
-// looks like on screen.
-//-----------------------------------------------------------------------------
+// A "#Token" through the localisation tables; the token unchanged when there is
+// no entry.
 void SourceSharp_HudLocalise( const char *pToken, char *pOut, int32_t nOutSize )
 {
 	if ( !pOut || nOutSize <= 0 )

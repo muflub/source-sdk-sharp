@@ -125,15 +125,6 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 
 // Used by byteswap datadescs
 
-#ifndef NO_ENTITY_PREDICTION
-
-#else
-
-#define DEFINE_PRED_TYPEDESCRIPTION( name, fieldtype )		DEFINE_FIELD_NULL
-#define DEFINE_PRED_TYPEDESCRIPTION_PTR( name, fieldtype )	DEFINE_FIELD_NULL
-
-#endif
-
 // Extensions to datamap.h macros for predicted entities only
 #define DEFINE_PRED_FIELD(name,fieldtype, flags)			_FIELD(name, fieldtype, 1,  flags, NULL, 0.0f )
 

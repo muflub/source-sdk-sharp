@@ -5,10 +5,6 @@
 
 #define TICK_INTERVAL			(gpGlobals->interval_per_tick)
 
-#if defined( TF_DLL )
-#define ANIMATION_CYCLE_BITS		10
-#endif
-
 // Each mod defines these for itself.
 class CViewVectors
 {
@@ -75,11 +71,6 @@ public:
 #define VEC_DUCK_HULL_MIN_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMin * player->GetModelScale() )
 #define VEC_DUCK_HULL_MAX_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale() )
 #define VEC_DUCK_VIEW_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
-
-#if defined(TF_DLL) || defined(TF_CLIENT_DLL)
-	#define TIME_TO_DUCK		0.2
-	#define TIME_TO_DUCK_MS		200.0f
-#endif 
 
 	// hud item selection slots
 	// max number of items within a slot
@@ -153,17 +144,7 @@ enum
 
 	// Hide bonus progress display (for bonus map challenges)
 
-#if defined( TF_DLL ) || defined ( TF_CLIENT_DLL )
-#define HIDEHUD_BUILDING_STATUS		        ( 1<<12 )	// Hide Engineer building status
-#define HIDEHUD_CLOAK_AND_FEIGN             ( 1<<13 )	// Hide item effect meter (cloak, etc)
-#define HIDEHUD_PIPES_AND_CHARGE            ( 1<<14 )	// Hide demo hud
-#define HIDEHUD_METAL                       ( 1<<15 )	// Metal/account hud
-#define HIDEHUD_TARGET_ID                   ( 1<<16 )	// Target ID
-#define HIDEHUD_MATCH_STATUS				( 1<<17 )	// Hide match status
-#define HIDEHUD_BITCOUNT			18
-#else
 #define HIDEHUD_BITCOUNT			12
-#endif
 
 // suit usage bits
 
@@ -177,13 +158,7 @@ enum
 //You might be wondering why these aren't multiple of 2. Well the reason is that if servers decide to have HLTV or Replay enabled we need the extra slot.
 //This is ok since MAX_PLAYERS is used for code specific things like arrays and loops, but it doesn't really means that this is the max number of players allowed
 //Since this is decided by the gamerules (and it can be whatever number as long as its less than MAX_PLAYERS).
-#if defined( CSTRIKE_DLL )
-	#define MAX_PLAYERS				65  // Absolute max players supported
-#elif defined( TF_DLL ) || defined ( TF_CLIENT_DLL ) || defined( HL2MP )
-	#define MAX_PLAYERS				101
-#else
 	#define MAX_PLAYERS				33  // Absolute max players supported
-#endif
 
 // Josh: Accounts for code that may index this array by an entindex
 // of player rather than the player index... :s
@@ -280,22 +255,11 @@ enum PLAYER_ANIM
 	PLAYER_LEAVE_AIMING,
 };
 
-#ifdef HL2_DLL
-// HL2 has 600 gravity by default
-// NOTE: The discrete ticks can have quantization error, so these numbers are biased a little to
-// make the heights more exact
-#define PLAYER_FATAL_FALL_SPEED		922.5f // approx 60 feet sqrt( 2 * gravity * 60 * 12 )
-#define PLAYER_MAX_SAFE_FALL_SPEED	526.5f // approx 20 feet sqrt( 2 * gravity * 20 * 12 )
-#define PLAYER_LAND_ON_FLOATING_OBJECT	173 // Can fall another 173 in/sec without getting hurt
-#define PLAYER_MIN_BOUNCE_SPEED		173
-#define PLAYER_FALL_PUNCH_THRESHOLD 303.0f // won't punch player's screen/make scrape noise unless player falling at least this fast - at least a 76" fall (sqrt( 2 * g * 76))
-#else
  // approx 60 feet
  // approx 20 feet
  // Can go another 200 units without getting hurt
 
  // won't punch player's screen/make scrape noise unless player falling at least this fast.
-#endif
  // damage per unit per second.
 
 // instant damage
@@ -431,11 +395,6 @@ enum
 	BLOOD_COLOR_GREEN,
 	BLOOD_COLOR_MECH,
 
-#if defined( HL2_EPISODIC )
-	BLOOD_COLOR_ANTLION,		// FIXME: Move to Base HL2
-	BLOOD_COLOR_ZOMBIE,			// FIXME: Move to Base HL2
-	BLOOD_COLOR_ANTLION_WORKER,
-#endif // HL2_EPISODIC
 };
 
 // Water splash effect flags
@@ -706,16 +665,6 @@ enum
 };
 
 // Commentary Mode
-#if defined(TF_DLL) || defined(TF_CLIENT_DLL)
-#define GAME_HAS_NO_USE_KEY
-
-#if defined( SPROP_COORD )
-#undef SPROP_COORD
-#endif
-
-#define SPROP_COORD SPROP_COORD_MP
-
-#endif
 
 // The player's method of starting / stopping commentary
 #ifdef GAME_HAS_NO_USE_KEY
@@ -737,26 +686,6 @@ enum
 	kActivityLookup_Unknown = -2,			// hasn't been searched for
 	kActivityLookup_Missing = -1,			// has been searched for but wasn't found
 };
-
-#if defined(TF_DLL) || defined(TF_CLIENT_DLL)
-// Vision Filters.
-// Also used in the item schema to define vision filter or vision mode opt in
-#define TF_VISION_FILTER_NONE			0
-#define TF_VISION_FILTER_PYRO			(1<<0)		// 1
-#define TF_VISION_FILTER_HALLOWEEN		(1<<1)		// 2
-#define TF_VISION_FILTER_ROME			(1<<2)		// 4
-
-// THIS ENUM SHOULD MATCH THE ORDER OF THE FLAGS ABOVE
-enum
-{
-	VISION_MODE_NONE = 0,
-	VISION_MODE_PYRO,
-	VISION_MODE_HALLOWEEN,
-	VISION_MODE_ROME,
-
-	MAX_VISION_MODES
-};
-#endif // TF_DLL || TF_CLIENT_DLL
 
 class CPhysCollide;
 struct collidelist_t

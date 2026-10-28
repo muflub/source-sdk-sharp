@@ -14,7 +14,7 @@
 #define PLATFORM_64BITS 1
 #endif
 
-#if defined(__GCC__) || defined(__GNUC__)
+#if defined(__GNUC__)
 #define COMPILER_GCC 1
 #endif
 
@@ -56,27 +56,19 @@
 #include "tier0/valve_minmax_on.h"	// GCC 4.2.2 headers screw up our min/max defs.
 
 // Detect the architecture we are running on
-#if defined(__arm__) || defined( __aarch64__ ) || defined(_M_ARM) || defined(_M_ARM64)
+#if defined(__arm__) || defined( __aarch64__ )
 	#define PLATFORM_ARM 1
 #elif  defined(_M_X64) || defined(__x86_64__)
   #define PLATFORM_INTEL
   #define PLATFORM_X86 64
-#elif defined(_M_IX86) || defined(__i386__)
+#elif defined(__i386__)
   #define PLATFORM_INTEL
   #define PLATFORM_X86 32
 #else
 	#error Unknown processor architecture.
 #endif
 
-#ifdef _RETAIL
-#define IsRetail() true
-#else
 #define IsRetail() false
-#endif
-
-#if defined( DX_TO_GL_ABSTRACTION ) && defined( USE_DXVK )
-#include <windows.h>
-#endif
 
 #ifdef _DEBUG
 
@@ -232,16 +224,7 @@ typedef signed char int8;
 #endif // else _WIN32
 
 // Set up platform type defines.
-#if defined( _PS3 )
-	#if !defined( _GAMECONSOLE )
-		#define _GAMECONSOLE
-	#endif
-	#define IsPC()			false
-	#define IsGameConsole()	true
-#else
 	#define IsPC()			true
-
-#endif
 
 #ifdef PLATFORM_64BITS
 
@@ -360,18 +343,10 @@ FIXME: Enable this when we no longer fear change =)
 */
 
 // portability / compiler settings
-#if defined(_WIN32) && !defined(WINDED)
+#if defined(_WIN32)
 
-#if defined(_M_IX86)
-#define __i386__	1
-#endif
-
-#elif defined( POSIX ) && !defined( USE_DXVK )
-#if defined( OSX ) && defined( CARBON_WORKAROUND )
-#define DWORD unsigned int
-#else
+#elif defined( POSIX )
 typedef unsigned int DWORD;
-#endif
 typedef unsigned short WORD;
 
 #define __cdecl
@@ -514,7 +489,7 @@ typedef unsigned short WORD;
 	#define FMTFUNCTION( a, b )
 #elif defined(GNUC)
 
-	#if defined(LINUX) && !defined(DEDICATED)
+#if defined(LINUX)
 		#define RESTRICT
 	#else
 		#define RESTRICT __restrict
@@ -572,11 +547,7 @@ typedef unsigned short WORD;
 	#else
 
 	#define  FASTCALL
-	#ifdef _LINUX_DEBUGGABLE
-		#define  FORCEINLINE
-	#else
 			#define  FORCEINLINE inline __attribute__ ((always_inline))
-		#endif
 	#define FORCEINLINE_TEMPLATE	FORCEINLINE
 //	#define  __stdcall			__attribute__ ((__stdcall__))
 #endif
@@ -702,9 +673,7 @@ typedef unsigned short WORD;
 
 #define _close close
 
-#ifndef USE_DXVK
 typedef void *HANDLE;
-#endif
 #endif
 
 // fsel
@@ -730,15 +699,6 @@ typedef void *HANDLE;
 			}
 		}
 
-		#ifdef CHECK_FLOAT_EXCEPTIONS
-
-			inline void SetupFPUControlWord()
-			{
-				SetupFPUControlWordForceExceptions();
-			}
-
-		#else
-
 			inline void SetupFPUControlWord()
 			{
 				// use local to get and store control word
@@ -752,7 +712,6 @@ typedef void *HANDLE;
 				}
 			}
 
-		#endif
 	#endif
 
 #endif // _MSC_VER
@@ -936,15 +895,9 @@ inline int64 CastPtrToInt64( const void* p )
 // DLL export for platform utilities
 #ifndef STATIC_TIER0
 
-#ifdef TIER0_DLL_EXPORT
-#define PLATFORM_INTERFACE	DLL_EXPORT
-#define PLATFORM_OVERLOAD	DLL_GLOBAL_EXPORT
-#define PLATFORM_CLASS		DLL_CLASS_EXPORT
-#else
 #define PLATFORM_INTERFACE	DLL_IMPORT
 #define PLATFORM_OVERLOAD	DLL_GLOBAL_IMPORT
 #define PLATFORM_CLASS		DLL_CLASS_IMPORT
-#endif
 
 #else	// BUILD_AS_DLL
 
@@ -1421,14 +1374,6 @@ DECLARE_ALIGNED_BYTE_ARRAY(64);
 DECLARE_ALIGNED_BYTE_ARRAY(128);
 
 #include "tier0/valve_on.h"
-
-#if defined(TIER0_DLL_EXPORT)
-extern "C" int V_tier0_stricmp(const char *s1, const char *s2 );
-#undef stricmp
-#undef strcmpi
-#define stricmp(s1,s2) V_tier0_stricmp( s1, s2 )
-#define strcmpi(s1,s2) V_tier0_stricmp( s1, s2 )
-#endif
 
 // misyl: Pad the lightmap atlas so we can do r_lightmap_bicubic and have bicubic sampling as an option.
 // I am so evil I put it in platform.h, but a few places need this define and I didn't want to think too

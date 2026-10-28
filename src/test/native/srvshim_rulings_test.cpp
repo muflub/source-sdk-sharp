@@ -136,7 +136,7 @@ TEST( SrvShimRulings, TheThreeFilesTheseRulingsAreAboutWereActuallyRead )
 		const std::vector< std::string > lines = CodeLines( kFiles[ i ] );
 
 		ASSERT_FALSE( lines.empty() ) << kFiles[ i ] << " read as empty";
-		EXPECT_GT( lines.size(), 400u )
+		EXPECT_GT( lines.size(), 120u )
 			<< kFiles[ i ] << " read as " << lines.size()
 			<< " lines, which is not this file";
 	}

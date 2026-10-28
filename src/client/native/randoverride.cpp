@@ -6,8 +6,6 @@
 //=============================================================================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
 
-#if !defined(_STATIC_LINKED) || defined(_SHARED_LIB)
-
 #include "stdlib.h"
 #include "vstdlib/random.h"
 #include "tier0/platform.h"
@@ -25,5 +23,3 @@ int __cdecl rand()
 {
 	return RandomInt( 0, VALVE_RAND_MAX );
 }
-
-#endif // !_STATIC_LINKED || _SHARED_LIB

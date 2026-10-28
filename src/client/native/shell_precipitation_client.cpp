@@ -4,29 +4,15 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client weather's native half ===================//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve C2 (lane c2-sims). Stock's client weather --
-// CClient_Precipitation's rain, snow and ash and CSnowFallManager's snowfall,
-// all of c_effects.cpp's that is not the wind -- is C#'s:
-// SourceSharp.Client.Effects.PrecipitationSystem, held bit for bit to stock
-// run offline (PrecipitationOracleTests, Fixtures/precipitation-stock.tsv; the
-// oracle is src/test/oracle/native/precipitation_oracle_test.cpp).
-//
-// What is here:
-//
-//   DrawPrecipitation, which the fork's viewrender.cpp calls in its two
-//     render passes. It hands managed the view (IManagedPrecipitationClient::
-//     PrecipitationRender) and carries out the plan that comes back: each
-//     water ripple, then each tracer, in view space, with stock's render
-//     context dance around them. The ash and the snowfall are the particle
-//     executor's (shell_managed_particles.cpp).
-//
-//   IShimPrecipitationClient's bodies: the world the weather asks -- two
-//     traces, the point contents, the PVS, the local player, the world's
-//     bounds and the screen width. Each is one engine read.
-//=============================================================================//
+// The client weather's native half; the weather itself is managed's
+// PrecipitationSystem.
+//   DrawPrecipitation  viewrender.cpp calls it in its two render passes. It
+//                      hands managed the view and carries out the plan that
+//                      comes back: each water ripple, then each tracer, in view
+//                      space.
+//   IShimPrecipitationClient's bodies: two traces, the point contents, the PVS,
+//                      the local player, the world's bounds and the screen width.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,8 +66,6 @@
 #include "imanaged_areas_client.h"
 #include "sourcesharp_entrypoints.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 // The two tracer materials, precached as stock's CLIENTEFFECT list did.
 CLIENTEFFECT_REGISTER_BEGIN( PrecachePrecipitationTracers )
 CLIENTEFFECT_MATERIAL( "particle/rain" )
@@ -102,9 +86,8 @@ float s_Tracers[ kMaxTracers * kTracerFloats ];
 float s_Splashes[ kMaxSplashes * kSplashFloats ];
 
 // The render's tracers in IManagedParticlesClient::TracerQuads' layout (start
-// 3, delta 3, width), and the corners and verdicts it answers: c_tracer.cpp's
-// Tracer_ComputeVerts is TracerGeometry's (C#, lane c5-particles), asked once a
-// render for the whole plan, not once a streak.
+// 3, delta 3, width), and the corners and verdicts it answers, asked once a
+// render for the whole plan.
 float s_TracerIn[ kMaxTracers * 7 ];
 Vector s_TracerVerts[ kMaxTracers * 4 ];
 uint8_t s_TracerValid[ kMaxTracers ];
@@ -116,9 +99,7 @@ IMaterial *TracerMaterial( int nMaterial )
 
 } // namespace
 
-//-----------------------------------------------------------------------------
-// The fork's viewrender.cpp calls this in each pass that draws the weather.
-//-----------------------------------------------------------------------------
+// viewrender.cpp calls this in each pass that draws the weather.
 void DrawPrecipitation()
 {
 	IManagedPrecipitationClient *pApi = ManagedPrecipitationClient();
@@ -150,8 +131,7 @@ void DrawPrecipitation()
 	if ( nTracers <= 0 )
 		return;
 
-	// Every tracer's corners in one crossing (TracerGeometry, C#), before the
-	// render context is touched.
+	// Every tracer's corners in one crossing, before the render context is touched.
 	const int nCount = MIN( nTracers, kMaxTracers );
 	for ( int i = 0; i < nCount; ++i )
 	{
@@ -188,9 +168,8 @@ void DrawPrecipitation()
 		{
 			CMeshBuilder mb;
 			mb.Begin( pMesh, MATERIAL_QUADS, iEnd - iStart );
-			// Tracer_Draw( &mb, start, delta, width, { 1, 1, 1, alpha }, 1 ) as it
-			// wound each quad: corners 0, 1, 3, 2; u 0, 1, 1, 0; v 1 (its startV,
-			// and endV defaulted to 1); a tracer behind the eye writes nothing.
+			// Wound as Tracer_Draw did: corners 0, 1, 3, 2; u 0, 1, 1, 0; v 1; a
+			// tracer behind the eye writes nothing.
 			static const int s_nCorner[ 4 ] = { 0, 1, 3, 2 };
 			static const float s_flU[ 4 ] = { 0.0f, 1.0f, 1.0f, 0.0f };
 			for ( int i = iStart; i < iEnd; ++i )
@@ -218,9 +197,7 @@ void DrawPrecipitation()
 	pRenderContext->LoadMatrix( tempView );
 }
 
-//-----------------------------------------------------------------------------
 // IShimPrecipitationClient: the world the weather asks.
-//-----------------------------------------------------------------------------
 
 // UTIL_TraceLine with stock's mask, through CTraceFilterSimple, ignoring the
 // local player when asked (the ash's forward trace). Out: fraction, end xyz,

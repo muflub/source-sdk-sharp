@@ -83,7 +83,6 @@ public:
 	// assignment
 	Vector2D& operator=(const Vector2D &vOther);
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
 	// copy constructors
 	Vector2D(const Vector2D &vOther);
 
@@ -101,12 +100,6 @@ public:
 	Vector2D	Min(const Vector2D &vOther) const;
 	Vector2D	Max(const Vector2D &vOther) const;
 
-#else
-
-private:
-	// No copy constructors allowed if we're in optimal mode
-	Vector2D(const Vector2D& vOther);
-#endif
 };
 
 // Vector2D related operations
@@ -358,8 +351,6 @@ inline vec_t Vector2D::DistToSqr(const Vector2D &vOther) const
 
 // Slow methods
 
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
 // Returns a Vector2D with the min or max in X, Y, and Z.
 
 inline Vector2D Vector2D::Min(const Vector2D &vOther) const
@@ -382,5 +373,3 @@ inline Vector2D Vector2D::operator*(float fl) const
 	Vector2DMultiply( *this, fl, res );
 	return res;	
 }
-
-#endif //slow

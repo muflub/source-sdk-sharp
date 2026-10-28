@@ -4,40 +4,11 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client shadow manager's native residue ==========//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md). clientshadowmgr.cpp's
-// CClientShadowMgr is managed's (SourceSharp.Client's Render/Shadows, behind
-// IManagedShadowsClient), and its engine calls are libss_fwd_client's
-// ShadowNative table (fwd_shadows.cpp). What stays in client.so is what that
-// library cannot hold, and nothing in it decides:
-//
-//   THE REFERENCES THE ENGINE HOLDS POINTERS TO. The shadow materials
-//   (decals/simpleshadow, rendershadow, rendermodelshadow: CreateShadowEx and
-//   SetShadowMaterial keep the IMaterial *), the render targets (the atlas
-//   _rt_Shadows, the depth textures, the dummy colour target), and the
-//   flashlight's spotlight textures (FlashlightState_t carries the ITexture *):
-//   CMaterialReference and CTextureReference allocate, which the library may
-//   not, so they are kept here by id and the environment hands the library
-//   their pointers. Managed holds the ids.
-//   THE RESTORE CALLBACK the material system calls (ShadowRestoreFunc), which
-//   hands managed RestoreRenderState.
-//   kClientSystems[]'s CClientShadowMgr ROW, an adapter as the leaf system's
-//   is: Init, Shutdown, the two level stages and the per-frame walk's
-//   PreRender, each one managed call.
-//   THE QUEUE the entity shells write (shadow_pending_queue.h), handed over
-//   with the next managed call.
-//   THE PLAN'S SHADOW OPS' CALLS, which the view executor makes, with the
-//   render trace's `shadow.` lines the frozen recordings name.
-//   THE ENVIRONMENT (SSShadowEnv) the library carries the calls out over,
-//   served by name through this side's own factory.
-//
-// The two material proxies are not here: "Shadow" and "ShadowModel" are
-// managed's (ShadowProxies.cs), registered by name over the managed proxy
-// host like the other proxies (shell_material_proxy_client.cpp; user ruling
-// Q1, 2026-10-19).
-//=============================================================================//
+// The native side of the managed client shadow manager. The engine keeps pointers to the
+// shadow materials, render targets and flashlight textures, and the forwarder library
+// cannot allocate them, so they are held here by id. Also the material system's restore
+// callback, the kClientSystems[] row, the shells' queue and the library's environment.
 #include <stdio.h>
 #include <stdlib.h>
 #include "tier0/dbg.h"
@@ -81,15 +52,11 @@
 #include "fwd_shadows.h"
 #include "sourcesharp_entrypoints.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 namespace
 {
 
-//-----------------------------------------------------------------------------
-// The references, by id (0 is none). A freed slot is reused; an id is never
-// handed out while its slot is live.
-//-----------------------------------------------------------------------------
+// The references, by id (0 is none). A freed slot is reused; a live slot's id is never
+// handed out.
 template < typename T >
 class CReferenceTable
 {
@@ -125,9 +92,8 @@ private:
 CReferenceTable< CMaterialReference > s_Materials;
 CReferenceTable< CTextureReference > s_Textures;
 
-// The flashlight's spotlight textures, by name, held for the DLL's life so the
-// pointer the engine keeps in a FlashlightState_t stays referenced (stock held
-// one per CFlashlightEffect). The flashlight asks for one of two names.
+// Held for the DLL's life so the pointer the engine keeps in a FlashlightState_t stays
+// referenced.
 const int kMaxFlashlightTextures = 4;
 CTextureReference *s_FlashlightTextures[ kMaxFlashlightTextures ];
 char s_szFlashlightTextureNames[ kMaxFlashlightTextures ][ MAX_PATH ];
@@ -189,11 +155,8 @@ ITexture *FlashlightTexture( int32_t nIndex )
 	return ( nIndex >= 0 && nIndex < s_nFlashlightTextures ) ? (ITexture *)*s_FlashlightTextures[ nIndex ] : NULL;
 }
 
-//-----------------------------------------------------------------------------
-// The manager's slots. The queue rides in PreRender's arguments; any other
-// call hands it over first (Pending), so its entries reach the manager before
-// whatever the call does, in the order the shells made them.
-//-----------------------------------------------------------------------------
+// The queue rides in PreRender's arguments; any other call hands it over first, so its
+// entries reach the manager in order before the call's own work.
 CShadowPendingQueue s_Queue;
 
 void HandOverToManaged( const int32_t *pEntries, int32_t nCount, void * )
@@ -215,8 +178,7 @@ IManagedShadowsClient *Target()
 	return pManaged;
 }
 
-// The managed manager for a call that carries the queue in its arguments (the
-// frame's): the queue is dropped with no manager to tell.
+// The manager for a call that carries the queue; with none, the queue is dropped.
 IManagedShadowsClient *Carrier()
 {
 	IManagedShadowsClient *pManaged = ManagedShadowsClient();
@@ -262,9 +224,7 @@ void UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture,
 	view->UpdateShadowDepthTexture( pRenderTarget, pDepthTexture, shadowView );
 }
 
-// RenderShadowTexture's quad (cl_drawshadowtexture): the atlas material bound
-// and one w by h quad through a dynamic mesh, its corners counter-clockwise
-// from the origin with texture coordinates 0..1 and colour 0.
+// cl_drawshadowtexture's quad: one w by h quad, counter-clockwise from the origin.
 void DrawTextureQuad( IMaterial *pMaterial, float w, float h )
 {
 	CMatRenderContextPtr pRenderContext( materials );
@@ -314,11 +274,8 @@ void BuildEnv()
 	s_Env.pfnDrawTextureQuad = DrawTextureQuad;
 }
 
-//-----------------------------------------------------------------------------
-// THE GAME-SYSTEM ROW, at stock's place in kClientSystems[]: the five stages
-// stock's CClientShadowMgr had bodies for, each one managed call. With no
-// managed load Init does not refuse (there is no manager to start).
-//-----------------------------------------------------------------------------
+// The five stages stock's CClientShadowMgr had bodies for, each one managed call. With
+// no managed load Init does not refuse.
 class CShadowMgrGameSystem final : public CClientSystemPerFrame
 {
 public:
@@ -357,11 +314,7 @@ CShadowMgrGameSystem s_GameSystem;
 
 } // namespace
 
-//-----------------------------------------------------------------------------
-// The environment, by name through this side's own factory
-// (shell_internalfactory.cpp, SS_SHADOW_ENV_VERSION). Built on the first ask:
-// the engine's interfaces it points at are client.so's pointers, set later.
-//-----------------------------------------------------------------------------
+// Built on the first ask: the engine interfaces it points at are set after load.
 void *ShadowEnv_Acquire()
 {
 	if ( !s_Env.pfnRenderableOf )
@@ -370,9 +323,6 @@ void *ShadowEnv_Acquire()
 	return &s_Env;
 }
 
-//-----------------------------------------------------------------------------
-// The shells' queue.
-//-----------------------------------------------------------------------------
 void ShellShadows_MarkDirty( const CBaseHandle &hEntity, bool bTextureDirty )
 {
 	s_Queue.SetSink( HandOverToManaged, NULL );
@@ -401,11 +351,7 @@ const int32_t *ShellShadows_PendingEntries()
 	return s_Queue.Entries();
 }
 
-//-----------------------------------------------------------------------------
-// The plan's shadow ops and the walk's PreRender. Each is one managed call,
-// inside the render trace's shadow mark: what the manager does in it is
-// recorded `~`, as stock's frame work was.
-//-----------------------------------------------------------------------------
+// Each op is one managed call inside the render trace's shadow mark.
 void ShellShadows_AdvanceFrame()
 {
 	RenderTrace::ShadowEnter( "shadow.AdvanceFrame" );
@@ -480,12 +426,8 @@ CClientSystem *ClientShadowMgrGameSystem()
 	return &s_GameSystem;
 }
 
-//-----------------------------------------------------------------------------
-// IShimFlashlightClient's two bodies the flashlight still calls: its texture
-// held by name, and the hardware config's border-colour answer. The texture
-// table is the environment's, so a FlashlightState_t the manager hands the
+// The texture table is the environment's, so a FlashlightState_t the manager hands the
 // engine names the same reference.
-//-----------------------------------------------------------------------------
 int32_t SourceSharp_FlashlightTexture( const char *pszName )
 {
 	if ( !pszName || !pszName[ 0 ] )
@@ -502,7 +444,6 @@ int32_t SourceSharp_FlashlightTexture( const char *pszName )
 
 	const int i = s_nFlashlightTextures++;
 	V_strncpy( s_szFlashlightTextureNames[ i ], pszName, sizeof( s_szFlashlightTextureNames[ i ] ) );
-	// Stock's call: the texture group and the complaint are CFlashlightEffect's.
 	s_FlashlightTextures[ i ] = new CTextureReference;
 	s_FlashlightTextures[ i ]->Init( pszName, TEXTURE_GROUP_OTHER, true );
 	return i;

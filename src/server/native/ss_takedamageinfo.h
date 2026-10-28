@@ -5,29 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the server's damage-info value type =================//
-//
-// plan_server_novalve.md P5. A CTakeDamageInfo says who hurt whom, how much,
-// how and where; the multi-damage accumulator sums a burst of them against one
-// target. The engine never sees either, so on the server they are server.so's
-// own types, in namespace ss, on public/ headers alone. The client keeps
-// game/shared/takedamageinfo.h. takedamageinfo_library.cpp defines both sides,
-// the server's inside namespace ss.
-//
-// THE HANDLES ARE CBaseHandles, read and written exactly as the typed handle
-// the stock class held was. A typed handle may not be spelled under
-// src/{server,shared} (TypedHandleSweep), so each entity member is a
-// DamageInfoHandle: the CBaseHandle the typed one derives from, with its two
-// SourceSharp operations spelled out --
-//   read   SourceSharp_EntityFromHandle, then SourceSharp_CrossHandleToGameEntity
-//          (handle_cross.h), as the typed handle's IGameEntity Get() does: the
-//          IGameEntity face is a different address, so the object converts;
-//   write  GameEntity_RefHandle( const IGameEntity * ): see operator= below.
-// Same size, same offsets, same datadesc field list.
-//
-// THE MEMBERS ARE IN STOCK'S ORDER, because the datadesc names them by offset.
-// Accessors nothing in server.so calls are not declared; the fields stay.
-//=============================================================================//
+// The server's damage-info value type, in namespace ss. The entity members are
+// CBaseHandles read and written as the stock typed handle was. Members stay in stock's
+// order because the datadesc names them by offset.
 
 #pragma once
 
@@ -35,36 +15,32 @@
 #include "mathlib/vector.h"
 #include "basehandle.h"
 #include "datamap.h"
-#include "networkvar.h"   // DECLARE_CLASS*, SourceSharp_EntityHandle
+#include "networkvar.h"
 #include "igameentity.h"
 #include "iserverentity.h"
 #include "handle_cross.h"
-#include "game_entity_relays.h"   // GameEntity_RefHandle
+#include "game_entity_relays.h"
 
 class IHandleEntity;
 
-// ehandle.h's resolver, which this header may not include (it pulls cbase.h);
-// an identical redeclaration.
+// ehandle.h's resolver, redeclared: that header pulls cbase.h.
 IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
 
 namespace ss
 {
 
-// An entity member: a CBaseHandle that is assigned and read as an
-// IGameEntity *, by exactly the two operations the typed handle performed.
+// A CBaseHandle assigned and read as an IGameEntity *.
 class DamageInfoHandle : public CBaseHandle
 {
 public:
-	// Its own handle: networkvar.h's SourceSharp_EntityHandle refuses every live IGameEntity.
+	// networkvar.h's SourceSharp_EntityHandle refuses every live IGameEntity, hence this.
 	DamageInfoHandle &operator=( const IGameEntity *pEntity )
 	{
 		*static_cast< CBaseHandle * >( this ) = pEntity ? GameEntity_RefHandle( pEntity ) : CBaseHandle();
 		return *this;
 	}
 
-	// What its Get() answers (baseentity.h's IGameEntity specialisation): the
-	// handle resolved through SourceSharp_EntityFromHandle -- CBaseHandle::Get()'s
-	// whole body -- and crossed to the game-entity face by the object itself.
+	// The handle resolved and crossed to the game-entity face by the object itself.
 	operator IGameEntity *() const
 	{
 		return SourceSharp_CrossHandleToGameEntity< IGameEntity, IServerEntity >( SourceSharp_EntityFromHandle( *this ) );
@@ -153,10 +129,6 @@ protected:
 	float       m_flDamageForForce;
 	ECritType   m_eCritType;
 };
-
-// CMultiDamage, g_MultiDamage and ClearMultiDamage/ApplyMultiDamage are the
-// client's only (plan_server_native_v2 T6): nothing on the server accumulated
-// into the accumulator, so it was always clear. The datadesc went with it.
 
 // The damage-force helpers: an impulse to push a mass at a speed, and the
 // force a blast imparts.

@@ -2,8 +2,7 @@
 // tests: the swap NativeConsoleBuffer.Drain makes over the same memory, the
 // half it took, and the parse it does after releasing the lock.
 
-#ifndef SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H
-#define SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H
+#pragma once
 
 #include "console_line_buffer.h"
 
@@ -62,5 +61,3 @@ inline bool ConsoleLineLocked( const CConsoleLineBuffer &buffer )
 {
 	return buffer.m_Header.nLock.load( std::memory_order_acquire ) != 0;
 }
-
-#endif // SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H

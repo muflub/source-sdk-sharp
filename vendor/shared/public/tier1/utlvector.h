@@ -714,12 +714,6 @@ void CUtlVector<T, A>::Reverse( )
 	for ( int i = 0; i < m_Size / 2; i++ )
 	{
 		V_swap( m_Memory[ i ], m_Memory[ m_Size - 1 - i ] );
-#if defined( UTLVECTOR_TRACK_STACKS )
-		if ( bTrackingEnabled )
-		{
-			V_swap( m_pElementStackStatsIndices[ i ], m_pElementStackStatsIndices[ m_Size - 1 - i ] );
-		}
-#endif
 	}
 }
 

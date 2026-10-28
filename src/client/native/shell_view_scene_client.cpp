@@ -5,19 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- what view_scene.cpp gave the rest of client.so =====//
+// The view_scene.cpp names the rest of client.so still imports.
 // SS_REASON c  static-init registration
-// plan_client_novalve C7 step 2: view_scene.cpp leaves client.so. Four of its
-// names are still imported, and they are here:
-//   * r_updaterefracttexture and g_viewscene_refractUpdateFrame, which
-//     view_scene.h's inline UpdateRefractTexture reads (particlemgr.cpp, the
-//     render plan's executor, stock's viewrender while it stays);
-//   * UpdateFullScreenDepthTexture, which stock's viewrender calls (the plan's
-//     executor carries the same copy as its own op);
-//   * ScreenTransform, c_pixel_visibility.cpp's world-to-screen projection.
-// ViewTransform, HudTransform and FrustumTransform's other callers, and the
-// console multiple-refract system, had no importer and went with the TU.
-//=============================================================================//
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,8 +39,6 @@
 #include "texture_group_names.h"
 #include "shell_render_targets.h"
 #include "view_frustum_transform.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
 
 ConVar r_updaterefracttexture( "r_updaterefracttexture", "1", FCVAR_CHEAT );
 static ConVar r_depthoverlay( "r_depthoverlay", "0", FCVAR_CHEAT,

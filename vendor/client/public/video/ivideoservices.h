@@ -302,10 +302,6 @@ class IVideoRecorder : public IBaseInterface
 		virtual void unused_AbortMovie() = 0;
 		virtual void unused_FinishMovie() = 0;
 		
-#ifdef ENABLE_EXTERNAL_ENCODER_LOGGING
- 		virtual bool                LogMessage(  const char *msg ) = 0;
-#endif
-		
 };
 
 // Main VIDEO_SERVICES interface

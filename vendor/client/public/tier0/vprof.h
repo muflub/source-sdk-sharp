@@ -22,10 +22,6 @@
 
 // #define VPROF_PIX 1
 
-#if defined(VPROF_PIX)
-#pragma comment( lib, "Xapilibi" )
-#endif
-
 // Profiling instrumentation macros
 
 #define MAXCOUNTERS 256

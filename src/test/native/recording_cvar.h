@@ -5,8 +5,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_TEST_RECORDING_CVAR_H
-#define SOURCESHARP_TEST_RECORDING_CVAR_H
+#pragma once
 
 #include "icvar.h"
 #include "Color.h"
@@ -99,5 +98,3 @@ private:
 };
 
 }
-
-#endif // SOURCESHARP_TEST_RECORDING_CVAR_H

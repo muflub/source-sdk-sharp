@@ -5,32 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the client's pixel visibility, carried out =========//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve C7. c_pixel_visibility.cpp's decisions are managed's
-// (SourceSharp.Client.Render.PixelVisibility.PixelVisibilitySystem: the sets,
-// the queries, the fades, the proxies' pyramids); this file holds what the
-// material system hands out and carries out what managed answers:
-//
-//   SourceSharp_PixelVisQuery*      IShimViewClient: the render context's
-//                                   occlusion query objects, held in a table
-//                                   and named to managed by id (1, 2, ...; 0
-//                                   for none); their pixel counts, the
-//                                   counting query's read first as stock did.
-//   SourceSharp_PixelVisDiameters   IShimViewClient: ComputePixelDiameterOfSphere
-//                                   for each sphere, one crossing for a view.
-//   SourceSharp_PixelVisView        IShimViewClient: CurrentViewID and the
-//                                   current view's origin and axes.
-//   ShellPixelVisEndView,           the plan's PixelVisEndCurrentView and
-//   ShellPixelVisEndScene           PixelVisEndScene ops: the view handed to
-//                                   IManagedPixelVisClient, and the commands it
-//                                   answers carried out (bind, depth range, a
-//                                   proxy's four triangles inside its query).
-//
-// No decision is made here: the ifs are bounds checks, null guards and the
-// switch over a command's kind.
-//=============================================================================//
+// Pixel visibility's native half: the occlusion query objects, named to managed
+// code by id (0 for none), sphere diameters, the current view, and the commands
+// managed code answers at a view's end, carried out.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,15 +42,8 @@
 #include "sourcesharp_entrypoints.h"
 #include "shell_pixelvis_client.h"
 
-
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
-// c_pixel_visibility.cpp's precache list, which left with it (C7): the
-// proxies are C#'s (PixelVisibilitySystem) and draw through the executor
-// below; the precache system is still native, so the two materials stock's file
-// registered are registered here, unchanged and in its order.
-//-----------------------------------------------------------------------------
+// The precache system is native, so the occlusion proxy's two materials are
+// registered here, in stock's order.
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheOcclusionProxy )
 CLIENTEFFECT_MATERIAL( "engine/occlusionproxy" )
 CLIENTEFFECT_MATERIAL( "engine/occlusionproxy_countdraw" )
@@ -83,7 +54,7 @@ IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial );
 namespace
 {
 
-// The query objects managed holds by id: slot id - 1, INVALID when free.
+// Query objects by id: slot id - 1, INVALID when free.
 CUtlVector< OcclusionQueryObjectHandle_t > s_Queries;
 
 OcclusionQueryObjectHandle_t QueryOf( int32_t nQuery )
@@ -200,7 +171,7 @@ void SourceSharp_PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t 
 	if ( !materials )
 		return;
 	CMatRenderContextPtr pRenderContext( materials );
-	// The counting query first, as GetFractionVisible's partial arm read them.
+	// The counting query first, as stock's GetFractionVisible read them.
 	const OcclusionQueryObjectHandle_t hCount = QueryOf( nCount );
 	if ( hCount != INVALID_OCCLUSION_QUERY_OBJECT_HANDLE )
 		pOut[1] = pRenderContext->OcclusionQuery_GetNumPixelsRendered( hCount );

@@ -5,34 +5,17 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — shell_gamedll.cpp's diagnostic console command ======//
 // SS_REASON c  static-init registration
-//
-// DEBUG BUILDS ONLY (user ruling 2026-10-01: debug commands live in debug files
-// that CMake compiles only for a debug build -- server_sourcesharp_debug_sources).
-// SourceSharp.Server's NativeCommands declares the matching row under #if DEBUG.
-//
-// THE RECORDER IS NOT MOVED, only its dump. The capture seam (the three
-// ShellGameDll_TransmitCapture* functions shell_gameents.cpp records through)
-// stays in shell_gamedll.cpp in every build; this file reads the recorder
-// through ShellGameDll_TransmitSet (shell_gamedll_internal.h).
-//
-//=============================================================================//
+// Debug builds only; NativeCommands declares the matching row under #if DEBUG.
 
 #include "tier0/dbg.h"
-#include "tier1/convar.h"            // CCommand
+#include "tier1/convar.h"
 #include "shell_steporder.h"
 #include "shell_gamedll_internal.h"
 #include "native_command_body.h"
 
-//-----------------------------------------------------------------------------
-// The transmit set for one client on one frame. `arm` arms; no argument dumps.
-//
-// The dump prints the indices ASCENDING and one per line rather than as a
-// packed list, because the two consumers are a diff and a human, and a diff
-// over a packed list reports one changed line for one changed edict in a way
-// that names neither.
-//-----------------------------------------------------------------------------
+// The transmit set for one client on one frame. `arm` arms; no argument dumps,
+// one ascending index per line.
 SS_NATIVE_COMMAND( cs_sv_transmitset )
 {
     CShellTransmitSet &set = ShellGameDll_TransmitSet();
@@ -48,9 +31,7 @@ SS_NATIVE_COMMAND( cs_sv_transmitset )
 
     if ( !set.HaveCapture() )
     {
-        // NOT an empty set. A client that received nothing and a capture that
-        // never happened are the same six characters in a log if this line is
-        // not here, and they are opposite findings.
+        // Distinct from an empty set.
         Msg( "[SourceSharp] TRANSMITSET: nocapture\n" );
         return;
     }

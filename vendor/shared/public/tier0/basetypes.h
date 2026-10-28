@@ -35,7 +35,7 @@ inline T AlignValue( T val, uintptr_t alignment )
 	( ((number) + ((boundary)-1)) / (boundary) ) * (boundary)
 
 // In case this ever changes
-#if !defined(M_PI) && !defined(HAVE_M_PI)
+#if !defined(M_PI)
 #define M_PI			3.14159265358979323846
 #endif
 
@@ -87,11 +87,7 @@ T Max( T const &val1, T const &val2 )
 
 #endif
 
-#ifndef USE_DXVK_NATIVE
 typedef unsigned char BYTE;
-#else
-#include <windows.h>
-#endif
 typedef int qboolean;
 typedef unsigned char byte;
 typedef unsigned short word;
@@ -278,7 +274,7 @@ protected:
 #define FORWARD_DECLARE_HANDLE(name) typedef struct name##__ *name
 
 // @TODO: Find a better home for this
-#if !defined(_STATIC_LINKED) && !defined(PUBLISH_DLL_SUBSYSTEM)
+#if !defined(PUBLISH_DLL_SUBSYSTEM)
 // for platforms built with dynamic linking, the dll interface does not need spoofing
 #define PUBLISH_DLL_SUBSYSTEM()
 #endif

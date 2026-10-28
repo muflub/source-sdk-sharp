@@ -4,13 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — a vgui panel without vgui_controls =================//
 // SS_REASON a  a vtable the engine calls through
-//
-// shell_rawpanel_client.h says why. The paint and hit traversals follow
-// stock's vgui_controls Panel::PaintTraverse and Panel::IsWithinTraverse; the
-// input messages are the names vgui2's input sends (Panel.h's message map).
-//=============================================================================//
+// A vgui panel without vgui_controls. The paint and hit traversals follow stock's
+// Panel::PaintTraverse and Panel::IsWithinTraverse.
 
 #include "vgui/IVGui.h"
 #include "vgui/IPanel.h"
@@ -26,8 +22,6 @@
 #include "vgui/VGUI.h"
 #include "vstdlib/IKeyValuesSystem.h"
 #include "shell_rawpanel_client.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
 
 CSourceSharpRawPanel::CSourceSharpRawPanel( const char *pszName )
 	: m_pszName( pszName ), m_hCursor( vgui::dc_arrow ), m_bPaint( true ),
@@ -82,11 +76,9 @@ void CSourceSharpRawPanel::Think()
 	OnThink();
 }
 
-// A screen size seen for the first time since the last: a screen-filling
-// panel takes it, the children are told (as stock's Panel::OnScreenSizeChanged
-// posted it to them), then the panel's hook. Reached from vgui2's
-// OnScreenSizeChanged message or, for a screen-filling panel, the next think,
-// whichever comes first; the other finds nothing new.
+// A screen size seen for the first time: a screen-filling panel takes it, the children are
+// told, then the panel's hook. Reached from vgui2's message or the next think, whichever
+// comes first.
 void CSourceSharpRawPanel::ScreenSizeNow()
 {
 	int nWide, nTall;
@@ -157,9 +149,8 @@ bool CSourceSharpRawPanel::IsWithin( int x, int y )
 	return x >= x0 && y >= y0 && x < x1 && y < y1;
 }
 
-// The panel under (x, y): popups among the children first, then the other
-// children, last drawn first, then this one -- none of it when this panel is
-// hidden or takes no mouse input.
+// The panel under (x, y): popups among the children first, then the other children, last
+// drawn first, then this one. None when this panel is hidden or takes no mouse input.
 vgui::VPANEL CSourceSharpRawPanel::IsWithinTraverse( int x, int y, bool traversePopups )
 {
 	if ( !IsVisible() || !IsMouseInputEnabled() )

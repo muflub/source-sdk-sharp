@@ -1,21 +1,10 @@
-//========= SourceSharp — the shadow manager's pending queue ==================//
-//
-// C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md). What an entity's shell
-// tells the managed shadow manager between its calls (shell_shadows_client.h's
-// kinds), kept in order, three int32 an entry, so a moving entity costs no
-// crossing of its own: the entries ride in the manager's next call.
-//
-// THE QUEUE'S RULES, each a fact in shadow_pending_queue_test:
-//   - a dirty mark for an entity already marked ORs into that entry (the
-//     manager's AddToDirtyShadowList refuses a renderable already dirty, so a
-//     second mark before the hand-over says nothing new but the texture bit);
-//   - a destroy drops the entity's entries before it (the renderable may be
-//     freed before the hand-over, and nothing may ask it anything);
-//   - a full queue is handed over (the sink) before the next entry goes in;
-//   - what leaves (Take, the sink) leaves as a copy, so the call or sink may
-//     queue again while it reads.
-// No SDK header: the shell supplies the sink.
-//=============================================================================//
+// The shadow manager's pending queue: what entity shells tell the managed
+// shadow manager between its calls, three int32 per entry, so the entries ride
+// in the manager's next call.
+//   - a dirty mark for an entity already marked ORs into that entry;
+//   - a destroy drops the entity's earlier entries (the renderable may be freed);
+//   - a full queue is handed to the sink before the next entry goes in;
+//   - what leaves is a copy, so the reader may queue again while it reads.
 #pragma once
 
 #include <stdint.h>
@@ -29,9 +18,7 @@ public:
 		REFRESH = 2,
 		DESTROY = 3,
 		WORDS = 3,
-		// dm_lockdown queues 248 to 269 entries a frame (S3 at c7c7a17c8:
-		// cs_cl_shadow_stats over 600 frames), and 256 handed a full queue
-		// over once a frame at three players or RTT on.
+		// Sized above a busy map's per-frame peak.
 		MAX = 512,
 	};
 

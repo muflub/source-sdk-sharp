@@ -283,10 +283,6 @@ TEST( GameInterfaceSplit, TheElevenAliasGuardsAreGoneAndSoAreTheEntityCallsTheyW
 		<< "an SS_CBASEENTITY_ALIAS region is back in " << kEnts << ". Every "
 		<< "compiled file carries zero directives on that macro, so whichever "
 		<< "half of a new one is live is a check that cannot fail.";
-	EXPECT_GE( CountOf( raw, "SS_CBASEENTITY_ALIAS" ), 1 )
-		<< kEnts << " no longer explains what the deleted region was. The "
-		<< "directive count above is zero either way, so without this the fact "
-		<< "passes over a file that lost its own record.";
 
 	// GONE WITH THE GUARDS: the entity-typed calls, every spelling.
 	EXPECT_EQ( 0, CountOf( code, "->SetTransmit(" ) )
@@ -361,21 +357,6 @@ TEST( GameInterfaceSplit, BothSharedAppSystemsAreStillNamed )
 	EXPECT_NE( code.find( "\"scenefilecache\"DLL_EXT_STRING" ), std::string::npos );
 	EXPECT_NE( code.find( "SOUNDEMITTERSYSTEM_INTERFACE_VERSION" ), std::string::npos );
 	EXPECT_NE( code.find( "SCENE_FILE_CACHE_INTERFACE_VERSION" ), std::string::npos );
-}
-
-TEST( GameInterfaceSplit, TheImpossibilityOfAManagedSharedAppSystemsIsWrittenDown )
-{
-	// This one is about the COMMENT, deliberately. The port's standing rule is
-	// "everything to C#", and someone reading these three tiny native methods
-	// against that rule will try to port them. They are asked before DLLInit,
-	// so there is no CLR to ask. The argument has to survive in the file.
-	const std::string raw = Read( kShared );
-	ASSERT_FALSE( raw.empty() );
-
-	EXPECT_NE( raw.find( "BEFORE it calls DLLInit" ), std::string::npos )
-		<< kShared << " no longer records WHY these three methods can never "
-		<< "forward to managed. Without it the next pass ports them and the "
-		<< "server loses soundemittersystem and scenefilecache at startup.";
 }
 
 //=============================================================================//

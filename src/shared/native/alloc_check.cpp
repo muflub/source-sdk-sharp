@@ -1,20 +1,11 @@
-//========= SourceSharp — the allocation checker =============================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-// See alloc_check.h. Built only where cmake/AllocCheck.cmake puts the wraps on
-// the link line; every __wrap_X here is what server.so's references to X
-// resolve to, and __real_X is the definition the link would otherwise use.
-//
-// NOTHING HERE MAY ALLOCATE THROUGH A WRAPPED FUNCTION. The table grows with
-// __real_calloc/__real_free, the lock is a spinning atomic_flag, output goes
-// through write(2), and a thread-local depth counter lets calls made from
-// inside a wrap (operator new calling malloc, a report calling dladdr) pass
-// straight through untracked.
-//=============================================================================//
+// Each __wrap_X is what this DLL's references to X resolve to; __real_X is the
+// unwrapped definition. Nothing here may allocate through a wrapped function:
+// the table uses __real_calloc/__real_free, the lock spins, output goes through
+// write(2), and a thread-local depth lets nested calls pass through untracked.
 
 #include "alloc_check.h"
 
-// Compiled into server.so's list always, and to nothing unless the target
-// carries the checker (SS_ALLOC_CHECK); the test binary defines it itself.
 #ifdef SOURCESHARP_ALLOC_CHECK
 
 #include <atomic>
@@ -28,16 +19,11 @@
 #include <string.h>
 #include <unistd.h>
 
-// Every report line starts with this tag. server.so keeps the bare one;
-// client.so (plan_client_novalve C1) is built with
-// SOURCESHARP_ALLOC_CHECK_TAG="[SourceSharp/AllocCheck/client]", so the two
-// DLLs' reports in one listen process (one log file) stay apart.
+// client.so overrides the tag so both DLLs' reports in one log stay apart.
 #ifndef SOURCESHARP_ALLOC_CHECK_TAG
 #define SOURCESHARP_ALLOC_CHECK_TAG "[SourceSharp/AllocCheck]"
 #endif
 
-// The aligned operator new/delete symbols below receive a std::align_val_t: an
-// enum class over size_t, passed exactly as a size_t.
 typedef std::align_val_t AlignVal;
 
 extern "C" {
@@ -117,11 +103,8 @@ struct Site
 };
 const int kMaxSites = 256;
 
-// PLAIN DATA, ZERO-INITIALISED, NO CONSTRUCTOR: the table has to work for the
-// first allocation any static initialiser makes, whatever the link order, and
-// an object with a dynamic initialiser would itself be one more static
-// initialiser in server.so (which the globals ledger caps). All-zero is the
-// valid empty state: the lock clear, no table, mode 0 = "not read yet".
+// Plain zero-initialised data with no constructor: it must work for the first
+// allocation any static initialiser makes, whatever the link order.
 struct State
 {
 	std::atomic<bool> lock;
@@ -238,8 +221,7 @@ void Insert( void *p, size_t size, uint8_t kind, void *site )
 	{
 		if ( g_State.slots[j].ptr == (uintptr_t)p )
 		{
-			// Already present: the block was freed behind our back (by the engine)
-			// and the address came round again. Overwrite.
+			// The engine freed the block behind our back and the address was reused.
 			g_State.slots[j] = Slot{ (uintptr_t)p, size, site, kind };
 			g_State.allocations++;
 			return;
@@ -258,8 +240,7 @@ void Insert( void *p, size_t size, uint8_t kind, void *site )
 }
 
 // Lock held. True the first time a site is seen, so the caller can print one
-// backtrace per site (after dropping the lock): a count says how often
-// ownership crossed, and only a stack says whose block it was.
+// backtrace per site after dropping the lock.
 bool NoteForeign( void *p, void *site )
 {
 	g_State.foreign++;
@@ -287,8 +268,7 @@ void Symbolise( void *site, char *out, size_t n )
 	{
 		const char *base = strrchr( info.dli_fname, '/' );
 		base = base ? base + 1 : info.dli_fname;
-		// Module-relative, so `addr2line -f -C -e <module> <offset>` reads it back
-		// (most of server.so's symbols are hidden and dladdr cannot name them).
+		// Module-relative, so addr2line can read it back (most symbols are hidden).
 		snprintf( out, n, "%s+0x%lx%s%s", base,
 			(unsigned long)( (char *)site - (char *)info.dli_fbase ),
 			info.dli_sname ? " " : "", info.dli_sname ? info.dli_sname : "" );
@@ -309,7 +289,6 @@ void Finding( const char *what, void *p, uint8_t had, uint8_t want, size_t hadSi
 	void *frames[32];
 	int nf = backtrace( frames, 32 );
 	backtrace_symbols_fd( frames, nf, 2 );
-	// And into the log, as module+offset lines addr2line can read back.
 	for ( int i = 1; i < nf; i++ )
 	{
 		char at[512];
@@ -447,8 +426,7 @@ void *__wrap_aligned_alloc( size_t a, size_t n )
 	return p;
 }
 
-// tier0/memalloc.h's aligned allocator on POSIX (MemAlloc_AllocAligned), so
-// CTSQueue's nodes: unwrapped, their free read as foreign.
+// tier0's aligned allocator (MemAlloc_AllocAligned) on POSIX.
 void *__wrap_memalign( size_t a, size_t n )
 {
 	PASS __real_memalign( a, n );
@@ -563,9 +541,7 @@ void SourceSharp_AllocCheckReport( const char *when )
 			(unsigned long long)sites[i].count, where );
 	}
 
-	// The live blocks, grouped by allocation site: EVERY site, so a gate can
-	// hold each one to a reviewed allow-file (tools/novalve-snapshot,
-	// docs/alloc-live-allow.tsv). Sites past kTop are counted, not dropped.
+	// Every live allocation site; sites past kTop are counted, not dropped.
 	const int kTop = 512;
 	struct Agg { void *site; uint64_t n; uint64_t bytes; };
 	Agg top[kTop];   // 12 KB of stack: the report runs on an ordinary thread
@@ -611,15 +587,9 @@ void SourceSharp_AllocCheckReport( const char *when )
 
 } // extern "C"
 
-// The last word, when server.so is unloaded or the process exits -- AFTER every
-// static destructor in server.so, in both cases. A destructor(N) function is
-// not that: at exit it runs after the C++ statics, but at dlclose (how the
-// engine unloads the game DLL) it runs BEFORE them, and every static
-// container's nodes read as live (measured 2026-09-30 with a two-file probe).
-// __cxa_atexit handlers of a DSO run in reverse order of registration at both
-// exit and __cxa_finalize, and this one is registered by a priority-101
-// constructor, before any static object of server.so is constructed, so it
-// runs last.
+// Runs after every static destructor in this DLL, at both exit and dlclose: a
+// destructor attribute would run before them at dlclose. __cxa_atexit handlers
+// run in reverse registration order, and this registers before any static.
 extern "C" int __cxa_atexit( void ( * )( void * ), void *, void * );
 extern "C" void *__dso_handle;
 

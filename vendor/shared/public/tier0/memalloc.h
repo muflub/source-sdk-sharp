@@ -12,12 +12,6 @@
 //#define USE_MEM_DEBUG 1
 #endif
 
-#if defined( _MEMTEST )
-#ifdef _WIN32
-#define USE_MEM_DEBUG 1
-#endif
-#endif
-
 // Undefine this if using a compiler lacking threadsafe RTTI (like vc6)
 #define MEM_DEBUG_CLASSNAME 1
 
@@ -28,7 +22,7 @@
 
 #include "tier0/mem.h"
 
-#if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
+#if !defined(NO_MALLOC_OVERRIDE)
 
 struct _CrtMemState;
 
@@ -94,10 +88,6 @@ public:
 
 	virtual void unused_DumpBlockStats() = 0;
 
-#if defined( _MEMTEST )	
-	virtual void SetStatsExtraInfo( const char *pMapName, const char *pComment ) = 0;
-#endif
-
 	// Returns 0 if no failure, otherwise the size_t of the last requested chunk
 	//  "I'm sure this is completely thread safe!" Brian Deen 7/19/2012.
 	virtual void unused_MemoryAllocFailed() = 0;
@@ -115,20 +105,6 @@ public:
 // Singleton interface
 MEM_INTERFACE IMemAlloc *g_pMemAlloc;
 
-#ifdef MEMALLOC_REGIONS
-#ifndef MEMALLOC_REGION
-#define MEMALLOC_REGION 0
-#endif
-inline void *MemAlloc_Alloc( size_t nSize )
-{ 
-	return g_pMemAlloc->RegionAlloc( MEMALLOC_REGION, nSize );
-}
-
-inline void *MemAlloc_Alloc( size_t nSize, const char *pFileName, int nLine )
-{ 
-	return g_pMemAlloc->RegionAlloc( MEMALLOC_REGION, nSize, pFileName, nLine );
-}
-#else
 #undef MEMALLOC_REGION
 inline void *MemAlloc_Alloc( size_t nSize )
 { 
@@ -139,7 +115,6 @@ inline void *MemAlloc_Alloc( size_t nSize, const char *pFileName, int nLine )
 { 
 	return g_pMemAlloc->Alloc( nSize, pFileName, nLine );
 }
-#endif
 inline void MemAlloc_Free( void *ptr, const char *pFileName, int nLine )
 {
 	g_pMemAlloc->Free( ptr, pFileName, nLine );
@@ -429,7 +404,7 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 }
 #endif // !STEAM && !NO_MALLOC_OVERRIDE
 
-#if !defined(STEAM) && defined(NO_MALLOC_OVERRIDE)
+#if defined(NO_MALLOC_OVERRIDE)
 
 #define MEM_ALLOC_CREDIT_(tag)	((void)0)
 #define MEM_ALLOC_CREDIT()	MEM_ALLOC_CREDIT_(__FILE__)

@@ -35,11 +35,9 @@
 
 // #define THREAD_PROFILER 1
 
-#ifndef _RETAIL
 #define THREAD_MUTEX_TRACING_SUPPORTED
 #if defined(_WIN32) && defined(_DEBUG)
 #define THREAD_MUTEX_TRACING_ENABLED
-#endif
 #endif
 
 #ifdef _WIN32
@@ -49,37 +47,15 @@ typedef void *HANDLE;
 // Start thread running  - error if already running
 enum ThreadPriorityEnum_t
 {
-#if defined( PLATFORM_PS3 )
-	TP_PRIORITY_NORMAL  = 1001,
-	TP_PRIORITY_HIGH = 100,
-	TP_PRIORITY_LOW = 2001,
-	TP_PRIORITY_DEFAULT = 1001
-#error "Need PRIORITY_LOWEST/HIGHEST"
-#elif defined( PLATFORM_LINUX )
-    // We can use nice on Linux threads to change scheduling.
-    // pthreads on Linux only allows priority setting on
-    // real-time threads.
-    // NOTE: Lower numbers are higher priority, thus the need
-    // for TP_IS_PRIORITY_HIGHER.
-	TP_PRIORITY_DEFAULT = 0,
-	TP_PRIORITY_NORMAL = 0,
-	TP_PRIORITY_HIGH = -10,
-	TP_PRIORITY_LOW = 10,
-	TP_PRIORITY_HIGHEST = -20,
-	TP_PRIORITY_LOWEST = 19,
-#else  // PLATFORM_PS3
 	TP_PRIORITY_DEFAULT = 0,	//	THREAD_PRIORITY_NORMAL
 	TP_PRIORITY_NORMAL = 0,	//	THREAD_PRIORITY_NORMAL
 	TP_PRIORITY_HIGH = 1,	//	THREAD_PRIORITY_ABOVE_NORMAL
 	TP_PRIORITY_LOW = -1,	//	THREAD_PRIORITY_BELOW_NORMAL
 	TP_PRIORITY_HIGHEST = 2,	//	THREAD_PRIORITY_HIGHEST
 	TP_PRIORITY_LOWEST = -2,	//	THREAD_PRIORITY_LOWEST 
-#endif // PLATFORM_PS3
 };
 
 const unsigned TT_INFINITE = 0xffffffff;
-
-#ifndef NO_THREAD_LOCAL
 
 #ifndef THREAD_LOCAL
 #ifdef _WIN32
@@ -88,8 +64,6 @@ const unsigned TT_INFINITE = 0xffffffff;
 #define THREAD_LOCAL __thread
 #endif
 #endif
-
-#endif // NO_THREAD_LOCAL
 
 #ifdef PLATFORM_64BITS
 typedef uint64 ThreadId_t;
@@ -117,9 +91,7 @@ extern "C" unsigned long __declspec(dllimport) __stdcall GetCurrentThreadId();
 
 inline void ThreadPause()
 {
-#if defined( COMPILER_PS3 )
-	__db16cyc();
-#elif defined( COMPILER_GCC )
+#if defined( COMPILER_GCC )
 	#if defined( PLATFORM_INTEL )
 		__asm __volatile( "pause" );
 	#elif defined( PLATFORM_ARM )
@@ -129,8 +101,6 @@ inline void ThreadPause()
 	#endif
 #elif defined ( COMPILER_MSVC64 )
 	_mm_pause();
-#elif defined( COMPILER_MSVC32 )
-	__asm pause;
 #else
 #error "implement me"
 #endif
@@ -156,10 +126,7 @@ PLATFORM_INTERFACE int ThreadWaitForObjects( int nEvents, const HANDLE *pHandles
 // read-acquire and write-release barriers. It is not a full barrier and it does
 // not prevent reads from moving past writes -- that would require a full __sync()
 // on PPC and is significantly more expensive.
-#if defined( _PS3 )
-	#define ThreadMemoryBarrier() __lwsync()
-
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 	// Prevent compiler reordering across this barrier. This is
 	// sufficient for most purposes on x86/x64.
 
@@ -178,7 +145,7 @@ PLATFORM_INTERFACE int ThreadWaitForObjects( int nEvents, const HANDLE *pHandles
 	#error Every platform needs to define ThreadMemoryBarrier to at least prevent compiler reordering
 #endif
 
-#if defined( PLATFORM_64BITS ) && !defined( COMPILER_CLANG_WIN32 )
+#if defined( PLATFORM_64BITS )
 #define THREADINTERLOCKS_SUPPORTS_128BIT_ATOMICS 1
 
 #else
@@ -204,7 +171,7 @@ PLATFORM_INTERFACE int ThreadWaitForObjects( int nEvents, const HANDLE *pHandles
 #define ThreadInterlockedAssignPointerIf __inline_ThreadInterlockedAssignPointerIf
 #endif
 
-#if IsPosix() || defined( COMPILER_CLANG_WIN32 )
+#if IsPosix()
 #define USE_INTRINSIC_INTERLOCKED
 
 #if !defined( PLATFORM_64BITS )
@@ -340,7 +307,7 @@ inline bool ThreadInterlockedAssignIf64( int64 volatile * pDest, int64 value, in
 }
 #endif
 
-#elif defined( COMPILER_MSVC32 ) || ( defined( COMPILER_MSVC64 ) )
+#elif defined( COMPILER_MSVC64 )
 // Windows implementation using compiler intrinsics
 #define USE_INTRINSIC_INTERLOCKED
 
@@ -457,32 +424,18 @@ PLATFORM_INTERFACE bool ThreadInterlockedAssignIf128( volatile int128 *pDest, co
 #endif
 
 // Access to VTune thread profiling
-#if defined(_WIN32) && defined(THREAD_PROFILER)
-PLATFORM_INTERFACE void ThreadNotifySyncPrepare(void *p);
-PLATFORM_INTERFACE void ThreadNotifySyncCancel(void *p);
-PLATFORM_INTERFACE void ThreadNotifySyncAcquired(void *p);
-PLATFORM_INTERFACE void ThreadNotifySyncReleasing(void *p);
-#else
 #define ThreadNotifySyncPrepare(p)		((void)0)
 #define ThreadNotifySyncCancel(p)		((void)0)
 #define ThreadNotifySyncAcquired(p)		((void)0)
 #define ThreadNotifySyncReleasing(p)	((void)0)
-#endif
 
 // Encapsulation of a thread local datum (needed because THREAD_LOCAL doesn't
 // work in a DLL loaded with LoadLibrary()
-
-#ifndef NO_THREAD_LOCAL
 
 #if defined(_LINUX) && !defined(OSX)
 // linux totally supports compiler thread locals, even across dll's.
 
 #endif // _LINUX && !OSX
-
-#endif // NO_THREAD_LOCALS
-
-#ifndef __AFXTLS_H__ // not compatible with some Windows headers
-#ifndef NO_THREAD_LOCAL
 
 class PLATFORM_CLASS CThreadLocalBase
 	{
@@ -500,8 +453,6 @@ private:
 		pthread_key_t m_index;
 #endif
 	};
-
-#ifndef __AFXTLS_H__
 
 	template <class T>
 	class CThreadLocal : public CThreadLocalBase
@@ -550,8 +501,6 @@ private:
 		}
 	};
 
-#endif
-
 	template <class T>
 	class CThreadLocalPtr : private CThreadLocalBase
 	{
@@ -570,9 +519,6 @@ private:
 		CThreadLocalPtr( T *pFrom );
 		CThreadLocalPtr( const CThreadLocalPtr<T> &from );
 	};
-
-#endif // NO_THREAD_LOCAL
-#endif // !__AFXTLS_H__
 
 #ifdef PLATFORM_64BITS
 #define ThreadInterlockedExchange_SizeT ThreadInterlockedExchange64
@@ -782,8 +728,6 @@ private:
 // lesser threads. This class is not a suitable replacement for a critical
 // section if the resource contention is high.
 
-#if !defined(THREAD_PROFILER)
-
 class CThreadFastMutex
 {
 public:
@@ -894,10 +838,6 @@ ALIGN128_POST;
 #  pragma clang diagnostic pop
 #endif
 
-#else
-typedef CThreadMutex CThreadFastMutex;
-#endif
-
 class CThreadNullMutex
 {
 public:
@@ -967,9 +907,6 @@ public:
 		m_pMutexName = rhs.m_pMutexName;
 		m_pFilename = rhs.m_pFilename;
 		m_nLineNum = rhs.m_nLineNum;
-		#ifdef RAD_TELEMETRY_ENABLED
-			m_uLockMatcher = rhs.m_uLockMatcher;
-		#endif
 		m_bOwned = true;
 		rhs.m_bOwned = false;
 	}
@@ -989,10 +926,6 @@ private:
 	const char* m_pFilename;
 	int m_nLineNum;
 	bool m_bOwned;	 // Did owenership of the lock pass to another instance?
-
-#ifdef RAD_TELEMETRY_ENABLED
-	TmU64 m_uLockMatcher;
-#endif
 
 	// Disallow copying
 	CAutoLockT( const CAutoLockT<MUTEX_TYPE> & );

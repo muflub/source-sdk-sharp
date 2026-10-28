@@ -20,12 +20,9 @@
 //
 //=============================================================================
 
-#ifndef SOURCESHARP_TEST_CBASE_H
-#define SOURCESHARP_TEST_CBASE_H
+#pragma once
 
 #include "tier0/platform.h"
 #include "tier0/basetypes.h"
 #include "tier0/dbg.h"
 #include "const.h"
-
-#endif // SOURCESHARP_TEST_CBASE_H

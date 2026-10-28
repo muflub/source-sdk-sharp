@@ -1,6 +1,4 @@
-//========= SourceSharp — the one way this mod stops the process ==============//
 // SS_REASON h  the CoreCLR host and bootstrap dispatch
-//=============================================================================//
 
 #include "fatal_report.h"
 #include "ss_platform.h"
@@ -25,12 +23,8 @@ extern "C" void __gcov_dump( void );
 // Deep enough for the frame loop plus a render path plus the leaf.
 enum { kFatalStackDepth = 48 };
 
-//-----------------------------------------------------------------------------
-// The CRT's names for the POSIX file calls, where they differ. Nothing here
-// goes through stdio: an assert that fired inside the allocator is exactly
-// the case where the report must still come out, so the file is written
-// with open/write and the lines are formatted into a fixed buffer.
-//-----------------------------------------------------------------------------
+// POSIX file calls under the CRT's names. Nothing here uses stdio or allocates, so a
+// report from an assert inside the allocator still comes out.
 #if defined( _WIN32 )
 	#define ss_open( path ) _open( path, _O_WRONLY | _O_CREAT | _O_TRUNC, _S_IREAD | _S_IWRITE )
 	#define ss_write _write
@@ -58,21 +52,8 @@ static void SourceSharp_Printf( int fd, const char *pFormat, ... )
 	(void)nWritten;
 }
 
-//-----------------------------------------------------------------------------
-// THE ONE WAY THIS MOD STOPS THE PROCESS ON PURPOSE -- a failed assert, or
-// Error(). The user's design (2026-09-29): the report and the stack go to
-// stderr, where every scripted check looks; the same report goes to
-// $SOURCESHARP_ASSERT_DIR/assert-<pid>.txt when the launcher named a directory,
-// so it can show the report in a message box or leave it on disk; and the
-// process ends with a negative code, kSourceSharpFatalExitCode, which is how
-// the launcher tells this from any other exit.
-//
-// Nothing here allocates: an assert that fired inside the allocator is exactly
-// the case where the report must still come out. The stack is printed with
-// backtrace_symbols_fd where glibc offers it, and as module+offset lines (the
-// form addr2line and a debugger take) elsewhere; the file is written with
-// open/write.
-//-----------------------------------------------------------------------------
+// Writes the report and the stack: backtrace_symbols_fd on glibc, module+offset lines
+// elsewhere.
 static void SourceSharp_WriteReport( int fd, const char *pKind, const char *pMsg, bool bStopLine )
 {
 	SourceSharp_Printf( fd, "[SourceSharp] FATAL %s: %s", pKind, pMsg ? pMsg : "(no message)\n" );
@@ -109,13 +90,8 @@ static void SourceSharp_WriteReport( int fd, const char *pKind, const char *pMsg
 #endif
 }
 
-// The exit watch's record of a fatal stop (server/native/exit_watch.cpp). WEAK:
-// server.so defines it, client.so does not, and an undefined weak reference is
-// null -- so the client's fatal path is exactly what it was. MSVC has no weak
-// references; /alternatename gives the name a fallback definition that the
-// linker takes only when nothing else defines it, which is the same thing
-// spelled for link.exe (the fallback leaves the pointer comparison below
-// true, and the fallback does nothing).
+// Defined by server.so's exit watch only; weak, so client.so's reference is null.
+// MSVC has no weak references, so /alternatename binds a no-op fallback instead.
 #if defined( _MSC_VER )
 extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg );
 extern "C" void SourceSharp_FatalWitness_NoWitness( const char *, const char * ) {}
@@ -130,8 +106,7 @@ void SourceSharp_FatalReport( const char *pKind, const char *pMsg )
 	SourceSharp_WriteReport( ss_fileno( stderr ), pKind, pMsg, true );
 
 #if defined( _MSC_VER )
-	// The alternate name above always binds (to the no-op when nothing else
-	// defines the witness), so there is no null to test.
+	// The alternate name always binds, so there is no null to test.
 	SourceSharp_FatalWitness( pKind, pMsg );
 #else
 	if ( SourceSharp_FatalWitness )

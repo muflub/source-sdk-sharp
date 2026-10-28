@@ -5,21 +5,7 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the debug overlay leaf library ======================//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// plan_entity.md Phase 4, step 4c. See overlay_library.h for what this is, what
-// it deliberately is not, and why the viewer exists.
-//
-// THE BODIES ARE STOCK'S, and where one differs the difference is stated at the
-// line rather than in this block. The two files they came from are
-// game/server/ndebugoverlay.cpp (the pool, and the padded line) and
-// game/shared/debugoverlay_shared.cpp (everything else).
-//
-// NO cbase.h, and that is what lets a gtest link this against mathlib and a
-// stub IVDebugOverlay rather than against a game DLL.
-//
-//=============================================================================//
 
 #include "overlay_library.h"
 
@@ -27,28 +13,11 @@
 #include "engine/ivdebugoverlay.h"
 #include "tier1/strtools.h"
 
-// The engine's overlay channel. Defined per side — the server's in
-// sourcesharp/game/server/shell_engineboundary.cpp, the client's in
-// sourcesharp/game/client/shell_clientdll.cpp — and declared here rather than
-// reached through enginecallback.h, which would pull the whole server game
-// header set into an entity-free file. game/client/c_func_breakablesurf.cpp
-// declares it exactly this way for exactly this reason.
+// The engine's overlay channel, defined per side; declared here so this file needs no cbase.h.
 extern IVDebugOverlay *debugoverlay;
 
-
-// debugoverlay_shared.cpp's MAX_OVERLAY_DIST_SQR, unchanged: 9,486 units, which
-// is a little over the diagonal of the largest map this mod ships.
+// Stock's MAX_OVERLAY_DIST_SQR.
 #define OVERLAY_MAX_DIST_SQR 90000000.0f
-
-//=============================================================================//
-// STATE, VIA ACCESSORS.
-//
-// plan.md §1a: nothing is a static or a global. The idiom is the one
-// game/shared/entity_debug_globals.h established and states the reasoning for —
-// a function-local static is one object across the program, and putting the
-// accessor between it and its readers makes "who writes this" answerable by
-// grepping one name.
-//=============================================================================//
 
 namespace
 {
@@ -72,9 +41,7 @@ OverlayCounts_t &CountsRef()
 	return s_Counts;
 }
 
-// One pool slot. ndebugoverlay.h's OverlayLine_t, restated here rather than
-// included, because that header is one of the two this library exists to let
-// the build stop compiling.
+// ndebugoverlay.h's OverlayLine_t, restated so that header is not needed.
 struct OverlayPoolLine_t
 {
 	Vector vecOrigin;
@@ -114,10 +81,7 @@ OverlayPool_t &PoolRef()
 	return s_Pool;
 }
 
-// Every draw funnels through here so that "there is no overlay interface" is
-// counted once, in one place, rather than being a silent `if ( debugoverlay )`
-// at twenty call sites the way stock had it.
-
+// Counts calls made with no overlay interface.
 bool HaveOverlay()
 {
 	if ( debugoverlay )
@@ -128,10 +92,6 @@ bool HaveOverlay()
 }
 
 } // anonymous namespace
-
-//=============================================================================//
-// THE READOUT
-//=============================================================================//
 
 const OverlayCounts_t &Overlay_Counts()
 {
@@ -146,10 +106,6 @@ void Overlay_ResetCounts()
 	c.nNoViewer = 0;
 	c.nNoOverlay = 0;
 }
-
-//=============================================================================//
-// THE VIEWER AND THE CLIP
-//=============================================================================//
 
 void Overlay_SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward )
 {
@@ -169,12 +125,7 @@ bool Overlay_ViewerIsSet()
 	return ViewerRef().bSet;
 }
 
-//-----------------------------------------------------------------------------
-// NDebugOverlay::Line's clip, and it is NOT a point clip applied twice.
-// Stock keeps a line when EITHER end is within range, and keeps it when EITHER
-// end is in front of the eye — a line whose near end is behind you and whose
-// far end is in front of you is a line you can see part of.
-//-----------------------------------------------------------------------------
+// Stock keeps a line when either end is in range and either end is in front of the eye.
 bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd )
 {
 	const OverlayViewer_t &v = ViewerRef();
@@ -193,10 +144,6 @@ bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd )
 
 	return true;
 }
-
-//=============================================================================//
-// UNCLIPPED DRAWING
-//=============================================================================//
 
 void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs,
                         const QAngle &angles, int r, int g, int b, int a, float flDuration )
@@ -235,10 +182,6 @@ void Overlay_ClearAll()
 	debugoverlay->ClearAllOverlays();
 }
 
-//=============================================================================//
-// CLIPPED DRAWING — the entries that were `return;`
-//=============================================================================//
-
 void Overlay_Line( const Vector &origin, const Vector &target,
                    int r, int g, int b, bool bNoDepthTest, float flDuration )
 {
@@ -261,10 +204,6 @@ void Overlay_Line( const Vector &origin, const Vector &target,
 	CountsRef().nDrawn++;
 }
 
-//=============================================================================//
-// THE POOL
-//=============================================================================//
-
 void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest,
                       int r, int g, int b )
 {
@@ -282,13 +221,6 @@ void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDept
 	pool.nNext = ( pool.nNext + 1 ) % OVERLAY_POOL_LINES;
 }
 
-//-----------------------------------------------------------------------------
-// Stock walked all twenty slots every frame and tested `draw` on each. The walk
-// is the same; what it is NOT is guarded by stock's `m_nDebugOverlayIndex != -1`
-// sentinel, because the pool here is initialised on first use rather than
-// lazily allocated with `new` — twenty structs by value, which also removes
-// twenty allocations that were never freed.
-//-----------------------------------------------------------------------------
 void Overlay_DrawPooledLines()
 {
 	OverlayPool_t &pool = PoolRef();

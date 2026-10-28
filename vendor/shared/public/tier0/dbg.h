@@ -15,15 +15,9 @@
 // dll export stuff
 #ifndef STATIC_TIER0
 
-#ifdef TIER0_DLL_EXPORT
-#define DBG_INTERFACE	DLL_EXPORT
-#define DBG_OVERLOAD	DLL_GLOBAL_EXPORT
-#define DBG_CLASS		DLL_CLASS_EXPORT
-#else
 #define DBG_INTERFACE	DLL_IMPORT
 #define DBG_OVERLOAD	DLL_GLOBAL_IMPORT
 #define DBG_CLASS		DLL_CLASS_IMPORT
-#endif
 
 #else // BUILD_AS_DLL
 
@@ -165,20 +159,6 @@ DBG_INTERFACE ;
 
 /* Used to define macros, never use these directly. */
 
-#ifdef _PREFAST_
-	// When doing /analyze builds define _AssertMsg to be __analysis_assume. This tells
-	// the compiler to assume that the condition is true, which helps to suppress many
-	// warnings. This define is done in debug and release builds.
-	// The unfortunate !! is necessary because otherwise /analyze is incapable of evaluating
-	// all of the logical expressions that the regular compiler can handle.
-	// Include _msg in the macro so that format errors in it are detected.
-	#define _AssertMsg( _exp, _msg, _executeExp, _bFatal ) do { __analysis_assume( !!(_exp) ); _msg; } while (0)
-	#define  _AssertMsgOnce( _exp, _msg, _bFatal ) do { __analysis_assume( !!(_exp) ); _msg; } while (0)
-	// Force asserts on for /analyze so that we get a __analysis_assume of all of the constraints.
-	#define DBGFLAG_ASSERT
-	#define DBGFLAG_ASSERTFATAL
-	#define DBGFLAG_ASSERTDEBUG
-#else
 	#define  _AssertMsg( _exp, _msg, _executeExp, _bFatal )	\
 		do {																\
 			if (!(_exp)) 													\
@@ -209,7 +189,6 @@ DBG_INTERFACE ;
 				_AssertMsg( _exp, _msg, (fAsserted = true), _bFatal );		\
 			}																\
 		} while (0)
-#endif
 
 /* Spew macros... */
 
@@ -384,7 +363,6 @@ DBG_INTERFACE void COM_TimestampedLog( PRINTF_FORMAT_STRING char const *fmt, ...
 
 #endif /* _DEBUG */
 
-#ifndef _RETAIL
 class CScopeMsg
 {
 public:
@@ -399,10 +377,6 @@ public:
 	}
 	const char *m_pszScope;
 };
-
-#else
-#define SCOPE_MSG( msg )
-#endif
 
 // Utilities to suppress warnings or other annotations
 
@@ -545,9 +519,3 @@ private:
 #endif
 
 // This is horrible, but we don't want to integrate CS:GO new logging system atm.
-
-#ifdef BUILDING_VPC
-#define Log_Warning( ignore, ... )	::Warning( __VA_ARGS__ );
-#define Log_Msg( ignore, ... )		::Msg( __VA_ARGS__ );
-#define Log_Error( ignore, ... )		::Error( __VA_ARGS__ );
-#endif

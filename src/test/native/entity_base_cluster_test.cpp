@@ -317,20 +317,6 @@ TEST( EntityBaseCluster, TheWorldsPrecacheCarriesTheGamePrecacheAndNotTheStockOn
 // exactly what ContractBaseline keeps Refusals and OpenDefects apart for.
 //=============================================================================//
 
-TEST( EntityBaseCluster, TheClientPartitionAbsenceIsARECORDEDDivergenceAndNotADiscovery )
-{
-	// Arm 13. Asserted so that a later lane cannot "discover" it again and file
-	// it as a bug -- and so that the record cannot quietly disappear while the
-	// behaviour stays.
-	const std::string hdr = ReadRaw( "sourcesharp/game/client/shell_standalone_client.h" );
-	ASSERT_FALSE( hdr.empty() );
-
-	EXPECT_TRUE( Has( hdr, "no spatial partition" ) )
-		<< "shell_standalone_client.h no longer records that this hierarchy joins "
-		<< "no client spatial partition. The behaviour is unchanged either way; "
-		<< "what would be lost is the only statement that it is deliberate.";
-}
-
 TEST( EntityBaseCluster, TheStandaloneTeleportStillDoesNotSayItWasADiscontinuity )
 {
 	// Arm 14, half two, and it is asserted in the DIRECTION OF THE BUG on

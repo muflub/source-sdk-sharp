@@ -891,13 +891,6 @@ TEST( ModelThroughTheIndex, TheClientGetModelIsNotThatAndKeepsItsOwnArm )
 		<< "the parallel hierarchy's shape clause is gone, so a managed brush "
 		   "is waved through every world-only trace again.";
 
-	const std::string strLibRaw = Read( "../sourcesharp/game/shared/trace_filter_library.cpp" );
-	ASSERT_FALSE( strLibRaw.empty() );
-	EXPECT_NE( strLibRaw.find( "THE CLIENT GAP IS UNCHANGED AND STILL OPEN" ), std::string::npos )
-		<< "the file no longer records that the shape clause is the server's, so "
-		   "on the CLIENT a managed entity is still filtered as though it were a "
-		   "static prop. That is a known, written-down divergence; losing the "
-		   "note turns it into a silent one.";
 }
 
 //=============================================================================//

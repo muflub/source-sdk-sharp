@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_FAKE_ENGINE_TIER_H
-#define SOURCESHARP_FAKE_ENGINE_TIER_H
+#pragma once
 
 struct FakeTierCall
 {
@@ -30,5 +29,3 @@ int FakeVstdlib_DestroyCount();
 void *FakeVstdlib_LastDestroyed();
 void *FakeVstdlib_PoolObject();
 }
-
-#endif // SOURCESHARP_FAKE_ENGINE_TIER_H

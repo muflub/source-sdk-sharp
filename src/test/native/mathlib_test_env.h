@@ -37,8 +37,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_TEST_MATHLIB_TEST_ENV_H
-#define SOURCESHARP_TEST_MATHLIB_TEST_ENV_H
+#pragma once
 
 #include "gtest/gtest.h"
 
@@ -60,5 +59,3 @@ public:
 	::testing::AddGlobalTestEnvironment( new MathLibEnvironment );
 
 } // namespace
-
-#endif // SOURCESHARP_TEST_MATHLIB_TEST_ENV_H

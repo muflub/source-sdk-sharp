@@ -10,8 +10,7 @@
 // (probe_copies.cmake). The bodies are in c6input_probes_debug.cpp. Every
 // call is a no-op until cs_cl_probe_input arms the recording.
 
-#ifndef C6INPUT_PROBE_H
-#define C6INPUT_PROBE_H
+#pragma once
 
 struct kbutton_t;
 
@@ -28,5 +27,3 @@ const char *C6P_ButtonName( const kbutton_t *pButton );
 // CInput::CreateMove, before anything there reads a device.
 void C6P_BeforeCreateMove( int nSequence );
 void C6P_BeforeExtraMouseSample();
-
-#endif // C6INPUT_PROBE_H

@@ -5,51 +5,12 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the predictable list, out of c_baseentity.cpp =====//
-//
-// The client's list of predicted and client-created entities: the concrete
-// CPredictableList behind game/shared/predictable_entity.h's IPredictableList
-// interface and its `predictables` pointer.
-//
-// WHY IT NEEDED A HEADER AT ALL. The interface and the pointer have always been
-// in predictable_entity.h, but the CONCRETE class, its four method bodies and
-// the g_Predictables instance were all inside game/client/c_baseentity.cpp with
-// no header anywhere -- every user was in that one translation unit, so a
-// declaration was never needed.
-//
-// Step 6 splits them, and the split is not symmetric. Four call sites are
-// C_BaseEntity members (AddToPredictableList / RemoveFromPredictablesList,
-// c_baseentity.cpp:1157, :4380, :4399, :4788) and die with the class.
-// EntityRender_AddVisibleEntities walks the list once per frame from
-// cdll_client_int.cpp:2305, which SURVIVES step 6 and compiles perfectly clean
-// armed -- so that function was evacuated to c_baseentity_statics.cpp, and it
-// took the list it walks with it.
-//
-// FOUND BY THE PROBE, NOT BY READING. Moving AddVisibleEntities on its own made
-// `predictables` a NEW link-only symbol: the reference used to be inside the
-// same translation unit as the definition, so it cancelled out and no
-// measurement could see it. src/evict_consumers named it on the very next run.
-// A cross-translation-unit reference to a symbol still inside the removal set is
-// the same defect one level down, and the only instrument that reports it is a
-// real link with the removal set evicted.
-//
-// THE ALIAS GUARD CAME WITH THE CLASS and is unchanged -- it is one of the 578,
-// it has simply moved file. C++ has no `friend class X;` for an alias; C++11's
-// class-key-less `friend X;` does take a typedef-name, which is the alias arm.
-//
-// CLIENT ONLY, and behind NO_ENTITY_PREDICTION exactly as it was in
-// c_baseentity.cpp.
-//
-//=============================================================================//
+// The concrete CPredictableList behind predictable_entity.h's IPredictableList.
 #pragma once
 
 #include "predictable_entity.h"
 
-#if !defined( NO_ENTITY_PREDICTION )
-
-//-----------------------------------------------------------------------------
-// Purpose: Maintains a list of predicted or client created entities
-//-----------------------------------------------------------------------------
+// Maintains a list of predicted or client-created entities.
 class CPredictableList : public IPredictableList
 {
 public:
@@ -72,10 +33,5 @@ private:
 	#endif
 };
 
-// The singleton. Defined in c_baseentity_statics.cpp, next to the four method
-// bodies and to EntityRender_AddVisibleEntities, which is the only reader of it
-// that survives step 6. It was `static` while every user was in one translation
-// unit; it is not any more, because they are in two.
+// Defined in c_baseentity_statics.cpp.
 extern CPredictableList g_Predictables;
-
-#endif // !NO_ENTITY_PREDICTION

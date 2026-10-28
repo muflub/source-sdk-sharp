@@ -355,9 +355,6 @@ inline T const& CUtlLinkedList<T,S,ML,I,M>::operator[]( I i ) const
 template <class T, class S, bool ML, class I, class M>
 inline int CUtlLinkedList<T,S,ML,I,M>::Count() const      
 { 
-#ifdef MULTILIST_PEDANTIC_ASSERTS
-	AssertMsg( !ML, "CUtlLinkedList::Count() is meaningless for linked lists." );
-#endif
 	return m_ElementCount; 
 }
 
@@ -506,9 +503,6 @@ template <class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist )
 {
 	Assert( !multilist || ML );
-#ifdef MULTILIST_PEDANTIC_ASSERTS
-	Assert( multilist == ML );
-#endif
 	I elem;
 	if ( m_FirstFree == InvalidIndex() )
 	{

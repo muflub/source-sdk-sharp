@@ -4,28 +4,15 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — Ray_t and trace_t as managed reads them ===============//
-//
-// plan_server_native_v2 T4f. Managed traces through IEngineTrace::TraceRay's
-// forwarder, so it builds the Ray_t the engine reads and reads the trace_t the
-// engine writes (SourceSharp.Abi's EngineRay and EngineGameTrace). Their
-// layouts are Valve's (public/cmodel.h, public/trace.h, public/gametrace.h);
-// this table is where both sides agree on them. The static_asserts below hold
-// the C++ structs to it in every TU that includes this header
-// (fwd_trace_filter.cpp, trace_layout_test.cpp), and TraceLayoutParityTests
-// holds the C# mirrors to the same rows, so a field that moves fails both.
-//
-// Columns: field, offset, size. x64 only, as every layout managed mirrors is.
-//=============================================================================//
+// Ray_t and CGameTrace offsets as managed mirrors them (x64 only).
+// Columns: field, offset, size. The managed EngineRay and EngineGameTrace read the same rows.
 #pragma once
 
 #include <stddef.h>
 #include "cmodel.h"
 #include "gametrace.h"
 
-// Ray_t: four VectorAligned (16 bytes each, the fourth float unused) and two
-// bools; the struct is 16-aligned, so 80 bytes, and the engine's SIMD loads
-// need a 16-aligned address.
+// Ray_t is 16-aligned for the engine's SIMD loads; the fourth float of each vector is unused.
 #define SOURCESHARP_RAY_LAYOUT( F )      \
     F( m_Start,        0, 16 )           \
     F( m_Delta,       16, 16 )           \
@@ -37,9 +24,7 @@
 #define SOURCESHARP_RAY_SIZEOF   80
 #define SOURCESHARP_RAY_ALIGNOF  16
 
-// CGameTrace (CBaseTrace's fields first). plane is cplane_t (normal, dist,
-// type, signbits, two bytes of pad); surface is csurface_t (name, surfaceProps,
-// flags), eight-aligned for its pointer.
+// CGameTrace, CBaseTrace's fields first. surface is eight-aligned for its name pointer.
 #define SOURCESHARP_GAMETRACE_LAYOUT( F )  \
     F( startpos,            0, 12 )        \
     F( endpos,             12, 12 )        \

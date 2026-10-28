@@ -45,11 +45,4 @@ public:
 
 #define VENGINE_VGUI_VERSION		"VEngineVGui002"
 
-#if defined(_STATIC_LINKED)
-namespace Client
-{
 extern IEngineVGui *enginevgui;
-}
-#else
-extern IEngineVGui *enginevgui;
-#endif

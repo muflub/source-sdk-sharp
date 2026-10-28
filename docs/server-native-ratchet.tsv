@@ -1,18 +1,17 @@
 # docs/server-native-ratchet.tsv -- per-file not-native code lines
 # (MOVE+DELETE+FOLD+DEBUG) from docs/plans/server_native_audit.tsv,
 # maintained by tools/server-native-scope --write; reviewed in the diff.
-src/shared/native/alloc_check.cpp	510
 src/server/native/exit_watch.cpp	22
 src/server/native/precache_model.cpp	25
 src/server/native/server_util_library.cpp	13
 src/server/native/shell_absent.cpp	12
 src/server/native/shell_clientsteps.cpp	16
 src/server/native/shell_commandclient.cpp	11
-src/server/native/shell_debugoverlays.cpp	60
+src/server/native/shell_debugoverlays.cpp	56
 src/server/native/shell_debugoverlays_debug.cpp	6
 src/server/native/shell_dispatch.cpp	24
 src/server/native/shell_engineboundary_debug.cpp	44
-src/server/native/shell_entityapi.cpp	310
+src/server/native/shell_entityapi.cpp	308
 src/server/native/shell_entityslots_debug.cpp	9
 src/server/native/shell_factory.cpp	8
 src/server/native/shell_gameclients.cpp	52
@@ -52,7 +51,8 @@ src/server/native/ss_recipient_filter.cpp	17
 src/server/native/standalone_relays.cpp	13
 src/server/native/world_adapter.cpp	31
 src/server/native/world_adapter_debug.cpp	10
-src/shared/native/dt_send.cpp	148
+src/shared/native/alloc_check.cpp	510
+src/shared/native/dt_send.cpp	134
 src/shared/native/entity_shared_statics.cpp	8
 src/shared/native/gamestringpool.cpp	8
 src/shared/native/gamestringpool_debug.cpp	16

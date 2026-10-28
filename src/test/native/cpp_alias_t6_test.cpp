@@ -628,7 +628,7 @@ const FileGuards_t kT6Files[] = {
 	// The region was SourceSharp_OnRespawn's `pEntity->entindex()` arm around
 	// the managed OnRespawn call. Its armed side was empty, so what the
 	// deletion leaves is the answer the guard was already selecting.
-	{ "sourcesharp/game/shared/sourcesharp_gamesystem.cpp",  0, "SourceSharp_ClientEarlyInit" },
+	{ "sourcesharp/game/shared/sourcesharp_gamesystem.cpp",  0, "SourceSharp_FatalInitFailure" },
 };
 const size_t kT6FileCount = sizeof( kT6Files ) / sizeof( kT6Files[ 0 ] );
 

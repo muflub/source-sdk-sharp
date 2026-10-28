@@ -10,31 +10,15 @@
 
 // S_API defines the linkage and calling conventions for steam_api.dll exports
 #if defined( _WIN32 )
-	#if defined( STEAM_API_EXPORTS )
-	#define S_API extern "C" __declspec( dllexport ) 
-	#elif defined( STEAM_API_NODLL )
-	#define S_API extern "C"
-	#else
 	#define S_API extern "C" __declspec( dllimport ) 
-	#endif // STEAM_API_EXPORTS
 #elif defined( __GNUC__ )
-	#if defined( STEAM_API_EXPORTS )
-	#define S_API extern "C" __attribute__ ((visibility("default"))) 
-	#else
 	#define S_API extern "C" 
-	#endif // STEAM_API_EXPORTS
 #else // !WIN32
-	#if defined( STEAM_API_EXPORTS )
-	#define S_API extern "C"  
-	#else
 	#define S_API extern "C" 
-	#endif // STEAM_API_EXPORTS
 #endif
 
 #if ( defined(STEAM_API_EXPORTS) || defined(STEAM_API_NODLL) ) && !defined(API_GEN)
 #define STEAM_PRIVATE_API( ... ) __VA_ARGS__
-#elif defined(STEAM_API_EXPORTS) && defined(API_GEN)
-#define STEAM_PRIVATE_API( ... )
 #endif
 
 // handle to single instance of a steam user
@@ -51,9 +35,6 @@ typedef int32 HSteamUser;
 // function prototype
 extern "C" ;
 extern "C" ;
-#if defined( __SNC__ )
-	#pragma diag_suppress=1700	   // warning 1700: class "%s" has virtual functions but non-virtual destructor
-#endif
 
 //	steam callback and call-result helpers
 //	The following macros and classes are used to register your application for

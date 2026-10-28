@@ -5,14 +5,7 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — shell_tempents.cpp's state, for its debug file =====//
-//
-// Read-only accessors over what shell_tempents.cpp owns, for
-// shell_tempents_debug.cpp's cs_sv_te_dump. The built tables stay file-static
-// there; these are functions, not globals, so ownership does
-// not move and nothing outside the two files is offered a way to write them.
-//
-//=============================================================================//
+// Read-only accessors over shell_tempents.cpp's built tables, for its debug file.
 #pragma once
 
 class SendTable;

@@ -4,15 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier2's names, over our own code
-//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// plan_client_novalve C9: the names client.so's objects import from tier2.a,
-// each forwarding to ours, so the archive leaves the link. Kept apart from
-// the implementations so the oracles can link the archive's objects beside
-// those (meshutils_oracle_test).
-//=============================================================================//
+// The names client.so's objects import from tier2.a, each forwarding to ours.
+// Kept apart from the implementations so oracle tests can link the archive's
+// objects beside those.
 
 #include "mesh_index_client.h"
 

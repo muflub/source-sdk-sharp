@@ -1,26 +1,10 @@
-//========= SourceSharp — C++20 library facilities, for a C++17 tree ==========//
+// C++20 library facilities for a C++17 tree, under `ss::` with C++20's exact contract.
+// Under C++20 each name is the standard one, so `ss::` can later become `std::`.
 //
-// Every target builds as C++17. Where a C++20 library facility says a thing
-// better than the C++17 spelling of it, the facility is here under `ss::`, with
-// C++20's exact contract, so code can be written the way it will read once the
-// tree moves up. Under C++20 each name IS the standard one (a using-
-// declaration), so moving up changes no behaviour and the shim can be deleted
-// by rewriting `ss::` to `std::`.
-//
-// Not added to `std`: adding declarations there is undefined behaviour.
-//
-// What is here, and the contract each keeps (C++20 [container.erasure]):
-//
-//   ss::erase( c, value )     removes EVERY element equal to value
+//   ss::erase( c, value )     removes every element equal to value
 //   ss::erase_if( c, pred )   removes every element pred accepts
 //
-// for std::vector, std::deque, std::basic_string and std::list (order of the
-// survivors kept), and ss::erase_if for the ordered and unordered maps and sets.
-// Each returns how many elements it removed. ss_cpp20_test holds these to that
-// contract under C++17, and compiles the same facts again under C++20, where
-// the names are std's.
-//
-//=============================================================================//
+// Both return how many elements they removed.
 
 #pragma once
 

@@ -1,6 +1,4 @@
-//========= SourceSharp — ss_command_line.h ===================================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//=============================================================================//
 
 #include "ss_command_line.h"
 #include "ss_platform.h"
@@ -12,7 +10,7 @@
 
 #if defined( _WIN32 )
 	#include <shellapi.h>
-#elif !defined( __APPLE__ )
+#else
 	#include <fcntl.h>
 #endif
 
@@ -43,14 +41,6 @@ std::string ReadCmdline()
 			args += arg;   // n counts the terminator, so the NUL comes with it
 		}
 		::LocalFree( ppArgs );
-	}
-#elif defined( __APPLE__ )
-	const int nArgs = *_NSGetArgc();
-	char **ppArgs = *_NSGetArgv();
-	for ( int i = 0; ppArgs && i < nArgs; ++i )
-	{
-		args += ppArgs[ i ] ? ppArgs[ i ] : "";
-		args += '\0';
 	}
 #else
 	const int fd = open( "/proc/self/cmdline", O_RDONLY | O_CLOEXEC );

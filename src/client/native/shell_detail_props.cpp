@@ -5,36 +5,11 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the detail props' executor ==========================//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve.md C7 cluster 10. Everything the detail props DECIDE is
-// in C# (SourceSharp.Client.Detail's DetailPropSystem, held to stock by
-// DetailPropsOracleTests): the detail lump's parse, the fades, the screen
-// alignment, the back-to-front sorts, every sprite quad, the batches, the
-// model props' colour and the material's name. What is left here is what
-// managed code cannot hold, and each piece carries out an answer:
-//
-//   * the model props' renderables. The leaf system hands them to the
-//     renderer (GetDetailModel), which calls their IClientRenderable
-//     virtuals; their alpha, angles and colour are managed's (BuildLists'
-//     states and the sorts' alphas).
-//   * the leaf system's tables: SetDetailObjectsInLeaf and a marker in
-//     CLSUBSYSTEM_DETAILOBJECTS for a leaf with fast sprites, from the level's
-//     runs; and each view's DrawDetailObjectsInLeaf marks, made by the
-//     engine's BSP query over the sphere managed names.
-//   * the materials (CMaterialReference), the render context and the mesh:
-//     a draw is managed's Prepare (the material, or no draw), then the render
-//     context up to GetMaxToRender, then managed's Emit carried out vertex by
-//     vertex (detail_props_wire.h reads every answer).
-//
-// IManagedDetailPropsClient is the managed half; with no managed load (before
-// the first, inside a cs_cl_reload) the system draws and builds nothing, as a
-// level without detail props would.
-//
-// game/client/detailobjectsystem.cpp, which this replaces, left client.so in
-// the same commit (docs/client_evictions.md).
-//=============================================================================
+// The detail props' executor. Every decision (parse, fades, sorts, quads, batches) is
+// managed's; this holds the model props' renderables, the leaf system's tables, and the
+// materials, render context and mesh that carry out managed's draws. With no managed load
+// nothing is drawn, as for a level without detail props.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,10 +68,6 @@
 #include "shell_world_nettable_client.h"
 #include "detail_props_wire.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-// viewrender's, kept native with the render plan's other inputs
-// (shell_viewrender_client.cpp).
 extern ConVar r_DrawDetailProps;
 
 namespace
@@ -105,9 +76,7 @@ namespace
 const char *const kSpriteMaterial = "detail/detailsprites";
 const char *const kWireframeMaterial = "debug/debugspritewireframe";
 
-//-----------------------------------------------------------------------------
 // A model prop, as the renderer reads it. Its state is managed's.
-//-----------------------------------------------------------------------------
 class CShellDetailModel : public IClientUnknown, public IClientRenderable
 {
 public:
@@ -256,23 +225,17 @@ private:
 	matrix3x4_t m_Transform;
 };
 
-// What the leaf system holds for a leaf with fast sprites: a marker, which
-// ShouldDrawDetailObjectsInLeaf tests and the leaf system deletes at its
-// shutdown. The sprites are managed's.
+// The marker the leaf system holds for a leaf with fast sprites; it deletes it at shutdown.
 class CShellDetailLeafMarker : public CClientLeafSubSystemData
 {
 };
 
-//-----------------------------------------------------------------------------
-// The client system, which the leaf system, the view executor and
-// kClientSystems[] reach as DetailObjectSystem().
-//-----------------------------------------------------------------------------
+// Reached as DetailObjectSystem() by the leaf system, the view executor and kClientSystems[].
 class CShellDetailProps : public IDetailObjectSystem, public ISpatialLeafEnumerator
 {
 public:
 	virtual char const *Name() OVERRIDE { return "DetailObjectSystem"; }
 
-	// IGameSystem's stages stock's detail props had no body for.
 	virtual void PostInit() OVERRIDE {}
 	virtual void Shutdown() OVERRIDE {}
 	virtual void OnSave() OVERRIDE {}
@@ -386,8 +349,7 @@ public:
 		Draw( kOldInLeaf, viewOrigin, viewForward, viewRight, viewUp, &leaf, 1, pVecClosestPoint );
 	}
 
-	// ISpatialLeafEnumerator: a leaf in the view's sphere, marked, and the
-	// managed states of its model props applied.
+	// A leaf in the view's sphere: marked, and its model props' managed states applied.
 	virtual bool EnumerateLeaf( int leaf, intp context ) OVERRIDE
 	{
 		int nFirst, nCount;
@@ -407,9 +369,6 @@ public:
 		return true;
 	}
 
-	//-------------------------------------------------------------------------
-	// detail_props_wire.h's handlers
-	//-------------------------------------------------------------------------
 	void Precache( bool b ) { m_bPrecache = b; }
 
 	void Object( int i, void *pModel, const float *pOrigin, const float *pAngles )
@@ -470,9 +429,8 @@ public:
 private:
 	enum { kFastList = 0, kOldList = 1, kFastInLeaf = 2, kOldInLeaf = 3 };
 
-	// One of stock's four translucent draws: managed's Prepare, the render
-	// context to GetMaxToRender, managed's Emit carried out. A mesh with no
-	// room ends the draw with the matrix still pushed, as stock's return did.
+	// One of stock's four translucent draws. A mesh with no room ends the draw with the
+	// matrix still pushed, as stock's return did.
 	void Draw( int nKind, const Vector &viewOrigin, const Vector &viewForward, const Vector &viewRight, const Vector &viewUp,
 	           const int32_t *pLeaves, int nLeaves, const Vector *pClosest )
 	{

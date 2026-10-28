@@ -170,12 +170,12 @@ TEST( PhysicsMoveScope, TheFileIsStillTheSizeTheScopeWasTakenOn )
 	// the file has changed, the rulings have not been re-derived and the
 	// document is a historical record rather than a plan.
 	const int nLines = CountLines( ReadRel( kPhysics ) );
-	EXPECT_EQ( 474, nLines )
+	EXPECT_EQ( 229, nLines )
 		<< "game/server/physics.cpp is now " << nLines << " lines, not the "
-		   "474 docs/physics-move-scope.md was measured on. RE-MEASURE the "
+		   "229 docs/physics-move-scope.md was measured on. RE-MEASURE the "
 		   "scope (tools/physics-scope/fnmap, then tools/physics-scope/classify)"
 		   " and update the document's section 1 and its totals table; do not "
-		   "just edit the number. It was 534 until the shadow list's refusal went (plan_server_native_v2 T6), 542 until the physics frame's forward went with kServerSystems[] (plan_server_native_v2 T4e), 547 until the dead gamesound.h include went, and 4,291 until plan_shim.md \u00a78's "
+		   "just edit the number. It was 474 until the comments were cut (2026-10-26), 534 until the shadow list's refusal went (plan_server_native_v2 T6), 542 until the physics frame's forward went with kServerSystems[] (plan_server_native_v2 T4e), 547 until the dead gamesound.h include went, and 4,291 until plan_shim.md \u00a78's "
 		   "reason-letter marker added one COMMENT line, and 4,292 until lane "
 		   "g-vdisp's virtual-mesh skip added 18 lines to one INSTRUMENT "
 		   "function, and 4,310 until the attribution header replaced the "
@@ -220,7 +220,7 @@ TEST( PhysicsMoveScope, TheFileIsStillTheSizeTheScopeWasTakenOn )
 		   "thirty-eight re-runs are "
 		   "recorded "
 		   "in the document's section 1.";
-	EXPECT_NE( Doc().find( "474 raw / 162 code" ), std::string::npos )
+	EXPECT_NE( Doc().find( "229 raw / 161 code" ), std::string::npos )
 		<< "the document no longer states the line split it was measured on";
 }
 

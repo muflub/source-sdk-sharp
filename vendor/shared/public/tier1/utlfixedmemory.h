@@ -12,11 +12,6 @@
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
 
-#ifdef UTLFIXEDMEMORY_TRACK
-#define UTLFIXEDMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#define UTLFIXEDMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#endif
-
 // The CUtlFixedMemory class:
 // A growable memory class that allocates non-sequential blocks, but is indexed sequentially
 template< class T >

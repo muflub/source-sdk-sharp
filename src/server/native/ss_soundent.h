@@ -4,18 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the world's sound-hint list, as server.so reaches it
-//
-// plan_server_novalve.md P5. game/server/soundent.h's CSoundEnt is a class
-// server.so never constructs: its pool is `SoundEnt` in SourceSharp.Server, and
-// all that is left native are the statics the tree spells (shell_soundent.cpp).
-// No engine reads any of it, so per the plan's naming rule the server's own
-// entry points live in namespace ss, on public/ headers alone, and a TU on the
-// R5 include set calls these instead of CSoundEnt::.
-//
-// shell_soundent.cpp defines them. CSoundEnt's statics forward here until their
-// last legacy caller has switched; then they, and soundent.h, leave server.so.
-//=============================================================================//
+
+// The server's entry points to the managed sound-hint pool (SoundEnt), defined in
+// shell_soundent.cpp.
 
 #pragma once
 

@@ -50,8 +50,7 @@
 //
 //=============================================================================
 
-#ifndef SS_SHADOWMGR_HARNESS_H
-#define SS_SHADOWMGR_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -531,5 +530,3 @@ template < typename... Args > inline void ParallelProcess( const char *, Args &&
 // The pristine game-system interface and the shadow manager's own.
 #include "igamesystem.h"
 #include "iclientshadowmgr.h"
-
-#endif // SS_SHADOWMGR_HARNESS_H

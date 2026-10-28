@@ -34,9 +34,6 @@ public:
 	const Vector &Normal( int iVertex ) const;
 	void Normal( int iVertex, Vector &vNormal ) const;
 
-#ifdef NEW_SKINNING
-	float* BoneMatrix( int iVertex ) const;
-#endif
 };
 
 // CBaseMeshReader implementation.

@@ -4,30 +4,11 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client soundscape system's native half =========//
 // SS_REASON a  a vtable the engine calls through
-//
-// Sound cluster 17 (plan_client_novalve C2, lane c2-sims). Stock's
-// C_SoundscapeSystem (game/client/c_soundscape.cpp, then
-// shell_soundscape_client.cpp) is C#: SourceSharp.Client's ClientSoundscapes
-// walks the scripts, keeps the loops and the random one-shots, crossfades,
-// and takes the server's pushes, held bit for bit to the stock system by
-// SoundscapeOracleTests (soundscape-stock.tsv).
-//
-// What is here:
-//
-//   C_SoundscapeSystem, a CClientSystemPerFrame in the client-systems walk at
-//     the slot the stock system held, so its level init, its once-a-frame
-//     Update (frametime from the walk) and its level shutdown run exactly when
-//     stock's did. Each forwards to IManagedSoundscapesClient and decides
-//     nothing. The level init matters most: the server's first push arrives
-//     inside ClientActive, before the managed module's own level init, so the
-//     scripts must be loaded here, at LevelInitPreEntity, as stock loaded them.
-//
-//   IShimSoundscapeClient's bodies, the executors: an ambient emit, a world
-//     emit on CHAN_STATIC to the local player, a stop, the two DSP calls, the
-//     main view, and the -makereslists touch. Each is one stock call.
-//=============================================================================//
+// The client soundscape system's native half; the system itself is managed.
+// C_SoundscapeSystem holds the stock system's slot in the client-systems walk so
+// its stages run when stock's did. Scripts must load at LevelInitPreEntity: the
+// server's first push arrives inside ClientActive, before managed level init.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,8 +38,6 @@
 #include "shell_clientsystem.h"
 #include "sourcesharp_entrypoints.h"
 #include "ss_command_line.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
 
 namespace
 {
@@ -98,10 +77,6 @@ CClientSystem *ClientSoundscapeSystem()
 	return &s_System;
 }
 
-//-----------------------------------------------------------------------------
-// The executors.
-//-----------------------------------------------------------------------------
-
 void SourceSharp_SoundscapeSetRoomType( int32_t nRoomType )
 {
 	CLocalPlayerFilter filter;
@@ -114,9 +89,6 @@ void SourceSharp_SoundscapeSetPlayerDsp( int32_t nDspType )
 	enginesound->SetPlayerDSP( filter, nDspType, false );
 }
 
-// MainView*, not CurrentView*: the latter asserts it is inside the render
-// pass, and the soundscape runs from a client system's Update and from console
-// commands (the old shell_soundscape_client.cpp's header has the crash).
 void SourceSharp_SoundscapeMainView( float *pOut9 )
 {
 	if ( !pOut9 )

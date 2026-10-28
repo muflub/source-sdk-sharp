@@ -25,31 +25,9 @@
 
 namespace IntrusiveList
 {
-#ifdef SUPERSLOW_DEBUG_VERSION                              
-	template<class T> inline void ValidateDList(T *head)
-	{                                                           
-		if (head)
-		{
-			Assert(head->m_pPrev==0);
-		}
-		while(head)
-		{
-			if (head->m_pNext)
-			{
-				Assert(head->m_pNext->m_pPrev==head);
-			}
-			if (head->m_pPrev)
-			{
-				Assert(head->m_pPrev->m_pNext==head);
-			}
-			head=head->m_pNext;
-		}
-	}
-#else
 	template<class T> inline void ValidateDList(T * /*head*/)
 	{
 	}
-#endif
 
 	// removes node 'which' from doubly linked list with 'head'
 	template<class T> inline void RemoveFromDList(T * &head, T *which)
@@ -301,12 +279,7 @@ namespace IntrusiveList
 		while( head )
 		{
 			T *pNext=head->m_pNext;
-#ifdef INTERVIEW_QUESTION
-			head->m_pNext=pNewHead;
-			pNewHead = head;
-#else
 			AddToHead( pNewHead, head );
-#endif
 			head = pNext;
 		}
 		return pNewHead;

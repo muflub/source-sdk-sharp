@@ -4,38 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp -- the legacy tempents, as a thunk ===================//
 // SS_REASON a  a vtable the engine calls through
-//
-// c_te_legacytempents.cpp left client.so (plan_client_novalve C2, lane c2-fx,
-// cluster 4). What it decided is C#'s, each part replayed against what the
-// stock TU did, recorded through its probe copy (tempents-*-stock.tsv):
-//
-//   C_LocalTempEntity's render choices   TempEntRender (TempEntRenderTests)
-//   the breakmodel lighting groups        TempEntBreakGroups (same)
-//   the muzzle flashes                    MuzzleFlashes (MuzzleFlashTests)
-//   PlaySound                             TempEntSounds (TempEntSoundTests)
-//   AttachTentToPlayer                    TempEntAttachments (TempEntAttachTests)
-//   EjectBrass's gate and model, and the level's model list   ClientTempEntDecisions
-//
-// The pool, the lifetimes, the frame and the spawn helpers moved before this
-// (ClientTempEntPool, ClientTempEntFrame, TempEntSpawns). What is left here is
-// what the engine and the leaf system hold a pointer to: the one CTempEnts the
-// `tempents` global names (ITempEnts' vtable, every slot of which carries a
-// call to managed or has no caller in this mod), and C_LocalTempEntity's
-// renderable members, which read the tempent's own state and carry out the
-// answer managed gave. Nothing here decides.
-//
-// THE ITempEnts SLOTS WITH NO CALLER. A runtime survey of the stock TU (every
-// function's entry counted over a session, lane c2-fx) and a search of the SDK
-// found nothing that calls BloodSprite, RicochetSprite, BreakModel, Bubbles,
-// BubbleTrail, Sprite_Explode, FizzEffect, DefaultSprite, Sprite_Smoke,
-// TempSprite, KillAttachedTents, Sprite_Spray or SpawnTempModel through this
-// object: the managed temp entities spawn through TempEntSpawns and the pool,
-// and Sprite_Explode, Sprite_Smoke, Sprite_Trail, RicochetSprite, RocketFlare
-// and DefaultSprite have no caller anywhere in the SDK. Each says so once if
-// that changes, rather than doing what stock did natively.
-//=============================================================================//
+// The `tempents` object the engine and leaf system hold a pointer to, and
+// C_LocalTempEntity's renderable members; managed code decides everything they
+// carry out. ITempEnts slots nothing in this mod calls warn once if called.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,8 +53,6 @@
 #include "imanaged_areas_client.h"
 #include "shell_renderable.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 // The pool's seam (shell_te_pool_client.cpp).
 void SourceSharpTePool_Update( float flFrameTime );
 void SourceSharpTePool_Clear( void );
@@ -112,9 +82,6 @@ ITempEnts *tempents = ( ITempEnts * )&g_TempEnts;
 
 static void PutVector( float *p, const Vector &v ) { p[0] = v.x; p[1] = v.y; p[2] = v.z; }
 
-//=============================================================================//
-// C_LocalTempEntity: the renderable.
-//=============================================================================//
 C_LocalTempEntity::C_LocalTempEntity()
 {
 #ifdef _DEBUG
@@ -126,8 +93,8 @@ C_LocalTempEntity::C_LocalTempEntity()
 	m_vecTempEntAcceleration.Init();
 	m_pfnDrawHelper = 0;
 
-	// The block arrives zeroed (the pool's AllocZero); these are the values a
-	// zero is wrong for. m_nFXComputeFrame: zero is a real frame number.
+	// The block arrives zeroed; these are the values zero is wrong for.
+	// m_nFXComputeFrame: zero is a real frame number.
 	index             = -1;
 	m_pModel          = NULL;
 	m_nRenderMode     = kRenderNormal;
@@ -137,12 +104,8 @@ C_LocalTempEntity::C_LocalTempEntity()
 	m_nFXComputeFrame = -1;
 }
 
-// SetTempEntOwner( IGameEntity * ) is not defined here any more (C8): no
-// object on the link line calls it; the pool sets the owner by handle
-// (SetTempEntOwnerHandle), so game_entity_relays.h has no site in this file.
-
-// The tempent's place and model, reset for recycled memory; every other field
-// is the managed spawn record's, written whole straight after this.
+// Resets place and model for recycled memory; the managed spawn record writes
+// every other field straight after.
 void C_LocalTempEntity::Prepare( const model_t *pmodel, float time )
 {
 	index = -1;
@@ -161,8 +124,7 @@ void C_LocalTempEntity::SetAcceleration( const Vector &vecVelocity )
 	m_vecTempEntAcceleration = vecVelocity;
 }
 
-// The vtable keeps these two; the lifetime and the frame are the managed
-// pool's (ClientTempEntPool, ClientTempEntFrame), and nothing calls them.
+// Kept for the vtable; the managed pool owns lifetime and frame.
 bool C_LocalTempEntity::IsActive( void )
 {
 	return true;
@@ -173,8 +135,7 @@ bool C_LocalTempEntity::Frame( float frametime, int framenumber )
 	return true;
 }
 
-// The breakmodel groups are the managed pool's (TempEntBreakGroups): a slot
-// leaves its group when the pool frees it.
+// The managed pool removes a slot from its breakmodel group when it frees it.
 void C_LocalTempEntity::OnRemoveTempEntity()
 {
 }
@@ -211,9 +172,8 @@ RenderGroup_t C_LocalTempEntity::GetRenderGroup()
 	if ( !pFx )
 		return RENDER_GROUP_OPAQUE_ENTITY;
 
-	// The blend this frame, through GetFxBlend's frame protection bypassed, as
-	// stock reads it: this is asked from the leaf-system add, before anything
-	// has computed a blend this frame.
+	// The blend this frame, bypassing GetFxBlend's frame protection as stock does:
+	// this is asked from the leaf-system add, before any blend is computed.
 	int nBlend = 255;
 	if ( m_nRenderMode != kRenderNone )
 	{
@@ -282,7 +242,7 @@ int C_LocalTempEntity::DrawModel( int modelFlags )
 	if ( !GetModel() || GetRenderMode() == kRenderNone )
 		return 0;
 
-	// The occlusion fade (FTENT_BEOCCLUDED): managed's answer for the alpha.
+	// The occlusion fade (FTENT_BEOCCLUDED): managed code answers the alpha.
 	if ( this->flags & FTENT_BEOCCLUDED )
 	{
 		if ( IManagedFxClient *pFx = ManagedFxClient() )
@@ -298,8 +258,8 @@ int C_LocalTempEntity::DrawModel( int modelFlags )
 	switch ( modelinfo->GetModelType( GetModel() ) )
 	{
 	case mod_sprite:
-		// NULL entity: a de-entified tempent has no IClientEntity to bind the
-		// material proxies to, and NULL is the answer they treat as "not an entity".
+		// NULL entity: a tempent has no IClientEntity for the material proxies, and
+		// they treat NULL as "not an entity".
 		return DrawSprite( NULL, GetModel(), GetAbsOrigin(), GetAbsAngles(), m_flFrame, NULL, m_nSkin,
 		                   GetRenderMode(), m_nRenderFX, m_clrRender.a, m_clrRender.r, m_clrRender.g,
 		                   m_clrRender.b, m_flSpriteScale );
@@ -310,17 +270,10 @@ int C_LocalTempEntity::DrawModel( int modelFlags )
 	}
 }
 
-//=============================================================================//
-// CShellRenderable::SetupBones -- see shell_renderable.h. The engine's studio
-// draw asks this before it skins the model; every slot it may read is written.
-//
-// THE POSE IS MANAGED (plan physics_bones_native_zero 1.2, client half): a
-// thunk into IManagedBonesClient::PoseModel, which builds stock's tempent pose
-// -- sequence 0, cycle 0, pose parameters it never set (zero), the client's
-// IK rule -- and writes the render transform into every slot the build did
-// not. With no managed side, or a model that is not studio, every slot is the
-// render transform here.
-//=============================================================================//
+// The engine's studio draw asks this before it skins the model. Managed code
+// builds stock's tempent pose (sequence 0, cycle 0, zero pose parameters) and
+// writes the render transform into every slot the build did not; with no
+// managed side, or a non-studio model, every slot is the render transform.
 bool CShellRenderable::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask,
                                    float currentTime )
 {
@@ -350,10 +303,7 @@ bool CShellRenderable::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, 
 	return true;
 }
 
-//=============================================================================//
-// The breakmodel draw: the lighting origin is the group head's, as managed
-// answers it (TempEntBreakGroups).
-//=============================================================================//
+// The breakmodel draw, lit from the group head's origin as managed code answers it.
 static int BreakModelDrawHelper( C_LocalTempEntity *entity, int flags )
 {
 	ModelRenderInfo_t sInfo;
@@ -378,16 +328,12 @@ static int BreakModelDrawHelper( C_LocalTempEntity *entity, int flags )
 	return modelrender->DrawModelEx( sInfo );
 }
 
-// The draw path a breakmodel takes; its group is the managed pool's.
 void SourceSharpTePool_JoinBreakGroup( C_LocalTempEntity *pTemp, bool bSlave )
 {
 	if ( pTemp )
 		pTemp->SetDrawHelper( BreakModelDrawHelper );
 }
 
-//=============================================================================//
-// CTempEnts: ITempEnts' vtable.
-//=============================================================================//
 CTempEnts::CTempEnts( void ) :
 	m_TempEntsPool( ( MAX_TEMP_ENTITIES / 20 ), CUtlMemoryPool::GROW_SLOW )
 {
@@ -487,23 +433,7 @@ void CTempEnts::AttachTentToPlayer( int client, int modelIndex, float zoffset, f
 		pFx->TempEntAttach( client, modelIndex, zoffset, life, gpGlobals->maxClients );
 }
 
-// The slots nothing in this mod calls (see the banner). Said once each.
-//
-// WHERE EACH ONE'S BEHAVIOUR IS, so a stub is never the only copy:
-//   BloodSprite, BreakModel, Bubbles, BubbleTrail, FizzEffect, TempSprite,
-//   Sprite_Spray, ClientProjectile   the managed te players (ClientTe*) call
-//                                    TempEntSpawns' port of each
-//   KillAttachedTents                ClientTeKillPlayerAttachments -> ClientTempEntPool
-//   PlaySound                        ClientTempEntFrame -> TempEntSounds
-//   RicochetSprite, DefaultSprite, Sprite_Explode, Sprite_Smoke, Sprite_Trail,
-//   RocketFlare, SpawnTempModel      TempEntSpawns / ClientTempEntDecisions, held to
-//                                    stock by TempEntNoCallerArmsOracleTests;
-//                                    SpawnTempModel's caller, BoltImpact, is
-//                                    CrossbowBoltEffect
-//   HL1EjectBrass, CSEjectBrass      a no-op in stock hl2mp too (the model is set only
-//                                    under HL1_CLIENT_DLL / CSTRIKE_DLL / SDK_DLL)
-//   PhysicsProp (both)               refused here (clientside_prop_evicted_test); the managed
-//                                    CTEPhysicsProp player makes the prop (ClientPhysicsProps)
+// The slots nothing in this mod calls: each warns once.
 #define SS_TEMPENTS_NO_CALLER( name ) \
 	do { static bool s_bSaid = false; if ( !s_bSaid ) { s_bSaid = true; \
 		DevWarning( "[SourceSharp] CTempEnts::" name " was called; nothing in this mod calls it, and the " \

@@ -1,25 +1,11 @@
-//========= SourceSharp — the frame's skeletons, posed ahead =================//
-//
-// IManagedBonesClient::BoneBatch (plan_physics_bones_perf A2) answers the
-// address of this table once a frame, at the frame's first SetupBones ask:
-// managed has posed, at that ask's clock, every skeleton it expects the frame
-// to draw (the ones the last frame drew), and C_StandaloneEntity::SetupBones
-// copies an entry out instead of crossing. Managed decides everything --
-// which entities, under which mask, when an entry stops being good (it drops
-// an entry the moment it changes that entity's skeleton state). Native only
-// checks that an ask is the one the entry was posed for: the same frame and
-// clock, a mask inside the posed mask, and the same engine-block inputs the
-// pose read (model, view-model bit, networked and drawn place). Anything else
-// crosses, as every ask did before. Native counts each answered ask in the
-// entry, which is how managed knows the entity was drawn.
-//
-// MANAGED OWNS THE MEMORY and may move it between frames; native reads every
-// pointer through the header each ask and never keeps one past the frame.
-//
-// THE OFFSETS ARE THE CONTRACT. SourceSharp.Client's ClientBoneBatch declares
-// the same structs, and ClientBoneBatchTests reads the enum below to hold
-// every offset equal; the static_asserts hold this side.
-//=============================================================================//
+// The frame's skeletons, posed ahead by managed. At the frame's first SetupBones
+// ask, IManagedBonesClient::BoneBatch answers this table's address, and
+// C_StandaloneEntity::SetupBones copies an entry out instead of crossing. Native
+// only checks that an ask matches what the entry was posed for (frame, clock,
+// mask, engine-block inputs) and counts answered asks; anything else crosses.
+// Managed owns the memory and may move it between frames, so native reads every
+// pointer through the header and keeps none. The offsets are an ABI matching
+// SourceSharp.Client's ClientBoneBatch.
 
 #pragma once
 
@@ -102,8 +88,7 @@ static_assert( offsetof( SourceSharpBoneBatch_t, pEntries ) == SS_BONE_BATCH_HEA
 static_assert( offsetof( SourceSharpBoneBatch_t, pMatrices ) == SS_BONE_BATCH_HEADER_PMATRICES, "batch header layout" );
 static_assert( sizeof( SourceSharpBoneBatch_t ) == SS_BONE_BATCH_HEADER_SIZE, "batch header layout" );
 
-// The entry that answers an ask, or NULL. The checks are the entry's own
-// stamps against the ask; the function decides nothing the stamps did not.
+// The entry that answers an ask, or NULL.
 inline const SourceSharpBoneBatchEntry_t *SourceSharp_BoneBatchEntry(
 	const SourceSharpBoneBatch_t *pBatch, uint32_t hEntity, int32_t nBoneMask, float flCurrentTime,
 	int32_t nFrameCount, int32_t nModelIndex, int32_t nViewModel, const float *pOrigin, const float *pAngles,

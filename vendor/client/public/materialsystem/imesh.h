@@ -77,11 +77,7 @@ struct VertexDesc_t
 
 	float			*m_pBoneWeight;
 
-#ifndef NEW_SKINNING
 	unsigned char	*m_pBoneMatrixIndex;
-#else
-	float			*m_pBoneMatrixIndex;
-#endif
 
 	float			*m_pNormal;
 
@@ -105,10 +101,6 @@ struct VertexDesc_t
 	// from the start of the D3D buffer (will be 0 for static meshes)
 	unsigned int	m_nOffset;
 
-#ifdef DEBUG_WRITE_COMBINE
-	int m_nLastWrittenField;
-	unsigned char* m_pLastWrittenAddress;
-#endif
 };
 
 struct IndexDesc_t
@@ -174,8 +166,6 @@ inline int PackRGBToPlatformColor( int r, int g, int b, int a )
 {
 	#if defined( OPENGL_SWAP_COLORS )
 		int col = r | (g << 8) | (b << 16) | (a << 24);	// r, g, b, a in memory
-	#elif defined( CELL_GCM_SWAP_COLORS )
-		int col = ( r << 24 ) | ( g << 16 ) | ( b << 8 ) | a;
 	#else
 		int col = b | (g << 8) | (r << 16) | (a << 24);
 	#endif
@@ -371,11 +361,6 @@ public:
 	const float *Normal() const;
 
 	unsigned int Color() const;
-
-#ifndef NEW_SKINNING
-#else
-	float *BoneMatrix() const;
-#endif
 
 	// position setting
 	void Position3f( float x, float y, float z );
@@ -740,25 +725,6 @@ inline void CVertexBuilder::Reset()
 	m_bWrittenUserData = false;
 #endif
 
-#ifdef DEBUG_WRITE_COMBINE
-	// Logic for m_pLastWrittenAddress is tricky. It really wants the min of the
-	// non-null address pointers.
-	m_nLastWrittenField = MB_FIELD_NONE;
-	m_pLastWrittenAddress = NULL;
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pPosition, m_VertexSize_Position );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pBoneWeight, m_VertexSize_BoneWeight );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pBoneMatrixIndex, m_VertexSize_BoneMatrixIndex );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pNormal, m_VertexSize_Normal );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pColor, m_VertexSize_Color );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pSpecular, m_VertexSize_Specular );
-	for ( int i = 0; i < VERTEX_MAX_TEXTURE_COORDINATES; ++i )
-	{
-		m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pTexCoord[i], m_VertexSize_TexCoord[i] );
-	}
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pTangentS, m_VertexSize_TangentS );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pTangentT, m_VertexSize_TangentT );
-	m_pLastWrittenAddress =	FindMinAddress( m_pLastWrittenAddress, m_pUserData, m_VertexSize_UserData );
-#endif
 }
 
 // returns the number of vertices
@@ -1177,18 +1143,6 @@ inline unsigned int CVertexBuilder::Color() const
 	return color;
 }
 
-#ifndef NEW_SKINNING
-#else
-inline float* CVertexBuilder::BoneMatrix() const
-{
-	// FIXME: add a templatized accessor (return type varies to ensure calling code is updated appropriately)
-	//        for code that needs to access compressed data (and/or a return-by-value templatized accessor)
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE );
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
-	return m_pBoneMatrixIndex + m_nCurrentVertex * m_VertexSize_BoneMatrixIndex;
-}
-#endif
-
 // Position setting methods
 inline void	CVertexBuilder::Position3f( float x, float y, float z )
 {
@@ -1603,13 +1557,8 @@ inline void CVertexBuilder::BoneMatrix( int idx, int matrixIdx )
 	idx = sg_IndexSwap[idx];
 #endif
 	
-#ifndef NEW_SKINNING
 	unsigned char* pBoneMatrix = &m_pBoneMatrixIndex[m_nCurrentVertex * m_VertexSize_BoneMatrixIndex];
 	pBoneMatrix[idx] = (unsigned char)matrixIdx;
-#else
-	float* pBoneMatrix = &m_pBoneMatrixIndex[m_nCurrentVertex * m_VertexSize_BoneMatrixIndex];
-	pBoneMatrix[idx] = matrixIdx;
-#endif
 }
 
 // Templatized bone weight setting methods which support compressed vertices
@@ -2117,10 +2066,6 @@ public:
 
 	unsigned int Color() const;
 
-#ifndef NEW_SKINNING
-#else
-	float *BoneMatrix() const;
-#endif
 	unsigned short const *Index() const; 
 
 	// position setting

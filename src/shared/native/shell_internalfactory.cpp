@@ -5,37 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the shim layer's own CreateInterfaceFn =============//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_native_api.md Part 4a. The SOURCESHARP_FACTORY_INTERNAL arm of the one
-// acquisition entry point, and it has exactly the shape the engine's own
-// factories have: a version string in, a registered singleton out, NULL for a
-// name this side does not serve.
-//
-// NOT AN EXPORTED SYMBOL, and that is the ruling rather than an oversight. An
-// export would need dlsym, and nothing in this port opens a module to acquire
-// anything. The switch in shell_vtable_interfaces.cpp calls this directly;
-// managed reaches it through the same slot it reaches the engine's factories
-// through, with the kind as the first argument.
-//
-// PER SIDE AUTOMATICALLY, because each DLL compiles its own arms. There is no
-// registration list to keep in step and no side marker to get wrong: the server
-// serves what the server built, the client serves what the client built, and
-// asking the wrong side for a name gets the same "factory does not know that
-// interface" the engine's factories give.
-//
-// ANSWERABLE FROM DLL LOAD. The three engine kinds exist only from DLLInit/Init
-// onward, and the switch reports "factory not yet available" before that. This
-// one is exempt: the singletons are ours and they exist as soon as the DLL is
-// mapped, which is why the exemption is written into the switch rather than
-// hoped for here.
-//
-// NO COUNT COMES BACK WITH THE POINTER (plan_forwarders_everywhere.md):
-// managed calls an area through its forwarder table, whose header carries the
-// table's own slot count, and never through the area's vtable.
-//
-//=============================================================================//
+// The SOURCESHARP_FACTORY_INTERNAL factory: a version string in, this side's
+// singleton out, NULL for a name it does not serve. Not exported; managed reaches
+// it through the root. It answers from DLL load, before the engine factories exist.
 
 
 #include "sourcesharp.h"
@@ -44,19 +17,19 @@
 #include "ishim_root.h"
 #include "shell_shim_console.h"
 #include "shell_shim_areas.h"
-#include "ss_fwd.h"                   // SSFwd_Serve (plan_engine_forwarders.md)
+#include "ss_fwd.h"
 #include "imanaged_root.h"
 #include "managed_accept.h"
 #ifndef CLIENT_DLL
-#include "sourcesharp_gamesystem.h"   // IManagedRuntimeServer
-#include "shell_managed_areas.h"     // CManagedAreas (tools/managed-areas)
-#include "shell_shim_root_server.h"  // CShimRootServer, the game DLL's member (T6)
+#include "sourcesharp_gamesystem.h"
+#include "shell_managed_areas.h"
+#include "shell_shim_root_server.h"
 #else
-#include "shell_managed_areas_client.h"   // CManagedHoldersClient (plan_client_vtables CD)
-#include "particles_lib_client.h"         // ParticleLib_Acquire (plan_particles_so.md)
-#include "fwd_shadows.h"                  // SS_SHADOW_ENV_VERSION (C7 cluster 12 S2)
-void *ShadowEnv_Acquire();                // shell_shadows_client.cpp
-#include "ss_particles/iparticlelib.h"    // SS_PARTICLE_LIB_INTERFACE_VERSION
+#include "shell_managed_areas_client.h"
+#include "particles_lib_client.h"
+#include "fwd_shadows.h"
+void *ShadowEnv_Acquire();
+#include "ss_particles/iparticlelib.h"
 #endif
 
 #ifndef CLIENT_DLL
@@ -66,83 +39,57 @@ void *ShadowEnv_Acquire();                // shell_shadows_client.cpp
 
 
 #ifndef CLIENT_DLL
-// Defined in sourcesharp/game/server/shell_frame.cpp, beside the singleton
-// it hands back. Declared here rather than given a header whose only reader
-// would be this file -- the shape shell_frame.cpp uses for the stock
-// functions it reaches, and a drifted signature fails to link.
+// Defined in shell_frame.cpp.
 void *ShimFrame_Acquire();
 void *ShimLevel_Acquire();
 #endif
 
 #ifdef CLIENT_DLL
-// The client's shared bases (plan_client_vtables CB); defined beside the root.
+// Defined beside the root.
 CShimAreasClient &ShimClientAreasOfRoot();
 #endif
 
 #ifdef CLIENT_DLL
-//-----------------------------------------------------------------------------
-// The row set. One line per shim interface this side implements.
-//-----------------------------------------------------------------------------
 void *SourceSharp_InternalFactory( const char *pszName )
 {
 	if ( !pszName )
 		return NULL;
 
-	// plan_engineapi_vtables A4: a SHARED area. Both sides serve it since
-	// plan_client_vtables CA, where the client's LoadSideV2 acquires it.
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
 		return ShimConsole_Acquire();
 
-	// plan_engine_forwarders.md: the forwarder libraries' tables, by the name
-	// managed asks for (SSFwd_<table>). Both sides serve every table: a
-	// forwarder is handed the object it calls, so it belongs to neither side.
-	// The count is in the table's own header; managed holds it against its
-	// generated struct (Forwarders.TryBind).
+	// The forwarder libraries' tables, by the name managed asks for (SSFwd_<table>).
 	if ( void *pTable = SSFwd_Serve( pszName ) )
 		return pTable;
 
-
-	// plan_particles_so.md: libss_particles.so's ISSParticleLib, the object in
-	// the library itself (client.so's forwards call the same one).
+	// libss_particles.so's ISSParticleLib.
 	if ( !ss::StrICmp( pszName, SS_PARTICLE_LIB_INTERFACE_VERSION ) )
 		return ParticleLib_Acquire();
 
-	// C7 cluster 12 S2: the environment libss_fwd_client's ShadowNative table
-	// carries the managed shadow manager's calls out over
-	// (shell_shadows_client.cpp), handed to every Run.
+	// The environment the shadow forwarder table calls out over.
 	if ( !ss::StrICmp( pszName, SS_SHADOW_ENV_VERSION ) )
 		return ShadowEnv_Acquire();
 
-	// plan_client_vtables CB: the client's shared bases.
 	if ( void *pArea = ShimAreasClient_Acquire( ShimClientAreasOfRoot(), pszName ) )
 		return pArea;
 
-	// A name this side does not serve. Not an error, and reported as the same
-	// "factory does not know that interface" an engine factory's NULL gets:
-	// IShimFrame exists only on the server, because the client has no
-	// GameFrame to have steps of.
+	// A name this side does not serve, reported as an engine factory's NULL is.
 	return NULL;
 }
 #endif
 
 #ifndef CLIENT_DLL
-//-----------------------------------------------------------------------------
-// THE SERVER'S ROW SET IS ITS ROOT'S Acquire (plan_server_native_v2 T6). One
-// line per shim interface the server implements, served from the root's own
-// members; the root is a member of the game DLL object (shell_shim_root_server.h).
-//-----------------------------------------------------------------------------
+// The server's row set: its root's own members. The root is a member of the game
+// DLL object.
 void *CShimRootServer::Acquire( const char *pszName )
 {
 	if ( !pszName )
 		return NULL;
 
-	// plan_engineapi_vtables A4: a SHARED area. Both sides serve it since
-	// plan_client_vtables CA, where the client's LoadSideV2 acquires it.
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
 		return static_cast< IShimConsole * >( &m_Console );
 
-	// plan_engine_forwarders.md: the forwarder libraries' tables, by the name
-	// managed asks for (SSFwd_<table>).
+	// The forwarder libraries' tables, by the name managed asks for (SSFwd_<table>).
 	if ( void *pTable = SSFwd_Serve( pszName ) )
 		return pTable;
 
@@ -152,20 +99,19 @@ void *CShimRootServer::Acquire( const char *pszName )
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
 		return ShimLevel_Acquire();
 
-	// plan_engineapi_vtables Phase C: the generated areas (tools/shim-areas).
+	// The generated areas.
 	if ( void *pArea = ShimAreas_Acquire( m_Areas, pszName ) )
 		return pArea;
 
-	// A name this side does not serve: the same "factory does not know that
-	// interface" an engine factory's NULL gets.
+	// A name this side does not serve, reported as an engine factory's NULL is.
 	return NULL;
 }
 
 void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion,
                                          char *pError, int32_t nErrorBytes )
 {
-	// THIS side's own interfaces come from the root itself; only the engine's
-	// factory kinds go to the one acquisition entry point.
+	// This side's own interfaces come from the root; engine factory kinds go to
+	// the acquisition entry point.
 	if ( nType == SOURCESHARP_FACTORY_INTERNAL )
 	{
 		void *pShim = Acquire( pszVersion );
@@ -179,21 +125,7 @@ void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion,
 }
 #endif
 
-
-//-----------------------------------------------------------------------------
-// THE ROOT -- plan_engineapi_vtables.md step A3.
-//
-// The one native object the managed side is handed at load (LoadSideV2), and
-// the vtable spelling of the factory above: Acquire is
-// SourceSharp_InternalFactory, so every area and forwarder table this side
-// serves is reachable from the root.
-// Stateless, like the areas it hands out -- a singleton for the DLL's life.
-//
-// THE ROOT OWNS THE AREAS (step A4): each area that leaves the struct is a
-// by-value member here, so the DLL gains one static for all of them rather
-// than one per area. Both sides build it: the client's struct reaches its
-// console through it until the client's own wave.
-//-----------------------------------------------------------------------------
+// The client's root, handed to managed at load. It owns the areas by value.
 #ifdef CLIENT_DLL
 namespace
 {
@@ -218,7 +150,6 @@ public:
 	}
 
 	CShimConsole m_Console;
-	// plan_client_vtables CB: the client's shared bases (tools/shim-areas).
 	CShimAreasClient m_ClientAreas;
 };
 
@@ -235,12 +166,11 @@ IShimRoot *ShimRoot_Get( const void **ppTable )
 #ifdef CLIENT_DLL
 	return &g_ShimRoot;
 #else
-	// The game DLL's member since plan_server_native_v2 T6.
 	return &ShellGameDll_ShimRoot();
 #endif
 }
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
+#ifdef CLIENT_DLL
 CShimConsole &ShimConsole()
 {
 	return g_ShimRoot.m_Console;
@@ -289,10 +219,8 @@ bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
 
 bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy )
 {
-	// plan_managed_vtable_reload.md L4: native acquired once and kept every
-	// object across the reload; the new build patched the same blocks. The
-	// root must be the one native holds, and the root, the runtime and every
-	// area must validate through their patched thunks.
+	// Across a reload native keeps every object; the root must be the one native
+	// holds, and everything must validate through the patched thunks.
 	CManagedHolders &managed = ShellGameDll_Managed();
 	if ( pObject != managed.m_pRoot )
 	{
@@ -321,11 +249,7 @@ void ManagedRoot_Release()
 	ManagedRelease( managed.m_pRoot );
 }
 #else
-//-----------------------------------------------------------------------------
-// plan_client_vtables CD: the client's root, runtime and areas, held on the
-// client DLL object (ShellClientDll_Managed()), accepted, re-attached across a
-// reload and released exactly as the server's are above.
-//-----------------------------------------------------------------------------
+// The client's holders, handled as the server's are above.
 IManagedRoot *ManagedRoot_Get()
 {
 	return ShellClientDll_Managed().m_pRoot;
@@ -395,8 +319,8 @@ void *ShimConsole_Acquire()
 }
 #endif
 
-// The generated areas' acquire, release and accessors (tools/managed-areas).
+// The generated areas' acquire, release and accessors.
 #include "shell_managed_areas.inc"
 #ifdef CLIENT_DLL
-#include "shell_managed_areas_client.inc"   // the client's (plan_client_vtables CD)
+#include "shell_managed_areas_client.inc"
 #endif

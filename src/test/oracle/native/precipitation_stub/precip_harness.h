@@ -34,8 +34,7 @@
 //
 //=============================================================================
 
-#ifndef SS_PRECIP_HARNESS_H
-#define SS_PRECIP_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -465,5 +464,3 @@ public:
 	PMaterialHandle GetPMaterial( const char *name ) { return name; }
 };
 CPrecipParticleMgr *ParticleMgr();
-
-#endif // SS_PRECIP_HARNESS_H

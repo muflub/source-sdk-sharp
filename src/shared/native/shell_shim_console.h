@@ -5,18 +5,7 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — IShimConsole's implementation ======================//
-//
-// plan_engineapi_vtables.md step A4. The methods are the bodies the ten
-// console slots of SourceSharpEngineApi pointed at, renamed in place in
-// sourcesharp_gamesystem.cpp; the struct still reaches them (through
-// ShimConsole()) for the client, which reads the struct until its own wave.
-//
-// NOT A GLOBAL OF ITS OWN. The one object is a member of the shim root
-// (shell_internalfactory.cpp), so each area that moves off the struct adds a
-// member to one static rather than a static per area.
-//
-//=============================================================================//
+// IShimConsole's implementation. The one object is a member of the shim root.
 
 #pragma once
 
@@ -42,8 +31,7 @@ public:
 };
 
 #ifdef CLIENT_DLL
-// The client's console, owned by its shim root. Defined in shell_internalfactory.cpp;
-// the server reaches it only through the root's vtable (server gc cull).
+// The client's console, owned by its shim root (shell_internalfactory.cpp).
 CShimConsole &ShimConsole();
 #endif
 

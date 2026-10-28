@@ -5,22 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- IGameClientExports ================================//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_entity.md Phase 5, the 5b split. ONE CLASS, ONE FILE.
-//
-// CGameClientExports came into sourcesharp/game/client/shell_clientdll.cpp
-// with the rest of stock's cdll_client_int.cpp, which put ten classes in one
-// 3,118-line translation unit. It is the gameui's channel into the client:
-// voice bans, the two gameui_activated / gameui_hidden events, and the
-// achievements panel (which this client does not have). Nothing in it is about IBaseClientDLL, so nothing in it
-// belongs beside IBaseClientDLL.
-//
-// It has NO state of its own -- every method forwards to a system that owns
-// its own -- which is why this file has no globals and needs no proxy.
-//
-//===========================================================================//
+// The gameui's channel into the client: voice bans, the gameui_activated and
+// gameui_hidden events, and the achievements panel this client does not have.
 #include <stdio.h>
 #include <stdlib.h>
 #include "tier0/platform.h"
@@ -44,11 +31,7 @@
 #include "GameEventListener.h"
 #include "hud.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
-// Purpose: interface for gameui to modify voice bans
-//-----------------------------------------------------------------------------
+// Interface for gameui to modify voice bans.
 class CGameClientExports : public IGameClientExports
 {
 public:
@@ -86,11 +69,8 @@ public:
 		}
 	}
 
-	// THE ACHIEVEMENTS PANEL AND THE ECON STRINGS, ANSWERED. Stock forwarded the
-	// first four to g_pAchievementsAndStatsInterface, which nothing in this
-	// client ever sets (it was NULL from load to exit), and the last two to
-	// UTIL_GetActiveHolidayString / UTIL_GetActiveOperationString, which answer
-	// NULL without econ items. These are those answers, stated (lane M1-B).
+	// Stock's achievements interface is never set here and the econ strings are NULL
+	// without econ items, so these answer nothing.
 	void CreateAchievementsPanel( vgui::Panel *pParent ) {}
 	void DisplayAchievementPanel() {}
 	void ShutdownAchievementPanel() {}

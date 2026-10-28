@@ -5,21 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's world render state ====================//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// The far end of ClientSetWorldRenderState. Three stock map entities exist
-// only so the client renders differently — shadow_control, water_lod_control
-// and env_tonemap_controller — and each is a handful of numbers pushed into a
-// client subsystem when they change and read from there every frame after.
-//
-// The entities themselves are C#: their keys, their inputs, and the deciding
-// of when a number changes. What is left over is where the number goes, which
-// is what this file is. It holds no state of its own on purpose — the state
-// lives in the entity's replicated fields, and a second copy here would be a
-// second thing to keep in step.
-//
-//=============================================================================//
+// Where the world render state managed map entities decide goes: the water LOD
+// distances and the tonemap controls. No state of its own; it lives in the
+// entities' replicated fields.
 #include <stdio.h>
 #include <stdlib.h>
 #include "vstdlib/random.h"
@@ -44,14 +33,8 @@
 #include "shell_standalone_client.h"
 #include "sourcesharp.h"
 
-
-// memdbgon must be the last include file in a .cpp file!!!
-
-//-----------------------------------------------------------------------------
-// The tonemap controls viewpostprocess.cpp held as plain globals: written here
-// from the map's tonemap controller (the block below), read by the render
-// executor's trace note. Defined here, by their one writer.
-//-----------------------------------------------------------------------------
+// The tonemap controls viewpostprocess.cpp held as globals; written here, read
+// by the render executor's trace note.
 bool  g_bUseCustomAutoExposureMin = false;
 bool  g_bUseCustomAutoExposureMax = false;
 bool  g_bUseCustomBloomScale = false;
@@ -60,15 +43,7 @@ float g_flCustomAutoExposureMax = 0.0f;
 float g_flCustomBloomScale = 0.0f;
 float g_flCustomBloomScaleMinimum = 0.0f;
 
-//-----------------------------------------------------------------------------
-// One block of world render state.
-//
-// The count is checked rather than trusted. What is on the other side of this
-// call is managed code across a process-internal boundary, and a selector
-// whose block arrived short would otherwise read whatever follows the caller's
-// buffer — so a short block is dropped and said so, which is a bug report
-// rather than a corrupted shadow direction.
-//-----------------------------------------------------------------------------
+// A short block is dropped with a warning rather than read past the caller's buffer.
 static bool WorldRenderCountOk( const char *pWhat, int32_t nCount, int32_t nWanted )
 {
 	if ( nCount >= nWanted )
@@ -84,21 +59,11 @@ void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues
 	if ( !pValues || nCount <= 0 )
 		return;
 
-	// At developer 2, because there is no other way to see that this ran.
-	//
-	// Everything downstream of here is a renderer global with no reader outside
-	// the render path, so a client half that never decoded anything and a
-	// client half that decoded zeroes look identical from a console, from a log
-	// and from a datatable dump. The alternative to this line is joining and
-	// looking at the screen, which is not a check a script can make.
+	// At developer 2: nothing else shows that this ran.
 	DevMsg( 2, "[SourceSharp] world render state %d, %d value(s)\n", nWhich, nCount );
 
 	switch ( nWhich )
 	{
-	// SOURCESHARP_WORLDRENDER_SHADOW, shadow_control's direction, colour,
-	// distance and switch, stood here: the client shadow manager is managed's
-	// (C7 cluster 12 S2), and ClientShadowControl hands them to it directly.
-
 	case SOURCESHARP_WORLDRENDER_WATERLOD:
 	{
 		if ( !WorldRenderCountOk( "waterlod", nCount, 2 ) )
@@ -130,20 +95,9 @@ void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues
 	}
 }
 
-
-//-----------------------------------------------------------------------------
-// The client's colour-correction lookups, carried out on the material system
-// (C9: colorcorrectionmgr.cpp left client.so).
-//
-// THE TABLE IS MANAGED (lane M1-A). The handles that name a lookup, which
-// file and how much of it to apply, and when the frame's weights are reset
-// before the entities re-weigh them, are all SourceSharp.Client's
-// (ColorLookupTable, ColorCorrections). What stays here is the render
-// context's own calls on the opaque ColorCorrectionHandle_t managed holds,
-// and the count of non-zero weights since the reset that the post-process
-// plan's input reads. Stock's FIXME holds: the count is of SetWeight calls
-// with a non-zero weight, not of distinct lookups.
-//-----------------------------------------------------------------------------
+// The colour-correction lookups on the material system, through the opaque
+// handles managed code holds. As stock's FIXME notes, the active count is of
+// SetWeight calls with a non-zero weight, not of distinct lookups.
 static int g_nActiveColorWeights;
 
 void *SourceSharp_ColorLookupAdd( const char *pLookupFile )
@@ -151,8 +105,7 @@ void *SourceSharp_ColorLookupAdd( const char *pLookupFile )
 	if ( !pLookupFile || !pLookupFile[0] )
 		return NULL;
 
-	// A copy, because what arrived is managed memory this side must not write
-	// through.
+	// A copy: the argument is managed memory this side must not write through.
 	char szFile[ MAX_PATH ];
 	Q_strncpy( szFile, pLookupFile, sizeof( szFile ) );
 
@@ -169,9 +122,7 @@ void *SourceSharp_ColorLookupAdd( const char *pLookupFile )
 	pRenderContext->LoadLookup( hLookup, szFile );
 	pRenderContext->UnlockLookup( hLookup );
 
-	// At developer 2, for the reason the world render state says at length:
-	// everything downstream is a renderer global and a client half that never
-	// ran looks exactly like one that ran and applied zero.
+	// At developer 2: nothing else shows that this ran.
 	DevMsg( 2, "[SourceSharp] colour lookup loaded from '%s'\n", szFile );
 
 	return (void *)hLookup;
@@ -211,19 +162,9 @@ bool SourceSharp_ColorCorrectionActive()
 	return g_nActiveColorWeights != 0;
 }
 
-//-----------------------------------------------------------------------------
-// Where the local player is standing.
-//
-// The player's origin rather than the view origin, which is stock's choice in
-// C_ColorCorrection and is the one that stays put when the camera does not: a
-// correction that strengthened because somebody leaned would be a correction
-// nobody asked for.
-//
-// Answers 0 rather than writing a zero when there is no local player. The
-// difference matters -- a zero vector reads as the map origin, and a falloff
-// measured from there is a correction that switches itself on for the whole
-// map for the frames between connecting and spawning.
-//-----------------------------------------------------------------------------
+// The local player's origin (stock's choice, not the view origin). Answers 0
+// with no local player rather than a zero vector, which would read as the map
+// origin.
 int32_t SourceSharp_GetLocalPlayerOrigin( float *pOutXYZ )
 {
 	if ( !pOutXYZ )

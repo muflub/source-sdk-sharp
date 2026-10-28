@@ -4,21 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — CMaterialReference and CTextureReference, ours
-//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_client_novalve C9: public/materialsystem/MaterialSystemUtil.h's two
-// reference holders, the members client.so took from tier2.a's
-// MaterialSystemUtil.o. Each holds one material or texture and its reference
-// count: every attach takes a reference, every detach gives it back, and the
-// creating calls (CreateMaterial, CreateProceduralTexture, the render target)
-// arrive already referenced. materialreference_oracle_test holds the call
-// sequence against upstream's MaterialSystemUtil.cpp over a recording double.
-//
-// Not carried: Init's IsErrorMaterial check, which only prints on OS X; and
-// the two console render-target builders, which are not compiled here either.
-//=============================================================================//
+// MaterialSystemUtil.h's reference holders. Every attach takes a reference and
+// every detach gives it back; created materials and textures arrive referenced.
 
 #include "materialsystem/MaterialSystemUtil.h"
 #include "materialsystem/imaterialsystem.h"
@@ -29,9 +17,6 @@
 #include "bitmap/imageformat.h"
 #include "vtf/vtf.h"
 
-//-----------------------------------------------------------------------------
-// CMaterialReference
-//-----------------------------------------------------------------------------
 CMaterialReference::CMaterialReference( char const *pMaterialName, const char *pTextureGroupName, bool bComplain )
 	: m_pMaterial( NULL )
 {
@@ -83,7 +68,7 @@ void CMaterialReference::Init( CMaterialReference &ref )
 	Init( ref.m_pMaterial );
 }
 
-// Gives the reference back -- unless the material system has gone, when the
+// Gives the reference back, unless the material system has gone, when the
 // holder keeps its pointer (as upstream's does).
 void CMaterialReference::Shutdown()
 {
@@ -93,9 +78,6 @@ void CMaterialReference::Shutdown()
 	m_pMaterial = NULL;
 }
 
-//-----------------------------------------------------------------------------
-// CTextureReference
-//-----------------------------------------------------------------------------
 CTextureReference::CTextureReference()
 	: m_pTexture( NULL )
 {
@@ -108,8 +90,7 @@ CTextureReference::CTextureReference( const CTextureReference &ref )
 		m_pTexture->IncrementReferenceCount();
 }
 
-// Takes the other's texture and a reference to it; what this held is NOT
-// given back first (upstream's assignment does not).
+// Does not release what this held first, as upstream's assignment does not.
 void CTextureReference::operator=( CTextureReference &ref )
 {
 	m_pTexture = ref.m_pTexture;

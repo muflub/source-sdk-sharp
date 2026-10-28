@@ -24,8 +24,7 @@
 // Colours are logged as handed over: floats for Color4fv ("f"), bytes for
 // Color4ub ("b").
 
-#ifndef FX_PROBE_MESH_H
-#define FX_PROBE_MESH_H
+#pragma once
 
 #include "materialsystem/imesh.h"
 #include "fx_probe_log.h"
@@ -104,5 +103,3 @@ private:
 	float m_c[4] = { 0, 0, 0, 0 };
 	bool m_bByte = false;
 };
-
-#endif // FX_PROBE_MESH_H

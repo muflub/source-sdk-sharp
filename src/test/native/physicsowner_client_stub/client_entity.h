@@ -3,10 +3,8 @@
 // so the test compiles the client arm without the client's entity class. What
 // the real one brings in that the arm does use comes in here: the entity
 // interface it calls through, and the masks.
-#ifndef SS_TEST_CLIENT_ENTITY_STUB_H
-#define SS_TEST_CLIENT_ENTITY_STUB_H
+#pragma once
 #include "const.h"
 #include "bspflags.h"
 #include "mathlib/mathlib.h"
 #include "igameentity.h"
-#endif

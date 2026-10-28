@@ -5,46 +5,19 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the render call recorder ============================//
 // SS_REASON a  a vtable the engine calls through
+// Records, for one frame, every call client.so makes on `render`, the render
+// context, `modelrender`, `staticpropmgr` and four render members of `engine`,
+// one text line each. The mesh and occlusion-query hooks and the shadow hooks
+// are armed only by SOURCESHARP_RENDER_TRACE_MESHES=1 and
+// SOURCESHARP_RENDER_TRACE_SHADOWS=1, so a default trace keeps its usual lines.
 //
-// plan_client_novalve.md C7 step 1 (§5.2's "recorded stock call sequence"):
-// the render plan's oracle and its live A/B instrument. Everything the client
-// asks the engine to draw goes through four engine-owned objects -- `render`
-// (IVRenderView), the material system's render context (IMatRenderContext),
-// `modelrender` (IVModelRender) and `staticpropmgr` (IStaticPropMgrClient) --
-// plus four render members of `engine` (IVEngineClient). Armed for one frame,
-// this records each call client.so makes on them, in order, as one text line:
-// the method and the arguments that say what was asked (a view's whole
-// CViewSetup, a render target's name, a clip plane, a draw's entity index and
-// model). Stock's viewrender and the plan's executor both draw through the same
-// four pointers, so the two paths are recorded by the same instrument. Two
-// families are armed only by the environment, so that a default trace keeps
-// the frozen recordings' lines: the dynamic meshes and occlusion queries
-// (SOURCESHARP_RENDER_TRACE_MESHES=1) and the engine shadow manager, `shadowmgr`
-// (IShadowMgr), with the static prop manager's two shadow methods
-// (SOURCESHARP_RENDER_TRACE_SHADOWS=1).
-//
-// HOW. Each hooked method's slot in its object's vtable is overwritten in
-// place for the frame (the page's protection is lifted for the write and put
-// back) with a hook that logs and forwards to the original. The vtables are the
-// ENGINE'S, so the engine's own calls on those objects reach the hooks too;
-// a hook records only when the call came from client.so (its return address is
-// in this module), so what is recorded is the client's side of the contract
-// and nothing the engine does with it.
-//
-// WHAT IS NOT A LINE. Queries whose answer only feeds a decision
-// (GetMatrix, GetViewport,
-// GetFogColor, GetRenderTarget ...) are not hooked: the plan path asks its
-// inputs up front and stock asks them mid-frame, and neither is a thing drawn.
-// Three queries are recorded as `q` lines because they say which branch stock
-// took (GetVisibleFogVolume's answer, IsSkyboxVisibleFromPoint's, and
-// LeafContainsTranslucentSurfaces', which the view-draw facts read back); a comparison
-// of two sequences skips `q` lines. Pointer identities (a world list, a
-// texture) print as names or as the order they first appeared in, so two
-// frames' traces compare as text.
-//
-//=============================================================================//
+// Each hooked slot in the engine's vtable is overwritten for the frame with a
+// hook that logs and forwards. The engine's own calls reach the hooks too, so a
+// hook records only when its return address is in client.so. Queries whose
+// answer only feeds a decision are not hooked; the three that show which branch
+// stock took are `q` lines, which comparisons skip. Pointers print as names or
+// first-seen ordinals so two frames' traces compare as text.
 
 #include <stdlib.h>
 #include "vstdlib/random.h"
@@ -101,24 +74,17 @@
 #include <stdio.h>
 #include <string.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 namespace
 {
 
-//-----------------------------------------------------------------------------
-// The trace
-//-----------------------------------------------------------------------------
 bool              g_bActive = false;
 CUtlVector<char>  g_Text;
 CUtlVector<const void *> g_WorldLists;	// a world list's ordinal is its index here
 const void       *g_pClientBase = NULL;
 const void       *g_pShadowsBase = NULL;	// libss_fwd_client, whose ShadowNative carries out the shadow manager's calls
 
-// Inside the shadow manager's own frame work (its render-to-texture refresh,
-// which redraws only the shadows that went dirty, so it differs frame to
-// frame), lines are marked `~`: the call into the shadow manager is the plan's,
-// what it does inside is the shadow manager's.
+// Inside the shadow manager's frame work (its render-to-texture refresh, which
+// differs frame to frame) lines are marked `~`.
 int g_nShadowDepth = 0;
 
 void Append( const char *pszFormat, va_list args )
@@ -143,16 +109,10 @@ void Line( const char *pszFormat, ... )
 	va_end( args );
 }
 
-// True when the call came from client.so. dladdr names the module that holds
-// the return address; the engine's own calls on the hooked objects come from
-// engine.so or materialsystem.so and are not the client's.
-//
-// AND FROM libss_fwd_client's SHADOW TABLE, the shadow manager's (C7 cluster 12
-// S2): the managed manager's engine calls are carried out there
-// (fwd_shadows.cpp), where stock's were client.so's. Inside the shadow
-// manager's frame work (the `~` lines) a call from that library is the
-// manager's; the engine shadow manager's and the static props' shadow hooks
-// take it anywhere, as the manager is the only caller of them there.
+// True when the call came from client.so (dladdr on the return address), or, for
+// the shadow manager's calls, from libss_fwd_client's shadow table, which carries
+// them out. The shadow hooks take that library's calls anywhere, as the manager
+// is their only caller.
 bool FromClient( const void *pReturn, bool bShadowHook )
 {
 	if ( !g_bActive )
@@ -205,9 +165,7 @@ void ViewText( const CViewSetup &v, char *pOut, int nOut )
 		v.m_bCacheFullSceneState ? 1 : 0, v.m_bViewToProjectionOverride ? 1 : 0 );
 }
 
-//-----------------------------------------------------------------------------
-// Slot patching (vtable_slot_patch.h): every slot Begin overwrote, in order.
-//-----------------------------------------------------------------------------
+// Every slot Begin overwrote, in order.
 CUtlVector<VTableSlotPatch::Patch> g_Patches;
 
 template <typename PMF>
@@ -228,10 +186,8 @@ void RemoveAll()
 	g_Patches.RemoveAll();
 }
 
-//-----------------------------------------------------------------------------
-// The hooks. Each logs when the call is the client's and forwards. The
-// original pointer is the slot's value when Begin ran.
-//-----------------------------------------------------------------------------
+// Each hook logs when the call is the client's and forwards to the slot's
+// value when Begin ran.
 enum HookIndex_t
 {
 	kHook_DrawBrushModel,
@@ -741,9 +697,7 @@ void H_OverrideDepthEnable( IMatRenderContext *self, bool bEnable, bool bDepthEn
 	SS_CALL( OverrideDepthEnable, void (*)( IMatRenderContext *, bool, bool ) )( self, bEnable, bDepthEnable );
 }
 
-// The values a screen-space draw's material had once its proxies bound (C7
-// step 3's frozen recordings: the engine_post, bloom, tonemap and motion blur
-// materials' vars, which the managed proxies must reproduce): one q line per
+// A screen-space draw's material vars once its proxies bound: one q line per
 // shader parameter, after the draw.
 void MaterialVarLines( IMaterial *pMaterial )
 {
@@ -1034,15 +988,10 @@ void H_GrabPreColorCorrectedFrame( IVEngineClient *self, int x, int y, int w, in
 	SS_CALL( GrabPreColorCorrectedFrame, void (*)( IVEngineClient *, int, int, int, int ) )( self, x, y, w, h );
 }
 
-// THE MESH AND OCCLUSION-QUERY HOOKS, armed only when the game was started with
-// SOURCESHARP_RENDER_TRACE_MESHES=1 (tools/probes/sessions/c7-render-small-ab.steps):
-// the frozen recordings and the live compare were taken without them, so a
-// default trace keeps their lines. They witness the draws that go through
-// dynamic meshes and occlusion queries -- pixel visibility's proxies and the
-// glow overlays' quads (C7) -- which a call trace otherwise cannot see: the
-// material bound, each dynamic mesh with its vertices as UnlockMesh is handed
-// them, the clipping switch, and every query object by the order it first
-// appeared. The pixel counts and sphere diameters are `q` lines (answers).
+// The mesh and occlusion-query hooks (SOURCESHARP_RENDER_TRACE_MESHES=1): the
+// material bound, each dynamic mesh with its vertices as UnlockMesh gets them,
+// the clipping switch, and each query object by first-seen order. Pixel counts
+// and sphere diameters are `q` lines.
 bool g_bMeshes = false;
 CUtlVector<const void *> g_Queries;	// a query object's ordinal is its index here
 
@@ -1056,9 +1005,8 @@ int Query( const void *h )
 	return i;
 }
 
-// IMesh::UnlockMesh, by the vtable of the mesh it was installed on: dynamic
-// meshes of more than one class may be handed out, and each class has its own
-// original.
+// By the vtable of the mesh it was installed on: dynamic meshes of more than one
+// class may be handed out, each with its own original.
 struct MeshHook_t
 {
 	void **pVtable;
@@ -1200,22 +1148,12 @@ float H_ComputePixelDiameterOfSphere( IMatRenderContext *self, const Vector &ori
 	return f;
 }
 
-// THE SHADOW HOOKS, armed only when the game was started with
-// SOURCESHARP_RENDER_TRACE_SHADOWS=1 (tools/probes/sessions/c7-shadow-ab.steps),
-// for the same reason as the mesh hooks: the frozen recordings were taken
-// without them. They witness what the client's shadow manager
-// (clientshadowmgr.cpp) asks the engine's (`shadowmgr`, IShadowMgr) and the
-// static prop manager's two shadow methods: every shadow created, destroyed,
-// re-materialed, projected (its whole matrix and leaf list), enabled, clipped
-// and handed its receivers, and the flashlight's state and depth texture. The
-// base witness of docs/plans/c7_shadow_manager.md S0. GetInfo,
-// GetFlashlightFrustum and GetFlashlightState are `q` lines (answers).
-//
-// Shadow and model-instance handles print as the engine's numbers (its
-// allocation order, the same for one session's script); materials and textures
-// by name; a renderable as `ent:<index>`, or for one with no entity (a static
-// prop) `prop:<model>@<origin>`; matrices in full; a leaf list as its count, an
-// FNV-1a hash of the indices and, when it is short, the indices.
+// The shadow hooks (SOURCESHARP_RENDER_TRACE_SHADOWS=1): what the client's shadow
+// manager asks IShadowMgr and the static prop manager's two shadow methods.
+// GetInfo, GetFlashlightFrustum and GetFlashlightState are `q` lines. Handles
+// print as the engine's numbers; materials and textures by name; a renderable as
+// `ent:<index>` or `prop:<model>@<origin>`; a leaf list as its count, an FNV-1a
+// hash and, when short, the indices.
 unsigned int HashInts( const int *pList, int nCount )
 {
 	unsigned int h = 2166136261u;

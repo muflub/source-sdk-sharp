@@ -5,25 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's trace filter family ===================//
 // SS_REASON e  a synchronous mid-step answer
-//
-// plan_entity.md Phase 4, step 4e (Utilities) moved the shared trace-filter
-// family here out of stock util_shared.cpp; every declaration stays in
-// util_shared.h, so no caller changed.
-//
-// THE CLIENT'S ONLY SINCE plan_server_native_v2 T4f. The server's half --
-// ss::CTraceFilterSimple, the shape clause for the parallel hierarchy
-// (StandaloneFilterRules), ownership compared as handles, the entity's and the
-// game rules' collision-group asks, and the engine's r_visualizetraces reader --
-// is managed's: SourceSharp.Server.Interop's TraceFilterRules answers the
-// ITraceFilter libss_fwd_server builds (fwd_trace_filter.cpp) for every server
-// trace (Decision 2). server.so no longer compiles this file; what is left is
-// exactly what the client compiled before, its preprocessed text unchanged.
-//
-// r_visualizetraces IS DECLARED HERE: the ConVar util_shared.h's UTIL_Trace*
-// inlines read, beside the filter they construct.
-//=============================================================================//
+// The client's trace filter family; declarations stay in util_shared.h. The
+// server's filters are managed.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,19 +28,13 @@
 #include "physics_shared.h"
 #include "igamerules.h"
 #include "model_types.h"
-// The shape clause the server's hierarchy was read with; the client includes it
-// as it always did. See util_shared.h.
+// See util_shared.h.
 #include "standard_filter_shape.h"
 
-// The trace debug-draw switch the UTIL_Trace* inlines in util_shared.h read.
+// Read by the UTIL_Trace* inlines in util_shared.h.
 ConVar r_visualizetraces( "r_visualizetraces", "0", FCVAR_CHEAT );
 
-//-----------------------------------------------------------------------------
-// The pass entity. THE CLIENT HAS NO AnyEntity_t (it is server only), so past
-// the pass entity itself this answers true, as the stock route would for a
-// hierarchy whose entities resolve to no C_BaseEntity. The ownership rule is
-// the server's, in managed TraceFilterRules.
-//-----------------------------------------------------------------------------
+// The client has no AnyEntity_t, so past the pass entity itself this answers true.
 bool PassServerEntityFilter( const IHandleEntity *pTouch, const IHandleEntity *pPass ) 
 {
 	if ( !pPass )
@@ -66,24 +44,14 @@ bool PassServerEntityFilter( const IHandleEntity *pTouch, const IHandleEntity *p
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// The shape clause. Its SDK arm was unreachable (its resolver answered a
-// constant NULL) and its parallel-hierarchy arm was the server's.
-//
-// THE CLIENT GAP IS UNCHANGED AND STILL OPEN: on the client every entity reads
-// as the static-prop case, as it always has. Closing it needs a client shape
-// clause, which is a behaviour change and not a move's.
-//-----------------------------------------------------------------------------
+// On the client every entity reads as the static-prop case.
 bool StandardFilterRules( IHandleEntity *pHandleEntity, int fContentsMask )
 {
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// Simple trace filter: util_shared.h's CTraceFilterSimple. The game-entity ask
-// was the server's arm, so on the client nothing past the pass entity is hit
-// (the answer it always had: EntityFromEntityHandle answered NULL).
-//-----------------------------------------------------------------------------
+// util_shared.h's CTraceFilterSimple. On the client nothing past the pass entity
+// is hit.
 #define SS_SIMPLE_FILTER CTraceFilterSimple
 SS_SIMPLE_FILTER::CTraceFilterSimple( const IHandleEntity *passedict, int collisionGroup,
 									   ShouldHitFunc_t pExtraShouldHitFunc )

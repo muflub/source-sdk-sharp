@@ -36,9 +36,6 @@ public:
 		mousedy = 0;
 
 		hasbeenpredicted = false;
-#if defined( HL2_DLL ) || defined( HL2_CLIENT_DLL )
-		entitygroundcontact.RemoveAll();
-#endif
 	}
 
 	CUserCmd& operator =( const CUserCmd& src )
@@ -61,10 +58,6 @@ public:
 		mousedy				= src.mousedy;
 
 		hasbeenpredicted	= src.hasbeenpredicted;
-
-#if defined( HL2_DLL ) || defined( HL2_CLIENT_DLL )
-		entitygroundcontact			= src.entitygroundcontact;
-#endif
 
 		return *this;
 	}
@@ -129,8 +122,5 @@ public:
 	bool	hasbeenpredicted;
 
 	// Back channel to communicate IK state
-#if defined( HL2_DLL ) || defined( HL2_CLIENT_DLL )
-	CUtlVector< CEntityGroundContact > entitygroundcontact;
-#endif
 
 };

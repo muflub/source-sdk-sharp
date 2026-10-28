@@ -65,9 +65,6 @@ public:
 
 private:
 	CCycleCount	m_Duration;
-#ifdef DEBUG_FASTTIMER
-	bool m_bRunning;		// Are we currently running?
-#endif
 };
 
 // This is a helper class that times whatever block of code it's in
@@ -222,9 +219,6 @@ inline double CCycleCount::GetMillisecondsF() const
 inline void CFastTimer::Start()
 {
 	m_Duration.Sample();
-#ifdef DEBUG_FASTTIMER
-	m_bRunning = true;
-#endif
 }
 
 inline void CFastTimer::End()
@@ -233,16 +227,10 @@ inline void CFastTimer::End()
 	cnt.Sample();
 	m_Duration.m_Int64 = cnt.m_Int64 - m_Duration.m_Int64;
 
-#ifdef DEBUG_FASTTIMER
-	m_bRunning = false;
-#endif
 }
 
 inline CCycleCount const& CFastTimer::GetDuration() const
 {
-#ifdef DEBUG_FASTTIMER
-	assert( !m_bRunning );
-#endif
 	return m_Duration;
 }
 

@@ -5,11 +5,7 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the client's pixel visibility, carried out =========//
-// The command words IManagedPixelVisClient::EndView answers with
-// (PixelVisCommands in C#, PixelVisibilityAbiTests holds the two equal), the
-// view it is handed, and the two plan ops' bodies (shell_pixelvis_client.cpp).
-//=============================================================================//
+// Command words of IManagedPixelVisClient::EndView's reply; managed code mirrors these values.
 
 #pragma once
 

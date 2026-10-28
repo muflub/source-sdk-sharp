@@ -5,13 +5,8 @@
 //
 //=============================================================================//
 
-// THE CONTRACT (hand-kept since C6a; tools/shim-areas reads it). Append-only: an edit is an ABI change.
-//
-// plan_engineapi_vtables.md Phase C: every EngineApi slot the server fills,
-// as a slot of one of these interfaces, acquired from IShimRoot by the version
-// string beside it. Shared bases are what both DLLs will implement; each
-// extension appends the server-only slots of the same family. Rules as
-// ishim_frame.h: no virtual destructor, blittable arguments, APPEND-ONLY.
+// Hand-kept; tools/shim-areas reads it. Every slot is an ABI: append only, no
+// virtual destructor, blittable arguments.
 
 #pragma once
 
@@ -215,17 +210,7 @@ public:
 	virtual void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) = 0;
 	virtual void PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll ) = 0;
 	virtual int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ ) = 0;
-	// "Is this world-space box inside this player's PVS?" The engine's own
-	// cluster/PVS read — GetClusterForOrigin at the player's eyes,
-	// GetPVSForCluster, CheckBoxInPVS — the same trio stock's check-client
-	// machinery builds (triggers.cpp:1615, 1711). Native carries out the
-	// read; who asks and what they do with the answer is managed code's
-	// decision (stock's CTriggerHurt::RadiationThink gates a geiger ping).
-	// Put a player on a team: the carrying-out half of CBaseEntity's
-	// ChangeTeam (baseentity.cpp:4947 -- `m_iTeamNum = iTeamNum`, one
-	// assignment, no decisions). Native stores it and decides nothing: the
-	// team number is not validated here, the choice of team is managed
-	// code's (ITeams.Join and its policy hook). Append-only, tf2 stage 0.5.
+	// Stores the team; validating and choosing it is managed's.
 	virtual void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) = 0;
 };
 
@@ -343,8 +328,7 @@ abstract_class IShimEffectsServer
 {
 public:
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
-	// plan_server_native_v2 T4b: one temp entity table, planned in C#, stored
-	// into SendProps (shell_tempents.cpp). The block is length-prefixed
-	// (sourcesharp.h, SourceSharpTeTableHeader_t). Answers the handle, or -1.
+	// Stores one temp entity table planned in C#; the block is length-prefixed
+	// (SourceSharpTeTableHeader_t). Answers the handle, or -1.
 	virtual int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) = 0;
 };

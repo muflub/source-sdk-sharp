@@ -4,15 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client shadow manager's native residue ==========//
-//
-// C7 cluster 12 S2 (docs/plans/c7_shadow_manager.md). The shadow manager is
-// managed's (IManagedShadowsClient); shell_shadows_client.cpp keeps what the
-// engine holds pointers to (the materials, the render targets, the
-// flashlight's textures), the restore callback, kClientSystems[]'s
-// CClientShadowMgr row, and the queue the shells write. These are its
-// callers' calls.
-//=============================================================================//
+// The native side of the managed client shadow manager: what the engine holds pointers to
+// and the queue the entity shells write.
 #pragma once
 
 #include <stdint.h>
@@ -23,11 +16,8 @@ class CViewSetup;
 class CClientSystem;
 class CBaseHandle;
 
-// THE QUEUE. What an entity's shell tells the manager is queued, three int32
-// an entry, and handed over with the manager's next call (PreRender's
-// arguments, or Pending before any other call or when the queue is full), so
-// an entity that moves every frame costs no crossing of its own. The kinds
-// are IManagedShadowsClient's (docs/managed-interfaces.tsv).
+// Shell updates are queued, three int32 an entry, and handed over with the manager's next
+// call, so an entity that moves every frame costs no crossing of its own.
 enum ShellShadowPending_t
 {
 	SHELL_SHADOW_PENDING_DIRTY = 1,     // entity, 1 when its render-to-texture texture is dirty too
@@ -49,8 +39,7 @@ void ShellShadows_Refresh( const CBaseHandle &hEntity, int nShadowType, int nSha
 // queued entries before it: the renderable may be freed next.
 void ShellShadows_Destroy( const CBaseHandle &hEntity );
 
-// The plan's shadow ops (the view executor), each one call of the managed
-// manager, with the render trace's `shadow.` line around it.
+// The render plan's shadow ops, each one call of the managed manager.
 void ShellShadows_AdvanceFrame();
 void ShellShadows_PreRender();
 void ShellShadows_ComputeShadowTextures( int nLeafCount, const LeafIndex_t *pLeafList );
@@ -62,5 +51,4 @@ void ShellShadows_RenderShadowTexture( int w, int h );
 int ShellShadows_PendingCount();
 const int32_t *ShellShadows_PendingEntries();
 
-// shell_clientsystems.cpp's CClientShadowMgr row.
 CClientSystem *ClientShadowMgrGameSystem();

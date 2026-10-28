@@ -418,10 +418,7 @@ public static class ContractBaseline
             // exists precisely because none of ai_*.cpp does, and that goes the
             // day the AI comes back.
             "shell_absent.cpp",
-            // AND THE OTHER DIRECTION: the TU that defines g_pAINetworkManager
-            // and the node graph the overlays draw. It is still on disk and
-            // still out of the build; the day it is added back, this reddens.
-            "ai_networkmanager.cpp"),
+            ""),
 
         new("NDebugOverlay::Text's view-obstruction check — the bViewCheck arm "
           + "that dropped world text standing behind a wall",

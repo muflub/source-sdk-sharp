@@ -1,10 +1,6 @@
-//========= SourceSharp — the detail props' buffers, read ======================//
-//
-// C7 cluster 10. The managed detail props (SourceSharp.Client.Detail) answer
-// native's client system (shell_detail_props.cpp) with one buffer per call:
-// int32 words, word 0 the buffer's length in words, a model a pointer in two
-// words (low first), a float its bits. DetailPropsWire (C#) writes them; this
-// reads them, and does nothing else: every number in them is managed's.
+// Readers for the managed detail props' answer buffers. Each buffer is int32
+// words, word 0 its length in words; a model pointer is two words (low first),
+// a float its bits. A reader that would step past the length stops.
 //
 //   LevelInitPreEntity  [flags] [objects] objects x (model lo, hi, origin xyz,
 //                       angles xyz) [runs] runs x (leaf, first, count, fast)
@@ -15,13 +11,6 @@
 //   Emit                commands: Begin quads | Vertices n, n x (x, y, z,
 //                       r | g << 8 | b << 16 | a << 24, s, t) | EndDraw |
 //                       ModelAlpha object, alpha | End
-//
-// A reader that would step past a buffer's length stops and says so: native
-// then carries out nothing more of that answer.
-//
-// No SDK header, so the native tests read the shipped reader
-// (detail_props_wire_test).
-//=============================================================================//
 #pragma once
 
 #include <stdint.h>

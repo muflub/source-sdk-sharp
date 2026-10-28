@@ -5,23 +5,12 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — tier1's small members, as both DLLs use them =========//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// plan_server_novalve.md P3. Neither DLL links tier1. Each member here is one
-// a header on the allowlist declares and code in both DLLs (or inline code in
-// that header) calls, answered with tier1's documented behaviour. The
-// strtools.cpp members only client.so imports are strtools_client.cpp's
-// (plan_server_native_v2 T5: a shared TU keeps only what both DLLs import).
-//
-//=============================================================================//
+// tier1 members both DLLs call, for DLLs that link no tier1.
 
 #include "tier1/bitbuf.h"
 
-//-----------------------------------------------------------------------------
-// bitbuf.h's inline Seek (and the reads) flag a read past the end through this.
-// A buffer that asked to assert on overflow does; release builds only set it.
-//-----------------------------------------------------------------------------
+// Flags a read past the end; asserts first when the buffer asked to.
 void bf_read::SetOverflowFlag()
 {
 	Assert( !m_bAssertOnOverflow );

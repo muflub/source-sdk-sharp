@@ -4,24 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the server's recipient filters, as server.so owns them
-//
-// plan_server_novalve.md P5. The engine sees a recipient filter only as an
-// IRecipientFilter (public/irecipientfilter.h), through its vtable: who the
-// message goes to, and whether it is reliable or an init message. Everything
-// else -- how the list is built (all players, the PAS or PVS of a point, a
-// sound's audible range) -- is server.so's own business, so per the plan's
-// naming rule these classes live in namespace ss and are built on public/
-// headers alone. game/server/recipientfilter.h's classes of the same names are
-// no longer defined anywhere in server.so.
-//
-// Players are named by slot index (1..maxClients), never by pointer: the old
-// pointer-taking adds asked the player for its index and nothing else, and a
-// player on the standalone hierarchy has an index but no CBasePlayer.
-//
-// shell_recipientfilter.cpp implements these; ss_recipient_filter_test holds
-// the list logic.
-//=============================================================================//
+// The server's recipient filters. The engine reads them only through
+// IRecipientFilter; players are named by slot index (1..maxClients), never by pointer.
 
 #pragma once
 
@@ -46,7 +30,6 @@ public:
 	CRecipientFilter() = default;
 	virtual ~CRecipientFilter() = default;
 
-	// IRecipientFilter -- what the engine reads.
 	virtual bool IsReliable( void ) const { return m_bReliable; }
 	virtual bool IsInitMessage( void ) const { return m_bInitMessage; }
 	virtual int GetRecipientCount( void ) const { return (int)m_Recipients.size(); }
@@ -112,16 +95,11 @@ public:
 	explicit CPASFilter( const Vector &origin ) { AddRecipientsByPAS( origin ); }
 };
 
-// CPASAttenuationFilter went (plan_server_native_v2 T5): no server object
-// built one, so its Filter had no caller (nm U over the link edge). The
-// attenuation crop is the managed SoundRecipients'.
-
 // Whoever can see a point (its potentially visible set).
 class CPVSFilter : public CRecipientFilter
 {
 public:
 	explicit CPVSFilter( const Vector &origin ) { AddRecipientsByPVS( origin ); }
 };
-
 
 } // namespace ss

@@ -5,23 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the server's game string pool storage =============//
-//
-// plan_server_novalve.md P3, tier1 off the link; both sides since C9 (the
-// client's took stringpool.o and generichash.o onto its link). What tier1's
-// CStringPool gave CGameStringPool (gamestringpool.cpp) and nothing more: one copy per string,
-// found case-insensitively (CStringPool's StrLess was Q_stricmp), at an address
-// that never moves until FreeAll (a std::set node does not move, and neither
-// does the text of the std::string in it).
-//
-// std::string, not strdup/free: tier0/memdbgon.h rewrites strdup to
-// MemAlloc_StrDup (tier0's allocator) and leaves free alone, so a TU that
-// includes it (gamestringpool.cpp does) allocated with one allocator and freed
-// with another. memoverride made the two the same; plan_server_novalve.md P4
-// removes memoverride. operator new/delete are rewritten by nothing.
-// server_string_pool_test pins each of those.
-//
-//=============================================================================//
+// The game string pool's storage: one copy per string, found case-insensitively, at
+// an address that never moves until FreeAll. std::string rather than strdup/free,
+// because memdbgon.h rewrites strdup to tier0's allocator but leaves free alone.
 
 #pragma once
 

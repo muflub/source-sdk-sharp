@@ -167,10 +167,6 @@ public:
 		TSLHead_t oldHead;
 		TSLHead_t newHead;
 
-#if defined( PLATFORM_PS3 )
-		__lwsync(); // write-release barrier
-		#endif
-
 #ifdef PLATFORM_64BITS
 		newHead.value.Padding = 0;
 #endif
@@ -216,9 +212,6 @@ public:
 
 			if ( ThreadInterlockedAssignIf64x128( &m_Head.value64x128, newHead.value64x128, oldHead.value64x128 ) )
 			{
-#if defined( PLATFORM_PS3 )
-					__lwsync(); // read-acquire barrier
-				#endif
 				break;
 			}
 			ThreadPause();
@@ -232,9 +225,6 @@ public:
 	{
 #ifdef USE_NATIVE_SLIST
 		TSLNodeBase_t *pBase = (TSLNodeBase_t *)InterlockedFlushSList( &m_Head );
-#if defined( _PS3 )
-		__lwsync(); // read-acquire barrier
-#endif
 		return pBase;
 #else
 		TSLHead_t oldHead;

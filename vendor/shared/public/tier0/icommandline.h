@@ -47,6 +47,4 @@ public:
 // this interface used to lie in the vstdlib library.
 PLATFORM_INTERFACE ICommandLine *CommandLine_Tier0();
 
-#if !defined( VSTDLIB_BACKWARD_COMPAT )
 #define CommandLine CommandLine_Tier0
-#endif

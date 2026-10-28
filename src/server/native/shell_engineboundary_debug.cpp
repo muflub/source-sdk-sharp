@@ -5,18 +5,12 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — shell_engineboundary.cpp's diagnostic console command ===//
 // SS_REASON c  static-init registration
-//
-// DEBUG BUILDS ONLY (user ruling 2026-10-01: debug commands live in debug files
-// that CMake compiles only for a debug build -- server_sourcesharp_debug_sources).
-// SourceSharp.Server's NativeCommands declares the matching row under #if DEBUG.
-//
-//=============================================================================//
+// Debug builds only; NativeCommands declares the matching row under #if DEBUG.
 
 #include "tier0/dbg.h"
 #include "mathlib/vector.h"
-#include "worldsize.h"                // MAX_COORD_FLOAT
+#include "worldsize.h"
 #include "engine/IEngineTrace.h"
 #include "engine/IStaticPropMgr.h"
 #include "engine_heap.h"
@@ -30,25 +24,10 @@
 extern IEngineTrace         *enginetrace;
 extern IStaticPropMgrServer *staticpropmgr;
 
-//=============================================================================//
-// 3. VECTORS THE ENGINE FILLS FOR US -- engine_heap.h, checked live
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// Has the engine grow two out-parameters on the running map, reads them
-// through the view and releases them to the allocator the engine grew them
-// with. The live gate's engine-vector step reads the one line this prints:
-//
-//   heap  -- the g_pMemAlloc FindEngineHeap found IS the one engine.so resolves
-//            (not merely a libtier0 somewhere): same pointer, both non-NULL.
-//   brushes / props -- what IEngineTrace::GetBrushesInAABB and
-//            IStaticPropMgrServer::GetAllStaticProps put in them, over the
-//            whole map, and whether the brush indices are all non-negative.
-//   foreign / mismatch -- the allocation checker's counters across the two
-//            releases (debug builds carry it; -1 when this one does not). A
-//            release that went through server.so's own free() would show
-//            here, because the checker never saw these blocks allocated.
-//-----------------------------------------------------------------------------
+// Has the engine fill two vectors over the whole map, reads them and releases
+// them to the engine's allocator. Prints whether FindEngineHeap's heap is
+// engine.so's, the counts, and the allocation checker's foreign/mismatch frees
+// across the releases (-1 without the checker). The live gate reads this line.
 SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 {
 	ss::IEngineHeap *pHeap   = ss::FindEngineHeap();

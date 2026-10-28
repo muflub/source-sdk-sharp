@@ -8,8 +8,7 @@
 // writes a line, and the trees are dumped after the setters and again after
 // the getters have converted what they convert.
 
-#ifndef KEYVALUES_SCENARIO_H
-#define KEYVALUES_SCENARIO_H
+#pragma once
 
 #include "tier1/KeyValues.h"
 
@@ -169,5 +168,3 @@ inline std::string Run()
 	return out;
 }
 } // namespace keyvalues_scenario
-
-#endif // KEYVALUES_SCENARIO_H

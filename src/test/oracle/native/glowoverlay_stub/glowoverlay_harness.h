@@ -35,8 +35,7 @@
 //
 //=============================================================================
 
-#ifndef SS_GLOWOVERLAY_HARNESS_H
-#define SS_GLOWOVERLAY_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -160,5 +159,3 @@ struct GlowPrecache_t
 	};                              \
 	static GlowPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, ARRAYSIZE( s_pszRegisterMaterials ) ); \
 	}
-
-#endif // SS_GLOWOVERLAY_HARNESS_H

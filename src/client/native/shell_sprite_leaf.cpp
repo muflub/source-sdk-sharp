@@ -5,43 +5,8 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the leaf sprite renderer ===========================//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// plan_entity.md step 7a, and section 6's list of what legitimately stays
-// native: *"leaf renderers: brush, studio, SPRITE, beam, rope, world text,
-// cracked glass"*. This is that renderer, moved out of game/client/c_sprite.cpp
-// so the stock TU could leave client_csharp.vpc.
-//
-// WHAT MOVED HERE: the r_drawsprites ConVar, DrawSpriteModel (the quad
-// itself), StandardGlowBlend and its pixel-visibility query, SpriteAspect, and
-// C_SpriteRenderer -- GlowBlend, GetSpriteAxes and DrawSprite.
-//
-// AND THEN ON (lane c2-fx): every decision among them -- the glow blend and
-// fade, the axes, the opaque rule, the quad's corners -- is SpriteRenderer.cs.
-// What is left is the executor below the banner further down: it reads the
-// sprite model and the renderer for the plan and builds the quad it returns.
-//
-// WHAT DID NOT MOVE. C_Sprite's two members -- its GlowBlend override and its
-// GetToolRecordingState -- are still in game/client/c_sprite.cpp inside
-// `#ifndef SOURCESHARP`, because that is the STOCK build's arm and stock still
-// needs them. The stock file therefore stays ON DISK, uncompiled, exactly as
-// c_te_explosion.cpp (step 7b) and game/server/effects.cpp do. Deleting it
-// would be "a compile gate selects for deletion" taken literally.
-//
-// WHO WANTS WHAT IS HERE, measured with nm over the debug client at the tip
-// this moved from -- three objects, and not one of them wants an entity:
-//
-//   shell_sprite_render.o    C_SpriteRenderer::DrawSprite, StandardGlowBlend,
-//                            and the C_SpriteRenderer vtable it derives from
-//   c_te_legacytempents.o    DrawSprite and C_SpriteRenderer::GlowBlend, for
-//                            C_LocalTempEntity
-//   glow_overlay.o           the r_drawsprites ConVar
-//
-// (The fourth referrer the old banner named, entity_client_tools.o, left with
-// step 7g.)
-//
-//=============================================================================//
+// The leaf sprite renderer's executor and the engine's sprite model.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,46 +48,23 @@
 #include "ivrenderview.h"
 #include "texture_group_names.h"
 #include "shell_effect_ledger.h"
-#include "shell_beam_render.h"         // SourceSharp_PlanSprite
+#include "shell_beam_render.h"
 #include "sourcesharp.h"
 #include "managed_runtime_client.h"
-#include "imanaged_areas_client.h"   // IManagedFxClient::SpritePlan
-#include "shell_standalone_client.h"  // SourceSharp_StandaloneDrawBatchBlend
-#include "ss_bitblock.h"                // the sprite material block
+#include "imanaged_areas_client.h"
+#include "shell_standalone_client.h"
+#include "ss_bitblock.h"
 
 #include <vector>
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 ConVar	r_drawsprites( "r_drawsprites", "1", FCVAR_CHEAT );
 
-//=============================================================================//
-// THE SPRITE RENDERER IS AN EXECUTOR (lane c2-fx, plan_client_novalve.md §2
-// cluster 4). Whether a sprite draws, the blend and colour it draws with, its
-// axes and the four corners of its quad are SpriteRenderer's decisions
-// (src/client/managed/Effects/SpriteRenderer.cs), recorded off this file
-// before they moved (sprite-stock.tsv.gz) and replayed bit for bit by
-// ClientSpriteRendererTests. What stays is what the managed half cannot do:
-// read the sprite model and the renderer, carry the renderer's query handle
-// to and from the plan, and build the mesh.
-//
-// TWO PATHS TO ONE PLAN. The request is floats (SS_SPRITE_IN_*), the plan is
-// floats (SS_SPRITE_OUT_*); the glow answers are managed's own pixel
-// visibility's (C7), asked on the handle the request carries and stored back
-// from the plan.
-//   * A draw native starts (a tempent, C_SpriteRenderer) crosses into managed
-//     once for the plan: IManagedFxClient::SpritePlan (SourceSharp_PlanSprite).
-//   * A draw MANAGED starts (a managed sprite, from inside its owner's
-//     ClientStandaloneDraw) does not cross back: FxSpriteDrawBegin hands it the
-//     request, it plans in managed, and FxSpriteDrawEnd draws the plan. The
-//     render budget (live gate `render`) is why; ClientSpriteRendererTests
-//     holds the two paths to the same plan, bit for bit.
-//
-// NO MANAGED HALF, NO SPRITE. Outside a load there is nothing to decide with,
-// and this file must not decide in its place.
-//=============================================================================//
+// Managed decides whether a sprite draws, its blend, colour, axes and quad; this reads the
+// sprite model and renderer into a float request and builds the mesh from the float plan.
+// A draw native starts crosses into managed once for the plan; a draw managed starts
+// plans between FxSpriteDrawBegin and FxSpriteDrawEnd with no crossing back. With no
+// managed half nothing draws.
 
-// The request (SpriteRenderer.cs, ClientSpriteHost.In*).
 enum
 {
 	SS_SPRITE_IN_DRAW_SPRITES = 0, SS_SPRITE_IN_WIREFRAME_MODE, SS_SPRITE_IN_ORIENTATION,
@@ -134,19 +76,17 @@ enum
 	SS_SPRITE_IN_HDR_COLOR_SCALE, SS_SPRITE_IN_BLEND,
 	SS_SPRITE_IN_VIEW_FORWARD, SS_SPRITE_IN_VIEW_RIGHT = SS_SPRITE_IN_VIEW_FORWARD + 3, SS_SPRITE_IN_VIEW_UP = SS_SPRITE_IN_VIEW_RIGHT + 3,
 	SS_SPRITE_IN_GLOW_PROXY_SIZE = SS_SPRITE_IN_VIEW_UP + 3,
-	// The renderer's pixel visibility handle (an int, its bits in the float),
-	// which managed's pixel visibility asks with (C7).
+	// The renderer's pixel visibility handle, its int bits in the float.
 	SS_SPRITE_IN_QUERY_HANDLE,
 	SS_SPRITE_IN_FLOATS,
 };
 COMPILE_TIME_ASSERT( SS_SPRITE_IN_FLOATS == 39 );
 
-// The plan.
 enum
 {
 	SS_SPRITE_OUT_DRAWN = 0, SS_SPRITE_OUT_SET_BLEND, SS_SPRITE_OUT_BLEND, SS_SPRITE_OUT_QUAD, SS_SPRITE_OUT_WIREFRAME,
 	SS_SPRITE_OUT_RGBA, SS_SPRITE_OUT_CORNERS = SS_SPRITE_OUT_RGBA + 4, SS_SPRITE_OUT_HDR_COLOR_SCALE = SS_SPRITE_OUT_CORNERS + 12,
-	// The handle as the question left it, stored back on the renderer.
+	// The handle as the query left it, stored back on the renderer.
 	SS_SPRITE_OUT_QUERY_HANDLE,
 	SS_SPRITE_OUT_FLOATS,
 };
@@ -168,20 +108,18 @@ static pixelvis_handle_t HandleOf( float f )
 
 COMPILE_TIME_ASSERT( sizeof( pixelvis_handle_t ) == sizeof( float ) );
 
-// The renderer whose sprite the direct path is planning: where the plan's
-// query handle is stored back. Sprites are drawn one at a time on the render
-// thread, so one slot is enough; it is NULL outside a plan.
+// Where the direct path's plan stores the query handle back. Sprites draw one at a time on
+// the render thread, so one slot is enough; NULL outside a plan.
 static pixelvis_handle_t *s_pPlanQuery = NULL;
 
-// The blend the last request was gathered under (the batched path keeps it with its plan).
+// The blend the last request was gathered under.
 static float s_flDirectBlend = 0.0f;
 
 static void PutVector( float *p, const Vector &v ) { p[0] = v.x; p[1] = v.y; p[2] = v.z; }
 
 static unsigned int s_nHDRColorScaleCache = 0;
 
-// One sprite between its request and its plan: what the draw needs that the
-// plan does not carry.
+// What the draw needs that the plan does not carry.
 struct SpritePending_t
 {
 	CEngineSprite   *pSprite;
@@ -191,14 +129,12 @@ struct SpritePending_t
 	int              nRenderMode;
 };
 
-// Read the sprite model and the renderer into the request. False when there is
-// nothing to plan (no sprite model, no managed half).
+// False when there is nothing to plan (no sprite model, no managed half).
 static bool GatherSprite( IClientEntity *entity, const model_t *model,
 	const Vector &origin, const QAngle &angles, float frame, IClientEntity *attachedto, int attachmentindex,
 	int rendermode, int renderfx, int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale,
 	float flHDRColorScale, float flGlowProxySize, float *in, SpritePending_t &pending )
 {
-	// Nothing to read without a sprite model.
 	if ( !model || modelinfo->GetModelType( model ) != mod_sprite )
 		return false;
 
@@ -209,7 +145,6 @@ static bool GatherSprite( IClientEntity *entity, const model_t *model,
 	Vector effect_origin;
 	VectorCopy( origin, effect_origin );
 
-	// Use attachment point
 	if ( attachedto )
 	{
 		QAngle temp;
@@ -239,9 +174,8 @@ static bool GatherSprite( IClientEntity *entity, const model_t *model,
 	in[ SS_SPRITE_IN_SCALE ]             = scale;
 	in[ SS_SPRITE_IN_WORLD_SPACE_SCALE ] = bWorldSpaceScale ? 1.0f : 0.0f;
 	in[ SS_SPRITE_IN_HDR_COLOR_SCALE ]   = flHDRColorScale;
-	// The blend the sprite's DrawModel draws under: the render's own, or, while
-	// managed prepares a view's draw batch, the one that entity's DrawModel will
-	// find (shell_standalone_client.cpp).
+	// The render's blend, or while managed prepares a view's draw batch, the one that
+	// entity's DrawModel will find.
 	in[ SS_SPRITE_IN_BLEND ]             = SourceSharp_StandaloneDrawBatchBlend( entity, render->GetBlend() );
 	s_flDirectBlend                      = in[ SS_SPRITE_IN_BLEND ];
 	PutVector( in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward() );
@@ -307,7 +241,6 @@ static int ExecuteSprite( const SpritePending_t &pending, const float *out )
 			meshBuilder.End();
 			pMesh->Draw();
 
-			// Step 7a's gate: counted AFTER the quad has been built and drawn.
 			g_SourceSharpEffects.nSpriteQuads++;
 		}
 	}
@@ -315,15 +248,13 @@ static int ExecuteSprite( const SpritePending_t &pending, const float *out )
 	return out[ SS_SPRITE_OUT_DRAWN ] != 0.0f ? 1 : 0;
 }
 
-// THE CALLBACK PATH: a draw native starts (a tempent's, C_SpriteRenderer's)
-// asks the managed planner once through IManagedFxClient::SpritePlan.
+// A draw native starts: asks the managed planner once.
 int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, const model_t *model,
 	const Vector &origin, const QAngle &angles, float frame, IClientEntity *attachedto, int attachmentindex,
 	int rendermode, int renderfx, int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale,
 	float flHDRColorScale, float flGlowProxySize )
 {
 
-	// Nothing to decide with without the managed half.
 	IManagedFxClient *pFx = ManagedFxClient();
 	if ( !pFx )
 		return 0;
@@ -346,11 +277,8 @@ int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, co
 	return ExecuteSprite( pending, out );
 }
 
-// THE DIRECT PATH: a draw MANAGED starts (a managed sprite's, from inside its
-// owner's ClientStandaloneDraw) plans in managed between these two calls, so
-// the plan costs no crossing back. Begin reads the request and keeps the
-// renderer's query handle for the plan to store back; End carries the plan out (or, handed
-// NULL, drops the pending draw). One sprite at a time, on the render thread.
+// A draw managed starts plans between these two calls. Begin reads the request and keeps
+// the query handle; End carries the plan out, or drops the draw when handed NULL.
 static SpritePending_t s_DirectPending;
 static bool s_bDirectPending = false;
 
@@ -394,9 +322,8 @@ int32_t SourceSharp_FxSpriteDrawEnd( const float *pOut )
 	return ExecuteSprite( s_DirectPending, pOut );
 }
 
-// THE BATCHED PATH (C7 item 7): the direct path's plan kept instead of drawn,
-// against its entity, with the blend it was planned under; DrawModel carries
-// it out when its turn comes (shell_standalone_client.cpp's draw batch).
+// The batched path: a plan kept against its entity with its blend, carried out when the
+// entity's DrawModel comes round.
 struct SpriteStored_t
 {
 	SpritePending_t pending;
@@ -442,9 +369,7 @@ void SourceSharp_SpriteStoredClear()
 	s_StoredSprites.RemoveAll();
 }
 
-// C_SpriteRenderer's two, for C_LocalTempEntity (c_te_legacytempents.cpp)
-// and anything else on the stock base: the stock proxy size, a scale that is
-// already a multiple of the sprite's size.
+// The stock proxy size, and a scale already in multiples of the sprite's size.
 int C_SpriteRenderer::DrawSprite( 
 	IClientEntity *entity,
 	const model_t *model, 
@@ -468,40 +393,16 @@ int C_SpriteRenderer::DrawSprite(
 		PIXELVIS_DEFAULT_PROXY_SIZE );
 }
 
-// Sprite.h declares it virtual, so C_LocalTempEntity's vtable names it. Nothing
-// calls it any more: the glow blend is SpriteRenderer's, asked inside the plan.
+// Virtual in Sprite.h, so C_LocalTempEntity's vtable names it. The glow blend is decided
+// inside the managed plan.
 float C_SpriteRenderer::GlowBlend( CEngineSprite *, const Vector &, int, int, int, float * )
 {
 	return 0.0f;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-// SourceSharp: C_Sprite's, and out of this build with the class. See the banner
-// above CSprite::GlowBlend. Nothing replaces it: tool recording is SFM's capture
-// path, a managed sprite is not an entity and has no GetToolRecordingState to
-// override, and the tool framework never walks the parallel hierarchy.
-
-
-//=============================================================================//
-// THE ENGINE'S SPRITE MODEL (CEngineSprite), which spritemodel.cpp defined.
-//
-// The engine allocates one of these per sprite model (GetSpriteSize answers
-// its size) and has the client fill it (InitSprite/ShutdownSprite): its
-// layout is enginesprite.h's and the engine holds the memory, so it is native
-// by binding. What it holds is the material system's: one procedural material
-// per render mode, made from the sprite's .vmt with $spriteRenderMode set, its
-// mapping size and frame count, the $spriteorientation it asks to be drawn
-// with, and the quad's extents from $spriteorigin.
-//
-// spritemodel.cpp's HUD half (DrawFrame, DrawFrameOfSize, the scissor
-// helpers) had no caller in this build and went with the file. So did the
-// video arm (a .bik/.webm sprite played through IVideoServices): the client
-// video system is deleted (user ruling 2026-10-04, plan_client_novalve), so a
-// video name is looked up as a material like any other and refused with
-// stock's warning when it is not one.
-//=============================================================================//
+// The engine's sprite model. The engine allocates it (enginesprite.h layout) and has the
+// client fill it: one procedural material per render mode from the sprite's .vmt, its
+// size, frame count, orientation and the quad's extents.
 
 static unsigned int s_nSpriteFrameCache;
 static unsigned int s_nSpriteOrientationCache;
@@ -513,16 +414,9 @@ static bool SpriteModeHasMaterial( int nMode )
 	return nMode != kRenderNone && nMode != kRenderEnvironmental;
 }
 
-//-----------------------------------------------------------------------------
-// The sprite's material file is read in C# (C9 KeyValues K4:
-// IManagedMaterialFilesClient::SpriteMaterial, SpriteMaterialFiles and
-// KeyValuesLoad): managed decides the material's name from the sprite's and
-// loads its .vmt as tier1 would, and answers both in one BitBlock -- the name
-// NUL-terminated, then the .vmt's first root in preorder, each key a type
-// byte, its name, its value by type (a string NUL-terminated, int32, float32
-// or uint64) and a uint32 child count. Native rebuilds that tree as the
-// KeyValues the material system takes, once per render mode.
-//-----------------------------------------------------------------------------
+// Managed resolves the sprite's material name and loads its .vmt, answering both in one
+// block: the name NUL-terminated, then the .vmt's root in preorder, each key a type byte,
+// its name, its value by type and a uint32 child count. Native rebuilds the KeyValues.
 enum { kSpriteBlockBytes = 64 * 1024, kSpriteMaxDepth = 128 };
 
 namespace
@@ -656,8 +550,7 @@ bool CEngineSprite::Init( const char *pName )
 	IMaterialVar *pOrientation = pFirst->FindVarFast( "$spriteorientation", &s_nSpriteOrientationCache );
 	m_orientation = pOrientation ? pOrientation->GetIntValue() : C_SpriteRenderer::SPR_VP_PARALLEL_UPRIGHT;
 
-	// The quad's anchor as a fraction of its size: $spriteorigin when it is a
-	// vector, the centre otherwise.
+	// The quad's anchor as a fraction of its size: $spriteorigin when a vector, else the centre.
 	float flAnchorX = 0.5f, flAnchorY = 0.5f;
 	IMaterialVar *pOrigin = pFirst->FindVarFast( "$spriteorigin", &s_nSpriteOriginCache );
 	if ( pOrigin && pOrigin->GetType() == MATERIAL_VAR_TYPE_VECTOR )

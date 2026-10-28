@@ -230,9 +230,6 @@ private:
 #if defined(MDCACHE_FINE_GRAINED)
 #define MDLCACHE_CRITICAL_SECTION_( pCache ) CMDLCacheCriticalSection cacheCriticalSection(pCache)
 #define MDLCACHE_COARSE_LOCK_( pCache ) ((void)(0))
-#elif defined(MDLCACHE_LEVEL_LOCKED)
-#define MDLCACHE_CRITICAL_SECTION_( pCache )  ((void)(0))
-#define MDLCACHE_COARSE_LOCK_( pCache ) ((void)(0))
 #else
 #define MDLCACHE_CRITICAL_SECTION_( pCache ) ((void)(0))
 #define MDLCACHE_COARSE_LOCK_( pCache ) CMDLCacheCriticalSection cacheCriticalSection(pCache)

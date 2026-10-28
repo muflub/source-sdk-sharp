@@ -5,28 +5,11 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's IEffects, a thunk ======================//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_client_novalve.md §2 cluster 3: `IEffects` becomes a thunk. Stock's
-// CEffectsClient (game/client/EffectsClient.cpp) decided, per call, whether to
-// throw the effect away (SuppressTE), Smoke's grey, which muzzle-flash routine
-// a type means and whether a ricochet makes a sound. Those decisions are C#'s
-// now (SourceSharp.Client.Effects.ClientEffects, replaying the recorded stock
-// calls, Fixtures/ieffects-stock.tsv). What stays here:
-//
-//   CEffectsThunk           the IEffects vtable every native caller reaches
-//                           through g_pEffects (fx.cpp, soundenvelope.cpp,
-//                           physics_shared.cpp, our shells), still exported as
-//                           IEffects001 (K1), and still an IPredictionSystem
-//                           node, which is the state CanPredict() reads; each
-//                           effect method carries its arguments to managed
-//                           (IManagedFxClient) and nothing else. Time() and
-//                           IsServer() answer gpGlobals->curtime and false,
-//                           as stock's did: no decision, no crossing.
-//   IShimFxClient::Fx*      the FX_* routines the managed decision ends in,
-//                           and the two answers SuppressTE reads.
-//=============================================================================//
+// IEffects001, the client's IEffects, a thunk: each effect method carries its
+// arguments to IManagedFxClient. It is still an IPredictionSystem node, which is
+// the state CanPredict() reads. IShimFxClient's Fx* slots are the FX_* routines
+// managed's decisions end in.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,8 +38,6 @@
 
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
 
 namespace
 {
@@ -144,13 +125,8 @@ Vector V( const float *p )
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CEffectsThunk, IEffects, IEFFECTS_INTERFACE_VERSION, s_EffectsThunk );
 IEffects *g_pEffects = &s_EffectsThunk;
 
-// (IShimFxClient::FxDust left with lane c5-particles: FX_Dust is C#, DustPuff,
-// and ClientEffects starts it without a crossing.)
-
-//-----------------------------------------------------------------------------
-// What stock's SuppressTE read: this IEffects' own IPredictionSystem state
-// (SuppressEvents during a re-prediction), and a client PVS filter's count.
-//-----------------------------------------------------------------------------
+// What SuppressTE reads: this IEffects' IPredictionSystem state, and a client
+// PVS filter's count.
 int32_t SourceSharp_FxCanPredict( void )
 {
 	return s_EffectsThunk.CanPredict() ? 1 : 0;

@@ -24,10 +24,6 @@ public:
 
 	// The engine doesn't know what a CBaseEntity is, so it has a backdoor to 
 	// let it get at the edict.
-#if defined( ENGINE_DLL )
-	void SetEdict( edict_t *pEdict );
-	edict_t* GetEdict() const;
-#endif	
 
 public:
 

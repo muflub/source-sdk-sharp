@@ -1,13 +1,4 @@
-//========= SourceSharp — gamestringpool.cpp's server-side read access ========//
-//
-// What gamestringpool_debug.cpp's dumpgamestringtable needs from the pool, and
-// nothing more. The pool itself (g_GameStringPool) stays file-static in
-// gamestringpool.cpp; these two functions are the only way in from outside it.
-//
-// Server only: the debug file is compiled into server.so alone, and the client
-// half of gamestringpool.cpp defines neither function.
-//
-//=============================================================================//
+// Read access to gamestringpool.cpp's pool for dumpgamestringtable. Server only.
 
 #pragma once
 

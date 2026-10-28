@@ -1,18 +1,6 @@
-//========= SourceSharp — the platform calls our native code makes ===========//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//
-// Our own native code (the shims, the host, the instruments) asked the
-// platform for a handful of things that have no one spelling across Linux,
-// Windows and macOS: which module holds an address, a stack of return
-// addresses, the protection of a page and a way to change it, a page's size,
-// the process id, the process's own command line. Every one of those is
-// spelled here, once, with the Linux spelling unchanged from what each caller
-// used to inline, so the Linux build does exactly what it did and the other
-// two do the same thing their own way.
-//
-// System headers only, on purpose: vtable_slot_patch.h includes this and is
-// tested on its own, free of Source headers (test/vtable_slot_patch_test.cpp).
-//=============================================================================//
+// The platform calls our native code makes that have no single spelling across Linux,
+// Windows and macOS. System headers only, so it can be tested free of Source headers.
 #pragma once
 
 #include <stddef.h>
@@ -32,13 +20,9 @@
 	#include <intrin.h>
 	#include <process.h>
 	#include <direct.h>
-	// <windows.h> turns these into macros for their ...A/...W functions, and
-	// the engine's interfaces and ours have methods of the same names
-	// (IServerNetworkable::GetClassName, SendTable::GetProp,
-	// IGameEventManager2::CreateEvent, ...): left defined, every later
-	// declaration and call of one is renamed and stops matching. This header
-	// is included by headers, so it must not leak them. Win32 code here and
-	// in the .cpp files names the explicit ...A functions it calls.
+	// <windows.h> macros rename methods such as GetClassName and CreateEvent in
+	// every later declaration; this header is included by headers, so it must not
+	// leak them. Win32 code names the explicit ...A functions.
 	#undef GetClassName
 	#undef GetProp
 	#undef SetProp
@@ -57,27 +41,15 @@
 	#include <execinfo.h>
 	#include <sys/mman.h>
 	#include <unistd.h>
-	#if defined( __APPLE__ )
-		#include <crt_externs.h>
-		#include <mach/mach.h>
-		#include <mach/mach_vm.h>
-	#endif
 #endif
 
-//-----------------------------------------------------------------------------
-// The caller's return address, as gcc spells it; MSVC's intrinsic is
-// _ReturnAddress. Level 0 only on either (the level-1 form is gcc's and
-// unreliable even there).
-//-----------------------------------------------------------------------------
+// The caller's return address. Level 0 only.
 #ifdef _MSC_VER
 	#define SS_RETURN_ADDRESS() _ReturnAddress()
 #else
 	#define SS_RETURN_ADDRESS() __builtin_return_address( 0 )
 #endif
 
-//-----------------------------------------------------------------------------
-// strcasecmp is POSIX; the CRT calls it _stricmp.
-//-----------------------------------------------------------------------------
 #ifdef _WIN32
 	#define ss_strcasecmp _stricmp
 #else
@@ -85,15 +57,9 @@
 	#define ss_strcasecmp strcasecmp
 #endif
 
-//-----------------------------------------------------------------------------
-// The module that holds an address: its load base, its file name (the path
-// the loader has, or "" when the platform cannot say) and the nearest
-// exported symbol at or before the address (dladdr's dli_sname, a pointer
-// into the loader's own string; NULL when unknown, and always on Windows,
-// which has no such lookup without the debug help library). False when no
-// loaded module holds the address. dladdr on the GNU platforms;
-// GetModuleHandleEx(FROM_ADDRESS) and GetModuleFileName on Windows.
-//-----------------------------------------------------------------------------
+// The module that holds an address: its load base, its path ("" when unknown) and the
+// nearest exported symbol at or before it (NULL when unknown, always on Windows).
+// False when no loaded module holds the address.
 struct SSModuleInfo
 {
 	const void *pBase;
@@ -134,8 +100,7 @@ inline bool SS_ModuleOfAddress( const void *pAddress, SSModuleInfo *pInfo )
 #endif
 }
 
-// The file name part of a module path: after the last separator (either kind
-// on Windows, where the loader may hand back both).
+// The file name part of a module path; Windows paths may use either separator.
 inline const char *SS_ModuleBaseName( const char *pszPath )
 {
 	const char *pszName = strrchr( pszPath, '/' );
@@ -147,11 +112,7 @@ inline const char *SS_ModuleBaseName( const char *pszPath )
 	return pszName ? pszName + 1 : pszPath;
 }
 
-//-----------------------------------------------------------------------------
-// Up to nMax return addresses of the calling thread's stack, innermost first,
-// into pFrames; returns how many. glibc's and libSystem's backtrace(); on
-// Windows, CaptureStackBackTrace.
-//-----------------------------------------------------------------------------
+// Up to nMax return addresses of the calling thread's stack, innermost first; returns how many.
 inline int SS_Backtrace( void **pFrames, int nMax )
 {
 	if ( !pFrames || nMax <= 0 )
@@ -163,11 +124,8 @@ inline int SS_Backtrace( void **pFrames, int nMax )
 #endif
 }
 
-//-----------------------------------------------------------------------------
-// Pages. The protection bits are mprotect's (read 1, write 2, execute 4) on
-// every platform, so a value read back here can be passed back in unchanged;
+// Protection bits are mprotect's (read 1, write 2, execute 4) on every platform;
 // Windows' PAGE_* constants are translated at the edge.
-//-----------------------------------------------------------------------------
 enum
 {
 	SS_PAGE_READ = 1,
@@ -212,9 +170,7 @@ inline DWORD SS_PageBitsToWindows( int nBits )
 }
 #endif
 
-// The protection of the mapping that holds pAddress, or -1 when no mapping
-// does. Linux reads /proc/self/maps (the kernel's own answer, and what this
-// code always read); macOS asks Mach for the region; Windows, VirtualQuery.
+// The protection of the mapping that holds pAddress, or -1 when no mapping does.
 inline int SS_PageProtection( const void *pAddress )
 {
 #if defined( _WIN32 )
@@ -222,24 +178,6 @@ inline int SS_PageProtection( const void *pAddress )
 	if ( ::VirtualQuery( pAddress, &mbi, sizeof( mbi ) ) == 0 || mbi.State != MEM_COMMIT )
 		return -1;
 	return SS_PageBitsFromWindows( mbi.Protect );
-#elif defined( __APPLE__ )
-	mach_vm_address_t address = (mach_vm_address_t)(uintptr_t)pAddress;
-	mach_vm_size_t size = 0;
-	vm_region_basic_info_data_64_t info;
-	mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
-	mach_port_t object = MACH_PORT_NULL;
-	if ( mach_vm_region( mach_task_self(), &address, &size, VM_REGION_BASIC_INFO_64,
-	                     (vm_region_info_t)&info, &count, &object ) != KERN_SUCCESS )
-		return -1;
-	// The region found starts at or after the address; after means nothing
-	// is mapped at the address itself.
-	if ( address > (mach_vm_address_t)(uintptr_t)pAddress )
-		return -1;
-	int nProtection = 0;
-	if ( info.protection & VM_PROT_READ ) nProtection |= SS_PAGE_READ;
-	if ( info.protection & VM_PROT_WRITE ) nProtection |= SS_PAGE_WRITE;
-	if ( info.protection & VM_PROT_EXECUTE ) nProtection |= SS_PAGE_EXEC;
-	return nProtection;
 #else
 	FILE *pMaps = fopen( "/proc/self/maps", "r" );
 	if ( !pMaps )
@@ -283,10 +221,7 @@ inline bool SS_PageProtect( const void *pAddress, int nProtection )
 #endif
 }
 
-//-----------------------------------------------------------------------------
-// The process id, and the working directory (into a buffer; NULL when it
-// does not fit).
-//-----------------------------------------------------------------------------
+// The process id, and the working directory (NULL when it does not fit the buffer).
 inline int SS_GetPid()
 {
 #ifdef _WIN32
@@ -296,9 +231,7 @@ inline int SS_GetPid()
 #endif
 }
 
-// setenv(name, value, overwrite) and unsetenv. The CRT's environment on
-// Windows (_putenv_s, which getenv reads), where a variable set to the
-// empty string is removed: that is how unsetenv is spelled there.
+// setenv and unsetenv. On Windows a variable set to the empty string is removed.
 inline int SS_SetEnv( const char *pszName, const char *pszValue, int bOverwrite )
 {
 #ifdef _WIN32
@@ -319,18 +252,10 @@ inline int SS_UnsetEnv( const char *pszName )
 #endif
 }
 
-// SS_BIND_IMPORT(name): this module defines a function the engine's own DLL
-// headers declare extern "C" __declspec(dllimport) (tier0's spew and thread
-// entry points, vstdlib's random stream), and every call of it in this
-// module, which the compiler made through the import pointer __imp_<name>,
-// is to reach that definition. On Linux the definitions are hidden and the
-// module's calls bind to them by themselves. On Windows the import pointer is
-// defined here, so the linker never takes it from tier0.lib or vstdlib.lib.
-// After the definition, at file scope, in a file that also disables C4273
-// (a definition of a dllimport-declared function). C linkage only: an
-// overload with C++ linkage has a mangled import name and binds the way the
-// linker binds it (to the DLL's export, or to the local definition with
-// LNK4217 when nothing imports it).
+// SS_BIND_IMPORT(name): on Windows, defines the __imp_<name> import pointer for a
+// function this module defines but the engine's headers declare dllimport, so calls
+// bind locally rather than to tier0.lib or vstdlib.lib. C linkage only; use at file
+// scope after the definition, with C4273 disabled. A no-op on Linux.
 #ifdef _WIN32
 	#define SS_BIND_IMPORT( name ) extern "C" const void *const __imp_##name = (const void *)&name;
 	// The same for an overloaded name: Type is the C-linkage overload's

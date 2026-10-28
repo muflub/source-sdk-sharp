@@ -5,12 +5,7 @@
 //
 //=============================================================================//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// engineabi/recv.h's builders and standard proxies (plan_client_novalve C8).
-// The rules are dt_recv.cpp's, held to it field by field and output by output
-// by recv_builders_oracle_test; the Valve names client.so links against are
-// engineabi_recv_names.cpp's.
-//=============================================================================//
+// engineabi/recv.h's builders and standard proxies, following dt_recv.cpp's rules.
 
 #include "engineabi/recv.h"
 
@@ -59,9 +54,7 @@ RecvProp Vector( const char *pVarName, int offset, int sizeofVar, int flags, Rec
 RecvProp Int( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
               const CStandardRecvProxies &standard )
 {
-	// No proxy named: the variable's width picks the narrowing write. A width
-	// with no proxy is a declaration error; the one-byte write is the least
-	// that can go wrong.
+	// No proxy named: the variable's width picks the narrowing write.
 	if ( !proxy )
 	{
 		switch ( sizeofVar )

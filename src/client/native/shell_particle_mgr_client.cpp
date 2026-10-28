@@ -6,17 +6,9 @@
 //=============================================================================//
 // SS_REASON b  an interface resolved by name at load
 
-//========= SourceSharp — what was left of CParticleMgr: its mechanics ======//
-//
-// C7 particles phase 4 (shell_particle_mgr.h has the design). particlemgr.cpp
-// left client.so; these are the members of it the client still called, as
-// free functions over this file's state: the PMaterial table (GetPMaterial,
-// PMaterialToIMaterial, RepairPMaterial and FindOrAddSubTextureGroup, with
-// CParticleSubTexture's and CParticleSubTextureGroup's constructors, which
-// particlemgr.h declares, from phase 4's eviction), the draw state, and Init, Term and LevelInit's
-// calls into the particle library. The SS_REASON is the library's: its
-// manager is reached by name (particles_lib_client.cpp).
-//=============================================================================//
+// The CParticleMgr members the client still calls, as free functions over this
+// file's state: the PMaterial table, the draw state, and Init, Term and
+// LevelInit's calls into the particle library, whose manager is reached by name.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,13 +40,9 @@
 #include "texture_group_names.h"
 #include "shell_particle_mgr.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-
 extern IParticleSystemQuery *g_pParticleSystemQuery;
 
-//-----------------------------------------------------------------------------
-// particlemgr.h's two value classes, as particlemgr.cpp defined them.
-//-----------------------------------------------------------------------------
+// particlemgr.h's two value classes.
 CParticleSubTextureGroup::CParticleSubTextureGroup()
 {
 	m_pPageMaterial = NULL;
@@ -201,9 +189,7 @@ void ReleaseMaterials( bool bDelete )
 
 } // namespace
 
-//-----------------------------------------------------------------------------
 // The library's setup, as CParticleMgr's Init, Term and LevelInit made it.
-//-----------------------------------------------------------------------------
 bool ShellParticleMgr_Init( IMaterialSystem *pMaterials )
 {
 	ShellParticleMgr_Term();
@@ -234,17 +220,14 @@ void ShellParticleMgr_LevelInit()
 	g_pParticleSystemMgr->SetLastSimulationTime( gpGlobals->curtime );
 }
 
-// The handles leak from level to level, as stock's did: the code that cached
-// one (shell_impact_effects.cpp's g_Mat_*) keeps it, and its next use
-// re-acquires the material.
+// Handles leak from level to level, as stock's did: their next use re-acquires
+// the material.
 void ShellParticleMgr_LevelShutdown()
 {
 	ReleaseMaterials( false );
 }
 
-//-----------------------------------------------------------------------------
 // The PMaterial table: CParticleMgr::GetPMaterial and PMaterialToIMaterial.
-//-----------------------------------------------------------------------------
 PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )
 {
 	if ( !s_Mgr.pMaterialSystem )
@@ -326,9 +309,7 @@ IMaterial *ShellParticleMaterial_Material( PMaterialHandle hMaterial )
 	return hMaterial->m_pMaterial;
 }
 
-//-----------------------------------------------------------------------------
 // The draw state.
-//-----------------------------------------------------------------------------
 VMatrix &ShellParticleDraw_ModelView()
 {
 	return s_Mgr.modelView;
