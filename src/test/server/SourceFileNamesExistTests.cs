@@ -517,7 +517,7 @@ public sealed partial class SourceFileNamesExistTests
     /// 46 TO 45 AT the props_shared.h link's removal: PropBreakTests' spawnflag
     /// fact skipped with Assert.True(true) when the farm had no props_shared.h;
     /// it is PropBreakSpawnFlagsOracleTests now, which reads the pristine clone.
-    private const int VacuousAssertionSites = 30;
+    private const int VacuousAssertionSites = 26;
 
     private static readonly Regex Vacuous = new(
         @"\bAssert\s*\.\s*(?:True\s*\(\s*true|False\s*\(\s*false)\b",

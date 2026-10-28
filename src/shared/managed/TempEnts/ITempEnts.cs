@@ -34,6 +34,12 @@ public interface ITempEnts
     void Sparks(TeFilter filter, float delay, Vector position,
                 int magnitude, int trailLength, Vector? direction);
 
+    /// <summary>A jet of blood: <c>te_bloodstream.cpp</c>'s <c>TE_BloodStream</c>.</summary>
+    void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction, Color32 color, int amount);
+
+    /// <summary>A puff of smoke: <c>te_smoke.cpp</c>'s <c>TE_Smoke</c>.</summary>
+    void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale, int frameRate);
+
     /// <summary>
     /// Sparks off metal: <c>te_metalsparks.cpp</c>'s <c>TE_MetalSparks</c>,
     /// what stock's server-side <c>IEffects::MetalSparks</c> sends (a scrape's

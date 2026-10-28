@@ -342,25 +342,6 @@ internal sealed unsafe partial class EngineEffects
     }
 
     /// <summary>
-    /// Whether this client is running with gore turned down.
-    /// <c>UTIL_IsLowViolence</c>.
-    ///
-    /// <para>
-    /// NOT FOUR CONVAR READS. <c>violence_hblood</c> and its three siblings are
-    /// all reachable through <see cref="FindConVarValue"/>, and stock's own
-    /// comment above them says they are legacy and that "the engine is the
-    /// final arbiter of violence settings". The arbiter is
-    /// <c>engine-&gt;IsLowViolence()</c>, which managed code cannot reach at
-    /// all — so a C# copy of this rule would have been the four terms that do
-    /// not decide anything and a missing fifth that does.
-    /// </para>
-    /// </summary>
-    public bool ClientIsLowViolence()
-    {
-        return _tempEntBackendsClientArea.ClientIsLowViolence() != 0;
-    }
-
-    /// <summary>
     /// A decal's NAME from its index, or the empty string for an index that
     /// names nothing. <c>decalsystem-&gt;GetDecalNameForIndex</c>.
     ///
@@ -1043,6 +1024,9 @@ internal sealed unsafe partial class EngineEntityPhysics
     public bool InitSpherePhysics(EntityHandle entity, float radius) => false;
     public bool InitStaticPhysics(EntityHandle entity) => false;
     public void EnableCollisions(EntityHandle entity, bool enable) { }
+    public bool InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement = false, bool allowPhysicsRotation = false) => false;
+    public int UpdateShadows(float frameTime) => 0;
+    public int PhysicsKind(EntityHandle entity) => 0;
     public void SetBounce(EntityHandle h, int bounces) { }
     public void SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) { }
     public CollisionGroup GetCollisionGroup(EntityHandle entity) => CollisionGroup.None;
@@ -2054,7 +2038,6 @@ internal sealed unsafe partial class EngineWorldQuery
 
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
-    public (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward) => (default, default);
     public int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => 0;
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new HullResult(false, false, EntityHandle.None);
     public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);

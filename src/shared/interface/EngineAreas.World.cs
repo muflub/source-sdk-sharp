@@ -12,17 +12,9 @@ namespace SourceSharp.Abi;
 /// to be in it.
 /// </para>
 ///
-/// <para>
-/// <see cref="AngleVectorsFromForward"/> is the exception and is here because it
-/// has nowhere better: it asks about no place at all, it is pure geometry. It is
-/// an engine call, so it belongs on an area rather than nowhere.
-/// </para>
 /// </summary>
 public interface IEngineWorldQuery
 {
-    /// <inheritdoc cref="EngineSide.AngleVectorsFromForward"/>
-    (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward);
-
     /// <inheritdoc cref="EngineSide.EntitiesInSphere"/>
     int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into);
 
@@ -309,9 +301,6 @@ public interface IEngineEffects
 
     /// <inheritdoc cref="EngineSide.ClientDecalStaticProp"/>
     void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex);
-
-    /// <inheritdoc cref="EngineSide.ClientIsLowViolence"/>
-    bool ClientIsLowViolence();
 
     /// <inheritdoc cref="EngineSide.ClientDecalNameFromIndex"/>
     string ClientDecalNameFromIndex(int decalIndex);

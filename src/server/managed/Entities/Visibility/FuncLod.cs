@@ -52,8 +52,9 @@ public sealed class FuncLod : ScriptedEntity
 
         // Static in the solver, which is CFunc_LOD::CreateVPhysics. A brush that
         // fades out of sight is still a brush a crate can rest on, and stock
-        // makes one whether or not the map asked for solidity.
-        MakePhysicsStatic();
+        // makes one whether or not the map asked for solidity. The brush's
+        // create, which keeps it SOLID_BSP.
+        InitStaticPhysics();
 
         State.DisappearDist = Vars.DisappearDistance;
     }

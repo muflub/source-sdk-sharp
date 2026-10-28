@@ -81,10 +81,6 @@ steamid.o	_ZZNK8CSteamID6RenderEvE4nBuf	CSteamID::Render() const::nBuf	sourcesha
 steamid.o	_ZZNK8CSteamID6RenderEvE7rgchBuf	CSteamID::Render() const::rgchBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	148	DEAD		the linker drops it: nothing in the shipped .so reads it
 client_util_library.o	_ZZ7VarArgsPKczE6string	VarArgs(char const*, ...)::string	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	function-local	1024	UNRULED		
 	localplayer_visionflags	localplayer_visionflags	sourcesharp/game/client/client_util_library.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-client_util_library.o	_ZL15violence_ablood	violence_ablood	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-client_util_library.o	_ZL14violence_agibs	violence_agibs	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-client_util_library.o	_ZL15violence_hblood	violence_hblood	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-client_util_library.o	_ZL14violence_hgibs	violence_hgibs	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 	g_StandardRecvProxies	g_StandardRecvProxies	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	40	UNRULED		
 	g_bUseNetworkVars	g_bUseNetworkVars	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	data	file-or-global	1	UNRULED		
 	g_pClientClassHead	g_pClientClassHead	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	8	FLOOR		the ClientClass list; shell_clientdll.cpp's GetAllClasses hands its head to the engine and shell_tempents_client.cpp walks it
@@ -674,9 +670,5 @@ tier0_spew_port.o	_ZN12_GLOBAL__N_17t_pFileE	(anonymous namespace)::t_pFile	sour
 	mdlcache	mdlcache	sourcesharp/game/shared/tier_connect.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 tier_connect.o	_ZL17s_bTier1Connected	s_bTier1Connected	sourcesharp/game/shared/tier_connect.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 	r_visualizetraces	r_visualizetraces	sourcesharp/game/shared/trace_filter_library.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-util_shared_library.o	_ZL15violence_ablood	violence_ablood	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-util_shared_library.o	_ZL14violence_agibs	violence_agibs	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-util_shared_library.o	_ZL15violence_hblood	violence_hblood	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-util_shared_library.o	_ZL14violence_hgibs	violence_hgibs	sourcesharp/game/shared/util_shared_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 dt_utlvector_common.o	_ZL8g_RTDictB5cxx11	g_RTDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL8g_STDictB5cxx11	g_STDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it

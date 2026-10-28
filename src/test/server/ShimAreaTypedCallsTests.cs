@@ -103,9 +103,9 @@ public class ShimAreaTypedCallsTests
         Assert.Contains("class ServerAreaRegistration", code, StringComparison.Ordinal);
         Assert.Contains("class ClientAreaRegistration", code, StringComparison.Ordinal);
         Assert.NotNull(Method(typeof(IEntitiesServerArea), "EntityGetHealth"));
-        Assert.NotNull(Method(typeof(IEngineArea), "GetCurrentTime"));
-        Assert.True(Serves(ServerAreaRegistration.AddDetached, "GetCurrentTime")
-                    && Serves(ClientAreaRegistration.AddDetached, "GetCurrentTime"),
+        Assert.NotNull(Method(typeof(IEngineArea), "GetGlobalVarsPtr"));
+        Assert.True(Serves(ServerAreaRegistration.AddDetached, "GetGlobalVarsPtr")
+                    && Serves(ClientAreaRegistration.AddDetached, "GetGlobalVarsPtr"),
                     "a both-sides slot is on an area each side registers");
     }
 
@@ -230,7 +230,7 @@ public class ShimAreaTypedCallsTests
 
         // The control for the walk itself: a typed call the product code is
         // known to make, so an empty `callers` cannot pass.
-        Assert.Contains("GetCurrentTime", callers);
+        Assert.Contains("GetGlobalVarsPtr", callers);
 
         var dead = typed.Where(t => !callers.Contains(t)).ToList();
         Assert.Empty(dead.Except(AwaitingRetirement.Keys));   // names each dead typed call; the list must stay empty

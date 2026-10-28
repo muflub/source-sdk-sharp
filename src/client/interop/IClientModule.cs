@@ -29,14 +29,6 @@ public interface IClientModule
     void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob);
 
     /// <summary>
-    /// A native forward raised a temp entity LOCALLY. The id and the numbers
-    /// arrive rather than a blob: the effect is local, so it never has to become
-    /// bytes, and the module turns them into the declaration and plays it.
-    /// Answers whether a player took it.
-    /// </summary>
-    bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints);
-
-    /// <summary>
     /// One frame of the pool: expiry, the physics step, the visibility cull and
     /// the frees. <c>CTempEnts::Update</c>'s body, from the same place
     /// <c>cdll_client_int.cpp</c> called it.

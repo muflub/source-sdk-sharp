@@ -40,7 +40,7 @@ public partial class DebugApiGoldenWorldTests
     {
         ["entities"] =
             """
-            {"class":"prop_golden","entities":[{"handle":262177,"index":33,"classname":"prop_golden","name":"golden","health":75,"solid":6,"solidflags":4,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]},{"handle":327714,"index":33,"classname":"prop_golden","name":"golden","health":75,"solid":6,"solidflags":4,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]}],"count":2}
+            {"class":"prop_golden","entities":[{"handle":262177,"index":33,"classname":"prop_golden","name":"golden","health":75,"solid":6,"solidflags":4,"physics":0,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]},{"handle":327714,"index":33,"classname":"prop_golden","name":"golden","health":75,"solid":6,"solidflags":4,"physics":0,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]}],"count":2}
             """,
         ["input"] =
             """

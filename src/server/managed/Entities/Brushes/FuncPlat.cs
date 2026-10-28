@@ -43,6 +43,8 @@ public sealed class FuncPlat : ScriptedEntity
     public override void OnSpawn()
     {
         SetSolidity(BrushSolidity.Solid);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
         SetVisible(true);
 
         // Angles on a platform are not a facing — the stock entity zeroes them

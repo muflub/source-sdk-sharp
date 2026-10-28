@@ -533,17 +533,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob)
         => _tempEntPlayers?.Dispatch(handle, blob);
 
-    /// <summary>
-    /// A native forward raised one locally: the id and the numbers arrive rather
-    /// than a blob, because the effect is local and never has to become bytes.
-    /// </summary>
-    public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints)
-    {
-        TempEntState? state = TeForwardDispatch.Build((TeForward)id, floats, ints);
-
-        return state is not null && (_tempEntPlayers?.PlayLocally(state) ?? false);
-    }
-
     /// <summary>Exposed so the report command can read what has arrived.</summary>
     public TempEnts.ClientTempEnts TempEntities => _tempEntPlayers;
 
@@ -902,6 +891,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // r_decals and r_drawmodeldecals, the engine's, watched: the client's
         // decal gates (lane M1-C; the temp entity players, AddStudioDecal and
         // the bullet impact read them).
+        // UTIL_IsLowViolence: the four violence_* convars and the engine's word.
+        _services.AddFactory<Effects.IClientLowViolence>(locator =>
+            new Effects.ClientLowViolence(locator.Require<IEngineConsole>(), locator.Require<IViolenceSettings>()));
         _services.AddFactory<TempEnts.IDecalSettings>(locator =>
         {
             var watch = new TempEnts.DecalConVarsWatch(

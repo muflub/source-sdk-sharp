@@ -103,7 +103,7 @@ public class EffectsTracedTests
         var temps = new Temps();
         var world = new World_();
         var warnings = new List<string>();
-        return (new EffectsOverTempEnts(engine, temps, engine, engine, world, warnings.Add), temps, world, warnings);
+        return (new EffectsOverTempEnts(engine, temps, engine, engine, world, engine, new DefaultForwarders.LowestRandom(), warnings.Add), temps, world, warnings);
     }
 
     // ---- PaintDecal ------------------------------------------------------------

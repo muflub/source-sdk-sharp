@@ -76,6 +76,8 @@ public sealed class FuncButton : ScriptedEntity
     public override void OnSpawn()
     {
         SetSolidity(BrushSolidity.Solid);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
         SetVisible(true);
         _locked = Vars.StartDisabled;
     }

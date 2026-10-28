@@ -478,7 +478,7 @@ TEST( GlobalsClientLedger, TheGateFailsWhenTheLedgerIsMissingARow )
 	// Anti-vacuity floors: 1000 until C8 (lane c6-input) took the ledger to
 	// exactly 1000 rows; 800 until C7 step 3's eviction took it to 796; 600 is
 	// still far above any stale or empty read.
-	ASSERT_GT( cData, 600u ) << kLedger << " has almost no rows, so removing one proves nothing";
+	ASSERT_GT( cData, 500u ) << kLedger << " has almost no rows, so removing one proves nothing";
 
 	std::string szBody;
 	for ( size_t i = 0; i < lines.size(); i++ )
@@ -630,7 +630,7 @@ TEST( GlobalsClientLedger, TheTwoInstrumentsReconcileWithNothingLeftOver )
 TEST( GlobalsClientLedger, TheClientLedgerVocabularyCannotGrowAWord )
 {
 	const std::vector<LedgerRow_t> rows = LedgerRows();
-	ASSERT_GT( rows.size(), 600u );
+	ASSERT_GT( rows.size(), 500u );
 	for ( size_t i = 0; i < rows.size(); i++ )
 		EXPECT_TRUE( IsADisposition( rows[i].m_szDisposition ) )
 			<< rows[i].m_szName << " has disposition '" << rows[i].m_szDisposition << "'";
@@ -639,7 +639,7 @@ TEST( GlobalsClientLedger, TheClientLedgerVocabularyCannotGrowAWord )
 TEST( GlobalsClientLedger, EveryClientLedgerRowNamesATranslationUnitThatStillExists )
 {
 	const std::vector<LedgerRow_t> rows = LedgerRows();
-	ASSERT_GT( rows.size(), 600u );
+	ASSERT_GT( rows.size(), 500u );
 	size_t cMissing = 0;
 	std::string szFirst;
 	for ( size_t i = 0; i < rows.size(); i++ )

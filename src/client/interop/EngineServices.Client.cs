@@ -15,6 +15,7 @@ public static partial class EngineServices
         services.AddInstance(Slice<ISaveMemory>(client));
         services.AddInstance(Slice<Client.Input.IClientInputEngine>(client));
         services.AddInstance(Slice<IPlaybackState>(client));
+        services.AddInstance(Slice<IViolenceSettings>(client));
         services.AddInstance(Slice<IClientPredictCommand>(client));
         services.AddInstance(Slice<IWeaponSelectionCommand>(client));
         services.AddInstance(EngineBound.InputSystem(side));

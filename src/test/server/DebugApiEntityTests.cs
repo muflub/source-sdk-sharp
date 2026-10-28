@@ -19,6 +19,7 @@ public class DebugApiEntityTests
         crate.Asleep = true;
         crate.SolidType = 6;
         crate.SolidFlags = 4;
+        crate.PhysicsKind = 2;
         var player = world.Add(0x20001u, 1, "player");
         player.Ground = -1;
         return (DebugApiServer.ForTest(TestDebugHooks.Server(world: world)), world);
@@ -49,8 +50,8 @@ public class DebugApiEntityTests
         var (server, _) = Serve();
         using var _s = server;
         var crate = Read(server, "/entities?class=prop_physics").GetProperty("entities")[0];
-        Assert.Equal(("crate_a", 6, 4), (crate.GetProperty("name").GetString(), crate.GetProperty("solid").GetInt32(),
-                                         crate.GetProperty("solidflags").GetInt32()));
+        Assert.Equal(("crate_a", 6, 4, 2), (crate.GetProperty("name").GetString(), crate.GetProperty("solid").GetInt32(),
+                                            crate.GetProperty("solidflags").GetInt32(), crate.GetProperty("physics").GetInt32()));
     }
 
     [Fact]

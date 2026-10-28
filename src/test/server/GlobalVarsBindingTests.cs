@@ -262,18 +262,17 @@ public class GlobalVarsBindingTests
     }
 
     /// <summary>
-    /// With no globals the clock is the slot's answer, which outside the game is
-    /// zero. The fallback is what keeps a test process, and the moments before
-    /// the engine has set <c>gpGlobals</c>, working exactly as they did.
+    /// With no globals the clock is zero, as the retired GetCurrentTime slot
+    /// answered before the engine set <c>gpGlobals</c>: a test process, and
+    /// those moments, work exactly as they did.
     /// </summary>
     [Fact]
-    public void WithNoGlobalsTheClockIsStillTheSlotsAnswer()
+    public void WithNoGlobalsTheClockIsZero()
     {
         var server = TestSides.Create(Side.Server);
         server.BindGlobalVars(Side.Server, 0);
 
-        Assert.True(server.CurrentTime == 0f,
-            "with nothing bound the clock falls back to the ABI slot rather than throwing");
+        Assert.True(server.CurrentTime == 0f, "with nothing bound the clock is zero rather than throwing");
     }
 
     //-------------------------------------------------------------------------

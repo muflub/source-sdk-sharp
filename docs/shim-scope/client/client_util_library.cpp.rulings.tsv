@@ -4,5 +4,4 @@ char *VarArgs( const char *format, ... )	LIVE-API	a printf into a static buffer,
 client_textmessage_t *TextMessageGet( const char *pName )	BOUNDARY	IVEngineClient::TextMessageGet, a pointer into the engine's own titles table
 int ScreenHeight()	BOUNDARY	the HUD surface's height (GetHudSize)
 int ScreenWidth()	BOUNDARY	the HUD surface's width (GetHudSize)
-bool UTIL_IsLowViolence()	LOGIC	stock's rule (util_shared.cpp): low violence when any of the four violence_* convars is off, else the engine's IsLowViolence. Managed asks it through IShimTempEntBackendsClient::ClientIsLowViolence (shell_te_backends_client.cpp); the port needs IVEngineClient::IsLowViolence forwarded and that row retired in the serialised ABI pass (docs/todo.md)
 void ReloadSoundEntriesInList( IFileList *pFilesToReload )	BOUNDARY	ISoundEmitterSystemBase::ReloadSoundEntriesInList (sv_pure's reload)

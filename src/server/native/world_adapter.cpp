@@ -30,7 +30,6 @@ extern CGlobalVars *gpGlobals;
 void PrecacheParticleSystem( const char *pParticleSystemName );
 void SENTENCEG_Init();
 
-#include "precache_model.h"
 #include "shell_server.h"
 
 #include "slot_table.h"
@@ -43,18 +42,6 @@ void SENTENCEG_Init();
 #include "native_command_body.h"
 #include "ss_recipient_filter.h"
 #include "ss_entityfactory.h"
-
-// The global sprite indexes, precached by the world.
-short g_sModelIndexSmoke; // holds the index for the smoke cloud
-
-// Only the smoke index has a native reader; the rest are precached but not stored.
-static void W_Precache()
-{
-	g_sModelIndexSmoke = Precache_Model( "sprites/steam1.vmt" ); // smoke
-	Precache_Model( "sprites/bubble.vmt" ); //bubbles
-	Precache_Model( "sprites/bloodspray.vmt" ); // initial blood
-	Precache_Model( "sprites/blood.vmt" ); // splattered blood
-}
 
 // Registered with its own factory rather than LINK_ENTITY_TO_CLASS, whose template
 // needs CBaseEntity's PostConstructor and NetworkProp. Destroy() is Release(),
@@ -271,24 +258,6 @@ CWorld::~CWorld()
 	g_WorldEntity = NULL;
 }
 
-void CWorld::DecalTrace( trace_t *pTrace, char const *decalName )
-{
-	int index = ss::DecalIndexForName( decalName );
-	if ( index < 0 )
-		return;
-
-	ss::CBroadcastRecipientFilter filter;
-
-	if ( pTrace->hitbox != 0 )
-	{
-		TE_Decal( filter, 0.0f, &pTrace->endpos, &pTrace->startpos, 0, pTrace->hitbox, index );
-	}
-	else
-	{
-		TE_WorldDecal( filter, 0.0, &pTrace->endpos, index );
-	}
-}
-
 // The world's handle serial. Not reset between maps, so a client cannot resolve
 // the previous map's world with the new handle.
 static int SourceSharp_WorldIssueSerial()
@@ -379,6 +348,4 @@ void CWorld::Precache()
 	// init sentence group playback stuff from sentences.txt.
 	// ok to call this multiple times, calls after first are ignored.
 	SENTENCEG_Init();
-
-	W_Precache();
 }

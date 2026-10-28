@@ -51,6 +51,9 @@ public interface IDebugWorld
     /// <summary>Its FSOLID_ flags.</summary>
     int GetSolidFlags(uint entity);
 
+    /// <summary>Its physics object: 0 none, 1 static, 2 a shadow, 3 simulated.</summary>
+    int GetPhysicsKind(uint entity);
+
     /// <summary>
     /// Whether its physics object is asleep, as the last wake or sleep event the
     /// solver delivered for it said; null when none was ever delivered (no

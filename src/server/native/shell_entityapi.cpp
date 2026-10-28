@@ -355,21 +355,6 @@ void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float f
 	victim.pStandalone->TakeDamage( info );
 }
 
-int32_t SourceSharp_GetPlayerTeam( uint32_t hPlayer )
-{
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-		return pStandalone->TeamNumber();
-
-	return -1;
-}
-
-// Stores the team number; which teams exist and what a change costs is managed policy.
-void SourceSharp_PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
-{
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-		pStandalone->ChangeTeam( nTeam );
-}
-
 uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex )
 {
 	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( nPlayerIndex ) )
@@ -560,25 +545,6 @@ void SourceSharp_EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )
 	pOutPYR[0] = angles.x;
 	pOutPYR[1] = angles.y;
 	pOutPYR[2] = angles.z;
-}
-
-// The bounding box centre; a brush's origin is usually nowhere near the brush.
-void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ )
-{
-	if ( !pOutXYZ )
-		return;
-
-	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
-
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-	if ( !ent.IsValid() )
-		return;
-
-	const Vector vecCenter = ent.Center();
-
-	pOutXYZ[0] = vecCenter.x;
-	pOutXYZ[1] = vecCenter.y;
-	pOutXYZ[2] = vecCenter.z;
 }
 
 // Runs a command on one client's console. The newline terminates it, and "%s"
@@ -784,22 +750,6 @@ int32_t SourceSharp_EntityGetCollisionGroup( uint32_t hEntity )
 	return CollisionGroup_FromEngine( nEngineGroup, s_CollisionGroupNames, s_nCollisionGroupNames );
 }
 
-// The engine's FSOLID_ bits, untranslated. Read off the collideable, so both
-// hierarchies answer.
-int32_t SourceSharp_EntityGetSolidFlags( uint32_t hEntity )
-{
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	IHandleEntity *pHandle = ent.ToHandleEntity();
-
-	if ( !pHandle )
-		return 0;
-
-	ICollideable *pCollide = ( (IServerEntity *)pHandle )->GetCollideable();
-
-	return pCollide ? (int32_t)pCollide->GetSolidFlags() : 0;
-}
-
 void SourceSharp_EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize )
 {
 	if ( !pOut || nOutSize <= 0 )
@@ -828,21 +778,6 @@ void SourceSharp_EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const
 		pStandalone->SetCollisionBounds( Vector( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] ),
 										 Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ) );
 	}
-}
-
-// The engine's SolidType_t, untranslated; 0 (SOLID_NONE) for no entity.
-int32_t SourceSharp_EntityGetSolidType( uint32_t hEntity )
-{
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	IHandleEntity *pHandle = ent.ToHandleEntity();
-
-	if ( !pHandle )
-		return 0;
-
-	ICollideable *pCollide = ( (IServerEntity *)pHandle )->GetCollideable();
-
-	return pCollide ? (int32_t)pCollide->GetSolid() : 0;
 }
 
 // One call, because UpdatePartition reads both halves to decide whether the

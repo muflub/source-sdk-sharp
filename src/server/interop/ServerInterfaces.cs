@@ -684,10 +684,11 @@ public interface IServerSoundEnt
     void Shutdown();
 
     /// <summary>
-    /// <c>CSound::Reset</c> on a leaving client's reserved slot. An index
-    /// outside the pool is silently nothing.
+    /// <c>CSound::Reset</c> on the reserved slot of the leaving client at
+    /// <paramref name="clientEntIndex"/> (<c>CSoundEnt::ClientSoundIndex</c>).
+    /// An index outside the pool is silently nothing.
     /// </summary>
-    void ResetClientSound(int index);
+    void ResetClientSoundOf(int clientEntIndex);
 }
 
 /// <summary>

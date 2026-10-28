@@ -237,9 +237,8 @@ TEST( ServerWave3, TheOtherZeroConsumerFilesAreStillCompiled )
 	// thing that references REFERENCE_RECV_TABLE( DT_EffectData ) -- is inside
 	// `#ifndef SOURCESHARP` and is not compiled. What the server had left was a
 	// bare SendTable no ServerClass pointed at, and a bare table is not in the
-	// class list the join matches. TE_DispatchEffect marshals every field by
-	// hand into a managed temp-entity forward now (shell_te_forwards.cpp) and asks
-	// the table nothing.
+	// class list the join matches. Effect dispatch is sent from C# now
+	// (ITempEnts.DispatchEffect) and asks the table nothing.
 	//
 	// So plan_entity.md step 4a took the SERVER row out. The file stays on disk
 	// and stays in the client build (client_sourcesharp). effects_cluster_test.cpp carries this

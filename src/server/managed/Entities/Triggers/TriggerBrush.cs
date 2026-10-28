@@ -55,6 +55,17 @@ public sealed class TriggerBrush : TriggerVolume
     /// <summary>Nothing: this one's filtering is the ignore list, not the flags.</summary>
     protected override TriggerSpawnflags KindFlags => TriggerSpawnflags.None;
 
+    /// <summary>
+    /// CTriggerBrush::Spawn: SOLID_BSP and FSOLID_TRIGGER without
+    /// FSOLID_NOT_SOLID, so it is touched and also stops what meets it (the
+    /// partition files it with the solid edicts as well as the triggers).
+    /// </summary>
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+        SetSolidity(SolidType.Bsp, SolidFlags.Trigger);
+    }
+
     protected override bool Passes(EntityHandle toucher)
     {
         if (Ignoring.HasFlag(IgnoreFlag.Touch))

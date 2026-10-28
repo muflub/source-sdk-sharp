@@ -190,7 +190,7 @@ struct SSManagedSoundEntTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *ServerSoundEntInit )( IManagedSoundEnt *self, int32_t nMaxClients, float flCurTime );
 	void ( *ServerSoundEntShutdown )( IManagedSoundEnt *self );
-	void ( *ServerSoundEntResetClientSound )( IManagedSoundEnt *self, int32_t nIndex );
+	void ( *ServerSoundEntResetClientSound )( IManagedSoundEnt *self, int32_t nClientIndex );
 };
 
 class IManagedSoundEnt : public IManagedObject
@@ -208,7 +208,10 @@ public:
 
 	void ServerSoundEntShutdown() { Table()->ServerSoundEntShutdown( this ); }
 
-	void ServerSoundEntResetClientSound( int32_t nIndex ) { Table()->ServerSoundEntResetClientSound( this, nIndex ); }
+	void ServerSoundEntResetClientSound( int32_t nClientIndex )
+	{
+		Table()->ServerSoundEntResetClientSound( this, nClientIndex );
+	}
 
 private:
 	const SSManagedSoundEntTable *Table() const { return static_cast<const SSManagedSoundEntTable *>( m_pTable ); }
@@ -510,45 +513,6 @@ static const int32_t kIManagedUserMessagesSlotCount = 3;
 static_assert( sizeof( SSManagedUserMessagesTable ) == 3 * sizeof( void * ),
 			   "SSManagedUserMessagesTable is one pointer per slot" );
 
-class IManagedTempEnts;
-
-// The table managed writes for IManagedTempEnts: Release, Validate, then the TSV's order.
-struct SSManagedTempEntsTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *OnNativeTempEntity )( IManagedTempEnts *self, int32_t nId, const float *pFloats, int32_t nFloats,
-									 const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax,
-									 int32_t *pClassOut );
-};
-
-class IManagedTempEnts : public IManagedObject
-{
-public:
-	explicit IManagedTempEnts( const SSManagedTempEntsTable *pTable )
-		: IManagedObject( pTable )
-	{
-	}
-
-	int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts,
-								void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut )
-	{
-		return Table()->OnNativeTempEntity( this, nId, pFloats, nFloats, pInts, nInts, pBlobOut, nBlobMax, pClassOut );
-	}
-
-private:
-	const SSManagedTempEntsTable *Table() const { return static_cast<const SSManagedTempEntsTable *>( m_pTable ); }
-};
-
-static const uint32_t kIManagedTempEntsSlotHashes[] = {
-	0x07e0f4c4,
-	0x0d54c15e,
-	0x4febfaf5,
-};
-static const int32_t kIManagedTempEntsSlotCount = 3;
-static_assert( sizeof( SSManagedTempEntsTable ) == 3 * sizeof( void * ),
-			   "SSManagedTempEntsTable is one pointer per slot" );
-
 class IManagedDiagnostics;
 
 // The table managed writes for IManagedDiagnostics: Release, Validate, then the TSV's order.
@@ -811,7 +775,6 @@ IManagedEntities *ManagedEntities(); // this load's area, or NULL outside a load
 IManagedClients *ManagedClients(); // this load's area, or NULL outside a load
 IManagedEvents *ManagedEvents(); // this load's area, or NULL outside a load
 IManagedUserMessages *ManagedUserMessages(); // this load's area, or NULL outside a load
-IManagedTempEnts *ManagedTempEnts(); // this load's area, or NULL outside a load
 IManagedDiagnostics *ManagedDiagnostics(); // this load's area, or NULL outside a load
 IManagedCommands *ManagedCommands(); // this load's area, or NULL outside a load
 IManagedNetState *ManagedNetState(); // this load's area, or NULL outside a load

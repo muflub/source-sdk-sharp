@@ -7,7 +7,7 @@ namespace SourceSharp.Abi;
 /// These exist because a Source mod must answer them in C++; SourceSharp
 /// answers them in C# and keeps only a thin shell native-side.
 /// </summary>
-public interface IServerModule : ITempEntBlobs
+public interface IServerModule
 {
     /// <summary>Name shown in the server browser.</summary>
     string GetGameDescription();

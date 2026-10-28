@@ -34,41 +34,10 @@
 
 // util.h's helpers, defined in our own TUs.
 extern IVModelInfo *modelinfo;
-void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount );
-void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amount, int flags );
-void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, int amount );
 void PrecacheMaterial( const char *pMaterialName );
 void PrecacheParticleSystem( const char *pParticleSystemName );
 
 #include "trace_hit.h"
-
-// The right and up vectors of a surface facing a direction. Native so the server
-// and client compute them bit-identically from the same normal.
-void SourceSharp_AngleVectorsFromForward( const float *pForwardXYZ, float *pOutRightXYZ, float *pOutUpXYZ )
-{
-	if ( !pForwardXYZ )
-		return;
-
-	QAngle vAngles;
-	VectorAngles( Vector( pForwardXYZ[0], pForwardXYZ[1], pForwardXYZ[2] ), vAngles );
-
-	Vector vRight, vUp;
-	AngleVectors( vAngles, NULL, &vRight, &vUp );
-
-	if ( pOutRightXYZ )
-	{
-		pOutRightXYZ[0] = vRight.x;
-		pOutRightXYZ[1] = vRight.y;
-		pOutRightXYZ[2] = vRight.z;
-	}
-
-	if ( pOutUpXYZ )
-	{
-		pOutUpXYZ[0] = vUp.x;
-		pOutUpXYZ[1] = vUp.y;
-		pOutUpXYZ[2] = vUp.z;
-	}
-}
 
 // Every live standalone entity; gEntList's traversals skip them.
 std::vector<CStandaloneEntity *> &StandaloneEntities();
@@ -251,31 +220,6 @@ int32_t SourceSharp_PrecacheModel( const char *pszModel )
 	const int nIndex = Precache_Model( pszModel );
 
 	return nIndex;
-}
-
-// Blood at a point and in a direction: stream or drips, then spray, in stock's order.
-void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor, float flAmount,
-							  int32_t bStream, int32_t nSprayFlags )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ || !pDirXYZ )
-		return;
-
-	// DONT_BLEED means no blood. UTIL_BloodSpray checks it too.
-	if ( nColor == ss::DONT_BLEED )
-		return;
-
-	const Vector vecOrigin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-	const Vector vecDir( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] );
-
-	if ( bStream )
-		UTIL_BloodStream( vecOrigin, vecDir, nColor, (int)flAmount );
-	else
-		UTIL_BloodDrips( vecOrigin, vecDir, nColor, (int)flAmount );
-
-	if ( nSprayFlags )
-		UTIL_BloodSpray( vecOrigin, vecDir, nColor, (int)flAmount, nSprayFlags );
 }
 
 // The 3D skybox, as the managed sky_camera states it: pushed once per level,

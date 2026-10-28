@@ -54,7 +54,6 @@ public unsafe interface IManagedPredictionClient
 public unsafe interface IManagedTempEntsClient
 {
     void OnTempEntity(int a0, byte* a1, int a2);
-    int OnNativeTempEntity(int a0, void* a1, int a2, void* a3, int a4, void* a5, int a6, void* a7);
     void OnTempEntPoolUpdate(float a0);
     void OnTempEntPoolClear();
     int OnImpactChoice(void* a0, int a1, void* a2, int a3, byte* a4, int a5, byte* a6, int a7);

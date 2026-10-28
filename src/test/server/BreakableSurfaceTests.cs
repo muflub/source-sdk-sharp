@@ -35,10 +35,9 @@ public class BreakableSurfaceTests
 
         var services = Services(out var engine);
 
-        // The geometry, and what the pane is MADE of — neither is what these
-        // three are about. See BreakableSurfaceMaterialTests for the second.
-        engine.Ignores("WorldQuery.AngleVectorsFromForward",
-                       "WorldQuery.EntityModelSurfaceProp",
+        // What the pane is MADE of is not what these three are about. See
+        // BreakableSurfaceMaterialTests.
+        engine.Ignores("WorldQuery.EntityModelSurfaceProp",
                        "WorldQuery.SurfacePropIndex",
                        "WorldQuery.SurfacePropGameMaterial");
 
@@ -126,9 +125,6 @@ public class BreakableSurfaceMaterialTests
         registry.RegisterAll(typeof(FuncBreakableSurf).Assembly);
 
         var services = Services(out engine);
-
-        // The pane grid's geometry, which these tests are not about.
-        engine.Ignores("WorldQuery.AngleVectorsFromForward");
 
         engine.Returns("WorldQuery.EntityModelSurfaceProp", modelProp);
         engine.Returns("WorldQuery.SurfacePropIndex", namedProp);

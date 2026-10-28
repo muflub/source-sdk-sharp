@@ -34,7 +34,6 @@ public unsafe class StandaloneDrawBatchTests
 
         // Not this slot's: a call here is a wiring fault, never a default answer.
         public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob) => throw new NotSupportedException();
-        public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints) => throw new NotSupportedException();
         public void TempEntPoolUpdate(float frameTime) => throw new NotSupportedException();
         public void TempEntPoolClear() => throw new NotSupportedException();
         public int ImpactEffectParams(int effect, int material, float scale, bool noFlecks, Span<float> block) => throw new NotSupportedException();

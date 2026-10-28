@@ -1,0 +1,32 @@
+From 22233b49a23fcb9abd5b38f69e40535ad162d8cf Mon Sep 17 00:00:00 2001
+From: Mark Chandler <mark@lodle.net>
+Date: Mon, 26 Oct 2026 20:38:51 -0700
+Subject: [PATCH] stock-ab: ab_movetypes says what physics object each entity
+ has (none, static, shadow, simulated)
+
+---
+ src/game/server/ss_ab_server.cpp | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/game/server/ss_ab_server.cpp b/src/game/server/ss_ab_server.cpp
+index 8cb35d3b..500256ed 100644
+--- a/src/game/server/ss_ab_server.cpp
++++ b/src/game/server/ss_ab_server.cpp
+@@ -145,9 +145,12 @@ CON_COMMAND( ab_movetypes, "stock-ab: write every entity's movetype and solidity
+ 
+ 	for ( CBaseEntity *pEnt = gEntList.FirstEnt(); pEnt != NULL; pEnt = gEntList.NextEnt( pEnt ) )
+ 	{
+-		fprintf( pFile, "%d\t%s\t%s\t%d\t%d\t%d\n", pEnt->entindex(), pEnt->GetClassname(),
++		// The physics object: 0 none, 1 static, 2 a shadow, 3 simulated.
++		IPhysicsObject *pPhys = pEnt->VPhysicsGetObject();
++		int nPhys = !pPhys ? 0 : pPhys->IsStatic() ? 1 : pPhys->GetShadowController() ? 2 : 3;
++		fprintf( pFile, "%d\t%s\t%s\t%d\t%d\t%d\t%d\n", pEnt->entindex(), pEnt->GetClassname(),
+ 			STRING( pEnt->GetEntityName() ), (int)pEnt->GetMoveType(), (int)pEnt->GetSolid(),
+-			(int)pEnt->GetSolidFlags() );
++			(int)pEnt->GetSolidFlags(), nPhys );
+ 	}
+ 	fprintf( pFile, "#end\t%s\n", args[1] );
+ 	fclose( pFile );
+-- 
+2.53.0
+

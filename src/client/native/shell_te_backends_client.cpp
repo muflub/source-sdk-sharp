@@ -299,13 +299,6 @@ void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEn
 	staticpropmgr->AddDecalToStaticProp( vecStart, vecEnd, req.nStaticPropIndex, req.nDecalIndex, false, tr );
 }
 
-// Whether this client runs with gore turned down. UTIL_IsLowViolence asks
-// engine->IsLowViolence(), which managed code cannot reach.
-int32_t SourceSharp_ClientIsLowViolence()
-{
-	return UTIL_IsLowViolence() ? 1 : 0;
-}
-
 // A decal's name from its index, from the game's decal table (decalsystem), not
 // the engine's. An index the table does not hold answers a length of zero.
 int32_t SourceSharp_ClientDecalNameFromIndex( int32_t nDecalIndex, char *pOut, int32_t nOutSize )

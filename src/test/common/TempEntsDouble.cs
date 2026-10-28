@@ -33,6 +33,8 @@ internal abstract class TempEntsDouble : ITempEnts
                                int magnitude, int trailLength, Vector? direction) { }
 
     public virtual void MetalSparks(TeFilter filter, float delay, Vector position, Vector direction) { }
+    public virtual void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction, Color32 color, int amount) { }
+    public virtual void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale, int frameRate) { }
 
     public virtual void EnergySplash(TeFilter filter, float delay, Vector position,
                                      Vector direction, bool explosive) { }

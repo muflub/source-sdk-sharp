@@ -704,9 +704,8 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
 
     /// <summary>
     /// What the world entity always precaches, after the pre-entity pass and in
-    /// stock's order (world.cpp's CWorld::Precache): W_Precache's sprites and
-    /// particle systems (less the four native effect helpers read the indices
-    /// of), ClientGamePrecache's player model and the managed precache point,
+    /// stock's order (world.cpp's CWorld::Precache): W_Precache's HL2MP arm,
+    /// ClientGamePrecache's player model and the managed precache point,
     /// the gibs for the language, the water sounds, and the six sounds
     /// effects.cpp registered through PRECACHE_REGISTER_FN -- HudChat.Message
     /// only on a multiplayer server.
@@ -715,16 +714,20 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     {
         IEnginePrecache? precache = ParticlePrecache;
 
-        // W_Precache, in its order, less the four whose indices native code
-        // reads (smoke, bubbles, blood spray, blood drop: world_adapter.cpp).
+        // W_Precache (basecombatweapon.cpp), its HL2MP arm in its order: the
+        // HL1_DLL arm's underwater fireball, blood sprites and laser dot are
+        // not HL2MP's.
         precache?.PrecacheModel("sprites/zerogxplode.vmt");  // fireball
-        precache?.PrecacheModel("sprites/WXplo1.vmt");       // underwater fireball
+        precache?.PrecacheModel("sprites/steam1.vmt");       // smoke
+        precache?.PrecacheModel("sprites/bubble.vmt");       // bubbles
         precache?.PrecacheModel("sprites/laserbeam.vmt");    // the laser beam
-        precache?.PrecacheModel("sprites/laserdot.vmt");     // the laser dot
         precache?.PrecacheParticleSystem("blood_impact_red_01");
         precache?.PrecacheParticleSystem("blood_impact_green_01");
         precache?.PrecacheParticleSystem("blood_impact_yellow_01");
         precache?.PrecacheModel("effects/bubble.vmt");       // bubble trails
+        precache?.PrecacheModel("models/weapons/w_bullet.mdl");
+        PrecacheScriptSound?.Invoke("BaseCombatWeapon.WeaponDrop");
+        PrecacheScriptSound?.Invoke("BaseCombatWeapon.WeaponMaterialize");
 
         // ClientGamePrecache: "The engine requires the player model to be
         // precached before anyone spawns", then the managed precache point.

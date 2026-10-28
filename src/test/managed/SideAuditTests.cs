@@ -414,12 +414,10 @@ public class SideAuditTests
         // C-Phase 3 lane CX's four, for the last three client decal halves.
         // Client-only, and only ONE of them is drawing. ClientDecalStaticProp
         // is the engine's static prop renderer, which the server has no arm of.
-        // The other three are QUESTIONS, and each is a question only this side
+        // The other two are QUESTIONS, and each is a question only this side
         // can answer: ClientTraceLine reads the CLIENT's copy of the BSP and
         // the client's entity list -- the copy that decides what the client
         // draws, which is PointContents' argument one slot further along;
-        // ClientIsLowViolence reads this viewer's convars and this viewer's
-        // engine, and one player's gore setting is not a fact about the match;
         // ClientDecalNameFromIndex reads the game decal script through
         // `decalsystem`, whose precache indices are the CLIENT's numbering.
         //
@@ -428,8 +426,7 @@ public class SideAuditTests
         // EHANDLE; this one answers a hitbox and hands back an entity INDEX,
         // because a client handle read back through CBaseHandle::Get() is
         // ledger row C8. They are two slots that trace, not one slot twice.
-        "ClientDecalStaticProp", "ClientTraceLine", "ClientIsLowViolence",
-        "ClientDecalNameFromIndex",
+        "ClientDecalStaticProp", "ClientTraceLine", "ClientDecalNameFromIndex",
         // C-Phase 3 lane DECALS's three, closing behaviour ledger rows C2 and
         // C3 -- the two arms of C_BaseEntity::AddDecal this hierarchy never had
         // and the question the switch between them is made from. Client-only
@@ -507,7 +504,7 @@ public class SideAuditTests
 
         "ConsoleSnapshot", "ConsoleSnapshotEntry",
         "EventGetBool", "EventGetFloat", "EventGetInt", "EventGetString",
-        "FindConVarValue", "GetConVarValue", "GetCurrentTime",
+        "FindConVarValue", "GetConVarValue",
 
         // plan_crossings.md Phase X1, and it is the same hazard CurrentGravity's
         // note above describes rather than bookkeeping. Each game DLL has its

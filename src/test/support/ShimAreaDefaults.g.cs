@@ -15,7 +15,6 @@ namespace SourceSharp.Abi;
 /// <summary><see cref="IEngineArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultEngineArea : IEngineArea
 {
-    public float GetCurrentTime() => default;
     public nint GetGlobalVarsPtr() => default;
 }
 
@@ -144,7 +143,6 @@ internal sealed unsafe class DefaultMovementServerArea : DefaultMovementArea, IM
 /// <summary><see cref="IWorldServerArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultWorldServerArea : IWorldServerArea
 {
-    public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { }
     public int EntityModelSurfaceProp(uint a0) => default;
     public int InvisibleRangeReach() => default;
     public void SetSkyboxParams(SkyboxParams* a0) { }
@@ -202,7 +200,6 @@ internal sealed unsafe class DefaultTransformArea : ITransformArea
     public void EntitySetAngularVelocity(uint a0, float* a1) { }
     public void EntityGetEyePosition(uint a0, float* a1) { }
     public void EntityGetEyeAngles(uint a0, float* a1) { }
-    public void EntityGetWorldSpaceCenter(uint a0, float* a1) { }
     public float EntityGetGravity(uint a0) => default;
     public void EntitySetGravity(uint a0, float a1) { }
     public void EntitySetBounce(uint a0, int a1) { }
@@ -226,9 +223,7 @@ internal sealed unsafe class DefaultCollisionServerArea : DefaultCollisionArea, 
     public void EntityGetBounds(uint a0, float* a1, float* a2) { }
     public void EntityGetBoundsSize(uint a0, float* a1) { }
     public void EntitySetBounds(uint a0, float* a1, float* a2) { }
-    public int EntityGetSolidType(uint a0) => default;
     public void EntitySetSolidity(uint a0, int a1, int a2) { }
-    public int EntityGetSolidFlags(uint a0) => default;
     public int EntityGetCollisionGroup(uint a0) => default;
     public void EntitySetCollisionGroup(uint a0, int a1) { }
     public int EntityOverlapReport(uint* a0, int a1) => default;
@@ -265,20 +260,17 @@ internal sealed unsafe class DefaultGameRulesArea : IGameRulesArea
 internal sealed unsafe class DefaultPlayersArea : IPlayersArea
 {
     public uint GetPlayerHandle(int a0) => 0xFFFFFFFFu;
-    public int GetPlayerTeam(uint a0) => default;
     public int PlayerIsAlive(uint a0) => default;
     public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { }
     public int PlayerGetObserverMode(uint a0) => default;
     public void PlayerSetObserverMode(uint a0, int a1) { }
     public void PlayerSnapEyeAngles(uint a0, float* a1) { }
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) => default;
-    public void PlayerSetTeam(uint a0, int a1) { }
 }
 
 /// <summary><see cref="IEffectsServerArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultEffectsServerArea : IEffectsServerArea
 {
-    public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { }
     public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) => default;
 }
 
@@ -353,7 +345,6 @@ internal sealed unsafe class DefaultTempEntBackendsClientArea : ITempEntBackends
     public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { }
     public void ClientEnergySplash(float* a0, float* a1, int a2) { }
     public int ClientEntityModelType(int a0) => default;
-    public int ClientIsLowViolence() => default;
     public void ClientMetalSparks(float* a0, float* a1) { }
     public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { }
     public void ClientPlayerDecalShoot(float* a0, int a1, int a2) { }

@@ -4,11 +4,12 @@ using System.Text.Json;
 namespace SourceSharp.StockAb;
 
 /// <summary>One named entity's solidity, as either game reports it.</summary>
-public sealed record NamedSolidity(string ClassName, string Name, int Solid, int Flags);
+public sealed record NamedSolidity(string ClassName, string Name, int Solid, int Flags, int Physics = -1);
 
 /// <summary>A name both games hold whose solidity differs.</summary>
 public sealed record SolidityDifference(string Name, string StockClass, string SharpClass,
-                                        int StockSolid, int SharpSolid, int StockFlags, int SharpFlags);
+                                        int StockSolid, int SharpSolid, int StockFlags, int SharpFlags,
+                                        int StockPhysics = -1, int SharpPhysics = -1);
 
 /// <summary>The solidity census: what was paired and what differs.</summary>
 public sealed record SolidityReport(int Paired, int StockOnly, int SharpOnly, List<SolidityDifference> Differ);
@@ -23,7 +24,8 @@ public static class SolidityCensus
 {
     /// <summary>
     /// Stock's ab_movetypes file: index, classname, targetname, movetype,
-    /// solid, solid flags, tab-separated, then "#end".
+    /// solid, solid flags and (patch 0008) the physics object's kind,
+    /// tab-separated, then "#end".
     /// </summary>
     public static List<NamedSolidity> ReadStock(string text)
     {
@@ -41,10 +43,11 @@ public static class SolidityCensus
             }
 
             string[] fields = line.Split('\t');
-            if (fields.Length != 6)
+            if (fields.Length is not (6 or 7))
                 throw new InvalidDataException($"stock movetype line has {fields.Length} fields: {line}");
 
-            entities.Add(new NamedSolidity(fields[1], fields[2], Integer(fields[4]), Integer(fields[5])));
+            entities.Add(new NamedSolidity(fields[1], fields[2], Integer(fields[4]), Integer(fields[5]),
+                                           fields.Length == 7 ? Integer(fields[6]) : -1));
         }
 
         if (!ended)
@@ -70,7 +73,8 @@ public static class SolidityCensus
             }
 
             entities.Add(new NamedSolidity(entity.GetProperty("classname").GetString() ?? "", name.GetString() ?? "",
-                                           solid.GetInt32(), flags.GetInt32()));
+                                           solid.GetInt32(), flags.GetInt32(),
+                                           entity.TryGetProperty("physics", out var physics) ? physics.GetInt32() : -1));
         }
 
         return entities;
@@ -95,8 +99,11 @@ public static class SolidityCensus
                 continue;
 
             paired++;
-            if (a.Solid != b.Solid || a.Flags != b.Flags)
-                differ.Add(new SolidityDifference(name, a.ClassName, b.ClassName, a.Solid, b.Solid, a.Flags, b.Flags));
+            // The physics object counts only where both games said what it is.
+            bool physicsDiffers = a.Physics >= 0 && b.Physics >= 0 && a.Physics != b.Physics;
+            if (a.Solid != b.Solid || a.Flags != b.Flags || physicsDiffers)
+                differ.Add(new SolidityDifference(name, a.ClassName, b.ClassName, a.Solid, b.Solid, a.Flags, b.Flags,
+                                                  a.Physics, b.Physics));
         }
 
         return new SolidityReport(paired, stockByName.Keys.Count(n => !sharpByName.ContainsKey(n)),

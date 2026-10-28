@@ -90,7 +90,6 @@ public:
 										 int32_t nDecalIndex ) = 0;
 	virtual void ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ, int32_t bExplosive ) = 0;
 	virtual int32_t ClientEntityModelType( int32_t nEntity ) = 0;
-	virtual int32_t ClientIsLowViolence() = 0;
 	virtual void ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ ) = 0;
 	virtual void ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale,
 									int32_t nType ) = 0;

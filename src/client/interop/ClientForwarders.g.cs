@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 28 slot(s).
+/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 29 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineClientFwd : IForwarderTable
@@ -106,6 +106,9 @@ internal unsafe struct EngineClientFwd : IForwarderTable
 
     // bool IVEngineClient013::CopyLocalFile( const char *, const char * )
     public delegate* unmanaged<void*, byte*, byte*, byte> CopyLocalFile;
+
+    // bool IVEngineClient013::IsLowViolence( void )
+    public delegate* unmanaged<void*, byte> IsLowViolence;
 }
 
 /// <summary>

@@ -146,8 +146,11 @@ public sealed class FuncBreakableSurf : ScriptedEntity
             return;
         }
 
-        // CBreakableSurface::Spawn: glass's own group.
+        // CBreakableSurface::Spawn: glass's own group, SOLID_BSP, and
+        // CBreakable::CreateVPhysics' static object, so a prop meets the pane.
         SetCollisionGroup(CollisionGroup.BreakableGlass);
+        SetSolidity(BrushSolidity.Solid);
+        InitStaticPhysics();
 
         if (Vars.Health > 0)
             Health = Vars.Health;
@@ -310,7 +313,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
 
         var quad = new PaneGrid.Quad(Vars.LowerLeft, Vars.LowerRight, Vars.UpperLeft, Vars.UpperRight);
 
-        _grid = PaneGrid.Derive(quad, PaneNormal, attackDir, World.AngleVectorsFromForward);
+        _grid = PaneGrid.Derive(quad, PaneNormal, attackDir, Angles.RightUp);
 
         // Told in one go, because the client cannot read half a grid: the pane
         // bits are indexed by a fixed stride, but the dimensions decide how many

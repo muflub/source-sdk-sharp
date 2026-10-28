@@ -13,12 +13,6 @@
 #include "native_command_body.h"
 #include "ss_string.h"
 
-// The not-shipped ledger is per DLL, so this answers about server.so.
-SS_NATIVE_COMMAND( cs_sv_notshipped )
-{
-	SourceSharp_PrintNotShipped();
-}
-
 // One process-wide table, so this and cs_cl_crossings print the same counters.
 SS_NATIVE_COMMAND( cs_sv_crossings )
 {

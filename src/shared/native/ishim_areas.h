@@ -55,7 +55,6 @@
 abstract_class IShimEngine
 {
 public:
-	virtual float GetCurrentTime() = 0;
 	virtual void *GetGlobalVarsPtr() = 0;
 };
 
@@ -155,7 +154,6 @@ public:
 	virtual void EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR ) = 0;
 	virtual void EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ ) = 0;
 	virtual void EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR ) = 0;
-	virtual void EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ ) = 0;
 	virtual float EntityGetGravity( uint32_t hEntity ) = 0;
 	virtual void EntitySetGravity( uint32_t hEntity, float flGravity ) = 0;
 	virtual void EntitySetBounce( uint32_t hEntity, int32_t nBounces ) = 0;
@@ -214,7 +212,6 @@ abstract_class IShimPlayers
 {
 public:
 	virtual uint32_t GetPlayerHandle( int32_t nPlayerIndex ) = 0;
-	virtual int32_t GetPlayerTeam( uint32_t hPlayer ) = 0;
 	virtual int32_t PlayerIsAlive( uint32_t hPlayer ) = 0;
 	virtual void PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR ) = 0;
 	virtual int32_t PlayerGetObserverMode( uint32_t hPlayer ) = 0;
@@ -222,7 +219,6 @@ public:
 	virtual void PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll ) = 0;
 	virtual int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ ) = 0;
 	// Stores the team; validating and choosing it is managed's.
-	virtual void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) = 0;
 };
 
 abstract_class IShimDebugOverlay
@@ -299,7 +295,6 @@ public:
 abstract_class IShimWorldServer
 {
 public:
-	virtual void AngleVectorsFromForward( const float *pForwardXYZ, float *pOutRightXYZ, float *pOutUpXYZ ) = 0;
 	virtual int32_t EntityModelSurfaceProp( uint32_t hEntity ) = 0;
 	virtual int32_t InvisibleRangeReach() = 0;
 	virtual void SetSkyboxParams( const SourceSharpSkyboxParams *pParams ) = 0;
@@ -333,9 +328,7 @@ public:
 	virtual void EntityGetBounds( uint32_t hEntity, float *pOutMinsXYZ, float *pOutMaxsXYZ ) = 0;
 	virtual void EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ ) = 0;
 	virtual void EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ ) = 0;
-	virtual int32_t EntityGetSolidType( uint32_t hEntity ) = 0;
 	virtual void EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags ) = 0;
-	virtual int32_t EntityGetSolidFlags( uint32_t hEntity ) = 0;
 	virtual int32_t EntityGetCollisionGroup( uint32_t hEntity ) = 0;
 	virtual void EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup ) = 0;
 
@@ -347,8 +340,6 @@ public:
 abstract_class IShimEffectsServer
 {
 public:
-	virtual void BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor, float flAmount,
-							  int32_t bStream, int32_t nSprayFlags ) = 0;
 	// Stores one temp entity table planned in C#; the block is length-prefixed
 	// (SourceSharpTeTableHeader_t). Answers the handle, or -1.
 	virtual int32_t TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut ) = 0;

@@ -225,6 +225,9 @@ FORWARD = [
             # Lane M1-C: a player's spray, copied out of the download folder
             # into materials/temp where the material system can read it.
             'CopyLocalFile',
+            # The engine's say in UTIL_IsLowViolence, whose rule is managed
+            # (RagdollPolicy.IsLowViolence, read by ClientLowViolence).
+            'IsLowViolence',
         ],
     ),
     dict(
@@ -428,6 +431,9 @@ FORWARD = [
             # The physcannon's grab controller (CGrabController).
             'EnableDrag', 'SetDamping', 'GetDamping', 'SetVelocityInstantaneous',
             'ComputeShadowControl',
+            # A brush mover's shadow (CBaseEntity::VPhysicsInitShadow and
+            # UpdatePhysicsShadowToCurrentPosition).
+            'SetShadow', 'UpdateShadow',
         ],
     ),
     dict(

@@ -78,6 +78,18 @@ public interface IVPhysicsEntityCalls
 
     /// <summary><c>IPhysicsObject::EnableCollisions</c>.</summary>
     void EnableCollisions(nint physicsObject, bool enable);
+
+    /// <summary><c>IPhysicsObject::SetShadow</c>: the object follows targets it is given.</summary>
+    void SetShadow(nint physicsObject, float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement, bool allowPhysicsRotation);
+
+    /// <summary><c>IPhysicsObject::UpdateShadow</c>: where the shadow should be <paramref name="timeOffset"/> seconds from now.</summary>
+    void UpdateShadow(nint physicsObject, Vector position, QAngle angles, bool tempDisableGravity, float timeOffset);
+
+    /// <summary>Whether <c>IPhysicsObject::GetShadowController</c> answers one.</summary>
+    bool HasShadowController(nint physicsObject);
+
+    /// <summary><c>IPhysicsObject::SetPosition( origin, angles, true )</c>: placed there, not moved there.</summary>
+    void Teleport(nint physicsObject, Vector position, QAngle angles);
 }
 
 /// <summary>The real vphysics. Holds one scratch <c>solid_t</c>, freed on dispose.</summary>
@@ -198,6 +210,27 @@ public sealed unsafe class VPhysicsEntityCalls : IVPhysicsEntityCalls, IDisposab
     {
         if (o != 0)
             Obj(o)->EnableCollisions((void*)o, enable ? (byte)1 : (byte)0);
+    }
+
+    public void SetShadow(nint o, float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement, bool allowPhysicsRotation)
+    {
+        if (o != 0)
+            Obj(o)->SetShadow((void*)o, maxSpeed, maxAngularSpeed, allowPhysicsMovement ? (byte)1 : (byte)0,
+                              allowPhysicsRotation ? (byte)1 : (byte)0);
+    }
+
+    public void UpdateShadow(nint o, Vector position, QAngle angles, bool tempDisableGravity, float timeOffset)
+    {
+        if (o != 0)
+            Obj(o)->UpdateShadow((void*)o, &position, &angles, tempDisableGravity ? (byte)1 : (byte)0, timeOffset);
+    }
+
+    public bool HasShadowController(nint o) => o != 0 && Obj(o)->GetShadowController((void*)o) != null;
+
+    public void Teleport(nint o, Vector position, QAngle angles)
+    {
+        if (o != 0)
+            Obj(o)->SetPosition((void*)o, &position, &angles, 1);
     }
 
     public void Dispose()

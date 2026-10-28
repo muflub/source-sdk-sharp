@@ -1,6 +1,5 @@
 slot	struct	interface	kind	base	side	suppress	body	managed	client_body
 AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, byte*, int, void*	
-GetCurrentTime	EngineApi	IShimEngine	shared		both	S	SourceSharp_GetCurrentTime	float	
 GetGlobalVarsPtr	EngineApi	IShimEngine	shared		both	-	SourceSharp_GetGlobalVarsPtr	nint	
 Msg	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleMsg	byte*, void	
 Warning	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleWarning	byte*, void	
@@ -54,7 +53,6 @@ PlayerCommandFinish	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	Sou
 MoveTraceServer	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_MoveTraceServer	float*, float*, float*, float*, int, int, MoveTraceBlob*, nint, uint*, void	
 PlayerFallDamage	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerFallDamage	uint, float, int	
 PlayerSyncEngineSide	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSyncEngineSide	uint, void	
-AngleVectorsFromForward	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
 EntityModelSurfaceProp	EngineApi	IShimWorldServer	server		server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
 InvisibleRangeReach	EngineApi	IShimWorldServer	server		server	-	SourceSharp_InvisibleRangeReach	int	
 SetSkyboxParams	EngineApi	IShimWorldServer	server		server	-	SourceSharp_SetSkyboxParams	SkyboxParams*, void	
@@ -101,7 +99,6 @@ EntityGetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_E
 EntitySetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetAngularVelocity	uint, float*, void	
 EntityGetEyePosition	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyePosition	uint, float*, void	
 EntityGetEyeAngles	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyeAngles	uint, float*, void	
-EntityGetWorldSpaceCenter	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetWorldSpaceCenter	uint, float*, void	
 EntityGetGravity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetGravity	uint, float	
 EntitySetGravity	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetGravity	uint, float, void	
 EntitySetBounce	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetBounce	uint, int, void	
@@ -116,9 +113,7 @@ RegisterCollisionRules	EngineApi	IShimCollision	shared		both	-	SourceSharp_Regis
 EntityGetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetBounds	uint, float*, float*, void	
 EntityGetBoundsSize	EngineApi	IShimCollisionServer	ext	IShimCollision	server	S	SourceSharp_EntityGetBoundsSize	uint, float*, void	
 EntitySetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetBounds	uint, float*, float*, void	
-EntityGetSolidType	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetSolidType	uint, int	
 EntitySetSolidity	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetSolidity	uint, int, int, void	
-EntityGetSolidFlags	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetSolidFlags	uint, int	
 EntityGetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetCollisionGroup	uint, int	
 EntitySetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetCollisionGroup	uint, int, void	
 EntityOverlapReport	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityOverlapReport	uint*, int, int	
@@ -135,15 +130,12 @@ ApplyDamageForce	EngineApi	IShimDamage	server		server	-	SourceSharp_ApplyDamageF
 RegisterGameRulesPolicy	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterGameRulesPolicy	GameRulesPolicyBlob*, void	
 RegisterDamageRules	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterDamageRules	DamageRuleMasks*, void	
 GetPlayerHandle	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerHandle	int, uint	
-GetPlayerTeam	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerTeam	uint, int	
 PlayerIsAlive	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerIsAlive	uint, int	
 PlayerPlaceAtSpawn	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerPlaceAtSpawn	uint, float*, float*, void	
 PlayerGetObserverMode	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerGetObserverMode	uint, int	
 PlayerSetObserverMode	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetObserverMode	uint, int, void	
 PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSnapEyeAngles	uint, float*, void	
 ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
-PlayerSetTeam	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetTeam	uint, int, void	
-BloodEffect	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_BloodEffect	float*, float*, int, float, int, int, void	
 TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_TempEntBuild	void*, int, TeBuiltTable*, int	
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
 AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_AddLineOverlay	float*, float*, int, int, int, int, float, void	
@@ -178,7 +170,6 @@ ClientDecalStaticProp	EngineApi	IShimTempEntBackendsClient	client		client	-	Sour
 ClientDecalStudioModel	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalStudioModel	int, float*, float*, int, void	
 ClientEnergySplash	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientEnergySplash	float*, float*, int, void	
 ClientEntityModelType	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientEntityModelType	int, int	
-ClientIsLowViolence	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientIsLowViolence	int	
 ClientMetalSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientMetalSparks	float*, float*, void	
 ClientMuzzleFlash	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientMuzzleFlash	float*, float*, float, int, void	
 ClientPlayerDecalShoot	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientPlayerDecalShoot	float*, int, int, void	

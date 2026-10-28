@@ -78,14 +78,10 @@ public sealed class FuncWeightButton : ScriptedEntity
 
     public override void OnSpawn()
     {
-        // Solid and never simulated, which is the whole of what the plate is.
-        // Without an object in the solver a brush is solid to a walking player
-        // and invisible to vphysics, and every crate a mapper drops on the
-        // plate falls straight through it.
-        //
-        // Static rather than stock's shadow: a shadow is for a brush that may
-        // later be moved or constrained, and a weight button is neither.
-        MakePhysicsStatic();
+        // CWeightButton::Spawn: SOLID_VPHYSICS with a shadow
+        // (VPhysicsInitShadow), which the crates on the plate press on.
+        SetSolidity(SolidType.VPhysics, SolidFlags.None);
+        InitShadowPhysics();
 
         // Every tick, as stock does. A plate that answers a tenth of a second
         // late is a plate that fires after the crate has bounced off it again.

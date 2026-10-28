@@ -190,12 +190,6 @@ public:
 	// Driven by the managed death cycle; solidity follows it.
 	void SetObserver( bool bObserver, int nMode );
 
-	// CBaseEntity::ChangeTeam's store only; every decision is managed. TEAM_UNASSIGNED (0)
-	// at birth.
-	int TeamNumber() const { return m_iTeamNum; }
-
-	void ChangeTeam( int iTeamNum ) { m_iTeamNum = iTeamNum; }
-
 	// Physics shadow: a second body kept at the player's position so the solver can push
 	// what it meets. Managed builds and drives it; this side holds the pointers and owns
 	// the teardown. Idempotent; also called from the disconnect path.
@@ -260,9 +254,6 @@ private:
 
 	bool m_bObserver;
 	int m_nObserverMode;
-
-	// TEAM_UNASSIGNED until ChangeTeam.
-	int m_iTeamNum;
 
 	// NULL until managed code builds them.
 	IPhysicsObject *m_pShadowStand;

@@ -298,8 +298,6 @@ internal sealed unsafe partial class EngineSide
         int disagreed = 0;
         var line = new System.Text.StringBuilder();
 
-        Compare("curtime", _engineArea.GetCurrentTime().Equals(globals.CurTime), $"{_engineArea.GetCurrentTime()}/{globals.CurTime}");
-
         // THE SECOND SOURCE FOR THESE TWO MOVED, AND THIS MOVED WITH IT.
         //
         // FrameTickCount and FrameGetFrameTime were flat ABI slots until
@@ -461,14 +459,11 @@ internal sealed unsafe partial class EngineSide
     /// elapsed.
     ///
     /// <para>
-    /// <b>A LOAD, NOT A CROSSING</b> — plan_crossings.md Phase X1. This is the
-    /// same <c>gpGlobals-&gt;curtime</c> the <c>GetCurrentTime</c> slot returns,
-    /// read out of the same engine memory at the same moment; it is the
-    /// relocation of a load rather than a copy of a value, so there is no
-    /// version of it that can be stale. The slot stays as the fallback for the
-    /// two moments the pointer is not there — before the engine has set
-    /// <c>gpGlobals</c>, and in a test process with no engine at all — and as
-    /// the reference a live parity check compares against.
+    /// <b>A LOAD, NOT A CROSSING</b> — plan_crossings.md Phase X1: the
+    /// engine's own <c>gpGlobals-&gt;curtime</c>, read out of its memory, so
+    /// there is no version of it that can be stale. Zero before the engine has
+    /// set <c>gpGlobals</c> and in a test process with no engine, as the
+    /// retired <c>GetCurrentTime</c> slot answered then.
     /// </para>
     /// </summary>
     public float CurrentTime
@@ -477,10 +472,7 @@ internal sealed unsafe partial class EngineSide
         {
             nint globals = GlobalVarsPointer;
 
-            if (globals != 0)
-                return new Globals(globals).CurTime;
-
-            return _engineArea.GetCurrentTime();
+            return globals != 0 ? new Globals(globals).CurTime : 0f;
         }
     }
 

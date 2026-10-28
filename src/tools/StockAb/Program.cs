@@ -109,7 +109,8 @@ static int Solidity(string[] args)
                       + $"{report.SharpOnly} SourceSharp only); {report.Differ.Count} differ");
     foreach (var d in report.Differ)
         Console.WriteLine($"  {d.Name} ({d.StockClass}/{d.SharpClass}): solid stock {d.StockSolid} SourceSharp {d.SharpSolid}, "
-                          + $"flags stock 0x{d.StockFlags:x} SourceSharp 0x{d.SharpFlags:x}");
+                          + $"flags stock 0x{d.StockFlags:x} SourceSharp 0x{d.SharpFlags:x}, "
+                          + $"physics stock {d.StockPhysics} SourceSharp {d.SharpPhysics}");
     return 0;
 }
 

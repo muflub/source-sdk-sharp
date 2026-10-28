@@ -508,10 +508,10 @@ public class ServerGameDllTests
 
             Assert.Equal(new[]
             {
-                // W_Precache, less the four native readers hold the indices of.
-                "sprites/zerogxplode.vmt", "sprites/WXplo1.vmt", "sprites/laserbeam.vmt", "sprites/laserdot.vmt",
+                // W_Precache's HL2MP arm.
+                "sprites/zerogxplode.vmt", "sprites/steam1.vmt", "sprites/bubble.vmt", "sprites/laserbeam.vmt",
                 "blood_impact_red_01", "blood_impact_green_01", "blood_impact_yellow_01",
-                "effects/bubble.vmt",
+                "effects/bubble.vmt", "models/weapons/w_bullet.mdl",
                 // ClientGamePrecache.
                 "models/player/male_01.mdl",
                 // The gibs for an English server.
@@ -549,6 +549,8 @@ public class ServerGameDllTests
 
             Assert.Equal(new[]
             {
+                // W_Precache's two, then CWorld::Precache's water pair, then effects.cpp's.
+                "BaseCombatWeapon.WeaponDrop", "BaseCombatWeapon.WeaponMaterialize",
                 "BaseEntity.EnterWater", "BaseEntity.ExitWater",
                 "Underwater.BulletImpact", "FX_RicochetSound.Ricochet", "Physics.WaterSplash",
                 "BaseExplosionEffect.Sound", "Splash.SplashSound",

@@ -80,7 +80,10 @@ public interface IEnginePlayers
     /// <inheritdoc cref="EngineSide.GetPlayerShootOrigin"/>
     Vector GetShootOrigin(EntityHandle player);
 
-    /// <inheritdoc cref="EngineSide.GetPlayerTeam"/>
+    /// <summary>
+    /// The player's team, unassigned (0) until <see cref="SetTeam"/>; -1 when
+    /// the handle is not a player, since 0 is a real team.
+    /// </summary>
     int GetTeam(EntityHandle player);
 
     /// <summary>
@@ -163,7 +166,10 @@ public interface IEnginePlayers
     /// <inheritdoc cref="EngineSide.PlayerSetObserverMode"/>
     void SetObserverMode(EntityHandle player, ObserverMode mode);
 
-    /// <inheritdoc cref="EngineSide.PlayerSetTeam"/>
+    /// <summary>
+    /// Stores the player's team, stock's <c>CBaseEntity::ChangeTeam</c> store
+    /// and nothing more: which teams exist is <c>ITeams</c>' policy.
+    /// </summary>
     void SetTeam(EntityHandle player, int team);
 
     /// <inheritdoc cref="EngineSide.EntitySetPickupEnabled"/>

@@ -144,39 +144,6 @@ void SourceSharp_TempEntCloseRegistration()
 		 te.m_nBuilt, nClasses );
 }
 
-// The native TE_*() callers pass an IRecipientFilter managed cannot read, so
-// managed packs the fields into the scratch blob and this sends them with the
-// caller's filter. A managed refusal sends nothing. One scratch blob suffices:
-// this runs on the server thread and nothing yields in between.
-
-bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay, const float *pFloats, int nFloats,
-							const int *pInts, int nInts )
-{
-	IManagedTempEnts *pTempEnts = ManagedTempEnts();
-	CServerTempEnts *pTe = TempEnts();
-
-	if ( !pTempEnts || !pTe )
-		return false;
-
-	int hClass = -1;
-
-	const int nBytes = pTempEnts->OnNativeTempEntity( nId, pFloats, nFloats, pInts, nInts, pTe->m_Scratch,
-													  (int)sizeof( pTe->m_Scratch ), &hClass );
-
-	if ( nBytes <= 0 || hClass < 0 || hClass >= pTe->m_nBuilt )
-		return false;
-
-	if ( !pTe->m_Built[hClass].pTable || !pTe->m_Built[hClass].pClass )
-		return false;
-
-	Assert( !filter.IsReliable() && !filter.IsInitMessage() );
-	Assert( flDelay >= -1 && flDelay <= 1 );
-
-	engine->PlaybackTempEntity( filter, flDelay, pTe->m_Scratch, pTe->m_Built[hClass].pTable,
-								pTe->m_Built[hClass].pClass->m_ClassID );
-	return true;
-}
-
 // Whether a ServerClass was built here from a C# [TempEntity], by identity.
 bool SourceSharp_IsTempEntServerClass( const ServerClass *pClass )
 {

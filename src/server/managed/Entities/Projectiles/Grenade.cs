@@ -67,9 +67,8 @@ public sealed class Grenade : ScriptedEntity
     internal const string BlipSound = "Grenade.Blip";
     internal const string ExplodeSound = "BaseGrenade.Explode";
 
-    /// <summary>g_sModelIndexFireball and g_sModelIndexWExplosion.</summary>
+    /// <summary>g_sModelIndexFireball.</summary>
     private const string Fireball = "sprites/zerogxplode.vmt";
-    private const string WaterExplosion = "sprites/WXplo1.vmt";
 
     /// <summary>FRAG_GRENADE_BLIP_FREQUENCY and _FAST_FREQUENCY.</summary>
     internal const float BlipInterval = 1.0f, FastBlipInterval = 0.3f;
@@ -244,7 +243,9 @@ public sealed class Grenade : ScriptedEntity
             Entities.SetOrigin(Handle, at);
         }
 
-        int sprite = Precache.PrecacheModel(World.PointContents(at).HasFlag(Contents.Water) ? WaterExplosion : Fireball);
+        // g_sModelIndexWExplosion is precached only by HL1's W_Precache, so under
+        // water an HL2MP grenade's explosion has model 0.
+        int sprite = (World.PointContents(at) & Contents.MaskWater) == 0 ? Precache.PrecacheModel(Fireball) : 0;
         float scale = Vars.Radius * 0.03f;
 
         // te->Explosion, delay -1 so cl_interp does not hold it back, turned

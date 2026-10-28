@@ -78,10 +78,10 @@ public interface IBloodEnvironment
 }
 
 /// <summary>The real one.</summary>
-public sealed class BloodEnvironment(IEngineEffects effects, IClientWorldLight light, IEngineEnvironment environment)
+public sealed class BloodEnvironment(IClientLowViolence lowViolence, IClientWorldLight light, IEngineEnvironment environment)
     : IBloodEnvironment
 {
-    public bool LowViolence => effects.ClientIsLowViolence();
+    public bool LowViolence => lowViolence.IsLowViolence;
 
     public Vector LightForPoint(Vector position) => light.LightForPoint(position, true);
 

@@ -19,7 +19,6 @@
 void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecked, int *pOutAgreed );
 bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue );
 bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWords );
-bool SourceSharp_StandaloneBreakSchema( int nIndex, uint32 nHash );
 
 // Whether each payload prop, read at the offset the engine uses, sees the bytes C#
 // wrote into the blob.
@@ -82,39 +81,4 @@ SS_NATIVE_COMMAND( cs_sv_payload_probe )
 		return;
 
 	Warning( "[SourceSharp] nothing carrying a payload at index %d\n", nIndex );
-}
-
-// Breaks an entity's schema hash on purpose, so the client's refusal path runs.
-SS_NATIVE_COMMAND( cs_sv_break_schema )
-{
-	if ( args.ArgC() < 2 )
-	{
-		Msg( "usage: cs_sv_break_schema <entindex> [hash]   (default 0xDEADBEEF)\n" );
-		return;
-	}
-
-	const int nIndex = ss::AtoI( args[1] );
-	const uint32 nHash = ( args.ArgC() > 2 ) ? (uint32)strtoul( args[2], NULL, 0 ) : 0xDEADBEEFu;
-
-	if ( SourceSharp_StandaloneBreakSchema( nIndex, nHash ) )
-		return;
-
-	Warning( "[SourceSharp] no managed entity at index %d\n", nIndex );
-}
-
-// The published type table.
-SS_NATIVE_COMMAND( cs_sv_dump_types )
-{
-	CSourceSharpTypeTable &types = SourceSharp_NetTypes();
-
-	Msg( "[SourceSharp] --- published types: %d, %d collision(s) ---\n", types.Count(), types.Collisions() );
-
-	for ( int i = 0; i < types.Count(); i++ )
-	{
-		const SourceSharpNetType_t *pType = types.At( i );
-
-		Msg( "[SourceSharp]   %-28s id=0x%08x schema=0x%08x layout=%-5d shell=%d tier=%d (%s)\n", pType->szClass,
-			 pType->nTypeId, pType->nSchemaHash, pType->nLayoutBytes, pType->nShell, pType->iTier,
-			 SourceSharp_TierTableName( pType->nShell, pType->iTier ) );
-	}
 }

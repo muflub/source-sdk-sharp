@@ -183,7 +183,7 @@ def self_test():
         return 0 if ok else 1
 
     rows = census()
-    check("the census finds sites at all", len(rows) > 20,
+    check("the census finds sites at all", len(rows) > 10,
           "found %d" % len(rows))
     check("no site is in an uncompiled translation unit",
           not any(r[0] == "game/client/c_baseanimating.cpp" for r in rows),

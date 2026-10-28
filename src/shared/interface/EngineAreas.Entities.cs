@@ -160,7 +160,10 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntityGetVelocity"/>
     Vector GetVelocity(EntityHandle h);
 
-    /// <inheritdoc cref="EngineSide.EntityGetWorldSpaceCenter"/>
+    /// <summary>
+    /// The middle of the entity's collision box in world space (stock's
+    /// WorldSpaceCenter); a brush entity's origin is usually nowhere near it.
+    /// </summary>
     Vector GetWorldSpaceCenter(EntityHandle h);
 
     /// <inheritdoc cref="EngineSide.EntityIsPlayer"/>
@@ -401,6 +404,19 @@ public interface IEngineEntityPhysics
     /// off stops blocking props as well as traces. Nothing when it has none.
     /// </summary>
     void EnableCollisions(EntityHandle entity, bool enable);
+
+    /// <summary>
+    /// VPhysicsInitShadow as a brush mover calls it: an object that follows
+    /// the entity (doors, buttons, trains, func_brush), its own solidity and
+    /// movetype kept. Props meet it as it moves.
+    /// </summary>
+    bool InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement = false, bool allowPhysicsRotation = false);
+
+    /// <summary>UpdatePhysicsShadowToCurrentPosition for every shadow, once a frame after the movers.</summary>
+    int UpdateShadows(float frameTime);
+
+    /// <summary>The entity's physics object: 0 none, 1 static, 2 a shadow, 3 simulated.</summary>
+    int PhysicsKind(EntityHandle entity);
 
     /// <inheritdoc cref="EngineSide.EntitySetBounce"/>
     void SetBounce(EntityHandle h, int bounces);

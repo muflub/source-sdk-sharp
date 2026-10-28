@@ -46,7 +46,7 @@ IManagedSaveRestore	SaveWriteBody	int32_t	void *pSave
 IManagedSaveRestore	SaveReadBody	int32_t	void *pSave
 IManagedSoundEnt	ServerSoundEntInit	void	int32_t nMaxClients, float flCurTime
 IManagedSoundEnt	ServerSoundEntShutdown	void	void
-IManagedSoundEnt	ServerSoundEntResetClientSound	void	int32_t nIndex
+IManagedSoundEnt	ServerSoundEntResetClientSound	void	int32_t nClientIndex
 IManagedHierarchy	HierarchyParentMoved	void	uint32_t hParent
 IManagedHierarchy	HierarchyChildMoved	void	uint32_t hChild
 IManagedHierarchy	HierarchySetParent	int32_t	uint32_t hChild, uint32_t hParent, int32_t nParentAttachment
@@ -73,7 +73,6 @@ IManagedClients	ServerTransmitAlwaysForClient	int32_t	int32_t iClientEdict
 IManagedClients	ServerAreaPortalVisibility	int32_t	const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes
 IManagedEvents	OnGameEvent	void	const char *pEventName, void *hEvent
 IManagedUserMessages	GetUserMessageInfo	bool	int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize
-IManagedTempEnts	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
 IManagedDiagnostics	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
 IManagedCommands	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
 IManagedCommands	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
@@ -117,7 +116,6 @@ IManagedPredictionClient	MoveProcessMovement	int32_t	SourceSharpMoveState *pStat
 IManagedPredictionClient	ClientPredictionUpdate	void	int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived
 IManagedPredictionClient	ThirdPersonCamera	int32_t	SourceSharpThirdPersonCamera *pIo
 IManagedTempEntsClient	OnTempEntity	void	int32_t hClass, const unsigned char *pBlob, int32_t nBytes
-IManagedTempEntsClient	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
 IManagedTempEntsClient	OnTempEntPoolUpdate	void	float flFrameTime
 IManagedTempEntsClient	OnTempEntPoolClear	void	void
 IManagedTempEntsClient	OnImpactChoice	int32_t	const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax

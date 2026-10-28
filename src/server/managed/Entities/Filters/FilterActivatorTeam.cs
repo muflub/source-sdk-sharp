@@ -24,7 +24,7 @@ public sealed class FilterActivatorTeam : FilterBase
     /// <summary>What a map may set on this entity. See <see cref="FilterActivatorTeamVars"/>.</summary>
     [ScriptVars] public FilterActivatorTeamVars FilterActivatorTeamVars = new();
 
-    // GetPlayerTeam answers -1 for anything that is not a player, which is also
+    // GetTeam answers -1 for anything that is not a player, which is also
     // the right answer here: a crate is on no team and passes no team filter.
     protected override bool Matches(EntityHandle entity)
         => FilterActivatorTeamVars.Team >= 0 && Players.GetTeam(entity) == FilterActivatorTeamVars.Team;

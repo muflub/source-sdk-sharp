@@ -89,8 +89,7 @@ SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
 		const int nEntry = (int)( hEntity & ENT_ENTRY_MASK );
 
 		if ( nEntry >= MAX_EDICTS && nEntry < NUM_ENT_ENTRIES )
-			// Level 0 only: deeper return addresses are unsafe (-Wframe-address).
-			SourceSharp_NoteInvisibleRangeReach( SS_RETURN_ADDRESS() );
+			SourceSharp_NoteInvisibleRangeReach();
 
 		return ent;
 	}
@@ -1225,7 +1224,9 @@ void CStandaloneEntity::DestroyPhysics()
 
 void CStandaloneEntity::VPhysicsUpdate( IPhysicsObject *pObject )
 {
-	if ( pObject == m_pPhysics )
+	// CBaseEntity::VPhysicsUpdate's switch: only a MOVETYPE_VPHYSICS entity takes its
+	// object's pose. A mover's shadow follows the entity, never the other way.
+	if ( pObject == m_pPhysics && Block().Head.MoveType == MOVETYPE_VPHYSICS )
 		UpdatePhysics();
 }
 

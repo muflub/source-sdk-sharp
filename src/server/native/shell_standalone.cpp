@@ -489,34 +489,6 @@ bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWord
 	return false;
 }
 
-// Breaks an entity's schema hash on purpose so the client's refusal path can be
-// exercised; on a listen server the hashes otherwise always agree.
-bool SourceSharp_StandaloneBreakSchema( int nIndex, uint32 nHash )
-{
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
-
-	for ( CStandaloneEntity *pEnt : standalones )
-	{
-		if ( pEnt->EntIndex() != nIndex )
-			continue;
-
-		// Stamp first, or the first stamp would overwrite the broken value.
-		pEnt->GetServerClass();
-
-		const uint32 nWas = pEnt->m_nSchemaHash;
-		pEnt->m_nSchemaHash = nHash;
-		pEnt->NetworkStateChanged();
-
-		Msg( "[SourceSharp] standalone %d '%s': schema hash 0x%08x -> 0x%08x; the client must "
-			 "now REFUSE its payload and say so\n",
-			 nIndex, pEnt->GetClassname(), nWas, nHash );
-
-		return true;
-	}
-
-	return false;
-}
-
 // After a managed reload: re-stamps every stamped entity whose class was reshaped, zeroes
 // its blob (its bytes follow the old layout) and marks the edict. An entity whose type
 // grew past the tier it was allocated at is stamped zero, which receivers refuse.

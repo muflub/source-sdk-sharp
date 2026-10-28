@@ -237,8 +237,8 @@ TEST( TempEntEvicted, TheParticleEmitterIsCSharpAndItsShimIsGone )
 //   client  shell_te_fwd_{c1,c4,ca,cd,ce,cn,cp,cx,pool2}.cpp  2,469 lines, 52 TE_*
 //   client  game/client/c_te.cpp (stock)           the CTempEntsSystem vtable
 //
-// and what replaced it is shell_te_forwards.cpp (18 forwards: the 17 with a live
-// importer, plus TE_DispatchEffect, whose only caller is in the same file) and
+// and what replaced it is ITempEnts on the server (C#; the native
+// shell_te_forwards.cpp that bridged to it has gone too) and
 // shell_te_forwards_client.cpp (TE_Bubbles, TE_Smoke, and an ITempEntsSystem
 // whose other 38 overrides are empty).
 //
@@ -276,8 +276,8 @@ const char *kPerLaneForwarders[] = {
 
 TEST( TempEntForwardersCollapsed, TheSeventeenPerLaneForwardersAreOutOfBothBuilds )
 {
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_te_forwards.cpp" ) )
-		<< "server_sourcesharp (src/server/native/CMakeLists.txt) is read and names its forwarder";
+	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_tempents.cpp" ) )
+		<< "server_sourcesharp (src/server/native/CMakeLists.txt) is read";
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_te_forwards_client.cpp" ) )
 		<< "client_sourcesharp (src/client/native/CMakeLists.txt) is read and names its forwarder";
 
@@ -301,26 +301,18 @@ TEST( TempEntForwardersCollapsed, TheSeventeenPerLaneForwardersAreGoneFromDisk )
 	}
 }
 
-TEST( TempEntForwardersCollapsed, TheTwoReplacementsAreCompiledOnTheirOwnSides )
+TEST( TempEntForwardersCollapsed, OnlyTheClientKeepsAForwarder )
 {
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_te_forwards.cpp" ) )
-		<< "the collapsed server forwarder is compiled -- an eviction whose replacement "
-		   "is not in the build is a capability that stopped being shipped";
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_te_forwards_client.cpp" ) )
-		<< "and so is the client's";
-
-	EXPECT_TRUE( Exists( "sourcesharp/game/server/shell_te_forwards.cpp" ) );
+		<< "the client's ITempEntsSystem is compiled";
 	EXPECT_TRUE( Exists( "sourcesharp/game/client/shell_te_forwards_client.cpp" ) );
 
-	// AND NEITHER SIDE COMPILES THE OTHER'S. The two use the same forward ids
-	// and DIFFERENT SourceSharpTe_Forward signatures -- the server's takes a
-	// filter and a delay and sends, the client's takes neither and plays -- so a
-	// crossed row is a link error at best and the wrong effect at worst.
+	// The server's forwards are decided in C# (ITempEnts); its native file is gone.
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_te_forwards.cpp" ) );
+	EXPECT_FALSE( Exists( "sourcesharp/game/server/shell_te_forwards.cpp" ) );
 	EXPECT_FALSE(
 		cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/client/shell_te_forwards_client.cpp" ) )
 		<< "the server does not compile the client's forwarder";
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/server/shell_te_forwards.cpp" ) )
-		<< "and the client does not compile the server's";
 }
 
 // RETIRED IN 6b: TempEntForwardersCollapsed.BothVpcsStillBalanceTheirBraces.

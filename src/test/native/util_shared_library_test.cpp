@@ -104,8 +104,8 @@ TEST( UtilSharedLibrary, TheClientCompilesIt )
 {
 	ExpectCompiledOnce( cmake_graph::kClient );
 	if ( HasFailure() )
-		ADD_FAILURE() << "client.so asks for UTIL_IsLowViolence, GetUniverse and "
-						 "the filtered player names, and nothing else defines them.";
+		ADD_FAILURE() << "client.so asks for GetUniverse and the filtered player names, and nothing else "
+						 "defines them.";
 }
 
 //=============================================================================//

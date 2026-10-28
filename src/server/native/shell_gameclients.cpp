@@ -232,7 +232,7 @@ void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )
 	{
 		// Since this client isn't around to think any more, reset their sound.
-		ss::SoundEnt_ResetClientSound( ss::SoundEnt_ClientSoundIndex( pEdict ) );
+		ss::SoundEnt_ResetClientSound( pStandalone->EntIndex() );
 
 		// Before the delete: the announcement reads memory the delete frees.
 		SourceSharp_AnnounceStandaloneRemoved( pStandalone );

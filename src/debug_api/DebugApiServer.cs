@@ -2100,6 +2100,7 @@ public sealed class DebugApiServer : IDebugApi
             .Append(",\"health\":").Append(entities.GetHealth(entity))
             .Append(",\"solid\":").Append(entities.GetSolidType(entity))
             .Append(",\"solidflags\":").Append(entities.GetSolidFlags(entity))
+            .Append(",\"physics\":").Append(entities.GetPhysicsKind(entity))
             .Append(",\"origin\":[")
             .Append(F(origin.X)).Append(',').Append(F(origin.Y)).Append(',').Append(F(origin.Z))
             .Append("],\"angles\":[")

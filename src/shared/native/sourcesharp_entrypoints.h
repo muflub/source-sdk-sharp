@@ -53,7 +53,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 124 slots.
+// SERVER ONLY -- 117 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -61,12 +61,9 @@ int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 #ifndef CLIENT_DLL
 void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ, int32_t r, int32_t g, int32_t b,
 								 int32_t bNoDepthTest, float flDuration );
-void SourceSharp_AngleVectorsFromForward( const float *pForwardXYZ, float *pOutRightXYZ, float *pOutUpXYZ );
 void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType );
 void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
 								   const float *pForceXYZ, const float *pPositionXYZ );
-void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor, float flAmount,
-							  int32_t bStream, int32_t nSprayFlags );
 int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ );
 uint32_t SourceSharp_CreateEntity( const char *pClassName );
 void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount );
@@ -105,14 +102,11 @@ void SourceSharp_EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutSize )
 void SourceSharp_EntityGetOrigin( uint32_t hEntity, float *pOutXYZ );
 uint32_t SourceSharp_EntityGetParent( uint32_t hChild );
 int32_t SourceSharp_EntityGetParentAttachment( uint32_t hChild );
-int32_t SourceSharp_EntityGetSolidFlags( uint32_t hEntity );
-int32_t SourceSharp_EntityGetSolidType( uint32_t hEntity );
 void SourceSharp_EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR );
 int32_t SourceSharp_EntityGetSpawnFlags( uint32_t hEntity );
 void SourceSharp_EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ );
 int32_t SourceSharp_EntityGetState( uint32_t hEntity, int32_t *pOutMoveType );
 void SourceSharp_EntityGetVelocity( uint32_t hEntity, float *pOutXYZ );
-void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ );
 int32_t SourceSharp_EntityIsPlayer( uint32_t hEntity );
 int32_t SourceSharp_EntityIsValid( uint32_t hEntity );
 void SourceSharp_EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset );
@@ -155,7 +149,6 @@ int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax );
 uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pClassName );
 uint32_t SourceSharp_GetCommandClientHandle();
 uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex );
-int32_t SourceSharp_GetPlayerTeam( uint32_t hPlayer );
 int32_t SourceSharp_InvisibleRangeReach();
 uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPackedKeys, int32_t nBytes );
 void SourceSharp_MoveTraceServer( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
@@ -175,7 +168,6 @@ int32_t SourceSharp_PlayerIsAlive( uint32_t hPlayer );
 void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR );
 int32_t SourceSharp_PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType );
 void SourceSharp_PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode );
-void SourceSharp_PlayerSetTeam( uint32_t hPlayer, int32_t nTeam );
 int32_t SourceSharp_PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController );
 void SourceSharp_PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand );
 int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax );
@@ -200,7 +192,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 259 slots.
+// CLIENT ONLY -- 258 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -259,7 +251,6 @@ int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd
 void SourceSharp_ClientImpactLedger( int32_t nFlecks, int32_t nDust );
 void SourceSharp_ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount );
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
-int32_t SourceSharp_ClientIsLowViolence();
 void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ );
 void SourceSharp_ClientModeLayout();
 void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType );

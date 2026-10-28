@@ -111,7 +111,9 @@ public enum CrossingOp
     ServerOnClientConnect = 55,
     ServerOnClientCommand = 56,
     ClientOnUserMessage = 57,
-    ClientNativeTempEntity = 58,
+    /// <summary>IManagedStandaloneClient::SchemaAccept: a standalone entity's update asks whether its payload's schema hash is this build's (lane M1-C, generic_payload_client.cpp's SourceSharpSchema_Accept). CLIENT ONLY.</summary>
+    /// <remarks>Value 58 since the client's native temp-entity forward (ClientNativeTempEntity) retired, 2026-10-26 (it was 387): the ops stay contiguous.</remarks>
+    ClientSchemaAccept = 58,
     ClientOnTempEntity = 59,
     ClientTempEntPoolUpdate = 60,
     ClientTempEntPoolClear = 61,
@@ -320,11 +322,11 @@ public enum CrossingOp
     LoadServer = 107,
 
     /// <summary>
-    /// plan_engineapi_vtables E13: the server's native temp-entity forward,
-    /// counted by TempEntsBinding since the shared thunk became the client's
-    /// (<see cref="ClientNativeTempEntity"/>).
+    /// IManagedStandaloneClient::OnStandaloneDrawExtras: an entity's extras for one pass, after the
+    /// local viewmodel draws (stock's ViewModelDrawn) and in a two-pass entity's translucent draw. CLIENT ONLY.
     /// </summary>
-    ServerNativeTempEntity = 108,
+    /// <remarks>Value 108 since the server's native temp-entity forward (ServerNativeTempEntity) retired, 2026-10-26 (it was 388): the ops stay contiguous.</remarks>
+    ClientStandaloneDrawExtras = 108,
 
     /// <summary>
     /// plan_engineapi_vtables E16: the server's net-state layout asks, counted by
@@ -952,13 +954,6 @@ public enum CrossingOp
     ClientPostInit = 385,
     /// <summary>IManagedTempEntsClient::SuppressLocalTempEnt: a temp entity the client makes for itself asks whether prediction suppresses it (lane M1-C, c_te.cpp's SuppressTE). CLIENT ONLY.</summary>
     ClientSuppressLocalTempEnt = 386,
-    /// <summary>IManagedStandaloneClient::SchemaAccept: a standalone entity's update asks whether its payload's schema hash is this build's (lane M1-C, generic_payload_client.cpp's SourceSharpSchema_Accept). CLIENT ONLY.</summary>
-    ClientSchemaAccept = 387,
-    /// <summary>
-    /// IManagedStandaloneClient::OnStandaloneDrawExtras: an entity's extras for one pass, after the
-    /// local viewmodel draws (stock's ViewModelDrawn) and in a two-pass entity's translucent draw. CLIENT ONLY.
-    /// </summary>
-    ClientStandaloneDrawExtras = 388,
 }
 
 /// <summary>

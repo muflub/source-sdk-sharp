@@ -301,17 +301,6 @@ void SourceSharp_TempEntClientCloseRegistration()
 		 g_nTeBuilt, nClasses );
 }
 
-// The effect is local: managed builds and plays it, and a null blob buffer tells it so.
-bool SourceSharpTe_Forward( int nId, const float *pFloats, int nFloats, const int *pInts, int nInts )
-{
-	IManagedTempEntsClient *pTempEnts = ManagedTempEntsClient();
-
-	if ( !pTempEnts )
-		return false;
-
-	return pTempEnts->OnNativeTempEntity( nId, pFloats, nFloats, pInts, nInts, NULL, 0, NULL ) >= 0;
-}
-
 // Prints every prop of every built table the engine holds; `TE|` lines are machine-read.
 // A RecvProp carries no width, so widths are checked by the server's cs_sv_te_dump.
 

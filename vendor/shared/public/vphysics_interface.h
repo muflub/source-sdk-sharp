@@ -744,8 +744,10 @@ public:
 	virtual bool GetContactPoint( Vector * contactPoint, IPhysicsObject * *contactObject ) const = 0;
 
 	// refactor this a bit - move some of this to IPhysicsShadowController
-	virtual void unused_SetShadow() = 0;
-	virtual void unused_UpdateShadow() = 0;
+	virtual void SetShadow( float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement,
+							bool allowPhysicsRotation ) = 0;
+	virtual void UpdateShadow( const Vector &targetPosition, const QAngle &targetAngles, bool tempDisableGravity,
+							   float timeOffset ) = 0;
 
 	// returns number of ticks since last Update() call
 	virtual int GetShadowPosition( Vector * position, QAngle * angles ) const = 0;

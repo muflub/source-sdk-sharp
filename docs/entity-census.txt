@@ -1,3 +1,13 @@
+# 2026-10-26, plan_server_native_v2 T4 (ruling 5): shell_standalone_base_debug.cpp, shell_scripted_debug.cpp,
+#   shell_entityslots_debug.cpp and world_adapter_debug.cpp left the debug server.so (unused debug commands):
+#   server objects 96 -> 92, shim 96 -> 92, server ToEngineIface 9 in 6 files -> 8 in 5 files (the handle cross
+#   check's); no cross-edge moved. Hand-applied from tools/entity-census's diff.
+# 2026-10-26, plan_server_native_v2 T4: SourceSharp_EntityGetSolidType and SourceSharp_EntityGetSolidFlags left
+#   shell_entityapi.cpp (managed reads the engine block's head): server ToEngineIface 11 in 7 files -> 9 in 6 files;
+#   no object or cross-edge moved. Hand-applied from tools/entity-census's diff.
+# 2026-10-26, plan_server_native_v2 T4: shell_te_forwards.cpp and shell_te_forwards_debug.cpp left server.so (no module
+#   imported their symbols; effect dispatch is ITempEnts's): server objects 98 -> 96, shim 98 -> 96; no cross-edge
+#   moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-26, stock-ab (the predicted swing's hull): shell_worldquery_client.cpp gained SourceSharp_ClientTraceHullEntities,
 #   whose pass entity is cast to IClientUnknown as the other trace slots' are: client ToEngineIface 12 -> 13 in 5 files;
 #   no object or cross-edge moved. Hand-applied from tools/entity-census's diff.
@@ -949,11 +959,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                  98       133
+objects linked                                                  92       133
   ... stock game/server | game/client                            0         0
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                         98       133
+  ... SourceSharp shim (sourcesharp/**)                         92       133
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0
@@ -987,7 +997,7 @@ GetBaseEntity           0 in 0 files          0 in 0 files          0 in 0 files
 GetContainingEntity     0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 GetGameData             0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 EHANDLE                 0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
-ToEngineIface           0 in 0 files          11 in 7 files         0 in 0 files          13 in 5 files       
+ToEngineIface           0 in 0 files          8 in 5 files          0 in 0 files          13 in 5 files       
 
 == 3. SHIM -> STOCK CROSS-EDGES, PER STOCK TU ==
 # FLOOR. Sorted by edges. A TU at 0 is one nothing in the shim links

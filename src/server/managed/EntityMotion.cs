@@ -66,10 +66,11 @@ public sealed class EntityMotion
 
     public EntityMotion(ILog log, IEngineEntities entities, IEngineWorldQuery world,
                         IEngineEffects effects,
-                        IEngineConsole console, EntityDirectory directory,
+                        IEngineConsole console, IEngineEntityPhysics physics, EntityDirectory directory,
                         PhysicsPushedEntities pushed)
     {
         _log = log;
+        _physics = physics;
         _pushed = pushed;
         _entities = entities;
         _world = world;
@@ -121,6 +122,9 @@ public sealed class EntityMotion
 
     /// <summary>What a mover does to whatever is in its way: CPhysicsPushedEntities.</summary>
     private readonly PhysicsPushedEntities _pushed;
+
+    /// <summary>What the movers' shadows are told after the movers move.</summary>
+    private readonly IEngineEntityPhysics _physics;
 
     /// <summary>One entity's motion, as this side holds it.</summary>
     private sealed class Mover
@@ -353,6 +357,11 @@ public sealed class EntityMotion
         // after it. It is not arbitrary — a projectile's step trace should meet
         // the door where the door is THIS frame, not where it was last frame.
         RunPushFrame(frameTime);
+
+        // FinishPushers' UpdatePhysicsShadowToCurrentPosition: each shadow is
+        // taken where its entity now is, before the post-think physics step
+        // simulates it there, so a prop meets the door where the door is.
+        _physics.UpdateShadows(frameTime);
 
         if (_movers.Count == 0)
             return PushedLastFrame;

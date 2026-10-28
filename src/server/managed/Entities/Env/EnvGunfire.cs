@@ -313,7 +313,7 @@ public sealed class EnvGunfire : ScriptedEntity
         if (_cone == 0f)
             return direction;
 
-        var (right, up) = World.AngleVectorsFromForward(direction);
+        var (right, up) = Angles.RightUp(direction);
 
         var (x, y) = Scatter(Vars.Bias, _biasMin, _biasMax, Host.RandomFloat);
 

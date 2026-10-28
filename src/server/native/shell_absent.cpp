@@ -21,21 +21,3 @@
 uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 extern CGlobalVars *gpGlobals;
 class CFunctor;
-
-// Blood in the air, at a point and in a direction (effects.cpp). Serves the managed
-// env_blood and bullet impacts through SourceSharp_BloodEffect.
-void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amount, int flags )
-{
-	if ( color == ss::DONT_BLEED )
-		return;
-
-	ss::CEffectData data;
-
-	data.m_vOrigin = pos;
-	data.m_vNormal = dir;
-	data.m_flScale = (float)amount;
-	data.m_fFlags = flags;
-	data.m_nColor = color;
-
-	DispatchEffect( "bloodspray", data );
-}

@@ -8,14 +8,9 @@ client_sourcesharp	src/client/native/client_util_library.cpp	ReloadSoundEntriesI
 client_sourcesharp	src/client/native/client_util_library.cpp	ScreenHeight()
 client_sourcesharp	src/client/native/client_util_library.cpp	ScreenWidth()
 client_sourcesharp	src/client/native/client_util_library.cpp	TextMessageGet(char const*)
-client_sourcesharp	src/client/native/client_util_library.cpp	UTIL_IsLowViolence()
 client_sourcesharp	src/client/native/client_util_library.cpp	VarArgs(char const*, ...)
 client_sourcesharp	src/client/native/client_util_library.cpp	_GLOBAL__sub_I_client_util_library.cpp
 client_sourcesharp	src/client/native/client_util_library.cpp	__cxx_global_var_init
-client_sourcesharp	src/client/native/client_util_library.cpp	__cxx_global_var_init.2
-client_sourcesharp	src/client/native/client_util_library.cpp	__cxx_global_var_init.4
-client_sourcesharp	src/client/native/client_util_library.cpp	__cxx_global_var_init.6
-client_sourcesharp	src/client/native/client_util_library.cpp	__cxx_global_var_init.8
 client_sourcesharp	src/client/native/convar_client.cpp	(anonymous namespace)::NoCompletions(char const*, char (*) [64])
 client_sourcesharp	src/client/native/convar_client.cpp	ConCommand::ConCommand(char const*, void (*)(), char const*, int, int (*)(char const*, char (*) [64]))
 client_sourcesharp	src/client/native/convar_client.cpp	ConCommand::ConCommand(char const*, void (*)(CCommand const&), char const*, int, int (*)(char const*, char (*) [64]))
@@ -1968,7 +1963,6 @@ client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_Cl
 client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientDecalStudioModel(int, float const*, float const*, int)
 client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientEnergySplash(float const*, float const*, int)
 client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientEntityModelType(int)
-client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientIsLowViolence()
 client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientMetalSparks(float const*, float const*)
 client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientMuzzleFlash(float const*, float const*, float, int)
 client_sourcesharp	src/client/native/shell_te_backends_client.cpp	SourceSharp_ClientPlayerDecalShoot(float const*, int, int)
@@ -2096,7 +2090,6 @@ client_sourcesharp	src/client/native/shell_tempents_client.cpp	IClientNetworkabl
 client_sourcesharp	src/client/native/shell_tempents_client.cpp	IClientNetworkable* TeCreateEvent<9>()
 client_sourcesharp	src/client/native/shell_tempents_client.cpp	InternName(char const*)
 client_sourcesharp	src/client/native/shell_tempents_client.cpp	PropTypeName(int)
-client_sourcesharp	src/client/native/shell_tempents_client.cpp	SourceSharpTe_Forward(int, float const*, int, int const*, int)
 client_sourcesharp	src/client/native/shell_tempents_client.cpp	SourceSharp_TempEntBuildClient(void const*, int, int, SourceSharpTeRecvBuilt_t*)
 client_sourcesharp	src/client/native/shell_tempents_client.cpp	SourceSharp_TempEntClientCloseRegistration()
 client_sourcesharp	src/client/native/shell_tempents_client.cpp	TeCreateEventFor(int)
@@ -3044,7 +3037,6 @@ client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEffectsRend
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEffectsRenderClient::SpriteTrailDestroy(unsigned int)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEffectsRenderClient::SpriteTrailUpdate(unsigned int, int, int)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEffectsRenderClient::WindPublish(float const*, float const*, int)
-client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEngineClient::GetCurrentTime()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEngineClient::GetGlobalVarsPtr()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEntitiesClient::EntityGetAngles(unsigned int, float*)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEntitiesClient::EntityGetIndex(unsigned int)
@@ -3208,7 +3200,6 @@ client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBack
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientEnergySplash(float const*, float const*, int)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientEntityModelType(int)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientImpactLedger(int, int)
-client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientIsLowViolence()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientMetalSparks(float const*, float const*)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientMuzzleFlash(float const*, float const*, float, int)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTempEntBackendsClient::ClientPlayerDecalShoot(float const*, int, int)
@@ -3294,7 +3285,6 @@ client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_Copy
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_CurrentGravity()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_EnsureConVarChangeCallback()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_FatalInitFailure(int, int, char const*)
-client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetCurrentTime()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetGlobalVarsPtr()
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetModBinDir(char*, int)
 client_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_HostLog(char const*)
@@ -3378,14 +3368,6 @@ client_sourcesharp	src/shared/native/trace_filter_library.cpp	PassServerEntityFi
 client_sourcesharp	src/shared/native/trace_filter_library.cpp	StandardFilterRules(IHandleEntity*, int)
 client_sourcesharp	src/shared/native/trace_filter_library.cpp	_GLOBAL__sub_I_trace_filter_library.cpp
 client_sourcesharp	src/shared/native/trace_filter_library.cpp	__cxx_global_var_init
-client_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_BloodImpact(Vector const&, Vector const&, int, int)
-client_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_ShouldShowBlood(int)
-client_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_Tracer(Vector const&, Vector const&, int, int, float, bool, char const*, int)
-client_sourcesharp	src/shared/native/util_shared_library.cpp	_GLOBAL__sub_I_util_shared_library.cpp
-client_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init
-client_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.1
-client_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.3
-client_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.5
 client_sourcesharp	src/shared/native/world_net_sync.cpp	ResolveOffset(SourceSharpNetStateAsk_t const&, char const*, bool*)
 client_sourcesharp	src/shared/native/world_net_sync.cpp	ResolvePacked(SourceSharpNetStateAsk_t const&, char const*, bool*)
 client_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t*)
@@ -3432,13 +3414,9 @@ server_sourcesharp	src/server/native/physics.cpp	_GLOBAL__sub_I_physics.cpp
 server_sourcesharp	src/server/native/physics.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/precache_model.cpp	Precache_Model(char const*, bool)
 server_sourcesharp	src/server/native/precache_model.cpp	Precache_ModelComponents(int)
-server_sourcesharp	src/server/native/server_util_library.cpp	UTIL_BloodStream(Vector const&, Vector const&, int, int)
 server_sourcesharp	src/server/native/server_util_library.cpp	UTIL_ClearTrace(CGameTrace&)
-server_sourcesharp	src/server/native/server_util_library.cpp	UTIL_Smoke(Vector const&, float, float)
 server_sourcesharp	src/server/native/server_util_library.cpp	_GLOBAL__sub_I_server_util_library.cpp
 server_sourcesharp	src/server/native/server_util_library.cpp	__cxx_global_var_init
-server_sourcesharp	src/server/native/server_util_library.cpp	__cxx_global_var_init.2
-server_sourcesharp	src/server/native/shell_absent.cpp	UTIL_BloodSpray(Vector const&, Vector const&, int, int, int)
 server_sourcesharp	src/server/native/shell_clientsteps.cpp	SourceSharp_ClientsStandalonePlayerEarPosition(int, float*)
 server_sourcesharp	src/server/native/shell_commandclient.cpp	CommandClient()
 server_sourcesharp	src/server/native/shell_commandclient.cpp	UTIL_GetCommandClientIndex()
@@ -3488,10 +3466,7 @@ server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetHe
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetIndex(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetModelName(unsigned int, char*, int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetOrigin(unsigned int, float*)
-server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetSolidFlags(unsigned int)
-server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetSolidType(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetVelocity(unsigned int, float*)
-server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityGetWorldSpaceCenter(unsigned int, float*)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityIsPlayer(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityIsValid(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityPayloadAgreement(unsigned int, int*, int*)
@@ -3516,13 +3491,11 @@ server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_EntityTelep
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_FindEntityByClassname(unsigned int, char const*)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_GameEntityFromHandleEntity(IHandleEntity*)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_GetPlayerHandle(int)
-server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_GetPlayerTeam(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_HandleFromEntity(CBaseEntity*)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_PlayerGetObserverMode(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_PlayerIsAlive(unsigned int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_PlayerSetMoveType(unsigned int, int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_PlayerSetObserverMode(unsigned int, int)
-server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_PlayerSetTeam(unsigned int, int)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_PlayerSnapEyeAngles(unsigned int, float const*)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_RefHandleFromEntity(CBaseEntity*)
 server_sourcesharp	src/server/native/shell_entityapi.cpp	SourceSharp_SendClientCommand(unsigned int, char const*)
@@ -3544,9 +3517,6 @@ server_sourcesharp	src/server/native/shell_entityslots.cpp	SourceSharp_SlotEntry
 server_sourcesharp	src/server/native/shell_entityslots.cpp	SourceSharp_SlotIssue(int)
 server_sourcesharp	src/server/native/shell_entityslots.cpp	SourceSharp_SlotTable()
 server_sourcesharp	src/server/native/shell_entityslots.cpp	SourceSharp_SlotUnbind(int)
-server_sourcesharp	src/server/native/shell_entityslots_debug.cpp	SSNativeCommand_cs_sv_slot_table(CCommand const&)
-server_sourcesharp	src/server/native/shell_entityslots_debug.cpp	_GLOBAL__sub_I_shell_entityslots_debug.cpp
-server_sourcesharp	src/server/native/shell_entityslots_debug.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/shell_factory.cpp	CreateInterface
 server_sourcesharp	src/server/native/shell_factory.cpp	SourceSharp_ExposedAt(int)
 server_sourcesharp	src/server/native/shell_factory.cpp	SourceSharp_ExposedCount()
@@ -3659,8 +3629,6 @@ server_sourcesharp	src/server/native/shell_mapparse.cpp	MapEntity_CreateFromKeys
 server_sourcesharp	src/server/native/shell_mapparse.cpp	MapEntity_CreateWorld()
 server_sourcesharp	src/server/native/shell_mapparse.cpp	MapEntity_SpawnWorld(char const* const*, char const* const*, int)
 server_sourcesharp	src/server/native/shell_nettable.cpp	SourceSharp_IsManagedServerClass(ServerClass const*)
-server_sourcesharp	src/server/native/shell_nettable_debug.cpp	SSNativeCommand_cs_sv_break_schema(CCommand const&)
-server_sourcesharp	src/server/native/shell_nettable_debug.cpp	SSNativeCommand_cs_sv_dump_types(CCommand const&)
 server_sourcesharp	src/server/native/shell_nettable_debug.cpp	SSNativeCommand_cs_sv_payload_agree(CCommand const&)
 server_sourcesharp	src/server/native/shell_nettable_debug.cpp	SSNativeCommand_cs_sv_payload_probe(CCommand const&)
 server_sourcesharp	src/server/native/shell_nettable_debug.cpp	SSNativeCommand_cs_sv_poke_payload(CCommand const&)
@@ -3668,16 +3636,12 @@ server_sourcesharp	src/server/native/shell_nettable_debug.cpp	_GLOBAL__sub_I_she
 server_sourcesharp	src/server/native/shell_nettable_debug.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/shell_nettable_debug.cpp	__cxx_global_var_init.1
 server_sourcesharp	src/server/native/shell_nettable_debug.cpp	__cxx_global_var_init.3
-server_sourcesharp	src/server/native/shell_nettable_debug.cpp	__cxx_global_var_init.5
-server_sourcesharp	src/server/native/shell_nettable_debug.cpp	__cxx_global_var_init.7
 server_sourcesharp	src/server/native/shell_physicsobjects.cpp	PhysicsStandaloneOwner(CBaseHandle const&)
 server_sourcesharp	src/server/native/shell_physicsobjects.cpp	PhysicsStandaloneToucher(CBaseHandle const&)
 server_sourcesharp	src/server/native/shell_physicsobjects.cpp	SourceSharp_EntitySwapPhysicsObject(unsigned int, void*, void**)
 server_sourcesharp	src/server/native/shell_recipientfilter.cpp	ss::CRecipientFilter::AddAllPlayers()
 server_sourcesharp	src/server/native/shell_recipientfilter.cpp	ss::CRecipientFilter::AddRecipientsByPAS(Vector const&)
 server_sourcesharp	src/server/native/shell_recipientfilter.cpp	ss::CRecipientFilter::AddRecipientsByPVS(Vector const&)
-server_sourcesharp	src/server/native/shell_scripted.cpp	ShellScripted_InvisibleReachSite(int)
-server_sourcesharp	src/server/native/shell_scripted.cpp	ShellScripted_InvisibleReachSiteCount(bool*)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_EntityGetAngularVelocity(unsigned int, float*)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_EntityGetBoundsSize(unsigned int, float*)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_EntityGetName(unsigned int, char*, int)
@@ -3688,17 +3652,13 @@ server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_EntityPhysic
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_EntitySetAngles(unsigned int, float const*)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_EntitySetAngularVelocity(unsigned int, float const*)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_InvisibleRangeReach()
-server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_NoteInvisibleRangeReach(void*)
+server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_NoteInvisibleRangeReach()
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_PhysicsEnvironmentPointer()
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_PhysicsOf(unsigned int)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_PhysicsWorldObject()
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_PlayerPlaceAtSpawn(unsigned int, float const*, float const*)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_RegisterScriptedEntity(char const*, char const**, int, int)
 server_sourcesharp	src/server/native/shell_scripted.cpp	SourceSharp_StandaloneSetModelScale(unsigned int, float)
-server_sourcesharp	src/server/native/shell_scripted_debug.cpp	SSNativeCommand_cs_sv_invisible_reach(CCommand const&)
-server_sourcesharp	src/server/native/shell_scripted_debug.cpp	SourceSharp_PrintReachAddress(char const*, void*)
-server_sourcesharp	src/server/native/shell_scripted_debug.cpp	_GLOBAL__sub_I_shell_scripted_debug.cpp
-server_sourcesharp	src/server/native/shell_scripted_debug.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/shell_sentences.cpp	SENTENCEG_Init()
 server_sourcesharp	src/server/native/shell_server.cpp	CServerGameClients::GetPlayerLimits(int&, int&, int&) const
 server_sourcesharp	src/server/native/shell_server.cpp	ClientActive(edict_t*, bool)
@@ -3707,7 +3667,6 @@ server_sourcesharp	src/server/native/shell_server.cpp	InstallGameRules()
 server_sourcesharp	src/server/native/shell_sharedappsystems.cpp	SourceSharp_GetServerDllSharedAppSystems()
 server_sourcesharp	src/server/native/shell_sharedappsystems.cpp	_GLOBAL__sub_I_shell_sharedappsystems.cpp
 server_sourcesharp	src/server/native/shell_sharedappsystems.cpp	__cxx_global_var_init
-server_sourcesharp	src/server/native/shell_soundent.cpp	ss::SoundEnt_ClientSoundIndex(edict_t*)
 server_sourcesharp	src/server/native/shell_soundent.cpp	ss::SoundEnt_Init()
 server_sourcesharp	src/server/native/shell_soundent.cpp	ss::SoundEnt_ResetClientSound(int)
 server_sourcesharp	src/server/native/shell_soundent.cpp	ss::SoundEnt_Shutdown()
@@ -3718,7 +3677,6 @@ server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_IsStandalo
 server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_NetHierarchyDeclare(int)
 server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_NetPublishType(char const*, int, unsigned int, int, unsigned int*)
 server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_NetTierInfo(int, int, char const**, int*, int*, int*, int*)
-server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_StandaloneBreakSchema(int, unsigned int)
 server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_StandalonePayloadAgreeReport(int, int*, int*)
 server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_StandalonePayloadAgrees(CStandaloneEntity*, int*, int*)
 server_sourcesharp	src/server/native/shell_standalone.cpp	SourceSharp_StandalonePokePayload(int, int, unsigned int)
@@ -3825,9 +3783,6 @@ server_sourcesharp	src/server/native/shell_standalone_base.cpp	non-virtual thunk
 server_sourcesharp	src/server/native/shell_standalone_base.cpp	non-virtual thunk to CStandaloneEntity::WorldSpaceSurroundingBounds(Vector*, Vector*)
 server_sourcesharp	src/server/native/shell_standalone_base.cpp	non-virtual thunk to CStandaloneEntity::WorldSpaceTriggerBounds(Vector*, Vector*) const
 server_sourcesharp	src/server/native/shell_standalone_base.cpp	non-virtual thunk to CStandaloneEntity::~CStandaloneEntity()
-server_sourcesharp	src/server/native/shell_standalone_base_debug.cpp	SSNativeCommand_cs_sv_handle_cross_check(CCommand const&)
-server_sourcesharp	src/server/native/shell_standalone_base_debug.cpp	_GLOBAL__sub_I_shell_standalone_base_debug.cpp
-server_sourcesharp	src/server/native/shell_standalone_base_debug.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/shell_standalone_class.cpp	(anonymous namespace)::CSourceSharpFactoryDictionary::CSourceSharpFactoryDictionary()
 server_sourcesharp	src/server/native/shell_standalone_class.cpp	(anonymous namespace)::CSourceSharpFactoryDictionary::Create(char const*)
 server_sourcesharp	src/server/native/shell_standalone_class.cpp	(anonymous namespace)::CSourceSharpFactoryDictionary::Destroy(char const*, IServerNetworkable*)
@@ -3940,27 +3895,10 @@ server_sourcesharp	src/server/native/shell_stringtables.cpp	GetParticleSystemInd
 server_sourcesharp	src/server/native/shell_stringtables.cpp	PrecacheMaterial(char const*)
 server_sourcesharp	src/server/native/shell_stringtables.cpp	PrecacheParticleSystem(char const*)
 server_sourcesharp	src/server/native/shell_stringtables.cpp	SourceSharp_CreateNetworkStringTables()
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	DispatchEffect(char const*, ss::CEffectData const&)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	DispatchEffect(char const*, ss::CEffectData const&, ss::CRecipientFilter&)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	EffectNameIndex(char const*)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	TE_BloodStream(IRecipientFilter&, float, Vector const*, Vector const*, int, int, int, int, int)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	TE_Decal(IRecipientFilter&, float, Vector const*, Vector const*, int, int, int)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	TE_DispatchEffect(IRecipientFilter&, float, Vector const&, char const*, ss::CEffectData const&)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	TE_Smoke(IRecipientFilter&, float, Vector const*, int, float, int)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	TE_Sparks(IRecipientFilter&, float, Vector const*, int, int, Vector const*)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	TE_WorldDecal(IRecipientFilter&, float, Vector const*, int)
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	_GLOBAL__sub_I_shell_te_forwards.cpp
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	__cxx_global_var_init
-server_sourcesharp	src/server/native/shell_te_forwards.cpp	ss::Effects()
-server_sourcesharp	src/server/native/shell_te_forwards_debug.cpp	FireOneDispatch(char const*, Vector const&)
-server_sourcesharp	src/server/native/shell_te_forwards_debug.cpp	SSNativeCommand_cs_sv_te_dispatch(CCommand const&)
-server_sourcesharp	src/server/native/shell_te_forwards_debug.cpp	_GLOBAL__sub_I_shell_te_forwards_debug.cpp
-server_sourcesharp	src/server/native/shell_te_forwards_debug.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/shell_tempents.cpp	InternName(CServerTempEnts&, char const*)
 server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharpTe_BuiltClass(int)
 server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharpTe_BuiltCount()
 server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharpTe_BuiltTable(int)
-server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharpTe_Forward(int, IRecipientFilter&, float, float const*, int, int const*, int)
 server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharpTe_RegistrationClosed()
 server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharp_IsTempEntServerClass(ServerClass const*)
 server_sourcesharp	src/server/native/shell_tempents.cpp	SourceSharp_TempEntBuild(void const*, int, SourceSharpTeBuiltTable_t*)
@@ -3988,8 +3926,6 @@ server_sourcesharp	src/server/native/shell_world_nettable.cpp	SourceSharp_WorldB
 server_sourcesharp	src/server/native/shell_world_nettable.cpp	SourceSharp_WorldNetDeclare(int)
 server_sourcesharp	src/server/native/shell_world_nettable.cpp	SourceSharp_WorldServerClass()
 server_sourcesharp	src/server/native/shell_world_nettable.cpp	WorldNetTable()
-server_sourcesharp	src/server/native/shell_worldquery.cpp	SourceSharp_AngleVectorsFromForward(float const*, float*, float*)
-server_sourcesharp	src/server/native/shell_worldquery.cpp	SourceSharp_BloodEffect(float const*, float const*, int, float, int, int)
 server_sourcesharp	src/server/native/shell_worldquery.cpp	SourceSharp_EntitiesInSphere(float const*, float, unsigned int*, int)
 server_sourcesharp	src/server/native/shell_worldquery.cpp	SourceSharp_EntityGetBounds(unsigned int, float*, float*)
 server_sourcesharp	src/server/native/shell_worldquery.cpp	SourceSharp_EntityGetState(unsigned int, int*)
@@ -4027,7 +3963,6 @@ server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::AttachToEdictZero
 server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::BlobBytes() const
 server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::CWorld()
 server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::DataBlob()
-server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::DecalTrace(CGameTrace*, char const*)
 server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::GetServerClass()
 server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::KeyValue(char const*, char const*)
 server_sourcesharp	src/server/native/world_adapter.cpp	CWorld::Precache()
@@ -4043,12 +3978,8 @@ server_sourcesharp	src/server/native/world_adapter.cpp	CWorldNetworkable::CWorld
 server_sourcesharp	src/server/native/world_adapter.cpp	GetWorldEntity()
 server_sourcesharp	src/server/native/world_adapter.cpp	SourceSharp_WorldBlobOffset()
 server_sourcesharp	src/server/native/world_adapter.cpp	SourceSharp_WorldIssueSerial()
-server_sourcesharp	src/server/native/world_adapter.cpp	W_Precache()
 server_sourcesharp	src/server/native/world_adapter.cpp	_GLOBAL__sub_I_world_adapter.cpp
 server_sourcesharp	src/server/native/world_adapter.cpp	__cxx_global_var_init
-server_sourcesharp	src/server/native/world_adapter_debug.cpp	SSNativeCommand_cs_sv_world(CCommand const&)
-server_sourcesharp	src/server/native/world_adapter_debug.cpp	_GLOBAL__sub_I_world_adapter_debug.cpp
-server_sourcesharp	src/server/native/world_adapter_debug.cpp	__cxx_global_var_init
 server_sourcesharp	src/server/native/world_subject_dll.cpp	SourceSharp_IsTheWorld(IHandleEntity const*)
 server_sourcesharp	src/server/native/world_subject_dll.cpp	SourceSharp_WorldFromEntityHandle(IHandleEntity*)
 server_sourcesharp	src/server/native/world_subject_dll.cpp	SourceSharp_WorldFromHandle(CBaseHandle const&)
@@ -4308,10 +4239,8 @@ server_sourcesharp	src/shared/native/shell_diagnostics.cpp	_GLOBAL__sub_I_shell_
 server_sourcesharp	src/shared/native/shell_diagnostics.cpp	__cxx_global_var_init
 server_sourcesharp	src/shared/native/shell_diagnostics.cpp	__cxx_global_var_init.7
 server_sourcesharp	src/shared/native/shell_diagnostics_debug.cpp	SSNativeCommand_cs_sv_crossings(CCommand const&)
-server_sourcesharp	src/shared/native/shell_diagnostics_debug.cpp	SSNativeCommand_cs_sv_notshipped(CCommand const&)
 server_sourcesharp	src/shared/native/shell_diagnostics_debug.cpp	_GLOBAL__sub_I_shell_diagnostics_debug.cpp
 server_sourcesharp	src/shared/native/shell_diagnostics_debug.cpp	__cxx_global_var_init
-server_sourcesharp	src/shared/native/shell_diagnostics_debug.cpp	__cxx_global_var_init.1
 server_sourcesharp	src/shared/native/shell_gameevents.cpp	CGameEventSubscriptions::Result_t CGameEventSubscriptions::Subscribe<SourceSharp_ListenForGameEvent(char const*)::$_0>(char const*, SourceSharp_ListenForGameEvent(char const*)::$_0)
 server_sourcesharp	src/shared/native/shell_gameevents.cpp	SourceSharp_EventGetBool(void*, char const*)
 server_sourcesharp	src/shared/native/shell_gameevents.cpp	SourceSharp_EventGetFloat(void*, char const*)
@@ -4370,7 +4299,6 @@ server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ManagedRoot_Relea
 server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ManagedRuntimeServer()
 server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ManagedSaveRestore()
 server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ManagedSoundEnt()
-server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ManagedTempEnts()
 server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ManagedUserMessages()
 server_sourcesharp	src/shared/native/shell_internalfactory.cpp	ShimRoot_Get(void const**)
 server_sourcesharp	src/shared/native/shell_movement.cpp	MoveCounters()
@@ -4400,8 +4328,6 @@ server_sourcesharp	src/shared/native/shell_vtable_interfaces.cpp	SourceSharp_Acq
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntityGetBounds(unsigned int, float*, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntityGetBoundsSize(unsigned int, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntityGetCollisionGroup(unsigned int)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntityGetSolidFlags(unsigned int)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntityGetSolidType(unsigned int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntityOverlapReport(unsigned int*, int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntitySetBounds(unsigned int, float const*, float const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimCollisionServer::EntitySetCollisionGroup(unsigned int, int)
@@ -4432,9 +4358,7 @@ server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimDiagnostics
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimDiagnostics::ExitWatchDisarm()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimDiagnostics::ExitWatchRead(int*, int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimDiagnostics::PlayerShadowCounts(int*, int)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEffectsServer::BloodEffect(float const*, float const*, int, float, int, int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEffectsServer::TempEntBuild(void const*, int, SourceSharpTeBuiltTable_t*)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEngine::GetCurrentTime()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEngine::GetGlobalVarsPtr()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEntitiesServer::EntitiesInSphere(float const*, float, unsigned int*, int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea(int, int*)
@@ -4524,12 +4448,10 @@ server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPhysics::Ph
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPhysics::PhysicsWorldObject()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::ClientsStandalonePlayerEarPosition(int, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::GetPlayerHandle(int)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::GetPlayerTeam(unsigned int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::PlayerGetObserverMode(unsigned int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::PlayerIsAlive(unsigned int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::PlayerPlaceAtSpawn(unsigned int, float const*, float const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::PlayerSetObserverMode(unsigned int, int)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::PlayerSetTeam(unsigned int, int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPlayers::PlayerSnapEyeAngles(unsigned int, float const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimPrecache::PrecacheModel(char const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntityGetAngularVelocity(unsigned int, float*)
@@ -4537,7 +4459,6 @@ server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntityGetEyePosition(unsigned int, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntityGetGravity(unsigned int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntityGetVelocity(unsigned int, float*)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntityGetWorldSpaceCenter(unsigned int, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntitySetAngles(unsigned int, float const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntitySetAngularVelocity(unsigned int, float const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntitySetBounce(unsigned int, int)
@@ -4546,7 +4467,6 @@ server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntitySetVelocity(unsigned int, float const*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimTransform::EntityTeleport(unsigned int, float const*, float const*, int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimUserMessages::UserMessageSend(int, unsigned char const*, int, int, int)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimWorldServer::AngleVectorsFromForward(float const*, float*, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimWorldServer::EntityModelSurfaceProp(unsigned int)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimWorldServer::InvisibleRangeReach()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	CShimWorldServer::SetSkyboxParams(SourceSharpSkyboxParams const*)
@@ -4559,7 +4479,6 @@ server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_Copy
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_CurrentGravity()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_EarPositionForClient(int, float*)
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_FatalInitFailure(int, int, char const*)
-server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetCurrentTime()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetGameDescription()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetGlobalVarsPtr()
 server_sourcesharp	src/shared/native/sourcesharp_gamesystem.cpp	SourceSharp_GetModBinDir(char*, int)
@@ -4633,16 +4552,6 @@ server_sourcesharp	src/shared/native/tier_connect.cpp	SourceSharp_ConnectTier1(v
 server_sourcesharp	src/shared/native/tier_connect.cpp	SourceSharp_ConnectTier3(void* (*)(char const*, int*))
 server_sourcesharp	src/shared/native/tier_connect.cpp	SourceSharp_DisconnectTier1()
 server_sourcesharp	src/shared/native/tier_connect.cpp	SourceSharp_DisconnectTier3()
-server_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_BloodDrips(Vector const&, Vector const&, int, int)
-server_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_BloodImpact(Vector const&, Vector const&, int, int)
-server_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_ShouldShowBlood(int)
-server_sourcesharp	src/shared/native/util_shared_library.cpp	UTIL_Tracer(Vector const&, Vector const&, int, int, float, bool, char const*, int)
-server_sourcesharp	src/shared/native/util_shared_library.cpp	_GLOBAL__sub_I_util_shared_library.cpp
-server_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init
-server_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.1
-server_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.3
-server_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.5
-server_sourcesharp	src/shared/native/util_shared_library.cpp	__cxx_global_var_init.8
 server_sourcesharp	src/shared/native/world_net_sync.cpp	ResolveOffset(SourceSharpNetStateAsk_t const&, char const*, bool*)
 server_sourcesharp	src/shared/native/world_net_sync.cpp	ResolvePacked(SourceSharpNetStateAsk_t const&, char const*, bool*)
 server_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t*)

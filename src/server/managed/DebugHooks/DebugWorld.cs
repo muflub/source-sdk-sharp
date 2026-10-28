@@ -12,7 +12,8 @@ public sealed class DebugWorld(
     IEngineWorldQuery world, IGameClock clock, IEngineHost host,
     Func<IEnumerable<(EntityHandle A, EntityHandle B)>>? touchingPairs = null,
     Func<EntityHandle, bool?>? asleep = null, Func<EntityHandle, int?>? groundIndex = null,
-    Func<int>? tick = null, Func<IEnginePlayerMovement>? movement = null) : IDebugWorld
+    Func<int>? tick = null, Func<IEnginePlayerMovement>? movement = null,
+    Func<EntityHandle, int>? physicsKind = null) : IDebugWorld
 {
     private readonly IEngineEntities _entities = entities ?? throw new ArgumentNullException(nameof(entities));
     private readonly IEngineDamage _damage = damage ?? throw new ArgumentNullException(nameof(damage));
@@ -29,14 +30,15 @@ public sealed class DebugWorld(
                                 Func<IEnumerable<(EntityHandle A, EntityHandle B)>>? touchingPairs = null,
                                 Func<EntityHandle, bool?>? asleep = null,
                                 Func<EntityHandle, int?>? groundIndex = null,
-                                Func<int>? tick = null)
+                                Func<int>? tick = null,
+                                Func<EntityHandle, int>? physicsKind = null)
         => new(services.Require<IEngineEntities>(), services.Require<IEngineDamage>(),
                services.Require<IEnginePlayers>(), services.Require<IEngineWorldQuery>(),
                services.Require<IGameClock>(), services.Require<IEngineHost>(), touchingPairs,
                asleep, groundIndex, tick,
                // Resolved when first asked: a test container that never points
                // a view need not register it.
-               () => services.Require<IEnginePlayerMovement>());
+               () => services.Require<IEnginePlayerMovement>(), physicsKind);
 
     private static EntityHandle H(uint value) => new(value);
 
@@ -71,6 +73,8 @@ public sealed class DebugWorld(
     public int GetSolidType(uint entity) => (int)_entities.GetSolidType(H(entity));
 
     public int GetSolidFlags(uint entity) => (int)_entities.GetSolidFlags(H(entity));
+
+    public int GetPhysicsKind(uint entity) => physicsKind?.Invoke(H(entity)) ?? 0;
 
     public bool? IsAsleep(uint entity) => asleep?.Invoke(H(entity));
 

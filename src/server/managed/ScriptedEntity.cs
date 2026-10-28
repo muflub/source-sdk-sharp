@@ -1735,6 +1735,12 @@ public abstract class ScriptedEntity
     /// <summary>Stock's <c>CollisionProp()->UseTriggerBounds</c> on this entity.</summary>
     protected void UseTriggerBounds(bool enable, float bloat, bool uniform = false) => Entities.UseTriggerBounds(Handle, enable, bloat, uniform);
 
+    /// <summary>
+    /// Stock's <c>VPhysicsInitShadow( false, false )</c> as a mover calls it:
+    /// an object that follows this entity, its solidity and movetype kept.
+    /// </summary>
+    protected bool InitShadowPhysics() => Physics.InitShadowPhysics(Handle);
+
     /// <summary>Whether this entity's physics object collides at all.</summary>
     protected void EnablePhysicsCollisions(bool enable) => Physics.EnableCollisions(Handle, enable);
 

@@ -44,7 +44,6 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_standalone_hierarchy.cpp
     ${LOCAL}/shell_standalone_player.cpp
     ${LOCAL}/shell_stringtables.cpp
-    ${LOCAL}/shell_te_forwards.cpp
     ${LOCAL}/shell_tempents.cpp
     ${LOCAL}/shell_tempents_store.cpp
     ${LOCAL}/shell_transmitsteps.cpp
@@ -92,18 +91,13 @@ target_sources(server_sourcesharp PRIVATE ${server_sourcesharp_sources})
 set(server_sourcesharp_debug_sources
     ${LOCAL}/shell_debugoverlays_debug.cpp
     ${LOCAL}/shell_engineboundary_debug.cpp
-    ${LOCAL}/shell_entityslots_debug.cpp
     ${LOCAL}/shell_gamedll_debug.cpp
     ${LOCAL}/shell_gameents_debug.cpp
     ${LOCAL}/shell_nettable_debug.cpp
-    ${LOCAL}/shell_scripted_debug.cpp
-    ${LOCAL}/shell_standalone_base_debug.cpp
     ${LOCAL}/shell_standalone_class_debug.cpp
     ${LOCAL}/shell_standalone_debug.cpp
     ${LOCAL}/shell_standalone_player_debug.cpp
-    ${LOCAL}/shell_te_forwards_debug.cpp
     ${LOCAL}/shell_tempents_debug.cpp
-    ${LOCAL}/world_adapter_debug.cpp
     ${SHARED}/gamestringpool_debug.cpp
     ${SHARED}/generic_payload_debug.cpp
     ${SHARED}/shell_diagnostics_debug.cpp

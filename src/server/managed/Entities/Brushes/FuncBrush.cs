@@ -76,6 +76,10 @@ public sealed class FuncBrush : ScriptedEntity
     {
         _on = !Vars.StartDisabled;
         Apply();
+
+        // CFuncBrush::CreateVPhysics: a shadow, even when it is not solid,
+        // so a constraint or a parent can hold it.
+        InitShadowPhysics();
     }
 
     [ScriptedEvent] private void OnEnable() { _on = true; Apply(); }

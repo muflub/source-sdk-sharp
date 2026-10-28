@@ -61,11 +61,6 @@ bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy
 	if ( !areas.m_pUserMessages )
 		return false;
 
-	pObject = pRoot->Acquire( "IManagedTempEnts" );
-	areas.m_pTempEnts = ManagedAccept< IManagedTempEnts >( pObject, kIManagedTempEntsSlotHashes, kIManagedTempEntsSlotCount, pWhy, nWhy );
-	if ( !areas.m_pTempEnts )
-		return false;
-
 	pObject = pRoot->Acquire( "IManagedDiagnostics" );
 	areas.m_pDiagnostics = ManagedAccept< IManagedDiagnostics >( pObject, kIManagedDiagnosticsSlotHashes, kIManagedDiagnosticsSlotCount, pWhy, nWhy );
 	if ( !areas.m_pDiagnostics )
@@ -119,8 +114,6 @@ bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pUserMessages, kIManagedUserMessagesSlotHashes, kIManagedUserMessagesSlotCount, pWhy, nWhy ) )
 		return false;
-	if ( !ManagedAcceptObject( areas.m_pTempEnts, kIManagedTempEntsSlotHashes, kIManagedTempEntsSlotCount, pWhy, nWhy ) )
-		return false;
 	if ( !ManagedAcceptObject( areas.m_pDiagnostics, kIManagedDiagnosticsSlotHashes, kIManagedDiagnosticsSlotCount, pWhy, nWhy ) )
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pCommands, kIManagedCommandsSlotHashes, kIManagedCommandsSlotCount, pWhy, nWhy ) )
@@ -147,7 +140,6 @@ void ManagedAreas_Release( CManagedAreas &areas )
 	ManagedRelease( areas.m_pClients );
 	ManagedRelease( areas.m_pEvents );
 	ManagedRelease( areas.m_pUserMessages );
-	ManagedRelease( areas.m_pTempEnts );
 	ManagedRelease( areas.m_pDiagnostics );
 	ManagedRelease( areas.m_pCommands );
 	ManagedRelease( areas.m_pNetState );
@@ -199,11 +191,6 @@ IManagedEvents *ManagedEvents()
 IManagedUserMessages *ManagedUserMessages()
 {
 	return ShellGameDll_Managed().m_Areas.m_pUserMessages;
-}
-
-IManagedTempEnts *ManagedTempEnts()
-{
-	return ShellGameDll_Managed().m_Areas.m_pTempEnts;
 }
 
 IManagedDiagnostics *ManagedDiagnostics()

@@ -53,7 +53,6 @@ ShimRoot.cs	d	shim root binding (user example)
 Side.cs	d	side enum of the module contract
 SideState.cs	c	state that outlives the collectible context: the side's registry and counters, held by the Bootstrap as one opaque handle per game instance (statics to zero)
 SkyboxParams.cs	b	blittable mirror of SourceSharpSkyboxParams; ShimAreas.g.cs routes it
-TeForward.cs	b	value contract: one value per shell_te_forwards entry point (tempent_forwards.h)
 TempEntStatics.cs	b	blittable SourceSharpTempEnt statics; ShimAreas.g.cs routes it
 TempEntTransform.cs	b	blittable temp-ent transform; ShimAreas.g.cs routes it
 TextMessage.cs	b	blittable SourceSharpTextMessage; ShimAreas.g.cs routes it

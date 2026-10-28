@@ -228,6 +228,12 @@ public enum Contents
     /// </para>
     /// </summary>
     Water = 0x20,
+
+    /// <summary>CONTENTS_MOVEABLE: a func_door-style mover's volume.</summary>
+    Moveable = 0x4000,
+
+    /// <summary>MASK_WATER: water, slime or a mover's volume, what stock means by "in water".</summary>
+    MaskWater = Water | Slime | Moveable,
 }
 
 /// <summary>

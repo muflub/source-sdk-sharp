@@ -326,6 +326,20 @@ public class StockAbTests
     }
 
     [Fact]
+    public void A_different_physics_object_is_a_difference_where_both_games_say()
+    {
+        var stock = new List<NamedSolidity> { new("func_door", "door", 1, 0, 2), new("func_wall", "wall", 1, 0, 1) };
+        var sharp = new List<NamedSolidity> { new("func_door", "door", 1, 0, 0), new("func_wall", "wall", 1, 0, -1) };
+
+        var d = Assert.Single(SolidityCensus.Compare(stock, sharp).Differ);
+        Assert.Equal(("door", 2, 0), (d.Name, d.StockPhysics, d.SharpPhysics));
+    }
+
+    [Fact]
+    public void Stocks_seventh_column_is_its_physics_object()
+        => Assert.Equal(2, Assert.Single(SolidityCensus.ReadStock("7\tfunc_door\tdoor\t7\t1\t0\t2\n#end\tt1\n")).Physics);
+
+    [Fact]
     public void A_movetype_dump_without_its_end_line_is_refused()
         => Assert.Throws<InvalidDataException>(() => SolidityCensus.ReadStock(StockMovetypes.Replace("#end\tt1\n", "")));
 

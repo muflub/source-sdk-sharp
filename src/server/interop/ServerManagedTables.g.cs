@@ -246,7 +246,7 @@ public unsafe struct ManagedSoundEntTable
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> ServerSoundEntShutdown;
 
-    // 4: void ServerSoundEntResetClientSound( int32_t nIndex )
+    // 4: void ServerSoundEntResetClientSound( int32_t nClientIndex )
     [SlotHash(0xc83e311d)]
     public delegate* unmanaged<void*, int, void> ServerSoundEntResetClientSound;
 }
@@ -423,24 +423,6 @@ public unsafe struct ManagedUserMessagesTable
     // 2: bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize )
     [SlotHash(0xdd84ebe8)]
     public delegate* unmanaged<void*, int, byte*, int, void*, byte> GetUserMessageInfo;
-}
-
-/// <summary>The table managed writes for <c>IManagedTempEnts</c> (<c>SSManagedTempEntsTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedTempEnts")]
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct ManagedTempEntsTable
-{
-    // 0: void Release( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> Release;
-
-    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
-    [SlotHash(0x0d54c15e)]
-    public delegate* unmanaged<void*, void*, int, int> Validate;
-
-    // 2: int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut )
-    [SlotHash(0x4febfaf5)]
-    public delegate* unmanaged<void*, int, void*, int, void*, int, void*, int, void*, int> OnNativeTempEntity;
 }
 
 /// <summary>The table managed writes for <c>IManagedDiagnostics</c> (<c>SSManagedDiagnosticsTable</c> native-side).</summary>

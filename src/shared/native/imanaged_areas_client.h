@@ -290,9 +290,6 @@ struct SSManagedTempEntsClientTable
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *OnTempEntity )( IManagedTempEntsClient *self, int32_t hClass, const unsigned char *pBlob, int32_t nBytes );
-	int32_t ( *OnNativeTempEntity )( IManagedTempEntsClient *self, int32_t nId, const float *pFloats, int32_t nFloats,
-									 const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax,
-									 int32_t *pClassOut );
 	void ( *OnTempEntPoolUpdate )( IManagedTempEntsClient *self, float flFrameTime );
 	void ( *OnTempEntPoolClear )( IManagedTempEntsClient *self );
 	int32_t ( *OnImpactChoice )( IManagedTempEntsClient *self, const int32_t *pIn, int32_t nIn, int32_t *pOut,
@@ -312,12 +309,6 @@ public:
 	void OnTempEntity( int32_t hClass, const unsigned char *pBlob, int32_t nBytes )
 	{
 		Table()->OnTempEntity( this, hClass, pBlob, nBytes );
-	}
-
-	int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts,
-								void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut )
-	{
-		return Table()->OnNativeTempEntity( this, nId, pFloats, nFloats, pInts, nInts, pBlobOut, nBlobMax, pClassOut );
 	}
 
 	void OnTempEntPoolUpdate( float flFrameTime ) { Table()->OnTempEntPoolUpdate( this, flFrameTime ); }
@@ -344,10 +335,10 @@ private:
 };
 
 static const uint32_t kIManagedTempEntsClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0x4febfaf5, 0xb86ff9be, 0x07e0f4c4, 0x055e06f1, 0xecb3ae59,
+	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0xb86ff9be, 0x07e0f4c4, 0x055e06f1, 0xecb3ae59,
 };
-static const int32_t kIManagedTempEntsClientSlotCount = 8;
-static_assert( sizeof( SSManagedTempEntsClientTable ) == 8 * sizeof( void * ),
+static const int32_t kIManagedTempEntsClientSlotCount = 7;
+static_assert( sizeof( SSManagedTempEntsClientTable ) == 7 * sizeof( void * ),
 			   "SSManagedTempEntsClientTable is one pointer per slot" );
 
 class IManagedSaveRestoreClient;

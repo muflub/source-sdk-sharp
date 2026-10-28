@@ -697,9 +697,9 @@ The server's half of the model scale. See sourcesharp.h: the client's
 copy is what the player sees, this one is what the skeleton attachments
 hang off is built with, and what scaled_collision_rule.h asks about.
 
-## `SourceSharp_EntityGetSolidType` and 1 more
+## `SourceSharp_SendUserMessage`
 
-*Slots: `SourceSharp_EntityGetSolidType`, `SourceSharp_SendUserMessage`.*
+*Slots: `SourceSharp_SendUserMessage`.*
 
 The six missing directions, for the native half of a savegame. All in
 shell_entityapi.cpp, appended at its end rather than beside their pairs

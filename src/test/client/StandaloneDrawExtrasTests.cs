@@ -30,7 +30,6 @@ public unsafe class StandaloneDrawExtrasTests
         // Not this slot's: a call here is a wiring fault, never a default answer.
         public void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results) => throw new NotSupportedException();
         public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob) => throw new NotSupportedException();
-        public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints) => throw new NotSupportedException();
         public void TempEntPoolUpdate(float frameTime) => throw new NotSupportedException();
         public bool SuppressLocalTempEnt(bool canPredict, int recipientCount) => throw new NotSupportedException();
         public bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className) => throw new NotSupportedException();

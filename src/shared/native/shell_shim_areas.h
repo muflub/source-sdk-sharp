@@ -22,7 +22,6 @@
 class CShimEngine final : public IShimEngine
 {
 public:
-	float GetCurrentTime() override;
 	void *GetGlobalVarsPtr() override;
 };
 
@@ -105,7 +104,6 @@ public:
 class CShimWorldServer final : public IShimWorldServer
 {
 public:
-	void AngleVectorsFromForward( const float *pForwardXYZ, float *pOutRightXYZ, float *pOutUpXYZ ) override;
 	int32_t EntityModelSurfaceProp( uint32_t hEntity ) override;
 	int32_t InvisibleRangeReach() override;
 	void SetSkyboxParams( const SourceSharpSkyboxParams *pParams ) override;
@@ -170,7 +168,6 @@ public:
 	void EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR ) override;
 	void EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ ) override;
 	void EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR ) override;
-	void EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ ) override;
 	float EntityGetGravity( uint32_t hEntity ) override;
 	void EntitySetGravity( uint32_t hEntity, float flGravity ) override;
 	void EntitySetBounce( uint32_t hEntity, int32_t nBounces ) override;
@@ -196,9 +193,7 @@ public:
 	void EntityGetBounds( uint32_t hEntity, float *pOutMinsXYZ, float *pOutMaxsXYZ ) override;
 	void EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ ) override;
 	void EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ ) override;
-	int32_t EntityGetSolidType( uint32_t hEntity ) override;
 	void EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags ) override;
-	int32_t EntityGetSolidFlags( uint32_t hEntity ) override;
 	int32_t EntityGetCollisionGroup( uint32_t hEntity ) override;
 	void EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup ) override;
 	int32_t EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs ) override;
@@ -237,21 +232,17 @@ class CShimPlayers final : public IShimPlayers
 {
 public:
 	uint32_t GetPlayerHandle( int32_t nPlayerIndex ) override;
-	int32_t GetPlayerTeam( uint32_t hPlayer ) override;
 	int32_t PlayerIsAlive( uint32_t hPlayer ) override;
 	void PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR ) override;
 	int32_t PlayerGetObserverMode( uint32_t hPlayer ) override;
 	void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) override;
 	void PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll ) override;
 	int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ ) override;
-	void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) override;
 };
 
 class CShimEffectsServer final : public IShimEffectsServer
 {
 public:
-	void BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor, float flAmount, int32_t bStream,
-					  int32_t nSprayFlags ) override;
 	int32_t TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut ) override;
 };
 
@@ -319,7 +310,6 @@ void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );
 class CShimEngineClient final : public IShimEngine
 {
 public:
-	float GetCurrentTime() override;
 	void *GetGlobalVarsPtr() override;
 };
 
@@ -431,7 +421,6 @@ public:
 								 int32_t nDecalIndex ) override;
 	void ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ, int32_t bExplosive ) override;
 	int32_t ClientEntityModelType( int32_t nEntity ) override;
-	int32_t ClientIsLowViolence() override;
 	void ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ ) override;
 	void ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType ) override;
 	void ClientPlayerDecalShoot( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity ) override;

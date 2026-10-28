@@ -123,8 +123,15 @@ public abstract class MovingBrush : ScriptedEntity
     {
         base.OnSpawn();
 
-        // Solid and visible: a door is a wall until it is not.
-        SetSolidity(BrushSolidity.Solid);
+        // Solid and visible: a door is a wall until it is not. func_water's
+        // CreateVPhysics adds FSOLID_VOLUME_CONTENTS, which is what makes the
+        // engine's point contents report the moving brush as water.
+        if (string.Equals(ClassName, EntityNames.FuncWater, StringComparison.OrdinalIgnoreCase))
+            SetSolidity(SolidType.Bsp, SolidFlags.VolumeContents);
+        else
+            SetSolidity(BrushSolidity.Solid);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
         SetVisible(true);
 
         _locked = Vars.StartDisabled;

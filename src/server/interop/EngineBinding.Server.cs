@@ -243,13 +243,7 @@ internal sealed unsafe partial class EngineEffects
     /// Source's newer cloud/drops/gore effects, as <see cref="BloodSpray"/>
     /// bits. <see cref="BloodSpray.None"/> is what a map predating them gets.
     /// </param>
-    public void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None)
-    {
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        float* d = stackalloc float[3] { direction.X, direction.Y, direction.Z };
-
-        _effectsServerArea.BloodEffect(o, d, (int)color, amount, stream ? 1 : 0, (int)sprayFlags);
-    }
+    public void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) { }
 
     // No engine answer since plan_server_native_v2 T4f: the server answers this from a managed trace and a managed temp entity (EffectsOverTempEnts).
     public void BubbleEffect(EntityHandle entity, int count, float speed) { }
@@ -304,7 +298,6 @@ internal sealed unsafe partial class EngineEffects
     public void ClientPlayerDecalShoot(Vector position, int player, int entIndex) { }
     public int ClientDecalIndexFromName(string name) => -1;
     public void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) { }
-    public bool ClientIsLowViolence() => false;
     public string ClientDecalNameFromIndex(int decalIndex) => string.Empty;
     public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex) { }
     public void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) { }
@@ -605,9 +598,7 @@ internal sealed unsafe partial class EngineEntities
         if (_shellLess.State(h) is { } shellLess)
             return shellLess.Origin;
 
-        float* xyz = stackalloc float[3];
-        _transformArea.EntityGetWorldSpaceCenter(h.Value, xyz);
-        return new Vector(xyz[0], xyz[1], xyz[2]);
+        return EntityHead.WorldSpaceCenter(_networkServerArea, h);
     }
 
     /// <summary>
@@ -1041,19 +1032,12 @@ internal sealed unsafe partial class EngineEntities
 
     public void SetGravity(EntityHandle entity, float gravity) => E.EntitySetGravity(entity, gravity);
 
-    public SolidFlags GetSolidFlags(EntityHandle entity) => E.EntityGetSolidFlags(_collisionServerArea, entity);
+    public SolidFlags GetSolidFlags(EntityHandle entity) => EntityHead.Flags(_networkServerArea, _entitiesArea, entity);
     /// <summary>
     /// What SHAPE this entity presents to a trace — the half of solidity
-    /// <see cref="EntityGetSolidFlags"/> qualifies but could not name.
-    ///
-    /// <para>
-    /// <see cref="SolidType.None"/> where there is no engine or the handle
-    /// resolves to nothing, which is the same zero every other entity getter
-    /// answers.
-    /// </para>
+    /// <see cref="GetSolidFlags"/> qualifies but could not name.
     /// </summary>
-    public SolidType GetSolidType(EntityHandle entity)
-        => (SolidType)_collisionServerArea.EntityGetSolidType(entity.Value);
+    public SolidType GetSolidType(EntityHandle entity) => EntityHead.Shape(_networkServerArea, _entitiesArea, entity);
 
     /// <summary>
     /// Sets both halves of solidity, in ONE call.
@@ -1080,9 +1064,9 @@ internal sealed unsafe partial class EngineEntities
         // Stock keeps it in a char: m_triggerBloat = (char)flBloat.
         _collisionServerArea.EntitySetTriggerBloat(entity.Value, (sbyte)bloat, uniform ? 1 : 0);
 
-        var flags = (SolidFlags)_collisionServerArea.EntityGetSolidFlags(entity.Value);
+        SolidFlags flags = EntityHead.Flags(_networkServerArea, _entitiesArea, entity);
         flags = enable ? flags | SolidFlags.UseTriggerBounds : flags & ~SolidFlags.UseTriggerBounds;
-        _collisionServerArea.EntitySetSolidity(entity.Value, _collisionServerArea.EntityGetSolidType(entity.Value), (int)flags);
+        _collisionServerArea.EntitySetSolidity(entity.Value, (int)EntityHead.Shape(_networkServerArea, _entitiesArea, entity), (int)flags);
     }
 
     //-------------------------------------------------------------------------
@@ -1209,11 +1193,15 @@ internal sealed unsafe partial class EngineEntities
 internal sealed unsafe partial class EngineEntityPhysics
 {
     private readonly ICollisionServerArea _collisionServerArea;
+    private readonly INetworkServerArea _networkServerArea;
+    private readonly IEntitiesArea _entitiesArea;
     private readonly IPhysicsArea _physicsArea;
     private readonly ITransformArea _transformArea;
 
     public EngineEntityPhysics(EngineSide side,
                                ICollisionServerArea collisionServerArea,
+                               INetworkServerArea networkServerArea,
+                               IEntitiesArea entitiesArea,
                                IPhysicsArea physicsArea,
                                ITransformArea transformArea,
                                SideRoute<IEntityPhysicsRoute> physicsInit)
@@ -1221,6 +1209,8 @@ internal sealed unsafe partial class EngineEntityPhysics
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _physicsInit = physicsInit ?? throw new ArgumentNullException(nameof(physicsInit));
         _collisionServerArea = collisionServerArea ?? throw new ArgumentNullException(nameof(collisionServerArea));
+        _networkServerArea = networkServerArea ?? throw new ArgumentNullException(nameof(networkServerArea));
+        _entitiesArea = entitiesArea ?? throw new ArgumentNullException(nameof(entitiesArea));
         _physicsArea = physicsArea ?? throw new ArgumentNullException(nameof(physicsArea));
         _transformArea = transformArea ?? throw new ArgumentNullException(nameof(transformArea));
     }
@@ -1256,6 +1246,16 @@ internal sealed unsafe partial class EngineEntityPhysics
 
     /// <inheritdoc/>
     public void EnableCollisions(EntityHandle entity, bool enable) => _physicsInit.Target?.EnableCollisions(entity, enable);
+
+    /// <inheritdoc/>
+    public bool InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement = false, bool allowPhysicsRotation = false)
+        => _physicsInit.Target?.CreateShadow(entity, allowPhysicsMovement, allowPhysicsRotation) == true;
+
+    /// <inheritdoc/>
+    public int UpdateShadows(float frameTime) => _physicsInit.Target?.UpdateShadows(frameTime) ?? 0;
+
+    /// <inheritdoc/>
+    public int PhysicsKind(EntityHandle entity) => _physicsInit.Target?.PhysicsKind(entity) ?? 0;
 
     /// <summary>
     /// How many times a projectile reflects off what it hits before its flight
@@ -1300,7 +1300,7 @@ internal sealed unsafe partial class EngineEntityPhysics
         return (CollisionGroup)_collisionServerArea.EntityGetCollisionGroup(entity.Value);
     }
 
-    public SolidFlags GetSolidFlags(EntityHandle entity) => E.EntityGetSolidFlags(_collisionServerArea, entity);
+    public SolidFlags GetSolidFlags(EntityHandle entity) => EntityHead.Flags(_networkServerArea, _entitiesArea, entity);
     /// Which of the engine's collision groups this entity is in.
     ///
     /// Not the same question as solidity. Solidity is the shape an entity
@@ -1332,9 +1332,9 @@ internal sealed unsafe partial class EngineEntityPhysics
     /// </remarks>
     public void SetNotSolid(EntityHandle entity, bool notSolid)
     {
-        SolidFlags flags = E.EntityGetSolidFlags(_collisionServerArea, entity);
+        SolidFlags flags = EntityHead.Flags(_networkServerArea, _entitiesArea, entity);
         flags = notSolid ? flags | SolidFlags.NotSolid : flags & ~SolidFlags.NotSolid;
-        _collisionServerArea.EntitySetSolidity(entity.Value, _collisionServerArea.EntityGetSolidType(entity.Value), (int)flags);
+        _collisionServerArea.EntitySetSolidity(entity.Value, (int)EntityHead.Shape(_networkServerArea, _entitiesArea, entity), (int)flags);
     }
 
     public nint PhysicsObject(EntityHandle entity) => E.EntityPhysicsObject(entity);
@@ -1936,6 +1936,8 @@ internal sealed unsafe partial class EnginePlayers
     private readonly ITransformArea _transformArea;
     private readonly IEntityLifecycleArea _entityLifecycleArea;
 
+    private readonly PlayerTeams _teams = new();
+
     public EnginePlayers(EngineSide side, IFwdEngineServer server,
                          IConsoleServerArea consoleServerArea,
                          IEntitiesServerArea entitiesServerArea,
@@ -2039,7 +2041,7 @@ internal sealed unsafe partial class EnginePlayers
     /// "not a player" from "no team yet".
     /// </summary>
     public int GetTeam(EntityHandle player)
-        => _playersArea.GetPlayerTeam(player.Value);
+        => _teams.Get(player, _entitiesServerArea.EntityIsPlayer(player.Value) != 0);
 
     public bool IsAlive(EntityHandle player)
         => _playersArea.PlayerIsAlive(player.Value) != 0;
@@ -2078,14 +2080,11 @@ internal sealed unsafe partial class EnginePlayers
     /// Puts a player on a team, carrying out the store of stock's
     /// <c>CBaseEntity::ChangeTeam</c> — nothing more. The number is not
     /// validated here on purpose: which teams exist and which accept a
-    /// joiner is the server's <c>ITeams</c> policy, and this call is how
-    /// that decision reaches the native player. Client-side it does
-    /// nothing: no area is attached.
+    /// joiner is the server's <c>ITeams</c> policy. A handle that is not a
+    /// player keeps nothing, as stock's store had no entity to keep it on.
     /// </summary>
     public void SetTeam(EntityHandle player, int team)
-    {
-        _playersArea.PlayerSetTeam(player.Value, team);
-    }
+        => _teams.Set(player, team, _entitiesServerArea.EntityIsPlayer(player.Value) != 0);
 
     /// <summary>
     /// Shows or hides a pickup without destroying it, so an item that respawns
@@ -2757,25 +2756,6 @@ internal sealed unsafe partial class EngineWorldQuery
         _transformArea = transformArea ?? throw new ArgumentNullException(nameof(transformArea));
         _entityLifecycleArea = entityLifecycleArea ?? throw new ArgumentNullException(nameof(entityLifecycleArea));
         _playersArea = playersArea ?? throw new ArgumentNullException(nameof(playersArea));
-    }
-
-    /// <summary>
-    /// The right and up vectors of a surface facing a direction.
-    ///
-    /// The ENGINE's VectorAngles/AngleVectors rather than a port of them: the
-    /// client places the panes it draws with the same two vectors, in native
-    /// code, from the same normal. Two implementations agreeing to the last bit
-    /// is not something to assume.
-    /// </summary>
-    public (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward)
-    {
-        float* f = stackalloc float[3] { forward.X, forward.Y, forward.Z };
-        float* r = stackalloc float[3];
-        float* u = stackalloc float[3];
-
-        _worldServerArea.AngleVectorsFromForward(f, r, u);
-
-        return (new Vector(r[0], r[1], r[2]), new Vector(u[0], u[1], u[2]));
     }
 
     //-------------------------------------------------------------------------

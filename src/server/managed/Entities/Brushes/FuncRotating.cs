@@ -62,6 +62,8 @@ public sealed class FuncRotating : ScriptedEntity
     public override void OnSpawn()
     {
         SetSolidity(BrushSolidity.Solid);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
         SetVisible(true);
 
         _reversed = Flags.HasFlag(SpawnFlag.ReverseDirection);

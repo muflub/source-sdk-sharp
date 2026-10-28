@@ -906,10 +906,10 @@ def self_test():
            health == '' and len(typed_lines('EntityGetHealth')) == 1
            and '_shim.Table->EntityGetHealth(_shim.Self' in in_class('EntityGetHealth', 'EntitiesServerArea'))
     expect('a both-sides slot is typed once, on its shared base, and on neither registration',
-           len(typed_lines('GetCurrentTime')) == 1
-           and '_shim.Table->GetCurrentTime(_shim.Self' in in_class('GetCurrentTime', 'EngineArea')
-           and in_class('GetCurrentTime', 'ServerAreaRegistration') == ''
-           and in_class('GetCurrentTime', 'ClientAreaRegistration') == '')
+           len(typed_lines('GetGlobalVarsPtr')) == 1
+           and '_shim.Table->GetGlobalVarsPtr(_shim.Self' in in_class('GetGlobalVarsPtr', 'EngineArea')
+           and in_class('GetGlobalVarsPtr', 'ServerAreaRegistration') == ''
+           and in_class('GetGlobalVarsPtr', 'ClientAreaRegistration') == '')
     expect('a derived area is also registered as its shared base on the server, '
            'so code compiled into both sides asks for a both-sides area by the same type',
            '        add(typeof(IMovementArea), movementServerArea);' in out

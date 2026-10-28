@@ -44,7 +44,7 @@ public class DecalGateTests
     {
         // Stock tests r_decals before it asks about low violence or the decal's name.
         var engine = Fake();
-        new ClientTeWorldDecal(engine, Off).Play(new TeWorldDecal { Index = 3 });
+        new ClientTeWorldDecal(engine, Off, new NeverLow()).Play(new TeWorldDecal { Index = 3 });
 
         Assert.Empty(engine.Calls);
     }
@@ -103,5 +103,10 @@ public class DecalGateTests
         Assert.False(watch.Decals);
         Assert.True(watch.ModelDecals);
         Assert.False(watch.OnChanged(77, "0"), "an id the watch does not hold is someone else's");
+    }
+
+    private sealed class NeverLow : SourceSharp.Client.Effects.IClientLowViolence
+    {
+        public bool IsLowViolence => false;
     }
 }

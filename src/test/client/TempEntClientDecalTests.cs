@@ -388,8 +388,7 @@ public class TempEntClientDecalTests
     //
     // WHAT STILL CHECKS THE SURVIVORS. TempEntShimKeyTests and
     // TempEntDeclarationWriterTests sweep BOTH sides' forwarder files for the
-    // same field-name agreement, and TeForwardSignatureTests pins each
-    // surviving forward's packing against the arm that unpacks it. Nothing
+    // same field-name agreement. Nothing
     // about the managed declarations, the players or the send path changed, and
     // the facts in this file that test those are untouched.
     // =====================================================================
@@ -415,8 +414,7 @@ public class TempEntClientDecalTests
     //
     // WHAT STILL CHECKS THE SURVIVORS. TempEntShimKeyTests and
     // TempEntDeclarationWriterTests sweep BOTH sides' forwarder files for the
-    // same field-name agreement, and TeForwardSignatureTests pins each
-    // surviving forward's packing against the arm that unpacks it. Nothing
+    // same field-name agreement. Nothing
     // about the managed declarations, the players or the send path changed, and
     // the facts in this file that test those are untouched.
     // =====================================================================

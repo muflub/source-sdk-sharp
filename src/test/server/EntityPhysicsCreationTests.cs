@@ -156,6 +156,23 @@ public class EntityPhysicsCreationTests
         public void RecheckCollisionFilter(nint physicsObject) => Calls.Add("recheck");
 
         public void EnableCollisions(nint physicsObject, bool enable) => Calls.Add($"collisions {physicsObject:x} {enable}");
+
+        public void SetShadow(nint physicsObject, float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement, bool allowPhysicsRotation)
+        {
+            Calls.Add($"shadow {physicsObject:x} {maxSpeed} {maxAngularSpeed} {allowPhysicsMovement} {allowPhysicsRotation}");
+            Shadowed.Add(physicsObject);
+        }
+
+        public readonly List<(nint Object, Vector Position, QAngle Angles, float Dt)> ShadowTargets = [];
+
+        public void UpdateShadow(nint physicsObject, Vector position, QAngle angles, bool tempDisableGravity, float timeOffset)
+            => ShadowTargets.Add((physicsObject, position, angles, timeOffset));
+
+        public readonly HashSet<nint> Shadowed = [];
+
+        public bool HasShadowController(nint physicsObject) => Shadowed.Contains(physicsObject);
+
+        public void Teleport(nint physicsObject, Vector position, QAngle angles) => Calls.Add($"teleport {physicsObject:x} {position}");
     }
 
     /// <summary>The shell and its managed class as a test sets them.</summary>
@@ -237,6 +254,65 @@ public class EntityPhysicsCreationTests
         Assert.True(solidity >= 0 && solidity < v.Calls.IndexOf("create sphere"),
                     $"SOLID_BBOX before the object: {string.Join(", ", v.Calls)}");
         Assert.Contains("created", v.Calls);
+    }
+
+    // A mover's shadow (CBaseEntity::VPhysicsInitShadow). Found by stock-ab's
+    // solidity census (2026-10-26): stock's doors, buttons, plats, trains and
+    // func_brushes hold a shadow and ours held nothing, so props passed
+    // through every one of them.
+    [Fact]
+    public void A_shadow_is_a_moveable_object_set_to_follow_with_stocks_limits()
+    {
+        var (c, v, host) = Make();
+
+        Assert.True(c.CreateShadow(Crate, false, false));
+
+        Assert.False(Assert.Single(v.Made).IsStatic);
+        Assert.Contains("shadow 4000 2000 3600 False False", v.Calls);
+        Assert.Equal([(host.Held, new Vector(1, 2, 3), new QAngle(10, 20, 30), 0f)], v.ShadowTargets);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("solidity"));
+        Assert.Empty(host.MoveTypes);
+        Assert.Equal(2, c.PhysicsKind(Crate));
+    }
+
+    [Fact]
+    public void Each_frame_the_shadow_is_sent_where_its_entity_now_is()
+    {
+        var (c, v, host) = Make();
+        c.CreateShadow(Crate, false, false);
+        v.ShadowTargets.Clear();
+        host.Facts = host.Facts with { Origin = new Vector(1, 2, 13) };
+
+        Assert.Equal(1, c.UpdateShadows(0.015f));
+
+        Assert.Equal([(host.Held, new Vector(1, 2, 13), new QAngle(10, 20, 30), 0.015f)], v.ShadowTargets);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("teleport"));
+    }
+
+    [Fact]
+    public void A_jump_further_than_a_shadow_can_travel_in_a_frame_is_a_teleport()
+    {
+        var (c, v, host) = Make();
+        c.CreateShadow(Crate, false, false);
+        v.ShadowTargets.Clear();
+        host.Facts = host.Facts with { Origin = new Vector(1, 2, 3 + 40f) };
+
+        c.UpdateShadows(0.015f);
+
+        Assert.Contains(v.Calls, l => l.StartsWith("teleport 4000"));
+        Assert.Equal(0f, Assert.Single(v.ShadowTargets).Dt);
+    }
+
+    [Fact]
+    public void A_shadow_whose_object_has_gone_is_forgotten()
+    {
+        var (c, v, host) = Make();
+        c.CreateShadow(Crate, false, false);
+        host.Held = 0;
+
+        Assert.Equal(0, c.UpdateShadows(0.015f));
+        host.Held = 0x4000;
+        Assert.Equal(0, c.UpdateShadows(0.015f));
     }
 
     [Fact]

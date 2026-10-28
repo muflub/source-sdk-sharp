@@ -33,7 +33,6 @@
 4	SLOT-HELP	static const char *InternName( const char *pName )
 50	SLOT	int32_t SourceSharp_TempEntBuildClient( const void *pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t *pOut )
 15	HOOK	void SourceSharp_TempEntClientCloseRegistration()
-7	BOUNDARY	bool SourceSharpTe_Forward( int nId, const float *pFloats, int nFloats, const int *pInts, int nInts )
 21	INSTRUMENT	static const char *PropTypeName( int nType )
 11	INSTRUMENT	static int CountTablesNamed( const char *pName )
 40	INSTRUMENT	CON_COMMAND( cs_cl_te_dump, "" )

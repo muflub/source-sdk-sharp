@@ -13,7 +13,6 @@
 #include "ss_util.h"
 #include "ss_shareddefs.h"
 
-#include "ss_effects.h"
 #include "ss_recipient_filter.h"
 #include "shell_tempents.h"
 #include "ss_world.h"
@@ -36,27 +35,3 @@ void UTIL_ClearTrace( trace_t &trace )
 }
 
 static CManagedConVarRef sv_strict_notarget( "sv_strict_notarget" );
-
-// g_sModelIndexSmoke is combatweapon.cpp's.
-extern short g_sModelIndexSmoke;
-
-void UTIL_Smoke( const Vector &origin, const float scale, const float framerate )
-{
-	ss::Effects()->Smoke( origin, g_sModelIndexSmoke, scale, framerate );
-}
-
-// g_Language is declared in C# and read by name.
-static CManagedConVarRef s_Language( "g_Language" );
-
-void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount )
-{
-	if ( !UTIL_ShouldShowBlood( color ) )
-		return;
-
-	if ( s_Language.GetInt() == ss::kLanguageGerman && color == ss::BLOOD_COLOR_RED )
-		color = 0;
-
-	ss::CPVSFilter filter( origin );
-
-	TE_BloodStream( filter, 0.0, &origin, &direction, 247, 63, 14, 255, MIN( amount, 255 ) );
-}

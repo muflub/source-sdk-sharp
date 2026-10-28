@@ -413,7 +413,7 @@ class StockGame:
         rows = []
         for line in self._ask("ab_movetypes TOKEN", "movetypes", timeout=20).splitlines():
             f = line.split("\t")
-            if len(f) == 6 and not f[0].startswith("#"):
+            if len(f) in (6, 7) and not f[0].startswith("#"):
                 rows.append((int(f[0]), f[1], f[2], int(f[3]), int(f[4]), int(f[5])))
         return rows
 

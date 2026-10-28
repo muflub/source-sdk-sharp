@@ -30,8 +30,6 @@ public unsafe class TempEntsClientBindingTests
         }
 
         public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob) => Reached(nameof(DispatchTempEntity));
-        public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints)
-        { Reached(nameof(ForwardTempEntity)); return BoolAnswer; }
         public void TempEntPoolUpdate(float frameTime) => Reached(nameof(TempEntPoolUpdate));
         public void TempEntPoolClear() => Reached(nameof(TempEntPoolClear));
         public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output, Span<byte> particleName, Span<byte> decalName)
@@ -66,30 +64,6 @@ public unsafe class TempEntsClientBindingTests
         // The positive arm for the refusal above: the same walk's live slot.
         Binding.OnTempEntPoolUpdate(0.016f);
         Assert.Equal(["TempEntPoolUpdate"], _client.Calls);
-    }
-
-    [Fact]
-    public void ANativeForwardThatThrowsAnswersMinusOne()
-    {
-        _client.Throw = true;
-        Assert.Equal(-1, Binding.OnNativeTempEntity(5, null, 0, null, 0, null, 0, null));
-        Assert.Equal(["ForwardTempEntity"], _client.Calls);
-    }
-
-    [Fact]
-    public void ANativeForwardWithABlobBufferIsTheServersAndAnswersMinusOne()
-    {
-        _client.BoolAnswer = true;
-        byte* blob = stackalloc byte[4];
-        Assert.Equal(-1, Binding.OnNativeTempEntity(5, null, 0, null, 0, blob, 4, null));
-        Assert.Empty(_client.Calls);
-    }
-
-    [Fact]
-    public void ALocalForwardThatPlayedAnswersZero()
-    {
-        _client.BoolAnswer = true;
-        Assert.Equal(0, Binding.OnNativeTempEntity(5, null, 0, null, 0, null, 0, null));
     }
 
     [Fact]

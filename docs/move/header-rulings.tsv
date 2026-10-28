@@ -829,7 +829,6 @@ src/sourcesharp/managed/SourceSharp.Tests/ArmourTests.cs	no	calls production Arm
 src/sourcesharp/managed/SourceSharp.Tests/AssemblyInfo.cs	no	trivial assembly metadata, no logic
 src/sourcesharp/managed/SourceSharp.Tests/AttachmentReportTests.cs	no	calls production attachment report code; checks report text only
 src/sourcesharp/managed/SourceSharp.Tests/BlastRulesTests.cs	no	calls production BlastRules.Falloff/AtDistance; checks against comment-derived constants
-src/sourcesharp/managed/SourceSharp.Tests/BloodEffectPortabilityTests.cs	no	reads native .cpp text to confirm call graph; no algorithm reproduced
 src/sourcesharp/managed/SourceSharp.Tests/BreakableSurfaceTests.cs	no	calls production breakable-surface entity; checks documented zero-health rule
 src/sourcesharp/managed/SourceSharp.Tests/BrushTests.cs	no	calls production MomentaryRotButton/FuncPushable; checks against documented constants
 src/sourcesharp/managed/SourceSharp.Tests/BspReportTests.cs	no	parses BSP binary layout via production reader; data layout, not logic

@@ -10,8 +10,6 @@
 // Included at the end of sourcesharp_gamesystem.cpp, server only, where every
 // body the struct is filled with -- the static ones too -- is in scope.
 
-float CShimEngine::GetCurrentTime()
-	{ return ::SourceSharp_GetCurrentTime(); }
 void * CShimEngine::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
 
@@ -101,8 +99,6 @@ int32_t CShimMovementServer::PlayerFallDamage( uint32_t hPlayer, float flDamage 
 void CShimMovementServer::PlayerSyncEngineSide( uint32_t hPlayer )
 	{ return ::SourceSharp_PlayerSyncEngineSide( hPlayer ); }
 
-void CShimWorldServer::AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ )
-	{ return ::SourceSharp_AngleVectorsFromForward( pForwardXYZ, pOutRightXYZ, pOutUpXYZ ); }
 int32_t CShimWorldServer::EntityModelSurfaceProp( uint32_t hEntity )
 	{ return ::SourceSharp_EntityModelSurfaceProp( hEntity ); }
 int32_t CShimWorldServer::InvisibleRangeReach()
@@ -198,8 +194,6 @@ void CShimTransform::EntityGetEyePosition( uint32_t hEntity, float * pOutXYZ )
 	{ return ::SourceSharp_EntityGetEyePosition( hEntity, pOutXYZ ); }
 void CShimTransform::EntityGetEyeAngles( uint32_t hEntity, float * pOutPYR )
 	{ return ::SourceSharp_EntityGetEyeAngles( hEntity, pOutPYR ); }
-void CShimTransform::EntityGetWorldSpaceCenter( uint32_t hEntity, float * pOutXYZ )
-	{ return ::SourceSharp_EntityGetWorldSpaceCenter( hEntity, pOutXYZ ); }
 float CShimTransform::EntityGetGravity( uint32_t hEntity )
 	{ return ::SourceSharp_EntityGetGravity( hEntity ); }
 void CShimTransform::EntitySetGravity( uint32_t hEntity, float flGravity )
@@ -230,12 +224,8 @@ void CShimCollisionServer::EntityGetBoundsSize( uint32_t hEntity, float * pOutXY
 	{ return ::SourceSharp_EntityGetBoundsSize( hEntity, pOutXYZ ); }
 void CShimCollisionServer::EntitySetBounds( uint32_t hEntity, const float * pMinsXYZ, const float * pMaxsXYZ )
 	{ return ::SourceSharp_EntitySetBounds( hEntity, pMinsXYZ, pMaxsXYZ ); }
-int32_t CShimCollisionServer::EntityGetSolidType( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetSolidType( hEntity ); }
 void CShimCollisionServer::EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags )
 	{ return ::SourceSharp_EntitySetSolidity( hEntity, nSolidType, nSolidFlags ); }
-int32_t CShimCollisionServer::EntityGetSolidFlags( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetSolidFlags( hEntity ); }
 int32_t CShimCollisionServer::EntityGetCollisionGroup( uint32_t hEntity )
 	{ return ::SourceSharp_EntityGetCollisionGroup( hEntity ); }
 void CShimCollisionServer::EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
@@ -272,8 +262,6 @@ void CShimGameRules::RegisterDamageRules( const SourceSharpDamageRules * pRules 
 
 uint32_t CShimPlayers::GetPlayerHandle( int32_t nPlayerIndex )
 	{ return ::SourceSharp_GetPlayerHandle( nPlayerIndex ); }
-int32_t CShimPlayers::GetPlayerTeam( uint32_t hPlayer )
-	{ return ::SourceSharp_GetPlayerTeam( hPlayer ); }
 int32_t CShimPlayers::PlayerIsAlive( uint32_t hPlayer )
 	{ return ::SourceSharp_PlayerIsAlive( hPlayer ); }
 void CShimPlayers::PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR )
@@ -286,11 +274,7 @@ void CShimPlayers::PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYa
 	{ return ::SourceSharp_PlayerSnapEyeAngles( hPlayer, pPitchYawRoll ); }
 int32_t CShimPlayers::ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ )
 	{ return ::SourceSharp_ClientsStandalonePlayerEarPosition( iEdict, pOutXYZ ); }
-void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
-	{ return ::SourceSharp_PlayerSetTeam( hPlayer, nTeam ); }
 
-void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags )
-	{ return ::SourceSharp_BloodEffect( pOriginXYZ, pDirXYZ, nColor, flAmount, bStream, nSprayFlags ); }
 int32_t CShimEffectsServer::TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut )
 	{ return ::SourceSharp_TempEntBuild( pBlock, nBlockBytes, pOut ); }
 

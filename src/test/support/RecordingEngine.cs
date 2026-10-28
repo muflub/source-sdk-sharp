@@ -762,8 +762,22 @@ public sealed class RecordingEngine :
     float IEngineEntityPhysics.GetMass(EntityHandle entity) => Record<float>("EntityPhysics.GetMass", entity);
     bool IEngineEntityPhysics.InitPhysics(EntityHandle entity, bool asleep, bool debris) => Record<bool>("EntityPhysics.InitPhysics", entity, asleep, debris);
     bool IEngineEntityPhysics.InitSpherePhysics(EntityHandle entity, float radius) => Record<bool>("EntityPhysics.InitSpherePhysics", entity, radius);
-    bool IEngineEntityPhysics.InitStaticPhysics(EntityHandle entity) => Record<bool>("EntityPhysics.InitStaticPhysics", entity);
+    // No stub needed, as InitShadowPhysics: a static brush's create answers "no object".
+    bool IEngineEntityPhysics.InitStaticPhysics(EntityHandle entity)
+    {
+        RecordVoid("EntityPhysics.InitStaticPhysics", entity);
+        return false;
+    }
     void IEngineEntityPhysics.EnableCollisions(EntityHandle entity, bool enable) => RecordVoid("EntityPhysics.EnableCollisions", entity, enable);
+    // No stub needed: a test engine has no physics, so every mover's spawn
+    // making its shadow answers "no object" unless a fact says otherwise.
+    bool IEngineEntityPhysics.InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement, bool allowPhysicsRotation)
+    {
+        RecordVoid("EntityPhysics.InitShadowPhysics", entity, allowPhysicsMovement, allowPhysicsRotation);
+        return false;
+    }
+    int IEngineEntityPhysics.UpdateShadows(float frameTime) { RecordVoid("EntityPhysics.UpdateShadows", frameTime); return 0; }
+    int IEngineEntityPhysics.PhysicsKind(EntityHandle entity) => Record<int>("EntityPhysics.PhysicsKind", entity);
     void IEngineEntityPhysics.SetBounce(EntityHandle h, int bounces) => RecordVoid("EntityPhysics.SetBounce", h, bounces);
     void IEngineEntityPhysics.SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) => RecordVoid("EntityPhysics.SetBrushSolidity", entity, solidity);
     CollisionGroup IEngineEntityPhysics.GetCollisionGroup(EntityHandle entity) => Record<CollisionGroup>("EntityPhysics.GetCollisionGroup", entity);
@@ -1007,7 +1021,6 @@ public sealed class RecordingEngine :
     void IEngineHud.ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions) => RecordVoid("Hud.ViewportShow", panel, show, data.ToList(), actions);
 
     // WorldQuery
-    (Vector Right, Vector Up) IEngineWorldQuery.AngleVectorsFromForward(Vector forward) => Record<(Vector Right, Vector Up)>("WorldQuery.AngleVectorsFromForward", forward);
     int IEngineWorldQuery.EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => EntitiesInSphere(center, radius, into);
     int IEngineWorldQuery.GetArea(Vector origin) => Record<int>("WorldQuery.GetArea", origin);
     HullResult IEngineWorldQuery.TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<HullResult>("WorldQuery.TraceHull", start, end, mins, maxs, mask, ignore);
@@ -1208,7 +1221,6 @@ public sealed class RecordingEngine :
     // C-Phase 3 lane CX's three. The fourth, ClientTraceLine, is recorded with
     // the other world queries above -- a trace is not an effect.
     void IEngineEffects.ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) => RecordVoid("Effects.ClientDecalStaticProp", start, end, staticPropIndex, decalIndex);
-    bool IEngineEffects.ClientIsLowViolence() => Record<bool>("Effects.ClientIsLowViolence");
     string IEngineEffects.ClientDecalNameFromIndex(int decalIndex) => Record<string?>("Effects.ClientDecalNameFromIndex", decalIndex) ?? string.Empty;
     // C-Phase 3 lane DECALS's two drawing arms. The third slot of that lane,
     // ClientEntityModelType, is recorded with the world queries above -- what

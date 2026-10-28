@@ -7,7 +7,8 @@ namespace SourceSharp.Abi;
 /// class offers game code exactly its interface.
 /// </summary>
 public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
-                                          IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand
+                                          IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
+                                          IViolenceSettings
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -264,6 +265,9 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     /// <inheritdoc/>
     bool IPlaybackState.IsPlayingTimeDemo => _fwd->IsPlayingTimeDemo(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IViolenceSettings.EngineSaysLowViolence => _fwd->IsLowViolence(_self) != 0;
 
     /// <inheritdoc/>
     void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)

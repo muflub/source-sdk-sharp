@@ -76,6 +76,7 @@ public class CrossingsAuditTests
         "ServerTemplatesAddNamed", "ServerPropDataRandomChunkModel", "ServerOnFireAddHeatInRadius", "ServerOnEntityIgnite", "ServerOnRagdollMagnetForce", "ServerShellLessFindByName", "ServerShellLessFindByClassname", "ServerMoveSound", "ServerMoveSoundScript", "ServerPrecacheScriptSound",
         "ClientOnCreateMove", "ClientRenderLeafList", "ClientRenderLeafViewModels",
         "ClientLeafChangeRenderableRenderGroup", "ClientLeafAddShadow", "ClientLeafRemoveShadow", "ClientLeafProjectShadow", "ClientLeafProjectFlashlight", "ClientLeafEnumerateShadowsInLeaves",
+        "ClientNativeTempEntity", "ServerNativeTempEntity",
     };
 
     /// <summary>

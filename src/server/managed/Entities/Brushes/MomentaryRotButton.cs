@@ -117,6 +117,8 @@ public sealed class MomentaryRotButton : ScriptedEntity
         SetSolidity(Flags.HasFlag(SpawnFlag.NotSolid)
             ? BrushSolidity.None
             : BrushSolidity.Solid);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
 
         if (Vars.Speed <= 0f)
             Vars.Speed = 100f;

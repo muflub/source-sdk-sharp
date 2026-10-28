@@ -468,7 +468,7 @@ public class EntityMotionTests
         var engine = Fake();
         var directory = new EntityDirectory(new RecordingLog());
 
-        return (new EntityMotion(new RecordingLog(), engine, engine, engine, engine, directory,
+        return (new EntityMotion(new RecordingLog(), engine, engine, engine, engine, engine, directory,
             new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, directory), new RecordingLog())), engine, directory);
     }
 

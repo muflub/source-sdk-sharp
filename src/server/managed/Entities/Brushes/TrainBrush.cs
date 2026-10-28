@@ -109,6 +109,8 @@ public abstract class TrainBrush : ScriptedEntity
         // train you can walk through is a train nobody can ride.
         SetSolidity(BrushSolidity.Solid);
         SetVisible(true);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
 
         if (Vars.Speed <= 0f)
             Vars.Speed = DefaultSpeed;

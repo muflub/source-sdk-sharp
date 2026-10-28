@@ -61,54 +61,11 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
 // Counts handles from the engine-invisible range that reach native and do not
 // resolve in the engine's list: managed shell-less entities that some route failed
 // to keep in managed code. Counted here because every crossing handle arrives here.
-// Sites are kept as return addresses for addr2line.
 static int32_t g_nInvisibleRangeReach = 0;
 
-enum
-{
-	SOURCESHARP_INVISIBLE_SITES = 8
-};
-
-// The immediate return address, which addr2line maps to the ABI entry point.
-struct SourceSharpReachSite_t
-{
-	void *pImmediate;
-};
-
-static SourceSharpReachSite_t g_InvisibleReachSites[SOURCESHARP_INVISIBLE_SITES];
-static int g_nInvisibleReachSites = 0;
-
-void SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress )
+void SourceSharp_NoteInvisibleRangeReach()
 {
 	g_nInvisibleRangeReach++;
-
-	// At most eight distinct sites; further ones are counted but not named.
-	for ( int i = 0; i < g_nInvisibleReachSites; i++ )
-	{
-		if ( g_InvisibleReachSites[i].pImmediate == pReturnAddress )
-		{
-			return;
-		}
-	}
-
-	if ( g_nInvisibleReachSites < SOURCESHARP_INVISIBLE_SITES )
-	{
-		g_InvisibleReachSites[g_nInvisibleReachSites].pImmediate = pReturnAddress;
-		g_nInvisibleReachSites++;
-	}
-}
-
-// For cs_sv_invisible_reach, in shell_scripted_debug.cpp.
-int ShellScripted_InvisibleReachSiteCount( bool *pbCapped )
-{
-	if ( pbCapped )
-		*pbCapped = ( g_nInvisibleReachSites >= SOURCESHARP_INVISIBLE_SITES );
-	return g_nInvisibleReachSites;
-}
-
-void *ShellScripted_InvisibleReachSite( int i )
-{
-	return ( i >= 0 && i < g_nInvisibleReachSites ) ? g_InvisibleReachSites[i].pImmediate : NULL;
 }
 
 int32_t SourceSharp_InvisibleRangeReach()

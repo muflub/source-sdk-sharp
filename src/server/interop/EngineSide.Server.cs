@@ -755,21 +755,6 @@ internal sealed unsafe partial class EngineSide
     public bool EntityInitPhysics(EntityHandle entity, bool asleep = false, bool debris = false)
         => PhysicsInit.Target?.Create(entity, isStatic: false, asleep, debris) == true;
 
-    /// <summary>
-    /// What shape this entity presents to a trace, as the engine's own FSOLID_
-    /// bits. Zero for a handle that resolves to nothing.
-    ///
-    /// <para>
-    /// Read off the collideable, so both hierarchies answer: the thing a
-    /// projectile has run into may be a CBaseEntity trigger volume or a managed
-    /// brush, and the projectile cannot know which it was handed.
-    /// </para>
-    /// </summary>
-    public SolidFlags EntityGetSolidFlags(ICollisionServerArea collisionArea, EntityHandle entity)
-    {
-        return (SolidFlags)collisionArea.EntityGetSolidFlags(entity.Value);
-    }
-
     //-------------------------------------------------------------------------
     // THE ENTITY FACTORY DICTIONARY'S FIVE QUESTIONS -- the `sub-factory` lane,
     // appended at ABI 242.

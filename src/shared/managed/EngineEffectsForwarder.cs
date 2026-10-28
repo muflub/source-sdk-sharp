@@ -115,7 +115,6 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     // RecordingEngine as the two sites lanes keep missing, and the forwarder
     // stopped compiling on the integration tip once because C2 and S5 never met.
     public virtual void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) => Inner.ClientDecalStaticProp(start, end, staticPropIndex, decalIndex);
-    public virtual bool ClientIsLowViolence() => Inner.ClientIsLowViolence();
     public virtual string ClientDecalNameFromIndex(int decalIndex) => Inner.ClientDecalNameFromIndex(decalIndex);
     // C-Phase 3 lane DECALS's two drawing arms, closing behaviour ledger rows
     // C2 and C3. Here for the block above's reason.

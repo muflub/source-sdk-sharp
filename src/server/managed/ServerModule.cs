@@ -517,39 +517,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private ServerTempEntEngine? _tempEntEngine;
     private PredictionSuppression? _prediction;
 
-    /// <summary>
-    /// Pack a native forward into the blob its class expects. The send stays
-    /// native because the filter belongs to the caller, so this hands bytes back
-    /// rather than playing anything.
-    /// </summary>
-    public int BuildForwardBlob(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints,
-                                Span<byte> into, out int classHandle)
-    {
-        classHandle = -1;
-
-        TempEntState? state = TeForwardDispatch.Build((TeForward)id, floats, ints);
-
-        if (state is null)
-            return -1;
-
-        TempEntType? type = _tempEnts.Find(TempEntityAttribute.ClassNameOf(state.GetType()));
-
-        if (type is null)
-            return -1;
-
-        byte[] blob = state.ToBlob(type);
-
-        // REFUSED RATHER THAN TRUNCATED. A short write is a blob whose tail is
-        // whatever native had there, decoded as fields -- which is worse than
-        // nothing happening.
-        if (blob.Length > into.Length)
-            return -1;
-
-        blob.AsSpan().CopyTo(into);
-        classHandle = type.Handle;
-
-        return blob.Length;
-    }
     private GameRules? _rules;
     // Built in Initialize, through the container: it takes three engine areas.
     private Pickups _pickups = null!;
@@ -806,8 +773,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                       v => ManagedAreaFactory.Create(v, new EventsBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUserMessages",
                       v => ManagedAreaFactory.Create(v, new UserMessagesBinding(_userMessages)));
-        _bindings.Add("IManagedTempEnts",
-                      v => ManagedAreaFactory.Create(v, new TempEntsBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedDiagnostics",
                       v => ManagedAreaFactory.Create(v, new DiagnosticsBinding(_engine.Crossings, Log)));
         _bindings.Add("IManagedCommands",
@@ -1562,7 +1527,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var solverObjects = new VPhysicsSolverObjects(_engine.VPhysics);
         var solverWorld = new EnginePhysicsSolverWorld(_services.Require<IEngineEntities>(),
                                                        _services.Require<IEngineNetworking>(),
-                                                       _services.Require<IEngineEntityPhysics>());
+                                                       _services.Require<IEngineEntityPhysics>(),
+                                                       h => _entities.Get(h) is { MovesAsPusher: true });
         _services.AddInstance<IPhysicsSolverWorld>(solverWorld);
         var pairs = new EntityPairCollisions(solverWorld, solverObjects);
         _services.AddInstance(pairs);
@@ -2872,7 +2838,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             // warning, the single-owner IJoinTeamPolicy decides a playing
             // team BEFORE anything changes, and a playing team stops
             // observing (StopObserverMode, STATE_ACTIVE), sets the team
-            // through the PlayerSetTeam slot and raises player_team.
+            // through IEnginePlayers.SetTeam and raises player_team.
             if (parts[0].Equals("jointeam", StringComparison.OrdinalIgnoreCase))
             {
                 // Stock's `atoi( args[1] )`: the leading digits ("2x" is 2),
@@ -3294,6 +3260,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IEngineEntities>(),
             new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
                                    _services.Require<IEnginePrecache>(), _engineServer),
+            _services.Require<IEngineConsole>(), _services.Require<IUniformRandom>(),
             text => Log.Warning(text)));
     }
 
@@ -3731,7 +3698,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         DebugWorld.From(_services, () => _entities.Directory.TouchingPairs(),
                         asleep: h => _physicsRouter?.IsAsleep(h),
                         groundIndex: GroundIndexOf,
-                        tick: () => _ticks.Count),
+                        tick: () => _ticks.Count,
+                        physicsKind: _services.Require<IEngineEntityPhysics>().PhysicsKind),
 
         // The networked schema, and one entity's bytes read back through it.
         //

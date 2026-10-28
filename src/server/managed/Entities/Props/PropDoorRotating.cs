@@ -59,9 +59,10 @@ public sealed class PropDoorRotating : ScriptedEntity
         if (Vars.Model.Length > 0)
             SetModel(Vars.Model);
 
-        // Solid through the model, but moved by this logic rather than by the
-        // simulation — a door that could be shoved would not stay shut.
-        MakePhysicsStatic();
+        // CBasePropDoor::Spawn: SOLID_VPHYSICS and a shadow, moved by this
+        // logic rather than by the simulation, which props meet as it swings.
+        SetSolidity(SolidType.VPhysics, SolidFlags.None);
+        InitShadowPhysics();
 
         _closedAngles = SpawnAngles;
         _openAngles = new Vector(_closedAngles.X, _closedAngles.Y + Vars.Distance, _closedAngles.Z);

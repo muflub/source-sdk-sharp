@@ -5,7 +5,6 @@ static CreateEventFn TeCreateEventFor( int iHandle )	SLOT-HELP	the CreateEventFn
 static const char *InternName( const char *pName )	SLOT-HELP	the names a RecvProp, RecvTable and ClientClass keep by pointer, interned for the process
 int32_t SourceSharp_TempEntBuildClient( const void *pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t *pOut )	SLOT	IShimTempEntBackendsClient::TempEntBuildClient: a managed plan (ClientTempEntEngine) stored into RecvProp[] -> RecvTable -> ClientClass and shell; decides nothing
 void SourceSharp_TempEntClientCloseRegistration()	HOOK	the gamesystem shuts the build window after DLL init, where a later ClientClass would miss the engine's one walk of the class list
-bool SourceSharpTe_Forward( int nId, const float *pFloats, int nFloats, const int *pInts, int nInts )	BOUNDARY	a native TE_*() call's arguments handed to managed (IManagedTempEntsClient::OnNativeTempEntity), nothing decided
 static const char *PropTypeName( int nType )	INSTRUMENT	cs_cl_te_dump's DPT_* names
 static int CountTablesNamed( const char *pName )	INSTRUMENT	cs_cl_te_dump's duplicate-table-name reading
 CON_COMMAND( cs_cl_te_dump, "" )	INSTRUMENT	prints every built RecvProp as the engine holds it; decides nothing

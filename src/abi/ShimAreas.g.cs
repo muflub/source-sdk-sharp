@@ -90,7 +90,6 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
 /// </summary>
 internal unsafe interface IEngineArea
 {
-    float GetCurrentTime();
     nint GetGlobalVarsPtr();
 }
 
@@ -103,7 +102,6 @@ internal sealed unsafe class EngineArea : IEngineArea
 
     internal EngineArea(ShimRef<ShimEngineFwd> shim) { _shim = shim; }
 
-    public float GetCurrentTime() { return _shim.Table->GetCurrentTime(_shim.Self); }
     public nint GetGlobalVarsPtr() { return (nint)_shim.Table->GetGlobalVarsPtr(_shim.Self); }
 }
 
@@ -490,7 +488,6 @@ internal sealed unsafe class MovementServerArea : MovementArea, IMovementServerA
 /// </summary>
 internal unsafe interface IWorldServerArea
 {
-    void AngleVectorsFromForward(float* a0, float* a1, float* a2);
     int EntityModelSurfaceProp(uint a0);
     int InvisibleRangeReach();
     void SetSkyboxParams(SkyboxParams* a0);
@@ -505,7 +502,6 @@ internal sealed unsafe class WorldServerArea : IWorldServerArea
 
     internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim) { _shim = shim; }
 
-    public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { _shim.Table->AngleVectorsFromForward(_shim.Self, a0, a1, a2); }
     public int EntityModelSurfaceProp(uint a0) { return _shim.Table->EntityModelSurfaceProp(_shim.Self, a0); }
     public int InvisibleRangeReach() { return _shim.Table->InvisibleRangeReach(_shim.Self); }
     public void SetSkyboxParams(SkyboxParams* a0) { _shim.Table->SetSkyboxParams(_shim.Self, a0); }
@@ -628,7 +624,6 @@ internal unsafe interface ITransformArea
     void EntitySetAngularVelocity(uint a0, float* a1);
     void EntityGetEyePosition(uint a0, float* a1);
     void EntityGetEyeAngles(uint a0, float* a1);
-    void EntityGetWorldSpaceCenter(uint a0, float* a1);
     float EntityGetGravity(uint a0);
     void EntitySetGravity(uint a0, float a1);
     void EntitySetBounce(uint a0, int a1);
@@ -652,7 +647,6 @@ internal sealed unsafe class TransformArea : ITransformArea
     public void EntitySetAngularVelocity(uint a0, float* a1) { _shim.Table->EntitySetAngularVelocity(_shim.Self, a0, a1); }
     public void EntityGetEyePosition(uint a0, float* a1) { _shim.Table->EntityGetEyePosition(_shim.Self, a0, a1); }
     public void EntityGetEyeAngles(uint a0, float* a1) { _shim.Table->EntityGetEyeAngles(_shim.Self, a0, a1); }
-    public void EntityGetWorldSpaceCenter(uint a0, float* a1) { _shim.Table->EntityGetWorldSpaceCenter(_shim.Self, a0, a1); }
     public float EntityGetGravity(uint a0) { return _shim.Table->EntityGetGravity(_shim.Self, a0); }
     public void EntitySetGravity(uint a0, float a1) { _shim.Table->EntitySetGravity(_shim.Self, a0, a1); }
     public void EntitySetBounce(uint a0, int a1) { _shim.Table->EntitySetBounce(_shim.Self, a0, a1); }
@@ -700,9 +694,7 @@ internal unsafe interface ICollisionServerArea : ICollisionArea
     void EntityGetBounds(uint a0, float* a1, float* a2);
     void EntityGetBoundsSize(uint a0, float* a1);
     void EntitySetBounds(uint a0, float* a1, float* a2);
-    int EntityGetSolidType(uint a0);
     void EntitySetSolidity(uint a0, int a1, int a2);
-    int EntityGetSolidFlags(uint a0);
     int EntityGetCollisionGroup(uint a0);
     void EntitySetCollisionGroup(uint a0, int a1);
     int EntityOverlapReport(uint* a0, int a1);
@@ -725,9 +717,7 @@ internal sealed unsafe class CollisionServerArea : CollisionArea, ICollisionServ
     public void EntityGetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntityGetBounds(_shim.Self, a0, a1, a2); }
     public void EntityGetBoundsSize(uint a0, float* a1) { _shim.Table->EntityGetBoundsSize(_shim.Self, a0, a1); }
     public void EntitySetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntitySetBounds(_shim.Self, a0, a1, a2); }
-    public int EntityGetSolidType(uint a0) { return _shim.Table->EntityGetSolidType(_shim.Self, a0); }
     public void EntitySetSolidity(uint a0, int a1, int a2) { _shim.Table->EntitySetSolidity(_shim.Self, a0, a1, a2); }
-    public int EntityGetSolidFlags(uint a0) { return _shim.Table->EntityGetSolidFlags(_shim.Self, a0); }
     public int EntityGetCollisionGroup(uint a0) { return _shim.Table->EntityGetCollisionGroup(_shim.Self, a0); }
     public void EntitySetCollisionGroup(uint a0, int a1) { _shim.Table->EntitySetCollisionGroup(_shim.Self, a0, a1); }
     public int EntityOverlapReport(uint* a0, int a1) { return _shim.Table->EntityOverlapReport(_shim.Self, a0, a1); }
@@ -820,14 +810,12 @@ internal sealed unsafe class GameRulesArea : IGameRulesArea
 internal unsafe interface IPlayersArea
 {
     uint GetPlayerHandle(int a0);
-    int GetPlayerTeam(uint a0);
     int PlayerIsAlive(uint a0);
     void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2);
     int PlayerGetObserverMode(uint a0);
     void PlayerSetObserverMode(uint a0, int a1);
     void PlayerSnapEyeAngles(uint a0, float* a1);
     int ClientsStandalonePlayerEarPosition(int a0, float* a1);
-    void PlayerSetTeam(uint a0, int a1);
 }
 
 /// <summary>
@@ -840,14 +828,12 @@ internal sealed unsafe class PlayersArea : IPlayersArea
     internal PlayersArea(ShimRef<ShimPlayersFwd> shim) { _shim = shim; }
 
     public uint GetPlayerHandle(int a0) { return _shim.Table->GetPlayerHandle(_shim.Self, a0); }
-    public int GetPlayerTeam(uint a0) { return _shim.Table->GetPlayerTeam(_shim.Self, a0); }
     public int PlayerIsAlive(uint a0) { return _shim.Table->PlayerIsAlive(_shim.Self, a0); }
     public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { _shim.Table->PlayerPlaceAtSpawn(_shim.Self, a0, a1, a2); }
     public int PlayerGetObserverMode(uint a0) { return _shim.Table->PlayerGetObserverMode(_shim.Self, a0); }
     public void PlayerSetObserverMode(uint a0, int a1) { _shim.Table->PlayerSetObserverMode(_shim.Self, a0, a1); }
     public void PlayerSnapEyeAngles(uint a0, float* a1) { _shim.Table->PlayerSnapEyeAngles(_shim.Self, a0, a1); }
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return _shim.Table->ClientsStandalonePlayerEarPosition(_shim.Self, a0, a1); }
-    public void PlayerSetTeam(uint a0, int a1) { _shim.Table->PlayerSetTeam(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -856,7 +842,6 @@ internal sealed unsafe class PlayersArea : IPlayersArea
 /// </summary>
 internal unsafe interface IEffectsServerArea
 {
-    void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5);
     int TempEntBuild(void* a0, int a1, TeBuiltTable* a2);
 }
 
@@ -869,7 +854,6 @@ internal sealed unsafe class EffectsServerArea : IEffectsServerArea
 
     internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim) { _shim = shim; }
 
-    public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Table->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Table->TempEntBuild(_shim.Self, a0, a1, a2); }
 }
 
@@ -1061,7 +1045,6 @@ internal unsafe interface ITempEntBackendsClientArea
     void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3);
     void ClientEnergySplash(float* a0, float* a1, int a2);
     int ClientEntityModelType(int a0);
-    int ClientIsLowViolence();
     void ClientMetalSparks(float* a0, float* a1);
     void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3);
     void ClientPlayerDecalShoot(float* a0, int a1, int a2);
@@ -1094,7 +1077,6 @@ internal sealed unsafe class TempEntBackendsClientArea : ITempEntBackendsClientA
     public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { _shim.Table->ClientDecalStudioModel(_shim.Self, a0, a1, a2, a3); }
     public void ClientEnergySplash(float* a0, float* a1, int a2) { _shim.Table->ClientEnergySplash(_shim.Self, a0, a1, a2); }
     public int ClientEntityModelType(int a0) { return _shim.Table->ClientEntityModelType(_shim.Self, a0); }
-    public int ClientIsLowViolence() { return _shim.Table->ClientIsLowViolence(_shim.Self); }
     public void ClientMetalSparks(float* a0, float* a1) { _shim.Table->ClientMetalSparks(_shim.Self, a0, a1); }
     public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { _shim.Table->ClientMuzzleFlash(_shim.Self, a0, a1, a2, a3); }
     public void ClientPlayerDecalShoot(float* a0, int a1, int a2) { _shim.Table->ClientPlayerDecalShoot(_shim.Self, a0, a1, a2); }

@@ -189,8 +189,6 @@ public unsafe class TempEntPoolRetirementTests
         private void Ran_(string name) => Ran.Add(name);
 
         public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob) => Ran_(nameof(DispatchTempEntity));
-        public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints)
-        { Ran_(nameof(ForwardTempEntity)); return false; }
         public void TempEntPoolUpdate(float frameTime) => Ran_(nameof(TempEntPoolUpdate));
         public void TempEntPoolClear() => Ran_(nameof(TempEntPoolClear));
         public int ImpactEffectParams(int effect, int material, float scale, bool noFlecks, Span<float> block)

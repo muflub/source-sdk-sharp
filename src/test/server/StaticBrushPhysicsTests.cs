@@ -47,6 +47,9 @@ public class StaticBrushPhysicsTests
     [InlineData(EntityNames.FuncWallToggle)]
     [InlineData(EntityNames.FuncConveyor)]
     [InlineData(EntityNames.FuncBreakable)]
+    [InlineData(EntityNames.FuncVehicleclip)]
+    [InlineData(EntityNames.FuncLod)]
+    [InlineData(EntityNames.FuncBreakableSurf)]
     public void A_static_brush_is_made_solid_then_given_its_static_object(string className)
     {
         var engine = Spawned(className);
@@ -55,6 +58,7 @@ public class StaticBrushPhysicsTests
         int made = First(engine, "EntityPhysics.InitStaticPhysics");
         Assert.True(solid >= 0 && made > solid, $"SOLID_BSP ({solid}) before the object ({made})");
         Assert.Single(engine.AllOf("EntityPhysics.InitStaticPhysics"));
+        Assert.False(engine.Called("EntityPhysics.SetPhysicsStatic"), "a prop's create would make it SOLID_VPHYSICS");
     }
 
     [Fact]

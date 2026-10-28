@@ -27,9 +27,10 @@ public static class Angles
     /// </summary>
     public static Basis Vectors(Vector angles)
     {
-        float pitch = angles.X * MathF.PI / 180f;
-        float yaw   = angles.Y * MathF.PI / 180f;
-        float roll  = angles.Z * MathF.PI / 180f;
+        // DEG2RAD: the angle times one float constant, as mathlib scales it.
+        float pitch = angles.X * Deg2Rad;
+        float yaw   = angles.Y * Deg2Rad;
+        float roll  = angles.Z * Deg2Rad;
 
         float sp = MathF.Sin(pitch), cp = MathF.Cos(pitch);
         float sy = MathF.Sin(yaw),   cy = MathF.Cos(yaw);
@@ -50,6 +51,8 @@ public static class Angles
         return new Basis(forward, right, up);
     }
 
+    private const float Deg2Rad = MathF.PI / 180f;
+
     /// <summary>Just the facing direction, which is what most callers want.</summary>
     public static Vector Forward(Vector angles) => Vectors(angles).Forward;
 
@@ -58,6 +61,17 @@ public static class Angles
 
     /// <summary>Which way a facing points.</summary>
     public static Vector Forward(QAngle angles) => Vectors(angles).Forward;
+
+    /// <summary>
+    /// The right and up of a surface facing <paramref name="forward"/>:
+    /// AngleVectors of VectorAngles, as the client's native pane split
+    /// computes them.
+    /// </summary>
+    public static (Vector Right, Vector Up) RightUp(Vector forward)
+    {
+        Basis basis = Vectors(FromVector(forward));
+        return (basis.Right, basis.Up);
+    }
 
     /// <summary>
     /// Source's VectorAngles: the pitch and yaw that would point along a
@@ -85,7 +99,9 @@ public static class Angles
         }
         else
         {
-            yaw = MathF.Atan2(direction.Y, direction.X) * 180f / MathF.PI;
+            // As mathlib's atan2f( y, x ) * 180 / M_PI: a float product, then a
+            // double quotient. Bit for bit with an unoptimised mathlib.
+            yaw = (float)((double)(MathF.Atan2(direction.Y, direction.X) * 180f) / Math.PI);
             if (yaw < 0f)
                 yaw += 360f;
 
@@ -93,7 +109,7 @@ public static class Angles
 
             // Negated for the same reason Vectors negates forward.z: a positive
             // pitch looks DOWN.
-            pitch = MathF.Atan2(-direction.Z, flat) * 180f / MathF.PI;
+            pitch = (float)((double)(MathF.Atan2(-direction.Z, flat) * 180f) / Math.PI);
             if (pitch < 0f)
                 pitch += 360f;
         }

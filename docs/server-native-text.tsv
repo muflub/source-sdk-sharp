@@ -41,7 +41,6 @@ sourcesharp/game/server/shell_standalone_class.cpp	13225
 sourcesharp/game/server/shell_standalone_hierarchy.cpp	3451
 sourcesharp/game/server/shell_standalone_player.cpp	19842
 sourcesharp/game/server/shell_stringtables.cpp	822
-sourcesharp/game/server/shell_te_forwards.cpp	2359
 sourcesharp/game/server/shell_tempents.cpp	3744
 sourcesharp/game/server/shell_tempents_store.cpp	632
 sourcesharp/game/server/shell_transmitsteps.cpp	155

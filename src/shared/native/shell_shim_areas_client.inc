@@ -11,8 +11,6 @@
 // its client-only areas). Included at the end of sourcesharp_gamesystem.cpp,
 // client only; each forwards to the body its row in docs/engineapi-areas.tsv names.
 
-float CShimEngineClient::GetCurrentTime()
-	{ return ::SourceSharp_GetCurrentTime(); }
 void * CShimEngineClient::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
 
@@ -127,8 +125,6 @@ void CShimTempEntBackendsClient::ClientEnergySplash( const float * pPosXYZ, cons
 	{ return ::SourceSharp_ClientEnergySplash( pPosXYZ, pDirXYZ, bExplosive ); }
 int32_t CShimTempEntBackendsClient::ClientEntityModelType( int32_t nEntity )
 	{ return ::SourceSharp_ClientEntityModelType( nEntity ); }
-int32_t CShimTempEntBackendsClient::ClientIsLowViolence()
-	{ return ::SourceSharp_ClientIsLowViolence(); }
 void CShimTempEntBackendsClient::ClientMetalSparks( const float * pPositionXYZ, const float * pDirectionXYZ )
 	{ return ::SourceSharp_ClientMetalSparks( pPositionXYZ, pDirectionXYZ ); }
 void CShimTempEntBackendsClient::ClientMuzzleFlash( const float * pOriginXYZ, const float * pAnglesPYR, float flScale, int32_t nType )

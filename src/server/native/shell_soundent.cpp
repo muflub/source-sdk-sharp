@@ -43,28 +43,13 @@ void ss::SoundEnt_Shutdown()
 	pApi->ServerSoundEntShutdown();
 }
 
-// A client is leaving: clears its reserved slot.
-void ss::SoundEnt_ResetClientSound( int iIndex )
+// A client is leaving: managed clears its reserved slot.
+void ss::SoundEnt_ResetClientSound( int iClientIndex )
 {
 	IManagedSoundEnt *pApi = ManagedSoundEnt();
 
 	if ( pApi == NULL )
 		return;
 
-	pApi->ServerSoundEntResetClientSound( iIndex );
-}
-
-// Clients are numbered 1..maxClients and their reserved slots 0..maxClients-1.
-int ss::SoundEnt_ClientSoundIndex( edict_t *pClient )
-{
-	int iReturn = ss::ENTINDEX( pClient ) - 1;
-
-#ifdef _DEBUG
-	if ( iReturn < 0 || iReturn >= gpGlobals->maxClients )
-	{
-		Msg( "** ClientSoundIndex returning a bogus value! **\n" );
-	}
-#endif // _DEBUG
-
-	return iReturn;
+	pApi->ServerSoundEntResetClientSound( iClientIndex );
 }

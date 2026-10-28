@@ -55,22 +55,6 @@ int ScreenWidth()
 	return w;
 }
 
-static CManagedConVarRef violence_hblood( "violence_hblood" );
-static CManagedConVarRef violence_hgibs( "violence_hgibs" );
-static CManagedConVarRef violence_ablood( "violence_ablood" );
-static CManagedConVarRef violence_agibs( "violence_agibs" );
-
-bool UTIL_IsLowViolence()
-{
-	// These convars are kept for legacy support and for testing low violence when the
-	// engine is in normal violence mode; the engine is the final arbiter.
-	if ( !violence_hblood.GetBool() || !violence_ablood.GetBool() || !violence_hgibs.GetBool() ||
-		 !violence_agibs.GetBool() )
-		return true;
-
-	return engine->IsLowViolence();
-}
-
 void ReloadSoundEntriesInList( IFileList *pFilesToReload )
 {
 	soundemitterbase->ReloadSoundEntriesInList( pFilesToReload );

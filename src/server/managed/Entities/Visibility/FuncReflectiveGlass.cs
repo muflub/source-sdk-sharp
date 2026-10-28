@@ -54,6 +54,10 @@ public sealed class FuncReflectiveGlass : ScriptedEntity
     {
         _on = !Vars.StartDisabled;
         Apply();
+
+        // CFuncBrush::CreateVPhysics: a shadow, even when it is not solid,
+        // so a constraint or a parent can hold it.
+        InitShadowPhysics();
     }
 
     // The func_brush inputs, because that is what the entity derives from in

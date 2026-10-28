@@ -238,23 +238,19 @@ public unsafe struct ManagedTempEntsClientTable
     [SlotHash(0xdec81a24)]
     public delegate* unmanaged<void*, int, byte*, int, void> OnTempEntity;
 
-    // 3: int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut )
-    [SlotHash(0x4febfaf5)]
-    public delegate* unmanaged<void*, int, void*, int, void*, int, void*, int, void*, int> OnNativeTempEntity;
-
-    // 4: void OnTempEntPoolUpdate( float flFrameTime )
+    // 3: void OnTempEntPoolUpdate( float flFrameTime )
     [SlotHash(0xb86ff9be)]
     public delegate* unmanaged<void*, float, void> OnTempEntPoolUpdate;
 
-    // 5: void OnTempEntPoolClear( void )
+    // 4: void OnTempEntPoolClear( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnTempEntPoolClear;
 
-    // 6: int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax )
+    // 5: int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax )
     [SlotHash(0x055e06f1)]
     public delegate* unmanaged<void*, void*, int, void*, int, byte*, int, byte*, int, int> OnImpactChoice;
 
-    // 7: int32_t SuppressLocalTempEnt( int32_t bCanPredict, int32_t nRecipients )
+    // 6: int32_t SuppressLocalTempEnt( int32_t bCanPredict, int32_t nRecipients )
     [SlotHash(0xecb3ae59)]
     public delegate* unmanaged<void*, int, int, int> SuppressLocalTempEnt;
 }

@@ -56,9 +56,6 @@ public:
 
 	// Names the engine keeps by pointer. A std::set node never moves, so c_str() is stable.
 	std::set<std::string> m_Names;
-
-	// The encode buffer one PlaybackTempEntity is written into.
-	unsigned char m_Scratch[512] = {};
 };
 
 // One heap tier: an owning pointer whose object exists between Begin and End. Begin

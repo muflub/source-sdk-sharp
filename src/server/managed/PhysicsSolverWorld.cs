@@ -32,10 +32,13 @@ public interface IPhysicsSolverWorld
 /// <see cref="IPhysicsSolverWorld"/> answered by the engine: the entity's
 /// engine block read in place, IsPlayer, and EntityGetState's move type (the
 /// player's own, or MOVETYPE_VPHYSICS for an entity with a physics object, as
-/// native's StandaloneMoveType_Report has it).
+/// native's StandaloneMoveType_Report has it), except that a class which
+/// moves as a pusher answers MOVETYPE_PUSH, as stock's movers are: an "AI
+/// mover" whose shadow passes through the world (ShouldCollide).
 /// </summary>
 public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNetworking net,
-                                             IEngineEntityPhysics physics) : IPhysicsSolverWorld
+                                             IEngineEntityPhysics physics, Func<EntityHandle, bool>? movesAsPusher = null)
+    : IPhysicsSolverWorld
 {
     private static readonly int SolidOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidType));
     private static readonly int SolidFlagsOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidFlags));
@@ -55,6 +58,8 @@ public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNe
         }
 
         net.EntityGetState(entity, out MoveType moveType);
+        if (movesAsPusher?.Invoke(entity) == true)
+            moveType = MoveType.Push;
         facts = new SolverEntity(
             MemoryMarshal.Read<int>(block.Slice(GroupOffset)),
             MemoryMarshal.Read<int>(block.Slice(SolidOffset)),

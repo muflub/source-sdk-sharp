@@ -263,7 +263,8 @@ internal static class DefaultForwarders
 #else
     /// <summary>An engine client in no game answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
     internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
-                                                  IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand
+                                                  IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
+                                                  IViolenceSettings
     {
         // No engine: the cl_predict switch and a selection line go nowhere.
         public void SetPredict(bool predict) { }
@@ -291,6 +292,9 @@ internal static class DefaultForwarders
         bool IPlaybackState.IsPlayingDemo => false;
 
         bool IPlaybackState.IsPlayingTimeDemo => false;
+
+        // Normal violence.
+        bool IViolenceSettings.EngineSaysLowViolence => false;
 
         void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
 

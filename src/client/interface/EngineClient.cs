@@ -236,6 +236,17 @@ public interface IPlaybackState
 }
 
 /// <summary>
+/// The engine's own word on gore: <c>IVEngineClient::IsLowViolence</c>, the
+/// term of <c>UTIL_IsLowViolence</c> that decides it (the four violence_*
+/// convars are the legacy terms).
+/// </summary>
+public interface IViolenceSettings
+{
+    /// <summary>IVEngineClient::IsLowViolence.</summary>
+    bool EngineSaysLowViolence { get; }
+}
+
+/// <summary>
 /// The level's prediction switch (stock CHLClient::LevelInitPreEntity):
 /// <c>cl_predict 1</c> or <c>cl_predict 0</c> through ClientCmd, a fixed text.
 /// Through the console and not a direct set, as stock: "don't set direct

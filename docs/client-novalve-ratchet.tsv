@@ -1,6 +1,7 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at 37bab61d0
+# 2026-10-26, UTIL_IsLowViolence decided in C# (ClientLowViolence over IVEngineClient::IsLowViolence, forwarded): logic-lines 54 -> 47; the IShimTempEntBackendsClient ClientIsLowViolence slot retired. Hand-edited.
 # 2026-10-26, the format pass (tools/clang-format, whitespace only): logic-lines 52 -> 54, the same LOGIC functions laid out on two more lines; no function added (tools/native-symbols unchanged). Hand-edited.
 # 2026-10-25, M2 (client.so and libss_fwd_client on vendor/): fork-hdr-total 445 -> 0 and fork-hdr-not-allowed 281 -> 0 (docs/client-fork-roots.txt emptied, as the server's); incdir-forbidden 6 -> 0, its TUs 134 -> 0; logic-lines 71 -> 52 (the client's handle partition, the beam creators' BeamInfo_t forward and the SDK-entity resolvers deleted, new headers ruled); native-convar-decls 68 -> 58 (the M1 lanes' commands, measured here for the first time: invnext/invprev/lastinv, slot1-6 and the cs_cl_* diagnostics left native for managed); sdk-links 443 -> 137 (tools/sdk-census --write: what only tests read moved to tests.txt).
 # 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 5934 -> 5905: bullet_glass.h (the 24 LOGIC lines: FireBullets' glass rule) and self_penetration_rule.h, which no compiled TU included, deleted; both rules are C# with their facts (BulletGlass, ClientCollisionSolver.SelfPenetrationSolvedByOwner). Hand-edited.
@@ -441,7 +442,7 @@ link-forbidden	1
 #   (three lines: the offset into the block's Client.Body), beside m_nSkin's; new reach the tripmine's body 3 needs, not a relabel.
 # 2026-10-25, stock-ab-vmfx: RAISED +6 for C_StandaloneEntity::DrawExtras and its two calls (the weapon draw effects' surface),
 #   composed onto the m_nBody raise at the lane's landing: 7438 -> 7444.
-logic-lines	54
+logic-lines	47
 native-convar-decls	58
 needed-forbidden	0
 sdk-links	137

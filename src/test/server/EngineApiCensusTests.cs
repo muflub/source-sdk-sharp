@@ -217,7 +217,16 @@ public partial class EngineApiCensusTests
     // tests called (120 - 3 = 117). IShimCollisionServer.EntitySetTriggerBloat
     // joined, stock's m_triggerBloat on the shell (stock-ab, 2026-10-26;
     // 117 + 1 = 118).
-    private const int ServerOnly = 118;
+    // BloodEffect is C# over the managed temp entities (118 - 1 = 117).
+    // IShimCollisionServer.EntityGetSolidType and EntityGetSolidFlags retired:
+    // managed reads the engine block's head (117 - 2 = 115).
+    // IShimPlayers.GetPlayerTeam and PlayerSetTeam retired: the team store
+    // is managed (PlayerTeams.cs) (115 - 2 = 113).
+    // IShimTransform.EntityGetWorldSpaceCenter retired: managed reads the
+    // block's origin and box (113 - 1 = 112).
+    // IShimWorldServer.AngleVectorsFromForward retired: Angles.RightUp is
+    // mathlib's arithmetic, bit for bit (112 - 1 = 111).
+    private const int ServerOnly = 111;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -404,7 +413,8 @@ public partial class EngineApiCensusTests
     // Predicted weapon effects (stock-ab): ClientClipRayToEntities, the predicted
     // shot's clip against the shells no client trace can see (251 + 1 = 252, landed after M1-C).
     // The predicted swing's hull (stock-ab): ClientTraceHullEntities (252 + 1).
-    private const int ClientOnly = 253;
+    // ClientIsLowViolence retired: the rule is C# over the engine client (253 - 1).
+    private const int ClientOnly = 252;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
@@ -433,7 +443,9 @@ public partial class EngineApiCensusTests
     // plan_server_native_v2 T4b: TempEntRegister left for the client (36 - 1 = 35).
     // plan_server_native_v2 T4e: IShimConsole's FindConVarFlags, the flags the
     // convar registry reads to refuse an engine-owned name (35 + 1 = 36).
-    private const int BothSides = 36;
+    // plan_server_native_v2 T4: IShimEngine.GetCurrentTime retired; the clock
+    // is a load from the bound CGlobalVars (36 - 1 = 35).
+    private const int BothSides = 35;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

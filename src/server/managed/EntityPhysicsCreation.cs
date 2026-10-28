@@ -109,6 +109,94 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
     /// </summary>
     public bool CreateStatic(EntityHandle entity) => Make(entity, isStatic: true, asleep: false, debris: false, ownSolidity: true);
 
+    /// <summary>CBaseEntity::VPhysicsInitShadow's speed limits ("UNDONE: Tune or expose these parameters").</summary>
+    public const float ShadowMaxSpeed = 2000f;
+    public const float ShadowMaxAngularSpeed = 360f * 10f;
+
+    /// <summary>
+    /// The entities holding a shadow, which <see cref="UpdateShadows"/> follows
+    /// every frame, with where each was last sent.
+    /// </summary>
+    private readonly Dictionary<EntityHandle, Vector> _shadows = new();
+
+    /// <summary>
+    /// CBaseEntity::VPhysicsInitShadow as a brush mover calls it: a simulated
+    /// object from the model that follows the entity rather than gravity,
+    /// placed where the entity is; its solidity and movetype kept. What a
+    /// prop meets when a door swings into it or a lift carries it.
+    /// </summary>
+    public bool CreateShadow(EntityHandle entity, bool allowPhysicsMovement, bool allowPhysicsRotation)
+    {
+        if (_host.PhysicsObject(entity) != 0)
+            return true;
+
+        if (!Make(entity, isStatic: false, asleep: false, debris: false, ownSolidity: true))
+            return false;
+
+        nint made = _host.PhysicsObject(entity);
+        if (made == 0 || !_host.TryFacts(entity, out EntityPhysicsFacts f))
+            return false;
+
+        _v.SetShadow(made, ShadowMaxSpeed, ShadowMaxAngularSpeed, allowPhysicsMovement, allowPhysicsRotation);
+        _v.UpdateShadow(made, f.Origin, f.Angles, false, 0f);
+        _shadows[entity] = f.Origin;
+        return true;
+    }
+
+    /// <summary>
+    /// UpdatePhysicsShadowToCurrentPosition for every shadow, once a frame
+    /// after the movers have moved: the solver takes each where its entity
+    /// now is over <paramref name="frameTime"/>. One that has lost its object
+    /// or its entity is forgotten. Answers how many were updated.
+    /// </summary>
+    public int UpdateShadows(float frameTime)
+    {
+        if (_shadows.Count == 0)
+            return 0;
+
+        int updated = 0;
+        _shadowPass.Clear();
+        _shadowPass.AddRange(_shadows.Keys);
+
+        foreach (EntityHandle entity in _shadowPass)
+        {
+            nint shadow = _host.PhysicsObject(entity);
+            if (shadow == 0 || !_host.TryFacts(entity, out EntityPhysicsFacts f))
+            {
+                _shadows.Remove(entity);
+                continue;
+            }
+
+            // Further than the shadow may travel in a frame is a teleport (a
+            // train placed at its first corner, a SetOrigin): stock's Teleport
+            // places the object rather than sweeping it through the map.
+            Vector moved = f.Origin - _shadows[entity];
+            if (moved.Length > ShadowMaxSpeed * frameTime)
+            {
+                _v.Teleport(shadow, f.Origin, f.Angles);
+                _v.UpdateShadow(shadow, f.Origin, f.Angles, false, 0f);
+            }
+            else
+            {
+                _v.UpdateShadow(shadow, f.Origin, f.Angles, false, frameTime);
+            }
+
+            _shadows[entity] = f.Origin;
+            updated++;
+        }
+
+        return updated;
+    }
+
+    private readonly List<EntityHandle> _shadowPass = new();
+
+    /// <summary>The entity's physics object: 0 none, 1 static, 2 a shadow, 3 simulated.</summary>
+    public int PhysicsKind(EntityHandle entity)
+    {
+        nint made = _host.PhysicsObject(entity);
+        return made == 0 ? 0 : _v.IsStatic(made) ? 1 : _v.HasShadowController(made) ? 2 : 3;
+    }
+
     /// <summary>
     /// CFuncWallToggle's TurnOn and TurnOff: the object kept, its collisions
     /// switched. Nothing when the entity has none.

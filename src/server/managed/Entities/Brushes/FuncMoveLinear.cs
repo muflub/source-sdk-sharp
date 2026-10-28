@@ -73,6 +73,16 @@ public sealed class FuncMoveLinear : ScriptedEntity
             ? BrushSolidity.None
             : BrushSolidity.Solid);
 
+        // func_water_analog's CreateVPhysics: FSOLID_VOLUME_CONTENTS, so the
+        // engine's point contents report the moving brush as water.
+        if (IsWater)
+            SetSolidity(SolidType.Bsp, SolidFlags.VolumeContents);
+
+        // CFuncMoveLinear::CreateVPhysics: a shadow, unless it is not solid
+        // (water always has one).
+        if (IsWater || (SpawnFlags & SF_NotSolid) == 0)
+            InitShadowPhysics();
+
         SetVisible(true);
 
         // Same rule as a door (stock's CFuncMoveLinear::Spawn): the direction

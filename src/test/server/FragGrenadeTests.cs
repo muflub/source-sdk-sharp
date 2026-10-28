@@ -30,10 +30,14 @@ public class FragGrenadeTests
     private sealed class Explosions : TempEntsDouble
     {
         public readonly List<(Vector At, int Radius, int Magnitude, float Scale, Vector? Normal, byte Material)> Made = [];
+        public readonly List<int> Models = [];
 
         public override void Explosion(TeFilter filter, float delay, Vector position, int modelIndex, float scale, int frameRate,
                                        int flags, int radius, int magnitude, Vector? normal = null, byte materialType = (byte)'C')
-            => Made.Add((position, radius, magnitude, scale, normal, materialType));
+        {
+            Made.Add((position, radius, magnitude, scale, normal, materialType));
+            Models.Add(modelIndex);
+        }
     }
 
     private sealed record Rig(ScriptedEntityRegistry Registry, RecordingEngine Engine, Explosions Temps,
@@ -194,6 +198,25 @@ public class FragGrenadeTests
         Assert.Equal((Thrower, Thrown), (blast.Attacker, blast.Inflictor));
         Assert.Contains(rig.Engine.Calls, c => c.Member == "Sound.EntityEmitSound" && (string)c.Args[1]! == "BaseGrenade.Explode");
         Assert.Equal(1, rig.Registry.Directory.PendingRemovalCount);
+    }
+
+    // CBaseGrenade::Explode: !( contents & MASK_WATER ) ? g_sModelIndexFireball
+    // : g_sModelIndexWExplosion, and HL2MP never precaches the second, so 0.
+    [Theory]
+    [InlineData(Contents.Empty, 37)]
+    [InlineData(Contents.Water, 0)]
+    [InlineData(Contents.Slime, 0)]
+    [InlineData(Contents.Moveable, 0)]
+    public void InWaterTheExplosionHasNoSpriteAndInAirTheFireball(Contents contents, int model)
+    {
+        var rig = Spawned();
+        rig.Engine.Returns("WorldQuery.PointContents", contents)
+                  .Returns("Precache.PrecacheModel", 37);
+        Of(rig).ThrownBy(Thrower, 2.5f);
+
+        ThinkUntil(rig, 12.625f);
+
+        Assert.Equal(model, Assert.Single(rig.Temps.Models));
     }
 
     [Fact]

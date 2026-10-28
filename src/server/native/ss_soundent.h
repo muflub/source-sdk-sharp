@@ -21,8 +21,7 @@ namespace ss
 bool SoundEnt_Init();
 void SoundEnt_Shutdown();
 
-// The client reserve: a player's slot in the list, and clearing it.
-void SoundEnt_ResetClientSound( int iIndex );
-int SoundEnt_ClientSoundIndex( edict_t *pClient );
+// Clears the reserved slot of the leaving client at this entity index.
+void SoundEnt_ResetClientSound( int iClientIndex );
 
 } // namespace ss

@@ -87,6 +87,24 @@ public sealed class TempEnts : ITempEnts
     }
 
     /// <inheritdoc/>
+    public void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction, Color32 color, int amount)
+        => Play(new TeBloodStream { Origin = origin, Direction = direction, Color = color, Amount = amount }, filter, delay);
+
+    /// <inheritdoc/>
+    public void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale, int frameRate)
+        => Play(new TeSmoke { Origin = origin, ModelIndex = modelIndex, Scale = scale, FrameRate = frameRate }, filter, delay);
+
+    private void Play(TempEntState state, TeFilter filter, float delay)
+    {
+        TempEntType? type = Resolve(state);
+
+        if (type is null)
+            return;
+
+        _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
+    }
+
+    /// <inheritdoc/>
     public void MetalSparks(TeFilter filter, float delay, Vector position, Vector direction)
     {
         var state = new TeMetalSparks { Position = position, Direction = direction };

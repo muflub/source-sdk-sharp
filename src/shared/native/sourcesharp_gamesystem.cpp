@@ -81,11 +81,6 @@ struct SourceSharpSkyboxParams;
 #endif
 
 // Slot bodies about gpGlobals, which each side has for its own globals.
-static float SourceSharp_GetCurrentTime()
-{
-	return gpGlobals ? gpGlobals->curtime : 0.0f;
-}
-
 // The engine's CGlobalVars for managed to read; NULL until the engine sets it.
 static void *SourceSharp_GetGlobalVarsPtr()
 {

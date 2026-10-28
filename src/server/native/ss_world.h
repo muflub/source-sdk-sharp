@@ -179,7 +179,6 @@ public:
 	virtual void Spawn();
 	virtual void Precache();
 	virtual bool KeyValue( const char *szKeyName, const char *szValue );
-	virtual void DecalTrace( trace_t *pTrace, char const *decalName );
 
 	virtual void VPhysicsCollision( int index, ss::gamevcollisionevent_t *pEvent ) {}
 

@@ -252,7 +252,6 @@ TEST( ServerStateTier, ANewDllTierStartsWithNoTempEntBuiltAndRegistrationOpen )
 	first.m_TempEnts.m_Built[0].pClassName = first.m_TempEnts.m_Names.emplace( "CTEProbe" ).first->c_str();
 	first.m_TempEnts.m_nBuilt = 1;
 	first.m_TempEnts.m_bClosed = true;
-	first.m_TempEnts.m_Scratch[0] = 0xA5;
 
 	dll.End();
 	CServerDllState &second = dll.Begin();
@@ -260,7 +259,6 @@ TEST( ServerStateTier, ANewDllTierStartsWithNoTempEntBuiltAndRegistrationOpen )
 	EXPECT_FALSE( second.m_TempEnts.m_bClosed ) << "a second DLL tier starts with registration closed";
 	EXPECT_TRUE( second.m_TempEnts.m_Names.empty() ) << "a second DLL tier inherited the first's names";
 	EXPECT_EQ( nullptr, second.m_TempEnts.m_Built[0].pClassName );
-	EXPECT_EQ( 0, second.m_TempEnts.m_Scratch[0] );
 	dll.End();
 }
 

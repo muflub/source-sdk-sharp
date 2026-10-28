@@ -14,7 +14,7 @@ public class TempEntsClientAreaTests
 {
     private static readonly string[] Slots =
     [
-        "OnTempEntity", "OnNativeTempEntity", "OnImpactChoice",
+        "OnTempEntity", "OnImpactChoice",
         "OnTempEntPoolUpdate", "OnTempEntPoolClear", "SuppressLocalTempEnt",
     ];
 
