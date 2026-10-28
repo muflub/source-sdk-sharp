@@ -22,9 +22,9 @@ import hashlib
 import io
 import os
 import platform
-import stat
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 
@@ -57,11 +57,20 @@ def provision():
     if got != SHA256:
         raise SystemExit("tools/clang-format: the wheel's sha256 is %s, not %s" % (got, SHA256))
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".part"
-    with zipfile.ZipFile(io.BytesIO(data)) as z, open(tmp, "wb") as out:
-        out.write(z.read(MEMBER))
-    os.chmod(tmp, os.stat(tmp).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    os.replace(tmp, path)
+    # tools/run-checks starts several checks at once, and on a fresh cache each
+    # provisions. A shared .part let one process rename the file another was
+    # still writing (ENOENT for the writer) or exec it while still open for
+    # writing (ETXTBSY): each writes its own, and the last rename wins with the
+    # same bytes.
+    fd, tmp = tempfile.mkstemp(prefix="clang-format.", suffix=".part", dir=os.path.dirname(path))
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z, os.fdopen(fd, "wb") as out:
+            out.write(z.read(MEMBER))
+        os.chmod(tmp, 0o755)  # mkstemp makes it 0600
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
     return path
 
 
