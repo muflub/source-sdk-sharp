@@ -32,7 +32,11 @@ inline bool IsPowerOfTwo( T value )
 //   DWORD Buffer[100];
 //   RTL_NUMBER_OF(Buffer) == 100
 // This is also popularly known as: NUMBER_OF, ARRSIZE, _countof, NELEM, etc.
-#define RTL_NUMBER_OF_V1( A ) ( sizeof( A ) / sizeof( ( A )[0] ) )
+// winnt.h defines these too, and a redefinition is accepted only when it is
+// spelt the same, spaces between tokens included (MSVC C4005): winnt.h's spelling.
+// clang-format off
+#define RTL_NUMBER_OF_V1(A) (sizeof(A)/sizeof((A)[0]))
+// clang-format on
 
 #if defined( __cplusplus ) && _MSC_FULL_VER >= 13009466
 
@@ -63,7 +67,9 @@ extern "C++" // templates cannot be declared to have 'C' linkage
 	template <typename T, size_t N>
 	char ( *RtlpNumberOf( UNALIGNED T ( & )[N] ) )[N];
 
-#define RTL_NUMBER_OF_V2( A ) ( sizeof( *RtlpNumberOf( A ) ) )
+// clang-format off
+#define RTL_NUMBER_OF_V2(A) (sizeof(*RtlpNumberOf(A)))
+// clang-format on
 
 // This does not work with:
 // void Foo()
@@ -92,13 +98,17 @@ extern "C++" // templates cannot be declared to have 'C' linkage
 // }
 
 #else
-#define RTL_NUMBER_OF_V2( A ) RTL_NUMBER_OF_V1( A )
+// clang-format off
+#define RTL_NUMBER_OF_V2(A) RTL_NUMBER_OF_V1(A)
+// clang-format on
 #endif
 
 // ARRAYSIZE is more readable version of RTL_NUMBER_OF_V2
 // _ARRAYSIZE is a version useful for anonymous types
-#define ARRAYSIZE( A ) RTL_NUMBER_OF_V2( A )
-#define _ARRAYSIZE( A ) RTL_NUMBER_OF_V1( A )
+// clang-format off
+#define ARRAYSIZE(A)    RTL_NUMBER_OF_V2(A)
+#define _ARRAYSIZE(A)   RTL_NUMBER_OF_V1(A)
+// clang-format on
 
 #define Q_ARRAYSIZE( p ) ARRAYSIZE( p )
 #define V_ARRAYSIZE( p ) ARRAYSIZE( p )
