@@ -135,7 +135,7 @@ public class ColorCorrectionVolumeTests
             .Returns("Visibility.ColorCorrectionAdd", 7)
             .Returns("Clock.Now", 0f);
 
-        var service = new ColorCorrections(engine);
+        var service = new ColorCorrections(engine, engine);
 
         // Built directly rather than through the registry, so the state needs
         // its own buffer — the registry is what binds a blob normally.

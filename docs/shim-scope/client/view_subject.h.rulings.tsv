@@ -1,2 +1,5 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+inline bool AudioIsUnderwater(	SLOT-HELP	the water level's top value (WL_Eyes) is the eyes under water: reads the level managed's movement computed
+inline bool EffectActive(	SLOT-HELP	a bit test of the networked effects word
+inline bool ViewEntityOverridesTheEye(	LOGIC	the view-entity override rule (a view entity other than the local player owns the eye), stock CViewRender::SetUpView's; its one caller is the native view setup (shell_viewrender_client.cpp's SetUpView, another lane's), and it moves to managed with that setup: asked alone it would be a crossing a frame for a two-int predicate

@@ -15,9 +15,9 @@
 22	SLOT	int C_SpriteRenderer::DrawSprite(
 4	LAYOUT	float C_SpriteRenderer::GlowBlend( CEngineSprite *, const Vector &, int, int, int, float * )
 4	SLOT-HELP	static bool SpriteModeHasMaterial( int nMode )
-14	UNRULED	[SpriteBlockReader] const char *CString()
-8	UNRULED	[SpriteBlockReader] bool Bytes( void *pOut, int n )
-33	UNRULED	KeyValues *ReadSpriteKey( SpriteBlockReader &r, int nDepth )
+14	SLOT-HELP	[SpriteBlockReader] const char *CString()
+8	SLOT-HELP	[SpriteBlockReader] bool Bytes( void *pOut, int n )
+33	LAYOUT	KeyValues *ReadSpriteKey( SpriteBlockReader &r, int nDepth )
 66	LAYOUT	bool CEngineSprite::Init( const char *pName )
 4	LAYOUT	void CEngineSprite::Shutdown( void )
 4	LAYOUT	bool CEngineSprite::IsVideo()

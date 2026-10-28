@@ -7,12 +7,12 @@ namespace SourceSharp.Abi;
 /// <b>Why a list and not a call per entity, and why not <see cref="IInterpolationBlocks"/>.</b>
 /// The same argument as 6a's for the list shape — a per-entity accessor would put
 /// a native call in a loop that runs over every entity every frame — and one
-/// extra reason for it being a SECOND list: 6a's is filtered by
-/// <c>WantsInterpolation()</c>, which excludes the viewmodel and the predicted
-/// local player. Those are exactly the two entities whose render group, draw
-/// answer and shadow answer differ from everything else's, so deciding policy
-/// over 6a's list would decide it for every entity except the ones that need
-/// deciding.
+/// extra reason for it being a SECOND list: 6a's is filtered (managed's
+/// <c>InterpolatedSet</c> since lane M1-A), which excludes the viewmodel and the
+/// predicted local player. Those are exactly the two entities whose render group,
+/// draw answer and shadow answer differ from everything else's, so deciding
+/// policy over 6a's list would decide it for every entity except the ones that
+/// need deciding.
 /// </para>
 ///
 /// <para>

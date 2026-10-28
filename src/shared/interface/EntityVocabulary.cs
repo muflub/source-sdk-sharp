@@ -171,7 +171,7 @@ public enum CollisionGroup
 
 /// <summary>
 /// Which distance-fade rule an entity on the parallel hierarchy follows. Must
-/// match the switch in C_StandaloneEntity::ComputeFxBlend.
+/// match the switch in the client's StandaloneFade.Blend.
 ///
 /// <para>
 /// There are two because stock has two, and they are not variations on one

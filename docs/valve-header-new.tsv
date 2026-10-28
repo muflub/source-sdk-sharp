@@ -570,3 +570,6 @@ src/client/managed/WorldArrival.cs	ports C_World::OnDataChanged (c_world.cpp): t
 src/shared/managed/BulletGlass.cs	ports CBaseEntity::FireBullets' glass-penetration rule (baseentity_shared.cpp: CHAR_TEX_GLASS, ClassMatches( "func_breakable" ), SF_BREAK_NO_BULLET_PENETRATION)
 src/client/managed/LevelPrediction.cs	ports CHLClient::LevelInitPreEntity's cl_predict arm (cdll_client_int.cpp: "don't do prediction if single player!")
 src/client/managed/LightmapBicubicDefault.cs	ports CHLClient::PostInit's r_lightmap_bicubic default (cdll_client_int.cpp)
+src/client/managed/Standalone/StandaloneFade.cs	ports ComputeDistanceFade (cdll_util.cpp) and C_FuncAreaPortalWindow::GetDistanceBlend (c_func_areaportalwindow.cpp), with mathlib's RemapValClamped and CalcDistanceToAABB, as C_StandaloneEntity::ComputeFxBlend applied them
+src/client/managed/Standalone/BreakableSurfaceDraw.cs	ports C_BreakableSurface::FindCrackedMaterial and OnDataChanged's edge material lists, RenderBrushModelSurface's draw order and DrawSolidBlocks' runs of standing panes (c_func_breakablesurf.cpp)
+src/client/managed/InterpolatedSet.cs	ports C_BaseEntity::GetInterpolationAmount's networked arm and CBaseEntity::IsSimulatingOnAlternateTicks (c_baseentity.cpp, baseentity_shared.cpp), as StandaloneInterpolationAmount applied them, and C_StandaloneEntity::WantsInterpolation's filter

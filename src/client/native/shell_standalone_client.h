@@ -74,9 +74,10 @@
 //-----------------------------------------------------------------------------
 // WHAT A MANAGED CLASS ASKED FOR ABOUT ITS SHADOW.
 //
-// The ABI contract of StandaloneSetShadowCast, and the mirror of
-// SourceSharp.Abi's ShadowCastChoice. The three values cross the boundary, so
-// they are fixed.
+// The mirror of SourceSharp.Abi's ShadowCastChoice, which the block's
+// ShadowChoice carries (its setter, StandaloneSetShadowCast, went in the
+// 2026-10-20 ABI pass and C_StandaloneEntity::SetShadowCast with lane M1-A).
+// The three values cross the boundary, so they are fixed.
 //
 // THIS IS ALL THAT IS LEFT OF shadow_cast_policy.h, which held these AND the
 // rule that read them. The rule was policy -- "does this entity cast" is what
@@ -99,6 +100,16 @@ enum StandaloneShadowChoice_t
 	// draws ITSELF has no studio header to be judged by and would otherwise
 	// never cast at all.
 	STANDALONE_SHADOW_CHOICE_SIMPLE = 2,
+};
+
+// The block's OwnerSeenRule, as managed's ClientRenderPolicy writes it
+// (ClientOwnerSeenRule; ClientRenderPolicyTests pins the pair): how the live
+// "the camera sees the owner" fact gates ShouldDraw.
+enum StandaloneOwnerSeenRule_t
+{
+	STANDALONE_OWNER_SEEN_ALWAYS         = 0,  // not at all
+	STANDALONE_OWNER_SEEN_HIDDEN_WHILE   = 1,  // hidden while seen: the viewmodel
+	STANDALONE_OWNER_SEEN_DRAWN_ONLY_WHILE = 2,  // drawn only while seen: the viewer's own body
 };
 
 class CStudioHdr;
@@ -258,9 +269,10 @@ public:
 	// SourceSharpPayload_ProbeWord in generic_payload.h.
 	//-------------------------------------------------------------------------
 
-	// The cracked edges its managed half decided, passed through to whatever
-	// draws this entity. A no-op for the entities that draw plainly.
-	void SetSurfaceEdges( const unsigned char *pEdges, int nCount );
+	// The surface renderer its managed half draws a broken surface through
+	// (ClientBreakableSurf's materials and plan), made on the first ask with
+	// bCreate; NULL for an entity that never asked.
+	class CSourceSharpSurfaceRenderer *SurfaceRenderer( bool bCreate );
 
 	// --- IHandleEntity -------------------------------------------------------
 	//
@@ -380,9 +392,10 @@ public:
 
 	// The managed replay's answer, once a frame: where it says this entity is,
 	// what its eye offset and view punch are, and whether it is DRIVING the
-	// entity at all. Driving turns interpolation off for it
-	// (WantsInterpolation) -- a point read from the networked past must not
-	// overwrite an origin the replay has already computed for now.
+	// entity at all -- in which case the origin is the replay's. Managed's
+	// interpolation leaves a driven entity out (InterpolatedSet): a point read
+	// from the networked past must not overwrite an origin the replay has
+	// already computed for now.
 	void PredictionDrive( const struct SourceSharpClientPlayerView &view );
 
 	// The viewer's eyes: the drawn origin plus the eye offset the managed
@@ -526,12 +539,12 @@ public:
 	virtual bool UsesFlexDelayedWeights() OVERRIDE { return false; }
 	// How solid this entity is drawn, and when it is worked out.
 	//
-	// The engine's contract is a pair: ComputeFxBlend once per frame before
-	// anything draws, GetFxBlend as many times as the renderer likes after. The
-	// split is not decoration — the distance fade below reads the view origin,
-	// which is only settled once per frame, and answering it per draw call
-	// would give the same entity different alphas in the same frame.
-	virtual void ComputeFxBlend( void ) OVERRIDE;
+	// The engine's contract is a pair: ComputeFxBlend before anything draws,
+	// GetFxBlend as many times as the renderer likes after. The blend is
+	// managed's (StandaloneFadePass, lane M1-A): the distance fade's rule runs
+	// for the view before the leaf system's blend batch reaches this slot and
+	// writes the block's FxBlend, so there is nothing left to compute here.
+	virtual void ComputeFxBlend( void ) OVERRIDE {}
 	virtual int  GetFxBlend( void ) OVERRIDE { return Block().Client.FxBlend; }
 	virtual bool LODTest() OVERRIDE { return true; }
 	virtual void SetupWeights( const matrix3x4_t *, int, float *, float * ) OVERRIDE {}
@@ -714,21 +727,14 @@ public:
 	//-------------------------------------------------------------------------
 	void PostInterpolate( float flCurrentTime );
 
-	// Whether the interpolation pass may write this entity's position. TRUE
-	// for everything except the entities whose position is computed rather
-	// than received: the predicted local player (Phase 9c4), whose replay
-	// already answered "where am I now" and must not be overwritten by a
-	// point read from the networked past — and the local VIEWMODEL (Phase
-	// 10's render half), whose position is the eye, re-pinned by the same
-	// view setup that places the camera.
-	// SEMANTIC MERGE, not keep-both: 6b moved the viewmodel flag into the
-	// block (m_bViewModel -> Client.ViewModel, see the migration note
-	// below) and 6f added the prediction-driving condition. 6f's arm
-	// still named m_bViewModel, which no longer exists -- keeping either
-	// side alone would have dropped a condition, and keeping 6f's would
-	// not have compiled.
-	virtual bool WantsInterpolation() const
-	{ return Block().Client.ViewModel == 0 && !m_bPredictionDriving; }
+	// WHICH entities the interpolation pass may write is managed's
+	// (InterpolatedSet, lane M1-A): everything except the ones whose
+	// position is computed rather than received -- the local viewmodel,
+	// pinned to the eye, and the local player while the managed replay drives
+	// it. Managed hands the admitted set to SourceSharp_ClientInterpAdmitted,
+	// and PreRender's walk re-transforms exactly those.
+	void SetInterpAdmitted( bool bAdmitted ) { m_bInterpAdmitted = bAdmitted; }
+	bool IsInterpAdmitted() const { return m_bInterpAdmitted; }
 
 	// The packet's own server time, into the block, for the managed rings to
 	// key their history off. See the definition.
@@ -802,15 +808,6 @@ public:
 	// How an entity that draws ITSELF is sorted, blended and depth-tested.
 	// See StandaloneSetBlending in sourcesharp.h.
 	void SetBlending( bool bTranslucent, bool bIgnoreZ, int nAlpha );
-
-	//-------------------------------------------------------------------------
-	// Whether this entity casts a shadow, when the model's own answer is not
-	// the wanted one. A StandaloneShadowChoice_t; see ClientRenderPolicy for
-	// the three values and StandaloneSetShadowCast in sourcesharp.h for the
-	// contract. Takes effect at once — the shadow is created or destroyed on
-	// the spot rather than at the next update.
-	//-------------------------------------------------------------------------
-	void SetShadowCast( int nChoice );
 
 	// What was asked for, and what the entity is actually casting right now.
 	// The second is a ShadowType_t and is NOT the first: it folds in the model,
@@ -962,7 +959,7 @@ private:
 	//
 	// The OUTPUTS have no member and never had one: Client.Drawn,
 	// Client.Transparent, Client.RenderGroup, Client.ShadowType,
-	// Client.ShadowFlags and Client.HideWhenOwnerSeen are written by C# and read
+	// Client.ShadowFlags and Client.OwnerSeenRule are written by C# and read
 	// by the four getters above. Client.RenderTransform is written by
 	// PublishRenderPose and MoveToEye.
 	//-------------------------------------------------------------------------
@@ -1009,10 +1006,10 @@ private:
 
 	// What draws this entity when a brush model is not enough on its own.
 	//
-	// NULL for all but one class, and it stays a pointer rather than a virtual
-	// on the shell because the shell has no business knowing what glass is —
-	// it owns the object and asks it to draw, and that is the whole of the
-	// coupling.
+	// NULL until managed hands this entity a surface to draw, and it stays a
+	// pointer rather than a virtual on the shell because the shell has no
+	// business knowing what glass is — it owns the object and asks it to draw,
+	// and that is the whole of the coupling.
 	class CSourceSharpSurfaceRenderer *m_pSurface;
 
 	// How this instance wears its model: which texture row, and at what size.
@@ -1077,9 +1074,8 @@ private:
 	// creating update, cleared when the entity goes.
 	bool   m_bLocalPlayer;
 
-	// Whether the managed replay is driving this entity's position right now
-	// (step 6f). Written by PredictionDrive, read by WantsInterpolation.
-	bool   m_bPredictionDriving;
+	// In the set managed's interpolation admitted on its last pass (lane M1-A).
+	bool   m_bInterpAdmitted = false;
 
 	// The rest of the view state the managed player publishes (step 6f). Zero
 	// until the first PredictionDrive, which is honest: before a player has
@@ -1182,17 +1178,6 @@ void SourceSharp_StandaloneViewModelToEye( const Vector &vecEye, const QAngle &a
 // is the only place that knows where the camera ended up.
 //-----------------------------------------------------------------------------
 bool SourceSharp_ThirdPersonSeesOwner();
-
-//-----------------------------------------------------------------------------
-// Every live entity of a given classname, as renderables, into a caller-supplied
-// array. Returns how many were written.
-//
-// For the renderer's per-kind sweeps — the reflective glass list being the first
-// — which a stock entity joins by being of the right C++ type and which nothing
-// on this hierarchy can. See the definition.
-//-----------------------------------------------------------------------------
-int SourceSharp_StandaloneGetRenderables( const char *pClassName,
-                                          IClientRenderable **pOut, int nMax );
 
 //-----------------------------------------------------------------------------
 // The instance blob, mirroring the server's exactly. One size for every class,

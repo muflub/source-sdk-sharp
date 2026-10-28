@@ -689,9 +689,6 @@ public interface IEngineBrushMovement
     /// </summary>
     void MoveToPosition(EntityHandle entity, Vector destination, float speed);
 
-    /// <inheritdoc cref="EngineSide.SurfaceSetEdges"/>
-    void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count);
-
     /// <summary>retired mover: EntityMotion implements this interface, so nothing reaches the engine binding's.</summary>
     void StopMoving(EntityHandle entity);
 

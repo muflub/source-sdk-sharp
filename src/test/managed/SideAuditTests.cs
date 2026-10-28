@@ -248,7 +248,7 @@ public class SideAuditTests
         // PlayerSetSoundscape slot is dead and named in
         // .claude/entity-port/abi-requests/8e-sound.md for removal.
 
-        "ActivateOccluder", "ClientColorCorrection", "ClientSetWorldRenderState",
+        "ActivateOccluder", "ClientSetWorldRenderState",
         "DrawSprite", "DrawSpriteOffset",
         // The flame: ss_plasma draws its seven sprites through the offset entry
         // and ss_firesmoke owns a particle system between frames. Both are
@@ -311,6 +311,15 @@ public class SideAuditTests
         // client.so's.
         "PixelVisQueryCreate", "PixelVisQueryDestroy", "PixelVisQueryReset", "PixelVisQueryPixels",
         "PixelVisDiameters", "PixelVisView",
+        // The shells' surrounding boxes for the per-view fade (lane M1-A):
+        // client.so's standalone shells.
+        "StandaloneSurroundingBounds",
+        // A broken surface's draw (lane M1-A): client.so's surface renderer.
+        "SurfaceMaterialFacts", "SurfaceSetMaterials", "SurfaceSetPlan",
+        // The colour-correction lookups on client.so's render context (lane M1-A).
+        "ColorLookupAdd", "ColorLookupSetWeight", "ColorLookupRemove", "ColorLookupResetWeights",
+        // The interpolation pass's admitted set, for client.so's PreRender walk (lane M1-A).
+        "ClientInterpAdmitted",
         // The glow overlays' material find (C7, glow_overlay.cpp): client.so's materials.
         "GlowMaterialFind",
         "InputMailbox",
@@ -332,7 +341,6 @@ public class SideAuditTests
         // Dormancy is a CLIENT concept: it means the server has stopped
         // sending this entity, which the server itself has no version of.
         "StandaloneIsDormant",
-        "SurfaceSetEdges",
         // The temp entity backends (plan_tmp.md Part 4). Client-only because
         // they are DRAWING: a ported c_te_*.cpp moves its decode and its
         // decision to C# and calls one of these at the end, which is the same

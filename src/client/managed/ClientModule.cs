@@ -115,7 +115,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The render policy grades a studio model by counts it reads from the
         // skeletons' studio headers, composed later (studio.cpp's eviction).
-        _renderPolicy = new Standalone.ClientRenderPolicy(() => _skeletons?.Models);
+        // And the viewer's own body by the engine's local player index, which
+        // the composition's engine client answers (0 before it is composed).
+        _renderPolicy = new Standalone.ClientRenderPolicy(() => _skeletons?.Models,
+                                                          () => _engineClient?.LocalPlayerSlot() ?? 0);
     }
 
     /// <summary>
@@ -942,8 +945,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _leafConVars = leafConVars;
             return leafConVars;
         });
+        // The standalone entities' per-view fade (lane M1-A: C_StandaloneEntity::
+        // ComputeFxBlend's rule), run before each of the builder's blend batches.
+        _services.AddFactory<Standalone.StandaloneFadePass>(locator => new Standalone.StandaloneFadePass(
+            locator.Require<IRenderPolicyBlocks>(), locator.Require<Render.PixelVisibility.ClientPixelVisEngine>(),
+            locator.Require<IStandaloneRenderBounds>()));
         _services.AddFactory<Render.LeafSystem.RenderableListBuilder>(locator => new Render.LeafSystem.RenderableListBuilder(
-            locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.LeafListConVars>()));
+            locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.LeafListConVars>(),
+            locator.Require<Standalone.StandaloneFadePass>()));
         // The leaf system's cost (L3, cs_cl_leaf_stats): its calls and time, and
         // the native batches it asks.
         _services.AddFactory<Render.LeafSystem.LeafSystemStats>(locator => new Render.LeafSystem.LeafSystemStats
@@ -1083,7 +1092,20 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE INTERPOLATION LIST AND THE CLOCK, TAKEN OUT OF THE CONTAINER ONCE
         // (plan_entity.md step 6a). Both are read twice a frame from OnStage,
         // which is a stage notification and not a place to resolve a service.
-        _interpolationBlocks = _services.Require<IEngineEntities>().InterpolationBlocks;
+        //
+        // WHICH entities the pass writes and how far behind it draws are
+        // InterpolatedSet's (lane M1-A): the shell's list is every block, and
+        // the admitted set goes back for its PreRender walk.
+        IEngineEnvironment interpEnvironment = _services.Require<IEngineEnvironment>();
+        IEngineConsole interpConsole = _services.Require<IEngineConsole>();
+        _interpolationBlocks = new InterpolatedSet(
+            _services.Require<IEngineEntities>().InterpolationBlocks,
+            () => (_prediction?.DrivenHandle ?? EntityHandle.None).Value,
+            () => interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.IntervalPerTick : 0f,
+            () => InterpolationDelay.AlternateTicks(
+                interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.MaxClients : 0,
+                () => interpConsole.FindConVarValue("sv_alternateticks")),
+            _services.Require<IInterpolationAdmission>());
 
         // AND THE GATE THE RENDER PASS OPENS ON (stock's InterpolateServerEntities
         // policy, which was native and read by nothing): its engine reads are
@@ -2201,11 +2223,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The impact sounds, the fluid entries and the scrapes are the physics
         // step's (ClientPhysicsSystem.Simulate, at stock's place in the frame).
 
-        // Colour corrections, here for the same reason and with the same
-        // argument: the weight is a function of where the player is standing,
-        // which moves without anybody deciding it, and a correction round a
-        // corner still tints the wall you can see.
-        _corrections.Frame();
+        // Colour corrections are re-weighed at FRAME_RENDER_START (OnStage),
+        // where stock reset and re-weighed them, not here: this runs after the
+        // frame's render.
 
         // Animation events, here for the third instance of the same argument.
         // A sequence's cycle advances on its own clock whether or not the leaf
@@ -2322,6 +2342,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 // The frame's gate first, in stock's place: the top of
                 // InterpolateServerEntities, before any entity interpolates.
                 _interpolation.RenderPass(_interpolationBlocks, _clock.Now, _interpolationGate?.Open() ?? true);
+
+                // Colour corrections: the weights reset and re-weighed from
+                // where the player now stands (stock's OnRenderStart:
+                // ResetColorCorrectionWeights, then SimulateEntities' thinks),
+                // so the view renders with this frame's. Not in Frame, which
+                // the engine calls after the render, and not visibility-gated:
+                // a correction round a corner still tints the wall you can see.
+                // Null in a module that was never composed (a stage fact).
+                _corrections?.Frame();
 
                 // The local player's flashlight, where stock's
                 // C_BasePlayer::Simulate ran it (OnRenderStart's SimulateEntities,

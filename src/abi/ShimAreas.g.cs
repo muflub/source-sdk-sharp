@@ -1193,7 +1193,6 @@ internal unsafe interface IStandaloneClientArea
     void StandaloneSetOverlayModel(uint a0, int a1);
     void StandaloneSetViewModel(uint a0, int a1);
     int StandaloneShadowCast(uint a0, int* a1);
-    void SurfaceSetEdges(uint a0, byte* a1, int a2);
     int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10);
     int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7);
     void* StandaloneEngineBlock(uint a0, int* a1);
@@ -1201,6 +1200,11 @@ internal unsafe interface IStandaloneClientArea
     void StandaloneSetRagdoll(uint a0, int a1);
     void EntitySetSkin(uint a0, int a1);
     void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5);
+    int StandaloneSurroundingBounds(uint* a0, int a1, float* a2);
+    int SurfaceMaterialFacts(uint a0, byte* a1, int a2, byte* a3, int a4, int* a5);
+    void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3);
+    void SurfaceSetPlan(uint a0, int* a1, int a2);
+    void ClientInterpAdmitted(uint* a0, int a1);
 }
 
 /// <summary>
@@ -1224,7 +1228,6 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetOverlayModel(uint a0, int a1) { _shim.Table->StandaloneSetOverlayModel(_shim.Self, a0, a1); }
     public void StandaloneSetViewModel(uint a0, int a1) { _shim.Table->StandaloneSetViewModel(_shim.Self, a0, a1); }
     public int StandaloneShadowCast(uint a0, int* a1) { return _shim.Table->StandaloneShadowCast(_shim.Self, a0, a1); }
-    public void SurfaceSetEdges(uint a0, byte* a1, int a2) { _shim.Table->SurfaceSetEdges(_shim.Self, a0, a1, a2); }
     public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) { return _shim.Table->ClientRecvProp(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
     public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) { return _shim.Table->ClientSchemaRefusal(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public void* StandaloneEngineBlock(uint a0, int* a1) { return _shim.Table->StandaloneEngineBlock(_shim.Self, a0, a1); }
@@ -1232,6 +1235,11 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetRagdoll(uint a0, int a1) { _shim.Table->StandaloneSetRagdoll(_shim.Self, a0, a1); }
     public void EntitySetSkin(uint a0, int a1) { _shim.Table->EntitySetSkin(_shim.Self, a0, a1); }
     public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { _shim.Table->RegisterAmmoType(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int StandaloneSurroundingBounds(uint* a0, int a1, float* a2) { return _shim.Table->StandaloneSurroundingBounds(_shim.Self, a0, a1, a2); }
+    public int SurfaceMaterialFacts(uint a0, byte* a1, int a2, byte* a3, int a4, int* a5) { return _shim.Table->SurfaceMaterialFacts(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3) { _shim.Table->SurfaceSetMaterials(_shim.Self, a0, a1, a2, a3); }
+    public void SurfaceSetPlan(uint a0, int* a1, int a2) { _shim.Table->SurfaceSetPlan(_shim.Self, a0, a1, a2); }
+    public void ClientInterpAdmitted(uint* a0, int a1) { _shim.Table->ClientInterpAdmitted(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1244,7 +1252,6 @@ internal unsafe interface IViewClientArea
     void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5);
     void GetLightForPoint(void* a0, float* a1, int a2, float* a3);
     void GetLightForPointFast(void* a0, float* a1, int a2, float* a3);
-    int ClientColorCorrection(int a0, int a1, byte* a2, float a3);
     void ClientSetWorldRenderState(int a0, float* a1, int a2);
     int GetLocalPlayerOrigin(float* a0);
     void SetViewerFogParams(FogParams* a0);
@@ -1264,6 +1271,10 @@ internal unsafe interface IViewClientArea
     void PixelVisDiameters(float* a0, int a1, float* a2);
     int PixelVisView(float* a0, int a1);
     int GlowMaterialFind(byte* a0, byte* a1);
+    void* ColorLookupAdd(byte* a0);
+    void ColorLookupSetWeight(void* a0, float a1);
+    void ColorLookupRemove(void* a0);
+    void ColorLookupResetWeights();
 }
 
 /// <summary>
@@ -1279,7 +1290,6 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { _shim.Table->ConNXPrintf(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { _shim.Table->GetLightForPoint(_shim.Self, a0, a1, a2, a3); }
     public void GetLightForPointFast(void* a0, float* a1, int a2, float* a3) { _shim.Table->GetLightForPointFast(_shim.Self, a0, a1, a2, a3); }
-    public int ClientColorCorrection(int a0, int a1, byte* a2, float a3) { return _shim.Table->ClientColorCorrection(_shim.Self, a0, a1, a2, a3); }
     public void ClientSetWorldRenderState(int a0, float* a1, int a2) { _shim.Table->ClientSetWorldRenderState(_shim.Self, a0, a1, a2); }
     public int GetLocalPlayerOrigin(float* a0) { return _shim.Table->GetLocalPlayerOrigin(_shim.Self, a0); }
     public void SetViewerFogParams(FogParams* a0) { _shim.Table->SetViewerFogParams(_shim.Self, a0); }
@@ -1299,6 +1309,10 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public void PixelVisDiameters(float* a0, int a1, float* a2) { _shim.Table->PixelVisDiameters(_shim.Self, a0, a1, a2); }
     public int PixelVisView(float* a0, int a1) { return _shim.Table->PixelVisView(_shim.Self, a0, a1); }
     public int GlowMaterialFind(byte* a0, byte* a1) { return _shim.Table->GlowMaterialFind(_shim.Self, a0, a1); }
+    public void* ColorLookupAdd(byte* a0) { return _shim.Table->ColorLookupAdd(_shim.Self, a0); }
+    public void ColorLookupSetWeight(void* a0, float a1) { _shim.Table->ColorLookupSetWeight(_shim.Self, a0, a1); }
+    public void ColorLookupRemove(void* a0) { _shim.Table->ColorLookupRemove(_shim.Self, a0); }
+    public void ColorLookupResetWeights() { _shim.Table->ColorLookupResetWeights(_shim.Self); }
 }
 
 /// <summary>

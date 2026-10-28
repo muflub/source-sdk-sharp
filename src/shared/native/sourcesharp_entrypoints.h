@@ -232,7 +232,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 244 slots.
+// CLIENT ONLY -- 251 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -261,8 +261,6 @@ void SourceSharp_BeamSetHdrColorScale( int32_t nModelIndex, int32_t nRenderMode,
 void SourceSharp_BeamView( int32_t bCurrentView, float *pOut42 );
 int32_t SourceSharp_ClientBeginMoveCommand( uint32_t hPlayer, int32_t nCommandNumber,
                                             SourceSharpMoveState *pOutConstants );
-int32_t SourceSharp_ClientColorCorrection( int32_t nOp, int32_t nHandle,
-                                           const char *pLookupFile, float flWeight );
 void SourceSharp_ClientComputeLighting( const float *pPosXYZ, float *pOutColorRGB,
                                         float *pOutBoxRGB18 );
 void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCenterXYZ,
@@ -294,6 +292,7 @@ int32_t SourceSharp_ClientEntityOrigin( int32_t nEntityIndex, float *pOutXYZ );
 int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ,
                                             float *pOutAngles );
 int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd *pOut );
+void SourceSharp_ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount );
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
 int32_t SourceSharp_ClientIsLowViolence( void );
 void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ );
@@ -360,6 +359,10 @@ void SourceSharp_ClientViewportShow( const char *pPanel, int32_t bShow,
                                      const unsigned char *pPairs, int32_t nPairBytes,
                                      int32_t nFlags );
 void SourceSharp_ClientWindSpeed( float flTime, float *pOutXYZ );
+void *SourceSharp_ColorLookupAdd( const char *pLookupFile );
+void SourceSharp_ColorLookupRemove( void *hLookup );
+void SourceSharp_ColorLookupResetWeights( void );
+void SourceSharp_ColorLookupSetWeight( void *hLookup, float flWeight );
 void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszText );
 void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive,
                               const float *pColorRGB, int32_t bFixedWidthFont,
@@ -559,8 +562,14 @@ int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice 
 void SourceSharp_StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence,
                                           float flPlaybackRate, float flAnimTime,
                                           float flDuration, int32_t bLooping );
-void SourceSharp_SurfaceSetEdges( uint32_t hEntity, const unsigned char *pEdges,
-                                  int32_t nCount );
+int32_t SourceSharp_StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount,
+                                                 float *pOutMinsMaxs );
+int32_t SourceSharp_SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial,
+                                          int32_t nMaterialBytes, char *pOutCrack,
+                                          int32_t nCrackBytes, int32_t *pOutHasCrack );
+void SourceSharp_SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int32_t nBytes,
+                                      int32_t nFlags );
+void SourceSharp_SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_t nWords );
 int32_t SourceSharp_TempEntBuildClient( const void *pBlock, int32_t nBlockBytes,
                                         int32_t nBlobBytes, SourceSharpTeRecvBuilt_t *pOut );
 int32_t SourceSharp_TempEntPoolAddVisible( int32_t nSlot );

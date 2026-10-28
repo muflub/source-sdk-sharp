@@ -412,7 +412,6 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetOverlayModel(uint a0, int a1) { }
     public void StandaloneSetViewModel(uint a0, int a1) { }
     public int StandaloneShadowCast(uint a0, int* a1) => default;
-    public void SurfaceSetEdges(uint a0, byte* a1, int a2) { }
     public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) => default;
     public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) => default;
     public void* StandaloneEngineBlock(uint a0, int* a1) => default;
@@ -420,6 +419,11 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetRagdoll(uint a0, int a1) { }
     public void EntitySetSkin(uint a0, int a1) { }
     public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { }
+    public int StandaloneSurroundingBounds(uint* a0, int a1, float* a2) => default;
+    public int SurfaceMaterialFacts(uint a0, byte* a1, int a2, byte* a3, int a4, int* a5) => default;
+    public void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3) { }
+    public void SurfaceSetPlan(uint a0, int* a1, int a2) { }
+    public void ClientInterpAdmitted(uint* a0, int a1) { }
 }
 
 /// <summary><see cref="IViewClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -429,7 +433,6 @@ internal sealed unsafe class DefaultViewClientArea : IViewClientArea
     public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { }
     public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { }
     public void GetLightForPointFast(void* a0, float* a1, int a2, float* a3) { }
-    public int ClientColorCorrection(int a0, int a1, byte* a2, float a3) => default;
     public void ClientSetWorldRenderState(int a0, float* a1, int a2) { }
     public int GetLocalPlayerOrigin(float* a0) => default;
     public void SetViewerFogParams(FogParams* a0) { }
@@ -449,6 +452,10 @@ internal sealed unsafe class DefaultViewClientArea : IViewClientArea
     public void PixelVisDiameters(float* a0, int a1, float* a2) { }
     public int PixelVisView(float* a0, int a1) => default;
     public int GlowMaterialFind(byte* a0, byte* a1) => default;
+    public void* ColorLookupAdd(byte* a0) => default;
+    public void ColorLookupSetWeight(void* a0, float a1) { }
+    public void ColorLookupRemove(void* a0) { }
+    public void ColorLookupResetWeights() { }
 }
 
 /// <summary><see cref="IUserMessagesClientArea"/> for a test with no engine: every call answers its default.</summary>

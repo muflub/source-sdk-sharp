@@ -41,7 +41,7 @@
 // was built against, and so a stale header is a value that disagrees with
 // EngineBlockFingerprint.Current rather than a silence.
 //-----------------------------------------------------------------------------
-#define SOURCESHARP_ENGINE_BLOCK_FINGERPRINT 0x027436fcu
+#define SOURCESHARP_ENGINE_BLOCK_FINGERPRINT 0xb4839a12u
 
 //-----------------------------------------------------------------------------
 // The shared head: who the entity is and where it is.
@@ -273,7 +273,7 @@ struct EngineBlockClientTail_t
 	matrix3x4_t RenderTransform;
 
 	// What ShouldDraw returns, minus the one term that cannot be precomputed --
-	// see HideWhenOwnerSeen below. Non-zero draws.
+	// see OwnerSeenRule below. Non-zero draws.
 	int32_t     Drawn;
 
 	// What IsTransparent returns. Non-zero is translucent.
@@ -303,11 +303,12 @@ struct EngineBlockClientTail_t
 	// Blended, as a managed class that draws itself said through SetBlending.
 	int32_t     Translucent;
 
-	// Hidden while the third-person camera can see this entity's owner: the
-	// viewmodel's rule, and the ONE render-policy term that cannot be decided ahead
-	// of the draw. The camera is solved during view setup, after every stage a
-	// managed pass can run on, so the shell ANDs this bit with the live engine fact.
-	int32_t     HideWhenOwnerSeen;
+	// How the live 'camera sees the owner' fact gates the draw: 0 not at all, 1
+	// hidden while the camera sees the owner (the viewmodel), 2 drawn only while it
+	// does (the viewer's own body). The ONE render-policy term that cannot be decided
+	// ahead of the draw: the camera is solved during view setup, after every stage a
+	// managed pass can run on, so the shell combines this rule with the live fact.
+	int32_t     OwnerSeenRule;
 
 	// A FadeStyle: 0 none, 1 LOD, 2 portal window.
 	int32_t     FadeStyle;
@@ -502,8 +503,8 @@ static_assert( offsetof( EngineBlockClientTail_t, CustomDraw ) == 164,
                "EngineBlockClientTail_t::CustomDraw is not where EngineBlockClientTail.CustomDraw is" );
 static_assert( offsetof( EngineBlockClientTail_t, Translucent ) == 168,
                "EngineBlockClientTail_t::Translucent is not where EngineBlockClientTail.Translucent is" );
-static_assert( offsetof( EngineBlockClientTail_t, HideWhenOwnerSeen ) == 172,
-               "EngineBlockClientTail_t::HideWhenOwnerSeen is not where EngineBlockClientTail.HideWhenOwnerSeen is" );
+static_assert( offsetof( EngineBlockClientTail_t, OwnerSeenRule ) == 172,
+               "EngineBlockClientTail_t::OwnerSeenRule is not where EngineBlockClientTail.OwnerSeenRule is" );
 static_assert( offsetof( EngineBlockClientTail_t, FadeStyle ) == 176,
                "EngineBlockClientTail_t::FadeStyle is not where EngineBlockClientTail.FadeStyle is" );
 static_assert( offsetof( EngineBlockClientTail_t, FadeStartDistance ) == 180,

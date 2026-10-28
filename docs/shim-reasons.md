@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,888 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,377 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,302 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,375 |
 | c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,686 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,321 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,225 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,449 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,160 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,889 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 4,724 |
 | x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,363 |
-|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **82,857** |
+|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **82,173** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -243,6 +243,9 @@ Then lane M1-B moved the titles.txt '#' rule out of shell_hud.cpp into HudMessag
 Then lane M1-B deleted shell_clientdll.cpp's empty SimulateEntities and its call, and shell_clientsystems.cpp's SourceSharp_ClientSystemCount and SourceSharp_ClientSystemNameAt, which nothing read (2026-10-25): (b) 15,564 -> 15,545; 83,267 lines in the table.
 
 Then lanes M1-D and M1-B landed together (2026-10-25, measured by the walk at the landing on the vendor branch): (a) 34,155 -> 33,888, (b) 15,662 -> 15,377, (d) 9,329 -> 9,321; 82,857 lines in the table.
+
+Then lane M1-A landed on the vendor branch after M1-D and M1-B (2026-10-25, measured by the walk at the landing): (a) 33,888 -> 33,302, (b) 15,377 -> 15,375, (d) 9,321 -> 9,225; 82,173 lines in the table.
+Then the client's standalone shell lost its last decisions to managed (lane M1-A, 2026-10-25, measured by the walk on the lane's tip): (a) 34,256 -> 33,670 is shell_standalone_client.cpp (the distance fade, ShouldDraw's viewer arm, the interpolation filter and delay, the surface renderer's classname choice and field lookups, two dead seams) and shell_surface_render.cpp (the blob reads, the material choice and the run grouping, now BreakableSurfaceDraw's plan); (b) 15,830 -> 15,828 is shell_clientdll.cpp's OnRenderStart losing the colour-correction reset; (d) 9,470 -> 9,374 is shell_worldrender.cpp's colour-correction table and op dispatcher, now ColorLookupTable; no file left or changed its letter; 83,428 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

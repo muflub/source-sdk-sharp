@@ -23,3 +23,6 @@ void SourceSharp_SpriteStoredClear(	SLOT-HELP	drops the stored plans at a new ba
 static float HandleBits(	SLOT-HELP	the renderer's pixel visibility handle, its bits carried in the request's float slot
 static pixelvis_handle_t HandleOf(	SLOT-HELP	the plan's float slot read back as the handle the renderer keeps
 static void StorePlanQuery(	SLOT-HELP	the direct path's handle, as managed's plan left it, stored on the renderer the request came from
+KeyValues *ReadSpriteKey(	LAYOUT	unmarshals managed's material block (SpriteMaterial: the .vmt parsed in C#) into the KeyValues tree FindProceduralMaterial reads; a malformed block refuses, nothing is chosen
+[SpriteBlockReader] const char *CString()	SLOT-HELP	the block reader's bounds-checked string read, for ReadSpriteKey
+[SpriteBlockReader] bool Bytes(	SLOT-HELP	the block reader's bounds-checked byte read, for ReadSpriteKey

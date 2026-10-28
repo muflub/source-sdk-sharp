@@ -380,7 +380,15 @@ link-forbidden	1
 # LOWERED 2026-10-20, logic-lines 7457 -> 7435 (tools/shim-scope at the serialised ABI cleanup's landing on main c5c8df3d2):
 #   the dead slots' native bodies went with their rows. Hand-edited.
 # 2026-10-25, lanes M1-D and M1-B landed together on the vendor branch, measured by tools/shim-scope at the landing: logic-lines 3951. Hand-edited.
-logic-lines	3951
+# 2026-10-25, lane M1-A landed on the vendor branch after M1-D and M1-B, measured by tools/shim-scope at the landing: logic-lines 3951 -> 1759. Hand-edited.
+logic-lines	1759
+# LOWERED 2026-10-25, logic-lines 7435 -> 5916 (tools/shim-scope, lane M1-A on main 1f8f3e52d: the standalone shell, the shell renderable, the sprite render and leaf readers, the view facts, the world render state and the render trace ruled function by function, each with its reason; the dead SourceSharp_StandaloneGetRenderables and SourceSharp_ViewerVehicleJoystickResponseCurve deleted). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5916 -> 5862 (tools/shim-scope, lane M1-A: C_StandaloneEntity::ComputeFxBlend's fade rule moved to managed's StandaloneFade and StandaloneFadePass; the slot is empty, the new surrounding-bounds batch ruled BOUNDARY). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5862 -> 5365 (tools/shim-scope, lane M1-A: the surface renderer's blob reads, material choice, solid-run grouping and draw order moved to managed's BreakableSurfaceDraw (ClientBreakableSurf hands materials and a plan over); the renderer's executor, the three new shim bodies and PostDataUpdate ruled). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5365 -> 5302 (tools/shim-scope, lane M1-A: the colour-correction handle table and its op dispatcher moved to managed's ColorLookupTable; four render-context slots ruled BOUNDARY, the ClientColorCorrection slot retired). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5302 -> 5291 (tools/shim-scope, lane M1-A: ShouldDraw's viewer-body rule moved to managed's ClientRenderPolicy (the block's OwnerSeenRule); the slot ruled SLOT). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5291 -> 5255 (tools/shim-scope, lane M1-A: the interpolation filter (WantsInterpolation) and delay (StandaloneInterpolationAmount) moved to managed's InterpolatedSet and InterpolationDelay; the list, the admitted-set slot and the PreRender walk ruled). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5255 -> 5241 (tools/shim-scope, lane M1-A: SourceSharp_ViewEntityPose ruled BOUNDARY and ViewSubject::ViewEntityOverridesTheEye ruled LOGIC, kept for the native view setup's port, which owns its one caller). Hand-edited.
 native-convar-decls	68
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

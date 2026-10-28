@@ -22,7 +22,6 @@ internal sealed unsafe partial class EngineBrushMovement
 
     // The client's members, as a server engine answers them: what each one's
     // attach guard answered here, where the client's areas are never attached.
-    public void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count) { }
 }
 
 internal sealed unsafe partial class EngineConsole
@@ -2660,6 +2659,7 @@ internal sealed unsafe partial class EngineVisibility
     public int ColorCorrectionAdd(string lookupFile) => 0;
     public void ColorCorrectionRemove(int handle) { }
     public void ColorCorrectionSetWeight(int handle, float weight) { }
+    public void ColorCorrectionResetWeights() { }
     public void DynamicLightRelease(int key) { }
     public void DynamicLightUpdate(in DynamicLight light) { }
     public void SetViewerFogParams(in FogParams parameters) { }

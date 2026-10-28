@@ -1274,16 +1274,6 @@ public sealed class MoversPushedConVar : BoolConVar
 /// the two dozen brush classes changing a line.
 /// </para>
 ///
-/// <para>
-/// <b>The pane half is a DECLARED REFUSAL on this side</b> and not a forward.
-/// <c>SetSurfaceEdges</c> is on this interface because a breakable surface's
-/// panes are brush geometry, not because they move — and its ABI slot is
-/// CLIENT-ONLY: <c>func_breakable_surf</c>'s edge set is drawn, and the server
-/// has never had a slot to fill. Forwarding it compiled, ran, and was caught by
-/// <c>SideAuditTests.ServerAssemblyLeansOnlyOnSlotsItsSideFills</c>, which is
-/// exactly the audit's job. So it says so once per entity rather than reaching
-/// for a slot this side does not fill (LANE_BRIEF §7).
-/// </para>
 /// </summary>
 internal sealed class ManagedBrushMovement : IEngineBrushMovement
 {
@@ -1308,10 +1298,4 @@ internal sealed class ManagedBrushMovement : IEngineBrushMovement
         => _motion.Spin(entity, QAngle.FromVector(degreesPerSecond));
 
     public void StopMoving(EntityHandle entity) => _motion.StopMoving(entity);
-
-    public void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count)
-        => _log.Warning($"[SourceSharp] SetSurfaceEdges({entity}, {count} edges) is a CLIENT " +
-                       "call; the server fills no slot for it and the edges were not set. " +
-                       "A breakable surface's panes are drawn, not simulated — " +
-                       "SourceSharp.Client's ClientBreakableSurf is what sets them.\n");
 }

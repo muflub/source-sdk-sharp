@@ -2101,7 +2101,7 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 20 slot(s).
+/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 24 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
@@ -2145,9 +2145,6 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
     // int32_t IShimStandaloneClient::StandaloneShadowCast( uint32_t, int32_t * )
     public delegate* unmanaged<void*, uint, void*, int> StandaloneShadowCast;
 
-    // void IShimStandaloneClient::SurfaceSetEdges( uint32_t, const unsigned char *, int32_t )
-    public delegate* unmanaged<void*, uint, byte*, int, void> SurfaceSetEdges;
-
     // int32_t IShimStandaloneClient::ClientRecvProp( int32_t, char *, int32_t, char *, int32_t, char *, int32_t, int32_t *, int32_t *, int32_t *, int32_t * )
     public delegate* unmanaged<void*, int, byte*, int, byte*, int, byte*, int, void*, void*, void*, void*, int> ClientRecvProp;
 
@@ -2168,10 +2165,25 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 
     // void IShimStandaloneClient::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
     public delegate* unmanaged<void*, byte*, int, int, int, float, float, void> RegisterAmmoType;
+
+    // int32_t IShimStandaloneClient::StandaloneSurroundingBounds( const uint32_t *, int32_t, float * )
+    public delegate* unmanaged<void*, void*, int, void*, int> StandaloneSurroundingBounds;
+
+    // int32_t IShimStandaloneClient::SurfaceMaterialFacts( uint32_t, char *, int32_t, char *, int32_t, int32_t * )
+    public delegate* unmanaged<void*, uint, byte*, int, byte*, int, void*, int> SurfaceMaterialFacts;
+
+    // void IShimStandaloneClient::SurfaceSetMaterials( uint32_t, const char *, int32_t, int32_t )
+    public delegate* unmanaged<void*, uint, byte*, int, int, void> SurfaceSetMaterials;
+
+    // void IShimStandaloneClient::SurfaceSetPlan( uint32_t, const int32_t *, int32_t )
+    public delegate* unmanaged<void*, uint, void*, int, void> SurfaceSetPlan;
+
+    // void IShimStandaloneClient::ClientInterpAdmitted( const uint32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, int, void> ClientInterpAdmitted;
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 24 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 27 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2190,9 +2202,6 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // void IShimViewClient::GetLightForPointFast( void *, const float *, int32_t, float * )
     public delegate* unmanaged<void*, void*, void*, int, void*, void> GetLightForPointFast;
-
-    // int32_t IShimViewClient::ClientColorCorrection( int32_t, int32_t, const char *, float )
-    public delegate* unmanaged<void*, int, int, byte*, float, int> ClientColorCorrection;
 
     // void IShimViewClient::ClientSetWorldRenderState( int32_t, const float *, int32_t )
     public delegate* unmanaged<void*, int, void*, int, void> ClientSetWorldRenderState;
@@ -2250,6 +2259,18 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::GlowMaterialFind( const char *, const char * )
     public delegate* unmanaged<void*, byte*, byte*, int> GlowMaterialFind;
+
+    // void * IShimViewClient::ColorLookupAdd( const char * )
+    public delegate* unmanaged<void*, byte*, void*> ColorLookupAdd;
+
+    // void IShimViewClient::ColorLookupSetWeight( void *, float )
+    public delegate* unmanaged<void*, void*, float, void> ColorLookupSetWeight;
+
+    // void IShimViewClient::ColorLookupRemove( void * )
+    public delegate* unmanaged<void*, void*, void> ColorLookupRemove;
+
+    // void IShimViewClient::ColorLookupResetWeights( void )
+    public delegate* unmanaged<void*, void> ColorLookupResetWeights;
 }
 
 /// <summary>

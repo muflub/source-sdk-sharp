@@ -236,15 +236,6 @@ shell_glow_client.o	_ZN12_GLOBAL__N_110s_CommandsE	(anonymous namespace)::s_Comm
 	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	sourcesharp/game/client/shell_glow_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 shell_hud.o	_ZN12_GLOBAL__N_19g_UiPaintE	(anonymous namespace)::g_UiPaint	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_hud.o	_ZL24g_CSourceSharpHud_Helper	g_CSourceSharpHud_Helper	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	24	UNRULED		
-shell_hud.o	_ZL15invnext_command	invnext_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL15invprev_command	invprev_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL15lastinv_command	lastinv_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL13slot1_command	slot1_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL13slot2_command	slot2_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL13slot3_command	slot3_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL13slot4_command	slot4_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL13slot5_command	slot5_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_hud.o	_ZL13slot6_command	slot6_command	sourcesharp/game/client/shell_hud.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	_ZN17CHudElementHelper10m_sHelpersE	CHudElementHelper::m_sHelpers	sourcesharp/game/client/shell_hud_framework.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		the DECLARE_HUDELEMENT list, walked in shell_hud_framework.cpp
 	closecaption	closecaption	sourcesharp/game/client/shell_hud_framework.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	gHUD	gHUD	sourcesharp/game/client/shell_hud_framework.cpp	GLOBAL	bss	file-or-global	200	UNRULED		
@@ -485,7 +476,7 @@ shell_standalone_client.o	_ZL12g_pTierProps	g_pTierProps	sourcesharp/game/client
 shell_standalone_client.o	_ZL13g_pTierTables	g_pTierTables	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	56	UNRULED		
 shell_standalone_client.o	_ZL19s_pLocalPlayerShell	s_pLocalPlayerShell	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 shell_standalone_client.o	_ZL17s_pLocalViewModel	s_pLocalViewModel	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-shell_surface_render.o	_ZZN27CSourceSharpSurfaceRenderer16DrawOneHighlightEP13IBrushSurfaceP5IMeshP12CMeshBuilderRK6VectorS8_S8_16SurfaceWinSide_tE7s_Grout	CSourceSharpSurfaceRenderer::DrawOneHighlight(IBrushSurface*, IMesh*, CMeshBuilder*, Vector const&, Vector const&, Vector const&, SurfaceWinSide_t)::s_Grout	sourcesharp/game/client/shell_surface_render.cpp	LOCAL	bss	function-local	12	UNRULED		
+shell_surface_render.o	_ZZN27CSourceSharpSurfaceRenderer8DrawQuadEP13IBrushSurfaceP5IMeshP12CMeshBuilderRK6VectorS8_S8_PA2_KfbE7s_Grout	CSourceSharpSurfaceRenderer::DrawQuad(IBrushSurface*, IMesh*, CMeshBuilder*, Vector const&, Vector const&, Vector const&, float const (*) [2], bool)::s_Grout	sourcesharp/game/client/shell_surface_render.cpp	LOCAL	bss	function-local	12	UNRULED		
 	_ZN26PrecacheEffectGlassShatter20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectGlassShatter::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	data	class-or-namespace	32	UNRULED		
 	_ZN26PrecacheEffectGlassShatter29register_ClientEffectRegisterE	PrecacheEffectGlassShatter::register_ClientEffectRegister	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN19PrecachePlayerDecal20ClientEffectRegister14m_pszMaterialsE	PrecachePlayerDecal::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	data	class-or-namespace	512	UNRULED		
@@ -549,7 +540,6 @@ shell_viewrender_client.o	_ZL16spec_pos_command	spec_pos_command	sourcesharp/gam
 	view	view	sourcesharp/game/client/shell_viewrender_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_voicestatus_client.o	_ZL14s_pVoiceStatus	s_pVoiceStatus	sourcesharp/game/client/shell_voicestatus_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 shell_world_nettable_client.o	_ZZL13WorldNetTablevE7s_Table	WorldNetTable()::s_Table	sourcesharp/game/client/shell_world_nettable_client.cpp	LOCAL	bss	function-local	40	UNRULED		
-shell_worldrender.o	_ZL14g_ColorLookups	g_ColorLookups	sourcesharp/game/client/shell_worldrender.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 	g_bUseCustomAutoExposureMax	g_bUseCustomAutoExposureMax	sourcesharp/game/client/shell_worldrender.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
 	g_bUseCustomAutoExposureMin	g_bUseCustomAutoExposureMin	sourcesharp/game/client/shell_worldrender.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
 	g_bUseCustomBloomScale	g_bUseCustomBloomScale	sourcesharp/game/client/shell_worldrender.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -558,7 +548,6 @@ shell_worldrender.o	_ZL14g_ColorLookups	g_ColorLookups	sourcesharp/game/client/s
 	g_flCustomBloomScale	g_flCustomBloomScale	sourcesharp/game/client/shell_worldrender.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
 	g_flCustomBloomScaleMinimum	g_flCustomBloomScaleMinimum	sourcesharp/game/client/shell_worldrender.cpp	GLOBAL	bss	file-or-global	4	UNRULED		
 shell_worldrender.o	_ZL21g_nActiveColorWeights	g_nActiveColorWeights	sourcesharp/game/client/shell_worldrender.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-shell_worldrender.o	_ZL18g_nNextColorLookup	g_nNextColorLookup	sourcesharp/game/client/shell_worldrender.cpp	LOCAL	data	file-or-global	4	UNRULED		
 shell_worldtext_render.o	_ZL18g_ManagedWorldText	g_ManagedWorldText	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_worldtext_render.o	_ZL17g_WorldTextSystem	g_WorldTextSystem	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 tier0_thread_client.o	_ZN12_GLOBAL__N_112s_MainThreadE	(anonymous namespace)::s_MainThread	sourcesharp/game/client/tier0_thread_client.cpp	LOCAL	bss	function-local	8	UNRULED		

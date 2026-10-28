@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Client.Interop;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Standalone;
@@ -7,10 +8,11 @@ namespace SourceSharp.Client.Standalone;
 /// The client half of func_breakable_surf.
 ///
 /// <para>
-/// Most of what this entity does on the client is DRAWN, and drawing is
-/// shell_surface_render.cpp — a mesh builder is not something to reach across
-/// the boundary per vertex. So this class does very little, and it is not
-/// optional for that reason.
+/// Most of what this entity does on the client is DRAWN. The mesh building is
+/// shell_surface_render.cpp's — a mesh builder is not something to reach across
+/// the boundary per vertex — and everything it builds from is decided here:
+/// which materials the broken surface draws with, which panes still stand and
+/// which edges are cracked (<see cref="BreakableSurfaceDraw"/>, lane M1-A).
 /// </para>
 ///
 /// <para>
@@ -25,33 +27,36 @@ namespace SourceSharp.Client.Standalone;
 /// </code>
 /// <para>
 /// — and then the client begins joining and stops. So this exists to claim the
-/// classname, and it holds the decoded state because anything the glass wants to
-/// decide on this side later belongs here rather than in the renderer.
+/// classname, and it holds the decoded state the draw is decided from.
 /// </para>
 /// </summary>
 [ClientStandaloneEntity(EntityNames.FuncBreakableSurf)]
 public sealed class ClientBreakableSurf : ClientStandaloneEntity
 {
-    public ClientBreakableSurf(IEngineEntityRender render, IEngineBrushMovement movement)
+    public ClientBreakableSurf(IEngineEntityRender render, IBreakableSurfaceRenderer surface)
         : base(render)
     {
-        Movement = movement;
+        Surface = surface;
     }
 
-    /// <summary>moving a brush, and reporting when it arrives.</summary>
-    private readonly IEngineBrushMovement Movement;
-
+    /// <summary>The native mesh builder the draw is handed to.</summary>
+    private readonly IBreakableSurfaceRenderer Surface;
 
     public override string ClassName => EntityNames.FuncBreakableSurf;
 
     /// <summary>
-    /// The same declaration the server writes through. Decoded by the registry
-    /// on every update; the renderer reads the same bytes natively, at offsets
-    /// taken from the same table.
+    /// The same declaration the server writes through, decoded by the registry
+    /// on every update.
     /// </summary>
     [NetState] public BreakableSurfaceNetState State = new();
 
     private bool _reported;
+
+    // The materials, chosen once: at the first update that finds the surface broken.
+    private bool _materialsChosen;
+
+    // A plan has been handed over (so an unbroken update clears it).
+    private bool _planned;
 
     /// <summary>
     /// A pane's crack pattern, kept so it does not reshuffle as its neighbours
@@ -65,22 +70,42 @@ public sealed class ClientBreakableSurf : ClientStandaloneEntity
 
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
-        // Which cracks show is decided HERE, from the pane bits, and pushed to
-        // whatever draws this entity. Native does the mesh building and nothing
-        // else — see PaneEdges.
-        if (State.Broken)
+        if (!State.Broken)
         {
-            var edges = PaneEdges.Build(State.Wide, State.High,
-                                        (w, h) => IsSolid(w, h), StyleOf);
-
-            Movement.SetSurfaceEdges(Handle, PaneEdges.Pack(edges), edges.Count);
+            // Nothing to draw until the sheet breaks: the grid does not exist before then.
+            if (_planned)
+                Surface.SetPlan(Handle, ReadOnlySpan<int>.Empty);
+            _planned = false;
+            return;
         }
+
+        if (!_materialsChosen)
+        {
+            _materialsChosen = true;
+            SurfaceMaterialFacts facts = Surface.MaterialFacts(Handle);
+            SurfaceMaterialChoice choice = BreakableSurfaceDraw.ChooseMaterials(facts, State.SurfaceType, out string? warning);
+            if (warning is not null)
+                Log.Warning(warning);
+            Surface.SetMaterials(Handle, choice);
+
+            // Whether the surface named a cracked variant decides whether ANY
+            // crack sprite is drawn, so a window that shows clean holes and no
+            // cracks is answered here rather than by staring at it.
+            Log.Msg($"[SourceSharp] surface renderer: material '{facts.Material}', cracked variant " +
+                    $"{(choice.SwapsDetail ? choice.Pieces : "NONE")}\n");
+        }
+
+        var edges = PaneEdges.Build(State.Wide, State.High, (w, h) => IsSolid(w, h), StyleOf);
+        int[] plan = BreakableSurfaceDraw.Plan(State.Wide, State.High, State.Normal, State.Corner,
+                                               State.PanelWidth, State.PanelHeight, State.SurfaceType,
+                                               State.IsPaneSolid, edges);
+        Surface.SetPlan(Handle, plan);
+        _planned = true;
 
         // Once, when it goes. A window reports its grid at the moment it breaks
         // and says nothing on the updates that follow, which are panes falling
-        // out one at a time — and that is the state the renderer is drawing, so
-        // a line per pane per window would bury everything else.
-        if (!State.Broken || _reported)
+        // out one at a time.
+        if (_reported)
             return;
 
         _reported = true;

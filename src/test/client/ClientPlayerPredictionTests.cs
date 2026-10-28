@@ -467,6 +467,28 @@ public class ClientPlayerPredictionTests
     }
 
     [Fact]
+    public void ADrivingPublishNamesTheDrivenEntity()
+    {
+        // What the interpolation pass leaves out (InterpolatedSet, lane M1-A):
+        // the entity the shell is told to draw at the replay's origin.
+        var bench = Build(11);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(LocalHandle, bench.Prediction.DrivenHandle.Value);
+    }
+
+    [Fact]
+    public void APublishThatDoesNotDriveNamesNoEntity()
+    {
+        var bench = Build(13);
+
+        bench.Prediction.Update(0, true, 10, 13, false);
+
+        Assert.Equal(EntityHandle.None, bench.Prediction.DrivenHandle);
+    }
+
+    [Fact]
     public void ACommandTheReplayCouldNotRunStopsDriving()
     {
         // The other way a replay runs nothing: a command IS unacknowledged and

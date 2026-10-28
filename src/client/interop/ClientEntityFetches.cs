@@ -51,7 +51,13 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         IServiceLocator areas = engine.Attachment.Areas;
 
         services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(areas.Require<IStandaloneClientArea>()));
+        // The interpolation pass's admitted set, for the shell's PreRender walk (InterpolatedSet).
+        services.AddInstance<IInterpolationAdmission>(new ClientInterpolationAdmission(areas.Require<IStandaloneClientArea>()));
         services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(areas.Require<IStandaloneClientArea>()));
+        // The shells' surrounding boxes, for the per-view fade (StandaloneFadePass).
+        services.AddInstance<IStandaloneRenderBounds>(new ClientStandaloneRenderBounds(areas.Require<IStandaloneClientArea>()));
+        // A broken surface's native draw (ClientBreakableSurf hands it the materials and the plan).
+        services.AddInstance<IBreakableSurfaceRenderer>(new ClientBreakableSurfaceRenderer(areas.Require<IStandaloneClientArea>()));
         services.AddInstance<IClientReplayEngine>(new ClientReplayEngine(areas.Require<IPredictionClientArea>()));
 
         // The recv tables and schema refusals, for the dev API's nettables

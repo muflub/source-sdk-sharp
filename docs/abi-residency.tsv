@@ -9,7 +9,6 @@ ClientFrameStage.cs	plumbing	b: value contract: ClientFrameStage_t numbers passe
 ClientPlayerViewBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
 ClientRenderGroup.cs	plumbing	b: value contract: RenderGroup_t, COMPILE_TIME_ASSERTed at the shell call site	-
 ClientShadowFlag.cs	plumbing	b: value contract: SHADOW_FLAGS_* bits asserted at the shell call site	-
-ColorCorrectionOp.cs	plumbing	b: value contract: SourceSharpColorCorrectionOp	-
 ConsoleEntry.cs	plumbing	a: named by ShimAreas.g.cs	-
 Crossings.cs	plumbing	c: crossing counters (user: plumbing); per side under P5	-
 DataUpdateType.cs	plumbing	b: value contract: DataUpdateType_t passed as int32	-

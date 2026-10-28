@@ -23,6 +23,16 @@ public interface ILeafListSettings
 }
 
 /// <summary>
+/// What runs before each blend batch asks the renderables for their blends:
+/// the standalone entities' per-view fade (<c>StandaloneFadePass</c>), which
+/// writes the blend each one's <c>GetFxBlend</c> then answers.
+/// </summary>
+public interface IRenderableBlendPass
+{
+    void BeforeBlends();
+}
+
+/// <summary>
 /// The leaf system's per-view decisions (C7 cluster 12, L1 and L2 of
 /// docs/plans/c7_leaf_system.md), ported from clientleafsystem.cpp and made
 /// over the managed registry (<see cref="LeafRegistry"/>):
@@ -91,10 +101,20 @@ public sealed class RenderableListBuilder
     private int[] _answers = [];
     private bool[] _survives = [];
 
+    // The pass each blend batch is preceded by (none in a fact that builds the
+    // lists alone).
+    private readonly IRenderableBlendPass? _blendPass;
+
     public RenderableListBuilder(LeafRegistry registry, ILeafListSettings settings)
+        : this(registry, settings, null)
+    {
+    }
+
+    public RenderableListBuilder(LeafRegistry registry, ILeafListSettings settings, IRenderableBlendPass? blendPass)
     {
         _registry = registry;
         _settings = settings;
+        _blendPass = blendPass;
         for (int g = 0; g < GroupCount; g++)
             _entries[g] = new int[MaxGroupEntities * 3];
     }
@@ -163,6 +183,7 @@ public sealed class RenderableListBuilder
     // static prop's), applied before the caller reads the groups.
     private void Blend(LeafRegistry reg, nint system)
     {
+        _blendPass?.BeforeBlends();
         int n = reg.Native.ComputeFxBlends(system, Pointers(_toBlend), _pending);
         if (n > 0)
             reg.ApplyPending(_pending.AsSpan(0, LeafPending.Words * Math.Min(n, LeafPending.Max)));

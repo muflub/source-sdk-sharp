@@ -273,36 +273,6 @@ bool SourceSharp_ThirdPersonSeesOwner();
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-// The response curve the viewer's VEHICLE wants for the movement stick.
-//
-// Stock (in_joystick.cpp, JoyStickApplyMovement):
-//
-//     if ( pLocalPlayer && pLocalPlayer->IsInAVehicle() )
-//         iResponseCurve = pLocalPlayer->GetVehicle()
-//                        ? pLocalPlayer->GetVehicle()->GetJoystickResponseCurve()
-//                        : joy_response_move_vehicle.GetInt();
-//
-// Writes the curve into *pOutCurve and answers true only when the viewer is in
-// a vehicle that asked for one. FALSE MEANS "not in a vehicle", and the caller
-// then uses joy_response_move -- which is stock's own else arm, unchanged.
-//
-// THIS BUILD HAS NO VEHICLES AND THE ANSWER IS A HARD FALSE. The server shell
-// settles it rather than this file guessing: CStandalonePlayer::MvIsInAVehicle
-// is `return false` (shell_standalone_player.h:212) and CShellPlayerInfo's
-// IsInAVehicle is the same (shell_playerinfo.cpp:226). So the vehicle arm has
-// been unreachable since the flip in the same way, and by the same evidence, as
-// the eleven asks step 7c converted.
-//
-// IT IS A DECLARED SEAM AND A NOT-SHIPPED LEDGER ROW rather than a deletion,
-// and the difference matters exactly as it did for the world fog: a deleted
-// vehicle arm would make "this build has no vehicles" and "the joystick forgot
-// to ask" the same picture, and whoever adds vehicles would find a stick that
-// silently uses the on-foot curve. Removal owner: whoever gives the managed
-// player a vehicle. The row comes out with the hard false.
-//-----------------------------------------------------------------------------
-bool SourceSharp_ViewerVehicleJoystickResponseCurve( int *pOutCurve );
-
-//-----------------------------------------------------------------------------
 // Whether the viewer's aim is being assisted onto a target right now.
 //
 // Stock (in_joystick.cpp, AutoAimDampening, inside `#ifdef HL2_CLIENT_DLL`):

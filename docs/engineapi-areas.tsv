@@ -227,7 +227,6 @@ StandaloneSetFade	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_S
 StandaloneSetOverlayModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetOverlayModel	uint, int, void	
 StandaloneSetViewModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetViewModel	uint, int, void	
 StandaloneShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneShadowCast	uint, int*, int	
-SurfaceSetEdges	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetEdges	uint, byte*, int, void	
 ClientRecvProp	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientRecvProp	int, byte*, int, byte*, int, byte*, int, int*, int*, int*, int*, int	
 ClientSchemaRefusal	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientSchemaRefusal	int, uint*, uint*, uint*, int*, byte*, int, int*, int	
 StandaloneEngineBlock	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneEngineBlock	uint, int*, void*	
@@ -235,11 +234,15 @@ StandaloneStoreSequence	EngineApi	IShimStandaloneClient	client		client	-	SourceS
 StandaloneSetRagdoll	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetRagdoll	uint, int, void	
 EntitySetSkin	EngineApi	IShimStandaloneClient	client		client	S	SourceSharp_EntitySetSkin	uint, int, void	
 RegisterAmmoType	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_RegisterAmmoType	byte*, int, int, int, float, float, void	
+StandaloneSurroundingBounds	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSurroundingBounds	uint*, int, float*, int	
+SurfaceMaterialFacts	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceMaterialFacts	uint, byte*, int, byte*, int, int*, int	
+SurfaceSetMaterials	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetMaterials	uint, byte*, int, int, void	
+SurfaceSetPlan	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetPlan	uint, int*, int, void	
+ClientInterpAdmitted	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpAdmitted	uint*, int, void	
 ConNPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNPrintf	void*, int, byte*, void	
 ConNXPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNXPrintf	void*, int, float, float*, int, byte*, void	
 GetLightForPoint	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPoint	void*, float*, int, float*, void	
 GetLightForPointFast	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPointFast	void*, float*, int, float*, void	
-ClientColorCorrection	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientColorCorrection	int, int, byte*, float, int	
 ClientSetWorldRenderState	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientSetWorldRenderState	int, float*, int, void	
 GetLocalPlayerOrigin	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLocalPlayerOrigin	float*, int	
 SetViewerFogParams	EngineApi	IShimViewClient	client		client	-	SourceSharp_SetViewerFogParams	FogParams*, void	
@@ -259,6 +262,10 @@ PixelVisQueryPixels	EngineApi	IShimViewClient	client		client	-	SourceSharp_Pixel
 PixelVisDiameters	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisDiameters	float*, int, float*, void	
 PixelVisView	EngineApi	IShimViewClient	client		client	-	SourceSharp_PixelVisView	float*, int, int	
 GlowMaterialFind	EngineApi	IShimViewClient	client		client	-	SourceSharp_GlowMaterialFind	byte*, byte*, int	
+ColorLookupAdd	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupAdd	byte*, void*	
+ColorLookupSetWeight	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupSetWeight	void*, float, void	
+ColorLookupRemove	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupRemove	void*, void	
+ColorLookupResetWeights	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupResetWeights	void	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	

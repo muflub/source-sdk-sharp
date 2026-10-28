@@ -77,7 +77,7 @@
 11	SLOT	bool CShellClientDLL::DispatchUserMessage( int msg_type, bf_read &msg_data )
 3	LIVE-API	void UpdateClientRenderableInPVSStatus()
 3	SLOT-HELP	void UpdatePVSNotifiers()
-33	SLOT-HELP	void OnRenderStart()
+31	SLOT-HELP	void OnRenderStart()
 4	SLOT-HELP	void OnRenderEnd()
 4	INSTRUMENT	uint64_t SourceSharp_ClientStageCrossings()
 4	INSTRUMENT	uint64_t CShellClientDLL::ClientStageCrossings() const

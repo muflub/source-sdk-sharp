@@ -22,8 +22,8 @@ namespace SourceSharp.Server;
 /// <para>
 /// The fade itself is client-side and has to be: it is a distance from the
 /// viewer, recomputed as they move, and there is one viewer per client. So the
-/// server sends the distance and the client's shell does the arithmetic — see
-/// <c>C_StandaloneEntity::ComputeFxBlend</c>, which is the engine's own
+/// server sends the distance and the client does the arithmetic — see
+/// the client's <c>StandaloneFade</c>, which is the engine's own
 /// ComputeDistanceFade, and <see cref="SourceSharp.Client.Standalone.ClientLod"/>,
 /// which does nothing but hand the number over.
 /// </para>

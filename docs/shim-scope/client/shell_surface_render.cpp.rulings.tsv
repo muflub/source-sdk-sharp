@@ -1,2 +1,16 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static ITexture *SurfaceBaseTexture(	SLOT-HELP	a material's $basetexture, the texture the detail swap installs
+CSourceSharpSurfaceRenderer::CSourceSharpSurfaceRenderer()	SLOT-HELP	the renderer's empty state
+CSourceSharpSurfaceRenderer::~CSourceSharpSurfaceRenderer()	SLOT-HELP	the renderer's teardown trace
+void CSourceSharpSurfaceRenderer::SetMaterials(	LAYOUT	references the materials managed's BreakableSurfaceDraw named (the pieces', the block's, the twelve edges') and their base textures, and the detail var only when managed says the pieces' material takes the swap; no choice is made
+void CSourceSharpSurfaceRenderer::SetPlan(	LAYOUT	keeps managed's plan: its header into the frame members, its whole entries
+void CSourceSharpSurfaceRenderer::SetDetailTexture(	SLOT-HELP	writes the texture into the held detail var
+void CSourceSharpSurfaceRenderer::Steps(	SLOT-HELP	the grid's two step vectors from the plan's normal and pane size through mathlib's VectorAngles/AngleVectors, the engine maths the server's pane grid also asks (bit-for-bit agreement)
+void CSourceSharpSurfaceRenderer::BeginDraw()	BOUNDARY	installs the renderer as the brush surface renderer when managed handed it a plan, with the once-per-surface draw report
+void CSourceSharpSurfaceRenderer::EndDraw()	BOUNDARY	uninstalls the brush surface renderer
+bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface(	SLOT	IBrushRenderer::RenderBrushModelSurface: carries managed's plan out in its order, each entry's quad at its grid place in the surface's frame, a new mesh when the entry's material or swapped texture changes; out-of-range edge words skipped
+void CSourceSharpSurfaceRenderer::DrawQuad(	SLOT-HELP	stock's DrawOneBlock/Edge/Highlight: one quad through CMeshBuilder, the brush surface's texture and lightmap coordinates at each vertex
+int32_t SourceSharp_SurfaceMaterialFacts(	BOUNDARY	IShimStandaloneClient::SurfaceMaterialFacts: the brush model's material count and, for one material, its name and $crackmaterial, for managed's choice
+void SourceSharp_SurfaceSetMaterials(	BOUNDARY	IShimStandaloneClient::SurfaceSetMaterials: managed's names unpacked (a short block refused) onto the shell's surface renderer, made on this first ask
+void SourceSharp_SurfaceSetPlan(	BOUNDARY	IShimStandaloneClient::SurfaceSetPlan: managed's plan onto the shell's surface renderer

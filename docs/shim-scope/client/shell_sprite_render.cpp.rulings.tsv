@@ -8,3 +8,19 @@
 [CSourceSharpSpriteRenderer] int Begin(	SLOT	a managed sprite's direct draw request, with its own query handle, world-space flag and proxy size
 int32_t SourceSharp_FxSpriteDrawBegin(	BOUNDARY	IShimFxClient: the request for a managed sprite at its owner's interpolated place plus the offset
 static int32_t SourceSharpDrawSpriteCore(	BOUNDARY	resolves a managed sprite's owner, place and model and refuses an out-of-range render mode, then draws or begins the draw
+void SourceSharp_SpriteTrailUpdate(	BOUNDARY	IShimFx's trail update: the owner's trail renderable made on the first call (into the leaf system's translucent group) and handed managed's visibility; managed decides when a trail exists and whether it shows
+[CSourceSharpSpriteSystem] virtual void LevelShutdownPostEntity()	HOOK	the client system's level shutdown: the per-owner renderers and every trail renderable released, the particle shell's shutdown
+static void ManagedSpriteTrails_Follow()	SLOT-HELP	the PreRender walk: each trail renderable takes its owner's pose and asks managed's SpriteTrailTick for its box; a trail whose owner is gone is released (lifetime, not a choice)
+int32_t SourceSharp_DrawSpriteOffset(	BOUNDARY	IShimFx::DrawSpriteOffset: the offset as a vector, forwarded to the sprite renderer
+static bool SpriteRenderModeRefused(	SLOT-HELP	refuses a render mode outside RenderMode_t, an ABI range check from managed, warned once
+static CSourceSharpSpriteRenderer *RendererFor(	SLOT-HELP	the owner's sprite renderer, made on first use: the object holding its pixel-visibility query handle
+int32_t SourceSharp_DrawSprite(	BOUNDARY	IShimFx::DrawSprite: forwarded to the sprite renderer at the owner's origin
+static void ManagedSpriteTrail_Forget(	SLOT-HELP	the destroy latch's gone callback: the trail's row leaves the table
+void SourceSharp_SpriteTrailDestroy(	BOUNDARY	IShimFx's trail destroy: releases the owner's trail renderable
+[CSourceSharpSpriteSystem] virtual void PreRender()	HOOK	the client system's PreRender: the trails follow their owners, then the particle shell's PreRender
+[CSourceSharpSpriteTrail] virtual void GetRenderBounds(	SLOT	IClientRenderable: the box managed's SpriteTrailTick answered
+[CSourceSharpSpriteTrail] CSourceSharpSpriteTrail()	SLOT-HELP	the trail renderable's empty state
+CClientSystem *ClientSystem_Sprite()	HOOK	kClientSystems accessor
+[CSourceSharpSpriteSystem] : CClientSystemPerFrame(	HOOK	the client system's registration name
+[CSourceSharpSpriteTrail] virtual bool IsTransparent()	SLOT	IClientRenderable: a trail is translucent, a constant
+[CSourceSharpSpriteTrail] virtual bool ShouldDraw()	SLOT	IClientRenderable: the visibility managed handed SpriteTrailUpdate

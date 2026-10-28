@@ -882,7 +882,6 @@ TEST( ClientRenderPolicyShell, EverySetterThatChangesWhatAnEntityIsBumpsTheInput
 	{
 		"void C_StandaloneEntity::SetDormant( bool bDormant )",
 		"void C_StandaloneEntity::PublishModelFacts()",
-		"void C_StandaloneEntity::SetShadowCast( int nChoice )",
 		"void C_StandaloneEntity::SetFade( int nStyle, float flStartDist, float flEndDist,",
 		"void C_StandaloneEntity::SetCustomDraw( const Vector &mins, const Vector &maxs )",
 		"void C_StandaloneEntity::SetBlending( bool bTranslucent, bool bIgnoreZ, int nAlpha )",
@@ -1020,19 +1019,25 @@ TEST( ClientRenderPolicyShell, TheDrawAnswerIsALoadAndOneLiveEngineFact )
 	const std::string body = FunctionBody( src, "bool C_StandaloneEntity::ShouldDraw( void )" );
 	ASSERT_FALSE( body.empty() );
 
-	EXPECT_NE( body.find( "if ( tail.Drawn == 0 )" ), std::string::npos )
+	EXPECT_NE( body.find( "if ( tail.Drawn == 0 || tail.Dormant != 0 )" ), std::string::npos )
 		<< "ShouldDraw no longer opens with the answer managed code wrote.";
 
-	EXPECT_NE( body.find( "tail.HideWhenOwnerSeen == 0 || !SourceSharp_ThirdPersonSeesOwner()" ),
-	           std::string::npos )
+	EXPECT_NE( body.find( "switch ( tail.OwnerSeenRule )" ), std::string::npos )
 		<< "the one term that cannot be precomputed is gone. Folded into "
 		   "Client.Drawn it would be one frame stale, which is a pair of arms "
 		   "on screen for a frame after every `thirdperson`.";
 
-	// And the rules are NOT back beside it.
+	// And the rules are NOT back beside it: the model, the custom draw and the
+	// viewer's own body are ClientRenderPolicy's (lane M1-A for the last).
 	EXPECT_EQ( body.find( "GetModel()" ), std::string::npos )
 		<< "ShouldDraw asks the model again. Whether an entity with no model "
 		   "draws is a decision (a beam has none by design), and it is C#'s.";
+	EXPECT_EQ( body.find( "m_bLocalPlayer" ), std::string::npos )
+		<< "ShouldDraw decides the viewer's own body again; that rule is "
+		   "ClientRenderPolicy.OwnerSeen's.";
+	EXPECT_EQ( body.find( "CustomDraw" ), std::string::npos )
+		<< "ShouldDraw decides the self-drawing entity again; that rule is "
+		   "ClientRenderPolicy.Drawn's.";
 }
 
 //-----------------------------------------------------------------------------

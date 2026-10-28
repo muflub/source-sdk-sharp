@@ -1,2 +1,14 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+void SourceSharp_SetViewerSkyboxParams(	LAYOUT	fills the sky3dparams_t the view executor reads from managed's pushed skybox (WorldSkybox's pass); colours unpacked, nothing chosen
+void SourceSharp_SetViewerFogParams(	LAYOUT	fills the fogparams_t the view executor reads from managed's pushed fog (WorldFog's pass); colours unpacked, nothing chosen
+bool SourceSharp_ViewerAbsPosition(	BOUNDARY	the local player shell's pose, for getpos 2 / spec_pos 2
+bool SourceSharp_ViewerAimIsAssisted()	BOUNDARY	IInput's autoaim question answered false with the not-shipped diagnostic (HL2 autoaim is not in this build)
+bool SourceSharp_ViewerAudioIsUnderwater(	BOUNDARY	the local player's networked water level through AudioIsUnderwater, for the engine's audio state
+fogparams_t *SourceSharp_ViewerFogParams()	LAYOUT	the filled fogparams_t, or NULL before managed pushed any
+bool SourceSharp_ViewerEffectActive(	BOUNDARY	the local player's networked effects word tested for the bits asked (EF_DIMLIGHT for the plan's flashlight input)
+static void SourceSharp_UnpackViewerColor32(	LAYOUT	a packed RGBA word into the engine's color32 members
+sky3dparams_t *SourceSharp_ViewerSkyboxParams()	LAYOUT	the filled sky3dparams_t, or NULL before managed pushed any
+void SourceSharp_ViewerCameraModeChanged()	BOUNDARY	the camera mode flipped: the local player shell re-runs UpdateVisibility, as stock's C_BasePlayer::ThirdPersonSwitch does
+bool SourceSharp_HasLocalViewer()	BOUNDARY	whether the local player shell exists
+bool SourceSharp_ViewEntityPose(	BOUNDARY	the engine's view entity (render->GetViewEntity) and its drawn pose for the native view setup's eye, when ViewEntityOverridesTheEye says it overrides

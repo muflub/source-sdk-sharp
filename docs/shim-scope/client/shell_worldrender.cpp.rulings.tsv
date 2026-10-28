@@ -1,5 +1,10 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-static ColorCorrectionHandle_t AddColorLookup( const char *pszFile 	LAYOUT	the material system's add/lock/load/unlock of a colour lookup, as colorcorrectionmgr.cpp made it (C9)
-void SourceSharp_ColorCorrectionResetWeights()	LAYOUT	the material system's per-frame weight reset, where stock made it (C9)
 bool SourceSharp_ColorCorrectionActive()	LAYOUT	whether this frame applied a non-zero lookup weight, for the post plan's input (C9)
+void SourceSharp_ClientSetWorldRenderState(	BOUNDARY	IShimViewClient::ClientSetWorldRenderState: managed's water-LOD and tonemap numbers into the view's cheap-water distances and the tonemap globals the executor reads; an unknown selector or a short block refused
+static bool WorldRenderCountOk(	SLOT-HELP	refuses a block shorter than its selector's values, an ABI length check, and says so
+int32_t SourceSharp_GetLocalPlayerOrigin(	BOUNDARY	IShimViewClient: the local player shell's origin, 0 before there is one
+void *SourceSharp_ColorLookupAdd(	BOUNDARY	IShimViewClient::ColorLookupAdd: the render context's add/lock/load/unlock of the lookup file managed named (colorcorrectionmgr.cpp's calls), its opaque handle to managed's ColorLookupTable
+void SourceSharp_ColorLookupSetWeight(	BOUNDARY	IShimViewClient::ColorLookupSetWeight: SetLookupWeight with managed's weight, counted when non-zero for the post plan's input
+void SourceSharp_ColorLookupRemove(	BOUNDARY	IShimViewClient::ColorLookupRemove: RemoveLookup
+void SourceSharp_ColorLookupResetWeights()	BOUNDARY	IShimViewClient::ColorLookupResetWeights: ResetLookupWeights and the count zeroed, when managed's ColorCorrections begins its frame

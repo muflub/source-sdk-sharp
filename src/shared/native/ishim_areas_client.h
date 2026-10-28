@@ -153,7 +153,6 @@ public:
 	virtual void StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex ) = 0;
 	virtual void StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable ) = 0;
 	virtual int32_t StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice ) = 0;
-	virtual void SurfaceSetEdges( uint32_t hEntity, const unsigned char *pEdges, int32_t nCount ) = 0;
 	virtual int32_t ClientRecvProp( int32_t iIndex, char *pOutClass, int32_t nClassBytes, char *pOutTable, int32_t nTableBytes, char *pOutProp, int32_t nPropBytes, int32_t *pOutType, int32_t *pOutFlags, int32_t *pOutOffset, int32_t *pOutElements ) = 0;
 	virtual int32_t ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected, uint32_t *pOutSeen, int32_t *pOutCount, char *pOutClass, int32_t nClassBytes, int32_t *pOutRefusedUpdates ) = 0;
 	virtual void * StandaloneEngineBlock( uint32_t hEntity, int32_t *pOutBytes ) = 0;
@@ -161,6 +160,19 @@ public:
 	virtual void StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll ) = 0;
 	virtual void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) = 0;
 	virtual void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) = 0;
+	// The world-space surrounding boxes of the shells the handles name, six
+	// floats each (mins, maxs), for managed's per-view fade (StandaloneFade);
+	// how many named a shell.
+	virtual int32_t StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount, float *pOutMinsMaxs ) = 0;
+	// A broken surface's draw (shell_surface_render.cpp, lane M1-A): what the
+	// brush model says about its material, the materials managed chose, and
+	// the plan managed made.
+	virtual int32_t SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, int32_t nMaterialBytes, char *pOutCrack, int32_t nCrackBytes, int32_t *pOutHasCrack ) = 0;
+	virtual void SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int32_t nBytes, int32_t nFlags ) = 0;
+	virtual void SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_t nWords ) = 0;
+	// The entities managed's interpolation admitted (InterpolatedSet), which
+	// PreRender's walk re-transforms (lane M1-A).
+	virtual void ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount ) = 0;
 };
 
 abstract_class IShimViewClient
@@ -170,7 +182,6 @@ public:
 	virtual void ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive, const float *pColorRGB, int32_t bFixedWidthFont, const char *pszText ) = 0;
 	virtual void GetLightForPoint( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ ) = 0;
 	virtual void GetLightForPointFast( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ ) = 0;
-	virtual int32_t ClientColorCorrection( int32_t nOp, int32_t nHandle, const char *pLookupFile, float flWeight ) = 0;
 	virtual void ClientSetWorldRenderState( int32_t nWhich, const float *pValues, int32_t nCount ) = 0;
 	virtual int32_t GetLocalPlayerOrigin( float *pOutXYZ ) = 0;
 	virtual void SetViewerFogParams( const SourceSharpFogParams *pParams ) = 0;
@@ -202,6 +213,13 @@ public:
 	virtual void PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut ) = 0;
 	virtual int32_t PixelVisView( float *pOut, int32_t nFloats ) = 0;
 	virtual int32_t GlowMaterialFind( const char *pszName, const char *pszGroup ) = 0;
+	// The colour-correction lookups on the render context (lane M1-A): the
+	// handle table is managed's (ColorLookupTable), which holds the opaque
+	// ColorCorrectionHandle_t these take and answer.
+	virtual void * ColorLookupAdd( const char *pLookupFile ) = 0;
+	virtual void ColorLookupSetWeight( void *hLookup, float flWeight ) = 0;
+	virtual void ColorLookupRemove( void *hLookup ) = 0;
+	virtual void ColorLookupResetWeights() = 0;
 };
 
 // plan_side_isolation §2.2a: the client half of user messages. Managed reads a

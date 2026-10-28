@@ -141,3 +141,6 @@ const FlashlightState_t &H_GetFlashlightState(	INSTRUMENT	the recorder's shadow 
 void H_SetFlashlightRenderState(	INSTRUMENT	the recorder's shadow hooks (SOURCESHARP_RENDER_TRACE_SHADOWS=1): a line per call client.so makes on shadowmgr or staticpropmgr, forwarded to the original (C7 shadow manager S0)
 void H_AddShadowToStaticProp(	INSTRUMENT	the recorder's shadow hooks (SOURCESHARP_RENDER_TRACE_SHADOWS=1): a line per call client.so makes on shadowmgr or staticpropmgr, forwarded to the original (C7 shadow manager S0)
 void H_RemoveAllShadowsFromStaticProp(	INSTRUMENT	the recorder's shadow hooks (SOURCESHARP_RENDER_TRACE_SHADOWS=1): a line per call client.so makes on shadowmgr or staticpropmgr, forwarded to the original (C7 shadow manager S0)
+void RenderTrace::ShadowEnter(	INSTRUMENT	the render trace recorder: a shadow pass's line and its nesting depth
+void RenderTrace::ShadowLeave()	INSTRUMENT	the render trace recorder: a shadow pass's nesting depth
+void RenderTrace::ShadowNote(	INSTRUMENT	the render trace recorder: a shadow pass's line

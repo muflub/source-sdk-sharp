@@ -524,6 +524,13 @@ public interface IEngineVisibility
     /// <inheritdoc cref="EngineSide.ColorCorrectionSetWeight"/>
     void ColorCorrectionSetWeight(int handle, float weight);
 
+    /// <summary>
+    /// Every lookup's weight back to zero, before the frame's corrections
+    /// weigh them again (stock's <c>ResetColorCorrectionWeights</c> ahead of
+    /// <c>SimulateEntities</c>). Client only; nothing on the server.
+    /// </summary>
+    void ColorCorrectionResetWeights();
+
     /// <inheritdoc cref="EngineSide.DynamicLightRelease"/>
     void DynamicLightRelease(int key);
 

@@ -52,7 +52,9 @@ const Split_t kSplits[] = {
 	{ "_Z16Vector3DMultiplyRK7VMatrixRK6VectorRS2_", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_Z17MatrixSetIdentityR7VMatrix", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_Z20MatrixInverseGeneralRK7VMatrixRS_", "sourcesharp/game/client/mathlib_port_client.cpp" },
-	{ "_Z21CalcSqrDistanceToAABBRK6VectorS1_S1_", "sourcesharp/game/client/mathlib_port_client.cpp" },
+	// CalcSqrDistanceToAABB's row went with lane M1-A (2026-10-25): its one client
+	// importer, C_StandaloneEntity::ComputeFxBlend's portal-window fade, is
+	// managed's StandaloneFade, and client.so's link drops the wrapper (nm).
 	{ "_Z22LinearToGammaFullRangef", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_Z34Vector3DMultiplyPositionProjectiveRK7VMatrixRK6VectorRS2_", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_ZN7VMatrixaSERKS_", "sourcesharp/game/client/mathlib_port_client.cpp" },

@@ -139,7 +139,6 @@ C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass
 	  m_bPlayerShell( false ),
 	  m_nPredictedHealth( -1 ),
 	  m_bLocalPlayer( false ),
-	  m_bPredictionDriving( false ),
 	  m_pSurface( NULL ),
 	  // Skin 0 and size 1: what every entity that never asks keeps, and what
 	  // the whole hierarchy was hard-wired to before it could be asked. One
@@ -209,7 +208,8 @@ C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass
 	tail.RenderColorB = 255;
 	tail.RenderColorA = 255;
 
-	// What ComputeFxBlend answers for an entity that has asked for nothing.
+	// What GetFxBlend answers for an entity that has asked for nothing, until
+	// managed's fade pass (StandaloneFadePass) writes the view's blend.
 	tail.FxBlend = 255;
 
 	// Real time, not stopped. A rate of zero is a sequence whose cycle never
@@ -496,20 +496,11 @@ void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 		// the same update, and the reason this is not in the constructor.
 		AddToLeafSystem();
 
-		// A class that needs more than a brush model drawn gets the object that
-		// knows how. Only one does, and it is asked for by classname because a
-		// renderer written in C++ has to know which class it is for.
-		if ( !m_pSurface && m_szClassname[0] &&
-		     !Q_stricmp( m_szClassname, SOURCESHARP_SURFACE_CLASSNAME ) )
-		{
-			m_pSurface = new CSourceSharpSurfaceRenderer;
-
-			// Said once per surface. Whether the renderer was ever attached is
-			// the first question when glass draws as a plain brush, and it
-			// cannot be answered from outside the game.
-			Msg( "[SourceSharp] standalone(client): '%s' (%d) has a surface renderer\n",
-				m_szClassname, m_nEntIndex );
-		}
+		// THE SURFACE RENDERER IS NOT CHOSEN HERE ANY MORE (lane M1-A). It was
+		// made by classname for func_breakable_surf, and it read the blob
+		// itself; managed's ClientBreakableSurf decides what a broken surface
+		// draws, and the renderer is made when it first hands one over
+		// (SurfaceRenderer).
 	}
 
 	// Before the spawn callback, because the class's OnSpawn is managed code and
@@ -541,27 +532,11 @@ void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 	const bool bSchemaOk = BlobBytes() > 0
 	                    && SourceSharpSchema_Accept( m_nTypeId, m_nSchemaHash, m_nEntIndex, NULL );
 
-	// Every update: which panes are left is the whole of what changes about a
-	// pane of glass, and it changes one shot at a time. The managed half decides
-	// the cracks from the same bits and pushes them back through
-	// SourceSharp_SurfaceSetEdges.
-	//
-	// BEHIND THE GATE SINCE STEP 8, and it was outside it until then. Step 7's
-	// live test found the renderer reading and drawing a refused entity through
-	// offsets the fingerprint had just called wrong, and the trade recorded at
-	// the time — glass drawn as an uncracked brush rather than a wrongly-cracked
-	// one — undersold it. The renderer does not merely display these bytes: it
-	// takes Wide and High as LOOP BOUNDS. They are unsigned chars read straight
-	// out of the blob, so a mismatched layout puts an arbitrary 0..255 in each,
-	// and the pane-bit lookup indexes a 32-byte stack array with
-	// (w + h*16) >> 5 — up to 134. Refusing is not cosmetic here; it is the
-	// difference between drawing nothing and reading half a kilobyte off the
-	// end of a stack buffer.
-	//
-	// An unbroken brush is also the honest picture of "this build cannot read
-	// this entity", and it is exactly what an entity with no renderer draws.
-	if ( m_pSurface && bSchemaOk )
-		m_pSurface->Update( this, updateType == DATA_UPDATE_CREATED );
+	// The surface renderer reads nothing out of the blob (lane M1-A): the
+	// managed half decodes the panes behind this same gate and hands the
+	// renderer its plan (SurfaceSetPlan), so a refused layout draws an
+	// unbroken brush, which is the honest picture of "this build cannot read
+	// this entity".
 
 	// AFTER the create, so a class sees its state at the same moment it first
 	// hears about itself rather than one update later — and on EVERY update,
@@ -715,25 +690,6 @@ void C_StandaloneEntity::PushDormancy( void )
 // RenderableToWorldTransform is what modelrender and the leaf system read; the
 // origin on its own is only where it came from.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// How far behind the server this hierarchy draws.
-//
-// The same answer C_BaseEntity gives for a networked, unpredicted entity in
-// multiplayer: the client's own interp amount, plus a tick so that a value
-// arriving a tick late still has something to blend towards. Nothing here is
-// ever predicted or client-created, so those branches of stock's version have
-// no case to answer.
-//-----------------------------------------------------------------------------
-static float StandaloneInterpolationAmount()
-{
-	// Qualified, because it is a static on C_BaseEntity and this hierarchy is
-	// not one — it is asking the SDK a question about the tick rate, not
-	// inheriting anything.
-	const int nServerTickMultiple = EntitySim_IsSimulatingOnAlternateTicks() ? 2 : 1;
-
-	return TICKS_TO_TIME( TIME_TO_TICKS( GetClientInterpAmount() ) + nServerTickMultiple );
-}
-
 //-----------------------------------------------------------------------------
 // WHEN the value that just arrived is from.
 //
@@ -1114,67 +1070,41 @@ static_assert( !std::is_base_of< IGameEntity, C_StandaloneEntity >::value,
 
 bool C_StandaloneEntity::ShouldDraw( void )
 {
-	// A LOAD AND ONE LIVE FACT (plan_entity.md step 6b, §3.2).
+	// LOADS AND ONE LIVE FACT (plan_entity.md step 6b, §3.2; lane M1-A).
 	//
-	// The three rules that used to be here -- the viewmodel's, the
-	// self-drawing entity's and "having a model IS the question" -- are
-	// ClientRenderPolicy.Drawn's, in C#, decided when their inputs change and
-	// written into Client.Drawn. This is a getter the renderer asks per draw,
-	// so it cannot cross and it cannot be native policy either; it is answered
-	// from memory managed code wrote.
+	// Every rule that used to be here -- the viewmodel's, the self-drawing
+	// entity's, "having a model IS the question" and, since lane M1-A, the
+	// viewer's own body's (stock's C_BasePlayer::ShouldDraw refusal) -- is
+	// ClientRenderPolicy's, in C#, decided when its inputs change and written
+	// into Client.Drawn and Client.OwnerSeenRule. This is a getter the renderer
+	// asks per draw, so it cannot cross; it is answered from memory managed
+	// code wrote, and the engine's own dormancy flag.
 	//
-	// THE SECOND TERM IS THE ONE THAT COULD NOT BE PRECOMPUTED, and it is worth
-	// being precise about why it is not a rule left behind here. WHICH entities
-	// are hidden while the camera can see their owner is the decision, and that
-	// is Client.HideWhenOwnerSeen -- managed code's, and today the viewmodel's
-	// alone. WHETHER the camera can see its owner right now is an engine fact
-	// solved during view setup, after every stage a managed pass can run on and
-	// immediately before CViewRender asks this question of the viewmodel list.
-	// A Client.Drawn that had folded it in would be one frame stale: a pair of
-	// arms on screen for a frame after every `thirdperson`.
+	// THE OWNER-SEEN TERM IS THE ONE THAT COULD NOT BE PRECOMPUTED. WHICH
+	// entities it gates, and which way, is OwnerSeenRule -- managed code's.
+	// WHETHER the camera can see the owner right now is an engine fact solved
+	// during view setup, after every stage a managed pass can run on and
+	// immediately before CViewRender asks this question. A Client.Drawn that
+	// had folded it in would be one frame stale: a pair of arms, or the inside
+	// of the viewer's head, on screen for a frame after every `thirdperson`.
 	const EngineBlockClientTail_t &tail = Block().Client;
 
-	if ( tail.Drawn == 0 )
+	if ( tail.Drawn == 0 || tail.Dormant != 0 )
 		return false;
-	//-------------------------------------------------------------------------
-	// THE VIEWER'S OWN BODY, which is the one model a client must NOT draw most
-	// of the time.
-	//
-	// Stock's C_BasePlayer::ShouldDraw opens with the same refusal
-	// (`!IsLocalPlayer() || input->CAM_IsThirdPerson()`) and this build never
-	// reaches it. EVERY OTHER PLAYER falls through and draws by whether it has
-	// a model, which is why the bug reads as "the player model does not work"
-	// from a single listen server: the only player in the level is the one
-	// entity that must not draw.
-	//
-	// SEES OWNER rather than IS THIRD PERSON, for the reason
-	// SourceSharp_ThirdPersonSeesOwner gives: a camera pushed back onto the eye
-	// by a wall is first person, and a body drawn for it is a screen full of
-	// skull.
-	//
-	// It was C_StandalonePlayer::ShouldDraw until step 6f deleted that class;
-	// the question it asked is the same one and the flag it asks it of is set
-	// by the same rule.
-	//-------------------------------------------------------------------------
-	// 6b moved these two into the block (m_bDormant -> Client.Dormant,
-	// m_bCustomDraw -> Client.CustomDraw); 6f wrote this arm against the old
-	// members. Reading the block is the merge, not a rewrite of either.
-	// tail.ModelType, NOT GetModel(). 6b moved "has this a model" into the block
-	// (ModelType == -1 is exactly GetModel() == NULL, written at :1198/:1208)
-	// and its fact forbids ShouldDraw asking the engine again, because whether a
-	// model-less entity draws is a decision and a beam has none by design. 6f
-	// wrote this arm against the old question. Same answer, read from the block.
-	if ( m_bLocalPlayer )
-		return tail.Dormant == 0 && tail.ModelType != -1 && SourceSharp_ThirdPersonSeesOwner();
 
-	// A beam is the exception, and it is why the test below is not the whole
-	// story any more: it has no model by design — it IS a drawing — so asking
-	// whether it has one answers no for something that must draw every frame.
-	if ( tail.CustomDraw != 0 )
-		return tail.Dormant == 0;
+	switch ( tail.OwnerSeenRule )
+	{
+	case STANDALONE_OWNER_SEEN_HIDDEN_WHILE:
+		return !SourceSharp_ThirdPersonSeesOwner();
 
-	return tail.HideWhenOwnerSeen == 0 || !SourceSharp_ThirdPersonSeesOwner();
+	case STANDALONE_OWNER_SEEN_DRAWN_ONLY_WHILE:
+		return SourceSharp_ThirdPersonSeesOwner();
+
+	default:
+		return true;
+	}
 }
+
 
 //-----------------------------------------------------------------------------
 // THE MANAGED REPLAY'S ANSWER, ONCE A FRAME (plan_entity.md step 6f).
@@ -1183,12 +1113,12 @@ bool C_StandaloneEntity::ShouldDraw( void )
 // the eye offset, the view punch, and -- when the replay actually ran -- where
 // it says the player is.
 //
-// THE ORIGIN IS WRITTEN ONLY WHILE DRIVING, and the pairing with
-// WantsInterpolation is the whole of why. Interpolation draws an entity at a
+// THE ORIGIN IS WRITTEN ONLY WHILE DRIVING, and the pairing with managed's
+// InterpolatedSet is the whole of why. Interpolation draws an entity at a
 // point read from the networked PAST; a replay computes where the player is
 // NOW. Both writing the same field is a fight the frame rate decides, so
-// exactly one of them writes at a time: the flag turns the entity out of the
-// interpolation pass's list on the same frame the origin starts coming from
+// exactly one of them writes at a time: managed leaves the driven entity out
+// of the interpolation pass on the same frame the origin starts coming from
 // here.
 //
 // The rest of the record is written EVERY frame, driving or not. It is the
@@ -1205,8 +1135,6 @@ void C_StandaloneEntity::PredictionDrive( const SourceSharpClientPlayerView &vie
 	m_nPredictedHealth = view.nHealth;
 
 	const bool bDriving = view.bDriving != 0;
-
-	m_bPredictionDriving = bDriving;
 
 	if ( !bDriving )
 		return;
@@ -1392,34 +1320,6 @@ bool C_StandaloneEntity::ShouldReceiveProjectedTextures( int flags )
 	const int kReceivesFlashlight = 1 << 30;
 	const int nAnswer = ( flags & SHADOW_FLAGS_FLASHLIGHT ) ? kReceivesFlashlight : kReceivesShadows;
 	return ( Block().Client.ShadowFlags & nAnswer ) != 0;
-}
-
-//-----------------------------------------------------------------------------
-// A managed class overruling the model. See ClientRenderPolicy.Shadow.
-//-----------------------------------------------------------------------------
-void C_StandaloneEntity::SetShadowCast( int nChoice )
-{
-	// Anything unrecognised is AUTO rather than an error. The value crosses the
-	// ABI from managed code, and the failure to avoid is a number from a newer
-	// C# side turning into a shadow decision nobody wrote.
-	if ( nChoice != STANDALONE_SHADOW_CHOICE_NEVER && nChoice != STANDALONE_SHADOW_CHOICE_SIMPLE )
-		nChoice = STANDALONE_SHADOW_CHOICE_AUTO;
-
-	if ( nChoice == Block().Client.ShadowChoice )
-		return;
-
-	Block().Client.ShadowChoice = nChoice;
-
-	// The block, and nothing else. RefreshShadow used to be called from here
-	// with the note "now, not at the next update" -- an entity that is not
-	// networked every tick would otherwise keep the shadow it was told to drop
-	// for as long as it stood still. That argument still holds and this still
-	// answers it: bumping the input serial is what puts the entity in front of
-	// the managed pass at the end of this network update, and the apply sweep
-	// at PreRender is what hands the answer to the shadow manager. Both happen
-	// before the next frame is drawn, which is sooner than "the next update"
-	// ever was.
-	BumpPolicyInputs();
 }
 
 //-----------------------------------------------------------------------------
@@ -2305,10 +2205,12 @@ int C_StandaloneEntity::BlobBytes() const
 	return SourceSharp_TierBytes( m_iTier );
 }
 
-void C_StandaloneEntity::SetSurfaceEdges( const unsigned char *pEdges, int nCount )
+CSourceSharpSurfaceRenderer *C_StandaloneEntity::SurfaceRenderer( bool bCreate )
 {
-	if ( m_pSurface )
-		m_pSurface->SetEdges( pEdges, nCount );
+	if ( !m_pSurface && bCreate )
+		m_pSurface = new CSourceSharpSurfaceRenderer;
+
+	return m_pSurface;
 }
 
 //=============================================================================//
@@ -2487,102 +2389,6 @@ bool SourceSharp_StandaloneTierIsInUse( int iTier )
 }
 
 //-----------------------------------------------------------------------------
-// Hands a surface the cracked edges C# decided it should draw.
-//
-// Resolved through the client's entity list, which is where a handle means
-// something on this side. An entity with no surface renderer is not an error:
-// the call is made from a managed class, and a managed class does not know
-// whether native gave its entity one.
-//-----------------------------------------------------------------------------
-void SourceSharp_SurfaceSetEdges( uint32_t hEntity, const unsigned char *pEdges, int32_t nCount )
-{
-	// By ENTRY, not by rebuilding the handle.
-	//
-	// A CBaseHandle packs an entry and a serial, and reconstructing one from the
-	// packed integer means agreeing with the engine about the split — which is
-	// one more thing to be wrong about for no benefit. The entry alone names a
-	// live entity, and an entity that has gone answers NULL either way.
-	const int nEntry = (int)( hEntity & ENT_ENTRY_MASK );
-
-	// FROM THE SLOT TABLE, which is why there is no cast here any more. The
-	// dynamic_cast this replaces asked the RTTI whether an IClientNetworkable
-	// happened to be one of ours; the table KNOWS, because binding is what put
-	// the pointer there (§3.16 family 5).
-	C_StandaloneEntity *pEntity = SourceSharp_ClientShellFromIndex( nEntry );
-
-	if ( pEntity )
-		pEntity->SetSurfaceEdges( pEdges, nCount );
-}
-
-//-----------------------------------------------------------------------------
-// Where a C#-declared field lives inside the entity, by name.
-//
-// ASKED OF C#, not looked up in a copy (plan_nettable_generic.md Step 7). This
-// used to read native's own record of the field list — shipped over the ABI one
-// field at a time by NetFieldBegin/Add/Commit, kept in a per-class vector, and
-// refreshed on a managed reload. That record was the last thing the description
-// ABI was for, and it was a second copy of a layout C# computes: two copies
-// drift, and this one would have drifted silently, because a wrong offset reads
-// a plausible number out of the field beside it.
-//
-// The BLOB BASE is still ours. C# answers where the field sits inside the blob,
-// which is the same number on both sides; where the blob sits inside the object
-// is each shell's own business, because CStandaloneEntity and C_StandaloneEntity
-// are unrelated classes. That is the same split the payload props have always
-// had — what the two sides agree on is the word index, never the offset.
-//
-// -1 for a class or a field this build does not declare, and for a managed side
-// that is not up. The caller must handle it: reading offset zero instead would
-// be worse than not drawing.
-//-----------------------------------------------------------------------------
-int SourceSharp_StandaloneFieldOffset( const char *pClassName, const char *pFieldName )
-{
-	if ( !pClassName || !pFieldName )
-		return -1;
-
-	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
-
-	if ( !pStandalone )
-		return -1;
-
-	const int nInBlob = pStandalone->NetStateFieldOffset( pClassName, pFieldName );
-
-	if ( nInBlob < 0 )
-		return -1;
-
-	return SourceSharp_StandaloneBlobOffset() + nInBlob;
-}
-
-//-----------------------------------------------------------------------------
-// Where inside that offset's dword the field's bits are: the shift in the low
-// byte, the width above it, and -1 for anything this build cannot answer.
-//
-// THE SECOND HALF OF A PLACEMENT, since Part 10's packing landed. An offset was
-// the whole answer while every field took its storage whole; four of
-// func_breakable_surf's now share word zero, so a caller that stopped at the
-// offset and read a byte would get whichever field starts there. Asked once
-// beside the offset, by the same caller, and kept for the life of the process.
-//
-// Not folded into the offset call because they are two answers and one of them
-// is already a composite. A single int carrying a blob offset AND a shift AND a
-// width is three fields in thirty-two bits, decoded by hand on both sides of the
-// ABI — which is exactly the kind of packing this file's own layout stopped
-// doing by hand.
-//-----------------------------------------------------------------------------
-int SourceSharp_StandaloneFieldBits( const char *pClassName, const char *pFieldName )
-{
-	if ( !pClassName || !pFieldName )
-		return -1;
-
-	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
-
-	if ( !pStandalone )
-		return -1;
-
-	return pStandalone->NetStateFieldBits( pClassName, pFieldName );
-}
-
-//-----------------------------------------------------------------------------
 // The hierarchy's shared blob size, declared by C# before any class on it is
 // described — the mirror of the server's, and it must stay one.
 //
@@ -2658,19 +2464,17 @@ CClientSystem *ClientSystem_StandaloneClient() { return &g_StandaloneClientSyste
 // THE INTERPOLATION LIST -- plan_entity.md step 6a, and the whole of what the
 // managed interpolation pass asks this side for.
 //
-// The engine blocks of every entity the pass may write, and how far behind the
-// server this client draws. ONE CALL A PASS: the managed side then reads the
-// networked pose out of each block and writes the drawn one back, which is
-// arithmetic over memory the two sides already share. That is what keeps the
-// step's crossing cost flat in the map's entity count -- a per-entity accessor
-// here would be the one thing in the loop that scaled with it.
+// The engine blocks of every entity on the hierarchy, and the client's interp
+// amount (GetClientInterpAmount, the value managed's BoundedConVars decided).
+// ONE CALL A PASS: the managed side then reads the networked pose out of each
+// block and writes the drawn one back, which is arithmetic over memory the two
+// sides already share.
 //
-// THE FILTER IS STILL NATIVE, and it is WantsInterpolation(): everything except
-// the predicted local player and the local viewmodel, both of whose positions
-// are computed rather than received. It stays because the viewmodel bit is
-// state that nothing has published yet, and it is named as debt rather than
-// defended -- it is a decision about what gets drawn where, so it belongs in
-// C#. Step 6f owns the predicted player and Phase 10 the viewmodel.
+// UNFILTERED SINCE LANE M1-A. Which entities the pass may write -- everything
+// but the local viewmodel and the replay-driven local player -- and how far
+// behind the server the client draws (the amount rounded to ticks, plus one
+// or two) are managed's InterpolatedSet and InterpolationDelay; managed hands
+// the admitted set back through SourceSharp_ClientInterpAdmitted.
 //
 // The vector is a file-scope static rebuilt by each call, so the answer is
 // valid until the next one and no allocation happens per frame after the first
@@ -2684,15 +2488,12 @@ void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmou
 		*pOutCount = 0;
 
 	if ( pOutInterpAmount )
-		*pOutInterpAmount = 0.0f;
+		*pOutInterpAmount = GetClientInterpAmount();
 
 	g_StandaloneInterpBlocks.RemoveAll();
 
 	for ( int i = 0; i < g_StandaloneClients.Count(); i++ )
-	{
-		if ( g_StandaloneClients[i]->WantsInterpolation() )
-			g_StandaloneInterpBlocks.AddToTail( &g_StandaloneClients[i]->Block() );
-	}
+		g_StandaloneInterpBlocks.AddToTail( &g_StandaloneClients[i]->Block() );
 
 	if ( g_StandaloneInterpBlocks.Count() == 0 )
 		return NULL;
@@ -2700,10 +2501,26 @@ void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmou
 	if ( pOutCount )
 		*pOutCount = g_StandaloneInterpBlocks.Count();
 
-	if ( pOutInterpAmount )
-		*pOutInterpAmount = StandaloneInterpolationAmount();
-
 	return g_StandaloneInterpBlocks.Base();
+}
+
+//-----------------------------------------------------------------------------
+// THE SET MANAGED'S INTERPOLATION ADMITTED, by handle, for PreRender's walk:
+// each shell's mark, replaced by every pass's set. A handle whose entry now
+// holds another entity marks nothing.
+//-----------------------------------------------------------------------------
+void SourceSharp_ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount )
+{
+	for ( int i = 0; i < g_StandaloneClients.Count(); i++ )
+		g_StandaloneClients[i]->SetInterpAdmitted( false );
+
+	for ( int32_t i = 0; pHandles && i < nCount; i++ )
+	{
+		C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( pHandles[i] );
+
+		if ( pEntity && (uint32_t)pEntity->BlockHandle().ToInt() == pHandles[i] )
+			pEntity->SetInterpAdmitted( true );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -2814,9 +2631,10 @@ static void StandaloneClients_PostInterpolate()
 {
 	const float flCurrentTime = gpGlobals->curtime;
 
+	// The entities managed's interpolation admitted (SourceSharp_ClientInterpAdmitted).
 	for ( int i = 0; i < g_StandaloneClients.Count(); i++ )
 	{
-		if ( g_StandaloneClients[i]->WantsInterpolation() )
+		if ( g_StandaloneClients[i]->IsInterpAdmitted() )
 			g_StandaloneClients[i]->PostInterpolate( flCurrentTime );
 	}
 }
@@ -2873,7 +2691,8 @@ void SourceSharp_StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXY
 	if ( !pMinsXYZ || !pMaxsXYZ )
 		return;
 
-	// By ENTRY, as SourceSharp_SurfaceSetEdges above explains.
+	// By ENTRY: the entry alone names a live entity, and an entity that has
+	// gone answers NULL either way.
 	const int nEntry = (int)( hEntity & ENT_ENTRY_MASK );
 
 	// FROM THE SLOT TABLE, which is why there is no cast here any more. The
@@ -3065,105 +2884,6 @@ void C_StandaloneEntity::SetFade( int nStyle, float flStartDist, float flEndDist
 	BumpPolicyInputs();
 }
 
-//-----------------------------------------------------------------------------
-// This frame's alpha, from the distance to the viewer.
-//
-// Two rules, because stock has two and they are not variations on one another.
-// Neither is reimplemented from first principles -- each is the arithmetic of
-// the function it came from, transcribed because both take a C_BaseEntity and
-// nothing on this hierarchy is one:
-//
-//   Lod          ComputeDistanceFade in cdll_util.cpp. Ramps on SQUARED
-//                distance to the entity's centre, 255 down to 0. The squared
-//                ramp is why a func_lod holds its opacity for most of the band
-//                and then goes quickly; a linear ramp would be a visibly
-//                different entity.
-//
-//   PortalWindow C_FuncAreaPortalWindow::GetDistanceBlend. Ramps LINEARLY on
-//                distance to the nearest face, and upward: most transparent up
-//                close, solid once the viewer has backed away. Face distance
-//                rather than centre because a window is a pane a room wide and
-//                what matters is how far you are from the glass.
-//
-// What is NOT carried across from UTIL_ComputeEntityFade is the screen-size
-// fades it also folds in. Those are driven by a per-model fade scale the level
-// designer set, and nothing on this hierarchy carries one.
-//-----------------------------------------------------------------------------
-void C_StandaloneEntity::ComputeFxBlend( void )
-{
-	const EngineBlockClientTail_t &fade = Block().Client;
-
-	if ( fade.FadeStyle == 0 )
-	{
-		// The constant one SetBlending pushed, 255 for everything that has not
-		// asked. It is renderamt for a sprite, and a fade rule -- when there is
-		// one -- replaces it rather than multiplying with it: stock's
-		// GetFxBlend answers one number, and two rules writing it would be one
-		// of them winning silently.
-		Block().Client.FxBlend = Block().Client.RenderColorA;
-		return;
-	}
-
-	Vector vecMins, vecMaxs;
-	WorldSpaceSurroundingBounds( &vecMins, &vecMaxs );
-
-	float flDist;
-
-	if ( fade.FadeStyle == 2 )
-	{
-		flDist = CalcDistanceToAABB( vecMins, vecMaxs, CurrentViewOrigin() );
-	}
-	else
-	{
-		Vector vecCenter;
-		VectorAdd( vecMins, vecMaxs, vecCenter );
-		vecCenter *= 0.5f;
-
-		flDist = CurrentViewOrigin().DistTo( vecCenter );
-	}
-
-	// The zoom correction both stock functions apply is skipped: the FOV
-	// factor lived on C_BasePlayer, the standalone player has no zoom yet,
-	// and the factor for an unzoomed player is exactly 1. When zoom lands on
-	// the standalone player's declared state, this is where it multiplies in.
-
-	if ( fade.FadeStyle == 2 )
-	{
-		const float flBlend = RemapValClamped( flDist, fade.FadeStartDistance, fade.FadeEndDistance,
-		                                       fade.FadeMinAlpha, 1.0f );
-
-		Block().Client.FxBlend = clamp( (int)( flBlend * 255.0f + 0.5f ), 0, 255 );
-		return;
-	}
-
-	float flMinDist = fade.FadeStartDistance;
-	float flMaxDist = fade.FadeEndDistance;
-
-	if ( flMinDist > flMaxDist )
-		::V_swap( flMinDist, flMaxDist );
-
-	// Squared, as stock is, so the ramp is on squared distance too. That is not
-	// a linear fade in world units and is deliberately not made into one.
-	flMinDist *= flMinDist;
-	flMaxDist *= flMaxDist;
-
-	const float flDistSq = flDist * flDist;
-
-	if ( flDistSq <= flMinDist )
-	{
-		Block().Client.FxBlend = 255;
-		return;
-	}
-
-	if ( flDistSq >= flMaxDist || flMaxDist <= flMinDist )
-	{
-		Block().Client.FxBlend = ( flMaxDist <= flMinDist ) ? 255 : 0;
-		return;
-	}
-
-	const float flFalloff = 255.0f / ( flMaxDist - flMinDist );
-	Block().Client.FxBlend = clamp( (int)( flFalloff * ( flMaxDist - flDistSq ) ), 0, 255 );
-}
 
 //-----------------------------------------------------------------------------
 // The fade rule and the second model, from managed code. Both resolve the way
@@ -3264,6 +2984,38 @@ void SourceSharp_StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll )
 		pEntity->SetRagdollPose( bRagdoll != 0 );
 }
 
+//-----------------------------------------------------------------------------
+// The world-space surrounding boxes managed's per-view fade measures from
+// (StandaloneFade, SourceSharp.Client): WorldSpaceSurroundingBounds of each
+// shell the handles name, mins then maxs, in one crossing for the view. A
+// handle that names no shell gets a zero box and is not counted.
+//-----------------------------------------------------------------------------
+int32_t SourceSharp_StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount,
+                                                 float *pOutMinsMaxs )
+{
+	if ( !pHandles || !pOutMinsMaxs || nCount <= 0 )
+		return 0;
+
+	int32_t nFound = 0;
+
+	for ( int32_t i = 0; i < nCount; i++ )
+	{
+		float *pOut = pOutMinsMaxs + 6 * i;
+		Vector vecMins( 0, 0, 0 ), vecMaxs( 0, 0, 0 );
+
+		if ( C_StandaloneEntity *pEntity = ResolveStandaloneClient( pHandles[i] ) )
+		{
+			pEntity->WorldSpaceSurroundingBounds( &vecMins, &vecMaxs );
+			nFound++;
+		}
+
+		pOut[0] = vecMins.x; pOut[1] = vecMins.y; pOut[2] = vecMins.z;
+		pOut[3] = vecMaxs.x; pOut[4] = vecMaxs.y; pOut[5] = vecMaxs.z;
+	}
+
+	return nFound;
+}
+
 void SourceSharp_EntitySetSkin( uint32_t hEntity, int32_t nSkin )
 {
 	if ( C_StandaloneEntity *pEntity = ResolveStandaloneClient( hEntity ) )
@@ -3344,49 +3096,6 @@ int32_t SourceSharp_StandaloneIsDormant( uint32_t hEntity )
 	C_StandaloneEntity *pEntity = ResolveStandaloneClient( hEntity );
 
 	return ( pEntity && pEntity->IsDormant() ) ? 1 : 0;
-}
-
-//-----------------------------------------------------------------------------
-// Every live entity of a given classname, as renderables.
-//
-// The one thing on this side that has to be asked by CLASS rather than by
-// handle, and the reason is not this hierarchy's: the client renderer keeps
-// per-kind lists of entities it has to sweep before drawing a frame — the
-// reflective glass list is one, and it is walked once per view to decide
-// whether a reflection pass is needed at all. A stock entity joins such a list
-// in its constructor, by being of the right C++ type. Nothing here has a type
-// to be of, so the sweep has to be able to ask.
-//
-// Filled into a caller-supplied array rather than answered as a list, so that
-// nothing here allocates on a path the renderer runs per view.
-//-----------------------------------------------------------------------------
-int SourceSharp_StandaloneGetRenderables( const char *pClassName,
-                                          IClientRenderable **pOut, int nMax )
-{
-	if ( !pClassName || !pOut || nMax <= 0 )
-		return 0;
-
-	int nFound = 0;
-
-	for ( int i = 0; i < g_StandaloneClients.Count() && nFound < nMax; i++ )
-	{
-		C_StandaloneEntity *pEntity = g_StandaloneClients[i];
-
-		if ( !pEntity || pEntity->IsDormant() )
-			continue;
-
-		if ( Q_stricmp( pEntity->m_szClassname, pClassName ) != 0 )
-			continue;
-
-		// No model means nothing to reflect in, trace against, or draw. Every
-		// caller of this would have to make the same check.
-		if ( !pEntity->GetModel() )
-			continue;
-
-		pOut[ nFound++ ] = pEntity;
-	}
-
-	return nFound;
 }
 
 //-----------------------------------------------------------------------------

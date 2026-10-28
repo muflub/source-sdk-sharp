@@ -388,7 +388,15 @@ public partial class EngineApiCensusTests
     // the managed pool integrates every tempent (241 - 1 = 240), and
     // StandaloneSetShadowCast and UiScreenSize, which only tests called
     // (240 - 2 = 238).
-    private const int ClientOnly = 238;
+    // Lane M1-A: StandaloneSurroundingBounds, the shells' boxes for the
+    // managed per-view fade (238 + 1 = 239); SurfaceMaterialFacts,
+    // SurfaceSetMaterials and SurfaceSetPlan, a broken surface's draw handed
+    // from managed (239 + 3 = 242); the four ColorLookup slots in, the
+    // ClientColorCorrection op dispatcher out, the handle table managed's
+    // (242 + 4 - 1 = 245); ClientInterpAdmitted, the interpolation pass's
+    // admitted set for the shell's PreRender walk (245 + 1 = 246); SurfaceSetEdges
+    // retired, the edges riding SurfaceSetPlan (246 - 1 = 245).
+    private const int ClientOnly = 245;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

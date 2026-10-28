@@ -428,9 +428,9 @@ TEST( EngineBlockClientLayout, TranslucentIsAt168 )
 	EXPECT_EQ( 168u, offsetof( EngineBlockClientTail_t, Translucent ) );
 }
 
-TEST( EngineBlockClientLayout, HideWhenOwnerSeenIsAt172 )
+TEST( EngineBlockClientLayout, OwnerSeenRuleIsAt172 )
 {
-	EXPECT_EQ( 172u, offsetof( EngineBlockClientTail_t, HideWhenOwnerSeen ) );
+	EXPECT_EQ( 172u, offsetof( EngineBlockClientTail_t, OwnerSeenRule ) );
 }
 
 TEST( EngineBlockClientLayout, FadeStyleIsAt176 )

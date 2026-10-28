@@ -25,21 +25,6 @@ internal sealed unsafe partial class EngineBrushMovement
     // Movement. What a trigger does to whoever is standing in it.
     //-------------------------------------------------------------------------
 
-    /// <summary>
-    /// Hands a broken surface the cracked edges it should draw.
-    ///
-    /// Pushed when the state changes, not asked for per frame: what stays native
-    /// is the mesh building, which cannot come across at four interop calls a
-    /// quad, and what stays here is deciding which edges there are.
-    /// </summary>
-    public void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count)
-    {
-        fixed (byte* p = packed)
-        {
-            _standaloneClientArea.SurfaceSetEdges(entity.Value, p, count);
-        }
-    }
-
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void Spin(EntityHandle entity, Vector degreesPerSecond) { }
@@ -1680,6 +1665,9 @@ internal sealed unsafe partial class EngineVisibility
         }
     }
 
+    // The lookups' handles (lane M1-A: the table shell_worldrender.cpp kept).
+    private readonly SourceSharp.Client.Interop.ColorLookupTable _colorLookups = new();
+
     /// <summary>
     /// Loads a colour-correction lookup and answers a handle, or 0 if the file
     /// would not load.
@@ -1689,7 +1677,7 @@ internal sealed unsafe partial class EngineVisibility
         var bytes = Encoding.UTF8.GetBytes(lookupFile + "\0");
         fixed (byte* p = bytes)
         {
-            return _viewClientArea.ClientColorCorrection((int)ColorCorrectionOp.Add, 0, p, 0f);
+            return _colorLookups.Register((nint)_viewClientArea.ColorLookupAdd(p));
         }
     }
 
@@ -1699,7 +1687,8 @@ internal sealed unsafe partial class EngineVisibility
     /// </summary>
     public void ColorCorrectionRemove(int handle)
     {
-        _viewClientArea.ClientColorCorrection((int)ColorCorrectionOp.Remove, handle, null, 0f);
+        if (_colorLookups.Forget(handle, out nint lookup))
+            _viewClientArea.ColorLookupRemove((void*)lookup);
     }
 
     /// <summary>
@@ -1709,8 +1698,12 @@ internal sealed unsafe partial class EngineVisibility
     /// </summary>
     public void ColorCorrectionSetWeight(int handle, float weight)
     {
-        _viewClientArea.ClientColorCorrection((int)ColorCorrectionOp.SetWeight, handle, null, weight);
+        if (_colorLookups.TryGet(handle, out nint lookup))
+            _viewClientArea.ColorLookupSetWeight((void*)lookup, weight);
     }
+
+    /// <summary>Every lookup's weight back to zero, before the frame re-weighs them.</summary>
+    public void ColorCorrectionResetWeights() => _viewClientArea.ColorLookupResetWeights();
 
     /// <summary>
     /// Puts a light out now.

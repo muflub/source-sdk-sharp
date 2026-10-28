@@ -856,9 +856,9 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// M1-B deleted it there with no importer (2026-10-25).
 		{ "game/client/client_util_library.cpp", "EntityTracer_ComputeStartPosition", 0, true },
 		// The SAME QUESTION c_baseentity.cpp's interpolation walk used to ask
-		// is still asked on the client's live path, by
-		// StandaloneInterpolationAmount() in shell_standalone_client.cpp, which
-		// is the row at the foot of this table.
+		// was asked on the client's live path by StandaloneInterpolationAmount()
+		// in shell_standalone_client.cpp, the row at the foot of this table,
+		// until lane M1-A moved the delay to managed.
 		// world_adapter.cpp's window opening is managed's world precache since
 		// plan_server_native_v2 T4e: it opens the window through IShimLevel's
 		// SetPrecacheAllowed, the one native call left.
@@ -869,7 +869,9 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// 3 since plan_server_native_v2 T5: its two calls and its definition,
 		// which moved here from entity_shared_statics.cpp (no server importer).
 		{ "game/client/shell_prediction.cpp",          "EntityPrediction_SetSeedFromCommand",    3, true },
-		{ "game/client/shell_standalone_client.cpp",   "EntitySim_IsSimulatingOnAlternateTicks", 1, true },
+		// 0 since lane M1-A: the client's interpolation delay is managed's
+		// (InterpolationDelay.AlternateTicks asks the same question).
+		{ "game/client/shell_standalone_client.cpp",   "EntitySim_IsSimulatingOnAlternateTicks", 0, true },
 	};
 	const size_t kNumExpect = sizeof( kExpect ) / sizeof( kExpect[ 0 ] );
 

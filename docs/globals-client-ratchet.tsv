@@ -396,7 +396,9 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   g_RecipientFilterPredictionSystem pruned with the code that held them.
 # LOWERED 2026-10-25, 663 -> 654 (lane M1-D): world_adapter_client.o's eight g_sModelIndex* sprite indexes and
 #   g_pModelNameLaser pruned with W_Precache (no reader on the client link edge).
-client_globals_link_level	src/game/client	654
+# LOWERED 2026-10-25, 654 -> 635 (lanes M1-D, M1-B and M1-A landed together, make globals-client-ledger): the rows of
+#   the code the three lanes deleted, pruned with their objects' symbols.
+client_globals_link_level	src/game/client	635
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -447,7 +449,8 @@ client_globals_link_level	src/game/client	654
 # LOWERED 2026-10-20, 618 -> 616 (C7 cluster 12 S2's deletion): shell_renderable_facts.o's two UNRULED rows pruned.
 # LOWERED 2026-10-25, 616 -> 612 (lane M1-D): the same five rows, four of them UNRULED (the stack's s_bStack was DEAD).
 # LOWERED 2026-10-25, 612 -> 603 (lane M1-D): the same nine, all UNRULED.
-client_globals_unruled	docs/globals-client-ledger.tsv	603
+# LOWERED 2026-10-25, 603 -> 586 (the same landing).
+client_globals_unruled	docs/globals-client-ledger.tsv	586
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 # LOWERED 2026-10-19, 14 -> 13 (C7 screen-space effects, the eviction): CScreenSpaceEffectRegistration::s_pHead's list and
@@ -557,3 +560,4 @@ client_globals_reconcile_unattributed	src/game/client	0
 #   keeps); generic_payload.cpp's client half is the new generic_payload_client.cpp, one more object with a static
 #   initialiser (its two ConCommands). The other statics that moved (g_AmmoDef, the refusal table, three ConCommands,
 #   s_LastEntityReasonableEmitTime) kept their rulings under their new objects (make globals-client-ledger, gate PASS).
+# 2026-10-25, lane M1-A: the colour-correction handle table moved to managed (ColorLookupTable): shell_worldrender.cpp's g_ColorLookups and g_nNextColorLookup went, link_level 668 -> 666 and unruled 616 -> 614 (make globals-client-ledger, gate PASS). Hand-edited.

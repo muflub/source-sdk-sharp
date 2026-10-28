@@ -229,8 +229,6 @@ void CShimStandaloneClient::StandaloneSetViewModel( uint32_t hEntity, int32_t bE
 	{ return ::SourceSharp_StandaloneSetViewModel( hEntity, bEnable ); }
 int32_t CShimStandaloneClient::StandaloneShadowCast( uint32_t hEntity, int32_t * pOutChoice )
 	{ return ::SourceSharp_StandaloneShadowCast( hEntity, pOutChoice ); }
-void CShimStandaloneClient::SurfaceSetEdges( uint32_t hEntity, const unsigned char * pEdges, int32_t nCount )
-	{ return ::SourceSharp_SurfaceSetEdges( hEntity, pEdges, nCount ); }
 int32_t CShimStandaloneClient::ClientRecvProp( int32_t iIndex, char * pOutClass, int32_t nClassBytes, char * pOutTable, int32_t nTableBytes, char * pOutProp, int32_t nPropBytes, int32_t * pOutType, int32_t * pOutFlags, int32_t * pOutOffset, int32_t * pOutElements )
 	{ return ::SourceSharp_ClientRecvProp( iIndex, pOutClass, nClassBytes, pOutTable, nTableBytes, pOutProp, nPropBytes, pOutType, pOutFlags, pOutOffset, pOutElements ); }
 int32_t CShimStandaloneClient::ClientSchemaRefusal( int32_t iIndex, uint32_t * pOutTypeId, uint32_t * pOutExpected, uint32_t * pOutSeen, int32_t * pOutCount, char * pOutClass, int32_t nClassBytes, int32_t * pOutRefusedUpdates )
@@ -245,6 +243,16 @@ void CShimStandaloneClient::EntitySetSkin( uint32_t hEntity, int32_t nSkin )
 	{ return ::SourceSharp_EntitySetSkin( hEntity, nSkin ); }
 void CShimStandaloneClient::RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage )
 	{ return ::SourceSharp_RegisterAmmoType( pName, nDamageType, nMaxCarry, nTracerType, flDamageForce, flDamage ); }
+int32_t CShimStandaloneClient::StandaloneSurroundingBounds( const uint32_t * pHandles, int32_t nCount, float * pOutMinsMaxs )
+	{ return ::SourceSharp_StandaloneSurroundingBounds( pHandles, nCount, pOutMinsMaxs ); }
+int32_t CShimStandaloneClient::SurfaceMaterialFacts( uint32_t hEntity, char * pOutMaterial, int32_t nMaterialBytes, char * pOutCrack, int32_t nCrackBytes, int32_t * pOutHasCrack )
+	{ return ::SourceSharp_SurfaceMaterialFacts( hEntity, pOutMaterial, nMaterialBytes, pOutCrack, nCrackBytes, pOutHasCrack ); }
+void CShimStandaloneClient::SurfaceSetMaterials( uint32_t hEntity, const char * pNames, int32_t nBytes, int32_t nFlags )
+	{ return ::SourceSharp_SurfaceSetMaterials( hEntity, pNames, nBytes, nFlags ); }
+void CShimStandaloneClient::SurfaceSetPlan( uint32_t hEntity, const int32_t * pWords, int32_t nWords )
+	{ return ::SourceSharp_SurfaceSetPlan( hEntity, pWords, nWords ); }
+void CShimStandaloneClient::ClientInterpAdmitted( const uint32_t * pHandles, int32_t nCount )
+	{ return ::SourceSharp_ClientInterpAdmitted( pHandles, nCount ); }
 
 void CShimViewClient::ConNPrintf( void * pEngineClient, int32_t nPos, const char * pszText )
 	{ return ::SourceSharp_ConNPrintf( pEngineClient, nPos, pszText ); }
@@ -254,8 +262,6 @@ void CShimViewClient::GetLightForPoint( void * pEngineClient, const float * pPos
 	{ return ::SourceSharp_GetLightForPoint( pEngineClient, pPosXYZ, bClamp, pOutXYZ ); }
 void CShimViewClient::GetLightForPointFast( void * pEngineClient, const float * pPosXYZ, int32_t bClamp, float * pOutXYZ )
 	{ return ::SourceSharp_GetLightForPointFast( pEngineClient, pPosXYZ, bClamp, pOutXYZ ); }
-int32_t CShimViewClient::ClientColorCorrection( int32_t nOp, int32_t nHandle, const char * pLookupFile, float flWeight )
-	{ return ::SourceSharp_ClientColorCorrection( nOp, nHandle, pLookupFile, flWeight ); }
 void CShimViewClient::ClientSetWorldRenderState( int32_t nWhich, const float * pValues, int32_t nCount )
 	{ return ::SourceSharp_ClientSetWorldRenderState( nWhich, pValues, nCount ); }
 int32_t CShimViewClient::GetLocalPlayerOrigin( float * pOutXYZ )
@@ -294,6 +300,14 @@ int32_t CShimViewClient::PixelVisView( float * pOut, int32_t nFloats )
 	{ return ::SourceSharp_PixelVisView( pOut, nFloats ); }
 int32_t CShimViewClient::GlowMaterialFind( const char * pszName, const char * pszGroup )
 	{ return ::SourceSharp_GlowMaterialFind( pszName, pszGroup ); }
+void * CShimViewClient::ColorLookupAdd( const char * pLookupFile )
+	{ return ::SourceSharp_ColorLookupAdd( pLookupFile ); }
+void CShimViewClient::ColorLookupSetWeight( void * hLookup, float flWeight )
+	{ return ::SourceSharp_ColorLookupSetWeight( hLookup, flWeight ); }
+void CShimViewClient::ColorLookupRemove( void * hLookup )
+	{ return ::SourceSharp_ColorLookupRemove( hLookup ); }
+void CShimViewClient::ColorLookupResetWeights()
+	{ return ::SourceSharp_ColorLookupResetWeights(); }
 
 int32_t CShimUserMessagesClient::ClientViewportQuery( const char * pPanel )
 	{ return ::SourceSharp_ClientViewportQuery( pPanel ); }

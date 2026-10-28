@@ -18,3 +18,96 @@ int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches(	SLOT-HELP	the standal
 float C_StandaloneEntity::SequenceCycle(	SLOT-HELP	the stored clock's cycle for PostInterpolate's Block().Client.Cycle write; arithmetic over what managed stored
 void SourceSharp_StandaloneSetRagdoll(	BOUNDARY	IShimStandaloneClient::StandaloneSetRagdoll: resolve the handle and store that managed's ragdolls own the pose
 void C_StandaloneEntity::SetRagdollPose(	BOUNDARY	the store StandaloneSetRagdoll carries out: the flag PublishRenderPose and GetRenderBounds read, and a re-leaf
+int C_StandaloneEntity::DrawModel(	SLOT	IClientRenderable::DrawModel: carries out the view batch's prepared custom draw (or the per-entity OnStandaloneDraw crossing) and otherwise translates the engine's draw flags into the engine's own calls: DrawBrushModelEx / DrawBrushModelShadowDepth for a brush (two-pass mode and depth mode from the flags, the surface renderer installed, managed's FxBlend set for a faded brush, managed's overlay model behind), DrawModelEx for a studio model with ModelRenderInfo filled from the block; a sprite model is refused with a once-per-entity warning
+static void RegisterStandaloneTiers()	HOOK	registers one ClientClass and RecvTable per tier (the engine collects the class list at DLL init), with the payload props managed's declaration sized; diagnostics for a tier that does not fit or resolves slowly
+C_StandaloneEntity::C_StandaloneEntity(	SLOT	the networkable the tier's create function makes: the block's non-zero defaults (invalid handles, the stand-in box, opaque colour, AUTO shadow choice, no model) and the bind into the slot table and the hierarchy list
+C_StandaloneEntity::~C_StandaloneEntity()	SLOT	the networkable's teardown: the local latches cleared, the surface renderer, leaf and shadow handles, the beams aimed at it (BeamSystem.KillDeadBeams), the model instance, managed told (OnStandaloneRemoved), the slot table unbound
+static void BuildStandaloneRecvProps(	LAYOUT	the shared RecvProps (standalone_nettable.h's names and order) at this shell's offsets, the type id's carrying the recv proxy
+bool C_StandaloneEntity::EnsureManagedHalf()	SLOT-HELP	the type id turned into the published class name (SourceSharp_NetTypes, managed's table) and offered to managed's OnStandaloneCreate once per type id; whether the entity has a managed half is managed's answer; an unpublished id is said once
+void SourceSharp_DynamicLightUpdate(	LAYOUT	fills the engine pool's dlight_t (CL_AllocDlight / CL_AllocElight by managed's key) from managed's light, each value clamped to the engine field's width
+void C_StandaloneEntity::GetRenderBounds(	SLOT	IClientRenderable::GetRenderBounds: managed's box for a custom-draw entity or a ragdoll (the block's RenderMins/Maxs), else the model's render bounds grown by managed's scale (C_BaseAnimating::GetRenderBounds), else the head's stand-in box
+int32_t SourceSharp_NetHierarchyDeclare(	BOUNDARY	IShimStandaloneClient::NetHierarchyDeclare: the tier the declared size lands in (generic_nettable.h's rule) as a word count, and the ceiling's log line
+void C_StandaloneEntity::AddToLeafSystem()	BOUNDARY	into the leaf system in the group managed's policy wrote (or re-grouped and marked changed when already in), then the shadow queue refreshed
+void C_StandaloneEntity::SetViewModelPass(	BOUNDARY	stores managed's viewmodel choice into the block, latches the local viewmodel for the eye pin and drops the placeholder custom draw; the policy serial bumped
+bool SourceSharp_StandaloneTierIsInUse(	BOUNDARY	whether managed's published type table (SourceSharp_NetTypes) names a class of this shell on the tier, for the recv-table report
+void C_StandaloneEntity::NotifyShouldTransmit(	SLOT	IClientNetworkable::NotifyShouldTransmit: the engine's PVS edge into SetDormant
+void C_StandaloneEntity::SetModelScale(	SLOT-HELP	stores the scale managed chose (refusing a non-positive one, an argument check) and re-leafs for the grown bounds
+int SourceSharp_StandaloneClientsLevelShutdown()	HOOK	the level shutdown's teardown: every shell released from the end of the list, the block arrays emptied; the count for the caller's assert
+void **SourceSharp_ClientPolicyBlocks(	BOUNDARY	IShimStandaloneClient::ClientPolicyBlocks: every shell's block, for managed's ClientRenderPolicy pass, in one crossing
+void C_StandaloneEntity::PredictionDrive(	BOUNDARY	stores the managed replay's view record (eye offset, punch, health) and, while managed says it is driving, its origin and the re-transform
+void SourceSharp_ClientEntityGetAngles(	BOUNDARY	IShimStandaloneClient: a shell's drawn angles, zero for a handle that names none
+void SourceSharp_ClientEntityGetOrigin(	BOUNDARY	IShimStandaloneClient: a shell's drawn origin, zero for a handle that names none
+void SourceSharp_StandaloneSetCustomDraw(	BOUNDARY	IShimStandaloneClient::StandaloneSetCustomDraw: resolve the handle and store managed's box
+int32_t SourceSharp_StandaloneShadowCast(	BOUNDARY	IShimStandaloneClient: the block's shadow type and the choice managed asked for, for its report
+void *C_StandaloneEntity::operator new(	LAYOUT	the zeroed allocation the engine decodes into: the shell, then the blob at the tier's length (floored at tier 0)
+void C_StandaloneEntity::ApplyRenderPolicy()	BOUNDARY	carries managed's policy out when its output serial moved: leaf membership by ShouldDraw, then the group and shadow re-applied
+void C_StandaloneEntity::OnPositionChanged()	BOUNDARY	rebuilds the head transform from the pose, publishes the render pose, re-leafs and queues the shadow dirty (stock InvalidatePhysicsRecursive's position arm); the texture mark only when the transform actually changed, stock's exact-compare idiom
+void C_StandaloneEntity::UpdateVisibility()	BOUNDARY	leaf membership made to match ShouldDraw (in or out)
+void SourceSharp_ClientEntityGetModelName(	BOUNDARY	IShimStandaloneClient: a shell's model name from the engine's model info
+void C_StandaloneEntity::SetFade(	BOUNDARY	stores managed's fade rule and band into the block and bumps the policy serial
+bool C_StandaloneEntity::ShouldReceiveProjectedTextures(	SLOT	IClientRenderable: the receive bit managed's ClientRenderPolicy wrote, for the kind the engine asks
+void C_StandaloneEntity::PushDormancy(	BOUNDARY	the block's dormancy pushed to managed's mirror (OnStandaloneDormancyChanged), only for an entity with a managed half
+void SourceSharp_DynamicLightRelease(	BOUNDARY	IShimFx: both engine pools' light of managed's key put out now
+ShadowType_t C_StandaloneEntity::ShadowCastType()	SLOT	IClientRenderable: the block's ShadowType, managed's ClientRenderPolicy answer
+void C_StandaloneEntity::PublishRenderPose()	SLOT-HELP	the head's pose and transform copied into the tail's render pose; a ragdoll's is managed's and is left alone
+void C_StandaloneEntity::RemoveFromLeafSystem()	BOUNDARY	the shadow queued for destruction, then out of the leaf system
+void C_StandaloneEntity::SetDormant(	SLOT-HELP	the engine's dormancy into the block, the policy serial bumped and managed's mirror pushed, on a change
+void C_StandaloneEntity::WorldSpaceSurroundingBounds(	SLOT	ICollideable: the render bounds about the render origin
+static IClientNetworkable *CreateStandaloneTier(	SLOT	the ClientClass create function's body: the shell allocated at its tier's length; the player-slot bit from the engine's reserved client index range
+void C_StandaloneEntity::MoveToEye(	BOUNDARY	stores the eye pose managed computed into the tail and builds its render transform
+void C_StandaloneEntity::PublishModelFacts()	BOUNDARY	the engine's model type for the networked index into the block, and the policy serial bumped
+void C_StandaloneEntity::SetBlending(	BOUNDARY	stores managed's blending into the block (alpha narrowed to the block's byte) and bumps the policy serial
+void C_StandaloneEntity::SetCustomDraw(	BOUNDARY	stores managed's custom-draw box into the block and bumps the policy serial
+C_StandaloneEntity *SourceSharp_StandaloneClientAt(	SLOT-HELP	accessor: the hierarchy list's entry, for shell_entitystatics.cpp's walk
+int32_t SourceSharp_ClientEntityGetIndex(	BOUNDARY	IShimStandaloneClient: a shell's index, -1 for a handle that names none
+static void RecvProxy_StandaloneTypeId(	SLOT	the engine's recv proxy for the type id: the store, then EnsureManagedHalf
+void SourceSharp_ActivateOccluder(	BOUNDARY	IShimStandaloneClient: engine->ActivateOccluder for managed's func_occluder
+void SourceSharp_StandaloneSetBlending(	BOUNDARY	IShimStandaloneClient: resolve the handle and store
+void SourceSharp_StandaloneSetFade(	BOUNDARY	IShimStandaloneClient: resolve the handle and store
+C_StandaloneEntity *SourceSharp_StandaloneFromHandle(	SLOT-HELP	a handle's entry through the slot table
+[CSourceSharpStandaloneClientSystem] virtual bool Init()	HOOK	the client system's Init: the tiers registered before the engine collects the class list
+[CSourceSharpStandaloneInterpSystem] virtual void LevelShutdownPostEntity()	HOOK	the client system's level shutdown: the block arrays purged
+[CSourceSharpStandaloneInterpSystem] virtual void PreRender()	HOOK	the client system's PreRender: managed's policy applied, then the interpolated entities re-transformed
+int C_StandaloneEntity::BlockBase()	LAYOUT	the block's offset in the shell, which the recv props address
+int32_t SourceSharp_StandaloneIsDormant(	BOUNDARY	IShimStandaloneClient: a shell's dormancy for managed's report
+void C_StandaloneEntity::CreateModelInstance()	BOUNDARY	modelrender->CreateInstance, once
+void C_StandaloneEntity::PostInterpolate(	SLOT-HELP	the stored clock's cycle into the block, and OnPositionChanged for the pose managed's interpolation wrote
+void C_StandaloneEntity::WorldSpaceTriggerBounds(	SLOT	ICollideable: the head's box about the head's origin
+void SourceSharp_EntitySetSkin(	BOUNDARY	IShimStandaloneClient: resolve the handle and store
+void SourceSharp_StandaloneSetModelScale(	BOUNDARY	IShimStandaloneClient: resolve the handle and store
+void SourceSharp_StandaloneSetOverlayModel(	BOUNDARY	IShimStandaloneClient: resolve the handle and store
+void SourceSharp_StandaloneSetViewModel(	BOUNDARY	IShimStandaloneClient: resolve the handle and store
+void SourceSharp_StandaloneViewModelToEye(	BOUNDARY	the eye pose managed's view computed, onto the local viewmodel
+C_StandaloneEntity *SourceSharp_LocalPlayerShell()	SLOT-HELP	accessor of the local-player latch
+ClientClass *C_StandaloneEntity::GetClientClass()	SLOT	IClientNetworkable: the tier's ClientClass
+bool C_StandaloneEntity::IsRagdoll() const	SLOT-HELP	accessor of managed's ragdoll flag
+const model_t *C_StandaloneEntity::GetModel( void ) const	SLOT	IClientRenderable: the networked model index through the engine's model info
+int C_StandaloneEntity::BlobBytes() const	SLOT-HELP	the tier's byte length (the tier table)
+int SourceSharp_StandaloneBlobOffset()	LAYOUT	the blob's offset in the shell, which the payload props address
+int SourceSharp_StandaloneClientCount()	SLOT-HELP	accessor: the hierarchy list's length, for shell_entitystatics.cpp's walk
+static C_StandaloneEntity *ResolveStandaloneClient(	SLOT-HELP	a handle's shell
+unsigned char *C_StandaloneEntity::DataBlob()	LAYOUT	the blob's address
+void C_StandaloneEntity::DestroyShadow()	BOUNDARY	the shadow queue's destroy entry
+void C_StandaloneEntity::RefreshShadow()	BOUNDARY	the shadow queue's refresh entry with the type and flags managed's policy wrote
+void C_StandaloneEntity::NoteNetworkedPosition()	BOUNDARY	the packet's server time into the block for managed's interpolation rings
+void C_StandaloneEntity::operator delete( void *pMem )	LAYOUT	frees the allocation operator new made
+void C_StandaloneEntity::operator delete( void *pMem, int )	LAYOUT	the sized new's pairing for a throwing constructor
+CClientSystem *ClientSystem_StandaloneClient()	HOOK	kClientSystems accessor
+CClientSystem *ClientSystem_StandaloneInterp()	HOOK	kClientSystems accessor
+[CSourceSharpStandaloneClientSystem] : CClientSystem(	HOOK	the client system's registration name
+[CSourceSharpStandaloneInterpSystem] : CClientSystemPerFrame(	HOOK	the client system's registration name
+static IClientNetworkable *CreateStandaloneTier0(	HOOK	tier 0's ClientClass create function
+static IClientNetworkable *CreateStandaloneTier1(	HOOK	tier 1's ClientClass create function
+static IClientNetworkable *CreateStandaloneTier2(	HOOK	tier 2's ClientClass create function
+static IClientNetworkable *CreateStandaloneTier3(	HOOK	tier 3's ClientClass create function
+static IClientNetworkable *CreateStandaloneTier4(	HOOK	tier 4's ClientClass create function
+static IClientNetworkable *CreateStandaloneTier5(	HOOK	tier 5's ClientClass create function
+static IClientNetworkable *CreateStandaloneTier6(	HOOK	tier 6's ClientClass create function
+int32_t SourceSharp_StandaloneSurroundingBounds(	BOUNDARY	IShimStandaloneClient::StandaloneSurroundingBounds: each named shell's WorldSpaceSurroundingBounds for managed's per-view fade (StandaloneFadePass), in one crossing
+static void StandaloneClients_ApplyRenderPolicy()	SLOT-HELP	the PreRender walk: every shell carries out managed's policy (ApplyRenderPolicy)
+CSourceSharpSurfaceRenderer *C_StandaloneEntity::SurfaceRenderer(	SLOT-HELP	the shell's surface renderer, made on managed's first ask
+void C_StandaloneEntity::PostDataUpdate(	SLOT	IClientNetworkable::PostDataUpdate: the packet's time and the re-transform; the managed half made (EnsureManagedHalf), its spawn, dormancy and data handed over behind the schema gate; the local-player latch from the engine's own index; leaf entry on create; the model index and effects word published when they moved (the edges managed's policy serial keys on)
+bool C_StandaloneEntity::ShouldDraw( void )	SLOT	IClientRenderable::ShouldDraw: managed's Drawn and the engine's dormancy, then the OwnerSeenRule managed wrote applied to the live SourceSharp_ThirdPersonSeesOwner (the one term no pass can precompute)
+void **SourceSharp_ClientInterpBlocks(	BOUNDARY	IShimStandaloneClient::ClientInterpBlocks: every shell's block and the client's interp amount (GetClientInterpAmount, managed's BoundedConVars value) in one crossing; which to write and the delay are managed's InterpolatedSet / InterpolationDelay
+void SourceSharp_ClientInterpAdmitted(	BOUNDARY	IShimStandaloneClient::ClientInterpAdmitted: keeps the handles managed's interpolation admitted, for PreRender's walk
+static void StandaloneClients_PostInterpolate()	SLOT-HELP	the PreRender walk over the set managed admitted: each handle still naming its shell is re-transformed (PostInterpolate)

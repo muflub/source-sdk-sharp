@@ -395,34 +395,6 @@ void SourceSharp_ViewerCameraModeChanged()
 }
 
 //-----------------------------------------------------------------------------
-// THE VIEWER'S VEHICLE, for the movement stick's response curve.
-//
-// view_facts.h carries the argument. The short of it: this build has no
-// vehicles and the server shell is where that is settled, not here --
-// CStandalonePlayer::MvIsInAVehicle and CShellPlayerInfo::IsInAVehicle are both
-// a flat `return false`, so an in-vehicle arm on this client could not be
-// reached by any route.
-//
-// *pOutCurve IS LEFT ALONE ON A FALSE, and that is not tidiness. in_joystick's
-// caller seeds the curve with joy_response_move BEFORE it asks, so a body that
-// helpfully zeroed the out-parameter on the way to answering "no vehicle" would
-// hand the stick response curve 0 -- a REAL curve -- in place of the convar's.
-// That is the fogparams_t mistake in miniature: a zeroed answer that reads as a
-// real one.
-//-----------------------------------------------------------------------------
-bool SourceSharp_ViewerVehicleJoystickResponseCurve( int *pOutCurve )
-{
-	NOTE_UNUSED( pOutCurve );
-
-	SourceSharp_NotShipped( "player vehicles (joystick response curve)",
-		"the managed player is never in a vehicle -- MvIsInAVehicle and "
-		"IPlayerInfo::IsInAVehicle are both a flat false -- so the movement "
-		"stick always uses joy_response_move and never a vehicle's own curve" );
-
-	return false;
-}
-
-//-----------------------------------------------------------------------------
 // WHETHER THE VIEWER'S AIM IS BEING ASSISTED, for the stick dampening.
 //
 // view_facts.h carries the argument. The short of it: m_bAutoAimTarget is HL2

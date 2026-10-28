@@ -917,15 +917,6 @@ typedef enum
 	SOURCESHARP_WORLDRENDER_TONEMAP  = 2,
 } SourceSharpWorldRenderState;
 
-// What ClientColorCorrection is being asked to do. The three together are one
-// lookup's whole life.
-typedef enum
-{
-	SOURCESHARP_CC_ADD        = 0,  // load pLookupFile, answer a handle
-	SOURCESHARP_CC_SET_WEIGHT = 1,  // how much of it to apply, 0..1
-	SOURCESHARP_CC_REMOVE     = 2,  // release it
-} SourceSharpColorCorrectionOp;
-
 // What an entity is, as one answer. A radius query returns everything in range
 // and the caller discards most of it, so these travel together rather than as
 // four separate crossings per entity per tick.

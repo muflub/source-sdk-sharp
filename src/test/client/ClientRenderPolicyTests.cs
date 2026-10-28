@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -165,17 +166,108 @@ public class ClientRenderPolicyTests
     }
 
     [Fact]
-    public void OnlyTheViewModelIsHiddenWhileTheCameraSeesItsOwner()
+    public void TheViewModelIsHiddenWhileTheCameraSeesItsOwner()
     {
         // WHICH entities carry the rule is the decision and lives here; WHETHER
-        // the camera can see the owner right now is an engine fact the shell ANDs
-        // in at the draw. See EngineBlockClientTail.HideWhenOwnerSeen.
-        Assert.False(ClientRenderPolicy.HideWhenOwnerSeen(Prop()));
-
+        // the camera can see the owner right now is an engine fact the shell
+        // combines at the draw. See EngineBlockClientTail.OwnerSeenRule.
         var viewModel = Prop();
         viewModel.ViewModel = true;
 
-        Assert.True(ClientRenderPolicy.HideWhenOwnerSeen(viewModel));
+        Assert.Equal(ClientOwnerSeenRule.HiddenWhileSeen, ClientRenderPolicy.OwnerSeen(viewModel));
+    }
+
+    [Fact]
+    public void AnyOtherEntityIgnoresWhetherTheCameraSeesItsOwner()
+        => Assert.Equal(ClientOwnerSeenRule.Always, ClientRenderPolicy.OwnerSeen(Prop()));
+
+    //=========================================================================
+    // THE VIEWER'S OWN BODY (lane M1-A: the shell's ShouldDraw decided it).
+    //=========================================================================
+
+    private static ClientRenderFacts Viewer()
+    {
+        var facts = Prop();
+        facts.LocalPlayer = true;
+        return facts;
+    }
+
+    [Fact]
+    public void TheViewersOwnBodyIsDrawnOnlyWhileTheCameraSeesIt()
+    {
+        // Stock's C_BasePlayer::ShouldDraw: !IsLocalPlayer() || third person.
+        Assert.Equal(ClientOwnerSeenRule.DrawnOnlyWhileSeen, ClientRenderPolicy.OwnerSeen(Viewer()));
+    }
+
+    [Fact]
+    public void TheViewersOwnBodyDrawsByItsModel()
+    {
+        var noModel = Viewer();
+        noModel.ModelType = ClientRenderFacts.NoModel;
+        noModel.CustomDraw = true;
+
+        Assert.True(ClientRenderPolicy.Drawn(Viewer()));
+        Assert.False(ClientRenderPolicy.Drawn(noModel));
+    }
+
+    [Fact]
+    public void TheViewersOwnBodyHonoursNoDraw()
+    {
+        // Stock's base ShouldDraw refuses EF_NODRAW for the local player too.
+        var hidden = Viewer();
+        hidden.NoDraw = true;
+
+        Assert.False(ClientRenderPolicy.Drawn(hidden));
+    }
+
+    [Fact]
+    public void TheViewersViewModelIsAViewModelFirst()
+    {
+        var facts = Viewer();
+        facts.ViewModel = true;
+
+        Assert.Equal(ClientOwnerSeenRule.HiddenWhileSeen, ClientRenderPolicy.OwnerSeen(facts));
+    }
+
+    [Fact]
+    public void TheLocalPlayerIsTheEntityAtTheEnginesLocalPlayerIndex()
+    {
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadHandle, 3);
+
+        Assert.True(ClientRenderPolicy.ReadFacts(blocks.Raw(0), null, 3).LocalPlayer);
+        Assert.False(ClientRenderPolicy.ReadFacts(blocks.Raw(0), null, 4).LocalPlayer);
+        Assert.False(ClientRenderPolicy.ReadFacts(blocks.Raw(0), null, 0).LocalPlayer);
+    }
+
+    [Fact]
+    public void ThePassWritesTheViewersRuleIntoTheBlock()
+    {
+        var blocks = OneProp();
+        Write(blocks.Raw(0), HeadHandle, 1);
+        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.ModelType)), ClientRenderFacts.Studio);
+
+        new ClientRenderPolicy(() => null, () => 1).Pass(blocks);
+
+        Assert.Equal((int)ClientOwnerSeenRule.DrawnOnlyWhileSeen,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.OwnerSeenRule))));
+    }
+
+    [Fact]
+    public void TheOwnerSeenNumbersAreTheShellsOwn()
+    {
+        string header = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_standalone_client.h"));
+
+        int Value(string name)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(header, @"\b" + name + @"\s*=\s*(\d+)\s*,");
+            Assert.True(m.Success, $"shell_standalone_client.h names {name}");
+            return int.Parse(m.Groups[1].Value);
+        }
+
+        Assert.Equal((int)ClientOwnerSeenRule.Always, Value("STANDALONE_OWNER_SEEN_ALWAYS"));
+        Assert.Equal((int)ClientOwnerSeenRule.HiddenWhileSeen, Value("STANDALONE_OWNER_SEEN_HIDDEN_WHILE"));
+        Assert.Equal((int)ClientOwnerSeenRule.DrawnOnlyWhileSeen, Value("STANDALONE_OWNER_SEEN_DRAWN_ONLY_WHILE"));
     }
 
     //=========================================================================
@@ -685,7 +777,7 @@ public class ClientRenderPolicyTests
         Policy().Pass(blocks);
 
         Assert.Equal(1, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Drawn))));
-        Assert.Equal(1, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.HideWhenOwnerSeen))));
+        Assert.Equal((int)ClientOwnerSeenRule.HiddenWhileSeen, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.OwnerSeenRule))));
     }
 
     [Fact]

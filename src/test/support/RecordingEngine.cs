@@ -904,7 +904,6 @@ public sealed class RecordingEngine :
     // BrushMovement
     void IEngineBrushMovement.MoveToAngles(EntityHandle entity, Vector destination, float speed) => RecordVoid("BrushMovement.MoveToAngles", entity, destination, speed);
     void IEngineBrushMovement.MoveToPosition(EntityHandle entity, Vector destination, float speed) => RecordVoid("BrushMovement.MoveToPosition", entity, destination, speed);
-    void IEngineBrushMovement.SetSurfaceEdges(EntityHandle entity, byte[] packed, int count) => RecordVoid("BrushMovement.SetSurfaceEdges", entity, packed, count);
     void IEngineBrushMovement.StopMoving(EntityHandle entity) => RecordVoid("BrushMovement.StopMoving", entity);
     void IEngineBrushMovement.Spin(EntityHandle entity, Vector degreesPerSecond) => RecordVoid("BrushMovement.Spin", entity, degreesPerSecond);
 
@@ -1239,6 +1238,7 @@ public sealed class RecordingEngine :
     int IEngineVisibility.ColorCorrectionAdd(string lookupFile) => Record<int>("Visibility.ColorCorrectionAdd", lookupFile);
     void IEngineVisibility.ColorCorrectionRemove(int handle) => RecordVoid("Visibility.ColorCorrectionRemove", handle);
     void IEngineVisibility.ColorCorrectionSetWeight(int handle, float weight) => RecordVoid("Visibility.ColorCorrectionSetWeight", handle, weight);
+    void IEngineVisibility.ColorCorrectionResetWeights() => RecordVoid("Visibility.ColorCorrectionResetWeights");
     void IEngineVisibility.DynamicLightRelease(int key) => RecordVoid("Visibility.DynamicLightRelease", key);
     void IEngineVisibility.DynamicLightUpdate(in DynamicLight light) => RecordVoid("Visibility.DynamicLightUpdate", light);
     void IEngineVisibility.SetLightStyle(int style, string pattern) => RecordVoid("Visibility.SetLightStyle", style, pattern);

@@ -2145,13 +2145,11 @@ void OnRenderStart()
 	// Reset the overlay alpha. Entities can change the state of this in their think functions.
 	g_SmokeFogOverlayAlpha = 0;	
 
-	// This must occur prior to SimulatEntities,
-	// which is where the client thinks for c_colorcorrection + c_colorcorrectionvolumes
-	// update the color correction weights.
-	// FIXME: The place where IGameSystem::Update is called should be in here
-	// so we don't have to explicitly call ResetColorCorrectionWeights + SimulateEntities, etc.
-	void SourceSharp_ColorCorrectionResetWeights();
-	SourceSharp_ColorCorrectionResetWeights();
+	// The colour-correction weights' reset stood here, before SimulateEntities
+	// where stock's c_colorcorrection thinks re-weighed them. Both are managed
+	// now (lane M1-A): ColorCorrections resets and re-weighs in one pass at
+	// FRAME_RENDER_START, so a reset here would zero the weights that pass set
+	// before this frame renders.
 
 	PhysicsSimulate();
 

@@ -2223,7 +2223,7 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 29 };
 
 //-----------------------------------------------------------------------------
-// ShimStandaloneClient: 20 forwarder(s) over IShimStandaloneClient.
+// ShimStandaloneClient: 24 forwarder(s) over IShimStandaloneClient.
 //-----------------------------------------------------------------------------
 // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
@@ -2249,8 +2249,6 @@ static void SSFwd_ShimStandaloneClient_StandaloneSetOverlayModel( IShimStandalon
 static void SSFwd_ShimStandaloneClient_StandaloneSetViewModel( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetViewModel( a0, a1 ); }
 // int32_t IShimStandaloneClient::StandaloneShadowCast( uint32_t, int32_t * )
 static int32_t SSFwd_ShimStandaloneClient_StandaloneShadowCast( IShimStandaloneClient *self, uint32_t a0, int32_t * a1 ) { return self->StandaloneShadowCast( a0, a1 ); }
-// void IShimStandaloneClient::SurfaceSetEdges( uint32_t, const unsigned char *, int32_t )
-static void SSFwd_ShimStandaloneClient_SurfaceSetEdges( IShimStandaloneClient *self, uint32_t a0, const unsigned char * a1, int32_t a2 ) { self->SurfaceSetEdges( a0, a1, a2 ); }
 // int32_t IShimStandaloneClient::ClientRecvProp( int32_t, char *, int32_t, char *, int32_t, char *, int32_t, int32_t *, int32_t *, int32_t *, int32_t * )
 static int32_t SSFwd_ShimStandaloneClient_ClientRecvProp( IShimStandaloneClient *self, int32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, char * a5, int32_t a6, int32_t * a7, int32_t * a8, int32_t * a9, int32_t * a10 ) { return self->ClientRecvProp( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 ); }
 // int32_t IShimStandaloneClient::ClientSchemaRefusal( int32_t, uint32_t *, uint32_t *, uint32_t *, int32_t *, char *, int32_t, int32_t * )
@@ -2265,6 +2263,16 @@ static void SSFwd_ShimStandaloneClient_StandaloneSetRagdoll( IShimStandaloneClie
 static void SSFwd_ShimStandaloneClient_EntitySetSkin( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->EntitySetSkin( a0, a1 ); }
 // void IShimStandaloneClient::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
 static void SSFwd_ShimStandaloneClient_RegisterAmmoType( IShimStandaloneClient *self, const char * a0, int32_t a1, int32_t a2, int32_t a3, float a4, float a5 ) { self->RegisterAmmoType( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimStandaloneClient::StandaloneSurroundingBounds( const uint32_t *, int32_t, float * )
+static int32_t SSFwd_ShimStandaloneClient_StandaloneSurroundingBounds( IShimStandaloneClient *self, const uint32_t * a0, int32_t a1, float * a2 ) { return self->StandaloneSurroundingBounds( a0, a1, a2 ); }
+// int32_t IShimStandaloneClient::SurfaceMaterialFacts( uint32_t, char *, int32_t, char *, int32_t, int32_t * )
+static int32_t SSFwd_ShimStandaloneClient_SurfaceMaterialFacts( IShimStandaloneClient *self, uint32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, int32_t * a5 ) { return self->SurfaceMaterialFacts( a0, a1, a2, a3, a4, a5 ); }
+// void IShimStandaloneClient::SurfaceSetMaterials( uint32_t, const char *, int32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_SurfaceSetMaterials( IShimStandaloneClient *self, uint32_t a0, const char * a1, int32_t a2, int32_t a3 ) { self->SurfaceSetMaterials( a0, a1, a2, a3 ); }
+// void IShimStandaloneClient::SurfaceSetPlan( uint32_t, const int32_t *, int32_t )
+static void SSFwd_ShimStandaloneClient_SurfaceSetPlan( IShimStandaloneClient *self, uint32_t a0, const int32_t * a1, int32_t a2 ) { self->SurfaceSetPlan( a0, a1, a2 ); }
+// void IShimStandaloneClient::ClientInterpAdmitted( const uint32_t *, int32_t )
+static void SSFwd_ShimStandaloneClient_ClientInterpAdmitted( IShimStandaloneClient *self, const uint32_t * a0, int32_t a1 ) { self->ClientInterpAdmitted( a0, a1 ); }
 
 static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ActivateOccluder ),
@@ -2279,7 +2287,6 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetOverlayModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetViewModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneShadowCast ),
-	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetEdges ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientRecvProp ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientSchemaRefusal ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneEngineBlock ),
@@ -2287,12 +2294,17 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetRagdoll ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_EntitySetSkin ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_RegisterAmmoType ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSurroundingBounds ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceMaterialFacts ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetMaterials ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetPlan ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientInterpAdmitted ),
 };
 
-static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 20 };
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 24 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 24 forwarder(s) over IShimViewClient.
+// ShimViewClient: 27 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2302,8 +2314,6 @@ static void SSFwd_ShimViewClient_ConNXPrintf( IShimViewClient *self, void * a0, 
 static void SSFwd_ShimViewClient_GetLightForPoint( IShimViewClient *self, void * a0, const float * a1, int32_t a2, float * a3 ) { self->GetLightForPoint( a0, a1, a2, a3 ); }
 // void IShimViewClient::GetLightForPointFast( void *, const float *, int32_t, float * )
 static void SSFwd_ShimViewClient_GetLightForPointFast( IShimViewClient *self, void * a0, const float * a1, int32_t a2, float * a3 ) { self->GetLightForPointFast( a0, a1, a2, a3 ); }
-// int32_t IShimViewClient::ClientColorCorrection( int32_t, int32_t, const char *, float )
-static int32_t SSFwd_ShimViewClient_ClientColorCorrection( IShimViewClient *self, int32_t a0, int32_t a1, const char * a2, float a3 ) { return self->ClientColorCorrection( a0, a1, a2, a3 ); }
 // void IShimViewClient::ClientSetWorldRenderState( int32_t, const float *, int32_t )
 static void SSFwd_ShimViewClient_ClientSetWorldRenderState( IShimViewClient *self, int32_t a0, const float * a1, int32_t a2 ) { self->ClientSetWorldRenderState( a0, a1, a2 ); }
 // int32_t IShimViewClient::GetLocalPlayerOrigin( float * )
@@ -2342,13 +2352,20 @@ static void SSFwd_ShimViewClient_PixelVisDiameters( IShimViewClient *self, const
 static int32_t SSFwd_ShimViewClient_PixelVisView( IShimViewClient *self, float * a0, int32_t a1 ) { return self->PixelVisView( a0, a1 ); }
 // int32_t IShimViewClient::GlowMaterialFind( const char *, const char * )
 static int32_t SSFwd_ShimViewClient_GlowMaterialFind( IShimViewClient *self, const char * a0, const char * a1 ) { return self->GlowMaterialFind( a0, a1 ); }
+// void * IShimViewClient::ColorLookupAdd( const char * )
+static void * SSFwd_ShimViewClient_ColorLookupAdd( IShimViewClient *self, const char * a0 ) { return self->ColorLookupAdd( a0 ); }
+// void IShimViewClient::ColorLookupSetWeight( void *, float )
+static void SSFwd_ShimViewClient_ColorLookupSetWeight( IShimViewClient *self, void * a0, float a1 ) { self->ColorLookupSetWeight( a0, a1 ); }
+// void IShimViewClient::ColorLookupRemove( void * )
+static void SSFwd_ShimViewClient_ColorLookupRemove( IShimViewClient *self, void * a0 ) { self->ColorLookupRemove( a0 ); }
+// void IShimViewClient::ColorLookupResetWeights( void )
+static void SSFwd_ShimViewClient_ColorLookupResetWeights( IShimViewClient *self ) { self->ColorLookupResetWeights(); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNXPrintf ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GetLightForPoint ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GetLightForPointFast ),
-	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientColorCorrection ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientSetWorldRenderState ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GetLocalPlayerOrigin ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_SetViewerFogParams ),
@@ -2368,9 +2385,13 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisDiameters ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_PixelVisView ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GlowMaterialFind ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupAdd ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupSetWeight ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupRemove ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupResetWeights ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 24 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 27 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.

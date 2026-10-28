@@ -412,13 +412,15 @@ TEST_F( ClientInterpolation, TheListIsBuiltInExactlyOnePlace )
 
 	EXPECT_NE( std::string::npos, body.find( "&g_StandaloneClients[i]->Block()" ) )
 		<< "the list stopped answering engine blocks.";
-	EXPECT_NE( std::string::npos, body.find( "WantsInterpolation()" ) )
-		<< "the list stopped filtering; the predicted player and the local "
-		<< "viewmodel would have their computed positions overwritten with a "
-		<< "point read from the networked past.";
-	EXPECT_NE( std::string::npos, body.find( "StandaloneInterpolationAmount()" ) )
-		<< "how far behind the server the client draws is answered by the same "
-		<< "call, so it cannot be asked a frame apart from the list it applies to.";
+	// WHICH entities the pass writes is managed's since lane M1-A
+	// (InterpolatedSet, InterpolatedSetTests): the list is every block, and
+	// the delay's raw input, the client's interp amount, rides the same call
+	// so it cannot be asked a frame apart from the list it applies to.
+	EXPECT_EQ( std::string::npos, body.find( "WantsInterpolation()" ) )
+		<< "the list filters natively again; which entities the pass may write "
+		<< "is InterpolatedSet's decision.";
+	EXPECT_NE( std::string::npos, body.find( "GetClientInterpAmount()" ) )
+		<< "the client's interp amount no longer rides the list's call.";
 }
 
 TEST_F( ClientInterpolation, TheListIsEmptiedWhenTheLevelGoes )

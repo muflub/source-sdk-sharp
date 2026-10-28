@@ -817,6 +817,7 @@ public sealed class ClientPlayerPrediction
 
         LastReplayed = 0;
         Driving = false;
+        DrivenHandle = EntityHandle.None;
     }
 
     public string Report()
@@ -887,8 +888,18 @@ public sealed class ClientPlayerPrediction
         return cmd;
     }
 
+    /// <summary>
+    /// The entity the replay last said it drives (<see cref="EntityHandle.None"/>
+    /// when the last published view did not drive): what the interpolation pass
+    /// leaves out (<see cref="InterpolatedSet"/>), set with the same publish
+    /// that tells the shell to draw the replay's origin.
+    /// </summary>
+    public EntityHandle DrivenHandle { get; private set; }
+
     private void PublishView(ClientSsPlayer player, bool driving, bool fromReplay)
     {
+        DrivenHandle = driving ? player.Handle : EntityHandle.None;
+
         // The DECODED punch and eye when nothing was replayed, the replay's when
         // something was. Both are the right answer for their case, and
         // publishing every frame is what keeps the view following a player whose

@@ -39,11 +39,14 @@ public class StandaloneClientAreaTests
         string shell = Shell();
 
         // One accessor read per function that crosses: removal, create, the
-        // data update (spawn and data share it), dormancy, draw, the view's
-        // draw batch (C7 item 7) and the two layout asks.
-        Assert.Equal(8, Regex.Matches(shell, @"IManagedStandaloneClient \*pStandalone = ManagedStandaloneClient\(\);").Count);
-        foreach (string slot in Slots)
+        // data update (spawn and data share it), dormancy, draw and the view's
+        // draw batch (C7 item 7). The shell's two layout asks went with the
+        // surface renderer's blob reads (lane M1-A); the player sync's are
+        // TheClientsLayoutAskTakesTheClientsArea's.
+        Assert.Equal(6, Regex.Matches(shell, @"IManagedStandaloneClient \*pStandalone = ManagedStandaloneClient\(\);").Count);
+        foreach (string slot in Slots.Where(s => !s.StartsWith("NetState", StringComparison.Ordinal)))
             Assert.Single(Regex.Matches(shell, $@"pStandalone->{slot}\("));
+        Assert.DoesNotContain("pStandalone->NetStateField", shell);
     }
 
     [Fact]
