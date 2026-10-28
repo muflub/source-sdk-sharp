@@ -399,7 +399,9 @@ public partial class EngineApiCensusTests
     // Lane M1-C: the managed bullet impact's ClientShotTrace, ClientWorldLighting,
     // ClientStaticPropLighting, ClientImpactLedger and ParticleSystemImpact (245 + 5 = 250, landed after M1-A),
     // and the spray's ClientPlayerLogoDecal (250 + 1 = 251).
-    private const int ClientOnly = 251;
+    // Predicted weapon effects (stock-ab): ClientClipRayToEntities, the predicted
+    // shot's clip against the shells no client trace can see (251 + 1 = 252, landed after M1-C).
+    private const int ClientOnly = 252;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

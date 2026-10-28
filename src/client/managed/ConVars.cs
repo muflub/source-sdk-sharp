@@ -60,6 +60,24 @@ public sealed class PlayerPredictConVar : BoolConVar
 {
 }
 
+/// <summary>
+/// Stock's <c>cl_predictweapons</c> (prediction.cpp): whether this client
+/// plays its own weapon's sounds and impacts as it predicts a command
+/// (PredictedWeaponFx).
+///
+/// <para>
+/// USERINFO because the server reads it: <c>CBasePlayer::IsPredictingWeapons</c>
+/// is this and <c>cl_predict</c>, and while it holds the server's copies of
+/// those sounds and impacts skip this player (PredictionSuppression). A client
+/// that did not declare it would read as 0 there and hear every shot twice.
+/// </para>
+/// </summary>
+[ConVar("cl_predictweapons", "1", Flags = ConVarFlags.UserInfo | ConVarFlags.NotConnected,
+        Help = "Perform client side prediction of weapon effects.")]
+public sealed class PredictWeaponsConVar : BoolConVar
+{
+}
+
 //=============================================================================
 // THE SHIM'S POLICY KNOBS, MOVED OUT OF C++ — the client's half.
 //

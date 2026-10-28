@@ -747,6 +747,35 @@ public class TempEntClientCeTests
           + "cannot say");
     }
 
+    /// <summary>
+    /// cs_cl_te_report's counts: per class, and per effect name inside the one
+    /// class that stands for all of them -- the instrument that tells "the
+    /// server's Impact never arrived" from a map's background effects.
+    /// </summary>
+    [Fact]
+    public void EachClassAndEachDispatchedNameIsCounted()
+    {
+        var engine = ClientDoubles.Fake();
+        var registry = Registered(engine);
+
+        TempEntType te = registry.Find("CTEEffectDispatch")!;
+        var blob = new byte[te.BlobBytes];
+        new TempEntWriter(te, blob).Int("m_iEffectName", 1);
+
+        engine.Returns("Effects.EffectDispatchName", "Impact");
+
+        var player = new ClientTeEffectDispatch(engine, new RecordingEffectDispatch());
+        var players = new ClientTempEnts(new RecordingLog(), registry);
+        players.Add("CTEEffectDispatch", player);
+
+        players.Dispatch(te.Handle, blob);
+        players.Dispatch(te.Handle, blob);
+
+        Assert.Equal(2, players.PlayedOf("CTEEffectDispatch"));
+        Assert.Equal(0, players.PlayedOf("CTESparks"));
+        Assert.Equal(2, player.PlayedByName["Impact"]);
+    }
+
     // =====================================================================
     // CTEShatterSurface.
     // =====================================================================

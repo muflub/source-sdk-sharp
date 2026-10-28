@@ -1042,6 +1042,20 @@ internal sealed unsafe partial class EngineSide
     /// Corner offsets RELATIVE to the start point, which is how the engine wants
     /// a hull and how a caller holding an entity's bounds already has them.
     /// </param>
+    /// <summary>A box swept as a hull, answered as a surface line trace is: where, the face, what, and its surface.</summary>
+    public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs,
+                                       TraceMask mask, EntityHandle ignore = default)
+    {
+        if (Tracer is not { } tracer)
+            return new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
+
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Hull(start, end, mins, maxs, (uint)TraceMasks.Hull(mask),
+                                    new EntityHandle(Skippable(ignore)), CollisionGroupNone);
+        TraceCost.Hull.Stop(cost);
+        return ServerTraceResults.Surface(t);
+    }
+
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs,
                                        TraceMask mask, EntityHandle ignore = default)
     {

@@ -34,6 +34,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncVehicleclip, ScriptedEntityKind.Brush)]
 public sealed class FuncVehicleClip : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public FuncVehicleClip(IEngineEntityPhysics physics)
     {
         Physics = physics;

@@ -999,6 +999,7 @@ public sealed class RecordingEngine :
     int IEngineWorldQuery.EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => EntitiesInSphere(center, radius, into);
     int IEngineWorldQuery.GetArea(Vector origin) => Record<int>("WorldQuery.GetArea", origin);
     HullResult IEngineWorldQuery.TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<HullResult>("WorldQuery.TraceHull", start, end, mins, maxs, mask, ignore);
+    SurfaceTraceResult IEngineWorldQuery.TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceBox", start, end, mins, maxs, mask, ignore);
     EntityHullTrace IEngineWorldQuery.EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => Record<EntityHullTrace>("WorldQuery.EntityTraceHull", entity, start, end, mins, maxs, mask, collisionGroup);
     TraceResult IEngineWorldQuery.TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<TraceResult>("WorldQuery.TraceLine", start, end, mask, ignore);
     SurfaceTraceResult IEngineWorldQuery.TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceLineSurface", start, end, mask, ignore);
@@ -1008,6 +1009,8 @@ public sealed class RecordingEngine :
     // that bounces off a door and one that falls through it, and a recording
     // that forgot which filter ran could not tell them apart.
     ClientTraceResult IEngineWorldQuery.ClientTraceLine(Vector start, Vector end, TraceMask mask, TraceFilter filter, int passEntityIndex) => Record<ClientTraceResult>("WorldQuery.ClientTraceLine", start, end, mask, filter, passEntityIndex);
+    // The list is copied: the caller's span is a scratch buffer it refills.
+    ClientTraceResult IEngineWorldQuery.ClientClipRayToEntities(Vector start, Vector end, TraceMask mask, ReadOnlySpan<int> entityIndices) => Record<ClientTraceResult>("WorldQuery.ClientClipRayToEntities", start, end, mask, entityIndices.ToArray());
     // C-Phase 3 lane DECALS. STRICT, deliberately: this is the question
     // C_BaseEntity::AddDecal's switch is made from, and a double that answered
     // "no such entity" by default would turn every decal test into a test of

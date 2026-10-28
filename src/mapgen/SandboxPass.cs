@@ -205,6 +205,10 @@ public static class SandboxPass
             [EntityNames.SsRocket] =
                 "fired by weapon_rpg; same argument as the bolt",
 
+            [EntityNames.EnvLaserdot] =
+                "weapon_rpg's laser dot, made and moved by the RPG in a player's hands; a "
+                + "map-placed one is a dot nobody is painting",
+
             [EntityNames.GrenadeAr2] =
                 "fired by weapon_smg1's alt-fire; same argument as the bolt, and one that "
                 + "goes off at the first thing it touches",

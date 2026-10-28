@@ -19,6 +19,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncPlat, ScriptedEntityKind.Brush)]
 public sealed class FuncPlat : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>What a map may set on this entity. See <see cref="FuncPlatVars"/>.</summary>
     [ScriptVars] public FuncPlatVars Vars = new();
 

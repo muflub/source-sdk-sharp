@@ -17,6 +17,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncBreakable, ScriptedEntityKind.Brush)]
 public sealed class FuncBreakable : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public readonly Output OnBreak = new();
     public readonly Output OnHealthChanged = new();
     public readonly Output OnTakeDamage = new();

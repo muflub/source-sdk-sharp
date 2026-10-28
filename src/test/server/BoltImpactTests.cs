@@ -76,6 +76,8 @@ public class BoltImpactTests
               .Returns("Entities.SetParent", true)
               // Out of water: the sparks fly.
               .Returns("WorldQuery.PointContents", Contents.Empty)
+              // The victim is a player: a body, whatever else it is.
+              .Returns("Entities.IsPlayer", true)
               .Returns("Entities.GetOrigin", Resting)
               .Returns("Entities.GetAngles", Vector.Zero);
 
@@ -84,12 +86,12 @@ public class BoltImpactTests
         // misses (stock's absent surface, which takes the sky guard's silent
         // answer). A test overrides the one its name is about.
         engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
-              .Returns("WorldQuery.TraceLineSurface", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero,
-                                                                              EntityHandle.None, -1, 0));
+              .Returns("WorldQuery.TraceBox", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero,
+                                                                      EntityHandle.None, -1, 0));
         if (opaqueLine is not null)
             engine.Returns("WorldQuery.TraceLine", opaqueLine.Value);
         if (face is not null)
-            engine.Returns("WorldQuery.TraceLineSurface", face.Value);
+            engine.Returns("WorldQuery.TraceBox", face.Value);
         // The movetype is the half of stock's condition under test; the
         // state flags ride along unread.
         engine.Returns("Networking.EntityGetState", EntityState.None)
@@ -109,6 +111,18 @@ public class BoltImpactTests
         seen?.Invoke(registry, services);
 
         return (bolt, engine, temps);
+    }
+
+    /// <summary>CCrossbowBolt::Spawn's UTIL_SetSize: the bolt is a two-unit box, and flies as one.</summary>
+    [Fact]
+    public void TheBoltIsATwoUnitBox()
+    {
+        var (_, engine, _) = ABolt();
+
+        EngineCall? bounds = engine.Last("Entities.SetBounds");
+        Assert.True(bounds is not null, "the bolt set no bounds");
+        Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f)),
+                     (bounds!.Value.ArgAs<Vector>(1), bounds.Value.ArgAs<Vector>(2)));
     }
 
     /// <summary>The opaque line stopping 64 units out: something behind the victim.</summary>
@@ -321,6 +335,87 @@ public class BoltImpactTests
         Assert.False(engine.Called("Entities.Remove"), "removed the moment it stuck");
         Assert.Equal(2f, bolt.NextThinkDelay());
         Assert.False((bool)engine.Last("EntityRender.SetVisible")!.Value.Args[1]!);
+    }
+
+    /// <summary>
+    /// BoltTouch's last arm: something that takes no damage and is not static
+    /// (a moving door, a lift) gets the impact and nothing else -- no sound, no
+    /// stick, no damage. Stock A/B, 2026-10-25: this bolt called such a thing a
+    /// body (BoltHitBody) where stock's left only a tile impact.
+    /// </summary>
+    [Fact]
+    public void AMovingThingThatTakesNoDamageGetsOnlyTheImpact()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.Push);
+        engine.Returns("Entities.IsPlayer", false);
+
+        bolt.OnTouch(Victim);
+
+        Assert.Empty(engine.AllOf("Damage.ApplyAt"));
+        Assert.Empty(engine.AllOf("Sound.EntityEmitSound"));
+        Assert.True(engine.Called("Effects.ImpactEffect"), "no impact");
+        Assert.False(engine.Called("EntityRender.SetVisible"), "it stuck instead of going");
+    }
+
+    /// <summary>
+    /// A managed brush the shell reports as MOVETYPE_NONE is still one of
+    /// stock's pushers (see <see cref="MovesAsPusherTests"/>): a bolt in a
+    /// momentary_rot_button gets the impact and goes, as stock's does.
+    /// </summary>
+    [Fact]
+    public void AManagedPusherTheShellCallsStillHoldsNoBolt()
+    {
+        ScriptedEntityRegistry? directory = null;
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.None,
+                                      seen: (registry, _) => directory = registry);
+        engine.Strict = false;
+        directory!.Spawn(Victim, EntityNames.MomentaryRotButton);
+        Assert.True(directory.Get(Victim) is MomentaryRotButton, "the button did not spawn");
+        engine.Strict = true;
+        engine.Returns("Entities.IsPlayer", false)
+              .Returns("Entities.GetHealth", 0);
+        int before = engine.Calls.Count;
+
+        bolt.OnTouch(Victim);
+
+        var touch = engine.Calls.Skip(before).Select(c => c.Member).ToArray();
+        Assert.DoesNotContain("Sound.EntityEmitSound", touch);
+        Assert.Contains("Effects.ImpactEffect", touch);
+        Assert.DoesNotContain("EntityRender.SetVisible", touch);
+    }
+
+    /// <summary>
+    /// The face is re-found by sweeping the bolt's own box, as the step that
+    /// stopped it did: a line from its middle passes over an edge the box
+    /// clipped. Found side by side with stock (tools/stock-ab --weapons
+    /// weapon_crossbow, 2026-10-25): a bolt that stopped on the top edge of
+    /// lamp2's func_brush went silently, where stock's left its impact.
+    /// </summary>
+    [Fact]
+    public void TheFaceIsReFoundAsTheBoltsBox()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.None);
+        engine.Returns("Entities.IsPlayer", false);
+
+        bolt.OnTouch(Victim);
+
+        EngineCall? box = engine.Last("WorldQuery.TraceBox");
+        Assert.True(box is not null, "the face was not re-found as a box");
+        Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f)),
+                     (box!.Value.ArgAs<Vector>(2), box.Value.ArgAs<Vector>(3)));
+        Assert.True(engine.Called("Effects.ImpactEffect"), "the face the box found made no impact");
+    }
+
+    [Fact]
+    public void StaticArchitectureThatTakesNoDamageHoldsTheBoltAsAWallDoes()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.None);
+        engine.Returns("Entities.IsPlayer", false);
+
+        bolt.OnTouch(Victim);
+
+        Assert.Empty(engine.AllOf("Damage.ApplyAt"));
+        Assert.Contains(engine.AllOf("Sound.EntityEmitSound"), c => c.ArgAs<string>(1) == "Weapon_Crossbow.BoltHitWorld");
     }
 
     [Fact]

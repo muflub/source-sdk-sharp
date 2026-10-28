@@ -79,11 +79,20 @@ public sealed class ClientArsenal : ILocalArsenal
     private int _localIndex;
     private Vector _commandAngles;
 
+    // The predicted effects (stock's client-side WeaponSound, FireBullets and
+    // bludgeon impacts), and the command they are for. Null in a composition
+    // without them: the replay then predicts state and plays nothing.
+    private readonly IPredictedWeaponFx? _fx;
+    private PredictedShot _shot;
+    private bool _hasEye;
+
     public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
                          IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
                          WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
-                         WeaponBehaviours? behaviours = null, IEngineWorldQuery? world = null)
+                         WeaponBehaviours? behaviours = null, IEngineWorldQuery? world = null,
+                         IPredictedWeaponFx? fx = null)
     {
+        _fx = fx;
         _log = log;
         _world = world;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -124,6 +133,15 @@ public sealed class ClientArsenal : ILocalArsenal
     /// </summary>
     public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime,
                                 float commandTime)
+        => OnPlayerCommand(player, in cmd, phase, firstTime, commandTime, eye: null);
+
+    /// <summary>
+    /// The replay's form with the predicted EYE (the command's origin plus
+    /// the view offset): what the first prediction's shot traces from. A
+    /// replay that knows no eye predicts state and fires no predicted shot.
+    /// </summary>
+    public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime,
+                                float commandTime, Vector? eye)
     {
         if (phase == 2)
         {
@@ -137,11 +155,23 @@ public sealed class ClientArsenal : ILocalArsenal
         if (_weapon.WeaponTypeId < 0)
             return;
 
+        // The shot the arms fire, if this run fires one: from the predicted
+        // eye along the command's angles, spread from the command's seed --
+        // the server's run of the same command reads the same three.
+        _shot = new PredictedShot(player, (int)(player.Value & 0xFFFF), eye ?? default,
+                                  new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll),
+                                  UserCmdCodec.RandomSeedFor(cmd.CommandNumber));
+
         // The clock is the command's own, as the server's run of it read. Read
         // from the engine instead it was the frame's curtime, and every timer
         // the machine sets (TimeWeaponIdle, NextPrimaryAttack) mispredicted.
         _commandAngles = new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll);
 
+
+        // effectsLive is the FIRST prediction only, stock's
+        // IsFirstTimePredicted: a replay of a command already predicted plays
+        // nothing again.
+        _hasEye = eye.HasValue;
         _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
                             commandTime, effectsLive: firstTime);
 
@@ -521,9 +551,11 @@ public sealed class ClientArsenal : ILocalArsenal
     }
 
     //-------------------------------------------------------------------------
-    // The arms: what the machine's decisions do HERE, which is almost nothing.
-    // Effects are the server's until client-side effects land; the two asks
-    // that write PREDICTED STATE answer from the same model the server read.
+    // The arms: what the machine's decisions do HERE. The first prediction of
+    // a command plays the weapon's sounds and its bullets' and swings'
+    // impacts (IPredictedWeaponFx), as stock's client does; what flies is the
+    // server's. The two asks that write PREDICTED STATE answer from the same
+    // model the server read.
     //-------------------------------------------------------------------------
 
     private sealed class ClientWeaponArms : IWeaponArms
@@ -532,9 +564,29 @@ public sealed class ClientArsenal : ILocalArsenal
 
         public ClientWeaponArms(ClientArsenal owner) => _owner = owner;
 
-        public void Sound(string soundScript) { }
-        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) { }
-        public void MeleeSwing(in WeaponType type) { }
+        public void Sound(string soundScript) => _owner._fx?.Sound(in _owner._shot, soundScript);
+
+        public void ClientSound(string soundScript) => Sound(soundScript);
+
+        // A server-only path's sound (an animation event's): not predicted.
+        public void ServerSound(string soundScript)
+        {
+        }
+
+        // No shot without an eye to fire it from (a replay told none).
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
+        {
+            if (_owner._hasEye)
+                _owner._fx?.FireBullets(in _owner._shot, in type, pellets, spreadDegrees);
+        }
+
+        public void MeleeSwing(in WeaponType type)
+        {
+            if (_owner._hasEye)
+                _owner._fx?.MeleeSwing(in _owner._shot, in type);
+        }
+
+        // A projectile is the server's entity; its launch sound is Sound's.
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
 
         public int LookupSequence(WeaponAnim anim) => _owner.ResolveSequence(anim);

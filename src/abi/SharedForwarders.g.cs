@@ -2213,7 +2213,7 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 27 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 28 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2301,6 +2301,8 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // void IShimViewClient::ColorLookupResetWeights( void )
     public delegate* unmanaged<void*, void> ColorLookupResetWeights;
+    // int32_t IShimViewClient::ClientClipRayToEntities( const float *, const float *, int32_t, const int32_t *, int32_t, float *, float *, float *, int32_t *, int32_t *, int32_t *, int32_t * )
+    public delegate* unmanaged<void*, void*, void*, int, void*, int, void*, void*, void*, void*, void*, void*, void*, int> ClientClipRayToEntities;
 }
 
 /// <summary>

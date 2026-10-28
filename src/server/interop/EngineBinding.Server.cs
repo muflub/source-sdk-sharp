@@ -2783,6 +2783,9 @@ internal sealed unsafe partial class EngineWorldQuery
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default)
         => E.TraceHull(start, end, mins, maxs, mask, ignore);
 
+    public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default)
+        => E.TraceBox(start, end, mins, maxs, mask, ignore);
+
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup)
         => E.EntityTraceHull(entity, start, end, mins, maxs, mask, collisionGroup);
 
@@ -2844,6 +2847,9 @@ internal sealed unsafe partial class EngineWorldQuery
         => new ClientTraceResult(false, 1f, end, Vector.Zero, 0, -1, -1, 0);
     public ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask,
                                              TraceFilter filter, int passEntityIndex = -1)
+        => new ClientTraceResult(false, 1f, end, Vector.Zero, 0, -1, -1, 0);
+    public ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
+                                                     ReadOnlySpan<int> entityIndices)
         => new ClientTraceResult(false, 1f, end, Vector.Zero, 0, -1, -1, 0);
     public int GetArea(Vector origin) => _server.GetArea(origin);
 }

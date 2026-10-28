@@ -230,4 +230,12 @@ public partial class WeaponNetState
     /// <summary>m_hLastPuntedObject, as an entindex.</summary>
     [Predicted]
     public partial int CannonLastPunted { get; set; }
+
+    /// <summary>A bolt has gone and the reload is owed once the shot has played: CWeaponCrossbow::m_bMustReload.</summary>
+    [Predicted]
+    public partial bool MustReload { get; set; }
+
+    /// <summary>The crossbow's scope is up: m_bInZoom.</summary>
+    [Predicted]
+    public partial bool InZoom { get; set; }
 }

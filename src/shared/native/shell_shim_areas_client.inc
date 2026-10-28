@@ -318,6 +318,8 @@ void CShimViewClient::ColorLookupRemove( void * hLookup )
 	{ return ::SourceSharp_ColorLookupRemove( hLookup ); }
 void CShimViewClient::ColorLookupResetWeights()
 	{ return ::SourceSharp_ColorLookupResetWeights(); }
+int32_t CShimViewClient::ClientClipRayToEntities( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, const int32_t * pEntityIndices, int32_t nEntities, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, int32_t * pOutHitbox, int32_t * pOutEntityIndex, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags )
+	{ return ::SourceSharp_ClientClipRayToEntities( pStartXYZ, pEndXYZ, nMask, pEntityIndices, nEntities, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHitbox, pOutEntityIndex, pOutSurfaceProps, pOutSurfaceFlags ); }
 
 int32_t CShimUserMessagesClient::ClientViewportQuery( const char * pPanel )
 	{ return ::SourceSharp_ClientViewportQuery( pPanel ); }

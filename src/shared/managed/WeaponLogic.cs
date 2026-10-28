@@ -28,6 +28,20 @@ public interface IWeaponArms
     /// <summary>Plays a soundscript entry on the carrier. Silently nothing for "".</summary>
     void Sound(string soundScript);
 
+    /// <summary>
+    /// A sound only the predicting client plays: stock's WeaponSound under
+    /// <c>#ifdef CLIENT_DLL</c> (DefaultReload's). The server's arms play nothing.
+    /// </summary>
+    void ClientSound(string soundScript)
+    {
+    }
+
+    /// <summary>
+    /// A sound only the server plays: stock's from a server-only path
+    /// (Operator_HandleAnimEvent's). The client's arms play nothing.
+    /// </summary>
+    void ServerSound(string soundScript) => Sound(soundScript);
+
     /// <summary>Hitscan fire: trace, damage, impact — the ammo row says how hard.</summary>
     void FireBullets(in WeaponType type, int pellets, float spreadDegrees);
 
@@ -121,6 +135,38 @@ public interface IWeaponArms
     {
     }
 
+    //-------------------------------------------------------------------------
+    // THE RPG'S HANDS (CWeaponRPG, shared/hl2mp/weapon_rpg.cpp). What stock
+    // does only #ifndef CLIENT_DLL: nothing by default, which is what the
+    // client's replay and a test's arms do.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// CWeaponRPG::PrimaryAttack's server half: CMissile::Create at the muzzle
+    /// (twelve ahead, six right, three down of the shoot position), facing the
+    /// aim, owned by the carrier, with its grace period when the first 128
+    /// units ahead of the eye are clear.
+    /// </summary>
+    void LaunchMissile(in WeaponType type) { }
+
+    /// <summary>
+    /// The laser dot the RPG owns, made to match: none when
+    /// <paramref name="exists"/> is false (StopGuiding's UTIL_Remove), else one
+    /// (CreateLaserPointer's CLaserDot::Create) switched
+    /// <paramref name="on"/> or off and moved to where the carrier's aim ends
+    /// (UpdateLaserPosition). Idempotent: it is asked every command.
+    /// </summary>
+    void UpdateLaserDot(bool exists, bool on) { }
+
+    /// <summary>
+    /// CBasePlayer::SetFOV( weapon, fov, rate ) for the carrier: a zoom the
+    /// weapon asks for (0 gives the view back). The server's alone, as stock's
+    /// is; the client's replay asks nothing.
+    /// </summary>
+    void SetFov(int fov, float rate)
+    {
+    }
+
     /// <summary>
     /// The named animation's sequence index IN THE CURRENT VIEWMODEL, or -1.
     /// Both sides answer from the same model, which is what lets the sequence
@@ -195,6 +241,7 @@ public static class WeaponAnimNames
         WeaponAnim.PullbackLow  => new[] { "drawbacklow" },
         WeaponAnim.Throw        => new[] { "throw" },
         WeaponAnim.Haulback     => new[] { "lob" },
+        WeaponAnim.Fidget       => new[] { "idle_empty" },
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -220,6 +267,7 @@ public static class WeaponAnimNames
         WeaponAnim.PullbackLow  => new[] { "ACT_VM_PULLBACK_LOW" },
         WeaponAnim.Throw        => new[] { "ACT_VM_THROW" },
         WeaponAnim.Haulback     => new[] { "ACT_VM_HAULBACK" },
+        WeaponAnim.Fidget       => new[] { "ACT_VM_FIDGET" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 
@@ -650,8 +698,9 @@ public sealed class WeaponLogic
 
         SendAnim(vm, WeaponAnim.Reload, 0f);
 
+        // DefaultReload's WeaponSound( RELOAD ), which is the client's alone.
         if (effectsLive)
-            _arms.Sound(type.ReloadSound);
+            _arms.ClientSound(type.ReloadSound);
 
         w.InReload = true;
 

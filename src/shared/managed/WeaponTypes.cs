@@ -174,6 +174,16 @@ public readonly record struct WeaponType(
     public int DefaultSecondaryAmmo { get; init; }
 
     /// <summary>
+    /// The script's default_clip: what a fresh weapon carries, which
+    /// <c>Weapon_Equip</c> puts in the clip and, past the clip's size, in the
+    /// pool (the crossbow's 1 + 4, the AR2's 30 + 30) -- all of it in the pool
+    /// for a weapon with no clip (the RPG's 3). A duplicate pickup is worth the
+    /// same (<c>Weapon_EquipAmmoOnly</c>). Zero is the clip's size, or one round
+    /// for a weapon with no clip.
+    /// </summary>
+    public int DefaultClip { get; init; }
+
+    /// <summary>
     /// Which machine runs the row: the generic one, or a weapon whose command
     /// is its own (<see cref="WeaponKind"/>).
     /// </summary>
@@ -349,6 +359,7 @@ public static class WeaponTypes
         // interesting — a rocket that hits a wall is over.
         new(EntityNames.WeaponAr2,      Interval: 0.10f, Spread: 2.0f)
         {
+            DefaultClip = 60,   // weapon_ar2.txt's default_clip
             Secondary = new SecondaryFire(Interval: 1.5f)
             {
                 Projectile = EntityNames.SsEnergyball,
@@ -402,32 +413,35 @@ public static class WeaponTypes
 
         // Aimed, not thrown: both leave along the line of sight rather than
         // arcing, which is what separates them from the grenade below.
-        new(EntityNames.WeaponCrossbow, Interval: 1.5f)
+        new(EntityNames.WeaponCrossbow, Interval: 0.75f)
         {
+            DefaultClip = 5,   // weapon_crossbow.txt's default_clip
+            // CWeaponCrossbow's fire, reload, scope and charge (the behaviour).
+            Behaviour = Hl2mpWeaponBehaviours.Crossbow,
             Projectile = "ss_bolt",
 
             // Stock's BOLT_AIR_VELOCITY. Fast enough to feel instant across a
             // room and slow enough to have to be led across a map — that gap IS
             // the crossbow, and stock already picked the number that gets it.
-            LaunchSpeed = 2500f,
+            LaunchSpeed = 3500f,
             ClipSize    = 1,
             AmmoName    = "XBowBolt",
             ViewModel   = "models/weapons/v_crossbow.mdl",
             WorldModel  = "models/weapons/w_crossbow.mdl",
+            // The script has no empty sound: a dry trigger is silent.
             FireSound   = "Weapon_Crossbow.Single",
-            EmptySound  = "Weapon_Pistol.Empty",
             ReloadSound = "Weapon_Crossbow.Reload",
         },
 
         new(EntityNames.WeaponRpg, Interval: 2.0f)
         {
+            DefaultClip = 3,   // weapon_rpg.txt's default_clip
+            // CWeaponRPG: one guided missile at a time, the laser, the reload
+            // its missile's death starts. The missile picks its own speeds
+            // (Rocket: 300 lofted, then RPG_SPEED); this row's is RPG_SPEED for
+            // a mod that launches ss_rocket through the stock arms.
+            Behaviour = Hl2mpWeaponBehaviours.Rpg,
             Projectile = "ss_rocket",
-
-            // Stock's TERMINAL speed, held from the moment it leaves rather
-            // than accelerated up to. Dodgeable is still the point — see
-            // docs/divergences.md — but 1000 read as a lobbed pipe rather than
-            // something under thrust, which is a different weapon from the one
-            // that was wanted.
             LaunchSpeed = 1500f,
             AmmoName    = "RPG_Round",
             ViewModel   = "models/weapons/v_rpg.mdl",

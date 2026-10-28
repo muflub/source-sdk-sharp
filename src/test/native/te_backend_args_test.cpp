@@ -640,3 +640,35 @@ TEST( TeBackendBrushDecal, RefusesNegativesAndDrawsTheWorld )
 // AddStudioDecal facts hold the (10,10,10) -> (11,11,11) arithmetic, the
 // zero-length segment and the sign.
 //-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// THE PREDICTED SHOT'S CLIP (ClientClipRayToEntities): which named entity may
+// stop it, and which answer wins.
+//-----------------------------------------------------------------------------
+TEST( ClientClipRayToEntities, OnlyASolidEntityMayStopTheShot )
+{
+	const int kSolidBsp = 1;          // SOLID_BSP
+	const int kSolidVPhysics = 6;     // SOLID_VPHYSICS
+	const int kTrigger = 0x0008;      // FSOLID_TRIGGER, which a trigger carries with NOT_SOLID
+
+	EXPECT_TRUE( ClipCandidateIsSolid( kSolidBsp, 0 ) );
+	EXPECT_TRUE( ClipCandidateIsSolid( kSolidVPhysics, kTrigger ) );
+	EXPECT_FALSE( ClipCandidateIsSolid( kClipSolidNone, 0 ) );
+	EXPECT_FALSE( ClipCandidateIsSolid( kSolidBsp, kClipNotSolid ) );
+	EXPECT_FALSE( ClipCandidateIsSolid( kSolidBsp, kClipNotSolid | kTrigger ) );
+}
+
+TEST( ClientClipRayToEntities, TheNearestStopWinsAndAMissNever )
+{
+	EXPECT_TRUE( ClipIsNearer( 0.25f, false, 1.0f ) );
+	EXPECT_TRUE( ClipIsNearer( 0.25f, false, 0.5f ) );
+	EXPECT_FALSE( ClipIsNearer( 0.5f, false, 0.25f ) );
+	EXPECT_FALSE( ClipIsNearer( 0.25f, false, 0.25f ) );   // a tie keeps the first
+	EXPECT_FALSE( ClipIsNearer( 1.0f, false, 1.0f ) );     // a clip that did not stop
+}
+
+TEST( ClientClipRayToEntities, AShotThatBeginsInsideAnEntityStopsThere )
+{
+	EXPECT_TRUE( ClipIsNearer( 0.0f, true, 1.0f ) );
+	EXPECT_FALSE( ClipIsNearer( 0.0f, true, 0.0f ) );
+}

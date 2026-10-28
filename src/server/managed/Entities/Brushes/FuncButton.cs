@@ -18,6 +18,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncButton, ScriptedEntityKind.Brush)]
 public sealed class FuncButton : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public readonly Output OnPressed = new();
 
     /// <summary>

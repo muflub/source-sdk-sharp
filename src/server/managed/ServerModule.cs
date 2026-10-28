@@ -351,6 +351,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private readonly EntityRoster<PhysRagdollMagnet> _magnets = new();
     private readonly EntityRoster<EnvPlayerSurfaceTrigger> _surfaceTriggers = new();
 
+    // The RPG's laser dots, which a missile in flight searches: g_LaserDotList.
+    private readonly EntityRoster<LaserDot> _laserDots = new();
+
     // Map decals waiting to paint (level init) or to be triggered by name.
     private readonly EntityRoster<MapDecal> _pendingDecals = new();
     private INetTrafficProfiler _netTraffic = null!;
@@ -511,6 +514,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // plans, built during the DLL-init window; its sender is attached with the
     // recipient filter, in BuildSounds.
     private ServerTempEntEngine? _tempEntEngine;
+    private PredictionSuppression? _prediction;
 
     /// <summary>
     /// Pack a native forward into the blob its class expects. The send stays
@@ -842,6 +846,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IEntityRoster<EnvFire>>(_fires);
         _services.AddInstance<IEntityRoster<PhysRagdollMagnet>>(_magnets);
         _services.AddInstance<IEntityRoster<EnvPlayerSurfaceTrigger>>(_surfaceTriggers);
+        _services.AddInstance<IEntityRoster<LaserDot>>(_laserDots);
         _services.AddInstance<IEntityRoster<MapDecal>>(_pendingDecals);
 
         // Which point_viewcontrol holds each player's view: the cameras' shared
@@ -974,6 +979,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // and the core's HL2 layer. The client registers the same.
         _services.AddInstance(new SourceSharp.Shared.Anim.AnimStateLayers(
             () => _services.ResolveAll<SourceSharp.Shared.Anim.IAnimStateLayer>()));
+
+        // The weapon's own sound, under the prediction rules, over the server's
+        // sounds (built with the managed root, after this) -- as the move
+        // helper's sounds reach them.
+        _services.AddInstance<IWeaponSounds>(new WeaponSoundsOf(() => _serverSounds, _prediction!));
+
+        // The weapon scripts on disk, read the way stock's weapon parse reads
+        // them: here, for the sounds each one's precache names.
+        _services.AddInstance(new WeaponScriptDatabase(Log, path => _services.Require<IEngineFiles>().ReadGameFile(path)));
 
         _arsenal = _services.Create<Arsenal>();
 
@@ -2904,7 +2918,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         SwitchOutcome.NotOwned        => "the player does not own that weapon",
         SwitchOutcome.NoSuchSlot      => "no weapon in that slot",
         SwitchOutcome.NoHistory       => "nothing was held before this",
-        SwitchOutcome.CannotHolster   => "the weapon in the hands will not be put away (it is holding something)",
+        SwitchOutcome.CannotHolster   => "the weapon in the hands will not be put away (it is holding something, or its missile is flying)",
         _                             => outcome.ToString(),
     };
 
@@ -3202,11 +3216,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     private void ComposeEffects()
     {
+        // Stock's prediction filtering: the suppress host the weapon run sets
+        // and the two rules that read it. The temp entities take it here (their
+        // SuppressTE), the weapon sounds below the arsenal's creation.
+        _prediction = new PredictionSuppression(EngineServices.ClientInfo(_engineServer));
+        _services.AddInstance(_prediction);
+
         // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (plan_server_native_v2
         // T4b): ServerTempEntEngine answers the registration, the playback and
         // the effect index; every other IEngineEffects member is the engine's.
         _tempEntEngine = new ServerTempEntEngine(_services.Require<IEngineEffects>(), TempEntTables.For(_engine), Log,
-                                                 EffectDispatchNames.For(_services));
+                                                 EffectDispatchNames.For(_services), _prediction);
 
         // Registered by CONTRACT: what a caller wants is "make sparks happen",
         // and the class that answers it is a detail of which side is asking.
@@ -3326,6 +3346,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     }
 
     /// <summary>The move helper's sounds, to whichever emitter the module has built (none before the root).</summary>
+    private sealed class WeaponSoundsOf(Func<ServerSounds?> sounds, PredictionSuppression prediction) : IWeaponSounds
+    {
+        public void Emit(EntityHandle owner, string soundName) => sounds()?.EmitPredicted(owner, soundName, prediction);
+    }
+
     private sealed class MoveSoundsOf(Func<IMoveSoundSink?> sink) : IMoveSoundSink
     {
         public void MoveSound(int entIndex, Vector origin, int channel, string sample, float volume, int soundLevel,

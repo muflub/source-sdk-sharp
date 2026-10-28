@@ -204,6 +204,10 @@ public class SideAuditTests
         // client, the only side that has a camera.
         "ClientTraceHull", "ClientEntityRenderPose", "ViewOverrideSet",
 
+        // The predicting client's shot, clipped against the shells: only the
+        // client predicts a shot, and only its shells are outside a partition.
+        "ClientClipRayToEntities",
+
         // The defect-skybox lane. What 3D skybox the viewer is shown, and the
         // OTHER END of SetSkyboxParams -- which is server-only for the mirror
         // reason. One map's sky camera makes one round trip: sky_camera pushes

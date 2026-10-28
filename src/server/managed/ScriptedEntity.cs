@@ -1419,6 +1419,33 @@ public abstract class ScriptedEntity
     public virtual void OnBlocked(EntityHandle other) { }
 
     /// <summary>
+    /// Stock's <c>m_takedamage != DAMAGE_NO</c>, which decides, for one, whether
+    /// a crossbow bolt counts this as a body (CCrossbowBolt::BoltTouch). The
+    /// families' own defaults: a prop takes damage (CBreakableProp: DAMAGE_YES,
+    /// or DAMAGE_EVENTS_ONLY with no health), a brush only when it is given
+    /// health (a button or a door, as their Spawns rule), and nothing else; a
+    /// class whose stock Spawn says otherwise answers for itself.
+    /// </summary>
+    public virtual bool TakesDamage => RegisteredKind switch
+    {
+        ScriptedEntityKind.Prop => true,
+        ScriptedEntityKind.Brush => Entities.GetHealth(Handle) > 0,
+        _ => false,
+    };
+
+    /// <summary>
+    /// Stock's <c>GetMoveType() == MOVETYPE_PUSH</c>, which its brush entities'
+    /// Spawns set and which decides, for one, that a crossbow bolt does not
+    /// stick in this (CCrossbowBolt::BoltTouch's static-architecture test).
+    /// The shell reports MOVETYPE_NONE for every managed brush, on purpose
+    /// (standalone_movetype.h: claiming PUSH would hand it to the physics
+    /// solver), so a reader of stock's test asks this. The classes answering
+    /// yes are the ones stock's ss_sandbox census measured as PUSH
+    /// (tools/stock-ab ab_movetypes); everything else answers no.
+    /// </summary>
+    public virtual bool MovesAsPusher => false;
+
+    /// <summary>
     /// <c>FL_UNBLOCKABLE_BY_PLAYER</c>: a player in this mover's way is pushed
     /// where the push says even when it does not fit, rather than blocking it.
     /// </summary>

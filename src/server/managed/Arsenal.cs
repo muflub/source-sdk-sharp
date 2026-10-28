@@ -53,7 +53,7 @@ public enum SwitchOutcome
 
     /// <summary>
     /// The weapon in the hands refused to be put away: stock's CanHolster,
-    /// which the physcannon answers no to while it holds something.
+    /// which the physcannon answers no to while it holds something, the RPG while its missile flies.
     /// </summary>
     CannotHolster,
 }
@@ -122,6 +122,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private readonly IGameClock _clock;
     private readonly DamageHitGroups _hitGroups;
 
+    // Stock's prediction filtering (PredictionSuppression) and the weapon sound
+    // that obeys it. Null in a composition without them: every copy then
+    // reaches everyone, the shooter included, as before the client predicted.
+    private readonly PredictionSuppression? _prediction;
+    private readonly IWeaponSounds? _weaponSounds;
+
+    /// <summary>The weapons' scripts, whose SoundData the precache reads; none in a test that names no files.</summary>
+    private readonly WeaponScriptDatabase? _scripts;
+
     // The side's tables, injected (see the constructor): the ONLY way this class
     // reaches a weapon or ammo row now. The static tables behind them hold the
     // CORE rows; these hold the core rows plus whatever the loaded mods appended,
@@ -151,9 +160,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    DamageHitGroups hitGroups,
                    IUserMessageSender? messages = null,
                    WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
-                   WeaponBehaviours? behaviours = null)
+                   WeaponBehaviours? behaviours = null,
+                   PredictionSuppression? prediction = null,
+                   IWeaponSounds? weaponSounds = null,
+                   WeaponScriptDatabase? scripts = null)
     {
+        _scripts = scripts;
         _messages = messages;
+        _prediction = prediction;
+        _weaponSounds = weaponSounds;
 
         _log = log;
         _entities = entities;
@@ -238,6 +253,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         public int LastTypeIndex = -1;
         public WeaponLogic Machine = null!;
         public ServerWeaponArms Arms = null!;
+
+        // The RPG's: the missile it is waiting on (m_hMissile) and its laser
+        // dot (m_hLaserDot). None when there is neither.
+        public EntityHandle Missile = EntityHandle.None;
+        public EntityHandle LaserDot = EntityHandle.None;
     }
 
     private readonly Dictionary<uint, Carry> _carries = new();
@@ -324,11 +344,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (owned.TypeIndex != typeIndex)
                 continue;
 
-            // Already owned: the duplicate is worth its clip in ammunition —
-            // or a top-up of the pool for a poolfed weapon (frag, RPG).
-            int clipSize = ClipSizeOf(in type);
-            int worth = clipSize > 0 ? clipSize : 1;
-            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, worth, type.AmmoName) > 0;
+            // Already owned: the duplicate is worth what a fresh one carries
+            // (Weapon_EquipAmmoOnly), its default clip, in ammunition.
+            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, DefaultClipOf(in type), type.AmmoName) > 0;
 
             // And its secondary charge, where the row brings one: the SLAM's
             // three, Weapon_EquipAmmoOnly's GetSecondaryAmmoCount.
@@ -338,17 +356,25 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return tookPrimary || tookSecondary;
         }
 
+        // Weapon_Equip: the default clip into the clip, what it holds past the
+        // clip's size into the pool, and all of it into the pool for a weapon
+        // with no clip.
+        int clipSize = ClipSizeOf(in type);
+        int defaultClip = DefaultClipOf(in type);
         carry.Weapons.Add(new Owned
         {
             TypeIndex = typeIndex,
-            Clip = Math.Max(ClipSizeOf(in type), 0),
+            Clip = clipSize > 0 ? Math.Min(defaultClip, clipSize) : 0,
             Special = type.Kind == WeaponKind.Slam ? SlamBits.Initial : 0,
         });
 
-        // A pool-fed weapon arrives with one shot's worth in the pool, so a
-        // picked-up RPG can fire before an ammo crate is found.
-        if (ClipSizeOf(in type) <= 0 && type.AmmoName.Length > 0)
-            GiveAmmo(player, 1, type.AmmoName);
+        if (type.AmmoName.Length > 0)
+        {
+            if (clipSize <= 0)
+                GiveAmmo(player, defaultClip, type.AmmoName);
+            else if (defaultClip > clipSize)
+                GiveAmmo(player, defaultClip - clipSize, type.AmmoName);
+        }
 
         // A secondary pool with no clip in front of it is filled with the
         // row's default_clip2 (Weapon_Equip: GiveAmmo( GetDefaultClip2() )).
@@ -675,6 +701,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// machine spends down from and reloads up to, so a fresh give fills the
     /// clip a reload fills.
     /// </summary>
+    /// <summary>The script's default_clip, or the clip's size, or one round for a weapon with no clip.</summary>
+    private int DefaultClipOf(in WeaponType type)
+    {
+        if (type.DefaultClip > 0)
+            return type.DefaultClip;
+        int clipSize = ClipSizeOf(in type);
+        return clipSize > 0 ? clipSize : 1;
+    }
+
     private int ClipSizeOf(in WeaponType type)
         => _behaviours.For(type.Behaviour) is { } behaviour
             ? behaviour.ModifyClipSize(in type, type.ClipSize)
@@ -764,8 +799,23 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         int before = weapon.State.Reserve;
         int beforeSecondary = weapon.State.SecondaryReserve;
 
-        carry.Machine.RunCommand(weapon.State, viewModel.State,
-                                 cmd.Buttons, _clock.Now, effectsLive: firstTime);
+        // The command's random seed, which the predicting client derives from
+        // the same command number: the pellets spread from it on both sides.
+        RocketDiedIfGone(carry, weapon, viewModel);
+
+        carry.Arms.CommandRandomSeed = UserCmdCodec.RandomSeedFor(cmd.CommandNumber);
+
+        // CBasePlayer::PhysicsSimulate's SuppressHostEvents( this ) when
+        // IsPredictingWeapons(): the shooter's client plays this command's
+        // weapon sounds and impacts itself, so the server's copies skip it.
+        int index = _entities.GetIndex(player);
+        using (_prediction is not null && _prediction.PredictsWeapons(index)
+                   ? _prediction.Suppress(index)
+                   : default)
+        {
+            carry.Machine.RunCommand(weapon.State, viewModel.State,
+                                     cmd.Buttons, _clock.Now, effectsLive: firstTime);
+        }
 
         // What the machine spent comes out of the pools by name.
         SettlePool(carry, weapon.State.WeaponTypeId, primary: true,
@@ -780,6 +830,28 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         {
             RemoveActive(carry);
         }
+    }
+
+    /// <summary>
+    /// CWeaponRPG::NotifyRocketDied, at the first command after the missile
+    /// stopped waiting on its launcher: it went off, was shot down, or is
+    /// gone altogether (a level change, a reload, a removal). Stock's missile
+    /// calls it from its Explode and ShotDown; the launcher here asks instead,
+    /// so a missile that went without saying so cannot hold the RPG forever.
+    /// </summary>
+    private void RocketDiedIfGone(Carry carry, SsWeapon weapon, SsViewModel viewModel)
+    {
+        if (!RpgState.Has(weapon.State.Special, RpgState.MissileOut) ||
+            _weapons.ByIndex(weapon.State.WeaponTypeId) is not WeaponType type ||
+            type.Behaviour != Hl2mpWeaponBehaviours.Rpg)
+            return;
+
+        if (_directory.Get(carry.Missile) is Rocket { LauncherWaits: true })
+            return;
+
+        carry.Missile = EntityHandle.None;
+        Hl2mpWeaponBehaviours.RocketDied(new WeaponAttackContext(type, weapon.State, viewModel.State,
+                                                                 _clock.Now, EffectsLive: true, carry.Arms));
     }
 
     /// <summary>
@@ -984,6 +1056,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     {
         carry.ActiveSlot = -1;
 
+        // An RPG's dot does not outlast the hands that painted it.
+        carry.Arms.UpdateLaserDot(exists: false, on: false);
+
         if (_directory.Get(carry.Weapon) is SsWeapon weapon)
         {
             weapon.State.WeaponTypeId = -1;
@@ -1009,6 +1084,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return;
 
         Holster(carry);
+        carry.Arms.UpdateLaserDot(exists: false, on: false);
 
         if (_entities.IsValid(carry.Weapon))
             _entities.Remove(carry.Weapon);
@@ -1174,6 +1250,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             if (type.Secondary is { Sound.Length: > 0 } secondary)
                 _precache.PrecacheSound(secondary.Sound);
+
+            // CBaseCombatWeapon::Precache: every sound the script's SoundData
+            // names, the ones only a weapon's own code plays among them (the
+            // crossbow's BoltFly and BoltElectrify, its SPECIAL1 and SPECIAL2).
+            if (_scripts?.ReadScript(type.Name) is { } script)
+                foreach (string sound in script.Sounds)
+                    if (sound.Length > 0)
+                        _precache.PrecacheSound(sound);
         }
     }
 
@@ -1358,7 +1442,6 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         private readonly Arsenal _arsenal;
         private readonly Carry _carry;
-        private readonly Random _random = new();
 
         internal ServerWeaponArms(ILog log, Arsenal arsenal, Carry carry)
         {
@@ -1368,9 +1451,32 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _carry = carry;
         }
 
+        /// <summary>
+        /// The command's random seed (<c>CUserCmd::random_seed</c>), set by
+        /// the arsenal before each run; the pellets spread from it.
+        /// </summary>
+        internal int CommandRandomSeed { get; set; }
+
+        // The pellets' stream, re-seeded per pellet (ShotSpread).
+        private readonly SeededUniformStream _spread = new();
+
+        // A thrown grenade's spin (random->RandomInt in stock's throws): the
+        // server's own draw, not the command's, as stock's is.
+        private readonly Random _random = new();
+
+        /// <summary>
+        /// <c>CBaseCombatWeapon::WeaponSound</c>: from the owner, to the PAS of
+        /// the owner, under the prediction rules -- the predicting shooter
+        /// plays its own.
+        /// </summary>
         public void Sound(string soundScript)
         {
-            if (soundScript.Length > 0)
+            if (soundScript.Length == 0)
+                return;
+
+            if (_arsenal._weaponSounds is { } sounds)
+                sounds.Emit(_carry.Player, soundScript);
+            else
                 _arsenal._sound.EntityEmitSound(_carry.Player, soundScript);
         }
 
@@ -1430,14 +1536,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
 
-            float sin = MathF.Sin(spreadDegrees * MathF.PI / 180f);
+            float spread = ShotSpread.SpreadOf(spreadDegrees);
+            int seed = ShotSpread.FirstSeed(CommandRandomSeed);
 
             for (int i = 0; i < pellets; i++)
             {
-                float x = (NextBi() + NextBi()) * 0.5f;
-                float y = (NextBi() + NextBi()) * 0.5f;
-
-                Vector dir = (aim.Forward + aim.Right * (x * sin) + aim.Up * (y * sin)).Normalized;
+                // Stock's spread, seeded per pellet from the command, so the
+                // predicting client's pellet goes where this one does.
+                Vector dir = ShotSpread.Apply(aim, spread, seed + i, _spread).Normalized;
 
                 var trace = _arsenal._world.TraceLineSurface(from, from + dir * MaxTrace,
                                                              TraceMask.Shot, _carry.Player);
@@ -1445,9 +1551,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 if (!trace.Hit)
                     continue;
 
-                _arsenal._effects.ImpactEffect(trace.End - dir * ImpactBackoff, trace.End,
-                                               trace.SurfaceProps, ammo.DamageType,
-                                               trace.Entity);
+                // UTIL_ImpactTrace marks nothing on the sky, on either side.
+                if ((trace.SurfaceFlags & SurfSky) == 0)
+                    _arsenal._effects.ImpactEffect(trace.End - dir * ImpactBackoff, trace.End,
+                                                   trace.SurfaceProps, ammo.DamageType,
+                                                   trace.Entity);
 
                 if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
                 {
@@ -1535,12 +1643,19 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 temps.DispatchEffect(TeFilters.Pas(data.Origin), 0f, type.MeleeImpactEffect, in data);
             }
 
-            _arsenal._effects.ImpactEffect(trace.End - aim.Forward * ImpactBackoff, trace.End,
-                                           trace.SurfaceProps, DamageType.Club, trace.Entity);
+            // Hit's ImpactEffect: UTIL_ImpactTrace( &traceHit, DMG_CLUB ), the
+            // world included, as a round's. The predicting swinger draws its
+            // own (ClientArsenal's arms); this copy is suppressed for it.
+            if ((trace.SurfaceFlags & SurfSky) == 0)
+                _arsenal._effects.ImpactEffect(trace.End - aim.Forward * ImpactBackoff, trace.End,
+                                               trace.SurfaceProps, DamageType.Club, trace.Entity);
         }
 
         /// <summary>How far off the struck face a row's own melee effect sits: stock's 4.</summary>
         private const float MeleeEffectStandoff = 4f;
+
+        /// <summary><c>SURF_SKY</c>: UTIL_ImpactTrace's refusal.</summary>
+        internal const int SurfSky = 0x0004;
 
         /// <summary>
         /// Sends what the weapon launches instead of a bullet. It leaves from
@@ -1564,8 +1679,109 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         /// <inheritdoc />
+        public void SetFov(int fov, float rate) => _arsenal._players.SetFov(_carry.Player, _carry.Weapon, fov, rate);
+
+        /// <inheritdoc />
         public void ThrowGrenade(in WeaponType type, GrenadeThrow kind, float timer)
             => _arsenal.ThrowGrenade(_log, _carry, type, kind, timer, _random);
+
+        //---------------------------------------------------------------------
+        // The RPG's hands (CWeaponRPG, shared/hl2mp/weapon_rpg.cpp).
+        //---------------------------------------------------------------------
+
+        /// <inheritdoc />
+        public void LaunchMissile(in WeaponType type)
+        {
+            EntityHandle player = _carry.Player;
+            Vector eye = _arsenal._players.GetShootOrigin(player);
+            var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(player));
+
+            // Weapon_ShootPosition() + vForward * 12.0f + vRight * 6.0f + vUp * -3.0f.
+            Vector muzzle = eye + aim.Forward * 12f + aim.Right * 6f - aim.Up * 3f;
+            Vector angles = Angles.FromVector(aim.Forward);
+
+            EntityHandle missile = _arsenal._entities.Create(type.Projectile);
+            if (missile == EntityHandle.None || !_arsenal._entities.IsValid(missile))
+            {
+                _log.Warning($"[SourceSharp/Arsenal] {type.Name} could not create '{type.Projectile}'\n");
+                return;
+            }
+
+            // CBaseEntity::Create( "rpg_missile", origin, angles, owner ).
+            _arsenal._entities.SetOrigin(missile, muzzle);
+            _arsenal._entities.SetAngles(missile, angles);
+            _arsenal._entities.SetOwner(missile, player);
+            _arsenal._entities.Spawn(missile);
+
+            // "If the shot is clear to the player, give the missile a grace
+            // period": 128 units from the eye along the aim, MASK_SHOT.
+            var clear = _arsenal._world.TraceLine(eye, eye + aim.Forward * 128f, TraceMask.Shot, player);
+
+            if (_arsenal._directory.Get(missile) is Rocket rocket)
+                rocket.FiredFromLauncher(player, angles, gracePeriod: clear.Fraction == 1f);
+
+            _carry.Missile = missile;
+        }
+
+        /// <inheritdoc />
+        public void UpdateLaserDot(bool exists, bool on)
+        {
+            var entities = _arsenal._entities;
+
+            if (!exists)
+            {
+                if (_carry.LaserDot != EntityHandle.None && entities.IsValid(_carry.LaserDot))
+                {
+                    if (_arsenal._directory.Get(_carry.LaserDot) is LaserDot gone)
+                        gone.TurnOff();
+                    entities.Remove(_carry.LaserDot);
+                }
+
+                _carry.LaserDot = EntityHandle.None;
+                return;
+            }
+
+            if (_arsenal._directory.Get(_carry.LaserDot) is not LaserDot dot)
+            {
+                // CLaserDot::Create( GetAbsOrigin(), GetOwner() ), then TurnOff.
+                EntityHandle made = entities.Create(EntityNames.EnvLaserdot);
+                if (made == EntityHandle.None || !entities.IsValid(made))
+                    return;
+
+                entities.SetOrigin(made, entities.GetOrigin(_carry.Player));
+                entities.Spawn(made);
+                _carry.LaserDot = made;
+
+                if (_arsenal._directory.Get(made) is not LaserDot fresh)
+                    return;
+
+                dot = fresh;
+                dot.OwnedBy(_carry.Player);
+            }
+
+            if (on)
+                dot.TurnOn();
+            else
+                dot.TurnOff();
+
+            // UpdateLaserPosition: from Weapon_ShootPosition along the eye, the
+            // whole way, MASK_SHOT (less CONTENTS_WINDOW in stock; see
+            // docs/divergences.md), past the owner.
+            Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
+            Vector forward = Angles.Forward(entities.GetEyeAngles(_carry.Player));
+            var tr = _arsenal._world.TraceLine(from, from + forward * MaxTrace, TraceMask.Shot, _carry.Player);
+
+            dot.SetLaserPosition(tr.End, tr.Normal);
+
+            // DidHitNonWorldEntity, and m_takedamage: something that can be hurt.
+            EntityHandle hit = tr.Entity;
+            bool hurtable = hit != EntityHandle.None && entities.GetIndex(hit) != 0 &&
+                            (entities.IsPlayer(hit) || entities.GetHealth(hit) > 0);
+            dot.TargetEntity = hurtable ? hit : EntityHandle.None;
+        }
+
+        /// <inheritdoc />
+        public void ServerSound(string soundScript) => Sound(soundScript);
 
         /// <summary>
         /// The sequence for an animation, in the viewmodel's own numbering —
@@ -1788,7 +2004,6 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             vm.PlaybackRate = 1f;
         }
 
-        private float NextBi() => (float)(_random.NextDouble() * 2.0 - 1.0);
 
         /// <summary>Source's MAX_TRACE_LENGTH: the diagonal of the world cube.</summary>
         private const float MaxTrace = 56756f;

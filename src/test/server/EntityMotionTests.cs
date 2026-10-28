@@ -599,6 +599,55 @@ public class EntityMotionTests
     }
 
     /// <summary>
+    /// A flyer with a hull sweeps its box, as stock's UTIL_TraceEntity sweeps
+    /// the entity's own bounds; one without traces a point.
+    ///
+    /// <para>
+    /// Found side by side with stock (tools/stock-ab --weapons weapon_crossbow,
+    /// 2026-10-25): this mod's bolt traced a ray and flew past the corner of a
+    /// brush that stock's two-unit bolt struck.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AHulledFlyerSweepsItsBox()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceBox", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, -1, 0))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter, hull: new Vector(1f, 1f, 1f));
+        motion.RunFrame(0.015f);
+
+        EngineCall? box = engine.Last("WorldQuery.TraceBox");
+        Assert.True(box is not null, "a hulled flyer swept no box");
+        Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f), TheProjectile),
+                     (box!.Value.ArgAs<Vector>(2), box.Value.ArgAs<Vector>(3), box.Value.ArgAs<EntityHandle>(5)));
+        Assert.False(engine.Called("WorldQuery.TraceLine"), "a hulled flyer traced a ray as well");
+    }
+
+    [Fact]
+    public void AFlyerWithNoHullTracesAPoint()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
+        motion.RunFrame(0.015f);
+
+        Assert.True(engine.Called("WorldQuery.TraceLine"), "a point flyer made no step trace");
+        Assert.False(engine.Called("WorldQuery.TraceBox"), "a point flyer swept a box");
+    }
+
+    /// <summary>
     /// Nothing flying is a pass that costs nothing — not even the one native
     /// call for the world's gravity, which is what a server at rest does every
     /// tick of its life.

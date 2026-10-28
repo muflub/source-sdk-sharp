@@ -5,6 +5,8 @@
 //
 //=============================================================================//
 
+using System.Collections.Immutable;
+
 using SourceSharp.Abi;
 
 namespace SourceSharp.Shared;
@@ -21,6 +23,8 @@ public static class Hl2mpWeaponBehaviours
     public const string Shotgun = "hl2mp_shotgun";
     public const string Frag = "hl2mp_frag";
     public const string Smg1 = "hl2mp_smg1";
+    public const string Crossbow = "hl2mp_crossbow";
+    public const string Rpg = "hl2mp_rpg";
 
     /// <summary>Every core behaviour, new each call: they hold no state.</summary>
     public static IEnumerable<KeyValuePair<string, IWeaponBehaviour>> All()
@@ -29,7 +33,16 @@ public static class Hl2mpWeaponBehaviours
         yield return new(Shotgun, new ShotgunBehaviour());
         yield return new(Frag, new FragBehaviour());
         yield return new(Smg1, new Smg1Behaviour());
+        yield return new(Crossbow, new CrossbowBehaviour());
+        yield return new(Rpg, new RpgBehaviour());
     }
+
+    /// <summary>
+    /// CWeaponRPG::NotifyRocketDied: the RPG's missile has gone off or been
+    /// shot down. The arsenal calls it, outside a command, when the missile it
+    /// launched stops waiting on its launcher.
+    /// </summary>
+    public static void RocketDied(in WeaponAttackContext attack) => RpgBehaviour.NotifyRocketDied(attack);
 
     /// <summary>
     /// SendWeaponAnim: the animation, and the idle due once it has played.
@@ -369,11 +382,12 @@ public static class Hl2mpWeaponBehaviours
                     return;
             }
 
-            // ThrowGrenade / RollGrenade / LobGrenade, then DecrementAmmo.
+            // ThrowGrenade / RollGrenade / LobGrenade, then DecrementAmmo: from
+            // Operator_HandleAnimEvent, which is the server's.
             if (attack.EffectsLive)
             {
                 attack.Arms.ThrowGrenade(attack.Type, kind, GrenadeTimer);
-                attack.Arms.Sound(sound);
+                attack.Arms.ServerSound(sound);
             }
 
             w.Redraw = true;
@@ -421,6 +435,13 @@ public static class Hl2mpWeaponBehaviours
     {
         private const float EmptyRefire = 0.5f, PrimaryAfterGrenade = 0.5f, GrenadeRefire = 1.0f;
 
+        /// <summary>CWeaponSMG1::Reload: a started reload plays WeaponSound( RELOAD ) on both sides.</summary>
+        public void Reload(in WeaponAttackContext attack)
+        {
+            if (attack.EffectsLive)
+                attack.Arms.Sound(attack.Type.ReloadSound);
+        }
+
         public bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed)
         {
             var w = attack.Weapon;
@@ -455,6 +476,507 @@ public static class Hl2mpWeaponBehaviours
     }
 
     /// <summary>
+    /// CWeaponCrossbow (weapon_crossbow.cpp, hl2mp): a bolt at BOLT_AIR_VELOCITY
+    /// with Single and BoltFly, both triggers held off 0.75 s, and the reload
+    /// owed once the shot has played (m_bMustReload); the scope on each press
+    /// of the second trigger, even mid-reload; the reload's and the draw's
+    /// model events, the first of the reload's electrifying the bolt
+    /// (BoltElectrify, the glowing skin); the fidget for an idle with nothing
+    /// loaded. Not ported: the underwater speed, which needs the owner.
+    /// </summary>
+    private sealed class CrossbowBehaviour : IWeaponBehaviour
+    {
+        // v_crossbow.mdl's events, dumped: the reload's EVENT_WEAPON_THROW at
+        // 0.509 (CHARGER_STATE_START_LOAD), THROW2 at 0.636 (START_CHARGE) and
+        // THROW3 at 1.0 (READY); the draw's THROW2 at 0.467 and THROW3 at 0.933.
+        private const int StartLoad = 3005, StartCharge = 3013, Ready = 3016;
+        private static readonly ImmutableArray<(int Event, float Cycle)> ReloadEvents =
+            [(StartLoad, 0.509f), (StartCharge, 0.636f), (Ready, 1f)];
+        private static readonly ImmutableArray<(int Event, float Cycle)> DrawEvents = [(StartCharge, 0.467f), (Ready, 0.933f)];
+
+        /// <summary>CWeaponCrossbow::FireBolt's refire.</summary>
+        private const float Refire = 0.75f;
+
+        /// <summary>SequenceDuration's answer for a sequence the model does not have.</summary>
+        private const float MustReloadAfter = 0.1f;
+
+        /// <summary>The script's SPECIAL1 and SPECIAL2.</summary>
+        private const string Electrify = "Weapon_Crossbow.BoltElectrify", BoltFly = "Weapon_Crossbow.BoltFly";
+
+        /// <summary>BOLT_SKIN_NORMAL and BOLT_SKIN_GLOW.</summary>
+        private const int SkinNormal = 0, SkinGlow = 1;
+
+        /// <summary>ToggleZoom's two SetFOV calls.</summary>
+        private const int ZoomFov = 20;
+        private const float ZoomInRate = 0.1f, ZoomOutRate = 0.2f;
+
+        public bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed)
+        {
+            var w = attack.Weapon;
+            var held = (InputButtons)buttons;
+            float now = attack.Now;
+
+            if (w.AnimEvent != 0 && now >= w.AnimEventAt)
+            {
+                int animEvent = w.AnimEvent;
+                w.AnimEvent = 0;
+                HandleEvent(attack, animEvent);
+            }
+
+            // CheckZoomToggle, from ItemBusyFrame and ItemPostFrame alike.
+            if ((pressed & (int)InputButtons.Attack2) != 0)
+                ToggleZoom(attack);
+
+            if (w.MustReload && now >= w.TimeWeaponIdle)
+                Reload(attack);
+
+            // CBaseCombatWeapon::ItemPostFrame for a one-round clip.
+            if (w.InReload)
+            {
+                if (w.NextPrimaryAttack <= now)
+                    FinishReload(attack);
+                return true;
+            }
+
+            if (held.HasFlag(InputButtons.Attack) && w.NextPrimaryAttack <= now)
+            {
+                if (w.Clip > 0)
+                    FireBolt(attack);
+                else
+                    Reload(attack);
+                return true;
+            }
+
+            if (held.HasFlag(InputButtons.Reload))
+            {
+                Reload(attack);
+                return true;
+            }
+
+            if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0)
+            {
+                // ReloadOrSwitchWeapons (the script's item_flags 0: it reloads
+                // itself once both triggers are free), then WeaponIdle.
+                if (w.Clip <= 0 && w.Reserve > 0 && w.NextPrimaryAttack < now && w.NextSecondaryAttack < now)
+                    Reload(attack);
+                else if (now >= w.TimeWeaponIdle)
+                    Send(attack, w.Clip <= 0 ? WeaponAnim.Fidget : WeaponAnim.Idle);
+            }
+
+            return true;
+        }
+
+        /// <summary>CWeaponCrossbow::Deploy: the glowing bolt, and the draw's charge-up.</summary>
+        public void Deploy(in WeaponAttackContext attack)
+        {
+            if (attack.Weapon.Clip > 0)
+                attack.ViewModel.Skin = SkinGlow;
+            Schedule(attack, DrawEvents, 0, attack.Now, attack.Arms.AnimDuration(WeaponAnim.Draw));
+        }
+
+        /// <summary>CWeaponCrossbow::Holster: out of the scope, the charger off.</summary>
+        public void Holster(in WeaponAttackContext attack)
+        {
+            if (attack.Weapon.InZoom)
+                ToggleZoom(attack);
+            attack.ViewModel.Skin = SkinNormal;
+            attack.Weapon.AnimEvent = 0;
+        }
+
+        private static void FireBolt(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            var type = attack.Type;
+
+            if (attack.EffectsLive)
+                attack.Arms.Launch(in type, type.Projectile, type.LaunchSpeed, thrown: false);
+
+            w.Clip -= 1;
+            if (attack.EffectsLive)
+            {
+                attack.Arms.Sound(type.FireSound);
+                attack.Arms.Sound(BoltFly);
+            }
+
+            Send(attack, WeaponAnim.Primary);
+            w.NextPrimaryAttack = w.NextSecondaryAttack = attack.Now + Refire;
+
+            // DoLoadEffect's glow then the DISCHARGE that puts it out: an empty bow.
+            attack.ViewModel.Skin = SkinNormal;
+            w.AnimEvent = 0;
+
+            // SetWeaponIdleTime( curtime + SequenceDuration( ACT_VM_PRIMARYATTACK ) )
+            // hands an activity to a call that takes a sequence: out of range
+            // on any model, it answers its 0.1, and the reload cuts the shot.
+            w.MustReload = true;
+            w.TimeWeaponIdle = attack.Now + MustReloadAfter;
+        }
+
+        /// <summary>CWeaponCrossbow::Reload: DefaultReload's ACT_VM_RELOAD, whose events charge the bolt.</summary>
+        private static void Reload(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            if (w.InReload || w.Reserve <= 0 || w.Clip >= attack.Type.ClipSize)
+                return;
+
+            // DefaultReload's sound: the client's alone.
+            if (attack.EffectsLive)
+                attack.Arms.ClientSound(attack.Type.ReloadSound);
+
+            float duration = Send(attack, WeaponAnim.Reload);
+            w.NextPrimaryAttack = w.NextSecondaryAttack = attack.Now + duration;
+            w.InReload = true;
+            w.MustReload = false;
+            Schedule(attack, ReloadEvents, 0, attack.Now, duration);
+        }
+
+        private static void FinishReload(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            int take = Math.Min(attack.Type.ClipSize - w.Clip, w.Reserve);
+            w.Clip += take;
+            w.Reserve -= take;
+            w.InReload = false;
+        }
+
+        /// <summary>SetChargerState, as Operator_HandleAnimEvent drives it; the next event of the sequence is due after.</summary>
+        private static void HandleEvent(in WeaponAttackContext attack, int animEvent)
+        {
+            if (animEvent == StartLoad)
+            {
+                // Operator_HandleAnimEvent is the server's.
+                if (attack.EffectsLive)
+                    attack.Arms.ServerSound(Electrify);
+                attack.ViewModel.Skin = SkinGlow;
+            }
+
+            var events = attack.Weapon.InReload ? ReloadEvents : DrawEvents;
+            int at = -1;
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].Event == animEvent)
+                    at = i;
+            }
+
+            if (at >= 0)
+            {
+                WeaponAnim anim = attack.Weapon.InReload ? WeaponAnim.Reload : WeaponAnim.Draw;
+                float duration = attack.Arms.AnimDuration(anim);
+                float started = attack.Weapon.SequenceEndsAt - duration;
+                Schedule(attack, events, at + 1, started, duration);
+            }
+        }
+
+        /// <summary>The <paramref name="next"/>th event of a sequence that started at <paramref name="started"/>, if any.</summary>
+        private static void Schedule(in WeaponAttackContext attack, ImmutableArray<(int Event, float Cycle)> events, int next,
+                                     float started, float duration)
+        {
+            var w = attack.Weapon;
+            w.SequenceEndsAt = started + duration;
+            if (next >= events.Length)
+            {
+                w.AnimEvent = 0;
+                return;
+            }
+
+            w.AnimEvent = events[next].Event;
+            w.AnimEventAt = started + events[next].Cycle * duration;
+        }
+
+        /// <summary>ToggleZoom: SetFOV( 20, 0.1 ) in, ( 0, 0.2 ) out.</summary>
+        private static void ToggleZoom(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            w.InZoom = !w.InZoom;
+            if (attack.EffectsLive)
+                attack.Arms.SetFov(w.InZoom ? ZoomFov : 0, w.InZoom ? ZoomInRate : ZoomOutRate);
+        }
+    }
+
+    /// <summary>
+    /// CWeaponRPG (shared/hl2mp/weapon_rpg.cpp) on CBaseCombatWeapon's
+    /// ItemPostFrame for a weapon with no clip, and CBaseHL2MPCombatWeapon's
+    /// lowered idle.
+    ///
+    /// <para>
+    /// One missile at a time: the trigger refuses while it flies, and while the
+    /// reload its death starts is playing; the next shot waits half a second.
+    /// The laser comes on with the first frame after the draw (SuppressGuiding
+    /// starts the guiding whenever there is no dot), is switched off while the
+    /// weapon is lowered — which an RPG with nothing left to fire is — and goes
+    /// with a holster, a drop, or the last round once its missile is gone. HL2MP
+    /// gives the RPG no alt-fire: its laser cannot be toggled.
+    /// </para>
+    ///
+    /// <para>
+    /// State is <see cref="WeaponNetState.Special"/>'s <see cref="RpgState"/>
+    /// bits; <see cref="WeaponNetState.SequenceEndsAt"/> is the draw's end
+    /// (stock's SetNextAttack, before which ItemPostFrame does not run) and
+    /// <see cref="WeaponNetState.SpecialTime"/> the empty click's clock
+    /// (m_flNextEmptySoundTime).
+    /// </para>
+    ///
+    /// <para>
+    /// Not ported: the switch away from an RPG with nothing left
+    /// (ReloadOrSwitchWeapons' SwitchToNextBestWeapon), which needs the
+    /// owner's inventory. Where stock would have switched, its StartGuiding and
+    /// StopGuiding replay LaserOn and LaserOff every frame; here LaserOn plays
+    /// as the dot is made and LaserOff as it is removed, which in every other
+    /// state is the same moment.
+    /// </para>
+    /// </summary>
+    private sealed class RpgBehaviour : IWeaponBehaviour
+    {
+        /// <summary>PrimaryAttack's m_flNextPrimaryAttack = curtime + 0.5f.</summary>
+        private const float Refire = 0.5f;
+
+        /// <summary>HandleFireOnEmpty's m_flNextEmptySoundTime = curtime + 0.5.</summary>
+        private const float EmptySoundInterval = 0.5f;
+
+        /// <summary>weapon_rpg.txt's SPECIAL1 and SPECIAL2.</summary>
+        internal const string LaserOn = "Weapon_RPG.LaserOn", LaserOff = "Weapon_RPG.LaserOff";
+
+        public void Deploy(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+
+            // m_bInitialStateUpdate, the draw as the activity, and DefaultDeploy's
+            // SetNextAttack( curtime + SequenceDuration() ).
+            w.Special = RpgState.WithActivity(RpgState.Set(w.Special, RpgState.InitialStateUpdate, true), RpgActivity.Draw);
+            w.SequenceEndsAt = attack.Now + attack.Arms.AnimDuration(WeaponAnim.Draw);
+        }
+
+        public bool CanHolster(in WeaponAttackContext attack) => !RpgState.Has(attack.Weapon.Special, RpgState.MissileOut);
+
+        public void Holster(in WeaponAttackContext attack)
+        {
+            StopGuiding(attack);
+            if (attack.EffectsLive)
+                attack.Arms.UpdateLaserDot(exists: false, on: false);
+        }
+
+        public bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed)
+        {
+            var w = attack.Weapon;
+            float now = attack.Now;
+
+            // CBasePlayer::ItemPostFrame: ItemBusyFrame until the draw is done.
+            if (now < w.SequenceEndsAt)
+                return true;
+
+            var held = (InputButtons)buttons;
+            int released = w.LastButtons & ~buttons;
+
+            // CBaseCombatWeapon::ItemPostFrame. The alt-fire is the base's, which
+            // does nothing, and never blocks the primary.
+            if (held.HasFlag(InputButtons.Attack) && w.NextPrimaryAttack <= now)
+            {
+                if (w.Reserve <= 0)
+                {
+                    HandleFireOnEmpty(attack);
+                }
+                else
+                {
+                    if ((pressed & (int)InputButtons.Attack) != 0 || (released & (int)InputButtons.Attack2) != 0)
+                        w.NextPrimaryAttack = now;
+
+                    PrimaryAttack(attack);
+                }
+            }
+
+            if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0)
+            {
+                // ReloadOrSwitchWeapons: no clip to reload, and the switch away
+                // from an empty RPG is not ported.
+                w.Special = RpgState.Set(w.Special, RpgState.FireOnEmpty, false);
+
+                if (!w.InReload)
+                    WeaponIdle(attack);
+            }
+
+            // CWeaponRPG::ItemPostFrame's tail.
+            if (RpgState.Has(w.Special, RpgState.InitialStateUpdate) && RpgState.Activity(w.Special) != RpgActivity.Draw)
+            {
+                StartGuiding(attack);
+                w.Special = RpgState.Set(w.Special, RpgState.InitialStateUpdate, false);
+            }
+
+            SuppressGuiding(attack, RpgState.Activity(w.Special) == RpgActivity.IdleLowered);
+
+            if (w.Reserve <= 0 && !RpgState.Has(w.Special, RpgState.MissileOut))
+                StopGuiding(attack);
+
+            // UpdateLaserPosition, and the dot made or removed to match.
+            if (attack.EffectsLive)
+                attack.Arms.UpdateLaserDot(RpgState.Has(w.Special, RpgState.DotOut), RpgState.Has(w.Special, RpgState.DotOn));
+
+            return true;
+        }
+
+        /// <summary>
+        /// PrimaryAttack: nothing while a missile flies or the reload plays;
+        /// else the missile, a round, ACT_VM_PRIMARYATTACK and the shot's sound.
+        /// </summary>
+        private static void PrimaryAttack(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+
+            if (RpgState.Has(w.Special, RpgState.MissileOut) || RpgState.Activity(w.Special) == RpgActivity.Reload)
+                return;
+
+            w.NextPrimaryAttack = attack.Now + Refire;
+
+            if (attack.EffectsLive)
+                attack.Arms.LaunchMissile(attack.Type);
+            w.Special = RpgState.Set(w.Special, RpgState.MissileOut, true);
+
+            w.Reserve -= 1;
+            Send(attack, RpgActivity.Primary);
+
+            if (attack.EffectsLive)
+                attack.Arms.Sound(attack.Type.FireSound);
+        }
+
+        /// <summary>HandleFireOnEmpty: the click, at most twice a second, then nothing until released.</summary>
+        private static void HandleFireOnEmpty(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+
+            if (RpgState.Has(w.Special, RpgState.FireOnEmpty))
+            {
+                // ReloadOrSwitchWeapons: nothing to reload; the switch is not ported.
+                w.Special = RpgState.Set(w.Special, RpgState.FireOnEmpty, false);
+                return;
+            }
+
+            if (w.SpecialTime < attack.Now)
+            {
+                if (attack.EffectsLive)
+                    attack.Arms.Sound(attack.Type.EmptySound);
+                w.SpecialTime = attack.Now + EmptySoundInterval;
+            }
+
+            w.Special = RpgState.Set(w.Special, RpgState.FireOnEmpty, true);
+        }
+
+        /// <summary>
+        /// CBaseHL2MPCombatWeapon::WeaponIdle: down to ACT_VM_IDLE_LOWERED and
+        /// held there while it should be lowered (an RPG with no round and no
+        /// missile), straight back up when it should not, and the idle again
+        /// whenever the last one has played.
+        /// </summary>
+        private static void WeaponIdle(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            RpgActivity activity = RpgState.Activity(w.Special);
+            bool elapsed = attack.Now > w.TimeWeaponIdle;
+
+            if (!HasAnyAmmo(w))
+            {
+                if (activity != RpgActivity.IdleLowered || elapsed)
+                    Send(attack, RpgActivity.IdleLowered);
+            }
+            else if (activity == RpgActivity.IdleLowered || elapsed)
+            {
+                // m_flRaiseTime is never set without Ready(), so a lowered RPG
+                // that has something to fire again comes up at once.
+                Send(attack, RpgActivity.Idle);
+            }
+        }
+
+        /// <summary>HasAnyAmmo: a missile in flight counts.</summary>
+        private static bool HasAnyAmmo(WeaponNetState w) => w.Reserve > 0 || RpgState.Has(w.Special, RpgState.MissileOut);
+
+        /// <summary>StartGuiding: unless suppressed, guiding, LaserOn and the dot (if there is a round for it).</summary>
+        private static void StartGuiding(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            if (RpgState.Has(w.Special, RpgState.HideGuiding))
+                return;
+
+            w.Special = RpgState.Set(w.Special, RpgState.Guiding, true);
+
+            // CreateLaserPointer: once, and only with a round to guide; made off.
+            // LaserOn with the dot it makes (see the class remarks).
+            if (!RpgState.Has(w.Special, RpgState.DotOut) && w.Reserve > 0)
+            {
+                w.Special = RpgState.Set(RpgState.Set(w.Special, RpgState.DotOut, true), RpgState.DotOn, false);
+                if (attack.EffectsLive)
+                    attack.Arms.ServerSound(LaserOn);
+            }
+        }
+
+        /// <summary>StopGuiding: not guiding, LaserOff, and the dot gone.</summary>
+        private static void StopGuiding(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+
+            // LaserOff with the dot it removes (see the class remarks).
+            if (RpgState.Has(w.Special, RpgState.DotOut) && attack.EffectsLive)
+                attack.Arms.ServerSound(LaserOff);
+
+            w.Special = RpgState.Set(w.Special, RpgState.Guiding | RpgState.DotOut | RpgState.DotOn, false);
+        }
+
+        /// <summary>
+        /// SuppressGuiding: hidden or not, and with no dot the guiding is
+        /// started (which makes one when it can); the dot is on when not hidden.
+        /// </summary>
+        private static void SuppressGuiding(in WeaponAttackContext attack, bool hide)
+        {
+            var w = attack.Weapon;
+            w.Special = RpgState.Set(w.Special, RpgState.HideGuiding, hide);
+
+            if (!RpgState.Has(w.Special, RpgState.DotOut))
+            {
+                StartGuiding(attack);
+                if (!RpgState.Has(w.Special, RpgState.DotOut))
+                    return;
+            }
+
+            w.Special = RpgState.Set(w.Special, RpgState.DotOn, !hide);
+        }
+
+        /// <summary>NotifyRocketDied: the missile is gone, and the reload starts unless it already is.</summary>
+        internal static void NotifyRocketDied(in WeaponAttackContext attack)
+        {
+            var w = attack.Weapon;
+            w.Special = RpgState.Set(w.Special, RpgState.MissileOut, false);
+
+            if (RpgState.Activity(w.Special) == RpgActivity.Reload)
+                return;
+
+            // Reload: with a round left, the reload's sound and ACT_VM_RELOAD.
+            if (w.Reserve <= 0)
+                return;
+
+            if (attack.EffectsLive)
+                attack.Arms.Sound(attack.Type.ReloadSound);
+            Send(attack, RpgActivity.Reload);
+        }
+
+        /// <summary>
+        /// SendWeaponAnim through SetIdealActivity: an activity the model does
+        /// not carry changes nothing; one it does becomes the weapon's activity
+        /// and the viewmodel's sequence, and the idle is due when it has played.
+        /// </summary>
+        private static void Send(in WeaponAttackContext attack, RpgActivity activity)
+        {
+            int sequence = attack.Arms.LookupActivity(RpgState.ActivityName(activity));
+            if (sequence < 0)
+                return;
+
+            var w = attack.Weapon;
+            var vm = attack.ViewModel;
+            w.Special = RpgState.WithActivity(w.Special, activity);
+            vm.Sequence = sequence;
+            vm.AnimationParity = AnimationParity.Next(vm.AnimationParity);
+            vm.PlaybackRate = 1f;
+            w.TimeWeaponIdle = attack.Now + attack.Arms.SequenceDuration(sequence);
+        }
+    }
+
+    /// <summary>
     /// CWeaponPistol: a click refires PISTOL_FASTEST_REFIRE_TIME after the
     /// last shot, while a held trigger waits GetFireRate() (the row's 0.5).
     /// </summary>
@@ -464,6 +986,13 @@ public static class Hl2mpWeaponBehaviours
 
         public void PrimaryAttack(in WeaponAttackContext attack)
             => attack.Weapon.SoonestPrimaryAttack = attack.Now + FastestRefire;
+
+        /// <summary>CWeaponPistol::Reload: a started reload plays WeaponSound( RELOAD ) on both sides.</summary>
+        public void Reload(in WeaponAttackContext attack)
+        {
+            if (attack.EffectsLive)
+                attack.Arms.Sound(attack.Type.ReloadSound);
+        }
 
         public void ItemPostFrame(in WeaponAttackContext attack)
         {

@@ -1,0 +1,55 @@
+From 69a71c346b0c86e705a4acd0c3eb960effb0f5b3 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <mark@lodle.net>
+Date: Sun, 25 Oct 2026 20:12:59 -0700
+Subject: [PATCH] stock-ab: ab_trace, a MASK_SHOT line and what it hit
+
+---
+ src/game/server/ss_ab_server.cpp | 35 ++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/src/game/server/ss_ab_server.cpp b/src/game/server/ss_ab_server.cpp
+index a3eaf960..3f70d7cc 100644
+--- a/src/game/server/ss_ab_server.cpp
++++ b/src/game/server/ss_ab_server.cpp
+@@ -86,3 +86,38 @@ CON_COMMAND( ab_arsenal, "stock-ab: write player 1's weapons and ammo to $SS_AB_
+ 	fclose( pFile );
+ 	rename( szTmp, szPath );
+ }
++
++//-----------------------------------------------------------------------------
++// ab_trace <token> <x y z> <x y z>: UTIL_TraceLine( MASK_SHOT, no pass entity,
++// COLLISION_GROUP_NONE ) from the first point to the second, to
++// $SS_AB_DIR/trace: fraction, end position, the entity hit (index and
++// classname, -1 for none) and its surface name -- what stopped a projectile
++// where the other game's flew on. Then "#end <token>".
++//-----------------------------------------------------------------------------
++CON_COMMAND( ab_trace, "stock-ab: trace a MASK_SHOT line and write what it hit to $SS_AB_DIR/trace" )
++{
++	const char *pszDir = getenv( "SS_AB_DIR" );
++	if ( !pszDir || !*pszDir || args.ArgC() < 8 )
++		return;
++
++	Vector vecStart( atof( args[2] ), atof( args[3] ), atof( args[4] ) );
++	Vector vecEnd( atof( args[5] ), atof( args[6] ), atof( args[7] ) );
++
++	trace_t tr;
++	UTIL_TraceLine( vecStart, vecEnd, MASK_SHOT, NULL, COLLISION_GROUP_NONE, &tr );
++
++	char szTmp[MAX_PATH], szPath[MAX_PATH];
++	V_snprintf( szTmp, sizeof( szTmp ), "%s/trace.tmp", pszDir );
++	V_snprintf( szPath, sizeof( szPath ), "%s/trace", pszDir );
++
++	FILE *pFile = fopen( szTmp, "wb" );
++	if ( !pFile )
++		return;
++
++	fprintf( pFile, "%.4f\t%.3f %.3f %.3f\t%d\t%s\t%s\t%d\n", tr.fraction, tr.endpos.x, tr.endpos.y, tr.endpos.z,
++		tr.m_pEnt ? tr.m_pEnt->entindex() : -1, tr.m_pEnt ? tr.m_pEnt->GetClassname() : "",
++		tr.surface.name ? tr.surface.name : "", tr.m_pEnt ? tr.m_pEnt->m_takedamage : -1 );
++	fprintf( pFile, "#end\t%s\n", args[1] );
++	fclose( pFile );
++	rename( szTmp, szPath );
++}
+-- 
+2.53.0
+

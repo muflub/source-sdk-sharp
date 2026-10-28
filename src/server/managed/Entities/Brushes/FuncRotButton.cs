@@ -18,6 +18,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncRotButton, ScriptedEntityKind.Brush)]
 public sealed class FuncRotButton : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>
     /// The shared rotation-axis bits off this entity's spawnflags word.
     /// Separate from any flags of its own: see <see cref="RotationAxisFlag"/>.

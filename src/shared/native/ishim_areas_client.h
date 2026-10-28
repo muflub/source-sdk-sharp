@@ -228,6 +228,11 @@ public:
 	virtual void ColorLookupSetWeight( void *hLookup, float flWeight ) = 0;
 	virtual void ColorLookupRemove( void *hLookup ) = 0;
 	virtual void ColorLookupResetWeights() = 0;
+	// The client's standalone shells are in no spatial partition, so no
+	// engine trace can stop on one: this clips a ray against each entity the
+	// caller names (managed's directory is the list), solid ones only, and
+	// answers the nearest hit in ClientTraceLine's outs.
+	virtual int32_t ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ, int32_t *pOutHitbox, int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags ) = 0;
 };
 
 // plan_side_isolation §2.2a: the client half of user messages. Managed reads a

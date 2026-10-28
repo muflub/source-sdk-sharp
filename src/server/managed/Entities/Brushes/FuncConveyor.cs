@@ -57,6 +57,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncConveyor, ScriptedEntityKind.Brush)]
 public sealed class FuncConveyor : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public FuncConveyor(IEngineNetworking net, IEngineWorldQuery world)
     {
         Net = net;

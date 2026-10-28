@@ -228,7 +228,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 257 slots.
+// CLIENT ONLY -- 258 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -257,6 +257,13 @@ void SourceSharp_BeamSetHdrColorScale( int32_t nModelIndex, int32_t nRenderMode,
 void SourceSharp_BeamView( int32_t bCurrentView, float *pOut42 );
 int32_t SourceSharp_ClientBeginMoveCommand( uint32_t hPlayer, int32_t nCommandNumber,
                                             SourceSharpMoveState *pOutConstants );
+int32_t SourceSharp_ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ,
+                                             int32_t nMask, const int32_t *pEntityIndices,
+                                             int32_t nEntities, float *pOutFraction,
+                                             float *pOutEndXYZ, float *pOutNormalXYZ,
+                                             int32_t *pOutHitbox, int32_t *pOutEntityIndex,
+                                             int32_t *pOutSurfaceProps,
+                                             int32_t *pOutSurfaceFlags );
 void SourceSharp_ClientComputeLighting( const float *pPosXYZ, float *pOutColorRGB,
                                         float *pOutBoxRGB18 );
 void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCenterXYZ,

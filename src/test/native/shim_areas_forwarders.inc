@@ -309,10 +309,10 @@ TEST( FwdShimAreas, ShimStandaloneClientIs24Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimViewClientIs27Slots )
+TEST( FwdShimAreas, ShimViewClientIs28Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimViewClient::ColorLookupResetWeights ).slot + 1;
-	EXPECT_EQ( 27, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimViewClient::ClientClipRayToEntities ).slot + 1;
+	EXPECT_EQ( 28, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimViewClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

@@ -47,6 +47,9 @@ public enum SolidityMode
 [ScriptedEntity(EntityNames.FuncBrush, ScriptedEntityKind.Brush)]
 public sealed class FuncBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>What a map may set on this entity. See <see cref="FuncBrushVars"/>.</summary>
     [ScriptVars] public FuncBrushVars Vars = new();
 

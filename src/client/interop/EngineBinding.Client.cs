@@ -1947,6 +1947,40 @@ internal sealed unsafe partial class EngineWorldQuery
                                              TraceFilter filter, int passEntityIndex = -1)
         => ClientTraceLineCore(start, end, mask, filter, passEntityIndex);
 
+    /// <inheritdoc/>
+    public unsafe ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
+                                                            ReadOnlySpan<int> entityIndices)
+    {
+        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
+        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
+        float* endPos = stackalloc float[3];
+        float* normal = stackalloc float[3];
+        float fraction;
+        int hitbox;
+        int entIndex;
+        int surfaceProps;
+        int surfaceFlags;
+        int stopped;
+
+        // ONE CROSSING FOR THE WHOLE LIST: the indices go over as one buffer.
+        fixed (int* indices = entityIndices)
+        {
+            stopped = _viewClientArea.ClientClipRayToEntities(s, e, (int)mask, indices, entityIndices.Length,
+                                                              &fraction, endPos, normal, &hitbox, &entIndex,
+                                                              &surfaceProps, &surfaceFlags);
+        }
+
+        return new ClientTraceResult(
+            stopped != 0,
+            fraction,
+            new Vector(endPos[0], endPos[1], endPos[2]),
+            new Vector(normal[0], normal[1], normal[2]),
+            hitbox,
+            entIndex,
+            surfaceProps,
+            surfaceFlags);
+    }
+
     /// <summary>
     /// The same trace, choosing which entities it may hit. See
     /// <see cref="TraceFilter"/> for why this is an enumeration and not an
@@ -1987,6 +2021,7 @@ internal sealed unsafe partial class EngineWorldQuery
     public (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward) => (default, default);
     public int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => 0;
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new HullResult(false, false, EntityHandle.None);
+    public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => new EntityHullTrace(start, true, true);
     public TraceResult TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => new TraceResult(false, 1f, end, Vector.Zero, EntityHandle.None);
     public SurfaceTraceResult TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);

@@ -2334,7 +2334,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 24 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 27 forwarder(s) over IShimViewClient.
+// ShimViewClient: 28 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2390,6 +2390,8 @@ static void SSFwd_ShimViewClient_ColorLookupSetWeight( IShimViewClient *self, vo
 static void SSFwd_ShimViewClient_ColorLookupRemove( IShimViewClient *self, void * a0 ) { self->ColorLookupRemove( a0 ); }
 // void IShimViewClient::ColorLookupResetWeights( void )
 static void SSFwd_ShimViewClient_ColorLookupResetWeights( IShimViewClient *self ) { self->ColorLookupResetWeights(); }
+// int32_t IShimViewClient::ClientClipRayToEntities( const float *, const float *, int32_t, const int32_t *, int32_t, float *, float *, float *, int32_t *, int32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimViewClient_ClientClipRayToEntities( IShimViewClient *self, const float * a0, const float * a1, int32_t a2, const int32_t * a3, int32_t a4, float * a5, float * a6, float * a7, int32_t * a8, int32_t * a9, int32_t * a10, int32_t * a11 ) { return self->ClientClipRayToEntities( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 ); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
@@ -2419,9 +2421,10 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupSetWeight ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupRemove ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupResetWeights ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientClipRayToEntities ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 27 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 28 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.

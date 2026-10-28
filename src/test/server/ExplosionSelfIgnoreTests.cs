@@ -112,6 +112,14 @@ public class ExplosionSelfIgnoreTests
         foreach (var member in alsoIgnore)
             engine.Ignores(member);
 
+        // What the RPG's missile reads and writes going off: its facing, the
+        // sky test ahead, going not solid, the ignition's stop and its box
+        // (RpgMissileTests is about those).
+        engine.Returns("Entities.GetAngles", Vector.Zero)
+              .Returns("WorldQuery.TraceLineSurface",
+                       new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, 0, 0))
+              .Ignores("EntityPhysics.SetNotSolid", "Sound.EntityStopSound", "Entities.SetBounds");
+
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Rocket).Assembly);
         registry.Services = services;
@@ -148,19 +156,6 @@ public class ExplosionSelfIgnoreTests
     }
 
     /// <summary>
-    /// The rocket's own numbers, against stock's.
-    ///
-    /// <para>
-    /// The radius was 300 here where stock's <c>CMissile::EXPLOSION_RADIUS</c> is
-    /// 200, and it is not a free fifty per cent: the traversal's falloff is
-    /// magnitude/radius per unit, so a wider blast is a HARDER one at every
-    /// distance as well as a longer one. At 100 units 300 gave 133 where 200
-    /// gives 100, and at 250 it still gave 33 where stock had already stopped.
-    /// On a map with explosive barrels the extra hundred units is what reaches
-    /// the next barrel, and the chain comes back to whoever fired.
-    /// </para>
-    /// </summary>
-    /// <summary>
     /// The thing that exploded is the blast's inflictor -- stock's
     /// CTakeDamageInfo( this, GetOwnerEntity(), ... ) -- so a hit is felt FROM
     /// it, while the owner keeps the credit (lane player-msgs).
@@ -177,6 +172,13 @@ public class ExplosionSelfIgnoreTests
         Assert.Equal(entity.Handle, TheOnlyExplosion(services).Inflictor);
     }
 
+    /// <summary>
+    /// The rocket's own numbers, against stock HL2MP's
+    /// (shared/hl2mp/weapon_rpg.cpp). The 200 and 200 these facts held before
+    /// were the single-player CMissile's (hl2/weapon_rpg.cpp's SetDamage(
+    /// 200.0f ) and EXPLOSION_RADIUS); HL2MP's RPG sets the damage from
+    /// weapon_rpg.txt's "damage" and DoExplosion's radius is twice it.
+    /// </summary>
     [Fact]
     public void ARocketCarriesStocksNumbers()
     {
@@ -186,11 +188,11 @@ public class ExplosionSelfIgnoreTests
 
         var bang = TheOnlyExplosion(services);
 
-        Assert.True(bang.Magnitude == 200f,
-                    "stock's CMissile::Spawn calls SetDamage( 200.0f )");
+        Assert.True(bang.Magnitude == 150f,
+                    "the RPG's SetDamage( GetHL2MPWpnData().m_iPlayerDamage ), weapon_rpg.txt's 150");
 
-        Assert.True(bang.Radius == 200f,
-                    "stock's CMissile::EXPLOSION_RADIUS is 200");
+        Assert.True(bang.Radius == 300f,
+                    "DoExplosion's ExplosionCreate radius is GetDamage() * 2");
     }
 
     [Fact]

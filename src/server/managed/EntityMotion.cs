@@ -136,6 +136,15 @@ public sealed class EntityMotion
 
         /// <summary>The velocity it was flying at going into the last step: what a touch saw it arrive with.</summary>
         public Vector Incoming;
+
+        /// <summary>Half the box it sweeps; zero sweeps a point (a ray).</summary>
+        public Vector Hull;
+
+        /// <summary>
+        /// It flies through players: a FSOLID_NOT_SOLID flyer's sweep, which
+        /// PhysicsCheckSweep makes without CONTENTS_MONSTER. See <see cref="PassCharacters"/>.
+        /// </summary>
+        public bool PassCharacters;
     }
 
     private readonly Dictionary<EntityHandle, Mover> _movers = new();
@@ -179,7 +188,7 @@ public sealed class EntityMotion
     /// </para>
     /// </summary>
     public void Launch(EntityHandle entity, Vector velocity, float gravityScale,
-                       int bounces, EntityHandle owner, Vector spin = default)
+                       int bounces, EntityHandle owner, Vector spin = default, Vector hull = default)
     {
         // COMPARED AGAINST None RATHER THAN ASKED IsValid, here and at every
         // other handle test in this file. EntityHandle.IsValid is a NATIVE CALL
@@ -198,8 +207,26 @@ public sealed class EntityMotion
         mover.Owner = owner;
         mover.Spin = spin;
         mover.Incoming = velocity;
+        mover.Hull = hull;
         mover.Kind = gravityScale != 0f ? MotionKind.Toss : MotionKind.Fly;
     }
+
+    /// <summary>
+    /// Whether a flyer passes through players: stock's
+    /// <c>PhysicsCheckSweep</c>, which takes <c>CONTENTS_MONSTER</c> out of
+    /// the sweep of an entity with <c>FSOLID_NOT_SOLID</c> (the RPG missile's
+    /// grace period, <c>CMissile::SetGracePeriod</c>). Nothing for an entity
+    /// that is not flying.
+    /// </summary>
+    public void PassCharacters(EntityHandle entity, bool pass)
+    {
+        if (_movers.TryGetValue(entity, out var mover))
+            mover.PassCharacters = pass;
+    }
+
+    /// <summary>Whether a flyer passes through players. See <see cref="PassCharacters"/>.</summary>
+    public bool PassesCharacters(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) && mover.PassCharacters;
 
     /// <summary>
     /// Velocity applied and nothing asked about what is there — stock's
@@ -278,6 +305,13 @@ public sealed class EntityMotion
     /// <summary>The velocity this side is integrating, which is the store of record while it flies.</summary>
     public Vector VelocityOf(EntityHandle entity)
         => _movers.TryGetValue(entity, out var mover) ? mover.Velocity : Vector.Zero;
+
+    /// <summary>A box sweep's answer as the step reads a line's: the surface is the touch's to ask for.</summary>
+    private static TraceResult Swept(in SurfaceTraceResult box) => new(box.Hit, box.Fraction, box.End, box.Normal, box.Entity);
+
+    /// <summary>Half the box its step sweeps; zero for a point (or nothing flying).</summary>
+    public Vector HullOf(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) ? mover.Hull : Vector.Zero;
 
     /// <summary>
     /// The velocity it arrived with at its last step: stock's GetAbsVelocity
@@ -427,14 +461,22 @@ public sealed class EntityMotion
         // through starts inside its own two-unit box and hits IT, at fraction
         // zero, on the very first frame. A rocket exploded the instant it was
         // fired and a bolt was removed before it was ever drawn.
-        TraceResult trace = _world.TraceLine(input.Origin, step.Destination,
-                                             TraceMask.Shot, handle);
+        // UTIL_TraceEntity: the entity's own box, or a point for one with none.
+        Vector hull = mover.Hull;
+        TraceResult trace = hull.X != 0f || hull.Y != 0f || hull.Z != 0f
+            ? Swept(_world.TraceBox(input.Origin, step.Destination, hull * -1f, hull, TraceMask.Shot, handle))
+            : _world.TraceLine(input.Origin, step.Destination, TraceMask.Shot, handle);
 
         // AND ITS OWNER, which the filter cannot be told about — see the type's
         // remarks and abi-requests/2f.md. A rocket fired at the floor spawns
         // inside the shooter's own hull, and the managed "was that me?" check
         // runs after the flight has already been stopped, so it cannot save it.
         if (mover.Owner != EntityHandle.None && trace.Entity == mover.Owner)
+            trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
+
+        // A flyer made not solid sweeps without CONTENTS_MONSTER, so a player
+        // in its way is flown through and the world still stops it.
+        if (mover.PassCharacters && trace.Entity != EntityHandle.None && _entities.IsPlayer(trace.Entity))
             trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
 
         FlightResult result = MoveMath.ResolveFlight(input, step, trace.Fraction,

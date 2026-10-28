@@ -31,6 +31,12 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncBreakableSurf, ScriptedEntityKind.Brush)]
 public sealed class FuncBreakableSurf : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
+    /// <summary>CBreakableSurface: glass takes damage, which is how it breaks.</summary>
+    public override bool TakesDamage => true;
+
     public FuncBreakableSurf(IEngineWorldQuery world, IEngineEffects effects)
     {
         World = world;

@@ -20,3 +20,5 @@
 14	SLOT-HELP	inline StudioDecalRequest DecalStudioModel( int nEntity,
 9	SLOT-HELP	inline BrushDecalRequest BrushDecalRequestZero( void )
 12	SLOT-HELP	inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ,
+4	SLOT-HELP	inline bool ClipCandidateIsSolid( int nSolidType, int nSolidFlags )
+4	SLOT-HELP	inline bool ClipIsNearer( float flFraction, bool bStartSolid, float flBestFraction )

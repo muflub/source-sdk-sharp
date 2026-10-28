@@ -96,6 +96,9 @@ public static partial class TestServices
         // Reachable with services.Resolve( typeof( IBlastSweep ) ).
         services.AddInstance<IBlastSweep>(new RecordingBlastSweep());
 
+        // The RPG's laser dots, which a missile searches: a real roster, empty.
+        services.AddInstance<IEntityRoster<SourceSharp.Server.LaserDot>>(new SourceSharp.Server.EntityRoster<SourceSharp.Server.LaserDot>());
+
         // The step's impact damage (physics stock parity C7): a REAL queue over
         // the double, for SoundEnt's reason above -- a prop or player a test
         // spawns queues into it, and the test delivers it.

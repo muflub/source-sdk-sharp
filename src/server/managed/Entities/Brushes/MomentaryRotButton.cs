@@ -29,6 +29,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.MomentaryRotButton, ScriptedEntityKind.Brush)]
 public sealed class MomentaryRotButton : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
 
     /// <summary>moving a brush, and reporting when it arrives.</summary>
     /// <summary>This entity's own spawnflags, as their own type.</summary>

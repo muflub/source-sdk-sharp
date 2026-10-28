@@ -70,8 +70,22 @@ public sealed class EnvRocketTrail : ScriptedEntity
         // value rather than a tidied one.
         State.Attachment = -1;
 
-        // Only weapon_rpg.cpp ever raised this, when a missile was shot down,
-        // and that file is not compiled here.
+        // Raised by the RPG's missile when it is shot down (Rocket.ShotDown).
         State.Damaged = false;
     }
+
+    /// <summary>
+    /// CBaseParticleEntity::SetLifetime: removed that many seconds from now
+    /// (its Think is Remove), or never for -1. The RPG's missile gives its
+    /// trail 999 seconds and, when it goes off, a tenth of one.
+    /// </summary>
+    public void SetLifetime(float seconds)
+    {
+        if (seconds == -1f)
+            StopThinking();
+        else
+            SetNextThink(seconds);
+    }
+
+    public override void OnThink() => Remove();
 }

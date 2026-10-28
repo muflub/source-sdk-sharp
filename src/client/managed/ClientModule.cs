@@ -1936,7 +1936,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The weapon machine's replay half (Phase 10): the same shared machine
         // the server runs, over working copies of the declared states, plus
-        // the misprediction meter for the pair the player carries.
+        // the misprediction meter for the pair the player carries. Its
+        // first prediction of a command plays the weapon's own sounds and
+        // impacts, as stock's client does (PredictedWeaponFx).
+        _services.AddInstance<IPredictedWeaponFx>(_services.Create<PredictedWeaponFx>());
         _clientArsenal = _services.Create<ClientArsenal>();
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);

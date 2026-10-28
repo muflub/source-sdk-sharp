@@ -56,7 +56,7 @@ public sealed class ServerTempEntEngineTests
     {
         public readonly List<TeFilter> Asked = [];
 
-        public IRecipientList For(TeFilter filter)
+        public RecipientFilter For(TeFilter filter)
         {
             Asked.Add(filter);
             var list = new RecipientFilter(8);
@@ -230,6 +230,36 @@ public sealed class ServerTempEntEngineTests
         Assert.Equal((0.25f, 1), (sent.Delay, sent.Handle));
         Assert.Equal(blob, sent.Blob);
         Assert.Equal(TeFilterKind.Pas, Assert.Single(recipients.Asked).Kind);
+    }
+
+    [Fact]
+    public void APlaybackInThePredictingPlayersWindowSkipsItAndOnlyItAsSuppressTEDoes()
+    {
+        var prediction = new PredictionSuppression(new PredictionSuppressionTests.Clients());
+        var engine = new ServerTempEntEngine(new RecordingEngine(), _tables, _log, prediction: prediction);
+        Assert.Equal(0, engine.TempEntRegister(ParticleSystem()));
+        Assert.Equal(1, engine.TempEntRegister(Sparks()));
+        var sender = new Sender();
+        engine.Attach(sender, new Recipients());   // every filter answers player 3
+        byte[] blob = new byte[32];
+
+        engine.TempEntPlayback(1, blob, TeFilters.Pas(Vector.Zero), 0f);
+        Assert.Equal([3], Assert.Single(sender.Sent).Recipients);
+
+        using (prediction.Suppress(5))
+            engine.TempEntPlayback(1, blob, TeFilters.Pas(Vector.Zero), 0f);
+        Assert.Equal([3], sender.Sent[^1].Recipients);
+
+        using (prediction.Suppress(3))
+        {
+            engine.TempEntPlayback(1, blob, TeFilters.Pas(Vector.Zero), 0f);
+            Assert.Equal(2, sender.Sent.Count);
+
+            engine.TempEntPlayback(1, blob, TeFilters.Pas(Vector.Zero) with { IgnorePredictionCull = true }, 0f);
+            Assert.Equal([3], sender.Sent[^1].Recipients);
+        }
+
+        Assert.Equal(3, sender.Sent.Count);
     }
 
     [Fact]

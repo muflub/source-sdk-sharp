@@ -43,6 +43,9 @@ public enum PlatformState
 [ScriptedEntity(EntityNames.FuncPlatrot, ScriptedEntityKind.Brush)]
 public class FuncPlatRot : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public FuncPlatRot(IGameClock clock, IEngineDamage damage,
                        IEnginePrecache precache, IEngineSound sound)
     {

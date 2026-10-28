@@ -336,6 +336,87 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	                       pOutSurfaceProps, pOutSurfaceFlags );
 }
 
+//-----------------------------------------------------------------------------
+// A line against the entities the caller names: the predicted shot's other
+// half (SourceSharp.Client's PredictedWeaponFx).
+//
+// THE SHELLS ARE IN NO SPATIAL PARTITION (shell_standalone_client.h), so no
+// engine trace on this side can stop on one -- ClientTraceLine above sees the
+// world and nothing else. Which entities there are is the managed directory's
+// question, so the list is the caller's; this clips the ray against each as
+// the engine's own enumerator would have: one that is not solid (SOLID_NONE,
+// FSOLID_NOT_SOLID) is passed over, and the nearest hit is the answer, in
+// ClientTraceLine's outs. MASK_SHOT only: the one mask a caller has.
+//-----------------------------------------------------------------------------
+COMPILE_TIME_ASSERT( (int)SOLID_NONE == kClipSolidNone );
+COMPILE_TIME_ASSERT( (int)FSOLID_NOT_SOLID == kClipNotSolid );
+
+int32_t SourceSharp_ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
+                                             const int32_t *pEntityIndices, int32_t nEntities,
+                                             float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
+                                             int32_t *pOutHitbox, int32_t *pOutEntityIndex,
+                                             int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags )
+{
+	const TraceLineRequest req = TraceLineArgs( pStartXYZ, pEndXYZ, nMask );
+
+	if ( !req.bTrace || req.nMask != SOURCESHARP_TRACE_SHOT || !pEntityIndices || nEntities <= 0 )
+		return WriteTraceOuts( TraceAnswerMiss( req.bTrace ? req.vecEnd : VecZero() ),
+		                       pOutFraction, pOutEndXYZ, pOutNormalXYZ,
+		                       pOutHitbox, pOutEntityIndex,
+		                       pOutSurfaceProps, pOutSurfaceFlags );
+
+	Ray_t ray;
+	ray.Init( Vector( req.vecStart.x, req.vecStart.y, req.vecStart.z ),
+	          Vector( req.vecEnd.x, req.vecEnd.y, req.vecEnd.z ) );
+
+	trace_t best;
+	memset( &best, 0, sizeof( best ) );
+	best.fraction = 1.0f;
+	bool bHit = false;
+
+	for ( int32_t i = 0; i < nEntities; ++i )
+	{
+		IClientEntity *pEnt = SourceSharp_ClientEntityFromIndex( pEntityIndices[i] );
+		ICollideable *pCollide = pEnt ? pEnt->GetCollideable() : NULL;
+
+		if ( !pCollide || !ClipCandidateIsSolid( (int)pCollide->GetSolid(), pCollide->GetSolidFlags() ) )
+			continue;
+
+		trace_t tr;
+		enginetrace->ClipRayToCollideable( ray, MASK_SHOT, pCollide, &tr );
+
+		if ( ClipIsNearer( tr.fraction, tr.startsolid, best.fraction ) )
+		{
+			best = tr;
+			bHit = true;
+		}
+	}
+
+	if ( !bHit )
+		return WriteTraceOuts( TraceAnswerMiss( req.vecEnd ),
+		                       pOutFraction, pOutEndXYZ, pOutNormalXYZ,
+		                       pOutHitbox, pOutEntityIndex,
+		                       pOutSurfaceProps, pOutSurfaceFlags );
+
+	TraceAnswer ans;
+	ans.bHit          = true;
+	ans.flFraction    = best.fraction;
+	ans.vecEnd.x      = best.endpos.x;
+	ans.vecEnd.y      = best.endpos.y;
+	ans.vecEnd.z      = best.endpos.z;
+	ans.vecNormal.x   = best.plane.normal.x;
+	ans.vecNormal.y   = best.plane.normal.y;
+	ans.vecNormal.z   = best.plane.normal.z;
+	ans.nHitbox       = best.hitbox;
+	ans.nEntityIndex  = TraceHitIndex( best.m_pEnt );
+	ans.nSurfaceProps = (int)best.surface.surfaceProps;
+	ans.nSurfaceFlags = (int)best.surface.flags;
+
+	return WriteTraceOuts( ans, pOutFraction, pOutEndXYZ, pOutNormalXYZ,
+	                       pOutHitbox, pOutEntityIndex,
+	                       pOutSurfaceProps, pOutSurfaceFlags );
+}
+
 //=============================================================================//
 // THE OBSERVER'S CAMERA (plan_client_novalve C7 item 5).
 //

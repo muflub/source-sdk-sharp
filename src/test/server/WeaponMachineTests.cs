@@ -38,7 +38,7 @@ public class WeaponMachineTests
         // is predicted — the 9c5 gate answers yes for it, which is what makes
         // the client replay it at all. The machine's and the HL2MP behaviours',
         // the SLAM's two, and eleven of the physcannon's (PhysCannonBehaviour).
-        Assert.Equal(34, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        Assert.Equal(36, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
     }
 
@@ -296,15 +296,28 @@ public class WeaponMachineTests
     [Fact]
     public void APoolFedWeaponLaunchesItsProjectile()
     {
-        // The frag is pool-fed too, and throws through its own machine
-        // (Hl2mpFragTests).
+        // The frag and the RPG are pool-fed too, and launch through their own
+        // machines (Hl2mpFragTests, Hl2mpRpgTests); the generic path is a
+        // mod's row with no behaviour.
         var arms = new RecordingArms();
-        var machine = new WeaponLogic(arms);
+        var row = new WeaponType("weapon_test_launcher", Interval: 1f)
+        {
+            Projectile = "ss_rocket",
+            LaunchSpeed = 1500f,
+            AmmoName = "RPG_Round",
+        };
+        var machine = new WeaponLogic(arms, new WeaponCatalog(() => [new Source(row)]));
 
-        var (rpg, vm) = States("weapon_rpg", clip: -1, reserve: 2);
-        machine.RunCommand(rpg, vm, Attack, now: 5f, effectsLive: true);
+        var (w, vm) = States("weapon_rpg", clip: -1, reserve: 2);
+        w.WeaponTypeId = new WeaponCatalog(() => [new Source(row)]).IndexOf("weapon_test_launcher");
+        machine.RunCommand(w, vm, Attack, now: 5f, effectsLive: true);
         Assert.Equal(new[] { "ss_rocket" }, arms.Launches);
-        Assert.Equal(1, rpg.Reserve);
+        Assert.Equal(1, w.Reserve);
+    }
+
+    private sealed class Source(WeaponType row) : IWeaponTypeSource
+    {
+        public IEnumerable<WeaponType> Rows() => [row];
     }
 
     [Fact]

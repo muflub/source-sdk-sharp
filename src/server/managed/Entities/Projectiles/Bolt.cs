@@ -19,8 +19,14 @@ namespace SourceSharp.Server;
 /// the length of a map, and that difference IS the weapon.
 /// </summary>
 [ScriptedEntity(EntityNames.SsBolt, ScriptedEntityKind.Projectile)]
+[Precache(PrecacheKind.Sound, HitBodySound)]
+[Precache(PrecacheKind.Sound, HitWorldSound)]
+[Precache(PrecacheKind.Sound, "Weapon_Crossbow.BoltSkewer")]
 public sealed class Bolt : FlyingProjectile
 {
+    /// <summary>CCrossbowBolt::Precache's script sounds: the two its touch plays.</summary>
+    internal const string HitBodySound = "Weapon_Crossbow.BoltHitBody", HitWorldSound = "Weapon_Crossbow.BoltHitWorld";
+
     public Bolt(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
                 ITempEnts temps, IEngineSound sound, IEngineEffects effects,
                 IEngineNetworking networking, IEngineWorldQuery world,
@@ -79,6 +85,9 @@ public sealed class Bolt : FlyingProjectile
     /// hitscan with a delay on it; the drop is what makes range cost something.
     /// </summary>
     protected override float GravityScale => 0.05f;
+
+    /// <summary>CCrossbowBolt::Spawn's UTIL_SetSize: a two-unit box.</summary>
+    protected override Vector HullExtent => new(1f, 1f, 1f);
 
     /// <summary>Stock HL2's bolt, so it looks like one without shipping a model.</summary>
     protected override string ProjectileModel => "models/crossbow_bolt.mdl";
@@ -156,7 +165,8 @@ public sealed class Bolt : FlyingProjectile
 
         Vector forward = Angles.Forward(Entities.GetAngles(Handle));
 
-        if (hit != EntityHandle.None)
+        // BoltTouch's first question is m_takedamage: a body, or not.
+        if (hit != EntityHandle.None && (Entities.IsPlayer(hit) || Directory.Get(hit) is { TakesDamage: true }))
         {
             // Only if it hit something that can be hurt. A bolt in a wall is
             // the common case and must not be an error.
@@ -167,7 +177,7 @@ public sealed class Bolt : FlyingProjectile
                            DamageForceRules.MeleeForce(flight, Vars.Damage, scale: 0.7f), Origin);
 
             // The body "thwack", on the bolt, as stock's EmitSound is.
-            Sound.EntityEmitSound(Handle, "Weapon_Crossbow.BoltHitBody");
+            Sound.EntityEmitSound(Handle, HitBodySound);
 
             // What is behind the victim is what holds the bolt. Stock starts
             // this at the bolt's own origin; the bolt's box is 2 units and
@@ -180,14 +190,7 @@ public sealed class Bolt : FlyingProjectile
             // static architecture - no entity the engine can name (brushwork),
             // or an entity pinned to MOVETYPE_NONE. A victim still walking
             // around does not hold a bolt.
-            bool holdsBolts = tr2.Entity == EntityHandle.None;
-            if (!holdsBolts)
-            {
-                // The entity is named but not the answer: only a thing pinned
-                // to MOVETYPE_NONE - static architecture - holds a bolt.
-                Networking.EntityGetState(tr2.Entity, out MoveType moveType);
-                holdsBolts = moveType == MoveType.None;
-            }
+            bool holdsBolts = IsStaticArchitecture(tr2.Entity);
 
             if (tr2.Fraction != 1f && holdsBolts)
             {
@@ -214,12 +217,12 @@ public sealed class Bolt : FlyingProjectile
         // The world. Stock asks the touch trace for the surface; the touch
         // hands over only the entity, so the face the mover's step stopped on
         // is re-asked for: back along the approach - where the last frame's
-        // step proved the air open - and through the face again. Ignoring
-        // self, as the step trace does; the bolt's own box sits at the end
-        // point on that line.
+        // step proved the air open - and through the face again, swept as the
+        // same box the step swept (a ray from its middle misses an edge the
+        // box clipped). Ignoring self, as the step trace does.
         Vector resting = Entities.GetOrigin(Handle);
-        var face = World.TraceLineSurface(resting - forward * RetraceBack, resting + forward * RetraceFwd,
-                                          TraceMask.Shot, Handle);
+        var face = World.TraceBox(resting - forward * RetraceBack, resting + forward * RetraceFwd,
+                                  HullExtent * -1f, HullExtent, TraceMask.Shot, Handle);
 
         // The sky guard, stock's first condition: a bolt into the skybox is
         // removed without a word. A re-trace that finds nothing is the same
@@ -228,7 +231,16 @@ public sealed class Bolt : FlyingProjectile
         if (!face.Hit || (face.SurfaceFlags & SurfSky) != 0)
             return;
 
-        Sound.EntityEmitSound(Handle, "Weapon_Crossbow.BoltHitWorld");
+        // Something that takes no damage and is not static architecture (a
+        // door, a lift, a button): only the impact, and the bolt is gone.
+        if (!IsStaticArchitecture(hit))
+        {
+            Effects.ImpactEffect(face.End - forward * ImpactBackoff, face.End,
+                                 face.SurfaceProps, DamageType.Bullet, face.Entity);
+            return;
+        }
+
+        Sound.EntityEmitSound(Handle, HitWorldSound);
 
         // A shallow, fast arrival glances off: turned about the face, three
         // quarters as fast, under the world's gravity.
@@ -267,6 +279,19 @@ public sealed class Bolt : FlyingProjectile
         }
 
         Sparks();
+    }
+
+    /// <summary>
+    /// Stock's <c>GetMoveType() == MOVETYPE_NONE</c>: the world (no entity
+    /// named), or an entity pinned in place. A managed brush the shell reports
+    /// as NONE still moves as stock's pushers do, and answers for itself.
+    /// </summary>
+    private bool IsStaticArchitecture(EntityHandle entity)
+    {
+        if (entity == EntityHandle.None)
+            return true;
+        Networking.EntityGetState(entity, out MoveType moveType);
+        return moveType == MoveType.None && Directory.Get(entity) is not { MovesAsPusher: true };
     }
 
     /// <summary>g_pEffects->Sparks at the bolt, out of water.</summary>

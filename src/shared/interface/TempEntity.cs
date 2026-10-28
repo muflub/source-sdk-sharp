@@ -193,10 +193,8 @@ public readonly record struct TeFilter(
     float        Attenuation,
 
     /// <summary>
-    /// CARRIED AND NEVER CONSULTED (plan 2H). Prediction suppression is already
-    /// dead in this build: <c>IPredictionSystem::m_pSuppressHost</c> is only
-    /// ever written with an SDK <c>CBaseEntity</c>, none exists here, so
-    /// <c>SuppressTE</c> always answers false on both sides. The bit is here so
-    /// the shape survives the port.
+    /// <c>CRecipientFilter::IgnorePredictionCull</c>: the server's
+    /// <c>SuppressTE</c> (SourceSharp.Server's <c>PredictionSuppression</c>)
+    /// leaves the predicting player in this filter rather than taking it out.
     /// </summary>
     bool IgnorePredictionCull);

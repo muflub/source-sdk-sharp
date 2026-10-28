@@ -59,6 +59,9 @@ internal enum RotationAxisFlag
 /// </summary>
 public abstract class MovingBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public MovingBrush(IEnginePrecache precache, IEngineSound sound)
     {
         Precache = precache;

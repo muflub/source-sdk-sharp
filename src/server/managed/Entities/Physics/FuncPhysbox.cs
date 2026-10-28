@@ -36,6 +36,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncPhysbox, ScriptedEntityKind.Brush)]
 public class FuncPhysbox : ScriptedEntity
 {
+    /// <summary>CPhysBox::Spawn: DAMAGE_YES, or DAMAGE_EVENTS_ONLY -- never DAMAGE_NO.</summary>
+    public override bool TakesDamage => true;
+
     public FuncPhysbox(IEngineEntityPhysics physics)
     {
         Physics = physics;

@@ -66,6 +66,9 @@ public sealed class GrenadeAr2 : FlyingProjectile
 
     protected override string ProjectileModel => "models/Weapons/ar2_grenade.mdl";
 
+    /// <summary>CGrenadeAR2::Spawn's UTIL_SetSize: a six-unit box.</summary>
+    protected override Vector HullExtent => new(3f, 3f, 3f);
+
     /// <summary>SetLocalAngularVelocity( RandomAngle( -400, 400 ) ), from the SMG1's SecondaryAttack.</summary>
     protected override Vector LaunchSpin
         => new(Host.RandomFloat(-400f, 400f), Host.RandomFloat(-400f, 400f), Host.RandomFloat(-400f, 400f));
@@ -81,9 +84,8 @@ public sealed class GrenadeAr2 : FlyingProjectile
     {
         base.OnSpawn();
 
-        // Hits everything but debris, in a six-unit box.
+        // Hits everything but debris.
         Physics.SetCollisionGroup(Handle, CollisionGroup.Projectile);
-        Entities.SetBounds(Handle, new Vector(-3f, -3f, -3f), new Vector(3f, 3f, 3f));
 
         // SmokeTrail::CreateSmokeTrail, following the grenade, emitting for ten
         // seconds: dark puffs a second long, twelve units growing to forty-eight.

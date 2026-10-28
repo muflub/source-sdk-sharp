@@ -511,7 +511,8 @@ public sealed class ClientPlayerPrediction
             // closed it would run at seed -1 and disagree with the server about
             // every random decision — silently, and only under prediction.
             if (ran)
-                _arsenal?.OnPlayerCommand(player.Handle, in cmd, 1, firstTime, _move.CurTime);
+                _arsenal?.OnPlayerCommand(player.Handle, in cmd, 1, firstTime, _move.CurTime,
+                                          eye: _move.Origin + _move.ViewOffset);
         }
         finally
         {

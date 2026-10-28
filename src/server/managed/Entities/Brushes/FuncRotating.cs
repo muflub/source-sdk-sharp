@@ -18,6 +18,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncRotating, ScriptedEntityKind.Brush)]
 public sealed class FuncRotating : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>This entity's own spawnflags, as their own type.</summary>
     private SpawnFlag Flags => SpawnFlagsAs<SpawnFlag>();
 

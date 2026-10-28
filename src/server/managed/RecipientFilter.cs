@@ -52,9 +52,39 @@ public sealed class RecipientFilter : IRecipientList
     /// <c>AddRecipientByPlayerIndex</c>: a slot in 1..maxClients joins once;
     /// anything else, or a slot already listed, is ignored.
     /// </summary>
+    /// <summary>
+    /// The suppress host this filter culled under <see cref="UsePredictionRules"/>,
+    /// or 0: stock's <c>m_bUsingPredictionRules</c>, which keeps the host out
+    /// of every later <see cref="Add"/> too.
+    /// </summary>
+    public int PredictionHost { get; private set; }
+
+    /// <summary>
+    /// <c>CRecipientFilter::UsePredictionRules</c>: the predicting player
+    /// (<paramref name="suppressHost"/>, 0 for none) is removed, and stays out.
+    /// Asked once; a second ask changes nothing, as stock's early return.
+    /// </summary>
+    public void UsePredictionRules(int suppressHost)
+    {
+        if (UsingPredictionRules)
+            return;
+
+        UsingPredictionRules = true;
+        PredictionHost = suppressHost > 0 ? suppressHost : 0;
+
+        if (PredictionHost > 0)
+            Remove(PredictionHost);
+    }
+
+    /// <summary>Whether <see cref="UsePredictionRules"/> was asked.</summary>
+    public bool UsingPredictionRules { get; private set; }
+
     public void Add(int playerIndex)
     {
         if (playerIndex < 1 || playerIndex > _maxClients)
+            return;
+
+        if (UsingPredictionRules && playerIndex == PredictionHost)
             return;
 
         if (!_recipients.Contains(playerIndex))
@@ -87,7 +117,13 @@ public sealed class RecipientFilter : IRecipientList
     /// </summary>
     public RecipientFilter Copy()
     {
-        var copy = new RecipientFilter(_maxClients) { IsReliable = IsReliable, IsInitMessage = IsInitMessage };
+        var copy = new RecipientFilter(_maxClients)
+        {
+            IsReliable = IsReliable,
+            IsInitMessage = IsInitMessage,
+            UsingPredictionRules = UsingPredictionRules,
+            PredictionHost = PredictionHost,
+        };
         copy._recipients.AddRange(_recipients);
         return copy;
     }

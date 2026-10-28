@@ -484,6 +484,9 @@ public enum WeaponAnim
 
     /// <summary>ACT_VM_HAULBACK: the grenade's underhand lob.</summary>
     Haulback = 12,
+
+    /// <summary>ACT_VM_FIDGET: the crossbow's idle with no bolt loaded.</summary>
+    Fidget = 13,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

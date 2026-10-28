@@ -45,6 +45,14 @@ public sealed class ClientTempEnts
     /// <summary>How many arrived that nothing played.</summary>
     public int Dropped { get; private set; }
 
+    private readonly Dictionary<string, int> _playedByClass = new(StringComparer.Ordinal);
+
+    /// <summary>How many of one class have played: what tells one effect's arrival from the rest's.</summary>
+    public int PlayedOf(string className) => _playedByClass.GetValueOrDefault(className);
+
+    /// <summary>The managed player of a class, or null when nothing plays it.</summary>
+    public IClientTempEnt? PlayerOf(string className) => _players.GetValueOrDefault(className);
+
     /// <summary>
     /// The last blob that played, KEPT, and the class it belonged to.
     ///
@@ -244,6 +252,7 @@ public sealed class ClientTempEnts
 
         player.Play(state);
         Played++;
+        _playedByClass[className] = PlayedOf(className) + 1;
         return true;
     }
 
@@ -286,6 +295,7 @@ public sealed class ClientTempEnts
 
         player.Play(in reader);
         Played++;
+        _playedByClass[type.Class.ClassName] = PlayedOf(type.Class.ClassName) + 1;
 
         // AFTER the play, so a player that throws does not leave a blob
         // claiming to be the last thing that happened.

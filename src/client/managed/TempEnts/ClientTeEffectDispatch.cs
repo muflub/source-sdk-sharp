@@ -129,6 +129,11 @@ public sealed class ClientTeEffectDispatch : IClientTempEnt
     /// </summary>
     public string LastEffectName { get; private set; } = string.Empty;
 
+    private readonly Dictionary<string, int> _playedByName = new(StringComparer.Ordinal);
+
+    /// <summary>How many of each effect name have played, for <c>cs_cl_te_report</c>.</summary>
+    public IReadOnlyDictionary<string, int> PlayedByName => _playedByName;
+
     /// <summary>
     /// How many arrived carrying an index the string table does not hold. Stock
     /// draws nothing for those and so does this; counting them is how a table
@@ -182,6 +187,7 @@ public sealed class ClientTeEffectDispatch : IClientTempEnt
     private void Play(TeEffectData d, string name)
     {
         LastEffectName = name;
+        _playedByName[name] = _playedByName.GetValueOrDefault(name) + 1;
 
         // THE REST THROUGH THE DECLARATION. Twenty-two fields used to be
         // twenty-two string keys and twenty-two hand-picked accessors here; the

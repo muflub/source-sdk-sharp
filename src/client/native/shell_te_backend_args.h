@@ -741,4 +741,30 @@ inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenter
 	return req;
 }
 
+//-----------------------------------------------------------------------------
+// The predicted shot's clip against named entities (ClientClipRayToEntities).
+//
+// WHICH MAY STOP IT: one that is solid at all. The engine's own enumerator
+// passes over SOLID_NONE and FSOLID_NOT_SOLID before it clips, and
+// ClipRayToEntity, asked for one entity directly, does not -- so a clip that
+// skipped this would stop shots on triggers. The values are const.h's, which
+// this header cannot see; shell_worldquery_client.cpp asserts them.
+//-----------------------------------------------------------------------------
+const int kClipSolidNone = 0;        // SOLID_NONE
+const int kClipNotSolid  = 0x0004;   // FSOLID_NOT_SOLID
+
+inline bool ClipCandidateIsSolid( int nSolidType, int nSolidFlags )
+{
+	return nSolidType != kClipSolidNone && ( nSolidFlags & kClipNotSolid ) == 0;
+}
+
+//-----------------------------------------------------------------------------
+// WHICH ANSWER WINS: a clip that stopped -- or began inside the entity, which
+// a trace counts as a hit -- and is strictly nearer than the best so far.
+//-----------------------------------------------------------------------------
+inline bool ClipIsNearer( float flFraction, bool bStartSolid, float flBestFraction )
+{
+	return ( flFraction < 1.0f || bStartSolid ) && flFraction < flBestFraction;
+}
+
 } // namespace TeBackendArgs

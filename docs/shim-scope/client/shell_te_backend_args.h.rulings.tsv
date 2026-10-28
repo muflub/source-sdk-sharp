@@ -20,3 +20,5 @@ inline StudioDecalRequest StudioDecalRequestZero( void )	SLOT-HELP	the studio de
 inline StudioDecalRequest DecalStudioModel( int nEntity,	SLOT-HELP	SourceSharp_ClientDecalStudioModel's arguments unpacked: the ray's start and its delta (managed lengthened it) copied as given, a null pointer or a negative index refused
 inline BrushDecalRequest BrushDecalRequestZero( void )	SLOT-HELP	the brush decal request's empty value
 inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ,	SLOT-HELP	SourceSharp_ClientDecalBrushModel's arguments unpacked: copied as given, a null centre or a negative index refused
+inline bool ClipCandidateIsSolid(	SLOT-HELP	the engine enumerator's solidity test (SOLID_NONE, FSOLID_NOT_SOLID), asked only by ClientClipRayToEntities, held by te_backend_args_test
+inline bool ClipIsNearer(	SLOT-HELP	which clip answer ClientClipRayToEntities keeps: a stop strictly nearer than the best, held by te_backend_args_test

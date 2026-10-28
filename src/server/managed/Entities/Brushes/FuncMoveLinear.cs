@@ -26,6 +26,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncWaterAnalog, ScriptedEntityKind.Brush)]
 public sealed class FuncMoveLinear : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public readonly Output OnFullyOpen = new();
     public readonly Output OnFullyClosed = new();
 

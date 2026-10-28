@@ -35,6 +35,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncReflectiveGlass, ScriptedEntityKind.Brush)]
 public sealed class FuncReflectiveGlass : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>What a map may set on this entity. See <see cref="FuncReflectiveGlassVars"/>.</summary>
     [ScriptVars] public FuncReflectiveGlassVars Vars = new();
 

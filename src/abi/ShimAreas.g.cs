@@ -1285,6 +1285,7 @@ internal unsafe interface IViewClientArea
     void ColorLookupSetWeight(void* a0, float a1);
     void ColorLookupRemove(void* a0);
     void ColorLookupResetWeights();
+    int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11);
 }
 
 /// <summary>
@@ -1323,6 +1324,7 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public void ColorLookupSetWeight(void* a0, float a1) { _shim.Table->ColorLookupSetWeight(_shim.Self, a0, a1); }
     public void ColorLookupRemove(void* a0) { _shim.Table->ColorLookupRemove(_shim.Self, a0); }
     public void ColorLookupResetWeights() { _shim.Table->ColorLookupResetWeights(_shim.Self); }
+    public int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) { return _shim.Table->ClientClipRayToEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
 }
 
 /// <summary>

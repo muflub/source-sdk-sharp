@@ -271,6 +271,7 @@ ColorLookupAdd	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLooku
 ColorLookupSetWeight	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupSetWeight	void*, float, void	
 ColorLookupRemove	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupRemove	void*, void	
 ColorLookupResetWeights	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupResetWeights	void	
+ClientClipRayToEntities	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientClipRayToEntities	float*, float*, int, int*, int, float*, float*, float*, int*, int*, int*, int*, int	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	

@@ -455,6 +455,7 @@ public static class EntityNames
     public const string EnvParticleTrail         = "env_particle_trail";
     public const string EnvParticlelight         = "env_particlelight";
     public const string EnvRockettrail           = "env_rockettrail";
+    public const string EnvLaserdot              = "env_laserdot";
     public const string SparkShower              = "spark_shower";
     public const string TriggerTransition       = "trigger_transition";
     public const string TriggerCdaudio          = "trigger_cdaudio";

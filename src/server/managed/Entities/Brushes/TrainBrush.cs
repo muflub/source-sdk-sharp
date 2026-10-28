@@ -45,6 +45,9 @@ namespace SourceSharp.Server;
 /// </summary>
 public abstract class TrainBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public TrainBrush(IGameClock clock, IEngineDamage damage,
                       IEnginePrecache precache, IEngineSound sound)
     {

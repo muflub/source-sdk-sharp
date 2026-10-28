@@ -80,7 +80,9 @@ public class WeaponImpactTests
     private static (Arsenal arsenal, RecordingEngine engine) Armed(
         bool hit = true, EntityHandle? subject = null, int surfaceProp = TracedSurfaceProp,
         string weapon = "weapon_smg1", HitGroup traced = HitGroup.Generic,
-        DamageHitGroups? hitGroups = null)
+        DamageHitGroups? hitGroups = null, int surfaceFlags = 0,
+        PredictionSuppression? prediction = null, IWeaponSounds? weaponSounds = null,
+        Func<RecordingEngine, IEngineEffects>? effects = null)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
             .Returns("Entities.GetClassName", EntityNames.SsPlayer)
@@ -99,7 +101,7 @@ public class WeaponImpactTests
                                             new Vector(-1f, 0f, 0f),
                                             subject ?? Crate,
                                             hit ? surfaceProp : -1,
-                                            0, traced))
+                                            surfaceFlags, traced))
             .Returns("Clock.Now", 10f);
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
@@ -110,8 +112,10 @@ public class WeaponImpactTests
 
         var world = new WeaponSwitchTests.SpawningEntities(engine, registry);
 
-        var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine,
-                                  engine, engine, registry, engine, hitGroups ?? new DamageHitGroups());
+        var arsenal = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine,
+                                  effects?.Invoke(engine) ?? engine,
+                                  engine, engine, registry, engine, hitGroups ?? new DamageHitGroups(),
+                                  prediction: prediction, weaponSounds: weaponSounds);
 
         arsenal.GiveWeapon(Player, weapon);
 
@@ -372,7 +376,8 @@ public class WeaponImpactTests
         engine.Strict = false;
         var struck = new Vector(40f, 0f, 64f);
         engine.Returns("WorldQuery.TraceLineSurface",
-                       new SurfaceTraceResult(true, 0.5f, struck, new Vector(-1f, 0f, 0f), Crate, 13, 0));
+                       new SurfaceTraceResult(true, 0.5f, struck, new Vector(-1f, 0f, 0f), Crate,
+                                              TracedSurfaceProp, 0));
 
         PullTheTrigger(arsenal, engine);
 
@@ -454,5 +459,151 @@ public class WeaponImpactTests
             $"a shotgun that fired {pellets} pellet(s) into a surface left "
           + $"{marks} mark(s). One per pellet is stock — FireBullets' loop "
           + "calls DoImpactEffect inside it, not after it");
+    }
+
+    // =====================================================================
+    // The predicting shooter's copies (stock's prediction rules), the
+    // swing's impact, the sky, and the seed the pellets spread from.
+    // =====================================================================
+
+    private sealed class HostAtEmit(PredictionSuppression prediction) : IWeaponSounds
+    {
+        public readonly List<(string Sound, int Host)> Emitted = [];
+
+        public PredictionSuppression Prediction => prediction;
+
+        public void Emit(EntityHandle owner, string soundName) => Emitted.Add((soundName, prediction.Host));
+    }
+
+    private sealed class HostAtImpact(IEngineEffects inner, PredictionSuppression prediction) : EngineEffectsForwarder(inner)
+    {
+        public readonly List<int> Hosts = [];
+
+        public override void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity)
+        {
+            Hosts.Add(prediction.Host);
+            base.ImpactEffect(start, end, surfaceProp, damageType, entity);
+        }
+    }
+
+    private static (Arsenal Arsenal, RecordingEngine Engine, HostAtEmit Sounds, HostAtImpact Effects) Predicted(
+        string weaponsConVar = "1")
+    {
+        var clients = new PredictionSuppressionTests.Clients().Predicting(1, weapons: weaponsConVar);
+        var prediction = new PredictionSuppression(clients);
+        var sounds = new HostAtEmit(prediction);
+        HostAtImpact? effects = null;
+        var (arsenal, engine) = Armed(prediction: prediction, weaponSounds: sounds,
+                                      effects: e => effects = new HostAtImpact(e, prediction));
+        engine.Returns("Entities.GetIndex", 1);
+        return (arsenal, engine, sounds, effects!);
+    }
+
+    [Fact]
+    public void A_predicting_shooters_shot_sound_and_impact_go_out_with_it_as_the_suppress_host()
+    {
+        var (arsenal, engine, sounds, effects) = Predicted();
+
+        PullTheTrigger(arsenal, engine);
+
+        Assert.Equal(("Weapon_SMG1.Single", 1), Assert.Single(sounds.Emitted));
+        Assert.NotEmpty(effects.Hosts);
+        Assert.All(effects.Hosts, host => Assert.Equal(1, host));
+        Assert.False(engine.Called("Sound.EntityEmitSound"), "the weapon sound is the prediction-rules one");
+    }
+
+    [Fact]
+    public void A_shooter_who_does_not_predict_weapons_is_sent_every_copy()
+    {
+        var (arsenal, engine, sounds, effects) = Predicted(weaponsConVar: "0");
+
+        PullTheTrigger(arsenal, engine);
+
+        Assert.Equal(("Weapon_SMG1.Single", 0), Assert.Single(sounds.Emitted));
+        Assert.NotEmpty(effects.Hosts);
+        Assert.All(effects.Hosts, host => Assert.Equal(0, host));
+    }
+
+    [Fact]
+    public void The_window_closes_with_the_command()
+    {
+        var (arsenal, engine, sounds, _) = Predicted();
+
+        PullTheTrigger(arsenal, engine);
+
+        Assert.Equal(1, Assert.Single(sounds.Emitted).Host);
+        Assert.Equal(0, sounds.Prediction.Host);
+    }
+
+    [Fact]
+    public void A_swing_that_lands_marks_what_it_struck_as_a_club()
+    {
+        var (arsenal, engine) = Armed(weapon: "weapon_crowbar");
+        engine.Strict = false;
+
+        PullTheTrigger(arsenal, engine);
+
+        var impact = Impact(engine);
+        Assert.True(impact is not null, "CBaseHLBludgeonWeapon::Hit's ImpactEffect: UTIL_ImpactTrace( DMG_CLUB )");
+        Assert.Equal(Landed, impact!.Value.ArgAs<Vector>(1));
+        Assert.Equal(TracedSurfaceProp, impact.Value.ArgAs<int>(2));
+        Assert.Equal(DamageType.Club, impact.Value.ArgAs<DamageType>(3));
+    }
+
+    [Fact]
+    public void A_swing_into_nothing_marks_nothing()
+    {
+        var (arsenal, engine) = Armed(hit: false, weapon: "weapon_crowbar");
+        engine.Strict = false;
+
+        PullTheTrigger(arsenal, engine);
+
+        Assert.True(engine.Called("WorldQuery.TraceLineSurface"), "the swing traced (the positive arm)");
+        Assert.Null(Impact(engine));
+    }
+
+    [Fact]
+    public void A_round_into_the_sky_marks_nothing()
+    {
+        var (arsenal, engine) = Armed(surfaceFlags: 0x0004);
+
+        PullTheTrigger(arsenal, engine);
+        AssertARoundWasSpent(engine);
+
+        Assert.True(engine.Called("WorldQuery.TraceLineSurface"));
+        Assert.Null(Impact(engine));
+    }
+
+    private static List<Vector> PelletEnds(int commandNumber)
+    {
+        var (arsenal, engine) = Armed();
+        arsenal.GiveWeapon(Player, "weapon_shotgun");
+        arsenal.Switch(Player, "weapon_shotgun");
+        engine.Returns("Clock.Now", 30f);
+
+        var cmd = new UserCmd { Buttons = Attack, CommandNumber = commandNumber };
+        arsenal.OnPlayerCommand(Player, in cmd, firstTime: true);
+
+        return engine.Calls.Where(c => c.Member == "WorldQuery.TraceLineSurface")
+                           .Select(c => c.ArgAs<Vector>(1)).ToList();
+    }
+
+    [Fact]
+    public void The_pellets_spread_from_the_commands_seed_as_the_predicting_client_spreads_them()
+    {
+        var first = PelletEnds(41);
+        var again = PelletEnds(41);
+        var other = PelletEnds(42);
+
+        Assert.True(first.Count > 1, "a shotgun traced its pellets (the positive arm)");
+        Assert.Equal(first, again);
+        Assert.NotEqual(first, other);
+
+        // The direction is ShotSpread's, from the command's random seed.
+        var aim = Angles.Vectors(Vector.Zero);
+        float spread = ShotSpread.SpreadOf(WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Spread);
+        Vector dir = ShotSpread.Apply(aim, spread, ShotSpread.FirstSeed(UserCmdCodec.RandomSeedFor(41)),
+                                      new SeededUniformStream()).Normalized;
+        Assert.Equal(new Vector(0f, 0f, 64f) + dir * 56756f, first[0]);
     }
 }

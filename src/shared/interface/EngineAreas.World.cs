@@ -40,6 +40,15 @@ public interface IEngineWorldQuery
     /// <inheritdoc cref="EngineSide.TraceHull"/>
     HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default);
 
+    /// <summary>
+    /// The same box swept from <paramref name="start"/> to <paramref name="end"/>,
+    /// with the whole answer a surface line trace gives -- where it stopped,
+    /// the face, what owns it and its surface: stock's UTIL_TraceEntity, which
+    /// moves a flying entity as its box, not as a point, and whose trace is the
+    /// touch trace a projectile's touch reads.
+    /// </summary>
+    SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default);
+
     /// <inheritdoc cref="EngineSide.EntityTraceHull"/>
     EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
                                     uint mask, int collisionGroup);
@@ -70,6 +79,23 @@ public interface IEngineWorldQuery
     /// </summary>
     ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask,
                                       TraceFilter filter, int passEntityIndex = -1);
+
+    /// <summary>
+    /// The CLIENT's ray clipped against the entities named, by INDEX: the
+    /// nearest solid one it hits, in <see cref="ClientTraceLine(Vector, Vector, TraceMask)"/>'s
+    /// shape, or a miss. <see cref="TraceMask.Shot"/> only.
+    ///
+    /// <para>
+    /// The other half of a client trace that has to stop on entities: the
+    /// standalone shells are in no spatial partition, so
+    /// <see cref="ClientTraceLine(Vector, Vector, TraceMask)"/> sees the world
+    /// and nothing else. Which entities may stop the ray is the caller's
+    /// decision, from the directory; a non-solid one never does. The server
+    /// answers a miss.
+    /// </para>
+    /// </summary>
+    ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
+                                              ReadOnlySpan<int> entityIndices);
 
     /// <inheritdoc cref="EngineSide.ClientEntityModelType"/>
     ModelType? ClientEntityModelType(int entIndex);

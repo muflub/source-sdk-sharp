@@ -214,6 +214,24 @@ public class TraceFilterTests
     }
 
     /// <summary>
+    /// The predicted shot's clip (ClientClipRayToEntities) clips each named
+    /// entity at MASK_SHOT, passing over an unsolid one and keeping the nearest
+    /// stop by the two rules te_backend_args_test holds.
+    /// </summary>
+    [Fact]
+    public void TheShotsClipAgainstEntitiesSkipsTheUnsolidAndKeepsTheNearest()
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
+        int at = code.IndexOf("int32_t SourceSharp_ClientClipRayToEntities(", StringComparison.Ordinal);
+        Assert.True(at >= 0, "the client defines the clip slot's body");
+        string body = code[at..code.IndexOf("\n}\n", at, StringComparison.Ordinal)];
+
+        Assert.Matches(@"if\s*\(\s*!pCollide\s*\|\|\s*!ClipCandidateIsSolid\(\s*\(int\)pCollide->GetSolid\(\)\s*,\s*pCollide->GetSolidFlags\(\)\s*\)\s*\)\s*continue\s*;", body);
+        Assert.Matches(@"enginetrace->ClipRayToCollideable\(\s*ray\s*,\s*MASK_SHOT\s*,\s*pCollide\s*,", body);
+        Assert.Matches(@"if\s*\(\s*ClipIsNearer\(\s*tr\.fraction\s*,\s*tr\.startsolid\s*,\s*best\.fraction\s*\)\s*\)", body);
+    }
+
+    /// <summary>
     /// The flashlight's filter is wired on both client traces, each to the
     /// stock filter's class over the shells.
     /// </summary>

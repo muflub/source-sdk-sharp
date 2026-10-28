@@ -93,6 +93,38 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
         });
     }
 
+    /// <summary>
+    /// <c>CBaseCombatWeapon::WeaponSound</c>'s server arm for a weapon in an
+    /// owner's hands: the PAS of the owner, narrowed by the script's level,
+    /// under the prediction rules (<c>filter.UsePredictionRules()</c>) -- the
+    /// player predicting the command is not sent the sound it played for
+    /// itself -- from the owner's index. The trace line is printed whoever
+    /// is left, as stock's is. (No hl2mp weapon script sets
+    /// <c>play_to_owner_only</c>, stock's other arm.)
+    /// </summary>
+    public void EmitPredicted(EntityHandle owner, string soundName, PredictionSuppression prediction)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(owner))
+        {
+            SayUnresolved(owner, soundName);
+            return;
+        }
+
+        int index = SoundSourceIndex(owner);
+        RecipientFilter filter = _emitter.Recipients.PasAttenuation(_entities.GetWorldSpaceCenter(owner), soundName);
+        prediction.UsePredictionRules(filter);
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(owner) : null,
+            WarnOnDirectWaveReference = true,
+        });
+    }
+
     private void SayUnresolved(EntityHandle entity, string soundName)
     {
         if (_saidUnresolved)
