@@ -638,4 +638,18 @@ globals_reconcile_unattributed	src/sourcesharp/game/server	0
 # LOWERED 2026-10-27, 25 -> 11: the Server*() engine accessors and server_engine.h go; the engine interfaces
 #   are acquired into the CServerEngineInterfaces DLLInit hands over, and the server stores the model cache
 #   itself (tier_connect.cpp's tier3 is the client's).
-globals_locator_calls	src/sourcesharp/game/server	11
+# LOWERED 2026-10-27, 11 -> 7: the entity context holds the slot tables and is bound the resolver; the slot
+#   functions take their tables, the frame's drain and the level's reset their context, the managed reload's
+#   server steps go through IManagedReloadSubject (the services), and the shell walks take a context.
+#   IShimEntities' and IShimModels' shared slots are CServerEntities' and CServerModels' on the server.
+# LOWERED 2026-10-27, 7 -> 5: no caller of the resolver's free wrappers is left (they go next); the touch
+#   report, physics owners, overlays, world queries, game ents, damage attacker and lifecycle are handed the
+#   resolver, and the variant's string buffer and complaint latch left the DLL tier with the dead input path.
+# LOWERED 2026-10-27, 5 -> 4: the resolver's free wrappers (SourceSharp_ResolveEntity and its eight siblings)
+#   and the Resolver() lookup behind them go; nothing called them.
+# LOWERED 2026-10-27, 4 -> 1: the entity marks its edict through SourceSharp_MarkEdictChanged (edict_change.cpp,
+#   a port of CBaseEdict::StateChanged) with its context's engine and change list, so SharedEdictChangeInfo() and
+#   CBaseEdict::GetChangeAccessor() are no longer defined; edict.h's StateChanged inlines are unused.
+# LOWERED 2026-10-27, 1 -> 0: the managed side is handed its shim root (ShimRoot_Get is the client's), and the
+#   root's ShellGameDll_Dll / _Level / _ShimRoot / _TransmitSet go with their last callers.
+globals_locator_calls	src/sourcesharp/game/server	0

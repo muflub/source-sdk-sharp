@@ -52,7 +52,6 @@ C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass
 	: m_nEntIndex( nEntNum )
 	, m_bHasManaged( false )
 	, m_bDrawReported( false )
-	, m_ModelInstance( MODEL_INSTANCE_INVALID )
 	, m_hRenderHandle( INVALID_CLIENT_RENDER_HANDLE )
 	,
 
@@ -150,11 +149,7 @@ C_StandaloneEntity::~C_StandaloneEntity()
 		SourceSharp_KillDeadBeams( GetRefEHandle() );
 	}
 
-	if ( m_ModelInstance != MODEL_INSTANCE_INVALID )
-	{
-		modelrender->DestroyInstance( m_ModelInstance );
-		m_ModelInstance = MODEL_INSTANCE_INVALID;
-	}
+	m_ModelInstance.Destroy( modelrender );
 
 	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
 
@@ -497,8 +492,7 @@ void C_StandaloneEntity::GetRenderBounds( Vector &mins, Vector &maxs )
 
 void C_StandaloneEntity::CreateModelInstance()
 {
-	if ( m_ModelInstance == MODEL_INSTANCE_INVALID )
-		m_ModelInstance = modelrender->CreateInstance( this );
+	m_ModelInstance.Ensure( modelrender, this, GetModel() );
 }
 
 void C_StandaloneEntity::PublishModelFacts()
@@ -507,6 +501,9 @@ void C_StandaloneEntity::PublishModelFacts()
 
 	// -1, not zero: zero is mod_bad.
 	const model_t *pModel = GetModel();
+
+	// As stock\'s SetModelPointer: the old model\'s decals and lighting go with it.
+	m_ModelInstance.DropIfNotFor( modelrender, pModel );
 	Block().Client.ModelType = pModel ? (int32_t)modelinfo->GetModelType( pModel ) : -1;
 
 	BumpPolicyInputs();

@@ -12,8 +12,12 @@ class IVEngineServer;
 class IVModelInfo;
 class IStaticPropMgrServer;
 class IEngineTrace;
+class CSharedEdictChangeInfo;
 class CServerModelPrecache;
 class CServerNetTables;
+class CSourceSharpSlotTable;
+class CSourceSharpEntitySlots;
+class CServerEntityResolver;
 class CStandalonePlayer;
 struct edict_t;
 class CGlobalVars;
@@ -27,15 +31,18 @@ class CServerEntityContext
 public:
 	CServerEntityContext( IVEngineServer *pEngine, CGlobalVars *pGlobals, ISpatialPartition *pPartition,
 						  IVModelInfo *pModelInfo, IStaticPropMgrServer *pStaticProps, IEngineTrace *pTrace,
-						  const CManagedHolders &managed, const bool &bManagedLoaded,
-						  const unsigned int &nManagedGeneration, CServerPlayersDll &players,
-						  unsigned short &nWorldSerial, CServerModelPrecache &precache, CServerNetTables &netTables )
+						  CSharedEdictChangeInfo *pChangeInfo, const CManagedHolders &managed,
+						  const bool &bManagedLoaded, const unsigned int &nManagedGeneration,
+						  CServerPlayersDll &players, unsigned short &nWorldSerial, CServerModelPrecache &precache,
+						  CServerNetTables &netTables, CSourceSharpSlotTable &slotTable,
+						  CSourceSharpEntitySlots &entitySlots )
 		: m_pEngine( pEngine )
 		, m_pGlobals( pGlobals )
 		, m_pPartition( pPartition )
 		, m_pModelInfo( pModelInfo )
 		, m_pStaticProps( pStaticProps )
 		, m_pTrace( pTrace )
+		, m_pChangeInfo( pChangeInfo )
 		, m_Managed( managed )
 		, m_bManagedLoaded( bManagedLoaded )
 		, m_nManagedGeneration( nManagedGeneration )
@@ -43,6 +50,8 @@ public:
 		, m_nWorldSerial( nWorldSerial )
 		, m_Precache( precache )
 		, m_NetTables( netTables )
+		, m_SlotTable( slotTable )
+		, m_EntitySlots( entitySlots )
 	{
 	}
 
@@ -70,6 +79,9 @@ public:
 	IStaticPropMgrServer *const m_pStaticProps;
 	IEngineTrace *const m_pTrace;
 
+	// The engine's list of which offsets of which edicts changed this frame.
+	CSharedEdictChangeInfo *const m_pChangeInfo;
+
 	// Read when called: a managed reload replaces the objects behind it.
 	const CManagedHolders &m_Managed;
 
@@ -90,11 +102,22 @@ public:
 	// The published types and the ServerClasses an entity is networked through.
 	CServerNetTables &m_NetTables;
 
+	// Handles to shells, and the blob slots managed writes through: an entity issues,
+	// binds and closes its own. DLL tier, so pointers managed holds outlive a map.
+	CSourceSharpSlotTable &m_SlotTable;
+	CSourceSharpEntitySlots &m_EntitySlots;
+
 	// NULL between levels.
 	CServerLevelState *m_pLevel = nullptr;
 
 	// The DLL tier's physics, bound by the services that own both.
 	CServerPhysics *m_pPhysics = nullptr;
+
+	// What a handle names, bound by the services that own both: the resolver reads this
+	// context, so it is built after it.
+	CServerEntityResolver *m_pResolver = nullptr;
+
+	CServerEntityResolver &Resolver() const { return *m_pResolver; }
 
 	// The rules' string table, bound by the game DLL when it creates the tables.
 	INetworkStringTable *m_pGameRulesTable = nullptr;

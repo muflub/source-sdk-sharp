@@ -33,9 +33,9 @@ EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CS
 EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityPayloadAgreement	uint, int*, int*, int	
 EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityGetEngineBlock	uint, int*, void*	
 EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntitySetTransmitAlways	uint, int, void	
-EntityGetModelName	EngineApi	IShimModels	shared		both	-	SourceSharp_EntityGetModelName	uint, byte*, int, void	SourceSharp_ClientEntityGetModelName
-EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	SourceSharp_EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
-StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	SourceSharp_StandaloneSetModelScale	uint, float, void	
+EntityGetModelName	EngineApi	IShimModels	shared		both	-	CServerModels::EntityGetModelName	uint, byte*, int, void	SourceSharp_ClientEntityGetModelName
+EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	CServerModels::EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
+StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	CServerModels::StandaloneSetModelScale	uint, float, void	SourceSharp_StandaloneSetModelScale
 EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	CServerModels::EntitySetModel	uint, byte*, void	
 PrecacheModel	EngineApi	IShimPrecache	server		server	-	CServerModelPrecache::PrecacheModel	byte*, int	
 MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	
@@ -56,10 +56,10 @@ PlayerSyncEngineSide	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CS
 EntityModelSurfaceProp	EngineApi	IShimWorldServer	server		server	-	CServerWorldQueries::EntityModelSurfaceProp	uint, int	
 InvisibleRangeReach	EngineApi	IShimWorldServer	server		server	-	CServerWorldQueries::InvisibleRangeReach	int	
 SetSkyboxParams	EngineApi	IShimWorldServer	server		server	-	CServerWorldQueries::SetSkyboxParams	SkyboxParams*, void	
-EntityGetIndex	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetIndex	uint, int	SourceSharp_ClientEntityGetIndex
-EntityGetOrigin	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityGetOrigin	uint, float*, void	SourceSharp_ClientEntityGetOrigin
-EntityGetAngles	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetAngles	uint, float*, void	SourceSharp_ClientEntityGetAngles
-EntityIsValid	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityIsValid	uint, int	SourceSharp_ClientEntityIsValid
+EntityGetIndex	EngineApi	IShimEntities	shared		both	-	CServerEntities::EntityGetIndex	uint, int	SourceSharp_ClientEntityGetIndex
+EntityGetOrigin	EngineApi	IShimEntities	shared		both	S	CServerEntities::EntityGetOrigin	uint, float*, void	SourceSharp_ClientEntityGetOrigin
+EntityGetAngles	EngineApi	IShimEntities	shared		both	-	CServerEntities::EntityGetAngles	uint, float*, void	SourceSharp_ClientEntityGetAngles
+EntityIsValid	EngineApi	IShimEntities	shared		both	S	CServerEntities::EntityIsValid	uint, int	SourceSharp_ClientEntityIsValid
 EntityIsPlayer	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityIsPlayer	uint, int	
 EntityGetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntityGetClassName	uint, byte*, int, void	
 EntityGetName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntityGetName	uint, byte*, int, void	

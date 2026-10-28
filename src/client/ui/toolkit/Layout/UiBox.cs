@@ -67,6 +67,27 @@ public readonly struct UiBox : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Places the element at a fixed coordinate of the game's HUD art, not a
+    /// design spacing — the same escape
+    /// <see cref="UiPaint.FromGame"/> gives game colours, so the raw rule
+    /// does not list it. <paramref name="corner"/> is a corner and is also
+    /// the element's own anchor: <paramref name="left"/> is from the edge
+    /// named by the corner's x (positive moves inward, negative outward past
+    /// the edge) and <paramref name="bottom"/> from the bottom (positive up).
+    /// Stock .res values go through <see cref="StockRes"/>: vgui's "r" ypos
+    /// reaches the element's TOP edge, so a resolved spot feeds these
+    /// offsets directly.
+    /// </summary>
+    public UiBox AtRes(UiAnchor corner, float left, float bottom)
+    {
+        N.ParentAnchor = corner;
+        N.SelfAnchor = corner;
+        N.OffX = left;
+        N.OffY = bottom;
+        return this;
+    }
+
     /// <summary>The same distance in on both axes.</summary>
     public UiBox Inset(UiLength both) => Inset(both, both);
 

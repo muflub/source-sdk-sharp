@@ -29,21 +29,6 @@ void CShimGameRules::RegisterDamageRules( const SourceSharpDamageRules *pRules )
 	return ::SourceSharp_RegisterDamageRules( pRules );
 }
 
-void CShimModelsServerBase::EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize )
-{
-	return ::SourceSharp_EntityGetModelName( hEntity, pOut, nOutSize );
-}
-
-int32_t CShimModelsServerBase::EntitiesInvalidateMdlCacheAll()
-{
-	return ::SourceSharp_EntitiesInvalidateMdlCacheAll();
-}
-
-void CShimModelsServerBase::StandaloneSetModelScale( uint32_t hEntity, float flScale )
-{
-	return ::SourceSharp_StandaloneSetModelScale( hEntity, flScale );
-}
-
 void CShimMovementServerBase::MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
 										 const float *pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup,
 										 SourceSharpMoveTraceResult *pOut )
@@ -64,26 +49,6 @@ float CShimMovementServerBase::CurrentGravity()
 void CShimMovementServerBase::RegisterMovementParams( const SourceSharpMovementParams *pParams )
 {
 	return ::SourceSharp_RegisterMovementParams( pParams );
-}
-
-int32_t CShimEntitiesServerBase::EntityGetIndex( uint32_t hEntity )
-{
-	return ::SourceSharp_EntityGetIndex( hEntity );
-}
-
-void CShimEntitiesServerBase::EntityGetOrigin( uint32_t hEntity, float *pOutXYZ )
-{
-	return ::SourceSharp_EntityGetOrigin( hEntity, pOutXYZ );
-}
-
-void CShimEntitiesServerBase::EntityGetAngles( uint32_t hEntity, float *pOutPYR )
-{
-	return ::SourceSharp_EntityGetAngles( hEntity, pOutPYR );
-}
-
-int32_t CShimEntitiesServerBase::EntityIsValid( uint32_t hEntity )
-{
-	return ::SourceSharp_EntityIsValid( hEntity );
 }
 
 void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )

@@ -33,16 +33,6 @@ public:
 	void RegisterDamageRules( const SourceSharpDamageRules *pRules ) override;
 };
 
-// CServerModels implements IShimModelsServer and derives from this: the shared base's slots,
-// forwarded to the bodies both DLLs compile.
-class CShimModelsServerBase : public IShimModelsServer
-{
-public:
-	void EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
-	int32_t EntitiesInvalidateMdlCacheAll() override;
-	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
-};
-
 // CServerMovement implements IShimMovementServer and derives from this: the shared base's slots,
 // forwarded to the bodies both DLLs compile.
 class CShimMovementServerBase : public IShimMovementServer
@@ -53,17 +43,6 @@ public:
 	int32_t MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue ) override;
 	float CurrentGravity() override;
 	void RegisterMovementParams( const SourceSharpMovementParams *pParams ) override;
-};
-
-// CServerEntities implements IShimEntitiesServer and derives from this: the shared base's slots,
-// forwarded to the bodies both DLLs compile.
-class CShimEntitiesServerBase : public IShimEntitiesServer
-{
-public:
-	int32_t EntityGetIndex( uint32_t hEntity ) override;
-	void EntityGetOrigin( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntityGetAngles( uint32_t hEntity, float *pOutPYR ) override;
-	int32_t EntityIsValid( uint32_t hEntity ) override;
 };
 
 struct CShimAreas

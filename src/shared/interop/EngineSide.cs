@@ -444,7 +444,7 @@ internal sealed unsafe partial class EngineSide
     /// path nobody pushed from, which does not go stale but diverges and then
     /// answers confidently forever with no log line and no crash. Holding that
     /// shut needs an INDEPENDENT oracle, and the slot is one — it reads the
-    /// engine's own handle table through <c>SourceSharp_ResolveEntity</c>, which
+    /// engine's own handle table through <c>CServerEntityResolver::Resolve</c>, which
     /// is what the trace filters and the event queue resolve through. A gate
     /// that compared the mirror against something managed had also written
     /// would agree with itself whatever the shells did.

@@ -29,4 +29,7 @@ private:
 	size_t m_nCount = 0;
 };
 
-CStandaloneList StandaloneEntities();
+class CServerEntityContext;
+
+// This map's live standalone entities; empty outside a level.
+CStandaloneList StandaloneEntities( const CServerEntityContext &context );

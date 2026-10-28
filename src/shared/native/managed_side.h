@@ -11,6 +11,7 @@
 
 class CDiagnosticsHooks;
 class CCVarRegistry;
+class IShimRoot;
 
 #ifdef CLIENT_DLL
 struct CManagedHoldersClient;
@@ -20,11 +21,25 @@ struct CManagedHolders;
 typedef CManagedHolders ManagedHolders_t;
 #endif
 
+#ifndef CLIENT_DLL
+// What the server's entities do around a managed reload, in the window between unload
+// and load, the only one with no managed code running. The DLL tier's services answer it.
+class IManagedReloadSubject
+{
+public:
+	// Voids every blob serial handed out; answers how many were live.
+	virtual int RetireBlobPointers() = 0;
+
+	// Restamps the entities whose class the new build reshaped; adds to the counts.
+	virtual void ResyncSchema( int *pOutChecked, int *pOutRestamped ) = 0;
+};
+#endif
+
 class CManagedSide
 {
 public:
 	// Defined in sourcesharp_gamesystem.cpp, where the holders are complete.
-	CManagedSide( ManagedHolders_t &holders, CDiagnosticsHooks &diagnostics, CCVarRegistry &cvars );
+	CManagedSide( ManagedHolders_t &holders, CDiagnosticsHooks &diagnostics, CCVarRegistry &cvars, IShimRoot &root );
 
 	CManagedSide( const CManagedSide & ) = delete;
 	CManagedSide &operator=( const CManagedSide & ) = delete;
@@ -49,6 +64,11 @@ public:
 	void RequestReload();
 	void ServiceReloadRequest();
 
+#ifndef CLIENT_DLL
+	// Bound by the game DLL while its DLL tier is up; NULL outside it.
+	void BindReloadSubject( IManagedReloadSubject *pSubject ) { m_pReloadSubject = pSubject; }
+#endif
+
 private:
 	int LoadMySide();
 	void Reload();
@@ -70,8 +90,15 @@ private:
 	// The engine's console prints, forwarded to this side's managed console-output area.
 	CConsoleDisplay m_ConsoleDisplay;
 
+	// The root handed to managed at load.
+	IShimRoot &m_Root;
+
 	// Whether Load has run to completion, as distinct from the side being up now.
 	CSourceSharpInitGate m_InitGate;
+
+#ifndef CLIENT_DLL
+	IManagedReloadSubject *m_pReloadSubject = nullptr;
+#endif
 
 	bool m_bLoaded = false;
 	bool m_bReloadRequested = false;

@@ -47,11 +47,24 @@ protected:
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
 	CServerNetTables m_NetTables;
-	CServerEntityContext m_Entities{ &m_Engine,  nullptr,          nullptr,
-									 nullptr,    nullptr,          nullptr,
-									 m_Holders,  m_bManagedLoaded, m_nManagedGeneration,
-									 m_Players,  m_nWorldSerial,   m_Precache,
-									 m_NetTables };
+	CSourceSharpSlotTable m_SlotTableForContext;
+	CSourceSharpEntitySlots m_EntitySlotsForContext;
+	CServerEntityContext m_Entities{ &m_Engine,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 m_Holders,
+									 m_bManagedLoaded,
+									 m_nManagedGeneration,
+									 m_Players,
+									 m_nWorldSerial,
+									 m_Precache,
+									 m_NetTables,
+									 m_SlotTableForContext,
+									 m_EntitySlotsForContext };
 };
 } // namespace
 

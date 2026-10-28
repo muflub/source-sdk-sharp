@@ -30,5 +30,8 @@ public:
 	virtual void Release() = 0;
 };
 
-// This side's root, and its forwarder table in *ppTable. Defined in shell_internalfactory.cpp.
+#ifdef CLIENT_DLL
+// The client's root, and its forwarder table in *ppTable. Defined in shell_internalfactory.cpp;
+// the server's is its game DLL's, handed to its managed side.
 IShimRoot *ShimRoot_Get( const void **ppTable );
+#endif

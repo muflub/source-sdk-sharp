@@ -346,9 +346,10 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutW
 
 // The same check over the hierarchy, printed. The SDK's entity list skips standalone
 // entities, so this file walks its own.
-void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecked, int *pOutAgreed )
+void SourceSharp_StandalonePayloadAgreeReport( const CServerEntityContext &context, int nWantedIndex, int *pOutChecked,
+											   int *pOutAgreed )
 {
-	const CStandaloneList standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities( context );
 
 	int nShared = 0;
 	StandaloneNetFields( &nShared );
@@ -416,9 +417,9 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 
 // Writes one dword into a live entity's blob and marks it changed: the negative control
 // for the payload checks. Called by cs_sv_poke_payload.
-bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
+bool SourceSharp_StandalonePokePayload( const CServerEntityContext &context, int nIndex, int iWord, uint32 nValue )
 {
-	const CStandaloneList standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities( context );
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -451,9 +452,9 @@ bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 
 // Fills a live entity's payload with the probe pattern, a function of the seed and word
 // index only, so the client can recompute it (SourceSharpPayload_ProbeWord).
-bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWords )
+bool SourceSharp_StandaloneProbePayload( const CServerEntityContext &context, int nIndex, uint32 nSeed, int *pOutWords )
 {
-	const CStandaloneList standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities( context );
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -489,9 +490,9 @@ bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWord
 // After a managed reload: re-stamps every stamped entity whose class was reshaped, zeroes
 // its blob (its bytes follow the old layout) and marks the edict. An entity whose type
 // grew past the tier it was allocated at is stamped zero, which receivers refuse.
-void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
+void SourceSharp_StandaloneResyncSchema( const CServerEntityContext &context, int *pOutChecked, int *pOutRestamped )
 {
-	const CStandaloneList standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities( context );
 
 	int nChecked = 0;
 	int nRestamped = 0;

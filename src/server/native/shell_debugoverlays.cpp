@@ -13,6 +13,7 @@
 #include "slot_table.h"
 #include "shell_standalone.h"
 #include "shell_diagnostics.h"
+#include "server_entity_resolver.h"
 
 int32_t CServerDebugOverlays::DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText, float flDuration,
 												 int32_t r, int32_t g, int32_t b, int32_t a )
@@ -22,7 +23,7 @@ int32_t CServerDebugOverlays::DrawEntityOverlay( uint32_t hEntity, int32_t nLine
 	if ( hEntity == (uint32_t)INVALID_EHANDLE_INDEX )
 		return 0;
 
-	CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
+	CStandaloneEntity *pShell = m_Entities.ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
 
 	if ( pShell == NULL )
 		return 0;

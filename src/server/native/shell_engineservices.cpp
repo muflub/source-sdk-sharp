@@ -12,14 +12,16 @@
 #include "eiface.h"
 
 #include "shell_standalone.h"
+#include "server_entity_resolver.h"
+#include "server_models.h"
 
 // Counts the standalone entities a model cache flush reached; the managed flush
 // invalidates their skeletons and prints the count.
-int32_t SourceSharp_EntitiesInvalidateMdlCacheAll()
+int32_t CServerModels::EntitiesInvalidateMdlCacheAll()
 {
 	int32_t nInvalidated = 0;
 
-	const CStandaloneList standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities( m_Entities.Context() );
 
 	nInvalidated = (int32_t)standalones.size();
 

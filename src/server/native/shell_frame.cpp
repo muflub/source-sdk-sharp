@@ -24,7 +24,7 @@ void UpdateAllClientData( const CServerEntityContext &context, const CServerWorl
 
 bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals );
 
-int SourceSharp_DrainEntitySlots();
+int SourceSharp_DrainEntitySlots( const CServerEntityContext &context );
 
 int32_t CServerFrame::IsSimulatingOnAlternateTicks()
 {
@@ -79,7 +79,7 @@ void CServerFrame::StandaloneFinish()
 
 void CServerFrame::DrainEntitySlots()
 {
-	SourceSharp_DrainEntitySlots();
+	SourceSharp_DrainEntitySlots( m_Entities );
 }
 
 void CServerFrame::BeginModelCacheLock()

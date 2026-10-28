@@ -10,6 +10,9 @@
 #include "ss_physics_shared.h"
 #include "ss_playerlocaldata.h"
 
+#include "server_entities_fixture.h"
+#include "ss_world.h"
+
 #include "mathlib_test_env.h"
 
 // The links this file's subject imports. EntityModelSurfaceProp is not reached here.
@@ -20,9 +23,9 @@ int SourceSharp_GetVerbosity()
 	return 0;
 }
 
-SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t )
+const model_t *CWorldCollideable::GetCollisionModel()
 {
-	return SourceSharpEntity_t();
+	return nullptr;
 }
 
 IHandleEntity *SourceSharpEntity_t::ToHandleEntity() const
@@ -50,7 +53,8 @@ SourceSharpSkyboxParams SkyAt( float x, int32_t nArea )
 TEST( WorldQueries, NothingPushedFillsNothing )
 {
 	int32_t nReach = 0;
-	CServerWorldQueries world( nullptr, nReach, kNoSurfaceProps );
+	CTestServerEntities server;
+	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
 
 	ss::sky3dparams_t out;
 	EXPECT_FALSE( world.FillSkyboxParams( out ) );
@@ -59,7 +63,8 @@ TEST( WorldQueries, NothingPushedFillsNothing )
 TEST( WorldQueries, ThePushedSkyIsWhatEveryPlayerIsGiven )
 {
 	int32_t nReach = 0;
-	CServerWorldQueries world( nullptr, nReach, kNoSurfaceProps );
+	CTestServerEntities server;
+	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
 	const SourceSharpSkyboxParams params = SkyAt( 128.0f, 3 );
 	world.SetSkyboxParams( &params );
 
@@ -77,7 +82,8 @@ TEST( WorldQueries, ThePushedSkyIsWhatEveryPlayerIsGiven )
 TEST( WorldQueries, ANullPushForgetsTheSky )
 {
 	int32_t nReach = 0;
-	CServerWorldQueries world( nullptr, nReach, kNoSurfaceProps );
+	CTestServerEntities server;
+	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
 	const SourceSharpSkyboxParams params = SkyAt( 1.0f, 1 );
 	world.SetSkyboxParams( &params );
 	world.SetSkyboxParams( nullptr );
@@ -89,7 +95,8 @@ TEST( WorldQueries, ANullPushForgetsTheSky )
 TEST( WorldQueries, TheInvisibleRangeCountIsTheTiersAsItStandsNow )
 {
 	int32_t nReach = 0;
-	CServerWorldQueries world( nullptr, nReach, kNoSurfaceProps );
+	CTestServerEntities server;
+	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
 	EXPECT_EQ( 0, world.InvisibleRangeReach() );
 
 	nReach = 5;

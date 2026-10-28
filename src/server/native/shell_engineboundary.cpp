@@ -28,17 +28,6 @@
 #include "datacache/imdlcache.h"
 #include "shell_server.h"
 
-// edict.h's StateChanged reads the engine's change list through this.
-CSharedEdictChangeInfo *SharedEdictChangeInfo()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pChangeInfo;
-}
-
-IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pEngine->GetChangeAccessor( (const edict_t *)this );
-}
-
 // Acquires the engine interfaces and loads the game event files. Returns false on
 // the first missing interface, as stock's DLLInit does.
 bool SourceSharp_AcquireEngineInterfaces( CServerEngineInterfaces &bound, CreateInterfaceFn appSystemFactory,

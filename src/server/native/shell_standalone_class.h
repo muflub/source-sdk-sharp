@@ -13,4 +13,6 @@
 
 // The next entity of a classname after pStartAfter. NULL both when there is none and
 // when pStartAfter has been removed.
-CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStartAfter, const char *pClassName );
+class CServerEntityContext;
+CStandaloneEntity *StandaloneEntities_FindByClassname( const CServerEntityContext &context,
+													   CStandaloneEntity *pStartAfter, const char *pClassName );

@@ -186,11 +186,9 @@ private:
 class CStandaloneEntity;
 struct edict_t;
 
-CSourceSharpSlotTable &SourceSharp_SlotTable();
-
 // The handle a shell at this entry will carry, issued without binding; invalid if the
 // entry is occupied or out of range.
-CBaseHandle SourceSharp_SlotIssue( int nEntry );
+CBaseHandle SourceSharp_SlotIssue( CSourceSharpSlotTable &table, int nEntry );
 
 // The world is not in the table, so it carries its own serial under the table's wrap.
 // Never zero: entry 0 with serial 0 packs to the INVALID_EHANDLE enumerator (0).
@@ -201,18 +199,10 @@ inline unsigned short SourceSharp_NextWorldSerial( unsigned short nPrevious )
 	return nNext ? nNext : (unsigned short)1;
 }
 
-bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell, edict_t *pEdict );
+bool SourceSharp_SlotBindAt( CSourceSharpSlotTable &table, const CBaseHandle &handle, CStandaloneEntity *pShell,
+							 edict_t *pEdict );
 
-void SourceSharp_SlotUnbind( int nEntry );
-
-// The first of these carries the one permitted downcast.
-CStandaloneEntity *SourceSharp_ShellFromHandle( const CBaseHandle &handle );
-CStandaloneEntity *SourceSharp_ShellFromIndex( int nEntry );
-CStandaloneEntity *SourceSharp_ShellFromHandleEntity( IHandleEntity *pHandleEntity );
-
-// A handle to whatever holds it: the slot table, then the world, then the SDK's entity
-// list. The three populations are disjoint.
-IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
+void SourceSharp_SlotUnbind( CSourceSharpSlotTable &table, int nEntry );
 
 #endif // !CLIENT_DLL
 

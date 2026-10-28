@@ -35,6 +35,7 @@
 #include "tier1/utlvector.h"
 
 #include "ishim_root.h"
+#include "ss_fwd.h"
 #include "imanaged_root.h"
 #include "imanaged_areas.h"
 #include "imanaged_areas_client.h"
@@ -71,14 +72,6 @@
 #ifndef CLIENT_DLL
 #include "shell_server.h"
 #include "server_services.h"
-#endif
-
-// Entry points the fill calls directly rather than through a slot. Server only.
-#ifndef CLIENT_DLL
-// server/shell_entityslots.cpp: slots changed since the last frame; reset at level shutdown.
-int SourceSharp_DrainEntitySlots();
-void SourceSharp_ResetEntitySlots();
-
 #endif
 
 #ifdef CLIENT_DLL
@@ -176,7 +169,8 @@ static int32_t SourceSharp_ConsoleFindConVarFlags( const char *n )
 #endif
 
 // One load, for the first load and the reload alike.
-CManagedSide::CManagedSide( ManagedHolders_t &holders, CDiagnosticsHooks &diagnostics, CCVarRegistry &cvars )
+CManagedSide::CManagedSide( ManagedHolders_t &holders, CDiagnosticsHooks &diagnostics, CCVarRegistry &cvars,
+							IShimRoot &root )
 	: m_Holders( holders )
 	, m_Diagnostics( diagnostics )
 	, m_CVars( cvars )
@@ -185,13 +179,15 @@ CManagedSide::CManagedSide( ManagedHolders_t &holders, CDiagnosticsHooks &diagno
 #else
 	, m_ConsoleDisplay( holders.m_Areas.m_pConsoleOutput )
 #endif
+	, m_Root( root )
 {
 }
 
 int CManagedSide::LoadMySide()
 {
-	const void *pRootTable = NULL;
-	IShimRoot *pRoot = ShimRoot_Get( &pRootTable );
+	// The root managed reaches everything else through, and the forwarder table it calls it by.
+	IShimRoot *pRoot = &m_Root;
+	const void *pRootTable = SSFwd_Serve( "SSFwd_ShimRoot" );
 
 	// Kept only if the managed root's Validate agrees with the compiler's slot hashes.
 	void *pManagedRoot = NULL;
@@ -874,12 +870,6 @@ void SourceSharp_SetClientRuntime( IClientRuntimeAdapter *pRuntime )
 // Hot reload: unload this module's managed side and load it again with the game
 // running. Native memory survives (entities, blobs, slots, the type table, convars
 // and commands); managed objects do not. Not FCVAR_CHEAT: the command is local.
-#ifndef CLIENT_DLL
-void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped );
-int SourceSharp_RetireEntitySlots();
-int SourceSharp_StandaloneLiveCount();
-#endif
-
 void CManagedSide::Reload()
 {
 	if ( !m_bLoaded )
@@ -920,7 +910,7 @@ void CManagedSide::Reload()
 
 #ifndef CLIENT_DLL
 	// No managed code runs here: retire every cached blob pointer.
-	const int nRetired = SourceSharp_RetireEntitySlots();
+	const int nRetired = m_pReloadSubject ? m_pReloadSubject->RetireBlobPointers() : 0;
 #endif
 
 	const int rc = LoadMySide();
@@ -946,7 +936,8 @@ void CManagedSide::Reload()
 	Msg( "[SourceSharp] %s: %d bound blob pointer(s) retired\n", SOURCESHARP_SIDE_TAG, nRetired );
 
 	int nChecked = 0, nRestamped = 0;
-	SourceSharp_StandaloneResyncSchema( &nChecked, &nRestamped );
+	if ( m_pReloadSubject )
+		m_pReloadSubject->ResyncSchema( &nChecked, &nRestamped );
 
 	Msg( "[SourceSharp] %s: %d stamped entity(ies) checked, %d reshaped and re-stamped\n", SOURCESHARP_SIDE_TAG,
 		 nChecked, nRestamped );

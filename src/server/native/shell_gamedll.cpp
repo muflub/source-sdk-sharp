@@ -36,7 +36,6 @@
 #include "shell_server.h"
 #include "shell_savecomment.h"
 #include "shell_steporder.h"
-#include "shell_gamedll_internal.h"
 #include "shell_factory.h"
 #include "ss_string.h"
 #include "server_state.h"
@@ -92,8 +91,8 @@ public:
 			return false;
 		}
 
-		// CBaseEdict::StateChanged dereferences this unconditionally on every networked
-		// write, so it must be set before anything networks.
+		// Every networked write marks its offset in this list (MarkEdictChanged), so it is
+		// set before the services, whose entity context carries it.
 		Dll()->m_Engine.m_pChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
 
 		// Before the runtime loads: managed acquires the areas these implement.
@@ -593,6 +592,7 @@ private:
 		m_ShimRoot.m_Areas.m_pDamage = pServices ? &pServices->m_Damage : nullptr;
 		m_ShimRoot.m_Areas.m_pEventsServer = pServices ? &pServices->m_Events : nullptr;
 		m_ShimRoot.m_Areas.m_pDiagnostics = pServices ? &pServices->m_Diagnostics : nullptr;
+		m_ManagedSide.BindReloadSubject( pServices );
 		m_ShimRoot.m_Areas.m_pPhysics = pServices ? &pServices->m_Physics : nullptr;
 		m_ShimRoot.m_Areas.m_pConsoleServer = pServices ? &pServices->m_ConsoleCommands : nullptr;
 		m_ShimRoot.m_Areas.m_pModelsServer = pServices ? &pServices->m_Models : nullptr;
@@ -652,7 +652,7 @@ private:
 
 	// The console: this DLL's carriers and the ICvar they reach.
 	CCVarRegistry m_CVars;
-	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars };
+	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars, m_ShimRoot };
 
 	// GetGameDescription's answer; the engine reads it after the call returns.
 	char m_szGameDescription[128] = {};
@@ -679,31 +679,11 @@ namespace
 CShellGameDll s_gameShellDll;
 }
 
-CServerDllState *ShellGameDll_Dll()
-{
-	return s_gameShellDll.Dll();
-}
-
-CServerLevelState *ShellGameDll_Level()
-{
-	return s_gameShellDll.Level();
-}
-
-CShimRootServer &ShellGameDll_ShimRoot()
-{
-	return s_gameShellDll.ShimRoot();
-}
-
 // The engine area's slot: the engine's CGlobalVars for managed to read, the shim root's;
 // NULL until the engine hands the game DLL its globals.
 void *SourceSharp_GetGlobalVarsPtr()
 {
 	return s_gameShellDll.ShimRoot().m_pGlobals;
-}
-
-CShellTransmitSet &ShellGameDll_TransmitSet()
-{
-	return s_gameShellDll.TransmitSet();
 }
 
 static void *SourceSharp_GetServerGameDll()

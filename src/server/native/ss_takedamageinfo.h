@@ -18,15 +18,14 @@
 
 class IHandleEntity;
 
-// ehandle.h's resolver, redeclared: that header pulls cbase.h.
-IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
+class CServerEntityResolver;
 
 class IUniformRandomStream;
 
 namespace ss
 {
 
-// A CBaseHandle assigned and read as an IGameEntity *.
+// A CBaseHandle assigned from an IGameEntity *; read back through a resolver.
 class DamageInfoHandle : public CBaseHandle
 {
 public:
@@ -35,12 +34,6 @@ public:
 	{
 		*static_cast<CBaseHandle *>( this ) = pEntity ? GameEntity_RefHandle( pEntity ) : CBaseHandle();
 		return *this;
-	}
-
-	// The handle resolved and crossed to the game-entity face by the object itself.
-	operator IGameEntity *() const
-	{
-		return SourceSharp_CrossHandleToGameEntity<IGameEntity, IServerEntity>( SourceSharp_EntityFromHandle( *this ) );
 	}
 };
 
@@ -65,14 +58,9 @@ public:
 
 	void Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType = 0 );
 
-	// Who.
-	IGameEntity *GetInflictor() const { return m_hInflictor; }
-
-	IHandleEntity *GetInflictorHandle() const { return SourceSharp_EntityFromHandle( m_hInflictor ); }
-
-	IGameEntity *GetAttacker() const { return m_hAttacker; }
-
-	IGameEntity *GetWeapon() const { return m_hWeapon; }
+	// Who: the attacker as entities resolves its handle now, so one removed meanwhile is
+	// NULL.
+	IGameEntity *GetAttacker( CServerEntityResolver &entities ) const;
 
 	// How much. The base damage is the amount before any adjustment, if one
 	// was recorded.

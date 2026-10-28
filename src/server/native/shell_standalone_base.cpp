@@ -48,18 +48,13 @@
 #include "shell_entity_lifecycle.h"
 #include "server_collision.h"
 #include "server_entity_resolver.h"
+#include "edict_change.h"
 
 // A slot outliving its entity would let C# write into freed memory, so the shell
 // that frees the memory closes the slot.
-void SourceSharp_EntitySlotClosed( uint32_t hEntity );
+void SourceSharp_EntitySlotClosed( CSourceSharpEntitySlots &slots, uint32_t hEntity );
 
 // This map's standalone shells (CServerLevelState::m_Shells), or NULL outside a level.
-static CServerEntityShells *Shells()
-{
-	CServerLevelState *pLevel = ShellGameDll_Level();
-	return pLevel ? &pLevel->m_Shells : NULL;
-}
-
 static CServerEntityShells *ShellsOf( const CServerEntityContext &context )
 {
 	return context.m_pLevel ? &context.m_pLevel->m_Shells : NULL;
@@ -80,9 +75,9 @@ static void TrackShell( CStandaloneEntity *pEnt )
 		pShells->m_Live.push_back( pEnt );
 }
 
-CStandaloneList StandaloneEntities()
+CStandaloneList StandaloneEntities( const CServerEntityContext &context )
 {
-	const CServerEntityShells *pShells = Shells();
+	const CServerEntityShells *pShells = ShellsOf( context );
 	return pShells ? CStandaloneList( pShells->m_Live.data(), pShells->m_Live.size() ) : CStandaloneList();
 }
 
@@ -183,12 +178,13 @@ uint32_t SourceSharp_HandleFromAnyEntity( IHandleEntity *pHandleEntity )
 }
 
 // The next entity of a classname after pStartAfter; gEntList's walk skips these.
-CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStartAfter, const char *pClassName )
+CStandaloneEntity *StandaloneEntities_FindByClassname( const CServerEntityContext &context,
+													   CStandaloneEntity *pStartAfter, const char *pClassName )
 {
 	if ( !pClassName || !pClassName[0] )
 		return NULL;
 
-	const CStandaloneList live = StandaloneEntities();
+	const CStandaloneList live = StandaloneEntities( context );
 	size_t nStart = 0;
 
 	if ( pStartAfter )
@@ -228,10 +224,17 @@ unsigned char *CStandaloneEntity::DataBlob()
 	return (unsigned char *)this + SourceSharp_StandaloneBlobOffset();
 }
 
+// The engine's change accessor for the edict and the change list the context holds.
+static void MarkEdictChanged( const CServerEntityContext &context, edict_t *pEdict, int nOffset )
+{
+	SourceSharp_MarkEdictChanged( context.m_pEngine->GetChangeAccessor( pEdict ), *context.m_pChangeInfo, pEdict,
+								  nOffset );
+}
+
 void CStandaloneEntity::NetworkStateChanged()
 {
 	if ( m_pEdict )
-		m_pEdict->StateChanged();
+		MarkEdictChanged( Context(), m_pEdict, -1 );
 }
 
 // Marks only the block offset that changed. StateChanged() would set
@@ -245,7 +248,7 @@ void CStandaloneEntity::MarkBlockChanged( int nBlockOffset )
 	if ( !m_pEdict )
 		return;
 
-	m_pEdict->StateChanged( (unsigned short)( BlockBase() + nBlockOffset ) );
+	MarkEdictChanged( Context(), m_pEdict, BlockBase() + nBlockOffset );
 }
 
 void CStandaloneEntity::operator delete( void *pMem )
@@ -380,13 +383,13 @@ CStandaloneEntity::~CStandaloneEntity()
 	// First, before the handle is torn down: closing the slot turns a managed
 	// state's next access into a named exception rather than a write into freed
 	// memory, and after Term() the entry index can no longer be named.
-	SourceSharp_EntitySlotClosed( (uint32_t)BlockHandle().ToInt() );
+	SourceSharp_EntitySlotClosed( Context().m_EntitySlots, (uint32_t)BlockHandle().ToInt() );
 
 	// The slot table too, for the same reason. SetRefEHandle unbinds only for an
 	// entity on the list; a dangling binding would make the next Bind on this
 	// entry refuse.
 	if ( BlockHandle().IsValid() )
-		SourceSharp_SlotUnbind( BlockHandle().GetEntryIndex() );
+		SourceSharp_SlotUnbind( Context().m_SlotTable, BlockHandle().GetEntryIndex() );
 
 	if ( CServerEntityShells *pShells = ShellsOf( *m_pContext ) )
 	{
@@ -711,13 +714,6 @@ static void WarnOverlapsFull( bool bFirstOverflow )
 				 CServerOverlaps::kMaxPairs );
 }
 
-// The level's overlaps, or NULL outside a level: a report then has nowhere to go.
-static CServerOverlaps *Overlaps()
-{
-	CServerLevelState *pLevel = ShellGameDll_Level();
-	return pLevel ? &pLevel->m_Overlaps : NULL;
-}
-
 // Drops everything: on a level change every handle names a departing entity.
 void StandaloneEntities_ClearOverlaps( const CServerEntityContext &context )
 {
@@ -766,7 +762,8 @@ void CStandaloneEntity::EndTouch( const Toucher_t &toucher )
 // again with a bigger buffer returns the same list.
 int32_t CServerCollision::EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs )
 {
-	CServerOverlaps *pOverlaps = Overlaps();
+	// NULL outside a level: a report then has nowhere to go.
+	CServerOverlaps *pOverlaps = OverlapsOf( m_Entities.Context() );
 
 	if ( !pOverlaps )
 		return 0;
@@ -780,7 +777,7 @@ int32_t CServerCollision::EntityOverlapReport( uint32_t *pOutPairs, int32_t nMax
 
 		WarnOverlapsFull( pOverlaps->DrainPending( report ) );
 
-		for ( CStandaloneEntity *pEnt : StandaloneEntities() )
+		for ( CStandaloneEntity *pEnt : StandaloneEntities( m_Entities.Context() ) )
 		{
 			if ( !( pEnt->GetSolidFlags() & FSOLID_TRIGGER ) )
 				continue;
@@ -899,7 +896,7 @@ void CStandaloneEntity::SetRefEHandle( const CBaseHandle &handle )
 	// removal, and BindAt refuses a bound entry. `this` is the concrete
 	// CStandaloneEntity *, since the table static_casts it back.
 	if ( BlockHandle().IsValid() )
-		SourceSharp_SlotUnbind( BlockHandle().GetEntryIndex() );
+		SourceSharp_SlotUnbind( Context().m_SlotTable, BlockHandle().GetEntryIndex() );
 
 	BlockHandle() = handle;
 
@@ -907,7 +904,7 @@ void CStandaloneEntity::SetRefEHandle( const CBaseHandle &handle )
 
 	if ( handle.IsValid() )
 	{
-		SourceSharp_SlotBindAt( handle, this, m_pEdict );
+		SourceSharp_SlotBindAt( Context().m_SlotTable, handle, this, m_pEdict );
 	}
 	else
 	{
@@ -1000,7 +997,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	// Into the slot table, which makes a handle to it resolve. The entry is the
 	// edict index. SlotIssue, not SlotBind: SetRefEHandle is the single binder.
 	const int nEntry = m_pContext->m_pEngine->IndexOfEdict( m_pEdict );
-	const CBaseHandle hIssued = SourceSharp_SlotIssue( nEntry );
+	const CBaseHandle hIssued = SourceSharp_SlotIssue( Context().m_SlotTable, nEntry );
 
 	// An occupied entry is a bug (stock only asserted). Said loudly: an entity
 	// without a handle exists but cannot be named or found.
@@ -1038,7 +1035,7 @@ void CStandaloneEntity::Spawn()
 	if ( m_pEdict )
 	{
 		// The engine only transmits what it has been told changed.
-		m_pEdict->StateChanged();
+		MarkEdictChanged( Context(), m_pEdict, -1 );
 
 		// And CheckTransmit decides from DONTSEND|ALWAYS|PVSCHECK|FULLCHECK
 		// alone, none of which SetEdict sets. CBaseEntity sets this through
@@ -1129,13 +1126,6 @@ bool CStandaloneEntity::KeyValueShellOnly( const char *szKeyName, const char *sz
 	return bShell;
 }
 
-// An input from the map. The shell claims none of its own: managed code decides.
-bool CStandaloneEntity::AcceptInput( const char *szInputName, const Activator_t &activator, IGameEntity *pCaller,
-									 const ss::variant_t &Value )
-{
-	return OnManagedInput( szInputName, activator, Value );
-}
-
 int CStandaloneEntity::TakeDamage( const ss::CTakeDamageInfo &info )
 {
 	// Managed code answers how much landed; zero is how it refuses damage.
@@ -1147,7 +1137,7 @@ int CStandaloneEntity::TakeDamage( const ss::CTakeDamageInfo &info )
 	m_iHealth -= nTaken;
 
 	if ( m_iHealth <= 0 )
-		OnManagedKilled( info.GetAttacker() );
+		OnManagedKilled( info.GetAttacker( Context().Resolver() ) );
 
 	return nTaken;
 }
@@ -1253,7 +1243,7 @@ void CServerEntityLifecycle::DestroyShell( const uint32_t *pHandles, int32_t nCo
 
 	for ( int32_t i = 0; i < nCount; i++ )
 	{
-		const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( pHandles[i] );
+		const SourceSharpEntity_t ent = m_Entities.Resolver().Resolve( pHandles[i] );
 
 		if ( ent.pStandalone )
 			delete ent.pStandalone;

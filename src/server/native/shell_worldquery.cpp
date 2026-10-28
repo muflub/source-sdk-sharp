@@ -60,7 +60,7 @@ int32_t CServerEntities::EntitiesInSphere( const float *pCenterXYZ, float flRadi
 	// A registry walk, not a partition query: a standalone entity that is neither
 	// solid nor a trigger is not in the partition. Tests the world-space AABB, and
 	// includes server-only entities (an env_fire must find the next one).
-	const CStandaloneList standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities( m_Entities.Context() );
 
 	for ( CStandaloneEntity *pStandalone : standalones )
 	{

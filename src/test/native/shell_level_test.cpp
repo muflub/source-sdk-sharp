@@ -46,7 +46,7 @@ bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServe
 	return true;
 }
 
-void SourceSharp_ResetEntitySlots() {}
+void SourceSharp_ResetEntitySlots( CSourceSharpEntitySlots &, CSourceSharpSlotTable & ) {}
 
 static const CServerEntityContext *s_pShutDownWith = nullptr;
 
@@ -164,9 +164,24 @@ protected:
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
 	CServerNetTables m_NetTables;
-	CServerEntityContext m_Entities{
-		&m_Engine,        &m_Globals,           nullptr,   nullptr,        nullptr,    nullptr,    m_Holders,
-		m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache, m_NetTables };
+	CSourceSharpSlotTable m_SlotTableForContext;
+	CSourceSharpEntitySlots m_EntitySlotsForContext;
+	CServerEntityContext m_Entities{ &m_Engine,
+									 &m_Globals,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 m_Holders,
+									 m_bManagedLoaded,
+									 m_nManagedGeneration,
+									 m_Players,
+									 m_nWorldSerial,
+									 m_Precache,
+									 m_NetTables,
+									 m_SlotTableForContext,
+									 m_EntitySlotsForContext };
 	CNoFactories m_Factories;
 	CRecordingPhysics m_Physics;
 	CServerLevel m_Level{ &m_Engine,  &m_Files,    &m_MdlCache, &m_Globals,

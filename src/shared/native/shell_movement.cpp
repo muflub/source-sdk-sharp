@@ -75,10 +75,12 @@
 #define VEC_DUCK_VIEW_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
 
 #endif
+#ifdef CLIENT_DLL
 // A handle's entity through the slot table; stock's CBaseHandle::Get() reads an entity
 // list neither side builds.
 IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
 #define SS_HANDLE_ENTITY( h ) SourceSharp_EntityFromHandle( h )
+#endif
 
 #ifdef CLIENT_DLL
 #define SOURCESHARP_MOVE_SIDE_TAG "client"

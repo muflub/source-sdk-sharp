@@ -100,6 +100,7 @@ extern vgui::IInputInternal *g_InputInternal;
 #include "tier0_spew_port.h"
 #include "game_events.h"
 #include "shell_shim_areas.h"
+#include "ishim_root.h"
 
 // The root's areas, defined beside the root (shell_internalfactory.cpp).
 CShimAreasClient &ShimClientAreasOfRoot();
@@ -417,7 +418,7 @@ private:
 
 	// The console: this DLL's carriers and the ICvar they reach.
 	CCVarRegistry m_CVars;
-	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars };
+	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars, *ShimRoot_Get( nullptr ) };
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{ gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false };

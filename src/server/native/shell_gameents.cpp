@@ -47,8 +47,8 @@ void CServerGameEnts::MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 )
 	// At least one of the two is not a CBaseEntity. A touch is symmetric, so each
 	// standalone side gets a link naming the other; an SDK side is told by the
 	// standalone one's own link bookkeeping.
-	const Toucher_t toucher1 = ToucherFromEntityHandle( e1->GetUnknown() );
-	const Toucher_t toucher2 = ToucherFromEntityHandle( e2->GetUnknown() );
+	const Toucher_t toucher1 = ToucherFromEntityHandle( m_Entities, e1->GetUnknown() );
+	const Toucher_t toucher2 = ToucherFromEntityHandle( m_Entities, e2->GetUnknown() );
 
 	if ( toucher1.pGame && toucher2.IsValid() )
 		toucher1.pGame->Touch( toucher2 );

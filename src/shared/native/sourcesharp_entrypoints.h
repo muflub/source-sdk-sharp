@@ -29,7 +29,7 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// BOTH SIDES -- 6 slots.
+// BOTH SIDES -- 5 slots.
 //
 // A body on the server and a body on the client, or one shared body compiled
 // into each.
@@ -40,27 +40,20 @@ int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue,
 void SourceSharp_MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
 							int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut );
 void SourceSharp_RegisterMovementParams( const SourceSharpMovementParams *pParams );
-void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 8 slots.
+// SERVER ONLY -- 2 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
 //---------------------------------------------------------------------------
 #ifndef CLIENT_DLL
-int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();
-void SourceSharp_EntityGetAngles( uint32_t hEntity, float *pOutPYR );
-int32_t SourceSharp_EntityGetIndex( uint32_t hEntity );
-void SourceSharp_EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize );
-void SourceSharp_EntityGetOrigin( uint32_t hEntity, float *pOutXYZ );
-int32_t SourceSharp_EntityIsValid( uint32_t hEntity );
 void SourceSharp_RegisterDamageRules( const SourceSharpDamageRules *pRules );
 void SourceSharp_RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy );
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 262 slots.
+// CLIENT ONLY -- 263 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -351,6 +344,7 @@ void SourceSharp_StandaloneSetBlending( uint32_t hEntity, int32_t bTranslucent, 
 void SourceSharp_StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ );
 void SourceSharp_StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist,
 									float flMinAlpha );
+void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 void SourceSharp_StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex );
 void SourceSharp_StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll );
 void SourceSharp_StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable );

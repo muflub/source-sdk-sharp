@@ -36,6 +36,7 @@
 #include "server_entity_resolver.h"
 #include "server_physics.h"
 #include "server_entity_resolver.h"
+#include "server_models.h"
 
 // The values scripted_kinds.h restates, pinned to the engine's own.
 COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_NONE == (int)SOLID_NONE );
@@ -196,11 +197,6 @@ void CServerEntities::EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutS
 		ss::StrCopy( pOut, ent.pStandalone->GetEntityName(), nOutSize );
 }
 
-static IPhysicsObject *SourceSharp_PhysicsOf( uint32_t hEntity )
-{
-	return SourceSharp_ResolveEntity( hEntity ).Physics();
-}
-
 void CServerTransform::EntityGetAngularVelocity( uint32_t hEntity, float *pOutPYR )
 {
 	if ( !pOutPYR )
@@ -220,7 +216,7 @@ void CServerTransform::EntityGetAngularVelocity( uint32_t hEntity, float *pOutPY
 // The entity's IPhysicsObject, or NULL.
 void *CServerPhysics::EntityPhysicsObject( uint32_t hEntity )
 {
-	return SourceSharp_PhysicsOf( hEntity );
+	return m_Resolver.Resolve( hEntity ).Physics();
 }
 
 // The level's IPhysicsEnvironment, or NULL between levels.
@@ -238,8 +234,8 @@ void *CServerPhysics::PhysicsWorldObject()
 
 // Scale of the server-side skeleton, which places attachments on a scaled model.
 // Managed validates it; this only stores it.
-void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale )
+void CServerModels::StandaloneSetModelScale( uint32_t hEntity, float flScale )
 {
-	if ( CStandaloneEntity *pEntity = SourceSharp_ResolveEntity( hEntity ).pStandalone )
+	if ( CStandaloneEntity *pEntity = m_Entities.Resolve( hEntity ).pStandalone )
 		pEntity->SetModelScale( flScale );
 }

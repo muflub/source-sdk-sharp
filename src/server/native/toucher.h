@@ -32,7 +32,7 @@ struct Toucher_t
 };
 
 // The toucher behind an edict, partition element or trace result.
-inline Toucher_t ToucherFromEntityHandle( IHandleEntity *pHandleEntity )
+inline Toucher_t ToucherFromEntityHandle( CServerEntityResolver &entities, IHandleEntity *pHandleEntity )
 {
 	Toucher_t toucher = { pHandleEntity, NULL, NULL };
 
@@ -42,13 +42,7 @@ inline Toucher_t ToucherFromEntityHandle( IHandleEntity *pHandleEntity )
 	// Every GetBaseEntity() in server.so returns NULL.
 	toucher.pBase = NULL;
 
-	toucher.pGame = SourceSharp_GameEntityFromHandleEntity( pHandleEntity );
+	toucher.pGame = SourceSharp_GameEntityFromHandleEntity( entities, pHandleEntity );
 
 	return toucher;
-}
-
-// Rebuilt from the handle, so an entity removed meanwhile resolves to nothing.
-inline Toucher_t ToucherFromHandle( const CBaseHandle &handle )
-{
-	return ToucherFromEntityHandle( handle.Get() );
 }

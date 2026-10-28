@@ -93,7 +93,8 @@ public:
 	unsigned short m_nChangeInfos; // How many are in use this frame.
 };
 
-// The game DLL answers this from its own state; the engine's copy is its own.
+// Not defined by the game DLL: it marks its edicts through SourceSharp_MarkEdictChanged
+// (edict_change.h), so the StateChanged inlines below, which call this, are unused.
 CSharedEdictChangeInfo *SharedEdictChangeInfo();
 
 class IChangeInfoAccessor

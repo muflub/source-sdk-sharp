@@ -378,7 +378,7 @@ internal sealed unsafe partial class EngineSide
     ///
     /// <para>
     /// How many times a handle from entries 2048..8191 has arrived at
-    /// <c>SourceSharp_ResolveEntity</c> and failed to resolve in the engine's
+    /// <c>CServerEntityResolver::Resolve</c> and failed to resolve in the engine's
     /// own entity list — which a shell-less entity's handle always does,
     /// because it was never added to that list, and a live stock server-only
     /// <c>CBaseEntity</c>'s never does.

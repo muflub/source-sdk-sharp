@@ -11,13 +11,23 @@ public sealed class PreviewTextures
     /// <summary>Handles start above the icon atlas's ids, so the two never meet.</summary>
     private int _next = 0x10000;
 
-    public (byte[] Rgba, int Wide, int Tall)? Find(int handle) => _byHandle.TryGetValue(handle, out var art) ? art : null;
+    // The preview draws its samples in parallel over one store.
+    private readonly object _lock = new();
+
+    public (byte[] Rgba, int Wide, int Tall)? Find(int handle)
+    {
+        lock (_lock)
+            return _byHandle.TryGetValue(handle, out var art) ? art : null;
+    }
 
     public int Add(byte[] rgba, int wide, int tall)
     {
-        int handle = _next++;
-        _byHandle[handle] = (rgba, wide, tall);
-        return handle;
+        lock (_lock)
+        {
+            int handle = _next++;
+            _byHandle[handle] = (rgba, wide, tall);
+            return handle;
+        }
     }
 }
 
@@ -36,13 +46,20 @@ public sealed class PreviewUiTextureLibrary(SourceSharp.Abi.IEngineFiles? files,
 
     public UiTextureInfo? About(string name) => Load(name);
 
+    // One load at a time: the preview's parallel samples share this library,
+    // and a material is read and decoded once.
+    private readonly object _lock = new();
+
     private UiTextureInfo? Load(string name)
     {
-        if (_byMaterial.TryGetValue(name, out UiTextureInfo? cached))
-            return cached;
-        UiTextureInfo? info = Read(name);
-        _byMaterial[name] = info;
-        return info;
+        lock (_lock)
+        {
+            if (_byMaterial.TryGetValue(name, out UiTextureInfo? cached))
+                return cached;
+            UiTextureInfo? info = Read(name);
+            _byMaterial[name] = info;
+            return info;
+        }
     }
 
     private UiTextureInfo? Read(string name)

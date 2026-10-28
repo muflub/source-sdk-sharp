@@ -19,21 +19,9 @@
 // Both take the handle, never the object. A stale handle answers NULL, so a
 // callback about a dead entity never reaches whatever reused its slot.
 
-IServerEntity *PhysicsStandaloneOwner( const CBaseHandle &handle )
+IServerEntity *PhysicsStandaloneOwner( CServerEntityResolver &entities, const CBaseHandle &handle )
 {
-	return SourceSharp_ShellFromHandle( handle );
-}
-
-// The owner as a toucher; only CStandaloneEntity has both the handle and the interface.
-Toucher_t PhysicsStandaloneToucher( const CBaseHandle &handle )
-{
-	CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( handle );
-
-	if ( pShell )
-		return pShell->AsToucher();
-
-	Toucher_t none = { NULL, NULL, NULL };
-	return none;
+	return entities.ShellFromHandle( handle );
 }
 
 // The shell takes the object managed made, or lets go of one (NULL). As stock's

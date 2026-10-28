@@ -15,8 +15,6 @@
 #include "entity_op.h"
 #include "slot_table.h"
 
-#include "ss_variant.h"
-
 #include "imanaged_areas.h"
 #include "server_entity_context.h"
 #include "shell_managed_areas.h"
@@ -77,38 +75,6 @@ bool CStandaloneEntity::OnManagedKeyValue( const char *szKeyName, const char *sz
 	return DispatchOp( this, ENTITY_OP_KEY_VALUE, args ) != 0;
 }
 
-static bool DispatchInput( CStandaloneEntity *pShell, const char *szInputName, const Activator_t &activator,
-						   const ss::variant_t &Value )
-{
-	// The value's string form is copied by managed before any game code runs, so
-	// ToString's static buffer is safe here. Convert works on a copy, as it mutates.
-	ss::variant_t number = Value;
-	const int32_t nFieldType = (int32_t)number.FieldType();
-	const float flValue = number.Convert( FIELD_FLOAT ) ? number.Float() : 0.0f;
-
-	// The activator crosses as a handle, which covers both entity hierarchies.
-	SourceSharpOpArgs args = EmptyOpArgs();
-	args.hOther = activator.pBase ? SourceSharp_HandleFromEntity( activator.pBase )
-								  : SourceSharp_HandleFromAnyEntity( activator.pGameHandle );
-	args.pText1 = szInputName;
-	args.pText2 = Value.String();
-	args.flFloat0 = flValue;
-
-	// The variant's field type plus one, so zero means "not given" rather than FIELD_VOID.
-	args.nInt0 = nFieldType + 1;
-
-	return DispatchOp( pShell, ENTITY_OP_INPUT, args ) != 0;
-}
-
-bool CStandaloneEntity::OnManagedInput( const char *szInputName, const Activator_t &activator,
-										const ss::variant_t &Value )
-{
-	if ( !ClassOverridesOp( ENTITY_OP_INPUT ) )
-		return false;
-
-	return DispatchInput( this, szInputName, activator, Value );
-}
-
 // A projectile ran into something. pOther may be NULL; it crosses as an invalid handle.
 void CStandaloneEntity::OnManagedImpact( IHandleEntity *pOther )
 {
@@ -167,7 +133,7 @@ int CStandaloneEntity::OnManagedDamage( const ss::CTakeDamageInfo &info )
 	const Vector &vecForce = info.GetDamageForce();
 
 	SourceSharpOpArgs args = EmptyOpArgs();
-	args.hOther = SourceSharp_HandleFromEntity( info.GetAttacker() );
+	args.hOther = SourceSharp_HandleFromEntity( info.GetAttacker( Context().Resolver() ) );
 	args.flFloat0 = info.GetDamage();
 	args.nInt0 = info.GetDamageType();
 	args.pVec0 = vecPos.Base();
@@ -191,7 +157,7 @@ void CStandaloneEntity::OnManagedKilled( IGameEntity *pAttacker )
 // the previous origin; NULL means it did not move, which fires no trigger edges.
 int32_t CServerEntityLifecycle::EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs )
 {
-	CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
+	CStandaloneEntity *pShell = m_Entities.Resolver().ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
 
 	if ( !pShell )
 		return 0;

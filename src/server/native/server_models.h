@@ -14,7 +14,7 @@
 
 class CServerEntityResolver;
 
-class CServerModels final : public CShimModelsServerBase
+class CServerModels final : public IShimModelsServer
 {
 public:
 	explicit CServerModels( CServerEntityResolver &entities )
@@ -25,6 +25,9 @@ public:
 	CServerModels( const CServerModels & ) = delete;
 	CServerModels &operator=( const CServerModels & ) = delete;
 
+	void EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
+	int32_t EntitiesInvalidateMdlCacheAll() override;
+	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
 	void EntitySetModel( uint32_t hEntity, const char *pModel ) override;
 
 private:

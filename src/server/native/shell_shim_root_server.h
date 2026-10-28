@@ -47,6 +47,3 @@ public:
 	// The engine's globals, from DLLInit to DLLShutdown.
 	CGlobalVars *m_pGlobals = nullptr;
 };
-
-// The game DLL's shim root. Defined beside the root in shell_gamedll.cpp.
-CShimRootServer &ShellGameDll_ShimRoot();

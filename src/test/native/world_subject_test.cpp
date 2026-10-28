@@ -217,9 +217,9 @@ TEST( WorldSubject, AnEntityIsNotTheWorldBeforeThereIsAWorld )
 //
 // THIS IS THE SERVER TWIN OF THE CLIENT BUG PINNED DIRECTLY ABOVE, and it cost
 // more, because the client's version merely answered NULL from a lookup while
-// this one answered a COMPILED-IN CONSTANT. SourceSharp_WorldFromEntityHandle
+// this one answered a COMPILED-IN CONSTANT. CServerEntityResolver::WorldFromEntityHandle
 // is a projection of this bool, so armed it answered NULL for the world always;
-// SourceSharp_ResolveEntity therefore resolved the world's own handle to
+// CServerEntityResolver::Resolve therefore resolved the world's own handle to
 // nothing; and SourceSharp_FindEntityByClassname, whose world clause fires on
 // `!start.IsValid()`, returned the world FOREVER. Measured on a live armed
 // build: `debug-api ents "*"` spun until its timeout, and so did every other

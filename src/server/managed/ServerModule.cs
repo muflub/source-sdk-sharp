@@ -3805,7 +3805,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             // claim is that no handle from the engine-invisible range reaches
             // native code, which is a zero; `live` beside it is what stops that
             // zero being trivially true of a build that made none. nativeReach
-            // is counted in NATIVE code (SourceSharp_ResolveEntity) because a
+            // is counted in NATIVE code (CServerEntityResolver::Resolve) because a
             // managed counter could only count the routes managed code already
             // knows it takes.
             new DebugLogical(_entities.ShellLessClassCount, _entities.LiveCount,

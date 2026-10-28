@@ -162,17 +162,15 @@ public:
 static CShimRoot g_ShimRoot;
 #endif
 
+#ifdef CLIENT_DLL
 IShimRoot *ShimRoot_Get( const void **ppTable )
 {
 	if ( ppTable )
 		*ppTable = SSFwd_Serve( "SSFwd_ShimRoot" );
 
-#ifdef CLIENT_DLL
 	return &g_ShimRoot;
-#else
-	return &ShellGameDll_ShimRoot();
-#endif
 }
+#endif
 
 #ifdef CLIENT_DLL
 CShimConsole &ShimConsole()

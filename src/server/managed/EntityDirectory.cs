@@ -1787,7 +1787,7 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     /// <summary>
     /// <b>WHERE THE SAFETY COUNTER IS NOT.</b> 2e's third gate clause — "a
     /// handle from the invisible range never reaches native" — is counted on
-    /// the NATIVE side, in <c>SourceSharp_ResolveEntity</c>, and read back
+    /// the NATIVE side, in <c>CServerEntityResolver::Resolve</c>, and read back
     /// through <see cref="EngineSide.InvisibleRangeReach"/>.
     ///
     /// <para>

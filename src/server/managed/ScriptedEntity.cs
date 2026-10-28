@@ -4996,7 +4996,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// engine-invisible range have reached native code.
     ///
     /// <para>
-    /// Counted natively, in <c>SourceSharp_ResolveEntity</c>, and only forwarded
+    /// Counted natively, in <c>CServerEntityResolver::Resolve</c>, and only forwarded
     /// here: a managed counter could count nothing but the routes managed code
     /// already knows it takes, so it would read zero for exactly the case the
     /// number exists to catch. Read it beside <see cref="LiveCount"/>.

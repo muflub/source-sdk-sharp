@@ -176,7 +176,7 @@ int32_t CServerPhysics::PhysicsUpdateOwners( void **ppObjects, float *pVelocitie
 		// The world first: one exact pointer compare, and its game data is NULL.
 		PhysicsOwner_t owner = { NULL, NULL, WorldOwner( pObject ), NULL, pObject };
 		if ( !owner.pWorld )
-			owner = PhysicsOwnerOfGameData( pObject->GetGameData(), pObject );
+			owner = PhysicsOwnerOfGameData( m_Resolver, pObject->GetGameData(), pObject );
 		if ( !owner.IsValid() )
 			continue;
 

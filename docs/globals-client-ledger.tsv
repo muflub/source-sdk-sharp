@@ -136,7 +136,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginetrace	enginetrace	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	3208	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	3216	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		

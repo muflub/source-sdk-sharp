@@ -11,6 +11,8 @@
 
 #pragma once
 
+class CServerEntityResolver;
+
 #include "ishim_areas.h"
 
 class IVModelInfo;
@@ -24,9 +26,10 @@ struct sky3dparams_t;
 class CServerWorldQueries final : public IShimWorldServer
 {
 public:
-	CServerWorldQueries( IVModelInfo *pModelInfo, const int32_t &nInvisibleRangeReach,
+	CServerWorldQueries( IVModelInfo *pModelInfo, CServerEntityResolver &entities, const int32_t &nInvisibleRangeReach,
 						 IPhysicsSurfaceProps *const &pSurfaceProps )
 		: m_pModelInfo( pModelInfo )
+		, m_Entities( entities )
 		, m_nInvisibleRangeReach( nInvisibleRangeReach )
 		, m_pSurfaceProps( pSurfaceProps )
 	{
@@ -52,6 +55,7 @@ public:
 
 private:
 	IVModelInfo *m_pModelInfo;
+	CServerEntityResolver &m_Entities;
 
 	// The DLL tier's count, kept where the resolver that notes it can reach it.
 	const int32_t &m_nInvisibleRangeReach;

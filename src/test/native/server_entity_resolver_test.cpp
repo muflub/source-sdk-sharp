@@ -14,11 +14,6 @@
 #include "ss_world.h"
 
 // The links this file's subject imports. The wrappers are not reached here.
-CServerDllState *ShellGameDll_Dll()
-{
-	return nullptr;
-}
-
 void SourceSharp_Trace( const char *, const char * ) {}
 
 int SourceSharp_GetVerbosity()
@@ -43,11 +38,24 @@ protected:
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ nullptr, nullptr, m_Holders.m_Areas };
 	CServerNetTables m_NetTables;
-	CServerEntityContext m_Entities{ nullptr,    nullptr,          nullptr,
-									 nullptr,    nullptr,          nullptr,
-									 m_Holders,  m_bManagedLoaded, m_nManagedGeneration,
-									 m_Players,  m_nWorldSerial,   m_Precache,
-									 m_NetTables };
+	CSourceSharpSlotTable m_SlotTableForContext;
+	CSourceSharpEntitySlots m_EntitySlotsForContext;
+	CServerEntityContext m_Entities{ nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 m_Holders,
+									 m_bManagedLoaded,
+									 m_nManagedGeneration,
+									 m_Players,
+									 m_nWorldSerial,
+									 m_Precache,
+									 m_NetTables,
+									 m_SlotTableForContext,
+									 m_EntitySlotsForContext };
 	CSourceSharpSlotTable m_Slots;
 	int32_t m_nReach = 0;
 	CServerEntityResolver m_Resolver{ m_Slots, m_Entities, m_nReach };

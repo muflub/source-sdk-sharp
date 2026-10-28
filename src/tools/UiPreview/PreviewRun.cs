@@ -102,24 +102,27 @@ public sealed class PreviewRun
     private readonly IUiFontMetrics _metrics;
 
     /// <summary>The HUD art a run with game files decodes, handed to every backend it draws with.</summary>
-    private PreviewTextures? _hudArt;
-    private PreviewUiTextureLibrary? _hudLibrary;
+    private readonly PreviewTextures? _hudArt;
+    private readonly PreviewUiTextureLibrary? _hudLibrary;
 
     /// <summary>The store the backends draw HUD art from, when the run has game files.</summary>
-    public PreviewTextures? HudStore() => _files is null ? null : (_hudArt ??= new());
+    public PreviewTextures? HudStore() => _hudArt;
 
     /// <summary>The HUD art library, when the run has game files; null draws the fallbacks.</summary>
-    public PreviewUiTextureLibrary? HudLibrary()
-    {
-        if (HudStore() is not { } store)
-            return null;
-        return _hudLibrary ??= new(_files, store);
-    }
+    public PreviewUiTextureLibrary? HudLibrary() => _hudLibrary;
 
     public PreviewRun(PreviewOptions options)
     {
         _o = options;
         _files = options.Files();
+        // Made once, before the samples draw in parallel: made on first use,
+        // two samples could each make a store, and one's art was looked up in
+        // the other's.
+        if (_files is not null)
+        {
+            _hudArt = new PreviewTextures();
+            _hudLibrary = new PreviewUiTextureLibrary(_files, _hudArt);
+        }
         _fonts = new UiFontLibrary(ModFonts(Theme(), _files));
         _metrics = UiRecordedFontMetrics.LoadOrFallback(_fonts, options.FontsFile);
     }

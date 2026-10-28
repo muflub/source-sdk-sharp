@@ -49,6 +49,7 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_world_nettable.cpp
     ${LOCAL}/shell_worldquery.cpp
     ${LOCAL}/world_queries.cpp
+    ${LOCAL}/edict_change.cpp
     ${LOCAL}/server_diagnostics.cpp
     ${LOCAL}/server_entity_resolver.cpp
     ${LOCAL}/server_damage.cpp

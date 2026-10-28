@@ -160,9 +160,24 @@ protected:
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
 	CServerNetTables m_NetTables;
-	CServerEntityContext m_Entities{
-		&m_Engine,        &m_Globals,           nullptr,   nullptr,        nullptr,    nullptr,    m_Holders,
-		m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache, m_NetTables };
+	CSourceSharpSlotTable m_SlotTableForContext;
+	CSourceSharpEntitySlots m_EntitySlotsForContext;
+	CServerEntityContext m_Entities{ &m_Engine,
+									 &m_Globals,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 nullptr,
+									 m_Holders,
+									 m_bManagedLoaded,
+									 m_nManagedGeneration,
+									 m_Players,
+									 m_nWorldSerial,
+									 m_Precache,
+									 m_NetTables,
+									 m_SlotTableForContext,
+									 m_EntitySlotsForContext };
 	CServerGameClients m_Clients{ &m_Engine,        &m_Globals,    &m_MdlCache, m_Managed,
 								  m_bManagedLoaded, m_PlayerMaker, m_Probes,    m_Entities };
 };
@@ -311,8 +326,11 @@ TEST( LateBoundServerGameClients, ForwardsToTheImplementationItIsBoundTo )
 	unsigned int nGeneration = 1;
 	CServerModelPrecache precache( &engine, nullptr, holders.m_Areas );
 	CServerNetTables netTables;
-	CServerEntityContext entities( &engine, &globals, nullptr, nullptr, nullptr, nullptr, holders, bManagedLoaded,
-								   nGeneration, players, nWorldSerial, precache, netTables );
+	CSourceSharpSlotTable slotTable;
+	CSourceSharpEntitySlots entitySlots;
+	CServerEntityContext entities( &engine, &globals, nullptr, nullptr, nullptr, nullptr, nullptr, holders,
+								   bManagedLoaded, nGeneration, players, nWorldSerial, precache, netTables, slotTable,
+								   entitySlots );
 	CServerGameClients impl( &engine, &globals, nullptr, holders.m_Areas, bManagedLoaded, playerMaker, probes,
 							 entities );
 	CRootServerGameClients forwarder;

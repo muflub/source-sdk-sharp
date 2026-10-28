@@ -278,9 +278,6 @@ private:
 // A client command that is not a registered ConCommand, handed to managed code.
 void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand &args );
 
-// A managed handle as a standalone player, or NULL for anything else.
-CStandalonePlayer *SourceSharp_ResolveStandalonePlayer( uint32_t hEntity );
-
 // The shell to the player, checked in debug. Callers ask IsPlayer() first.
 inline CStandalonePlayer *SourceSharp_PlayerOf( CStandaloneEntity *pEnt )
 {

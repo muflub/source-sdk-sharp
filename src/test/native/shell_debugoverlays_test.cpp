@@ -12,12 +12,18 @@
 
 #include <vector>
 
-class CStandaloneEntity;
+#include "server_entities_fixture.h"
+#include "ss_world.h"
 
 // The links this file's subject imports: no entity resolves here.
 void SourceSharp_Trace( const char *, const char * ) {}
 
-CStandaloneEntity *SourceSharp_ShellFromHandle( const CBaseHandle & )
+int SourceSharp_GetVerbosity()
+{
+	return 0;
+}
+
+const model_t *CWorldCollideable::GetCollisionModel()
 {
 	return nullptr;
 }
@@ -48,7 +54,8 @@ class ServerDebugOverlays : public ::testing::Test
 protected:
 	CRecordingOverlay m_Engine;
 	COverlayLibrary m_Library{ &m_Engine };
-	CServerDebugOverlays m_Overlays{ m_Library };
+	CTestServerEntities m_Server;
+	CServerDebugOverlays m_Overlays{ m_Library, m_Server.m_Resolver };
 
 	const float m_vecStart[3] = { 10, 0, 0 };
 	const float m_vecEnd[3] = { 20, 0, 0 };

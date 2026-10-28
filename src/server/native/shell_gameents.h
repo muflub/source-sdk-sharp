@@ -11,6 +11,8 @@
 
 #pragma once
 
+class CServerEntityResolver;
+
 #include "eiface.h"
 #include "igameentity_fwd.h"
 
@@ -24,13 +26,15 @@ class CServerGameEnts final : public IServerGameEnts
 {
 public:
 	CServerGameEnts( IVEngineServer *pEngine, IMDLCache *pMdlCache, const CManagedAreas &managed,
-					 const bool &bManagedLoaded, CShellTransmitSet &transmitSet, CBoundaryProbe &probes )
+					 const bool &bManagedLoaded, CShellTransmitSet &transmitSet, CBoundaryProbe &probes,
+					 CServerEntityResolver &entities )
 		: m_pEngine( pEngine )
 		, m_pMdlCache( pMdlCache )
 		, m_Managed( managed )
 		, m_bManagedLoaded( bManagedLoaded )
 		, m_TransmitSet( transmitSet )
 		, m_Probes( probes )
+		, m_Entities( entities )
 	{
 	}
 
@@ -58,5 +62,8 @@ private:
 
 	// Counts the engine's calls into this object, for ss_boundary_probe_report.
 	CBoundaryProbe &m_Probes;
+
+	// What a touch report's edicts name.
+	CServerEntityResolver &m_Entities;
 	edict_t *m_pDebugEdictBase = NULL;
 };

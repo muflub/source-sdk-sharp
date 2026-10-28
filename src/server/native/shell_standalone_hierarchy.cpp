@@ -170,7 +170,7 @@ bool StandaloneHierarchy_IsParented( const CStandaloneEntity *pChild )
 	if ( !IsCarried( pChild ) )
 		return false;
 
-	return SourceSharp_ResolveEntity( pChild->Block().Head.ParentHandle ).IsValid();
+	return pChild->Context().Resolver().Resolve( pChild->Block().Head.ParentHandle ).IsValid();
 }
 
 // An entity with a parent lives in its parent's frame, and code that moves it

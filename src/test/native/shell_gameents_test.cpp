@@ -15,12 +15,27 @@
 #include "fakes/fake_collideable.g.h"
 #include "fakes/fake_server_entity.g.h"
 
+#include "server_entities_fixture.h"
+#include "ss_world.h"
+
 #include "mathlib_test_env.h"
 
 #include <memory>
 
 // The links this file's subject imports.
-IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity * )
+IGameEntity *SourceSharp_GameEntityFromHandleEntity( CServerEntityResolver &, IHandleEntity * )
+{
+	return nullptr;
+}
+
+void SourceSharp_Trace( const char *, const char * ) {}
+
+int SourceSharp_GetVerbosity()
+{
+	return 0;
+}
+
+const model_t *CWorldCollideable::GetCollisionModel()
 {
 	return nullptr;
 }
@@ -128,7 +143,9 @@ protected:
 	bool m_bManagedLoaded = true;
 	CShellTransmitSet m_TransmitSet;
 	CBoundaryProbe m_Probes;
-	CServerGameEnts m_Ents{ &m_Engine, &m_MdlCache, m_Managed, m_bManagedLoaded, m_TransmitSet, m_Probes };
+	CTestServerEntities m_Server;
+	CServerGameEnts m_Ents{ &m_Engine,     &m_MdlCache, m_Managed,          m_bManagedLoaded,
+							m_TransmitSet, m_Probes,    m_Server.m_Resolver };
 	std::vector<std::unique_ptr<CBoxEntity>> m_Entities;
 	CCheckTransmitInfo m_Info{};
 	CBitVec<MAX_EDICTS> m_Sent;
@@ -215,7 +232,8 @@ TEST( LateBoundServerGameEnts, ForwardsToTheImplementationItIsBoundTo )
 	bool bManagedLoaded = true;
 	CShellTransmitSet transmitSet;
 	CBoundaryProbe probes;
-	CServerGameEnts impl( &engine, &mdlCache, managed, bManagedLoaded, transmitSet, probes );
+	CTestServerEntities server;
+	CServerGameEnts impl( &engine, &mdlCache, managed, bManagedLoaded, transmitSet, probes, server.m_Resolver );
 	CLateBoundServerGameEnts forwarder;
 	forwarder.Bind( &impl );
 

@@ -469,15 +469,11 @@ TEST( ServerStateTier, ANewDllTierStartsWithItsCountsAndLatchesClear )
 	CServerDllState &first = dll.Begin();
 	first.m_nInvisibleRangeReach = 7;
 	first.m_NetTables.m_bWarnedUnpublishedClass = true;
-	first.m_pLastHandleComplaint = &first;
-	first.m_szVariantString[0] = 'x';
 	dll.End();
 
 	CServerDllState &second = dll.Begin();
 	EXPECT_EQ( 0, second.m_nInvisibleRangeReach );
 	EXPECT_FALSE( second.m_NetTables.m_bWarnedUnpublishedClass ) << "a warn-once latch stayed set into a new DLL tier";
-	EXPECT_EQ( nullptr, second.m_pLastHandleComplaint );
-	EXPECT_EQ( '\0', second.m_szVariantString[0] );
 	dll.End();
 }
 

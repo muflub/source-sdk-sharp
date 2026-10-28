@@ -20,24 +20,11 @@
 #include "server_state.h"
 #include "server_network.h"
 #include "server_entity_resolver.h"
+#include "server_entity_context.h"
 
 // The block sizes itself without const.h so the gtest needs no engine; a block shorter
 // than the entity list would refuse its tail.
 COMPILE_TIME_ASSERT( SOURCESHARP_MAX_ENTITY_SLOTS >= NUM_ENT_ENTRIES );
-
-// Both tables live in the DLL tier (server_state.h) from DLLInit to the end of
-// DLLShutdown, after managed unload, so pointers C# holds stay valid. NULL outside it.
-static CSourceSharpEntitySlots *EntitySlots()
-{
-	CServerDllState *pDll = ShellGameDll_Dll();
-	return pDll ? &pDll->m_EntitySlots : NULL;
-}
-
-static CSourceSharpSlotTable *SlotTable()
-{
-	CServerDllState *pDll = ShellGameDll_Dll();
-	return pDll ? &pDll->m_SlotTable : NULL;
-}
 
 // The entry index a packed handle names, or -1. ENT_ENTRY_MASK is wider than the entity
 // list, so the mask alone can name a slot that does not exist.
@@ -53,9 +40,9 @@ static int SourceSharp_SlotEntryOf( uint32_t hEntity )
 }
 
 // Marks an entity's networked state as moved.
-static bool SourceSharp_MarkStateChanged( uint32_t hEntity )
+static bool SourceSharp_MarkStateChanged( CServerEntityResolver &entities, uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -115,24 +102,22 @@ void *CServerNetwork::EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, Sourc
 // Closes an entity's slot, from the destructor of every shell that carries a blob,
 // before the handle is torn down and the memory freed. A slot left open would let C#
 // write into freed memory with a matching serial.
-void SourceSharp_EntitySlotClosed( uint32_t hEntity )
+void SourceSharp_EntitySlotClosed( CSourceSharpEntitySlots &slots, uint32_t hEntity )
 {
 	const int nEntry = SourceSharp_SlotEntryOf( hEntity );
-	CSourceSharpEntitySlots *pSlots = EntitySlots();
 
-	if ( nEntry >= 0 && pSlots )
-		pSlots->Close( nEntry );
+	if ( nEntry >= 0 )
+		slots.Close( nEntry );
 }
 
 // Once per frame: turns the frame's stores into NetworkStateChanged calls and closes
 // slots whose entity died without closing them. Walks backwards because Close swaps the
 // tail entry into the freed position.
-int SourceSharp_DrainEntitySlots()
+int SourceSharp_DrainEntitySlots( const CServerEntityContext &context )
 {
 	int nMarked = 0;
-	CSourceSharpEntitySlots *pSlots = EntitySlots();
-	if ( !pSlots )
-		return 0;
+	CSourceSharpEntitySlots *pSlots = &context.m_EntitySlots;
+	CServerEntityResolver &entities = context.Resolver();
 
 	for ( int i = pSlots->ActiveCount() - 1; i >= 0; --i )
 	{
@@ -143,7 +128,7 @@ int SourceSharp_DrainEntitySlots()
 
 		if ( bDirty )
 		{
-			if ( SourceSharp_MarkStateChanged( hEntity ) )
+			if ( SourceSharp_MarkStateChanged( entities, hEntity ) )
 			{
 				++nMarked;
 				continue;
@@ -154,7 +139,7 @@ int SourceSharp_DrainEntitySlots()
 					 "a shell is freeing without closing its slot\n",
 					 nEntry );
 		}
-		else if ( !SourceSharp_ResolveEntity( hEntity ).IsValid() )
+		else if ( !entities.Resolve( hEntity ).IsValid() )
 		{
 			pSlots->Close( nEntry );
 			continue;
@@ -166,53 +151,39 @@ int SourceSharp_DrainEntitySlots()
 
 // A managed reload is about to happen: void every serial handed out so far. Called
 // between unload and load, the only window with no managed code running.
-int SourceSharp_RetireEntitySlots()
+int SourceSharp_RetireEntitySlots( CSourceSharpEntitySlots &slots )
 {
-	CSourceSharpEntitySlots *pSlots = EntitySlots();
-	return pSlots ? pSlots->Retire() : 0;
+	return slots.Retire();
 }
 
 // Level shutdown: a slot that outlived the map would be handed to the next occupant.
-void SourceSharp_ResetEntitySlots()
+void SourceSharp_ResetEntitySlots( CSourceSharpEntitySlots &slots, CSourceSharpSlotTable &table )
 {
-	CSourceSharpEntitySlots *pSlots = EntitySlots();
-	CSourceSharpSlotTable *pTable = SlotTable();
-	if ( pSlots )
-		pSlots->Reset();
+	slots.Reset();
 
 	// ClearBindings, not Reset: it bumps serials instead of rewinding them. The engine keeps
 	// edict_t::m_NetworkSerialNumber across a map load and reuses packed state when the
 	// serial matches, so a rewound serial would pack a new entity as the old one.
-	if ( pTable )
-		pTable->ClearBindings();
+	table.ClearBindings();
 }
 
 // The slot table: shell pointer and serial per entry, so an engine index or handle
 // becomes the concrete shell without RTTI. It shares this file with the control block
 // above because they share a lifetime.
 
-// For the debug readout; console commands run inside the DLL tier's lifetime.
-CSourceSharpSlotTable &SourceSharp_SlotTable()
-{
-	CSourceSharpSlotTable *pTable = SlotTable();
-	AssertMsg( pTable, "the slot table was asked for outside DLLInit..DLLShutdown" );
-	return *pTable;
-}
-
 // The handle a shell at this entry will carry, issued without binding. The shell's
 // SetRefEHandle binds it (SourceSharp_SlotBindAt), which mirrors the edict serial.
 //-----------------------------------------------------------------------------
-CBaseHandle SourceSharp_SlotIssue( int nEntry )
+CBaseHandle SourceSharp_SlotIssue( CSourceSharpSlotTable &table, int nEntry )
 {
-	CSourceSharpSlotTable *pTable = SlotTable();
-	return pTable ? pTable->IssueHandle( nEntry ) : CBaseHandle();
+	return table.IssueHandle( nEntry );
 }
 
 // Binds a handle assigned elsewhere.
-bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell, edict_t *pEdict )
+bool SourceSharp_SlotBindAt( CSourceSharpSlotTable &table, const CBaseHandle &handle, CStandaloneEntity *pShell,
+							 edict_t *pEdict )
 {
-	CSourceSharpSlotTable *pTable = SlotTable();
-	if ( !pTable || !pTable->BindAt( handle, pShell ) )
+	if ( !table.BindAt( handle, pShell ) )
 		return false;
 
 	StandaloneNetSerial_Mirror( pEdict, (unsigned long)handle.GetSerialNumber() );
@@ -222,8 +193,7 @@ bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShel
 // Called from the shell's destructor before the handle is torn down. Keyed by entry, so
 // an entity whose handle is already invalid can still unbind.
 //-----------------------------------------------------------------------------
-void SourceSharp_SlotUnbind( int nEntry )
+void SourceSharp_SlotUnbind( CSourceSharpSlotTable &table, int nEntry )
 {
-	if ( CSourceSharpSlotTable *pTable = SlotTable() )
-		pTable->Unbind( nEntry );
+	table.Unbind( nEntry );
 }

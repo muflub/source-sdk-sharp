@@ -70,6 +70,9 @@ lane t6-globals, the game-rules conversion): 3 of 4 passes failed in one
 window, each taking 22.6-23.2 s and 1548-1579 ticks, then 3 of 3 passed on the
 same build at 13.7-15.4 s; 0ff873533 passed 3 of 3 at 13.9-15.9 s. The
 newcomer's input is read inside a window the slow passes outrun.
+Again 2026-10-27 at the edict-mark change (lane t6-globals): 2 of 8 passes
+failed, both at 21.9 s / 1480-1535 ticks; the 6 at 13.8-15.4 s passed. Main
+4544b0f1e passed 8 of 8 at 13.9-19.7 s.
 **Owner:** the live gate. **Next:** wait for the newcomer's first usercmd
 before timing its movement, and print the pass's tick count beside the verdict.
 

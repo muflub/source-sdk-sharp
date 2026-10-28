@@ -29,6 +29,7 @@
 #include "iinput.h"
 
 #include "mouthinfo.h"
+#include "standalone_model_instance.h"
 
 #include "usercmd.h"
 #include "view.h"
@@ -215,7 +216,7 @@ public:
 
 	virtual void CreateModelInstance() OVERRIDE;
 
-	virtual ModelInstanceHandle_t GetModelInstance() OVERRIDE { return m_ModelInstance; }
+	virtual ModelInstanceHandle_t GetModelInstance() OVERRIDE { return m_ModelInstance.Get(); }
 
 	virtual ShadowType_t ShadowCastType() OVERRIDE;
 
@@ -457,7 +458,7 @@ private:
 
 	bool m_bDrawReported;
 
-	ModelInstanceHandle_t m_ModelInstance;
+	CStandaloneModelInstance<ModelInstanceHandle_t, MODEL_INSTANCE_INVALID> m_ModelInstance;
 
 	ClientRenderHandle_t m_hRenderHandle;
 

@@ -8,7 +8,7 @@
 // IShimEntitiesServer: an entity's identity, names, keyvalues, spawn state, health,
 // visibility and owner, a player's skybox area, and the searches by classname and sphere,
 // as stock's CBaseEntity and CGlobalEntityList answer them. One object, the DLL tier's;
-// IShimEntities' shared slots are forwarded by the generated CShimEntitiesServerBase.
+// the client answers IShimEntities' shared slots with its own bodies.
 
 #pragma once
 
@@ -17,7 +17,7 @@
 
 class CServerEntityResolver;
 
-class CServerEntities final : public CShimEntitiesServerBase
+class CServerEntities final : public IShimEntitiesServer
 {
 public:
 	explicit CServerEntities( CServerEntityResolver &entities )
@@ -28,6 +28,10 @@ public:
 	CServerEntities( const CServerEntities & ) = delete;
 	CServerEntities &operator=( const CServerEntities & ) = delete;
 
+	int32_t EntityGetIndex( uint32_t hEntity ) override;
+	void EntityGetOrigin( uint32_t hEntity, float *pOutXYZ ) override;
+	void EntityGetAngles( uint32_t hEntity, float *pOutPYR ) override;
+	int32_t EntityIsValid( uint32_t hEntity ) override;
 	int32_t EntityIsPlayer( uint32_t hEntity ) override;
 	void EntityGetClassName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
 	void EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;

@@ -39,6 +39,11 @@ ss_cpptest(vtable_slot_patch_test OPTIMIZED
 ss_cpptest(standalone_renderable_handle_test
     SOURCES sourcesharp/test/standalone_renderable_handle_test.cpp)
 
+# An entity's engine model instance does not outlive a model change
+# (standalone_model_instance.h, header-only).
+ss_cpptest(standalone_model_instance_test
+    SOURCES sourcesharp/test/standalone_model_instance_test.cpp)
+
 # C7 step 2: view_scene.cpp's FrustumTransform, kept for ScreenTransform
 # (view_frustum_transform.h, header-only).
 ss_cpptest(view_frustum_transform_test
@@ -2256,7 +2261,9 @@ ss_cpptest_mathlib(shell_debugoverlays_test
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_debugoverlays_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/shell_debugoverlays.cpp
-            ${PROJECT_SOURCE_DIR}/src/shared/native/overlay_library.cpp)
+            ${PROJECT_SOURCE_DIR}/src/shared/native/overlay_library.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/server_entity_resolver.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
 # shell_gameclients.cpp: CServerGameClients and its root-held forwarder over generated
 # fakes (tools/native-fakes); a client with no player throughout. Links tier1 for bf_read.
 ss_cpptest_mathlib(shell_gameclients_test
@@ -2279,7 +2286,9 @@ ss_cpptest_mathlib(shell_gameents_test
              ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_gameents_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/shell_gameents.cpp)
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_gameents.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/server_entity_resolver.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
 # shell_sharedappsystems.cpp: the app systems the engine loads for the game.
 ss_cpptest(shell_sharedappsystems_test
     DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
@@ -2310,7 +2319,9 @@ ss_cpptest_mathlib(world_queries_test
              ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/world_queries_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/world_queries.cpp)
+            ${PROJECT_SOURCE_DIR}/src/server/native/world_queries.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/server_entity_resolver.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
 # server_entity_resolver.cpp: handles that name nothing, and the invisible-range count.
 ss_cpptest_mathlib(server_entity_resolver_test
     DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
@@ -2353,6 +2364,15 @@ ss_cpptest_mathlib(command_client_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/command_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/shell_commandclient.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
+# edict_change.cpp: one networked write's mark in the engine's change list.
+ss_cpptest(edict_change_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field  # vendor's byte-run fields, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/edict_change_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/edict_change.cpp)
 # bound_callback.cpp: C callbacks bound to an object through a generated x86-64 thunk.
 ss_cpptest(bound_callback_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
@@ -2516,3 +2536,4 @@ ss_cpptest(server_state_test
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.
 ss_cpptest_report_linux_only()
+

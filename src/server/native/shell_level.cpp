@@ -30,7 +30,7 @@
 void StandaloneEntities_LevelShutdown( const CServerEntityContext &context );
 
 // Defined in gamestringpool.cpp and shell_entityslots.cpp.
-void SourceSharp_ResetEntitySlots();
+void SourceSharp_ResetEntitySlots( CSourceSharpEntitySlots &slots, CSourceSharpSlotTable &table );
 
 void CServerLevel::PrecachePointTemplates( const char *pMapDataBlobs, const int32_t *pStringSizes, int32_t nCount )
 {
@@ -166,5 +166,5 @@ void CServerLevel::StringPoolLevelShutdownPostEntity() {}
 
 void CServerLevel::ResetEntitySlots()
 {
-	SourceSharp_ResetEntitySlots();
+	SourceSharp_ResetEntitySlots( m_Entities.m_EntitySlots, m_Entities.m_SlotTable );
 }

@@ -220,7 +220,7 @@ void CStandalonePlayer::Spawn()
 IHandleEntity *CStandalonePlayer::MvGetGroundEntity()
 {
 	// Resolves the world too, which is in neither the slot table nor the SDK list.
-	return SourceSharp_EntityFromHandle( m_hGround );
+	return Context().Resolver().EntityFromHandle( m_hGround );
 }
 
 void CStandalonePlayer::MvSetGroundEntity( IHandleEntity *pGround )
@@ -367,7 +367,8 @@ void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 	pOut->nEntIndex = EntIndex();
 
 	// NULL for a ground entity that has gone.
-	IHandleEntity *pGround = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
+	IHandleEntity *pGround =
+		Context().Resolver().EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
 	pOut->bGroundResolves = pGround ? 1 : 0;
 
 	const Vector vecGroundVelocity = MovementGroundVelocity( pGround, Context().m_pStaticProps );
@@ -508,7 +509,7 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 	if ( IHandleEntity *pGround = MvGetGroundEntity() )
 	{
 		pOut->hGround = (uint32_t)pGround->GetRefEHandle().ToInt();
-		const PhysicsOwner_t owner = PhysicsOwnerOfHandle( pGround->GetRefEHandle() );
+		const PhysicsOwner_t owner = PhysicsOwnerOfHandle( Context().Resolver(), pGround->GetRefEHandle() );
 		if ( owner.IsValid() )
 		{
 			pOut->nGroundMoveType = (int32_t)owner.GetMoveType();

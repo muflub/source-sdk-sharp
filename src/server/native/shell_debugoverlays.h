@@ -10,6 +10,8 @@
 
 #pragma once
 
+class CServerEntityResolver;
+
 #include "ishim_areas.h"
 
 class COverlayLibrary;
@@ -17,8 +19,9 @@ class COverlayLibrary;
 class CServerDebugOverlays final : public IShimDebugOverlay
 {
 public:
-	explicit CServerDebugOverlays( COverlayLibrary &library )
+	CServerDebugOverlays( COverlayLibrary &library, CServerEntityResolver &entities )
 		: m_Library( library )
+		, m_Entities( entities )
 	{
 	}
 
@@ -46,4 +49,7 @@ public:
 
 private:
 	COverlayLibrary &m_Library;
+
+	// What an entity overlay's handle names.
+	CServerEntityResolver &m_Entities;
 };

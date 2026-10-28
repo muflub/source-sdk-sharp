@@ -5,7 +5,7 @@
 //
 //=============================================================================//
 
-// Resolving a managed entity handle. SourceSharp_ResolveEntity does one
+// Resolving a managed entity handle. CServerEntityResolver::Resolve does one
 // entity-list lookup (serial revalidated); everything else here is a projection
 // of its result. GetGameEntity() and GetBaseEntity() partition the hierarchies,
 // so at most one arm is set.
@@ -67,14 +67,6 @@ struct SourceSharpEntity_t
 	IHandleEntity *ToHandleEntity() const;
 };
 
-// The resolve. NULL in both arms means the entity is gone or its slot was reused.
-SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity );
-
-// Through the DLL tier's CServerEntityResolver (server_entity_resolver.h), for code
-// not yet handed it.
-// The standalone arm alone, for calls only that side can answer.
-CStandaloneEntity *SourceSharp_ResolveStandalone( uint32_t hEntity );
-
 // The other direction: the handle C# knows an entity by.
 
 // INVALID_EHANDLE_INDEX for NULL.
@@ -90,4 +82,5 @@ uint32_t SourceSharp_HandleFromAnyEntity( IHandleEntity *pHandleEntity );
 // The shell's IGameEntity face for an IHandleEntity, or NULL for anything not
 // one of ours. Lets headers that must not include shell_standalone.h make the
 // derived-to-base conversion.
-IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity );
+class CServerEntityResolver;
+IGameEntity *SourceSharp_GameEntityFromHandleEntity( CServerEntityResolver &entities, IHandleEntity *pHandleEntity );

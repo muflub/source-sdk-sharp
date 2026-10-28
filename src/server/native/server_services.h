@@ -34,18 +34,23 @@
 #include "server_diagnostics.h"
 #include "shell_boundary_probe.h"
 
-class CServerDllServices
+// shell_entityslots.cpp and shell_standalone.cpp: the reload's steps over the entities.
+int SourceSharp_RetireEntitySlots( CSourceSharpEntitySlots &slots );
+void SourceSharp_StandaloneResyncSchema( const CServerEntityContext &context, int *pOutChecked, int *pOutRestamped );
+
+class CServerDllServices final : public IManagedReloadSubject
 {
 public:
 	CServerDllServices( const CServerEngineInterfaces &engine, CGlobalVars *pGlobals, const CManagedHolders &managed,
 						CManagedSide &managedSide, CShellTransmitSet &transmitSet, CServerPlayersDll &players,
-						unsigned short &nWorldSerial, int32_t &nInvisibleRangeReach, const CSourceSharpSlotTable &slots,
+						unsigned short &nWorldSerial, int32_t &nInvisibleRangeReach, CSourceSharpSlotTable &slots,
 						CSourceSharpEntitySlots &entitySlots, CServerNetTables &netTables )
 		: m_ManagedSide( managedSide )
+		, m_TransmitSet( transmitSet )
 		, m_Precache( engine.m_pEngine, engine.m_pModelInfo, managed.m_Areas )
 		, m_EntityContext( engine.m_pEngine, pGlobals, engine.m_pPartition, engine.m_pModelInfo, engine.m_pStaticProps,
-						   engine.m_pTrace, managed, managedSide.Loaded(), managedSide.Generation(), players,
-						   nWorldSerial, m_Precache, netTables )
+						   engine.m_pTrace, engine.m_pChangeInfo, managed, managedSide.Loaded(),
+						   managedSide.Generation(), players, nWorldSerial, m_Precache, netTables, slots, entitySlots )
 		, m_Resolver( slots, m_EntityContext, nInvisibleRangeReach )
 		, m_Physics( pGlobals, engine.m_Factories, managed.m_Areas, players, m_EntityContext, m_Resolver )
 		, m_Damage( m_Resolver, engine.m_pRandom )
@@ -63,18 +68,19 @@ public:
 		, m_Events( engine.m_pEvents, managed.m_Areas.m_pEvents, true )
 		, m_Diagnostics( players )
 		, m_OverlayLibrary( engine.m_pOverlay )
-		, m_DebugOverlays( m_OverlayLibrary )
-		, m_WorldQueries( engine.m_pModelInfo, nInvisibleRangeReach, m_Physics.SurfacePropsRef() )
+		, m_DebugOverlays( m_OverlayLibrary, m_Resolver )
+		, m_WorldQueries( engine.m_pModelInfo, m_Resolver, nInvisibleRangeReach, m_Physics.SurfacePropsRef() )
 		, m_Frame( pGlobals, engine.m_pGameStats, engine.m_pMdlCache, m_DebugOverlays, m_EntityContext, m_WorldQueries )
 		, m_GameClients( engine.m_pEngine, pGlobals, engine.m_pMdlCache, managed.m_Areas, managedSide.Loaded(),
 						 m_EntityLifecycle, m_BoundaryProbes, m_EntityContext )
 		, m_GameEnts( engine.m_pEngine, engine.m_pMdlCache, managed.m_Areas, managedSide.Loaded(), transmitSet,
-					  m_BoundaryProbes )
+					  m_BoundaryProbes, m_Resolver )
 		, m_Level( engine.m_pEngine, engine.m_pBaseFileSystem, engine.m_pMdlCache, pGlobals, m_EntityContext,
 				   m_EntityLifecycle.Factories(), m_Precache, m_Physics )
 	{
-		// The entities reach the level's physics through their context.
+		// The entities reach the level's physics and the resolver through their context.
 		m_EntityContext.m_pPhysics = &m_Physics;
+		m_EntityContext.m_pResolver = &m_Resolver;
 	}
 
 	CServerDllServices( const CServerDllServices & ) = delete;
@@ -82,6 +88,9 @@ public:
 
 	// The managed runtime's loader, the game DLL's; native command bodies reach cs_sv_reload's through it.
 	CManagedSide &m_ManagedSide;
+
+	// The game DLL's transmit-set recorder, for cs_sv_transmitset.
+	CShellTransmitSet &m_TransmitSet;
 
 	CServerModelPrecache m_Precache;
 	CServerEntityContext m_EntityContext;
@@ -114,4 +123,11 @@ public:
 	CServerGameClients m_GameClients;
 	CServerGameEnts m_GameEnts;
 	CServerLevel m_Level;
+
+	int RetireBlobPointers() override { return SourceSharp_RetireEntitySlots( m_EntityContext.m_EntitySlots ); }
+
+	void ResyncSchema( int *pOutChecked, int *pOutRestamped ) override
+	{
+		SourceSharp_StandaloneResyncSchema( m_EntityContext, pOutChecked, pOutRestamped );
+	}
 };

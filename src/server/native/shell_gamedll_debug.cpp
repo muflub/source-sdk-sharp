@@ -10,14 +10,14 @@
 
 #include "tier1/convar.h"
 #include "shell_steporder.h"
-#include "shell_gamedll_internal.h"
+#include "server_services.h"
 #include "native_command_body.h"
 
 // The transmit set for one client on one frame. `arm` arms; no argument dumps,
 // one ascending index per line.
 SS_NATIVE_COMMAND( cs_sv_transmitset )
 {
-	CShellTransmitSet &set = ShellGameDll_TransmitSet();
+	CShellTransmitSet &set = services.m_TransmitSet;
 
 	if ( args.ArgC() > 1 )
 	{

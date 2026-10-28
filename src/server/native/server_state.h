@@ -166,9 +166,6 @@ public:
 	CStandalonePlayer *m_pByIndex[ss::kMaxPlayers + 1] = {};
 };
 
-// The length of variant_t::ToString's answer buffer.
-constexpr int kVariantBytes = 512;
-
 class CServerDllState
 {
 public:
@@ -192,12 +189,6 @@ public:
 
 	// Handles from the engine-invisible range that reached native and did not resolve.
 	int32_t m_nInvisibleRangeReach = 0;
-
-	// variant_t::ToString's answer, overwritten by the next call as stock's static was.
-	char m_szVariantString[kVariantBytes] = {};
-
-	// Warn-once latch: the last game-entity pointer a network handle was refused for.
-	const void *m_pLastHandleComplaint = nullptr;
 };
 
 // The level tier: LevelInit to LevelShutdown.
@@ -218,7 +209,3 @@ public:
 	// Warned once per map: an entity allocated a blob shorter than its published layout.
 	bool m_bWarnedShortBlob = false;
 };
-
-// The tiers, NULL outside their windows. Defined in shell_gamedll.cpp.
-CServerDllState *ShellGameDll_Dll();
-CServerLevelState *ShellGameDll_Level();

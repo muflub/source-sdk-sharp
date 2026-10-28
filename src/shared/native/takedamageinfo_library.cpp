@@ -35,6 +35,7 @@
 #include <vstdlib/random.h>
 #else
 #include "vstdlib/random.h"
+#include "server_entity_resolver.h"
 // The damage bits this file names, under their stock spellings.
 
 #define DMG_GENERIC ss::kDmgGeneric
@@ -177,6 +178,11 @@ float ImpulseScale( float flTargetMass, float flDesiredSpeed )
 }
 
 // Fills out a takedamageinfo with a damage force for an explosive.
+IGameEntity *CTakeDamageInfo::GetAttacker( CServerEntityResolver &entities ) const
+{
+	return SourceSharp_CrossHandleToGameEntity<IGameEntity, IServerEntity>( entities.EntityFromHandle( m_hAttacker ) );
+}
+
 void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageInfo *info, const Vector &vecDir,
 									const Vector &vecForceOrigin, float flScale )
 {

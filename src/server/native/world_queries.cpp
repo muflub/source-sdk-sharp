@@ -20,6 +20,7 @@
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
 #include "ss_playerlocaldata.h"
+#include "server_entity_resolver.h"
 
 void CServerWorldQueries::SetSkyboxParams( const SourceSharpSkyboxParams *pParams )
 {
@@ -81,7 +82,7 @@ int32_t CServerWorldQueries::EntityModelSurfaceProp( uint32_t hEntity )
 {
 	SOURCESHARP_TRACE();
 
-	SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( !ent.IsValid() || !m_pSurfaceProps )
 		return -1;

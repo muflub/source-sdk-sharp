@@ -253,6 +253,57 @@ public sealed class PreviewUiTextureLibraryTests : IDisposable
         Assert.Equal(0, library.Find("hud/absent"));
     }
 
+    [Fact]
+    public void A_runs_samples_share_one_store_and_library()
+    {
+        // Made lazily, two parallel samples could each make a store; a
+        // sample's backend then looked its art up in the other one's.
+        var run = new PreviewRun(new PreviewOptions(RepoLayout.RepoRoot, _dir, false, true, null, Content: _dir));
+        var stores = new System.Collections.Concurrent.ConcurrentBag<object?>();
+        var libraries = new System.Collections.Concurrent.ConcurrentBag<object?>();
+
+        Parallel.For(0, 64, new ParallelOptions { MaxDegreeOfParallelism = 16 }, _ =>
+        {
+            stores.Add(run.HudStore());
+            libraries.Add(run.HudLibrary());
+        });
+
+        Assert.NotNull(run.HudStore());
+        Assert.Single(stores.Distinct());
+        Assert.Single(libraries.Distinct());
+    }
+
+    [Fact]
+    public void One_library_answers_the_previews_parallel_samples()
+    {
+        // The preview draws its samples in parallel over one library and one
+        // store; the first screen that asked for art from several threads
+        // corrupted their dictionaries (an InvalidOperationException inside
+        // a sample's describe, surfacing as an unclosed container).
+        Directory.CreateDirectory(Path.Combine(_dir, "materials", "hud"));
+        const int materials = 64;
+        for (int m = 0; m < materials; m++)
+        {
+            File.WriteAllText(Path.Combine(_dir, "materials", "hud", $"art{m}.vmt"),
+                              $"\"UnlitGeneric\"\n{{\n\"$basetexture\" \"hud/art{m}\"\n}}\n");
+            File.WriteAllBytes(Path.Combine(_dir, "materials", "hud", $"art{m}.vtf"), SmallVtf());
+        }
+        var library = new PreviewUiTextureLibrary(ContentFiles.FromDirectory(_dir), _store);
+        var seen = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Concurrent.ConcurrentBag<int>>();
+
+        Parallel.For(0, 20_000, new ParallelOptions { MaxDegreeOfParallelism = 16 }, k =>
+        {
+            string name = $"hud/art{k % materials}";
+            int handle = library.Find(name);
+            seen.GetOrAdd(name, _ => []).Add(handle);
+            Assert.NotNull(_store.Find(handle));
+        });
+
+        Assert.Equal(materials, seen.Count);
+        Assert.All(seen, kv => Assert.Single(kv.Value.Distinct()));
+        Assert.Equal(materials, seen.Values.Select(v => v.First()).Distinct().Count());
+    }
+
     private static byte[] SmallVtf() => VtfFile.Build(new VtfFile(minor: 3, wide: 2, tall: 2, format: 12, mips: 1,
         image:
         [

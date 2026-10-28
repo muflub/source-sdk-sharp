@@ -58,9 +58,9 @@
 // reads `::` in a slot body as the body reaching something.
 using ss::kDamageYes;
 
-IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity )
+IGameEntity *SourceSharp_GameEntityFromHandleEntity( CServerEntityResolver &entities, IHandleEntity *pHandleEntity )
 {
-	return SourceSharp_ShellFromHandleEntity( pHandleEntity );
+	return entities.ShellFromHandleEntity( pHandleEntity );
 }
 
 // An entity's own handle, as the packed uint32 C# is given or as a CBaseHandle.
@@ -80,9 +80,9 @@ uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity )
 	return (uint32_t)SourceSharp_RefHandleFromEntity( pEntity ).ToInt();
 }
 
-int32_t SourceSharp_EntityIsValid( uint32_t hEntity )
+int32_t CServerEntities::EntityIsValid( uint32_t hEntity )
 {
-	return SourceSharp_ResolveEntity( hEntity ).IsValid() ? 1 : 0;
+	return m_Entities.Resolve( hEntity ).IsValid() ? 1 : 0;
 }
 
 int32_t CServerEntities::EntityIsPlayer( uint32_t hEntity )
@@ -92,9 +92,9 @@ int32_t CServerEntities::EntityIsPlayer( uint32_t hEntity )
 	return ( ent.pStandalone && ent.pStandalone->IsPlayer() ) ? 1 : 0;
 }
 
-int32_t SourceSharp_EntityGetIndex( uint32_t hEntity )
+int32_t CServerEntities::EntityGetIndex( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	// The world is entity 0 but is on neither arm below.
 	if ( ent.pWorld )
@@ -131,14 +131,14 @@ void CServerEntities::EntitySetHealth( uint32_t hEntity, int32_t nHealth )
 		ent.pStandalone->SetHealth( nHealth );
 }
 
-void SourceSharp_EntityGetOrigin( uint32_t hEntity, float *pOutXYZ )
+void CServerEntities::EntityGetOrigin( uint32_t hEntity, float *pOutXYZ )
 {
 	if ( !pOutXYZ )
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 	if ( !ent.IsValid() )
 		return;
 
@@ -264,7 +264,7 @@ uint32_t CServerEntityLifecycle::MapSpawnCreate( const char *pClassName, const c
 	if ( hEntity == INVALID_EHANDLE_INDEX )
 		return INVALID_EHANDLE_INDEX;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolver().Resolve( hEntity );
 
 	if ( ent.pStandalone == NULL )
 	{
@@ -302,7 +302,7 @@ uint32_t CServerEntityLifecycle::MapSpawnCreate( const char *pClassName, const c
 void CServerEntityLifecycle::EntitySpawn( uint32_t hEntity )
 {
 	// The shell's own Spawn is the whole precache, spawn and activate sequence.
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolver().Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -356,14 +356,15 @@ uint32_t CServerEntities::FindEntityByClassname( uint32_t hStartAfter, const cha
 			return (uint32_t)pWorld->GetRefEHandle().ToInt();
 	}
 
-	CStandaloneEntity *pFound = StandaloneEntities_FindByClassname( start.pStandalone, pClassName );
+	CStandaloneEntity *pFound =
+		StandaloneEntities_FindByClassname( m_Entities.Context(), start.pStandalone, pClassName );
 
 	return pFound ? (uint32_t)pFound->GetRefEHandle().ToInt() : INVALID_EHANDLE_INDEX;
 }
 
 void CServerEntityLifecycle::EntityRemove( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolver().Resolve( hEntity );
 
 	if ( ent.pStandalone )
 		ent.pStandalone->Remove();
@@ -410,14 +411,14 @@ void CServerEntities::EntitySetVisible( uint32_t hEntity, int32_t bVisible )
 	}
 }
 
-void SourceSharp_EntityGetAngles( uint32_t hEntity, float *pOutPYR )
+void CServerEntities::EntityGetAngles( uint32_t hEntity, float *pOutPYR )
 {
 	if ( !pOutPYR )
 		return;
 
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	const QAngle *pAngles = NULL;
 
@@ -789,14 +790,14 @@ int32_t CServerCollision::EntityGetCollisionGroup( uint32_t hEntity )
 	return CollisionGroup_FromEngine( nEngineGroup, s_CollisionGroupNames, s_nCollisionGroupNames );
 }
 
-void SourceSharp_EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize )
+void CServerModels::EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize )
 {
 	if ( !pOut || nOutSize <= 0 )
 		return;
 
 	pOut[0] = '\0';
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{

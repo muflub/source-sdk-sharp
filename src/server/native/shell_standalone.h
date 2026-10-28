@@ -15,15 +15,9 @@
 #include "engine/ICollideable.h"
 #include "server_class.h"
 #include "engine_block.h"
-#include "ss_activator.h"
 #include "ispatialpartition.h"
 
 #include <vector>
-
-namespace ss
-{
-class variant_t;
-}
 
 namespace ss
 {
@@ -266,9 +260,6 @@ public:
 	// KeyValue without the offer to managed code, for the managed map spawner.
 	bool KeyValueShellOnly( const char *szKeyName, const char *szValue );
 
-	virtual bool AcceptInput( const char *szInputName, const Activator_t &activator, IGameEntity *pCaller,
-							  const ss::variant_t &Value );
-
 	int GetHealth() const { return m_iHealth; }
 
 	void SetHealth( int nHealth ) { m_iHealth = nHealth; }
@@ -346,7 +337,6 @@ protected:
 	// Managed relays (shell_dispatch.cpp), gated on the class's override bit.
 	virtual void OnManagedSpawn();
 	virtual bool OnManagedKeyValue( const char *szKeyName, const char *szValue );
-	virtual bool OnManagedInput( const char *szInputName, const Activator_t &activator, const ss::variant_t &Value );
 
 	// NULL: the trace hit no entity. The world is entity zero.
 	virtual void OnManagedImpact( IHandleEntity *pOther );
