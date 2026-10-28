@@ -28,7 +28,7 @@ namespace SourceSharp.Server;
 [Precache(PrecacheKind.Model, Satchel.Model)]
 [Precache(PrecacheKind.Model, Satchel.GlowSprite)]
 [Precache(PrecacheKind.Sound, Satchel.GrenadeExplodeSound)]
-public sealed class Satchel : ScriptedEntity
+public sealed class Satchel : AnimatingEntity
 {
     public Satchel(IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
                    IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,

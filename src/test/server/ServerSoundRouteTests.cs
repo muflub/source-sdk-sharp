@@ -15,6 +15,7 @@ public sealed class ServerSoundRouteTests : IDisposable
         public readonly List<string> Calls = [];
 
         public void EntityEmitSound(EntityHandle entity, string soundName) => Calls.Add($"Emit {entity.Value:x} {soundName}");
+        public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) => Calls.Add($"EmitAs {entity.Value:x} {soundName} {volume} {pitch}");
         public void EntityStopSound(EntityHandle entity, string soundName) => Calls.Add($"Stop {entity.Value:x} {soundName}");
         public void EmitSoundAtPosition(string soundName, Vector origin) => Calls.Add($"AtPosition {soundName} {origin}");
         public bool EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume)
@@ -90,6 +91,18 @@ public sealed class ServerSoundRouteTests : IDisposable
         Sound(side).EntityStopSound(Door, "Doors.Move1");
 
         Assert.Equal(["Emit 10040 Doors.Move1", "Stop 10040 Doors.Move1"], route.Calls);
+    }
+
+    [Fact]
+    public void AnEntitysEmitAtAVolumeAndPitchReachesTheRouteAndAnEmptyNameDoesNot()
+    {
+        var route = new Route();
+        EngineSide side = Server(route);
+
+        Sound(side).EntityEmitSoundAs(Door, "Doors.Move1", 0.5f, 110);
+        Sound(side).EntityEmitSoundAs(Door, "", 0.5f, 110);
+
+        Assert.Equal(["EmitAs 10040 Doors.Move1 0.5 110"], route.Calls);
     }
 
     [Fact]

@@ -72,10 +72,14 @@ public class TriggerTests
     /// Without the engine the clock reads zero forever, so the refire delay would
     /// gate every touch after the first.
     /// </summary>
-    private static (ScriptedEntityRegistry, T) Spawn<T>(string className) where T : ScriptedEntity
-        => SpawnWith<T>(className, ("wait", "0"));
+    private static (ScriptedEntityRegistry, T) Spawn<T>(string className, Func<float>? clock = null) where T : ScriptedEntity
+        => SpawnWith<T>(className, clock, ("wait", "0"));
 
     private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className,
+        params (string Key, string Value)[] keys) where T : ScriptedEntity
+        => SpawnWith<T>(className, null, keys);
+
+    private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className, Func<float>? clock,
         params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
@@ -84,9 +88,18 @@ public class TriggerTests
         // spawn, through the container's area since plan_abi_hotreload D8. The
         // recorded engine answers id 0, a refused medium -- what the static
         // engine answered here before, with no engine behind it.
-        var services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType",
-                                "MotionControllers.Create", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid",
-                                "Entities.GetSolidFlags", "Entities.GetSolidType");
+        var services = Services(out var engine);
+        if (clock is null)
+            engine.Ignores("Clock.Now");
+        else
+            engine.ReturnsEachCall("Clock.Now", () => clock());
+        engine.Ignores("Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType",
+                       "MotionControllers.Create", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles",
+                       "Entities.GetSolidFlags", "Entities.GetSolidType", "Entities.IsPlayer");
+
+        // Whoever touches is a live entity: CBaseTrigger::EndTouch cleans the
+        // gone out of its list before it decides whether the volume emptied.
+        engine.Returns("Entities.IsValid", true);
         // trigger_vphysics_motion reaches a player's managed flags through it.
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
@@ -104,7 +117,10 @@ public class TriggerTests
     [Fact]
     public void VolumeMembership()
     {
-        var (registry, trigger) = Spawn<TriggerMultiple>(EntityNames.TriggerMultiple);
+        // Stepped past trigger_multiple's wait (0 is 0.2 s) before each entry
+        // that has to fire: its wait gates a re-entry as much as a stay.
+        float now = 0f;
+        var (registry, trigger) = Spawn<TriggerMultiple>(EntityNames.TriggerMultiple, () => now);
 
         registry.Touch(Ent, Player);
         Assert.True(trigger.OnTrigger.FireCount == 1, "entering fires the trigger");
@@ -119,6 +135,7 @@ public class TriggerTests
         Assert.True(trigger.OnLeft.FireCount == 1, "leaving is reported");
         Assert.True(trigger.OnEndTouchAll.FireCount == 1, "the last one out empties it");
 
+        now = 1f;
         registry.Touch(Ent, Player);
         Assert.True(trigger.OnTrigger.FireCount == 2, "re-entering fires again");
 
@@ -166,7 +183,7 @@ public class TriggerTests
         var registry3 = new ScriptedEntityRegistry(TestEngines.Server());
         registry3.RegisterAll(typeof(TriggerMultiple).Assembly);
         registry3.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid",
-                                      "Entities.GetSolidFlags", "Entities.GetSolidType");
+                                      "Entities.GetSolidFlags", "Entities.GetSolidType", "Entities.IsPlayer");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "StartDisabled", "1");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "wait", "0");
         registry3.Spawn(Ent, EntityNames.TriggerMultiple);

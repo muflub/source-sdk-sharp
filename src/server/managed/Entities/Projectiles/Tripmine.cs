@@ -28,7 +28,7 @@ namespace SourceSharp.Server;
 [Precache(PrecacheKind.Model, Tripmine.BeamSprite)]
 [Precache(PrecacheKind.Sound, Tripmine.PlaceSound)]
 [Precache(PrecacheKind.Sound, Tripmine.ActivateSound)]
-public sealed class Tripmine : ScriptedEntity
+public sealed class Tripmine : AnimatingEntity
 {
     public Tripmine(IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
                     IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,

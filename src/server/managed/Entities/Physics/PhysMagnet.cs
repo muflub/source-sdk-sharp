@@ -25,7 +25,7 @@ namespace SourceSharp.Server;
 /// magnet that forgets what it is holding cannot let go.
 /// </summary>
 [ScriptedEntity(EntityNames.PhysMagnet, ScriptedEntityKind.Prop)]
-public sealed class PhysMagnet : ScriptedEntity, ISaveCustom
+public sealed class PhysMagnet : AnimatingEntity, ISaveCustom
 {
     public PhysMagnet(IGameClock clock, IEngineNetworking net, IEngineEntityPhysics physics, IEngineWorldQuery world,
                       IEngineConstraints constraints)

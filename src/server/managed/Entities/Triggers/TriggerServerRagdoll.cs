@@ -60,11 +60,6 @@ public sealed class TriggerServerRagdoll : TriggerVolume
     {
         base.OnSpawn();
 
-        // Stock is a bare CBaseTrigger and has no wait at all: StartTouch acts on
-        // every arrival. The base class's fifth of a second would quietly drop
-        // the second body of any pair that fell in together, which is exactly the
-        // case a mapper draws one of these for.
-        Vars.Wait = 0f;
     }
 
     protected override void Fire(EntityHandle toucher) => Mark(toucher, true);

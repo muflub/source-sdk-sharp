@@ -175,6 +175,8 @@ public sealed class FuncPlat : ScriptedEntity
 
     public override void OnRemoved()
     {
+        StopMovingSound();
+
         if (Entities.IsValid(_trigger))
             Entities.Remove(_trigger);
     }
@@ -293,14 +295,12 @@ public sealed class FuncPlat : ScriptedEntity
             GoDown();
     }
 
-    // CBasePlatTrain::PlayMovingSound stops the last before starting again.
-    private void PlayMovingSound()
-    {
-        StopMovingSound();
-        Sound.EntityEmitSound(Handle, _moveSound);
-    }
+    private readonly MovingNoise _movingNoise = new();
 
-    private void StopMovingSound() => Sound.EntityStopSound(Handle, _moveSound);
+    // CBasePlatTrain::PlayMovingSound stops the last before starting again.
+    private void PlayMovingSound() => _movingNoise.Play(Sound, Handle, _moveSound, Vars.Volume);
+
+    private void StopMovingSound() => _movingNoise.Stop(Sound);
 
     /// <summary>CFuncPlat::Blocked: 1 of crush to what is in the way, and back the way it came.</summary>
     public override void OnBlocked(EntityHandle other)
@@ -348,4 +348,7 @@ public partial class FuncPlatVars
     /// <summary>The sound when it arrives at either end.</summary>
     [VarName("noise2")]
     public string ArriveSound { get; set; } = string.Empty;
+
+    /// <summary>m_volume: the moving noise's volume, 0.85 when unset.</summary>
+    public float Volume { get; set; }
 }

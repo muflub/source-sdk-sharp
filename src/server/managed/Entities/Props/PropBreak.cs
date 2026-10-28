@@ -200,16 +200,12 @@ public static class PropBreakPlan
 /// </para>
 ///
 /// <para>
-/// The second is that stock, in MULTIPLAYER, does not do this at all. It sends a
-/// <c>te->PhysicsProp</c> temp entity and lets each client build its own
-/// clientside pieces, and any piece not explicitly marked
-/// <c>multiplayer_break server</c> is skipped on the server. That path has no
-/// destination in this mod — C_PhysPropClientside was evicted, having been
-/// measured building exactly one object per level load and discarding it — so
-/// the SERVER path is taken here unconditionally. It is a deliberate divergence
-/// and it is the whole answer to "why no gibs": the multiplayer branch was
-/// firing at a class that no longer exists, and the branch that would have made
-/// something had no caller.
+/// The second is that stock, in MULTIPLAYER, mostly does not do this at all. A
+/// breakable prop sends a <c>te->PhysicsProp</c> temp entity and lets each
+/// client build its own clientside pieces (ClientPhysicsProps), and the server
+/// makes only what the caller's <see cref="BreakPieceSide"/> leaves it: the
+/// pieces not marked <c>multiplayer_break client</c>, or only those marked
+/// <c>server</c>.
 /// </para>
 /// </summary>
 public sealed class PropBreak
@@ -320,8 +316,11 @@ public sealed class PropBreak
     /// The prop itself, handed on as each piece's owner — which is what stops a
     /// piece colliding with the thing it came out of.
     /// </param>
+    /// <param name="eachPiece">Handed every piece once it has spawned, for what the owner passes on.</param>
     /// <returns>How many pieces were made.</returns>
-    public int CreateAll(string model, EntityHandle owner, in BreakContext context)
+    /// <param name="side">Which of the pieces this server makes (PropBreakableCreateAll's multiplayer test).</param>
+    public int CreateAll(string model, EntityHandle owner, in BreakContext context, Action<EntityHandle>? eachPiece = null,
+                         BreakPieceSide side = BreakPieceSide.All)
     {
         if (model.Length == 0)
             return 0;
@@ -351,7 +350,7 @@ public sealed class PropBreak
                                         out string pieceModel, out BreakPiece piece))
                 continue;
 
-            if (pieceModel.Length == 0)
+            if (pieceModel.Length == 0 || !side.Makes(piece.MultiplayerBreakMode))
                 continue;
 
             // Compared with None rather than asked IsValid, and the difference
@@ -359,8 +358,12 @@ public sealed class PropBreak
             // handle's serial, and this handle was made half a line ago. None is
             // what Create answers when the factory refused, which is the only
             // failure there is here.
-            if (Create(PropBreakPlan.Place(pieceModel, piece, context), owner, context) != EntityHandle.None)
-                made++;
+            EntityHandle gib = Create(PropBreakPlan.Place(pieceModel, piece, context), owner, context);
+            if (gib == EntityHandle.None)
+                continue;
+
+            made++;
+            eachPiece?.Invoke(gib);
         }
 
         return made;
@@ -443,4 +446,38 @@ public sealed class PropBreak
 
         return gib;
     }
+}
+
+/// <summary>
+/// Which of a model's pieces the server makes: PropBreakableCreateAll's
+/// "skip multiplayer pieces that should be spawning on the other dll", when
+/// <c>gpGlobals->maxClients &gt; 1 &amp;&amp; breakable_multiplayer</c>.
+/// </summary>
+public enum BreakPieceSide
+{
+    /// <summary>One player, or breakable_multiplayer off: every piece.</summary>
+    All,
+
+    /// <summary>Multiplayer, at the default location: all but the pieces marked client.</summary>
+    DefaultLocation,
+
+    /// <summary>Multiplayer, as CBreakableProp::Break's server half asks (defaultLocation false): only those marked server.</summary>
+    ServerMarked,
+}
+
+/// <summary>What each <see cref="BreakPieceSide"/> lets through.</summary>
+public static class BreakPieceSides
+{
+    /// <summary>gpGlobals->maxClients &gt; 1 &amp;&amp; breakable_multiplayer: the clients make the pieces.</summary>
+    public static bool InMultiplayer(IEngineEnvironment environment, ConVarRegistry? convars)
+        => environment.Globals is { IsAvailable: true, MaxClients: > 1 }
+        && (convars?.Get<BreakableMultiplayerConVar>()?.Value ?? true);
+
+    /// <summary>Whether a piece with this <c>multiplayer_break</c> mode (stock's mp_break_t as an int) is made here.</summary>
+    public static bool Makes(this BreakPieceSide side, int mode) => side switch
+    {
+        BreakPieceSide.All => true,
+        BreakPieceSide.DefaultLocation => mode != (int)MultiplayerBreak.ClientSide,
+        _ => mode != (int)MultiplayerBreak.ClientSide && mode != (int)MultiplayerBreak.Default,
+    };
 }

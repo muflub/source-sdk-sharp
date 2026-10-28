@@ -25,7 +25,7 @@ namespace SourceSharp.Server;
 /// still at a chosen value (docs/todo.md).
 /// </para>
 /// </summary>
-public abstract class WallCharger : ScriptedEntity
+public abstract class WallCharger : AnimatingEntity
 {
     /// <summary>CHARGE_RATE: how long the machine waits on a held key before it turns off.</summary>
     public const float ChargeRate = 0.25f;

@@ -60,6 +60,29 @@ public sealed class ServerSoundsTests
         Assert.Contains(_entities.Calls, c => c.Member == "Entities.GetWorldSpaceCenter");
     }
 
+    /// <summary>
+    /// CBreakable's way (DamageSound, Die): GetParametersForSound, then the
+    /// script's wave on its channel and level at the caller's volume and pitch,
+    /// to the PAS of the centre at ATTN_NORM.
+    /// </summary>
+    [Fact]
+    public void AnEntitysSoundAtAVolumeAndPitchIsTheScriptsWaveWithThoseInstead()
+    {
+        Sounds().EntityEmitSoundAs(Door, "Doors.Move1", 0.5f, 110);
+
+        var emit = Assert.Single(_engine.Emits);
+        Assert.Equal((64, "doors/move1.wav", 4, 0.5f, 80, 110, 0),
+                     (emit.EntIndex, emit.Sample, emit.Channel, emit.Volume, emit.SoundLevel, emit.Pitch, emit.Flags));
+    }
+
+    [Fact]
+    public void A_sound_at_a_volume_with_no_script_plays_nothing()
+    {
+        Sounds().EntityEmitSoundAs(Door, "No.Such.Script", 0.5f, 110);
+
+        Assert.Empty(_engine.Emits);
+    }
+
     [Fact]
     public void TheScriptsLevelDecidesHowFarTheEntitysSoundCarries()
     {

@@ -17,7 +17,7 @@ namespace SourceSharp.Server;
 /// a rocket are all in what "hits something" means, so that is the only thing
 /// left abstract.
 /// </summary>
-public abstract class FlyingProjectile : ScriptedEntity
+public abstract class FlyingProjectile : AnimatingEntity
 {
     public FlyingProjectile(IEngineEntityPhysics physics, EntityMotion motion)
     {

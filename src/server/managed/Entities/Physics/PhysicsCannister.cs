@@ -37,12 +37,15 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.PhysicsCannister, ScriptedEntityKind.Prop)]
-public sealed class PhysicsCannister : ScriptedEntity
+public sealed class PhysicsCannister : AnimatingEntity
 {
     public PhysicsCannister(IGameClock clock, IEngineDamage damage, IEngineHost host, IEngineSound sound,
                             IEngineWorldQuery world, IEngineEffects effects, IEnginePrecache precache, IBlastSweep blast, IServerDecals decals,
-                            IEngineEntityPhysics physics, IEngineMotionControllers motion)
+                            IEngineEntityPhysics physics, IEngineMotionControllers motion, IEngineEnvironment environment,
+                            ConVarRegistry? convars = null)
     {
+        Environment = environment;
+        ConVars = convars;
         Physics = physics;
         Motion = motion;
         Clock = clock;
@@ -96,6 +99,11 @@ public sealed class PhysicsCannister : ScriptedEntity
 
     /// <summary>the solver's motion controllers, which the thruster is made in.</summary>
     private readonly IEngineMotionControllers Motion;
+
+    /// <summary>gpGlobals->maxClients, and breakable_multiplayer: whose its client-marked pieces are.</summary>
+    private readonly IEngineEnvironment Environment;
+
+    private readonly ConVarRegistry? ConVars;
     /// <summary>What a map may set on this entity. See <see cref="PhysicsCannisterVars"/>.</summary>
     [ScriptVars] public PhysicsCannisterVars Vars = new();
 
@@ -722,7 +730,8 @@ public sealed class PhysicsCannister : ScriptedEntity
             AngularVelocity: Entities.GetAngularVelocity(Handle),
             DefaultBurstScale: 20f,
             DefaultCollisionGroup: CollisionGroup.Debris,
-            SpawnFlags: SpawnFlags));
+            SpawnFlags: SpawnFlags),
+            side: BreakPieceSides.InMultiplayer(Environment, ConVars) ? BreakPieceSide.DefaultLocation : BreakPieceSide.All);
 
         // ignored: Handle -- an entity that explodes where it stands must say so,
         // or its own hull stops the very first trace of the traversal and every

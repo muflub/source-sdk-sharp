@@ -2615,6 +2615,14 @@ internal sealed unsafe partial class EngineSound
         _sounds.Target?.EntityEmitSound(entity, soundName);
     }
 
+    /// <summary>The same entity sound at a volume and pitch of the caller's.</summary>
+    public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch)
+    {
+        if (soundName.Length == 0) return;
+
+        _sounds.Target?.EntityEmitSoundAs(entity, soundName, volume, pitch);
+    }
+
     /// <summary>A noise with no entity to come from.</summary>
     public void EmitSoundAtPosition(string soundName, Vector origin)
     {

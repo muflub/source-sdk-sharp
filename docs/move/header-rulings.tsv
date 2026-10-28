@@ -498,8 +498,8 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/EnvGlobal.cs	yes	ports
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicActiveAutosave.cs	no	deliberately inert stub, no save logic implemented
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicAuto.cs	yes	ports logic_auto globalstate gate and fire-once removal (logicauto.cpp:87)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicAutosave.cs	no	deliberately inert stub, no save logic implemented
-src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranch.cs	no	trivial boolean toggle; names match interop I/O contract, not ported algorithm
-src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranchListener.cs	no	trivial all/none/mixed check; interop event name only, no algorithm
+src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranch.cs	yes	ports CLogicBranch (logicentities.cpp): UpdateValue and its listener notifications, AddLogicBranchListener
+src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranchListener.cs	yes	ports CLogicBranchList (logicentities.cpp): Branch01..16, Activate registration, DoTest state machine
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicCase.cs	yes	ports CLogicCase InputValue/PickRandom/PickRandomShuffle shuffle-bag (logicentities.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicCollisionPair.cs	yes	ports CLogicCollisionPair::InputEnable/DisableCollisions succeeded-guard logic (logicentities.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicCompare.cs	yes	ports CLogicCompare::DoCompare branching (logicentities.cpp)

@@ -62,7 +62,7 @@ public sealed class SsWeapon : ScriptedEntity
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.PredictedViewModel, ScriptedEntityKind.Effect)]
-public sealed class SsViewModel : ScriptedEntity
+public sealed class SsViewModel : AnimatingEntity
 {
     /// <summary>The viewmodel's replicated — and predicted — state.</summary>
     [NetState] public ViewModelNetState State = new();

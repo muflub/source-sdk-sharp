@@ -45,6 +45,9 @@ public interface IPhysGunTarget
     /// <summary>A motion-disabled object the cannon may still take (SF_PHYSPROP_ENABLE_ON_PHYSCANNON).</summary>
     bool EnablesOnPhyscannon => false;
 
+    /// <summary>EFL_NO_PHYSCANNON_INTERACTION: the cannon can neither pick it up nor punt it.</summary>
+    bool NoPhyscannonInteraction => false;
+
     /// <summary>ForcePhysgunOpen: the claws open at this even when it cannot be picked up.</summary>
     bool ForcePhysgunOpen(EntityHandle player) => false;
 
@@ -480,6 +483,9 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
         if (target == EntityHandle.None || IsWorld(target))
             return false;
 
+        if (Target(target)?.NoPhyscannonInteraction == true)
+            return false;
+
         if (_directory.Get(c.Player) is SsPlayer p && p.GroundIndex == _entities.GetIndex(target))
             return false;
 
@@ -529,7 +535,7 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
         Vector end = start + forward * PhysCannonTuning.TraceLength;
 
         TraceAnswer tr = _traces.Hull(start, end, new Vector(-8, -8, -8), new Vector(8, 8, 8), MaskShotGrate, c.Player);
-        bool valid = !(tr.Fraction == 1 || tr.Entity == EntityHandle.None);
+        bool valid = !(tr.Fraction == 1 || tr.Entity == EntityHandle.None || NoInteraction(tr.Entity));
 
         if (valid && MoveTypeOf(tr.Entity) != MoveType.VPhysics && !TakesDamage(tr.Entity))
             valid = false;
@@ -538,7 +544,7 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
         if (!valid)
         {
             tr = _traces.Line(start, end, MaskShotGrate, c.Player);
-            if (tr.Fraction == 1 || tr.Entity == EntityHandle.None)
+            if (tr.Fraction == 1 || tr.Entity == EntityHandle.None || NoInteraction(tr.Entity))
                 return PhysCannonPunt.DryFire;
         }
 
@@ -692,6 +698,8 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
     private bool IsWorld(EntityHandle entity) => _entities.GetIndex(entity) == 0;
 
     private IPhysGunTarget? Target(EntityHandle entity) => _directory.Get(entity) as IPhysGunTarget;
+
+    private bool NoInteraction(EntityHandle entity) => Target(entity)?.NoPhyscannonInteraction == true;
 
     /// <summary>
     /// Physgun_OnPhysGunPickup. Stock first turns debris into interactive

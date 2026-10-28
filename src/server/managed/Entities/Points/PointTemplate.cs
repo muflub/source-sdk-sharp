@@ -47,6 +47,7 @@ namespace SourceSharp.Server;
 /// precache are one managed object calling another.
 /// </para>
 /// </summary>
+[ClaimsKeys("Template", 1, 16)]
 [ScriptedEntity(EntityNames.PointTemplate)]
 public sealed class PointTemplate : ScriptedEntity
 {

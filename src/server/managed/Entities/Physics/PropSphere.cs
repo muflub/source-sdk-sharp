@@ -28,7 +28,7 @@ namespace SourceSharp.Server;
 /// twelve a side.
 /// </summary>
 [ScriptedEntity(EntityNames.PropSphere, ScriptedEntityKind.Prop)]
-public sealed class PropSphere : ScriptedEntity
+public sealed class PropSphere : AnimatingEntity
 {
     /// <summary>CPhysSphere's radius.</summary>
     public const float Radius = 12f;

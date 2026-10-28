@@ -45,7 +45,7 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.PropDynamicOrnament, ScriptedEntityKind.Prop)]
-public sealed class PropDynamicOrnament : ScriptedEntity
+public sealed class PropDynamicOrnament : AnimatingEntity
 {
     /// <summary>
     /// No physics object at all: COrnamentProp is a CDynamicProp that keeps

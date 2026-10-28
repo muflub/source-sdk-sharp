@@ -1614,6 +1614,8 @@ internal sealed unsafe partial class EngineSound
     public void EmitSoundAtPosition(string soundName, Vector origin) { }
     public void EntityStopSound(EntityHandle entity, string soundName) { }
     public void EntityEmitSound(EntityHandle entity, string soundName) { }
+
+    public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
 }
 
 internal sealed unsafe partial class EngineVisibility

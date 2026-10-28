@@ -677,3 +677,9 @@ src/server/native/edict_change.h	SourceSharp_MarkEdictChanged: ports CBaseEdict:
 src/server/native/edict_change.cpp	ports CBaseEdict::StateChanged( offset ) and StateChanged() (edict.h); T6 part 3
 src/client/native/standalone_model_instance.h	ports the model-change half of C_BaseEntity::SetModelPointer and C_BaseEntity::DestroyModelInstance (c_baseentity.cpp)
 src/server/managed/PlacedObjects.cs	ports CHL2MPRules::ManageObjectRelocation, AddLevelDesignerPlacedObject and GetObjectsOriginalParameters (hl2mp_gamerules.cpp): placed items and weapons sent home
+src/server/managed/Entities/AnimatingEntity.cs	ports CBaseAnimating (baseanimating.cpp): its skin/body/modelscale keyfields, the skin, SetBodyGroup, SetModelScale (UpdateModelScale), SetModel (ScriptSetModel) and Ignite/IgniteLifetime/IgniteNumHitboxFires/IgniteHitboxFireScale inputs, OnIgnite
+src/server/managed/BreakableDamage.cs	ports GetBreakableDamage (props.cpp): bullet, buckshot, club, blast and slash-crush damage by a breakable's modifiers
+src/server/managed/Entities/Brushes/BreakableConVars.cs	ports the func_breakdmg_*, func_break_max_pieces, func_break_reduction_factor (func_break.cpp, props.cpp) and breakable_disable_gib_limit convars
+src/server/managed/Entities/Brushes/BreakableBrush.cs	ports CBreakable (func_break.cpp): material, propdata, damage modifiers, UpdateHealth, DamageSound, BreakTouch, Die (gibs, explosion), shared by func_breakable and func_pushable
+src/server/managed/Entities/Brushes/MovingNoise.cs	ports CBasePlatTrain::PlayMovingSound and StopMovingSound (trains.cpp): the moving noise as a CHAN_STATIC sound patch at the volume
+src/server/managed/Entities/Props/BreakableProp.cs	ports CBreakableProp (props.cpp): prop data health and interactions, OnTakeDamage (GetBreakableDamage, fire interactions), UpdateHealth and its inputs, the physcannon and punt-sound inputs, Break (explosion, pieces), shared by prop_physics and prop_dynamic

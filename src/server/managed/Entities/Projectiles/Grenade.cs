@@ -24,7 +24,7 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.NpcGrenadeFrag, ScriptedEntityKind.Prop)]
 [Precache(PrecacheKind.Sound, BlipSound)]
 [Precache(PrecacheKind.Sound, ExplodeSound)]
-public sealed class Grenade : ScriptedEntity
+public sealed class Grenade : AnimatingEntity
 {
     public Grenade(IEngineWorldQuery world, IEnginePrecache precache, IBlastSweep blast,
                    IServerDecals decals, IEngineEffects effects, ITempEnts temps, IEngineSound sound)

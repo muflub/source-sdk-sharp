@@ -212,6 +212,13 @@ public static partial class TestServices
         services.AddInstance<IServerDecals>(decals);
         services.AddInstance(new BloodDecals(engine, decals, engine, engine));
         services.AddInstance<IServerSkins>(new RecordingServerSkins());
+
+        // Every model entity's flames (AnimatingEntity), as the server module
+        // registers them: over no entities, so nothing is burning until a
+        // test registers a Flames over its own registry.
+        services.AddInstance(new SourceSharp.Server.Flames(new RecordingLog(), NoEntities.Instance, engine));
+        services.AddInstance(new SourceSharp.Server.DamageInflictors());
+        services.AddInstance<SourceSharp.Server.Interop.IVPhysicsGrabCalls>(RestingBodies);
         services.AddInstance(new SourceSharp.Server.Interop.SolverHeldOverlaps());
 
         services.AddInstance<IServerSoundEnt>(new SoundEnt(engine, engine, engine));

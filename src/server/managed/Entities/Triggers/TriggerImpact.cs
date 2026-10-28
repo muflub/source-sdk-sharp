@@ -79,11 +79,6 @@ public sealed class TriggerImpact : TriggerVolume
         // shove backwards as often as forwards.
         TriggerImpactVars.Noise = Math.Clamp(TriggerImpactVars.Noise, 0f, 1f);
         TriggerImpactVars.Viewkick = Math.Clamp(TriggerImpactVars.Viewkick, 0f, 1f);
-
-        // Hammer never offered this one a "wait", and the base's default would
-        // throttle it: a stack of crates has to leave on one impact rather than
-        // one crate every fifth of a second.
-        Vars.Wait = 0f;
     }
 
     /// <summary>

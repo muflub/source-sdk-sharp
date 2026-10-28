@@ -147,6 +147,10 @@ public class FuncPhysbox : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverr
                 Physics.SetMass(Handle, mass * Vars.MassScale);
         }
 
+        // CPhysBox::CreateVPhysics: a sharp box cuts (FVPHYSICS_DMG_SLICE).
+        if (Vars.DamageType == 1)
+            Physics.AddGameFlags(Handle, PhysicsGameFlags.SliceDamage);
+
         if (Vars.NotSolidToWorld)
             Physics.SetNotSolid(Handle, true);
 
@@ -362,6 +366,10 @@ public partial class FuncPhysboxVars
 
     /// <summary>Multiplies the mass derived from the brush's volume.</summary>
     public float MassScale { get; set; }
+
+    /// <summary>m_damageType: 1 is sharp, its object FVPHYSICS_DMG_SLICE.</summary>
+    [VarName("Damagetype")]
+    public int DamageType { get; set; }
 
     /// <summary>
     /// Still collides with players and props; simply does not wedge against the

@@ -62,17 +62,48 @@ public sealed class ScriptedEventAttribute : Attribute
 }
 
 /// <summary>
+/// A family of numbered map keys the class takes in its own
+/// <see cref="ScriptedEntity.OnKeyValue"/> rather than as <c>[ScriptVars]</c>:
+/// <paramref name="prefix"/> and each number from <paramref name="first"/> to
+/// <paramref name="last"/>, zero-padded to <paramref name="digits"/>. Read by
+/// <see cref="ScriptedEntityRegistry.DescribeClasses"/>, so the keys a map may
+/// send are described as declared ones are (logic_case's Case01..Case16).
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+public sealed class ClaimsKeysAttribute(string prefix, int first, int last, int digits = 2) : Attribute
+{
+    public string Prefix { get; } = prefix;
+
+    public int First { get; } = first;
+
+    public int Last { get; } = last;
+
+    public int Digits { get; } = digits;
+
+    /// <summary>Every key of the family, in order.</summary>
+    public IEnumerable<string> Keys()
+    {
+        for (int i = First; i <= Last; i++)
+            yield return Prefix + i.ToString("D" + Digits, System.Globalization.CultureInfo.InvariantCulture);
+    }
+}
+
+/// <summary>
 /// Everything an input carries. Taken as a parameter only by inputs that need
 /// more than the value.
 /// </summary>
 public readonly struct InputData
 {
-    public InputData(string value, float number, EntityHandle activator)
+    public InputData(string value, float number, EntityHandle activator, EntityHandle caller = default)
     {
         Value = value;
         Number = number;
         Activator = activator;
+        Caller = caller;
     }
+
+    /// <summary>The entity whose output sent it (stock's pCaller), or none when nothing did.</summary>
+    public EntityHandle Caller { get; }
 
     /// <summary>The value as text, which is how the map wrote it.</summary>
     public string Value { get; }
@@ -348,6 +379,9 @@ public abstract class ScriptedEntity
     private IEngineEntityPhysics Physics => _physics ?? throw Unbound(nameof(IEngineEntityPhysics));
     private IEnginePlayers Players => _players ?? throw Unbound(nameof(IEnginePlayers));
 
+    /// <summary>Whether this is a player who is dead (stock's IsPlayer() and !IsAlive()).</summary>
+    protected bool IsDeadPlayer(EntityHandle entity) => Entities.IsPlayer(entity) && !Players.IsAlive(entity);
+
     /// <summary>
     /// Every area the base's helpers reach, from one container: the registry's
     /// at creation, or a test's (plan_abi_hotreload D8).
@@ -362,7 +396,14 @@ public abstract class ScriptedEntity
         _players = engine.Require<IEnginePlayers>();
         _host = engine.Require<IEngineHost>();
         _surfaces = engine.Resolve(typeof(PhysicsSurfaces)) as PhysicsSurfaces;
+        BindOwnAreas(engine);
     }
+
+    /// <summary>
+    /// What a base below this one binds from the same container, at the same
+    /// moment: <see cref="AnimatingEntity"/>'s skins, flames and precache.
+    /// </summary>
+    private protected virtual void BindOwnAreas(IServiceLocator engine) { }
 
     // How this entity's restore re-checks a saved handle: against its own
     // side's engine (plan_abi_hotreload D8).
@@ -1625,9 +1666,22 @@ public abstract class ScriptedEntity
     {
         if (context is null)
             OnThink();
-        else
+        else if (!TakeBaseThink(context))
             OnThink(context);
     }
+
+    /// <summary>
+    /// A context think a base below this one books for itself, taken before the
+    /// class's own <see cref="OnThink(string)"/> sees it, so a class that
+    /// overrides that without calling down still lets its base's thinks run.
+    /// </summary>
+    private protected virtual bool TakeBaseThink(string context) => false;
+
+    /// <summary>
+    /// A key one of this entity's sets has just taken, for a base whose keys
+    /// act as they arrive (stock's keyfields write the field the engine sends).
+    /// </summary>
+    internal virtual void KeyTaken(ScriptedVarSet set, string lowered) { }
 
     /// <summary>
     /// The think heap this entity books into.
@@ -1654,6 +1708,13 @@ public abstract class ScriptedEntity
 
     /// <summary>The registry's clock, for a subclass that stamps state with the time (0 with no registry).</summary>
     protected float GameTime => Now;
+
+    /// <summary>
+    /// g_EventQueue.AddEvent( target, input, delay, activator, this ): an input
+    /// for another entity, queued from this one, which arrives as its caller.
+    /// </summary>
+    protected void QueueInput(EntityHandle target, string input, float delay = 0f, EntityHandle activator = default)
+        => Owner?.Directory.FireInputAt(target, input, null, Now, delay, activator, Handle);
 
     /// <summary>
     /// Schedules <see cref="OnThink()"/> for <paramref name="delay"/> seconds
@@ -2259,8 +2320,8 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         _io = io;
         _removal = removal;
 
-        _directory.InputDelivery = (target, input, value, number, activator)
-            => Input(target, input, value ?? string.Empty, number, activator);
+        _directory.InputDelivery = (target, input, value, number, activator, caller)
+            => Input(Resolve(target), input, value ?? string.Empty, number, activator, caller);
 
         _directory.PlayerProvider = () => _engine.Require<IEnginePlayers>().GetHandle(1);
 
@@ -3014,7 +3075,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         foreach (var set in instance.VarSets)
         {
             if (set.OfferLowered(lowered, value))
+            {
+                instance.KeyTaken(set, lowered);
                 return true;
+            }
         }
 
         if (instance.OnKeyValue(key, value))
@@ -3029,39 +3093,17 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     }
 
     /// <summary>
-    /// The keys CBaseEntity and CBaseAnimating take for every class that does
-    /// not take them itself: disableshadows (CBaseEntity::KeyValue's
-    /// EF_NOSHADOW, any entity), and for a model entity (a prop or an item)
-    /// skin, body (and SetBodyGroup) and modelscale, CBaseAnimating's
-    /// keyfields, set as the map writes them before the spawn.
+    /// The keys CBaseEntity takes for every class that does not take them
+    /// itself: disableshadows (CBaseEntity::KeyValue's EF_NOSHADOW, any
+    /// entity). CBaseAnimating's are <see cref="AnimatingVars"/>.
     /// </summary>
     private bool TakeBaseKey(ScriptedEntity instance, EntityHandle handle, string lowered, string value)
     {
-        bool animating = instance.RegisteredKind is ScriptedEntityKind.Prop or ScriptedEntityKind.Item;
-
         switch (lowered)
         {
             case "disableshadows":
                 if (Atoi(value) != 0 && Services?.Resolve(typeof(SourceSharp.Server.IEntityEffectBits)) is SourceSharp.Server.IEntityEffectBits bits)
                     bits.Set(handle, EntityEffect.NoShadow, true);
-                return true;
-
-            case "skin" when animating:
-                if (Services?.Resolve(typeof(IServerSkins)) is IServerSkins skins)
-                    skins.SetSkin(handle, Atoi(value));
-                return true;
-
-            // m_nBody: its keyfield, and SetBodyGroup, the input that is also a key.
-            case "body" or "setbodygroup" when animating:
-                if (Services?.Resolve(typeof(IServerSkins)) is IServerSkins bodies)
-                    bodies.SetBody(handle, Atoi(value));
-                return true;
-
-            case "modelscale" when animating:
-                if (float.TryParse(value, System.Globalization.NumberStyles.Float,
-                                   System.Globalization.CultureInfo.InvariantCulture, out float scale)
-                    && Services?.Resolve(typeof(IEngineEntityRender)) is IEngineEntityRender render)
-                    render.SetModelScale(handle, scale);
                 return true;
         }
 
@@ -3398,6 +3440,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
 
     /// <inheritdoc cref="Input(EntityHandle, string, string, float, EntityHandle)"/>
     public bool Input(in EntityRef entity, string name, string value, float number, EntityHandle activator)
+        => Input(entity, name, value, number, activator, EntityHandle.None);
+
+    /// <summary>An input with the entity that sent it, as an output's delivery has one.</summary>
+    public bool Input(in EntityRef entity, string name, string value, float number, EntityHandle activator, EntityHandle caller)
     {
         var instance = entity.Entity;
         if (instance is null)
@@ -3420,7 +3466,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             if (_byClassName.TryGetValue(instance.ClassName, out var reg)
                 && reg.Inputs.TryGetValue(name, out var method))
             {
-                method.Invoke(instance, ArgumentsFor(method, value, number, activator));
+                method.Invoke(instance, ArgumentsFor(method, value, number, activator, caller));
                 return true;
             }
 
@@ -3601,7 +3647,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         };
     }
 
-    private static object?[] ArgumentsFor(MethodInfo method, string value, float number, EntityHandle activator)
+    private static object?[] ArgumentsFor(MethodInfo method, string value, float number, EntityHandle activator, EntityHandle caller)
     {
         var parameters = method.GetParameters();
         if (parameters.Length == 0)
@@ -3615,7 +3661,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         if (type == typeof(string))
             return new object?[] { value };
 
-        return new object?[] { new InputData(value, number, activator) };
+        return new object?[] { new InputData(value, number, activator, caller) };
     }
 
     public void Think(EntityHandle handle) => Think(Resolve(handle));
@@ -4017,6 +4063,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
                 reg.OutputNames.ToArray(),
                 reg.VarSetKeys.SelectMany(s => s)
                     .Select(d => new ScriptedFieldInfo(d.Name, d.TypeName))
+                    .Concat(reg.Type.GetCustomAttributes(typeof(ClaimsKeysAttribute), inherit: true)
+                                .Cast<ClaimsKeysAttribute>()
+                                .SelectMany(a => a.Keys())
+                                .Select(k => new ScriptedFieldInfo(k, "string")))
                     .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase).ToArray(),
                 live));
         }

@@ -456,17 +456,13 @@ public class FuncPlatRot : ScriptedEntity
     // The noises, under Hammer's own opaque key names, as on a platform train:
     // noise1 while it moves and noise2 when it arrives.
     //-------------------------------------------------------------------------
-    protected void PlayMovingSound()
-    {
-        if (Vars.MoveSound.Length > 0)
-            Sound.EntityEmitSound(Handle, Vars.MoveSound);
-    }
+    private readonly MovingNoise _movingNoise = new();
 
-    protected void StopMovingSound()
-    {
-        if (Vars.MoveSound.Length > 0)
-            Sound.EntityStopSound(Handle, Vars.MoveSound);
-    }
+    protected void PlayMovingSound() => _movingNoise.Play(Sound, Handle, Vars.MoveSound, Vars.Volume);
+
+    protected void StopMovingSound() => _movingNoise.Stop(Sound);
+
+    public override void OnRemoved() => StopMovingSound();
 
     protected void PlayArriveSound()
     {
@@ -537,10 +533,6 @@ public partial class FuncPlatRotVars
     [VarName("noise2")]
     public string ArriveSound { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Declared so a map's value survives being read back, and used by nothing:
-    /// the managed sound call plays at the entity's own attenuation and takes no
-    /// volume. See docs/divergences.md.
-    /// </summary>
-    public float Volume { get; set; } = 0.85f;
+    /// <summary>m_volume: the moving noise's volume, 0.85 when unset.</summary>
+    public float Volume { get; set; } = MovingNoise.DefaultVolume;
 }

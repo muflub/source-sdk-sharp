@@ -31,7 +31,7 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.Player, ScriptedEntityKind.Player)]
-public sealed class SsPlayer : ScriptedEntity
+public sealed class SsPlayer : AnimatingEntity
 {
     /// <summary>
     /// The model every player wears. The same citizen the CBasePlayer shell

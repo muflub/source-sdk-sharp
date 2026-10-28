@@ -85,10 +85,6 @@ public sealed class TriggerWind : VPhysicsTriggerVolume
         _speedCurrent = TriggerWindVars.SpeedBase;
         _dirCurrent = _dirBase;
 
-        // Every entrant needs a controller of its own, and a refire delay would
-        // quietly skip the second of two crates arriving together.
-        Vars.Wait = 0f;
-
         SetContextThink(WindContext, 0f);
         SetContextThink(BlowContext, 0f);
     }

@@ -77,11 +77,6 @@ public sealed class TriggerVPhysicsMotion : VPhysicsTriggerVolume
     {
         base.OnSpawn();
 
-        // Every entrant has to be attached, and a refire delay would quietly
-        // skip the second of two crates falling in together — the same reason
-        // the wind clears it.
-        Vars.Wait = 0f;
-
         _medium = MotionController.Unattached(Motion, MotionControllerKind.Medium);
         _mediumId = _medium?.Id.Value ?? 0u;
         Retune();

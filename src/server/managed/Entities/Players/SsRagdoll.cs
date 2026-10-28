@@ -47,7 +47,7 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.Hl2mpRagdoll, ScriptedEntityKind.Item)]
-public sealed class SsRagdoll : ScriptedEntity
+public sealed class SsRagdoll : AnimatingEntity
 {
     /// <summary>
     /// How long a body lasts before it is removed, in seconds.

@@ -58,7 +58,7 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.Gib, ScriptedEntityKind.Projectile)]
-public sealed class SsGib : ScriptedEntity
+public sealed class SsGib : AnimatingEntity
 {
     public SsGib(IEngineEntityPhysics physics, EntityMotion motion,
                  IEngineEffects effects, IEngineSound sound,

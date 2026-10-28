@@ -157,7 +157,23 @@ public class PlatTests
         rig.Entity.RiderTouched(Player);
         rig.Entity.OnMoveDone();
 
-        Assert.Equal(new[] { "Plat.DefaultMoving", "Plat.DefaultArrive" }, rig.Sounds);
+        // CBasePlatTrain::PlayMovingSound: a CHAN_STATIC patch at ATTN_NORM, at
+        // the volume (0.85 unset), destroyed on arrival; the arrival a script sound.
+        var patch = rig.Engine.Last("Sound.SoundPatchCreate")!.Value;
+        Assert.Equal(("Plat.DefaultMoving", 6, 75), (patch.ArgAs<string>(2), patch.ArgAs<int>(1), patch.ArgAs<int>(3)));
+        Assert.Equal(0.85f, rig.Engine.Last("Sound.SoundPatchEmit")!.Value.ArgAs<float>(1), 3);
+        Assert.True(rig.Engine.Called("Sound.SoundPatchStop") && rig.Engine.Called("Sound.SoundPatchFree"));
+        Assert.Equal(new[] { "Plat.DefaultArrive" }, rig.Sounds);
+    }
+
+    [Fact]
+    public void Its_moving_noise_plays_at_its_volume()
+    {
+        var rig = Spawned();
+        rig.Registry.KeyValue(Plat, EntityNames.FuncPlat, "volume", "0.4");
+        rig.Entity.RiderTouched(Player);
+
+        Assert.Equal(0.4f, rig.Engine.Last("Sound.SoundPatchEmit")!.Value.ArgAs<float>(1), 3);
     }
 
     [Fact]

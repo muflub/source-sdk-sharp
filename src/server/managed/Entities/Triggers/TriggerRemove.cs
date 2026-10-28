@@ -33,7 +33,7 @@ public sealed class TriggerRemove : TriggerVolume
         if (Players.GetTeam(toucher) >= 0)
             return;
 
-        OnRemove.Fire();
+        OnRemove.Fire(toucher);
         Entities.Remove(toucher);
     }
 }

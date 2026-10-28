@@ -17,29 +17,30 @@ namespace SourceSharp.Server;
 ///
 /// The difference from prop_physics is not what it looks like but what the
 /// engine does with it — this is collided with and never simulated, which is
-/// what makes a map full of them affordable.
+/// what makes a map full of them affordable. It is still a CBreakableProp:
+/// given health, it takes damage, catches fire and breaks as a physics prop
+/// does.
 /// </summary>
 [ScriptedEntity(EntityNames.PropDynamic, ScriptedEntityKind.Prop)]
 // The same entity under the names the editor uses for it.
 [ScriptedEntity(EntityNames.DynamicProp, ScriptedEntityKind.Prop)]
 [ScriptedEntity(EntityNames.PropDynamicOverride, ScriptedEntityKind.Prop)]
-public sealed class PropDynamic : ScriptedEntity
+public sealed class PropDynamic : BreakableProp
 {
-    public PropDynamic(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData,
-                       IEngineHost host, ModelDescriptors models)
+    public PropDynamic(IEngineDamage damage, IEngineEntityPhysics physics, IEngineWorldQuery world,
+                       IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast,
+                       IServerDecals decals, IEngineEntityRender render, IServerPropData propData,
+                       PhysicsSoundBatch sounds, DamageInflictors inflictors, IEngineSound sound, ModelDescriptors models,
+                       ITempEnts temps, IEngineEnvironment environment, ConVarRegistry? convars = null)
+        : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, sounds, inflictors, sound,
+               temps, environment, convars)
     {
-        Precache = precache;
-        Render = render;
-        PropDataTable = propData;
-        Host = host;
         Models = models;
     }
 
-    private readonly IEnginePrecache Precache;
-    private readonly IEngineEntityRender Render;
-    private readonly IServerPropData PropDataTable;
-    private readonly IEngineHost Host;
     private readonly ModelDescriptors Models;
+
+    protected override string MapModel => Vars.Model;
 
     /// <summary>The sequence, rate and start the client runs. See <see cref="PropDynamicNetState"/>.</summary>
     [NetState] public PropDynamicNetState State = new();
@@ -85,6 +86,13 @@ public sealed class PropDynamic : ScriptedEntity
         }
 
         SetModel(Vars.Model);
+
+        // CBreakableProp: what it breaks into, and its health. The override's
+        // health is the map's; ParsePropFromKV reads it while the classname
+        // still says so (OverridePropdata).
+        IsOverride = string.Equals(ClassName, EntityNames.PropDynamicOverride, StringComparison.OrdinalIgnoreCase);
+        PrecacheBreakable();
+        Health = StartingHealth;
 
         // The map's solid key (SOLID_NONE when it writes none). A prop_dynamic
         // left without one is an oriented box nothing collides with, "so the

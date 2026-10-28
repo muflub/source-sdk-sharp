@@ -584,9 +584,12 @@ public interface IServerPropData
     /// <summary>
     /// A model's prop data from its <c>$keyvalues</c> text: the health, and
     /// the explosive damage and radius, resolved through propdata.txt's
-    /// <c>base</c> chain. 0 and zeros for a model that has none.
+    /// <c>base</c> chain, each null where nothing in the chain sets it.
+    /// ParsePropFromKV writes only what a level names over what the prop
+    /// already holds, so a set 0 (a metal base's unbreakable health) is a
+    /// value and an unset one is not.
     /// </summary>
-    int ModelPropData(string? modelKeyValueText, out float explosiveDamage, out float explosiveRadius);
+    PropDataValues ModelPropValues(string? modelKeyValueText);
 
     /// <summary>
     /// What kind of prop data a model's <c>$keyvalues</c> text holds: stock's
@@ -594,6 +597,108 @@ public interface IServerPropData
     /// deletes a prop by.
     /// </summary>
     PropDataParse ModelPropDataKind(string? modelKeyValueText);
+
+    /// <summary>
+    /// A model's prop interactions (CPropData::ParsePropFromKV): its
+    /// <c>physgun_interactions</c>, <c>fire_interactions</c> and
+    /// <c>world_interactions</c>, with those of the propdata.txt sections its
+    /// <c>base</c> chain names. None for a model with no prop_data.
+    /// </summary>
+    PropInteractions ModelInteractions(string? modelKeyValueText);
+
+    /// <summary>
+    /// A model's damage modifiers: its prop_data's <c>dmg.bullets</c>,
+    /// <c>dmg.club</c> and <c>dmg.explosive</c> over its base chain's, each 1
+    /// where nothing sets it (CBreakableProp's constructor).
+    /// </summary>
+    PropDamageModifiers ModelDamageModifiers(string? modelKeyValueText);
+
+    /// <summary>
+    /// CPropData::ParsePropFromBase: a propdata.txt section, by name, read as
+    /// a func_breakable reads its "propdata". Its health and explosion, each
+    /// null where its chain is silent, and its damage modifiers over
+    /// <paramref name="start"/>. False for a name the file does not have.
+    /// </summary>
+    bool BaseSectionData(string sectionName, PropDamageModifiers start, out PropDataValues values,
+                         out PropDamageModifiers modifiers);
+}
+
+/// <summary>
+/// A model's prop_data health, explosion and multiplayer_break, each null
+/// where its chain is silent.
+/// </summary>
+public readonly record struct PropDataValues(int? Health, float? ExplosiveDamage, float? ExplosiveRadius,
+                                             MultiplayerBreak? MultiplayerBreak = null);
+
+/// <summary>Stock's mp_break_t: which DLL makes a broken prop's pieces in multiplayer.</summary>
+public enum MultiplayerBreak
+{
+    /// <summary>MULTIPLAYER_BREAK_DEFAULT: the clients.</summary>
+    Default,
+
+    /// <summary>MULTIPLAYER_BREAK_SERVERSIDE.</summary>
+    ServerSide,
+
+    /// <summary>MULTIPLAYER_BREAK_CLIENTSIDE.</summary>
+    ClientSide,
+
+    /// <summary>MULTIPLAYER_BREAK_BOTH.</summary>
+    Both,
+}
+
+/// <summary>What a breakable multiplies bullet, club and blast damage by (IBreakableWithPropData's GetDmgMod*).</summary>
+public readonly record struct PropDamageModifiers(float Bullet, float Club, float Explosive);
+
+/// <summary>
+/// Stock's <c>propdata_interactions_t</c> (props_shared.h), one bit each in
+/// stock's order, which is the order sPropdataInteractionSections reads them.
+/// </summary>
+[Flags]
+public enum PropInteractions : uint
+{
+    None = 0,
+
+    /// <summary>physgun_interactions onworldimpact stick.</summary>
+    PhysgunWorldStick = 1u << 0,
+
+    /// <summary>physgun_interactions onfirstimpact break.</summary>
+    PhysgunFirstBreak = 1u << 1,
+
+    /// <summary>physgun_interactions onfirstimpact paintsplat.</summary>
+    PhysgunFirstPaint = 1u << 2,
+
+    /// <summary>physgun_interactions onfirstimpact impale.</summary>
+    PhysgunFirstImpale = 1u << 3,
+
+    /// <summary>physgun_interactions onlaunch spin_none.</summary>
+    PhysgunLaunchSpinNone = 1u << 4,
+
+    /// <summary>physgun_interactions onlaunch spin_zaxis.</summary>
+    PhysgunLaunchSpinZ = 1u << 5,
+
+    /// <summary>physgun_interactions onbreak explode_fire.</summary>
+    PhysgunBreakExplode = 1u << 6,
+
+    /// <summary>physgun_interactions damage none.</summary>
+    PhysgunDamageNone = 1u << 7,
+
+    /// <summary>fire_interactions flammable yes.</summary>
+    FireFlammable = 1u << 8,
+
+    /// <summary>fire_interactions explosive_resist yes.</summary>
+    FireExplosiveResist = 1u << 9,
+
+    /// <summary>fire_interactions ignite halfhealth.</summary>
+    FireIgniteHalfHealth = 1u << 10,
+
+    /// <summary>physgun_interactions onpickup create_flare.</summary>
+    PhysgunCreateFlare = 1u << 11,
+
+    /// <summary>physgun_interactions allow_overhead yes.</summary>
+    PhysgunAllowOverhead = 1u << 12,
+
+    /// <summary>world_interactions onworldimpact bloodsplat.</summary>
+    WorldBloodSplat = 1u << 13,
 }
 
 /// <summary>Stock's <c>PARSE_*</c> (props_shared.h).</summary>

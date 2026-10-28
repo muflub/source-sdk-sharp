@@ -32,7 +32,10 @@ public class DynamicPropSpawnTests
         engine.Returns("Precache.PrecacheModel", 3)
               .Returns("EntityRender.GetModelKeyValueText", keyValueText)
               .Returns("Entities.GetSpawnOrigin", new Vector(832f, -2496f, 8f))
-              .Ignores("Entities.SetParent", "EntityPhysics.InitStaticPhysics");
+              .Returns("Precache.BreakPieceCount", 0)
+              .Returns("EntityRender.GetModelName", model)
+              .Returns("Entities.GetHealth", 0)
+              .Ignores("Entities.SetParent", "EntityPhysics.InitStaticPhysics", "Precache.PrecacheSound", "Entities.SetHealth");
 
         var handle = new EntityHandle(index);
         if (model.Length > 0)

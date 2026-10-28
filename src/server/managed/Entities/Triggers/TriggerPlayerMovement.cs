@@ -36,7 +36,6 @@ public sealed class TriggerPlayerMovement : TriggerVolume
     /// <summary>This entity's own spawnflags, as their own type.</summary>
     private SpawnFlag Flags => SpawnFlagsAs<SpawnFlag>();
 
-
     /// <summary>
     /// trigger_playermovement's own spawnflags.
     ///
@@ -81,11 +80,6 @@ public sealed class TriggerPlayerMovement : TriggerVolume
     {
         base.OnSpawn();
 
-        // What this does is per player and not per volume, so the refire delay
-        // the base offers is meaningless here and actively wrong: two players
-        // walking under the same pipe within a fifth of a second would leave the
-        // second one standing up. Stock has no wait on this class at all.
-        Vars.Wait = 0f;
     }
 
     protected override void Fire(EntityHandle toucher) => Apply(toucher, inside: true);

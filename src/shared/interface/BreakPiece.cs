@@ -70,14 +70,9 @@ public struct BreakPiece
     public int IsMotionDisabled;
 
     /// <summary>
-    /// Stock's <c>mp_break_t</c>: 0 default, 1 server, 2 client, 3 both.
-    ///
-    /// <para>
-    /// Reported rather than obeyed. Stock uses it to decide which DLL spawns a
-    /// piece, and this mod has only one answer left — the clientside prop class
-    /// was evicted, so a piece sent to the client is a piece nobody makes. See
-    /// <c>PropBreak</c>.
-    /// </para>
+    /// Stock's <c>mp_break_t</c>: 0 default, 1 server, 2 client, 3 both. In
+    /// multiplayer it decides which DLL makes the piece (PropBreak's
+    /// BreakPieceSide on the server, ClientPhysicsProps on the client).
     /// </summary>
     public int MultiplayerBreakMode;
 }

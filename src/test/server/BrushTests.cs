@@ -28,7 +28,9 @@ public class BrushTests
         registry.RegisterAll(typeof(FuncPushable).Assembly);
         registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "EntityPhysics.InitSpherePhysics",
                                      "EntityPhysics.InitStaticPhysics", "EntityPhysics.EnableCollisions",
-                                     "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
+                                     "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles",
+                                     // What a breaking pushable's noise and gibs read (CBreakable::Die).
+                                     "Entities.GetWorldSpaceCenter", "Entities.GetHealth", "Host.RandomFloat", "Host.RandomInt");
 
         var handle = new EntityHandle(index);
 

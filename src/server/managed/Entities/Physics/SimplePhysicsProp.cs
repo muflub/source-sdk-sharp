@@ -15,7 +15,7 @@ namespace SourceSharp.Server;
 /// a keyvalue before spawning, which reaches here like any other.
 /// </summary>
 [ScriptedEntity(EntityNames.SimplePhysicsProp, ScriptedEntityKind.Prop)]
-public sealed class SimplePhysicsProp : ScriptedEntity
+public sealed class SimplePhysicsProp : AnimatingEntity
 {
     /// <summary>What a map may set on this entity. See <see cref="SimplePhysicsPropVars"/>.</summary>
     [ScriptVars] public SimplePhysicsPropVars Vars = new();

@@ -30,7 +30,9 @@ public class PropPhysicsTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
-        registry.Services = Ignoring("Entities.GetOrigin");
+        // The respawn reads where it spawned and whether that is clear.
+        registry.Services = Ignoring("Entities.GetOrigin", "Entities.GetAngles", "Entities.GetBounds", "WorldQuery.TraceHull",
+                                     "EntityRender.GetModelName", "EntityRender.GetModelKeyValueText");
 
         var handle = new EntityHandle(1);
         registry.Spawn(handle, EntityNames.PropPhysicsRespawnable);
@@ -83,6 +85,7 @@ public class PropPhysicsTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
 
@@ -130,6 +133,7 @@ public class PropPhysicsTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
 
@@ -229,6 +233,7 @@ public class PropPhysicsTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
         engine.Returns("EntityRender.GetModelName", "");
@@ -342,6 +347,7 @@ public class PropPhysicsTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
         engine.Returns("EntityRender.GetModelName", "");
@@ -518,6 +524,7 @@ public class PropPhysicsTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
         engine.Strict = false;

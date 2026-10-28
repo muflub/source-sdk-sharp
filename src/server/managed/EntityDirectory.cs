@@ -1197,7 +1197,7 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
         float number = EventAction.ParseFloat(value);
 
         for (int i = 0; i < _targets.Count; i++)
-            InputDelivery?.Invoke(_targets[i], e.TargetInput, value, number, e.Activator);
+            InputDelivery?.Invoke(_targets[i], e.TargetInput, value, number, e.Activator, e.Caller);
     }
 
     private void AddIfLive(EntityHandle handle)

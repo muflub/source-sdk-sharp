@@ -20,7 +20,7 @@ namespace SourceSharp.Server;
 /// so it is static as far as the simulation is concerned.
 /// </summary>
 [ScriptedEntity(EntityNames.PropDoorRotating, ScriptedEntityKind.Prop)]
-public sealed class PropDoorRotating : ScriptedEntity
+public sealed class PropDoorRotating : AnimatingEntity
 {
     /// <summary>SF_DOOR_IGNORE_USE: the door ignores a player's +USE altogether.</summary>
     private const int IgnoreUseFlag = 32768;

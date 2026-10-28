@@ -220,10 +220,21 @@ public sealed class StockContract
         // BaseOnlyFiles for why they are read at all.
         var baseOnly = new HashSet<string>(BaseOnlyFiles(gameDir), StringComparer.Ordinal);
 
+        // A BASE NAMED BY A MACRO: every HL2MP weapon's chain reads
+        // CBaseCombatWeapon <- BASECOMBATWEAPON_DERIVED_FROM, which
+        // basecombatweapon_shared.h defines as CEconEntity under
+        // USES_ECON_ITEMS and CBaseAnimating otherwise. Read with the
+        // project's own defines, the first live definition wins.
+        var defined = ProjectDefines(gameDir);
+        var macros = new Dictionary<string, string>(StringComparer.Ordinal);
+
         foreach (string file in SourceFiles(gameDir).Concat(baseOnly))
         {
             string text = CodeOnly(File.ReadAllText(file));
             string shortName = Path.GetFileName(file);
+
+            foreach (var (name, value) in LiveDefines(text, defined))
+                macros.TryAdd(name, value);
 
             if (!baseOnly.Contains(file))
             {
@@ -281,6 +292,12 @@ public sealed class StockContract
                     Bag(inputs, cls).Add(d.Groups["name"].Value);
                 }
             }
+        }
+
+        foreach (var (cls, edge) in bases.ToArray())
+        {
+            if (macros.TryGetValue(edge.Base, out string? real))
+                bases[cls] = (real, edge.Rank, edge.File);
         }
 
         foreach (string cls in inputs.Keys.Concat(outputs.Keys).Concat(keys.Keys)
@@ -471,6 +488,95 @@ public sealed class StockContract
     /// sdk_player_cast_test.cpp, and the StripComments helpers throughout
     /// src/sourcesharp/test.
     /// </summary>
+    private static readonly Regex DefinitionsRe = new(
+        @"\$PreprocessorDefinitions\s+""(?<defs>[^""]*)""\s*(?<cond>\[[^\]]*\])?", RegexOptions.Compiled);
+
+    /// <summary>
+    /// What the HL2MP server defines on Linux: server_base.vpc's and
+    /// server_hl2mp.vpc's <c>$PreprocessorDefinitions</c>, unconditional or
+    /// under <c>$POSIX</c>.
+    /// </summary>
+    internal static HashSet<string> ProjectDefines(string gameDir)
+    {
+        var defined = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string vpc in new[] { "server_base.vpc", "server_hl2mp.vpc" })
+        {
+            string path = Path.Combine(gameDir, "server", vpc);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"the project that names HL2MP's defines is missing: {path}");
+
+            foreach (Match m in DefinitionsRe.Matches(File.ReadAllText(path)))
+            {
+                string cond = m.Groups["cond"].Value;
+                if (cond.Length > 0 && cond != "[$POSIX]")
+                    continue;
+
+                foreach (string d in m.Groups["defs"].Value.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string name = d.Split('=')[0].Trim();
+                    if (name != "$BASE")
+                        defined.Add(name);
+                }
+            }
+        }
+
+        return defined;
+    }
+
+    private static readonly Regex DirectiveRe = new(
+        @"^\s*#\s*(?<op>ifdef|ifndef|if|elif|else|endif|define)\b\s*(?<rest>.*)$", RegexOptions.Compiled);
+
+    private static readonly Regex DefinedRe = new(
+        @"^(?<not>!)?\s*defined\s*\(?\s*(?<name>\w+)\s*\)?\s*$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// The <c>#define NAME Ident</c>s a file makes under <paramref name="defined"/>:
+    /// <c>#ifdef</c>, <c>#ifndef</c> and <c>#if [!]defined X</c> are followed,
+    /// with their <c>#else</c>; any other condition is unknown and nothing
+    /// defined under it is taken.
+    /// </summary>
+    internal static IEnumerable<(string Name, string Value)> LiveDefines(string code, ISet<string> defined)
+    {
+        // Each open conditional: whether its current arm is live (null: unknown).
+        var arms = new Stack<bool?>();
+
+        foreach (string line in code.Split('\n'))
+        {
+            var d = DirectiveRe.Match(line);
+            if (!d.Success)
+                continue;
+
+            string rest = d.Groups["rest"].Value.Trim();
+            switch (d.Groups["op"].Value)
+            {
+                case "ifdef": arms.Push(defined.Contains(rest)); break;
+                case "ifndef": arms.Push(!defined.Contains(rest)); break;
+                case "if":
+                    var test = DefinedRe.Match(rest);
+                    arms.Push(test.Success ? defined.Contains(test.Groups["name"].Value) != test.Groups["not"].Success : null);
+                    break;
+                case "elif":
+                    if (arms.Count > 0) { arms.Pop(); arms.Push(null); }
+                    break;
+                case "else":
+                    if (arms.Count > 0) { bool? arm = arms.Pop(); arms.Push(arm is null ? null : !arm); }
+                    break;
+                case "endif":
+                    if (arms.Count > 0) arms.Pop();
+                    break;
+                case "define":
+                    if (arms.All(a => a == true))
+                    {
+                        string[] parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length == 2 && Regex.IsMatch(parts[0], @"^[A-Z_][A-Z0-9_]*$") && Regex.IsMatch(parts[1], @"^[A-Za-z_]\w*$"))
+                            yield return (parts[0], parts[1]);
+                    }
+                    break;
+            }
+        }
+    }
+
     internal static string CodeOnly(string source)
     {
         var code = new System.Text.StringBuilder(source.Length);

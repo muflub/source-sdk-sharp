@@ -24,8 +24,13 @@ public abstract class TriggerVolume : ScriptedEntity
     /// <summary>what the server thinks the time is.</summary>
     protected readonly IGameClock Clock;
     public readonly Output OnStartTouch = new();
+    public readonly Output OnStartTouchAll = new();
     public readonly Output OnEndTouchAll = new();
     public readonly Output OnTrigger = new();
+
+    /// <summary>TouchTest's answers: something is inside, or nothing is.</summary>
+    public readonly Output OnTouching = new();
+    public readonly Output OnNotTouching = new();
 
     // Named explicitly: a field called OnEndTouch would collide with the
     // OnEndTouch handler, and the map-facing name is not ours to change.
@@ -34,12 +39,9 @@ public abstract class TriggerVolume : ScriptedEntity
     /// <summary>What a map may set on this entity. See <see cref="TriggerVolumeVars"/>.</summary>
     [ScriptVars] public TriggerVolumeVars Vars = new();
 
-    // Both carried across a reload, as stock carries them: m_bDisabled is a
-    // saved keyfield (triggers.cpp:103) and the re-arm wait is the saved think
-    // (SetNextThink( curtime + m_flWait ), :988). Absolute game time, which a
-    // cs_sv_reload does not reset.
+    // Carried across a reload, as stock carries it: m_bDisabled is a saved
+    // keyfield (triggers.cpp:103).
     [SaveField] private bool _disabled;
-    [SaveField] private float _nextFireTime;
 
     // Who is inside. OnEndTouchAll is not the same as OnEndTouch — a map often
     // wants "the last person left" rather than "someone left", and with several
@@ -77,6 +79,13 @@ public abstract class TriggerVolume : ScriptedEntity
 
     /// <summary>Called each time something inside is still inside. Most triggers do not care.</summary>
     protected virtual void WhileInside(EntityHandle toucher) { }
+
+    /// <summary>
+    /// CBaseTrigger's Touch: on the frame something arrives, after its start
+    /// touch, and on every frame it stays for a class touched every tick.
+    /// Most triggers act on the arrival alone.
+    /// </summary>
+    protected virtual void Touching(EntityHandle toucher) { }
 
     public override void OnSpawn()
     {
@@ -133,6 +142,52 @@ public abstract class TriggerVolume : ScriptedEntity
     [ScriptedEvent] private void OnEnable() => SetDisabled(false);
     [ScriptedEvent] private void OnDisable() => SetDisabled(true);
     [ScriptedEvent] private void OnToggle() => SetDisabled(!_disabled);
+
+    /// <summary>CBaseTrigger::TouchTest: OnTouching or OnNotTouching, from itself, unless it is off.</summary>
+    [ScriptedEvent]
+    private void OnTouchTest()
+    {
+        if (_disabled)
+            return;
+
+        if (_inside.Count != 0)
+            OnTouching.Fire(Handle);
+        else
+            OnNotTouching.Fire(Handle);
+    }
+
+    /// <summary>InputStartTouch: "pretend we just touched", as the entity that sent it.</summary>
+    [ScriptedEvent("StartTouch")]
+    private void OnStartTouchInput(InputData input)
+    {
+        if (input.Caller == EntityHandle.None)
+            return;
+
+        // Stock's StartTouch fires OnStartTouch even for one already in its list.
+        if (!_disabled && _inside.Contains(input.Caller) && Passes(input.Caller))
+            OnStartTouch.Fire(input.Caller);
+        else
+            OnTouch(input.Caller);
+    }
+
+    /// <summary>InputEndTouch: "pretend we left", as the entity that sent it.</summary>
+    [ScriptedEvent("EndTouch")]
+    private void OnEndTouchInput(InputData input)
+    {
+        if (input.Caller != EntityHandle.None)
+            OnEndTouch(input.Caller);
+    }
+
+    /// <summary>InputDisableAndEndTouch: everyone inside leaves, then it is off.</summary>
+    [ScriptedEvent]
+    private void OnDisableAndEndTouch()
+    {
+        foreach (EntityHandle toucher in _inside.ToArray())
+            OnEndTouch(toucher);
+
+        _inside.Clear();
+        SetDisabled(true);
+    }
 
     /// <summary>
     /// Told when the volume is switched on or off, and only when it actually
@@ -247,6 +302,13 @@ public abstract class TriggerVolume : ScriptedEntity
         return filter is null || filter.Passes(toucher);
     }
 
+    /// <summary>
+    /// CBaseTrigger::StartTouch and Touch. An arrival that passes is a start
+    /// touch: OnStartTouch, OnStartTouchAll for the first inside, the class's
+    /// <see cref="Fire"/>, then <see cref="Touching"/>. Someone already inside
+    /// is a frame they stayed, and only touches. Stock has no wait here: only
+    /// trigger_multiple waits, and it waits in its own touch.
+    /// </summary>
     public override void OnTouch(EntityHandle toucher)
     {
         if (_disabled || !Passes(toucher))
@@ -255,26 +317,36 @@ public abstract class TriggerVolume : ScriptedEntity
         // The engine reports entering once, but a player can leave and come
         // back, so this is a membership test rather than a first-time flag.
         if (!_inside.Add(toucher))
+        {
+            Touching(toucher);
             return;
+        }
 
-        OnStartTouch.Fire();
+        OnStartTouch.Fire(toucher);
 
-        if (Clock.Now < _nextFireTime)
-            return;
+        if (_inside.Count == 1)
+            OnStartTouchAll.Fire(toucher);
 
-        _nextFireTime = Clock.Now + Vars.Wait;
         Fire(toucher);
+        Touching(toucher);
     }
 
+    /// <summary>
+    /// CBaseTrigger::EndTouch: OnEndTouch for whoever leaves, then the list
+    /// cleaned of the gone and the dead, and OnEndTouchAll when nobody else
+    /// is left.
+    /// </summary>
     public override void OnEndTouch(EntityHandle toucher)
     {
         if (!_inside.Remove(toucher))
             return;
 
-        OnLeft.Fire();
+        OnLeft.Fire(toucher);
+
+        _inside.RemoveWhere(h => !Entities.IsValid(h) || IsDeadPlayer(h));
 
         if (_inside.Count == 0)
-            OnEndTouchAll.Fire();
+            OnEndTouchAll.Fire(toucher);
     }
 
     /// <summary>
@@ -305,8 +377,8 @@ public partial class TriggerVolumeVars
 {
     public bool StartDisabled { get; set; }
 
-    /// <summary>Seconds before the same volume fires again. The map's "wait" key.</summary>
-    public float Wait { get; set; } = 0.2f;
+    /// <summary>CBaseToggle's "wait": what trigger_multiple waits between firings.</summary>
+    public float Wait { get; set; }
 
     /// <summary>Name of a filter entity that decides who this responds to.</summary>
     public string FilterName { get; set; } = string.Empty;

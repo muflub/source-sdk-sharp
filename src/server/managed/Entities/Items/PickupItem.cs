@@ -14,7 +14,7 @@ namespace SourceSharp.Server;
 /// what happens when it is taken. A kind is then a handful of lines saying what
 /// it looks like and what it gives.
 /// </summary>
-public abstract class PickupItem : ScriptedEntity, IPhysGunTarget, IPlacedObject
+public abstract class PickupItem : AnimatingEntity, IPhysGunTarget, IPlacedObject
 {
     protected PickupItem(IEngineWorldQuery world, PlacedObjects placed)
     {

@@ -179,6 +179,9 @@ public interface IEngineSound
     /// <inheritdoc cref="EngineSide.EntityEmitSound"/>
     void EntityEmitSound(EntityHandle entity, string soundName);
 
+    /// <summary>A script sound from an entity at a volume and pitch of the caller's. See IServerSoundRoute.EntityEmitSoundAs.</summary>
+    void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch);
+
     /// <inheritdoc cref="EngineSide.EntityStopSound"/>
     void EntityStopSound(EntityHandle entity, string soundName);
 

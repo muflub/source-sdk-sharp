@@ -115,6 +115,9 @@ public sealed class SsEntityFlame : ScriptedEntity
     /// <summary>When it goes out, on the server clock.</summary>
     public float ExpiresAt => _expiresAt;
 
+    /// <summary>CEntityFlame::GetRemainingLife: how long it has left to burn.</summary>
+    public float RemainingLife => _expiresAt - Clock.Now;
+
     /// <summary>
     /// Attaches this flame to something and starts it burning — stock's
     /// <c>CEntityFlame::Create</c> and <c>AttachToEntity</c> in one, because
@@ -175,6 +178,12 @@ public sealed class SsEntityFlame : ScriptedEntity
     /// now and not an absolute time, however its callers spell it.
     /// </summary>
     public void SetLifetime(float lifetime) => _expiresAt = FlameRules.ExpiryFor(Clock.Now, lifetime);
+
+    /// <summary>m_iNumHitboxFires: what a burning prop's gibs are set alight with (stock's default 10).</summary>
+    public int NumHitboxFires { get; set; } = 10;
+
+    /// <summary>m_flHitboxFireScale: the same, for their size (stock's default 1).</summary>
+    public float HitboxFireScale { get; set; } = 1f;
 
     /// <summary>
     /// Burn, hurt, warm — stock's <c>FlameThink</c>, on stock's interval.

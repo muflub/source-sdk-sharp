@@ -25,7 +25,7 @@ namespace SourceSharp.Server;
 /// time, so arming it early lets a player empty a full machine in one pass.
 /// </summary>
 [ScriptedEntity(EntityNames.ItemSodacan, ScriptedEntityKind.Item)]
-public sealed class ItemSodacan : ScriptedEntity
+public sealed class ItemSodacan : AnimatingEntity
 {
     public ItemSodacan(IEngineEntityPhysics physics, IEnginePrecache precache, IEngineSound sound)
     {

@@ -94,6 +94,41 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     }
 
     /// <summary>
+    /// A script sound at a volume and pitch of the caller's, as stock's
+    /// breakables emit theirs: GetParametersForSound for the script's wave,
+    /// channel and level, then that wave at the given volume and pitch, from
+    /// the entity's index to the PAS of its centre at ATTN_NORM
+    /// (CPASAttenuationFilter( this )). No script, nothing.
+    /// </summary>
+    public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(entity))
+        {
+            SayUnresolved(entity, soundName);
+            return;
+        }
+
+        if (_emitter.Parameters(soundName) is not { } parameters || parameters.Name.Length == 0)
+            return;
+
+        int index = SoundSourceIndex(entity);
+        RecipientFilter filter = _emitter.Recipients.PasAttenuation(_entities.GetWorldSpaceCenter(entity));
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = parameters.Name,
+            Channel = parameters.Channel,
+            Volume = volume,
+            SoundLevel = parameters.SoundLevel,
+            Pitch = pitch,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(entity) : null,
+        });
+    }
+
+    /// <summary>
     /// <c>CBaseCombatWeapon::WeaponSound</c>'s server arm for a weapon in an
     /// owner's hands: the PAS of the owner, narrowed by the script's level,
     /// under the prediction rules (<c>filter.UsePredictionRules()</c>) -- the

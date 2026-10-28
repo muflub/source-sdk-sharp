@@ -12,6 +12,13 @@ public interface IServerSoundRoute
     /// <summary>A sound from an entity, heard by the PAS of its centre at the script's level.</summary>
     void EntityEmitSound(EntityHandle entity, string soundName);
 
+    /// <summary>
+    /// A script sound from an entity at a volume and pitch of the caller's:
+    /// GetParametersForSound, then its wave on the script's channel and level
+    /// (CBreakable::DamageSound, Die), heard by the PAS of its centre.
+    /// </summary>
+    void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch);
+
     /// <summary>Every wave of the sound stopped on the index it played from.</summary>
     void EntityStopSound(EntityHandle entity, string soundName);
 
