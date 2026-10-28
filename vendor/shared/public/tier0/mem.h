@@ -16,6 +16,3 @@
 #endif // BUILD_AS_DLL
 
 MEM_INTERFACE void MemAllocOOMError( size_t nSize );
-
-#if defined( _LINUX )
-#endif

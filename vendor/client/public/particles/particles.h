@@ -1156,4 +1156,3 @@ FORCEINLINE bool CParticleCollection::IsValid() const
 }
 
 // Floating point validation
-

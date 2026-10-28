@@ -987,7 +987,6 @@ private:
 #pragma clang diagnostic ignored "-Wunused-private-field"
 #endif // Q_CC_CLANG
 
-
 #ifdef COMPILER_CLANG
 #pragma clang diagnostic pop
 #endif

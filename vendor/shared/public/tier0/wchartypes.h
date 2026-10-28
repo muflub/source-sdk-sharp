@@ -4,10 +4,6 @@
 
 #pragma once
 
-#ifdef _INC_TCHAR
-#error ("Must include tier0 type headers before tchar.h")
-#endif
-
 // Temporarily turn off Valve defines
 
 #if !defined( _WCHAR_T_DEFINED ) && !defined( GNUC )

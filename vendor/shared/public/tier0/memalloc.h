@@ -466,9 +466,6 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 #endif // !STEAM && NO_MALLOC_OVERRIDE
 
 // linux memory tracking via hooks.
-#if defined( POSIX ) && !defined( NO_HOOK_MALLOC )
-
-#endif
 
 #ifdef POSIX
 // ApproximateProcessMemoryUsage returns the approximate memory footprint of this process.
