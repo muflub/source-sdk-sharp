@@ -13,12 +13,14 @@
 #include "ishim_areas.h"
 
 class CServerEntityResolver;
+class IUniformRandomStream;
 
 class CServerDamage final : public IShimDamage
 {
 public:
-	explicit CServerDamage( CServerEntityResolver &entities )
+	CServerDamage( CServerEntityResolver &entities, IUniformRandomStream *pRandom )
 		: m_Entities( entities )
+		, m_pRandom( pRandom )
 	{
 	}
 
@@ -38,4 +40,7 @@ public:
 
 private:
 	CServerEntityResolver &m_Entities;
+
+	// The engine's: a blast's force is jittered per victim.
+	IUniformRandomStream *m_pRandom;
 };

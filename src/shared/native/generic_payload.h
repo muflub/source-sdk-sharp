@@ -235,15 +235,19 @@ inline unsigned int SourceSharpPayload_ProbeWord( unsigned int nSeed, int iWord 
 class SendProp;
 class RecvProp;
 
+#ifdef CLIENT_DLL
 // The interned name for word i, or NULL if out of range. The engine keeps the pointer for
 // the life of the process.
 const char *SourceSharpPayload_PropName( int iWord );
+#endif
 
 #ifndef CLIENT_DLL
 
-// Fills pProps[0..nWords-1] with the payload's send props, all on the default proxy.
-// Returns the number written, or -1 for an out-of-range count or offset.
-int SourceSharpPayload_BuildSendProps( SendProp *pProps, int nWords, int nBlobBase );
+// Fills pProps[0..nWords-1] with the payload's send props, all on the default proxy, named
+// from names (which the engine keeps pointers into for the life of the process). Returns
+// the number written, or -1 for an out-of-range count or offset.
+int SourceSharpPayload_BuildSendProps( SendProp *pProps, int nWords, int nBlobBase,
+									   CSourceSharpPayloadPropNames &names );
 
 // Whether this prop resolved to m_UInt32ToInt32, the proxy the engine's fast int32 local
 // transfer accepts. A word on the slow list still works, so nothing else reports it.

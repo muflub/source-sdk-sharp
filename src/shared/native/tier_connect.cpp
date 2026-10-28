@@ -12,9 +12,6 @@
 
 #include "datacache/imdlcache.h"
 #include "icvar.h"
-#ifndef CLIENT_DLL
-#include "server_state.h"
-#endif
 #ifdef CLIENT_DLL
 #include "particles_lib_client.h"
 #include "vgui/IVGui.h"
@@ -118,7 +115,7 @@ void DisconnectTier2Libraries()
 #endif
 
 #ifdef CLIENT_DLL
-// tier3: the model cache; the server's is its DLL tier's (server_engine.h).
+// tier3: the model cache; the server's is its DLL tier's (CServerEngineInterfaces).
 IMDLCache *mdlcache = NULL;
 
 // tier3: the globals client.so's objects import from tier3.o.
@@ -130,14 +127,12 @@ vgui::IPanel *g_pVGuiPanel = NULL;
 vgui::ILocalize *g_pVGuiLocalize = NULL;
 vgui::ISchemeManager *g_pVGuiSchemeManager = NULL;
 vgui::ISystem *g_pVGuiSystem = NULL;
-#endif
 
 void SourceSharp_ConnectTier3( CreateInterfaceFn engineFactory )
 {
 	if ( !engineFactory )
 		return;
 
-#ifdef CLIENT_DLL
 	mdlcache = (IMDLCache *)engineFactory( MDLCACHE_INTERFACE_VERSION, NULL );
 	g_pVGui = (vgui::IVGui *)engineFactory( VGUI_IVGUI_INTERFACE_VERSION, NULL );
 	g_pVGuiInput = (vgui::IInput *)engineFactory( VGUI_INPUT_INTERFACE_VERSION, NULL );
@@ -147,14 +142,10 @@ void SourceSharp_ConnectTier3( CreateInterfaceFn engineFactory )
 	g_pVGuiSystem = (vgui::ISystem *)engineFactory( SS_VGUI_SYSTEM_INTERFACE_VERSION, NULL );
 	g_pVGuiLocalize = (vgui::ILocalize *)engineFactory( VGUI_LOCALIZE_INTERFACE_VERSION, NULL );
 	g_pMatSystemSurface = (IMatSystemSurface *)engineFactory( MAT_SYSTEM_SURFACE_INTERFACE_VERSION, NULL );
-#else
-	ShellGameDll_Dll()->m_Engine.m_pMdlCache = (IMDLCache *)engineFactory( MDLCACHE_INTERFACE_VERSION, NULL );
-#endif
 }
 
 void SourceSharp_DisconnectTier3()
 {
-#ifdef CLIENT_DLL
 	mdlcache = NULL;
 	g_pVGui = NULL;
 	g_pVGuiInput = NULL;
@@ -164,5 +155,5 @@ void SourceSharp_DisconnectTier3()
 	g_pVGuiSystem = NULL;
 	g_pVGuiLocalize = NULL;
 	g_pMatSystemSurface = NULL;
-#endif
 }
+#endif

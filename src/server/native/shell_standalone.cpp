@@ -14,6 +14,8 @@
 #include "standalone_nettable.h"
 
 #include "standalone_list.h"
+#include "server_network.h"
+#include "server_entity_context.h"
 
 static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 {
@@ -65,15 +67,9 @@ static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 // One ServerClass per tier for the whole hierarchy, all registered at DLL init: the
 // engine walks g_pServerClassHead once, and the class list is negotiated at connect.
 // Held by the DLL tier. The objects are never freed: the engine's class list points at them.
-static CServerStandaloneTiers &Tiers()
+static void RegisterStandaloneTiers( CServerNetTables &tables )
 {
-	AssertMsg( ShellGameDll_Dll(), "the standalone tiers were asked for outside DLLInit..DLLShutdown" );
-	return ShellGameDll_Dll()->m_StandaloneTiers;
-}
-
-static void RegisterStandaloneTiers()
-{
-	CServerStandaloneTiers &tiers = Tiers();
+	CServerStandaloneTiers &tiers = tables.m_Tiers;
 
 	if ( tiers.m_bRegistered )
 		return;
@@ -108,7 +104,8 @@ static void RegisterStandaloneTiers()
 		int nBuilt = 0;
 		BuildStandaloneProps( tiers.m_pProps[iTier], nBuilt );
 
-		if ( SourceSharpPayload_BuildSendProps( tiers.m_pProps[iTier] + nBuilt, nWords, nBlobBase ) != nWords )
+		if ( SourceSharpPayload_BuildSendProps( tiers.m_pProps[iTier] + nBuilt, nWords, nBlobBase,
+												tables.m_PropNames ) != nWords )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': payload build refused %d word(s); "
 					 "not registered\n",
@@ -147,14 +144,14 @@ static void RegisterStandaloneTiers()
 }
 
 // Whether a ServerClass is one of the tiers, by identity rather than by name.
-bool SourceSharp_IsStandaloneTierServerClass( const ServerClass *pClass )
+bool SourceSharp_IsStandaloneTierServerClass( const CServerNetTables &tables, const ServerClass *pClass )
 {
-	if ( pClass == NULL || ShellGameDll_Dll() == NULL )
+	if ( pClass == NULL )
 		return false;
 
 	for ( int i = 0; i < SOURCESHARP_TIER_MAX; i++ )
 	{
-		if ( Tiers().m_pClasses[i] == pClass )
+		if ( tables.m_Tiers.m_pClasses[i] == pClass )
 			return true;
 	}
 
@@ -162,10 +159,8 @@ bool SourceSharp_IsStandaloneTierServerClass( const ServerClass *pClass )
 }
 
 // Whether any published class of a shell is on a tier.
-static bool SourceSharp_TierHasPublishedTypes( int nShell, int iTier )
+static bool SourceSharp_TierHasPublishedTypes( const CSourceSharpTypeTable &types, int nShell, int iTier )
 {
-	const CSourceSharpTypeTable &types = SourceSharp_NetTypes();
-
 	for ( int i = 0; i < types.Count(); i++ )
 	{
 		const SourceSharpNetType_t *pType = types.At( i );
@@ -177,12 +172,10 @@ static bool SourceSharp_TierHasPublishedTypes( int nShell, int iTier )
 	return false;
 }
 
-// The hierarchy's largest declared blob size, checked against the largest tier. Returns
-// the payload word count the greediest class will carry.
-int32_t SourceSharp_NetHierarchyDeclare( int32_t nBlobBytes )
+int32_t CServerNetwork::NetHierarchyDeclare( int32_t nBlobBytes )
 {
 	// Idempotent; the first managed startup call that touches the hierarchy.
-	RegisterStandaloneTiers();
+	RegisterStandaloneTiers( m_Tables );
 
 	const int iTier = SourceSharp_TierForSize( nBlobBytes );
 
@@ -206,10 +199,8 @@ int32_t SourceSharp_NetHierarchyDeclare( int32_t nBlobBytes )
 	return nWords;
 }
 
-// C# publishing one managed type: a name, its layout hash and size. Answers the type's
-// tier. pOutTypeId hands back native's FNV-1a of the name so C# can check its own.
-int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
-									uint32_t *pOutTypeId )
+int32_t CServerNetwork::NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash,
+										int32_t nLayoutBytes, uint32_t *pOutTypeId )
 {
 	if ( pOutTypeId )
 		*pOutTypeId = pClassName ? SourceSharp_HashClassName( pClassName ) : 0;
@@ -227,7 +218,7 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint
 		return -1;
 	}
 
-	RegisterStandaloneTiers();
+	RegisterStandaloneTiers( m_Tables );
 
 	const int iTier = SourceSharp_TierForSize( nLayoutBytes );
 
@@ -239,7 +230,7 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint
 		return -1;
 	}
 
-	if ( SourceSharp_NetTypes().Publish( pClassName, nShell, nSchemaHash, nLayoutBytes, iTier ) < 0 )
+	if ( m_Tables.m_Types.Publish( pClassName, nShell, nSchemaHash, nLayoutBytes, iTier ) < 0 )
 	{
 		// A name collision (same FNV-1a) or a full table.
 		Warning( "[SourceSharp] type '%s' (id 0x%08x) was REFUSED by the type table: either a "
@@ -252,11 +243,10 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint
 	return iTier;
 }
 
-// One tier as native registered it, with the props native actually built.
-int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes,
-								 int32_t *pOutWords, int32_t *pOutProps, int32_t *pOutLive )
+int32_t CServerNetwork::NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes,
+									 int32_t *pOutWords, int32_t *pOutProps, int32_t *pOutLive )
 {
-	RegisterStandaloneTiers();
+	RegisterStandaloneTiers( m_Tables );
 
 	if ( iTier < 0 || iTier >= SourceSharp_TierCount() )
 		return 0;
@@ -277,7 +267,7 @@ int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppO
 	// without a rebuilt client, so registered-and-empty is normal.
 	if ( pOutLive )
 	{
-		*pOutLive = SourceSharp_TierHasPublishedTypes( nShell, iTier ) ? 1 : 0;
+		*pOutLive = SourceSharp_TierHasPublishedTypes( m_Tables.m_Types, nShell, iTier ) ? 1 : 0;
 	}
 
 	return 1;
@@ -301,7 +291,7 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutW
 	if ( iTier < 0 || iTier >= SourceSharp_TierCount() )
 		return false;
 
-	SendTable *pTable = Tiers().m_pTables[iTier];
+	SendTable *pTable = pEntity->Context().m_NetTables.m_Tiers.m_pTables[iTier];
 
 	if ( !pTable )
 		return false;
@@ -404,7 +394,9 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 			continue;
 
 		const int iTier = pEnt->Tier();
-		SendTable *pTable = ( iTier >= 0 && iTier < SourceSharp_TierCount() ) ? Tiers().m_pTables[iTier] : NULL;
+		SendTable *pTable = ( iTier >= 0 && iTier < SourceSharp_TierCount() )
+			? pEnt->Context().m_NetTables.m_Tiers.m_pTables[iTier]
+			: NULL;
 
 		for ( int i = 0; pTable && i < nWords; i++ )
 		{
@@ -514,8 +506,9 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 
 		unsigned int nWanted = 0;
 
-		if ( !SourceSharp_SchemaNeedsRestamp( SourceSharp_NetTypes(), pEnt->TypeName(), pEnt->m_nSchemaHash,
-											  &nWanted ) )
+		const CSourceSharpTypeTable &types = pEnt->Context().m_NetTables.m_Types;
+
+		if ( !SourceSharp_SchemaNeedsRestamp( types, pEnt->TypeName(), pEnt->m_nSchemaHash, &nWanted ) )
 		{
 			continue;
 		}
@@ -526,7 +519,7 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 		if ( nBlobBytes > 0 && pEnt->DataBlob() )
 			memset( pEnt->DataBlob(), 0, nBlobBytes );
 
-		const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( pEnt->TypeName() );
+		const SourceSharpNetType_t *pType = types.ByName( pEnt->TypeName() );
 
 		if ( pType && pType->iTier > pEnt->Tier() )
 		{
@@ -570,11 +563,12 @@ ServerClass *CStandaloneEntity::GetServerClass()
 	// Clamped: an out-of-range tier would index the static array out of bounds.
 	const int iTier = ( m_iTier >= 0 && m_iTier < SourceSharp_TierCount() ) ? m_iTier : 0;
 
-	m_pServerClass = Tiers().m_pClasses[iTier];
+	CServerNetTables &tables = Context().m_NetTables;
+	m_pServerClass = tables.m_Tiers.m_pClasses[iTier];
 
 	// Stamped here because the classname (factory) and type table (managed startup) both
 	// exist by the first time the engine asks.
-	const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( TypeName() );
+	const SourceSharpNetType_t *pType = tables.m_Types.ByName( TypeName() );
 
 	if ( pType )
 	{
@@ -588,9 +582,9 @@ ServerClass *CStandaloneEntity::GetServerClass()
 		m_nSchemaHash = 0;
 		m_nPayloadWords = 0;
 
-		if ( !ShellGameDll_Dll()->m_bWarnedUnpublishedClass )
+		if ( !tables.m_bWarnedUnpublishedClass )
 		{
-			ShellGameDll_Dll()->m_bWarnedUnpublishedClass = true;
+			tables.m_bWarnedUnpublishedClass = true;
 			Warning( "[SourceSharp] standalone '%s' has no published type; its entities will "
 					 "carry type id 0x%08x with no schema hash, and the client will refuse "
 					 "their payload\n",

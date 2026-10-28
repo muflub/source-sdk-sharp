@@ -28,7 +28,6 @@
 #define SOURCESHARP_SHIM_ENTITYLIFECYCLE_VERSION "SourceSharpEntityLifecycle001"
 #define SOURCESHARP_SHIM_TRANSFORM_VERSION "SourceSharpTransform001"
 #define SOURCESHARP_SHIM_HIERARCHY_VERSION "SourceSharpHierarchy001"
-#define SOURCESHARP_SHIM_COLLISION_VERSION "SourceSharpCollision001"
 #define SOURCESHARP_SHIM_PHYSICS_VERSION "SourceSharpPhysics001"
 #define SOURCESHARP_SHIM_CONSTRAINTS_VERSION "SourceSharpConstraints001"
 #define SOURCESHARP_SHIM_SPRINGS_VERSION "SourceSharpSprings001"
@@ -170,12 +169,6 @@ public:
 	virtual int32_t EntityParentProbe( uint32_t hEntity ) = 0;
 	virtual int32_t EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float *pOutOriginXYZ,
 											  float *pOutAnglesPYR ) = 0;
-};
-
-abstract_class IShimCollision
-{
-public:
-	virtual void RegisterCollisionRules( const SourceSharpCollisionRules *pRules ) = 0;
 };
 
 abstract_class IShimPhysics
@@ -323,7 +316,7 @@ public:
 	virtual void EntitySetClassName( uint32_t hEntity, const char *pName ) = 0;
 };
 
-abstract_class IShimCollisionServer : public IShimCollision
+abstract_class IShimCollisionServer
 {
 public:
 	virtual void EntityGetBounds( uint32_t hEntity, float *pOutMinsXYZ, float *pOutMaxsXYZ ) = 0;

@@ -327,5 +327,7 @@ inline bool SourceSharp_SchemaNeedsRestamp( const CSourceSharpTypeTable &types, 
 	return pType->nSchemaHash != nStamped;
 }
 
-// This module's table.
+#ifdef CLIENT_DLL
+// The client's table; the server's is its CServerNetTables'.
 CSourceSharpTypeTable &SourceSharp_NetTypes();
+#endif

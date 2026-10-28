@@ -11,7 +11,6 @@
 // makes the decisions; this is what needs the engine's spatial data, collision
 // code and randomness.
 
-#include "server_engine.h"
 #include "ss_util.h"
 #include "ss_shareddefs.h"
 
@@ -33,8 +32,6 @@
 #include "ss_takedamageinfo.h"
 
 // util.h's helpers, defined in our own TUs.
-void PrecacheMaterial( const char *pMaterialName );
-void PrecacheParticleSystem( const char *pParticleSystemName );
 
 #include "trace_hit.h"
 

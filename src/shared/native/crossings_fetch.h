@@ -30,18 +30,16 @@ enum SourceSharpCrossingsStatus
 // A bound on nonsense, far above any real report.
 #define SOURCESHARP_CROSSINGS_MAX_BYTES ( 256 * 1024 )
 
-// Sizes, allocates, fills. bReset goes on the filling call only. On OK, *ppOut is
-// a NUL-terminated buffer the caller frees; otherwise it is NULL.
-inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport( SourceSharpCrossingsReportFn pFn, bool bReset,
-																	char **ppOut )
+// Sizes, allocates, fills, over any callable of the slot's shape. bReset goes on the
+// filling call only. On OK, *ppOut is a NUL-terminated buffer the caller frees;
+// otherwise it is NULL.
+template <typename ReportFn>
+inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReportWith( ReportFn &&pFn, bool bReset, char **ppOut )
 {
 	if ( ppOut == NULL )
 		return SOURCESHARP_CROSSINGS_NO_SLOT;
 
 	*ppOut = NULL;
-
-	if ( pFn == NULL )
-		return SOURCESHARP_CROSSINGS_NO_SLOT;
 
 	const int nNeeded = pFn( NULL, 0, 0 );
 
@@ -101,4 +99,17 @@ inline const char *SourceSharp_CrossingsStatusText( SourceSharpCrossingsStatus s
 	}
 
 	return "unknown failure";
+}
+
+// The same over the slot itself; NULL is no slot.
+inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport( SourceSharpCrossingsReportFn pFn, bool bReset,
+																	char **ppOut )
+{
+	if ( ppOut != NULL )
+		*ppOut = NULL;
+
+	if ( pFn == NULL )
+		return SOURCESHARP_CROSSINGS_NO_SLOT;
+
+	return SourceSharp_FetchCrossingsReportWith( pFn, bReset, ppOut );
 }

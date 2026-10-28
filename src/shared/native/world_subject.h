@@ -24,9 +24,11 @@ inline bool SourceSharp_IsTheWorldHandle( const IHandleEntity *pHandleEntity, co
 	return pHandleEntity == pWorldHandle;
 }
 
-// Whether this handle is the world; NULL answers false. Defined per DLL over its own
-// singleton.
+#ifdef CLIENT_DLL
+// Whether this handle is the world; NULL answers false. The client's, over its own
+// singleton; the server's callers compare against the level's world they are handed.
 bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity );
+#endif
 
 #ifndef CLIENT_DLL
 class CWorld;

@@ -16,9 +16,9 @@
 #include "eiface.h"
 
 #include "shell_standalone_player.h"
-#include "server_engine.h"
 #include "server_entities.h"
 #include "server_entity_resolver.h"
+#include "server_entity_context.h"
 
 // The standalone player's 3D skybox area. 0 if the edict is not one.
 int32_t CServerEntities::EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea )
@@ -26,11 +26,12 @@ int32_t CServerEntities::EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int
 	if ( pOutArea == NULL )
 		return 0;
 
-	edict_t *pEdict = ServerEngine()->PEntityOfEntIndex( iEdict );
+	const CServerEntityContext &context = m_Entities.Context();
+	edict_t *pEdict = context.m_pEngine->PEntityOfEntIndex( iEdict );
 	if ( pEdict == NULL )
 		return 0;
 
-	CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict );
+	CStandalonePlayer *pStandalone = context.PlayerFromEdict( pEdict );
 	if ( pStandalone == NULL )
 		return 0;
 

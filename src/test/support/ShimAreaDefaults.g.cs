@@ -63,12 +63,6 @@ internal unsafe class DefaultEntitiesArea : IEntitiesArea
     public int EntityIsValid(uint a0) => default;
 }
 
-/// <summary><see cref="ICollisionArea"/> for a test with no engine: every call answers its default.</summary>
-internal unsafe class DefaultCollisionArea : ICollisionArea
-{
-    public void RegisterCollisionRules(CollisionRulesBlob* a0) { }
-}
-
 /// <summary><see cref="IConsoleArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultConsoleArea : IConsoleArea
 {
@@ -219,7 +213,7 @@ internal sealed unsafe class DefaultHierarchyArea : IHierarchyArea
 }
 
 /// <summary><see cref="ICollisionServerArea"/> for a test with no engine: every call answers its default.</summary>
-internal sealed unsafe class DefaultCollisionServerArea : DefaultCollisionArea, ICollisionServerArea
+internal sealed unsafe class DefaultCollisionServerArea : ICollisionServerArea
 {
     public void EntityGetBounds(uint a0, float* a1, float* a2) { }
     public void EntityGetBoundsSize(uint a0, float* a1) { }
@@ -716,7 +710,6 @@ internal static class ServerAreaDefaults
         add(typeof(IModelsArea), modelsServerArea);
         add(typeof(IMovementArea), movementServerArea);
         add(typeof(IEntitiesArea), entitiesServerArea);
-        add(typeof(ICollisionArea), collisionServerArea);
     }
 }
 
@@ -734,7 +727,6 @@ internal static class ClientAreaDefaults
         var modelsArea = new DefaultModelsArea();
         var movementArea = new DefaultMovementArea();
         var entitiesArea = new DefaultEntitiesArea();
-        var collisionArea = new DefaultCollisionArea();
         var consoleArea = new DefaultConsoleArea();
         var hudClientArea = new DefaultHudClientArea();
         var predictionClientArea = new DefaultPredictionClientArea();
@@ -762,7 +754,6 @@ internal static class ClientAreaDefaults
         add(typeof(IModelsArea), modelsArea);
         add(typeof(IMovementArea), movementArea);
         add(typeof(IEntitiesArea), entitiesArea);
-        add(typeof(ICollisionArea), collisionArea);
         add(typeof(IConsoleArea), consoleArea);
         add(typeof(IHudClientArea), hudClientArea);
         add(typeof(IPredictionClientArea), predictionClientArea);

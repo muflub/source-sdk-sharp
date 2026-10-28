@@ -14,17 +14,22 @@ struct edict_t;
 // Whether a ServerClass was declared by C# rather than registered by the SDK.
 class ServerClass;
 class CServerTempEnts;
-bool SourceSharp_IsManagedServerClass( const CServerTempEnts &tempEnts, const ServerClass *pClass );
+class CServerNetTables;
+bool SourceSharp_IsManagedServerClass( const CServerNetTables &tables, const CServerTempEnts &tempEnts,
+									   const ServerClass *pClass );
 
 // The seven shared network string tables, created before managed's are.
 class INetworkStringTable;
-INetworkStringTable *SourceSharp_CreateNetworkStringTables();
+class INetworkStringTableContainer;
+INetworkStringTable *SourceSharp_CreateNetworkStringTables( INetworkStringTableContainer *pTables );
 
 // Acquires every engine interface this binary reaches by global. False on the
 // first miss, as stock's DLLInit.
 typedef void *( *CreateInterfaceFn )( const char *pName, int *pReturnCode );
 class ICvar;
-bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
-										  CreateInterfaceFn fileSystemFactory, ICvar *pCvar );
+class CServerEngineInterfaces;
+bool SourceSharp_AcquireEngineInterfaces( CServerEngineInterfaces &bound, CreateInterfaceFn appSystemFactory,
+										  CreateInterfaceFn physicsFactory, CreateInterfaceFn fileSystemFactory,
+										  ICvar *pCvar );
 
 int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();

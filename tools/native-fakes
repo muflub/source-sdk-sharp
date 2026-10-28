@@ -48,6 +48,10 @@ FAKES = [
                                                       'IHandleEntity': 'vendor/shared/public/ihandleentity.h'}),
     ('IVModelInfo', 'vendor/shared/public/engine/ivmodelinfo.h', 'engine/ivmodelinfo.h',
      'src/test/native/fakes/fake_model_info.g.h'),
+    ('IGameEventManager2', 'vendor/shared/public/igameevents.h', 'igameevents.h',
+     'src/test/native/fakes/fake_game_event_manager.g.h', {'IBaseInterface': None}),
+    ('IGameEvent', 'vendor/shared/public/igameevents.h', 'igameevents.h',
+     'src/test/native/fakes/fake_game_event.g.h'),
 ]
 
 
@@ -111,7 +115,9 @@ def chain_virtuals(iface, header, base_headers):
     for base in bases_of(text, iface):
         if base not in base_headers:
             raise Refusal('%s derives from %s, which no base header is named for' % (iface, base))
-        out += chain_virtuals(base, base_headers[base], base_headers)
+        # None: a base named on purpose as declaring nothing to override (IBaseInterface).
+        if base_headers[base] is not None:
+            out += chain_virtuals(base, base_headers[base], base_headers)
     for d in pure_virtuals(text, iface):
         if d not in out:
             out.append(d)
@@ -213,6 +219,9 @@ def self_test():
         expect('a base with no header named is refused', False)
     except Refusal:
         expect('a base with no header named is refused', True)
+    expect('a base named as declaring nothing adds nothing (IGameEventManager2 over IBaseInterface)',
+           chain_virtuals('IGameEventManager2', 'vendor/shared/public/igameevents.h', {'IBaseInterface': None})
+           == pure_virtuals(read('vendor/shared/public/igameevents.h'), 'IGameEventManager2'))
     expect('the engine fake overrides IVEngineServer\'s 124 pure virtuals',
            engine.count(' override ') == 124)
     expect('the engine fake keeps const and defaults as declared',

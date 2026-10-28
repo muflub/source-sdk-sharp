@@ -234,11 +234,6 @@ bool CManagedSide::Reattached( void *pObject, char *pWhy, size_t nWhy )
 		ManagedAreas_Validate( managed.m_Areas, pWhy, nWhy );
 }
 
-IManagedRuntimeServer *ManagedRuntimeServer()
-{
-	return ShellGameDll_Managed().m_pRuntimeServer;
-}
-
 void CManagedSide::ReleaseRoot()
 {
 	// The areas first, each nulled before its release, then the root they came from.

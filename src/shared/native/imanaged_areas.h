@@ -14,7 +14,8 @@
 // phase 4); Release is slot 0 and Validate slot 1, and native takes
 // an area only when Validate matches its k<I>SlotHashes (managed_accept.h).
 // Each is acquired again on every load and released before every unload,
-// so native keeps no pointer and calls through the accessor.
+// so native keeps no pointer of its own: it is handed the holders and reads the
+// area from them at the point of use (plan_server_native_v2 T6 part 3).
 
 #pragma once
 
@@ -751,21 +752,5 @@ static const uint32_t kIManagedBonesSlotHashes[] = {
 };
 static const int32_t kIManagedBonesSlotCount = 3;
 static_assert( sizeof( SSManagedBonesTable ) == 3 * sizeof( void * ), "SSManagedBonesTable is one pointer per slot" );
-
-IManagedPhysicsFrame *ManagedPhysicsFrame(); // this load's area, or NULL outside a load
-IManagedResources *ManagedResources(); // this load's area, or NULL outside a load
-IManagedSaveRestore *ManagedSaveRestore(); // this load's area, or NULL outside a load
-IManagedSoundEnt *ManagedSoundEnt(); // this load's area, or NULL outside a load
-IManagedHierarchy *ManagedHierarchy(); // this load's area, or NULL outside a load
-IManagedEntities *ManagedEntities(); // this load's area, or NULL outside a load
-IManagedClients *ManagedClients(); // this load's area, or NULL outside a load
-IManagedEvents *ManagedEvents(); // this load's area, or NULL outside a load
-IManagedUserMessages *ManagedUserMessages(); // this load's area, or NULL outside a load
-IManagedDiagnostics *ManagedDiagnostics(); // this load's area, or NULL outside a load
-IManagedCommands *ManagedCommands(); // this load's area, or NULL outside a load
-IManagedNetState *ManagedNetState(); // this load's area, or NULL outside a load
-IManagedPlayerCommands *ManagedPlayerCommands(); // this load's area, or NULL outside a load
-IManagedConsoleOutput *ManagedConsoleOutput(); // this load's area, or NULL outside a load
-IManagedBones *ManagedBones(); // this load's area, or NULL outside a load
 
 #endif // !CLIENT_DLL

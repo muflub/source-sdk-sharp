@@ -11,6 +11,7 @@
 #pragma once
 
 class CGlobalVars;
+class IManagedSoundEnt;
 class IHandleEntity;
 struct edict_t;
 
@@ -18,11 +19,12 @@ namespace ss
 {
 
 // The managed pool's level start and end (CSoundEnt::InitSoundEnt /
-// ShutdownSoundEnt). Init answers true, as stock's did.
-bool SoundEnt_Init( const CGlobalVars *pGlobals );
-void SoundEnt_Shutdown();
+// ShutdownSoundEnt), over the load's sound-ent area (NULL outside a load: nothing to
+// do). Init answers true, as stock's did.
+bool SoundEnt_Init( IManagedSoundEnt *pApi, const CGlobalVars *pGlobals );
+void SoundEnt_Shutdown( IManagedSoundEnt *pApi );
 
 // Clears the reserved slot of the leaving client at this entity index.
-void SoundEnt_ResetClientSound( int iClientIndex );
+void SoundEnt_ResetClientSound( IManagedSoundEnt *pApi, int iClientIndex );
 
 } // namespace ss

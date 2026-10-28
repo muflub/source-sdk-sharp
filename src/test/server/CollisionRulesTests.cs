@@ -1,9 +1,3 @@
-using System;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
-
 using SourceSharp.Abi;
 
 using Xunit;
@@ -11,75 +5,69 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// The C# collision rules produce the matrix native holds.
-///
-/// <para>
-/// <b>This is one link of a chain, and the other link is in C++.</b>
-/// collision_rules_test.cpp keeps stock's <c>ShouldCollide</c> VERBATIM and
-/// proves the native default table answers what stock answered, for all four
-/// hundred pairs. This file proves the C# predicate builds that same table. Put
-/// together they say the C# rules are stock's rules, without either side having
-/// to transcribe the other.
-/// </para>
-///
-/// <para>
-/// The direction matters: native is checked against stock, and C# is checked
-/// against native. If C# were checked against a transcription of stock written
-/// here, the transcription and the implementation would be two things I wrote
-/// from the same reading, and a misreading would agree with itself.
-/// </para>
+/// The C# collision rules are stock's: the matrix the predicate builds is the
+/// one stock's <c>CGameRules::ShouldCollide</c> answers over all four hundred
+/// pairs, which native once held as its default table and which
+/// <c>PhysicsSolverRulesTests</c> holds for the solver's copy.
 /// </summary>
 public class CollisionRulesTests
 {
-    private const string ShellCpp = "src/sourcesharp/game/shared/shell_gamerules.cpp";
-
-    /// <summary>The twenty words out of the shell's default table.</summary>
-    private static uint[] NativeRows()
-    {
-        var cpp = File.ReadAllText(Path.Combine(RepoLayout.SdkTree, ShellCpp));
-
-        int at = cpp.IndexOf("static SourceSharpCollisionRules s_CollisionRules", StringComparison.Ordinal);
-        Assert.True(at >= 0, "the native collision table is gone from " + ShellCpp);
-
-        int end = cpp.IndexOf("};", at, StringComparison.Ordinal);
-
-        return Regex.Matches(cpp[at..end], @"0x([0-9A-Fa-f]{8})u")
-            .Select(m => uint.Parse(m.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
-            .ToArray();
-    }
+    /// <summary>
+    /// Stock's answers, one row per group: bit b of row a is "a collides with b".
+    /// The table shell_gamerules.cpp held until T6 part 3 retired it with the
+    /// slot that overwrote it (nothing native asked it).
+    /// </summary>
+    private static readonly uint[] StockRows =
+    [
+        0x000FABFFu, // COLLISION_GROUP_NONE
+        0x00020001u, // COLLISION_GROUP_DEBRIS
+        0x00000001u, // COLLISION_GROUP_DEBRIS_TRIGGER
+        0x000EAAC1u, // COLLISION_GROUP_INTERACTIVE_DEBRIS
+        0x000EABE1u, // COLLISION_GROUP_INTERACTIVE
+        0x000C23F1u, // COLLISION_GROUP_PLAYER
+        0x000EABB9u, // COLLISION_GROUP_BREAKABLE_GLASS
+        0x000EB3F9u, // COLLISION_GROUP_VEHICLE
+        0x000CABF1u, // COLLISION_GROUP_PLAYER_MOVEMENT
+        0x000EE3F9u, // COLLISION_GROUP_NPC
+        0x00000000u, // COLLISION_GROUP_IN_VEHICLE
+        0x000E8959u, // COLLISION_GROUP_WEAPON
+        0x00000080u, // COLLISION_GROUP_VEHICLE_CLIP
+        0x000E83F9u, // COLLISION_GROUP_PROJECTILE
+        0x000E8200u, // COLLISION_GROUP_DOOR_BLOCKER
+        0x000EEBD9u, // COLLISION_GROUP_PASSABLE_DOOR
+        0x00000001u, // COLLISION_GROUP_DISSOLVING
+        0x000EEADBu, // COLLISION_GROUP_PUSHAWAY
+        0x000EEBF9u, // COLLISION_GROUP_NPC_ACTOR
+        0x000EEBF9u, // COLLISION_GROUP_NPC_SCRIPTED
+    ];
 
     [Fact]
-    public void TheBuiltMatrixIsTheNativeDefaultTable()
+    public void TheBuiltMatrixIsStocksTable()
     {
-        var native = NativeRows();
+        var native = StockRows;
         var built = CollisionRules.BuildMatrix();
 
         Assert.True(native.Length == built.Length,
-            "native holds " + native.Length + " row(s) and C# builds " + built.Length
+            "stock holds " + native.Length + " row(s) and C# builds " + built.Length
             + ". One of the two has a different idea of how many collision groups "
             + "there are, and the matrix is indexed by that number.");
 
         for (int i = 0; i < native.Length; i++)
         {
             Assert.True(native[i] == built[i],
-                "row " + i + " (" + (EngineCollisionGroup)i + "): native has 0x"
+                "row " + i + " (" + (EngineCollisionGroup)i + "): stock has 0x"
                 + native[i].ToString("X8") + ", C# builds 0x" + built[i].ToString("X8")
-                + ", so the C# rules have diverged from the native table.");
+                + ", so the C# rules have diverged from stock's.");
         }
     }
 
-    /// <summary>
-    /// The row count is the group count, and the group count is what the blob
-    /// carries. A mismatch here is caught at registration by SetRows throwing,
-    /// but that is a runtime failure on a live server; this is the same fact
-    /// checked at build time.
-    /// </summary>
+    /// <summary>The row count is the group count: LAST_SHARED_COLLISION_GROUP.</summary>
     [Fact]
-    public void TheGroupCountMatchesTheBlobAndTheEnum()
+    public void TheGroupCountIsTheEnums()
     {
-        Assert.Equal(CollisionRulesBlob.RowCount, CollisionRules.GroupCount);
         Assert.Equal((int)EngineCollisionGroup.Count, CollisionRules.GroupCount);
-        Assert.Equal(CollisionRulesBlob.RowCount, CollisionRules.BuildMatrix().Length);
+        Assert.Equal(CollisionRules.GroupCount, StockRows.Length);
+        Assert.Equal(CollisionRules.GroupCount, CollisionRules.BuildMatrix().Length);
     }
 
     /// <summary>
@@ -157,56 +145,5 @@ public class CollisionRulesTests
                                                  EngineCollisionGroup.Npc));
         Assert.False(CollisionRules.ShouldCollide(EngineCollisionGroup.DoorBlocker,
                                                   EngineCollisionGroup.Player));
-    }
-
-    // ------------------------------------------------------------------
-    // Registration.
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void RegisterPushesTheBuiltMatrix()
-    {
-        var engine = new RecordingEngine();
-        CollisionRules.Register(engine);
-
-        var call = engine.Calls.Single(c => c.Member == "CollisionRules.RegisterCollisionRules");
-        var rows = Assert.IsType<uint[]>(call.Arg(0));
-
-        Assert.Equal(CollisionRules.BuildMatrix(), rows);
-    }
-
-    /// <summary>
-    /// A matrix of the wrong size is refused rather than truncated. Sending the
-    /// first twenty of twenty-two rows would leave the last two groups
-    /// answering whatever the native defaults said, silently.
-    /// </summary>
-    [Fact]
-    public void AMatrixOfTheWrongSizeIsRefused()
-    {
-        var blob = default(CollisionRulesBlob);
-
-        Assert.Throws<ArgumentException>(() => blob.SetRows(new uint[CollisionRulesBlob.RowCount - 1]));
-        Assert.Throws<ArgumentException>(() => blob.SetRows(new uint[CollisionRulesBlob.RowCount + 1]));
-        Assert.Throws<ArgumentException>(() => blob.SetRows(null!));
-    }
-
-    /// <summary>Both sides register it — the client predicts with the same table.</summary>
-    [Fact]
-    public void BothModulesRegisterTheMatrix()
-    {
-        var root = RepoLayout.SdkTree;
-
-        foreach (var module in new[] { "src/sourcesharp/managed/SourceSharp.Server/ServerModule.cs",
-                                       "src/sourcesharp/managed/SourceSharp.Client/ClientModule.cs" })
-        {
-            var text = File.ReadAllText(Path.Combine(root, module));
-
-            Assert.True(text.Contains("CollisionRules.Register(", StringComparison.Ordinal),
-                module + " does not register the collision matrix. ShouldCollide is "
-                + "asked on both sides -- util_shared.cpp is shared and the trace "
-                + "filter runs during prediction -- so a side that does not register "
-                + "answers from the native defaults, and a change to the C# rules "
-                + "desynchronises prediction with nothing to report it.");
-        }
     }
 }

@@ -11,7 +11,6 @@
 
 #include <cstdlib>
 
-#include "server_engine.h"
 #include "ss_util.h"
 #include "server_state.h"
 #include "server_entity_context.h"
@@ -932,7 +931,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	// created before its type was published, and managed state would overrun it.
 	// Warned once per class. Named from the desc: SetClassname runs further down.
 	const char *pName = ( pClass && pClass->pClassName ) ? pClass->pClassName : "";
-	const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( pName );
+	const SourceSharpNetType_t *pType = m_pContext->m_NetTables.m_Types.ByName( pName );
 
 	if ( pType && pType->nLayoutBytes > BlobBytes() )
 	{

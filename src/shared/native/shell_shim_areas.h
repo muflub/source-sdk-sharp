@@ -9,7 +9,7 @@
 //
 // The server's implementation of each bound interface in ishim_areas.h: one
 // class per interface managed binds, whose methods forward to the bodies the
-// struct slots are filled with (shell_shim_areas.inc). The shim root holds
+// struct slots are filled with (shell_shim_areas_server.cpp). The shim root holds
 // CShimAreas by value, so the areas add one member to one static. An area its
 // own class implements is held by pointer, set by the tier that owns the class.
 
@@ -26,46 +26,11 @@ public:
 	void *GetGlobalVarsPtr() override;
 };
 
-class CShimEventsServer final : public IShimEventsServer
-{
-public:
-	void ListenForGameEvent( const char *pEventName ) override;
-	int32_t EventGetInt( void *hEvent, const char *pKey ) override;
-	float EventGetFloat( void *hEvent, const char *pKey ) override;
-	int32_t EventGetBool( void *hEvent, const char *pKey ) override;
-	const char *EventGetString( void *hEvent, const char *pKey ) override;
-	void EventSetInt( void *hEvent, const char *pKey, int32_t nValue ) override;
-	void EventSetBool( void *hEvent, const char *pKey, int32_t bValue ) override;
-	void EventSetString( void *hEvent, const char *pKey, const char *pValue ) override;
-};
-
 class CShimGameRules final : public IShimGameRules
 {
 public:
 	void RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy ) override;
 	void RegisterDamageRules( const SourceSharpDamageRules *pRules ) override;
-};
-
-class CShimDiagnostics final : public IShimDiagnostics
-{
-public:
-	int32_t PlayerShadowCounts( int32_t *pOut, int32_t nMax ) override;
-	int32_t ExitWatchArm( const char *pRecordPath ) override;
-	int32_t ExitWatchRead( int32_t *pOut, int32_t nMax ) override;
-	int32_t ExitWatchDisarm() override;
-};
-
-// CServerNetwork implements IShimNetworkServer and derives from this: the shared base's slots,
-// forwarded to the bodies both DLLs compile.
-class CShimNetworkServerBase : public IShimNetworkServer
-{
-public:
-	int32_t NetHierarchyDeclare( int32_t nBlobBytes ) override;
-	int32_t NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
-							uint32_t *pOutTypeId ) override;
-	int32_t NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes, int32_t *pOutWords,
-						 int32_t *pOutProps, int32_t *pOutLive ) override;
-	int32_t WorldNetDeclare( int32_t nBlobBytes ) override;
 };
 
 // CServerModels implements IShimModelsServer and derives from this: the shared base's slots,
@@ -101,19 +66,11 @@ public:
 	int32_t EntityIsValid( uint32_t hEntity ) override;
 };
 
-// CServerCollision implements IShimCollisionServer and derives from this: the shared base's slots,
-// forwarded to the bodies both DLLs compile.
-class CShimCollisionServerBase : public IShimCollisionServer
-{
-public:
-	void RegisterCollisionRules( const SourceSharpCollisionRules *pRules ) override;
-};
-
 struct CShimAreas
 {
 	CShimEngine m_Engine;
 	IShimConsoleServer *m_pConsoleServer = nullptr; // CServerConsoleCommands
-	CShimEventsServer m_EventsServer;
+	IShimEventsServer *m_pEventsServer = nullptr; // CGameEvents
 	IShimNetworkServer *m_pNetworkServer = nullptr; // CServerNetwork
 	IShimModelsServer *m_pModelsServer = nullptr; // CServerModels
 	IShimPrecache *m_pPrecache = nullptr; // CServerModelPrecache
@@ -131,32 +88,23 @@ struct CShimAreas
 	IShimEffectsServer *m_pEffectsServer = nullptr; // CServerTempEnts
 	IShimDebugOverlay *m_pDebugOverlay = nullptr; // CServerDebugOverlays
 	IShimUserMessages *m_pUserMessages = nullptr; // CServerUserMessages
-	CShimDiagnostics m_Diagnostics;
+	IShimDiagnostics *m_pDiagnostics = nullptr; // CServerDiagnostics
 };
 
 // The internal factory's rows for every interface above: the area and the
-// compiler's slot count for it, or NULL and 0. Defined in shell_shim_areas.inc.
+// compiler's slot count for it, or NULL and 0. Defined in shell_shim_areas_server.cpp.
 void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );
 
 #else // CLIENT_DLL
 
 // plan_client_vtables CB, CC: the client implements each shared base, and its
 // client-only areas, forwarding to the body each row of the slot table names.
+// A base its own class implements is held by pointer, set by the client's owner.
 
 class CShimEngineClient final : public IShimEngine
 {
 public:
 	void *GetGlobalVarsPtr() override;
-};
-
-class CShimEventsClient final : public IShimEvents
-{
-public:
-	void ListenForGameEvent( const char *pEventName ) override;
-	int32_t EventGetInt( void *hEvent, const char *pKey ) override;
-	float EventGetFloat( void *hEvent, const char *pKey ) override;
-	int32_t EventGetBool( void *hEvent, const char *pKey ) override;
-	const char *EventGetString( void *hEvent, const char *pKey ) override;
 };
 
 class CShimNetworkClient final : public IShimNetwork
@@ -195,12 +143,6 @@ public:
 	void EntityGetOrigin( uint32_t hEntity, float *pOutXYZ ) override;
 	void EntityGetAngles( uint32_t hEntity, float *pOutPYR ) override;
 	int32_t EntityIsValid( uint32_t hEntity ) override;
-};
-
-class CShimCollisionClient final : public IShimCollision
-{
-public:
-	void RegisterCollisionRules( const SourceSharpCollisionRules *pRules ) override;
 };
 
 class CShimHudClient final : public IShimHudClient
@@ -636,12 +578,11 @@ public:
 struct CShimAreasClient
 {
 	CShimEngineClient m_Engine;
-	CShimEventsClient m_Events;
+	IShimEvents *m_pEvents = nullptr; // CGameEvents
 	CShimNetworkClient m_Network;
 	CShimModelsClient m_Models;
 	CShimMovementClient m_Movement;
 	CShimEntitiesClient m_Entities;
-	CShimCollisionClient m_Collision;
 	CShimHudClient m_HudClient;
 	CShimPredictionClient m_PredictionClient;
 	CShimTempEntPoolClient m_TempEntPoolClient;

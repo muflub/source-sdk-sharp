@@ -11,14 +11,15 @@
 
 #include "ss_string.h"
 #include "tempent_registry.h"
+#include "server_state.h"
 
-bool SourceSharp_IsStandaloneTierServerClass( const ServerClass *pClass );
-bool SourceSharp_IsWorldServerClass( const ServerClass *pClass );
+bool SourceSharp_IsStandaloneTierServerClass( const CServerNetTables &tables, const ServerClass *pClass );
 
 // Whether a ServerClass was declared by C#, answered by identity against the
 // three places SourceSharp constructs one. Anything else counts as stock.
-bool SourceSharp_IsManagedServerClass( const CServerTempEnts &tempEnts, const ServerClass *pClass )
+bool SourceSharp_IsManagedServerClass( const CServerNetTables &tables, const CServerTempEnts &tempEnts,
+									   const ServerClass *pClass )
 {
-	return SourceSharp_IsStandaloneTierServerClass( pClass ) || tempEnts.IsTempEntServerClass( pClass ) ||
-		SourceSharp_IsWorldServerClass( pClass );
+	return SourceSharp_IsStandaloneTierServerClass( tables, pClass ) || tempEnts.IsTempEntServerClass( pClass ) ||
+		( pClass != NULL && pClass == tables.m_World.Class() );
 }

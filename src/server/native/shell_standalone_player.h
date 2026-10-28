@@ -213,12 +213,8 @@ public:
 	const CBaseHandle &GroundHandle() const { return m_hGround; }
 
 public:
-	// Connected players by entindex (1..MAX_PLAYERS).
-	static CStandalonePlayer *FromEdict( const edict_t *pEdict );
-	static CStandalonePlayer *FromIndex( int nEntIndex );
-
 	// Once per tick, before the entity thinks, so a think sees this tick's player moves.
-	static void RunAllQueuedCommands();
+	static void RunAllQueuedCommands( const CServerEntityContext &context );
 
 protected:
 	// Mirrors the managed death verdict into deadflag.
@@ -284,9 +280,6 @@ void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand 
 
 // A managed handle as a standalone player, or NULL for anything else.
 CStandalonePlayer *SourceSharp_ResolveStandalonePlayer( uint32_t hEntity );
-
-// The player who issued the console command being dispatched, or NULL.
-CStandalonePlayer *StandalonePlayer_CommandClient();
 
 // The shell to the player, checked in debug. Callers ask IsPlayer() first.
 inline CStandalonePlayer *SourceSharp_PlayerOf( CStandaloneEntity *pEnt )

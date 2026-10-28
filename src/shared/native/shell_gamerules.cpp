@@ -26,6 +26,9 @@
 #include "shell_gamerules.h"
 #include "shell_diagnostics.h"
 #include "sourcesharp.h"
+#ifndef CLIENT_DLL
+#include "shell_managed_areas.h"
+#endif
 #ifdef CLIENT_DLL
 #include "ammodef.h"
 #include "takedamageinfo.h"
@@ -35,7 +38,6 @@
 #else
 #include "networkstringtabledefs.h"
 #include "edict.h"
-#include "server_engine.h"
 #endif
 
 #ifndef CLIENT_DLL
@@ -171,9 +173,9 @@ INetworkStringTable *CreateNetworkStringTables_GameRules( INetworkStringTableCon
 	return pTables->CreateStringTable( GAMERULES_STRINGTABLE_NAME, 1 );
 }
 
-IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable )
+IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable, const CManagedAreas &managed )
 {
-	IGameRules *pRules = new CSourceSharpGameRules();
+	IGameRules *pRules = new CSourceSharpGameRules( managed );
 
 	// Tell the client to build its own; without it, the client has no rules object.
 	Assert( pRulesTable );
@@ -194,16 +196,22 @@ BEGIN_NETWORK_TABLE_NOBASE( CSourceSharpGameRules, DT_SourceSharpGameRules )
 END_NETWORK_TABLE()
 #endif
 
+#ifndef CLIENT_DLL
+CSourceSharpGameRules::CSourceSharpGameRules( const CManagedAreas &managed )
+	: m_Managed( managed )
+{
+	SOURCESHARP_TRACE();
+}
+#else
 CSourceSharpGameRules::CSourceSharpGameRules()
 {
 	SOURCESHARP_TRACE();
 
-#ifdef CLIENT_DLL
 	// Two rules objects would leave the first leaked and unreachable.
 	Assert( !g_pGameRules );
 	g_pGameRules = this;
-#endif
 }
+#endif
 
 CSourceSharpGameRules::~CSourceSharpGameRules()
 {
@@ -288,7 +296,7 @@ bool CSourceSharpGameRules::ClientConnected( edict_t *pEntity, const char *pszNa
 {
 	SOURCESHARP_TRACE_MSG( pszName );
 
-	IManagedClients *pApi = ManagedClients();
+	IManagedClients *pApi = m_Managed.m_pClients;
 	if ( pApi )
 	{
 		if ( reject && maxrejectlen > 0 )
@@ -313,49 +321,4 @@ void CSourceSharpGameRules::EndGameFrame() {}
 const RulesViewVectors_t *CSourceSharpGameRules::GetViewVectors() const
 {
 	return &g_DefaultViewVectors;
-}
-
-// Which collision groups collide: a 20x20 bit matrix C# registers, asked once per
-// traced entity. The defaults are stock's ShouldCollide answers.
-static SourceSharpCollisionRules s_CollisionRules = { {
-	0x000FABFFu, // COLLISION_GROUP_NONE
-	0x00020001u, // COLLISION_GROUP_DEBRIS
-	0x00000001u, // COLLISION_GROUP_DEBRIS_TRIGGER
-	0x000EAAC1u, // COLLISION_GROUP_INTERACTIVE_DEBRIS
-	0x000EABE1u, // COLLISION_GROUP_INTERACTIVE
-	0x000C23F1u, // COLLISION_GROUP_PLAYER
-	0x000EABB9u, // COLLISION_GROUP_BREAKABLE_GLASS
-	0x000EB3F9u, // COLLISION_GROUP_VEHICLE
-	0x000CABF1u, // COLLISION_GROUP_PLAYER_MOVEMENT
-	0x000EE3F9u, // COLLISION_GROUP_NPC
-	0x00000000u, // COLLISION_GROUP_IN_VEHICLE
-	0x000E8959u, // COLLISION_GROUP_WEAPON
-	0x00000080u, // COLLISION_GROUP_VEHICLE_CLIP
-	0x000E83F9u, // COLLISION_GROUP_PROJECTILE
-	0x000E8200u, // COLLISION_GROUP_DOOR_BLOCKER
-	0x000EEBD9u, // COLLISION_GROUP_PASSABLE_DOOR
-	0x00000001u, // COLLISION_GROUP_DISSOLVING
-	0x000EEADBu, // COLLISION_GROUP_PUSHAWAY
-	0x000EEBF9u, // COLLISION_GROUP_NPC_ACTOR
-	0x000EEBF9u, // COLLISION_GROUP_NPC_SCRIPTED
-} };
-
-// C# states them once at startup.
-void SourceSharp_RegisterCollisionRules( const SourceSharpCollisionRules *pRules )
-{
-	if ( !pRules )
-		return;
-
-	s_CollisionRules = *pRules;
-}
-
-bool CSourceSharpGameRules::ShouldCollide( int collisionGroup0, int collisionGroup1 )
-{
-	// Stock answers true for groups it did not name; out of range is not indexable.
-	if ( collisionGroup0 < 0 || collisionGroup0 >= LAST_SHARED_COLLISION_GROUP || collisionGroup1 < 0 ||
-		 collisionGroup1 >= LAST_SHARED_COLLISION_GROUP )
-		return true;
-
-	// The matrix is symmetric, so the group order does not matter.
-	return ( s_CollisionRules.nRows[collisionGroup0] & ( 1u << collisionGroup1 ) ) != 0;
 }

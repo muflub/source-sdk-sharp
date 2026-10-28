@@ -80,7 +80,6 @@ public sealed class RecordingEngine :
     IEngineEntityRender,
     IEngineDamage,
     IEngineGameRulesPolicy,
-    IEngineCollisionRules,
     IEngineBrushMovement,
     IEnginePlayers,
     IEnginePlayerMovement,
@@ -916,13 +915,6 @@ public sealed class RecordingEngine :
     // GameRulesPolicy
     void IEngineGameRulesPolicy.RegisterPolicy(GameRulesPolicyBlob policy) => RecordVoid("GameRulesPolicy.RegisterPolicy", policy);
 
-    // CollisionRules
-    // Recorded is received: the recorder is this side's native, so it reports delivery.
-    bool IEngineCollisionRules.RegisterCollisionRules(uint[] rows)
-    {
-        RecordVoid("CollisionRules.RegisterCollisionRules", rows);
-        return true;
-    }
     void IEngineDamage.TakeDamage(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction, Vector forceOrigin, bool physicsOnly) => RecordVoid("Damage.TakeDamage", entity, attacker, damage, damageType, direction, forceOrigin, physicsOnly);
 
     // BrushMovement

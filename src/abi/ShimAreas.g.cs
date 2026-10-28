@@ -241,27 +241,6 @@ internal unsafe class EntitiesArea : IEntitiesArea
 }
 
 /// <summary>
-/// <c>IShimCollision</c> as its consumers take it: <see cref="CollisionArea"/> over the engine,
-/// or a test's default (<c>DefaultCollisionArea</c>).
-/// </summary>
-internal unsafe interface ICollisionArea
-{
-    void RegisterCollisionRules(CollisionRulesBlob* a0);
-}
-
-/// <summary>
-/// <c>IShimCollision</c>, served as <c>SourceSharpCollision001</c>, through <see cref="ShimCollisionFwd"/>.
-/// </summary>
-internal unsafe class CollisionArea : ICollisionArea
-{
-    private readonly ShimRef<ShimCollisionFwd> _shim;
-
-    internal CollisionArea(ShimRef<ShimCollisionFwd> shim) { _shim = shim; }
-
-    public void RegisterCollisionRules(CollisionRulesBlob* a0) { _shim.Table->RegisterCollisionRules(_shim.Self, a0); }
-}
-
-/// <summary>
 /// <c>IShimConsole</c> as its consumers take it: <see cref="ConsoleArea"/> over the engine,
 /// or a test's default (<c>DefaultConsoleArea</c>).
 /// </summary>
@@ -691,7 +670,7 @@ internal sealed unsafe class HierarchyArea : IHierarchyArea
 /// <c>IShimCollisionServer</c> as its consumers take it: <see cref="CollisionServerArea"/> over the engine,
 /// or a test's default (<c>DefaultCollisionServerArea</c>).
 /// </summary>
-internal unsafe interface ICollisionServerArea : ICollisionArea
+internal unsafe interface ICollisionServerArea
 {
     void EntityGetBounds(uint a0, float* a1, float* a2);
     void EntityGetBoundsSize(uint a0, float* a1);
@@ -704,17 +683,13 @@ internal unsafe interface ICollisionServerArea : ICollisionArea
 }
 
 /// <summary>
-/// <c>IShimCollisionServer</c>, served as <c>SourceSharpCollisionServer001</c>, through <see cref="ShimCollisionServerFwd"/>. Its base's slots are <see cref="CollisionArea"/>'s.
+/// <c>IShimCollisionServer</c>, served as <c>SourceSharpCollisionServer001</c>, through <see cref="ShimCollisionServerFwd"/>.
 /// </summary>
-internal sealed unsafe class CollisionServerArea : CollisionArea, ICollisionServerArea
+internal sealed unsafe class CollisionServerArea : ICollisionServerArea
 {
     private readonly ShimRef<ShimCollisionServerFwd> _shim;
 
-    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim, ShimRef<ShimCollisionFwd> asBase)
-        : base(asBase)
-    {
-        _shim = shim;
-    }
+    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim) { _shim = shim; }
 
     public void EntityGetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntityGetBounds(_shim.Self, a0, a1, a2); }
     public void EntityGetBoundsSize(uint a0, float* a1) { _shim.Table->EntityGetBoundsSize(_shim.Self, a0, a1); }
@@ -1868,7 +1843,7 @@ internal static unsafe class ServerAreaRegistration
             new EntityLifecycleArea(entityLifecycleArea),
             new TransformArea(transformArea),
             new HierarchyArea(hierarchyArea),
-            new CollisionServerArea(collisionServerArea, collisionServerArea.As<ShimCollisionFwd>()),
+            new CollisionServerArea(collisionServerArea),
             new PhysicsArea(physicsArea),
             new DamageArea(damageArea),
             new GameRulesArea(gameRulesArea),
@@ -1900,7 +1875,7 @@ internal static unsafe class ServerAreaRegistration
             new EntityLifecycleArea(default),
             new TransformArea(default),
             new HierarchyArea(default),
-            new CollisionServerArea(default, default),
+            new CollisionServerArea(default),
             new PhysicsArea(default),
             new DamageArea(default),
             new GameRulesArea(default),
@@ -1962,7 +1937,6 @@ internal static unsafe class ServerAreaRegistration
         add(typeof(IModelsArea), modelsServerArea);
         add(typeof(IMovementArea), movementServerArea);
         add(typeof(IEntitiesArea), entitiesServerArea);
-        add(typeof(ICollisionArea), collisionServerArea);
     }
 }
 
@@ -1972,7 +1946,7 @@ internal static unsafe class ServerAreaRegistration
 /// </summary>
 internal static unsafe class ClientAreaRegistration
 {
-    internal static int Count => 28;
+    internal static int Count => 27;
 
     /// <summary>
     /// Takes every area from the root, each with its table, and hands them
@@ -1988,7 +1962,6 @@ internal static unsafe class ClientAreaRegistration
         if (!ShimRef<ShimModelsFwd>.TryTake(root, "SourceSharpModels001", out var modelsArea, out why)) return false;
         if (!ShimRef<ShimMovementFwd>.TryTake(root, "SourceSharpMovement001", out var movementArea, out why)) return false;
         if (!ShimRef<ShimEntitiesFwd>.TryTake(root, "SourceSharpEntities001", out var entitiesArea, out why)) return false;
-        if (!ShimRef<ShimCollisionFwd>.TryTake(root, "SourceSharpCollision001", out var collisionArea, out why)) return false;
         if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var consoleArea, out why)) return false;
         if (!ShimRef<ShimHudClientFwd>.TryTake(root, "SourceSharpHudClient001", out var hudClientArea, out why)) return false;
         if (!ShimRef<ShimPredictionClientFwd>.TryTake(root, "SourceSharpPredictionClient001", out var predictionClientArea, out why)) return false;
@@ -2017,7 +1990,6 @@ internal static unsafe class ClientAreaRegistration
             new ModelsArea(modelsArea),
             new MovementArea(movementArea),
             new EntitiesArea(entitiesArea),
-            new CollisionArea(collisionArea),
             new ConsoleArea(consoleArea),
             new HudClientArea(hudClientArea),
             new PredictionClientArea(predictionClientArea),
@@ -2055,7 +2027,6 @@ internal static unsafe class ClientAreaRegistration
             new ModelsArea(default),
             new MovementArea(default),
             new EntitiesArea(default),
-            new CollisionArea(default),
             new ConsoleArea(default),
             new HudClientArea(default),
             new PredictionClientArea(default),
@@ -2085,7 +2056,6 @@ internal static unsafe class ClientAreaRegistration
         ModelsArea modelsArea,
         MovementArea movementArea,
         EntitiesArea entitiesArea,
-        CollisionArea collisionArea,
         ConsoleArea consoleArea,
         HudClientArea hudClientArea,
         PredictionClientArea predictionClientArea,
@@ -2114,7 +2084,6 @@ internal static unsafe class ClientAreaRegistration
         add(typeof(IModelsArea), modelsArea);
         add(typeof(IMovementArea), movementArea);
         add(typeof(IEntitiesArea), entitiesArea);
-        add(typeof(ICollisionArea), collisionArea);
         add(typeof(IConsoleArea), consoleArea);
         add(typeof(IHudClientArea), hudClientArea);
         add(typeof(IPredictionClientArea), predictionClientArea);

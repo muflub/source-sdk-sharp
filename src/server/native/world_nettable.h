@@ -8,7 +8,10 @@
 class SendProp;
 class SendTable;
 class ServerClass;
+class CSourceSharpPayloadPropNames;
 
+// worldspawn's ServerClass, built at DLL init from the C# declaration
+// (SourceSharp.Shared.WorldNetState).
 class CWorldNetTable
 {
 public:
@@ -26,7 +29,16 @@ public:
 
 	ServerClass *Class() const { return m_pClass; }
 
-	int32_t Declare( int32_t nBlobBytes );
+	// C# declares worldspawn's blob size and this builds the ServerClass around it. Must
+	// run inside DLL init, since the engine walks the server class list once. Returns the
+	// payload word count, or -1 for a size no payload can name or a second declaration
+	// that disagrees with the first.
+	int32_t Declare( int32_t nBlobBytes, CSourceSharpPayloadPropNames &names );
+
+	// What CWorld::GetServerClass() answers: NULL, warned once, until C# has declared;
+	// CWorld then falls back to its base's.
+	ServerClass *DeclaredClass();
+
 	void WarnUndeclaredOnce();
 
 private:

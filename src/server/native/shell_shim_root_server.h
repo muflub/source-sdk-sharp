@@ -31,7 +31,7 @@ public:
 	// The root lives as long as the DLL; this does nothing.
 	void Release() override {}
 
-	// The native-side shim areas. What native holds from managed is ShellGameDll_Managed()'s.
+	// The native-side shim areas. What native holds from managed is the game DLL's m_Managed.
 	CShimConsole m_Console;
 	CShimAreas m_Areas;
 

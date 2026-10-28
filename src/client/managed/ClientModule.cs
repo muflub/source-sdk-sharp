@@ -1442,20 +1442,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // predicted commands too — frozen here, before any command runs.
         _movement.ReplayRules = _movementRules.Rules;
 
-        // The collision matrix, the SAME one the server sends. ShouldCollide is
-        // asked on this side too -- util_shared.cpp is shared and the trace
-        // filter runs during prediction -- so if the client answered from the
-        // native defaults while the server answered from C#, a change to
-        // CollisionRules would desynchronise prediction with nothing to say so.
-        //
-        // It used not to arrive: the slot was server-only, so this call was a
-        // silent no-op and the client's table was equal to the matrix by
-        // coincidence alone. Now the log says which, on both sides.
-        if (CollisionRules.Register(_services.Require<IEngineCollisionRules>()))
-            Log.Msg($"[SourceSharp/Client] collision matrix delivered (rows 0x{CollisionRules.RowHash(CollisionRules.BuildMatrix()):X8})\n");
-        else
-            Log.Warning("[SourceSharp/Client] collision matrix NOT delivered: this side does not serve RegisterCollisionRules\n");
-
         int standalone = _standalones.RegisterAll(typeof(ClientModule).Assembly);
         Log.Msg($"[SourceSharp/Client] registered {standalone} standalone entity class(es)\n");
 

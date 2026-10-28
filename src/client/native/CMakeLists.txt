@@ -69,6 +69,7 @@ set(client_sourcesharp_sources
     ${LOCAL}/shell_render_trace_client.cpp
     ${LOCAL}/shell_rope_render.cpp
     ${LOCAL}/shell_shadows_client.cpp
+    ${LOCAL}/shell_shim_areas_client.cpp
     ${LOCAL}/shell_soundemitter_client.cpp
     ${LOCAL}/shell_soundenvelope_client.cpp
     ${LOCAL}/shell_soundscape_audio_client.cpp

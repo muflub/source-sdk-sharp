@@ -32,9 +32,9 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_nettable.cpp
     ${LOCAL}/shell_physicsobjects.cpp
     ${LOCAL}/shell_scripted.cpp
-    ${LOCAL}/shell_sentences.cpp
     ${LOCAL}/shell_server.cpp
     ${LOCAL}/shell_sharedappsystems.cpp
+    ${LOCAL}/shell_shim_areas_server.cpp
     ${LOCAL}/shell_soundent.cpp
     ${LOCAL}/shell_standalone.cpp
     ${LOCAL}/shell_standalone_base.cpp
@@ -49,12 +49,12 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_world_nettable.cpp
     ${LOCAL}/shell_worldquery.cpp
     ${LOCAL}/world_queries.cpp
+    ${LOCAL}/server_diagnostics.cpp
     ${LOCAL}/server_entity_resolver.cpp
     ${LOCAL}/server_damage.cpp
     ${LOCAL}/ss_recipient_filter.cpp
     ${LOCAL}/standalone_relays.cpp
     ${LOCAL}/world_adapter.cpp
-    ${LOCAL}/world_subject_dll.cpp
     ${SHARED}/alloc_check.cpp
     ${SHARED}/bound_callback.cpp
     ${SHARED}/console_display_forward.cpp

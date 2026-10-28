@@ -30,6 +30,8 @@
 #include "server_hierarchy.h"
 #include "server_physics.h"
 #include "shell_usermessage_send.h"
+#include "game_events.h"
+#include "server_diagnostics.h"
 #include "shell_boundary_probe.h"
 
 class CServerDllServices
@@ -38,17 +40,18 @@ public:
 	CServerDllServices( const CServerEngineInterfaces &engine, CGlobalVars *pGlobals, const CManagedHolders &managed,
 						CManagedSide &managedSide, CShellTransmitSet &transmitSet, CServerPlayersDll &players,
 						unsigned short &nWorldSerial, int32_t &nInvisibleRangeReach, const CSourceSharpSlotTable &slots,
-						CSourceSharpEntitySlots &entitySlots )
+						CSourceSharpEntitySlots &entitySlots, CServerNetTables &netTables )
 		: m_ManagedSide( managedSide )
 		, m_Precache( engine.m_pEngine, engine.m_pModelInfo, managed.m_Areas )
-		, m_EntityContext( engine.m_pEngine, pGlobals, engine.m_pPartition, engine.m_pModelInfo, managed,
-						   managedSide.Loaded(), managedSide.Generation(), players, nWorldSerial, m_Precache )
+		, m_EntityContext( engine.m_pEngine, pGlobals, engine.m_pPartition, engine.m_pModelInfo, engine.m_pStaticProps,
+						   engine.m_pTrace, managed, managedSide.Loaded(), managedSide.Generation(), players,
+						   nWorldSerial, m_Precache, netTables )
 		, m_Resolver( slots, m_EntityContext, nInvisibleRangeReach )
 		, m_Physics( pGlobals, engine.m_Factories, managed.m_Areas, players, m_EntityContext, m_Resolver )
-		, m_Damage( m_Resolver )
+		, m_Damage( m_Resolver, engine.m_pRandom )
 		, m_ConsoleCommands( m_Resolver, engine.m_pEngine )
 		, m_Models( m_Resolver )
-		, m_Network( m_Resolver, entitySlots )
+		, m_Network( m_Resolver, entitySlots, netTables )
 		, m_Entities( m_Resolver )
 		, m_Movement( m_Resolver )
 		, m_Collision( m_Resolver, pGlobals )
@@ -57,6 +60,8 @@ public:
 		, m_Hierarchy( m_Resolver )
 		, m_EntityLifecycle( m_EntityContext )
 		, m_UserMessages( engine.m_pEngine, pGlobals )
+		, m_Events( engine.m_pEvents, managed.m_Areas.m_pEvents, true )
+		, m_Diagnostics( players )
 		, m_OverlayLibrary( engine.m_pOverlay )
 		, m_DebugOverlays( m_OverlayLibrary )
 		, m_WorldQueries( engine.m_pModelInfo, nInvisibleRangeReach, m_Physics.SurfacePropsRef() )
@@ -94,6 +99,8 @@ public:
 	CServerHierarchy m_Hierarchy;
 	CServerEntityLifecycle m_EntityLifecycle;
 	CServerUserMessages m_UserMessages;
+	CGameEvents m_Events;
+	CServerDiagnostics m_Diagnostics;
 	COverlayLibrary m_OverlayLibrary;
 	CServerDebugOverlays m_DebugOverlays;
 	CServerWorldQueries m_WorldQueries;

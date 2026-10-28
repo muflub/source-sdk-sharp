@@ -4,6 +4,8 @@
 /farm/
 # Where the pristine Valve SDK clone is on this machine (make setup VALVE_SDK=...).
 /valve-sdk.lock.local
+# Written by the setup of commits before caa01cb20 (their fork ROOT), as a bisect runs them.
+/sdk-root.lock.local
 
 # Downloads and caches.
 /tools/node/

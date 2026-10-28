@@ -43,6 +43,17 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## live-gate's kill-feed icon check fails on main since 582926fef
+
+"and its icon is drawn from the icon atlas through the surface's texture (3
+textured quads)" fails 3 of 3 at 654e16363 and 2 of 2 at 582926fef (2026-10-27,
+`tools/live-gate --steps join,kill-feed`); every other kill-feed check passes,
+the death line included. It passed 1 of 1 on lane t6-globals at a d22e4b864
+base the same day, so it arrived with d22e4b864..582926fef: the pickup-history,
+weapon-selection and icon-atlas commits (4ff041332 makes the atlas a power of
+two tall). **Owner:** the HUD lane. **Next:** bisect the step over those 13
+commits (`tools/3f-gatebisect --steps kill-feed`).
+
 ## DebugChannelSessionTests.DisposingTheListenerGivesThePortBack races for its port
 
 The fact closes a listener on an ephemeral port and binds a new one to the same
@@ -316,10 +327,6 @@ MoveTrace.
   went in T2; see the T4d row), TE_DispatchEffect and the TE forwards'
   debug arms. The managed recipient filter object (fwd_recipient_filter.cpp) is
   the exit for each; none is a trace.
-- **CSourceSharpGameRules::ShouldCollide, s_CollisionRules and
-  IShimCollision::RegisterCollisionRules** have no server caller left (the
-  managed rule reads the same rows); the vtable keeps them linked. Retiring the
-  slot is a --reorder on a shared row, for a later lane.
 - **Stock shape-clause divergences kept** (TraceFilterRules' summary): the
   transparent / MOVETYPE_PUSH / debris skips stock makes were never answered for
   this hierarchy, and a move is not where they change. The client's filter still

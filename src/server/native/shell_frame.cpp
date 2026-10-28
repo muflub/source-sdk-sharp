@@ -20,7 +20,7 @@
 // Defined in shell_standalone_base.cpp.
 void StandaloneEntities_Finish( const CServerEntityContext &context );
 
-void UpdateAllClientData( const CGlobalVars *pGlobals, const CServerWorldQueries &world );
+void UpdateAllClientData( const CServerEntityContext &context, const CServerWorldQueries &world );
 
 bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals );
 
@@ -48,7 +48,7 @@ void CServerFrame::SetFrameTime( float flFrameTime )
 
 void CServerFrame::UpdateAllClientData()
 {
-	::UpdateAllClientData( m_pGlobals, m_World );
+	::UpdateAllClientData( m_Entities, m_World );
 }
 
 void CServerFrame::EndGameFrame()
@@ -69,7 +69,7 @@ void CServerFrame::DrawAllDebugOverlays()
 
 void CServerFrame::StandalonePlayerCommands()
 {
-	CStandalonePlayer::RunAllQueuedCommands();
+	CStandalonePlayer::RunAllQueuedCommands( m_Entities );
 }
 
 void CServerFrame::StandaloneFinish()

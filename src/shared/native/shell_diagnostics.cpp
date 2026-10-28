@@ -193,33 +193,16 @@ CON_COMMAND( cs_cl_notshipped, "SourceSharp: what reached a path this client bui
 #endif
 
 // Managed<->native crossing counters: one process-wide table, so the client and server
-// commands print the same counters.
-#ifndef CLIENT_DLL
-// The fetch loop takes a plain function; the area is asked for on every call.
-static int SourceSharp_ServerCrossingsReport( char *pBuffer, int nBytes, int bReset )
+// commands print the same counters. The area is the caller's, read at the point of use:
+// a hot reload replaces the table.
+void SourceSharp_PrintCrossings( ManagedDiagnosticsArea_t *pDiagnostics, bool bReset )
 {
-	IManagedDiagnostics *pDiagnostics = ManagedDiagnostics();
-	return pDiagnostics ? pDiagnostics->CrossingsReport( pBuffer, nBytes, bReset ) : -1;
-}
-#else
-static int SourceSharp_ClientCrossingsReport( char *pBuffer, int nBytes, int bReset )
-{
-	IManagedDiagnosticsClient *pDiagnostics = ManagedDiagnosticsClient();
-	return pDiagnostics ? pDiagnostics->CrossingsReport( pBuffer, nBytes, bReset ) : -1;
-}
-#endif
-
-void SourceSharp_PrintCrossings( bool bReset )
-{
-	// Read through the accessor, never cached: a hot reload replaces the table.
-#ifndef CLIENT_DLL
-	SourceSharpCrossingsReportFn pFn = ManagedDiagnostics() ? &SourceSharp_ServerCrossingsReport : NULL;
-#else
-	SourceSharpCrossingsReportFn pFn = ManagedDiagnosticsClient() ? &SourceSharp_ClientCrossingsReport : NULL;
-#endif
-
 	char *pReport = NULL;
-	const SourceSharpCrossingsStatus status = SourceSharp_FetchCrossingsReport( pFn, bReset, &pReport );
+	const SourceSharpCrossingsStatus status = pDiagnostics
+		? SourceSharp_FetchCrossingsReportWith( [pDiagnostics]( char *pBuffer, int nBytes, int bResetNow )
+												{ return pDiagnostics->CrossingsReport( pBuffer, nBytes, bResetNow ); },
+												bReset, &pReport )
+		: SOURCESHARP_CROSSINGS_NO_SLOT;
 
 	if ( status != SOURCESHARP_CROSSINGS_OK )
 	{
@@ -241,6 +224,7 @@ CON_COMMAND( cs_cl_crossings,
 			 "Print the managed<->native ABI crossing counts. "
 			 "Pass 'reset' to print the interval and start a new one." )
 {
-	SourceSharp_PrintCrossings( args.ArgC() > 1 && ss::StrICmp( args.Arg( 1 ), "reset" ) == 0 );
+	SourceSharp_PrintCrossings( ManagedDiagnosticsClient(),
+								args.ArgC() > 1 && ss::StrICmp( args.Arg( 1 ), "reset" ) == 0 );
 }
 #endif

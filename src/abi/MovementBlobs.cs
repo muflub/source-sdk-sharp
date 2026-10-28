@@ -307,51 +307,6 @@ public struct GameRulesPolicyBlob
 }
 
 /// <summary>
-/// The collision matrix, mirroring <c>SourceSharpCollisionRules</c>: one row per
-/// collision group, bit N of row M meaning "M collides with N".
-///
-/// <para>
-/// A fixed buffer rather than a pointer because native keeps the struct — it
-/// copies the whole thing into its own static and reads it per traced entity,
-/// so a pointer would have to outlive the managed call that supplied it.
-/// </para>
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct CollisionRulesBlob
-{
-    /// <summary>LAST_SHARED_COLLISION_GROUP.</summary>
-    public const int RowCount = 20;
-
-    public fixed uint Rows[RowCount];
-
-    /// <summary>
-    /// Copy a built matrix in.
-    ///
-    /// <para>
-    /// Refuses a row count that is not <see cref="RowCount"/> rather than
-    /// truncating: a mismatch means C# and the engine disagree about how many
-    /// collision groups exist, and silently sending the first twenty of
-    /// twenty-two would leave the last two answering whatever the defaults said.
-    /// </para>
-    /// </summary>
-    public void SetRows(uint[] rows)
-    {
-        if (rows is null || rows.Length != RowCount)
-        {
-            throw new System.ArgumentException(
-                $"collision matrix has {rows?.Length ?? 0} row(s), engine expects {RowCount}",
-                nameof(rows));
-        }
-
-        fixed (uint* dst = Rows)
-        {
-            for (int i = 0; i < RowCount; i++)
-                dst[i] = rows[i];
-        }
-    }
-}
-
-/// <summary>
 /// What a swept-hull player trace answered — the whole of <c>trace_t</c> that
 /// the movement loop actually reads, and nothing else.
 ///

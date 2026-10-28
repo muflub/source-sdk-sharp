@@ -13,19 +13,11 @@
 
 #include "ss_world.h"
 #include "server_state.h"
-
-// A function-local singleton rather than a CWorld member: the ServerClass must
-// exist at DLL init, before the first CWorld is made.
-
-static CWorldNetTable &WorldNetTable()
-{
-	AssertMsg( ShellGameDll_Dll(), "the world net table was asked for outside DLLInit..DLLShutdown" );
-	return ShellGameDll_Dll()->m_WorldNetTable;
-}
+#include "server_network.h"
 
 // The props are the generic payload, one 32-bit word per blob word at
 // SourceSharp_WorldBlobOffset() + 4i.
-int32_t CWorldNetTable::Declare( int32_t nBlobBytes )
+int32_t CWorldNetTable::Declare( int32_t nBlobBytes, CSourceSharpPayloadPropNames &names )
 {
 	if ( m_pClass != NULL )
 	{
@@ -57,7 +49,7 @@ int32_t CWorldNetTable::Declare( int32_t nBlobBytes )
 	// solidity and transform itself (C_BaseEntity::PostDataUpdate, index 0).
 	m_pProps = new SendProp[nWords > 0 ? nWords : 1];
 
-	if ( nWords > 0 && SourceSharpPayload_BuildSendProps( m_pProps, nWords, nBase ) != nWords )
+	if ( nWords > 0 && SourceSharpPayload_BuildSendProps( m_pProps, nWords, nBase, names ) != nWords )
 	{
 		Warning( "[SourceSharp] worldspawn: payload build refused %d word(s) at blob base "
 				 "%d; no table built\n",
@@ -111,27 +103,15 @@ void CWorldNetTable::WarnUndeclaredOnce()
 			 "zeroed world bounds, occlusion areas and detail sprite material\n" );
 }
 
-int SourceSharp_WorldBlobBytes()
+ServerClass *CWorldNetTable::DeclaredClass()
 {
-	return WorldNetTable().BlobBytes();
+	if ( m_pClass == NULL )
+		WarnUndeclaredOnce();
+
+	return m_pClass;
 }
 
-int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes )
+int32_t CServerNetwork::WorldNetDeclare( int32_t nBlobBytes )
 {
-	return WorldNetTable().Declare( nBlobBytes );
-}
-
-ServerClass *SourceSharp_WorldServerClass()
-{
-	ServerClass *pClass = WorldNetTable().Class();
-
-	if ( pClass == NULL )
-		WorldNetTable().WarnUndeclaredOnce();
-
-	return pClass;
-}
-
-bool SourceSharp_IsWorldServerClass( const ServerClass *pClass )
-{
-	return pClass != NULL && ShellGameDll_Dll() != NULL && pClass == WorldNetTable().Class();
+	return m_Tables.m_World.Declare( nBlobBytes, m_Tables.m_PropNames );
 }

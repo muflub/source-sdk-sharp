@@ -47,9 +47,6 @@ struct CManagedHolders
 	CManagedAreas m_Areas;
 };
 
-// The game DLL object's holders (shell_gamedll.cpp).
-CManagedHolders &ShellGameDll_Managed();
-
 // True when the root, the runtime and every area have been released.
 inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 {

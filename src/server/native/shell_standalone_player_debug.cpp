@@ -13,6 +13,8 @@
 #include "shell_standalone_player.h"
 #include "movement_ground.h"
 #include "native_command_body.h"
+#include "server_entity_context.h"
+#include "server_services.h"
 #include "ss_string.h"
 
 // What the player is standing on, its hierarchy and how fast it moves, read from
@@ -20,7 +22,7 @@
 // entities. tools/ reference it by name.
 SS_NATIVE_COMMAND( ss_ground )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient();
+	CStandalonePlayer *pPlayer = services.m_EntityContext.CommandClient();
 
 	if ( !pPlayer )
 	{
@@ -42,9 +44,10 @@ SS_NATIVE_COMMAND( ss_ground )
 		return;
 	}
 
-	const Vector vecGround = MovementGroundVelocity( pGround );
+	IStaticPropMgrServer *pStaticProps = pPlayer->Context().m_pStaticProps;
+	const Vector vecGround = MovementGroundVelocity( pGround, pStaticProps );
 
-	IGameEntity *pGameEntity = ss::GameEntityFromEntityHandle( pGround );
+	IGameEntity *pGameEntity = ss::GameEntityFromEntityHandle( pStaticProps, pGround );
 
 	const char *pszHierarchy = pGameEntity ? "CStandaloneEntity" : "neither";
 

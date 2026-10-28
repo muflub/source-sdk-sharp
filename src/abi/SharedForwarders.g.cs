@@ -1550,16 +1550,13 @@ internal unsafe struct ShimHierarchyFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimCollisionServer</c> through its forwarders (SSFwd_ShimCollisionServer): 9 slot(s).
+/// <c>IShimCollisionServer</c> through its forwarders (SSFwd_ShimCollisionServer): 8 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimCollisionServerFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimCollisionServer";
-
-    // void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
-    public delegate* unmanaged<void*, void*, void> RegisterCollisionRules;
 
     // void IShimCollisionServer::EntityGetBounds( uint32_t, float *, float * )
     public delegate* unmanaged<void*, uint, void*, void*, void> EntityGetBounds;
@@ -1855,19 +1852,6 @@ internal unsafe struct ShimEntitiesFwd : IForwarderTable
 
     // int32_t IShimEntities::EntityIsValid( uint32_t )
     public delegate* unmanaged[SuppressGCTransition]<void*, uint, int> EntityIsValid;
-}
-
-/// <summary>
-/// <c>IShimCollision</c> through its forwarders (SSFwd_ShimCollision): 1 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct ShimCollisionFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_ShimCollision";
-
-    // void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
-    public delegate* unmanaged<void*, void*, void> RegisterCollisionRules;
 }
 
 /// <summary>

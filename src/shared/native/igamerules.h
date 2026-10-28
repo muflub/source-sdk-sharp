@@ -69,7 +69,6 @@ public:
 	virtual bool IsConnectedUserInfoChangeAllowed( CBasePlayer * pPlayer ) = 0;
 	virtual bool IsMultiplayer() = 0;
 	virtual void OnFileReceived( const char *fileName, unsigned int transferID ) = 0;
-	virtual bool ShouldCollide( int collisionGroup0, int collisionGroup1 ) = 0;
 	virtual bool ShouldDrawHeadLabels() = 0;
 
 #ifndef CLIENT_DLL

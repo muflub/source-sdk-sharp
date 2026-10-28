@@ -798,6 +798,23 @@ use; `g_pCVar` and convar_port's registration state become a CVar registry
 class; pooled strings live in a pool instance owned by the class that pools
 them, not one global pool.
 
+**RULED 2026-10-27 (user), on the tier0 port:** "whats in tier0? if they are
+standalone functions that dont need global state leave them". The stateless
+entry points (ShouldUseNewAssertDialog, DoNewAssertDialog, HandedOnAs) stay as
+they are. The rest are tier0's C API, which tier1, mathlib and the vendor
+headers call by symbol with no instance, from static initialisers on, so their
+ten statics are ruled FLOOR (fe2083429).
+
+**RULED 2026-10-27 (user), on tools/shim-areas:** "the shim generator should
+generate one for server and another for client", and, asked why the forwards
+were an include file in the shared folder, each side's is now a generated TU
+in its own folder (src/server/native/shell_shim_areas_server.cpp,
+src/client/native/shell_shim_areas_client.cpp; 9625da2ee). A shared base's
+client bodies are ruled by the client as the server's are by the server, so a
+shared area can be one class per side or one class both DLLs compile
+(CGameEvents, 9f0b8a3ca). The last server MEMBER row, s_CollisionRules, had no
+reader and retired with its slot (73fccf01d).
+
 **T5 CLOSED, 2026-10-19.** Substrate collapse done as §3 T5 says, under the
 user's rulings of 2026-10-12 (server-dead code the client uses moves to
 src/client/native) and 2026-10-19 ("remove tests that test unused code":

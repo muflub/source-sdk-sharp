@@ -35,7 +35,14 @@ public:
 		return m_nIndex;
 	}
 
+	int PrecacheSentenceFile( const char *s, bool preload ) override
+	{
+		m_SentenceFiles.push_back( s );
+		return 0;
+	}
+
 	std::vector<std::string> m_Precached;
+	std::vector<std::string> m_SentenceFiles;
 	int m_nIndex = 7;
 };
 
@@ -105,4 +112,13 @@ TEST_F( ServerModelPrecache, WithNoManagedSideTheEngineStillPrecaches )
 
 	EXPECT_EQ( 7, m_Precache.Model( "models/a.mdl" ) );
 	EXPECT_TRUE( g_Checked.empty() );
+}
+
+// Every world spawn asks; the DLL precaches the sentence file once.
+TEST_F( ServerModelPrecache, TheSentenceFileIsPrecachedOncePerDll )
+{
+	m_Precache.SentenceFile();
+	m_Precache.SentenceFile();
+
+	EXPECT_EQ( ( std::vector<std::string>{ "scripts/sentences.txt" } ), m_Engine.m_SentenceFiles );
 }

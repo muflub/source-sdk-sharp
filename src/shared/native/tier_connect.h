@@ -9,6 +9,6 @@ void SourceSharp_ConnectTier1( CreateInterfaceFn engineFactory );
 void SourceSharp_DisconnectTier1();
 void SourceSharp_ConnectTier2( CreateInterfaceFn engineFactory );
 void SourceSharp_DisconnectTier2();
-#endif
 void SourceSharp_ConnectTier3( CreateInterfaceFn engineFactory );
 void SourceSharp_DisconnectTier3();
+#endif

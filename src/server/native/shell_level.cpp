@@ -58,13 +58,13 @@ void CServerLevel::ShutdownStandaloneEntities()
 
 void CServerLevel::ShutdownSoundEnt()
 {
-	ss::SoundEnt_Shutdown();
+	ss::SoundEnt_Shutdown( m_Entities.m_Managed.m_Areas.m_pSoundEnt );
 }
 
 void CServerLevel::ClearEntityList()
 {
 	// Must not be guarded: a world left alive faults the next map load.
-	if ( CWorld *pWorld = GetWorldEntity() )
+	if ( CWorld *pWorld = m_Entities.m_pLevel ? m_Entities.m_pLevel->m_pWorld : nullptr )
 		pWorld->GetNetworkable()->Release();
 }
 

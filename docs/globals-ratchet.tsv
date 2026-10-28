@@ -472,7 +472,9 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-27, 61 -> 58: g_LineBuffer, g_Forwarder and g_pInstalledCvar are CManagedSide's CConsoleDisplay (T6 part 3).
 # LOWERED 2026-10-27, 58 -> 57: gpGlobals: the context, the frame, the collision and world queries and the root
 #   are handed the engine's CGlobalVars (T6 part 3).
-globals_link_level	src/sourcesharp/game/server	57
+# LOWERED 2026-10-27, 57 -> 55: the game events are CGameEvents, a member of each side's DLL tier (g_SourceSharpEventListener, g_SubscribedEvents gone).
+# LOWERED 2026-10-27, 55 -> 54: s_CollisionRules went with RegisterCollisionRules; nothing native read the matrix (managed's CollisionRules answers the trace filter and vphysics).
+globals_link_level	src/sourcesharp/game/server	54
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
@@ -533,7 +535,8 @@ globals_unruled	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-27, 29 -> 28: gamestringpool.o left server.so with its static pool.
 # LOWERED 2026-10-27, 28 -> 27: shell_diagnostics.o: its static verbosity ref and ledger are the log's.
 # LOWERED 2026-10-27, 27 -> 26: console_display_forward.o: its forwarder is the display's member.
-globals_objects_with_static_init	src/sourcesharp/game/server	26
+# LOWERED 2026-10-27, 26 -> 25: the game events are CGameEvents, a member of each side's DLL tier (g_SourceSharpEventListener, g_SubscribedEvents gone).
+globals_objects_with_static_init	src/sourcesharp/game/server	25
 #
 # ---------------------------------------------------------------------------
 # THE SECOND INSTRUMENT MUST RECONCILE.
@@ -614,4 +617,25 @@ globals_reconcile_unattributed	src/sourcesharp/game/server	0
 # RAISED 2026-10-27, 103 -> 104, a trade: IShimEngine::GetGlobalVarsPtr is a slot both DLLs answer from one
 #   shared body, so the server's reads its shim root's globals (ShellGameDll_ShimRoot) in place of gpGlobals, the
 #   global that went (link_level 58 -> 57). It goes when the shared base areas can name a class per side.
-globals_locator_calls	src/sourcesharp/game/server	104
+# LOWERED 2026-10-27, 104 -> 101: the game events are CGameEvents, a member of each side's DLL tier (g_SourceSharpEventListener, g_SubscribedEvents gone) and SourceSharp_GetGlobalVarsPtr reads its root directly; ServerEvents() and ManagedEvents() lose their callers.
+# LOWERED 2026-10-27, 101 -> 67: no Managed*() accessor is left on the server, nor ShellGameDll_Managed(); the
+#   code that read them is handed the managed holders (entity context, game rules, services, the sound-ent and
+#   crossings calls' callers), and ss_util.h's engine helpers went (two dead, INDEXENT is the world's own engine).
+# LOWERED 2026-10-27, 67 -> 55: the network tables (published types, tier and world ServerClasses, payload prop
+#   names) are one CServerNetTables on the DLL tier, handed to the entity context and to CServerNetwork, which
+#   now answers IShimNetwork's shared slots on the server (the client keeps its free bodies, client_body).
+# LOWERED 2026-10-27, 55 -> 46: the entity context carries the engine's static-prop manager and trace; the
+#   server's ground and game-entity questions take them from their callers, a factory's or an edict's handle
+#   skips the static-prop ask, and the server's SourceSharp_IsTheWorld / GetWorldEntity went (the hull trace
+#   compares against its resolver's world).
+# LOWERED 2026-10-27, 46 -> 37: players by index and edict, the command client and the admin check are the
+#   entity context's (the console client slot is CServerPlayersDll's); IShimDiagnostics is CServerDiagnostics,
+#   over the players' shadow counts.
+# LOWERED 2026-10-27, 37 -> 25: nothing calls a Server*() engine accessor: the sentence file is
+#   CServerModelPrecache's, the string tables take the engine's container, the managed side is handed its game
+#   dir, a blast's force jitter takes the engine's random stream from CServerDamage, and the debug commands read
+#   their services' context.
+# LOWERED 2026-10-27, 25 -> 11: the Server*() engine accessors and server_engine.h go; the engine interfaces
+#   are acquired into the CServerEngineInterfaces DLLInit hands over, and the server stores the model cache
+#   itself (tier_connect.cpp's tier3 is the client's).
+globals_locator_calls	src/sourcesharp/game/server	11

@@ -13,9 +13,9 @@
 #include "eiface.h"
 
 #include "shell_standalone_player.h"
-#include "server_engine.h"
 #include "server_player_queries.h"
 #include "server_entity_resolver.h"
+#include "server_entity_context.h"
 
 // 1 when this edict is a standalone player, with pOutXYZ written; 0 otherwise,
 // with pOutXYZ untouched, so the caller can tell a miss from the world origin.
@@ -24,11 +24,12 @@ int32_t CServerPlayerQueries::ClientsStandalonePlayerEarPosition( int32_t iEdict
 	if ( pOutXYZ == NULL )
 		return 0;
 
-	edict_t *pEdict = ServerEngine()->PEntityOfEntIndex( iEdict );
+	const CServerEntityContext &context = m_Entities.Context();
+	edict_t *pEdict = context.m_pEngine->PEntityOfEntIndex( iEdict );
 	if ( pEdict == NULL )
 		return 0;
 
-	CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict );
+	CStandalonePlayer *pStandalone = context.PlayerFromEdict( pEdict );
 	if ( pStandalone == NULL )
 		return 0;
 

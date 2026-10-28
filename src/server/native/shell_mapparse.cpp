@@ -39,7 +39,7 @@ IGameEntity *CreateEntityByNameEither( ss::IEntityFactoryDictionary &factories, 
 	if ( !pNetworkable )
 		return NULL;
 
-	if ( IGameEntity *pGameEntity = ss::GameEntityFromEntityHandle( pNetworkable->GetEntityHandle() ) )
+	if ( IGameEntity *pGameEntity = ss::GameEntityFromServerEntity( pNetworkable->GetEntityHandle() ) )
 	{
 		// On the server the handle is the server entity.
 		if ( ppOutServerEntity )

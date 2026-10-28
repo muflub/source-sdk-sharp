@@ -6,8 +6,7 @@
 //=============================================================================//
 
 // IShimCollisionServer: an entity's bounds, solidity, collision group, trigger bloat and
-// overlap report, as stock's CCollisionProperty keeps them. One object, the DLL tier's;
-// IShimCollision's shared slot is forwarded by the generated CShimCollisionServerBase.
+// overlap report, as stock's CCollisionProperty keeps them. One object, the DLL tier's.
 
 #pragma once
 
@@ -17,7 +16,7 @@
 class CServerEntityResolver;
 class CGlobalVars;
 
-class CServerCollision final : public CShimCollisionServerBase
+class CServerCollision final : public IShimCollisionServer
 {
 public:
 	CServerCollision( CServerEntityResolver &entities, const CGlobalVars *pGlobals )

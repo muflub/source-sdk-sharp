@@ -62,7 +62,7 @@ public class EntityHierarchyReapedTests
 
     // plan_client_vtables CC-last: the client fills no struct; its wiring is
     // the generated forwards from its shim areas to the bodies.
-    private const string WiringRel = "game/shared/shell_shim_areas_client.inc";
+    private const string WiringRel = "game/client/shell_shim_areas_client.cpp";
     // ---------------------------------------------------------------- reading
 
     /// <summary>

@@ -21,6 +21,8 @@ class IHandleEntity;
 // ehandle.h's resolver, redeclared: that header pulls cbase.h.
 IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
 
+class IUniformRandomStream;
+
 namespace ss
 {
 
@@ -149,9 +151,9 @@ protected:
 };
 
 // The damage-force helpers: an impulse to push a mass at a speed, and the
-// force a blast imparts.
+// force a blast imparts, jittered per victim from the engine's random stream.
 float ImpulseScale( float flTargetMass, float flDesiredSpeed );
-void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir, const Vector &vecForceOrigin,
-									float flScale = 1.0 );
+void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageInfo *info, const Vector &vecDir,
+									const Vector &vecForceOrigin, float flScale = 1.0 );
 
 } // namespace ss

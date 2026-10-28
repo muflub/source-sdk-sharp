@@ -27,7 +27,6 @@ src/sourcesharp/game/server/shell_gameents.cpp	OURS	relocated Valve code, kept l
 src/sourcesharp/game/server/shell_globals.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/server/shell_playerlocaldata.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/server/shell_playerslots.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
-src/sourcesharp/game/server/shell_sentences.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/server/shell_sharedappsystems.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/server/shell_stringtables.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/server/world_adapter.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27

@@ -41,6 +41,7 @@
 #include "ss_string.h"
 #include "server_state.h"
 #include "shell_shim_root_server.h"
+#include "datacache/imdlcache.h"
 
 // The two the engine follows into a C++ ABI, seeded into members at DLLInit.
 extern ServerClass *g_pServerClassHead;
@@ -70,7 +71,8 @@ public:
 		Msg( "[SourceSharp] shell game DLL: answering from the shell "
 			 "-- there is no delegate any more (Phase 7a)\n" );
 
-		SourceSharp_ConnectTier3( engineFactory );
+		// tier3: the model cache, which stock's ConnectTier3Libraries connected.
+		Dll()->m_Engine.m_pMdlCache = (IMDLCache *)engineFactory( MDLCACHE_INTERFACE_VERSION, nullptr );
 
 		m_pEngine = (IVEngineServer *)engineFactory( INTERFACEVERSION_VENGINESERVER, nullptr );
 		m_pCVar = (ICvar *)engineFactory( CVAR_INTERFACE_VERSION, nullptr );
@@ -84,7 +86,8 @@ public:
 
 		Dll()->m_Engine.m_pEngine = m_pEngine;
 
-		if ( !SourceSharp_AcquireEngineInterfaces( engineFactory, physicsFactory, fileSystemFactory, m_pCVar ) )
+		if ( !SourceSharp_AcquireEngineInterfaces( Dll()->m_Engine, engineFactory, physicsFactory, fileSystemFactory,
+												   m_pCVar ) )
 		{
 			return false;
 		}
@@ -96,13 +99,16 @@ public:
 		// Before the runtime loads: managed acquires the areas these implement.
 		Dll()->m_pServices = std::make_unique<CServerDllServices>(
 			Dll()->m_Engine, pGlobals, m_Managed, m_ManagedSide, m_TransmitSet, Dll()->m_Players, Dll()->m_nWorldSerial,
-			Dll()->m_nInvisibleRangeReach, Dll()->m_SlotTable, Dll()->m_EntitySlots );
+			Dll()->m_nInvisibleRangeReach, Dll()->m_SlotTable, Dll()->m_EntitySlots, Dll()->m_NetTables );
 		BindServiceAreas( Dll()->m_pServices.get() );
 
 		m_CVars.Register( FCVAR_GAMEDLL, this );
 
 		// The runtime is held by the shim root and acquired afresh on every load.
-		if ( LoadManagedRuntime( this, m_ManagedSide ) == nullptr )
+		char szGameDir[512];
+		m_pEngine->GetGameDir( szGameDir, sizeof( szGameDir ) );
+
+		if ( LoadManagedRuntime( this, m_ManagedSide, m_Managed, szGameDir ) == nullptr )
 		{
 			return false;
 		}
@@ -135,7 +141,7 @@ public:
 
 		for ( ServerClass *pClass = g_pServerClassHead; pClass != nullptr; pClass = pClass->m_pNext )
 		{
-			if ( SourceSharp_IsManagedServerClass( Dll()->m_pServices->m_TempEnts, pClass ) )
+			if ( SourceSharp_IsManagedServerClass( Dll()->m_NetTables, Dll()->m_pServices->m_TempEnts, pClass ) )
 				nManaged++;
 			else
 				nStock++;
@@ -152,6 +158,11 @@ public:
 
 	void DLLShutdown() override
 	{
+		// Unhooked even when the runtime failed after subscribing: the engine keeps its
+		// listener list for the whole process.
+		if ( Dll() != nullptr && Dll()->m_pServices )
+			Dll()->m_pServices->m_Events.StopListening();
+
 		// The engine calls DLLShutdown after a failed DLLInit too, when the runtime may be absent.
 		if ( Runtime() != nullptr )
 		{
@@ -159,7 +170,6 @@ public:
 		}
 
 		// Stock's order reversed; the unregister needs the console, so it runs before it goes.
-		SourceSharp_DisconnectTier3();
 		m_CVars.Unregister();
 		m_ShimRoot.m_Console.ReleaseObjects();
 		m_CVars.Connect( nullptr );
@@ -261,7 +271,8 @@ public:
 	{
 		// Native tables first: the engine and this binary depend on them, and a mod's
 		// strings must not take index 0 of Materials ("debug/debugempty").
-		Dll()->m_pServices->m_EntityContext.m_pGameRulesTable = SourceSharp_CreateNetworkStringTables();
+		Dll()->m_pServices->m_EntityContext.m_pGameRulesTable =
+			SourceSharp_CreateNetworkStringTables( Dll()->m_Engine.m_pStringTables );
 
 		// Mod-declared tables; the engine allows creating tables only in this window.
 		Runtime()->CreateNetworkStringTables();
@@ -580,6 +591,8 @@ private:
 		m_ShimRoot.m_Areas.m_pWorldServer = pServices ? &pServices->m_WorldQueries : nullptr;
 		m_ShimRoot.m_Areas.m_pEffectsServer = pServices ? &pServices->m_TempEnts : nullptr;
 		m_ShimRoot.m_Areas.m_pDamage = pServices ? &pServices->m_Damage : nullptr;
+		m_ShimRoot.m_Areas.m_pEventsServer = pServices ? &pServices->m_Events : nullptr;
+		m_ShimRoot.m_Areas.m_pDiagnostics = pServices ? &pServices->m_Diagnostics : nullptr;
 		m_ShimRoot.m_Areas.m_pPhysics = pServices ? &pServices->m_Physics : nullptr;
 		m_ShimRoot.m_Areas.m_pConsoleServer = pServices ? &pServices->m_ConsoleCommands : nullptr;
 		m_ShimRoot.m_Areas.m_pModelsServer = pServices ? &pServices->m_Models : nullptr;
@@ -666,12 +679,6 @@ namespace
 CShellGameDll s_gameShellDll;
 }
 
-// The managed holders, for code not yet handed them.
-CManagedHolders &ShellGameDll_Managed()
-{
-	return s_gameShellDll.Managed();
-}
-
 CServerDllState *ShellGameDll_Dll()
 {
 	return s_gameShellDll.Dll();
@@ -685,6 +692,13 @@ CServerLevelState *ShellGameDll_Level()
 CShimRootServer &ShellGameDll_ShimRoot()
 {
 	return s_gameShellDll.ShimRoot();
+}
+
+// The engine area's slot: the engine's CGlobalVars for managed to read, the shim root's;
+// NULL until the engine hands the game DLL its globals.
+void *SourceSharp_GetGlobalVarsPtr()
+{
+	return s_gameShellDll.ShimRoot().m_pGlobals;
 }
 
 CShellTransmitSet &ShellGameDll_TransmitSet()

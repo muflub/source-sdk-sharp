@@ -52,6 +52,10 @@ public:
 
 	// The level's world, or NULL between levels; and by handle or pointer identity.
 	CWorld *World() const;
+
+	// What the entities it resolves are handed: the engine, the managed side, the level.
+	const CServerEntityContext &Context() const { return m_Entities; }
+
 	CWorld *WorldFromHandle( const CBaseHandle &handle ) const;
 	CWorld *WorldFromEntityHandle( IHandleEntity *pHandleEntity ) const;
 

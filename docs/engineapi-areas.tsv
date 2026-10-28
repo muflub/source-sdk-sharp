@@ -15,18 +15,18 @@ ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleCo
 FindConVarFlags	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleFindConVarFlags	byte*, int	
 SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::SendClientCommand	uint, byte*, void	
 GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::GetCommandClientHandle	uint	
-ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	SourceSharp_ListenForGameEvent	byte*, void	
-EventGetInt	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetInt	IntPtr, byte*, int	
-EventGetFloat	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetFloat	IntPtr, byte*, float	
-EventGetBool	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetBool	IntPtr, byte*, int	
-EventGetString	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetString	IntPtr, byte*, byte*	
-EventSetInt	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetInt	IntPtr, byte*, int, void	
-EventSetBool	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetBool	IntPtr, byte*, int, void	
-EventSetString	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetString	IntPtr, byte*, byte*, void	
-NetHierarchyDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetHierarchyDeclare	int, int	
-NetPublishType	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetPublishType	byte*, int, uint, int, uint*, int	
-NetTierInfo	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetTierInfo	int, int, byte**, int*, int*, int*, int*, int	
-WorldNetDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_WorldNetDeclare	int, int	
+ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	CGameEvents::ListenForGameEvent	byte*, void	
+EventGetInt	EngineApi	IShimEvents	shared		both	-	CGameEvents::EventGetInt	IntPtr, byte*, int	
+EventGetFloat	EngineApi	IShimEvents	shared		both	-	CGameEvents::EventGetFloat	IntPtr, byte*, float	
+EventGetBool	EngineApi	IShimEvents	shared		both	-	CGameEvents::EventGetBool	IntPtr, byte*, int	
+EventGetString	EngineApi	IShimEvents	shared		both	-	CGameEvents::EventGetString	IntPtr, byte*, byte*	
+EventSetInt	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	CGameEvents::EventSetInt	IntPtr, byte*, int, void	
+EventSetBool	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	CGameEvents::EventSetBool	IntPtr, byte*, int, void	
+EventSetString	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	CGameEvents::EventSetString	IntPtr, byte*, byte*, void	
+NetHierarchyDeclare	EngineApi	IShimNetwork	shared		both	-	CServerNetwork::NetHierarchyDeclare	int, int	SourceSharp_NetHierarchyDeclare
+NetPublishType	EngineApi	IShimNetwork	shared		both	-	CServerNetwork::NetPublishType	byte*, int, uint, int, uint*, int	SourceSharp_NetPublishType
+NetTierInfo	EngineApi	IShimNetwork	shared		both	-	CServerNetwork::NetTierInfo	int, int, byte**, int*, int*, int*, int*, int	SourceSharp_NetTierInfo
+WorldNetDeclare	EngineApi	IShimNetwork	shared		both	-	CServerNetwork::WorldNetDeclare	int, int	SourceSharp_WorldNetDeclare
 EntityGetDataBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	S	CServerNetwork::EntityGetDataBlob	uint, int*, void*	
 EntityBindBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityBindBlob	uint, int*, EntitySlot**, uint*, void*	
 EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityMarkBlockChanged	uint, int, void	
@@ -110,15 +110,14 @@ EntitySetLocalTransform	EngineApi	IShimHierarchy	server		server	-	CServerHierarc
 EntityGetLocalTransform	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityGetLocalTransform	uint, float*, float*, void	
 EntityParentProbe	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityParentProbe	uint, int	
 EntityGetAttachmentFrame	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityGetAttachmentFrame	uint, int, float*, float*, int	
-RegisterCollisionRules	EngineApi	IShimCollision	shared		both	-	SourceSharp_RegisterCollisionRules	CollisionRulesBlob*, void	
-EntityGetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntityGetBounds	uint, float*, float*, void	
-EntityGetBoundsSize	EngineApi	IShimCollisionServer	ext	IShimCollision	server	S	CServerCollision::EntityGetBoundsSize	uint, float*, void	
-EntitySetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetBounds	uint, float*, float*, void	
-EntitySetSolidity	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetSolidity	uint, int, int, void	
-EntityGetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntityGetCollisionGroup	uint, int	
-EntitySetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetCollisionGroup	uint, int, void	
-EntityOverlapReport	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntityOverlapReport	uint*, int, int	
-EntitySetTriggerBloat	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetTriggerBloat	uint, int, int, void	
+EntityGetBounds	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntityGetBounds	uint, float*, float*, void	
+EntityGetBoundsSize	EngineApi	IShimCollisionServer	server		server	S	CServerCollision::EntityGetBoundsSize	uint, float*, void	
+EntitySetBounds	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntitySetBounds	uint, float*, float*, void	
+EntitySetSolidity	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntitySetSolidity	uint, int, int, void	
+EntityGetCollisionGroup	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntityGetCollisionGroup	uint, int	
+EntitySetCollisionGroup	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntitySetCollisionGroup	uint, int, void	
+EntityOverlapReport	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntityOverlapReport	uint*, int, int	
+EntitySetTriggerBloat	EngineApi	IShimCollisionServer	server		server	-	CServerCollision::EntitySetTriggerBloat	uint, int, int, void	
 EntityDestroyPhysics	EngineApi	IShimPhysics	server		server	-	CServerPhysics::EntityDestroyPhysics	uint, void	
 EntityPhysicsObject	EngineApi	IShimPhysics	server		server	S	CServerPhysics::EntityPhysicsObject	uint, nint	
 PhysicsEnvironmentPointer	EngineApi	IShimPhysics	server		server	S	CServerPhysics::PhysicsEnvironmentPointer	nint	
@@ -270,10 +269,10 @@ UserMessageSend	EngineApi	IShimUserMessages	server		server	-	CServerUserMessages
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	
 SendServerMessage	EngineApi	IShimNetClient	client		client	-	SourceSharp_SendServerMessage	byte*, byte*, int, int	
-PlayerShadowCounts	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_PlayerShadowCounts	int*, int, int	
-ExitWatchArm	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_ExitWatchArm	byte*, int	
-ExitWatchRead	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_ExitWatchRead	int*, int, int	
-ExitWatchDisarm	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_ExitWatchDisarm	int	
+PlayerShadowCounts	EngineApi	IShimDiagnostics	server		server	-	CServerDiagnostics::PlayerShadowCounts	int*, int, int	
+ExitWatchArm	EngineApi	IShimDiagnostics	server		server	-	CServerDiagnostics::ExitWatchArm	byte*, int	
+ExitWatchRead	EngineApi	IShimDiagnostics	server		server	-	CServerDiagnostics::ExitWatchRead	int*, int, int	
+ExitWatchDisarm	EngineApi	IShimDiagnostics	server		server	-	CServerDiagnostics::ExitWatchDisarm	int	
 ClientNetFlow	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetFlow	int, float*, int, int	
 ClientNetChannel	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetChannel	float*, int, int	
 ClientNetPacket	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetPacket	int, int, float*, int, int	

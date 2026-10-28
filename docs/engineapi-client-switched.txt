@@ -1,7 +1,6 @@
 # plan_client_vtables CB: the shared bases whose EngineSide calls go through the
 # client's vtable on the client (tools/shim-areas reads this). One interface per
 # line, as named in docs/engineapi-areas.tsv; empty while the client reads the struct.
-IShimCollision
 IShimConsole
 IShimEngine
 IShimEntities

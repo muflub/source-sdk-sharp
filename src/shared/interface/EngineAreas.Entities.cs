@@ -671,16 +671,6 @@ public interface IEngineEntityRender
 /// <c>SourceSharp.Server.GameRulesPolicy</c> for what belongs in the table and
 /// what must stay a managed call.
 /// </summary>
-/// <summary>
-/// The collision matrix, pushed once at startup. See
-/// <see cref="CollisionRules"/> for what it replaces and why both sides send it.
-/// </summary>
-public interface IEngineCollisionRules
-{
-    /// <inheritdoc cref="EngineSide.RegisterCollisionRules"/>
-    bool RegisterCollisionRules(uint[] rows);
-}
-
 public interface IEngineGameRulesPolicy
 {
     /// <inheritdoc cref="EngineSide.RegisterGameRulesPolicy"/>

@@ -527,15 +527,8 @@ public class SideAuditTests
         // equal to Movement.cs by coincidence alone. Regressing this to
         // server-only is that hazard coming back.
         "RegisterMovementParams",
-        // Both sides since lane side-audit (2026-10-02), the same hazard as
-        // RegisterMovementParams one table over: ShouldCollide is asked during
-        // prediction, and while the slot was server-only the client's
-        // CollisionRules.Register was a silent no-op, its table equal to the
-        // managed matrix by coincidence alone (CollisionRulesTests'
-        // TheBuiltMatrixIsTheNativeDefaultTable). The shared IShimCollision
-        // base holds it; the server's other collision slots moved to
-        // IShimCollisionServer.
-        "RegisterCollisionRules",
+        // RegisterCollisionRules went in plan_server_native_v2 T6 part 3: the
+        // native matrix it overwrote had no reader on either side.
         // RegisterWeaponType went in plan_server_native_v2 T2: its table had
         // no reader on either side.
         "SetConVarValue", "SetNamedConVarValue", "RevertNamedConVar", "Warning",

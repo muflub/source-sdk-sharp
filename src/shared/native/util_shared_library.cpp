@@ -47,13 +47,8 @@ using ss::CEffectData;
 // The server half's replacements for cbase.h, util_shared.h and sharedInterface.h.
 #include "ss_util.h"
 #include "ss_shareddefs.h"
-#include "server_engine.h"
-#define random ServerRandom()
 // shareddefs.h's names for the constants this file uses.
 using ss::BLOOD_COLOR_RED;
-// Defined by server.so: UTIL_Tracer below, GetParticleSystemIndex in shell_stringtables.cpp.
-// Parameters unnamed: tests find the definitions below by text.
-int GetParticleSystemIndex( const char * );
 #endif
 
 #include "ss_string.h"

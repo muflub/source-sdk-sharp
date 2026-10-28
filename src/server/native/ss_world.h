@@ -178,10 +178,11 @@ public:
 	// The ServerClass built from the managed declaration (shell_world_nettable.cpp).
 	virtual ServerClass *GetServerClass();
 
-	// Over-allocates so the C#-declared state sits past the object, like CStandaloneEntity.
-	// The block is the engine's, so delete returns it through FreeEntPrivateData.
-	static void *operator new( size_t stAllocateBlock );
+	// Over-allocates by nBlobBytes so the C#-declared state sits past the object, like
+	// CStandaloneEntity: new ( nBlobBytes ) CWorld( context ).
+	static void *operator new( size_t stAllocateBlock, int nBlobBytes );
 	static void operator delete( void *pMem );
+	static void operator delete( void *pMem, int nBlobBytes );
 
 	// The bytes the props address, and how many of them there are.
 	unsigned char *DataBlob();
@@ -302,5 +303,3 @@ inline void CWorldNetworkable::Release()
 {
 	delete m_pOuter;
 }
-
-CWorld *GetWorldEntity();

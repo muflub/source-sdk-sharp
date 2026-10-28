@@ -29,9 +29,7 @@
 #else
 #include "edict.h"
 #include "eiface.h"
-#include "server_engine.h"
 #include "shell_shim_root_server.h"
-float GetCurrentGravity();
 #endif
 #include "tier1/convar.h"
 #include "tier1/utlvector.h"
@@ -89,18 +87,6 @@ struct SourceSharpFogParams;
 struct SourceSharpSkyboxParams;
 #endif
 
-// Slot bodies about gpGlobals, which each side has for its own globals.
-// The engine's CGlobalVars for managed to read; NULL until the engine sets it. The
-// server's is its shim root's, set by the game DLL; the slot is shared with the client.
-static void *SourceSharp_GetGlobalVarsPtr()
-{
-#ifdef CLIENT_DLL
-	return (void *)gpGlobals;
-#else
-	return (void *)ShellGameDll_ShimRoot().m_pGlobals;
-#endif
-}
-
 #ifndef CLIENT_DLL
 // Closes the window the engine's single walk of g_pServerClassHead defines.
 
@@ -110,14 +96,6 @@ static void *SourceSharp_GetGlobalVarsPtr()
 // Closes the build window, which ends before gHUD.Init().
 void SourceSharp_TempEntClientCloseRegistration();
 #endif
-
-// Wired on both sides so neither answers a plausible managed fallback.
-static float SourceSharp_CurrentGravity()
-{
-	return GetCurrentGravity();
-}
-
-void SourceSharp_StopListeningForGameEvents();
 
 #ifdef CLIENT_DLL
 #include "cdll_client_int.h"
@@ -707,22 +685,13 @@ void CShimConsole::RevertNamedConVar( const char *pName )
 }
 
 // <mod>/bin: libsourcesharp, the bundled runtime and the managed assemblies.
-static bool SourceSharp_GetModBinDir( char *pOut, int nOutSize )
+static bool SourceSharp_GetModBinDir( const char *pszGameDir, char *pOut, int nOutSize )
 {
 	SOURCESHARP_TRACE();
 
-#ifdef CLIENT_DLL
-	const char *pGameDir = engine->GetGameDirectory();
-	if ( !pGameDir || !pGameDir[0] )
+	if ( !pszGameDir || !pszGameDir[0] )
 		return false;
-	ss::Format( pOut, nOutSize, "%s/bin", pGameDir );
-#else
-	char szGameDir[512];
-	ServerEngine()->GetGameDir( szGameDir, sizeof( szGameDir ) );
-	if ( !szGameDir[0] )
-		return false;
-	ss::Format( pOut, nOutSize, "%s/bin", szGameDir );
-#endif
+	ss::Format( pOut, nOutSize, "%s/bin", pszGameDir );
 	ss::FixSlashes( pOut );
 	return true;
 }
@@ -739,7 +708,7 @@ static void SourceSharp_FatalInitFailure( int nStage, int rc, const char *pDetai
 }
 
 // Each DLL calls it from LoadManagedRuntime.
-bool CManagedSide::Load()
+bool CManagedSide::Load( const char *pszGameDir )
 {
 	// The gate closes at the bottom, so an unfinished attempt does not count.
 	if ( !m_InitGate.ShouldRun() )
@@ -759,7 +728,7 @@ bool CManagedSide::Load()
 	SourceSharp_DumpNetworkClasses();
 
 	char szModBin[512];
-	if ( !SourceSharp_GetModBinDir( szModBin, sizeof( szModBin ) ) )
+	if ( !SourceSharp_GetModBinDir( pszGameDir, szModBin, sizeof( szModBin ) ) )
 		SourceSharp_FatalInitFailure( kSourceSharpInitStage_ModBinDir, 0, NULL );
 
 	Msg( "[SourceSharp] mod bin dir resolved: %s\n", szModBin );
@@ -793,9 +762,6 @@ void CManagedSide::Unload()
 {
 	SOURCESHARP_TRACE();
 	m_InitGate.Reset();
-
-	// Above the loaded check: a side that subscribed and then failed must unhook.
-	SourceSharp_StopListeningForGameEvents();
 
 	if ( !m_bLoaded )
 		return;
@@ -1041,15 +1007,4 @@ SS_NATIVE_COMMAND( cs_sv_reload )
 {
 	services.m_ManagedSide.RequestReload();
 }
-#endif
-
-// At the end: the shim areas forward to bodies static to this file.
-#ifndef CLIENT_DLL
-#include "ss_string.h"
-#include "shell_shim_areas.h"
-#include "shell_shim_areas.inc"
-#else
-#include "ss_string.h"
-#include "shell_shim_areas.h"
-#include "shell_shim_areas_client.inc"
 #endif

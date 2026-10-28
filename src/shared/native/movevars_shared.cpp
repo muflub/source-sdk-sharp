@@ -32,6 +32,12 @@ float GetCurrentGravity()
 #endif
 }
 
+// The movement area's slot, on both sides, so neither answers a plausible managed fallback.
+float SourceSharp_CurrentGravity()
+{
+	return GetCurrentGravity();
+}
+
 // The server declares these in C#.
 #ifdef CLIENT_DLL
 ConVar sv_gravity( "sv_gravity", DEFAULT_GRAVITY_STRING, FCVAR_NOTIFY | FCVAR_REPLICATED, "World gravity." );

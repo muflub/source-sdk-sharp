@@ -34,11 +34,7 @@
 #include "sharedInterface.h"
 #include <vstdlib/random.h>
 #else
-// The engine's random stream, named random_valve under POSIX so stdlib's random()
-// does not collide; defined in shell_engineboundary.cpp.
-
-#include "server_engine.h"
-#define random ServerRandom()
+#include "vstdlib/random.h"
 // The damage bits this file names, under their stock spellings.
 
 #define DMG_GENERIC ss::kDmgGeneric
@@ -181,8 +177,8 @@ float ImpulseScale( float flTargetMass, float flDesiredSpeed )
 }
 
 // Fills out a takedamageinfo with a damage force for an explosive.
-void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir, const Vector &vecForceOrigin,
-									float flScale )
+void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageInfo *info, const Vector &vecDir,
+									const Vector &vecForceOrigin, float flScale )
 {
 	info->SetDamagePosition( vecForceOrigin );
 
@@ -199,7 +195,7 @@ void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir,
 	// This simulates features that usually vary from
 	// person-to-person variables such as bodyweight,
 	// which are all indentical for characters using the same model.
-	flForceScale *= random->RandomFloat( 0.85, 1.15 );
+	flForceScale *= pRandom->RandomFloat( 0.85, 1.15 );
 
 	// Calculate the vector and stuff it into the takedamageinfo
 	Vector vecForce = vecDir;

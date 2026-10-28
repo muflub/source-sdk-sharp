@@ -58,3 +58,12 @@ int32_t CServerModelPrecache::PrecacheModel( const char *pszModel )
 
 	return Model( pszModel );
 }
+
+void CServerModelPrecache::SentenceFile()
+{
+	if ( m_bSentenceFile )
+		return;
+
+	m_pEngine->PrecacheSentenceFile( "scripts/sentences.txt" );
+	m_bSentenceFile = true;
+}

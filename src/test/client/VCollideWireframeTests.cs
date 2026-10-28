@@ -188,7 +188,7 @@ public class VCollideWireframeTests
     {
         // plan_client_vtables CC-last: wired means the client's shim area
         // forwards the slot to its body (the fill that assigned it is gone).
-        string forwards = Source("src", "sourcesharp", "game", "shared", "shell_shim_areas_client.inc");
+        string forwards = Source("src", "sourcesharp", "game", "client", "shell_shim_areas_client.cpp");
 
         Assert.Contains("CShimViewClient::EntitiesUpdateVisibilityAll", forwards);
         Assert.Contains("::SourceSharp_ClientEntitiesUpdateVisibilityAll(", forwards);

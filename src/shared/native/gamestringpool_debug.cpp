@@ -16,8 +16,6 @@
 #include "ss_world.h"
 #include "shell_standalone_player.h"
 
-bool UTIL_IsCommandIssuedByServerAdmin();
-
 // The pools are their owners': the world's, then each player's. Entries are numbered by
 // position; stock's RB-tree slot means nothing outside its tree.
 static int DumpPool( const char *pszOwner, int nOwnerIndex, const CServerStringPool &pool, int i )
@@ -34,7 +32,7 @@ static int DumpPool( const char *pszOwner, int nOwnerIndex, const CServerStringP
 
 SS_NATIVE_COMMAND( dumpgamestringtable )
 {
-	if ( !UTIL_IsCommandIssuedByServerAdmin() )
+	if ( !services.m_EntityContext.CommandIssuedByServerAdmin() )
 		return;
 
 	int i = 0;
@@ -44,7 +42,7 @@ SS_NATIVE_COMMAND( dumpgamestringtable )
 
 	for ( int nIndex = 1; nIndex <= ss::kMaxPlayers; nIndex++ )
 	{
-		if ( const CStandalonePlayer *pPlayer = CStandalonePlayer::FromIndex( nIndex ) )
+		if ( const CStandalonePlayer *pPlayer = services.m_EntityContext.PlayerFromIndex( nIndex ) )
 			i = DumpPool( "player", nIndex, pPlayer->Strings(), i );
 	}
 

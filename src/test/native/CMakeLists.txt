@@ -2332,6 +2332,27 @@ ss_cpptest_mathlib(precache_model_test
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/precache_model_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
+# shell_gameevents.cpp: CGameEvents over generated fakes (tools/native-fakes), as the server builds it.
+ss_cpptest_mathlib(game_events_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/game_events_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/shell_gameevents.cpp)
+# shell_commandclient.cpp: who may run an admin command, over the generated engine fake.
+ss_cpptest_mathlib(command_client_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/command_client_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_commandclient.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
 # bound_callback.cpp: C callbacks bound to an object through a generated x86-64 thunk.
 ss_cpptest(bound_callback_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native

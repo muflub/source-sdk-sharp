@@ -51,7 +51,7 @@ void CServerDamage::EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, floa
 
 	if ( pDirXYZ && pForceOriginXYZ )
 	{
-		ss::CalculateExplosiveDamageForce( &info, Vector( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] ),
+		ss::CalculateExplosiveDamageForce( m_pRandom, &info, Vector( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] ),
 										   Vector( pForceOriginXYZ[0], pForceOriginXYZ[1], pForceOriginXYZ[2] ) );
 	}
 

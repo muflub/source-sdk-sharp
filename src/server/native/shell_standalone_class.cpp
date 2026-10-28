@@ -23,6 +23,7 @@
 #include "ss_entityfactory.h"
 #include "shell_entity_lifecycle.h"
 #include "server_entity_context.h"
+#include "server_state.h"
 
 void SourceSharp_LogEntityCreate( const char *pClassName );
 void SourceSharp_LogEntityCreateFailed( const char *pClassName );
@@ -81,12 +82,12 @@ public:
 	// The tier this class's entities are allocated at, looked up late because types are
 	// published after registration. A miss is not cached: pinning tier 0 would let C# write
 	// a larger layout into a short blob. Tier 0 for a class never published.
-	int ResolveTier()
+	int ResolveTier( const CSourceSharpTypeTable &types )
 	{
 		if ( m_Desc.iTier >= 0 )
 			return m_Desc.iTier;
 
-		const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( m_Desc.pClassName );
+		const SourceSharpNetType_t *pType = types.ByName( m_Desc.pClassName );
 
 		// Nothing published yet: answer the floor and DO NOT remember it.
 		if ( !pType || pType->iTier < 0 )
@@ -102,7 +103,7 @@ public:
 		SourceSharp_LogEntityCreate( pClassName );
 
 		// One read feeds both the allocation length and the instance's tier.
-		const int iTier = ResolveTier();
+		const int iTier = ResolveTier( context.m_NetTables.m_Types );
 
 		// The player is the one subclass, chosen here where the class is known.
 		CStandaloneEntity *pEnt = m_Desc.bPlayer ? new ( SourceSharp_TierBytes( iTier ) ) CStandalonePlayer( context )

@@ -3,6 +3,14 @@
 #pragma once
 
 #include "generic_payload.h"
+
+#ifndef CLIENT_DLL
+class IManagedNetState;
+typedef IManagedNetState NetStateArea_t;
+#else
+class IManagedStandaloneClient;
+typedef IManagedStandaloneClient NetStateArea_t;
+#endif
 #include "mathlib/vector.h"
 
 #include <string.h>
@@ -54,7 +62,8 @@ struct SourceSharpWorldFields_t
 
 // Asks the managed side for all ten placements. False, with one warning, when
 // worldspawn is not published on this side; the caller retries on its next read.
-bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration );
+bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration,
+									 NetStateArea_t *pArea );
 
 // Safe against an unresolved field and a NULL blob; they answer zero, as a fresh
 // stock world would.

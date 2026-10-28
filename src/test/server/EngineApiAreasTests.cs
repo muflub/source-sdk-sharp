@@ -155,18 +155,27 @@ public partial class EngineApiAreasTests
     /// plan_client_vtables CB, CC: the client implements each shared base and
     /// each client-only area by forwarding to a body. Since CC-last there is no
     /// struct fill to compare with, so every client forward must call exactly
-    /// the body its row names (client_body where the client's differs).
+    /// the body its row names (client_body where the client's differs). A row
+    /// whose client body is a class's method (T6 part 3) has no forward: the
+    /// class is the area, held by pointer and acquired through it.
     /// </summary>
     [Fact]
     public void EveryClientForwardCallsItsRowsBody()
     {
-        string forwards = File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "shell_shim_areas_client.inc"));
-        var calls = Regex.Matches(forwards, @"\bCShim\w+::(\w+)\([^)]*\)\s*\n\s*\{ return ::(\w+)\(")
+        string forwards = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_shim_areas_client.cpp"));
+        var calls = Regex.Matches(forwards, @"\bCShim\w+::(\w+)\([^)]*\)\s*\{\s*return ::(\w+)\(")
                          .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
 
-        var rows = Rows().Where(r => r.Struct == "EngineApi" && r.Kind is "shared" or "client"
-                                     && r.Interface is not ("IShimConsole" or "IShimRoot")).ToList();
+        var served = Rows().Where(r => r.Struct == "EngineApi" && r.Kind is "shared" or "client"
+                                       && r.Interface is not ("IShimConsole" or "IShimRoot")).ToList();
+        static string ClientBody(Row r) => r.ClientBody.Length > 0 ? r.ClientBody : r.Body;
+        var owned = served.Where(r => ClientBody(r).Contains("::")).ToList();
+        var rows = served.Except(owned).ToList();
         Assert.True(rows.Count >= 170, $"{rows.Count} client-served rows");
+        Assert.NotEmpty(owned);   // the control: CGameEvents is the client's events area
+        Assert.All(owned, r => Assert.False(calls.ContainsKey(r.Slot), $"{r.Slot} is forwarded, but its class is the area"));
+        Assert.All(owned.Select(r => r.Interface).Distinct(),
+                   i => Assert.Contains($"return areas.m_p{i["IShim".Length..]};", forwards));
         Assert.True(calls.Count == rows.Count, $"{calls.Count} forwards for {rows.Count} rows");
         Assert.Contains(rows, r => r.ClientBody.Length > 0);   // the control: some bodies differ
 

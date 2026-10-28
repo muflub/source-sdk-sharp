@@ -21,7 +21,6 @@
 #include "datacache/imdlcache.h"
 
 void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize );
-void UTIL_SetCommandClientIndex( int index );
 
 #include "managed_convar_ref.h"
 
@@ -42,10 +41,11 @@ void UTIL_SetCommandClientIndex( int index );
 #include "shell_managed_areas.h"
 #include "shell_diagnostics.h"
 #include "ss_shareddefs.h"
+#include "server_state.h"
 
 CPlayerState *CServerGameClients::PlayerStateForEdict( edict_t *pEdict )
 {
-	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pEdict );
+	CStandalonePlayer *pPlayer = m_Entities.PlayerFromEdict( pEdict );
 
 	if ( pPlayer != NULL )
 	{
@@ -67,7 +67,7 @@ bool CServerGameClients::ClientViewOrigin( edict_t *pClient, Vector *pOut )
 	if ( pOut == NULL )
 		return false;
 
-	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pClient );
+	CStandalonePlayer *pPlayer = m_Entities.PlayerFromEdict( pClient );
 
 	if ( pPlayer == NULL )
 		return false;
@@ -140,7 +140,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 	// On a savegame load the engine skips ClientPutInServer and calls only
 	// ClientActive, and no saved entity table recreates the player, so create it
 	// here. Not fatal on failure: the map is still standing and playable.
-	if ( ShellSave_LoadGameNeedsPlayer( bLoadGame, CStandalonePlayer::FromEdict( pEdict ) != NULL ) )
+	if ( ShellSave_LoadGameNeedsPlayer( bLoadGame, m_Entities.PlayerFromEdict( pEdict ) != NULL ) )
 	{
 		const int nIndex = pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0;
 		const char *pszName = nIndex > 0 ? m_pEngine->GetClientConVarValue( nIndex, "name" ) : NULL;
@@ -163,7 +163,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 	RegisterClientMessage( pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0 );
 
 	// Spawns when the client is fully connected, as stock's player does.
-	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.PlayerFromEdict( pEdict ) )
 		pStandalone->Spawn();
 
 	if ( IManagedClients *pApi = ManagedClientsIfLoaded() )
@@ -193,10 +193,10 @@ void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 	// Destroying the shell unhooks the edict without removing it (the engine owns
 	// a client's edict). Managed must be told explicitly: this is the one removal
 	// native starts, so it never passes through managed's removal path.
-	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.PlayerFromEdict( pEdict ) )
 	{
 		// Since this client isn't around to think any more, reset their sound.
-		ss::SoundEnt_ResetClientSound( pStandalone->EntIndex() );
+		ss::SoundEnt_ResetClientSound( m_Managed.m_pSoundEnt, pStandalone->EntIndex() );
 
 		// Before the delete: the announcement reads memory the delete frees.
 		SourceSharp_AnnounceStandaloneRemoved( pStandalone );
@@ -228,7 +228,7 @@ void CServerGameClients::ClientCommand( edict_t *pEntity, const CCommand &args )
 {
 	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientCommand );
 
-	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEntity ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.PlayerFromEdict( pEntity ) )
 	{
 		StandalonePlayer_ClientCommand( pStandalone, args );
 		return;
@@ -246,7 +246,7 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 
 	// Managed fires player_changename and answers whether the player takes the
 	// new name; this carries it out.
-	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pEdict );
+	CStandalonePlayer *pPlayer = m_Entities.PlayerFromEdict( pEdict );
 	IManagedClients *pApi = m_Managed.m_pClients;
 	if ( !pPlayer || !pApi )
 		return;
@@ -276,7 +276,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 		// A standalone view entity (a point_viewcontrol) adds its origin too. The
 		// player's own eye is still added, so the PVS is the union, never less than
 		// stock's.
-		if ( ss::GameEntityFromEntityHandle( pViewEntity->GetUnknown() ) )
+		if ( ss::GameEntityFromServerEntity( pViewEntity->GetUnknown() ) )
 		{
 			org = pViewEntity->GetUnknown()->GetCollideable()->GetCollisionOrigin();
 			m_pEngine->AddOriginToPVS( org );
@@ -329,7 +329,7 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 		return 0.0f;
 	}
 
-	CStandalonePlayer *pStandalone = ignore ? NULL : CStandalonePlayer::FromEdict( player );
+	CStandalonePlayer *pStandalone = ignore ? NULL : m_Entities.PlayerFromEdict( player );
 
 	SourceSharpDecodedUserCmd queued[SOURCESHARP_MAX_QUEUED_USERCMDS];
 	int32_t nBitsRead = 0;
@@ -367,7 +367,7 @@ void CServerGameClients::SetCommandClient( int index )
 {
 	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_SetCommandClient );
 
-	UTIL_SetCommandClientIndex( index );
+	m_Entities.m_Players.m_nCommandClientSlot = index;
 }
 
 int CServerGameClients::GetReplayDelay( edict_t *pEdict, int &entity )

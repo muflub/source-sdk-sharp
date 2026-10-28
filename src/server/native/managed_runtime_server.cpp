@@ -15,18 +15,19 @@
 #include "managed_runtime_server.h"
 
 #include "managed_side.h"
+#include "shell_managed_areas.h"
 
 // The server's only path to the CLR, called from the shell's DLLInit.
-IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env, CManagedSide &side )
+IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env, CManagedSide &side,
+										   const CManagedHolders &managed, const char *pszGameDir )
 {
 	if ( env == NULL )
 		return NULL;
 
 	// Load calls Error() on failure; a repeat call answers true.
-	if ( !side.Load() )
+	if ( !side.Load( pszGameDir ) )
 		return NULL;
 
-	// The managed-built runtime. Callers use ManagedRuntimeServer() rather than keeping
-	// this, because a reload replaces it.
-	return ManagedRuntimeServer();
+	// The managed-built runtime, which a reload replaces: callers read the holders again.
+	return managed.m_pRuntimeServer;
 }

@@ -8,7 +8,7 @@
 // SS_REASON c  static-init registration
 // Debug builds only; NativeCommands declares the matching row under #if DEBUG.
 
-#include "server_engine.h"
+#include "server_services.h"
 #include "tier0/dbg.h"
 #include "mathlib/vector.h"
 #include "worldsize.h"
@@ -42,10 +42,11 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 	int nBrushes = -1;
 	int nNegative = 0;
 	int nBrushAlloc = 0;
-	if ( ServerTrace() )
+	IEngineTrace *pTrace = services.m_EntityContext.m_pTrace;
+	if ( pTrace )
 	{
 		ss::EngineFilledUtlVector<int> brushes;
-		ServerTrace()->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine<CUtlVector<int>>() );
+		pTrace->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine<CUtlVector<int>>() );
 		const ss::EngineUtlVector<int> &view = brushes.View();
 		nBrushes = view.Count();
 		nBrushAlloc = view.m_nAllocationCount;
@@ -55,10 +56,11 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 
 	int nProps = -1;
 	int nNullProps = 0;
-	if ( ServerStaticProps() )
+	IStaticPropMgrServer *pStaticProps = services.m_EntityContext.m_pStaticProps;
+	if ( pStaticProps )
 	{
 		ss::EngineFilledUtlVector<ICollideable *> props;
-		ServerStaticProps()->GetAllStaticProps( props.ForEngine<CUtlVector<ICollideable *>>() );
+		pStaticProps->GetAllStaticProps( props.ForEngine<CUtlVector<ICollideable *>>() );
 		const ss::EngineUtlVector<ICollideable *> &view = props.View();
 		nProps = view.Count();
 		for ( ICollideable *pProp : view )

@@ -42,8 +42,6 @@ IGameRules *CServerEntityContext::GameRules() const
 	return nullptr;
 }
 
-void UTIL_SetCommandClientIndex( int ) {}
-
 void StandalonePlayer_ClientCommand( CStandalonePlayer *, const CCommand & ) {}
 
 void SourceSharp_AnnounceStandaloneRemoved( CStandaloneEntity * ) {}
@@ -52,14 +50,14 @@ void CStandalonePlayer::SetPlayerName( const char * ) {}
 
 void CStandalonePlayer::QueuedUsercmds( int ) {}
 
-CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t * )
+CStandalonePlayer *CServerEntityContext::PlayerFromEdict( const edict_t * ) const
 {
 	return nullptr;
 }
 
 namespace ss
 {
-void SoundEnt_ResetClientSound( int ) {}
+void SoundEnt_ResetClientSound( IManagedSoundEnt *, int ) {}
 }
 
 uint32_t CStandaloneEntity::ManagedHandle() const
@@ -70,12 +68,6 @@ uint32_t CStandaloneEntity::ManagedHandle() const
 int CStandaloneEntity::EntIndex() const
 {
 	return 0;
-}
-class IStaticPropMgrServer;
-
-IStaticPropMgrServer *ServerStaticProps()
-{
-	return nullptr;
 }
 
 namespace
@@ -167,8 +159,10 @@ protected:
 	unsigned short m_nWorldSerial = 0;
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
-	CServerEntityContext m_Entities{ &m_Engine,        &m_Globals,           nullptr,   nullptr,        m_Holders,
-									 m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache };
+	CServerNetTables m_NetTables;
+	CServerEntityContext m_Entities{
+		&m_Engine,        &m_Globals,           nullptr,   nullptr,        nullptr,    nullptr,    m_Holders,
+		m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache, m_NetTables };
 	CServerGameClients m_Clients{ &m_Engine,        &m_Globals,    &m_MdlCache, m_Managed,
 								  m_bManagedLoaded, m_PlayerMaker, m_Probes,    m_Entities };
 };
@@ -316,8 +310,9 @@ TEST( LateBoundServerGameClients, ForwardsToTheImplementationItIsBoundTo )
 	unsigned short nWorldSerial = 0;
 	unsigned int nGeneration = 1;
 	CServerModelPrecache precache( &engine, nullptr, holders.m_Areas );
-	CServerEntityContext entities( &engine, &globals, nullptr, nullptr, holders, bManagedLoaded, nGeneration, players,
-								   nWorldSerial, precache );
+	CServerNetTables netTables;
+	CServerEntityContext entities( &engine, &globals, nullptr, nullptr, nullptr, nullptr, holders, bManagedLoaded,
+								   nGeneration, players, nWorldSerial, precache, netTables );
 	CServerGameClients impl( &engine, &globals, nullptr, holders.m_Areas, bManagedLoaded, playerMaker, probes,
 							 entities );
 	CRootServerGameClients forwarder;

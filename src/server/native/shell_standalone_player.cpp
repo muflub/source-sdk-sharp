@@ -16,7 +16,6 @@
 #include "ss_physics_shared.h"
 
 #include "ss_gamestringpool.h"
-int UTIL_GetCommandClientIndex();
 #include "ss_recipient_filter.h"
 #include "igamerules.h"
 #include "shell_standalone_player.h"
@@ -35,13 +34,13 @@ int UTIL_GetCommandClientIndex();
 #include "native_command_body.h"
 #include "ss_string.h"
 #include "ss_entityfactory.h"
-#include "server_engine.h"
 #include "shell_entity_lifecycle.h"
 #include "world_queries.h"
 #include "server_movement.h"
 #include "server_entity_resolver.h"
 #include "server_console_commands.h"
 #include "server_entity_resolver.h"
+#include "server_services.h"
 
 // Stock's player physics-shadow states (player.h VPHYS_*).
 namespace
@@ -54,39 +53,31 @@ enum
 };
 }
 
-// The players' DLL-tier state: field placements, the pending edict, the shadow counts.
-static CServerPlayersDll &Players()
-{
-	AssertMsg( ShellGameDll_Dll(), "the players were asked for outside DLLInit..DLLShutdown" );
-	return ShellGameDll_Dll()->m_Players;
-}
-
 // This map's players by entindex, or NULL outside a level.
-static CStandalonePlayer **PlayersByIndex()
+static CStandalonePlayer **PlayersByIndex( const CServerEntityContext &context )
 {
-	CServerLevelState *pLevel = ShellGameDll_Level();
-	return pLevel ? pLevel->m_Players.m_pByIndex : NULL;
+	return context.m_pLevel ? context.m_pLevel->m_Players.m_pByIndex : NULL;
 }
 
 // Field placements, resolved once per generation and shared by every player.
-static bool PlayerFieldsCurrent( SourceSharpPlayerFields_t &fields, unsigned int nGeneration )
+static bool PlayerFieldsCurrent( SourceSharpPlayerFields_t &fields, unsigned int nGeneration, IManagedNetState *pArea )
 {
 	if ( fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpPlayerFields_Resolve( &fields, nGeneration );
+	return SourceSharpPlayerFields_Resolve( &fields, nGeneration, pArea );
 }
 
 // Native state to blob, after anything that moved it.
 void CStandalonePlayer::SyncToBlob()
 {
 	const unsigned int nGeneration = Context().m_nManagedGeneration;
-	if ( !PlayerFieldsCurrent( Players().m_Fields, nGeneration ) )
+	if ( !PlayerFieldsCurrent( Context().m_Players.m_Fields, nGeneration, Context().m_Managed.m_Areas.m_pNetState ) )
 		return;
 
 	// The engine side's three words only; the managed command loop publishes movement state.
-	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), Players().m_Fields, nGeneration, GetAbsOrigin(), GetHealth(),
-										   MvIsAlive() );
+	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), Context().m_Players.m_Fields, nGeneration, GetAbsOrigin(),
+										   GetHealth(), MvIsAlive() );
 
 	NetworkStateChanged();
 }
@@ -102,17 +93,17 @@ int CStandalonePlayer::TakeDamage( const ss::CTakeDamageInfo &info )
 	return nTaken;
 }
 
-CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t *pEdict )
+CStandalonePlayer *CServerEntityContext::PlayerFromEdict( const edict_t *pEdict ) const
 {
 	if ( !pEdict )
 		return NULL;
 
-	return FromIndex( ServerEngine()->IndexOfEdict( const_cast<edict_t *>( pEdict ) ) );
+	return PlayerFromIndex( m_pEngine->IndexOfEdict( const_cast<edict_t *>( pEdict ) ) );
 }
 
-CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
+CStandalonePlayer *CServerEntityContext::PlayerFromIndex( int nEntIndex ) const
 {
-	CStandalonePlayer **ppPlayers = PlayersByIndex();
+	CStandalonePlayer **ppPlayers = PlayersByIndex( *this );
 
 	if ( !ppPlayers || nEntIndex < 1 || nEntIndex > ss::kMaxPlayers )
 		return NULL;
@@ -180,7 +171,7 @@ CStandalonePlayer::~CStandalonePlayer()
 
 	const int nIndex = EntIndex();
 
-	CStandalonePlayer **ppPlayers = PlayersByIndex();
+	CStandalonePlayer **ppPlayers = PlayersByIndex( Context() );
 
 	if ( ppPlayers && nIndex >= 1 && nIndex <= ss::kMaxPlayers && ppPlayers[nIndex] == this )
 		ppPlayers[nIndex] = NULL;
@@ -277,13 +268,13 @@ void CStandalonePlayer::OnManagedKilled( IGameEntity *pAttacker )
 
 // A managed handle back to its player. The serial is checked, not just the index, so a
 // later occupant of the slot never answers. 0 and INVALID_EHANDLE_INDEX are refused.
-static CStandalonePlayer *StandalonePlayer_FromManagedHandle( uint32_t hPlayer )
+static CStandalonePlayer *StandalonePlayer_FromManagedHandle( const CServerEntityContext &context, uint32_t hPlayer )
 {
 	if ( hPlayer == 0 || hPlayer == (uint32_t)INVALID_EHANDLE_INDEX )
 		return NULL;
 
 	const CBaseHandle handle = CBaseHandle::UnsafeFromIndex( (int)hPlayer );
-	CStandalonePlayer *pPlayer = CStandalonePlayer::FromIndex( handle.GetEntryIndex() );
+	CStandalonePlayer *pPlayer = context.PlayerFromIndex( handle.GetEntryIndex() );
 
 	return ( pPlayer && pPlayer->ManagedHandle() == hPlayer ) ? pPlayer : NULL;
 }
@@ -295,9 +286,9 @@ void CStandalonePlayer::QueuedUsercmds( int nCount )
 		m_nPendingCmds += nCount;
 }
 
-void CStandalonePlayer::RunAllQueuedCommands()
+void CStandalonePlayer::RunAllQueuedCommands( const CServerEntityContext &context )
 {
-	CStandalonePlayer **ppPlayers = PlayersByIndex();
+	CStandalonePlayer **ppPlayers = PlayersByIndex( context );
 
 	if ( !ppPlayers )
 		return;
@@ -379,7 +370,7 @@ void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 	IHandleEntity *pGround = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
 	pOut->bGroundResolves = pGround ? 1 : 0;
 
-	const Vector vecGroundVelocity = MovementGroundVelocity( pGround );
+	const Vector vecGroundVelocity = MovementGroundVelocity( pGround, Context().m_pStaticProps );
 	pOut->vecGroundVelocity[0] = vecGroundVelocity.x;
 	pOut->vecGroundVelocity[1] = vecGroundVelocity.y;
 	pOut->vecGroundVelocity[2] = vecGroundVelocity.z;
@@ -406,7 +397,7 @@ void CStandalonePlayer::FinishCommand( const SourceSharpPlayerCommandResult &res
 
 int32_t CServerMovement::PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer || !pFacts || pFacts->struct_size != sizeof( *pFacts ) )
 		return 0;
@@ -420,7 +411,7 @@ int32_t CServerMovement::PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayer
 
 void CServerMovement::PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer || !pAnglePYR )
 		return;
@@ -431,7 +422,7 @@ void CServerMovement::PlayerCommandView( uint32_t hPlayer, const float *pAnglePY
 
 void CServerMovement::PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer || !pResult || pResult->struct_size != sizeof( *pResult ) )
 		return;
@@ -447,7 +438,7 @@ void CServerMovement::PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPl
 // whether the player is still alive.
 int32_t CServerMovement::PlayerFallDamage( uint32_t hPlayer, float flDamage )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer )
 		return 1;
@@ -465,7 +456,7 @@ int32_t CServerMovement::PlayerFallDamage( uint32_t hPlayer, float flDamage )
 // The engine side's three words into the networked state, after each command.
 void CServerMovement::PlayerSyncEngineSide( uint32_t hPlayer )
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer ) )
 		pPlayer->SyncToBlob();
 }
 
@@ -473,23 +464,6 @@ void CServerMovement::PlayerSyncEngineSide( uint32_t hPlayer )
 // the player's position so it can push props (stock's CBasePlayer::InitVCollision and
 // SetupVPhysicsShadow). Managed builds and drives it; native holds the pointers and
 // owns the teardown. The solver never pushes the player back.
-//
-// Shadows still in the solver, and those that outlived their environment, which is
-// recreated at every level change (CServerPlayersDll). physics.cpp checks both.
-
-// Copies live, outlived into pOut.
-int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax )
-{
-	if ( !pOut || nMax <= 0 )
-		return 0;
-
-	const int32_t values[] = { Players().m_nShadowsLive, Players().m_nShadowsOutlived };
-	const int32_t nAll = int32_t( sizeof( values ) / sizeof( values[0] ) );
-	const int32_t n = nMax < nAll ? nMax : nAll;
-	for ( int32_t i = 0; i < n; ++i )
-		pOut[i] = values[i];
-	return n;
-}
 
 // Facts for the managed shadow. The destructor is the body's one teardown owner.
 COMPILE_TIME_ASSERT( sizeof( SourceSharpPlayerShadowFacts ) == 192 );
@@ -555,7 +529,7 @@ void CStandalonePlayer::AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCr
 
 	// Remembered so the teardown can tell whether the environment that built it still exists.
 	m_pShadowEnv = PhysicsEnvironment();
-	Players().m_nShadowsLive++;
+	Context().m_Players.m_nShadowsLive++;
 }
 
 void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
@@ -569,7 +543,7 @@ void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
 
 int32_t CServerMovement::PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 	if ( !pPlayer || !pOut )
 		return 0;
 
@@ -579,7 +553,7 @@ int32_t CServerMovement::PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerS
 
 int32_t CServerMovement::PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 	if ( !pPlayer || !pStand || !pCrouch || !pController || !pPlayer->PhysicsEnvironment() )
 		return 0;
 
@@ -592,13 +566,13 @@ int32_t CServerMovement::PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void
 
 void CServerMovement::PlayerShadowRelease( uint32_t hPlayer )
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer ) )
 		pPlayer->DestroyVCollision();
 }
 
 void CServerMovement::PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand )
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer ) )
 		pPlayer->CommitShadow( nState, bAfterCommand != 0 );
 }
 
@@ -611,7 +585,7 @@ void CStandalonePlayer::DestroyVCollision()
 
 	// Counted once per set, whether freed or dropped.
 	if ( m_pShadowEnv )
-		Players().m_nShadowsLive--;
+		Context().m_Players.m_nShadowsLive--;
 
 	if ( m_pPhysicsController )
 	{
@@ -670,15 +644,16 @@ void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand 
 
 // Who typed it. A registered ConCommand is dispatched by the engine and must ask for its
 // subject, as stock's handlers did through UTIL_GetCommandClient.
-CStandalonePlayer *StandalonePlayer_CommandClient()
+CStandalonePlayer *CServerEntityContext::CommandClient() const
 {
-	return CStandalonePlayer::FromIndex( UTIL_GetCommandClientIndex() );
+	// The slot is 0-based, -1 for the dedicated console; as an entindex, 0 is the console.
+	return PlayerFromIndex( m_Players.m_nCommandClientSlot + 1 );
 }
 
 // The same, for a C# [ConCommand]. INVALID_EHANDLE_INDEX when no player issued it.
 uint32_t CServerConsoleCommands::GetCommandClientHandle()
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient() )
+	if ( CStandalonePlayer *pPlayer = m_Entities.Context().CommandClient() )
 		return pPlayer->ManagedHandle();
 
 	return INVALID_EHANDLE_INDEX;
@@ -686,10 +661,10 @@ uint32_t CServerConsoleCommands::GetCommandClientHandle()
 
 // `use` is ss_use under stock's name. It needs a registration because
 // IVEngineServer::ServerCommand, which tools drive the game through, only reaches a ConCommand.
-static void StandalonePlayer_RouteVerbatim( const CCommand &args )
+static void StandalonePlayer_RouteVerbatim( const CCommand &args, const CServerEntityContext &context )
 {
 	const char *pName = args.ArgC() >= 1 ? args[0] : "command";
-	CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient();
+	CStandalonePlayer *pPlayer = context.CommandClient();
 
 	if ( !pPlayer )
 	{
@@ -712,7 +687,7 @@ static void StandalonePlayer_RouteVerbatim( const CCommand &args )
 
 SS_NATIVE_COMMAND( use )
 {
-	StandalonePlayer_RouteVerbatim( args );
+	StandalonePlayer_RouteVerbatim( args, services.m_EntityContext );
 }
 
 CStandalonePlayer *CServerEntityLifecycle::CreatePlayer( edict_t *pEdict, const char *pPlayerName )
@@ -745,7 +720,7 @@ CStandalonePlayer *CServerEntityLifecycle::CreatePlayer( edict_t *pEdict, const 
 
 	const int nIndex = pPlayer->EntIndex();
 
-	CStandalonePlayer **ppPlayers = PlayersByIndex();
+	CStandalonePlayer **ppPlayers = PlayersByIndex( m_Entities );
 
 	if ( ppPlayers && nIndex >= 1 && nIndex <= ss::kMaxPlayers )
 	{
@@ -791,11 +766,11 @@ static void StandaloneClientData_Update( const CServerWorldQueries &world, CStan
 	local.m_skybox3d.area = 255;
 }
 
-void UpdateAllClientData( const CGlobalVars *pGlobals, const CServerWorldQueries &world )
+void UpdateAllClientData( const CServerEntityContext &context, const CServerWorldQueries &world )
 {
-	for ( int i = 1; i <= pGlobals->maxClients; i++ )
+	for ( int i = 1; i <= context.m_pGlobals->maxClients; i++ )
 	{
-		if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( i ) )
+		if ( CStandalonePlayer *pStandalone = context.PlayerFromIndex( i ) )
 			StandaloneClientData_Update( world, pStandalone );
 	}
 }

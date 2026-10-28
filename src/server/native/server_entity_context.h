@@ -10,7 +10,12 @@ class CServerPlayersDll;
 class ISpatialPartition;
 class IVEngineServer;
 class IVModelInfo;
+class IStaticPropMgrServer;
+class IEngineTrace;
 class CServerModelPrecache;
+class CServerNetTables;
+class CStandalonePlayer;
+struct edict_t;
 class CGlobalVars;
 class CServerPhysics;
 class IGameRules;
@@ -21,24 +26,40 @@ class CServerEntityContext
 {
 public:
 	CServerEntityContext( IVEngineServer *pEngine, CGlobalVars *pGlobals, ISpatialPartition *pPartition,
-						  IVModelInfo *pModelInfo, const CManagedHolders &managed, const bool &bManagedLoaded,
+						  IVModelInfo *pModelInfo, IStaticPropMgrServer *pStaticProps, IEngineTrace *pTrace,
+						  const CManagedHolders &managed, const bool &bManagedLoaded,
 						  const unsigned int &nManagedGeneration, CServerPlayersDll &players,
-						  unsigned short &nWorldSerial, CServerModelPrecache &precache )
+						  unsigned short &nWorldSerial, CServerModelPrecache &precache, CServerNetTables &netTables )
 		: m_pEngine( pEngine )
 		, m_pGlobals( pGlobals )
 		, m_pPartition( pPartition )
 		, m_pModelInfo( pModelInfo )
+		, m_pStaticProps( pStaticProps )
+		, m_pTrace( pTrace )
 		, m_Managed( managed )
 		, m_bManagedLoaded( bManagedLoaded )
 		, m_nManagedGeneration( nManagedGeneration )
 		, m_Players( players )
 		, m_nWorldSerial( nWorldSerial )
 		, m_Precache( precache )
+		, m_NetTables( netTables )
 	{
 	}
 
 	CServerEntityContext( const CServerEntityContext & ) = delete;
 	CServerEntityContext &operator=( const CServerEntityContext & ) = delete;
+
+	// This map's player at an entindex (1-based) or edict; NULL outside a level, for an
+	// empty slot and for an edict that is not a player's (shell_standalone_player.cpp).
+	CStandalonePlayer *PlayerFromIndex( int nEntIndex ) const;
+	CStandalonePlayer *PlayerFromEdict( const edict_t *pEdict ) const;
+
+	// The player who issued the console command being run, or NULL for the console.
+	CStandalonePlayer *CommandClient() const;
+
+	// Whether the command being run came from the listen server's host or the dedicated
+	// server's console (shell_commandclient.cpp).
+	bool CommandIssuedByServerAdmin() const;
 
 	IVEngineServer *const m_pEngine;
 
@@ -46,6 +67,8 @@ public:
 	CGlobalVars *const m_pGlobals;
 	ISpatialPartition *const m_pPartition;
 	IVModelInfo *const m_pModelInfo;
+	IStaticPropMgrServer *const m_pStaticProps;
+	IEngineTrace *const m_pTrace;
 
 	// Read when called: a managed reload replaces the objects behind it.
 	const CManagedHolders &m_Managed;
@@ -63,6 +86,9 @@ public:
 
 	// Where an entity precaches the model it is given.
 	CServerModelPrecache &m_Precache;
+
+	// The published types and the ServerClasses an entity is networked through.
+	CServerNetTables &m_NetTables;
 
 	// NULL between levels.
 	CServerLevelState *m_pLevel = nullptr;

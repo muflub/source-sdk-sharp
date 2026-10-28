@@ -16,38 +16,21 @@
 
 #ifndef CLIENT_DLL
 #include "dt_send.h"
-#include "server_state.h"
 #endif
 
-// The published type table. Both shells must share one, so the answer does not depend on
-// which shell looks a type up.
+// The client's published type table. Both shells must share one, so the answer does not
+// depend on which shell looks a type up. The server's is its CServerNetTables'.
 #ifdef CLIENT_DLL
 CSourceSharpTypeTable &SourceSharp_NetTypes()
 {
 	static CSourceSharpTypeTable s_Types;
 	return s_Types;
 }
-#else
-// The server's lives on CServerDllState, valid between DLLInit and DLLShutdown.
-CSourceSharpTypeTable &SourceSharp_NetTypes()
-{
-	AssertMsg( ShellGameDll_Dll(), "the net type table was asked for outside DLLInit..DLLShutdown" );
-	return ShellGameDll_Dll()->m_NetTypes;
-}
-#endif
 
-#ifdef CLIENT_DLL
 const char *SourceSharpPayload_PropName( int iWord )
 {
 	static CSourceSharpPayloadPropNames s_Names;
 	return s_Names.At( iWord );
-}
-#else
-// The server's names live on CServerDllState with the tables built from them.
-const char *SourceSharpPayload_PropName( int iWord )
-{
-	AssertMsg( ShellGameDll_Dll(), "a payload prop name was asked for outside DLLInit..DLLShutdown" );
-	return ShellGameDll_Dll()->m_PayloadPropNames.At( iWord );
 }
 #endif
 
@@ -56,7 +39,8 @@ const char *SourceSharpPayload_PropName( int iWord )
 // One SendPropInt per payload word at blobBase + i*4: four bytes and 32 unsigned bits,
 // which select SendProxy_UInt32ToInt32. No custom proxy: one would put every word on the
 // engine's slow local-transfer list.
-int SourceSharpPayload_BuildSendProps( SendProp *pProps, int nWords, int nBlobBase )
+int SourceSharpPayload_BuildSendProps( SendProp *pProps, int nWords, int nBlobBase,
+									   CSourceSharpPayloadPropNames &names )
 {
 	if ( !pProps )
 		return -1;
@@ -69,7 +53,7 @@ int SourceSharpPayload_BuildSendProps( SendProp *pProps, int nWords, int nBlobBa
 
 	for ( int i = 0; i < nWords; i++ )
 	{
-		pProps[i] = SendPropInt( SourceSharpPayload_PropName( i ), SourceSharpPayload_WordOffset( nBlobBase, i ),
+		pProps[i] = SendPropInt( names.At( i ), SourceSharpPayload_WordOffset( nBlobBase, i ),
 								 SOURCESHARP_PAYLOAD_WORD_BYTES, 32, SPROP_UNSIGNED );
 	}
 

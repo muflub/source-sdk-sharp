@@ -50,63 +50,35 @@ struct SourceSharpPlayerFields_t
 // Asks the managed side for every placement. False, with one warning, when the
 // class is not published on this side yet; the caller retries on the next sync.
 //
-// This side's layout asks. Both answer -1 for a field that is not published.
-struct SourceSharpNetStateAsk_t
-{
-	int32_t ( *pfnFieldOffset )( const char *pClassName, const char *pFieldName );
-	int32_t ( *pfnFieldBits )( const char *pClassName, const char *pFieldName );
-};
-
 #ifndef CLIENT_DLL
 #include "imanaged_areas.h"
-
-// Read at the point of use, never cached: the area goes with each unload.
-inline int32_t SourceSharp_ServerNetStateFieldOffset( const char *pClassName, const char *pFieldName )
-{
-	IManagedNetState *pNetState = ManagedNetState();
-	return pNetState ? pNetState->NetStateFieldOffset( pClassName, pFieldName ) : -1;
-}
-
-inline int32_t SourceSharp_ServerNetStateFieldBits( const char *pClassName, const char *pFieldName )
-{
-	IManagedNetState *pNetState = ManagedNetState();
-	return pNetState ? pNetState->NetStateFieldBits( pClassName, pFieldName ) : -1;
-}
+typedef IManagedNetState NetStateArea_t;
 #else
 #include "imanaged_areas_client.h"
-
-// Read at the point of use, never cached: the area goes with each unload.
-inline int32_t SourceSharp_ClientNetStateFieldOffset( const char *pClassName, const char *pFieldName )
-{
-	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
-	return pStandalone ? pStandalone->NetStateFieldOffset( pClassName, pFieldName ) : -1;
-}
-
-inline int32_t SourceSharp_ClientNetStateFieldBits( const char *pClassName, const char *pFieldName )
-{
-	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
-	return pStandalone ? pStandalone->NetStateFieldBits( pClassName, pFieldName ) : -1;
-}
+typedef IManagedStandaloneClient NetStateArea_t;
 #endif
 
-// This side's asks into *pAsk; false, and *pAsk untouched, outside a load.
-inline bool SourceSharp_NetStateAsk( SourceSharpNetStateAsk_t *pAsk )
+// This side's layout asks, over the load's net-state area. Both answer -1 for a field
+// that is not published.
+struct SourceSharpNetStateAsk_t
 {
-#ifndef CLIENT_DLL
-	if ( !pAsk || !ManagedNetState() )
-		return false;
-	pAsk->pfnFieldOffset = &SourceSharp_ServerNetStateFieldOffset;
-	pAsk->pfnFieldBits = &SourceSharp_ServerNetStateFieldBits;
-#else
-	if ( !pAsk || !ManagedStandaloneClient() )
-		return false;
-	pAsk->pfnFieldOffset = &SourceSharp_ClientNetStateFieldOffset;
-	pAsk->pfnFieldBits = &SourceSharp_ClientNetStateFieldBits;
-#endif
-	return true;
-}
+	NetStateArea_t &m_Area;
 
-bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields, unsigned int nGeneration );
+	int32_t FieldOffset( const char *pClassName, const char *pFieldName ) const
+	{
+		return m_Area.NetStateFieldOffset( pClassName, pFieldName );
+	}
+
+	int32_t FieldBits( const char *pClassName, const char *pFieldName ) const
+	{
+		return m_Area.NetStateFieldBits( pClassName, pFieldName );
+	}
+};
+
+// pArea is the load's net-state area, read by the caller at the point of use: it goes
+// with each unload, and NULL (outside a load) answers false.
+bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields, unsigned int nGeneration,
+									  NetStateArea_t *pArea );
 
 // The ground handle travels as an entry index word, never a resolved pointer.
 // Encode only: each side resolves the index through its own entity list. The

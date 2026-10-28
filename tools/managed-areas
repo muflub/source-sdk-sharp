@@ -504,15 +504,14 @@ def generate():
          '// phase 4); Release is slot 0 and Validate slot 1, and native takes',
          '// an area only when Validate matches its k<I>SlotHashes (managed_accept.h).',
          '// Each is acquired again on every load and released before every unload,',
-         '// so native keeps no pointer and calls through the accessor.',
+         '// so native keeps no pointer of its own: it is handed the holders and reads the',
+         '// area from them at the point of use (plan_server_native_v2 T6 part 3).',
          '', '#pragma once', '',
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
          '#include "imanaged_core.h"', '', '#ifndef CLIENT_DLL', '']
     for i, ss in areas:
         h += interface_lines(i, ss) + hash_lines(i, ss)
-    for i, _ss in areas:
-        h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
-    h += ['', '#endif // !CLIENT_DLL', '', '']
+    h += ['#endif // !CLIENT_DLL', '', '']
 
     # ---- the holder ----------------------------------------------------------
     c = [valve, '', GENERATED, '//',
@@ -529,8 +528,7 @@ def generate():
           '\tIManagedRoot *m_pRoot;',
           '\tIManagedRuntimeServer *m_pRuntimeServer;',
           '\tCManagedAreas m_Areas;', '};', '',
-          '// The game DLL object\'s holders (shell_gamedll.cpp).',
-          'CManagedHolders &ShellGameDll_Managed();', '',
+
           '// True when the root, the runtime and every area have been released.',
           'inline bool ManagedHolders_Empty( const CManagedHolders &holders )', '{']
     held = ['holders.m_pRoot', 'holders.m_pRuntimeServer'] + \
@@ -550,7 +548,7 @@ def generate():
     # ---- the bodies ----------------------------------------------------------
     im = [valve, '', GENERATED, '//',
           '// Included at the end of shell_internalfactory.cpp. The areas live on the game DLL',
-          '// object (ShellGameDll_Managed(), plan_managed_vtable_reload.md L2).', '',
+          '// object (CShellGameDll::m_Managed, plan_managed_vtable_reload.md L2).', '',
           '#ifndef CLIENT_DLL', '',
           'bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy )',
           '{']
@@ -579,9 +577,6 @@ def generate():
     for i, _ss in areas:
         im.append('\tManagedRelease( areas.m_p%s );' % short(i))
     im += ['}', '']
-    for i, _ss in areas:
-        im += ['%s *Managed%s()' % (i, short(i)), '{',
-               '\treturn ShellGameDll_Managed().m_Areas.m_p%s;' % short(i), '}', '']
     im += ['#endif // !CLIENT_DLL', '']
 
     # ---- the C# tables -------------------------------------------------------
@@ -815,9 +810,10 @@ def self_test():
     expect('the holders are one struct: the root, the runtime and the areas',
            'struct CManagedHolders\n{\n\tIManagedRoot *m_pRoot;\n\tIManagedRuntimeServer *m_pRuntimeServer;\n'
            '\tCManagedAreas m_Areas;\n};' in out[OUT_HOLDER])
-    expect('an area\'s accessor reads the game DLL object\'s holders, not a static',
-           'IManagedSoundEnt *ManagedSoundEnt()\n{\n\treturn ShellGameDll_Managed().m_Areas.m_pSoundEnt;\n}'
-           in out[OUT_IMPL] and 'g_ShimRoot' not in out[OUT_IMPL])
+    # T6 part 3: native is handed the holders; no free accessor finds them.
+    expect('the server emits no area accessor',
+           'ManagedSoundEnt()' not in out[OUT_IMPL] and 'ManagedSoundEnt()' not in out[OUT_IFACE]
+           and 'IManagedSoundEnt *ManagedSoundEnt' not in out[OUT_HOLDER])
     expect('the emptiness check names the area too',
            '\t\t&& !holders.m_Areas.m_pSoundEnt' in out[OUT_HOLDER])
 

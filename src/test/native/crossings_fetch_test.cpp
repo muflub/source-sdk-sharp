@@ -139,6 +139,34 @@ TEST( CrossingsFetch, AGoodSlotAnswersTheReport )
 	free( pOut );
 }
 
+// The diagnostics command hands the loop a callable bound to its side's area.
+TEST( CrossingsFetch, ACallableBoundToItsObjectAnswersTheReport )
+{
+	struct CArea
+	{
+		const char *m_pText;
+		int m_nCalls = 0;
+	} area = { "bound report\n" };
+
+	char *pOut = NULL;
+	const SourceSharpCrossingsStatus status = SourceSharp_FetchCrossingsReportWith(
+		[&area]( char *pBuffer, int nBytes, int )
+		{
+			area.m_nCalls++;
+			const int nNeeded = (int)strlen( area.m_pText ) + 1;
+			if ( pBuffer && nBytes >= nNeeded )
+				memcpy( pBuffer, area.m_pText, (size_t)nNeeded );
+			return nNeeded;
+		},
+		false, &pOut );
+
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_OK, status );
+	ASSERT_TRUE( pOut != NULL );
+	EXPECT_STREQ( "bound report\n", pOut );
+	EXPECT_EQ( 2, area.m_nCalls );
+	free( pOut );
+}
+
 TEST( CrossingsFetch, ItSizesBeforeItFills )
 {
 	ResetFakes();

@@ -17,7 +17,7 @@
 // Allow all debug overlays to be cleared at once (the engine's overlay list).
 SS_NATIVE_COMMAND( clear_debug_overlays )
 {
-	if ( !UTIL_IsCommandIssuedByServerAdmin() )
+	if ( !services.m_EntityContext.CommandIssuedByServerAdmin() )
 		return;
 
 	services.m_OverlayLibrary.ClearAll();

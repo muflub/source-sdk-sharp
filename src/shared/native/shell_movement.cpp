@@ -45,7 +45,6 @@
 #endif
 #ifndef CLIENT_DLL
 #include "managed_convar_ref.h"
-#include "server_engine.h"
 #endif
 #include "movement_ground.h"
 #include "movement_ground_writeback.h"
@@ -64,6 +63,8 @@
 #include "ss_shareddefs.h"
 #include "server_movement.h"
 #include "server_entity_resolver.h"
+#include "server_entity_context.h"
+#include "ss_world.h"
 
 #define RUMBLE_FLAGS_NONE ss::kRumbleFlagsNone
 #define VEC_VIEW_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
@@ -774,9 +775,10 @@ void CServerMovement::MoveTraceServer( const float *pStart, const float *pEnd, c
 	trace_t pm;
 	Ray_t ray;
 	ray.Init( SS3E_ReadVec( pStart ), SS3E_ReadVec( pEnd ), SS3E_ReadVec( pMins ), SS3E_ReadVec( pMaxs ) );
-	ServerTrace()->TraceRay( ray, (unsigned int)nMask, static_cast<ITraceFilter *>( pFilter ), &pm );
+	const CServerEntityContext &context = m_Entities.Context();
+	context.m_pTrace->TraceRay( ray, (unsigned int)nMask, static_cast<ITraceFilter *>( pFilter ), &pm );
 
-	IHandleEntity *pGround = MovementGroundFromTrace( pm );
+	IHandleEntity *pGround = MovementGroundFromTrace( pm, m_Entities.World(), context.m_pStaticProps );
 
 	pOut->flFraction = pm.fraction;
 	SS3E_FillVec( pOut->vecEndPos, pm.endpos );
@@ -788,9 +790,9 @@ void CServerMovement::MoveTraceServer( const float *pStart, const float *pEnd, c
 	pOut->nSurfaceFlags = pm.surface.flags;
 	pOut->nContents = pm.contents;
 	pOut->bHasGround = pGround ? 1 : 0;
-	SS3E_FillVec( pOut->vecGroundVelocity, MovementGroundVelocity( pGround ) );
+	SS3E_FillVec( pOut->vecGroundVelocity, MovementGroundVelocity( pGround, context.m_pStaticProps ) );
 	pOut->bHasEntity = pm.m_pEnt ? 1 : 0;
-	pOut->bHitWorld = SourceSharp_IsTheWorld( ss::TraceHit( pm ) ) ? 1 : 0;
+	pOut->bHitWorld = m_Entities.WorldFromEntityHandle( ss::TraceHit( pm ) ) ? 1 : 0;
 
 	if ( pm.m_pEnt )
 		pOutHandles[0] = (uint32_t)ss::TraceHit( pm )->GetRefEHandle().ToInt();

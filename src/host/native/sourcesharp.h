@@ -639,30 +639,6 @@ typedef struct
 	// declaration behind it" this struct's own comment refuses.
 } SourceSharpGameRulesPolicy;
 
-//-----------------------------------------------------------------------------
-// WHICH COLLISION GROUPS COLLIDE, as a matrix rather than a function.
-//
-// CGameRules::ShouldCollide was sixty-seven lines of ordered ifs over two group
-// indices -- pure integer logic, no entity, no engine call, and TOTAL over a
-// domain of twenty by twenty. That makes it exactly the shape a table can hold,
-// and the table is what removes it: the predicate is asked once per traced
-// entity, so it was branching through up to fourteen comparisons on a path that
-// runs thousands of times a frame.
-//
-// ROW g0, BIT g1. The predicate sorts its two arguments before deciding, so the
-// relation is symmetric and the matrix is too -- which is asserted rather than
-// assumed, on both sides.
-//
-// Twenty rows because LAST_SHARED_COLLISION_GROUP is twenty. A group index
-// outside that range is not indexable and native answers stock's fallthrough
-// (true) without touching the table.
-//-----------------------------------------------------------------------------
-typedef struct
-{
-	// One row per collision group; bit N of row M is "M collides with N".
-	uint32_t nRows[20];
-} SourceSharpCollisionRules;
-
 // Everything a jump decision is given, in one crossing.
 //
 // One struct rather than a handle to ask questions of, and that shape is the
@@ -2114,7 +2090,7 @@ typedef struct
 // BY POINTER, not by value. Four pointers is small enough to pass either way,
 // but a struct passed by value across this boundary has an ABI of its own
 // (register vs. memory class) that neither side states, and every other
-// aggregate on this table -- SourceSharpCollisionRules, SourceSharpUserCmd --
+// aggregate on this table -- SourceSharpUserCmd --
 // already crosses as a pointer.
 //
 // The strings are the ENGINE's, valid only for the duration of the call.

@@ -36,7 +36,7 @@ SS_NATIVE_COMMAND( cs_standalone_spawn )
 		return;
 	}
 
-	CStandaloneEntity *pEnt = SourceSharp_ShellOf( ss::GameEntityFromEntityHandle( pNet->GetEntityHandle() ) );
+	CStandaloneEntity *pEnt = SourceSharp_ShellOf( ss::GameEntityFromServerEntity( pNet->GetEntityHandle() ) );
 
 	if ( !pEnt )
 		return;

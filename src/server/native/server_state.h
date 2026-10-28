@@ -99,6 +99,25 @@ public:
 	bool m_bRegistered = false;
 };
 
+// What the server networks managed types with: the published types, the tier
+// ServerClasses built from them, worldspawn's table and the payload's prop names. DLL
+// tier: the engine's class list keeps pointers into it for the life of the DLL.
+class CServerNetTables
+{
+public:
+	CServerNetTables() = default;
+	CServerNetTables( const CServerNetTables & ) = delete;
+	CServerNetTables &operator=( const CServerNetTables & ) = delete;
+
+	CSourceSharpTypeTable m_Types;
+	CSourceSharpPayloadPropNames m_PropNames;
+	CServerStandaloneTiers m_Tiers;
+	CWorldNetTable m_World;
+
+	// Warned once: an entity of a class nobody published.
+	bool m_bWarnedUnpublishedClass = false;
+};
+
 // The players' DLL-tier state: what survives a map change.
 class CServerPlayersDll
 {
@@ -117,6 +136,10 @@ public:
 	// recreated at every level change.
 	int m_nShadowsLive = 0;
 	int m_nShadowsOutlived = 0;
+
+	// The engine's console client (IServerGameClients::SetCommandClient), a 0-based slot;
+	// -1 for the dedicated console. The initial 0 is stock's.
+	int m_nCommandClientSlot = 0;
 };
 
 // Every live standalone entity of this map, and the removals managed code did not take
@@ -158,11 +181,7 @@ public:
 	CSourceSharpEntitySlots m_EntitySlots;
 	CSourceSharpSlotTable m_SlotTable;
 
-	// The published managed types the tier ServerClasses are built from.
-	CSourceSharpTypeTable m_NetTypes;
-	CSourceSharpPayloadPropNames m_PayloadPropNames;
-	CServerStandaloneTiers m_StandaloneTiers;
-	CWorldNetTable m_WorldNetTable;
+	CServerNetTables m_NetTables;
 	CServerPlayersDll m_Players;
 	CServerEngineInterfaces m_Engine;
 	std::unique_ptr<CServerDllServices> m_pServices;
@@ -171,29 +190,14 @@ public:
 	// the previous map's world with the new handle.
 	unsigned short m_nWorldSerial = 0;
 
-	// scripts/sentences.txt is precached once for the DLL.
-	bool m_bSentencesInit = false;
-
-	// The engine's console client (IServerGameClients::SetCommandClient), a 0-based slot.
-	int m_nCommandClientSlot = 0;
-
 	// Handles from the engine-invisible range that reached native and did not resolve.
 	int32_t m_nInvisibleRangeReach = 0;
 
 	// variant_t::ToString's answer, overwritten by the next call as stock's static was.
 	char m_szVariantString[kVariantBytes] = {};
 
-	// Warn-once latches: an entity of an unpublished class, and the last game-entity
-	// pointer a network handle was refused for.
-	bool m_bWarnedUnpublishedClass = false;
+	// Warn-once latch: the last game-entity pointer a network handle was refused for.
 	const void *m_pLastHandleComplaint = nullptr;
-
-	// Built once at managed registration; a reload gets the existing tables back.
-
-	// The two stock string tables native code adds to after creating them. The
-	// engine creates tables before LevelInit, so they are not the level tier's.
-	INetworkStringTable *m_pParticleEffectNames = nullptr;
-	INetworkStringTable *m_pMaterials = nullptr;
 };
 
 // The level tier: LevelInit to LevelShutdown.

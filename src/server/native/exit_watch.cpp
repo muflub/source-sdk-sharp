@@ -467,19 +467,3 @@ extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg )
 	close( fd );
 #endif
 }
-
-// The ABI slots (IShimDiagnostics).
-int32_t SourceSharp_ExitWatchArm( const char *pRecordPath )
-{
-	return ExitWatch_Arm( pRecordPath );
-}
-
-int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax )
-{
-	return ExitWatch_Read( pOut, nMax );
-}
-
-int32_t SourceSharp_ExitWatchDisarm()
-{
-	return ExitWatch_Disarm();
-}

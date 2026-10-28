@@ -7,45 +7,22 @@
 
 // SS_REASON b  an interface resolved by name at load
 //
-// Who typed the command: the console client slot the engine names, and the queries over
-// it. Declarations stay in util.h.
+// Who typed the command: the question asked of the console client slot the engine names
+// (CServerPlayersDll::m_nCommandClientSlot).
 
 #include "server_state.h"
+#include "server_entity_context.h"
 #include "eiface.h"
-
-#include "shell_standalone_player.h"
-#include "server_engine.h"
-
-// The slot from IServerGameClients::SetCommandClient, held by the DLL tier: 0-based,
-// -1 for the dedicated console. The initial 0 is stock's.
-static int &CommandClientSlot()
-{
-	AssertMsg( ShellGameDll_Dll(), "the command client was asked for outside DLLInit..DLLShutdown" );
-	return ShellGameDll_Dll()->m_nCommandClientSlot;
-}
-
-// The engine naming the console client, from IServerGameClients::SetCommandClient.
-void UTIL_SetCommandClientIndex( int index )
-{
-	CommandClientSlot() = index;
-}
-
-int UTIL_GetCommandClientIndex()
-{
-	// -1 == unknown,dedicated server console
-	// 0  == player 1
-
-	// Convert to 1 based offset
-	return ( CommandClientSlot() + 1 );
-}
 
 // Returns true if the command was issued by the listenserver host, or by the dedicated
 // server, via rcon or the server console. This is valid during ConCommand execution.
-bool UTIL_IsCommandIssuedByServerAdmin()
+bool CServerEntityContext::CommandIssuedByServerAdmin() const
 {
-	int issuingPlayerIndex = UTIL_GetCommandClientIndex();
+	// The slot is 0-based, -1 for the dedicated console; as an entindex, 0 is the console
+	// and 1 is player 1.
+	const int issuingPlayerIndex = m_Players.m_nCommandClientSlot + 1;
 
-	if ( ServerEngine()->IsDedicatedServer() && issuingPlayerIndex > 0 )
+	if ( m_pEngine->IsDedicatedServer() && issuingPlayerIndex > 0 )
 		return false;
 
 	// This mod ships no Replay, so "not slot 1" is the whole question.

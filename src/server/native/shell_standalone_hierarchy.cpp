@@ -24,9 +24,9 @@
 #include "server_hierarchy.h"
 #include "server_entity_resolver.h"
 #include "server_network.h"
-#include "server_entity_resolver.h"
 #include "server_physics.h"
-#include "server_entity_resolver.h"
+#include "server_entity_context.h"
+#include "shell_managed_areas.h"
 
 // TestHitboxes returning true means "I have hitboxes and tested them";
 // tr.DidHit() is the hit, as in stock's CBaseAnimating::TestHitboxes. False
@@ -35,7 +35,7 @@ static uint32_t HandleOf( const CStandaloneEntity *pEntity );
 
 bool CStandaloneEntity::TestHitboxes( const Ray_t &ray, unsigned int fContentsMask, trace_t &tr )
 {
-	IManagedBones *pBones = ManagedBones();
+	IManagedBones *pBones = Context().m_Managed.m_Areas.m_pBones;
 
 	if ( !pBones )
 		return false;
@@ -105,10 +105,15 @@ bool CStandaloneEntity::TestHitboxes( const Ray_t &ray, unsigned int fContentsMa
 	return true;
 }
 
-// The managed side, or NULL before it has loaded: then nothing is parented.
-static IManagedHierarchy *HierarchyApi()
+// The entity's managed side, or NULL before it has loaded: then nothing is parented.
+static IManagedHierarchy *HierarchyApi( const CStandaloneEntity *pEntity )
 {
-	return ManagedHierarchy();
+	return pEntity ? pEntity->Context().m_Managed.m_Areas.m_pHierarchy : NULL;
+}
+
+static IManagedHierarchy *HierarchyApi( const CServerEntityResolver &entities )
+{
+	return entities.Context().m_Managed.m_Areas.m_pHierarchy;
 }
 
 // The two guard words, which only managed writes.
@@ -139,7 +144,7 @@ void StandaloneHierarchy_ParentMoved( CStandaloneEntity *pParent )
 	if ( !CarriesAnything( pParent ) )
 		return;
 
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( pParent );
 
 	if ( pApi )
 		pApi->HierarchyParentMoved( HandleOf( pParent ) );
@@ -152,7 +157,7 @@ void StandaloneHierarchy_ChildMoved( CStandaloneEntity *pChild )
 	if ( !IsCarried( pChild ) )
 		return;
 
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( pChild );
 
 	if ( pApi )
 		pApi->HierarchyChildMoved( HandleOf( pChild ) );
@@ -215,7 +220,7 @@ static bool HierarchyConvert( IManagedHierarchy *pApi, const CStandaloneEntity *
 
 bool StandaloneHierarchy_WorldToLocal( const CStandaloneEntity *pChild, Vector *pOrigin, QAngle *pAngles )
 {
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( pChild );
 
 	return HierarchyConvert( pApi, pChild, pOrigin, pAngles, false );
 }
@@ -227,7 +232,7 @@ void StandaloneHierarchy_SetLocal( CStandaloneEntity *pChild, const Vector &vecO
 	if ( !pChild )
 		return;
 
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( pChild );
 
 	if ( !pApi )
 		return;
@@ -240,7 +245,7 @@ void StandaloneHierarchy_SetLocal( CStandaloneEntity *pChild, const Vector &vecO
 
 void StandaloneHierarchy_SetParentName( CStandaloneEntity *pChild, const char *pParentName )
 {
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( pChild );
 
 	if ( pChild && pApi )
 		pApi->HierarchySetParentName( HandleOf( pChild ), pParentName ? pParentName : "" );
@@ -248,7 +253,7 @@ void StandaloneHierarchy_SetParentName( CStandaloneEntity *pChild, const char *p
 
 void StandaloneHierarchy_SetParentAttachmentName( CStandaloneEntity *pChild, const char *pAttachmentName )
 {
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( pChild );
 
 	if ( pChild && pApi )
 	{
@@ -358,7 +363,7 @@ int32_t CServerHierarchy::EntitySetParent( uint32_t hChild, uint32_t hParent, in
 	}
 
 	// INVALID_EHANDLE_INDEX means unparent; zero is a real handle (the world).
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( m_Entities );
 
 	if ( !pApi )
 		return 0;
@@ -384,7 +389,7 @@ uint32_t CServerHierarchy::EntityGetParent( uint32_t hChild )
 // The attachment on the parent, which the block does not carry.
 int32_t CServerHierarchy::EntityGetParentAttachment( uint32_t hChild )
 {
-	IManagedHierarchy *pApi = HierarchyApi();
+	IManagedHierarchy *pApi = HierarchyApi( m_Entities );
 
 	if ( !pApi )
 		return 0;

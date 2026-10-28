@@ -33,6 +33,10 @@ public:
 
 	void SetAllowed( bool bAllowed ) { m_bAllowed = bAllowed; }
 
+	// scripts/sentences.txt, for the sentence groups' playback (stock's SENTENCEG_Init).
+	// Called from every world spawn; only the DLL's first call does anything.
+	void SentenceFile();
+
 private:
 	// Precaches the sounds, particle systems and anim-event assets of an already-precached
 	// studio model. A no-op for a non-studio model.
@@ -45,4 +49,5 @@ private:
 	const CManagedAreas &m_Managed;
 
 	bool m_bAllowed = false;
+	bool m_bSentenceFile = false;
 };

@@ -14,7 +14,6 @@
 #include "engine/IEngineTrace.h"
 #include "filesystem.h"
 #include "server_state.h"
-#include "server_engine.h"
 
 #include "engine/IEngineSound.h"
 #include "engine/IStaticPropMgr.h"
@@ -37,16 +36,15 @@ CSharedEdictChangeInfo *SharedEdictChangeInfo()
 
 IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 {
-	return ServerEngine()->GetChangeAccessor( (const edict_t *)this );
+	return ShellGameDll_Dll()->m_Engine.m_pEngine->GetChangeAccessor( (const edict_t *)this );
 }
 
 // Acquires the engine interfaces and loads the game event files. Returns false on
 // the first missing interface, as stock's DLLInit does.
-bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
-										  CreateInterfaceFn fileSystemFactory, ICvar *pCvar )
+bool SourceSharp_AcquireEngineInterfaces( CServerEngineInterfaces &bound, CreateInterfaceFn appSystemFactory,
+										  CreateInterfaceFn physicsFactory, CreateInterfaceFn fileSystemFactory,
+										  ICvar *pCvar )
 {
-	CServerEngineInterfaces &bound = ShellGameDll_Dll()->m_Engine;
-
 	if ( ( bound.m_pStringTables = (INetworkStringTableContainer *)appSystemFactory(
 			   INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL ) ) == NULL )
 		return false;
@@ -109,65 +107,4 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 	bound.m_pGameStats->InitConnection();
 
 	return true;
-}
-
-// The DLL tier's engine interfaces (server_engine.h).
-IVEngineServer *ServerEngine()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pEngine;
-}
-
-IFileSystem *ServerFileSystem()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pFileSystem;
-}
-
-ISpatialPartition *ServerPartition()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pPartition;
-}
-
-IUploadGameStats *ServerGameStats()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pGameStats;
-}
-
-INetworkStringTableContainer *ServerStringTables()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pStringTables;
-}
-
-IVModelInfo *ServerModelInfo()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pModelInfo;
-}
-
-IStaticPropMgrServer *ServerStaticProps()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pStaticProps;
-}
-
-IEngineTrace *ServerTrace()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pTrace;
-}
-
-IMDLCache *ServerMdlCache()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pMdlCache;
-}
-
-IGameEventManager2 *ServerEvents()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pEvents;
-}
-
-IVDebugOverlay *ServerOverlay()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pOverlay;
-}
-
-IUniformRandomStream *ServerRandom()
-{
-	return ShellGameDll_Dll()->m_Engine.m_pRandom;
 }

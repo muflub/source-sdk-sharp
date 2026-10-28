@@ -21,6 +21,9 @@
 #endif
 
 class CSourceSharpGameRules;
+#ifndef CLIENT_DLL
+struct CManagedAreas;
+#endif
 
 // Implements IGameRules directly. On the client g_pGameRules is set and cleared by the
 // constructor and destructor; the server's world owns its rules object.
@@ -32,7 +35,12 @@ public:
 	DECLARE_NETWORKCLASS_NOBASE();
 #endif
 
+#ifndef CLIENT_DLL
+	// managed is the load's areas, read when a client connects.
+	explicit CSourceSharpGameRules( const CManagedAreas &managed );
+#else
 	CSourceSharpGameRules();
+#endif
 	virtual ~CSourceSharpGameRules();
 
 	// Overridden only to drop the base's !IsMultiplayer() assert.
@@ -63,8 +71,6 @@ public:
 
 	// Not an IGameRules member: nothing calls it through the rules pointer.
 	virtual bool ShouldUseRobustRadiusDamage( IGameEntity *pEntity ) { return false; }
-
-	virtual bool ShouldCollide( int collisionGroup0, int collisionGroup1 ) OVERRIDE;
 
 #ifndef CLIENT_DLL
 	virtual bool ClientConnected( edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject,
@@ -101,6 +107,11 @@ public:
 		return pchEffectName;
 	}
 #endif
+
+#ifndef CLIENT_DLL
+private:
+	const CManagedAreas &m_Managed;
+#endif
 };
 
 // Makes the level's rules object, which the world owns, and tells the client through the
@@ -108,6 +119,6 @@ public:
 #ifndef CLIENT_DLL
 class INetworkStringTable;
 class INetworkStringTableContainer;
-IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable );
+IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable, const CManagedAreas &managed );
 INetworkStringTable *CreateNetworkStringTables_GameRules( INetworkStringTableContainer *pTables );
 #endif

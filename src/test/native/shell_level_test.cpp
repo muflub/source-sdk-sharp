@@ -46,11 +46,6 @@ bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServe
 	return true;
 }
 
-CWorld *GetWorldEntity()
-{
-	return nullptr;
-}
-
 void SourceSharp_ResetEntitySlots() {}
 
 static const CServerEntityContext *s_pShutDownWith = nullptr;
@@ -67,7 +62,7 @@ const model_t *CWorldCollideable::GetCollisionModel()
 
 namespace ss
 {
-void SoundEnt_Shutdown() {}
+void SoundEnt_Shutdown( IManagedSoundEnt * ) {}
 }
 
 namespace
@@ -168,8 +163,10 @@ protected:
 	bool m_bManagedLoaded = false;
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
-	CServerEntityContext m_Entities{ &m_Engine,        &m_Globals,           nullptr,   nullptr,        m_Holders,
-									 m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache };
+	CServerNetTables m_NetTables;
+	CServerEntityContext m_Entities{
+		&m_Engine,        &m_Globals,           nullptr,   nullptr,        nullptr,    nullptr,    m_Holders,
+		m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache, m_NetTables };
 	CNoFactories m_Factories;
 	CRecordingPhysics m_Physics;
 	CServerLevel m_Level{ &m_Engine,  &m_Files,    &m_MdlCache, &m_Globals,

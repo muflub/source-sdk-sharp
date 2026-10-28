@@ -19,7 +19,7 @@
 // cl_dumpentityfactories) and the classnames asked for that no factory answers.
 SS_NATIVE_COMMAND( dumpentityfactories )
 {
-	if ( !UTIL_IsCommandIssuedByServerAdmin() )
+	if ( !services.m_EntityContext.CommandIssuedByServerAdmin() )
 		return;
 
 	CServerEntityLifecycle &lifecycle = services.m_EntityLifecycle;

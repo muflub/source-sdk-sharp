@@ -34,7 +34,6 @@
 
 #include <algorithm>
 #include <vector>
-#include "server_engine.h"
 #include "shell_entity_lifecycle.h"
 #include "ss_entityfactory.h"
 #include "server_transform.h"
@@ -53,6 +52,7 @@
 #include "server_entity_resolver.h"
 #include "server_console_commands.h"
 #include "server_entity_resolver.h"
+#include "server_entity_context.h"
 
 // A using-declaration rather than ss:: at the use: entity_shell_inert_slots_test
 // reads `::` in a slot body as the body reaching something.
@@ -393,7 +393,7 @@ int32_t CServerPlayerQueries::PlayerGetObserverMode( uint32_t hPlayer )
 
 uint32_t CServerPlayerQueries::GetPlayerHandle( int32_t nPlayerIndex )
 {
-	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( nPlayerIndex ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.Context().PlayerFromIndex( nPlayerIndex ) )
 		return pStandalone->ManagedHandle();
 
 	return INVALID_EHANDLE_INDEX;

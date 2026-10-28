@@ -49,7 +49,7 @@ SourceSharpEntity_t CServerEntityResolver::Resolve( uint32_t hEntity )
 	if ( ent.pWorld )
 		return ent;
 
-	if ( IGameEntity *pGame = ss::GameEntityFromEntityHandle( pHandleEntity ) )
+	if ( IGameEntity *pGame = ss::GameEntityFromEntityHandle( m_Entities.m_pStaticProps, pHandleEntity ) )
 		ent.pStandalone = SourceSharp_ShellOf( pGame );
 
 	return ent;

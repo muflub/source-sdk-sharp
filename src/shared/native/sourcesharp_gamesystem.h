@@ -81,10 +81,11 @@ public:
 #include "imanaged_runtime.h"
 
 class CManagedSide;
-IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env, CManagedSide &side );
+struct CManagedHolders;
 
-// This load's runtime, or NULL outside a load. Asked at each call, never kept:
-// a reload acquires a new one.
-IManagedRuntimeServer *ManagedRuntimeServer();
+// Answers this load's runtime from the holders the side fills. Asked at each call,
+// never kept: a reload acquires a new one.
+IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env, CManagedSide &side,
+										   const CManagedHolders &managed, const char *pszGameDir );
 
 #endif

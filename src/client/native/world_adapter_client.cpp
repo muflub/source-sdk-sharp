@@ -177,7 +177,7 @@ bool C_World::ResolveFields()
 	if ( m_Fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration );
+	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration, ManagedStandaloneClient() );
 }
 
 // The two values client.so still reads natively, through world_net_sync.cpp as the server does.

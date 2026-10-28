@@ -18,6 +18,8 @@
 #include "ss_variant.h"
 
 #include "imanaged_areas.h"
+#include "server_entity_context.h"
+#include "shell_managed_areas.h"
 #include "ss_takedamageinfo.h"
 #include "shell_entity_lifecycle.h"
 #include "server_network.h"
@@ -38,7 +40,7 @@ static SourceSharpOpArgs EmptyOpArgs()
 // Attaches the entity's blob, so managed does not need a round trip for it.
 static int DispatchOp( CStandaloneEntity *pEntity, int nOp, SourceSharpOpArgs &args )
 {
-	IManagedEntities *pApi = ManagedEntities();
+	IManagedEntities *pApi = pEntity->Context().m_Managed.m_Areas.m_pEntities;
 
 	if ( !pApi )
 		return 0;
@@ -75,10 +77,8 @@ bool CStandaloneEntity::OnManagedKeyValue( const char *szKeyName, const char *sz
 	return DispatchOp( this, ENTITY_OP_KEY_VALUE, args ) != 0;
 }
 
-// pShell is NULL for a shell-less entity, which has no blob or override bit.
-// Both kinds share this body so inputs reach managed by one path.
-static bool DispatchInput( CStandaloneEntity *pShell, uint32_t hEntity, const char *szInputName,
-						   const Activator_t &activator, const ss::variant_t &Value )
+static bool DispatchInput( CStandaloneEntity *pShell, const char *szInputName, const Activator_t &activator,
+						   const ss::variant_t &Value )
 {
 	// The value's string form is copied by managed before any game code runs, so
 	// ToString's static buffer is safe here. Convert works on a copy, as it mutates.
@@ -97,19 +97,7 @@ static bool DispatchInput( CStandaloneEntity *pShell, uint32_t hEntity, const ch
 	// The variant's field type plus one, so zero means "not given" rather than FIELD_VOID.
 	args.nInt0 = nFieldType + 1;
 
-	if ( pShell )
-		return DispatchOp( pShell, ENTITY_OP_INPUT, args ) != 0;
-
-	IManagedEntities *pApi = ManagedEntities();
-
-	if ( !pApi )
-		return false;
-
-	// A shell-less entity has no blob; managed keeps its state in fields.
-	args.pBlob = NULL;
-	args.nBlobBytes = 0;
-
-	return pApi->Dispatch( hEntity, ENTITY_OP_INPUT, &args ) != 0;
+	return DispatchOp( pShell, ENTITY_OP_INPUT, args ) != 0;
 }
 
 bool CStandaloneEntity::OnManagedInput( const char *szInputName, const Activator_t &activator,
@@ -118,7 +106,7 @@ bool CStandaloneEntity::OnManagedInput( const char *szInputName, const Activator
 	if ( !ClassOverridesOp( ENTITY_OP_INPUT ) )
 		return false;
 
-	return DispatchInput( this, 0, szInputName, activator, Value );
+	return DispatchInput( this, szInputName, activator, Value );
 }
 
 // A projectile ran into something. pOther may be NULL; it crosses as an invalid handle.

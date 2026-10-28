@@ -1754,10 +1754,8 @@ static void *const s_ShimHierarchySlots[] = {
 static const SSForwarderTable s_ShimHierarchyTable = { s_ShimHierarchySlots, 7 };
 
 //-----------------------------------------------------------------------------
-// ShimCollisionServer: 9 forwarder(s) over IShimCollisionServer.
+// ShimCollisionServer: 8 forwarder(s) over IShimCollisionServer.
 //-----------------------------------------------------------------------------
-// void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
-static void SSFwd_ShimCollisionServer_RegisterCollisionRules( IShimCollisionServer *self, const SourceSharpCollisionRules * a0 ) { self->RegisterCollisionRules( a0 ); }
 // void IShimCollisionServer::EntityGetBounds( uint32_t, float *, float * )
 static void SSFwd_ShimCollisionServer_EntityGetBounds( IShimCollisionServer *self, uint32_t a0, float * a1, float * a2 ) { self->EntityGetBounds( a0, a1, a2 ); }
 // void IShimCollisionServer::EntityGetBoundsSize( uint32_t, float * )
@@ -1776,7 +1774,6 @@ static int32_t SSFwd_ShimCollisionServer_EntityOverlapReport( IShimCollisionServ
 static void SSFwd_ShimCollisionServer_EntitySetTriggerBloat( IShimCollisionServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->EntitySetTriggerBloat( a0, a1, a2 ); }
 
 static void *const s_ShimCollisionServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_RegisterCollisionRules ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetBounds ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetBoundsSize ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetBounds ),
@@ -1787,7 +1784,7 @@ static void *const s_ShimCollisionServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetTriggerBloat ),
 };
 
-static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 9 };
+static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 8 };
 
 //-----------------------------------------------------------------------------
 // ShimPhysics: 6 forwarder(s) over IShimPhysics.
@@ -2046,18 +2043,6 @@ static void *const s_ShimEntitiesSlots[] = {
 };
 
 static const SSForwarderTable s_ShimEntitiesTable = { s_ShimEntitiesSlots, 4 };
-
-//-----------------------------------------------------------------------------
-// ShimCollision: 1 forwarder(s) over IShimCollision.
-//-----------------------------------------------------------------------------
-// void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
-static void SSFwd_ShimCollision_RegisterCollisionRules( IShimCollision *self, const SourceSharpCollisionRules * a0 ) { self->RegisterCollisionRules( a0 ); }
-
-static void *const s_ShimCollisionSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimCollision_RegisterCollisionRules ),
-};
-
-static const SSForwarderTable s_ShimCollisionTable = { s_ShimCollisionSlots, 1 };
 
 //-----------------------------------------------------------------------------
 // ShimHudClient: 5 forwarder(s) over IShimHudClient.
@@ -3145,7 +3130,6 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimModels", &s_ShimModelsTable },
 	{ "SSFwd_ShimMovement", &s_ShimMovementTable },
 	{ "SSFwd_ShimEntities", &s_ShimEntitiesTable },
-	{ "SSFwd_ShimCollision", &s_ShimCollisionTable },
 	{ "SSFwd_ShimHudClient", &s_ShimHudClientTable },
 	{ "SSFwd_ShimPredictionClient", &s_ShimPredictionClientTable },
 	{ "SSFwd_ShimTempEntPoolClient", &s_ShimTempEntPoolClientTable },

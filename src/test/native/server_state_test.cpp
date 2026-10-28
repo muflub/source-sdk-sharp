@@ -205,17 +205,17 @@ TEST( ServerStateTier, ANewDllTierStartsWithNoNetTypePublished )
 {
 	CStateTier<CServerDllState> dll;
 	CServerDllState &first = dll.Begin();
-	EXPECT_EQ( 0, first.m_NetTypes.Count() );
+	EXPECT_EQ( 0, first.m_NetTables.m_Types.Count() );
 
 	// The positive arm: the first tier really published one.
-	ASSERT_GE( first.m_NetTypes.Publish( "prop_t6_probe", 0, 0x1234u, 64, 0 ), 0 );
-	ASSERT_EQ( 1, first.m_NetTypes.Count() );
-	ASSERT_NE( nullptr, first.m_NetTypes.ByName( "prop_t6_probe" ) );
+	ASSERT_GE( first.m_NetTables.m_Types.Publish( "prop_t6_probe", 0, 0x1234u, 64, 0 ), 0 );
+	ASSERT_EQ( 1, first.m_NetTables.m_Types.Count() );
+	ASSERT_NE( nullptr, first.m_NetTables.m_Types.ByName( "prop_t6_probe" ) );
 
 	dll.End();
 	CServerDllState &second = dll.Begin();
-	EXPECT_EQ( 0, second.m_NetTypes.Count() ) << "a second DLL tier inherited the first's published types";
-	EXPECT_EQ( nullptr, second.m_NetTypes.ByName( "prop_t6_probe" ) );
+	EXPECT_EQ( 0, second.m_NetTables.m_Types.Count() ) << "a second DLL tier inherited the first's published types";
+	EXPECT_EQ( nullptr, second.m_NetTables.m_Types.ByName( "prop_t6_probe" ) );
 	dll.End();
 }
 
@@ -226,9 +226,9 @@ TEST( ServerStateTier, TwoDllTiersShareNoNetTypes )
 	a.Begin();
 	b.Begin();
 
-	ASSERT_GE( a.Get()->m_NetTypes.Publish( "prop_t6_probe", 0, 0x1234u, 64, 0 ), 0 );
-	EXPECT_EQ( 1, a.Get()->m_NetTypes.Count() );
-	EXPECT_EQ( 0, b.Get()->m_NetTypes.Count() ) << "the two DLL tiers share one type table";
+	ASSERT_GE( a.Get()->m_NetTables.m_Types.Publish( "prop_t6_probe", 0, 0x1234u, 64, 0 ), 0 );
+	EXPECT_EQ( 1, a.Get()->m_NetTables.m_Types.Count() );
+	EXPECT_EQ( 0, b.Get()->m_NetTables.m_Types.Count() ) << "the two DLL tiers share one type table";
 
 	a.End();
 	b.End();
@@ -331,40 +331,23 @@ TEST( ServerOverlaps, ANewLevelStartsWithNoOverlapsLeftFromTheLast )
 	level.End();
 }
 
-TEST( ServerStateTier, ANewDllTierHoldsNoStringTableOfTheLastOne )
-{
-	CStateTier<CServerDllState> dll;
-
-	CServerDllState &first = dll.Begin();
-	EXPECT_EQ( nullptr, first.m_pMaterials );
-	EXPECT_EQ( nullptr, first.m_pParticleEffectNames );
-	first.m_pMaterials = reinterpret_cast<INetworkStringTable *>( 0x1000 );
-	first.m_pParticleEffectNames = reinterpret_cast<INetworkStringTable *>( 0x2000 );
-	dll.End();
-
-	CServerDllState &second = dll.Begin();
-	EXPECT_EQ( nullptr, second.m_pMaterials ) << "a second DLL tier kept the first's table";
-	EXPECT_EQ( nullptr, second.m_pParticleEffectNames );
-	dll.End();
-}
-
 TEST( ServerStateTier, ANewDllTierHasRegisteredNoStandaloneTier )
 {
 	CStateTier<CServerDllState> dll;
 
 	CServerDllState &first = dll.Begin();
-	EXPECT_FALSE( first.m_StandaloneTiers.m_bRegistered );
-	first.m_StandaloneTiers.m_bRegistered = true;
-	first.m_StandaloneTiers.m_pClasses[0] = reinterpret_cast<ServerClass *>( 0x1000 );
+	EXPECT_FALSE( first.m_NetTables.m_Tiers.m_bRegistered );
+	first.m_NetTables.m_Tiers.m_bRegistered = true;
+	first.m_NetTables.m_Tiers.m_pClasses[0] = reinterpret_cast<ServerClass *>( 0x1000 );
 	dll.End();
 
 	CServerDllState &second = dll.Begin();
-	EXPECT_FALSE( second.m_StandaloneTiers.m_bRegistered ) << "a second DLL tier thought its tiers were built";
+	EXPECT_FALSE( second.m_NetTables.m_Tiers.m_bRegistered ) << "a second DLL tier thought its tiers were built";
 	for ( int i = 0; i < SOURCESHARP_TIER_MAX; i++ )
 	{
-		EXPECT_EQ( nullptr, second.m_StandaloneTiers.m_pProps[i] );
-		EXPECT_EQ( nullptr, second.m_StandaloneTiers.m_pTables[i] );
-		EXPECT_EQ( nullptr, second.m_StandaloneTiers.m_pClasses[i] );
+		EXPECT_EQ( nullptr, second.m_NetTables.m_Tiers.m_pProps[i] );
+		EXPECT_EQ( nullptr, second.m_NetTables.m_Tiers.m_pTables[i] );
+		EXPECT_EQ( nullptr, second.m_NetTables.m_Tiers.m_pClasses[i] );
 	}
 	dll.End();
 }
@@ -374,8 +357,8 @@ TEST( ServerStateTier, ANewDllTierHasDeclaredNoWorldNetTable )
 	CStateTier<CServerDllState> dll;
 
 	CServerDllState &state = dll.Begin();
-	EXPECT_EQ( nullptr, state.m_WorldNetTable.Class() ) << "worldspawn's class exists before C# declared its blob";
-	EXPECT_EQ( 0, state.m_WorldNetTable.BlobBytes() );
+	EXPECT_EQ( nullptr, state.m_NetTables.m_World.Class() ) << "worldspawn's class exists before C# declared its blob";
+	EXPECT_EQ( 0, state.m_NetTables.m_World.BlobBytes() );
 	dll.End();
 }
 
@@ -445,13 +428,12 @@ TEST( StandaloneList, IsEmptyWithNoLevelAndViewsTheLevelsShellsInOrder )
 	EXPECT_EQ( ( std::vector<CStandaloneEntity *>{ shells[0], shells[1] } ), seen );
 }
 
-TEST( ServerStateTier, ANewDllTierHasIssuedNoWorldSerialAndLoadedNoSentences )
+TEST( ServerStateTier, ANewDllTierHasIssuedNoWorldSerial )
 {
 	CStateTier<CServerDllState> dll;
 
 	CServerDllState &state = dll.Begin();
 	EXPECT_EQ( 0, state.m_nWorldSerial );
-	EXPECT_FALSE( state.m_bSentencesInit );
 	dll.End();
 }
 
@@ -472,11 +454,11 @@ TEST( ServerStateTier, ANewDllTierNamesPlayerOneAsTheCommandClient )
 	CStateTier<CServerDllState> dll;
 
 	CServerDllState &first = dll.Begin();
-	EXPECT_EQ( 0, first.m_nCommandClientSlot ) << "stock's initial slot is 0, player 1";
-	first.m_nCommandClientSlot = -1;
+	EXPECT_EQ( 0, first.m_Players.m_nCommandClientSlot ) << "stock's initial slot is 0, player 1";
+	first.m_Players.m_nCommandClientSlot = -1;
 	dll.End();
 
-	EXPECT_EQ( 0, dll.Begin().m_nCommandClientSlot );
+	EXPECT_EQ( 0, dll.Begin().m_Players.m_nCommandClientSlot );
 	dll.End();
 }
 
@@ -486,14 +468,14 @@ TEST( ServerStateTier, ANewDllTierStartsWithItsCountsAndLatchesClear )
 
 	CServerDllState &first = dll.Begin();
 	first.m_nInvisibleRangeReach = 7;
-	first.m_bWarnedUnpublishedClass = true;
+	first.m_NetTables.m_bWarnedUnpublishedClass = true;
 	first.m_pLastHandleComplaint = &first;
 	first.m_szVariantString[0] = 'x';
 	dll.End();
 
 	CServerDllState &second = dll.Begin();
 	EXPECT_EQ( 0, second.m_nInvisibleRangeReach );
-	EXPECT_FALSE( second.m_bWarnedUnpublishedClass ) << "a warn-once latch stayed set into a new DLL tier";
+	EXPECT_FALSE( second.m_NetTables.m_bWarnedUnpublishedClass ) << "a warn-once latch stayed set into a new DLL tier";
 	EXPECT_EQ( nullptr, second.m_pLastHandleComplaint );
 	EXPECT_EQ( '\0', second.m_szVariantString[0] );
 	dll.End();

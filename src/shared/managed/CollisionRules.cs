@@ -8,8 +8,7 @@
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// Which collision groups collide with which — declared here, pushed to native
-/// as a matrix at startup.
+/// Which collision groups collide with which.
 ///
 /// <para>
 /// <b>What this replaces.</b> <c>CGameRules::ShouldCollide</c>: sixty-seven
@@ -19,18 +18,11 @@ namespace SourceSharp.Abi;
 /// </para>
 ///
 /// <para>
-/// <b>Why a table and not a managed call.</b> This is asked once per traced
-/// entity, from <c>CTraceFilterSimple</c>, so it runs thousands of times a
-/// frame. A crossing per call is out of the question and so is branching
-/// through fourteen comparisons; the answer is now one masked load.
-/// </para>
-///
-/// <para>
-/// <b>Both sides register it.</b> Unlike the rules' policy table, collision is
-/// asked on the client too — <c>util_shared.cpp</c> is shared and the trace
-/// filter runs during prediction. If the two sides answered from different
-/// tables the client would predict collisions the server disagreed with, and
-/// that shows up as jitter rather than as an error.
+/// <b>Why a table.</b> The server's trace filter asks it once per traced
+/// entity (<see cref="BuildMatrix"/>, held by the filter's rules), so it runs
+/// thousands of times a frame and the answer is one masked load. vphysics'
+/// collision callback asks the same rows. Nothing native asks: the matrix is
+/// managed's alone (T6 part 3 retired the native copy, which nothing read).
 /// </para>
 ///
 /// <para>
@@ -155,31 +147,5 @@ public static class CollisionRules
         }
 
         return rows;
-    }
-
-    /// <summary>
-    /// Push them across. Called once per side at startup — see the class
-    /// comment for why the client registers too. Answers whether the side's
-    /// native received them.
-    /// </summary>
-    public static bool Register(IEngineCollisionRules engine)
-        => engine.RegisterCollisionRules(BuildMatrix());
-
-    /// <summary>
-    /// FNV-1a over the rows, for the startup line each side logs: two sides
-    /// that registered the same matrix print the same number.
-    /// </summary>
-    public static uint RowHash(uint[] rows)
-    {
-        uint hash = 2166136261u;
-        foreach (uint row in rows)
-        {
-            for (int shift = 0; shift < 32; shift += 8)
-            {
-                hash ^= (row >> shift) & 0xFFu;
-                hash *= 16777619u;
-            }
-        }
-        return hash;
     }
 }

@@ -1166,32 +1166,6 @@ internal sealed unsafe partial class EngineDamage : IEngineDamage
     public TakeDamageMode SetTakeDamageMode(EntityHandle entity, TakeDamageMode mode) => TakeDamageMode.Yes;
 }
 
-/// <summary>The real engine, for <see cref="IEngineCollisionRules"/>.</summary>
-internal sealed unsafe partial class EngineCollisionRules : IEngineCollisionRules
-{
-    private readonly ICollisionArea _collisionArea;
-
-    public EngineCollisionRules(ICollisionArea collisionArea)
-    {
-        _collisionArea = collisionArea ?? throw new ArgumentNullException(nameof(collisionArea));
-    }
-
-    /// <summary>
-    /// The collision matrix. Registered from both sides; answers whether this
-    /// side's native received it, so a side that cannot serve the slot says so
-    /// instead of keeping native's defaults in silence (which the client did
-    /// until the slot moved into the shared IShimCollision base).
-    /// </summary>
-    public bool RegisterCollisionRules(uint[] rows)
-    {
-        var blob = default(CollisionRulesBlob);
-        blob.SetRows(rows);
-
-        _collisionArea.RegisterCollisionRules(&blob);
-        return true;
-    }
-}
-
 /// <summary>The real engine, for <see cref="IEngineGameRulesPolicy"/>.</summary>
 internal sealed unsafe partial class EngineGameRulesPolicy : IEngineGameRulesPolicy
 {

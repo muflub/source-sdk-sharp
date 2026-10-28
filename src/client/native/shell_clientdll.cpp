@@ -98,6 +98,11 @@ extern vgui::IInputInternal *g_InputInternal;
 #include "convar_registry.h"
 #include "shell_log.h"
 #include "tier0_spew_port.h"
+#include "game_events.h"
+#include "shell_shim_areas.h"
+
+// The root's areas, defined beside the root (shell_internalfactory.cpp).
+CShimAreasClient &ShimClientAreasOfRoot();
 
 extern IClientMode *GetClientModeNormal();
 
@@ -413,6 +418,9 @@ private:
 	// The console: this DLL's carriers and the ICvar they reach.
 	CCVarRegistry m_CVars;
 	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars };
+
+	// The game events managed listens for: the client's shim events area.
+	CGameEvents m_Events{ gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false };
 };
 
 // Records a refusal in the boundary probe table and the refusal tally. A macro so
@@ -445,7 +453,7 @@ unsigned int SourceSharp_PlayerSyncGeneration()
 // The client's loader entry points (managed_runtime_client.cpp and its adapter).
 bool SourceSharp_LoadManagedSide()
 {
-	return g_ShellClientDLL.ManagedSide().Load();
+	return g_ShellClientDLL.ManagedSide().Load( engine->GetGameDirectory() );
 }
 
 void SourceSharp_UnloadManagedSide()
@@ -456,6 +464,12 @@ void SourceSharp_UnloadManagedSide()
 // Never NULL during DLL initialisation; Init points it at the engine's globals. Other TUs
 // read it from their static initialisers, so it must stay an address constant.
 CGlobalVarsBase *gpGlobals = &g_ShellClientDLL.m_DummyGlobals;
+
+// The engine area's slot: the globals gpGlobals points at, for managed to read.
+void *SourceSharp_GetGlobalVarsPtr()
+{
+	return gpGlobals;
+}
 
 // Stock's names: the string-table callbacks request the sweep and FRAME_NET_UPDATE_END
 // runs it.
@@ -645,6 +659,7 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	// Before the HUD: gHUD.Init() hooks the user messages managed declares. The CLR comes up
 	// before SourceSharp_ClientSystemsInit() walks the client systems.
 	ShimConsole().m_ppCommands = &m_Managed.m_Areas.m_pCommandsClient;
+	ShimClientAreasOfRoot().m_pEvents = &m_Events;
 	m_pManagedRuntime = LoadManagedRuntime( this );
 
 	if ( m_pManagedRuntime == NULL )
@@ -751,6 +766,10 @@ void CShellClientDLL::Shutdown()
 	UncacheAllMaterials();
 
 	// The engine calls Shutdown after a failed Init, when the runtime may be absent.
+	// Unhooked even when the runtime failed after subscribing: the engine keeps its
+	// listener list for the whole process.
+	m_Events.StopListening();
+
 	if ( m_pManagedRuntime != NULL )
 	{
 		m_pManagedRuntime->OnSystemStop();
@@ -778,6 +797,7 @@ void CShellClientDLL::Shutdown()
 	Tier0_ConnectConsole( NULL );
 	DisconnectTier1Libraries();
 
+	ShimClientAreasOfRoot().m_pEvents = NULL;
 	gameeventmanager = NULL;
 
 #if defined( WIN32 )

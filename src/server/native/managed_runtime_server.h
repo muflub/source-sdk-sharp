@@ -6,5 +6,5 @@
 
 // The counterpart of LoadManagedRuntime, shared by both sides.
 
-// IManagedRuntimeServer is managed-built; reach it through ManagedRuntimeServer(), which
-// every load and reload acquires again. Never keep the pointer.
+// IManagedRuntimeServer is managed-built; read it from the holders, which every load and
+// reload fills again. Never keep the pointer.

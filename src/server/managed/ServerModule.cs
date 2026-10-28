@@ -1663,14 +1663,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // that must not pay for a managed call to be told a startup value.
         GameRulesPolicy.Register(_services.Require<IEngineGameRulesPolicy>());
 
-        // The collision matrix. Registered on BOTH sides -- the client asks the
-        // same question during prediction, and two sides answering from
-        // different tables shows up as jitter rather than as an error.
-        if (CollisionRules.Register(_services.Require<IEngineCollisionRules>()))
-            Log.Msg($"[SourceSharp/Server] collision matrix delivered (rows 0x{CollisionRules.RowHash(CollisionRules.BuildMatrix()):X8})\n");
-        else
-            Log.Warning("[SourceSharp/Server] collision matrix NOT delivered: this side does not serve RegisterCollisionRules\n");
-
             // Attribution for anything a weapon throws. The launch itself is in
             // the shared half, which cannot see the server's entity classes.
             _arsenal.Launched = (thrown, thrower, velocity, fuse) =>

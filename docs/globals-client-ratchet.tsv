@@ -423,7 +423,9 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   s_pLog is one new row (T6 part 3).
 # LOWERED 2026-10-27, 572 -> 569: the console display's buffer, forwarder and installed ICvar are the client
 #   managed side's CConsoleDisplay (T6 part 3).
-client_globals_link_level	src/game/client	569
+# LOWERED 2026-10-27, 569 -> 567: the game events are CGameEvents, a member of each side's DLL tier (g_SourceSharpEventListener, g_SubscribedEvents gone).
+# LOWERED 2026-10-27, 567 -> 566: s_CollisionRules went with RegisterCollisionRules; nothing native read the matrix (managed's CollisionRules answers the trace filter and vphysics).
+client_globals_link_level	src/game/client	566
 # LOWERED 2026-10-25, 668 -> 653 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema
@@ -490,7 +492,10 @@ client_globals_link_level	src/game/client	569
 #   CCVarRegistry and the tier0 port's console pointer arrived unruled; the rest is slack from the day's earlier
 #   T6 commits (the diagnostics hooks' seven statics, the sync generation), which lowered link_level only.
 # LOWERED 2026-10-27, 528 -> 525: the same four rows left; s_pLog arrived unruled.
-client_globals_unruled	docs/globals-client-ledger.tsv	525
+# LOWERED 2026-10-27, 525 -> 515: the tier0 port's ten statics ruled FLOOR (by-symbol C entry points).
+# LOWERED 2026-10-27, 515 -> 513: the game events are CGameEvents, a member of each side's DLL tier (g_SourceSharpEventListener, g_SubscribedEvents gone).
+# LOWERED 2026-10-27, 513 -> 512: s_CollisionRules went with RegisterCollisionRules; nothing native read the matrix (managed's CollisionRules answers the trace filter and vphysics).
+client_globals_unruled	docs/globals-client-ledger.tsv	512
 # LOWERED 2026-10-25, 616 -> 601 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema
@@ -499,7 +504,11 @@ client_globals_unruled	docs/globals-client-ledger.tsv	525
 #   ruled FLOOR against the engine display-func list).
 # LOWERED 2026-10-19, 14 -> 13 (C7 screen-space effects, the eviction): CScreenSpaceEffectRegistration::s_pHead's list and
 #   walker left with ScreenSpaceEffects.cpp; tools/globals-census's floor table lost the chain (three chains now).
-client_globals_floor	docs/globals-client-ledger.tsv	13
+# RAISED 2026-10-27, 13 -> 21 (plan_server_native_v2 T6 part 3): tier0_spew_port.o's ten statics (the spew slot,
+#   console, assert notify, early buffer and lock, engine spew lookup, four thread_locals), ruled FLOOR as server.so's
+#   are: tier0's C entry points, called BY SYMBOL with no instance by the static libraries and vendor headers from
+#   static initialisers on (user 2026-10-27: "if they are standalone functions that dont need global state leave them").
+client_globals_floor	docs/globals-client-ledger.tsv	21
 #   2026-10-05, lane c1: glow_outline_effect.cpp left (no ledger row: its body sat under GLOWS_ENABLE);
 #   static initialisers 236 -> 235 (the header statics its empty object still initialised).
 #   2026-10-05, lane c1: bonelist.cpp left (no ledger row); static initialisers 234 -> 233.

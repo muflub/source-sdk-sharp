@@ -111,10 +111,10 @@ TEST( FwdShimAreas, ShimHierarchyIs7Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimCollisionServerIs9Slots )
+TEST( FwdShimAreas, ShimCollisionServerIs8Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimCollisionServer::EntitySetTriggerBloat ).slot + 1;
-	EXPECT_EQ( 9, compiler );
+	EXPECT_EQ( 8, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimCollisionServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -242,15 +242,6 @@ TEST( FwdShimAreas, ShimEntitiesIs4SlotsOnTheClient )
 	const int compiler = VTableHook::MemberOf( &IShimEntities::EntityIsValid ).slot + 1;
 	EXPECT_EQ( 4, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEntities" );
-	ASSERT_NE( nullptr, pTable );
-	EXPECT_EQ( compiler, pTable->nSlots );
-}
-
-TEST( FwdShimAreas, ShimCollisionIs1SlotsOnTheClient )
-{
-	const int compiler = VTableHook::MemberOf( &IShimCollision::RegisterCollisionRules ).slot + 1;
-	EXPECT_EQ( 1, compiler );
-	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimCollision" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }

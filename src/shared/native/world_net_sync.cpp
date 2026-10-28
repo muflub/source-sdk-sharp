@@ -14,7 +14,7 @@
 // One warning per failed resolve, naming the class, not one per field.
 static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
-	const int nOffset = ask.pfnFieldOffset( SOURCESHARP_WORLD_NETCLASS, pField );
+	const int nOffset = ask.FieldOffset( SOURCESHARP_WORLD_NETCLASS, pField );
 
 	if ( nOffset < 0 )
 		*pbAll = false;
@@ -24,8 +24,8 @@ static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pFiel
 
 static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
-	const int nOffset = ask.pfnFieldOffset( SOURCESHARP_WORLD_NETCLASS, pField );
-	const int nBits = ask.pfnFieldBits( SOURCESHARP_WORLD_NETCLASS, pField );
+	const int nOffset = ask.FieldOffset( SOURCESHARP_WORLD_NETCLASS, pField );
+	const int nBits = ask.FieldBits( SOURCESHARP_WORLD_NETCLASS, pField );
 
 	SourceSharpPackedField_t field = SourceSharpPayload_Place( nOffset, nBits );
 
@@ -35,11 +35,13 @@ static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &a
 	return field;
 }
 
-bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration )
+bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration,
+									 NetStateArea_t *pArea )
 {
-	SourceSharpNetStateAsk_t ask;
-	if ( !pFields || !SourceSharp_NetStateAsk( &ask ) )
+	if ( !pFields || !pArea )
 		return false;
+
+	const SourceSharpNetStateAsk_t ask = { *pArea };
 
 	bool bAll = true;
 

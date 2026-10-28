@@ -29,8 +29,9 @@ public:
 	CManagedSide( const CManagedSide & ) = delete;
 	CManagedSide &operator=( const CManagedSide & ) = delete;
 
-	// Error() on failure, which does not return; a repeat call answers true.
-	bool Load();
+	// Error() on failure, which does not return; a repeat call answers true. pszGameDir is
+	// the engine's game directory, whose bin holds the runtime and assemblies.
+	bool Load( const char *pszGameDir );
 
 	// The counterpart of Load; the CLR is refcounted across both DLLs.
 	void Unload();

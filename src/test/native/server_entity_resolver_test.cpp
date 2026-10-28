@@ -26,13 +26,6 @@ int SourceSharp_GetVerbosity()
 	return 0;
 }
 
-class IStaticPropMgrServer;
-
-IStaticPropMgrServer *ServerStaticProps()
-{
-	return nullptr;
-}
-
 const model_t *CWorldCollideable::GetCollisionModel()
 {
 	return nullptr;
@@ -49,9 +42,12 @@ protected:
 	bool m_bManagedLoaded = false;
 	unsigned int m_nManagedGeneration = 1;
 	CServerModelPrecache m_Precache{ nullptr, nullptr, m_Holders.m_Areas };
-	CServerEntityContext m_Entities{
-		nullptr,   nullptr,        nullptr,   nullptr, m_Holders, m_bManagedLoaded, m_nManagedGeneration,
-		m_Players, m_nWorldSerial, m_Precache };
+	CServerNetTables m_NetTables;
+	CServerEntityContext m_Entities{ nullptr,    nullptr,          nullptr,
+									 nullptr,    nullptr,          nullptr,
+									 m_Holders,  m_bManagedLoaded, m_nManagedGeneration,
+									 m_Players,  m_nWorldSerial,   m_Precache,
+									 m_NetTables };
 	CSourceSharpSlotTable m_Slots;
 	int32_t m_nReach = 0;
 	CServerEntityResolver m_Resolver{ m_Slots, m_Entities, m_nReach };

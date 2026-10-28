@@ -13,6 +13,8 @@
 #include "generic_payload.h"
 #include "native_command_body.h"
 #include "ss_string.h"
+#include "server_services.h"
+#include "server_state.h"
 
 // Declared here rather than including the large shell_standalone.h.
 int SourceSharp_StandaloneBlobOffset();
@@ -40,7 +42,8 @@ SS_NATIVE_COMMAND( cs_sv_dump_payload )
 	const int nBlobBase = SourceSharp_StandaloneBlobOffset();
 
 	SendProp *pProps = new SendProp[nWords > 0 ? nWords : 1];
-	const int nBuilt = SourceSharpPayload_BuildSendProps( pProps, nWords, nBlobBase );
+	const int nBuilt = SourceSharpPayload_BuildSendProps( pProps, nWords, nBlobBase,
+														  services.m_EntityContext.m_NetTables.m_PropNames );
 
 	if ( nBuilt != nWords )
 	{

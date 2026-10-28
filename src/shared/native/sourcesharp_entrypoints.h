@@ -29,31 +29,21 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// BOTH SIDES -- 14 slots.
+// BOTH SIDES -- 6 slots.
 //
 // A body on the server and a body on the client, or one shared body compiled
 // into each.
 //---------------------------------------------------------------------------
-int32_t SourceSharp_EventGetBool( void *hEvent, const char *pKey );
-float SourceSharp_EventGetFloat( void *hEvent, const char *pKey );
-int32_t SourceSharp_EventGetInt( void *hEvent, const char *pKey );
-const char *SourceSharp_EventGetString( void *hEvent, const char *pKey );
-void SourceSharp_ListenForGameEvent( const char *pEventName );
+float SourceSharp_CurrentGravity();
+void *SourceSharp_GetGlobalVarsPtr();
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue );
 void SourceSharp_MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
 							int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut );
-int32_t SourceSharp_NetHierarchyDeclare( int32_t nBlobBytes );
-int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
-									uint32_t *pOutTypeId );
-int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes,
-								 int32_t *pOutWords, int32_t *pOutProps, int32_t *pOutLive );
-void SourceSharp_RegisterCollisionRules( const SourceSharpCollisionRules *pRules );
 void SourceSharp_RegisterMovementParams( const SourceSharpMovementParams *pParams );
 void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
-int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 15 slots.
+// SERVER ONLY -- 8 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -65,19 +55,12 @@ int32_t SourceSharp_EntityGetIndex( uint32_t hEntity );
 void SourceSharp_EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize );
 void SourceSharp_EntityGetOrigin( uint32_t hEntity, float *pOutXYZ );
 int32_t SourceSharp_EntityIsValid( uint32_t hEntity );
-void SourceSharp_EventSetBool( void *hEvent, const char *pKey, int32_t bValue );
-void SourceSharp_EventSetInt( void *hEvent, const char *pKey, int32_t nValue );
-void SourceSharp_EventSetString( void *hEvent, const char *pKey, const char *pValue );
-int32_t SourceSharp_ExitWatchArm( const char *pRecordPath );
-int32_t SourceSharp_ExitWatchDisarm();
-int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax );
-int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax );
 void SourceSharp_RegisterDamageRules( const SourceSharpDamageRules *pRules );
 void SourceSharp_RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy );
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 258 slots.
+// CLIENT ONLY -- 262 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -279,6 +262,11 @@ void SourceSharp_InputStopPitchDrift();
 void SourceSharp_InputVguiScreenSize( int32_t *pWide, int32_t *pTall );
 int32_t SourceSharp_InputViewerAimIsAssisted();
 void SourceSharp_InputViewerCameraModeChanged();
+int32_t SourceSharp_NetHierarchyDeclare( int32_t nBlobBytes );
+int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
+									uint32_t *pOutTypeId );
+int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes,
+								 int32_t *pOutWords, int32_t *pOutProps, int32_t *pOutLive );
 int32_t SourceSharp_ParticleDefinitionReads();
 int32_t SourceSharp_ParticleQueryUnanswered( int32_t *pOut, int32_t nMax );
 int32_t SourceSharp_ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointMask );
@@ -415,6 +403,7 @@ void SourceSharp_ViewOverrideSet( int32_t nActive, const float *pOriginXYZ, cons
 								  int32_t nSetViewAngles );
 int32_t SourceSharp_ViewTargetInfo( int32_t nTarget, int32_t *pOut4 );
 void SourceSharp_WindPublish( const float *pWind, const float *pSway, int32_t nWinds );
+int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 void SourceSharp_WorldTextMeshDestroy( uint32_t hOwner );
 int32_t SourceSharp_WorldTextMeshUpdate( uint32_t hOwner, const char *pszMaterial, const float *pBounds,
 										 int32_t nFloats );

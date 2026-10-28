@@ -15,7 +15,6 @@
 #include <cstdlib>
 
 #include "shell_diagnostics.h"
-#include "server_engine.h"
 #include "ss_util.h"
 
 #include "ss_gamestringpool.h"
@@ -31,9 +30,6 @@
 #include "engine/IStaticPropMgr.h"
 
 // Defined beside the other engine-boundary globals.
-
-void PrecacheParticleSystem( const char *pParticleSystemName );
-void SENTENCEG_Init();
 
 #include "shell_server.h"
 
@@ -71,7 +67,7 @@ public:
 		}
 
 		// Returns the networkable member; its Release deletes the world.
-		CWorld *pWorld = new CWorld( context );
+		CWorld *pWorld = new ( context.m_NetTables.m_World.BlobBytes() ) CWorld( context );
 
 		return pWorld->GetNetworkable();
 	}
@@ -103,11 +99,9 @@ int SourceSharp_WorldBlobOffset()
 // Allocated as the engine's PvAllocEntPrivateData does (calloc), plus the blob. The
 // memory is zeroed, which gives the networked values their stock defaults. The blob
 // length is C#'s and may be zero.
-static void *AllocWorld( size_t nBytes )
+void *CWorld::operator new( size_t stAllocateBlock, int nBlobBytes )
 {
-	Assert( (int)nBytes <= SourceSharp_WorldBlobOffset() );
-
-	int nBlobBytes = SourceSharp_WorldBlobBytes();
+	Assert( (int)stAllocateBlock <= SourceSharp_WorldBlobOffset() );
 
 	if ( nBlobBytes < 0 )
 		nBlobBytes = 0;
@@ -115,13 +109,13 @@ static void *AllocWorld( size_t nBytes )
 	return calloc( 1, (size_t)( SourceSharp_WorldBlobOffset() + nBlobBytes ) );
 }
 
-void *CWorld::operator new( size_t stAllocateBlock )
-{
-	return AllocWorld( stAllocateBlock );
-}
-
 // CWorld has no base with an operator delete; its block came from calloc.
 void CWorld::operator delete( void *pMem )
+{
+	free( pMem );
+}
+
+void CWorld::operator delete( void *pMem, int )
 {
 	free( pMem );
 }
@@ -133,7 +127,7 @@ unsigned char *CWorld::DataBlob()
 
 int CWorld::BlobBytes() const
 {
-	return SourceSharp_WorldBlobBytes();
+	return m_pContext->m_NetTables.m_World.BlobBytes();
 }
 
 // CServerNetworkProperty caches this after the first ask. There is no base table
@@ -141,7 +135,7 @@ int CWorld::BlobBytes() const
 // offsets, so a missing declaration is fatal.
 ServerClass *CWorld::GetServerClass()
 {
-	if ( ServerClass *pClass = SourceSharp_WorldServerClass() )
+	if ( ServerClass *pClass = m_pContext->m_NetTables.m_World.DeclaredClass() )
 		return pClass;
 
 	Error( "[SourceSharp] worldspawn has no ServerClass: the managed side never "
@@ -161,7 +155,7 @@ bool CWorld::ResolveFields()
 	if ( m_Fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration );
+	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration, m_pContext->m_Managed.m_Areas.m_pNetState );
 }
 
 bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
@@ -178,12 +172,6 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 
 	// Not mine: the engine ignores an unhandled worldspawn key.
 	return false;
-}
-
-CWorld *GetWorldEntity()
-{
-	CServerLevelState *pLevel = ShellGameDll_Level();
-	return pLevel ? pLevel->m_pWorld : NULL;
 }
 
 // Subobjects, constructed before the CWorld body runs, so m_pOuter is never null.
@@ -275,7 +263,7 @@ static int SourceSharp_WorldIssueSerial( unsigned short &nSerial )
 
 void CWorld::AttachToEdictZero()
 {
-	m_pEdict = ss::INDEXENT( RequiredEdictIndex() );
+	m_pEdict = m_pContext->m_pEngine->PEntityOfEntIndex( RequiredEdictIndex() );
 
 	if ( !m_pEdict )
 	{
@@ -338,9 +326,9 @@ void CWorld::Precache()
 	// Set up game rules.
 	Assert( !m_pGameRules );
 	delete m_pGameRules;
-	m_pGameRules = SourceSharp_CreateGameRules( m_pContext->m_pGameRulesTable );
+	m_pGameRules = SourceSharp_CreateGameRules( m_pContext->m_pGameRulesTable, m_pContext->m_Managed.m_Areas );
 
-	ss::SoundEnt_Init( m_pContext->m_pGlobals );
+	ss::SoundEnt_Init( m_pContext->m_Managed.m_Areas.m_pSoundEnt, m_pContext->m_pGlobals );
 
 	// The rest of stock's world precache is managed's.
 	// The work precaches, so it runs inside this one.
@@ -355,7 +343,7 @@ void CWorld::Precache()
 
 	// init sentence group playback stuff from sentences.txt.
 	// ok to call this multiple times, calls after first are ignored.
-	SENTENCEG_Init();
+	m_pContext->m_Precache.SentenceFile();
 }
 
 IGameRules *CServerEntityContext::GameRules() const
