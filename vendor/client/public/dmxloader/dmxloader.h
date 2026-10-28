@@ -24,4 +24,3 @@ public:                                                                         
 	}                                                                                         \
 	inline void operator delete( void *p ) {}                                                 \
 	inline void operator delete( void *p, int nBlockUse, const char *pFileName, int nLine ) {}
-\

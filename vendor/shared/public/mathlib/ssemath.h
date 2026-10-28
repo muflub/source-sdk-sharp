@@ -78,10 +78,7 @@ extern const ALIGN16 uint32 g_SIMD_lsbmask[] ALIGN16_POST; // 0xfffffffe x 4
 extern const ALIGN16 uint32 g_SIMD_clear_wmask[] ALIGN16_POST; // -1 -1 -1 0
 extern const ALIGN16 uint32 g_SIMD_ComponentMask
 	[4][4] ALIGN16_POST; // [0xFFFFFFFF 0 0 0], [0 0xFFFFFFFF 0 0], [0 0 0xFFFFFFFF 0], [0 0 0 0xFFFFFFFF]
-ALIGN16_POST; // ~0,~0,~0,~0
-ALIGN16_POST; // 0xffff x 4
 
-ALIGN16_POST;
 
 // Define prefetch macros.
 // The characteristics of cache and prefetch are completely

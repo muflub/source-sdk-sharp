@@ -13,7 +13,6 @@
 #include "tier0/dbg.h"
 
 #ifdef POSIX
-DBG_INTERFACE;
 tchar *GetCommandLine();
 #endif
 

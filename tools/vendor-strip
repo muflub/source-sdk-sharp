@@ -448,15 +448,29 @@ def read(path):
         return f.read()
 
 
+# A linkage or attribute macro libclang leaves outside a declaration's extent:
+# PLATFORM_INTERFACE before it, ALIGN16_POST between it and its ;. Left
+# behind, `PLATFORM_INTERFACE;` and `ALIGN16_POST;` declare nothing, which
+# gcc refuses (clang only warns).
+MACRO_TOKENS = re.compile(r"(?:[ \t]*[A-Z_][A-Z0-9_]*(?:[ \t]*\([^()\n]*\))?)+[ \t]*")
+
+
 def widen(t, start, end):
-    """The span to delete for a declaration at [start, end): its trailing ;
-    and line end, its leading indentation, and the comment lines directly
-    above it."""
+    """The span to delete for a declaration at [start, end): the macros
+    around it (MACRO_TOKENS), its trailing ; and line end, its leading
+    indentation, and the comment lines directly above it."""
     j = end
+    m = MACRO_TOKENS.match(t, j)
+    if m and t.startswith(";", m.end()):
+        j = m.end()
     while j < len(t) and t[j] in " \t":
         j += 1
     if j < len(t) and t[j] == ";":
         j += 1
+    ls = t.rfind("\n", 0, start) + 1
+    m = MACRO_TOKENS.fullmatch(t, ls, start)
+    if m:
+        start = ls
     while j < len(t) and t[j] in " \t":
         j += 1
     if t.startswith("//", j):
@@ -864,6 +878,15 @@ def self_test():
     e = t.index(")") + 1
     i, j = widen(t, s, e)
     eq(t[:i] + t[j:], "int a;\nint b;\n", "a declaration goes with its ; and its comment lines")
+    t = "int a;\nPLATFORM_INTERFACE void f( int );\nint b;\n"
+    i, j = widen(t, t.index("void"), t.index(")") + 1)
+    eq(t[:i] + t[j:], "int a;\nint b;\n", "a linkage macro before a declaration goes with it")
+    t = "int a;\nextern const ALIGN16 int g[ 4 ] ALIGN16_POST; // mask\nint b;\n"
+    i, j = widen(t, t.index("extern"), t.index("]") + 1)
+    eq(t[:i] + t[j:], "int a;\nint b;\n", "an attribute macro before the ; goes with the declaration")
+    t = "int a;\nint x = 1, f( int );\nint b;\n"
+    i, j = widen(t, t.index("f("), t.index(")") + 1)
+    eq(t[:i] + t[j:], "int a;\nint x = 1, ;\nint b;\n", "code before a declaration on its line is no macro")
     t = "class X\n{\n#ifdef Y\n int a;\n#endif\n};\n"
     eq(removable(t, 0, len(t) - 2, "X"), False, "a span across a preprocessor line is kept")
     eq(removable("template<> struct S<int> {}", 11, 27, "S"), False, "an explicit specialisation is kept")

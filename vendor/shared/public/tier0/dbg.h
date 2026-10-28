@@ -154,7 +154,6 @@ DBG_INTERFACE bool HushAsserts();
 
 #if defined( USE_SDL )
 DBG_INTERFACE void SetAssertDialogParent( struct SDL_Window *window );
-DBG_INTERFACE;
 #endif
 
 /* Used to define macros, never use these directly. */

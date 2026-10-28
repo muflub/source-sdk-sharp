@@ -1124,7 +1124,6 @@ struct MemoryInformation
 
 #ifndef _WIN32
 // helper function for OS's that don't have a ::GetCommandLine() call
-PLATFORM_INTERFACE;
 #endif
 
 #define Plat_FastMemset memset

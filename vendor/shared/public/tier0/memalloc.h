@@ -467,18 +467,11 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 
 // linux memory tracking via hooks.
 #if defined( POSIX ) && !defined( NO_HOOK_MALLOC )
-PLATFORM_INTERFACE; // throw a message into the memory log
-PLATFORM_INTERFACE;
-PLATFORM_INTERFACE;
-PLATFORM_INTERFACE;
-PLATFORM_INTERFACE;
-PLATFORM_INTERFACE;
 
 #endif
 
 #ifdef POSIX
 // ApproximateProcessMemoryUsage returns the approximate memory footprint of this process.
-PLATFORM_INTERFACE;
 #endif
 
 struct aligned_tmp_t
