@@ -10,6 +10,16 @@ namespace SourceSharp.Tests;
 /// (2026-10-26): every one of 200,000 such rows matched. The client's native
 /// pane split computes the same two vectors, so a server that rounded
 /// differently would put a hit in a pane the client draws elsewhere.
+///
+/// <para>
+/// The angles go through the C runtime's atan2f and the basis through its
+/// sinf and cosf: the recording's are glibc's, with glibc 2.41's correctly
+/// rounded atan2f. A row is held bit for bit where this platform is glibc and
+/// its atan2f rounds the row's inputs as the recording's did. Elsewhere (glibc
+/// 2.39's atan2f on the CI runners, the Windows C runtime's sinf and cosf) the
+/// last bits move: the angles are held to four ulps and each basis component
+/// to 2^-18 (the most measured is six ulps of a component near 0.5).
+/// </para>
 /// </summary>
 public class AnglesMathlibBitsTests
 {
@@ -40,9 +50,34 @@ public class AnglesMathlibBitsTests
         Vector angles = Angles.FromVector(forward);
         var (right, up) = Angles.RightUp(forward);
 
-        Assert.Equal((pitch, yaw, 0u), (B(angles.X), B(angles.Y), B(angles.Z)));
-        Assert.Equal((rx, ry, rz), (B(right.X), B(right.Y), B(right.Z)));
-        Assert.Equal((ux, uy, uz), (B(up.X), B(up.Y), B(up.Z)));
+        float flat = MathF.Sqrt(forward.X * forward.X + forward.Y * forward.Y);
+        bool exact = OperatingSystem.IsLinux() && RoundsAsRecorded(-forward.Z, flat) && RoundsAsRecorded(forward.Y, forward.X);
+
+        Angle(pitch, angles.X, exact, "pitch");
+        Angle(yaw, angles.Y, exact, "yaw");
+        Assert.Equal(0u, B(angles.Z));
+        Component(rx, right.X, exact, "right.x");
+        Component(ry, right.Y, exact, "right.y");
+        Component(rz, right.Z, exact, "right.z");
+        Component(ux, up.X, exact, "up.x");
+        Component(uy, up.Y, exact, "up.y");
+        Component(uz, up.Z, exact, "up.z");
+    }
+
+    // This platform's atan2f rounds as the recording's did: correctly.
+    private static bool RoundsAsRecorded(float y, float x) => B(MathF.Atan2(y, x)) == B((float)Math.Atan2(y, x));
+
+    private static void Angle(uint expected, float actual, bool exact, string what)
+    {
+        long ulps = Math.Abs((long)expected - B(actual));
+        Assert.True(exact ? ulps == 0 : ulps <= 4, $"{what}: mathlib {expected:x8}, Angles {B(actual):x8} ({ulps} ulps, exact={exact})");
+    }
+
+    private static void Component(uint expected, float actual, bool exact, string what)
+    {
+        float off = MathF.Abs(F(expected) - actual);
+        Assert.True(exact ? B(actual) == expected : off <= 1f / 262144f,
+                    $"{what}: mathlib {expected:x8}, Angles {B(actual):x8} (off by {off:R}, exact={exact})");
     }
 
     private static float F(uint bits) => BitConverter.UInt32BitsToSingle(bits);
