@@ -11,6 +11,7 @@
 // makes the decisions; this is what needs the engine's spatial data, collision
 // code and randomness.
 
+#include "server_engine.h"
 #include "ss_util.h"
 #include "ss_shareddefs.h"
 
@@ -33,14 +34,13 @@
 #include "ss_takedamageinfo.h"
 
 // util.h's helpers, defined in our own TUs.
-extern IVModelInfo *modelinfo;
 void PrecacheMaterial( const char *pMaterialName );
 void PrecacheParticleSystem( const char *pParticleSystemName );
 
 #include "trace_hit.h"
 
 // Every live standalone entity; gEntList's traversals skip them.
-std::vector<CStandaloneEntity *> &StandaloneEntities();
+#include "standalone_list.h"
 
 // Everything within a radius, unfiltered: managed decides what to act on. The
 // count is how many were written, so a full array means there may be more.
@@ -59,7 +59,7 @@ int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius, u
 	// A registry walk, not a partition query: a standalone entity that is neither
 	// solid nor a trigger is not in the partition. Tests the world-space AABB, and
 	// includes server-only entities (an env_fire must find the next one).
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pStandalone : standalones )
 	{
@@ -300,18 +300,18 @@ int32_t SourceSharp_EntityModelSurfaceProp( uint32_t hEntity )
 	if ( !pServerEntity )
 		return -1;
 
-	const model_t *pModel = modelinfo->GetModel( pServerEntity->GetModelIndex() );
+	const model_t *pModel = ServerModelInfo()->GetModel( pServerEntity->GetModelIndex() );
 
-	if ( !pModel || modelinfo->GetModelType( pModel ) != mod_brush )
+	if ( !pModel || ServerModelInfo()->GetModelType( pModel ) != mod_brush )
 		return -1;
 
 	model_t *pMutable = const_cast<model_t *>( pModel );
 
-	if ( modelinfo->GetModelMaterialCount( pMutable ) != 1 )
+	if ( ServerModelInfo()->GetModelMaterialCount( pMutable ) != 1 )
 		return -1;
 
 	IMaterial *pMaterial = NULL;
-	modelinfo->GetModelMaterials( pMutable, 1, &pMaterial );
+	ServerModelInfo()->GetModelMaterials( pMutable, 1, &pMaterial );
 
 	if ( !pMaterial )
 		return -1;

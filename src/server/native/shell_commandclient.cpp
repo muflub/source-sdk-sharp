@@ -10,40 +10,25 @@
 // Who typed the command: the console client slot the engine names, and the queries over
 // it. Declarations stay in util.h.
 
+#include "server_state.h"
 #include "eiface.h"
 
 extern IVEngineServer *engine;
 extern CGlobalVars *gpGlobals;
 #include "shell_standalone_player.h"
 
-// The slot from IServerGameClients::SetCommandClient: 0-based, -1 for the dedicated
-// console. The initial 0 is stock's.
-class CSourceSharpCommandClient
+// The slot from IServerGameClients::SetCommandClient, held by the DLL tier: 0-based,
+// -1 for the dedicated console. The initial 0 is stock's.
+static int &CommandClientSlot()
 {
-public:
-	CSourceSharpCommandClient()
-		: m_nSlot( 0 )
-	{
-	}
-
-	int Slot() const { return m_nSlot; }
-
-	void SetSlot( int nSlot ) { m_nSlot = nSlot; }
-
-private:
-	int m_nSlot;
-};
-
-static CSourceSharpCommandClient &CommandClient()
-{
-	static CSourceSharpCommandClient client;
-	return client;
+	AssertMsg( ShellGameDll_Dll(), "the command client was asked for outside DLLInit..DLLShutdown" );
+	return ShellGameDll_Dll()->m_nCommandClientSlot;
 }
 
 // The engine naming the console client, from IServerGameClients::SetCommandClient.
 void UTIL_SetCommandClientIndex( int index )
 {
-	CommandClient().SetSlot( index );
+	CommandClientSlot() = index;
 }
 
 int UTIL_GetCommandClientIndex()
@@ -52,7 +37,7 @@ int UTIL_GetCommandClientIndex()
 	// 0  == player 1
 
 	// Convert to 1 based offset
-	return ( CommandClient().Slot() + 1 );
+	return ( CommandClientSlot() + 1 );
 }
 
 // Returns true if the command was issued by the listenserver host, or by the dedicated

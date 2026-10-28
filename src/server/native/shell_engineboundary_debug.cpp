@@ -8,6 +8,7 @@
 // SS_REASON c  static-init registration
 // Debug builds only; NativeCommands declares the matching row under #if DEBUG.
 
+#include "server_engine.h"
 #include "tier0/dbg.h"
 #include "mathlib/vector.h"
 #include "worldsize.h"
@@ -21,8 +22,6 @@
 #endif
 
 // Defined and acquired in shell_engineboundary.cpp.
-extern IEngineTrace *enginetrace;
-extern IStaticPropMgrServer *staticpropmgr;
 
 // Has the engine fill two vectors over the whole map, reads them and releases
 // them to the engine's allocator. Prints whether FindEngineHeap's heap is
@@ -43,10 +42,10 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 	int nBrushes = -1;
 	int nNegative = 0;
 	int nBrushAlloc = 0;
-	if ( enginetrace )
+	if ( ServerTrace() )
 	{
 		ss::EngineFilledUtlVector<int> brushes;
-		enginetrace->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine<CUtlVector<int>>() );
+		ServerTrace()->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine<CUtlVector<int>>() );
 		const ss::EngineUtlVector<int> &view = brushes.View();
 		nBrushes = view.Count();
 		nBrushAlloc = view.m_nAllocationCount;
@@ -56,10 +55,10 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 
 	int nProps = -1;
 	int nNullProps = 0;
-	if ( staticpropmgr )
+	if ( ServerStaticProps() )
 	{
 		ss::EngineFilledUtlVector<ICollideable *> props;
-		staticpropmgr->GetAllStaticProps( props.ForEngine<CUtlVector<ICollideable *>>() );
+		ServerStaticProps()->GetAllStaticProps( props.ForEngine<CUtlVector<ICollideable *>>() );
 		const ss::EngineUtlVector<ICollideable *> &view = props.View();
 		nProps = view.Count();
 		for ( ICollideable *pProp : view )

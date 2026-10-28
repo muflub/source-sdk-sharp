@@ -11,6 +11,8 @@
 // method. The order, conditions and early returns are in ServerGameDll.cs; a step is
 // never a decision.
 
+#include "server_state.h"
+#include "server_engine.h"
 #include "eiface.h"
 #include "igamerules.h"
 #include "ishim_frame.h"
@@ -19,7 +21,6 @@
 #include "datacache/imdlcache.h"
 
 // The managed row's stages take its lock through Begin/EndModelCacheLock.
-extern IMDLCache *mdlcache;
 
 // Defined in shell_standalone_base.cpp.
 void StandaloneEntities_Finish();
@@ -27,7 +28,6 @@ void StandaloneEntities_Finish();
 void UpdateAllClientData();
 
 // Stock's global, acquired by SourceSharp_AcquireEngineInterfaces.
-extern IUploadGameStats *gamestatsuploader;
 
 extern CGlobalVars *gpGlobals;
 
@@ -68,7 +68,7 @@ public:
 			g_pGameRules->EndGameFrame();
 	}
 
-	virtual void GamestatsUpdateConnection() OVERRIDE { gamestatsuploader->UpdateConnection(); }
+	virtual void GamestatsUpdateConnection() OVERRIDE { ServerGameStats()->UpdateConnection(); }
 
 	// PreClientUpdate, gameinterface.cpp:1440.
 	virtual void DrawAllDebugOverlays() OVERRIDE { ::DrawAllDebugOverlays(); }
@@ -82,9 +82,9 @@ public:
 	// After the managed frame, at the position ServerSystems gives it.
 	virtual void DrainEntitySlots() OVERRIDE { SourceSharp_DrainEntitySlots(); }
 
-	virtual void BeginModelCacheLock() OVERRIDE { mdlcache->BeginLock(); }
+	virtual void BeginModelCacheLock() OVERRIDE { ServerMdlCache()->BeginLock(); }
 
-	virtual void EndModelCacheLock() OVERRIDE { mdlcache->EndLock(); }
+	virtual void EndModelCacheLock() OVERRIDE { ServerMdlCache()->EndLock(); }
 };
 
 } // namespace

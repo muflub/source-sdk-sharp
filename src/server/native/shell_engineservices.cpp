@@ -8,6 +8,7 @@
 // SS_REASON b  an interface resolved by name at load
 // Leaf steps that ask engine-owned globals what managed code cannot ask itself.
 
+#include "standalone_list.h"
 #include "eiface.h"
 
 #include "shell_standalone.h"
@@ -18,10 +19,7 @@ int32_t SourceSharp_EntitiesInvalidateMdlCacheAll()
 {
 	int32_t nInvalidated = 0;
 
-	// Declared in the body: this file keeps nothing at file scope but its steps.
-	extern std::vector<CStandaloneEntity *> &StandaloneEntities();
-
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities();
 
 	nInvalidated = (int32_t)standalones.size();
 

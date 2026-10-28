@@ -62,16 +62,20 @@
 
 #include "mathlib_test_env.h"
 
-// The one global the library reads, exactly as both files it replaces did. The
-// game defines it per side (shell_engineboundary.cpp / shell_clientdll.cpp); here
-// the test owns it, which is what lets a fact point it at a recorder and at NULL.
-IVDebugOverlay *debugoverlay = NULL;
+// The overlay the library asks for (server_engine.h's ServerOverlay). The game answers
+// from its DLL tier; here the test owns it, which is what lets a fact point it at a
+// recorder and at NULL.
+static IVDebugOverlay *s_pOverlay = NULL;
+
+IVDebugOverlay *ServerOverlay()
+{
+	return s_pOverlay;
+}
 
 //-----------------------------------------------------------------------------
 // THE RECORDING OVERLAY.
 //
-// The library reads one global, `debugoverlay`, exactly as both files it
-// replaces did, and it is defined here so the test owns it. Every draw the
+// The library reads the overlay through ServerOverlay(), answered above. Every draw the
 // library makes lands in one of these vectors, so "it drew" is a recorded fact
 // rather than the absence of a crash.
 //-----------------------------------------------------------------------------
@@ -351,7 +355,7 @@ TEST_F( OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible )
 
 TEST_F( OverlayLibrary, LineWithNoViewerCountsNoViewerAndDrawsNothing )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 
 	Overlay_Line( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ), 255, 0, 0, false, 0 );
 
@@ -362,7 +366,7 @@ TEST_F( OverlayLibrary, LineWithNoViewerCountsNoViewerAndDrawsNothing )
 
 TEST_F( OverlayLibrary, ClippedLineCountsClippedAndDrawsNothing )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 	SetLookingAlongX();
 
 	Overlay_Line( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ), 255, 0, 0, false, 0 );
@@ -375,7 +379,7 @@ TEST_F( OverlayLibrary, ClippedLineCountsClippedAndDrawsNothing )
 
 TEST_F( OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 	SetLookingAlongX();
 
 	Overlay_Line( Vector( 10, 1, 2 ), Vector( 200, 3, 4 ), 11, 22, 33, true, 5.0f );
@@ -391,7 +395,7 @@ TEST_F( OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour )
 
 TEST_F( OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay )
 {
-	debugoverlay = NULL;
+	s_pOverlay = NULL;
 	SetLookingAlongX();
 
 	Overlay_Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 255, 0, 0, false, 0 );
@@ -402,7 +406,7 @@ TEST_F( OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay )
 
 TEST_F( OverlayLibrary, ResetCountsZeroesEveryCounter )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 	SetLookingAlongX();
 	Overlay_Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 1, 2, 3, false, 0 );
 	ASSERT_EQ( 1u, Overlay_Counts().nDrawn );
@@ -421,7 +425,7 @@ TEST_F( OverlayLibrary, ResetCountsZeroesEveryCounter )
 
 TEST_F( OverlayLibrary, TextAtPositionDrawsWithNoViewer )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 
 	Overlay_TextAtPosition( Vector( 1, 2, 3 ), 4, "hello", 0.5f, 10, 20, 30, 40 );
 
@@ -439,7 +443,7 @@ TEST_F( OverlayLibrary, TextAtPositionDrawsWithNoViewer )
 
 TEST_F( OverlayLibrary, BoxIsDrawnUnrotated )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 
 	Overlay_Box( Vector( 5, 6, 7 ), Vector( -1, -2, -3 ), Vector( 1, 2, 3 ), 9, 8, 7, 6, 2.0f );
 
@@ -472,7 +476,7 @@ static void FillPool( int r )
 
 TEST_F( OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 	SetLookingAlongX();
 
 	FillPool( 7 );
@@ -486,7 +490,7 @@ TEST_F( OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot )
 
 TEST_F( OverlayLibrary, DrawingThePoolWithNoViewerDrawsNothingAndSaysWhy )
 {
-	debugoverlay = &g_Recorder;
+	s_pOverlay = &g_Recorder;
 
 	FillPool( 1 );
 	Overlay_DrawPooledLines();

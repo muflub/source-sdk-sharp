@@ -10,8 +10,22 @@
 
 #include "igameevents.h"
 
-// Each DLL defines its own.
+// Each DLL binds its own: the client's is a global, the server's its DLL tier's.
+#ifdef CLIENT_DLL
 extern IGameEventManager2 *gameeventmanager;
+
+static IGameEventManager2 *EventManager()
+{
+	return gameeventmanager;
+}
+#else
+#include "server_engine.h"
+
+static IGameEventManager2 *EventManager()
+{
+	return ServerEvents();
+}
+#endif
 
 #include "shell_diagnostics.h"
 
@@ -49,7 +63,7 @@ static CGameEventSubscriptions g_SubscribedEvents;
 
 void SourceSharp_ListenForGameEvent( const char *pEventName )
 {
-	if ( !pEventName || !pEventName[0] || !gameeventmanager )
+	if ( !pEventName || !pEventName[0] || !EventManager() )
 		return;
 
 	// bServerSide as stock's CGameEventListener: true on the server.
@@ -60,7 +74,7 @@ void SourceSharp_ListenForGameEvent( const char *pEventName )
 #endif
 	const CGameEventSubscriptions::Result_t eResult = g_SubscribedEvents.Subscribe(
 		pEventName, []( const char *pName )
-		{ return gameeventmanager->AddListener( &g_SourceSharpEventListener, pName, kServerSide ); } );
+		{ return EventManager()->AddListener( &g_SourceSharpEventListener, pName, kServerSide ); } );
 
 	if ( eResult == CGameEventSubscriptions::kAlreadyListening )
 	{
@@ -86,8 +100,8 @@ void SourceSharp_ListenForGameEvent( const char *pEventName )
 // load could never re-subscribe. Safe to call twice or without listening.
 void SourceSharp_StopListeningForGameEvents()
 {
-	if ( gameeventmanager )
-		gameeventmanager->RemoveListener( &g_SourceSharpEventListener );
+	if ( EventManager() )
+		EventManager()->RemoveListener( &g_SourceSharpEventListener );
 
 	if ( g_SubscribedEvents.Count() > 0 && SourceSharp_GetVerbosity() > 0 )
 	{

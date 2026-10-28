@@ -7,28 +7,28 @@
 
 // SS_REASON g  leaf math over mdl/bsp data
 
+#include "server_engine.h"
 #include "model_types.h"
 #include "eiface.h"
 
 #include "entity_shared_statics.h"
 
 extern IVEngineServer *engine;
-extern IVModelInfo *modelinfo;
 
 #include "imanaged_areas.h"
 #include "ss_string.h"
 
 void Precache_ModelComponents( int nModelIndex )
 {
-	model_t *pModel = (model_t *)modelinfo->GetModel( nModelIndex );
-	if ( !pModel || modelinfo->GetModelType( pModel ) != mod_studio )
+	model_t *pModel = (model_t *)ServerModelInfo()->GetModel( nModelIndex );
+	if ( !pModel || ServerModelInfo()->GetModelType( pModel ) != mod_studio )
 	{
 		return;
 	}
 
 	// Precaches the model's animation-event sounds and particle systems, in stock's order.
 	if ( IManagedResources *pArea = ManagedResources() )
-		pArea->ModelPrecacheComponents( modelinfo->GetModelName( pModel ) );
+		pArea->ModelPrecacheComponents( ServerModelInfo()->GetModelName( pModel ) );
 }
 
 int Precache_Model( const char *name, bool bPreload )

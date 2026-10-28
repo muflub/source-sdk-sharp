@@ -9,6 +9,7 @@
 // its solve and needs an answer before it continues, so they stay native
 // (physics_shell.h).
 
+#include "server_state.h"
 #include "ss_physics.h"
 #include "shell_serversystem.h"
 
@@ -22,8 +23,6 @@ extern IVEngineServer *engine;
 
 #include "ss_init_factory.h"
 extern CGlobalVars *gpGlobals;
-extern IVModelInfo *modelinfo;
-extern class IStaticPropMgrServer *staticpropmgr;
 
 #include "ss_world.h"
 float GetCurrentGravity();
@@ -106,8 +105,6 @@ bool CPhysicsHook::Init()
 }
 
 // A player shadow still live when a new environment is created points into the old one.
-extern int g_nSourceSharpPlayerShadowsLive;
-extern int g_nSourceSharpPlayerShadowsOutlived;
 
 void CPhysicsHook::LevelInitPreEntity()
 {
@@ -115,8 +112,8 @@ void CPhysicsHook::LevelInitPreEntity()
 	ss::FactoryList_Retrieve( factories );
 
 	// Before the new environment exists: any shadow still live belongs to the old one.
-	if ( g_nSourceSharpPlayerShadowsLive > 0 )
-		g_nSourceSharpPlayerShadowsOutlived += g_nSourceSharpPlayerShadowsLive;
+	if ( CServerDllState *pDll = ShellGameDll_Dll(); pDll && pDll->m_Players.m_nShadowsLive > 0 )
+		pDll->m_Players.m_nShadowsOutlived += pDll->m_Players.m_nShadowsLive;
 
 	// The four callback tables are managed's, installed at pre-entity init.
 	physenv = g_PhysicsHook.m_ShellEnv.Create( physics, NULL, NULL, NULL, NULL, factories.engineFactory,

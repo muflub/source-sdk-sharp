@@ -12,6 +12,8 @@
 #include "eiface.h"
 
 #include "filesystem.h"
+#include "server_state.h"
+#include "server_engine.h"
 #include "datacache/imdlcache.h"
 #include "ss_mapentities.h"
 #include "ss_soundent.h"
@@ -31,12 +33,8 @@ CServerSystem *PhysicsGameSystem();
 CServerSystem *GameStringSystem();
 void SourceSharp_ResetEntitySlots();
 
-extern INetworkStringTable *g_pStringTableInfoPanel;
-
 extern CGlobalVars *gpGlobals;
 extern IVEngineServer *engine;
-extern IFileSystem *filesystem;
-extern IMDLCache *mdlcache;
 
 // Defined in shell_entityapi.cpp.
 uint32_t SourceSharp_CreateEntity( const char *pClassName );
@@ -144,37 +142,37 @@ public:
 	// Open/Size/Close: Size( path ) answers 0 for a missing file.
 	virtual int32_t FileSizeOnPath( const char *pPath, const char *pPathId ) OVERRIDE
 	{
-		if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL || filesystem == NULL )
+		if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL || ServerFileSystem() == NULL )
 			return -1;
 
-		FileHandle_t hFile = filesystem->Open( pPath, "rb", pPathId );
+		FileHandle_t hFile = ServerFileSystem()->Open( pPath, "rb", pPathId );
 		if ( hFile == FILESYSTEM_INVALID_HANDLE )
 			return -1;
 
-		unsigned int nSize = filesystem->Size( hFile );
-		filesystem->Close( hFile );
+		unsigned int nSize = ServerFileSystem()->Size( hFile );
+		ServerFileSystem()->Close( hFile );
 		return nSize > 0x7fffffffu ? -1 : (int32_t)nSize;
 	}
 
 	virtual int32_t ReadFileOnPath( const char *pPath, const char *pPathId, void *pOut, int32_t nOutSize ) OVERRIDE
 	{
 		if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL || pOut == NULL || nOutSize < 0 ||
-			 filesystem == NULL )
+			 ServerFileSystem() == NULL )
 			return -1;
 
-		FileHandle_t hFile = filesystem->Open( pPath, "rb", pPathId );
+		FileHandle_t hFile = ServerFileSystem()->Open( pPath, "rb", pPathId );
 		if ( hFile == FILESYSTEM_INVALID_HANDLE )
 			return -1;
 
-		unsigned int nSize = filesystem->Size( hFile );
+		unsigned int nSize = ServerFileSystem()->Size( hFile );
 		if ( nSize > (unsigned int)nOutSize )
 		{
-			filesystem->Close( hFile );
+			ServerFileSystem()->Close( hFile );
 			return -1;
 		}
 
-		int nRead = filesystem->Read( pOut, (int)nSize, hFile );
-		filesystem->Close( hFile );
+		int nRead = ServerFileSystem()->Read( pOut, (int)nSize, hFile );
+		ServerFileSystem()->Close( hFile );
 		return nRead;
 	}
 
@@ -196,37 +194,37 @@ public:
 	// game-system walk takes per system. Managed owns the order.
 	virtual int32_t PhysicsInit() OVERRIDE
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 		return PhysicsGameSystem()->Init() ? 1 : 0;
 	}
 
 	virtual void PhysicsLevelInitPreEntity() OVERRIDE
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 		PhysicsGameSystem()->LevelInitPreEntity();
 	}
 
 	virtual void PhysicsLevelInitPostEntity() OVERRIDE
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 		PhysicsGameSystem()->LevelInitPostEntity();
 	}
 
 	virtual void PhysicsLevelShutdownPreEntity() OVERRIDE
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 		PhysicsGameSystem()->LevelShutdownPreEntity();
 	}
 
 	virtual void PhysicsLevelShutdownPostEntity() OVERRIDE
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 		PhysicsGameSystem()->LevelShutdownPostEntity();
 	}
 
 	virtual void StringPoolLevelShutdownPostEntity() OVERRIDE
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 		GameStringSystem()->LevelShutdownPostEntity();
 	}
 

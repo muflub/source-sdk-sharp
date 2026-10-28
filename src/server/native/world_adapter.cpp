@@ -10,21 +10,21 @@
 // CWorld: worldspawn, a native object because the engine assumes it at edict 0
 // and brush model 0. Every key it is given is offered to C#.
 
+#include "server_engine.h"
 #include "ss_util.h"
 
 #include "ss_gamestringpool.h"
 
 #include "shell_tempents.h"
 #include "ss_soundent.h"
-#include "ss_decals.h"
 #include "igamerules.h"
 #include "isaverestore.h"
 #include "ss_world.h"
+#include "server_state.h"
 
 #include "engine/IStaticPropMgr.h"
 
 // Defined beside the other engine-boundary globals.
-extern IVModelInfo *modelinfo;
 extern CGlobalVars *gpGlobals;
 
 void PrecacheParticleSystem( const char *pParticleSystemName );
@@ -173,11 +173,10 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 	return false;
 }
 
-static CWorld *g_WorldEntity = NULL;
-
 CWorld *GetWorldEntity()
 {
-	return g_WorldEntity;
+	CServerLevelState *pLevel = ShellGameDll_Level();
+	return pLevel ? pLevel->m_pWorld : NULL;
 }
 
 // Subobjects, constructed before the CWorld body runs, so m_pOuter is never null.
@@ -219,7 +218,8 @@ CWorld::CWorld()
 {
 	// Claimed at construction, not in Precache as stock did: the keys arrive before
 	// Precache, and the world's blob is found by identity against this singleton.
-	g_WorldEntity = this;
+	if ( CServerLevelState *pLevel = ShellGameDll_Level() )
+		pLevel->m_pWorld = this;
 
 	m_pEdict = NULL;
 	m_nModelIndex = 0;
@@ -255,18 +255,18 @@ CWorld::~CWorld()
 		m_pEdict = NULL;
 	}
 
-	g_WorldEntity = NULL;
+	// The engine's purge can free the world after the level tier ended.
+	if ( CServerLevelState *pLevel = ShellGameDll_Level(); pLevel && pLevel->m_pWorld == this )
+		pLevel->m_pWorld = NULL;
 }
 
 // The world's handle serial. Not reset between maps, so a client cannot resolve
 // the previous map's world with the new handle.
 static int SourceSharp_WorldIssueSerial()
 {
-	static unsigned short s_nWorldSerial = 0;
-
-	s_nWorldSerial = SourceSharp_NextWorldSerial( s_nWorldSerial );
-
-	return (int)s_nWorldSerial;
+	unsigned short &nSerial = ShellGameDll_Dll()->m_nWorldSerial;
+	nSerial = SourceSharp_NextWorldSerial( nSerial );
+	return (int)nSerial;
 }
 
 void CWorld::AttachToEdictZero()
@@ -296,7 +296,7 @@ void CWorld::AttachToEdictZero()
 
 const model_t *CWorldCollideable::GetCollisionModel()
 {
-	return modelinfo->GetModel( GetCollisionModelIndex() );
+	return ServerModelInfo()->GetModel( GetCollisionModelIndex() );
 }
 
 void CWorld::Spawn()
@@ -305,13 +305,13 @@ void CWorld::Spawn()
 	SetModelIndex( 1 );
 
 	// world model
-	m_iszModelName = AllocPooledString( modelinfo->GetModelName( m_Collideable.GetCollisionModel() ) );
+	m_iszModelName = AllocPooledString( ServerModelInfo()->GetModelName( m_Collideable.GetCollisionModel() ) );
 
 	// The box, from the model the index names.
 	if ( const model_t *pModel = m_Collideable.GetCollisionModel() )
 	{
 		Vector vecMins, vecMaxs;
-		modelinfo->GetModelBounds( pModel, vecMins, vecMaxs );
+		ServerModelInfo()->GetModelBounds( pModel, vecMins, vecMaxs );
 		m_Collideable.SetBounds( vecMins, vecMaxs );
 	}
 

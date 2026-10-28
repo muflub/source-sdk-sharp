@@ -35,7 +35,7 @@
 #else
 #include "networkstringtabledefs.h"
 #include "edict.h"
-extern INetworkStringTableContainer *networkstringtable;
+#include "server_engine.h"
 extern CGlobalVars *gpGlobals;
 #endif
 
@@ -176,7 +176,7 @@ void InstallStringTableCallback_GameRules()
 
 void CreateNetworkStringTables_GameRules()
 {
-	g_StringTableGameRules = networkstringtable->CreateStringTable( GAMERULES_STRINGTABLE_NAME, 1 );
+	g_StringTableGameRules = ServerStringTables()->CreateStringTable( GAMERULES_STRINGTABLE_NAME, 1 );
 }
 
 void SourceSharp_CreateGameRules()

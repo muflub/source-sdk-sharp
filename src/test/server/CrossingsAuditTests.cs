@@ -77,6 +77,7 @@ public class CrossingsAuditTests
         "ClientOnCreateMove", "ClientRenderLeafList", "ClientRenderLeafViewModels",
         "ClientLeafChangeRenderableRenderGroup", "ClientLeafAddShadow", "ClientLeafRemoveShadow", "ClientLeafProjectShadow", "ClientLeafProjectFlashlight", "ClientLeafEnumerateShadowsInLeaves",
         "ClientNativeTempEntity", "ServerNativeTempEntity",
+        "ServerDecalIndexForName", "ServerDecalNameForIndex", "ServerDecalTranslateForGameMaterial",
     };
 
     /// <summary>

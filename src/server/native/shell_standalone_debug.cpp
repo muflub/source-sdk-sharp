@@ -17,7 +17,6 @@
 #include "ss_entityhandle.h"
 
 IServerNetworkable *CreateNetworkableEntityByName( const char *className );
-std::vector<CStandaloneEntity *> &StandaloneEntities();
 
 // Spawns one at a position (an entity outside the PVS is never transmitted).
 SS_NATIVE_COMMAND( cs_standalone_spawn )

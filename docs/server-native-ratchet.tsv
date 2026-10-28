@@ -32,7 +32,7 @@ src/server/native/shell_standalone_debug.cpp	24
 src/server/native/shell_standalone_hierarchy.cpp	131
 src/server/native/shell_standalone_player.cpp	102
 src/server/native/shell_standalone_player_debug.cpp	30
-src/server/native/shell_stringtables.cpp	48
+src/server/native/shell_stringtables.cpp	45
 src/server/native/shell_tempents.cpp	32
 src/server/native/shell_tempents_debug.cpp	144
 src/server/native/shell_transmitsteps.cpp	13

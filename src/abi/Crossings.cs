@@ -92,9 +92,15 @@ public enum CrossingOp
     ClientGlowDrawOverlays = 37,
     ServerSkyboxAreaForClient = 38,
     ServerEarPositionForClient = 39,
-    ServerDecalIndexForName = 40,
-    ServerDecalNameForIndex = 41,
-    ServerDecalTranslateForGameMaterial = 42,
+    /// <summary>IManagedRuntimeClient::LevelInitPreEntity: the level's prediction switch, once per level (lane M1-B). CLIENT ONLY.</summary>
+    /// <remarks>Value 40 since the server's native decal queries (ServerDecalIndexForName) retired, 2026-10-27 (it was 384): the ops stay contiguous.</remarks>
+    ClientLevelInitPreEntity = 40,
+    /// <summary>IManagedRuntimeClient::PostInit: the bicubic lightmap default, once per process (lane M1-B). CLIENT ONLY.</summary>
+    /// <remarks>Value 41 since the server's native decal queries (ServerDecalNameForIndex) retired, 2026-10-27 (it was 385): the ops stay contiguous.</remarks>
+    ClientPostInit = 41,
+    /// <summary>IManagedTempEntsClient::SuppressLocalTempEnt: a temp entity the client makes for itself asks whether prediction suppresses it (lane M1-C, c_te.cpp's SuppressTE). CLIENT ONLY.</summary>
+    /// <remarks>Value 42 since the server's native decal queries (ServerDecalTranslateForGameMaterial) retired, 2026-10-27 (it was 386): the ops stay contiguous.</remarks>
+    ClientSuppressLocalTempEnt = 42,
     ServerSoundEntInit = 43,
     ServerSoundEntShutdown = 44,
     ServerSoundEntResetClientSound = 45,
@@ -948,12 +954,6 @@ public enum CrossingOp
     ClientMapMaterialReloadPlan = 382,
     /// <summary>IManagedRuntimeClient::WorldDataChanged: worldspawn's update, once per change; what its arrival does (WorldArrival). CLIENT ONLY.</summary>
     ClientWorldDataChanged = 383,
-    /// <summary>IManagedRuntimeClient::LevelInitPreEntity: the level's prediction switch, once per level (lane M1-B). CLIENT ONLY.</summary>
-    ClientLevelInitPreEntity = 384,
-    /// <summary>IManagedRuntimeClient::PostInit: the bicubic lightmap default, once per process (lane M1-B). CLIENT ONLY.</summary>
-    ClientPostInit = 385,
-    /// <summary>IManagedTempEntsClient::SuppressLocalTempEnt: a temp entity the client makes for itself asks whether prediction suppresses it (lane M1-C, c_te.cpp's SuppressTE). CLIENT ONLY.</summary>
-    ClientSuppressLocalTempEnt = 386,
 }
 
 /// <summary>

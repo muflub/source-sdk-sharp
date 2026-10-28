@@ -15,7 +15,6 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_clientsteps.cpp
     ${LOCAL}/shell_commandclient.cpp
     ${LOCAL}/shell_debugoverlays.cpp
-    ${LOCAL}/shell_decals.cpp
     ${LOCAL}/shell_dispatch.cpp
     ${LOCAL}/shell_engineboundary.cpp
     ${LOCAL}/shell_engineservices.cpp

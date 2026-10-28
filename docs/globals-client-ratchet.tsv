@@ -408,7 +408,9 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   interfaces acquired and never read (datacache, scenefilecache, inputsystem, gameuifuncs, gamestatsuploader).
 # LOWERED 2026-10-26, 603 -> 599: UTIL_IsLowViolence is C# (ClientLowViolence); client_util_library.o's four violence_* refs pruned (make globals-client-ledger).
 # LOWERED 2026-10-26, 599 -> 595: util_shared_library.o's four violence_* refs went with UTIL_ShouldShowBlood.
-client_globals_link_level	src/game/client	595
+# LOWERED 2026-10-27: the payload prop names are CSourceSharpPayloadPropNames, filled at run time; the server's is a
+#   DLL-tier member (T6) and the client's one function-local table instead of an array and its built flag. Link level 595 -> 594, unruled 548 -> 547.
+client_globals_link_level	src/game/client	594
 # LOWERED 2026-10-25, 668 -> 653 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema
@@ -469,7 +471,7 @@ client_globals_link_level	src/game/client	595
 # LOWERED 2026-10-25, 561 -> 556 (the same seven rows; five of them were UNRULED).
 # LOWERED 2026-10-26, 556 -> 552: the same four, UNRULED.
 # LOWERED 2026-10-26, 552 -> 548: the same four, UNRULED.
-client_globals_unruled	docs/globals-client-ledger.tsv	548
+client_globals_unruled	docs/globals-client-ledger.tsv	547
 # LOWERED 2026-10-25, 616 -> 601 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema

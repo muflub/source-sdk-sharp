@@ -42,8 +42,6 @@ using ss::kDamageYes;
 IGameEntity *CreateEntityByNameEither( const char *className, IGameEntity **ppOutBaseEntity,
 									   IServerEntity **ppOutServerEntity );
 
-std::vector<CStandaloneEntity *> &StandaloneEntities();
-
 IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity )
 {
 	return SourceSharp_ShellFromHandleEntity( pHandleEntity );

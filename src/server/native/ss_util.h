@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "server_engine.h"
 #include "eiface.h"
 
 #include "engine/IEngineTrace.h"
@@ -18,7 +19,6 @@
 class IServerNetworkable;
 
 extern IVEngineServer *engine;
-extern IEngineTrace *enginetrace;
 
 // Defined in our TUs.
 void UTIL_ClearTrace( trace_t &trace );
@@ -54,7 +54,7 @@ inline void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, 
 	Ray_t ray;
 	ray.Init( vecAbsStart, vecAbsEnd );
 
-	enginetrace->TraceRay( ray, mask, pFilter, ptr );
+	ServerTrace()->TraceRay( ray, mask, pFilter, ptr );
 }
 
 } // namespace ss

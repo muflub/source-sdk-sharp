@@ -198,6 +198,29 @@ TEST( PayloadPropName, IsThreeFixedDigits )
 	EXPECT_STREQ( "p511", szName );
 }
 
+TEST( PayloadPropNameTable, AnswersEachWordsNameAndNothingOutsideThem )
+{
+	CSourceSharpPayloadPropNames names;
+
+	EXPECT_STREQ( "p000", names.At( 0 ) );
+	EXPECT_STREQ( "p042", names.At( 42 ) );
+	EXPECT_STREQ( "p511", names.At( SOURCESHARP_PAYLOAD_MAX_WORDS - 1 ) );
+	EXPECT_EQ( nullptr, names.At( -1 ) );
+	EXPECT_EQ( nullptr, names.At( SOURCESHARP_PAYLOAD_MAX_WORDS ) );
+}
+
+// A prop keeps the pointer it was given, so asking again must answer the same storage.
+TEST( PayloadPropNameTable, AnswersTheSameStorageEveryTime )
+{
+	CSourceSharpPayloadPropNames names;
+
+	const char *pFirst = names.At( 7 );
+	names.At( 300 );
+
+	EXPECT_EQ( pFirst, names.At( 7 ) );
+	EXPECT_STREQ( "p007", pFirst );
+}
+
 //-----------------------------------------------------------------------------
 // Every name in the largest tier is distinct. A collision would pair two send
 // props onto one recv prop and drop the other, which is a decode that succeeds

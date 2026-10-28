@@ -757,7 +757,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedConsoleOutput",
                       v => ManagedAreaFactory.Create(v, new ConsoleDisplayBinding(_engine.Crossings, _consoleLines = _services.Require<ConsoleLines>())));
         _bindings.Add("IManagedResources",
-                      v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, Log, this)));
+                      v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedSaveRestore",
                       v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this,
                                                                                new SaveGameSession(Log, _services.Require<ISaveMemory>()))));
@@ -3516,9 +3516,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     /// <inheritdoc/>
     public IServerHosting Hosting => _gameDll;
-
-    /// <inheritdoc/>
-    public IServerDecals Decals => _decals;
 
     /// <inheritdoc/>
     public IServerPropData PropData => _propData;

@@ -10,14 +10,13 @@
 
 #pragma once
 
+#include "server_engine.h"
 #include "iserverentity.h"
 #include "engine/IStaticPropMgr.h"
 #include "gametrace.h"
 
 #include "igameentity_fwd.h"
 #include "trace_hit.h"
-
-extern IStaticPropMgrServer *staticpropmgr;
 
 namespace ss
 {
@@ -30,7 +29,7 @@ inline IGameEntity *GameEntityFromEntityHandle( IHandleEntity *pHandleEntity )
 		return NULL;
 
 	// A static prop is not an entity at all and has no interface to ask.
-	if ( staticpropmgr->IsStaticProp( pHandleEntity ) )
+	if ( ServerStaticProps()->IsStaticProp( pHandleEntity ) )
 		return NULL;
 
 	// IServerEntity, IServerUnknown and IHandleEntity are a single-inheritance

@@ -19,24 +19,6 @@
 #include "server_state.h"
 #endif
 
-// Interned prop names, filled on first ask rather than by a static constructor, so
-// nothing depends on static-init order relative to tier0.
-static char g_PayloadPropNames[SOURCESHARP_PAYLOAD_MAX_WORDS][SOURCESHARP_PAYLOAD_NAME_BYTES];
-static bool g_bPayloadPropNamesBuilt = false;
-
-static void SourceSharpPayload_BuildPropNames()
-{
-	if ( g_bPayloadPropNamesBuilt )
-		return;
-
-	for ( int i = 0; i < SOURCESHARP_PAYLOAD_MAX_WORDS; i++ )
-	{
-		SourceSharpPayload_FormatPropName( i, g_PayloadPropNames[i], SOURCESHARP_PAYLOAD_NAME_BYTES );
-	}
-
-	g_bPayloadPropNamesBuilt = true;
-}
-
 // The published type table. Both shells must share one, so the answer does not depend on
 // which shell looks a type up.
 #ifdef CLIENT_DLL
@@ -54,14 +36,20 @@ CSourceSharpTypeTable &SourceSharp_NetTypes()
 }
 #endif
 
+#ifdef CLIENT_DLL
 const char *SourceSharpPayload_PropName( int iWord )
 {
-	if ( iWord < 0 || iWord >= SOURCESHARP_PAYLOAD_MAX_WORDS )
-		return NULL;
-
-	SourceSharpPayload_BuildPropNames();
-	return g_PayloadPropNames[iWord];
+	static CSourceSharpPayloadPropNames s_Names;
+	return s_Names.At( iWord );
 }
+#else
+// The server's names live on CServerDllState with the tables built from them.
+const char *SourceSharpPayload_PropName( int iWord )
+{
+	AssertMsg( ShellGameDll_Dll(), "a payload prop name was asked for outside DLLInit..DLLShutdown" );
+	return ShellGameDll_Dll()->m_PayloadPropNames.At( iWord );
+}
+#endif
 
 #ifndef CLIENT_DLL
 

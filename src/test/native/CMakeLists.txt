@@ -1450,7 +1450,7 @@ ss_cpptest_mathlib(template_transform_test
 # forward-vector-to-yaw conversion are the subject.
 ss_cpptest_mathlib(overlay_library_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    INCLUDES sourcesharp/game/shared
+    INCLUDES sourcesharp/game/shared sourcesharp/game/server
     SOURCES sourcesharp/test/overlay_library_test.cpp
             sourcesharp/game/shared/overlay_library.cpp)
 

@@ -84,6 +84,10 @@ SKIP_EXIT = 125            # git bisect run: this commit cannot be tested
 # (never copied between trees): a fresh worktree has none, and the step fails
 # for that alone. Regenerated and compiled each run, about 7 s.
 SANDBOX_MAP = ["make", "map", "MAP=ss_sandbox"]
+# Tracked files the gate's own steps rewrite: `make map` writes the sandbox vmf from
+# its generator, which a commit need not hold byte for byte. Left dirty, the file
+# refuses the next checkout; the 2026-10-26 night and a bisect both died on it.
+GENERATED_TRACKED = ["game/mod_test/maps/ss_sandbox.vmf"]
 
 
 # ===========================================================================
@@ -482,8 +486,15 @@ def fork_clean(report, fork):
     return n == 0
 
 
+def restore_generated(wt):
+    """Puts GENERATED_TRACKED back as the checked-out commit holds them; nothing else."""
+    if git(wt, "status", "--porcelain", "--", *GENERATED_TRACKED, check=False).strip():
+        git(wt, "checkout", "--", *GENERATED_TRACKED)
+
+
 def ensure_worktree(wt, ref="main"):
     if os.path.isdir(os.path.join(wt, ".git")) or os.path.isfile(os.path.join(wt, ".git")):
+        restore_generated(wt)
         git(wt, "checkout", "--detach", ref)
     else:
         git(main_checkout(), "worktree", "add", "--detach", wt, ref)
@@ -502,6 +513,7 @@ def bisect(report, wt, fork, good, bad, steps, rates, state, env, log, stamp):
     out_text, blog = "", ""
     try:
         git(wt, "bisect", "reset", check=False)
+        restore_generated(wt)
         git(wt, "bisect", "start", bad, good)
         p = subprocess.run(["git", "-C", wt, "bisect", "run", sys.executable, runner, "--bisect-step",
                             "--worktree", wt, "--fork", fork, "--steps", ",".join(steps),
@@ -548,7 +560,11 @@ def bisect_step(args):
     if run_step(report, "debug", ["make", "debug"], wt, env, log) != 0:
         report.say("build failed: skip")
         return SKIP_EXIT
-    if run_step(report, "map", SANDBOX_MAP, wt, env, log) != 0:
+    map_rc = run_step(report, "map", SANDBOX_MAP, wt, env, log)
+    # The built map is what the gate loads; the rewritten vmf would refuse the
+    # bisect's next checkout.
+    restore_generated(wt)
+    if map_rc != 0:
         report.say("the sandbox map did not build: skip")
         return SKIP_EXIT
     helptext = subprocess.run([os.path.join(wt, "tools", "live-gate"), "--help"],
@@ -632,6 +648,7 @@ def run(args):
     finally:
         try:
             git(wt, "bisect", "reset", check=False)
+            restore_generated(wt)
             git(wt, "checkout", "--detach", sha, check=False)
         except Exception:  # noqa: BLE001
             pass
@@ -952,6 +969,33 @@ def self_test():
             fh.write("moved\n")
         ok(go(0) == (0, 1), "pins changed: setup runs even when --check is clean")
         ok(go(0) == (0, 0), "and the new pins are stamped")
+    with tempfile.TemporaryDirectory() as d:
+        genv = dict(os.environ)
+        scrub_git_env(genv)
+
+        def g(*a):
+            subprocess.run(["git", "-C", d] + list(a), env=genv, check=True, capture_output=True)
+
+        g("init", "-q")
+        g("config", "user.email", "gate@test")
+        g("config", "user.name", "gate")
+        gen = os.path.join(d, GENERATED_TRACKED[0])
+        os.makedirs(os.path.dirname(gen))
+        other = os.path.join(d, "other.txt")
+        for path in (gen, other):
+            with open(path, "w") as fh:
+                fh.write("committed\n")
+        g("add", "-A")
+        g("commit", "-q", "-m", "c")
+        for path in (gen, other):
+            with open(path, "w") as fh:
+                fh.write("rewritten\n")
+        ok(git(d, "status", "--porcelain", check=False).count("\n") == 1, "both files are dirty before")
+        restore_generated(d)
+        ok(open(gen).read() == "committed\n", "the generated vmf is back as the commit holds it")
+        ok(open(other).read() == "rewritten\n", "and nothing else is touched")
+        restore_generated(d)
+        ok(open(gen).read() == "committed\n", "a clean file is left alone")
     e = {"GIT_DIR": "/x/.git", "GIT_WORK_TREE": "/x", "PATH": "/bin", "GITHUB": "keep"}
     scrub_git_env(e)
     ok(e == {"PATH": "/bin", "GITHUB": "keep"}, "git's GIT_* variables are dropped, nothing else")

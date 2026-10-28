@@ -9,6 +9,7 @@
 // IServerGameClients: everything the engine asks the game about one player,
 // exposed under three version strings so three engine vintages can load it.
 
+#include "server_engine.h"
 #include "eiface.h"
 #include "ss_entityhandle.h"
 #include "shell_gameclients.h"
@@ -22,7 +23,6 @@
 
 extern IVEngineServer *engine;
 extern CGlobalVars *gpGlobals;
-extern IMDLCache *mdlcache;
 void ClientActive( edict_t *pEdict, bool bLoadGame );
 void ClientPutInServer( edict_t *pEdict, const char *playername );
 void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize );
@@ -176,7 +176,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientActive );
 
-	MDLCACHE_CRITICAL_SECTION();
+	MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 
 	// On a savegame load the engine skips ClientPutInServer and calls only
 	// ClientActive, and no saved entity table recreates the player, so create it

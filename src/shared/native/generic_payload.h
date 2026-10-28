@@ -80,6 +80,33 @@ inline bool SourceSharpPayload_FormatPropName( int iWord, char *pOut, int nOutBy
 	return true;
 }
 
+// Every payload prop name, filled on first ask: a SendProp or RecvProp keeps a pointer
+// to its name, so the table must outlive every table built from it. Filled at run
+// time, not built as constant data, so it costs the binary nothing on disk.
+class CSourceSharpPayloadPropNames
+{
+public:
+	const char *At( int iWord )
+	{
+		if ( iWord < 0 || iWord >= SOURCESHARP_PAYLOAD_MAX_WORDS )
+			return nullptr;
+
+		if ( !m_bBuilt )
+		{
+			for ( int i = 0; i < SOURCESHARP_PAYLOAD_MAX_WORDS; i++ )
+				SourceSharpPayload_FormatPropName( i, m_Names[i], SOURCESHARP_PAYLOAD_NAME_BYTES );
+
+			m_bBuilt = true;
+		}
+
+		return m_Names[iWord];
+	}
+
+private:
+	char m_Names[SOURCESHARP_PAYLOAD_MAX_WORDS][SOURCESHARP_PAYLOAD_NAME_BYTES] = {};
+	bool m_bBuilt = false;
+};
+
 // A packed field's placement inside the blob, as managed reports it: the word's offset,
 // the low bit and the width. Native only shifts and masks; it never derives a layout.
 // A width of zero means unresolved, and every reader answers zero for it.

@@ -45,6 +45,7 @@
 #endif
 #ifndef CLIENT_DLL
 #include "managed_convar_ref.h"
+#include "server_engine.h"
 #endif
 #include "movement_ground.h"
 #include "movement_ground_writeback.h"
@@ -761,7 +762,7 @@ void SourceSharp_MoveTraceServer( const float *pStart, const float *pEnd, const 
 	trace_t pm;
 	Ray_t ray;
 	ray.Init( SS3E_ReadVec( pStart ), SS3E_ReadVec( pEnd ), SS3E_ReadVec( pMins ), SS3E_ReadVec( pMaxs ) );
-	enginetrace->TraceRay( ray, (unsigned int)nMask, static_cast<ITraceFilter *>( pFilter ), &pm );
+	ServerTrace()->TraceRay( ray, (unsigned int)nMask, static_cast<ITraceFilter *>( pFilter ), &pm );
 
 	IHandleEntity *pGround = MovementGroundFromTrace( pm );
 

@@ -9,7 +9,10 @@
 // The standalone entity hierarchy's shell: what the engine demands. Decisions are
 // managed code's, reached through the OnManaged* virtuals subclasses implement.
 
+#include "server_engine.h"
 #include "ss_util.h"
+#include "server_state.h"
+#include "standalone_list.h"
 
 #include "standalone_collision_rules.h"
 
@@ -40,24 +43,33 @@
 #include "ss_takedamageinfo.h"
 #include "ss_entityhandle.h"
 
-extern ISpatialPartition *partition;
-extern IVModelInfo *modelinfo;
 extern CGlobalVars *gpGlobals;
 
 // A slot outliving its entity would let C# write into freed memory, so the shell
 // that frees the memory closes the slot.
 void SourceSharp_EntitySlotClosed( uint32_t hEntity );
 
-// Every live standalone entity; gEntList's traversals skip them.
-static std::vector<CStandaloneEntity *> g_Standalones;
-
-// Removals managed code did not take (a shell never bound on the managed side).
-// Emptied after the frame's thinks.
-static std::vector<CStandaloneEntity *> g_PendingDeletes;
-
-std::vector<CStandaloneEntity *> &StandaloneEntities()
+// This map's standalone shells (CServerLevelState::m_Shells), or NULL outside a level.
+static CServerEntityShells *Shells()
 {
-	return g_Standalones;
+	CServerLevelState *pLevel = ShellGameDll_Level();
+	return pLevel ? &pLevel->m_Shells : NULL;
+}
+
+// Every shell joins the level's list, which deletes it at the level's end.
+static void TrackShell( CStandaloneEntity *pEnt )
+{
+	CServerEntityShells *pShells = Shells();
+	AssertMsg( pShells, "a shell constructed outside a level would outlive it" );
+
+	if ( pShells )
+		pShells->m_Live.push_back( pEnt );
+}
+
+CStandaloneList StandaloneEntities()
+{
+	const CServerEntityShells *pShells = Shells();
+	return pShells ? CStandaloneList( pShells->m_Live.data(), pShells->m_Live.size() ) : CStandaloneList();
 }
 
 IGameEntity *SourceSharpEntity_t::GameEntity() const
@@ -206,24 +218,24 @@ CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStart
 	if ( !pClassName || !pClassName[0] )
 		return NULL;
 
+	const CStandaloneList live = StandaloneEntities();
 	size_t nStart = 0;
 
 	if ( pStartAfter )
 	{
-		std::vector<CStandaloneEntity *>::const_iterator it =
-			std::find( g_Standalones.begin(), g_Standalones.end(), pStartAfter );
+		CStandaloneEntity *const *it = std::find( live.begin(), live.end(), pStartAfter );
 
 		// A removed start entity ends the iteration; restarting would never terminate.
-		if ( it == g_Standalones.end() )
+		if ( it == live.end() )
 			return NULL;
 
-		nStart = ( it - g_Standalones.begin() ) + 1;
+		nStart = ( it - live.begin() ) + 1;
 	}
 
-	auto it = std::find_if( g_Standalones.begin() + nStart, g_Standalones.end(), [pClassName]( CStandaloneEntity *pEnt )
+	auto it = std::find_if( live.begin() + nStart, live.end(), [pClassName]( CStandaloneEntity *pEnt )
 							{ return StandaloneNameMatches( pClassName, pEnt->GetClassname() ); } );
 
-	return ( it != g_Standalones.end() ) ? *it : NULL;
+	return ( it != live.end() ) ? *it : NULL;
 }
 
 // Allocated as the engine allocates an entity: PvAllocEntPrivateData returns
@@ -405,8 +417,11 @@ CStandaloneEntity::~CStandaloneEntity()
 	if ( BlockHandle().IsValid() )
 		SourceSharp_SlotUnbind( BlockHandle().GetEntryIndex() );
 
-	ss::erase( g_Standalones, this );
-	ss::erase( g_PendingDeletes, this );
+	if ( CServerEntityShells *pShells = Shells() )
+	{
+		ss::erase( pShells->m_Live, this );
+		ss::erase( pShells->m_PendingDeletes, this );
+	}
 
 	// The solver object is native and owned here; a level change deletes shells
 	// that were never marked, so it must go with the shell.
@@ -419,7 +434,7 @@ CStandaloneEntity::~CStandaloneEntity()
 
 	if ( m_Partition != PARTITION_INVALID_HANDLE )
 	{
-		::partition->DestroyHandle( m_Partition );
+		ServerPartition()->DestroyHandle( m_Partition );
 		m_Partition = PARTITION_INVALID_HANDLE;
 	}
 
@@ -441,23 +456,24 @@ CStandaloneEntity::~CStandaloneEntity()
 	}
 }
 
-// The player's edict, in transit from ClientPutInServer to PostConstruct.
-static edict_t *s_pPendingPlayerEdict = NULL;
-
+// The player's edict, in transit from ClientPutInServer to PostConstruct (the DLL tier's).
 void SourceSharp_SetPendingPlayerEdict( edict_t *pEdict )
 {
-	if ( s_pPendingPlayerEdict && pEdict )
+	edict_t *&pPending = ShellGameDll_Dll()->m_Players.m_pPendingEdict;
+
+	if ( pPending && pEdict )
 	{
 		Warning( "[SourceSharp] standalone player: pending edict overwritten before it was claimed\n" );
 	}
 
-	s_pPendingPlayerEdict = pEdict;
+	pPending = pEdict;
 }
 
 edict_t *SourceSharp_ClaimPendingPlayerEdict()
 {
-	edict_t *pEdict = s_pPendingPlayerEdict;
-	s_pPendingPlayerEdict = NULL;
+	edict_t *&pPending = ShellGameDll_Dll()->m_Players.m_pPendingEdict;
+	edict_t *pEdict = pPending;
+	pPending = NULL;
 	return pEdict;
 }
 
@@ -478,7 +494,8 @@ uint32_t CStandaloneEntity::ManagedHandle() const
 
 const model_t *CStandaloneEntity::GetCollisionModel()
 {
-	return Block().Head.CollisionModelIndex > 0 ? modelinfo->GetModel( Block().Head.CollisionModelIndex ) : NULL;
+	return Block().Head.CollisionModelIndex > 0 ? ServerModelInfo()->GetModel( Block().Head.CollisionModelIndex )
+												: NULL;
 }
 
 int CStandaloneEntity::EntIndex() const
@@ -496,8 +513,8 @@ void CStandaloneEntity::SetModelName( const char *pModel )
 	ss::StrCopy( m_szModel, pModel, sizeof( m_szModel ) );
 
 	// A brush model ("*23") is already in the BSP, so it is looked up, not precached.
-	Block().Head.ModelIndex =
-		SourceSharp_IsBrushModelName( m_szModel ) ? modelinfo->GetModelIndex( m_szModel ) : Precache_Model( m_szModel );
+	Block().Head.ModelIndex = SourceSharp_IsBrushModelName( m_szModel ) ? ServerModelInfo()->GetModelIndex( m_szModel )
+																		: Precache_Model( m_szModel );
 
 	if ( Block().Head.ModelIndex <= 0 )
 	{
@@ -510,10 +527,10 @@ void CStandaloneEntity::SetModelName( const char *pModel )
 
 	// A brush is not centred on its origin, so it takes its bounds from the model.
 	// A player keeps its movement hull (standalone_model_bounds.h).
-	if ( const model_t *pModelPtr = modelinfo->GetModel( Block().Head.ModelIndex ) )
+	if ( const model_t *pModelPtr = ServerModelInfo()->GetModel( Block().Head.ModelIndex ) )
 	{
 		Vector vecMins, vecMaxs;
-		modelinfo->GetModelBounds( pModelPtr, vecMins, vecMaxs );
+		ServerModelInfo()->GetModelBounds( pModelPtr, vecMins, vecMaxs );
 
 		if ( StandaloneModel_AdoptsBounds( IsPlayer(), vecMins != vecMaxs ) )
 			SetCollisionBounds( vecMins, vecMaxs );
@@ -534,7 +551,7 @@ void CStandaloneEntity::SetVisible( bool bVisible )
 
 	// A lookup, not a precache: the model was precached at spawn, and a precache
 	// after level load warns.
-	const int nIndex = modelinfo->GetModelIndex( m_szModel );
+	const int nIndex = ServerModelInfo()->GetModelIndex( m_szModel );
 
 	if ( nIndex != Block().Head.ModelIndex )
 	{
@@ -674,7 +691,7 @@ void CStandaloneEntity::UpdatePartition()
 	{
 		if ( m_Partition != PARTITION_INVALID_HANDLE )
 		{
-			::partition->DestroyHandle( m_Partition );
+			ServerPartition()->DestroyHandle( m_Partition );
 			m_Partition = PARTITION_INVALID_HANDLE;
 		}
 
@@ -683,12 +700,12 @@ void CStandaloneEntity::UpdatePartition()
 
 	if ( m_Partition == PARTITION_INVALID_HANDLE )
 	{
-		m_Partition = ::partition->CreateHandle( static_cast<IHandleEntity *>( static_cast<IServerEntity *>( this ) ) );
+		m_Partition = ServerPartition()->CreateHandle( static_cast<IServerEntity *>( this ) );
 	}
 
-	::partition->Remove( PARTITION_ENGINE_NON_STATIC_EDICTS | PARTITION_ENGINE_SOLID_EDICTS |
-							 PARTITION_ENGINE_TRIGGER_EDICTS,
-						 m_Partition );
+	ServerPartition()->Remove( PARTITION_ENGINE_NON_STATIC_EDICTS | PARTITION_ENGINE_SOLID_EDICTS |
+								   PARTITION_ENGINE_TRIGGER_EDICTS,
+							   m_Partition );
 
 	SpatialPartitionListMask_t mask = PARTITION_ENGINE_NON_STATIC_EDICTS;
 
@@ -698,7 +715,7 @@ void CStandaloneEntity::UpdatePartition()
 	if ( Block().Head.SolidFlags & FSOLID_TRIGGER )
 		mask |= PARTITION_ENGINE_TRIGGER_EDICTS;
 
-	::partition->Insert( mask, m_Partition );
+	ServerPartition()->Insert( mask, m_Partition );
 	MovePartitionElement();
 }
 
@@ -707,86 +724,28 @@ void CStandaloneEntity::UpdatePartition()
 // The partition walk is the engine's own TriggerMoved, so "is this inside that"
 // has one answer.
 
-namespace
+// Said once per level: the list only fills when managed never reads it.
+static void WarnOverlapsFull( bool bFirstOverflow )
 {
-// g_Pending accumulates the engine's overlap reports throughout the frame.
-// g_Report is the frame's answer, built once and not consumed by reading: a
-// second ask must see the same pairs, or the diff reads a departure. Both are
-// flat handle pairs, element 2n and 2n+1, the shape the ABI hands over.
-std::vector<uint32_t> g_Pending;
-std::vector<uint32_t> g_Report;
-
-int g_ReportFrame = -1;
-
-// Pairs the solver holds open: reported every frame until it says they ended,
-// so the managed diff sees a continuing overlap.
-std::vector<uint32_t> g_SolverHeld;
-
-// A ceiling, not a size: the list is drained every frame, and only grows
-// unbounded when managed code never reads it.
-const int kMaxOverlapPairs = 8192;
-
-bool g_bOverlapsOverflowed = false;
-
-// Appends a pair once; the engine can report the same pair twice in a frame.
-void OverlapAppend( std::vector<uint32_t> &list, uint32_t hOne, uint32_t hTwo )
-{
-	if ( hOne == INVALID_EHANDLE_INDEX || hTwo == INVALID_EHANDLE_INDEX || hOne == hTwo )
-		return;
-
-	if ( (int)list.size() >= kMaxOverlapPairs * 2 )
-	{
-		if ( !g_bOverlapsOverflowed )
-		{
-			g_bOverlapsOverflowed = true;
-			Warning( "[SourceSharp/Touch] the overlap list reached %d pairs without being "
-					 "read. Managed code is not calling EntityOverlapReport, so no touch, "
-					 "trigger or pickup will fire.\n",
-					 kMaxOverlapPairs );
-		}
-
-		return;
-	}
-
-	for ( size_t i = 0; i + 1 < list.size(); i += 2 )
-	{
-		if ( ( list[i] == hOne && list[i + 1] == hTwo ) || ( list[i] == hTwo && list[i + 1] == hOne ) )
-			return;
-	}
-
-	list.push_back( hOne );
-	list.push_back( hTwo );
+	if ( bFirstOverflow )
+		Warning( "[SourceSharp/Touch] the overlap list reached %d pairs without being "
+				 "read. Managed code is not calling EntityOverlapReport, so no touch, "
+				 "trigger or pickup will fire.\n",
+				 CServerOverlaps::kMaxPairs );
 }
 
-void OverlapDrainPending( std::vector<uint32_t> &into )
+// The level's overlaps, or NULL outside a level: a report then has nowhere to go.
+static CServerOverlaps *Overlaps()
 {
-	for ( size_t i = 0; i + 1 < g_Pending.size(); i += 2 )
-		OverlapAppend( into, g_Pending[i], g_Pending[i + 1] );
-
-	g_Pending.clear();
-}
-
-void OverlapForget( std::vector<uint32_t> &list, uint32_t hOne, uint32_t hTwo )
-{
-	for ( size_t i = 0; i + 1 < list.size(); i += 2 )
-	{
-		if ( ( list[i] == hOne && list[i + 1] == hTwo ) || ( list[i] == hTwo && list[i + 1] == hOne ) )
-		{
-			list.erase( list.begin() + i, list.begin() + i + 2 );
-			return;
-		}
-	}
-}
+	CServerLevelState *pLevel = ShellGameDll_Level();
+	return pLevel ? &pLevel->m_Overlaps : NULL;
 }
 
 // Drops everything: on a level change every handle names a departing entity.
 void StandaloneEntities_ClearOverlaps()
 {
-	g_Pending.clear();
-	g_Report.clear();
-	g_SolverHeld.clear();
-	g_ReportFrame = -1;
-	g_bOverlapsOverflowed = false;
+	if ( CServerOverlaps *pOverlaps = Overlaps() )
+		pOverlaps->Clear();
 }
 
 // The engine says these two overlap (MarkEntitiesAsTouching), reported when
@@ -796,7 +755,9 @@ void CStandaloneEntity::Touch( const Toucher_t &toucher )
 	if ( !toucher.IsValid() )
 		return;
 
-	OverlapAppend( g_Pending, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() );
+	if ( CServerOverlaps *pOverlaps = Overlaps() )
+		WarnOverlapsFull(
+			pOverlaps->Append( pOverlaps->m_Pending, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() ) );
 }
 
 // The solver says something entered one of our physics triggers. Said once, so
@@ -806,7 +767,9 @@ void CStandaloneEntity::StartTouch( const Toucher_t &toucher )
 	if ( !toucher.IsValid() )
 		return;
 
-	OverlapAppend( g_SolverHeld, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() );
+	if ( CServerOverlaps *pOverlaps = Overlaps() )
+		WarnOverlapsFull(
+			pOverlaps->Append( pOverlaps->m_SolverHeld, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() ) );
 }
 
 // The solver says it left. Whether the pair still overlaps is the engine's
@@ -816,7 +779,8 @@ void CStandaloneEntity::EndTouch( const Toucher_t &toucher )
 	if ( !toucher.IsValid() )
 		return;
 
-	OverlapForget( g_SolverHeld, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() );
+	if ( CServerOverlaps *pOverlaps = Overlaps() )
+		pOverlaps->Forget( pOverlaps->m_SolverHeld, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() );
 }
 
 // Builds the frame's overlap pairs once, from the engine's TriggerMoved walk over
@@ -825,14 +789,21 @@ void CStandaloneEntity::EndTouch( const Toucher_t &toucher )
 // again with a bigger buffer returns the same list.
 int32_t SourceSharp_EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs )
 {
-	if ( gpGlobals->framecount != g_ReportFrame )
+	CServerOverlaps *pOverlaps = Overlaps();
+
+	if ( !pOverlaps )
+		return 0;
+
+	std::vector<uint32_t> &report = pOverlaps->m_Report;
+
+	if ( gpGlobals->framecount != pOverlaps->m_nReportFrame )
 	{
-		g_ReportFrame = gpGlobals->framecount;
-		g_Report.clear();
+		pOverlaps->m_nReportFrame = gpGlobals->framecount;
+		report.clear();
 
-		OverlapDrainPending( g_Report );
+		WarnOverlapsFull( pOverlaps->DrainPending( report ) );
 
-		for ( CStandaloneEntity *pEnt : g_Standalones )
+		for ( CStandaloneEntity *pEnt : StandaloneEntities() )
 		{
 			if ( !( pEnt->GetSolidFlags() & FSOLID_TRIGGER ) )
 				continue;
@@ -840,21 +811,22 @@ int32_t SourceSharp_EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs 
 			pEnt->TouchTriggers( pEnt->GetAbsOrigin() );
 		}
 
-		// The walk reports through MarkEntitiesAsTouching, into g_Pending.
-		OverlapDrainPending( g_Report );
+		// The walk reports through MarkEntitiesAsTouching, into m_Pending.
+		WarnOverlapsFull( pOverlaps->DrainPending( report ) );
 
-		for ( size_t i = 0; i + 1 < g_SolverHeld.size(); i += 2 )
-			OverlapAppend( g_Report, g_SolverHeld[i], g_SolverHeld[i + 1] );
+		const std::vector<uint32_t> &held = pOverlaps->m_SolverHeld;
+		for ( size_t i = 0; i + 1 < held.size(); i += 2 )
+			WarnOverlapsFull( pOverlaps->Append( report, held[i], held[i + 1] ) );
 	}
 
-	const int32_t nPairs = (int32_t)g_Report.size() / 2;
+	const int32_t nPairs = (int32_t)report.size() / 2;
 
 	if ( pOutPairs && nMaxPairs > 0 )
 	{
 		const int32_t nWrite = ( nPairs < nMaxPairs ) ? nPairs : nMaxPairs;
 
 		for ( int32_t i = 0; i < nWrite * 2; i++ )
-			pOutPairs[i] = g_Report[i];
+			pOutPairs[i] = report[i];
 	}
 
 	return nPairs;
@@ -935,7 +907,7 @@ void CStandaloneEntity::MovePartitionElement()
 	WorldCollisionBounds( &vecMins, &vecMaxs );
 	SourceSharp_SurroundingBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, &vecMins,
 								   &vecMaxs );
-	::partition->ElementMoved( m_Partition, vecMins, vecMaxs );
+	ServerPartition()->ElementMoved( m_Partition, vecMins, vecMaxs );
 }
 
 // Stock's SetRefEHandle mirrors the handle's serial into the edict, which tells
@@ -986,11 +958,11 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 
 	if ( pType && pType->nLayoutBytes > BlobBytes() )
 	{
-		static bool s_bWarnedShortBlob = false;
+		CServerLevelState *pLevel = ShellGameDll_Level();
 
-		if ( !s_bWarnedShortBlob )
+		if ( pLevel && !pLevel->m_bWarnedShortBlob )
 		{
-			s_bWarnedShortBlob = true;
+			pLevel->m_bWarnedShortBlob = true;
 			Warning( "[SourceSharp] standalone '%s': allocated a %d-byte blob (tier %d) for a "
 					 "class whose published layout is %d bytes. Its managed state would write "
 					 "past the end of the allocation. This is a startup ORDERING fault -- the "
@@ -1022,7 +994,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 				 "constructed and holds NO handle -- nothing will resolve it.\n",
 				 pClass->pClassName ? pClass->pClassName : "?" );
 
-		g_Standalones.push_back( this );
+		TrackShell( this );
 		return;
 	}
 
@@ -1067,7 +1039,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 
 	SetRefEHandle( hIssued );
 
-	g_Standalones.push_back( this );
+	TrackShell( this );
 }
 
 void CStandaloneEntity::Spawn()
@@ -1286,8 +1258,13 @@ void CStandaloneEntity::Remove()
 			return;
 	}
 
-	if ( std::find( g_PendingDeletes.begin(), g_PendingDeletes.end(), this ) == g_PendingDeletes.end() )
-		g_PendingDeletes.push_back( this );
+	CServerEntityShells *pShells = Shells();
+	AssertMsg( pShells, "a shell removed outside a level" );
+
+	if ( pShells &&
+		 std::find( pShells->m_PendingDeletes.begin(), pShells->m_PendingDeletes.end(), this ) ==
+			 pShells->m_PendingDeletes.end() )
+		pShells->m_PendingDeletes.push_back( this );
 }
 
 // Frees the shells behind a frame's removals, one crossing per frame. A handle
@@ -1311,10 +1288,13 @@ void StandaloneEntities_Finish()
 {
 	// From the tail: a destructor removes itself from this list, and removing a
 	// parent can append its children.
-	while ( !g_PendingDeletes.empty() )
-		delete g_PendingDeletes.back();
+	CServerEntityShells *pShells = Shells();
 
-	g_PendingDeletes.clear();
+	if ( !pShells )
+		return;
+
+	while ( !pShells->m_PendingDeletes.empty() )
+		delete pShells->m_PendingDeletes.back();
 }
 
 // Removes every standalone entity at level change; gEntList cannot see them, so
@@ -1323,11 +1303,14 @@ void StandaloneEntities_LevelShutdown()
 {
 	// From the end: the destructor removes the entity from the list being walked.
 	// Managed code has already emptied the parent links.
-	for ( int i = (int)g_Standalones.size() - 1; i >= 0; i-- )
-		delete g_Standalones[i];
+	if ( CServerEntityShells *pShells = Shells() )
+	{
+		for ( int i = (int)pShells->m_Live.size() - 1; i >= 0; i-- )
+			delete pShells->m_Live[i];
 
-	g_Standalones.clear();
-	g_PendingDeletes.clear();
+		pShells->m_Live.clear();
+		pShells->m_PendingDeletes.clear();
+	}
 
 	// Every handle in it names a destroyed entity, and a recycled entry would
 	// resolve to its new tenant.

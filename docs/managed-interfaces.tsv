@@ -32,9 +32,6 @@ IManagedRuntimeServer	OnWorldKeyValue	int	uint32_t hWorld, const char *pKey, con
 IManagedRuntimeServer	OnGetGameDescription	void	char *pOut, int nOutSize
 IManagedPhysicsFrame	CreateWorld	void *	void
 IManagedPhysicsFrame	PrecacheSurfaceSounds	int32_t	void
-IManagedResources	ServerDecalIndexForName	int32_t	const char *pszName
-IManagedResources	ServerDecalNameForIndex	int32_t	int32_t nIndex, char *pOut, int32_t nOutSize
-IManagedResources	ServerDecalTranslateForGameMaterial	int32_t	const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize
 IManagedResources	ModelPrecacheComponents	void	const char *pszModelName
 IManagedResources	ModelPrecacheCheck	void	const char *pszModelName, bool bAllowed
 IManagedSaveRestore	ReloadSave	int32_t	void

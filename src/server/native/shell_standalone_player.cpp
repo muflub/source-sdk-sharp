@@ -10,6 +10,7 @@
 // The standalone player's engine-facing state, the command path's native half, and the
 // physics shadow's pointers.
 
+#include "server_state.h"
 #include "ss_util.h"
 #include "ss_shareddefs.h"
 #include "ss_physics_shared.h"
@@ -47,15 +48,29 @@ enum
 };
 }
 
-// Field placements, resolved once per generation and shared by every player.
-static SourceSharpPlayerFields_t s_PlayerFields;
+// The players' DLL-tier state: field placements, the pending edict, the shadow counts.
+static CServerPlayersDll &Players()
+{
+	AssertMsg( ShellGameDll_Dll(), "the players were asked for outside DLLInit..DLLShutdown" );
+	return ShellGameDll_Dll()->m_Players;
+}
 
+// This map's players by entindex, or NULL outside a level.
+static CStandalonePlayer **PlayersByIndex()
+{
+	CServerLevelState *pLevel = ShellGameDll_Level();
+	return pLevel ? pLevel->m_Players.m_pByIndex : NULL;
+}
+
+// Field placements, resolved once per generation and shared by every player.
 static bool PlayerFieldsCurrent()
 {
-	if ( s_PlayerFields.IsCurrent() )
+	SourceSharpPlayerFields_t &fields = Players().m_Fields;
+
+	if ( fields.IsCurrent() )
 		return true;
 
-	return SourceSharpPlayerFields_Resolve( &s_PlayerFields );
+	return SourceSharpPlayerFields_Resolve( &fields );
 }
 
 // Native state to blob, after anything that moved it.
@@ -65,7 +80,7 @@ void CStandalonePlayer::SyncToBlob()
 		return;
 
 	// The engine side's three words only; the managed command loop publishes movement state.
-	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), s_PlayerFields, GetAbsOrigin(), GetHealth(), MvIsAlive() );
+	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), Players().m_Fields, GetAbsOrigin(), GetHealth(), MvIsAlive() );
 
 	NetworkStateChanged();
 }
@@ -81,9 +96,6 @@ int CStandalonePlayer::TakeDamage( const ss::CTakeDamageInfo &info )
 	return nTaken;
 }
 
-// Connected players by entindex, asked once per packet and per snapshot.
-static CStandalonePlayer *s_StandalonePlayers[ss::kMaxPlayers + 1];
-
 CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t *pEdict )
 {
 	if ( !pEdict )
@@ -94,10 +106,12 @@ CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t *pEdict )
 
 CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
 {
-	if ( nEntIndex < 1 || nEntIndex > ss::kMaxPlayers )
+	CStandalonePlayer **ppPlayers = PlayersByIndex();
+
+	if ( !ppPlayers || nEntIndex < 1 || nEntIndex > ss::kMaxPlayers )
 		return NULL;
 
-	return s_StandalonePlayers[nEntIndex];
+	return ppPlayers[nEntIndex];
 }
 
 CStandalonePlayer::CStandalonePlayer()
@@ -159,8 +173,10 @@ CStandalonePlayer::~CStandalonePlayer()
 
 	const int nIndex = EntIndex();
 
-	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers && s_StandalonePlayers[nIndex] == this )
-		s_StandalonePlayers[nIndex] = NULL;
+	CStandalonePlayer **ppPlayers = PlayersByIndex();
+
+	if ( ppPlayers && nIndex >= 1 && nIndex <= ss::kMaxPlayers && ppPlayers[nIndex] == this )
+		ppPlayers[nIndex] = NULL;
 }
 
 void CStandalonePlayer::SetPlayerName( const char *pName )
@@ -273,10 +289,15 @@ void CStandalonePlayer::QueuedUsercmds( int nCount )
 
 void CStandalonePlayer::RunAllQueuedCommands()
 {
+	CStandalonePlayer **ppPlayers = PlayersByIndex();
+
+	if ( !ppPlayers )
+		return;
+
 	for ( int i = 1; i <= ss::kMaxPlayers; i++ )
 	{
-		if ( s_StandalonePlayers[i] )
-			s_StandalonePlayers[i]->RunQueuedCommands();
+		if ( ppPlayers[i] )
+			ppPlayers[i]->RunQueuedCommands();
 	}
 }
 
@@ -446,9 +467,7 @@ void SourceSharp_PlayerSyncEngineSide( uint32_t hPlayer )
 // owns the teardown. The solver never pushes the player back.
 //
 // Shadows still in the solver, and those that outlived their environment, which is
-// recreated at every level change. physics.cpp checks both.
-int g_nSourceSharpPlayerShadowsLive = 0;
-int g_nSourceSharpPlayerShadowsOutlived = 0;
+// recreated at every level change (CServerPlayersDll). physics.cpp checks both.
 
 // Copies live, outlived into pOut.
 int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax )
@@ -456,7 +475,7 @@ int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax )
 	if ( !pOut || nMax <= 0 )
 		return 0;
 
-	const int32_t values[] = { g_nSourceSharpPlayerShadowsLive, g_nSourceSharpPlayerShadowsOutlived };
+	const int32_t values[] = { Players().m_nShadowsLive, Players().m_nShadowsOutlived };
 	const int32_t nAll = int32_t( sizeof( values ) / sizeof( values[0] ) );
 	const int32_t n = nMax < nAll ? nMax : nAll;
 	for ( int32_t i = 0; i < n; ++i )
@@ -528,7 +547,7 @@ void CStandalonePlayer::AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCr
 
 	// Remembered so the teardown can tell whether the environment that built it still exists.
 	m_pShadowEnv = physenv;
-	g_nSourceSharpPlayerShadowsLive++;
+	Players().m_nShadowsLive++;
 }
 
 void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
@@ -583,7 +602,7 @@ void CStandalonePlayer::DestroyVCollision()
 
 	// Counted once per set, whether freed or dropped.
 	if ( m_pShadowEnv )
-		g_nSourceSharpPlayerShadowsLive--;
+		Players().m_nShadowsLive--;
 
 	if ( m_pPhysicsController )
 	{
@@ -727,9 +746,11 @@ CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayer
 
 	const int nIndex = pPlayer->EntIndex();
 
-	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers )
+	CStandalonePlayer **ppPlayers = PlayersByIndex();
+
+	if ( ppPlayers && nIndex >= 1 && nIndex <= ss::kMaxPlayers )
 	{
-		s_StandalonePlayers[nIndex] = pPlayer;
+		ppPlayers[nIndex] = pPlayer;
 	}
 	else
 	{

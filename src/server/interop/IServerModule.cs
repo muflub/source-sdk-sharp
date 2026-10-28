@@ -232,28 +232,21 @@ public interface IServerModule
     IServerHosting Hosting { get; }
 
     /// <summary>
-    /// The decal script — plan_gamedll_after.md Phase A3.
+    /// propdata.txt's breakable-chunk table — plan_gamedll_after.md Phase A3.
     ///
     /// <para>
-    /// <b>A sixth subject rather than a member of one of the five.</b> Neither
-    /// a lifetime, a level, a frame, a listing nor a hosted process: it is a
-    /// GAME SYSTEM that used to be a row of <c>kServerSystems[]</c>, and what
-    /// asks it is not the engine but the shell's shim behind <c>decalsystem</c>.
-    /// The property exists so each thunk still resolves exactly one subject.
+    /// <b>A subject of its own rather than a member of one of the five.</b>
+    /// Neither a lifetime, a level, a frame, a listing nor a hosted process: it
+    /// is a GAME SYSTEM that used to be a row of <c>kServerSystems[]</c>. The
+    /// property exists so each thunk still resolves exactly one subject.
     /// </para>
-    /// </summary>
-    IServerDecals Decals { get; }
-
-    /// <summary>
-    /// propdata.txt's breakable-chunk table — plan_gamedll_after.md Phase A3.
-    /// A seventh subject, for <see cref="Decals"/>' reason.
     /// </summary>
     IServerPropData PropData { get; }
 
     /// <summary>
     /// The world's record of what recently made a noise —
-    /// plan_gamedll_after.md Phase A3, second pair. An eighth subject, for
-    /// <see cref="Decals"/>' reason.
+    /// plan_gamedll_after.md Phase A3, second pair. A subject of its own, for
+    /// <see cref="PropData"/>'s reason.
     ///
     /// <para>
     /// <b>It has TWO kinds of caller and one of them is not the shell.</b>
@@ -266,8 +259,8 @@ public interface IServerModule
     IServerSoundEnt SoundEnt { get; }
 
     /// <summary>
-    /// Sound envelopes — the same phase's other system. A ninth subject, for
-    /// <see cref="Decals"/>' reason, and unlike <see cref="SoundEnt"/> it has
+    /// Sound envelopes — the same phase's other system. A subject of its own, for
+    /// <see cref="PropData"/>'s reason, and unlike <see cref="SoundEnt"/> it has
     /// exactly one kind of caller: nothing managed creates a sound patch,
     /// because creating one needs a recipient filter and a filter is native.
     /// </summary>
@@ -275,7 +268,7 @@ public interface IServerModule
 
     /// <summary>
     /// <c>IServerGameEnts</c>' managed half — plan_server.md Phase 8b,
-    /// docs/plan-audit.md C4. A tenth subject, for <see cref="Decals"/>'
+    /// docs/plan-audit.md C4. A subject of its own, for <see cref="PropData"/>'s
     /// reason: the engine asks these of the ENTITY LIST, which is neither the
     /// lifetime, the level, the frame nor the listing.
     /// </summary>

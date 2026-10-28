@@ -20,8 +20,6 @@
 #include "standalone_bone_trace.h"
 #include "ss_string.h"
 
-std::vector<CStandaloneEntity *> &StandaloneEntities();
-
 #include "imanaged_areas.h"
 
 // TestHitboxes returning true means "I have hitboxes and tested them";

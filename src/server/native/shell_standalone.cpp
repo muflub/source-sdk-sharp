@@ -9,10 +9,11 @@
 //
 // The per-tier ServerClasses every networked standalone entity uses.
 
+#include "server_state.h"
 #include "shell_standalone_player.h"
 #include "standalone_nettable.h"
 
-std::vector<CStandaloneEntity *> &StandaloneEntities();
+#include "standalone_list.h"
 
 static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 {
@@ -63,17 +64,21 @@ static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 
 // One ServerClass per tier for the whole hierarchy, all registered at DLL init: the
 // engine walks g_pServerClassHead once, and the class list is negotiated at connect.
-static SendProp *g_pTierProps[SOURCESHARP_TIER_MAX] = { NULL };
-static SendTable *g_pTierTables[SOURCESHARP_TIER_MAX] = { NULL };
-static ServerClass *g_pTierClasses[SOURCESHARP_TIER_MAX] = { NULL };
-static bool g_bTiersRegistered = false;
+// Held by the DLL tier. The objects are never freed: the engine's class list points at them.
+static CServerStandaloneTiers &Tiers()
+{
+	AssertMsg( ShellGameDll_Dll(), "the standalone tiers were asked for outside DLLInit..DLLShutdown" );
+	return ShellGameDll_Dll()->m_StandaloneTiers;
+}
 
 static void RegisterStandaloneTiers()
 {
-	if ( g_bTiersRegistered )
+	CServerStandaloneTiers &tiers = Tiers();
+
+	if ( tiers.m_bRegistered )
 		return;
 
-	g_bTiersRegistered = true;
+	tiers.m_bRegistered = true;
 
 	int nShared = 0;
 	StandaloneNetFields( &nShared );
@@ -98,31 +103,31 @@ static void RegisterStandaloneTiers()
 			continue;
 		}
 
-		g_pTierProps[iTier] = new SendProp[nShared + nWords];
+		tiers.m_pProps[iTier] = new SendProp[nShared + nWords];
 
 		int nBuilt = 0;
-		BuildStandaloneProps( g_pTierProps[iTier], nBuilt );
+		BuildStandaloneProps( tiers.m_pProps[iTier], nBuilt );
 
-		if ( SourceSharpPayload_BuildSendProps( g_pTierProps[iTier] + nBuilt, nWords, nBlobBase ) != nWords )
+		if ( SourceSharpPayload_BuildSendProps( tiers.m_pProps[iTier] + nBuilt, nWords, nBlobBase ) != nWords )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': payload build refused %d word(s); "
 					 "not registered\n",
 					 pTableName, nWords );
-			delete[] g_pTierProps[iTier];
-			g_pTierProps[iTier] = NULL;
+			delete[] tiers.m_pProps[iTier];
+			tiers.m_pProps[iTier] = NULL;
 			continue;
 		}
 
 		nBuilt += nWords;
 
-		g_pTierTables[iTier] = new SendTable( g_pTierProps[iTier], nBuilt, pTableName );
-		g_pTierClasses[iTier] = new ServerClass( pClassName, g_pTierTables[iTier] );
+		tiers.m_pTables[iTier] = new SendTable( tiers.m_pProps[iTier], nBuilt, pTableName );
+		tiers.m_pClasses[iTier] = new ServerClass( pClassName, tiers.m_pTables[iTier] );
 
 		int nSlow = 0;
 
 		for ( int i = 0; i < nWords; i++ )
 		{
-			if ( !SourceSharpPayload_IsFastSendProxy( g_pTierTables[iTier]->GetProp( nShared + i ) ) )
+			if ( !SourceSharpPayload_IsFastSendProxy( tiers.m_pTables[iTier]->GetProp( nShared + i ) ) )
 				nSlow++;
 		}
 
@@ -144,12 +149,12 @@ static void RegisterStandaloneTiers()
 // Whether a ServerClass is one of the tiers, by identity rather than by name.
 bool SourceSharp_IsStandaloneTierServerClass( const ServerClass *pClass )
 {
-	if ( pClass == NULL )
+	if ( pClass == NULL || ShellGameDll_Dll() == NULL )
 		return false;
 
 	for ( int i = 0; i < SOURCESHARP_TIER_MAX; i++ )
 	{
-		if ( g_pTierClasses[i] == pClass )
+		if ( Tiers().m_pClasses[i] == pClass )
 			return true;
 	}
 
@@ -296,7 +301,7 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutW
 	if ( iTier < 0 || iTier >= SourceSharp_TierCount() )
 		return false;
 
-	SendTable *pTable = g_pTierTables[iTier];
+	SendTable *pTable = Tiers().m_pTables[iTier];
 
 	if ( !pTable )
 		return false;
@@ -353,7 +358,7 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutW
 // entities, so this file walks its own.
 void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecked, int *pOutAgreed )
 {
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities();
 
 	int nShared = 0;
 	StandaloneNetFields( &nShared );
@@ -399,7 +404,7 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 			continue;
 
 		const int iTier = pEnt->Tier();
-		SendTable *pTable = ( iTier >= 0 && iTier < SourceSharp_TierCount() ) ? g_pTierTables[iTier] : NULL;
+		SendTable *pTable = ( iTier >= 0 && iTier < SourceSharp_TierCount() ) ? Tiers().m_pTables[iTier] : NULL;
 
 		for ( int i = 0; pTable && i < nWords; i++ )
 		{
@@ -421,7 +426,7 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 // for the payload checks. Called by cs_sv_poke_payload.
 bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 {
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -456,7 +461,7 @@ bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 // index only, so the client can recompute it (SourceSharpPayload_ProbeWord).
 bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWords )
 {
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -494,7 +499,7 @@ bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWord
 // grew past the tier it was allocated at is stamped zero, which receivers refuse.
 void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 {
-	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
+	const CStandaloneList standalones = StandaloneEntities();
 
 	int nChecked = 0;
 	int nRestamped = 0;
@@ -565,7 +570,7 @@ ServerClass *CStandaloneEntity::GetServerClass()
 	// Clamped: an out-of-range tier would index the static array out of bounds.
 	const int iTier = ( m_iTier >= 0 && m_iTier < SourceSharp_TierCount() ) ? m_iTier : 0;
 
-	m_pServerClass = g_pTierClasses[iTier];
+	m_pServerClass = Tiers().m_pClasses[iTier];
 
 	// Stamped here because the classname (factory) and type table (managed startup) both
 	// exist by the first time the engine asks.
@@ -583,11 +588,9 @@ ServerClass *CStandaloneEntity::GetServerClass()
 		m_nSchemaHash = 0;
 		m_nPayloadWords = 0;
 
-		static bool s_bWarned = false;
-
-		if ( !s_bWarned )
+		if ( !ShellGameDll_Dll()->m_bWarnedUnpublishedClass )
 		{
-			s_bWarned = true;
+			ShellGameDll_Dll()->m_bWarnedUnpublishedClass = true;
 			Warning( "[SourceSharp] standalone '%s' has no published type; its entities will "
 					 "carry type id 0x%08x with no schema hash, and the client will refuse "
 					 "their payload\n",

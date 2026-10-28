@@ -13,11 +13,10 @@
 #pragma once
 #define ANYENTITY_H
 
+#include "server_engine.h"
 #include "entity_name_match.h"
 #include "collideable_center.h"
 #include "shell_shot_path.h"
-
-extern ISpatialPartition *partition;
 
 // An entity from a volume query. pHandle is the identity both kinds share, and
 // what a sweep compares against (the ignored entity, a trace's hit).
@@ -189,8 +188,8 @@ public:
 	CAnyEntitySphereQuery( const Vector &center, float radius )
 	{
 		CAnyEntitiesEnum sphereEnum( m_pList, ARRAYSIZE( m_pList ) );
-		::partition->EnumerateElementsInSphere( PARTITION_ENGINE_NON_STATIC_EDICTS, center, radius, false,
-												&sphereEnum );
+		ServerPartition()->EnumerateElementsInSphere( PARTITION_ENGINE_NON_STATIC_EDICTS, center, radius, false,
+													  &sphereEnum );
 
 		m_listIndex = 0;
 		m_listCount = sphereEnum.GetCount();

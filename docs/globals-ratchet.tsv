@@ -396,7 +396,35 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-26, 178 -> 177: cs_sv_te_dispatch is C#; shell_te_forwards_debug.o's command body went (make globals-ledger).
 # LOWERED 2026-10-26, 177 -> 168: seven unused debug commands' bodies and the invisible-reach call-site table
 #   (g_InvisibleReachSites, g_nInvisibleReachSites) went (plan_server_native_v2 T4, ruling 5; make globals-ledger).
-globals_link_level	src/sourcesharp/game/server	168
+# LOWERED 2026-10-27, 168 -> 163: the five overlap globals are CServerOverlaps on the level tier
+#   (CServerLevelState::m_Overlaps; plan_server_native_v2 T6 step 4; make globals-ledger).
+# LOWERED 2026-10-27, 163 -> 156: the seven g_pStringTable* globals. The two native code adds to are members of
+#   the DLL tier (the engine creates tables before LevelInit); the other five are locals of their creation.
+# LOWERED 2026-10-27, 156 -> 155: sv_strict_notarget's native CManagedConVarRef, which nothing read (the convar is C#'s).
+# LOWERED 2026-10-27: the payload prop names are CSourceSharpPayloadPropNames, filled at run time; the server's is a
+#   DLL-tier member (T6) and the client's one function-local table instead of an array and its built flag. 155 -> 153.
+# LOWERED 2026-10-27, 153 -> 149: the standalone tiers' props, tables, classes and registered flag are
+#   CServerStandaloneTiers on the DLL tier (T6 step 4).
+# LOWERED 2026-10-27, 149 -> 148: ShellDecalEmitter's s_Emitter went with shell_decals.cpp, whose one entry nothing imported.
+# LOWERED 2026-10-27, 148 -> 147: worldspawn's net table is CServerDllState::m_WorldNetTable (T6 step 4).
+# LOWERED 2026-10-27, 147 -> 142: the players' pending edict, field placements and shadow counts are
+#   CServerPlayersDll on the DLL tier, the players by entindex CServerPlayersLevel on the level tier (T6 step 4).
+# LOWERED 2026-10-27, 142 -> 140: the standalone shell list and its pending deletes are CServerEntityShells on the
+#   level tier; StandaloneEntities() is a view of it, empty outside a level (T6 step 4).
+# LOWERED 2026-10-27, 140 -> 137: the world serial and the sentences latch are DLL-tier members, the world entity
+#   a level-tier one (T6 step 4).
+# LOWERED 2026-10-27, 137 -> 136: the engine's console client slot is a DLL-tier int (T6 step 4).
+# LOWERED 2026-10-27, 136 -> 131: the invisible-reach count, variant_t::ToString's buffer and three warn-once
+#   latches are tier members (four DLL, the short-blob latch the level's; T6 step 4).
+# LOWERED 2026-10-27, 131 -> 127: filesystem, partition, gamestatsuploader and networkstringtable are
+#   CServerEngineInterfaces on the DLL tier, read through accessors; vendor's extern declarations stay unreferenced.
+# LOWERED 2026-10-27, 127 -> 124: modelinfo, staticpropmgr and enginetrace join CServerEngineInterfaces; every bound
+#   engine interface is read through server_engine.h's functions, defined in shell_engineboundary.cpp.
+# LOWERED 2026-10-27, 124 -> 123: the server's mdlcache joins CServerEngineInterfaces (the client keeps its global);
+#   our critical sections pass it to vendor's MDLCACHE_CRITICAL_SECTION_.
+# LOWERED 2026-10-27, 123 -> 120: gameeventmanager, debugoverlay and random_valve join CServerEngineInterfaces; the
+#   shared files read them through server_engine.h in their server arms (the client keeps its globals).
+globals_link_level	src/sourcesharp/game/server	120
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the

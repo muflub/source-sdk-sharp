@@ -13,8 +13,7 @@
 #include "engine/ivdebugoverlay.h"
 #include "tier1/strtools.h"
 
-// The engine's overlay channel, defined per side; declared here so this file needs no cbase.h.
-extern IVDebugOverlay *debugoverlay;
+#include "server_engine.h"
 
 // Stock's MAX_OVERLAY_DIST_SQR.
 #define OVERLAY_MAX_DIST_SQR 90000000.0f
@@ -84,7 +83,7 @@ OverlayPool_t &PoolRef()
 // Counts calls made with no overlay interface.
 bool HaveOverlay()
 {
-	if ( debugoverlay )
+	if ( ServerOverlay() )
 		return true;
 
 	CountsRef().nNoOverlay++;
@@ -151,7 +150,7 @@ void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &
 	if ( !HaveOverlay() )
 		return;
 
-	debugoverlay->AddBoxOverlay( origin, mins, maxs, angles, r, g, b, a, flDuration );
+	ServerOverlay()->AddBoxOverlay( origin, mins, maxs, angles, r, g, b, a, flDuration );
 	CountsRef().nDrawn++;
 }
 
@@ -170,7 +169,7 @@ void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *
 	if ( !HaveOverlay() )
 		return;
 
-	debugoverlay->AddTextOverlayRGB( origin, nLineOffset, flDuration, r, g, b, a, "%s", pText );
+	ServerOverlay()->AddTextOverlayRGB( origin, nLineOffset, flDuration, r, g, b, a, "%s", pText );
 	CountsRef().nDrawn++;
 }
 
@@ -179,7 +178,7 @@ void Overlay_ClearAll()
 	if ( !HaveOverlay() )
 		return;
 
-	debugoverlay->ClearAllOverlays();
+	ServerOverlay()->ClearAllOverlays();
 }
 
 void Overlay_Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest,
@@ -200,7 +199,7 @@ void Overlay_Line( const Vector &origin, const Vector &target, int r, int g, int
 	if ( !HaveOverlay() )
 		return;
 
-	debugoverlay->AddLineOverlay( origin, target, r, g, b, bNoDepthTest, flDuration );
+	ServerOverlay()->AddLineOverlay( origin, target, r, g, b, bNoDepthTest, flDuration );
 	CountsRef().nDrawn++;
 }
 

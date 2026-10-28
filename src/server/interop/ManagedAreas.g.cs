@@ -19,9 +19,6 @@ public unsafe interface IManagedPhysicsFrame
 [ManagedVtable(typeof(ManagedResourcesTable))]
 public unsafe interface IManagedResources
 {
-    int ServerDecalIndexForName(byte* a0);
-    int ServerDecalNameForIndex(int a0, byte* a1, int a2);
-    int ServerDecalTranslateForGameMaterial(byte* a0, int a1, byte* a2, int a3);
     void ModelPrecacheComponents(byte* a0);
     void ModelPrecacheCheck(byte* a0, byte a1);
 }

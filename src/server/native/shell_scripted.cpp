@@ -11,6 +11,7 @@
 // C# makes afterwards (spawn flags, outputs, thinking, movement, mass, prop data,
 // inputs, explosions).
 
+#include "server_state.h"
 #include "ss_util.h"
 
 #include "ss_physics_shared.h"
@@ -24,8 +25,6 @@
 #include "datacache/imdlcache.h"
 
 extern CGlobalVars *gpGlobals;
-extern IVModelInfo *modelinfo;
-extern IMDLCache *mdlcache;
 
 #include "ss_string.h"
 
@@ -61,16 +60,15 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
 // Counts handles from the engine-invisible range that reach native and do not
 // resolve in the engine's list: managed shell-less entities that some route failed
 // to keep in managed code. Counted here because every crossing handle arrives here.
-static int32_t g_nInvisibleRangeReach = 0;
-
+// The count is the DLL tier's.
 void SourceSharp_NoteInvisibleRangeReach()
 {
-	g_nInvisibleRangeReach++;
+	ShellGameDll_Dll()->m_nInvisibleRangeReach++;
 }
 
 int32_t SourceSharp_InvisibleRangeReach()
 {
-	return g_nInvisibleRangeReach;
+	return ShellGameDll_Dll()->m_nInvisibleRangeReach;
 }
 
 // Places a player at its spawn point. Called by managed from OnSelectSpawnPoint,

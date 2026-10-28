@@ -8,6 +8,7 @@
 // SS_REASON b  an interface resolved by name at load
 // IServerGameEnts: the edict/entity map and the transmit walk.
 
+#include "server_engine.h"
 #include "ss_util.h"
 #include "server_class.h"
 
@@ -23,7 +24,6 @@
 #include "shell_factory.h"
 
 extern CGlobalVars *gpGlobals;
-extern IMDLCache *mdlcache;
 
 class CServerGameEnts : public IServerGameEnts
 {
@@ -144,7 +144,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	if ( bCaptureTransmit )
 		ShellGameDll_TransmitCaptureSkyboxArea( skyBoxArea );
 
-	MDLCACHE_CRITICAL_SECTION();
+	MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
 
 	// Stock's CBasePlayer::ShouldTransmit first arm, decided in C#: the
 	// recipient's own player is always sent. Marked before the walk, which skips

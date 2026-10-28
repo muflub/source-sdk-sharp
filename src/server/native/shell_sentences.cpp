@@ -11,15 +11,14 @@
 
 #include "ss_util.h"
 #include "ss_recipient_filter.h"
+#include "server_state.h"
 
-int fSentencesInit = false;
-
-// Called from world spawn; only the first call does anything.
+// Called from world spawn; only the first call of the DLL does anything.
 void SENTENCEG_Init()
 {
-	if ( fSentencesInit )
+	if ( ShellGameDll_Dll()->m_bSentencesInit )
 		return;
 
 	engine->PrecacheSentenceFile( "scripts/sentences.txt" );
-	fSentencesInit = true;
+	ShellGameDll_Dll()->m_bSentencesInit = true;
 }

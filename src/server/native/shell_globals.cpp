@@ -10,6 +10,7 @@
 // Small native support definitions the engine boundary needs: the factory list, the
 // ServerClass list head, g_bUseNetworkVars, and variant_t's out-of-line members.
 
+#include "server_state.h"
 #include "ss_init_factory.h"
 #include "ss_variant.h"
 #include "slot_table.h"
@@ -44,10 +45,10 @@ CBaseHandle HandleFromGameEntity( const IGameEntity *pEntity )
 {
 	if ( pEntity )
 	{
-		static const IGameEntity *s_pLastComplaint = NULL;
-		if ( s_pLastComplaint != pEntity )
+		const void *&pLastComplaint = ShellGameDll_Dll()->m_pLastHandleComplaint;
+		if ( pLastComplaint != pEntity )
 		{
-			s_pLastComplaint = pEntity;
+			pLastComplaint = pEntity;
 			Warning( "[SourceSharp] network handle: %p was set from a GAME ENTITY "
 					 "pointer. There is no route from that face back to a handle "
 					 "(plan_entity.md 3.3): the slot table resolves handles to "
@@ -326,7 +327,7 @@ bool variant_t::Convert( fieldtype_t newType )
 // pointer is a static buffer overwritten by the next call.
 const char *variant_t::ToString() const
 {
-	static char szBuf[512];
+	char *szBuf = ShellGameDll_Dll()->m_szVariantString;
 
 	switch ( fieldType )
 	{
@@ -339,37 +340,37 @@ const char *variant_t::ToString() const
 		{
 			if ( bVal == 0 )
 			{
-				ss::StrCopy( szBuf, "false", sizeof( szBuf ) );
+				ss::StrCopy( szBuf, "false", kVariantBytes );
 			}
 			else
 			{
-				ss::StrCopy( szBuf, "true", sizeof( szBuf ) );
+				ss::StrCopy( szBuf, "true", kVariantBytes );
 			}
 			return ( szBuf );
 		}
 
 		case FIELD_INTEGER:
 		{
-			ss::Format( szBuf, sizeof( szBuf ), "%i", iVal );
+			ss::Format( szBuf, kVariantBytes, "%i", iVal );
 			return ( szBuf );
 		}
 
 		case FIELD_FLOAT:
 		{
-			ss::Format( szBuf, sizeof( szBuf ), "%g", flVal );
+			ss::Format( szBuf, kVariantBytes, "%g", flVal );
 			return ( szBuf );
 		}
 
 		case FIELD_COLOR32:
 		{
-			ss::Format( szBuf, sizeof( szBuf ), "%d %d %d %d", (int)rgbaVal.r, (int)rgbaVal.g, (int)rgbaVal.b,
+			ss::Format( szBuf, kVariantBytes, "%d %d %d %d", (int)rgbaVal.r, (int)rgbaVal.g, (int)rgbaVal.b,
 						(int)rgbaVal.a );
 			return ( szBuf );
 		}
 
 		case FIELD_VECTOR:
 		{
-			ss::Format( szBuf, sizeof( szBuf ), "[%g %g %g]", (double)vecVal[0], (double)vecVal[1], (double)vecVal[2] );
+			ss::Format( szBuf, kVariantBytes, "[%g %g %g]", (double)vecVal[0], (double)vecVal[1], (double)vecVal[2] );
 			return ( szBuf );
 		}
 

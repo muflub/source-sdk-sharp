@@ -162,23 +162,11 @@ public unsafe struct ManagedResourcesTable
     [SlotHash(0x0d54c15e)]
     public delegate* unmanaged<void*, void*, int, int> Validate;
 
-    // 2: int32_t ServerDecalIndexForName( const char *pszName )
-    [SlotHash(0x88774d41)]
-    public delegate* unmanaged<void*, byte*, int> ServerDecalIndexForName;
-
-    // 3: int32_t ServerDecalNameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize )
-    [SlotHash(0xc7f046a5)]
-    public delegate* unmanaged<void*, int, byte*, int, int> ServerDecalNameForIndex;
-
-    // 4: int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize )
-    [SlotHash(0x256306e9)]
-    public delegate* unmanaged<void*, byte*, int, byte*, int, int> ServerDecalTranslateForGameMaterial;
-
-    // 5: void ModelPrecacheComponents( const char *pszModelName )
+    // 2: void ModelPrecacheComponents( const char *pszModelName )
     [SlotHash(0x3aa7ebf0)]
     public delegate* unmanaged<void*, byte*, void> ModelPrecacheComponents;
 
-    // 6: void ModelPrecacheCheck( const char *pszModelName, bool bAllowed )
+    // 3: void ModelPrecacheCheck( const char *pszModelName, bool bAllowed )
     [SlotHash(0x296debda)]
     public delegate* unmanaged<void*, byte*, byte, void> ModelPrecacheCheck;
 }

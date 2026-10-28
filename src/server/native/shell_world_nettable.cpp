@@ -12,42 +12,15 @@
 #include "server_class.h"
 
 #include "ss_world.h"
+#include "server_state.h"
 
 // A function-local singleton rather than a CWorld member: the ServerClass must
 // exist at DLL init, before the first CWorld is made.
-class CWorldNetTable
-{
-public:
-	CWorldNetTable()
-		: m_nBlobBytes( 0 )
-		, m_nWords( 0 )
-		, m_pProps( NULL )
-		, m_pTable( NULL )
-		, m_pClass( NULL )
-		, m_bWarnedUndeclared( false )
-	{
-	}
-
-	int BlobBytes() const { return m_nBlobBytes; }
-
-	ServerClass *Class() const { return m_pClass; }
-
-	int32_t Declare( int32_t nBlobBytes );
-	void WarnUndeclaredOnce();
-
-private:
-	int m_nBlobBytes;
-	int m_nWords;
-	SendProp *m_pProps;
-	SendTable *m_pTable;
-	ServerClass *m_pClass;
-	bool m_bWarnedUndeclared;
-};
 
 static CWorldNetTable &WorldNetTable()
 {
-	static CWorldNetTable s_Table;
-	return s_Table;
+	AssertMsg( ShellGameDll_Dll(), "the world net table was asked for outside DLLInit..DLLShutdown" );
+	return ShellGameDll_Dll()->m_WorldNetTable;
 }
 
 // The props are the generic payload, one 32-bit word per blob word at
@@ -160,5 +133,5 @@ ServerClass *SourceSharp_WorldServerClass()
 
 bool SourceSharp_IsWorldServerClass( const ServerClass *pClass )
 {
-	return pClass != NULL && pClass == WorldNetTable().Class();
+	return pClass != NULL && ShellGameDll_Dll() != NULL && pClass == WorldNetTable().Class();
 }

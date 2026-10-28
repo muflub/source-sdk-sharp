@@ -67,3 +67,4 @@ moved here verbatim with the date the comment was written (git blame). Newest fi
 | 2026-10-26 | shell_scripted_debug.cpp | The same change: cs_sv_invisible_reach. The invisible-range count stays (ServerModule's status reads it); the eight recorded call sites only this command printed went with it. |
 | 2026-10-26 | shell_entityslots_debug.cpp | The same change: cs_sv_slot_table. |
 | 2026-10-26 | world_adapter_debug.cpp | The same change: cs_sv_world. |
+| 2026-10-27 | shell_decals.cpp | Nothing imported ss::DecalIndexForName any more (nm --undefined-only over the server objects), so the TU, ss_decals.h and IManagedResources' three decal slots went. The decal script itself is managed (DecalEmitter, IServerDecals). |

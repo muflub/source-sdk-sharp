@@ -17,7 +17,6 @@
 #include "shell_tempents.h"
 #include "ss_world.h"
 
-#include "managed_convar_ref.h"
 #include "ss_string.h"
 #include "trace_hit.h"
 
@@ -33,5 +32,3 @@ void UTIL_ClearTrace( trace_t &trace )
 	trace.fractionleftsolid = 0;
 	trace.surface = g_NullSurface;
 }
-
-static CManagedConVarRef sv_strict_notarget( "sv_strict_notarget" );

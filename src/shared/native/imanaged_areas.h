@@ -72,10 +72,6 @@ struct SSManagedResourcesTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *ServerDecalIndexForName )( IManagedResources *self, const char *pszName );
-	int32_t ( *ServerDecalNameForIndex )( IManagedResources *self, int32_t nIndex, char *pOut, int32_t nOutSize );
-	int32_t ( *ServerDecalTranslateForGameMaterial )( IManagedResources *self, const char *pszDecalName,
-													  int32_t nGameMaterial, char *pOut, int32_t nOutSize );
 	void ( *ModelPrecacheComponents )( IManagedResources *self, const char *pszModelName );
 	void ( *ModelPrecacheCheck )( IManagedResources *self, const char *pszModelName, bool bAllowed );
 };
@@ -86,19 +82,6 @@ public:
 	explicit IManagedResources( const SSManagedResourcesTable *pTable )
 		: IManagedObject( pTable )
 	{
-	}
-
-	int32_t ServerDecalIndexForName( const char *pszName ) { return Table()->ServerDecalIndexForName( this, pszName ); }
-
-	int32_t ServerDecalNameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize )
-	{
-		return Table()->ServerDecalNameForIndex( this, nIndex, pOut, nOutSize );
-	}
-
-	int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut,
-												 int32_t nOutSize )
-	{
-		return Table()->ServerDecalTranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize );
 	}
 
 	void ModelPrecacheComponents( const char *pszModelName ) { Table()->ModelPrecacheComponents( this, pszModelName ); }
@@ -113,10 +96,13 @@ private:
 };
 
 static const uint32_t kIManagedResourcesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x3aa7ebf0, 0x296debda,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0x3aa7ebf0,
+	0x296debda,
 };
-static const int32_t kIManagedResourcesSlotCount = 7;
-static_assert( sizeof( SSManagedResourcesTable ) == 7 * sizeof( void * ),
+static const int32_t kIManagedResourcesSlotCount = 4;
+static_assert( sizeof( SSManagedResourcesTable ) == 4 * sizeof( void * ),
 			   "SSManagedResourcesTable is one pointer per slot" );
 
 class IManagedSaveRestore;

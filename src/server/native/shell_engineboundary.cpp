@@ -13,6 +13,8 @@
 #include "networkstringtabledefs.h"
 #include "engine/IEngineTrace.h"
 #include "filesystem.h"
+#include "server_state.h"
+#include "server_engine.h"
 
 #include "engine/IEngineSound.h"
 #include "engine/IStaticPropMgr.h"
@@ -27,29 +29,8 @@
 #include "datacache/imdlcache.h"
 #include "shell_server.h"
 
-IUploadGameStats *gamestatsuploader = NULL;
-
 // Engine interfaces, assigned only by SourceSharp_AcquireEngineInterfaces.
 IVEngineServer *engine = NULL;
-IFileSystem *filesystem = NULL;
-INetworkStringTableContainer *networkstringtable = NULL;
-IStaticPropMgrServer *staticpropmgr = NULL;
-// sharedInterface.h renames `random` to random_valve under POSIX, so that is the link name.
-IUniformRandomStream *random_valve = NULL;
-ISpatialPartition *partition = NULL;
-IVModelInfo *modelinfo = NULL;
-IEngineTrace *enginetrace = NULL;
-IGameEventManager2 *gameeventmanager = NULL;
-IVDebugOverlay *debugoverlay = NULL;
-
-// Created by SourceSharp_CreateNetworkStringTables (shell_stringtables.cpp).
-INetworkStringTable *g_pStringTableParticleEffectNames = NULL;
-INetworkStringTable *g_pStringTableEffectDispatch = NULL;
-INetworkStringTable *g_pStringTableVguiScreen = NULL;
-INetworkStringTable *g_pStringTableMaterials = NULL;
-INetworkStringTable *g_pStringTableInfoPanel = NULL;
-INetworkStringTable *g_pStringTableClientSideChoreoScenes = NULL;
-INetworkStringTable *g_pStringTableServerMapCycle = NULL;
 
 CGlobalVars *gpGlobals;
 
@@ -60,39 +41,36 @@ IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 	return engine->GetChangeAccessor( (const edict_t *)this );
 }
 
-extern INetworkStringTableContainer *networkstringtable;
-extern IUniformRandomStream *random_valve;
-extern IUploadGameStats *gamestatsuploader;
-
-extern IMDLCache *mdlcache;
-
 // Acquires the engine interfaces and loads the game event files. Returns false on
 // the first missing interface, as stock's DLLInit does.
 bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
 										  CreateInterfaceFn fileSystemFactory )
 {
-	if ( ( networkstringtable = (INetworkStringTableContainer *)appSystemFactory(
+	CServerEngineInterfaces &bound = ShellGameDll_Dll()->m_Engine;
+
+	if ( ( bound.m_pStringTables = (INetworkStringTableContainer *)appSystemFactory(
 			   INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL ) ) == NULL )
 		return false;
-	if ( ( staticpropmgr = (IStaticPropMgrServer *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_SERVER, NULL ) ) ==
+	if ( ( bound.m_pStaticProps =
+			   (IStaticPropMgrServer *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_SERVER, NULL ) ) == NULL )
+		return false;
+	if ( ( bound.m_pRandom =
+			   (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL ) ) == NULL )
+		return false;
+	if ( ( bound.m_pPartition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL ) ) ==
 		 NULL )
 		return false;
-	if ( ( random_valve = (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL ) ) ==
-		 NULL )
+	if ( ( bound.m_pModelInfo = (IVModelInfo *)appSystemFactory( VMODELINFO_SERVER_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( ( ::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL ) ) == NULL )
+	if ( ( bound.m_pTrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_SERVER, NULL ) ) == NULL )
 		return false;
-	if ( ( modelinfo = (IVModelInfo *)appSystemFactory( VMODELINFO_SERVER_INTERFACE_VERSION, NULL ) ) == NULL )
+	if ( ( bound.m_pFileSystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( ( enginetrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_SERVER, NULL ) ) == NULL )
-		return false;
-	if ( ( filesystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL ) ) == NULL )
-		return false;
-	if ( ( gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL ) ) ==
+	if ( ( bound.m_pEvents = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL ) ) ==
 		 NULL )
 		return false;
 
-	if ( ( gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL ) ) ==
+	if ( ( bound.m_pGameStats = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL ) ) ==
 		 NULL )
 		return false;
 	ISoundEmitterSystemBase *pSoundEmitter =
@@ -101,7 +79,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 		return false;
 
 	// Connected by ConnectTier3Libraries, already called; checked, as stock does.
-	if ( !mdlcache )
+	if ( !bound.m_pMdlCache )
 		return false;
 
 	// Both the client and the game DLL Connect this; the soundemittersystem
@@ -116,19 +94,75 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 	ss::FactoryList_Store( factories );
 
 	// Both event files load before anything can fire an event, or it is dropped.
-	gameeventmanager->LoadEventsFromFile( "resource/gameevents.res" );
+	bound.m_pEvents->LoadEventsFromFile( "resource/gameevents.res" );
 
-	gameeventmanager->LoadEventsFromFile( "resource/ModEvents.res" );
+	bound.m_pEvents->LoadEventsFromFile( "resource/ModEvents.res" );
 
 	// Required, as in stock, though nothing native reads it.
 	if ( !g_pCVar->FindVar( "sv_cheats" ) )
 		return false;
 
 	// May be NULL on HLDS; stock does not check it.
-	debugoverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL );
+	bound.m_pOverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL );
 
 	// DLLShutdown calls InitConnection again to reset it, as stock does.
-	gamestatsuploader->InitConnection();
+	bound.m_pGameStats->InitConnection();
 
 	return true;
+}
+
+// The DLL tier's engine interfaces (server_engine.h).
+IFileSystem *ServerFileSystem()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pFileSystem;
+}
+
+ISpatialPartition *ServerPartition()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pPartition;
+}
+
+IUploadGameStats *ServerGameStats()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pGameStats;
+}
+
+INetworkStringTableContainer *ServerStringTables()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pStringTables;
+}
+
+IVModelInfo *ServerModelInfo()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pModelInfo;
+}
+
+IStaticPropMgrServer *ServerStaticProps()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pStaticProps;
+}
+
+IEngineTrace *ServerTrace()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pTrace;
+}
+
+IMDLCache *ServerMdlCache()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pMdlCache;
+}
+
+IGameEventManager2 *ServerEvents()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pEvents;
+}
+
+IVDebugOverlay *ServerOverlay()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pOverlay;
+}
+
+IUniformRandomStream *ServerRandom()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pRandom;
 }

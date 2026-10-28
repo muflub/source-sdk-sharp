@@ -37,8 +37,8 @@
 // The engine's random stream, named random_valve under POSIX so stdlib's random()
 // does not collide; defined in shell_engineboundary.cpp.
 
-extern IUniformRandomStream *random_valve;
-#define random random_valve
+#include "server_engine.h"
+#define random ServerRandom()
 // The damage bits this file names, under their stock spellings.
 
 #define DMG_GENERIC ss::kDmgGeneric
