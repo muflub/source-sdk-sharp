@@ -622,6 +622,12 @@ public interface IEngineEntityRender
     /// <summary>Play a sequence, from the start or keeping its clock; the skeleton keeps the clock. (plan physics_bones_native_zero 1.2: the skeleton route.)</summary>
     void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart);
 
+    /// <summary>
+    /// <c>SetCycle</c> on a sequence nothing advances (a wall charger's drain):
+    /// the skeleton holds that cycle until the next sequence starts.
+    /// </summary>
+    void SetCycle(EntityHandle entity, float cycle);
+
     /// <inheritdoc cref="EngineSide.EntitySetSkin"/>
     void SetSkin(EntityHandle entity, int skin);
 

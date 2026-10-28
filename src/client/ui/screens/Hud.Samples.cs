@@ -8,9 +8,13 @@ public static class HudSamples
 {
     /// <summary>The HUD from fakes, registered one per interface, built by the services as DI will.</summary>
     public static UiScreen Build(UiSampleServices s, FakeLocalPlayer player, FakeHudText? text = null, FakeBuildStamp? stamp = null,
-                                 FakeKillFeed? kills = null, FakeVoice? voice = null, FakeWeaponSelection? selection = null)
+                                 FakeKillFeed? kills = null, FakeVoice? voice = null, FakeWeaponSelection? selection = null,
+                                 FakePickupHistory? history = null, FakeWeaponPlus? plus = null, FakeWeaponCarousel? carousel = null)
     {
         s.Add<IWeaponSelectionSource>(selection ?? new FakeWeaponSelection { Showing = false });
+        s.Add<IWeaponPlusSource>(plus ?? new FakeWeaponPlus { Showing = false });
+        s.Add<IWeaponCarouselSource>(carousel ?? new FakeWeaponCarousel { Showing = false });
+        s.Add<IPickupHistorySource>(history ?? new FakePickupHistory());
         player.Register(s);
         (text ?? new FakeHudText()).Register(s);
         s.Add<IBuildStampSource>(stamp ?? new FakeBuildStamp());
@@ -21,6 +25,22 @@ public static class HudSamples
 
     [UiSample("full health, SMG")]
     private static UiScreen Full(UiSampleServices s) => Build(s, new FakeLocalPlayer());
+
+    [UiSample("pickup history, a spawn's weapons and ammo")]
+    private static UiScreen HistorySpawned(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        history: new FakePickupHistory { Rows = FakePickupHistory.Spawned });
+
+    [UiSample("pickup history, a battery, an empty weapon, ammo refused, a gap")]
+    private static UiScreen HistoryMixed(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        history: new FakePickupHistory
+        {
+            Rows =
+            [
+                new PickupRow("item_battery", 0, false, false, 1f), null,
+                new PickupRow("rpg", 0, false, true, 1f), new PickupRow("ammo_buckshot", 0, true, true, 0.7f),
+                new PickupRow("item_healthkit", 0, false, false, 0.4f),
+            ],
+        });
 
     [UiSample("weapon selection, SMG bucket open")]
     private static UiScreen SelectionOpen(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
@@ -37,6 +57,40 @@ public static class HudSamples
                 (4, 0, "rpg", "#HL2_RPG", false), (4, 1, "frag", "#HL2_Grenade", true), (4, 2, "slam", "#HL2_SLAM", true),
             ],
             Selected = 4,
+        });
+
+    [UiSample("weapon selection plus, the 357 reached, glowing")]
+    private static UiScreen PlusMagnum(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        plus: new FakeWeaponPlus { Weapons = FakeWeaponSelection.Full, SelectedSlot = 1, SelectedPosition = 1, Glow = 0.8f });
+
+    [UiSample("weapon selection plus, an empty place selected, an empty weapon")]
+    private static UiScreen PlusEmptyPlace(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        plus: new FakeWeaponPlus
+        {
+            Weapons =
+            [
+                (0, 0, "crowbar", "#HL2_Crowbar", true), (0, 2, "physcannon", "#HL2_GravityGun", true),
+                (2, 0, "smg1", "#HL2_SMG1", false), (5, 0, "slam", "#HL2_SLAM", true),
+            ],
+            SelectedSlot = 0,
+            SelectedPosition = 1,
+        });
+
+    [UiSample("weapon selection carousel, the pistol, settled")]
+    private static UiScreen CarouselSettled(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        carousel: new FakeWeaponCarousel { Weapons = FakeWeaponCarousel.Full, Selected = 3 });
+
+    [UiSample("weapon selection carousel, sliding in, wrapping round")]
+    private static UiScreen CarouselSliding(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        carousel: new FakeWeaponCarousel { Weapons = FakeWeaponCarousel.Full, Selected = 0, Offset = 0.6f });
+
+    [UiSample("weapon selection carousel, three weapons, one empty, glowing")]
+    private static UiScreen CarouselThree(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        carousel: new FakeWeaponCarousel
+        {
+            Weapons = [("crowbar", "#HL2_Crowbar", true), ("pistol", "#HL2_Pistol", true), ("smg1", "#HL2_SMG1", false)],
+            Selected = 1,
+            Glow = 0.7f,
         });
 
     [UiSample("weapon selection, fading, a gap in the bucket")]

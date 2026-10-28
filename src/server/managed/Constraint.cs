@@ -284,6 +284,20 @@ public sealed class Constraint
     /// <summary>Stops driving along the axis, leaving the joint free to coast.</summary>
     public void StopLinearMotor() => SetLinearMotor(0f);
 
+    /// <summary>CPhysConstraint::Deactivate: held no more until <see cref="Activate"/>.</summary>
+    public void Deactivate()
+    {
+        if (!Id.IsNone)
+            _engine.Deactivate(Id.Value);
+    }
+
+    /// <summary>The joint holds again, and both ends wake.</summary>
+    public void Activate()
+    {
+        if (!Id.IsNone)
+            _engine.Activate(Id.Value);
+    }
+
     /// <summary>
     /// Tears the constraint down. Safe to call twice, and safe after a level
     /// change has already dropped it.

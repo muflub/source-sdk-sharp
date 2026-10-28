@@ -256,6 +256,22 @@ public unsafe class ClientSkeletonsTests
     }
 
     [Fact]
+    public void SetCycleHoldsThePoseAtThatCycle()
+    {
+        using Rig rig = new();
+        float[] free = new float[4 * Floats];
+        Assert.True(rig.Setup(Entity, free));
+
+        Assert.True(rig.Skeletons.SetCycle(Entity, 0.5f));
+        float[] held = new float[4 * Floats];
+        Assert.True(rig.Setup(Entity, held));
+
+        Assert.True(rig.Skeletons.States.TryGet(Entity, out BoneEntityState? state));
+        Assert.Equal(0.5f, state!.HeldCycle);
+        Assert.NotEqual(At(free, 2), At(held, 2));
+    }
+
+    [Fact]
     public void SetupBonesPadsEverySlotPastTheModelsBonesWithTheEntityTransform()
     {
         using Rig rig = new();

@@ -21,7 +21,7 @@ public class WeaponSelectionUiTests
         public bool FrozenOrDead => false;
         public uint Carried => (1u << Smg) | (1u << Ar2);
         public uint Empty { get; set; }
-        public int Active => -1;
+        public int Active { get; set; } = -1;
         public float Now => 10f;
         public void Select(int weaponType) { }
         public void LastWeapon() { }
@@ -72,5 +72,45 @@ public class WeaponSelectionUiTests
         ui.Weapon(2, 1, out var ar2);
 
         Assert.False(ar2.Selectable);
+    }
+
+    private static WeaponNames Names()
+        => new(c => c == EntityNames.WeaponSmg1 ? "#HL2_SMG1" : null, t => t == "#HL2_SMG1" ? "SMG" : null);
+
+    [Fact]
+    public void Plus_the_selected_place_is_its_arm_and_position()
+    {
+        var world = new World();
+        var hud = new WeaponSelectionHud(world, world, world, world, () => WeaponSelectionHud.HudTypePlus);
+        var ui = new WeaponPlusUi(hud, Weapons, Names());
+
+        hud.SlotCommand(3);
+        hud.SlotCommand(3);
+
+        Assert.True(ui.Showing);
+        Assert.Equal((2, 1, 1), (ui.SelectedSlot, ui.SelectedPosition, ui.LastPosition(2)));
+        Assert.True(ui.Weapon(2, 0, out var smg));
+        Assert.Equal(new WeaponSelectionBox("smg1", "SMG", true, false), smg);
+        Assert.True(ui.Weapon(2, 1, out var ar2));
+        Assert.True(ar2.Selected);
+        Assert.False(ui.Weapon(0, 0, out _));
+    }
+
+    [Fact]
+    public void Carousel_the_boxes_are_the_weapons_laid_out_and_the_selected_one_is_marked()
+    {
+        var world = new World { Active = Smg };
+        var hud = new WeaponSelectionHud(world, world, world, world, () => WeaponSelectionHud.HudTypeCarousel);
+        var ui = new WeaponCarouselUi(hud, Weapons, Names());
+
+        hud.NextWeapon();
+
+        Assert.True(ui.Showing);
+        Assert.Equal((2, 1, 1f), (ui.Count, ui.Selected, ui.Offset));
+        Assert.True(ui.Weapon(0, out var smg));
+        Assert.Equal(new WeaponSelectionBox("smg1", "SMG", true, false), smg);
+        Assert.True(ui.Weapon(1, out var ar2));
+        Assert.Equal(("ar2", true), (ar2.Icon, ar2.Selected));
+        Assert.False(ui.Weapon(2, out _));
     }
 }

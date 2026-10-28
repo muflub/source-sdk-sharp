@@ -98,12 +98,15 @@ public class ConstraintReloadTests
 
         // The pre-fix shape: this fired OnBreak and removed the entity while
         // the joint stayed in the solver — objects welded, map told.
+        var socket = (PhysBallSocket)after.Get(Socket)!;
         after.Input(Socket, "Break", "", 0f, EntityHandle.None);
+        Assert.Equal(JointId, Assert.Single(back.Calls, c => c.Member == "Constraints.Deactivate").ArgAs<uint>(0));
+        Assert.True(socket.OnBreak.FireCount == 1, "and the break still announced itself");
 
+        // PhysCallbackRemove: the joint goes with the entity.
+        after.Directory.FreeRemoved();
         var destroy = Assert.Single(back.Calls, c => c.Member == "Constraints.Destroy");
         Assert.Equal(JointId, destroy.ArgAs<uint>(0));
-        Assert.True(((PhysBallSocket)after.Get(Socket)!).OnBreak.FireCount == 1,
-                    "and the break still announced itself");
     }
 
     [Fact]

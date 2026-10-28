@@ -56,6 +56,11 @@ public sealed class ItemSuitCharger : WallCharger
 
     protected override string Model => ModelName;
     protected override float MaxJuice => _maxJuice;
+    protected override float DisplayMaxJuice => _maxJuice + 0.1f;
+
+    [NetState] public SuitChargerNetState State = new();
+
+    protected override IChargerNetState Display => State;
     protected override float RechargeDelay => Citadel ? 60f : 30f;
     protected override float DisplayChargesPerSecond => Citadel ? 10f / ChargeRate : ChargesPerSecond;
     protected override string DenySound => "SuitRecharge.Deny";
@@ -144,7 +149,7 @@ public sealed class ItemSuitCharger : WallCharger
     {
         _maxJuice = (int)charge;
         Juice = (int)charge;
-        ShowFull();
+        ShowCharged();
     }
 }
 

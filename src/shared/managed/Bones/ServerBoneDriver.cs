@@ -250,6 +250,7 @@ public sealed class ServerBoneDriver
         s.Sequence = sequence;
         s.PlaybackRate = playbackRate;
         s.AnimTime = now;
+        s.HeldCycle = null;
 
         s.SeqDuration = 0.0f;
         s.SeqLooping = false;

@@ -105,7 +105,7 @@ public class PolicyKnobDeclarationTests
         new("r_SnowRayEnable", "1", ConVarFlags.Cheat, "Snow."),
         new("r_rainalpha", "0.4", ConVarFlags.Cheat, ""),
         new("r_rainalphapow", "0.8", ConVarFlags.Cheat, ""),
-        new("hud_drawhistory_time", "5", ConVarFlags.None, "Seconds the pickup history stays up. Unused here — the history HUD is hidden."),
+        new("hud_drawhistory_time", "5", ConVarFlags.None, "Seconds the pickup history stays up."),
         // Moved by lane 4c-render, plan_shim.md §6; stock's default 0 since the
         // weapon selection was ported (WeaponSelectionHud).
         new("hud_fastswitch", "0", ConVarFlags.Archive, ""),

@@ -1031,14 +1031,6 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   dump the three crates every tick from map start in both games (stock's
   report comes after they have settled) and find the first tick they
   differ. Owner: the physics lane.
-- **A wall charger shows only full and empty.** Stock holds the charger's
-  "idle" cycle at 1 - juice/max (CNewWallHealth::StudioFrameAdvance,
-  playback rate 0), so the tube drains as it is used; here a sequence's cycle
-  is the client's (now - AnimTime) * rate / duration, and a rate of 0 always
-  draws frame 0. WallCharger shows full and, played to its end, empty. Next:
-  a frozen cycle on the wire (the server's sequence clock to the client's
-  StandaloneStoreSequence, and C_StandaloneEntity::SequenceCycle answering it
-  when the rate is 0). Owner: the client lane.
 
 ## Rulings and divergences recorded only here (not open work)
 

@@ -58,6 +58,13 @@ public interface IStandaloneSkeletons
     /// </summary>
     bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart);
 
+    /// <summary>
+    /// <c>SetCycle</c> on a sequence nothing advances: the pose holds that
+    /// cycle until the next sequence starts. False when the handle names no
+    /// standalone entity.
+    /// </summary>
+    bool SetCycle(EntityHandle entity, float cycle);
+
     /// <summary>How big the skeleton is built.</summary>
     SkeletonScaleChange SetModelScale(EntityHandle entity, float scale);
 }

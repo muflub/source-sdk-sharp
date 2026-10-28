@@ -104,6 +104,32 @@ public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour,
 }
 
 /// <summary>
+/// The pickup history as a sample: a row per slot of <see cref="Rows"/>,
+/// bottom first; a null slot is empty.
+/// </summary>
+public sealed class FakePickupHistory : IPickupHistorySource
+{
+    public PickupRow?[] Rows { get; init; } = [];
+
+    public bool Showing => Rows.Length > 0;
+    public int SlotCount => Rows.Length;
+
+    public bool Row(int slot, out PickupRow row)
+    {
+        row = slot >= 0 && slot < Rows.Length && Rows[slot] is { } r ? r : default;
+        return slot >= 0 && slot < Rows.Length && Rows[slot] is not null;
+    }
+
+    /// <summary>A spawn's pickups: the weapons, then their ammunition.</summary>
+    public static PickupRow?[] Spawned =>
+    [
+        new PickupRow("crowbar", 0, false, false, 1f), new PickupRow("pistol", 0, false, false, 1f),
+        new PickupRow("smg1", 0, false, false, 0.9f), new PickupRow("ammo_smg1", 45, false, false, 0.8f),
+        new PickupRow("ammo_smg1_grenade", 1, false, false, 0.6f),
+    ];
+}
+
+/// <summary>
 /// The weapon selection as a sample: a bucket per row of <see cref="Weapons"/>
 /// (slot, position, icon, name, selectable), open on <see cref="Selected"/>.
 /// </summary>
@@ -160,6 +186,79 @@ public sealed class FakeWeaponSelection : IWeaponSelectionSource
 
         box = default;
         return false;
+    }
+}
+
+/// <summary>The plus weapon selection as a sample: <see cref="FakeWeaponSelection.Weapons"/>'s rows round the crosshair.</summary>
+public sealed class FakeWeaponPlus : IWeaponPlusSource
+{
+    public bool Showing { get; init; } = true;
+    public float Opacity { get; init; } = 1f;
+    public float Glow { get; init; }
+    public (int Slot, int Position, string Icon, string Name, bool Selectable)[] Weapons { get; init; } = [];
+    public int SelectedSlot { get; init; } = -1;
+    public int SelectedPosition { get; init; }
+
+    public int LastPosition(int slot)
+    {
+        int last = -1;
+        foreach (var w in Weapons)
+            if (w.Slot == slot && w.Position > last)
+                last = w.Position;
+        return last;
+    }
+
+    public bool Weapon(int slot, int position, out WeaponSelectionBox box)
+    {
+        foreach (var w in Weapons)
+        {
+            if (w.Slot == slot && w.Position == position)
+            {
+                box = new WeaponSelectionBox(w.Icon, w.Name, w.Selectable, slot == SelectedSlot && position == SelectedPosition);
+                return true;
+            }
+        }
+
+        box = default;
+        return false;
+    }
+}
+
+/// <summary>The carousel as a sample: a box per row of <see cref="Weapons"/>, in order.</summary>
+public sealed class FakeWeaponCarousel : IWeaponCarouselSource
+{
+    public bool Showing { get; init; } = true;
+    public float Opacity { get; init; } = 1f;
+    public float Glow { get; init; }
+    public (string Icon, string Name, bool Selectable)[] Weapons { get; init; } = [];
+    public int Selected { get; init; }
+    public float Offset { get; init; }
+    public int Count => Weapons.Length;
+
+    /// <summary><see cref="FakeWeaponSelection.Full"/>'s weapons, in bucket order.</summary>
+    public static (string, string, bool)[] Full
+    {
+        get
+        {
+            var full = FakeWeaponSelection.Full;
+            var weapons = new (string, string, bool)[full.Length];
+            for (int i = 0; i < full.Length; i++)
+                weapons[i] = (full[i].Item3, full[i].Item4, full[i].Item5);
+            return weapons;
+        }
+    }
+
+    public bool Weapon(int box, out WeaponSelectionBox weapon)
+    {
+        if (box < 0 || box >= Weapons.Length)
+        {
+            weapon = default;
+            return false;
+        }
+
+        var w = Weapons[box];
+        weapon = new WeaponSelectionBox(w.Icon, w.Name, w.Selectable, box == Selected);
+        return true;
     }
 }
 

@@ -1074,7 +1074,7 @@ globals-client-ledger:
 # with the dev web UI's Mockups tab at http://127.0.0.1:7191/#mockups.
 # Managed only: no native build, no game.
 ui-preview:
-	@tools/ui-preview --config $(CONFIG) $(if $(filter 1,$(PNG)),--png) $(if $(filter 1,$(WATCH)),--watch) $(if $(MOD),--mod $(MOD))
+	@tools/ui-preview --config $(CONFIG) $(if $(filter 1,$(PNG)),--png) $(if $(filter 1,$(WATCH)),--watch) $(if $(filter command line,$(origin MOD)),--mod $(MOD))
 
 # The icon set's atlas (src/client/ui/icons/atlas), rasterised from its SVGs.
 ui-icons:

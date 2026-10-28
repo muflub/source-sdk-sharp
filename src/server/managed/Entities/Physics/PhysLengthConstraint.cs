@@ -17,8 +17,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysLengthconstraint)]
 public sealed class PhysLengthConstraint : PhysicsConstraintEntity
 {
-    public PhysLengthConstraint(IEngineConstraints constraints, IEngineSound sound)
-        : base(constraints, sound)
+    public PhysLengthConstraint(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
+        : base(constraints, sound, pairs)
     {
     }
 

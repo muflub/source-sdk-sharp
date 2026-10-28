@@ -40,6 +40,12 @@ public class ClientSkeletonRouteTests
             return true;
         }
 
+        public bool SetCycle(EntityHandle entity, float cycle)
+        {
+            Calls.Add($"cycle {cycle}");
+            return true;
+        }
+
         public SkeletonScaleChange SetModelScale(EntityHandle entity, float scale)
         {
             Calls.Add($"scale {scale}");

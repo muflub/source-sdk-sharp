@@ -97,6 +97,23 @@ public class ArsenalSelectionTests
     }
 
     [Fact]
+    public void Every_pool_is_published_by_its_wire_index()
+    {
+        var (arsenal, state, _, _) = Armed(EntityNames.WeaponSmg1);
+        var carry = arsenal.CarryFor(Player);
+        carry.Ammo.Clear();
+        carry.Ammo["SMG1"] = 120;
+        carry.Ammo["smg1_grenade"] = 2;
+
+        arsenal.Frame();
+
+        var ammo = AmmoCatalog.Stock();
+        Assert.Equal((120, 2, 0), (state.Ammo[ammo.WireIndex("SMG1")], state.Ammo[ammo.WireIndex("SMG1_Grenade")],
+                                   state.Ammo[ammo.WireIndex("Pistol")]));
+        Assert.Equal(0, state.Ammo[0]);
+    }
+
+    [Fact]
     public void A_pool_counts_for_a_weapon_with_an_empty_clip()
     {
         var (arsenal, state, _, _) = Armed(EntityNames.WeaponCrowbar, EntityNames.WeaponPistol);

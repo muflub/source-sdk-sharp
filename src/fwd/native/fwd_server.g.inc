@@ -936,7 +936,7 @@ static void *const s_PhysicsFluidControllerSlots[] = {
 static const SSForwarderTable s_PhysicsFluidControllerTable = { s_PhysicsFluidControllerSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// PhysicsConstraint: 5 forwarder(s) over IPhysicsConstraint.
+// PhysicsConstraint: 6 forwarder(s) over IPhysicsConstraint.
 //-----------------------------------------------------------------------------
 // void IPhysicsConstraint::Deactivate( void )
 static void SSFwd_PhysicsConstraint_Deactivate( IPhysicsConstraint *self ) { self->Deactivate(); }
@@ -948,6 +948,8 @@ static IPhysicsObject * SSFwd_PhysicsConstraint_GetAttachedObject( IPhysicsConst
 static void SSFwd_PhysicsConstraint_SetLinearMotor( IPhysicsConstraint *self, float a0, float a1 ) { self->SetLinearMotor( a0, a1 ); }
 // void IPhysicsConstraint::SetAngularMotor( float, float )
 static void SSFwd_PhysicsConstraint_SetAngularMotor( IPhysicsConstraint *self, float a0, float a1 ) { self->SetAngularMotor( a0, a1 ); }
+// void IPhysicsConstraint::Activate( void )
+static void SSFwd_PhysicsConstraint_Activate( IPhysicsConstraint *self ) { self->Activate(); }
 
 static void *const s_PhysicsConstraintSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsConstraint_Deactivate ),
@@ -955,9 +957,10 @@ static void *const s_PhysicsConstraintSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsConstraint_GetAttachedObject ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsConstraint_SetLinearMotor ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsConstraint_SetAngularMotor ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsConstraint_Activate ),
 };
 
-static const SSForwarderTable s_PhysicsConstraintTable = { s_PhysicsConstraintSlots, 5 };
+static const SSForwarderTable s_PhysicsConstraintTable = { s_PhysicsConstraintSlots, 6 };
 
 //-----------------------------------------------------------------------------
 // PhysicsConstraintGroup: 3 forwarder(s) over IPhysicsConstraintGroup.

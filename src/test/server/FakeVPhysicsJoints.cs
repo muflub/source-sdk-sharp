@@ -18,6 +18,8 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
         public Vector AngularVelocity = default;
         public float Mass = 10f;
         public bool Moveable = true;
+        public bool Static = false;
+        public bool Shadowed = false;
         public ushort GameFlags;
         public int Wakes;
         public float LinearDrag = 1f;
@@ -88,6 +90,7 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
 
     public void DestroyConstraint(nint environment, nint constraint) => Calls.Add($"DestroyConstraint {constraint:x}");
     public void Deactivate(nint constraint) => Calls.Add($"Deactivate {constraint:x}");
+    public void Activate(nint constraint) => Calls.Add($"Activate {constraint:x}");
     public void SetAngularMotor(nint constraint, float rotSpeed, float maxAngularImpulse) => AngularMotors[constraint] = (rotSpeed, maxAngularImpulse);
     public void SetLinearMotor(nint constraint, float speed, float maxLinearImpulse) => LinearMotors[constraint] = (speed, maxLinearImpulse);
     public nint ReferenceObject(nint constraint) => Ends.TryGetValue(constraint, out var e) ? e.Reference : 0;
@@ -158,6 +161,8 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
     public ushort GameFlags(nint physicsObject) => Of(physicsObject).GameFlags;
     public void SetGameFlags(nint physicsObject, ushort flags) => Of(physicsObject).GameFlags = flags;
     public bool IsMoveable(nint physicsObject) => Of(physicsObject).Moveable;
+    public bool IsStatic(nint physicsObject) => Of(physicsObject).Static;
+    public bool HasShadowController(nint physicsObject) => Of(physicsObject).Shadowed;
     public float Mass(nint physicsObject) => Of(physicsObject).Mass;
     public (Vector Linear, Vector Angular) Velocity(nint physicsObject) => (Of(physicsObject).Velocity, Of(physicsObject).AngularVelocity);
     public float LinearDrag(nint physicsObject, Vector unitDirection) => Of(physicsObject).LinearDrag;

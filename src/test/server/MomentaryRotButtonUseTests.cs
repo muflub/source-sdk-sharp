@@ -72,6 +72,32 @@ public class MomentaryRotButtonUseTests
     }
 
     [Fact]
+    public void The_turn_that_starts_a_use_makes_its_noise_and_the_held_turns_do_not()
+    {
+        var rig = Spawned(UseActivates, ("sounds", "8"), ("StartPosition", "0.5"));
+        string[] Noises() => rig.Engine.AllOf("Sound.EntityEmitSound").Select(c => (string)c.Args[1]!).ToArray();
+
+        rig.Use();
+        rig.Use();
+        Assert.Equal(["Buttons.snd8"], Noises());
+
+        rig.MoveDone();
+        rig.Use();
+        Assert.Equal(["Buttons.snd8", "Buttons.snd8"], Noises());
+    }
+
+    [Fact]
+    public void A_wheel_the_player_does_not_turn_has_no_noise()
+    {
+        var rig = Spawned(0, ("sounds", "8"));
+
+        rig.Use();
+
+        Assert.False(rig.Engine.Called("Precache.PrecacheSound"));
+        Assert.False(rig.Engine.Called("Sound.EntityEmitSound"));
+    }
+
+    [Fact]
     public void A_use_presses_it_and_turns_it_at_its_speed_for_a_tenth_of_a_second()
     {
         var rig = Spawned(UseActivates);

@@ -481,7 +481,7 @@ FORWARD = [
         struct='PhysicsConstraintVtbl',
         methods=[
             'Deactivate', 'GetReferenceObject', 'GetAttachedObject', 'SetLinearMotor',
-            'SetAngularMotor',
+            'SetAngularMotor', 'Activate',
         ],
     ),
     dict(

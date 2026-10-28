@@ -61,13 +61,28 @@ public interface IWeaponSlots
 /// <summary>
 /// The weapon selection: stock's CBaseHudWeaponSelection (weapon_selection.cpp)
 /// and the choices of HL2's CHudWeaponSelection (hl2/hud_weaponselection.cpp)
-/// that HL2MP draws, for hud_fastswitch 0 (the buckets) and 1 (fastswitch, which
-/// switches at once and shows nothing). The panel reads its state; the binds,
-/// the cancel key and the attack buttons drive it.
+/// that HL2MP draws, for hud_fastswitch 0 (the buckets), 1 (fastswitch, which
+/// switches at once and shows nothing), 2 (plus: the buckets as a cross round
+/// the crosshair, a key switching at once along its arm) and 3 (carousel: a
+/// strip of every weapon along the top, slid to the one the wheel switched
+/// to). The panels read its state; the binds, the cancel key and the attack
+/// buttons drive it.
 /// </summary>
-public sealed class WeaponSelectionHud : Input.IHudProcessInput
+public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHook, IOrderedHook
 {
-    public const int HudTypeBuckets = 0, HudTypeFastSwitch = 1;
+    public const int HudTypeBuckets = 0, HudTypeFastSwitch = 1, HudTypePlus = 2, HudTypeCarousel = 3;
+
+    /// <summary>MAX_CAROUSEL_SLOTS: a carousel of this many weapons scrolls; fewer are drawn in a row, one of n.</summary>
+    public const int MaxCarouselSlots = 5;
+
+    /// <summary>ActivateFastswitchWeaponDisplay's slide: 0.2 s a box, halved when it passes more than one.</summary>
+    public const float SlideSecondsPerBox = 0.2f;
+
+    /// <summary>The Blur the selected icon glows with (7), and its Deaccel down to nothing (0.75 s).</summary>
+    public const float GlowBlur = 7f, GlowTime = 0.75f;
+
+    /// <summary>WeaponHighlight's delay before the plus's glow starts down.</summary>
+    public const float HighlightDelay = 0.01f;
 
     /// <summary>MAX_WEAPON_SLOTS, MAX_WEAPON_POSITIONS.</summary>
     public const int MaxSlots = 6, MaxPositions = 20;
@@ -112,6 +127,28 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
     private float _rampStart;
     private float _rampFrom;
 
+    // m_pLastWeapon and m_iSelectedSlideDir: where a wheel step came from, and which way.
+    private int _lastWeapon = -1;
+    private int _slideDir;
+
+    // The plus's place: m_iSelectedSlot and m_iSelectedBoxPosition.
+    private int _plusSlot = -1;
+    private int _plusPosition;
+
+    // The carousel: m_WeaponBoxes, each slot * MaxPositions + position, and m_iSelectedWeaponBox.
+    private readonly int[] _boxes = new int[32];
+    private int _boxCount;
+    private int _selectedBox = -1;
+
+    // WeaponBoxOffset, in boxes: from _slideFrom down to 0, linear over _slideTime.
+    private float _slideFrom;
+    private float _slideStart;
+    private float _slideTime;
+
+    // Blur: GlowBlur from _glowStart, held _glowDelay, then down over GlowTime.
+    private float _glowStart = float.NegativeInfinity;
+    private float _glowDelay;
+
     /// <summary>IsInSelectionMode: the selection is open.</summary>
     public bool Open => _visible;
 
@@ -147,6 +184,65 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
 
             float fade = Math.Clamp((now - _fadeStart - FadeDelay) / FadeTime, 0f, 1f);
             return opened * (1f - fade);
+        }
+    }
+
+    /// <summary>
+    /// CHudWeaponSelection::ShouldDraw: a player with the HUD, and the
+    /// selection open or, under a fastswitch type, a switch made in the last
+    /// three seconds.
+    /// </summary>
+    private bool ShouldDraw => _player.Exists && _player.HudAllowed && (_visible || FastSwitchShowing);
+
+    /// <summary>Paint's plus arm: drawn while there is a selected weapon to draw round.</summary>
+    public bool PlusShowing => Mode == HudTypePlus && ShouldDraw && _selected >= 0;
+
+    /// <summary>The plus's selected arm (0 up, 1 right, 2 down, 3 left, 4 and 5 the lower diagonals); -1 for none.</summary>
+    public int PlusSlot => _plusSlot;
+
+    /// <summary>The plus's selected place along its arm, from the centre.</summary>
+    public int PlusPosition => _plusPosition;
+
+    /// <summary>
+    /// Paint's carousel arm: drawn with a weapon in hand, once a wheel step
+    /// has laid the boxes out, and only for more than one.
+    /// </summary>
+    public bool CarouselShowing
+        => Mode == HudTypeCarousel && ShouldDraw && _player.Active >= 0 && _selectedBox != -1 && _boxCount > 1;
+
+    /// <summary>The carousel's box count.</summary>
+    public int CarouselCount => _boxCount;
+
+    /// <summary>The carousel's selected box.</summary>
+    public int CarouselSelected => _selectedBox;
+
+    /// <summary>GetWeaponInSlot for a carousel box: the weapon carried at its place now, -1 for none.</summary>
+    public int CarouselWeapon(int box)
+        => box >= 0 && box < _boxCount ? WeaponInSlot(_boxes[box] / MaxPositions, _boxes[box] % MaxPositions) : -1;
+
+    /// <summary>WeaponBoxOffset over the box pitch: how far the strip has still to slide, 0 once it has.</summary>
+    public float CarouselOffset
+    {
+        get
+        {
+            float t = _clock.Now - _slideStart;
+            if (_slideTime <= 0f || t >= _slideTime)
+                return 0f;
+
+            return _slideFrom * (1f - Math.Max(t, 0f) / _slideTime);
+        }
+    }
+
+    /// <summary>Blur over its 7: the selected icon's glow, held, then down with Deaccel's square root.</summary>
+    public float Glow
+    {
+        get
+        {
+            float t = _clock.Now - _glowStart - _glowDelay;
+            if (t <= 0f)
+                return 1f;
+
+            return 1f - MathF.Sqrt(Math.Min(t / GlowTime, 1f));
         }
     }
 
@@ -264,6 +360,17 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
         return true;
     }
 
+    /// <summary>Its place among the client's level hooks.</summary>
+    public int HookOrder => 2;
+
+    /// <summary>LevelInit: no carousel laid out, no slide, and no wheel step to slide from.</summary>
+    void IClientLevelHook.OnLevelInit(string mapName)
+    {
+        _selectedBox = -1;
+        _slideDir = 0;
+        _lastWeapon = -1;
+    }
+
     /// <summary>OnThink: a frozen or dead player's selection closes, and the selection times out.</summary>
     public void Think()
     {
@@ -312,6 +419,8 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
         _visible = true;
         _rampFrom = 0f;
         _rampStart = _clock.Now;
+        _plusPosition = 0;
+        _plusSlot = -1;
     }
 
     private void Ramp()
@@ -342,12 +451,106 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
             return;
         }
 
-        _actions.Select(_selected);
+        SetWeaponSelected();
         _selected = -1;
 
         // Play the "weapon selected" sound; stock's "cancelselect" runs after it.
         _actions.Sound("Player.WeaponSelected");
         CancelWeaponSelection();
+    }
+
+    /// <summary>SetWeaponSelected: drawn, and the HUD type's display started.</summary>
+    private void SetWeaponSelected()
+    {
+        _actions.Select(_selected);
+
+        switch (Mode)
+        {
+            case HudTypeFastSwitch:
+            case HudTypeCarousel:
+                ActivateFastswitchWeaponDisplay(_selected);
+                break;
+            case HudTypePlus:
+                ActivateWeaponHighlight();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// ActivateFastswitchWeaponDisplay: every weapon carried, in bucket order,
+    /// laid out as the carousel's boxes; after a wheel step the strip slides
+    /// in from where the last weapon was, and the selected icon glows once it
+    /// has arrived.
+    /// </summary>
+    private void ActivateFastswitchWeaponDisplay(int selected)
+    {
+        _boxCount = 0;
+        _selectedBox = 0;
+
+        // find out where our selected weapon is in the full list
+        int lastBox = -1;
+        for (int slot = 0; slot < MaxSlots; slot++)
+        {
+            for (int position = 0; position < MaxPositions && _boxCount < _boxes.Length; position++)
+            {
+                int weapon = WeaponInSlot(slot, position);
+                if (weapon < 0)
+                    continue;
+
+                if (weapon == selected)
+                    _selectedBox = _boxCount;
+                if (weapon == _lastWeapon)
+                    lastBox = _boxCount;
+                _boxes[_boxCount++] = slot * MaxPositions + position;
+            }
+        }
+
+        // unexpected failure, no last weapon to scroll from, default to snap behavior
+        if (lastBox == -1)
+            _lastWeapon = -1;
+
+        float start = 0f, time = 0f;
+        if (_lastWeapon < 0 || _slideDir == 0 || CarouselOffset != 0f)
+        {
+            // no previous weapon or weapon selected directly or selection during slide, snap to exact position
+            _lastWeapon = selected;
+        }
+        else
+        {
+            // count icons in direction of slide to destination, wrapping either way
+            int icons = 0;
+            int at = lastBox;
+            for (int i = 0; i < _boxCount && at != _selectedBox; i++)
+            {
+                at = (at + (_slideDir < 0 ? -1 : 1) + _boxCount) % _boxCount;
+                icons++;
+            }
+
+            start = _slideDir < 0 ? -icons : icons;
+
+            // shorten duration for scrolling when desired weapon is farther away
+            time = icons * SlideSecondsPerBox;
+            if (icons > 1)
+                time *= 0.5f;
+        }
+
+        _slideFrom = start;
+        _slideStart = _clock.Now;
+        _slideTime = time;
+
+        // start the highlight after the scroll completes
+        _glowStart = _clock.Now;
+        _glowDelay = time;
+    }
+
+    /// <summary>ActivateWeaponHighlight: the plus's selected weapon glows (WeaponHighlight), if there is one there.</summary>
+    private void ActivateWeaponHighlight()
+    {
+        if (WeaponInSlot(_plusSlot, _plusPosition) < 0)
+            return;
+
+        _glowStart = _clock.Now;
+        _glowDelay = HighlightDelay;
     }
 
     /// <summary>CancelWeaponSelection: closed with its sound when it would draw.</summary>
@@ -456,6 +659,8 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
 
     private void CycleToNextWeapon()
     {
+        _lastWeapon = _player.Active;
+
         int next;
         if (_visible)
         {
@@ -478,6 +683,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
         if (next >= 0)
         {
             _selected = next;
+            _slideDir = 1;
             if (!_visible)
                 OpenSelection();
 
@@ -488,6 +694,8 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
 
     private void CycleToPrevWeapon()
     {
+        _lastWeapon = _player.Active;
+
         int next;
         if (_visible)
         {
@@ -508,6 +716,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
         if (next >= 0)
         {
             _selected = next;
+            _slideDir = -1;
             if (!_visible)
                 OpenSelection();
 
@@ -518,6 +727,8 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
     /// <summary>FastWeaponSwitch: the next weapon in the bucket, at once, or the deny sound.</summary>
     private void FastWeaponSwitch(int slot)
     {
+        _lastWeapon = -1;
+
         // see where we should start selection
         int active = _player.Active;
         int position = active >= 0 && _slots.Slot(active) == slot ? _slots.Position(active) : -1;
@@ -532,8 +743,77 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
         else if (next != active)
             _actions.Sound("Player.DenyWeaponSelection");
 
-        // kill any fastswitch display
-        _selectionTime = 0f;
+        // kill any fastswitch display; the carousel's stays up
+        if (Mode != HudTypeCarousel)
+            _selectionTime = 0f;
+    }
+
+    /// <summary>
+    /// PlusTypeFastWeaponSwitch: buckets 0 and 2 are one axis and 1 and 3 the
+    /// other, each pair an arm either side of the centre. A key on the axis
+    /// already selected steps out along its arm, or back towards the centre
+    /// for the arm opposite, crossing to the zero position of that arm; a key
+    /// on the other axis starts at its arm's first place. The weapon there is
+    /// drawn at once; a step past the arm's end is refused.
+    /// </summary>
+    private void PlusTypeFastWeaponSwitch(int slot)
+    {
+        _lastWeapon = -1;
+        int newSlot = _plusSlot;
+
+        if (_plusSlot == -1 || ((_plusSlot ^ slot) & 1) != 0)
+        {
+            // Changing vertical/horizontal direction. Reset the selected box position to zero.
+            _plusPosition = 0;
+            _plusSlot = slot;
+        }
+        else
+        {
+            // Still in the same horizontal/vertical direction. Determine which way we're moving in the slot.
+            int increment = 1;
+            if (_plusSlot != slot)
+            {
+                // Decrementing within the slot: from the zero position, jump to the opposite slot's.
+                increment = -1;
+                if (_plusPosition == 0)
+                {
+                    newSlot = (_plusSlot + 2) % 4;
+                    increment = 0;
+                }
+            }
+
+            // Find out of the box position is at the end of the slot
+            int last = -1;
+            for (int position = 0; position < MaxPositions; position++)
+            {
+                if (WeaponInSlot(newSlot, position) >= 0)
+                    last = position;
+            }
+
+            if (_plusPosition + increment <= last)
+            {
+                _plusPosition += increment;
+                _plusSlot = newSlot;
+            }
+            else
+            {
+                _actions.Sound("Player.DenyWeaponSelection");
+                return;
+            }
+        }
+
+        // Select the weapon in this position
+        int active = _player.Active;
+        int weapon = WeaponInSlot(_plusSlot, _plusPosition);
+        if (weapon >= 0 && weapon != active)
+        {
+            _actions.Select(weapon);
+            _selected = weapon;
+            return;
+        }
+
+        // Still need to set this to make hud display appear
+        _selected = active;
     }
 
     /// <summary>SelectWeaponSlot: a number key, as the HUD type answers it.</summary>
@@ -547,8 +827,17 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
         switch (Mode)
         {
             case HudTypeFastSwitch:
+            case HudTypeCarousel:
                 FastWeaponSwitch(slot);
                 return;
+
+            case HudTypePlus:
+                if (!_visible)
+                    OpenSelection();
+
+                PlusTypeFastWeaponSwitch(slot);
+                ActivateWeaponHighlight();
+                break;
 
             case HudTypeBuckets:
             {
@@ -569,6 +858,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput
                         OpenSelection();
 
                     _selected = weapon;
+                    _slideDir = 0;
                 }
 
                 break;

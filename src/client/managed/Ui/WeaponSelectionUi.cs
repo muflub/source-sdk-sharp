@@ -11,8 +11,7 @@ namespace SourceSharp.Client.Vgui;
 public sealed class WeaponSelectionUi(WeaponSelectionHud selection, WeaponCatalog weapons, WeaponNames names)
     : IWeaponSelectionSource
 {
-    private string[] _icons = [];
-    private string[] _names = [];
+    private readonly WeaponStrings _strings = new(weapons, names);
 
     public bool Showing => selection.Showing;
 
@@ -27,17 +26,92 @@ public sealed class WeaponSelectionUi(WeaponSelectionHud selection, WeaponCatalo
     public bool Weapon(int slot, int position, out WeaponSelectionBox box)
     {
         int type = selection.WeaponInSlot(slot, position);
-        if (type < 0 || !Strings(type))
+        if (!_strings.Has(type))
         {
             box = default;
             return false;
         }
 
-        box = new WeaponSelectionBox(_icons[type], _names[type], selection.CanBeSelected(type), type == selection.Selected);
+        box = new WeaponSelectionBox(_strings.Icon(type), _strings.Name(type), selection.CanBeSelected(type), type == selection.Selected);
         return true;
     }
+}
 
-    private bool Strings(int type)
+/// <summary>The plus selection as its panel reads it: the arms are the buckets, the selection its arm and place.</summary>
+public sealed class WeaponPlusUi(WeaponSelectionHud selection, WeaponCatalog weapons, WeaponNames names) : IWeaponPlusSource
+{
+    private readonly WeaponStrings _strings = new(weapons, names);
+
+    public bool Showing => selection.PlusShowing;
+
+    public float Opacity => selection.Opacity;
+
+    public float Glow => selection.Glow;
+
+    public int SelectedSlot => selection.PlusSlot;
+
+    public int SelectedPosition => selection.PlusPosition;
+
+    public int LastPosition(int slot) => selection.LastPositionInSlot(slot);
+
+    public bool Weapon(int slot, int position, out WeaponSelectionBox box)
+    {
+        int type = selection.WeaponInSlot(slot, position);
+        if (!_strings.Has(type))
+        {
+            box = default;
+            return false;
+        }
+
+        bool selected = slot == selection.PlusSlot && position == selection.PlusPosition;
+        box = new WeaponSelectionBox(_strings.Icon(type), _strings.Name(type), selection.CanBeSelected(type), selected);
+        return true;
+    }
+}
+
+/// <summary>The carousel as its panel reads it: the boxes the last wheel step laid out, each the weapon carried there now.</summary>
+public sealed class WeaponCarouselUi(WeaponSelectionHud selection, WeaponCatalog weapons, WeaponNames names) : IWeaponCarouselSource
+{
+    private readonly WeaponStrings _strings = new(weapons, names);
+
+    public bool Showing => selection.CarouselShowing;
+
+    public float Opacity => selection.Opacity;
+
+    public float Glow => selection.Glow;
+
+    public int Count => selection.CarouselCount;
+
+    public int Selected => selection.CarouselSelected;
+
+    public float Offset => selection.CarouselOffset;
+
+    public bool Weapon(int box, out WeaponSelectionBox weapon)
+    {
+        int type = selection.CarouselWeapon(box);
+        if (!_strings.Has(type))
+        {
+            weapon = default;
+            return false;
+        }
+
+        weapon = new WeaponSelectionBox(_strings.Icon(type), _strings.Name(type), selection.CanBeSelected(type),
+                                        box == selection.CarouselSelected);
+        return true;
+    }
+}
+
+/// <summary>
+/// Each weapon type's icon (its classname without <c>weapon_</c>, the kill
+/// feed's icon set) and display name, made once per type.
+/// </summary>
+public sealed class WeaponStrings(WeaponCatalog weapons, WeaponNames names)
+{
+    private string[] _icons = [];
+    private string[] _names = [];
+
+    /// <summary>Whether the type is one the catalog names.</summary>
+    public bool Has(int type)
     {
         if (_icons.Length != weapons.Count)
         {
@@ -51,8 +125,12 @@ public sealed class WeaponSelectionUi(WeaponSelectionHud selection, WeaponCatalo
             }
         }
 
-        return type < _icons.Length;
+        return type >= 0 && type < _icons.Length;
     }
+
+    public string Icon(int type) => _icons[type];
+
+    public string Name(int type) => _names[type];
 }
 
 /// <summary>No weapon selection (a host composed without the client's): never shown.</summary>
@@ -67,6 +145,40 @@ public sealed class NoWeaponSelection : IWeaponSelectionSource
     public bool Weapon(int slot, int position, out WeaponSelectionBox box)
     {
         box = default;
+        return false;
+    }
+}
+
+/// <summary>No plus selection: never shown.</summary>
+public sealed class NoWeaponPlus : IWeaponPlusSource
+{
+    public bool Showing => false;
+    public float Opacity => 0f;
+    public float Glow => 0f;
+    public int SelectedSlot => -1;
+    public int SelectedPosition => 0;
+    public int LastPosition(int slot) => -1;
+
+    public bool Weapon(int slot, int position, out WeaponSelectionBox box)
+    {
+        box = default;
+        return false;
+    }
+}
+
+/// <summary>No carousel: never shown.</summary>
+public sealed class NoWeaponCarousel : IWeaponCarouselSource
+{
+    public bool Showing => false;
+    public float Opacity => 0f;
+    public float Glow => 0f;
+    public int Count => 0;
+    public int Selected => -1;
+    public float Offset => 0f;
+
+    public bool Weapon(int box, out WeaponSelectionBox weapon)
+    {
+        weapon = default;
         return false;
     }
 }

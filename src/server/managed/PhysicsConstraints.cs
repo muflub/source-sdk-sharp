@@ -156,6 +156,19 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
         if (!OrderEnds("constraint", ref obj1, ref world1, ref obj2, ref world2))
             return 0u;
 
+        // CPhysConstraint::ActivateConstraint's two refusals.
+        if (_vphysics.IsStatic(obj1) && _vphysics.IsStatic(obj2))
+        {
+            _log.Warning("[SourceSharp] constraint attached to two static objects\n");
+            return 0u;
+        }
+
+        if (_vphysics.HasShadowController(obj1) && _vphysics.HasShadowController(obj2))
+        {
+            _log.Warning("[SourceSharp] constraint attached to two shadow objects\n");
+            return 0u;
+        }
+
         var breakable = ConstraintBreakableParams.Defaults();
         breakable.ForceLimit = p[0];
         breakable.TorqueLimit = p[1];
@@ -406,11 +419,8 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
         if (_table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is not { } entry)
             return;
 
-        // CPhysHinge::Deactivate. NOTE: RemoveHinged() is always safe
-        if (entry.WorldHinged)
-            _vphysics.RemoveHinged(_vphysics.AttachedObject(entry.Pointer));
-
-        _vphysics.Deactivate(entry.Pointer);
+        // ~CPhysConstraint: Deactivate, then destroy.
+        Deactivate(entry);
         _vphysics.DestroyConstraint(_world.Environment(), entry.Pointer);
 
         // Freeing the id advances the slot's serial: every copy of it anybody
@@ -419,6 +429,46 @@ public sealed class PhysicsConstraints : IEngineConstraints, IEngineSprings, IGa
     }
 
     public bool IsValid(uint constraint) => _table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is not null;
+
+    public void Deactivate(uint constraint)
+    {
+        if (_table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is { } entry)
+            Deactivate(entry);
+    }
+
+    private void Deactivate(ConstraintEntry entry)
+    {
+        nint reference = _vphysics.ReferenceObject(entry.Pointer);
+        nint attached = _vphysics.AttachedObject(entry.Pointer);
+
+        // CPhysHinge::Deactivate. NOTE: RemoveHinged() is always safe
+        if (entry.WorldHinged)
+            _vphysics.RemoveHinged(attached);
+
+        _vphysics.Deactivate(entry.Pointer);
+
+        // CPhysConstraint::ClearStaticFlag on both.
+        foreach (nint obj in new[] { reference, attached })
+        {
+            if (obj != 0)
+                _vphysics.SetGameFlags(obj, (ushort)(_vphysics.GameFlags(obj) & ~ConstraintStaticFlag));
+        }
+    }
+
+    public void Activate(uint constraint)
+    {
+        if (_table.Lookup<ConstraintEntry>(constraint, PhysicsJointKind.Constraint) is not { } entry)
+            return;
+
+        nint reference = _vphysics.ReferenceObject(entry.Pointer);
+        nint attached = _vphysics.AttachedObject(entry.Pointer);
+        if (reference == 0 || attached == 0)
+            return;
+
+        _vphysics.Activate(entry.Pointer);
+        _vphysics.Wake(reference);
+        _vphysics.Wake(attached);
+    }
 
 
     public void SetHingeVelocity(uint constraint, float degreesPerSecond, float systemLoadScale)

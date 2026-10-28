@@ -220,6 +220,8 @@ public class ProceduralBoneReportTests
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
             => Played.Add((entity, sequence, playbackRate, restart));
 
+        public void SetCycle(EntityHandle entity, float cycle) { }
+
         private sealed class Stub : ClientStandaloneEntity
         {
             private readonly string _className;

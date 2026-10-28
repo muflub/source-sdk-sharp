@@ -33,6 +33,9 @@ public interface IVPhysicsJoints
     /// <summary><c>IPhysicsConstraint::Deactivate</c>.</summary>
     void Deactivate(nint constraint);
 
+    /// <summary><c>IPhysicsConstraint::Activate</c>.</summary>
+    void Activate(nint constraint);
+
     /// <summary><c>IPhysicsConstraint::SetAngularMotor</c>.</summary>
     void SetAngularMotor(nint constraint, float rotSpeed, float maxAngularImpulse);
 
@@ -101,6 +104,12 @@ public interface IVPhysicsJoints
 
     /// <summary><c>IPhysicsObject::IsMoveable</c>.</summary>
     bool IsMoveable(nint physicsObject);
+
+    /// <summary><c>IPhysicsObject::IsStatic</c>.</summary>
+    bool IsStatic(nint physicsObject);
+
+    /// <summary>Whether <c>IPhysicsObject::GetShadowController</c> answers one.</summary>
+    bool HasShadowController(nint physicsObject);
 
     /// <summary><c>IPhysicsObject::GetMass</c>.</summary>
     float Mass(nint physicsObject);
@@ -212,6 +221,12 @@ public sealed unsafe class VPhysicsJoints : IVPhysicsJoints
     {
         if (constraint != 0)
             Constraint(constraint)->Deactivate((void*)constraint);
+    }
+
+    public void Activate(nint constraint)
+    {
+        if (constraint != 0)
+            Constraint(constraint)->Activate((void*)constraint);
     }
 
     public void SetAngularMotor(nint constraint, float rotSpeed, float maxAngularImpulse)
@@ -346,6 +361,12 @@ public sealed unsafe class VPhysicsJoints : IVPhysicsJoints
 
     public bool IsMoveable(nint physicsObject)
         => physicsObject != 0 && Object(physicsObject)->IsMoveable((void*)physicsObject) != 0;
+
+    public bool IsStatic(nint physicsObject)
+        => physicsObject != 0 && Object(physicsObject)->IsStatic((void*)physicsObject) != 0;
+
+    public bool HasShadowController(nint physicsObject)
+        => physicsObject != 0 && Object(physicsObject)->GetShadowController((void*)physicsObject) != null;
 
     public float Mass(nint physicsObject)
         => physicsObject == 0 ? 0f : Object(physicsObject)->GetMass((void*)physicsObject);

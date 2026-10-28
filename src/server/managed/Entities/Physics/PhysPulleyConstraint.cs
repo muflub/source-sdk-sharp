@@ -17,8 +17,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysPulleyconstraint)]
 public sealed class PhysPulleyConstraint : PhysicsConstraintEntity
 {
-    public PhysPulleyConstraint(IEngineConstraints constraints, IEngineSound sound)
-        : base(constraints, sound)
+    public PhysPulleyConstraint(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
+        : base(constraints, sound, pairs)
     {
     }
 

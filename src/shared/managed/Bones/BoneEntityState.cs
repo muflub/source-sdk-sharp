@@ -138,6 +138,12 @@ public sealed class BoneEntityState
     /// <summary><c>m_bSeqLooping</c> / <c>m_bPoseSeqLooping</c>.</summary>
     public bool SeqLooping;
 
+    /// <summary>
+    /// <c>SetCycle</c> on a sequence nothing advances: the cycle stays where it
+    /// was set (a wall charger's drain), until the next sequence starts.
+    /// </summary>
+    public float? HeldCycle;
+
     /// <summary><c>m_nSequenceStarts</c> (client): every new sequence and
     /// every restart bumps it, so it is stock's <c>m_nNewSequenceParity</c>.</summary>
     public int SequenceStarts;
@@ -221,7 +227,7 @@ public sealed class BoneEntityState
     /// the base sequence's cycle at <paramref name="now"/>.</summary>
     public float SequenceCycle(float now)
     {
-        return BoneLibraryMath.Cycle(now, AnimTime, PlaybackRate, SeqDuration, SeqLooping);
+        return HeldCycle ?? BoneLibraryMath.Cycle(now, AnimTime, PlaybackRate, SeqDuration, SeqLooping);
     }
 
     /// <summary><c>AnimLayerCycle</c>: a layer's cycle on its own clock; 0

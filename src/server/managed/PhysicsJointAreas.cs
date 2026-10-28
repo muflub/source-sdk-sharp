@@ -43,6 +43,16 @@ public interface IEngineConstraints
     bool IsValid(uint constraint);
 
     /// <summary>
+    /// CPhysConstraint::Deactivate: the joint stops holding, both ends lose
+    /// FVPHYSICS_CONSTRAINT_STATIC, and a world hinge's object is no longer
+    /// hinged. The constraint stays, to be activated again.
+    /// </summary>
+    void Deactivate(uint constraint);
+
+    /// <summary>CPhysConstraint::InputTurnOn's half: the joint holds again, and both ends wake.</summary>
+    void Activate(uint constraint);
+
+    /// <summary>
     /// Drives a joint along its axis rather than about one — a winch, a lift, a
     /// powered slide. Speed is units per second. The load scale multiplies the
     /// FORCE the motor will spend, which is the average mass of the ends that

@@ -78,6 +78,15 @@ public abstract class WallCharger : ScriptedEntity
     /// <summary>The display's drain per second of use; the citadel charger's is ten times.</summary>
     protected virtual float DisplayChargesPerSecond => ChargesPerSecond;
 
+    /// <summary>
+    /// StudioFrameAdvance's divisor: the health charger's whole charge, the
+    /// suit charger's plus a tenth (CNewRecharge::StudioFrameAdvance).
+    /// </summary>
+    protected virtual float DisplayMaxJuice => MaxJuice;
+
+    /// <summary>The sequence and cycle the client draws. See <see cref="IChargerNetState"/>.</summary>
+    protected abstract IChargerNetState Display { get; }
+
     /// <summary>Whether this player may use it at all (the suit charger asks for the suit).</summary>
     protected virtual bool CanUse(EntityHandle player) => true;
 
@@ -149,7 +158,10 @@ public abstract class WallCharger : ScriptedEntity
         _caps = UseCaps.ContinuousUse;
 
         if (_on != 0)
+        {
             _displayJuice -= DisplayChargesPerSecond / CallsPerSecond;
+            StudioFrameAdvance();
+        }
 
         if (!CanUse(player))
         {
@@ -253,25 +265,51 @@ public abstract class WallCharger : ScriptedEntity
         _displayJuice = Juice;
         _reactivate = 0f;
         ShowFull();
+        StudioFrameAdvance();
     }
 
     /// <summary>The juice set to <paramref name="juice"/>; the suit charger reports the change.</summary>
     protected virtual void RefillTo(int juice) => Juice = juice;
 
-    /// <summary>The model at its full frame: "idle", held at cycle 0.</summary>
-    protected void ShowFull()
+    /// <summary>
+    /// ResetSequence( "idle" ) and SetCycle( 1 - juice/max ): what Spawn and
+    /// InputSetCharge show, the drain the juice says.
+    /// </summary>
+    protected void ShowFull() => Show("idle", 1f - _displayJuice / MaxJuice);
+
+    /// <summary>
+    /// InputSetCharge's display: m_flJuice is the new juice, "idle" again, and
+    /// StudioFrameAdvance.
+    /// </summary>
+    protected void ShowCharged()
     {
-        int sequence = _render.LookupSequence(Handle, "idle");
-        if (sequence >= 0)
-            _render.PlaySequence(Handle, sequence, 0f, restart: true);
+        _displayJuice = Juice;
+        Show("idle", 0f);
+        StudioFrameAdvance();
     }
 
-    /// <summary>The model run dry: "emptyclick", played to its last frame and held.</summary>
-    private void ShowEmpty()
+    /// <summary>"emptyclick" held at its last frame: ResetSequence, then Off's SetCycle( 1.0f ).</summary>
+    private void ShowEmpty() => Show("emptyclick", 1f);
+
+    /// <summary>StudioFrameAdvance: the cycle at 1 - m_flJuice / max, at a playback rate of 0.</summary>
+    private void StudioFrameAdvance() => SetDisplayCycle(1f - _displayJuice / DisplayMaxJuice);
+
+    private void Show(string sequenceName, float cycle)
     {
-        int sequence = _render.LookupSequence(Handle, "emptyclick");
-        if (sequence >= 0)
-            _render.PlaySequence(Handle, sequence, 1f, restart: true);
+        int sequence = _render.LookupSequence(Handle, sequenceName);
+        if (sequence < 0)
+            return;
+
+        _render.PlaySequence(Handle, sequence, 1f, restart: true);
+        Display.Sequence = sequence;
+        SetDisplayCycle(cycle);
+    }
+
+    private void SetDisplayCycle(float cycle)
+    {
+        cycle = Math.Clamp(cycle, 0f, 1f);
+        _render.SetCycle(Handle, cycle);
+        Display.Cycle = cycle;
     }
 
     /// <summary>For the facts: the display's drained juice.</summary>

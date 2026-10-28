@@ -448,6 +448,19 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
     }
 
     /// <inheritdoc/>
+    public bool SetCycle(EntityHandle entity, float cycle)
+    {
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        // The cache key carries the cycle, so a held one is a new key.
+        state.HeldCycle = Math.Clamp(cycle, 0.0f, 1.0f);
+        return true;
+    }
+
+    /// <inheritdoc/>
     public SkeletonScaleChange SetModelScale(EntityHandle entity, float scale)
     {
         if (!Find(entity, out EngineBlock block, out BoneEntityState state))

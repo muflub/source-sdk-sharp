@@ -7,8 +7,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysBallsocket)]
 public sealed class PhysBallSocket : PhysicsConstraintEntity
 {
-    public PhysBallSocket(IEngineConstraints constraints, IEngineSound sound)
-        : base(constraints, sound)
+    public PhysBallSocket(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
+        : base(constraints, sound, pairs)
     {
     }
 

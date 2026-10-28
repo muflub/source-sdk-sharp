@@ -300,6 +300,19 @@ public class ServerSkeletonsTests
     }
 
     [Fact]
+    public void SetCycleHoldsTheCycleClampedAndANoBlockHandleIsRefused()
+    {
+        Rig rig = new();
+
+        Assert.True(rig.Skeletons.SetCycle(Entity, 1.5f));
+        Assert.True(rig.Skeletons.States.TryGet(Entity, out BoneEntityState? state));
+        Assert.Equal(1f, state!.HeldCycle);
+        Assert.Equal(1f, state.SequenceCycle(123f));
+
+        Assert.False(rig.Skeletons.SetCycle(Other, 0.5f));
+    }
+
+    [Fact]
     public void AFreshSkeletonTakesItsClockFromTheBlock()
     {
         // What a hot reload looks like: the block says the sequence started at

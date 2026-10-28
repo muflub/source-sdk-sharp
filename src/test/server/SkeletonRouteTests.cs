@@ -43,6 +43,12 @@ public class SkeletonRouteTests
             return true;
         }
 
+        public bool SetCycle(EntityHandle entity, float cycle)
+        {
+            Calls.Add($"cycle {cycle}");
+            return true;
+        }
+
         public SkeletonScaleChange SetModelScale(EntityHandle entity, float scale)
         {
             Calls.Add("scale");
@@ -99,6 +105,16 @@ public class SkeletonRouteTests
         render.PlaySequence(Standalone, 2, 0.5f, restart: false);
 
         Assert.Equal(new[] { "seq 3 1 True", "seq 2 0.5 False" }, fake.Calls);
+    }
+
+    [Fact]
+    public void SetCycleIsTheSkeletonsToHold()
+    {
+        var (render, _, fake, _) = Rig(filled: true);
+
+        render.SetCycle(Standalone, 0.5f);
+
+        Assert.Equal(new[] { "cycle 0.5" }, fake.Calls);
     }
 
     [Fact]

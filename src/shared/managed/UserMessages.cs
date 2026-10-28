@@ -366,12 +366,19 @@ public partial struct ItemPickup
 }
 
 [UserMessage("ItemPickup", Stock = true)]
-public sealed class ItemPickupMessage : IUserMessage<ItemPickup>
+public sealed class ItemPickupMessage : IUserMessage<ItemPickup>, IUserMessageEvent<string>
 {
     /// <summary>The last pickup that arrived.</summary>
     public ItemPickup Last { get; private set; }
 
-    public void OnReceived(ItemPickup message) => Last = message;
+    /// <summary>Raised on the client with the item's name (CHudHistoryResource::MsgFunc_ItemPickup).</summary>
+    public event Action<string>? Fired;
+
+    public void OnReceived(ItemPickup message)
+    {
+        Last = message;
+        Fired?.Invoke(message.Item);
+    }
 }
 
 /// <summary>ShowMenu's payload: the valid slots, how long to show it (-1 for ever, as a byte), whether more text follows, and the text.</summary>
@@ -797,12 +804,19 @@ public partial struct AmmoDenied
 }
 
 [UserMessage("AmmoDenied", Stock = true, Size = 2)]
-public sealed class AmmoDeniedMessage : IUserMessage<AmmoDenied>
+public sealed class AmmoDeniedMessage : IUserMessage<AmmoDenied>, IUserMessageEvent<int>
 {
     /// <summary>The last refusal that arrived.</summary>
     public AmmoDenied Last { get; private set; }
 
-    public void OnReceived(AmmoDenied message) => Last = message;
+    /// <summary>Raised on the client with the ammo's wire index (CHudHistoryResource::MsgFunc_AmmoDenied).</summary>
+    public event Action<int>? Fired;
+
+    public void OnReceived(AmmoDenied message)
+    {
+        Last = message;
+        Fired?.Invoke(message.AmmoType);
+    }
 }
 
 /// <summary>CreditsMsg's payload: which credits to roll (env_credits: 1 the outro, 2 the intro, 3 the logo).</summary>

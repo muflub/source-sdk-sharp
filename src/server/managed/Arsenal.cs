@@ -1014,6 +1014,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         player.State.CarriedWeapons = carried;
         player.State.EmptyWeapons = empty;
+
+        // m_iAmmo, by wire index.
+        for (int i = 0; i < _ammo.Count && i + 1 < PlayerNetState.MaxAmmoSlots; i++)
+        {
+            int count = carry.Ammo.TryGetValue(_ammo.All[i].Name, out int held) ? held : 0;
+            player.State.Ammo[i + 1] = (short)Math.Clamp(count, 0, short.MaxValue);
+        }
     }
 
     /// <summary>

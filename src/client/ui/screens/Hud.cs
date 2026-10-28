@@ -25,13 +25,19 @@ public sealed class Hud : UiScreen
     private readonly KillFeedPanel _kills;
     private readonly VoicePanel _voice;
     private readonly WeaponSelectionPanel _selection;
+    private readonly WeaponPlusPanel _plus;
+    private readonly WeaponCarouselPanel _carousel;
+    private readonly PickupHistoryPanel _history;
 
     /// <summary>The HUD reads only whether there is a player; each element reads its own sources.</summary>
     public Hud(IPlayerLife life, VitalsPanel vitals, AmmoPanel ammo, CrosshairPanel crosshair, DamagePanel damage,
                MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice,
-               WeaponSelectionPanel selection)
+               WeaponSelectionPanel selection, WeaponPlusPanel plus, WeaponCarouselPanel carousel, PickupHistoryPanel history)
     {
         _selection = selection;
+        _plus = plus;
+        _carousel = carousel;
+        _history = history;
         _voice = voice;
         _kills = kills;
         _life = life;
@@ -102,6 +108,9 @@ public sealed class Hud : UiScreen
 
         ui.Sub("maptext", _mapText);
         ui.Sub("weaponselection", _selection);
+        ui.Sub("weaponplus", _plus);
+        ui.Sub("weaponcarousel", _carousel);
+        ui.Sub("history", _history);
 
         // The top corners' slots; the bottom ones sit above the vitals and the ammo, in their panels.
         using (ui.Box().Size(Size.Fill, Size.Fill).Layered())

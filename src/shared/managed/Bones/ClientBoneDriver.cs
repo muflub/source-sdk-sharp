@@ -687,6 +687,7 @@ public sealed class ClientBoneDriver
         s.Sequence = sequence;
         s.PlaybackRate = playbackRate;
         s.AnimTime = now;
+        s.HeldCycle = null;
         s.SequenceStarts++;
 
         s.SeqDuration = 0.0f;

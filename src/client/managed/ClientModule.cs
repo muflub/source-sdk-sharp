@@ -137,6 +137,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private readonly ConCommandRegistry _commands = new();
     private ClientArsenal _clientArsenal = null!;
     private WeaponSelectionHud? _weaponSelection;
+    private LocalPickupHistory? _pickupHistory;
     private WeaponEffects.WeaponDrawEffects? _weaponEffects;
     private UnderwaterAmbience? _underwater;
     private ClientPlayerPrediction _prediction = null!;
@@ -1973,6 +1974,16 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             () => fastSwitch?.Value ?? WeaponSelectionHud.HudTypeBuckets);
         _services.AddInstance(_weaponSelection);
 
+        // THE PICKUP HISTORY (stock CHudHistoryResource): what was just picked
+        // up, fed by the local player's weapons and pools and the server's
+        // ItemPickup and AmmoDenied.
+        var drawHistoryTime = _convars.Get<HudDrawHistoryTimeConVar>();
+        var history = new PickupHistory(_clock, () => drawHistoryTime?.Value ?? 5f);
+        _services.AddInstance(history);
+        _pickupHistory = _services.Create<LocalPickupHistory>();
+        _pickupHistory.Subscribe(_services.Require<ItemPickupMessage>(), _services.Require<AmmoDeniedMessage>());
+        _services.AddInstance(_pickupHistory);
+
         // THE UI (plan_client_ui §8 U2): the HUD as toolkit screens, drawn
         // through IShimUiClient when the HUD panel paints (IManagedUiClient).
         // After the arsenal and the HUD's message, hint and stamp state, which
@@ -2323,6 +2334,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The weapon selection's timeout and fade (CHudWeaponSelection::OnThink).
         _weaponSelection?.Think();
+
+        // The pickup history's feeds and expiry (CHudHistoryResource::Paint's bookkeeping).
+        _pickupHistory?.Think();
         _frameTimes.Add(frameTime);
 
         // The dev API's questions that read the game's state, answered here on

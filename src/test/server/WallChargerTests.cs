@@ -66,9 +66,14 @@ public class WallChargerTests
         return rig;
     }
 
-    private static int Played(Rig rig, int sequence, float rate)
-        => rig.Engine.AllOf("EntityRender.PlaySequence")
-              .Count(c => c.ArgAs<int>(1) == sequence && c.ArgAs<float>(2) == rate);
+    private static int Played(Rig rig, int sequence)
+        => rig.Engine.AllOf("EntityRender.PlaySequence").Count(c => c.ArgAs<int>(1) == sequence);
+
+    /// <summary>The cycle the skeleton was last told to hold.</summary>
+    private static float HeldCycle(Rig rig) => rig.Engine.AllOf("EntityRender.SetCycle").Last().ArgAs<float>(1);
+
+    private static IChargerNetState Display(Rig rig)
+        => rig.Entity is ItemHealthCharger h ? h.State : ((ItemSuitCharger)rig.Entity).State;
 
     //-------------------------------------------------------------------------
     // The health charger
@@ -83,8 +88,27 @@ public class WallChargerTests
         // A brush's solidity is SOLID_BSP, which a studio model is not traced as:
         // the +USE line went through the charger it was set on (live, 2026-10-26).
         Assert.False(rig.Engine.Called("EntityPhysics.SetBrushSolidity"), "the static object is the solidity");
-        Assert.Equal(1, Played(rig, 0, 0f));
+        Assert.Equal(1, Played(rig, 0));
+        Assert.Equal(0f, HeldCycle(rig));
+        Assert.Equal((0, 0f), (Display(rig).Sequence, Display(rig).Cycle));
         Assert.Equal(UseCaps.ContinuousUse, rig.Entity.ObjectCaps);
+    }
+
+    [Fact]
+    public void The_tube_drains_as_it_is_used_one_minus_the_display_juice_over_the_whole()
+    {
+        var rig = Spawned(EntityNames.ItemHealthcharger);
+        rig.Health = 1;
+
+        for (int i = 0; i < 30; i++)
+            rig.Use(0.11f);
+
+        var charger = (ItemHealthCharger)rig.Entity;
+        float expected = 1f - charger.DisplayJuice / ItemHealthCharger.FullJuice;
+        Assert.InRange(expected, 0.05f, 0.95f);
+        Assert.Equal(expected, HeldCycle(rig), 4);
+        Assert.Equal(expected, Display(rig).Cycle, 4);
+        Assert.Equal(1, Played(rig, 0));
     }
 
     [Fact]
@@ -156,7 +180,9 @@ public class WallChargerTests
         rig.Use(0.11f);
 
         Assert.Equal(51, rig.Health);
-        Assert.Equal(1, Played(rig, 1, 1f));   // "emptyclick", once
+        Assert.Equal(1, Played(rig, 1));   // "emptyclick", once, held at its last frame
+        Assert.Equal(1f, HeldCycle(rig));
+        Assert.Equal((1, 1f), (Display(rig).Sequence, Display(rig).Cycle));
         Assert.Contains("WallHealth.Deny", rig.Sounds);
         // Booked on the first empty use, one use (0.11 s) ago.
         Assert.InRange(rig.Entity.NextThinkDelay("ChargerRecharge"), 59.8f, 60f);
@@ -166,7 +192,8 @@ public class WallChargerTests
 
         Assert.Equal((int)ItemHealthCharger.FullJuice, Juice(rig.Entity));
         Assert.Equal(["WallHealth.Recharge"], rig.Sounds);
-        Assert.Equal(1, Played(rig, 0, 0f));
+        Assert.Equal(1, Played(rig, 0));
+        Assert.Equal((0, 0f), (Display(rig).Sequence, Display(rig).Cycle));
     }
 
     [Fact]
@@ -249,5 +276,17 @@ public class WallChargerTests
         rig.Registry.Input(Charger, "SetCharge", "10", 10f, EntityHandle.None);
 
         Assert.Equal(10, Juice(rig.Entity));
+    }
+
+    [Fact]
+    public void A_suit_charger_s_tube_reads_its_charge_against_a_tenth_more()
+    {
+        var rig = Spawned(EntityNames.ItemSuitcharger);
+
+        rig.Registry.Input(Charger, "SetCharge", "10", 10f, EntityHandle.None);
+
+        // CNewRecharge::StudioFrameAdvance: 1 - m_flJuice / ( MaxJuice() + 0.1 ).
+        Assert.Equal(1f - 10f / 10.1f, HeldCycle(rig), 5);
+        Assert.Equal(0, Display(rig).Sequence);
     }
 }

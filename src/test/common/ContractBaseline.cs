@@ -1038,9 +1038,9 @@ public static class ContractBaseline
               + "can be matched up. Nothing in this port reads it; it is the "
               + "cheapest possible entry to close (store a string) and the least "
               + "valuable, and both halves of that are the argument."),
-        new("key|health", GroupDamage, 15,
-            "Fifteen managed classes declare health for themselves -- every "
-              + "breakable and every physics prop -- so the gap is not that health "
+        new("key|health", GroupDamage, 17,
+            "Seventeen managed classes declare health for themselves -- every "
+              + "breakable, every physics prop and both buttons -- so the gap is not that health "
               + "does not work, it is that a mapper cannot set it on a class that "
               + "did not think to ask. There is no block word for health and no "
               + "base field; each of the fifteen keeps its own."),
@@ -1112,9 +1112,9 @@ public static class ContractBaseline
               + "deliberate-looking divergence that nobody has written a rule for, "
               + "so it stays a gap until somebody argues it; see "
               + "docs/divergences.md for where such an argument would go."),
-        new("key|speed", GroupMotion, 33,
-            "Thirty-three managed classes declare speed for themselves -- every "
-              + "door, train, platform and path node -- which is the largest "
+        new("key|speed", GroupMotion, 34,
+            "Thirty-four managed classes declare speed for themselves -- every "
+              + "door, train, platform, path node and button -- which is the largest "
               + "partial answer in this list after Use. m_flSpeed on CBaseEntity is "
               + "a general-purpose float those classes each interpret; the base "
               + "offering it would not make it mean anything, so this entry is "
@@ -1294,8 +1294,6 @@ public static class ContractBaseline
         "input|func_breakable|physdamagescale",
         "input|func_brush|SetExcluded",
         "input|func_brush|SetInvert",
-        "input|func_button|PressIn",
-        "input|func_button|PressOut",
         "input|func_clip_vphysics|Disable",
         "input|func_clip_vphysics|Enable",
         "input|func_door_rotating|SetSpeed",
@@ -1325,8 +1323,6 @@ public static class ContractBaseline
         "input|func_pushable|physdamagescale",
         "input|func_reflective_glass|SetExcluded",
         "input|func_reflective_glass|SetInvert",
-        "input|func_rot_button|PressIn",
-        "input|func_rot_button|PressOut",
         "input|func_rotating|StopAtStartPos",
         "input|func_water|SetSpeed",
         "input|func_water|SetToggleState",
@@ -2205,8 +2201,6 @@ public static class ContractBaseline
         "key|func_brush|excludednpc",
         "key|func_brush|invert_exclusion",
         "key|func_brush|solidbsp",
-        "key|func_button|movedir",
-        "key|func_button|sounds",
         "key|func_clip_vphysics|filtername",
         "key|func_door_rotating|WaveHeight",
         "key|func_door_rotating|chainstodoor",
@@ -2279,7 +2273,6 @@ public static class ContractBaseline
         "key|func_reflective_glass|invert_exclusion",
         "key|func_reflective_glass|solidbsp",
         "key|func_rot_button|movedir",
-        "key|func_rot_button|sounds",
         "key|func_rotating|dmg",
         "key|func_rotating|message",
         "key|func_rotating|solidbsp",
@@ -2632,7 +2625,6 @@ public static class ContractBaseline
         "key|momentary_door|StartSound",
         "key|momentary_door|StopSound",
         "key|momentary_rot_button|movedir",
-        "key|momentary_rot_button|sounds",
         "key|npc_grenade_frag|LightingOrigin",
         "key|npc_grenade_frag|LightingOriginHack",
         "key|npc_grenade_frag|SetBodyGroup",
@@ -3078,6 +3070,7 @@ public static class ContractBaseline
         "output|env_wind|OnGustEnd",
         "output|env_wind|OnGustStart",
         "output|func_breakable_surf|OnHealthChanged",
+        "output|func_button|OnDamaged",
         "output|func_door_rotating|OnLockedUse",
         "output|func_door_rotating|OnUnblockedClosing",
         "output|func_door_rotating|OnUnblockedOpening",

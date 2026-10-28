@@ -666,3 +666,6 @@ src/shared/native/diagnostics_hooks.cpp	CDiagnosticsHooks' bodies, moved from sh
 src/shared/native/convar_registry.h	CCVarRegistry: tier1's ConVar_Register and ConVar_Unregister (convar.cpp) and the ICvar a DLL connects in ConnectTier1Libraries (tier1.cpp), as one object each DLL root owns (plan_server_native_v2 T6 part 3, user 2026-10-27)
 src/shared/native/shell_log.h	CShellLog: SourceSharp's logging, its verbosity ConVar and not-shipped ledger, as one object each DLL root owns (plan_server_native_v2 T6 part 3, user 2026-10-27)
 src/shared/native/shell_log.cpp	CShellLog's bodies and the free logging calls, moved from shell_diagnostics.cpp (built against SDK headers)
+src/server/managed/Entities/Brushes/BaseButton.cs	ports CBaseButton (buttons.cpp): toggle states, ButtonUse/Touch/OnTakeDamage, Press/PressIn/PressOut, TriggerAndWait/ButtonReturn/ButtonBackHome, ButtonSpark, MakeButtonSound and PlayLockSounds (doors.cpp)
+src/client/managed/PickupHistory.cs	ports CHudHistoryResource (history_resource.cpp): AddToHistory, AddIconToHistory, MsgFunc_AmmoDenied, CheckClearHistory and Paint's expiry and fade
+src/client/managed/LocalPickupHistory.cs	ports the history's feeds: CBaseHudWeaponSelection::OnWeaponPickup, C_BasePlayer::PostDataUpdate's m_iOldAmmo walk (gWR.GetWeaponFromAmmo, ITEM_FLAG_NOAMMOPICKUPS) and MsgFunc_ItemPickup

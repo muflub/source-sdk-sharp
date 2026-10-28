@@ -282,6 +282,73 @@ public class PhysicsConstraintsTests
     }
 
     [Fact]
+    public void TwoStaticEndsAreRefusedAndNamed()
+    {
+        var (t, v, _, log, _) = Make();
+        v.Of(ObjA).Static = true;
+        v.Of(ObjB).Static = true;
+
+        Assert.Equal(0u, C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed()));
+        Assert.Contains("two static objects", log.Text);
+        Assert.DoesNotContain("CreateFixed", v.Calls);
+
+        v.Of(ObjB).Static = false;
+        Assert.NotEqual(0u, C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed()));
+    }
+
+    [Fact]
+    public void TwoShadowedEndsAreRefusedAndNamed()
+    {
+        var (t, v, _, log, _) = Make();
+        v.Of(ObjA).Shadowed = true;
+        v.Of(ObjB).Shadowed = true;
+
+        Assert.Equal(0u, C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed()));
+        Assert.Contains("two shadow objects", log.Text);
+    }
+
+    [Fact]
+    public void DeactivateKeepsTheJointAndClearsTheStaticFlagOnBothEnds()
+    {
+        var (t, v, _, _, _) = Make();
+        uint id = C(t).Create(EntityHandle.None, B, (int)ConstraintKind.Fixed, Fixed());
+        nint made = v.Ends.Keys.Single();
+        Assert.NotEqual(0, v.Of(ObjB).GameFlags & PhysicsConstraints.ConstraintStaticFlag);
+        v.Of(ObjB).GameFlags |= 0x0100;
+
+        C(t).Deactivate(id);
+
+        Assert.Contains($"Deactivate {made:x}", v.Calls);
+        Assert.Equal(0x0100, v.Of(ObjB).GameFlags);
+        Assert.True(C(t).IsValid(id), "the joint stays, to be turned on again");
+        Assert.DoesNotContain(v.Calls, c => c.StartsWith("DestroyConstraint"));
+    }
+
+    [Fact]
+    public void ActivateHoldsAgainAndWakesBothEnds()
+    {
+        var (t, v, _, _, _) = Make();
+        uint id = C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed());
+        nint made = v.Ends.Keys.Single();
+
+        C(t).Activate(id);
+
+        Assert.Contains($"Activate {made:x}", v.Calls);
+        Assert.Equal((1, 1), (v.Of(ObjA).Wakes, v.Of(ObjB).Wakes));
+    }
+
+    [Fact]
+    public void DestroyClearsTheStaticFlagItsJointSet()
+    {
+        var (t, v, _, _, _) = Make();
+        uint id = C(t).Create(EntityHandle.None, B, (int)ConstraintKind.Fixed, Fixed());
+
+        C(t).Destroy(id);
+
+        Assert.Equal(0, v.Of(ObjB).GameFlags & PhysicsConstraints.ConstraintStaticFlag);
+    }
+
+    [Fact]
     public void AMotorIsNotAppliedToAnythingButAHinge()
     {
         var (t, v, _, _, _) = Make();

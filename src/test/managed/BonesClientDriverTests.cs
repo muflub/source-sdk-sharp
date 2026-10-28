@@ -758,6 +758,18 @@ public class BonesClientDriverTests
     }
 
     [Fact]
+    public void AStartLetsGoOfAHeldCycleAndKeepingTheSequenceKeepsIt()
+    {
+        (_, ClientBoneDriver d, BoneEntityState s) = Rig(Chain());
+        s.HeldCycle = 0.4f;
+        d.SetPlayingSequence(s, Model, 0, 1f, false, 5f);
+        Assert.Equal(0.4f, s.HeldCycle);
+
+        d.SetPlayingSequence(s, Model, 0, 1f, true, 6f);
+        Assert.Null(s.HeldCycle);
+    }
+
+    [Fact]
     public void ARestartRestartsTheClockAndCountsAStart()
     {
         (_, ClientBoneDriver d, BoneEntityState s) = Rig(Chain());

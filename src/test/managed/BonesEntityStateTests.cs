@@ -28,6 +28,18 @@ public class BonesEntityStateTests
     // ---- constructor ---------------------------------------------------------
 
     [Fact]
+    public void AHeldCycleIsTheCycleWhateverTheClockSays()
+    {
+        var s = new BoneEntityState { AnimTime = 0f, PlaybackRate = 1f, SeqDuration = 2f, SeqLooping = true };
+        Assert.Equal(0.25f, s.SequenceCycle(0.5f), 4);
+
+        s.HeldCycle = 0.7f;
+
+        Assert.Equal(0.7f, s.SequenceCycle(0.5f));
+        Assert.Equal(0.7f, s.SequenceCycle(100f));
+    }
+
+    [Fact]
     public void ANewStatesCacheKeyIsNeverValid()
     {
         BoneEntityState s = new();

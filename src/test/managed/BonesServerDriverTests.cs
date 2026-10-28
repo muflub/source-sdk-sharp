@@ -376,6 +376,18 @@ public class BonesServerDriverTests
     }
 
     [Fact]
+    public void AStartLetsGoOfAHeldCycleAndKeepingTheSequenceKeepsIt()
+    {
+        (_, ServerBoneDriver d, BoneEntityState s) = Rig(Chain());
+        s.HeldCycle = 0.4f;
+        d.SetPoseSequence(s, Model, 0, 1f, false, 5f);
+        Assert.Equal(0.4f, s.HeldCycle);
+
+        d.SetPoseSequence(s, Model, 0, 1f, true, 6f);
+        Assert.Null(s.HeldCycle);
+    }
+
+    [Fact]
     public void ThePlayingSequenceKeepsItsClockAndItsCache()
     {
         (_, ServerBoneDriver d, BoneEntityState s) = Rig(Chain());

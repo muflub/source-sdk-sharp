@@ -274,12 +274,10 @@ public sealed class VCollideWireframeConVar : BoolConVar
 public sealed class SoundscapeFadetimeConVar : FloatConVar { }
 
 /// <summary>
-/// How long the pickup history stays on screen. From
-/// game/client/shell_hud.cpp. Its stock reader, history_resource.cpp, is not
-/// compiled into this build, so the declaration is the whole of it.
+/// How long the pickup history stays on screen (CHudHistoryResource; a
+/// refused ammo pickup stays half as long). Read by <see cref="PickupHistory"/>.
 /// </summary>
-[ConVar("hud_drawhistory_time", "5",
-        Help = "Seconds the pickup history stays up. Unused here \u2014 the history HUD is hidden.")]
+[ConVar("hud_drawhistory_time", "5", Help = "Seconds the pickup history stays up.")]
 public sealed class HudDrawHistoryTimeConVar : FloatConVar { }
 
 //-----------------------------------------------------------------------------

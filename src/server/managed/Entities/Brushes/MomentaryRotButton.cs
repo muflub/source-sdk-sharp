@@ -29,10 +29,24 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.MomentaryRotButton, ScriptedEntityKind.Brush)]
 public sealed class MomentaryRotButton : ScriptedEntity
 {
-    public MomentaryRotButton(IGameClock clock)
+    public MomentaryRotButton(IGameClock clock, IEnginePrecache precache, IEngineSound sound)
     {
         Clock = clock;
+        Precache = precache;
+        Sound = sound;
     }
+
+    private readonly IEnginePrecache Precache;
+
+    private readonly IEngineSound Sound;
+
+    /// <summary>
+    /// m_sNoise: the <c>sounds</c> key's "Buttons.sndN", set only for a wheel
+    /// the player turns (SF_BUTTON_USE_ACTIVATES), as stock's Spawn does. Its
+    /// Spawn never runs CBaseButton::Precache, so the lock sounds are never set
+    /// and a locked wheel is silent, here as there.
+    /// </summary>
+    private string _noise = string.Empty;
 
     /// <summary>what the server thinks the time is: OnUseLocked's half-second.</summary>
     private readonly IGameClock Clock;
@@ -189,6 +203,12 @@ public sealed class MomentaryRotButton : ScriptedEntity
 
         _locked = Flags.HasFlag(SpawnFlag.Locked);
 
+        if (Flags.HasFlag(SpawnFlag.UseActivates) && Vars.Sounds != 0)
+        {
+            _noise = BaseButton.ButtonSound(Vars.Sounds);
+            Precache.PrecacheSound(_noise);
+        }
+
         // Nothing is fired here, because stock fires nothing here either: it
         // reports nought at spawn, which its own "has the value changed" guard
         // then swallows. A wheel drawn half-wound therefore says so the first
@@ -324,9 +344,10 @@ public sealed class MomentaryRotButton : ScriptedEntity
             OnPressed.Fire();
         }
 
+        bool playSound = !_lastUsed;
         _lastUsed = true;
 
-        UpdateSelf(CurrentPosition);
+        UpdateSelf(CurrentPosition, playSound);
 
         // Think every frame while we are moving, unless a think is pending.
         if (NextThinkDelay() < 0f)
@@ -390,7 +411,7 @@ public sealed class MomentaryRotButton : ScriptedEntity
     /// CMomentaryRotButton::UpdateSelf: turning on for another tenth of a
     /// second, or stopped and snapped at the end it has reached.
     /// </summary>
-    private void UpdateSelf(float value)
+    private void UpdateSelf(float value, bool playSound)
     {
         // A map's SetPosition under way gives way to the player.
         if (_driver != Driver.Still)
@@ -416,6 +437,10 @@ public sealed class MomentaryRotButton : ScriptedEntity
             OnFullyOpen.Fire();
             return;
         }
+
+        // CMomentaryRotButton::PlaySound, on the turn that starts a use.
+        if (playSound && _noise.Length > 0)
+            Sound.EntityEmitSound(Handle, _noise);
 
         Spin(MoveAngles * (Vars.Direction * Vars.Speed));
         _moveDone = UseMove.Use;
@@ -588,6 +613,9 @@ public partial class MomentaryRotButtonVars
 {
     /// <summary>How far the wheel turns end to end, in degrees. Negative reverses it.</summary>
     public float Distance { get; set; } = 90f;
+
+    /// <summary>The "Buttons.sndN" a turn starts with; 0 for none.</summary>
+    public int Sounds { get; set; }
 
     public float Speed { get; set; } = 100f;
 

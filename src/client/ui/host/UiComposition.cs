@@ -123,15 +123,27 @@ public static class ClientUi
         var windows = new UiWindows(new MemoryWindowStore());
         var modScreens = UiModScreens.Build(services, UiModScreens.Assemblies(mod.UiAssemblies), windows);
 
+        var selectionHud = services.Resolve<WeaponSelectionHud>();
+
         // THE HUD LAYER: its own context, so the menu's hit-testing never reads the HUD's frame.
         var hudScreen = new Ui.Screens.Hud(player, new VitalsPanel(player, player, new AuxPowerPanel(player)), new AmmoPanel(player, player),
                                            new CrosshairPanel(), new DamagePanel(player), new MapTextPanel(messages),
                                            new HintsPanel(hints), new BuildStampPanel(build),
                                            new KillFeedPanel(services.Require<IKillFeedSource>()),
                                            new VoicePanel(services.Require<IVoiceSource>()),
-                                           new WeaponSelectionPanel(services.Resolve<WeaponSelectionHud>() is { } selection
+                                           new WeaponSelectionPanel(selectionHud is { } selection
                                                ? new WeaponSelectionUi(selection, services.Require<WeaponCatalog>(), names)
-                                               : new NoWeaponSelection()));
+                                               : new NoWeaponSelection()),
+                                           new WeaponPlusPanel(selectionHud is { } plus
+                                               ? new WeaponPlusUi(plus, services.Require<WeaponCatalog>(), names)
+                                               : new NoWeaponPlus()),
+                                           new WeaponCarouselPanel(selectionHud is { } carousel
+                                               ? new WeaponCarouselUi(carousel, services.Require<WeaponCatalog>(), names)
+                                               : new NoWeaponCarousel()),
+                                           new PickupHistoryPanel(services.Resolve<PickupHistory>() is { } history
+                                               && services.Resolve<LocalPickupHistory>() is { } feed
+                                               ? new PickupHistoryUi(history, feed)
+                                               : new NoPickupHistory()));
         var centre = new Ui.Screens.CentrePrint(services.Require<ICentrePrintSource>());
         var chat = new Chat(services.Require<IChatSource>());
         var overlayText = new Ui.Screens.DebugOverlayText(services.Require<IDebugOverlaySource>());

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Numerics;
 using System.Text;
 
 using SkiaSharp;
@@ -12,7 +13,8 @@ namespace SourceSharp.UiPreview;
 /// THE ICON ATLAS BUILD (tools/ui-icons, `make ui-icons`): every SVG in
 /// src/client/ui/icons rasterised with SkiaSharp at each of
 /// <see cref="UiIconSet.PixelHeights"/>, white, alpha only, packed into rows
-/// by height then name with a 2-pixel gutter, into src/client/ui/icons/atlas:
+/// by height then name with a 2-pixel gutter, a power of two each way, into
+/// src/client/ui/icons/atlas:
 /// icons.tsv (the manifest: name, height, x, y, w, h) and icons.a8z (the alpha
 /// bytes, zlib). Deterministic: the same SVGs give the same bytes, which the
 /// facts hold to the committed files.
@@ -51,7 +53,10 @@ public static class IconAtlasBuilder
             x += p.W + Gutter;
             rowH = Math.Max(rowH, p.Height);
         }
-        int height = y + rowH + Gutter;
+        // A power of two tall, as wide: the engine's DrawSetTextureRGBA pads a
+        // texture to powers of two and leaves its coordinates spanning the
+        // padding, so any other height would sample every rect off its place.
+        int height = (int)BitOperations.RoundUpToPowerOf2((uint)(y + rowH + Gutter));
 
         var alpha = new byte[AtlasWidth * height];
         var manifest = new StringBuilder();

@@ -1110,6 +1110,8 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     /// it replaces.
     /// </para>
     /// </summary>
+    public void SetCycle(EntityHandle entity, float cycle) => Skeletons?.SetCycle(entity, cycle);
+
     public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
     {
         Skeletons?.SetSequence(entity, sequence, playbackRate, restart);

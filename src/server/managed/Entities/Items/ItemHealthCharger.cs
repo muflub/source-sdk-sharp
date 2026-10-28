@@ -32,6 +32,10 @@ public sealed class ItemHealthCharger : WallCharger
     /// <summary>OutRemainingHealth: the juice left, 0 to 1, after each charge.</summary>
     public readonly Output OutRemainingHealth = new();
 
+    [NetState] public HealthChargerNetState State = new();
+
+    protected override IChargerNetState Display => State;
+
     protected override string Model => ModelName;
     protected override float MaxJuice => FullJuice;
     protected override float RechargeDelay => 60f;

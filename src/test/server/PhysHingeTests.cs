@@ -52,6 +52,38 @@ public class PhysHingeTests
         => Assert.Equal(1f, Parameters(Built(spawnFlags: 8).Engine)[9]);
 
     [Fact]
+    public void A_hinge_with_both_ends_named_is_never_a_world_hinge()
+        => Assert.Equal(0f, Parameters(Built(spawnFlags: 8, ("attach2", "frame")).Engine)[9]);
+
+    [Fact]
+    public void The_hinge_is_made_where_it_stood_and_pointed_at_spawn()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PhysHinge).Assembly);
+        var services = Services(out var engine);
+        services.AddInstance<IEntityDirectory>(registry);
+        services.AddInstance(new MassCenterOverrides());
+        registry.Services = services;
+        engine.Strict = false;
+        var at = new Vector(10f, 0f, 0f);
+        engine.Returns("Constraints.Create", 0x0001_0030u)
+              .Returns("Entities.IsValid", true)
+              .Returns("Entities.GetSpawnFlags", 0)
+              .ReturnsEachCall("Entities.GetOrigin", () => at)
+              .ReturnsEachCall("Entities.FindByName", () => (object?)Door);
+
+        registry.KeyValue(Hinge, EntityNames.PhysHinge, "attach1", "door");
+        registry.KeyValue(Hinge, EntityNames.PhysHinge, "hingeaxis", "10 0 64");
+        registry.Spawn(Hinge, EntityNames.PhysHinge);
+        at = new Vector(50f, 0f, 0f);
+        registry.Think(Hinge);
+
+        float[] p = Parameters(engine);
+        Assert.Equal((10f, 0f, 0f), (p[2], p[3], p[4]));
+        Assert.Equal((0f, 0f, 1f), (p[5], p[6], p[7]));
+    }
+
+    [Fact]
     public void Without_it_the_hinge_is_only_a_joint()
         => Assert.Equal(0f, Parameters(Built(spawnFlags: 0).Engine)[9]);
 
@@ -69,12 +101,12 @@ public class PhysHingeTests
     [Fact]
     public void SetHingeFriction_is_the_friction_the_next_joint_is_made_with()
     {
-        var (registry, engine) = Built(spawnFlags: 0);
+        // SF_CONSTRAINT_NO_CONNECT_UNTIL_ACTIVATED: the joint is made by TurnOn, after the input.
+        var (registry, engine) = Built(spawnFlags: 0x10);
+        Assert.False(engine.Called("Constraints.Create"), "the control: nothing made before TurnOn");
 
         registry.Input(Hinge, "SetHingeFriction", "3", 3f, EntityHandle.None);
-        registry.Input(Hinge, "TurnOff", "", 0f, EntityHandle.None);
         registry.Input(Hinge, "TurnOn", "", 0f, EntityHandle.None);
-        registry.Think(Hinge);
 
         Assert.Equal(3f, ((float[])engine.AllOf("Constraints.Create").Last().Args[3]!)[8]);
     }

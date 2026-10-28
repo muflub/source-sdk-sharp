@@ -951,6 +951,19 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     }
 
     /// <inheritdoc/>
+    public bool SetCycle(EntityHandle entity, float cycle)
+    {
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        // The cache key carries the cycle, so a held one is a new key.
+        state.HeldCycle = Math.Clamp(cycle, 0.0f, 1.0f);
+        return true;
+    }
+
+    /// <inheritdoc/>
     public SkeletonScaleChange SetModelScale(EntityHandle entity, float scale)
     {
         if (!Find(entity, out EngineBlock block, out BoneEntityState state))
@@ -1303,6 +1316,8 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
             writer.Write(s.SeqDuration);
             writer.Write(s.SeqLooping);
             writer.Write(s.SequenceStarts);
+            writer.Write(s.HeldCycle.HasValue);
+            writer.Write(s.HeldCycle ?? 0f);
             writer.Write(s.LayerGeneration);
 
             for (int i = 0; i < AnimLayerRule.MaxLayers; i++)
@@ -1346,6 +1361,9 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
             s.SeqDuration = reader.ReadFloat();
             s.SeqLooping = reader.ReadBool();
             s.SequenceStarts = reader.ReadInt();
+            bool held = reader.ReadBool();
+            float heldCycle = reader.ReadFloat();
+            s.HeldCycle = held ? heldCycle : null;
             s.LayerGeneration = reader.ReadInt();
 
             for (int i = 0; i < AnimLayerRule.MaxLayers; i++)

@@ -785,7 +785,7 @@ internal unsafe struct PhysicsFluidControllerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsConstraint</c> through its forwarders (SSFwd_PhysicsConstraint): 5 slot(s).
+/// <c>IPhysicsConstraint</c> through its forwarders (SSFwd_PhysicsConstraint): 6 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsConstraintFwd : IForwarderTable
@@ -807,6 +807,9 @@ internal unsafe struct PhysicsConstraintFwd : IForwarderTable
 
     // void IPhysicsConstraint::SetAngularMotor( float, float )
     public delegate* unmanaged<void*, float, float, void> SetAngularMotor;
+
+    // void IPhysicsConstraint::Activate( void )
+    public delegate* unmanaged<void*, void> Activate;
 }
 
 /// <summary>

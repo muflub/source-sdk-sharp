@@ -457,4 +457,13 @@ public partial class PlayerNetState
     /// false, which is HasAmmo's answer (no clip, no pool, no select-on-empty).
     /// </summary>
     public partial uint EmptyWeapons { get; set; }
+
+    /// <summary>MAX_AMMO_SLOTS: stock's m_iAmmo array length.</summary>
+    public const int MaxAmmoSlots = 32;
+
+    /// <summary>
+    /// m_iAmmo: each pool's count, by the ammo type's wire index (from one, as
+    /// AmmoCatalog.WireIndex numbers it). The pickup history adds what rises.
+    /// </summary>
+    [NetArray(MaxAmmoSlots)] public partial NetArray<short> Ammo { get; }
 }
