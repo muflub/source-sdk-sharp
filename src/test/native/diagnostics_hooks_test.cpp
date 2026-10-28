@@ -9,8 +9,26 @@
 
 #include "diagnostics_hooks.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
+
+#include "ss_platform.h" // SS_BIND_IMPORT
+
+#ifdef _MSC_VER
+// As in tier0_spew_port_test: MSVC keeps the dead fatal arm of dbg.h's Assert,
+// and with it a reference to _ExitOnFatalAssert, which the port does not define
+// and this binary links no tier0 for. Defined here as tier0's is.
+#pragma warning( disable : 4273 ) // defining what dbg.h declares dllimport
+
+void _ExitOnFatalAssert( const tchar *pFile, int line )
+{
+	fprintf( stderr, "Fatal assert failed: %s, line %d.  Application exiting.\n", pFile, line );
+	exit( EXIT_FAILURE );
+}
+SS_BIND_IMPORT( _ExitOnFatalAssert )
+#endif
 
 namespace
 {
