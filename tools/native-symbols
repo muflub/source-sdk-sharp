@@ -31,6 +31,43 @@ HEADER = ("# docs/native-symbols.tsv -- written by tools/native-symbols --write;
           "# server.so and client.so define in this repo's C++ (debug build). module<TAB>source<TAB>function\n")
 
 
+# The C++ library's own functions: its templates instantiated on our types
+# (std::unique_ptr<CWorldFactory>, std::__find_if over our lambda) and its
+# static inline helpers (__gthread_*, __glibcxx_rwlock_*) come out local (t)
+# from its headers, and which of them a build emits is the library version's
+# choice, not ours: a runner's libstdc++ added 16 the list did not have.
+STDLIB = re.compile(r"(std::|__gnu_cxx::|__gthread_|__glibcxx_)")
+
+
+def callee(fn):
+    """The qualified name a demangled function is called by: what precedes its
+    argument list, less the return type a template instantiation spells first
+    (`T* std::__find_if<...>(...)` is std::__find_if<...>)."""
+    t = fn.replace("(anonymous namespace)", "{anonymous}")
+    depth, end = 0, len(t)
+    for i, c in enumerate(t):
+        if c == "<":
+            depth += 1
+        elif c == ">":
+            depth -= 1
+        elif c == "(" and depth == 0:
+            end = i
+            break
+    head, depth, start = t[:end], 0, 0
+    for i, c in enumerate(head):
+        if c == "<":
+            depth += 1
+        elif c == ">":
+            depth -= 1
+        elif c == " " and depth == 0:
+            start = i + 1
+    return head[start:]
+
+
+def ours(fn):
+    return not STDLIB.match(callee(fn))
+
+
 def defined_functions(obj):
     out = subprocess.run([NM, "--defined-only", "-C", obj], capture_output=True, text=True)
     if out.returncode != 0:
@@ -38,7 +75,7 @@ def defined_functions(obj):
     rows = []
     for line in out.stdout.splitlines():
         parts = line.split(" ", 2)
-        if len(parts) == 3 and parts[1] in ("T", "t"):
+        if len(parts) == 3 and parts[1] in ("T", "t") and ours(parts[2]):
             rows.append(parts[2])
     return rows
 
@@ -76,7 +113,8 @@ def read_list(path):
             if line.startswith("#") or not line.strip():
                 continue
             mod, src, fn = line.rstrip("\n").split("\t", 2)
-            rows.add((mod, src, fn))
+            if ours(fn):
+                rows.add((mod, src, fn))
     return rows
 
 
@@ -118,6 +156,14 @@ def self_test():
         path = os.path.join(d, "l.tsv")
         write_list(path, built)
         eq(read_list(path), built, "--write and the reader agree")
+    eq(ours("__gthread_active_p()"), False, "a C++ library helper is not ours")
+    eq(ours("std::unique_ptr<CWorldFactory>::~unique_ptr()"), False, "nor a library template on our type")
+    eq(ours("ss::CStdThing::Run()"), True, "a function of ours that names std is ours")
+    eq(ours("CStandaloneEntity* const* std::__find_if<CStandaloneEntity* const*, P>(CStandaloneEntity* const*, P)"),
+       False, "a library template instantiation is the library's, after its return type")
+    eq(ours("std::unique_ptr<X, std::default_delete<X>> ss::Make<X>()"), True,
+       "a template of ours that returns a library type is ours")
+    eq(ours("(anonymous namespace)::CWorldFactory::Create()"), True, "an anonymous-namespace function is ours")
     print("tools/native-symbols --self-test: %d checks passed" % checks)
     return 0
 
