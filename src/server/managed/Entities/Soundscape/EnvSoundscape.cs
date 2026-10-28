@@ -37,7 +37,7 @@ public class EnvSoundscape : ScriptedEntity
     [ScriptVars] public EnvSoundscapeVars Vars = new();
 
     /// <summary>Fired every time this soundscape becomes a player's.</summary>
-    public readonly Output OnPlay = new("OnPlay");
+    public readonly Output OnPlay = new();
 
     /// <summary>
     /// This entity's identity token, as the client sees it. One-based; zero

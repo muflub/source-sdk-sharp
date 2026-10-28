@@ -17,7 +17,7 @@ namespace SourceSharp.Tests;
 [ScriptedEntity("test_named_output_injected")]
 public sealed class TestNamedOutputInjectedEntity(ILog log) : ScriptedEntity
 {
-    public readonly Output Damaged = new("OnDamaged");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
 
     public ILog Injected => log;
 }
@@ -26,7 +26,7 @@ public sealed class TestNamedOutputInjectedEntity(ILog log) : ScriptedEntity
 [ScriptedEntity("test_named_output_plain")]
 public sealed class TestNamedOutputPlainEntity : ScriptedEntity
 {
-    public readonly Output Damaged = new("OnDamaged");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
 }
 
 public class NamedOutputBindingTests

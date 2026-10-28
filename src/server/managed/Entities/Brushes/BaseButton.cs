@@ -51,7 +51,7 @@ public abstract class BaseButton : ScriptedEntity
     /// "OnDamaged" to a map. Named without the "On" because the class also
     /// overrides <see cref="ScriptedEntity.OnDamaged"/>, the damage virtual.
     /// </summary>
-    public readonly Output Damaged = new("OnDamaged");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
 
     public readonly Output OnUseLocked = new();
     public readonly Output OnIn = new();

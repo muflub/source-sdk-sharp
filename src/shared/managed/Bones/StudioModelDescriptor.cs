@@ -78,9 +78,20 @@ public sealed class StudioModelDescriptor : IModelDescriptorSource
                 events[j] = new ModelSequenceEvent(j, e.Cycle, e.EventId, e.Type, name, e.Options);
             }
 
-            sequences[i] = new ModelSequence(i, seq.Label, seq.ActivityName, seq.Flags, durations[i], events);
+            sequences[i] = new ModelSequence(i, seq.Label, seq.ActivityName, seq.Flags, durations[i], events,
+                                             seq.ActWeight, hdr.EntryNode(i), hdr.ExitNode(i), hdr.NodeFlags(i));
         }
 
-        return ModelDescriptor.Create(hdr.NumBones, names, origins, sequences);
+        // The node graph's transition table, as the header answers it.
+        int nodes = hdr.NumLocalNodes;
+        byte[] transitions = new byte[nodes * nodes];
+        if (!hdr.IsFolded)
+        {
+            for (int from = 1; from <= nodes; from++)
+                for (int to = 1; to <= nodes; to++)
+                    transitions[(from - 1) * nodes + (to - 1)] = (byte)hdr.GetTransition(from, to);
+        }
+
+        return ModelDescriptor.Create(hdr.NumBones, names, origins, sequences, nodes, transitions, hdr.IsFolded);
     }
 }

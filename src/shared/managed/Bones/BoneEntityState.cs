@@ -126,11 +126,23 @@ public sealed class BoneEntityState
     /// <summary>Block().Client.Sequence.</summary>
     public int Sequence;
 
-    /// <summary>Block().Client.PlaybackRate: 1, never 0 (0 is a statue).</summary>
+    /// <summary>Block().Client.PlaybackRate: 1, never 0 (0 is a statue); negative plays backwards.</summary>
     public float PlaybackRate = 1.0f;
 
     /// <summary>Block().Client.AnimTime: when the sequence started.</summary>
     public float AnimTime;
+
+    /// <summary>The cycle the sequence started at (0, or 0.999 for one played backwards).</summary>
+    public float StartCycle;
+
+    /// <summary>
+    /// The start time that gives the same cycle from 0: what a reader of the
+    /// block's clock (Sequence, PlaybackRate, AnimTime), which knows no start
+    /// cycle, is told.
+    /// </summary>
+    public float ClockStart => StartCycle != 0.0f && PlaybackRate != 0.0f && SeqDuration > 0.0f
+        ? AnimTime - StartCycle * SeqDuration / PlaybackRate
+        : AnimTime;
 
     /// <summary><c>m_flSeqDuration</c> / <c>m_flPoseSeqDuration</c>.</summary>
     public float SeqDuration;
@@ -227,7 +239,7 @@ public sealed class BoneEntityState
     /// the base sequence's cycle at <paramref name="now"/>.</summary>
     public float SequenceCycle(float now)
     {
-        return HeldCycle ?? BoneLibraryMath.Cycle(now, AnimTime, PlaybackRate, SeqDuration, SeqLooping);
+        return HeldCycle ?? BoneLibraryMath.Cycle(now, AnimTime, PlaybackRate, SeqDuration, SeqLooping, StartCycle);
     }
 
     /// <summary><c>AnimLayerCycle</c>: a layer's cycle on its own clock; 0

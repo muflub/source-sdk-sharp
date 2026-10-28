@@ -43,7 +43,7 @@ public sealed class EnvSpark : ScriptedEntity
     /// <summary>The floor between sparks. Stock's, and it is what stops a zero delay spinning.</summary>
     private const float MinimumInterval = 0.1f;
 
-    public readonly Output OnSpark = new("OnSpark");
+    public readonly Output OnSpark = new();
 
     /// <summary>
     /// env_spark's own spawnflags.

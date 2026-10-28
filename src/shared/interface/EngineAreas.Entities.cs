@@ -623,6 +623,13 @@ public interface IEngineEntityRender
     void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart);
 
     /// <summary>
+    /// Start a sequence over at <paramref name="cycle"/>: forwards for a
+    /// positive rate, backwards for a negative one (CDynamicProp's
+    /// FinishSetSequence, a transition reversed from 0.999).
+    /// </summary>
+    void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle);
+
+    /// <summary>
     /// <c>SetCycle</c> on a sequence nothing advances (a wall charger's drain):
     /// the skeleton holds that cycle until the next sequence starts.
     /// </summary>

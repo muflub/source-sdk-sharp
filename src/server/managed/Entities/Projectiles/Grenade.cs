@@ -97,7 +97,7 @@ public sealed class Grenade : ScriptedEntity
     [SaveField] private bool _warned;
     private bool _exploded;
 
-    public readonly Output OnExplode = new("OnExplode");
+    public readonly Output OnExplode = new();
 
     public override void OnSpawn()
     {

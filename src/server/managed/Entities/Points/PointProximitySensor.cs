@@ -22,7 +22,7 @@ public sealed class PointProximitySensor : ScriptedEntity
     /// </summary>
     private const int TestAgainstAxisFlag = 1;
 
-    public readonly Output Distance = new("Distance");
+    public readonly Output Distance = new();
 
     private EntityHandle _watched = EntityHandle.None;
 

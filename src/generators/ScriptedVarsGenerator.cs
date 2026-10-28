@@ -340,7 +340,7 @@ public sealed class ScriptedVarsGenerator : IIncrementalGenerator
     /// <para>
     /// The fix costs one word and changes nothing map-facing, which is the other
     /// reason this is an error rather than a warning: the output names itself,
-    /// <c>new Output("OnDamaged")</c>, and the field takes any name that is
+    /// <c>[OutputName("OnDamaged")]</c>, and the field takes any name that is
     /// free. Stock's FGD, and every map already wired against it, is untouched.
     /// </para>
     ///
@@ -910,7 +910,7 @@ public sealed class ScriptedVarsGenerator : IIncrementalGenerator
     /// </summary>
     private static readonly DiagnosticDescriptor OutputHidesMember = new(
         "SSVAR005", "An output's name is already taken by its base",
-        "{0}.{1} is an output named for {2}.{1}, a {3}; the field hides it, so nothing can override or reach it and the output would never fire -- rename the field and keep the map-facing name with new Output(\"{1}\")",
+        "{0}.{1} is an output named for {2}.{1}, a {3}; the field hides it, so nothing can override or reach it and the output would never fire -- rename the field and keep the map-facing name with [OutputName(\"{1}\")]",
         "SourceSharp", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor NeedsGetAndSet = new(

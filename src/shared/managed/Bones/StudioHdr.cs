@@ -895,7 +895,7 @@ public readonly struct VirtualEntry
 /// Instances are immutable once built (the fold's overlay/remap tables are
 /// computed in <see cref="TryCreate"/>); no mutable statics anywhere.
 /// </summary>
-public sealed class StudioHdr
+public sealed class StudioHdr : SourceSharp.Abi.ISequenceNodes
 {
     public const int StudioVersion = 48; // studio.h:70 (STUDIO_VERSION)
     // MAKEID('I','D','S','T') (commonmacros.h:27: (a<<24)|(b<<16)|(c<<8)|d) =
@@ -1899,6 +1899,48 @@ public sealed class StudioHdr
     }
 
     public MstudioSeqDesc SeqDescLocal(int i) => new(_image, LocalSeqIndex + 212 * i);
+
+    /// <summary>
+    /// <c>CStudioHdr::EntryNode</c>: the node the sequence starts on, counted
+    /// from 1 (0 is none). A folded model's sequence names its group's node,
+    /// which the group's masterNode maps to the model's.
+    /// </summary>
+    public int EntryNode(int iSequence) => GlobalNode(iSequence, SeqDesc(iSequence).LocalEntryNode);
+
+    /// <summary><c>CStudioHdr::ExitNode</c>: the node the sequence ends on, as <see cref="EntryNode"/>.</summary>
+    public int ExitNode(int iSequence) => GlobalNode(iSequence, SeqDesc(iSequence).LocalExitNode);
+
+    /// <summary>The sequence's <c>nodeflags</c>: non-zero when it may be played backwards between its nodes.</summary>
+    public int NodeFlags(int iSequence) => SeqDesc(iSequence).NodeFlags;
+
+    /// <summary>Whether the model is folded over its include models (stock's m_pVModel).</summary>
+    public bool IsFolded => _seq is not null;
+
+    private int GlobalNode(int iSequence, int local)
+    {
+        if (_seq is null || local == 0)
+        {
+            return local;
+        }
+
+        return _groups![_seq[iSequence].Group].MasterNode[local - 1] + 1;
+    }
+
+    /// <summary>
+    /// <c>CStudioHdr::GetTransition</c>: the node to pass through on the way
+    /// from one node to another (nodes from 1; 0 for no route), read from the
+    /// model's numlocalnodes-square byte table. A folded model answers the goal
+    /// node itself, as stock's does (its virtual table is "not connected").
+    /// </summary>
+    public int GetTransition(int iFrom, int iTo)
+    {
+        if (_seq is not null)
+        {
+            return iTo;
+        }
+
+        return _image[ReadI32(_image, 252) + (iFrom - 1) * NumLocalNodes + (iTo - 1)];
+    }
 
     /// <summary><c>pAnimdesc(i)</c> folded.</summary>
     public MstudioAnimDesc AnimDesc(int i)

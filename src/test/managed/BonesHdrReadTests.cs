@@ -147,6 +147,36 @@ public class BonesHdrReadTests
         Assert.Null(half);
     }
 
+    /// <summary>CStudioHdr::EntryNode and ExitNode: a sequence's localentrynode
+    /// @112 and localexitnode @116, nodes counted from 1, 0 for none.</summary>
+    [Fact]
+    public void EntryNode_and_ExitNode_are_the_sequences_nodes()
+    {
+        StudioHdrBuilder b = BaseBuilder();
+        b.NodeNames.AddRange(["closed", "open"]);
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "idle", AnimTable = [0] });
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "opening", AnimTable = [0], LocalEntryNode = 1, LocalExitNode = 2 });
+        StudioHdr hdr = Build(b);
+
+        Assert.Equal((0, 0), (hdr.EntryNode(0), hdr.ExitNode(0)));
+        Assert.Equal((1, 2), (hdr.EntryNode(1), hdr.ExitNode(1)));
+    }
+
+    /// <summary>CStudioHdr::GetTransition: the byte at
+    /// (from - 1) * numlocalnodes + (to - 1) of the table at @252.</summary>
+    [Fact]
+    public void GetTransition_reads_the_table_by_from_and_to()
+    {
+        StudioHdrBuilder b = BaseBuilder();
+        b.NodeNames.AddRange(["n1", "n2", "n3"]);
+        b.Transitions[(1, 3)] = 2;
+        b.Transitions[(3, 1)] = 2;
+        b.Transitions[(2, 3)] = 3;
+        StudioHdr hdr = Build(b);
+
+        Assert.Equal([2, 2, 3, 0], new[] { hdr.GetTransition(1, 3), hdr.GetTransition(3, 1), hdr.GetTransition(2, 3), hdr.GetTransition(1, 2) });
+    }
+
     // ---- LocalPoseParameter (oracle 1682-1768) ------------------------------
 
     [Fact]

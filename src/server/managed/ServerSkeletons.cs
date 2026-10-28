@@ -218,7 +218,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         ref EngineBlock target = ref MemoryMarshal.AsRef<EngineBlock>(block);
         target.Client.Sequence = state.Sequence;
         target.Client.PlaybackRate = state.PlaybackRate;
-        target.Client.AnimTime = state.AnimTime;
+        target.Client.AnimTime = state.ClockStart;
     }
 
     // ---- the cost wrapper -----------------------------------------------------
@@ -432,7 +432,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         Read(_blocks.Block(entity), out EngineBlock block) ? _models.StudioName(block.Head.ModelIndex) : string.Empty;
 
     /// <inheritdoc/>
-    public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
+    public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart, float startCycle = 0.0f)
     {
         Span<byte> span = _blocks.Block(entity);
 
@@ -442,8 +442,31 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         }
 
         BoneEntityState state = StateOf(entity, block);
-        _driver.SetPoseSequence(state, block.Head.ModelIndex, sequence, playbackRate, restart, _clock.Now);
+        _driver.SetPoseSequence(state, block.Head.ModelIndex, sequence, playbackRate, restart, _clock.Now, startCycle);
         WriteClock(span, state);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public bool SequenceState(EntityHandle entity, out int sequence, out float cycle, out float duration,
+                              out bool looping, out int starts)
+    {
+        sequence = 0;
+        cycle = 0.0f;
+        duration = 0.0f;
+        looping = false;
+        starts = 0;
+
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        sequence = state.Sequence;
+        cycle = state.SequenceCycle(_clock.Now);
+        duration = state.SeqDuration;
+        looping = state.SeqLooping;
+        starts = state.SequenceStarts;
         return true;
     }
 

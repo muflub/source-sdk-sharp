@@ -1009,6 +1009,9 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
             if (Client is { } client)
                 return client.SequenceState(entity, out sequence, out cycle, out duration, out looping, out starts);
 
+            if (Skeletons is { } skeletons)
+                return skeletons.SequenceState(entity, out sequence, out cycle, out duration, out looping, out starts);
+
             sequence = 0;
             cycle = 0f;
             duration = 0f;
@@ -1111,6 +1114,18 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     /// </para>
     /// </summary>
     public void SetCycle(EntityHandle entity, float cycle) => Skeletons?.SetCycle(entity, cycle);
+
+    public void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle)
+    {
+        Skeletons?.SetSequence(entity, sequence, playbackRate, restart: true, cycle);
+
+        if (!Recording)
+            return;
+
+        _mirror.NoteSequence(entity, sequence, playbackRate, restart: true, E.CurrentTime, cycle);
+        if (Client is { } client && client.SequenceInfo(entity, out float duration, out bool looping))
+            _mirror.NoteSequenceInfo(entity, duration, looping);
+    }
 
     public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
     {

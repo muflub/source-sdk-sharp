@@ -84,7 +84,7 @@ public sealed class PhysExplosion : PhysicsEmitter
     /// <summary>Falloff per unit of distance. Valve's constant, kept exactly.</summary>
     private const float Falloff = 1f / 2.5f;
 
-    public readonly Output OnPushedPlayer = new("OnPushedPlayer");
+    public readonly Output OnPushedPlayer = new();
 
     /// <summary>
     /// A radius of zero means "reach as far as the magnitude does" — 2.5 units

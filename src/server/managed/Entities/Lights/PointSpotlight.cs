@@ -129,8 +129,8 @@ public sealed class PointSpotlight : ScriptedEntity
         NoDynamicLight = 0b0000_0010,
     }
 
-    public readonly Output OnLightOn = new("OnLightOn");
-    public readonly Output OnLightOff = new("OnLightOff");
+    public readonly Output OnLightOn = new();
+    public readonly Output OnLightOff = new();
 
     public override void OnSpawn()
     {

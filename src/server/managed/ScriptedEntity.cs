@@ -85,6 +85,18 @@ public readonly struct InputData
 }
 
 /// <summary>
+/// The name a map uses for an output whose field cannot carry it: one that
+/// would hide a member, as logic_relay's "OnSpawn" would its OnSpawn handler
+/// and a button's "OnDamaged" its damage virtual. On the field, so a class
+/// is described under its map names before any instance exists.
+/// </summary>
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class OutputNameAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
+}
+
+/// <summary>
 /// An output a mapper can connect to, declared as a field on a
 /// <see cref="ScriptedEntity"/>. The field's own name is the name the mapper
 /// sees, so there is nothing to keep in step:
@@ -98,23 +110,8 @@ public readonly struct InputData
 public sealed class Output
 {
     private ScriptedEntity? _owner;
-    private readonly string? _explicitName;
 
-    public Output()
-    {
-    }
-
-    /// <summary>
-    /// An output whose mapper-visible name differs from its field's. Needed when
-    /// the name a map uses is not available as a field — logic_relay's "OnSpawn"
-    /// output, for instance, would collide with the OnSpawn handler.
-    /// </summary>
-    public Output(string name)
-    {
-        _explicitName = name;
-    }
-
-    /// <summary>Mapper-visible name. The declaring field's, unless one was given.</summary>
+    /// <summary>Mapper-visible name: the declaring field's, or its <see cref="OutputNameAttribute"/>'s.</summary>
     public string Name { get; private set; } = string.Empty;
 
     /// <summary>Slot in the owning class's output list, which is what the native side fires.</summary>
@@ -123,7 +120,7 @@ public sealed class Output
     internal void Bind(ScriptedEntity owner, string name, int index)
     {
         _owner = owner;
-        Name = _explicitName ?? name;
+        Name = name;
         Index = index;
     }
 
@@ -2498,7 +2495,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             // An output may carry a name of its own, and registration happens
             // before any instance exists — so a throwaway instance is built to
             // read what each field actually declared.
-            var names = OutputNamesFor(type, fields);
+            var names = OutputNamesFor(fields);
 
             // The declared map keys, which live in [ScriptVars] classes the
             // entity holds — found exactly as [NetState] fields are, and for the
@@ -2889,15 +2886,6 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             {
                 output.Bind(instance, reg.OutputNames[i], i);
                 outputs.Add(output);
-
-                // The registration's name list is what FireOutput, ResolveOutput
-                // and the class description check against. Registration could
-                // only read a declared name off a throwaway instance, which a
-                // class with constructor-injected services cannot give it, so it
-                // held the FIELD name: trigger_*'s OnLeft for "OnEndTouch", and
-                // every fire of it was refused as undeclared. The first real
-                // instance knows; the name is a per-class constant.
-                reg.OutputNames[i] = output.Name;
             }
             else
             {
@@ -3495,33 +3483,8 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// The mapper-visible name of each output, which is the field's name unless
     /// the Output was constructed with one of its own.
     /// </summary>
-    private static string[] OutputNamesFor(Type type, FieldInfo[] fields)
-    {
-        var names = fields.Select(f => f.Name).ToArray();
-
-        // A type that cannot be constructed here (its constructor takes
-        // services) still registers under its field names; the class's first
-        // real instance writes the declared names back (EnsureInstance's bind
-        // loop, which runs at the entity's first keyvalue, before any is
-        // applied), so even the first entity of the class in a map connects.
-        object? probe;
-        try { probe = Activator.CreateInstance(type); }
-        catch { return names; }
-
-        if (probe is null)
-            return names;
-
-        for (int i = 0; i < fields.Length; i++)
-        {
-            if (fields[i].GetValue(probe) is Output output)
-            {
-                output.Bind((ScriptedEntity)probe, fields[i].Name, i);
-                names[i] = output.Name;
-            }
-        }
-
-        return names;
-    }
+    private static string[] OutputNamesFor(FieldInfo[] fields)
+        => fields.Select(f => f.GetCustomAttribute<OutputNameAttribute>()?.Name ?? f.Name).ToArray();
 
     /// <summary>
     /// The input name a handler answers to: its own name with the "On" dropped.

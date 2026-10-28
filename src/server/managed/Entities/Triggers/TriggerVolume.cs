@@ -29,7 +29,7 @@ public abstract class TriggerVolume : ScriptedEntity
 
     // Named explicitly: a field called OnEndTouch would collide with the
     // OnEndTouch handler, and the map-facing name is not ours to change.
-    public readonly Output OnLeft = new("OnEndTouch");
+    [OutputName("OnEndTouch")] public readonly Output OnLeft = new();
 
     /// <summary>What a map may set on this entity. See <see cref="TriggerVolumeVars"/>.</summary>
     [ScriptVars] public TriggerVolumeVars Vars = new();

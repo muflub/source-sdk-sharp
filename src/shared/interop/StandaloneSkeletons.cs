@@ -56,7 +56,14 @@ public interface IStandaloneSkeletons
     /// The sequence the skeleton poses from. False when the handle names no
     /// standalone entity.
     /// </summary>
-    bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart);
+    bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart, float startCycle = 0.0f);
+
+    /// <summary>
+    /// The playing sequence, its cycle now, its duration, loop flag and start
+    /// count. False when the handle names no standalone entity.
+    /// </summary>
+    bool SequenceState(EntityHandle entity, out int sequence, out float cycle, out float duration,
+                       out bool looping, out int starts);
 
     /// <summary>
     /// <c>SetCycle</c> on a sequence nothing advances: the pose holds that
@@ -84,10 +91,6 @@ public interface IClientStandaloneSkeletons : IStandaloneSkeletons
 
     /// <summary>What is in a slot; answers how many slots carry something.</summary>
     int AnimLayer(EntityHandle entity, int slot, out int sequence, out float weight, out int order, out float cycle);
-
-    /// <summary>The playing sequence, its cycle now, its duration, loop flag and start count.</summary>
-    bool SequenceState(EntityHandle entity, out int sequence, out float cycle, out float duration, out bool looping,
-                       out int starts);
 
     /// <summary>The playing sequence's duration and loop flag, as read when it started.</summary>
     bool SequenceInfo(EntityHandle entity, out float duration, out bool looping);

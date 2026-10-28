@@ -152,7 +152,7 @@ public sealed class Rocket : FlyingProjectile
 
     private EntityHandle _trail = EntityHandle.None;
 
-    public readonly Output OnExplode = new("OnExplode");
+    public readonly Output OnExplode = new();
 
     /// <summary>The stage the next think runs. For the facts.</summary>
     internal Stage NextStage => _stage;

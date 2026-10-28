@@ -20,7 +20,7 @@ public sealed class PointVelocitySensor : ScriptedEntity
     /// <summary>What a map may set on this entity. See <see cref="PointVelocitySensorVars"/>.</summary>
     [ScriptVars] public PointVelocitySensorVars Vars = new();
 
-    public readonly Output Velocity = new("Velocity");
+    public readonly Output Velocity = new();
 
     private EntityHandle _watched = EntityHandle.None;
     private Vector _direction;

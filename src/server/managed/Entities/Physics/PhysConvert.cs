@@ -57,7 +57,7 @@ public sealed class PhysConvert : ScriptedEntity
         Debris = 0b0000_0010,
     }
 
-    public readonly Output OnConvert = new("OnConvert");
+    public readonly Output OnConvert = new();
 
     [ScriptedEvent("ConvertTarget")]
     private void OnConvertTarget()

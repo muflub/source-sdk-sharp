@@ -92,7 +92,7 @@ public sealed class Bolt : FlyingProjectile
     /// <summary>Stock HL2's bolt, so it looks like one without shipping a model.</summary>
     protected override string ProjectileModel => "models/crossbow_bolt.mdl";
 
-    public readonly Output OnHit = new("OnHit");
+    public readonly Output OnHit = new();
 
     /// <summary>CCrossbowBolt::Spawn: the glowing skin, and CreateSprites' glow, off until it sticks.</summary>
     public override void OnSpawn()

@@ -260,7 +260,7 @@ public class GeneratorDiagnosticTests
                 }
                 """).Any(m => m.Contains("OnDamaged")
                               && m.Contains("ScriptedEntity")
-                              && m.Contains("new Output(\"OnDamaged\")")),
+                              && m.Contains("[OutputName(\"OnDamaged\")]")),
             "the message names the output, what it hides, and the one-word fix");
     }
 
@@ -298,7 +298,7 @@ public class GeneratorDiagnosticTests
             [ScriptedEntity("test_button")]
             public class GreenButton : ScriptedEntity
             {
-                public readonly Output Damaged = new("OnDamaged");
+                [OutputName("OnDamaged")] public readonly Output Damaged = new();
             }
             """);
 

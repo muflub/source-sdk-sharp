@@ -65,12 +65,15 @@ public class StandaloneMirrorTests
     }
 
     [Fact]
-    public void ANegativeRateBecomesOne()
+    public void ANegativeRatePlaysBackwardsFromTheStartCycle()
     {
-        SequenceRecord played = SequenceRecord.Fresh.Play(sequence: 3, playbackRate: -2f,
-                                                          restart: false, now: 10f);
+        SequenceRecord played = SequenceRecord.Fresh.Play(sequence: 3, playbackRate: -1f,
+                                                          restart: false, now: 10f, startCycle: 0.999f)
+                                                    .WithInfo(duration: 2f, looping: false);
 
-        Assert.True(played.PlaybackRate == 1f, "a negative playback rate becomes 1, as the shell does");
+        Assert.Equal((-1f, 0.999f), (played.PlaybackRate, played.Cycle(10f)));
+        Assert.Equal(0.499f, played.Cycle(11f), 4);
+        Assert.Equal(0f, played.Cycle(14f));
     }
 
     [Fact]

@@ -299,6 +299,26 @@ public class ServerSkeletonsTests
         Assert.Equal((0, 2f, 5f), (block.Client.Sequence, block.Client.PlaybackRate, block.Client.AnimTime));
     }
 
+    /// <summary>
+    /// The block's clock knows no start cycle: a sequence started part-way, or
+    /// backwards from its end, writes the start time that gives the same
+    /// cycle from 0, so what reads the block lands where the skeleton does.
+    /// </summary>
+    [Fact]
+    public void ASequenceStartedPartWayWritesTheStartTimeThatGivesItsCycle()
+    {
+        Rig rig = new();
+        rig.Clock.Now = 5f;
+
+        Assert.True(rig.Skeletons.SetSequence(Entity, 0, -1f, restart: true, startCycle: 0.999f));
+        Assert.True(rig.Skeletons.SequenceState(Entity, out _, out float cycle, out float duration, out _, out _));
+        Assert.True(duration > 0f);
+
+        EngineBlock block = rig.Read(Entity);
+        Assert.Equal(0.999f, cycle, 4);
+        Assert.Equal(cycle, (rig.Clock.Now - block.Client.AnimTime) * block.Client.PlaybackRate / duration, 4);
+    }
+
     [Fact]
     public void SetCycleHoldsTheCycleClampedAndANoBlockHandleIsRefused()
     {

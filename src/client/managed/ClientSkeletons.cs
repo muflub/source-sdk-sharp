@@ -925,7 +925,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
             : string.Empty;
 
     /// <inheritdoc/>
-    public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
+    public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart, float startCycle = 0.0f)
     {
         if (!Find(entity, out EngineBlock block, out BoneEntityState state))
         {
@@ -936,14 +936,14 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
         float rate = state.PlaybackRate, start = state.AnimTime, duration = state.SeqDuration;
         bool looping = state.SeqLooping;
 
-        _driver.SetPlayingSequence(state, ModelOf(block), sequence, playbackRate, restart, Now);
+        _driver.SetPlayingSequence(state, ModelOf(block), sequence, playbackRate, restart, Now, startCycle);
         _batch.Drop(entity);
 
         // Native's per-frame cycle reads the clock; it is told only when it moved.
         if ((was != state.Sequence || rate != state.PlaybackRate || start != state.AnimTime
             || duration != state.SeqDuration || looping != state.SeqLooping))
         {
-            _store.Store(entity, state.Sequence, state.PlaybackRate, state.AnimTime, state.SeqDuration,
+            _store.Store(entity, state.Sequence, state.PlaybackRate, state.ClockStart, state.SeqDuration,
                          state.SeqLooping);
         }
 

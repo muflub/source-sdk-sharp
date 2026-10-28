@@ -84,7 +84,7 @@ public sealed class EnergyBall : FlyingProjectile
 
     private bool _spent;
 
-    public readonly Output OnExplode = new("OnExplode");
+    public readonly Output OnExplode = new();
 
     public override void OnSpawn()
     {

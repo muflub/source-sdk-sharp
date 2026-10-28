@@ -855,6 +855,19 @@ public unsafe class ClientSkeletonsTests
     }
 
     [Fact]
+    public void ASequenceStartedPartWayTellsNativeTheStartTimeThatGivesItsCycle()
+    {
+        using Rig rig = new();
+        rig.Environment.Now = 5f;
+
+        rig.Skeletons.SetSequence(Entity, 0, 1f, restart: true, startCycle: 0.25f);
+
+        (_, _, float rate, float start, float duration, _) = Assert.Single(rig.Store.Stored);
+        Assert.True(duration > 0f);
+        Assert.Equal(0.25f, (5f - start) * rate / duration, 4);
+    }
+
+    [Fact]
     public void SequenceStateCountsStartsAndReadsTheCycleAtTheEnginesClock()
     {
         using Rig rig = new();

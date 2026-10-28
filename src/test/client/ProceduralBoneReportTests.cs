@@ -217,6 +217,8 @@ public class ProceduralBoneReportTests
         public int LookupSequence(EntityHandle entity, string name)
             => _sequences.TryGetValue((entity.Value, name), out int s) ? s : -1;
 
+        public void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => throw Refuse(nameof(PlaySequenceAt));
+
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
             => Played.Add((entity, sequence, playbackRate, restart));
 

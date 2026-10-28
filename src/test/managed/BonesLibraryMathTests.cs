@@ -356,4 +356,41 @@ public class BonesLibraryMathTests
         inputs.Reset();
         Assert.True(inputs.AnimThreeWayBlend); // anim_3wayblend "1"
     }
+
+    [Fact]
+    public void Cycle_counts_on_from_its_start_cycle()
+        => Assert.Equal(0.75f, BoneLibraryMath.Cycle(1.0f, 0.0f, 1.0f, 2.0f, false, startCycle: 0.25f));
+
+    [Fact]
+    public void Cycle_with_a_negative_rate_counts_back_to_nothing()
+    {
+        Assert.Equal(0.499f, BoneLibraryMath.Cycle(1.0f, 0.0f, -1.0f, 2.0f, false, startCycle: 0.999f), 4);
+        Assert.Equal(0.0f, BoneLibraryMath.Cycle(5.0f, 0.0f, -1.0f, 2.0f, false, startCycle: 0.999f));
+    }
+
+    [Fact]
+    public void Cycle_looping_backwards_wraps_round()
+        => Assert.Equal(0.75f, BoneLibraryMath.Cycle(1.0f, 0.0f, -1.0f, 2.0f, true, startCycle: 0.25f));
+
+    [Fact]
+    public void Cycle_not_yet_started_stands_at_its_start_cycle()
+        => Assert.Equal(0.25f, BoneLibraryMath.Cycle(0.0f, 5.0f, 1.0f, 2.0f, false, startCycle: 0.25f));
+
+    /// <summary>
+    /// The block's clock knows no start cycle, so native is told the start time
+    /// that gives the same cycle from 0 (ClockStart): native's arithmetic,
+    /// which a start time in the future does not stop, must land where the
+    /// managed clock does.
+    /// </summary>
+    [Fact]
+    public void ClockStart_gives_the_same_cycle_from_zero()
+    {
+        var s = new BoneEntityState { AnimTime = 10f, PlaybackRate = -1f, StartCycle = 0.999f, SeqDuration = 2f };
+
+        // C_StandaloneEntity::SequenceCycle, for a one-shot.
+        float Native(float now) => Math.Clamp((now - s.ClockStart) * s.PlaybackRate / s.SeqDuration, 0f, 0.999f);
+
+        foreach (float now in new[] { 10.5f, 11f, 11.9f })
+            Assert.Equal(s.SequenceCycle(now), Native(now), 4);
+    }
 }

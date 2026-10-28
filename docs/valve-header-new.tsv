@@ -674,3 +674,4 @@ src/client/managed/LocalPickupHistory.cs	ports the history's feeds: CBaseHudWeap
 src/shared/native/game_events.h	the game-event forwarder class built against the SDK's IGameEventManager2/IGameEventListener2 (igameevents.h); T6 part 3
 src/server/native/server_diagnostics.h	CServerDiagnostics: IShimDiagnostics as a class over the players' shadow counts and the exit recorders, built against the SDK's shim headers; T6 part 3
 src/server/native/server_diagnostics.cpp	CServerDiagnostics' bodies: the shadow counts (moved from shell_standalone_player.cpp) and the exit-watch slots (moved from exit_watch.cpp); T6 part 3
+src/shared/managed/Bones/SequenceGraph.cs	ports GotoSequence (animation.cpp): a model's node graph walked towards a goal sequence

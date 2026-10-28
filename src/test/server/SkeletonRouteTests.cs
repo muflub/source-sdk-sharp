@@ -37,10 +37,18 @@ public class SkeletonRouteTests
         public bool IsPoseable(EntityHandle entity) { Calls.Add("poseable"); return true; }
         public string StudioName(EntityHandle entity) { Calls.Add("name"); return "x.mdl"; }
 
-        public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
+        public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart, float startCycle = 0f)
         {
-            Calls.Add($"seq {sequence} {playbackRate} {restart}");
+            Calls.Add(startCycle == 0f ? $"seq {sequence} {playbackRate} {restart}" : $"seq {sequence} {playbackRate} {restart} at {startCycle}");
             return true;
+        }
+
+        public bool SequenceState(EntityHandle entity, out int sequence, out float cycle, out float duration,
+                                  out bool looping, out int starts)
+        {
+            Calls.Add("state");
+            (sequence, cycle, duration, looping, starts) = (4, 0.25f, 2f, true, 1);
+            return entity == Standalone;
         }
 
         public bool SetCycle(EntityHandle entity, float cycle)
@@ -105,6 +113,27 @@ public class SkeletonRouteTests
         render.PlaySequence(Standalone, 2, 0.5f, restart: false);
 
         Assert.Equal(new[] { "seq 3 1 True", "seq 2 0.5 False" }, fake.Calls);
+    }
+
+    [Fact]
+    public void PlaySequenceAtRestartsTheSequenceAtItsCycleAndRate()
+    {
+        var (render, _, fake, _) = Rig(filled: true);
+
+        render.PlaySequenceAt(Standalone, 2, -1f, 0.999f);
+
+        Assert.Equal(new[] { "seq 2 -1 True at 0.999" }, fake.Calls);
+    }
+
+    [Fact]
+    public void TheServersSequenceStateIsTheSkeletons()
+    {
+        var (render, _, fake, _) = Rig(filled: true);
+
+        Assert.True(render.SequenceState(Standalone, out int sequence, out float cycle, out float duration, out bool looping, out int starts));
+
+        Assert.Equal((4, 0.25f, 2f, true, 1), (sequence, cycle, duration, looping, starts));
+        Assert.Equal(new[] { "state" }, fake.Calls);
     }
 
     [Fact]

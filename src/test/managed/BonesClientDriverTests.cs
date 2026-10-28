@@ -740,12 +740,24 @@ public class BonesClientDriverTests
     // ---- SetPlayingSequence --------------------------------------------------------
 
     [Fact]
-    public void ANonPositiveRateAndANegativeSequenceAreNormalised()
+    public void AZeroRateAndANegativeSequenceAreNormalised()
     {
         (_, ClientBoneDriver d, BoneEntityState s) = Rig(Chain());
         s.Sequence = 3;
-        d.SetPlayingSequence(s, Model, -4, -1f, false, 2f);
+        d.SetPlayingSequence(s, Model, -4, 0f, false, 2f);
         Assert.Equal((0, 1f), (s.Sequence, s.PlaybackRate));
+    }
+
+    [Fact]
+    public void ANegativeRatePlaysBackwardsFromTheStartCycle()
+    {
+        (_, ClientBoneDriver d, BoneEntityState s) = Rig(Chain(seqFlags: 0));
+        d.SetPlayingSequence(s, Model, 0, -1f, true, 2f, startCycle: 0.999f);
+        Assert.True(s.SeqDuration > 0f);
+
+        Assert.Equal((-1f, 0.999f), (s.PlaybackRate, s.SequenceCycle(2f)));
+        Assert.Equal(0.999f - 0.5f, s.SequenceCycle(2f + 0.5f * s.SeqDuration), 4);
+        Assert.Equal(0f, s.SequenceCycle(2f + 2f * s.SeqDuration));
     }
 
     [Fact]

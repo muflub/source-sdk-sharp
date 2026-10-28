@@ -95,8 +95,8 @@ public sealed class EnvFire : ScriptedEntity
     /// <summary>How far down a fire looks for the floor to sit on.</summary>
     private const float DropDistance = 1024f;
 
-    public readonly Output OnIgnited = new("OnIgnited");
-    public readonly Output OnExtinguished = new("OnExtinguished");
+    public readonly Output OnIgnited = new();
+    public readonly Output OnExtinguished = new();
 
     /// <summary>
     /// Every fire in the map — stock's native registry, as the module's roster

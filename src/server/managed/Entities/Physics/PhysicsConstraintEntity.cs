@@ -103,7 +103,7 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
     [ScriptVars] public PhysicsConstraintEntityVars Vars = new();
 
     /// <summary>Fired when the joint breaks or is broken.</summary>
-    public readonly Output OnBreak = new("OnBreak");
+    public readonly Output OnBreak = new();
 
     /// <summary>
     /// The joint, once built. Setting it also records the raw native id and

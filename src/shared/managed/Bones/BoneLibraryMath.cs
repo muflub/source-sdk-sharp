@@ -181,24 +181,31 @@ public static class BoneLibraryMath
         placement.Angles = viewModelPass ? renderAngles : netAngles;
     }
 
-    /// <summary><c>BoneLibrary_Cycle</c>: where in a sequence a clock has got to.</summary>
-    public static float Cycle(float now, float start, float rate, float duration, bool looping)
+    /// <summary>
+    /// <c>BoneLibrary_Cycle</c>: where in a sequence a clock has got to, from
+    /// <paramref name="startCycle"/> at <paramref name="start"/>. A clock not
+    /// yet started stands at its start cycle; a negative rate plays backwards
+    /// (CDynamicProp's reversed transitions). A looping sequence keeps the
+    /// fraction; a one-shot holds at 0 or its last frame, 0.999.
+    /// </summary>
+    public static float Cycle(float now, float start, float rate, float duration, bool looping, float startCycle = 0.0f)
     {
         if (duration <= 0.0f)
         {
             return 0.0f;
         }
 
-        float cycle = (now - start) * rate / duration;
+        float elapsed = now - start;
+        float cycle = startCycle + (elapsed > 0.0f ? elapsed : 0.0f) * rate / duration;
+
+        if (looping)
+        {
+            return cycle - MathF.Floor(cycle);
+        }
 
         if (cycle < 0.0f)
         {
             return 0.0f;
-        }
-
-        if (looping)
-        {
-            return cycle - (int)cycle;
         }
 
         // MIN( flCycle, 0.999f ): the macro's (a) < (b) ? (a) : (b).

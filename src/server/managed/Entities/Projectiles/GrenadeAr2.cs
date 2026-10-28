@@ -78,7 +78,7 @@ public sealed class GrenadeAr2 : FlyingProjectile
 
     private EntityHandle _smoke = EntityHandle.None;
 
-    public readonly Output OnExplode = new("OnExplode");
+    public readonly Output OnExplode = new();
 
     public override void OnSpawn()
     {

@@ -38,8 +38,8 @@ public sealed class EnvFireSensor : ScriptedEntity
 
     private const int StartOnFlag = 1;
 
-    public readonly Output OnHeatLevelStart = new("OnHeatLevelStart");
-    public readonly Output OnHeatLevelEnd = new("OnHeatLevelEnd");
+    public readonly Output OnHeatLevelStart = new();
+    public readonly Output OnHeatLevelEnd = new();
 
     private bool _enabled;
     private bool _atLevel;

@@ -51,14 +51,14 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// <summary>What a map may set on this entity. See <see cref="FuncBreakableSurfVars"/>.</summary>
     [ScriptVars] public FuncBreakableSurfVars Vars = new();
 
-    public readonly Output OnBreak = new("OnBreak");
+    public readonly Output OnBreak = new();
 
     /// <summary>
     /// Named without the "On" because the class also OVERRIDES OnDamaged, and a
     /// field cannot share a name with a method. Of the two it is the field that
     /// can be renamed without changing what a map writes.
     /// </summary>
-    public readonly Output Damaged = new("OnDamaged");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
 
     /// <summary>What the client is told. Bound to this entity by the registry.</summary>
     [NetState] public BreakableSurfaceNetState State = new();

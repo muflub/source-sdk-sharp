@@ -85,8 +85,8 @@ public sealed class EnvEntityMaker : ScriptedEntity
     /// <summary>How often the automatic version reconsiders. Stock's cadence.</summary>
     private const float CheckInterval = 0.5f;
 
-    public readonly Output OnEntitySpawned = new("OnEntitySpawned");
-    public readonly Output OnEntityFailedSpawn = new("OnEntityFailedSpawn");
+    public readonly Output OnEntitySpawned = new();
+    public readonly Output OnEntityFailedSpawn = new();
 
     /// <summary>The most recent thing made, which is what "wait for destruction" waits on.</summary>
     private EntityHandle _current = EntityHandle.None;

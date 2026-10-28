@@ -47,7 +47,7 @@ public sealed class TeTester : ScriptedEntity
     [ScriptVars] public TeTesterVars Vars = new();
 
     /// <summary>Fired when the effect went; not fired when the class is not registered.</summary>
-    public readonly Output OnFired = new("OnFired");
+    public readonly Output OnFired = new();
 
     /// <summary>
     /// The demonstration this tester stands for, or null when its <c>te</c>

@@ -86,25 +86,25 @@ public class FuncPhysbox : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverr
         NeverPickUp = 0x200000,                  // SF_PHYSBOX_NEVER_PICK_UP
     }
 
-    public readonly Output OnBreak = new("OnBreak");
+    public readonly Output OnBreak = new();
     /// <summary>
     /// Named without the "On" because the class also OVERRIDES OnDamaged — the
     /// virtual that decides how much damage is taken. A field and a method
     /// cannot share a name, and of the two it is the output that can be renamed
     /// without changing what a map writes.
     /// </summary>
-    public readonly Output Damaged = new("OnDamaged");
-    public readonly Output OnMotionEnabled = new("OnMotionEnabled");
-    public readonly Output OnHealthChanged = new("OnHealthChanged");
-    public readonly Output OnAwakened = new("OnAwakened");
-    public readonly Output OnPlayerUse = new("OnPlayerUse");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
+    public readonly Output OnMotionEnabled = new();
+    public readonly Output OnHealthChanged = new();
+    public readonly Output OnAwakened = new();
+    public readonly Output OnPlayerUse = new();
 
     // The gravity gun's (CPhysBox::OnPhysGunPickup and OnPhysGunDrop,
     // physobj.cpp:398-401), each with the player as activator.
-    public readonly Output OnPhysGunPickup = new("OnPhysGunPickup");
-    public readonly Output OnPhysGunPunt = new("OnPhysGunPunt");
-    public readonly Output OnPhysGunOnlyPickup = new("OnPhysGunOnlyPickup");
-    public readonly Output OnPhysGunDrop = new("OnPhysGunDrop");
+    public readonly Output OnPhysGunPickup = new();
+    public readonly Output OnPhysGunPunt = new();
+    public readonly Output OnPhysGunOnlyPickup = new();
+    public readonly Output OnPhysGunDrop = new();
 
     // Stock keeps all three on the entity across a save (CBreakable's
     // m_iMaxHealth; the motion flag lives on the physics object; a broken box

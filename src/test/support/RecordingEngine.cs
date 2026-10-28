@@ -898,6 +898,7 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.SetSequence(EntityHandle entity, int sequence) => RecordVoid("EntityRender.SetSequence", entity, sequence);
     void IEngineEntityRender.SetViewModel(EntityHandle entity, bool enable) => RecordVoid("EntityRender.SetViewModel", entity, enable);
     void IEngineEntityRender.PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => RecordVoid("EntityRender.PlaySequence", entity, sequence, playbackRate, restart);
+    void IEngineEntityRender.PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => RecordVoid("EntityRender.PlaySequenceAt", entity, sequence, playbackRate, cycle);
     void IEngineEntityRender.SetCycle(EntityHandle entity, float cycle) => RecordVoid("EntityRender.SetCycle", entity, cycle);
     void IEngineEntityRender.SetSkin(EntityHandle entity, int skin) => RecordVoid("EntityRender.SetSkin", entity, skin);
     void IEngineEntityRender.SetTextureFrame(EntityHandle entity, int frame) => RecordVoid("EntityRender.SetTextureFrame", entity, frame);

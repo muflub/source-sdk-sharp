@@ -117,6 +117,11 @@ public static partial class TestServices
         services.AddInstance<SourceSharp.Server.IScreenEffects>(
             new SourceSharp.Server.ScreenEffects(engine, engine, engine, engine));
 
+        // The model descriptors entities read sequences and graphs from: none
+        // attached, so every model answers the empty descriptor. A fact that
+        // needs a model passes descriptors of its own.
+        services.AddInstance(new ModelDescriptors(_ => -1, _ => string.Empty, new RecordingLog()));
+
         // The world's noise record — plan_gamedll_after.md Phase A3, second
         // pair. Two map entities take it now (env_microphone reads it, ai_sound
         // writes it) where they used to take IEngineSound, because

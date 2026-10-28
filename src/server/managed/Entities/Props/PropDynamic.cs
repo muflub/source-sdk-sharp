@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Bones;
 
 namespace SourceSharp.Server;
 
@@ -24,16 +25,31 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PropDynamicOverride, ScriptedEntityKind.Prop)]
 public sealed class PropDynamic : ScriptedEntity
 {
-    public PropDynamic(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData)
+    public PropDynamic(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData,
+                       IEngineHost host, ModelDescriptors models)
     {
         Precache = precache;
         Render = render;
         PropDataTable = propData;
+        Host = host;
+        Models = models;
     }
 
     private readonly IEnginePrecache Precache;
     private readonly IEngineEntityRender Render;
     private readonly IServerPropData PropDataTable;
+    private readonly IEngineHost Host;
+    private readonly ModelDescriptors Models;
+
+    /// <summary>The sequence, rate and start the client runs. See <see cref="PropDynamicNetState"/>.</summary>
+    [NetState] public PropDynamicNetState State = new();
+
+    // m_iGoalSequence, m_iTransitionDirection, m_flNextRandAnim, and the
+    // playback rate FinishSetSequence last set (CBaseAnimating's default 1).
+    private int _goalSequence = -1;
+    private int _transitionDirection;
+    private float _nextRandAnim;
+    private float _rate = 1f;
 
     public readonly Output OnAnimationBegun = new();
     public readonly Output OnAnimationDone = new();
@@ -104,8 +120,21 @@ public sealed class PropDynamic : ScriptedEntity
         _visible = !Vars.StartDisabled;
         Apply();
 
-        if (Vars.DefaultAnim.Length > 0)
-            Play(Vars.DefaultAnim);
+        if (Vars.RandomAnimation || Vars.DefaultAnim.Length > 0)
+        {
+            if (Vars.RandomAnimation)
+            {
+                _nextRandAnim = GameTime + Host.RandomFloat(Vars.MinAnimTime, Vars.MaxAnimTime);
+
+                // Stock books curtime + m_flNextRandAnim + 0.1, and m_flNextRandAnim
+                // is already a time: the first think comes a whole game time late.
+                SetNextThink(_nextRandAnim + 0.1f);
+            }
+            else
+            {
+                PropSetAnim(Vars.DefaultAnim);
+            }
+        }
     }
 
     [ScriptedEvent] private void OnTurnOn() { _visible = true; Apply(); }
@@ -116,27 +145,111 @@ public sealed class PropDynamic : ScriptedEntity
     [ScriptedEvent] private void OnEnableCollision() => SetNotSolid(false);
     [ScriptedEvent] private void OnDisableCollision() => SetNotSolid(true);
 
-    [ScriptedEvent] private void OnSetAnimation(string animation) => Play(animation);
+    [ScriptedEvent] private void OnSetAnimation(string animation) => PropSetAnim(animation);
 
     [ScriptedEvent] private void OnSetDefaultAnimation(string animation) => Vars.DefaultAnim = animation;
 
-    //-------------------------------------------------------------------------
-    // A named animation the model does not have is worth saying out loud. The
-    // symptom otherwise is scenery frozen in its first frame, which looks like
-    // the entity failing rather than the name being wrong.
-    //-------------------------------------------------------------------------
-    private void Play(string animation)
+    /// <summary>
+    /// AnimThink: a random animator picks a new idle when its time comes; a
+    /// transition that has played out moves on towards the goal sequence, and
+    /// the goal played out fires OnAnimationDone and returns to the default
+    /// animation. Otherwise it looks again in a tenth of a second.
+    /// </summary>
+    public override void OnThink()
     {
-        if (animation.Length == 0)
-            return;
-
-        if (PlaySequence(animation))
+        if (Vars.RandomAnimation && _nextRandAnim < GameTime)
         {
+            ModelDescriptor model = Models.For(Handle);
+            Render.SequenceState(Handle, out int current, out _, out _, out _, out _);
+            int idle = SequenceGraph.SelectWeightedSequence(model.Sequences, "ACT_IDLE", current, Host.RandomInt);
+
+            // ResetSequence and ResetClientsideFrame: from its first frame on both sides.
+            Start(idle < 0 ? 0 : idle, _rate, 0f);
+            OnAnimationBegun.Fire();
+
+            _nextRandAnim = GameTime + Host.RandomFloat(Vars.MinAnimTime, Vars.MaxAnimTime);
+        }
+
+        Render.SequenceState(Handle, out int sequence, out float cycle, out _, out bool looping, out _);
+        if (((_transitionDirection > 0 && cycle >= 0.999f) || (_transitionDirection < 0 && cycle <= 0f)) && !looping)
+        {
+            if (sequence != _goalSequence)
+            {
+                PropSetSequence(_goalSequence);
+            }
+            else
+            {
+                OnAnimationDone.Fire();
+
+                // If I'm a random animator, think again when it's time to change
+                // sequence (the same time-for-a-delay as the spawn's).
+                if (Vars.RandomAnimation)
+                    SetNextThink(_nextRandAnim + 0.1f);
+                else if (Vars.DefaultAnim.Length > 0)
+                    PropSetAnim(Vars.DefaultAnim);
+            }
+        }
+        else
+        {
+            SetNextThink(0.1f);
+        }
+    }
+
+    /// <summary>
+    /// PropSetAnim: a sequence by name, walked to through the model's graph,
+    /// with OnAnimationBegun. A name the model does not have is said out loud
+    /// and leaves it on its first sequence: the symptom otherwise is scenery
+    /// frozen in its first frame, which looks like the entity failing.
+    /// </summary>
+    private void PropSetAnim(string animation)
+    {
+        int sequence = Render.LookupSequence(Handle, animation);
+        if (sequence > -1)
+        {
+            PropSetSequence(sequence);
             OnAnimationBegun.Fire();
             return;
         }
 
-        Log.Warning($"[SourceSharp] {ClassName} '{Name}': model has no animation '{animation}'\n");
+        Log.Warning($"[SourceSharp] Dynamic prop {Name}: no sequence named:{animation}\n");
+        Start(0, _rate, 0f);
+    }
+
+    /// <summary>
+    /// PropSetSequence: the goal is set, the first step towards it starts
+    /// (GotoSequence; nothing while a transition is still playing), and the
+    /// think that watches it is booked unless one already is.
+    /// </summary>
+    private void PropSetSequence(int sequence)
+    {
+        _goalSequence = sequence;
+
+        Render.SequenceState(Handle, out int current, out float cycle, out _, out _, out _);
+        if (SequenceGraph.GotoSequence(Models.For(Handle), current, cycle, _rate, _goalSequence) is { } step)
+        {
+            _transitionDirection = step.Direction;
+            FinishSetSequence(step.Sequence);
+        }
+
+        if (Thinks.NextThinkTime(Handle, null) <= GameTime)
+            SetNextThink(0.1f);
+    }
+
+    /// <summary>FinishSetSequence: forwards from 0, or backwards from 0.999.</summary>
+    private void FinishSetSequence(int sequence)
+        => Start(sequence, _transitionDirection > 0 ? 1f : -1f, _transitionDirection > 0 ? 0f : 0.999f);
+
+    /// <summary>A sequence started over, on the server's skeleton and in what the client runs.</summary>
+    private void Start(int sequence, float rate, float cycle)
+    {
+        _rate = rate;
+        Render.PlaySequenceAt(Handle, sequence, rate, cycle);
+
+        State.Sequence = sequence;
+        State.PlaybackRate = rate;
+        State.StartCycle = cycle;
+        State.StartTime = GameTime;
+        State.Starts++;
     }
 
     /// <summary>
@@ -156,6 +269,15 @@ public partial class PropDynamicVars
 
     /// <summary>Animation to play on spawn and return to when another finishes.</summary>
     public string DefaultAnim { get; set; } = string.Empty;
+
+    /// <summary>Pick a weighted ACT_IDLE sequence now and then, instead of the default animation.</summary>
+    public bool RandomAnimation { get; set; }
+
+    /// <summary>The shortest wait between random picks, in seconds.</summary>
+    public float MinAnimTime { get; set; }
+
+    /// <summary>The longest wait between random picks, in seconds.</summary>
+    public float MaxAnimTime { get; set; }
 
     public bool StartDisabled { get; set; }
 
