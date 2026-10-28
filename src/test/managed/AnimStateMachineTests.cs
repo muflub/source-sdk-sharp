@@ -770,18 +770,23 @@ public class AnimStateMachineTests
         for (int warm = 0; warm < 50; warm++)
             s.Update(0f, 0f, 1f + warm * 0.05f, 0.05f);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
+        // The fewest bytes across three thousand-drive runs: a tier-up on this
+        // thread lands in one run, a per-drive allocation in all three
+        // (SteadyAllocation; a single run read 4752 bytes on Windows CI).
+        int drive = 0;
+        long perThousand = SteadyAllocation.LeastAllocated(() =>
         {
-            // The fake's recorders are cleared every drive: the fact is
-            // about the MACHINE's scratch, and letting the fake's lists
-            // grow unboundedly would bill the harness for the fake.
-            t.Pose.Clear();
-            t.Played.Clear();
-            t.Layers.Clear();
-            s.Update(0f, 0f, 4f + i * 0.05f, 0.05f);
-        }
-        long perThousand = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (int n = 0; n < 1000; n++, drive++)
+            {
+                // The fake's recorders are cleared every drive: the fact is
+                // about the MACHINE's scratch, and letting the fake's lists
+                // grow unboundedly would bill the harness for the fake.
+                t.Pose.Clear();
+                t.Played.Clear();
+                t.Layers.Clear();
+                s.Update(0f, 0f, 4f + drive * 0.05f, 0.05f);
+            }
+        }, warm: 0, samples: 3);
 
         // The positive arm, so a harness that stopped measuring cannot pass:
         // a hundred trivial lists MUST register on the same meter.
