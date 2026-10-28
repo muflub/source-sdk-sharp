@@ -173,10 +173,11 @@ int C_World::BlobBytes() const
 // when this fails rather than read offset zero, the vtable pointer.
 bool C_World::ResolveFields()
 {
-	if ( m_Fields.IsCurrent() )
+	const unsigned int nGeneration = SourceSharp_PlayerSyncGeneration();
+	if ( m_Fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpWorldFields_Resolve( &m_Fields );
+	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration );
 }
 
 // The two values client.so still reads natively, through world_net_sync.cpp as the server does.
@@ -348,7 +349,7 @@ void C_World::ReportIfChanged()
 		m_bReportedOnce = true;
 	}
 
-	SourceSharpWorld_Report( "Client", DataBlob(), BlobBytes(), m_Fields );
+	SourceSharpWorld_Report( "Client", DataBlob(), BlobBytes(), m_Fields, SourceSharp_PlayerSyncGeneration() );
 }
 
 // The world's place is the origin and never moves. File-scope so references to them are

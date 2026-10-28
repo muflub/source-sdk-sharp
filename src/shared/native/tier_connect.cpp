@@ -34,13 +34,10 @@
 #define SS_VGUI_SYSTEM_INTERFACE_VERSION "VGUI_System010"
 #endif
 
-// tier1: the console and utlsortvector.h's qsort context. The context must be
-// defined here, or the linker takes tier1.cpp's along with its duplicates.
-// A second connect leaves the first answers alone.
+// tier1: the client's console globals, which its Valve code reads (the server's console
+// is its root's CCVarRegistry). A second connect leaves the first answers alone.
 #ifdef CLIENT_DLL
-// The client's alone: no server object reads `cvar`.
 ICvar *cvar = NULL;
-#endif
 ICvar *g_pCVar = NULL;
 
 static bool s_bTier1Connected = false;
@@ -53,11 +50,7 @@ void SourceSharp_ConnectTier1( CreateInterfaceFn engineFactory )
 	s_bTier1Connected = true;
 
 	if ( !g_pCVar )
-#ifdef CLIENT_DLL
 		cvar = g_pCVar = (ICvar *)engineFactory( CVAR_INTERFACE_VERSION, NULL );
-#else
-		g_pCVar = (ICvar *)engineFactory( CVAR_INTERFACE_VERSION, NULL );
-#endif
 }
 
 void SourceSharp_DisconnectTier1()
@@ -65,15 +58,10 @@ void SourceSharp_DisconnectTier1()
 	if ( !s_bTier1Connected )
 		return;
 
-#ifdef CLIENT_DLL
 	cvar = g_pCVar = NULL;
-#else
-	g_pCVar = NULL;
-#endif
 	s_bTier1Connected = false;
 }
 
-#ifdef CLIENT_DLL
 // tier1.h's names for the client's connect, so tier1.o stays off the link.
 void ConnectTier1Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 {

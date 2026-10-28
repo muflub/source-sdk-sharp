@@ -21,14 +21,16 @@
 #include <unordered_map>
 
 #include "ss_entityfactory.h"
+#include "shell_entity_lifecycle.h"
+#include "server_entity_context.h"
 
 void SourceSharp_LogEntityCreate( const char *pClassName );
 void SourceSharp_LogEntityCreateFailed( const char *pClassName );
 void SourceSharp_LogEntityDestroy( const char *pClassName );
 
-// One registered class and its factory. Lives for the process; the engine holds
-// pointers to its interned strings.
-class CStandaloneScriptedClass : public ss::IEntityFactory
+// One registered class and its factory. Lives as long as the lifecycle that installed it;
+// entities hold pointers to its descriptor and interned strings.
+class CStandaloneScriptedClass final : public ss::IEntityFactory
 {
 public:
 	CStandaloneScriptedClass( const char *pClassName, const char **ppOutputNames, int nOutputCount, bool bServerOnly,
@@ -132,7 +134,7 @@ public:
 	}
 
 private:
-	// Interned for the life of this object, which is the process.
+	// Interned for the life of this object.
 	const char *Keep( const char *psz ) { return m_Kept.Intern( psz ); }
 
 	StandaloneClassDesc_t m_Desc;
@@ -148,64 +150,6 @@ int SourceSharp_StandaloneBlobOffset()
 	return (int)ALIGN_VALUE( nLargest, 16 );
 }
 
-// The classes this hierarchy hosts, by factory, case-blind. Other shells register
-// factories too, so "has a factory" is not the same question.
-static std::unordered_map<std::string, CStandaloneScriptedClass *, ss::CaselessHash, ss::CaselessEqual>
-	g_StandaloneClassNames;
-
-static CStandaloneScriptedClass *FindStandaloneClass( const char *pClassName )
-{
-	auto it = g_StandaloneClassNames.find( pClassName );
-	return ( it != g_StandaloneClassNames.end() ) ? it->second : NULL;
-}
-
-// Idempotent by classname: C# re-declares every class on a reload.
-bool SourceSharp_InstallStandaloneClass( const char *pClassName, const char **ppOutputNames, int nOutputCount,
-										 bool bServerOnly, SolidType_t nSolidType, int nSolidFlags,
-										 bool bTouchEveryTick, bool bPlayer )
-{
-	if ( !pClassName || !pClassName[0] )
-		return false;
-
-	if ( CStandaloneScriptedClass *pExisting = FindStandaloneClass( pClassName ) )
-	{
-		// Take the new declaration without installing a second time.
-		pExisting->Describe( pClassName, ppOutputNames, nOutputCount, bServerOnly, nSolidType, nSolidFlags,
-							 bTouchEveryTick, bPlayer );
-		return true;
-	}
-
-	CStandaloneScriptedClass *pClass = new CStandaloneScriptedClass(
-		pClassName, ppOutputNames, nOutputCount, bServerOnly, nSolidType, nSolidFlags, bTouchEveryTick, bPlayer );
-
-	g_StandaloneClassNames.emplace( pClass->GetClassName(), pClass );
-
-	ss::EntityFactoryDictionary()->InstallFactory( pClass, pClass->GetClassName() );
-	return true;
-}
-
-// The override mask, a separate call because a reload can change it alone. False for a
-// name never registered.
-bool SourceSharp_SetStandaloneClassOps( const char *pClassName, uint32_t nOpMask )
-{
-	if ( !pClassName || !pClassName[0] )
-		return false;
-
-	CStandaloneScriptedClass *pClass = FindStandaloneClass( pClassName );
-
-	if ( !pClass )
-		return false;
-
-	pClass->SetOps( nOpMask );
-	return true;
-}
-
-// The ABI slot's body. A mask for an unregistered name is ordinary and ignored.
-void SourceSharp_RegisterClassOps( const char *pClassName, uint32_t nOpMask )
-{
-	SourceSharp_SetStandaloneClassOps( pClassName, nOpMask );
-}
-
 // The entity factory dictionary. Native because Create is called synchronously from the
 // map parse and CreateEntityByName. The name table is entity_factory_table.h.
 
@@ -217,6 +161,11 @@ namespace
 class CSourceSharpFactoryDictionary : public ss::IEntityFactoryDictionary
 {
 public:
+	explicit CSourceSharpFactoryDictionary( CServerEntityContext &entities )
+		: m_Entities( entities )
+	{
+	}
+
 	virtual void InstallFactory( ss::IEntityFactory *pFactory, const char *pClassName ) OVERRIDE
 	{
 		switch ( m_Table.Install( pFactory, pClassName ) )
@@ -256,17 +205,8 @@ public:
 			return NULL;
 		}
 
-		if ( !m_pContext )
-		{
-			Warning( "[SourceSharp] REFUSED: '%s' was asked for outside DLLInit..DLLShutdown\n",
-					 pClassName ? pClassName : "(null)" );
-			return NULL;
-		}
-
-		return pFactory->Create( pClassName, *m_pContext );
+		return pFactory->Create( pClassName, m_Entities );
 	}
-
-	virtual void BindContext( CServerEntityContext *pContext ) OVERRIDE { m_pContext = pContext; }
 
 	virtual void Destroy( const char *pClassName, IServerNetworkable *pNetworkable ) OVERRIDE
 	{
@@ -285,7 +225,7 @@ public:
 
 	CEntityFactoryTable<ss::IEntityFactory> m_Table;
 
-	CServerEntityContext *m_pContext = nullptr;
+	CServerEntityContext &m_Entities;
 
 	// Classname to refusal count, case-blind; m_RefusedOrder is first-refusal order.
 	typedef std::map<std::string, int, ss::CaselessLess> Refused_t;
@@ -320,37 +260,112 @@ private:
 
 } // namespace
 
-// A function-local static: factories install from unordered static initialisers.
-static CSourceSharpFactoryDictionary &SourceSharpFactoryDictionary()
+std::unique_ptr<ss::IEntityFactory> SourceSharp_NewWorldFactory();
+
+struct CServerEntityLifecycle::Impl
 {
-	static CSourceSharpFactoryDictionary s_Dictionary;
-	return s_Dictionary;
+	explicit Impl( CServerEntityContext &entities )
+		: m_Factories( entities )
+	{
+	}
+
+	CSourceSharpFactoryDictionary m_Factories;
+
+	// The classes this hierarchy hosts, by factory, case-blind. Other shells register
+	// factories too, so "has a factory" is not the same question.
+	std::unordered_map<std::string, std::unique_ptr<CStandaloneScriptedClass>, ss::CaselessHash, ss::CaselessEqual>
+		m_Classes;
+
+	std::unique_ptr<ss::IEntityFactory> m_pWorldFactory;
+
+	CStandaloneScriptedClass *Find( const char *pClassName )
+	{
+		auto it = m_Classes.find( pClassName );
+		return ( it != m_Classes.end() ) ? it->second.get() : NULL;
+	}
+};
+
+CServerEntityLifecycle::CServerEntityLifecycle( CServerEntityContext &entities )
+	: m_Entities( entities )
+	, m_pImpl( new Impl( entities ), &CServerEntityLifecycle::DeleteImpl )
+{
+	m_pImpl->m_pWorldFactory = SourceSharp_NewWorldFactory();
+	m_pImpl->m_Factories.InstallFactory( m_pImpl->m_pWorldFactory.get(), "worldspawn" );
 }
 
-ss::IEntityFactoryDictionary *ss::EntityFactoryDictionary()
+void CServerEntityLifecycle::DeleteImpl( Impl *pImpl )
 {
-	return &SourceSharpFactoryDictionary();
+	delete pImpl;
+}
+
+ss::IEntityFactoryDictionary &CServerEntityLifecycle::Factories()
+{
+	return m_pImpl->m_Factories;
+}
+
+bool CServerEntityLifecycle::InstallStandaloneClass( const char *pClassName, const char **ppOutputNames,
+													 int nOutputCount, bool bServerOnly, int nSolidType,
+													 int nSolidFlags, bool bTouchEveryTick, bool bPlayer )
+{
+	if ( !pClassName || !pClassName[0] )
+		return false;
+
+	if ( CStandaloneScriptedClass *pExisting = m_pImpl->Find( pClassName ) )
+	{
+		// Take the new declaration without installing a second time.
+		pExisting->Describe( pClassName, ppOutputNames, nOutputCount, bServerOnly, (SolidType_t)nSolidType, nSolidFlags,
+							 bTouchEveryTick, bPlayer );
+		return true;
+	}
+
+	auto pClass =
+		std::make_unique<CStandaloneScriptedClass>( pClassName, ppOutputNames, nOutputCount, bServerOnly,
+													(SolidType_t)nSolidType, nSolidFlags, bTouchEveryTick, bPlayer );
+	CStandaloneScriptedClass *pInstalled = pClass.get();
+	m_pImpl->m_Classes.emplace( pInstalled->GetClassName(), std::move( pClass ) );
+
+	m_pImpl->m_Factories.InstallFactory( pInstalled, pInstalled->GetClassName() );
+	return true;
+}
+
+bool CServerEntityLifecycle::SetStandaloneClassOps( const char *pClassName, uint32_t nOpMask )
+{
+	if ( !pClassName || !pClassName[0] )
+		return false;
+
+	CStandaloneScriptedClass *pClass = m_pImpl->Find( pClassName );
+
+	if ( !pClass )
+		return false;
+
+	pClass->SetOps( nOpMask );
+	return true;
+}
+
+void CServerEntityLifecycle::RegisterClassOps( const char *pClassName, uint32_t nOpMask )
+{
+	SetStandaloneClassOps( pClassName, nOpMask );
 }
 
 // Enumeration, for the console dumps and the managed side.
-int SourceSharp_EntityFactoryCount()
+int32_t CServerEntityLifecycle::EntityFactoryCount()
 {
-	return SourceSharpFactoryDictionary().m_Table.Count();
+	return m_pImpl->m_Factories.m_Table.Count();
 }
 
-const char *SourceSharp_EntityFactoryNameAt( int i )
+const char *CServerEntityLifecycle::EntityFactoryNameAt( int32_t i )
 {
-	return SourceSharpFactoryDictionary().m_Table.NameAt( i );
+	return m_pImpl->m_Factories.m_Table.NameAt( i );
 }
 
-int SourceSharp_EntityFactoryRefusalCount()
+int32_t CServerEntityLifecycle::EntityFactoryRefusalCount()
 {
-	return (int)SourceSharpFactoryDictionary().m_RefusedOrder.size();
+	return (int32_t)m_pImpl->m_Factories.m_RefusedOrder.size();
 }
 
-const char *SourceSharp_EntityFactoryRefusalNameAt( int i )
+const char *CServerEntityLifecycle::EntityFactoryRefusalNameAt( int32_t i )
 {
-	CSourceSharpFactoryDictionary &d = SourceSharpFactoryDictionary();
+	CSourceSharpFactoryDictionary &d = m_pImpl->m_Factories;
 
 	if ( i < 0 || i >= (int)d.m_RefusedOrder.size() )
 		return NULL;
@@ -358,9 +373,9 @@ const char *SourceSharp_EntityFactoryRefusalNameAt( int i )
 	return d.m_RefusedOrder[i]->first.c_str();
 }
 
-int SourceSharp_EntityFactoryRefusalTimesAt( int i )
+int32_t CServerEntityLifecycle::EntityFactoryRefusalTimesAt( int32_t i )
 {
-	CSourceSharpFactoryDictionary &d = SourceSharpFactoryDictionary();
+	CSourceSharpFactoryDictionary &d = m_pImpl->m_Factories;
 
 	if ( i < 0 || i >= (int)d.m_RefusedOrder.size() )
 		return 0;
@@ -368,8 +383,8 @@ int SourceSharp_EntityFactoryRefusalTimesAt( int i )
 	return d.m_RefusedOrder[i]->second;
 }
 
-size_t SourceSharp_EntityFactorySizeAt( int i )
+size_t CServerEntityLifecycle::EntityFactorySizeAt( int32_t i )
 {
-	ss::IEntityFactory *pFactory = SourceSharpFactoryDictionary().m_Table.FactoryAt( i );
+	ss::IEntityFactory *pFactory = m_pImpl->m_Factories.m_Table.FactoryAt( i );
 	return pFactory ? pFactory->GetEntitySize() : 0;
 }

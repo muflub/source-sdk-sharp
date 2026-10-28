@@ -8,6 +8,8 @@
 // The worldspawn entity. This spawns first when each level begins.
 #pragma once
 
+#include "server_string_pool.h"
+
 #include "edict.h"
 
 #include "standalone_netserial.h"
@@ -156,6 +158,7 @@ private:
 	PVSInfo_t m_PVSInfo;
 };
 
+class IGameRules;
 class CServerEntityContext;
 
 class CWorld : public IServerEntity
@@ -166,6 +169,11 @@ public:
 
 	// What the world calls through, for its collideable and networkable members.
 	CServerEntityContext &Context() const { return *m_pContext; }
+
+	IGameRules *GameRules() const { return m_pGameRules; }
+
+	// The world's pooled strings, for dumpgamestringtable.
+	const CServerStringPool &Strings() const { return m_Strings; }
 
 	// The ServerClass built from the managed declaration (shell_world_nettable.cpp).
 	virtual ServerClass *GetServerClass();
@@ -232,6 +240,9 @@ private:
 	// Resolves the field placements from C#, again after a managed reload.
 	bool ResolveFields();
 
+	// The level's rules object, made in Precache and deleted with the world.
+	IGameRules *m_pGameRules = nullptr;
+
 	SourceSharpWorldFields_t m_Fields;
 
 	// The engine interfaces and DLL-tier state the world calls, and its level.
@@ -242,6 +253,9 @@ private:
 
 	int m_nModelIndex;
 	string_t m_iszModelName;
+
+	// What m_iszModelName points into.
+	CServerStringPool m_Strings;
 
 	// Members, so they live and die with this object. Their m_pOuter is set in the member
 	// initialiser list, before AttachToEdictZero hands &m_Networkable to edict 0.

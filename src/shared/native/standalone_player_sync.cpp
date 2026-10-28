@@ -26,21 +26,6 @@
 #include "PlayerState.h"
 #include "standalone_player_sync.h"
 
-static unsigned int g_nPlayerSyncGeneration = 1;
-
-unsigned int SourceSharp_PlayerSyncGeneration()
-{
-	return g_nPlayerSyncGeneration;
-}
-
-void SourceSharp_PlayerSyncInvalidate( const char *pReason )
-{
-	g_nPlayerSyncGeneration++;
-
-	Msg( "[SourceSharp] player sync: offsets invalidated (%s), generation %u\n", pReason ? pReason : "unspecified",
-		 g_nPlayerSyncGeneration );
-}
-
 // One warning per failed resolve attempt, not per field.
 static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
@@ -65,7 +50,7 @@ static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &a
 	return field;
 }
 
-bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields )
+bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields, unsigned int nGeneration )
 {
 	SourceSharpNetStateAsk_t ask;
 	if ( !pFields || !SourceSharp_NetStateAsk( &ask ) )
@@ -113,7 +98,7 @@ bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields )
 		return false;
 	}
 
-	pFields->nGeneration = g_nPlayerSyncGeneration;
+	pFields->nGeneration = nGeneration;
 	return true;
 }
 
@@ -135,9 +120,10 @@ static inline void WriteVec( unsigned char *pBlob, int nOffset, const Vector &ve
 
 #ifndef CLIENT_DLL
 void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob, const SourceSharpPlayerFields_t &fields,
-											const Vector &vecOrigin, int nHealth, bool bAlive )
+											unsigned int nGeneration, const Vector &vecOrigin, int nHealth,
+											bool bAlive )
 {
-	if ( !pBlob || !fields.IsCurrent() )
+	if ( !pBlob || !fields.IsCurrent( nGeneration ) )
 		return;
 
 	WriteI32( pBlob, fields.nHealth, nHealth );

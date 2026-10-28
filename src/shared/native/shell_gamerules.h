@@ -22,8 +22,8 @@
 
 class CSourceSharpGameRules;
 
-// Implements IGameRules directly; g_pGameRules is set and cleared by the constructor
-// and destructor.
+// Implements IGameRules directly. On the client g_pGameRules is set and cleared by the
+// constructor and destructor; the server's world owns its rules object.
 class CSourceSharpGameRules : public IGameRules
 {
 public:
@@ -103,12 +103,11 @@ public:
 #endif
 };
 
-// Makes the one rules object and tells the client to make its own.
+// Makes the level's rules object, which the world owns, and tells the client through the
+// rules' string table to make its own.
 #ifndef CLIENT_DLL
-void SourceSharp_CreateGameRules();
+class INetworkStringTable;
+class INetworkStringTableContainer;
+IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable );
+INetworkStringTable *CreateNetworkStringTables_GameRules( INetworkStringTableContainer *pTables );
 #endif
-
-inline CSourceSharpGameRules *SourceSharpGameRules()
-{
-	return static_cast<CSourceSharpGameRules *>( g_pGameRules );
-}

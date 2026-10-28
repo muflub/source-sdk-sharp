@@ -17,17 +17,28 @@ class CServerEntityContext;
 class IBaseFileSystem;
 class IMDLCache;
 class IVEngineServer;
+class CServerModelPrecache;
+class CServerSystem;
+
+namespace ss
+{
+class IEntityFactoryDictionary;
+}
 
 class CServerLevel final : public IShimLevel
 {
 public:
 	CServerLevel( IVEngineServer *pEngine, IBaseFileSystem *pFileSystem, IMDLCache *pMdlCache, CGlobalVars *pGlobals,
-				  CServerEntityContext &entities )
+				  CServerEntityContext &entities, ss::IEntityFactoryDictionary &factories,
+				  CServerModelPrecache &precache, CServerSystem &physics )
 		: m_pEngine( pEngine )
 		, m_pFileSystem( pFileSystem )
 		, m_pMdlCache( pMdlCache )
 		, m_pGlobals( pGlobals )
 		, m_Entities( entities )
+		, m_Factories( factories )
+		, m_Precache( precache )
+		, m_Physics( physics )
 	{
 	}
 
@@ -95,4 +106,13 @@ private:
 	IMDLCache *m_pMdlCache;
 	CGlobalVars *m_pGlobals;
 	CServerEntityContext &m_Entities;
+
+	// What SpawnWorld creates the world through.
+	ss::IEntityFactoryDictionary &m_Factories;
+
+	// Holds the precache window SetPrecacheAllowed opens and closes.
+	CServerModelPrecache &m_Precache;
+
+	// The physics game system (CServerPhysics), whose level steps these run.
+	CServerSystem &m_Physics;
 };

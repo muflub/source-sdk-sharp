@@ -63,6 +63,3 @@ void SourceSharp_LogEntityCreate( const char *pClassName );
 		static bool s_bLogged = false;           \
 		SourceSharp_LogStub( name, &s_bLogged ); \
 	} while ( 0 )
-
-// Makes assertions log and continue instead of halting the game. Opt-in through -assertlog.
-void SourceSharp_InstallAssertLogging();

@@ -16,7 +16,6 @@
 #include "ss_physics_shared.h"
 
 #include "ss_gamestringpool.h"
-extern CGlobalVars *gpGlobals;
 int UTIL_GetCommandClientIndex();
 #include "ss_recipient_filter.h"
 #include "igamerules.h"
@@ -37,6 +36,12 @@ int UTIL_GetCommandClientIndex();
 #include "ss_string.h"
 #include "ss_entityfactory.h"
 #include "server_engine.h"
+#include "shell_entity_lifecycle.h"
+#include "world_queries.h"
+#include "server_movement.h"
+#include "server_entity_resolver.h"
+#include "server_console_commands.h"
+#include "server_entity_resolver.h"
 
 // Stock's player physics-shadow states (player.h VPHYS_*).
 namespace
@@ -64,24 +69,24 @@ static CStandalonePlayer **PlayersByIndex()
 }
 
 // Field placements, resolved once per generation and shared by every player.
-static bool PlayerFieldsCurrent()
+static bool PlayerFieldsCurrent( SourceSharpPlayerFields_t &fields, unsigned int nGeneration )
 {
-	SourceSharpPlayerFields_t &fields = Players().m_Fields;
-
-	if ( fields.IsCurrent() )
+	if ( fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpPlayerFields_Resolve( &fields );
+	return SourceSharpPlayerFields_Resolve( &fields, nGeneration );
 }
 
 // Native state to blob, after anything that moved it.
 void CStandalonePlayer::SyncToBlob()
 {
-	if ( !PlayerFieldsCurrent() )
+	const unsigned int nGeneration = Context().m_nManagedGeneration;
+	if ( !PlayerFieldsCurrent( Players().m_Fields, nGeneration ) )
 		return;
 
 	// The engine side's three words only; the managed command loop publishes movement state.
-	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), Players().m_Fields, GetAbsOrigin(), GetHealth(), MvIsAlive() );
+	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), Players().m_Fields, nGeneration, GetAbsOrigin(), GetHealth(),
+										   MvIsAlive() );
 
 	NetworkStateChanged();
 }
@@ -184,7 +189,7 @@ CStandalonePlayer::~CStandalonePlayer()
 void CStandalonePlayer::SetPlayerName( const char *pName )
 {
 	ss::StrCopy( m_szPlayerName, pName ? pName : "", sizeof( m_szPlayerName ) );
-	PlayerState().netname = AllocPooledString( m_szPlayerName );
+	PlayerState().netname = PooledString( m_Strings, m_szPlayerName );
 }
 
 // Placed with a player's shape; the managed OnSpawn supplies model, health and state.
@@ -202,8 +207,9 @@ void CStandalonePlayer::Spawn()
 	if ( pApi )
 		(void)pApi->OnSelectSpawnPoint( ManagedHandle() );
 
-	SetCollisionBounds( g_pGameRules->GetViewVectors()->m_vHullMin, g_pGameRules->GetViewVectors()->m_vHullMax );
-	m_vecViewOffset = g_pGameRules->GetViewVectors()->m_vView;
+	const RulesViewVectors_t *pViewVectors = Context().GameRules()->GetViewVectors();
+	SetCollisionBounds( pViewVectors->m_vHullMin, pViewVectors->m_vHullMax );
+	m_vecViewOffset = pViewVectors->m_vView;
 
 	SetSolidity( SOLID_BBOX, FSOLID_NOT_STANDABLE );
 
@@ -305,17 +311,17 @@ void CStandalonePlayer::RunAllQueuedCommands()
 
 void CStandalonePlayer::RunQueuedCommands()
 {
-	if ( m_nSimulationTick == gpGlobals->tickcount )
+	if ( m_nSimulationTick == m_pContext->m_pGlobals->tickcount )
 		return;
 
-	m_nSimulationTick = gpGlobals->tickcount;
+	m_nSimulationTick = m_pContext->m_pGlobals->tickcount;
 
 	if ( m_nPendingCmds == 0 )
 		return;
 
 	// The managed loop sets each command's clock; the frame's is restored after the batch.
-	const float flSaveCurtime = gpGlobals->curtime;
-	const float flSaveFrametime = gpGlobals->frametime;
+	const float flSaveCurtime = m_pContext->m_pGlobals->curtime;
+	const float flSaveFrametime = m_pContext->m_pGlobals->frametime;
 
 	// One crossing for the whole queue.
 	IManagedPlayerCommands *pCommands = m_pContext->m_Managed.m_Areas.m_pPlayerCommands;
@@ -331,8 +337,8 @@ void CStandalonePlayer::RunQueuedCommands()
 
 	m_nPendingCmds = 0;
 
-	gpGlobals->curtime = flSaveCurtime;
-	gpGlobals->frametime = flSaveFrametime;
+	m_pContext->m_pGlobals->curtime = flSaveCurtime;
+	m_pContext->m_pGlobals->frametime = flSaveFrametime;
 }
 
 // One managed command's engine side: native answers what the engine holds (origin,
@@ -398,7 +404,7 @@ void CStandalonePlayer::FinishCommand( const SourceSharpPlayerCommandResult &res
 	TouchTriggers( GetAbsOrigin() );
 }
 
-int32_t SourceSharp_PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts )
+int32_t CServerMovement::PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
@@ -412,7 +418,7 @@ int32_t SourceSharp_PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerComma
 	return 1;
 }
 
-void SourceSharp_PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle )
+void CServerMovement::PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
@@ -423,7 +429,7 @@ void SourceSharp_PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, in
 	pPlayer->PlayerState().fixangle = nFixAngle;
 }
 
-void SourceSharp_PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult )
+void CServerMovement::PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
@@ -434,12 +440,12 @@ void SourceSharp_PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerC
 
 	// Counts commands that ran, not ones asked for.
 	if ( pResult->bRan )
-		SourceSharp_MoveNoteServerCommand();
+		m_nCommandsRan++;
 }
 
 // A landing's damage, through the shell's damage path so managed rules see it. Answers
 // whether the player is still alive.
-int32_t SourceSharp_PlayerFallDamage( uint32_t hPlayer, float flDamage )
+int32_t CServerMovement::PlayerFallDamage( uint32_t hPlayer, float flDamage )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 
@@ -457,7 +463,7 @@ int32_t SourceSharp_PlayerFallDamage( uint32_t hPlayer, float flDamage )
 }
 
 // The engine side's three words into the networked state, after each command.
-void SourceSharp_PlayerSyncEngineSide( uint32_t hPlayer )
+void CServerMovement::PlayerSyncEngineSide( uint32_t hPlayer )
 {
 	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
 		pPlayer->SyncToBlob();
@@ -502,7 +508,7 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 	pOut->struct_size = sizeof( *pOut );
 
 	pOut->bHasShadow = m_pPhysicsController && m_pShadowStand && m_pShadowCrouch ? 1 : 0;
-	pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == physenv ? 1 : 0;
+	pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == PhysicsEnvironment() ? 1 : 0;
 	pOut->nState = m_nVCollisionState;
 	pOut->pStand = m_pShadowStand;
 	pOut->pCrouch = m_pShadowCrouch;
@@ -520,8 +526,8 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 	pOut->nFlags = m_fFlags;
 	pOut->nMoveType = m_MoveType;
 
-	pOut->flFrameTime = gpGlobals->frametime;
-	pOut->flTickInterval = gpGlobals->interval_per_tick;
+	pOut->flFrameTime = m_pContext->m_pGlobals->frametime;
+	pOut->flTickInterval = m_pContext->m_pGlobals->interval_per_tick;
 
 	// Managed decides whether the ground is physics ground.
 	pOut->hGround = INVALID_EHANDLE_INDEX;
@@ -548,7 +554,7 @@ void CStandalonePlayer::AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCr
 	m_nVCollisionState = -1;
 
 	// Remembered so the teardown can tell whether the environment that built it still exists.
-	m_pShadowEnv = physenv;
+	m_pShadowEnv = PhysicsEnvironment();
 	Players().m_nShadowsLive++;
 }
 
@@ -561,7 +567,7 @@ void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
 	(void)bAfterCommand;
 }
 
-int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut )
+int32_t CServerMovement::PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
 	if ( !pPlayer || !pOut )
@@ -571,10 +577,10 @@ int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadow
 	return 1;
 }
 
-int32_t SourceSharp_PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController )
+int32_t CServerMovement::PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController )
 {
 	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
-	if ( !pPlayer || !pStand || !pCrouch || !pController || !physenv )
+	if ( !pPlayer || !pStand || !pCrouch || !pController || !pPlayer->PhysicsEnvironment() )
 		return 0;
 
 	// Stock destroys before it builds.
@@ -584,13 +590,13 @@ int32_t SourceSharp_PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCr
 	return 1;
 }
 
-void SourceSharp_PlayerShadowRelease( uint32_t hPlayer )
+void CServerMovement::PlayerShadowRelease( uint32_t hPlayer )
 {
 	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
 		pPlayer->DestroyVCollision();
 }
 
-void SourceSharp_PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand )
+void CServerMovement::PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand )
 {
 	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
 		pPlayer->CommitShadow( nState, bAfterCommand != 0 );
@@ -598,9 +604,10 @@ void SourceSharp_PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t b
 
 void CStandalonePlayer::DestroyVCollision()
 {
-	// physenv is recreated at every level change. A shadow from a replaced environment is
+	// The environment is recreated at every level change. A shadow from a replaced one is
 	// dangling, so it is dropped without freeing: the old environment took it.
-	IPhysicsEnvironment *pEnv = ( physenv == m_pShadowEnv ) ? physenv : NULL;
+	IPhysicsEnvironment *pCurrent = PhysicsEnvironment();
+	IPhysicsEnvironment *pEnv = ( pCurrent == m_pShadowEnv ) ? pCurrent : NULL;
 
 	// Counted once per set, whether freed or dropped.
 	if ( m_pShadowEnv )
@@ -669,7 +676,7 @@ CStandalonePlayer *StandalonePlayer_CommandClient()
 }
 
 // The same, for a C# [ConCommand]. INVALID_EHANDLE_INDEX when no player issued it.
-uint32_t SourceSharp_GetCommandClientHandle()
+uint32_t CServerConsoleCommands::GetCommandClientHandle()
 {
 	if ( CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient() )
 		return pPlayer->ManagedHandle();
@@ -708,23 +715,13 @@ SS_NATIVE_COMMAND( use )
 	StandalonePlayer_RouteVerbatim( args );
 }
 
-CStandalonePlayer *SourceSharp_ResolveStandalonePlayer( uint32_t hEntity )
-{
-	CStandaloneEntity *pEntity = SourceSharp_ResolveStandalone( hEntity );
-
-	if ( !pEntity || !pEntity->IsPlayer() )
-		return NULL;
-
-	return SourceSharp_PlayerOf( pEntity );
-}
-
-// Creation, from ClientPutInServer.
-CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &context, edict_t *pEdict, const char *pPlayerName )
+CStandalonePlayer *CServerEntityLifecycle::CreatePlayer( edict_t *pEdict, const char *pPlayerName )
 {
 	if ( !pEdict )
 		return NULL;
 
-	ss::IEntityFactory *pFactory = ss::EntityFactoryDictionary()->FindFactory( "player" );
+	CServerEntityContext &context = m_Entities;
+	ss::IEntityFactory *pFactory = Factories().FindFactory( "player" );
 
 	if ( !pFactory )
 	{
@@ -780,12 +777,12 @@ ss::CPlayerLocalData::CPlayerLocalData()
 }
 
 // The sky camera's parameters, else area 255 (no 3D skybox).
-static void StandaloneClientData_Update( CStandalonePlayer *pPlayer )
+static void StandaloneClientData_Update( const CServerWorldQueries &world, CStandalonePlayer *pPlayer )
 {
 	MvLocalData_t &local = pPlayer->MvLocal();
 
 	ss::sky3dparams_t managed;
-	if ( SourceSharp_FillSkyboxParams( managed ) )
+	if ( world.FillSkyboxParams( managed ) )
 	{
 		local.m_skybox3d.CopyFrom( managed );
 		return;
@@ -794,11 +791,11 @@ static void StandaloneClientData_Update( CStandalonePlayer *pPlayer )
 	local.m_skybox3d.area = 255;
 }
 
-void UpdateAllClientData()
+void UpdateAllClientData( const CGlobalVars *pGlobals, const CServerWorldQueries &world )
 {
-	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
+	for ( int i = 1; i <= pGlobals->maxClients; i++ )
 	{
 		if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( i ) )
-			StandaloneClientData_Update( pStandalone );
+			StandaloneClientData_Update( world, pStandalone );
 	}
 }

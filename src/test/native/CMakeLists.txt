@@ -333,6 +333,15 @@ ss_cpptest_mathlib(tempent_store_test
             sourcesharp/game/server/shell_tempents_store.cpp
     LIBS ss_cpptest_dtobjs)
 
+# CServerTempEnts (shell_tempents.cpp): the tables and ServerClasses built from managed
+# plans, a reload's answer, and the window the root closes.
+ss_cpptest_mathlib(tempent_registry_test
+    INCLUDES sourcesharp/host sourcesharp/game/server sourcesharp/game/shared
+    SOURCES sourcesharp/test/tempent_registry_test.cpp
+            sourcesharp/game/server/shell_tempents.cpp
+            sourcesharp/game/server/shell_tempents_store.cpp
+    LIBS ss_cpptest_dtobjs)
+
 # The client's half: a managed plan's block read with the client's rows, and one
 # row stored into one RecvProp, linked with the recv builders and nothing else.
 ss_cpptest_engine_headers(tempent_recv_store_test
@@ -1982,16 +1991,20 @@ ss_cpptest(server_factory_test
 # ConVar, ConVarRef and ConVar_Register, against a fake ICvar. Links tier1 for
 # the string functions only; the port is the only convar.cpp definition here.
 # ---------------------------------------------------------------------------
-ss_cpptest_tier1(convar_port_test
+ss_vendor_includes(_ss_convar_vendor server public public/tier0 public/tier1)
+ss_cpptest(convar_port_test
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC GAME_DLL
     # utlblockmemory.h:350's unused variable, silenced by name as server.so does.
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
+    # convar.h from vendor/, as the DLLs build it: it befriends CCVarRegistry.
+    INCLUDES ${_ss_convar_vendor} ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/convar_port_test.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
             # AutoCompleteSuggest appends through the engine's heap.
             ${PROJECT_SOURCE_DIR}/src/shared/native/engine_heap.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp
     LIBS dl)
 
 # ---------------------------------------------------------------------------
@@ -2065,6 +2078,38 @@ ss_cpptest(tier0_spew_port_test
             ${PROJECT_SOURCE_DIR}/src/client/native/tier0_spew_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
+    LIBS dl)
+
+# shell_log.cpp: the server's CShellLog and the free logging calls that forward to it,
+# against vendor/'s convar.h as server.so builds it.
+ss_vendor_includes(_ss_log_vendor server public public/tier0 public/tier1)
+ss_cpptest(shell_log_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC GAME_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
+    INCLUDES ${_ss_log_vendor} ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/server/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_log_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/shell_log.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/engine_heap.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp
+    LIBS dl)
+
+# diagnostics_hooks.cpp: the spew hook a side installs through a thunk bound to it, over
+# the same port, and what its destruction leaves installed.
+ss_cpptest(diagnostics_hooks_test
+    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC DEBUG _DEBUG
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/diagnostics_hooks_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/diagnostics_hooks.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/bound_callback.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/ss_command_line.cpp
     LIBS dl)
 
 # The same port with a libtier0.so loaded: its default spew hands each line to
@@ -2222,7 +2267,8 @@ ss_cpptest_mathlib(shell_gameclients_test
              ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_gameclients_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/shell_gameclients.cpp)
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_gameclients.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
 # shell_gameents.cpp: CServerGameEnts' transmit walk and its root-held forwarder over
 # generated fakes (tools/native-fakes).
 ss_cpptest_mathlib(shell_gameents_test
@@ -2253,7 +2299,39 @@ ss_cpptest_mathlib(shell_level_test
              ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_level_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/shell_level.cpp)
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_level.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
+# world_queries.cpp: CServerWorldQueries' sky camera and invisible-range count.
+ss_cpptest_mathlib(world_queries_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override -Wno-reorder-ctor  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/world_queries_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/world_queries.cpp)
+# server_entity_resolver.cpp: handles that name nothing, and the invisible-range count.
+ss_cpptest_mathlib(server_entity_resolver_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override -Wno-reorder-ctor  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_entity_resolver_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/server_entity_resolver.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
+# precache_model.cpp: CServerModelPrecache over generated fakes (tools/native-fakes).
+ss_cpptest_mathlib(precache_model_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/precache_model_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
 # bound_callback.cpp: C callbacks bound to an object through a generated x86-64 thunk.
 ss_cpptest(bound_callback_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native

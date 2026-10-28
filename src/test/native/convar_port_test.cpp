@@ -2,7 +2,7 @@
 //
 // plan_server_novalve.md P3. convar_port.cpp replaced tier1's convar.cpp for
 // server.so: ConCommandBase, ConCommand, ConVar, ConVarRef and
-// ConVar_Register. These pin tier1's behaviour for each, against a fake ICvar
+// CCVarRegistry. These pin tier1's behaviour for each, against a fake ICvar
 // that records what the engine would have been told. This binary links no
 // convar.cpp: the port is the only definition, as it is in server.so.
 //
@@ -13,13 +13,29 @@
 #include "tier1/convar.h"
 #include "icvar.h"
 
+#ifdef SS_CONVAR_STOCK_ORACLE
+// The oracle runs these facts against pristine tier1 (src/test/oracle/native), which has no
+// registry: there, its work is g_pCVar plus ConVar_Register and ConVar_Unregister.
+ICvar *g_pCVar = NULL;
+ICvar *cvar = NULL;
+
+class CCVarRegistry
+{
+public:
+	void Connect( ICvar *pCvar ) { g_pCVar = cvar = pCvar; }
+
+	void Register( int nFlags, IConCommandBaseAccessor *pPolicy = NULL ) { ConVar_Register( nFlags, pPolicy ); }
+
+	void Unregister() { ConVar_Unregister(); }
+};
+#else
+#include "convar_registry.h"
+#endif
+
 #include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
-
-ICvar *g_pCVar = NULL;
-ICvar *cvar = NULL;
 
 namespace
 {
@@ -91,11 +107,23 @@ public:
 
 	virtual void ConsolePrintf( const char *, ... ) const {}
 
+#ifdef SS_CONVAR_STOCK_ORACLE
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+#else
+	virtual void unused_ConsoleDPrintf() {}
+#endif
 
+#ifdef SS_CONVAR_STOCK_ORACLE
 	virtual void RevertFlaggedConVars( int ) {}
+#else
+	virtual void unused_RevertFlaggedConVars() {}
+#endif
 
+#ifdef SS_CONVAR_STOCK_ORACLE
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+#else
+	virtual void unused_InstallCVarQuery() {}
+#endif
 
 	virtual void PublishToVXConsole() {}
 
@@ -107,7 +135,11 @@ public:
 
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) { m_Queued.push_back( "float" ); }
 
+#ifdef SS_CONVAR_STOCK_ORACLE
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+#else
+	virtual void unused_HasQueuedMaterialThreadConVarSets() {}
+#endif
 
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
 
@@ -130,15 +162,25 @@ protected:
 	virtual void SetUp()
 	{
 		g_pFake = new CFakeCvar;
-		g_pCVar = cvar = g_pFake;
+		m_Registry.Connect( g_pFake );
+
+		// Each fact's carriers are its own: one built on another fact's stack would be
+		// walked by this one's Register after its owner returned.
+		Registry::Waiting() = NULL;
 	}
 
 	virtual void TearDown()
 	{
-		g_pCVar = cvar = NULL;
+		m_Registry.Unregister();
+		Registry::Accessor() = NULL;
+		Registry::Waiting() = NULL;
+		m_Registry.Connect( NULL );
 		delete g_pFake;
 		g_pFake = NULL;
 	}
+
+	// The registry a carrier reaches the console through, as each DLL's root owns one.
+	CCVarRegistry m_Registry;
 };
 
 }
@@ -182,6 +224,7 @@ TEST_F( ConVarPort, NeverAsStringKeepsTheTextAndStillTakesTheNumber )
 
 TEST_F( ConVarPort, AMaterialThreadVariableIsQueuedWhileItMayNotBeSet )
 {
+	m_Registry.Register( 0 );
 	g_pFake->m_bMaterialThreadAllowed = false;
 	ConVar v( "ss_t_j", "1", FCVAR_UNREGISTERED | FCVAR_MATERIAL_THREAD_MASK );
 	v.SetValue( "2" );
@@ -192,15 +235,14 @@ TEST_F( ConVarPort, AMaterialThreadVariableIsQueuedWhileItMayNotBeSet )
 
 TEST_F( ConVarPort, AVariableBuiltAfterRegisterGoesStraightToTheAccessor )
 {
-	ConVar_Register( FCVAR_GAMEDLL, NULL );
+	m_Registry.Register( FCVAR_GAMEDLL );
 	ConVar v( "ss_t_l", "1" );
 	EXPECT_EQ( 1u, std::count( g_pFake->m_Registered.begin(), g_pFake->m_Registered.end(), (ConCommandBase *)&v ) );
 	EXPECT_EQ( 7, v.GetDLLIdentifier() );
 
-	ConVar_Unregister();
+	m_Registry.Unregister();
 	EXPECT_EQ( 7, g_pFake->m_nUnregisteredId );
 	EXPECT_EQ( -1, v.GetDLLIdentifier() );
-	Registry::Accessor() = NULL;
 }
 
 namespace
@@ -236,7 +278,7 @@ TEST_F( ConVarPort, RegisterHandsTheWaitingListToTheAccessorWithTheFlagsAdded )
 	ConVar hidden( "ss_t_m3", "1", FCVAR_UNREGISTERED );
 
 	CRecordingAccessor accessor;
-	ConVar_Register( FCVAR_GAMEDLL, &accessor );
+	m_Registry.Register( FCVAR_GAMEDLL, &accessor );
 
 	ASSERT_EQ( 2u, accessor.m_Seen.size() );
 	EXPECT_EQ( (ConCommandBase *)&b, accessor.m_Seen[0] ); // newest first
@@ -244,19 +286,26 @@ TEST_F( ConVarPort, RegisterHandsTheWaitingListToTheAccessorWithTheFlagsAdded )
 	EXPECT_TRUE( a.IsFlagSet( FCVAR_GAMEDLL ) );
 	EXPECT_FALSE( hidden.IsFlagSet( FCVAR_GAMEDLL ) );
 	EXPECT_EQ( NULL, Registry::Waiting() );
-
-	ConVar_Unregister();
-	Registry::Accessor() = NULL;
 }
 
 TEST_F( ConVarPort, RegisterTwiceIsOnce )
 {
 	CRecordingAccessor first, second;
-	ConVar_Register( 0, &first );
-	ConVar_Register( 0, &second );
-	EXPECT_EQ( &first, Registry::Accessor() );
-	ConVar_Unregister();
-	Registry::Accessor() = NULL;
+	m_Registry.Register( 0, &first );
+	m_Registry.Register( 0, &second );
+
+	ConVar v( "ss_t_twice", "1" );
+	EXPECT_EQ( 1u, first.m_Seen.size() );
+	EXPECT_TRUE( second.m_Seen.empty() );
+}
+
+TEST_F( ConVarPort, BeforeRegisterACarrierHasNoConsoleToReach )
+{
+	EXPECT_EQ( -1, ConVar( "ss_t_early", "1", FCVAR_UNREGISTERED ).GetDLLIdentifier() );
+
+	ConVarRef r( (IConVar *)NULL );
+	r.Init( "ss_t_ref_early", true );
+	EXPECT_FALSE( r.IsValid() ) << "the console is reached through the registry, which is not registered";
 }
 
 TEST_F( ConVarPort, ACommandDispatchesToItsInterface )
@@ -277,6 +326,7 @@ TEST_F( ConVarPort, ARefToAKnownNameReadsIt )
 {
 	ConVar v( "ss_t_ref", "42", FCVAR_UNREGISTERED );
 	g_pFake->m_Vars["ss_t_ref"] = &v;
+	m_Registry.Register( 0 );
 	ConVarRef r( "ss_t_ref" );
 	EXPECT_TRUE( r.IsValid() );
 	EXPECT_EQ( 42, r.GetInt() );

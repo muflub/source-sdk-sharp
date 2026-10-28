@@ -412,7 +412,18 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   DLL-tier member (T6) and the client's one function-local table instead of an array and its built flag. Link level 595 -> 594, unruled 548 -> 547.
 # LOWERED 2026-10-27, 594 -> 590: the client's C#-declared commands and convars, console snapshot and change-callback
 #   latch are CShimConsole members (server T6 part 3, shared console).
-client_globals_link_level	src/game/client	590
+# LOWERED 2026-10-27, 590 -> 587: the client's loaded flag, init gate and reload request are CManagedSide's.
+# LOWERED 2026-10-27, 587 -> 586: g_nPlayerSyncGeneration is CManagedSide's reload generation on both
+#   sides (plan_server_native_v2 T6 part 3, from the server's track).
+# LOWERED 2026-10-27, 586 -> 579: the same seven hook statics are the client root's CDiagnosticsHooks
+#   (plan_server_native_v2 T6 part 3, shared code).
+# LOWERED 2026-10-27, 579 -> 575: convar_port's registration state is the client root's CCVarRegistry; the
+#   tier0 port's console pointer is one new row (plan_server_native_v2 T6 part 3).
+# LOWERED 2026-10-27, 575 -> 572: the client's verbosity ConVar, cache, ready flag and ledger are its root's CShellLog;
+#   s_pLog is one new row (T6 part 3).
+# LOWERED 2026-10-27, 572 -> 569: the console display's buffer, forwarder and installed ICvar are the client
+#   managed side's CConsoleDisplay (T6 part 3).
+client_globals_link_level	src/game/client	569
 # LOWERED 2026-10-25, 668 -> 653 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema
@@ -474,7 +485,12 @@ client_globals_link_level	src/game/client	590
 # LOWERED 2026-10-26, 556 -> 552: the same four, UNRULED.
 # LOWERED 2026-10-26, 552 -> 548: the same four, UNRULED.
 # LOWERED 2026-10-27, 547 -> 543: four unruled console rows went with the same change.
-client_globals_unruled	docs/globals-client-ledger.tsv	543
+# LOWERED 2026-10-27, 543 -> 540: the same three rows.
+# LOWERED 2026-10-27, 540 -> 528 (measured): convar_port's five registration rows left the client with the
+#   CCVarRegistry and the tier0 port's console pointer arrived unruled; the rest is slack from the day's earlier
+#   T6 commits (the diagnostics hooks' seven statics, the sync generation), which lowered link_level only.
+# LOWERED 2026-10-27, 528 -> 525: the same four rows left; s_pLog arrived unruled.
+client_globals_unruled	docs/globals-client-ledger.tsv	525
 # LOWERED 2026-10-25, 616 -> 601 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema

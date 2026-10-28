@@ -70,11 +70,8 @@ struct SourceSharpEntity_t
 // The resolve. NULL in both arms means the entity is gone or its slot was reused.
 SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity );
 
-// Counts reaches into the engine-invisible index range that the engine's entity
-// list does not resolve (defined in shell_scripted.cpp).
-void SourceSharp_NoteInvisibleRangeReach();
-int32_t SourceSharp_InvisibleRangeReach();
-
+// Through the DLL tier's CServerEntityResolver (server_entity_resolver.h), for code
+// not yet handed it.
 // The standalone arm alone, for calls only that side can answer.
 CStandaloneEntity *SourceSharp_ResolveStandalone( uint32_t hEntity );
 

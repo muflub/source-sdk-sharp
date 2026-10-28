@@ -134,7 +134,7 @@ public:
 	// The busiest method on either interface; the engine tolerates NULL.
 	virtual IClientNetworkable *GetClientNetworkable( int entnum ) OVERRIDE
 	{
-		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_GetClientNetworkable );
+		SS_BOUNDARY_HIT( BoundaryProbes(), kBoundaryProbe_ClientList_GetClientNetworkable );
 
 		IClientUnknown *pUnknown = ClientUnknownFromIndex( entnum );
 		return pUnknown ? pUnknown->GetClientNetworkable() : NULL;
@@ -146,7 +146,7 @@ public:
 		IClientUnknown *pUnknown = ClientUnknownFromHandle( hEnt );
 
 		IClientNetworkable *pResult = pUnknown ? pUnknown->GetClientNetworkable() : NULL;
-		SS_BOUNDARY_HIT_PTR( kBoundaryProbe_ClientList_GetClientNetworkableFromHandle, pResult );
+		SS_BOUNDARY_HIT_PTR( BoundaryProbes(), kBoundaryProbe_ClientList_GetClientNetworkableFromHandle, pResult );
 		return pResult;
 	}
 
@@ -167,7 +167,7 @@ public:
 					 hEnt.GetEntryIndex(), hEnt.GetSerialNumber() );
 		}
 
-		SS_BOUNDARY_HIT_PTR( kBoundaryProbe_ClientList_GetClientUnknownFromHandle, pResult );
+		SS_BOUNDARY_HIT_PTR( BoundaryProbes(), kBoundaryProbe_ClientList_GetClientUnknownFromHandle, pResult );
 		return pResult;
 	}
 
@@ -177,7 +177,7 @@ public:
 		IClientUnknown *pUnknown = ClientUnknownFromIndex( entnum );
 
 		IClientEntity *pResult = pUnknown ? pUnknown->GetIClientEntity() : NULL;
-		SS_BOUNDARY_HIT_PTR( kBoundaryProbe_ClientList_GetClientEntity, pResult );
+		SS_BOUNDARY_HIT_PTR( BoundaryProbes(), kBoundaryProbe_ClientList_GetClientEntity, pResult );
 		return pResult;
 	}
 
@@ -186,14 +186,14 @@ public:
 		IClientUnknown *pUnknown = ClientUnknownFromHandle( hEnt );
 
 		IClientEntity *pResult = pUnknown ? pUnknown->GetIClientEntity() : NULL;
-		SS_BOUNDARY_HIT_PTR( kBoundaryProbe_ClientList_GetClientEntityFromHandle, pResult );
+		SS_BOUNDARY_HIT_PTR( BoundaryProbes(), kBoundaryProbe_ClientList_GetClientEntityFromHandle, pResult );
 		return pResult;
 	}
 
 	// Maintained by Bind and Unbind, never derived by walking entries.
 	virtual int NumberOfEntities( bool bIncludeNonNetworkable ) OVERRIDE
 	{
-		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_NumberOfEntities );
+		SS_BOUNDARY_HIT( BoundaryProbes(), kBoundaryProbe_ClientList_NumberOfEntities );
 
 		// The world is a networked entity outside the table; it counts under
 		// both arguments.
@@ -207,7 +207,7 @@ public:
 	// drawing. Maintained by Bind and Unbind.
 	virtual int GetHighestEntityIndex() OVERRIDE
 	{
-		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_GetHighestEntityIndex );
+		SS_BOUNDARY_HIT( BoundaryProbes(), kBoundaryProbe_ClientList_GetHighestEntityIndex );
 
 		// The world raises it from -1 to 0 on a map with nothing else bound.
 		const int nHighest =
@@ -219,14 +219,14 @@ public:
 	// Stored and handed back, as stock did.
 	virtual void SetMaxEntities( int maxents ) OVERRIDE
 	{
-		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_SetMaxEntities );
+		SS_BOUNDARY_HIT( BoundaryProbes(), kBoundaryProbe_ClientList_SetMaxEntities );
 
 		m_Counts.SetMaxEntities( maxents );
 	}
 
 	virtual int GetMaxEntities() OVERRIDE
 	{
-		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_GetMaxEntities );
+		SS_BOUNDARY_HIT( BoundaryProbes(), kBoundaryProbe_ClientList_GetMaxEntities );
 
 		return m_Counts.MaxEntities();
 	}

@@ -37,10 +37,6 @@ int StandaloneEntity_MoveType( const IGameEntity *pEnt );
 // its entity, never the reverse, so only game code wants this direction.
 IPhysicsObject *StandaloneEntity_PhysicsObject( const IGameEntity *pEnt );
 
-// The owner's handle, so a thing owned by the victim does not shield it from a
-// blast.
-IHandleEntity *StandaloneEntity_OwnerHandle( const IGameEntity *pEnt );
-
 // One parsed key. Returns whether anything wanted it, which is what lets a
 // caller warn about a key nothing claimed.
 bool StandaloneEntity_ApplyMapKey( IGameEntity *pEnt, const char *szKeyName, const char *szValue );

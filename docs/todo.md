@@ -43,6 +43,39 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## DebugChannelSessionTests.DisposingTheListenerGivesThePortBack races for its port
+
+The fact closes a listener on an ephemeral port and binds a new one to the same
+number; anything else on the box may take the port in between. It failed once
+in `make test` at 24f9226b9 plus the console conversion (2026-10-27,
+SocketException "Address already in use") and passed 17 of 17 alone right
+after. **Owner:** the managed tests. **Next:** rebind with SO_REUSEADDR in the
+fact's second listener, or assert the first socket is closed by probing it.
+
+## live-gate's second-client step fails when its pass runs slow
+
+"the newcomer's own input moved its player 0.0 units on the server" (2026-10-27,
+lane t6-globals, the game-rules conversion): 3 of 4 passes failed in one
+window, each taking 22.6-23.2 s and 1548-1579 ticks, then 3 of 3 passed on the
+same build at 13.7-15.4 s; 0ff873533 passed 3 of 3 at 13.9-15.9 s. The
+newcomer's input is read inside a window the slow passes outrun.
+**Owner:** the live gate. **Next:** wait for the newcomer's first usercmd
+before timing its movement, and print the pass's tick count beside the verdict.
+
+## live-gate's damage step depends on the spawn point
+
+`tools/live-gate --steps damage,pickup` (at 95e7543c9 plus the hierarchy
+conversion, 2026-10-27) failed once with the player at spawn
+[-4116.0, 4600.0, 3.0]: the damage reply said 100 -> 60 and the entity then
+read 85, 25 over (a health kit's amount), and the pickup step's kit then
+healed 85 -> 85. Six passes each on 15776d06d and on the lane, from three
+other spawns, all passed. The step reads health back after the server has
+run ticks in which a respawned or joined player can stand on a kit.
+
+**Owner:** the live gate. **Next:** read the health back in the same tick as
+the damage, or place the player away from items before the step, and confirm
+which spawn sits on an item_healthkit.
+
 ## live-gate's fault check does not see across a hot reload
 
 Every step fails on a managed EXCEPTION IN or `could not acquire "` line in
@@ -376,12 +409,12 @@ reason it was left:
 - **shell_movement.cpp's server-dead arms** (the T4g bullet above), including
   `SourceSharp_MovementParams`, live on the client through the TU's own caller.
 - **The header-inline relays.** `StandaloneEntity_IsPlayer`,
-  `StandaloneEntity_OwnerHandle` (with `CStandaloneEntity::OwnerHandleEntity`),
   `PhysicsStandaloneToucher` (with `CStandaloneEntity::AsToucher`) and
-  `GameEntity_ModelIndex` have no importer, but anyentity.h's and
-  physicsowner.h's inline accessors name them, so they go with an audit of
-  those two headers (AnyEntity_t, PhysicsOwner_t), which the client compiles
-  too. GameEntityRelayEvictionTests pins GameEntity_ModelIndex's declaration.
+  `GameEntity_ModelIndex` have no importer, but physicsowner.h's inline
+  accessors name them, so they go with an audit of that header
+  (PhysicsOwner_t), which the client compiles too. anyentity.h, which nothing
+  included, went 2026-10-27 with `StandaloneEntity_OwnerHandle` and
+  `CStandaloneEntity::OwnerHandleEntity`.
 - **dt_send.cpp**: `SendTable::SendTable()`, `~SendTable()` and the
   `CNonModifiedPointerProxy` constructor have no importer. The proxy
   constructor is what builds `s_pNonModifiedPointerProxyHead`, a D6 FLOOR row;

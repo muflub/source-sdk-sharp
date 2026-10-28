@@ -122,6 +122,8 @@ set(client_sourcesharp_sources
     ${SHARED}/particle_manifest.cpp
     ${SHARED}/shell_acquire_reasons.cpp
     ${SHARED}/shell_diagnostics.cpp
+    ${SHARED}/diagnostics_hooks.cpp
+    ${SHARED}/shell_log.cpp
     ${SHARED}/shell_gameevents.cpp
     ${SHARED}/shell_gamerules.cpp
     ${SHARED}/shell_internalfactory.cpp

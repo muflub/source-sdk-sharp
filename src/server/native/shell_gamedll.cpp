@@ -7,8 +7,14 @@
 
 // SS_REASON b  an interface resolved by name at load
 
+#include "shell_diagnostics.h"
 #include "shell_gameclients.h"
 #include "ss_entityfactory.h"
+#include "managed_side.h"
+#include "diagnostics_hooks.h"
+#include "convar_registry.h"
+#include "shell_log.h"
+#include "tier0_spew_port.h"
 #include "late_bound_game_ents.g.h"
 #include "shell_gametags.h"
 #include "shell_sharedappsystems.h"
@@ -40,8 +46,6 @@
 extern ServerClass *g_pServerClassHead;
 extern CStandardSendProxies g_StandardSendProxies;
 
-extern CGlobalVars *gpGlobals;
-
 class CShellGameDll : public IServerGameDLL, public IConCommandBaseAccessor, public IManagedRuntimeEnvironment
 {
 public:
@@ -61,15 +65,17 @@ public:
 		m_pPhysicsFactory = physicsFactory;
 		m_pFileSystemFactory = fileSystemFactory;
 		m_pGlobals = pGlobals;
+		m_ShimRoot.m_pGlobals = pGlobals;
 
 		Msg( "[SourceSharp] shell game DLL: answering from the shell "
 			 "-- there is no delegate any more (Phase 7a)\n" );
 
-		SourceSharp_ConnectTier1( engineFactory );
 		SourceSharp_ConnectTier3( engineFactory );
 
 		m_pEngine = (IVEngineServer *)engineFactory( INTERFACEVERSION_VENGINESERVER, nullptr );
 		m_pCVar = (ICvar *)engineFactory( CVAR_INTERFACE_VERSION, nullptr );
+		m_CVars.Connect( m_pCVar );
+		Tier0_ConnectConsole( m_pCVar );
 
 		if ( m_pEngine == nullptr || m_pCVar == nullptr )
 		{
@@ -78,29 +84,31 @@ public:
 
 		Dll()->m_Engine.m_pEngine = m_pEngine;
 
-		if ( !SourceSharp_AcquireEngineInterfaces( engineFactory, physicsFactory, fileSystemFactory ) )
+		if ( !SourceSharp_AcquireEngineInterfaces( engineFactory, physicsFactory, fileSystemFactory, m_pCVar ) )
 		{
 			return false;
 		}
-
-		gpGlobals = pGlobals;
 
 		// CBaseEdict::StateChanged dereferences this unconditionally on every networked
 		// write, so it must be set before anything networks.
 		Dll()->m_Engine.m_pChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
 
 		// Before the runtime loads: managed acquires the areas these implement.
-		Dll()->m_pServices = std::make_unique<CServerDllServices>( Dll()->m_Engine, pGlobals, m_Managed, m_TransmitSet,
-																   Dll()->m_Players, Dll()->m_nWorldSerial );
+		Dll()->m_pServices = std::make_unique<CServerDllServices>(
+			Dll()->m_Engine, pGlobals, m_Managed, m_ManagedSide, m_TransmitSet, Dll()->m_Players, Dll()->m_nWorldSerial,
+			Dll()->m_nInvisibleRangeReach, Dll()->m_SlotTable, Dll()->m_EntitySlots );
 		BindServiceAreas( Dll()->m_pServices.get() );
 
-		ConVar_Register( FCVAR_GAMEDLL, this );
+		m_CVars.Register( FCVAR_GAMEDLL, this );
 
 		// The runtime is held by the shim root and acquired afresh on every load.
-		if ( LoadManagedRuntime( this ) == nullptr )
+		if ( LoadManagedRuntime( this, m_ManagedSide ) == nullptr )
 		{
 			return false;
 		}
+
+		// A ServerClass built after this is not in the list the engine walks.
+		Dll()->m_pServices->m_TempEnts.CloseRegistration();
 
 		if ( !Runtime()->OnSystemStart() )
 		{
@@ -127,7 +135,7 @@ public:
 
 		for ( ServerClass *pClass = g_pServerClassHead; pClass != nullptr; pClass = pClass->m_pNext )
 		{
-			if ( SourceSharp_IsManagedServerClass( pClass ) )
+			if ( SourceSharp_IsManagedServerClass( Dll()->m_pServices->m_TempEnts, pClass ) )
 				nManaged++;
 			else
 				nStock++;
@@ -147,16 +155,18 @@ public:
 		// The engine calls DLLShutdown after a failed DLLInit too, when the runtime may be absent.
 		if ( Runtime() != nullptr )
 		{
-			SourceSharp_UnloadManagedSide();
+			m_ManagedSide.Unload();
 		}
 
-		// Stock's order reversed; ConVar_Unregister needs g_pCVar, so it runs before tier1 goes.
+		// Stock's order reversed; the unregister needs the console, so it runs before it goes.
 		SourceSharp_DisconnectTier3();
-		ConVar_Unregister();
+		m_CVars.Unregister();
 		m_ShimRoot.m_Console.ReleaseObjects();
-		SourceSharp_DisconnectTier1();
+		m_CVars.Connect( nullptr );
+		Tier0_ConnectConsole( nullptr );
 
 		m_pEngine = nullptr;
+		m_ShimRoot.m_pGlobals = nullptr;
 		m_pCVar = nullptr;
 
 		// Level tier, then DLL tier, last.
@@ -212,7 +222,7 @@ public:
 		// Services a queued cs_sv_reload. Here rather than in GameFrame because Think is
 		// called every frame even with no level loaded, and never nested in GameFrame, so
 		// a reload is atomic with respect to the frame. A failed reload does not return.
-		SourceSharp_ServiceReloadRequest();
+		m_ManagedSide.ServiceReloadRequest();
 
 		Runtime()->OnThink();
 	}
@@ -231,13 +241,27 @@ public:
 
 	ServerClass *GetAllServerClasses() override { return m_pServerClasses; }
 
-	const char *GetGameDescription() override { return SourceSharp_GetGameDescription(); }
+	// Asked of C#, with a default when it is not up.
+	const char *GetGameDescription() override
+	{
+		SOURCESHARP_TRACE_HOT();
+
+		if ( m_ManagedSide.Loaded() && Runtime() )
+		{
+			m_szGameDescription[0] = '\0';
+			Runtime()->OnGetGameDescription( m_szGameDescription, sizeof( m_szGameDescription ) );
+			if ( m_szGameDescription[0] )
+				return m_szGameDescription;
+		}
+
+		return "SourceSharp";
+	}
 
 	void CreateNetworkStringTables() override
 	{
 		// Native tables first: the engine and this binary depend on them, and a mod's
 		// strings must not take index 0 of Materials ("debug/debugempty").
-		SourceSharp_CreateNetworkStringTables();
+		Dll()->m_pServices->m_EntityContext.m_pGameRulesTable = SourceSharp_CreateNetworkStringTables();
 
 		// Mod-declared tables; the engine allows creating tables only in this window.
 		Runtime()->CreateNetworkStringTables();
@@ -310,7 +334,7 @@ public:
 	{
 		ShellGameDll_Unreachable( "IServerGameDLL::GetSaveComment" );
 
-		ShellGameDll_FormatSaveComment( comment, maxlength, STRING( gpGlobals->mapname ), flMinutes, flSeconds,
+		ShellGameDll_FormatSaveComment( comment, maxlength, STRING( m_pGlobals->mapname ), flMinutes, flSeconds,
 										bNoTime );
 	}
 
@@ -551,11 +575,27 @@ private:
 	{
 		m_ShimRoot.m_Areas.m_pUserMessages = pServices ? &pServices->m_UserMessages : nullptr;
 		m_ShimRoot.m_Areas.m_pDebugOverlay = pServices ? &pServices->m_DebugOverlays : nullptr;
+		m_ShimRoot.m_Areas.m_pEntityLifecycle = pServices ? &pServices->m_EntityLifecycle : nullptr;
+		m_ShimRoot.m_Areas.m_pPrecache = pServices ? &pServices->m_Precache : nullptr;
+		m_ShimRoot.m_Areas.m_pWorldServer = pServices ? &pServices->m_WorldQueries : nullptr;
+		m_ShimRoot.m_Areas.m_pEffectsServer = pServices ? &pServices->m_TempEnts : nullptr;
+		m_ShimRoot.m_Areas.m_pDamage = pServices ? &pServices->m_Damage : nullptr;
+		m_ShimRoot.m_Areas.m_pPhysics = pServices ? &pServices->m_Physics : nullptr;
+		m_ShimRoot.m_Areas.m_pConsoleServer = pServices ? &pServices->m_ConsoleCommands : nullptr;
+		m_ShimRoot.m_Areas.m_pModelsServer = pServices ? &pServices->m_Models : nullptr;
+		m_ShimRoot.m_Areas.m_pNetworkServer = pServices ? &pServices->m_Network : nullptr;
+		m_ShimRoot.m_Areas.m_pEntitiesServer = pServices ? &pServices->m_Entities : nullptr;
+		m_ShimRoot.m_Areas.m_pMovementServer = pServices ? &pServices->m_Movement : nullptr;
+		m_ShimRoot.m_Areas.m_pCollisionServer = pServices ? &pServices->m_Collision : nullptr;
+		m_ShimRoot.m_Areas.m_pPlayers = pServices ? &pServices->m_PlayerQueries : nullptr;
+		m_ShimRoot.m_Areas.m_pTransform = pServices ? &pServices->m_Transform : nullptr;
+		m_ShimRoot.m_Areas.m_pHierarchy = pServices ? &pServices->m_Hierarchy : nullptr;
 		m_ShimRoot.m_pFrame = pServices ? &pServices->m_Frame : nullptr;
 		m_ShimRoot.m_pLevel = pServices ? &pServices->m_Level : nullptr;
+		m_ShimRoot.m_pFactories = pServices ? &Dll()->m_Engine.m_Factories : nullptr;
 		m_ShimRoot.m_Console.m_pServices = pServices;
+		m_ShimRoot.m_Console.m_pCVars = pServices ? &m_CVars : nullptr;
 		m_ShimRoot.m_Console.m_ppCommands = pServices ? &m_Managed.m_Areas.m_pCommands : nullptr;
-		ss::EntityFactoryDictionary()->BindContext( pServices ? &pServices->m_EntityContext : nullptr );
 		m_GameClients.Bind( pServices ? &pServices->m_GameClients : nullptr );
 		m_GameEnts.Bind( pServices ? &pServices->m_GameEnts : nullptr );
 	}
@@ -567,6 +607,9 @@ private:
 
 		return pBuffer;
 	}
+
+	// First, so everything the root builds after it can log.
+	CShellLog m_Log;
 
 	CreateInterfaceFn m_pEngineFactory = {};
 	CreateInterfaceFn m_pPhysicsFactory = {};
@@ -591,6 +634,15 @@ private:
 	CShellTransmitSet m_TransmitSet;
 
 	CManagedHolders m_Managed = {};
+	// Before the managed side, which installs them at load.
+	CDiagnosticsHooks m_Diagnostics;
+
+	// The console: this DLL's carriers and the ICvar they reach.
+	CCVarRegistry m_CVars;
+	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars };
+
+	// GetGameDescription's answer; the engine reads it after the call returns.
+	char m_szGameDescription[128] = {};
 
 	IVEngineServer *m_pEngine = {};
 	ICvar *m_pCVar = {};

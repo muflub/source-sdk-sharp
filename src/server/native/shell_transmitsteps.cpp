@@ -13,14 +13,15 @@
 
 #include "eiface.h"
 
-extern CGlobalVars *gpGlobals;
 #include "eiface.h"
 
 #include "shell_standalone_player.h"
 #include "server_engine.h"
+#include "server_entities.h"
+#include "server_entity_resolver.h"
 
 // The standalone player's 3D skybox area. 0 if the edict is not one.
-int32_t SourceSharp_EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea )
+int32_t CServerEntities::EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea )
 {
 	if ( pOutArea == NULL )
 		return 0;

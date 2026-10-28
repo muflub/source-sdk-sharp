@@ -5,8 +5,8 @@
 //
 //=============================================================================//
 
-// The three factories the engine hands server.so at DLLInit, stored once and handed back
-// later. Defined in shell_globals.cpp.
+// The three factories the engine hands server.so at DLLInit, kept on the DLL tier's
+// engine interfaces (server_engine_interfaces.h).
 
 #pragma once
 
@@ -22,11 +22,5 @@ struct factorylist_t
 	CreateInterfaceFn physicsFactory;
 	CreateInterfaceFn fileSystemFactory;
 };
-
-// Stores a copy; a later Store replaces it.
-void FactoryList_Store( const factorylist_t &sourceData );
-
-// Copies the stored list out (all NULL before the first Store).
-void FactoryList_Retrieve( factorylist_t &destData );
 
 } // namespace ss

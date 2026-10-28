@@ -21,6 +21,12 @@
 #include "ss_string.h"
 
 #include "imanaged_areas.h"
+#include "server_hierarchy.h"
+#include "server_entity_resolver.h"
+#include "server_network.h"
+#include "server_entity_resolver.h"
+#include "server_physics.h"
+#include "server_entity_resolver.h"
 
 // TestHitboxes returning true means "I have hitboxes and tested them";
 // tr.DidHit() is the hit, as in stock's CBaseAnimating::TestHitboxes. False
@@ -252,9 +258,9 @@ void StandaloneHierarchy_SetParentAttachmentName( CStandaloneEntity *pChild, con
 
 // Which hierarchy holds the entity, and whether it can pose, as one set of bits.
 // A recycled slot answers "nobody".
-int32_t SourceSharp_EntityParentProbe( uint32_t hEntity )
+int32_t CServerHierarchy::EntityParentProbe( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( !ent.IsValid() )
 		return 0;
@@ -270,10 +276,10 @@ int32_t SourceSharp_EntityParentProbe( uint32_t hEntity )
 
 // Where a one-based attachment is. Managed answers standalone entities first;
 // what reaches here has no skeleton, so it gets its own transform and 0.
-int32_t SourceSharp_EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float *pOutOriginXYZ,
-											  float *pOutAnglesPYR )
+int32_t CServerHierarchy::EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float *pOutOriginXYZ,
+													float *pOutAnglesPYR )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	Vector vecOrigin( 0, 0, 0 );
 	QAngle angAngles( 0, 0, 0 );
@@ -305,12 +311,12 @@ int32_t SourceSharp_EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachm
 // The engine block with its own length, always sizeof( EngineBlock_t ). Not the
 // networked payload's length, which can be shorter. NULL for anything not on this
 // hierarchy, including worldspawn.
-void *SourceSharp_EntityGetEngineBlock( uint32_t hEntity, int32_t *pOutSize )
+void *CServerNetwork::EntityGetEngineBlock( uint32_t hEntity, int32_t *pOutSize )
 {
 	if ( pOutSize )
 		*pOutSize = 0;
 
-	CStandaloneEntity *pEntity = SourceSharp_ResolveStandalone( hEntity );
+	CStandaloneEntity *pEntity = m_Entities.Standalone( hEntity );
 
 	if ( !pEntity )
 		return NULL;
@@ -325,20 +331,20 @@ void *SourceSharp_EntityGetEngineBlock( uint32_t hEntity, int32_t *pOutSize )
 // hierarchy does not support, and a static object left behind would stay at the
 // map position as an invisible hull. Not recreated on unparenting: only the
 // entity knows what kind of object it wanted.
-void SourceSharp_EntityDestroyPhysics( uint32_t hEntity )
+void CServerPhysics::EntityDestroyPhysics( uint32_t hEntity )
 {
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Resolver.Standalone( hEntity ) )
 		pStandalone->DestroyPhysics();
 }
 
-int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment )
+int32_t CServerHierarchy::EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment )
 {
-	CStandaloneEntity *pChild = SourceSharp_ResolveStandalone( hChild );
+	CStandaloneEntity *pChild = m_Entities.Standalone( hChild );
 
 	// A CBaseEntity child is refused aloud, since C# cannot tell which kind it holds.
 	if ( !pChild )
 	{
-		const SourceSharpEntity_t child = SourceSharp_ResolveEntity( hChild );
+		const SourceSharpEntity_t child = m_Entities.Resolve( hChild );
 
 		if ( child.pBase )
 		{
@@ -362,9 +368,9 @@ int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t 
 }
 
 // Who carries this entity, from the block, with no crossing.
-uint32_t SourceSharp_EntityGetParent( uint32_t hChild )
+uint32_t CServerHierarchy::EntityGetParent( uint32_t hChild )
 {
-	CStandaloneEntity *pChild = SourceSharp_ResolveStandalone( hChild );
+	CStandaloneEntity *pChild = m_Entities.Standalone( hChild );
 
 	if ( !IsCarried( pChild ) )
 		return INVALID_EHANDLE_INDEX;
@@ -372,11 +378,11 @@ uint32_t SourceSharp_EntityGetParent( uint32_t hChild )
 	const uint32_t hParent = pChild->Block().Head.ParentHandle;
 
 	// Resolved, so a parent that has gone answers nothing.
-	return SourceSharp_ResolveEntity( hParent ).IsValid() ? hParent : (uint32_t)INVALID_EHANDLE_INDEX;
+	return m_Entities.Resolve( hParent ).IsValid() ? hParent : (uint32_t)INVALID_EHANDLE_INDEX;
 }
 
 // The attachment on the parent, which the block does not carry.
-int32_t SourceSharp_EntityGetParentAttachment( uint32_t hChild )
+int32_t CServerHierarchy::EntityGetParentAttachment( uint32_t hChild )
 {
 	IManagedHierarchy *pApi = HierarchyApi();
 
@@ -386,9 +392,9 @@ int32_t SourceSharp_EntityGetParentAttachment( uint32_t hChild )
 	return pApi->HierarchyGetParentAttachment( hChild );
 }
 
-void SourceSharp_EntitySetLocalTransform( uint32_t hChild, const float *pOrigin, const float *pAngles )
+void CServerHierarchy::EntitySetLocalTransform( uint32_t hChild, const float *pOrigin, const float *pAngles )
 {
-	CStandaloneEntity *pChild = SourceSharp_ResolveStandalone( hChild );
+	CStandaloneEntity *pChild = m_Entities.Standalone( hChild );
 
 	if ( !pChild )
 		return;
@@ -408,9 +414,9 @@ void SourceSharp_EntitySetLocalTransform( uint32_t hChild, const float *pOrigin,
 	StandaloneHierarchy_SetLocal( pChild, vecLocal, angLocal );
 }
 
-void SourceSharp_EntityGetLocalTransform( uint32_t hChild, float *pOutOrigin, float *pOutAngles )
+void CServerHierarchy::EntityGetLocalTransform( uint32_t hChild, float *pOutOrigin, float *pOutAngles )
 {
-	CStandaloneEntity *pChild = SourceSharp_ResolveStandalone( hChild );
+	CStandaloneEntity *pChild = m_Entities.Standalone( hChild );
 
 	if ( !pChild )
 		return;

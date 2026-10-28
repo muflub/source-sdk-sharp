@@ -112,7 +112,7 @@ if(NOT EXISTS "${convar_stock}")
 else()
 # (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
 ss_cpptest_tier1(convar_stock_oracle_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC GAME_DLL
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC GAME_DLL SS_CONVAR_STOCK_ORACLE
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-sign-compare
             -Wno-register -Wno-deprecated-register
             # ButtonCode.h:313's IsMouseCode, reached through cdll_int.h.

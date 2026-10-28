@@ -13,6 +13,8 @@
 #include "shell_standalone_class.h"
 
 #include "slot_table.h"
+#include "server_physics.h"
+#include "server_entity_resolver.h"
 
 // Both take the handle, never the object. A stale handle answers NULL, so a
 // callback about a dead entity never reaches whatever reused its slot.
@@ -37,12 +39,12 @@ Toucher_t PhysicsStandaloneToucher( const CBaseHandle &handle )
 // The shell takes the object managed made, or lets go of one (NULL). As stock's
 // VPhysicsSwapObject, the previous object is returned, never destroyed. 0 for a
 // handle that names no shell.
-int32_t SourceSharp_EntitySwapPhysicsObject( uint32_t hEntity, void *pObject, void **ppPrevious )
+int32_t CServerPhysics::EntitySwapPhysicsObject( uint32_t hEntity, void *pObject, void **ppPrevious )
 {
 	if ( ppPrevious )
 		*ppPrevious = NULL;
 
-	CStandaloneEntity *pShell = SourceSharp_ResolveStandalone( hEntity );
+	CStandaloneEntity *pShell = m_Resolver.Standalone( hEntity );
 	if ( !pShell )
 		return 0;
 

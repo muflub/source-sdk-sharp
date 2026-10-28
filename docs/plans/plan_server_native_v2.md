@@ -788,6 +788,16 @@ spew hook and ConVar callbacks can be bound to their instance by a generated
 code block; part 3 says how, in place of D6(a)'s `ShellSide()` accessor.
 The user approved part 3 as written (2026-10-27), thunks included.
 
+**RULED 2026-10-27 (user), on the rows left after the diagnostics hooks:** "Move
+logging to log class, remove g_pCVar and have a CVar registry class, sure keep
+get verbosity, do it. Can have a per class string pool instance instead of
+global." So: the logging state (verbosity cache, the ready flag, the
+not-shipped ledger and the trace/stub/entity-log bodies) moves into a log
+class, and `SourceSharp_GetVerbosity()` stays the free read the trace macros
+use; `g_pCVar` and convar_port's registration state become a CVar registry
+class; pooled strings live in a pool instance owned by the class that pools
+them, not one global pool.
+
 **T5 CLOSED, 2026-10-19.** Substrate collapse done as §3 T5 says, under the
 user's rulings of 2026-10-12 (server-dead code the client uses moves to
 src/client/native) and 2026-10-19 ("remove tests that test unused code":

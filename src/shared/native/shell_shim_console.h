@@ -30,6 +30,9 @@ class IManagedCommands;
 typedef IManagedCommands ManagedCommandsArea_t;
 #endif
 
+class CCVarRegistry;
+class ICvar;
+
 class CShimConsole final : public IShimConsole
 {
 public:
@@ -57,7 +60,10 @@ public:
 
 	ManagedCommandsArea_t *Commands() const { return m_ppCommands ? *m_ppCommands : nullptr; }
 
-	// Installs the global convar change callback once, when g_pCVar is live: on the first
+	// The side's console registry, set by its root while the console is connected.
+	CCVarRegistry *m_pCVars = nullptr;
+
+	// Installs the global convar change callback once, when the console is live: on the first
 	// registration, or a client watch before any.
 	void EnsureChangeCallback();
 
@@ -66,6 +72,9 @@ public:
 	void ReleaseObjects();
 
 private:
+	// The engine's console through the registry; NULL while it is not connected.
+	ICvar *Cvar() const;
+
 	// Installed once per DLL as a global callback, matching by name: tier1 makes a second
 	// registration of a name a child of the first and moves or drops its per-convar callback.
 	void OnConVarChanged( IConVar *pVar, const char *pOldValue, float flOldValue );

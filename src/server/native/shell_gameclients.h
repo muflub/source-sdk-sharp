@@ -18,7 +18,10 @@
 
 class CGlobalVars;
 class IMDLCache;
+class IServerPlayerMaker;
+class CBoundaryProbe;
 class CServerEntityContext;
+class IManagedClients;
 struct CManagedAreas;
 struct edict_t;
 
@@ -26,12 +29,16 @@ class CServerGameClients final : public IServerGameClients, private IClientMessa
 {
 public:
 	CServerGameClients( IVEngineServer *pEngine, CGlobalVars *pGlobals, IMDLCache *pMdlCache,
-						const CManagedAreas &managed, CServerEntityContext &entityContext )
+						const CManagedAreas &managed, const bool &bManagedLoaded, IServerPlayerMaker &players,
+						CBoundaryProbe &probes, const CServerEntityContext &entities )
 		: m_pEngine( pEngine )
 		, m_pGlobals( pGlobals )
 		, m_pMdlCache( pMdlCache )
 		, m_Managed( managed )
-		, m_EntityContext( entityContext )
+		, m_bManagedLoaded( bManagedLoaded )
+		, m_Players( players )
+		, m_Probes( probes )
+		, m_Entities( entities )
 	{
 	}
 
@@ -74,13 +81,33 @@ private:
 	// Where this client's eyes are, asked of managed code at most once per frame.
 	bool ClientViewOrigin( edict_t *pClient, Vector *pOut );
 
+	// The managed clients area while the managed side is up, else NULL.
+	IManagedClients *ManagedClientsIfLoaded() const;
+
+	// 1 with the client's ear position in pOutXYZ, else 0 (stock's miss path).
+	int EarPositionForClient( int iClientEdict, float *pOutXYZ ) const;
+
+	// The area portal walk for ClientSetupVisibility: sets the client's bits in pPortalBits
+	// (zeroed by the caller) and returns -1, or a portal number too large for the bits.
+	int AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, unsigned char *pPortalBits,
+							  int nPortalBytes ) const;
+
 	IVEngineServer *m_pEngine;
 	CGlobalVars *m_pGlobals;
 	IMDLCache *m_pMdlCache;
 	const CManagedAreas &m_Managed;
 
-	// What a player made here is handed.
-	CServerEntityContext &m_EntityContext;
+	// False while the managed side is down, a reload included.
+	const bool &m_bManagedLoaded;
+
+	// Makes the player entity a client is put in the server with.
+	IServerPlayerMaker &m_Players;
+
+	// Counts the engine's calls into this object, for ss_boundary_probe_report.
+	CBoundaryProbe &m_Probes;
+
+	// Whose level's rules the engine's client events reach.
+	const CServerEntityContext &m_Entities;
 
 	// GetPlayerState's answer for an edict with no player, per edict, so the HLTV and
 	// Replay masters don't share one.

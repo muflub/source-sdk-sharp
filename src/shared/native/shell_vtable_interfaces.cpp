@@ -42,16 +42,6 @@
 #include "inputsystem/iinputsystem.h"
 #endif
 
-// Stock already stores the engine's factories; the two sides' factorylist_t differ in
-// shape, hence the per-side FactoryFor().
-#ifdef CLIENT_DLL
-#include "client_factorylist.h"
-#else
-#include "ss_init_factory.h"
-using ss::factorylist_t;
-using ss::FactoryList_Retrieve;
-#endif
-
 #include "shell_vtable_interfaces.h"
 
 #include "ss_string.h"
@@ -143,37 +133,24 @@ bool SourceSharpServes( const char *pszVersion )
 	return false;
 }
 
-// The CreateInterfaceFn for a factory kind on this side, read from stock's stored list
-// on every call. NULL means no factory of that kind; *pbStored says whether the list
-// has been stored at all.
-CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
+// The CreateInterfaceFn for a factory kind. NULL means no factory of that kind;
+// *pbStored says whether the list has been stored at all.
+CreateInterfaceFn FactoryFor( const SourceSharpFactories_t *pFactories, SourceSharpFactoryType eType, bool *pbStored )
 {
-	factorylist_t factories;
-	memset( &factories, 0, sizeof( factories ) );
-	FactoryList_Retrieve( factories );
-
-#ifdef CLIENT_DLL
-	CreateInterfaceFn pAppSystem = factories.appSystemFactory;
-
-	// The client has no filesystem factory; its appSystemFactory serves the filesystem.
-	CreateInterfaceFn pFileSystem = factories.appSystemFactory;
-#else
-	CreateInterfaceFn pAppSystem = factories.engineFactory;
-	CreateInterfaceFn pFileSystem = factories.fileSystemFactory;
-#endif
-
 	// Both sides set appSystem in the same call as the others, so it marks the list
 	// stored. The engine calls IServerDLLSharedAppSystems before either Init.
-	*pbStored = ( pAppSystem != NULL );
+	*pbStored = pFactories && pFactories->pAppSystem != NULL;
+	if ( !*pbStored )
+		return NULL;
 
 	switch ( eType )
 	{
 		case SOURCESHARP_FACTORY_APPSYSTEM:
-			return pAppSystem;
+			return pFactories->pAppSystem;
 		case SOURCESHARP_FACTORY_PHYSICS:
-			return factories.physicsFactory;
+			return pFactories->pPhysics;
 		case SOURCESHARP_FACTORY_FILESYSTEM:
-			return pFileSystem;
+			return pFactories->pFileSystem;
 		default:
 			return NULL;
 	}
@@ -183,7 +160,7 @@ CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
 
 // pError is written only on failure, truncating.
 void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion, char *pError,
-									int32_t nErrorBytes )
+									int32_t nErrorBytes, const SourceSharpFactories_t *pFactories )
 {
 	if ( eType != SOURCESHARP_FACTORY_APPSYSTEM && eType != SOURCESHARP_FACTORY_PHYSICS &&
 		 eType != SOURCESHARP_FACTORY_FILESYSTEM && eType != SOURCESHARP_FACTORY_INTERNAL )
@@ -220,7 +197,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 	}
 
 	bool bStored = false;
-	CreateInterfaceFn pFactory = FactoryFor( eType, &bStored );
+	CreateInterfaceFn pFactory = FactoryFor( pFactories, eType, &bStored );
 
 	if ( !bStored )
 	{

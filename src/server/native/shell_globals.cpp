@@ -21,21 +21,6 @@
 #include "shell_standalone.h"
 #include "ss_string.h"
 
-// The factories the engine hands the game DLL at load.
-static ss::factorylist_t s_factories;
-
-// Store off the factories
-void ss::FactoryList_Store( const ss::factorylist_t &sourceData )
-{
-	s_factories = sourceData;
-}
-
-// retrieve the stored factories
-void ss::FactoryList_Retrieve( ss::factorylist_t &destData )
-{
-	destData = s_factories;
-}
-
 // variant_t holds its entity as a CBaseHandle. There is no route from an IGameEntity
 // back to a handle, so setting one from a live pointer is refused loudly.
 

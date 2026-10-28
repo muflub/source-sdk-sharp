@@ -52,38 +52,6 @@ class SendProp;
 class SendTable;
 class ServerClass;
 
-// The temp entity tables built from the managed plan. Leaked on purpose: the engine
-// reads a SendTable for the life of the process.
-enum
-{
-	SOURCESHARP_TE_MAX_TABLES = 64
-};
-
-struct SourceSharpTeBuilt_t
-{
-	SendProp *pProps;
-	int nProps;
-	SendTable *pTable;
-	ServerClass *pClass; // NULL for a table registered without one
-	const char *pClassName; // interned: what a managed reload asks for again
-	uint32_t nShapeHash;
-};
-
-class CServerTempEnts
-{
-public:
-	CServerTempEnts() = default;
-	CServerTempEnts( const CServerTempEnts & ) = delete;
-	CServerTempEnts &operator=( const CServerTempEnts & ) = delete;
-
-	SourceSharpTeBuilt_t m_Built[SOURCESHARP_TE_MAX_TABLES] = {};
-	int m_nBuilt = 0;
-	bool m_bClosed = false;
-
-	// Names the engine keeps by pointer. A std::set node never moves, so c_str() is stable.
-	std::set<std::string> m_Names;
-};
-
 // One heap tier: an owning pointer whose object exists between Begin and End. Begin
 // destroys a stale object first, so a tier is never reused. End clears the pointer
 // before deleting. The destructor does not delete: DLLShutdown ends the tiers.
@@ -221,7 +189,6 @@ public:
 	const void *m_pLastHandleComplaint = nullptr;
 
 	// Built once at managed registration; a reload gets the existing tables back.
-	CServerTempEnts m_TempEnts;
 
 	// The two stock string tables native code adds to after creating them. The
 	// engine creates tables before LevelInit, so they are not the level tier's.

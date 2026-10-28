@@ -9,6 +9,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
+#include "tier0_spew_port.h"
 
 #include "tier0/dbg.h"
 #include "tier1/convar.h"
@@ -18,8 +19,6 @@
 #include <dlfcn.h>
 #include <string>
 #include <vector>
-
-ICvar *g_pCVar = nullptr;
 
 namespace
 {
@@ -80,7 +79,7 @@ protected:
 		ASSERT_NE( nullptr, s_pSetEngineSpew );
 		SpewOutputFunc( NULL ); // server.so's slot: the default
 		s_pSetEngineSpew( EngineA );
-		g_pCVar = &m_Cvar;
+		Tier0_ConnectConsole( &m_Cvar );
 		g_EngineA.clear();
 		g_EngineB.clear();
 	}
@@ -88,7 +87,7 @@ protected:
 	void TearDown() override
 	{
 		s_pSetEngineSpew( nullptr );
-		g_pCVar = nullptr;
+		Tier0_ConnectConsole( nullptr );
 	}
 };
 
@@ -150,7 +149,7 @@ TEST_F( Tier0SpewForward, AnEmptyEngineSlotFallsBackToICvar )
 
 TEST_F( Tier0SpewForward, LinesBeforeICvarExistsStillReachTheEngineAtOnce )
 {
-	g_pCVar = nullptr;
+	Tier0_ConnectConsole( nullptr );
 	Msg( "early\n" );
 
 	ASSERT_EQ( 1u, g_EngineA.size() );

@@ -20,8 +20,6 @@
 #include "physicslink.h"
 #include "datacache/imdlcache.h"
 
-void ClientActive( edict_t *pEdict, bool bLoadGame );
-void ClientPutInServer( CServerEntityContext &context, edict_t *pEdict, const char *playername );
 void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize );
 void UTIL_SetCommandClientIndex( int index );
 
@@ -30,6 +28,8 @@ void UTIL_SetCommandClientIndex( int index );
 #include "shell_server.h"
 
 #include "shell_standalone_player.h"
+#include "shell_entity_lifecycle.h"
+#include "server_entity_context.h"
 #include "imanaged_areas.h"
 #include "inetchannel.h"
 #include "ss_client_message.h"
@@ -49,11 +49,11 @@ CPlayerState *CServerGameClients::PlayerStateForEdict( edict_t *pEdict )
 
 	if ( pPlayer != NULL )
 	{
-		SS_BOUNDARY_HIT( kBoundaryProbe_GetPlayerState_Standalone );
+		SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_GetPlayerState_Standalone );
 		return pPlayer->PlayerStatePtr();
 	}
 
-	SS_BOUNDARY_HIT( kBoundaryProbe_GetPlayerState_Null );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_GetPlayerState_Null );
 
 	int nIndex = ( pEdict != NULL ) ? m_pEngine->IndexOfEdict( pEdict ) : 0;
 	if ( nIndex < 0 || nIndex > ABSOLUTE_PLAYER_LIMIT )
@@ -80,7 +80,7 @@ bool CServerGameClients::ClientViewOrigin( edict_t *pClient, Vector *pOut )
 
 		// A miss writes nothing and answers no; a zeroed flEyes is the world
 		// origin, a real position.
-		if ( !SourceSharp_EarPositionForClient( m_pEngine->IndexOfEdict( pClient ), flEyes ) )
+		if ( !EarPositionForClient( m_pEngine->IndexOfEdict( pClient ), flEyes ) )
 			return false;
 
 		tail.ViewOrigin.Init( flEyes[0], flEyes[1], flEyes[2] );
@@ -95,12 +95,13 @@ bool CServerGameClients::ClientViewOrigin( edict_t *pClient, Vector *pOut )
 bool CServerGameClients::ClientConnect( edict_t *pEdict, const char *pszName, const char *pszAddress, char *reject,
 										int maxrejectlen )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientConnect );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientConnect );
 
-	if ( !g_pGameRules )
+	IGameRules *pRules = m_Entities.GameRules();
+	if ( !pRules )
 		return false;
 
-	return g_pGameRules->ClientConnected( pEdict, pszName, pszAddress, reject, maxrejectlen );
+	return pRules->ClientConnected( pEdict, pszName, pszAddress, reject, maxrejectlen );
 }
 
 // A client's net message to the server is registered on each client's channel when
@@ -132,7 +133,7 @@ void CServerGameClients::RegisterClientMessage( int nEntIndex )
 // Called when a player is fully active (ready to receive messages).
 void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientActive );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientActive );
 
 	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
 
@@ -148,7 +149,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 			 "ClientPutInServer, so no player exists on edict %d. Creating it here.\n",
 			 nIndex );
 
-		if ( !StandalonePlayer_Create( m_EntityContext, pEdict, pszName ? pszName : "" ) )
+		if ( !m_Players.CreatePlayer( pEdict, pszName ? pszName : "" ) )
 		{
 			Warning( "[SourceSharp][save] the standalone player could NOT be created on "
 					 "edict %d. This load has no player: the map is standing, but nothing "
@@ -161,7 +162,12 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 	// client something, and the answer comes back as this message.
 	RegisterClientMessage( pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0 );
 
-	::ClientActive( pEdict, bLoadGame );
+	// Spawns when the client is fully connected, as stock's player does.
+	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )
+		pStandalone->Spawn();
+
+	if ( IManagedClients *pApi = ManagedClientsIfLoaded() )
+		pApi->OnClientActive( pEdict ? pEdict->m_EdictIndex : -1, bLoadGame ? 1 : 0 );
 
 	if ( m_pGlobals->eLoadType != MapLoad_LoadGame )
 	{
@@ -171,18 +177,18 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 
 void CServerGameClients::ClientSpawned( edict_t *pPlayer )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientSpawned );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientSpawned );
 
-	if ( g_pGameRules )
+	if ( IGameRules *pRules = m_Entities.GameRules() )
 	{
-		g_pGameRules->ClientSpawned( pPlayer );
+		pRules->ClientSpawned( pPlayer );
 	}
 }
 
 // Called when a player disconnects from the server.
 void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientDisconnect );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientDisconnect );
 
 	// Destroying the shell unhooks the edict without removing it (the engine owns
 	// a client's edict). Managed must be told explicitly: this is the one removal
@@ -202,14 +208,25 @@ void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 
 void CServerGameClients::ClientPutInServer( edict_t *pEntity, const char *playername )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientPutInServer );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientPutInServer );
 
-	::ClientPutInServer( m_EntityContext, pEntity, playername );
+	// The engine hands us an edict and expects the mod to attach a player entity to it.
+	// Create fails only if managed registered no player class. Fail loudly: a client
+	// admitted with no player entity dies somewhere unrelated later.
+	if ( !m_Players.CreatePlayer( pEntity, playername ) )
+	{
+		Error( "[SourceSharp] ClientPutInServer: managed side registered no player class — cannot put '%s' in server\n",
+			   playername );
+		return;
+	}
+
+	if ( IManagedClients *pApi = ManagedClientsIfLoaded() )
+		pApi->OnClientPutInServer( pEntity ? pEntity->m_EdictIndex : -1, playername );
 }
 
 void CServerGameClients::ClientCommand( edict_t *pEntity, const CCommand &args )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientCommand );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientCommand );
 
 	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEntity ) )
 	{
@@ -221,7 +238,7 @@ void CServerGameClients::ClientCommand( edict_t *pEntity, const CCommand &args )
 // Called after the player changes userinfo, before the engine sends it on.
 void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientSettingsChanged );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientSettingsChanged );
 
 	// Is the client spawned yet?
 	if ( !pEdict->GetUnknown() )
@@ -244,7 +261,7 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs,
 												int pvssize )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientSetupVisibility );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientSetupVisibility );
 
 	// Initialised: neither arm below writes it for a client with no player (the
 	// HLTV and Replay masters), and it reaches every areaportal.
@@ -283,8 +300,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 	memset( portalBits, 0, sizeof( portalBits ) );
 
 	const float flOrg[3] = { org.x, org.y, org.z };
-	const int nTooLarge =
-		SourceSharp_AreaPortalVisibility( flOrg, fovDistanceAdjustFactor, portalBits, sizeof( portalBits ) );
+	const int nTooLarge = AreaPortalVisibility( flOrg, fovDistanceAdjustFactor, portalBits, sizeof( portalBits ) );
 	if ( nTooLarge >= 0 )
 		Error( "ClientSetupVisibility: portal number (%d) too large", nTooLarge );
 
@@ -298,7 +314,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds,
 										   int dropped_packets, bool ignore, bool paused )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ProcessUsercmds );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ProcessUsercmds );
 
 	// Managed decodes the whole packet in one call and answers the commands to
 	// queue, in run order, and where they end; native seeks past them.
@@ -343,20 +359,20 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 
 void CServerGameClients::PostClientMessagesSent_DEPRECIATED()
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_PostClientMessagesSent );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_PostClientMessagesSent );
 }
 
 // Sets the client index for the client who typed the command into his/her console
 void CServerGameClients::SetCommandClient( int index )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_SetCommandClient );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_SetCommandClient );
 
 	UTIL_SetCommandClientIndex( index );
 }
 
 int CServerGameClients::GetReplayDelay( edict_t *pEdict, int &entity )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_GetReplayDelay );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_GetReplayDelay );
 
 	// No replay or HLTV: zero delay, and entity is never written. The method
 	// must stay: the engine calls it by vtable position, and removing it would
@@ -369,7 +385,7 @@ int CServerGameClients::GetReplayDelay( edict_t *pEdict, int &entity )
 
 void CServerGameClients::ClientEarPosition( edict_t *pEdict, Vector *pEarOrigin )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientEarPosition );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientEarPosition );
 
 	// Which hierarchy answers, and in which order, is decided in managed code.
 	// The answer is cached per client per frame, shared with ClientSetupVisibility.
@@ -378,7 +394,7 @@ void CServerGameClients::ClientEarPosition( edict_t *pEdict, Vector *pEarOrigin 
 		return;
 
 	float flEars[3] = { 0.0f, 0.0f, 0.0f };
-	if ( SourceSharp_EarPositionForClient( pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0, flEars ) )
+	if ( EarPositionForClient( pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0, flEars ) )
 	{
 		pEarOrigin->Init( flEars[0], flEars[1], flEars[2] );
 		return;
@@ -391,7 +407,7 @@ void CServerGameClients::ClientEarPosition( edict_t *pEdict, Vector *pEarOrigin 
 
 CPlayerState *CServerGameClients::GetPlayerState( edict_t *player )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_GetPlayerState );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_GetPlayerState );
 
 	// May not answer NULL: the engine writes through it for the HLTV and Replay
 	// masters before ClientPutInServer has run.
@@ -401,7 +417,7 @@ CPlayerState *CServerGameClients::GetPlayerState( edict_t *player )
 // Anything this game .dll wants to add to the bug reporter text.
 void CServerGameClients::GetBugReportInfo( char *buf, int buflen )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_GetBugReportInfo );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_GetBugReportInfo );
 
 	buf[0] = 0;
 }
@@ -409,7 +425,7 @@ void CServerGameClients::GetBugReportInfo( char *buf, int buflen )
 // A player sent a voice packet.
 void CServerGameClients::ClientVoice( edict_t *pEdict )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientVoice );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientVoice );
 
 	NOTE_UNUSED( pEdict );
 }
@@ -417,20 +433,20 @@ void CServerGameClients::ClientVoice( edict_t *pEdict )
 // A user has had their network id set up and validated.
 void CServerGameClients::NetworkIDValidated( const char *pszUserName, const char *pszNetworkID )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_NetworkIDValidated );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_NetworkIDValidated );
 }
 
 // The client has submitted a keyvalues command
 void CServerGameClients::ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientCommandKeyValues );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Clients_ClientCommandKeyValues );
 
 	if ( !pKeyValues )
 		return;
 
-	if ( g_pGameRules )
+	if ( IGameRules *pRules = m_Entities.GameRules() )
 	{
-		g_pGameRules->ClientCommandKeyValues( pEntity, pKeyValues );
+		pRules->ClientCommandKeyValues( pEntity, pKeyValues );
 	}
 }
 
@@ -452,4 +468,42 @@ void CServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int 
 void CRootServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const
 {
 	ServerPlayerLimits( minplayers, maxplayers, defaultMaxPlayers );
+}
+
+IManagedClients *CServerGameClients::ManagedClientsIfLoaded() const
+{
+	return m_bManagedLoaded ? m_Managed.m_pClients : NULL;
+}
+
+int CServerGameClients::EarPositionForClient( int iClientEdict, float *pOutXYZ ) const
+{
+	if ( pOutXYZ == NULL )
+		return 0;
+
+	IManagedClients *pApi = ManagedClientsIfLoaded();
+	if ( !pApi )
+		return 0;
+
+	float flEars[3] = { 0.0f, 0.0f, 0.0f };
+	const int32_t nFound = pApi->ServerEarPositionForClient( iClientEdict, flEars );
+
+	// Written only on a hit: the world origin is a real position.
+	if ( nFound )
+	{
+		pOutXYZ[0] = flEars[0];
+		pOutXYZ[1] = flEars[1];
+		pOutXYZ[2] = flEars[2];
+	}
+
+	return nFound ? 1 : 0;
+}
+
+int CServerGameClients::AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
+											  unsigned char *pPortalBits, int nPortalBytes ) const
+{
+	IManagedClients *pApi = ManagedClientsIfLoaded();
+	if ( !pApi )
+		return -1;
+
+	return pApi->ServerAreaPortalVisibility( pOriginXYZ, flFovDistanceAdjustFactor, pPortalBits, nPortalBytes );
 }

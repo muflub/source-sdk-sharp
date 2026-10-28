@@ -10,6 +10,7 @@
 // singleton out, NULL for a name it does not serve. Not exported; managed reaches
 // it through the root. It answers from DLL load, before the engine factories exist.
 
+#include "managed_side.h"
 #include "shell_vtable_interfaces.h"
 #include "ss_string.h"
 #include "ishim_root.h"
@@ -24,6 +25,7 @@
 #include "shell_shim_root_server.h"
 #else
 #include "shell_managed_areas_client.h"
+#include "client_factorylist.h"
 #include "particles_lib_client.h"
 #include "fwd_shadows.h"
 void *ShadowEnv_Acquire();
@@ -114,7 +116,15 @@ void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion, 
 		return pShim;
 	}
 
-	return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes );
+	SourceSharpFactories_t factories = {};
+	if ( m_pFactories )
+	{
+		factories.pAppSystem = m_pFactories->engineFactory;
+		factories.pPhysics = m_pFactories->physicsFactory;
+		factories.pFileSystem = m_pFactories->fileSystemFactory;
+	}
+
+	return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories );
 }
 #endif
 
@@ -130,7 +140,15 @@ public:
 
 	void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) override
 	{
-		return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes );
+		factorylist_t stored;
+		memset( &stored, 0, sizeof( stored ) );
+		FactoryList_Retrieve( stored );
+
+		// The client has no filesystem factory; its appSystemFactory serves the filesystem.
+		const SourceSharpFactories_t factories = { stored.appSystemFactory, stored.physicsFactory,
+												   stored.appSystemFactory };
+		return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes,
+											 &factories );
 	}
 
 	void Release() override {}
@@ -171,22 +189,17 @@ CShimAreasClient &ShimClientAreasOfRoot()
 #endif
 
 #ifndef CLIENT_DLL
-IManagedRoot *ManagedRoot_Get()
+bool CManagedSide::AcceptRoot( void *pObject, char *pWhy, size_t nWhy )
 {
-	return ShellGameDll_Managed().m_pRoot;
-}
-
-bool ManagedRoot_Accept( void *pObject, char *pWhy, size_t nWhy )
-{
-	CManagedHolders &managed = ShellGameDll_Managed();
+	CManagedHolders &managed = m_Holders;
 	managed.m_pRoot =
 		ManagedAccept<IManagedRoot>( pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy );
 	return managed.m_pRoot != NULL;
 }
 
-bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
+bool CManagedSide::AcquireAreas( char *pWhy, size_t nWhy )
 {
-	CManagedHolders &managed = ShellGameDll_Managed();
+	CManagedHolders &managed = m_Holders;
 	IManagedRoot *pRoot = managed.m_pRoot;
 	if ( !pRoot )
 	{
@@ -203,11 +216,11 @@ bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
 	return ManagedAreas_Acquire( managed.m_Areas, pRoot, pWhy, nWhy );
 }
 
-bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy )
+bool CManagedSide::Reattached( void *pObject, char *pWhy, size_t nWhy )
 {
 	// Across a reload native keeps every object; the root must be the one native
 	// holds, and everything must validate through the patched thunks.
-	CManagedHolders &managed = ShellGameDll_Managed();
+	CManagedHolders &managed = m_Holders;
 	if ( pObject != managed.m_pRoot )
 	{
 		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
@@ -226,32 +239,27 @@ IManagedRuntimeServer *ManagedRuntimeServer()
 	return ShellGameDll_Managed().m_pRuntimeServer;
 }
 
-void ManagedRoot_Release()
+void CManagedSide::ReleaseRoot()
 {
 	// The areas first, each nulled before its release, then the root they came from.
-	CManagedHolders &managed = ShellGameDll_Managed();
+	CManagedHolders &managed = m_Holders;
 	ManagedAreas_Release( managed.m_Areas );
 	ManagedRelease( managed.m_pRuntimeServer );
 	ManagedRelease( managed.m_pRoot );
 }
 #else
 // The client's holders, handled as the server's are above.
-IManagedRoot *ManagedRoot_Get()
+bool CManagedSide::AcceptRoot( void *pObject, char *pWhy, size_t nWhy )
 {
-	return ShellClientDll_Managed().m_pRoot;
-}
-
-bool ManagedRoot_Accept( void *pObject, char *pWhy, size_t nWhy )
-{
-	CManagedHoldersClient &managed = ShellClientDll_Managed();
+	CManagedHoldersClient &managed = m_Holders;
 	managed.m_pRoot =
 		ManagedAccept<IManagedRoot>( pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy );
 	return managed.m_pRoot != NULL;
 }
 
-bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
+bool CManagedSide::AcquireAreas( char *pWhy, size_t nWhy )
 {
-	CManagedHoldersClient &managed = ShellClientDll_Managed();
+	CManagedHoldersClient &managed = m_Holders;
 	IManagedRoot *pRoot = managed.m_pRoot;
 	if ( !pRoot )
 	{
@@ -268,9 +276,9 @@ bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
 	return ManagedAreasClient_Acquire( managed.m_Areas, pRoot, pWhy, nWhy );
 }
 
-bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy )
+bool CManagedSide::Reattached( void *pObject, char *pWhy, size_t nWhy )
 {
-	CManagedHoldersClient &managed = ShellClientDll_Managed();
+	CManagedHoldersClient &managed = m_Holders;
 	if ( pObject != managed.m_pRoot )
 	{
 		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
@@ -289,9 +297,9 @@ IManagedRuntimeClient *ManagedRuntimeClient()
 	return ShellClientDll_Managed().m_pRuntimeClient;
 }
 
-void ManagedRoot_Release()
+void CManagedSide::ReleaseRoot()
 {
-	CManagedHoldersClient &managed = ShellClientDll_Managed();
+	CManagedHoldersClient &managed = m_Holders;
 	ManagedAreasClient_Release( managed.m_Areas );
 	ManagedRelease( managed.m_pRuntimeClient );
 	ManagedRelease( managed.m_pRoot );

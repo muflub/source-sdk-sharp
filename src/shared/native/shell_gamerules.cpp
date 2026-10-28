@@ -36,7 +36,6 @@
 #include "networkstringtabledefs.h"
 #include "edict.h"
 #include "server_engine.h"
-extern CGlobalVars *gpGlobals;
 #endif
 
 #ifndef CLIENT_DLL
@@ -75,13 +74,6 @@ uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 // Stock's value.
 #define ROBUST_RADIUS_PROBE_DIST 16.0f
 #endif
-
-#ifndef CLIENT_DLL
-
-// Set and cleared by CSourceSharpGameRules' constructor and destructor.
-IGameRules *g_pGameRules = NULL;
-
-#endif // !CLIENT_DLL
 
 // The hulls before managed registers its own: stock's values, so reads during level
 // init see a real hull. Static, so the client's copy is a second static, not a duplicate.
@@ -142,9 +134,9 @@ void SourceSharp_PublishViewVectors( const SourceSharpMovementParams *pParams )
 // its own rules object; the client constructs its one class whatever the string.
 #define GAMERULES_STRINGTABLE_NAME "GameRulesCreation"
 
-INetworkStringTable *g_StringTableGameRules = NULL;
-
 #ifdef CLIENT_DLL
+
+INetworkStringTable *g_StringTableGameRules = NULL;
 
 // The server has made its rules object; make ours.
 //-----------------------------------------------------------------------------
@@ -174,31 +166,25 @@ void InstallStringTableCallback_GameRules()
 
 #else
 
-void CreateNetworkStringTables_GameRules()
+INetworkStringTable *CreateNetworkStringTables_GameRules( INetworkStringTableContainer *pTables )
 {
-	g_StringTableGameRules = ServerStringTables()->CreateStringTable( GAMERULES_STRINGTABLE_NAME, 1 );
+	return pTables->CreateStringTable( GAMERULES_STRINGTABLE_NAME, 1 );
 }
 
-void SourceSharp_CreateGameRules()
+IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable )
 {
-	delete g_pGameRules;
-	g_pGameRules = NULL;
+	IGameRules *pRules = new CSourceSharpGameRules();
 
-	// The constructor assigns g_pGameRules.
-	new CSourceSharpGameRules();
-
-	if ( !g_pGameRules )
-		Error( "SourceSharp_CreateGameRules: game rules object not created" );
-
-	// Tell the client to build its own; without it, g_pGameRules is NULL there.
-	Assert( g_StringTableGameRules );
-	if ( g_StringTableGameRules )
+	// Tell the client to build its own; without it, the client has no rules object.
+	Assert( pRulesTable );
+	if ( pRulesTable )
 	{
 		const char *pszName = "CSourceSharpGameRules";
-		g_StringTableGameRules->AddString( true, "classname", (int)strlen( pszName ) + 1, pszName );
+		pRulesTable->AddString( true, "classname", (int)strlen( pszName ) + 1, pszName );
 	}
 
-	g_pGameRules->CreateCustomNetworkStringTables();
+	pRules->CreateCustomNetworkStringTables();
+	return pRules;
 }
 
 #endif // CLIENT_DLL
@@ -212,17 +198,21 @@ CSourceSharpGameRules::CSourceSharpGameRules()
 {
 	SOURCESHARP_TRACE();
 
+#ifdef CLIENT_DLL
 	// Two rules objects would leave the first leaked and unreachable.
 	Assert( !g_pGameRules );
 	g_pGameRules = this;
+#endif
 }
 
 CSourceSharpGameRules::~CSourceSharpGameRules()
 {
 	SOURCESHARP_TRACE();
 
+#ifdef CLIENT_DLL
 	Assert( g_pGameRules == this );
 	g_pGameRules = NULL;
+#endif
 }
 
 // Stock's values as the defaults: damage paths can run before managed registers, and

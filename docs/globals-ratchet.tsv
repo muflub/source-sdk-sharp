@@ -440,7 +440,39 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-27, 106 -> 105: g_ShimLevel is CServerLevel, built by CServerDllServices (T6 part 3).
 # LOWERED 2026-10-27, 105 -> 101: the C#-declared commands and convars, the console snapshot and the change-callback
 #   latch are CShimConsole members; the global ConVar change callback is a CBoundCallback bound to it.
-globals_link_level	src/sourcesharp/game/server	101
+# LOWERED 2026-10-27, 101 -> 97: the loaded flag, the init gate, the reload request and the game description buffer
+#   are CManagedSide's and the game DLL's (T6 part 3).
+# LOWERED 2026-10-27, 97 -> 94: the factory dictionary, the declared entity classes and the world's factory are
+#   CServerEntityLifecycle's, built by CServerDllServices (T6 part 3).
+# LOWERED 2026-10-27, 94 -> 93: s_bAllowPrecache: the precache window is CServerModelPrecache's, built by
+#   CServerDllServices and handed to the level and the entity context (T6 part 3).
+# LOWERED 2026-10-27, 93 -> 91: g_SkyboxParams and g_bHaveSkyboxParams are CServerWorldQueries' (IShimWorldServer),
+#   built by CServerDllServices and handed to CServerFrame for the client data (T6 part 3).
+# LOWERED 2026-10-27, 91 -> 85: physics, physcollision, physprops, physenv, g_PhysWorldObject and g_PhysicsHook are
+#   CServerPhysics' members, built by CServerDllServices (T6 part 3).
+# LOWERED 2026-10-27, 85 -> 84: s_factories is CServerEngineInterfaces::m_Factories; physics and the shim root
+#   are handed it (T6 part 3).
+# LOWERED 2026-10-27, 84 -> 83: BoundaryProbes()::s_Probes is CServerDllServices::m_BoundaryProbes, handed to
+#   the game clients and ents objects (T6 part 3).
+# LOWERED 2026-10-27, 83 -> 81: the server's movement counters: the command count is CServerMovement's; the
+#   refusal count is the client's alone, a server refusal being fatal (T6 part 3).
+# LOWERED 2026-10-27, 81 -> 80: g_nPlayerSyncGeneration is CManagedSide's reload generation, handed to the
+#   entity context (T6 part 3).
+# LOWERED 2026-10-27, 80 -> 78: g_pGameRules is the world's (CWorld::m_pGameRules, read through
+#   CServerEntityContext::GameRules), g_StringTableGameRules the context's, bound by the game DLL (T6 part 3).
+# LOWERED 2026-10-27, 78 -> 71: the spew and assert hook state (seven statics in shell_diagnostics.cpp) is
+#   CDiagnosticsHooks', the root's member, which tier0 calls through CBoundCallback thunks (T6 part 3).
+# LOWERED 2026-10-27, 71 -> 70: g_GameStringPool: a pooled string lives in the pool of the object holding it
+#   (CWorld, CStandalonePlayer); the server has no level-wide pool (user 2026-10-27).
+# LOWERED 2026-10-27, 70 -> 64: g_pCVar and convar_port's registration state (s_EngineListAccessor,
+#   s_bRegistered, s_nDLLIdentifier, s_nRegisterFlags, s_bWarnedWithoutConsole) and s_bTier1Connected are each
+#   root's CCVarRegistry (user 2026-10-27); the tier0 port holds the console it writes to (s_pConsole, one row).
+# LOWERED 2026-10-27, 64 -> 61: g_nVerbosity, g_bTier0Ready, sourcesharp_verbose and g_NotShipped are each root's
+#   CShellLog (user 2026-10-27); the free logging calls reach it through one FLOOR pointer, s_pLog.
+# LOWERED 2026-10-27, 61 -> 58: g_LineBuffer, g_Forwarder and g_pInstalledCvar are CManagedSide's CConsoleDisplay (T6 part 3).
+# LOWERED 2026-10-27, 58 -> 57: gpGlobals: the context, the frame, the collision and world queries and the root
+#   are handed the engine's CGlobalVars (T6 part 3).
+globals_link_level	src/sourcesharp/game/server	57
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
@@ -495,7 +527,13 @@ globals_unruled	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-19, 104 -> 85: re-measured at f087134f5 for plan_server_native_v2 T6 step 1 (python3 tools/globals-census summary -> objects_with_a_static_initialiser 85 of 98); the rest was slack the T2-T5 evictions left.
 # LOWERED 2026-10-27, 85 -> 32: re-measured (tools/globals-census summary, debug, lane t6-globals): the T6 part 3
 #   conversions took the engine-facing singletons' initialisers; the rest of the fall was slack.
-globals_objects_with_static_init	src/sourcesharp/game/server	32
+# LOWERED 2026-10-27, 32 -> 30: shell_standalone_class.o and world_adapter.o: the dictionary and the world factory
+#   are built by the entity lifecycle, not at load.
+# LOWERED 2026-10-27, 30 -> 29: physics.o: CServerPhysics is the services', not a static game system.
+# LOWERED 2026-10-27, 29 -> 28: gamestringpool.o left server.so with its static pool.
+# LOWERED 2026-10-27, 28 -> 27: shell_diagnostics.o: its static verbosity ref and ledger are the log's.
+# LOWERED 2026-10-27, 27 -> 26: console_display_forward.o: its forwarder is the display's member.
+globals_objects_with_static_init	src/sourcesharp/game/server	26
 #
 # ---------------------------------------------------------------------------
 # THE SECOND INSTRUMENT MUST RECONCILE.
@@ -562,4 +600,18 @@ globals_reconcile_unattributed	src/sourcesharp/game/server	0
 # LOWERED 2026-10-27, 170 -> 141: the game DLL's own methods read the managed runtime and areas from the holders it
 #   owns instead of asking ManagedRuntimeServer() and the area accessors.
 # LOWERED 2026-10-27, 141 -> 139: the console reads its managed commands area through the slot its owner hands it.
-globals_locator_calls	src/sourcesharp/game/server	139
+# LOWERED 2026-10-27, 139 -> 120: CManagedSide holds the root and areas it loads; the clients, ents and world read the
+#   managed areas and whether the side is up from what they are handed.
+# LOWERED 2026-10-27, 120 -> 114: CServerModelPrecache is handed the engine, model info and managed areas;
+#   it implements IShimPrecache, so SourceSharp_PrecacheModel is gone.
+# LOWERED 2026-10-27, 114 -> 109: CServerWorldQueries is handed the model info and the DLL tier's invisible-range
+#   count.
+# LOWERED 2026-10-27, 109 -> 108: CServerTempEnts implements IShimEffectsServer from the DLL tier's services; the
+#   root closes its registration and hands it to SourceSharp_IsManagedServerClass.
+# LOWERED 2026-10-27, 108 -> 106: CServerConsoleCommands is handed the engine for SendClientCommand.
+# LOWERED 2026-10-27, 106 -> 104: CServerPhysics is handed the DLL tier's players and the managed areas.
+# LOWERED 2026-10-27, 104 -> 103: the console display reads the console-output area from the holders it is handed.
+# RAISED 2026-10-27, 103 -> 104, a trade: IShimEngine::GetGlobalVarsPtr is a slot both DLLs answer from one
+#   shared body, so the server's reads its shim root's globals (ShellGameDll_ShimRoot) in place of gpGlobals, the
+#   global that went (link_level 58 -> 57). It goes when the shared base areas can name a class per side.
+globals_locator_calls	src/sourcesharp/game/server	104

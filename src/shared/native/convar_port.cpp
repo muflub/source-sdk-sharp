@@ -11,6 +11,7 @@
 // is allocated and freed only here, never by the engine's allocator.
 
 #include "tier1/tier1.h"
+#include "convar_registry.h"
 
 #include "ss_string.h"
 
@@ -33,37 +34,37 @@ static int StripDevelopmentOnly( int nFlags )
 ConCommandBase *ConCommandBase::s_pConCommandBases = NULL;
 IConCommandBaseAccessor *ConCommandBase::s_pAccessor = NULL;
 
-namespace
+CCVarRegistry *CCVarRegistry::Current()
 {
-
-int s_nRegisterFlags = 0;
-CVarDLLIdentifier_t s_nDLLIdentifier = -1;
-bool s_bRegistered = false;
-
-// Without a caller's accessor, a carrier is handed to the engine's list.
-class CEngineListAccessor : public IConCommandBaseAccessor
-{
-public:
-	virtual bool RegisterConCommandBase( ConCommandBase *pVar )
-	{
-		g_pCVar->RegisterConCommand( pVar );
-		return true;
-	}
-};
-
-CEngineListAccessor s_EngineListAccessor;
-
+	return static_cast<CCVarRegistry *>( ConCommandBase::s_pAccessor );
 }
 
-void ConVar_Register( int nCVarFlag, IConCommandBaseAccessor *pAccessor )
+// The engine's console, through the registry a carrier reaches; NULL before Register.
+static ICvar *Console()
 {
-	if ( s_bRegistered || !g_pCVar )
+	CCVarRegistry *pRegistry = CCVarRegistry::Current();
+	return pRegistry ? pRegistry->Cvar() : NULL;
+}
+
+bool CCVarRegistry::RegisterConCommandBase( ConCommandBase *pVar )
+{
+	if ( m_pPolicy )
+		return m_pPolicy->RegisterConCommandBase( pVar );
+
+	m_pCvar->RegisterConCommand( pVar );
+	return true;
+}
+
+void CCVarRegistry::Register( int nFlags, IConCommandBaseAccessor *pPolicy )
+{
+	if ( m_bRegistered || !m_pCvar )
 		return;
 
-	s_bRegistered = true;
-	s_nRegisterFlags = nCVarFlag;
-	s_nDLLIdentifier = g_pCVar->AllocateDLLIdentifier();
-	ConCommandBase::s_pAccessor = pAccessor ? pAccessor : &s_EngineListAccessor;
+	m_bRegistered = true;
+	m_nRegisterFlags = nFlags;
+	m_pPolicy = pPolicy;
+	m_nDllIdentifier = m_pCvar->AllocateDLLIdentifier();
+	ConCommandBase::s_pAccessor = this;
 
 	// Each Init may hand the carrier to code that links it elsewhere, so the
 	// next pointer is read first.
@@ -71,23 +72,27 @@ void ConVar_Register( int nCVarFlag, IConCommandBaseAccessor *pAccessor )
 	while ( pWaiting )
 	{
 		ConCommandBase *pAfter = pWaiting->m_pNext;
-		pWaiting->AddFlags( s_nRegisterFlags );
+		pWaiting->AddFlags( m_nRegisterFlags );
 		pWaiting->Init();
 		pWaiting = pAfter;
 	}
 
-	g_pCVar->ProcessQueuedMaterialThreadConVarSets();
+	m_pCvar->ProcessQueuedMaterialThreadConVarSets();
 	ConCommandBase::s_pConCommandBases = NULL;
 }
 
-void ConVar_Unregister()
+void CCVarRegistry::Unregister()
 {
-	if ( !s_bRegistered || !g_pCVar )
+	if ( !m_bRegistered || !m_pCvar )
 		return;
 
-	g_pCVar->UnregisterConCommands( s_nDLLIdentifier );
-	s_nDLLIdentifier = -1;
-	s_bRegistered = false;
+	m_pCvar->UnregisterConCommands( m_nDllIdentifier );
+	m_nDllIdentifier = -1;
+	m_bRegistered = false;
+	m_pPolicy = nullptr;
+
+	if ( ConCommandBase::s_pAccessor == this )
+		ConCommandBase::s_pAccessor = NULL;
 }
 
 ConCommandBase::ConCommandBase()
@@ -108,7 +113,8 @@ bool ConCommandBase::IsCommand() const
 
 CVarDLLIdentifier_t ConCommandBase::GetDLLIdentifier() const
 {
-	return s_nDLLIdentifier;
+	CCVarRegistry *pRegistry = CCVarRegistry::Current();
+	return pRegistry ? pRegistry->DllIdentifier() : -1;
 }
 
 void ConCommandBase::CreateBase( const char *pName, const char *pHelpString, int flags )
@@ -291,14 +297,14 @@ void ConVar::Init()
 // A value the material thread must set is queued while it may not.
 static bool QueuedForMaterialThread( ConVar *pVar )
 {
-	return pVar->IsFlagSet( FCVAR_MATERIAL_THREAD_MASK ) && g_pCVar && !g_pCVar->IsMaterialThreadSetAllowed();
+	return pVar->IsFlagSet( FCVAR_MATERIAL_THREAD_MASK ) && Console() && !Console()->IsMaterialThreadSetAllowed();
 }
 
 void ConVar::InternalSetValue( const char *value )
 {
 	if ( QueuedForMaterialThread( this ) )
 	{
-		g_pCVar->QueueMaterialThreadSetValue( this, value );
+		Console()->QueueMaterialThreadSetValue( this, value );
 		return;
 	}
 
@@ -352,7 +358,8 @@ void ConVar::ChangeStringValue( const char *tempVal, float flOldValue )
 	{
 		if ( m_fnChangeCallback )
 			m_fnChangeCallback( this, pOld, flOldValue );
-		g_pCVar->CallGlobalChangeCallbacks( this, pOld, flOldValue );
+		if ( ICvar *pConsole = Console() )
+			pConsole->CallGlobalChangeCallbacks( this, pOld, flOldValue );
 	}
 
 	stackfree( pOld );
@@ -410,7 +417,7 @@ void ConVar::InternalSetFloatValue2( float fNewValue, bool bForce )
 
 	if ( QueuedForMaterialThread( this ) )
 	{
-		g_pCVar->QueueMaterialThreadSetValue( this, fNewValue );
+		Console()->QueueMaterialThreadSetValue( this, fNewValue );
 		return;
 	}
 
@@ -440,7 +447,7 @@ void ConVar::InternalSetIntValue( int nValue )
 
 	if ( QueuedForMaterialThread( this ) )
 	{
-		g_pCVar->QueueMaterialThreadSetValue( this, nValue );
+		Console()->QueueMaterialThreadSetValue( this, nValue );
 		return;
 	}
 
@@ -578,21 +585,17 @@ ConVarRef::ConVarRef( const char *pName )
 
 void ConVarRef::Init( const char *pName, bool bIgnoreMissing )
 {
-	IConVar *pFound = g_pCVar ? g_pCVar->FindVar( pName ) : NULL;
+	ICvar *pConsole = Console();
+	IConVar *pFound = pConsole ? pConsole->FindVar( pName ) : NULL;
 	m_pConVar = pFound ? pFound : &s_MissingConVar;
 	m_pConVarState = static_cast<ConVar *>( m_pConVar );
 
 	if ( IsValid() )
 		return;
 
-	// Before the console exists, one warning; after, one per miss.
-	static bool s_bWarnedWithoutConsole = false;
-	if ( g_pCVar || !s_bWarnedWithoutConsole )
-	{
-		if ( !bIgnoreMissing )
-			Warning( "ConVarRef %s doesn't point to an existing ConVar\n", pName );
-		s_bWarnedWithoutConsole = true;
-	}
+	// A miss before the console exists is expected: nothing is registered yet.
+	if ( pConsole && !bIgnoreMissing )
+		Warning( "ConVarRef %s doesn't point to an existing ConVar\n", pName );
 }
 
 ConVarRef::ConVarRef( IConVar *pConVar )

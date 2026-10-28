@@ -338,5 +338,5 @@ void SourceSharp_ClientPlayerPredictionDrive( uint32_t hEntity, const SourceShar
 CON_COMMAND( cs_cl_move_managed_report,
 			 "cs_cl_move_managed_report -- how many times each ported movement method ran in C# on the CLIENT" )
 {
-	SourceSharp_MoveManagedReport();
+	SourceSharp_MoveManagedReport( SourceSharp_MoveManagedCalls() );
 }

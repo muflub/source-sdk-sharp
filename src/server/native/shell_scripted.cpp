@@ -24,11 +24,18 @@
 #include "bone_setup.h"
 #include "datacache/imdlcache.h"
 
-extern CGlobalVars *gpGlobals;
-
 #include "ss_string.h"
-
-// Declares an entity class; called once per [ScriptedEntity] at managed startup.
+#include "shell_entity_lifecycle.h"
+#include "server_transform.h"
+#include "server_entity_resolver.h"
+#include "server_player_queries.h"
+#include "server_entity_resolver.h"
+#include "server_collision.h"
+#include "server_entity_resolver.h"
+#include "server_entities.h"
+#include "server_entity_resolver.h"
+#include "server_physics.h"
+#include "server_entity_resolver.h"
 
 // The values scripted_kinds.h restates, pinned to the engine's own.
 COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_NONE == (int)SOLID_NONE );
@@ -39,8 +46,8 @@ COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_SOLID == (int)FSOLID_NOT_S
 COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_TRIGGER == (int)FSOLID_TRIGGER );
 COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_STANDABLE == (int)FSOLID_NOT_STANDABLE );
 
-void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **ppOutputNames, int32_t nOutputCount,
-										 int32_t nKind )
+void CServerEntityLifecycle::RegisterScriptedEntity( const char *pClassName, const char **ppOutputNames,
+													 int32_t nOutputCount, int32_t nKind )
 {
 	if ( !pClassName || !pClassName[0] )
 		return;
@@ -52,33 +59,18 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
 	if ( params.bShellLess )
 		return;
 
-	SourceSharp_InstallStandaloneClass( pClassName, ppOutputNames, nOutputCount, params.bServerOnly,
-										(SolidType_t)params.nSolidType, params.nSolidFlags, params.bTouchEveryTick,
-										params.bPlayer );
-}
-
-// Counts handles from the engine-invisible range that reach native and do not
-// resolve in the engine's list: managed shell-less entities that some route failed
-// to keep in managed code. Counted here because every crossing handle arrives here.
-// The count is the DLL tier's.
-void SourceSharp_NoteInvisibleRangeReach()
-{
-	ShellGameDll_Dll()->m_nInvisibleRangeReach++;
-}
-
-int32_t SourceSharp_InvisibleRangeReach()
-{
-	return ShellGameDll_Dll()->m_nInvisibleRangeReach;
+	InstallStandaloneClass( pClassName, ppOutputNames, nOutputCount, params.bServerOnly, params.nSolidType,
+							params.nSolidFlags, params.bTouchEveryTick, params.bPlayer );
 }
 
 // Places a player at its spawn point. Called by managed from OnSelectSpawnPoint,
 // inside Spawn, before the player is solid or has a hull or physics shadow.
-void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR )
+void CServerPlayerQueries::PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR )
 {
 	if ( !pOriginXYZ || !pAnglesPYR )
 		return;
 
-	CStandalonePlayer *pPlayer = SourceSharp_ResolveStandalonePlayer( hPlayer );
+	CStandalonePlayer *pPlayer = m_Entities.Player( hPlayer );
 
 	if ( !pPlayer )
 		return;
@@ -97,21 +89,21 @@ void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, 
 
 // Spawnflags are claimed by the engine during map parsing, so they never reach
 // the managed keyvalue hook.
-int32_t SourceSharp_EntityGetSpawnFlags( uint32_t hEntity )
+int32_t CServerEntities::EntityGetSpawnFlags( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	return ent.pStandalone ? ent.pStandalone->GetSpawnFlags() : 0;
 }
 
-void SourceSharp_EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ )
+void CServerEntities::EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ )
 {
 	if ( !pOutXYZ )
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 	{
 		const Vector &vec = pStandalone->GetSpawnOrigin();
 		pOutXYZ[0] = vec.x;
@@ -120,7 +112,7 @@ void SourceSharp_EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ )
 	}
 }
 
-void SourceSharp_EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR )
+void CServerEntities::EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR )
 {
 	if ( !pOutPYR )
 		return;
@@ -128,7 +120,7 @@ void SourceSharp_EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR )
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
 	// Current angles, which for an entity that never moves are the mapper's.
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 	{
 		const QAngle &ang = pStandalone->GetSpawnAngles();
 		pOutPYR[0] = ang.x;
@@ -137,14 +129,14 @@ void SourceSharp_EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR )
 	}
 }
 
-void SourceSharp_EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ )
+void CServerCollision::EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ )
 {
 	if ( !pOutXYZ )
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -160,12 +152,12 @@ void SourceSharp_EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ )
 		return;
 }
 
-void SourceSharp_EntitySetAngles( uint32_t hEntity, const float *pPYR )
+void CServerTransform::EntitySetAngles( uint32_t hEntity, const float *pPYR )
 {
 	if ( !pPYR )
 		return;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
 	{
@@ -182,23 +174,23 @@ void SourceSharp_EntitySetAngles( uint32_t hEntity, const float *pPYR )
 
 // Degrees per second about the world's axes. Managed reads an IPhysicsObject's
 // own spin when there is one; this is the shell's member.
-void SourceSharp_EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR )
+void CServerTransform::EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR )
 {
 	if ( !pPYR )
 		return;
 
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveEntity( hEntity ).pStandalone )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Resolve( hEntity ).pStandalone )
 		pStandalone->SetAngularVelocity( QAngle( pPYR[0], pPYR[1], pPYR[2] ) );
 }
 
-void SourceSharp_EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutSize )
+void CServerEntities::EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutSize )
 {
 	if ( !pOut || nOutSize <= 0 )
 		return;
 
 	pOut[0] = 0;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 		ss::StrCopy( pOut, ent.pStandalone->GetEntityName(), nOutSize );
@@ -209,14 +201,14 @@ static IPhysicsObject *SourceSharp_PhysicsOf( uint32_t hEntity )
 	return SourceSharp_ResolveEntity( hEntity ).Physics();
 }
 
-void SourceSharp_EntityGetAngularVelocity( uint32_t hEntity, float *pOutPYR )
+void CServerTransform::EntityGetAngularVelocity( uint32_t hEntity, float *pOutPYR )
 {
 	if ( !pOutPYR )
 		return;
 
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveEntity( hEntity ).pStandalone )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Resolve( hEntity ).pStandalone )
 	{
 		const QAngle &angVelocity = pStandalone->GetAngularVelocity();
 		pOutPYR[0] = angVelocity[0];
@@ -226,22 +218,22 @@ void SourceSharp_EntityGetAngularVelocity( uint32_t hEntity, float *pOutPYR )
 }
 
 // The entity's IPhysicsObject, or NULL.
-void *SourceSharp_EntityPhysicsObject( uint32_t hEntity )
+void *CServerPhysics::EntityPhysicsObject( uint32_t hEntity )
 {
 	return SourceSharp_PhysicsOf( hEntity );
 }
 
 // The level's IPhysicsEnvironment, or NULL between levels.
-void *SourceSharp_PhysicsEnvironmentPointer()
+void *CServerPhysics::PhysicsEnvironmentPointer()
 {
-	return physenv;
+	return m_pEnv;
 }
 
 // The level's world physics object, or NULL between levels. Its game data is
 // NULL (PhysCreateWorld), so managed recognises it by identity.
-void *SourceSharp_PhysicsWorldObject()
+void *CServerPhysics::PhysicsWorldObject()
 {
-	return g_PhysWorldObject;
+	return m_pWorldObject;
 }
 
 // Scale of the server-side skeleton, which places attachments on a scaled model.

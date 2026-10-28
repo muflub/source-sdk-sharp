@@ -13,7 +13,7 @@
 #include "tier1/convar.h"
 
 #include "server_class.h"
-#include "shell_tempents_internal.h"
+#include "server_services.h"
 #include "native_command_body.h"
 #include "ss_string.h"
 
@@ -100,16 +100,16 @@ static unsigned int TeWireFloatBits( float f )
 	return u;
 }
 
-static void DumpBuiltWire()
+static void DumpBuiltWire( const CServerDllServices &services )
 {
-	for ( int i = 0; i < SourceSharpTe_BuiltCount(); i++ )
+	for ( int i = 0; i < services.m_TempEnts.BuiltCount(); i++ )
 	{
-		SendTable *pTable = SourceSharpTe_BuiltTable( i );
+		SendTable *pTable = services.m_TempEnts.BuiltTable( i );
 
 		if ( !pTable )
 			continue;
 
-		ServerClass *pClass = SourceSharpTe_BuiltClass( i );
+		ServerClass *pClass = services.m_TempEnts.BuiltClass( i );
 
 		Msg( "TEWT|%d|%s|%s|%d\n", i, pTable->GetName(), pClass ? pClass->GetName() : "", pTable->GetNumProps() );
 
@@ -141,15 +141,15 @@ static void DumpBuiltWire()
 SS_NATIVE_COMMAND( cs_sv_te_dump )
 {
 	const char *pWanted = ( args.ArgC() > 1 ) ? args[1] : NULL;
-	const int nBuilt = SourceSharpTe_BuiltCount();
+	const int nBuilt = services.m_TempEnts.BuiltCount();
 
 	Msg( "[SourceSharp] --- temp entities: %d table(s), registration %s ---\n", nBuilt,
-		 SourceSharpTe_RegistrationClosed() ? "closed" : "OPEN" );
+		 services.m_TempEnts.RegistrationClosed() ? "closed" : "OPEN" );
 
 	for ( int i = 0; i < nBuilt; i++ )
 	{
-		SendTable *pTable = SourceSharpTe_BuiltTable( i );
-		ServerClass *pClass = SourceSharpTe_BuiltClass( i );
+		SendTable *pTable = services.m_TempEnts.BuiltTable( i );
+		ServerClass *pClass = services.m_TempEnts.BuiltClass( i );
 
 		if ( !pTable )
 			continue;
@@ -197,8 +197,8 @@ SS_NATIVE_COMMAND( cs_sv_te_dump )
 	}
 
 	if ( !pWanted )
-		DumpBuiltWire();
+		DumpBuiltWire( services );
 
-	if ( !SourceSharpTe_RegistrationClosed() )
+	if ( !services.m_TempEnts.RegistrationClosed() )
 		Warning( "     registration is still OPEN, which it should not be after DLL init\n" );
 }

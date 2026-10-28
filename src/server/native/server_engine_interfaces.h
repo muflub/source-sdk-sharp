@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "ss_init_factory.h"
+
 class CSharedEdictChangeInfo;
 class IEngineTrace;
 class IBaseFileSystem;
@@ -35,4 +37,7 @@ public:
 	IVDebugOverlay *m_pOverlay = nullptr;
 	IUniformRandomStream *m_pRandom = nullptr;
 	CSharedEdictChangeInfo *m_pChangeInfo = nullptr;
+
+	// The factories the engine handed DLLInit, kept for physics and for managed's acquisitions.
+	ss::factorylist_t m_Factories{};
 };

@@ -22,7 +22,6 @@
 #else
 
 #include "igamerules.h"
-extern CGlobalVars *gpGlobals;
 #endif
 
 #include "vphysics/performance.h"
@@ -32,9 +31,9 @@ extern CGlobalVars *gpGlobals;
 // Whether the server simulates entities on even-numbered ticks only.
 static CManagedConVarRef sv_alternateticks( "sv_alternateticks" );
 
-bool EntitySim_IsSimulatingOnAlternateTicks()
+bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals )
 {
-	if ( gpGlobals->maxClients != 1 )
+	if ( pGlobals->maxClients != 1 )
 	{
 		return false;
 	}

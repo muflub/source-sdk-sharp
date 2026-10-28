@@ -64,6 +64,7 @@ class ConCommandBase
 	friend class ConVar;
 	friend class ConCommand;
 	friend void ConVar_Register( int nCVarFlag, IConCommandBaseAccessor *pAccessor );
+	friend class CCVarRegistry;
 
 	// FIXME: Remove when ConVar changes are done
 	friend class CDefaultCvar;

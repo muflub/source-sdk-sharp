@@ -32,6 +32,14 @@ public:
 
 	int Count() const { return (int)m_Strings.size(); }
 
+	// Every pooled string, in order.
+	template <typename Fn>
+	void Visit( Fn fnVisit ) const
+	{
+		for ( typename Set::const_iterator it = m_Strings.begin(); it != m_Strings.end(); ++it )
+			fnVisit( it->c_str() );
+	}
+
 protected:
 	// Transparent, so a lookup by const char * builds no std::string.
 	struct Less

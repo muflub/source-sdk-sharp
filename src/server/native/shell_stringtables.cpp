@@ -16,7 +16,7 @@
 #include "server_engine.h"
 
 // The game rules' own table (shell_gamerules.cpp).
-void CreateNetworkStringTables_GameRules();
+#include "shell_gamerules.h"
 
 // Stock's capacities. The engine sends the capacity with the table.
 enum
@@ -75,8 +75,9 @@ static INetworkStringTable *CreateTable( const char *pName, int nMaxEntries )
 	return pTable;
 }
 
-// Stock's CServerGameDLL::CreateNetworkStringTables, without the econ/TF arms.
-void SourceSharp_CreateNetworkStringTables()
+// Stock's CServerGameDLL::CreateNetworkStringTables, without the econ/TF arms. Answers the
+// rules' table, which the world writes its rules classname into.
+INetworkStringTable *SourceSharp_CreateNetworkStringTables()
 {
 	CServerDllState &dll = Dll();
 
@@ -96,5 +97,5 @@ void SourceSharp_CreateNetworkStringTables()
 	Assert( GetParticleSystemIndex( "error" ) == 0 );
 
 	// The rules' table, whose client half tells the client to build a rules object.
-	CreateNetworkStringTables_GameRules();
+	return CreateNetworkStringTables_GameRules( ServerStringTables() );
 }

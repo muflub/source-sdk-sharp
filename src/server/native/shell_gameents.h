@@ -18,15 +18,19 @@ class CShellTransmitSet;
 class IMDLCache;
 struct CManagedAreas;
 
+class CBoundaryProbe;
+
 class CServerGameEnts final : public IServerGameEnts
 {
 public:
 	CServerGameEnts( IVEngineServer *pEngine, IMDLCache *pMdlCache, const CManagedAreas &managed,
-					 CShellTransmitSet &transmitSet )
+					 const bool &bManagedLoaded, CShellTransmitSet &transmitSet, CBoundaryProbe &probes )
 		: m_pEngine( pEngine )
 		, m_pMdlCache( pMdlCache )
 		, m_Managed( managed )
+		, m_bManagedLoaded( bManagedLoaded )
 		, m_TransmitSet( transmitSet )
+		, m_Probes( probes )
 	{
 	}
 
@@ -41,9 +45,18 @@ public:
 	void CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts ) override;
 
 private:
+	// For CheckTransmit: 1 with *pOutArea set to the client's 3D-skybox area, else 0.
+	int SkyboxAreaForClient( int iClientEdict, int *pOutArea ) const;
+
 	IVEngineServer *m_pEngine;
 	IMDLCache *m_pMdlCache;
 	const CManagedAreas &m_Managed;
+
+	// False while the managed side is down, a reload included.
+	const bool &m_bManagedLoaded;
 	CShellTransmitSet &m_TransmitSet;
+
+	// Counts the engine's calls into this object, for ss_boundary_probe_report.
+	CBoundaryProbe &m_Probes;
 	edict_t *m_pDebugEdictBase = NULL;
 };

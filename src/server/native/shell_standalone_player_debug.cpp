@@ -15,8 +15,6 @@
 #include "native_command_body.h"
 #include "ss_string.h"
 
-extern CGlobalVars *gpGlobals;
-
 // What the player is standing on, its hierarchy and how fast it moves, read from
 // native movement state directly. Stock's groundlist cannot see standalone
 // entities. tools/ reference it by name.

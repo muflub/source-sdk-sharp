@@ -11,6 +11,10 @@
 #include "fakes/fake_net_channel.g.h"
 #include "fakes/fake_mdl_cache.g.h"
 #include "shell_standalone_player.h"
+#include "shell_entity_lifecycle.h"
+#include "shell_boundary_probe.h"
+#include "server_entity_context.h"
+#include "precache_model.h"
 #include "ss_shareddefs.h"
 
 #include "mathlib_test_env.h"
@@ -25,13 +29,15 @@ class IGameRules;
 // player-side ones are never reached; each answers as an empty server would.
 IGameRules *g_pGameRules = nullptr;
 
-void ClientActive( edict_t *, bool ) {}
-
-void ClientPutInServer( CServerEntityContext &, edict_t *, const char * ) {}
-
 void SourceSharp_Trace( const char *, const char * ) {}
 
-CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &, edict_t *, const char * )
+int SourceSharp_GetVerbosity()
+{
+	return 0;
+}
+
+// The level's rules, which the world owns (world_adapter.cpp); none between levels here.
+IGameRules *CServerEntityContext::GameRules() const
 {
 	return nullptr;
 }
@@ -39,16 +45,6 @@ CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &, edict_t *, c
 void UTIL_SetCommandClientIndex( int ) {}
 
 void StandalonePlayer_ClientCommand( CStandalonePlayer *, const CCommand & ) {}
-
-int SourceSharp_AreaPortalVisibility( const float *, float, unsigned char *, int )
-{
-	return -1;
-}
-
-int SourceSharp_EarPositionForClient( int, float * )
-{
-	return 0;
-}
 
 void SourceSharp_AnnounceStandaloneRemoved( CStandaloneEntity * ) {}
 
@@ -134,6 +130,21 @@ int32_t RecordNetMessage( IManagedClients *, int32_t nEntIndex, const char *pKey
 	return 1;
 }
 
+// Records each player asked for. Answers with a non-null stand-in, which the subject only
+// tests against NULL.
+class CRecordingPlayerMaker : public IServerPlayerMaker
+{
+public:
+	CStandalonePlayer *CreatePlayer( edict_t *pEdict, const char *pPlayerName ) override
+	{
+		m_Asked.push_back( { pEdict, pPlayerName } );
+		return reinterpret_cast<CStandalonePlayer *>( &m_StandIn );
+	}
+
+	std::vector<std::pair<edict_t *, std::string>> m_Asked;
+	alignas( 16 ) unsigned char m_StandIn[16]{};
+};
+
 class ServerGameClients : public ::testing::Test
 {
 protected:
@@ -149,10 +160,17 @@ protected:
 	CManagedHolders m_Holders{};
 	CManagedAreas &m_Managed = m_Holders.m_Areas;
 	CFakeMDLCache m_MdlCache;
+	CRecordingPlayerMaker m_PlayerMaker;
+	bool m_bManagedLoaded = false;
+	CBoundaryProbe m_Probes;
 	CServerPlayersDll m_Players;
 	unsigned short m_nWorldSerial = 0;
-	CServerEntityContext m_EntityContext{ &m_Engine, nullptr, nullptr, m_Holders, m_Players, m_nWorldSerial };
-	CServerGameClients m_Clients{ &m_Engine, &m_Globals, &m_MdlCache, m_Managed, m_EntityContext };
+	unsigned int m_nManagedGeneration = 1;
+	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
+	CServerEntityContext m_Entities{ &m_Engine,        &m_Globals,           nullptr,   nullptr,        m_Holders,
+									 m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache };
+	CServerGameClients m_Clients{ &m_Engine,        &m_Globals,    &m_MdlCache, m_Managed,
+								  m_bManagedLoaded, m_PlayerMaker, m_Probes,    m_Entities };
 };
 } // namespace
 
@@ -221,6 +239,30 @@ TEST_F( ServerGameClients, AnActiveClientsMessageReachesManagedWithItsOwner )
 	delete pMsg;
 }
 
+TEST_F( ServerGameClients, BetweenLevelsThereAreNoRulesToAdmitAClient )
+{
+	char szReject[64] = {};
+	EXPECT_FALSE( m_Clients.ClientConnect( &m_Engine.m_Edicts[1], "alice", "loopback", szReject, sizeof( szReject ) ) );
+}
+
+TEST_F( ServerGameClients, TheEnginesCallsAreCountedOnTheProbeItWasHanded )
+{
+	m_Clients.ClientPutInServer( &m_Engine.m_Edicts[2], "alice" );
+	m_Clients.ClientPutInServer( &m_Engine.m_Edicts[3], "bob" );
+
+	EXPECT_EQ( 2u, m_Probes.Calls( kBoundaryProbe_Clients_ClientPutInServer ) );
+	EXPECT_EQ( 0u, m_Probes.Calls( kBoundaryProbe_Clients_ClientCommand ) );
+}
+
+TEST_F( ServerGameClients, PuttingAClientInTheServerAsksThePlayerMakerForItsPlayer )
+{
+	m_Clients.ClientPutInServer( &m_Engine.m_Edicts[2], "alice" );
+
+	ASSERT_EQ( 1u, m_PlayerMaker.m_Asked.size() );
+	EXPECT_EQ( &m_Engine.m_Edicts[2], m_PlayerMaker.m_Asked[0].first );
+	EXPECT_EQ( "alice", m_PlayerMaker.m_Asked[0].second );
+}
+
 TEST_F( ServerGameClients, AMessageWithNoManagedSideIsKeptNotDropped )
 {
 	CRecordingChannel channel;
@@ -235,15 +277,49 @@ TEST_F( ServerGameClients, AMessageWithNoManagedSideIsKeptNotDropped )
 	delete pMsg;
 }
 
+namespace
+{
+std::vector<int> g_Activated;
+
+void RecordActive( IManagedClients *, int32_t nEntIndex, int32_t )
+{
+	g_Activated.push_back( nEntIndex );
+}
+} // namespace
+
+TEST_F( ServerGameClients, ManagedHearsOfAnActiveClientOnlyWhileItIsUp )
+{
+	SSManagedClientsTable table{};
+	table.OnClientActive = RecordActive;
+	IManagedClients managed( &table );
+	m_Managed.m_pClients = &managed;
+	m_Engine.m_Edicts[2].m_EdictIndex = 2;
+	g_Activated.clear();
+
+	m_Clients.ClientActive( &m_Engine.m_Edicts[2], false );
+	EXPECT_TRUE( g_Activated.empty() ) << "the managed side is down";
+
+	m_bManagedLoaded = true;
+	m_Clients.ClientActive( &m_Engine.m_Edicts[2], false );
+	EXPECT_EQ( ( std::vector<int>{ 2 } ), g_Activated );
+}
+
 TEST( LateBoundServerGameClients, ForwardsToTheImplementationItIsBoundTo )
 {
 	CGlobalVars globals( false );
 	CRecordingEngine engine;
 	CManagedHolders holders{};
+	CRecordingPlayerMaker playerMaker;
+	bool bManagedLoaded = false;
+	CBoundaryProbe probes;
 	CServerPlayersDll players;
 	unsigned short nWorldSerial = 0;
-	CServerEntityContext entities( &engine, nullptr, nullptr, holders, players, nWorldSerial );
-	CServerGameClients impl( &engine, &globals, nullptr, holders.m_Areas, entities );
+	unsigned int nGeneration = 1;
+	CServerModelPrecache precache( &engine, nullptr, holders.m_Areas );
+	CServerEntityContext entities( &engine, &globals, nullptr, nullptr, holders, bManagedLoaded, nGeneration, players,
+								   nWorldSerial, precache );
+	CServerGameClients impl( &engine, &globals, nullptr, holders.m_Areas, bManagedLoaded, playerMaker, probes,
+							 entities );
 	CRootServerGameClients forwarder;
 
 	forwarder.Bind( &impl );

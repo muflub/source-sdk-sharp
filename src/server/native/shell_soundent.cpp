@@ -13,7 +13,6 @@
 #include "ss_util.h"
 #include "ss_soundent.h"
 
-extern CGlobalVars *gpGlobals;
 #include "sourcesharp.h"
 #include "shell_server.h"
 #include "shell_resolve.h"
@@ -21,14 +20,14 @@ extern CGlobalVars *gpGlobals;
 #include "imanaged_areas.h"
 
 // maxClients sizes the pool, so it crosses as an argument.
-bool ss::SoundEnt_Init()
+bool ss::SoundEnt_Init( const CGlobalVars *pGlobals )
 {
 	IManagedSoundEnt *pApi = ManagedSoundEnt();
 
 	if ( pApi == NULL )
 		return true;
 
-	pApi->ServerSoundEntInit( gpGlobals->maxClients, gpGlobals->curtime );
+	pApi->ServerSoundEntInit( pGlobals->maxClients, pGlobals->curtime );
 	return true;
 }
 

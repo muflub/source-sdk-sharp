@@ -1,6 +1,6 @@
 //========= SourceSharp — the engine's console prints reach the managed side //
 //
-// console_display_forward.cpp installs an IConsoleDisplayFunc on the side's
+// CConsoleDisplay (console_display_forward.cpp) installs an IConsoleDisplayFunc on the side's
 // ICvar so the engine's ColorPrint/Print/DPrint fan-out reaches this load's
 // managed console-output area (docs/todo.md's console capture item): since
 // console-batch, by appending to the forwarder's line buffer, handed to the
@@ -78,8 +78,7 @@ private:
 
 const SSManagedConsoleOutputTable CSinkArea::kTable = { &Released, &Validated, &Attached };
 
-/// The forwarder's buffer, as the last attach handed it: one per DLL, so
-/// every test sees the same memory and its sequence runs on across tests.
+/// The display's buffer, as the last attach handed it: each fact's display has its own.
 CConsoleLineBuffer *g_pBuffer = nullptr;
 
 void CSinkArea::Attach( void *pBuffer )
@@ -96,16 +95,6 @@ CSinkArea g_AreaB;
 // it at a sink.
 IManagedConsoleOutput *g_pArea = nullptr;
 
-} // namespace
-
-IManagedConsoleOutput *ManagedConsoleOutput()
-{
-	return g_pArea;
-}
-
-namespace
-{
-
 class ConsoleDisplayForward : public ::testing::Test
 {
 protected:
@@ -114,15 +103,12 @@ protected:
 	// outlive it, since TearDown's ConsoleDisplay_Remove still names it.
 	CRecordingCvar m_Second;
 
+	// The subject: built over the slot g_pArea stands in for, as a side's holders keep
+	// its console-output area. After both ICvars, so it is removed from them first.
+	CConsoleDisplay m_Display{ g_pArea };
+
 	void SetUp() override
 	{
-		ConsoleDisplay_Remove(); // idempotent guard across fixtures
-		// The buffer is the forwarder's and outlives a test: empty it.
-		if ( g_pBuffer )
-		{
-			ConsoleLineSwap( *g_pBuffer );
-			ConsoleLineSwap( *g_pBuffer );
-		}
 		g_AreaA = CSinkArea();
 		g_AreaB = CSinkArea();
 		g_SinkLines.clear();
@@ -138,7 +124,7 @@ protected:
 
 	void TearDown() override
 	{
-		ConsoleDisplay_Remove();
+		m_Display.Remove();
 		g_pArea = nullptr;
 	}
 
@@ -151,7 +137,7 @@ protected:
 
 TEST_F( ConsoleDisplayForward, InstallPutsOneFuncOnTheCvar )
 {
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	IConsoleDisplayFunc *pFunc = Installed();
 	ASSERT_NE( nullptr, pFunc );
 	EXPECT_TRUE( m_Cvar.m_Removed.empty() );
@@ -159,7 +145,7 @@ TEST_F( ConsoleDisplayForward, InstallPutsOneFuncOnTheCvar )
 
 TEST_F( ConsoleDisplayForward, InstallHandsThisLoadTheBufferOnce )
 {
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	EXPECT_EQ( 1, g_AreaA.m_nAttaches ) << "the load must hold the buffer before its first print";
 	ASSERT_NE( nullptr, g_AreaA.m_pBuffer );
 	Installed()->Print( "one\n" );
@@ -171,7 +157,7 @@ TEST_F( ConsoleDisplayForward, TheBufferHandedOverCarriesTheHalfSizeTheReaderRea
 {
 	// The buffer is all zero until Attach publishes it (console_line_buffer.h):
 	// the reader takes each half's size from the header.
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	ASSERT_NE( nullptr, g_AreaA.m_pBuffer );
 	EXPECT_EQ( kConsoleLineHalfBytes, g_AreaA.m_pBuffer->m_Header.nHalfBytes );
 }
@@ -185,7 +171,7 @@ static_assert( sizeof( SSManagedConsoleOutputTable ) == 3 * sizeof( void * ),
 
 TEST_F( ConsoleDisplayForward, APrintCrossesNothing )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	for ( int i = 0; i < 100; ++i )
 		Installed()->Print( "a line\n" );
 	EXPECT_EQ( 100u, Drained().size() ) << "every line is in the buffer";
@@ -193,7 +179,7 @@ TEST_F( ConsoleDisplayForward, APrintCrossesNothing )
 
 TEST_F( ConsoleDisplayForward, PrintForwardsTheExactTextAsNormal )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	Installed()->Print( "a plain line\n" );
 
 	ASSERT_EQ( 1u, Drained().size() );
@@ -208,7 +194,7 @@ TEST_F( ConsoleDisplayForward, PrintForwardsTheExactTextAsNormal )
 // (20, 70, 255).
 TEST_F( ConsoleDisplayForward, AMsgThroughColorPrintIsNotAWarning )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	Installed()->ColorPrint( Color( 255, 255, 255, 255 ), "a plain msg\n" ); // the default spew colour
 	Installed()->ColorPrint( Color( 0, 255, 0, 255 ), "a coloured msg\n" ); // a ConColorMsg
 
@@ -220,7 +206,7 @@ TEST_F( ConsoleDisplayForward, AMsgThroughColorPrintIsNotAWarning )
 
 TEST_F( ConsoleDisplayForward, AWarningAssertOrErrorThroughColorPrintIsAWarning )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	Installed()->ColorPrint( Color( 255, 90, 90, 255 ), "a warning line\n" );
 	Installed()->ColorPrint( Color( 255, 20, 20, 255 ), "an assert line\n" );
 	Installed()->ColorPrint( Color( 20, 70, 255, 255 ), "an error line\n" );
@@ -234,7 +220,7 @@ TEST_F( ConsoleDisplayForward, AWarningAssertOrErrorThroughColorPrintIsAWarning 
 
 TEST_F( ConsoleDisplayForward, DPrintForwardsTheExactTextAsNormal )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	Installed()->DPrint( "a developer line\n" );
 
 	ASSERT_EQ( 1u, Drained().size() );
@@ -244,7 +230,7 @@ TEST_F( ConsoleDisplayForward, DPrintForwardsTheExactTextAsNormal )
 
 TEST_F( ConsoleDisplayForward, LinesKeepPrintOrderAndConsecutiveNumbers )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	Installed()->Print( "first\n" );
 	Installed()->DPrint( "second\n" );
 	Installed()->ColorPrint( Color( 255, 90, 90, 255 ), "third\n" );
@@ -259,7 +245,7 @@ TEST_F( ConsoleDisplayForward, LinesKeepPrintOrderAndConsecutiveNumbers )
 
 TEST_F( ConsoleDisplayForward, ANullTextIsDropped )
 {
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	const uint32_t before = ConsoleLineSequence( *g_pBuffer );
 	Installed()->Print( nullptr );
 
@@ -270,7 +256,7 @@ TEST_F( ConsoleDisplayForward, ANullTextIsDropped )
 TEST_F( ConsoleDisplayForward, OutsideALoadEveryPrintIsDropped )
 {
 	g_pArea = nullptr;
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	Installed()->Print( "into nothing\n" );
 
 	// A load acquired later is handed the buffer, and the line is not in it.
@@ -286,9 +272,9 @@ TEST_F( ConsoleDisplayForward, RemoveStopsTheFlow )
 	// Remove detaches the func from the ICvar, so the engine's fan-out stops
 	// reaching it; a stale pointer kept calling is answered nothing too
 	// (Forward checks its own registration, the one state it owns).
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 	IConsoleDisplayFunc *pFunc = Installed();
-	ConsoleDisplay_Remove();
+	m_Display.Remove();
 
 	ASSERT_EQ( 1u, m_Cvar.m_Removed.size() );
 	EXPECT_EQ( pFunc, m_Cvar.m_Removed[0] );
@@ -299,9 +285,9 @@ TEST_F( ConsoleDisplayForward, RemoveStopsTheFlow )
 
 TEST_F( ConsoleDisplayForward, AReinstallAfterRemoveInstallsAgain )
 {
-	ConsoleDisplay_Install( &m_Cvar );
-	ConsoleDisplay_Remove();
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Second ) );
+	m_Display.Install( &m_Cvar );
+	m_Display.Remove();
+	ASSERT_TRUE( m_Display.Install( &m_Second ) );
 
 	ASSERT_EQ( 1u, m_Second.m_Installed.size() );
 	m_Second.m_Installed[0]->Print( "fresh cvar\n" );
@@ -312,8 +298,8 @@ TEST_F( ConsoleDisplayForward, AReinstallAfterRemoveInstallsAgain )
 
 TEST_F( ConsoleDisplayForward, ASecondInstallIsIgnored )
 {
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
-	EXPECT_FALSE( ConsoleDisplay_Install( &m_Second ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
+	EXPECT_FALSE( m_Display.Install( &m_Second ) );
 
 	EXPECT_EQ( 1u, m_Cvar.m_Installed.size() );
 	EXPECT_TRUE( m_Second.m_Installed.empty() );
@@ -321,7 +307,7 @@ TEST_F( ConsoleDisplayForward, ASecondInstallIsIgnored )
 
 TEST_F( ConsoleDisplayForward, InstallOfNullDoesNothing )
 {
-	EXPECT_FALSE( ConsoleDisplay_Install( nullptr ) );
+	EXPECT_FALSE( m_Display.Install( nullptr ) );
 	EXPECT_TRUE( m_Cvar.m_Installed.empty() );
 }
 
@@ -395,7 +381,7 @@ TEST_F( ConsoleDisplayForward, WithoutTheGapAReinstallOverADetachedAreaHitsTheTr
 	CTrapArea trap;
 	trap.m_pCvar = &m_Cvar;
 	g_pArea = &trap;
-	ConsoleDisplay_Install( &m_Cvar );
+	m_Display.Install( &m_Cvar );
 
 	EXPECT_GE( trap.m_nHits, 1 );
 }
@@ -404,10 +390,10 @@ TEST_F( ConsoleDisplayForward, InAReloadGapNoPrintReachesTheDetachedArea )
 {
 	CTrapArea trap;
 	trap.m_pCvar = &m_Cvar;
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	EnginePrint( m_Cvar, "before the reload\n" );
 	{
-		CConsoleDisplayReloadGap gap;
+		CConsoleDisplayReloadGap gap( m_Display );
 		g_pArea = &trap; // UnloadSide's Detach
 		EnginePrint( m_Cvar, "[SourceSharp] server: unloading\n" );
 		g_pArea = &g_AreaB; // the next build's patch
@@ -417,9 +403,9 @@ TEST_F( ConsoleDisplayForward, InAReloadGapNoPrintReachesTheDetachedArea )
 
 TEST_F( ConsoleDisplayForward, AfterAReloadGapTheNewLoadGetsThePrintsOnTheSameCvar )
 {
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	{
-		CConsoleDisplayReloadGap gap;
+		CConsoleDisplayReloadGap gap( m_Display );
 		g_pArea = &g_AreaB;
 	}
 	EnginePrint( m_Cvar, "after the reload\n" );
@@ -435,11 +421,11 @@ TEST_F( ConsoleDisplayForward, TheBufferAndItsNumbersSurviveAReloadGap )
 {
 	// Lines the old load never drained reach the next one, in order, from the
 	// same memory, and the numbers run on: monotonic across cs_sv_reload.
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	EnginePrint( m_Cvar, "just before the gap\n" );
 	EnginePrint( m_Cvar, "the last line before it\n" );
 	{
-		CConsoleDisplayReloadGap gap;
+		CConsoleDisplayReloadGap gap( m_Display );
 		g_pArea = &g_AreaB;
 	}
 	EnginePrint( m_Cvar, "the first line after it\n" );
@@ -455,9 +441,9 @@ TEST_F( ConsoleDisplayForward, TheBufferAndItsNumbersSurviveAReloadGap )
 
 TEST_F( ConsoleDisplayForward, EndingAReloadGapEarlyReinstallsOnce )
 {
-	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
 	{
-		CConsoleDisplayReloadGap gap;
+		CConsoleDisplayReloadGap gap( m_Display );
 		g_pArea = &g_AreaB;
 		gap.End();
 		EnginePrint( m_Cvar, "after the load, before the scope ends\n" );
@@ -470,7 +456,7 @@ TEST_F( ConsoleDisplayForward, EndingAReloadGapEarlyReinstallsOnce )
 TEST_F( ConsoleDisplayForward, AReloadGapWithNothingInstalledInstallsNothing )
 {
 	{
-		CConsoleDisplayReloadGap gap;
+		CConsoleDisplayReloadGap gap( m_Display );
 	}
 	EXPECT_TRUE( m_Cvar.m_Installed.empty() );
 	EXPECT_TRUE( m_Cvar.m_Removed.empty() );
@@ -478,7 +464,7 @@ TEST_F( ConsoleDisplayForward, AReloadGapWithNothingInstalledInstallsNothing )
 
 TEST_F( ConsoleDisplayForward, RemoveWithoutInstallIsHarmless )
 {
-	ConsoleDisplay_Remove();
+	m_Display.Remove();
 	EXPECT_TRUE( m_Cvar.m_Removed.empty() );
 }
 

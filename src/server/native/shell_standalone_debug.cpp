@@ -15,8 +15,8 @@
 #include "ss_string.h"
 
 #include "ss_entityhandle.h"
-
-IServerNetworkable *CreateNetworkableEntityByName( const char *className );
+#include "ss_mapentities.h"
+#include "server_services.h"
 
 // Spawns one at a position (an entity outside the PVS is never transmitted).
 SS_NATIVE_COMMAND( cs_standalone_spawn )
@@ -29,7 +29,7 @@ SS_NATIVE_COMMAND( cs_standalone_spawn )
 
 	const char *pClassName = ( args.ArgC() >= 5 ) ? args[4] : "ss_barrel";
 
-	IServerNetworkable *pNet = CreateNetworkableEntityByName( pClassName );
+	IServerNetworkable *pNet = CreateNetworkableEntityByName( services.m_EntityLifecycle.Factories(), pClassName );
 	if ( !pNet )
 	{
 		Warning( "[SourceSharp] no factory for '%s'\n", pClassName );

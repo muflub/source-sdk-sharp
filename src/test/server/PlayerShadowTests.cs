@@ -817,9 +817,8 @@ public unsafe class PlayerShadowTests
     [Fact]
     public void AStaleShadowIsNotTeleportedOnRespawn()
     {
-        // Native says whether the held body is the current environment's...
-        Assert.Contains("pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == physenv ? 1 : 0;", PlayerCode);
-        // ...and managed drops a stale one before the respawn arm could teleport it.
+        // Managed drops a stale body (native's BodyCurrent says whether the held one is the
+        // current environment's) before the respawn arm could teleport it.
         Assert.Contains("if (f.HasShadow != 0 && f.BodyCurrent == 0)", BodiesCode);
     }
 
@@ -861,7 +860,6 @@ public unsafe class PlayerShadowTests
 
         // ...and it is carried out: the plan's Destroy asks native for its
         // teardown (PlayerShadowBodiesTests' A_destroy_plan_releases_the_body).
-        Assert.Contains("void SourceSharp_PlayerShadowRelease( uint32_t hPlayer )", PlayerCode);
         Assert.Contains("pPlayer->DestroyVCollision();", PlayerCode);
     }
 

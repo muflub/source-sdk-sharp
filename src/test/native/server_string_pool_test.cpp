@@ -9,6 +9,9 @@
 #include "gtest/gtest.h"
 
 #include "server_string_pool.h"
+#include "ss_gamestringpool.h"
+
+#include <string>
 
 TEST( ServerStringPool, TheSameStringTwiceIsOneCopy )
 {
@@ -70,5 +73,31 @@ TEST( ServerStringPool, FreeAllEmptiesThePool )
 	pool.FreeAll();
 	EXPECT_EQ( 0, pool.Count() );
 	pool.Allocate( "a" );
+	EXPECT_EQ( 1, pool.Count() );
+}
+
+TEST( ServerStringPool, VisitWalksEveryStringOnce )
+{
+	CServerStringPool pool;
+	pool.Allocate( "b" );
+	pool.Allocate( "a" );
+	pool.Allocate( "b" );
+
+	std::string seen;
+	pool.Visit( [&seen]( const char *psz ) { seen += psz; } );
+	EXPECT_EQ( "ab", seen );
+}
+
+// PooledString (ss_gamestringpool.h): stock's AllocPooledString over the owner's pool.
+TEST( ServerStringPool, APooledStringIsTheOwnersCopyAndEmptyIsNull )
+{
+	CServerStringPool pool;
+	const string_t a = PooledString( pool, "models/a.mdl" );
+	const string_t b = PooledString( pool, "models/a.mdl" );
+
+	EXPECT_EQ( STRING( a ), STRING( b ) );
+	EXPECT_EQ( 1, pool.Count() );
+	EXPECT_EQ( NULL_STRING, PooledString( pool, "" ) );
+	EXPECT_EQ( NULL_STRING, PooledString( pool, nullptr ) );
 	EXPECT_EQ( 1, pool.Count() );
 }

@@ -18,25 +18,3 @@ bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity )
 {
 	return SourceSharp_IsTheWorldHandle( pHandleEntity, static_cast<const IHandleEntity *>( GetWorldEntity() ) );
 }
-
-// A projection of the bool above, so the two cannot disagree.
-CWorld *SourceSharp_WorldFromEntityHandle( IHandleEntity *pHandleEntity )
-{
-	return SourceSharp_IsTheWorld( pHandleEntity ) ? GetWorldEntity() : NULL;
-}
-
-// The world is not in the slot table, so its handle is compared directly. The packed
-// compare checks the serial, which changes each map. Invalid handles are refused first
-// so an unbound entity cannot match an unbound world.
-CWorld *SourceSharp_WorldFromHandle( const CBaseHandle &handle )
-{
-	if ( !handle.IsValid() )
-		return NULL;
-
-	CWorld *pWorld = GetWorldEntity();
-
-	if ( !pWorld || pWorld->GetRefEHandle() != handle )
-		return NULL;
-
-	return pWorld;
-}

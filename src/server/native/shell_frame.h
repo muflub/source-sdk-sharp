@@ -16,6 +16,7 @@
 class CGlobalVars;
 class CServerDebugOverlays;
 class CServerEntityContext;
+class CServerWorldQueries;
 class IMDLCache;
 class IUploadGameStats;
 
@@ -23,12 +24,13 @@ class CServerFrame final : public IShimFrame
 {
 public:
 	CServerFrame( CGlobalVars *pGlobals, IUploadGameStats *pGameStats, IMDLCache *pMdlCache,
-				  CServerDebugOverlays &overlays, CServerEntityContext &entities )
+				  CServerDebugOverlays &overlays, CServerEntityContext &entities, const CServerWorldQueries &world )
 		: m_pGlobals( pGlobals )
 		, m_pGameStats( pGameStats )
 		, m_pMdlCache( pMdlCache )
 		, m_Overlays( overlays )
 		, m_Entities( entities )
+		, m_World( world )
 	{
 	}
 
@@ -75,4 +77,7 @@ private:
 	IMDLCache *m_pMdlCache;
 	CServerDebugOverlays &m_Overlays;
 	CServerEntityContext &m_Entities;
+
+	// The sky camera's parameters each player's client data is given.
+	const CServerWorldQueries &m_World;
 };

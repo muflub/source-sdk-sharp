@@ -13,8 +13,8 @@ RevertNamedConVar	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRever
 ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshot	int	
 ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshotEntry	int, ConsoleEntry*, int	
 FindConVarFlags	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleFindConVarFlags	byte*, int	
-SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_SendClientCommand	uint, byte*, void	
-GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_GetCommandClientHandle	uint	
+SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::SendClientCommand	uint, byte*, void	
+GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::GetCommandClientHandle	uint	
 ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	SourceSharp_ListenForGameEvent	byte*, void	
 EventGetInt	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetInt	IntPtr, byte*, int	
 EventGetFloat	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetFloat	IntPtr, byte*, float	
@@ -27,117 +27,117 @@ NetHierarchyDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetHierarc
 NetPublishType	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetPublishType	byte*, int, uint, int, uint*, int	
 NetTierInfo	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetTierInfo	int, int, byte**, int*, int*, int*, int*, int	
 WorldNetDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_WorldNetDeclare	int, int	
-EntityGetDataBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	S	SourceSharp_EntityGetDataBlob	uint, int*, void*	
-EntityBindBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityBindBlob	uint, int*, EntitySlot**, uint*, void*	
-EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityMarkBlockChanged	uint, int, void	
-EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityPayloadAgreement	uint, int*, int*, int	
-EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityGetEngineBlock	uint, int*, void*	
-EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntitySetTransmitAlways	uint, int, void	
+EntityGetDataBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	S	CServerNetwork::EntityGetDataBlob	uint, int*, void*	
+EntityBindBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityBindBlob	uint, int*, EntitySlot**, uint*, void*	
+EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityMarkBlockChanged	uint, int, void	
+EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityPayloadAgreement	uint, int*, int*, int	
+EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityGetEngineBlock	uint, int*, void*	
+EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntitySetTransmitAlways	uint, int, void	
 EntityGetModelName	EngineApi	IShimModels	shared		both	-	SourceSharp_EntityGetModelName	uint, byte*, int, void	SourceSharp_ClientEntityGetModelName
 EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	SourceSharp_EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
 StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	SourceSharp_StandaloneSetModelScale	uint, float, void	
-EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_EntitySetModel	uint, byte*, void	
-PrecacheModel	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheModel	byte*, int	
+EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	CServerModels::EntitySetModel	uint, byte*, void	
+PrecacheModel	EngineApi	IShimPrecache	server		server	-	CServerModelPrecache::PrecacheModel	byte*, int	
 MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	
 MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	
 CurrentGravity	EngineApi	IShimMovement	shared		both	-	SourceSharp_CurrentGravity	float	
 RegisterMovementParams	EngineApi	IShimMovement	shared		both	-	SourceSharp_RegisterMovementParams	MovementParams*, void	
-PlayerShadowFacts	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowFacts	uint, PlayerShadowFacts*, int	
-PlayerShadowAdopt	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowAdopt	uint, nint, nint, nint, int	
-PlayerShadowRelease	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowRelease	uint, void	
-PlayerShadowCommit	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowCommit	uint, int, int, void	
-PlayerSetMoveType	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetMoveType	uint, int, int	
-PlayerCommandBegin	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerCommandBegin	uint, PlayerCommandFacts*, int	
-PlayerCommandView	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerCommandView	uint, float*, int, void	
-PlayerCommandFinish	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerCommandFinish	uint, PlayerCommandResult*, void	
-MoveTraceServer	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_MoveTraceServer	float*, float*, float*, float*, int, int, MoveTraceBlob*, nint, uint*, void	
-PlayerFallDamage	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerFallDamage	uint, float, int	
-PlayerSyncEngineSide	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSyncEngineSide	uint, void	
-EntityModelSurfaceProp	EngineApi	IShimWorldServer	server		server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
-InvisibleRangeReach	EngineApi	IShimWorldServer	server		server	-	SourceSharp_InvisibleRangeReach	int	
-SetSkyboxParams	EngineApi	IShimWorldServer	server		server	-	SourceSharp_SetSkyboxParams	SkyboxParams*, void	
+PlayerShadowFacts	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowFacts	uint, PlayerShadowFacts*, int	
+PlayerShadowAdopt	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowAdopt	uint, nint, nint, nint, int	
+PlayerShadowRelease	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowRelease	uint, void	
+PlayerShadowCommit	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowCommit	uint, int, int, void	
+PlayerSetMoveType	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerSetMoveType	uint, int, int	
+PlayerCommandBegin	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerCommandBegin	uint, PlayerCommandFacts*, int	
+PlayerCommandView	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerCommandView	uint, float*, int, void	
+PlayerCommandFinish	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerCommandFinish	uint, PlayerCommandResult*, void	
+MoveTraceServer	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::MoveTraceServer	float*, float*, float*, float*, int, int, MoveTraceBlob*, nint, uint*, void	
+PlayerFallDamage	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerFallDamage	uint, float, int	
+PlayerSyncEngineSide	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerSyncEngineSide	uint, void	
+EntityModelSurfaceProp	EngineApi	IShimWorldServer	server		server	-	CServerWorldQueries::EntityModelSurfaceProp	uint, int	
+InvisibleRangeReach	EngineApi	IShimWorldServer	server		server	-	CServerWorldQueries::InvisibleRangeReach	int	
+SetSkyboxParams	EngineApi	IShimWorldServer	server		server	-	CServerWorldQueries::SetSkyboxParams	SkyboxParams*, void	
 EntityGetIndex	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetIndex	uint, int	SourceSharp_ClientEntityGetIndex
 EntityGetOrigin	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityGetOrigin	uint, float*, void	SourceSharp_ClientEntityGetOrigin
 EntityGetAngles	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetAngles	uint, float*, void	SourceSharp_ClientEntityGetAngles
 EntityIsValid	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityIsValid	uint, int	SourceSharp_ClientEntityIsValid
-EntityIsPlayer	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityIsPlayer	uint, int	
-EntityGetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntityGetClassName	uint, byte*, int, void	
-EntityGetName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntityGetName	uint, byte*, int, void	
-EntityGetState	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetState	uint, int*, int	
-FindEntityByClassname	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_FindEntityByClassname	uint, byte*, uint	
-EntitiesInSphere	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitiesInSphere	float*, float, uint*, int, int	
-EntitySetKeyValue	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetKeyValue	uint, byte*, byte*, int	
-EntityGetSpawnOrigin	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetSpawnOrigin	uint, float*, void	
-EntityGetSpawnAngles	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetSpawnAngles	uint, float*, void	
-EntityGetSpawnFlags	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetSpawnFlags	uint, int	
-EntitySetSpawnFlags	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetSpawnFlags	uint, int, void	
-EntityGetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetHealth	uint, int	
-EntitySetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntitySetHealth	uint, int, void	
-EntitySetVisible	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetVisible	uint, int, void	
-EntitySetOwner	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntitySetOwner	uint, uint, void	
-EntitiesStandalonePlayerSkyboxArea	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitiesStandalonePlayerSkyboxArea	int, int*, int	
-EntitySetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetClassName	uint, byte*, void	
-CreateEntity	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_CreateEntity	byte*, uint	
-EntitySpawn	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntitySpawn	uint, void	
-EntityRemove	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityRemove	uint, void	
-DestroyShell	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_DestroyShell	uint*, int, void	
-MapSpawnCreate	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_MapSpawnCreate	byte*, byte*, int, uint	
-RegisterScriptedEntity	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_RegisterScriptedEntity	byte*, byte**, int, int, void	
-RegisterClassOps	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_RegisterClassOps	byte*, uint, void	
-EntityDispatch	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityDispatch	uint, int, OpArgs*, int	
-EntityFactoryCount	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryCount	int	
-EntityFactoryNameAt	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryNameAt	int, byte*	
-EntityFactoryRefusalCount	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryRefusalCount	int	
-EntityFactoryRefusalNameAt	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryRefusalNameAt	int, byte*	
-EntityFactoryRefusalTimesAt	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryRefusalTimesAt	int, int	
-TemplateSpawnKeyed	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_TemplateSpawnKeyed	byte*, byte*, int*, float*, float*, int, uint*, int, int	
-EntitySetOrigin	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetOrigin	uint, float*, void	
-EntitySetAngles	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetAngles	uint, float*, void	
-EntityTeleport	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityTeleport	uint, float*, float*, int, void	
-EntityGetVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetVelocity	uint, float*, void	
-EntitySetVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetVelocity	uint, float*, void	
-EntityGetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetAngularVelocity	uint, float*, void	
-EntitySetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetAngularVelocity	uint, float*, void	
-EntityGetEyePosition	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyePosition	uint, float*, void	
-EntityGetEyeAngles	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyeAngles	uint, float*, void	
-EntityGetGravity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetGravity	uint, float	
-EntitySetGravity	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetGravity	uint, float, void	
-EntitySetBounce	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetBounce	uint, int, void	
-EntitySetParent	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntitySetParent	uint, uint, int, int	
-EntityGetParent	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetParent	uint, uint	
-EntityGetParentAttachment	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetParentAttachment	uint, int	
-EntitySetLocalTransform	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntitySetLocalTransform	uint, float*, float*, void	
-EntityGetLocalTransform	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetLocalTransform	uint, float*, float*, void	
-EntityParentProbe	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityParentProbe	uint, int	
-EntityGetAttachmentFrame	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetAttachmentFrame	uint, int, float*, float*, int	
+EntityIsPlayer	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityIsPlayer	uint, int	
+EntityGetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntityGetClassName	uint, byte*, int, void	
+EntityGetName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntityGetName	uint, byte*, int, void	
+EntityGetState	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityGetState	uint, int*, int	
+FindEntityByClassname	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::FindEntityByClassname	uint, byte*, uint	
+EntitiesInSphere	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntitiesInSphere	float*, float, uint*, int, int	
+EntitySetKeyValue	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntitySetKeyValue	uint, byte*, byte*, int	
+EntityGetSpawnOrigin	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityGetSpawnOrigin	uint, float*, void	
+EntityGetSpawnAngles	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityGetSpawnAngles	uint, float*, void	
+EntityGetSpawnFlags	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityGetSpawnFlags	uint, int	
+EntitySetSpawnFlags	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntitySetSpawnFlags	uint, int, void	
+EntityGetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntityGetHealth	uint, int	
+EntitySetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntitySetHealth	uint, int, void	
+EntitySetVisible	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntitySetVisible	uint, int, void	
+EntitySetOwner	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	CServerEntities::EntitySetOwner	uint, uint, void	
+EntitiesStandalonePlayerSkyboxArea	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntitiesStandalonePlayerSkyboxArea	int, int*, int	
+EntitySetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	CServerEntities::EntitySetClassName	uint, byte*, void	
+CreateEntity	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::CreateEntity	byte*, uint	
+EntitySpawn	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntitySpawn	uint, void	
+EntityRemove	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityRemove	uint, void	
+DestroyShell	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::DestroyShell	uint*, int, void	
+MapSpawnCreate	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::MapSpawnCreate	byte*, byte*, int, uint	
+RegisterScriptedEntity	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::RegisterScriptedEntity	byte*, byte**, int, int, void	
+RegisterClassOps	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::RegisterClassOps	byte*, uint, void	
+EntityDispatch	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityDispatch	uint, int, OpArgs*, int	
+EntityFactoryCount	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryCount	int	
+EntityFactoryNameAt	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryNameAt	int, byte*	
+EntityFactoryRefusalCount	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryRefusalCount	int	
+EntityFactoryRefusalNameAt	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryRefusalNameAt	int, byte*	
+EntityFactoryRefusalTimesAt	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryRefusalTimesAt	int, int	
+TemplateSpawnKeyed	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::TemplateSpawnKeyed	byte*, byte*, int*, float*, float*, int, uint*, int, int	
+EntitySetOrigin	EngineApi	IShimTransform	server		server	-	CServerTransform::EntitySetOrigin	uint, float*, void	
+EntitySetAngles	EngineApi	IShimTransform	server		server	-	CServerTransform::EntitySetAngles	uint, float*, void	
+EntityTeleport	EngineApi	IShimTransform	server		server	-	CServerTransform::EntityTeleport	uint, float*, float*, int, void	
+EntityGetVelocity	EngineApi	IShimTransform	server		server	-	CServerTransform::EntityGetVelocity	uint, float*, void	
+EntitySetVelocity	EngineApi	IShimTransform	server		server	-	CServerTransform::EntitySetVelocity	uint, float*, void	
+EntityGetAngularVelocity	EngineApi	IShimTransform	server		server	-	CServerTransform::EntityGetAngularVelocity	uint, float*, void	
+EntitySetAngularVelocity	EngineApi	IShimTransform	server		server	-	CServerTransform::EntitySetAngularVelocity	uint, float*, void	
+EntityGetEyePosition	EngineApi	IShimTransform	server		server	S	CServerTransform::EntityGetEyePosition	uint, float*, void	
+EntityGetEyeAngles	EngineApi	IShimTransform	server		server	S	CServerTransform::EntityGetEyeAngles	uint, float*, void	
+EntityGetGravity	EngineApi	IShimTransform	server		server	-	CServerTransform::EntityGetGravity	uint, float	
+EntitySetGravity	EngineApi	IShimTransform	server		server	S	CServerTransform::EntitySetGravity	uint, float, void	
+EntitySetBounce	EngineApi	IShimTransform	server		server	S	CServerTransform::EntitySetBounce	uint, int, void	
+EntitySetParent	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntitySetParent	uint, uint, int, int	
+EntityGetParent	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityGetParent	uint, uint	
+EntityGetParentAttachment	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityGetParentAttachment	uint, int	
+EntitySetLocalTransform	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntitySetLocalTransform	uint, float*, float*, void	
+EntityGetLocalTransform	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityGetLocalTransform	uint, float*, float*, void	
+EntityParentProbe	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityParentProbe	uint, int	
+EntityGetAttachmentFrame	EngineApi	IShimHierarchy	server		server	-	CServerHierarchy::EntityGetAttachmentFrame	uint, int, float*, float*, int	
 RegisterCollisionRules	EngineApi	IShimCollision	shared		both	-	SourceSharp_RegisterCollisionRules	CollisionRulesBlob*, void	
-EntityGetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetBounds	uint, float*, float*, void	
-EntityGetBoundsSize	EngineApi	IShimCollisionServer	ext	IShimCollision	server	S	SourceSharp_EntityGetBoundsSize	uint, float*, void	
-EntitySetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetBounds	uint, float*, float*, void	
-EntitySetSolidity	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetSolidity	uint, int, int, void	
-EntityGetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetCollisionGroup	uint, int	
-EntitySetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetCollisionGroup	uint, int, void	
-EntityOverlapReport	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityOverlapReport	uint*, int, int	
-EntitySetTriggerBloat	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetTriggerBloat	uint, int, int, void	
-EntityDestroyPhysics	EngineApi	IShimPhysics	server		server	-	SourceSharp_EntityDestroyPhysics	uint, void	
-EntityPhysicsObject	EngineApi	IShimPhysics	server		server	S	SourceSharp_EntityPhysicsObject	uint, nint	
-PhysicsEnvironmentPointer	EngineApi	IShimPhysics	server		server	S	SourceSharp_PhysicsEnvironmentPointer	nint	
-PhysicsWorldObject	EngineApi	IShimPhysics	server		server	S	SourceSharp_PhysicsWorldObject	nint	
-PhysicsUpdateOwners	EngineApi	IShimPhysics	server		server	-	SourceSharp_PhysicsUpdateOwners	void**, float*, int, uint*, int	
-EntitySwapPhysicsObject	EngineApi	IShimPhysics	server		server	-	SourceSharp_EntitySwapPhysicsObject	uint, nint, void**, int	
-ApplyDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_ApplyDamage	uint, uint, float, int, void	
-EntityTakeDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_EntityTakeDamage	uint, uint, float, int, float*, float*, int, void	
-ApplyDamageForce	EngineApi	IShimDamage	server		server	-	SourceSharp_ApplyDamageForce	uint, uint, float, int, float*, float*, void	
+EntityGetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntityGetBounds	uint, float*, float*, void	
+EntityGetBoundsSize	EngineApi	IShimCollisionServer	ext	IShimCollision	server	S	CServerCollision::EntityGetBoundsSize	uint, float*, void	
+EntitySetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetBounds	uint, float*, float*, void	
+EntitySetSolidity	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetSolidity	uint, int, int, void	
+EntityGetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntityGetCollisionGroup	uint, int	
+EntitySetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetCollisionGroup	uint, int, void	
+EntityOverlapReport	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntityOverlapReport	uint*, int, int	
+EntitySetTriggerBloat	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	CServerCollision::EntitySetTriggerBloat	uint, int, int, void	
+EntityDestroyPhysics	EngineApi	IShimPhysics	server		server	-	CServerPhysics::EntityDestroyPhysics	uint, void	
+EntityPhysicsObject	EngineApi	IShimPhysics	server		server	S	CServerPhysics::EntityPhysicsObject	uint, nint	
+PhysicsEnvironmentPointer	EngineApi	IShimPhysics	server		server	S	CServerPhysics::PhysicsEnvironmentPointer	nint	
+PhysicsWorldObject	EngineApi	IShimPhysics	server		server	S	CServerPhysics::PhysicsWorldObject	nint	
+PhysicsUpdateOwners	EngineApi	IShimPhysics	server		server	-	CServerPhysics::PhysicsUpdateOwners	void**, float*, int, uint*, int	
+EntitySwapPhysicsObject	EngineApi	IShimPhysics	server		server	-	CServerPhysics::EntitySwapPhysicsObject	uint, nint, void**, int	
+ApplyDamage	EngineApi	IShimDamage	server		server	-	CServerDamage::ApplyDamage	uint, uint, float, int, void	
+EntityTakeDamage	EngineApi	IShimDamage	server		server	-	CServerDamage::EntityTakeDamage	uint, uint, float, int, float*, float*, int, void	
+ApplyDamageForce	EngineApi	IShimDamage	server		server	-	CServerDamage::ApplyDamageForce	uint, uint, float, int, float*, float*, void	
 RegisterGameRulesPolicy	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterGameRulesPolicy	GameRulesPolicyBlob*, void	
 RegisterDamageRules	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterDamageRules	DamageRuleMasks*, void	
-GetPlayerHandle	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerHandle	int, uint	
-PlayerIsAlive	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerIsAlive	uint, int	
-PlayerPlaceAtSpawn	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerPlaceAtSpawn	uint, float*, float*, void	
-PlayerGetObserverMode	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerGetObserverMode	uint, int	
-PlayerSetObserverMode	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetObserverMode	uint, int, void	
-PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSnapEyeAngles	uint, float*, void	
-ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
-TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	SourceSharp_TempEntBuild	void*, int, TeBuiltTable*, int	
+GetPlayerHandle	EngineApi	IShimPlayers	server		server	S	CServerPlayerQueries::GetPlayerHandle	int, uint	
+PlayerIsAlive	EngineApi	IShimPlayers	server		server	S	CServerPlayerQueries::PlayerIsAlive	uint, int	
+PlayerPlaceAtSpawn	EngineApi	IShimPlayers	server		server	-	CServerPlayerQueries::PlayerPlaceAtSpawn	uint, float*, float*, void	
+PlayerGetObserverMode	EngineApi	IShimPlayers	server		server	S	CServerPlayerQueries::PlayerGetObserverMode	uint, int	
+PlayerSetObserverMode	EngineApi	IShimPlayers	server		server	-	CServerPlayerQueries::PlayerSetObserverMode	uint, int, void	
+PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	CServerPlayerQueries::PlayerSnapEyeAngles	uint, float*, void	
+ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	CServerPlayerQueries::ClientsStandalonePlayerEarPosition	int, float*, int	
+TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	CServerTempEnts::TempEntBuild	void*, int, TeBuiltTable*, int	
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
 AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::AddLineOverlay	float*, float*, int, int, int, int, float, void	
 OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::OverlayCounts	uint*, uint*, uint*, uint*, int*, void	

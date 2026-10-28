@@ -20,8 +20,6 @@
 #include "ss_string.h"
 #include "trace_hit.h"
 
-extern CGlobalVars *gpGlobals;
-
 // So we always return a valid surface. External linkage: other TUs read it.
 csurface_t g_NullSurface = { "**empty**", 0 };
 

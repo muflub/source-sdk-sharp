@@ -13,7 +13,6 @@
 #include "server_state.h"
 #include "eiface.h"
 
-extern CGlobalVars *gpGlobals;
 #include "shell_standalone_player.h"
 #include "server_engine.h"
 

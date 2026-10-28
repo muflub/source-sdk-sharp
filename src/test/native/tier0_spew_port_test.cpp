@@ -16,6 +16,7 @@
 #include "Color.h"
 
 #include "fatal_report.h"
+#include "tier0_spew_port.h"
 #include "recording_cvar.h"
 
 #include <cstdio>
@@ -24,8 +25,6 @@
 #include <vector>
 
 #include "ss_platform.h" // SS_BIND_IMPORT
-
-ICvar *g_pCVar = nullptr;
 
 #ifdef _MSC_VER
 // MSVC at /Od keeps the dead `if ( _bFatal )` arm of every Assert (dbg.h's
@@ -76,7 +75,7 @@ protected:
 		SpewOutputFunc( NULL ); // the default: the console
 		g_Hooked.clear();
 		g_Notified.clear();
-		g_pCVar = &m_Cvar;
+		Tier0_ConnectConsole( &m_Cvar );
 		Msg( "%s", "" ); // drain anything an earlier fact left held
 		m_Cvar.m_Printed.clear();
 	}
@@ -85,7 +84,7 @@ protected:
 	{
 		SpewOutputFunc( NULL );
 		SetAssertFailedNotifyFunc( NULL );
-		g_pCVar = nullptr;
+		Tier0_ConnectConsole( nullptr );
 	}
 };
 }
@@ -110,10 +109,10 @@ TEST_F( Tier0SpewPort, AWarningIsPrintedInColour )
 
 TEST_F( Tier0SpewPort, LinesSpewedBeforeTheConsoleExistsComeOutFirstInOrder )
 {
-	g_pCVar = nullptr;
+	Tier0_ConnectConsole( nullptr );
 	Msg( "one\n" );
 	Warning( "two\n" );
-	g_pCVar = &m_Cvar;
+	Tier0_ConnectConsole( &m_Cvar );
 
 	Msg( "three\n" );
 

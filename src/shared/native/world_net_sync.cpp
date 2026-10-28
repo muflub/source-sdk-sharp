@@ -35,7 +35,7 @@ static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &a
 	return field;
 }
 
-bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields )
+bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration )
 {
 	SourceSharpNetStateAsk_t ask;
 	if ( !pFields || !SourceSharp_NetStateAsk( &ask ) )
@@ -63,7 +63,7 @@ bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields )
 		return false;
 	}
 
-	pFields->nGeneration = SourceSharp_PlayerSyncGeneration();
+	pFields->nGeneration = nGeneration;
 	return true;
 }
 
@@ -114,13 +114,13 @@ const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBy
 
 // Two lines, so the console width does not cut the string.
 void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob, int nBlobBytes,
-							  const SourceSharpWorldFields_t &fields )
+							  const SourceSharpWorldFields_t &fields, unsigned int nGeneration )
 {
 	if ( !pszSide )
 		pszSide = "?";
 
 	// An unresolved set would print ten zeros indistinguishable from a real empty map.
-	if ( !fields.IsCurrent() )
+	if ( !fields.IsCurrent( nGeneration ) )
 	{
 		Warning( "[SourceSharp/%s] worldspawn: field offsets did not resolve, so the ten "
 				 "values below would all read zero. NOT PRINTING THEM.\n",

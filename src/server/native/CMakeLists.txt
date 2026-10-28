@@ -48,6 +48,9 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_usermessage_send.cpp
     ${LOCAL}/shell_world_nettable.cpp
     ${LOCAL}/shell_worldquery.cpp
+    ${LOCAL}/world_queries.cpp
+    ${LOCAL}/server_entity_resolver.cpp
+    ${LOCAL}/server_damage.cpp
     ${LOCAL}/ss_recipient_filter.cpp
     ${LOCAL}/standalone_relays.cpp
     ${LOCAL}/world_adapter.cpp
@@ -60,7 +63,6 @@ set(server_sourcesharp_sources
     ${SHARED}/engine_heap.cpp
     ${SHARED}/entity_shared_statics.cpp
     ${SHARED}/fatal_report.cpp
-    ${SHARED}/gamestringpool.cpp
     ${SHARED}/generic_payload.cpp
     ${SHARED}/loaded_symbol.cpp
     ${SHARED}/mathlib_port.cpp
@@ -68,6 +70,8 @@ set(server_sourcesharp_sources
     ${SHARED}/overlay_library.cpp
     ${SHARED}/shell_acquire_reasons.cpp
     ${SHARED}/shell_diagnostics.cpp
+    ${SHARED}/diagnostics_hooks.cpp
+    ${SHARED}/shell_log.cpp
     ${SHARED}/shell_gameevents.cpp
     ${SHARED}/shell_gamerules.cpp
     ${SHARED}/shell_internalfactory.cpp

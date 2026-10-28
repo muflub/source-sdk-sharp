@@ -13,7 +13,6 @@ void SourceSharp_MovementFatal( int nReason, int nDetail );
 // The server's managed command loop: the fatal check asked before each command, and
 // the per-command counter.
 void SourceSharp_MovementRequireManaged();
-void SourceSharp_MoveNoteServerCommand();
 #endif
 
 // The fall damage of the landing about to be applied. IMoveHelper::PlayerFallingDamage()
@@ -113,4 +112,9 @@ inline int SourceSharpMovement_Format( char *pOut, size_t cOut, const char *pSid
 }
 
 // Prints how many commands the managed movement loop ran on this side, and the refusal counts.
-void SourceSharp_MoveManagedReport();
+void SourceSharp_MoveManagedReport( unsigned int nCalls );
+
+#ifdef CLIENT_DLL
+// The client's count of commands the managed movement loop ran.
+unsigned int SourceSharp_MoveManagedCalls();
+#endif

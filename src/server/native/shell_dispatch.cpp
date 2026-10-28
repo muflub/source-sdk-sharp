@@ -19,6 +19,9 @@
 
 #include "imanaged_areas.h"
 #include "ss_takedamageinfo.h"
+#include "shell_entity_lifecycle.h"
+#include "server_network.h"
+#include "server_entity_resolver.h"
 uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 
 // hOther zeroed would be a handle to the world, so "no entity" is set explicitly.
@@ -198,7 +201,7 @@ void CStandaloneEntity::OnManagedKilled( IGameEntity *pAttacker )
 
 // Managed ops sent to a native shell. For ENTITY_OP_POSITION_CHANGED, pVec0 is
 // the previous origin; NULL means it did not move, which fires no trigger edges.
-int32_t SourceSharp_EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs )
+int32_t CServerEntityLifecycle::EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs )
 {
 	CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
 
@@ -225,9 +228,9 @@ int32_t SourceSharp_EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceS
 
 // Marks one engine-block field changed. nBlockOffset is relative to the block.
 // A handle not on this hierarchy is a no-op.
-void SourceSharp_EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset )
+void CServerNetwork::EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset )
 {
-	CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
+	CStandaloneEntity *pShell = m_Entities.ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
 
 	if ( !pShell )
 		return;

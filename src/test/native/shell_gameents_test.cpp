@@ -4,6 +4,7 @@
 #include "gtest/gtest.h"
 
 #include "shell_gameents.h"
+#include "shell_boundary_probe.h"
 #include "late_bound_game_ents.g.h"
 #include "shell_managed_areas.h"
 #include "imanaged_areas.h"
@@ -18,16 +19,7 @@
 
 #include <memory>
 
-// The links this file's subject imports. Every recipient's skybox area is 3 unless a
-// fact declines it.
-static bool s_bDeclineRecipient = false;
-
-int SourceSharp_SkyboxAreaForClient( int, int *pOutArea )
-{
-	*pOutArea = 3;
-	return s_bDeclineRecipient ? 0 : 1;
-}
-
+// The links this file's subject imports.
 IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity * )
 {
 	return nullptr;
@@ -82,9 +74,20 @@ public:
 	CBoxCollideable m_Box;
 };
 
-int32_t AlwaysEdictFive( IManagedClients *, int32_t )
+// The managed clients table: every recipient's skybox area is 3 unless a fact declines it,
+// and the edict always sent to it is s_nAlways (none by default).
+bool s_bDeclineRecipient = false;
+int s_nAlways = 0;
+
+int32_t SkyboxAreaThree( IManagedClients *, int32_t, int32_t *pOutArea )
 {
-	return 5;
+	*pOutArea = 3;
+	return s_bDeclineRecipient ? 0 : 1;
+}
+
+int32_t AlwaysSent( IManagedClients *, int32_t )
+{
+	return s_nAlways;
 }
 
 class ServerGameEnts : public ::testing::Test
@@ -93,6 +96,10 @@ protected:
 	ServerGameEnts()
 	{
 		s_bDeclineRecipient = false;
+		s_nAlways = 0;
+		m_Table.ServerSkyboxAreaForClient = SkyboxAreaThree;
+		m_Table.ServerTransmitAlwaysForClient = AlwaysSent;
+		m_Managed.m_pClients = &m_ManagedClients;
 		m_Info.m_pClientEnt = &m_Engine.m_Edicts[1];
 		m_Info.m_nPVSSize = 0;
 		m_Info.m_pTransmitEdict = &m_Sent;
@@ -115,9 +122,13 @@ protected:
 
 	CPvsEngine m_Engine;
 	CFakeMDLCache m_MdlCache;
+	SSManagedClientsTable m_Table{};
+	IManagedClients m_ManagedClients{ &m_Table };
 	CManagedAreas m_Managed{};
+	bool m_bManagedLoaded = true;
 	CShellTransmitSet m_TransmitSet;
-	CServerGameEnts m_Ents{ &m_Engine, &m_MdlCache, m_Managed, m_TransmitSet };
+	CBoundaryProbe m_Probes;
+	CServerGameEnts m_Ents{ &m_Engine, &m_MdlCache, m_Managed, m_bManagedLoaded, m_TransmitSet, m_Probes };
 	std::vector<std::unique_ptr<CBoxEntity>> m_Entities;
 	CCheckTransmitInfo m_Info{};
 	CBitVec<MAX_EDICTS> m_Sent;
@@ -149,15 +160,22 @@ TEST_F( ServerGameEnts, APvsCheckedEdictIsSentOnlyWhenItsBoxIsInThePvs )
 
 TEST_F( ServerGameEnts, TheEdictManagedSaysIsAlwaysSentToThisClientIsSentOutsideThePvs )
 {
-	SSManagedClientsTable table{};
-	table.ServerTransmitAlwaysForClient = AlwaysEdictFive;
-	IManagedClients managed( &table );
-	m_Managed.m_pClients = &managed;
+	s_nAlways = 5;
 	Box( 5, -10.0f );
 
 	Walk();
 
 	EXPECT_TRUE( m_Sent.Get( 5 ) );
+}
+
+TEST_F( ServerGameEnts, WhileTheManagedSideIsDownNoRecipientIsSentAnything )
+{
+	m_bManagedLoaded = false;
+	Flag( 2, FL_EDICT_ALWAYS );
+
+	Walk();
+
+	EXPECT_FALSE( m_Sent.Get( 2 ) );
 }
 
 TEST_F( ServerGameEnts, ARecipientManagedDeclinesIsSentNothing )
@@ -188,9 +206,16 @@ TEST( LateBoundServerGameEnts, ForwardsToTheImplementationItIsBoundTo )
 {
 	CPvsEngine engine;
 	CFakeMDLCache mdlCache;
+	SSManagedClientsTable table{};
+	table.ServerSkyboxAreaForClient = SkyboxAreaThree;
+	table.ServerTransmitAlwaysForClient = AlwaysSent;
+	IManagedClients clients( &table );
 	CManagedAreas managed{};
+	managed.m_pClients = &clients;
+	bool bManagedLoaded = true;
 	CShellTransmitSet transmitSet;
-	CServerGameEnts impl( &engine, &mdlCache, managed, transmitSet );
+	CBoundaryProbe probes;
+	CServerGameEnts impl( &engine, &mdlCache, managed, bManagedLoaded, transmitSet, probes );
 	CLateBoundServerGameEnts forwarder;
 	forwarder.Bind( &impl );
 

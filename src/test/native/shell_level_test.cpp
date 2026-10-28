@@ -4,6 +4,8 @@
 #include "gtest/gtest.h"
 
 #include "shell_level.h"
+#include "precache_model.h"
+#include "shell_managed_areas.h"
 #include "server_state.h"
 #include "eiface.h"
 #include "fakes/fake_engine_server.g.h"
@@ -14,6 +16,8 @@
 #include "shell_serversystem.h"
 #include "shell_standalone.h"
 #include "ss_world.h"
+#include "ss_entityfactory.h"
+#include "ss_mapentities.h"
 #include "ss_soundent.h"
 
 #include "mathlib_test_env.h"
@@ -25,35 +29,26 @@
 // nothing else is reached by these facts.
 static int s_nWorldSpawns = 0;
 
-bool MapEntity_SpawnWorld( const char *const *, const char *const *, int )
+void SourceSharp_Trace( const char *, const char * ) {}
+
+int SourceSharp_GetVerbosity()
+{
+	return 0;
+}
+
+static ss::IEntityFactoryDictionary *s_pSpawnedThrough = nullptr;
+
+bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServerEntityContext &, const char *const *,
+						   const char *const *, int )
 {
 	s_nWorldSpawns++;
+	s_pSpawnedThrough = &factories;
 	return true;
 }
 
 CWorld *GetWorldEntity()
 {
 	return nullptr;
-}
-
-CServerSystem *GameStringSystem()
-{
-	return nullptr;
-}
-
-CServerSystem *PhysicsGameSystem()
-{
-	return nullptr;
-}
-
-uint32_t SourceSharp_CreateEntity( const char * )
-{
-	return INVALID_EHANDLE_INDEX;
-}
-
-SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t )
-{
-	return SourceSharpEntity_t();
 }
 
 void SourceSharp_ResetEntitySlots() {}
@@ -63,11 +58,6 @@ static const CServerEntityContext *s_pShutDownWith = nullptr;
 void StandaloneEntities_LevelShutdown( const CServerEntityContext &context )
 {
 	s_pShutDownWith = &context;
-}
-
-bool CStandaloneEntity::KeyValueShellOnly( const char *, const char * )
-{
-	return false;
 }
 
 const model_t *CWorldCollideable::GetCollisionModel()
@@ -122,10 +112,51 @@ public:
 	bool m_bCreatePlayers = false;
 };
 
+// The physics game system the level is handed: records its steps, and answers Init as told.
+class CRecordingPhysics : public CServerSystem
+{
+public:
+	bool Init() override
+	{
+		m_Steps += "init ";
+		return m_bInitAnswers;
+	}
+
+	void LevelInitPreEntity() override { m_Steps += "pre "; }
+
+	void LevelInitPostEntity() override { m_Steps += "post "; }
+
+	void LevelShutdownPreEntity() override { m_Steps += "shutdown-pre "; }
+
+	void LevelShutdownPostEntity() override { m_Steps += "shutdown-post "; }
+
+	std::string m_Steps;
+	bool m_bInitAnswers = true;
+};
+
+// The world spawn is stubbed above, so nothing is asked of the dictionary itself.
+class CNoFactories : public ss::IEntityFactoryDictionary
+{
+public:
+	void InstallFactory( ss::IEntityFactory *, const char * ) override {}
+
+	IServerNetworkable *Create( const char * ) override { return nullptr; }
+
+	void Destroy( const char *, IServerNetworkable * ) override {}
+
+	ss::IEntityFactory *FindFactory( const char * ) override { return nullptr; }
+
+	const char *GetCannonicalName( const char *pClassName ) override { return pClassName; }
+};
+
 class ServerLevel : public ::testing::Test
 {
 protected:
-	ServerLevel() { s_nWorldSpawns = 0; }
+	ServerLevel()
+	{
+		s_nWorldSpawns = 0;
+		s_pSpawnedThrough = nullptr;
+	}
 
 	CLoadGameEngine m_Engine;
 	COneFileSystem m_Files;
@@ -134,10 +165,46 @@ protected:
 	CManagedHolders m_Holders{};
 	CServerPlayersDll m_Players;
 	unsigned short m_nWorldSerial = 0;
-	CServerEntityContext m_Entities{ &m_Engine, nullptr, nullptr, m_Holders, m_Players, m_nWorldSerial };
-	CServerLevel m_Level{ &m_Engine, &m_Files, &m_MdlCache, &m_Globals, m_Entities };
+	bool m_bManagedLoaded = false;
+	unsigned int m_nManagedGeneration = 1;
+	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
+	CServerEntityContext m_Entities{ &m_Engine,        &m_Globals,           nullptr,   nullptr,        m_Holders,
+									 m_bManagedLoaded, m_nManagedGeneration, m_Players, m_nWorldSerial, m_Precache };
+	CNoFactories m_Factories;
+	CRecordingPhysics m_Physics;
+	CServerLevel m_Level{ &m_Engine,  &m_Files,    &m_MdlCache, &m_Globals,
+						  m_Entities, m_Factories, m_Precache,  m_Physics };
 };
 } // namespace
+
+TEST_F( ServerLevel, ThePhysicsStepsRunOnThePhysicsTheLevelWasHanded )
+{
+	EXPECT_EQ( 1, m_Level.PhysicsInit() );
+	m_Level.PhysicsLevelInitPreEntity();
+	m_Level.PhysicsLevelInitPostEntity();
+	m_Level.PhysicsLevelShutdownPreEntity();
+	m_Level.PhysicsLevelShutdownPostEntity();
+
+	EXPECT_EQ( "init pre post shutdown-pre shutdown-post ", m_Physics.m_Steps );
+}
+
+TEST_F( ServerLevel, APhysicsThatFailsToInitialiseIsAnsweredZero )
+{
+	m_Physics.m_bInitAnswers = false;
+	EXPECT_EQ( 0, m_Level.PhysicsInit() );
+}
+
+TEST_F( ServerLevel, ThePrecacheWindowIsThePrecachersOwn )
+{
+	EXPECT_EQ( 0, m_Level.IsPrecacheAllowed() );
+
+	m_Level.SetPrecacheAllowed( 1 );
+	EXPECT_TRUE( m_Precache.IsAllowed() );
+	EXPECT_EQ( 1, m_Level.IsPrecacheAllowed() );
+
+	m_Level.SetPrecacheAllowed( 0 );
+	EXPECT_FALSE( m_Precache.IsAllowed() );
+}
 
 TEST_F( ServerLevel, AFilesSizeIsAnsweredAndItIsClosed )
 {
@@ -195,6 +262,12 @@ TEST_F( ServerLevel, WorldKeysWithoutTheirArraysAreRefusedBeforeTheSpawn )
 
 	EXPECT_EQ( 1, m_Level.SpawnWorld( nullptr, nullptr, 0 ) );
 	EXPECT_EQ( 1, s_nWorldSpawns );
+}
+
+TEST_F( ServerLevel, TheWorldIsCreatedThroughTheDictionaryTheLevelWasHanded )
+{
+	EXPECT_EQ( 1, m_Level.SpawnWorld( nullptr, nullptr, 0 ) );
+	EXPECT_EQ( &m_Factories, s_pSpawnedThrough );
 }
 
 TEST_F( ServerLevel, TheStandaloneTeardownIsHandedTheLevelsEntityContext )

@@ -15,19 +15,20 @@
 
 #include "shell_standalone_player.h"
 #include "datacache/imdlcache.h"
+#include "server_entity_context.h"
 
 // Defined in shell_standalone_base.cpp.
 void StandaloneEntities_Finish( const CServerEntityContext &context );
 
-void UpdateAllClientData();
+void UpdateAllClientData( const CGlobalVars *pGlobals, const CServerWorldQueries &world );
 
-bool EntitySim_IsSimulatingOnAlternateTicks();
+bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals );
 
 int SourceSharp_DrainEntitySlots();
 
 int32_t CServerFrame::IsSimulatingOnAlternateTicks()
 {
-	return EntitySim_IsSimulatingOnAlternateTicks() ? 1 : 0;
+	return EntitySim_IsSimulatingOnAlternateTicks( m_pGlobals ) ? 1 : 0;
 }
 
 int32_t CServerFrame::TickCount()
@@ -47,13 +48,13 @@ void CServerFrame::SetFrameTime( float flFrameTime )
 
 void CServerFrame::UpdateAllClientData()
 {
-	::UpdateAllClientData();
+	::UpdateAllClientData( m_pGlobals, m_World );
 }
 
 void CServerFrame::EndGameFrame()
 {
-	if ( g_pGameRules )
-		g_pGameRules->EndGameFrame();
+	if ( IGameRules *pRules = m_Entities.GameRules() )
+		pRules->EndGameFrame();
 }
 
 void CServerFrame::GamestatsUpdateConnection()

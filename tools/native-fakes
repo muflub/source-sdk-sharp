@@ -46,6 +46,8 @@ FAKES = [
     ('IServerEntity', 'vendor/shared/public/iserverentity.h', 'iserverentity.h',
      'src/test/native/fakes/fake_server_entity.g.h', {'IServerUnknown': 'vendor/shared/public/iserverunknown.h',
                                                       'IHandleEntity': 'vendor/shared/public/ihandleentity.h'}),
+    ('IVModelInfo', 'vendor/shared/public/engine/ivmodelinfo.h', 'engine/ivmodelinfo.h',
+     'src/test/native/fakes/fake_model_info.g.h'),
 ]
 
 

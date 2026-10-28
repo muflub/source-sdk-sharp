@@ -11,6 +11,7 @@
 // command count); every game decision is managed.
 #pragma once
 
+#include "server_string_pool.h"
 #include "shell_standalone_class.h"
 #include "imovementplayer.h"
 #include "PlayerState.h"
@@ -58,6 +59,9 @@ public:
 	const char *PlayerName() const { return m_szPlayerName; }
 
 	void SetPlayerName( const char *pName );
+
+	// The player's pooled strings, for dumpgamestringtable.
+	const CServerStringPool &Strings() const { return m_Strings; }
 
 	// The count of commands C# decoded and queued for this player.
 	void QueuedUsercmds( int nCount );
@@ -270,11 +274,10 @@ private:
 	int m_nPendingCmds;
 
 	char m_szPlayerName[128];
-};
 
-// Creates the player for a connecting client through the registered factory, bound to
-// the engine's edict. NULL, with a warning, when the class was never registered.
-CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &context, edict_t *pEdict, const char *pPlayerName );
+	// What the player state's netname points into.
+	CServerStringPool m_Strings;
+};
 
 // A client command that is not a registered ConCommand, handed to managed code.
 void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand &args );

@@ -14,10 +14,12 @@
 
 #include "shell_standalone_player.h"
 #include "server_engine.h"
+#include "server_player_queries.h"
+#include "server_entity_resolver.h"
 
 // 1 when this edict is a standalone player, with pOutXYZ written; 0 otherwise,
 // with pOutXYZ untouched, so the caller can tell a miss from the world origin.
-int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ )
+int32_t CServerPlayerQueries::ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ )
 {
 	if ( pOutXYZ == NULL )
 		return 0;

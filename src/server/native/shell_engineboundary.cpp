@@ -29,9 +29,6 @@
 #include "datacache/imdlcache.h"
 #include "shell_server.h"
 
-// Engine interfaces, assigned only by SourceSharp_AcquireEngineInterfaces.
-CGlobalVars *gpGlobals;
-
 // edict.h's StateChanged reads the engine's change list through this.
 CSharedEdictChangeInfo *SharedEdictChangeInfo()
 {
@@ -46,7 +43,7 @@ IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 // Acquires the engine interfaces and loads the game event files. Returns false on
 // the first missing interface, as stock's DLLInit does.
 bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
-										  CreateInterfaceFn fileSystemFactory )
+										  CreateInterfaceFn fileSystemFactory, ICvar *pCvar )
 {
 	CServerEngineInterfaces &bound = ShellGameDll_Dll()->m_Engine;
 
@@ -94,7 +91,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 	factories.engineFactory = appSystemFactory;
 	factories.fileSystemFactory = fileSystemFactory;
 	factories.physicsFactory = physicsFactory;
-	ss::FactoryList_Store( factories );
+	bound.m_Factories = factories;
 
 	// Both event files load before anything can fire an event, or it is dropped.
 	bound.m_pEvents->LoadEventsFromFile( "resource/gameevents.res" );
@@ -102,7 +99,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 	bound.m_pEvents->LoadEventsFromFile( "resource/ModEvents.res" );
 
 	// Required, as in stock, though nothing native reads it.
-	if ( !g_pCVar->FindVar( "sv_cheats" ) )
+	if ( !pCvar || !pCvar->FindVar( "sv_cheats" ) )
 		return false;
 
 	// May be NULL on HLDS; stock does not check it.

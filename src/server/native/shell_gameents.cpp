@@ -25,14 +25,14 @@
 
 void CServerGameEnts::SetDebugEdictBase( edict_t *base )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Ents_SetDebugEdictBase );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Ents_SetDebugEdictBase );
 
 	m_pDebugEdictBase = base;
 }
 
 void CServerGameEnts::MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Ents_MarkEntitiesAsTouching );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Ents_MarkEntitiesAsTouching );
 
 	// No edict has a CBaseEntity behind it on this build.
 	IGameEntity *entity = NULL;
@@ -59,7 +59,7 @@ void CServerGameEnts::MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 )
 
 void CServerGameEnts::FreeContainingEntity( edict_t *e )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Ents_FreeContainingEntity );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Ents_FreeContainingEntity );
 
 	// No edict has a CBaseEntity behind it, so there is nothing to free; the edict is the engine's.
 	(void)e;
@@ -70,7 +70,7 @@ edict_t *CServerGameEnts::BaseEntityToEdict( IGameEntity *pEnt )
 	// One return, so the boundary probe sees every answer.
 	edict_t *pResult = NULL;
 
-	SS_BOUNDARY_HIT_PTR( kBoundaryProbe_Ents_BaseEntityToEdict, pResult );
+	SS_BOUNDARY_HIT_PTR( m_Probes, kBoundaryProbe_Ents_BaseEntityToEdict, pResult );
 	return pResult;
 }
 
@@ -79,13 +79,13 @@ IGameEntity *CServerGameEnts::EdictToBaseEntity( edict_t *pEdict )
 	// No edict has a CBaseEntity behind it. One return, for the boundary probe.
 	IGameEntity *pResult = NULL;
 
-	SS_BOUNDARY_HIT_PTR( kBoundaryProbe_Ents_EdictToBaseEntity, pResult );
+	SS_BOUNDARY_HIT_PTR( m_Probes, kBoundaryProbe_Ents_EdictToBaseEntity, pResult );
 	return pResult;
 }
 
 void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts )
 {
-	SS_BOUNDARY_HIT( kBoundaryProbe_Ents_CheckTransmit );
+	SS_BOUNDARY_HIT( m_Probes, kBoundaryProbe_Ents_CheckTransmit );
 
 	// NOTE: for speed's sake, this assumes that all networkables are CBaseEntities and that the edict list
 	// is consecutive in memory. If either of these things change, then this routine needs to change, but
@@ -101,7 +101,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	const int nRecipientIndex = pInfo->m_pClientEnt ? (int)( pInfo->m_pClientEnt - pBaseEdict ) : 0;
 
 	int skyBoxArea = 0;
-	const bool bHaveRecipient = SourceSharp_SkyboxAreaForClient( nRecipientIndex, &skyBoxArea ) != 0;
+	const bool bHaveRecipient = SkyboxAreaForClient( nRecipientIndex, &skyBoxArea ) != 0;
 
 	Assert( bHaveRecipient && !pRecipientEntity );
 	if ( !bHaveRecipient )
@@ -177,4 +177,20 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 				m_TransmitSet.Mark( i );
 		}
 	}
+}
+
+int CServerGameEnts::SkyboxAreaForClient( int iClientEdict, int *pOutArea ) const
+{
+	IManagedClients *pApi = m_bManagedLoaded ? m_Managed.m_pClients : NULL;
+	if ( !pApi )
+		return 0;
+
+	int32_t nArea = 0;
+	const int32_t nFound = pApi->ServerSkyboxAreaForClient( iClientEdict, &nArea );
+
+	// Written only on a hit: area 0 is a real area.
+	if ( nFound )
+		*pOutArea = nArea;
+
+	return nFound ? 1 : 0;
 }

@@ -18,12 +18,12 @@
 
 #include "native_command_body.h"
 #include "server_state.h"
+#include "server_network.h"
+#include "server_entity_resolver.h"
 
 // The block sizes itself without const.h so the gtest needs no engine; a block shorter
 // than the entity list would refuse its tail.
 COMPILE_TIME_ASSERT( SOURCESHARP_MAX_ENTITY_SLOTS >= NUM_ENT_ENTRIES );
-
-void *SourceSharp_EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize );
 
 // Both tables live in the DLL tier (server_state.h) from DLLInit to the end of
 // DLLShutdown, after managed unload, so pointers C# holds stay valid. NULL outside it.
@@ -69,8 +69,8 @@ static bool SourceSharp_MarkStateChanged( uint32_t hEntity )
 // The one crossing per bound state: the blob, its size, a pointer to the slot and the
 // slot's serial. Slots never move for the life of the DLL tier. NULL, size 0 and serial
 // 0 for anything with no blob.
-void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, SourceSharpEntitySlot_t **pOutSlot,
-								  uint32_t *pOutSerial )
+void *CServerNetwork::EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, SourceSharpEntitySlot_t **pOutSlot,
+									  uint32_t *pOutSerial )
 {
 	if ( pOutSize )
 		*pOutSize = 0;
@@ -80,15 +80,15 @@ void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, SourceSha
 		*pOutSerial = SOURCESHARP_SLOT_SERIAL_NONE;
 
 	const int nEntry = SourceSharp_SlotEntryOf( hEntity );
-	CSourceSharpEntitySlots *pSlots = EntitySlots();
+	CSourceSharpEntitySlots *pSlots = &m_Slots;
 
-	if ( nEntry < 0 || !pSlots )
+	if ( nEntry < 0 )
 	{
 		return NULL;
 	}
 
 	int32_t nSize = 0;
-	void *pBlob = SourceSharp_EntityGetDataBlob( hEntity, &nSize );
+	void *pBlob = EntityGetDataBlob( hEntity, &nSize );
 
 	if ( !pBlob || nSize <= 0 )
 	{
@@ -226,48 +226,4 @@ void SourceSharp_SlotUnbind( int nEntry )
 {
 	if ( CSourceSharpSlotTable *pTable = SlotTable() )
 		pTable->Unbind( nEntry );
-}
-
-// The one permitted downcast on an entity path; tools/entity-gates-allowlist names this
-// cast by line. Only CStandaloneEntity pointers are ever bound, and Resolve checks the
-// serial before any pointer is returned.
-CStandaloneEntity *SourceSharp_ShellFromHandle( const CBaseHandle &handle )
-{
-	CSourceSharpSlotTable *pTable = SlotTable();
-	return pTable ? static_cast<CStandaloneEntity *>( pTable->Resolve( handle ) ) : NULL;
-}
-
-// By entry index (the engine's route, no serial), through the handle resolver so there
-// is only one cast site.
-CStandaloneEntity *SourceSharp_ShellFromIndex( int nEntry )
-{
-	CSourceSharpSlotTable *pTable = SlotTable();
-	return pTable ? SourceSharp_ShellFromHandle( pTable->HandleOf( nEntry ) ) : NULL;
-}
-
-// No cast: GetRefEHandle is virtual, and a foreign IHandleEntity's handle fails the
-// serial compare.
-CStandaloneEntity *SourceSharp_ShellFromHandleEntity( IHandleEntity *pHandleEntity )
-{
-	if ( !pHandleEntity )
-		return NULL;
-
-	return SourceSharp_ShellFromHandle( pHandleEntity->GetRefEHandle() );
-}
-
-// A handle to whatever holds it: the slot table's shells, then the world. The two are
-// disjoint, so the order is one of cost only.
-IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle )
-{
-	if ( !handle.IsValid() )
-		return NULL;
-
-	if ( CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( handle ) )
-		return static_cast<IHandleEntity *>( static_cast<IServerEntity *>( pShell ) );
-
-	if ( CWorld *pWorld = SourceSharp_WorldFromHandle( handle ) )
-		return static_cast<IHandleEntity *>( static_cast<IServerEntity *>( pWorld ) );
-
-	// No other population remains.
-	return NULL;
 }

@@ -35,13 +35,28 @@
 #include <algorithm>
 #include <vector>
 #include "server_engine.h"
+#include "shell_entity_lifecycle.h"
+#include "ss_entityfactory.h"
+#include "server_transform.h"
+#include "server_entity_resolver.h"
+#include "server_player_queries.h"
+#include "server_entity_resolver.h"
+#include "server_collision.h"
+#include "server_entity_resolver.h"
+#include "server_movement.h"
+#include "server_entity_resolver.h"
+#include "server_entities.h"
+#include "server_entity_resolver.h"
+#include "server_network.h"
+#include "server_entity_resolver.h"
+#include "server_models.h"
+#include "server_entity_resolver.h"
+#include "server_console_commands.h"
+#include "server_entity_resolver.h"
 
 // A using-declaration rather than ss:: at the use: entity_shell_inert_slots_test
 // reads `::` in a slot body as the body reaching something.
 using ss::kDamageYes;
-
-IGameEntity *CreateEntityByNameEither( const char *className, IGameEntity **ppOutBaseEntity,
-									   IServerEntity **ppOutServerEntity );
 
 IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity )
 {
@@ -70,9 +85,9 @@ int32_t SourceSharp_EntityIsValid( uint32_t hEntity )
 	return SourceSharp_ResolveEntity( hEntity ).IsValid() ? 1 : 0;
 }
 
-int32_t SourceSharp_EntityIsPlayer( uint32_t hEntity )
+int32_t CServerEntities::EntityIsPlayer( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	return ( ent.pStandalone && ent.pStandalone->IsPlayer() ) ? 1 : 0;
 }
@@ -89,28 +104,28 @@ int32_t SourceSharp_EntityGetIndex( uint32_t hEntity )
 	return ent.pStandalone ? ent.pStandalone->EntIndex() : -1;
 }
 
-void SourceSharp_EntityGetClassName( uint32_t hEntity, char *pOut, int32_t nOutSize )
+void CServerEntities::EntityGetClassName( uint32_t hEntity, char *pOut, int32_t nOutSize )
 {
 	if ( !pOut || nOutSize <= 0 )
 		return;
 
 	pOut[0] = '\0';
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	ss::StrCopy( pOut, ent.Classname(), nOutSize );
 }
 
-int32_t SourceSharp_EntityGetHealth( uint32_t hEntity )
+int32_t CServerEntities::EntityGetHealth( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	return ent.pStandalone ? ent.pStandalone->GetHealth() : 0;
 }
 
-void SourceSharp_EntitySetHealth( uint32_t hEntity, int32_t nHealth )
+void CServerEntities::EntitySetHealth( uint32_t hEntity, int32_t nHealth )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 		ent.pStandalone->SetHealth( nHealth );
@@ -134,14 +149,14 @@ void SourceSharp_EntityGetOrigin( uint32_t hEntity, float *pOutXYZ )
 	pOutXYZ[2] = pOrigin->z;
 }
 
-void SourceSharp_EntitySetOrigin( uint32_t hEntity, const float *pXYZ )
+void CServerTransform::EntitySetOrigin( uint32_t hEntity, const float *pXYZ )
 {
 	if ( !pXYZ )
 		return;
 
 	const Vector vecOrigin( pXYZ[0], pXYZ[1], pXYZ[2] );
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 		ent.pStandalone->SetAbsOrigin( vecOrigin );
@@ -150,13 +165,13 @@ void SourceSharp_EntitySetOrigin( uint32_t hEntity, const float *pXYZ )
 // The entity's data blob, shared with C# rather than copied; C# writes it in place.
 // Does not mark the edict changed: bound states report their own writes.
 // The pointer lives as long as the entity; a caller that keeps it must use
-// SourceSharp_EntityBindBlob.
-void *SourceSharp_EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize )
+// EntityBindBlob.
+void *CServerNetwork::EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize )
 {
 	if ( pOutSize )
 		*pOutSize = 0;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
 	{
@@ -169,7 +184,7 @@ void *SourceSharp_EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize )
 
 	if ( ent.IsWorld() )
 	{
-		CWorld *pWorld = GetWorldEntity();
+		CWorld *pWorld = m_Entities.World();
 
 		// Zero when managed never declared one, which the caller refuses as "no blob".
 		if ( pWorld->BlobBytes() > 0 )
@@ -190,7 +205,7 @@ void *SourceSharp_EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize )
 // mark the edict changed.
 bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutWords, int *pOutFirstBadWord );
 
-int32_t SourceSharp_EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords, int32_t *pOutFirstBadWord )
+int32_t CServerNetwork::EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords, int32_t *pOutFirstBadWord )
 {
 	if ( pOutWords )
 		*pOutWords = 0;
@@ -201,7 +216,7 @@ int32_t SourceSharp_EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords
 	int nFirstBad = -1;
 	bool bAgrees = false;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( !ent.pStandalone )
 		return -1;
@@ -220,7 +235,7 @@ int32_t SourceSharp_EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords
 	return bAgrees ? 1 : 0;
 }
 
-uint32_t SourceSharp_CreateEntity( const char *pClassName )
+uint32_t CServerEntityLifecycle::CreateEntity( const char *pClassName )
 {
 	if ( !pClassName || !pClassName[0] )
 		return INVALID_EHANDLE_INDEX;
@@ -228,7 +243,7 @@ uint32_t SourceSharp_CreateEntity( const char *pClassName )
 	// CreateEntityByNameEither, since CreateEntityByName answers only CBaseEntity and
 	// would destroy an entity of the parallel hierarchy.
 	IGameEntity *pEnt = NULL;
-	IGameEntity *pGameEntity = CreateEntityByNameEither( pClassName, &pEnt, NULL );
+	IGameEntity *pGameEntity = CreateEntityByNameEither( Factories(), pClassName, &pEnt, NULL );
 
 	if ( pGameEntity )
 		return SourceSharp_ShellOf( pGameEntity )->ManagedHandle();
@@ -242,8 +257,49 @@ uint32_t SourceSharp_CreateEntity( const char *pClassName )
 	return INVALID_EHANDLE_INDEX;
 }
 
-// Spawns what CreateEntity made. Keyvalues and position are set between the two.
-void SourceSharp_EntitySpawn( uint32_t hEntity )
+uint32_t CServerEntityLifecycle::MapSpawnCreate( const char *pClassName, const char *pPackedKeys, int32_t nBytes )
+{
+	const uint32_t hEntity = CreateEntity( pClassName );
+
+	if ( hEntity == INVALID_EHANDLE_INDEX )
+		return INVALID_EHANDLE_INDEX;
+
+	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+
+	if ( ent.pStandalone == NULL )
+	{
+		// The managed registry and the native factories disagree; say so.
+		Warning( "[SourceSharp] map spawn: '%s' is not on the parallel hierarchy; "
+				 "its map keys were not applied\n",
+				 pClassName );
+		return hEntity;
+	}
+
+	if ( pPackedKeys && nBytes > 0 )
+	{
+		const char *pAt = pPackedKeys;
+		const char *pEnd = pPackedKeys + nBytes;
+
+		while ( pAt < pEnd )
+		{
+			const char *pKey = pAt;
+			pAt += strlen( pAt ) + 1;
+
+			// A truncated payload: stop rather than read past pEnd.
+			if ( pAt >= pEnd )
+				break;
+
+			const char *pValue = pAt;
+			pAt += strlen( pAt ) + 1;
+
+			ent.pStandalone->KeyValueShellOnly( pKey, pValue );
+		}
+	}
+
+	return hEntity;
+}
+
+void CServerEntityLifecycle::EntitySpawn( uint32_t hEntity )
 {
 	// The shell's own Spawn is the whole precache, spawn and activate sequence.
 	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
@@ -255,13 +311,13 @@ void SourceSharp_EntitySpawn( uint32_t hEntity )
 	}
 }
 
-void SourceSharp_EntitySetModel( uint32_t hEntity, const char *pModel )
+void CServerModels::EntitySetModel( uint32_t hEntity, const char *pModel )
 {
 	if ( !pModel || !pModel[0] )
 		return;
 
 	// Applied immediately: the native Spawn has already run.
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -272,31 +328,31 @@ void SourceSharp_EntitySetModel( uint32_t hEntity, const char *pModel )
 
 // The name the entity reports from here on; the class it was made as, which pairs
 // its native and managed halves and its network layout, stays.
-void SourceSharp_EntitySetClassName( uint32_t hEntity, const char *pName )
+void CServerEntities::EntitySetClassName( uint32_t hEntity, const char *pName )
 {
 	if ( !pName || !pName[0] )
 		return;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 		ent.pStandalone->SetReportedClassname( pName );
 }
 
 // Handle-based iteration, so a walk spanning frames cannot hold a dangling pointer.
-uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pClassName )
+uint32_t CServerEntities::FindEntityByClassname( uint32_t hStartAfter, const char *pClassName )
 {
 	if ( !pClassName || !pClassName[0] )
 		return INVALID_EHANDLE_INDEX;
 
 	// Resumes on whichever hierarchy hStartAfter belongs to.
-	const SourceSharpEntity_t start = SourceSharp_ResolveEntity( hStartAfter );
+	const SourceSharpEntity_t start = m_Entities.Resolve( hStartAfter );
 
 	// The world is on neither hierarchy, so it comes first; resuming from its handle
 	// leaves `start` empty and starts the walk below at the beginning.
 	if ( !start.IsValid() && EntityNames_Match( pClassName, "worldspawn" ) )
 	{
-		if ( CWorld *pWorld = GetWorldEntity() )
+		if ( CWorld *pWorld = m_Entities.World() )
 			return (uint32_t)pWorld->GetRefEHandle().ToInt();
 	}
 
@@ -305,7 +361,7 @@ uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pC
 	return pFound ? (uint32_t)pFound->GetRefEHandle().ToInt() : INVALID_EHANDLE_INDEX;
 }
 
-void SourceSharp_EntityRemove( uint32_t hEntity )
+void CServerEntityLifecycle::EntityRemove( uint32_t hEntity )
 {
 	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
 
@@ -313,61 +369,29 @@ void SourceSharp_EntityRemove( uint32_t hEntity )
 		ent.pStandalone->Remove();
 }
 
-int32_t SourceSharp_PlayerIsAlive( uint32_t hPlayer )
+int32_t CServerPlayerQueries::PlayerIsAlive( uint32_t hPlayer )
 {
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.Player( hPlayer ) )
 		return pStandalone->MvIsAlive() ? 1 : 0;
 
 	return 0;
 }
 
-void SourceSharp_PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode )
+void CServerPlayerQueries::PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode )
 {
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.Player( hPlayer ) )
 		pStandalone->SetObserver( nMode != SOURCESHARP_OBS_NONE, nMode );
 }
 
-int32_t SourceSharp_PlayerGetObserverMode( uint32_t hPlayer )
+int32_t CServerPlayerQueries::PlayerGetObserverMode( uint32_t hPlayer )
 {
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
+	if ( CStandalonePlayer *pStandalone = m_Entities.Player( hPlayer ) )
 		return pStandalone->MvGetObserverMode();
 
 	return SOURCESHARP_OBS_NONE;
 }
 
-void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType )
-{
-	const SourceSharpEntity_t victim = SourceSharp_ResolveEntity( hVictim );
-	IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();
-
-	if ( victim.pStandalone )
-	{
-		ss::CTakeDamageInfo standaloneInfo( pAttacker, pAttacker, flDamage, nDamageType );
-
-		victim.pStandalone->TakeDamage( standaloneInfo );
-		return;
-	}
-}
-
-void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-								   const float *pForceXYZ, const float *pPositionXYZ )
-{
-	const SourceSharpEntity_t victim = SourceSharp_ResolveEntity( hVictim );
-	if ( !victim.pStandalone )
-		return;
-
-	IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();
-
-	ss::CTakeDamageInfo info( pAttacker, pAttacker, flDamage, nDamageType );
-	if ( pForceXYZ )
-		info.SetDamageForce( Vector( pForceXYZ[0], pForceXYZ[1], pForceXYZ[2] ) );
-	if ( pPositionXYZ )
-		info.SetDamagePosition( Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ) );
-
-	victim.pStandalone->TakeDamage( info );
-}
-
-uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex )
+uint32_t CServerPlayerQueries::GetPlayerHandle( int32_t nPlayerIndex )
 {
 	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( nPlayerIndex ) )
 		return pStandalone->ManagedHandle();
@@ -375,9 +399,9 @@ uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex )
 	return INVALID_EHANDLE_INDEX;
 }
 
-void SourceSharp_EntitySetVisible( uint32_t hEntity, int32_t bVisible )
+void CServerEntities::EntitySetVisible( uint32_t hEntity, int32_t bVisible )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -408,14 +432,14 @@ void SourceSharp_EntityGetAngles( uint32_t hEntity, float *pOutPYR )
 	pOutPYR[2] = pAngles->z;
 }
 
-void SourceSharp_EntityGetVelocity( uint32_t hEntity, float *pOutXYZ )
+void CServerTransform::EntityGetVelocity( uint32_t hEntity, float *pOutXYZ )
 {
 	if ( !pOutXYZ )
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveEntity( hEntity ).pStandalone )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Resolve( hEntity ).pStandalone )
 	{
 		const Vector &vecVelocity = pStandalone->GetVelocity();
 		pOutXYZ[0] = vecVelocity.x;
@@ -424,22 +448,23 @@ void SourceSharp_EntityGetVelocity( uint32_t hEntity, float *pOutXYZ )
 	}
 }
 
-void SourceSharp_EntitySetVelocity( uint32_t hEntity, const float *pXYZ )
+void CServerTransform::EntitySetVelocity( uint32_t hEntity, const float *pXYZ )
 {
 	if ( !pXYZ )
 		return;
 
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveEntity( hEntity ).pStandalone )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Resolve( hEntity ).pStandalone )
 		pStandalone->SetVelocity( Vector( pXYZ[0], pXYZ[1], pXYZ[2] ) );
 }
 
 // A single call, so the engine unlinks and relinks the entity once.
-void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin, const float *pAngles, int32_t bZeroVelocity )
+void CServerTransform::EntityTeleport( uint32_t hEntity, const float *pOrigin, const float *pAngles,
+									   int32_t bZeroVelocity )
 {
 	if ( !pOrigin )
 		return;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 	if ( !ent.IsValid() )
 		return;
 
@@ -462,9 +487,9 @@ void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin, const f
 	// after this returns.
 }
 
-void SourceSharp_EntitySetGravity( uint32_t hEntity, float flGravity )
+void CServerTransform::EntitySetGravity( uint32_t hEntity, float flGravity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -474,16 +499,16 @@ void SourceSharp_EntitySetGravity( uint32_t hEntity, float flGravity )
 }
 
 // Native because the surface normal exists only inside the step trace.
-void SourceSharp_EntitySetBounce( uint32_t hEntity, int32_t nBounces )
+void CServerTransform::EntitySetBounce( uint32_t hEntity, int32_t nBounces )
 {
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 		pStandalone->SetBounces( nBounces );
 }
 
 // The owner is skipped by Source's own trace filters ("don't clip against own missiles").
-void SourceSharp_EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
+void CServerEntities::EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -493,14 +518,14 @@ void SourceSharp_EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
 }
 
 // The eye, not the origin: a player's origin is at their feet.
-void SourceSharp_EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ )
+void CServerTransform::EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ )
 {
 	if ( !pOutXYZ )
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 	if ( !ent.IsValid() )
 		return;
 
@@ -511,7 +536,7 @@ void SourceSharp_EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ )
 
 	if ( !bHaveEye )
 	{
-		if ( CStandalonePlayer *pStandalonePlayer = SourceSharp_ResolveStandalonePlayer( hEntity ) )
+		if ( CStandalonePlayer *pStandalonePlayer = m_Entities.Player( hEntity ) )
 		{
 			vecEye = pStandalonePlayer->EyePosition();
 		}
@@ -526,14 +551,14 @@ void SourceSharp_EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ )
 	pOutXYZ[2] = vecEye.z;
 }
 
-void SourceSharp_EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )
+void CServerTransform::EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )
 {
 	if ( !pOutPYR )
 		return;
 
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 	if ( !ent.IsValid() )
 		return;
 
@@ -544,7 +569,7 @@ void SourceSharp_EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )
 
 	if ( !bHaveAngles )
 	{
-		if ( CStandalonePlayer *pStandalonePlayer = SourceSharp_ResolveStandalonePlayer( hEntity ) )
+		if ( CStandalonePlayer *pStandalonePlayer = m_Entities.Player( hEntity ) )
 		{
 			angles = pStandalonePlayer->PlayerStatePtr()->v_angle;
 		}
@@ -561,22 +586,22 @@ void SourceSharp_EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )
 
 // Runs a command on one client's console. The newline terminates it, and "%s"
 // keeps a percent sign in map data from being read as a format.
-void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand )
+void CServerConsoleCommands::SendClientCommand( uint32_t hPlayer, const char *pCommand )
 {
 	if ( !pCommand || !pCommand[0] )
 		return;
 
-	CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer );
+	CStandalonePlayer *pStandalone = m_Entities.Player( hPlayer );
 	if ( !pStandalone )
 		return;
 
 	// A player mid-disconnect still resolves while its edict is unbound, and the
 	// engine dereferences that edict without checking.
-	edict_t *pEdict = ServerEngine()->PEntityOfEntIndex( pStandalone->EntIndex() );
+	edict_t *pEdict = m_pEngine->PEntityOfEntIndex( pStandalone->EntIndex() );
 	if ( !pEdict || !pEdict->GetUnknown() )
 		return;
 
-	ServerEngine()->ClientCommand( pEdict, "%s\n", pCommand );
+	m_pEngine->ClientCommand( pEdict, "%s\n", pCommand );
 }
 
 // Creates and spawns template instances from parsed key/value pairs. pClassNames
@@ -584,9 +609,10 @@ void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand )
 // key\0value\0... pack per entity, pPackBytes[i] long. Each entity is placed and
 // spawned at once, or it would wait until the next level load. Returns how many
 // were created, which can exceed nMax.
-int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys, const int32_t *pPackBytes,
-										const float *pOriginsXYZ, const float *pAnglesPYR, int32_t nCount,
-										uint32_t *pOutHandles, int32_t nMax )
+int32_t CServerEntityLifecycle::TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys,
+													const int32_t *pPackBytes, const float *pOriginsXYZ,
+													const float *pAnglesPYR, int32_t nCount, uint32_t *pOutHandles,
+													int32_t nMax )
 {
 	SOURCESHARP_TRACE();
 
@@ -622,7 +648,8 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
 		if ( pPack )
 			pPack = pEnd;
 
-		IGameEntity *pEntity = MapEntity_CreateFromKeys( pClassName, keys.data(), values.data(), (int)keys.size() );
+		IGameEntity *pEntity =
+			MapEntity_CreateFromKeys( Factories(), pClassName, keys.data(), values.data(), (int)keys.size() );
 		if ( pEntity == NULL )
 		{
 			Msg( "Failed to initialize templated entity of class %s\n", pClassName );
@@ -651,12 +678,12 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
 
 // Sets a player's view angles. fixangle makes the client adopt v_angle instead of
 // predicting over it from its next usercmd.
-void SourceSharp_PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll )
+void CServerPlayerQueries::PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll )
 {
 	if ( !pPitchYawRoll )
 		return;
 
-	CStandalonePlayer *pPlayer = SourceSharp_ResolveStandalonePlayer( hPlayer );
+	CStandalonePlayer *pPlayer = m_Entities.Player( hPlayer );
 
 	if ( !pPlayer )
 		return;
@@ -667,9 +694,9 @@ void SourceSharp_PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRo
 
 // Sets a player's move type outside a movement frame (noclip) and returns the
 // previous one, so a toggle is one call. SOURCESHARP_MOVETYPE_* are MOVETYPE_*.
-int32_t SourceSharp_PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
+int32_t CServerMovement::PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
 {
-	CStandalonePlayer *pPlayer = SourceSharp_ResolveStandalonePlayer( hPlayer );
+	CStandalonePlayer *pPlayer = m_Entities.Player( hPlayer );
 
 	if ( !pPlayer )
 		return SOURCESHARP_MOVETYPE_NONE;
@@ -683,9 +710,9 @@ int32_t SourceSharp_PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
 
 // Whether the entity is sent to every client regardless of PVS, as for a camera
 // viewed from another room (stock's CTriggerCamera uses FL_EDICT_ALWAYS).
-void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
+void CServerNetwork::EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
 	{
@@ -701,7 +728,7 @@ void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
 }
 
 // Hands a map keyvalue to a spawned entity; the shell or its managed class claims it.
-int32_t SourceSharp_EntitySetKeyValue( uint32_t hEntity, const char *pKey, const char *pValue )
+int32_t CServerEntities::EntitySetKeyValue( uint32_t hEntity, const char *pKey, const char *pValue )
 {
 	if ( !pKey || !pKey[0] )
 		return 0;
@@ -710,7 +737,7 @@ int32_t SourceSharp_EntitySetKeyValue( uint32_t hEntity, const char *pKey, const
 	if ( !pValue )
 		pValue = "";
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 		return ent.pStandalone->KeyValue( pKey, pValue ) ? 1 : 0;
@@ -732,11 +759,11 @@ static const CollisionGroupName_t s_CollisionGroupNames[] = {
 
 static const int s_nCollisionGroupNames = sizeof( s_CollisionGroupNames ) / sizeof( s_CollisionGroupNames[0] );
 
-void SourceSharp_EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
+void CServerCollision::EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
 {
 	const int nEngineGroup = CollisionGroup_ToEngine( nGroup, s_CollisionGroupNames, s_nCollisionGroupNames );
 
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	if ( ent.pStandalone )
 	{
@@ -746,9 +773,9 @@ void SourceSharp_EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
 }
 
 // Many-to-one: a group with no SourceSharp name reads as None.
-int32_t SourceSharp_EntityGetCollisionGroup( uint32_t hEntity )
+int32_t CServerCollision::EntityGetCollisionGroup( uint32_t hEntity )
 {
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
 
 	int nEngineGroup = COLLISION_GROUP_NONE;
 
@@ -779,13 +806,13 @@ void SourceSharp_EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutS
 }
 
 // Bounds as offsets from the origin, in the entity's own space.
-void SourceSharp_EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ )
+void CServerCollision::EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ )
 {
 	// Both or neither.
 	if ( !pMinsXYZ || !pMaxsXYZ )
 		return;
 
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 	{
 		pStandalone->SetCollisionBounds( Vector( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] ),
 										 Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ) );
@@ -794,30 +821,30 @@ void SourceSharp_EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const
 
 // One call, because UpdatePartition reads both halves to decide whether the
 // entity is in the partition at all.
-void SourceSharp_EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags )
+void CServerCollision::EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags )
 {
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 		pStandalone->SetSolidity( (SolidType_t)nSolidType, nSolidFlags );
 }
 
 // The bloat half of CCollisionProperty::UseTriggerBounds; the flag goes through EntitySetSolidity.
-void SourceSharp_EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform )
+void CServerCollision::EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform )
 {
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 		pStandalone->SetTriggerBloat( nBloat, bUniform != 0 );
 }
 
 // Wholesale, for a restore putting back a value it read.
-void SourceSharp_EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags )
+void CServerEntities::EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags )
 {
-	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
 		pStandalone->SetSpawnFlags( nSpawnFlags );
 }
 
 // The gravity scale: a multiple of the world's, so 1 is no change.
-float SourceSharp_EntityGetGravity( uint32_t hEntity )
+float CServerTransform::EntityGetGravity( uint32_t hEntity )
 {
-	CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity );
+	CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity );
 
 	return pStandalone ? pStandalone->GetGravityScale() : 0.0f;
 }

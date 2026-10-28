@@ -19,38 +19,3 @@
 #include "shell_server.h"
 
 #include "ss_shareddefs.h"
-
-void InstallGameRules()
-{
-	SOURCESHARP_TRACE();
-	SourceSharp_CreateGameRules();
-}
-
-void ClientPutInServer( CServerEntityContext &context, edict_t *pEntity, const char *playername )
-{
-	// The engine hands us an edict and expects the mod to attach a player
-	// entity to it. Nothing spawns without this.
-	SOURCESHARP_TRACE_MSG( playername );
-
-	// Create fails only if managed registered no player class. Fail loudly: a client
-	// admitted with no player entity dies somewhere unrelated later.
-	if ( !StandalonePlayer_Create( context, pEntity, playername ) )
-	{
-		Error( "[SourceSharp] ClientPutInServer: managed side registered no player class — cannot put '%s' in server\n",
-			   playername );
-		return;
-	}
-
-	SourceSharp_OnClientPutInServer( pEntity, playername );
-}
-
-void ClientActive( edict_t *pEdict, bool bLoadGame )
-{
-	SOURCESHARP_TRACE();
-
-	// Spawns when the client is fully connected, as stock's player does.
-	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )
-		pStandalone->Spawn();
-
-	SourceSharp_OnClientActive( pEdict, bLoadGame );
-}

@@ -16,9 +16,10 @@
 #include "generic_payload.h"
 #include "ground_handle_wire.h"
 
-// Bumped by a managed reload on both sides; stale field sets re-ask before use.
+#ifdef CLIENT_DLL
+// The client's managed generation (CManagedSide::Generation), for its field sets.
 unsigned int SourceSharp_PlayerSyncGeneration();
-void SourceSharp_PlayerSyncInvalidate( const char *pReason );
+#endif
 
 // The resolved placements: whole-storage fields keep an offset, narrow ones the
 // packed placement the C# packer chose.
@@ -41,7 +42,9 @@ struct SourceSharpPlayerFields_t
 
 	SourceSharpPlayerFields_t() { memset( this, 0, sizeof( *this ) ); }
 
-	bool IsCurrent() const { return nGeneration != 0 && nGeneration == SourceSharp_PlayerSyncGeneration(); }
+	// Resolved under the managed generation now current; a reload bumps it
+	// (CManagedSide::Generation), and a stale set re-asks before use.
+	bool IsCurrent( unsigned int nCurrent ) const { return nGeneration != 0 && nGeneration == nCurrent; }
 };
 
 // Asks the managed side for every placement. False, with one warning, when the
@@ -103,7 +106,7 @@ inline bool SourceSharp_NetStateAsk( SourceSharpNetStateAsk_t *pAsk )
 	return true;
 }
 
-bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields );
+bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields, unsigned int nGeneration );
 
 // The ground handle travels as an entry index word, never a resolved pointer.
 // Encode only: each side resolves the index through its own entity list. The
@@ -124,5 +127,6 @@ inline int SourceSharpPlayerSync_EncodeGround( const CBaseHandle &handle )
 // The server's engine side to the blob: origin, health and alive, the words
 // native holds. The managed command loop publishes the rest.
 void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob, const SourceSharpPlayerFields_t &fields,
-											const Vector &vecOrigin, int nHealth, bool bAlive );
+											unsigned int nGeneration, const Vector &vecOrigin, int nHealth,
+											bool bAlive );
 #endif

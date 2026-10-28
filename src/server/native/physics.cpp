@@ -21,7 +21,10 @@
 #include "vcollide_parse.h"
 
 #include "ss_init_factory.h"
-extern CGlobalVars *gpGlobals;
+#include "server_physics.h"
+#include "server_entity_context.h"
+#include "server_entity_resolver.h"
+#include "shell_managed_areas.h"
 
 #include "ss_world.h"
 float GetCurrentGravity();
@@ -46,84 +49,66 @@ using ss::masscenteroverride_t;
 #include "imanaged_areas.h"
 #include "ss_string.h"
 
-// Stock's physics_shared.cpp globals, filled by CPhysicsHook.
-IPhysics *physics = NULL;
-IPhysicsObject *g_PhysWorldObject = NULL;
-IPhysicsCollision *physcollision = NULL;
-IPhysicsEnvironment *physenv = NULL;
-IPhysicsSurfaceProps *physprops = NULL;
-
-class CPhysicsHook : public CServerSystem
+struct CServerPhysics::Impl
 {
-public:
-	virtual const char *Name() { return "CPhysicsHook"; }
-
-	virtual bool Init();
-	virtual void LevelInitPreEntity();
-	virtual void LevelInitPostEntity();
-	virtual void LevelShutdownPreEntity();
-	virtual void LevelShutdownPostEntity();
-
-	void FlushVehicleScripts() {}
-
-	bool ShouldSimulate() { return ( physenv && !m_bPaused ) ? true : false; }
-
-	CUtlVector<masscenteroverride_t> m_massCenterOverrides;
-
-	bool m_bPaused;
-
-	// The level's environment, owned by the game system rather than a file-scope global.
 	CSourceSharpPhysicsEnvironment m_ShellEnv;
+	CUtlVector<masscenteroverride_t> m_massCenterOverrides;
 };
 
-CPhysicsHook g_PhysicsHook;
-
-CServerSystem *PhysicsGameSystem()
+void CServerPhysics::DeleteImpl( Impl *pImpl )
 {
-	return &g_PhysicsHook;
+	delete pImpl;
 }
 
-bool CPhysicsHook::Init()
+CServerPhysics::CServerPhysics( CGlobalVars *pGlobals, const ss::factorylist_t &factories, const CManagedAreas &managed,
+								CServerPlayersDll &players, const CServerEntityContext &entities,
+								CServerEntityResolver &resolver )
+	: CServerSystem( "CPhysicsHook" )
+	, m_pGlobals( pGlobals )
+	, m_Factories( factories )
+	, m_Managed( managed )
+	, m_Players( players )
+	, m_Entities( entities )
+	, m_Resolver( resolver )
+	, m_pImpl( new Impl, &CServerPhysics::DeleteImpl )
 {
-	ss::factorylist_t factories;
+}
 
-	// Get the list of interface factories to extract the physics DLL's factory
-	ss::FactoryList_Retrieve( factories );
+bool CServerPhysics::Init()
+{
+	const ss::factorylist_t &factories = m_Factories;
 
 	if ( !factories.physicsFactory )
 		return false;
 
-	if ( ( physics = (IPhysics *)factories.physicsFactory( VPHYSICS_INTERFACE_VERSION, NULL ) ) == NULL ||
-		 ( physcollision =
+	if ( ( m_pPhysics = (IPhysics *)factories.physicsFactory( VPHYSICS_INTERFACE_VERSION, NULL ) ) == NULL ||
+		 ( m_pCollision =
 			   (IPhysicsCollision *)factories.physicsFactory( VPHYSICS_COLLISION_INTERFACE_VERSION, NULL ) ) == NULL ||
-		 ( physprops = (IPhysicsSurfaceProps *)factories.physicsFactory( VPHYSICS_SURFACEPROPS_INTERFACE_VERSION,
-																		 NULL ) ) == NULL )
+		 ( m_pSurfaceProps = (IPhysicsSurfaceProps *)factories.physicsFactory( VPHYSICS_SURFACEPROPS_INTERFACE_VERSION,
+																			   NULL ) ) == NULL )
 		return false;
 
 	return true;
 }
 
-// A player shadow still live when a new environment is created points into the old one.
-
-void CPhysicsHook::LevelInitPreEntity()
+void CServerPhysics::LevelInitPreEntity()
 {
-	ss::factorylist_t factories;
-	ss::FactoryList_Retrieve( factories );
+	const ss::factorylist_t &factories = m_Factories;
 
 	// Before the new environment exists: any shadow still live belongs to the old one.
-	if ( CServerDllState *pDll = ShellGameDll_Dll(); pDll && pDll->m_Players.m_nShadowsLive > 0 )
-		pDll->m_Players.m_nShadowsOutlived += pDll->m_Players.m_nShadowsLive;
+	if ( m_Players.m_nShadowsLive > 0 )
+		m_Players.m_nShadowsOutlived += m_Players.m_nShadowsLive;
 
 	// The four callback tables are managed's, installed at pre-entity init.
-	physenv = g_PhysicsHook.m_ShellEnv.Create( physics, NULL, NULL, NULL, NULL, factories.engineFactory,
-											   gpGlobals->interval_per_tick, // 15 ms per tick
-											   GetCurrentGravity(), // HL game gravity, not real-world gravity
-											   10 ); // maxCollisionsPerObjectPerTimestep
+	m_pEnv = m_pImpl->m_ShellEnv.Create( m_pPhysics, NULL, NULL, NULL, NULL, factories.engineFactory,
+										 m_pGlobals->interval_per_tick, // 15 ms per tick
+										 GetCurrentGravity(), // HL game gravity, not real-world gravity
+										 10 ); // maxCollisionsPerObjectPerTimestep
 
 	// Managed builds the world's physics object; native holds it.
-	IManagedPhysicsFrame *pPhysicsFrame = ManagedPhysicsFrame();
-	g_PhysWorldObject = pPhysicsFrame ? static_cast<IPhysicsObject *>( pPhysicsFrame->CreateWorld() ) : NULL;
-	if ( !g_PhysWorldObject )
+	IManagedPhysicsFrame *pPhysicsFrame = m_Managed.m_pPhysicsFrame;
+	m_pWorldObject = pPhysicsFrame ? static_cast<IPhysicsObject *>( pPhysicsFrame->CreateWorld() ) : NULL;
+	if ( !m_pWorldObject )
 		Warning( "[SourceSharp] the level has no world physics object: %s\n",
 				 pPhysicsFrame ? "managed built none" : "no managed load to build it" );
 
@@ -133,52 +118,50 @@ void CPhysicsHook::LevelInitPreEntity()
 	m_bPaused = true;
 }
 
-void CPhysicsHook::LevelInitPostEntity()
+void CServerPhysics::LevelInitPostEntity()
 {
 	m_bPaused = false;
 }
 
-void CPhysicsHook::LevelShutdownPreEntity()
+void CServerPhysics::LevelShutdownPreEntity()
 {
-	if ( !physenv )
+	if ( !m_pEnv )
 		return;
-	physenv->SetQuickDelete( true );
+	m_pEnv->SetQuickDelete( true );
 }
 
-void CPhysicsHook::LevelShutdownPostEntity()
+void CServerPhysics::LevelShutdownPostEntity()
 {
-	if ( !physenv )
+	if ( !m_pEnv )
 		return;
 
 	ss::PhysSaveRestore_ForgetAllModels();
 
-	g_PhysicsHook.m_ShellEnv.Destroy( physics );
-	physenv = NULL;
+	m_pImpl->m_ShellEnv.Destroy( m_pPhysics );
+	m_pEnv = NULL;
 
-	physics->DestroyAllCollisionSets();
+	m_pPhysics->DestroyAllCollisionSets();
 
-	g_PhysWorldObject = NULL;
+	m_pWorldObject = NULL;
 
-	m_massCenterOverrides.Purge();
-	FlushVehicleScripts();
+	m_pImpl->m_massCenterOverrides.Purge();
 }
 
-// Whether this object is the world's: one compare against the singleton. Both
-// NULL answers no, since g_PhysWorldObject is NULL during level load.
-CWorld *PhysicsWorldOwner( const IPhysicsObject *pObject )
+CWorld *CServerPhysics::WorldOwner( const IPhysicsObject *pObject ) const
 {
-	if ( !pObject || !g_PhysWorldObject )
+	if ( !pObject || !m_pWorldObject || pObject != m_pWorldObject )
 		return NULL;
 
-	return ( pObject == g_PhysWorldObject ) ? GetWorldEntity() : NULL;
+	return m_Entities.m_pLevel ? m_Entities.m_pLevel->m_pWorld : NULL;
 }
 
 // Tells each active object's owner the solver moved it, holds the velocity
 // managed computed for it (three floats per object), and writes out the entities
 // whose own object it is. A player's movement shadow is active but not its
 // entity's object. The world's object carries NULL game data, so it is
-// identified by PhysicsWorldOwner, never by a cast.
-int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount, uint32_t *pOutOwners )
+// identified by WorldOwner, never by a cast.
+int32_t CServerPhysics::PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,
+											 uint32_t *pOutOwners )
 {
 	if ( !ppObjects || !pVelocities || !pOutOwners || nCount <= 0 )
 		return 0;
@@ -190,7 +173,10 @@ int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, i
 		if ( !pObject )
 			continue;
 
-		PhysicsOwner_t owner = PhysicsOwnerOf( pObject );
+		// The world first: one exact pointer compare, and its game data is NULL.
+		PhysicsOwner_t owner = { NULL, NULL, WorldOwner( pObject ), NULL, pObject };
+		if ( !owner.pWorld )
+			owner = PhysicsOwnerOfGameData( pObject->GetGameData(), pObject );
 		if ( !owner.IsValid() )
 			continue;
 

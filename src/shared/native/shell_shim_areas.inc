@@ -13,11 +13,6 @@
 void * CShimEngine::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
 
-void CShimConsoleServer::SendClientCommand( uint32_t hPlayer, const char * pCommand )
-	{ return ::SourceSharp_SendClientCommand( hPlayer, pCommand ); }
-uint32_t CShimConsoleServer::GetCommandClientHandle()
-	{ return ::SourceSharp_GetCommandClientHandle(); }
-
 void CShimEventsServer::ListenForGameEvent( const char * pEventName )
 	{ return ::SourceSharp_ListenForGameEvent( pEventName ); }
 int32_t CShimEventsServer::EventGetInt( void * hEvent, const char * pKey )
@@ -35,250 +30,10 @@ void CShimEventsServer::EventSetBool( void * hEvent, const char * pKey, int32_t 
 void CShimEventsServer::EventSetString( void * hEvent, const char * pKey, const char * pValue )
 	{ return ::SourceSharp_EventSetString( hEvent, pKey, pValue ); }
 
-int32_t CShimNetworkServer::NetHierarchyDeclare( int32_t nBlobBytes )
-	{ return ::SourceSharp_NetHierarchyDeclare( nBlobBytes ); }
-int32_t CShimNetworkServer::NetPublishType( const char * pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes, uint32_t * pOutTypeId )
-	{ return ::SourceSharp_NetPublishType( pClassName, nShell, nSchemaHash, nLayoutBytes, pOutTypeId ); }
-int32_t CShimNetworkServer::NetTierInfo( int32_t nShell, int32_t iTier, const char ** ppOutTable, int32_t * pOutBytes, int32_t * pOutWords, int32_t * pOutProps, int32_t * pOutLive )
-	{ return ::SourceSharp_NetTierInfo( nShell, iTier, ppOutTable, pOutBytes, pOutWords, pOutProps, pOutLive ); }
-int32_t CShimNetworkServer::WorldNetDeclare( int32_t nBlobBytes )
-	{ return ::SourceSharp_WorldNetDeclare( nBlobBytes ); }
-void * CShimNetworkServer::EntityGetDataBlob( uint32_t hEntity, int32_t * pOutSize )
-	{ return ::SourceSharp_EntityGetDataBlob( hEntity, pOutSize ); }
-void * CShimNetworkServer::EntityBindBlob( uint32_t hEntity, int32_t * pOutSize, SourceSharpEntitySlot_t ** pOutSlot, uint32_t * pOutSerial )
-	{ return ::SourceSharp_EntityBindBlob( hEntity, pOutSize, pOutSlot, pOutSerial ); }
-void CShimNetworkServer::EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset )
-	{ return ::SourceSharp_EntityMarkBlockChanged( hEntity, nBlockOffset ); }
-int32_t CShimNetworkServer::EntityPayloadAgreement( uint32_t hEntity, int32_t * pOutWords, int32_t * pOutFirstBadWord )
-	{ return ::SourceSharp_EntityPayloadAgreement( hEntity, pOutWords, pOutFirstBadWord ); }
-void * CShimNetworkServer::EntityGetEngineBlock( uint32_t hEntity, int32_t * pOutSize )
-	{ return ::SourceSharp_EntityGetEngineBlock( hEntity, pOutSize ); }
-void CShimNetworkServer::EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
-	{ return ::SourceSharp_EntitySetTransmitAlways( hEntity, bAlways ); }
-
-void CShimModelsServer::EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_EntityGetModelName( hEntity, pOut, nOutSize ); }
-int32_t CShimModelsServer::EntitiesInvalidateMdlCacheAll()
-	{ return ::SourceSharp_EntitiesInvalidateMdlCacheAll(); }
-void CShimModelsServer::StandaloneSetModelScale( uint32_t hEntity, float flScale )
-	{ return ::SourceSharp_StandaloneSetModelScale( hEntity, flScale ); }
-void CShimModelsServer::EntitySetModel( uint32_t hEntity, const char * pModel )
-	{ return ::SourceSharp_EntitySetModel( hEntity, pModel ); }
-
-int32_t CShimPrecache::PrecacheModel( const char * pszModel )
-	{ return ::SourceSharp_PrecacheModel( pszModel ); }
-
-void CShimMovementServer::MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut )
-	{ return ::SourceSharp_MoveTrace( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut ); }
-int32_t CShimMovementServer::MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue )
-	{ return ::SourceSharp_MoveEffect( nKind, pXYZ, flValue, nValue ); }
-float CShimMovementServer::CurrentGravity()
-	{ return ::SourceSharp_CurrentGravity(); }
-void CShimMovementServer::RegisterMovementParams( const SourceSharpMovementParams * pParams )
-	{ return ::SourceSharp_RegisterMovementParams( pParams ); }
-int32_t CShimMovementServer::PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts * pOut )
-	{ return ::SourceSharp_PlayerShadowFacts( hPlayer, pOut ); }
-int32_t CShimMovementServer::PlayerShadowAdopt( uint32_t hPlayer, void * pStand, void * pCrouch, void * pController )
-	{ return ::SourceSharp_PlayerShadowAdopt( hPlayer, pStand, pCrouch, pController ); }
-void CShimMovementServer::PlayerShadowRelease( uint32_t hPlayer )
-	{ return ::SourceSharp_PlayerShadowRelease( hPlayer ); }
-void CShimMovementServer::PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand )
-	{ return ::SourceSharp_PlayerShadowCommit( hPlayer, nState, bAfterCommand ); }
-int32_t CShimMovementServer::PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
-	{ return ::SourceSharp_PlayerSetMoveType( hPlayer, nMoveType ); }
-int32_t CShimMovementServer::PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts * pFacts )
-	{ return ::SourceSharp_PlayerCommandBegin( hPlayer, pFacts ); }
-void CShimMovementServer::PlayerCommandView( uint32_t hPlayer, const float * pAnglePYR, int32_t nFixAngle )
-	{ return ::SourceSharp_PlayerCommandView( hPlayer, pAnglePYR, nFixAngle ); }
-void CShimMovementServer::PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult * pResult )
-	{ return ::SourceSharp_PlayerCommandFinish( hPlayer, pResult ); }
-void CShimMovementServer::MoveTraceServer( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut, void * pFilter, uint32_t * pOutHandles )
-	{ return ::SourceSharp_MoveTraceServer( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut, pFilter, pOutHandles ); }
-int32_t CShimMovementServer::PlayerFallDamage( uint32_t hPlayer, float flDamage )
-	{ return ::SourceSharp_PlayerFallDamage( hPlayer, flDamage ); }
-void CShimMovementServer::PlayerSyncEngineSide( uint32_t hPlayer )
-	{ return ::SourceSharp_PlayerSyncEngineSide( hPlayer ); }
-
-int32_t CShimWorldServer::EntityModelSurfaceProp( uint32_t hEntity )
-	{ return ::SourceSharp_EntityModelSurfaceProp( hEntity ); }
-int32_t CShimWorldServer::InvisibleRangeReach()
-	{ return ::SourceSharp_InvisibleRangeReach(); }
-void CShimWorldServer::SetSkyboxParams( const SourceSharpSkyboxParams * pParams )
-	{ return ::SourceSharp_SetSkyboxParams( pParams ); }
-
-int32_t CShimEntitiesServer::EntityGetIndex( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetIndex( hEntity ); }
-void CShimEntitiesServer::EntityGetOrigin( uint32_t hEntity, float * pOutXYZ )
-	{ return ::SourceSharp_EntityGetOrigin( hEntity, pOutXYZ ); }
-void CShimEntitiesServer::EntityGetAngles( uint32_t hEntity, float * pOutPYR )
-	{ return ::SourceSharp_EntityGetAngles( hEntity, pOutPYR ); }
-int32_t CShimEntitiesServer::EntityIsValid( uint32_t hEntity )
-	{ return ::SourceSharp_EntityIsValid( hEntity ); }
-int32_t CShimEntitiesServer::EntityIsPlayer( uint32_t hEntity )
-	{ return ::SourceSharp_EntityIsPlayer( hEntity ); }
-void CShimEntitiesServer::EntityGetClassName( uint32_t hEntity, char * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_EntityGetClassName( hEntity, pOut, nOutSize ); }
-void CShimEntitiesServer::EntityGetName( uint32_t hEntity, char * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_EntityGetName( hEntity, pOut, nOutSize ); }
-int32_t CShimEntitiesServer::EntityGetState( uint32_t hEntity, int32_t * pOutMoveType )
-	{ return ::SourceSharp_EntityGetState( hEntity, pOutMoveType ); }
-uint32_t CShimEntitiesServer::FindEntityByClassname( uint32_t hStartAfter, const char * pClassName )
-	{ return ::SourceSharp_FindEntityByClassname( hStartAfter, pClassName ); }
-int32_t CShimEntitiesServer::EntitiesInSphere( const float * pCenterXYZ, float flRadius, uint32_t * pOutHandles, int32_t nMax )
-	{ return ::SourceSharp_EntitiesInSphere( pCenterXYZ, flRadius, pOutHandles, nMax ); }
-int32_t CShimEntitiesServer::EntitySetKeyValue( uint32_t hEntity, const char * pKey, const char * pValue )
-	{ return ::SourceSharp_EntitySetKeyValue( hEntity, pKey, pValue ); }
-void CShimEntitiesServer::EntityGetSpawnOrigin( uint32_t hEntity, float * pOutXYZ )
-	{ return ::SourceSharp_EntityGetSpawnOrigin( hEntity, pOutXYZ ); }
-void CShimEntitiesServer::EntityGetSpawnAngles( uint32_t hEntity, float * pOutPYR )
-	{ return ::SourceSharp_EntityGetSpawnAngles( hEntity, pOutPYR ); }
-int32_t CShimEntitiesServer::EntityGetSpawnFlags( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetSpawnFlags( hEntity ); }
-void CShimEntitiesServer::EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags )
-	{ return ::SourceSharp_EntitySetSpawnFlags( hEntity, nSpawnFlags ); }
-int32_t CShimEntitiesServer::EntityGetHealth( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetHealth( hEntity ); }
-void CShimEntitiesServer::EntitySetHealth( uint32_t hEntity, int32_t nHealth )
-	{ return ::SourceSharp_EntitySetHealth( hEntity, nHealth ); }
-void CShimEntitiesServer::EntitySetVisible( uint32_t hEntity, int32_t bVisible )
-	{ return ::SourceSharp_EntitySetVisible( hEntity, bVisible ); }
-void CShimEntitiesServer::EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
-	{ return ::SourceSharp_EntitySetOwner( hEntity, hOwner ); }
-int32_t CShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea )
-	{ return ::SourceSharp_EntitiesStandalonePlayerSkyboxArea( iEdict, pOutArea ); }
-void CShimEntitiesServer::EntitySetClassName( uint32_t hEntity, const char * pName )
-	{ return ::SourceSharp_EntitySetClassName( hEntity, pName ); }
-
-uint32_t CShimEntityLifecycle::CreateEntity( const char * pClassName )
-	{ return ::SourceSharp_CreateEntity( pClassName ); }
-void CShimEntityLifecycle::EntitySpawn( uint32_t hEntity )
-	{ return ::SourceSharp_EntitySpawn( hEntity ); }
-void CShimEntityLifecycle::EntityRemove( uint32_t hEntity )
-	{ return ::SourceSharp_EntityRemove( hEntity ); }
-void CShimEntityLifecycle::DestroyShell( const uint32_t * pHandles, int32_t nCount )
-	{ return ::SourceSharp_DestroyShell( pHandles, nCount ); }
-uint32_t CShimEntityLifecycle::MapSpawnCreate( const char * pClassName, const char * pPackedKeys, int32_t nBytes )
-	{ return ::SourceSharp_MapSpawnCreate( pClassName, pPackedKeys, nBytes ); }
-void CShimEntityLifecycle::RegisterScriptedEntity( const char * pClassName, const char ** ppOutputNames, int32_t nOutputCount, int32_t nKind )
-	{ return ::SourceSharp_RegisterScriptedEntity( pClassName, ppOutputNames, nOutputCount, nKind ); }
-void CShimEntityLifecycle::RegisterClassOps( const char * pClassName, uint32_t nOpMask )
-	{ return ::SourceSharp_RegisterClassOps( pClassName, nOpMask ); }
-int32_t CShimEntityLifecycle::EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs * pArgs )
-	{ return ::SourceSharp_EntityDispatch( hEntity, nOp, pArgs ); }
-int32_t CShimEntityLifecycle::EntityFactoryCount()
-	{ return ::SourceSharp_EntityFactoryCount(); }
-const char * CShimEntityLifecycle::EntityFactoryNameAt( int32_t index )
-	{ return ::SourceSharp_EntityFactoryNameAt( index ); }
-int32_t CShimEntityLifecycle::EntityFactoryRefusalCount()
-	{ return ::SourceSharp_EntityFactoryRefusalCount(); }
-const char * CShimEntityLifecycle::EntityFactoryRefusalNameAt( int32_t index )
-	{ return ::SourceSharp_EntityFactoryRefusalNameAt( index ); }
-int32_t CShimEntityLifecycle::EntityFactoryRefusalTimesAt( int32_t index )
-	{ return ::SourceSharp_EntityFactoryRefusalTimesAt( index ); }
-int32_t CShimEntityLifecycle::TemplateSpawnKeyed( const char * pClassNames, const char * pPackedKeys, const int32_t * pPackBytes, const float * pOriginsXYZ, const float * pAnglesPYR, int32_t nCount, uint32_t * pOutHandles, int32_t nMax )
-	{ return ::SourceSharp_TemplateSpawnKeyed( pClassNames, pPackedKeys, pPackBytes, pOriginsXYZ, pAnglesPYR, nCount, pOutHandles, nMax ); }
-
-void CShimTransform::EntitySetOrigin( uint32_t hEntity, const float * pXYZ )
-	{ return ::SourceSharp_EntitySetOrigin( hEntity, pXYZ ); }
-void CShimTransform::EntitySetAngles( uint32_t hEntity, const float * pPYR )
-	{ return ::SourceSharp_EntitySetAngles( hEntity, pPYR ); }
-void CShimTransform::EntityTeleport( uint32_t hEntity, const float * pOrigin, const float * pAngles, int32_t bZeroVelocity )
-	{ return ::SourceSharp_EntityTeleport( hEntity, pOrigin, pAngles, bZeroVelocity ); }
-void CShimTransform::EntityGetVelocity( uint32_t hEntity, float * pOutXYZ )
-	{ return ::SourceSharp_EntityGetVelocity( hEntity, pOutXYZ ); }
-void CShimTransform::EntitySetVelocity( uint32_t hEntity, const float * pXYZ )
-	{ return ::SourceSharp_EntitySetVelocity( hEntity, pXYZ ); }
-void CShimTransform::EntityGetAngularVelocity( uint32_t hEntity, float * pOutPYR )
-	{ return ::SourceSharp_EntityGetAngularVelocity( hEntity, pOutPYR ); }
-void CShimTransform::EntitySetAngularVelocity( uint32_t hEntity, const float * pPYR )
-	{ return ::SourceSharp_EntitySetAngularVelocity( hEntity, pPYR ); }
-void CShimTransform::EntityGetEyePosition( uint32_t hEntity, float * pOutXYZ )
-	{ return ::SourceSharp_EntityGetEyePosition( hEntity, pOutXYZ ); }
-void CShimTransform::EntityGetEyeAngles( uint32_t hEntity, float * pOutPYR )
-	{ return ::SourceSharp_EntityGetEyeAngles( hEntity, pOutPYR ); }
-float CShimTransform::EntityGetGravity( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetGravity( hEntity ); }
-void CShimTransform::EntitySetGravity( uint32_t hEntity, float flGravity )
-	{ return ::SourceSharp_EntitySetGravity( hEntity, flGravity ); }
-void CShimTransform::EntitySetBounce( uint32_t hEntity, int32_t nBounces )
-	{ return ::SourceSharp_EntitySetBounce( hEntity, nBounces ); }
-
-int32_t CShimHierarchy::EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment )
-	{ return ::SourceSharp_EntitySetParent( hChild, hParent, nParentAttachment ); }
-uint32_t CShimHierarchy::EntityGetParent( uint32_t hChild )
-	{ return ::SourceSharp_EntityGetParent( hChild ); }
-int32_t CShimHierarchy::EntityGetParentAttachment( uint32_t hChild )
-	{ return ::SourceSharp_EntityGetParentAttachment( hChild ); }
-void CShimHierarchy::EntitySetLocalTransform( uint32_t hChild, const float * pOrigin, const float * pAngles )
-	{ return ::SourceSharp_EntitySetLocalTransform( hChild, pOrigin, pAngles ); }
-void CShimHierarchy::EntityGetLocalTransform( uint32_t hChild, float * pOutOrigin, float * pOutAngles )
-	{ return ::SourceSharp_EntityGetLocalTransform( hChild, pOutOrigin, pOutAngles ); }
-int32_t CShimHierarchy::EntityParentProbe( uint32_t hEntity )
-	{ return ::SourceSharp_EntityParentProbe( hEntity ); }
-int32_t CShimHierarchy::EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float * pOutOriginXYZ, float * pOutAnglesPYR )
-	{ return ::SourceSharp_EntityGetAttachmentFrame( hEntity, nAttachment, pOutOriginXYZ, pOutAnglesPYR ); }
-
-void CShimCollisionServer::RegisterCollisionRules( const SourceSharpCollisionRules * pRules )
-	{ return ::SourceSharp_RegisterCollisionRules( pRules ); }
-void CShimCollisionServer::EntityGetBounds( uint32_t hEntity, float * pOutMinsXYZ, float * pOutMaxsXYZ )
-	{ return ::SourceSharp_EntityGetBounds( hEntity, pOutMinsXYZ, pOutMaxsXYZ ); }
-void CShimCollisionServer::EntityGetBoundsSize( uint32_t hEntity, float * pOutXYZ )
-	{ return ::SourceSharp_EntityGetBoundsSize( hEntity, pOutXYZ ); }
-void CShimCollisionServer::EntitySetBounds( uint32_t hEntity, const float * pMinsXYZ, const float * pMaxsXYZ )
-	{ return ::SourceSharp_EntitySetBounds( hEntity, pMinsXYZ, pMaxsXYZ ); }
-void CShimCollisionServer::EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags )
-	{ return ::SourceSharp_EntitySetSolidity( hEntity, nSolidType, nSolidFlags ); }
-int32_t CShimCollisionServer::EntityGetCollisionGroup( uint32_t hEntity )
-	{ return ::SourceSharp_EntityGetCollisionGroup( hEntity ); }
-void CShimCollisionServer::EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
-	{ return ::SourceSharp_EntitySetCollisionGroup( hEntity, nGroup ); }
-int32_t CShimCollisionServer::EntityOverlapReport( uint32_t * pOutPairs, int32_t nMaxPairs )
-	{ return ::SourceSharp_EntityOverlapReport( pOutPairs, nMaxPairs ); }
-void CShimCollisionServer::EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform )
-	{ return ::SourceSharp_EntitySetTriggerBloat( hEntity, nBloat, bUniform ); }
-
-void CShimPhysics::EntityDestroyPhysics( uint32_t hEntity )
-	{ return ::SourceSharp_EntityDestroyPhysics( hEntity ); }
-void * CShimPhysics::EntityPhysicsObject( uint32_t hEntity )
-	{ return ::SourceSharp_EntityPhysicsObject( hEntity ); }
-void * CShimPhysics::PhysicsEnvironmentPointer()
-	{ return ::SourceSharp_PhysicsEnvironmentPointer(); }
-void * CShimPhysics::PhysicsWorldObject()
-	{ return ::SourceSharp_PhysicsWorldObject(); }
-int32_t CShimPhysics::PhysicsUpdateOwners( void ** ppObjects, float * pVelocities, int32_t nCount, uint32_t * pOutOwners )
-	{ return ::SourceSharp_PhysicsUpdateOwners( ppObjects, pVelocities, nCount, pOutOwners ); }
-int32_t CShimPhysics::EntitySwapPhysicsObject( uint32_t hEntity, void * pObject, void ** ppPrevious )
-	{ return ::SourceSharp_EntitySwapPhysicsObject( hEntity, pObject, ppPrevious ); }
-
-void CShimDamage::ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType )
-	{ return ::SourceSharp_ApplyDamage( hVictim, hAttacker, flDamage, nDamageType ); }
-void CShimDamage::EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType, const float * pDirXYZ, const float * pForceOriginXYZ, int32_t bPhysicsOnly )
-	{ return ::SourceSharp_EntityTakeDamage( hEntity, hAttacker, flDamage, nDamageType, pDirXYZ, pForceOriginXYZ, bPhysicsOnly ); }
-void CShimDamage::ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType, const float * pForceXYZ, const float * pPositionXYZ )
-	{ return ::SourceSharp_ApplyDamageForce( hVictim, hAttacker, flDamage, nDamageType, pForceXYZ, pPositionXYZ ); }
-
 void CShimGameRules::RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy * pPolicy )
 	{ return ::SourceSharp_RegisterGameRulesPolicy( pPolicy ); }
 void CShimGameRules::RegisterDamageRules( const SourceSharpDamageRules * pRules )
 	{ return ::SourceSharp_RegisterDamageRules( pRules ); }
-
-uint32_t CShimPlayers::GetPlayerHandle( int32_t nPlayerIndex )
-	{ return ::SourceSharp_GetPlayerHandle( nPlayerIndex ); }
-int32_t CShimPlayers::PlayerIsAlive( uint32_t hPlayer )
-	{ return ::SourceSharp_PlayerIsAlive( hPlayer ); }
-void CShimPlayers::PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR )
-	{ return ::SourceSharp_PlayerPlaceAtSpawn( hPlayer, pOriginXYZ, pAnglesPYR ); }
-int32_t CShimPlayers::PlayerGetObserverMode( uint32_t hPlayer )
-	{ return ::SourceSharp_PlayerGetObserverMode( hPlayer ); }
-void CShimPlayers::PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode )
-	{ return ::SourceSharp_PlayerSetObserverMode( hPlayer, nMode ); }
-void CShimPlayers::PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll )
-	{ return ::SourceSharp_PlayerSnapEyeAngles( hPlayer, pPitchYawRoll ); }
-int32_t CShimPlayers::ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ )
-	{ return ::SourceSharp_ClientsStandalonePlayerEarPosition( iEdict, pOutXYZ ); }
-
-int32_t CShimEffectsServer::TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut )
-	{ return ::SourceSharp_TempEntBuild( pBlock, nBlockBytes, pOut ); }
 
 int32_t CShimDiagnostics::PlayerShadowCounts( int32_t * pOut, int32_t nMax )
 	{ return ::SourceSharp_PlayerShadowCounts( pOut, nMax ); }
@@ -289,6 +44,43 @@ int32_t CShimDiagnostics::ExitWatchRead( int32_t * pOut, int32_t nMax )
 int32_t CShimDiagnostics::ExitWatchDisarm()
 	{ return ::SourceSharp_ExitWatchDisarm(); }
 
+int32_t CShimNetworkServerBase::NetHierarchyDeclare( int32_t nBlobBytes )
+	{ return ::SourceSharp_NetHierarchyDeclare( nBlobBytes ); }
+int32_t CShimNetworkServerBase::NetPublishType( const char * pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes, uint32_t * pOutTypeId )
+	{ return ::SourceSharp_NetPublishType( pClassName, nShell, nSchemaHash, nLayoutBytes, pOutTypeId ); }
+int32_t CShimNetworkServerBase::NetTierInfo( int32_t nShell, int32_t iTier, const char ** ppOutTable, int32_t * pOutBytes, int32_t * pOutWords, int32_t * pOutProps, int32_t * pOutLive )
+	{ return ::SourceSharp_NetTierInfo( nShell, iTier, ppOutTable, pOutBytes, pOutWords, pOutProps, pOutLive ); }
+int32_t CShimNetworkServerBase::WorldNetDeclare( int32_t nBlobBytes )
+	{ return ::SourceSharp_WorldNetDeclare( nBlobBytes ); }
+
+void CShimModelsServerBase::EntityGetModelName( uint32_t hEntity, char * pOut, int32_t nOutSize )
+	{ return ::SourceSharp_EntityGetModelName( hEntity, pOut, nOutSize ); }
+int32_t CShimModelsServerBase::EntitiesInvalidateMdlCacheAll()
+	{ return ::SourceSharp_EntitiesInvalidateMdlCacheAll(); }
+void CShimModelsServerBase::StandaloneSetModelScale( uint32_t hEntity, float flScale )
+	{ return ::SourceSharp_StandaloneSetModelScale( hEntity, flScale ); }
+
+void CShimMovementServerBase::MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut )
+	{ return ::SourceSharp_MoveTrace( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut ); }
+int32_t CShimMovementServerBase::MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue )
+	{ return ::SourceSharp_MoveEffect( nKind, pXYZ, flValue, nValue ); }
+float CShimMovementServerBase::CurrentGravity()
+	{ return ::SourceSharp_CurrentGravity(); }
+void CShimMovementServerBase::RegisterMovementParams( const SourceSharpMovementParams * pParams )
+	{ return ::SourceSharp_RegisterMovementParams( pParams ); }
+
+int32_t CShimEntitiesServerBase::EntityGetIndex( uint32_t hEntity )
+	{ return ::SourceSharp_EntityGetIndex( hEntity ); }
+void CShimEntitiesServerBase::EntityGetOrigin( uint32_t hEntity, float * pOutXYZ )
+	{ return ::SourceSharp_EntityGetOrigin( hEntity, pOutXYZ ); }
+void CShimEntitiesServerBase::EntityGetAngles( uint32_t hEntity, float * pOutPYR )
+	{ return ::SourceSharp_EntityGetAngles( hEntity, pOutPYR ); }
+int32_t CShimEntitiesServerBase::EntityIsValid( uint32_t hEntity )
+	{ return ::SourceSharp_EntityIsValid( hEntity ); }
+
+void CShimCollisionServerBase::RegisterCollisionRules( const SourceSharpCollisionRules * pRules )
+	{ return ::SourceSharp_RegisterCollisionRules( pRules ); }
+
 void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )
 {
 	if ( !pszName )
@@ -298,55 +90,55 @@ void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )
 		return static_cast< IShimEngine * >( &areas.m_Engine );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLESERVER_VERSION ) )
-		return static_cast< IShimConsoleServer * >( &areas.m_ConsoleServer );
+		return areas.m_pConsoleServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EVENTSSERVER_VERSION ) )
 		return static_cast< IShimEventsServer * >( &areas.m_EventsServer );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_NETWORKSERVER_VERSION ) )
-		return static_cast< IShimNetworkServer * >( &areas.m_NetworkServer );
+		return areas.m_pNetworkServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MODELSSERVER_VERSION ) )
-		return static_cast< IShimModelsServer * >( &areas.m_ModelsServer );
+		return areas.m_pModelsServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PRECACHE_VERSION ) )
-		return static_cast< IShimPrecache * >( &areas.m_Precache );
+		return areas.m_pPrecache;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MOVEMENTSERVER_VERSION ) )
-		return static_cast< IShimMovementServer * >( &areas.m_MovementServer );
+		return areas.m_pMovementServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_WORLDSERVER_VERSION ) )
-		return static_cast< IShimWorldServer * >( &areas.m_WorldServer );
+		return areas.m_pWorldServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENTITIESSERVER_VERSION ) )
-		return static_cast< IShimEntitiesServer * >( &areas.m_EntitiesServer );
+		return areas.m_pEntitiesServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENTITYLIFECYCLE_VERSION ) )
-		return static_cast< IShimEntityLifecycle * >( &areas.m_EntityLifecycle );
+		return areas.m_pEntityLifecycle;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_TRANSFORM_VERSION ) )
-		return static_cast< IShimTransform * >( &areas.m_Transform );
+		return areas.m_pTransform;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_HIERARCHY_VERSION ) )
-		return static_cast< IShimHierarchy * >( &areas.m_Hierarchy );
+		return areas.m_pHierarchy;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_COLLISIONSERVER_VERSION ) )
-		return static_cast< IShimCollisionServer * >( &areas.m_CollisionServer );
+		return areas.m_pCollisionServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PHYSICS_VERSION ) )
-		return static_cast< IShimPhysics * >( &areas.m_Physics );
+		return areas.m_pPhysics;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DAMAGE_VERSION ) )
-		return static_cast< IShimDamage * >( &areas.m_Damage );
+		return areas.m_pDamage;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_GAMERULES_VERSION ) )
 		return static_cast< IShimGameRules * >( &areas.m_GameRules );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PLAYERS_VERSION ) )
-		return static_cast< IShimPlayers * >( &areas.m_Players );
+		return areas.m_pPlayers;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTSSERVER_VERSION ) )
-		return static_cast< IShimEffectsServer * >( &areas.m_EffectsServer );
+		return areas.m_pEffectsServer;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DEBUGOVERLAY_VERSION ) )
 		return areas.m_pDebugOverlay;

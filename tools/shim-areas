@@ -244,9 +244,15 @@ def owner_class(iface, slots, base, fill):
     """The class that implements iface itself, when every one of its slots (its
     base's too) has a body `CClass::Slot` naming one class; None when every body is
     a free function. A mix is an error: an area is owned by one class or by none.
-    plan_server_native_v2 T6 part 3: the class takes its dependencies by
-    constructor, and the tier that owns it hands the shim areas its address."""
+    One exception: an extension's own slots may be its class's while every slot of
+    its shared base stays a free body (the client compiles those too); the class
+    then derives from the generated CShim<Area>Base, which forwards the base's
+    slots (base_forwarded). plan_server_native_v2 T6 part 3: the class takes its
+    dependencies by constructor, and the tier that owns it hands the shim areas its
+    address."""
     named = [(s, fill[s]) for ci in chain(iface, base) for s in slots[ci]]
+    if base[iface] and all('::' not in fill[s] for s in slots[base[iface]]):
+        named = [(s, fill[s]) for s in slots[iface]]
     owners = {b.split('::')[0] for _s, b in named if '::' in b}
     if not owners:
         return None
@@ -254,6 +260,13 @@ def owner_class(iface, slots, base, fill):
         raise SystemExit('tools/shim-areas: %s: every body must be one class\'s method of the '
                          'slot\'s name, or none: %s' % (iface, ', '.join(b for _s, b in named)))
     return next(iter(owners))
+
+
+def base_forwarded(iface, slots, base, fill):
+    """An owned extension whose shared base's slots stay free bodies: its class
+    derives from CShim<Area>Base, generated with those slots forwarded."""
+    return bool(base[iface]) and owner_class(iface, slots, base, fill) is not None \
+        and all('::' not in fill[s] for s in slots[base[iface]])
 
 
 def short(iface):
@@ -308,6 +321,7 @@ def generate():
 
     owned = {i: owner_class(i, slots, base, fill) for i in concrete}
     forwarded = [i for i in concrete if not owned[i]]
+    base_fwd = [i for i in concrete if base_forwarded(i, slots, base, fill)]
 
     # ---- the interfaces ------------------------------------------------------
     h = [valve, '', GENERATED, '//',
@@ -345,6 +359,14 @@ def generate():
             for s in slots[ci]:
                 ret, params = sigs[s]
                 c.append('\t' + decl(ret, s, params, ' override;'))
+        c += ['};', '']
+    for i in base_fwd:
+        c += ['// %s implements %s and derives from this: the shared base\'s slots,' % (owned[i], i),
+              '// forwarded to the bodies both DLLs compile.',
+              'class CShim%sBase : public %s' % (short(i), i), '{', 'public:']
+        for s in slots[base[i]]:
+            ret, params = sigs[s]
+            c.append('\t' + decl(ret, s, params, ' override;'))
         c += ['};', '']
     c += ['struct CShimAreas', '{']
     for i in concrete:
@@ -392,6 +414,13 @@ def generate():
                 args = ', '.join(n for _t, n in params)
                 im.append(decl(ret, 'CShim%s::%s' % (short(i), s), params, ''))
                 im.append('\t{ return ::%s(%s); }' % (fill[s], ' %s ' % args if args else ''))
+        im.append('')
+    for i in base_fwd:
+        for s in slots[base[i]]:
+            ret, params = sigs[s]
+            args = ', '.join(n for _t, n in params)
+            im.append(decl(ret, 'CShim%sBase::%s' % (short(i), s), params, ''))
+            im.append('\t{ return ::%s(%s); }' % (fill[s], ' %s ' % args if args else ''))
         im.append('')
     im += ['void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )', '{',
            '\tif ( !pszName )', '\t\treturn NULL;', '']
@@ -1094,6 +1123,19 @@ def self_test():
     expect('an area split between two classes is refused',
            refused(lambda: owner_class('IShimToy', toy_slots, toy_base,
                                        {'Ping': 'CToy::Ping', 'Pong': 'COther::Pong'})))
+    ext_slots = {'IShimToyBase': ['Base1'], 'IShimToyExt': ['Ext1']}
+    ext_base = {'IShimToyBase': None, 'IShimToyExt': 'IShimToyBase'}
+    expect('an extension owning its own slots over a free shared base is its class\'s, base forwarded',
+           owner_class('IShimToyExt', ext_slots, ext_base,
+                       {'Base1': 'SourceSharp_Base1', 'Ext1': 'CToy::Ext1'}) == 'CToy'
+           and base_forwarded('IShimToyExt', ext_slots, ext_base,
+                              {'Base1': 'SourceSharp_Base1', 'Ext1': 'CToy::Ext1'}))
+    expect('an extension whose base is its class\'s too forwards nothing',
+           not base_forwarded('IShimToyExt', ext_slots, ext_base,
+                              {'Base1': 'CToy::Base1', 'Ext1': 'CToy::Ext1'}))
+    expect('an extension of free bodies forwards no base',
+           not base_forwarded('IShimToyExt', ext_slots, ext_base,
+                              {'Base1': 'SourceSharp_Base1', 'Ext1': 'SourceSharp_Ext1'}))
     global rows
     real_rows = rows
     owned_area = 'IShimUserMessages'

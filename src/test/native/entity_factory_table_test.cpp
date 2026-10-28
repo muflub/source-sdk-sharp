@@ -1,7 +1,7 @@
 //========= SourceSharp — the port's entity factory table, exercised ==========//
 //
 // `src/sourcesharp/game/server/entity_factory_table.h` is the name half of the
-// dictionary `EntityFactoryDictionary()` hands back -- the replacement for
+// dictionary `CServerEntityLifecycle::Factories()` hands back -- the replacement for
 // `CEntityFactoryDictionary` (`src/game/server/util.cpp:111`), which is a class
 // local to a stock translation unit this port is trying to stop compiling.
 //

@@ -93,6 +93,11 @@ extern vgui::IInputInternal *g_InputInternal;
 #include "shell_particle_systems.h"
 #include "shell_new_particles.h"
 #include "shell_shim_console.h"
+#include "managed_side.h"
+#include "diagnostics_hooks.h"
+#include "convar_registry.h"
+#include "shell_log.h"
+#include "tier0_spew_port.h"
 
 extern IClientMode *GetClientModeNormal();
 
@@ -389,6 +394,8 @@ public:
 	// Everything the client holds from managed: the root, the runtime, the areas.
 	CManagedHoldersClient &Managed() { return m_Managed; }
 
+	CManagedSide &ManagedSide() { return m_ManagedSide; }
+
 	virtual ~CShellClientDLL()
 	{
 		AssertMsg( ManagedHoldersClient_Empty( m_Managed ),
@@ -396,7 +403,16 @@ public:
 	}
 
 private:
+	// First, so everything the root builds after it can log.
+	CShellLog m_Log;
+
 	CManagedHoldersClient m_Managed = {};
+	// Before the managed side, which installs them at load.
+	CDiagnosticsHooks m_Diagnostics;
+
+	// The console: this DLL's carriers and the ICvar they reach.
+	CCVarRegistry m_CVars;
+	CManagedSide m_ManagedSide{ m_Managed, m_Diagnostics, m_CVars };
 };
 
 // Records a refusal in the boundary probe table and the refusal tally. A macro so
@@ -414,6 +430,27 @@ void ShellClientDll_RefuseExternal( const char *pMethod )
 CManagedHoldersClient &ShellClientDll_Managed()
 {
 	return g_ShellClientDLL.Managed();
+}
+
+CManagedSide &ShellClientDll_ManagedSide()
+{
+	return g_ShellClientDLL.ManagedSide();
+}
+
+unsigned int SourceSharp_PlayerSyncGeneration()
+{
+	return ShellClientDll_ManagedSide().Generation();
+}
+
+// The client's loader entry points (managed_runtime_client.cpp and its adapter).
+bool SourceSharp_LoadManagedSide()
+{
+	return g_ShellClientDLL.ManagedSide().Load();
+}
+
+void SourceSharp_UnloadManagedSide()
+{
+	g_ShellClientDLL.ManagedSide().Unload();
 }
 
 // Never NULL during DLL initialisation; Init points it at the engine's globals. Other TUs
@@ -502,6 +539,9 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	m_pGlobals = pGlobals;
 
 	ConnectTier1Libraries( &appSystemFactory, 1 );
+	m_CVars.Connect( g_pCVar );
+	Tier0_ConnectConsole( g_pCVar );
+	ShimConsole().m_pCVars = &m_CVars;
 	SourceSharp_ConnectTier2( appSystemFactory );
 	SourceSharp_ConnectTier3( appSystemFactory );
 
@@ -575,7 +615,7 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	if ( !g_pMaterialSystemHardwareConfig )
 		return false;
 
-	ConVar_Register( FCVAR_CLIENTDLL );
+	m_CVars.Register( FCVAR_CLIENTDLL );
 
 	if ( !ShellParticleMgr_Init( materials ) )
 		return false;
@@ -728,11 +768,14 @@ void CShellClientDLL::Shutdown()
 	ShellParticleMgr_Term();
 
 	SourceSharp_DisconnectTier2();
-	ConVar_Unregister();
+	m_CVars.Unregister();
 
-	// After the unregister, while g_pCVar is still connected.
+	// After the unregister, while the console is still connected.
 	ShimConsole().ReleaseObjects();
 	ShimConsole().m_ppCommands = NULL;
+	ShimConsole().m_pCVars = NULL;
+	m_CVars.Connect( NULL );
+	Tier0_ConnectConsole( NULL );
 	DisconnectTier1Libraries();
 
 	gameeventmanager = NULL;

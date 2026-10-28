@@ -239,9 +239,6 @@ struct PhysicsOwner_t
 // or stale (the entry has been reused).
 IServerEntity *PhysicsStandaloneOwner( const CBaseHandle &handle );
 
-// The world's object is a singleton, so this is a pointer compare. Defined in physics.cpp.
-CWorld *PhysicsWorldOwner( const IPhysicsObject *pObject );
-
 // The owner as a toucher, built by the shell because only the concrete type has both
 // the handle and the interface.
 struct Toucher_t;
@@ -292,17 +289,6 @@ inline PhysicsOwner_t PhysicsOwnerOf( IPhysicsObject *pObject )
 		PhysicsOwner_t none = { NULL, NULL, NULL, NULL, NULL };
 		return none;
 	}
-
-#if !defined( CLIENT_DLL )
-	// The world first: one exact pointer compare, and its game data is NULL.
-	CWorld *pWorld = PhysicsWorldOwner( pObject );
-
-	if ( pWorld )
-	{
-		PhysicsOwner_t world = { NULL, NULL, pWorld, NULL, pObject };
-		return world;
-	}
-#endif
 
 	return PhysicsOwnerOfGameData( pObject->GetGameData(), pObject );
 }

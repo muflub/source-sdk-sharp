@@ -26,13 +26,6 @@ public:
 	void *GetGlobalVarsPtr() override;
 };
 
-class CShimConsoleServer final : public IShimConsoleServer
-{
-public:
-	void SendClientCommand( uint32_t hPlayer, const char *pCommand ) override;
-	uint32_t GetCommandClientHandle() override;
-};
-
 class CShimEventsServer final : public IShimEventsServer
 {
 public:
@@ -46,206 +39,11 @@ public:
 	void EventSetString( void *hEvent, const char *pKey, const char *pValue ) override;
 };
 
-class CShimNetworkServer final : public IShimNetworkServer
-{
-public:
-	int32_t NetHierarchyDeclare( int32_t nBlobBytes ) override;
-	int32_t NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
-							uint32_t *pOutTypeId ) override;
-	int32_t NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes, int32_t *pOutWords,
-						 int32_t *pOutProps, int32_t *pOutLive ) override;
-	int32_t WorldNetDeclare( int32_t nBlobBytes ) override;
-	void *EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize ) override;
-	void *EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, SourceSharpEntitySlot_t **pOutSlot,
-						  uint32_t *pOutSerial ) override;
-	void EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset ) override;
-	int32_t EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords, int32_t *pOutFirstBadWord ) override;
-	void *EntityGetEngineBlock( uint32_t hEntity, int32_t *pOutSize ) override;
-	void EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways ) override;
-};
-
-class CShimModelsServer final : public IShimModelsServer
-{
-public:
-	void EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
-	int32_t EntitiesInvalidateMdlCacheAll() override;
-	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
-	void EntitySetModel( uint32_t hEntity, const char *pModel ) override;
-};
-
-class CShimPrecache final : public IShimPrecache
-{
-public:
-	int32_t PrecacheModel( const char *pszModel ) override;
-};
-
-class CShimMovementServer final : public IShimMovementServer
-{
-public:
-	void MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
-					int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut ) override;
-	int32_t MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue ) override;
-	float CurrentGravity() override;
-	void RegisterMovementParams( const SourceSharpMovementParams *pParams ) override;
-	int32_t PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut ) override;
-	int32_t PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController ) override;
-	void PlayerShadowRelease( uint32_t hPlayer ) override;
-	void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) override;
-	int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) override;
-	int32_t PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts ) override;
-	void PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle ) override;
-	void PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult ) override;
-	void MoveTraceServer( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
-						  int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut, void *pFilter,
-						  uint32_t *pOutHandles ) override;
-	int32_t PlayerFallDamage( uint32_t hPlayer, float flDamage ) override;
-	void PlayerSyncEngineSide( uint32_t hPlayer ) override;
-};
-
-class CShimWorldServer final : public IShimWorldServer
-{
-public:
-	int32_t EntityModelSurfaceProp( uint32_t hEntity ) override;
-	int32_t InvisibleRangeReach() override;
-	void SetSkyboxParams( const SourceSharpSkyboxParams *pParams ) override;
-};
-
-class CShimEntitiesServer final : public IShimEntitiesServer
-{
-public:
-	int32_t EntityGetIndex( uint32_t hEntity ) override;
-	void EntityGetOrigin( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntityGetAngles( uint32_t hEntity, float *pOutPYR ) override;
-	int32_t EntityIsValid( uint32_t hEntity ) override;
-	int32_t EntityIsPlayer( uint32_t hEntity ) override;
-	void EntityGetClassName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
-	void EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
-	int32_t EntityGetState( uint32_t hEntity, int32_t *pOutMoveType ) override;
-	uint32_t FindEntityByClassname( uint32_t hStartAfter, const char *pClassName ) override;
-	int32_t EntitiesInSphere( const float *pCenterXYZ, float flRadius, uint32_t *pOutHandles, int32_t nMax ) override;
-	int32_t EntitySetKeyValue( uint32_t hEntity, const char *pKey, const char *pValue ) override;
-	void EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR ) override;
-	int32_t EntityGetSpawnFlags( uint32_t hEntity ) override;
-	void EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags ) override;
-	int32_t EntityGetHealth( uint32_t hEntity ) override;
-	void EntitySetHealth( uint32_t hEntity, int32_t nHealth ) override;
-	void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) override;
-	void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) override;
-	int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea ) override;
-	void EntitySetClassName( uint32_t hEntity, const char *pName ) override;
-};
-
-class CShimEntityLifecycle final : public IShimEntityLifecycle
-{
-public:
-	uint32_t CreateEntity( const char *pClassName ) override;
-	void EntitySpawn( uint32_t hEntity ) override;
-	void EntityRemove( uint32_t hEntity ) override;
-	void DestroyShell( const uint32_t *pHandles, int32_t nCount ) override;
-	uint32_t MapSpawnCreate( const char *pClassName, const char *pPackedKeys, int32_t nBytes ) override;
-	void RegisterScriptedEntity( const char *pClassName, const char **ppOutputNames, int32_t nOutputCount,
-								 int32_t nKind ) override;
-	void RegisterClassOps( const char *pClassName, uint32_t nOpMask ) override;
-	int32_t EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs ) override;
-	int32_t EntityFactoryCount() override;
-	const char *EntityFactoryNameAt( int32_t index ) override;
-	int32_t EntityFactoryRefusalCount() override;
-	const char *EntityFactoryRefusalNameAt( int32_t index ) override;
-	int32_t EntityFactoryRefusalTimesAt( int32_t index ) override;
-	int32_t TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys, const int32_t *pPackBytes,
-								const float *pOriginsXYZ, const float *pAnglesPYR, int32_t nCount,
-								uint32_t *pOutHandles, int32_t nMax ) override;
-};
-
-class CShimTransform final : public IShimTransform
-{
-public:
-	void EntitySetOrigin( uint32_t hEntity, const float *pXYZ ) override;
-	void EntitySetAngles( uint32_t hEntity, const float *pPYR ) override;
-	void EntityTeleport( uint32_t hEntity, const float *pOrigin, const float *pAngles, int32_t bZeroVelocity ) override;
-	void EntityGetVelocity( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntitySetVelocity( uint32_t hEntity, const float *pXYZ ) override;
-	void EntityGetAngularVelocity( uint32_t hEntity, float *pOutPYR ) override;
-	void EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR ) override;
-	void EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR ) override;
-	float EntityGetGravity( uint32_t hEntity ) override;
-	void EntitySetGravity( uint32_t hEntity, float flGravity ) override;
-	void EntitySetBounce( uint32_t hEntity, int32_t nBounces ) override;
-};
-
-class CShimHierarchy final : public IShimHierarchy
-{
-public:
-	int32_t EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment ) override;
-	uint32_t EntityGetParent( uint32_t hChild ) override;
-	int32_t EntityGetParentAttachment( uint32_t hChild ) override;
-	void EntitySetLocalTransform( uint32_t hChild, const float *pOrigin, const float *pAngles ) override;
-	void EntityGetLocalTransform( uint32_t hChild, float *pOutOrigin, float *pOutAngles ) override;
-	int32_t EntityParentProbe( uint32_t hEntity ) override;
-	int32_t EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float *pOutOriginXYZ,
-									  float *pOutAnglesPYR ) override;
-};
-
-class CShimCollisionServer final : public IShimCollisionServer
-{
-public:
-	void RegisterCollisionRules( const SourceSharpCollisionRules *pRules ) override;
-	void EntityGetBounds( uint32_t hEntity, float *pOutMinsXYZ, float *pOutMaxsXYZ ) override;
-	void EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ ) override;
-	void EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags ) override;
-	int32_t EntityGetCollisionGroup( uint32_t hEntity ) override;
-	void EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup ) override;
-	int32_t EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs ) override;
-	void EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform ) override;
-};
-
-class CShimPhysics final : public IShimPhysics
-{
-public:
-	void EntityDestroyPhysics( uint32_t hEntity ) override;
-	void *EntityPhysicsObject( uint32_t hEntity ) override;
-	void *PhysicsEnvironmentPointer() override;
-	void *PhysicsWorldObject() override;
-	int32_t PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount, uint32_t *pOutOwners ) override;
-	int32_t EntitySwapPhysicsObject( uint32_t hEntity, void *pObject, void **ppPrevious ) override;
-};
-
-class CShimDamage final : public IShimDamage
-{
-public:
-	void ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType ) override;
-	void EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-						   const float *pDirXYZ, const float *pForceOriginXYZ, int32_t bPhysicsOnly ) override;
-	void ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-						   const float *pForceXYZ, const float *pPositionXYZ ) override;
-};
-
 class CShimGameRules final : public IShimGameRules
 {
 public:
 	void RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy ) override;
 	void RegisterDamageRules( const SourceSharpDamageRules *pRules ) override;
-};
-
-class CShimPlayers final : public IShimPlayers
-{
-public:
-	uint32_t GetPlayerHandle( int32_t nPlayerIndex ) override;
-	int32_t PlayerIsAlive( uint32_t hPlayer ) override;
-	void PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR ) override;
-	int32_t PlayerGetObserverMode( uint32_t hPlayer ) override;
-	void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) override;
-	void PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll ) override;
-	int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ ) override;
-};
-
-class CShimEffectsServer final : public IShimEffectsServer
-{
-public:
-	int32_t TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut ) override;
 };
 
 class CShimDiagnostics final : public IShimDiagnostics
@@ -257,26 +55,80 @@ public:
 	int32_t ExitWatchDisarm() override;
 };
 
+// CServerNetwork implements IShimNetworkServer and derives from this: the shared base's slots,
+// forwarded to the bodies both DLLs compile.
+class CShimNetworkServerBase : public IShimNetworkServer
+{
+public:
+	int32_t NetHierarchyDeclare( int32_t nBlobBytes ) override;
+	int32_t NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
+							uint32_t *pOutTypeId ) override;
+	int32_t NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes, int32_t *pOutWords,
+						 int32_t *pOutProps, int32_t *pOutLive ) override;
+	int32_t WorldNetDeclare( int32_t nBlobBytes ) override;
+};
+
+// CServerModels implements IShimModelsServer and derives from this: the shared base's slots,
+// forwarded to the bodies both DLLs compile.
+class CShimModelsServerBase : public IShimModelsServer
+{
+public:
+	void EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
+	int32_t EntitiesInvalidateMdlCacheAll() override;
+	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
+};
+
+// CServerMovement implements IShimMovementServer and derives from this: the shared base's slots,
+// forwarded to the bodies both DLLs compile.
+class CShimMovementServerBase : public IShimMovementServer
+{
+public:
+	void MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
+					int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut ) override;
+	int32_t MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue ) override;
+	float CurrentGravity() override;
+	void RegisterMovementParams( const SourceSharpMovementParams *pParams ) override;
+};
+
+// CServerEntities implements IShimEntitiesServer and derives from this: the shared base's slots,
+// forwarded to the bodies both DLLs compile.
+class CShimEntitiesServerBase : public IShimEntitiesServer
+{
+public:
+	int32_t EntityGetIndex( uint32_t hEntity ) override;
+	void EntityGetOrigin( uint32_t hEntity, float *pOutXYZ ) override;
+	void EntityGetAngles( uint32_t hEntity, float *pOutPYR ) override;
+	int32_t EntityIsValid( uint32_t hEntity ) override;
+};
+
+// CServerCollision implements IShimCollisionServer and derives from this: the shared base's slots,
+// forwarded to the bodies both DLLs compile.
+class CShimCollisionServerBase : public IShimCollisionServer
+{
+public:
+	void RegisterCollisionRules( const SourceSharpCollisionRules *pRules ) override;
+};
+
 struct CShimAreas
 {
 	CShimEngine m_Engine;
-	CShimConsoleServer m_ConsoleServer;
+	IShimConsoleServer *m_pConsoleServer = nullptr; // CServerConsoleCommands
 	CShimEventsServer m_EventsServer;
-	CShimNetworkServer m_NetworkServer;
-	CShimModelsServer m_ModelsServer;
-	CShimPrecache m_Precache;
-	CShimMovementServer m_MovementServer;
-	CShimWorldServer m_WorldServer;
-	CShimEntitiesServer m_EntitiesServer;
-	CShimEntityLifecycle m_EntityLifecycle;
-	CShimTransform m_Transform;
-	CShimHierarchy m_Hierarchy;
-	CShimCollisionServer m_CollisionServer;
-	CShimPhysics m_Physics;
-	CShimDamage m_Damage;
+	IShimNetworkServer *m_pNetworkServer = nullptr; // CServerNetwork
+	IShimModelsServer *m_pModelsServer = nullptr; // CServerModels
+	IShimPrecache *m_pPrecache = nullptr; // CServerModelPrecache
+	IShimMovementServer *m_pMovementServer = nullptr; // CServerMovement
+	IShimWorldServer *m_pWorldServer = nullptr; // CServerWorldQueries
+	IShimEntitiesServer *m_pEntitiesServer = nullptr; // CServerEntities
+	IShimEntityLifecycle *m_pEntityLifecycle = nullptr; // CServerEntityLifecycle
+	IShimTransform *m_pTransform = nullptr; // CServerTransform
+	IShimHierarchy *m_pHierarchy = nullptr; // CServerHierarchy
+	IShimCollisionServer *m_pCollisionServer = nullptr; // CServerCollision
+	IShimPhysics *m_pPhysics = nullptr; // CServerPhysics
+	IShimDamage *m_pDamage = nullptr; // CServerDamage
 	CShimGameRules m_GameRules;
-	CShimPlayers m_Players;
-	CShimEffectsServer m_EffectsServer;
+	IShimPlayers *m_pPlayers = nullptr; // CServerPlayerQueries
+	IShimEffectsServer *m_pEffectsServer = nullptr; // CServerTempEnts
 	IShimDebugOverlay *m_pDebugOverlay = nullptr; // CServerDebugOverlays
 	IShimUserMessages *m_pUserMessages = nullptr; // CServerUserMessages
 	CShimDiagnostics m_Diagnostics;

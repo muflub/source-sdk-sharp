@@ -11,13 +11,6 @@
 
 #include "vcollide_parse.h" // IVPhysicsKeyHandler
 
-// Defined in game/server/physics.cpp.
-extern IPhysicsObject *g_PhysWorldObject;
-extern IPhysics *physics;
-extern IPhysicsCollision *physcollision;
-extern IPhysicsEnvironment *physenv;
-extern IPhysicsSurfaceProps *physprops;
-
 namespace ss
 {
 // The game's bits in IPhysicsObject::GetGameFlags; VPhysics stores them and reads none.

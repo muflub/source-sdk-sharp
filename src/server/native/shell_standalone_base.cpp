@@ -37,6 +37,7 @@
 
 #include "managed_convar_ref.h"
 #include "precache_model.h"
+#include "server_physics.h"
 
 #include "ss_string.h"
 #include "ss_cpp20.h"
@@ -45,8 +46,9 @@
 #include "imanaged_areas.h"
 #include "ss_takedamageinfo.h"
 #include "ss_entityhandle.h"
-
-extern CGlobalVars *gpGlobals;
+#include "shell_entity_lifecycle.h"
+#include "server_collision.h"
+#include "server_entity_resolver.h"
 
 // A slot outliving its entity would let C# write into freed memory, so the shell
 // that frees the memory closes the slot.
@@ -90,50 +92,6 @@ IGameEntity *SourceSharpEntity_t::GameEntity() const
 	if ( pBase )
 		return pBase;
 	return pStandalone;
-}
-
-// The resolve: one entity-list lookup, serial revalidated. GetGameEntity() and
-// GetBaseEntity() partition the hierarchies, so at most one arm is set.
-SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
-{
-	SourceSharpEntity_t ent;
-	ent.pBase = NULL;
-	ent.pStandalone = NULL;
-	ent.pWorld = NULL;
-
-	if ( hEntity == INVALID_EHANDLE_INDEX )
-		return ent;
-
-	// UnsafeFromIndex, not Init( entry, serial ): ENT_ENTRY_MASK comes from the
-	// serial width, so decomposing by hand does not round-trip.
-	IHandleEntity *pHandleEntity = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
-	if ( !pHandleEntity )
-	{
-		// An unresolved handle in the engine-invisible entry range: a shell-less
-		// entity's, or a stale one. Counted (shell_scripted.cpp).
-		const int nEntry = (int)( hEntity & ENT_ENTRY_MASK );
-
-		if ( nEntry >= MAX_EDICTS && nEntry < NUM_ENT_ENTRIES )
-			SourceSharp_NoteInvisibleRangeReach();
-
-		return ent;
-	}
-
-	// The world first: it answers NULL to both asks below and would read as gone.
-	ent.pWorld = SourceSharp_WorldFromEntityHandle( pHandleEntity );
-
-	if ( ent.pWorld )
-		return ent;
-
-	if ( IGameEntity *pGame = ss::GameEntityFromEntityHandle( pHandleEntity ) )
-		ent.pStandalone = SourceSharp_ShellOf( pGame );
-
-	return ent;
-}
-
-CStandaloneEntity *SourceSharp_ResolveStandalone( uint32_t hEntity )
-{
-	return SourceSharp_ResolveEntity( hEntity ).pStandalone;
 }
 
 const Vector &SourceSharpEntity_t::Origin() const
@@ -534,7 +492,7 @@ void CStandaloneEntity::SetModelName( const char *pModel )
 	// A brush model ("*23") is already in the BSP, so it is looked up, not precached.
 	Block().Head.ModelIndex = SourceSharp_IsBrushModelName( m_szModel )
 		? m_pContext->m_pModelInfo->GetModelIndex( m_szModel )
-		: Precache_Model( m_szModel );
+		: m_pContext->m_Precache.Model( m_szModel );
 
 	if ( Block().Head.ModelIndex <= 0 )
 	{
@@ -807,7 +765,7 @@ void CStandaloneEntity::EndTouch( const Toucher_t &toucher )
 // every standalone trigger, the eager reports and the solver's held pairs, and
 // copies up to nMaxPairs. Returns the total, which may exceed nMaxPairs; asking
 // again with a bigger buffer returns the same list.
-int32_t SourceSharp_EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs )
+int32_t CServerCollision::EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs )
 {
 	CServerOverlaps *pOverlaps = Overlaps();
 
@@ -816,9 +774,9 @@ int32_t SourceSharp_EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs 
 
 	std::vector<uint32_t> &report = pOverlaps->m_Report;
 
-	if ( gpGlobals->framecount != pOverlaps->m_nReportFrame )
+	if ( m_pGlobals->framecount != pOverlaps->m_nReportFrame )
 	{
-		pOverlaps->m_nReportFrame = gpGlobals->framecount;
+		pOverlaps->m_nReportFrame = m_pGlobals->framecount;
 		report.clear();
 
 		WarnOverlapsFull( pOverlaps->DrainPending( report ) );
@@ -1197,6 +1155,11 @@ int CStandaloneEntity::TakeDamage( const ss::CTakeDamageInfo &info )
 
 // The physics object is made by managed code and held here, because the engine
 // and the shell read it every frame. Its teardown stays with the hold.
+IPhysicsEnvironment *CStandaloneEntity::PhysicsEnvironment() const
+{
+	return m_pContext->m_pPhysics ? m_pContext->m_pPhysics->Environment() : NULL;
+}
+
 void CStandaloneEntity::DestroyPhysics()
 {
 	if ( !m_pPhysics )
@@ -1206,8 +1169,8 @@ void CStandaloneEntity::DestroyPhysics()
 	// the object may still reach a callback after the entity is gone.
 	m_pPhysics->SetGameData( NULL );
 
-	if ( physenv )
-		physenv->DestroyObject( m_pPhysics );
+	if ( IPhysicsEnvironment *pEnv = PhysicsEnvironment() )
+		pEnv->DestroyObject( m_pPhysics );
 
 	m_pPhysics = NULL;
 
@@ -1250,12 +1213,6 @@ void CStandaloneEntity::SetOwnerHandle( uint32_t hOwner )
 	MarkBlockChanged( SS_BLOCK_HEAD_OFFSET( OwnerHandle ) );
 }
 
-// The owner as the trace filter compares it, or NULL if there is none or it died.
-IHandleEntity *CStandaloneEntity::OwnerHandleEntity() const
-{
-	return SourceSharp_EntityFromHandle( BlockOwner() );
-}
-
 // What EntityGetAngularVelocity reads back for an entity the solver does not move.
 void CStandaloneEntity::SetAngularVelocity( const QAngle &angPerSecond )
 {
@@ -1290,7 +1247,7 @@ void CStandaloneEntity::Remove()
 // Frees the shells behind a frame's removals, one crossing per frame. A handle
 // that no longer resolves is skipped: a parent freed earlier in the batch takes
 // its children, and the serial check keeps a recycled entry's new occupant safe.
-void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount )
+void CServerEntityLifecycle::DestroyShell( const uint32_t *pHandles, int32_t nCount )
 {
 	if ( !pHandles || nCount <= 0 )
 		return;

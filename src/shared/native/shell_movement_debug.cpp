@@ -10,9 +10,16 @@
 
 #include "shell_gamemovement.h"
 #include "native_command_body.h"
+#ifndef CLIENT_DLL
+#include "server_services.h"
+#endif
 
 // Prints how many commands the managed movement loop ran and how many it could not.
 SS_NATIVE_COMMAND( cs_sv_move_managed_report )
 {
-	SourceSharp_MoveManagedReport();
+#ifdef CLIENT_DLL
+	SourceSharp_MoveManagedReport( SourceSharp_MoveManagedCalls() );
+#else
+	SourceSharp_MoveManagedReport( services.m_Movement.CommandsRan() );
+#endif
 }

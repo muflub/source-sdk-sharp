@@ -62,6 +62,7 @@ struct StandaloneClassDesc_t
 // The CBaseEntity layer. Never put a member behind a preprocessor conditional: the blob
 // sits at a fixed offset past the members.
 class CServerEntityContext;
+class IPhysicsEnvironment;
 
 class CStandaloneEntity : public IServerEntity, public IServerNetworkable, public ICollideable, public IGameEntity
 {
@@ -78,6 +79,9 @@ public:
 
 	// What this entity calls through, for code that holds the entity.
 	CServerEntityContext &Context() const { return *m_pContext; }
+
+	// The level's physics environment, or NULL between levels.
+	IPhysicsEnvironment *PhysicsEnvironment() const;
 
 	virtual ~CStandaloneEntity();
 
@@ -327,7 +331,6 @@ public:
 
 	// A handle because the shooter can die mid-flight.
 	void SetOwnerHandle( uint32_t hOwner );
-	IHandleEntity *OwnerHandleEntity() const;
 
 	// How many times it may bounce before the flight ends; zero stops on the first hit.
 	void SetBounces( int nBounces ) { m_nBouncesLeft = nBounces; }

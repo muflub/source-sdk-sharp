@@ -7,15 +7,17 @@
 
 #include <string.h>
 
-// Declared here rather than including the ABI headers: world.h includes this.
-unsigned int SourceSharp_PlayerSyncGeneration();
-
 // The map classname, factory name and [StandaloneNetState] key at once; a misspelling
 // leaves every field unresolved.
 #define SOURCESHARP_WORLD_NETCLASS "worldspawn"
 
 // Blob-relative offsets; each side adds its own base. StartDark and ColdWorld share one
 // packed word, so they carry a placement rather than an offset.
+#ifdef CLIENT_DLL
+// The client's managed generation (CManagedSide::Generation); see standalone_player_sync.h.
+unsigned int SourceSharp_PlayerSyncGeneration();
+#endif
+
 struct SourceSharpWorldFields_t
 {
 	unsigned int nGeneration; // 0 = never resolved
@@ -47,12 +49,12 @@ struct SourceSharpWorldFields_t
 
 	// Shares the player sync's generation: one republish invalidates every native-held
 	// offset at once.
-	bool IsCurrent() const { return nGeneration != 0 && nGeneration == SourceSharp_PlayerSyncGeneration(); }
+	bool IsCurrent( unsigned int nCurrent ) const { return nGeneration != 0 && nGeneration == nCurrent; }
 };
 
 // Asks the managed side for all ten placements. False, with one warning, when
 // worldspawn is not published on this side; the caller retries on its next read.
-bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields );
+bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration );
 
 // Safe against an unresolved field and a NULL blob; they answer zero, as a fresh
 // stock world would.
@@ -68,4 +70,4 @@ const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBy
 // read by the renderer and fail silently as plausible zeros, so this is the only live
 // evidence they arrive; one body keeps both sides' lines comparable.
 void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob, int nBlobBytes,
-							  const SourceSharpWorldFields_t &fields );
+							  const SourceSharpWorldFields_t &fields, unsigned int nGeneration );

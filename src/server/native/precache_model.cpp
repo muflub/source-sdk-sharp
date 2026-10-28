@@ -7,43 +7,54 @@
 
 // SS_REASON g  leaf math over mdl/bsp data
 
-#include "server_engine.h"
+#include "precache_model.h"
+#include "shell_managed_areas.h"
+#include "shell_diagnostics.h"
 #include "model_types.h"
 #include "eiface.h"
-
-#include "entity_shared_statics.h"
 
 #include "imanaged_areas.h"
 #include "ss_string.h"
 
-void Precache_ModelComponents( int nModelIndex )
+void CServerModelPrecache::ModelComponents( int nModelIndex )
 {
-	model_t *pModel = (model_t *)ServerModelInfo()->GetModel( nModelIndex );
-	if ( !pModel || ServerModelInfo()->GetModelType( pModel ) != mod_studio )
+	model_t *pModel = (model_t *)m_pModelInfo->GetModel( nModelIndex );
+	if ( !pModel || m_pModelInfo->GetModelType( pModel ) != mod_studio )
 	{
 		return;
 	}
 
 	// Precaches the model's animation-event sounds and particle systems, in stock's order.
-	if ( IManagedResources *pArea = ManagedResources() )
-		pArea->ModelPrecacheComponents( ServerModelInfo()->GetModelName( pModel ) );
+	if ( IManagedResources *pArea = m_Managed.m_pResources )
+		pArea->ModelPrecacheComponents( m_pModelInfo->GetModelName( pModel ) );
 }
 
-int Precache_Model( const char *name, bool bPreload )
+int CServerModelPrecache::Model( const char *name, bool bPreload )
 {
 	if ( !name || !*name )
 	{
 		return -1;
 	}
 
-	if ( IManagedResources *pArea = ManagedResources() )
-		pArea->ModelPrecacheCheck( name, EntityPrecache_IsAllowed() );
+	if ( IManagedResources *pArea = m_Managed.m_pResources )
+		pArea->ModelPrecacheCheck( name, m_bAllowed );
 
-	int idx = ServerEngine()->PrecacheModel( name, bPreload );
+	int idx = m_pEngine->PrecacheModel( name, bPreload );
 	if ( idx != -1 )
 	{
-		Precache_ModelComponents( idx );
+		ModelComponents( idx );
 	}
 
 	return idx;
+}
+
+int32_t CServerModelPrecache::PrecacheModel( const char *pszModel )
+{
+	// Hot: the recursive precache walk calls this per model every map change.
+	SOURCESHARP_TRACE_HOT();
+
+	if ( !pszModel || !pszModel[0] )
+		return -1;
+
+	return Model( pszModel );
 }

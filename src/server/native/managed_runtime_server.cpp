@@ -12,24 +12,18 @@
 
 #include "eiface.h"
 
-extern CGlobalVars *gpGlobals;
-
 #include "managed_runtime_server.h"
 
-// Defined in sourcesharp_gamesystem.cpp, which publishes no header.
-bool SourceSharp_LoadManagedSide();
+#include "managed_side.h"
 
-// The server's only path to the CLR, called from the shell's DLLInit. Seeds gpGlobals,
-// the pointer the engine writes every frame, as stock's DLLInit does.
-IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env )
+// The server's only path to the CLR, called from the shell's DLLInit.
+IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env, CManagedSide &side )
 {
 	if ( env == NULL )
 		return NULL;
 
-	gpGlobals = &env->GetGlobalVars();
-
-	// SourceSharp_LoadManagedSide calls Error() on failure; a repeat call answers true.
-	if ( !SourceSharp_LoadManagedSide() )
+	// Load calls Error() on failure; a repeat call answers true.
+	if ( !side.Load() )
 		return NULL;
 
 	// The managed-built runtime. Callers use ManagedRuntimeServer() rather than keeping

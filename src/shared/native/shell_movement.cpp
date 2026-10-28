@@ -62,8 +62,9 @@
 #include "vphysics_interface.h"
 #include "ss_util.h"
 #include "ss_shareddefs.h"
+#include "server_movement.h"
+#include "server_entity_resolver.h"
 
-extern CGlobalVars *gpGlobals;
 #define RUMBLE_FLAGS_NONE ss::kRumbleFlagsNone
 #define VEC_VIEW_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
 #define VEC_HULL_MIN_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vHullMin * player->GetModelScale() )
@@ -84,7 +85,9 @@ IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
 #define SOURCESHARP_MOVE_SIDE_TAG "server"
 #endif
 
+#ifdef CLIENT_DLL
 unsigned int SourceSharp_MovementRefusalCount( int nReason );
+#endif
 
 // Defined in shell_gamerules.cpp: the hulls are read through g_pGameRules->GetViewVectors().
 void SourceSharp_PublishViewVectors( const SourceSharpMovementParams *pParams );
@@ -141,11 +144,19 @@ enum SourceSharpMoveCounter_t
 	kMoveCounterCount
 };
 
+#ifdef CLIENT_DLL
+// The client's counts; the server's command count is CServerMovement's.
 static unsigned int *MoveCounters()
 {
 	static unsigned int s_nCounts[kMoveCounterCount] = { 0 };
 	return s_nCounts;
 }
+
+unsigned int SourceSharp_MoveManagedCalls()
+{
+	return MoveCounters()[kMoveProcessMovement];
+}
+#endif
 
 // MoveStateBlob in SourceSharp.Abi mirrors this: 147 int32/float words, no padding.
 COMPILE_TIME_ASSERT( sizeof( SourceSharpMoveState ) == 147 * 4 );
@@ -179,22 +190,14 @@ void SourceSharp_MoveNoteManagedCommand()
 }
 #endif
 
-#ifndef CLIENT_DLL
-// The same count from the server's managed command loop.
-void SourceSharp_MoveNoteServerCommand()
-{
-	MoveCounters()[kMoveProcessMovement]++;
-}
-#endif
-
 // One report body for both sides' move-managed-report commands.
-void SourceSharp_MoveManagedReport()
+void SourceSharp_MoveManagedReport( unsigned int nCalls )
 {
 	const char *const pszNames[kMoveCounterCount] = {
 		"ProcessMovement",
 	};
 
-	const unsigned int *pCounts = MoveCounters();
+	const unsigned int pCounts[kMoveCounterCount] = { nCalls };
 	unsigned int nTotal = 0;
 
 	for ( int i = 0; i < kMoveCounterCount; i++ )
@@ -211,7 +214,9 @@ void SourceSharp_MoveManagedReport()
 	for ( int i = 0; i < kMoveCounterCount; i++ )
 		Msg( "  %-16s %u\n", pszNames[i], pCounts[i] );
 
-	// Commands that could not be run, printed even when zero.
+#ifdef CLIENT_DLL
+	// Commands that could not be run, printed even when zero. The client's alone: a server
+	// refusal is fatal, so nothing would be left to print it.
 	static const char *const pszRefusals[kMovementFatal_Count] = {
 		"no-managed-side",
 		"no-stock-body",
@@ -220,6 +225,7 @@ void SourceSharp_MoveManagedReport()
 
 	for ( int i = 0; i < kMovementFatal_Count; i++ )
 		Msg( "  refused:%-8s %u\n", pszRefusals[i], SourceSharp_MovementRefusalCount( i ) );
+#endif
 }
 
 // [MD] I'll remove this eventually. For now, I want the ability to A/B the optimizations.
@@ -314,19 +320,23 @@ IGameMovement *g_pGameMovement = (IGameMovement *)&g_ShellGameMovement;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellGameMovement, IGameMovement, INTERFACENAME_GAMEMOVEMENT, g_ShellGameMovement );
 #endif // CLIENT_DLL
 
+#ifdef CLIENT_DLL
 // Commands that could not be run, counted by reason.
 static unsigned int *MovementRefusals()
 {
 	static unsigned int s_nRefusals[kMovementFatal_Count] = { 0, 0, 0 };
 	return s_nRefusals;
 }
+#endif
 
 // Fatal through Error(), so the reason reaches the console and log before the process
 // stops. The text is passed as "%s", never as the format.
 void SourceSharp_MovementFatal( int nReason, int nDetail )
 {
+#ifdef CLIENT_DLL
 	if ( nReason >= 0 && nReason < kMovementFatal_Count )
 		MovementRefusals()[nReason]++;
+#endif
 
 	char szMessage[1536];
 	SourceSharpMovement_Format( szMessage, sizeof( szMessage ), SOURCESHARP_MOVE_SIDE_TAG, nReason, nDetail );
@@ -356,6 +366,7 @@ static void SourceSharp_MovementRefused( int nReason, int nDetail )
 }
 #endif // CLIENT_DLL
 
+#ifdef CLIENT_DLL
 unsigned int SourceSharp_MovementRefusalCount( int nReason )
 {
 	if ( nReason < 0 || nReason >= kMovementFatal_Count )
@@ -363,6 +374,7 @@ unsigned int SourceSharp_MovementRefusalCount( int nReason )
 
 	return MovementRefusals()[nReason];
 }
+#endif
 
 #ifdef CLIENT_DLL
 // The mover whose command is running, set only for the duration of one crossing.
@@ -741,9 +753,9 @@ void SourceSharp_MoveTrace( const float *pStart, const float *pEnd, const float 
 #ifndef CLIENT_DLL
 // The server's movement hull trace through managed's filter, with no mover behind it.
 // pOutHandles[0] is the entity hit, [1] the standable ground; invalid for none.
-void SourceSharp_MoveTraceServer( const float *pStart, const float *pEnd, const float *pMins, const float *pMaxs,
-								  int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut,
-								  void *pFilter, uint32_t *pOutHandles )
+void CServerMovement::MoveTraceServer( const float *pStart, const float *pEnd, const float *pMins, const float *pMaxs,
+									   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut,
+									   void *pFilter, uint32_t *pOutHandles )
 {
 	if ( !pOut || !pOutHandles )
 		return;

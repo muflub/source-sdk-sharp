@@ -83,6 +83,11 @@ public:
 	// The plain function pointer, or NULL when the thunk could not be made.
 	Fn Get() const { return reinterpret_cast<Fn>( m_pPage ); }
 
+	// Forgets the page without unmapping it: for a pointer still installed somewhere this
+	// object cannot uninstall it from. The thunk keeps calling the instance it was bound
+	// to, so that instance must outlive every call.
+	void Abandon() { m_pPage = nullptr; }
+
 	// The target a method of T is bound through: CBoundCallback<Sig>::Trampoline<T, &T::M>.
 	template <typename T, R ( T::*M )( A... )>
 	static R Trampoline( void *pInstance, A... args )

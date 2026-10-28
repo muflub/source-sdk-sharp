@@ -11,7 +11,8 @@
 // NativeCommands declares the matching rows under #if DEBUG.
 
 #include "ss_util.h"
-#include "shell_standalone_class.h"
+#include "shell_entity_lifecycle.h"
+#include "server_services.h"
 #include "native_command_body.h"
 
 // Lists the entity factories (with sizes when given an argument, matching the client's
@@ -21,12 +22,13 @@ SS_NATIVE_COMMAND( dumpentityfactories )
 	if ( !UTIL_IsCommandIssuedByServerAdmin() )
 		return;
 
+	CServerEntityLifecycle &lifecycle = services.m_EntityLifecycle;
 	const bool bDetail = args.ArgC() > 1;
-	const int nCount = SourceSharp_EntityFactoryCount();
+	const int nCount = lifecycle.EntityFactoryCount();
 
 	for ( int i = 0; i < nCount; i++ )
 	{
-		const char *pName = SourceSharp_EntityFactoryNameAt( i );
+		const char *pName = lifecycle.EntityFactoryNameAt( i );
 
 		if ( !bDetail )
 		{
@@ -34,12 +36,12 @@ SS_NATIVE_COMMAND( dumpentityfactories )
 			continue;
 		}
 
-		Msg( "%-40s %llu\n", pName, (uint64)SourceSharp_EntityFactorySizeAt( i ) );
+		Msg( "%-40s %llu\n", pName, (uint64)lifecycle.EntityFactorySizeAt( i ) );
 	}
 
 	Msg( "[SourceSharp] %d entity factor%s\n", nCount, nCount == 1 ? "y" : "ies" );
 
-	const int nRefused = SourceSharp_EntityFactoryRefusalCount();
+	const int nRefused = lifecycle.EntityFactoryRefusalCount();
 
 	if ( nRefused == 0 )
 		return;
@@ -48,7 +50,7 @@ SS_NATIVE_COMMAND( dumpentityfactories )
 
 	for ( int i = 0; i < nRefused; i++ )
 	{
-		Msg( "    %-40s refused %d time(s)\n", SourceSharp_EntityFactoryRefusalNameAt( i ),
-			 SourceSharp_EntityFactoryRefusalTimesAt( i ) );
+		Msg( "    %-40s refused %d time(s)\n", lifecycle.EntityFactoryRefusalNameAt( i ),
+			 lifecycle.EntityFactoryRefusalTimesAt( i ) );
 	}
 }

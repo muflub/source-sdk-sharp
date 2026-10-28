@@ -4,9 +4,9 @@
 
 #include "tier1/interface.h"
 
+#ifdef CLIENT_DLL
 void SourceSharp_ConnectTier1( CreateInterfaceFn engineFactory );
 void SourceSharp_DisconnectTier1();
-#ifdef CLIENT_DLL
 void SourceSharp_ConnectTier2( CreateInterfaceFn engineFactory );
 void SourceSharp_DisconnectTier2();
 #endif

@@ -19,5 +19,4 @@
 #include "ss_takedamageinfo.h"
 
 uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
-extern CGlobalVars *gpGlobals;
 class CFunctor;

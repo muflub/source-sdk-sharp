@@ -292,6 +292,19 @@ std::vector<LedgerRow_t> LedgerRows()
 	return out;
 }
 
+// The ledger's data lines counted as text, apart from the parse: rows that number fewer
+// than these were dropped by it, and none at all leaves every assertion over them vacuous.
+// A count, not a floor: the rows fall as globals leave, towards the permanent ones.
+size_t LedgerDataLines()
+{
+	size_t n = 0;
+	const std::vector<std::string> lines = Lines( ReadFromRoot( "docs/globals-ledger.tsv" ) );
+	for ( size_t i = 0; i < lines.size(); i++ )
+		if ( !lines[i].empty() && lines[i][0] != '#' && lines[i].compare( 0, 5, "home\t" ) != 0 )
+			n++;
+	return n;
+}
+
 const char *kDispositions[] = { "GONE", "DEAD", "CONST", "MANAGED", "MEMBER", "FLOOR", "UNRULED" };
 
 bool IsADisposition( const std::string &sz )
@@ -402,8 +415,8 @@ TEST( GlobalsLedger, TheGateItselfPasses )
 TEST( GlobalsLedger, TheGateFailsWhenTheLedgerIsMissingARow )
 {
 	const std::vector<LedgerRow_t> rows = LedgerRows();
-	ASSERT_GT( rows.size(), 100u ) << "docs/globals-ledger.tsv has almost no rows, so removing one from a "
-									  "copy proves nothing";
+	ASSERT_GT( rows.size(), 0u ) << "docs/globals-ledger.tsv has no rows";
+	ASSERT_EQ( LedgerDataLines(), rows.size() ) << "the parse dropped ledger lines";
 
 	const char *pszRoot = WorktreeRoot();
 	ASSERT_TRUE( pszRoot != NULL );
@@ -558,8 +571,8 @@ TEST( GlobalsLedger, TheTwoInstrumentsReconcileWithNothingLeftOver )
 TEST( GlobalsLedger, TheLedgerVocabularyCannotGrowAnEighthWord )
 {
 	const std::vector<LedgerRow_t> rows = LedgerRows();
-	ASSERT_GT( rows.size(), 100u ) << "docs/globals-ledger.tsv parsed to almost nothing, so every "
-									  "assertion over it is vacuous";
+	ASSERT_GT( rows.size(), 0u ) << "docs/globals-ledger.tsv has no rows";
+	ASSERT_EQ( LedgerDataLines(), rows.size() ) << "the parse dropped ledger lines";
 
 	for ( size_t i = 0; i < rows.size(); i++ )
 		EXPECT_TRUE( IsADisposition( rows[i].m_szDisposition ) )
@@ -572,7 +585,8 @@ TEST( GlobalsLedger, TheLedgerVocabularyCannotGrowAnEighthWord )
 TEST( GlobalsLedger, EveryLedgerRowNamesATranslationUnitThatStillExists )
 {
 	const std::vector<LedgerRow_t> rows = LedgerRows();
-	ASSERT_GT( rows.size(), 100u );
+	ASSERT_GT( rows.size(), 0u ) << "docs/globals-ledger.tsv has no rows";
+	ASSERT_EQ( LedgerDataLines(), rows.size() ) << "the parse dropped ledger lines";
 
 	size_t cMissing = 0;
 	std::string szFirst;

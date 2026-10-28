@@ -32,8 +32,6 @@
 #include <string.h>
 #include <string>
 
-extern ICvar *g_pCVar;
-
 namespace
 {
 // Where an assert's text came from: _SpewInfo sets it, _SpewMessage reads it,
@@ -47,19 +45,22 @@ std::string s_Early; // lines spewed before the console existed
 
 AssertFailedNotifyFunc_t s_pAssertNotify = nullptr;
 
+// The engine's console, connected by the DLL root beside its CCVarRegistry.
+ICvar *s_pConsole = nullptr;
+
 void WriteToConsole( SpewType_t type, const char *pText )
 {
 	switch ( type )
 	{
 		case SPEW_WARNING:
-			g_pCVar->ConsoleColorPrintf( Color( 255, 255, 0, 255 ), "%s", pText );
+			s_pConsole->ConsoleColorPrintf( Color( 255, 255, 0, 255 ), "%s", pText );
 			break;
 		case SPEW_ASSERT:
 		case SPEW_ERROR:
-			g_pCVar->ConsoleColorPrintf( Color( 255, 64, 64, 255 ), "%s", pText );
+			s_pConsole->ConsoleColorPrintf( Color( 255, 64, 64, 255 ), "%s", pText );
 			break;
 		default:
-			g_pCVar->ConsolePrintf( "%s", pText );
+			s_pConsole->ConsolePrintf( "%s", pText );
 			break;
 	}
 }
@@ -121,7 +122,7 @@ SpewRetval_t ConsoleSpew( SpewType_t type, const tchar *pText )
 		return SPEW_CONTINUE;
 
 	SpewOutputFunc_t pEngine = t_bInEngine ? nullptr : EngineSpew();
-	if ( !pEngine && !g_pCVar )
+	if ( !pEngine && !s_pConsole )
 	{
 		std::lock_guard<std::mutex> hold( s_EarlyLock );
 		s_Early += pText;
@@ -135,7 +136,7 @@ SpewRetval_t ConsoleSpew( SpewType_t type, const tchar *pText )
 			if ( pEngine )
 				HandToEngine( pEngine, SPEW_MESSAGE, s_Early.c_str() );
 			else
-				g_pCVar->ConsolePrintf( "%s", s_Early.c_str() );
+				s_pConsole->ConsolePrintf( "%s", s_Early.c_str() );
 			s_Early.clear();
 		}
 	}
@@ -158,11 +159,16 @@ SpewRetval_t SpewV( SpewType_t type, const tchar *pFormat, va_list args )
 
 bool DeveloperAt( int level )
 {
-	if ( !g_pCVar )
+	if ( !s_pConsole )
 		return false;
-	const ConVar *pDeveloper = g_pCVar->FindVar( "developer" );
+	const ConVar *pDeveloper = s_pConsole->FindVar( "developer" );
 	return pDeveloper && pDeveloper->GetInt() >= level;
 }
+}
+
+void Tier0_ConnectConsole( ICvar *pConsole )
+{
+	s_pConsole = pConsole;
 }
 
 void SpewOutputFunc( SpewOutputFunc_t func )

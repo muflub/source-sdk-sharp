@@ -29,8 +29,8 @@
 #else
 #include "edict.h"
 #include "eiface.h"
-extern CGlobalVars *gpGlobals;
 #include "server_engine.h"
+#include "shell_shim_root_server.h"
 float GetCurrentGravity();
 #endif
 #include "tier1/convar.h"
@@ -51,6 +51,14 @@ float GetCurrentGravity();
 #include "shell_vtable_interfaces.h"
 #include "shell_diagnostics.h"
 #include "managed_init_failure.h"
+#include "managed_side.h"
+#include "diagnostics_hooks.h"
+#include "convar_registry.h"
+#ifdef CLIENT_DLL
+#include "shell_managed_areas_client.h"
+#else
+#include "shell_managed_areas.h"
+#endif
 #ifdef CLIENT_DLL
 #include "movevars_shared.h"
 #endif
@@ -64,6 +72,7 @@ float GetCurrentGravity();
 
 #ifndef CLIENT_DLL
 #include "shell_server.h"
+#include "server_services.h"
 #endif
 
 // Entry points the fill calls directly rather than through a slot. Server only.
@@ -81,15 +90,19 @@ struct SourceSharpSkyboxParams;
 #endif
 
 // Slot bodies about gpGlobals, which each side has for its own globals.
-// The engine's CGlobalVars for managed to read; NULL until the engine sets it.
+// The engine's CGlobalVars for managed to read; NULL until the engine sets it. The
+// server's is its shim root's, set by the game DLL; the slot is shared with the client.
 static void *SourceSharp_GetGlobalVarsPtr()
 {
+#ifdef CLIENT_DLL
 	return (void *)gpGlobals;
+#else
+	return (void *)ShellGameDll_ShimRoot().m_pGlobals;
+#endif
 }
 
 #ifndef CLIENT_DLL
 // Closes the window the engine's single walk of g_pServerClassHead defines.
-void SourceSharp_TempEntCloseRegistration();
 
 #endif
 
@@ -119,8 +132,6 @@ void SourceSharp_StopListeningForGameEvents();
 #define SourceSharp_UnloadMySide SourceSharp_UnloadServer
 #define SourceSharp_ReloadCheckMySide SourceSharp_ReloadCheckServer
 #endif
-
-static bool g_bSourceSharpLoaded = false;
 
 // The client's struct reaches IShimConsole's bodies through these.
 #ifdef CLIENT_DLL
@@ -187,7 +198,19 @@ static int32_t SourceSharp_ConsoleFindConVarFlags( const char *n )
 #endif
 
 // One load, for the first load and the reload alike.
-static int SourceSharp_LoadMySide()
+CManagedSide::CManagedSide( ManagedHolders_t &holders, CDiagnosticsHooks &diagnostics, CCVarRegistry &cvars )
+	: m_Holders( holders )
+	, m_Diagnostics( diagnostics )
+	, m_CVars( cvars )
+#ifdef CLIENT_DLL
+	, m_ConsoleDisplay( holders.m_Areas.m_pConsoleOutputClient )
+#else
+	, m_ConsoleDisplay( holders.m_Areas.m_pConsoleOutput )
+#endif
+{
+}
+
+int CManagedSide::LoadMySide()
 {
 	const void *pRootTable = NULL;
 	IShimRoot *pRoot = ShimRoot_Get( &pRootTable );
@@ -201,9 +224,9 @@ static int SourceSharp_LoadMySide()
 	char szWhy[160];
 
 	// A reload: native kept every object and the new build patched them in place.
-	if ( ManagedRoot_Get() )
+	if ( m_Holders.m_pRoot )
 	{
-		if ( !ManagedRoot_Reattached( pManagedRoot, szWhy, sizeof( szWhy ) ) )
+		if ( !Reattached( pManagedRoot, szWhy, sizeof( szWhy ) ) )
 		{
 			Warning( "[SourceSharp] %s: the reloaded managed side was refused: %s\n", SOURCESHARP_SIDE_TAG, szWhy );
 			return SOURCESHARP_ERR_ABI_MISMATCH;
@@ -214,13 +237,13 @@ static int SourceSharp_LoadMySide()
 		return rc;
 	}
 
-	if ( !ManagedRoot_Accept( pManagedRoot, szWhy, sizeof( szWhy ) ) )
+	if ( !AcceptRoot( pManagedRoot, szWhy, sizeof( szWhy ) ) )
 	{
 		Warning( "[SourceSharp] %s: managed root refused: %s\n", SOURCESHARP_SIDE_TAG, szWhy );
 		return SOURCESHARP_ERR_ABI_MISMATCH;
 	}
 
-	if ( !ManagedRoot_AcquireAreas( szWhy, sizeof( szWhy ) ) )
+	if ( !AcquireAreas( szWhy, sizeof( szWhy ) ) )
 	{
 		Warning( "[SourceSharp] %s: a managed-built area was refused: %s\n", SOURCESHARP_SIDE_TAG, szWhy );
 		return SOURCESHARP_ERR_ABI_MISMATCH;
@@ -228,7 +251,7 @@ static int SourceSharp_LoadMySide()
 
 	// Forwards engine console prints to managed. Removed before the areas go; a
 	// reload keeps it, since the forwarder reads its area per line.
-	if ( !ConsoleDisplay_Install( g_pCVar ) )
+	if ( !m_ConsoleDisplay.Install( m_CVars.Cvar() ) )
 	{
 		Warning( "[SourceSharp] %s: the console display func was not installed "
 				 "(no ICvar); engine prints will not reach managed code\n",
@@ -240,23 +263,14 @@ static int SourceSharp_LoadMySide()
 	return rc;
 }
 
-// Reloads run at the top of the next frame: a collectible load context cannot
-// unload while any thread's stack, such as the requesting command's, holds its frames.
-static bool g_bReloadRequested = false;
-
-static void SourceSharp_ReloadManagedSide();
-
-void SourceSharp_ServiceReloadRequest()
+void CManagedSide::ServiceReloadRequest()
 {
-	if ( !g_bReloadRequested )
+	if ( !m_bReloadRequested )
 		return;
 
-	g_bReloadRequested = false;
-	SourceSharp_ReloadManagedSide();
+	m_bReloadRequested = false;
+	Reload();
 }
-
-// Whether Init has run to completion, as distinct from the side being up now.
-static CSourceSharpInitGate g_SourceSharpInitGate;
 
 static void SourceSharp_HostLog( const char *pMsg )
 {
@@ -382,10 +396,15 @@ private:
 	ConVar m_ConVar;
 };
 
+ICvar *CShimConsole::Cvar() const
+{
+	return m_pCVars ? m_pCVars->Cvar() : NULL;
+}
+
 void CShimConsole::ReleaseObjects()
 {
-	if ( m_bChangeCallbackInstalled && g_pCVar )
-		g_pCVar->RemoveGlobalChangeCallback( m_ChangeCallback.Get() );
+	if ( m_bChangeCallbackInstalled && Cvar() )
+		Cvar()->RemoveGlobalChangeCallback( m_ChangeCallback.Get() );
 	m_bChangeCallbackInstalled = false;
 
 	m_Commands.DeleteAll();
@@ -420,7 +439,7 @@ void CShimConsole::OnConVarChanged( IConVar *pVar, const char *pOldValue, float 
 	{
 		// A watched engine or native convar, forwarded under the watch's id.
 		nId = SourceSharp_ClientWatchedConVarId( pName );
-		ConVar *pWatched = ( nId >= 0 && g_pCVar ) ? g_pCVar->FindVar( pName ) : NULL;
+		ConVar *pWatched = ( nId >= 0 && Cvar() ) ? Cvar()->FindVar( pName ) : NULL;
 		pNewValue = pWatched ? pWatched->GetString() : "";
 	}
 #endif
@@ -436,10 +455,10 @@ void CShimConsole::OnConVarChanged( IConVar *pVar, const char *pOldValue, float 
 
 void CShimConsole::EnsureChangeCallback()
 {
-	if ( m_bChangeCallbackInstalled || !g_pCVar || !m_ChangeCallback.Get() )
+	if ( m_bChangeCallbackInstalled || !Cvar() || !m_ChangeCallback.Get() )
 		return;
 
-	g_pCVar->InstallGlobalChangeCallback( m_ChangeCallback.Get() );
+	Cvar()->InstallGlobalChangeCallback( m_ChangeCallback.Get() );
 	m_bChangeCallbackInstalled = true;
 
 	if ( SourceSharp_GetVerbosity() > 0 )
@@ -569,10 +588,10 @@ static int32_t SourceSharp_ConsoleFlags( const ConCommandBase *pBase )
 // The flags of the engine's variable pName, or -1 for none.
 int32_t CShimConsole::FindConVarFlags( const char *pName )
 {
-	if ( !g_pCVar || !pName || !pName[0] )
+	if ( !Cvar() || !pName || !pName[0] )
 		return -1;
 
-	const ConVar *pExisting = g_pCVar->FindVar( pName );
+	const ConVar *pExisting = Cvar()->FindVar( pName );
 	return pExisting ? SourceSharp_ConsoleFlags( pExisting ) : -1;
 }
 
@@ -580,10 +599,10 @@ int32_t CShimConsole::ConsoleSnapshot()
 {
 	m_Snapshot.clear();
 
-	if ( !g_pCVar )
+	if ( !Cvar() )
 		return 0;
 
-	ICvar::Iterator iter( g_pCVar );
+	ICvar::Iterator iter( Cvar() );
 	for ( iter.SetFirst(); iter.IsValid(); iter.Next() )
 	{
 		ConCommandBase *pBase = iter.Get();
@@ -644,11 +663,11 @@ int32_t CShimConsole::FindConVarValue( const char *pName, char *pOut, int32_t nO
 
 	pOut[0] = '\0';
 
-	if ( !pName || !pName[0] || !g_pCVar )
+	if ( !pName || !pName[0] || !Cvar() )
 		return 0;
 
 	// FindVar: a command has no value, so it answers 0.
-	ConVar *pVar = g_pCVar->FindVar( pName );
+	ConVar *pVar = Cvar()->FindVar( pName );
 
 	if ( !pVar )
 		return 0;
@@ -661,10 +680,10 @@ int32_t CShimConsole::FindConVarValue( const char *pName, char *pOut, int32_t nO
 // refuse it. Unknown names are ignored: many exist on one side only.
 void CShimConsole::SetNamedConVarValue( const char *pName, const char *pValue )
 {
-	if ( !pName || !pName[0] || !pValue || !g_pCVar )
+	if ( !pName || !pName[0] || !pValue || !Cvar() )
 		return;
 
-	ConVar *pVar = g_pCVar->FindVar( pName );
+	ConVar *pVar = Cvar()->FindVar( pName );
 
 	if ( !pVar )
 		return;
@@ -675,10 +694,10 @@ void CShimConsole::SetNamedConVarValue( const char *pName, const char *pValue )
 // Reverts a convar to its default by name. Unknown names are ignored.
 void CShimConsole::RevertNamedConVar( const char *pName )
 {
-	if ( !pName || !pName[0] || !g_pCVar )
+	if ( !pName || !pName[0] || !Cvar() )
 		return;
 
-	ConVar *pVar = g_pCVar->FindVar( pName );
+	ConVar *pVar = Cvar()->FindVar( pName );
 
 	if ( !pVar )
 		return;
@@ -719,11 +738,11 @@ static void SourceSharp_FatalInitFailure( int nStage, int rc, const char *pDetai
 	Error( "%s", szMessage );
 }
 
-// Brings the managed side up; each DLL calls it from LoadManagedRuntime.
-bool SourceSharp_LoadManagedSide()
+// Each DLL calls it from LoadManagedRuntime.
+bool CManagedSide::Load()
 {
 	// The gate closes at the bottom, so an unfinished attempt does not count.
-	if ( !g_SourceSharpInitGate.ShouldRun() )
+	if ( !m_InitGate.ShouldRun() )
 		return true;
 
 	// Host diagnostics into the console first, so a failing Acquire is visible.
@@ -733,7 +752,7 @@ bool SourceSharp_LoadManagedSide()
 	Msg( "[SourceSharp] %s DLL init — bringing up managed runtime\n", SOURCESHARP_SIDE_TAG );
 
 	// Before anything that can assert, such as the entity factory's static init.
-	SourceSharp_InstallAssertLogging();
+	m_Diagnostics.Install();
 
 	SourceSharp_MarkDiagnosticsReady();
 	SourceSharp_DumpExportedInterfaces();
@@ -749,121 +768,51 @@ bool SourceSharp_LoadManagedSide()
 	if ( rc != SOURCESHARP_OK )
 		SourceSharp_FatalInitFailure( kSourceSharpInitStage_Acquire, rc, SourceSharp_LastError() );
 
-	rc = SourceSharp_LoadMySide();
+	rc = LoadMySide();
 	if ( rc != SOURCESHARP_OK )
 	{
 		// No SourceSharp_Release(): Error() does not return.
 		SourceSharp_FatalInitFailure( kSourceSharpInitStage_LoadSide, rc, SourceSharp_LastError() );
 	}
 
-	g_bSourceSharpLoaded = true;
+	m_bLoaded = true;
 
-#ifndef CLIENT_DLL
-	// A ServerClass built after this is not in the list the engine walked.
-	SourceSharp_TempEntCloseRegistration();
-#else
-	// A ClientClass linked after GetAllClasses is not in the handshake.
+#ifdef CLIENT_DLL
+	// A ClientClass linked after GetAllClasses is not in the handshake. The server's root
+	// closes its own registration once this returns.
 	SourceSharp_TempEntClientCloseRegistration();
 #endif
 
-	g_SourceSharpInitGate.MarkSucceeded();
+	m_InitGate.MarkSucceeded();
 
 	Msg( "[SourceSharp] managed %s runtime online\n", SOURCESHARP_SIDE_TAG );
 	return true;
 }
 
-// The counterpart of SourceSharp_LoadManagedSide; the CLR is refcounted across both DLLs.
-void SourceSharp_UnloadManagedSide()
+void CManagedSide::Unload()
 {
 	SOURCESHARP_TRACE();
-	g_SourceSharpInitGate.Reset();
+	m_InitGate.Reset();
 
 	// Above the loaded check: a side that subscribed and then failed must unhook.
 	SourceSharp_StopListeningForGameEvents();
 
-	if ( !g_bSourceSharpLoaded )
+	if ( !m_bLoaded )
 		return;
 
 	Msg( "[SourceSharp] %s shutting down managed runtime\n", SOURCESHARP_SIDE_TAG );
 
 	// First, so no engine print re-enters a forwarder whose managed object is going.
-	ConsoleDisplay_Remove();
+	m_ConsoleDisplay.Remove();
 
 	// Before UnloadSide: a handle still held would keep the load context alive.
-	ManagedRoot_Release();
+	ReleaseRoot();
 
 	SourceSharp_UnloadMySide();
 	SourceSharp_Release();
 
-	g_bSourceSharpLoaded = false;
+	m_bLoaded = false;
 }
-
-#ifndef CLIENT_DLL
-// Reached from the world's precache; the work precaches, so it must run inside it.
-void SourceSharp_ManagedLevelInitPreEntity( const char *pszMapName )
-{
-	IManagedRuntimeServer *pRuntime = ManagedRuntimeServer();
-	if ( !g_bSourceSharpLoaded || !pRuntime )
-		return;
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] %s level init pre-entity -> C#: %s\n", SOURCESHARP_SIDE_TAG, pszMapName );
-
-	pRuntime->OnMapLoadPreEntity( pszMapName );
-}
-
-// This client's 3D-skybox area: 1 with *pOutArea written, else 0, and CheckTransmit
-// sends nothing. Runs per client per frame, so it does not log.
-int SourceSharp_SkyboxAreaForClient( int iClientEdict, int *pOutArea )
-{
-	if ( !g_bSourceSharpLoaded || !ManagedClients() )
-		return 0;
-
-	int32_t nArea = 0;
-	const int32_t nFound = ManagedClients()->ServerSkyboxAreaForClient( iClientEdict, &nArea );
-
-	// Written only on a hit: area 0 is a real area.
-	if ( nFound )
-		*pOutArea = nArea;
-
-	return nFound ? 1 : 0;
-}
-
-// This client's ear position: 1 with pOutXYZ written, else 0 (stock's miss path).
-int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ )
-{
-	if ( pOutXYZ == NULL )
-		return 0;
-
-	if ( !g_bSourceSharpLoaded || !ManagedClients() )
-		return 0;
-
-	float flEars[3] = { 0.0f, 0.0f, 0.0f };
-	const int32_t nFound = ManagedClients()->ServerEarPositionForClient( iClientEdict, flEars );
-
-	// Written only on a hit: the world origin is a real position.
-	if ( nFound )
-	{
-		pOutXYZ[0] = flEars[0];
-		pOutXYZ[1] = flEars[1];
-		pOutXYZ[2] = flEars[2];
-	}
-
-	return nFound ? 1 : 0;
-}
-
-// ClientSetupVisibility's area portal walk, over managed records.
-int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
-									  unsigned char *pPortalBits, int nPortalBytes )
-{
-	if ( !g_bSourceSharpLoaded || !ManagedClients() )
-		return -1;
-
-	return ManagedClients()->ServerAreaPortalVisibility( pOriginXYZ, flFovDistanceAdjustFactor, pPortalBits,
-														 nPortalBytes );
-}
-
-#endif // !CLIENT_DLL
 
 // The client's game system row: holds the runtime adapter and forwards level and
 // frame events. The server has none.
@@ -900,7 +849,7 @@ public:
 		SOURCESHARP_TRACE();
 
 		// Not loaded before the first load, after the last unload, or mid-reload.
-		if ( !g_bSourceSharpLoaded || m_pRuntime == NULL )
+		if ( !ShellClientDll_ManagedSide().Loaded() || m_pRuntime == NULL )
 			return;
 
 		char szMapName[MAX_PATH];
@@ -916,7 +865,7 @@ public:
 	{
 		SOURCESHARP_TRACE();
 
-		if ( !g_bSourceSharpLoaded || m_pRuntime == NULL )
+		if ( !ShellClientDll_ManagedSide().Loaded() || m_pRuntime == NULL )
 			return;
 
 		if ( SourceSharp_GetVerbosity() > 0 )
@@ -932,9 +881,9 @@ public:
 			SOURCESHARP_TRACE();
 
 		// Before the managed frame, so the frame runs the new build.
-		SourceSharp_ServiceReloadRequest();
+		ShellClientDll_ManagedSide().ServiceReloadRequest();
 
-		if ( g_bSourceSharpLoaded && m_pRuntime != NULL )
+		if ( ShellClientDll_ManagedSide().Loaded() && m_pRuntime != NULL )
 			m_pRuntime->OnFrame( frametime );
 	}
 
@@ -965,9 +914,9 @@ int SourceSharp_RetireEntitySlots();
 int SourceSharp_StandaloneLiveCount();
 #endif
 
-static void SourceSharp_ReloadManagedSide()
+void CManagedSide::Reload()
 {
-	if ( !g_bSourceSharpLoaded )
+	if ( !m_bLoaded )
 	{
 		Warning( "[SourceSharp] %s: nothing to reload -- the managed runtime is not up\n", SOURCESHARP_SIDE_TAG );
 		return;
@@ -985,30 +934,30 @@ static void SourceSharp_ReloadManagedSide()
 
 	// Save entity state first: map keyvalues live only in the managed objects.
 #ifndef CLIENT_DLL
-	IManagedSaveRestore *pSaveArea = ManagedSaveRestore();
+	IManagedSaveRestore *pSaveArea = m_Holders.m_Areas.m_pSaveRestore;
 #else
-	IManagedSaveRestoreClient *pSaveArea = ManagedSaveRestoreClient();
+	IManagedSaveRestoreClient *pSaveArea = m_Holders.m_Areas.m_pSaveRestoreClient;
 #endif
 	const int nSaved = pSaveArea ? pSaveArea->ReloadSave() : 0;
 
 	// Native keeps the root and areas; until the new build patches their blocks
 	// they point at a trap table, so the console forwarder pauses.
-	CConsoleDisplayReloadGap consoleGap;
+	CConsoleDisplayReloadGap consoleGap( m_ConsoleDisplay );
 
 	SourceSharp_UnloadMySide();
 
-	// The player sync's resolved offsets belong to the outgoing layout, on both sides.
-	void SourceSharp_PlayerSyncInvalidate( const char *pReason );
-	SourceSharp_PlayerSyncInvalidate( "managed reload" );
+	// The resolved field offsets belong to the outgoing layout, on both sides.
+	m_nGeneration++;
+	Msg( "[SourceSharp] player sync: offsets invalidated (managed reload), generation %u\n", m_nGeneration );
 
-	g_bSourceSharpLoaded = false;
+	m_bLoaded = false;
 
 #ifndef CLIENT_DLL
 	// No managed code runs here: retire every cached blob pointer.
 	const int nRetired = SourceSharp_RetireEntitySlots();
 #endif
 
-	const int rc = SourceSharp_LoadMySide();
+	const int rc = LoadMySide();
 
 	if ( rc != SOURCESHARP_OK )
 	{
@@ -1023,7 +972,7 @@ static void SourceSharp_ReloadManagedSide()
 		return;
 	}
 
-	g_bSourceSharpLoaded = true;
+	m_bLoaded = true;
 	consoleGap.End(); // the blocks are patched; the new build takes the prints
 
 	// The type table now holds the new hashes; live entities still carry the old.
@@ -1040,9 +989,9 @@ static void SourceSharp_ReloadManagedSide()
 	// After the resync, which zeroes the blobs of reshaped classes and would wipe
 	// restored writes.
 #ifndef CLIENT_DLL
-	IManagedSaveRestore *pRestoreArea = ManagedSaveRestore();
+	IManagedSaveRestore *pRestoreArea = m_Holders.m_Areas.m_pSaveRestore;
 #else
-	IManagedSaveRestoreClient *pRestoreArea = ManagedSaveRestoreClient();
+	IManagedSaveRestoreClient *pRestoreArea = m_Holders.m_Areas.m_pSaveRestoreClient;
 #endif
 	const int nRestored = pRestoreArea ? pRestoreArea->ReloadRestore() : 0;
 
@@ -1070,66 +1019,29 @@ static void SourceSharp_ReloadManagedSide()
 #endif
 }
 
-static void SourceSharp_RequestReload()
+void CManagedSide::RequestReload()
 {
-	if ( g_bReloadRequested )
+	if ( m_bReloadRequested )
 	{
 		Msg( "[SourceSharp] %s: a managed reload is already queued\n", SOURCESHARP_SIDE_TAG );
 		return;
 	}
 
-	g_bReloadRequested = true;
+	m_bReloadRequested = true;
 	Msg( "[SourceSharp] %s: managed reload queued for the next frame\n", SOURCESHARP_SIDE_TAG );
 }
 
 #ifdef CLIENT_DLL
 CON_COMMAND( cs_cl_reload, "Reload the CLIENT's managed assemblies in place, without restarting the game" )
 {
-	SourceSharp_RequestReload();
+	ShellClientDll_ManagedSide().RequestReload();
 }
 #else
 SS_NATIVE_COMMAND( cs_sv_reload )
 {
-	SourceSharp_RequestReload();
+	services.m_ManagedSide.RequestReload();
 }
 #endif
-
-#ifndef CLIENT_DLL
-// Server shell hooks: each asks C# and falls back to a default when it is not up.
-
-const char *SourceSharp_GetGameDescription()
-{
-	SOURCESHARP_TRACE_HOT();
-
-	static char s_szDescription[128];
-
-	IManagedRuntimeServer *pRuntime = ManagedRuntimeServer();
-	if ( g_bSourceSharpLoaded && pRuntime )
-	{
-		s_szDescription[0] = '\0';
-		pRuntime->OnGetGameDescription( s_szDescription, sizeof( s_szDescription ) );
-		if ( s_szDescription[0] )
-			return s_szDescription;
-	}
-
-	return "SourceSharp";
-}
-
-void SourceSharp_OnClientPutInServer( edict_t *pEntity, const char *pPlayerName )
-{
-	SOURCESHARP_TRACE();
-	if ( g_bSourceSharpLoaded && ManagedClients() )
-		ManagedClients()->OnClientPutInServer( pEntity ? pEntity->m_EdictIndex : -1, pPlayerName );
-}
-
-void SourceSharp_OnClientActive( edict_t *pEntity, bool bLoadGame )
-{
-	SOURCESHARP_TRACE();
-	if ( g_bSourceSharpLoaded && ManagedClients() )
-		ManagedClients()->OnClientActive( pEntity ? pEntity->m_EdictIndex : -1, bLoadGame ? 1 : 0 );
-}
-
-#endif // !CLIENT_DLL
 
 // At the end: the shim areas forward to bodies static to this file.
 #ifndef CLIENT_DLL

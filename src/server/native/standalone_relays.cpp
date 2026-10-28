@@ -71,11 +71,6 @@ CBaseHandle GameEntity_RefHandle( const IGameEntity *pEnt )
 	return ShellOf( pEnt )->GetRefEHandle();
 }
 
-IHandleEntity *StandaloneEntity_OwnerHandle( const IGameEntity *pEnt )
-{
-	return ShellOf( pEnt )->OwnerHandleEntity();
-}
-
 bool StandaloneEntity_ApplyMapKey( IGameEntity *pEnt, const char *szKeyName, const char *szValue )
 {
 	return ShellOf( pEnt )->KeyValue( szKeyName, szValue );

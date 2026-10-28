@@ -10,8 +10,11 @@
 // CWorld: worldspawn, a native object because the engine assumes it at edict 0
 // and brush model 0. Every key it is given is offered to C#.
 
+#include <memory>
+
 #include <cstdlib>
 
+#include "shell_diagnostics.h"
 #include "server_engine.h"
 #include "ss_util.h"
 
@@ -20,6 +23,7 @@
 #include "shell_tempents.h"
 #include "ss_soundent.h"
 #include "igamerules.h"
+#include "shell_gamerules.h"
 #include "isaverestore.h"
 #include "ss_world.h"
 #include "server_state.h"
@@ -27,7 +31,6 @@
 #include "engine/IStaticPropMgr.h"
 
 // Defined beside the other engine-boundary globals.
-extern CGlobalVars *gpGlobals;
 
 void PrecacheParticleSystem( const char *pParticleSystemName );
 void SENTENCEG_Init();
@@ -51,17 +54,15 @@ void SENTENCEG_Init();
 namespace
 {
 
-class CWorldFactory : public ss::IEntityFactory
+class CWorldFactory final : public ss::IEntityFactory
 {
 public:
-	CWorldFactory() { ss::EntityFactoryDictionary()->InstallFactory( this, "worldspawn" ); }
-
 	virtual IServerNetworkable *Create( const char *, CServerEntityContext &context ) OVERRIDE
 	{
 		// One world: a second construction would take edict 0 and the singleton from the
 		// live world. CreateEntityByName( "worldspawn" ) would reach this, then drop the
 		// result without freeing it.
-		if ( GetWorldEntity() != NULL )
+		if ( context.m_pLevel && context.m_pLevel->m_pWorld )
 		{
 			Warning( "[SourceSharp] worldspawn: a second one was asked for while "
 					 "one exists. REFUSED -- it would take edict 0 from the world "
@@ -84,9 +85,13 @@ public:
 	virtual size_t GetEntitySize() OVERRIDE { return sizeof( CWorld ); }
 };
 
-CWorldFactory g_WorldFactory;
-
 } // namespace
+
+// The lifecycle installs it as "worldspawn".
+std::unique_ptr<ss::IEntityFactory> SourceSharp_NewWorldFactory()
+{
+	return std::make_unique<CWorldFactory>();
+}
 
 // Where the blob sits inside a CWorld, 16-aligned, defined here because this
 // translation unit can see sizeof( CWorld ).
@@ -152,10 +157,11 @@ ServerClass *CWorld::GetServerClass()
 // than read offset zero (the vtable pointer).
 bool CWorld::ResolveFields()
 {
-	if ( m_Fields.IsCurrent() )
+	const unsigned int nGeneration = m_pContext->m_nManagedGeneration;
+	if ( m_Fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpWorldFields_Resolve( &m_Fields );
+	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration );
 }
 
 bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
@@ -233,11 +239,8 @@ CWorld::CWorld( CServerEntityContext &context )
 CWorld::~CWorld()
 {
 	// The world owns the game rules object.
-	if ( g_pGameRules )
-	{
-		delete g_pGameRules;
-		g_pGameRules = NULL;
-	}
+	delete m_pGameRules;
+	m_pGameRules = NULL;
 
 	// Undoes AttachToEdictZero, last, so everything above can still name this entity.
 
@@ -306,7 +309,8 @@ void CWorld::Spawn()
 	SetModelIndex( 1 );
 
 	// world model
-	m_iszModelName = AllocPooledString( m_pContext->m_pModelInfo->GetModelName( m_Collideable.GetCollisionModel() ) );
+	m_iszModelName =
+		PooledString( m_Strings, m_pContext->m_pModelInfo->GetModelName( m_Collideable.GetCollisionModel() ) );
 
 	// The box, from the model the index names.
 	if ( const model_t *pModel = m_Collideable.GetCollisionModel() )
@@ -326,27 +330,35 @@ void CWorld::Spawn()
 void CWorld::ReportNetState()
 {
 	ResolveFields();
-	SourceSharpWorld_Report( "Server", DataBlob(), BlobBytes(), m_Fields );
+	SourceSharpWorld_Report( "Server", DataBlob(), BlobBytes(), m_Fields, m_pContext->m_nManagedGeneration );
 }
 
 void CWorld::Precache()
 {
 	// Set up game rules.
-	Assert( !g_pGameRules );
-	if ( g_pGameRules )
-	{
-		delete g_pGameRules;
-	}
+	Assert( !m_pGameRules );
+	delete m_pGameRules;
+	m_pGameRules = SourceSharp_CreateGameRules( m_pContext->m_pGameRulesTable );
 
-	InstallGameRules();
-	Assert( g_pGameRules );
-
-	ss::SoundEnt_Init();
+	ss::SoundEnt_Init( m_pContext->m_pGlobals );
 
 	// The rest of stock's world precache is managed's.
-	SourceSharp_ManagedLevelInitPreEntity( STRING( gpGlobals->mapname ) );
+	// The work precaches, so it runs inside this one.
+	IManagedRuntimeServer *pRuntime = m_pContext->m_Managed.m_pRuntimeServer;
+	if ( m_pContext->m_bManagedLoaded && pRuntime )
+	{
+		if ( SourceSharp_GetVerbosity() > 0 )
+			Msg( "[SourceSharp] server level init pre-entity -> C#: %s\n", STRING( m_pContext->m_pGlobals->mapname ) );
+
+		pRuntime->OnMapLoadPreEntity( STRING( m_pContext->m_pGlobals->mapname ) );
+	}
 
 	// init sentence group playback stuff from sentences.txt.
 	// ok to call this multiple times, calls after first are ignored.
 	SENTENCEG_Init();
+}
+
+IGameRules *CServerEntityContext::GameRules() const
+{
+	return ( m_pLevel && m_pLevel->m_pWorld ) ? m_pLevel->m_pWorld->GameRules() : NULL;
 }

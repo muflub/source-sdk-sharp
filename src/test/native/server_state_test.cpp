@@ -234,51 +234,6 @@ TEST( ServerStateTier, TwoDllTiersShareNoNetTypes )
 	b.End();
 }
 
-//-----------------------------------------------------------------------------
-// TEMPENTS in the DLL tier (T6): the built tables, their names, the closed
-// latch and the encode scratch were file-scope statics. A DLL tier starts with
-// nothing built and registration open; a second one does not inherit the
-// first's; two live tiers share nothing.
-//-----------------------------------------------------------------------------
-TEST( ServerStateTier, ANewDllTierStartsWithNoTempEntBuiltAndRegistrationOpen )
-{
-	CStateTier<CServerDllState> dll;
-	CServerDllState &first = dll.Begin();
-	EXPECT_EQ( 0, first.m_TempEnts.m_nBuilt );
-	EXPECT_FALSE( first.m_TempEnts.m_bClosed );
-	EXPECT_TRUE( first.m_TempEnts.m_Names.empty() );
-	EXPECT_EQ( nullptr, first.m_TempEnts.m_Built[0].pClassName );
-
-	// The positive arm: the first tier really registered and closed.
-	first.m_TempEnts.m_Built[0].pClassName = first.m_TempEnts.m_Names.emplace( "CTEProbe" ).first->c_str();
-	first.m_TempEnts.m_nBuilt = 1;
-	first.m_TempEnts.m_bClosed = true;
-
-	dll.End();
-	CServerDllState &second = dll.Begin();
-	EXPECT_EQ( 0, second.m_TempEnts.m_nBuilt ) << "a second DLL tier inherited the first's tables";
-	EXPECT_FALSE( second.m_TempEnts.m_bClosed ) << "a second DLL tier starts with registration closed";
-	EXPECT_TRUE( second.m_TempEnts.m_Names.empty() ) << "a second DLL tier inherited the first's names";
-	EXPECT_EQ( nullptr, second.m_TempEnts.m_Built[0].pClassName );
-	dll.End();
-}
-
-TEST( ServerStateTier, TwoDllTiersShareNoTempEntState )
-{
-	CStateTier<CServerDllState> a;
-	CStateTier<CServerDllState> b;
-	a.Begin();
-	b.Begin();
-
-	a.Get()->m_TempEnts.m_nBuilt = 3;
-	a.Get()->m_TempEnts.m_bClosed = true;
-	EXPECT_EQ( 0, b.Get()->m_TempEnts.m_nBuilt ) << "the two DLL tiers share one TE registry";
-	EXPECT_FALSE( b.Get()->m_TempEnts.m_bClosed );
-
-	a.End();
-	b.End();
-}
-
 // The frame's overlap pairs (server_overlaps.h), on the level tier.
 
 TEST( ServerOverlaps, APairReportedTwiceInEitherOrderIsListedOnce )

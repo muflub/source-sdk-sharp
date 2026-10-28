@@ -259,10 +259,3 @@ TEST( BoundaryProbe, DescribeAddressFallsBackToThePointerForNull )
 	CBoundaryProbe::DescribeAddress( NULL, buf, sizeof( buf ) );
 	EXPECT_EQ( (const char *)NULL, strchr( buf, '+' ) ) << buf;
 }
-
-TEST( BoundaryProbe, TheOneInstanceIsOne )
-{
-	// Two translation units arm the probe and a third reads it; a header that
-	// gave each its own copy would report zeros in the console command.
-	EXPECT_EQ( &BoundaryProbes(), &BoundaryProbes() );
-}

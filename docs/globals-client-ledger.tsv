@@ -136,7 +136,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginetrace	enginetrace	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1128	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	3120	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -553,17 +553,9 @@ alloc_check.o	_ZN12_GLOBAL__N_17g_StateE	(anonymous namespace)::g_State	sourcesh
 alloc_check.o	_ZN12_GLOBAL__N_17t_depthE	(anonymous namespace)::t_depth	sourcesharp/game/shared/alloc_check.cpp	LOCAL	tls	function-local	4	FLOOR		the debug build's allocation checker (plan_server_novalve.md 3.6, taken for client.so in plan_client_novalve C1): its side table / its per-thread re-entry depth. Compiled only under SS_ALLOC_CHECK; release carries none
 	_ZN32CDirtySpatialPartitionEntityList15t_readLockCountE	CDirtySpatialPartitionEntityList::t_readLockCount	sourcesharp/game/shared/collisionproperty.cpp	GLOBAL	tls	class-or-namespace	4	MEMBER	World:DLL	reset_today=n/a (per thread, 0 when no read lock is held). This thread's read-lock depth on s_DirtyKDTree's partition lock; was tier0's CThreadLocalInt member (a pthread key inside libtier0), now std thread_local (P4).
 collisionproperty.o	_ZL13s_DirtyKDTree	s_DirtyKDTree	sourcesharp/game/shared/collisionproperty.cpp	LOCAL	bss	file-or-global	128	UNRULED		
-console_display_forward.o	_ZN12_GLOBAL__N_111g_ForwarderE	(anonymous namespace)::g_Forwarder	sourcesharp/game/shared/console_display_forward.cpp	LOCAL	data	function-local	16	FLOOR		the engine's console code holds this pointer in its display-func list and calls the three virtuals through its vtable (installed at :90); the engine's list is raw-pointer storage so the object can live nowhere else (console-capture lane 2026-10-09, plan_client_novalve C3).
-console_display_forward.o	_ZN12_GLOBAL__N_112g_LineBufferE	(anonymous namespace)::g_LineBuffer	sourcesharp/game/shared/console_display_forward.cpp	LOCAL	bss	function-local	1048608	MEMBER	Console:DLL	reset_today=NO, on purpose: the lines and their one sequence outlive a managed reload, so the buffer is the DLL's. Written by the console forwarder (CConsoleDisplayForward::Forward, whatever thread prints), read by managed (NativeConsoleBuffer), which gets its address at attach (Publish, then ConsoleBufferAttach). Not FLOOR: the engine holds g_Forwarder, not this. Split out of g_Forwarder 2026-10-13 so its 1 MiB is .bss, not .data.
-console_display_forward.o	_ZN12_GLOBAL__N_116g_pInstalledCvarE	(anonymous namespace)::g_pInstalledCvar	sourcesharp/game/shared/console_display_forward.cpp	LOCAL	bss	function-local	8	FLOOR		the installed-or-not guard Forward consults on every engine line (:55) and the ICvar RemoveConsoleDisplayFunc is called on (:101). Zero-initialised, no static initialiser.
-convar_port.o	_ZN12_GLOBAL__N_120s_EngineListAccessorE	(anonymous namespace)::s_EngineListAccessor	sourcesharp/game/shared/convar_port.cpp	LOCAL	data	function-local	8	UNRULED		
 convar_port.o	_ZN12_GLOBAL__N_115s_MissingConVarE	(anonymous namespace)::s_MissingConVar	sourcesharp/game/shared/convar_port.cpp	LOCAL	bss	function-local	144	UNRULED		
-convar_port.o	_ZN12_GLOBAL__N_113s_bRegisteredE	(anonymous namespace)::s_bRegistered	sourcesharp/game/shared/convar_port.cpp	LOCAL	bss	function-local	1	UNRULED		
-convar_port.o	_ZN12_GLOBAL__N_116s_nDLLIdentifierE	(anonymous namespace)::s_nDLLIdentifier	sourcesharp/game/shared/convar_port.cpp	LOCAL	data	function-local	4	UNRULED		
-convar_port.o	_ZN12_GLOBAL__N_116s_nRegisterFlagsE	(anonymous namespace)::s_nRegisterFlags	sourcesharp/game/shared/convar_port.cpp	LOCAL	bss	function-local	4	UNRULED		
 	_ZN14ConCommandBase11s_pAccessorE	ConCommandBase::s_pAccessor	sourcesharp/game/shared/convar_port.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN14ConCommandBase18s_pConCommandBasesE	ConCommandBase::s_pConCommandBases	sourcesharp/game/shared/convar_port.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-convar_port.o	_ZZN9ConVarRef4InitEPKcbE23s_bWarnedWithoutConsole	ConVarRef::Init(char const*, bool)::s_bWarnedWithoutConsole	sourcesharp/game/shared/convar_port.cpp	LOCAL	bss	function-local	1	UNRULED		
 dt_element_names.o	_ZL16s_DTElementNames	s_DTElementNames	sourcesharp/game/shared/dt_element_names.cpp	LOCAL	bss	file-or-global	10240	DEAD		the linker drops it: nothing in the shipped .so reads it
 entity_shared_statics.o	_ZL17sv_alternateticks	sv_alternateticks	sourcesharp/game/shared/entity_shared_statics.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 gamestringpool.o	_ZL16g_GameStringPool	g_GameStringPool	sourcesharp/game/shared/gamestringpool.cpp	LOCAL	bss	file-or-global	64	UNRULED		
@@ -596,17 +588,6 @@ particle_manifest.o	_ZL14s_bReadPending	s_bReadPending	sourcesharp/game/shared/p
 particle_manifest.o	_ZL26s_nParticleDefinitionReads	s_nParticleDefinitionReads	sourcesharp/game/shared/particle_manifest.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 shell_diagnostics.o	_ZL23cs_cl_crossings_command	cs_cl_crossings_command	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_diagnostics.o	_ZL24cs_cl_notshipped_command	cs_cl_notshipped_command	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_diagnostics.o	_ZL17g_AssertStackSeen	g_AssertStackSeen	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	1032	UNRULED		
-shell_diagnostics.o	_ZL12g_NotShipped	g_NotShipped	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	648	UNRULED		
-shell_diagnostics.o	_ZL15g_bAssertStacks	g_bAssertStacks	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-shell_diagnostics.o	_ZL16g_bDemoteAsserts	g_bDemoteAsserts	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-shell_diagnostics.o	_ZL11g_bEchoOurs	g_bEchoOurs	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-shell_diagnostics.o	_ZL24g_bFatalSpewStackWritten	g_bFatalSpewStackWritten	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-shell_diagnostics.o	_ZL13g_bTier0Ready	g_bTier0Ready	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-shell_diagnostics.o	_ZL16g_nAssertsLogged	g_nAssertsLogged	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-shell_diagnostics.o	_ZL12g_nVerbosity	g_nVerbosity	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	data	file-or-global	4	UNRULED		
-shell_diagnostics.o	_ZL19g_pPreviousSpewFunc	g_pPreviousSpewFunc	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-shell_diagnostics.o	_ZL19sourcesharp_verbose	sourcesharp_verbose	sourcesharp/game/shared/shell_diagnostics.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 shell_gameevents.o	_ZL26g_SourceSharpEventListener	g_SourceSharpEventListener	sourcesharp/game/shared/shell_gameevents.cpp	LOCAL	data	file-or-global	8	UNRULED		
 shell_gameevents.o	_ZL18g_SubscribedEvents	g_SubscribedEvents	sourcesharp/game/shared/shell_gameevents.cpp	LOCAL	bss	file-or-global	48	UNRULED		
 shell_gamerules.o	_ZZ15ClientClassInitIN23DT_SourceSharpGameRules7ignoredEEiPT_E9RecvProps	ClientClassInit<DT_SourceSharpGameRules::ignored>(DT_SourceSharpGameRules::ignored*)::RecvProps	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	bss	function-local	96	UNRULED		
@@ -616,7 +597,8 @@ shell_gamerules.o	_ZL20g_DefaultViewVectors	g_DefaultViewVectors	sourcesharp/gam
 	g_StringTableGameRules	g_StringTableGameRules	sourcesharp/game/shared/shell_gamerules.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_gamerules.o	_ZL16s_CollisionRules	s_CollisionRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	80	UNRULED		
 shell_gamerules.o	_ZL13s_DamageRules	s_DamageRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	20	UNRULED		
-shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	bss	file-or-global	528	UNRULED		
+shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	bss	file-or-global	536	UNRULED		
+shell_log.o	_ZL6s_pLog	s_pLog	sourcesharp/game/shared/shell_log.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 shell_movement.o	_ZZL11ActiveMovervE9s_pActive	ActiveMover()::s_pActive	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_movement.o	_ZZL12MoveCountersvE9s_nCounts	MoveCounters()::s_nCounts	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_movement.o	_ZZL16MovementRefusalsvE11s_nRefusals	MovementRefusals()::s_nRefusals	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	12	UNRULED		
@@ -634,14 +616,11 @@ shell_physsaverestore_absent.o	_ZZL27ShellPhysSaveRestoreManagervE8s_Absent	Shel
 shell_shared.o	_ZL10g_MoveData	g_MoveData	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	168	UNRULED		
 	g_pMoveData	g_pMoveData	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 sourcesharp_gamesystem.o	_ZL20cs_cl_reload_command	cs_cl_reload_command	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-sourcesharp_gamesystem.o	_ZL21g_SourceSharpInitGate	g_SourceSharpInitGate	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 sourcesharp_gamesystem.o	_ZL19g_SourceSharpSystem	g_SourceSharpSystem	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	24	UNRULED		
-sourcesharp_gamesystem.o	_ZL18g_bReloadRequested	g_bReloadRequested	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-sourcesharp_gamesystem.o	_ZL20g_bSourceSharpLoaded	g_bSourceSharpLoaded	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-standalone_player_sync.o	_ZL23g_nPlayerSyncGeneration	g_nPlayerSyncGeneration	sourcesharp/game/shared/standalone_player_sync.cpp	LOCAL	data	file-or-global	4	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_111s_EarlyLockE	(anonymous namespace)::s_EarlyLock	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	40	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_17s_EarlyB5cxx11E	(anonymous namespace)::s_Early[abi:cxx11]	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	32	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_115s_pAssertNotifyE	(anonymous namespace)::s_pAssertNotify	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	8	UNRULED		
+tier0_spew_port.o	_ZN12_GLOBAL__N_110s_pConsoleE	(anonymous namespace)::s_pConsole	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	8	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_116s_pEngineGetSpewE	(anonymous namespace)::s_pEngineGetSpew	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	8	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_17s_pSpewE	(anonymous namespace)::s_pSpew	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	data	function-local	8	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_16t_TypeE	(anonymous namespace)::t_Type	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	tls	function-local	4	UNRULED		

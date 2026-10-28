@@ -15,6 +15,9 @@
 #include "shell_shim_areas.h"
 #include "ishim_frame.h"
 #include "ishim_level.h"
+#include "ss_init_factory.h"
+
+class CGlobalVars;
 
 class CShimRootServer final : public IShimRoot
 {
@@ -37,6 +40,12 @@ public:
 
 	// The level area, the DLL tier's (CServerLevel); NULL outside DLLInit..DLLShutdown.
 	IShimLevel *m_pLevel = nullptr;
+
+	// The engine's factories, the DLL tier's; NULL outside DLLInit..DLLShutdown.
+	const ss::factorylist_t *m_pFactories = nullptr;
+
+	// The engine's globals, from DLLInit to DLLShutdown.
+	CGlobalVars *m_pGlobals = nullptr;
 };
 
 // The game DLL's shim root. Defined beside the root in shell_gamedll.cpp.

@@ -14,6 +14,7 @@
 #include "filesystem.h"
 #include "server_state.h"
 #include "shell_level.h"
+#include "precache_model.h"
 #include "datacache/imdlcache.h"
 #include "ss_mapentities.h"
 #include "ss_soundent.h"
@@ -28,58 +29,8 @@
 // Defined in shell_standalone_base.cpp.
 void StandaloneEntities_LevelShutdown( const CServerEntityContext &context );
 
-// Defined in physics.cpp, gamestringpool.cpp and shell_entityslots.cpp.
-CServerSystem *PhysicsGameSystem();
-CServerSystem *GameStringSystem();
+// Defined in gamestringpool.cpp and shell_entityslots.cpp.
 void SourceSharp_ResetEntitySlots();
-
-// Defined in shell_entityapi.cpp.
-uint32_t SourceSharp_CreateEntity( const char *pClassName );
-
-// The managed map spawner's creation step: creates the entity and hands every
-// key to KeyValueShellOnly, which keeps the ones the shell needs. pPackedKeys is
-// key\0value\0..., nBytes long (map text holds no NUL).
-uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPackedKeys, int32_t nBytes )
-{
-	const uint32_t hEntity = SourceSharp_CreateEntity( pClassName );
-
-	if ( hEntity == INVALID_EHANDLE_INDEX )
-		return INVALID_EHANDLE_INDEX;
-
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	if ( ent.pStandalone == NULL )
-	{
-		// The managed registry and the native factories disagree; say so.
-		Warning( "[SourceSharp] map spawn: '%s' is not on the parallel hierarchy; "
-				 "its map keys were not applied\n",
-				 pClassName );
-		return hEntity;
-	}
-
-	if ( pPackedKeys && nBytes > 0 )
-	{
-		const char *pAt = pPackedKeys;
-		const char *pEnd = pPackedKeys + nBytes;
-
-		while ( pAt < pEnd )
-		{
-			const char *pKey = pAt;
-			pAt += strlen( pAt ) + 1;
-
-			// A truncated payload: stop rather than read past pEnd.
-			if ( pAt >= pEnd )
-				break;
-
-			const char *pValue = pAt;
-			pAt += strlen( pAt ) + 1;
-
-			ent.pStandalone->KeyValueShellOnly( pKey, pValue );
-		}
-	}
-
-	return hEntity;
-}
 
 void CServerLevel::PrecachePointTemplates( const char *pMapDataBlobs, const int32_t *pStringSizes, int32_t nCount )
 {
@@ -97,7 +48,7 @@ void CServerLevel::LoadMessageOfTheDay() {}
 
 void CServerLevel::SetPrecacheAllowed( int32_t bAllowed )
 {
-	EntityPrecache_SetAllowed( bAllowed != 0 );
+	m_Precache.SetAllowed( bAllowed != 0 );
 }
 
 void CServerLevel::ShutdownStandaloneEntities()
@@ -166,12 +117,12 @@ int32_t CServerLevel::SpawnWorld( const char *const *ppKeys, const char *const *
 	if ( nKeys < 0 || ( nKeys > 0 && ( ppKeys == NULL || ppValues == NULL ) ) )
 		return 0;
 
-	return MapEntity_SpawnWorld( ppKeys, ppValues, nKeys ) ? 1 : 0;
+	return MapEntity_SpawnWorld( m_Factories, m_Entities, ppKeys, ppValues, nKeys ) ? 1 : 0;
 }
 
 int32_t CServerLevel::IsPrecacheAllowed()
 {
-	return EntityPrecache_IsAllowed() ? 1 : 0;
+	return m_Precache.IsAllowed() ? 1 : 0;
 }
 
 void CServerLevel::SetLoadType( int32_t eLoadType )
@@ -182,38 +133,36 @@ void CServerLevel::SetLoadType( int32_t eLoadType )
 int32_t CServerLevel::PhysicsInit()
 {
 	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
-	return PhysicsGameSystem()->Init() ? 1 : 0;
+	return m_Physics.Init() ? 1 : 0;
 }
 
 void CServerLevel::PhysicsLevelInitPreEntity()
 {
 	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
-	PhysicsGameSystem()->LevelInitPreEntity();
+	m_Physics.LevelInitPreEntity();
 }
 
 void CServerLevel::PhysicsLevelInitPostEntity()
 {
 	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
-	PhysicsGameSystem()->LevelInitPostEntity();
+	m_Physics.LevelInitPostEntity();
 }
 
 void CServerLevel::PhysicsLevelShutdownPreEntity()
 {
 	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
-	PhysicsGameSystem()->LevelShutdownPreEntity();
+	m_Physics.LevelShutdownPreEntity();
 }
 
 void CServerLevel::PhysicsLevelShutdownPostEntity()
 {
 	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
-	PhysicsGameSystem()->LevelShutdownPostEntity();
+	m_Physics.LevelShutdownPostEntity();
 }
 
-void CServerLevel::StringPoolLevelShutdownPostEntity()
-{
-	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
-	GameStringSystem()->LevelShutdownPostEntity();
-}
+// Nothing to free: a pooled string belongs to the pool of the entity that holds it, which
+// the level's teardown frees (ss_gamestringpool.h).
+void CServerLevel::StringPoolLevelShutdownPostEntity() {}
 
 void CServerLevel::ResetEntitySlots()
 {
