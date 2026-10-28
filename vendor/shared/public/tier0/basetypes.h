@@ -34,7 +34,7 @@
 #ifdef IN_XBOX_CODELINE
 #define XBOX_CODELINE_ONLY()
 #else
-#define XBOX_CODELINE_ONLY() Error_Compiling_Code_Only_Valid_in_Xbox_Codeline
+
 #endif
 
 // stdio.h
@@ -55,7 +55,7 @@
 	}
 
 
-#define ExecuteOnce( x )			ExecuteNTimes( 1, x )
+
 
 
 template <typename T>
@@ -125,7 +125,6 @@ T Max( T const &val1, T const &val2 )
 
 #ifndef USE_DXVK_NATIVE
 #ifndef DONT_DEFINE_BOOL // Needed for Cocoa stuff to compile.
-typedef int BOOL;
 #endif
 typedef unsigned char BYTE;
 #else
@@ -150,12 +149,6 @@ typedef unsigned short ucs2;
 #include <stdint.h>
 #endif
 
-enum ThreeState_t
-{
-	TRS_FALSE,
-	TRS_TRUE,
-	TRS_NONE,
-};
 
 typedef float vec_t;
 
@@ -185,10 +178,6 @@ inline unsigned int& FloatBits( vec_t& f )
 	return *reinterpret_cast<unsigned int*>(&f);
 }
 
-inline unsigned int const& FloatBits( vec_t const& f )
-{
-	return *reinterpret_cast<unsigned int const*>(&f);
-}
 
 inline vec_t BitsToFloat( unsigned int i )
 {
@@ -200,10 +189,6 @@ inline bool IsFinite( vec_t f )
 	return ((FloatBits(f) & 0x7F800000) != 0x7F800000);
 }
 
-inline unsigned int FloatAbsBits( vec_t f )
-{
-	return FloatBits(f) & 0x7FFFFFFF;
-}
 
 // Given today's processors, I cannot think of any circumstance
 // where bit tricks would be faster than fabs. henryg 8/16/2011
@@ -216,20 +201,12 @@ extern "C" _Check_return_ __inline float __CRTDECL fabsf(_In_ float _X);
 #include <math.h>
 #endif
 
-inline float FloatMakeNegative( vec_t f )
-{
-	return -fabsf(f);
-}
 
 inline float FloatMakePositive( vec_t f )
 {
 	return fabsf(f);
 }
 
-inline float FloatNegate( vec_t f )
-{
-	return -f;
-}
 
 
 #define FLOAT32_NAN_BITS     (unsigned long)0x7FC00000	// not a number!
@@ -360,8 +337,8 @@ protected:
 
 
 // NOTE: This macro is the same as windows uses; so don't change the guts of it
-#define DECLARE_HANDLE_16BIT(name)	typedef CIntHandle16< struct name##__handle * > name;
-#define DECLARE_HANDLE_32BIT(name)	typedef CIntHandle32< struct name##__handle * > name;
+
+
 
 #define DECLARE_POINTER_HANDLE(name) struct name##__ { int unused; }; typedef struct name##__ *name
 #define FORWARD_DECLARE_HANDLE(name) typedef struct name##__ *name
@@ -375,7 +352,7 @@ protected:
 #define UID_PREFIX generated_id_
 #define UID_CAT1(a,c) a ## c
 #define UID_CAT2(a,c) UID_CAT1(a,c)
-#define EXPAND_CONCAT(a,c) UID_CAT1(a,c)
+
 #ifdef _MSC_VER
 #define UNIQUE_ID UID_CAT2(UID_PREFIX,__COUNTER__)
 #else
@@ -397,11 +374,7 @@ protected:
 	inline Type  operator~( Type a ) { return Type( ~int( a ) ); }
 
 // defines increment/decrement operators for enums for easy iteration
-#define DEFINE_ENUM_INCREMENT_OPERATORS( Type ) \
-	inline Type &operator++( Type &a      ) { return a = Type( int( a ) + 1 ); } \
-	inline Type &operator--( Type &a      ) { return a = Type( int( a ) - 1 ); } \
-	inline Type  operator++( Type &a, int ) { Type t = a; ++a; return t; } \
-	inline Type  operator--( Type &a, int ) { Type t = a; --a; return t; }
+
 
 #include "tier0/valve_on.h"
 

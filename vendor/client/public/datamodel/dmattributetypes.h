@@ -103,7 +103,6 @@ enum DmAttributeType_t
 	AT_TYPE_COUNT,
 };
 
-const char *GetTypeString( DmAttributeType_t type );
 
 inline bool IsValueType( DmAttributeType_t type )
 {
@@ -115,115 +114,20 @@ inline bool IsArrayType( DmAttributeType_t type )
 	return type >= AT_FIRST_ARRAY_TYPE && type < AT_TYPE_COUNT;
 }
 
-inline bool IsTopological( DmAttributeType_t type )
-{
-	return type == AT_ELEMENT || type == AT_ELEMENT_ARRAY;
-}
 
-inline DmAttributeType_t ValueTypeToArrayType( DmAttributeType_t type )
-{
-	Assert( IsValueType( type ) );
-	return ( DmAttributeType_t )( ( type - AT_FIRST_VALUE_TYPE ) + AT_FIRST_ARRAY_TYPE );
-}
 
-inline DmAttributeType_t ArrayTypeToValueType( DmAttributeType_t type )
-{
-	Assert( IsArrayType( type ) );
-	return ( DmAttributeType_t )( ( type - AT_FIRST_ARRAY_TYPE ) + AT_FIRST_VALUE_TYPE );
-}
 
-inline int NumComponents( DmAttributeType_t type )
-{
-	switch ( type )
-	{
-	case AT_BOOL:
-	case AT_INT:
-	case AT_FLOAT:
-		return 1;
 
-	case AT_VECTOR2:
-		return 2;
 
-	case AT_VECTOR3:
-	case AT_QANGLE:
-		return 3;
 
-	case AT_COLOR: //rgba
-	case AT_VECTOR4:
-	case AT_QUATERNION:
-		return 4;
 
-	case AT_VMATRIX:
-		return 16;
 
-	case AT_ELEMENT:
-	case AT_STRING:
-	case AT_VOID:
-	case AT_OBJECTID:
-	default:
-		return 0;
-	}
-}
 
-template< typename T >
-inline float GetComponent( const T &value, int i )
-{
-	Assert( 0 );
-	return 0.0f;
-}
 
-template <> inline float GetComponent( const bool &value, int i )
-{
-	Assert( i == 0 );
-	return value ? 1.0f : 0.0f;
-}
 
-template <> inline float GetComponent( const int &value, int i )
-{
-	Assert( i == 0 );
-	return float( value );
-}
 
-template <> inline float GetComponent( const float &value, int i )
-{
-	Assert( i == 0 );
-	return value;
-}
 
-template <> inline float GetComponent( const Vector2D &value, int i )
-{
-	return value[ i ];
-}
 
-template <> inline float GetComponent( const Vector &value, int i )
-{
-	return value[ i ];
-}
-
-template <> inline float GetComponent( const QAngle &value, int i )
-{
-	return value[ i ];
-}
-
-template <> inline float GetComponent( const Color &value, int i )
-{
-	return value[ i ];
-}
-
-template <> inline float GetComponent( const Vector4D &value, int i )
-{
-	return value[ i ];
-}
-
-template <> inline float GetComponent( const Quaternion &value, int i )
-{
-	return value[ i ];
-}
-
-template <> inline float GetComponent( const VMatrix &value, int i )
-{
-	return value.Base()[ i ];
-}
 
 
 //-----------------------------------------------------------------------------

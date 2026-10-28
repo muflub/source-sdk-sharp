@@ -4637,11 +4637,12 @@ get_property(_ss_novalve_includes GLOBAL PROPERTY SS_SERVER_NOVALVE_INCLUDES)
 ss_cpptest(novalve_include_set_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/novalve_include_set_test.cpp
     DEFINES POSIX _POSIX LINUX _LINUX GNUC PLATFORM_64BITS GAME_DLL
-    # The allowlisted Valve headers warn as they do in server.so, which
-    # silences the same four by name (SS_WARN_CLANG): platform.h's pragmas and
-    # dangling else, bitvec.h's memset over a class with a constructor, and
-    # utlblockmemory.h:350's unused variable.
+    # The vendored Valve headers warn as they do in server.so, which silences
+    # the same by name (SS_WARN_CLANG): platform.h's pragmas and dangling
+    # else, bitvec.h's memset over a class with a constructor, an unused
+    # variable, and the private fields a stripped class keeps for its layout.
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field
     INCLUDES ${_ss_novalve_includes})
 ss_must_not_compile(novalve_include_set_canary
     EXPECT "'cbase\\.h' file not found"

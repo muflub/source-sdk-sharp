@@ -21,25 +21,9 @@
 //
 #include "tmapi_dummy.h"
 
-inline void TelemetryTick() {}
-inline void TelemetrySetLevel( unsigned int Level ) {}
 #define TelemetrySetLockName( _ctx, _location, _description ) 
 
-class CTelemetryLock
-{
-public:
-	CTelemetryLock(void *plocation, const char *description) {}
-	~CTelemetryLock() {}
-	void Locked() {}
-	void Unlocked() {}
-};
 
-class CTelemetrySpikeDetector
-{
-public:
-	CTelemetrySpikeDetector( const char *msg, uint32 threshold = 50 ) {}
-	~CTelemetrySpikeDetector() { }
-};
 
 #define TM_ZONE_DEFAULT( context ) 
 #define TM_ZONE_DEFAULT_PARAM( context, string_param ) 

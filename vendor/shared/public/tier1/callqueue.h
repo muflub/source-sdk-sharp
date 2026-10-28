@@ -178,9 +178,6 @@ private:
 	unsigned m_nBreakSerialNumber;
 };
 
-class CCallQueue : public CCallQueueT<>
-{
-};
 
 //-----------------------------------------------------
 // Optional interface that can be bound to concrete CCallQueue

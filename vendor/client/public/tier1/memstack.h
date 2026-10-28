@@ -28,12 +28,10 @@ public:
 	void Term();
 
 	int GetSize();
-	int GetMaxSize();
 	int	GetUsed();
 	
 	void *Alloc( unsigned bytes, bool bClear = false ) RESTRICT;
 
-	MemoryStackMark_t GetCurrentAllocPoint();
 	void FreeToAllocPoint( MemoryStackMark_t mark, bool bDecommit = true );
 	void FreeAll( bool bDecommit = true );
 	
@@ -104,10 +102,6 @@ FORCEINLINE void *CMemoryStack::Alloc( unsigned bytes, bool bClear ) RESTRICT
 
 //-------------------------------------
 
-inline int CMemoryStack::GetMaxSize()
-{ 
-	return m_maxSize;
-}
 
 //-------------------------------------
 
@@ -125,10 +119,6 @@ inline void *CMemoryStack::GetBase()
 
 //-------------------------------------
 
-inline MemoryStackMark_t CMemoryStack::GetCurrentAllocPoint()
-{
-	return ( m_pNextAlloc - m_pBase );
-}
 
 //-----------------------------------------------------------------------------
 // The CUtlMemoryStack class:

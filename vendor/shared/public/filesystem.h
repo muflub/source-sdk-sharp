@@ -45,13 +45,13 @@ typedef int WaitForResourcesHandle_t;
 typedef void* HANDLE;
 #endif
 
-#define USE_CRC_FILE_TRACKING 0
+
 
 // Turn on some extra pure server debug spew in certain builds.
 // WARNING: This spew can be used by hackers to locate places to hack
 // the code to bypas sv_pure!  Be careful!
 #if defined( _DEBUG ) || defined( STAGING_ONLY )
-	#define PURE_SERVER_DEBUG_SPEW
+
 #endif
 
 /// How strict will the pure server be for a particular set of files
@@ -72,18 +72,18 @@ public:
 	virtual void Release() = 0;
 
 	// What should we do with a particular file?
-	virtual EPureServerFileClass GetFileClass( const char *pszFilename ) = 0;
+	virtual void unused_GetFileClass() = 0;
 
 	// Access list of trusted keys which we will allow to set trusted content
-	virtual int GetTrustedKeyCount() const = 0;
-	virtual const byte *GetTrustedKey( int iKeyIndex, int *nKeySize ) const = 0;
+	virtual void unused_GetTrustedKeyCount() = 0;
+	virtual void unused_GetTrustedKey() = 0;
 };
 
 //-----------------------------------------------------------------------------
 // Enums used by the interface
 //-----------------------------------------------------------------------------
 
-#define FILESYSTEM_MAX_SEARCH_PATHS 128
+
 
 enum FileSystemSeek_t
 {
@@ -143,8 +143,8 @@ enum
 };
 typedef uint32 PathTypeQuery_t;
 
-#define IS_PACKFILE( n ) ( n & ( PATH_IS_PACKFILE | PATH_IS_MAPPACKFILE ) )
-#define IS_REMOTE( n )   ( n & PATH_IS_REMOTE )
+
+
 
 enum DVDMode_t
 {
@@ -263,13 +263,6 @@ enum SearchPathAdd_t
 	PATH_ADD_TO_TAIL,		// Last path searched
 };
 
-enum FilesystemOpenExFlags_t
-{
-	FSOPEN_UNBUFFERED		= (1 << 0),
-	FSOPEN_FORCE_TRACK_CRC	= (1 << 1),		// This makes it calculate a CRC for the file (if the file came from disk) regardless 
-											// of the IFileList passed to RegisterFileWhitelist.
-	FSOPEN_NEVERINPACK	    = (1 << 2),		// 360 only, hint to FS that file is not allowed to be in pack file
-};
 
 #define FILESYSTEM_INVALID_HANDLE	( FileHandle_t )0
 
@@ -326,16 +319,6 @@ enum FSAsyncStatus_t
 	FSASYNC_STATUS_UNSERVICED,		// file is not yet queued
 };
 
-//---------------------------------------------------------
-// Async request flags
-//---------------------------------------------------------
-enum FSAsyncFlags_t
-{
-	FSASYNC_FLAGS_ALLOCNOFREE		= ( 1 << 0 ),	// do the allocation for dataPtr, but don't free
-	FSASYNC_FLAGS_FREEDATAPTR		= ( 1 << 1 ),	// free the memory for the dataPtr post callback
-	FSASYNC_FLAGS_SYNC				= ( 1 << 2 ),	// Actually perform the operation synchronously. Used to simplify client code paths
-	FSASYNC_FLAGS_NULLTERMINATE		= ( 1 << 3 ),	// allocate an extra byte and null terminate the buffer read in
-};
 
 //---------------------------------------------------------
 // Return value for CheckFileCRC.
@@ -429,13 +412,6 @@ public:
 	FileHash_t m_FileHash;
 };
 
-class CUnverifiedCRCFile
-{
-public:
-	char m_PathID[MAX_PATH];
-	char m_Filename[MAX_PATH];
-	CRC32_t m_CRC;
-};
 
 class CUnverifiedMD5File
 {
@@ -447,9 +423,9 @@ public:
 
 // Spew flags for SetWhitelistSpewFlags (set with the fs_whitelist_spew_flags cvar).
 // Update the comment for the fs_whitelist_spew_flags cvar if you change these.
-#define WHITELIST_SPEW_WHILE_LOADING		0x0001	// list files as they are added to the CRC tracker
-#define WHITELIST_SPEW_RELOAD_FILES			0x0002	// show files the filesystem is telling the engine to reload
-#define WHITELIST_SPEW_DONT_RELOAD_FILES	0x0004	// show files the filesystem is NOT telling the engine to reload
+	// list files as they are added to the CRC tracker
+	// show files the filesystem is telling the engine to reload
+	// show files the filesystem is NOT telling the engine to reload
 
 //-----------------------------------------------------------------------------
 // Interface to fetch a file asynchronously from any source.  This is used
@@ -474,21 +450,13 @@ public:
 	/// Attempt to complete any active work, returning status.  The callback WILL
 	/// be executed (this is necessary in case we allocated the buffer).
 	/// Afterwards, the request is automatically destroyed.
-	virtual FSAsyncStatus_t FinishSynchronous( Handle hControl ) = 0;
+	virtual void unused_FinishSynchronous() = 0;
 
 	/// Terminate any active work and destroy all resources and bookkeeping info.
 	/// The callback will NOT be executed.
-	virtual FSAsyncStatus_t Abort( Handle hControl ) = 0;
+	virtual void unused_Abort() = 0;
 };
 
-// This interface is for VPK files to communicate with FileTracker
-abstract_class IThreadedFileMD5Processor
-{
-public:
-	virtual int				SubmitThreadedMD5Request( uint8 *pubBuffer, int cubBuffer, int PackFileID, int nPackFileNumber, int nPackFileFraction ) = 0;
-	virtual bool			BlockUntilMD5RequestComplete( int iRequest, MD5Value_t *pMd5ValueOut ) = 0;
-	virtual bool			IsMD5RequestComplete( int iRequest, MD5Value_t *pMd5ValueOut ) = 0;
-};
 
 //-----------------------------------------------------------------------------
 // Base file system interface
@@ -496,7 +464,7 @@ public:
 
 // This is the minimal interface that can be implemented to provide access to
 // a named set of files.
-#define BASEFILESYSTEM_INTERFACE_VERSION		"VBaseFileSystem011"
+
 
 abstract_class IBaseFileSystem
 {
@@ -584,18 +552,10 @@ public:
 	// converts a partial path into a full path
 	// Prefer using the RelativePathToFullPath_safe template wrapper to calling this directly
 	virtual const char		*RelativePathToFullPath( const char *pFileName, const char *pPathID, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars, PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = NULL ) = 0;
-	template <size_t maxLenInChars> const char *RelativePathToFullPath_safe( const char *pFileName, const char *pPathID, OUT_Z_ARRAY char (&pDest)[maxLenInChars], PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = NULL )
-	{
-		return RelativePathToFullPath( pFileName, pPathID, pDest, (int)maxLenInChars, pathFilter, pPathType );
-	}
 
 	// Returns the search path, each path is separated by ;s. Returns the length of the string returned
 	// Prefer using the GetSearchPath_safe template wrapper to calling this directly
 	virtual int				GetSearchPath( const char *pathID, bool bGetPackFiles, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars ) = 0;
-	template <size_t maxLenInChars> int GetSearchPath_safe( const char *pathID, bool bGetPackFiles, OUT_Z_ARRAY char (&pDest)[maxLenInChars] )
-	{
-		return GetSearchPath( pathID, bGetPackFiles, pDest, (int)maxLenInChars );
-	}
 
 	// interface for custom pack files > 4Gb
 	virtual bool			AddPackFile( const char *fullpath, const char *pathID ) = 0;
@@ -664,19 +624,11 @@ public:
 	// converts a partial path into a full path
 	// Prefer using the GetLocalPath_safe template wrapper to calling this directly
 	virtual const char		*GetLocalPath( const char *pFileName, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars ) = 0;
-	template <size_t maxLenInChars> const char *GetLocalPath_safe( const char *pFileName, OUT_Z_ARRAY char (&pDest)[maxLenInChars] )
-	{
-		return GetLocalPath( pFileName, pDest, (int)maxLenInChars );
-	}
 
 	// Returns true on success ( based on current list of search paths, otherwise false if 
 	//  it can't be resolved )
 	// Prefer using the FullPathToRelativePath_safe template wrapper to calling this directly
 	virtual bool			FullPathToRelativePath( const char *pFullpath, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars ) = 0;
-	template <size_t maxLenInChars> bool FullPathToRelativePath_safe( const char *pFullpath, OUT_Z_ARRAY char (&pDest)[maxLenInChars] )
-	{
-		return FullPathToRelativePath( pFullpath, pDest, (int)maxLenInChars );
-	}
 
 	// Gets the current working directory
 	virtual bool			GetCurrentDirectory( char* pDirectory, int maxlen ) = 0;
@@ -692,10 +644,6 @@ public:
 	// Asynchronous file operations
 	//--------------------------------------------------------
 
-	//------------------------------------
-	// Global operations
-	//------------------------------------
-			FSAsyncStatus_t	AsyncRead( const FileAsyncRequest_t &request, FSAsyncControl_t *phControl = NULL )	{ return AsyncReadMultiple( &request, 1, phControl ); 	}
 	virtual FSAsyncStatus_t	AsyncReadMultiple( const FileAsyncRequest_t *pRequests, int nRequests,  FSAsyncControl_t *phControls = NULL ) = 0;
 	virtual FSAsyncStatus_t	AsyncAppend(const char *pFileName, const void *pSrc, int nSrcBytes, bool bFreeMemory, FSAsyncControl_t *pControl = NULL ) = 0;
 	virtual FSAsyncStatus_t	AsyncAppendFile(const char *pAppendToFileName, const char *pAppendFromFileName, FSAsyncControl_t *pControl = NULL ) = 0;
@@ -789,8 +737,8 @@ public:
 	virtual IBlockingFileItemList *RetrieveBlockingFileAccessInfo() = 0;
 #endif
 
-	virtual void SetupPreloadData() = 0;
-	virtual void DiscardPreloadData() = 0;
+	virtual void unused_SetupPreloadData() = 0;
+	virtual void unused_DiscardPreloadData() = 0;
 
 	// Fixme, we could do these via a string embedded into the compiled data, etc...
 	enum KeyValuesPreloadType_t
@@ -838,10 +786,6 @@ public:
 	// Returns true on success, otherwise false if it can't be resolved
 	// Prefer using the FullPathToRelativePathEx_safe template wrapper to calling this directly
 	virtual bool		FullPathToRelativePathEx( const char *pFullpath, const char *pPathId, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars ) = 0;
-	template <size_t maxLenInChars> bool FullPathToRelativePathEx_safe( const char *pFullpath, OUT_Z_ARRAY char (&pDest)[maxLenInChars] )
-	{
-		return FullPathToRelativePathEx( pFullpath, pDest, (int)maxLenInChars );
-	}
 
 	virtual int			GetPathIndex( const FileNameHandle_t &handle ) = 0;
 	virtual long		GetPathTime( const char *pPath, const char *pPathID ) = 0;
@@ -922,10 +866,6 @@ public:
 	// Returns true on successfully retrieve case-sensitive full path, otherwise false
 	// Prefer using the GetCaseCorrectFullPath template wrapper to calling this directly
 	virtual bool			GetCaseCorrectFullPath_Ptr( const char *pFullPath, OUT_Z_CAP( maxLenInChars ) char *pDest, int maxLenInChars ) = 0;
-	template <size_t maxLenInChars> bool GetCaseCorrectFullPath( const char *pFullPath, OUT_Z_ARRAY char( &pDest )[maxLenInChars] )
-	{
-		return GetCaseCorrectFullPath_Ptr( pFullPath, pDest, (int)maxLenInChars );
-	}
 
 	// Whether we are allowed to write anywhere (default) or just to our search paths.
 	// By default, we can write everywhere--but the game client locks us down to writing in specific places, because
@@ -966,8 +906,8 @@ extern char g_szXboxProfileLastFileOpened[MAX_PATH];
 #define SetLastProfileFileRead( s ) Q_strncpy( g_szXboxProfileLastFileOpened, sizeof( g_szXboxProfileLastFileOpened), pFileName )
 #define GetLastProfileFileRead() (&g_szXboxProfileLastFileOpened[0])
 #else
-#define SetLastProfileFileRead( s ) ((void)0)
-#define GetLastProfileFileRead() NULL
+
+
 #endif
 
 #if defined( _X360 ) && defined( _BASETSD_H_ )
@@ -989,7 +929,7 @@ private:
 };
 #define DISK_INTENSIVE() CXboxDiskCacheSetter cacheSetter( 1024*1024 )
 #else
-#define DISK_INTENSIVE() ((void)0)
+
 #endif
 
 //-----------------------------------------------------------------------------

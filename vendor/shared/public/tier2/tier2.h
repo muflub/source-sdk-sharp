@@ -40,15 +40,7 @@ class IQueuedLoader;
 extern IFileSystem *g_pFullFileSystem;
 extern IMaterialSystem *materials;
 extern IMaterialSystem *g_pMaterialSystem;
-extern IInputSystem *g_pInputSystem;
-extern INetworkSystem *g_pNetworkSystem;
 extern IMaterialSystemHardwareConfig *g_pMaterialSystemHardwareConfig;
-extern IDebugTextureInfo *g_pMaterialSystemDebugTextureInfo;
-extern IVBAllocTracker *g_VBAllocTracker;
-extern IColorCorrectionSystem *colorcorrection;
-extern IP4 *p4;
-extern IMdlLib *mdllib;
-extern IQueuedLoader *g_pQueuedLoader;
 
 
 //-----------------------------------------------------------------------------
@@ -59,18 +51,8 @@ void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 void DisconnectTier2Libraries();
 
 
-//-----------------------------------------------------------------------------
-// Call this to get the file system set up to stdio for utilities, etc:
-//-----------------------------------------------------------------------------
-void InitDefaultFileSystem(void);
-void ShutdownDefaultFileSystem(void);
 
 
-//-----------------------------------------------------------------------------
-// for simple utilities using valve libraries, call the entry point below in main(). It will
-// init a filesystem for you, init mathlib, and create the command line.
-//-----------------------------------------------------------------------------
-void InitCommandLineProgram( int argc, char **argv );
 
 
 //-----------------------------------------------------------------------------

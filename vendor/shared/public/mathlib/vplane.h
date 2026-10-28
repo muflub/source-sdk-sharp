@@ -40,9 +40,6 @@ public:
 	// Copy.
 	VPlane&		operator=(const VPlane &thePlane);
 
-	// Returns SIDE_ON, SIDE_FRONT, or SIDE_BACK.
-	// The epsilon for SIDE_ON can be passed in.
-	SideType	GetPointSide(const Vector &vPoint, vec_t sideEpsilon=VP_EPSILON) const;
 
 	// Returns SIDE_FRONT or SIDE_BACK.
 	SideType	GetPointSideExact(const Vector &vPoint) const;
@@ -52,14 +49,10 @@ public:
 	SideType	BoxOnPlaneSide(const Vector &vMin, const Vector &vMax) const;
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
-	// Flip the plane.
-	VPlane		Flip();
 
 	// Get a point on the plane (normal*dist).
 	Vector		GetPointOnPlane() const;
 
-	// Snap the specified point to the plane (along the plane's normal).
-	Vector		SnapPointToPlane(const Vector &vPoint) const;
 #endif
 
 public:
@@ -104,35 +97,15 @@ inline VPlane& VPlane::operator=(const VPlane &thePlane)
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline VPlane VPlane::Flip()
-{
-	return VPlane(-m_Normal, -m_Dist);
-}
 
 inline Vector VPlane::GetPointOnPlane() const
 {
 	return m_Normal * m_Dist;
 }
 
-inline Vector VPlane::SnapPointToPlane(const Vector &vPoint) const
-{
-	return vPoint - m_Normal * DistTo(vPoint);
-}
 
 #endif
 
-inline SideType VPlane::GetPointSide(const Vector &vPoint, vec_t sideEpsilon) const
-{
-	vec_t fDist;
-
-	fDist = DistTo(vPoint);
-	if(fDist >= sideEpsilon)
-		return SIDE_FRONT;
-	else if(fDist <= -sideEpsilon)
-		return SIDE_BACK;
-	else
-		return SIDE_ON;
-}
 
 inline SideType VPlane::GetPointSideExact(const Vector &vPoint) const
 {

@@ -108,9 +108,7 @@ class CBaseNetworkable;
 	IMPLEMENT_SERVERCLASS_INTERNAL( DLLClassName, sendTable )\
 	BEGIN_SEND_TABLE(DLLClassName, sendTable)
 
-#define IMPLEMENT_SERVERCLASS_ST_NOBASE(DLLClassName, sendTable) \
-	IMPLEMENT_SERVERCLASS_INTERNAL( DLLClassName, sendTable )\
-	BEGIN_SEND_TABLE_NOBASE( DLLClassName, sendTable )
+
 
 
 #ifdef VALIDATE_DECLARE_CLASS

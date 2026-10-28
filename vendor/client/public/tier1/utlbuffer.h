@@ -98,8 +98,7 @@ CUtlCharConversion *GetNoEscCharConversion();
 //-----------------------------------------------------------------------------
 // Macro to set overflow functions easily
 //-----------------------------------------------------------------------------
-#define SetUtlBufferOverflowFuncs( _get, _put )	\
-	SetOverflowFuncs( static_cast <UtlBufferOverflowFunc_t>( _get ), static_cast <UtlBufferOverflowFunc_t>( _put ) )
+
 
 
 //-----------------------------------------------------------------------------
@@ -134,7 +133,6 @@ public:
 	// This one isn't actually defined so that we catch constructors that are trying to pass a bool in as the third param.
 	CUtlBuffer( const void *pBuffer, int size, bool junk );
 
-	unsigned char	GetFlags() const;
 
 	// NOTE: This will assert if you attempt to recast it in a way that
 	// is not compatible. The only valid conversion is binary-> text w/CRLF
@@ -143,8 +141,6 @@ public:
 	// Makes sure we've got at least this much memory
 	void			EnsureCapacity( int num );
 
-	// Access for direct read into buffer
-	void *			AccessForDirectRead( int nBytes );
 
 	// Attaches the buffer to external memory....
 	void			SetExternalBuffer( void* pMemory, int nSize, int nInitialPut, int nFlags = 0 );
@@ -155,18 +151,11 @@ public:
 	void* Detach();
 	void* DetachMemory();
 
-	// copies data from another buffer
-	void			CopyBuffer( const CUtlBuffer &buffer );
 	void			CopyBuffer( const void *pubData, int cubData );
 
 	void			Swap( CUtlBuffer &buf );
 	void			Swap( CUtlMemory<uint8> &mem );
 
-	FORCEINLINE void ActivateByteSwappingIfBigEndian( void )
-	{
-		if ( IsX360() )
-			ActivateByteSwapping( true );
-	}
 
 
 	// Controls endian-ness of binary utlbufs - default matches the current platform
@@ -187,14 +176,9 @@ public:
 	//		GetString will read a string until a space is reached
 	char			GetChar( );
 	unsigned char	GetUnsignedChar( );
-	short			GetShort( );
-	unsigned short	GetUnsignedShort( );
 	int				GetInt( );
 	int64			GetInt64( );
-	int				GetIntHex( );
-	unsigned int	GetUnsignedInt( );
 	float			GetFloat( );
-	double			GetDouble( );
 	void *			GetPtr();
 	template <size_t maxLenInChars> void GetString( char( &pString )[maxLenInChars] )
 	{
@@ -213,8 +197,6 @@ public:
 	void			Get( void* pMem, int size );
 	void			GetLine( char* pLine, int nMaxChars = 0 );
 
-	// Used for getting objects that have a byteswap datadesc defined
-	template <typename T> void GetObjects( T *dest, int count = 1 );
 
 	// This will get at least 1 byte and up to nSize bytes. 
 	// It will return the number of bytes actually read.
@@ -275,21 +257,15 @@ public:
 	//		PutString will not write a terminating character
 	void			PutChar( char c );
 	void			PutUnsignedChar( unsigned char uc );
-	void			PutUint64( uint64 ub );
-	void			PutInt16( int16 s16 );
 	void			PutShort( short s );
 	void			PutUnsignedShort( unsigned short us );
 	void			PutInt( int i );
-	void			PutInt64( int64 i );
 	void			PutUnsignedInt( unsigned int u );
 	void			PutFloat( float f );
 	void			PutDouble( double d );
-	void			PutPtr( void* ); // Writes the pointer, not the pointed to
 	void			PutString( const char* pString );
 	void			Put( const void* pMem, int size );
 
-	// Used for putting objects that have a byteswap datadesc defined
-	template <typename T> void PutObjects( T *src, int count = 1 );
 
 	// This version of PutString converts \ to \\ and " to \", etc.
 	// It also places " at the beginning and end of the string
@@ -312,9 +288,6 @@ public:
 	// What's the most I've ever written?
 	int TellMaxPut( ) const;
 
-	// How many bytes remain to be read?
-	// NOTE: This is not accurate for streaming text files; it overshoots
-	int GetBytesRemaining() const;
 
 	// Change where I'm writing (put)/reading (get)
 	void SeekPut( SeekType_t type, int offset );
@@ -350,12 +323,7 @@ public:
 	// If the conversion occurs, outBuf will be cleared.
 	bool ConvertCRLF( CUtlBuffer &outBuf );
 
-	// Push/pop pretty-printing tabs
-	void PushTab();
-	void PopTab();
 
-	// Temporarily disables pretty print
-	void EnableTabs( bool bEnable );
 
 protected:
 	// error flags
@@ -581,13 +549,6 @@ inline int CUtlBuffer::TellGet( ) const
 }
 
 
-//-----------------------------------------------------------------------------
-// How many bytes remain to be read?
-//-----------------------------------------------------------------------------
-inline int CUtlBuffer::GetBytesRemaining() const
-{
-	return m_nMaxPut - TellGet();
-}
 
 
 //-----------------------------------------------------------------------------
@@ -625,14 +586,6 @@ inline void CUtlBuffer::GetObject( T *dest )
 }
 
 
-template <typename T> 
-inline void CUtlBuffer::GetObjects( T *dest, int count )
-{
-	for ( int i = 0; i < count; ++i, ++dest )
-	{
-		GetObject<T>( dest );
-	}
-}
 
 
 template <typename T> 
@@ -715,19 +668,7 @@ inline unsigned char CUtlBuffer::GetUnsignedChar( )
 	return c;
 }
 
-inline short CUtlBuffer::GetShort( )
-{
-	short s;
-	GetType( s, "%d" );
-	return s;
-}
 
-inline unsigned short CUtlBuffer::GetUnsignedShort( )
-{
-	unsigned short s;
-	GetType( s, "%u" );
-	return s;
-}
 
 inline int CUtlBuffer::GetInt( )
 {
@@ -743,19 +684,7 @@ inline int64 CUtlBuffer::GetInt64( )
 	return i;
 }
 
-inline int CUtlBuffer::GetIntHex( )
-{
-	int i;
-	GetType( i, "%x" );
-	return i;
-}
 
-inline unsigned int CUtlBuffer::GetUnsignedInt( )
-{
-	unsigned int u;
-	GetType( u, "%u" );
-	return u;
-}
 
 inline float CUtlBuffer::GetFloat( )
 {
@@ -764,12 +693,6 @@ inline float CUtlBuffer::GetFloat( )
 	return f;
 }
 
-inline double CUtlBuffer::GetDouble( )
-{
-	double d;
-	GetType( d, "%f" );
-	return d;
-}
 
 inline void *CUtlBuffer::GetPtr( )
 {
@@ -783,13 +706,6 @@ inline void *CUtlBuffer::GetPtr( )
 	return p;
 }
 
-//-----------------------------------------------------------------------------
-// Where am I writing?
-//-----------------------------------------------------------------------------
-inline unsigned char CUtlBuffer::GetFlags() const
-{ 
-	return m_Flags; 
-}
 
 
 //-----------------------------------------------------------------------------
@@ -851,14 +767,6 @@ inline void CUtlBuffer::PutObject( T *src )
 }
 
 
-template <typename T> 
-inline void CUtlBuffer::PutObjects( T *src, int count )
-{
-	for ( int i = 0; i < count; ++i, ++src )
-	{
-		PutObject<T>( src );
-	}
-}
 
 
 template <typename T> 
@@ -912,37 +820,9 @@ inline void CUtlBuffer::PutTabs()
 }
 
 
-//-----------------------------------------------------------------------------
-// Push/pop pretty-printing tabs
-//-----------------------------------------------------------------------------
-inline void CUtlBuffer::PushTab( )
-{
-	++m_nTab;
-}
-
-inline void CUtlBuffer::PopTab()
-{
-	if ( --m_nTab < 0 )
-	{
-		m_nTab = 0;
-	}
-}
 
 
-//-----------------------------------------------------------------------------
-// Temporarily disables pretty print
-//-----------------------------------------------------------------------------
-inline void CUtlBuffer::EnableTabs( bool bEnable )
-{
-	if ( bEnable )
-	{
-		m_Flags &= ~AUTO_TABS_DISABLED;
-	}
-	else
-	{
-		m_Flags |= AUTO_TABS_DISABLED; 
-	}
-}
+
 
 inline void CUtlBuffer::PutChar( char c )
 {
@@ -959,15 +839,7 @@ inline void CUtlBuffer::PutUnsignedChar( unsigned char c )
 	PutType( c, "%u" );
 }
 
-inline void CUtlBuffer::PutUint64( uint64 ub )
-{
-	PutType( ub, "%llu" );
-}
 
-inline void CUtlBuffer::PutInt16( int16 s16 )
-{
-	PutType( s16, "%d" );
-}
 
 inline void  CUtlBuffer::PutShort( short s )
 {
@@ -984,10 +856,6 @@ inline void CUtlBuffer::PutInt( int i )
 	PutType( i, "%d" );
 }
 
-inline void CUtlBuffer::PutInt64( int64 i )
-{
-	PutType( i, "%llu" );
-}
 
 inline void CUtlBuffer::PutUnsignedInt( unsigned int u )
 {
@@ -1004,18 +872,6 @@ inline void CUtlBuffer::PutDouble( double d )
 	PutType( d, "%f" );
 }
 
-inline void CUtlBuffer::PutPtr( void* p )
-{
-	// LEGACY WARNING: in text mode, PutPtr writes 32 bit pointers in hex, while GetPtr reads 32 or 64 bit pointers in decimal
-	if ( !IsText() )
-	{
-		PutTypeBin( p );
-	}
-	else
-	{
-		Printf( "0x%p", p );
-	}
-}
 
 //-----------------------------------------------------------------------------
 // Am I a text buffer?
@@ -1111,18 +967,7 @@ inline void CUtlBuffer::Purge()
 	m_Memory.Purge();
 }
 
-inline void *CUtlBuffer::AccessForDirectRead( int nBytes )
-{
-	Assert( m_Get == 0 && m_Put == 0 && m_nMaxPut == 0 );
-	EnsureCapacity( nBytes );
-	m_nMaxPut = nBytes;
-	return Base();
-}
 
-inline void CUtlBuffer::CopyBuffer( const CUtlBuffer &buffer )
-{
-	CopyBuffer( buffer.Base(), buffer.TellPut() );
-}
 
 inline void	CUtlBuffer::CopyBuffer( const void *pubData, int cubData )
 {

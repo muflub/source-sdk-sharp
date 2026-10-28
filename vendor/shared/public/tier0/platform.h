@@ -58,7 +58,7 @@
 #endif
 
 // feature enables
-#define NEW_SOFTWARE_LIGHTING
+
 
 #ifdef POSIX
 // need this for _alloca
@@ -101,10 +101,10 @@
 #endif
 
 #ifdef _DEBUG
-#define IsRelease() false
+
 #define IsDebug() true
 #else
-#define IsRelease() true
+
 #define IsDebug() false
 #endif
 
@@ -122,12 +122,12 @@
 		#define IsPC() true
 		#define IsConsole() false
 		#define IsX360() false
-		#define IsPS3() false
+
 		#define IS_WINDOWS_PC 1
 		#define PLATFORM_WINDOWS_PC 1 // Windows PC
 		#ifdef _WIN64
-			#define IsPlatformWindowsPC64() true
-			#define IsPlatformWindowsPC32() false
+
+
 			#define PLATFORM_WINDOWS_PC64 1
 		#else
 			#define IsPlatformWindowsPC64() false
@@ -150,7 +150,7 @@
 	#define IsWindows() false
 	#define IsConsole() false
 	#define IsX360() false
-	#define IsPS3() false
+
 	#if defined( LINUX )
 		#define IsLinux() true
 	#else
@@ -202,7 +202,7 @@
 # error "Define a platform dir for me!"
 #endif
 
-#define PLATFORM_BIN_DIR "bin" PLATFORM_DIR
+
 
 typedef unsigned char uint8;
 typedef signed char int8;
@@ -254,7 +254,6 @@ typedef signed char int8;
 		typedef unsigned int		uintp;
 	#endif
 	#ifndef USE_DXVK
-	typedef void *HWND;
 	#endif
 
 	// Avoid redefinition warnings if a previous header defines this.
@@ -295,11 +294,11 @@ typedef signed char int8;
 	#define IsGameConsole()	true
 #else
 	#define IsPC()			true
-	#define IsGameConsole()	false
+
 #endif
 
 #ifdef PLATFORM_64BITS
-	#define IsPlatform64Bits()	true
+
 #else
 	#define IsPlatform64Bits()	false
 #endif
@@ -311,7 +310,6 @@ typedef signed char int8;
 typedef uint32 RTime32;
 
 typedef float				float32;
-typedef double				float64;
 
 // for when we don't care about how many bits we use
 typedef unsigned int		uint;
@@ -340,10 +338,10 @@ typedef unsigned int		uint;
 // a pointer type for a class that has only been forward declared
 #ifdef _MSC_VER
 #define SINGLE_INHERITANCE __single_inheritance
-#define MULTIPLE_INHERITANCE __multiple_inheritance
+
 #else
 #define SINGLE_INHERITANCE
-#define MULTIPLE_INHERITANCE
+
 #endif
 
 #ifdef _MSC_VER
@@ -440,8 +438,7 @@ FIXME: Enable this when we no longer fear change =)
 typedef unsigned int DWORD;
 #endif
 typedef unsigned short WORD;
-typedef void * HINSTANCE;
-#define _MAX_PATH PATH_MAX
+
 #define __cdecl
 #define __stdcall
 #define __declspec
@@ -449,10 +446,9 @@ typedef void * HINSTANCE;
 #endif // defined(_WIN32) && !defined(WINDED)
 
 #ifdef POSIX
-typedef unsigned int *LPDWORD;
 #endif
 
-#define MAX_FILEPATH 512 
+ 
 
 // Defines MAX_PATH
 #ifndef MAX_PATH
@@ -465,7 +461,7 @@ typedef unsigned int *LPDWORD;
 #define MAX_UNICODE_PATH MAX_PATH
 #endif
 
-#define MAX_UNICODE_PATH_IN_UTF8 MAX_UNICODE_PATH*4
+
 
 #if !defined( offsetof )
 	#ifdef __GNUC__
@@ -511,7 +507,7 @@ typedef unsigned int *LPDWORD;
 #if defined __i386__ && !defined __linux__
 	#define id386	1
 #else
-	#define id386	0
+
 #endif  // __i386__
 
 // decls for aligning data
@@ -529,7 +525,7 @@ typedef unsigned int *LPDWORD;
 #define ALIGN4
 #define ALIGN8 
 #define ALIGN16
-#define ALIGN32
+
 #define ALIGN128
 #define ALIGN_N( _align_ )
 
@@ -537,7 +533,7 @@ typedef unsigned int *LPDWORD;
 #define ALIGN4_POST DECL_ALIGN(4)
 #define ALIGN8_POST DECL_ALIGN(8)
 #define ALIGN16_POST DECL_ALIGN(16)
-#define ALIGN32_POST DECL_ALIGN(32)
+
 #define ALIGN128_POST DECL_ALIGN(128)
 #define ALIGN_N_POST( _align_ ) DECL_ALIGN( _align_ )
 #else
@@ -546,14 +542,14 @@ typedef unsigned int *LPDWORD;
 #define ALIGN4 DECL_ALIGN(4)
 #define ALIGN8 DECL_ALIGN(8)
 #define ALIGN16 DECL_ALIGN(16)
-#define ALIGN32 DECL_ALIGN(32)
+
 #define ALIGN128 DECL_ALIGN(128)
 #define ALIGN_N( _align_ ) DECL_ALIGN( _align_ )
 
 #define ALIGN4_POST
 #define ALIGN8_POST
 #define ALIGN16_POST
-#define ALIGN32_POST
+
 #define ALIGN128_POST
 #define ALIGN_N_POST( _align_ )
 #endif
@@ -575,7 +571,7 @@ typedef unsigned int *LPDWORD;
 // Convert int<-->pointer, avoiding 32/64-bit compiler warnings:
 //-----------------------------------------------------------------------------
 #define INT_TO_POINTER( i ) (void *)( ( i ) + (char *)NULL )
-#define POINTER_TO_INT( p ) ( (int)(uintp)( p ) )
+
 
 
 //-----------------------------------------------------------------------------
@@ -600,24 +596,24 @@ typedef unsigned int *LPDWORD;
 // Linux had a few areas where it didn't construct objects in the same order that Windows does.
 // So when CVProfile::CVProfile() would access g_pMemAlloc, it would crash because the allocator wasn't initalized yet.
 #ifdef POSIX
-	#define CONSTRUCT_EARLY __attribute__((init_priority(101)))
+
 #else
-	#define CONSTRUCT_EARLY
+
 	#endif
 
 #if defined(_MSC_VER)
-	#define SELECTANY __declspec(selectany)
+
 	#define RESTRICT __restrict
-	#define RESTRICT_FUNC __declspec(restrict)
+
 	#define FMTFUNCTION( a, b )
 #elif defined(GNUC)
-	#define SELECTANY __attribute__((weak))
+
 	#if defined(LINUX) && !defined(DEDICATED)
 		#define RESTRICT
 	#else
 		#define RESTRICT __restrict
 	#endif
-	#define RESTRICT_FUNC
+
 	// squirrel.h does a #define printf DevMsg which leads to warnings when we try
 	// to use printf as the prototype format function. Using __printf__ instead.
 	#define FMTFUNCTION( fmtargnumber, firstvarargnumber ) __attribute__ (( format( __printf__, fmtargnumber, firstvarargnumber )))
@@ -642,7 +638,7 @@ typedef unsigned int *LPDWORD;
 	#define DLL_GLOBAL_EXPORT		extern __declspec( dllexport )
 	#define DLL_GLOBAL_IMPORT		extern __declspec( dllimport )
 
-	#define DLL_LOCAL
+
 
 #elif defined GNUC
 // Used for dll exporting and importing
@@ -657,7 +653,7 @@ typedef unsigned int *LPDWORD;
 #define  DLL_GLOBAL_EXPORT   extern __attribute ((visibility("default")))
 #define  DLL_GLOBAL_IMPORT   extern
 
-#define  DLL_LOCAL __attribute__ ((visibility("hidden")))
+
 
 #else
 #error "Unsupported Platform."
@@ -665,7 +661,7 @@ typedef unsigned int *LPDWORD;
 
 // Used for standard calling conventions
 #if defined( _WIN32 ) && !defined( _X360 )
-	#define  STDCALL				__stdcall
+
 	#define  FASTCALL				__fastcall
 	#define  FORCEINLINE			__forceinline
 	// GCC 3.4.1 has a bug in supporting forced inline of templated functions
@@ -679,7 +675,7 @@ typedef unsigned int *LPDWORD;
 	#define  FORCEINLINE			__forceinline
 	#define  FORCEINLINE_TEMPLATE		__forceinline
 	#else
-		#define  STDCALL
+
 	#define  FASTCALL
 	#ifdef _LINUX_DEBUGGABLE
 		#define  FORCEINLINE
@@ -699,7 +695,7 @@ typedef unsigned int *LPDWORD;
 #endif
 
 // Force a function call site -not- to inlined. (useful for profiling)
-#define DONT_INLINE(a) (((int)(a)+1)?(a):(a))
+
 
 // Pass hints to the compiler to prevent it from generating unnessecary / stupid code
 // in certain situations.  Several compilers other than MSVC also have an equivilent
@@ -721,7 +717,7 @@ typedef unsigned int *LPDWORD;
 
 // In cases where no default is present or appropriate, this causes MSVC to generate
 // as little code as possible, and throw an assertion in debug.
-#define NO_DEFAULT default: UNREACHABLE();
+
 
 
 #ifdef _WIN32
@@ -769,8 +765,8 @@ typedef unsigned int *LPDWORD;
   #define GCC_DIAG_PUSH_OFF(x)	GCC_DIAG_PRAGMA(push) GCC_DIAG_PRAGMA(ignored GCC_DIAG_JOINSTR(-W,x))
   #define GCC_DIAG_POP()		GCC_DIAG_PRAGMA(pop)
 #else
-  #define GCC_DIAG_PUSH_OFF(x)
-  #define GCC_DIAG_POP()
+
+
 #endif
 
 #ifdef LINUX
@@ -807,31 +803,30 @@ typedef unsigned int *LPDWORD;
 #define _snprintf snprintf
 #define GetProcAddress dlsym
 #define _chdir chdir
-#define _strnicmp strnicmp
+
 #define strnicmp strncasecmp
 #define _getcwd getcwd
 #define _snwprintf swprintf
-#define swprintf_s swprintf
-#define wcsicmp _wcsicmp
+
+
 #define _wcsicmp wcscmp
 #define _finite finite
-#define _tempnam tempnam
-#define _unlink unlink
-#define _access access
-#define _mkdir(dir) mkdir( dir, S_IRWXU | S_IRWXG | S_IRWXO )
+
+
+
+
 #define _wtoi(arg) wcstol(arg, NULL, 10)
 #define _wtoi64(arg) wcstoll(arg, NULL, 10)
 
-#define _O_RDONLY O_RDONLY
 
-#define _stat stat
+
+
 #define _open open
-#define _lseek lseek
-#define _read read
+
+
 #define _close close
 
 #ifndef USE_DXVK
-typedef uintp HMODULE;
 typedef void *HANDLE;
 #endif
 #endif
@@ -841,14 +836,6 @@ typedef void *HANDLE;
 //-----------------------------------------------------------------------------
 #ifndef _X360
 
-static FORCEINLINE float fsel(float fComparand, float fValGE, float fLT)
-{
-	return fComparand >= 0 ? fValGE : fLT;
-}
-static FORCEINLINE double fsel(double fComparand, double fValGE, double fLT)
-{
-	return fComparand >= 0 ? fValGE : fLT;
-}
 
 #else
 
@@ -868,9 +855,6 @@ static FORCEINLINE double fsel(double fComparand, double fValGE, double fLT)
 #if defined( _MSC_VER )
 
 	#if defined( PLATFORM_WINDOWS_PC64 )
-		inline void SetupFPUControlWord()
-		{
-		}
 	#else
 		inline void SetupFPUControlWordForceExceptions()
 		{
@@ -913,14 +897,6 @@ static FORCEINLINE double fsel(double fComparand, double fValGE, double fLT)
 
 #else
 
-	inline void SetupFPUControlWord()
-	{
-		__volatile unsigned short int __cw;
-		__asm __volatile ("fnstcw %0" : "=m" (__cw));
-		__cw = __cw & 0x0FCC0;	// keep infinity control, keep rounding mode
-		__cw = __cw | 0x023F;	// set 53-bit, no exceptions
-		__asm __volatile ("fldcw %0" : : "m" (__cw));
-	}
 
 #endif // _MSC_VER
 
@@ -1151,10 +1127,6 @@ FORCEINLINE void StoreLittleDWord( unsigned long *base, unsigned int dwordIndex,
 	}
 #endif
 
-inline uint64 CastPtrToUint64( const void* p )
-{
-	return (uint64) ( (uintp) p );
-}
 
 inline int64 CastPtrToInt64( const void* p )
 {
@@ -1185,48 +1157,28 @@ inline int64 CastPtrToInt64( const void* p )
 #endif	// BUILD_AS_DLL
 
 typedef class CSysModule* PlatModule_t;
-#define PLAT_MODULE_INVALID ((PlatModule_t)0)
 
-// When in benchmark mode, the timer returns a simple incremented value each time you call it.
-//
-// It should not be changed after startup unless you really know what you're doing. The only place
-// that should do this is the benchmark code itself so it can output a legit duration.
-PLATFORM_INTERFACE void				Plat_SetBenchmarkMode( bool bBenchmarkMode );	
-PLATFORM_INTERFACE bool				Plat_IsInBenchmarkMode();
+
 
 
 PLATFORM_INTERFACE double			Plat_FloatTime();		// Returns time in seconds since the module was loaded.
-PLATFORM_INTERFACE uint32			Plat_MSTime();			// Time in milliseconds.
-PLATFORM_INTERFACE uint64			Plat_USTime();			// Time in microseconds.
-PLATFORM_INTERFACE char *			Plat_ctime( const time_t *timep, char *buf, size_t bufsize );
-PLATFORM_INTERFACE void				Plat_GetModuleFilename( char *pOut, int nMaxBytes );
 
 PLATFORM_INTERFACE void				Plat_ExitProcess( int nCode );
 
 typedef uint32 strlen_t;
 
-PLATFORM_INTERFACE void Plat_getwd( char *pWorkingDirectory, strlen_t nBufLen );
 
-PLATFORM_INTERFACE void Plat_chdir( const char *pDir );
 
-PLATFORM_INTERFACE char const * Plat_GetEnv( char const *pEnvVarName );
 
-PLATFORM_INTERFACE bool Plat_GetExecutablePath( char *pBuff, strlen_t nBuff );
 
-PLATFORM_INTERFACE bool Plat_FileExists( const char *pFileName );
 
-//called to exit the process due to a fatal error. This allows for the application to handle providing a hook as well which can be called
-//before exiting
-PLATFORM_INTERFACE void				Plat_ExitProcessWithError( int nCode, bool bGenerateMinidump = false );
 
 //sets the callback that will be triggered by Plat_ExitProcessWithError. NULL is valid. The return value true indicates that
 //the exit has been handled and no further processing should be performed. False will cause a minidump to be generated, and the process
 //to be terminated
 typedef bool (*ExitProcessWithErrorCBFn)( int nCode );
-PLATFORM_INTERFACE void				Plat_SetExitProcessWithErrorCB( ExitProcessWithErrorCBFn pfnCB );
 
 PLATFORM_INTERFACE struct tm *		Plat_gmtime( const time_t *timep, struct tm *result );
-PLATFORM_INTERFACE time_t			Plat_timegm( struct tm *timeptr );
 PLATFORM_INTERFACE struct tm *		Plat_localtime( const time_t *timep, struct tm *result );
 
 #if defined( _WIN32 ) && defined( _MSC_VER ) && ( _MSC_VER >= 1400 )
@@ -1264,19 +1216,10 @@ inline uint64 Plat_Rdtsc()
 #define Sys_FloatTime Plat_FloatTime
 
 // Protect against bad auto operator=
-#define DISALLOW_OPERATOR_EQUAL( _classname )			\
-	private:											\
-		_classname &operator=( const _classname & );	\
-	public:
+
 
 // Define a reasonable operator=
-#define IMPLEMENT_OPERATOR_EQUAL( _classname )			\
-	public:												\
-		_classname &operator=( const _classname &src )	\
-		{												\
-			memcpy( this, &src, sizeof(_classname) );	\
-			return *this;								\
-		}
+
 
 // Processor Information:
 struct CPUInformation
@@ -1347,78 +1290,39 @@ struct MemoryInformation
 	}
 };
 
-// Returns true if the passed in MemoryInformation structure was filled out, otherwise false.
-PLATFORM_INTERFACE bool GetMemoryInformation( MemoryInformation *pOutMemoryInfo );
 
-PLATFORM_INTERFACE float GetCPUUsage();
 
-PLATFORM_INTERFACE void GetCurrentDate( int *pDay, int *pMonth, int *pYear );
 
 //-----------------------------------------------------------------------------
 // D3DX
 //-----------------------------------------------------------------------------
 
-#define DXABSTRACT_BREAK_ON_ERROR() DebuggerBreak()
 
-// ---------------------------------------------------------------------------------- //
-// Performance Monitoring Events - L2 stats etc...
-// ---------------------------------------------------------------------------------- //
-PLATFORM_INTERFACE void InitPME();
-PLATFORM_INTERFACE void ShutdownPME();
+
 
 //-----------------------------------------------------------------------------
 // Thread related functions
 //-----------------------------------------------------------------------------
 
-// Sets a hardware data breakpoint on the given address. Currently Win32-only.
-// Specify 1, 2, or 4 bytes for nWatchBytes; pass 0 to unregister the address.
-PLATFORM_INTERFACE void	Plat_SetHardwareDataBreakpoint( const void *pAddress, int nWatchBytes, bool bBreakOnRead );
 
-// Apply current hardware data breakpoints to a newly created thread.
-PLATFORM_INTERFACE void	Plat_ApplyHardwareDataBreakpointsToNewThread( unsigned long dwThreadID );
 
-//-----------------------------------------------------------------------------
-// Process related functions
-//-----------------------------------------------------------------------------
-PLATFORM_INTERFACE const tchar *Plat_GetCommandLine();
 #ifndef _WIN32
 // helper function for OS's that don't have a ::GetCommandLine() call
-PLATFORM_INTERFACE void Plat_SetCommandLine( const char *cmdLine );
+PLATFORM_INTERFACE ;
 #endif
 PLATFORM_INTERFACE const char *Plat_GetCommandLineA();
 
-//-----------------------------------------------------------------------------
-// Security related functions
-//-----------------------------------------------------------------------------
-// Ensure that the hardware key's drivers have been installed.
-PLATFORM_INTERFACE bool Plat_VerifyHardwareKeyDriver();
 
-// Ok, so this isn't a very secure way to verify the hardware key for now.  It
-// is primarially depending on the fact that all the binaries have been wrapped
-// with the secure wrapper provided by the hardware keys vendor.
-PLATFORM_INTERFACE bool Plat_VerifyHardwareKey();
 
-// The same as above, but notifies user with a message box when the key isn't in
-// and gives him an opportunity to correct the situation.
-PLATFORM_INTERFACE bool Plat_VerifyHardwareKeyPrompt();
 
-// Can be called in real time, doesn't perform the verify every frame.  Mainly just
-// here to allow the game to drop out quickly when the key is removed, rather than
-// allowing the wrapper to pop up it's own blocking dialog, which the engine doesn't
-// like much.
-PLATFORM_INTERFACE bool Plat_FastVerifyHardwareKey();
 
-//-----------------------------------------------------------------------------
-// Just logs file and line to simple.log
-//-----------------------------------------------------------------------------
-PLATFORM_INTERFACE void* Plat_SimpleLog( const tchar* file, int line );
 
 #if _X360
 #define Plat_FastMemset XMemSet
 #define Plat_FastMemcpy XMemCpy
 #else
 #define Plat_FastMemset memset
-#define Plat_FastMemcpy memcpy
+
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1426,56 +1330,47 @@ PLATFORM_INTERFACE void* Plat_SimpleLog( const tchar* file, int line );
 //-----------------------------------------------------------------------------
 #if defined(_WIN32) || defined(LINUX) || defined(OSX)
 PLATFORM_INTERFACE bool Plat_IsInDebugSession();
-PLATFORM_INTERFACE void Plat_DebugString( const char * );
 #else
 inline bool Plat_IsInDebugSession( bool bForceRecheck = false ) { return false; }
 #define Plat_DebugString(s) ((void)0)
 #endif
 
-//-----------------------------------------------------------------------------
-// Returns true if running on a 64 bit (windows) OS
-//-----------------------------------------------------------------------------
-PLATFORM_INTERFACE bool Is64BitOS();
 
 
 //-----------------------------------------------------------------------------
 // XBOX Components valid in PC compilation space
 //-----------------------------------------------------------------------------
 
-#define XBOX_DVD_SECTORSIZE			2048
-#define XBOX_DVD_ECC_SIZE			32768 // driver reads in quantum ECC blocks
-#define XBOX_HDD_SECTORSIZE			512
+
+ // driver reads in quantum ECC blocks
+
 
 // Custom windows messages for Xbox input
-#define WM_XREMOTECOMMAND					(WM_USER + 100)
-#define WM_XCONTROLLER_KEY					(WM_USER + 101)
-#define WM_SYS_UI							(WM_USER + 102)
-#define WM_SYS_SIGNINCHANGED				(WM_USER + 103)
-#define WM_SYS_STORAGEDEVICESCHANGED		(WM_USER + 104)
-#define WM_SYS_PROFILESETTINGCHANGED		(WM_USER + 105)
-#define WM_SYS_MUTELISTCHANGED				(WM_USER + 106)
-#define WM_SYS_INPUTDEVICESCHANGED			(WM_USER + 107)
-#define WM_SYS_INPUTDEVICECONFIGCHANGED		(WM_USER + 108)
-#define WM_LIVE_CONNECTIONCHANGED			(WM_USER + 109)
-#define WM_LIVE_INVITE_ACCEPTED				(WM_USER + 110)
-#define WM_LIVE_LINK_STATE_CHANGED			(WM_USER + 111)
-#define WM_LIVE_CONTENT_INSTALLED			(WM_USER + 112)
-#define WM_LIVE_MEMBERSHIP_PURCHASED		(WM_USER + 113)
-#define WM_LIVE_VOICECHAT_AWAY				(WM_USER + 114)
-#define WM_LIVE_PRESENCE_CHANGED			(WM_USER + 115)
-#define WM_FRIENDS_PRESENCE_CHANGED			(WM_USER + 116)
-#define WM_FRIENDS_FRIEND_ADDED				(WM_USER + 117)
-#define WM_FRIENDS_FRIEND_REMOVED			(WM_USER + 118)
-#define WM_CUSTOM_GAMEBANNERPRESSED			(WM_USER + 119)
-#define WM_CUSTOM_ACTIONPRESSED				(WM_USER + 120)
-#define WM_XMP_STATECHANGED					(WM_USER + 121)
-#define WM_XMP_PLAYBACKBEHAVIORCHANGED		(WM_USER + 122)
-#define WM_XMP_PLAYBACKCONTROLLERCHANGED	(WM_USER + 123)
 
-inline const char *GetPlatformExt( void )
-{
-	return IsX360() ? ".360" : "";
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // flat view, 6 hw threads
 #define XBOX_PROCESSOR_0			( 1<<0 )
@@ -1486,12 +1381,12 @@ inline const char *GetPlatformExt( void )
 #define XBOX_PROCESSOR_5			( 1<<5 )
 
 // core view, 3 cores with 2 hw threads each
-#define XBOX_CORE_0_HWTHREAD_0		XBOX_PROCESSOR_0
-#define XBOX_CORE_0_HWTHREAD_1		XBOX_PROCESSOR_1
-#define XBOX_CORE_1_HWTHREAD_0		XBOX_PROCESSOR_2
-#define XBOX_CORE_1_HWTHREAD_1		XBOX_PROCESSOR_3
-#define XBOX_CORE_2_HWTHREAD_0		XBOX_PROCESSOR_4
-#define XBOX_CORE_2_HWTHREAD_1		XBOX_PROCESSOR_5
+
+
+
+
+
+
 
 //-----------------------------------------------------------------------------
 // Include additional dependant header components.
@@ -1584,11 +1479,6 @@ inline void ConstructTwoArg( T* pMemory, P1 const& arg1, P2 const& arg2)
 	::new( pMemory ) T(arg1, arg2);
 }
 
-template <class T, class P1, class P2, class P3 >
-inline void ConstructThreeArg( T* pMemory, P1 const& arg1, P2 const& arg2, P3 const& arg3)
-{
-	::new( pMemory ) T(arg1, arg2, arg3);
-}
 
 template <class T>
 inline T* CopyConstruct( T* pMemory, T const& src )
@@ -1789,14 +1679,7 @@ template<const int nArgument>													\
 RETURN_TYPE FASTCALL __Function_##NAME<nArgument>::Run ARGS
 
 
-#define LOOP_INTERCHANGE(BOOLEAN, CODE)\
-	if( (BOOLEAN) )\
-	{\
-		CODE;\
-	} else\
-	{\
-		CODE;\
-	}
+
 
 //-----------------------------------------------------------------------------
 // Dynamic libs support
@@ -1829,21 +1712,9 @@ private:
 #endif
 
 
-// Watchdog timer support. Call Plat_BeginWatchdogTimer( nn ) to kick the timer off.  if you don't call
-// Plat_EndWatchdogTimer within nn seconds, the program will kick off an exception.  This is for making
-// sure that hung dedicated servers abort (and restart) instead of staying hung. Calling
-// Plat_EndWatchdogTimer more than once or when there is no active watchdog is fine. Only does anything
-// under linux right now. It should be possible to implement this functionality in windows via a
-// thread, if desired.
-PLATFORM_INTERFACE void Plat_BeginWatchdogTimer( int nSecs );
-PLATFORM_INTERFACE void Plat_EndWatchdogTimer( void );
-PLATFORM_INTERFACE int Plat_GetWatchdogTime( void );
 
 typedef void (*Plat_WatchDogHandlerFunction_t)(void);
-PLATFORM_INTERFACE void Plat_SetWatchdogHandlerFunction( Plat_WatchDogHandlerFunction_t function );
 
-/// Get some random bytes from a secure source of high entropy
-PLATFORM_INTERFACE void SecureRandomBytes( void *pDest, size_t cbSize );
 
 // Use ValidateAlignment to sanity-check alignment usage when allocating arrays of an aligned type
 #define ALIGN_ASSERT( pred ) { COMPILE_TIME_ASSERT( pred ); }
@@ -1862,7 +1733,6 @@ inline void ValidateAlignmentExplicit(void)
 	// (if you hit this, just add more powers of 2 below and increase this limit)
 	ALIGN_ASSERT( ALIGN <= 128 );
 }
-template< class T > inline void ValidateAlignment(void) { ValidateAlignmentExplicit<T, VALIGNOF(T)>(); }
 
 // Portable alternative to __alignof
 template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } byte b; T t; };
@@ -1907,6 +1777,6 @@ extern "C" int V_tier0_stricmp(const char *s1, const char *s2 );
 // I am so evil I put it in platform.h, but a few places need this define and I didn't want to think too
 // hard about it.
 // >:)
-#define PAD_LIGHTMAP_ATLAS 1
+
 
 #endif /* PLATFORM_H */

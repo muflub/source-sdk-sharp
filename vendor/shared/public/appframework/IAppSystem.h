@@ -111,7 +111,7 @@ public:
 
 	// Here's where systems can access other interfaces implemented by this object
 	// Returns NULL if it doesn't implement the requested interface
-	virtual void *QueryInterface( const char *pInterfaceName ) = 0;
+	virtual void unused_QueryInterface() = 0;
 
 	// Init, shutdown
 	virtual InitReturnVal_t Init() = 0;

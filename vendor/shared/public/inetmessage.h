@@ -10,7 +10,6 @@
 
 #include "tier1/bitbuf.h"
 
-class INetMsgHandler;
 class INetMessage;
 class INetChannel;
 

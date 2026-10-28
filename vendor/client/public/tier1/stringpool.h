@@ -43,9 +43,6 @@ protected:
 	CStrSet m_Strings;
 };
 
-// These should be explicitly instantiated in stringpool.cpp to ensure they're available outside of the library
-typedef CStringPoolBase< uint16_t > CStringPool;
-typedef CStringPoolBase< uint32_t > CStringPoolLarge;
 extern template class CStringPoolBase< uint16_t >;
 extern template class CStringPoolBase< uint32_t >;
 
@@ -86,15 +83,7 @@ public:
 
 	void			FreeAll();
 
-	char			*FindString( const char* pIntrinsic ); 
-	char			*ReferenceString( const char* pIntrinsic );
-	void			DereferenceString( const char* pIntrinsic );
 
-	// These are only reliable if there are less than 64k strings in your string pool
-	unsigned short	FindStringHandle( const char* pIntrinsic ); 
-	unsigned short	ReferenceStringHandle( const char* pIntrinsic );
-	char			*HandleToString( unsigned short handle );
-	void			SpewStrings();
 };
 
 #endif // STRINGPOOL_H

@@ -14,18 +14,18 @@
 #include "datamap.h"
 
 
-#define VEHICLE_TYPE_CAR_WHEELS			(1<<0)
-#define VEHICLE_TYPE_CAR_RAYCAST		(1<<1)
-#define VEHICLE_TYPE_JETSKI_RAYCAST		(1<<2)
-#define VEHICLE_TYPE_AIRBOAT_RAYCAST	(1<<3)
+
+
+
+
 
 #define VEHICLE_MAX_AXLE_COUNT	4
 #define VEHICLE_MAX_GEAR_COUNT	6
-#define VEHICLE_MAX_WHEEL_COUNT	(2*VEHICLE_MAX_AXLE_COUNT)
 
-#define VEHICLE_TIRE_NORMAL		0
-#define VEHICLE_TIRE_BRAKING	1
-#define VEHICLE_TIRE_POWERSLIDE	2
+
+
+
+
 
 struct vehicle_controlparams_t
 {
@@ -79,25 +79,25 @@ public:
 	virtual ~IPhysicsVehicleController() {}
 	// call this from the game code with the control parameters
 	virtual void Update( float dt, vehicle_controlparams_t &controls ) = 0;
-	virtual const vehicle_operatingparams_t &GetOperatingParams() = 0;
-	virtual const vehicleparams_t &GetVehicleParams() = 0;
-	virtual vehicleparams_t &GetVehicleParamsForChange() = 0;
-	virtual float UpdateBooster(float dt) = 0;
-	virtual int GetWheelCount(void) = 0;
-	virtual IPhysicsObject *GetWheel(int index) = 0;
-	virtual bool GetWheelContactPoint( int index, Vector *pContactPoint, int *pSurfaceProps ) = 0;
+	virtual void unused_GetOperatingParams() = 0;
+	virtual void unused_GetVehicleParams() = 0;
+	virtual void unused_GetVehicleParamsForChange() = 0;
+	virtual void unused_UpdateBooster() = 0;
+	virtual void unused_GetWheelCount() = 0;
+	virtual void unused_GetWheel() = 0;
+	virtual void unused_GetWheelContactPoint() = 0;
 	virtual void SetSpringLength(int wheelIndex, float length) = 0;
-	virtual void SetWheelFriction(int wheelIndex, float friction) = 0;
+	virtual void unused_SetWheelFriction() = 0;
 
-	virtual void OnVehicleEnter( void ) = 0;
-	virtual void OnVehicleExit( void ) = 0;
+	virtual void unused_OnVehicleEnter() = 0;
+	virtual void unused_OnVehicleExit() = 0;
 
-	virtual void SetEngineDisabled( bool bDisable ) = 0;
-	virtual bool IsEngineDisabled( void ) = 0;
+	virtual void unused_SetEngineDisabled() = 0;
+	virtual void unused_IsEngineDisabled() = 0;
 
 	// Debug
-	virtual void GetCarSystemDebugData( vehicle_debugcarsystem_t &debugCarSystem ) = 0;
-	virtual void VehicleDataReload() = 0;
+	virtual void unused_GetCarSystemDebugData() = 0;
+	virtual void unused_VehicleDataReload() = 0;
 };
 
 
@@ -227,24 +227,9 @@ struct vehicleparams_t
 	vehicle_steeringparams_t	steering;
 };
 
-// Iterator for queries
-class CPassengerSeatTransition;
-typedef CUtlVector< CPassengerSeatTransition> PassengerSeatAnims_t;
 
-// Seat query types
-enum VehicleSeatQuery_e
-{
-	VEHICLE_SEAT_ANY,			// Any available seat for our role
-	VEHICLE_SEAT_NEAREST,		// Seat closest to our starting point
-};
 
-// Seat anim types for return
-enum PassengerSeatAnimType_t
-{
-	PASSENGER_SEAT_ENTRY,
-	PASSENGER_SEAT_EXIT
-};
 
-#define VEHICLE_SEAT_INVALID	-1		// An invalid seat
+		// An invalid seat
 
 #endif // VEHICLES_H

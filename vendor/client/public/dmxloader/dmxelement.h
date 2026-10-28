@@ -64,24 +64,15 @@ struct DmxElementUnpackStructure_t
 		static DmxElementUnpackStructure_t unpack[] = \
 		{ \
 
-#define DMXELEMENT_UNPACK_FLTX4( _attributeName, _defaultString, _varName )	\
-	{ _attributeName, _defaultString, CDmAttributeInfo<float>::AttributeType(), (int)offsetof( DestStructType_t, _varName ), sizeof( fltx4 ), NULL },
+
 #define DMXELEMENT_UNPACK_FIELD( _attributeName, _defaultString, _type, _varName )	\
 	{ _attributeName, _defaultString, CDmAttributeInfo<_type>::AttributeType(), (int)offsetof( DestStructType_t, _varName ), sizeof( ((DestStructType_t *)0)->_varName), NULL },
-#define DMXELEMENT_UNPACK_FIELD_STRING( _attributeName, _defaultString, _varName )	\
-	{ _attributeName, _defaultString, AT_STRING, offsetof( DestStructType_t, _varName ), sizeof( ((DestStructType_t *)0)->_varName), NULL },
 
-#define DMXELEMENT_UNPACK_FIELD_USERDATA( _attributeName, _defaultString, _type, _varName, _userData )	\
-	{ _attributeName, _defaultString, CDmAttributeInfo<_type>::AttributeType(), (int)offsetof( DestStructType_t, _varName ), sizeof( ((DestStructType_t *)0)->_varName), _userData },
-#define DMXELEMENT_UNPACK_FIELD_STRING_USERDATA( _attributeName, _defaultString, _varName, _userData )	\
-	{ _attributeName, _defaultString, AT_STRING, (int)offsetof( DestStructType_t, _varName ), sizeof( ((DestStructType_t *)0)->_varName), _userData },
 
-#define END_DMXELEMENT_UNPACK( _structName, _varName )			\
-			{ NULL, NULL, AT_UNKNOWN, 0, 0, NULL }				\
-		};														\
-		return unpack;											\
-	}															\
-	DmxElementUnpackStructure_t *_varName = _structName##_UnpackInit::s_pUnpack;
+
+
+
+
 
 #define END_DMXELEMENT_UNPACK_TEMPLATE( _structName, _varName )			\
 			{ NULL, NULL, AT_UNKNOWN, 0, 0, NULL }				\
@@ -99,14 +90,11 @@ class CDmxElement
 	DECLARE_DMX_ALLOCATOR( );
 
 public:
-	bool				HasAttribute( const char *pAttributeName ) const;
 	CDmxAttribute		*GetAttribute( const char *pAttributeName );
 	const CDmxAttribute *GetAttribute( const char *pAttributeName ) const;
-	int					AttributeCount() const;
 	CDmxAttribute		*GetAttribute( int nIndex );
 	const CDmxAttribute *GetAttribute( int nIndex ) const;
 	CUtlSymbol			GetType() const;
-	const char*			GetTypeString() const;
 	const char*			GetName() const;
 	const DmObjectId_t &GetId() const;
 
@@ -115,33 +103,17 @@ public:
 	// one with the appropriate name exists
 	void				LockForChanges( bool bLock );
 	CDmxAttribute		*AddAttribute( const char *pAttributeName );
-	void				RemoveAttribute( const char *pAttributeName );
-	void				RemoveAttributeByPtr( CDmxAttribute *pAttribute );
-	void				RemoveAllAttributes();
-	void				RenameAttribute( const char *pAttributeName, const char *pNewName );
 
-	// Simple methods to read attributes
-	const char *GetValueString( const char *pAttributeName ) const;
 	template< class T > const T& GetValue( const char *pAttributeName ) const;
 	template< class T > const T& GetValue( const char *pAttributeName, const T& defaultValue ) const;
 
-	template< class T > const CUtlVector<T>& GetArray( const char *pAttributeName ) const;
-	template< class T > const CUtlVector<T>& GetArray( const char *pAttributeName, const CUtlVector<T>& defaultValue ) const;
 
 	// Set methods
 	CDmxAttribute* SetValue( const char *pAttributeName, const char *pString );
 	CDmxAttribute* SetValue( const char *pAttributeName, void *pBuffer, int nLen );
 	template< class T > CDmxAttribute* SetValue( const char *pAttributeName, const T& value );
 
-	// Method to unpack data into a structure
-	void UnpackIntoStructure( void *pData, size_t DataSizeInBytes, const DmxElementUnpackStructure_t *pUnpack ) const;
 
-	// Creates attributes based on the unpack structure
-	template <typename T>
-	void AddAttributesFromStructure( const T *pData, const DmxElementUnpackStructure_t *pUnpack )
-	{
-		AddAttributesFromStructure_Internal( pData, sizeof(T), pUnpack );
-	}
 
 private:
 	void AddAttributesFromStructure_Internal( const void *pData, size_t byteCount, const DmxElementUnpackStructure_t *pUnpack );
@@ -150,24 +122,14 @@ private:
 	CDmxElement( const char *pType );
 	~CDmxElement();
 
-	// Removes all elements recursively
-	void RemoveAllElementsRecursive();
 
-	// Adds elements to delete to the deletion list
-	void AddElementsToDelete( CUtlVector< CDmxElement * >& elementsToDelete );
 
-	// Sorts the vector when a change has occurred
-	void Resort( ) const;
 
 	// Finds an attribute by name
 	int FindAttribute( const char *pAttributeName ) const;
 	int FindAttribute( CUtlSymbol attributeName ) const;
 
-	// Sets the object id
-	void SetId( const DmObjectId_t &id );
 
-	// Are we locked?
-	bool IsLocked() const;
 
 	AttributeList_t m_Attributes;
 	DmObjectId_t m_Id;	// We need this strictly because we support serialization
@@ -176,12 +138,9 @@ private:
 	mutable bool m_bResortNeeded : 1;
 	bool m_bIsMarkedForDeletion : 1;
 
-	static CUtlSymbolTableMT s_TypeSymbols;
 
 	friend class CDmxSerializer;
 	friend class CDmxSerializerKeyValues2;
-	friend void CleanupDMX( CDmxElement* pElement );
-	friend CDmxElement* CreateDmxElement( const char *pType );
 };
 
 
@@ -189,19 +148,7 @@ private:
 // inline methods
 //-----------------------------------------------------------------------------
 
-// Are we locked?
-inline bool CDmxElement::IsLocked() const
-{
-	return m_nLockCount > 0;
-}
 
-inline const char *CDmxElement::GetValueString( const char *pAttributeName ) const
-{
-	const CDmxAttribute* pAttribute = GetAttribute( pAttributeName );
-	if ( pAttribute )
-		return pAttribute->GetValueString();
-	return "";
-}
 
 template< class T > 
 inline const T& CDmxElement::GetValue( const char *pAttributeName ) const
@@ -224,31 +171,9 @@ inline const T& CDmxElement::GetValue( const char *pAttributeName, const T& defa
 	return defaultValue;
 }
 
-template< class T > 
-inline const CUtlVector<T>& CDmxElement::GetArray( const char *pAttributeName ) const
-{
-	const CDmxAttribute* pAttribute = GetAttribute( pAttributeName );
-	if ( pAttribute )
-		return pAttribute->GetArray<T>();
-
-	static CUtlVector<T> defaultValue;
-	return defaultValue;
-}
-
-template< class T > 
-inline const CUtlVector<T>& CDmxElement::GetArray( const char *pAttributeName, const CUtlVector<T>& defaultValue ) const
-{
-	const CDmxAttribute* pAttribute = GetAttribute( pAttributeName );
-	if ( pAttribute )
-		return pAttribute->GetArray<T>();
-	return defaultValue;
-}
 
 
-//-----------------------------------------------------------------------------
-// Creates a dmx element
-//-----------------------------------------------------------------------------
-CDmxElement* CreateDmxElement( const char *pType );
+
 
 
 //-----------------------------------------------------------------------------

@@ -33,19 +33,11 @@ COLLISION DETECTION
 
 // gi.BoxEdicts() can return a list of either solid or trigger entities
 // FIXME: eliminate AREA_ distinction?
-#define	AREA_SOLID		1
-#define	AREA_TRIGGERS	2
+
+
 
 #include "vcollide.h"
 
-struct cmodel_t
-{
-	Vector		mins, maxs;
-	Vector		origin;		// for sounds or lights
-	int			headnode;
-
-	vcollide_t	vcollisionData;
-};
 
 struct csurface_t
 {
@@ -98,23 +90,6 @@ struct Ray_t
 		m_StartOffset *= -1.0f;
 	}
 
-	// compute inverse delta
-	Vector InvDelta() const
-	{
-		Vector vecInvDelta;
-		for ( int iAxis = 0; iAxis < 3; ++iAxis )
-		{
-			if ( m_Delta[iAxis] != 0.0f )
-			{
-				vecInvDelta[iAxis] = 1.0f / m_Delta[iAxis];
-			}
-			else
-			{
-				vecInvDelta[iAxis] = FLT_MAX;
-			}
-		}
-		return vecInvDelta;
-	}
 
 private:
 };

@@ -32,15 +32,10 @@
 
 
 
-//-----------------------------------------------------------------------------
-// DLL-exported methods for particular kinds of memory
-//-----------------------------------------------------------------------------
-MEM_INTERFACE void *MemAllocScratch( int nMemSize );
-MEM_INTERFACE void MemFreeScratch();
 MEM_INTERFACE void MemAllocOOMError( size_t nSize );
 
 #if defined(_LINUX) && !defined( USE_DXVK )
-MEM_INTERFACE void ZeroMemory( void *mem, size_t length );
+MEM_INTERFACE ;
 #endif
 
 

@@ -17,7 +17,7 @@
 typedef uintp ColorCorrectionHandle_t;
 struct ShaderColorCorrectionInfo_t;
 
-#define COLORCORRECTION_INTERFACE_VERSION "COLORCORRECTION_VERSION_1"
+
 
 abstract_class IColorCorrectionSystem
 {
@@ -53,21 +53,21 @@ public:
 	virtual void ResetLookup( ColorCorrectionHandle_t handle ) = 0;
 	virtual void ResetLookup( ) = 0;
 
-	virtual void ReleaseTextures( ) = 0;
-	virtual void RestoreTextures( ) = 0;
+	virtual void unused_ReleaseTextures() = 0;
+	virtual void unused_RestoreTextures() = 0;
 
 	virtual void ResetLookupWeights( ) = 0;
 
-	virtual int GetNumLookups( ) = 0;
+	virtual void unused_GetNumLookups() = 0;
 
-	virtual color24 ConvertToColor24( RGBX5551_t inColor ) = 0;
+	virtual void unused_ConvertToColor24() = 0;
 
-	virtual void SetResetable( ColorCorrectionHandle_t handle, bool bResetable ) = 0;
+	virtual void unused_SetResetable() = 0;
 
 	virtual void EnableColorCorrection( bool bEnable ) = 0;
 
 	// FIXME: Move this to a private interface only the material system can see?
-	virtual void GetCurrentColorCorrection( ShaderColorCorrectionInfo_t* pInfo ) = 0;
+	virtual void unused_GetCurrentColorCorrection() = 0;
 };
 
 #endif

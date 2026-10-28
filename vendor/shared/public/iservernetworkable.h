@@ -22,7 +22,7 @@
 
 // Entities can span this many clusters before we revert to a slower area checking algorithm
 #define	MAX_FAST_ENT_CLUSTERS	4
-#define	MAX_ENT_CLUSTERS	64
+
 #define MAX_WORLD_AREAS		8
 
 
@@ -30,7 +30,6 @@ class ServerClass;
 class SendTable;
 struct edict_t;
 class CBaseEntity;
-class CSerialEntity;
 class CBaseNetworkable;
 
 

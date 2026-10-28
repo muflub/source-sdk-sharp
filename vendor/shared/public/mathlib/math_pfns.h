@@ -20,9 +20,9 @@ inline void SinCos( float radians, float *RESTRICT sine, float *RESTRICT cosine 
 
 #define FastRSqrt( x ) ( 1.0f / ::sqrtf( x ) )
 
-#define FastCos ::cosf
+
 #define FastSqrt ::sqrtf
-#define FastSinCos ::SinCos
-#define FastRSqrtFast FastRSqrt
+
+
 
 #endif // _MATH_PFNS_H_

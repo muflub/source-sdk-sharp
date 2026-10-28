@@ -162,23 +162,23 @@ private:
 };
 
 // structure offset for asm code
-#define CPLANE_NORMAL_X			0
-#define CPLANE_NORMAL_Y			4
-#define CPLANE_NORMAL_Z			8
-#define CPLANE_DIST				12
-#define CPLANE_TYPE				16
-#define CPLANE_SIGNBITS			17
-#define CPLANE_PAD0				18
-#define CPLANE_PAD1				19
+
+
+
+
+
+
+
+
 
 // 0-2 are axial planes
 #define	PLANE_X			0
-#define	PLANE_Y			1
-#define	PLANE_Z			2
+
+
 
 // 3-5 are non-axial planes snapped to the nearest
-#define	PLANE_ANYX		3
-#define	PLANE_ANYY		4
+
+
 #define	PLANE_ANYZ		5
 
 
@@ -213,7 +213,6 @@ public:
 	}
 
 	inline const cplane_t *GetPlane( int i ) const { return &m_Plane[i]; }
-	inline const Vector &GetAbsNormal( int i ) const { return m_AbsNormal[i]; }
 
 private:
 	cplane_t	m_Plane[FRUSTUM_NUMPLANES];
@@ -267,16 +266,6 @@ struct matrix3x4_t
 		Init( xAxis, yAxis, zAxis, vecOrigin );
 	}
 
-	inline void Invalidate( void )
-	{
-		for (int i = 0; i < 3; i++)
-		{
-			for (int j = 0; j < 4; j++)
-			{
-				m_flMatVal[i][j] = VEC_T_NAN;
-			}
-		}
-	}
 
 	float *operator[]( int i )				{ Assert(( i >= 0 ) && ( i < 3 )); return m_flMatVal[i]; }
 	const float *operator[]( int i ) const	{ Assert(( i >= 0 ) && ( i < 3 )); return m_flMatVal[i]; }
@@ -306,16 +295,15 @@ struct matrix3x4_t
 #define	SIDE_FRONT	0
 #define	SIDE_BACK	1
 #define	SIDE_ON		2
-#define SIDE_CROSS  -2      // necessary for polylib.c
+      // necessary for polylib.c
 
-#define ON_VIS_EPSILON  0.01    // necessary for vvis (flow.c) -- again look into moving later!
+    // necessary for vvis (flow.c) -- again look into moving later!
 #define	EQUAL_EPSILON	0.001   // necessary for vbsp (faces.c) -- should look into moving it there?
 
 extern bool s_bMathlibInitialized;
 
 extern  const Vector vec3_origin;
 extern  const QAngle vec3_angle;
-extern	const Quaternion quat_identity;
 extern const Vector vec3_invalid;
 extern	const int nanmask;
 
@@ -325,38 +313,14 @@ FORCEINLINE vec_t DotProduct(const vec_t *v1, const vec_t *v2)
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
 }
-FORCEINLINE void VectorSubtract(const vec_t *a, const vec_t *b, vec_t *c)
-{
-	c[0]=a[0]-b[0];
-	c[1]=a[1]-b[1];
-	c[2]=a[2]-b[2];
-}
-FORCEINLINE void VectorAdd(const vec_t *a, const vec_t *b, vec_t *c)
-{
-	c[0]=a[0]+b[0];
-	c[1]=a[1]+b[1];
-	c[2]=a[2]+b[2];
-}
 FORCEINLINE void VectorCopy(const vec_t *a, vec_t *b)
 {
 	b[0]=a[0];
 	b[1]=a[1];
 	b[2]=a[2];
 }
-FORCEINLINE void VectorClear(vec_t *a)
-{
-	a[0]=a[1]=a[2]=0;
-}
 
-FORCEINLINE float VectorMaximum(const vec_t *v)
-{
-	return max( v[0], max( v[1], v[2] ) );
-}
 
-FORCEINLINE float VectorMaximum(const Vector& v)
-{
-	return max( v.x, max( v.y, v.z ) );
-}
 
 FORCEINLINE void VectorScale (const float* in, vec_t scale, float* out)
 {
@@ -366,32 +330,21 @@ FORCEINLINE void VectorScale (const float* in, vec_t scale, float* out)
 }
 
 
-// Cannot be forceinline as they have overloads:
-inline void VectorFill(vec_t *a, float b)
-{
-	a[0]=a[1]=a[2]=b;
-}
 
-inline void VectorNegate(vec_t *a)
-{
-	a[0]=-a[0];
-	a[1]=-a[1];
-	a[2]=-a[2];
-}
 
 
 //#define VectorMaximum(a)		( max( (a)[0], max( (a)[1], (a)[2] ) ) )
-#define Vector2Clear(x)			{(x)[0]=(x)[1]=0;}
-#define Vector2Negate(x)		{(x)[0]=-((x)[0]);(x)[1]=-((x)[1]);}
-#define Vector2Copy(a,b)		{(b)[0]=(a)[0];(b)[1]=(a)[1];}
-#define Vector2Subtract(a,b,c)	{(c)[0]=(a)[0]-(b)[0];(c)[1]=(a)[1]-(b)[1];}
-#define Vector2Add(a,b,c)		{(c)[0]=(a)[0]+(b)[0];(c)[1]=(a)[1]+(b)[1];}
-#define Vector2Scale(a,b,c)		{(c)[0]=(b)*(a)[0];(c)[1]=(b)*(a)[1];}
+
+
+
+
+
+
 
 // NJS: Some functions in VBSP still need to use these for dealing with mixing vec4's and shorts with vec_t's.
 // remove when no longer needed.
-#define VECTOR_COPY( A, B ) do { (B)[0] = (A)[0]; (B)[1] = (A)[1]; (B)[2]=(A)[2]; } while(0)
-#define DOT_PRODUCT( A, B ) ( (A)[0]*(B)[0] + (A)[1]*(B)[1] + (A)[2]*(B)[2] )
+
+
 
 FORCEINLINE void VectorMAInline( const float* start, float scale, const float* direction, float* dest )
 {
@@ -412,27 +365,15 @@ FORCEINLINE void VectorMA( const Vector& start, float scale, const Vector& direc
 	VectorMAInline(start, scale, direction, dest);
 }
 
-FORCEINLINE void VectorMA( const float * start, float scale, const float *direction, float *dest )
-{
-	VectorMAInline(start, scale, direction, dest);
-}
 
 
 int VectorCompare (const float *v1, const float *v2);
 
-inline float VectorLength(const float *v)
-{
-	return FastSqrt( v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + FLT_EPSILON );
-}
 
 void CrossProduct (const float *v1, const float *v2, float *cross);
 
 qboolean VectorsEqual( const float *v1, const float *v2 );
 
-inline vec_t RoundInt (vec_t in)
-{
-	return floor(in + 0.5f);
-}
 
 int Q_log2(int val);
 
@@ -440,37 +381,8 @@ int Q_log2(int val);
 #define FTOIBIAS		12582912.f
 extern float SinCosTable[SIN_TABLE_SIZE];
 
-inline float TableCos( float theta )
-{
-	union
-	{
-		int i;
-		float f;
-	} ftmp;
 
-	// ideally, the following should compile down to: theta * constant + constant, changing any of these constants from defines sometimes fubars this.
-	ftmp.f = theta * ( float )( SIN_TABLE_SIZE / ( 2.0f * M_PI ) ) + ( FTOIBIAS + ( SIN_TABLE_SIZE / 4 ) );
-	return SinCosTable[ ftmp.i & ( SIN_TABLE_SIZE - 1 ) ];
-}
 
-inline float TableSin( float theta )
-{
-	union
-	{
-		int i;
-		float f;
-	} ftmp;
-
-	// ideally, the following should compile down to: theta * constant + constant
-	ftmp.f = theta * ( float )( SIN_TABLE_SIZE / ( 2.0f * M_PI ) ) + FTOIBIAS;
-	return SinCosTable[ ftmp.i & ( SIN_TABLE_SIZE - 1 ) ];
-}
-
-template<class T>
-FORCEINLINE T Square( T const &a )
-{
-	return a * a;
-}
 
 
 // return the smallest power of two >= x.
@@ -539,28 +451,13 @@ bool MatricesAreEqual( const matrix3x4_t &src1, const matrix3x4_t &src2, float f
 void MatrixGetColumn( const matrix3x4_t &in, int column, Vector &out );
 void MatrixSetColumn( const Vector &in, int column, matrix3x4_t &out );
 
-inline void MatrixGetTranslation( const matrix3x4_t &in, Vector &out )
-{
-	MatrixGetColumn ( in, 3, out );
-}
 
-inline void MatrixSetTranslation( const Vector &in, matrix3x4_t &out )
-{
-	MatrixSetColumn ( in, 3, out );
-}
 
 void MatrixScaleBy ( const float flScale, matrix3x4_t &out );
 void MatrixScaleByZero ( matrix3x4_t &out );
 
-//void DecomposeRotation( const matrix3x4_t &mat, float *out );
-void ConcatRotations (const matrix3x4_t &in1, const matrix3x4_t &in2, matrix3x4_t &out);
 void ConcatTransforms (const matrix3x4_t &in1, const matrix3x4_t &in2, matrix3x4_t &out);
 
-// For identical interface w/ VMatrix
-inline void MatrixMultiply ( const matrix3x4_t &in1, const matrix3x4_t &in2, matrix3x4_t &out )
-{
-	ConcatTransforms( in1, in2, out );
-}
 
 void QuaternionSlerp( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
 void QuaternionSlerpNoAlign( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
@@ -587,18 +484,7 @@ void AxisAngleQuaternion( const Vector &axis, float angle, Quaternion &q );
 void BasisToQuaternion( const Vector &vecForward, const Vector &vecRight, const Vector &vecUp, Quaternion &q );
 void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q );
 
-// A couple methods to find the dot product of a vector with a matrix row or column...
-inline float MatrixRowDotProduct( const matrix3x4_t &in1, int row, const Vector& in2 )
-{
-	Assert( (row >= 0) && (row < 3) );
-	return DotProduct( in1[row], in2.Base() ); 
-}
 
-inline float MatrixColumnDotProduct( const matrix3x4_t &in1, int col, const Vector& in2 )
-{
-	Assert( (col >= 0) && (col < 4) );
-	return in1[0][col] * in2[0] + in1[1][col] * in2[1] + in1[2][col] * in2[2]; 
-}
 
 int __cdecl BoxOnPlaneSide (const float *emins, const float *emaxs, const cplane_t *plane);
 
@@ -634,10 +520,6 @@ FORCEINLINE T Lerp( float flPercent, T const &A, T const &B )
 	return A + (B - A) * flPercent;
 }
 
-FORCEINLINE float Sqr( float f )
-{
-	return f*f;
-}
 
 // 5-argument floating point linear interpolation.
 // FLerp(f1,f2,i1,i2,x)=
@@ -721,10 +603,6 @@ FORCEINLINE void V_swap( T& x, T& y )
 	y = temp;
 }
 
-template <class T> FORCEINLINE T AVG(T a, T b)
-{
-	return (a+b)/2;
-}
 
 // number of elements in an array of static size
 #define NELEMS(x) ARRAYSIZE(x)
@@ -733,55 +611,10 @@ template <class T> FORCEINLINE T AVG(T a, T b)
 #define XYZ(v) (v).x,(v).y,(v).z
 
 
-inline float Sign( float x )
-{
-	return (x <0.0f) ? -1.0f : 1.0f;
-}
-
-//
-// Clamps the input integer to the given array bounds.
-// Equivalent to the following, but without using any branches:
-//
-// if( n < 0 ) return 0;
-// else if ( n > maxindex ) return maxindex;
-// else return n;
-//
-// This is not always a clear performance win, but when you have situations where a clamped 
-// value is thrashing against a boundary this is a big win. (ie, valid, invalid, valid, invalid, ...)
-//
-// Note: This code has been run against all possible integers.
-//
-inline int ClampArrayBounds( int n, unsigned maxindex )
-{
-	// mask is 0 if less than 4096, 0xFFFFFFFF if greater than
-	unsigned int inrangemask = 0xFFFFFFFF + (((unsigned) n) > maxindex );
-	unsigned int lessthan0mask = 0xFFFFFFFF + ( n >= 0 );
-	
-	// If the result was valid, set the result, (otherwise sets zero)
-	int result = (inrangemask & n);
-
-	// if the result was out of range or zero.
-	result |= ((~inrangemask) & (~lessthan0mask)) & maxindex;
-
-	return result;
-}
 
 
-#define BOX_ON_PLANE_SIDE(emins, emaxs, p)	\
-	(((p)->type < 3)?						\
-	(										\
-		((p)->dist <= (emins)[(p)->type])?	\
-			1								\
-		:									\
-		(									\
-			((p)->dist >= (emaxs)[(p)->type])?\
-				2							\
-			:								\
-				3							\
-		)									\
-	)										\
-	:										\
-		BoxOnPlaneSide( (emins), (emaxs), (p)))
+
+
 
 //-----------------------------------------------------------------------------
 // FIXME: Vector versions.... the float versions will go away hopefully soon!
@@ -805,15 +638,7 @@ void SetIdentityMatrix( matrix3x4_t &mat );
 void SetScaleMatrix( float x, float y, float z, matrix3x4_t &dst );
 void MatrixBuildRotationAboutAxis( const Vector &vAxisOfRot, float angleDegrees, matrix3x4_t &dst );
 
-inline void SetScaleMatrix( float flScale, matrix3x4_t &dst )
-{
-	SetScaleMatrix( flScale, flScale, flScale, dst );
-}
 
-inline void SetScaleMatrix( const Vector& scale, matrix3x4_t &dst )
-{
-	SetScaleMatrix( scale.x, scale.y, scale.z, dst );
-}
 
 // Computes the inverse transpose
 void MatrixTranspose( matrix3x4_t& mat );
@@ -862,10 +687,6 @@ void MatrixAngles( const matrix3x4_t &mat, RadianEuler &angles, Vector &position
 
 void MatrixAngles( const matrix3x4_t &mat, Quaternion &q, Vector &position );
 
-inline int VectorCompare (const Vector& v1, const Vector& v2)
-{
-	return v1 == v2;
-}
 
 inline void VectorTransform (const Vector& in1, const matrix3x4_t &in2, Vector &out)
 {
@@ -889,75 +710,9 @@ inline int BoxOnPlaneSide (const Vector& emins, const Vector& emaxs, const cplan
 	return BoxOnPlaneSide( &emins.x, &emaxs.x, plane );
 }
 
-inline void VectorFill(Vector& a, float b)
-{
-	a[0]=a[1]=a[2]=b;
-}
 
-inline void VectorNegate(Vector& a)
-{
-	a[0] = -a[0];
-	a[1] = -a[1];
-	a[2] = -a[2];
-}
 
-inline vec_t VectorAvg(Vector& a)
-{
-	return ( a[0] + a[1] + a[2] ) / 3;
-}
 
-//-----------------------------------------------------------------------------
-// Box/plane test (slow version)
-//-----------------------------------------------------------------------------
-inline int FASTCALL BoxOnPlaneSide2 (const Vector& emins, const Vector& emaxs, const cplane_t *p, float tolerance = 0.f )
-{
-	Vector	corners[2];
-
-	if (p->normal[0] < 0)
-	{
-		corners[0][0] = emins[0];
-		corners[1][0] = emaxs[0];
-	}
-	else
-	{
-		corners[1][0] = emins[0];
-		corners[0][0] = emaxs[0];
-	}
-
-	if (p->normal[1] < 0)
-	{
-		corners[0][1] = emins[1];
-		corners[1][1] = emaxs[1];
-	}
-	else
-	{
-		corners[1][1] = emins[1];
-		corners[0][1] = emaxs[1];
-	}
-
-	if (p->normal[2] < 0)
-	{
-		corners[0][2] = emins[2];
-		corners[1][2] = emaxs[2];
-	}
-	else
-	{
-		corners[1][2] = emins[2];
-		corners[0][2] = emaxs[2];
-	}
-
-	int sides = 0;
-
-	float dist1 = DotProduct (p->normal, corners[0]) - p->dist;
-	if (dist1 >= tolerance)
-		sides = 1;
-
-	float dist2 = DotProduct (p->normal, corners[1]) - p->dist;
-	if (dist2 < -tolerance)
-		sides |= 2;
-
-	return sides;
-}
 
 //-----------------------------------------------------------------------------
 // Helpers for bounding box construction
@@ -1119,26 +874,8 @@ float SmoothCurve_Tweak( float x, float flPeakPos=0.5, float flPeakSharpness=0.5
 //float ExponentialDecay( float halflife, float dt );
 //float ExponentialDecay( float decayTo, float decayTime, float dt );
 
-// halflife is time for value to reach 50%
-inline float ExponentialDecay( float halflife, float dt )
-{
-	// log(0.5) == -0.69314718055994530941723212145818
-	return expf( -0.69314718f / halflife * dt);
-}
 
-// decayTo is factor the value should decay to in decayTime
-inline float ExponentialDecay( float decayTo, float decayTime, float dt )
-{
-	return expf( logf( decayTo ) / decayTime * dt);
-}
 
-// Get the integrated distanced traveled
-// decayTo is factor the value should decay to in decayTime
-// dt is the time relative to the last velocity update
-inline float ExponentialDecayIntegral( float decayTo, float decayTime, float dt  )
-{
-	return (powf( decayTo, dt / decayTime) * decayTime - decayTime) / logf( decayTo );
-}
 
 // hermite basis function for smooth interpolation
 // Similar to Gain() above, but very cheap to call
@@ -1151,26 +888,7 @@ inline float SimpleSpline( float value )
 	return (3 * valueSquared - 2 * valueSquared * value);
 }
 
-// remaps a value in [startInterval, startInterval+rangeInterval] from linear to
-// spline using SimpleSpline
-inline float SimpleSplineRemapVal( float val, float A, float B, float C, float D)
-{
-	if ( A == B )
-		return val >= B ? D : C;
-	float cVal = (val - A) / (B - A);
-	return C + (D - C) * SimpleSpline( cVal );
-}
 
-// remaps a value in [startInterval, startInterval+rangeInterval] from linear to
-// spline using SimpleSpline
-inline float SimpleSplineRemapValClamped( float val, float A, float B, float C, float D )
-{
-	if ( A == B )
-		return val >= B ? D : C;
-	float cVal = (val - A) / (B - A);
-	cVal = clamp( cVal, 0.0f, 1.0f );
-	return C + (D - C) * SimpleSpline( cVal );
-}
 
 FORCEINLINE int RoundFloatToInt(float f)
 {
@@ -1255,10 +973,6 @@ FORCEINLINE unsigned long RoundFloatToUnsignedLong(float f)
 #endif // !X360
 }
 
-FORCEINLINE bool IsIntegralValue( float flValue, float flTolerance = 0.001f )
-{
-	return fabs( RoundFloatToInt( flValue ) - flValue ) < flTolerance;
-}
 
 // Fast, accurate ftol:
 FORCEINLINE int Float2Int( float a )
@@ -1323,16 +1037,6 @@ FORCEINLINE int FastFloatToSmallInt( float c )
 #endif
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Bound input float to .001 (millisecond) boundary
-// Input  : in - 
-// Output : inline float
-//-----------------------------------------------------------------------------
-inline float ClampToMsec( float in )
-{
-	int msec = Floor2Int( in * 1000.0f + 0.5f );
-	return 0.001f * msec;
-}
 
 // Over 15x faster than: (int)ceil(value)
 inline int Ceil2Int( float a )
@@ -1360,52 +1064,10 @@ inline int Ceil2Int( float a )
 	( ( ( B.x - A.x ) * ( C.y - A.y ) - ( B.y - A.y ) * ( C.x - A.x ) ) )
 
 
-// Get the barycentric coordinates of "pt" in triangle [A,B,C].
-inline void GetBarycentricCoords2D( 
-	Vector2D const &A,
-	Vector2D const &B,
-	Vector2D const &C,
-	Vector2D const &pt,
-	float bcCoords[3] )
-{
-	// Note, because to top and bottom are both x2, the issue washes out in the composite
-	float invTriArea = 1.0f / TriArea2DTimesTwo( A, B, C );
-
-	// NOTE: We assume here that the lightmap coordinate vertices go counterclockwise.
-	// If not, TriArea2D() is negated so this works out right.
-	bcCoords[0] = TriArea2DTimesTwo( B, C, pt ) * invTriArea;
-	bcCoords[1] = TriArea2DTimesTwo( C, A, pt ) * invTriArea;
-	bcCoords[2] = TriArea2DTimesTwo( A, B, pt ) * invTriArea;
-}
 
 
-// Return true of the sphere might touch the box (the sphere is actually treated
-// like a box itself, so this may return true if the sphere's bounding box touches
-// a corner of the box but the sphere itself doesn't).
-inline bool QuickBoxSphereTest( 
-	const Vector& vOrigin,
-	float flRadius,
-	const Vector& bbMin,
-	const Vector& bbMax )
-{
-	return vOrigin.x - flRadius < bbMax.x && vOrigin.x + flRadius > bbMin.x &&
-		vOrigin.y - flRadius < bbMax.y && vOrigin.y + flRadius > bbMin.y && 
-		vOrigin.z - flRadius < bbMax.z && vOrigin.z + flRadius > bbMin.z;
-}
 
 
-// Return true of the boxes intersect (but not if they just touch).
-inline bool QuickBoxIntersectTest( 
-	const Vector& vBox1Min,
-	const Vector& vBox1Max,
-	const Vector& vBox2Min,
-	const Vector& vBox2Max )
-{
-	return 
-		vBox1Min.x < vBox2Max.x && vBox1Max.x > vBox2Min.x &&
-		vBox1Min.y < vBox2Max.y && vBox1Max.y > vBox2Min.y && 
-		vBox1Min.z < vBox2Max.z && vBox1Max.z > vBox2Min.z;
-}
 
 
 extern float GammaToLinearFullRange( float gamma );
@@ -1419,69 +1081,10 @@ extern float X360GammaToLinear( float fl360GammaValue );
 extern float X360LinearToGamma( float flLinearValue );
 extern float SrgbGammaTo360Gamma( float flSrgbGammaValue );
 
-// linear (0..4) to screen corrected vertex space (0..1?)
-FORCEINLINE float LinearToVertexLight( float f )
-{
-	extern float lineartovertex[4096];	
-
-	// Gotta clamp before the multiply; could overflow...
-	// assume 0..4 range
-	int i = RoundFloatToInt( f * 1024.f );
-
-	// Presumably the comman case will be not to clamp, so check that first:
-	if( (unsigned)i > 4095 )
-	{
-		if ( i < 0 )
-			i = 0;		// Compare to zero instead of 4095 to save 4 bytes in the instruction stream
-		else
-			i = 4095;
-	}
-
-	return lineartovertex[i];
-}
 
 
-FORCEINLINE unsigned char LinearToLightmap( float f )
-{
-	extern unsigned char lineartolightmap[4096];	
 
-	// Gotta clamp before the multiply; could overflow...
-	int i = RoundFloatToInt( f * 1024.f );	// assume 0..4 range
 
-	// Presumably the comman case will be not to clamp, so check that first:
-	if ( (unsigned)i > 4095 )
-	{
-		if ( i < 0 )
-			i = 0;		// Compare to zero instead of 4095 to save 4 bytes in the instruction stream
-		else
-			i = 4095;
-	}
-
-	return lineartolightmap[i];
-}
-
-FORCEINLINE void ColorClamp( Vector& color )
-{
-	float maxc = max( color.x, max( color.y, color.z ) );
-	if ( maxc > 1.0f )
-	{
-		float ooMax = 1.0f / maxc;
-		color.x *= ooMax;
-		color.y *= ooMax;
-		color.z *= ooMax;
-	}
-
-	if ( color[0] < 0.f ) color[0] = 0.f;
-	if ( color[1] < 0.f ) color[1] = 0.f;
-	if ( color[2] < 0.f ) color[2] = 0.f;
-}
-
-inline void ColorClampTruncate( Vector& color )
-{
-	if (color[0] > 1.0f) color[0] = 1.0f; else if (color[0] < 0.0f) color[0] = 0.0f;
-	if (color[1] > 1.0f) color[1] = 1.0f; else if (color[1] < 0.0f) color[1] = 0.0f;
-	if (color[2] > 1.0f) color[2] = 1.0f; else if (color[2] < 0.0f) color[2] = 0.0f;
-}
 
 // Interpolate a Catmull-Rom spline.
 // t is a [0,1] value and interpolates a curve between p2 and p3.
@@ -1687,13 +1290,6 @@ void Parabolic_Spline_NormalizeX(
 	float t, 
 	Vector& output );
 
-// quintic interpolating polynomial from Perlin.
-// 0->0, 1->1, smooth-in between with smooth tangents
-FORCEINLINE float QuinticInterpolatingPolynomial(float t)
-{
-	// 6t^5-15t^4+10t^3
-	return t * t * t *( t * ( t* 6.0 - 15.0 ) + 10.0 );
-}
 
 // given a table of sorted tabulated positions, return the two indices and blendfactor to linear
 // interpolate. Does a search. Can be used to find the blend value to interpolate between
@@ -1804,144 +1400,14 @@ void RotateAABB( const matrix3x4_t &in1, const Vector &vecMinsIn, const Vector &
 //-----------------------------------------------------------------------------
 void IRotateAABB( const matrix3x4_t &in1, const Vector &vecMinsIn, const Vector &vecMaxsIn, Vector &vecMinsOut, Vector &vecMaxsOut );
 
-//-----------------------------------------------------------------------------
-// Transform a plane
-//-----------------------------------------------------------------------------
-inline void MatrixTransformPlane( const matrix3x4_t &src, const cplane_t &inPlane, cplane_t &outPlane )
-{
-	// What we want to do is the following:
-	// 1) transform the normal into the new space.
-	// 2) Determine a point on the old plane given by plane dist * plane normal
-	// 3) Transform that point into the new space
-	// 4) Plane dist = DotProduct( new normal, new point )
 
-	// An optimized version, which works if the plane is orthogonal.
-	// 1) Transform the normal into the new space
-	// 2) Realize that transforming the old plane point into the new space
-	// is given by [ d * n'x + Tx, d * n'y + Ty, d * n'z + Tz ]
-	// where d = old plane dist, n' = transformed normal, Tn = translational component of transform
-	// 3) Compute the new plane dist using the dot product of the normal result of #2
-
-	// For a correct result, this should be an inverse-transpose matrix
-	// but that only matters if there are nonuniform scale or skew factors in this matrix.
-	VectorRotate( inPlane.normal, src, outPlane.normal );
-	outPlane.dist = inPlane.dist * DotProduct( outPlane.normal, outPlane.normal );
-	outPlane.dist += outPlane.normal.x * src[0][3] + outPlane.normal.y * src[1][3] + outPlane.normal.z * src[2][3];
-}
-
-inline void MatrixITransformPlane( const matrix3x4_t &src, const cplane_t &inPlane, cplane_t &outPlane )
-{
-	// The trick here is that Tn = translational component of transform,
-	// but for an inverse transform, Tn = - R^-1 * T
-	Vector vecTranslation;
-	MatrixGetColumn( src, 3, vecTranslation );
-
-	Vector vecInvTranslation;
-	VectorIRotate( vecTranslation, src, vecInvTranslation );
-
-	VectorIRotate( inPlane.normal, src, outPlane.normal );
-	outPlane.dist = inPlane.dist * DotProduct( outPlane.normal, outPlane.normal );
-	outPlane.dist -= outPlane.normal.x * vecInvTranslation[0] + outPlane.normal.y * vecInvTranslation[1] + outPlane.normal.z * vecInvTranslation[2];
-}
 
 int CeilPow2( int in );
 int FloorPow2( int in );
 
-FORCEINLINE float * UnpackNormal_HEND3N( const unsigned int *pPackedNormal, float *pNormal )
-{
-	int temp[3];
-	temp[0] = ((*pPackedNormal >> 0L) & 0x7ff);
-	if ( temp[0] & 0x400 )
-	{
-		temp[0] = 2048 - temp[0];
-	}
-	temp[1] = ((*pPackedNormal >> 11L) & 0x7ff);
-	if ( temp[1] & 0x400 )
-	{
-		temp[1] = 2048 - temp[1];
-	}
-	temp[2] = ((*pPackedNormal >> 22L) & 0x3ff);
-	if ( temp[2] & 0x200 )
-	{
-		temp[2] = 1024 - temp[2];
-	}
-	pNormal[0] = (float)temp[0] * 1.0f/1023.0f;
-	pNormal[1] = (float)temp[1] * 1.0f/1023.0f;
-	pNormal[2] = (float)temp[2] * 1.0f/511.0f;
-	return pNormal;
-}
 
-FORCEINLINE unsigned int * PackNormal_HEND3N( const float *pNormal, unsigned int *pPackedNormal )
-{
-	int temp[3];
 
-	temp[0] = Float2Int( pNormal[0] * 1023.0f );
-	temp[1] = Float2Int( pNormal[1] * 1023.0f );
-	temp[2] = Float2Int( pNormal[2] * 511.0f );
 
-	// the normal is out of bounds, determine the source and fix
-	// clamping would be even more of a slowdown here
-	Assert( temp[0] >= -1023 && temp[0] <= 1023 );
-	Assert( temp[1] >= -1023 && temp[1] <= 1023 );
-	Assert( temp[2] >= -511 && temp[2] <= 511 );
-	
-	*pPackedNormal = ( ( temp[2] & 0x3ff ) << 22L ) |
-                     ( ( temp[1] & 0x7ff ) << 11L ) |
-                     ( ( temp[0] & 0x7ff ) << 0L );
-	return pPackedNormal;
-}
-
-FORCEINLINE unsigned int * PackNormal_HEND3N( float nx, float ny, float nz, unsigned int *pPackedNormal )
-{
-	int temp[3];
-
-	temp[0] = Float2Int( nx * 1023.0f );
-	temp[1] = Float2Int( ny * 1023.0f );
-	temp[2] = Float2Int( nz * 511.0f );
-
-	// the normal is out of bounds, determine the source and fix
-	// clamping would be even more of a slowdown here
-	Assert( temp[0] >= -1023 && temp[0] <= 1023 );
-	Assert( temp[1] >= -1023 && temp[1] <= 1023 );
-	Assert( temp[2] >= -511 && temp[2] <= 511 );
-	
-	*pPackedNormal = ( ( temp[2] & 0x3ff ) << 22L ) |
-                     ( ( temp[1] & 0x7ff ) << 11L ) |
-                     ( ( temp[0] & 0x7ff ) << 0L );
-	return pPackedNormal;
-}
-
-FORCEINLINE float * UnpackNormal_SHORT2( const unsigned int *pPackedNormal, float *pNormal, bool bIsTangent = FALSE )
-{
-	// Unpacks from Jason's 2-short format (fills in a 4th binormal-sign (+1/-1) value, if this is a tangent vector)
-
-	// FIXME: short math is slow on 360 - use ints here instead (bit-twiddle to deal w/ the sign bits)
-	short iX = (*pPackedNormal & 0x0000FFFF);
-	short iY = (*pPackedNormal & 0xFFFF0000) >> 16;
-
-	float zSign = +1;
-	if ( iX < 0 )
-	{
-		zSign = -1;
-		iX    = -iX;
-	}
-	float tSign = +1;
-	if ( iY < 0 )
-	{
-		tSign = -1;
-		iY    = -iY;
-	}
-
-	pNormal[0] = ( iX - 16384.0f ) / 16384.0f;
-	pNormal[1] = ( iY - 16384.0f ) / 16384.0f;
-	pNormal[2] = zSign*sqrtf( 1.0f - ( pNormal[0]*pNormal[0] + pNormal[1]*pNormal[1] ) );
-	if ( bIsTangent )
-	{
-		pNormal[3] = tSign;
-	}
-
-	return pNormal;
-}
 
 FORCEINLINE unsigned int * PackNormal_SHORT2( float nx, float ny, float nz, unsigned int *pPackedNormal, float binormalSign = +1.0f )
 {
@@ -2129,12 +1595,6 @@ inline bool CloseEnough( float a, float b, float epsilon = EQUAL_EPSILON )
 	return fabs( a - b ) <= epsilon;
 }
 
-inline bool CloseEnough( const Vector &a, const Vector &b, float epsilon = EQUAL_EPSILON )
-{
-	return fabs( a.x - b.x ) <= epsilon &&
-		fabs( a.y - b.y ) <= epsilon &&
-		fabs( a.z - b.z ) <= epsilon;
-}
 
 // Fast compare
 // maxUlps is the maximum error in terms of Units in the Last Place. This 
@@ -2145,12 +1605,6 @@ inline bool CloseEnough( const Vector &a, const Vector &b, float epsilon = EQUAL
 // This function will allow maxUlps-1 floats between A and B.
 bool AlmostEqual(float a, float b, int maxUlps = 10);
 
-inline bool AlmostEqual( const Vector &a, const Vector &b, int maxUlps = 10)
-{
-	return AlmostEqual( a.x, b.x, maxUlps ) &&
-		AlmostEqual( a.y, b.y, maxUlps ) &&
-		AlmostEqual( a.z, b.z, maxUlps );
-}
 
 
 #endif	// MATH_BASE_H

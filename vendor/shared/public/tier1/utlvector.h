@@ -1458,17 +1458,7 @@ public:
 class CUtlStringList : public CUtlVectorAutoPurge< char *>
 {
 public:
-	void CopyAndAddToTail( char const *pString )			// clone the string and add to the end
-	{
-		char *pNewStr = new char[1 + strlen( pString )];
-		V_strcpy( pNewStr, pString );
-		AddToTail( pNewStr );
-	}
 
-	static int __cdecl SortFunc( char * const * sz1, char * const * sz2 )
-	{
-		return strcmp( *sz1, *sz2 );
-	}
 
 	CUtlStringList(){}
 

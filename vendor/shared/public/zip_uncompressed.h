@@ -12,11 +12,11 @@
 
 #include "datamap.h"
 
-#define PKID( a, b ) (((b)<<24)|((a)<<16)|('K'<<8)|'P')
+
 
 // compressionMethod field
-#define ZIP_COMPRESSION_NONE  0
-#define ZIP_COMPRESSION_LZMA 14
+
+
 
 #pragma pack(1)
 
@@ -85,10 +85,10 @@ struct ZIP_LocalFileHeader
 ///	by the map loading process.
 //=============================================================================//
 
-#define PRELOAD_SECTION_NAME	"__preload_section.pre"
-#define PRELOAD_HDR_VERSION		3
-#define XZIP_COMMENT_LENGTH		32
-#define INVALID_PRELOAD_ENTRY	( (unsigned short)-1 )
+
+
+
+
 
 struct ZIP_PreloadHeader 
 {

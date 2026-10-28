@@ -13,7 +13,7 @@
 class IPhysicsPlayerControllerEvent
 {
 public:
-	virtual int	ShouldMoveTo( IPhysicsObject *pObject, const Vector &position ) = 0;
+	virtual void unused_ShouldMoveTo() = 0;
 };
 
 class IPhysicsPlayerController
@@ -22,9 +22,9 @@ public:
 	virtual ~IPhysicsPlayerController( void ) {}
 
 	virtual void Update( const Vector &position, const Vector &velocity, float secondsToArrival, bool onground, IPhysicsObject *ground ) = 0;
-	virtual void SetEventHandler( IPhysicsPlayerControllerEvent *handler ) = 0;
+	virtual void unused_SetEventHandler() = 0;
 	virtual bool IsInContact( void ) = 0;
-	virtual void MaxSpeed( const Vector &maxVelocity ) = 0;
+	virtual void unused_MaxSpeed() = 0;
 
 	// allows game code to change collision models
 	virtual void SetObject( IPhysicsObject *pObject ) = 0;
@@ -39,8 +39,8 @@ public:
 	virtual void SetPushMassLimit( float maxPushMass ) = 0;
 	virtual void SetPushSpeedLimit( float maxPushSpeed ) = 0;
 	
-	virtual float GetPushMassLimit() = 0;
-	virtual float GetPushSpeedLimit() = 0;
+	virtual void unused_GetPushMassLimit() = 0;
+	virtual void unused_GetPushSpeedLimit() = 0;
 	virtual bool WasFrozen() = 0;
 };
 

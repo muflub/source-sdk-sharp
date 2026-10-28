@@ -25,11 +25,6 @@ typedef unsigned short wchar_t;
 #define _WCHAR_T_DEFINED
 #endif
 
-// char8
-// char8 is equivalent to char, and should be used when you really need a char
-// (for example, when calling an external function that's declared to take
-// chars).
-typedef char char8;
 
 // uint8
 // uint8 is equivalent to byte (but is preferred over byte for clarity).  Use this
@@ -38,10 +33,6 @@ typedef unsigned char uint8;
 typedef unsigned char BYTE;
 typedef unsigned char byte;
 
-// wchar
-// wchar is a single character of text (currently 16 bits, as all of our text is
-// Unicode).  Use this whenever you mean a piece of text (for example, in a string).
-typedef wchar_t wchar;
 //typedef char wchar;
 
 // __WFILE__
@@ -60,19 +51,19 @@ typedef wchar_t wchar;
 #ifdef _WIN32
 #include <tchar.h>
 #else
-#define _tcsstr strstr
-#define _tcsicmp stricmp
-#define _tcscmp strcmp
-#define _tcscpy strcpy
-#define _tcsncpy strncpy
-#define _tcsrchr strrchr
-#define _tcslen strlen
-#define _tfopen fopen
-#define _stprintf sprintf 
-#define _ftprintf fprintf
+
+
+
+
+
+
+
+
+ 
+
 #define _vsntprintf _vsnprintf
-#define _tprintf printf
-#define _sntprintf _snprintf
+
+
 #define _T(s) s
 #endif
 
@@ -83,9 +74,9 @@ typedef wchar tchar;
 #define TCHAR_IS_WCHAR
 #else
 typedef char tchar;
-#define tstring string
+
 #define __TFILE__ __FILE__
-#define TCHAR_IS_CHAR
+
 #endif
 
 #if defined( _MSC_VER ) || defined( WIN32 )

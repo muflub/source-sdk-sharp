@@ -25,7 +25,7 @@ class ITexture;
 		((unsigned long)(ch2) << 16) | ((unsigned long)(ch3) << 24 ))
 
 // This fourcc is reserved.
-#define FOURCC_UNKNOWN	MAKE_MATERIALVAR_FOURCC('U','N','K','N')
+
 
 
 //-----------------------------------------------------------------------------
@@ -72,16 +72,11 @@ public:
 	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, float val );
 	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, int val );
 	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey );
-	static void Destroy( IMaterialVar* pVar );
-	static MaterialVarSym_t	GetSymbol( char const* pName );
-	static MaterialVarSym_t	FindSymbol( char const* pName );
-	static bool SymbolMatches( char const* pName, MaterialVarSym_t symbol );
-	static void DeleteUnreferencedTextures( bool enable );
 
 	virtual ITexture		*GetTextureValue( void ) = 0;
 
 	virtual char const *	GetName( void ) const = 0;
-	virtual MaterialVarSym_t	GetNameAsSymbol() const = 0;
+	virtual void unused_GetNameAsSymbol() = 0;
 
 	virtual void			SetFloatValue( float val ) = 0;
 	
@@ -93,36 +88,36 @@ public:
 	// Use FourCC values to pass app-defined data structures between
 	// the proxy and the shader. The shader should ignore the data if
 	// its FourCC type not correct.	
-	virtual void			SetFourCCValue( FourCC type, void *pData ) = 0;
-	virtual void			GetFourCCValue( FourCC *type, void **ppData ) = 0;
+	virtual void unused_SetFourCCValue() = 0;
+	virtual void unused_GetFourCCValue() = 0;
 
 	// Vec (dim 2-4)
 	virtual void			SetVecValue( float const* val, int numcomps ) = 0;
 	virtual void			SetVecValue( float x, float y ) = 0;
 	virtual void			SetVecValue( float x, float y, float z ) = 0;
 	virtual void			SetVecValue( float x, float y, float z, float w ) = 0;
-	virtual void			GetLinearVecValue( float *val, int numcomps ) const = 0;
+	virtual void unused_GetLinearVecValue() = 0;
 
 	// revisit: is this a good interface for textures?
 	virtual void			SetTextureValue( ITexture * ) = 0;
 
-	virtual IMaterial *		GetMaterialValue( void ) = 0;
-	virtual void			SetMaterialValue( IMaterial * ) = 0;
+	virtual void unused_GetMaterialValue() = 0;
+	virtual void unused_SetMaterialValue() = 0;
 
 	virtual bool			IsDefined() const = 0;
-	virtual void			SetUndefined() = 0;
+	virtual void unused_SetUndefined() = 0;
 
 	// Matrix
 	virtual void			SetMatrixValue( VMatrix const& matrix ) = 0;
-	virtual const VMatrix  &GetMatrixValue( ) = 0;
-	virtual bool			MatrixIsIdentity() const = 0;
+	virtual void unused_GetMatrixValue() = 0;
+	virtual void unused_MatrixIsIdentity() = 0;
 
 	// Copy....
 	virtual void			CopyFrom( IMaterialVar *pMaterialVar ) = 0;
 
-	virtual void			SetValueAutodetectType( char const *val ) = 0;
+	virtual void unused_SetValueAutodetectType() = 0;
 
-	virtual IMaterial *		GetOwningMaterial() = 0;
+	virtual void unused_GetOwningMaterial() = 0;
 
 	//set just 1 component
 	virtual void			SetVecComponentValue( float fVal, int nComponent ) = 0;
@@ -140,10 +135,6 @@ public:
 		return ( MaterialVarType_t )m_Type;
 	}
 
-	FORCEINLINE bool IsTexture() const
-	{
-		return m_Type == MATERIAL_VAR_TYPE_TEXTURE;
-	}
 
 	FORCEINLINE operator ITexture*()
 	{
@@ -157,29 +148,9 @@ public:
 		return m_intVal;
 	}
 
-	FORCEINLINE float GetFloatValueFast( void ) const
-	{
-		return m_VecVal[0];
-	}
 
-	FORCEINLINE float const* GetVecValueFast( ) const
-	{
-		return m_VecVal.Base();
-	}
 
-	FORCEINLINE void GetVecValueFast( float *val, int numcomps ) const 
-	{
-		Assert( ( numcomps >0 ) && ( numcomps <= 4 ) );
-		for( int i=0 ; i < numcomps; i++ )
-		{
-			val[i] = m_VecVal[ i ];
-		}
-	}
 
-	FORCEINLINE int VectorSizeFast() const
-	{
-		return m_nNumVectorComps;
-	}
 
 #ifdef FAST_MATERIALVAR_ACCESS
 	FORCEINLINE int GetIntValue( void ) const
@@ -217,10 +188,6 @@ public:
 		return GetFloatValueInternal();
 	}
 
-	FORCEINLINE float const* GetVecValue( ) const
-	{
-		return GetVecValueInternal();
-	}
 
 	FORCEINLINE void GetVecValue( float *val, int numcomps ) const 
 	{
@@ -234,12 +201,7 @@ public:
 #endif
 
 private:
-	FORCEINLINE void SetTempIndex( int nIndex )
-	{
-		m_nTempIndex = nIndex;
-	}
 
-	friend void EnableThreadedMaterialVarAccess( bool bEnable );
 };
 
 #endif // IMATERIALVAR_H

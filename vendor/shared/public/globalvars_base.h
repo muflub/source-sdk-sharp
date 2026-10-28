@@ -22,11 +22,7 @@ public:
 
 	CGlobalVarsBase( bool bIsClient );
 	
-	// This can be used to filter debug output or to catch the client or server in the act.
-	bool IsClient() const;
 
-	// for encoding m_flSimulationTime, m_flAnimTime
-	int GetNetworkBase( int nTick, int nEntity );
 
 public:
 	
@@ -75,10 +71,6 @@ public:
 	// current saverestore data
 	CSaveRestoreData *pSaveData;
 	
-	int			ClampedMaxClients( int nMaxCount )
-	{
-		return min( maxClients, nMaxCount );
-	}
 
 private:
 	// Set to true in client code.
@@ -92,12 +84,6 @@ private:
 	
 };
 
-inline int CGlobalVarsBase::GetNetworkBase( int nTick, int nEntity )
-{
-	int nEntityMod = nEntity % nTimestampRandomizeWindow;
-	int nBaseTick = nTimestampNetworkingBase * (int)( ( nTick - nEntityMod ) / nTimestampNetworkingBase );
-	return nBaseTick;
-}
 
 inline CGlobalVarsBase::CGlobalVarsBase( bool bIsClient ) :
 	m_bClient( bIsClient ),
@@ -106,9 +92,5 @@ inline CGlobalVarsBase::CGlobalVarsBase( bool bIsClient ) :
 {
 }
 
-inline bool CGlobalVarsBase::IsClient() const
-{
-	return m_bClient;
-}
 
 #endif // GLOBALVARS_BASE_H

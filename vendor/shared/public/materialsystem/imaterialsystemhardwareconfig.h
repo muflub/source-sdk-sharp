@@ -17,14 +17,6 @@
 #include "tier1/interface.h"
 #include "imaterialsystem.h"
 
-//-----------------------------------------------------------------------------
-// GL helpers
-//-----------------------------------------------------------------------------
-FORCEINLINE bool IsEmulatingGL()
-{
-	static bool bIsEmulatingGL = ( Plat_GetCommandLineA() ) ? ( strstr( Plat_GetCommandLineA(), "-r_emulate_gl" ) != NULL ) : false;
-	return bIsEmulatingGL;
-}
 
 //-----------------------------------------------------------------------------
 // Material system interface version
@@ -79,123 +71,121 @@ class IMaterialSystemHardwareConfig
 public:
 	// on xbox, some methods are inlined to return constants
 
-	DEFCONFIGMETHOD( bool, HasDestAlphaBuffer(), true );
-	DEFCONFIGMETHOD( bool, HasStencilBuffer(), true );
-	virtual int	 GetFrameBufferColorDepth() const = 0;
-	virtual int  GetSamplerCount() const = 0;
-	virtual bool HasSetDeviceGammaRamp() const = 0;
-	DEFCONFIGMETHOD( bool, SupportsCompressedTextures(), true );
-	virtual VertexCompressionType_t SupportsCompressedVertices() const = 0;
-	virtual bool SupportsNormalMapCompression() const { return false; }
-	DEFCONFIGMETHOD( bool, SupportsVertexAndPixelShaders(), true );
-	DEFCONFIGMETHOD( bool, SupportsPixelShaders_1_4(), true );
-	DEFCONFIGMETHOD( bool, SupportsStaticControlFlow(), true );
+	virtual void unused_HasDestAlphaBuffer() = 0;
+	virtual void unused_HasStencilBuffer() = 0;
+	virtual void unused_GetFrameBufferColorDepth() = 0;
+	virtual void unused_GetSamplerCount() = 0;
+	virtual void unused_HasSetDeviceGammaRamp() = 0;
+	virtual void unused_SupportsCompressedTextures() = 0;
+	virtual void unused_SupportsCompressedVertices() = 0;
+	virtual void unused_SupportsNormalMapCompression() = 0;
+	virtual void unused_SupportsVertexAndPixelShaders() = 0;
+	virtual void unused_SupportsPixelShaders_1_4() = 0;
+	virtual void unused_SupportsStaticControlFlow() = 0;
 	DEFCONFIGMETHOD( bool, SupportsPixelShaders_2_0(), true );
-	DEFCONFIGMETHOD( bool,  SupportsVertexShaders_2_0(), true );
-	virtual int  MaximumAnisotropicLevel() const = 0;	// 0 means no anisotropic filtering
-	virtual int  MaxTextureWidth() const = 0;
-	virtual int  MaxTextureHeight() const = 0;
-	virtual int	 TextureMemorySize() const = 0;
-	virtual bool SupportsOverbright() const = 0;
-	virtual bool SupportsCubeMaps() const = 0;
-	virtual bool SupportsMipmappedCubemaps() const = 0;
-	virtual bool SupportsNonPow2Textures() const = 0;
+	virtual void unused_SupportsVertexShaders_2_0() = 0;
+	virtual void unused_MaximumAnisotropicLevel() = 0;	// 0 means no anisotropic filtering
+	virtual void unused_MaxTextureWidth() = 0;
+	virtual void unused_MaxTextureHeight() = 0;
+	virtual void unused_TextureMemorySize() = 0;
+	virtual void unused_SupportsOverbright() = 0;
+	virtual void unused_SupportsCubeMaps() = 0;
+	virtual void unused_SupportsMipmappedCubemaps() = 0;
+	virtual void unused_SupportsNonPow2Textures() = 0;
 
 	// The number of texture stages represents the number of computations
 	// we can do in the fixed-function pipeline, it is *not* related to the
 	// simultaneous number of textures we can use
-	virtual int  GetTextureStageCount() const = 0;
-	virtual int	 NumVertexShaderConstants() const = 0;
-	virtual int	 NumPixelShaderConstants() const = 0;
-	virtual int	 MaxNumLights() const = 0;
-	virtual bool SupportsHardwareLighting() const = 0;
-	virtual int	 MaxBlendMatrices() const = 0;
-	virtual int	 MaxBlendMatrixIndices() const = 0;
-	virtual int	 MaxTextureAspectRatio() const = 0;
-	virtual int	 MaxVertexShaderBlendMatrices() const = 0;
-	virtual int	 MaxUserClipPlanes() const = 0;
+	virtual void unused_GetTextureStageCount() = 0;
+	virtual void unused_NumVertexShaderConstants() = 0;
+	virtual void unused_NumPixelShaderConstants() = 0;
+	virtual void unused_MaxNumLights() = 0;
+	virtual void unused_SupportsHardwareLighting() = 0;
+	virtual void unused_MaxBlendMatrices() = 0;
+	virtual void unused_MaxBlendMatrixIndices() = 0;
+	virtual void unused_MaxTextureAspectRatio() = 0;
+	virtual void unused_MaxVertexShaderBlendMatrices() = 0;
+	virtual void unused_MaxUserClipPlanes() = 0;
 	virtual bool UseFastClipping() const = 0;
 
 	// This here should be the major item looked at when checking for compat
 	// from anywhere other than the material system	shaders
 	DEFCONFIGMETHOD( int, GetDXSupportLevel(), 98 );
-	virtual const char *GetShaderDLLName() const = 0;
+	virtual void unused_GetShaderDLLName() = 0;
 
-	virtual bool ReadPixelsFromFrontBuffer() const = 0;
+	virtual void unused_ReadPixelsFromFrontBuffer() = 0;
 
 	// Are dx dynamic textures preferred?
-	virtual bool PreferDynamicTextures() const = 0;
+	virtual void unused_PreferDynamicTextures() = 0;
 
-	DEFCONFIGMETHOD( bool, SupportsHDR(), true );
+	virtual void unused_SupportsHDR() = 0;
 
-	virtual bool HasProjectedBumpEnv() const = 0;
-	virtual bool SupportsSpheremapping() const = 0;
-	virtual bool NeedsAAClamp() const = 0;
-	virtual bool NeedsATICentroidHack() const = 0;
+	virtual void unused_HasProjectedBumpEnv() = 0;
+	virtual void unused_SupportsSpheremapping() = 0;
+	virtual void unused_NeedsAAClamp() = 0;
+	virtual void unused_NeedsATICentroidHack() = 0;
 
-	virtual bool SupportsColorOnSecondStream() const = 0;
-	virtual bool SupportsStaticPlusDynamicLighting() const = 0;
+	virtual void unused_SupportsColorOnSecondStream() = 0;
+	virtual void unused_SupportsStaticPlusDynamicLighting() = 0;
 
 	// Does our card have a hard time with fillrate 
 	// relative to other cards w/ the same dx level?
-	virtual bool PreferReducedFillrate() const = 0;
+	virtual void unused_PreferReducedFillrate() = 0;
 
 	// This is the max dx support level supported by the card
-	virtual int	 GetMaxDXSupportLevel() const = 0;
+	virtual void unused_GetMaxDXSupportLevel() = 0;
 
 	// Does the card specify fog color in linear space when sRGBWrites are enabled?
-	virtual bool SpecifiesFogColorInLinearSpace() const = 0;
+	virtual void unused_SpecifiesFogColorInLinearSpace() = 0;
 
 	// Does the card support sRGB reads/writes?
-	DEFCONFIGMETHOD( bool, SupportsSRGB(), true );
+	virtual void unused_SupportsSRGB() = 0;
 	DEFCONFIGMETHOD( bool, FakeSRGBWrite(), false );
 	DEFCONFIGMETHOD( bool, CanDoSRGBReadFromRTs(), true );
 
-	virtual bool SupportsGLMixedSizeTargets() const = 0;
+	virtual void unused_SupportsGLMixedSizeTargets() = 0;
 
 	virtual bool IsAAEnabled() const = 0;	// Is antialiasing being used?
 
 	// NOTE: Anything after this was added after shipping HL2.
-	virtual int GetVertexTextureCount() const = 0;
-	virtual int GetMaxVertexTextureDimension() const = 0;
+	virtual void unused_GetVertexTextureCount() = 0;
+	virtual void unused_GetMaxVertexTextureDimension() = 0;
 
-	virtual int  MaxTextureDepth() const = 0;
+	virtual void unused_MaxTextureDepth() = 0;
 
 	virtual HDRType_t GetHDRType() const = 0;
-	virtual HDRType_t GetHardwareHDRType() const = 0;
+	virtual void unused_GetHardwareHDRType() = 0;
 
 	DEFCONFIGMETHOD( bool, SupportsPixelShaders_2_b(), true );
-	virtual bool SupportsStreamOffset() const = 0;
+	virtual void unused_SupportsStreamOffset() = 0;
 
-	virtual int StencilBufferBits() const = 0;
-	virtual int MaxViewports() const = 0;
+	virtual void unused_StencilBufferBits() = 0;
+	virtual void unused_MaxViewports() = 0;
 
-	virtual void OverrideStreamOffsetSupport( bool bOverrideEnabled, bool bEnableSupport ) = 0;
+	virtual void unused_OverrideStreamOffsetSupport() = 0;
 
-	virtual int GetShadowFilterMode() const = 0;
+	virtual void unused_GetShadowFilterMode() = 0;
 
-	virtual int NeedsShaderSRGBConversion() const = 0;
+	virtual void unused_NeedsShaderSRGBConversion() = 0;
 
-	DEFCONFIGMETHOD( bool, UsesSRGBCorrectBlending(), true );
+	virtual void unused_UsesSRGBCorrectBlending() = 0;
 
-	virtual bool SupportsShaderModel_3_0() const = 0;
-	virtual bool HasFastVertexTextures() const = 0;
-	virtual int MaxHWMorphBatchCount() const = 0;
+	virtual void unused_SupportsShaderModel_3_0() = 0;
+	virtual void unused_HasFastVertexTextures() = 0;
+	virtual void unused_MaxHWMorphBatchCount() = 0;
 
 	// Does the board actually support this?
-	DEFCONFIGMETHOD( bool, ActuallySupportsPixelShaders_2_b(), true );
+	virtual void unused_ActuallySupportsPixelShaders_2_b() = 0;
 
-	virtual bool SupportsHDRMode( HDRType_t nHDRMode ) const = 0;
+	virtual void unused_SupportsHDRMode() = 0;
 
-	virtual bool GetHDREnabled( void ) const = 0;
-	virtual void SetHDREnabled( bool bEnable ) = 0;
+	virtual void unused_GetHDREnabled() = 0;
+	virtual void unused_SetHDREnabled() = 0;
 
 	virtual bool SupportsBorderColor( void ) const = 0;
-	virtual bool SupportsFetch4( void ) const = 0;
-	virtual bool CanStretchRectFromTextures( void ) const = 0;
+	virtual void unused_SupportsFetch4() = 0;
+	virtual void unused_CanStretchRectFromTextures() = 0;
 
-	inline bool ShouldAlwaysUseShaderModel2bShaders() const { return IsOpenGL(); }
-	inline bool PlatformRequiresNonNullPixelShaders() const { return IsOpenGL(); }
 };
 
 #endif // IMATERIALSYSTEMHARDWARECONFIG_H

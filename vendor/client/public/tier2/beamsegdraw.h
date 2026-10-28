@@ -10,7 +10,7 @@
 #pragma once
 #endif
 
-#define NOISE_DIVISIONS		128
+
 
 
 #include "mathlib/vector.h"
@@ -45,8 +45,6 @@ public:
 	void			End();
 
 protected:
-	void			SpecifySeg( const Vector &vecCameraPos, const Vector &vNextPos );
-	void			ComputeNormal( const Vector &vecCameraPos, const Vector &vStartPos, const Vector &vNextPos, Vector *pNormal );
 
 	CMeshBuilder	*m_pMeshBuilder;
 	int				m_nMeshVertCount;
@@ -61,17 +59,6 @@ protected:
 	IMatRenderContext *m_pRenderContext;
 };
 
-class CBeamSegDrawArbitrary : public CBeamSegDraw
-{
-public:
-	void			SetNormal( const Vector &normal );
-	void			NextSeg( BeamSeg_t *pSeg );
-
-protected:
-	void			SpecifySeg( const Vector &vNextPos );
-
-	BeamSeg_t		m_PrevSeg;
-};
 
 #if 0
 int ScreenTransform( const Vector& point, Vector& screen );
@@ -111,9 +98,5 @@ void DrawBeamFollow( const model_t* spritemodel, BeamTrail_t* pHead, int frame, 
 void DrawBeamQuadratic( const Vector &start, const Vector &control, const Vector &end, float width, const Vector &color, float scrollOffset, float flHDRColorScale = 1.0f );
 #endif
 
-//-----------------------------------------------------------------------------
-// Assumes the material has already been bound
-//-----------------------------------------------------------------------------
-void DrawSprite( const Vector &vecOrigin, float flWidth, float flHeight, color32 color );
 
 #endif // BEAMDRAW_H

@@ -21,12 +21,6 @@ struct constraint_groupparams_t
 	int		minErrorTicks;				// minimum number of ticks with an error before it's reported
 	float	errorTolerance;				// error tolerance in HL units
 
-	inline void Defaults()
-	{
-		additionalIterations = 0;
-		minErrorTicks = 15;
-		errorTolerance = 3.0f;
-	}
 };
 
 // Breakable constraints;
@@ -107,20 +101,6 @@ struct constraint_ragdollparams_t
 	bool				isActive;
 	bool				useClockwiseRotations;		// HACKHACK: Did this wrong in version one.  Fix in the future.
 
-	inline void Defaults()
-	{
-		constraint.Defaults();
-		isActive = true;
-		SetIdentityMatrix( constraintToReference );
-		SetIdentityMatrix( constraintToAttached );
-		parentIndex = -1;
-		childIndex = -1;
-		axes[0].Defaults();
-		axes[1].Defaults();
-		axes[2].Defaults();
-		onlyAngularLimits = false;
-		useClockwiseRotations = false;
-	}
 };
 
 //-----------------------------------------------------------------------------
@@ -156,12 +136,6 @@ struct constraint_limitedhingeparams_t : public constraint_hingeparams_t
 		attachedPerpAxisDirection.Init();
 	}
 
-	inline void Defaults()
-	{
-		this->constraint_hingeparams_t::Defaults();
-		referencePerpAxisDirection.Init();
-		attachedPerpAxisDirection.Init();
-	}
 };
 
 //-----------------------------------------------------------------------------
@@ -173,16 +147,7 @@ struct constraint_fixedparams_t
 	matrix3x4_t						attachedRefXform;	// xform attached object space to ref object space
 	constraint_breakableparams_t	constraint;
 	
-	inline void InitWithCurrentObjectState( IPhysicsObject *pRef, IPhysicsObject *pAttached )
-	{
-		BuildObjectRelativeXform( pRef, pAttached, attachedRefXform );
-	}
 
-	inline void Defaults()
-	{
-		SetIdentityMatrix( attachedRefXform );
-		constraint.Defaults();
-	}
 };
 
 
@@ -193,18 +158,7 @@ struct constraint_ballsocketparams_t
 {
 	Vector							constraintPosition[2];		// position of the constraint in each object's space 
 	constraint_breakableparams_t	constraint;
-	inline void Defaults()
-	{
-		constraint.Defaults();
-		constraintPosition[0].Init();
-		constraintPosition[1].Init();
-	}
 
-	void InitWithCurrentObjectState( IPhysicsObject *pRef, IPhysicsObject *pAttached, const Vector &ballsocketOrigin )
-	{
-		pRef->WorldToLocal( &constraintPosition[0], ballsocketOrigin );
-		pAttached->WorldToLocal( &constraintPosition[1], ballsocketOrigin );
-	}
 };
 
 struct constraint_slidingparams_t
@@ -218,35 +172,9 @@ struct constraint_slidingparams_t
 	float							friction;				// friction on sliding
 	float							velocity;				// desired velocity
 
-	inline void Defaults()
-	{
-		SetIdentityMatrix( attachedRefXform );
-		slideAxisRef.Init();
-		limitMin = limitMax = 0;
-		friction = 0;
-		velocity = 0;
-		constraint.Defaults();
-	}
 
-	inline void SetFriction( float inputFriction )
-	{
-		friction = inputFriction;
-		velocity = 0;
-	}
 
-	inline void SetLinearMotor( float inputVelocity, float maxForce )
-	{
-		friction = maxForce;
-		velocity = inputVelocity;
-	}
 
-	inline void InitWithCurrentObjectState( IPhysicsObject *pRef, IPhysicsObject *pAttached, const Vector &slideDirWorldspace )
-	{
-		BuildObjectRelativeXform( pRef, pAttached, attachedRefXform );
-		matrix3x4_t tmp;
-		pRef->GetPositionMatrix( &tmp );
-		VectorIRotate( slideDirWorldspace, tmp, slideAxisRef );
-	}
 };
 
 struct constraint_pulleyparams_t
@@ -258,17 +186,6 @@ struct constraint_pulleyparams_t
 	float	gearRatio;				// gearing affects attached object ALWAYS
 	bool	isRigid;
 
-	inline void Defaults()
-	{
-		constraint.Defaults();
-		totalLength = 1.0;
-		gearRatio = 1.0;
-		pulleyPosition[0].Init();
-		pulleyPosition[1].Init();
-		objectPosition[0].Init();
-		objectPosition[1].Init();
-		isRigid = false;
-	}
 };
 
 
@@ -279,22 +196,7 @@ struct constraint_lengthparams_t
 	float	totalLength;		// Length of rope/spring/constraint.  Distance to maintain
 	float	minLength;			// if rigid, objects are not allowed to move closer than totalLength either
 
-	void InitWorldspace( IPhysicsObject *pRef, IPhysicsObject *pAttached, const Vector &refPosition, const Vector &attachedPosition, bool rigid = false )
-	{
-		pRef->WorldToLocal( &objectPosition[0], refPosition );
-		pAttached->WorldToLocal( &objectPosition[1], attachedPosition );
-		totalLength = (refPosition - attachedPosition).Length();
-		minLength = rigid ? totalLength : 0;
-	}
 
-	inline void Defaults()
-	{
-		constraint.Defaults();
-		objectPosition[0].Init();
-		objectPosition[1].Init();
-		totalLength = 1;
-		minLength = 0;
-	}
 };
 
 class IPhysicsConstraint
@@ -321,11 +223,11 @@ public:
 	virtual void			SetLinearMotor( float speed, float maxLinearImpulse ) = 0;
 	virtual void			SetAngularMotor( float rotSpeed, float maxAngularImpulse ) = 0;
 
-	virtual void			UpdateRagdollTransforms( const matrix3x4_t &constraintToReference, const matrix3x4_t &constraintToAttached ) = 0;
-	virtual bool			GetConstraintTransform( matrix3x4_t *pConstraintToReference, matrix3x4_t *pConstraintToAttached ) const = 0;
-	virtual bool			GetConstraintParams( constraint_breakableparams_t *pParams ) const = 0;
+	virtual void unused_UpdateRagdollTransforms() = 0;
+	virtual void unused_GetConstraintTransform() = 0;
+	virtual void unused_GetConstraintParams() = 0;
 
-	virtual void			OutputDebugInfo() = 0;
+	virtual void unused_OutputDebugInfo() = 0;
 };
 
 
@@ -336,9 +238,9 @@ public:
 	virtual void Activate() = 0;
 	virtual bool IsInErrorState() = 0;
 	virtual void ClearErrorState() = 0;
-	virtual void GetErrorParams( constraint_groupparams_t *pParams ) = 0;
-	virtual void SetErrorParams( const constraint_groupparams_t &params ) = 0;
-	virtual void SolvePenetration( IPhysicsObject *pObj0, IPhysicsObject *pObj1 ) = 0;
+	virtual void unused_GetErrorParams() = 0;
+	virtual void unused_SetErrorParams() = 0;
+	virtual void unused_SolvePenetration() = 0;
 };
 
 

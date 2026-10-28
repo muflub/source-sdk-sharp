@@ -21,10 +21,6 @@ public:
 		SetTargetBigEndian( IsMachineBigEndian() );
 	}
 
-	//-----------------------------------------------------------------------------
-	// Write a single field.
-	//-----------------------------------------------------------------------------
-	void SwapFieldToTargetEndian( void* pOutputBuffer, void *pData, typedescription_t *pField );
 
 	//-----------------------------------------------------------------------------
 	// Write a block of fields.  Works a bit like the saverestore code.  
@@ -73,12 +69,6 @@ public:
 		m_bSwapBytes = IsMachineBigEndian() != bigEndian;
 	}
 
-	// Changes target endian
-	inline void FlipTargetEndian( void )	
-	{
-		m_bSwapBytes = !m_bSwapBytes;
-		m_bBigEndian = !m_bBigEndian;
-	}
 
 	// Forces byte swapping state, regardless of endianess
 	inline void ActivateByteSwapping( bool bActivate )	
@@ -101,64 +91,7 @@ public:
 		return m_bBigEndian;
 	}
 
-	//-----------------------------------------------------------------------------
-	// IsByteSwapped()
-	//
-	// When supplied with a chunk of input data and a constant or magic number
-	// (in native format) determines the endienness of the current machine in
-	// relation to the given input data.
-	//
-	// Returns:
-	//		1  if input is the same as nativeConstant.
-	//		0  if input is byteswapped relative to nativeConstant.
-	//		-1 if input is not the same as nativeConstant and not byteswapped either.
-	//
-	// ( This is useful for detecting byteswapping in magic numbers in structure 
-	// headers for example. )
-	//-----------------------------------------------------------------------------
-	template<typename T> inline int SourceIsNativeEndian( T input, T nativeConstant )
-	{
-		// If it's the same, it isn't byteswapped:
-		if( input == nativeConstant )
-			return 1;
 
-		int output;
-		LowLevelByteSwap<T>( &output, &input );
-		if( output == nativeConstant )
-			return 0;
-
-		assert( 0 );		// if we get here, input is neither a swapped nor unswapped version of nativeConstant.
-		return -1;
-	}
-
-	//-----------------------------------------------------------------------------
-	// Swaps an input buffer full of type T into the given output buffer.
-	//
-	// Swaps [count] items from the inputBuffer to the outputBuffer.
-	// If inputBuffer is omitted or NULL, then it is assumed to be the same as
-	// outputBuffer - effectively swapping the contents of the buffer in place.
-	//-----------------------------------------------------------------------------
-	template<typename T> inline void SwapBuffer( T* outputBuffer, T* inputBuffer = NULL, int count = 1 )
-	{
-		assert( count >= 0 );
-		assert( outputBuffer );
-
-		// Fail gracefully in release:
-		if( count <=0 || !outputBuffer )
-			return;
-
-		// Optimization for the case when we are swapping in place.
-		if( inputBuffer == NULL )
-		{
-			inputBuffer = outputBuffer;
-		}
-
-		// Swap everything in the buffer:
-		for( int i = 0; i < count; i++ )
-		{
-			LowLevelByteSwap<T>( &outputBuffer[i], &inputBuffer[i] );
-		}
-	}
 
 	//-----------------------------------------------------------------------------
 	// Swaps an input buffer full of type T into the given output buffer.

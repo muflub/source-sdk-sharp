@@ -59,7 +59,7 @@ public:
 };
 
 #if !defined( _X360 )
-#define CREATEINTERFACE_PROCNAME	"CreateInterface"
+
 #else
 // x360 only allows ordinal exports, .def files export "CreateInterface" at 1
 #define CREATEINTERFACE_PROCNAME	((const char*)1)
@@ -95,8 +95,7 @@ public:
 //
 // Use this if you want to write the factory function.
 #if !defined(_STATIC_LINKED) || !defined(_SUBSYSTEM)
-#define EXPOSE_INTERFACE_FN(functionName, interfaceName, versionName) \
-	static InterfaceReg __g_Create##interfaceName##_reg(functionName, versionName);
+
 #else
 #define EXPOSE_INTERFACE_FN(functionName, interfaceName, versionName) \
 	namespace _SUBSYSTEM \
@@ -170,12 +169,6 @@ DLL_EXPORT void* CreateInterface(const char *pName, int *pReturnCode);
 DLL_EXPORT void *CreateInterfaceThunk( const char *pName, int *pReturnCode );
 #endif
 
-//-----------------------------------------------------------------------------
-// UNDONE: This is obsolete, use the module load/unload/get instead!!!
-//-----------------------------------------------------------------------------
-extern CreateInterfaceFn	Sys_GetFactory( CSysModule *pModule );
-extern CreateInterfaceFn	Sys_GetFactory( const char *pModuleName );
-extern CreateInterfaceFn	Sys_GetFactoryThis( void );
 
 enum Sys_Flags
 {
@@ -183,46 +176,9 @@ enum Sys_Flags
     SYS_NOLOAD = 0x01   // no loading, no ref-counting, only returns handle if lib is loaded. 
 };
 
-//-----------------------------------------------------------------------------
-// Load & Unload should be called in exactly one place for each module
-// The factory for that module should be passed on to dependent components for
-// proper versioning.
-//-----------------------------------------------------------------------------
-extern CSysModule			*Sys_LoadModule( const char *pModuleName, Sys_Flags flags = SYS_NOFLAGS );
-extern void					Sys_UnloadModule( CSysModule *pModule );
 
-// This is a helper function to load a module, get its factory, and get a specific interface.
-// You are expected to free all of these things.
-// Returns false and cleans up if any of the steps fail.
-bool Sys_LoadInterface(
-	const char *pModuleName,
-	const char *pInterfaceVersionName,
-	CSysModule **pOutModule,
-	void **pOutInterface );
 
-bool Sys_IsDebuggerPresent();
 
-//-----------------------------------------------------------------------------
-// Purpose: Place this as a singleton at module scope (e.g.) and use it to get the factory from the specified module name.  
-// 
-// When the singleton goes out of scope (.dll unload if at module scope),
-//  then it'll call Sys_UnloadModule on the module so that the refcount is decremented 
-//  and the .dll actually can unload from memory.
-//-----------------------------------------------------------------------------
-class CDllDemandLoader
-{
-public:
-						CDllDemandLoader( char const *pchModuleName );
-	virtual				~CDllDemandLoader();
-	CreateInterfaceFn	GetFactory();
-	void				Unload();
-
-private:
-
-	char const	*m_pchModuleName;
-	CSysModule	*m_hModule;
-	bool		m_bLoadAttempted;
-};
 
 #endif
 

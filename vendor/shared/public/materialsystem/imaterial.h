@@ -35,10 +35,10 @@ class Vector;
 
 #define	VERTEX_TANGENT_S				0x0010
 #define	VERTEX_TANGENT_T				0x0020
-#define	VERTEX_TANGENT_SPACE			( VERTEX_TANGENT_S | VERTEX_TANGENT_T )
+
 
 // Indicates we're using wrinkle
-#define	VERTEX_WRINKLE					0x0040
+
 
 // Indicates we're using bone indices
 #define	VERTEX_BONE_INDEX				0x0080
@@ -48,7 +48,7 @@ class Vector;
 
 // Indicates this format shouldn't be bloated to cache align it
 // (only used for VertexUsage)
-#define	VERTEX_FORMAT_USE_EXACT_FORMAT	0x0200
+
 
 // Indicates that compressed vertex elements are to be used (see also VertexCompressionType_t)
 #define	VERTEX_FORMAT_COMPRESSED		0x400
@@ -60,13 +60,13 @@ class Vector;
 #define	USER_DATA_SIZE_BIT				(VERTEX_LAST_BIT + 4)
 #define	TEX_COORD_SIZE_BIT				(VERTEX_LAST_BIT + 7)
 
-#define	VERTEX_BONE_WEIGHT_MASK			( 0x7 << VERTEX_BONE_WEIGHT_BIT )
-#define	USER_DATA_SIZE_MASK				( 0x7 << USER_DATA_SIZE_BIT )
 
-#define	VERTEX_FORMAT_FIELD_MASK		0x0FF
+
+
+
 
 // If everything is off, it's an unknown vertex format
-#define	VERTEX_FORMAT_UNKNOWN			0
+
 
 
 
@@ -75,44 +75,15 @@ class Vector;
 //-----------------------------------------------------------------------------
 #define VERTEX_BONEWEIGHT( _n )				((_n) << VERTEX_BONE_WEIGHT_BIT)
 #define VERTEX_USERDATA_SIZE( _n )			((_n) << USER_DATA_SIZE_BIT)
-#define VERTEX_TEXCOORD_MASK( _coord )		(( 0x7ULL ) << ( TEX_COORD_SIZE_BIT + 3 * (_coord) ))
-
-inline VertexFormat_t VERTEX_TEXCOORD_SIZE( int nIndex, int nNumCoords )
-{
-	uint64 n64=nNumCoords;
-	uint64 nShift=TEX_COORD_SIZE_BIT + (3*nIndex);
-	return n64 << nShift;
-}
 
 
 
-//-----------------------------------------------------------------------------
-// Gets at various vertex format info...
-//-----------------------------------------------------------------------------
-inline int VertexFlags( VertexFormat_t vertexFormat )
-{
-	return static_cast<int> ( vertexFormat & ( (1 << (VERTEX_LAST_BIT+1)) - 1 ) );
-}
 
-inline int NumBoneWeights( VertexFormat_t vertexFormat )
-{
-	return static_cast<int> ( (vertexFormat >> VERTEX_BONE_WEIGHT_BIT) & 0x7 );
-}
 
-inline int UserDataSize( VertexFormat_t vertexFormat )
-{
-	return static_cast<int> ( (vertexFormat >> USER_DATA_SIZE_BIT) & 0x7 );
-}
 
-inline int TexCoordSize( int nTexCoordIndex, VertexFormat_t vertexFormat )
-{
-	return static_cast<int> ( (vertexFormat >> (TEX_COORD_SIZE_BIT + 3*nTexCoordIndex) ) & 0x7 );
-}
 
-inline bool UsesVertexShader( VertexFormat_t vertexFormat )
-{
-	return (vertexFormat & VERTEX_FORMAT_VERTEX_SHADER) != 0;
-}
+
+
 
 inline VertexCompressionType_t CompressionType( VertexFormat_t vertexFormat )
 {
@@ -450,21 +421,18 @@ public:
 	// the vmt file starting from "hl2/materials" (or equivalent) without
 	// a file extension.
 	virtual const char *	GetName() const = 0;
-	virtual const char *	GetTextureGroupName() const = 0;
+	virtual void unused_GetTextureGroupName() = 0;
 
 	// Get the preferred size/bitDepth of a preview image of a material.
 	// This is the sort of image that you would use for a thumbnail view
 	// of a material, or in WorldCraft until it uses materials to render.
 	// separate this for the tools maybe
-	virtual PreviewImageRetVal_t GetPreviewImageProperties( int *width, int *height, 
-				 			ImageFormat *imageFormat, bool* isTranslucent ) const = 0;
+	virtual void unused_GetPreviewImageProperties() = 0;
 	
 	// Get a preview image at the specified width/height and bitDepth.
 	// Will do resampling if necessary.(not yet!!! :) )
 	// Will do color format conversion. (works now.)
-	virtual PreviewImageRetVal_t GetPreviewImage( unsigned char *data, 
-												 int width, int height,
-												 ImageFormat imageFormat ) const = 0;
+	virtual void unused_GetPreviewImage() = 0;
 	// 
 	virtual int				GetMappingWidth( ) = 0;
 	virtual int				GetMappingHeight( ) = 0;
@@ -494,38 +462,38 @@ public:
 
 	// Each material is assigned a number that groups it with like materials
 	// for sorting in the application.
-	virtual int 			GetEnumerationID( void ) const = 0;
+	virtual void unused_GetEnumerationID() = 0;
 
-	virtual void			GetLowResColorSample( float s, float t, float *color ) const = 0;
+	virtual void unused_GetLowResColorSample() = 0;
 
 	// This computes the state snapshots for this material
-	virtual void			RecomputeStateSnapshots() = 0;
+	virtual void unused_RecomputeStateSnapshots() = 0;
 
 	// Are we translucent?
 	virtual bool			IsTranslucent() = 0;
 
 	// Are we alphatested?
-	virtual bool			IsAlphaTested() = 0;
+	virtual void unused_IsAlphaTested() = 0;
 
 	// Are we vertex lit?
-	virtual bool			IsVertexLit() = 0;
+	virtual void unused_IsVertexLit() = 0;
 
 	// Gets the vertex format
-	virtual VertexFormat_t	GetVertexFormat() const = 0;
+	virtual void unused_GetVertexFormat() = 0;
 
 	// returns true if this material uses a material proxy
-	virtual bool			HasProxy( void ) const = 0;
+	virtual void unused_HasProxy() = 0;
 
-	virtual bool			UsesEnvCubemap( void ) = 0;
+	virtual void unused_UsesEnvCubemap() = 0;
 
-	virtual bool			NeedsTangentSpace( void ) = 0;
+	virtual void unused_NeedsTangentSpace() = 0;
 
 	virtual bool			NeedsPowerOfTwoFrameBufferTexture( bool bCheckSpecificToThisFrame = true ) = 0;
 	virtual bool			NeedsFullFrameBufferTexture( bool bCheckSpecificToThisFrame = true ) = 0;
 	
 	// returns true if the shader doesn't do skinning itself and requires
 	// the data that is sent to it to be preskinned.
-	virtual bool			NeedsSoftwareSkinning( void ) = 0;
+	virtual void unused_NeedsSoftwareSkinning() = 0;
 	
 	// Apply constant color or alpha modulation
 	virtual void			AlphaModulate( float alpha ) = 0;
@@ -533,36 +501,36 @@ public:
 
 	// Material Var flags...
 	virtual void			SetMaterialVarFlag( MaterialVarFlags_t flag, bool on ) = 0;
-	virtual bool			GetMaterialVarFlag( MaterialVarFlags_t flag ) const = 0;
+	virtual void unused_GetMaterialVarFlag() = 0;
 
 	// Gets material reflectivity
-	virtual void			GetReflectivity( Vector& reflect ) = 0;
+	virtual void unused_GetReflectivity() = 0;
 
 	// Gets material property flags
-	virtual bool			GetPropertyFlag( MaterialPropertyTypes_t type ) = 0;
+	virtual void unused_GetPropertyFlag() = 0;
 
 	// Is the material visible from both sides?
-	virtual bool			IsTwoSided() = 0;
+	virtual void unused_IsTwoSided() = 0;
 
 	// Sets the shader associated with the material
-	virtual void			SetShader( const char *pShaderName ) = 0;
+	virtual void unused_SetShader() = 0;
 
 	// Can't be const because the material might have to precache itself.
-	virtual int				GetNumPasses( void ) = 0; 
+	virtual void unused_GetNumPasses() = 0; 
 
 	// Can't be const because the material might have to precache itself.
-	virtual int				GetTextureMemoryBytes( void ) = 0; 
+	virtual void unused_GetTextureMemoryBytes() = 0; 
 
 	// Meant to be used with materials created using CreateMaterial
 	// It updates the materials to reflect the current values stored in the material vars
 	virtual void			Refresh() = 0;
 
 	// GR - returns true is material uses lightmap alpha for blending
-	virtual bool			NeedsLightmapBlendAlpha( void ) = 0;
+	virtual void unused_NeedsLightmapBlendAlpha() = 0;
 
 	// returns true if the shader doesn't do lighting itself and requires
 	// the data that is sent to it to be prelighted
-	virtual bool			NeedsSoftwareLighting( void ) = 0;
+	virtual void unused_NeedsSoftwareLighting() = 0;
 
 	// Gets at the shader parameters
 	virtual int				ShaderParamCount() const = 0;
@@ -572,35 +540,35 @@ public:
 	// the material can't be found.
 	virtual bool			IsErrorMaterial() const = 0;
 
-	virtual void			SetUseFixedFunctionBakedLighting( bool bEnable ) = 0;
+	virtual void unused_SetUseFixedFunctionBakedLighting() = 0;
 
 	// Gets the current alpha modulation
-	virtual float			GetAlphaModulation() = 0;
+	virtual void unused_GetAlphaModulation() = 0;
 	virtual void			GetColorModulation( float *r, float *g, float *b ) = 0;
 
 	// Gets the morph format
-	virtual MorphFormat_t	GetMorphFormat() const = 0;
+	virtual void unused_GetMorphFormat() = 0;
 	
 	// fast find that stores the index of the found var in the string table in local cache
 	virtual IMaterialVar *	FindVarFast( char const *pVarName, unsigned int *pToken ) = 0;
 
 	// Sets new VMT shader parameters for the material
-	virtual void			SetShaderAndParams( KeyValues *pKeyValues ) = 0;
-	virtual const char *	GetShaderName() const = 0;
+	virtual void unused_SetShaderAndParams() = 0;
+	virtual void unused_GetShaderName() = 0;
 
 	virtual void			DeleteIfUnreferenced() = 0;
 
-	virtual bool			IsSpriteCard() = 0;
+	virtual void unused_IsSpriteCard() = 0;
 
-	virtual void			CallBindProxy( void *proxyData ) = 0;
+	virtual void unused_CallBindProxy() = 0;
 
-	virtual IMaterial		*CheckProxyReplacement( void *proxyData ) = 0;
+	virtual void unused_CheckProxyReplacement() = 0;
 
 	virtual void			RefreshPreservingMaterialVars() = 0;
 
-	virtual bool			WasReloadedFromWhitelist() = 0;
+	virtual void unused_WasReloadedFromWhitelist() = 0;
 
-	virtual bool			IsPrecached() const = 0;
+	virtual void unused_IsPrecached() = 0;
 };
 
 

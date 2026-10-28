@@ -31,13 +31,10 @@ class ClientClass;
 struct model_t;
 class CSentence;
 struct vrect_t;
-struct cmodel_t;
 class IMaterial;
 class CAudioSource;
-class CMeasureSection;
 class SurfInfo;
 class ISpatialQuery;
-struct cache_user_t;
 class IMaterialSystem;
 class VMatrix;
 struct ScreenFade_t;
@@ -117,14 +114,6 @@ enum SkyboxVisibility_t
 	SKYBOX_2DSKYBOX_VISIBLE,
 };
 
-//-----------------------------------------------------------------------------
-// Skybox materials
-//-----------------------------------------------------------------------------
-struct SkyBoxMaterials_t
-{
-	// order: "rt", "bk", "lf", "ft", "up", "dn"
-	IMaterial *material[6];
-};
 
 //-----------------------------------------------------------------------------
 // Purpose: The engine reports to the client DLL what stage it's entering so the DLL can latch events
@@ -186,7 +175,7 @@ struct OcclusionParams_t
 
 // change this when the new version is incompatable with the old
 #define VENGINE_CLIENT_INTERFACE_VERSION		"VEngineClient014"
-#define VENGINE_CLIENT_INTERFACE_VERSION_13		"VEngineClient013"
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Interface exposed from the engine to the client .dll
@@ -564,19 +553,19 @@ public:
 	virtual bool IsWindowedMode() = 0;
 
 	// Flash the window (os specific)
-	virtual void	FlashWindow() = 0;
+	virtual void unused_FlashWindow() = 0;
 
 	// Client version from the steam.inf, this will be compared to the GC version
-	virtual int GetClientVersion() const = 0; // engines build
+	virtual void unused_GetClientVersion() = 0; // engines build
 
 	// Is App Active 
-	virtual bool IsActiveApp() = 0;
+	virtual void unused_IsActiveApp() = 0;
 
-	virtual void DisconnectInternal() = 0;
+	virtual void unused_DisconnectInternal() = 0;
 
-	virtual int GetInstancesRunningCount( ) = 0;
+	virtual void unused_GetInstancesRunningCount() = 0;
 
-	virtual void SetRichPresenceConnect( const char *pszOverride ) = 0;
+	virtual void unused_SetRichPresenceConnect() = 0;
 };
 
 

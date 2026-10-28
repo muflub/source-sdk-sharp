@@ -87,11 +87,11 @@ class IServerEntity;
 #define FL_EDICT_PVSCHECK	(1<<5)	// always transmit entity, but cull against PVS
 
 // Used by local network backdoor.
-#define FL_EDICT_PENDING_DORMANT_CHECK	(1<<6)
+
 
 // This is always set at the same time EFL_DIRTY_PVS_INFORMATION is set, but it 
 // gets cleared in a different place.
-#define FL_EDICT_DIRTY_PVS_INFORMATION	(1<<7)
+
 
 // This is used internally to edict_t to remember that it's carrying a 
 // "full change list" - all its properties might have changed their value.
@@ -169,32 +169,21 @@ public:
 	// Returns an IServerEntity if FL_FULLEDICT is set or NULL if this 
 	// is a lightweight networking entity.
 	IServerEntity*			GetIServerEntity();
-	const IServerEntity*	GetIServerEntity() const;
 
-	IServerNetworkable*		GetNetworkable();
 	IServerUnknown*			GetUnknown();
 
 	// Set when initting an entity. If it's only a networkable, this is false.
 	void				SetEdict( IServerUnknown *pUnk, bool bFullEdict );
 	
-	int					AreaNum() const;
-	const char *		GetClassName() const;
 	
 	bool				IsFree() const;
-	void				SetFree();
-	void				ClearFree();
 
-	bool				HasStateChanged() const;
-	void				ClearStateChanged();
 	void				StateChanged();
 	void				StateChanged( unsigned short offset );
 
 	void				ClearTransmitState();
 	
-	void SetChangeInfo( unsigned short info );
 	void SetChangeInfoSerialNumber( unsigned short sn );
-	unsigned short	 GetChangeInfo() const;
-	unsigned short	 GetChangeInfoSerialNumber() const;
 
 public:
 
@@ -242,7 +231,6 @@ public:
 	//unsigned short m_iChangeInfo;
 	//unsigned short m_iChangeInfoSerialNumber;
 
-	friend void InitializeEntityDLLFields( edict_t *pEdict );
 };
 
 
@@ -264,16 +252,7 @@ inline bool CBaseEdict::IsFree() const
 
 
 
-inline bool	CBaseEdict::HasStateChanged() const
-{
-	return (m_fStateFlags & FL_EDICT_CHANGED) != 0;
-}
 
-inline void	CBaseEdict::ClearStateChanged()
-{
-	m_fStateFlags &= ~(FL_EDICT_CHANGED | FL_FULL_EDICT_CHANGED);
-	SetChangeInfoSerialNumber( 0 );
-}
 
 inline void	CBaseEdict::StateChanged()
 {
@@ -338,40 +317,19 @@ inline void	CBaseEdict::StateChanged( unsigned short offset )
 
 
 
-inline void CBaseEdict::SetFree()
-{
-	m_fStateFlags |= FL_EDICT_FREE;
-}
 
-// WARNING: Make sure you don't really want to call ED_ClearFreeFlag which will also
-//  remove this edict from the g_FreeEdicts bitset.
-inline void CBaseEdict::ClearFree()
-{
-	m_fStateFlags &= ~FL_EDICT_FREE;
-}
 
 inline void	CBaseEdict::ClearTransmitState()
 {
 	m_fStateFlags &= ~(FL_EDICT_ALWAYS|FL_EDICT_PVSCHECK|FL_EDICT_DONTSEND);
 }
 
-inline const IServerEntity* CBaseEdict::GetIServerEntity() const
-{
-	if ( m_fStateFlags & FL_EDICT_FULL )
-		return (IServerEntity*)m_pUnk;
-	else
-		return 0;
-}
 
 inline IServerUnknown* CBaseEdict::GetUnknown()
 {
 	return m_pUnk;
 }
 
-inline IServerNetworkable* CBaseEdict::GetNetworkable()
-{
-	return m_pNetworkable;
-}
 
 inline void CBaseEdict::SetEdict( IServerUnknown *pUnk, bool bFullEdict )
 {
@@ -386,40 +344,15 @@ inline void CBaseEdict::SetEdict( IServerUnknown *pUnk, bool bFullEdict )
 	}
 }
 
-inline int CBaseEdict::AreaNum() const
-{
-	if ( !m_pUnk )
-		return 0;
 
-	return m_pNetworkable->AreaNum();
-}
 
-inline const char *	CBaseEdict::GetClassName() const
-{
-	if ( !m_pUnk )
-		return "";
-	return m_pNetworkable->GetClassName();
-}
-
-inline void CBaseEdict::SetChangeInfo( unsigned short info )
-{
-	GetChangeAccessor()->SetChangeInfo( info );
-}
 
 inline void CBaseEdict::SetChangeInfoSerialNumber( unsigned short sn )
 {
 	GetChangeAccessor()->SetChangeInfoSerialNumber( sn );
 }
 
-inline unsigned short CBaseEdict::GetChangeInfo() const
-{
-	return GetChangeAccessor()->GetChangeInfo();
-}
 
-inline unsigned short CBaseEdict::GetChangeInfoSerialNumber() const
-{
-	return GetChangeAccessor()->GetChangeInfoSerialNumber();
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: The engine's internal representation of an entity, including some

@@ -62,12 +62,9 @@ public:
 	// Frees everything
 	void		Clear();
 
-	// Error reporting... 
-	static void SetErrorReportFunc( MemoryPoolReportFunc_t func );
 
 	// returns number of allocated blocks
 	int Count() const { return m_BlocksAllocated; }
-	int PeakCount() const { return m_PeakAlloc; }
 
 protected:
 	class CBlob
@@ -82,7 +79,6 @@ protected:
 	// Resets the pool
 	void		Init();
 	void		AddNewBlob();
-	void		ReportLeaks();
 
 	int			m_BlockSize;
 	int			m_BlocksPerBlob;
@@ -101,7 +97,6 @@ protected:
 	// CBlob could be not a multiple of 4 bytes so stuff it at the end here to keep us otherwise aligned
 	CBlob			m_BlobHead;
 
-	static MemoryPoolReportFunc_t g_ReportFunc;
 };
 
 
@@ -363,20 +358,11 @@ inline void CClassMemoryPool<T>::Clear()
 #define DEFINE_FIXEDSIZE_ALLOCATOR( _class, _initsize, _grow )					\
 	CUtlMemoryPool   _class::s_Allocator(sizeof(_class), _initsize, _grow, #_class " pool", alignof( _class ) )
 
-#define DEFINE_FIXEDSIZE_ALLOCATOR_ALIGNED( _class, _initsize, _grow, _alignment )		\
-	CUtlMemoryPool   _class::s_Allocator(sizeof(_class), _initsize, _grow, #_class " pool", Max<int>( _alignment, alignof( _class ) ) )
 
-#define DECLARE_FIXEDSIZE_ALLOCATOR_MT( _class )									\
-	public:																		\
-	   inline void* operator new( size_t size ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
-	   inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
-	   inline void  operator delete( void* p ) { s_Allocator.Free(p); }		\
-	   inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { s_Allocator.Free(p); }   \
-	private:																		\
-		static   CMemoryPoolMT   s_Allocator
 
-#define DEFINE_FIXEDSIZE_ALLOCATOR_MT( _class, _initsize, _grow )					\
-	CMemoryPoolMT   _class::s_Allocator(sizeof(_class), _initsize, _grow, #_class " pool")
+
+
+
 
 //-----------------------------------------------------------------------------
 // Macros that make it simple to make a class use a fixed-size allocator

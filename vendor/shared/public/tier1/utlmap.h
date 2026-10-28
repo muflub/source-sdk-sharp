@@ -36,8 +36,7 @@ template <typename T> FORCEINLINE_TEMPLATE T& AnalyzeMapRef(T& ref) { return ref
 	for ( int iteratorName = 0; AnalyzeMapRef(mapName).IsUtlMap && iteratorName < AnalyzeMapRef(mapName).MaxElement(); ++iteratorName ) if ( !AnalyzeMapRef(mapName).IsValidIndex( iteratorName ) ) continue; else
 
 // Iterate in reverse order
-#define FOR_EACH_MAP_BACK( mapName, iteratorName ) \
-	for ( int iteratorName = AnalyzeMapRef(mapName).LastInorder(); AnalyzeMapRef(mapName).IsUtlMap && iteratorName != AnalyzeMapRef(mapName).InvalidIndex(); iteratorName = AnalyzeMapRef(mapName).PrevInorder( iteratorName ) )
+
 
 struct base_utlmap_t
 {
@@ -302,18 +301,4 @@ inline void CUtlMap<K, T, I, LessFunc_t>::PurgeAndDeleteElements()
 
 //-----------------------------------------------------------------------------
 
-// This is horrible and slow and meant to be used only when you're dealing with really
-// non-time/memory-critical code and desperately want to copy a whole map element-by-element
-// for whatever reason.
-template < typename K, typename T, typename I >
-void DeepCopyMap( const CUtlMap<K,T,I>& pmapIn, CUtlMap<K,T,I> *out_pmapOut )
-{
-	Assert( out_pmapOut );
-
-	out_pmapOut->Purge();
-	FOR_EACH_MAP_FAST( pmapIn, i )
-	{
-		out_pmapOut->Insert( pmapIn.Key( i ), pmapIn.Element( i ) );
-	}
-}
 #endif // UTLMAP_H

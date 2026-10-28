@@ -25,14 +25,11 @@
 #include "utlvector.h"
 #include "Color.h"
 
-#define FOR_EACH_SUBKEY( kvRoot, kvSubKey ) \
-	for ( KeyValues * kvSubKey = kvRoot->GetFirstSubKey(); kvSubKey != NULL; kvSubKey = kvSubKey->GetNextKey() )
 
-#define FOR_EACH_TRUE_SUBKEY( kvRoot, kvSubKey ) \
-	for ( KeyValues * kvSubKey = kvRoot->GetFirstTrueSubKey(); kvSubKey != NULL; kvSubKey = kvSubKey->GetNextTrueSubKey() )
 
-#define FOR_EACH_VALUE( kvRoot, kvValue ) \
-	for ( KeyValues * kvValue = kvRoot->GetFirstValue(); kvValue != NULL; kvValue = kvValue->GetNextValue() )
+
+
+
 
 class IBaseFileSystem;
 class CUtlBuffer;
@@ -94,7 +91,6 @@ public:
 		explicit inline AutoDelete( KeyValues *pKeyValues ) : m_pKeyValues( pKeyValues ) {}
 		explicit inline AutoDelete( const char *pchKVName ) : m_pKeyValues( new KeyValues( pchKVName ) ) {}
 		inline ~AutoDelete( void ) { if( m_pKeyValues ) m_pKeyValues->deleteThis(); }
-		inline void Assign( KeyValues *pKeyValues ) { m_pKeyValues = pKeyValues; }
 		KeyValues *operator->()	{ return m_pKeyValues; }
 		operator KeyValues *()	{ return m_pKeyValues; }
 	private:
@@ -180,13 +176,9 @@ public:
 	Color GetColor( const char *keyName = NULL /* default value is all black */);
 	bool  IsEmpty(const char *keyName = NULL);
 
-	// Data access
-	int   GetInt( int keySymbol, int defaultValue = 0 );
 	float GetFloat( int keySymbol, float defaultValue = 0.0f );
 	const char *GetString( int keySymbol, const char *defaultValue = "" );
-	const wchar_t *GetWString( int keySymbol, const wchar_t *defaultValue = L"" );
 	void *GetPtr( int keySymbol, void *defaultValue = (void*)0 );
-	Color GetColor( int keySymbol /* default value is all black */);
 	bool  IsEmpty( int keySymbol );
 
 	// Key writing
@@ -197,7 +189,6 @@ public:
 	void SetFloat( const char *keyName, float value );
 	void SetPtr( const char *keyName, void *value );
 	void SetColor( const char *keyName, Color value);
-	void SetBool( const char *keyName, bool value ) { SetInt( keyName, value ? 1 : 0 ); }
 
 	// Memory allocation (optimized)
 	void *operator new( size_t iAllocSize );
@@ -309,8 +300,6 @@ private:
 	const char * ReadToken( CUtlBuffer &buf, bool &wasQuoted, bool &wasConditional );
 	void WriteIndents( IBaseFileSystem *filesystem, FileHandle_t f, CUtlBuffer *pBuf, int indentLevel );
 
-	void FreeAllocatedValue();
-	void AllocateValueBlock(int size);
 
 	int m_iKeyName;	// keyname is a symbol defined in KeyValuesSystem
 
@@ -352,12 +341,9 @@ public:
 	static int GetSymbolForStringGrowable( const char *name, bool bCreate = true );
 	static const char *GetStringForSymbolGrowable( int symbol );
 
-	// Functions to get external access to whichever of the above functions we're going to call.
-	static int CallGetSymbolForString( const char *name, bool bCreate = true ) { return s_pfGetSymbolForString( name, bCreate ); }
 	static const char *CallGetStringForSymbol( int symbol ) { return s_pfGetStringForSymbol( symbol ); }
 };
 
-typedef KeyValues::AutoDelete KeyValuesAD;
 
 enum KeyValuesUnpackDestinationTypes_t
 {
@@ -370,9 +356,9 @@ enum KeyValuesUnpackDestinationTypes_t
 	UNPACK_TYPE_TWO_FLOATS,		 // dest is an array of 2 floats. source is a string like "1 2"
 };
 
-#define UNPACK_FIXED( kname, kdefault, dtype, ofs ) { kname, kdefault, dtype, ofs, 0 }
-#define UNPACK_VARIABLE( kname, kdefault, dtype, ofs, sz ) { kname, kdefault, dtype, ofs, sz }
-#define UNPACK_END_MARKER { NULL, NULL, UNPACK_TYPE_FLOAT, 0 }
+
+
+
 
 struct KeyValuesUnpackStructure
 {
@@ -383,14 +369,6 @@ struct KeyValuesUnpackStructure
 	size_t m_nFieldSize;									// for strings or other variable length
 };
 
-//-----------------------------------------------------------------------------
-// inline methods
-//-----------------------------------------------------------------------------
-inline int   KeyValues::GetInt( int keySymbol, int defaultValue )
-{
-	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetInt( (const char *)NULL, defaultValue ) : defaultValue;
-}
 
 inline float KeyValues::GetFloat( int keySymbol, float defaultValue )
 {
@@ -404,11 +382,6 @@ inline const char *KeyValues::GetString( int keySymbol, const char *defaultValue
 	return dat ? dat->GetString( (const char *)NULL, defaultValue ) : defaultValue;
 }
 
-inline const wchar_t *KeyValues::GetWString( int keySymbol, const wchar_t *defaultValue )
-{
-	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetWString( (const char *)NULL, defaultValue ) : defaultValue;
-}
 
 inline void *KeyValues::GetPtr( int keySymbol, void *defaultValue )
 {
@@ -416,12 +389,6 @@ inline void *KeyValues::GetPtr( int keySymbol, void *defaultValue )
 	return dat ? dat->GetPtr( (const char *)NULL, defaultValue ) : defaultValue;
 }
 
-inline Color KeyValues::GetColor( int keySymbol )
-{
-	Color defaultValue( 0, 0, 0, 0 );
-	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetColor( ) : defaultValue;
-}
 
 inline bool  KeyValues::IsEmpty( int keySymbol )
 {
@@ -480,10 +447,5 @@ protected:
 	int m_nDeveloperLevel;
 };
 
-inline bool KeyValuesDumpAsDevMsg( KeyValues *pKeyValues, int nIndentLevel = 0, int nDeveloperLevel = 1 )
-{
-	CKeyValuesDumpContextAsDevMsg ctx( nDeveloperLevel );
-	return pKeyValues->Dump( &ctx, nIndentLevel );
-}
 
 #endif // KEYVALUES_H

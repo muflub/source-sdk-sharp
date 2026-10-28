@@ -68,8 +68,7 @@
 
 typedef unsigned int UtlHashHandle_t;
 
-#define FOR_EACH_HASHTABLE( table, iter ) \
-	for ( UtlHashHandle_t iter = (table).FirstHandle(); iter != (table).InvalidHandle(); iter = (table).NextHandle( iter ) )
+
 
 // CUtlHashtableEntry selects between 16 and 32 bit storage backing
 // for flags_and_hash depending on the size of the stored types.

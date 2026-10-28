@@ -41,7 +41,7 @@
 
 struct _CrtMemState;
 
-#define MEMALLOC_VERSION 1
+
 
 typedef size_t (*MemAllocFailHandler_t)( size_t );
 
@@ -68,45 +68,44 @@ public:
 	virtual size_t GetSize( void *pMem ) = 0;
 
     // Force file + line information for an allocation
-    virtual void PushAllocDbgInfo( const char *pFileName, int nLine ) = 0;
-    virtual void PopAllocDbgInfo() = 0;
+    virtual void unused_PushAllocDbgInfo() = 0;
+    virtual void unused_PopAllocDbgInfo() = 0;
 
 	// FIXME: Remove when we have our own allocator
 	// these methods of the Crt debug code is used in our codebase currently
-	virtual long CrtSetBreakAlloc( long lNewBreakAlloc ) = 0;
-	virtual	int CrtSetReportMode( int nReportType, int nReportMode ) = 0;
-	virtual int CrtIsValidHeapPointer( const void *pMem ) = 0;
-	virtual int CrtIsValidPointer( const void *pMem, unsigned int size, int access ) = 0;
-	virtual int CrtCheckMemory( void ) = 0;
-	virtual int CrtSetDbgFlag( int nNewFlag ) = 0;
-	virtual void CrtMemCheckpoint( _CrtMemState *pState ) = 0;
+	virtual void unused_CrtSetBreakAlloc() = 0;
+	virtual void unused_CrtSetReportMode() = 0;
+	virtual void unused_CrtIsValidHeapPointer() = 0;
+	virtual void unused_CrtIsValidPointer() = 0;
+	virtual void unused_CrtCheckMemory() = 0;
+	virtual void unused_CrtSetDbgFlag() = 0;
+	virtual void unused_CrtMemCheckpoint() = 0;
 
 	// FIXME: Make a better stats interface
-	virtual void DumpStats() = 0;
-	virtual void DumpStatsFileBase( char const *pchFileBase ) = 0;
+	virtual void unused_DumpStats() = 0;
+	virtual void unused_DumpStatsFileBase() = 0;
 
 	// FIXME: Remove when we have our own allocator
-	virtual void* CrtSetReportFile( int nRptType, void* hFile ) = 0;
-	virtual void* CrtSetReportHook( void* pfnNewHook ) = 0;
-	virtual int CrtDbgReport( int nRptType, const char * szFile,
-			int nLine, const char * szModule, const char * pMsg ) = 0;
+	virtual void unused_CrtSetReportFile() = 0;
+	virtual void unused_CrtSetReportHook() = 0;
+	virtual void unused_CrtDbgReport() = 0;
 
-	virtual int heapchk() = 0;
+	virtual void unused_heapchk() = 0;
 
-	virtual bool IsDebugHeap() = 0;
+	virtual void unused_IsDebugHeap() = 0;
 
-	virtual void GetActualDbgInfo( const char *&pFileName, int &nLine ) = 0;
-	virtual void RegisterAllocation( const char *pFileName, int nLine, int nLogicalSize, int nActualSize, unsigned nTime ) = 0;
-	virtual void RegisterDeallocation( const char *pFileName, int nLine, int nLogicalSize, int nActualSize, unsigned nTime ) = 0;
+	virtual void unused_GetActualDbgInfo() = 0;
+	virtual void unused_RegisterAllocation() = 0;
+	virtual void unused_RegisterDeallocation() = 0;
 
-	virtual int GetVersion() = 0;
+	virtual void unused_GetVersion() = 0;
 
-	virtual void CompactHeap() = 0;
+	virtual void unused_CompactHeap() = 0;
 
 	// Function called when malloc fails or memory limits hit to attempt to free up memory (can come in any thread)
 	virtual MemAllocFailHandler_t SetAllocFailHandler( MemAllocFailHandler_t pfnMemAllocFailHandler ) = 0;
 
-	virtual void DumpBlockStats( void * ) = 0;
+	virtual void unused_DumpBlockStats() = 0;
 
 #if defined( _MEMTEST )	
 	virtual void SetStatsExtraInfo( const char *pMapName, const char *pComment ) = 0;
@@ -114,13 +113,13 @@ public:
 
 	// Returns 0 if no failure, otherwise the size_t of the last requested chunk
 	//  "I'm sure this is completely thread safe!" Brian Deen 7/19/2012.
-	virtual size_t MemoryAllocFailed() = 0;
+	virtual void unused_MemoryAllocFailed() = 0;
 
 	// handles storing allocation info for coroutines
-	virtual uint32 GetDebugInfoSize() = 0;
-	virtual void SaveDebugInfo( void *pvDebugInfo ) = 0;
-	virtual void RestoreDebugInfo( const void *pvDebugInfo ) = 0;	
-	virtual void InitDebugInfo( void *pvDebugInfo, const char *pchRootFileName, int nLine ) = 0;
+	virtual void unused_GetDebugInfoSize() = 0;
+	virtual void unused_SaveDebugInfo() = 0;
+	virtual void unused_RestoreDebugInfo() = 0;	
+	virtual void unused_InitDebugInfo() = 0;
 
 	// Replacement for ::GlobalMemoryStatus which accounts for unused memory in our system
 	virtual void GlobalMemoryStatus( size_t *pUsedMemory, size_t *pFreeMemory ) = 0;
@@ -158,10 +157,6 @@ inline void *MemAlloc_Alloc( size_t nSize, const char *pFileName, int nLine )
 	return g_pMemAlloc->Alloc( nSize, pFileName, nLine );
 }
 #endif
-inline void MemAlloc_Free( void *ptr )
-{
-	g_pMemAlloc->Free( ptr );
-}
 inline void MemAlloc_Free( void *ptr, const char *pFileName, int nLine )
 {
 	g_pMemAlloc->Free( ptr, pFileName, nLine );
@@ -210,23 +205,6 @@ inline void *MemAlloc_AllocAligned( size_t size, size_t align, const char *pszFi
 	return (void *)pResult;
 }
 
-inline void *MemAlloc_AllocAlignedUnattributed( size_t size, size_t align )
-{
-	unsigned char *pAlloc, *pResult;
-
-	if (!ValueIsPowerOfTwo(align))
-		return NULL;
-
-	align = (align > sizeof(void *) ? align : sizeof(void *)) - 1;
-
-	if ( (pAlloc = (unsigned char*)MemAlloc_Alloc( sizeof(void *) + align + size ) ) == (unsigned char*)NULL)
-		return NULL;
-
-	pResult = (unsigned char*)( (size_t)(pAlloc + sizeof(void *) + align ) & ~align );
-	((unsigned char**)(pResult))[-1] = pAlloc;
-
-	return (void *)pResult;
-}
 
 inline void *MemAlloc_AllocAlignedFileLine( size_t size, size_t align, const char *pszFile, int nLine )
 {
@@ -311,22 +289,6 @@ inline void MemAlloc_FreeAligned( void *pMemBlock, const char *pFileName, int nL
 	g_pMemAlloc->Free( pAlloc, pFileName, nLine );
 }
 
-inline size_t MemAlloc_GetSizeAligned( void *pMemBlock )
-{
-	void *pAlloc;
-
-	if ( pMemBlock == NULL )
-		return 0;
-
-	pAlloc = pMemBlock;
-
-	// pAlloc points to the pointer to starting of the memory block
-	pAlloc = (void *)(((size_t)pAlloc & ~( sizeof(void *) - 1 ) ) - sizeof(void *));
-
-	// pAlloc is the pointer to the start of memory block
-	pAlloc = *((void **)pAlloc );
-	return g_pMemAlloc->GetSize( pAlloc ) - ( (byte *)pMemBlock - (byte *)pAlloc );
-}
 
 //-----------------------------------------------------------------------------
 
@@ -346,19 +308,19 @@ inline size_t MemAlloc_GetSizeAligned( void *pMemBlock )
 #define MemAlloc_RegisterDeallocation( pFileName, nLine, nLogicalSize, nActualSize, nTime ) ((void)0)
 #endif
 
-#define MemAlloc_DumpStats() g_pMemAlloc->DumpStats()
-#define MemAlloc_CompactHeap() g_pMemAlloc->CompactHeap()
-#define MemAlloc_CompactIncremental() g_pMemAlloc->CompactIncremental()
-#define MemAlloc_DumpStatsFileBase( _filename ) g_pMemAlloc->DumpStatsFileBase( _filename )
+
+
+
+
 #define MemAlloc_CrtCheckMemory() g_pMemAlloc->CrtCheckMemory()
 #define MemAlloc_GlobalMemoryStatus( _usedMemory, _freeMemory ) g_pMemAlloc->GlobalMemoryStatus( _usedMemory, _freeMemory )
-#define MemAlloc_MemoryAllocFailed() g_pMemAlloc->MemoryAllocFailed()
 
-#define MemAlloc_GetDebugInfoSize() g_pMemAlloc->GetDebugInfoSize()
-#define MemAlloc_SaveDebugInfo( pvDebugInfo ) g_pMemAlloc->SaveDebugInfo( pvDebugInfo )
-#define MemAlloc_RestoreDebugInfo( pvDebugInfo ) g_pMemAlloc->RestoreDebugInfo( pvDebugInfo )
-#define MemAlloc_InitDebugInfo( pvDebugInfo, pchRootFileName, nLine ) g_pMemAlloc->InitDebugInfo( pvDebugInfo, pchRootFileName, nLine )
-#define MemAlloc_GetSize( x ) g_pMemAlloc->GetSize( x );
+
+
+
+
+
+
 //-----------------------------------------------------------------------------
 
 class CMemAllocAttributeAlloction
@@ -479,7 +441,6 @@ inline void *memalign(size_t alignment, size_t size) {void *pTmp=NULL; pTmp = ma
 #endif
 
 inline void *_aligned_malloc( size_t nSize, size_t align )															{ void *ptr = memalign( align, nSize ); MemAlloc_CheckAlloc( ptr, nSize ); return ptr;  }
-inline void _aligned_free( void *ptr )																				{ free( ptr ); }
 
 inline void *MemAlloc_Alloc( size_t nSize, const char *pFileName = NULL, int nLine = 0 )							{ void *ptr = malloc( nSize ); MemAlloc_CheckAlloc( ptr, nSize ); return ptr; }
 inline void MemAlloc_Free( void *ptr, const char *pFileName = NULL, int nLine = 0 )									{ free( ptr ); }
@@ -511,10 +472,10 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 	return ptr_new_aligned;
 }
 #else
-#define MemAlloc_GetDebugInfoSize() g_pMemAlloc->GetDebugInfoSize()
-#define MemAlloc_SaveDebugInfo( pvDebugInfo ) g_pMemAlloc->SaveDebugInfo( pvDebugInfo )
-#define MemAlloc_RestoreDebugInfo( pvDebugInfo ) g_pMemAlloc->RestoreDebugInfo( pvDebugInfo )
-#define MemAlloc_InitDebugInfo( pvDebugInfo, pchRootFileName, nLine ) g_pMemAlloc->InitDebugInfo( pvDebugInfo, pchRootFileName, nLine )
+
+
+
+
 
 #endif // !STEAM && !NO_MALLOC_OVERRIDE
 
@@ -532,22 +493,16 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 #define MemAlloc_PopAllocDbgInfo()
 #define MemAlloc_RegisterAllocation( pFileName, nLine, nLogicalSize, nActualSize, nTime ) ((void)0)
 #define MemAlloc_RegisterDeallocation( pFileName, nLine, nLogicalSize, nActualSize, nTime ) ((void)0)
-#define MemAlloc_DumpStats() ((void)0)
-#define MemAlloc_CompactHeap() ((void)0)
-#define MemAlloc_CompactIncremental() ((void)0)
-#define MemAlloc_DumpStatsFileBase( _filename ) ((void)0)
-inline bool MemAlloc_CrtCheckMemory() { return true; }
-inline void MemAlloc_GlobalMemoryStatus( size_t *pusedMemory, size_t *pfreeMemory )
-{
-	*pusedMemory = 0;
-	*pfreeMemory = 0;
-}
-#define MemAlloc_MemoryAllocFailed() 0
 
-#define MemAlloc_GetDebugInfoSize() 0
-#define MemAlloc_SaveDebugInfo( pvDebugInfo ) ((void)0)
-#define MemAlloc_RestoreDebugInfo( pvDebugInfo ) ((void)0)
-#define MemAlloc_InitDebugInfo( pvDebugInfo, pchRootFileName, nLine ) ((void)0)
+
+
+
+
+
+
+
+
+
 
 
 #define MEMALLOC_DEFINE_EXTERNAL_TRACKING( tag )
@@ -570,36 +525,14 @@ PLATFORM_INTERFACE void SetMemoryMark( void );
 PLATFORM_INTERFACE void DumpChangedMemory( int nThresh );
 
 #else
-FORCEINLINE void MemoryLogMessage( char const *s )
-{
-}
 
-FORCEINLINE void EnableMemoryLogging( bool bOnOff )
-{
-}
-FORCEINLINE void DumpMemoryLog( int nThresh )
-{
-}
-FORCEINLINE void DumpMemorySummary( void )
-{
-}
-FORCEINLINE void SetMemoryMark( void )
-{
-}
-FORCEINLINE void DumpChangedMemory( int nThresh )
-{
-}
 
 #endif
 
 #ifdef POSIX
 // ApproximateProcessMemoryUsage returns the approximate memory footprint of this process.
-PLATFORM_INTERFACE size_t ApproximateProcessMemoryUsage( void );
+PLATFORM_INTERFACE ;
 #else
-FORCEINLINE size_t ApproximateProcessMemoryUsage( void )
-{
-	return 0;
-}
 
 #endif
 
@@ -618,44 +551,6 @@ allocator should take care of this automatically. Any object whose size is a mul
 of 16 will be 16-byte aligned. Existing uses of this class were not changed because
 the cost/benefit did not justify it.
 */
-// template here to allow adding alignment at levels of hierarchy that aren't the base
-template< int bytesAlignment = 16, class T = aligned_tmp_t >
-class CAlignedNewDelete : public T
-{
-
-public:
-	/*
-	Note that this class does not overload operator new[] and delete[] which means that
-	classes that depend on this for alignment may end up misaligned if an array is
-	allocated. This problem is now mostly theoretical because this class is mostly
-	obsolete.
-	*/
-	void *operator new( size_t nSize )
-	{
-		return MemAlloc_AllocAligned( nSize, bytesAlignment );
-	}
-
-	void* operator new( size_t nSize, int nBlockUse, const char *pFileName, int nLine )
-	{
-		return MemAlloc_AllocAlignedFileLine( nSize, bytesAlignment, pFileName, nLine );
-	}
-
-	void operator delete(void *pData)
-	{
-		if ( pData )
-		{
-			MemAlloc_FreeAligned( pData );
-		}
-	}
-
-	void operator delete( void* pData, int nBlockUse, const char *pFileName, int nLine )
-	{
-		if ( pData )
-		{
-			MemAlloc_FreeAligned( pData, pFileName, nLine );
-		}
-	}
-};
 
 
 #endif /* TIER0_MEMALLOC_H */

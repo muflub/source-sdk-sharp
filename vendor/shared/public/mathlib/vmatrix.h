@@ -104,8 +104,6 @@ public:
 	Vector &	GetTranslation( Vector &vTrans ) const;
 	void		SetTranslation(const Vector &vTrans);
 
-	void		PreTranslate(const Vector &vTrans);
-	void		PostTranslate(const Vector &vTrans);
 
 	const matrix3x4_t& As3x4() const;
 	void		CopyFrom3x4( const matrix3x4_t &m3x4 );
@@ -115,25 +113,14 @@ public:
 	bool		operator!=( const VMatrix& src ) const { return !( *this == src ); }
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
-	// Access the basis vectors.
-	Vector		GetLeft() const;
-	Vector		GetUp() const;
-	Vector		GetForward() const;
-	Vector		GetTranslation() const;
 #endif
 
 
 // Matrix->vector operations.
 public:
-	// Multiply by a 3D vector (same as operator*).
-	void		V3Mul(const Vector &vIn, Vector &vOut) const;
 
-	// Multiply by a 4D vector.
-	void		V4Mul(const Vector4D &vIn, Vector4D &vOut) const;
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
-	// Applies the rotation (ignores translation in the matrix). (This just calls VMul3x3).
-	Vector		ApplyRotation(const Vector &vVec) const;
 
 	// Multiply by a vector (divides by w, assumes input w is 1).
 	Vector		operator*(const Vector &vVec) const;
@@ -141,14 +128,8 @@ public:
 	// Multiply by the upper 3x3 part of the matrix (ie: only apply rotation).
 	Vector		VMul3x3(const Vector &vVec) const;
 
-	// Apply the inverse (transposed) rotation (only works on pure rotation matrix)
-	Vector		VMul3x3Transpose(const Vector &vVec) const;
 
-	// Multiply by the upper 3 rows.
-	Vector		VMul4x3(const Vector &vVec) const;
 
-	// Apply the inverse (transposed) transformation (only works on pure rotation/translation)
-	Vector		VMul4x3Transpose(const Vector &vVec) const;
 #endif
 
 
@@ -194,7 +175,6 @@ public:
 	// Set to identity.
 	void		Identity();
 
-	bool		IsIdentity() const;
 
 	// Setup a matrix for origin and angles.
 	void		SetupMatrixOrgAngles( const Vector &origin, const QAngle &vAngles );
@@ -271,7 +251,7 @@ VMatrix		SetupMatrixOrgAngles(const Vector &origin, const QAngle &vAngles);
 
 #endif
 
-#define VMatToString(mat)	(static_cast<const char *>(CFmtStr("[ (%f, %f, %f), (%f, %f, %f), (%f, %f, %f), (%f, %f, %f) ]", mat.m[0][0], mat.m[0][1], mat.m[0][2], mat.m[0][3], mat.m[1][0], mat.m[1][1], mat.m[1][2], mat.m[1][3], mat.m[2][0], mat.m[2][1], mat.m[2][2], mat.m[2][3], mat.m[3][0], mat.m[3][1], mat.m[3][2], mat.m[3][3] ))) // ** Note: this generates a temporary, don't hold reference!
+ // ** Note: this generates a temporary, don't hold reference!
 
 //-----------------------------------------------------------------------------
 // Returns the point at the intersection on the 3 planes.
@@ -291,8 +271,6 @@ void MatrixMultiply( const VMatrix& src1, const VMatrix& src2, VMatrix& dst );
 // Accessors
 void MatrixGetColumn( const VMatrix &src, int nCol, Vector *pColumn );
 void MatrixSetColumn( VMatrix &src, int nCol, const Vector &column );
-void MatrixGetRow( const VMatrix &src, int nCol, Vector *pColumn );
-void MatrixSetRow( VMatrix &src, int nCol, const Vector &column );
 
 // Vector3DMultiply treats src2 as if it's a direction vector
 void Vector3DMultiply( const VMatrix& src1, const Vector& src2, Vector& dst );
@@ -321,31 +299,15 @@ void Vector4DMultiplyTranspose( const VMatrix& src1, const Vector4D& src2, Vecto
 // Transform a plane
 void MatrixTransformPlane( const VMatrix &src, const cplane_t &inPlane, cplane_t &outPlane );
 
-// Transform a plane that has an axis-aligned normal
-void MatrixTransformAxisAlignedPlane( const VMatrix &src, int nDim, float flSign, float flDist, cplane_t &outPlane );
 
 void MatrixBuildTranslation( VMatrix& dst, float x, float y, float z );
 void MatrixBuildTranslation( VMatrix& dst, const Vector &translation );
 
-inline void MatrixTranslate( VMatrix& dst, const Vector &translation )
-{
-	VMatrix matTranslation, temp;
-	MatrixBuildTranslation( matTranslation, translation );
-	MatrixMultiply( dst, matTranslation, temp );
-	dst = temp;
-}
 
 
 void MatrixBuildRotationAboutAxis( VMatrix& dst, const Vector& vAxisOfRot, float angleDegrees );
 void MatrixBuildRotateZ( VMatrix& dst, float angleDegrees );
 
-inline void MatrixRotate( VMatrix& dst, const Vector& vAxisOfRot, float angleDegrees )
-{
-	VMatrix rotation, temp;
-	MatrixBuildRotationAboutAxis( rotation, vAxisOfRot, angleDegrees );
-	MatrixMultiply( dst, rotation, temp );
-	dst = temp;
-}
 
 // Builds a rotation matrix that rotates one direction vector into another
 void MatrixBuildRotation( VMatrix &dst, const Vector& initialDirection, const Vector& finalDirection );
@@ -516,20 +478,8 @@ inline void VMatrix::Init( const matrix3x4_t& matrix3x4 )
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline Vector VMatrix::GetForward() const
-{
-	return Vector(m[0][0], m[1][0], m[2][0]);
-}
 
-inline Vector VMatrix::GetLeft() const
-{
-	return Vector(m[0][1], m[1][1], m[2][1]);
-}
 
-inline Vector VMatrix::GetUp() const
-{
-	return Vector(m[0][2], m[1][2], m[2][2]);
-}
 
 #endif
 
@@ -574,10 +524,6 @@ inline void VMatrix::SetBasisVectors(const Vector &vForward, const Vector &vLeft
 //-----------------------------------------------------------------------------
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline Vector VMatrix::GetTranslation() const
-{
-	return Vector(m[0][3], m[1][3], m[2][3]);
-}
 
 #endif
 
@@ -597,28 +543,8 @@ inline void VMatrix::SetTranslation(const Vector &vTrans)
 }
 
 		  
-//-----------------------------------------------------------------------------
-// appply translation to this matrix in the input space
-//-----------------------------------------------------------------------------
-inline void VMatrix::PreTranslate(const Vector &vTrans)
-{
-	Vector tmp;
-	Vector3DMultiplyPosition( *this, vTrans, tmp );
-	m[0][3] = tmp.x;
-	m[1][3] = tmp.y;
-	m[2][3] = tmp.z;
-}
 
 
-//-----------------------------------------------------------------------------
-// appply translation to this matrix in the output space
-//-----------------------------------------------------------------------------
-inline void VMatrix::PostTranslate(const Vector &vTrans)
-{
-	m[0][3] += vTrans.x;
-	m[1][3] += vTrans.y;
-	m[2][3] += vTrans.z;
-}
 
 inline const matrix3x4_t& VMatrix::As3x4() const
 {
@@ -711,27 +637,8 @@ inline Vector VMatrix::operator*(const Vector &vVec) const
 	return vRet;
 }
 
-inline Vector VMatrix::VMul4x3(const Vector &vVec) const
-{
-	Vector vResult;
-	Vector3DMultiplyPosition( *this, vVec, vResult );
-	return vResult;
-}
 
 
-inline Vector VMatrix::VMul4x3Transpose(const Vector &vVec) const
-{
-	Vector tmp = vVec;
-	tmp.x -= m[0][3];
-	tmp.y -= m[1][3];
-	tmp.z -= m[2][3];
-
-	return Vector(
-		m[0][0]*tmp.x + m[1][0]*tmp.y + m[2][0]*tmp.z,
-		m[0][1]*tmp.x + m[1][1]*tmp.y + m[2][1]*tmp.z,
-		m[0][2]*tmp.x + m[1][2]*tmp.y + m[2][2]*tmp.z
-		);
-}
 
 inline Vector VMatrix::VMul3x3(const Vector &vVec) const
 {
@@ -742,35 +649,11 @@ inline Vector VMatrix::VMul3x3(const Vector &vVec) const
 		);
 }
 
-inline Vector VMatrix::VMul3x3Transpose(const Vector &vVec) const
-{
-	return Vector(
-		m[0][0]*vVec.x + m[1][0]*vVec.y + m[2][0]*vVec.z,
-		m[0][1]*vVec.x + m[1][1]*vVec.y + m[2][1]*vVec.z,
-		m[0][2]*vVec.x + m[1][2]*vVec.y + m[2][2]*vVec.z
-		);
-}
 
 #endif // VECTOR_NO_SLOW_OPERATIONS
 
 
-inline void VMatrix::V3Mul(const Vector &vIn, Vector &vOut) const
-{
-	vec_t rw;
 
-	rw = 1.0f / (m[3][0]*vIn.x + m[3][1]*vIn.y + m[3][2]*vIn.z + m[3][3]);
-	vOut.x = (m[0][0]*vIn.x + m[0][1]*vIn.y + m[0][2]*vIn.z + m[0][3]) * rw;
-	vOut.y = (m[1][0]*vIn.x + m[1][1]*vIn.y + m[1][2]*vIn.z + m[1][3]) * rw;
-	vOut.z = (m[2][0]*vIn.x + m[2][1]*vIn.y + m[2][2]*vIn.z + m[2][3]) * rw;
-}
-
-inline void VMatrix::V4Mul(const Vector4D &vIn, Vector4D &vOut) const
-{
-	vOut[0] = m[0][0]*vIn[0] + m[0][1]*vIn[1] + m[0][2]*vIn[2] + m[0][3]*vIn[3];
-	vOut[1] = m[1][0]*vIn[0] + m[1][1]*vIn[1] + m[1][2]*vIn[2] + m[1][3]*vIn[3];
-	vOut[2] = m[2][0]*vIn[0] + m[2][1]*vIn[1] + m[2][2]*vIn[2] + m[2][3]*vIn[3];
-	vOut[3] = m[3][0]*vIn[0] + m[3][1]*vIn[1] + m[3][2]*vIn[2] + m[3][3]*vIn[3];
-}
 
 
 //-----------------------------------------------------------------------------
@@ -794,21 +677,9 @@ inline void VMatrix::Identity()
 }
 
 
-inline bool VMatrix::IsIdentity() const
-{
-	return 
-		m[0][0] == 1.0f && m[0][1] == 0.0f && m[0][2] == 0.0f && m[0][3] == 0.0f &&
-		m[1][0] == 0.0f && m[1][1] == 1.0f && m[1][2] == 0.0f && m[1][3] == 0.0f &&
-		m[2][0] == 0.0f && m[2][1] == 0.0f && m[2][2] == 1.0f && m[2][3] == 0.0f &&
-		m[3][0] == 0.0f && m[3][1] == 0.0f && m[3][2] == 0.0f && m[3][3] == 1.0f;
-}
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline Vector VMatrix::ApplyRotation(const Vector &vVec) const
-{
-	return VMul3x3(vVec);
-}
 
 inline VMatrix VMatrix::operator~() const
 {
@@ -841,17 +712,7 @@ inline void MatrixSetColumn( VMatrix &src, int nCol, const Vector &column )
 	src.m[2][nCol] = column.z;
 }
 
-inline void MatrixGetRow( const VMatrix &src, int nRow, Vector *pRow )
-{
-	Assert( (nRow >= 0) && (nRow <= 3) );
-	*pRow = *(Vector*)src[nRow];
-}
 
-inline void MatrixSetRow( VMatrix &dst, int nRow, const Vector &row )
-{
-	Assert( (nRow >= 0) && (nRow <= 3) );
-	*(Vector*)dst[nRow] = row;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -868,37 +729,8 @@ inline void Vector3DMultiplyPosition( const VMatrix& src1, const VectorByValue s
 }
 
 
-//-----------------------------------------------------------------------------
-// Transform a plane that has an axis-aligned normal
-//-----------------------------------------------------------------------------
-inline void MatrixTransformAxisAlignedPlane( const VMatrix &src, int nDim, float flSign, float flDist, cplane_t &outPlane )
-{
-	// See MatrixTransformPlane in the .cpp file for an explanation of the algorithm.
-	MatrixGetColumn( src, nDim, &outPlane.normal );
-	outPlane.normal *= flSign;
-	outPlane.dist = flDist * DotProduct( outPlane.normal, outPlane.normal );
-
-	// NOTE: Writing this out by hand because it doesn't inline (inline depth isn't large enough)
-	// This should read outPlane.dist += DotProduct( outPlane.normal, src.GetTranslation );
-	outPlane.dist += outPlane.normal.x * src.m[0][3] + outPlane.normal.y * src.m[1][3] + outPlane.normal.z * src.m[2][3];
-}
 
 
-//-----------------------------------------------------------------------------
-// Matrix equality test
-//-----------------------------------------------------------------------------
-inline bool MatricesAreEqual( const VMatrix &src1, const VMatrix &src2, float flTolerance )
-{
-	for ( int i = 0; i < 3; ++i )
-	{
-		for ( int j = 0; j < 3; ++j )
-		{
-			if ( fabs( src1[i][j] - src2[i][j] ) > flTolerance )
-				return false;
-		}
-	}
-	return true;
-}
 
 //-----------------------------------------------------------------------------
 //
@@ -908,35 +740,8 @@ void MatrixBuildPerspectiveX( VMatrix& dst, double flFovX, double flAspect, doub
 void MatrixBuildPerspectiveOffCenterX( VMatrix& dst, double flFovX, double flAspect, double flZNear, double flZFar, double bottom, double top, double left, double right );
 void MatrixBuildPerspectiveZRange( VMatrix& dst, double flZNear, double flZFar );
 
-inline void MatrixOrtho( VMatrix& dst, double left, double top, double right, double bottom, double zNear, double zFar )
-{
-	VMatrix mat;
-	MatrixBuildOrtho( mat, left, top, right, bottom, zNear, zFar );
 
-	VMatrix temp;
-	MatrixMultiply( dst, mat, temp );
-	dst = temp;
-}
 
-inline void MatrixPerspectiveX( VMatrix& dst, double flFovX, double flAspect, double flZNear, double flZFar )
-{
-	VMatrix mat;
-	MatrixBuildPerspectiveX( mat, flFovX, flAspect, flZNear, flZFar );
-
-	VMatrix temp;
-	MatrixMultiply( dst, mat, temp );
-	dst = temp;
-}
-
-inline void MatrixPerspectiveOffCenterX( VMatrix& dst, double flFovX, double flAspect, double flZNear, double flZFar, double bottom, double top, double left, double right )
-{
-	VMatrix mat;
-	MatrixBuildPerspectiveOffCenterX( mat, flFovX, flAspect, flZNear, flZFar, bottom, top, left, right );
-
-	VMatrix temp;
-	MatrixMultiply( dst, mat, temp );
-	dst = temp;
-}
 
 #endif
 

@@ -42,9 +42,6 @@ class	IMoveHelper;
 struct  Ray_t;
 struct	studiohdr_t;
 class	CBaseEntity;
-class	CRestore;
-class	CSave;
-class	variant_t;
 struct	vcollide_t;
 class	IRecipientFilter;
 class	CBaseEntity;
@@ -57,7 +54,6 @@ class CStandardSendProxies;
 class IAchievementMgr;
 class CGamestatsData;
 class CSteamID;
-class IReplayFactory;
 class IReplaySystem;
 class IServer;
 
@@ -68,15 +64,15 @@ typedef struct player_info_s player_info_t;
 //-----------------------------------------------------------------------------
 
 #ifdef _WIN32
-#define DLLEXPORT __stdcall
+
 #else
-#define DLLEXPORT /* */
+ /* */
 #endif
 
-#define INTERFACEVERSION_VENGINESERVER_VERSION_21	"VEngineServer021"
-#define INTERFACEVERSION_VENGINESERVER_VERSION_22	"VEngineServer022"
+
+
 #define INTERFACEVERSION_VENGINESERVER				"VEngineServer023"
-#define INTERFACEVERSION_VENGINESERVER_INT			23
+
 
 struct bbox_t
 {
@@ -99,10 +95,10 @@ abstract_class IVEngineServer
 {
 public:
 	// Tell engine to change level ( "changelevel s1\n" or "changelevel2 s1 s2\n" )
-	virtual void		ChangeLevel( const char *s1, const char *s2 ) = 0;
+	virtual void unused_ChangeLevel() = 0;
 
 	// Ask engine whether the specified map is a valid map file (exists and has valid version number).
-	virtual int			IsMapValid( const char *filename ) = 0;
+	virtual void unused_IsMapValid() = 0;
 
 	// Is this a dedicated server?
 	virtual bool		IsDedicatedServer( void ) = 0;
@@ -119,12 +115,12 @@ public:
 	virtual int			PrecacheModel( const char *s, bool preload = false ) = 0;
 	virtual int			PrecacheSentenceFile( const char *s, bool preload = false ) = 0;
 	virtual int			PrecacheDecal( const char *name, bool preload = false ) = 0;
-	virtual int			PrecacheGeneric( const char *s, bool preload = false ) = 0;
+	virtual void unused_PrecacheGeneric() = 0;
 
 	// Check's if the name is precached, but doesn't actually precache the name if not...
 	virtual bool		IsModelPrecached( char const *s ) const = 0;
 	virtual bool		IsDecalPrecached( char const *s ) const = 0;
-	virtual bool		IsGenericPrecached( char const *s ) const = 0;
+	virtual void unused_IsGenericPrecached() = 0;
 
 	// Note that sounds are precached using the IEngineSound interface
 
@@ -134,14 +130,14 @@ public:
 	// Get the PVS bits for a specified cluster and copy the bits into outputpvs.  Returns the number of bytes needed to pack the PVS
 	virtual int			GetPVSForCluster( int cluster, int outputpvslength, unsigned char *outputpvs ) = 0;
 	// Check whether the specified origin is inside the specified PVS
-	virtual bool		CheckOriginInPVS( const Vector &org, const unsigned char *checkpvs, int checkpvssize ) = 0;
+	virtual void unused_CheckOriginInPVS() = 0;
 	// Check whether the specified worldspace bounding box is inside the specified PVS
 	virtual bool		CheckBoxInPVS( const Vector &mins, const Vector &maxs, const unsigned char *checkpvs, int checkpvssize ) = 0;
 
 	// Returns the server assigned userid for this player.  Useful for logging frags, etc.  
 	//  returns -1 if the edict couldn't be found in the list of players.
 	virtual int			GetPlayerUserId( const edict_t *e ) = 0; 
-	virtual const char	*GetPlayerNetworkIDString( const edict_t *e ) = 0;
+	virtual void unused_GetPlayerNetworkIDString() = 0;
 
 	// Return the current number of used edict slots
 	virtual int			GetEntityCount( void ) = 0;
@@ -172,16 +168,16 @@ public:
 	virtual void		EmitAmbientSound( int entindex, const Vector &pos, const char *samp, float vol, soundlevel_t soundlevel, int fFlags, int pitch, float delay = 0.0f ) = 0;
 
 	// Fade out the client's volume level toward silence (or fadePercent)
-	virtual void        FadeClientVolume( const edict_t *pEdict, float fadePercent, float fadeOutSeconds, float holdTime, float fadeInSeconds ) = 0;
+	virtual void unused_FadeClientVolume() = 0;
 	
 	// Sentences / sentence groups
-	virtual int			SentenceGroupPick( int groupIndex, char *name, int nameBufLen ) = 0;
-	virtual int			SentenceGroupPickSequential( int groupIndex, char *name, int nameBufLen, int sentenceIndex, int reset ) = 0;
+	virtual void unused_SentenceGroupPick() = 0;
+	virtual void unused_SentenceGroupPickSequential() = 0;
 	virtual int			SentenceIndexFromName( const char *pSentenceName ) = 0;
-	virtual const char *SentenceNameFromIndex( int sentenceIndex ) = 0;
-	virtual int			SentenceGroupIndexFromName( const char *pGroupName ) = 0;
-	virtual const char *SentenceGroupNameFromIndex( int groupIndex ) = 0;
-	virtual float		SentenceLength( int sentenceIndex ) = 0;
+	virtual void unused_SentenceNameFromIndex() = 0;
+	virtual void unused_SentenceGroupIndexFromName() = 0;
+	virtual void unused_SentenceGroupNameFromIndex() = 0;
+	virtual void unused_SentenceLength() = 0;
 
 	// Issue a command to the command parser as if it was typed at the server console.	
 	virtual void		ServerCommand( const char *str ) = 0;
@@ -201,14 +197,14 @@ public:
 	virtual void		Message_DetermineMulticastRecipients( bool usepas, const Vector& origin, CBitVec< ABSOLUTE_PLAYER_LIMIT >& playerbits ) = 0;
 
 	// Begin a message from a server side entity to its client side counterpart (func_breakable glass, e.g.)
-	virtual bf_write	*EntityMessageBegin( int ent_index, ServerClass * ent_class, bool reliable ) = 0;
+	virtual void unused_EntityMessageBegin() = 0;
 	// Begin a usermessage from the server to the client .dll
 	virtual bf_write	*UserMessageBegin( IRecipientFilter *filter, int msg_type ) = 0;
 	// Finish the Entity or UserMessage and dispatch to network layer
 	virtual void		MessageEnd( void ) = 0;
 
 	// Print szMsg to the client console.
-	virtual void		ClientPrintf( edict_t *pEdict, const char *szMsg ) = 0;
+	virtual void unused_ClientPrintf() = 0;
 
 	// SINGLE PLAYER/LISTEN SERVER ONLY (just matching the client .dll api for this)
 	// Prints the formatted string to the notification area of the screen ( down the right hand edge
@@ -225,28 +221,28 @@ public:
 	virtual float		Time( void ) = 0;
 
 	// Set the player's crosshair angle
-	virtual void		CrosshairAngle( const edict_t *pClient, float pitch, float yaw ) = 0;
+	virtual void unused_CrosshairAngle() = 0;
 
 	// Get the current game directory (hl2, tf2, hl1, cstrike, etc.)
 	virtual void        GetGameDir( char *szGetGameDir, int maxlength ) = 0;
 
 	// Used by AI node graph code to determine if .bsp and .ain files are out of date
-	virtual int 		CompareFileTime( const char *filename1, const char *filename2, int *iCompare ) = 0;
+	virtual void unused_CompareFileTime() = 0;
 
 	// Locks/unlocks the network string tables (.e.g, when adding bots to server, this needs to happen).
 	// Be sure to reset the lock after executing your code!!!
-	virtual bool		LockNetworkStringTables( bool lock ) = 0;
+	virtual void unused_LockNetworkStringTables() = 0;
 
 	// Create a bot with the given name.  Returns NULL if fake client can't be created
-	virtual edict_t		*CreateFakeClient( const char *netname ) = 0;
+	virtual void unused_CreateFakeClient() = 0;
 
 	// Get a convar keyvalue for s specified client
 	virtual const char	*GetClientConVarValue( int clientIndex, const char *name ) = 0;
 	
 	// Parse a token from a file
-	virtual const char	*ParseFile( const char *data, char *token, int maxlen ) = 0;
+	virtual void unused_ParseFile() = 0;
 	// Copies a file
-	virtual bool		CopyFile( const char *source, const char *destination ) = 0;
+	virtual void unused_CopyFile() = 0;
 
 	// Reset the pvs, pvssize is the size in bytes of the buffer pointed to by pvs.
 	// This should be called right before any calls to AddOriginToPVS
@@ -261,9 +257,9 @@ public:
 	// Queue a temp entity for transmission
 	virtual void		PlaybackTempEntity( IRecipientFilter& filter, float delay, const void *pSender, const SendTable *pST, int classID  ) = 0;
 	// Given a node number and the specified PVS, return with the node is in the PVS
-	virtual int			CheckHeadnodeVisible( int nodenum, const byte *pvs, int vissize ) = 0;
+	virtual void unused_CheckHeadnodeVisible() = 0;
 	// Using area bits, cheeck whether area1 flows into area2 and vice versa (depends on area portal state)
-	virtual int			CheckAreasConnected( int area1, int area2 ) = 0;
+	virtual void unused_CheckAreasConnected() = 0;
 	// Given an origin, determine which area index the origin is within
 	virtual int			GetArea( const Vector &origin ) = 0;
 	// Get area portal bit set
@@ -274,17 +270,17 @@ public:
 
 	// Save/restore wrapper - FIXME:  At some point we should move this to it's own interface
 	virtual bool		LoadGameState( char const *pMapName, bool createPlayers ) = 0;
-	virtual void		LoadAdjacentEnts( const char *pOldLevel, const char *pLandmarkName ) = 0;
-	virtual void		ClearSaveDir() = 0;
+	virtual void unused_LoadAdjacentEnts() = 0;
+	virtual void unused_ClearSaveDir() = 0;
 
 	// Get the pristine map entity lump string.  (e.g., used by CS to reload the map entities when restarting a round.)
-	virtual const char*	GetMapEntitiesString() = 0;
+	virtual void unused_GetMapEntitiesString() = 0;
 
 	// Text message system -- lookup the text message of the specified name
 	virtual client_textmessage_t *TextMessageGet( const char *pName ) = 0;
 
 	// Print a message to the server log file
-	virtual void		LogPrint( const char *msg ) = 0;
+	virtual void unused_LogPrint() = 0;
 
 	// Builds PVS information for an entity
 	virtual void		BuildEntityClusterList( edict_t *pEdict, PVSInfo_t *pPVSInfo ) = 0;
@@ -295,12 +291,12 @@ public:
 	virtual void TriggerMoved( edict_t *pTriggerEnt, bool testSurroundingBoundsOnly ) = 0;
 	
 	// Create/destroy a custom spatial partition
-	virtual ISpatialPartition *CreateSpatialPartition( const Vector& worldmin, const Vector& worldmax ) = 0;
-	virtual void 		DestroySpatialPartition( ISpatialPartition * ) = 0;
+	virtual void unused_CreateSpatialPartition() = 0;
+	virtual void unused_DestroySpatialPartition() = 0;
 
 	// Draw the brush geometry in the map into the scratch pad.
 	// Flags is currently unused.
-	virtual void		DrawMapToScratchPad( IScratchPad3D *pPad, unsigned long iFlags ) = 0;
+	virtual void unused_DrawMapToScratchPad() = 0;
 
 	// This returns which entities, to the best of the server's knowledge, the client currently knows about.
 	// This is really which entities were in the snapshot that this client last acked.
@@ -311,26 +307,26 @@ public:
 	// Also, this will return NULL if the client doesn't exist or if this client hasn't acked any frames yet.
 	// 
 	// iClientIndex is the CLIENT index, so if you use pPlayer->entindex(), subtract 1.
-	virtual const CBitVec<MAX_EDICTS>* GetEntityTransmitBitsForClient( int iClientIndex ) = 0;
+	virtual void unused_GetEntityTransmitBitsForClient() = 0;
 	
 	// Is the game paused?
 	virtual bool		IsPaused() = 0;
 	
 	// Marks the filename for consistency checking.  This should be called after precaching the file.
-	virtual void		ForceExactFile( const char *s ) = 0;
-	virtual void		ForceModelBounds( const char *s, const Vector &mins, const Vector &maxs ) = 0;
-	virtual void		ClearSaveDirAfterClientLoad() = 0;
+	virtual void unused_ForceExactFile() = 0;
+	virtual void unused_ForceModelBounds() = 0;
+	virtual void unused_ClearSaveDirAfterClientLoad() = 0;
 
 	// Sets a USERINFO client ConVar for a fakeclient
-	virtual void		SetFakeClientConVarValue( edict_t *pEntity, const char *cvar, const char *value ) = 0;
+	virtual void unused_SetFakeClientConVarValue() = 0;
 	
 	// Marks the material (vmt file) for consistency checking.  If the client and server have different
 	// contents for the file, the client's vmt can only use the VertexLitGeneric shader, and can only
 	// contain $baseTexture and $bumpmap vars.
-	virtual void		ForceSimpleMaterial( const char *s ) = 0;
+	virtual void unused_ForceSimpleMaterial() = 0;
 
 	// Is the engine in Commentary mode?
-	virtual int			IsInCommentaryMode( void ) = 0;
+	virtual void unused_IsInCommentaryMode() = 0;
 	
 
 	// Mark some area portals as open/closed. It's more efficient to use this
@@ -338,38 +334,38 @@ public:
 	virtual void		SetAreaPortalStates( const int *portalNumbers, const int *isOpen, int nPortals ) = 0;
 
 	// Called when relevant edict state flags change.
-	virtual void		NotifyEdictFlagsChange( int iEdict ) = 0;
+	virtual void unused_NotifyEdictFlagsChange() = 0;
 	
 	// Only valid during CheckTransmit. Also, only the PVS, networked areas, and
 	// m_pTransmitInfo are valid in the returned strucutre.
-	virtual const CCheckTransmitInfo* GetPrevCheckTransmitInfo( edict_t *pPlayerEdict ) = 0;
+	virtual void unused_GetPrevCheckTransmitInfo() = 0;
 	
 	virtual CSharedEdictChangeInfo* GetSharedEdictChangeInfo() = 0;
 
 	// Tells the engine we can immdiately re-use all edict indices
 	// even though we may not have waited enough time
-	virtual void			AllowImmediateEdictReuse( ) = 0;	
+	virtual void unused_AllowImmediateEdictReuse() = 0;	
 
 	// Returns true if the engine is an internal build. i.e. is using the internal bugreporter.
-	virtual bool		IsInternalBuild( void ) = 0;
+	virtual void unused_IsInternalBuild() = 0;
 
 	virtual IChangeInfoAccessor *GetChangeAccessor( const edict_t *pEdict ) = 0;	
 
 	// Name of most recently load .sav file
-	virtual char const *GetMostRecentlyLoadedFileName() = 0;
-	virtual char const *GetSaveFileName() = 0;
+	virtual void unused_GetMostRecentlyLoadedFileName() = 0;
+	virtual void unused_GetSaveFileName() = 0;
 
 	// Matchmaking
-	virtual void MultiplayerEndGame() = 0;
+	virtual void unused_MultiplayerEndGame() = 0;
 	virtual void ChangeTeam( const char *pTeamName ) = 0;
 
 	// Cleans up the cluster list
 	virtual void CleanUpEntityClusterList( PVSInfo_t *pPVSInfo ) = 0;
 
-	virtual void SetAchievementMgr( IAchievementMgr *pAchievementMgr ) =0;
-	virtual IAchievementMgr *GetAchievementMgr() = 0;
+	virtual void unused_SetAchievementMgr() = 0;
+	virtual void unused_GetAchievementMgr() = 0;
 
-	virtual int	GetAppID() = 0;
+	virtual void unused_GetAppID() = 0;
 	
 	virtual bool IsLowViolence() = 0;
 	
@@ -380,29 +376,29 @@ public:
 	//
 	// Store the return value if you want to match this specific query to the OnQueryCvarValueFinished call.
 	// Returns InvalidQueryCvarCookie if the entity is invalid.
-	virtual QueryCvarCookie_t StartQueryCvarValue( edict_t *pPlayerEntity, const char *pName ) = 0;
+	virtual void unused_StartQueryCvarValue() = 0;
 
-	virtual void InsertServerCommand( const char *str ) = 0;
+	virtual void unused_InsertServerCommand() = 0;
 
 	// Fill in the player info structure for the specified player index (name, model, etc.)
 	virtual bool GetPlayerInfo( int ent_num, player_info_t *pinfo ) = 0;
 
 	// Returns true if this client has been fully authenticated by Steam
-	virtual bool IsClientFullyAuthenticated( edict_t *pEdict ) = 0;
+	virtual void unused_IsClientFullyAuthenticated() = 0;
 
 	// This makes the host run 1 tick per frame instead of checking the system timer to see how many ticks to run in a certain frame.
 	// i.e. it does the same thing timedemo does.
-	virtual void SetDedicatedServerBenchmarkMode( bool bBenchmarkMode ) = 0;
+	virtual void unused_SetDedicatedServerBenchmarkMode() = 0;
 
 	// Methods to set/get a gamestats data container so client & server running in same process can send combined data
-	virtual void SetGamestatsData( CGamestatsData *pGamestatsData ) = 0;
-	virtual CGamestatsData *GetGamestatsData() = 0;
+	virtual void unused_SetGamestatsData() = 0;
+	virtual void unused_GetGamestatsData() = 0;
 
 	// Returns the SteamID of the specified player. It'll be NULL if the player hasn't authenticated yet.
-	virtual const CSteamID	*GetClientSteamID( edict_t *pPlayerEdict ) = 0;
+	virtual void unused_GetClientSteamID() = 0;
 
 	// Returns the SteamID of the game server
-	virtual const CSteamID	*GetGameServerSteamID() = 0;
+	virtual void unused_GetGameServerSteamID() = 0;
 
 	// Send a client command keyvalues
 	// keyvalues are deleted inside the function
@@ -411,23 +407,23 @@ public:
 	// Returns the SteamID of the specified player. It'll be NULL if the player hasn't authenticated yet.
 	virtual const CSteamID	*GetClientSteamIDByPlayerIndex( int entnum ) = 0;
 	// Gets a list of all clusters' bounds.  Returns total number of clusters.
-	virtual int GetClusterCount() = 0;
-	virtual int GetAllClusterBounds( bbox_t *pBBoxList, int maxBBox ) = 0;
+	virtual void unused_GetClusterCount() = 0;
+	virtual void unused_GetAllClusterBounds() = 0;
 
 	// Create a bot with the given name.  Returns NULL if fake client can't be created
-	virtual edict_t		*CreateFakeClientEx( const char *netname, bool bReportFakeClient = true ) = 0;
+	virtual void unused_CreateFakeClientEx() = 0;
 
 	// Server version from the steam.inf, this will be compared to the GC version
-	virtual int GetServerVersion() const = 0;
+	virtual void unused_GetServerVersion() = 0;
 
 	// Get sv.GetTime()
-	virtual float GetServerTime() const = 0;
+	virtual void unused_GetServerTime() = 0;
 
 	// Exposed for server plugin authors
-	virtual IServer *GetIServer() = 0;
+	virtual void unused_GetIServer() = 0;
 
-	virtual bool IsPlayerNameLocked( const edict_t *pEdict ) = 0;
-	virtual bool CanPlayerChangeName( const edict_t *pEdict ) = 0;
+	virtual void unused_IsPlayerNameLocked() = 0;
+	virtual void unused_CanPlayerChangeName() = 0;
 
 	// Find the canonical name of a map, given a partial or non-canonical map name.
 	// Except in the case of an exact match, pMapName is updated to the canonical name of the match.
@@ -450,20 +446,17 @@ public:
 		// about PrepareLevelResources above )
 		eFindMap_PossiblyAvailable
 	};
-	virtual eFindMapResult FindMap( /* in/out */ char *pMapName, int nMapNameMax ) = 0;
+	virtual void unused_FindMap() = 0;
 	
-	virtual void SetPausedForced( bool bPaused, float flDuration = -1.f ) = 0;
+	virtual void unused_SetPausedForced() = 0;
 };
 
-// These only differ in new items added to the end
-typedef IVEngineServer IVEngineServer021;
-typedef IVEngineServer IVEngineServer022;
 
 
-#define INTERFACEVERSION_SERVERGAMEDLL_VERSION_8	"ServerGameDLL008"
-#define INTERFACEVERSION_SERVERGAMEDLL_VERSION_9	"ServerGameDLL009"
-#define INTERFACEVERSION_SERVERGAMEDLL_VERSION_10	"ServerGameDLL010"
-#define INTERFACEVERSION_SERVERGAMEDLL_VERSION_11	"ServerGameDLL011"
+
+
+
+
 #define INTERFACEVERSION_SERVERGAMEDLL				"ServerGameDLL012"
 #define INTERFACEVERSION_SERVERGAMEDLL_INT			12
 
@@ -648,7 +641,6 @@ public:
 	virtual bool			GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc ) = 0;
 };
 
-typedef IServerGameDLL IServerGameDLL008;
 
 //-----------------------------------------------------------------------------
 // Just an interface version name for the random number interface
@@ -768,11 +760,7 @@ abstract_class IUploadGameStats
 {
 public:
 	// Note that this call will block the server until the upload is completed, so use only at levelshutdown if at all.
-	virtual bool UploadGameStats( 
-		char const *mapname,				// Game map name
-		unsigned int blobversion,			// Version of the binary blob data
-		unsigned int blobsize,				// Size in bytes of blob data
-		const void *pvBlobData ) = 0;		// Pointer to the blob data.
+	virtual void unused_UploadGameStats() = 0;		// Pointer to the blob data.
 
 	// Call when created to init the CSER connection
 	virtual void InitConnection( void ) = 0;
@@ -781,7 +769,7 @@ public:
 	virtual void UpdateConnection( void ) = 0;
 
 	// If user has disabled stats tracking, do nothing
-	virtual bool IsGameStatsLoggingEnabled() = 0;
+	virtual void unused_IsGameStatsLoggingEnabled() = 0;
 
 	// Gets a non-personally identifiable unique ID for this steam user, used for tracking total gameplay time across
 	//  multiple stats sessions, but isn't trackable back to their Steam account or id.
@@ -789,22 +777,14 @@ public:
 	virtual void GetPseudoUniqueId( char *buf, size_t bufsize ) = 0;
 
 	// For determining general % of users running using cyber cafe accounts...
-	virtual bool IsCyberCafeUser( void ) = 0;
+	virtual void unused_IsCyberCafeUser() = 0;
 
 	// Only works in single player
-	virtual bool IsHDREnabled( void ) = 0;
+	virtual void unused_IsHDREnabled() = 0;
 };
 
-#define INTERFACEVERSION_PLUGINHELPERSCHECK		"PluginHelpersCheck001"
 
-//-----------------------------------------------------------------------------
-// Purpose: allows the game dll to control which plugin functions can be run
-//-----------------------------------------------------------------------------
-abstract_class IPluginHelpersCheck
-{
-public:
-	virtual bool CreateMessage( const char *plugin, edict_t *pEntity, DIALOG_TYPE type, KeyValues *data ) = 0;
-};
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Interface exposed from the client .dll back to the engine for specifying shared .dll IAppSystems (e.g., ISoundEmitterSystem)
@@ -837,12 +817,12 @@ public:
 abstract_class IServerGCLobby
 {
 public:
-	virtual bool HasLobby() const = 0;
-	virtual bool SteamIDAllowedToConnect( const CSteamID &steamId ) const = 0;
-	virtual void UpdateServerDetails(void) = 0;
-	virtual bool ShouldHibernate() = 0;
+	virtual void unused_HasLobby() = 0;
+	virtual void unused_SteamIDAllowedToConnect() = 0;
+	virtual void unused_UpdateServerDetails() = 0;
+	virtual void unused_ShouldHibernate() = 0;
 
-	virtual bool MatchAllowsNameChanges() = 0;
+	virtual void unused_MatchAllowsNameChanges() = 0;
 	virtual bool GetPlayerGCMatchName( const CSteamID &steamId, char *pszOutGCMatchName, size_t nGCMatchNameLen ) = 0;
 };
 

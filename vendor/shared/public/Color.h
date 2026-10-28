@@ -46,13 +46,6 @@ public:
 		_color[3] = (unsigned char)_a;
 	}
 
-	void GetColor(int &_r, int &_g, int &_b, int &_a) const
-	{
-		_r = _color[0];
-		_g = _color[1];
-		_b = _color[2];
-		_a = _color[3];
-	}
 
 	void SetRawColor( int color32 )
 	{

@@ -54,7 +54,6 @@ public:
 	virtual float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f );
 
 private:
-	int		GenerateRandomNumber();
 
 	int m_idum;
 	int m_iy;
@@ -74,8 +73,6 @@ public:
 	// installed global random number generator
 	CGaussianRandomStream( IUniformRandomStream *pUniformStream = NULL );
 
-	// Attaches to a random uniform stream
-	void	AttachToStream( IUniformRandomStream *pUniformStream = NULL );
 
 	// Generates random numbers
 	float	RandomFloat( float flMean = 0.0f, float flStdDev = 1.0f );
@@ -95,7 +92,6 @@ VSTDLIB_INTERFACE void	RandomSeed( int iSeed );
 VSTDLIB_INTERFACE float	RandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f );
 VSTDLIB_INTERFACE float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f );
 VSTDLIB_INTERFACE int	RandomInt( int iMinVal, int iMaxVal );
-VSTDLIB_INTERFACE float	RandomGaussianFloat( float flMean = 0.0f, float flStdDev = 1.0f );
 
 //-----------------------------------------------------------------------------
 // IUniformRandomStream interface for free functions
@@ -109,10 +105,6 @@ public:
 	virtual float	RandomFloatExp( float flMinVal, float flMaxVal, float flExponent ) OVERRIDE	{ return ::RandomFloatExp( flMinVal, flMaxVal, flExponent ); }
 };
 
-//-----------------------------------------------------------------------------
-// Installs a global random number generator, which will affect the Random functions above
-//-----------------------------------------------------------------------------
-VSTDLIB_INTERFACE void	InstallUniformRandomStream( IUniformRandomStream *pStream );
 
 
 #pragma warning(pop)

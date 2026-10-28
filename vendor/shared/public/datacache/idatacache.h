@@ -43,7 +43,7 @@ typedef uintp DataCacheClientID_t;
 //---------------------------------------------------------
 FORWARD_DECLARE_HANDLE( memhandle_t );
 typedef memhandle_t DataCacheHandle_t;
-#define DC_INVALID_HANDLE ((DataCacheHandle_t)0)
+
 
 //---------------------------------------------------------
 // Cache Limits
@@ -84,16 +84,6 @@ struct DataCacheStatus_t
 	unsigned nFindHits;
 };
 
-//---------------------------------------------------------
-// Cache options
-//---------------------------------------------------------
-enum DataCacheOptions_t
-{
-	DC_TRACE_ACTIVITY	= (1 << 0),
-	DC_FORCE_RELOCATE	= (1 << 1),
-	DC_ALWAYS_MISS		= (1 << 2),
-	DC_VALIDATE			= (1 << 3),
-};
 
 
 //---------------------------------------------------------
@@ -144,8 +134,6 @@ struct DataCacheNotification_t
 
 //---------------------------------------------------------
 
-const int DC_MAX_CLIENT_NAME = 15;
-const int DC_MAX_ITEM_NAME = 511;
 
 //---------------------------------------------------------
 // Result codes
@@ -189,14 +177,14 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Controls cache size & options
 	//--------------------------------------------------------
-	virtual void SetLimits( const DataCacheLimits_t &limits ) = 0;
-	virtual void SetOptions( unsigned options ) = 0;
+	virtual void unused_SetLimits() = 0;
+	virtual void unused_SetOptions() = 0;
 
 
 	//--------------------------------------------------------
 	// Purpose: Get the current state of the section
 	//--------------------------------------------------------
-	virtual void GetStatus( DataCacheStatus_t *pStatus, DataCacheLimits_t *pLimits = NULL ) = 0;
+	virtual void unused_GetStatus() = 0;
 
 
 	//--------------------------------------------------------
@@ -226,7 +214,7 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Returns if the data is currently in memory, but does *not* change its location in the LRU
 	//--------------------------------------------------------
-	virtual bool IsPresent( DataCacheHandle_t handle ) = 0;
+	virtual void unused_IsPresent() = 0;
 
 
 	//--------------------------------------------------------
@@ -251,18 +239,18 @@ public:
 	// Purpose: "Frame locking" (not game frame). A crude way to manage locks over relatively 
 	//			short periods. Does not affect normal locks/unlocks
 	//--------------------------------------------------------
-	virtual int BeginFrameLocking() = 0;
-	virtual bool IsFrameLocking() = 0;
-	virtual void *FrameLock( DataCacheHandle_t handle ) = 0;
-	virtual int EndFrameLocking() = 0;
-	virtual int *GetFrameUnlockCounterPtr() = 0;
+	virtual void unused_BeginFrameLocking() = 0;
+	virtual void unused_IsFrameLocking() = 0;
+	virtual void unused_FrameLock() = 0;
+	virtual void unused_EndFrameLocking() = 0;
+	virtual void unused_GetFrameUnlockCounterPtr() = 0;
 
 
 	//--------------------------------------------------------
 	// Purpose: Lock management, not for the feint of heart
 	//--------------------------------------------------------
-	virtual int GetLockCount( DataCacheHandle_t handle ) = 0;
-	virtual int BreakLock( DataCacheHandle_t handle ) = 0;
+	virtual void unused_GetLockCount() = 0;
+	virtual void unused_BreakLock() = 0;
 
 
 	//--------------------------------------------------------
@@ -274,7 +262,7 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Explicitly mark an item as "least recently used". 
 	//--------------------------------------------------------
-	virtual bool Age( DataCacheHandle_t handle ) = 0;
+	virtual void unused_Age() = 0;
 
 
 	//--------------------------------------------------------
@@ -292,13 +280,13 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Output the state of the section
 	//--------------------------------------------------------
-	virtual void OutputReport( DataCacheReportType_t reportType = DC_SUMMARY_REPORT ) = 0;
+	virtual void unused_OutputReport() = 0;
 
 	//--------------------------------------------------------
 	// Purpose: Updates the size used by a specific item (locks the item, kicks
 	//  other items out to make room as necessary, unlocks the item).
 	//--------------------------------------------------------
-	virtual void UpdateSize( DataCacheHandle_t handle, unsigned int nNewSize ) = 0;
+	virtual void unused_UpdateSize() = 0;
 
 
 	//--------------------------------------------------------
@@ -375,14 +363,14 @@ public:
 	// Purpose: Controls cache size.
 	//--------------------------------------------------------
 	virtual void SetSize( int nMaxBytes ) = 0;
-	virtual void SetOptions( unsigned options ) = 0;
-	virtual void SetSectionLimits( const char *pszSectionName, const DataCacheLimits_t &limits ) = 0;
+	virtual void unused_SetOptions() = 0;
+	virtual void unused_SetSectionLimits() = 0;
 
 
 	//--------------------------------------------------------
 	// Purpose: Get the current state of the cache
 	//--------------------------------------------------------
-	virtual void GetStatus( DataCacheStatus_t *pStatus, DataCacheLimits_t *pLimits = NULL ) = 0;
+	virtual void unused_GetStatus() = 0;
 
 
 	//--------------------------------------------------------
@@ -401,7 +389,7 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Find a section of the cache
 	//--------------------------------------------------------
-	virtual IDataCacheSection *FindSection( const char *pszClientName ) = 0;
+	virtual void unused_FindSection() = 0;
 
 
 	//--------------------------------------------------------
@@ -419,7 +407,7 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Output the state of the cache
 	//--------------------------------------------------------
-	virtual void OutputReport( DataCacheReportType_t reportType = DC_SUMMARY_REPORT, const char *pszSection = NULL ) = 0;
+	virtual void unused_OutputReport() = 0;
 };
 
 //-----------------------------------------------------------------------------

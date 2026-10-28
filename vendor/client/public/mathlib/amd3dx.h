@@ -890,10 +890,10 @@
 #define PINSRWM(dst,src,off,msk) InjMMXMOps(dst,src,off,PINSRW) _asm _emit msk
 #define PSHUFWM(dst,src,off,msk) InjMMXMOps(dst,src,off,PSHUFW) _asm _emit msk
 #define MOVNTQM(dst,src,off)     InjMMXMOps(src,dst,off,MOVNTQ)
-#define PREFETCHNTAM(mem,off)    InjMMXMOps(mm0,mem,off,PREFETCHT)
-#define PREFETCHT0M(mem,off)     InjMMXMOps(mm1,mem,off,PREFETCHT)
-#define PREFETCHT1M(mem,off)     InjMMXMOps(mm2,mem,off,PREFETCHT)
-#define PREFETCHT2M(mem,off)     InjMMXMOps(mm3,mem,off,PREFETCHT)
+
+
+
+
 
 
 #else
@@ -1112,76 +1112,76 @@
 #define prefetch(src)           PREFETCH(src)
 #define prefetchw(src)          PREFETCHW(src)
 
-#define prefetchm(src,off)      PREFETCHM(src,off)
-#define prefetchmlong(src,off)	PREFETCHMLONG(src,off)
-#define prefetchwm(src,off)     PREFETCHWM(src,off)
-#define prefetchwmlong(src,off)	 PREFETCHWMLONG(src,off)
 
-#define pfnacc(dst,src)         PFNACC(dst,src)
-#define pfpnacc(dst,src)        PFPNACC(dst,src)
-#define pswapd(dst,src)         PSWAPD(dst,src)
-#define pminub(dst,src)         PMINUB(dst,src)
-#define pmaxub(dst,src)         PMAXUB(dst,src)
-#define pminsw(dst,src)         PMINSW(dst,src)
-#define pmaxsw(dst,src)         PMAXSW(dst,src)
-#define pmulhuw(dst,src)        PMULHUW(dst,src)
-#define pavgb(dst,src)          PAVGB(dst,src)
-#define pavgw(dst,src)          PAVGW(dst,src)
-#define psadbw(dst,src)         PSADBW(dst,src)
-#define pmovmskb(dst,src)       PMOVMSKB(dst,src)
-#define pmaskmovq(dst,src)      PMASKMOVQ(dst,src)
-#define pinsrw(dst,src,msk)     PINSRW(dst,src,msk)
-#define pextrw(dst,src,msk)     PEXTRW(dst,src,msk)
-#define pshufw(dst,src,msk)     PSHUFW(dst,src,msk)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #define movntq(dst,src)         MOVNTQ(dst,src)
-#define prefetchnta(mem)        PREFETCHNTA(mem)
-#define prefetcht0(mem)         PREFETCHT0(mem)  
-#define prefetcht1(mem)         PREFETCHT1(mem)  
-#define prefetcht2(mem)         PREFETCHT2(mem)  
+
+  
+  
+  
 
 
-#define pavgusbm(dst,src,off)   PAVGUSBM(dst,src,off)
-#define pf2idm(dst,src,off)     PF2IDM(dst,src,off)
-#define pfaccm(dst,src,off)     PFACCM(dst,src,off)
-#define pfaddm(dst,src,off)     PFADDM(dst,src,off)
-#define pfcmpeqm(dst,src,off)   PFCMPEQM(dst,src,off)
-#define pfcmpgem(dst,src,off)   PFCMPGEM(dst,src,off)
-#define pfcmpgtm(dst,src,off)   PFCMPGTM(dst,src,off)
-#define pfmaxm(dst,src,off)     PFMAXM(dst,src,off)
-#define pfminm(dst,src,off)     PFMINM(dst,src,off)
-#define pfmulm(dst,src,off)     PFMULM(dst,src,off)
-#define pfrcpm(dst,src,off)     PFRCPM(dst,src,off)
-#define pfrcpit1m(dst,src,off)  PFRCPIT1M(dst,src,off)
-#define pfrcpit2m(dst,src,off)  PFRCPIT2M(dst,src,off)
-#define pfrsqrtm(dst,src,off)   PFRSQRTM(dst,src,off)
-#define pfrsqit1m(dst,src,off)  PFRSQIT1M(dst,src,off)
-#define pfsubm(dst,src,off)     PFSUBM(dst,src,off)
-#define pfsubrm(dst,src,off)    PFSUBRM(dst,src,off)
-#define pi2fdm(dst,src,off)     PI2FDM(dst,src,off)
-#define pmulhrwm(dst,src,off)   PMULHRWM(dst,src,off)
-#define cpuid                   CPUID
-#define sfence                  SFENCE
 
-#define pfnaccm(dst,src,off)    PFNACCM(dst,src,off)
-#define pfpnaccm(dst,src,off)   PFPNACCM(dst,src,off)
-#define pswapdm(dst,src,off)    PSWAPDM(dst,src,off)
-#define pminubm(dst,src,off)    PMINUBM(dst,src,off)
-#define pmaxubm(dst,src,off)    PMAXUBM(dst,src,off)
-#define pminswm(dst,src,off)    PMINSWM(dst,src,off)
-#define pmaxswm(dst,src,off)    PMAXSWM(dst,src,off)
-#define pmulhuwm(dst,src,off)   PMULHUWM(dst,src,off)
-#define pavgbm(dst,src,off)     PAVGBM(dst,src,off)
-#define pavgwm(dst,src,off)     PAVGWM(dst,src,off)
-#define psadbwm(dst,src,off)    PSADBWM(dst,src,off)
-#define pmovmskbm(dst,src,off)  PMOVMSKBM(dst,src,off)
-#define pmaskmovqm(dst,src,off) PMASKMOVQM(dst,src,off)
-#define pinsrwm(dst,src,off,msk)    PINSRWM(dst,src,off,msk)
-#define pextrwm(dst,src,off,msk)    PEXTRWM(dst,src,off,msk)
-#define pshufwm(dst,src,off,msk)    PSHUFWM(dst,src,off,msk)
-#define movntqm(dst,src,off)    MOVNTQM(dst,src,off)
-#define prefetchntam(mem,off)   PREFETCHNTA(mem,off)
-#define prefetcht0m(mem,off)    PREFETCHT0(mem,off)  
-#define prefetcht1m(mem,off)    PREFETCHT1(mem,off)  
-#define prefetcht2m(mem,off)    PREFETCHT2(mem,off)  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  
 
 #endif

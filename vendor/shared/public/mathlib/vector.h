@@ -55,7 +55,7 @@
 #endif
 #endif
 
-#define VecToString(v)	(static_cast<const char *>(CFmtStr("(%f, %f, %f)", (v).x, (v).y, (v).z))) // ** Note: this generates a temporary, don't hold reference!
+ // ** Note: this generates a temporary, don't hold reference!
 
 class VectorByValue;
 
@@ -83,7 +83,6 @@ public:
 
 	// Got any nasty NAN's?
 	bool IsValid() const;
-	void Invalidate();
 
 	// array access...
 	vec_t operator[](int i) const;
@@ -93,9 +92,6 @@ public:
 	vec_t* Base();
 	vec_t const* Base() const;
 
-	// Cast to Vector2D...
-	Vector2D& AsVector2D();
-	const Vector2D& AsVector2D() const;
 
 	// Initialization methods
 	void Random( vec_t minVal, vec_t maxVal );
@@ -115,8 +111,6 @@ public:
 	FORCEINLINE Vector&	operator+=(float fl) ; ///< broadcast add
 	FORCEINLINE Vector&	operator-=(float fl) ; ///< broadcast sub			
 
-// negate the vector components
-	void	Negate(); 
 
 	// Get the vector's magnitude.
 	inline vec_t	Length() const;
@@ -128,21 +122,9 @@ public:
 		return (x*x + y*y + z*z);		
 	}
 
-	// return true if this vector is (0,0,0) within tolerance
-	bool IsZero( float tolerance = 0.01f ) const
-	{
-		return (x > -tolerance && x < tolerance &&
-				y > -tolerance && y < tolerance &&
-				z > -tolerance && z < tolerance);
-	}
 
 	vec_t	NormalizeInPlace();
-	Vector	Normalized() const;
-	bool	IsLengthGreaterThan( float val ) const;
-	bool	IsLengthLessThan( float val ) const;
 
-	// check if a vector is within the box defined by two other vectors
-	FORCEINLINE bool WithinAABox( Vector const &boxmin, Vector const &boxmax);
  
 	// Get the distance from this vector to the other one.
 	vec_t	DistTo(const Vector &vOther) const;
@@ -161,8 +143,6 @@ public:
 		return delta.LengthSqr();
 	}
 
-	// Copy
-	void	CopyToArray(float* rgfl) const;	
 
 	// Multiply, add, and assign to this (ie: *this = a + b * scalar). This
 	// is about 12% faster than the actual vector equation (because it's done per-component
@@ -175,9 +155,6 @@ public:
 	// assignment
 	Vector& operator=(const Vector &vOther);
 
-	// 2d
-	vec_t	Length2D(void) const;					
-	vec_t	Length2DSqr(void) const;					
 
 	operator VectorByValue &()				{ return *((VectorByValue *)(this)); }
 	operator const VectorByValue &() const	{ return *((const VectorByValue *)(this)); }
@@ -232,8 +209,6 @@ public:
 
 
 #ifdef USE_M64S
-	__m64 &AsM64() { return *(__m64*)&x; }
-	const __m64 &AsM64() const { return *(const __m64*)&x; } 
 #endif
 
 	// Setter
@@ -289,8 +264,6 @@ public:
 	void Init(int ix = 0, int iy = 0, int iz = 0, int iw = 0 );
 
 #ifdef USE_M64S
-	__m64 &AsM64() { return *(__m64*)&x; }
-	const __m64 &AsM64() const { return *(const __m64*)&x; } 
 #endif
 
 	// Setter
@@ -448,45 +421,16 @@ FORCEINLINE vec_t DotProduct(const Vector& a, const Vector& b);
 // Cross product
 void CrossProduct(const Vector& a, const Vector& b, Vector& result );
 
-// Store the min or max of each of x, y, and z into the result.
-void VectorMin( const Vector &a, const Vector &b, Vector &result );
-void VectorMax( const Vector &a, const Vector &b, Vector &result );
 
 // Linearly interpolate between two vectors
 void VectorLerp(const Vector& src1, const Vector& src2, vec_t t, Vector& dest );
-Vector VectorLerp(const Vector& src1, const Vector& src2, vec_t t );
 
-FORCEINLINE Vector ReplicateToVector( float x )
-{
-	return Vector( x, x, x );
-}
 
-// check if a point is in the field of a view of an object. supports up to 180 degree fov.
-FORCEINLINE bool PointWithinViewAngle( Vector const &vecSrcPosition, 
-									   Vector const &vecTargetPosition, 
-									   Vector const &vecLookDirection, float flCosHalfFOV )
-{
-	Vector vecDelta = vecTargetPosition - vecSrcPosition;
-	float cosDiff = DotProduct( vecLookDirection, vecDelta );
-
-	if ( cosDiff < 0 ) 
-		return false;
-
-	float flLen2 = vecDelta.LengthSqr();
-
-	// a/sqrt(b) > c  == a^2 > b * c ^2
-	return ( cosDiff * cosDiff > flLen2 * flCosHalfFOV * flCosHalfFOV );
-	
-}
 
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-// Cross product
-Vector CrossProduct( const Vector& a, const Vector& b );
 
-// Random vector creation
-Vector RandomVector( vec_t minVal, vec_t maxVal );
 
 #endif
 
@@ -617,15 +561,7 @@ inline vec_t const* Vector::Base() const
 // Cast to Vector2D...
 //-----------------------------------------------------------------------------
 
-inline Vector2D& Vector::AsVector2D()
-{
-	return *(Vector2D*)this;
-}
 
-inline const Vector2D& Vector::AsVector2D() const
-{
-	return *(const Vector2D*)this;
-}
 
 //-----------------------------------------------------------------------------
 // IsValid?
@@ -640,14 +576,6 @@ inline bool Vector::IsValid() const
 // Invalidate
 //-----------------------------------------------------------------------------
 
-inline void Vector::Invalidate()
-{
-//#ifdef _DEBUG
-//#ifdef VECTOR_PARANOIA
-	x = y = z = VEC_T_NAN;
-//#endif
-//#endif
-}
 
 //-----------------------------------------------------------------------------
 // comparison
@@ -680,23 +608,12 @@ FORCEINLINE void VectorCopy( const Vector& src, Vector& dst )
 	dst.z = src.z;
 }
 
-inline void	Vector::CopyToArray(float* rgfl) const		
-{ 
-	Assert( rgfl );
-	CHECK_VALID(*this);
-	rgfl[0] = x, rgfl[1] = y, rgfl[2] = z; 
-}
 
 //-----------------------------------------------------------------------------
 // standard math operations
 //-----------------------------------------------------------------------------
 // #pragma message("TODO: these should be SSE")
 
-inline void Vector::Negate()
-{ 
-	CHECK_VALID(*this);
-	x = -x; y = -y; z = -z; 
-} 
 
 FORCEINLINE  Vector& Vector::operator+=(const Vector& v)	
 { 
@@ -1161,12 +1078,6 @@ inline void VectorLerp(const Vector& src1, const Vector& src2, vec_t t, Vector& 
 	dest.z = src1.z + (src2.z - src1.z) * t;
 }
 
-inline Vector VectorLerp(const Vector& src1, const Vector& src2, vec_t t )
-{
-	Vector result;
-	VectorLerp( src1, src2, t, result );
-	return result;
-}
 
 //-----------------------------------------------------------------------------
 // Temporary storage for vector results so const Vector& results can be returned
@@ -1221,12 +1132,6 @@ inline void CrossProduct(const Vector& a, const Vector& b, Vector& result )
 	result.z = a.x*b.y - a.y*b.x;
 }
 
-inline vec_t DotProductAbs( const Vector &v0, const Vector &v1 )
-{
-	CHECK_VALID(v0);
-	CHECK_VALID(v1);
-	return FloatMakePositive(v0.x*v1.x) + FloatMakePositive(v0.y*v1.y) + FloatMakePositive(v0.z*v1.z);
-}
 
 inline vec_t DotProductAbs( const Vector &v0, const float *v1 )
 {
@@ -1276,15 +1181,6 @@ inline vec_t VectorNormalize( Vector& v )
 */
 
 
-// check a point against a box
-bool Vector::WithinAABox( Vector const &boxmin, Vector const &boxmax)
-{
-	return ( 
-		( x >= boxmin.x ) && ( x <= boxmax.x) &&
-		( y >= boxmin.y ) && ( y <= boxmax.y) &&
-		( z >= boxmin.z ) && ( z <= boxmax.z)
-		);
-}
 
 //-----------------------------------------------------------------------------
 // Get the distance from this vector to the other one 
@@ -1310,35 +1206,8 @@ inline bool VectorsAreEqual( const Vector& src1, const Vector& src2, float toler
 }
 
 
-//-----------------------------------------------------------------------------
-// Computes the closest point to vecTarget no farther than flMaxDist from vecStart
-//-----------------------------------------------------------------------------
-inline void ComputeClosestPoint( const Vector& vecStart, float flMaxDist, const Vector& vecTarget, Vector *pResult )
-{
-	Vector vecDelta;
-	VectorSubtract( vecTarget, vecStart, vecDelta );
-	float flDistSqr = vecDelta.LengthSqr();
-	if ( flDistSqr <= flMaxDist * flMaxDist )
-	{
-		*pResult = vecTarget;
-	}
-	else
-	{
-		vecDelta /= FastSqrt( flDistSqr );
-		VectorMA( vecStart, flMaxDist, vecDelta, *pResult );
-	}
-}
 
 
-//-----------------------------------------------------------------------------
-// Takes the absolute value of a vector
-//-----------------------------------------------------------------------------
-inline void VectorAbs( const Vector& src, Vector& dst )
-{
-	dst.x = FloatMakePositive(src.x);
-	dst.y = FloatMakePositive(src.y);
-	dst.z = FloatMakePositive(src.z);
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1438,67 +1307,14 @@ inline Vector Vector::Cross(const Vector& vOther) const
 // 2D
 //-----------------------------------------------------------------------------
 
-inline vec_t Vector::Length2D(void) const
-{ 
-	return (vec_t)FastSqrt(x*x + y*y); 
-}
 
-inline vec_t Vector::Length2DSqr(void) const
-{ 
-	return (x*x + y*y); 
-}
 
-inline Vector CrossProduct(const Vector& a, const Vector& b) 
-{ 
-	return Vector( a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x ); 
-}
 
-inline void VectorMin( const Vector &a, const Vector &b, Vector &result )
-{
-	result.x = MIN(a.x, b.x);
-	result.y = MIN(a.y, b.y);
-	result.z = MIN(a.z, b.z);
-}
 
-inline void VectorMax( const Vector &a, const Vector &b, Vector &result )
-{
-	result.x = MAX(a.x, b.x);
-	result.y = MAX(a.y, b.y);
-	result.z = MAX(a.z, b.z);
-}
 
-inline Vector VectorMin( const Vector &a, const Vector &b )
-{
-	Vector result;
-	result.x = fpmin(a.x, b.x);
-	result.y = fpmin(a.y, b.y);
-	result.z = fpmin(a.z, b.z);
-	return result;
-}
 
-inline Vector VectorMax( const Vector &a, const Vector &b )
-{
-	Vector result;
-	result.x = fpmax(a.x, b.x);
-	result.y = fpmax(a.y, b.y);
-	result.z = fpmax(a.z, b.z);
-	return result;
-}
 
-inline float ComputeVolume( const Vector &vecMins, const Vector &vecMaxs )
-{
-	Vector vecDelta;
-	VectorSubtract( vecMaxs, vecMins, vecDelta );
-	return DotProduct( vecDelta, vecDelta );
-}
 
-// Get a random vector.
-inline Vector RandomVector( float minVal, float maxVal )
-{
-	Vector vRandom;
-	vRandom.Random( minVal, maxVal );
-	return vRandom;
-}
 
 #endif //slow
 
@@ -1543,12 +1359,6 @@ typedef Vector AngularImpulse;
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline AngularImpulse RandomAngularImpulse( float minVal, float maxVal )
-{
-	AngularImpulse	angImp;
-	angImp.Random( minVal, maxVal );
-	return angImp;
-}
 
 #endif
 
@@ -1577,7 +1387,6 @@ public:
 	void Init(vec_t ix=0.0f, vec_t iy=0.0f, vec_t iz=0.0f, vec_t iw=0.0f)	{ x = ix; y = iy; z = iz; w = iw; }
 
 	bool IsValid() const;
-	void Invalidate();
 
 	bool operator==( const Quaternion &src ) const;
 	bool operator!=( const Quaternion &src ) const;
@@ -1623,19 +1432,6 @@ inline bool Quaternion::operator!=( const Quaternion &src ) const
 }
 
 
-//-----------------------------------------------------------------------------
-// Quaternion equality with tolerance
-//-----------------------------------------------------------------------------
-inline bool QuaternionsAreEqual( const Quaternion& src1, const Quaternion& src2, float tolerance )
-{
-	if (FloatMakePositive(src1.x - src2.x) > tolerance)
-		return false;
-	if (FloatMakePositive(src1.y - src2.y) > tolerance)
-		return false;
-	if (FloatMakePositive(src1.z - src2.z) > tolerance)
-		return false;
-	return (FloatMakePositive(src1.w - src2.w) <= tolerance);
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1696,10 +1492,7 @@ public:
 	// Initialization
 	void Init(vec_t ix=0.0f, vec_t iy=0.0f, vec_t iz=0.0f)	{ x = ix; y = iy; z = iz; }
 
-	//	conversion to qangle
-	QAngle ToQAngle( void ) const;
 	bool IsValid() const;
-	void Invalidate();
 
 	// array access...
 	vec_t operator[](int i) const;
@@ -1724,50 +1517,19 @@ inline bool Quaternion::IsValid() const
 	return IsFinite(x) && IsFinite(y) && IsFinite(z) && IsFinite(w);
 }
 
-inline void Quaternion::Invalidate()
-{
-//#ifdef _DEBUG
-//#ifdef VECTOR_PARANOIA
-	x = y = z = w = VEC_T_NAN;
-//#endif
-//#endif
-}
 
 inline RadianEuler::RadianEuler(Quaternion const &q)
 {
 	QuaternionAngles( q, *this );
 }
 
-inline void VectorCopy( RadianEuler const& src, RadianEuler &dst )
-{
-	CHECK_VALID(src);
-	dst.x = src.x;
-	dst.y = src.y;
-	dst.z = src.z;
-}
 
-inline void VectorScale( RadianEuler const& src, float b, RadianEuler &dst )
-{
-	CHECK_VALID(src);
-	Assert( IsFinite(b) );
-	dst.x = src.x * b;
-	dst.y = src.y * b;
-	dst.z = src.z * b;
-}
 
 inline bool RadianEuler::IsValid() const
 {
 	return IsFinite(x) && IsFinite(y) && IsFinite(z);
 }
 
-inline void RadianEuler::Invalidate()
-{
-//#ifdef _DEBUG
-//#ifdef VECTOR_PARANOIA
-	x = y = z = VEC_T_NAN;
-//#endif
-//#endif
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1816,7 +1578,6 @@ public:
 
 	// Got any nasty NAN's?
 	bool IsValid() const;
-	void Invalidate();
 
 	// array access...
 	vec_t operator[](int i) const;
@@ -1889,14 +1650,6 @@ inline void VectorAdd( const QAngle& a, const QAngle& b, QAngle& result )
 	result.z = a.z + b.z;
 }
 
-inline void VectorMA( const QAngle &start, float scale, const QAngle &direction, QAngle &dest )
-{
-	CHECK_VALID(start);
-	CHECK_VALID(direction);
-	dest.x = start.x + scale * direction.x;
-	dest.y = start.y + scale * direction.y;
-	dest.z = start.z + scale * direction.z;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1936,13 +1689,6 @@ inline void QAngle::Random( vec_t minVal, vec_t maxVal )
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline QAngle RandomAngle( float minVal, float maxVal )
-{
-	Vector vRandom;
-	vRandom.Random( minVal, maxVal );
-	QAngle ret( vRandom.x, vRandom.y, vRandom.z );
-	return ret;
-}
 
 #endif
 
@@ -1958,13 +1704,6 @@ inline RadianEuler::RadianEuler(QAngle const &angles)
 
 
 
-inline QAngle RadianEuler::ToQAngle( void) const
-{
-	return QAngle(
-		y * 180.f / 3.14159265358979323846f,
-		z * 180.f / 3.14159265358979323846f,
-		x * 180.f / 3.14159265358979323846f );
-}
 
 
 //-----------------------------------------------------------------------------
@@ -2020,14 +1759,6 @@ inline bool QAngle::IsValid() const
 // Invalidate
 //-----------------------------------------------------------------------------
 
-inline void QAngle::Invalidate()
-{
-//#ifdef _DEBUG
-//#ifdef VECTOR_PARANOIA
-	x = y = z = VEC_T_NAN;
-//#endif
-//#endif
-}
 
 //-----------------------------------------------------------------------------
 // comparison
@@ -2047,16 +1778,6 @@ inline bool QAngle::operator!=( const QAngle& src ) const
 }
 
 
-//-----------------------------------------------------------------------------
-// Copy
-//-----------------------------------------------------------------------------
-inline void VectorCopy( const QAngle& src, QAngle& dst )
-{
-	CHECK_VALID(src);
-	dst.x = src.x;
-	dst.y = src.y;
-	dst.z = src.z;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -2116,17 +1837,6 @@ inline vec_t QAngle::LengthSqr( ) const
 }
 	
 
-//-----------------------------------------------------------------------------
-// Vector equality with tolerance
-//-----------------------------------------------------------------------------
-inline bool QAnglesAreEqual( const QAngle& src1, const QAngle& src2, float tolerance = 0.0f )
-{
-	if (FloatMakePositive(src1.x - src2.x) > tolerance)
-		return false;
-	if (FloatMakePositive(src1.y - src2.y) > tolerance)
-		return false;
-	return (FloatMakePositive(src1.z - src2.z) <= tolerance);
-}
 
 
 //-----------------------------------------------------------------------------
@@ -2185,22 +1895,7 @@ inline QAngle operator*(float fl, const QAngle& v)
 #endif // VECTOR_NO_SLOW_OPERATIONS
 
 
-//-----------------------------------------------------------------------------
-// NOTE: These are not completely correct.  The representations are not equivalent
-// unless the QAngle represents a rotational impulse along a coordinate axis (x,y,z)
-inline void QAngleToAngularImpulse( const QAngle &angles, AngularImpulse &impulse )
-{
-	impulse.x = angles.z;
-	impulse.y = angles.x;
-	impulse.z = angles.y;
-}
 
-inline void AngularImpulseToQAngle( const AngularImpulse &impulse, QAngle &angles )
-{
-	angles.x = impulse.y;
-	angles.y = impulse.z;
-	angles.z = impulse.x;
-}
 
 #if !defined( _X360 )
 
@@ -2215,10 +1910,6 @@ FORCEINLINE vec_t InvRSquared( float const *v )
 #endif
 }
 
-FORCEINLINE vec_t InvRSquared( const Vector &v )
-{
-	return InvRSquared(&v.x);
-}
 
 #if defined( PLATFORM_INTEL )
 FORCEINLINE void _SSE_RSqrtInline( float a, float* out )
@@ -2251,11 +1942,6 @@ FORCEINLINE float VectorNormalize( Vector& vec )
 #endif
 }
 
-// FIXME: Obsolete version of VectorNormalize, once we remove all the friggin float*s
-FORCEINLINE float VectorNormalize( float * v )
-{
-	return VectorNormalize(*(reinterpret_cast<Vector *>(v)));
-}
 
 FORCEINLINE void VectorNormalizeFast( Vector &vec )
 {
@@ -2313,22 +1999,8 @@ inline vec_t Vector::NormalizeInPlace()
 	return VectorNormalize( *this );
 }
 
-inline Vector Vector::Normalized() const
-{
-	Vector norm = *this;
-	VectorNormalize( norm );
-	return norm;
-}
 
-inline bool Vector::IsLengthGreaterThan( float val ) const
-{
-	return LengthSqr() > val*val;
-}
 
-inline bool Vector::IsLengthLessThan( float val ) const
-{
-	return LengthSqr() < val*val;
-}
 
 #endif
 

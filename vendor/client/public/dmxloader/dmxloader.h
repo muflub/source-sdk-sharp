@@ -18,21 +18,13 @@ class CUtlBuffer;
 class CDmxElement;
 
 
-//-----------------------------------------------------------------------------
-// Serialization/Unserialization
-//-----------------------------------------------------------------------------
-bool SerializeDMX( CUtlBuffer &buf, CDmxElement *pRoot, const char *pFileName = NULL );
-bool SerializeDMX( const char *pFileName, const char *pPathID, bool bTextMode, CDmxElement *pRoot );
 
-bool UnserializeDMX( CUtlBuffer &buf, CDmxElement **ppRoot, const char *pFileName = NULL );
-bool UnserializeDMX( const char *pFileName, const char *pPathID,  bool bTextMode, CDmxElement **ppRoot );
 
 //-----------------------------------------------------------------------------
 // DMX elements/attributes can only be accessed inside a dmx context
 //-----------------------------------------------------------------------------
 void BeginDMXContext( );
 void EndDMXContext( bool bDecommitMemory );
-void DecommitDMXMemory();
 
 
 //-----------------------------------------------------------------------------
@@ -48,9 +40,9 @@ private:
 	bool m_bDecommitMemory;
 };
 
-#define DECLARE_DMX_CONTEXT( )	CDMXContextHelper __dmxContextHelper( true );
-#define DECLARE_DMX_CONTEXT_NODECOMMIT( )	CDMXContextHelper __dmxContextHelper( false );
-#define DECLARE_DMX_CONTEXT_DECOMMIT( _decommit )	CDMXContextHelper __dmxContextHelper( _decommit );
+
+
+
 
 
 //-----------------------------------------------------------------------------

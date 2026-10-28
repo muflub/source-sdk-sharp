@@ -16,11 +16,9 @@
 
 
 // This is a useful macro to iterate from start to end in order in a map
-#define FOR_EACH_UTLRBTREE( treeName, iteratorName ) \
-	for ( int iteratorName = treeName.FirstInorder(); (treeName).IsUtlRBTree && iteratorName != treeName.InvalidIndex(); iteratorName = treeName.NextInorder( iteratorName ) )
 
-#define FOR_EACH_RBTREE_FAST( treeName, iteratorName ) \
-for ( int iteratorName = 0; iteratorName < ( treeName ).MaxElement(); ++iteratorName ) if ( !( treeName ).IsValidIndex( iteratorName ) ) continue; else
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -39,15 +37,6 @@ public:
 
 //-------------------------------------
 
-template <typename T>
-class CDefLess
-{
-public:
-	CDefLess() {}
-	CDefLess( int i ) {}
-	inline bool operator()( const T &lhs, const T &rhs ) const { return ( lhs < rhs );	}
-	inline bool operator!() const { return false; }
-};
 
 template <typename T>
 class CDefLessPtr
@@ -62,23 +51,7 @@ public:
 
 typedef const char * PConstChar_t;
 
-class CDefCaselessStringLess
-{
-public:
-	CDefCaselessStringLess() {}
-	CDefCaselessStringLess( int i ) {}
-	inline bool operator()( const PConstChar_t &lhs, const PConstChar_t &rhs ) const { return ( Q_stricmp( lhs, rhs ) < 0 ); }
-	inline bool operator!( ) const { return false; }
-};
 
-class CDefStringLess
-{
-public:
-	CDefStringLess() {}
-	CDefStringLess( int i ) {}
-	inline bool operator()( const PConstChar_t &lhs, const PConstChar_t &rhs ) const { return ( Q_strcmp( lhs, rhs ) < 0 ); }
-	inline bool operator!( ) const { return false; }
-};
 
 
 

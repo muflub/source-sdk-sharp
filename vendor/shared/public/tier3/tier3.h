@@ -40,13 +40,6 @@ namespace vgui
 }
 
 
-//-----------------------------------------------------------------------------
-// These tier3 libraries must be set by any users of this library.
-// They can be set by calling ConnectTier3Libraries.
-// It is hoped that setting this, and using this library will be the common mechanism for
-// allowing link libraries to access tier3 library interfaces
-//-----------------------------------------------------------------------------
-extern IStudioRender *g_pStudioRender;
 extern IStudioRender *studiorender;
 extern IMatSystemSurface *g_pMatSystemSurface;
 extern vgui::ISurface *g_pVGuiSurface;
@@ -56,14 +49,7 @@ extern vgui::IPanel *g_pVGuiPanel;
 extern vgui::ILocalize *g_pVGuiLocalize;
 extern vgui::ISchemeManager *g_pVGuiSchemeManager;
 extern vgui::ISystem *g_pVGuiSystem;
-extern IDataCache *g_pDataCache;	// FIXME: Should IDataCache be in tier2?
-extern IMDLCache *g_pMDLCache;
 extern IMDLCache *mdlcache;
-extern IVideoServices *g_pVideo;
-extern IDmeMakefileUtils *g_pDmeMakefileUtils;
-extern IPhysicsCollision *g_pPhysicsCollision;
-extern ISoundEmitterSystemBase *g_pSoundEmitterSystem;
-extern IVTex *g_pVTex;
 
 
 //-----------------------------------------------------------------------------

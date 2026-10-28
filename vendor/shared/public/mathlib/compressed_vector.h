@@ -300,14 +300,6 @@ public:
 	//float16( float f ) { m_storage.rawWord = ConvertFloatTo16bits(f); }
 
 	void Init() { m_storage.rawWord = 0; }
-//	float16& operator=(const float16 &other) { m_storage.rawWord = other.m_storage.rawWord; return *this; }
-//	float16& operator=(const float &other) { m_storage.rawWord = ConvertFloatTo16bits(other); return *this; }
-//	operator unsigned short () { return m_storage.rawWord; }
-//	operator float () { return Convert16bitFloatTo32bits( m_storage.rawWord ); }
-	unsigned short GetBits() const 
-	{ 
-		return m_storage.rawWord; 
-	}
 	float GetFloat() const 
 	{ 
 		return Convert16bitFloatTo32bits( m_storage.rawWord ); 
@@ -317,14 +309,6 @@ public:
 		m_storage.rawWord = ConvertFloatTo16bits( in ); 
 	}
 
-	bool IsInfinity() const
-	{
-		return m_storage.bits.biased_exponent == 31 && m_storage.bits.mantissa == 0;
-	}
-	bool IsNaN() const
-	{
-		return m_storage.bits.biased_exponent == 31 && m_storage.bits.mantissa != 0;
-	}
 
 	bool operator==(const float16 other) const { return m_storage.rawWord == other.m_storage.rawWord; }
 	bool operator!=(const float16 other) const { return m_storage.rawWord != other.m_storage.rawWord; }

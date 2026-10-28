@@ -136,8 +136,7 @@ public:
 		SpatialPartitionHandle_t handle ) = 0;
 
 	// Same as calling Remove() then Insert(). For performance-sensitive areas where you want to save a call.
-	virtual void RemoveAndInsert( SpatialPartitionListMask_t removeMask, SpatialPartitionListMask_t insertMask, 
-		SpatialPartitionHandle_t handle ) = 0;
+	virtual void unused_RemoveAndInsert() = 0;
 
 	// This will remove a particular handle from all lists
 	virtual void Remove( SpatialPartitionHandle_t handle ) = 0;
@@ -148,24 +147,18 @@ public:
 
 	// A fast method to insert + remove a handle from the tree...
 	// This is used to suppress collision of a single model..
-	virtual SpatialTempHandle_t HideElement( SpatialPartitionHandle_t handle ) = 0;
-	virtual void UnhideElement( SpatialPartitionHandle_t handle, SpatialTempHandle_t tempHandle ) = 0;
+	virtual void unused_HideElement() = 0;
+	virtual void unused_UnhideElement() = 0;
 	
 	// Installs callbacks to get called right before a query occurs
-	virtual void InstallQueryCallback_V1( IPartitionQueryCallback *pCallback ) = 0;
+	virtual void unused_InstallQueryCallback_V1() = 0;
 	virtual void RemoveQueryCallback( IPartitionQueryCallback *pCallback ) = 0;
 
 	// Gets all entities in a particular volume...
 	// if coarseTest == true, it'll return all elements that are in
 	// spatial partitions that intersect the box
 	// if coarseTest == false, it'll return only elements that truly intersect
-	virtual void EnumerateElementsInBox(
-		SpatialPartitionListMask_t listMask,  
-		const Vector& mins, 
-		const Vector& maxs, 
-		bool coarseTest, 
-		IPartitionEnumerator* pIterator 
-		) = 0;
+	virtual void unused_EnumerateElementsInBox() = 0;
 
 	virtual void EnumerateElementsInSphere(
 		SpatialPartitionListMask_t listMask, 
@@ -175,40 +168,30 @@ public:
 		IPartitionEnumerator* pIterator 
 		) = 0;
 
-	virtual void EnumerateElementsAlongRay(
-		SpatialPartitionListMask_t listMask, 
-		const Ray_t& ray, 
-		bool coarseTest, 
-		IPartitionEnumerator* pIterator 
-		) = 0;
+	virtual void unused_EnumerateElementsAlongRay() = 0;
 
-	virtual void EnumerateElementsAtPoint( 
-		SpatialPartitionListMask_t listMask, 
-		const Vector& pt, 
-		bool coarseTest, 
-		IPartitionEnumerator* pIterator
-		) = 0;
+	virtual void unused_EnumerateElementsAtPoint() = 0;
 
 	// For debugging.... suppress queries on particular lists
 	virtual void SuppressLists( SpatialPartitionListMask_t nListMask, bool bSuppress ) = 0;
-	virtual SpatialPartitionListMask_t GetSuppressedLists() = 0;
+	virtual void unused_GetSuppressedLists() = 0;
 
-	virtual void RenderAllObjectsInTree( float flTime ) = 0;
-	virtual void RenderObjectsInPlayerLeafs( const Vector &vecPlayerMin, const Vector &vecPlayerMax, float flTime ) = 0;
-	virtual void RenderLeafsForRayTraceStart( float flTime ) = 0;
-	virtual void RenderLeafsForRayTraceEnd( void ) = 0;
-	virtual void RenderLeafsForHullTraceStart( float flTime ) = 0;
-	virtual void RenderLeafsForHullTraceEnd( void ) = 0;
-	virtual void RenderLeafsForBoxStart( float flTime ) = 0;
-	virtual void RenderLeafsForBoxEnd( void ) = 0;
-	virtual void RenderLeafsForSphereStart( float flTime ) = 0;
-	virtual void RenderLeafsForSphereEnd( void ) = 0;
+	virtual void unused_RenderAllObjectsInTree() = 0;
+	virtual void unused_RenderObjectsInPlayerLeafs() = 0;
+	virtual void unused_RenderLeafsForRayTraceStart() = 0;
+	virtual void unused_RenderLeafsForRayTraceEnd() = 0;
+	virtual void unused_RenderLeafsForHullTraceStart() = 0;
+	virtual void unused_RenderLeafsForHullTraceEnd() = 0;
+	virtual void unused_RenderLeafsForBoxStart() = 0;
+	virtual void unused_RenderLeafsForBoxEnd() = 0;
+	virtual void unused_RenderLeafsForSphereStart() = 0;
+	virtual void unused_RenderLeafsForSphereEnd() = 0;
 
-	virtual void RenderObjectsInBox( const Vector &vecMin, const Vector &vecMax, float flTime ) = 0;
-	virtual void RenderObjectsInSphere( const Vector &vecCenter, float flRadius, float flTime ) = 0;
-	virtual void RenderObjectsAlongRay( const Ray_t& ray, float flTime ) = 0;
+	virtual void unused_RenderObjectsInBox() = 0;
+	virtual void unused_RenderObjectsInSphere() = 0;
+	virtual void unused_RenderObjectsAlongRay() = 0;
 
-	virtual void ReportStats( const char *pFileName ) = 0;
+	virtual void unused_ReportStats() = 0;
 
 	virtual void InstallQueryCallback( IPartitionQueryCallback *pCallback ) = 0;
 };

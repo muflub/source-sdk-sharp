@@ -14,29 +14,7 @@
 #pragma once
 #endif
 
-template <typename T>
-inline void SafeAssign(T** ppInoutDst, T* pInoutSrc )
-{
-	Assert( ppInoutDst );
 
-	// Do addref before release
-	if ( pInoutSrc )
-		( pInoutSrc )->AddRef();
-
-	// Do addref before release
-	if ( *ppInoutDst )
-		( *ppInoutDst )->Release();
-
-	// Do the assignment
-	( *ppInoutDst ) = pInoutSrc;
-}
-
-template <typename T>
-inline void SafeAddRef( T* pObj )
-{
-	if ( pObj )
-		pObj->AddRef();
-}
 
 template <typename T>
 inline void SafeRelease( T** ppInoutPtr )
@@ -111,7 +89,7 @@ private:
 //-----------------------------------------------------------------------------
 
 #define RetAddRef( p ) ( (p)->AddRef(), (p) )
-#define InlineAddRef( p ) ( (p)->AddRef(), (p) )
+
 
 
 //-----------------------------------------------------------------------------
@@ -295,14 +273,10 @@ private:
 };
 
 
-typedef CRefCountServiceBase<true, CRefST>	CRefCountServiceST;
-typedef CRefCountServiceBase<false, CRefST>	CRefCountServiceNoDeleteST;
 
 typedef CRefCountServiceBase<true, CRefMT>	CRefCountServiceMT;
 typedef CRefCountServiceBase<false, CRefMT> CRefCountServiceNoDeleteMT;
 
-// Default to threadsafe
-typedef CRefCountServiceNoDeleteMT			CRefCountServiceNoDelete;
 typedef CRefCountServiceMT					CRefCountService;
 
 //-----------------------------------------------------------------------------

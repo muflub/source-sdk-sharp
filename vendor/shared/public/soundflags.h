@@ -40,15 +40,15 @@ enum
 //-----------------------------------------------------------------------------
 // common attenuation values
 //-----------------------------------------------------------------------------
-#define ATTN_NONE		0.0f
+
 #define ATTN_NORM		0.8f
-#define ATTN_IDLE		2.0f
-#define ATTN_STATIC		1.25f 
-#define ATTN_RICOCHET	1.5f
+
+ 
+
 
 // HL2 world is 8x bigger now! We want to hear gunfire from farther.
 // Don't change this without consulting Kelly or Wedge (sjb).
-#define ATTN_GUNFIRE	0.27f
+
 
 enum soundlevel_t
 {
@@ -98,16 +98,16 @@ enum soundlevel_t
 };
 
 #define MAX_SNDLVL_BITS		9	// Used to encode 0-255 for regular soundlevel_t's and 256-511 for goldsrc-compatible ones.
-#define MIN_SNDLVL_VALUE	0
-#define MAX_SNDLVL_VALUE	((1<<MAX_SNDLVL_BITS)-1)
+
+
 
 
 #define ATTN_TO_SNDLVL( a ) (soundlevel_t)(int)((a) ? (50 + 20 / ((float)a)) : 0 )
-#define SNDLVL_TO_ATTN( a ) ((a > 50) ? (20.0f / (float)(a - 50)) : 4.0 )
+
 
 // This is a limit due to network encoding.
 // It encodes attenuation * 64 in 8 bits, so the maximum is (255 / 64)
-#define MAX_ATTENUATION		3.98f
+
 
 //-----------------------------------------------------------------------------
 // Flags to be or-ed together for the iFlags field
@@ -131,10 +131,10 @@ enum SoundFlags_t
 	SND_DO_NOT_OVERWRITE_EXISTING_ON_CHANNEL = (1<<10),
 };
 
-#define SND_FLAG_BITS_ENCODE 11
+
 
 #define MAX_SOUND_INDEX_BITS	14
-#define	MAX_SOUNDS				(1<<MAX_SOUND_INDEX_BITS)
+
 
 #if !defined( IN_XBOX_CODELINE )
 // +/-4096 msec
@@ -145,17 +145,17 @@ enum SoundFlags_t
 #endif
 
 // Subtract one to leave room for the sign bit
-#define MAX_SOUND_DELAY_MSEC				(1<<(MAX_SOUND_DELAY_MSEC_ENCODE_BITS-1))    // 4096 msec or about 4 seconds
+    // 4096 msec or about 4 seconds
 
 //-----------------------------------------------------------------------------
 // common pitch values
 //-----------------------------------------------------------------------------
 #define	PITCH_NORM		100			// non-pitch shifted
-#define PITCH_LOW		95			// other values are possible - 0-255, where 255 is very high
-#define PITCH_HIGH		120
+			// other values are possible - 0-255, where 255 is very high
 
-#define DEFAULT_SOUND_PACKET_VOLUME 1.0f
-#define DEFAULT_SOUND_PACKET_PITCH	100
-#define DEFAULT_SOUND_PACKET_DELAY	0.0f
+
+
+
+
 
 #endif // SOUNDFLAGS_H

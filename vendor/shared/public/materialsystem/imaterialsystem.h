@@ -13,10 +13,10 @@
 #pragma once
 #endif
 
-#define OVERBRIGHT 2.0f
-#define OO_OVERBRIGHT ( 1.0f / 2.0f )
+
+
 #define GAMMA 2.2f
-#define TEXGAMMA 2.2f
+
 
 #include "tier0/icommandline.h"
 #include "mathlib/vector.h"
@@ -47,7 +47,6 @@ class ITextureCompositor;
 struct MaterialSystemHardwareIdentifier_t;
 class KeyValues;
 class IShader;
-class IVertexTexture;
 class IMorph;
 class IMatRenderContext;
 class ICallQueue;
@@ -76,9 +75,9 @@ typedef uint64 VertexFormat_t;
 #define MATERIAL_SYSTEM_INTERFACE_VERSION_OLD "VMaterialSystem080"
 
 #ifdef POSIX
-#define ABSOLUTE_MINIMUM_DXLEVEL 90
+
 #else
-#define ABSOLUTE_MINIMUM_DXLEVEL 80
+
 #endif
 
 // HDRFIXME NOTE: must match common_ps_fxc.h
@@ -89,23 +88,6 @@ enum HDRType_t
 	HDR_TYPE_FLOAT,
 };
 
-enum ShaderParamType_t 
-{ 
-	SHADER_PARAM_TYPE_TEXTURE, 
-	SHADER_PARAM_TYPE_INTEGER,
-	SHADER_PARAM_TYPE_COLOR,
-	SHADER_PARAM_TYPE_VEC2,
-	SHADER_PARAM_TYPE_VEC3,
-	SHADER_PARAM_TYPE_VEC4,
-	SHADER_PARAM_TYPE_ENVMAP,	// obsolete
-	SHADER_PARAM_TYPE_FLOAT,
-	SHADER_PARAM_TYPE_BOOL,
-	SHADER_PARAM_TYPE_FOURCC,
-	SHADER_PARAM_TYPE_MATRIX,
-	SHADER_PARAM_TYPE_MATERIAL,
-	SHADER_PARAM_TYPE_STRING,
-	SHADER_PARAM_TYPE_MATRIX4X2
-};
 
 enum MaterialMatrixMode_t
 {
@@ -133,7 +115,6 @@ enum MaterialMatrixMode_t
 
 // FIXME: How do I specify the actual number of matrix modes?
 const int NUM_MODEL_TRANSFORMS = 53;
-const int MATERIAL_MODEL_MAX = MATERIAL_MODEL + NUM_MODEL_TRANSFORMS;
 
 enum MaterialPrimitiveType_t 
 { 
@@ -161,19 +142,7 @@ enum MaterialPropertyTypes_t
 	MATERIAL_PROPERTY_NEEDS_BUMPED_LIGHTMAPS				// bool
 };
 
-// acceptable property values for MATERIAL_PROPERTY_OPACITY
-enum MaterialPropertyOpacityTypes_t
-{
-	MATERIAL_ALPHATEST = 0,
-	MATERIAL_OPAQUE,
-	MATERIAL_TRANSLUCENT
-};
 
-enum MaterialBufferTypes_t
-{
-	MATERIAL_FRONT = 0,
-	MATERIAL_BACK
-};
 
 enum MaterialCullMode_t
 {
@@ -215,7 +184,7 @@ enum MaterialNonInteractiveMode_t
 //-----------------------------------------------------------------------------
 // Special morph used in decalling pass
 //-----------------------------------------------------------------------------
-#define MATERIAL_MORPH_DECAL ( (IMorph*)1 )
+
 
 
 //-----------------------------------------------------------------------------
@@ -244,11 +213,6 @@ enum MaterialContextType_t
 //
 //-----------------------------------------------------------------------------
 
-enum MaterialFindContext_t
-{
-	MATERIAL_FINDCONTEXT_NONE,
-	MATERIAL_FINDCONTEXT_ISONAMODEL,
-};
 
 //-----------------------------------------------------------------------------
 // Light structure
@@ -300,11 +264,11 @@ private:
 #endif
 
 #define CREATERENDERTARGETFLAGS_HDR				0x00000001
-#define CREATERENDERTARGETFLAGS_AUTOMIPMAP		0x00000002
-#define CREATERENDERTARGETFLAGS_UNFILTERABLE_OK 0x00000004
+
+
 // XBOX ONLY:
-#define CREATERENDERTARGETFLAGS_NOEDRAM			0x00000008 // inhibit allocation in 360 EDRAM
-#define CREATERENDERTARGETFLAGS_TEMP			0x00000010 // only allocates memory upon first resolve, destroyed at level end
+ // inhibit allocation in 360 EDRAM
+ // only allocates memory upon first resolve, destroyed at level end
 
 //-----------------------------------------------------------------------------
 // allowed stencil operations. These match the d3d operations
@@ -359,17 +323,6 @@ enum StencilComparisonFunction_t
 };
 
 
-//-----------------------------------------------------------------------------
-// Enumeration for the various fields capable of being morphed
-//-----------------------------------------------------------------------------
-enum MorphFormatFlags_t
-{
-	MORPH_POSITION	= 0x0001,	// 3D
-	MORPH_NORMAL	= 0x0002,	// 3D
-	MORPH_WRINKLE	= 0x0004,	// 1D
-	MORPH_SPEED		= 0x0008,	// 1D
-	MORPH_SIDE		= 0x0010,	// 1D
-};
 
 
 //-----------------------------------------------------------------------------
@@ -378,15 +331,6 @@ enum MorphFormatFlags_t
 typedef unsigned int MorphFormat_t;
 
 
-//-----------------------------------------------------------------------------
-// Standard lightmaps
-//-----------------------------------------------------------------------------
-enum StandardLightmap_t
-{
-	MATERIAL_SYSTEM_LIGHTMAP_PAGE_WHITE = -1,
-	MATERIAL_SYSTEM_LIGHTMAP_PAGE_WHITE_BUMP = -2,
-	MATERIAL_SYSTEM_LIGHTMAP_PAGE_USER_DEFINED = -3
-};
 
 
 struct MaterialSystem_SortInfo_t
@@ -500,23 +444,15 @@ private:
 abstract_class IAsyncTextureOperationReceiver : public IRefCounted
 {
 public:
-	virtual void OnAsyncCreateComplete( ITexture* pTex, void* pExtraArgs ) = 0;
-	virtual void OnAsyncFindComplete( ITexture* pTex, void* pExtraArgs ) = 0;
-	virtual void OnAsyncMapComplete( ITexture* pTex, void* pExtraArgs, void* pMemory, int nPitch ) = 0;
-	virtual void OnAsyncReadbackBegin( ITexture* pDst, ITexture* pSrc, void* pExtraArgs ) = 0;
+	virtual void unused_OnAsyncCreateComplete() = 0;
+	virtual void unused_OnAsyncFindComplete() = 0;
+	virtual void unused_OnAsyncMapComplete() = 0;
+	virtual void unused_OnAsyncReadbackBegin() = 0;
 
-	virtual int GetRefCount() const = 0;
+	virtual void unused_GetRefCount() = 0;
 };
 
 
-//-----------------------------------------------------------------------------
-// Flags to be used with the Init call
-//-----------------------------------------------------------------------------
-enum MaterialInitFlags_t
-{
-	MATERIAL_INIT_ALLOCATE_FULLSCREEN_TEXTURE = 0x2,
-	MATERIAL_INIT_REFERENCE_RASTERIZER	= 0x4,
-};
 
 //-----------------------------------------------------------------------------
 // Flags to specify type of depth buffer used with RT
@@ -532,15 +468,6 @@ enum MaterialRenderTargetDepth_t
 	MATERIAL_RT_DEPTH_ONLY	   = 0x3,
 };
 
-//-----------------------------------------------------------------------------
-// A function to be called when we need to release all vertex buffers
-// NOTE: The restore function will tell the caller if all the vertex formats
-// changed so that it can flush caches, etc. if it needs to (for dxlevel support)
-//-----------------------------------------------------------------------------
-enum RestoreChangeFlags_t
-{
-	MATERIAL_RESTORE_VERTEX_FORMAT_CHANGED = 0x1,
-};
 
 
 // NOTE: All size modes will force the render target to be smaller than or equal to
@@ -565,7 +492,6 @@ typedef void (*MaterialBufferReleaseFunc_t)( );
 typedef void (*MaterialBufferRestoreFunc_t)( int nChangeFlags );	// see RestoreChangeFlags_t
 typedef void (*ModeChangeCallbackFunc_t)( void );
 
-typedef int VertexBufferHandle_t;
 typedef unsigned short MaterialHandle_t;
 
 DECLARE_POINTER_HANDLE( OcclusionQueryObjectHandle_t );
@@ -1181,10 +1107,6 @@ FORCEINLINE bool IsOpenGL( void )
 	return g_pMaterialSystem->GetRenderBackend() == RENDER_BACKEND_TOGL;
 }
 
-FORCEINLINE bool IsVulkan( void )
-{
-	return g_pMaterialSystem->GetRenderBackend() == RENDER_BACKEND_VULKAN;
-}
 
 //-----------------------------------------------------------------------------
 // 
@@ -1197,7 +1119,7 @@ public:
 
 	virtual void				Flush( bool flushHardware = false ) = 0;
 
-	virtual void				BindLocalCubemap( ITexture *pTexture ) = 0;
+	virtual void unused_BindLocalCubemap() = 0;
 
 	// pass in an ITexture (that is build with "rendertarget" "1") or
 	// pass in NULL for the regular backbuffer.
@@ -1210,7 +1132,7 @@ public:
 	virtual void				Bind( IMaterial *material, void *proxyData = 0 ) = 0;
 	// Bind a lightmap page current for rendering.  You only have to 
 	// do this for materials that require lightmaps.
-	virtual void				BindLightmapPage( int lightmapPageID ) = 0;
+	virtual void unused_BindLightmapPage() = 0;
 
 	// inputs are between 0 and 1
 	virtual void				DepthRange( float zNear, float zFar ) = 0;
@@ -1221,14 +1143,14 @@ public:
 	virtual void				ReadPixels( int x, int y, int width, int height, unsigned char *data, ImageFormat dstFormat ) = 0;
 
 	// Sets lighting
-	virtual void				SetAmbientLight( float r, float g, float b ) = 0;
-	virtual void				SetLight( int lightNum, const LightDesc_t& desc ) = 0;
+	virtual void unused_SetAmbientLight() = 0;
+	virtual void unused_SetLight() = 0;
 
 	// The faces of the cube are specified in the same order as cubemap textures
-	virtual void				SetAmbientLightCube( Vector4D cube[6] ) = 0;
+	virtual void unused_SetAmbientLightCube() = 0;
 
 	// Blit the backbuffer to the framebuffer texture
-	virtual void				CopyRenderTargetToTexture( ITexture *pTexture ) = 0;
+	virtual void unused_CopyRenderTargetToTexture() = 0;
 
 	// Set the current texture that is a copy of the framebuffer.
 	virtual void				SetFrameBufferCopyTexture( ITexture *pTexture, int textureIndex = 0 ) = 0;
@@ -1252,10 +1174,10 @@ public:
 	virtual void				GetMatrix( MaterialMatrixMode_t matrixMode, matrix3x4_t *matrix ) = 0;
 	virtual void				LoadIdentity( void ) = 0;
 	virtual void				Ortho( double left, double top, double right, double bottom, double zNear, double zFar ) = 0;
-	virtual void				PerspectiveX( double fovx, double aspect, double zNear, double zFar ) = 0;
-	virtual void				PickMatrix( int x, int y, int width, int height ) = 0;
-	virtual void				Rotate( float angle, float x, float y, float z ) = 0;
-	virtual void				Translate( float x, float y, float z ) = 0;
+	virtual void unused_PerspectiveX() = 0;
+	virtual void unused_PickMatrix() = 0;
+	virtual void unused_Rotate() = 0;
+	virtual void unused_Translate() = 0;
 	virtual void				Scale( float x, float y, float z ) = 0;
 	// end matrix api
 
@@ -1264,7 +1186,7 @@ public:
 	virtual void				GetViewport( int& x, int& y, int& width, int& height ) const = 0;
 
 	// The cull mode
-	virtual void				CullMode( MaterialCullMode_t cullMode ) = 0;
+	virtual void unused_CullMode() = 0;
 
 	// end matrix api
 
@@ -1280,19 +1202,19 @@ public:
 	virtual void				SetFogZ( float fogZ ) = 0;
 	virtual MaterialFogMode_t	GetFogMode( void ) = 0;
 
-	virtual void				FogColor3f( float r, float g, float b ) = 0;
+	virtual void unused_FogColor3f() = 0;
 	virtual void				FogColor3fv( float const* rgb ) = 0;
-	virtual void				FogColor3ub( unsigned char r, unsigned char g, unsigned char b ) = 0;
-	virtual void				FogColor3ubv( unsigned char const* rgb ) = 0;
+	virtual void unused_FogColor3ub() = 0;
+	virtual void unused_FogColor3ubv() = 0;
 
 	virtual void				GetFogColor( unsigned char *rgb ) = 0;
 
 	// Sets the number of bones for skinning
-	virtual void				SetNumBoneWeights( int numBones ) = 0;
+	virtual void unused_SetNumBoneWeights() = 0;
 
 	// Creates/destroys Mesh
-	virtual IMesh* CreateStaticMesh( VertexFormat_t fmt, const char *pTextureBudgetGroup, IMaterial * pMaterial = NULL ) = 0;
-	virtual void DestroyStaticMesh( IMesh* mesh ) = 0;
+	virtual void unused_CreateStaticMesh() = 0;
+	virtual void unused_DestroyStaticMesh() = 0;
 
 	// Gets the dynamic mesh associated with the currently bound material
 	// note that you've got to render the mesh before calling this function 
@@ -1323,25 +1245,25 @@ public:
 	// ------------ New Vertex/Index Buffer interface ----------------------------
 	// Do we need support for bForceTempMesh and bSoftwareVertexShader?
 	// I don't think we use bSoftwareVertexShader anymore. .need to look into bForceTempMesh.
-	virtual IVertexBuffer *CreateStaticVertexBuffer( VertexFormat_t fmt, int nVertexCount, const char *pTextureBudgetGroup ) = 0;
-	virtual IIndexBuffer *CreateStaticIndexBuffer( MaterialIndexFormat_t fmt, int nIndexCount, const char *pTextureBudgetGroup ) = 0;
-	virtual void DestroyVertexBuffer( IVertexBuffer * ) = 0;
-	virtual void DestroyIndexBuffer( IIndexBuffer * ) = 0;
+	virtual void unused_CreateStaticVertexBuffer() = 0;
+	virtual void unused_CreateStaticIndexBuffer() = 0;
+	virtual void unused_DestroyVertexBuffer() = 0;
+	virtual void unused_DestroyIndexBuffer() = 0;
 	// Do we need to specify the stream here in the case of locking multiple dynamic VBs on different streams?
-	virtual IVertexBuffer *GetDynamicVertexBuffer( int streamID, VertexFormat_t vertexFormat, bool bBuffered = true ) = 0;
-	virtual IIndexBuffer *GetDynamicIndexBuffer( MaterialIndexFormat_t fmt, bool bBuffered = true ) = 0;
+	virtual void unused_GetDynamicVertexBuffer() = 0;
+	virtual void unused_GetDynamicIndexBuffer() = 0;
 	virtual void BindVertexBuffer( int streamID, IVertexBuffer *pVertexBuffer, int nOffsetInBytes, int nFirstVertex, int nVertexCount, VertexFormat_t fmt, int nRepetitions = 1 ) = 0;
 	virtual void BindIndexBuffer( IIndexBuffer *pIndexBuffer, int nOffsetInBytes ) = 0;
 	virtual void Draw( MaterialPrimitiveType_t primitiveType, int firstIndex, int numIndices ) = 0;
 	// ------------ End ----------------------------
 
 	// Selection mode methods
-	virtual int  SelectionMode( bool selectionMode ) = 0;
-	virtual void SelectionBuffer( unsigned int* pBuffer, int size ) = 0;
-	virtual void ClearSelectionNames( ) = 0;
-	virtual void LoadSelectionName( int name ) = 0;
-	virtual void PushSelectionName( int name ) = 0;
-	virtual void PopSelectionName() = 0;
+	virtual void unused_SelectionMode() = 0;
+	virtual void unused_SelectionBuffer() = 0;
+	virtual void unused_ClearSelectionNames() = 0;
+	virtual void unused_LoadSelectionName() = 0;
+	virtual void unused_PushSelectionName() = 0;
+	virtual void unused_PopSelectionName() = 0;
 
 	// Sets the Clear Color for ClearBuffer....
 	virtual void		ClearColor3ub( unsigned char r, unsigned char g, unsigned char b ) = 0;
@@ -1355,14 +1277,14 @@ public:
 
 	// For debugging and building recording files. This will stuff a token into the recording file,
 	// then someone doing a playback can watch for the token.
-	virtual void	SyncToken( const char *pToken ) = 0;
+	virtual void unused_SyncToken() = 0;
 
 	// FIXME: REMOVE THIS FUNCTION!
 	// The only reason why it's not gone is because we're a week from ship when I found the bug in it
 	// and everything's tuned to use it.
 	// It's returning values which are 2x too big (it's returning sphere diameter x2)
 	// Use ComputePixelDiameterOfSphere below in all new code instead.
-	virtual float	ComputePixelWidthOfSphere( const Vector& origin, float flRadius ) = 0;
+	virtual void unused_ComputePixelWidthOfSphere() = 0;
 
 	//
 	// Occlusion query support
@@ -1380,9 +1302,9 @@ public:
 	// Calling this in the same frame is a huge perf hit!
 	virtual int OcclusionQuery_GetNumPixelsRendered( OcclusionQueryObjectHandle_t ) = 0;
 
-	virtual void SetFlashlightMode( bool bEnable ) = 0;
+	virtual void unused_SetFlashlightMode() = 0;
 
-	virtual void SetFlashlightState( const FlashlightState_t &state, const VMatrix &worldToTexture ) = 0;
+	virtual void unused_SetFlashlightState() = 0;
 
 	// Gets the current height clip mode
 	virtual MaterialHeightClipMode_t GetHeightClipMode( ) = 0;
@@ -1398,36 +1320,36 @@ public:
 	virtual void	EnableUserClipTransformOverride( bool bEnable ) = 0;
 	virtual void	UserClipTransform( const VMatrix &worldToView ) = 0;
 
-	virtual bool GetFlashlightMode() const = 0;
+	virtual void unused_GetFlashlightMode() = 0;
 
 	// Used to make the handle think it's never had a successful query before
 	virtual void ResetOcclusionQueryObject( OcclusionQueryObjectHandle_t ) = 0;
 
 	// FIXME: Remove
-	virtual void Unused3() {}
+	virtual void unused_Unused3() = 0;
 
 	// Creates/destroys morph data associated w/ a particular material
-	virtual IMorph *CreateMorph( MorphFormat_t format, const char *pDebugName ) = 0;
-	virtual void DestroyMorph( IMorph *pMorph ) = 0;
+	virtual void unused_CreateMorph() = 0;
+	virtual void unused_DestroyMorph() = 0;
 
 	// Binds the morph data for use in rendering
-	virtual void BindMorph( IMorph *pMorph ) = 0;
+	virtual void unused_BindMorph() = 0;
 
 	// Sets flexweights for rendering
-	virtual void SetFlexWeights( int nFirstWeight, int nCount, const MorphWeight_t* pWeights ) = 0;
+	virtual void unused_SetFlexWeights() = 0;
 
 	// FIXME: Remove
-	virtual void Unused4() {};
-	virtual void Unused5() {};
-	virtual void Unused6() {};
-	virtual void Unused7() {};
-	virtual void Unused8() {};
+	virtual void unused_Unused4() = 0;
+	virtual void unused_Unused5() = 0;
+	virtual void unused_Unused6() = 0;
+	virtual void unused_Unused7() = 0;
+	virtual void unused_Unused8() = 0;
 
 	// Read w/ stretch to a host-memory buffer
-	virtual void ReadPixelsAndStretch( Rect_t *pSrcRect, Rect_t *pDstRect, unsigned char *pBuffer, ImageFormat dstFormat, int nDstStride ) = 0;
+	virtual void unused_ReadPixelsAndStretch() = 0;
 
 	// Gets the window size
-	virtual void GetWindowSize( int &width, int &height ) const = 0;
+	virtual void unused_GetWindowSize() = 0;
 
 	// This function performs a texture map from one texture map to the render destination, doing
 	// all the necessary pixel/texel coordinate fix ups. fractional values can be used for the
@@ -1446,7 +1368,7 @@ public:
 		int nXDice = 1,
 		int nYDice = 1 )=0;
 
-	virtual void LoadBoneMatrix( int boneIndex, const matrix3x4_t& matrix ) = 0;
+	virtual void unused_LoadBoneMatrix() = 0;
 
 	// This version will push the current rendertarget + current viewport onto the stack
 	virtual void PushRenderTargetAndViewport( ) = 0;
@@ -1464,18 +1386,18 @@ public:
 	virtual void PopRenderTargetAndViewport( void ) = 0;
 
 	// Binds a particular texture as the current lightmap
-	virtual void BindLightmapTexture( ITexture *pLightmapTexture ) = 0;
+	virtual void unused_BindLightmapTexture() = 0;
 
 	// Blit a subrect of the current render target to another texture
 	virtual void CopyRenderTargetToTextureEx( ITexture *pTexture, int nRenderTargetID, Rect_t *pSrcRect, Rect_t *pDstRect = NULL ) = 0;
-	virtual void CopyTextureToRenderTargetEx( int nRenderTargetID, ITexture *pTexture, Rect_t *pSrcRect, Rect_t *pDstRect = NULL ) = 0;
+	virtual void unused_CopyTextureToRenderTargetEx() = 0;
 
 	// Special off-center perspective matrix for DoF, MSAA jitter and poster rendering
-	virtual void PerspectiveOffCenterX( double fovx, double aspect, double zNear, double zFar, double bottom, double top, double left, double right ) = 0;
+	virtual void unused_PerspectiveOffCenterX() = 0;
 
 	// Rendering parameters control special drawing modes withing the material system, shader
 	// system, shaders, and engine. renderparm.h has their definitions.
-	virtual void SetFloatRenderingParameter(int parm_number, float value) = 0;
+	virtual void unused_SetFloatRenderingParameter() = 0;
 	virtual void SetIntRenderingParameter(int parm_number, int value) = 0;
 	virtual void SetVectorRenderingParameter(int parm_number, Vector const &value) = 0;
 
@@ -1488,9 +1410,9 @@ public:
 	virtual void SetStencilReferenceValue(int ref) = 0;
 	virtual void SetStencilTestMask(uint32 msk) = 0;
 	virtual void SetStencilWriteMask(uint32 msk) = 0;
-	virtual void ClearStencilBufferRectangle(int xmin, int ymin, int xmax, int ymax,int value) =0;	
+	virtual void unused_ClearStencilBufferRectangle() = 0;	
 
-	virtual void SetRenderTargetEx( int nRenderTargetID, ITexture *pTexture ) = 0;
+	virtual void unused_SetRenderTargetEx() = 0;
 
 	// rendering clip planes, beware that only the most recently pushed plane will actually be used in a sizeable chunk of hardware configurations
 	// and that changes to the clip planes mid-frame while UsingFastClipping() is true will result unresolvable depth inconsistencies
@@ -1506,17 +1428,17 @@ public:
 	virtual void GetMaxToRender( IMesh *pMesh, bool bMaxUntilFlush, int *pMaxVerts, int *pMaxIndices ) = 0;
 
 	// Returns the max possible vertices + indices to render in a single draw call
-	virtual int GetMaxVerticesToRender( IMaterial *pMaterial ) = 0;
-	virtual int GetMaxIndicesToRender( ) = 0;
-	virtual void DisableAllLocalLights() = 0;
-	virtual int CompareMaterialCombos( IMaterial *pMaterial1, IMaterial *pMaterial2, int lightMapID1, int lightMapID2 ) = 0;
+	virtual void unused_GetMaxVerticesToRender() = 0;
+	virtual void unused_GetMaxIndicesToRender() = 0;
+	virtual void unused_DisableAllLocalLights() = 0;
+	virtual void unused_CompareMaterialCombos() = 0;
 
-	virtual IMesh *GetFlexMesh() = 0;
+	virtual void unused_GetFlexMesh() = 0;
 
-	virtual void SetFlashlightStateEx( const FlashlightState_t &state, const VMatrix &worldToTexture, ITexture *pFlashlightDepthTexture ) = 0;
+	virtual void unused_SetFlashlightStateEx() = 0;
 
 	// Returns the currently bound local cubemap
-	virtual ITexture *GetLocalCubemap( ) = 0;
+	virtual void unused_GetLocalCubemap() = 0;
 
 	// This is a version of clear buffers which will only clear the buffer at pixels which pass the stencil test
 	virtual void ClearBuffersObeyStencil( bool bClearColor, bool bClearDepth ) = 0;
@@ -1525,27 +1447,27 @@ public:
 	virtual bool EnableClipping( bool bEnable ) = 0;
 
 	//get fog distances entered with FogStart(), FogEnd(), and SetFogZ()
-	virtual void GetFogDistances( float *fStart, float *fEnd, float *fFogZ ) = 0;
+	virtual void unused_GetFogDistances() = 0;
 
 	// Hooks for firing PIX events from outside the Material System...
 	virtual void BeginPIXEvent( unsigned long color, const char *szName ) = 0;
 	virtual void EndPIXEvent() = 0;
-	virtual void SetPIXMarker( unsigned long color, const char *szName ) = 0;
+	virtual void unused_SetPIXMarker() = 0;
 
 	// Batch API
 	// from changelist 166623:
 	// - replaced obtuse material system batch usage with an explicit and easier to thread API
-	virtual void BeginBatch( IMesh* pIndices ) = 0;
-	virtual void BindBatch( IMesh* pVertices, IMaterial *pAutoBind = NULL ) = 0;
-	virtual void DrawBatch(int firstIndex, int numIndices ) = 0;
-	virtual void EndBatch() = 0;
+	virtual void unused_BeginBatch() = 0;
+	virtual void unused_BindBatch() = 0;
+	virtual void unused_DrawBatch() = 0;
+	virtual void unused_EndBatch() = 0;
 
 	// Raw access to the call queue, which can be NULL if not in a queued mode
 	virtual ICallQueue *GetCallQueue() = 0;
 
 	// Returns the world-space camera position
 	virtual void GetWorldSpaceCameraPosition( Vector *pCameraPos ) = 0;
-	virtual void GetWorldSpaceCameraVectors( Vector *pVecForward, Vector *pVecRight, Vector *pVecUp ) = 0;
+	virtual void unused_GetWorldSpaceCameraVectors() = 0;
 
 	// Tone mapping
 	virtual void				ResetToneMappingScale( float monoscale) = 0; 			// set scale to monoscale instantly with no chasing
@@ -1563,28 +1485,27 @@ public:
 	virtual void				SetShadowDepthBiasFactors( float fSlopeScaleDepthBias, float fDepthBias ) = 0;
 
 	// Apply stencil operations to every pixel on the screen without disturbing depth or color buffers
-	virtual void				PerformFullScreenStencilOperation( void ) = 0;
+	virtual void unused_PerformFullScreenStencilOperation() = 0;
 
 	// Sets lighting origin for the current model (needed to convert directional lights to points)
-	virtual void				SetLightingOrigin( Vector vLightingOrigin ) = 0;
+	virtual void unused_SetLightingOrigin() = 0;
 
 	// Set scissor rect for rendering
 	virtual void				SetScissorRect( const int nLeft, const int nTop, const int nRight, const int nBottom, const bool bEnableScissor ) = 0;
 
 	// Methods used to build the morph accumulator that is read from when HW morph<ing is enabled.
-	virtual void				BeginMorphAccumulation() = 0;
-	virtual void				EndMorphAccumulation() = 0;
-	virtual void				AccumulateMorph( IMorph* pMorph, int nMorphCount, const MorphWeight_t* pWeights ) = 0;
+	virtual void unused_BeginMorphAccumulation() = 0;
+	virtual void unused_EndMorphAccumulation() = 0;
+	virtual void unused_AccumulateMorph() = 0;
 
-	virtual void				PushDeformation( DeformationBase_t const *Deformation ) = 0;
-	virtual void				PopDeformation( ) = 0;
-	virtual int					GetNumActiveDeformations() const = 0;
+	virtual void unused_PushDeformation() = 0;
+	virtual void unused_PopDeformation() = 0;
+	virtual void unused_GetNumActiveDeformations() = 0;
 
-	virtual bool				GetMorphAccumulatorTexCoord( Vector2D *pTexCoord, IMorph *pMorph, int nVertex ) = 0;
+	virtual void unused_GetMorphAccumulatorTexCoord() = 0;
 
 	// Version of get dynamic mesh that specifies a specific vertex format
-	virtual IMesh*				GetDynamicMeshEx( VertexFormat_t vertexFormat, bool bBuffered = true, 
-		IMesh* pVertexOverride = 0,	IMesh* pIndexOverride = 0, IMaterial *pAutoBind = 0 ) = 0;
+	virtual void unused_GetDynamicMeshEx() = 0;
 
 	virtual void				FogMaxDensity( float flMaxDensity ) = 0;
 
@@ -1594,9 +1515,9 @@ public:
 	virtual void				PopVertexShaderGPRAllocation( void ) = 0;
 #endif
 
-	virtual IMaterial *GetCurrentMaterial() = 0;
-	virtual int  GetCurrentNumBones() const = 0;
-	virtual void *GetCurrentProxy() = 0;
+	virtual void unused_GetCurrentMaterial() = 0;
+	virtual void unused_GetCurrentNumBones() = 0;
+	virtual void unused_GetCurrentProxy() = 0;
 
 	// Color correction related methods..
 	// Client cannot call IColorCorrectionSystem directly because it is not thread-safe
@@ -1609,17 +1530,17 @@ public:
 	virtual void UnlockLookup( ColorCorrectionHandle_t handle ) = 0;
 	virtual void SetLookupWeight( ColorCorrectionHandle_t handle, float flWeight ) = 0;
 	virtual void ResetLookupWeights( ) = 0;
-	virtual void SetResetable( ColorCorrectionHandle_t handle, bool bResetable ) = 0;
+	virtual void unused_SetResetable() = 0;
 
 	//There are some cases where it's simply not reasonable to update the full screen depth texture (mostly on PC).
 	//Use this to mark it as invalid and use a dummy texture for depth reads.
 	virtual void SetFullScreenDepthTextureValidityFlag( bool bIsValid ) = 0;
 
 	// A special path used to tick the front buffer while loading on the 360
-	virtual void SetNonInteractivePacifierTexture( ITexture *pTexture, float flNormalizedX, float flNormalizedY, float flNormalizedSize ) = 0;
-	virtual void SetNonInteractiveTempFullscreenBuffer( ITexture *pTexture, MaterialNonInteractiveMode_t mode ) = 0;
-	virtual void EnableNonInteractiveMode( MaterialNonInteractiveMode_t mode ) = 0;
-	virtual void RefreshFrontBufferNonInteractive() = 0;
+	virtual void unused_SetNonInteractivePacifierTexture() = 0;
+	virtual void unused_SetNonInteractiveTempFullscreenBuffer() = 0;
+	virtual void unused_EnableNonInteractiveMode() = 0;
+	virtual void unused_RefreshFrontBufferNonInteractive() = 0;
 	// Allocates temp render data. Renderdata goes out of scope at frame end in multicore
 	// Renderdata goes out of scope after refcount goes to zero in singlecore.
 	// Locking/unlocking increases + decreases refcount
@@ -1637,21 +1558,21 @@ public:
 	// Returns whether a pointer is render data. NOTE: passing NULL returns true
 	virtual bool			IsRenderData( const void *pData ) const = 0;
 	virtual void			PrintfVA( char *fmt, va_list vargs ) = 0;
-	virtual void			Printf( PRINTF_FORMAT_STRING const char *fmt, ... ) = 0;
-	virtual float			Knob( char *knobname, float *setvalue = NULL ) = 0;
+	virtual void unused_Printf() = 0;
+	virtual void unused_Knob() = 0;
 	// Allows us to override the alpha write setting of a material
 	virtual void OverrideAlphaWriteEnable( bool bEnable, bool bAlphaWriteEnable ) = 0;
 	virtual void OverrideColorWriteEnable( bool bOverrideEnable, bool bColorWriteEnable ) = 0;
 
-	virtual void ClearBuffersObeyStencilEx( bool bClearColor, bool bClearAlpha, bool bClearDepth ) = 0;
+	virtual void unused_ClearBuffersObeyStencilEx() = 0;
 
 	// Create a texture from the specified src render target, then call pRecipient->OnAsyncCreateComplete from the main thread.
 	// The texture will be created using the destination format, and will optionally have mipmaps generated.
 	// In case of error, the provided callback function will be called with the error texture.
-	virtual void AsyncCreateTextureFromRenderTarget( ITexture* pSrcRt, const char* pDstName, ImageFormat dstFmt, bool bGenMips, int nAdditionalCreationFlags, IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs ) = 0;
+	virtual void unused_AsyncCreateTextureFromRenderTarget() = 0;
 
 	virtual void FogRadial( bool bRadial ) = 0;
-	virtual bool GetFogRadial() = 0;
+	virtual void unused_GetFogRadial() = 0;
 };
 
 template< class E > inline E* IMatRenderContext::LockRenderDataTyped( int nCount, const E* pSrcData )
@@ -1893,7 +1814,7 @@ private:
 #if PIX_ENABLE
 #	define PIXEVENT PIXEvent _pixEvent
 #else
-#	define PIXEVENT 
+ 
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1910,7 +1831,7 @@ static void DoMatSysQueueMark( IMaterialSystem *pMaterialSystem, const char *psz
 
 #define MatSysQueueMark( pMaterialSystem, ...) DoMatSysQueueMark( pMaterialSystem, CFmtStr( __VA_ARGS__ ) )
 #else
-#define MatSysQueueMark( msg, ...) ((void)0)
+
 #endif
 
 //-----------------------------------------------------------------------------

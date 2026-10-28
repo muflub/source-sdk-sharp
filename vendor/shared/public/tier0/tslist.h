@@ -86,8 +86,6 @@ inline bool ThreadInterlockedAssignIf64x128( volatile int64 *pDest, const int64 
 
 //-----------------------------------------------------------------------------
 
-PLATFORM_INTERFACE bool RunTSQueueTests( int nListSize = 10000, int nTests = 1 );
-PLATFORM_INTERFACE bool RunTSListTests( int nListSize = 10000, int nTests = 1 );
 
 //-----------------------------------------------------------------------------
 // Lock free list.
@@ -321,10 +319,6 @@ public:
 #endif
 	}
 
-	TSLHead_t *AccessUnprotected()
-	{
-		return &m_Head;
-	}
 
 	int Count() const
 	{

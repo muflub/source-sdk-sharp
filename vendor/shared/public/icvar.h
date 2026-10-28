@@ -40,12 +40,12 @@ public:
 //-----------------------------------------------------------------------------
 // Purpose: Applications can implement this to modify behavior in ICvar
 //-----------------------------------------------------------------------------
-#define CVAR_QUERY_INTERFACE_VERSION "VCvarQuery001"
+
 abstract_class ICvarQuery : public IAppSystem
 {
 public:
 	// Can these two convars be aliased?
-	virtual bool AreConVarsLinkable( const ConVar *child, const ConVar *parent ) = 0;
+	virtual void unused_AreConVarsLinkable() = 0;
 };
 
 
@@ -81,7 +81,7 @@ public:
 
 	// Install a global change callback (to be called when any convar changes) 
 	virtual void			InstallGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
-	virtual void			RemoveGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
+	virtual void unused_RemoveGlobalChangeCallback() = 0;
 	virtual void			CallGlobalChangeCallbacks( ConVar *var, const char *pOldString, float flOldValue ) = 0;
 
 	// Install a console printer
@@ -89,15 +89,15 @@ public:
 	virtual void			RemoveConsoleDisplayFunc( IConsoleDisplayFunc* pDisplayFunc ) = 0;
 	virtual void			ConsoleColorPrintf( const Color& clr, PRINTF_FORMAT_STRING const char *pFormat, ... ) const FMTFUNCTION( 3, 4 ) = 0;
 	virtual void			ConsolePrintf( PRINTF_FORMAT_STRING const char *pFormat, ... ) const FMTFUNCTION( 2, 3 ) = 0;
-	virtual void			ConsoleDPrintf( PRINTF_FORMAT_STRING const char *pFormat, ... ) const FMTFUNCTION( 2, 3 ) = 0;
+	virtual void unused_ConsoleDPrintf() = 0;
 
 	// Reverts cvars which contain a specific flag
-	virtual void			RevertFlaggedConVars( int nFlag ) = 0;
+	virtual void unused_RevertFlaggedConVars() = 0;
 
 	// Method allowing the engine ICvarQuery interface to take over
 	// A little hacky, owing to the fact the engine is loaded
 	// well after ICVar, so we can't use the standard connect pattern
-	virtual void			InstallCVarQuery( ICvarQuery *pQuery ) = 0;
+	virtual void unused_InstallCVarQuery() = 0;
 
 #if defined( _X360 )
 	virtual void			PublishToVXConsole( ) = 0;
@@ -106,7 +106,7 @@ public:
 	virtual void			QueueMaterialThreadSetValue( ConVar *pConVar, const char *pValue ) = 0;
 	virtual void			QueueMaterialThreadSetValue( ConVar *pConVar, int nValue ) = 0;
 	virtual void			QueueMaterialThreadSetValue( ConVar *pConVar, float flValue ) = 0;
-	virtual bool			HasQueuedMaterialThreadConVarSets() const = 0;
+	virtual void unused_HasQueuedMaterialThreadConVarSets() = 0;
 	virtual int				ProcessQueuedMaterialThreadConVarSets() = 0;
 
 protected:	class ICVarIteratorInternal;

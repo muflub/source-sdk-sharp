@@ -206,7 +206,7 @@ inline int CalcNumIntsForBits( int numBits )	{ return (numBits + (BITS_PER_INT-1
 #define BitVec_BitInByte( bitNum ) GetBitForBitnumByte( bitNum )
 #else
 #define BitVec_Bit( bitNum ) ( 1 << ( (bitNum) & (BITS_PER_INT-1) ) )
-#define BitVec_BitInByte( bitNum ) ( 1 << ( (bitNum) & 7 ) )
+
 #endif
 #define BitVec_Int( bitNum ) ( (bitNum) >> LOG2_BITS_PER_INT )
 
@@ -409,18 +409,6 @@ public:
 	}
 };
 
-class CLargeVarBitVec : public CBitVecT< CVarBitVecBase<int> >
-{
-public:
-	CLargeVarBitVec()
-	{
-	}
-
-	CLargeVarBitVec(int numBits)
-		: CBitVecT< CVarBitVecBase<int> >(numBits)
-	{
-	}
-};
 
 //-----------------------------------------------------------------------------
 
@@ -441,7 +429,6 @@ public:
 
 //-----------------------------------------------------------------------------
 
-typedef CBitVec<32> CDWordBitVec;
 
 //-----------------------------------------------------------------------------
 

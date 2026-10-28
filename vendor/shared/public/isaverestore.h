@@ -52,7 +52,6 @@ struct SaveRestoreRecordHeader_t
 //
 //-----------------------------------------------------------------------------
 
-const int MAX_BLOCK_NAME_LEN = 31;
 const int SIZE_BLOCK_NAME_BUF = 31 + 1;
 
 //-------------------------------------
@@ -78,29 +77,14 @@ public:
 abstract_class ISaveRestoreBlockSet : public ISaveRestoreBlockHandler
 {
 public:
-	virtual void AddBlockHandler( ISaveRestoreBlockHandler *pHandler ) = 0;
-	virtual void RemoveBlockHandler( ISaveRestoreBlockHandler *pHandler ) = 0;
-	virtual void CallBlockHandlerRestore( ISaveRestoreBlockHandler *pHandler, int baseFilePos, IRestore *pRestore, bool fCreatePlayers ) = 0;
+	virtual void unused_AddBlockHandler() = 0;
+	virtual void unused_RemoveBlockHandler() = 0;
+	virtual void unused_CallBlockHandlerRestore() = 0;
 };
 
-extern ISaveRestoreBlockSet *g_pGameSaveRestoreBlockSet;
 
 //-------------------------------------
 
-abstract_class CDefSaveRestoreBlockHandler : public ISaveRestoreBlockHandler
-{
-	virtual const char *GetBlockName() = 0;
-
-	virtual void PreSave( CSaveRestoreData * ) {}
-	virtual void Save( ISave * ) {}
-	virtual void WriteSaveHeaders( ISave * ) {}
-	virtual void PostSave() {}
-	
-	virtual void PreRestore() {}
-	virtual void ReadRestoreHeaders( IRestore * ) {}
-	virtual void Restore( IRestore *, bool fCreatePlayers ) {}
-	virtual void PostRestore() {}
-};
 
 //-----------------------------------------------------------------------------
 //
@@ -132,11 +116,6 @@ public:
 	virtual int		WriteAll( const void *pLeafObject, datamap_t *pLeafMap ) = 0;
 	virtual int		WriteFields( const char *pname, const void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount ) = 0;
 
-	template <typename T>
-	int WriteAll( const T *pLeafObject )
-	{
-		return WriteAll( pLeafObject, &pLeafObject->m_DataMap );
-	}
 
 	//---------------------------------
 	// Block support
@@ -155,7 +134,6 @@ public:
 	
 	virtual void	WriteShort( const short *value, int count = 1 ) = 0;
 	virtual void	WriteInt( const int *value, int count = 1 ) = 0;		// Save an int
-	inline void		WriteInt( const unsigned *value, int count = 1 ) { WriteInt( (int *)value, count );	}
 	virtual void	WriteBool( const bool *value, int count = 1 ) = 0;		// Save a bool
 	virtual void	WriteFloat( const float *value, int count = 1 ) = 0;	// Save a float
 	virtual void	WriteData( const char *pdata, int size ) = 0;		// Save a binary data block
@@ -235,11 +213,6 @@ public:
 	virtual int		ReadFields( const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldcount = 1 ) = 0;
 	virtual void	EmptyFields( void *pBaseData, typedescription_t *pFields, int fieldcount = 1 ) = 0;
 
-	template <typename T>
-	int ReadAll( T *pLeafObject )
-	{
-		return ReadAll( pLeafObject, &pLeafObject->m_DataMap );
-	}
 	
 	//---------------------------------
 	// Block support
@@ -265,7 +238,6 @@ public:
 	virtual short	ReadShort( void ) = 0;
 	virtual int		ReadShort( short *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	virtual int		ReadInt( int *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
-	inline  int		ReadInt( unsigned *pValue, int count = 1, int nBytesAvailable = 0 ) { return ReadInt( (int *)pValue, count, nBytesAvailable ); }
 	virtual int		ReadInt( void ) = 0;
 	virtual int		ReadBool( bool *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	virtual int		ReadFloat( float *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
@@ -334,12 +306,8 @@ public:
 
 	//---------------------------------
 
-	void Save( void *pField, ISave *pSave )				{ SaveRestoreFieldInfo_t fieldInfo = { pField, NULL, NULL }; Save( fieldInfo, pSave ); }
-	void Restore( void *pField, IRestore *pRestore )	{ SaveRestoreFieldInfo_t fieldInfo = { pField, NULL, NULL }; Restore( fieldInfo, pRestore ); }
 
 	bool IsEmpty( void *pField)							{ SaveRestoreFieldInfo_t fieldInfo = { pField, NULL, NULL }; return IsEmpty( fieldInfo ); }
-	void MakeEmpty( void *pField)						{ SaveRestoreFieldInfo_t fieldInfo = { pField, NULL, NULL }; MakeEmpty( fieldInfo ); }
-	bool Parse( void *pField, char const *pszValue )	{ SaveRestoreFieldInfo_t fieldInfo = { pField, NULL, NULL }; return Parse( fieldInfo, pszValue ); }
 };
 
 //-------------------------------------

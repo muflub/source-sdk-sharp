@@ -44,9 +44,9 @@ typedef int QueryCvarCookie_t;
 #define InvalidQueryCvarCookie -1
 
 
-#define INTERFACEVERSION_ISERVERPLUGINCALLBACKS_VERSION_1	"ISERVERPLUGINCALLBACKS001"
-#define INTERFACEVERSION_ISERVERPLUGINCALLBACKS_VERSION_2	"ISERVERPLUGINCALLBACKS002"
-#define INTERFACEVERSION_ISERVERPLUGINCALLBACKS				"ISERVERPLUGINCALLBACKS003"
+
+
+
 
 //-----------------------------------------------------------------------------
 // Purpose: callbacks the engine exposes to the 3rd party plugins (ala MetaMod)
@@ -59,16 +59,16 @@ public:
 	virtual bool			Load(	CreateInterfaceFn interfaceFactory, CreateInterfaceFn gameServerFactory  ) = 0;
 
 	// Called when the plugin should be shutdown
-	virtual void			Unload( void ) = 0;
+	virtual void unused_Unload() = 0;
 
 	// called when a plugins execution is stopped but the plugin is not unloaded
-	virtual void			Pause( void ) = 0;
+	virtual void unused_Pause() = 0;
 
 	// called when a plugin should start executing again (sometime after a Pause() call)
-	virtual void			UnPause( void ) = 0;
+	virtual void unused_UnPause() = 0;
 
 	// Returns string describing current plugin.  e.g., Admin-Mod.  
-	virtual const char     *GetPluginDescription( void ) = 0;      
+	virtual void unused_GetPluginDescription() = 0;      
 
 	// Called any time a new level is started (after GameInit() also on level transitions within a game)
 	virtual void			LevelInit( char const *pMapName ) = 0;
@@ -113,11 +113,11 @@ public:
 	virtual void			OnQueryCvarValueFinished( QueryCvarCookie_t iCookie, edict_t *pPlayerEntity, EQueryCvarValueStatus eStatus, const char *pCvarName, const char *pCvarValue ) = 0;
 
 	// added with version 3 of the interface.
-	virtual void			OnEdictAllocated( edict_t *edict ) = 0;
-	virtual void			OnEdictFreed( const edict_t *edict  ) = 0;	
+	virtual void unused_OnEdictAllocated() = 0;
+	virtual void unused_OnEdictFreed() = 0;	
 };
 
-#define INTERFACEVERSION_ISERVERPLUGINHELPERS			"ISERVERPLUGINHELPERS001"
+
 
 
 typedef enum

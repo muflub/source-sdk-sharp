@@ -25,17 +25,6 @@ unsigned FASTCALL HashBlock( const void *pKey, unsigned size );
 
 unsigned FASTCALL HashInt( const int key );
 
-// hash a uint32 into a uint32
-FORCEINLINE uint32 HashIntAlternate( uint32 n)
-{
-	n = ( n + 0x7ed55d16 ) + ( n << 12 );
-	n = ( n ^ 0xc761c23c ) ^ ( n >> 19 );
-	n = ( n + 0x165667b1 ) + ( n << 5 );
-	n = ( n + 0xd3a2646c ) ^ ( n << 9 );
-	n = ( n + 0xfd7046c5 ) + ( n << 3 );
-	n = ( n ^ 0xb55a4f09 ) ^ ( n >> 16 );
-	return n;
-}
 
 
 inline uint64 HashUint64( uint64 s )
@@ -186,7 +175,6 @@ uint32 MurmurHash2( const void * key, int len, uint32 seed );
 
 // return murmurhash2 of a downcased string
 uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed );
-uint32 MurmurHash2LowerCase( char const *pString, int len, uint32 nSeed );
 
 uint64 MurmurHash64( const void * key, int len, uint32 seed );
 

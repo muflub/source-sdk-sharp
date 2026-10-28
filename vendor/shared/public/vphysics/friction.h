@@ -31,19 +31,19 @@ public:
 	// points away from source object
 	virtual void GetSurfaceNormal( Vector &out ) = 0;
 	virtual float GetNormalForce() = 0;
-	virtual float GetEnergyAbsorbed() = 0;
+	virtual void unused_GetEnergyAbsorbed() = 0;
 
 	// recompute friction (useful if dynamically altering materials/mass)
 	virtual void RecomputeFriction() = 0;
 	// clear all friction force at this contact point
 	virtual void ClearFrictionForce() = 0;
 
-	virtual void MarkContactForDelete() = 0;
-	virtual void DeleteAllMarkedContacts( bool wakeObjects ) = 0;
+	virtual void unused_MarkContactForDelete() = 0;
+	virtual void unused_DeleteAllMarkedContacts() = 0;
 
 	// Move to the next friction data for this object
 	virtual void NextFrictionData() = 0;
-	virtual float GetFrictionCoefficient() = 0;
+	virtual void unused_GetFrictionCoefficient() = 0;
 };
 
 

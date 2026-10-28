@@ -102,7 +102,6 @@ class ConCommandBase
 	friend class ConVar;
 	friend class ConCommand;
 	friend void ConVar_Register( int nCVarFlag, IConCommandBaseAccessor *pAccessor );
-	friend void ConVar_PublishToVXConsole();
 
 	// FIXME: Remove when ConVar changes are done
 	friend class CDefaultCvar;
@@ -187,7 +186,6 @@ public:
 	void Reset();
 
 	int ArgC() const;
-	const char **ArgV() const;
 	const char *ArgS() const;					// All args that occur after the 0th arg, in string form
 	const char *GetCommandString() const;		// The entire command in string form, including the 0th arg
 	const char *operator[]( int nIndex ) const;	// Gets at arguments
@@ -197,7 +195,6 @@ public:
 	const char* FindArg( const char *pName ) const;
 	int FindArgInt( const char *pName, int nDefaultVal ) const;
 
-	static int MaxCommandLength();
 	static characterset_t* DefaultBreakSet();
 
 private:
@@ -214,20 +211,12 @@ private:
 	const char*	m_ppArgv[ COMMAND_MAX_ARGC ];
 };
 
-inline int CCommand::MaxCommandLength()
-{
-	return COMMAND_MAX_LENGTH - 1;
-}
 
 inline int CCommand::ArgC() const
 {
 	return m_nArgc;
 }
 
-inline const char **CCommand::ArgV() const
-{
-	return m_nArgc ? (const char**)m_ppArgv : NULL;
-}
 
 inline const char *CCommand::ArgS() const
 {
@@ -407,7 +396,6 @@ private:
 
 	// Used internally by OneTimeInit to initialize.
 	virtual void				Init();
-	int GetFlags() { return m_pParent->m_nFlags; }
 	
 	virtual void				InternalSetFloatValue2( float fNewValue, bool bForce = false );
 	inline	void				InternalSetFloatValue( float fNewValue, bool bForce )
@@ -512,16 +500,12 @@ public:
 	void Init( const char *pName, bool bIgnoreMissing );
 	bool IsValid() const;
 	bool IsFlagSet( int nFlags ) const;
-	IConVar *GetLinkedConVar();
 
 	// Get/Set value
 	float GetFloat( void ) const;
 	int GetInt( void ) const;
 	bool GetBool() const { return !!GetInt(); }
 	const char *GetString( void ) const;
-	// True if it has a min/max setting
-	bool GetMin( float& minVal ) const;
-	bool GetMax( float& maxVal ) const;
 
 	void SetValue( const char *pValue );
 	void SetValue( float flValue );
@@ -530,7 +514,6 @@ public:
 
 	const char *GetName() const;
 
-	const char *GetDefault() const;
 
 private:
 	// High-speed method to read convar data
@@ -547,10 +530,6 @@ FORCEINLINE_CVAR bool ConVarRef::IsFlagSet( int nFlags ) const
 	return ( m_pConVar->IsFlagSet( nFlags ) != 0 );
 }
 
-FORCEINLINE_CVAR IConVar *ConVarRef::GetLinkedConVar()
-{
-	return m_pConVar;
-}
 
 FORCEINLINE_CVAR const char *ConVarRef::GetName() const
 {
@@ -583,15 +562,7 @@ FORCEINLINE_CVAR const char *ConVarRef::GetString( void ) const
 	return m_pConVarState->m_pszString;
 }
 
-FORCEINLINE_CVAR bool ConVarRef::GetMin( float& minVal ) const
-{
-	return m_pConVarState->GetMin( minVal );
-}
 
-FORCEINLINE_CVAR bool ConVarRef::GetMax( float& maxVal ) const
-{
-	return m_pConVarState->GetMax( maxVal );
-}
 
 FORCEINLINE_CVAR void ConVarRef::SetValue( const char *pValue )
 {
@@ -613,10 +584,6 @@ FORCEINLINE_CVAR void ConVarRef::SetValue( bool bValue )
 	m_pConVar->SetValue( bValue ? 1 : 0 );
 }
 
-FORCEINLINE_CVAR const char *ConVarRef::GetDefault() const
-{
-	return m_pConVarState->m_pszDefaultValue;
-}
 
 class IVEngineClient;
 // Josh:
@@ -649,7 +616,6 @@ public:
 
 	void Init( const char *pName, bool bIgnoreMissing ) = delete;
 	void Init( IVEngineClient *pEngine, const char *pName, bool bIgnoreMissing );
-	IConVar *GetLinkedConVar() = delete;
 
 	// Josh:
 	// No setting of strings plox!
@@ -744,36 +710,12 @@ private:
    static ConCommand name##_command( #name, name, description, flags ); \
    static void name( const CCommand &args )
 
-#define CON_COMMAND_F_COMPLETION( name, description, flags, completion ) \
-	static void name( const CCommand &args ); \
-	static ConCommand name##_command( #name, name, description, flags, completion ); \
-	static void name( const CCommand &args )
 
-#define CON_COMMAND_EXTERN( name, _funcname, description ) \
-	void _funcname( const CCommand &args ); \
-	static ConCommand name##_command( #name, _funcname, description ); \
-	void _funcname( const CCommand &args )
 
-#define CON_COMMAND_EXTERN_F( name, _funcname, description, flags ) \
-	void _funcname( const CCommand &args ); \
-	static ConCommand name##_command( #name, _funcname, description, flags ); \
-	void _funcname( const CCommand &args )
 
-#define CON_COMMAND_MEMBER_F( _thisclass, name, _funcname, description, flags ) \
-	void _funcname( const CCommand &args );						\
-	friend class CCommandMemberInitializer_##_funcname;			\
-	class CCommandMemberInitializer_##_funcname					\
-	{															\
-	public:														\
-		CCommandMemberInitializer_##_funcname() : m_ConCommandAccessor( NULL, name, &_thisclass::_funcname, description, flags )	\
-		{														\
-			m_ConCommandAccessor.SetOwner( GET_OUTER( _thisclass, m_##_funcname##_register ) );	\
-		}														\
-	private:													\
-		CConCommandMemberAccessor< _thisclass > m_ConCommandAccessor;	\
-	};															\
-																\
-	CCommandMemberInitializer_##_funcname m_##_funcname##_register;		\
+
+
+
 
 
 #endif // CONVAR_H

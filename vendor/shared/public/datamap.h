@@ -23,7 +23,7 @@
 class SINGLE_INHERITANCE CBaseEntity;
 struct inputdata_t;
 
-#define INVALID_TIME (FLT_MAX * -1.0) // Special value not rebased on save/load
+ // Special value not rebased on save/load
 
 typedef enum _fieldtypes
 {
@@ -136,43 +136,36 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 #define DEFINE_FIELD_NULL	{ FIELD_VOID,0, {0,0},0,0,0,0,0,0}
 #define DEFINE_FIELD(name,fieldtype)			_FIELD(name, fieldtype, 1,  FTYPEDESC_SAVE, NULL, 0 )
 #define DEFINE_KEYFIELD(name,fieldtype, mapname) _FIELD(name, fieldtype, 1,  FTYPEDESC_KEY | FTYPEDESC_SAVE, mapname, 0 )
-#define DEFINE_KEYFIELD_NOT_SAVED(name,fieldtype, mapname)_FIELD(name, fieldtype, 1,  FTYPEDESC_KEY, mapname, 0 )
-#define DEFINE_AUTO_ARRAY(name,fieldtype)		_FIELD(name, fieldtype, SIZE_OF_ARRAY(((classNameTypedef *)0)->name), FTYPEDESC_SAVE, NULL, 0 )
-#define DEFINE_AUTO_ARRAY_KEYFIELD(name,fieldtype,mapname)		_FIELD(name, fieldtype, SIZE_OF_ARRAY(((classNameTypedef *)0)->name), FTYPEDESC_SAVE, mapname, 0 )
+
+
+
 #define DEFINE_ARRAY(name,fieldtype, count)		_FIELD(name, fieldtype, count, FTYPEDESC_SAVE, NULL, 0 )
-#define DEFINE_ENTITY_FIELD(name,fieldtype)			_FIELD(edict_t, name, fieldtype, 1,  FTYPEDESC_KEY | FTYPEDESC_SAVE, #name, 0 )
-#define DEFINE_ENTITY_GLOBAL_FIELD(name,fieldtype)	_FIELD(edict_t, name, fieldtype, 1,  FTYPEDESC_KEY | FTYPEDESC_SAVE | FTYPEDESC_GLOBAL, #name, 0 )
-#define DEFINE_GLOBAL_FIELD(name,fieldtype)	_FIELD(name, fieldtype, 1,  FTYPEDESC_GLOBAL | FTYPEDESC_SAVE, NULL, 0 )
-#define DEFINE_GLOBAL_KEYFIELD(name,fieldtype, mapname)	_FIELD(name, fieldtype, 1,  FTYPEDESC_GLOBAL | FTYPEDESC_KEY | FTYPEDESC_SAVE, mapname, 0 )
-#define DEFINE_CUSTOM_FIELD(name,datafuncs)	{ FIELD_CUSTOM, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE, NULL, datafuncs, NULL }
-#define DEFINE_CUSTOM_KEYFIELD(name,datafuncs,mapname)	{ FIELD_CUSTOM, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_KEY, mapname, datafuncs, NULL }
-#define DEFINE_AUTO_ARRAY2D(name,fieldtype)		_FIELD(name, fieldtype, ARRAYSIZE2D(((classNameTypedef *)0)->name), FTYPEDESC_SAVE, NULL, 0 )
+
+
+
+
+
+
+
 // Used by byteswap datadescs
-#define DEFINE_BITFIELD(name,fieldtype,bitcount)	DEFINE_ARRAY(name,fieldtype,((bitcount+FIELD_BITS(fieldtype)-1)&~(FIELD_BITS(fieldtype)-1)) / FIELD_BITS(fieldtype) )
-#define DEFINE_INDEX(name,fieldtype)			_FIELD(name, fieldtype, 1,  FTYPEDESC_INDEX, NULL, 0 )
 
-#define DEFINE_EMBEDDED( name )						\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &(((classNameTypedef *)0)->name.m_DataMap), sizeof( ((classNameTypedef *)0)->name ), NULL, 0, 0.0f }
 
-#define DEFINE_EMBEDDED_OVERRIDE( name, overridetype )	\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &((overridetype *)0)->m_DataMap, sizeof( ((classNameTypedef *)0)->name ), NULL, 0, 0.0f }
 
-#define DEFINE_EMBEDDEDBYREF( name )					\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_PTR, NULL, NULL, NULL, &(((classNameTypedef *)0)->name->m_DataMap), sizeof( *(((classNameTypedef *)0)->name) ), NULL, 0, 0.0f }
 
-#define DEFINE_EMBEDDED_ARRAY( name, count )			\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, count, FTYPEDESC_SAVE, NULL, NULL, NULL, &(((classNameTypedef *)0)->name->m_DataMap), sizeof( ((classNameTypedef *)0)->name[0] ), NULL, 0, 0.0f  }
 
-#define DEFINE_EMBEDDED_AUTO_ARRAY( name )			\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, SIZE_OF_ARRAY( ((classNameTypedef *)0)->name ), FTYPEDESC_SAVE, NULL, NULL, NULL, &(((classNameTypedef *)0)->name->m_DataMap), sizeof( ((classNameTypedef *)0)->name[0] ), NULL, 0, 0.0f  }
+
+
+
+
+
+
+
 
 #ifndef NO_ENTITY_PREDICTION
 
-#define DEFINE_PRED_TYPEDESCRIPTION( name, fieldtype )						\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &fieldtype::m_PredMap }
 
-#define DEFINE_PRED_TYPEDESCRIPTION_PTR( name, fieldtype )						\
-	{ FIELD_EMBEDDED, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_PTR, NULL, NULL, NULL, &fieldtype::m_PredMap }
+
+
 
 #else
 
@@ -183,12 +176,12 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 
 // Extensions to datamap.h macros for predicted entities only
 #define DEFINE_PRED_FIELD(name,fieldtype, flags)			_FIELD(name, fieldtype, 1,  flags, NULL, 0.0f )
-#define DEFINE_PRED_ARRAY(name,fieldtype, count,flags)		_FIELD(name, fieldtype, count, flags, NULL, 0.0f )
-#define DEFINE_FIELD_NAME(localname,netname,fieldtype)		_FIELD(localname, fieldtype, 1,  0, #netname, 0.0f )
+
+
 // Predictable macros, which include a tolerance for floating point values...
-#define DEFINE_PRED_FIELD_TOL(name,fieldtype, flags,tolerance)			_FIELD(name, fieldtype, 1,  flags, NULL, tolerance )
-#define DEFINE_PRED_ARRAY_TOL(name,fieldtype, count,flags,tolerance)		_FIELD(name, fieldtype, count, flags, NULL, tolerance)
-#define DEFINE_FIELD_NAME_TOL(localname,netname,fieldtolerance)		_FIELD(localname, fieldtype, 1,  0, #netname, tolerance )
+
+
+
 
 //#define DEFINE_DATA( name, fieldextname, flags ) _FIELD(name, fieldtype, 1,  flags, extname )
 
@@ -201,7 +194,7 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 // we know the output type from the variable itself, so it doesn't need to be specified here
 class ISaveRestoreOps;
 extern ISaveRestoreOps *eventFuncs;
-#define DEFINE_OUTPUT( name, outputname )	{ FIELD_CUSTOM, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_OUTPUT | FTYPEDESC_SAVE | FTYPEDESC_KEY, outputname, eventFuncs }
+
 
 // replaces EXPORT table for portability and non-DLL based systems (xbox)
 #define DEFINE_FUNCTION_RAW( function, func_type )			{ FIELD_VOID, nameHolder.GenerateName(#function), { NULL, NULL }, 1, FTYPEDESC_FUNCTIONTABLE, NULL, NULL, (inputfunc_t)((func_type)(&classNameTypedef::function)) }
@@ -219,23 +212,23 @@ extern ISaveRestoreOps *eventFuncs;
 
 // Flags used by other systems (e.g., prediction system)
 #define FTYPEDESC_INSENDTABLE		0x0100		// This field is present in a network SendTable
-#define FTYPEDESC_PRIVATE			0x0200		// The field is local to the client or server only (not referenced by prediction code and not replicated by networking)
-#define FTYPEDESC_NOERRORCHECK		0x0400		// The field is part of the prediction typedescription, but doesn't get compared when checking for errors
+		// The field is local to the client or server only (not referenced by prediction code and not replicated by networking)
+		// The field is part of the prediction typedescription, but doesn't get compared when checking for errors
 
-#define FTYPEDESC_MODELINDEX		0x0800		// The field is a model index (used for debugging output)
+		// The field is a model index (used for debugging output)
 
 #define FTYPEDESC_INDEX				0x1000		// The field is an index into file data, used for byteswapping. 
 
 // These flags apply to C_BasePlayer derived objects only
 #define FTYPEDESC_VIEW_OTHER_PLAYER		0x2000		// By default you can only view fields on the local player (yourself), 
 													//   but if this is set, then we allow you to see fields on other players
-#define FTYPEDESC_VIEW_OWN_TEAM			0x4000		// Only show this data if the player is on the same team as the local player
-#define FTYPEDESC_VIEW_NEVER			0x8000		// Never show this field to anyone, even the local player (unusual)
+		// Only show this data if the player is on the same team as the local player
+		// Never show this field to anyone, even the local player (unusual)
 
 // Define shared with others, this is pred only, and FTYPEDESC_VIEW_OTHER_PLAYER is not used for pred.
-#define FTYPEDESC_ONLY_ERROR_IF_ABOVE_ZERO_TO_ZERO_OR_BELOW_ETC		0x2000	// misyl: Only throw a prediction error if this changes from > 0 -> <= 0
+	// misyl: Only throw a prediction error if this changes from > 0 -> <= 0
 
-#define TD_MSECTOLERANCE		0.001f		// This is a FIELD_FLOAT and should only be checked to be within 0.001 of the networked info
+		// This is a FIELD_FLOAT and should only be checked to be within 0.001 of the networked info
 
 struct typedescription_t;
 
@@ -381,17 +374,11 @@ struct datamap_t
 	}
 
 // used for when there is no data description
-#define IMPLEMENT_NULL_SIMPLE_DATADESC( derivedClass ) \
-	BEGIN_SIMPLE_DATADESC( derivedClass ) \
-	END_DATADESC()
 
-#define IMPLEMENT_NULL_SIMPLE_DATADESC_( derivedClass, baseClass ) \
-	BEGIN_SIMPLE_DATADESC_( derivedClass, baseClass ) \
-	END_DATADESC()
 
-#define IMPLEMENT_NULL_DATADESC( derivedClass ) \
-	BEGIN_DATADESC( derivedClass ) \
-	END_DATADESC()
+
+
+
 
 // helps get the offset of a bitfield
 #define BEGIN_BITFIELD( name ) \
@@ -410,7 +397,7 @@ struct datamap_t
 
 #define DECLARE_BYTESWAP_DATADESC() DECLARE_SIMPLE_DATADESC()
 #define BEGIN_BYTESWAP_DATADESC(name) BEGIN_SIMPLE_DATADESC(name) 
-#define BEGIN_BYTESWAP_DATADESC_(name,base) BEGIN_SIMPLE_DATADESC_(name,base) 
+ 
 #define END_BYTESWAP_DATADESC() END_DATADESC()
 
 //-----------------------------------------------------------------------------

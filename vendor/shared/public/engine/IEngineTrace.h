@@ -60,14 +60,6 @@ public:
 	}
 };
 
-class CTraceFilterEntitiesOnly : public ITraceFilter
-{
-public:
-	virtual TraceType_t	GetTraceType() const
-	{
-		return TRACE_ENTITIES_ONLY;
-	}
-};
 
 
 //-----------------------------------------------------------------------------
@@ -86,18 +78,6 @@ public:
 	}
 };
 
-class CTraceFilterWorldAndPropsOnly : public ITraceFilter
-{
-public:
-	bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask )
-	{
-		return false;
-	}
-	virtual TraceType_t	GetTraceType() const
-	{
-		return TRACE_EVERYTHING;
-	}
-};
 
 class CTraceFilterHitAll : public CTraceFilter
 {
@@ -116,7 +96,7 @@ abstract_class IEntityEnumerator
 {
 public:
 	// This gets called with each handle
-	virtual bool EnumEntity( IHandleEntity *pHandleEntity ) = 0; 
+	virtual void unused_EnumEntity() = 0; 
 };
 
 
@@ -142,21 +122,20 @@ public:
 	virtual void	ClipRayToEntity( const Ray_t &ray, unsigned int fMask, IHandleEntity *pEnt, trace_t *pTrace ) = 0;
 
 	// Traces a ray against a particular entity
-	virtual void	ClipRayToCollideable( const Ray_t &ray, unsigned int fMask, ICollideable *pCollide, trace_t *pTrace ) = 0;
+	virtual void unused_ClipRayToCollideable() = 0;
 
 	// A version that simply accepts a ray (can work as a traceline or tracehull)
 	virtual void	TraceRay( const Ray_t &ray, unsigned int fMask, ITraceFilter *pTraceFilter, trace_t *pTrace ) = 0;
 
 	// A version that sets up the leaf and entity lists and allows you to pass those in for collision.
-	virtual void	SetupLeafAndEntityListRay( const Ray_t &ray, CTraceListData &traceData ) = 0;
-	virtual void    SetupLeafAndEntityListBox( const Vector &vecBoxMin, const Vector &vecBoxMax, CTraceListData &traceData ) = 0;
-	virtual void	TraceRayAgainstLeafAndEntityList( const Ray_t &ray, CTraceListData &traceData, unsigned int fMask, ITraceFilter *pTraceFilter, trace_t *pTrace ) = 0;
+	virtual void unused_SetupLeafAndEntityListRay() = 0;
+	virtual void unused_SetupLeafAndEntityListBox() = 0;
+	virtual void unused_TraceRayAgainstLeafAndEntityList() = 0;
 
 	// A version that sweeps a collideable through the world
 	// abs start + abs end represents the collision origins you want to sweep the collideable through
 	// vecAngles represents the collision angles of the collideable during the sweep
-	virtual void	SweepCollideable( ICollideable *pCollide, const Vector &vecAbsStart, const Vector &vecAbsEnd, 
-		const QAngle &vecAngles, unsigned int fMask, ITraceFilter *pTraceFilter, trace_t *pTrace ) = 0;
+	virtual void unused_SweepCollideable() = 0;
 
 	// Enumerates over all entities along a ray
 	// If triggers == true, it enumerates all triggers along a ray
@@ -169,22 +148,22 @@ public:
 	virtual ICollideable *GetCollideable( IHandleEntity *pEntity ) = 0;
 
 	// HACKHACK: Temp for performance measurments
-	virtual int GetStatByIndex( int index, bool bClear ) = 0;
+	virtual void unused_GetStatByIndex() = 0;
 
 
 	//finds brushes in an AABB, prone to some false positives
 	virtual void GetBrushesInAABB( const Vector &vMins, const Vector &vMaxs, CUtlVector<int> *pOutput, int iContentsMask = 0xFFFFFFFF ) = 0;
 
 	//Creates a CPhysCollide out of all displacements wholly or partially contained in the specified AABB
-	virtual CPhysCollide* GetCollidableFromDisplacementsInAABB( const Vector& vMins, const Vector& vMaxs ) = 0;
+	virtual void unused_GetCollidableFromDisplacementsInAABB() = 0;
 
 	//retrieve brush planes and contents, returns true if data is being returned in the output pointers, false if the brush doesn't exist
-	virtual bool GetBrushInfo( int iBrush, CUtlVector<Vector4D> *pPlanesOut, int *pContentsOut ) = 0;
+	virtual void unused_GetBrushInfo() = 0;
 
-	virtual bool PointOutsideWorld( const Vector &ptTest ) = 0; //Tests a point to see if it's outside any playable area
+	virtual void unused_PointOutsideWorld() = 0; //Tests a point to see if it's outside any playable area
 
 	// Walks bsp to find the leaf containing the specified point
-	virtual int GetLeafContainingPoint( const Vector &ptTest ) = 0;
+	virtual void unused_GetLeafContainingPoint() = 0;
 };
 
 

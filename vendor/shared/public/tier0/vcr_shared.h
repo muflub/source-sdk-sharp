@@ -12,7 +12,7 @@
 #endif
 
 
-#define VCRFILE_VERSION		2
+
 
 
 // Identifiers for the things we record. When playing back, these things should

@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""tools/include-min -- cut the #include lines nothing needs.
+
+    tools/include-min [--scope S] [--config C]    report the removable includes
+    tools/include-min --write [--scope S]         remove them, verified (below)
+    tools/include-min --self-test
+    S: vendor, ours (this repo's native sources), server (vendor/ and
+    src/server/native) or all (default); --cache FILE
+    keeps the walk.
+
+WHAT A FILE NEEDS. Every module object (tools/vendor's targets) is parsed
+with libclang from its debug compile command. For each file the walk records
+the files that DEFINE what that file's text references -- declarations
+(their definition when there is one) and macros -- and each translation
+unit's include tree.
+
+WHAT MAY GO. An include of G in F may go when, with that edge gone from
+every translation unit, each unit still includes every file its remaining
+files need. Candidates are taken one at a time against the graph the earlier
+ones left.
+
+VERIFIED BY THE MACHINE CODE. A removal can compile and still change what
+compiles (a macro an #ifdef tested, an overload that is no longer visible),
+so --write rebuilds every module object of the debug, release and
+windows-cross builds and compares each object's fingerprint -- its
+disassembly with relocations, its data sections and its defined symbols, and
+not its debug information -- with the one taken before. A removed line
+becomes an empty line, so no __LINE__ moves. A wave that does not build or
+changes a fingerprint is split in two and each half retried, down to the one
+include that caused it, which stays.
+"""
+import concurrent.futures
+import hashlib
+import importlib.machinery
+import json
+import os
+import pickle
+import re
+import shlex
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_REAL = os.path.realpath(REPO)
+VENDOR = os.path.join(REPO_REAL, "vendor")
+sys.path.insert(0, os.path.join(REPO, "tools", "lib"))
+VD = importlib.machinery.SourceFileLoader("vendor_tool", os.path.join(REPO, "tools", "vendor")).load_module()
+VS = importlib.machinery.SourceFileLoader("vendor_strip", os.path.join(REPO, "tools", "vendor-strip")).load_module()
+
+OUR_NATIVE = VS.OUR_NATIVE
+OBJDUMP = "llvm-objdump-22"
+MODULE_TARGETS = ("client_sourcesharp", "server_sourcesharp", "ss_fwd_server", "ss_fwd_client",
+                  "ss_particles", "sourcesharp", "tier1", "mathlib")
+WINDOWS_TARGETS = ("server_sourcesharp", "ss_fwd_server", "ss_particles", "sourcesharp")
+
+
+def in_scope(path, scope):
+    if not path.startswith(REPO_REAL + os.sep):
+        return False
+    rel = path[len(REPO_REAL) + 1:]
+    vendor = rel.startswith("vendor/")
+    ours = any(rel.startswith(d + "/") for d in OUR_NATIVE)
+    server = rel.startswith(("src/server/native/", "vendor/server/"))
+    return ((scope in ("all", "vendor") and vendor) or (scope in ("all", "ours") and ours)
+            or (scope == "server" and (vendor or server)))
+
+
+# ---------------------------------------------------------------------------
+# The walk
+# ---------------------------------------------------------------------------
+
+def walk(entry):
+    import libclang_lite as lc
+    kinds = {v: k for k, v in lc.K.items()}
+    idx = lc.createIndex(0, 0)
+    tu = lc.parse(idx, entry["file"], VS.compile_args(entry, False))
+    includes = []           # (includer, line, included)
+    needs = {}              # file -> set(defining files)
+
+    def file_of(loc):
+        f = lc.where(loc)[0]
+        return os.path.realpath(f) if f else None
+
+    @lc.VISITOR
+    def cb(c, parent, data):
+        kind = kinds.get(c.kind)
+        if kind == "InclusionDirective":
+            g = lc.includedFile(c)
+            f, line, _ = lc.where(lc.getCursorLocation(c))
+            if g and f:
+                includes.append((os.path.realpath(f), line, os.path.realpath(g)))
+            return 1
+        r = lc.getCursorReferenced(c)
+        if not lc.cursorIsNull(r) and not lc.equalCursors(r, c):
+            d = lc.getCursorDefinition(r)
+            target = r if lc.cursorIsNull(d) else d
+            f = file_of(lc.getCursorLocation(c))
+            g = file_of(lc.getCursorLocation(target))
+            if f and g and f != g:
+                needs.setdefault(f, set()).add(g)
+        return 2
+
+    lc.visitChildren(lc.getTUCursor(tu), cb, None)
+    lc.disposeTU(tu)
+    lc.disposeIndex(idx)
+    return os.path.realpath(entry["file"]), includes, needs
+
+
+def measure(cfg):
+    path = os.path.join(REPO, "farm", cfg, "build", "compile_commands.json")
+    db = json.load(open(path))
+    entries, seen = [], set()
+    for e in db:
+        t = VD.target_of(e.get("output", ""))
+        if t in MODULE_TARGETS and e["file"] not in seen:
+            seen.add(e["file"])
+            entries.append(e)
+    tus = []
+    with concurrent.futures.ProcessPoolExecutor(os.cpu_count() or 4) as ex:
+        for res in ex.map(walk, entries, chunksize=1):
+            tus.append(res)
+    return tus
+
+
+# ---------------------------------------------------------------------------
+# Simulation
+# ---------------------------------------------------------------------------
+
+def reach(main, edges_of, removed):
+    seen, stack = {main}, [main]
+    while stack:
+        f = stack.pop()
+        for g in edges_of.get(f, ()):
+            if (f, g) not in removed and g not in seen:
+                seen.add(g)
+                stack.append(g)
+    return seen
+
+
+def candidates(tus, scope, keep_lines=frozenset()):
+    """[(file, line, included)]: the includes the simulation says may go."""
+    per_tu = []
+    lines = {}
+    for main, includes, needs in tus:
+        edges_of = {}
+        for f, line, g in includes:
+            edges_of.setdefault(f, set()).add(g)
+            lines.setdefault((f, g), set()).add(line)
+        per_tu.append((main, edges_of, needs))
+    removed = set()
+    out = []
+    cands = sorted({(f, g) for _, e, _ in per_tu for f, gs in e.items() for g in gs
+                    if in_scope(f, scope)})
+    for f, g in cands:
+        if any((f, ln) in keep_lines for ln in lines[(f, g)]):
+            continue
+        trial = removed | {(f, g)}
+        ok = True
+        for main, edges_of, needs in per_tu:
+            if g not in edges_of.get(f, ()):
+                continue
+            files = reach(main, edges_of, trial)
+            for h in files:
+                if not needs.get(h, set()) <= files:
+                    ok = False
+                    break
+            if not ok:
+                break
+        if ok:
+            removed = trial
+            for ln in sorted(lines[(f, g)]):
+                out.append((f, ln, g))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Verification
+# ---------------------------------------------------------------------------
+
+BUILDS = (("debug", "build", MODULE_TARGETS), ("release", "build", MODULE_TARGETS),
+          ("debug", "build-windows-cross", WINDOWS_TARGETS))
+
+
+def objects():
+    out = []
+    for cfg, bdir, targets in BUILDS:
+        b = os.path.join(REPO, "farm", cfg, bdir)
+        db = json.load(open(os.path.join(b, "compile_commands.json")))
+        for e in db:
+            t = VD.target_of(e.get("output", ""))
+            if t in targets:
+                out.append(os.path.join(e.get("directory", b), e["output"]))
+    return out
+
+
+def fingerprint(obj):
+    h = hashlib.sha256()
+    for args in (["-d", "-r", "--no-show-raw-insn"], ["-s", "--section=.rodata", "--section=.data",
+                                                      "--section=.init_array", "--section=.rdata"],
+                 ["-t"]):
+        r = subprocess.run([OBJDUMP, *args, obj], capture_output=True, text=True, errors="replace")
+        text = "\n".join(l for l in r.stdout.splitlines() if "file format" not in l and
+                         ".debug" not in l)
+        h.update(text.encode())
+    return h.hexdigest()
+
+
+def build():
+    for cfg, bdir, targets in BUILDS:
+        r = subprocess.run(["ninja", "-C", os.path.join(REPO, "farm", cfg, bdir), *targets],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return False
+    return True
+
+
+def fingerprints():
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as ex:
+        objs = objects()
+        return dict(zip(objs, ex.map(fingerprint, objs)))
+
+
+def apply(cands):
+    """Blank each candidate's line; returns {file: original text} to restore."""
+    saved = {}
+    by_file = {}
+    for f, line, g in cands:
+        by_file.setdefault(f, set()).add(line)
+    for f, ls in by_file.items():
+        with open(f, encoding="latin-1", newline="") as fh:
+            text = fh.read()
+        saved[f] = text
+        rows = text.split("\n")
+        for ln in ls:
+            if re.match(r"^\s*#\s*include\b", rows[ln - 1]):
+                rows[ln - 1] = ""
+        with open(f, "w", encoding="latin-1", newline="") as fh:
+            fh.write("\n".join(rows))
+    return saved
+
+
+def restore(saved):
+    for f, text in saved.items():
+        with open(f, "w", encoding="latin-1", newline="") as fh:
+            fh.write(text)
+
+
+def verify(cands, base):
+    saved = apply(cands)
+    ok = build() and fingerprints() == base
+    if not ok:
+        restore(saved)
+    return ok
+
+
+def settle(cands, base, log):
+    """The subset of cands that builds with identical machine code, found by
+    halving a failed wave."""
+    if not cands:
+        return []
+    if verify(cands, base):
+        log("  %d removals hold" % len(cands))
+        return cands
+    if len(cands) == 1:
+        log("  kept: %s:%d (%s)" % (os.path.relpath(cands[0][0], REPO), cands[0][1],
+                                    os.path.relpath(cands[0][2], REPO)))
+        if not build():
+            raise SystemExit("include-min: the tree no longer builds after a restore")
+        return []
+    half = len(cands) // 2
+    first = settle(cands[:half], base, log)
+    return first + settle(cands[half:], base, log)
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    r = REPO_REAL
+    m, a, b, c = r + "/src/server/native/m.cpp", r + "/vendor/shared/a.h", r + "/vendor/shared/b.h", \
+        r + "/vendor/shared/c.h"
+    tus = [(m, [(m, 1, a), (a, 3, b), (a, 4, c)], {m: {b}})]
+    got = [(os.path.basename(x), ln) for x, ln, _ in candidates(tus, "all")]
+    eq(got, [("a.h", 4)], "an include nothing needs may go; one the unit still needs stays")
+    eq(reach(m, {m: {a}, a: {b}}, {(a, b)}), {m, a}, "a removed edge cuts its subtree")
+    tus = [(m, [(m, 1, a), (m, 2, b), (a, 3, b)], {m: {b}})]
+    got = [(os.path.basename(x), ln) for x, ln, _ in candidates(tus, "vendor")]
+    eq(got, [("a.h", 3)], "an include of what another path still brings may go")
+    print("tools/include-min --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    scope = argv[argv.index("--scope") + 1] if "--scope" in argv else "all"
+    cfg = VD.config(argv)
+    cache = argv[argv.index("--cache") + 1] if "--cache" in argv else None
+    if cache and os.path.exists(cache):
+        tus = pickle.load(open(cache, "rb"))
+    else:
+        tus = measure(cfg)
+        if cache:
+            pickle.dump(tus, open(cache, "wb"))
+    cands = candidates(tus, scope)
+    files = len({c[0] for c in cands})
+    print("include-min: %d translation units; %d includes may go in %d files (scope %s)"
+          % (len(tus), len(cands), files, scope))
+    if "--report" in argv:
+        for f, ln, g in cands:
+            print("  %s:%d  %s" % (os.path.relpath(f, REPO), ln, os.path.relpath(g, REPO)))
+    if "--write" in argv:
+        if not build():
+            raise SystemExit("include-min: the tree does not build before any change")
+        base = fingerprints()
+        print("include-min: %d object fingerprints taken" % len(base))
+        kept = settle(cands, base, print)
+        print("include-min: removed %d of %d candidate includes" % (len(kept), len(cands)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

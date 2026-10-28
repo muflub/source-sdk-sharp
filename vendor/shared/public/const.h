@@ -13,28 +13,28 @@
 #endif
 
 // the command line param that tells the engine to use steam
-#define STEAM_PARM					"-steam"
+
 // the command line param to tell dedicated server to restart 
 // if they are out of date
-#define AUTO_RESTART "-autoupdate"
+
 
 // the message a server sends when a clients steam login is expired
-#define INVALID_STEAM_TICKET "Invalid STEAM UserID Ticket\n"
-#define INVALID_STEAM_VACBANSTATE "VAC banned from secure server\n"
-#define INVALID_STEAM_LOGGED_IN_ELSEWHERE "This Steam account is being used in another location\n"
-#define INVALID_STEAM_LOGON_NOT_CONNECTED "Client not connected to Steam\n"
-#define INVALID_STEAM_LOGON_TICKET_CANCELED "Client left game (Steam auth ticket has been canceled)\n"
 
-#define CLIENTNAME_TIMED_OUT "%s timed out"
+
+
+
+
+
+
 
 // This is the default, see shareddefs.h for mod-specific value, which can override this
 #define DEFAULT_TICK_INTERVAL	(0.015)				// 15 msec is the default
-#define MINIMUM_TICK_INTERVAL   (0.001)
-#define MAXIMUM_TICK_INTERVAL	(0.1)
+
+
 
 // This is the max # of players the engine can handle
 #define ABSOLUTE_PLAYER_LIMIT 255  // not 256, so we can send the limit as a byte 
-#define ABSOLUTE_PLAYER_LIMIT_DW	( (ABSOLUTE_PLAYER_LIMIT/32) + 1 )
+
 
 // a player name may have 31 chars + 0 on the PC.
 // the 360 only allows 15 char + 0, but stick with the larger PC size for cross-platform communication
@@ -43,7 +43,7 @@
 #ifdef _X360
 #define MAX_PLAYERS_PER_CLIENT		XUSER_MAX_COUNT	// Xbox 360 supports 4 players per console
 #else
-#define MAX_PLAYERS_PER_CLIENT		1	// One player per PC
+	// One player per PC
 #endif
 
 // Max decorated map name, with things like workshop/cp_foo.ugc123456
@@ -53,9 +53,9 @@
 #define MAX_MAP_NAME_SAVE			32
 
 // Max non-decorated map name for e.g. server browser (just cp_foo)
-#define MAX_DISPLAY_MAP_NAME		32
 
-#define	MAX_NETWORKID_LENGTH		64  // num chars for a network (i.e steam) ID
+
+  // num chars for a network (i.e steam) ID
 
 // BUGBUG: Reconcile with or derive this from the engine's internal definition!
 // FIXME: I added an extra bit because I needed to make it signed
@@ -69,7 +69,7 @@
 // How many bits to use to encode an server class index
 #define MAX_SERVER_CLASS_BITS		9
 // Max # of networkable server classes
-#define MAX_SERVER_CLASSES			(1<<MAX_SERVER_CLASS_BITS)
+
 
 #define SIGNED_GUID_LEN 32 // Hashed CD Key (32 hex alphabetic chars + 0 terminator )
 
@@ -90,14 +90,14 @@
 
 // This is the maximum amount of data a PackedEntity can have. Having a limit allows us
 // to use static arrays sometimes instead of allocating memory all over the place.
-#define MAX_PACKEDENTITY_DATA	(16384)
+
 
 // This is the maximum number of properties that can be delta'd. Must be evenly divisible by 8.
-#define MAX_PACKEDENTITY_PROPS	(4096)
+
 
 // a client can have up to 4 customization files (logo, sounds, models, txt).
 #define MAX_CUSTOM_FILES		4		// max 4 files
-#define MAX_CUSTOM_FILE_SIZE	524288	// Half a megabyte
+	// Half a megabyte
 
 //
 // Constants shared by the engine and dlls
@@ -152,40 +152,40 @@
 //           Previously fully ducked, unducking in progress:  FL_DUCKING & !FL_ANIMDUCKING
 //                                           Fully unducked: !FL_DUCKING & !FL_ANIMDUCKING
 //           Previously fully unducked, ducking in progress: !FL_DUCKING &  FL_ANIMDUCKING
-#define	FL_WATERJUMP			(1<<3)	// player jumping out of water
-#define FL_ONTRAIN				(1<<4) // Player is _controlling_ a train, so movement commands should be ignored on client during prediction.
-#define FL_INRAIN				(1<<5)	// Indicates the entity is standing in rain
-#define FL_FROZEN				(1<<6) // Player is frozen for 3rd person camera
-#define FL_ATCONTROLS			(1<<7) // Player can't move, but keeps key inputs for controlling another entity
+	// player jumping out of water
+ // Player is _controlling_ a train, so movement commands should be ignored on client during prediction.
+	// Indicates the entity is standing in rain
+ // Player is frozen for 3rd person camera
+ // Player can't move, but keeps key inputs for controlling another entity
 #define	FL_CLIENT				(1<<8)	// Is a player
-#define FL_FAKECLIENT			(1<<9)	// Fake client, simulated server side; don't send network messages to them
+	// Fake client, simulated server side; don't send network messages to them
 // NON-PLAYER SPECIFIC (i.e., not used by GameMovement or the client .dll ) -- Can still be applied to players, though
-#define	FL_INWATER				(1<<10)	// In water
+	// In water
 
 // NOTE if you move things up, make sure to change this value
-#define PLAYER_FLAG_BITS		32
 
-#define	FL_FLY					(1<<11)	// Changes the SV_Movestep() behavior to not need to be on ground
-#define	FL_SWIM					(1<<12)	// Changes the SV_Movestep() behavior to not need to be on ground (but stay in water)
-#define	FL_CONVEYOR				(1<<13)
+
+	// Changes the SV_Movestep() behavior to not need to be on ground
+	// Changes the SV_Movestep() behavior to not need to be on ground (but stay in water)
+
 #define	FL_NPC					(1<<14)
-#define	FL_GODMODE				(1<<15)
-#define	FL_NOTARGET				(1<<16)
-#define	FL_AIMTARGET			(1<<17)	// set if the crosshair needs to aim onto the entity
-#define	FL_PARTIALGROUND		(1<<18)	// not all corners are valid
-#define FL_STATICPROP			(1<<19)	// Eetsa static prop!		
-#define FL_GRAPHED				(1<<20) // worldgraph has this ent listed as something that blocks a connection
-#define FL_GRENADE				(1<<21)
-#define FL_STEPMOVEMENT			(1<<22)	// Changes the SV_Movestep() behavior to not do any processing
-#define FL_DONTTOUCH			(1<<23)	// Doesn't generate touch functions, generates Untouch() for anything it was touching when this flag was set
-#define FL_BASEVELOCITY			(1<<24)	// Base velocity has been applied this frame (used to convert base velocity into momentum)
+
+
+	// set if the crosshair needs to aim onto the entity
+	// not all corners are valid
+	// Eetsa static prop!		
+ // worldgraph has this ent listed as something that blocks a connection
+
+	// Changes the SV_Movestep() behavior to not do any processing
+	// Doesn't generate touch functions, generates Untouch() for anything it was touching when this flag was set
+	// Base velocity has been applied this frame (used to convert base velocity into momentum)
 #define FL_WORLDBRUSH			(1<<25)	// Not moveable/removeable brush entity (really part of the world, but represented as an entity for transparency or something)
-#define FL_OBJECT				(1<<26) // Terrible name. This is an object that NPCs should see. Missiles, for example.
-#define FL_KILLME				(1<<27)	// This entity is marked for death -- will be freed by game DLL
+ // Terrible name. This is an object that NPCs should see. Missiles, for example.
+	// This entity is marked for death -- will be freed by game DLL
 #define FL_ONFIRE				(1<<28)	// You know...
-#define FL_DISSOLVING			(1<<29) // We're dissolving!
-#define FL_TRANSRAGDOLL			(1<<30) // In the process of turning into a client side ragdoll.
-#define FL_UNBLOCKABLE_BY_PLAYER (1<<31) // pusher that can't be blocked by the player
+ // We're dissolving!
+ // In the process of turning into a client side ragdoll.
+ // pusher that can't be blocked by the player
 #endif
 
 // edict->movetype values
@@ -273,10 +273,10 @@ inline bool IsSolid( SolidType_t solidType, int nSolidFlags )
 
 // m_lifeState values
 #define	LIFE_ALIVE				0 // alive
-#define	LIFE_DYING				1 // playing death animation or still falling off of a ledge waiting to hit ground
-#define	LIFE_DEAD				2 // dead. lying still.
-#define LIFE_RESPAWNABLE		3
-#define LIFE_DISCARDBODY		4
+ // playing death animation or still falling off of a ledge waiting to hit ground
+ // dead. lying still.
+
+
 
 // entity effects
 enum
@@ -299,17 +299,17 @@ enum
 };
 
 #define EF_PARITY_BITS	3
-#define EF_PARITY_MASK  ((1<<EF_PARITY_BITS)-1)
+
 
 // How many bits does the muzzle flash parity thing get?
-#define EF_MUZZLEFLASH_BITS 2
+
 
 // plats
-#define	PLAT_LOW_TRIGGER	1
+
 
 // Trains
-#define	SF_TRAIN_WAIT_RETRIGGER	1
-#define SF_TRAIN_PASSABLE		8		// Train is not solid -- used to make water trains
+
+		// Train is not solid -- used to make water trains
 
 // view angle update types for CPlayerState::fixangle
 #define FIXANGLE_NONE			0
@@ -323,28 +323,28 @@ enum
 #define BREAK_FLESH		0x04
 #define BREAK_WOOD		0x08
 
-#define BREAK_SMOKE		0x10
-#define BREAK_TRANS		0x20
+
+
 #define BREAK_CONCRETE	0x40
 
 // If this is set, then we share a lighting origin with the last non-slave breakable sent down to the client
-#define BREAK_SLAVE		0x80
+
 
 // Colliding temp entity sounds
 
-#define BOUNCE_GLASS	BREAK_GLASS
-#define	BOUNCE_METAL	BREAK_METAL
-#define BOUNCE_FLESH	BREAK_FLESH
-#define BOUNCE_WOOD		BREAK_WOOD
-#define BOUNCE_SHRAP	0x10
-#define BOUNCE_SHELL	0x20
-#define	BOUNCE_CONCRETE BREAK_CONCRETE
-#define BOUNCE_SHOTSHELL 0x80
+
+
+
+
+
+
+
+
 
 // Temp entity bounce sound types
-#define TE_BOUNCE_NULL		0
-#define TE_BOUNCE_SHELL		1
-#define TE_BOUNCE_SHOTSHELL	2
+
+
+
 
 // Rendering constants
 // if this is changed, update common/MaterialSystem/Sprite.cpp
@@ -425,20 +425,19 @@ enum Collision_Group_t
 
 #include "basetypes.h"
 
-#define SOUND_NORMAL_CLIP_DIST	1000.0f
+
 
 // How many networked area portals do we allow?
 #define MAX_AREA_STATE_BYTES		32
 #define MAX_AREA_PORTAL_STATE_BYTES 24
 
 // user message max payload size (note, this value is used by the engine, so MODs cannot change it)
-#define MAX_USER_MSG_DATA 255
-#define MAX_ENTITY_MSG_DATA 255
+
+
 
 #define SOURCE_MT
 #ifdef SOURCE_MT
 class CThreadMutex;
-typedef CThreadMutex CSourceMutex;
 #else
 class CThreadNullMutex;
 typedef CThreadNullMutex CSourceMutex;

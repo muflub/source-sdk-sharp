@@ -31,16 +31,8 @@ class CGameTrace : public CBaseTrace
 {
 public:
 
-	// Returns true if hEnt points at the world entity.
-	// If this returns true, then you can't use GetHitBoxIndex().
-	bool DidHitWorld() const;
 	
-	// Returns true if we hit something and it wasn't the world.
-	bool DidHitNonWorldEntity() const;
 
-	// Gets the entity's network index if the trace has hit an entity.
-	// If not, returns -1.
-	int GetEntityIndex() const;
 
 	// Returns true if there was any kind of impact at all
 	bool DidHit() const;
@@ -131,26 +123,8 @@ public:
 
 	bool	IsEmpty( void ) const			{ return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
 
-	int		LeafCount( void ) const			{ return m_nLeafCount; }
-	int		LeafCountMax( void ) const		{ return m_aLeafList.Count(); }
-	void    LeafCountReset( void )			{ m_nLeafCount = 0; }
 
-	int		EntityCount( void ) const		{ return m_nEntityCount; }
-	int		EntityCountMax( void ) const	{ return m_aEntityList.Count(); }
-	void	EntityCountReset( void )		{ m_nEntityCount = 0; }
 
-	// For leaves...
-	void AddLeaf( int iLeaf )
-	{
-		if ( m_nLeafCount >= m_aLeafList.Count() )
-		{
-			DevMsg( "CTraceListData: Max leaf count along ray exceeded!\n" );
-			m_aLeafList.AddMultipleToTail( m_aLeafList.Count() );
-		}
-
-		m_aLeafList[m_nLeafCount] = iLeaf;
-		m_nLeafCount++;
-	}
 
 	// For entities...
 	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity )

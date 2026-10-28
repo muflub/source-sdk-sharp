@@ -77,7 +77,6 @@ public:
 	}
 
 	void InitPoint( const Vector &pos, const Vector &color );
-	void InitDirectional( const Vector &dir, const Vector &color );
 	void InitSpot(const Vector &pos, const Vector &color, const Vector &point_at,
 		float inner_cone_boundary, float outer_cone_boundary );
 
@@ -102,10 +101,6 @@ public:
 		return ((m_Type!=MATERIAL_LIGHT_SPOT) || (rdir.Dot(m_Direction)>=m_PhiDot));
 	}
 
-	float OneOverThetaDotMinusPhiDot() const
-	{
-		return OneOver_ThetaDot_Minus_PhiDot;
-	}
 };
 
 
@@ -125,20 +120,6 @@ inline void LightDesc_t::InitPoint( const Vector &pos, const Vector &color )
 }
 
 
-//-----------------------------------------------------------------------------
-// a directional light with infinite range
-//-----------------------------------------------------------------------------
-inline void LightDesc_t::InitDirectional( const Vector &dir, const Vector &color )
-{
-	m_Type=MATERIAL_LIGHT_DIRECTIONAL;
-	m_Color=color;
-	m_Direction=dir;
-	m_Range=0.0;									// infinite
-	m_Attenuation0=1.0;
-	m_Attenuation1=0;
-	m_Attenuation2=0;
-	RecalculateDerivedValues();
-}
 
 
 //-----------------------------------------------------------------------------

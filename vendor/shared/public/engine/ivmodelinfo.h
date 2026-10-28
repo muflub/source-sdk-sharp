@@ -83,7 +83,7 @@ public:
 
 // change this when the new version is incompatable with the old
 #define VMODELINFO_CLIENT_INTERFACE_VERSION		"VModelInfoClient006"
-#define VMODELINFO_SERVER_INTERFACE_VERSION_3	"VModelInfoServer003"
+
 #define VMODELINFO_SERVER_INTERFACE_VERSION		"VModelInfoServer004"
 
 // MODEL INDEX RULES
@@ -95,8 +95,6 @@ public:
 // - if the dynamic index is EVEN, then the model is NETWORKED
 //   and has a dynamic model string table index of (dynamic index)>>1
 
-inline bool IsDynamicModelIndex( int modelindex ) { return modelindex < -1; }
-inline bool IsClientOnlyModelIndex( int modelindex ) { return modelindex < -1 && (modelindex & 1); }
 
 abstract_class IVModelInfo
 {
@@ -202,13 +200,12 @@ public:
 	virtual void					UnregisterModelLoadCallback( int modelindex, IModelLoadCallback* pCallback ) = 0;
 };
 
-typedef IVModelInfo IVModelInfo003;
 
 
 abstract_class IVModelInfoClient : public IVModelInfo
 {
 public:
-	virtual void OnDynamicModelsStringTableChange( int nStringIndex, const char *pString, const void *pData ) = 0;
+	virtual void unused_OnDynamicModelsStringTableChange() = 0;
 
 	// For tools only!
 	virtual const model_t *FindOrLoadModel( const char *name ) = 0;

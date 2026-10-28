@@ -49,27 +49,7 @@
 	while (0)
 
 // using macro to be compatable with GCC
-#define FmtStrVSNPrintfNoLengthFixup( szBuf, nBufSize, bQuietTruncation, ppszFormat, nPrevLen, lastArg ) \
-	do \
-	{ \
-		int     result; \
-		va_list arg_ptr; \
-		bool bTruncated = false; \
-		static int scAsserted = 0; \
-	\
-		va_start(arg_ptr, lastArg); \
-		result = V_vsnprintfRet( (szBuf), (nBufSize)-1, (*(ppszFormat)), arg_ptr, &bTruncated ); \
-		va_end(arg_ptr); \
-	\
-		(szBuf)[(nBufSize)-1] = 0; \
-		if ( bTruncated && !(bQuietTruncation) && scAsserted < 5 ) \
-		{ \
-			Warning( "FmtStrVSNPrintf truncated to %d without QUIET_TRUNCATION specified!\n", ( int )( nBufSize ) ); \
-			AssertMsg( 0, "FmtStrVSNPrintf truncated without QUIET_TRUNCATION specified!\n" ); \
-			scAsserted++; \
-		} \
-	} \
-	while (0)
+
 
 //-----------------------------------------------------------------------------
 //
@@ -245,10 +225,6 @@ private:
 
 // Version which will not assert if strings are truncated
 
-template < int SIZE_BUF >
-class CFmtStrQuietTruncationN : public CFmtStrN<SIZE_BUF, true >
-{
-};
 
 
 template< int SIZE_BUF, bool QUIET_TRUNCATION >
@@ -284,10 +260,6 @@ void CFmtStrN< SIZE_BUF, QUIET_TRUNCATION >::AppendFormatV( const char *pchForma
 #define FMTSTR_STD_LEN 256
 
 typedef CFmtStrN<FMTSTR_STD_LEN> CFmtStr;
-typedef CFmtStrQuietTruncationN<FMTSTR_STD_LEN> CFmtStrQuietTruncation;
-typedef CFmtStrN<32>   CFmtStr32;
-typedef CFmtStrN<1024> CFmtStr1024;
-typedef CFmtStrN<8192> CFmtStrMax;
 
 
 //-----------------------------------------------------------------------------
@@ -346,20 +318,10 @@ public:
 	inline void SetDouble( double f )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
 	inline void SetFloat( float f )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
 
-	inline void SetHexUint64( uint64 un64 )	{ Q_binarytohex( (byte *)&un64, sizeof( un64 ), m_szBuf, sizeof( m_szBuf ) ); }
 
 	operator const char *() const { return m_szBuf; }
 	const char* String() const { return m_szBuf; }
 	
-	void AddQuotes()
-	{
-		Assert( m_szBuf[0] != '"' );
-		const int nLength = Q_strlen( m_szBuf );
-		Q_memmove( m_szBuf + 1, m_szBuf, nLength );
-		m_szBuf[0] = '"';
-		m_szBuf[nLength + 1] = '"';
-		m_szBuf[nLength + 2] = 0;
-	}
 
 protected:
 	char m_szBuf[28]; // long enough to hold 18 digits of precision, a decimal, a - sign, e+### suffix, and quotes

@@ -84,8 +84,7 @@ inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
 		}
 
 	// Deprecated macro formerly used to work around VC++98 bug
-	#define DECLARE_CLASS_NOFRIEND( className, baseClassName ) \
-		DECLARE_CLASS( className, baseClassName )
+
 
 	#define DECLARE_CLASS_NOBASE( className ) \
 		typedef className ThisClass; \
@@ -101,7 +100,7 @@ inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
 		typedef className ThisClass;
 
 	#define DECLARE_CLASS_GAMEROOT( className, baseClassName )	DECLARE_CLASS( className, baseClassName )
-	#define DECLARE_CLASS_NOFRIEND( className, baseClassName )	DECLARE_CLASS( className, baseClassName )
+
 
 	#define DECLARE_CLASS_NOBASE( className )					typedef className ThisClass;
 #endif
@@ -652,26 +651,13 @@ private:
 // Use this macro when you have a base class with a variable, and it doesn't have that variable in a SendTable,
 // but a derived class does. Then, the entity is only flagged as changed when the variable is changed in
 // an entity that wants to transmit the variable.
-	#define CNetworkVarForDerived( type, name ) \
-		virtual void NetworkStateChanged_##name() {} \
-		virtual void NetworkStateChanged_##name( void *pVar ) {} \
-		NETWORK_VAR_START( type, name ) \
-		NETWORK_VAR_END( type, name, CNetworkVarBase, NetworkStateChanged_##name )
 
-	#define CNetworkVectorForDerived( name ) \
-		virtual void NetworkStateChanged_##name() {} \
-		virtual void NetworkStateChanged_##name( void *pVar ) {} \
-		CNetworkVectorInternal( Vector, name, NetworkStateChanged_##name )
+
+
 		
-	#define CNetworkHandleForDerived( type, name ) \
-		virtual void NetworkStateChanged_##name() {} \
-		virtual void NetworkStateChanged_##name( void *pVar ) {} \
-		CNetworkHandleInternal( type, name, NetworkStateChanged_##name )
+
 		
-	#define CNetworkArrayForDerived( type, name, count ) \
-		virtual void NetworkStateChanged_##name() {} \
-		virtual void NetworkStateChanged_##name( void *pVar ) {} \
-		CNetworkArrayInternal( type, name, count, NetworkStateChanged_##name )
+
 
 	#define IMPLEMENT_NETWORK_VAR_FOR_DERIVED( name ) \
 		virtual void NetworkStateChanged_##name() { CHECK_USENETWORKVARS NetworkStateChanged(); } \
@@ -682,11 +668,7 @@ private:
 // Use this when you have a base class in which MOST of its derived classes use this variable
 // in their SendTables, but there are a couple that don't (and they
 // can use DISABLE_NETWORK_VAR_FOR_DERIVED).
-	#define CNetworkVarForDerived_OnByDefault( type, name ) \
-		virtual void NetworkStateChanged_##name() { CHECK_USENETWORKVARS NetworkStateChanged(); } \
-		virtual void NetworkStateChanged_##name( void *pVar ) { CHECK_USENETWORKVARS NetworkStateChanged( pVar ); } \
-		NETWORK_VAR_START( type, name ) \
-		NETWORK_VAR_END( type, name, CNetworkVarBase, NetworkStateChanged_##name )
+
 
 	#define DISABLE_NETWORK_VAR_FOR_DERIVED( name ) \
 		virtual void NetworkStateChanged_##name() {} \
@@ -702,9 +684,7 @@ private:
 	NETWORK_VAR_START( type, name ) \
 	NETWORK_VAR_END( type, name, CNetworkVectorBase, stateChangedFn )
 
-#define CNetworkQuaternion( name ) \
-	NETWORK_VAR_START( Quaternion, name ) \
-	NETWORK_VAR_END( Quaternion, name, CNetworkQuaternionBase, NetworkStateChanged )
+
 
 // Helper for color32's. Contains GetR(), SetR(), etc.. functions.
 #define CNetworkColor32( name ) \

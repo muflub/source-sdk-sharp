@@ -18,7 +18,7 @@
 
 #include "tier1/interface.h"
 
-#define INTERFACEVERSION_GAMEEVENTSMANAGER	"GAMEEVENTSMANAGER001"	// old game event manager, don't use it!
+	// old game event manager, don't use it!
 #define INTERFACEVERSION_GAMEEVENTSMANAGER2	"GAMEEVENTSMANAGER002"	// new game event manager,
 
 #include "tier1/bitbuf.h"
@@ -54,10 +54,10 @@ data field should not be broadcasted to clients, use the type "local".
 */
 
 
-#define MAX_EVENT_NAME_LENGTH	32		// max game event name length
+		// max game event name length
 #define MAX_EVENT_BITS			9		// max bits needed for an event index
-#define MAX_EVENT_NUMBER		(1<<MAX_EVENT_BITS)		// max number of events allowed
-#define MAX_EVENT_BYTES			1024	// max size in bytes for a serialized event
+		// max number of events allowed
+	// max size in bytes for a serialized event
 
 class KeyValues;
 class CGameEvent;
@@ -67,13 +67,13 @@ abstract_class IGameEventVisitor2
 {
 public:
 	// return true to keep iterating, false to abort iteration
-	virtual bool VisitLocal( const char* name, const void* value ) { return true; }
-	virtual bool VisitString( const char* name, const char* value ) { return true; }
-	virtual bool VisitFloat( const char* name, float value ) { return true; }
-	virtual bool VisitInt( const char* name, int value ) { return true; }
-	virtual bool VisitUint64( const char* name, uint64 value ) { return true; }
-	virtual bool VisitWString( const char* name, const wchar_t* value ) { return true; }
-	virtual bool VisitBool( const char* name, bool value ) { return true; }
+	virtual void unused_VisitLocal() = 0;
+	virtual void unused_VisitString() = 0;
+	virtual void unused_VisitFloat() = 0;
+	virtual void unused_VisitInt() = 0;
+	virtual void unused_VisitUint64() = 0;
+	virtual void unused_VisitWString() = 0;
+	virtual void unused_VisitBool() = 0;
 };
 
 abstract_class IGameEvent
@@ -83,8 +83,8 @@ public:
 	virtual const char *GetName() const = 0;	// get event name
 
 	virtual bool  IsReliable() const = 0; // if event handled reliable
-	virtual bool  IsLocal() const = 0; // if event is never networked
-	virtual bool  IsEmpty(const char *keyName = NULL) = 0; // check if data field exists
+	virtual void unused_IsLocal() = 0; // if event is never networked
+	virtual void unused_IsEmpty() = 0; // check if data field exists
 	
 	// Data access
 	virtual bool  GetBool( const char *keyName = NULL, bool defaultValue = false ) const = 0;
@@ -98,18 +98,18 @@ public:
 	virtual void SetString( const char *keyName, const char *value ) = 0;
 
 	// New stuff!
-	virtual uint64 GetUint64( const char *keyName = NULL, uint64 defaultValue = 0 ) const = 0;
-	virtual const wchar_t *GetWString( const char *keyName = NULL, const wchar_t *defaultValue = L"" ) const = 0;
-	virtual const void *GetPtr( const char *keyName = NULL ) const = 0;	// LOCAL only
+	virtual void unused_GetUint64() = 0;
+	virtual void unused_GetWString() = 0;
+	virtual void unused_GetPtr() = 0;	// LOCAL only
 
 	virtual void SetUint64( const char *keyName, uint64 value ) = 0;
-	virtual void SetWString( const char *keyName, const wchar_t *value ) = 0;
+	virtual void unused_SetWString() = 0;
 	virtual void SetPtr( const char *keyName, const void * value ) = 0;	// LOCAL only
 
-	virtual KeyValues *GetDataKeys() const = 0;
+	virtual void unused_GetDataKeys() = 0;
 
 	// returns true if iteration aborted normally, false if it was aborted by the visitor callback
-	virtual bool ForEventData( IGameEventVisitor2* event ) const = 0;
+	virtual void unused_ForEventData() = 0;
 };
 
 
@@ -138,7 +138,7 @@ public:
 	virtual bool AddListener( IGameEventListener2 *listener, const char *name, bool bServerSide ) = 0;
 
 	// returns true if this listener is listens to given event
-	virtual bool FindListener( IGameEventListener2 *listener, const char *name ) = 0;
+	virtual void unused_FindListener() = 0;
 
 	// removes a listener 
 	virtual void RemoveListener( IGameEventListener2 *listener) = 0;
@@ -154,14 +154,14 @@ public:
 	virtual bool FireEventClientSide( IGameEvent *event ) = 0;
 
 	// create a new copy of this event, must be free later
-	virtual IGameEvent *DuplicateEvent( IGameEvent *event ) = 0;
+	virtual void unused_DuplicateEvent() = 0;
 
 	// if an event was created but not fired for some reason, it has to bee freed, same UnserializeEvent
-	virtual void FreeEvent( IGameEvent *event ) = 0;
+	virtual void unused_FreeEvent() = 0;
 
 	// write/read event to/from bitbuffer
-	virtual bool SerializeEvent( IGameEvent *event, bf_write *buf ) = 0;
-	virtual IGameEvent *UnserializeEvent( bf_read *buf ) = 0; // create new KeyValues, must be deleted
+	virtual void unused_SerializeEvent() = 0;
+	virtual void unused_UnserializeEvent() = 0; // create new KeyValues, must be deleted
 };
 
 // the old game event manager interface, don't use it. Rest is legacy support:
@@ -187,7 +187,7 @@ public:
 	// removes all and anything
 	virtual void  Reset() = 0;	
 				
-	virtual KeyValues *GetEvent(const char * name) = 0; // returns keys for event
+	virtual void unused_GetEvent() = 0; // returns keys for event
 	
 	// adds a listener for a particular event
 	virtual bool AddListener( IGameEventListener * listener, const char * event, bool bIsServerSide ) = 0;
@@ -204,15 +204,15 @@ public:
 	virtual bool FireEvent( KeyValues * event ) = 0;
 
 	// fire a side server event, that it wont be broadcasted to player clients
-	virtual bool FireEventServerOnly( KeyValues * event ) = 0;
+	virtual void unused_FireEventServerOnly() = 0;
 
 	// fires an event only on this local client
 	// can be used to fake events coming over the network 
-	virtual bool FireEventClientOnly( KeyValues * event ) = 0;
+	virtual void unused_FireEventClientOnly() = 0;
 
 	// write/read event to/from bitbuffer
-	virtual bool SerializeKeyValues( KeyValues *event, bf_write *buf, CGameEvent *eventtype = NULL ) = 0;
-	virtual KeyValues *UnserializeKeyValue( bf_read *msg ) = 0; // create new KeyValues, must be deleted
+	virtual void unused_SerializeKeyValues() = 0;
+	virtual void unused_UnserializeKeyValue() = 0; // create new KeyValues, must be deleted
 };
 
 

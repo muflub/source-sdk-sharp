@@ -62,10 +62,6 @@ protected:
 };
 
 
-class CBaseFileSystemPassThru : public CInternalFileSystemPassThru<IBaseFileSystem>
-{
-public:
-};
 
 
 class CFileSystemPassThru : public CInternalFileSystemPassThru<IFileSystem>
@@ -77,13 +73,7 @@ public:
 	{
 		m_pFileSystemPassThru = NULL;
 	}
-	virtual void InitPassThru( IFileSystem *pFileSystemPassThru, bool bBaseOnly )
-	{
-		if ( !bBaseOnly )
-			m_pFileSystemPassThru = pFileSystemPassThru;
-		
-		BaseClass::InitPassThru( pFileSystemPassThru );
-	}
+	virtual void unused_InitPassThru() = 0;
 
 	// IAppSystem stuff.
 	// Here's where the app systems get to learn about each other 
@@ -154,7 +144,7 @@ public:
 	virtual FileNameHandle_t	FindOrAddFileName( char const *pFileName )										{ return m_pFileSystemPassThru->FindOrAddFileName( pFileName ); }
 	virtual FileNameHandle_t	FindFileName( char const *pFileName )											{ return m_pFileSystemPassThru->FindFileName( pFileName ); }
 	virtual bool				String( const FileNameHandle_t& handle, char *buf, int buflen )					{ return m_pFileSystemPassThru->String( handle, buf, buflen ); }
-	virtual bool			IsOk2( FileHandle_t file )															{ return IsOk(file); }
+	virtual void unused_IsOk2() = 0;
 	virtual void			RemoveSearchPaths( const char *szPathID )											{ m_pFileSystemPassThru->RemoveSearchPaths( szPathID ); }
 	virtual bool			IsSteam() const																		{ return m_pFileSystemPassThru->IsSteam(); }
 	virtual	FilesystemMountRetval_t MountSteamContent( int nExtraAppId = -1 )									{ return m_pFileSystemPassThru->MountSteamContent( nExtraAppId ); }
@@ -257,12 +247,6 @@ protected:
 };
 
 
-// This is so people who change the filesystem interface are forced to add the passthru wrapper into CFileSystemPassThru,
-// so they don't break VMPI.
-inline void GiveMeACompileError()
-{
-	CFileSystemPassThru asdf;
-}
 
 
 #endif // FILESYSTEM_PASSTHRU_H

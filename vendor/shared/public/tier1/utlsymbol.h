@@ -230,7 +230,7 @@ private:
 // The handle is a CUtlSymbol for the dirname and the same for the filename, the accessor
 //  copies them into a static char buffer for return.
 typedef void* FileNameHandle_t;
-#define FILENAMEHANDLE_INVALID 0
+
 
 // Symbol table for more efficiently storing filenames by breaking paths and filenames apart.
 // Refactored from BaseFileSystem.h
@@ -271,7 +271,6 @@ public:
 	~CUtlFilenameSymbolTable();
 	FileNameHandle_t	FindOrAddFileName( const char *pFileName );
 	FileNameHandle_t	FindFileName( const char *pFileName );
-	int					PathIndex(const FileNameHandle_t &handle) { return (( const FileNameHandleInternal_t * )&handle)->path; }
 	bool				String( const FileNameHandle_t& handle, char *buf, int buflen );
 	void				RemoveAll();
 

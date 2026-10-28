@@ -73,8 +73,6 @@ public:
 	Vector2D&	operator/=(const Vector2D &v);		
 	Vector2D&	operator/=(float s);					
 
-	// negate the Vector2D components
-	void	Negate(); 
 
 	// Get the Vector2D's magnitude.
 	vec_t	Length() const;
@@ -82,19 +80,8 @@ public:
 	// Get the Vector2D's magnitude squared.
 	vec_t	LengthSqr(void) const;
 
-	// return true if this vector is (0,0) within tolerance
-	bool IsZero( float tolerance = 0.01f ) const
-	{
-		return (x > -tolerance && x < tolerance &&
-				y > -tolerance && y < tolerance);
-	}
 
-	// Normalize in place and return the old length.
-	vec_t	NormalizeInPlace();
 
-	// Compare length.
-	bool	IsLengthGreaterThan( float val ) const;
-	bool	IsLengthLessThan( float val ) const;
 
 	// Get the distance from this Vector2D to the other one.
 	vec_t	DistTo(const Vector2D &vOther) const;
@@ -102,8 +89,6 @@ public:
 	// Get the distance from this Vector2D to the other one squared.
 	vec_t	DistToSqr(const Vector2D &vOther) const;		
 
-	// Copy
-	void	CopyToArray(float* rgfl) const;	
 
 	// Multiply, add, and assign to this (ie: *this = a + b * scalar). This
 	// is about 12% faster than the actual Vector2D equation (because it's done per-component
@@ -130,8 +115,6 @@ public:
 	Vector2D	operator*(float fl) const;
 	Vector2D	operator/(float fl) const;			
 	
-	// Cross product between two vectors.
-	Vector2D	Cross(const Vector2D &vOther) const;		
 
 	// Returns a Vector2D with the min or max in X, Y, and Z.
 	Vector2D	Min(const Vector2D &vOther) const;
@@ -147,18 +130,12 @@ private:
 
 //-----------------------------------------------------------------------------
 
-const Vector2D vec2_origin(0,0);
-const Vector2D vec2_invalid( FLT_MAX, FLT_MAX );
 
 //-----------------------------------------------------------------------------
 // Vector2D related operations
 //-----------------------------------------------------------------------------
 
-// Vector2D clear
-void Vector2DClear( Vector2D& a );
 
-// Copy
-void Vector2DCopy( const Vector2D& src, Vector2D& dst );
 
 // Vector2D arithmetic
 void Vector2DAdd( const Vector2D& a, const Vector2D& b, Vector2D& result );
@@ -169,11 +146,8 @@ void Vector2DDivide( const Vector2D& a, vec_t b, Vector2D& result );
 void Vector2DDivide( const Vector2D& a, const Vector2D& b, Vector2D& result );
 void Vector2DMA( const Vector2D& start, float s, const Vector2D& dir, Vector2D& result );
 
-// Store the min or max of each of x, y, and z into the result.
-void Vector2DMin( const Vector2D &a, const Vector2D &b, Vector2D &result );
-void Vector2DMax( const Vector2D &a, const Vector2D &b, Vector2D &result );
 
-#define Vector2DExpand( v ) (v).x, (v).y
+
 
 // Normalization
 vec_t Vector2DNormalize( Vector2D& v );
@@ -184,8 +158,6 @@ vec_t Vector2DLength( const Vector2D& v );
 // Dot Product
 vec_t DotProduct2D(const Vector2D& a, const Vector2D& b);
 
-// Linearly interpolate between two vectors
-void Vector2DLerp(const Vector2D& src1, const Vector2D& src2, vec_t t, Vector2D& dest );
 
 
 //-----------------------------------------------------------------------------
@@ -247,10 +219,6 @@ inline void Vector2D::Random( float minVal, float maxVal )
 	y = minVal + ((float)rand() / VALVE_RAND_MAX) * (maxVal - minVal);
 }
 
-inline void Vector2DClear( Vector2D& a )
-{
-	a.x = a.y = 0.0f;
-}
 
 //-----------------------------------------------------------------------------
 // assignment
@@ -323,29 +291,12 @@ inline bool Vector2D::operator!=( const Vector2D& src ) const
 // Copy
 //-----------------------------------------------------------------------------
 
-inline void Vector2DCopy( const Vector2D& src, Vector2D& dst )
-{
-	Assert( src.IsValid() );
-	dst.x = src.x;
-	dst.y = src.y;
-}
 
-inline void	Vector2D::CopyToArray(float* rgfl) const		
-{ 
-	Assert( IsValid() );
-	Assert( rgfl );
-	rgfl[0] = x; rgfl[1] = y; 
-}
 
 //-----------------------------------------------------------------------------
 // standard math operations
 //-----------------------------------------------------------------------------
 
-inline void Vector2D::Negate()
-{ 
-	Assert( IsValid() );
-	x = -x; y = -y;
-} 
 
 inline Vector2D& Vector2D::operator+=(const Vector2D& v)	
 { 
@@ -457,11 +408,6 @@ inline void	Vector2D::MulAdd(const Vector2D& a, const Vector2D& b, float scalar)
 	y = a.y + b.y * scalar;
 }
 
-inline void Vector2DLerp(const Vector2D& src1, const Vector2D& src2, vec_t t, Vector2D& dest )
-{
-	dest[0] = src1[0] + (src2[0] - src1[0]) * t;
-	dest[1] = src1[1] + (src2[1] - src1[1]) * t;
-}
 
 //-----------------------------------------------------------------------------
 // dot, cross
@@ -494,20 +440,8 @@ inline vec_t Vector2D::LengthSqr(void) const
 	return (x*x + y*y);		
 }
 
-inline vec_t Vector2D::NormalizeInPlace()
-{
-	return Vector2DNormalize( *this );
-}
 
-inline bool Vector2D::IsLengthGreaterThan( float val ) const
-{
-	return LengthSqr() > val*val;
-}
 
-inline bool Vector2D::IsLengthLessThan( float val ) const
-{
-	return LengthSqr() < val*val;
-}
 
 inline vec_t Vector2D::Length(void) const	
 {
@@ -515,18 +449,8 @@ inline vec_t Vector2D::Length(void) const
 }
 
 
-inline void Vector2DMin( const Vector2D &a, const Vector2D &b, Vector2D &result )
-{
-	result.x = (a.x < b.x) ? a.x : b.x;
-	result.y = (a.y < b.y) ? a.y : b.y;
-}
 
 
-inline void Vector2DMax( const Vector2D &a, const Vector2D &b, Vector2D &result )
-{
-	result.x = (a.x > b.x) ? a.x : b.x;
-	result.y = (a.y > b.y) ? a.y : b.y;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -566,24 +490,6 @@ inline vec_t Vector2D::DistToSqr(const Vector2D &vOther) const
 }
 
 
-//-----------------------------------------------------------------------------
-// Computes the closest point to vecTarget no farther than flMaxDist from vecStart
-//-----------------------------------------------------------------------------
-inline void ComputeClosestPoint2D( const Vector2D& vecStart, float flMaxDist, const Vector2D& vecTarget, Vector2D *pResult )
-{
-	Vector2D vecDelta;
-	Vector2DSubtract( vecTarget, vecStart, vecDelta );
-	float flDistSqr = vecDelta.LengthSqr();
-	if ( flDistSqr <= flMaxDist * flMaxDist )
-	{
-		*pResult = vecTarget;
-	}
-	else
-	{
-		vecDelta /= FastSqrt( flDistSqr );
-		Vector2DMA( vecStart, flMaxDist, vecDelta, *pResult );
-	}
-}
 
 
 

@@ -29,8 +29,8 @@
 #define UTLFIXEDMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
 #define UTLFIXEDMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
 #else
-#define UTLFIXEDMEMORY_TRACK_ALLOC()		((void)0)
-#define UTLFIXEDMEMORY_TRACK_FREE()		((void)0)
+
+
 #endif
 
 

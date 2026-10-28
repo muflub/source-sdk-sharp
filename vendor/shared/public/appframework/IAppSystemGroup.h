@@ -120,52 +120,24 @@ public:
 	virtual int Startup();
 	virtual void Shutdown();
 
-	// Returns the stage at which the app system group ran into an error
-	AppSystemGroupStage_t GetErrorStage() const;
 
 protected:
 	// These methods are meant to be called by derived classes of CAppSystemGroup
 
-	// Methods to load + unload DLLs
-	AppModule_t LoadModule( const char *pDLLName );
-	AppModule_t LoadModule( CreateInterfaceFn factory );
 
-	// Method to add various global singleton systems 
-	IAppSystem *AddSystem( AppModule_t module, const char *pInterfaceName );
-	void AddSystem( IAppSystem *pAppSystem, const char *pInterfaceName );
 
-	// Simpler method of doing the LoadModule/AddSystem thing.
-	// Make sure the last AppSystemInfo has a NULL module name
-	bool AddSystems( AppSystemInfo_t *pSystems );
 
-	// Method to look up a particular named system...
-	void *FindSystem( const char *pInterfaceName );
 
-	// Gets at a class factory for the topmost appsystem group in an appsystem stack
-	static CreateInterfaceFn GetFactory();
 
 private:
-	int OnStartup();
-	void OnShutdown();
 
-	void UnloadAllModules( );
-	void RemoveAllSystems();
 
-	// Method to connect/disconnect all systems
-	bool ConnectSystems( );
-	void DisconnectSystems();
 
-	// Method to initialize/shutdown all systems
-	InitReturnVal_t InitSystems();
-	void ShutdownSystems();
  
-	// Gets at the parent appsystem group
-	CAppSystemGroup *GetParent();
 
 	// Loads a module the standard way
 	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
 
-	void	ReportStartupFailure( int nErrorStage, int nSysIndex );
 
 	struct Module_t
 	{
@@ -180,7 +152,6 @@ private:
 	CAppSystemGroup *m_pParentAppSystem;
 	AppSystemGroupStage_t m_nErrorStage;
 
-	friend void *AppSystemCreateInterfaceFn(const char *pName, int *pReturnCode);
 	friend class CSteamAppSystemGroup;
 };
 
@@ -193,15 +164,9 @@ class CSteamAppSystemGroup : public CAppSystemGroup
 public:
 	CSteamAppSystemGroup( IFileSystem *pFileSystem = NULL, CAppSystemGroup *pParentAppSystem = NULL );
 
-	// Used by CSteamApplication to set up necessary pointers if we can't do it in the constructor
-	void Setup( IFileSystem *pFileSystem, CAppSystemGroup *pParentAppSystem );
 
 protected:
-	// Sets up the search paths
-	bool SetupSearchPaths( const char *pStartingDir, bool bOnlyUseStartingDir, bool bIsTool );
 
-	// Returns the game info path. Only works if you've called SetupSearchPaths first
-	const char *GetGameInfoPath() const;
 
 private:
 	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
@@ -211,18 +176,6 @@ private:
 };
 
 
-//-----------------------------------------------------------------------------
-// Helper empty decorator implementation of an IAppSystemGroup
-//-----------------------------------------------------------------------------
-template< class CBaseClass > 
-class CDefaultAppSystemGroup : public CBaseClass
-{
-public:
-	virtual bool Create( ) { return true; }
-	virtual bool PreInit() { return true; }
-	virtual void PostShutdown() {}
-	virtual void Destroy() {}
-};
 
 
 //-----------------------------------------------------------------------------
@@ -248,16 +201,6 @@ class CFSSteamSetupInfo;	// Forward declaration
 //
 typedef bool ( * SuggestGameInfoDirFn_t ) ( CFSSteamSetupInfo const *pFsSteamSetupInfo, char *pchPathBuffer, int nBufferLength, bool *pbBubbleDirectories );
 
-//
-// SetSuggestGameInfoDirFn
-//		Installs the supplied game info directory suggestion function.
-// Parameters:
-//		pfnNewFn				the new game info directory suggestion function.
-// Returns:
-//		The previously installed suggestion function or NULL if none was installed before.
-//		This function never fails.
-//
-SuggestGameInfoDirFn_t SetSuggestGameInfoDirFn( SuggestGameInfoDirFn_t pfnNewFn );
 
 
 #endif // APPSYSTEMGROUP_H

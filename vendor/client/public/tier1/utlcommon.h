@@ -118,16 +118,11 @@ template <typename T> struct ArgumentTypeInfo;
 // Some fundamental building-block functors...
 struct StringLessFunctor { bool operator()( const char *a, const char *b ) const { return Q_strcmp( a, b ) < 0; } };
 struct StringEqualFunctor { bool operator()( const char *a, const char *b ) const { return Q_strcmp( a, b ) == 0; } };
-struct CaselessStringLessFunctor { bool operator()( const char *a, const char *b ) const { return Q_strcasecmp( a, b ) < 0; } };
-struct CaselessStringEqualFunctor { bool operator()( const char *a, const char *b ) const { return Q_strcasecmp( a, b ) == 0; } };
 
 struct Mix32HashFunctor { unsigned int operator()( uint32 s ) const; };
 struct Mix64HashFunctor { unsigned int operator()( uint64 s ) const; };
 struct StringHashFunctor { unsigned int operator()( const char* s ) const; };
-struct CaselessStringHashFunctor { unsigned int operator()( const char* s ) const; };
 
-struct PointerLessFunctor { bool operator()( const void *a, const void *b ) const { return a < b; } };
-struct PointerEqualFunctor { bool operator()( const void *a, const void *b ) const { return a == b; } };
 #if defined( PLATFORM_64BITS )
 struct PointerHashFunctor { unsigned int operator()( const void* s ) const { return Mix64HashFunctor()( ( uintp ) s ); } };
 #else
@@ -352,20 +347,6 @@ inline unsigned int StringHashFunctor::operator()( const char* s ) const
 	return (h ^ (h << 17)) + (h >> 21);
 }
 
-// Equivalent to StringHashFunctor on lower-case strings.
-inline unsigned int CaselessStringHashFunctor::operator()( const char* s ) const
-{
-	uint32 h = 2166136261u;
-	for ( ; *s; ++s )
-	{
-		uint32 c = (unsigned char) *s;
-		// Brutally fast branchless ASCII tolower():
-		// if ((c >= 'A') && (c <= 'Z')) c += ('a' - 'A');
-		c += (((('A'-1) - c) & (c - ('Z'+1))) >> 26) & 32;
-		h = (h ^ c) * 16777619;
-	}
-	return (h ^ (h << 17)) + (h >> 21);
-}
 
 
 #endif // UTLCOMMON_H

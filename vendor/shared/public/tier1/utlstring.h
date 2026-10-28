@@ -154,15 +154,6 @@ public:
 
 	void RemoveDotSlashes(char separator = CORRECT_PATH_SEPARATOR);
 
-	CUtlString AbsPath(const char *pStartingDir, bool bLowercaseName) const
-	{
-		CUtlString result = AbsPath(pStartingDir);
-		if (bLowercaseName)
-		{
-			result.ToLower();
-		}
-		return result;
-	}
 
 	CUtlString &operator=( const CUtlString &src );
 	CUtlString &operator=( const char *src );
@@ -197,7 +188,6 @@ public:
 	int FormatV( const char *pFormat, va_list marker );
 #endif
 
-	void Truncate( int nChars );
 
 	// Defining AltArgumentType_t hints that associative container classes should
 	// also implement Find/Insert/Remove functions that take const char* params.
@@ -245,9 +235,6 @@ public:
 	// Works like V_ComposeFileName.
 	static CUtlString PathJoin( const char *pStr1, const char *pStr2 );
 
-	// These can be used for utlvector sorts.
-	static int __cdecl SortCaseInsensitive( const CUtlString *pString1, const CUtlString *pString2 );
-	static int __cdecl SortCaseSensitive( const CUtlString *pString1, const CUtlString *pString2 );
 
 	// Empty string for those times when you need to return an empty string and
 	// either don't want to pay the construction cost, or are returning a
@@ -338,30 +325,8 @@ inline bool CUtlString::IsEmpty() const
 	return !m_pString || m_pString[0] == 0;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Truncates the string to the specified number of characters
-//-----------------------------------------------------------------------------
-inline void CUtlString::Truncate( int nChars )
-{
-	if ( !m_pString )
-		return;
 
-	int nLen = V_strlen( m_pString );
-	if ( nLen <= nChars )
-		return;
 
-	m_pString[nChars] = '\0';
-}
-
-inline int __cdecl CUtlString::SortCaseInsensitive( const CUtlString *pString1, const CUtlString *pString2 )
-{
-	return V_stricmp( pString1->String(), pString2->String() );
-}
-
-inline int __cdecl CUtlString::SortCaseSensitive( const CUtlString *pString1, const CUtlString *pString2 )
-{
-	return V_strcmp( pString1->String(), pString2->String() );
-}
 
 // Converts to c-strings
 inline CUtlString::operator const char*() const
@@ -497,18 +462,12 @@ int CUtlConstStringBase<T>::Compare( const T *rhs ) const
 }
 
 typedef	CUtlConstStringBase<char>		CUtlConstString;
-typedef	CUtlConstStringBase<wchar_t>	CUtlConstWideString;
 
 //-----------------------------------------------------------------------------
 // Helper functor objects.
 //-----------------------------------------------------------------------------
 
-template < typename T > struct UTLConstStringCaselessStringLessFunctor { bool operator()( const CUtlConstStringBase<T>& a, const char *b ) const { return StringFuncs<T>::CaselessCompare( a.Get(), b ) < 0; } };
-template < typename T > struct UTLConstStringCaselessStringEqualFunctor { bool operator()( const CUtlConstStringBase<T>& a, const char *b ) const { return StringFuncs<T>::CaselessCompare( a.Get(), b ) == 0; } };
 
-// Helper function for CUtlMaps with a CUtlString key
-inline bool UtlStringLessFunc( const CUtlString &lhs, const CUtlString &rhs ) { return V_strcmp( lhs.Get(), rhs.Get() ) < 0; } 
-inline bool UtlStringCaseInsensitiveLessFunc( const CUtlString &lhs, const CUtlString &rhs ) { return V_stricmp( lhs.Get(), rhs.Get() ) < 0; } 
 
 #include "memdbgoff.h"
 
@@ -583,15 +542,11 @@ public:
 	void Append( const char *pchAddition );
 	void Append( const char *pchAddition, size_t cbLen );
 	void Append( const CUtlStringBuilder &str ) { Append( str.String(), str.Length() ); }
-	//void Append( IFillStringFunctor& func );
-	void AppendChar( char ch ) { Append( &ch, 1 ); }
-	void AppendRepeat( char ch, int cCount );
 
 	// sets the string
 	void SetValue( const char *pchString );
 	void Set( const char *pchString );
 	void Clear() { m_data.Clear(); }
-	void SetPtr( char *pchString );
 	void SetPtr( char *pchString, size_t nLength );
 	void Swap( CUtlStringBuilder &src );
 
@@ -618,8 +573,6 @@ public:
 	// format, then append what we crated in the format
 	size_t AppendFormat( PRINTF_FORMAT_STRING const char *pFormat, ... ) FMTFUNCTION( 2, 3 );
 
-	// replace a single character with another, returns hit count
-	size_t Replace( char chTarget, char chReplacement );
 
 	// replace a string with another string, returns hit count
 	// replacement string might be NULL or "" to remove target substring
@@ -628,9 +581,6 @@ public:
 
 	size_t ReplaceFastCaseless( const char* pstrTarget, const char* pstrReplacement );
 
-    // replace a sequence of characters at a given point with a new string
-	// replacement string might be NULL or "" to remove target substring
-    bool ReplaceAt( size_t nIndex, size_t nOldChars, const char *pNewStr, size_t nNewChars = SIZE_MAX );
     
 	ptrdiff_t IndexOf( const char *pstrTarget ) const;
 
@@ -657,7 +607,6 @@ public:
 	// will also be set if a dynamic allocation fails in string operations
 	// where it needs to grow the capacity.
 	void SetError()			{ m_data.SetError(true); }
-	void ClearError()		{ m_data.ClearError(); }
 	bool HasError() const	{ return m_data.HasError(); }
 
 #ifdef DBGFLAG_VALIDATE
@@ -666,18 +615,8 @@ public:
 
 	size_t VFormat( const char *pFormat, va_list args );
 	size_t VAppendFormat( const char *pFormat, va_list args );
-	void Truncate( size_t nChars );
 
-	// Access() With no assertion check - should only be used for tests
-	char *AccessNoAssert() 
-	{
-		if ( !IsValid() ) 
-			return NULL;
-		return m_data.Access(); 
-	}
 
-	// SetError() With no assertion check - should only be used for tests
-	void SetErrorNoAssert() { m_data.SetError(false); }
 
 private:
 	size_t ReplaceInternal( const char *pstrTarget, const char *pstrReplacement, const char *pfnCompare(const char*, const char*)  );
@@ -847,26 +786,6 @@ private:
 		bool MoveToHeap();
 
 	private:
-		//-----------------------------------------------------------------------------
-		// Purpose: Needed facts for string class to work
-		//-----------------------------------------------------------------------------
-		void StaticAssertTests()
-		{
-			// If this fails when the heap sentinel and where the stack string stores its bytes left
-			// aren't aliases.  This is needed so that regardless of how the 'sentinel' to mark
-			// that the string is on the heap is set, it is set as expected on both sides of the union.
-			COMPILE_TIME_ASSERT( offsetof(_Heap, sentinel) == (offsetof(_Stack, m_szString) + MAX_STACK_STRLEN ) );
-
-			// Lots of code assumes it can look at m_data.Stack.m_nBytesLeft for an empty string; which
-			// means that it will equal MAX_STACK_STRLEN.  Therefor it must be a different value than
-			// the STRING_TYPE_SENTINEL which will be set if the string is in the heap.
-			COMPILE_TIME_ASSERT( MAX_STACK_STRLEN < STRING_TYPE_SENTINEL );
-			COMPILE_TIME_ASSERT( MAX_STACK_STRLEN < STRING_TYPE_ERROR );
-
-			// this is a no brainer, and I don't know anywhere in the world this isn't true,
-			// but this code does take this dependency.
-			COMPILE_TIME_ASSERT( 0 == '\0');
-		}
 	};
 
 private: // data
@@ -1136,14 +1055,6 @@ inline void CUtlStringBuilder::Set( const char *pchString )
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Sets the string to be the new value, taking ownership of the pointer
-//-----------------------------------------------------------------------------
-inline void CUtlStringBuilder::SetPtr( char *pchString )
-{
-	size_t nLength = pchString ? strlen( pchString ) : 0;
-	SetPtr( pchString, nLength );
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Sets the string to be the new value, taking ownership of the pointer
@@ -1323,16 +1234,6 @@ inline void CUtlStringBuilder::Append( const char *pchAddition, size_t cbLen )
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: append a repeated series of a single character
-//-----------------------------------------------------------------------------
-inline void CUtlStringBuilder::AppendRepeat( char ch, int cCount )
-{
-	size_t cbOld = Length();
-	char *pstrNew = PrepareBuffer( cbOld + cCount, true );
-	if ( pstrNew )
-		memset( pstrNew + cbOld, ch, cCount );
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Swaps string contents
@@ -1347,90 +1248,13 @@ inline void CUtlStringBuilder::Swap( CUtlStringBuilder &src )
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: replace all occurrences of one character with another
-//-----------------------------------------------------------------------------
-inline size_t CUtlStringBuilder::Replace( char chTarget, char chReplacement )
-{
-	size_t cReplacements = 0;
-
-	if ( !IsEmpty() && !HasError() )
-	{
-		char *pszString = Access();
-		for ( char *pstrWalker = pszString; *pstrWalker != 0; pstrWalker++ )
-		{
-			if ( *pstrWalker == chTarget )
-			{
-				*pstrWalker = chReplacement;
-				cReplacements++;
-			}
-		}
-	}
-
-	return cReplacements;
-}
 
 
-//-----------------------------------------------------------------------------
-// replace a sequence of characters at a given point with a new string
-// replacement string might be NULL or "" to remove target substring
-//-----------------------------------------------------------------------------
-inline bool CUtlStringBuilder::ReplaceAt( size_t nIndex, size_t nOldChars, const char *pNewStr, size_t nNewChars )
-{
-    Assert( nIndex < Length() && nIndex + nOldChars <= Length() );
-
-    if ( nNewChars == SIZE_MAX )
-    {
-        nNewChars = pNewStr ? V_strlen( pNewStr ) : 0;
-    }
-
-    size_t nOldLength = Length();
-    ptrdiff_t nDelta = nNewChars - nOldChars;
-    if ( nDelta < 0 )
-    {
-        char *pBuf = Access();
-        memmove( pBuf + nIndex + nNewChars, pBuf + nIndex + nOldChars, nOldLength - nIndex - nOldChars );
-        SetLength( nOldLength + nDelta );
-    }
-    else if ( nDelta > 0 )
-    {
-        char *pBuf = PrepareBuffer( nOldLength + nDelta, true );
-        if ( !pBuf )
-        {
-            return false;
-        }
-
-        memmove( pBuf + nIndex + nNewChars, pBuf + nIndex + nOldChars, nOldLength - nIndex - nOldChars );
-    }
-
-    if ( nNewChars )
-    {
-        memcpy( Access() + nIndex, pNewStr, nNewChars );
-    }
-
-    return true;
-}
 
 
 //-----------------------------------------------------------------------------
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Truncates the string to the specified number of characters
-//-----------------------------------------------------------------------------
-inline void CUtlStringBuilder::Truncate( size_t nChars )
-{
-	if ( IsEmpty() || HasError() )
-		return;
-
-	size_t nLen = Length();
-	if ( nLen <= nChars )
-		return;
-
-	// we may be shortening enough to fit in the small buffer, but
-	// the external buffer is already allocated, so just keep using it.
-	m_data.SetLength( nChars );
-}
 
 
 //-----------------------------------------------------------------------------
