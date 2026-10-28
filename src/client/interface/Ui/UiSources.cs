@@ -81,6 +81,39 @@ public interface IPlayerWeapon
     string WeaponName { get; }
 }
 
+/// <summary>
+/// The weapon selection (stock HL2's CHudWeaponSelection, hud_fastswitch 0):
+/// the buckets of the weapons carried, the one holding the selected weapon
+/// open into its positions.
+/// </summary>
+public interface IWeaponSelectionSource
+{
+    /// <summary>Whether it is drawn: open, in the bucket style, with a player to select for.</summary>
+    bool Showing { get; }
+
+    /// <summary>Its fade, 0 to 1: up as it opens, down as it times out.</summary>
+    float Opacity { get; }
+
+    /// <summary>The bucket the selected weapon is in, 0 to 5; -1 for none.</summary>
+    int OpenSlot { get; }
+
+    /// <summary>Whether a weapon is carried in the bucket.</summary>
+    bool SlotHasWeapon(int slot);
+
+    /// <summary>The furthest position carried in the bucket; -1 for none.</summary>
+    int LastPosition(int slot);
+
+    /// <summary>The weapon at a bucket's position; false for none there.</summary>
+    bool Weapon(int slot, int position, out WeaponSelectionBox box);
+}
+
+/// <summary>One weapon in the open bucket.</summary>
+/// <param name="Icon">Its icon in the UI's icon set (<c>smg1</c>, <c>357</c>).</param>
+/// <param name="Name">Its display name, localised.</param>
+/// <param name="Selectable">Whether it has anything to fire (stock's CanBeSelected): drawn red when not.</param>
+/// <param name="Selected">The weapon the selection is on.</param>
+public readonly record struct WeaponSelectionBox(string Icon, string Name, bool Selectable, bool Selected);
+
 /// <summary>The ammunition of the weapon in hand.</summary>
 public interface IPlayerAmmo
 {

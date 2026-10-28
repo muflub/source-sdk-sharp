@@ -97,8 +97,8 @@ public class WeaponDeathTests
     // say it out loud: hands emptied, viewmodel disowned, both hidden.
     //-------------------------------------------------------------------------
 
-    private static (Arsenal arsenal, RecordingEngine engine,
-                    WeaponSwitchTests.SpawningEntities world, ScriptedEntityRegistry registry)
+    internal static (Arsenal arsenal, RecordingEngine engine,
+                     WeaponSwitchTests.SpawningEntities world, ScriptedEntityRegistry registry)
         LiveWorld()
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)

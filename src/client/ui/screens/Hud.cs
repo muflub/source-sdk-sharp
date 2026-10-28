@@ -7,7 +7,8 @@ namespace SourceSharp.Client.Ui.Screens;
 /// The HUD (plan_client_ui §7: today's elements re-done on the toolkit), as
 /// one sub-panel per element (§5.7a), each in its own full-screen layer:
 /// vitals (health and suit meters) bottom left, ammo bottom right, crosshair,
-/// damage vignette, a map's text, key hints and the build stamp.
+/// damage vignette, a map's text, key hints, the weapon selection (top
+/// centre) and the build stamp.
 /// Slots: <c>hud.top-left</c>, <c>hud.top-right</c>, <c>hud.bottom-left</c>
 /// (above the vitals), <c>hud.bottom-right</c> (above the ammo).
 /// </summary>
@@ -23,11 +24,14 @@ public sealed class Hud : UiScreen
     private readonly BuildStampPanel _build;
     private readonly KillFeedPanel _kills;
     private readonly VoicePanel _voice;
+    private readonly WeaponSelectionPanel _selection;
 
     /// <summary>The HUD reads only whether there is a player; each element reads its own sources.</summary>
     public Hud(IPlayerLife life, VitalsPanel vitals, AmmoPanel ammo, CrosshairPanel crosshair, DamagePanel damage,
-               MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice)
+               MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice,
+               WeaponSelectionPanel selection)
     {
+        _selection = selection;
         _voice = voice;
         _kills = kills;
         _life = life;
@@ -97,6 +101,7 @@ public sealed class Hud : UiScreen
         }
 
         ui.Sub("maptext", _mapText);
+        ui.Sub("weaponselection", _selection);
 
         // The top corners' slots; the bottom ones sit above the vitals and the ammo, in their panels.
         using (ui.Box().Size(Size.Fill, Size.Fill).Layered())

@@ -103,6 +103,66 @@ public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour,
             .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this).Add<IPlayerSuitPower>(this);
 }
 
+/// <summary>
+/// The weapon selection as a sample: a bucket per row of <see cref="Weapons"/>
+/// (slot, position, icon, name, selectable), open on <see cref="Selected"/>.
+/// </summary>
+public sealed class FakeWeaponSelection : IWeaponSelectionSource
+{
+    public bool Showing { get; init; } = true;
+    public float Opacity { get; init; } = 1f;
+    public (int Slot, int Position, string Icon, string Name, bool Selectable)[] Weapons { get; init; } = [];
+
+    /// <summary>The selected weapon's index in <see cref="Weapons"/>.</summary>
+    public int Selected { get; init; } = -1;
+
+    /// <summary>Stock HL2MP's full arsenal, as a carry: every bucket with something in it.</summary>
+    public static (int, int, string, string, bool)[] Full =>
+    [
+        (0, 0, "crowbar", "#HL2_Crowbar", true), (0, 1, "stunstick", "#HL2_StunBaton", true),
+        (0, 2, "physcannon", "#HL2_GravityGun", true),
+        (1, 0, "pistol", "#HL2_Pistol", true), (1, 1, "357", "#HL2_357Handgun", true),
+        (2, 0, "smg1", "#HL2_SMG1", true), (2, 1, "ar2", "#HL2_Pulse_Rifle", true),
+        (3, 0, "shotgun", "#HL2_Shotgun", true), (3, 1, "crossbow", "#HL2_Crossbow", true),
+        (4, 0, "rpg", "#HL2_RPG", true), (4, 1, "frag", "#HL2_Grenade", true), (4, 2, "slam", "#HL2_SLAM", true),
+    ];
+
+    public int OpenSlot => Selected >= 0 ? Weapons[Selected].Slot : -1;
+
+    public bool SlotHasWeapon(int slot)
+    {
+        foreach (var w in Weapons)
+            if (w.Slot == slot)
+                return true;
+        return false;
+    }
+
+    public int LastPosition(int slot)
+    {
+        int last = -1;
+        foreach (var w in Weapons)
+            if (w.Slot == slot && w.Position > last)
+                last = w.Position;
+        return last;
+    }
+
+    public bool Weapon(int slot, int position, out WeaponSelectionBox box)
+    {
+        for (int i = 0; i < Weapons.Length; i++)
+        {
+            var w = Weapons[i];
+            if (w.Slot == slot && w.Position == position)
+            {
+                box = new WeaponSelectionBox(w.Icon, w.Name, w.Selectable, i == Selected);
+                return true;
+            }
+        }
+
+        box = default;
+        return false;
+    }
+}
+
 /// <summary>The spectated player as a sample.</summary>
 public sealed record FakeSpectatorTarget : ISpectatorTargetSource
 {

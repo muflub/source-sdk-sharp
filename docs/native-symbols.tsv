@@ -1916,11 +1916,12 @@ client_sourcesharp	src/client/native/shell_standalone_client.cpp	StandaloneClien
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	StandaloneClients_PostInterpolate()
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	_GLOBAL__sub_I_shell_standalone_client.cpp
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init
-client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.12
+client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.1
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.13
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.14
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.15
-client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.4
+client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.16
+client_sourcesharp	src/client/native/shell_standalone_client.cpp	__cxx_global_var_init.5
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	non-virtual thunk to C_StandaloneEntity::CreateModelInstance()
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	non-virtual thunk to C_StandaloneEntity::DrawModel(int)
 client_sourcesharp	src/client/native/shell_standalone_client.cpp	non-virtual thunk to C_StandaloneEntity::GetAttachment(int, Vector&, QAngle&)

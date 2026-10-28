@@ -918,7 +918,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 continue;
 
             int weight = _scripts?.ReadScript(check.Name)?.Weight ?? 0;
-            bool hasAmmo = HasAnyAmmo(carry, carry.Weapons[slot], in check);
+            bool hasAmmo = HasAnyAmmo(carry, carry.Weapons[slot].Clip, in check);
 
             if (weight > -1 && weight == currentWeight)
             {
@@ -936,14 +936,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     }
 
     /// <summary>CBaseCombatWeapon::HasAnyAmmo for a holstered weapon: its kept clip, or its pools.</summary>
-    private bool HasAnyAmmo(Carry carry, Owned owned, in WeaponType type)
+    private bool HasAnyAmmo(Carry carry, int clip, in WeaponType type)
     {
         bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
         if (!usesPrimary && !usesSecondary)
             return true;
 
         bool primary = usesPrimary &&
-                       ((ClipSizeOf(in type) > 0 && owned.Clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
+                       ((ClipSizeOf(in type) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
         return primary || (usesSecondary && carry.Ammo.GetValueOrDefault(type.SecondaryAmmoName) > 0);
     }
 
@@ -975,6 +975,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     {
         foreach (var carry in _carries.Values)
         {
+            PublishSelection(carry);
+
             if (!_entities.IsValid(carry.Player))
                 continue;
 
@@ -985,6 +987,50 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (_entities.IsValid(carry.ViewModel))
                 _entities.SetOrigin(carry.ViewModel, at);
         }
+    }
+
+    /// <summary>
+    /// What the client's weapon selection walks: the weapons carried, and
+    /// which of them CanBeSelected refuses, as bits by WeaponTypes index on
+    /// the player's state.
+    /// </summary>
+    internal void PublishSelection(Carry carry)
+    {
+        if (_directory.Get(carry.Player) is not SsPlayer player)
+            return;
+
+        uint carried = 0, empty = 0;
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            int typeIndex = carry.Weapons[slot].TypeIndex;
+            if (typeIndex < 0 || typeIndex >= 32 || _weapons.ByIndex(typeIndex) is not WeaponType type)
+                continue;
+
+            uint bit = 1u << typeIndex;
+            carried |= bit;
+            if (!CanBeSelected(carry, slot, in type))
+                empty |= bit;
+        }
+
+        player.State.CarriedWeapons = carried;
+        player.State.EmptyWeapons = empty;
+    }
+
+    /// <summary>
+    /// C_BaseCombatWeapon::CanBeSelected, which is HasAmmo: a weapon that uses
+    /// no ammunition, one whose script selects on empty, or one with a round
+    /// in its clip or its pools. The active weapon's clip is its own state.
+    /// </summary>
+    private bool CanBeSelected(Carry carry, int slot, in WeaponType type)
+    {
+        if (_scripts?.ReadScript(type.Name) is { } script && (script.Flags & WeaponItemFlags.SelectOnEmpty) != 0)
+            return true;
+
+        int clip = slot == carry.ActiveSlot && _directory.Get(carry.Weapon) is SsWeapon live
+            ? live.State.Clip
+            : carry.Weapons[slot].Clip;
+
+        return HasAnyAmmo(carry, clip, in type);
     }
 
     //-------------------------------------------------------------------------

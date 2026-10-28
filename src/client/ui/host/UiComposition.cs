@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
+using SourceSharp.Client.Vgui;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Screens;
 using SourceSharp.Client.Ui.Toolkit;
@@ -78,19 +79,29 @@ public static class ClientUi
         var screen = services.Require<IEngineHud>();
         var mod = services.Require<IModInfo>();
 
-        var fonts = new UiFontLibrary();
-        string fontDir = Path.Combine(mod.ManagedDir, "fonts");
-        var fontFiles = new UiFontFiles(Directory.Exists(fontDir)
-            ? Directory.GetFiles(fontDir, "*.ttf").Order(StringComparer.Ordinal).ToArray()
-            : []);
-        if (fontFiles.Paths.Count == 0)
-            log.Warning($"[SourceSharp/Ui] no fonts in {fontDir}: text falls back to the system's\n");
-        var backend = new VguiBackend(services.Require<IUiSurface>(), fonts, fontFiles) { Icons = UiIconSet.Embedded() };
-
         var theme = SourceSharpTheme.Create();
         string themePath = Path.Combine(mod.GameDir, ThemeFile);
         if (File.Exists(themePath))
             UiThemeFile.Apply(theme, File.ReadAllText(themePath));
+
+        var fonts = new UiFontLibrary();
+        string fontDir = Path.Combine(mod.ManagedDir, "fonts");
+        var managed = new UiFontFiles(Directory.Exists(fontDir)
+            ? Directory.GetFiles(fontDir, "*.ttf").Order(StringComparer.Ordinal).ToArray()
+            : []);
+        if (managed.Paths.Count == 0)
+            log.Warning($"[SourceSharp/Ui] no fonts in {fontDir}: text falls back to the system's\n");
+        // The theme's own fonts, from the game (the offline preview has no IEngineFiles and keeps the repo's).
+        var game = GameFonts.Load(theme.FontFiles, fonts, services.Resolve<IEngineFiles>(), log);
+        var fontFiles = new UiFontFiles([.. managed.Paths, .. game.Paths]);
+        var surface = services.Require<IUiSurface>();
+        var backend = new VguiBackend(surface, game.Metrics ?? fonts, fontFiles) { Icons = UiIconSet.Embedded() };
+
+        // THE HUD ART (user ruling 2026-10-26): material names to uploaded
+        // textures, over the engine's GAME paths. The mod's screens and the
+        // debug commands take it; AddInstance so a UI reload replaces it.
+        var textures = new UiTextureLibrary(services.Resolve<IEngineFiles>(), surface, log);
+        services.AddInstance<IUiTextureLibrary>(textures);
 
         var language = Language(mod.GameDir, log, services.Resolve<IEngineFiles>(), mod.Localisation);
 
@@ -98,7 +109,7 @@ public static class ClientUi
 
         // The weapons' print names, from their scripts on disk (the client has
         // no engine file read: those slots are the server's).
-        var scripts = new WeaponScriptDatabase(log, path =>
+        var scripts = services.Resolve<WeaponScriptDatabase>() ?? new WeaponScriptDatabase(log, path =>
         {
             string full = Path.Combine(mod.GameDir, path);
             return File.Exists(full) ? File.ReadAllText(full) : null;
@@ -117,7 +128,10 @@ public static class ClientUi
                                            new CrosshairPanel(), new DamagePanel(player), new MapTextPanel(messages),
                                            new HintsPanel(hints), new BuildStampPanel(build),
                                            new KillFeedPanel(services.Require<IKillFeedSource>()),
-                                           new VoicePanel(services.Require<IVoiceSource>()));
+                                           new VoicePanel(services.Require<IVoiceSource>()),
+                                           new WeaponSelectionPanel(services.Resolve<WeaponSelectionHud>() is { } selection
+                                               ? new WeaponSelectionUi(selection, services.Require<WeaponCatalog>(), names)
+                                               : new NoWeaponSelection()));
         var centre = new Ui.Screens.CentrePrint(services.Require<ICentrePrintSource>());
         var chat = new Chat(services.Require<IChatSource>());
         var overlayText = new Ui.Screens.DebugOverlayText(services.Require<IDebugOverlaySource>());

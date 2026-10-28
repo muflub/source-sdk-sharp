@@ -252,7 +252,7 @@ int32_t SourceSharp_UiFontAddFile( const char *pPath )
 	if ( !pPath || !pPath[0] )
 		return 0;
 
-	return surface()->AddCustomFontFile( pPath, pPath ) ? 1 : 0;
+	return surface()->AddCustomFontFile( NULL, pPath ) ? 1 : 0;
 }
 
 int32_t SourceSharp_UiFontCreate( const char *pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags )

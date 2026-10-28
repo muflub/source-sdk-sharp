@@ -37,8 +37,8 @@
 
 static CUtlVector<C_StandaloneEntity *> g_StandaloneClients;
 
-// Held so the per-frame eye pin does not walk the list.
-static C_StandaloneEntity *s_pLocalViewModel = NULL;
+// Every viewmodel-pass entity rides the eye: the viewmodel and its bone-merged attachments.
+static CUtlVector<C_StandaloneEntity *> s_pViewModels;
 
 static C_StandaloneEntity *s_pLocalPlayerShell = NULL;
 
@@ -132,8 +132,7 @@ C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass
 C_StandaloneEntity::~C_StandaloneEntity()
 {
 	// The eye pin must not chase a freed entity.
-	if ( s_pLocalViewModel == this )
-		s_pLocalViewModel = NULL;
+	s_pViewModels.FindAndRemove( this );
 
 	if ( s_pLocalPlayerShell == this )
 		s_pLocalPlayerShell = NULL;
@@ -1837,11 +1836,12 @@ void C_StandaloneEntity::SetViewModelPass( bool bEnable )
 	if ( bEnable )
 	{
 		Block().Client.CustomDraw = 0;
-		s_pLocalViewModel = this;
+		if ( s_pViewModels.Find( this ) == s_pViewModels.InvalidIndex() )
+			s_pViewModels.AddToTail( this );
 	}
-	else if ( s_pLocalViewModel == this )
+	else
 	{
-		s_pLocalViewModel = NULL;
+		s_pViewModels.FindAndRemove( this );
 	}
 
 	BumpPolicyInputs();
@@ -1875,8 +1875,8 @@ void C_StandaloneEntity::MoveToEye( const Vector &vecEye, const QAngle &angEye )
 
 void SourceSharp_StandaloneViewModelToEye( const Vector &vecEye, const QAngle &angEye )
 {
-	if ( s_pLocalViewModel )
-		s_pLocalViewModel->MoveToEye( vecEye, angEye );
+	for ( int i = 0; i < s_pViewModels.Count(); i++ )
+		s_pViewModels[i]->MoveToEye( vecEye, angEye );
 }
 
 void SourceSharp_StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable )

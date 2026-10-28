@@ -21,11 +21,13 @@ public class UiSourceUseTests
 {
     private static readonly Assembly Contract = typeof(IScoreboardSource).Assembly;
 
-    /// <summary>The data interfaces screens read (not the layer/backend contracts).</summary>
+    /// <summary>The data interfaces screens read (not the layer/backend contracts, nor
+    /// IUiIconAtlas / IUiTextureLibrary: the icon atlas and the HUD-art library are
+    /// consumed through the surface and the composition, not a panel's frames).</summary>
     internal static bool IsSource(Type t)
         => t.IsInterface && t.Assembly == Contract && t.Namespace == "SourceSharp.Client.Ui"
            && t != typeof(IUiScreen) && t != typeof(IUiLayer) && t != typeof(IUiBackend) && t != typeof(IUiFontMetrics)
-           && t != typeof(IUiIconAtlas);
+           && t != typeof(IUiIconAtlas) && t != typeof(IUiTextureLibrary);
 
     private static IEnumerable<Type> UiTypes()
         => typeof(UiScreen).Assembly.GetTypes().Concat(typeof(ScreensAssembly).Assembly.GetTypes())

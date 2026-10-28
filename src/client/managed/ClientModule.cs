@@ -136,6 +136,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private readonly Standalone.ClientRenderPolicy _renderPolicy;
     private readonly ConCommandRegistry _commands = new();
     private ClientArsenal _clientArsenal = null!;
+    private WeaponSelectionHud? _weaponSelection;
     private WeaponEffects.WeaponDrawEffects? _weaponEffects;
     private UnderwaterAmbience? _underwater;
     private ClientPlayerPrediction _prediction = null!;
@@ -1954,6 +1955,24 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);
 
+        // THE WEAPON SELECTION (stock CBaseHudWeaponSelection / HL2's
+        // CHudWeaponSelection): the binds, the cancel key and the attack
+        // buttons drive it, the HUD draws it. Over the weapons' scripts on disk
+        // (the client has no engine file read: those slots are the server's).
+        var gameDir = _services.Require<IModInfo>().GameDir;
+        var weaponScripts = new WeaponScriptDatabase(Log, path =>
+        {
+            string full = Path.Combine(gameDir, path);
+            return File.Exists(full) ? File.ReadAllText(full) : null;
+        });
+        _services.AddInstance(weaponScripts);
+        var localSelection = _services.Create<LocalWeaponSelection>();
+        var fastSwitch = _convars.Get<HudFastSwitchConVar>();
+        _weaponSelection = new WeaponSelectionHud(localSelection, localSelection,
+            new ScriptWeaponSlots(_services.Require<WeaponCatalog>(), weaponScripts), _clock,
+            () => fastSwitch?.Value ?? WeaponSelectionHud.HudTypeBuckets);
+        _services.AddInstance(_weaponSelection);
+
         // THE UI (plan_client_ui §8 U2): the HUD as toolkit screens, drawn
         // through IShimUiClient when the HUD panel paints (IManagedUiClient).
         // After the arsenal and the HUD's message, hint and stamp state, which
@@ -2047,7 +2066,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new Vgui.ViewportPanelCommand(_uiLoader));
         var uiLoader = _uiLoader;
         _services.AddInstance(new Vgui.ShowInfo(() => uiLoader.Current, Log));
-        _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient);
+        _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient, _weaponSelection);
 
         // THE PLAYER'S REPLAY (plan_entity.md step 6f). After the arsenal,
         // which it drives: the weapon machine's two phases are direct calls
@@ -2127,7 +2146,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         if (inputMailbox is null)
             Log.Warning($"[SourceSharp/Client] input: no input mailbox ({whyNoMailbox}); every input call crosses\n");
         var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, new Input.UiMenuInputGate(() => _uiLoader?.Current),
-                                          mailbox: inputMailbox);
+                                          mailbox: inputMailbox, hud: _weaponSelection);
 
         // The rumble mixer (c_rumble.cpp's CRumbleEffects), stepped once a frame
         // below; its random amplitude is the engine's own stream.
@@ -2301,6 +2320,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The voice manager tells the server its state once a second (stock CVoiceStatus::Frame).
         _voiceStatus?.Frame();
+
+        // The weapon selection's timeout and fade (CHudWeaponSelection::OnThink).
+        _weaponSelection?.Think();
         _frameTimes.Add(frameTime);
 
         // The dev API's questions that read the game's state, answered here on

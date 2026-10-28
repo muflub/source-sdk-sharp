@@ -453,7 +453,7 @@ shell_standalone_client.o	_ZL14g_pTierClasses	g_pTierClasses	sourcesharp/game/cl
 shell_standalone_client.o	_ZL12g_pTierProps	g_pTierProps	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	56	UNRULED		
 shell_standalone_client.o	_ZL13g_pTierTables	g_pTierTables	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	56	UNRULED		
 shell_standalone_client.o	_ZL19s_pLocalPlayerShell	s_pLocalPlayerShell	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-shell_standalone_client.o	_ZL17s_pLocalViewModel	s_pLocalViewModel	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
+shell_standalone_client.o	_ZL13s_pViewModels	s_pViewModels	sourcesharp/game/client/shell_standalone_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_surface_render.o	_ZZN27CSourceSharpSurfaceRenderer8DrawQuadEP13IBrushSurfaceP5IMeshP12CMeshBuilderRK6VectorS8_S8_PA2_KfbE7s_Grout	CSourceSharpSurfaceRenderer::DrawQuad(IBrushSurface*, IMesh*, CMeshBuilder*, Vector const&, Vector const&, Vector const&, float const (*) [2], bool)::s_Grout	sourcesharp/game/client/shell_surface_render.cpp	LOCAL	bss	function-local	12	UNRULED		
 	_ZN26PrecacheEffectGlassShatter20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectGlassShatter::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	data	class-or-namespace	32	UNRULED		
 	_ZN26PrecacheEffectGlassShatter29register_ClientEffectRegisterE	PrecacheEffectGlassShatter::register_ClientEffectRegister	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		

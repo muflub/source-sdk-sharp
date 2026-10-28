@@ -106,10 +106,9 @@ public class PolicyKnobDeclarationTests
         new("r_rainalpha", "0.4", ConVarFlags.Cheat, ""),
         new("r_rainalphapow", "0.8", ConVarFlags.Cheat, ""),
         new("hud_drawhistory_time", "5", ConVarFlags.None, "Seconds the pickup history stays up. Unused here — the history HUD is hidden."),
-        // Moved by lane 4c-render, plan_shim.md §6. Its default is 1 and not
-        // stock's 0, which predates the move: switching is always immediate
-        // here because there is no selection UI to drive.
-        new("hud_fastswitch", "1", ConVarFlags.Archive, "Weapon switching is always immediate in this mod; kept for config compatibility."),
+        // Moved by lane 4c-render, plan_shim.md §6; stock's default 0 since the
+        // weapon selection was ported (WeaponSelectionHud).
+        new("hud_fastswitch", "0", ConVarFlags.Archive, ""),
 
         // plan_shim.md §6, lane 4b-effects: the thirteen the effects and
         // temp-entity shim still declared in C++. Read off the C++ at f225149e9

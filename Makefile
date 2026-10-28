@@ -275,7 +275,7 @@ help:
 	@echo "  make entity-census  plan_entity.md's §1 table, diffed against its baseline"
 	@echo "  make entity-gates   plan_entity.md's three definition-of-done gates"
 	@echo "  make entity-ratchet the 'entity' test leg: census + gates ratchet + budget"
-	@echo "  make ui-preview [PNG=1] [WATCH=1]   UI mock-ups to bin/<config>/ui-preview (WATCH serves #mockups)"
+	@echo "  make ui-preview [PNG=1] [WATCH=1] [MOD=id]   UI mock-ups to bin/<config>/ui-preview (WATCH serves #mockups; MOD draws as that mod: its theme, fonts and HUD art)"
 	@echo "  make ui-icons                       rasterise src/client/ui/icons into its atlas (commit the result)"
 	@echo "  make ui-lint    the UI design lint over every screen sample"
 	@echo "  make live-gate  build debug, then load a map TWICE and gate both"
@@ -1141,7 +1141,7 @@ globals-client-ledger:
 # with the dev web UI's Mockups tab at http://127.0.0.1:7191/#mockups.
 # Managed only: no native build, no game.
 ui-preview:
-	@tools/ui-preview --config $(CONFIG) $(if $(filter 1,$(PNG)),--png) $(if $(filter 1,$(WATCH)),--watch)
+	@tools/ui-preview --config $(CONFIG) $(if $(filter 1,$(PNG)),--png) $(if $(filter 1,$(WATCH)),--watch) $(if $(MOD),--mod $(MOD))
 
 # The icon set's atlas (src/client/ui/icons/atlas), rasterised from its SVGs.
 ui-icons:

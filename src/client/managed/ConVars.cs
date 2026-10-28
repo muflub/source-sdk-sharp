@@ -150,31 +150,20 @@ public sealed class PredictWeaponsConVar : BoolConVar
 public sealed class ShowParticleCountsConVar : BoolConVar { }
 
 /// <summary>
-/// Whether a weapon switch waits for a selection UI. It never does here.
+/// The weapon selection's HUD type (weapon_selection.cpp): 0 the buckets a
+/// slot key opens and attack confirms, 1 fastswitch, which switches at once
+/// and draws nothing. Stock's default, 0. <see cref="WeaponSelectionHud"/>
+/// reads it each time, as stock does.
 ///
 /// <para>
 /// FROM <c>shell_hud.cpp</c>, WHERE IT WAS HELD BACK BY A LINK ERROR RATHER
-/// THAN BY A RULE. <c>game/shared/weapon_parse.cpp</c> holds
-/// <c>extern ConVar hud_fastswitch;</c> and reads it to pick the console
-/// bucket layout at <c>hud_fastswitch.GetInt() == 2</c>, so moving the
-/// declaration used to fail with
-/// <c>weapon_parse.o: undefined reference to hud_fastswitch</c>. That
-/// translation unit is no longer compiled into either DLL, and the symbol had
-/// one definer and zero importers on both link lines, so the reason expired.
-/// </para>
-///
-/// <para>
-/// DEFAULT 1, WHICH IS NOT STOCK'S 0, and that is deliberate and predates this
-/// move: switching is always immediate in this mod because there is no
-/// selection UI to drive — SourceSharp draws its own weapon list, and the
-/// commands the stock binds land on (invnext, invprev, lastinv, slot1..slot6)
-/// forward straight to the managed Arsenal on the server. The registration is
-/// kept so a config that sets the name still loads.
+/// THAN BY A RULE: <c>game/shared/weapon_parse.cpp</c> held
+/// <c>extern ConVar hud_fastswitch;</c>, a translation unit no longer compiled
+/// into either DLL.
 /// </para>
 /// </summary>
-[ConVar("hud_fastswitch", "1", Flags = ConVarFlags.Archive,
-        Help = "Weapon switching is always immediate in this mod; kept for config compatibility.")]
-public sealed class HudFastSwitchConVar : BoolConVar { }
+[ConVar("hud_fastswitch", "0", Flags = ConVarFlags.Archive)]
+public sealed class HudFastSwitchConVar : IntConVar { }
 
 /// <summary>
 /// The once-per-install marker behind the bicubic lightmap default.

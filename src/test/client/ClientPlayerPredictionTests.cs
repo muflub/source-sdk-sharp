@@ -342,6 +342,95 @@ public class ClientPlayerPredictionTests
             $"the predicted OldForwardMove stays the server's 0, not {saved.OldForwardMove}");
     }
 
+    /// <summary>
+    /// The loop's cap (mv->m_flMaxSpeed) is not the player's networked
+    /// m_flMaxspeed: stock's FinishMove never stores it back
+    /// (prediction.cpp:720 and player_command.cpp:212 are commented out), and
+    /// neither does this server, whose record keeps what game code set. A
+    /// movement rule that raises the cap (TF's class speed, 400 for a scout)
+    /// changes the move and not the saved MaxSpeed; saving the cap made every
+    /// compare a MaxSpeed misprediction (predicted 400, server 320).
+    /// </summary>
+    [Fact]
+    public void ARuleRaisedCapIsNotSavedAsTheNetworkedMaxSpeed()
+    {
+        var bench = Build(11);
+        bench.Replay.ForwardMove = 450f;
+        int asked = 0;
+        bench.Runner.ReplayRules = MovementRules.Stock with
+        {
+            MaxSpeed = (_, _, _, _) =>
+            {
+                asked++;
+                return 400f;
+            },
+        };
+
+        bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                outgoingCommand: 11, worldUpdateArrived: false);
+
+        Assert.True(asked > 0, "the rule was asked for the cap");
+
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+
+        Assert.True(saved.MaxSpeed == 320f,
+            $"the predicted MaxSpeed stays the server's 320, not {saved.MaxSpeed}");
+    }
+
+    /// <summary>
+    /// HL2MP's speeds are the move's client max speed (CHL2GameMovement's
+    /// CheckParameters), and the cap they leave is not saved either: a replay
+    /// with the HL2 player at its normal speed (190) still saves the server's
+    /// 320.
+    /// </summary>
+    [Fact]
+    public void TheHl2SpeedCapIsNotSavedAsTheNetworkedMaxSpeed()
+    {
+        var bench = Build(null, new Hl2Player(), 11);
+        bench.Replay.ForwardMove = 450f;
+
+        bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                outgoingCommand: 11, worldUpdateArrived: false);
+
+        Assert.True(bench.Prediction.LastReplayed == 1, "the walking command was replayed");
+
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+
+        Assert.True(saved.MaxSpeed == 320f,
+            $"the predicted MaxSpeed stays the server's 320, not {saved.MaxSpeed}");
+    }
+
+    /// <summary>
+    /// The live symptom: the server sends its record's MaxSpeed (320) beside
+    /// the moved state, and a replay whose rule raised the cap to 400 holds
+    /// against it instead of standing as a MaxSpeed misprediction.
+    /// </summary>
+    [Fact]
+    public void AReplayUnderARaisedCapHoldsAgainstTheServersMaxSpeed()
+    {
+        var bench = Build(11);
+        bench.Replay.ForwardMove = 450f;
+        bench.Runner.ReplayRules = MovementRules.Stock with { MaxSpeed = (_, _, _, _) => 400f };
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        // The server's word: the move the replay made, with the MaxSpeed its
+        // record holds (ServerPlayerMove.MaxSpeed, which no command writes).
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.MaxSpeed = 320f;
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"no misprediction, not {bench.Prediction.Mispredicts} on {bench.Prediction.LastMissFields}");
+        Assert.Equal(1, bench.Prediction.Holds);
+    }
+
     [Fact]
     public void AnObserverIsReplayedInItsNetworkedObserverMode()
     {

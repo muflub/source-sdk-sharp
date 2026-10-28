@@ -2,7 +2,7 @@
 # code_lines	verdict	head   (UNRULED counts as LOGIC)
 4	SLOT-HELP	C_StandaloneEntity *SourceSharp_LocalPlayerShell()
 53	SLOT	C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass *pClass, int iTier )
-24	SLOT	C_StandaloneEntity::~C_StandaloneEntity()
+23	SLOT	C_StandaloneEntity::~C_StandaloneEntity()
 28	SLOT-HELP	bool C_StandaloneEntity::EnsureManagedHalf()
 36	SLOT	void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 14	SLOT	void C_StandaloneEntity::NotifyShouldTransmit( ShouldTransmitState_t state )
@@ -104,7 +104,7 @@
 11	BOUNDARY	int32_t SourceSharp_StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice )
 13	BOUNDARY	void SourceSharp_ClientEntityGetOrigin( uint32_t hEntity, float *pOutXYZ )
 13	BOUNDARY	void SourceSharp_ClientEntityGetAngles( uint32_t hEntity, float *pOutPYR )
-16	BOUNDARY	void C_StandaloneEntity::SetViewModelPass( bool bEnable )
+17	BOUNDARY	void C_StandaloneEntity::SetViewModelPass( bool bEnable )
 11	SLOT-HELP	float C_StandaloneEntity::SequenceCycle( float flNow ) const
 6	BOUNDARY	void C_StandaloneEntity::MoveToEye( const Vector &vecEye, const QAngle &angEye )
 5	BOUNDARY	void SourceSharp_StandaloneViewModelToEye( const Vector &vecEye, const QAngle &angEye )

@@ -676,7 +676,12 @@ public sealed class ClientPlayerPrediction
         into.SuitDevicesOffTime = _move.SuitDevicesOffTime;
         into.NewSprinting = _move.NewSprinting;
 
-        into.MaxSpeed = _move.MaxSpeed;
+        // MaxSpeed is NOT written back: the loop's value is mv->m_flMaxSpeed,
+        // the cap after the client max speed, the surface and the movement
+        // rules, and stock's FinishMove never stores it into m_flMaxspeed
+        // (prediction.cpp:720, player_command.cpp:212); this server's record
+        // keeps what game code set. Persisting it made every compare a
+        // MaxSpeed misprediction (TF's scout: predicted 400, server 320).
         into.FallVelocity = _move.FallVelocity;
         into.DuckTime = _move.DuckTime;
         into.DuckJumpTime = _move.DuckJumpTime;

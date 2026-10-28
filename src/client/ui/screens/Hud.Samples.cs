@@ -8,8 +8,9 @@ public static class HudSamples
 {
     /// <summary>The HUD from fakes, registered one per interface, built by the services as DI will.</summary>
     public static UiScreen Build(UiSampleServices s, FakeLocalPlayer player, FakeHudText? text = null, FakeBuildStamp? stamp = null,
-                                 FakeKillFeed? kills = null, FakeVoice? voice = null)
+                                 FakeKillFeed? kills = null, FakeVoice? voice = null, FakeWeaponSelection? selection = null)
     {
+        s.Add<IWeaponSelectionSource>(selection ?? new FakeWeaponSelection { Showing = false });
         player.Register(s);
         (text ?? new FakeHudText()).Register(s);
         s.Add<IBuildStampSource>(stamp ?? new FakeBuildStamp());
@@ -20,6 +21,32 @@ public static class HudSamples
 
     [UiSample("full health, SMG")]
     private static UiScreen Full(UiSampleServices s) => Build(s, new FakeLocalPlayer());
+
+    [UiSample("weapon selection, SMG bucket open")]
+    private static UiScreen SelectionOpen(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        selection: new FakeWeaponSelection { Weapons = FakeWeaponSelection.Full, Selected = 5 });
+
+    [UiSample("weapon selection, three in the bucket, one empty")]
+    private static UiScreen SelectionEmpty(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        selection: new FakeWeaponSelection
+        {
+            Weapons =
+            [
+                (0, 0, "crowbar", "#HL2_Crowbar", true), (0, 2, "physcannon", "#HL2_GravityGun", true),
+                (1, 0, "pistol", "#HL2_Pistol", true),
+                (4, 0, "rpg", "#HL2_RPG", false), (4, 1, "frag", "#HL2_Grenade", true), (4, 2, "slam", "#HL2_SLAM", true),
+            ],
+            Selected = 4,
+        });
+
+    [UiSample("weapon selection, fading, a gap in the bucket")]
+    private static UiScreen SelectionFading(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        selection: new FakeWeaponSelection
+        {
+            Weapons = [(0, 0, "crowbar", "#HL2_Crowbar", true), (0, 2, "physcannon", "#HL2_GravityGun", true)],
+            Selected = 1,
+            Opacity = 0.6f,
+        });
 
     [UiSample("low health, hurt from the left")]
     private static UiScreen Hurt(UiSampleServices s) => Build(s, new FakeLocalPlayer

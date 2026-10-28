@@ -23,6 +23,12 @@ public sealed class UiFontLibrary : IUiFontMetrics
     private readonly TtfFace[] _faces;
 
     public UiFontLibrary()
+        : this([])
+    {
+    }
+
+    /// <summary>The embedded faces and a mod's own (its theme's font files), which answer their families.</summary>
+    public UiFontLibrary(IReadOnlyList<TtfFace> extra)
     {
         var asm = typeof(UiFontLibrary).Assembly;
         _faces =
@@ -35,6 +41,7 @@ public sealed class UiFontLibrary : IUiFontMetrics
             Load(asm, "IBMPlexSans-Medium.ttf", Sans, 500),
             Load(asm, "IBMPlexMono-Regular.ttf", Mono, 400),
             Load(asm, "IBMPlexMono-Medium.ttf", Mono, 500),
+            .. extra,
         ];
     }
 

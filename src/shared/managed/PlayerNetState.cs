@@ -442,4 +442,19 @@ public partial class PlayerNetState
 
     /// <summary>The densest the skybox's fog gets.</summary>
     public partial float SkyFogMaxDensity { get; set; }
+
+    // ---- the weapon-selection HUD (stock's m_hMyWeapons and m_iAmmo) --------
+    //
+    // Stock's client walks the weapons the player carries and asks each
+    // CanBeSelected. Only the active weapon is an entity here, so the server
+    // says both answers as bits, one per WeaponTypes index.
+
+    /// <summary>The weapons carried: bit <c>1 &lt;&lt; WeaponTypeId</c>.</summary>
+    public partial uint CarriedWeapons { get; set; }
+
+    /// <summary>
+    /// The carried weapons that cannot be selected: stock's CanBeSelected is
+    /// false, which is HasAmmo's answer (no clip, no pool, no select-on-empty).
+    /// </summary>
+    public partial uint EmptyWeapons { get; set; }
 }

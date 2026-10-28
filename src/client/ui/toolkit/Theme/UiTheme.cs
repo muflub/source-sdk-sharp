@@ -9,6 +9,14 @@ public readonly record struct UiTypeStyle(string Family, float SizeDu, int Weigh
 public readonly record struct UiShadow(float OffsetDu, float SpreadDu, byte Alpha);
 
 /// <summary>
+/// A TrueType file a theme's families come from, named by GAME path (a loose
+/// file or one in a mounted VPK). <see cref="Family"/> is the family the file
+/// is — the theme's roles name it; null for a file whose family only the
+/// engine knows.
+/// </summary>
+public sealed record UiThemeFontFile(string? Family, string Path);
+
+/// <summary>
 /// What the tokens mean (plan_client_ui §5.5, §5.8.1): one instance per layer,
 /// from DI, so a mod swaps the theme and not the screens. Mutable only through
 /// <see cref="Set(Tone, UiColor)"/> and friends, which the theme file override
@@ -39,6 +47,18 @@ public sealed class UiTheme
 
     /// <summary>How far one wheel notch scrolls, du.</summary>
     public float ScrollStepDu { get; set; } = 48f;
+
+    private readonly List<UiThemeFontFile> _fontFiles = [];
+
+    /// <summary>The game font files this theme uses, in file order.</summary>
+    public IReadOnlyList<UiThemeFontFile> FontFiles => _fontFiles;
+
+    /// <summary>Names a game font file; the theme file's <c>font.file</c> rows.</summary>
+    public UiTheme AddFontFile(UiThemeFontFile file)
+    {
+        _fontFiles.Add(file);
+        return this;
+    }
 
     /// <summary>The minimum click target, du (the lint's rule).</summary>
     public float MinTargetDu { get; set; } = 32f;

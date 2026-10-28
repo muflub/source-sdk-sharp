@@ -270,6 +270,7 @@ internal static class DefaultForwarders
         public void SetPredict(bool predict) { }
 
         public void SendSelection(string line) { }
+        public void Escape() { }
 
         // No allocator: a save is refused, said by the save session.
         public void* SaveAlloc(nuint count, nuint size) => null;

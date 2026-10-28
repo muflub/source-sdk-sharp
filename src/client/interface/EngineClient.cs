@@ -259,14 +259,18 @@ public interface IClientPredictCommand
 }
 
 /// <summary>
-/// A weapon-selection bind's line to the server (invnext, invprev, lastinv,
-/// ss_slot N): through ServerCmd, reliable, as the native forwarders sent it.
-/// The managed Arsenal on the server answers each as a client command.
+/// The weapon selection's line to the server (<c>ss_use</c> with a weapon's
+/// classname, <c>lastinv</c>): through ServerCmd, reliable, as the native
+/// forwarders sent it. The managed Arsenal on the server answers each as a
+/// client command.
 /// </summary>
 public interface IWeaponSelectionCommand
 {
     /// <summary>Sends <paramref name="line"/>, with no trailing newline: the server tokenizes it verbatim.</summary>
     void SendSelection(string line);
+
+    /// <summary><c>engine-&gt;ClientCmd( "escape" )</c>: cancelselect with no selection open shows the game menu.</summary>
+    void Escape();
 }
 
 /// <summary>What the scoreboard needs of <c>player_info_t</c>.</summary>

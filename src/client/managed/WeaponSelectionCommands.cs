@@ -2,99 +2,100 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client;
 
-/// <summary>
-/// The weapon-selection binds (lane M1-B, from shell_hud.cpp's native
-/// CON_COMMANDs): the stock bind names, kept so cfg/config.cfg's mouse wheel,
-/// number keys and q keep landing somewhere, each sending the server the line
-/// the managed Arsenal answers as a client command. There is no selection UI to
-/// drive: the HUD draws the weapon list, and the choice is the server's.
-///
-/// <para>
-/// EACH COMMAND SENDS ITS OWN NAME. For a while invnext and invprev both sent
-/// <c>lastinv</c>, and with two weapons that is indistinguishable from working
-/// (forward and back are the same move), so it read as "switching is flaky in
-/// some states" rather than as one verb wearing three names.
-/// </para>
-///
-/// <para>
-/// NO TRAILING NEWLINE: ServerCmd sends a network stringcmd, not a console
-/// buffer, and the server tokenizes what arrives verbatim; an appended
-/// <c>\n</c> rode into the last argument and made the Arsenal's
-/// <c>lastinv</c> comparison miss.
-/// </para>
-/// </summary>
-public static class WeaponSelection
-{
-    /// <summary>
-    /// The server line a bind sends: its own name for the three cycling
-    /// commands, <c>ss_slot N</c> (zero-based) for <c>slotN</c>; null for a name
-    /// that is not a selection bind.
-    /// </summary>
-    public static string? ServerLine(string command) => command switch
-    {
-        "invnext" or "invprev" or "lastinv" => command,
-        ['s', 'l', 'o', 't', >= '1' and <= '6'] => "ss_slot " + (command[4] - '1'),
-        _ => null,
-    };
-
-    /// <summary>Sends <paramref name="command"/>'s line, when it has one.</summary>
-    public static void Forward(IWeaponSelectionCommand send, string command)
-    {
-        if (ServerLine(command) is string line)
-            send.SendSelection(line);
-    }
-}
+// THE BINDS (weapon_selection.cpp's HOOK_COMMANDs): each reaches the
+// selection, which decides what the key means under hud_fastswitch.
 
 [ConCommand("invnext", Help = "Select the next weapon")]
-public sealed class InvNextCommand(IWeaponSelectionCommand send) : IConCommand
+public sealed class InvNextCommand(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "invnext");
+    public void Execute(string args) => selection.NextWeapon();
 }
 
 [ConCommand("invprev", Help = "Select the previous weapon")]
-public sealed class InvPrevCommand(IWeaponSelectionCommand send) : IConCommand
+public sealed class InvPrevCommand(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "invprev");
+    public void Execute(string args) => selection.PrevWeapon();
 }
 
 [ConCommand("lastinv", Help = "Select the previously held weapon")]
-public sealed class LastInvCommand(IWeaponSelectionCommand send) : IConCommand
+public sealed class LastInvCommand(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "lastinv");
+    public void Execute(string args) => selection.LastWeapon();
+}
+
+/// <summary>UserCmd_Close: an open selection closes; with none, stock runs <c>escape</c>.</summary>
+[ConCommand("cancelselect", Help = "Close the weapon selection")]
+public sealed class CancelSelectCommand(WeaponSelectionHud selection, IWeaponSelectionCommand send) : IConCommand
+{
+    public void Execute(string args)
+    {
+        if (!selection.Close())
+            send.Escape();
+    }
 }
 
 [ConCommand("slot1", Help = "Select slot 1")]
-public sealed class Slot1Command(IWeaponSelectionCommand send) : IConCommand
+public sealed class Slot1Command(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "slot1");
+    public void Execute(string args) => selection.SlotCommand(1);
 }
 
 [ConCommand("slot2", Help = "Select slot 2")]
-public sealed class Slot2Command(IWeaponSelectionCommand send) : IConCommand
+public sealed class Slot2Command(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "slot2");
+    public void Execute(string args) => selection.SlotCommand(2);
 }
 
 [ConCommand("slot3", Help = "Select slot 3")]
-public sealed class Slot3Command(IWeaponSelectionCommand send) : IConCommand
+public sealed class Slot3Command(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "slot3");
+    public void Execute(string args) => selection.SlotCommand(3);
 }
 
 [ConCommand("slot4", Help = "Select slot 4")]
-public sealed class Slot4Command(IWeaponSelectionCommand send) : IConCommand
+public sealed class Slot4Command(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "slot4");
+    public void Execute(string args) => selection.SlotCommand(4);
 }
 
 [ConCommand("slot5", Help = "Select slot 5")]
-public sealed class Slot5Command(IWeaponSelectionCommand send) : IConCommand
+public sealed class Slot5Command(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "slot5");
+    public void Execute(string args) => selection.SlotCommand(5);
 }
 
 [ConCommand("slot6", Help = "Select slot 6")]
-public sealed class Slot6Command(IWeaponSelectionCommand send) : IConCommand
+public sealed class Slot6Command(WeaponSelectionHud selection) : IConCommand
 {
-    public void Execute(string args) => WeaponSelection.Forward(send, "slot6");
+    public void Execute(string args) => selection.SlotCommand(6);
+}
+
+[ConCommand("slot7", Help = "Select slot 7")]
+public sealed class Slot7Command(WeaponSelectionHud selection) : IConCommand
+{
+    public void Execute(string args) => selection.SlotCommand(7);
+}
+
+[ConCommand("slot8", Help = "Select slot 8")]
+public sealed class Slot8Command(WeaponSelectionHud selection) : IConCommand
+{
+    public void Execute(string args) => selection.SlotCommand(8);
+}
+
+[ConCommand("slot9", Help = "Select slot 9")]
+public sealed class Slot9Command(WeaponSelectionHud selection) : IConCommand
+{
+    public void Execute(string args) => selection.SlotCommand(9);
+}
+
+[ConCommand("slot10", Help = "Select slot 10")]
+public sealed class Slot10Command(WeaponSelectionHud selection) : IConCommand
+{
+    public void Execute(string args) => selection.SlotCommand(10);
+}
+
+[ConCommand("slot0", Help = "Select slot 0")]
+public sealed class Slot0Command(WeaponSelectionHud selection) : IConCommand
+{
+    public void Execute(string args) => selection.SlotCommand(0);
 }

@@ -184,6 +184,13 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
             _fwd->ServerCmd(_self, p, 1);
     }
 
+    /// <inheritdoc/>
+    void IWeaponSelectionCommand.Escape()
+    {
+        fixed (byte* p = "escape\0"u8)
+            _fwd->ClientCmd(_self, p);
+    }
+
     /// <summary>The one text <see cref="Reconnect"/> sends through the ClientCmd slot.</summary>
     internal const string ReconnectCommand = "retry";
 
