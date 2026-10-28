@@ -57,6 +57,15 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         state.PunchAngleVel = QAngle.FromVector(s.PunchAngleVel);
         state.LadderNormal = s.LadderNormal;
         state.WaterJumpVel = s.WaterJumpVel;
+
+        state.Ladder = s.Ladder;
+        state.LadderForceMove = s.LadderForceMove;
+        state.LadderForceMount = s.LadderForceMount;
+        state.LadderStartTime = s.LadderStartTime;
+        state.LadderArrivalTime = s.LadderArrivalTime;
+        state.LadderGoalPosition = s.LadderGoalPosition;
+        state.LadderStartPosition = s.LadderStartPosition;
+        state.LadderForceLadder = s.LadderForceLadder;
     }
 
     /// <summary>
@@ -111,6 +120,14 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         s.PunchAngleVel = state.PunchAngleVel.AsVector();
         s.LadderNormal = state.LadderNormal;
         s.WaterJumpVel = state.WaterJumpVel;
+        s.Ladder = state.Ladder;
+        s.LadderForceMove = state.LadderForceMove;
+        s.LadderForceMount = state.LadderForceMount;
+        s.LadderStartTime = state.LadderStartTime;
+        s.LadderArrivalTime = state.LadderArrivalTime;
+        s.LadderGoalPosition = state.LadderGoalPosition;
+        s.LadderStartPosition = state.LadderStartPosition;
+        s.LadderForceLadder = state.LadderForceLadder;
         move.PreviouslyPredictedOrigin = state.Origin;
         return true;
     }

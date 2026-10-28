@@ -58,6 +58,26 @@ public sealed class SvWaterAccelerateConVar : FloatConVar { }
         Help = "Vertical view fixup when eyes are near water plane.")]
 public sealed class SvWaterDistConVar : FloatConVar { }
 
+//-----------------------------------------------------------------------------
+// hl_gamemovement.cpp's three ladder knobs, read by the useable-ladder
+// movement (GameMovement.Ladders) through this side's ladder world.
+//-----------------------------------------------------------------------------
+
+/// <summary>Client half of <c>sv_autoladderdismount</c>: get off at a ladder's end without +USE.</summary>
+[ConVar("sv_autoladderdismount", "1", Flags = ConVarFlags.Replicated,
+        Help = "Automatically dismount from ladders when you reach the end (don't have to +USE).")]
+public sealed class SvAutoLadderDismountConVar : BoolConVar { }
+
+/// <summary>Client half of <c>sv_ladderautomountdot</c>: how nearly along a ladder's axis a look auto-mounts it.</summary>
+[ConVar("sv_ladderautomountdot", "0.4", Flags = ConVarFlags.Replicated,
+        Help = "When auto-mounting a ladder by looking up its axis, this is the tolerance for looking now directly along the ladder axis.")]
+public sealed class SvLadderAutoMountDotConVar : FloatConVar { }
+
+/// <summary>Client half of <c>sv_ladder_useonly</c>: ladders mount only by +USE.</summary>
+[ConVar("sv_ladder_useonly", "0", Flags = ConVarFlags.Replicated,
+        Help = "If set, ladders can only be mounted by pressing +USE")]
+public sealed class SvLadderUseOnlyConVar : BoolConVar { }
+
 /// <summary>Client half of <c>r_VehicleViewDampen</c>.</summary>
 [ConVar("r_VehicleViewDampen", "1",
         Flags = ConVarFlags.Cheat | ConVarFlags.Notify | ConVarFlags.Replicated)]

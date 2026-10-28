@@ -586,3 +586,11 @@ src/shared/managed/WeaponSlam.cs	ports CWeapon_SLAM's state machine: ItemPostFra
 src/server/managed/Entities/Projectiles/Satchel.cs	ports CSatchelCharge (grenade_satchel.cpp): spawn, glow sprite, InputExplode
 src/server/managed/Entities/Projectiles/Tripmine.cs	ports CTripmineGrenade (grenade_tripmine.cpp): power-up, MakeBeam, BeamBreakThink, Event_Killed, DelayDeathThink
 src/client/managed/Standalone/SpriteRamp.cs	ports C_Sprite's scale and brightness ramps (Sprite.cpp: OnDataChanged, ClientThink, GetRenderScale, GetRenderBrightness)
+src/shared/interop/MovementUseableLadders.cs	ports CHL2GameMovement::LadderMove, FullLadderMove, StartForcedMove, ContinueForcedMove, Findladder, ExitLadderViaDismountNode, CheckLadderAutoMount* and LookingAtLadder (hl_gamemovement.cpp) and mathlib_base.cpp's CalcClosestPointToLineT / CalcDistanceSqrToLine / CalcClosestPointOnLineSegment
+src/shared/interface/UseableLadders.cs	ports the CFuncLadder surface hl_gamemovement.cpp reads (func_ladder.h: GetTopPosition, GetBottomPosition, IsEnabled, DontGetOnLadder, GetDismount, PlayerGotOn/Off) and its three ConVars
+src/shared/managed/UseableLadderNetState.cs	ports DT_FuncLadder and DT_InfoLadderDismount (func_ladder.cpp's network tables)
+src/server/managed/Entities/Ladders/FuncUseableLadder.cs	ports CFuncLadder::Spawn, SetEndPoints, Activate, SearchForDismountPoints, FindNearbyDismountPoints (server arm), InputEnable/InputDisable and PlayerGotOn/PlayerGotOff (func_ladder.cpp)
+src/server/managed/Entities/Ladders/InfoLadderDismount.cs	ports CInfoLadderDismount (func_ladder.cpp)
+src/server/managed/UseableLadders.cs	ports CFuncLadder::s_Ladders / GetLadderCount / GetLadder and CInfoLadderDismount::s_Dismounts (func_ladder.cpp) as a service
+src/client/managed/Standalone/ClientUseableLadder.cs	ports C_FuncLadder's SearchForDismountPoints and the CLIENT_DLL arm of FindNearbyDismountPoints, and C_InfoLadderDismount (func_ladder.cpp)
+src/client/managed/ClientUseableLadders.cs	ports the client's CFuncLadder::s_Ladders / GetLadder and CInfoLadderDismount::s_Dismounts reads (func_ladder.cpp)

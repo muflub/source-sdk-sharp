@@ -159,7 +159,9 @@ public class ClientPlayerPredictionTests
         public void Packet() => Player.OnDataChanged(default, DataUpdateType.DataTableChanged);
     }
 
-    private static Bench Build(params int[] ringCommands)
+    private static Bench Build(params int[] ringCommands) => Build(null, ringCommands);
+
+    private static Bench Build(ILadderWorld? ladders, params int[] ringCommands)
     {
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
@@ -201,8 +203,57 @@ public class ClientPlayerPredictionTests
             Prediction = new ClientPlayerPrediction(new RecordingLog(), standalones, engine, replay,
                                                     runner,
                                                     null, new PredictionErrorRing(),
-                                                    NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog())),
+                                                    NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
+                                                    ladders: ladders),
         };
+    }
+
+    /// <summary>One ladder, entity 7, from (0,32,0) to (0,32,128).</summary>
+    private sealed class OneLadder : ILadderWorld
+    {
+        public int Count => 1;
+        public UseableLadder At(int index) => Ladder;
+        public bool TryGet(int entityIndex, out UseableLadder ladder)
+        {
+            ladder = Ladder;
+            return entityIndex == Ladder.Index;
+        }
+        public IReadOnlyList<Vector> Dismounts(int ladderIndex) => Array.Empty<Vector>();
+        public LadderConVars ConVars => new(true, 0.4f, false);
+        public void PlayerGotOn(int ladderIndex, int playerIndex) { }
+        public void PlayerGotOff(int ladderIndex, int playerIndex) { }
+
+        private static readonly UseableLadder Ladder =
+            new(7, new Vector(0f, 32f, 128f), new Vector(0f, 32f, 0f), Enabled: true, Fake: false);
+    }
+
+    /// <summary>
+    /// The replay climbs the ladder the server's word names (HL2's m_hLadder,
+    /// predicted as stock predicts it): a player decoded on ladder 7 with no
+    /// key held hangs on it, and the saved state still names ladder 7 in
+    /// MOVETYPE_LADDER. A replay that dropped the word, or ran base
+    /// CGameMovement, would let go and save MOVETYPE_WALK.
+    /// </summary>
+    [Fact]
+    public void TheReplayHangsOnTheLadderTheServerNamed()
+    {
+        var bench = Build(new OneLadder(), 11);
+        bench.Player.State.MoveType = 9;   // MOVETYPE_LADDER
+        bench.Player.State.Origin = new Vector(0f, 32f, 64f);
+        bench.Player.State.Ladder = 7;
+
+        bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                outgoingCommand: 11, worldUpdateArrived: false);
+
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+
+        Assert.Equal(9, saved.MoveType);
+        Assert.Equal(7, saved.Ladder);
+        Assert.Equal(new Vector(0f, 32f, 64f), saved.Origin);
     }
 
     //=========================================================================

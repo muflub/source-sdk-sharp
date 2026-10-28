@@ -139,6 +139,10 @@ public static class EntityNames
     public const string InfoTeleportDestination = "info_teleport_destination";
     public const string InfoIntermission        = "info_intermission";
 
+    // HL2MP's useable ladders: the ladder, and the points a player gets off at.
+    public const string FuncUseableladder       = "func_useableladder";
+    public const string InfoLadderDismount      = "info_ladder_dismount";
+
     // What a player walks into and collects.
     public const string ItemAmmo357         = "item_ammo_357";
     public const string ItemAmmo357Large    = "item_ammo_357_large";

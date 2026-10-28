@@ -103,6 +103,12 @@ public sealed class ClientPlayerPrediction
     private readonly ViewReadout? _view;
 
     /// <summary>
+    /// The useable ladders the replay climbs, as the server's loop does
+    /// (CHL2GameMovement); null replays base CGameMovement's brush ladders.
+    /// </summary>
+    private readonly ILadderWorld? _ladders;
+
+    /// <summary>
     /// The working copy the replay moves, and the ONLY thing the ring saves.
     /// Never the decoded state — see the file header.
     /// </summary>
@@ -218,7 +224,8 @@ public sealed class ClientPlayerPrediction
     public ClientPlayerPrediction(ILog log, IClientStandalones standalones, IEngineHud screen,
                                   IClientReplayEngine engine, MovementRunner movement,
                                   ClientArsenal? arsenal, PredictionErrorRing errors,
-                                  NetStateCatalog catalog, ViewReadout? view = null)
+                                  NetStateCatalog catalog, ViewReadout? view = null,
+                                  ILadderWorld? ladders = null)
     {
 
         _log = log;
@@ -230,6 +237,7 @@ public sealed class ClientPlayerPrediction
         _movement = movement;
         _arsenal = arsenal;
         _view = view;
+        _ladders = ladders;
 
         _working.BindLocal();
     }
@@ -488,6 +496,7 @@ public sealed class ClientPlayerPrediction
             GameMovement loop = _movement.ClientLoop(constants.Constants,
                                                      constants.JumpHeight,
                                                      constants.EngineTime);
+            loop.Ladders = _ladders;
 
             ran = loop.ProcessMovement(_move);
             _movement.NoteClientCommand(ran);
@@ -580,6 +589,14 @@ public sealed class ClientPlayerPrediction
         _move.PunchAngleVel = _working.PunchAngleVel.AsVector();
         _move.LadderNormal = _working.LadderNormal;
         _move.WaterJumpVel = _working.WaterJumpVel;
+        _move.Ladder = _working.Ladder;
+        _move.LadderForceMove = _working.LadderForceMove;
+        _move.LadderForceMount = _working.LadderForceMount;
+        _move.LadderStartTime = _working.LadderStartTime;
+        _move.LadderArrivalTime = _working.LadderArrivalTime;
+        _move.LadderGoalPosition = _working.LadderGoalPosition;
+        _move.LadderStartPosition = _working.LadderStartPosition;
+        _move.LadderForceLadder = _working.LadderForceLadder;
 
         _move.MaxSpeed = _working.MaxSpeed;
         _move.FallVelocity = _working.FallVelocity;
@@ -629,6 +646,14 @@ public sealed class ClientPlayerPrediction
         into.PunchAngleVel = QAngle.FromVector(_move.PunchAngleVel);
         into.LadderNormal = _move.LadderNormal;
         into.WaterJumpVel = _move.WaterJumpVel;
+        into.Ladder = _move.Ladder;
+        into.LadderForceMove = _move.LadderForceMove;
+        into.LadderForceMount = _move.LadderForceMount;
+        into.LadderStartTime = _move.LadderStartTime;
+        into.LadderArrivalTime = _move.LadderArrivalTime;
+        into.LadderGoalPosition = _move.LadderGoalPosition;
+        into.LadderStartPosition = _move.LadderStartPosition;
+        into.LadderForceLadder = _move.LadderForceLadder;
 
         into.MaxSpeed = _move.MaxSpeed;
         into.FallVelocity = _move.FallVelocity;

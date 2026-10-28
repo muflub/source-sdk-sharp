@@ -1002,9 +1002,15 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   class), and live-gate's phys-convert step, which names the class the map
   placed. Owner: the server lane. Next: decide whether the type id may stay
   keyed to the spawn name while the reported classname changes.
-- **Useable ladders.** dm_lockdown holds 3 func_useableladder and 14
-  info_ladder_dismount in stock and none here (`stock-ab run --map
-  dm_lockdown`). Owner: the server lane.
+- **Useable ladders: ported (lane stock-ab-ladders, 2026-10-25).**
+  dm_lockdown's census now matches (3 func_useableladder, 14
+  info_ladder_dismount, none moved), and a +USE mount, climb and top
+  dismount on ss_sandbox's ladders station ends at the same eye in both
+  games. Left: CReservePlayerSpot (the server's `reserved_spot` holding the
+  goal hull), the player's SOLID_NONE during the slide, the use-deny sound,
+  the sv_ladder_useonly HUD hint and `ladderSurfaceProperties` on the ladder
+  footstep (docs/divergences.md). CHL2GameMovement::CanAccelerate (always
+  true, hl_gamemovement.cpp:1182) is ported with it. Owner: the server lane.
 - **Items rest higher.** On dm_lockdown, items and weapons sit about 0.9
   units above stock's once settled, and some 10-20 units above
   (item_ammo_pistol +20.6, weapon_shotgun +15.0): the census's "moved"

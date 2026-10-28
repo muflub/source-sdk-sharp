@@ -740,7 +740,7 @@ public static class ContractBaseline
     /// answers, which is the managed BASE's contract and not the union of all
     /// the classes'. <b>Twelve of the 67 entries are answered by between 1 and
     /// 33 managed classes each</b> — <c>input|Use</c> by 31, <c>key|speed</c> by
-    /// 33, <c>key|target</c> by 28 — and each of those lines stands in for the
+    /// 33, <c>key|target</c> by 29 — and each of those lines stands in for the
     /// ~212 compared classes that do NOT answer it. The <c>AnsweredBy</c> field
     /// records that count per entry and is pinned live, so the half-truth is now
     /// a number in the file rather than a sentence that was simply wrong.
@@ -1137,11 +1137,11 @@ public static class ContractBaseline
               + "offering it would not make it mean anything, so this entry is "
               + "arguably the one closest to being correctly refused rather than "
               + "closed."),
-        new("key|target", GroupIdentity, 28,
-            "Twenty-eight managed classes declare target for themselves. "
+        new("key|target", GroupIdentity, 29,
+            "Twenty-nine managed classes declare target for themselves. "
               + "m_target on CBaseEntity is the generic \"the entity this one acts "
               + "on\" name, and like speed it means something different in each of "
-              + "the 28, so a base that offered it would be offering a field with "
+              + "the 29, so a base that offered it would be offering a field with "
               + "no agreed meaning."),
         new("key|teamnumber", GroupTeam, 0,
             "Teams exist on the player and nowhere else: there is no team "

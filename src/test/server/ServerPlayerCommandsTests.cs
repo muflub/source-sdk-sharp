@@ -503,6 +503,35 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
 
         Assert.Equal(1, seeded);
     }
+
+    private sealed class CountedLadders : ILadderWorld
+    {
+        public int Asked;
+        public int Count { get { Asked++; return 0; } }
+        public UseableLadder At(int index) => throw new ArgumentOutOfRangeException(nameof(index));
+        public bool TryGet(int entityIndex, out UseableLadder ladder) { ladder = default; return false; }
+        public IReadOnlyList<Vector> Dismounts(int ladderIndex) => Array.Empty<Vector>();
+        public LadderConVars ConVars => new(true, 0.4f, false);
+        public void PlayerGotOn(int ladderIndex, int playerIndex) { }
+        public void PlayerGotOff(int ladderIndex, int playerIndex) { }
+    }
+
+    /// <summary>
+    /// The ladders the module hands the command loop are what its movement
+    /// climbs: a walking command looks for a ladder (Findladder) in them.
+    /// </summary>
+    [Fact]
+    public void TheLoopLooksForLaddersInTheOnesItIsHanded()
+    {
+        var ladders = new CountedLadders();
+        _commands.Ladders = ladders;
+        _moves.For(Player).Move.MoveType = GameMovement.MoveTypeWalk;
+        var cmd = new UserCmd { CommandNumber = 1 };
+
+        Assert.Equal(1, Move(in cmd));
+
+        Assert.True(ladders.Asked > 0, "the command's movement asked the ladders it was handed");
+    }
 }
 
 /// <summary>
@@ -608,7 +637,37 @@ public sealed class ServerPlayerMovementRulesTests
         s.PunchAngleVel = new Vector(0f, 2f, 0f);
         s.LadderNormal = new Vector(0f, 1f, 0f);
         s.WaterJumpVel = new Vector(0f, 0f, 9f);
+        s.Ladder = 40;
+        s.LadderForceMove = true;
+        s.LadderForceMount = true;
+        s.LadderStartTime = 5f;
+        s.LadderArrivalTime = 5.25f;
+        s.LadderGoalPosition = new Vector(1f, 2f, 3f);
+        s.LadderStartPosition = new Vector(4f, 5f, 6f);
+        s.LadderForceLadder = 41;
         return m;
+    }
+
+    /// <summary>
+    /// HL2's ladder words (m_hLadder and LadderMove_t) are networked, as stock
+    /// sends them in the HL2 local data, so the client's replay starts from them.
+    /// </summary>
+    [Fact]
+    public void ThePublishWritesTheLadderWords()
+    {
+        var state = new PlayerNetState();
+        state.BindLocal();
+
+        PlayerMovePublisher.Write(state, Moved());
+
+        Assert.Equal(40, state.Ladder);
+        Assert.True(state.LadderForceMove);
+        Assert.True(state.LadderForceMount);
+        Assert.Equal(5f, state.LadderStartTime);
+        Assert.Equal(5.25f, state.LadderArrivalTime);
+        Assert.Equal(new Vector(1f, 2f, 3f), state.LadderGoalPosition);
+        Assert.Equal(new Vector(4f, 5f, 6f), state.LadderStartPosition);
+        Assert.Equal(41, state.LadderForceLadder);
     }
 
     [Fact]

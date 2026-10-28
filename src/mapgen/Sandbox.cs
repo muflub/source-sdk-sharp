@@ -397,6 +397,10 @@ public static class Sandbox
             "Press the button. Forty-three one-shot effects sweep the plot, one per temp "
             + "entity this build sends. Nothing here is an entity you can walk up to.",
             TempEntities),
+
+        new("ladders", "A LADDER YOU USE",
+            "Walk into the ladder or press USE at it, climb, and step off at the top. "
+            + "JUMP lets go; USE halfway up lets go too.", Ladders),
     ];
 
     /// <summary>Where a plot sits, by its position in the list.</summary>
@@ -5094,6 +5098,46 @@ public static class Sandbox
     // -- and because the tester's `delay` keyvalue is the CLIENT's playback
     // delay, which is a different thing wearing the same word.
     //-------------------------------------------------------------------------
+    /// <summary>
+    /// HL2MP's useable ladder: a func_useableladder up the near face of a
+    /// tower, and the info_ladder_dismount points a player is slid onto when
+    /// getting off.
+    ///
+    /// <para>
+    /// The ladder is two points, not a brush: nothing here is solid but the
+    /// tower. The points stand one unit clear of the tower's face, so the
+    /// player's hull (32 wide) is clear of it at both, and the top one is level
+    /// with the tower's top, so climbing to it puts the player's feet at the
+    /// landing. stock's CFuncLadder settles each point onto whatever is up to
+    /// four units under it, and the bottom one settles onto the pad.
+    /// </para>
+    ///
+    /// <para>
+    /// Four dismount points: one on the tower's top, where reaching the top
+    /// with a key held takes the player (sv_autoladderdismount), and three on
+    /// the floor round the foot. The left one names the ladder in its target,
+    /// which is the form dm_lockdown's ladder_02 and ladder_03 use; the others
+    /// are claimed by being near it, which is the form its first ladder uses.
+    /// </para>
+    /// </summary>
+    private static void Ladders(Site site)
+    {
+        // The tower: 128 tall above the pad, its near face at y = 96.
+        site.Solid(new(-64f, 96f, 8f), new(64f, 224f, 136f), Site.Wall, Site.Accent);
+
+        site.Ent(EntityNames.FuncUseableladder, "ladder", new(0f, 79f, 72f),
+            "point0", (site.At + new Point(0f, 79f, 8f)).ToString(),
+            "point1", (site.At + new Point(0f, 79f, 136f)).ToString());
+
+        site.Ent(EntityNames.InfoLadderDismount, "top", new(0f, 128f, 137f));
+        site.Ent(EntityNames.InfoLadderDismount, "foot", new(0f, 40f, 9f));
+        site.Ent(EntityNames.InfoLadderDismount, "left", new(-40f, 79f, 9f), "target", site.Name("ladder"));
+        site.Ent(EntityNames.InfoLadderDismount, "right", new(40f, 79f, 9f));
+
+        // A ladder something disabled is climbable again after a reset.
+        site.OnReset("ladder", "Enable");
+    }
+
     private static void TempEntities(Site site)
     {
         var demos = SourceSharp.Server.TeDemos.All;

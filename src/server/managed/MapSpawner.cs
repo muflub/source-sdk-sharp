@@ -278,12 +278,13 @@ public sealed class MapSpawner
         //
         // The residue is not "the rest of the map"; it is the blocks THIS side
         // does not own, and some of them nothing owns. On dm_lockdown that is
-        // three classnames over 18 blocks -- func_useableladder,
-        // info_ladder_dismount and info_node, the map's ladders and its AI node
-        // graph -- because their definers left server_csharp.vpc at some earlier
-        // step. p4-flip found that by grepping a console log no gate reads, and
-        // plan_entity.md §7 asks for a DECLARED, PRINTED refusal rather than a
-        // silent no-op.
+        // one classname over one block -- info_node, the map's AI node graph --
+        // because its definer left server_csharp.vpc at some earlier step. (The
+        // map's ladders, func_useableladder and info_ladder_dismount, were two
+        // more until they became managed entities: FuncUseableLadder and
+        // InfoLadderDismount.) p4-flip found that by grepping a console log no
+        // gate reads, and plan_entity.md §7 asks for a DECLARED, PRINTED refusal
+        // rather than a silent no-op.
         //
         // AFTER SpawnWorld, not before, because the native dictionary's
         // refusal ledger is written BY that call: a classname is only known to

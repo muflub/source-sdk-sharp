@@ -84,6 +84,15 @@ public class MoveVarsTests
         new("r_AirboatViewDampenDamp", "1.0", VehicleFlags, "", true),
         new("r_AirboatViewZHeight", "0.0", VehicleFlags, "", true),
 
+        // hl_gamemovement.cpp, the three useable-ladder knobs.
+        new("sv_autoladderdismount", "1", ConVarFlags.Replicated,
+            "Automatically dismount from ladders when you reach the end (don't have to +USE).", true),
+        new("sv_ladderautomountdot", "0.4", ConVarFlags.Replicated,
+            "When auto-mounting a ladder by looking up its axis, this is the tolerance for looking now directly along the ladder axis.",
+            true),
+        new("sv_ladder_useonly", "0", ConVarFlags.Replicated,
+            "If set, ladders can only be mounted by pressing +USE", true),
+
         // takedamageinfo_library.cpp. No help text in the C++ either.
         new("phys_pushscale", "1", ConVarFlags.Replicated, "", true),
 

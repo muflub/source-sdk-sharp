@@ -287,6 +287,30 @@ public sealed class MoveState
     /// <summary><c>CGameMovement::m_nOldWaterLevel</c>, carried between commands.</summary>
     public int OldWaterLevel;
 
+    /// <summary>The ladder words' "no ladder": entity index 0 is the world, so -1.</summary>
+    public const int NoLadder = -1;
+
+    /// <summary>
+    /// HL2's <c>m_HL2Local.m_hLadder</c>: the useable ladder the player is on,
+    /// by entity index, or <see cref="NoLadder"/>. Networked and predicted.
+    /// </summary>
+    public int Ladder = NoLadder;
+
+    /// <summary><c>LadderMove_t::m_bForceLadderMove</c>: mid mount or dismount.</summary>
+    public bool LadderForceMove;
+
+    /// <summary><c>LadderMove_t::m_bForceMount</c>: that forced move gets on rather than off.</summary>
+    public bool LadderForceMount;
+
+    /// <summary><c>LadderMove_t::m_flStartTime</c> / <c>m_flArrivalTime</c>.</summary>
+    public float LadderStartTime, LadderArrivalTime;
+
+    /// <summary><c>LadderMove_t::m_vecGoalPosition</c> / <c>m_vecStartPosition</c>.</summary>
+    public Vector LadderGoalPosition, LadderStartPosition;
+
+    /// <summary><c>LadderMove_t::m_hForceLadder</c>: the ladder a forced mount ends on.</summary>
+    public int LadderForceLadder = NoLadder;
+
     public bool IsAlive;
     public int ObserverMode;
 
@@ -403,7 +427,7 @@ public readonly record struct MovementRules(
 /// <see cref="ObserverTargetAsks"/> still counts the commands that reach it.
 /// </para>
 /// </summary>
-public sealed class GameMovement
+public sealed partial class GameMovement
 {
     // gamemovement.cpp's own constants, at the values this build compiles.
     public const float GameMovementDuckTime = 1000.0f;
@@ -761,7 +785,10 @@ public sealed class GameMovement
 
         if (!_s.DeadFlag && (_s.Flags & FlOnTrain) == 0)
         {
-            if (!LadderMove() && _s.MoveType == MoveTypeLadder)
+            // HL2MP's useable ladders when the loop has them, base
+            // CGameMovement's brush ladders when it does not.
+            bool onLadder = Ladders is null ? LadderMove() : UseableLadderMove();
+            if (!onLadder && _s.MoveType == MoveTypeLadder)
             {
                 _s.MoveType = MoveTypeWalk;
                 _s.MoveCollide = MoveCollideDefault;
@@ -785,7 +812,10 @@ public sealed class GameMovement
                 break;
 
             case MoveTypeLadder:
-                FullLadderMove();
+                if (Ladders is null)
+                    FullLadderMove();
+                else
+                    FullUseableLadderMove();
                 break;
 
             case MoveTypeWalk:
@@ -1104,8 +1134,13 @@ public sealed class GameMovement
     private void CheckVelocity()
         => MoveMath.CheckVelocity(ref _s.Velocity, ref _s.Origin, _c.MaxVelocity);
 
-    /// <summary><c>CanAccelerate</c> (gamemovement.cpp:2048).</summary>
-    private bool CanAccelerate() => !_s.DeadFlag && _s.WaterJumpTime == 0f;
+    /// <summary>
+    /// <c>CanAccelerate</c> (gamemovement.cpp:2048): not dead, not water
+    /// jumping. HL2MP's loop (one handed <see cref="Ladders"/>, which is
+    /// CHL2GameMovement) answers true always: its override
+    /// (hl_gamemovement.cpp:1182) calls the base and discards the answer.
+    /// </summary>
+    private bool CanAccelerate() => Ladders is not null || (!_s.DeadFlag && _s.WaterJumpTime == 0f);
 
     /// <summary><c>Accelerate</c> (gamemovement.cpp:2068).</summary>
     private void Accelerate(in Vector wishDir, float wishSpeed, float accel)

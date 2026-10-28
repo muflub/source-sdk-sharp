@@ -124,6 +124,13 @@ public enum LifecycleStage
     Soundscapes = 700,
 
     /// <summary>
+    /// The useable ladders and dismount points (func_useableladder,
+    /// info_ladder_dismount), which are the map's: emptied at level shutdown,
+    /// and the next map's entities join it at their spawn.
+    /// </summary>
+    UseableLadders = 720,
+
+    /// <summary>
     /// The area portal records (plan_server_native_v2 T4d), whose portal numbers
     /// are the map's: a new map's func_areaportals create their own.
     /// </summary>

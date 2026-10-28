@@ -1749,6 +1749,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // no second implementation and no reader.
         _services.AddInstance(_corpses);
 
+        // The useable ladders (func_useableladder, info_ladder_dismount): the
+        // entities join it at spawn, and the command loop's movement climbs
+        // what it holds (CHL2GameMovement). A lifecycle participant, because
+        // a level's end empties it.
+        var ladders = new UseableLadders(_convars, _services.Require<IEnginePlayers>(),
+                                         () => NewMoveConstants().Read().Constants);
+        _services.AddInstance(ladders);
+        _serverCommands.Ladders = ladders;
+
         //---------------------------------------------------------------------
         // ...and now that every service is registered, the thing that drives
         // their lifecycle.

@@ -133,6 +133,16 @@ public sealed class ServerPlayerCommands
     /// <summary>The per-command trigger touches (<see cref="IPlayerCommandImpacts"/>); null touches nothing.</summary>
     public IPlayerCommandImpacts? Impacts { get; set; }
 
+    /// <summary>
+    /// The useable ladders the loop climbs (HL2MP's CHL2GameMovement); null is
+    /// base CGameMovement's brush ladders.
+    /// </summary>
+    public ILadderWorld? Ladders
+    {
+        get => _loop.Ladders;
+        set => _loop.Ladders = value;
+    }
+
     /// <summary>The three stages, as <see cref="PlayerCommandQueue.Run"/> calls them. Built once.</summary>
     public PlayerCommandStage Stage => _stage ??= RunStage;
 

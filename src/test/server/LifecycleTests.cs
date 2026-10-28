@@ -579,6 +579,11 @@ public class LifecycleTests
                                            // level's default light styles, which
                                            // CWorld::Precache wrote; at level init
                                            // pre-entity. In the same gap.
+        (typeof(UseableLadders),    720),  // the useable ladders: the map's
+                                           // func_useableladder and
+                                           // info_ladder_dismount entities, emptied
+                                           // at level shutdown. In the 700/750 gap;
+                                           // none moved.
     };
 
     [Fact]

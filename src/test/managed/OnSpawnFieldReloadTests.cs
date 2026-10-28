@@ -134,6 +134,9 @@ public class OnSpawnFieldReloadTests
         services.AddInstance<IPhysicsConversion>(new NoConversion());
         services.AddInstance<IPlayerFlashlight>(
             new PlayerFlashlight(new EngineEntityEffectBits(engine, engine), engine, engine));
+        // The useable ladders func_useableladder and info_ladder_dismount join at spawn.
+        services.AddInstance(new UseableLadders(ConVarRegistry.For(UnattachedConsole()), engine,
+                                                () => MoveConstantDefaults.Stock));
 
         registry.Services = services;
         return registry;

@@ -2033,6 +2033,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE PLAYER'S REPLAY (plan_entity.md step 6f). After the arsenal,
         // which it drives: the weapon machine's two phases are direct calls
         // from inside the prediction frame now that both halves are managed.
+        // The useable ladders the replay climbs, over the client's entities.
+        _services.AddInstance<ILadderWorld>(new ClientUseableLadders(_standalones, _convars));
         _prediction = _services.Create<ClientPlayerPrediction>();
 
         // THE OBSERVER'S CAMERA (C7 item 5), after the standalones and the HUD

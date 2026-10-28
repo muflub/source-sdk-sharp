@@ -233,6 +233,52 @@ public partial class PlayerNetState
     [Predicted]
     public partial Vector WaterJumpVel { get; set; }
 
+    // ---- the useable ladder (HL2's m_HL2Local.m_hLadder and LadderMove_t) --
+    //
+    // Stock networks these in the player's HL2 local data and predicts them
+    // (c_hl2_playerlocaldata.cpp, c_basehlplayer.cpp): the movement loop's
+    // CHL2GameMovement reads and writes every one, so the replay has to start
+    // from the server's word for each. The tolerances are stock's: the two
+    // times 0.02, the two positions not compared (FTYPEDESC_NOERRORCHECK)
+    // but still the basis.
+
+    /// <summary>
+    /// The func_useableladder the player is on, by entity index; -1 for none
+    /// (MoveState.NoLadder). An identity, so compared exactly.
+    /// </summary>
+    [Predicted]
+    public partial int Ladder { get; set; }
+
+    /// <summary><c>m_bForceLadderMove</c>: being slid on or off a ladder.</summary>
+    [Predicted]
+    public partial bool LadderForceMove { get; set; }
+
+    /// <summary><c>m_bForceMount</c>: that slide ends on the ladder.</summary>
+    [Predicted]
+    public partial bool LadderForceMount { get; set; }
+
+    /// <summary><c>m_flStartTime</c>: when the slide began.</summary>
+    [Predicted(0.02f)]
+    public partial float LadderStartTime { get; set; }
+
+    /// <summary><c>m_flArrivalTime</c>: when it ends.</summary>
+    [Predicted(0.02f)]
+    public partial float LadderArrivalTime { get; set; }
+
+    /// <summary><c>m_vecGoalPosition</c>: where the slide ends.</summary>
+    public partial Vector LadderGoalPosition { get; set; }
+
+    /// <summary><c>m_vecStartPosition</c>: where it began.</summary>
+    public partial Vector LadderStartPosition { get; set; }
+
+    /// <summary>
+    /// <c>m_hForceLadder</c>: the ladder a mounting slide ends on, by entity
+    /// index. Stock does not send it and its client keeps its own; it is sent
+    /// here so a replay that starts mid-slide ends on the same ladder.
+    /// </summary>
+    [Predicted]
+    public partial int LadderForceLadder { get; set; }
+
     // ---- the world fog this viewer is standing in (step 8e-render) ---------
     //
     // WHY THE PLAYER CARRIES IT. In stock, fog reaches a client two ways at
