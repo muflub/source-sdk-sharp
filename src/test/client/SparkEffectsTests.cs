@@ -28,10 +28,15 @@ public class SparkEffectsTests
     private sealed class Quads : IFxQuadSink
     {
         public int Added;
+        public readonly List<(Vector Origin, float StartSize, float EndSize, float Life, string Material)> Laid = [];
 
         public void AddQuad(Vector origin, Vector normal, float startSize, float endSize, float sizeBias, float startAlpha,
                             float endAlpha, float alphaBias, float yaw, float deltaYaw, Vector color, float lifeTime,
-                            string material, FxQuadFlags flags) => Added++;
+                            string material, FxQuadFlags flags)
+        {
+            Added++;
+            Laid.Add((origin, startSize, endSize, lifeTime, material));
+        }
     }
 
     private sealed class Environment : ISparkEnvironment
@@ -162,5 +167,76 @@ public class SparkEffectsTests
         Assert.Empty(executor.Calls);
         env.DrawMetalSpark = true;
         Assert.True(((IClientImpactSparks)sparks).ImpactMetalSpark(default, new Vector(1, 0, 0), new Vector(0, 0, 1), 1, 1.0f) > 0);
+    }
+
+    // FX_Sparks and the stunstick's impact (weapon_stunstick.cpp), its one
+    // caller in this build. The Ranges stream answers every float at its
+    // minimum and every int at its maximum.
+
+    private static SparkBurst StunstickSparks(SparkEffects sparks)
+        => sparks.Sparks(new Vector(0, 0, 0), 1, 2, new Vector(0, 0, 1), 6, 64, 256,
+                         SparkEffects.SparkMaterial, new Ranges());
+
+    [Fact]
+    public void FX_Sparks_at_magnitude_one_sends_two_big_sparks_and_eight_little_ones()
+    {
+        var (sparks, _, _, _) = Rig();
+        SparkBurst burst = StunstickSparks(sparks);
+
+        Assert.Equal(2, burst.Emitters.Count);
+        var big = Assert.IsType<TrailEmitter>(burst.Emitters[0]);
+        var little = Assert.IsType<TrailEmitter>(burst.Emitters[1]);
+
+        // magnitude^2 * RandomFloat( 2, 4 ), then magnitude * RandomInt( 4, 8 ).
+        Assert.Equal(2, big.Pending.Count);
+        Assert.Equal(8, little.Pending.Count);
+        Assert.Equal(SparkEffects.SparkMaterial, big.Material);
+        Assert.Equal(400.0f, little.Collision.Gravity);
+    }
+
+    [Fact]
+    public void FX_Sparks_big_sparks_leave_along_the_direction_at_twice_the_least_speed_with_no_spread()
+    {
+        var (sparks, _, _, _) = Rig();
+        var big = Assert.IsType<TrailEmitter>(StunstickSparks(sparks).Emitters[0]);
+
+        // spreadOfs = 0: no offset, and minSpeed * ( 2 - 0 ).
+        Assert.Equal(new Vector(0, 0, 128), big.Pending[0].Velocity);
+        Assert.Equal(6.0f, big.Pending[0].Width);
+        Assert.Equal(1.0f, big.Pending[0].DieTime);
+    }
+
+    [Fact]
+    public void FX_Sparks_little_sparks_are_a_quarter_the_width()
+    {
+        var (sparks, _, _, _) = Rig();
+        var little = Assert.IsType<TrailEmitter>(StunstickSparks(sparks).Emitters[1]);
+
+        Assert.Equal(1.5f, little.Pending[0].Width);
+        Assert.Equal(0.3f, little.Pending[0].DieTime, 5);
+    }
+
+    [Fact]
+    public void The_stunstick_impact_lays_one_glow_quad_and_throws_sparks()
+    {
+        var (sparks, quads, _, _) = Rig();
+        SparkBurst burst = sparks.StunstickImpact(new Vector(1, 2, 3), new Vector(-1, 0, 0), new Ranges());
+
+        var quad = Assert.Single(quads.Laid);
+        Assert.Equal(new Vector(1, 2, 3), quad.Origin);
+        Assert.Equal((16f, 32f, 0.1f), (quad.StartSize, quad.EndSize, quad.Life));
+        Assert.Equal("sprites/light_glow02_add", quad.Material);
+        Assert.Equal(2, burst.Emitters.Count);
+    }
+
+    [Fact]
+    public void The_stunstick_impact_is_a_managed_client_effect_under_its_stock_name()
+    {
+        var (sparks, quads, _, _) = Rig();
+        var handlers = new SourceSharp.Client.ClientEffectHandlers([new StunstickImpactEffect(sparks)]);
+
+        Assert.True(handlers.TryDispatch("StunstickImpact",
+                                         new EffectData { Origin = new Vector(0, 0, 0), Normal = new Vector(0, 0, 1) }));
+        Assert.Equal(1, quads.Added);
     }
 }

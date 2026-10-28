@@ -69,6 +69,58 @@ public interface IWeaponArms
         // the replay side is a no-op whatever door it comes through.
     }
 
+    //-------------------------------------------------------------------------
+    // THE SLAM'S HANDS (CWeapon_SLAM, weapon_slam.cpp, run by SlamMachine).
+    //
+    // Default bodies, so the arms that never carry a SLAM — a test's recording
+    // arms, a mod's — inherit "no such animation, nothing in front of me, and
+    // nothing placed". The first three write PREDICTED state and are answered
+    // on both sides; the rest make or set off entities and are the server's,
+    // called only while effects are live.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// The sequence tagged with an activity IN THE CURRENT VIEWMODEL, or -1 —
+    /// stock's <c>SelectWeightedSequence</c>, for a weapon that names its
+    /// animations by activity rather than by <see cref="WeaponAnim"/> kind.
+    /// </summary>
+    int LookupActivity(string activity) => -1;
+
+    /// <summary>How long a viewmodel sequence runs; 0 for none.</summary>
+    float SequenceDuration(int sequence) => 0f;
+
+    /// <summary>
+    /// What is within <paramref name="reach"/> of the carrier's eye along their
+    /// aim, through <c>MASK_SOLID</c> — the trace <c>CanAttachSLAM</c> and the
+    /// two attaches make.
+    /// </summary>
+    WallProbe ProbeWall(float reach) => WallProbe.Nothing;
+
+    /// <summary><c>CWeapon_SLAM::SatchelThrow</c>'s spawn: a satchel thrown from the carrier.</summary>
+    void ThrowCharge(in WeaponType type) { }
+
+    /// <summary><c>CWeapon_SLAM::SatchelAttach</c>'s spawn: a satchel stuck to the wall ahead.</summary>
+    void AttachCharge(in WeaponType type) { }
+
+    /// <summary><c>CWeapon_SLAM::TripmineAttach</c>'s spawn: a tripmine planted on the wall ahead.</summary>
+    void AttachTripmine(in WeaponType type) { }
+
+    /// <summary><c>CWeapon_SLAM::SatchelDetonate</c>: every live satchel this carrier threw goes off.</summary>
+    void DetonateCharges() { }
+
+    /// <summary><c>AnyUndetonatedCharges</c>: whether a satchel this carrier threw is still live.</summary>
+    bool ChargesOut() => false;
+
+    /// <summary>
+    /// CWeaponFrag's ThrowGrenade, LobGrenade or RollGrenade, server half: a
+    /// frag grenade from where and at the velocity stock's throw puts it,
+    /// with its timer set. Nothing by default, as <see cref="LaunchWith"/>:
+    /// the client's replay throws nothing.
+    /// </summary>
+    void ThrowGrenade(in WeaponType type, GrenadeThrow kind, float timer)
+    {
+    }
+
     /// <summary>
     /// The named animation's sequence index IN THE CURRENT VIEWMODEL, or -1.
     /// Both sides answer from the same model, which is what lets the sequence
@@ -78,6 +130,35 @@ public interface IWeaponArms
 
     /// <summary>How long that animation runs, which is how long a reload takes.</summary>
     float AnimDuration(WeaponAnim anim);
+}
+
+/// <summary>How a frag grenade leaves the hand: CWeaponFrag's three throws.</summary>
+public enum GrenadeThrow
+{
+    /// <summary>ThrowGrenade: overhand, from the primary.</summary>
+    Throw,
+
+    /// <summary>LobGrenade: underhand, from the secondary standing.</summary>
+    Lob,
+
+    /// <summary>RollGrenade: along the floor, from the secondary crouched.</summary>
+    Roll,
+}
+
+/// <summary>What <see cref="IWeaponArms.ProbeWall"/> found ahead of the carrier.</summary>
+public enum WallProbe
+{
+    /// <summary>The trace ran its whole length.</summary>
+    Nothing = 0,
+
+    /// <summary>It stopped on something that is not alive: a wall, a crate.</summary>
+    Surface = 1,
+
+    /// <summary>
+    /// It stopped on a combat character, which <c>CanAttachSLAM</c> refuses —
+    /// "Don't attach to a living creature" — and the attaches do not.
+    /// </summary>
+    Character = 2,
 }
 
 /// <summary>
@@ -105,6 +186,15 @@ public static class WeaponAnimNames
         WeaponAnim.Primary => new[] { "fire", "attack1", "shoot", "fire1" },
         WeaponAnim.Reload  => new[] { "reload", "reload1" },
         WeaponAnim.Draw    => new[] { "draw", "deploy" },
+        WeaponAnim.Secondary    => new[] { "altfire", "fire2" },
+        WeaponAnim.DryFire      => new[] { "dryfire" },
+        WeaponAnim.Pump         => new[] { "pump" },
+        WeaponAnim.ReloadStart  => new[] { "reload1" },
+        WeaponAnim.ReloadFinish => new[] { "reload3" },
+        WeaponAnim.PullbackHigh => new[] { "drawbackhigh" },
+        WeaponAnim.PullbackLow  => new[] { "drawbacklow" },
+        WeaponAnim.Throw        => new[] { "throw" },
+        WeaponAnim.Haulback     => new[] { "lob" },
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -121,6 +211,15 @@ public static class WeaponAnimNames
         WeaponAnim.Primary => new[] { "ACT_VM_PRIMARYATTACK", "ACT_VM_HITCENTER", "ACT_VM_THROW" },
         WeaponAnim.Reload  => new[] { "ACT_VM_RELOAD" },
         WeaponAnim.Draw    => new[] { "ACT_VM_DRAW" },
+        WeaponAnim.Secondary    => new[] { "ACT_VM_SECONDARYATTACK" },
+        WeaponAnim.DryFire      => new[] { "ACT_VM_DRYFIRE" },
+        WeaponAnim.Pump         => new[] { "ACT_SHOTGUN_PUMP" },
+        WeaponAnim.ReloadStart  => new[] { "ACT_SHOTGUN_RELOAD_START" },
+        WeaponAnim.ReloadFinish => new[] { "ACT_SHOTGUN_RELOAD_FINISH" },
+        WeaponAnim.PullbackHigh => new[] { "ACT_VM_PULLBACK_HIGH" },
+        WeaponAnim.PullbackLow  => new[] { "ACT_VM_PULLBACK_LOW" },
+        WeaponAnim.Throw        => new[] { "ACT_VM_THROW" },
+        WeaponAnim.Haulback     => new[] { "ACT_VM_HAULBACK" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 
@@ -203,6 +302,25 @@ public sealed class WeaponLogic
         // with no mod assemblies would build anyway.
         _catalog = catalog ?? WeaponCatalog.Stock();
         _behaviours = behaviours ?? WeaponBehaviours.Stock();
+        _slam = new SlamMachine(arms);
+    }
+
+    private readonly SlamMachine _slam;
+
+    /// <summary>
+    /// A weapon's own draw, for a row whose machine picks it: the SLAM's
+    /// <c>Deploy</c>, which chooses among six draws by what it is facing and
+    /// whether a satchel is out. False for every other row, whose draw is the
+    /// generic one the caller sends. Run by the server's switch, which is not
+    /// a predicted command.
+    /// </summary>
+    public bool Deploy(WeaponNetState w, ViewModelNetState vm, float now)
+    {
+        if (_catalog.ByIndex(w.WeaponTypeId) is not WeaponType type || type.Kind != WeaponKind.Slam)
+            return false;
+
+        _slam.Deploy(w, vm, now, in type);
+        return true;
     }
 
     //-------------------------------------------------------------------------
@@ -234,7 +352,24 @@ public sealed class WeaponLogic
 
         var behaviour = _behaviours.For(type.Behaviour);
 
-        Step(w, vm, buttons, now, effectsLive, in type, behaviour);
+        // A weapon whose stock class replaces CBaseCombatWeapon::ItemPostFrame
+        // outright (the shotgun) runs its own command.
+        if (behaviour is not null)
+        {
+            int pressed = buttons & ~w.LastButtons;
+            if (behaviour.RunCommand(Context(in type, w, vm, now, effectsLive), buttons, pressed))
+            {
+                w.LastButtons = buttons;
+                return;
+            }
+        }
+
+        // A weapon with a machine of its own runs it instead of the generic
+        // step: the SLAM's ItemPostFrame shares only the clocks with it.
+        if (type.Kind == WeaponKind.Slam)
+            _slam.RunCommand(w, vm, buttons, now, effectsLive, in type);
+        else
+            Step(w, vm, buttons, now, effectsLive, in type, behaviour);
 
         // The tail, run for EVERY command whatever the weapon did in it —
         // firing, reloading or standing idle — as stock's ItemPostFrame was.
@@ -591,16 +726,24 @@ public sealed class WeaponLogic
     /// animation the model is already in — stock's m_nAnimationParity, kept for
     /// stock's reason: without it the second shot of a pair is invisible.
     /// </summary>
-    private void SendAnim(ViewModelNetState vm, WeaponAnim anim, float rate)
+    private void SendAnim(ViewModelNetState vm, WeaponAnim anim, float rate) => Play(_arms, vm, anim, rate);
+
+    /// <summary>
+    /// Stock's SendWeaponAnim for a behaviour: the sequence, the parity bump
+    /// and the rate, exactly as the machine sends its own. False when the
+    /// model has no such animation.
+    /// </summary>
+    public static bool Play(IWeaponArms arms, ViewModelNetState vm, WeaponAnim anim, float rate = 0f)
     {
-        int sequence = _arms.LookupSequence(anim);
+        int sequence = arms.LookupSequence(anim);
 
         if (sequence < 0)
-            return;
+            return false;
 
         vm.Sequence        = sequence;
         vm.AnimationParity = SourceSharp.Shared.AnimationParity.Next(vm.AnimationParity);
         vm.PlaybackRate    = rate > 0f ? rate : 1f;
+        return true;
     }
 
     private const float EmptyClickInterval = 0.5f;

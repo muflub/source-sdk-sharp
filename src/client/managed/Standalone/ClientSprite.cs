@@ -44,12 +44,19 @@ namespace SourceSharp.Client.Standalone;
 /// </summary>
 public abstract class ClientSpriteBase : ClientStandaloneEntity
 {
-    public ClientSpriteBase(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites)
+    public ClientSpriteBase(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites, IGameClock clock)
         : base(render)
     {
         Effects = effects;
         Sprites = sprites;
+        Clock = clock;
     }
+
+    /// <summary>the client's curtime, which a scale or brightness ramp runs on.</summary>
+    protected readonly IGameClock Clock;
+
+    /// <summary>C_Sprite's ramps: what is drawn while a timed change arrives.</summary>
+    private readonly SpriteRamp _ramp = new();
 
     /// <summary>the small effects.</summary>
     protected readonly IEngineEffects Effects;
@@ -69,6 +76,9 @@ public abstract class ClientSpriteBase : ClientStandaloneEntity
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
         var s = Sprite;
+
+        if (updateType == DataUpdateType.Created)
+            _ramp.Created(s.Scale, s.Brightness);
 
         // Stock's C_Sprite::GetRenderBounds, and the halving is stock's too: the
         // box is the sprite's own extent, so half of it either side of the
@@ -160,10 +170,11 @@ public abstract class ClientSpriteBase : ClientStandaloneEntity
         if (!s.Visible || s.ModelIndex <= 0)
             return 0;
 
+        (float scale, int brightness) = Ramped(s);
         return Sprites.DrawSprite(Handle, s.ModelIndex,
                                   s.Frame, s.RenderMode, s.RenderFx,
-                                  s.Red, s.Green, s.Blue, s.Brightness,
-                                  s.Scale, s.WorldSpaceScale,
+                                  s.Red, s.Green, s.Blue, brightness,
+                                  scale, s.WorldSpaceScale,
                                   s.HdrColorScale, s.GlowProxySize);
     }
 
@@ -175,11 +186,20 @@ public abstract class ClientSpriteBase : ClientStandaloneEntity
         if (!s.Visible || s.ModelIndex <= 0)
             return 0;
 
+        (float scale, int brightness) = Ramped(s);
         return Sprites.PrepareSprite(Handle, s.ModelIndex,
                                      s.Frame, s.RenderMode, s.RenderFx,
-                                     s.Red, s.Green, s.Blue, s.Brightness,
-                                     s.Scale, s.WorldSpaceScale,
+                                     s.Red, s.Green, s.Blue, brightness,
+                                     scale, s.WorldSpaceScale,
                                      s.HdrColorScale, s.GlowProxySize);
+    }
+
+    /// <summary>ClientThink, then GetRenderScale and GetRenderBrightness, for this frame's draw.</summary>
+    private (float Scale, int Brightness) Ramped(ISpriteNetState s)
+    {
+        float now = Clock.Now;
+        _ramp.Think(now, s.Scale, s.Brightness);
+        return (_ramp.Scale(now, s.Scale, s.ScaleTime), _ramp.Brightness(now, s.Brightness, s.BrightnessTime));
     }
 }
 
@@ -187,8 +207,8 @@ public abstract class ClientSpriteBase : ClientStandaloneEntity
 [ClientStandaloneEntity(EntityNames.EnvSprite)]
 public sealed class ClientSprite : ClientSpriteBase
 {
-    public ClientSprite(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites)
-        : base(render, effects, sprites)
+    public ClientSprite(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites, IGameClock clock)
+        : base(render, effects, sprites, clock)
     {
     }
 
@@ -203,8 +223,8 @@ public sealed class ClientSprite : ClientSpriteBase
 [ClientStandaloneEntity(EntityNames.EnvSpriteOriented)]
 public sealed class ClientSpriteOriented : ClientSpriteBase
 {
-    public ClientSpriteOriented(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites)
-        : base(render, effects, sprites)
+    public ClientSpriteOriented(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites, IGameClock clock)
+        : base(render, effects, sprites, clock)
     {
     }
 
@@ -219,8 +239,8 @@ public sealed class ClientSpriteOriented : ClientSpriteBase
 [ClientStandaloneEntity(EntityNames.EnvGlow)]
 public sealed class ClientGlow : ClientSpriteBase
 {
-    public ClientGlow(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites)
-        : base(render, effects, sprites)
+    public ClientGlow(IEngineEntityRender render, IEngineEffects effects, IClientSpriteDraw sprites, IGameClock clock)
+        : base(render, effects, sprites, clock)
     {
     }
 

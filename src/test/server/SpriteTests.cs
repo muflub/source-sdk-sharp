@@ -360,4 +360,65 @@ public class SpriteTests
         Assert.True(engine.CountOf("EntityRender.SetTransmitAlways") == 1,
                     "a sprite asks the shell to send it to every player");
     }
+
+    /// <summary>
+    /// CSprite::SetBrightness / SetScale with a time: the target and how long
+    /// the client takes to reach it, both on the wire (m_nBrightness and
+    /// m_flBrightnessTime, m_flSpriteScale and m_flScaleTime).
+    /// </summary>
+    [Fact]
+    public void ATimedChangeNetworksItsTargetAndItsTime()
+    {
+        var (_, sprite, _) = SpawnWith(EntityNames.EnvSprite, ("model", "sprites/glow01.spr"), ("renderamt", "255"));
+
+        sprite.SetBrightness(32, 0.5f);
+        sprite.SetScale(0.025f, 0.25f);
+
+        Assert.Equal((32, 0.5f), (sprite.Sprite.Brightness, sprite.Sprite.BrightnessTime));
+        Assert.Equal((0.025f, 0.25f), (sprite.Sprite.Scale, sprite.Sprite.ScaleTime));
+    }
+
+    /// <summary>
+    /// CSprite::FadeAndDie: brightness to zero over the time, and the sprite
+    /// removed once the time is up and not before (AnimateUntilDead) -- the
+    /// crossbow bolt's glow in a wall, for one.
+    /// </summary>
+    [Fact]
+    public void FadeAndDieFadesThenRemoves()
+    {
+        float now = 10f;
+        var (registry, sprite, engine) = SpawnWith(EntityNames.EnvSprite, ("model", "sprites/glow01.spr"), ("renderamt", "255"));
+        engine.ReturnsEachCall("Clock.Now", () => now);
+
+        sprite.FadeAndDie(3f);
+        Assert.Equal((0, 3f), (sprite.Sprite.Brightness, sprite.Sprite.BrightnessTime));
+
+        now = 12.9f;
+        registry.Think(Ent);
+        Assert.Equal(0, registry.Directory.PendingRemovalCount);
+
+        now = 13.1f;
+        registry.Think(Ent);
+        Assert.Equal(1, registry.Directory.PendingRemovalCount);
+    }
+
+    /// <summary>CSprite::FadeOutFromSpawn: a moment later, FadeAndDie( 0.25 ).</summary>
+    [Fact]
+    public void FadeOutFromSpawnFadesOverAQuarterSecond()
+    {
+        float now = 10f;
+        var (registry, sprite, engine) = SpawnWith(EntityNames.EnvSprite, ("model", "sprites/glow01.spr"), ("renderamt", "128"));
+        engine.ReturnsEachCall("Clock.Now", () => now);
+
+        sprite.FadeOutFromSpawn();
+        Assert.Equal(128, sprite.Sprite.Brightness);
+
+        now = 10.01f;
+        registry.Think(Ent);
+        Assert.Equal((0, 0.25f), (sprite.Sprite.Brightness, sprite.Sprite.BrightnessTime));
+
+        now = 10.3f;
+        registry.Think(Ent);
+        Assert.Equal(1, registry.Directory.PendingRemovalCount);
+    }
 }

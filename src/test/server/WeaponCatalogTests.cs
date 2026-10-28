@@ -29,9 +29,9 @@ public class WeaponCatalogTests
 {
     // The core table's two ends, by name: the first and last rows the wire
     // has always carried (WeaponTypes.All).
-    private const int CoreCount = 9;
+    private const int CoreCount = 11;
     private const string FirstCore = "weapon_crowbar";
-    private const string LastCore = "weapon_frag";
+    private const string LastCore = "weapon_slam";
 
     private sealed class RowsSource(params WeaponType[] rows) : IWeaponTypeSource
     {
@@ -215,11 +215,12 @@ public class WeaponCatalogTests
             () => [new AmmoRowsSource(new AmmoType("WepModAmmo", DamageType.Bullet, MaxCarry: 5))],
             new RecordingLog());
 
-        // CAmmoDef counts from one: Pistol is 1, XBowBolt (the core's last) 10.
+        // CAmmoDef counts from one: Pistol is 1, XBowBolt 10, slam (the core's last) 11.
         Assert.Equal(1, catalog.WireIndex("Pistol"));
         Assert.Equal(10, catalog.WireIndex("XBowBolt"));
-        Assert.Equal(11, catalog.WireIndex("WepModAmmo"));
-        Assert.Equal(11, catalog.Count);
+        Assert.Equal(11, catalog.WireIndex("slam"));
+        Assert.Equal(12, catalog.WireIndex("WepModAmmo"));
+        Assert.Equal(12, catalog.Count);
         Assert.Equal(-1, catalog.WireIndex("NoSuchAmmo"));
     }
 
@@ -228,14 +229,14 @@ public class WeaponCatalogTests
     {
         // The no-owner arm: a side with no IAmmoTypeSource registered builds
         // exactly the core's ammo table, the wire indices stock's CAmmoDef
-        // has always numbered (Pistol 1 first, XBowBolt 10 last).
+        // has always numbered (Pistol 1 first, slam 11 last).
         var log = new RecordingLog();
         var empty = new AmmoCatalog(() => [], log);
         var stock = AmmoCatalog.Stock();
 
-        Assert.Equal(10, empty.Count);
+        Assert.Equal(11, empty.Count);
         Assert.Equal("Pistol", empty.All[0].Name);
-        Assert.Equal("XBowBolt", empty.All[^1].Name);
+        Assert.Equal("slam", empty.All[^1].Name);
         Assert.Equal(1, empty.WireIndex("Pistol"));
         Assert.Equal(10, empty.WireIndex("XBowBolt"));
         Assert.Equal(AmmoTypes.All.Select(a => a.Name).ToArray(), empty.All.Select(a => a.Name).ToArray());

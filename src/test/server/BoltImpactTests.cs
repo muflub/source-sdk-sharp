@@ -54,7 +54,8 @@ public class BoltImpactTests
     private static (Bolt Bolt, RecordingEngine Engine, RecordingEffectDispatch Temps) ABolt(
         TraceResult? opaqueLine = null,
         SurfaceTraceResult? face = null,
-        MoveType opaqueVictimMoveType = MoveType.None)
+        MoveType opaqueVictimMoveType = MoveType.None,
+        Action<ScriptedEntityRegistry, ServiceContainer>? seen = null)
     {
         var services = Services(out var engine);
 
@@ -69,6 +70,12 @@ public class BoltImpactTests
               .Ignores("EntityPhysics.GetSolidFlags")
               .Ignores("EntityPhysics.GetCollisionGroup")
               .Returns("Entities.IsValid", true)
+              // The glow sprite it carries (CreateSprites).
+              .Returns("Entities.Create", new EntityHandle(0x0001_0099u))
+              .Returns("Entities.SetKeyValue", true)
+              .Returns("Entities.SetParent", true)
+              // Out of water: the sparks fly.
+              .Returns("WorldQuery.PointContents", Contents.Empty)
               .Returns("Entities.GetOrigin", Resting)
               .Returns("Entities.GetAngles", Vector.Zero);
 
@@ -92,12 +99,14 @@ public class BoltImpactTests
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Bolt).Assembly);
+        services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
 
         var handle = new EntityHandle(1);
         registry.Spawn(handle, EntityNames.SsBolt);
         var bolt = (Bolt)registry.Get(handle)!;
         bolt.FiredBy(TheShooter, FiredVelocity);
+        seen?.Invoke(registry, services);
 
         return (bolt, engine, temps);
     }
@@ -244,8 +253,106 @@ public class BoltImpactTests
 
         bolt.OnTouch(Victim);
 
-        var damage = Assert.Single(engine.AllOf("Damage.Apply"));
+        var damage = Assert.Single(engine.AllOf("Damage.ApplyAt"));
         Assert.Equal(Victim, damage.ArgAs<EntityHandle>(0));
         Assert.Equal(TheShooter, damage.ArgAs<EntityHandle>(1));
+    }
+
+    //-------------------------------------------------------------------------
+    // CCrossbowBolt's flight, glance, linger, glow and sparks (stock A/B,
+    // 2026-10-25: this bolt fell three times as fast, stuck where stock's
+    // glanced, vanished at once and threw no sparks).
+    //-------------------------------------------------------------------------
+
+    /// <summary>A shallow face: the bolt arrives along it.</summary>
+    private static SurfaceTraceResult GrazedFace => new(true, 0.6667f, Resting, new Vector(0f, 1f, 0f),
+                                                        EntityHandle.None, 17, 0);
+
+    [Fact]
+    public void ItFallsAtOneTwentiethOfTheWorldsGravity()
+    {
+        var (_, engine, _) = ABolt();
+
+        Assert.Equal(0.05f, (float)engine.Calls.First(c => c.Member == "EntityPhysics.SetGravity").Args[1]!);
+    }
+
+    [Fact]
+    public void ItSpawnsInItsGlowingSkin()
+    {
+        RecordingServerSkins? skins = null;
+        ABolt(seen: (_, services) => skins = (RecordingServerSkins)services.Resolve(typeof(IServerSkins))!);
+
+        Assert.Equal(1, Assert.Single(skins!.Set).Skin);
+    }
+
+    [Fact]
+    public void ABodyIsHurtNeverGibbedAndPushedAlongTheFlight()
+    {
+        var (bolt, engine, _) = ABolt();
+        engine.Returns("Entities.GetIndex", 7);
+
+        bolt.OnTouch(Victim);
+
+        var hurt = engine.Last("Damage.ApplyAt")!.Value;
+        Assert.Equal(DamageType.Bullet | DamageType.NeverGib, (DamageType)hurt.Args[3]!);
+        var force = (Vector)hurt.Args[4]!;
+        Assert.True(force.X > 0f && force.Y == 0f && force.Z == 0f, $"pushed along its flight: {force.X} {force.Y} {force.Z}");
+    }
+
+    [Fact]
+    public void AShallowFastArrivalGlancesOffAtThreeQuarterSpeed()
+    {
+        var (bolt, engine, _) = ABolt(face: GrazedFace);
+
+        bolt.OnTouch(EntityHandle.None);
+
+        Assert.False(engine.Called("Entities.Remove"), "a glancing bolt flies on");
+        Assert.Equal(new Vector(1125f, 0f, 0f), (Vector)engine.Last("Entities.SetVelocity")!.Value.Args[1]!);
+        Assert.Equal(1f, (float)engine.Last("EntityPhysics.SetGravity")!.Value.Args[1]!);
+    }
+
+    [Fact]
+    public void AStuckBoltStaysUnseenForTwoSeconds()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace);
+
+        bolt.OnTouch(EntityHandle.None);
+
+        Assert.False(engine.Called("Entities.Remove"), "removed the moment it stuck");
+        Assert.Equal(2f, bolt.NextThinkDelay());
+        Assert.False((bool)engine.Last("EntityRender.SetVisible")!.Value.Args[1]!);
+    }
+
+    [Fact]
+    public void AStuckBoltGoesWhenItsTwoSecondsAreUp()
+    {
+        ScriptedEntityRegistry? registry = null;
+        var (bolt, _, _) = ABolt(face: WallFace, seen: (r, _) => registry = r);
+
+        bolt.OnTouch(EntityHandle.None);
+        Assert.Equal(0, registry!.Directory.PendingRemovalCount);
+
+        bolt.OnThink();
+        Assert.Equal(1, registry.Directory.PendingRemovalCount);
+    }
+
+    [Fact]
+    public void AStuckBoltThrowsSparksOutOfWater()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace);
+
+        bolt.OnTouch(EntityHandle.None);
+
+        Assert.True(engine.Called("Effects.SparkEffect"), "no sparks");
+    }
+
+    [Fact]
+    public void ItCarriesAGlowThatStartsOff()
+    {
+        var (_, engine, _) = ABolt();
+
+        Assert.Contains(engine.Calls, c => c.Member == "Entities.Create" && (string)c.Args[0]! == EntityNames.EnvSprite);
+        Assert.Contains(engine.Calls, c => c.Member == "Entities.SetKeyValue" && (string)c.Args[1]! == "model"
+                                           && (string)c.Args[2]! == "sprites/light_glow02_noz.vmt");
     }
 }

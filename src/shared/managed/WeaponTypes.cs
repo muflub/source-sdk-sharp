@@ -121,8 +121,66 @@ public readonly record struct WeaponType(
     public float MeleeRange { get; init; }
     public float MeleeDamage { get; init; }
 
+    /// <summary>
+    /// What a swing that LANDS sounds like, or empty for none: the script's
+    /// melee_hit, which stock plays from <c>CBaseHL2MPBludgeonWeapon::Hit</c>
+    /// only for a weapon whose <c>PlayFleshyHittySoundOnHit</c> answers true.
+    /// The stunstick's does; the crowbar's does not, so its row leaves this
+    /// empty although its script names a melee_hit.
+    /// </summary>
+    public string MeleeHitSound { get; init; } = "";
+
+    /// <summary>
+    /// The client effect a landed swing dispatches at the point it struck, or
+    /// empty for none — the stunstick's <c>StunstickImpact</c>, its glow quad
+    /// and sparks (<c>CWeaponStunStick::ImpactEffect</c>). Dispatched beside
+    /// the ordinary impact trace, not instead of it.
+    /// </summary>
+    public string MeleeImpactEffect { get; init; } = "";
+
+    /// <summary>
+    /// Played on the carrier when the weapon is drawn, or empty: the
+    /// stunstick's <c>Weapon_StunStick.Activate</c>, from
+    /// <c>CWeaponStunStick::Deploy</c>'s <c>SetStunState( true )</c>.
+    /// </summary>
+    public string DeploySound { get; init; } = "";
+
+    /// <summary>
+    /// Played on the carrier when the weapon is put away or dropped, or empty:
+    /// the stunstick's <c>Weapon_StunStick.Deactivate</c>
+    /// (<c>SetStunState( false )</c>, from both <c>Holster</c> and <c>Drop</c>).
+    /// </summary>
+    public string HolsterSound { get; init; } = "";
+
+    /// <summary>
+    /// Whether the weapon is sparked on its draw — the stunstick's
+    /// <c>g_pEffects-&gt;Sparks</c> in <c>SetStunState( true )</c>.
+    /// </summary>
+    public bool SparksOnDeploy { get; init; }
+
+    /// <summary>
+    /// Whether a dropped one is simply gone instead of left as a pickup:
+    /// <c>CWeaponStunStick::Drop</c> calls <c>UTIL_Remove( this )</c>, so a
+    /// stunstick carried by somebody who dies leaves nothing behind.
+    /// </summary>
+    public bool RemovedOnDrop { get; init; }
+
+    /// <summary>
+    /// How much of the secondary pool a first pickup brings: the script's
+    /// default_clip2, for a weapon with no secondary clip, which stock's
+    /// <c>Weapon_Equip</c> hands straight to the pool (the SLAM's three). A
+    /// duplicate pickup brings the same, as <c>Weapon_EquipAmmoOnly</c> does.
+    /// </summary>
+    public int DefaultSecondaryAmmo { get; init; }
+
+    /// <summary>
+    /// Which machine runs the row: the generic one, or a weapon whose command
+    /// is its own (<see cref="WeaponKind"/>).
+    /// </summary>
+    public WeaponKind Kind { get; init; }
+
     /// <summary>Whether this row swings rather than shoots.</summary>
-    public bool IsMelee => AmmoName.Length == 0 && Projectile.Length == 0;
+    public bool IsMelee => Kind == WeaponKind.Standard && AmmoName.Length == 0 && Projectile.Length == 0;
 
     /// <summary>
     /// The KEY to the behaviour this row asks the machine to run, or empty for
@@ -140,6 +198,24 @@ public readonly record struct WeaponType(
     /// </para>
     /// </summary>
     public string Behaviour { get; init; } = "";
+}
+
+/// <summary>Which machine runs a weapon row's commands.</summary>
+public enum WeaponKind
+{
+    /// <summary>
+    /// <see cref="WeaponLogic"/>'s own: fire, alt-fire, reload and idle, read
+    /// from the row's numbers. Every weapon but one.
+    /// </summary>
+    Standard = 0,
+
+    /// <summary>
+    /// The SLAM's (<see cref="SlamMachine"/>): a satchel thrown or a tripmine
+    /// planted on the primary, the detonator on the secondary, and an idle
+    /// that carries the throw out — stock's <c>CWeapon_SLAM::ItemPostFrame</c>,
+    /// which shares nothing with the generic one but the clocks.
+    /// </summary>
+    Slam = 1,
 }
 
 /// <summary>
@@ -220,8 +296,11 @@ public static class WeaponTypes
             MeleeDamage = 10f,
         },
 
-        new(EntityNames.WeaponPistol,   Interval: 0.20f, Spread: 1.0f)
+        // GetFireRate() is 0.5 held; clicked, the pistol behaviour lets it
+        // refire after PISTOL_FASTEST_REFIRE_TIME (weapon_pistol.cpp, hl2mp).
+        new(EntityNames.WeaponPistol,   Interval: 0.5f, Spread: 1.0f)
         {
+            Behaviour   = Hl2mpWeaponBehaviours.Pistol,
             ClipSize    = 18,
             AmmoName    = "Pistol",
             ViewModel   = "models/weapons/v_pistol.mdl",
@@ -243,17 +322,15 @@ public static class WeaponTypes
             EmptySound  = "Weapon_Pistol.Empty",
         },
         // The SMG launches a grenade, on the ammunition dm_lockdown already
-        // scatters six boxes of. It is thrown rather than aimed, because an
-        // underslung launcher lobs — and because it is the same ss_grenade the
-        // frag throws, which is the whole argument for the projectile being an
-        // entity rather than a weapon feature.
+        // scatters six boxes of: stock's grenade_ar2, a contact grenade aimed
+        // along the eyes at 1000, by CWeaponSMG1::SecondaryAttack's rules.
         new(EntityNames.WeaponSmg1,     Interval: 0.075f, Spread: 3.0f)
         {
+            Behaviour = Hl2mpWeaponBehaviours.Smg1,
             Secondary = new SecondaryFire(Interval: 1.0f)
             {
-                Projectile = "ss_grenade",
+                Projectile = EntityNames.GrenadeAr2,
                 LaunchSpeed = 1000f,
-                Thrown = true,
                 Sound = "Weapon_SMG1.Double",
             },
             ClipSize    = 45,
@@ -298,6 +375,9 @@ public static class WeaponTypes
         // is the behaviour a shotgun is FOR.
         new(EntityNames.WeaponShotgun, Interval: 0.90f, Pellets: 7, Spread: 5f)
         {
+            // CWeaponShotgun's own ItemPostFrame: pump, shell-by-shell reload,
+            // both barrels on the primary's clock (Hl2mpWeaponBehaviours).
+            Behaviour = Hl2mpWeaponBehaviours.Shotgun,
             // Both barrels. Twice the pellets for twice the shells, out of the
             // CLIP rather than a pool of its own — it is the same buckshot the
             // primary fires, spent two at a time. Wider, because a double blast
@@ -306,7 +386,8 @@ public static class WeaponTypes
             Secondary = new SecondaryFire(Interval: 1.5f, AmmoCost: 2)
             {
                 Pellets = 12,
-                Spread = 10f,
+                // GetBulletSpread is VECTOR_CONE_10DEGREES for both barrels.
+                Spread = 5f,
                 FromClip = true,
                 Sound = "Weapon_Shotgun.Double",
             },
@@ -357,12 +438,53 @@ public static class WeaponTypes
 
         new(EntityNames.WeaponFrag, Interval: 1.0f)
         {
+            // CWeaponFrag's pin, hold and three throws. Its script's single
+            // and double shots are common/null.wav, which WeaponSound never
+            // plays: GetParametersForSound finds no script by that name.
+            Behaviour = Hl2mpWeaponBehaviours.Frag,
             Projectile = "ss_grenade",
             LaunchSpeed = 900f,
             Thrown = true,
             AmmoName    = "Grenade",
             ViewModel   = "models/weapons/v_grenade.mdl",
             WorldModel  = "models/weapons/w_grenade.mdl",
+        },
+
+        // APPENDED, as every row after the first nine must be: the index is the
+        // wire format. CWeaponStunStick (weapon_stunstick.cpp): a bludgeon with
+        // STUNSTICK_RANGE 75 and STUNSTICK_REFIRE 0.8, forty damage a hit
+        // whatever the activity, and an empty SecondaryAttack — so no
+        // Secondary here. Its script names the swing Weapon_StunStick.Swing,
+        // and stock plays the hit sound itself because PlayFleshyHittySoundOnHit
+        // answers true.
+        new(EntityNames.WeaponStunstick, Interval: 0.8f)
+        {
+            ViewModel         = "models/weapons/v_stunstick.mdl",
+            WorldModel        = "models/weapons/w_stunbaton.mdl",
+            FireSound         = "Weapon_StunStick.Swing",
+            MeleeHitSound     = "Weapon_StunStick.Melee_Hit",
+            MeleeImpactEffect = "StunstickImpact",
+            DeploySound       = "Weapon_StunStick.Activate",
+            HolsterSound      = "Weapon_StunStick.Deactivate",
+            SparksOnDeploy    = true,
+            RemovedOnDrop     = true,
+            MeleeRange        = 75f,
+            MeleeDamage       = 40f,
+        },
+
+        // CWeapon_SLAM (weapon_slam.cpp): no primary ammo, the "slam" pool as
+        // its secondary, three of it on the first pickup, and its own machine.
+        // The interval is the generic machine's and unused by the SLAM's,
+        // whose clocks are its viewmodel's sequence durations; it is non-zero
+        // because every row must be able to fire. No FireSound: the throw's
+        // and the detonator's sounds are the machine's own.
+        new(EntityNames.WeaponSlam, Interval: 1.0f)
+        {
+            Kind                 = WeaponKind.Slam,
+            SecondaryAmmoName    = "slam",
+            DefaultSecondaryAmmo = 3,
+            ViewModel            = "models/weapons/v_slam.mdl",
+            WorldModel           = "models/weapons/w_slam.mdl",
         },
     ];
 }

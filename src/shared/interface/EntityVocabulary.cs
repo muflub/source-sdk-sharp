@@ -170,6 +170,12 @@ public enum CollisionGroup
     /// </para>
     /// </summary>
     Interactive = 4,
+
+    /// <summary>
+    /// Something fired: it hits everything but debris, weapons and other
+    /// projectiles (CGameRules::ShouldCollide). The SMG1's grenade_ar2.
+    /// </summary>
+    Projectile = 5,
 }
 
 /// <summary>

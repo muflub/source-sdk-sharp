@@ -37,7 +37,7 @@ public class WeaponMachineTests
         // Every field of the weapon's state is machine state, so every field
         // is predicted — the 9c5 gate answers yes for it, which is what makes
         // the client replay it at all.
-        Assert.Equal(10, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        Assert.Equal(23, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(4, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
     }
 
@@ -182,7 +182,7 @@ public class WeaponMachineTests
         machine.RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
 
         Assert.Equal(17, w.Clip);
-        Assert.Equal(10.20f, w.NextPrimaryAttack, precision: 3); // the pistol's interval
+        Assert.Equal(10.5f, w.NextPrimaryAttack, precision: 3); // the pistol's GetFireRate()
         Assert.Equal(1, arms.BulletsFired);
         Assert.Single(arms.Sounds);
         Assert.Equal("Weapon_Pistol.Single", arms.Sounds[0]);
@@ -252,7 +252,7 @@ public class WeaponMachineTests
     }
 
     [Fact]
-    public void TheDoubleBlastSpendsTwoShellsFromTheClipAndRefusesWithOne()
+    public void TheDoubleBlastSpendsTwoShellsFromTheClipAndIsASingleWithOne()
     {
         var arms = new RecordingArms();
         var machine = new WeaponLogic(arms);
@@ -262,11 +262,13 @@ public class WeaponMachineTests
         Assert.Equal(4, w.Clip);
         Assert.Equal(12, arms.PelletsFired); // both barrels
 
-        // One shell left: no half blast, no shell lost.
+        // The pump the double owes, then one shell left: CWeaponShotgun fires
+        // a single instead ("If only one shell is left, do a single shot").
+        machine.RunCommand(w, vm, 0, now: 10f, effectsLive: true);
         w.Clip = 1;
-        machine.RunCommand(w, vm, Attack2, now: 10f, effectsLive: true);
-        Assert.Equal(1, w.Clip);
-        Assert.Contains(arms.Sounds, s => s.Contains("Empty"));
+        machine.RunCommand(w, vm, Attack2, now: 20f, effectsLive: true);
+        Assert.Equal(0, w.Clip);
+        Assert.Equal(12 + 7, arms.PelletsFired);
     }
 
     [Fact]
@@ -288,8 +290,10 @@ public class WeaponMachineTests
     }
 
     [Fact]
-    public void ThePoolFedWeaponsLaunchTheirProjectiles()
+    public void APoolFedWeaponLaunchesItsProjectile()
     {
+        // The frag is pool-fed too, and throws through its own machine
+        // (Hl2mpFragTests).
         var arms = new RecordingArms();
         var machine = new WeaponLogic(arms);
 
@@ -297,15 +301,6 @@ public class WeaponMachineTests
         machine.RunCommand(rpg, vm, Attack, now: 5f, effectsLive: true);
         Assert.Equal(new[] { "ss_rocket" }, arms.Launches);
         Assert.Equal(1, rpg.Reserve);
-
-        var (frag, vm2) = States("weapon_frag", clip: -1, reserve: 1);
-        machine.RunCommand(frag, vm2, Attack, now: 5f, effectsLive: true);
-        Assert.Contains("ss_grenade", arms.Launches);
-        Assert.Equal(0, frag.Reserve);
-
-        // Out of grenades: an empty click, not a throw.
-        machine.RunCommand(frag, vm2, Attack, now: 10f, effectsLive: true);
-        Assert.Equal(2, arms.Launches.Count);
     }
 
     [Fact]
@@ -316,7 +311,7 @@ public class WeaponMachineTests
         var (w, vm) = States("weapon_smg1", clip: 45, reserve: 0, secondary: 1);
 
         machine.RunCommand(w, vm, Attack2, now: 5f, effectsLive: true);
-        Assert.Contains("ss_grenade", arms.Launches);
+        Assert.Contains("grenade_ar2", arms.Launches);
         Assert.Equal(0, w.SecondaryReserve);
         Assert.Equal(45, w.Clip); // the launcher never touches the clip
 

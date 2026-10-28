@@ -578,10 +578,10 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Points/PointWorldText.cs	yes
 src/sourcesharp/managed/SourceSharp.Server/Entities/Points/TargetCdAudio.cs	yes	explicit port of target_cdaudio, keeping stock's health-field reuse
 src/sourcesharp/managed/SourceSharp.Server/Entities/Points/TargetChangeGravity.cs	yes	mirrors target_changegravity's zero-means-normal scale and activator-only rule
 src/sourcesharp/managed/SourceSharp.Server/Entities/Points/TriggerCamera.cs	yes	ports CTriggerCamera's path-node follow and view-entity state machine (triggers.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Bolt.cs	no	only reuses stock crossbow bolt model path; gravity/damage handling is original
+src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Bolt.cs	yes	ports CCrossbowBolt (weapon_crossbow.cpp: Spawn, CreateSprites, BoltTouch)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/EnergyBall.cs	yes	ports CPropCombineBall's bounce-count/4s lifetime ending rule (prop_combine_ball.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/FlyingProjectile.cs	yes	ports stock projectile trigger-vs-obstacle and NPC/weapon touch exceptions
-src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Grenade.cs	no	original shell built from generic primitives; only reuses stock grenade model path
+src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Grenade.cs	yes	ports CGrenadeFrag (grenade_frag.cpp: Spawn, SetTimer, DelayThink, BlipSound) and CBaseGrenade::Detonate/Explode (basegrenade_shared.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Rocket.cs	yes	ports CMissile::Spawn damage/EXPLOSION_RADIUS constants (200/200)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Props/PropBreak.cs	yes	ports PropBreakableCreateAll and breakablepropparams_t piece-spawning logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Props/PropDoorRotating.cs	yes	mirrors CBaseDoor/prop_door_rotating state machine and reverse-on-block rule

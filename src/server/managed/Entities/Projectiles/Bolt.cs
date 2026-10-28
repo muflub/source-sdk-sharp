@@ -1,10 +1,17 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+//
+// Inspired by and based on the Half-Life 2 Source SDK 2013 by Valve:
+// https://github.com/ValveSoftware/source-sdk-2013
+//
+//=============================================================================//
+
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_bolt: what the crossbow fires.
+/// ss_bolt: what the crossbow fires, stock's CCrossbowBolt (weapon_crossbow.cpp).
 ///
 /// A single target hit, hard, with no splash — which is the crossbow's whole
 /// character and the thing a hitscan stand-in could not express. It travels
@@ -16,9 +23,12 @@ public sealed class Bolt : FlyingProjectile
 {
     public Bolt(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
                 ITempEnts temps, IEngineSound sound, IEngineEffects effects,
-                IEngineNetworking networking, IEngineWorldQuery world)
+                IEngineNetworking networking, IEngineWorldQuery world,
+                IServerSkins skins, IEntityDirectory directory)
         : base(physics, motion)
     {
+        Skins = skins;
+        Directory = directory;
         Damage = damage;
         Temps = temps;
         Sound = sound;
@@ -45,6 +55,22 @@ public sealed class Bolt : FlyingProjectile
     /// <summary>The lines the landing asks the world.</summary>
     private readonly IEngineWorldQuery World;
 
+    /// <summary>The bolt's glowing skin.</summary>
+    private readonly IServerSkins Skins;
+
+    /// <summary>Its glow sprite, as the sprite it is: turned on and faded out in a wall.</summary>
+    private readonly IEntityDirectory Directory;
+
+    /// <summary>BOLT_SKIN_GLOW.</summary>
+    private const int SkinGlow = 1;
+
+    private const string GlowSprite = "sprites/light_glow02_noz.vmt";
+
+    /// <summary>How long a bolt in a wall stays, and how long its glow takes to fade.</summary>
+    private const float StuckFor = 2f, GlowFade = 3f;
+
+    private EntityHandle _glow = EntityHandle.None;
+
     /// <summary>What a map may set on this entity. See <see cref="BoltVars"/>.</summary>
     [ScriptVars] public BoltVars Vars = new();
 
@@ -52,12 +78,46 @@ public sealed class Bolt : FlyingProjectile
     /// A little, not none. A bolt that flew perfectly flat forever would be a
     /// hitscan with a delay on it; the drop is what makes range cost something.
     /// </summary>
-    protected override float GravityScale => 0.15f;
+    protected override float GravityScale => 0.05f;
 
     /// <summary>Stock HL2's bolt, so it looks like one without shipping a model.</summary>
     protected override string ProjectileModel => "models/crossbow_bolt.mdl";
 
     public readonly Output OnHit = new("OnHit");
+
+    /// <summary>CCrossbowBolt::Spawn: the glowing skin, and CreateSprites' glow, off until it sticks.</summary>
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+        Skins.SetSkin(Handle, SkinGlow);
+
+        _glow = Entities.Create(EntityNames.EnvSprite);
+        if (_glow == EntityHandle.None || !Entities.IsValid(_glow))
+        {
+            _glow = EntityHandle.None;
+            return;
+        }
+
+        (string Key, string Value)[] keys =
+        [
+            ("model", GlowSprite), ("scale", "0.2"), ("rendermode", "3"), ("renderfx", "14"),
+            ("rendercolor", "255 255 255"), ("renderamt", "128"),
+        ];
+        foreach (var (key, value) in keys)
+            Entities.SetKeyValue(_glow, key, value);
+        Entities.SetOrigin(_glow, Origin);
+        Entities.Spawn(_glow);
+        Entities.SetParent(_glow, Handle);
+        (Directory.Get(_glow) as SpriteBase)?.TurnOff();
+    }
+
+    /// <summary>~CCrossbowBolt: the glow goes with the bolt.</summary>
+    public override void OnRemoved()
+    {
+        if (_glow != EntityHandle.None && Entities.IsValid(_glow))
+            Entities.Remove(_glow);
+        _glow = EntityHandle.None;
+    }
 
     /// <summary>
     /// What a bolt does when it lands: <c>CCrossbowBolt::BoltTouch</c>
@@ -84,8 +144,10 @@ public sealed class Bolt : FlyingProjectile
     /// <c>Weapon_Crossbow.BoltHitWorld</c>, the stuck-bolt tempent at the
     /// resting place with index 0, and <c>UTIL_ImpactTrace</c>'s terminal
     /// dispatch - the managed port every hitscan already uses,
-    /// <see cref="IEngineEffects.ImpactEffect"/> (Arsenal). The reflect arm
-    /// and the two-second linger are in docs/divergences.md.
+    /// <see cref="IEngineEffects.ImpactEffect"/> (Arsenal). A shallow, fast
+    /// arrival glances off instead (hitDot under 0.5 above 100 u/s); a stuck
+    /// bolt stays unseen for two seconds while its glow fades over three.
+    /// Sparks either way, out of water.
     /// </para>
     /// </summary>
     protected override void Impact(EntityHandle hit)
@@ -98,7 +160,11 @@ public sealed class Bolt : FlyingProjectile
         {
             // Only if it hit something that can be hurt. A bolt in a wall is
             // the common case and must not be an error.
-            Damage.Apply(hit, Attribution, Vars.Damage, DamageType.Bullet);
+            // DMG_BULLET | DMG_NEVERGIB, pushed as a melee blow at 0.7
+            // (CalculateMeleeDamageForce), where the bolt is.
+            Vector flight = Motion.IncomingVelocityOf(Handle).Normalized;
+            Damage.ApplyAt(hit, Attribution, Vars.Damage, DamageType.Bullet | DamageType.NeverGib,
+                           DamageForceRules.MeleeForce(flight, Vars.Damage, scale: 0.7f), Origin);
 
             // The body "thwack", on the bolt, as stock's EmitSound is.
             Sound.EntityEmitSound(Handle, "Weapon_Crossbow.BoltHitBody");
@@ -164,6 +230,20 @@ public sealed class Bolt : FlyingProjectile
 
         Sound.EntityEmitSound(Handle, "Weapon_Crossbow.BoltHitWorld");
 
+        // A shallow, fast arrival glances off: turned about the face, three
+        // quarters as fast, under the world's gravity.
+        Vector arrival = Motion.IncomingVelocityOf(Handle);
+        float speed = arrival.Length;
+        Vector direction = arrival.Normalized;
+        float hitDot = face.Normal.Dot(direction * -1f);
+        if (hitDot < 0.5f && speed > 100f)
+        {
+            Vector reflection = face.Normal * (2f * hitDot) + direction;
+            KeepFlying(reflection * (speed * 0.75f), 1f);
+            Sparks();
+            return;
+        }
+
         TeEffectData stuck = new()
         {
             Origin = face.End,
@@ -177,6 +257,24 @@ public sealed class Bolt : FlyingProjectile
         // backoff off the surface so the client can re-trace to the plane.
         Effects.ImpactEffect(face.End - forward * ImpactBackoff, face.End,
                              face.SurfaceProps, DamageType.Bullet, face.Entity);
+
+        // Stuck: unseen for two seconds while its glow comes on and fades.
+        Linger(StuckFor);
+        if (_glow != EntityHandle.None && Directory.Get(_glow) is SpriteBase glow)
+        {
+            glow.TurnOn();
+            glow.FadeAndDie(GlowFade);
+        }
+
+        Sparks();
+    }
+
+    /// <summary>g_pEffects->Sparks at the bolt, out of water.</summary>
+    private void Sparks()
+    {
+        if (World.PointContents(Origin).HasFlag(Contents.Water))
+            return;
+        Effects.SparkEffect(Origin, magnitude: 1, trailLength: 1, makeSound: false);
     }
 
     /// <summary>The effect name the client's CrossbowBoltEffect is registered for.</summary>

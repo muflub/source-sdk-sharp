@@ -69,12 +69,23 @@ public sealed class ClientArsenal : ILocalArsenal
     private readonly WeaponCatalog _weapons;
     private readonly AmmoCatalog _ammo;
 
+    // The client's view of the world, for the one replayed decision that asks
+    // what is in front of the player (the SLAM's wall probe). Null in a test's
+    // arsenal built without one, which answers that nothing is.
+    private readonly IEngineWorldQuery? _world;
+
+    // The local player's entindex and the replayed command's aim, for that
+    // probe: set by the basis reset and by each replayed command.
+    private int _localIndex;
+    private Vector _commandAngles;
+
     public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
                          IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
                          WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
-                         WeaponBehaviours? behaviours = null)
+                         WeaponBehaviours? behaviours = null, IEngineWorldQuery? world = null)
     {
         _log = log;
+        _world = world;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _standalones = standalones;
         _render = render;
@@ -129,6 +140,8 @@ public sealed class ClientArsenal : ILocalArsenal
         // The clock is the command's own, as the server's run of it read. Read
         // from the engine instead it was the frame's curtime, and every timer
         // the machine sets (TimeWeaponIdle, NextPrimaryAttack) mispredicted.
+        _commandAngles = new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll);
+
         _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
                             commandTime, effectsLive: firstTime);
 
@@ -156,6 +169,7 @@ public sealed class ClientArsenal : ILocalArsenal
         // Players hold 1..maxplayers identically on both sides; the low bits
         // of a client handle are its entity-list entry.
         int localIndex = (int)(player.Value & 0xFFFF);
+        _localIndex = localIndex;
 
         FindLocalPair(localIndex);
 
@@ -422,6 +436,44 @@ public sealed class ClientArsenal : ILocalArsenal
             ? -1
             : WeaponAnimNames.Resolve(_render, _localViewModel.Handle, anim);
 
+    internal int ResolveActivity(string activity)
+        => _localViewModel is null ? -1 : _render.LookupSequenceByActivity(_localViewModel.Handle, activity);
+
+    internal float DurationOf(int sequence)
+        => sequence < 0 || _localViewModel is null ? 0f : _render.SequenceDuration(_localViewModel.Handle, sequence);
+
+    /// <summary>
+    /// The SLAM's wall probe on this side: from the local player's eye along
+    /// the replayed command's aim, through MASK_SOLID, passing the player.
+    ///
+    /// <para>
+    /// The eye is the DECODED origin plus the view offset — the server's last
+    /// word on where the player stands, not the replay's own position for this
+    /// command, which the player's prediction keeps to itself. The difference
+    /// is the distance walked since the last snapshot, a few units against a
+    /// forty-two unit reach; a probe it tips the other way mispredicts the
+    /// SLAM's mode for a command, and the next snapshot settles it.
+    /// </para>
+    /// </summary>
+    internal WallProbe ProbeWall(float reach)
+    {
+        if (_world is null || _standalones.GetByIndex(_localIndex) is not ClientSsPlayer player)
+            return WallProbe.Nothing;
+
+        Vector eye = player.State.Origin + player.State.ViewOffset;
+        Vector forward = Angles.Forward(_commandAngles);
+
+        var trace = _world.ClientTraceLine(eye, eye + forward * reach, TraceMask.Solid,
+                                           TraceFilter.Simple, _localIndex);
+
+        if (!trace.Hit)
+            return WallProbe.Nothing;
+
+        return _standalones.GetByIndex(trace.EntityIndex) is ClientSsPlayer
+            ? WallProbe.Character
+            : WallProbe.Surface;
+    }
+
     /// <summary>Arms the poke: every future weapon-ring save is damaged at the
     /// offset until a compare witnesses it.</summary>
     public bool Poke(int offset)
@@ -451,6 +503,11 @@ public sealed class ClientArsenal : ILocalArsenal
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
 
         public int LookupSequence(WeaponAnim anim) => _owner.ResolveSequence(anim);
+
+        // The SLAM's three predicted asks; its spawns stay the server's.
+        public int LookupActivity(string activity) => _owner.ResolveActivity(activity);
+        public float SequenceDuration(int sequence) => _owner.DurationOf(sequence);
+        public WallProbe ProbeWall(float reach) => _owner.ProbeWall(reach);
 
         public float AnimDuration(WeaponAnim anim)
         {

@@ -1461,6 +1461,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         _services.AddInstance<ITempEnts>(temps);
 
+        // The arsenal was built long before the temp entities; the named
+        // effects a weapon sends itself (the stunstick's) reach them through
+        // this one late door.
+        _arsenal.Temps = temps;
+
         // PLAN Part 8, THE REWIRING. IEngineEffects keeps every one of its call
         // sites; what changes is who answers eight of them. Sparks, the
         // explosion, the muzzle flash, the funnel, the dust, the impact, the

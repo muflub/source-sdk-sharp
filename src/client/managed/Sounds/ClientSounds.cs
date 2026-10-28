@@ -139,6 +139,15 @@ public sealed class ClientSounds(IEngineEntities entities)
     }
 
     /// <inheritdoc/>
+    public void EmitScript(string script, in Vector origin)
+    {
+        if (_emitter is not { } emitter)
+            return;
+
+        emitter.Emit(emitter.LocalPlayer(), SoundEmitterCore.SoundFromWorld, script, origin);
+    }
+
+    /// <inheritdoc/>
     public bool EmitImpactSound(string soundName, Vector origin, int channel, float volume)
     {
         if (_emitter is not { } emitter || string.IsNullOrEmpty(soundName))

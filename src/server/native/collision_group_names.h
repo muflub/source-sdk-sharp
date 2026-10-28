@@ -56,6 +56,7 @@ enum SourceSharpCollisionGroup_t
 	// reintroduce exactly the collision the comment is about.
 	SS_COLLISION_GROUP_DEBRIS       = 3,
 	SS_COLLISION_GROUP_INTERACTIVE  = 4,
+	SS_COLLISION_GROUP_PROJECTILE   = 5,
 };
 
 //-----------------------------------------------------------------------------

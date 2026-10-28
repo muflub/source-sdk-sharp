@@ -182,6 +182,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     public Action<EntityHandle, EntityHandle, Vector, float>? Launched { get; set; }
 
     /// <summary>
+    /// The side's temp entities, for the named client effects a weapon
+    /// dispatches itself (the stunstick's <c>StunstickImpact</c>, its draw's
+    /// sparks). Set by the composition once they exist, which is after this
+    /// class is built — the same late door <see cref="Launched"/> is. Null
+    /// (a test's arsenal, or before the composition reaches them) sends none.
+    /// </summary>
+    public ITempEnts? Temps { get; set; }
+
+    /// <summary>
     /// The weapon table this arsenal gives from — the one list this side reads,
     /// exposed so the decorator and the console report answer "do we have that
     /// weapon" from the arsenal's own answer rather than a second lookup.
@@ -199,6 +208,12 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     {
         public int TypeIndex;
         public int Clip;
+
+        // The weapon's own mode word and its clock (WeaponNetState.Special),
+        // kept here while it is holstered as the clip is: the SLAM's flags live
+        // on stock's weapon entity and survive a switch.
+        public int Special;
+        public float SpecialTime;
     }
 
     internal sealed class Carry
@@ -307,19 +322,32 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             // or a top-up of the pool for a poolfed weapon (frag, RPG).
             int clipSize = ClipSizeOf(in type);
             int worth = clipSize > 0 ? clipSize : 1;
-            return type.AmmoName.Length > 0 && GiveAmmo(player, worth, type.AmmoName) > 0;
+            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, worth, type.AmmoName) > 0;
+
+            // And its secondary charge, where the row brings one: the SLAM's
+            // three, Weapon_EquipAmmoOnly's GetSecondaryAmmoCount.
+            bool tookSecondary = type.DefaultSecondaryAmmo > 0
+                              && GiveAmmo(player, type.DefaultSecondaryAmmo, type.SecondaryAmmoName) > 0;
+
+            return tookPrimary || tookSecondary;
         }
 
         carry.Weapons.Add(new Owned
         {
             TypeIndex = typeIndex,
             Clip = Math.Max(ClipSizeOf(in type), 0),
+            Special = type.Kind == WeaponKind.Slam ? SlamBits.Initial : 0,
         });
 
         // A pool-fed weapon arrives with one shot's worth in the pool, so a
         // picked-up RPG can fire before an ammo crate is found.
         if (ClipSizeOf(in type) <= 0 && type.AmmoName.Length > 0)
             GiveAmmo(player, 1, type.AmmoName);
+
+        // A secondary pool with no clip in front of it is filled with the
+        // row's default_clip2 (Weapon_Equip: GiveAmmo( GetDefaultClip2() )).
+        if (type.DefaultSecondaryAmmo > 0)
+            GiveAmmo(player, type.DefaultSecondaryAmmo, type.SecondaryAmmoName);
 
         // The first weapon deploys itself; later ones wait to be asked for,
         // which is HL2MP's own behaviour with everything but a better weapon.
@@ -525,6 +553,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             carry.ActiveSlot < carry.Weapons.Count)
         {
             carry.LastTypeIndex = carry.Weapons[carry.ActiveSlot].TypeIndex;
+
+            // The outgoing weapon's Holster: the stunstick's SetStunState( false ).
+            if (_weapons.ByIndex(carry.LastTypeIndex) is WeaponType outgoing)
+                carry.Arms.Sound(outgoing.HolsterSound);
         }
 
         carry.ActiveSlot = slot;
@@ -539,6 +571,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         weapon.State.NextSecondaryAttack = now + type.DeployTime;
         weapon.State.TimeWeaponIdle = now + type.DeployTime;
         weapon.State.LastButtons = 0;
+        weapon.State.Special = owned.Special;
+        weapon.State.SpecialTime = owned.SpecialTime;
+
+        // CWeaponFrag::Deploy: no redraw owed, no pin out, and a throw whose
+        // sequence the switch cut short never goes off.
+        weapon.State.Redraw = false;
+        weapon.State.DrawbackFinished = false;
+        weapon.State.AnimEvent = 0;
 
         viewModel.State.OwnerIndex = _entities.GetIndex(carry.Player);
 
@@ -554,8 +594,17 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         RefreshReserves(carry);
 
         // The draw, through the same path every other animation takes, so the
-        // sequence number that lands in the blob is the one the client plays.
-        carry.Arms.SendDeployAnim(viewModel.State);
+        // sequence number that lands in the blob is the one the client plays —
+        // the row's machine's own draw where it picks one (the SLAM's), else
+        // the generic one.
+        if (!carry.Machine.Deploy(weapon.State, viewModel.State, now))
+            carry.Arms.SendDeployAnim(viewModel.State);
+
+        // The incoming weapon's own Deploy: the stunstick's SetStunState( true ).
+        carry.Arms.Sound(type.DeploySound);
+
+        if (type.SparksOnDeploy)
+            carry.Arms.DeploySparks();
 
         _log.Msg($"[SourceSharp/Arsenal] {carry.Player} deployed {type.Name}\n");
     }
@@ -570,6 +619,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type && ClipSizeOf(in type) > 0)
             owned.Clip = Math.Max(0, weapon.State.Clip);
+
+        owned.Special = weapon.State.Special;
+        owned.SpecialTime = weapon.State.SpecialTime;
     }
 
     /// <summary>
@@ -675,6 +727,35 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    before - weapon.State.Reserve);
         SettlePool(carry, weapon.State.WeaponTypeId, primary: false,
                    beforeSecondary - weapon.State.SecondaryReserve);
+
+        // A SLAM with no charges left and none out asked to go: stock's
+        // Weapon_Drop( this ) and UTIL_Remove( this ) from its WeaponIdle.
+        if (SlamBits.Has(weapon.State.Special, SlamBits.Spent) &&
+            _weapons.ByIndex(weapon.State.WeaponTypeId) is { Kind: WeaponKind.Slam })
+        {
+            RemoveActive(carry);
+        }
+    }
+
+    /// <summary>
+    /// The active weapon is gone — removed, not dropped, so nothing is left in
+    /// the world — and the hands take the next weapon, as
+    /// <c>CBasePlayer::Weapon_Drop</c>'s <c>SwitchToNextBestWeapon</c> does:
+    /// the one held before, if it is still owned, else the first.
+    /// </summary>
+    private void RemoveActive(Carry carry)
+    {
+        if (carry.ActiveSlot < 0 || carry.ActiveSlot >= carry.Weapons.Count)
+            return;
+
+        carry.Weapons.RemoveAt(carry.ActiveSlot);
+        EmptyHands(carry);
+
+        if (carry.Weapons.Count == 0)
+            return;
+
+        int next = carry.Weapons.FindIndex(o => o.TypeIndex == carry.LastTypeIndex);
+        Deploy(carry, next >= 0 ? next : 0);
     }
 
     private void SettlePool(Carry carry, int typeIndex, bool primary, int spent)
@@ -737,9 +818,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         var owned = carry.Weapons[carry.ActiveSlot];
 
+        // A row that is removed on a drop leaves nothing: CWeaponStunStick::Drop
+        // is SetStunState( false ) and UTIL_Remove( this ).
         if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type)
+            carry.Arms.Sound(type.HolsterSound);
+
+        if (_weapons.ByIndex(owned.TypeIndex) is WeaponType { RemovedOnDrop: false } kept)
         {
-            EntityHandle dropped = _entities.Create(type.Name);
+            EntityHandle dropped = _entities.Create(kept.Name);
 
             // COMPARED AGAINST None RATHER THAN ASKED WHETHER IT IsValid, which
             // is the rule Players.OnKilled records: EntityHandle.IsValid asks
@@ -932,7 +1018,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                       .Set(RowKind, "owned")
                       .Set("p", carry.Player)
                       .Set("t", _weapons.ByIndex(owned.TypeIndex)?.Name ?? string.Empty)
-                      .Set("c", owned.Clip);
+                      .Set("c", owned.Clip)
+                      .Set("s", owned.Special);
             }
 
             foreach (var (ammo, count) in carry.Ammo)
@@ -981,7 +1068,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                         break;
                     }
 
-                    CarryFor(player).Weapons.Add(new Owned { TypeIndex = type, Clip = row.GetInt("c") });
+                    CarryFor(player).Weapons.Add(new Owned { TypeIndex = type, Clip = row.GetInt("c"), Special = row.GetInt("s") });
                     break;
                 }
 
@@ -1021,6 +1108,17 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _precache.PrecacheSound(type.FireSound);
             _precache.PrecacheSound(type.EmptySound);
             _precache.PrecacheSound(type.ReloadSound);
+            _precache.PrecacheSound(type.MeleeHitSound);
+            _precache.PrecacheSound(type.DeploySound);
+            _precache.PrecacheSound(type.HolsterSound);
+
+            // The SLAM's machine names its own (CWeapon_SLAM::Precache).
+            if (type.Kind == WeaponKind.Slam)
+            {
+                _precache.PrecacheSound(SlamMachine.ThrowSound);
+                _precache.PrecacheSound(SlamMachine.DetonateSound);
+                _precache.PrecacheSound(SlamMachine.TripMineModeSound);
+            }
 
             if (type.Secondary is { Sound.Length: > 0 } secondary)
                 _precache.PrecacheSound(secondary.Sound);
@@ -1103,6 +1201,103 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         Launched?.Invoke(flying, carry.Player, velocity, fuse);
     }
+
+    /// <summary>
+    /// CWeaponFrag's ThrowGrenade, LobGrenade and RollGrenade (weapon_frag.cpp,
+    /// hl2mp) and Fraggrenade_Create: where each throw starts, pulled back to
+    /// the eye (or the body's centre) when it would start in a wall, and the
+    /// velocity it leaves with -- the thrower's own plus the throw's -- and its
+    /// spin, which stock gives about the grenade's own axes. The timer goes to
+    /// the grenade with the launch report.
+    /// </summary>
+    private void ThrowGrenade(ILog log, Carry carry, in WeaponType type, GrenadeThrow kind, float timer, Random random)
+    {
+        EntityHandle player = carry.Player;
+        Vector eye = _players.GetShootOrigin(player);
+        var aim = Angles.Vectors(_entities.GetEyeAngles(player));
+        Vector thrower = _entities.GetVelocity(player);
+        Vector from, velocity, spin, angles = Vector.Zero;
+
+        switch (kind)
+        {
+            case GrenadeThrow.Throw:
+                from = ThrowPosition(player, eye, eye + aim.Forward * 18f + aim.Right * 8f);
+                velocity = thrower + (aim.Forward + new Vector(0f, 0f, 0.1f)) * 1200f;
+                spin = new Vector(600f, random.Next(-1200, 1201), 0f);
+                break;
+
+            case GrenadeThrow.Lob:
+                from = ThrowPosition(player, eye, eye + aim.Forward * 18f + aim.Right * 8f + new Vector(0f, 0f, -8f));
+                velocity = thrower + aim.Forward * 350f + new Vector(0f, 0f, 50f);
+                spin = new Vector(200f, random.Next(-600, 601), 0f);
+                break;
+
+            default:
+            {
+                // The bottom of the player's box, a grenade's radius up, rolled
+                // the way the body faces, along the floor when there is one.
+                from = _entities.GetOrigin(player) + new Vector(0f, 0f, GrenadeRadius);
+                float yaw = _entities.GetEyeAngles(player).Y;
+                float radians = yaw * MathF.PI / 180f;
+                var facing = new Vector(MathF.Cos(radians), MathF.Sin(radians), 0f);
+
+                // MASK_PLAYERSOLID in stock; the line trace takes the shot
+                // hull's mask, which is the same solid set for a floor.
+                TraceResult floor = _world.TraceLine(from, from - new Vector(0f, 0f, 16f), TraceMask.ShotHull, player);
+                if (floor.Fraction != 1f)
+                {
+                    Vector tangent = facing.Cross(floor.Normal);
+                    facing = floor.Normal.Cross(tangent);
+                }
+
+                from = ThrowPosition(player, _entities.GetWorldSpaceCenter(player), from + facing * 18f);
+                velocity = thrower + facing * 700f;
+                angles = new Vector(0f, _entities.GetAngles(player).Y, -90f);
+                spin = new Vector(0f, 0f, 720f);
+                break;
+            }
+        }
+
+        EntityHandle grenade = _entities.Create(type.Projectile);
+
+        if (!_entities.IsValid(grenade))
+        {
+            log.Warning($"[SourceSharp/Arsenal] {type.Name} could not create '{type.Projectile}'\n");
+            return;
+        }
+
+        // CBaseEntity::Create( name, position, angles, owner ): placed, owned
+        // (so it does not collide with its thrower), then spawned.
+        _entities.SetOrigin(grenade, from);
+        _entities.SetAngles(grenade, angles);
+        _entities.SetOwner(grenade, player);
+        _entities.Spawn(grenade);
+        // Fraggrenade_Create's SetVelocity: AddVelocity( velocity, angVelocity )
+        // on an object at rest, the spin in its own frame.
+        _entities.ApplyVelocityImpulse(grenade, velocity, false);
+        var axes = Angles.Vectors(angles);
+        _entities.SetAngularVelocity(grenade, axes.Forward * spin.X - axes.Right * spin.Y + axes.Up * spin.Z);
+
+        Launched?.Invoke(grenade, player, velocity, timer);
+    }
+
+    /// <summary>
+    /// CheckThrowPosition: a box a little wider than the grenade swept from
+    /// <paramref name="start"/> to where the throw wants it, stopped short of
+    /// what it meets.
+    /// </summary>
+    private Vector ThrowPosition(EntityHandle player, Vector start, Vector wanted)
+    {
+        var extent = new Vector(GrenadeRadius + 2f, GrenadeRadius + 2f, GrenadeRadius + 2f);
+        return _world.EntityTraceHull(player, start, wanted, extent * -1f, extent,
+                                      GameMovement.MaskPlayerSolid, CollisionGroupPlayer).EndPos;
+    }
+
+    /// <summary>GRENADE_RADIUS, in inches.</summary>
+    private const float GrenadeRadius = 4f;
+
+    /// <summary>COLLISION_GROUP_PLAYER, the thrower's own group, which the throw's sweep is made as.</summary>
+    private const int CollisionGroupPlayer = 5;
 
     internal sealed class ServerWeaponArms : IWeaponArms
     {
@@ -1243,23 +1438,57 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         private const float ImpactBackoff = 32f;
 
-        /// <summary>A swing: a short trace, the row's own damage, a thock either way.</summary>
+        /// <summary>
+        /// A swing: <c>CBaseHL2MPBludgeonWeapon::Swing</c>'s first ray and, when
+        /// it lands, <c>Hit</c> — the row's own damage, the hit sound for a row
+        /// that plays one (<c>PlayFleshyHittySoundOnHit</c>), and the impact:
+        /// the row's own client effect where it declares one, then
+        /// <c>UTIL_ImpactTrace( DMG_CLUB )</c>, which every bludgeon's
+        /// <c>ImpactEffect</c> ends in.
+        /// </summary>
         public void MeleeSwing(in WeaponType type)
         {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
 
-            var trace = _arsenal._world.TraceLine(from, from + aim.Forward * type.MeleeRange,
-                                                  TraceMask.Shot, _carry.Player);
+            // The surface rides with the trace for the impact below, as it does
+            // for a bullet: the client picks the decal and the sound from it.
+            var trace = _arsenal._world.TraceLineSurface(from, from + aim.Forward * type.MeleeRange,
+                                                         TraceMask.Shot, _carry.Player);
+
+            if (!trace.Hit)
+                return;
 
             // CBaseHLBludgeonWeapon::Hit's CalculateMeleeDamageForce, at the
             // trace's end, so a swing shoves a physics object (A30).
-            if (trace.Hit && _arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
+            if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
                 _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
                                          type.MeleeDamage, DamageType.Club,
                                          DamageForceRules.MeleeForce(aim.Forward, type.MeleeDamage),
                                          trace.End);
+
+            // Hit plays it for whatever the ray struck, the world included: a
+            // trace that stopped on a wall names worldspawn, never nothing.
+            Sound(type.MeleeHitSound);
+
+            if (type.MeleeImpactEffect.Length > 0 && _arsenal.Temps is { } temps)
+            {
+                // CWeaponStunStick::ImpactEffect: four units off the face.
+                TeEffectData data = new()
+                {
+                    Origin = trace.End + trace.Normal * MeleeEffectStandoff,
+                    Normal = trace.Normal,
+                    Scale = 1f,
+                };
+                temps.DispatchEffect(TeFilters.Pas(data.Origin), 0f, type.MeleeImpactEffect, in data);
+            }
+
+            _arsenal._effects.ImpactEffect(trace.End - aim.Forward * ImpactBackoff, trace.End,
+                                           trace.SurfaceProps, DamageType.Club, trace.Entity);
         }
+
+        /// <summary>How far off the struck face a row's own melee effect sits: stock's 4.</summary>
+        private const float MeleeEffectStandoff = 4f;
 
         /// <summary>
         /// Sends what the weapon launches instead of a bullet. It leaves from
@@ -1281,6 +1510,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             // arc out is not asked to also know where the launcher's eye is.
             _arsenal.LaunchFlying(_log, _carry, type, projectile, velocity, type.Thrown, fuse);
         }
+
+        /// <inheritdoc />
+        public void ThrowGrenade(in WeaponType type, GrenadeThrow kind, float timer)
+            => _arsenal.ThrowGrenade(_log, _carry, type, kind, timer, _random);
 
         /// <summary>
         /// The sequence for an animation, in the viewmodel's own numbering —
@@ -1306,6 +1539,189 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             return _arsenal._render.SequenceDuration(_carry.ViewModel, sequence);
         }
+
+        //---------------------------------------------------------------------
+        // The SLAM's hands (CWeapon_SLAM, weapon_slam.cpp).
+        //---------------------------------------------------------------------
+
+        public int LookupActivity(string activity)
+            => _arsenal._entities.IsValid(_carry.ViewModel)
+                ? _arsenal._render.LookupSequenceByActivity(_carry.ViewModel, activity)
+                : -1;
+
+        public float SequenceDuration(int sequence)
+            => sequence >= 0 && _arsenal._entities.IsValid(_carry.ViewModel)
+                ? _arsenal._render.SequenceDuration(_carry.ViewModel, sequence)
+                : 0f;
+
+        /// <summary>
+        /// The eye along the aim, through <c>MASK_SOLID</c>, ignoring the
+        /// carrier. Stock's traces read <c>GetLocalAngles()</c>, which during
+        /// the weapon's frame is the command's view angles — the aim.
+        /// </summary>
+        public WallProbe ProbeWall(float reach)
+        {
+            var trace = Ahead(reach);
+
+            if (!trace.Hit)
+                return WallProbe.Nothing;
+
+            return trace.Entity != EntityHandle.None && _arsenal._entities.IsPlayer(trace.Entity)
+                ? WallProbe.Character
+                : WallProbe.Surface;
+        }
+
+        private TraceResult Ahead(float reach)
+        {
+            Vector eye = _arsenal._players.GetShootOrigin(_carry.Player);
+            Vector forward = Angles.Forward(_arsenal._entities.GetEyeAngles(_carry.Player));
+
+            return _arsenal._world.TraceLine(eye, eye + forward * reach, TraceMask.Solid, _carry.Player);
+        }
+
+        /// <summary>
+        /// <c>SatchelThrow</c>: from the carrier's middle, eighteen units out
+        /// and twenty-four up, at their own velocity plus five hundred along
+        /// the aim — or, when they have turned to a wall during the throw,
+        /// barely moving from five units out, so it is not thrown into it.
+        /// </summary>
+        public void ThrowCharge(in WeaponType type)
+        {
+            Vector centre = _arsenal._entities.GetWorldSpaceCenter(_carry.Player);
+            Vector facing = Angles.Forward(_arsenal._entities.GetEyeAngles(_carry.Player));
+
+            Vector from = centre + facing * SlamThrowOut + new Vector(0f, 0f, SlamThrowLift);
+            Vector velocity = _arsenal._entities.GetVelocity(_carry.Player) + facing * SlamThrowSpeed;
+
+            if (ProbeWall(SlamMachine.AttachReach) == WallProbe.Surface)
+            {
+                velocity = facing;
+                from = centre + facing * SlamThrowOutAtWall;
+            }
+
+            EntityHandle satchel = _arsenal._entities.Create(EntityNames.NpcSatchel);
+
+            if (satchel == EntityHandle.None)
+            {
+                _log.Warning($"[SourceSharp/Arsenal] {type.Name} could not create {EntityNames.NpcSatchel}\n");
+                return;
+            }
+
+            _arsenal._entities.SetOrigin(satchel, from);
+            _arsenal._entities.Spawn(satchel);
+
+            if (_arsenal._directory.Get(satchel) is Satchel live)
+                live.ThrownBy(_carry.Player, attached: false);
+
+            _arsenal._entities.ApplyVelocityImpulse(satchel, velocity, false);
+        }
+
+        /// <summary>
+        /// <c>SatchelAttach</c>: a satchel on the wall ahead, three units off
+        /// it and six down, stuck there.
+        /// </summary>
+        public void AttachCharge(in WeaponType type)
+        {
+            var trace = Ahead(SlamMachine.PlaceReach);
+
+            if (!trace.Hit)
+                return;
+
+            Vector angles = Angles.FromVector(trace.Normal);
+            angles = new Vector(angles.X, angles.Y - 90f, angles.Z - 90f);
+
+            Vector at = trace.End - new Vector(0f, 0f, 6f) + trace.Normal * SlamWallStandoff;
+
+            EntityHandle satchel = _arsenal._entities.Create(EntityNames.NpcSatchel);
+
+            if (satchel == EntityHandle.None)
+                return;
+
+            _arsenal._entities.SetOrigin(satchel, at);
+            _arsenal._entities.SetAngles(satchel, angles);
+            _arsenal._entities.Spawn(satchel);
+
+            if (_arsenal._directory.Get(satchel) is Satchel live)
+                live.ThrownBy(_carry.Player, attached: true);
+        }
+
+        /// <summary>
+        /// <c>TripmineAttach</c>: a tripmine three units off the wall ahead,
+        /// turned so its beam runs out along the wall's normal.
+        /// </summary>
+        public void AttachTripmine(in WeaponType type)
+        {
+            var trace = Ahead(SlamMachine.PlaceReach);
+
+            if (!trace.Hit)
+                return;
+
+            Vector angles = Angles.FromVector(trace.Normal);
+            angles = new Vector(angles.X + 90f, angles.Y, angles.Z);
+
+            EntityHandle mine = _arsenal._entities.Create(EntityNames.NpcTripmine);
+
+            if (mine == EntityHandle.None)
+            {
+                _log.Warning($"[SourceSharp/Arsenal] {type.Name} could not create {EntityNames.NpcTripmine}\n");
+                return;
+            }
+
+            _arsenal._entities.SetOrigin(mine, trace.End + trace.Normal * SlamWallStandoff);
+            _arsenal._entities.SetAngles(mine, angles);
+            _arsenal._entities.Spawn(mine);
+
+            if (_arsenal._directory.Get(mine) is Tripmine planted)
+                planted.PlantedBy(_carry.Player);
+        }
+
+        public void DetonateCharges()
+        {
+            foreach (var satchel in LiveCharges())
+                satchel.Detonate();
+        }
+
+        public bool ChargesOut() => LiveCharges().Any();
+
+        private IEnumerable<Satchel> LiveCharges()
+            => _arsenal._directory.OfClass(EntityNames.NpcSatchel)
+                      .OfType<Satchel>()
+                      .Where(s => s.IsLive && s.Thrower == _carry.Player)
+                      .ToArray();
+
+        private const float SlamThrowOut = 18f;
+        private const float SlamThrowLift = 24f;
+        private const float SlamThrowSpeed = 500f;
+        private const float SlamThrowOutAtWall = 5f;
+        private const float SlamWallStandoff = 3f;
+
+        /// <summary>
+        /// The stunstick's draw sparks: <c>g_pEffects-&gt;Sparks</c> (magnitude
+        /// one, trail one, no direction, no sound) at the head of the stick.
+        ///
+        /// <para>
+        /// Stock sparks at the WEAPON's attachment 1, which on a stock server is
+        /// the bonemerged w_ model's tip in the carrier's hand. This build's
+        /// carried weapon is parked at the player's origin and not bonemerged on
+        /// the server (<see cref="Frame"/>), so its attachment would answer a
+        /// point at the feet; the sparks go where the hand is instead, a short
+        /// reach out from the eye.
+        /// </para>
+        /// </summary>
+        public void DeploySparks()
+        {
+            if (_arsenal.Temps is not { } temps)
+                return;
+
+            Vector eye = _arsenal._players.GetShootOrigin(_carry.Player);
+            var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
+            Vector at = eye + aim.Forward * DeploySparkReach;
+
+            temps.Sparks(TeFilters.Pvs(at), 0f, at, 1, 1, null);
+        }
+
+        /// <summary>How far out from the eye the draw's sparks are made.</summary>
+        private const float DeploySparkReach = 24f;
 
         /// <summary>The draw, from Deploy — outside the machine's own frame.</summary>
         public void SendDeployAnim(ViewModelNetState vm)

@@ -130,6 +130,12 @@ public sealed class EntityMotion
         public float GravityScale;
         public int BouncesLeft;
         public EntityHandle Owner;
+
+        /// <summary>Degrees per second its angles turn by in flight: PhysicsToss's avelocity.</summary>
+        public Vector Spin;
+
+        /// <summary>The velocity it was flying at going into the last step: what a touch saw it arrive with.</summary>
+        public Vector Incoming;
     }
 
     private readonly Dictionary<EntityHandle, Mover> _movers = new();
@@ -173,7 +179,7 @@ public sealed class EntityMotion
     /// </para>
     /// </summary>
     public void Launch(EntityHandle entity, Vector velocity, float gravityScale,
-                       int bounces, EntityHandle owner)
+                       int bounces, EntityHandle owner, Vector spin = default)
     {
         // COMPARED AGAINST None RATHER THAN ASKED IsValid, here and at every
         // other handle test in this file. EntityHandle.IsValid is a NATIVE CALL
@@ -190,6 +196,8 @@ public sealed class EntityMotion
         mover.GravityScale = gravityScale;
         mover.BouncesLeft = bounces;
         mover.Owner = owner;
+        mover.Spin = spin;
+        mover.Incoming = velocity;
         mover.Kind = gravityScale != 0f ? MotionKind.Toss : MotionKind.Fly;
     }
 
@@ -208,6 +216,7 @@ public sealed class EntityMotion
         mover.Velocity = velocity;
         mover.GravityScale = 0f;
         mover.BouncesLeft = 0;
+        mover.Spin = Vector.Zero;
     }
 
     /// <summary>
@@ -269,6 +278,14 @@ public sealed class EntityMotion
     /// <summary>The velocity this side is integrating, which is the store of record while it flies.</summary>
     public Vector VelocityOf(EntityHandle entity)
         => _movers.TryGetValue(entity, out var mover) ? mover.Velocity : Vector.Zero;
+
+    /// <summary>
+    /// The velocity it arrived with at its last step: stock's GetAbsVelocity
+    /// inside a touch, which runs before the collision changes it. Zero for
+    /// something not flying.
+    /// </summary>
+    public Vector IncomingVelocityOf(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) ? mover.Incoming : Vector.Zero;
 
     /// <summary>How many bounces an entity has left.</summary>
     public int BouncesLeftOf(EntityHandle entity)
@@ -402,6 +419,7 @@ public sealed class EntityMotion
                                     mover.BouncesLeft);
 
         FlightStep step = MoveMath.AdvanceFlight(input);
+        mover.Incoming = mover.Velocity;
 
         // SKIPPING ITSELF, and that is not an optimisation — it is what makes a
         // projectile fly at all. A projectile is SOLID_BBOX and goes into the
@@ -423,6 +441,11 @@ public sealed class EntityMotion
                                                      trace.End, trace.Normal);
 
         _entities.SetOrigin(handle, result.Origin);
+
+        // PhysicsToss turns the angles by the angular velocity each frame: a
+        // tumbling grenade. Nothing launched without a spin asks.
+        if (mover.Spin.X != 0f || mover.Spin.Y != 0f || mover.Spin.Z != 0f)
+            _entities.SetAngles(handle, _entities.GetAngles(handle) + mover.Spin * frameTime);
 
         // The velocity is written back to the shell only when it MOVED, and
         // that is not thrift for its own sake: EntitySetVelocity is also what

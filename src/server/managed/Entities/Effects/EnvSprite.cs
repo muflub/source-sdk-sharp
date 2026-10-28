@@ -263,7 +263,8 @@ public abstract class SpriteBase : ScriptedEntity
     protected internal static bool Animates(float framerate, float maxFrame, SpawnFlag flags)
         => (framerate != 0f && maxFrame > 1f) || flags.HasFlag(SpawnFlag.PlayOnce);
 
-    private void TurnOn()
+    /// <summary>CSprite::TurnOn: shown, and animating if it animates.</summary>
+    public void TurnOn()
     {
         State.Visible = true;
         State.Frame = 0f;
@@ -275,16 +276,73 @@ public abstract class SpriteBase : ScriptedEntity
         SetNextThink(0f);
     }
 
-    private void TurnOff()
+    /// <summary>CSprite::TurnOff. A sprite fading to its death keeps thinking toward it.</summary>
+    public void TurnOff()
     {
         State.Visible = false;
-        StopThinking();
+        if (!_dying)
+            StopThinking();
     }
+
+    /// <summary>
+    /// CSprite::SetBrightness( brightness, time ): the new brightness, which the
+    /// client reaches over <paramref name="time"/> seconds (at once for none).
+    /// </summary>
+    public void SetBrightness(int brightness, float time = 0f)
+    {
+        State.Brightness = Math.Clamp(brightness, 0, 255);
+        State.BrightnessTime = time;
+    }
+
+    /// <summary>CSprite::SetScale( scale, time ): the same for the size.</summary>
+    public void SetScale(float scale, float time = 0f)
+    {
+        State.ScaleTime = time;
+        State.Scale = scale;
+    }
+
+    /// <summary>
+    /// CSprite::FadeAndDie: to brightness zero over <paramref name="duration"/>,
+    /// then gone (AnimateUntilDead).
+    /// </summary>
+    public void FadeAndDie(float duration)
+    {
+        SetBrightness(0, duration);
+        _dying = true;
+        _dieTime = _clock.Now + duration;
+        _lastAnimateAt = _clock.Now;
+        SetNextThink(0f);
+    }
+
+    /// <summary>CSprite::FadeOutFromSpawn: a hundredth of a second, then FadeAndDie( 0.25 ).</summary>
+    public void FadeOutFromSpawn()
+    {
+        _fadeOutPending = true;
+        SetNextThink(0.01f);
+    }
+
+    [SaveField] private bool _dying;
+    [SaveField] private float _dieTime;
+    [SaveField] private bool _fadeOutPending;
 
     /// <summary>Stock's AnimateThink: advance by however much time has passed.</summary>
     public override void OnThink()
     {
         float now = _clock.Now;
+
+        if (_fadeOutPending)
+        {
+            _fadeOutPending = false;
+            FadeAndDie(0.25f);
+            return;
+        }
+
+        // AnimateUntilDead: gone once its time is up, animating until then.
+        if (_dying && now > _dieTime)
+        {
+            Remove();
+            return;
+        }
 
         (State.Frame, bool finished) =
             Advance(State.Frame, Vars.Framerate * (now - _lastAnimateAt), _maxFrame, Flags);
@@ -294,7 +352,8 @@ public abstract class SpriteBase : ScriptedEntity
         if (finished)
         {
             TurnOff();
-            return;
+            if (!_dying)
+                return;
         }
 
         SetNextThink(0f);

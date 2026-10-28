@@ -81,6 +81,13 @@ public abstract class FlyingProjectile : ScriptedEntity
 
     protected abstract string ProjectileModel { get; }
 
+    /// <summary>
+    /// The angular velocity it leaves with, degrees per second about its own
+    /// pitch, yaw and roll: stock's SetLocalAngularVelocity at the launch.
+    /// None for everything but a tumbling grenade.
+    /// </summary>
+    protected virtual Vector LaunchSpin => Vector.Zero;
+
     /// <summary>What it does to whatever it ran into. <paramref name="hit"/> may be the world.</summary>
     protected abstract void Impact(EntityHandle hit);
 
@@ -117,7 +124,7 @@ public abstract class FlyingProjectile : ScriptedEntity
         // (plan_entity.md step 2f). SetVelocity above still goes to the shell,
         // and is not redundant: it is what EntityGetVelocity, the save state
         // and the mover's "whose velocity is this" rule all read.
-        Motion.Launch(Handle, velocity, GravityScale, Bounces, shooter);
+        Motion.Launch(Handle, velocity, GravityScale, Bounces, shooter, LaunchSpin);
     }
 
     public override void OnTouch(EntityHandle toucher)
@@ -135,9 +142,64 @@ public abstract class FlyingProjectile : ScriptedEntity
             return;
 
         _spent = true;
+        _keepFlying = false;
+        _lingerFor = -1f;
         Impact(toucher);
+
+        if (_keepFlying)
+        {
+            // Turned to its new way, and flying again as if just launched.
+            _spent = false;
+            Entities.SetAngles(Handle, Angles.FromVector(_keepVelocity));
+            Entities.SetVelocity(Handle, _keepVelocity);
+            Physics.SetGravity(Handle, _keepGravity);
+            Motion.Launch(Handle, _keepVelocity, _keepGravity, Bounces, Shooter);
+            return;
+        }
+
+        if (_lingerFor >= 0f)
+        {
+            // Stopped where it is, unseen; gone when the time is up.
+            SetVisible(false);
+            _lingering = true;
+            SetNextThink(_lingerFor);
+            return;
+        }
+
         Remove();
     }
+
+    /// <summary>A projectile lingering after its impact goes when the time is up.</summary>
+    public override void OnThink()
+    {
+        if (_lingering)
+            Remove();
+    }
+
+    /// <summary>
+    /// From inside <see cref="Impact"/>: not over -- it flies on at
+    /// <paramref name="velocity"/> under <paramref name="gravityScale"/>, as
+    /// stock's crossbow bolt glances off a shallow wall.
+    /// </summary>
+    protected void KeepFlying(Vector velocity, float gravityScale)
+    {
+        _keepFlying = true;
+        _keepVelocity = velocity;
+        _keepGravity = gravityScale;
+    }
+
+    /// <summary>
+    /// From inside <see cref="Impact"/>: stay where it stopped, not drawn, for
+    /// <paramref name="seconds"/> before going -- stock's NODRAW and SUB_Remove
+    /// think, which keeps what follows the projectile alive that long.
+    /// </summary>
+    protected void Linger(float seconds) => _lingerFor = seconds;
+
+    private bool _keepFlying;
+    private Vector _keepVelocity;
+    private float _keepGravity;
+    private float _lingerFor = -1f;
+    [SaveField] private bool _lingering;
 
     /// <summary>
     /// Whether this is something to fly THROUGH rather than go off on.

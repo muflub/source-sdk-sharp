@@ -115,11 +115,7 @@ public sealed class ExplosionEnvironment(IParticleMaskTrace trace, IClientWorldL
 
     public Vector LightForPoint(Vector position) => light.LightForPoint(position, true);
 
-    public void Sound(string script, Vector origin)
-    {
-        if (sounds.Parameters(script, out GameSoundParams p))
-            sounds.EmitAtPosition(p, p.Volume, p.Pitch, origin);
-    }
+    public void Sound(string script, Vector origin) => sounds.EmitScript(script, origin);
 }
 
 /// <summary>Which of fx_explosion.cpp's three effects.</summary>

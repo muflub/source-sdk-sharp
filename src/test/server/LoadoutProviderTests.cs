@@ -126,13 +126,28 @@ public class LoadoutProviderTests
     // The owner arms.
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// With no provider a spawn gets stock's GiveDefaultItems ammo: 255
+    /// pistol, 45 SMG1, a grenade, 6 buckshot and 6 .357. Found side by side
+    /// with stock (tools/stock-ab --weapons, 2026-10-25): this mod gave 100
+    /// pistol and 45 SMG1 and nothing else, so a frag fresh from a give had one
+    /// grenade where stock's had two.
+    /// </summary>
+    [Fact]
+    public void TheCoreAmmoIsStocksDefaultItems()
+    {
+        var rig = new Rig();
+
+        Assert.Equal([("Pistol", 255), ("SMG1", 45), ("Grenade", 1), ("Buckshot", 6), ("357", 6)], rig.GaveAmmo(rig.Rules()));
+    }
+
     [Fact]
     public void AProviderTakesTheWeaponColumnWhole()
     {
         var rig = new Rig();
 
-        // BEFORE: the core's three.
-        Assert.True(rig.Gave(rig.Rules()).SequenceEqual(["weapon_crowbar", "weapon_pistol", "weapon_smg1"]));
+        // BEFORE: the core's kit, stock's GiveDefaultItems.
+        Assert.True(rig.Gave(rig.Rules()).SequenceEqual(["weapon_crowbar", "weapon_pistol", "weapon_smg1", "weapon_frag"]));
 
         var kit = new Provider(["weapon_357"], [("Buckshot", 6)]);
         Assert.True(rig.Gave(rig.Rules(new ListHooks<ILoadoutProvider>(kit)))

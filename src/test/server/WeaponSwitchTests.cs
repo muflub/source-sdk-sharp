@@ -47,6 +47,9 @@ public class WeaponSwitchTests
         private readonly IEngineEntities _engine;
         private readonly ScriptedEntityRegistry _registry;
         private readonly Dictionary<uint, string> _created = new();
+
+        /// <summary>Every classname this double has been asked to create, in no order.</summary>
+        public IReadOnlyCollection<string> CreatedClasses => _created.Values;
         private uint _next = 0x0500;
 
         public readonly List<EntityHandle> WeaponHandles = new();

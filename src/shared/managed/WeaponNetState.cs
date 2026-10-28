@@ -114,4 +114,68 @@ public partial class WeaponNetState
     /// </summary>
     [Predicted]
     public partial int LastButtons { get; set; }
+
+    /// <summary>
+    /// The earliest a click may refire: stock's CWeaponPistol::m_flSoonestPrimaryAttack
+    /// (Hl2mpWeaponBehaviours). Zero for a weapon that does not use it.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float SoonestPrimaryAttack { get; set; }
+
+    /// <summary>A shot was fired and the pump is owed: stock's CWeaponShotgun::m_bNeedPump.</summary>
+    [Predicted]
+    public partial bool NeedPump { get; set; }
+
+    /// <summary>Fire the primary when the reload it interrupted lets it: m_bDelayedFire1.</summary>
+    [Predicted]
+    public partial bool DelayedFire1 { get; set; }
+
+    /// <summary>Fire both barrels when the reload lets it: m_bDelayedFire2.</summary>
+    [Predicted]
+    public partial bool DelayedFire2 { get; set; }
+
+    /// <summary>Reload once the owed pump is done: m_bDelayedReload.</summary>
+    [Predicted]
+    public partial bool DelayedReload { get; set; }
+
+    /// <summary>Which trigger primed the grenade: CWeaponFrag::m_AttackPaused (0 none, 1 primary, 2 secondary).</summary>
+    [Predicted]
+    public partial int AttackPaused { get; set; }
+
+    /// <summary>The pin is out and the throw waits on the release: m_fDrawbackFinished.</summary>
+    [Predicted]
+    public partial bool DrawbackFinished { get; set; }
+
+    /// <summary>A grenade has gone and the next is drawn when the throw has played: m_bRedraw.</summary>
+    [Predicted]
+    public partial bool Redraw { get; set; }
+
+    /// <summary>
+    /// The model event the playing sequence fires next (its id; 0 for none),
+    /// which stock's viewmodel dispatches to Operator_HandleAnimEvent.
+    /// </summary>
+    [Predicted]
+    public partial int AnimEvent { get; set; }
+
+    /// <summary>When <see cref="AnimEvent"/> fires: the sequence's start plus its cycle times its length.</summary>
+    [Predicted(0.001f)]
+    public partial float AnimEventAt { get; set; }
+
+    /// <summary>When the last sequence a behaviour sent has played out: IsViewModelSequenceFinished.</summary>
+    [Predicted(0.001f)]
+    public partial float SequenceEndsAt { get; set; }
+
+    /// A weapon's own mode word, for the one whose state is more than the
+    /// fields above: the SLAM's mode, its eight flags and the activity it last
+    /// sent (<see cref="SlamBits"/>), which stock networks and predicts as nine
+    /// fields of its own (weapon_slam.cpp's DT_Weapon_SLAM). Zero for every
+    /// other weapon. It follows the weapon through a switch the way the clip
+    /// does, because stock's lives on the weapon entity.
+    /// </summary>
+    [Predicted]
+    public partial int Special { get; set; }
+
+    /// <summary>The mode word's clock: the SLAM's <c>m_flWallSwitchTime</c>.</summary>
+    [Predicted(0.001f)]
+    public partial float SpecialTime { get; set; }
 }

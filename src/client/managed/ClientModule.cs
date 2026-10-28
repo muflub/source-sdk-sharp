@@ -1700,6 +1700,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             // hl2/fx_hl2_impacts.cpp's Impact, the bullet's mark (lane M1-C; it was
             // shell_impact_effects.cpp's SourceSharp_ImpactCallback).
             BulletImpact(),
+            // weapon_stunstick.cpp's StunstickImpact: a glow quad and FX_Sparks.
+            new Effects.StunstickImpactEffect(_sparks),
         ]);
         _services.AddInstance<IClientEffectHandlers>(effectHandlers);
 

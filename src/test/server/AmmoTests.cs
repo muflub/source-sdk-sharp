@@ -41,7 +41,7 @@ public class AmmoTests
         // Inserting into it is a protocol break and requires an argument.
         Assert.Equal(
             new[] { "Pistol", "SMG1", "357", "Buckshot", "AR2",
-                    "Grenade", "SMG1_Grenade", "AR2AltFire", "RPG_Round", "XBowBolt" },
+                    "Grenade", "SMG1_Grenade", "AR2AltFire", "RPG_Round", "XBowBolt", "slam" },
             Names());
     }
 

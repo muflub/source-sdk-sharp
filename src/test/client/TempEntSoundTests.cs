@@ -76,6 +76,9 @@ public class TempEntSoundTests
                 || p.Channel != I(Emit, "chan") || !origin.Equals(V(Emit, "o")) || p.Wave != At(Emit, "sound"))
                 Wrong.Add($"played {p.Wave} vol {volume:G9} pitch {pitch} at {origin}, stock {string.Join(' ', Emit[1..])}");
         }
+
+        public void EmitScript(string script, in Vector origin)
+            => Wrong.Add($"played {script} by name, stock played the wave it resolved");
     }
 
     [Fact]

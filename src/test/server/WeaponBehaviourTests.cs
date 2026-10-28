@@ -24,9 +24,11 @@ public class WeaponBehaviourTests
     private const int Attack = (int)InputButtons.Attack;
     private const int ReloadKey = (int)InputButtons.Reload;
 
-    // The pistol, renamed and pointed at the key: interval 0.2, clip 18.
+    // The pistol, renamed, pointed at the key and given its own interval of
+    // 0.2 (the pistol's is 0.5 and its rules are a behaviour of their own):
+    // clip 18.
     private static readonly WeaponType GunRow =
-        WeaponCatalog.Stock().For(EntityNames.WeaponPistol)!.Value with { Name = Gun, Behaviour = Key };
+        WeaponCatalog.Stock().For(EntityNames.WeaponPistol)!.Value with { Name = Gun, Behaviour = Key, Interval = 0.2f };
 
     private sealed class GunSource : IWeaponTypeSource
     {

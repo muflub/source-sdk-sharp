@@ -198,22 +198,34 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// decision, and HL2MP putting it in CHL2MP_Player::GiveDefaultItems is why
     /// changing it there means editing the player class.
     ///
-    /// The weapon entity classes do not exist yet, so giving them warns and does
-    /// nothing; the ammo does apply. Registering the intent here means only the
-    /// entity side is left to build.
+    /// <para>
+    /// Stock's kit (CHL2MP_Player::GiveDefaultItems): the melee weapon, the
+    /// pistol, the SMG1 and a frag (and the gravity gun, which joins this list
+    /// with its weapon row). Stock's melee follows the
+    /// player model -- a stunstick for a combine or police model, a crowbar for
+    /// a citizen -- and every player here wears SsPlayer's citizen
+    /// (models/humans/...), so the crowbar.
+    /// </para>
     /// </summary>
     public static readonly ImmutableArray<string> Loadout =
     [
         "weapon_crowbar",
         "weapon_pistol",
         "weapon_smg1",
+        "weapon_frag",
     ];
 
-    /// <summary>Ammo handed out alongside the loadout.</summary>
+    /// <summary>
+    /// Ammo handed out alongside the loadout: GiveDefaultItems' GiveAmmo calls,
+    /// each held to its type's carry limit (the pistol's 255 is 150).
+    /// </summary>
     public static readonly ImmutableArray<(string Ammo, int Count)> StartingAmmo =
     [
-        ("Pistol", 100),
-        ("SMG1",    45),
+        ("Pistol",   255),
+        ("SMG1",      45),
+        ("Grenade",    1),
+        ("Buckshot",   6),
+        ("357",        6),
     ];
 
     /// <summary>

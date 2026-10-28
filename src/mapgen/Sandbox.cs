@@ -747,19 +747,22 @@ public static class Sandbox
 
     private static void Weapons(Site site)
     {
-        // The nine names WeaponPickup claims (Phase 10) — a row is a weapon,
+        // The names WeaponPickup claims (Phase 10) — a row is a weapon,
         // exactly as the table says, and WeaponTests pins these to the table.
         string[] kinds =
         [
             EntityNames.WeaponCrowbar, EntityNames.WeaponPistol, EntityNames.Weapon357,
             EntityNames.WeaponSmg1, EntityNames.WeaponAr2, EntityNames.WeaponShotgun,
             EntityNames.WeaponCrossbow, EntityNames.WeaponRpg, EntityNames.WeaponFrag,
+            EntityNames.WeaponStunstick, EntityNames.WeaponSlam,
         ];
 
         for (int i = 0; i < kinds.Length; i++)
         {
-            float x = -160f + ((i % 5) * 72f);
-            float y = (i / 5) == 0 ? 48f : -48f;
+            // Two rows of six, as the ammo station lays its twelve: a third row
+            // of five would land on the second.
+            float x = -160f + ((i % 6) * 64f);
+            float y = (i / 6) == 0 ? 48f : -48f;
 
             site.Ent(kinds[i], $"w{i}", new(x, y, 16f));
         }

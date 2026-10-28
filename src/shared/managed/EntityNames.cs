@@ -269,6 +269,10 @@ public static class EntityNames
     /// </summary>
     public const string SsGib     = "ss_gib";
     public const string SsGrenade = "ss_grenade";
+
+    /// <summary>The SMG1's alt-fire grenade, under stock's own name: CGrenadeAR2.</summary>
+    public const string GrenadeAr2 = "grenade_ar2";
+
     public const string SsPickup  = "ss_pickup";
     public const string SsPlasma  = "ss_plasma";
     public const string SsPlayer  = "ss_player";
@@ -344,6 +348,14 @@ public static class EntityNames
     public const string WeaponRpg       = "weapon_rpg";
     public const string WeaponShotgun   = "weapon_shotgun";
     public const string WeaponSmg1      = "weapon_smg1";
+    public const string WeaponStunstick = "weapon_stunstick";
+    public const string WeaponSlam      = "weapon_slam";
+
+    // What weapon_slam leaves in the world: the satchel it throws and the
+    // laser tripmine it plants. Stock's own classnames (grenade_satchel.cpp,
+    // grenade_tripmine.cpp), because the kill feed names them.
+    public const string NpcSatchel      = "npc_satchel";
+    public const string NpcTripmine     = "npc_tripmine";
 
     // --- wave 1 of the remaining native classnames: lights and ropes, sky and
     // soundscape, the presentation brushes, the point/info controllers, and the

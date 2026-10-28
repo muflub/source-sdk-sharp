@@ -184,8 +184,8 @@ public class WeaponBehaviourParityTests
         var server = ServerShot(container);
         var client = ClientShot(container, server.WeaponTypeId);
 
-        // One table on both sides: the mod row is the tenth on each.
-        Assert.Equal(9, server.WeaponTypeId);
+        // One table on both sides: the mod row is the first after the core's on each.
+        Assert.Equal(WeaponTypes.All.Length, server.WeaponTypeId);
         Assert.Equal(server.WeaponTypeId, container.Require<C.WeaponCatalog>().IndexOf(Gun));
 
         // Both spent the round and both charged TWO intervals: the behaviour,

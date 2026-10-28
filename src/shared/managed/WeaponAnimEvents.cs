@@ -95,6 +95,14 @@ public static class WeaponAnimEvents
         // "checked, carries nothing" rather than "never looked".
         EntityNames.WeaponCrowbar  => None,
         EntityNames.WeaponCrossbow => None,
+        // v_stunstick.mdl (hl2mp_pak_dir.vpk), dumped: the crowbar's nine
+        // sequences under the same activities, and no event on any of them.
+        EntityNames.WeaponStunstick => None,
+        // v_slam.mdl (hl2mp_pak_dir.vpk), dumped: twenty-eight ACT_SLAM_*
+        // sequences and one event, AE_CL_PLAYSOUND Weapon_SLAM.TripMineMode on
+        // throw_to_tripmine_ND — a mode switch, not one of the animation kinds
+        // this table is keyed by, which the SLAM's activities never resolve to.
+        EntityNames.WeaponSlam => None,
 
         _ => null,
     };

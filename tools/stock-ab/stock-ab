@@ -554,8 +554,18 @@ def brightest(paths):
 
 
 def weapon_sounds(sounds):
-    """A press's sounds without the props it happened to hit (physics/...)."""
-    return sorted({s for s in sounds if not s.split(":", 1)[1].lower().startswith("physics/")})
+    """
+    A press's sounds without the props it happened to hit (physics/...), and
+    with a raw wave's numbered variant folded (shotgun_shell1.wav and
+    shotgun_shell3.wav are one sound picked at random).
+    """
+    out = set()
+    for s in sounds:
+        side, name = s.split(":", 1)
+        if name.lower().startswith("physics/"):
+            continue
+        out.add(side + ":" + re.sub(r"\d+(\.wav)$", r"#\1", name))
+    return sorted(out)
 
 
 def ammo_delta(before, after):
@@ -878,6 +888,8 @@ def self_test():
     assert weapon_verdict(same) == [], weapon_verdict(same)
     same["attack"]["sharp"] = {"ammo": delta, "sounds": ["sv:A", "sv:physics/metal/can.wav"]}
     assert weapon_verdict(same) == [], "a prop the bullet hit is not the weapon's sound"
+    assert weapon_sounds(["cl:weapons/fx/tink/shotgun_shell1.wav", "cl:weapons/fx/tink/shotgun_shell3.wav",
+                          "sv:Weapon_SMG1.Single"]) == ["cl:weapons/fx/tink/shotgun_shell#.wav", "sv:Weapon_SMG1.Single"]
     same["attack"]["sharp"] = {"ammo": delta, "sounds": ["sv:B"]}
     assert len(weapon_verdict(same)) == 1, weapon_verdict(same)
     assert weapon_verdict({"weapon": "w", "has": {"stock": True, "sharp": False}}) == ["only stock has it"]

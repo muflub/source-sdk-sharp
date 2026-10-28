@@ -457,6 +457,33 @@ public enum WeaponAnim
     /// name on the managed side now.
     /// </summary>
     Draw = 3,
+
+    /// <summary>ACT_VM_SECONDARYATTACK: an alt-fire with an animation of its own (the shotgun's double).</summary>
+    Secondary = 4,
+
+    /// <summary>ACT_VM_DRYFIRE: the trigger pulled on nothing.</summary>
+    DryFire = 5,
+
+    /// <summary>ACT_SHOTGUN_PUMP.</summary>
+    Pump = 6,
+
+    /// <summary>ACT_SHOTGUN_RELOAD_START: the shotgun turned to take shells.</summary>
+    ReloadStart = 7,
+
+    /// <summary>ACT_SHOTGUN_RELOAD_FINISH.</summary>
+    ReloadFinish = 8,
+
+    /// <summary>ACT_VM_PULLBACK_HIGH: the grenade's pin pulled for an overhand throw.</summary>
+    PullbackHigh = 9,
+
+    /// <summary>ACT_VM_PULLBACK_LOW: the pin pulled for a lob or a roll.</summary>
+    PullbackLow = 10,
+
+    /// <summary>ACT_VM_THROW: the overhand throw.</summary>
+    Throw = 11,
+
+    /// <summary>ACT_VM_HAULBACK: the grenade's underhand lob.</summary>
+    Haulback = 12,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

@@ -371,8 +371,8 @@ public class WeaponImpactTests
         engine.Returns("Entities.IsValid", true);
         engine.Strict = false;
         var struck = new Vector(40f, 0f, 64f);
-        engine.Returns("WorldQuery.TraceLine",
-                       new TraceResult(true, 0.5f, struck, new Vector(-1f, 0f, 0f), Crate));
+        engine.Returns("WorldQuery.TraceLineSurface",
+                       new SurfaceTraceResult(true, 0.5f, struck, new Vector(-1f, 0f, 0f), Crate, 13, 0));
 
         PullTheTrigger(arsenal, engine);
 

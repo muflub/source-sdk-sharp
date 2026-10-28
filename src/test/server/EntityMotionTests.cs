@@ -535,6 +535,70 @@ public class EntityMotionTests
     }
 
     /// <summary>
+    /// A flyer launched with a spin turns by it each frame, as PhysicsToss
+    /// turns a MOVETYPE_FLYGRAVITY entity by its angular velocity: the SMG1's
+    /// grenade tumbles (RandomAngle( -400, 400 )). One launched without a spin
+    /// is never turned.
+    /// </summary>
+    [Fact]
+    public void ASpunFlyerTurnsByItsSpinEachFrame()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("Entities.GetAngles", new Vector(10f, 20f, 30f))
+              .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0.5f, 0, TheShooter, spin: new Vector(100f, -200f, 400f));
+        motion.RunFrame(0.1f);
+
+        var turned = (Vector)engine.Last("Entities.SetAngles")!.Value.Args[1]!;
+        Assert.Equal((20f, 0f, 70f), (turned.X, turned.Y, turned.Z));
+    }
+
+    [Fact]
+    public void AnUnspunFlyerIsNeverTurned()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0.5f, 0, TheShooter);
+        motion.RunFrame(0.1f);
+
+        Assert.False(engine.Called("Entities.SetAngles"), "a flyer with no spin was turned");
+    }
+
+    /// <summary>
+    /// What a touch reads as the velocity it arrived with is the one going into
+    /// the step that struck, not what the collision left: a contact grenade's
+    /// scorch is traced along its flight.
+    /// </summary>
+    [Fact]
+    public void AStruckFlyerRemembersTheVelocityItArrivedWith()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
+        motion.RunFrame(0.015f);
+
+        Assert.Equal(new Vector(0f, 1000f, 0f), motion.IncomingVelocityOf(TheProjectile));
+    }
+
+    /// <summary>
     /// Nothing flying is a pass that costs nothing — not even the one native
     /// call for the world's gravity, which is what a server at rest does every
     /// tick of its life.

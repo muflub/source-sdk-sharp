@@ -7,7 +7,7 @@ namespace SourceSharp.Server;
 /// A weapon lying in the world — every weapon_* classname a map can place.
 ///
 /// <para>
-/// ONE CLASS, NINE NAMES, and the names come from the same table as everything
+/// ONE CLASS, A NAME PER ROW, and the names come from the same table as everything
 /// else about a weapon: each attribute below must have a row in
 /// <see cref="WeaponTypes.All"/>, which is where the model on the ground and
 /// the clip it hands over are declared. WeaponTests pins the two lists to each
@@ -31,6 +31,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.WeaponCrossbow, ScriptedEntityKind.Item)]
 [ScriptedEntity(EntityNames.WeaponRpg,      ScriptedEntityKind.Item)]
 [ScriptedEntity(EntityNames.WeaponFrag,     ScriptedEntityKind.Item)]
+[ScriptedEntity(EntityNames.WeaponStunstick, ScriptedEntityKind.Item)]
+[ScriptedEntity(EntityNames.WeaponSlam,     ScriptedEntityKind.Item)]
 public sealed class WeaponPickup : PickupItem
 {
     private readonly Arsenal _arsenal;

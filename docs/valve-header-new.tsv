@@ -580,3 +580,9 @@ src/client/native/client_entity.h	the include environment stock c_baseentity.h g
 src/client/native/client_world.h	C_World and its collideable over IClientEntity, from the fork's edited c_world.h (c_world.h)
 cmake/compat/clang-cl/ss_stock_clang_cl.h	settles stock public/tier1/bitbuf.h (RESTRICT) and public/mathlib/ssemath.h (its POSIX arm of SubFloat/SubInt) for clang-cl
 src/server/managed/Entities/Props/DynamicPropSpawn.cs	ports CBaseProp::Spawn's prop data refusals for dynamic props (props.cpp)
+src/shared/managed/Hl2mpWeaponBehaviours.cs	ports the HL2MP weapons' own firing rules on the shared machine (weapon_pistol.cpp CWeaponPistol::PrimaryAttack, ItemPostFrame; weapon_shotgun.cpp CWeaponShotgun::ItemPostFrame; weapon_frag.cpp CWeaponFrag::ItemPostFrame, Operator_HandleAnimEvent)
+src/server/managed/Entities/Projectiles/GrenadeAr2.cs	ports CGrenadeAR2 (grenade_ar2.cpp: Spawn, GrenadeAR2Touch, Detonate) and the SMG1 launch's spin and damage (weapon_smg1.cpp)
+src/shared/managed/WeaponSlam.cs	ports CWeapon_SLAM's state machine: ItemPostFrame, PrimaryAttack, SecondaryAttack, SLAMThink, WeaponIdle, Deploy and the Start*/attach/throw arms (weapon_slam.cpp)
+src/server/managed/Entities/Projectiles/Satchel.cs	ports CSatchelCharge (grenade_satchel.cpp): spawn, glow sprite, InputExplode
+src/server/managed/Entities/Projectiles/Tripmine.cs	ports CTripmineGrenade (grenade_tripmine.cpp): power-up, MakeBeam, BeamBreakThink, Event_Killed, DelayDeathThink
+src/client/managed/Standalone/SpriteRamp.cs	ports C_Sprite's scale and brightness ramps (Sprite.cpp: OnDataChanged, ClientThink, GetRenderScale, GetRenderBrightness)

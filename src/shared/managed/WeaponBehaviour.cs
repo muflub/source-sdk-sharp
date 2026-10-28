@@ -81,6 +81,15 @@ public interface IWeaponBehaviour
     void ItemPostFrame(in WeaponAttackContext attack) { }
 
     /// <summary>
+    /// The whole command, in place of the shared machine's: for a stock weapon
+    /// whose ItemPostFrame replaces CBaseCombatWeapon's (the HL2MP shotgun).
+    /// True when it ran the command; false leaves the machine to it. The
+    /// machine records the buttons either way; ItemPostFrame is not called
+    /// after a command this ran.
+    /// </summary>
+    bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed) => false;
+
+    /// <summary>
     /// The weapon's fire interval, which is the seconds between shots the
     /// primary attack's catch-up loop counts in. Returning 0 is not "no delay"
     /// — see <see cref="WeaponLogic.ShotsOwed"/>: a zero interval owes exactly
@@ -194,7 +203,7 @@ public sealed class WeaponBehaviours
         _log = log;
     }
 
-    /// <summary>No sources: every key unresolved, so the whole machine is stock.</summary>
+    /// <summary>No mod sources: the core HL2MP weapons' rules and nothing else.</summary>
     public static WeaponBehaviours Stock() => new(null);
 
     /// <summary>
@@ -223,8 +232,19 @@ public sealed class WeaponBehaviours
     {
         var found = new Dictionary<string, IWeaponBehaviour>(StringComparer.OrdinalIgnoreCase);
 
+        // The core HL2MP weapons' own rules, after every mod source has had
+        // its say: a mod that names one of these keys owns it.
+        void AddCore()
+        {
+            foreach (var (key, behaviour) in Hl2mpWeaponBehaviours.All())
+                found.TryAdd(key, behaviour);
+        }
+
         if (_sources is null)
+        {
+            AddCore();
             return found;
+        }
 
         foreach (var source in HookOrder.Sorted(_sources()))
         {
@@ -247,6 +267,7 @@ public sealed class WeaponBehaviours
             }
         }
 
+        AddCore();
         return found;
     }
 }

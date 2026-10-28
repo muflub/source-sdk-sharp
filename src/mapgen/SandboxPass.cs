@@ -159,6 +159,18 @@ public static class SandboxPass
                 "thrown by weapon_frag; one placed by a map starts its fuse at level load "
                 + "and explodes in an empty room",
 
+            [EntityNames.NpcSatchel] =
+                "thrown or stuck to a wall by weapon_slam, which the weapons station holds. "
+                + "Source SDK Base 2013 MP's FGDs (base, halflife2, hl2mp) do not list it, so a "
+                + "mapper cannot place one, and one placed anyway has no thrower: no detonator "
+                + "ever sets it off",
+
+            [EntityNames.NpcTripmine] =
+                "planted on a wall by weapon_slam, which the weapons station holds. No FGD of "
+                + "Source SDK Base 2013 MP lists it, so a mapper cannot place one; one placed "
+                + "anyway arms its beam two seconds into the map and blows up the first player "
+                + "who walks through the station",
+
             [EntityNames.SsPlayer] =
                 "the one class the ENGINE causes — one per connecting client, bound to the "
                 + "edict the engine allocated — so a map-placed one is a player nobody is behind",
@@ -192,6 +204,10 @@ public static class SandboxPass
 
             [EntityNames.SsRocket] =
                 "fired by weapon_rpg; same argument as the bolt",
+
+            [EntityNames.GrenadeAr2] =
+                "fired by weapon_smg1's alt-fire; same argument as the bolt, and one that "
+                + "goes off at the first thing it touches",
 
             [EntityNames.SsEnergyball] =
                 "the AR2's alt-fire; it exists when the weapon is fired and not before",

@@ -948,6 +948,8 @@ public static class ScriptedVarInventory
         "ss_energyball|lifetime|float",
         "ss_energyball|magnitude|float",
         "ss_energyball|radius|float",
+        "grenade_ar2|magnitude|float",
+        "grenade_ar2|radius|float",
         "ss_grenade|fuse|float",
         "ss_grenade|magnitude|float",
         "ss_grenade|radius|float",

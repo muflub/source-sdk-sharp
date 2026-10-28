@@ -46,11 +46,7 @@ public interface IFxRoutineEnvironment
 public sealed class FxRoutineEnvironment(IFxGameSounds sounds, IFxImpactOverlay overlay) : IFxRoutineEnvironment
 {
     // CLocalPlayerFilter, SOUND_FROM_WORLD, the script's own parameters at the point.
-    public void Sound(string script, Vector origin)
-    {
-        if (sounds.Parameters(script, out GameSoundParams p))
-            sounds.EmitAtPosition(p, p.Volume, p.Pitch, origin);
-    }
+    public void Sound(string script, Vector origin) => sounds.EmitScript(script, origin);
 
     // VectorMA( pos, 1.0f, normal, m_vPos ): "Doesn't show up on terrain if you don't do this".
     public void ImpactOverlay(Vector position, Vector normal, float r, float g, float b)
