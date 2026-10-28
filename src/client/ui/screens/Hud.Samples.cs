@@ -47,6 +47,12 @@ public static class HudSamples
             DebugLine = "t 34.305  pos -2739.0 2563.0 192.8  ang 0.0 -150.0",
         });
 
+    [UiSample("aux power draining")]
+    private static UiScreen AuxPower(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 62f, SuitDevices = 1 });
+
+    [UiSample("aux power low, under water")]
+    private static UiScreen AuxPowerLow(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 18f, SuitDevices = 4 });
+
     [UiSample("SMG, 2 of 3 grenades")]
     private static UiScreen SmgGrenades(UiSampleServices s) => Build(s, new FakeLocalPlayer { Secondary = 2, SecondaryMax = 3 });
 

@@ -153,3 +153,24 @@ public sealed class SvSoundEmitterTraceConVar : BoolConVar { }
 [ConVar("english", "1", Flags = ConVarFlags.UserInfo,
         Help = "If set to 1, running the english language set of assets.")]
 public sealed class EnglishConVar : BoolConVar { }
+
+//-----------------------------------------------------------------------------
+// HL2MP's player speeds and suit (c_hl2mp_player.cpp), read by the replay's
+// HL2 player (GameMovement.Hl2Player) through ClientHl2PlayerMove.
+//-----------------------------------------------------------------------------
+
+/// <summary>Client half of <c>hl2_walkspeed</c>.</summary>
+[ConVar("hl2_walkspeed", "150", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2WalkSpeedConVar : FloatConVar { }
+
+/// <summary>Client half of <c>hl2_normspeed</c>.</summary>
+[ConVar("hl2_normspeed", "190", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2NormSpeedConVar : FloatConVar { }
+
+/// <summary>Client half of <c>hl2_sprintspeed</c>.</summary>
+[ConVar("hl2_sprintspeed", "320", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2SprintSpeedConVar : FloatConVar { }
+
+/// <summary>Client half of <c>sv_infinite_aux_power</c>.</summary>
+[ConVar("sv_infinite_aux_power", "0", Flags = ConVarFlags.Cheat | ConVarFlags.Replicated)]
+public sealed class SvInfiniteAuxPowerConVar : BoolConVar { }

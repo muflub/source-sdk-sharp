@@ -109,6 +109,13 @@ public sealed class ClientPlayerPrediction
     private readonly ILadderWorld? _ladders;
 
     /// <summary>
+    /// HL2MP's player, whose speeds and suit the replay runs as the server's
+    /// loop does (C_HL2MP_Player's HandleSpeedChanges and ReduceTimers); null
+    /// replays base CGameMovement's own max speed and no suit.
+    /// </summary>
+    private readonly IHl2PlayerMove? _hl2Player;
+
+    /// <summary>
     /// The working copy the replay moves, and the ONLY thing the ring saves.
     /// Never the decoded state — see the file header.
     /// </summary>
@@ -225,7 +232,7 @@ public sealed class ClientPlayerPrediction
                                   IClientReplayEngine engine, MovementRunner movement,
                                   ClientArsenal? arsenal, PredictionErrorRing errors,
                                   NetStateCatalog catalog, ViewReadout? view = null,
-                                  ILadderWorld? ladders = null)
+                                  ILadderWorld? ladders = null, IHl2PlayerMove? hl2Player = null)
     {
 
         _log = log;
@@ -238,6 +245,7 @@ public sealed class ClientPlayerPrediction
         _arsenal = arsenal;
         _view = view;
         _ladders = ladders;
+        _hl2Player = hl2Player;
 
         _working.BindLocal();
     }
@@ -497,6 +505,8 @@ public sealed class ClientPlayerPrediction
                                                      constants.JumpHeight,
                                                      constants.EngineTime);
             loop.Ladders = _ladders;
+            loop.Hl2Player = _hl2Player;
+            _move.SuitEquipped = _hl2Player is not null;
 
             ran = loop.ProcessMovement(_move);
             _movement.NoteClientCommand(ran);
@@ -598,6 +608,11 @@ public sealed class ClientPlayerPrediction
         _move.LadderGoalPosition = _working.LadderGoalPosition;
         _move.LadderStartPosition = _working.LadderStartPosition;
         _move.LadderForceLadder = _working.LadderForceLadder;
+        _move.SuitPower = _working.SuitPower;
+        _move.SuitPowerLoad = _working.SuitPowerLoad;
+        _move.SuitDevices = _working.SuitDevices;
+        _move.SuitDevicesOffTime = _working.SuitDevicesOffTime;
+        _move.NewSprinting = _working.NewSprinting;
 
         _move.MaxSpeed = _working.MaxSpeed;
         _move.FallVelocity = _working.FallVelocity;
@@ -655,6 +670,11 @@ public sealed class ClientPlayerPrediction
         into.LadderGoalPosition = _move.LadderGoalPosition;
         into.LadderStartPosition = _move.LadderStartPosition;
         into.LadderForceLadder = _move.LadderForceLadder;
+        into.SuitPower = _move.SuitPower;
+        into.SuitPowerLoad = _move.SuitPowerLoad;
+        into.SuitDevices = _move.SuitDevices;
+        into.SuitDevicesOffTime = _move.SuitDevicesOffTime;
+        into.NewSprinting = _move.NewSprinting;
 
         into.MaxSpeed = _move.MaxSpeed;
         into.FallVelocity = _move.FallVelocity;

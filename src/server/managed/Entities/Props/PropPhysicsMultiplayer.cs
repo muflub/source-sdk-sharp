@@ -48,8 +48,10 @@ public sealed class PropPhysicsMultiplayer : PropPhysics
     public PropPhysicsMultiplayer(IEngineDamage damage, IEngineEntityPhysics physics, IEngineWorldQuery world,
                        IEngineEffects effects, IEnginePrecache precache, IEngineHost host,
                        IBlastSweep blast, IServerDecals decals, IEngineEntityRender render,
-                       IServerPropData propData, PhysicsDamageQueue impacts, FluidTouches fluid, PhysicsSoundBatch sounds)
-        : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, impacts, fluid, sounds)
+                       IServerPropData propData, PhysicsDamageQueue impacts, FluidTouches fluid, PhysicsSoundBatch sounds,
+                       PlayerPickupRules pickups)
+        : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, impacts, fluid, sounds,
+               pickups)
     {
     }
 

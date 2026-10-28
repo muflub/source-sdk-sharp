@@ -257,3 +257,28 @@ public sealed class SvStepSizeConVar : MovementTunedConVar { }
 [ConVar("sv_skyname", "sky_urb01", Flags = ConVarFlags.Archive | ConVarFlags.Replicated,
         Help = "Current name of the skybox texture")]
 public sealed class SvSkyNameConVar : StringConVar { }
+
+//-----------------------------------------------------------------------------
+// HL2MP's player speeds and suit (hl2_player.cpp), read by the movement loop's
+// HL2 player (GameMovement.Hl2Player) through Hl2PlayerMoveRules.
+//-----------------------------------------------------------------------------
+
+/// <summary><c>hl2_walkspeed</c>: +walk's speed.</summary>
+[ConVar("hl2_walkspeed", "150", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2WalkSpeedConVar : FloatConVar { }
+
+/// <summary><c>hl2_normspeed</c>: the run.</summary>
+[ConVar("hl2_normspeed", "190", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2NormSpeedConVar : FloatConVar { }
+
+/// <summary><c>hl2_sprintspeed</c>: +speed's, while the suit has power.</summary>
+[ConVar("hl2_sprintspeed", "320", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2SprintSpeedConVar : FloatConVar { }
+
+/// <summary>
+/// <c>sv_infinite_aux_power</c>: the suit never drains. Replicated as well
+/// as a cheat here, which only the client's declaration was in stock, so the
+/// client predicts what the server runs.
+/// </summary>
+[ConVar("sv_infinite_aux_power", "0", Flags = ConVarFlags.Cheat | ConVarFlags.Replicated)]
+public sealed class SvInfiniteAuxPowerConVar : BoolConVar { }

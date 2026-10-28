@@ -101,8 +101,6 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private const int MinTrails = 512;
 
     // BeamCreateKind_t (shell_beam_render.cpp).
-    private const int KindEnts = 0, KindEntPoint = 1, KindPoints = 2, KindRing = 3, KindRingPoint = 4,
-                      KindCirclePoints = 5, KindFollow = 6;
 
     // BeamLifecycle_t.
     private const int LifecycleInit = 0, LifecycleShutdown = 1, LifecycleClear = 2;
@@ -278,59 +276,6 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     }
 
     public void KillDead(EntityHandle entity, float curTime) => _system.KillDeadBeams(entity, curTime);
-
-    public bool Create(int kind, ReadOnlySpan<int> ints, ReadOnlySpan<float> floats, string? model, string? halo,
-                       float curTime)
-    {
-        var info = new BeamInfo
-        {
-            Type = (BeamType)ints[0],
-            StartEnt = new EntityHandle((uint)ints[1]),
-            StartAttachment = ints[2],
-            EndEnt = new EntityHandle((uint)ints[3]),
-            EndAttachment = ints[4],
-            ModelIndex = ints[5],
-            HaloIndex = ints[6],
-            StartFrame = ints[7],
-            Renderable = ints[8] != 0,
-            Segments = ints[9],
-            Flags = (BeamFlags)ints[10],
-            Start = new Vector(floats[0], floats[1], floats[2]),
-            End = new Vector(floats[3], floats[4], floats[5]),
-            Center = new Vector(floats[6], floats[7], floats[8]),
-            HaloScale = floats[9],
-            Life = floats[10],
-            Width = floats[11],
-            EndWidth = floats[12],
-            FadeLength = floats[13],
-            Amplitude = floats[14],
-            Brightness = floats[15],
-            Speed = floats[16],
-            FrameRate = floats[17],
-            Red = floats[18],
-            Green = floats[19],
-            Blue = floats[20],
-            StartRadius = floats[21],
-            EndRadius = floats[22],
-            ModelName = model,
-            HaloName = halo,
-        };
-
-        Beam? beam = kind switch
-        {
-            KindEnts => _system.CreateBeamEnts(info, curTime),
-            KindEntPoint => _system.CreateBeamEntPoint(info, curTime),
-            KindPoints => _system.CreateBeamPoints(info, curTime),
-            KindRing => _system.CreateBeamRing(info, curTime),
-            KindRingPoint => _system.CreateBeamRingPoint(info, curTime),
-            KindCirclePoints => _system.CreateBeamCirclePoints(info, curTime),
-            KindFollow => _system.CreateBeamFollow(info, curTime),
-            _ => null,
-        };
-
-        Count(beam);
-        return beam is not null;
-    }
 
     public void Draw(int renderable)
     {

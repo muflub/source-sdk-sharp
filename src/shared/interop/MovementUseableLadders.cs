@@ -28,9 +28,9 @@ namespace SourceSharp.Abi;
 // holding the goal hull against other players; its validity trace IS ported,
 // which is what decides whether the forced move starts at all); SetSolid
 // NONE/BBOX on the player around the forced move (this side has no say over
-// the player's solidity); SwallowUseKey's m_afButtonPressed and
-// m_bPlayUseDenySound (this build has no +USE deny sound); and
-// DisplayLadderHudHint under sv_ladder_useonly.
+// the player's solidity); SwallowUseKey's m_afButtonPressed (the weapons
+// keep their own pressed buttons); and DisplayLadderHudHint under
+// sv_ladder_useonly. m_bPlayUseDenySound is MoveState.PlayUseDenySound.
 //
 // CHL2GameMovement's CanAccelerate (always true) is the same loop's too, so
 // it answers from Movement.cs's CanAccelerate when Ladders is set. Its other
@@ -48,9 +48,6 @@ public sealed partial class GameMovement
     /// loop; the server's and the client's are each side's own entities.
     /// </summary>
     public ILadderWorld? Ladders { get; set; }
-
-    /// <summary><c>IN_USE</c>.</summary>
-    private const int InUse = 1 << 5;
 
     /// <summary><c>USE_DISMOUNT_SPEED</c>: the push off a ladder dismounted by +USE in mid-air.</summary>
     private const float UseDismountSpeed = 100f;
@@ -103,10 +100,14 @@ public sealed partial class GameMovement
 
     /// <summary>
     /// <c>SwallowUseKey</c>: the +USE that mounted or dismounted is not pressed
-    /// again next command. Only the old-buttons half crosses into this loop;
-    /// see the file header.
+    /// again next command, and found the ladder, so no deny sound. The
+    /// pressed-buttons half stays out of this loop; see the file header.
     /// </summary>
-    private void SwallowUseKey() => _s.OldButtons |= InUse;
+    private void SwallowUseKey()
+    {
+        _s.OldButtons |= InUse;
+        _s.PlayUseDenySound = false;
+    }
 
     /// <summary>
     /// <c>CBaseEntity::SetGroundEntity( NULL )</c>, which FullLadderMove calls
@@ -507,6 +508,7 @@ public sealed partial class GameMovement
                 _s.MoveType = MoveTypeWalk;
                 _s.MoveCollide = MoveCollideDefault;
                 SetLadder(null);
+                _s.PlayUseDenySound = false;
 
                 // Off with a bit of velocity in the facing direction.
                 _s.Velocity = _forward * UseDismountSpeed;
@@ -722,6 +724,10 @@ public sealed partial class GameMovement
         // Reassign the ladder.
         if (!GetLadder(out ladder))
             return false;
+
+        // The press that is climbing it found something: no deny sound.
+        if (pressedUse)
+            _s.PlayUseDenySound = false;
 
         // On the ladder.
         _s.MoveType = MoveTypeLadder;

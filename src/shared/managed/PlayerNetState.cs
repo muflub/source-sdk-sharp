@@ -279,6 +279,33 @@ public partial class PlayerNetState
     [Predicted]
     public partial int LadderForceLadder { get; set; }
 
+    // ---- HL2MP's suit (m_HL2Local's power words and m_bNewSprinting) -------
+    //
+    // Stock networks these in the player's HL2 local data and predicts them,
+    // exactly (c_hl2_playerlocaldata.cpp): the movement loop's HL2 player
+    // (GameMovement.Hl2Player) picks the sprint from the power and drains and
+    // recharges it every command, on both sides.
+
+    /// <summary><c>m_flSuitPower</c>: 0 to 100; the AUX POWER bar.</summary>
+    [Predicted]
+    public partial float SuitPower { get; set; }
+
+    /// <summary><c>m_flSuitPowerLoad</c>: the drain of the devices on.</summary>
+    [Predicted]
+    public partial float SuitPowerLoad { get; set; }
+
+    /// <summary><c>m_bitsActiveDevices</c>.</summary>
+    [Predicted]
+    public partial int SuitDevices { get; set; }
+
+    /// <summary><c>m_flTimeAllSuitDevicesOff</c>: when the last device went off.</summary>
+    [Predicted]
+    public partial float SuitDevicesOffTime { get; set; }
+
+    /// <summary><c>m_bNewSprinting</c>.</summary>
+    [Predicted]
+    public partial bool NewSprinting { get; set; }
+
     // ---- the world fog this viewer is standing in (step 8e-render) ---------
     //
     // WHY THE PLAYER CARRIES IT. In stock, fog reaches a client two ways at

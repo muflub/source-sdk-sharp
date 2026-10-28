@@ -26,6 +26,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncWater, ScriptedEntityKind.Brush)]
 public sealed class FuncDoor : MovingBrush
 {
+    /// <summary>SF_DOOR_PUSE: a player's +USE opens it.</summary>
+    private const int UseOpensFlag = 256;
+
+    /// <summary>CBaseDoor::ObjectCaps: usable, and found in the radius, when use opens it.</summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | ((SpawnFlags & UseOpensFlag) != 0 ? UseCaps.ImpulseUse | UseCaps.UseInRadius : UseCaps.None);
+
     public FuncDoor(IEnginePrecache precache, IEngineSound sound)
         : base(precache, sound)
     {

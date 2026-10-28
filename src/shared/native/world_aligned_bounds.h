@@ -32,22 +32,26 @@
 // for anything else the box has to be rotated and re-bounded, which is a
 // strictly LARGER box rather than a shifted one.
 //
-// The one caller today never rotates -- SourceSharp_CreateSmokeVolume sets an
-// origin and no angles, and nothing else writes them -- so it takes the first
-// branch. This header exists so that the day something does rotate, the
-// precondition is written down where the call is, with a test that says what
-// goes wrong instead of a silently wrong bounding box that makes a smoke volume
-// vanish at certain camera angles.
+// SourceSharp_CollisionBoundsToWorld is that whole rule, for the standalone
+// shells' partition entry, surrounding bounds and trigger bounds. They took the
+// addition alone, so a rotated prop was in the partition as its box UNROTATED:
+// traces and touches clipped to that box, and dm_lockdown's desk (yaw 135, 112
+// units long) could be traced through at both ends, where stock's weapon_357
+// lands on it (tools/stock-ab, 2026-10-26).
 //
-// Engine-free: two vector adds. world_aligned_bounds_test.cpp checks them
-// against the real mathlib TransformAABB rather than against a restatement of
-// them.
+// It turns the box with mathlib_port.h's AngleMatrix and TransformAABB, which
+// server.so links where it links no mathlib. world_aligned_bounds_test.cpp
+// checks both functions against the real mathlib TransformAABB rather than
+// against a restatement of them.
 //
 //=============================================================================//
 
 #pragma once
 
 #include "mathlib/vector.h"
+#include "mathlib/mathlib.h"
+#include "const.h"
+#include "mathlib_port.h"
 
 //-----------------------------------------------------------------------------
 // A local box placed at an origin, with no rotation.
@@ -64,4 +68,36 @@ inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins,
 {
 	VectorAdd( vecLocalMins, vecOrigin, *pWorldMins );
 	VectorAdd( vecLocalMaxs, vecOrigin, *pWorldMaxs );
+}
+
+//-----------------------------------------------------------------------------
+// CCollisionProperty::IsBoundsDefinedInEntitySpace: a box turns with its owner
+// unless it is SOLID_BBOX, SOLID_NONE or forced world-aligned.
+//-----------------------------------------------------------------------------
+inline bool SourceSharp_BoundsInEntitySpace( int nSolidType, int nSolidFlags )
+{
+	return ( nSolidFlags & FSOLID_FORCE_WORLD_ALIGNED ) == 0
+		&& nSolidType != SOLID_BBOX && nSolidType != SOLID_NONE;
+}
+
+//-----------------------------------------------------------------------------
+// CCollisionProperty::CollisionAABBToWorldAABB: the box the world sees, rotated
+// and re-bounded when it is in entity space and the owner is turned.
+//-----------------------------------------------------------------------------
+inline void SourceSharp_CollisionBoundsToWorld( int nSolidType, int nSolidFlags,
+                                                const Vector &vecLocalMins,
+                                                const Vector &vecLocalMaxs,
+                                                const Vector &vecOrigin,
+                                                const QAngle &angAngles,
+                                                Vector *pWorldMins, Vector *pWorldMaxs )
+{
+	if ( !SourceSharp_BoundsInEntitySpace( nSolidType, nSolidFlags ) || angAngles == vec3_angle )
+	{
+		SourceSharp_BoundsToWorld( vecLocalMins, vecLocalMaxs, vecOrigin, pWorldMins, pWorldMaxs );
+		return;
+	}
+
+	matrix3x4_t matCollisionToWorld;
+	ss_mathlib::AngleMatrix( angAngles, vecOrigin, matCollisionToWorld );
+	ss_mathlib::TransformAABB( matCollisionToWorld, vecLocalMins, vecLocalMaxs, *pWorldMins, *pWorldMaxs );
 }

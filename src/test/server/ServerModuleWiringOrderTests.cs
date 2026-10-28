@@ -66,12 +66,19 @@ public class ServerModuleWiringOrderTests
     private static readonly Regex Call = new(@"^\s*([A-Z]\w*)\(\);", RegexOptions.Compiled | RegexOptions.Multiline);
 
     /// <summary>
-    /// DELIBERATE, and the only one: <c>ArsenalPlayers</c> decorates the
-    /// engine's <c>IEnginePlayers</c> and needs the arsenal to do it, so what
-    /// is created before the decorator holds the undecorated players
-    /// (docs/todo.md asks whether any of them wants its GiveItem arm).
+    /// DELIBERATE, and by name: <c>ArsenalPlayers</c> decorates the engine's
+    /// <c>IEnginePlayers</c> and needs the arsenal to do it, so these, created
+    /// before it, hold the undecorated players. Each reads only members the
+    /// decorator passes straight through
+    /// (<see cref="The_waived_early_players_read_nothing_the_decorator_answers"/>).
+    /// DeathNotice was one until 2026-10-26, and read GetActiveWeapon, which
+    /// the decorator answers: every gunshot kill was reported as the world's.
     /// </summary>
-    private static readonly HashSet<string> Waived = new(StringComparer.Ordinal) { "IEnginePlayers" };
+    internal static readonly HashSet<string> Waived = new(StringComparer.Ordinal)
+    {
+        "PvsCheckClient(IEnginePlayers)", "Arsenal(IEnginePlayers)", "ImpulseCheats(IEnginePlayers)",
+        "PlayerFlashlight(IEnginePlayers)",
+    };
 
     /// <summary>
     /// Every registration Initialize makes, by contract, at the position it
@@ -141,7 +148,7 @@ public class ServerModuleWiringOrderTests
             {
                 string wanted = parameter.ParameterType.Name;
 
-                if (!Waived.Contains(wanted) && registrations.Any(r => r.At > m.Index && r.Contract == wanted))
+                if (!Waived.Contains($"{name}({wanted})") && registrations.Any(r => r.At > m.Index && r.Contract == wanted))
                     late.Add($"{name}({wanted} {parameter.Name})");
             }
         }
@@ -155,6 +162,33 @@ public class ServerModuleWiringOrderTests
         var late = LateRegistrations(Source());
 
         Assert.True(late.Count == 0, "created before its parameter's (re)registration: " + string.Join(", ", late));
+    }
+
+    /// <summary>
+    /// What a waived early consumer calls on its players is a member
+    /// ArsenalPlayers forwards unchanged: the members the decorator answers
+    /// itself (those whose body is not a one-line forward to the engine's) are
+    /// named in none of their sources.
+    /// </summary>
+    [Fact]
+    public void The_waived_early_players_read_nothing_the_decorator_answers()
+    {
+        string decorator = File.ReadAllText(RepoLayout.Repo("src", "server", "managed", "ArsenalPlayers.cs"));
+        string[] answered = Regex.Matches(decorator, @"public \S+ (\w+)\([^)]*\)(?!\s*=> _inner)")
+            .Select(m => m.Groups[1].Value)
+            .Where(n => n is not ("ArsenalPlayers"))
+            .ToArray();
+        Assert.Contains("GetActiveWeapon", answered);
+        Assert.Contains("GiveItem", answered);
+
+        foreach (string pair in Waived)
+        {
+            string type = pair[..pair.IndexOf('(')];
+            string file = Directory.EnumerateFiles(RepoLayout.Repo("src", "server", "managed"), type + ".cs", SearchOption.AllDirectories).Single();
+            string code = File.ReadAllText(file);
+            foreach (string member in answered)
+                Assert.False(Regex.IsMatch(code, @"\bplayers\." + member + @"\("), $"{type} calls IEnginePlayers.{member}, which the decorator answers");
+        }
     }
 
     [Fact]

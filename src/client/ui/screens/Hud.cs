@@ -107,16 +107,21 @@ public sealed class Hud : UiScreen
     }
 }
 
-/// <summary>Health and suit, bottom left: two <see cref="HudMeter"/>s side by side.</summary>
+/// <summary>
+/// Health and suit, bottom left: two <see cref="HudMeter"/>s side by side, the
+/// <see cref="AuxPowerPanel"/> above them while it shows.
+/// </summary>
 public sealed class VitalsPanel : UiPanel
 {
     private readonly IPlayerHealth _healthSource;
     private readonly IPlayerArmour _armourSource;
+    private readonly AuxPowerPanel _aux;
 
-    public VitalsPanel(IPlayerHealth health, IPlayerArmour armour)
+    public VitalsPanel(IPlayerHealth health, IPlayerArmour armour, AuxPowerPanel aux)
     {
         _healthSource = health;
         _armourSource = armour;
+        _aux = aux;
     }
 
     private readonly HudMeter _health = new();
@@ -132,12 +137,75 @@ public sealed class VitalsPanel : UiPanel
         using (ui.Column(Space.L, Align.Start))
         {
             ui.Slot("hud.bottom-left", Space.S);
+            ui.Sub("aux", _aux);
             using (ui.Row(Space.M, Align.End))
             {
                 ui.Sub("health", _health, new HudMeterProps("#SS_UI_Health", UiShape.Cross, h.Health, h.MaxHealth, h.MaxHealth / 4, Tone.Accent));
                 if (a.Armour > 0)
                     ui.Sub("suit", _suit, new HudMeterProps("#SS_UI_Suit", UiShape.Shield, a.Armour, a.MaxArmour, 0, Tone.Accent));
             }
+        }
+    }
+}
+
+/// <summary>
+/// The suit's AUX POWER (stock hud_suitpower.cpp), above the vitals: a bar of
+/// ten chunks, the ones the power has left lit and the rest dim, in the danger
+/// tone at a quarter or less, and a line for each device that draws on it as
+/// stock lists them (OXYGEN under water, FLASHLIGHT; stock's SPRINT line asks
+/// IsSprinting, which nothing sets, so it never shows). It fades in when the
+/// power drops below full and out when it is full again
+/// (SuitAuxPowerNotMax / SuitAuxPowerMax).
+/// </summary>
+public sealed class AuxPowerPanel : UiPanel
+{
+    private readonly IPlayerSuitPower _suit;
+
+    public AuxPowerPanel(IPlayerSuitPower suit)
+    {
+        _suit = suit;
+    }
+
+    /// <summary>BarWidth / (BarChunkWidth + BarChunkGap): 92 / 9.</summary>
+    public const int Chunks = 10;
+
+    /// <summary>A chunk and the bar, at 1080 lines (stock's 6 and 4 at 480, on the 4 du grid).</summary>
+    public const float ChunkDu = 12, BarDu = 8;
+
+    /// <summary>AuxPowerDisabledAlpha against the colour's own: 70 of 220.</summary>
+    public const float DimOpacity = 70f / 220f;
+
+    /// <summary>bits_SUIT_DEVICE_FLASHLIGHT and bits_SUIT_DEVICE_BREATHER.</summary>
+    public const int Flashlight = 0x2, Breather = 0x4;
+
+    /// <summary>The chunks lit at <paramref name="power"/>: stock's rounding.</summary>
+    public static int Lit(float power) => (int)(Chunks * (power / 100f) + 0.5f);
+
+    public override void Describe(ref UiFrame ui)
+    {
+        float power = _suit.SuitPower;
+        float shown = ui.Animate("fade", power < 100f ? 1f : 0f, Motion.Standard);
+        if (shown <= 0.001f)
+            return;
+
+        int lit = Lit(power);
+        var tone = lit <= Chunks / 4 ? Tone.Danger : Tone.Accent;
+        UiPaint on = tone;
+        UiPaint dim = ((UiPaint)tone).WithOpacity(DimOpacity);
+        int devices = _suit.SuitDevices;
+
+        using (ui.Panel(gap: Space.XS).Pad(Space.M, Space.S).Opacity(shown))
+        {
+            ui.Label("#SS_UI_AuxPower", tone);
+            using (ui.Row(Space.XS, Align.Centre))
+            {
+                for (int i = 0; i < Chunks; i++)
+                    ui.Rect(i < lit ? on : dim, Size.Du(ChunkDu), Size.Du(BarDu));
+            }
+            if ((devices & Breather) != 0)
+                ui.Label("#SS_UI_Oxygen", tone);
+            if ((devices & Flashlight) != 0)
+                ui.Label("#SS_UI_Flashlight", tone);
         }
     }
 }

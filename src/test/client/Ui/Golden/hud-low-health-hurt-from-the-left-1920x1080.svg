@@ -10,26 +10,26 @@
 <rect x="965" y="539" width="11" height="2" fill="#f2eee6" fill-opacity="0.85" data-e="10"/>
 <rect x="959" y="524" width="2" height="11" fill="#f2eee6" fill-opacity="0.85" data-e="10"/>
 <rect x="959" y="545" width="2" height="11" fill="#f2eee6" fill-opacity="0.85" data-e="10"/>
-<rect x="29" y="939" width="238" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="18"/>
-<rect x="30.5" y="940.5" width="235" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="18"/>
-<rect x="32" y="940" width="232" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="18"/>
-<rect x="48" y="978" width="24" height="8" fill="#ff4e40" data-e="20"/>
-<rect x="56" y="970" width="8" height="8" fill="#ff4e40" data-e="20"/>
-<rect x="56" y="986" width="8" height="8" fill="#ff4e40" data-e="20"/>
-<text x="85" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="21">18</text>
-<text x="84" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ff4e40" xml:space="preserve" data-e="21">18</text>
-<text x="200" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="23">HEALTH</text>
-<rect x="48" y="1016" width="200" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="24"/>
-<rect x="48" y="1016" width="36" height="4" rx="2" fill="#ff4e40" data-e="25"/>
-<rect x="1648" y="939" width="243" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="32"/>
-<rect x="1649.5" y="940.5" width="240" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="32"/>
-<rect x="1651" y="940" width="237" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="32"/>
-<polygon points="1674.7,978.6 1676.6,972.4 1679,970 1681.4,972.4 1683.3,978.6" fill="#ffb52e" data-e="34"/>
-<rect x="1675" y="980" width="8" height="12" fill="#ffb52e" data-e="34"/>
-<rect x="1673" y="992" width="12" height="2" fill="#ffb52e" data-e="34"/>
-<text x="1704" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="35">3</text>
-<text x="1703" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ffb52e" xml:space="preserve" data-e="35">3</text>
-<text x="1741" y="989.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="36">/ 18</text>
-<text x="1740" y="988.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="36">/ 18</text>
-<text x="1797" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="38">9MM PISTOL</text>
+<rect x="29" y="939" width="238" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="19"/>
+<rect x="30.5" y="940.5" width="235" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="19"/>
+<rect x="32" y="940" width="232" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="19"/>
+<rect x="48" y="978" width="24" height="8" fill="#ff4e40" data-e="21"/>
+<rect x="56" y="970" width="8" height="8" fill="#ff4e40" data-e="21"/>
+<rect x="56" y="986" width="8" height="8" fill="#ff4e40" data-e="21"/>
+<text x="85" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="22">18</text>
+<text x="84" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ff4e40" xml:space="preserve" data-e="22">18</text>
+<text x="200" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="24">HEALTH</text>
+<rect x="48" y="1016" width="200" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="25"/>
+<rect x="48" y="1016" width="36" height="4" rx="2" fill="#ff4e40" data-e="26"/>
+<rect x="1648" y="939" width="243" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="33"/>
+<rect x="1649.5" y="940.5" width="240" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="33"/>
+<rect x="1651" y="940" width="237" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="33"/>
+<polygon points="1674.7,978.6 1676.6,972.4 1679,970 1681.4,972.4 1683.3,978.6" fill="#ffb52e" data-e="35"/>
+<rect x="1675" y="980" width="8" height="12" fill="#ffb52e" data-e="35"/>
+<rect x="1673" y="992" width="12" height="2" fill="#ffb52e" data-e="35"/>
+<text x="1704" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="36">3</text>
+<text x="1703" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ffb52e" xml:space="preserve" data-e="36">3</text>
+<text x="1741" y="989.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="37">/ 18</text>
+<text x="1740" y="988.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="37">/ 18</text>
+<text x="1797" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="39">9MM PISTOL</text>
 </svg>

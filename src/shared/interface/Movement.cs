@@ -122,6 +122,16 @@ public struct MoveConstants
     public bool SpecNoClip;
 
     /// <summary>
+    /// The loop runs the NON-HL2 arms of shareddefs.h and gamemovement.cpp
+    /// (no <c>HL2_DLL</c> / <c>HL2_CLIENT_DLL</c>): the fall thresholds 580 and
+    /// 1024, and a jump of sqrt( 2 g h ) in both branches. That is what the
+    /// fork's own build compiled, and so what the movement recording the parity
+    /// facts replay holds; only that replay sets it. Left false, the loop is
+    /// stock HL2MP's, whose projects define both macros.
+    /// </summary>
+    public bool NoHl2Arms;
+
+    /// <summary>
     /// <c>gpGlobals-&gt;maxClients</c>, and it is NOT a diagnostic.
     /// <c>CheckJumpButton</c> starts the whole duck-jump family
     /// (<c>m_flJumpTime</c>, <c>m_bInDuckJump</c>) only when this is 1, so in a

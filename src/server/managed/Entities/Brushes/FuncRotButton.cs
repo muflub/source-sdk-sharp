@@ -18,6 +18,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncRotButton, ScriptedEntityKind.Brush)]
 public sealed class FuncRotButton : ScriptedEntity
 {
+    /// <summary>SF_BUTTON_USE_ACTIVATES: a player's +USE turns it.</summary>
+    private const int UseActivatesFlag = 1024;
+
+    /// <summary>CBaseButton::ObjectCaps (CRotButton's base): usable, and found in the radius, when use activates it.</summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | ((SpawnFlags & UseActivatesFlag) != 0 ? UseCaps.ImpulseUse | UseCaps.UseInRadius : UseCaps.None);
+
     /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
     public override bool MovesAsPusher => true;
 

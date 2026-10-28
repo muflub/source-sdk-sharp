@@ -79,8 +79,11 @@ public sealed class FakeScoreboard : IScoreboardSource
 /// The local player as a sample: one fake behind the six player interfaces,
 /// registered once per interface (<see cref="Register"/>).
 /// </summary>
-public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage
+public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage,
+                                     IPlayerSuitPower
 {
+    public float SuitPower { get; init; } = 100f;
+    public int SuitDevices { get; init; }
     public bool Alive { get; init; } = true;
     public int Health { get; init; } = 100;
     public int MaxHealth { get; init; } = 100;
@@ -97,7 +100,7 @@ public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour,
 
     public UiSampleServices Register(UiSampleServices s)
         => s.Add<IPlayerLife>(this).Add<IPlayerHealth>(this).Add<IPlayerArmour>(this)
-            .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this);
+            .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this).Add<IPlayerSuitPower>(this);
 }
 
 /// <summary>The spectated player as a sample.</summary>

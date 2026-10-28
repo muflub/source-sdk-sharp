@@ -691,11 +691,11 @@ public sealed class RecordingEngine :
     }
 
     /// <summary>
-    /// EMPTY, ALWAYS, and recorded. There is no engine memory behind a recorded
-    /// engine, and a scratch array handed back here would be a block a test
-    /// could write into and nothing could read — which reads as the write having
-    /// landed. An empty span is what "there is no block here" already means
-    /// everywhere else.
+    /// EMPTY unless a fact stubs one, and recorded. There is no engine memory
+    /// behind a recorded engine, and a scratch array handed back here would be
+    /// a block a test could write into and nothing could read — which reads as
+    /// the write having landed. An empty span is what "there is no block here"
+    /// already means everywhere else.
     /// </summary>
     // The empty answers of a side with no lists and no replay, as the
     // interface's default bodies gave before plan_shim_areas_split phase 4.
@@ -705,8 +705,12 @@ public sealed class RecordingEngine :
 
     Span<byte> IEngineEntities.GetEngineBlock(EntityHandle entity)
     {
+        // Or a block the fact built and stubbed (a byte[], or a factory that
+        // reads the call just recorded): memory the fact itself reads back.
         RecordVoid("Entities.GetEngineBlock", entity);
-        return Span<byte>.Empty;
+        return _answers.ContainsKey("Entities.GetEngineBlock")
+            ? (Value<byte[]>("Entities.GetEngineBlock") ?? []).AsSpan()
+            : Span<byte>.Empty;
     }
 
     void IEngineEntities.DestroyPhysics(EntityHandle entity)
@@ -958,6 +962,10 @@ public sealed class RecordingEngine :
 
     // PlayerMovement
     void IEnginePlayerMovement.ClearMovementConstraint(EntityHandle player) => RecordVoid("PlayerMovement.ClearMovementConstraint", player);
+    void IEnginePlayerMovement.SetSuitPower(EntityHandle player, float power) => RecordVoid("PlayerMovement.SetSuitPower", player, power);
+    void IEnginePlayerMovement.SwallowUse(EntityHandle player) => RecordVoid("PlayerMovement.SwallowUse", player);
+    void IEnginePlayerMovement.QueueUseDenySound(EntityHandle player) => RecordVoid("PlayerMovement.QueueUseDenySound", player);
+    bool IEnginePlayerMovement.TakeUseDenySound(EntityHandle player) => Record<bool>("PlayerMovement.TakeUseDenySound", player);
     void IEnginePlayerMovement.ForceButtons(EntityHandle player, InputButtons buttons, bool forced) => RecordVoid("PlayerMovement.ForceButtons", player, buttons, forced);
     InputButtons IEnginePlayerMovement.GetButtons(EntityHandle player) => Record<InputButtons>("PlayerMovement.GetButtons", player);
     void IEnginePlayerMovement.RegisterParams(MovementParams parameters) => RecordVoid("PlayerMovement.RegisterParams", parameters);

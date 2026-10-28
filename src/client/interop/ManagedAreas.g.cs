@@ -77,7 +77,6 @@ public unsafe interface IManagedBeamsClient
     void BeamsLifecycle(int a0, int a1);
     void BeamsUpdate(float a0, float a1);
     void BeamsKillDead(uint a0, float a1);
-    int BeamsCreate(int a0, void* a1, void* a2, byte* a3, byte* a4, float a5);
     void BeamsDraw(int a0);
 }
 

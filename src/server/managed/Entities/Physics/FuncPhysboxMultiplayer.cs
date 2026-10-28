@@ -60,8 +60,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncPhysboxMultiplayer, ScriptedEntityKind.Brush)]
 public sealed class FuncPhysboxMultiplayer : FuncPhysbox
 {
-    public FuncPhysboxMultiplayer(IEngineEntityPhysics physics)
-        : base(physics)
+    public FuncPhysboxMultiplayer(IEngineEntityPhysics physics, PlayerPickupRules pickups)
+        : base(physics, pickups)
     {
     }
 

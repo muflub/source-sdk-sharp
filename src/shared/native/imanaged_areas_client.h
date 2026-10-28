@@ -263,7 +263,6 @@ struct SSManagedBeamsClientTable
 	void ( *BeamsLifecycle )( IManagedBeamsClient *self, int32_t nOp, int32_t nArg );
 	void ( *BeamsUpdate )( IManagedBeamsClient *self, float flCurTime, float flFrameTime );
 	void ( *BeamsKillDead )( IManagedBeamsClient *self, uint32_t hEntity, float flCurTime );
-	int32_t ( *BeamsCreate )( IManagedBeamsClient *self, int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime );
 	void ( *BeamsDraw )( IManagedBeamsClient *self, int32_t nRenderable );
 };
 
@@ -275,7 +274,6 @@ public:
 	void BeamsLifecycle( int32_t nOp, int32_t nArg ) { Table()->BeamsLifecycle( this, nOp, nArg ); }
 	void BeamsUpdate( float flCurTime, float flFrameTime ) { Table()->BeamsUpdate( this, flCurTime, flFrameTime ); }
 	void BeamsKillDead( uint32_t hEntity, float flCurTime ) { Table()->BeamsKillDead( this, hEntity, flCurTime ); }
-	int32_t BeamsCreate( int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime ) { return Table()->BeamsCreate( this, nKind, pInts, pFloats, pszModel, pszHalo, flCurTime ); }
 	void BeamsDraw( int32_t nRenderable ) { Table()->BeamsDraw( this, nRenderable ); }
 
 private:
@@ -283,10 +281,10 @@ private:
 };
 
 static const uint32_t kIManagedBeamsClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x7fb639b8, 0xbdc8b950, 0x86461d22, 0x0d2e11b0, 0xc83e311d,
+	0x07e0f4c4, 0x0d54c15e, 0x7fb639b8, 0xbdc8b950, 0x86461d22, 0xc83e311d,
 };
-static const int32_t kIManagedBeamsClientSlotCount = 7;
-static_assert( sizeof( SSManagedBeamsClientTable ) == 7 * sizeof( void * ), "SSManagedBeamsClientTable is one pointer per slot" );
+static const int32_t kIManagedBeamsClientSlotCount = 6;
+static_assert( sizeof( SSManagedBeamsClientTable ) == 6 * sizeof( void * ), "SSManagedBeamsClientTable is one pointer per slot" );
 
 class IManagedDiagnosticsClient;
 

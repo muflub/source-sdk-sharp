@@ -321,6 +321,31 @@ public class TimeBasedDamageTests
     }
 
     [Fact]
+    public void Drowning_comes_back_ten_an_interval_once_the_player_breathes()
+    {
+        var report = new PlayerDamageReport();
+        report.Drowned(25);
+        report.BreatheAgain();
+
+        var heals = new[] { 3f, 5f, 7f }.Select(report.CheckTimeBased).ToArray();
+
+        Assert.Equal(new[] { 10, 10, 5 }, heals);
+        Assert.Equal(0, report.DrownOwed);
+    }
+
+    [Fact]
+    public void Holding_the_breath_again_stops_the_giving_back()
+    {
+        var report = new PlayerDamageReport();
+        report.Drowned(25);
+        report.BreatheAgain();
+        report.HoldBreath();
+
+        Assert.Equal(0, report.CheckTimeBased(3f));
+        Assert.True((report.Bits & (int)DamageType.DrownRecover) == 0, "no recovery under water");
+    }
+
+    [Fact]
     public void A_fresh_hit_of_the_same_kind_restarts_its_countdown()
     {
         var report = new PlayerDamageReport();

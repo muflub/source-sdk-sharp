@@ -72,6 +72,23 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
             m.Move.SlowMovement = slow;
     }
 
+    public void SetSuitPower(EntityHandle player, float power)
+        => moves.For(player).Move.SuitPower = power;
+
+    public void SwallowUse(EntityHandle player)
+        => moves.For(player).Move.OldButtons |= GameMovement.InUse;
+
+    public void QueueUseDenySound(EntityHandle player)
+        => moves.For(player).Move.PlayUseDenySound = true;
+
+    public bool TakeUseDenySound(EntityHandle player)
+    {
+        MoveState s = moves.For(player).Move;
+        bool due = s.PlayUseDenySound;
+        s.PlayUseDenySound = false;
+        return due;
+    }
+
     public void SetObserverMode(EntityHandle player, int mode)
     {
         if (Player(player) is not { } m)

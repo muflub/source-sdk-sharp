@@ -69,8 +69,12 @@ public sealed class SsPlayer : ScriptedEntity
                     IPlayerShadows? shadows = null, IGameRules? rules = null, ConVarRegistry? convars = null,
                     ModelDescriptors? models = null, IGameClock? clock = null,
                     SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null,
-                    SourceSharp.Server.Interop.ServerPlayerMoves? moves = null)
+                    SourceSharp.Server.Interop.ServerPlayerMoves? moves = null, IEngineSound? sound = null,
+                    IEngineDamage? damage = null)
     {
+        _damage = damage;
+        _sound = sound;
+        _infiniteAux = convars?.Get<SvInfiniteAuxPowerConVar>();
         _moves = moves;
         _shadows = shadows;
         _host = host;
@@ -254,6 +258,12 @@ public sealed class SsPlayer : ScriptedEntity
     [SaveField] public int PhysicsFlags;
 
     /// <summary>
+    /// <c>m_afButtonLast</c>, for PlayerUse: the last command's buttons, which
+    /// this command's pressed and released are taken against.
+    /// </summary>
+    [SaveField] public int UseButtonsLast;
+
+    /// <summary>
     /// <c>PFLAG_GAMEPHYSICS_ROTPUSH</c> (player.h): a rotating pusher moved this
     /// player, and the next shadow update checks whether that left them stuck.
     /// </summary>
@@ -348,6 +358,12 @@ public sealed class SsPlayer : ScriptedEntity
         // ResetHUD, the battery and the train state.
         DamageReport.Reset();
         _initHud = true;
+
+        // Spawn's air (m_AirFinished = curtime + AIRTIME, taken at the next
+        // WaterMove, which this frame's PreThink runs) and SetPlayerUnderwater( false ).
+        _lungsFull = true;
+        _drownDmgRate = DrowningDamageInitial;
+        SetPlayerUnderwater(false, GameTime);
         _clientBattery = -1;
         _train = TrainNew;
 
@@ -590,6 +606,161 @@ public sealed class SsPlayer : ScriptedEntity
             _geigerRange = GeigerFar;
     }
 
+    //-- WATER (CBasePlayer::WaterMove, player.cpp:1947, and UpdateUnderwaterState) --
+
+    /// <summary>
+    /// AIRTIME, DROWNING_DAMAGE_INITIAL and DROWNING_DAMAGE_MAX, the HL2 arm
+    /// (player.cpp:1932, "aux power used instead"): seven seconds of air, then
+    /// ten a second.
+    /// </summary>
+    public const float AirTime = 7f;
+    public const int DrowningDamageInitial = 10, DrowningDamageMax = 10;
+
+    /// <summary>MOVETYPE_NOCLIP, WL_Eyes, CONTENTS_WATER.</summary>
+    private const int MoveTypeNoClip = 8, WaterLevelEyes = 3, ContentsWater = 0x20;
+
+    private readonly IEngineSound? _sound;
+    // The engine's TakeDamage, which answers through OnDamaged and applies
+    // what it answers: a drowning hit goes through it, not to OnDamaged.
+    private readonly IEngineDamage? _damage;
+    private readonly SvInfiniteAuxPowerConVar? _infiniteAux;
+    // Carried across a hot reload: a player rebuilt under water with no air
+    // left would drown on the first frame.
+    [SaveField] private float _airFinished;
+    [SaveField] private float _painFinished;
+    [SaveField] private bool _lungsFull;
+    [SaveField] private int _drownDmgRate = DrowningDamageInitial;
+
+    // m_bPlayerUnderwater, and FL_INWATER: nothing but the wade reads the flag
+    // in stock, so it is this player's own and not a word in the move record.
+    [SaveField] private bool _underwater;
+    [SaveField] private bool _inWater;
+
+    /// <summary>Whether the eyes are under (m_bPlayerUnderwater), for the facts.</summary>
+    public bool Underwater => _underwater;
+
+    /// <summary>The world, entry 0: what drowns a player (GetContainingEntity( INDEXENT( 0 ) )).</summary>
+    private static EntityHandle World => new(0u);
+
+    /// <summary>
+    /// <c>CHL2_Player::CanBreatheUnderwater</c>: while the suit has power, the
+    /// breather spends it instead of the lungs.
+    /// </summary>
+    public bool CanBreatheUnderwater => State.SuitPower > 0f;
+
+    /// <summary>
+    /// <c>CBasePlayer::WaterMove</c>: with the eyes out of the water, or the
+    /// suit breathing, the air is refilled ("Player.DrownStart" when it had run
+    /// out) and drowning owed starts coming back; under it, once the air is
+    /// gone, a drowning hit from the world every second, the damage remembered
+    /// to give back. Then <see cref="UpdateUnderwaterState"/>.
+    /// </summary>
+    public void WaterMove(float now)
+    {
+        if (_lungsFull)
+        {
+            _lungsFull = false;
+            _airFinished = now + AirTime;
+        }
+
+        if (State.MoveType == MoveTypeNoClip)
+        {
+            _airFinished = now + AirTime;
+            return;
+        }
+
+        if (Health < 0 || !State.Alive)
+        {
+            UpdateUnderwaterState(now);
+            return;
+        }
+
+        if (State.WaterLevel != WaterLevelEyes || CanBreatheUnderwater)
+        {
+            if (_airFinished < now)
+                _sound?.EntityEmitSound(Handle, "Player.DrownStart");
+
+            _airFinished = now + AirTime;
+            _drownDmgRate = DrowningDamageInitial;
+
+            if (DamageReport.DrownOwed > 0)
+                DamageReport.BreatheAgain();
+        }
+        else
+        {
+            DamageReport.HoldBreath();
+
+            if (_airFinished < now && !GodMode)
+            {
+                if (_painFinished < now)
+                {
+                    _drownDmgRate = Math.Min(_drownDmgRate + 1, DrowningDamageMax);
+                    _damage?.Apply(Handle, World, _drownDmgRate, DamageType.Drown);
+                    _painFinished = now + 1f;
+                    DamageReport.Drowned(_drownDmgRate);
+                }
+            }
+            else
+            {
+                DamageReport.NotDrowning();
+            }
+        }
+
+        UpdateUnderwaterState(now);
+    }
+
+    /// <summary>
+    /// <c>CBasePlayer::UpdateUnderwaterState</c>: the eyes going under or
+    /// coming up, and the wade as the feet enter or leave the water.
+    /// </summary>
+    private void UpdateUnderwaterState(float now)
+    {
+        if (State.WaterLevel == WaterLevelEyes)
+        {
+            if (!_underwater)
+                SetPlayerUnderwater(true, now);
+            return;
+        }
+
+        if (_underwater)
+            SetPlayerUnderwater(false, now);
+
+        if (State.WaterLevel == 0)
+        {
+            if (_inWater)
+            {
+                if (Health > 0 && State.Alive)
+                    _sound?.EntityEmitSound(Handle, "Player.Wade");
+                _inWater = false;
+            }
+        }
+        else if (!_inWater)
+        {
+            if (State.WaterType == ContentsWater)
+                _sound?.EntityEmitSound(Handle, "Player.Wade");
+            _inWater = true;
+        }
+    }
+
+    /// <summary>
+    /// <c>CHL2_Player::SetPlayerUnderwater</c>: the suit's breather on under
+    /// water and off out of it, in the player's movement record, which the
+    /// next command's suit update drains.
+    /// </summary>
+    private void SetPlayerUnderwater(bool state, float now)
+    {
+        if (_moves?.Find(Handle)?.Move is { } s)
+        {
+            if (state)
+                GameMovement.AddSuitDevice(s, GameMovement.SuitDeviceBreather, GameMovement.SuitDeviceBreatherDrain);
+            else
+                GameMovement.RemoveSuitDevice(s, GameMovement.SuitDeviceBreather, GameMovement.SuitDeviceBreatherDrain,
+                                              _infiniteAux?.Value ?? false, now);
+        }
+
+        _underwater = state;
+    }
+
     /// <summary>
     /// Stock's CheckTimeBasedDamage: the report counts the time-based kinds
     /// down, and what poison gives back is TakeHealth'd (up to a hundred).
@@ -611,6 +782,7 @@ public sealed class SsPlayer : ScriptedEntity
     /// </summary>
     public void PreThink(float now)
     {
+        WaterMove(now);
         UpdateClientData(now);
         CheckTimeBasedDamage(now);
         UpdateGeigerCounter(now);

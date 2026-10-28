@@ -1502,6 +1502,10 @@ internal sealed unsafe partial class EnginePlayerMovement
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void SetSlowMovement(EntityHandle player, bool slow) { }
+    public void SetSuitPower(EntityHandle player, float power) { }
+    public void SwallowUse(EntityHandle player) { }
+    public void QueueUseDenySound(EntityHandle player) { }
+    public bool TakeUseDenySound(EntityHandle player) => false;
     public MoveType SetMoveType(EntityHandle player, MoveType moveType) => MoveType.None;
     public void SnapEyeAngles(EntityHandle player, Vector pitchYawRoll) { }
 }

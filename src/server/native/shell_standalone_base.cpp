@@ -50,6 +50,7 @@
 #include "native_command_body.h"
 #include "ss_string.h"
 #include "ss_cpp20.h"
+#include "world_aligned_bounds.h"
 
 #include <algorithm>
 #include <vector>
@@ -1078,7 +1079,7 @@ void CStandaloneEntity::OnPositionChanged( const Vector &vecPrevOrigin, bool bTo
 	AngleMatrix( Block().Head.Angles, Block().Head.Origin, Block().Head.WorldTransform );
 
 	if ( m_Partition != PARTITION_INVALID_HANDLE )
-		::partition->ElementMoved( m_Partition, Block().Head.Origin + Block().Head.Mins, Block().Head.Origin + Block().Head.Maxs );
+		MovePartitionElement();
 
 	// The client is told only if there is a client to tell -- MarkBlockChanged
 	// answers that -- and it is told about EXACTLY the two fields that moved.
@@ -1153,7 +1154,7 @@ void CStandaloneEntity::SetCollisionBounds( const Vector &vecMins, const Vector 
 	MarkBlockChanged( SS_BLOCK_HEAD_OFFSET( Maxs ) );
 
 	if ( m_Partition != PARTITION_INVALID_HANDLE )
-		::partition->ElementMoved( m_Partition, Block().Head.Origin + Block().Head.Mins, Block().Head.Origin + Block().Head.Maxs );
+		MovePartitionElement();
 }
 
 //-----------------------------------------------------------------------------
@@ -1284,7 +1285,7 @@ void CStandaloneEntity::UpdatePartition()
 		mask |= PARTITION_ENGINE_TRIGGER_EDICTS;
 
 	::partition->Insert( mask, m_Partition );
-	::partition->ElementMoved( m_Partition, Block().Head.Origin + Block().Head.Mins, Block().Head.Origin + Block().Head.Maxs );
+	MovePartitionElement();
 }
 
 //-----------------------------------------------------------------------------
@@ -1651,14 +1652,33 @@ void CStandaloneEntity::TouchTriggers( const Vector &vecPrevOrigin )
 //-----------------------------------------------------------------------------
 void CStandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
 {
-	if ( pMins ) *pMins = Block().Head.Origin + Block().Head.Mins;
-	if ( pMaxs ) *pMaxs = Block().Head.Origin + Block().Head.Maxs;
+	WorldCollisionBounds( pMins, pMaxs );
 }
 
 void CStandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs )
 {
-	if ( pMins ) *pMins = Block().Head.Origin + Block().Head.Mins;
-	if ( pMaxs ) *pMaxs = Block().Head.Origin + Block().Head.Maxs;
+	WorldCollisionBounds( pMins, pMaxs );
+}
+
+//-----------------------------------------------------------------------------
+// The box the world sees: turned with the entity unless it is world-aligned
+// (CCollisionProperty::CollisionAABBToWorldAABB; world_aligned_bounds.h).
+//-----------------------------------------------------------------------------
+void CStandaloneEntity::WorldCollisionBounds( Vector *pMins, Vector *pMaxs ) const
+{
+	Vector vecMins, vecMaxs;
+	SourceSharp_CollisionBoundsToWorld( Block().Head.SolidType, Block().Head.SolidFlags,
+	                                    Block().Head.Mins, Block().Head.Maxs,
+	                                    Block().Head.Origin, Block().Head.Angles, &vecMins, &vecMaxs );
+	if ( pMins ) *pMins = vecMins;
+	if ( pMaxs ) *pMaxs = vecMaxs;
+}
+
+void CStandaloneEntity::MovePartitionElement()
+{
+	Vector vecMins, vecMaxs;
+	WorldCollisionBounds( &vecMins, &vecMaxs );
+	::partition->ElementMoved( m_Partition, vecMins, vecMaxs );
 }
 
 //-----------------------------------------------------------------------------

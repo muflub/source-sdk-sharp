@@ -1011,26 +1011,45 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   the sv_ladder_useonly HUD hint and `ladderSurfaceProperties` on the ladder
   footstep (docs/divergences.md). CHL2GameMovement::CanAccelerate (always
   true, hl_gamemovement.cpp:1182) is ported with it. Owner: the server lane.
-- **Items rest higher.** On dm_lockdown, items and weapons sit about 0.9
-  units above stock's once settled, and some 10-20 units above
-  (item_ammo_pistol +20.6, weapon_shotgun +15.0): the census's "moved"
-  column. Next: compare one item's spawn (UTIL_DropToFloor, its physics
-  hull) side by side.
+- **One crate stack settles differently.** On dm_lockdown, the top
+  wood_crate001a keyed at (-3424, 3602, 72.2) bridges two crates at z 24:
+  stock's stays on top at z 60.5, ours slides and turns for about a second
+  (yaw 174 to 145), pushes the right-hand crate 28 units (stock 14) and falls
+  to the floor. Deterministic in both games over four census runs
+  (2026-10-26, stock-ab tip 1e40e6815). Not the props' creation: the solid,
+  surface and performance settings match stock's, and the spawn-time pause
+  (CPhysicsHook::m_bPaused) is ported (PhysicsFrame, PhysicsSolver). Next:
+  dump the three crates every tick from map start in both games (stock's
+  report comes after they have settled) and find the first tick they
+  differ. Owner: the physics lane.
+- **A world hinge never makes its object hinged.** Stock's
+  `CPhysHinge::CreateConstraint` calls `BecomeHinged` on the object of a hinge
+  to the world (SF_CONSTRAINT_ASSUME_WORLD_GEOMETRY; physconstraint.cpp:724),
+  which IVP then integrates about that axis alone; PhysHinge only makes the
+  constraint. dm_lockdown's fan hinge (spawnflags 9) is one. IPhysicsObject's
+  `BecomeHinged` and `IsHinged` have no forwarder rows yet (CanPickupObject's
+  hinge test waits on the second). Owner: the physics lane.
+- **A wall charger shows only full and empty.** Stock holds the charger's
+  "idle" cycle at 1 - juice/max (CNewWallHealth::StudioFrameAdvance,
+  playback rate 0), so the tube drains as it is used; here a sequence's cycle
+  is the client's (now - AnimTime) * rate / duration, and a rate of 0 always
+  draws frame 0. WallCharger shows full and, played to its end, empty. Next:
+  a frozen cycle on the wire (the server's sequence clock to the client's
+  StandaloneStoreSequence, and C_StandaloneEntity::SequenceCycle answering it
+  when the rate is 0). Owner: the client lane.
+- **The client shell's surrounding box is unturned.**
+  C_StandaloneEntity::WorldSpaceSurroundingBounds and WorldSpaceTriggerBounds
+  add the box to the origin whatever the angles (the server's were fixed in
+  f252607bb). Only StandaloneFadePass reads the surrounding box, and stock's
+  fade measures from the OBB centre (cdll_util.cpp ComputeDistanceFade), so
+  for a turned, off-centre model the fade starts at a slightly different
+  distance. Next: compare the fade of a turned prop against the frozen stock
+  recordings before changing it.
 - **hud_fastswitch** is 0 in stock and 1 here: stock's slot keys open the HL2
   weapon selection HUD (hud_weaponselection.cpp) and a click confirms; this
   mod switches at once because it has no selection HUD.
-- **The HL2 player's speeds and suit.** CHL2_Player::HandleSpeedChanges runs
-  at hl2_normspeed (190), walks at hl2_walkspeed (150) on +walk and sprints at
-  hl2_sprintspeed (320) on +speed while suit power lasts (SuitPower_*, the AUX
-  POWER HUD); this mod's player runs at 320 always (Movement.cs MaxSpeed).
 - **env_beam and env_laser** now draw through ClientBeam's stock path, but
   with none of CBeam's flags, fade or halo: only point_spotlight sets them.
-- **Players created before ArsenalPlayers.** ServerModule creates
-  PvsCheckClient, DeathNotice, ImpulseCheats, PlayerFlashlight and the arsenal
-  before it registers the ArsenalPlayers decorator over IEnginePlayers, so
-  they hold the undecorated players and its GiveItem/GiveAmmo arms. Waived by
-  name in ServerModuleWiringOrderTests. Next: check whether impulse 101's gives
-  want the decorator's arm.
 
 ## Rulings and divergences recorded only here (not open work)
 

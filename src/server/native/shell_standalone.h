@@ -1043,6 +1043,8 @@ private:
 	// an entity is in and the lists it should be in disagreeing is a bug with
 	// no symptom until something fails to find it.
 	void UpdatePartition();
+	void MovePartitionElement();
+	void WorldCollisionBounds( Vector *pMins, Vector *pMaxs ) const;
 
 	// The class this instance is. NULL only for a shell created outside a
 	// factory, which nothing does.

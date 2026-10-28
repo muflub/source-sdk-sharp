@@ -113,7 +113,7 @@ public static class ClientUi
         var modScreens = UiModScreens.Build(services, UiModScreens.Assemblies(mod.UiAssemblies), windows);
 
         // THE HUD LAYER: its own context, so the menu's hit-testing never reads the HUD's frame.
-        var hudScreen = new Ui.Screens.Hud(player, new VitalsPanel(player, player), new AmmoPanel(player, player),
+        var hudScreen = new Ui.Screens.Hud(player, new VitalsPanel(player, player, new AuxPowerPanel(player)), new AmmoPanel(player, player),
                                            new CrosshairPanel(), new DamagePanel(player), new MapTextPanel(messages),
                                            new HintsPanel(hints), new BuildStampPanel(build),
                                            new KillFeedPanel(services.Require<IKillFeedSource>()),

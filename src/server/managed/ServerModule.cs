@@ -376,6 +376,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private Flames _flames = null!;
     private ImpulseCheats _impulses = null!;
     private PlayerFlashlight _flashlight = null!;
+    private PlayerUse _playerUse = null!;
     private DamageCheats _damageCheats = null!;
     private DevContext _devContext = null!;
     private Scoreboard _scoreboard = null!;
@@ -952,7 +953,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_hitGroups);
         // UTIL_FindClientInPVS's check client, for the radiation triggers.
         _services.AddInstance(_services.Create<PvsCheckClient>());
-        _services.AddInstance(_services.Create<DeathNotice>());
         _services.AddInstance(_services.Create<PlayerNames>());
         // Stock's observer mode, the dead CBasePlayer arm (the death cycle and spec_*).
         // Its convars are registered later in Initialize; it reads them when first asked.
@@ -1021,6 +1021,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _flashlight = _services.Create<PlayerFlashlight>();
         _services.AddInstance<IPlayerFlashlight>(_flashlight);
 
+
         // The damage-rule cheats (stock's god and buddha, whose client.cpp
         // registrations no-op on a standalone player). The toggles live here;
         // the rule they set lives on SsPlayer, in OnDamaged.
@@ -1038,6 +1039,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         _services.AddInstance<IEnginePlayers>(
             new ArsenalPlayers(_services.Require<IEnginePlayers>(), _arsenal));
+
+        // AFTER the decorator: the notice names the scorer's active weapon,
+        // which ArsenalPlayers answers (the engine's arm answers nothing for
+        // this hierarchy's players, and every gunshot kill read "world").
+        _services.AddInstance(_services.Create<DeathNotice>());
 
         // The round's tally. An instance the module owns rather than a static,
         // so two loads cannot share one board.
@@ -1359,6 +1365,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // so the container has to be able to answer for it.
         _services.AddInstance(_convars);
 
+        // The player's +USE (CHL2_Player::PlayerUse over FindUseEntity), run
+        // before each command's move and, for its deny sound, after it. After
+        // the registry: the finder reads sv_debug_player_use.
+        _services.AddInstance<IUseTargetFinder>(_services.Create<PlayerUseFinder>());
+        _playerUse = _services.Create<PlayerUse>();
+
         // Registered on the server too, from the SAME shared declarations the
         // client uses. Dispatch is client-only, but the server resolves a
         // message name to an index when it SENDS one — and a miss is fatal.
@@ -1477,6 +1489,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IVPhysicsGrabCalls>(new VPhysicsGrabCalls(_engine.VPhysics));
         _services.AddInstance<ITraceQueries>(new EngineTraceQueries(_services.Require<SideRoute<IServerTraceRoute>>()));
         _services.AddInstance<ICustomMotionControllers>(_services.Require<PhysicsMotionControllers>());
+        // What a player's +USE may do with a prop or a physbox: their caps
+        // ask it, and their Use; before the map spawns them.
+        _services.AddInstance(_services.Create<PlayerPickupRules>());
+
         var physCannon = _services.Create<PhysCannonWorld>();
         _services.AddInstance(physCannon);
         _services.AddInstance(new PhysCannonBehaviourSource(physCannon));
@@ -1752,6 +1768,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                          () => NewMoveConstants().Read().Constants);
         _services.AddInstance(ladders);
         _serverCommands.Ladders = ladders;
+
+        // HL2MP's player speeds and suit power, which the loop runs for every
+        // player's command (CHL2_Player's HandleSpeedChanges and ReduceTimers).
+        _serverCommands.Hl2Player = new Hl2PlayerMoveRules(_convars, _globalState);
 
         //---------------------------------------------------------------------
         // ...and now that every service is registered, the thing that drives
@@ -2187,6 +2207,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     public void OnStandalonePlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime)
     {
+        // Phase 0, RunPreThink's moment: ItemPreFrame's PlayerUse.
+        if (phase == 0)
+        {
+            _playerUse.BeforeMove(player, cmd.Buttons);
+            return;
+        }
+
         if (phase != 1)
             return;
 
@@ -2201,6 +2228,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // CheatImpulseCommands.
         if (firstTime && cmd.Impulse != 0 && !_flashlight.OnImpulse(player, cmd.Impulse))
             _impulses.Run(player, cmd.Impulse);
+
+        // CHL2_Player::ItemPostFrame's tail, after its base's weapons and impulses.
+        _playerUse.AfterMove(player);
     }
 
     /// <summary>
@@ -3920,6 +3950,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public void OnPlayerSpawned(EntityHandle player)
     {
         _players.OnSpawned(player, _clock.Now);
+
+        // CHL2_Player::Spawn's SuitPower_SetCharge( 100 ).
+        _services.Require<IEnginePlayerMovement>().SetSuitPower(player, 100f);
         _rules?.OnPlayerSpawned(player, _clock.Now);
 
         // The chapter title, once per player per level, on their first spawn —

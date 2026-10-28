@@ -21,9 +21,11 @@ namespace SourceSharp.Client.Vgui;
 public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud hud,
                                   IClientStandalones? standalones = null, WeaponNames? names = null,
                                   ViewReadout? view = null)
-    : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage
+    : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage, IPlayerSuitPower
 {
     private int _armour;
+    private float _suitPower = 100f;
+    private int _suitDevices;
     private int _secondary = -1, _secondaryMax;
     private float _damageYaw = float.NaN;
 
@@ -45,9 +47,13 @@ public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud 
             (_secondary, _secondaryMax) = (-1, 0);
 
         _armour = 0;
+        (_suitPower, _suitDevices) = (100f, 0);
         if (standalones is not null && _health > 0
             && standalones.GetByIndex(screen.LocalPlayerIndex) is Standalone.ClientSsPlayer local)
+        {
             _armour = local.State.Armour;
+            (_suitPower, _suitDevices) = (local.State.SuitPower, local.State.SuitDevices);
+        }
 
         _damageYaw = view is { Known: true } ? DamageYaw(view.Eye, view.Yaw, hud.LastDamageOrigin) : float.NaN;
     }
@@ -84,6 +90,11 @@ public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud 
     public int Armour => _armour;
 
     public int MaxArmour => Max;
+
+    /// <summary>The suit's power, full when there is no player (so nothing shows).</summary>
+    public float SuitPower => _suitPower;
+
+    public int SuitDevices => _suitDevices;
 
     public bool HasWeapon => _hasWeapon;
 

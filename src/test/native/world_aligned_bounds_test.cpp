@@ -189,4 +189,73 @@ TEST( WorldAlignedBounds, ARotationOfAWHOLETURNIsStillIdentity )
 	ExpectVectorNear( shortcutMaxs, refMaxs, "maxs" );
 }
 
+//=============================================================================
+// The whole rule, as the standalone shells use it
+//=============================================================================
+
+// dm_lockdown's controlroom_desk001b: its model box, its origin, yaw 135.
+const Vector kDeskMins( -21.35f, -55.89f, -16.80f );
+const Vector kDeskMaxs( 20.60f, 55.90f, 17.09f );
+const Vector kDeskOrigin( -3778.31f, 4451.8f, 16.744f );
+const QAngle kDeskAngles( 0, 135, 0 );
+
+TEST( CollisionBoundsToWorld, ARotatedVPhysicsBoxIsRotatedAndReBounded )
+{
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_VPHYSICS, 0, kDeskMins, kDeskMaxs, kDeskOrigin, kDeskAngles,
+	                                    &mins, &maxs );
+
+	Vector refMins, refMaxs;
+	ReferenceTransform( kDeskMins, kDeskMaxs, kDeskOrigin, kDeskAngles, &refMins, &refMaxs );
+
+	ExpectVectorNear( mins, refMins, "mins" );
+	ExpectVectorNear( maxs, refMaxs, "maxs" );
+
+	// The control: the addition alone is the box the desk was traced through.
+	Vector addedMins, addedMaxs;
+	SourceSharp_BoundsToWorld( kDeskMins, kDeskMaxs, kDeskOrigin, &addedMins, &addedMaxs );
+	EXPECT_LT( mins.x, addedMins.x - 10.0f ) << "the turned desk reaches past its unturned box";
+}
+
+TEST( CollisionBoundsToWorld, ABBoxStaysWorldAlignedWhateverItsAngles )
+{
+	// A player's hull and a pickup's trigger box: SOLID_BBOX is world-aligned.
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_BBOX, 0, kDeskMins, kDeskMaxs, kDeskOrigin, kDeskAngles,
+	                                    &mins, &maxs );
+
+	ExpectVectorNear( mins, kDeskOrigin + kDeskMins, "mins" );
+	ExpectVectorNear( maxs, kDeskOrigin + kDeskMaxs, "maxs" );
+}
+
+TEST( CollisionBoundsToWorld, ForcedWorldAlignedStaysWorldAligned )
+{
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_VPHYSICS, FSOLID_FORCE_WORLD_ALIGNED, kDeskMins, kDeskMaxs,
+	                                    kDeskOrigin, kDeskAngles, &mins, &maxs );
+
+	ExpectVectorNear( mins, kDeskOrigin + kDeskMins, "mins" );
+	ExpectVectorNear( maxs, kDeskOrigin + kDeskMaxs, "maxs" );
+}
+
+TEST( CollisionBoundsToWorld, AnEntitySpaceBoxAtIdentityAnglesIsTheAddition )
+{
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_BSP, 0, kDeskMins, kDeskMaxs, kDeskOrigin, vec3_angle,
+	                                    &mins, &maxs );
+
+	ExpectVectorNear( mins, kDeskOrigin + kDeskMins, "mins" );
+	ExpectVectorNear( maxs, kDeskOrigin + kDeskMaxs, "maxs" );
+}
+
+TEST( CollisionBoundsToWorld, OnlyBBoxNoneAndForcedAlignedAreWorldSpace )
+{
+	EXPECT_FALSE( SourceSharp_BoundsInEntitySpace( SOLID_NONE, 0 ) );
+	EXPECT_FALSE( SourceSharp_BoundsInEntitySpace( SOLID_BBOX, 0 ) );
+	EXPECT_TRUE( SourceSharp_BoundsInEntitySpace( SOLID_BSP, 0 ) );
+	EXPECT_TRUE( SourceSharp_BoundsInEntitySpace( SOLID_OBB, 0 ) );
+	EXPECT_TRUE( SourceSharp_BoundsInEntitySpace( SOLID_VPHYSICS, 0 ) );
+	EXPECT_FALSE( SourceSharp_BoundsInEntitySpace( SOLID_VPHYSICS, FSOLID_FORCE_WORLD_ALIGNED ) );
+}
+
 }  // namespace

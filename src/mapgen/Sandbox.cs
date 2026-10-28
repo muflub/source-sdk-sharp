@@ -101,6 +101,13 @@ public static class Sandbox
     /// <summary>A small warm light over each reset button, to draw the eye to it.</summary>
     private const string ButtonLight = "255 200 120 45";
 
+    /// <summary>
+    /// SF_BUTTON_USE_ACTIVATES: what Hammer ticks by default on a func_button,
+    /// and what lets a player's +USE press one (CBaseButton::ObjectCaps), in
+    /// stock and here alike.
+    /// </summary>
+    private const string ButtonUseActivates = "1024";
+
     /// <summary>One family of entities, and what a player should see happen.</summary>
     public sealed record Station(
         string Slug,
@@ -620,7 +627,7 @@ public static class Sandbox
 
         site.Brush(EntityNames.FuncButton, "button",
             new(-16f, -292f, 44f), new(16f, -260f, 68f), Site.Switch,
-            "wait", "1")
+            "wait", "1", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.ResetName, "Trigger");
 
         site.Marker("beam", new(0f, -276f, 68f), "120 255 150");
@@ -890,7 +897,7 @@ public static class Sandbox
             new(128f, 64f, 8f), new(192f, 128f, 72f), Site.Pad, "Solidity", "0");
 
         site.Brush(EntityNames.FuncButton, "push",
-            new(-176f, -32f, 8f), new(-144f, 0f, 64f), Site.Wall, "wait", "2")
+            new(-176f, -32f, 8f), new(-144f, 0f, 64f), Site.Wall, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("lamp1"), "Toggle");
 
         site.Brush(EntityNames.FuncRotButton, "twist",
@@ -1733,7 +1740,7 @@ public static class Sandbox
             "target", "Rebels");
 
         site.Brush(EntityNames.FuncButton, "teamswitch",
-            new(144f, -112f, 8f), new(176f, -80f, 56f), Site.Switch, "wait", "2")
+            new(144f, -112f, 8f), new(176f, -80f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("team"), "Use");
 
         site.Marker("switch", new(160f, -136f, 8f), "255 140 140");
@@ -1757,7 +1764,7 @@ public static class Sandbox
         site.Ent(EntityNames.PlayerWeaponstrip, "strip", new(-128f, -64f, 16f));
 
         site.Brush(EntityNames.FuncButton, "stripswitch",
-            new(-144f, -112f, 8f), new(-112f, -80f, 56f), Site.Switch, "wait", "2")
+            new(-144f, -112f, 8f), new(-112f, -80f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("strip"), "Strip");
 
         site.Marker("stripped", new(-128f, -136f, 8f), "255 140 140");
@@ -2697,7 +2704,7 @@ public static class Sandbox
         // instruction and not a reset: the platform only moves when a player
         // decides the train has arrived, and that decision is the entity.
         site.Brush(EntityNames.FuncButton, "swing",
-            new(-160f, -152f, 8f), new(-96f, -120f, 56f), Site.Switch, "wait", "4")
+            new(-160f, -152f, 8f), new(-96f, -120f, 56f), Site.Switch, "wait", "4", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("changer"), "Use");
 
         // Three seconds later, which is the turn plus a moment. A changer hands
@@ -2912,7 +2919,7 @@ public static class Sandbox
             "height", "96", "rotation", "180", "speed", "60", "spawnflags", "1");
 
         site.Brush(EntityNames.FuncButton, "call",
-            new(-184f, -24f, 8f), new(-120f, 8f, 56f), Site.Switch, "wait", "3")
+            new(-184f, -24f, 8f), new(-120f, 8f, 56f), Site.Switch, "wait", "3", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("lift"), "Toggle");
 
         //---------------------------------------------------------------------
@@ -2957,7 +2964,7 @@ public static class Sandbox
             site.Ent(EntityNames.PropPhysics, $"can{i}", new(-64f + (i * 64f), -120f, 32f), "model", Can);
 
         site.Brush(EntityNames.FuncButton, "flip",
-            new(24f, -24f, 8f), new(88f, 8f, 56f), Site.Switch, "wait", "2")
+            new(24f, -24f, 8f), new(88f, 8f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("belt"), "ToggleDirection");
 
         site.Marker("m1", new(-152f, 120f, 8f), "140 190 255");
@@ -3460,13 +3467,13 @@ public static class Sandbox
         // visible. One button doing both would show the result and hide the
         // mechanism.
         site.Brush(EntityNames.FuncButton, "swap",
-            new(-104f, -160f, 8f), new(-72f, -128f, 56f), Site.Switch, "wait", "2")
+            new(-104f, -160f, 8f), new(-72f, -128f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("aimfar"), "Activate");
 
         site.Wire("swap", "OnPressed", site.Name("pickfar"), "Activate");
 
         site.Brush(EntityNames.FuncButton, "lift",
-            new(72f, -160f, 8f), new(104f, -128f, 56f), Site.Switch, "wait", "2")
+            new(72f, -160f, 8f), new(104f, -128f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("hoist"), "Teleport");
 
         site.Marker("swapmark", new(-88f, -144f, 56f), "255 220 140", 72f);
@@ -3596,7 +3603,7 @@ public static class Sandbox
         // matters more here than it would elsewhere, because the camera holds
         // the player still while it runs.
         site.Brush(EntityNames.FuncButton, "start",
-            new(-16f, 96f, 8f), new(16f, 128f, 56f), Site.Switch, "wait", "12")
+            new(-16f, 96f, 8f), new(16f, 128f, 56f), Site.Switch, "wait", "12", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("eye"), "Enable");
 
         site.Marker("startmark", new(0f, 112f, 56f), "255 220 140", 72f);

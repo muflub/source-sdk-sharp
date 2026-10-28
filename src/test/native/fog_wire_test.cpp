@@ -444,13 +444,13 @@ TEST( FogWire, ThePlayerNetworksTheFogAndDoesNotPredictIt )
 	// Searching from FogValid meant an attribute written ABOVE it was after the
 	// start of the search and before the field -- i.e. outside the window -- and
 	// the mutation that added `[Predicted]` to FogValid left this green. The
-	// fog block is the tail of the class, so everything after the useable
-	// ladder's words (LadderForceLadder, the last of them, after WaterJumpVel)
-	// is fog and nothing else.
+	// fog block is the tail of the class, so everything after the suit's
+	// words (NewSprinting, the last of them, after the useable ladder's) is
+	// fog and nothing else.
 	const std::string stripped = ReadCode( kNetState );
-	const size_t lastPredicted = stripped.find( "public partial int LadderForceLadder" );
+	const size_t lastPredicted = stripped.find( "public partial bool NewSprinting" );
 	ASSERT_NE( lastPredicted, std::string::npos )
-		<< "LadderForceLadder is no longer the last field before the fog block, so "
+		<< "NewSprinting is no longer the last field before the fog block, so "
 		   "the window this test searches no longer means what it says";
 
 	const size_t afterIt = stripped.find( '\n', lastPredicted );

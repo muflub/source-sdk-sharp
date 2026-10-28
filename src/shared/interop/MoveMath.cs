@@ -71,10 +71,11 @@ public static class MoveMath
     public const float PunchSpringConstant = 65.0f;
 
     /// <summary>
-    /// <c>PLAYER_MAX_SAFE_FALL_SPEED</c> — shareddefs.h:416, the non-HL2 arm,
-    /// which is the arm this build compiles (neither <c>HL2_DLL</c> nor
-    /// <c>HL2_CLIENT_DLL</c> is defined; checked against the ninja file rather
-    /// than assumed).
+    /// <c>PLAYER_MAX_SAFE_FALL_SPEED</c> — shareddefs.h:410, the HL2 arm,
+    /// which is the arm stock HL2MP compiles (server_hl2mp.vpc defines
+    /// <c>HL2_DLL</c>, client_hl2mp.vpc <c>HL2_CLIENT_DLL</c>): approx. 20 feet,
+    /// sqrt( 2 * 600 * 20 * 12 ). Until 2026-10-26 this was the non-HL2 arm's
+    /// 580, which is what the fork's own build defines; HL2MP is held to here.
     ///
     /// <para>
     /// <b>THE ONE COPY.</b> Before the policy-player lane this number existed
@@ -88,14 +89,14 @@ public static class MoveMath
     /// each now and <see cref="GameMovement.PlayerMaxSafeFallSpeed"/> is this.
     /// </para>
     /// </summary>
-    public const float PlayerMaxSafeFallSpeed = 580f;
+    public const float PlayerMaxSafeFallSpeed = 526.5f;
 
     /// <summary>
-    /// <c>PLAYER_FATAL_FALL_SPEED</c> — shareddefs.h:415, the same arm. The
+    /// <c>PLAYER_FATAL_FALL_SPEED</c> — shareddefs.h:409, the same arm. The
     /// speed at which a landing does exactly 100 damage, which is what makes
     /// the slope below "100 health over the survivable range".
     /// </summary>
-    public const float PlayerFatalFallSpeed = 1024f;
+    public const float PlayerFatalFallSpeed = 922.5f;
 
     /// <summary>
     /// How much a landing hurts — stock's

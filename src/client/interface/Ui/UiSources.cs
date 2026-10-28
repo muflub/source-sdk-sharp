@@ -61,6 +61,16 @@ public interface IPlayerArmour
     int MaxArmour { get; }
 }
 
+/// <summary>The local player's suit power, HL2's AUX POWER.</summary>
+public interface IPlayerSuitPower
+{
+    /// <summary>0 to 100.</summary>
+    float SuitPower { get; }
+
+    /// <summary>The devices drawing on it (m_bitsActiveDevices): 1 sprint, 2 flashlight, 4 breather.</summary>
+    int SuitDevices { get; }
+}
+
 /// <summary>The weapon in the local player's hands.</summary>
 public interface IPlayerWeapon
 {

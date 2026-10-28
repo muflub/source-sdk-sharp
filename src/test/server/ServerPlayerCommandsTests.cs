@@ -40,8 +40,12 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         public void MoveSound(int entIndex, Vector origin, int channel, string sample, float volume, int soundLevel,
                               int flags, int pitch) { }
 
-        public void MoveSoundScript(int entIndex, Vector origin, string soundName) { }
+        public readonly List<string> Scripts = [];
+
+        public void MoveSoundScript(int entIndex, Vector origin, string soundName) => Scripts.Add(soundName);
     }
+
+    private readonly NoSounds _sounds = new();
 
     private readonly CGlobalVarsRaw* _globals = (CGlobalVarsRaw*)NativeMemory.AllocZeroed((nuint)sizeof(CGlobalVarsRaw));
     private readonly ServerModuleEngine _engine = new(TestSides.Create(Side.Server));
@@ -55,7 +59,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         _globals->interval_per_tick = 0.015f;
         _globals->frametime = 0.015f;
         _globals->maxClients = 2;
-        _commands = ServerPlayerCommands.For(_engine, EngineBound.Trace(_engine.Api), EngineBound.SurfaceProps(_engine.Api), _moves, _data, new NoSounds(), null,
+        _commands = ServerPlayerCommands.For(_engine, EngineBound.Trace(_engine.Api), EngineBound.SurfaceProps(_engine.Api), _moves, _data, _sounds, null,
                                              TestSides.Movement(_engine), Frame, _published,
                                              new Env { Raw = _globals });
     }
@@ -378,6 +382,32 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
                     "the refused push was not recorded once for its entity alone");
     }
 
+    /// <summary>SuitPower_SetCharge on the route: the player's record holds the charge.</summary>
+    [Fact]
+    public void TheRouteSetsTheRecordsSuitPower()
+    {
+        var route = ServerPlayerMovement.For(_engine, _moves, _commands);
+
+        route.SetSuitPower(Player, 100f);
+
+        Assert.Equal(100f, _moves.For(Player).Move.SuitPower);
+    }
+
+    /// <summary>
+    /// CHL2_Player::Spawn's SuitPower_SetCharge( 100 ): every spawn charges the
+    /// suit full through the player movement the module holds.
+    /// </summary>
+    [Fact]
+    public void ASpawnChargesTheSuitFull()
+    {
+        string code = File.ReadAllText(RepoLayout.Repo("src", "server", "managed", "ServerModule.cs"));
+        int at = code.IndexOf("public void OnPlayerSpawned(EntityHandle player)", StringComparison.Ordinal);
+        Assert.True(at >= 0, "the module handles a spawn");
+        string body = code[at..code.IndexOf("\n    }\n", at, StringComparison.Ordinal)];
+
+        Assert.Matches(@"_services\.Require<IEnginePlayerMovement>\(\)\.SetSuitPower\(\s*player\s*,\s*100f\s*\)\s*;", body);
+    }
+
     [Fact]
     public void ARefusalIsSaidOncePerEntity()
     {
@@ -532,6 +562,51 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
 
         Assert.True(ladders.Asked > 0, "the command's movement asked the ladders it was handed");
     }
+
+    private sealed class SprintingPlayer : IHl2PlayerMove
+    {
+        public float WalkSpeed => 150f;
+        public float NormSpeed => 190f;
+        public float SprintSpeed => 320f;
+        public bool InfiniteAuxPower => false;
+        public bool CanSprint(bool ducked, bool ducking, int waterLevel, bool sprintDisabled) => true;
+    }
+
+    /// <summary>
+    /// The HL2 player the module hands the command loop is the one it runs,
+    /// with the suit on: a +speed command with power sprints.
+    /// </summary>
+    [Fact]
+    public void TheLoopRunsTheHl2PlayerItIsHanded()
+    {
+        _commands.Hl2Player = new SprintingPlayer();
+        MoveState s = _moves.For(Player).Move;
+        s.MoveType = GameMovement.MoveTypeWalk;
+        s.SuitPower = 100f;
+        s.Buttons = GameMovement.InSpeed;   // stage 0's copy of the command's
+        var cmd = new UserCmd { CommandNumber = 1, Buttons = GameMovement.InSpeed };
+
+        Assert.Equal(1, Move(in cmd));
+
+        Assert.True(s.SuitEquipped, "the loop put the suit on");
+        Assert.True(s.NewSprinting, "the command sprinted");
+        // CMoveHelperServer::StartSound: the sound the loop named, not the swim's.
+        Assert.Equal(["HL2Player.SprintStart"], _sounds.Scripts);
+    }
+
+    [Fact]
+    public void ALoopHandedNoHl2PlayerRunsNoSuit()
+    {
+        MoveState s = _moves.For(Player).Move;
+        s.MoveType = GameMovement.MoveTypeWalk;
+        s.SuitPower = 100f;
+        s.Buttons = GameMovement.InSpeed;
+        var cmd = new UserCmd { CommandNumber = 1, Buttons = GameMovement.InSpeed };
+
+        Assert.Equal(1, Move(in cmd));
+
+        Assert.False(s.SuitEquipped || s.NewSprinting, "no suit, no sprint");
+    }
 }
 
 /// <summary>
@@ -645,6 +720,11 @@ public sealed class ServerPlayerMovementRulesTests
         s.LadderGoalPosition = new Vector(1f, 2f, 3f);
         s.LadderStartPosition = new Vector(4f, 5f, 6f);
         s.LadderForceLadder = 41;
+        s.SuitPower = 62.5f;
+        s.SuitPowerLoad = 25f;
+        s.SuitDevices = GameMovement.SuitDeviceSprint;
+        s.SuitDevicesOffTime = 7.25f;
+        s.NewSprinting = true;
         return m;
     }
 
@@ -668,6 +748,22 @@ public sealed class ServerPlayerMovementRulesTests
         Assert.Equal(new Vector(1f, 2f, 3f), state.LadderGoalPosition);
         Assert.Equal(new Vector(4f, 5f, 6f), state.LadderStartPosition);
         Assert.Equal(41, state.LadderForceLadder);
+    }
+
+    /// <summary>
+    /// HL2's suit words (m_HL2Local's power, load, devices and quiet time,
+    /// and m_bNewSprinting) are networked, so the client's replay starts from them.
+    /// </summary>
+    [Fact]
+    public void ThePublishWritesTheSuitWords()
+    {
+        var state = new PlayerNetState();
+        state.BindLocal();
+
+        PlayerMovePublisher.Write(state, Moved());
+
+        Assert.Equal((62.5f, 25f, GameMovement.SuitDeviceSprint, 7.25f, true),
+                     (state.SuitPower, state.SuitPowerLoad, state.SuitDevices, state.SuitDevicesOffTime, state.NewSprinting));
     }
 
     [Fact]

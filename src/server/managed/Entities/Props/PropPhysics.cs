@@ -34,8 +34,9 @@ public class PropPhysics : ScriptedEntity, IPhysGunTarget
     public PropPhysics(IEngineDamage damage, IEngineEntityPhysics physics, IEngineWorldQuery world,
                        IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,
                        IEngineEntityRender render, IServerPropData propData, PhysicsDamageQueue impacts,
-                       FluidTouches fluid, PhysicsSoundBatch sounds)
+                       FluidTouches fluid, PhysicsSoundBatch sounds, PlayerPickupRules pickups)
     {
+        Pickups = pickups;
         Sounds = sounds;
         Impacts = impacts;
         Fluid = fluid;
@@ -50,6 +51,9 @@ public class PropPhysics : ScriptedEntity, IPhysGunTarget
         Blast = blast;
         Decals = decals;
     }
+
+    /// <summary>What a player's +USE may do with this prop (its caps and its Use).</summary>
+    private readonly PlayerPickupRules Pickups;
 
     /// <summary>
     /// The managed blast traversal — the falloff, the line of sight and the
@@ -127,6 +131,16 @@ public class PropPhysics : ScriptedEntity, IPhysGunTarget
     /// CBaseEntity::IsInWorld, checked on every VPhysicsUpdate (props.cpp:2932).
     /// </summary>
     public readonly Output OnOutOfWorld = new();
+
+    // The gravity gun's and the player's pickups (CPhysicsProp::OnPhysGunPickup,
+    // OnPhysGunDrop and Use; props.cpp:2428-2433), each with the player as
+    // activator.
+    public readonly Output OnPhysGunPickup = new();
+    public readonly Output OnPhysGunOnlyPickup = new();
+    public readonly Output OnPhysGunPunt = new();
+    public readonly Output OnPhysGunDrop = new();
+    public readonly Output OnPlayerUse = new();
+    public readonly Output OnPlayerPickup = new();
 
     /// <summary>What a map may set on this entity. See <see cref="PropPhysicsVars"/>.</summary>
     [ScriptVars] public PropPhysicsVars Vars = new();
@@ -409,6 +423,55 @@ public class PropPhysics : ScriptedEntity, IPhysGunTarget
     [ScriptedEvent] private void OnDisableMotion() => Physics.EnableMotion(Handle, false);
 
     //-------------------------------------------------------------------------
+    // A player's +USE (CPhysicsProp::ObjectCaps and Use, props.cpp:2861, 2894).
+    //-------------------------------------------------------------------------
+
+    /// <summary>SF_PHYSPROP_ENABLE_PICKUP_OUTPUT: a +USE fires OnPlayerUse.</summary>
+    private const int EnablePickupOutput = 0x100;
+
+    /// <summary>SF_PHYSPROP_RADIUS_PICKUP: found by the radius search too.</summary>
+    private const int RadiusPickup = 0x4000;
+
+    /// <summary>
+    /// CPhysicsProp::ObjectCaps: usable when the map asked for the use output
+    /// or a player could pick it up; found in the radius when the map says.
+    /// (The episodic flare arm is hl2_episodic's.)
+    /// </summary>
+    public override UseCaps ObjectCaps
+    {
+        get
+        {
+            UseCaps caps = base.ObjectCaps;
+            int flags = SpawnFlags;
+
+            if ((flags & EnablePickupOutput) != 0 || Pickups.CanPickupObject(Handle))
+                caps |= UseCaps.ImpulseUse;
+
+            if ((flags & RadiusPickup) != 0)
+                caps |= UseCaps.UseInRadius;
+
+            return caps;
+        }
+    }
+
+    /// <summary>
+    /// CPhysicsProp::Use: a player's use fires OnPlayerUse when the map asked,
+    /// then asks to pick the prop up (which stock HL2MP refuses unless
+    /// hl2mp_allow_pickup is on).
+    /// </summary>
+    [ScriptedEvent("Use")]
+    private void OnUseInput(InputData input)
+    {
+        if (!Entities.IsPlayer(input.Activator))
+            return;
+
+        if ((SpawnFlags & EnablePickupOutput) != 0)
+            OnPlayerUse.Fire(input.Activator);
+
+        Pickups.PickupObject(input.Activator, Handle);
+    }
+
+    //-------------------------------------------------------------------------
     // The gravity gun (CPhysicsProp's IPlayerPickupVPhysics, props.cpp).
     //-------------------------------------------------------------------------
 
@@ -420,24 +483,38 @@ public class PropPhysics : ScriptedEntity, IPhysGunTarget
 
     /// <summary>
     /// CPhysicsProp::OnPhysGunPickup: a pinned prop comes loose only if its
-    /// map said the gun may free it.
+    /// map said the gun may free it, and one that stays pinned says nothing;
+    /// otherwise the pickup's outputs, in stock's order.
     /// </summary>
     void IPhysGunTarget.OnPhysGunPickup(EntityHandle player, PhysGunPickup reason)
     {
-        if (!_motionDisabled)
-            return;
+        if (_motionDisabled)
+        {
+            if ((SpawnFlags & EnableOnPhyscannon) == 0)
+                return;
 
-        if ((SpawnFlags & EnableOnPhyscannon) == 0)
-            return;
+            EnableMotion();
+        }
 
-        EnableMotion();
+        OnPhysGunPickup.Fire(player);
+
+        if (reason == PhysGunPickup.PickedUpByCannon)
+            OnPhysGunOnlyPickup.Fire(player);
+
+        if (reason == PhysGunPickup.PuntedByCannon)
+            OnPhysGunPunt.Fire(player);
+
+        if (reason is PhysGunPickup.PickedUpByCannon or PhysGunPickup.PickedUpByPlayer)
+            OnPlayerPickup.Fire(player);
     }
 
-    /// <summary>CPhysicsProp::OnPhysGunDrop: a launch marks the object thrown.</summary>
+    /// <summary>CPhysicsProp::OnPhysGunDrop: a launch marks the object thrown, and every drop says so.</summary>
     void IPhysGunTarget.OnPhysGunDrop(EntityHandle player, PhysGunDrop reason)
     {
         if (reason == PhysGunDrop.LaunchedByCannon)
             Physics.AddGameFlags(Handle, WasThrown);
+
+        OnPhysGunDrop.Fire(player);
     }
 
     [ScriptedEvent] private void OnSetHealth(float health)

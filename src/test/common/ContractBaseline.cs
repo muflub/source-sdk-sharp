@@ -955,13 +955,17 @@ public static class ContractBaseline
               + "of the build. TerminateScriptScope tears down that scope. Like "
               + "ClearContext it is the arm that would be a harmless no-op, and for "
               + "that reason is the one most worth writing down."),
-        new("input|Use", GroupUse, 33,
-            "THIRTY-THREE managed classes answer Use themselves (31 until "
+        new("input|Use", GroupUse, 40,
+            "FORTY managed classes answer Use themselves (31 until "
               + "func_physbox and func_physbox_multiplayer took CPhysBox::Use's "
-              + "OnPlayerUse, plan_physics_managed A28) -- every button, "
+              + "OnPlayerUse, plan_physics_managed A28; 33 until prop_physics, "
+              + "physics_prop, prop_physics_override, prop_physics_respawnable and "
+              + "prop_physics_multiplayer took CPhysicsProp::Use with the player's "
+              + "+USE, and 38 until item_healthcharger and item_suitcharger took "
+              + "the wall chargers' held-use machine, 2026-10-26) -- every button, "
               + "door, train and usable prop -- which makes this the entry that "
               + "most contradicts the sentence this list used to carry. It is here "
-              + "because the BASE does not answer it, and every one of the 33 had "
+              + "because the BASE does not answer it, and every one of the 40 had "
               + "to declare it independently. Closing it on the base would make the "
               + "+USE path uniform and would let the other ~212 compared classes be "
               + "used by a mapper's logic, which today they cannot be."),
@@ -1595,9 +1599,7 @@ public static class ContractBaseline
         "input|item_suitcharger|IgniteHitboxFireScale",
         "input|item_suitcharger|IgniteLifetime",
         "input|item_suitcharger|IgniteNumHitboxFires",
-        "input|item_suitcharger|Recharge",
         "input|item_suitcharger|SetBodyGroup",
-        "input|item_suitcharger|SetCharge",
         "input|item_suitcharger|SetCycle",
         "input|item_suitcharger|SetLightingOrigin",
         "input|item_suitcharger|SetLightingOriginHack",
@@ -2938,8 +2940,6 @@ public static class ContractBaseline
         "output|item_box_buckshot|OnCacheInteraction",
         "output|item_box_buckshot|OnIgnite",
         "output|item_healthcharger|OnIgnite",
-        "output|item_healthcharger|OnPlayerUse",
-        "output|item_healthcharger|OutRemainingHealth",
         "output|item_healthkit|OnCacheInteraction",
         "output|item_healthkit|OnIgnite",
         "output|item_healthvial|OnCacheInteraction",
@@ -2947,12 +2947,7 @@ public static class ContractBaseline
         "output|item_rpg_round|OnCacheInteraction",
         "output|item_rpg_round|OnIgnite",
         "output|item_sodacan|OnIgnite",
-        "output|item_suitcharger|OnEmpty",
-        "output|item_suitcharger|OnFull",
-        "output|item_suitcharger|OnHalfEmpty",
         "output|item_suitcharger|OnIgnite",
-        "output|item_suitcharger|OnPlayerUse",
-        "output|item_suitcharger|OutRemainingCharge",
         "output|momentary_rot_button|OnDamaged",
         "output|momentary_rot_button|OnIn",
         "output|momentary_rot_button|OnOut",
@@ -2964,8 +2959,6 @@ public static class ContractBaseline
         "output|physics_prop|OnPhysCannonAnimatePullStarted",
         "output|physics_prop|OnPhysCannonDetach",
         "output|physics_prop|OnPhysCannonPullAnimFinished",
-        "output|physics_prop|OnPlayerPickup",
-        "output|physics_prop|OnPlayerUse",
         "output|physics_prop|OnTakeDamage",
         "output|prop_door_rotating|OnAnimationBegun",
         "output|prop_door_rotating|OnAnimationDone",
@@ -3016,8 +3009,6 @@ public static class ContractBaseline
         "output|prop_physics_multiplayer|OnPhysCannonAnimatePullStarted",
         "output|prop_physics_multiplayer|OnPhysCannonDetach",
         "output|prop_physics_multiplayer|OnPhysCannonPullAnimFinished",
-        "output|prop_physics_multiplayer|OnPlayerPickup",
-        "output|prop_physics_multiplayer|OnPlayerUse",
         "output|prop_physics_multiplayer|OnTakeDamage",
         "output|prop_physics_override|OnIgnite",
         "output|prop_physics_override|OnPhysCannonAnimatePostStarted",
@@ -3025,8 +3016,6 @@ public static class ContractBaseline
         "output|prop_physics_override|OnPhysCannonAnimatePullStarted",
         "output|prop_physics_override|OnPhysCannonDetach",
         "output|prop_physics_override|OnPhysCannonPullAnimFinished",
-        "output|prop_physics_override|OnPlayerPickup",
-        "output|prop_physics_override|OnPlayerUse",
         "output|prop_physics_override|OnTakeDamage",
         "output|prop_physics_respawnable|OnIgnite",
         "output|prop_physics_respawnable|OnPhysCannonAnimatePostStarted",
@@ -3034,8 +3023,6 @@ public static class ContractBaseline
         "output|prop_physics_respawnable|OnPhysCannonAnimatePullStarted",
         "output|prop_physics_respawnable|OnPhysCannonDetach",
         "output|prop_physics_respawnable|OnPhysCannonPullAnimFinished",
-        "output|prop_physics_respawnable|OnPlayerPickup",
-        "output|prop_physics_respawnable|OnPlayerUse",
         "output|prop_physics_respawnable|OnTakeDamage",
         "output|prop_physics|OnIgnite",
         "output|prop_physics|OnPhysCannonAnimatePostStarted",
@@ -3043,8 +3030,6 @@ public static class ContractBaseline
         "output|prop_physics|OnPhysCannonAnimatePullStarted",
         "output|prop_physics|OnPhysCannonDetach",
         "output|prop_physics|OnPhysCannonPullAnimFinished",
-        "output|prop_physics|OnPlayerPickup",
-        "output|prop_physics|OnPlayerUse",
         "output|prop_physics|OnTakeDamage",
         "output|prop_sphere|OnAwakened",
         "output|prop_sphere|OnBreak",

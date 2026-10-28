@@ -15861,6 +15861,7 @@ entity
 	"classname" "func_button"
 	"targetname" "markers_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1451"
@@ -16325,6 +16326,7 @@ entity
 	"classname" "func_button"
 	"targetname" "health_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1485"
@@ -16713,6 +16715,7 @@ entity
 	"classname" "func_button"
 	"targetname" "ammo_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1513"
@@ -17183,6 +17186,7 @@ entity
 	"classname" "func_button"
 	"targetname" "weapons_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1548"
@@ -17657,6 +17661,7 @@ entity
 	"classname" "func_button"
 	"targetname" "propsdyn_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1583"
@@ -18062,6 +18067,7 @@ entity
 	"classname" "func_button"
 	"targetname" "propsphys_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1611"
@@ -18471,6 +18477,7 @@ entity
 	"classname" "func_button"
 	"targetname" "doors_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1640"
@@ -19073,6 +19080,7 @@ entity
 	"classname" "func_button"
 	"targetname" "buttons_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1687"
@@ -19377,6 +19385,7 @@ entity
 	"classname" "func_button"
 	"targetname" "buttons_push"
 	"wait" "2"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1713"
@@ -20016,6 +20025,7 @@ entity
 	"classname" "func_button"
 	"targetname" "movers_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1761"
@@ -20819,6 +20829,7 @@ entity
 	"classname" "func_button"
 	"targetname" "belts_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1825"
@@ -21039,6 +21050,7 @@ entity
 	"classname" "func_button"
 	"targetname" "belts_call"
 	"wait" "3"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1843"
@@ -21260,6 +21272,7 @@ entity
 	"classname" "func_button"
 	"targetname" "belts_flip"
 	"wait" "2"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1862"
@@ -21592,6 +21605,7 @@ entity
 	"classname" "func_button"
 	"targetname" "trains_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1885"
@@ -22147,6 +22161,7 @@ entity
 	"classname" "func_button"
 	"targetname" "tracks_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1924"
@@ -22780,6 +22795,7 @@ entity
 	"classname" "func_button"
 	"targetname" "turntables_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "1970"
@@ -23145,6 +23161,7 @@ entity
 	"classname" "func_button"
 	"targetname" "turntables_swing"
 	"wait" "4"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2000"
@@ -23774,6 +23791,7 @@ entity
 	"classname" "func_button"
 	"targetname" "keyframes_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2046"
@@ -24344,6 +24362,7 @@ entity
 	"classname" "func_button"
 	"targetname" "walls_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2084"
@@ -25108,6 +25127,7 @@ entity
 	"classname" "func_button"
 	"targetname" "breakable_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2147"
@@ -25633,6 +25653,7 @@ entity
 	"classname" "func_button"
 	"targetname" "forces_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2186"
@@ -26966,6 +26987,7 @@ entity
 	"classname" "func_button"
 	"targetname" "playermove_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2290"
@@ -27601,6 +27623,7 @@ entity
 	"classname" "func_button"
 	"targetname" "teleports_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2336"
@@ -28183,6 +28206,7 @@ entity
 	"classname" "func_button"
 	"targetname" "detect_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2379"
@@ -29265,6 +29289,7 @@ entity
 	"classname" "func_button"
 	"targetname" "filters_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2465"
@@ -30102,6 +30127,7 @@ entity
 	"classname" "func_button"
 	"targetname" "timing_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2526"
@@ -30578,6 +30604,7 @@ entity
 	"classname" "func_button"
 	"targetname" "branching_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2558"
@@ -30987,6 +31014,7 @@ entity
 	"classname" "func_button"
 	"targetname" "math_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2587"
@@ -31391,6 +31419,7 @@ entity
 	"classname" "func_button"
 	"targetname" "rules_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2614"
@@ -31766,6 +31795,7 @@ entity
 	"classname" "func_button"
 	"targetname" "rules_teamswitch"
 	"wait" "2"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2641"
@@ -31890,6 +31920,7 @@ entity
 	"classname" "func_button"
 	"targetname" "rules_stripswitch"
 	"wait" "2"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2651"
@@ -32358,6 +32389,7 @@ entity
 	"classname" "func_button"
 	"targetname" "constraints_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2685"
@@ -32917,6 +32949,7 @@ entity
 	"classname" "func_button"
 	"targetname" "joints_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2724"
@@ -33438,6 +33471,7 @@ entity
 	"classname" "func_button"
 	"targetname" "controllers_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2758"
@@ -33883,6 +33917,7 @@ entity
 	"classname" "func_button"
 	"targetname" "vphysics_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2789"
@@ -34440,6 +34475,7 @@ entity
 	"classname" "func_button"
 	"targetname" "sensors_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2828"
@@ -34881,6 +34917,7 @@ entity
 	"classname" "func_button"
 	"targetname" "emitters_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2858"
@@ -35680,6 +35717,7 @@ entity
 	"classname" "func_button"
 	"targetname" "physbrush_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "2918"
@@ -36828,6 +36866,7 @@ entity
 	"classname" "func_button"
 	"targetname" "spawning_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3013"
@@ -37260,6 +37299,7 @@ entity
 	"classname" "func_button"
 	"targetname" "effects_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3042"
@@ -38047,6 +38087,7 @@ entity
 	"classname" "func_button"
 	"targetname" "fire_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3098"
@@ -38516,6 +38557,7 @@ entity
 	"classname" "func_button"
 	"targetname" "retarget_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3129"
@@ -38800,6 +38842,7 @@ entity
 	"classname" "func_button"
 	"targetname" "retarget_swap"
 	"wait" "2"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3149"
@@ -38893,6 +38936,7 @@ entity
 	"classname" "func_button"
 	"targetname" "retarget_lift"
 	"wait" "2"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3157"
@@ -39253,6 +39297,7 @@ entity
 	"classname" "func_button"
 	"targetname" "camera_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3182"
@@ -39457,6 +39502,7 @@ entity
 	"classname" "func_button"
 	"targetname" "camera_start"
 	"wait" "12"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3197"
@@ -39791,6 +39837,7 @@ entity
 	"classname" "func_button"
 	"targetname" "inert_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3220"
@@ -40512,6 +40559,7 @@ entity
 	"classname" "func_button"
 	"targetname" "soundscape_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3274"
@@ -41164,6 +41212,7 @@ entity
 	"classname" "func_button"
 	"targetname" "notices_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3319"
@@ -41716,6 +41765,7 @@ entity
 	"classname" "func_button"
 	"targetname" "visibility_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3354"
@@ -42878,6 +42928,7 @@ entity
 	"classname" "func_button"
 	"targetname" "weather_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3448"
@@ -43783,6 +43834,7 @@ entity
 	"classname" "func_button"
 	"targetname" "trails_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3516"
@@ -44589,6 +44641,7 @@ entity
 	"classname" "func_button"
 	"targetname" "water_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3568"
@@ -45061,6 +45114,7 @@ entity
 	"classname" "func_button"
 	"targetname" "worldfx_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3602"
@@ -45714,6 +45768,7 @@ entity
 	"classname" "func_button"
 	"targetname" "oneshots_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3646"
@@ -46283,6 +46338,7 @@ entity
 	"classname" "func_button"
 	"targetname" "sprites_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3684"
@@ -46818,6 +46874,7 @@ entity
 	"classname" "func_button"
 	"targetname" "tempents_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3715"
@@ -47704,6 +47761,7 @@ entity
 	"classname" "func_button"
 	"targetname" "ladders_button"
 	"wait" "1"
+	"spawnflags" "1024"
 	solid
 	{
 		"id" "3781"

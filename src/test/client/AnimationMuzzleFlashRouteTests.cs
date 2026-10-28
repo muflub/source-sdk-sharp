@@ -23,6 +23,10 @@ public class AnimationMuzzleFlashRouteTests
         public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null)
         {
         }
+
+        public void StopFrom(EntityHandle entity, string soundName)
+        {
+        }
     }
 
     private sealed class Flashes : ILegacyMuzzleFlashes

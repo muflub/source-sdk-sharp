@@ -22,6 +22,18 @@ public interface IServerPlayerMovementRoute
     /// <summary>m_Local.m_bSlowMovement.</summary>
     void SetSlowMovement(EntityHandle player, bool slow);
 
+    /// <summary><c>SuitPower_SetCharge</c>: the record's suit power.</summary>
+    void SetSuitPower(EntityHandle player, float power);
+
+    /// <summary>The record's old buttons take IN_USE (PlayerUse's debounce).</summary>
+    void SwallowUse(EntityHandle player);
+
+    /// <summary>The record's PlayUseDenySound set.</summary>
+    void QueueUseDenySound(EntityHandle player);
+
+    /// <summary>The record's PlayUseDenySound, cleared.</summary>
+    bool TakeUseDenySound(EntityHandle player);
+
     /// <summary>The observer mode, and the move type it implies (CStandalonePlayer::SetObserver's half).</summary>
     void SetObserverMode(EntityHandle player, int mode);
 

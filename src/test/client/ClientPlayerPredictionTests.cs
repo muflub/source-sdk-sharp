@@ -77,6 +77,7 @@ public class ClientPlayerPredictionTests
         public float TickInterval = 0.015f;
 
         public float ForwardMove;
+        public int Buttons;
 
         public bool TryGetUserCmd(int commandNumber, out UserCmd cmd)
         {
@@ -88,6 +89,7 @@ public class ClientPlayerPredictionTests
             cmd.CommandNumber = commandNumber;
             cmd.TickCount = commandNumber;
             cmd.ForwardMove = ForwardMove;
+            cmd.Buttons = Buttons;
             return true;
         }
 
@@ -162,6 +164,9 @@ public class ClientPlayerPredictionTests
     private static Bench Build(params int[] ringCommands) => Build(null, ringCommands);
 
     private static Bench Build(ILadderWorld? ladders, params int[] ringCommands)
+        => Build(ladders, null, ringCommands);
+
+    private static Bench Build(ILadderWorld? ladders, IHl2PlayerMove? hl2Player, params int[] ringCommands)
     {
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
@@ -204,8 +209,50 @@ public class ClientPlayerPredictionTests
                                                     runner,
                                                     null, new PredictionErrorRing(),
                                                     NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
-                                                    ladders: ladders),
+                                                    ladders: ladders, hl2Player: hl2Player),
         };
+    }
+
+    private sealed class Hl2Player : IHl2PlayerMove
+    {
+        public float WalkSpeed => 150f;
+        public float NormSpeed => 190f;
+        public float SprintSpeed => 320f;
+        public bool InfiniteAuxPower => false;
+        public bool CanSprint(bool ducked, bool ducking, int waterLevel, bool sprintDisabled) => true;
+    }
+
+    /// <summary>
+    /// The replay runs HL2MP's player from the suit words the server's state
+    /// carries (m_HL2Local, predicted as stock predicts it): +speed with power
+    /// starts the sprint device and saves it; with no HL2 player, base
+    /// CGameMovement, it saves no sprint.
+    /// </summary>
+    [Fact]
+    public void TheReplaySprintsOnTheSuitPowerTheServerSent()
+    {
+        PlayerNetState Saved(IHl2PlayerMove? hl2, float power)
+        {
+            var bench = Build(null, hl2, 11);
+            bench.Player.State.SuitPower = power;
+            bench.Replay.Buttons = 1 << 17;   // IN_SPEED
+
+            bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                    outgoingCommand: 11, worldUpdateArrived: false);
+
+            Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+            var saved = new PlayerNetState();
+            saved.BindLocal();
+            saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+            return saved;
+        }
+
+        PlayerNetState sprinting = Saved(new Hl2Player(), 50f);
+        Assert.True(sprinting.NewSprinting, "a +speed with power sprints");
+        Assert.Equal((GameMovement.SuitDeviceSprint, 25f), (sprinting.SuitDevices, sprinting.SuitPowerLoad));
+
+        Assert.False(Saved(new Hl2Player(), 5f).NewSprinting, "too little power to start one");
+        Assert.False(Saved(null, 50f).NewSprinting, "no HL2 player, no sprint");
     }
 
     /// <summary>One ladder, entity 7, from (0,32,0) to (0,32,128).</summary>

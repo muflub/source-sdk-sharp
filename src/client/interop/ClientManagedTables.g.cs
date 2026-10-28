@@ -318,11 +318,7 @@ public unsafe struct ManagedBeamsClientTable
     [SlotHash(0x86461d22)]
     public delegate* unmanaged<void*, uint, float, void> BeamsKillDead;
 
-    // 5: int32_t BeamsCreate( int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime )
-    [SlotHash(0x0d2e11b0)]
-    public delegate* unmanaged<void*, int, void*, void*, byte*, byte*, float, int> BeamsCreate;
-
-    // 6: void BeamsDraw( int32_t nRenderable )
+    // 5: void BeamsDraw( int32_t nRenderable )
     [SlotHash(0xc83e311d)]
     public delegate* unmanaged<void*, int, void> BeamsDraw;
 }

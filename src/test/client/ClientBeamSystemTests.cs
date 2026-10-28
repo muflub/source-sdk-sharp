@@ -160,35 +160,23 @@ public class ClientBeamSystemTests
         public void Update() => Beams.Update(Clock.Now, 1f / 60f);
     }
 
-    // ForwardBeamInfo's payload: a ring point around (0 0 64), 16 to 128 wide.
-    private static (int[] Ints, float[] Floats) RingPointPayload()
-    {
-        int[] ints = new int[BeamsClientBinding.Ints];
-        float[] floats = new float[BeamsClientBinding.Floats];
-
-        ints[0] = (int)BeamType.RingPoint;
-        ints[1] = -1;                   // start entity: none
-        ints[3] = -1;                   // end entity: none
-        ints[5] = Sprite;               // model index (a ring point does not resolve names)
-        ints[6] = -1;                   // halo index
-        ints[8] = 1;                    // renderable
-        ints[9] = -1;                   // segments: the default
-        floats[6] = 0; floats[7] = 0; floats[8] = 64;     // centre
-        floats[10] = 2f;                // life
-        floats[11] = 4f;                // width
-        floats[12] = 4f;                // end width
-        floats[15] = 255f;              // brightness
-        floats[18] = 255f; floats[19] = 128f; floats[20] = 0f;
-        floats[21] = 16f;               // start radius
-        floats[22] = 128f;              // end radius
-        return (ints, floats);
-    }
-
+    // A ring point around (0 0 64), 16 to 128 wide, as the temp entity
+    // backends create one.
     private static bool CreateRingPoint(Rig rig)
     {
-        (int[] ints, float[] floats) = RingPointPayload();
-        return rig.Beams.Create(4, ints, floats, "sprites/laserbeam.vmt", null, rig.Clock.Now);
+        long before = rig.Beams.Counters.Created;
+        rig.Beams.CreateBeamRingPoint(new Vector(0, 0, 64), 16f, 128f, Sprite, -1, 0f, 2f, 4f, 4f, 0f, 0f, 255f,
+                                      0f, 0, 0f, 255f, 128f, 0f, 0);
+        return rig.Beams.Counters.Created == before + 1;
     }
+
+    // A straight beam from the origin along x, its sprite named.
+    private static BeamInfo PointsAlongX(float life) => new()
+    {
+        End = new Vector(100, 0, 0),
+        Life = life,
+        ModelName = "sprites/laserbeam.vmt",
+    };
 
     [Fact]
     public void RDrawBeamsIsTheEnginesReadByNameAndAMissingOneIsStocksDefault()
@@ -225,16 +213,8 @@ public class ClientBeamSystemTests
     public void ABeamInfoPointsBeamResolvesItsSpriteByName()
     {
         var rig = new Rig();
-        int[] ints = new int[BeamsClientBinding.Ints];
-        float[] floats = new float[BeamsClientBinding.Floats];
-        ints[1] = ints[3] = -1;
-        ints[5] = ints[6] = -1;
-        ints[8] = 1;
-        ints[9] = -1;
-        floats[3] = 100;                // end x
-        floats[10] = 1;                 // life
 
-        Assert.True(rig.Beams.Create(2, ints, floats, "sprites/laserbeam.vmt", null, rig.Clock.Now));
+        rig.Beams.CreateBeamPoints(PointsAlongX(1f));
         Assert.Equal(Sprite, Assert.Single(rig.Beams.Bookkeeping.Active).ModelIndex);
     }
 
@@ -244,18 +224,11 @@ public class ClientBeamSystemTests
         var rig = new Rig();
         // Above the beam, where the view origin is off to one side of it.
         rig.Exec.Camera = new Vector(50, 0, 300);
-        int[] ints = new int[BeamsClientBinding.Ints];
-        float[] floats = new float[BeamsClientBinding.Floats];
-        ints[1] = ints[3] = -1;
-        ints[5] = ints[6] = -1;
-        ints[8] = 1;
-        ints[9] = -1;
-        floats[3] = 100;                // end x: a straight beam along x
-        floats[10] = 2;                 // life
-        floats[11] = floats[12] = 4;    // width
-        floats[15] = 255;               // brightness
-        floats[18] = floats[19] = floats[20] = 255;
-        Assert.True(rig.Beams.Create(2, ints, floats, "sprites/laserbeam.vmt", null, rig.Clock.Now));
+        BeamInfo info = PointsAlongX(2f);
+        info.Width = info.EndWidth = 4f;
+        info.Brightness = 255f;
+        info.Red = info.Green = info.Blue = 255f;
+        rig.Beams.CreateBeamPoints(info);
         rig.Update();
 
         rig.Beams.Draw(Assert.Single(rig.Beams.Bookkeeping.Active).Renderable);
@@ -496,30 +469,6 @@ public class ClientBeamSystemTests
         // The restored system answers the renderable native still holds.
         restored.Beams.Draw(after.Renderable);
         Assert.Equal("bind 7", restored.Exec.Draws[0]);
-    }
-
-    [Fact]
-    public void TheBindingDecodesThePayloadAndAnUnboundTargetIsANoOp()
-    {
-        var rig = new Rig();
-        (int[] ints, float[] floats) = RingPointPayload();
-        byte[] name = "sprites/laserbeam.vmt\0"u8.ToArray();
-
-        unsafe
-        {
-            fixed (int* pi = ints)
-            fixed (float* pf = floats)
-            fixed (byte* pn = name)
-            {
-                var unbound = new BeamsClientBinding(() => null);
-                Assert.Equal(0, unbound.BeamsCreate(4, pi, pf, pn, null, 10f));
-
-                var bound = new BeamsClientBinding(() => rig.Beams);
-                Assert.Equal(1, bound.BeamsCreate(4, pi, pf, pn, null, 10f));
-            }
-        }
-
-        Assert.Equal(Sprite, Assert.Single(rig.Beams.Bookkeeping.Active).ModelIndex);
     }
 
     [Fact]

@@ -56,9 +56,16 @@ public sealed class FuncButton : ScriptedEntity
 
         /// <summary>SF_BUTTON_DAMAGE_ACTIVATES: being shot is how it is pressed.</summary>
         DamageActivates = 512,
+
+        /// <summary>SF_BUTTON_USE_ACTIVATES: a player's +USE presses it.</summary>
+        UseActivates = 1024,
     }
 
     private SpawnFlag Flags => SpawnFlagsAs<SpawnFlag>();
+
+    /// <summary>CBaseButton::ObjectCaps: usable, and found in the radius, when use activates it.</summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | (Flags.HasFlag(SpawnFlag.UseActivates) ? UseCaps.ImpulseUse | UseCaps.UseInRadius : UseCaps.None);
 
     /// <summary>What a map may set on this entity. See <see cref="FuncButtonVars"/>.</summary>
     [ScriptVars] public FuncButtonVars Vars = new();

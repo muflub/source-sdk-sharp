@@ -190,6 +190,8 @@ public class BulletImpactEffectTests
         public readonly List<(EntityHandle Entity, string Name, Vector? Origin)> Emits = [];
 
         public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null) => Emits.Add((entity, soundName, origin));
+
+        public void StopFrom(EntityHandle entity, string soundName) { }
     }
 
     private sealed class Harness

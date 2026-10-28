@@ -1153,6 +1153,17 @@ public abstract class ScriptedEntity
     public int SpawnFlags => Entities.GetSpawnFlags(Handle);
 
     /// <summary>
+    /// CBaseEntity::ObjectCaps, its use bits: what a player's +USE may do with
+    /// this entity (PlayerUse). An entity with a parent answers the parent's
+    /// usable bits, so a use on a part reaches the thing it is part of; a class
+    /// that is used itself adds its own.
+    /// </summary>
+    public virtual UseCaps ObjectCaps
+        => FindByHandle<ScriptedEntity>(Entities.GetParent(Handle)) is { } parent
+            ? parent.ObjectCaps & UseCaps.Usable
+            : UseCaps.None;
+
+    /// <summary>
     /// Spawnflags as an entity's own enum.
     ///
     /// <para>

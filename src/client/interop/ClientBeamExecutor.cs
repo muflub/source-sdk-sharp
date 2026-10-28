@@ -10,46 +10,19 @@ public interface IClientBeamCallbacks
     void Lifecycle(int op, int arg);
     void Update(float curTime, float frameTime);
     void KillDead(EntityHandle entity, float curTime);
-    bool Create(int kind, ReadOnlySpan<int> ints, ReadOnlySpan<float> floats, string? model, string? halo, float curTime);
     void Draw(int renderable);
 }
 
-/// <summary>
-/// The managed-built IManagedBeamsClient: native's `beams` forwards here. The
-/// payload widths are shell_beam_render.cpp's ForwardBeamInfo.
-/// </summary>
+/// <summary>The managed-built IManagedBeamsClient: native's `beams` forwards here.</summary>
 public sealed unsafe class BeamsClientBinding(Func<IClientBeamCallbacks?> target) : IManagedBeamsClient
 {
-    /// <summary>BeamInfo_t's ints and floats, as ForwardBeamInfo packs them.</summary>
-    public const int Ints = 11, Floats = 23;
-
     public void BeamsLifecycle(int a0, int a1) => target()?.Lifecycle(a0, a1);
 
     public void BeamsUpdate(float a0, float a1) => target()?.Update(a0, a1);
 
     public void BeamsKillDead(uint a0, float a1) => target()?.KillDead(new EntityHandle(a0), a1);
 
-    public int BeamsCreate(int a0, void* a1, void* a2, byte* a3, byte* a4, float a5)
-    {
-        IClientBeamCallbacks? t = target();
-        if (t is null || a1 == null || a2 == null)
-            return 0;
-
-        return t.Create(a0, new ReadOnlySpan<int>(a1, Ints), new ReadOnlySpan<float>(a2, Floats),
-                        Utf8(a3), Utf8(a4), a5) ? 1 : 0;
-    }
-
     public void BeamsDraw(int a0) => target()?.Draw(a0);
-
-    private static string? Utf8(byte* p)
-    {
-        if (p == null)
-            return null;
-        int n = 0;
-        while (p[n] != 0)
-            n++;
-        return Encoding.UTF8.GetString(p, n);
-    }
 }
 
 /// <summary>The real executor, over the IShimEffectsRenderClient api.</summary>

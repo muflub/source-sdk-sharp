@@ -66,6 +66,11 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         state.LadderGoalPosition = s.LadderGoalPosition;
         state.LadderStartPosition = s.LadderStartPosition;
         state.LadderForceLadder = s.LadderForceLadder;
+        state.SuitPower = s.SuitPower;
+        state.SuitPowerLoad = s.SuitPowerLoad;
+        state.SuitDevices = s.SuitDevices;
+        state.SuitDevicesOffTime = s.SuitDevicesOffTime;
+        state.NewSprinting = s.NewSprinting;
     }
 
     /// <summary>
@@ -128,6 +133,11 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         s.LadderGoalPosition = state.LadderGoalPosition;
         s.LadderStartPosition = state.LadderStartPosition;
         s.LadderForceLadder = state.LadderForceLadder;
+        s.SuitPower = state.SuitPower;
+        s.SuitPowerLoad = state.SuitPowerLoad;
+        s.SuitDevices = state.SuitDevices;
+        s.SuitDevicesOffTime = state.SuitDevicesOffTime;
+        s.NewSprinting = state.NewSprinting;
         move.PreviouslyPredictedOrigin = state.Origin;
         return true;
     }

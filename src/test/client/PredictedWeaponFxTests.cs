@@ -32,6 +32,8 @@ public class PredictedWeaponFxTests
 
         public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null)
             => Emitted.Add((entity, soundName));
+
+        public void StopFrom(EntityHandle entity, string soundName) { }
     }
 
     internal sealed class Dispatcher : IClientEffectDispatch

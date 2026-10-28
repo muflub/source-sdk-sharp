@@ -22,6 +22,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PropDoorRotating, ScriptedEntityKind.Prop)]
 public sealed class PropDoorRotating : ScriptedEntity
 {
+    /// <summary>SF_DOOR_IGNORE_USE: the door ignores a player's +USE altogether.</summary>
+    private const int IgnoreUseFlag = 32768;
+
+    /// <summary>CBasePropDoor::ObjectCaps: usable, and found in the radius, unless it ignores use.</summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | ((SpawnFlags & IgnoreUseFlag) == 0 ? UseCaps.ImpulseUse | UseCaps.UseInRadius : UseCaps.None);
+
     public readonly Output OnOpen = new();
     public readonly Output OnClose = new();
     public readonly Output OnFullyOpen = new();

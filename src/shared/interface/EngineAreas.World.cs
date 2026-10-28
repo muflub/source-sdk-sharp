@@ -657,5 +657,10 @@ public interface IEngineVisibility
 /// <summary>A sound script's CSoundParameters: volume, pitch and its range, and soundlevel.</summary>
 public readonly record struct SoundScriptParams(float Volume, int Pitch, int PitchLow, int PitchHigh, int SoundLevel);
 
-/// <summary>UTIL_TraceEntity's answer: where the hull stopped, and whether it started or stayed in solid.</summary>
-public readonly record struct EntityHullTrace(Vector EndPos, bool StartSolid, bool AllSolid);
+/// <summary>
+/// UTIL_TraceEntity's answer: where the hull stopped, whether it started or
+/// stayed in solid, what stopped it (None for nothing) and how far it got
+/// (1 for the whole way).
+/// </summary>
+public readonly record struct EntityHullTrace(Vector EndPos, bool StartSolid, bool AllSolid,
+                                              EntityHandle Entity = default, float Fraction = 0f);

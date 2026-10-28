@@ -143,6 +143,17 @@ public sealed class ServerPlayerCommands
         set => _loop.Ladders = value;
     }
 
+    /// <summary>
+    /// HL2MP's player, whose speeds and suit the loop runs (CHL2GameMovement's
+    /// CheckParameters and ReduceTimers); null is base CGameMovement's own max
+    /// speed and no suit.
+    /// </summary>
+    public IHl2PlayerMove? Hl2Player
+    {
+        get => _loop.Hl2Player;
+        set => _loop.Hl2Player = value;
+    }
+
     /// <summary>The three stages, as <see cref="PlayerCommandQueue.Run"/> calls them. Built once.</summary>
     public PlayerCommandStage Stage => _stage ??= RunStage;
 
@@ -248,6 +259,7 @@ public sealed class ServerPlayerCommands
         s.EntIndex = _facts.EntIndex;
         s.InAVehicle = false;
         s.IsServer = true;
+        s.SuitEquipped = _loop.Hl2Player is not null;
         s.CurrentGravity = frame.CurrentGravity;
         s.OnLadder = _data.OnLadder;
         s.OldWaterLevel = _data.OldWaterLevel;

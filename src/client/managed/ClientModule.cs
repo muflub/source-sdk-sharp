@@ -137,6 +137,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private readonly ConCommandRegistry _commands = new();
     private ClientArsenal _clientArsenal = null!;
     private WeaponEffects.WeaponDrawEffects? _weaponEffects;
+    private UnderwaterAmbience? _underwater;
     private ClientPlayerPrediction _prediction = null!;
 
     /// <summary>The viewer's world fog — plan_entity.md step 8e-render.</summary>
@@ -2061,6 +2062,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // from inside the prediction frame now that both halves are managed.
         // The useable ladders the replay climbs, over the client's entities.
         _services.AddInstance<ILadderWorld>(new ClientUseableLadders(_standalones, _convars));
+        // And HL2MP's player speeds and suit power, which it runs as the server does.
+        _services.AddInstance<IHl2PlayerMove>(new ClientHl2PlayerMove(_convars));
         _prediction = _services.Create<ClientPlayerPrediction>();
 
         // THE OBSERVER'S CAMERA (C7 item 5), after the standalones and the HUD
@@ -2162,6 +2165,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             ],
             _clientArsenal);
         _services.AddInstance<WeaponEffects.IWeaponDrawEffects>(_weaponEffects);
+        _underwater = _services.Create<UnderwaterAmbience>();
 
         IEngineConsole inputConsole = _services.Require<IEngineConsole>();
         _services.AddInstance<IDebugClientInput>(new ClientDebugInput(_inputService, inputCvars, inputHost,
@@ -2362,6 +2366,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The carried weapons' own client thinks (their draw effects').
         _weaponEffects?.Frame(frameTime);
+
+        // The local player's underwater ambience (its PreThink's UpdateUnderwaterState).
+        _underwater?.Frame();
     }
 
     /// <summary>

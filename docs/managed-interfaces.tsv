@@ -132,7 +132,6 @@ IManagedSaveRestoreClient	SaveReadFields	int32_t	void *pSave, const char *pszNam
 IManagedBeamsClient	BeamsLifecycle	void	int32_t nOp, int32_t nArg
 IManagedBeamsClient	BeamsUpdate	void	float flCurTime, float flFrameTime
 IManagedBeamsClient	BeamsKillDead	void	uint32_t hEntity, float flCurTime
-IManagedBeamsClient	BeamsCreate	int32_t	int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime
 IManagedBeamsClient	BeamsDraw	void	int32_t nRenderable
 IManagedDiagnosticsClient	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
 IManagedDiagnosticsClient	Md5PseudoRandom	uint32_t	uint32_t nSeed

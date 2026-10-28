@@ -1834,6 +1834,21 @@ internal sealed unsafe partial class EnginePlayerMovement
         _playerMoves.Target?.SetSlowMovement(player, slow);
     }
 
+    /// <inheritdoc/>
+    public void SetSuitPower(EntityHandle player, float power)
+    {
+        _playerMoves.Target?.SetSuitPower(player, power);
+    }
+
+    /// <inheritdoc/>
+    public void SwallowUse(EntityHandle player) => _playerMoves.Target?.SwallowUse(player);
+
+    /// <inheritdoc/>
+    public void QueueUseDenySound(EntityHandle player) => _playerMoves.Target?.QueueUseDenySound(player);
+
+    /// <inheritdoc/>
+    public bool TakeUseDenySound(EntityHandle player) => _playerMoves.Target?.TakeUseDenySound(player) ?? false;
+
     /// <summary>
     /// Sets the player's move type from outside a movement frame, and answers
     /// the one it had BEFORE the write.

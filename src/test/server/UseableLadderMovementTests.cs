@@ -176,6 +176,41 @@ public sealed class UseableLadderMovementTests
     }
 
     /// <summary>
+    /// SwallowUseKey clears m_bPlayUseDenySound (hl_gamemovement.cpp:69): a
+    /// +USE that found no use target but mounted a ladder plays no deny sound
+    /// after the move (PlayerUse queues it before the move, the move takes it).
+    /// </summary>
+    [Fact]
+    public void A_use_that_mounts_a_ladder_takes_back_the_deny_sound()
+    {
+        var ladders = Ladders.One();
+        MoveState s = Standing();
+        s.Buttons = InUse;
+        s.PlayUseDenySound = true;
+
+        Loop(ladders).ProcessMovement(s);
+
+        Assert.True(s.LadderForceMount, "the control: the press mounted the ladder");
+        Assert.False(s.PlayUseDenySound);
+    }
+
+    /// <summary>
+    /// The same press with no ladder in front leaves the deny sound due.
+    /// </summary>
+    [Fact]
+    public void A_use_with_no_ladder_leaves_the_deny_sound_due()
+    {
+        MoveState s = Standing();
+        s.Buttons = InUse;
+        s.PlayUseDenySound = true;
+
+        Loop(new Ladders()).ProcessMovement(s);
+
+        Assert.False(s.LadderForceMount);
+        Assert.True(s.PlayUseDenySound);
+    }
+
+    /// <summary>
     /// Base CGameMovement's brush ladder is not HL2MP's: OnLadder answers from
     /// the player's ladder, so a trace into CONTENTS_LADDER while walking at it
     /// leaves the player walking.

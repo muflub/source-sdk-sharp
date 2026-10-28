@@ -480,12 +480,12 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemAmmoSmg1Grenade.cs
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemAmmoSmg1Large.cs	no	data-only entity declaration (model, ammo count), no logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemBattery.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemBoxBuckshot.cs	no	data-only entity declaration (model, ammo count), no logic
-src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthCharger.cs	no	explicitly diverges from stock's hold-to-drain behaviour, own design
+src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthCharger.cs	yes	ports CNewWallHealth (item_healthkit.cpp:408-670) on WallCharger, since 2026-10-26: its model, juice, sounds and outputs
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthkit.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthvial.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemRpgRound.cs	no	data-only entity declaration (model, ammo count), no logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemSodacan.cs	yes	ports CItemSoda::Spawn/CanThink/CanTouch timing and health gain (effects.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemSuitCharger.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
+src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemSuitCharger.cs	yes	ports CNewRecharge (func_recharge.cpp:334-790) on WallCharger, since 2026-10-26: its charges, UpdateJuice, inputs and outputs
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/PickupItem.cs	no	original respawn/touch design, not a literal port of CItem
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/SsPickup.cs	no	thin relay to pickup directory, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Lights/InfoLightingRelative.cs	no	discusses CInfoLightingRelative but explicitly omits its offset logic
