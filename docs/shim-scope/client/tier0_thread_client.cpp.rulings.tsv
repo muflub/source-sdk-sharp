@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-bool ThreadInMainThread()	HOST	threadtools.h's ThreadInMainThread over tier0_thread_port.cpp's ThreadGetCurrentId (C9 tier0)
-double Plat_FloatTime()	LIVE-API	particlemgr.o's Begin/EndSimulateParticles import it (lld without -ltier0, 2026-10-18); a difference of two readings

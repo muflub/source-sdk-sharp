@@ -1,6 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CSourceSharpLoadingDisc] virtual void Create( vgui::VPANEL parent ) OVERRIDE	SLOT	ILoadingDisc's slot vgui_int.cpp calls: the panels are the UI's, nothing to make
-[CSourceSharpLoadingDisc] virtual void Destroy() OVERRIDE	SLOT	ILoadingDisc's slot vgui startup calls: nothing to destroy
-[CSourceSharpLoadingDisc] virtual void SetLoadingVisible( bool bVisible ) OVERRIDE	SLOT	ILoadingDisc's slot nothing calls now (the plaques are decided managed from PlaqueState)
-[CSourceSharpLoadingDisc] virtual void SetPausedVisible( bool bVisible, float flExpireTime ) OVERRIDE	SLOT	ILoadingDisc's slot nothing calls now (the plaques are decided managed from PlaqueState)

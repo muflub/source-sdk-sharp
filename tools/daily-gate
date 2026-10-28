@@ -407,7 +407,7 @@ def run_step(report, name, cmd, cwd, env, log):
 
 def setup_stamp(wt, fork):
     h = hashlib.sha256(os.path.realpath(fork).encode())
-    for rel in ("sdk-root.lock", "tools/setup", "tools/module-map.tsv"):
+    for rel in ("valve-sdk.lock", "sdk-root.lock", "tools/setup", "tools/module-map.tsv"):
         try:
             h.update(open(os.path.join(wt, rel), "rb").read())
         except OSError:

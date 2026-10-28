@@ -1,7 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CClientDLLSharedAppSystems] CClientDLLSharedAppSystems()	HOOK	the two app systems the engine loads for the client (stock's list)
-[CClientDLLSharedAppSystems] virtual int Count()	SLOT	IClientDLLSharedAppSystems::Count
-[CClientDLLSharedAppSystems] virtual char const *GetDllName( int idx )	SLOT	IClientDLLSharedAppSystems::GetDllName
-[CClientDLLSharedAppSystems] virtual char const *GetInterfaceName( int idx )	SLOT	IClientDLLSharedAppSystems::GetInterfaceName
-[CClientDLLSharedAppSystems] void AddAppSystem( char const *moduleName, char const *interfaceName )	HOOK	a row of the list

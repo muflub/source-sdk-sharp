@@ -1,5 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void CHLVoiceStatusHelper::GetPlayerTextColor( int entindex, int color[3] )	SLOT	IVoiceStatusHelper, which the voice manager calls: stock HL2MP's grey
-void CHLVoiceStatusHelper::UpdateCursorState()	SLOT	IVoiceStatusHelper: nothing
-bool CHLVoiceStatusHelper::CanShowSpeakerLabels()	SLOT	IVoiceStatusHelper: stock's true

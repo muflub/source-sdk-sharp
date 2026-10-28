@@ -8,9 +8,7 @@ src/abi/EngineBlock.cs	generates engine_block_generated.h, which carries the att
 tools/valve-header.txt	the attribution header itself	header
 tools/valve-header	applies and checks the header, so it names the copyright line	header
 tools/valve-text-audit	detects stray Valve copyright lines, so it spells one in its self-test	header
-tools/move-classify	detects a Valve copyright header (rule 1), so it spells one	header
 docs/plans/plan_sharp_repo.md	quotes the attribution header byte for byte	header
 ledger:relocated Valve code, kept local by user decision 2026-09-27	the fork's src/sourcesharp relocated/split Valve code (VALVE-DERIVED), kept in this repo as local files by user decision 2026-09-27; each carries the attribution header (ledger valve_header=yes); the fork's copies go at Phase 9.5	text
-patches/source-sdk-2013/	the fork's edits to Valve files as a git format-patch series on stock upstream (make sdk-upstream): its context and removed lines are Valve's text by construction; requested by the user 2026-10-12
 vendor/	the Valve SDK files server.so and client.so build from (vendor/README.md): copied from the pristine SDK at valve-sdk.lock and trimmed by tools/vendor; requested by the user 2026-10-25
 src/server/native/ss_effect_dispatch.h	CEffectData re-declared for server.so: its members, their order and the constructor's defaults must be stock's (TE_DispatchEffect reads it field by field), so under the tree's one clang-format style the 14 member and Init() lines read as effect_dispatch_data.h does; ported under the Valve header (docs/valve-header-new.tsv)	text

@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-int ScreenTransform( const Vector &point, Vector &screen )	SLOT-HELP	view_scene.cpp's world-to-screen projection for c_pixel_visibility.cpp: the engine's matrix through ViewFrustumTransform
-void UpdateFullScreenDepthTexture()	SLOT-HELP	view_scene.cpp's depth copy, for stock viewrender's stock path; the plan's executor runs it as an op managed placed

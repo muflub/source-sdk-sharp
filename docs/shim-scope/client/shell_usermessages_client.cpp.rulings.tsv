@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-int32_t SourceSharp_ClientViewportQuery( const char *pszPanel )	BOUNDARY	the two facts MsgFunc_VGUIMenu read off native state (the viewport has the panel, the client mode allows info panels) for managed's decision
-void SourceSharp_ClientViewportShow( const char *pszPanel, int32_t bShow, const unsigned char *pPairs, int32_t nPairBytes, int32_t nFlags )	BOUNDARY	MsgFunc_VGUIMenu's effects carried out, each only when managed's flags ask for it: its name/value pairs decoded into the panel's KeyValues, the screenshot time and the ds_screenshot event (at stock's 1 s and 0.5 s), InfoPanelDisplayed, and the show or hide

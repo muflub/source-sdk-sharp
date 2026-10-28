@@ -1,7 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void SourceSharp_WindPublish( const float *pWind, const float *pSway, int32_t nWinds )	SLOT	IShimEffectsRenderClient::WindPublish: stores the head wind managed simulated and sets the tree-sway shader parameter
-void ResetWindspeed()	BOUNDARY	stock's level-init reset of the published wind (shell_clientdll.cpp calls it)
-Vector GetWindspeedAtLocation( const Vector &location )	BOUNDARY	the stock entry point c_rope/particles read: zero, as no controller in this build has a radius
-void GetWindspeedAtTime( float flTime, Vector &vecVelocity )	BOUNDARY	the stock entry point the four section-6 readers call: the published head wind
-CON_COMMAND( cs_cl_wind_report, "" )	INSTRUMENT	the f-wind gate's readout of the published wind

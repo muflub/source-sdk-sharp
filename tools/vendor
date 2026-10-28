@@ -59,7 +59,7 @@ SIDE_TARGETS = {
 }
 # Static libraries a module links, built from Valve sources: their objects
 # count for every side whose module links them.
-LIB_TARGETS = {"raytrace": ()}
+LIB_TARGETS = {}
 # Built from the pristine clone: they read no vendor/ file and no fork file.
 STOCK_TARGETS = ("ss_particles", "tier1", "mathlib")
 
@@ -104,10 +104,10 @@ def read_first(path):
 
 
 def valve_roots():
-    """The Valve trees a module may still read outside vendor/: the fork
-    (sdk-root.lock.local) and the pristine clone (valve-sdk.lock.local)."""
+    """The Valve tree a module may still read outside vendor/: the pristine
+    clone (valve-sdk.lock.local), which the farm links from."""
     roots = {}
-    for name, lock in (("fork", "sdk-root.lock.local"), ("stock", "valve-sdk.lock.local")):
+    for name, lock in (("stock", "valve-sdk.lock.local"),):
         p = os.path.join(REPO, lock)
         if os.path.exists(p):
             roots[name] = os.path.realpath(read_first(p))
@@ -135,7 +135,9 @@ def classify(real, roots):
         if side in SIDE_DIRS and rel:
             return "vendor:" + side, rel
         return "vendor:?", rest
-    for kind, root in roots.items():
+    # The clone first: when ROOT is the clone itself, its files are stock.
+    for kind in sorted(roots, key=lambda k: k != "stock"):
+        root = roots[kind]
         src = os.path.join(root, "src") + os.sep
         if real.startswith(src):
             return kind, real[len(src):]
@@ -479,6 +481,8 @@ def self_test():
     eq(classify("/f/src/public/a.h", roots), ("fork", "public/a.h"), "fork path")
     eq(classify("/s/src/public/a.h", roots), ("stock", "public/a.h"), "stock path")
     eq(classify("/elsewhere/a.h", roots), None, "not Valve")
+    eq(classify("/s/src/public/a.h", {"fork": "/s", "stock": "/s"}), ("stock", "public/a.h"),
+       "a ROOT that is the clone reads as stock")
     v = os.path.realpath(VENDOR)
     eq(classify(v + "/server/public/a.h", roots), ("vendor:server", "public/a.h"), "vendor path")
     files = {"public/a.h": {"sides": {"server"}, "kinds": {"server": {"vendor:shared"}}},

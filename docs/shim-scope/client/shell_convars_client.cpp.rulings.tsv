@@ -1,6 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-int32_t SourceSharp_ConVarsClientWatch( const char *pName )	SLOT	IShimConVarsClient::ConVarsClientWatch: records a name the global change callback forwards; decides nothing
-int32_t SourceSharp_ClientWatchedConVarId( const char *pName )	SLOT-HELP	the global change callback's lookup of a watched name; decides nothing
-int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )	SLOT	IShimConVarsClient::ConVarsClientSetValue: stores a value managed decided
-bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut )	LIVE-API	the bounded convars' GetFloat and GetClientInterpAmount read the stored value (C8)

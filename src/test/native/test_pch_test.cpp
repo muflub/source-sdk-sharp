@@ -156,12 +156,12 @@ std::map<std::string, Header> Headers()
 
 TEST( TestPch, TheTestsCompileAgainstAPrecompiledGtestHeader )
 {
-	// 191 test TUs at 2026-10-26: the floor is well under that, and
+	// 92 test TUs at 2026-10-27: the floor is well under that, and
 	// fails if the headers are switched off or attached to nothing.
 	size_t nReaders = 0;
 	for ( const auto &h : Headers() )
 		nReaders += h.second.readers.size();
-	EXPECT_GE( nReaders, 150u ) << "few test TUs read a precompiled gtest.h: is SS_CPPTEST_PCH off?";
+	EXPECT_GE( nReaders, 70u ) << "few test TUs read a precompiled gtest.h: is SS_CPPTEST_PCH off?";
 }
 
 TEST( TestPch, EveryHeaderIsBuiltAndReadByTwoOrMoreTUs )

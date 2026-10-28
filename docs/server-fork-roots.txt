@@ -1,5 +1,0 @@
-# docs/server-fork-roots.txt: the fork headers server.so may include directly (plan_server_novalve.md 1.3).
-# tools/server-novalve-census --allowlist turns this into docs/server-fork-allowlist.txt (their closure).
-# A new root is a reviewed one-line change; the closure must stay out of game/, vscript/, particles/, dmxloader/, steam/.
-# Since 2026-10-25 server.so builds from vendor/ (vendor/README.md, tools/vendor --strict server), so it may
-# include no fork header at all: no roots, an empty allowlist, and any fork header in server.so's deps fails R1.

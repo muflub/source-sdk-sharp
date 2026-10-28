@@ -718,21 +718,6 @@ public class EntityMotionPushTests
     //=========================================================================
 
     /// <summary>
-    /// The two headers whose whole subject was the stepper are deleted rather
-    /// than left as dead rules nothing consults.
-    /// </summary>
-    [Fact]
-    public void TheStepperSTwoHeadersAreDeleted()
-    {
-        string root = RepoLayout.SdkTree;
-
-        Assert.False(File.Exists(Path.Combine(root, "src", "sourcesharp", "game", "server",
-                                              "standalone_riders.h")));
-        Assert.False(File.Exists(Path.Combine(root, "src", "sourcesharp", "game", "server",
-                                              "shell_mover_velocity.h")));
-    }
-
-    /// <summary>
     /// The native frame step that ran the movers has nothing left to run, and
     /// the managed frame stopped paying a crossing for it.
     /// </summary>

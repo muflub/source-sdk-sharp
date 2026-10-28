@@ -270,18 +270,6 @@ ss_cpptest(standalone_names_test
 # native bodies still had to be kept in step by review; one managed body is the
 # same on both sides by construction.
 
-# An ABI entry point in shell_scripted.cpp whose ONLY arm is the one
-# SourceSharpEntity_t::Animating() answers is a SILENT NO-OP for every entity on
-# the parallel hierarchy -- which is most of this mod's. animating_projection_test
-# pins that Animating() returns NULL there; nothing pinned that a caller must
-# therefore have a second arm, and SourceSharp_EntitySetSequence shipped without
-# one, so ScriptedEntity.PlaySequence looked a sequence up and then set nothing.
-# A SWEEP rather than a fact about that one function: four of the five
-# .Animating() sites already fall through to the standalone studio header, and a
-# fact naming only the fifth would never see the sixth.
-ss_cpptest(animating_parallel_arm_test
-    SOURCES sourcesharp/test/animating_parallel_arm_test.cpp)
-
 # The generic table's payload props (plan_nettable_generic.md Part 14 Step 1).
 # A payload prop is a byte offset and nothing else, so an offset that is wrong
 # networks the wrong four bytes without any error anywhere -- which is the whole
@@ -375,37 +363,11 @@ ss_cpptest(te_backend_args_test
 # BeamDrawArmTests. The two wiring facts that read native files are in
 # client_beam_evicted_test.
 
-# NO HTML PANEL IS BUILT AT JOIN (no_html_panel_test.cpp). Stock's CTextWindow
-# built a vgui::HTML, which connects the game to Steam's web helper; when the
-# helper dies steamclient.so asserts and Steam's crashhandler writes
-# /tmp/dumps/assert_*.dmp. The client compiles no stock viewport panel and links
-# no vgui_controls, read off the build graph.
-ss_cpptest(no_html_panel_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/no_html_panel_test.cpp)
-
-
 # fx_muzzle_recording_test is RETIRED with fx.cpp (lane c5-particles). It held
 # FX_MuzzleEffectAttached's tool-recording block to an IClientEntity resolve with
 # its early return before every use; the block left with the file, and the C#
 # attached flash (FxEffects.MuzzleEffectAttached) carries no recording tail, so
 # there is no resolve left to come undone.
-
-# The netentity shell is DELETED, and a deletion needs a guard as much as a
-# refusal does. Three ways to undo it, none of which fails to compile: the class
-# comes back (abstract under the armed alias, no diagnostic of its own), the
-# retired SS_SHELL_NETENTITY value gets reused (a wire number changing meaning
-# silently), or the four ABI slots reaped at version 240 come back. They were
-# removed after row 2 of .claude/entity-port/DEFERRED_LIVE_GATES.md armed all
-# four on both sides with a probe, wrapped the live FramePreThink slot in the
-# same probe as a CONTROL, and ran two passes of tools/live-gate: the control
-# printed in three game processes and none of the four ever fired.
-#
-# It also replaces netentity_table_pairing_test, which went with its subject:
-# that diffed two hand-copied prop lists which no longer exist, and its own
-# header said it could not prove the two tables PAIR in any case.
-ss_cpptest(netentity_deleted_test
-    SOURCES sourcesharp/test/netentity_deleted_test.cpp)
 
 # playerresource_pairing_test left with its subject (lane c6-input): it paired
 # the field names shell_playerresource.cpp's native reader asked C# for, and
@@ -455,41 +417,6 @@ ss_cpptest(entity_slots_test
 #     match a shorter one, which is the same hazard at the one place it is
 #     still reachable.
 
-# Save/restore is out of both builds (plan_shared.md Phase 2). Four things could
-# undo that and this asserts all four: the $File lines coming back, a guard
-# quietly removed with the code it guards, a refusal in shell_gamedll.cpp
-# softening, and -- the one that almost happened -- somebody working the plan's
-# own cut list and evicting saverestore_gamedll.cpp, which is not save machinery
-# at all but ParseKeyvalue/ExtractKeyvalue, the datamap keyvalue reader every
-# spawning entity goes through. Two of its cases assert a file is STILL BUILT,
-# which is the unusual direction for an eviction test and is the point.
-ss_cpptest(saverestore_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/saverestore_evicted_test.cpp)
-
-# Valve's telemetry uploader is out of both builds (plan_shared.md Phase 4). The
-# decision the plan is least sure of, so the test is shaped around the flip: the
-# same four call sites are rewired whether the phase ends in a deletion or in a
-# managed fan-in, and the server one is asserted BY NAME because that is where a
-# managed GameStatsEvents would reattach. Also pins that the client system row
-# that left was the LAST one -- a row removed from the middle renumbers a walk
-# order client_systems_table_test.cpp pins elsewhere.
-ss_cpptest(gamestats_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/gamestats_evicted_test.cpp)
-
-# The client's team entity is out of the build (plan_entity.md Phase 5's exit
-# clause). An EVICTION rather than an un-derive, and that is a measurement: no
-# compiled server class is named CTeam, so no C_Team has ever been constructed
-# and nothing C_BaseEntity did FOR one was ever done. The facts with teeth are
-# the five sites that kept the answer they were already giving -- above all
-# C_BaseEntity::InLocalTeam, which has returned true for every entity in the
-# game for the life of this build because it compared two NULLs, and which
-# nobody had written down.
-ss_cpptest(c_team_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/c_team_evicted_test.cpp)
-
 # Step 7h: cbase.h is a FORCED PRELUDE in the client project, not an include.
 # client_csharp.vpc sets $Create/UsePCHThroughFile "cbase.h" and the generator
 # puts `-include .../cbase.h` on every compile line the project does not exempt,
@@ -503,41 +430,6 @@ ss_cpptest(c_team_evicted_test
 ss_cpptest(client_pch_prelude_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_pch_prelude_test.cpp)
-
-# Step 8e-classes: the Phase 5 exit's "the class-list diff is empty" clause, and
-# the InLocalTeam defect c-team wrote down. FOUR client classes had no server
-# counterpart and they did NOT have one answer between them: CBoneFollower and
-# CRagdollPropAttached were dead (their server halves are not in the build, one
-# of them deleted on purpose by lane A5) and their classes are deleted;
-# CGameRulesProxy and CRopeKeyframe lose only their REGISTRATION, the rope
-# because it is a genuinely needed client-only class that draws every rope in
-# the game (14 constructions over a live gate, all 14 from the client-only
-# path). The diff is RECOMPUTED from both vpcs rather than listed, and the scan
-# respects preprocessor guards -- a guard-blind reader invents a fifth orphan
-# out of c_te_effect_dispatch.cpp's `#ifndef SOURCESHARP` arm.
-ss_cpptest(orphan_clientclass_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/orphan_clientclass_test.cpp)
-
-# Step p7-exit: the stock client TUs that STAY compiled ask the slot table.
-#
-# §6 names the client files that legitimately stay native when the port is
-# finished -- leaf system, shadow manager, view render, client mode, input, HUD
-# canvas, leaf renderers -- so for those "leave the build" was never the answer
-# and "stop naming cl_entitylist" always was. Step 5a did it for the shim (34
-# sites, shell_cliententitylist.h's banner); this leg is the same move for ten
-# stock TUs, and it is a WIDENING rather than a rename because the resolvers
-# answer for managed entities that were never in a CClientEntityList.
-#
-# The waiver set is RECOMPUTED from client_csharp.vpc's own $File rows with
-# comments and dead preprocessor arms stripped, so a stock TU reaching for the
-# list again reddens this without anybody editing a list. The fact that stops
-# the cheap wrong move -- deleting stock's call instead of routing around it --
-# is TheStockArmSurvivesEveryMigration, and TheGuardPassIsWhatSeparatesTheTwoArms
-# is its control.
-ss_cpptest(client_entity_resolve_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_entity_resolve_test.cpp)
 
 # The server's load-game player gate (sourcesharp/game/server/shell_savegame.h),
 # what is left of the native save code: on a savegame load the engine calls
@@ -614,23 +506,6 @@ ss_cpptest(scripted_kinds_test
 ss_cpptest(shell_gamemovement_test
     INCLUDES sourcesharp/game/shared
     SOURCES sourcesharp/test/shell_gamemovement_test.cpp)
-
-# gamemovement.cpp leaving the build -- plan_entity.md step 8f-remove, the last
-# part of the same owner ruling. The change is two `$File` rows, and every way it
-# can be wrong is invisible to a game that plays correctly: a ONE-SIDED removal
-# leaves one side linking a whole second CGameMovement and the two sides then
-# move differently under prediction; a `$File` row that stops resolving breaks
-# the build in somebody else's worktree; the deleted loan machinery left behind
-# reads as a live fallback while being NULL forever; and a retired gate arm left
-# armed is a check that fails forever or one everybody ignores.
-#
-# It also carries the two facts written from this step's own worst find:
-# tools/8f-probe-movetypes had been pointed at a file whose anchors had moved
-# into the shim, so it patched nothing and the only live evidence for the three
-# move-type arms had silently stopped existing. Nothing in the tree knew.
-ss_cpptest(gamemovement_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/gamemovement_evicted_test.cpp)
 
 # The ground entity, as the one word the player's blob carries for it. The
 # handle is predicted state -- FL_ONGROUND only MIRRORS it, and the movement
@@ -730,38 +605,6 @@ ss_cpptest(standalone_collision_rules_test
 # every ragdoll in the PVS on its first pass and looks exactly like the cap
 # doing its job.
 
-# The top of a move-parent chain. GetRootMoveParent() is an out-of-line member of
-# the class the client flip removes, and three files that STAY called it -- the
-# trace filter's sibling exclusion, collisionproperty.cpp and
-# game/client/physics.cpp. Its BODY never needed the class (GetMoveParent is
-# inline on both sides), so the walk came to a header.
-#
-# The two edges are what matter: an unparented entity must be ITS OWN root, or
-# every unparented pair looks like siblings and the filter refuses everything;
-# and a CYCLE must terminate, because stock's unbounded loop hangs inside a
-# physics callback with no output at all. Header-only, engine-free.
-ss_cpptest(move_root_test
-    SOURCES sourcesharp/test/move_root_test.cpp)
-
-# The per-entity SIDE TABLE, now keyed on a `const void *` instead of on a
-# `const CBaseEntity *`. The system that owns these tables had to move out of
-# physics_main_shared.cpp (which leaves in the client flip) into
-# physics_shared.cpp (which stays), and stock's own comment on the key type
-# licensed the retype -- "it could just as easily be and int or void *".
-#
-# The retype is invisible to a compiler in the direction that matters: every
-# call site passed a pointer before and passes one now, so nothing fails to
-# build if the table starts confusing keys, and the symptom is one entity
-# reading another's touch links. tier1 rather than a stub because CUtlHash is
-# as much the subject as the key type is.
-# clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
-# (an unused local in a template gcc 10 never instantiated), on a plain -I here.
-ss_cpptest_tier1(data_object_key_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES public public/tier0 public/tier1 common game/shared
-    SOURCES sourcesharp/test/data_object_key_test.cpp)
-
 # Whether setting a standalone entity's model may also set its collision size.
 # The third piece of the same lift. A brush must adopt its model's bounds -- it
 # is a slab somewhere in the map and has no other source of size -- and a player
@@ -772,16 +615,6 @@ ss_cpptest_tier1(data_object_key_test
 # merely measured wrong by every caller. Header-only, engine-free.
 ss_cpptest(standalone_model_bounds_test
     SOURCES sourcesharp/test/standalone_model_bounds_test.cpp)
-
-# The network-var chain's owner (plan_baseentity.md Phase 13 step 2). The holder
-# in networkvar.h used to be a CBaseEntity * and a dereference; the typedef turns
-# that name into IGameEntity, which has no NetworkStateChanged() and must not
-# grow one, so the owner is captured at the assignment instead. What can go
-# wrong is SILENCE -- a chain that forwards to nobody compiles, runs, and leaves
-# the value on the server unsent -- so the rule lives in a header with no engine
-# in it and is checked here.
-ss_cpptest(chain_state_notify_test
-    SOURCES sourcesharp/test/chain_state_notify_test.cpp)
 
 # The edict's network serial (standalone_netserial.h). The engine reuses the
 # previous PackedEntity for an edict slot while the serial it recorded still
@@ -861,34 +694,6 @@ ss_cpptest(collision_group_names_test
 # this mod ever reached. If the head gib is ever ported to managed, that third
 # case is the one to write first, and it falls to the random tumble.
 
-# The C-cast shape itself, banned mechanically rather than by memory
-# (sdk_player_cast_test.cpp). Fourteen sites cast an edict's entity to
-# CBasePlayer* and thirteen NULL-checked it, which is safe only for as long as
-# CStandaloneEntity::GetBaseEntity() returns NULL -- Phase 13 step 5 makes it
-# return `this`, and on that day every one of those NULL checks starts PASSING
-# and the call lands on the wrong vtable. The inventory of fourteen came from
-# reading 501 files by hand and nothing in the build noticed a fifteenth. This
-# test reads game/server and game/shared, drops what the preprocessor drops, and
-# fails on any live instance. It checks its own reach first: a scanner that
-# reads nothing passes every ban it is given.
-ss_cpptest(sdk_player_cast_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/sdk_player_cast_test.cpp)
-
-# The precache statics really did leave the class (precache_model.h). Two static
-# members of CBaseEntity that never touched an entity -- PrecacheModel and
-# PrecacheModelComponents -- and the modelsounds.cache apparatus behind them are
-# free functions in sourcesharp/game/server/precache_model.cpp now, with one-line forwarders
-# left on the class for the SDK's 734 unqualified call sites.
-#
-# What the move bought was three files leaving the baseentity.o consumer set,
-# and what bought THAT is a property no compiler checks: precache_model.cpp asks
-# baseentity.o for nothing. Losing it is silent -- a green build, a probe count
-# that quietly went backwards. So the scanner pins the two CBaseEntity:: names
-# the file is allowed to reach and pins the forwarders as forwarders.
-ss_cpptest(precache_model_move_test
-    SOURCES sourcesharp/test/precache_model_move_test.cpp)
-
 # The one name-matching rule (entity_name_match.h). It used to exist twice --
 # stock's NamesMatch and entitylist.cpp's GameEntityNameMatches, the second
 # carrying a comment saying it was a deliberate duplicate "kept identical on
@@ -900,20 +705,6 @@ ss_cpptest(precache_model_move_test
 # are that identity, not edge-case pedantry.
 ss_cpptest(entity_name_match_test
     SOURCES sourcesharp/test/entity_name_match_test.cpp)
-
-# Collecting handles from a size-then-fill ABI slot (shellless_find.h) --
-# plan_entity.md step 8e-entfire. `ent_fire` could not reach any entity with no
-# edict, which is every point entity ent_create makes, because every native find
-# walks CEntInfo and a shell-less entity has no C++ object to have an entry. The
-# fix asks managed code; this is the collect that sits in front of the ask.
-#
-# Off the game because THE PATH IT EXISTS FOR CANNOT BE REACHED FROM A MAP: the
-# grow needs more shell-less entities sharing one targetname than dm_lockdown
-# has in total. An untested grow is a silent truncation -- the first 64 take the
-# input and the rest do not -- which is the same shape of defect the step
-# closes. Header-only, no engine and no tier1.
-ss_cpptest(shellless_find_test
-    SOURCES sourcesharp/test/shellless_find_test.cpp)
 
 # The blast blocking rule (blast_blocking.h). Who is standing in the way of an
 # explosion, and how much of it they keep. It was written over CBaseEntity
@@ -937,17 +728,6 @@ ss_cpptest(blast_blocking_test
 # execute it.
 ss_cpptest(world_subject_test
     SOURCES sourcesharp/test/world_subject_test.cpp)
-
-# The trace filter's shape clause (standard_filter_shape.h). "Is this the sort
-# of thing this trace stops on at all" -- world-like brush, or an entity only a
-# mask that asked for entities gets. Stock states it over a CBaseEntity, so
-# every entity on the parallel hierarchy skipped it and was waved through as
-# though it were a static prop; the blast's own "is the world also in the way"
-# retrace therefore stopped on the victim and zeroed its damage. One rule read
-# by both arms, and the rule is what is pinned here -- the three facts it is
-# made of are resolved from interfaces no engine-free binary has.
-ss_cpptest(standard_filter_shape_test
-    SOURCES sourcesharp/test/standard_filter_shape_test.cpp)
 
 # Which of an entity's two velocity homes is the authority WAS HERE
 # (velocity_home_test.cpp over shell_velocity_home.h) and is deleted with its
@@ -1050,25 +830,6 @@ ss_cpptest(managed_init_failure_test
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/managed_init_failure_test.cpp)
 
-# How long a puff of a jet lives (jet_lifetime.h). This one is not hypothetical:
-# a map-placed env_smokestack with no JetLength key made
-# m_InvLifetime = m_Speed / 0 = +Inf, C_SmokeStack::RenderParticles FLerped the
-# particle's SIZE with it, and the size went to CVertexBuilder::Position3f --
-# five thousand `IsFinite(x) && IsFinite(y) && IsFinite(z)` assertions in ninety
-# seconds, from three entities spawned with default keys. env_steam's m_Lifetime
-# is the same expression the other way up and asserted on IsFinite(b) in
-# vector.h from the same cause.
-#
-# The guard that was there was `if (x != 0)` at ONE of the two divide sites, and
-# Start() -- the other one -- runs first. The half that matters most for a test:
-# a zero NUMERATOR passes `!= 0` and yields a finite ZERO, which both renderers
-# then divide BY. So the contract is "finite and strictly POSITIVE", not "not a
-# division by zero", and it is checked on the output as well as the inputs
-# because 1e38/1e-38 overflows and 1e-38/1e38 underflows from finite arguments.
-# Header-only and engine-free: two floats.
-ss_cpptest(jet_lifetime_test
-    SOURCES sourcesharp/test/jet_lifetime_test.cpp)
-
 # Which control points of a managed particle system are kept at its owner
 # (particle_follow_mask.h). The same family as jet_lifetime.h -- a value nobody
 # supplied read as a legitimate one -- but the unsupplied value here is a
@@ -1131,56 +892,6 @@ ss_cpptest(particle_follow_mask_test
 ss_cpptest(view_subject_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/view_subject_test.cpp)
-
-# plan_entity.md wave 2b, lane c7-leaf: the leaf/shadow/detail/think cluster.
-# Two halves.
-#
-# THE RELOCATION HALF IS NOW A DELETION HALF, by lane 4c-render: the relocated
-# bodies were measured at the far end and all four were constants on this link
-# line, so seams and stock call sites went together. The facts assert the
-# successor property instead -- each caller still does the work that does not
-# need an entity, and neither end names one. Its original argument, kept because
-# it is why the successor is written the way it is:
-#
-# The RELOCATION half is the anti-deletion argument for moving the bone-merge
-# render bounds out of clientleafsystem.cpp. A grep for C_BaseEntity in that
-# file goes to zero just as happily when Tracker 37433's special case is DELETED
-# as when it is ported, and the deletion renders normally -- a bone-merged prop
-# keeps its stale own-origin AABB and is frustum-culled at the edge of the
-# screen for a frame at a time, with no assert and no crash. So the scan is
-# paired with facts that both callers still consult the seam, that they act on
-# its answer, that the two arms still take DIFFERENT parents (folding them would
-# be a behaviour change hidden in a relocation), and that the bloat arithmetic
-# survived the move.
-#
-# The PCH half is the lane's scoping finding for the flip, pinned by its cause
-# rather than by a number: `-include cbase.h` plus
-# cbase.h -> baseentity_shared.h -> c_baseentity.h -> particle_property.h ->
-# particles_new.h plus CNewParticleEffect's inline virtuals is what puts a
-# 21-symbol edge to particles_new.o on all 70 PCH'd stock client TUs. That edge
-# alone holds them inside the 85-TU cycle, so no behaviour lane forbidden to
-# touch a .vpc can move the SCC. tools/c7-leaf-cycle takes the reading; these
-# facts stop the finding rotting into a paragraph nothing checks.
-ss_cpptest(leaf_cycle_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/leaf_cycle_test.cpp)
-
-# Lane c7-proxies' source scans that outlived the material proxies (lane
-# c5-proxies moved them to C#: MaterialProxyFactsTests, MaterialProxyOracleTests):
-# the alias-guard scanner, and that recvproxy.cpp and dt_utlvector_recv.cpp stay out (C8).
-ss_cpptest(materialproxy_subject_test
-    SOURCES sourcesharp/test/materialproxy_subject_test.cpp)
-# plan_entity.md step 7e's subjects, in the source. The client sound cluster
-# moved under the shim and was de-entitied, and three of the things that changed
-# are invisible to the compiler: CurrentView* vs MainView* (an assert that only
-# fires when somebody forces a soundscape), the C_BasePlayer asks (a shim TU's
-# text is not counted the way a stock TU's is), and Soundscape_Update -- the
-# landing site a soundscape push has no caller for, kept on purpose so that
-# wiring the transport is a caller rather than a rewrite. Plus the two vpc rows,
-# asserted on BOTH sides, and the gate instrument's own accessor.
-ss_cpptest(soundscape_particle_7e_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/soundscape_particle_7e_test.cpp)
 
 # What the trail family lost when it stopped being entities (trail_lifetime.h).
 # Two guarantees C_BaseEntity had been giving the six trail classes silently,
@@ -1248,156 +959,6 @@ ss_cpptest(shell_leaf_link_test
 # as a bare integer comparison inside a ShouldHitEntity body where nothing can
 # ask it a question.
 
-# sourcesharp/game/server/entity_bases.h, compiled BOTH WAYS (entity_bases_alias_test.cpp).
-# That header is in the server's precompiled prelude -- all 197 TUs -- so the
-# three flip sites it carried were, armed, a hard error in 180 of 196 server
-# objects, 86 of which had nothing else wrong (docs/typedef-dryrun/). It now
-# carries an #ifndef SS_CBASEENTITY_ALIAS / #else pair at each, and a
-# preprocessor branch nobody compiles is a branch nobody knows is broken. So the
-# header is included twice, from two TUs in one binary: once with a stand-in for
-# the SDK's CBaseEntity and once with SS_CBASEENTITY_ALIAS defined and
-# CBaseEntity a real alias for the real public/igameentity.h. The armed TU is
-# the load-bearing one -- it does not compile at all if the armed arms are
-# wrong. mathlib, and only because igameentity.h includes mathlib/vector.h.
-# TWO binaries, not one, and the reason is the -D below: SS_CBASEENTITY_ALIAS
-# has to be a COMMAND-LINE define -- alias_mechanics_test.cpp's
-# TheSwitchIsNotArmedYet refuses to let a `#define SS_CBASEENTITY_ALIAS` exist
-# anywhere under game/, public/ or sourcesharp/, which is exactly the guard that
-# keeps step 4 from landing by accident -- and a -D cannot be applied to one TU
-# of a single g++ invocation. It is scoped to this one test binary; nothing the
-# game links sees it, and `survey_arm_alias.py . check` still reports disarmed.
-ss_cpptest_mathlib(entity_bases_alias_test
-    SOURCES sourcesharp/test/entity_bases_alias_test.cpp)
-
-ss_cpptest_mathlib(entity_bases_alias_armed_test
-    DEFINES SS_CBASEENTITY_ALIAS
-    SOURCES sourcesharp/test/entity_bases_alias_armed.cpp)
-
-# Lane H's arms — the other 58 headers Phase 13 step 4 has to get through
-# (docs/typedef-dryrun/flip_shards.txt, 346 sites). entity_bases.h could be
-# compiled both ways because it is small and standalone; player.h, Sprite.h and
-# the rest drag in the whole SDK prelude, and a stand-in for that would drift
-# from the real thing silently. So this one reads source, like
-# alias_mechanics_test.cpp and sdk_player_cast_test.cpp, and pins the textual
-# invariants a survey cannot: that every guard still has two arms carrying code
-# (the merge-splice failure), that each armed arm actually stops naming the
-# member the flip deletes, and that the ten hand-folded ObjectCaps bitmasks are
-# arithmetically right. The compile-side evidence is src/survey_run armed.
-ss_cpptest(header_alias_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/header_alias_test.cpp)
-
-# Lane shards-b's twenty client files: nineteen release TUs and twenty debug
-# ones off the step-6 gate. Half of its edits carry no guard at all -- a player
-# ask rerouted to IMovementPlayer compiles and answers identically unarmed --
-# so nothing but a source read would notice one going back.
-ss_cpptest(cpp_alias_shards_b_test
-    SOURCES sourcesharp/test/cpp_alias_shards_b_test.cpp)
-
-# The survey's own stubs, both sides, read as source. Each TYPEDEF_SURVEY
-# `#else` arm used to run to the last line of its file, so arming the survey
-# elided the whole header -- taking the free funnels, the classname predicate,
-# the entity macros and the CHandle specialisations with it, all of which
-# SURVIVE the flip. That artefact was 39 client sites of 1,978 and 9 server
-# sites of 2,691. The arm now closes AT THE CLASS, and this pins that boundary
-# from both directions: nothing that is an out-of-line member of the entity
-# class may survive arming (one that does fails every armed TU in the header
-# and the survey then measures nothing), and nothing free may be elided by it.
-ss_cpptest(survey_stub_elision_test
-    SOURCES sourcesharp/test/survey_stub_elision_test.cpp)
-
-# Shard 2's .cpp edits — the ten server files after lane 1's ten, by armed site
-# count (docs/typedef-dryrun/shard2_classification.md). Where lane 1 landed
-# ARMS, this shard landed almost none, and that is the finding: 846 of its 1,018
-# armed sites are EVICTION, so an armed arm would be a pure stub. Twenty-eight
-# were not eviction, and each of those is an UNCONDITIONAL edit rather than a
-# guard, because the answer that survives the flip is also the right answer
-# today: twenty-five static-member calls lifted to the free functions that
-# already carried their bodies, and three sites where EntityFromEntityHandle's
-# NULL had stopped being unreachable and become a live dereference. Nothing in
-# the build notices any of the three rotting back.
-ss_cpptest(cpp_alias_shard2_test
-    SOURCES sourcesharp/test/cpp_alias_shard2_test.cpp)
-
-# Shard T3's .cpp arms — route step 5's lane T, twelve files, 176 armed sites.
-# Three things in it have no compiler behind them. (1) Two of those files lose
-# 93 sites to ONE arm each, and the arm is only right because CCollisionProperty
-# and CParticleProperty are CBaseEntity's own sub-objects; what must not drift is
-# what is OUTSIDE it — UpdateDirtySpatialPartitionEntities is called by name from
-# particlemgr.cpp, so guarding it turns step 6's compile error into a LINK error.
-# (2) Every guard must be spelled `#ifndef SS_CBASEENTITY_ALIAS` on its own line,
-# because that is the only spelling survey_arm_alias.py's `defeat` rewrites — a
-# compound condition guards identically and silently stops the negative control
-# being one. (3) Two arms COPY an answer that lives in another file: the server
-# IsWorldEntity's armed arm is its client twin's line, and fx_impact clips
-# against the IHandleEntity the enumerator was handed.
-ss_cpptest(cpp_alias_shard_t3_test
-    SOURCES sourcesharp/test/cpp_alias_shard_t3_test.cpp)
-# Route step 5's lane-T shard T5 -- fourteen .cpp files, 194 armed sites
-# (docs/typedef-dryrun/route/s5_shards.json). Six UNCONDITIONAL retypes with no
-# guard on them at all, which is why they need a scanner: the old spelling
-# compiles, the suite stays green, and the site is a Phase 13 site again. Plus
-# the arms, and one rule lane 1 could not take -- several of this shard's sites
-# are in functions that return a value, so where a guard swallows a `return` the
-# ARMED text of the function has to still contain one.
-ss_cpptest(cpp_alias_t5_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/cpp_alias_t5_test.cpp)
-# Wave 3's eight sole-blocked TUs -- step 6's close-out list names eight
-# translation units "blocked by RETYPE alone", and seven of them go green here
-# (survey_run, alias armed: 68 -> 64 server, 82 -> 79 client, same seven names
-# release and debug). Three things in this shard have no compiler behind them on
-# EITHER arm. (1) toucher.cpp initialises Toucher_t's pBase and pGame, which
-# armed are THE SAME TYPE, so the right initialiser and the wrong one both
-# compile and only one delivers touches -- pinned by position. (2) The server
-# solver's factory must stay OUTSIDE the arm that removes its class: five TUs
-# call it through physics_npc_solver.h, so inside the arm they all compile and
-# the link fails, which the step-6 rehearsal is structurally blind to. (3)
-# viewpostprocess.cpp's seven asks became one call whose arm lives in another
-# file, an unconditional retype whose old spelling compiles perfectly today.
-# Plus the refusal: damagemodifier.cpp must NOT grow an arm.
-ss_cpptest(cpp_alias_retype_w1_test
-    SOURCES sourcesharp/test/cpp_alias_retype_w1_test.cpp)
-# Lane T shard T1's .cpp arms. Unlike shard 2 -- whose 846 eviction sites made an
-# armed arm "a pure stub" -- this shard is retype and CALLER-root work, so most
-# of it IS `#ifndef SS_CBASEENTITY_ALIAS` arms: 195 of its 208 measured sites,
-# across 12 files. NOTHING IN THE ORDINARY BUILD COMPILES AN ARMED ARM, so the
-# only standing evidence for them is textual, and the four rot shapes it is
-# aimed at are named in the file: a merge splice eating an `#endif`, an armed arm
-# "simplified" back to the member the flip deletes, the move-type INVERSION
-# (reading MOVETYPE_NONE as "not simulated" flips the answer for the whole
-# parallel hierarchy), and a NULL test rewritten into a world test.
-ss_cpptest(cpp_alias_t1_test
-    SOURCES sourcesharp/test/cpp_alias_t1_test.cpp)
-# One datadesc slot, two different casts (entity_funcslot.h). DEFINE_FUNCTION_RAW
-# used to be a single C-style cast doing both the class conversion and the
-# signature pun, and a C-style cast does not say which cast it picked:
-# static_cast while classNameTypedef derives from CBaseEntity, reinterpret_cast
-# the moment it stops -- which is Phase 13 step 4, for 47 sites that look
-# identical either side of it. The split is only worth anything if the class half
-# is genuinely loud, and THAT cannot be asserted from inside a test, so the four
-# ill-formed shapes are compiled separately and required to fail, each at the
-# probe rather than somewhere else. Header-only and engine-free.
-ss_cpptest(entity_funcslot_test OPTIMIZED
-    SOURCES sourcesharp/test/entity_funcslot_test.cpp)
-
-ss_must_not_compile(entity_funcslot_unrelated
-    EXPECT "entity_funcslot\\.h:[0-9]+:[0-9]+: error:"
-    DEFINES ENTITY_FUNCSLOT_NOCOMPILE=1
-    SOURCES sourcesharp/test/entity_funcslot_test.cpp)
-ss_must_not_compile(entity_funcslot_private
-    EXPECT "entity_funcslot\\.h:[0-9]+:[0-9]+: error:"
-    DEFINES ENTITY_FUNCSLOT_NOCOMPILE=2
-    SOURCES sourcesharp/test/entity_funcslot_test.cpp)
-ss_must_not_compile(entity_funcslot_ambiguous
-    EXPECT "entity_funcslot\\.h:[0-9]+:[0-9]+: error:"
-    DEFINES ENTITY_FUNCSLOT_NOCOMPILE=3
-    SOURCES sourcesharp/test/entity_funcslot_test.cpp)
-ss_must_not_compile(entity_funcslot_virtual
-    EXPECT "entity_funcslot\\.h:[0-9]+:[0-9]+: error:"
-    DEFINES ENTITY_FUNCSLOT_NOCOMPILE=4
-    SOURCES sourcesharp/test/entity_funcslot_test.cpp)
-
 # The shortcut a de-entified volume takes for its world bounding box
 # (world_aligned_bounds.h). C_FuncSmokeVolume lost its collision property with
 # its entity, so CollisionProp()->WorldSpaceAABB became two vector adds -- which
@@ -1454,63 +1015,6 @@ ss_cpptest_mathlib(overlay_library_test
     SOURCES sourcesharp/test/overlay_library_test.cpp
             sourcesharp/game/shared/overlay_library.cpp)
 
-# plan_entity.md step 4e: the shared trace-filter family and the ConVar the
-# trace inlines read moved out of game/shared/util_shared.cpp into the shim.
-# TEXT ONLY -- the subject is which file holds which definition and which vpcs
-# compile it, so there is nothing here to link.
-ss_cpptest(trace_filter_library_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/trace_filter_library_test.cpp)
-
-# plan_entity.md step 7f: the six symbols game/client/cdll_util.cpp still owed
-# the shim moved into sourcesharp/game/client/client_util_library.cpp, and the
-# vision-flag family moved WHOLE because its two counters are file statics.
-# TEXT ONLY, for the same reason as the trace filter library above.
-ss_cpptest(client_util_library_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_util_library_test.cpp)
-
-# plan_entity.md step 7f: six entity-free families left game/shared/util_shared.cpp
-# for the shim. The file is on BOTH link lines, so the vpc rows are asserted on
-# both -- a one-sided row gives one side two definitions and the other none.
-ss_cpptest(util_shared_library_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/util_shared_library_test.cpp)
-
-# plan_entity.md Phase 4 exit, lane p4-util: game/shared/takedamageinfo.cpp is
-# one of SCC 11's 31 TUs, and every definition it held moved WHOLE into
-# sourcesharp/game/shared/takedamageinfo_library.cpp. The unit is the whole TU
-# because 7f measured the family move and it CONVERTED. TEXT ONLY, for the same
-# reason as the two libraries above.
-ss_cpptest(takedamageinfo_library_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/takedamageinfo_library_test.cpp)
-
-# plan_entity.md Phase 4 exit, lane p4-util: seven families of entity-free
-# mechanism left game/server/util.cpp for
-# sourcesharp/game/server/server_util_library.cpp. util.cpp is SERVER-ONLY, so
-# the client vpc is asserted to have NO row -- the opposite direction from the
-# shared libraries above. TEXT ONLY.
-ss_cpptest(server_util_library_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_util_library_test.cpp)
-
-# plan_entity.md Phase 4 exit, lane p4-util: the moves that shrink SCC 11's
-# ATOMIC batch rather than the census. Nothing here was ever a shim->stock
-# cross-edge, so tools/entity-census reads identically before and after; what
-# moved is what one cycle member still owed another. TEXT ONLY.
-ss_cpptest(cycle_debt_move_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/cycle_debt_move_test.cpp)
-
-# plan_entity.md Phase 4 exit, lane p4-util: the blood/tracer/decal emitters out
-# of game/shared/util_shared.cpp. 4e measured this family and declined it; what
-# changed is recorded in the file's banner. UTIL_BloodDrips stayed and the
-# reason is only visible from the client. TEXT ONLY.
-ss_cpptest(blood_family_move_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/blood_family_move_test.cpp)
-
 # What the map-entity-block parser answers (map_entity_block_cases.txt). The
 # other half of point_template's port: the tokeniser the BSP's entity lump is
 # read with, and the key/value cursor over one entity's block of it, moved to
@@ -1528,7 +1032,8 @@ ss_cpptest_tier1(map_entity_block_test
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/map_entity_block_stub public public/tier0 public/tier1
              game/shared common
-    SOURCES sourcesharp/test/map_entity_block_test.cpp)
+    SOURCES sourcesharp/test/map_entity_block_test.cpp
+            game/shared/mapentities_shared.cpp)
 # The ICollideable ADAPTER over that arithmetic (game/shared/collideable_center.h).
 # collideable_center_test above pins the maths with no engine in it; this pins
 # which of an ICollideable's answers the maths gets, which needs real Vectors, a
@@ -1551,314 +1056,6 @@ ss_cpptest_mathlib(collideable_center_adapter_test
 # source scanner, and linking it would make it its own subject.
 ss_cpptest(mathlib_init_guard_test
     SOURCES sourcesharp/test/mathlib_init_guard_test.cpp)
-
-# The server's engine-facing core, retyped (plan_baseentity.md Phase 13).
-# Several of those retypes are correct only because of a fact in a DIFFERENT
-# file, and when such a fact stops being true the retyped code still compiles
-# and still runs -- it just quietly does something else. Pinned here: the splash
-# hook nothing overrides (so deleting the branch that called it is free), the
-# fluid throttle's key being a HANDLE rather than an entity (so every entity
-# outside the SDK does not share the single key NULL), and IsInPrediction's
-# server arm being vacuous because player_command.cpp is out of the project and
-# nothing else writes the prediction player.
-ss_cpptest(engine_core_retype_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/engine_core_retype_test.cpp)
-
-# NOTHING SETS A PREDICTION SUPPRESS HOST (suppress_host_dead_test.cpp), which
-# is what plan_entity.md step 4b's three deletions rest on.
-#
-# IPredictionSystem's suppress host is "the client who already predicted this
-# locally, so do not send it to him again". Three blocks read it -- two in the
-# recipient filter, one in the temp-entity system -- and the third was §3.16
-# FAMILY 5: a base-entity pointer downcast to a player so it could be culled out
-# of a filter. All three are deleted, on the argument that the host is NULL on
-# every path in this build.
-#
-# THAT ARGUMENT IS ABOUT OTHER FILES and is invisible from the files that
-# changed, which is exactly the kind of claim that rots without a guard. The
-# whole inventory of writers is three: physics_main.cpp's is inside
-# `#ifndef SOURCESHARP`, player.cpp is in neither vpc, and takedamageinfo.cpp
-# writes back the value it read. A fourth, or any of those becoming live, fails
-# a fact here by name.
-#
-# Every claim is "X does not appear in the part of this file the build
-# compiles", the purest shape of a check that cannot fail, so the guard detector
-# is run over fixtures putting the same token on both arms -- of `#ifndef`, of
-# `#if !defined()`, of an unrelated conditional that must stay transparent, and
-# in a comment.
-ss_cpptest(suppress_host_dead_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/suppress_host_dead_test.cpp)
-
-# The seven physics statics really did leave the class (physicslink.h) -- the
-# same move soundemitter_lift_test guarded (retired with sound_emitter.cpp), found and guarded the
-# same way. Of the FIFTY CBaseEntity members game/shared/physics_main_shared.cpp
-# defined out of line, SEVEN take no `this`: six are declared `static` in
-# game/server/baseentity.h (1186-1195) and game/client/c_baseentity.h (947-956)
-# -- the link machinery, which is handed both of its entities as arguments --
-# and the seventh, PhysicsClipVelocity, is pure arithmetic over its four
-# arguments. Their bodies are the free functions PhysicsLink_* /
-# Physics_ClipVelocity, defined UNMOVED in physics_main_shared.cpp because they
-# reach that translation unit's file-static link pools; the class-scope names
-# are one-line forwarders quarantined in
-# game/shared/baseentity_physics_forwarders.cpp for Phase 13 step 3 to delete in
-# one revertible commit. The other FORTY-THREE take a `this` and stayed put.
-#
-#   physics_main_shared.o             before 50/50   after 43/43
-#   baseentity_physics_forwarders.o                  after  7/7
-#
-# 43 + 7 = 50 on both sides: the symbol set handed to the link is unchanged.
-#
-# Same three silent rots as the sound lift (logic grows in a forwarder; an
-# eighth definition gets written back into the shared file; one of the
-# forty-three gets tidied into the quarantine file), plus a fourth specific to
-# this one: somebody drops the `static` from a declaration in baseentity.h and
-# the PREMISE of the lift stops being true with everything still compiling. All
-# four are pinned.
-#
-# A source scanner that reads nothing passes every claim, so this one is itself
-# checked: the fixtures assert the five files were really opened, that the
-# extractor tells a DEFINITION from a CALL and ignores prose, and that the
-# static / free-definition / forwarder-body detectors each answer FALSE on a
-# hand-written negative -- without which the claims above cannot fail.
-ss_cpptest(physicslink_lift_test
-    SOURCES sourcesharp/test/physicslink_lift_test.cpp)
-
-# The other nine of the SIXTEEN static data members, and the two files that held
-# fourteen of them. plan_baseentity.md Phase 13 note C counted them; nothing in
-# the tree could SEE them, because every earlier lift test extracts a function
-# definition and a data member is invisible to that shape by construction.
-#
-# Nine were hand-written in game/server/baseentity.cpp and
-# game/client/c_baseentity.cpp: three dead (deleted) and six live (moved to
-# entity_prediction_seed.h and the new entity_abs_query_state.h). The remaining
-# five are emitted by the network-table and datamap macros and no source scanner
-# can reach them; they are named, not asserted.
-#
-# The detector here takes the SCOPE as an argument, which the shared-file one
-# does not need to. c_baseentity.cpp is not a shared file and writes
-# `C_BaseEntity::` literally -- and `CBaseEntity::` is a SUFFIX of it, so a
-# hardcoded short scope silently reports client members under the server name.
-# That is the same fault the plan's printed measurement recipe had, and it fails
-# toward "there is nothing here".
-ss_cpptest(baseentity_statics_test
-    SOURCES sourcesharp/test/baseentity_statics_test.cpp)
-
-# The step-3 removal set's TAIL -- physics_main.cpp, physics_main_client.cpp,
-# shell_ai_orphans.cpp and subs.cpp -- pinned per file at 18/15/1/2, plus the
-# two quarantine files the lifted names moved into.
-#
-# It carries two categories plan_baseentity.md does not name, both of which are
-# functions that take NO `this` and still cannot be lifted:
-#
-#   NO `this` BUT VIRTUAL -- PerformCustomPhysics's whole body is Assert(0) and
-#   it is virtual on BOTH sides, so a lift would leave every override without a
-#   base implementation. Pinned against both real headers, and the virtual
-#   detector is proven to answer FALSE for a known non-virtual in the same
-#   header so the EXPECT_TRUEs cannot pass for free.
-#
-#   NO `this` BUT TAKEN AS A POINTER-TO-MEMBER -- subs.cpp's SUB_DoNothing has
-#   an EMPTY body, which is the textbook lift shape; what blocks it is that it
-#   is a think function reached as `SetThink( &CDerived::SUB_DoNothing )` and
-#   registered by DEFINE_FUNCTION. The reason is in the CALLERS, not the body,
-#   so both are pinned.
-#
-# Also pins the scope trap that makes the plan's printed measurement recipe fail
-# toward "the set is empty": the client's definitions are written
-# `C_BaseEntity::` literally, so a scanner looking only for `CBaseEntity::`
-# finds nothing there and reports the client side clean. Every extractor takes
-# the scope as a parameter and is run over both spellings.
-#
-# The static-DATA-member detector is here too -- the failure `nm ... $2=="T"`
-# is structurally blind to, because T is text symbols only -- and is proven to
-# answer TRUE on a hand-written positive, without which its four uses are
-# empty-list assertions that cannot fail.
-ss_cpptest(removal_set_tail_test
-    SOURCES sourcesharp/test/removal_set_tail_test.cpp)
-
-# The MIDDLE of the same removal set: the three game/shared/ files, 129
-# out-of-line CBaseEntity definitions, every one of which lands in BOTH .so.
-#
-# The counts are the small part. What this pins is the SIX members that are
-# `virtual` on one side and plain on the other -- ShouldDrawUnderwaterBullet-
-# Bubbles, HandleShotImpactingWater, DispatchTraceAttack, IsCurrentlyTouching,
-# SUB_Remove (client-virtual) and ResolveFlyCollisionCustom (server-virtual).
-# Read on one header each of those looks liftable; lifting it COMPILES GREEN IN
-# BOTH CONFIGURATIONS and leaves every override on the other side with no base
-# implementation. No build catches that, so a scanner has to.
-#
-# Two more disagreements are not about `virtual` at all and no `virtual` scan
-# would find them: IsToolRecording exists on the client only (which is why one
-# text yields 77 symbols on one link line and 78 on the other), and
-# m_bIsPlayerSimulated is PUBLIC on the server and PRIVATE on the client --
-# the reason SetPlayerSimulated and UnsetPlayerSimulated cannot be lifted even
-# though the compiler says their bodies need no `this`.
-#
-# The access-region detector and the DEFINE_SCRIPTFUNC first-argument detector
-# are both new here, and both are proven to answer every way they can on
-# hand-written fixtures -- three of the six disagreement assertions are "is NOT
-# virtual on this side", which a detector that finds nothing satisfies for free.
-ss_cpptest(removal_set_middle_test
-    SOURCES sourcesharp/test/removal_set_middle_test.cpp)
-
-# GC_SECTIONS=0 -- the diagnostic Makefile:30 recommends -- failed the SERVER
-# link, with 8 undefined references to 3 symbols props.cpp defined before
-# server_csharp.vpc:1223 evicted it, and that props_shared.cpp still names.
-#
-# The normal build hides it: nothing reachable calls the two functions holding
-# those references, so --gc-sections drops the CALLERS before the linker needs
-# the callees. `make`, `make test` and src/evict_probe are all structurally
-# blind to it -- evict_probe relinks with the same flags the normal build uses.
-# Breaking a diagnostic is specially bad, because it is only ever reached for
-# while something else is already wrong.
-#
-# A gtest cannot run a link, so this pins the three legs the repair stands on
-# instead, and says so: props_shared.cpp still names all three, props.cpp is
-# still evicted (so the stubs are not duplicates), and shell_props_absent.cpp
-# supplies all three, server-side only, with parameter types that AGREE with
-# the externs. That last is the tripwire -- a mangled name is built from
-# parameter types, so a drifted stub still compiles and still links under
-# --gc-sections, and fails again only under GC_SECTIONS=0.
-ss_cpptest(gc_sections_link_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/gc_sections_link_test.cpp)
-
-# What a PERMANENT decal is stored on. SourceSharp_PaintDecal narrowed the
-# trace's IHandleEntity through TraceEntity(), which answers NULL outside the
-# SDK's tree -- and then turned that NULL into entity index 0, which is the
-# WORLD. So a decal aimed at a managed brush was stored against the world at
-# world coordinates: the wrong subject and, because index 0's frame is the
-# identity, the wrong frame too. Half of this pins the arithmetic with real
-# mathlib -- ICollideable::CollisionToWorldTransform is not
-# CBaseEntity::EntityToWorldTransform, and the two agree exactly at zero
-# rotation, which is why no axis-aligned map could have found it -- and half
-# bans the narrowing at the call site the way impact_subject_test does.
-ss_cpptest_mathlib(permanent_decal_subject_test
-    SOURCES sourcesharp/test/permanent_decal_subject_test.cpp)
-
-# The two DispatchParticleEffect overloads that outlive the entity component,
-# and the §6 ruling that sent them to the wrong place. §6's "17 that LEAVE"
-# table answers particle_parse.cpp with "SourceSharp_ParticleSystemStart / Stop
-# / FollowPoints, already in the shim" and c8-flip carried that forward as
-# "RE-POINT, cheapest family". It is not a re-point: that entry point takes a
-# MANAGED ENTITY HANDLE and attaches one followed system to it, and two of the
-# three §6-STAYS emitters that owe these overloads pass no entity at all. So
-# both bodies moved verbatim into particle_manifest.cpp instead, and this pins
-# the move (defined in the staying object, gone from the leaving one -- a
-# duplicate is as fatal as a miss), the three call sites that must still make
-# them (a compile gate would have taken blood, slime and tracers instead), the
-# SS_CBASEENTITY_ALIAS guard closing on the `else` whose arm CLEARS the entity
-# field, and the two measurements that refute the re-point.
-ss_cpptest(particle_dispatch_rehome_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/particle_dispatch_rehome_test.cpp)
-
-# The clientside physics-prop simulation is `-$File` out of client_csharp.vpc,
-# and the .cpp stays on disk exactly as props.cpp's does -- so NO compiler sees
-# that decision and every fact under it is defensible only by a source scan.
-# Four of them, each revocable by an edit that produces no diagnostic: the
-# exclusion itself; props.cpp staying excluded, since its :1775/:1784 are the
-# only two te->PhysicsProp senders and reviving them reopens the temp-entity
-# door; CTempEnts::PhysicsProp building no prop; and cdll_client_int.cpp not
-# calling RecreateAll. The fifth is the fragile one -- props_shared.cpp holds
-# four calls to a BreakModelCreateSingle that no longer exists, and the client
-# links only because --gc-sections drops PropBreakableCreateAll once its one
-# client caller is gone. A second caller makes that reference real.
-ss_cpptest(clientside_prop_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/clientside_prop_evicted_test.cpp)
-
-# game/server/effects.cpp is out of the server build (effects_evicted_test.cpp).
-# Sixteen entity classes whose every LINK_ENTITY_TO_CLASS was already guarded
-# away; evict_probe named ONE symbol the rest of the server still wanted,
-# UTIL_BloodSpray, and its only live caller was our own SourceSharp_BloodEffect
-# shim -- the inverted shape. The link agrees today and says nothing about why,
-# so the facts are scanned: the exclusion; both lifted tenants defined once in
-# shell_entity_orphans.cpp; the six precached sounds by NAME (a count of six is
-# satisfied by six copies of one); bloodspray answered by a managed command; and
-# the fixture-against-native check that game/client/fx_blood.cpp still reads
-# exactly the three FX_BLOODSPRAY_ bits BloodSprayCommand.Everything sends in
-# place of stock's 0xFF.
-#
-# The load-bearing one is the PRECACHE_REGISTER_FN: nothing NAMES EffectsPrecache,
-# so losing it costs no diagnostic anywhere -- it costs four game sounds, each
-# silent on its first play.
-ss_cpptest(effects_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/effects_evicted_test.cpp)
-
-# docs/physics-move-scope.md, the honest scope for plan_shim.md 4a item 1
-# (physics_move_scope_test.cpp). The document rules function by function on what
-# can leave game/server/physics.cpp; NOTHING WAS EXECUTED from it, and the
-# finding it records is that no whole function moves. A scope is worth the
-# measurement it was taken on, and item 1's previous figure -- "~1,011 lines" --
-# was quoted from phase to phase long after the file had changed underneath it.
-#
-# So every number in the document that source can answer is re-derived here: the
-# sixteen vphysics slots by name out of physics_collisionevent.h, the ring's
-# eleven recorded kinds out of physics.cpp and shell_constraints.cpp (and
-# PRE_COLLISION's absence, which is what makes "eleven of twelve" a measurement),
-# the six instruments and five stock debug commands apart, the 585 managed lines
-# by wc, and the totals table summing to its own total. The link-line readings
-# are not re-run here -- they need nm over 108 objects -- and the document says
-# so instead of implying they are checked.
-ss_cpptest(physics_move_scope_test
-    LINUX_ONLY "forks a child process and reads its wait status"
-    SOURCES sourcesharp/test/physics_move_scope_test.cpp)
-
-# The rules class derives from IGameRules and nothing else, and the file its
-# last base came from is out of the server build. A source test because what it
-# checks is a shape -- which base a class names and what a vpc lists -- and a
-# re-added base compiles perfectly.
-ss_cpptest(gamerules_interface_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/gamerules_interface_test.cpp)
-
-# plan_entity.md step 4a's cluster, file by file (effects_cluster_test.cpp).
-# FOUR of its seven stock TUs have left the server build and THREE have not, and
-# each of the three is held by one or two stock TUs that belong to a different
-# step. "Not ready yet" and "quietly forgotten" look identical in a status note,
-# so the holders are asserted in PAIRS: a holder leaving is a RED naming the file
-# it unblocks. It also pins the two retired slots as refusals that SAY SO, which
-# is the one thing every other test in the tree cannot tell from a silent zero.
-ss_cpptest(effects_cluster_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/effects_cluster_test.cpp)
-
-# game/server/sound.cpp keeps SENTENCEG_* and has lost its ENTITY
-# (ambient_generic_evicted_test.cpp). CAmbientGeneric was ~1200 lines whose
-# registration had been inside `#ifndef SOURCESHARP` for batches; C# serves
-# ambient_generic and dm_lockdown places TWENTY-ONE of them. It is deleted
-# rather than left compiled because Phase 13 makes CBaseEntity a typedef for
-# IGameEntity -- six pure virtuals and no members -- so "leave it compiled"
-# stopped being one of the options.
-#
-# UTIL_RestartAmbientSounds went with it: its body walked gEntList for the
-# classname and could not outlive the type. The DECLARATION stays in util.h on
-# purpose, so that anyone putting player.cpp (its only caller, excluded below)
-# back gets a link error naming the symbol rather than a silent no-op. That
-# exclusion is asserted here, because it is the whole safety argument and it
-# lives in a file this lane does not own.
-ss_cpptest(ambient_generic_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/ambient_generic_evicted_test.cpp)
-
-# game/client/c_func_dust.cpp holds TWO unrelated things and one of them left the
-# build (dust_verdict_test.cpp). C_Func_Dust is one of the nine compiled
-# ClientClasses that pair on a ServerClass name nothing in this build sends --
-# CFunc_Dust -- with no classname on either side reaching it, so its only route
-# into existence was `new C_Func_Dust` in our own shell_dust_render.cpp: the
-# INVERTED shape. The motes now live on a CParticleEffect the shell owns, which
-# is what CDustEffect always was.
-#
-# FX_Dust, TE_Dust and C_TEDust are in the same file, are the dust PUFF rather
-# than the volume, and STAY -- c_te.o and EffectsClient.o want them. A guard
-# whose #endif slides is how one takes the other with it, so the test's region
-# scanner is required to answer INSIDE for the volume and OUTSIDE for the puff,
-# and is itself checked against a fixture first.
-ss_cpptest(dust_verdict_test
-    SOURCES sourcesharp/test/dust_verdict_test.cpp)
 
 # THE OTHER HALF OF THE DUST STORY (nodraw_visibility_test.cpp). 7a's report
 # ends with two func_dust brushes that exist on the client, have no model, and
@@ -1884,335 +1081,7 @@ ss_cpptest(nodraw_visibility_test
 ss_cpptest(teleport_discontinuity_test
     SOURCES sourcesharp/test/teleport_discontinuity_test.cpp)
 
-# Four unpaired CLIENT classes -- C_PhysBox, C_PhysicsProp, C_BreakableProp and
-# C_BaseParticleEntity -- and the facts their eviction from client_csharp.vpc
-# rests on (client_orphan_evictions_test.cpp). The link already agrees: all four
-# objects come out of the client with evict_probe exit 0 in BOTH configurations,
-# so nothing derives from them and nothing calls a member. What the link cannot
-# see is the JOIN -- put props.cpp, physobj.cpp or baseparticleentity.cpp back in
-# the SERVER build and the server sends a class the client can no longer decode,
-# with no diagnostic anywhere -- so that is scanned from both ends: the three
-# server exclusions stay, and the whole tree is walked to prove no file that is
-# still compiled re-declares one of the four datatable names.
-#
-# The load-bearing pair is baseparticleentity.cpp's REGISTER_EFFECT: it writes
-# into CParticleMgr::m_effectFactories, whose only reader is CreateEffect, which
-# nothing calls. Give it a caller and the eviction quietly costs a lookup that
-# now answers NULL.
-ss_cpptest(client_orphan_evictions_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_orphan_evictions_test.cpp)
-
-# plan_entity.md step 4f. Two deletions of the same shape, pinned together
-# (entity_base_husks_test.cpp): three SDK entity classes whose
-# LINK_ENTITY_TO_CLASS was already `#ifndef SOURCESHARP`, so nothing could
-# create one -- and 140 link-glue stubs whose callers left the build with the
-# files earlier steps deleted.
-#
-# The load-bearing pair here is client.cpp's `sv_allow_point_servercommand`
-# registration: CPointServerCommand was its only native reader and is gone, but
-# PointServerCommand.cs asks for the convar BY NAME. Delete the registration
-# with the class and the most dangerous entity in the SDK becomes ungated with
-# nothing failing. The other one is EffectsPrecache, which `tools/4a-owes`
-# names nowhere by design -- it is on CPrecacheRegister's list, not reached by
-# symbol -- so an owes-driven deletion would take six live game sounds with it.
-ss_cpptest(entity_base_husks_test
-    SOURCES sourcesharp/test/entity_base_husks_test.cpp)
-
-# The hermetic half of tools/4f-component (component_closure_test.cpp), the same
-# way entity_gates_test is entity-gates'. The tool's real mode reads a
-# 166-object link and cannot be shown to be right from its own output, so the
-# closure algebra runs over a fixture -- and this is what makes `make check` run
-# that fixture at all. It also pins the two false greens a measuring tool dies
-# of: a self-test that ran ZERO checks and still exits 0, and a seed the side
-# does not compile closing to the empty set, which reads exactly like "this step
-# is independent of everything else".
-ss_cpptest(component_closure_test
-    LINUX_ONLY "forks a child process and reads its wait status"
-    SOURCES sourcesharp/test/component_closure_test.cpp)
-
-# The FLEX PAIR leaves the CLIENT build -- c_baseflex.cpp and
-# c_baseanimatingoverlay.cpp (client_flex_evicted_test.cpp). 240 symbol-needs and
-# two above-cliff consumers of c_baseentity.o, both vtable-bound.
-#
-# The liveness argument is written against NETWORK NAMES, not DT_ table names,
-# because on this tree the DT_ diff is wrong in both directions: DT_WORLD vs
-# DT_World is a case mismatch on a class live on both sides, and "DT_BaseFlex"
-# occurs as a plain string in 48 server objects whose sources do not register it.
-# The engine pairs a ClientClass to a server class by network name, so that is
-# what is scanned -- and CBaseFlex and CBaseAnimatingOverlay are registered by
-# game/server/baseflex.cpp and game/server/BaseAnimatingOverlay.cpp, both of
-# which are already out of the server build.
-#
-# The link agrees in both configurations (evict_probe exit 0), so nothing here
-# re-checks symbols. What it does check is what the linker cannot see: the JOIN
-# from both ends, the client CLASSMAP path (neither file ever had a
-# LINK_ENTITY_TO_CLASS, so CreateEntityByName could never reach either class),
-# and the six convars that leave with the class that was their only subject.
-ss_cpptest(client_flex_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_flex_evicted_test.cpp)
-
-# The ENTITY BEAM leaves the CLIENT build -- game/shared/beam_shared.cpp
-# (client_beam_evicted_test.cpp). 180 symbol-needs and one above-cliff consumer.
-#
-# Not the beams anybody sees: every beam this game draws is a Beam_t made by the
-# live temp entities (CTEBeamPoints and friends) through CreateBeamPoints, and
-# that path is untouched. C_Beam is the env_beam/env_laser MAP entity.
-#
-# THE LOAD-BEARING TEST IS THE CLASSMAP one, because unlike the flex pair this
-# file carried LIVE client registrations -- LINK_ENTITY_TO_CLASS( beam, CBeam )
-# and ( info_target, CInfoTarget ) -- so both names leave the CLIENT classmap
-# with it. A factory reached by a string leaves no symbol, so no linker can say
-# whether anything wanted them; the tree is scanned instead. The only askers for
-# "beam" are inside the evicted file itself.
-#
-# And the file asserts the Beam_t overload SURVIVES, in as many words: a change
-# that deleted both overloads would satisfy every absence check in the file while
-# silently stopping every beam in the game from rendering.
-ss_cpptest(client_beam_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_beam_evicted_test.cpp)
-
-# CBeam and CBaseViewModel leave the SERVER build
-# (server_beam_viewmodel_evicted_test.cpp). Unlike the client four above, these
-# two are not orphans: each has a LIVE LINK_ENTITY_TO_CLASS -- `beam` and
-# `viewmodel` -- so they are constructible in principle and simply never
-# constructed. That is a claim about STRINGS, and no linker makes it: a factory
-# reached by name from a .bsp or from managed code leaves no symbol in the link.
-#
-# So the maps are scanned as well as the sources, and the sharpest fact in the
-# file is about a classname that IS in both maps: beam_shared.cpp:62 registers
-# info_target, which dm_lockdown and ss_sandbox both declare. The eviction is
-# safe only because that registration sits inside `#ifndef SOURCESHARP` and
-# managed code answers the name -- un-guard it and this quietly takes a factory
-# two maps need. bmodels.cpp was REFUSED on exactly that evidence, until
-# func_clip_vphysics moved to C# and the evidence changed sides; see
-# clip_vphysics_port_test.cpp above.
-ss_cpptest(server_beam_viewmodel_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_beam_viewmodel_evicted_test.cpp)
-
-# The HL2 commentary model viewer and the two model panels under it are out of
-# the client build (commentary_viewer_evicted_test.cpp). A VGUI panel was one of
-# c_baseentity.o's vtable-bound consumers because basemodelpanel.h:24 is
-# `class CModelPanelModel : public C_BaseFlex` -- a panel that previews a model
-# does it by making an entity.
-#
-# The link had exactly ONE reference left, baseviewport.cpp's `new` inside
-# CreatePanelByName, and it is now inside a `#ifndef SOURCESHARP`. GUARDING A
-# CALLER IS NORMALLY THE WRONG WAY OUT -- server_csharp.vpc says so, and lifted
-# three functions rather than guard them -- so the two legs that make it right
-# here are asserted rather than argued: the commentary system is `-$File` out of
-# BOTH builds, and CreateDefaultPanels never asks for this panel, so the only way
-# to reach it was a console command for authoring content this build cannot play.
-#
-# The one that costs nothing to break is the vpc exclusion: the guard alone makes
-# the build link, so un-excluding the three files silently reinstates a
-# C_BaseFlex vtable and 120 symbol-needs for a panel nothing can open.
-ss_cpptest(commentary_viewer_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/commentary_viewer_evicted_test.cpp)
-
-# Where the four table chains END, once CBaseEntity is IGameEntity
-# (base_table_chain_end_test.cpp). Five static DATA members of CBaseEntity block
-# Phase 13 step 4 -- m_DataMap both sides, m_PredMap and m_pClassRecvTable
-# client, m_pClassSendTable server -- and they are a COMPILE error rather than a
-# link one, in every derived class's own TU, because each table macro names the
-# member of the BASE: 37 references across 29 distinct release objects at
-# 674f3e0e, not the three defining files the plan expected.
-#
-# The fix is one non-template overload per chain, taking IGameEntity *. It is
-# INERT in an unarmed tree -- nothing has IGameEntity for a BaseClass yet -- so
-# no normal build exercises it, and an armed survey only shows the errors gone,
-# never that the DERIVED case still resolves the other way. Both halves are
-# asserted here, against the real datamap.h / dt_send.h / dt_recv.h rather than
-# a replica: a replica in which the template always won would pass every
-# NULL assertion a correct one passes.
-#
-# mathlib, and only because igameentity.h includes mathlib/vector.h -- the same
-# reason entity_bases_alias_test needs it.
-ss_cpptest_mathlib(base_table_chain_end_test
-    SOURCES sourcesharp/test/base_table_chain_end_test.cpp)
-
 # break_piece_offset_test moved to C# with its subject (BreakPiecePlacementTests).
-
-# plan_server_all.md Wave 0 -- the free ones (server_wave0_evicted_test.cpp).
-# The wave moves no logic, so this file is the only thing that holds it. Four
-# facts, and each has a way of being quietly undone:
-#
-#   The four SourceSharp-authored files (entity_bases, baseentity_statics,
-#   precache_model, toucher -- .cpp and .h) moved out of game/server/ into
-#   sourcesharp/game/server/. BOTH directories are on this project's
-#   $AdditionalIncludeDirectories, so a copy left behind at the old path would
-#   compile and win silently; asserted absent, not just present-at-the-new-path.
-#
-#   The two $File lines naming translation units no configuration can produce
-#   -- replay_gamestats_shared.cpp [$BUILD_REPLAY], haptic_utils.cpp [$WINDOWS].
-#
-#   The three probe verdicts -- h_export.cpp, dt_utlvector_send.cpp,
-#   interpolatortypes.cpp -- gone from the server file list, with h_export's
-#   emptiness on Linux re-read from the file rather than trusted.
-#
-#   ...and all three still ON DISK. server_base.vpc names all three,
-#   client_base.vpc names h_export.cpp, and the client compiled
-#   interpolatortypes.cpp until plan_client_novalve C1 evicted it for the same
-#   reason (docs/client-novalve-rulings.tsv).
-ss_cpptest(server_wave0_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_wave0_evicted_test.cpp)
-
-# plan_server_all.md Wave 1 -- the shadowed five (server_wave1_shadowed_test.cpp).
-# FOUR of them left, by four different exits, and the exits are the point: a
-# later lane reading only the meter cannot tell a deletion from a fold.
-#
-#   weapon_parse.cpp        deleted from the list; it already had zero
-#                           consumers. CreateWeaponInfo went out of
-#                           shell_shared.cpp with it -- weapon_parse.cpp:103
-#                           was its only caller, and that premise is asserted
-#                           against weapon_parse.cpp itself.
-#   env_wind_shared.cpp     deleted after one dead call went. The safety
-#                           argument lives in somebody else's file -- effects.cpp
-#                           is the only server-side constructor of a
-#                           CEnvWindShared and it is out of the build -- so that
-#                           is asserted here too.
-#   soundscape_system.cpp   relocated and shrunk to shell_soundscape.cpp. The
-#                           four traversal steps that decide a soundscape's
-#                           NUMBER are pinned individually, because the number
-#                           is shared with the client's own parse of the same
-#                           files and a disagreement is silent.
-#   func_areaportalbase.cpp folded whole into shell_areaportal.cpp -- and then
-#                           UNFOLDED at plan_entity.md step 4g, when the list
-#                           was retyped to a record that is not an entity. The
-#                           fact is now that the SDK class has no instances and
-#                           no compiled reader, which is the same eviction
-#                           stated against the shape that replaced it.
-#
-# The FIFTH, TemplateEntities.cpp, is asserted STILL PRESENT. Wave 1's premise
-# for it -- that PointTemplate.cs owns the behaviour -- is only half right:
-# managed owns the spawning, and the store plus its entity-IO name fixup is
-# live C++ with three live consumers. "Wave done" plus a moved meter is exactly
-# how a file stops being anybody's problem, so it is written down as a test.
-ss_cpptest(server_wave1_shadowed_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_wave1_shadowed_test.cpp)
-
-# plan_server_all.md Wave 2 -- two lifts and a fold (server_wave2_lifts_test.cpp).
-#
-#   haptic_msgs.cpp        six usermessages->Register calls lifted into
-#                          shell_shared.cpp under `#ifdef GAME_DLL`, AND SINCE
-#                          UNLIFTED -- plan_gamedll.md Phase 5a step 2 deleted
-#                          them, and the six are the first six [UserMessage]
-#                          declarations in C# now. What is checked here is that
-#                          the residue is gone from both sides and that nothing
-#                          calls RegisterHapticMessages any more.
-#   ModelSoundsCache.cpp   folded into precache_model.cpp. The five CL_EVENT_*
-#                          ids are checked in BOTH files: they are animation
-#                          event numbers baked into the models, stock's own
-#                          comment says they must match cl_animevent.h, and
-#                          nothing checks that at build time.
-#   precache_register.cpp  folded into world_adapter.cpp. Asserted to have ONE
-#                          list head: two would mean the registrant pushes onto
-#                          one and the walk reads the other, which is a silent
-#                          no-op and six unprecached sounds, not a link error.
-#
-# And interval.cpp is asserted STILL PRESENT, with its reason. It probes free in
-# both configurations and `make debug GC_SECTIONS=0` names four references to it
-# from AI_Criteria.cpp -- evict_probe links with the collector on, so a verdict
-# of "free" means free under the collector. The next lane should not have to
-# rediscover that.
-ss_cpptest(server_wave2_lifts_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_wave2_lifts_test.cpp)
-
-# plan_side_isolation P2 -- the user-message forwarders
-# (usermessage_forwarders_test.cpp).
-#
-# The registry, ids, send, dispatch and handlers are C#'s, with xUnit facts
-# over them (UserMessageRoutingTests). What native code keeps is one forward
-# per entry point the engine and Valve's code reach -- GetUserMessageInfo, the
-# Valve senders' name lookup and DispatchUserMessage -- and the send half that
-# carries C#'s answer out. HookMessage went with its last compiled caller
-# (lane HC, 2026-10-04); NoNativeHookRouteRemains reads client_sourcesharp's
-# list through cmake_graph.h. The haptics-
-# order test and its oracle went with the native list: ids are carried by the
-# SsUserMessages table, and demos are out of scope. usermessage_info_test and
-# usermessage_ordering_guard_test's behaviours that still have a native
-# subject are carried here.
-ss_cpptest(usermessage_forwarders_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/usermessage_forwarders_test.cpp)
-
-# plan_gamedll_after.md Phase A9 (gameinterface_split_test.cpp).
-#
-# The four census interfaces gameinterface.cpp still implemented -- GameEnts,
-# SharedAppSystems, GameClients (x3 version strings) and GameTags -- move to
-# files of their own and the file is deleted. Three things there that a link
-# cannot see: an EXPOSE_ that goes MISSING is found by the engine at load and
-# not by ld; an EXPOSE_ that is DUPLICATED links fine and is resolved by
-# static-init order; and the file-scope state each class carried had to become
-# class fields, where a field that is declared and never assigned compiles.
-ss_cpptest(gameinterface_split_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/gameinterface_split_test.cpp)
-
-# plan_server_all.md, the nine zero-consumer files (server_wave3_interfaces_test.cpp).
-#
-# docs/server_eviction_graph.md lists nine stock objects nm says nobody asks
-# for. Section 8 warns that a zero external surface is a probe candidate and not
-# a free deletion, and it was right nine times out of nine: TWO were evicted and
-# SEVEN are traps, of four different kinds. This file is the note back to
-# whoever runs the probe next and gets the same nine.
-#
-#   playerinfomanager.cpp  deleted. Publishes three interfaces through
-#                          CreateInterface (invisible to nm), and the strings
-#                          appear only in serverplugin_empty.dll -- a WINDOWS
-#                          sample plugin.
-#   studio_shared.cpp      deleted. Unreferenced with --gc-sections OFF, which
-#                          is the only way that claim means anything.
-#   plugin_check.cpp       KEPT. Same macro, opposite answer:
-#                          PluginHelpersCheck001 IS in engine.so.
-#   randoverride.cpp       the dangerous one: it INTERPOSES libc's
-#                          rand()/srand(). Remove it and the link succeeds --
-#                          libc answers -- and its callers change random number
-#                          generator in silence. Its server callers are gone, so
-#                          it left server.so for src/client/native (2026-10-12);
-#                          the test now holds "no server object imports rand".
-#   networkvar.cpp         KEPT. Zero readers in release, TWENTY-SIX in debug.
-#                          Section 8's trap 4, and why evict_probe takes a MODE.
-#   interval.cpp           KEPT; see server_wave2_lifts_test.cpp.
-#   effect_dispatch_data.cpp KEPT; DT_EffectData must leave both sides at once.
-#   stdafx.cpp             KEPT; it creates the PCH.
-#   memoverride.cpp        not this project's line to remove.
-ss_cpptest(server_wave3_interfaces_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_wave3_interfaces_test.cpp)
-
-# plan_server_all.md Wave 8, the tiny globals (server_globals_merge_test.cpp).
-# Five files -- globals.cpp, init_factory.cpp, variant_t.cpp, server_class.cpp,
-# networkvar.cpp -- became sourcesharp/game/server/shell_globals.cpp. Section 9
-# names exactly these five and says one file can hold them.
-#
-# A RELOCATION AND NOT AN EVICTION, which is why it was possible at all:
-# docs/server_eviction_graph.md computes that eighty-one of the remaining stock
-# files are one entangled knot in which no member's $File line can go until
-# essentially all of them do, and four of these five are IN it. Nothing stopped
-# naming these symbols; the definitions moved and the link graph is unchanged.
-#
-# So this test asks a different question from the rest of the series. Not "is it
-# out of the list" but "are all eight definitions still here, EXACTLY ONCE".
-# Exactly-once is the half that matters: a merge that copies rather than moves
-# gives two g_pServerClassHead, and the second is a second list head --
-# ServerClasses register into one and the engine walks the other, with no link
-# error to say so.
-#
-# Plus which files stayed on disk (server_class.cpp and networkvar.cpp are under
-# public/ and the CLIENT compiles both, asserted against client_base.vpc itself)
-# and which did not (the three server-only ones are deleted, on the same Phase 13
-# reasoning bmodels.cpp went out on).
-ss_cpptest(server_globals_merge_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_globals_merge_test.cpp)
 
 # THE LAYOUT OF CGlobalVars (plan_gamedll.md Part 0a #1), which the managed
 # `Globals` reader mirrors field for field in SourceSharp.Abi/Globals.cs.
@@ -2231,36 +1100,6 @@ ss_cpptest(server_globals_merge_test
 # this same table as text so that no number in the comparison comes from C#.
 ss_cpptest_engine_headers(globalvars_layout_test
     SOURCES sourcesharp/test/globalvars_layout_test.cpp)
-
-# THE SWITCH -- plan_gamedll.md Phase 4 (shell_gamedll_registration_test.cpp).
-#
-# The engine now finds CShellGameDll when it asks for "ServerGameDLL012". What
-# makes that safe rather than catastrophic is three arrangements, and not one of
-# them is a compile error, a link error, or a number `strings` can produce:
-#
-#   the guard is on the REGISTRATION and not on CServerGameDLL's class body --
-#   Phase 4's own text asks for both that and a CServerGameDLL * delegate, and
-#   a pointer needs a complete type with a definition to link, so the two
-#   instructions are mutually exclusive and only one of them is the gate;
-#
-#   every engine-facing method hands its call back to stock while -shellgamedll
-#   is absent, which is the whole of T4's A/B and the thing Phases 5-7 break one
-#   method at a time if nothing enumerates the class;
-#
-#   and the shell ASSIGNS g_pSharedChangeInfo. Stock assigns it inside
-#   CServerGameDLL::DLLInit; its reader is CBaseEdict::StateChanged, an inline
-#   that dereferences it unconditionally on every networked variable write. A
-#   shell that owns DLLInit and does not assign it is a null dereference at the
-#   first state change -- invisible to every offline gate, which is why the
-#   arrangement is pinned here instead.
-#
-# Source-read rather than run, and that is forced: shell_gamedll.cpp includes
-# gameinterface.h and cbase.h's whole world, so its bodies cannot be linked into
-# a gtest binary. The binary half of the first property is
-# tools/gamedll-interface-census, which reads the built server's symbol table.
-ss_cpptest(shell_gamedll_registration_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/shell_gamedll_registration_test.cpp)
 
 # THE ONE REFUSAL THAT STILL HAS TO WRITE SOMETHING -- docs/plan-audit.md D16
 # (shell_savecomment_test.cpp).
@@ -2314,74 +1153,6 @@ ss_cpptest(shell_steporder_test
     INCLUDES sourcesharp/game/server
     SOURCES sourcesharp/test/shell_steporder_test.cpp)
 
-# The same lane's RULINGS, which are claims about what is NOT in a translation
-# unit and so cannot be driven.
-#
-# Thirteen symbols were put to lane f-bone and nine moved. The other four have a
-# ruling each, and every one of them contradicts a prior that was written down:
-# §6's carve-out calls UnlockStudioHdr a static (it is a private instance
-# method), the lane brief calls InvalidateBoneCaches and UpdateClientSideAnimations
-# non-statics (both are declared static), and c8-flip.md rules GetHitboxSet onto
-# the leaf-library row on the grounds that it takes a CStudioHdr (it is
-# `return m_nHitboxSet;`). A ruling recorded only in a handover decays; these
-# hold each one to the tree.
-#
-# The family-2 arm is the load-bearing one: it walks the PREPROCESSOR STACK of
-# the three §6 STAY files and requires every hitbox ask to be inside
-# `#ifndef SS_CBASEENTITY_ALIAS`, with none outside. That is the entire reason
-# those two symbols are not re-homed -- armed, there is no ask -- and the scanner
-# itself is driven against a sample with guarded and unguarded needles in it, so
-# an arm that answered "inside" for everything fails.
-ss_cpptest(bone_leaf_rehome_ruling_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/bone_leaf_rehome_ruling_test.cpp)
-
-# lane diag-visibility -- A MANAGED ENTITY EXISTS AND A TOOL CANNOT SEE IT
-# (entity_visibility_test.cpp).
-#
-# Two diagnostics that walked the SDK hierarchy and therefore reported a world
-# that was mostly absent. `report_entities` printed NOT ONE LINE on dm_lockdown
-# while `./debug-api ents "*"` on the same game read 471; the client's
-# `InvalidateMdlCache` walked C_BaseEntity and reached ZERO of this mod's
-# entities, silently, from a body that looked exactly like a working one.
-#
-# The managed halves have facts of their own (ClientMdlCacheFlushTests, fifteen).
-# These are the C++ shape, and the one that earns the file is
-# TheClientBindingIsNotInsideTheServerOnlyBlock: the first version of the client
-# binding landed inside sourcesharp_gamesystem.cpp's 350-line
-# `#ifndef CLIENT_DLL`, and the build was green, the crossing fired, C# printed
-# its line, and the count in it was 0. No compiler and no grep sees that -- only
-# the preprocessor NESTING does, so this file evaluates it, and six facts about
-# the evaluator itself keep it from being a check that cannot fail.
-ss_cpptest(entity_visibility_test
-    SOURCES sourcesharp/test/entity_visibility_test.cpp)
-
-# plan_gamedll_after.md Phase A5 -- the surviving SDK ServerClass registrations
-# (stock_serverclass_census_test.cpp).
-#
-# The endgame meter's second number, given a floor. It read 7 and reads 5. The
-# seven were a dependency TREE rather than a list: BEGIN_SEND_TABLE reaches
-# BaseClass::m_pClassSendTable and only IMPLEMENT_SERVERCLASS_INTERNAL defines
-# it, so a registration with a networked descendant cannot leave, and the meter
-# only ever comes down from the leaves inward. A5 took the two leaves that
-# existed, CRagdollPropAttached and CTeam.
-#
-# THE PREMISE IS PINNED, NOT ONLY THE EDIT. An eviction is correct only while
-# nothing produces the props it removed -- and that is a property of OTHER
-# files, which can change without anybody touching the two that were edited. So
-# NothingProducesAnAttachedRagdoll and NothingEverFillsATeam scan the whole
-# compiled set for a caller of the zero-caller functions the argument rests on.
-# Those are the facts that go red at the moment the eviction stops being true,
-# which is otherwise announced nowhere.
-#
-# The compiled set is DERIVED from server_csharp.vpc's $File lines rather than
-# listed, and comments are stripped before every scan -- both edited files now
-# spell the exact strings this test asserts are absent, in the paragraphs
-# explaining why they are absent.
-ss_cpptest(stock_serverclass_census_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/stock_serverclass_census_test.cpp)
-
 # THE MANAGED HOST IS ONE OBJECT PER PROCESS, and this is the gate on it.
 #
 # sourcesharp/host/sourcesharp.cpp owns the CLR refcount. It used to be a static
@@ -2399,91 +1170,6 @@ ss_cpptest(stock_serverclass_census_test
 ss_cpptest(managed_host_single_instance_test
     LINUX_ONLY "reads libmanaged_host.so's ELF headers"
     SOURCES sourcesharp/test/managed_host_single_instance_test.cpp)
-
-# plan_gamedll_after.md Phase A3 -- the two "C" systems that became managed
-# (c_systems_managed_test.cpp).
-#
-# CPropData and CDecalEmitterSystem left kServerSystems[], and the failure that
-# creates is SILENT TWICE OVER. A row that leaves the table and gains no managed
-# participant does not warn, does not fail to link and does not run -- the decal
-# table would simply be empty, and an empty decal table answers -1 to every
-# lookup exactly as a working one answers for a decal that is genuinely absent.
-# And decals.cpp leaving server_csharp.vpc is T1's hazard in its exact shape:
-# the client compiles the same file, and the reason the removal is safe is a
-# property of a file the server no longer builds, so no server-side gate sees it.
-#
-# Six subjects, all source-scanned because every one of them lives in a
-# translation unit that includes cbase.h's whole world: the rows are gone AND
-# say they moved rather than were deleted; the pre-entity half has exactly one
-# caller and one body, inside the guard the other four are in; decals.cpp is the
-# client's and keeps its stock base; the shim answers all three of stock's
-# interface methods from managed code, guards a null table on each, and holds no
-# file-scope state; CPropData's two halves have one owner each with the blocker
-# named at the site; and the game-file read refuses rather than truncating.
-ss_cpptest(c_systems_managed_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/c_systems_managed_test.cpp)
-# plan_gamedll_after.md Phase A3, SECOND pair -- CSoundEnt (soundent_managed_test.cpp).
-#
-# The same silent failure in a different shape. CSoundEnt's row overrode
-# FrameUpdatePreEntityThink and nothing else, so a row that leaves the table and
-# gains no managed participant leaves the sound list NEVER SWEPT -- and a list
-# that is never swept does not empty, it keeps answering with entries that
-# should have expired. Nothing prints, nothing crashes, and the AI hears gunfire
-# from a minute ago.
-#
-# The second subject has no analogue in the first pair: the pool used to be
-# reachable as MEMORY. SoundPointerForIndex handed a CSound * to two callers,
-# and a port that left either of them holding one would be handing a raw pointer
-# into a managed array -- which compiles, links, and reads whatever is at that
-# address.
-#
-# BOTH SYSTEMS OF THE PAIR ARE HERE, because their two failure shapes only make
-# sense beside each other.
-#
-# CSoundEnt (14 checks): the row is gone and says it MOVED and where to;
-# soundent.cpp is out of server_csharp.vpc and the shim is in; the header still
-# declares the statics the shim defines; the shim defines all five, guards a null
-# table on each of the four that ask, holds no file-scope state, and crosses
-# owner AND target as handles; neither remaining native caller holds a CSound *;
-# and the ABI's four new slots are declared once and REQUIRED while the two
-# engine slots are gone from both sides of the boundary.
-#
-# CSoundControllerImp (11 checks): the same row questions, plus the ones its
-# SHARED file forces. soundenvelope.cpp compiles into client.so too, so the
-# checks are that the SERVER stopped compiling it and the CLIENT did not, and
-# that client_shared_parity.sh names it -- because that gate DERIVES its list
-# from the two vpcs, so the file dropped out of its scope at the exact commit
-# its client half needed watching. Then: the shim overrides every pure virtual
-# the header declares (counted FROM the header, not written down), guards every
-# forward against a null managed table with no do-nothing table behind it, holds
-# three statics of which exactly one is a variable and that one is
-# function-local, crosses a patch as an int handle in all seventeen slots, binds
-# all four engine slots, and defines GetSoundSaveRestoreOps rather than leaving
-# the header's promise dangling.
-#
-# And the fourth frame point, which had NO PRODUCTION CALLER until this phase --
-# the second stage in this tree found in that state.
-ss_cpptest(soundent_managed_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/soundent_managed_test.cpp)
-
-# plan_entity.md Phase 0a. The census tool is a shell script, so this leg does
-# not compile it -- it RUNS it, and drives it into the states where it must
-# refuse. No engine headers, no defines: everything it needs is popen and the
-# tree it is standing in.
-ss_cpptest(entity_census_test
-    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
-    SOURCES sourcesharp/test/entity_census_test.cpp)
-
-# plan_shim.md §6, lane 4a. tools/shim-orphan-reach is a python script, so this
-# leg does not compile it -- it RUNS it over the real link line and requires
-# neither linker-satisfaction file to define anything nobody imports. It also
-# drives the tool into its REFUSAL, because a tool that cannot ask the question
-# must not answer zero: an unbuilt tree otherwise reads as "delete this file".
-ss_cpptest(orphan_reach_test
-    LINUX_ONLY "forks a child process and reads its wait status"
-    SOURCES sourcesharp/test/orphan_reach_test.cpp)
 
 # plan_entity.md Phase 5, the 5b split. tools/dead-conditionals is a python
 # script, so this leg does not compile it -- it RUNS it, over the real tree and
@@ -2513,16 +1199,6 @@ ss_cpptest(boundary_probe_test
     INCLUDES sourcesharp/game/shared
     SOURCES sourcesharp/test/boundary_probe_test.cpp
     LIBS dl)
-
-# plan_entity.md Phase 0b. The gates tool is a shell script too, so like the
-# census leg this one RUNS it rather than compiling it: against today's binaries
-# (where all three gates must FAIL, because the definition of done is the end
-# state), against a fixture whose every count is zero (where they must PASS --
-# otherwise the pass path is never executed on any tree that exists), and
-# against a fixture with two cast sites, one allowlisted and one not.
-ss_cpptest(entity_gates_test
-    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
-    SOURCES sourcesharp/test/entity_gates_test.cpp)
 
 # relink_exit_contract_test STOOD HERE and went with its two subjects.
 # `tools/client-flip-relink` and `src/p4-exit-relink` answered "does the project
@@ -2632,19 +1308,6 @@ ss_cpptest_engine_headers(save_restore_layout_test
              ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
     SOURCES sourcesharp/test/save_restore_layout_test.cpp)
 
-# plan_entity.md step 1d -- the shim entity-list sweep, and the two resolvers it
-# added. The census is the step's instrument and this is the step's REASON: a
-# count says how many entity-list calls are left, never which, so a call added
-# back into a file that already has one moves the total by one and reads exactly
-# like a site legitimately still there.
-#
-# Source-read and it is forced: all four subjects include cbase.h's whole world
-# and none of them can ever be linked into a gtest. Appended at the END, as the
-# lane brief directs, so a merge with a concurrent lane keeps both sides.
-ss_cpptest(entity_list_sweep_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/entity_list_sweep_test.cpp)
-
 # plan_entity.md Phase 1 step 1h -- PHYSICS GAME DATA IS THE HANDLE (§3.3).
 #
 # Engine-free for the same reason slot_table_test is: physics_gamedata.h is
@@ -2707,13 +1370,16 @@ ss_cpptest(physics_gamedata_test
 # lane keeps both sides.
 # (SS_1E_BAN_FLAGS, which the three checks below shared, is written out in each.)
 
+# The handle ban is a rule on the shipped headers, so it reads vendor/.
+ss_vendor_includes(_ss_handle_ban_vendor client game/shared common public public/tier0 public/tier1)
+
 # clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
 # (an unused local in a template gcc 10 never instantiated), on a plain -I here.
 ss_cpptest(standalone_handle_ban_test
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
-             game/shared sourcesharp/game/server
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub ${_ss_handle_ban_vendor}
+             sourcesharp/game/server
     SOURCES sourcesharp/test/standalone_handle_ban_test.cpp)
 
 ss_must_not_compile(standalone_handle_ban
@@ -2721,8 +1387,8 @@ ss_must_not_compile(standalone_handle_ban
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
             STANDALONE_HANDLE_BAN_NOCOMPILE=1
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
-             game/shared sourcesharp/game/server
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub ${_ss_handle_ban_vendor}
+             sourcesharp/game/server
     SOURCES sourcesharp/test/standalone_handle_ban_test.cpp)
 
 # clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
@@ -2731,8 +1397,8 @@ ss_cpptest(standalone_handle_ban_absent
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
             STANDALONE_HANDLE_BAN_NOCOMPILE=1 STANDALONE_HANDLE_BAN_ABSENT=1
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
-             game/shared sourcesharp/game/server
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub ${_ss_handle_ban_vendor}
+             sourcesharp/game/server
     SOURCES sourcesharp/test/standalone_handle_ban_test.cpp)
 
 # plan_entity.md Phase 3 step 3a -- THE PHYSICS SHELL (§3.8).
@@ -2786,20 +1452,6 @@ ss_must_not_compile(client_slot_table_no_own_serial
              sourcesharp/game/shared
     SOURCES sourcesharp/test/client_slot_table_test.cpp)
 
-# The IBaseClientDLL shell's ARRANGEMENT, and the document its boundary capture
-# is recorded in.
-#
-# This was clientdll_probe_test.cpp and linked -ldl for dladdr, reached through
-# the probe's CBoundaryProbe::DescribeAddress. Lane 5b deleted the probe, so
-# there is no header to include and no dladdr to link: every fact here reads
-# shell_clientdll.cpp, client_csharp.vpc, public/cdll_int.h and
-# docs/clientdll-boundary.md off the filesystem. That is the half no unit test
-# can reach -- shell_clientdll.cpp includes cbase.h's whole world and can never
-# be linked into a gtest.
-ss_cpptest(shell_clientdll_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/shell_clientdll_test.cpp)
-
 # THE CLIENT'S REFUSAL COUNTER -- plan_entity.md 5b, and the client side of
 # shell_gamedll_refusals_test above.
 #
@@ -2833,28 +1485,6 @@ ss_cpptest(detail_props_wire_test
 ss_cpptest(shadow_pending_queue_test
     INCLUDES sourcesharp/game/client
     SOURCES sourcesharp/test/shadow_pending_queue_test.cpp)
-
-# THE CLIENT FLIP'S RULING TABLE AND ITS REFUSAL COUNTER -- CLIENT_FLIP lane 2
-# (`c8-entitystatics`), plan_entity.md §7.
-#
-# The same shape and the same seam as the refusals test above: the counter takes
-# nothing from Valve, so the mechanism a §7 declaration is read out of can be
-# checked without a running game, and ShellEntityStatics_RefusalWarning is
-# DECLARED by the header and defined by whoever links it -- tier0's Warning() in
-# shell_entitystatics.cpp, a recorder here.
-#
-# ONE DIFFERENCE, AND IT IS THE POINT. The RULING TABLE lives in the header
-# rather than in the .cpp, so this reads the rows the game ships instead of a
-# transcription of them. A transcription is a copy that drifts, which is exactly
-# how a declared refusal quietly stops matching the code it declares.
-#
-# It also source-reads shell_clientdll.cpp, the two translation units the flip
-# deletes, and game/server/player.cpp -- the arrangement half, which cannot be
-# linked because those files include cbase.h's whole world.
-ss_cpptest(shell_entitystatics_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    INCLUDES sourcesharp/game/client
-    SOURCES sourcesharp/test/shell_entitystatics_test.cpp)
 
 # THE NOT-SHIPPED LEDGER -- plan_entity.md step 7g.
 #
@@ -2917,45 +1547,6 @@ ss_cpptest_engine_headers(managed_runtime_client_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/host/native sourcesharp/game/shared
     SOURCES sourcesharp/test/managed_runtime_client_test.cpp)
 
-# THE CLIENT SHELL READS THE ENGINE BLOCK -- plan_entity.md 5c, and the client
-# half of standalone_layout_test above.
-#
-# Sixteen members left C_StandaloneEntity for the block: the seven head values
-# the engine's DECODER now writes (the recv props address the block directly)
-# and the nine render-tail values this side computes. Nothing in a build can see
-# a member and a block field holding the same value -- both compile, both are
-# read, and the game looks right until they disagree -- so the checks are
-# textual, exactly as the server's are.
-#
-# It also pins the ONE place the two sides deliberately differ: the server's
-# block is the blob's prefix and this one is a member of the shell, because the
-# blob's first 352 bytes on this side are the SERVER's block arriving as payload
-# words, and its first four are the server's CBaseHandle. The floor in
-# operator new is asserted to agree with that placement, so changing one alone
-# is red rather than a 320-byte overrun.
-ss_cpptest(standalone_client_layout_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/standalone_client_layout_test.cpp)
-
-# CLIENT INTERPOLATION IS MANAGED CODE -- plan_entity.md 6a.
-#
-# CInterpolatedVar is 1591 lines of template that every standalone client entity
-# carried two instantiations of. The history and the blend are managed rings now;
-# what is left native is the LIST the pass walks and the after-effects of a pose
-# changing (the transform rebuild and the leaf-system notify, both engine calls).
-#
-# Textual, for 1b's and 5c's reason: nothing in a build can see two
-# implementations of one algorithm, both compiled and both reachable. A native
-# Interpolate that quietly kept blending would fight the managed one on alternate
-# frames and the game would look nearly right.
-#
-# Whether the managed curve IS the engine's curve is not this file's question --
-# that is SourceSharp.Tests/InterpolationTests, replaying a recording of the C++
-# this removes against it bit for bit.
-ss_cpptest(client_interpolation_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_interpolation_test.cpp)
-
 # Where a parented child ends up (parent_compose_cases.txt). plan_entity.md step
 # 2h moved parenting's arithmetic to C#, and the golden table the managed test
 # reads is only worth anything if something still pins it to the mathlib it was
@@ -3016,35 +1607,6 @@ ss_cpptest_mathlib(parent_compose_test
 # lane keeps both sides.
 # (SS_5D_BAN_FLAGS, which the three checks below shared, is written out in each.)
 
-# clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
-# (an unused local in a template gcc 10 never instantiated), on a plain -I here.
-ss_cpptest(standalone_handle_ban_client_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
-             game/shared sourcesharp/game/client
-    SOURCES sourcesharp/test/standalone_handle_ban_client_test.cpp)
-
-ss_must_not_compile(standalone_handle_ban_client
-    EXPECT "CHandle<C_StandaloneEntity>.*incomplete type|incomplete type 'CHandle<C_StandaloneEntity>'"
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-            STANDALONE_HANDLE_BAN_CLIENT_NOCOMPILE=1
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
-             game/shared sourcesharp/game/client
-    SOURCES sourcesharp/test/standalone_handle_ban_client_test.cpp)
-
-# clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
-# (an unused local in a template gcc 10 never instantiated), on a plain -I here.
-ss_cpptest(standalone_handle_ban_client_absent
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-            STANDALONE_HANDLE_BAN_CLIENT_NOCOMPILE=1
-            STANDALONE_HANDLE_BAN_CLIENT_ABSENT=1
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
-             game/shared sourcesharp/game/client
-    SOURCES sourcesharp/test/standalone_handle_ban_client_test.cpp)
-
 # physics_ids_test (step 3b's physics id table) is gone with the table
 # (plan_physics_bones_native_zero 2.3): no native producer asked it for an id;
 # managed's PhysicsId is the scheme its own joint table hands out.
@@ -3060,7 +1622,6 @@ ss_cpptest(standalone_handle_ban_client_absent
 # ragdoll_ids_test left with the native body table (plan_physics_bones_native_zero Phase 3):
 # the client's bodies are SourceSharp.Client's ClientRagdolls, keyed by owner handle.
 
-
 # plan_entity.md Phase 6 step 6e -- THE SHAPE OF THE CREATION, read as text.
 # "A flat function over a bone snapshot returning ids" is three properties of
 # SOURCE, and none of them can be asserted from inside a running program: a
@@ -3073,152 +1634,20 @@ ss_cpptest(standalone_handle_ban_client_absent
 #
 # Appended at the END, as the lane brief directs.
 
-# The usercmd codec is C# on both sides (usercmd_codec_test.cpp): no DLL
-# compiles a usercmd.cpp, and the client's IInput codec slots cross to managed
-# (plan_server_novalve P2.2, plan_client_novalve C9).
-ss_cpptest(usercmd_codec_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/usercmd_codec_test.cpp)
-
-# plan_shim.md Phase 2d -- ANIMATION EVENTS BY NAME, NOT BY ORDINAL
-# (anim_event_names_test.cpp). precache_model.cpp used to identify new-system
-# events by a number the per-level event REGISTRY wrote into mdl memory,
-# matching the enum only because the registry was filled in enum order. That
-# is the whole reason the registry (shell_animlists.cpp + anim_name_registry.h)
-# and the managed feed behind it had to exist.
-#
-# anim_event_names.h holds the five rows native code reads, and a copy of five
-# rows of a table is a thing that DRIFTS -- so the agreement is asserted in
-# both directions: the two type bits are read out of eventlist.h's text, and
-# every name and client/server bit is checked against
-# SourceSharp.Abi/EventCatalog.cs, which is where the table really lives.
-#
-# No engine, no tier1: the header includes nothing, in bone_cache_key.h's
-# tradition, which is what lets this binary exist at all.
-#
-# Appended at the END, as the lane brief directs.
-ss_cpptest(anim_event_names_test
-    SOURCES sourcesharp/test/anim_event_names_test.cpp)
-
-# model_descriptor_format_test.cpp went 2026-10-18 with both halves it
-# compared: the descriptor is read by the managed StudioModelDescriptor, and
-# neither model_descriptor.cpp's walk nor ModelDescriptor.Decode is left.
-# plan_entity.md Phase 7 step 7b -- THREE STOCK TEMP-ENTITY TUs LEAVE THE CLIENT
-# (tempent_evicted_test.cpp). c_basetempentity.cpp, c_te_particlesystem.cpp and
-# c_te_explosion.cpp are out of client_csharp.vpc.
-#
-# Source-read, and it has to be: not one of the three claims under the eviction
-# is visible to a linker. That nothing derives from C_BaseTempEntity any more is
-# a class derivation, which emits no symbol; that CTEParticleRenderer MOVED
-# rather than being rewritten is a comparison of two files; and that stock's
-# blast arithmetic was not TRANSCRIBED into the shim is an absence in a file the
-# build never reads. A build that compiles is what an eviction always produces.
-#
-# The comment stripper is load-bearing rather than tidy -- shell_clientdll.cpp
-# keeps four comments naming the calls it lost -- and TheStripperIsLoadBearing
-# asserts the raw text still carries what the stripped text may not, so a
-# stripper that returned nothing fails instead of passing everything.
-ss_cpptest(tempent_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/tempent_evicted_test.cpp)
-
-# plan_entity.md Phase 7 step 7a -- FOUR STOCK EFFECT TUs LEAVE THE CLIENT
-# (effect_tus_evicted_test.cpp). c_env_fog_controller.cpp, c_func_dust.cpp,
-# c_sprite.cpp and c_impact_effects.cpp are out of client_csharp.vpc, and the
-# leaf renderers they held are in shell_sprite_leaf.cpp,
-# shell_impact_effects.cpp and shell_dust_render.cpp.
-#
-# Source-read for the same reason 7b's is, and for one worse one this step met
-# in person: c_sprite.cpp was first rewritten with GetSpriteAxes and DrawSprite
-# left in it AS WELL AS in the shim, and the build was green -- because the file
-# is no longer compiled, so the linker never saw the second copy. The
-# column-zero-brace check on each evicted file's compiled arm is what caught it.
-#
-# It also checks the GATE'S instrument: every counter shell_effect_ledger.h
-# declares must be incremented somewhere and printed by cs_cl_effects_report,
-# because a counter nobody bumps reads zero forever and tools/7a-effect-gate
-# would read that as a measured absence.
-ss_cpptest(effect_tus_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/effect_tus_evicted_test.cpp)
-
-# plan_entity.md §3.8, lane p4-physics -- IS THE PHYSICS EVENT RING'S SINK
-# ACTUALLY BOUND? (physics_event_sink_test.cpp)
-#
-# Step 3a's ring was drained into a NULL sink from the day it was built:
-# SetSink's only caller in the tree was physics_shell_test.cpp, which binds a
-# recording sink of its own before every push -- so every gtest over the ring
-# was green for a mechanism that reached nobody. Measured live on dm_lockdown
-# before the fix: high water 263 events, drain crossings 0, handed on 0.
-#
-# Source-read, and it is forced: the bind is one line in a shim that includes
-# cbase.h's whole world, and the drain runs inside a physics frame. What can be
-# checked is that a production binder exists, that it is exactly one, that it is
-# the SHIM and not the stock file that is on its way out of the vpc, and that
-# what it binds forwards to the ABI slot.
-#
-# Comment-stripped for 7b's reason twice over: the test's own explanation names
-# SetSink and PhysicsEvents repeatedly, and so do several of the files it scans.
-#
-# Appended at the END, as the lane brief directs, so a merge with a concurrent
-# lane keeps both sides.
-ss_cpptest(physics_event_sink_test
-    SOURCES sourcesharp/test/physics_event_sink_test.cpp)
 # exit_batches_test STOOD HERE and went with tools/p4-exit-batches, which
 # answered which stock TUs were mutually locked -- a question about a removal
 # set that no longer exists (ROUTE_TO_DONE §5). component_closure_test and
 # tools/4f-component, which this used to point at as its model, STAY.
 
-# plan_entity.md Phase 4 EXIT. The first two stock TUs of the component region to
-# leave server_csharp.vpc at all: movehelper_server.cpp (evicted, left on disk)
-# and playerlocaldata.cpp (moved to the shim). TEXT ONLY -- the subject is which
-# vpc compiles what, and the claim that made the eviction safe.
-ss_cpptest(server_tus_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/server_tus_evicted_test.cpp)
-
-# plan_entity.md Phase 4 EXIT. The exit's unit of work is the CYCLE in the stock
-# link graph -- the set of stock TUs that must leave server_csharp.vpc in one
-# commit because each of them needs a symbol another of them defines. Two
-# relocations made that cycle smaller (31 TUs / 49,118 lines -> 27 / 47,191).
-# The second, the shared-random family, was deleted with no importer (lane
-# M1-B, 2026-10-25) and its test with it. TEXT ONLY: the subject is which file
-# holds which definition and which vpcs compile it, so there is nothing here to
-# link.
-ss_cpptest(admin_command_move_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/admin_command_move_test.cpp)
-
 # plan_entity.md step 8e-physics's ask ledger and its gtest left with native's
 # collision handler (plan_physics_bones_native_zero 2.1): the answers are
 # managed's PhysicsSolver, counted by clause there.
-
-# ---------------------------------------------------------------------------
-# lane p4-exit: game/server/client.cpp leaves server_csharp.vpc. The enumeration
-# of what its six self-registrations became, and the guard-aware scan that says
-# `tools/4a-owes client` reading 0 was never evidence about a ConVar.
-# ---------------------------------------------------------------------------
-ss_cpptest(client_tu_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/client_tu_evicted_test.cpp)
-
 
 # standalone_solidity_order_test (lane physics-defects, solidity before the
 # physics object) WENT WITH ITS SUBJECT (2026-10-12): CStandaloneEntity::
 # InitPhysics is managed's EntityPhysicsCreation, whose order
 # EntityPhysicsCreationTests holds in both arms of
 # sourcesharp_solidity_before_physics.
-
-# ---------------------------------------------------------------------------
-# lane p4-flip -- WHAT THE NATIVE MAP PARSE STILL MAKES.
-#
-# Pure source scan over server_csharp.vpc and the files it names; no engine, no
-# link. Appended at the END, as the lane brief directs, so a merge with a
-# concurrent lane keeps both sides.
-# ---------------------------------------------------------------------------
-ss_cpptest(map_residue_factories_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/map_residue_factories_test.cpp)
 
 # lane loose-ends -- WHICH HALF OF THE PLAYER-SHADOW FIX IS ON -- IS ANSWERED,
 # AND shadow_switch_test IS GONE WITH ITS SUBJECT.
@@ -3245,26 +1674,6 @@ ss_cpptest(map_residue_factories_test
 ss_cpptest(variant_convert_test
     LINUX_ONLY "pins glibc's atoi on out-of-range input (the stock Linux behaviour), and the Windows CRT clamps differently, as stock Windows does"
     SOURCES sourcesharp/test/variant_convert_test.cpp)
-
-# THE FOUR RULINGS THE CLOSE MADE ON tools/entity-census-patterns.
-#
-# Three rows narrowed and one widened, and a narrowing is the most dangerous
-# edit anyone can make to a gate: it lowers a number without touching the tree.
-# Every one is driven over text BOTH ways here -- the thing the row still hunts
-# IS matched, the thing the ruling excused is NOT -- so a regression to the bare
-# pattern reddens one half and a re-widening reddens the other. Plus the two
-# premises the deletions in the close rest on: CHandle<IGameEntity>'s Get AND
-# Set are specialised and neither is a cast, and every GetBaseEntity() in the
-# tree answers NULL.
-#
-# Engine-free: it reads the pattern file and four game headers as TEXT and uses
-# std::regex. Appended at the end of the TEST LIST -- NOT at the end of the
-# file, because the last thing in this file is the unmatched-name refusal and a
-# row below it is a row `buildcpptests <name>` refuses to build. That is the
-# trap the refusal's own banner names, sprung on the lane that added it.
-ss_cpptest(close_rulings_test
-    LINUX_ONLY "compiles a probe with the host compiler and reads its gcc/clang diagnostics"
-    SOURCES sourcesharp/test/close_rulings_test.cpp)
 
 # THE UNMATCHED-NAME REFUSAL, AND IT HAS TO BE THE LAST THING IN THIS FILE.
 #
@@ -3355,45 +1764,6 @@ ss_cpptest(client_world_arm_test
 # absence in PlayerShadowTests).
 
 # ---------------------------------------------------------------------------
-# lane pvs-ragdoll -- THE CLIENT PVS-NOTIFY RULING.
-#
-# `f-list` refused the two PVS-notify walks with an argument that quoted
-# C_ClientRagdoll's `GetPVSNotifyInterface() { return this; }` as evidence the
-# list was empty. This lane MEASURED the path on a live dm_lockdown instead:
-# AddPVSNotifier is entered 371 times a level and adds 0 rows, and the game
-# constructs 0 C_ClientRagdoll. The one the probe built worked perfectly, so
-# the machinery is live and unoccupied rather than absent.
-#
-# What is pinned here is the two properties that make guarding the walks sound
-# -- exactly one non-NULL GetPVSNotifyInterface in the tree, and both its TU
-# and AddPVSNotifier's TU inside tools/client-flip-closure's removal seed --
-# plus the two that say this is NOT the shadow-leak crash class.
-#
-# A SOURCE SWEEP, and it reads HEADERS: the one non-NULL implementation is a
-# header inline, which a vpc-driven `$File` walk cannot see at all.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(pvs_notify_ruling_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/pvs_notify_ruling_test.cpp)
-
-# ---------------------------------------------------------------------------
-# plan_shim.md 1d: game/server/game.cpp left the build and its seventeen ConVar
-# declarations did not. Seven of the seventeen are reached only by NAME -- from
-# managed code, from the engine, and from cfg/settings.scr -- which is why the
-# link-line census that authorised the deletion reads 0 importers for all
-# seventeen and is nonetheless not the whole answer. Also pins that exactly one
-# compiled server file calls ConVar_Register: tier1 guards re-entry, so a
-# second call makes the accessor of whichever ran second dead code, silently.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(gamedll_convars_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/gamedll_convars_test.cpp)
-
-# ---------------------------------------------------------------------------
 # plan_shim.md Phase 5: docs/convar-ledger.tsv is the whole native keep list
 # for ConVar and ConCommand declarations under src/sourcesharp. This pins it
 # both ways -- nothing declared natively that the ledger does not list, and no
@@ -3412,44 +1782,6 @@ ss_cpptest(convar_ledger_test
 # ServerSkeletonsTests and ClientSkeletonsTests (BoneMatrices, IsPoseable,
 # StudioName) and ClientBoneRecorderTests (the recorder's subject).
 # ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# plan_shim.md Phase 6: what the ledger's deferred-abi rows are ACTUALLY
-# waiting for. All thirteen carried the same reason -- the missing FCVAR word
-# -- which ABI 250 lifted, and all thirteen are still blocked on something
-# else. A reason that has been lifted is worse than none: it sends the next
-# lane at a door that is already open.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(concommand_flags_ledger_test
-    SOURCES sourcesharp/test/concommand_flags_ledger_test.cpp)
-
-# ---------------------------------------------------------------------------
-# plan_shim.md Phase 6, ratchet 1: server_csharp.vpc names no $File row under
-# $SRCDIR\game\ or $SRCDIR\public\ -- Phase 2's exit condition, met and until
-# now unwatched. The ceiling for the client's remaining stock rows is in
-# docs/shim-ratchet.tsv and the same parser measures both, so the server's
-# zero cannot pass vacuously.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(shim_vpc_stock_rows_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/shim_vpc_stock_rows_test.cpp)
-
-# ---------------------------------------------------------------------------
-# plan_shim.md Phase 6, ratchets 2 and 3: every .cpp under src/sourcesharp
-# outside test/ and managed/ carries exactly one SS_REASON marker naming one
-# of §1's eight letters -- or `x`, for the eight files no letter covers, each
-# of which has an exit condition in docs/shim-reasons.md. The shim's file and
-# line counts are ceilings in docs/shim-ratchet.tsv.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(shim_reason_letters_test
-    SOURCES sourcesharp/test/shim_reason_letters_test.cpp)
-
 
 # plan_globals.md step G0: the server link line holds no static state that
 # docs/globals-ledger.tsv has not ruled, and the counts in
@@ -3555,21 +1887,6 @@ endif()
 # server.so's R5 include set (plan_server_novalve.md 2, 3.4): the allowlisted
 # engine interface headers compile on it, and cbase.h is not reachable from it.
 get_property(_ss_novalve_includes GLOBAL PROPERTY SS_SERVER_NOVALVE_INCLUDES)
-ss_cpptest(novalve_include_set_test
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/novalve_include_set_test.cpp
-    DEFINES POSIX _POSIX LINUX _LINUX GNUC PLATFORM_64BITS GAME_DLL
-    # The vendored Valve headers warn as they do in server.so, which silences
-    # the same by name (SS_WARN_CLANG): platform.h's pragmas and dangling
-    # else, bitvec.h's memset over a class with a constructor, an unused
-    # variable, and the private fields a stripped class keeps for its layout.
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
-            -Wno-unused-private-field
-    INCLUDES ${_ss_novalve_includes})
-ss_must_not_compile(novalve_include_set_canary
-    EXPECT "'cbase\\.h' file not found"
-    DEFINES NOVALVE_CANARY=1
-    INCLUDES ${_ss_novalve_includes}
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/novalve_include_set_test.cpp)
 
 # ss_client_message.h: the client's tier1 writer against the server's own
 # decoder (server.so links no tier1), bit for bit at every offset.
@@ -3949,8 +2266,6 @@ ss_cpptest_engine_headers(ss_effect_dispatch_test
 # globals_ledger 6.2, component_closure 5.6, entity_census 2.7; every other
 # binary under 1.3). make test-full runs them; make test does not.
 ss_census(globals_client_ledger_test)
-ss_census(orphan_reach_test)
-ss_census(entity_gates_test)
 
 # tier1 and mathlib compile only the members some link pulls in
 # (cmake/sdk/tier1.cmake, mathlib.cmake): every consumer of the two archives is
@@ -3961,8 +2276,6 @@ ss_cpptest(sdk_lib_members_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/sdk_lib_members_test.cpp)
 ss_census(sdk_lib_members_test)
 ss_census(globals_ledger_test)
-ss_census(component_closure_test)
-ss_census(entity_census_test)
 
 # The Valve names client.so links for its recv tables (plan_client_novalve C8):
 # engineabi_recv_names.cpp's members and the standard table's pointer identity,
@@ -3976,13 +2289,6 @@ ss_cpptest_engine_headers(client_recv_names_test
     SOURCES sourcesharp/test/client_recv_names_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv_names.cpp)
-
-# plan_client_novalve C9: tier2.a is off client.so's link, and every tier2 name
-# client.so defines is one of our objects' (particles.a's imports are stubbed,
-# user ruling 2026-10-12).
-ss_cpptest(client_no_tier2_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_tier2_test.cpp)
 
 # client.so's CUtlMemoryPool (tier1_client.cpp, C9) over mempool_scenario.h,
 # held to the golden pristine mempool.cpp wrote (mempool_stock_oracle_test).
@@ -4002,35 +2308,6 @@ ss_cpptest(shell_factory_client_test
     INCLUDES public public/tier0 public/tier1 game/client
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_factory_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/shell_factory_client.cpp)
-
-# SFM is dead (user ruling 2026-10-19): the tool framework's two TUs are off
-# client.so's source list, the stand-ins are on it, and the built client.so
-# names neither tool interface.
-ss_cpptest(client_tools_evicted_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and its built client.so with strings"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_tools_evicted_test.cpp)
-if(TARGET client_tools_evicted_test)
-  add_dependencies(client_tools_evicted_test client_sourcesharp)
-endif()
-
-# plan_client_novalve C9: tier1.a's KeyValues.o, ilocalize.o and
-# strtools_unicode.o are not linked into client.so: each name they define that
-# client.so has is one of our objects' (keyvalues_client.cpp).
-ss_cpptest(client_tier1_members_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_tier1_members_test.cpp)
-
-# plan_client_novalve C9: tier3.a is off client.so's link too, and every tier3
-# name client.so defines is one of our objects' (tier_connect.cpp).
-# plan_client_novalve C9: bitmap.a and vtf.a are off client.so's link, and no
-# name either defines is in client.so.
-ss_cpptest(client_no_bitmap_vtf_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_bitmap_vtf_test.cpp)
-
-ss_cpptest(client_no_tier3_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_tier3_test.cpp)
 
 # plan_particles_so.md 3.3: libss_particles.so exports only
 # SSParticleLib_Interface, client.so needs it (and the managed host) by SONAME,
@@ -4073,13 +2350,6 @@ ss_cpptest(game_dll_exports_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/game_dll_exports_test.cpp)
 add_dependencies(game_dll_exports_test server_sourcesharp client_sourcesharp sourcesharp)
 
-# What the server does not need, in a client-only file beside a shared port
-# (user ruling 2026-10-12): per symbol, no server importer and no server
-# definition, and the client file still defines it.
-ss_cpptest(server_dead_split_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_dead_split_test.cpp)
-
 # client.so's bit-buffer members (bitbuf_client.cpp, and tier1_port.cpp's
 # bf_read::SetOverflowFlag) against the golden pristine bitbuf.cpp recorded
 # (bitbuf_stock_oracle_test; plan_client_novalve C9). Links no tier1.
@@ -4120,8 +2390,10 @@ ss_cpptest(ss_bitblock_test
 
 # server_state.h's heap tiers (plan_server_native_v2 T6, plan_globals.md §2):
 # the level reset is structural only if a Begin after an End is a new object.
+# Stock public headers (the farm's), so IGameEntity is their CBaseEntity
+# (igameentity_fwd.h).
 ss_cpptest(server_state_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC SS_STOCK_PUBLIC_HEADERS GAME_DLL
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
     INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common

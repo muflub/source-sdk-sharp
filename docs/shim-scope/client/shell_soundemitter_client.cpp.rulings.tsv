@@ -1,8 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CSoundEmitterSystemRow] virtual char const *Name() OVERRIDE	HOOK	the CSoundEmitterSystem row's name in kClientSystems[]
-[CSoundEmitterSystemRow] virtual bool Init() OVERRIDE	HOOK	the row's Init: the managed ClientSoundEmitterSystem's (ModInit) across IManagedSoundEmitterClient, refused with no managed side
-[CSoundEmitterSystemRow] virtual void Shutdown() OVERRIDE	HOOK	the row's Shutdown, forwarded (ModShutdown)
-[CSoundEmitterSystemRow] virtual void LevelInitPreEntity() OVERRIDE	HOOK	the row's LevelInitPreEntity, forwarded (the level's override script)
-[CSoundEmitterSystemRow] virtual void LevelShutdownPostEntity() OVERRIDE	HOOK	the row's LevelShutdownPostEntity, forwarded (ClearSoundOverrides)
-CClientSystem *ClientSystem_SoundEmitter()	HOOK	the row's accessor kClientSystems[] names

@@ -1,9 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CShellClientDllRefusals] void Unreachable( const char *pMethod )	INSTRUMENT	the refusal ledger: a refused method counted (and warned of)
-[CShellClientDllRefusals] int Total() const	INSTRUMENT	the refusal ledger
-[CShellClientDllRefusals] int MethodCount() const	INSTRUMENT	the refusal ledger
-[CShellClientDllRefusals] const char *MethodAt( int i ) const	INSTRUMENT	the refusal ledger
-[CShellClientDllRefusals] int CountAt( int i ) const	INSTRUMENT	the refusal ledger
-[CShellClientDllRefusals] int CountOf( const char *pMethod ) const	INSTRUMENT	the refusal ledger
-[CShellClientDllRefusals] int Find( const char *pMethod ) const	INSTRUMENT	the refusal ledger

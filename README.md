@@ -6,23 +6,22 @@ and hand almost everything to managed assemblies: entities, movement, physics
 responses, temp entities, networking state. The goal is all-managed code, with
 native C++ only where the engine demands it.
 
-This repository holds only SourceSharp's own code. It builds against a checkout
-of the Valve SDK fork, [`source-sdk-2013`](../source-sdk-2013), which keeps
-Valve's files, SourceSharp's edits to them, and Valve code that was relocated but
-not yet ported.
+This repository holds SourceSharp's own code. server.so and client.so build
+from the trimmed Valve headers in `vendor/`; the Valve static libraries, the
+native tests and the oracle tests read a clone of Valve's public
+[source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013) at the
+commit in `valve-sdk.lock`, unedited, which `make setup` clones beside this
+checkout.
 
-> **The build needs a Valve SDK checkout.** The fork is not published; use
-> the `make sdk-upstream` route (see "Two ways to get ROOT"): it clones Valve's
-> public [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013)
-> and applies the patch series in `patches/source-sdk-2013/`. The tf2_descent
-> server restores the host SDK from a checkout of
+> The tf2_descent server restores the host SDK from a checkout of
 > [`source-sdk-sharp-host`](https://github.com/muflub/source-sdk-sharp-host)
 > beside this one, which `make setup` packs (`make host-pack`).
 
 ## Prerequisites
 
-- **The fork**: a checkout of `source-sdk-2013` on its working branch,
-  beside this one (`../source-sdk-2013`).
+- **git** and network access the first time: `make setup` clones Valve's
+  source-sdk-2013 at `valve-sdk.lock` into `../source-sdk-2013-valve`
+  (`VALVE_SDK=` puts it elsewhere).
 - **Steam**, with **Source SDK Base 2013 Multiplayer** (app 243750) installed.
   The engine runs from there, and the mod takes the HL2 / HL2:DM content from it.
 - **.NET 10 SDK** at `~/.dotnet`. Do not use Ubuntu's `/usr/bin/dotnet`: its
@@ -40,7 +39,7 @@ not yet ported.
 ## Building and running
 
 ```bash
-make setup ROOT=../source-sdk-2013   # once, and again after the fork moves
+make setup                           # once, and again when setup --check says so
 make debug                           # build everything, debug
 make release                         # build everything, split debug info
 make ci-build                        # CI's native build in the sniper container
@@ -71,7 +70,7 @@ job, `linux-check`, runs beside them: `make check CHECK_MANAGED=0`, the full
 debug build and every test leg the Linux job does not run, so the release
 build does not wait for it:
 
-- **Linux** is set up with `make sdk-upstream` and built with `make release`
+- **Linux** is set up with `make setup` and built with `make release`
   (clang), which the tests run against. The shipped native libraries are
   built again inside Valve's sniper container (`make ci-build`: gcc 10 and
   the engine runtime's glibc ceiling). `tools/package-release` makes
@@ -83,7 +82,7 @@ build does not wait for it:
   `sourcesharp-<version>-win-x64.zip`, with the native `.pdb` files in
   `-dbg.zip`, and runs the native gtests (ctest, `-L gtest`) and the managed test
   projects. Native tests that read the Linux build's instruments (ELF scans,
-  the CMake graph, fork-based probes) are marked `LINUX_ONLY` in
+  the CMake graph) are marked `LINUX_ONLY` in
   `src/test/native/CMakeLists.txt`, and configure lists them with reasons.
 
 Each `-dbg` archive also holds the managed assemblies' `.pdb` and `.json`
@@ -107,24 +106,21 @@ build (`[LinuxDebugBuildFact]`, which skip in the earlier step); Windows runs
 every managed test project, then the native gtests. A fact that cannot pass
 on a runner skips there and
 names why: a bit-for-bit golden recorded on the owner's machine (another CPU
-or C library differs in the last bit), a fact that reads the fork's own edits
-to Valve files (the public patch series does not carry them), or a fact that
-needs a Steam game install. Those are marked `[NotOnCiFact]` /
+or C library differs in the last bit), or a fact that needs a Steam game
+install. Those are marked `[NotOnCiFact]` /
 `[NotOnCiTheory]` in the managed tests and `SS_SKIP_ON_CI` in the native ones
 (`src/test/common/NotOnCiFactAttribute.cs` says what may be marked), and they
 skip only when `SOURCESHARP_CI=1`, which the workflow sets. Everywhere else
-they run as before, so `make check` on a machine with the fork and Steam
-still holds them. `make check-public` (the build plus `TEST_PUBLIC_LEGS`)
+they run as before, so `make check` on a machine with Steam still holds them. `make check-public` (the build plus `TEST_PUBLIC_LEGS`)
 remains for a machine with only the public inputs and no CI variable.
 
 ## Layout
 
 ```
 Makefile  SourceSharp.slnx  Directory.Build.props
-sdk-root.lock      the fork commit this repo was last verified against
-patches/source-sdk-2013/  the fork's edits as a patch series on stock upstream (make sdk-upstream)
-valve-sdk.lock     the upstream Valve commit the oracle tests read (see below)
-sdk-links/         the fork files the farm still links in, by consumer (see below)
+valve-sdk.lock     the upstream Valve commit the farm links from and the oracle tests read
+sdk-links/         the Valve files the farm links in, by consumer (see below)
+vendor/            the trimmed Valve headers server.so and client.so build from
 src/
   abi/             SourceSharp.Abi, the managed base assembly
   client/  server/  shared/  host/  test/
@@ -174,70 +170,29 @@ The native build and many tests were written against the old single-repo layout,
 where SourceSharp's files sat inside Valve's tree. `make setup` rebuilds that
 layout under `farm/<config>/` as a tree of links:
 
-- every Valve file the build needs is linked in from the fork, one link per
-  file, as listed in `sdk-links/*.txt`;
+- every Valve file the tests need is linked in from the Valve clone, one link
+  per file, as listed in `sdk-links/*.txt`;
 - every SourceSharp file is linked in from this repo, at its old path, per
   `tools/module-map.tsv`.
 
 The build and the tests run inside the farm unchanged. The farm only ever reads
-the fork, and after any build or test run the fork's working tree is clean.
+the clone, and after any build or test run the clone's working tree is clean.
 `tools/setup` enforces the rest of the rules (listed in its header), and its
 `--self-test` shows each rule refusing a bad farm.
 
-`sdk-links/` is the list of Valve code SourceSharp still depends on, split by
-who uses each file: `client.txt` (only client.so's build), `server.txt` (only
-server.so's), `shared.txt` (both), `libs.txt` (only the Valve static
-libraries) and `tests.txt` (only test targets, or a traced test run). Porting a
-Valve file to C#, or replacing it, ends with deleting its line, so the counts
-at the top of each list are the progress metric. `make sdk-census` fails on a
-line nothing uses or a line in the wrong list; `tools/sdk-census --write`
-regenerates the lists. Nothing under `src/sourcesharp/` is ever linked from the
-fork: that tree is this repo's (`tools/module-map.tsv`).
+`sdk-links/` lists the Valve files the farm links, split by who uses each
+one: `client.txt` (only client.so's build), `server.txt` (only server.so's),
+`shared.txt` (both), `libs.txt` (only the Valve static libraries) and
+`tests.txt` (only test targets, or a traced test run). The first four are
+empty: the DLLs build from `vendor/`, and tier1 and mathlib from the clone
+itself. `make sdk-census` fails on a line nothing uses or a line in the wrong
+list; `tools/sdk-census --write` regenerates the lists. Nothing under
+`src/sourcesharp/` is ever linked from the clone: that tree is this repo's
+(`tools/module-map.tsv`).
 
 Tests that check a port against the Valve code it replaced (oracles) do not read
-the farm: they live in `src/test/oracle/` and read a pristine clone of upstream
-`source-sdk-2013` at the commit in `valve-sdk.lock`, which `make setup`
-provisions at `../source-sdk-2013-valve` (`VALVE_SDK=` overrides). `make test`
-runs them as the `oracle` leg; a missing clone fails them.
-
-## Two ways to get ROOT
-
-ROOT is a `source-sdk-2013` tree with our edits to Valve files. There are two:
-
-```bash
-make setup ROOT=../source-sdk-2013      # the fork (sdk-root.lock pins its commit)
-make sdk-upstream [SDK_DIR=../source-sdk-2013-upstream]   # stock upstream + our patches
-```
-
-`make sdk-upstream` clones Valve's repository fresh into `SDK_DIR` (or reuses a
-clean clone it made itself, marked `sourcesharp.sdkupstream` in its config and
-sitting at the pinned base or result; anything else, including the fork and
-the pristine oracle clone, is refused untouched), checks out the upstream
-commit pinned in `patches/source-sdk-2013/UPSTREAM`, applies the series in that
-directory with `git am`, and runs `make setup ROOT=$(SDK_DIR)`. The series holds
-only the fork's edits to the files the build links (`sdk-links/*.txt`), without
-comments. `git am` runs with a fixed committer, the patches' own dates and
-fixed settings, so it makes the same commit on every machine: `UPSTREAM`'s
-`result=`. `tools/setup` accepts that commit as ROOT with no flag and leaves
-`sdk-root.lock` alone, so both ROOTs work side by side. A run that lands on any
-other sha fails: after regenerating the series on purpose, re-pin it with
-`tools/sdk-upstream --write-result DIR` and commit `UPSTREAM` with the series.
-
-## When the fork moves
-
-Edits to Valve files, and to relocated Valve code, are made in the fork. Then:
-
-```bash
-make setup SETUP_ARGS=--accept-root     # or: tools/setup --accept-root
-```
-
-`tools/setup` refuses a fork whose `HEAD` is not the commit in `sdk-root.lock`.
-`--accept-root` re-pins the lock when the new `HEAD` descends from it. Commit
-the new `sdk-root.lock` together with the change that needed it.
-`--repin-root` pins an unrelated tree instead (one that does not descend from
-the lock, such as a different patched upstream), as long as it holds the Valve
-base in `valve-sdk.lock`; its report says it switched trees. `--accept-root`
-never does, so a ROOT moved backwards or sideways by accident is still refused.
+the farm: they live in `src/test/oracle/` and read the clone directly. `make
+test-full` runs them as the oracle legs; a missing clone fails them.
 
 ## Valve attribution
 

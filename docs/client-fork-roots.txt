@@ -1,5 +1,0 @@
-# docs/client-fork-roots.txt: the fork headers client.so may include directly (plan_client_novalve.md 3.1).
-# tools/client-novalve-census --allowlist turns this into docs/client-fork-allowlist.txt (their closure).
-# A new root is a reviewed one-line change; the closure must stay out of game/, vscript/, steam/.
-# Since 2026-10-25 client.so builds from vendor/ (vendor/README.md, tools/vendor --strict client), so it may
-# include no fork header at all: no roots, an empty allowlist, and any fork header in client.so's deps fails R1.

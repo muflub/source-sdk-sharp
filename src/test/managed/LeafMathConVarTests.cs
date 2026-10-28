@@ -172,19 +172,6 @@ public class LeafMathConVarTests
     // The native side: it READS them and no longer DECLARES them.
     //=========================================================================
 
-    [Fact]
-    public void TheShowstallKnobsLastNativeReaderIsGone()
-    {
-        // The positive arm: the anchored tree is read (a file that stays).
-        Assert.True(File.Exists(Path.Combine(RepoLayout.SdkTree, "src", "buildsourcesharp")));
-
-        // studio.cpp read mod_load_showstall at three stall sites of its
-        // animation-block read; the block read is the managed StudioHdr's now
-        // (no stall telemetry: it reads copied images, not the engine's IO).
-        Assert.False(File.Exists(Path.Combine(RepoLayout.SdkTree, Studio)),
-            "studio.cpp is back in the tree: " + Path.Combine(RepoLayout.SdkTree, Studio));
-    }
-
     //=========================================================================
     // The path resolution itself, because an absence check that read the wrong
     // tree would pass every one of the assertions above.

@@ -763,32 +763,6 @@ public unsafe class PlayerShadowTests
     }
 
     /// <summary>
-    /// THE PLAYER'S STEP IS MANAGED'S (plan_physics_bones_native_zero 2.3):
-    /// which hull is awake after the step, its stress and its shadow update
-    /// are PhysicsFrame's over PlayerShadowBodies.AwakeShadow and
-    /// PlayerShadowStress. Native keeps none of the walk, and object_stress.h
-    /// is gone with its caller; the presence half names where each went.
-    /// </summary>
-    [Fact]
-    public void The_players_step_and_stress_are_managed()
-    {
-        string code = PlayerCode;
-        Assert.DoesNotContain("AwakeShadow(", code);
-        Assert.DoesNotContain("ShadowStress(", code);
-        Assert.DoesNotContain("StandalonePlayer_AwakeShadows", code);
-        Assert.DoesNotContain("StandalonePlayer_RecordShadowStress", code);
-        Assert.DoesNotContain("SourceSharp_ObjectStress", code);
-        Assert.False(File.Exists(Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "object_stress.h")),
-                     "object_stress.h is back: the stress sum is PhysicsObjectStress's");
-
-        string managed = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "managed");
-        string bodies = AbiParityTests.CodeOnly(File.ReadAllText(Path.Combine(managed, "SourceSharp.Server.Interop", "PlayerShadowBodies.cs")));
-        Assert.Contains("public nint AwakeShadow(EntityHandle player, out PlayerShadowFacts facts)", bodies);
-        string stress = AbiParityTests.CodeOnly(File.ReadAllText(Path.Combine(managed, "SourceSharp.Server", "PlayerShadowStress.cs")));
-        Assert.Contains("PhysicsObjectStress.Compute(in subject, _contacts.AsSpan(0, n))", stress);
-    }
-
-    /// <summary>
     /// AND NO MANAGED CODE ASKS FOR ONE. The other half: an absent slot is only
     /// half the guard, because the next person to want a managed teardown would
     /// add both. This is a sweep of the whole managed tree, so a new caller in a

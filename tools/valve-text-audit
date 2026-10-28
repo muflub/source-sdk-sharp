@@ -406,7 +406,7 @@ def main():
         return self_test()
     repo = os.path.dirname(HERE)
     root = a.root
-    local = os.path.join(repo, "sdk-root.lock.local")
+    local = os.path.join(repo, "valve-sdk.lock.local")
     if root is None and os.path.exists(local):
         root = open(local).read().strip()
     if root is None:

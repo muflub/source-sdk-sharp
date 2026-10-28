@@ -147,7 +147,7 @@ inline std::string ListFile( const std::string &strTarget )
 		return "src/client/native/CMakeLists.txt";
 	if ( strTarget == kHost )
 		return "src/host/native/CMakeLists.txt";
-	if ( strTarget == "tier1" || strTarget == "mathlib" || strTarget == "raytrace" )
+	if ( strTarget == "tier1" || strTarget == "mathlib" )
 		return "cmake/sdk/" + strTarget + ".cmake";
 	throw Error( "no CMakeLists is known for target '" + strTarget + "'" );
 }

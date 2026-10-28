@@ -192,10 +192,10 @@ protected:
 		f << strText;
 	}
 
-	// raytrace, because its fixture file name is the only one ListFile derives.
+	// tier1, whose list file ListFile derives from the target name.
 	void WriteList( const std::string &strBody )
 	{
-		Write( "repo/cmake/sdk/raytrace.cmake", "# raytrace\nset(raytrace_sources\n" + strBody + ")\n" );
+		Write( "repo/cmake/sdk/tier1.cmake", "# tier1\nset(tier1_sources\n" + strBody + ")\n" );
 	}
 
 	std::string Entry( const std::string &strSrc )
@@ -208,7 +208,7 @@ protected:
 			"  \"file\": \"" +
 			m_strRoot + "/farm/src/" + strSrc +
 			"\",\n"
-			"  \"output\": \"cmake/sdk/CMakeFiles/raytrace.dir/__/" +
+			"  \"output\": \"cmake/sdk/CMakeFiles/tier1.dir/__/" +
 			strSrc + ".o\"\n}";
 	}
 
@@ -228,13 +228,13 @@ protected:
 
 void ReadRaytrace()
 {
-	CompiledSources( "raytrace" );
+	CompiledSources( "tier1" );
 }
 
 TEST_F( CMakeGraphFixture, AFreshMatchingPairIsRead )
 {
 	WriteList( "    a/one.cpp\n    a/two.cpp  # a comment\n" );
-	const std::vector<std::string> listed = ListedSources( "raytrace" );
+	const std::vector<std::string> listed = ListedSources( "tier1" );
 	ASSERT_EQ( 2u, listed.size() );
 	EXPECT_EQ( "a/one.cpp", listed[0] );
 	EXPECT_EQ( "a/two.cpp", listed[1] );
@@ -260,10 +260,10 @@ TEST_F( CMakeGraphFixture, AMatchingDatabaseAnswersBothWays )
 {
 	WriteList( "    a/one.cpp\n" );
 	Write( "farm/build/compile_commands.json", "[\n" + Entry( "a/one.cpp" ) + "\n]\n" );
-	EXPECT_TRUE( Compiles( "raytrace", "a/one.cpp" ) );
-	EXPECT_FALSE( Compiles( "raytrace", "a/two.cpp" ) );
-	EXPECT_NE( std::string::npos, CompileCommand( "raytrace", "a/one.cpp" ).find( " -c " ) );
-	EXPECT_THROW( CompileCommand( "raytrace", "a/two.cpp" ), Error );
+	EXPECT_TRUE( Compiles( "tier1", "a/one.cpp" ) );
+	EXPECT_FALSE( Compiles( "tier1", "a/two.cpp" ) );
+	EXPECT_NE( std::string::npos, CompileCommand( "tier1", "a/one.cpp" ).find( " -c " ) );
+	EXPECT_THROW( CompileCommand( "tier1", "a/two.cpp" ), Error );
 }
 
 TEST_F( CMakeGraphFixture, ATargetTheDatabaseDoesNotNameIsAnError )
@@ -272,7 +272,7 @@ TEST_F( CMakeGraphFixture, ATargetTheDatabaseDoesNotNameIsAnError )
 	Write( "farm/build/compile_commands.json", "[\n" + Entry( "a/one.cpp" ) + "\n]\n" );
 	EXPECT_THROW( TargetEntries( "mathlib" ), Error );
 	EXPECT_THROW( CompileDefinitions( "mathlib" ), Error );
-	EXPECT_EQ( 1u, TargetEntries( "raytrace" ).size() );
+	EXPECT_EQ( 1u, TargetEntries( "tier1" ).size() );
 }
 
 TEST_F( CMakeGraphFixture, AMissingDatabaseIsAnErrorNotAnEmptySet )
@@ -291,11 +291,11 @@ TEST_F( CMakeGraphFixture, AnEmptyDatabaseIsAnError )
 
 TEST_F( CMakeGraphFixture, AMissingOrEmptyListIsAnError )
 {
-	EXPECT_THROW( ListedSources( "raytrace" ), Error ); // no file
+	EXPECT_THROW( ListedSources( "tier1" ), Error ); // no file
 	WriteList( "" );
-	EXPECT_THROW( ListedSources( "raytrace" ), Error ); // empty block
-	Write( "repo/cmake/sdk/raytrace.cmake", "add_library(raytrace STATIC)\n" );
-	EXPECT_THROW( ListedSources( "raytrace" ), Error ); // no block
+	EXPECT_THROW( ListedSources( "tier1" ), Error ); // empty block
+	Write( "repo/cmake/sdk/tier1.cmake", "add_library(tier1 STATIC)\n" );
+	EXPECT_THROW( ListedSources( "tier1" ), Error ); // no block
 	EXPECT_THROW( ListFile( "not_a_target" ), Error );
 }
 

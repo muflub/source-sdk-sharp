@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-bool IsReflectiveGlassInView( const CViewSetup &view, cplane_t &plane )	LIVE-API	no reflective glass (stock answers through C_FuncReflectiveGlass, not compiled): false; shell_view_executor_client.cpp imports it (nm -u)
-void FormatViewModelAttachment( Vector &vOrigin, bool bInverse )	LOGIC	stock's viewmodel FOV squash (view.cpp): a point moved between the world and viewmodel FOVs. Its one caller is the native particle renderer's local-space emitter (shell_managed_particles.cpp, nm -u), per particle; it moves with that executor's transform

@@ -37,7 +37,7 @@ import re
 SERVER = 'server_sourcesharp'   # server.so
 CLIENT = 'client_sourcesharp'   # client.so
 HOST = 'sourcesharp'            # libmanaged_host.so
-SDK_LIBS = ('tier1', 'mathlib', 'raytrace')
+SDK_LIBS = ('tier1', 'mathlib')
 
 # The old VPC project names, which several tools print: server/client.
 SIDES = {'server': SERVER, 'client': CLIENT}

@@ -140,7 +140,7 @@ set(SS_BIN "${PROJECT_SOURCE_DIR}/bin/${SS_CONFIG}")
 set(SS_DEPLOY_DIR "${SS_BIN}/bin/${SS_PLATFORM_BINDIR}" CACHE PATH "where the built libraries are deployed")
 
 if(NOT EXISTS "${SS_SRC}/public/tier0/platform.h")
-  message(FATAL_ERROR "no farm at ${SS_FARM}: run `make setup ROOT=../source-sdk-2013`")
+  message(FATAL_ERROR "no farm at ${SS_FARM}: run `make setup`")
 endif()
 
 # CMake's per-build-type defaults (-O3 -DNDEBUG, -g; /MDd /Zi /Ob0 /Od /RTC1 and

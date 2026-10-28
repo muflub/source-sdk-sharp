@@ -1,32 +1,26 @@
 #!/usr/bin/env python3
 """Build the compat farms and the game directories.
 
-    make setup ROOT=../source-sdk-2013          (tools/setup --root DIR)
-    tools/setup                                 ROOT from sdk-root.lock.local
-    tools/setup --accept-root                   ROOT moved on: re-pin the lock
-    tools/setup --repin-root                    ROOT is an unrelated tree: pin it
+    make setup                                  (tools/setup)
     tools/setup --check                         report only, change nothing
     tools/setup --config debug                  one configuration only
+    tools/setup --valve-sdk DIR                 the Valve clone (make setup VALVE_SDK=DIR)
     tools/setup --self-test
 
-ROOT is the source-sdk-2013 tree this repo builds against, one of two:
-  - the Valve fork. Its HEAD must equal sdk-root.lock, or descend from it
-    with --accept-root, which rewrites the lock.
-  - stock upstream with patches/source-sdk-2013/ applied (make sdk-upstream,
-    tools/sdk-upstream). Its HEAD must equal UPSTREAM's `result=`, the sha
-    the deterministic `git am` makes; it needs no flag and leaves the lock
-    alone.
---repin-root pins any other tree that holds the Valve base (valve-sdk.lock)
-and reports that it switched to an unrelated tree. --accept-root never pins
-a ROOT that does not descend from the lock, so an accidental move backwards
-or sideways is refused.
+The Valve files come from one tree, the PRISTINE Valve SDK: a clone of upstream
+ValveSoftware/source-sdk-2013 at the commit in valve-sdk.lock, at VALVE_SDK
+(default ../source-sdk-2013-valve beside this checkout, remembered in
+valve-sdk.lock.local). setup clones it when it is missing; its HEAD must equal
+the lock and its tree must be clean, so a stale or edited tree is a failure,
+never a skip. The farm links from it, and the oracle tests (src/test/oracle)
+and the stock targets (tier1, mathlib, libss_particles) read it directly.
 
 For each configuration it composes:
 
   farm/<config>/   a tree of real directories and absolute symlinks that looks
                    exactly like the old single-repo checkout, so VPC, ninja,
                    the build scripts and the tests run in it unchanged:
-                     - every path in sdk-links/*.txt, linked per file to ROOT
+                     - every path in sdk-links/*.txt, linked per file to the clone
                      - every row of tools/module-map.tsv, linked to this repo
   bin/<config>/    the game directory: bin/{linux64,managed,dotnet} shared by
                    every mod, mods.yaml, and mods/<id>/ per mod with its
@@ -36,24 +30,16 @@ For each configuration it composes:
                    cfg/ (settings.scr, config.cfg) and a link would carry
                    that write into this repo.
 
-It also provisions the PRISTINE Valve SDK, the oracle tests' reference
-(src/test/oracle): a clone of upstream ValveSoftware/source-sdk-2013 at the
-commit in valve-sdk.lock -- not the fork, not the farm -- at VALVE_SDK
-(`make setup VALVE_SDK=DIR`, tools/setup --valve-sdk DIR; default
-../source-sdk-2013-valve beside this checkout, remembered in
-valve-sdk.lock.local). Its HEAD must equal the lock and its tree must be
-clean: a stale or edited reference is a failure, never a skip.
-
 The farm follows six rules (plan_sharp_repo.md); setup enforces 1 to 5 and
 refuses to build a farm that breaks one:
-  1. Valve and fork files are linked per file, never per directory.
+  1. Valve files are linked per file, never per directory.
   2. Only our own directories may be directory links.
   3. Build outputs are never linked: the build writes them as real files.
   4. A path is never supplied by both repos.
   5. The manifest never names a path the ledger classes OURS, OURS-OVERLAY
      or MOD-COPY, nor anything under src/sourcesharp/ (our tree), so the
-     build can never pick up the fork's stale copy.
-  6. (checked after a build) `git -C ROOT status --porcelain` is empty.
+     build can never pick up a Valve copy of our file.
+  6. (checked after a build) the clone's `git status --porcelain` is empty.
 """
 
 import argparse
@@ -67,7 +53,7 @@ import tempfile
 
 CONFIGS = ("debug", "release")
 
-# Rule 3. The build writes these; through a link it would write into the fork.
+# Rule 3. The build writes these; through a link it would write into the clone.
 BUILD_OUTPUTS = re.compile(
     r"^(src/lib/public/linux64/(tier1|mathlib|raytrace|vgui_controls|"
     r"matsys_controls)\.a"
@@ -83,7 +69,7 @@ CFG_SEED = "cfg-seed"
 
 # Rule 5, whatever the ledger says: src/sourcesharp/ is SourceSharp's own tree
 # (tools/module-map.tsv links it from src/<module>), including the relocated
-# Valve code kept local by user decision 2026-09-27, so the fork's copies can
+# Valve code kept local by user decision 2026-09-27, so Valve's copies can
 # never come back through the manifest.
 LOCAL_PREFIX = "src/sourcesharp/"
 
@@ -244,7 +230,7 @@ def plan_farm(repo, root, cfg, manifest, module_map, ours):
         if os.path.isdir(full) and not os.path.islink(full):
             raise SetupError(f"rule 1: sdk-links names a directory: {p}")
         if not os.path.lexists(full):
-            raise SetupError(f"sdk-links: {p} is not in ROOT")
+            raise SetupError(f"sdk-links: {p} is not in the Valve clone")
         if BUILD_OUTPUTS.match(p):
             raise SetupError(f"rule 3: sdk-links names a build output: "
                              f"{p}")
@@ -254,7 +240,7 @@ def plan_farm(repo, root, cfg, manifest, module_map, ours):
         if p.startswith(LOCAL_PREFIX):
             raise SetupError(f"rule 5: sdk-links names {p}: everything under "
                              f"{LOCAL_PREFIX} is this repo's (module-map), "
-                             "never linked from the fork")
+                             "never linked from the clone")
         if p in links:
             raise SetupError(f"sdk-links: {p} listed twice")
         links[p] = full
@@ -439,6 +425,35 @@ def only_links(path):
     return True
 
 
+def moved_valve_links(base, links, root):
+    """How many links under `base` already exist but point somewhere other
+    than the Valve file the plan gives them (a ROOT that changed). PURE."""
+    n = 0
+    prefix = os.path.normpath(root) + os.sep
+    for rel, target in links.items():
+        if not isinstance(target, str) or not os.path.normpath(target).startswith(prefix):
+            continue
+        path = os.path.join(base, rel)
+        if os.path.islink(path) and os.path.normpath(os.readlink(path)) != os.path.normpath(target):
+            n += 1
+    return n
+
+
+def clean_build(farm, moved, check, report):
+    """A Valve link that moved to an OLDER file is not a change to ninja (it
+    compares mtimes), so the objects built from the old file stay. Clean the
+    build tree instead; the next build is a full one."""
+    build = os.path.join(farm, "build")
+    if not moved or not os.path.exists(os.path.join(build, "build.ninja")):
+        return 0
+    report(f"{moved} Valve links moved: clean {build} (ninja -t clean), so the "
+           "next build compiles against the files they name now")
+    if not check:
+        subprocess.run(["ninja", "-C", build, "-t", "clean"], check=True,
+                       stdout=subprocess.DEVNULL)
+    return 1
+
+
 def apply_links(base, links, check, report, managed_prefixes=None):
     """Make every link in `links` under `base`; remove stale links.
 
@@ -609,79 +624,7 @@ def check_tools(report, which=shutil.which):
     return missing
 
 
-# --- the lock -------------------------------------------------------------------
-
-def patched_upstream(repo):
-    """The commit `make sdk-upstream` makes (patches/source-sdk-2013/UPSTREAM
-    `result=`): stock upstream plus our patch series, applied by `git am` so
-    the sha is the same on every machine. None when there is no series."""
-    path = os.path.join(repo, "patches", "source-sdk-2013", "UPSTREAM")
-    if not os.path.exists(path):
-        return None
-    for line in open(path):
-        k, _, v = line.strip().partition("=")
-        if k.strip() == "result" and v.strip():
-            return v.strip()
-    return None
-
-
-def check_root(repo, root, accept, check, report, repin=False):
-    """ROOT is either of two trees: the fork at sdk-root.lock (or, with
-    --accept-root, a descendant of it), or the patched upstream at its pinned
-    result sha (make sdk-upstream), which needs no flag and leaves the lock
-    alone. --repin-root pins an UNRELATED tree, so long as it holds the Valve
-    base (valve-sdk.lock); --accept-root never does, so a ROOT that moved
-    backwards or sideways by accident is still refused."""
-    if not os.path.isdir(os.path.join(root, ".git")) and not os.path.isfile(
-            os.path.join(root, ".git")):
-        raise SetupError(f"ROOT {root} is not a git checkout")
-    head = git(root, "rev-parse", "HEAD")
-    lock_path = os.path.join(repo, "sdk-root.lock")
-    lock = open(lock_path).read().split()[0] if os.path.exists(
-        lock_path) else None
-    if lock == head:
-        return
-    if head == patched_upstream(repo):
-        return
-    if lock is None:
-        if not (accept or repin):
-            raise SetupError("no sdk-root.lock; run with --accept-root to "
-                             f"pin ROOT at {head}")
-        report(f"pin sdk-root.lock to {head}")
-    else:
-        is_desc = subprocess.run(
-            ["git", "-C", root, "merge-base", "--is-ancestor", lock, head],
-            capture_output=True).returncode == 0
-        if is_desc and (accept or repin):
-            report(f"pin sdk-root.lock to {head}")
-        elif repin:
-            base = valve_lock(repo)
-            has_base = subprocess.run(
-                ["git", "-C", root, "merge-base", "--is-ancestor", base,
-                 head], capture_output=True).returncode == 0
-            if not has_base:
-                raise SetupError(
-                    f"--repin-root: ROOT HEAD {head} does not contain the "
-                    f"Valve base {base[:12]} (valve-sdk.lock), so it is not "
-                    "a source-sdk-2013 checkout; refusing to pin it")
-            report(f"re-pin sdk-root.lock to {head}: SWITCHED to an "
-                   f"unrelated tree (it does not descend from the pinned "
-                   f"{lock[:12]}; it holds the Valve base {base[:12]})")
-        else:
-            why = "descends from" if is_desc else "does not descend from"
-            hint = (" Re-run with --accept-root to re-pin." if is_desc else
-                    " If this is a different SDK tree on purpose, "
-                    "--repin-root pins it; the patched upstream (make "
-                    "sdk-upstream) needs no flag.")
-            raise SetupError(
-                f"ROOT HEAD {head} is not the pinned {lock} (it {why} it)."
-                + hint)
-    if not check:
-        with open(lock_path, "w") as f:
-            f.write(head + "\n")
-
-
-# --- the pristine Valve SDK (the oracles' reference) -----------------------------
+# --- the pristine Valve SDK -----------------------------------------------------
 
 VALVE_URL = "https://github.com/ValveSoftware/source-sdk-2013"
 
@@ -700,18 +643,16 @@ def valve_default(repo):
     return os.path.join(os.path.dirname(repo), "source-sdk-2013-valve")
 
 
-def provision_valve(repo, root, valve, check, report, url=VALVE_URL):
-    """Clone upstream at the lock (borrowing ROOT's objects, then dissociating
-    so the clone never depends on the fork's object store), or verify the
-    clone that is there: HEAD equal to the lock, nothing edited."""
+def provision_valve(repo, valve, check, report, url=VALVE_URL):
+    """Clone upstream at the lock, or verify the clone that is there: HEAD
+    equal to the lock, nothing edited."""
     lock = valve_lock(repo)
     if not os.path.lexists(valve):
         report(f"clone {url} at {lock[:12]} into {valve} (the pristine "
-               "Valve SDK the oracle tests read)")
+               "Valve SDK the farm links from)")
         if check:
             return 1
-        ref = ["--reference-if-able", root, "--dissociate"] if root else []
-        subprocess.run(["git", "clone", "-q", "--no-checkout", *ref, url,
+        subprocess.run(["git", "clone", "-q", "--no-checkout", url,
                         valve], check=True)
         subprocess.run(["git", "-C", valve, "checkout", "-q", "--detach",
                         lock], check=True)
@@ -720,7 +661,7 @@ def provision_valve(repo, root, valve, check, report, url=VALVE_URL):
     head = git(valve, "rev-parse", "HEAD")
     if head != lock:
         report(f"check out {lock[:12]} in {valve} (HEAD is {head[:12]}; "
-               "valve-sdk.lock pins the oracles' reference)")
+               "valve-sdk.lock pins it)")
         if check:
             return 1
         if git(valve, "status", "--porcelain"):
@@ -729,17 +670,18 @@ def provision_valve(repo, root, valve, check, report, url=VALVE_URL):
         subprocess.run(["git", "-C", valve, "checkout", "-q", "--detach",
                         lock], check=True)
     if git(valve, "status", "--porcelain", "--untracked-files=no"):
-        raise SetupError(f"VALVE_SDK {valve} has local changes; the oracle "
-                         "reference must be pristine upstream")
+        raise SetupError(f"VALVE_SDK {valve} has local changes; it must be "
+                         "pristine upstream")
     return 0
 
 
 # --- main -----------------------------------------------------------------------
 
-def run(repo, root, configs, check=False, accept=False, provision=True,
+def run(repo, root, configs, check=False, provision=True,
         dotnet_root=None, runtime_only=False,
-        out=print, verbose=False, valve=None, valve_url=VALVE_URL,
-        repin=False):
+        out=print, verbose=False, valve=None, valve_url=VALVE_URL):
+    """Compose the farms and game dirs from the Valve tree `root`. With
+    `valve` (main passes the clone as both), provision that clone first."""
     changes = 0
     shown = [0]
 
@@ -751,7 +693,10 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
         elif shown[0] == 6:
             out("  ... (--verbose lists every change)")
 
-    check_root(repo, root, accept, check, report, repin=repin)
+    if valve is not None:
+        changes += provision_valve(repo, valve, check, report, url=valve_url)
+        if not os.path.isdir(os.path.join(valve, ".git")):
+            return changes  # --check with no clone yet: nothing to link from
     manifest = load_manifest(repo)
     module_map = load_module_map(repo)
     ours = load_ours(repo)
@@ -766,8 +711,10 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
         links = plan_farm(repo, root, cfg, manifest, module_map, ours)
         if not check:
             os.makedirs(farm, exist_ok=True)
+        moved = moved_valve_links(farm, links, root)
         changes += apply_links(farm, links, check, report) if (
             os.path.isdir(farm) or check) else 0
+        changes += clean_build(farm, moved, check, report)
         game = os.path.join(repo, "bin", cfg)
         bplan = plan_bin(repo, root, cfg, mods, tf2)
         bindir, steam, _ = PLATFORM_BIN[platform_name()]
@@ -789,10 +736,7 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
                     game, os.path.normpath(m[1])), check, report)
         out(f"{cfg}: {shown[0]} changes; {len(links)} farm links "
             f"({sum(1 for p in links if os.path.normpath(links[p]).startswith(os.path.normpath(root) + os.sep))} "
-            f"from ROOT)")
-    if valve is not None:
-        changes += provision_valve(repo, root, valve, check, report,
-                                   url=valve_url)
+            f"from the clone)")
     if provision:
         node = os.path.join(repo, "tools", "node", "bin", "node")
         if not os.path.exists(node):
@@ -879,10 +823,21 @@ def self_test():
         links()
 
         def go(**kw):
-            run(repo, root, ["debug"], provision=False, accept=True,
+            run(repo, root, ["debug"], provision=False,
                 out=lambda m: None, **kw)
 
         expect("a good farm builds", go, None)
+        planned = plan_farm(repo, root, "debug", load_manifest(repo),
+                            load_module_map(repo), load_ours(repo))
+        other = os.path.join(t, "other-root")
+        moved_plan = {r: (x.replace(root, other, 1) if isinstance(x, str) else x)
+                      for r, x in planned.items()}
+        n_same = moved_valve_links(f"{repo}/farm/debug", planned, root)
+        n_moved = moved_valve_links(f"{repo}/farm/debug", moved_plan, other)
+        ok = n_same == 0 and n_moved > 0
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a Valve link pointed at another tree "
+              f"counts as moved, an unchanged one does not ({n_same}, {n_moved})")
         farm = f"{repo}/farm/debug"
         ok = (os.readlink(f"{farm}/src/public/const.h")
               == f"{root}/src/public/const.h"
@@ -1042,15 +997,15 @@ def self_test():
         with open(os.path.join(repo, "valve-sdk.lock"), "w") as f:
             f.write(pinned + "\n")
         said = []
-        n = provision_valve(repo, None, valve, True, said.append, url=up)
+        n = provision_valve(repo, valve, True, said.append, url=up)
         ok = n == 1 and not os.path.exists(valve) and any(
             "clone" in m for m in said)
         bad += not ok
         print(f"{'ok ' if ok else 'BAD'} --check reports a missing Valve "
               "clone and makes nothing")
-        n = provision_valve(repo, None, valve, False, lambda m: None, url=up)
+        n = provision_valve(repo, valve, False, lambda m: None, url=up)
         ok = git(valve, "rev-parse", "HEAD") == pinned and provision_valve(
-            repo, None, valve, True, lambda m: None, url=up) == 0
+            repo, valve, True, lambda m: None, url=up) == 0
         bad += not ok
         print(f"{'ok ' if ok else 'BAD'} the clone is made at the lock, "
               "and a second check is clean")
@@ -1060,124 +1015,18 @@ def self_test():
                        capture_output=True)
         moved = git(valve, "rev-parse", "HEAD") != pinned
         said = []
-        n = provision_valve(repo, None, valve, True, said.append, url=up)
+        n = provision_valve(repo, valve, True, said.append, url=up)
         ok = moved and n == 1 and any("HEAD is" in m for m in said)
         bad += not ok
         print(f"{'ok ' if ok else 'BAD'} a clone off the lock is reported "
               f"(moved={moved})")
-        provision_valve(repo, None, valve, False, lambda m: None, url=up)
+        provision_valve(repo, valve, False, lambda m: None, url=up)
         with open(os.path.join(valve, "f.cpp"), "a") as f:
             f.write("edited\n")
         expect("an edited Valve clone is refused",
-               lambda: provision_valve(repo, None, valve, True,
+               lambda: provision_valve(repo, valve, True,
                                        lambda m: None, url=up),
                "must be pristine")
-    # check_root: the fork at the lock, a descendant (--accept-root), an
-    # unrelated Valve tree (--repin-root only), a tree without the Valve base
-    # (never), and the patched upstream at its pinned result (no flag).
-    with tempfile.TemporaryDirectory() as t:
-        r = os.path.join(t, "sdk")
-        repo = os.path.join(t, "repo")
-        os.makedirs(os.path.join(repo, "patches", "source-sdk-2013"))
-
-        def g(cwd, *a):
-            return subprocess.run(["git", "-C", cwd, "-c", "user.name=t", "-c",
-                                   "user.email=t@t", *a], check=True,
-                                  capture_output=True, text=True
-                                  ).stdout.strip()
-
-        def commit_on(start, msg):
-            g(r, "checkout", "-q", "--detach", start)
-            with open(os.path.join(r, "f.cpp"), "w") as f:
-                f.write(msg + "\n")
-            g(r, "add", ".")
-            g(r, "commit", "-qm", msg)
-            return g(r, "rev-parse", "HEAD")
-        os.makedirs(r)
-        g(r, "init", "-q")
-        with open(os.path.join(r, "f.cpp"), "w") as f:
-            f.write("valve\n")
-        g(r, "add", ".")
-        g(r, "commit", "-qm", "valve base")
-        valve_base = g(r, "rev-parse", "HEAD")
-        fork = commit_on(valve_base, "fork")
-        fork_next = commit_on(fork, "fork moved on")
-        unrelated = commit_on(valve_base, "another tree on the Valve base")
-        patched = commit_on(valve_base, "upstream + the series")
-        patched_more = commit_on(patched, "an edit on top of the series")
-        stranger = os.path.join(t, "stranger")
-        os.makedirs(stranger)
-        g(stranger, "init", "-q")
-        g(stranger, "commit", "-q", "--allow-empty", "-m", "not Valve")
-        lock_path = os.path.join(repo, "sdk-root.lock")
-        with open(os.path.join(repo, "valve-sdk.lock"), "w") as f:
-            f.write(valve_base + "\n")
-        with open(os.path.join(repo, "patches", "source-sdk-2013",
-                               "UPSTREAM"), "w") as f:
-            f.write(f"url=x\nbranch=master\nbase={valve_base}\n"
-                    f"result={patched}\n")
-
-        def at(sha, root=r, **kw):
-            with open(lock_path, "w") as f:
-                f.write(fork + "\n")
-            if root == r:
-                g(r, "checkout", "-q", "--detach", sha)
-            said = []
-            check_root(repo, root, kw.get("accept", False), False,
-                       said.append, repin=kw.get("repin", False))
-            return open(lock_path).read().split()[0], said
-
-        def refused(fn, want):
-            try:
-                fn()
-            except SetupError as e:
-                return want in str(e)
-            return False
-
-        def accepted(sha, **kw):
-            # A refusal in a positive arm is a BAD line, not a crash.
-            try:
-                return at(sha, **kw)
-            except SetupError as e:
-                return None, [f"refused: {e}"]
-        lock, said = accepted(fork)
-        ok = lock == fork and not said
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} the fork at the lock is accepted "
-              "as it is")
-        lock, said = accepted(fork_next, accept=True)
-        ok = lock == fork_next
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} --accept-root pins a descendant")
-        ok = (refused(lambda: at(unrelated), "does not descend")
-              and refused(lambda: at(unrelated, accept=True),
-                          "--repin-root pins it")
-              and open(lock_path).read().split()[0] == fork)
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} an unrelated ROOT is refused "
-              "without --repin-root, --accept-root included, and the lock "
-              "is kept")
-        lock, said = accepted(unrelated, repin=True)
-        ok = lock == unrelated and any("SWITCHED to an unrelated tree" in m
-                                       for m in said)
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} --repin-root pins an unrelated ROOT "
-              "and says it switched")
-        ok = (refused(lambda: at(None, root=stranger, repin=True),
-                      "does not contain the Valve base")
-              and open(lock_path).read().split()[0] == fork)
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} --repin-root refuses a ROOT without "
-              "the Valve base")
-        lock, said = accepted(patched)
-        ok = lock == fork and not said
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} the patched upstream at its pinned "
-              "result is accepted with no flag, and the lock is kept")
-        ok = refused(lambda: at(patched_more), "does not descend")
-        bad += not ok
-        print(f"{'ok ' if ok else 'BAD'} a commit on top of the patched "
-              "upstream is not the pinned result, so it is refused")
     # --check names each missing build tool with its install command.
     said = []
     n = check_tools(said.append,
@@ -1195,12 +1044,6 @@ def self_test():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root")
-    ap.add_argument("--accept-root", action="store_true",
-                    help="re-pin sdk-root.lock to a ROOT that descends from it")
-    ap.add_argument("--repin-root", action="store_true",
-                    help="re-pin sdk-root.lock to an unrelated ROOT that holds "
-                    "the Valve base (valve-sdk.lock)")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--config", choices=CONFIGS)
     ap.add_argument("--no-provision", action="store_true")
@@ -1211,10 +1054,6 @@ def main():
     ap.add_argument("--dotnet-root", metavar="DIR",
                     help="the .NET install the bundled runtime is copied "
                          "from (default ~/.dotnet; a runner's is elsewhere)")
-    ap.add_argument("--no-valve-sdk", action="store_true",
-                    help="do not clone or check the pristine Valve SDK the "
-                         "oracle tests read (a native-only build, as CI's "
-                         "Windows and macOS jobs make, has no oracle leg)")
     ap.add_argument("--valve-sdk", help="the pristine Valve SDK clone "
                     "(default: remembered, else ../source-sdk-2013-valve)")
     ap.add_argument("--verbose", "-v", action="store_true")
@@ -1234,24 +1073,15 @@ def main():
         print(json.dumps(resolved, sort_keys=True))
         return 0
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    local = os.path.join(repo, "sdk-root.lock.local")
-    root = a.root
-    if root is None and os.path.exists(local):
-        root = open(local).read().strip()
-    if root is None:
-        print("error: no ROOT. Run: make setup ROOT=../source-sdk-2013",
-              file=sys.stderr)
-        return 2
-    root = os.path.realpath(root)
     valve = os.path.abspath(a.valve_sdk or valve_default(repo))
     try:
-        changes = run(repo, root, [a.config] if a.config else CONFIGS,
-                      check=a.check, accept=a.accept_root,
+        changes = run(repo, os.path.realpath(valve),
+                      [a.config] if a.config else CONFIGS,
+                      check=a.check,
                       provision=not a.no_provision, verbose=a.verbose,
                       dotnet_root=a.dotnet_root,
                       runtime_only=a.provision_runtime,
-                      valve=None if a.no_valve_sdk else valve,
-                      repin=a.repin_root)
+                      valve=valve)
     except SetupError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -1261,10 +1091,7 @@ def main():
             return 1
         print("setup --check: up to date")
         return 0
-    if a.root:
-        with open(local, "w") as f:
-            f.write(root + "\n")
-    if not a.check and not a.no_valve_sdk:
+    if not a.check:
         # Where the pristine clone is, for the tests (RepoLayout.ValveSdk /
         # the oracle CMake) and for the next setup.
         with open(os.path.join(repo, "valve-sdk.lock.local"), "w") as f:

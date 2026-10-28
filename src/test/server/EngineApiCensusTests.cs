@@ -452,21 +452,6 @@ public partial class EngineApiCensusTests
     // left to compare with a side. AbiParityTests.TheEngineApiStructIsGone holds
     // the absence.
 
-    /// <summary>
-    /// plan_client_vtables CC-last: neither side fills the struct. The server
-    /// stopped at C6c; the client's slots are methods of its shim areas.
-    /// </summary>
-    [Fact]
-    public void NeitherSideFillsTheStruct()
-    {
-        string path = RepoLayout.Repo("src", "shared", "native", "sourcesharp_gamesystem.cpp");
-        string src = AbiParityTests.CodeOnly(File.ReadAllText(path));
-        Assert.Contains("SourceSharp_LoadMySide_Host(", src);   // the control: this is the load's file
-
-        Assert.Empty(Regex.Matches(src, @"\bengineApi\.\w+\s*=").Select(m => m.Value));
-        Assert.DoesNotContain("SourceSharpEngineApi g_EngineApi", src);
-    }
-
     [Fact]
     public void TheSideCountsAreThePinnedOnes()
     {

@@ -89,15 +89,12 @@ docs/convar-native-reads.md	OURS	docs/convar-native-reads.md			0		0	e7b5e229fc90
 docs/convar-ordering-experiment.md	OURS	docs/convar-ordering-experiment.md			0		0	c12141348e1b60e0cd4c1582c11cbfb1757d3b057f4ae446e9ab66742e846430
 docs/defect-convar-order.md	OURS	docs/defect-convar-order.md			0		0	faa5c9f276a0fdafe3aed2b4c36f2c4396c20fa2521c6150bdb65dc935ee0d02
 docs/engine-boundary.md	OURS	docs/engine-boundary.md			0		0	9a7f79eff886a54dbb58d9abf62581951c94397f112b42df1e8e859a15dc2891
-docs/entity-census.txt	OURS	docs/entity-census.txt			0		0	e80e1a95756e2f29f843223123a404f822c6251f48a124793ffbddeb14534a33
-docs/entity-ratchet.tsv	OURS	docs/entity-ratchet.tsv			0		0	c73ac898fc0145301d7c9b428c64bffefcbbc4580c3140c7d07f5f7f810d1de3
 docs/entity-shell.md	OURS	docs/entity-shell.md			0		0	a0d6884a87c77fc2dd2467296df12aec97807157f657d770f4570a37e876470a
 docs/globals-client-ledger.tsv	OURS	docs/globals-client-ledger.tsv			0		0	0ea5246e26291e40e003f38e48ffef42d720d83840ba3c5977ffcbb1ec733dd5
 docs/globals-client-ratchet.tsv	OURS	docs/globals-client-ratchet.tsv			0		0	61fa31243e29c56f9d1e61e7b5c7327035cdf218e1d35eaee560e6c27a06f0fb
 docs/globals-ledger.tsv	OURS	docs/globals-ledger.tsv			0		0	3f5edc3cf2e31cb713d9f5436055c8644f6aa2ae57c3afe6448bb67440207646
 docs/globals-ratchet.tsv	OURS	docs/globals-ratchet.tsv			0		0	752a0c9a6b5f4845d68c97669f0aa4dfbd152d1748ab356f194a0a880d3537f3
 docs/managed-saverestore.md	OURS	docs/managed-saverestore.md			0		0	b834628a2b69e8bf7cd9c237c3399e042cb274262ab64816f0299e8e91328f4e
-docs/physics-move-scope.md	OURS	docs/physics-move-scope.md			0		0	59d82507ed691da0081211d4d3892add834b72d882a1f5e7c9d0600cc441cd58
 docs/shim-3f-retired-arguments.md	OURS	docs/shim-3f-retired-arguments.md			0		0	dc393540559529ab02217994b699a176828663ccb347f9512f88d1fda99ba057
 docs/shim-orphans.tsv	DROP			stale tools/shim-census snapshot of a dirty tree; nothing reads it	0		0	a98632096dfb74d414e84ab8e20f96b42d4824f4ca0a142e26174ada5ea090a9
 docs/shim-ratchet.tsv	OURS	docs/shim-ratchet.tsv			0		0	d3898e95de8d69f08bba4200d7094d018d91ca40f68180b27c4693920201497b
@@ -208,7 +205,6 @@ src/game/shared/movement_ground.h	OURS	src/shared/native/movement_ground.h	yes	r
 src/game/shared/movement_ground_writeback.h	OURS	src/shared/native/movement_ground_writeback.h	yes	ports CGameMovement::SetGroundEntity's unconditional writeback rule	0		0	a6ea7968d684865afaa5c7e35dc3de30bdc5902ac61ebaff6aace954e587ae6a
 src/game/shared/physicslink.h	OURS	src/shared/native/physicslink.h	yes	rule 3: native code built against SDK headers (#include mathlib/)	0		0	144a8dd72f5bfb4d084a5bd9dd0c6cd0a16c9bb9de2b17785cd71c31c30d9926
 src/game/shared/physicsowner.h	OURS	src/shared/native/physicsowner.h	yes	rule 3: native code built against SDK headers (#include c_baseentity)	0		0	ffe0c825996355b0bb192d226342aa7510f9f0cd5ea3084f959eb1887be4f4fe
-src/game/shared/standard_filter_shape.h	OURS	src/shared/native/standard_filter_shape.h	yes	ports StandardFilterRules shape clause verbatim (util_shared.cpp)	0		0	09fd7080f4cdabdb45efcd82d56fb394e8244341a6122a7c017e4936e4055d90
 src/launcher_main/exepath.h	DROP			retired in Phase 6b with VPC: existed only for VPC's +everything	0		0	3ff0a72ba44302f16e9861cbf9a95f0e48f28676ffd2bfddfbc8bd06d4a6f41a
 src/launcher_main/launcher_main_mod_sharp.vpc	DROP			retired in Phase 6b with VPC: a VPC project script	0		0	95ba7ad3006ab308ab859c4a4d96b8d76d64416e9dffe5d92ec2ba24e9da84ad
 src/preprocess_target	OURS-OVERLAY	tools/build/preprocess_target			0		0	76c89d442e70ffeb065bb030643acad9a03a55e69b93e2b4e749fa25c470d9a1
@@ -267,7 +263,6 @@ src/sourcesharp/game/client/shell_world_nettable_client.h	OURS	src/client/native
 src/sourcesharp/game/client/shell_worldquery_client.cpp	OURS	src/client/native/shell_worldquery_client.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	9394a9ac8f44a6499b226515e239984b0dee65a07a88d3b9fb57ab055365c5a2
 src/sourcesharp/game/client/shell_worldrender.cpp	OURS	src/client/native/shell_worldrender.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		7	0f74e31f867f24b9a720772e84effe1d2ed551e6e1a1a1664b27259d89e638f9
 src/sourcesharp/game/client/shell_worldtext_render.cpp	OURS	src/client/native/shell_worldtext_render.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	a20c5f7ac994838bcdf20e64339a563ea9e8dad4b02253a9a3c59ee20331c4e9
-src/sourcesharp/game/client/standalone_handle_ban_client.h	OURS	src/client/native/standalone_handle_ban_client.h	no	compile-time type-ban mechanism	0		0	7f792d1565c134f38f40c7819b6178294c065a457331b202202651b495f323d5
 src/sourcesharp/game/client/view_facts.h	OURS	src/client/native/view_facts.h	no	declaration facade, no bodies	0		0	c5c0d81f69d0b67adb43e50edb10b55f98e6ad806cc8122a6c52dba250a55f0e
 src/sourcesharp/game/client/view_subject.h	OURS	src/client/native/view_subject.h	yes	ports AudioStateIsUnderwater/IsEffectActive/DrawViewModels rules	0		0	de7505fbe2d8b057b2cc0ccae98921ad6f9f43857d2571565230d6e18e1cd27b
 src/sourcesharp/game/client/world_adapter_client.cpp	OURS	src/client/native/world_adapter_client.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	13	src/game/client/c_world.cpp	13	ca7906a65159542b0988506059296db57ce67f910c8e0b48a0ed222b8a25c6f0
@@ -333,7 +328,6 @@ src/sourcesharp/game/server/shell_usermessage_send.cpp	OURS	src/server/native/sh
 src/sourcesharp/game/server/shell_world_nettable.cpp	OURS	src/server/native/shell_world_nettable.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	5903f74bd28cf2b2efb19b5bb05b01355e46a9be8d7eea727f884bcf7afd8702
 src/sourcesharp/game/server/shell_world_nettable.h	OURS	src/server/native/shell_world_nettable.h	yes	rule 3: native code built against SDK headers (#include basetypes.h)	0		0	8932b303cb6685709a7d4874d9a962b514aee35bec5cd79f016581e2c7ddee3c
 src/sourcesharp/game/server/shell_worldquery.cpp	OURS	src/server/native/shell_worldquery.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	58ec3352d008d5482bf663206932e6a06c24058a6bbaa6c551ee829347287dba
-src/sourcesharp/game/server/shellless_find.h	OURS	src/server/native/shellless_find.h	no	own new arithmetic, not Valve logic	0		0	3e92de498ede21af09ca2b65548328a7748af2e9828a78a2242cc7c28c71a2f3
 src/sourcesharp/game/server/standalone_collision_rules.h	OURS	src/server/native/standalone_collision_rules.h	yes	ports CBaseEntity::CollisionRulesChanged's recheck call (baseentity_shared.cpp)	0		0	5b1314cca2e0b512a1ce9e64d65658d2bcf89aaccde11830325352783e1bc8dc
 src/sourcesharp/game/server/standalone_handle_ban.h	OURS	src/server/native/standalone_handle_ban.h	no	compile-time type-ban mechanism	0		0	dd60a4931ae1690819ffa5612ec3c019cd7168a9a0168a2b249613660504f088
 src/sourcesharp/game/server/standalone_model_bounds.h	OURS	src/server/native/standalone_model_bounds.h	yes	rule 1: carries a Valve copyright header	0		0	5ed81986a3f83046d953f1f83d2b5493a66b416a6137756e3e679ae4828df70e
@@ -345,7 +339,6 @@ src/sourcesharp/game/server/standalone_relays.h	OURS	src/server/native/standalon
 src/sourcesharp/game/server/toucher.h	OURS	src/server/native/toucher.h	yes	rule 3: native code built against SDK headers (#include baseentity)	0		0	9ae33554e4691c6d99024a66e5d7a4e52b54006c91b4d13a9b2e38ce95c81f6e
 src/sourcesharp/game/server/world_adapter.cpp	OURS	src/server/native/world_adapter.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	33	src/game/server/world.cpp	33	879cc162e4d478ab7e8680226579fcbc5a913ee8b6663f1d075a6c4fd732cb51
 src/sourcesharp/game/server/world_subject_dll.cpp	OURS	src/server/native/world_subject_dll.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	b97c68d0a2853eb8cd1861720598ba392c713d476015b001448914e8ce428e1b
-src/sourcesharp/game/shared/anim_event_names.h	OURS	src/shared/native/anim_event_names.h	no	deliberately bypasses stock's SetEventIndexForSequence machinery	0		0	1b5a0ee05c20f5905346ba9adb57fb76820aca5953b4f62247949aebb4c8e05e
 src/sourcesharp/game/shared/assert_stack.h	OURS	src/shared/native/assert_stack.h	no	own diagnostic dedup tooling	0		0	db0701677babced19b87b187e2fe86ecbd5de38d9d12af46084f5e4af2250df3
 src/sourcesharp/game/shared/collisionproperty.cpp	OURS	src/shared/native/collisionproperty.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	15	src/game/shared/collisionproperty.cpp	15	10526110d37e197f5db410b5ff544e19e0c6af25fe436a6aa381ba90d7c543bb
 src/sourcesharp/game/shared/crossings_fetch.h	OURS	src/shared/native/crossings_fetch.h	no	own diagnostics loop	0		0	22265aaee850181ce5b653efcff6d79a7cab455eb30f62f28c569ecad6537e9e
@@ -364,7 +357,6 @@ src/sourcesharp/game/shared/globalvars_layout.h	OURS	src/shared/native/globalvar
 src/sourcesharp/game/shared/ground_handle_wire.h	OURS	src/shared/native/ground_handle_wire.h	yes	ports stock's EHANDLE wire encoding constants and index masking	0		0	2df10c19002d5be215f2aa057944b15a50a73d2b77a2be1e98836925354d7d81
 src/sourcesharp/game/shared/handle_cross.h	OURS	src/shared/native/handle_cross.h	no	new safer crossing mechanism replacing Valve's unchecked cast	0		0	a0384dd1ec748771b717c98d800afbcd5d0951dd9562512adfec276cf1e74875
 src/sourcesharp/game/shared/igamerules.h	OURS	src/shared/native/igamerules.h	yes	rule 3: native code built against SDK headers (#include tier0/)	0		0	55e8891bc09cb6c39a56cc8f98c9803febcc771be2c89936691dbe3b0c5d8013
-src/sourcesharp/game/shared/jet_lifetime.h	OURS	src/shared/native/jet_lifetime.h	yes	ports C_SteamJet/C_SmokeStack lifetime formula and defaults	0		0	1d0d849952a2d761431016ef411cadb6ecae62e5001c5975350f5e04b40d0cfc
 src/sourcesharp/game/shared/managed_convar_ref.h	OURS	src/shared/native/managed_convar_ref.h	yes	rule 3: native code built against SDK headers (#include convar.h)	0		0	58ecf9d5f99fc69d39cc2ca0a6f69a0724e4fb6f3a908c3a3e38bae8de4be601
 src/sourcesharp/game/shared/managed_init_failure.h	OURS	src/shared/native/managed_init_failure.h	no	own diagnostic messages	0		0	73c66ade144b26b6ef6fc04ecf9fce723a20342e96c6f4ba4fadef2b301e2385
 src/sourcesharp/game/shared/move_root.h	OURS	src/shared/native/move_root.h	yes	ports CBaseEntity::GetRootMoveParent's walk (baseentity_shared.cpp)	0		0	ef85b6ca3df2b224036c2f8834c9e3487ea10a4762547631dd14eda066093a69
@@ -1377,7 +1369,6 @@ src/sourcesharp/managed/SourceSharp.Tests/NetSchemaTests.cs	OURS	src/test/server
 src/sourcesharp/managed/SourceSharp.Tests/NetStateFieldOffsetTests.cs	OURS	src/test/server/NetStateFieldOffsetTests.cs	no	own field-offset-by-name contract	0		0	cfe4a384e12cdd6595779cd188c99ee7f6bd6bcec8770e7534132ea230ae6112
 src/sourcesharp/managed/SourceSharp.Tests/NetTableTests.cs	OURS	src/test/server/NetTableTests.cs	no	own generated net-table layout	0		0	15295c7b29cf87cda1d6551454366df848d87b1d7bf4a9a7f742178958bdecf1
 src/sourcesharp/managed/SourceSharp.Tests/NetTrafficTests.cs	OURS	src/test/server/NetTrafficTests.cs	no	own traffic-view arithmetic	0		0	78bc1f9e8f5397923e261faa5b44dc29cd9b2250f7fd878059542e16d7302a5e
-src/sourcesharp/managed/SourceSharp.Tests/NotShippedTests.cs	OURS	src/test/server/NotShippedTests.cs	no	own removed-file ledger	0		0	a8dccb3e88fb4f1384882a965f6ba82d3bda531a62613bc2a34e88def894b1a5
 src/sourcesharp/managed/SourceSharp.Tests/OverlayContractTests.cs	OURS	src/test/server/OverlayContractTests.cs	no	own overlay handle-default contract	0		0	ecae8829127686a20b5aa5eaf1f2c407c6427765c840e25d5b141dc2ec18baf9
 src/sourcesharp/managed/SourceSharp.Tests/PairingAuditTests.cs	OURS	src/test/managed/PairingAuditTests.cs	no	own two-half entity pairing audit	0		0	ddb902d4ed120320e2b6012ef4345a734c1bceae805d4612dc1f1d4a53a9d2f7
 src/sourcesharp/managed/SourceSharp.Tests/PaneGridTests.cs	OURS	src/test/server/PaneGridTests.cs	no	checks stock's pane-break weights as known constants, checking behaviour	0		0	3fe71b197b218f6b3bb27e2e7ad9bfc961715d2b5dd835d55afe24a3eaf2c9c4
@@ -1386,7 +1377,6 @@ src/sourcesharp/managed/SourceSharp.Tests/PhysboxMultiplayerTests.cs	OURS	src/te
 src/sourcesharp/managed/SourceSharp.Tests/PhysboxTests.cs	OURS	src/test/server/PhysboxTests.cs	no	own damage-double-apply convention	0		0	5ea2563eb226751b482e066994f2244047f5e5a72190d81d472680a7cb96c5d9
 src/sourcesharp/managed/SourceSharp.Tests/PhysicsCollisionTests.cs	OURS	src/test/server/PhysicsCollisionTests.cs	no	struct layout parity, interop layout not logic	0		0	e6f5aaa84fc0aac09b93f22dc9a19f6e00af48bd5beb4c749125c4d9cdace49c
 src/sourcesharp/managed/SourceSharp.Tests/PhysicsIdTests.cs	OURS	src/test/server/PhysicsIdTests.cs	no	struct layout parity, interop layout not logic	0		0	c50b5512d9e270677180fa449778066bf7fa5172b03bad6589e16f60bc0c85b3
-src/sourcesharp/managed/SourceSharp.Tests/PhysicsShellContractTests.cs	OURS	src/test/server/PhysicsShellContractTests.cs	no	own refusal-decision ledger	0		0	34bc45ab9bed7031c966f699e997a6d730c63d172a066f1691170ed1cd361d38
 src/sourcesharp/managed/SourceSharp.Tests/PhysicsWakeSleepTests.cs	OURS	src/test/server/PhysicsWakeSleepTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	dd3572205b59a464b702d02171d633d4112cdeb84ec97ebce0bd78020c7fca34
 src/sourcesharp/managed/SourceSharp.Tests/PlasmaRingTests.cs	OURS	src/test/server/PlasmaRingTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	ed7815e5affac521d0ed4dc36cdad7b26ba640fbb97082b08e61f629c72205d9
 src/sourcesharp/managed/SourceSharp.Tests/PlasmaScaleRampTests.cs	OURS	src/test/server/PlasmaScaleRampTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	d59474f7579236cf7c0f0a8596b263e57be92e54c82987b3e33b02371d7582a9
@@ -1434,7 +1424,6 @@ src/sourcesharp/managed/SourceSharp.Tests/RenderModeParityTests.cs	OURS	src/test
 src/sourcesharp/managed/SourceSharp.Tests/RepoSourceFactAttribute.cs	OURS	src/test/common/RepoSourceFactAttribute.cs	no	xunit attribute infrastructure, no Valve logic	0		0	61b99e9ec4ef223676fa92b958ff7296ca4b97d2da1dc3c4d11d3fa91c70afa7
 src/sourcesharp/managed/SourceSharp.Tests/RidersTests.cs	OURS	src/test/server/RidersTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	f52b15682d346c0621b3bc73cd16f99a6d018f105867ed17147f4b48b7791ba3
 src/sourcesharp/managed/SourceSharp.Tests/RopeTests.cs	OURS	src/test/server/RopeTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	a11c5007011a4aaeb79d604109deedac317227340e631f5af5660b14d98cbc77
-src/sourcesharp/managed/SourceSharp.Tests/RulesLayerRetirementTests.cs	OURS	src/test/server/RulesLayerRetirementTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	24948dfe3725467f718d55417c7a6638d54b295a7126037740d6fd23601940de
 src/sourcesharp/managed/SourceSharp.Tests/SandboxArtefactLookupTests.cs	OURS	src/test/server/SandboxArtefactLookupTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	667a0d4a724a22fd36447e6bce590e3d3ccf45820e613ef1d3b66ff2f4613e56
 src/sourcesharp/managed/SourceSharp.Tests/SandboxArtefactTests.cs	OURS	src/test/server/SandboxArtefactTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file	0		0	a02e79d895a056d0abf2e74902a220350fe40ba7503bce25157492896378fd85
 src/sourcesharp/managed/SourceSharp.Tests/SandboxMapFactAttribute.cs	OURS	src/test/common/SandboxMapFactAttribute.cs	no	xunit attribute infrastructure, no Valve logic	0		0	9b373d609a648aa20bba0a41765646ac3cb60f049295857db75d67ee972e0dfb
@@ -1579,68 +1568,24 @@ src/sourcesharp/public/dt_send.cpp	OURS	src/shared/native/dt_send.cpp	yes	overri
 src/sourcesharp/public/dt_utlvector_common.cpp	OURS	src/shared/native/dt_utlvector_common.cpp	yes	override: relocated Valve code, kept local by user decision 2026-09-27	252	src/public/dt_utlvector_common.cpp	252	540143dc554f51ec80639c40190fcfb7f116e8b7921ef512bba10ef82fa86e4c
 src/sourcesharp/sourcesharp.vpc	DROP			retired in Phase 6b with VPC: a VPC project script	0		0	b31cef5bbac4510dad4c25580e8a2961e76b0d2e0cf9ba34c781b72518408c56
 src/sourcesharp/test/acquire_reason_test.cpp	OURS	src/test/native/acquire_reason_test.cpp	no	walks own enum vs shell_acquire_reasons.cpp; no Valve algorithm reproduced	0		0	de76ca1b0ee80f8295a33ddcafe490bd136b525c41ed0aab3e6877501951f18e
-src/sourcesharp/test/admin_command_move_test.cpp	OURS	src/test/native/admin_command_move_test.cpp	no	checks a moved stock function's callers/decl survived; no logic reproduced in test	0		0	bc1c933161e47dd03e4b7ba0ea15127b1ae885d92da9e56331b4893e9ad677a8
-src/sourcesharp/test/ambient_generic_evicted_test.cpp	OURS	src/test/native/ambient_generic_evicted_test.cpp	no	source scan confirming entity class deleted from build; no logic	0		0	761319f9daeef112b990a0cc54ded3812d0d35f7cc38c840f2b66554ff6b753c
-src/sourcesharp/test/anim_event_names_test.cpp	OURS	src/test/native/anim_event_names_test.cpp	no	checks own 5-row table agrees with C# table; own data not Valve algorithm	0		0	647dc65b6b6703fa7553d10617e4ed6f99487fa3761a09abfb087db3628e971f
-src/sourcesharp/test/animating_parallel_arm_test.cpp	OURS	src/test/native/animating_parallel_arm_test.cpp	no	checks shim entry points return NULL on SDK-only arm; no algorithm	0		0	c93e292e15c468a3874bc92826e8ab8944b1e24878499c85c9581751671e9469
 src/sourcesharp/test/assert_stack_test.cpp	OURS	src/test/native/assert_stack_test.cpp	no	tests own dedup/format arithmetic header; not a Valve port	0		0	f164480aabc7fb6e45bda2efc35bcb6af659c2cccffe98d3c45c1fbd462c342c
-src/sourcesharp/test/base_table_chain_end_test.cpp	OURS	src/test/native/base_table_chain_end_test.cpp	no	source scan re overload resolution claim; no logic	0		0	2f5caaf664cf372c3def0e5994fcd405e9995d54b2664ab03b1663d1c8021444
-src/sourcesharp/test/baseentity_statics_test.cpp	OURS	src/test/native/baseentity_statics_test.cpp	no	source scan plus own fake void* round-trip shape; not Valve logic	0		0	76531196d4ecddcb9020ef7a0c47a38aca92f32083b2c99746d8710d48edeb40
 src/sourcesharp/test/blast_blocking_test.cpp	OURS	src/test/native/blast_blocking_test.cpp	no	drives own blast_blocking.h identity rule over opaque handles; own header	0		0	70cf218cebc91fbe6dc93d5690e37563e4983c8b3c492729ce6174b7e716dc5c
-src/sourcesharp/test/blood_family_move_test.cpp	OURS	src/test/native/blood_family_move_test.cpp	no	source scan of a code move between files; no embedded algorithm	0		0	8f68c5f19882a89f3f81834568af0a39a0b26cbfb2e51c875516bbbff86a1a19
-src/sourcesharp/test/bone_leaf_rehome_ruling_test.cpp	OURS	src/test/native/bone_leaf_rehome_ruling_test.cpp	no	source scan of move rulings; no embedded algorithm	0		0	6feb0d3ca56c969c46244d83c398dc306d8ab69654c5d002be7cf64e8d4c1a67
 src/sourcesharp/test/boundary_probe_test.cpp	OURS	src/test/native/boundary_probe_test.cpp	no	tests own CBoundaryProbe counters; no Valve logic	0		0	5c61044da6607478bee64220bbce020ad81123143f47c56500c170be8f3df732
 src/sourcesharp/test/break_model_return_type_test.cpp	DROP			culled 2026-09-27: every case read Valve stock neither DLL compiles (user ruling)	0		0	757effbde415b29314842ed1f1841364866a8e2dc7c8502ba9fa03a7ac9f6ad1
-src/sourcesharp/test/c_systems_managed_test.cpp	OURS	src/test/native/c_systems_managed_test.cpp	no	source scan of vpc/table membership; no logic	0		0	c8e2019fe54321e06c666d12dfb695a2ec7faad85f3cd78b5823a1f1159ffc33
-src/sourcesharp/test/c_team_evicted_test.cpp	OURS	src/test/native/c_team_evicted_test.cpp	no	source/live scan of eviction facts; no logic	0		0	aea59c942a2285345be24707eec7165a6fd06892e2179459adb11b53a1e3f9df
-src/sourcesharp/test/chain_state_notify_test.cpp	OURS	src/test/native/chain_state_notify_test.cpp	no	drives own chain_state_notify.h holder; not Valve logic	0		0	df088a6402895857cb1419cb95849b7f2706dd3bc082e1004cf502f4f3513866
-src/sourcesharp/test/client_beam_evicted_test.cpp	OURS	src/test/native/client_beam_evicted_test.cpp	no	source scan confirming a stock refusal-body string unchanged; no embedded logic	0		0	b74fd170ebae3c2f1a4fd495dc61c263eeaa903505294b36cd4a6afa653eee30
-src/sourcesharp/test/client_entity_resolve_test.cpp	OURS	src/test/native/client_entity_resolve_test.cpp	no	source scan of resolver-order facts; no logic	0		0	705ef7e49a951eb0be1519bead9774a612cf14b66e6138de2ed1ad99fbf53bb6
-src/sourcesharp/test/client_flex_evicted_test.cpp	OURS	src/test/native/client_flex_evicted_test.cpp	no	source/link scan of eviction facts; no logic	0		0	7b7093132ceb4f0a6d38f637799ad17c09143096cbef5d191c6767718bc5eb18
-src/sourcesharp/test/client_interpolation_test.cpp	OURS	src/test/native/client_interpolation_test.cpp	no	source scan confirming native interpolation code removed; no logic	0		0	73abab8ec2ae3309cd07074d602cdfc62558513cdfeba718883793f3917cf64b
-src/sourcesharp/test/client_orphan_evictions_test.cpp	OURS	src/test/native/client_orphan_evictions_test.cpp	no	source/link scan for orphaned client classes; no logic	0		0	ab398fbf4f28eb27a0dc161cf31a3c812f6ff66ac924898bf22985f9925ea7c7
 src/sourcesharp/test/client_pch_prelude_test.cpp	OURS	src/test/native/client_pch_prelude_test.cpp	no	source scan of vpc precompiled-header removal; no logic	0		0	6acf2d1f77d22df23c6da351518786af6265ffdc8215926014f29afaa87dc67c
 src/sourcesharp/test/client_slot_table_test.cpp	OURS	src/test/native/client_slot_table_test.cpp	no	drives real CClientEntityCounts class plus compile-fail check; no Valve logic	0		0	61f928863fe4dcd3989a81183508607dfaf92c336ff324d0e2fb103192cbd3f3
-src/sourcesharp/test/client_tu_evicted_test.cpp	OURS	src/test/native/client_tu_evicted_test.cpp	no	source scan enumerating moved registrations; no logic	0		0	e7b7737007789e881ef0c479084b9abd7b69134831b88366de00c88a76ae79a6
-src/sourcesharp/test/client_util_library_test.cpp	OURS	src/test/native/client_util_library_test.cpp	no	source scan checking symbols moved intact; no logic	0		0	4e336960fbae955adba2830c4779ee429ac702bd2ba2a769010f7be11355206a
 src/sourcesharp/test/client_world_arm_test.cpp	OURS	src/test/native/client_world_arm_test.cpp	no	drives own world_subject.h handle rules; not a Valve port	0		0	7a695f071a1559bb421305cc95e87214e94d1059991c00a4fbf28db65a6d4f89
-src/sourcesharp/test/clientside_prop_evicted_test.cpp	OURS	src/test/native/clientside_prop_evicted_test.cpp	no	source/link scan of eviction facts; no logic	0		0	910e7d5f2a1ea96205d2128c54ae91f8321d86580bbbeff0437e4209d890ada7
-src/sourcesharp/test/close_rulings_test.cpp	OURS	src/test/native/close_rulings_test.cpp	no	drives changed regexes over text; scanner facts, no Valve algorithm	0		0	31435c1c2fb07c006694153035f55170f4d2fbecab4ef296459a6ccf8fc56000
 src/sourcesharp/test/collideable_center_adapter_test.cpp	OURS	src/test/native/collideable_center_adapter_test.cpp	no	drives own collideable_center.h adapter over real Vector/matrix; no Valve body	0		0	e506a8e3a66bffb547b367c92191362ce160355a84f3a63d92ee9e381a18eab1
 src/sourcesharp/test/collideable_center_test.cpp	OURS	src/test/native/collideable_center_test.cpp	no	drives own collideable_center_math.h; expected values hand-computed, no embedded algorithm	0		0	fc0d30d706de244c35de1f5f647c40ce47cd368326a847c82c83e807381048ec
 src/sourcesharp/test/collision_group_names_test.cpp	OURS	src/test/native/collision_group_names_test.cpp	no	drives own name<->number lookup table; own data, no Valve logic	0		0	f0ba1e599705c8a12e338a057c50dbc2cd9d19a7179d0608400c8b0bdc2ef20b
-src/sourcesharp/test/commentary_viewer_evicted_test.cpp	OURS	src/test/native/commentary_viewer_evicted_test.cpp	no	source/link scan of eviction facts; no logic	0		0	fe9b82f15e1cbbfd67c4b7e2e0c546b3ec1fc2410473cf058d829142577d81fe
-src/sourcesharp/test/component_closure_test.cpp	OURS	src/test/native/component_closure_test.cpp	no	drives tools/4f-component self-test fixture; no Valve logic	0		0	de46e29a31b95d9e7837e25a0ba3d00cd8f0d6b04c96d8c7a6fac377dc795766
-src/sourcesharp/test/concommand_flags_ledger_test.cpp	OURS	src/test/native/concommand_flags_ledger_test.cpp	no	source scan of ledger rows text; no logic	0		0	34bf4abe67014fb9da0c0b764436d383f2c8f73d1584de50df648cb06b80f548
 src/sourcesharp/test/convar_ledger_test.cpp	OURS	src/test/native/convar_ledger_test.cpp	no	source scan of ConVar keep-list vs ledger; no logic	0		0	4a4ad794384b0350b063b30c5e79973a25c5dcba36c83ab887b82ec73b5fcaa6
-src/sourcesharp/test/cpp_alias_retype_w1_test.cpp	OURS	src/test/native/cpp_alias_retype_w1_test.cpp	no	source scan of guard/retype shapes; no logic	0		0	d28afb99592006b5b29794a10e651ba27bcf75b4ed787849a40f433c9d839410
-src/sourcesharp/test/cpp_alias_shard2_test.cpp	OURS	src/test/native/cpp_alias_shard2_test.cpp	no	source scan of unconditional retype edits; no logic	0		0	fb20a6bda892ae5cc886dabc25e9fcf2406e2d5086ddba4fe03c24ad63c62bdb
-src/sourcesharp/test/cpp_alias_shard_t3_test.cpp	OURS	src/test/native/cpp_alias_shard_t3_test.cpp	no	source scan of guard shapes; no logic	0		0	7d4ddc992e2d511f901f96819e1587c35431bea3c22ecc633883acf71e33d2f8
-src/sourcesharp/test/cpp_alias_shards_b_test.cpp	OURS	src/test/native/cpp_alias_shards_b_test.cpp	no	source scan of reroutes/guards; no logic	0		0	e2d96679104aacdd7f1554f25825087b2a4539a391b65e656cd9c86259425936
-src/sourcesharp/test/cpp_alias_t1_test.cpp	OURS	src/test/native/cpp_alias_t1_test.cpp	no	source scan of guard/retype shapes; no logic	0		0	43fac25c483801bb472bcad2db8904504399b5887add5508e223b91b49106181
-src/sourcesharp/test/cpp_alias_t5_test.cpp	OURS	src/test/native/cpp_alias_t5_test.cpp	no	source scan of guard/retype shapes; no logic	0		0	ddf4f94006265a8603045eac93fce2f691b5e473828175d37c57061ae60141f9
 src/sourcesharp/test/crossings_fetch_test.cpp	OURS	src/test/native/crossings_fetch_test.cpp	no	drives own crossings_fetch.h loop against fakes; no Valve logic	0		0	e475a817dcc0920800e04653ba04e5c06be9ed68ea8d453324b27ea4c3061a6e
-src/sourcesharp/test/cycle_debt_move_test.cpp	OURS	src/test/native/cycle_debt_move_test.cpp	no	source scan of moved util bodies; no logic	0		0	a593de42596daa5e6693c7dba9ee993bb56822b60a2fa152890750a23d2bfc43
-src/sourcesharp/test/data_object_key_test.cpp	OURS	src/test/native/data_object_key_test.cpp	no	drives CUtlHash with retyped key; infra change, no algorithm ported	0		0	b14ed425eb738a29dcd00b94ccfdba79408bc6b7fcd7fc10376033a75a42cc66
 src/sourcesharp/test/dead_conditionals_test.cpp	OURS	src/test/native/dead_conditionals_test.cpp	no	drives tools/dead-conditionals script fixtures; no logic	0		0	e69ebe12e55a7610dc1c2d2ccbdff347b6bd63c65707a7f7943334116b67a872
-src/sourcesharp/test/dust_verdict_test.cpp	OURS	src/test/native/dust_verdict_test.cpp	no	source scan splitting deletion vs keep regions; no logic	0		0	9b9eec110269e099252d5e120b1396c0f54b9f0740cd8bf2074bf35ba7413ea6
-src/sourcesharp/test/effect_tus_evicted_test.cpp	OURS	src/test/native/effect_tus_evicted_test.cpp	no	source scan of evicted stock files; no logic	0		0	8139ff4c816072ee105e27f4bc13aacd19ac005c09840637198d0b80beab2c30
-src/sourcesharp/test/effects_cluster_test.cpp	OURS	src/test/native/effects_cluster_test.cpp	no	source scan of per-file cluster status; no logic	0		0	63258454d9801d15d5e7a9c7c8390ebc463d3cfa39666859c86923718f4a3502
-src/sourcesharp/test/effects_evicted_test.cpp	OURS	src/test/native/effects_evicted_test.cpp	no	source scan of eviction facts and one value parity check; no algorithm	0		0	9b655fc6d86ebdb65185e604cb31b5fc51e3eaec222cb849b9fea977bbe0d673
 src/sourcesharp/test/engine_block_layout_test.cpp	OURS	src/test/native/engine_block_layout_test.cpp	no	offsetof checks vs generated struct; struct layout only, not logic	0		0	9413ba38b09e82180a523845bd35999e36579f3061523e805854a301dbac4e92
-src/sourcesharp/test/engine_core_retype_test.cpp	OURS	src/test/native/engine_core_retype_test.cpp	no	source scan of retype supporting facts; no logic	0		0	35cc8e15be75e4e1c23488cdaa2c02ed307aa9427125015b54df632d334bf1ca
-src/sourcesharp/test/entity_base_husks_test.cpp	OURS	src/test/native/entity_base_husks_test.cpp	no	source scan of deleted classes and stub glue; no logic	0		0	8e959f051eaa4b9b3f7820461346e25146ae33d65f73207db8d64866314980d5
-src/sourcesharp/test/entity_bases_alias_armed.cpp	OURS	src/test/native/entity_bases_alias_armed.cpp	no	compiles own entity_bases.h against real interface; no Valve logic embedded	0		0	4fe2fa1b44c6aa3ab12dbdbe8829a5c1353cc4e2ffd23ae75afdf0e802f789b9
-src/sourcesharp/test/entity_bases_alias_test.cpp	OURS	src/test/native/entity_bases_alias_test.cpp	no	compiles own entity_bases.h for a compile-time property; no Valve logic	0		0	09e313d17891a2fa821864d60954167e20a7658f4ae27ae443c9f50b4484c538
-src/sourcesharp/test/entity_census_test.cpp	OURS	src/test/native/entity_census_test.cpp	no	shells out to tools/entity-census; deliberately not a reimplementation	0		0	d0d576063cf4c160a6d1ae830fe07930b5680a2af68772e81a662b84113941ed
 src/sourcesharp/test/entity_factory_table_test.cpp	OURS	src/test/native/entity_factory_table_test.cpp	no	drives own entity_factory_table.h dictionary; own replacement, not ported	0		0	01ba6caba27a47ba4a2b9d9d9b21e10f4ecd9cf74e9e72198ec700b5fe658d13
-src/sourcesharp/test/entity_funcslot_test.cpp	OURS	src/test/native/entity_funcslot_test.cpp	no	drives own EntityFuncSlot pun-safety probe; no Valve algorithm	0		0	b4c3a22101d3165a93bc71e0f938a9853919dd145b3d75264d4ce36321593fb1
-src/sourcesharp/test/entity_gates_test.cpp	OURS	src/test/native/entity_gates_test.cpp	no	drives tools/entity-gates against fixtures; no embedded logic	0		0	f43087ddd36b47a4b528ca23b24e666d626de90200e4c5d8e5e7d8c7b4121333
-src/sourcesharp/test/entity_list_sweep_test.cpp	OURS	src/test/native/entity_list_sweep_test.cpp	no	source scan of resolver call sites; no logic	0		0	95b97f1927a1b75f4542be199bdedd81ef11cc63523180ebeeb8e00fa3408563
 src/sourcesharp/test/entity_name_match_test.cpp	OURS	src/test/native/entity_name_match_test.cpp	no	calls own entity_name_match.h consolidated rule; test does not embed it	0		0	51794ff3379a6d16dd3e872993e274f6db2e939b04d51ffb44dc54985f8fa563
 src/sourcesharp/test/entity_op_test.cpp	OURS	src/test/native/entity_op_test.cpp	no	own entity_op.h mechanism; header explicitly takes nothing from Valve	0		0	6f5e3854384e3881c1a6df09c9ef625220b030efd2f29635d02406d4f449126f
 src/sourcesharp/test/entity_slots_test.cpp	OURS	src/test/native/entity_slots_test.cpp	no	drives own CSourceSharpEntitySlots bookkeeping; no Valve logic	0		0	328abfa55aca14d5dc5fd065ac5317a6ca678b5d242345e7412c8495ad62898a
-src/sourcesharp/test/entity_visibility_test.cpp	OURS	src/test/native/entity_visibility_test.cpp	no	source scan of diagnostic tools' hierarchy walks; no logic	0		0	ee4cf1c7dc962c5af9d437e687f7774e39cb3b39eec54f7d88535bf2450e3f4b
 src/sourcesharp/test/entitylist_slot0_test.cpp	DROP			culled 2026-09-27: every case read Valve stock neither DLL compiles (user ruling)	0		0	b0bf3217c358b891adccadf71177133492ff2237c07ca2c198a3a3f87db05556
 src/sourcesharp/test/entitylist_stub/cbase.h	OURS	src/test/native/entitylist_stub/cbase.h	no	empty compile shim, tier0/const.h includes only; no logic	0		0	0f42b2cb65aa5fd5a12eb88cf1b71cd37423b792fb64625e57ff1477a9b35fef
 src/sourcesharp/test/exepath_test.cpp	DROP			retired in Phase 6a with the native launcher; kept as a source# fact	0		0	3bd0a21ada8aee3086f8988ea82699364647943d551a7d778cf1f70e0632186b
@@ -1670,23 +1615,14 @@ src/sourcesharp/test/exepath_test.cpp	DROP			retired in Phase 6a with the native
 # 2026-10-20: collisionutils.cpp deleted (C7 cluster 12 S2's deletion): client.so was its only compiler, and no client object imported any of its names once clientshadowmgr.cpp (ComputeSeparatingPlane) left; ShadowMath.cs ports what the managed manager needs; its OURS row removed
 # 2026-10-19: shell_explosion_overlay.cpp deleted (C7 glow overlays, warp_overlay.cpp's eviction): CExplosionOverlay::Update and CGunshipImpactOverlay are the managed GlowOverlaySystem's RampOverlay, RPGShotDown its RpgShotDownEffect, the FxImpactOverlay body GlowOverlayCreators; its OURS row and its override removed
 # 2026-10-25: impact_effects.h deleted (lane M1-C): the "Impact" client effect is C#'s BulletImpactEffect, so shell_impact_effects.cpp, its last includer, no longer asks managed for a choice or a parameter block; its OURS row removed
-src/sourcesharp/test/gamedll_convars_test.cpp	OURS	src/test/native/gamedll_convars_test.cpp	yes	rule 1: carries a Valve copyright header	0		0	5ec615ab3e28b65dc67b85020002882d50353f7f77ff129b780d757f5ef03d8a
-src/sourcesharp/test/gameinterface_split_test.cpp	OURS	src/test/native/gameinterface_split_test.cpp	no	source scan of interface-registration facts; no logic	0		0	2f183655558c878b021ea0912c1f63ce0c035dca052510ece0068b66ba927996
-src/sourcesharp/test/gamemovement_evicted_test.cpp	OURS	src/test/native/gamemovement_evicted_test.cpp	no	source scan confirming file removed from both vpcs; no logic	0		0	05ef8bfc8b38e50d176cba63fc6b94f6296eb385d1bf2e2c21a1c26e9abe99e0
-src/sourcesharp/test/gamerules_interface_test.cpp	OURS	src/test/native/gamerules_interface_test.cpp	no	checks class derives only from IGameRules; structural, no logic	0		0	9033ccf9c9e36354d1eb20416b6536f710b2de58d5ba415757d3411a4e8e42b9
-src/sourcesharp/test/gamestats_evicted_test.cpp	OURS	src/test/native/gamestats_evicted_test.cpp	no	explicitly declines to port the telemetry uploader; source scan of eviction facts	0		0	da8ae17feda6a3e20a4c4b46f096289417001edf9c359a59c7a8e8262849dfa6
-src/sourcesharp/test/gc_sections_link_test.cpp	OURS	src/test/native/gc_sections_link_test.cpp	no	source scan tripwire for a build-config regression; no logic	0		0	f2d3d33ea6acb689e1f589cf787e0173002c6a5111ccef84bf29211f9e1667cd
 src/sourcesharp/test/generic_payload_test.cpp	OURS	src/test/native/generic_payload_test.cpp	no	drives own generic_payload.h byte-offset arithmetic; no Valve algorithm	0		0	37c13ab93089acc1c92e673c24192ee1789717390e677ce9521104381facab3f
 src/sourcesharp/test/globals_client_ledger_test.cpp	OURS	src/test/native/globals_client_ledger_test.cpp	no	measures client static state via readelf against the globals ledger; no Valve logic (ruled at T)	0		0	ea5aadb2e1890ec931256b153372c31b0e51d25fad76ca424cf1470ba2e1b5be
 src/sourcesharp/test/globals_ledger_test.cpp	OURS	src/test/native/globals_ledger_test.cpp	no	measures server static state via readelf against the globals ledger; no Valve logic (ruled at T)	0		0	a4723c35b5cabe6ea93483d550cc7709f3fb6f4d59b59f97c0926f493c454237
 src/sourcesharp/test/globalvars_layout_test.cpp	OURS	src/test/native/globalvars_layout_test.cpp	no	static_asserts offsetof against real CGlobalVars; layout check, not logic	0		0	38a614ece1f6306b9410f0dfc6af9a87bdd570a7050d47cf86d52ad6ab6256d8
 src/sourcesharp/test/ground_handle_wire_test.cpp	OURS	src/test/native/ground_handle_wire_test.cpp	no	drives own ground_handle_wire.h sentinel encode/decode rule; own logic	0		0	c5f0b4ac48f7799bbd65c03a441b2c95ff910118405643b779159f26478d2615
 src/sourcesharp/test/handle_cross_test.cpp	OURS	src/test/native/handle_cross_test.cpp	no	drives real handle_cross.h crossing logic against mocks; no algorithm embedded in test	0		0	3dcf0696479407410b6828dd0d78118050d091c42233aa865a6b973024120cf4
-src/sourcesharp/test/header_alias_test.cpp	OURS	src/test/native/header_alias_test.cpp	no	source scan of header guard shapes; no logic	0		0	dc83f5353cc4a725c486760bef086ff63b2320a84c136238f53edc2f272b0f4f
 src/sourcesharp/test/impact_subject_test.cpp	OURS	src/test/native/impact_subject_test.cpp	no	drives real handle_cross.h function via mocks plus a source ban; no algorithm embedded	0		0	3595a73189635980808b064624f9ca494674697ce26900efb19a42aee864fff6
 src/sourcesharp/test/ivp_ovtree_audit_test.cpp	DROP			removed 2026-09-28 with the IVP hash layout it tested (user ruling)	0		0	364b943e0c5c9daaf38b245d8865732a0f8ba3283634e02ebe8397fc249aba59
-src/sourcesharp/test/jet_lifetime_test.cpp	OURS	src/test/native/jet_lifetime_test.cpp	no	drives own finite/positive arithmetic guard; no Valve algorithm embedded	0		0	fc5a305272fb245aab448516db28e7bb6f9fefdbe74828b93fd92ad41fafa857
-src/sourcesharp/test/leaf_cycle_test.cpp	OURS	src/test/native/leaf_cycle_test.cpp	no	source scan of relocation/cycle facts; no logic	0		0	05b21029d3368e76b6095603f239d2598a7beae7e326b87d2849d5000891c0ca
 src/sourcesharp/test/local_recipient_test.cpp	OURS	src/test/native/local_recipient_test.cpp	no	drives own local_recipient.h slot-comparison rule; no Valve algorithm	0		0	39a6ac14fe6b8f23dbac673a54b97942b89cd009dbe47fe563c8855835b3563c
 src/sourcesharp/test/managed_host_single_instance_test.cpp	OURS	src/test/native/managed_host_single_instance_test.cpp	no	binary/source scan of a single-instance host fix; no Valve logic	0		0	477500a360f6968f2d477c14edf192a06cd4e49327ba0ea65b44e34ac29a94b5
 src/sourcesharp/test/managed_init_failure_test.cpp	OURS	src/test/native/managed_init_failure_test.cpp	no	drives own managed_init_failure.h message/gate logic; no Valve algorithm	0		0	a3f873353b3c2a3c7162e405468fdabfcb6c27111458ccfe63426b6fed06ff3d
@@ -1694,88 +1630,44 @@ src/sourcesharp/test/managed_runtime_client_test.cpp	OURS	src/test/native/manage
 src/sourcesharp/test/map_entity_block_cases.txt	OURS	src/test/native/map_entity_block_cases.txt			0		0	08231135783f682d1690d9eee6d4f785217ee2c1ec0daf6ad6dc9fee8ccadd19
 src/sourcesharp/test/map_entity_block_stub/cbase.h	OURS	src/test/native/map_entity_block_stub/cbase.h	yes	embeds FStrEq verbatim, copied from game/server/util.h:193 and cdll_util.h:164	0		0	fae3e0640a8ef14cb94240286dcd99db7ba8b2a8c0d4ef2bd80be60d0676f177
 src/sourcesharp/test/map_entity_block_test.cpp	OURS	src/test/native/map_entity_block_test.cpp	no	compiles real mapentities_shared.cpp tokenizer; test itself holds only fixture rows	0		0	59285f3939507e53a23308c7e0e80dda2d9e194fee585f54dbe5dbd46b6a990f
-src/sourcesharp/test/map_residue_factories_test.cpp	OURS	src/test/native/map_residue_factories_test.cpp	no	source scan of which classnames have native factories; no logic	0		0	c66419139632a9cf7b18473820f9b6ead3c79e5f0060c92a52e5602d6dc8b47b
-src/sourcesharp/test/materialproxy_subject_test.cpp	OURS	src/test/native/materialproxy_subject_test.cpp	no	drives own materialproxy_subject.h rules lifted from a shim body; header not embedded here	0		0	3826d22a9d89ea0a3f0d4ea66a7273dc1c90f98d3c511c5766b8b54230f8073c
 src/sourcesharp/test/mathlib_init_guard_test.cpp	OURS	src/test/native/mathlib_init_guard_test.cpp	no	source scan ensuring MathLib_Init call sites present; no logic	0		0	fe0829d26ee98eb5cb93ac00d1c639143d0235e65d7efc187574075e04a9d69c
 src/sourcesharp/test/mathlib_test_env.h	OURS	src/test/native/mathlib_test_env.h	no	gtest Environment helper calling MathLib_Init; no Valve logic	0		0	5f6c0e9dce900bcc94fdbd2924fa393070756d450e9decf7cf3d5731aa314a9c
 src/sourcesharp/test/model_name_test.cpp	OURS	src/test/native/model_name_test.cpp	no	drives own shell_model_name.h brush-name rule; no Valve algorithm	0		0	a891aae828ff7f475233ba817e2ee0e5a5cc954ca9f304c0683d46ea49f21ad6
-src/sourcesharp/test/move_root_test.cpp	OURS	src/test/native/move_root_test.cpp	no	drives real move_root.h bounded walk via stub entity; no algorithm embedded in test	0		0	b211190760599ca2998b5e953ad3871a038b9df9c3d5ab939de38d842cdf5422
 src/sourcesharp/test/movement_audit_test.cpp	OURS	src/test/native/movement_audit_test.cpp	yes	rule 1: carries a Valve copyright header	0		0	b32ec9c5cebe42dc0b07c4a83ed018eaad3539fa2548a9432fdf0a6699d6e78f
 src/sourcesharp/test/movement_ground_writeback_test.cpp	OURS	src/test/native/movement_ground_writeback_test.cpp	no	drives own movement_ground_writeback.h rule; no Valve algorithm	0		0	69836d867a68e7b1c11fe0cda091c958633fed024d659b51e676643439c9902d
-src/sourcesharp/test/netentity_deleted_test.cpp	OURS	src/test/native/netentity_deleted_test.cpp	no	source scan confirming a deleted class stays deleted; no logic	0		0	4373afa2e9bfec282755f1268b50539f85f3fd85b60e8fb814e0437fa060a25b
 src/sourcesharp/test/nodraw_visibility_test.cpp	OURS	src/test/native/nodraw_visibility_test.cpp	no	compiled table check plus source scan of remaining plumbing; no logic	0		0	0d4ec3ddd6363be95e304ad7930d3da4fab0dc0e5102b6e018c2786728d21be3
-src/sourcesharp/test/orphan_clientclass_test.cpp	OURS	src/test/native/orphan_clientclass_test.cpp	no	orphan/class-list census test, no algorithm reproduced	0		0	7aa7c0e22cac27a4480e5b5e1afe5a04617805181d0424d1e3c88f168f5ed73c
-src/sourcesharp/test/orphan_reach_test.cpp	OURS	src/test/native/orphan_reach_test.cpp	no	linker orphan-reach infrastructure test	0		0	7c3ca035f073c6e869ee18334a7e4250c0cfd39268a5e388f63aa3247d28c32e
 src/sourcesharp/test/overlay_library_test.cpp	OURS	src/test/native/overlay_library_test.cpp	no	checks overlay clip/report counters, not a Valve algorithm port	0		0	f4b1a3dd9c87da66727aba9857c13d39eb0f6a6843379f5d0ffa6d6dc20e3a1f
 src/sourcesharp/test/parent_compose_cases.txt	OURS	src/test/native/parent_compose_cases.txt			0		0	a61b96200d9ed32313ccb23ba3cff663dadd800cbbbaae088b1a9cbc159ba5ce
 src/sourcesharp/test/parent_compose_test.cpp	OURS	src/test/native/parent_compose_test.cpp	yes	recomputes parenting composition with real mathlib (AngleMatrix/ConcatTransforms), oracle for ported C# arithmetic	0		0	b62754f6052ddc677f120170002fb9e56ff7e10ef8924741ed587cb954c7e96c
 src/sourcesharp/test/parent_frame_cases.txt	OURS	src/test/native/parent_frame_cases.txt			0		0	cc1eed4581a1bd52301514c384d3803ea02f338e6e9b7b5930c1be8d1e9ead8c
-src/sourcesharp/test/particle_dispatch_rehome_test.cpp	OURS	src/test/native/particle_dispatch_rehome_test.cpp	yes	rule 1: carries a Valve copyright header	0		0	84e037beca5ad92822e5dd015bbb40891bc49e1b4e052a023f1dec8f35d5cbf2
 src/sourcesharp/test/particle_follow_mask_test.cpp	OURS	src/test/native/particle_follow_mask_test.cpp	no	tests bitmask rule header, original logic	0		0	44b1dd03adf0c4378c1b8806cb55b4f26b05160bf79feacf5e1c0f5eb72871bf
 src/sourcesharp/test/payload_recv_test.cpp	OURS	src/test/native/payload_recv_test.cpp	no	send/recv proxy identity test, no algorithm port	0		0	bc79a4e6075502791c6ba5fd49294cf8dfb8a1d72365e7600b1b387283dca38a
-src/sourcesharp/test/permanent_decal_subject_test.cpp	OURS	src/test/native/permanent_decal_subject_test.cpp	no	entity-resolution bug regression test	0		0	f6d5c018f19d5d1c8558280d5af6bba95f3ba571f9ee1b1d338d2322e0fb8d08
 src/sourcesharp/test/physics_bridge_refusal_test.cpp	OURS	src/test/native/physics_bridge_refusal_test.cpp	no	refusal-type counter test, original infra	0		0	5696e6526711c934f266f60df065e3acd7ec98fd8929d9f12eed2f52408ab589
-src/sourcesharp/test/physics_event_sink_test.cpp	OURS	src/test/native/physics_event_sink_test.cpp	no	source-scan checking sink is bound, not logic port	0		0	f74295c5e1a21f41da0e8ecd00c5531f9a17e151f0e9fb4cec15966bedbdfd7e
 src/sourcesharp/test/physics_gamedata_test.cpp	OURS	src/test/native/physics_gamedata_test.cpp	no	handle/gamedata arithmetic test, original rule	0		0	a270bf512b4690f4829c0131f484be8438df32ad988bc2744daac45e1edc5a73
-src/sourcesharp/test/physics_move_scope_test.cpp	OURS	src/test/native/physics_move_scope_test.cpp	no	scope-document measurement test, infra	0		0	51ea1b565b75e95e60eb82d50be2095b18a080e23807f16b30d0ff60a1402af6
-src/sourcesharp/test/physicslink_lift_test.cpp	OURS	src/test/native/physicslink_lift_test.cpp	no	source scanner verifying static members moved out	0		0	349733ec6b7da69070b3c004a7f78e9a1e9be4c41b363a404b92d570e5e49a96
-src/sourcesharp/test/precache_model_move_test.cpp	OURS	src/test/native/precache_model_move_test.cpp	no	source scanner verifying static members moved	0		0	4fa6e708d00bc861ce46a832c81c0aaf5d945822cdc52e5c9268fc3333f02664
-src/sourcesharp/test/pvs_notify_ruling_test.cpp	OURS	src/test/native/pvs_notify_ruling_test.cpp	no	source-scan pinning PVS-notify reachability facts	0		0	62f68739c8d81430b010d377a5ac3883331a9dba475020398c0d70ad11fa474e
 src/sourcesharp/test/ragdoll_model_guard_test.cpp	DROP			culled 2026-09-27: every case read Valve stock neither DLL compiles (user ruling)	0		0	50a36ef58deb827989f6790b5764cc331ab842502358bf0b2d391731355b6557
-src/sourcesharp/test/removal_set_middle_test.cpp	OURS	src/test/native/removal_set_middle_test.cpp	no	source-scan classifying member definitions, no algorithm reproduced	0		0	5e8c93794674e3630bf403d0b3d33c53cd660035cc69cf9549d855f50978bcb0
-src/sourcesharp/test/removal_set_tail_test.cpp	OURS	src/test/native/removal_set_tail_test.cpp	no	source-scan verifying lifted/deleted definitions	0		0	6f0d9360b4302cd2378069de43c7e34b5c9e6f2ac23ad4a0fe93b06fb35c0aad
 src/sourcesharp/test/said_once_per_id_test.cpp	OURS	src/test/native/said_once_per_id_test.cpp	no	tests own once-per-id tracker, original logic	0		0	af15a9e8024018e8f9ef61ff9a50c6f8812e3d47e6a5326704ef946c09601655
-src/sourcesharp/test/saverestore_evicted_test.cpp	OURS	src/test/native/saverestore_evicted_test.cpp	no	vpc/guard eviction verification test	0		0	83fccc20ee40160740d42c11f8e8e6f3197e1744bb4b8dc06c8b7634a28d2908
 src/sourcesharp/test/scripted_kinds_test.cpp	OURS	src/test/native/scripted_kinds_test.cpp	no	tests own totality-switch header, original logic	0		0	0d1ec45ec11175290bf0a3615aa9a11b041eb7455e69dfa02b4939ec29c9d188
-src/sourcesharp/test/sdk_player_cast_test.cpp	OURS	src/test/native/sdk_player_cast_test.cpp	no	source-scan classifier for banned cast patterns, fixtures quote Valve lines but logic is original	0		0	4472532249eac99e24400c35a2853cc0daca62ef3518ae18ad130752f47132f6
-src/sourcesharp/test/server_beam_viewmodel_evicted_test.cpp	OURS	src/test/native/server_beam_viewmodel_evicted_test.cpp	no	vpc/classname eviction verification test	0		0	13655a7a75e1dd35c9dca30a1c9b9e3fc8975d51160e8ca8b590a9118ec96509
-src/sourcesharp/test/server_globals_merge_test.cpp	OURS	src/test/native/server_globals_merge_test.cpp	no	verifies merged file retains stock guard text, no algorithm reproduced	0		0	669b2f40b6c36eaeb36014d1d024b12348bdbff2e7003a088ace965133c8b8d9
-src/sourcesharp/test/server_tus_evicted_test.cpp	OURS	src/test/native/server_tus_evicted_test.cpp	no	vpc eviction verification test	0		0	e29a7080922be91a960479110f7d9c11335f72be854c6040945a1542b011429e
-src/sourcesharp/test/server_util_library_test.cpp	OURS	src/test/native/server_util_library_test.cpp	no	source-scan verifying utility functions moved correctly	0		0	3d3c01c27605030e7cd15132b2d159065071090ff34cc7573a32953893adbbb0
-src/sourcesharp/test/server_wave0_evicted_test.cpp	OURS	src/test/native/server_wave0_evicted_test.cpp	no	vpc eviction wave verification test	0		0	b00d5d0793b6f0690e0a480e3819ab61c3c28523e3860f838592d87d3656b839
-src/sourcesharp/test/server_wave1_shadowed_test.cpp	OURS	src/test/native/server_wave1_shadowed_test.cpp	no	vpc eviction wave verification test	0		0	f335eba5f79cda2c51fdf51480cf1f552267fa2e2e72e8836a952de45ee9911d
-src/sourcesharp/test/server_wave2_lifts_test.cpp	OURS	src/test/native/server_wave2_lifts_test.cpp	no	vpc lift/fold verification test	0		0	ed6a3e54de3d8dd6e88facc9b4ee1860041bf3130e424ce9324665ae29d42597
-src/sourcesharp/test/server_wave3_interfaces_test.cpp	OURS	src/test/native/server_wave3_interfaces_test.cpp	no	nm/interface eviction verification test	0		0	ca13573e400227adf7a526698e1e10b6755f34d372f6a3754aa1ef333a320f11
 src/sourcesharp/test/shadow_ctrl_probe_test.cpp	DROP			removed 2026-09-28 with the shadow-controller probe (user ruling)	0		0	469e4a3255c06a52fc055a963d977d785a450b73136f27ff8e4d489dc473ff86
 src/sourcesharp/test/shell_clientdll_refusals_test.cpp	OURS	src/test/native/shell_clientdll_refusals_test.cpp	no	runs own shipped refusal-counter header, no algorithm port	0		0	598fb9edfbb95d42559ade914c441c48de22356db18e2a1097df722930ffb68f
-src/sourcesharp/test/shell_clientdll_test.cpp	OURS	src/test/native/shell_clientdll_test.cpp	no	source-read of IBaseClientDLL arrangement, no algorithm port	0		0	2d3d982facfd589c7d44751b13c70641fae5540fbccb75c1247a690b833cba7d
 src/sourcesharp/test/shell_effect_registry_test.cpp	OURS	src/test/native/shell_effect_registry_test.cpp	no	tests own registry-ownership header, original logic	0		0	d80f3f2d7a9bb39e1ca15ebbe4bc75041741b499e5b0d5b08e3c1bb1390159fa
-src/sourcesharp/test/shell_entitystatics_test.cpp	OURS	src/test/native/shell_entitystatics_test.cpp	no	runs own shipped refusal-counter header plus source-scan	0		0	51c453117231689e3bf86e5a7955f75b3cdff5d899e9fda310be421194fce3a6
-src/sourcesharp/test/shell_gamedll_registration_test.cpp	OURS	src/test/native/shell_gamedll_registration_test.cpp	no	source-read verifying registration/guard arrangement	0		0	e1153f33aa06246f5d6cd45f47a153ba6bd5de36fb328690a9508b453c9af509
 src/sourcesharp/test/shell_gamemovement_test.cpp	OURS	src/test/native/shell_gamemovement_test.cpp	no	source-scan verifying interface shim exists, no movement algorithm embedded	0		0	0e013bc8d37de2780139134cc32c37d869ea32ddab07dfbb9a2a6811b31a3eb2
 src/sourcesharp/test/shell_leaf_link_test.cpp	OURS	src/test/native/shell_leaf_link_test.cpp	no	tests own leaf-link guard header, original logic	0		0	1dd04332ef257ea2ebd2dc4e78a05929e44892f1f3128d413678a6c132cbbec2
 src/sourcesharp/test/shell_notshipped_test.cpp	OURS	src/test/native/shell_notshipped_test.cpp	no	runs own shipped ledger header, no algorithm port	0		0	06c77c7a0cb907a442399781bcb4814d204fac6eaa7cd769d04c2fa4681f2e60
 src/sourcesharp/test/shell_savecomment_test.cpp	OURS	src/test/native/shell_savecomment_test.cpp	no	runs own shipped save-comment formatter, original logic	0		0	eb8ce4528e1b581592bf010e9796254e0c8e4fd614c5b961c0d4b55c0267fea9
 src/sourcesharp/test/shell_savegame_test.cpp	OURS	src/test/native/shell_savegame_test.cpp	no	tests own load-game player gate, original logic	0		0	39a4cb4588cdce3e16c8f4e2f7fb695819373555140c28a5f9faf90e52824161
 src/sourcesharp/test/shell_steporder_test.cpp	OURS	src/test/native/shell_steporder_test.cpp	no	runs own shipped transmit-set recorder, original logic	0		0	14a6d610d1e79b13df32a69ade30374b1303552633b7df4a152c3612401caf94
-src/sourcesharp/test/shellless_find_test.cpp	OURS	src/test/native/shellless_find_test.cpp	no	tests own collect-with-cap header, original logic	0		0	bd318d3c5944e7bd3eb30dfb78b2c4a1bf38ff62fdca131dc83dba7992f995e1
-src/sourcesharp/test/shim_reason_letters_test.cpp	OURS	src/test/native/shim_reason_letters_test.cpp	no	marker-format checker, original tooling	0		0	88ff7caa227af1dc7aee390efdb2a6dd33d958689ebb4291c3b6c1c9f044ef31
-src/sourcesharp/test/shim_vpc_stock_rows_test.cpp	OURS	src/test/native/shim_vpc_stock_rows_test.cpp	no	vpc ratchet parser test	0		0	9aeaac8e9314e270c8eb1fd5ebf323d41da090b8633d06d9e95b0e2212992550
 src/sourcesharp/test/slot_table_test.cpp	OURS	src/test/native/slot_table_test.cpp	no	tests own slot-table header plus must-not-compile probes, original logic	0		0	495dc85cdf3f48bf7d5fed2cf3cd6fd0450fa76d4d97ad724aaaab967f67a006
-src/sourcesharp/test/soundent_managed_test.cpp	OURS	src/test/native/soundent_managed_test.cpp	no	source-scan verifying managed participant wiring	0		0	72c36c366d4b6d37a6682f5b0317bbc3d59f0b783967599a373712fa04d6b9e7
-src/sourcesharp/test/soundscape_particle_7e_test.cpp	OURS	src/test/native/soundscape_particle_7e_test.cpp	no	source-scan verifying view-accessor/entity-ask facts	0		0	beaa08f2fcecdf5dda37f15d7def675f7fcc4d4ddf1f4ac1b9f746dc463351aa
-src/sourcesharp/test/standalone_client_layout_test.cpp	OURS	src/test/native/standalone_client_layout_test.cpp	no	source-scan verifying single-copy layout	0		0	6cff81cc895f57044ac525dfb2e19e55826a541feeec62d72086668e905941ce
 src/sourcesharp/test/standalone_collision_rules_test.cpp	OURS	src/test/native/standalone_collision_rules_test.cpp	no	tests own collision-invalidation rule header, cites Valve only as motivation	0		0	6f693b5e7da63524c6ead6055de875f0bfb0e9960bdc7a29b03e1b495d29b601
-src/sourcesharp/test/standalone_handle_ban_client_test.cpp	OURS	src/test/native/standalone_handle_ban_client_test.cpp	no	must-not-compile probe for banned handle type	0		0	7d64510a6979850d3cdfcf0be94b2f46912232a2a3e212fe311a0d1946140c69
 src/sourcesharp/test/standalone_handle_ban_test.cpp	OURS	src/test/native/standalone_handle_ban_test.cpp	no	must-not-compile probe for banned handle type	0		0	3898c0fb6741a3d403e4b6ab230a24dfcce9938c2924df082f6a12be01946ef4
 src/sourcesharp/test/standalone_model_bounds_test.cpp	OURS	src/test/native/standalone_model_bounds_test.cpp	no	tests own model-bounds-adoption rule header, original logic	0		0	8c6519f22ed036974b583c8a26602cb1e586cf3d8593d91128e077336e95a406
 src/sourcesharp/test/standalone_movetype_test.cpp	OURS	src/test/native/standalone_movetype_test.cpp	no	tests own movetype-report header, original logic	0		0	b5cb9e7173e246217960ea792af9135eb8f7bf5b26a7a7b4bb22684f77807232
 src/sourcesharp/test/standalone_names_test.cpp	OURS	src/test/native/standalone_names_test.cpp	no	tests own classname-matcher header, original logic	0		0	26213af86a830390b543ef1b7dd6d4a0b3a5bc43013f46090b7092b2e14043f4
 src/sourcesharp/test/standalone_netserial_test.cpp	OURS	src/test/native/standalone_netserial_test.cpp	no	tests own netserial-mirror rule header, cites Valve only as motivation	0		0	06de3aafe8c4fd58e17bef0d9169e5ac657dbbc7e0d506143a1a126affaeb5da
-src/sourcesharp/test/standard_filter_shape_test.cpp	OURS	src/test/native/standard_filter_shape_test.cpp	no	tests own trace-filter shape-rule header, original logic	0		0	2e31db610ab2e6614f2c081eefddddceeeccb5f6b9694062fec21aafcd90a6c0
-src/sourcesharp/test/stock_serverclass_census_test.cpp	OURS	src/test/native/stock_serverclass_census_test.cpp	no	vpc/source scan counting surviving ServerClass registrations	0		0	d9395b3cbafe7d894435c3eccae511e885886a3d05d1cbac8db452f0b7bc688a
-src/sourcesharp/test/suppress_host_dead_test.cpp	OURS	src/test/native/suppress_host_dead_test.cpp	no	source-scan verifying dead writers stay absent	0		0	cf269c1ff8c6dc530f363b23ec610b71f320904fa7c01da66797d9095f8e6100
-src/sourcesharp/test/survey_stub_elision_test.cpp	OURS	src/test/native/survey_stub_elision_test.cpp	no	source-scan verifying survey-stub boundary rule	0		0	a25807a5dadd4868b1b49e340be554208a2a95fa83111def8b71686e6ca44c3c
-src/sourcesharp/test/takedamageinfo_library_test.cpp	OURS	src/test/native/takedamageinfo_library_test.cpp	no	source-scan verifying TU relocation, declares interop signatures only	0		0	3914fe1603da625971638db2fe6737db28ed0c751b301f697ddd99992c81366d
 src/sourcesharp/test/te_backend_args_test.cpp	OURS	src/test/native/te_backend_args_test.cpp	no	tests own argument-unpacking header, original logic	0		0	65f1cfe21d946bf49e364dcd901462d8af0d72b98b8d92be3b88932bf8b2a7a8
 src/sourcesharp/test/teleport_discontinuity_test.cpp	OURS	src/test/native/teleport_discontinuity_test.cpp	no	source-scan verifying wire wiring exists in managed code	0		0	46198ee6aad642559731a941f03d85aeaa56706856fa712a47733100a6b4215f
-src/sourcesharp/test/tempent_evicted_test.cpp	OURS	src/test/native/tempent_evicted_test.cpp	no	source-scan verifying eviction claims per file	0		0	133e5cbb5ae1d77e2555f61dfe431d5479f33c74442801a0cea607733a49b17f
 src/sourcesharp/test/template_transform_cases.txt	OURS	src/test/native/template_transform_cases.txt			0		0	87ef45e89d5b8dee2f91cbda68d28aaba0bb304b90903af1523dabbf5b685339
 src/sourcesharp/test/template_transform_test.cpp	OURS	src/test/native/template_transform_test.cpp	yes	recomputes template placement with real mathlib VMatrix exactly as CPointTemplate::AddTemplateNamed/CreateInstance did	0		0	c4031cc7722837ca829a2b0252f03e0827cdc4d9a67155fff0ab7dfd9904f9da
-src/sourcesharp/test/trace_filter_library_test.cpp	OURS	src/test/native/trace_filter_library_test.cpp	no	source-scan verifying trace-filter relocation	0		0	17e0c96d46c5631e851ce4d606e2dd2ad38b79791059e4e4362af375359aa2f0
 src/sourcesharp/test/trail_lifetime_test.cpp	OURS	src/test/native/trail_lifetime_test.cpp	no	tests own allocator/latch header, original logic	0		0	f14b7f64a8c6a38fc01b22c539260f7d008dbf3536b03df950d8bc027ce831a6
-src/sourcesharp/test/usercmd_codec_test.cpp	OURS	src/test/native/usercmd_codec_test.cpp	no	source-scan verifying bit-symmetry of relocated codec	0		0	467d615c1aa57da706383e04c311ba6e3b6cfb35ca6dfedc017ff7c0e919b143
-src/sourcesharp/test/util_shared_library_test.cpp	OURS	src/test/native/util_shared_library_test.cpp	no	source-scan verifying utility relocation correctness	0		0	d85b674e45f0ba69aafb938830da1a6f91afd30f793d25fcb5e3522aa2e6d46b
 src/sourcesharp/test/variant_convert_cases.tsv	OURS	src/test/native/variant_convert_cases.tsv			0		0	33dd60302da1cc0a0a9bfc87b8dd52a8fcfd110e9f0abaaaa097970062709f76
 src/sourcesharp/test/variant_convert_test.cpp	OURS	src/test/native/variant_convert_test.cpp	yes	every expression copied out of variant_t::Convert and variant_t::ToString (cbase.cpp)	0		0	6d3b6f96f11c8f942b5593b33ab07c57eeef0ff9042e0a9744ce493e909ec261
 src/sourcesharp/test/view_subject_test.cpp	OURS	src/test/native/view_subject_test.cpp	no	tests own view-subject rule header plus source-scan	0		0	7148c0fdcb7cf0069414ed40b682b55b763ed9f9d2f282aa807355b2fb5f2493
@@ -1900,7 +1792,6 @@ tools/.gitignore	DROP			replaced by the new repo .gitignore	0		0	8df576e4cbca71b
 tools/2f-record-flight	DROP			tools triage: plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-flight-trajectory-stock.md	0		0	8ebfb85a82eff72ae924c540caf994b83da3a93db34e35d0b81f51ba9d4b8455
 tools/2g-record-push	DROP			tools triage: plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-mover-push-stock.md	0		0	002da4a83022114cf2de1260b710862b279435010caf30096ce8ad8556636338
 tools/3a-penetration-granularity	DROP			tools triage: plan drop; named only by src/buildcpptests, src/sourcesharp/game/server/physics.cpp, src/sourcesharp/game/server/physworld_match_rule.h, src/sourcesharp/test/cpp_alias_t1_test.cpp, src/sourcesharp/test/physworld_match_rule_test.cpp	0		0	4c2eb68297bb118d7125cb9d3be09a80901aa2c546209c18df60e31c02cfcb35
-tools/3d-cmdgate	OURS	tools/3d-cmdgate			0		0	49444cee0ab6edd51141142f0ddf5f4f869a7ef0353939ec272792f3db3ea4e9
 tools/3e-gen-movestate	DROP			tools triage: plan drop; named only by src/sourcesharp/host/sourcesharp.h, src/sourcesharp/managed/SourceSharp.Abi/Abi.cs, src/sourcesharp/managed/SourceSharp.Tests/MovementTests.cs	0		0	e98b3f3506f1b2d9acf7d4f594ff831f46411dec82731623669b2253e15d55a5
 tools/3e-probe-movement	DROP			tools triage: plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-movement-processmovement-stock.md	0		0	a6c52f771c9b0d27a306c51dd9cade71c5c88fd6b1fe4aacaa45695b6c2b0983
 tools/3e-record-movement	DROP			tools triage: plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-movement-processmovement-stock.md	0		0	be28bff2fc939db2cec2423ce7d140ae3a359c7f07aac573d4273d2f84ebc8e5
@@ -1909,10 +1800,8 @@ tools/3f-gatebisect	OURS	tools/3f-gatebisect			0		0	65c9c2ac012a26ce9202c76ab0c6
 tools/3f-probe-push	DROP			tools triage: plan drop; named only by src/sourcesharp/game/server/shell_standalone_player.cpp, tools/live-gate-skips.tsv	0		0	bb6b66b683f471862d6cce27050197d0f27749e42942165435038611866aca28
 tools/3f-reload-props	DROP			tools triage: plan drop; named only by tools/3f-gatebisect	0		0	72453b2eedc2196a8740fe161f7e95d43520a4d934632e8f28b87dfeb51beee9
 tools/3f-secondclient-props	DROP			tools triage: plan drop; named only by tools/3f-gatebisect	0		0	04902c8d1f5c88c203f2015ae13658df13696d929ba7eeef498aaf762d0f7c41
-tools/3f-shadow-ab	OURS	tools/3f-shadow-ab			0		0	ceb5d3e3c72177e671744e1f01ba943b86387a13e2d3b56dc9f29cce76f6bdeb
 tools/4d-record-bones	DROP			tools triage: plan drop; named only by docs/entity-shell.md, src/sourcesharp/game/shared/bone_library.h	0		0	73ab15bf069af99509d0d63119268f97c8fcf0cd9aa7e8d7764d0abb60743659
 tools/4d-replay-bones	DROP			tools triage: plan drop; named only by docs/entity-shell.md, src/buildcpptests, src/sourcesharp/test/bone_library_test.cpp	0		0	396ad9f2825faf9fffd81661b7e87a8a5df12870f0750d011c474d1d3a6edd7f
-tools/4f-component	OURS	tools/4f-component			0		0	f2048f7f93c93f075b5209d0681f8c6486a43222e11bf07c7c648680665073eb
 tools/4g-probe-areaportal	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	41c1cf8d2749701e31512d31a9a7d86da0f1bdb85107237e179ae59041b53fbe
 tools/6a-crossings-by-entity-count	DROP			tools triage: plan drop; named only by src/sourcesharp/test/shell_diagnostics_surface_test.cpp	0		0	0a56bea2d794ad3c6a72a96888d0a1565e286eb9ccb77730ab45fca7e7055078
 tools/6a-probe-interp.diff	DROP			tools triage: plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-interpolation-stock.md	0		0	d93eb014b4cf6bf4d58b719ad4c19dc44528c590d01ed563140f42eddf66d7fb
@@ -1925,14 +1814,10 @@ tools/6c-replay-bones	DROP			tools triage: plan drop; named only by docs/entity-
 tools/6d-event-once	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	f97dd0d1045c70211b01ff59e29db6dd0188b68ba668b45c28c1f0296cca31d7
 tools/6d-record-layers	DROP			tools triage: plan drop; named only by docs/entity-shell.md	0		0	e600fd59b246b602f1928991ff7c3a29cd15e37e13b4e81df27d21db34b74f62
 tools/6d-replay-layers	DROP			tools triage: plan drop; named only by docs/entity-shell.md	0		0	aef244d027603090fc5f33ab59e626a49f62c82b9f94ee56fb6118d45a04e569
-tools/7a-effect-gate	OURS	tools/7a-effect-gate			0		0	30ab13ea3751102f795d0825e3e6db0fbd4d8dd0ff374cd6410e29b7c2e778ce
 tools/7a-impact-crossings	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	a93eec88a24d5ef8942bb3cabdb9b8d782f65983c45e814baee2290c6096110a
 tools/7b-bonerecord-agree	DROP			tools triage: plan drop; named only by src/buildcpptests, src/sourcesharp/host/sourcesharp.h, src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientBoneRecorder.cs, src/sourcesharp/managed/SourceSharp.Tests/ClientBoneRecorderTests.cs, src/sourcesharp/test/standalone_bone_subject_test.cpp	0		0	2f005982f75fcb68332e9ac64092435da0c1e1ac2e561fe6dab2e76ef1b34f93
-tools/7c-view-gate	OURS	tools/7c-view-gate			0		0	0a4cf426fe58348f9a1b343e720974b42e1dfb87dc7ff7c8b3f522d5e6733e77
 tools/7d-shadow-gate	DROP			tools triage: plan drop; named only by src/sourcesharp/game/client/shell_renderable_facts.cpp	0		0	83dbd427ae351acb05621e0695f99c01f2226867d34bdcfd13a4b59164ffb982
-tools/7e-particle-sound-gate	OURS	tools/7e-particle-sound-gate			0		0	54b8a8012b00958c3d80891afc6d78fc31ff14b30d8f8ce5d0afd223e991a92e
 tools/7f-consumers	DROP			tools triage: plan drop; named only by tools/4f-component, tools/shim-census	0		0	f3170d75716e2de71210a6bf84761857f1c777b6ccaa91d68ae04e86a1486983
-tools/8e-entfire-gate	OURS	tools/8e-entfire-gate			0		0	26e857a515940a9f3c6b2c3d01ad6f75c539c48f75fbc09ee3f42738e86b5278
 tools/8e-mutations/8e-fog-mut.sh	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	6c379dede4b630531bc5674f345eaee2e5b7eb5e413a9f0a39f17f0a83c33e45
 tools/8e-mutations/8e-fogrule-mut.sh	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	c4d0b5b99e919b11fd70a199d8e659ae35263d4eda2d2f01f116bb984e5564c2
 tools/8e-mutations/8e-managed-mut.sh	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	9c5b63e3dff7aa2312830b24d0ba7e3d33af94b6b9f5e71088c7453ffe711d3c
@@ -1940,38 +1825,23 @@ tools/8e-mutations/8e-mut-11th.sh	DROP			tools triage: plan drop; unreferenced o
 tools/8e-mutations/8e-native-mut.sh	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	2b3a1bf82bddc684fd2dedcc5ce78dbdac9b29efc1fc5db8a93b4a7b2c87da56
 tools/8e-mutations/README	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	1cdc14016eedced8bf10a70b84c952479df6a64046bf86eda49769bff546ca17
 tools/8e-mutations/defect-skybox-mut.sh	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	481f0853c615507746a622c35f843052d3181b4007be412fff85deea03e09f60
-tools/8e-physfreeze	OURS	tools/8e-physfreeze			0		0	bac838ec1af417d1b1044769172d28203f5b8c6653ee8a0cb156563f662db8b9
-tools/8f-movetype-gate	OURS	tools/8f-movetype-gate			0		0	b7817c9793be63c431af19e293ac216abcc30ebd8ed1e07d304b35180881de3a
 tools/8f-mutate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	1d8b231e02703460bfe4e04023b251c78bd1ecc863a58e23706c622e3f404215
-tools/8f-probe-movetypes	OURS	tools/8f-probe-movetypes			0		0	cbdb72ce23c993ce252e51fd6888aeb2f4c0f83cb579c341da9010fc1b6b237e
 tools/build-stamp	OURS	tools/build-stamp			0		0	704117bdf2d1522282d2c530c3d6416481f3568a074fc489609ddc1b86828f9f
 tools/c8-beam-tempent-gate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	469e70f7e0fa52580411bc32b10bc9c779ae0f65c8279a9e2a21ee2bd875173c
-tools/c8-clientsystems-gate	OURS	tools/c8-clientsystems-gate			0		0	bdfbc45fc4bcedd7ab50c768f64fda6fe10705fabd6d1cdcb4a586e4b13c4a21
 tools/c8-effect-kinds-gate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	88128b15ae21eccca6e8c12240dc41758da334aed7c8ed918c4aebef7f6e2571
 tools/c8-entitystatics-gate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	87fca2c9e2fb79fa97f584a15f42076d41737e4d312e8f127cdeb7021309e442
 tools/c8-rope-gate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	804b8b94bda41d4bddd3642f61d227f7e6942cb9da893a2c768991bedf41ca82
 tools/c8-shared6-predict-gate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	ac6866f6033ddfd9899d3a8ad50bf5c240f1a75a893d73d6f28871ee6f1a06c9
 tools/client-only-probe	OURS	tools/client-only-probe			0		0	0e00b961494d578f405b7da2d8a7edb11f0ddcbd00cf652076f57d37618416bd
-tools/convar-ref-census	OURS	tools/convar-ref-census			0		0	f20b5548bbb2843d860030d1067ffdadd65f859cd176444f4da004456661edb9
 tools/crate-sleep-analyse	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	ccae9be80f68b5be66ef4631c61f763b5bcd11ca9ccb7f78b4350248b13b6d45
 tools/crate-sleep-probe	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	0f3f88e1d191a915e75b0655448c700d2a00db3787f5d079edfdd93ef50ecba8
 tools/dead-conditionals	OURS	tools/dead-conditionals			0		0	017c2e221a6e172afff29db7a9ca1775c3807be4d031a0a08735c1784c28f6af
 tools/dead-conditionals-ledger	OURS	tools/dead-conditionals-ledger			0		0	6904a4e607e999f173775d36601e12f610b9e659cd4e2fec7014a103e44cc83c
 tools/defect-alc-reload-probe	DROP			tools triage: plan drop; named only by docs/globals-ledger.tsv	0		0	580a88d675c0f034bf055d381ab132f9d1fe2032aba7ebf745d2e9bcc6b522c3
-tools/defect-shadow-probe	OURS	tools/defect-shadow-probe			0		0	c75d3e610904f19f2d82431eec056ad32828cffd1158fc0ce2b425bdb6bdf189
-tools/defect-teleport-gate	OURS	tools/defect-teleport-gate			0		0	1bf382fff23622bfe8f08d87c96e500a7912511adbcfd650417175e489265f64
-tools/entity-census	OURS	tools/entity-census			0		0	e87b8776523d98ca89076742213ac2e57c997c3caaa9ee3f971b1c91a9f20546
-tools/entity-census-patterns	OURS	tools/entity-census-patterns			0		0	a5614bf22391b611d42eb17ee6f8ef757900ec7a69823350149d704771fe19a5
-tools/entity-gates	OURS	tools/entity-gates			0		0	ad6b12c570dec08bbab8ada94e216ca41268003f906a539f507699162639beca
-tools/entity-gates-allowlist	OURS	tools/entity-gates-allowlist			0		0	2c77edb207d640552b7f7e66667711be702cc7f17dda094a45ac986ee7898ae9
-tools/entity-ratchet	OURS	tools/entity-ratchet			0		0	1c06d1e9c9ccbea67c69baa7fb51bfdb025ab67a56a9e3a26a0bb2bf6fe2018a
 tools/entrypoint-decls	OURS	tools/entrypoint-decls			0		0	c8e63e17dbdbbab3c20357d791b3874843c3692769ea4770dc76ccb0502bc6cd
 tools/f-srvshim-nm-owers	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	e21371a22b0ab4317cf3247a5f04ab8ef65d7871893551dbfe97b9b0fb4bc062
 tools/f-srvshim-sitemap	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	d8f85bd78e6d882ba45446dd6407ba6ea108eb03dbf5f494cbcb59378c61ac98
 tools/f-wind-gate	DROP			tools triage: plan drop; named only by src/sourcesharp/game/client/shell_effects_sim.cpp	0		0	4beaa2d5bfe2c3baea547ff61400da95826e4152a1c2fae6e93a12324f560e73
-tools/finish-line	OURS	tools/finish-line			0		0	39edb84a5136fc44247bcf960ecd2426d9d1e8383bcb7d75f706e87e404692e0
-tools/fx-impact-gate	OURS	tools/fx-impact-gate			0		0	e8dcdb5a76e503af7b9c294b94d6fe2ee82fe4af391ba1e75ff8fb367ba27783
-tools/gateseq-probe	OURS	tools/gateseq-probe			0		0	8e13a20c30e04485223b30e84f613ae077ccf5fa126e437c9ad6e3d0461630dc
 tools/get-node	OURS	tools/get-node			0		0	3cc33061522444a3e3a00fa4111298d4b0a54dd83e6af61938778ac948259139
 tools/globals-census	OURS	tools/globals-census			0		0	dd7d47bdc25b11746f676b8bc4dd157b18e0303910c3df32021cb62f7e013fb7
 tools/globals-census-crosscheck	OURS	tools/globals-census-crosscheck			0		0	b96d3fa59b74fe3b791bfece45ead24cd5257ae2c4be04907dd3d33201081166
@@ -1979,7 +1849,6 @@ tools/globals-census-mutations	OURS	tools/globals-census-mutations			0		0	50316e
 tools/globals-gate-mutations	OURS	tools/globals-gate-mutations			0		0	e410caff281a972987b2fe688e1317864aac6e473010f68dba0f4c9904b21a06
 tools/globals-source-mutations	OURS	tools/globals-source-mutations			0		0	90c2eecdf9f625d09c53c0577b0da59d5807f69bfc1ebb7963b09d46ffd2ab19
 tools/gpu-offload	OURS	tools/gpu-offload			0		0	4bf317f51de08f2ca13a15276f114b78ce00c277cb494a40cfc777b199086b9f
-tools/header-consumers	OURS	tools/header-consumers			0		0	7b2256f8f4bd8bfe8da16dbf77dd9b4144d960458637be938e679dc8aeb4af81
 tools/leg-floor	OURS	tools/leg-floor			0		0	88e480ffd27222debac9b72c90935dd114ae09ebba5ec32b1b0f7555bd98c628
 tools/live-gate	OURS	tools/live-gate			0		0	3cbf14ce7f1999186a9478657bac07e0aee3f54894bd8771238e741ec8ed8750
 tools/live-gate-budget.tsv	OURS	tools/live-gate-budget.tsv			0		0	73db37375115cbee804e3545ceff1cf7919c68fb09728c3f7e95312d0fbeda0d
@@ -1990,26 +1859,15 @@ tools/movemath-gate	OURS	tools/movemath-gate			0		0	2414cb99260acfe6238c5c17f751
 tools/mutate-managed	OURS	tools/mutate-managed			0		0	ed219a264c8125962a2e97f77dc0e7d6194e265e287d244b2879c41ca1f076e3
 tools/mutate-native	OURS	tools/mutate-native			0		0	6b9070a4de3c4eced1cac2e05be6e013783b3ea04f22f35e5c70939393827b18
 tools/nan-explain-probe	DROP			removed 2026-09-28 with the shadow-controller probe (user ruling)	0		0	c29097c15620cafcb42e9af88b1d17d74e0e7095b7e4fbe28e7c69a071b9aa47
-tools/p4-exit-probe-skybox	OURS	tools/p4-exit-probe-skybox			0		0	fa0413b83d9d364d0de9ec065b4ef2da42e3163beb8254f4d50c8876683a27cc
 tools/p4base-probe-precache	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	5b9d3e661f2975c8f0fa13f7153311af05fca3cc69c9485cd27d7087cdf643e4
 tools/p4phys-livelines	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	edba3e2f56a2048317e18d1b623574d68fe8c84a660a123da402efacf9880ae4
 tools/p4phys-ringprobe	DROP			tools triage: plan drop; named only by src/sourcesharp/game/server/shell_serversystems.cpp, src/sourcesharp/host/sourcesharp.h, src/sourcesharp/test/physics_event_sink_test.cpp	0		0	f52f395394c51991feb9081a4f23388ed2b6b45fb50972c3314fde92e631c459
 tools/p4util-holders	DROP			tools triage: plan drop; named only by src/sourcesharp/game/shared/util_shared_library.cpp, src/sourcesharp/test/cycle_debt_move_test.cpp	0		0	f260f40cfa98a9775585bf1811a8e1f98a0e86b47455b5081d654b2c3022f416
-tools/phys-wakesleep-gate	OURS	tools/phys-wakesleep-gate			0		0	1f23dfa8d00b3a4f1a3a0a2ce74cdccac4e4d3006d9007548d9889753a4588e7
 tools/phys-wakesleep-mutate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	7cff38d47cb2105a131a1db8610469fa07629f33f6389cbdba0bad23180db931
 tools/physics-defects-ovprobe	DROP			removed 2026-09-28 with the octree audit it drove (private IVP offsets; user ruling)	0		0	9008d9a34039e0a8924402fcb5f755800f2ef3298941d61d1bc415dfb45ad769
-tools/physics-scope/classify	OURS	tools/physics-scope/classify			0		0	e6ef05ed943a7f52ad5900ff0d8921a5c58c101dfb2f23eaa78d525c80303c92
-tools/physics-scope/fnmap	OURS	tools/physics-scope/fnmap			0		0	a36a6bb3b5ad7bccfe7f28a9ec6a5eae9a19b4980f16554b7ddf2aee79d6e136
-tools/physics-scope/fnmap.tsv	OURS	tools/physics-scope/fnmap.tsv			0		0	1be5dead1aab2a3cfa50b82a62d23c50a87d9b33b6c1e88b162460923569e21f
-tools/physics-scope/rulings.tsv	OURS	tools/physics-scope/rulings.tsv			0		0	9a3b2a8ca9fabda29abb5c3e407ba37e9fa8ca7fdaba12761ccc931609c4a84a
 tools/policy-player-crossings	DROP			tools triage: plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp	0		0	e82982251c7c5abf296cedda6182babf99910fe7c2257c51f217fc71ec1afb2d
-tools/reached-by-name	OURS	tools/reached-by-name			0		0	cc8b31e06540b2699974a8150aaf9cc232f015a363b384e68d919a470f72c14f
 tools/run-test-legs	OURS	tools/run-test-legs			0		0	23782bade09b99945c9288eb0997b4ea2ed16e41259851a3166751e8dfa7e7a1
 tools/savesmash-repro	DROP			tools triage: plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp	0		0	61523c7c436d1d101872dde60610fde224054dd9ffa948e887dd3c70c4d3637c
-tools/shim-census	OURS	tools/shim-census			0		0	2c60fa8ae049c3caf6baf582ca88406cada3eeb7be323fb1b41460d57b587c47
-tools/shim-header-census	OURS	tools/shim-header-census			0		0	e993efd9d86d7a584f5611d2aceee51cb5c14957040477e4d007192138187b3c
-tools/shim-orphan-reach	OURS	tools/shim-orphan-reach			0		0	3b7167fc01d68baeb6e749b557944c80dcd521880a6afe91489f816317818086
-tools/shim-policy-audit	OURS	tools/shim-policy-audit			0		0	514a71ed96d1ced4e3d11af58ae7cdeee52b95fc64511365b8b73c77d22062a8
 tools/sub-entitylist-crossings	DROP			tools triage: plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp	0		0	832d9b11db6a7098f52251417ccf21fdff341175bc8d2e9851febf640f3f4b7a
 tools/sub-factory-crossings	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	6459537b777c39551658e385cdee45a7a1b312acff09954d18ac9e0a02df3a8b
 tools/sub-ioqueue-gate	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	3ff7cd52dec493a6a9f657ab604a7dc23c7e2b8210826546aaaed0f57baf2e90

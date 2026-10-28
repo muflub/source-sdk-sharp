@@ -245,9 +245,9 @@ def cmd_review(rows, root, out):
                 "grep nominated (it mentions stock, a `.cpp`, porting, Valve "
                 "or mirroring) that does not (`no`), with the reason for "
                 "each. To flip a row, edit its line in "
-                "`docs/move/header-rulings.tsv`, then run "
-                "`tools/move-classify ... --rulings docs/move/header-rulings.tsv`"
-                ", `tools/valve-header apply` and `tools/valve-header review`."
+                "`docs/move/header-rulings.tsv` and the row's `valve_header` in "
+                "`docs/move/ledger.tsv`, then run "
+                "`tools/valve-header apply` and `tools/valve-header review`."
                 "\n\n")
         f.write(f"- **yes: {yes}** (rule 1, Valve copyright today: "
                 f"{rules.get('rule 1', 0)}; rule 2, ports Valve logic: "

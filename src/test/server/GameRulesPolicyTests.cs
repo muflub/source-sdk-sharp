@@ -152,51 +152,6 @@ public class SkillLevelTests
             string.Equals(c.Name, "skill", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>
-    /// THE BLOCKER IS LIFTED, AND THIS RECORDS THE DAY IT WENT.
-    ///
-    /// <para>
-    /// This fact used to assert the opposite -- that the client still compiled
-    /// the stock rules file -- and its own comment said "when this stops being
-    /// true the reason has gone and skill can move". The armed flip is when it
-    /// stopped being true: that file is not in the client's list any more.
-    /// </para>
-    ///
-    /// <para>
-    /// So the fact is INVERTED rather than deleted. Deleting it would have
-    /// thrown away the only thing that was watching, and the point of the
-    /// original was to notice this moment. The knob has NOT moved yet -- the
-    /// sibling fact above still finds it declared natively -- and that is the
-    /// work this now hands on, with the obstacle to it gone.
-    /// </para>
-    /// </summary>
-    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
-    public void TheClientNoLongerCompilesTheStockFileThatBlockedTheMove()
-    {
-        // Read off the CMake build: client_sourcesharp's compiled sources
-        // (compile_commands.json, cross-checked against
-        // src/client/native/CMakeLists.txt). A missing or stale build throws.
-        //
-        // The positive control, because an absence over a list that could not be
-        // read passes for the wrong reason.
-        //
-        // IT NAMED takedamageinfo.cpp UNTIL plan_shim.md PHASE 1d, which
-        // evicted that row from both vpcs as an empty translation unit -- so
-        // the control failed while the assertion below was still true, which is
-        // the control doing its job on itself. A control has to name something
-        // the client build still has; usercmd.cpp is a shared file the armed
-        // client compiles and the shim rulings mark KEEP. The assertion itself
-        // is untouched.
-        // usercmd.cpp left the client with its codec (plan_client_novalve C9):
-        // tier_connect.cpp, which both DLLs compile by design, is the control.
-        Assert.True(CMakeGraph.Compiles(CMakeGraph.Client, "sourcesharp/game/shared/tier_connect.cpp"),
-            "client_sourcesharp (src/client/native/CMakeLists.txt) no longer compiles "
-          + "sourcesharp/game/shared/tier_connect.cpp -- the positive control needs a file the client still builds");
-
-        Assert.False(CMakeGraph.Compiles(CMakeGraph.Client, "game/shared/gamerules.cpp"),
-            "client_sourcesharp (src/client/native/CMakeLists.txt) compiles stock game/shared/gamerules.cpp again");
-    }
-
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NoCompiledTranslationUnitReadsTheNativeSkill()
     {

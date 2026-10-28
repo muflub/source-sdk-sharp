@@ -33,9 +33,9 @@ GLIBC_CEILING="2.31"
 OUT="$REPO/bin/ci-$CONFIG/linux64"
 
 if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
-    ROOT="$(cat -- "$REPO/sdk-root.lock.local" 2> /dev/null || true)"
+    ROOT="$(cat -- "$REPO/valve-sdk.lock.local" 2> /dev/null || true)"
     if [[ -z "$ROOT" || ! -d "$ROOT" ]]; then
-        echo "error: no ROOT recorded; run: make setup ROOT=../source-sdk-2013"
+        echo "error: no Valve clone recorded; run: make setup"
         exit 1
     fi
     # podman first; SS_CI_RUNNER names one outright (GitHub's runners carry

@@ -28,8 +28,8 @@ name: CI
 # A tag also attaches both platforms' archives to the GitHub release (the
 # release job), once every job is green.
 #
-# Linux is set up the public way (`make sdk-upstream`: stock Valve
-# source-sdk-2013 plus patches/source-sdk-2013/). The shipped native libraries
+# Linux is set up the public way (`make setup`: the farm links from a clone
+# of stock Valve source-sdk-2013 at valve-sdk.lock). The shipped native libraries
 # are the sniper container's (gcc 10 and the glibc 2.31 ceiling the engine's
 # runtime has); clang builds them too, in Release (linux) and debug
 # (linux-check), and that is what the tests run against. Windows builds
@@ -100,25 +100,23 @@ jobs:
       - uses: ./.github/actions/toolchain-linux
       - uses: ./.github/actions/host-packages
 
-      # Clones Valve's source-sdk-2013 beside the checkout, applies the patch
-      # series (a deterministic `git am`; the sha it must land on is pinned in
-      # patches/source-sdk-2013/UPSTREAM), composes farm/<config> and
-      # bin/<config>, and clones the pristine upstream the oracle tests read.
-      - name: Set up (make sdk-upstream)
-        run: make sdk-upstream
+      # Clones Valve's source-sdk-2013 beside the checkout at valve-sdk.lock and
+      # composes farm/<config> and bin/<config> from it.
+      - name: Set up (make setup)
+        run: make setup
 
       - name: "Managed: configure the debug tree the tests read"
         run: tools/build/configure debug -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
       - name: "Test (managed: make managed-legs-${{ matrix.tier }})"
         run: make managed-legs-${{ matrix.tier }}
 
-      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
-      # it. A write means an output was linked where it should have been built.
-      - name: ROOT is untouched
+      # Rule 6 of the farm (tools/setup): a build reads the Valve clone and never
+      # writes it. A write means an output was linked where it should have been built.
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi
@@ -170,14 +168,8 @@ jobs:
       # The farm the container builds from, as the Windows job composes its
       # own: no bundled .NET and no Linux Node (--no-provision), neither of
       # which a native build reads; the pristine clone it does read (D3).
-      - name: Set up (tools/sdk-upstream, tools/setup)
-        run: |
-          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          # The pristine reference (valve-sdk.lock), which tools/setup requires:
-          # a shared clone of that commit, borrowing the upstream clone's objects.
-          git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
-          git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
-          python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --valve-sdk ../source-sdk-2013-valve
+      - name: Set up (tools/setup)
+        run: python tools/setup --config release --no-provision --valve-sdk ../source-sdk-2013-valve
 
       - name: The sniper image
         run: |
@@ -225,11 +217,11 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: ROOT is untouched
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi
@@ -256,8 +248,8 @@ jobs:
       - uses: ./.github/actions/toolchain-linux
       - uses: ./.github/actions/host-packages
 
-      - name: Set up (make sdk-upstream)
-        run: make sdk-upstream
+      - name: Set up (make setup)
+        run: make setup
 
       - name: Label
         run: |
@@ -383,13 +375,13 @@ jobs:
           path: dist/sourcesharp-${{ env.SS_LABEL }}-linux-x64-dbg.tar.gz
           if-no-files-found: error
 
-      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
-      # it. A write means an output was linked where it should have been built.
-      - name: ROOT is untouched
+      # Rule 6 of the farm (tools/setup): a build reads the Valve clone and never
+      # writes it. A write means an output was linked where it should have been built.
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi
@@ -413,8 +405,8 @@ jobs:
       - uses: ./.github/actions/toolchain-linux
       - uses: ./.github/actions/host-packages
 
-      - name: Set up (make sdk-upstream)
-        run: make sdk-upstream
+      - name: Set up (make setup)
+        run: make setup
 
       - name: Test (make check, the legs linux-managed does not run)
         run: make check CHECK_MANAGED=0 NATIVE_TIER=fast
@@ -431,13 +423,13 @@ jobs:
           $HOME/.dotnet/dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo --filter "Needs=DebugBuild" | tee "$RUNNER_TEMP/needs-build.log"
           grep -E 'Passed: +5, Skipped: +0, Total: +5' "$RUNNER_TEMP/needs-build.log"
 
-      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
-      # it. A write means an output was linked where it should have been built.
-      - name: ROOT is untouched
+      # Rule 6 of the farm (tools/setup): a build reads the Valve clone and never
+      # writes it. A write means an output was linked where it should have been built.
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi
@@ -468,23 +460,23 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/toolchain-linux
-      # tools/setup (make sdk-upstream) packs the host's NuGet packages when
+      # make setup packs the host's NuGet packages when
       # they are missing, and refuses without the host checkout this clones.
       - uses: ./.github/actions/host-packages
 
-      - name: Set up (make sdk-upstream)
-        run: make sdk-upstream
+      - name: Set up (make setup)
+        run: make setup
 
       - name: "Native: configure the debug tree"
         run: tools/build/configure debug -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
       - name: "Test (native, slow tier: make cpp-test-slow)"
         run: make cpp-test-slow
 
-      - name: ROOT is untouched
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi
@@ -577,20 +569,15 @@ jobs:
 
       - uses: ./.github/actions/host-packages
 
-      # tools/sdk-upstream and tools/setup are Python and run anywhere git and
-      # symlinks do. --no-provision: no bundled .NET yet (it is bundled from
-      # setup-dotnet's below) and no Linux Node. --valve-sdk: the pristine clone
-      # server.so builds on (D3), a shared clone of the upstream one.
+      # tools/setup is Python and runs anywhere git and symlinks do; it clones
+      # the pristine Valve SDK at valve-sdk.lock that the farm links from.
+      # --no-provision: no bundled .NET yet (it is bundled from setup-dotnet's
+      # below) and no Linux Node.
       # Both configurations: the build is Release, the tests read Debug's.
-      - name: Set up (tools/sdk-upstream, tools/setup)
+      - name: Set up (tools/setup)
         run: |
-          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          # The pristine reference (valve-sdk.lock), which tools/setup requires:
-          # a shared clone of that commit, borrowing the upstream clone's objects.
-          git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
-          git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           for cfg in release debug; do
-            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --valve-sdk ../source-sdk-2013-valve
+            python tools/setup --config $cfg --no-provision --valve-sdk ../source-sdk-2013-valve
           done
 
       # What the farm's links came out as on this platform: a Windows link
@@ -645,11 +632,11 @@ jobs:
           done
           exit $rc
 
-      - name: ROOT is untouched
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi
@@ -727,20 +714,15 @@ jobs:
 
       - uses: ./.github/actions/host-packages
 
-      # tools/sdk-upstream and tools/setup are Python and run anywhere git and
-      # symlinks do. --no-provision: no bundled .NET yet (it is bundled from
-      # setup-dotnet's below) and no Linux Node. --valve-sdk: the pristine clone
-      # server.so builds on (D3), a shared clone of the upstream one.
+      # tools/setup is Python and runs anywhere git and symlinks do; it clones
+      # the pristine Valve SDK at valve-sdk.lock that the farm links from.
+      # --no-provision: no bundled .NET yet (it is bundled from setup-dotnet's
+      # below) and no Linux Node.
       # Both configurations: the build is Release, the tests read Debug's.
-      - name: Set up (tools/sdk-upstream, tools/setup)
+      - name: Set up (tools/setup)
         run: |
-          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          # The pristine reference (valve-sdk.lock), which tools/setup requires:
-          # a shared clone of that commit, borrowing the upstream clone's objects.
-          git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
-          git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           for cfg in release debug; do
-            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --valve-sdk ../source-sdk-2013-valve
+            python tools/setup --config $cfg --no-provision --valve-sdk ../source-sdk-2013-valve
           done
 
       # What the farm's links came out as on this platform: a Windows link
@@ -802,7 +784,7 @@ jobs:
       # installed (DOTNET_ROOT).
       - name: Bundle the .NET runtime (tools/setup --provision-runtime)
         run: |
-          python tools/setup --root ../source-sdk-2013-upstream --config release \
+          python tools/setup --config release \
             --no-provision --valve-sdk ../source-sdk-2013-valve --provision-runtime --dotnet-root "$DOTNET_ROOT"
           ls bin/release/bin/dotnet/host/fxr
 
@@ -836,11 +818,11 @@ jobs:
       - name: Test (native gtests)
         run: ctest --test-dir farm/release/build-windows -L gtest --output-on-failure -j 4
 
-      - name: ROOT is untouched
+      - name: The Valve clone is untouched
         run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          status="$(git -C ../source-sdk-2013-valve status --porcelain)"
           if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
+            echo "::error::the build wrote into the Valve clone:"
             echo "$status"
             exit 1
           fi

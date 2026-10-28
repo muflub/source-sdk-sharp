@@ -124,6 +124,11 @@ function(ss_test_compile_flags tgt)
     set(opt ${SS_CPPTEST_OPT})
   endif()
   target_compile_options(${tgt} PRIVATE ${SS_CPPTEST_CXXFLAGS} ${opt})
+  # The farm's Valve headers are stock: clang reads the one it rejects through
+  # its wrapper (cmake/compat/clang), as the targets built from the clone do.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_include_directories(${tgt} BEFORE PRIVATE ${PROJECT_SOURCE_DIR}/cmake/compat/clang)
+  endif()
   if(NOT SS_IS_MSVC)
     target_link_options(${tgt} PRIVATE -pthread)
   else()

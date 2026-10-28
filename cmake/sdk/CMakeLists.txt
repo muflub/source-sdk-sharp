@@ -10,8 +10,8 @@
 # dmxloader.a, whose sources Valve does not publish), is not built there
 # (src/client/native/particles_lib/CMakeLists.txt).
 #
-# Built from source (tier1.cmake, mathlib.cmake, raytrace.cmake): Valve's tree
-# has no linux64 prebuilt of these three (vgui_controls and matsys_controls were
+# Built from source (tier1.cmake, mathlib.cmake): Valve's tree
+# has no linux64 prebuilt of these two (vgui_controls and matsys_controls were
 # built here too until the client stopped linking them, plan_client_novalve C3) -- upstream 22288b919 tracks none, and the .a files an
 # old checkout holds are gitignored output of its own VPC build. tier1 is
 # compiled from Valve's own interface.cpp again since Phase 6b, when the fork
@@ -73,4 +73,3 @@ endif()
 
 include(tier1.cmake)
 include(mathlib.cmake)
-include(raytrace.cmake)

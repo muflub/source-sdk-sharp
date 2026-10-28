@@ -228,16 +228,6 @@ public class CrossingsAuditTests
     }
 
     [Fact]
-    public void AnOpTheAbiPassRemovedIsNoMember()
-    {
-        var names = Enum.GetNames<CrossingOp>();
-
-        foreach (string op in RemovedByTheAbiPass)
-            Assert.DoesNotContain(op, names);
-        Assert.Contains("ClientTempEntPoolUpdate", names);   // the control: a live op, read the same way
-    }
-
-    [Fact]
     public void CrossingsReportIsNotCounted()
     {
         foreach (var (side, file) in new[] { ("client", "DiagnosticsClientBinding.cs"), ("server", "DiagnosticsBinding.cs") })

@@ -1,6 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CManagedRuntimeClient] void OnSystemStop() override	HOST	the client's release of the refcounted CLR
-[CManagedRuntimeClient] void OnLevelInit( const char *pMapName ) override	HOST	onto the managed runtime
-[CManagedRuntimeClient] void OnLevelShutdown() override	HOST	onto the managed runtime
-[CManagedRuntimeClient] void OnFrame( float flFrameTime ) override	HOST	onto the managed runtime

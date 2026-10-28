@@ -59,7 +59,7 @@ internal static class CMakeGraph
         Server => "src/server/native/CMakeLists.txt",
         Client => "src/client/native/CMakeLists.txt",
         Host => "src/host/native/CMakeLists.txt",
-        "tier1" or "mathlib" or "raytrace" => $"cmake/sdk/{target}.cmake",
+        "tier1" or "mathlib" => $"cmake/sdk/{target}.cmake",
         _ => throw new InvalidOperationException($"cmake_graph: no CMakeLists is known for target '{target}'"),
     };
 

@@ -1,5 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-inline void WriteVertex( CMeshBuilder &mb, const float *v )	SLOT-HELP	writes one vertex managed's BeamSegDraw computed, field for field (BeamDrawStrip, RopeDraw)
-inline void WriteIndexed( CMeshBuilder &mb, const float *pVerts, int nVerts, int nFirstVertex )	SLOT-HELP	a rope strip's vertices and the fixed two-triangles-a-quad indices into the shared builder (RopeDraw's executor)
-inline void DrawStrip( IMesh *pMesh, const float *pVerts, int nVerts )	SLOT-HELP	a beam strip's vertices as one triangle strip on the dynamic mesh (BeamDrawStrip)

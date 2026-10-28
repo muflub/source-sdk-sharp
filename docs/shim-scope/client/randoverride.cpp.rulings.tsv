@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void __cdecl srand( unsigned int )	HOST	interposes libc's srand for client objects that call it (the engine's stream is seeded through RandomSeed)
-int __cdecl rand()	HOST	interposes libc's rand: the client's callers (particlemgr, view, physics, detailobjectsystem, te pool) draw from the client's vstdlib stream
