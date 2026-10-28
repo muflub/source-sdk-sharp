@@ -53,6 +53,7 @@ public abstract class EngineEffectsForwarder : IEngineEffects
 
     public virtual void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) => Inner.BloodEffect(origin, direction, color, amount, stream, sprayFlags);
     public virtual void BubbleEffect(EntityHandle entity, int count, float speed) => Inner.BubbleEffect(entity, count, speed);
+    public virtual void BubbleTrailEffect(Vector from, Vector to, int count) => Inner.BubbleTrailEffect(from, to, count);
     public virtual int TempEntRegister(TeClass description) => Inner.TempEntRegister(description);
     public virtual void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay) => Inner.TempEntPlayback(handle, blob, filter, delay);
     public virtual int EffectDispatchIndex(string name) => Inner.EffectDispatchIndex(name);

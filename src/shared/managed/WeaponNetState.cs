@@ -122,6 +122,21 @@ public partial class WeaponNetState
     [Predicted(0.001f)]
     public partial float SoonestPrimaryAttack { get; set; }
 
+    /// <summary>
+    /// Stock's CWeaponPistol::m_flAccuracyPenalty: seconds of inaccuracy owed,
+    /// 0.2 a shot, which widen the cone from one degree to six. Zero for a
+    /// weapon that does not use it.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float AccuracyPenalty { get; set; }
+
+    /// <summary>
+    /// When <see cref="AccuracyPenalty"/> was last brought up to date: the
+    /// decay since then is what stock's per-frame gpGlobals->frametime took off.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float AccuracyPenaltyAt { get; set; }
+
     /// <summary>A shot was fired and the pump is owed: stock's CWeaponShotgun::m_bNeedPump.</summary>
     [Predicted]
     public partial bool NeedPump { get; set; }

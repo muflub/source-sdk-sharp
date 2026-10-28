@@ -179,6 +179,10 @@ enum { STANDALONE_SOLID_FLAGS_MAX_BITS = 10 };
 // reason as the two above.
 enum { STANDALONE_SKIN_BITS = 10 };
 
+// ANIMATION_BODY_BITS (game/server/baseanimating.h), named here for the same
+// reason: every bodygroup combination a model can have.
+enum { STANDALONE_BODY_BITS = 32 };
+
 inline const StandaloneNetField_t *StandaloneNetFields( int *pOutCount )
 {
 	static const StandaloneNetField_t s_Fields[] =
@@ -219,6 +223,11 @@ inline const StandaloneNetField_t *StandaloneNetFields( int *pOutCount )
 		// GetSkin answers: a skin the SERVER picks (env_beverage's can, a gib)
 		// reached no client before this row (plan_server_native_v2, 2026-10-19).
 		{ "m_nSkin",         STANDALONE_NET_INT,    STANDALONE_SKIN_BITS },
+		// THE BODY, at the tail again: CBaseAnimating's m_nBody at
+		// ANIMATION_BODY_BITS, into the block's Client.Body, which the client's
+		// GetBody answers. A bodygroup the SERVER picks (the planted tripmine's
+		// body 3) reached no client before this row (stock A/B, 2026-10-25).
+		{ "m_nBody",         STANDALONE_NET_INT,    STANDALONE_BODY_BITS },
 	};
 
 	if ( pOutCount )
@@ -245,6 +254,7 @@ enum
 	STANDALONE_NET_FIELD_SOLIDFLAGS,
 	// Appended with its row.
 	STANDALONE_NET_FIELD_SKIN,
+	STANDALONE_NET_FIELD_BODY,
 
 	STANDALONE_NET_FIELD_COUNT,
 };

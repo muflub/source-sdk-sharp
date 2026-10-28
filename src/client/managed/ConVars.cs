@@ -72,6 +72,16 @@ public sealed class PlayerPredictConVar : BoolConVar
 /// that did not declare it would read as 0 there and hear every shot twice.
 /// </para>
 /// </summary>
+/// <summary>
+/// The weapon a player spawns holding: stock's C_HL2MP_Player cl_defaultweapon,
+/// which the server reads back (CHL2MP_Player::GiveDefaultItems).
+/// </summary>
+[ConVar("cl_defaultweapon", "weapon_physcannon", Flags = ConVarFlags.UserInfo | ConVarFlags.Archive,
+        Help = "Default Spawn Weapon")]
+public sealed class DefaultWeaponConVar : StringConVar
+{
+}
+
 [ConVar("cl_predictweapons", "1", Flags = ConVarFlags.UserInfo | ConVarFlags.NotConnected,
         Help = "Perform client side prediction of weapon effects.")]
 public sealed class PredictWeaponsConVar : BoolConVar

@@ -189,6 +189,10 @@ public unsafe struct ManagedStandaloneClientTable
     // 11: int32_t SchemaAccept( uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName )
     [SlotHash(0x87f5efbd)]
     public delegate* unmanaged<void*, uint, int, uint, uint, int, byte*, int> SchemaAccept;
+
+    // 12: int32_t OnStandaloneDrawExtras( uint32_t hEntity, int32_t nFlags )
+    [SlotHash(0xbabc0fee)]
+    public delegate* unmanaged<void*, uint, int, int> OnStandaloneDrawExtras;
 }
 
 /// <summary>The table managed writes for <c>IManagedPredictionClient</c> (<c>SSManagedPredictionClientTable</c> native-side).</summary>

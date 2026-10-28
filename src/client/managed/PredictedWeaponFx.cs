@@ -68,10 +68,12 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     private readonly PredictWeaponsConVar _predictWeapons;
     private readonly SeededUniformStream _spread = new();
 
+    // A splash's size, as stock's random->RandomFloat picks it: unseeded.
+    private readonly Random _splashSize = new();
+
     // The entities a shot may stop on, by index: every networkable index but
     // the shooter's, built for the shooter it was last built for.
-    private readonly int[] _candidates = new int[EngineLimits.MaxEdicts - 2];
-    private int _candidatesFor = -1;
+    private readonly EntityCandidates _candidates = new();
 
     public PredictedWeaponFx(IClientEntitySounds sounds, IClientEffectDispatch effects, IEngineWorldQuery world,
                              AmmoCatalog ammo, PredictWeaponsConVar predictWeapons)
@@ -112,7 +114,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         for (int i = 0; i < pellets; i++)
         {
             Vector dir = ShotSpread.Apply(aim, spread, seed + i, _spread).Normalized;
-            ImpactAlong(shot, dir, MaxTrace, ammo.DamageType);
+            ImpactAlong(shot, dir, MaxTrace, ammo.DamageType, ammo);
         }
     }
 
@@ -146,18 +148,27 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     /// is not there or not solid.
     /// </para>
     /// </summary>
-    private void ImpactAlong(in PredictedShot shot, Vector dir, float range, DamageType damageType)
+    private void ImpactAlong(in PredictedShot shot, Vector dir, float range, DamageType damageType,
+                             AmmoType? round = null)
     {
         Vector end = shot.Eye + dir * range;
         ClientTraceResult tr = _world.ClientTraceLine(shot.Eye, end, TraceMask.Shot,
                                                       TraceFilter.Simple, shot.PlayerIndex);
 
         ClientTraceResult entity = _world.ClientClipRayToEntities(shot.Eye, tr.Hit ? tr.End : end,
-                                                                  TraceMask.Shot, Candidates(shot.PlayerIndex));
+                                                                  TraceMask.Shot, _candidates.AllBut(shot.PlayerIndex));
         if (entity.Hit)
             tr = entity;
 
-        if (!tr.Hit || (tr.SurfaceFlags & SurfSky) != 0)
+        if (!tr.Hit)
+            return;
+
+        // A round that ends under water splashes where it went in, and marks
+        // nothing below (HandleShotImpactingWater).
+        if (round is { } ammo && (_world.PointContents(tr.End) & Liquid) != 0 && SplashInto(shot, end, in ammo))
+            return;
+
+        if ((tr.SurfaceFlags & SurfSky) != 0)
             return;
 
         var data = new EffectData
@@ -174,21 +185,33 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         _effects.Dispatch("Impact", in data);
     }
 
-    /// <summary>Every entity index from 1 but the shooter's.</summary>
-    private ReadOnlySpan<int> Candidates(int shooterIndex)
+    /// <summary>
+    /// HandleShotImpactingWater's client half: the shot again, stopping at the
+    /// water (the round met nothing solid before it), and the gunshotsplash
+    /// where it went in, the ammo's size, slime's own in slime.
+    /// </summary>
+    private bool SplashInto(in PredictedShot shot, Vector end, in AmmoType ammo)
     {
-        if (_candidatesFor != shooterIndex)
+        ClientTraceResult surface = _world.ClientTraceLine(shot.Eye, end, TraceMask.BrushesAndWater,
+                                                           TraceFilter.Simple, shot.PlayerIndex);
+        Contents below = _world.PointContents(surface.End - new Vector(0f, 0f, 0.1f));
+        if ((below & Liquid) == 0)
+            return false;
+
+        var data = new EffectData
         {
-            int count = 0;
-            for (int index = 1; index < EngineLimits.MaxEdicts && count < _candidates.Length; index++)
-            {
-                if (index != shooterIndex)
-                    _candidates[count++] = index;
-            }
-
-            _candidatesFor = shooterIndex;
-        }
-
-        return _candidates;
+            Origin = surface.End,
+            Normal = surface.Normal,
+            Scale = ammo.MinSplashSize + (float)_splashSize.NextDouble() * (ammo.MaxSplashSize - ammo.MinSplashSize),
+            Flags = (below & Contents.Slime) != 0 ? FxWaterInSlime : 0,
+        };
+        _effects.Dispatch("gunshotsplash", in data);
+        return true;
     }
+
+    /// <summary>CONTENTS_WATER | CONTENTS_SLIME.</summary>
+    private const Contents Liquid = Contents.Water | Contents.Slime;
+
+    /// <summary>FX_WATER_IN_SLIME (shareddefs.h).</summary>
+    private const int FxWaterInSlime = 0x1;
 }

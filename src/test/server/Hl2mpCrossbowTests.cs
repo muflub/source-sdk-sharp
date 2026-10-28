@@ -35,6 +35,8 @@ public class Hl2mpCrossbowTests
         public void MeleeSwing(in WeaponType type) { }
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown) => Launches.Add((projectile, speed, thrown));
         public void SetFov(int fov, float rate) => Fovs.Add((fov, rate));
+        public bool Submerged;
+        public bool EyesUnderwater() => Submerged;
 
         public int LookupSequence(WeaponAnim anim)
         {
@@ -123,6 +125,18 @@ public class Hl2mpCrossbowTests
 
         Run(machine, w, vm, Attack2, 10.09f, 10.13f);
         Assert.True(w.InReload);
+    }
+
+    /// <summary>FireBolt: BOLT_WATER_VELOCITY, 1500, with the shooter's eyes under water.</summary>
+    [Fact]
+    public void UnderWaterTheBoltLeavesAtFifteenHundred()
+    {
+        var (machine, arms, w, vm) = Crossbow(clip: 1, reserve: 5);
+        arms.Submerged = true;
+
+        machine.RunCommand(w, vm, Attack, 10f, effectsLive: true);
+
+        Assert.Equal(new[] { ("ss_bolt", 1500f, false) }, arms.Launches);
     }
 
     [Fact]

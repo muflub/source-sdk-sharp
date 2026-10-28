@@ -424,7 +424,7 @@ TEST( NetEntityDeleted, EveryTierCarriesExactlyOneNamePair )
 	}
 
 	// The deleted shell's real-prop count went with it; the hierarchy's stays.
-	EXPECT_NE( tiers.find( "SOURCESHARP_TIER_PROPS_STANDALONE=11" ), std::string::npos )
+	EXPECT_NE( tiers.find( "SOURCESHARP_TIER_PROPS_STANDALONE=12" ), std::string::npos )
 		<< "the hierarchy's real-prop count has moved. Anything reporting a "
 		   "tier's prop total reads this rather than computing 10 + bytes/4.";
 }

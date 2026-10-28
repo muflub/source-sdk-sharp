@@ -992,6 +992,7 @@ void C_StandaloneEntity::AddToLeafSystem()
 	// about ShadowType_t before its rule moved to C# too.
 	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_OPAQUE_ENTITY      == 7 );
 	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_TRANSLUCENT_ENTITY == 8 );
+	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_TWOPASS            == 9 );
 	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_VIEW_MODEL_OPAQUE  == 10 );
 	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_OPAQUE_BRUSH       == 12 );
 
@@ -1899,6 +1900,11 @@ int C_StandaloneEntity::DrawModel( int flags )
 		return 1;
 	}
 
+	// A two-pass entity's translucent pass is its managed class's (DrawExtras).
+	const int nExtras = DrawExtras( flags, false );
+	if ( nExtras >= 0 )
+		return nExtras;
+
 	// A model instance, before the draw and on every draw.
 	//
 	// C_BaseAnimating::DrawModel calls this in the same place with the comment
@@ -1956,7 +1962,27 @@ int C_StandaloneEntity::DrawModel( int flags )
 	// against each other while hunting the prop-shot residual and are the same
 	// picture to the pixel (0.3178% against 0.3190%, within the run-to-run
 	// floor), so the one call stays. See docs/divergences.md.
-	return modelrender->DrawModelEx( info );
+	const int nDrawn = modelrender->DrawModelEx( info );
+	DrawExtras( flags, true );
+	return nDrawn;
+}
+
+// What managed draws beside the model in this pass (IManagedStandaloneClient::
+// OnStandaloneDrawExtras), at the two places stock's weapons drew theirs.
+// BEFORE the model, a two-pass entity's translucent pass: the stunstick's and
+// physcannon's DrawModel arm for STUDIO_TRANSPARENCY, which draws the glows and
+// answers 1 without the model; managed answers what DrawModel returns, or -1
+// for the model's own draw. Only an entity the render policy put in the
+// two-pass group reaches it. AFTER the model, the local viewmodel's opaque
+// draw: C_BaseViewModel::DrawModel's tail, the weapon's ViewModelDrawn, in
+// this pass at this view. Which weapon and what it draws are managed's.
+int C_StandaloneEntity::DrawExtras( int flags, bool bAfterModel )
+{
+	const bool bAsk = bAfterModel
+		? ( Block().Client.ViewModel != 0 && ( flags & STUDIO_RENDER ) )
+		: ( ( flags & STUDIO_TRANSPARENCY ) && ( flags & STUDIO_TWOPASS ) );
+	IManagedStandaloneClient *pStandalone = bAsk ? ManagedStandaloneClient() : NULL;
+	return pStandalone ? pStandalone->OnStandaloneDrawExtras( (uint32_t)BlockHandle().ToInt(), flags ) : -1;
 }
 
 void C_StandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
@@ -2087,6 +2113,10 @@ static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
 	nOffsets[ STANDALONE_NET_FIELD_SKIN ]         = C_StandaloneEntity::BlockBase()
 	                                              + (int)offsetof( EngineBlock_t, Client )
 	                                              + (int)offsetof( EngineBlockClientTail_t, Skin );
+	// THE BODY, received into Client.Body, which GetBody answers.
+	nOffsets[ STANDALONE_NET_FIELD_BODY ]         = C_StandaloneEntity::BlockBase()
+	                                              + (int)offsetof( EngineBlock_t, Client )
+	                                              + (int)offsetof( EngineBlockClientTail_t, Body );
 
 	int nCount = 0;
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );

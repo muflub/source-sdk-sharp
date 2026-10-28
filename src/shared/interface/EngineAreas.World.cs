@@ -83,7 +83,7 @@ public interface IEngineWorldQuery
     /// <summary>
     /// The CLIENT's ray clipped against the entities named, by INDEX: the
     /// nearest solid one it hits, in <see cref="ClientTraceLine(Vector, Vector, TraceMask)"/>'s
-    /// shape, or a miss. <see cref="TraceMask.Shot"/> only.
+    /// shape, or a miss, at any <see cref="TraceMask"/> the line takes.
     ///
     /// <para>
     /// The other half of a client trace that has to stop on entities: the
@@ -96,6 +96,17 @@ public interface IEngineWorldQuery
     /// </summary>
     ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
                                               ReadOnlySpan<int> entityIndices);
+
+    /// <summary>
+    /// The CLIENT's box, <paramref name="mins"/> to <paramref name="maxs"/>,
+    /// swept through the world (a simple filter passing
+    /// <paramref name="passEntityIndex"/>) and clipped against the entities
+    /// named, by INDEX, as <see cref="ClientClipRayToEntities"/> clips a ray:
+    /// the nearest stop of them all. The server answers a miss.
+    /// </summary>
+    ClientBoxTrace ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs,
+                                            TraceMask mask, int passEntityIndex,
+                                            ReadOnlySpan<int> entityIndices);
 
     /// <inheritdoc cref="EngineSide.ClientEntityModelType"/>
     ModelType? ClientEntityModelType(int entIndex);
@@ -244,6 +255,14 @@ public interface IEngineEffects
     /// SourceSharp.Server's EffectsOverTempEnts since plan_server_native_v2 T4f).
     /// </summary>
     void BubbleEffect(EntityHandle entity, int count, float speed);
+
+    /// <summary>
+    /// UTIL_BubbleTrail: <paramref name="count"/> bubbles along the line from
+    /// <paramref name="from"/> to <paramref name="to"/>, the part of it that is
+    /// under water, rising to the surface (the server's answer is
+    /// SourceSharp.Server's EffectsOverTempEnts).
+    /// </summary>
+    void BubbleTrailEffect(Vector from, Vector to, int count);
 
     /// <inheritdoc cref="EngineSide.TempEntRegister"/>
     int TempEntRegister(TeClass description);

@@ -23,8 +23,13 @@ public class Hl2mpPistolTests
     private sealed class Arms : IWeaponArms
     {
         public int Shots;
+        public readonly List<float> Spreads = [];
         public void Sound(string soundScript) { }
-        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) => Shots++;
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
+        {
+            Shots++;
+            Spreads.Add(spreadDegrees);
+        }
         public void MeleeSwing(in WeaponType type) { }
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
         public int LookupSequence(WeaponAnim anim) => (int)anim + 1;
@@ -100,5 +105,75 @@ public class Hl2mpPistolTests
         Assert.Equal(w1.NextPrimaryAttack, w2.NextPrimaryAttack);
         Assert.Equal(w1.SoonestPrimaryAttack, w2.SoonestPrimaryAttack);
         Assert.Equal(w1.Clip, w2.Clip);
+    }
+
+    // CWeaponPistol's accuracy penalty: 0.2 s a shot, which lerps GetBulletSpread
+    // from VECTOR_CONE_1DEGREES to VECTOR_CONE_6DEGREES over 1.5 s, and drains
+    // while the trigger is up. Found against stock (2026-10-25): this mod fired
+    // every pistol round in one fixed two-degree cone.
+
+    /// <summary>The cone's half-angle for a cone vector's sine.</summary>
+    private static float HalfAngle(float sine) => MathF.Asin(sine) * 180f / MathF.PI;
+
+    /// <summary>Clicks <paramref name="shots"/> rounds a tenth and a bit apart, from t = 10.</summary>
+    private static float Click(WeaponLogic machine, WeaponNetState w, ViewModelNetState vm, int shots)
+    {
+        float t = 10f;
+        for (int i = 0; i < shots; i++)
+        {
+            machine.RunCommand(w, vm, Attack, t, effectsLive: true);
+            machine.RunCommand(w, vm, 0, t + 0.06f, effectsLive: true);
+            machine.RunCommand(w, vm, 0, t + 0.11f, effectsLive: true);   // past the click's soonest refire
+            t += 0.12f;
+        }
+        return t;
+    }
+
+    [Fact]
+    public void TheFirstShotIsInTheOneDegreeCone()
+    {
+        var (machine, arms, w, vm) = Pistol();
+
+        Click(machine, w, vm, 1);
+
+        Assert.Equal(HalfAngle(0.00873f), arms.Spreads[0], 3);
+    }
+
+    [Fact]
+    public void RapidShotsWidenTheConeToSixDegreesAndNoFurther()
+    {
+        var (machine, arms, w, vm) = Pistol();
+
+        Click(machine, w, vm, 12);
+
+        Assert.Equal(12, arms.Shots);
+        Assert.True(arms.Spreads[1] > arms.Spreads[0], "the second click was no wider than the first");
+        Assert.Equal(HalfAngle(0.05234f), arms.Spreads[^1], 3);
+    }
+
+    [Fact]
+    public void ThePenaltyDrainsWhileTheTriggerIsUp()
+    {
+        var (machine, _, w, vm) = Pistol();
+        float t = Click(machine, w, vm, 5);
+        float owed = w.AccuracyPenalty;
+
+        for (float u = t; u < t + 0.5f; u += 0.015f)
+            machine.RunCommand(w, vm, 0, u, effectsLive: true);
+
+        Assert.InRange(w.AccuracyPenalty, owed - 0.52f, owed - 0.46f);
+    }
+
+    [Fact]
+    public void AReloadClearsThePenalty()
+    {
+        var (machine, _, w, vm) = Pistol();
+        float t = Click(machine, w, vm, 5);
+        Assert.True(w.AccuracyPenalty > 0f);
+
+        machine.RunCommand(w, vm, (int)InputButtons.Reload, t + 0.6f, effectsLive: true);   // past the last shot's wait
+        Assert.True(w.InReload, "the reload did not start");
+
+        Assert.Equal(0f, w.AccuracyPenalty);
     }
 }

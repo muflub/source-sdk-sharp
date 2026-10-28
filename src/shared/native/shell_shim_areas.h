@@ -514,6 +514,7 @@ public:
 	void ColorLookupRemove( void * hLookup ) override;
 	void ColorLookupResetWeights() override;
 	int32_t ClientClipRayToEntities( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, const int32_t * pEntityIndices, int32_t nEntities, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, int32_t * pOutHitbox, int32_t * pOutEntityIndex, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags ) override;
+	int32_t ClientTraceHullEntities( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex, const int32_t * pEntityIndices, int32_t nEntities, float * pOutFraction, float * pOutEndXYZ, int32_t * pOutEntityIndex, float * pOutEntityOriginXYZ ) override;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient

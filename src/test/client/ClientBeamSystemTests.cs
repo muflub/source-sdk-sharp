@@ -120,6 +120,15 @@ public class ClientBeamSystemTests
         public float GlowSightDistance(in Vector glowOrigin, bool shouldTrace) => 1;
     }
 
+    /// <summary>The viewmodel conversion: moves one entity's points by an offset, as a recognisable answer.</summary>
+    private sealed class ViewModelFormat : SourceSharp.Client.Standalone.IViewModelAttachmentFormat
+    {
+        public EntityHandle ViewModel = EntityHandle.None;
+
+        public Vector ForWorldPass(EntityHandle entity, Vector attachment)
+            => entity == ViewModel ? attachment + new Vector(100, 0, 0) : attachment;
+    }
+
     private sealed class Rig
     {
         public readonly RecordingEngine Engine = new();
@@ -141,8 +150,10 @@ public class ClientBeamSystemTests
                 () => EngineConVars.TryGetValue((string)Engine.Last("Console.FindConVarValue")!.Value.Arg(0)!,
                                                 out string? v) ? v : null);
 
-            Beams = new ClientBeamSystem(Exec, Clock, Engine, Log, new AllVisible());
+            Beams = new ClientBeamSystem(Exec, Clock, Engine, Log, new AllVisible(), ViewModels);
         }
+
+        public readonly ViewModelFormat ViewModels = new();
 
         public void Set(string name, string value) => EngineConVars[name] = value;
 
@@ -359,6 +370,40 @@ public class ClientBeamSystemTests
         Assert.Equal(0, rig.Beams.Counters.Draws);
     }
 
+    // The pool's other renderables (IClientTranslucentRenderables).
+
+    [Fact]
+    public void AnotherRenderableInThePoolIsDrawnByItsOwnDraw()
+    {
+        var rig = new Rig();
+        int drawn = 0;
+        int handle = rig.Beams.Add(new Vector(1, 2, 3), new Vector(-4, -4, -4), new Vector(4, 4, 4), () => drawn++);
+
+        rig.Beams.Changed(handle, new Vector(5, 6, 7), new Vector(-4, -4, -4), new Vector(4, 4, 4));
+        rig.Beams.Draw(handle);
+
+        Assert.Equal(1, drawn);
+        Assert.Equal(new Vector(5, 6, 7), rig.Exec.Renderables[handle].Origin);
+        Assert.Empty(rig.Exec.Draws);
+    }
+
+    [Fact]
+    public void AnotherRenderablesRemovalLeavesTheBeamsAlone()
+    {
+        var rig = new Rig();
+        CreateRingPoint(rig);
+        var (beam, placed) = Assert.Single(rig.Exec.Renderables);
+        int other = rig.Beams.Add(Vector.Zero, Vector.Zero, Vector.Zero, () => { });
+
+        rig.Beams.Remove(beam);
+        rig.Beams.Changed(beam, new Vector(9, 9, 9), Vector.Zero, Vector.Zero);
+        Assert.Equal(2, rig.Exec.Renderables.Count);
+        Assert.Equal(placed, rig.Exec.Renderables[beam]);
+
+        rig.Beams.Remove(other);
+        Assert.Equal([beam], rig.Exec.Renderables.Keys);
+    }
+
     [Fact]
     public void ADeadBeamIsRetiredAndItsRenderableRemoved()
     {
@@ -542,6 +587,21 @@ public class ClientBeamSystemTests
         Assert.True(answered);
         Assert.Equal(new Vector(1, 2, 3), point);
         Assert.Equal([true], rig.Exec.TriedAttachment);
+    }
+
+    [Fact]
+    public void ALocalViewmodelsAttachmentIsWhereTheWorldsProjectionDrawsIt()
+    {
+        // Stock's C_BaseViewModel::GetAttachment formats every attachment it
+        // hands out, so a beam on the gun sits on the gun in the world's pass.
+        var rig = new Rig();
+        rig.ViewModels.ViewModel = Ent;
+        rig.Exec.Facts = (int)(ManagedProp | BeamEntityFacts.Attachment);
+        rig.Exec.Attachment = new Vector(1, 2, 3);
+
+        var point = new Vector(-1, -1, -1);
+        Assert.True(rig.Beams.EntityPosition(Ent, 2, false, ref point));
+        Assert.Equal(new Vector(101, 2, 3), point);
     }
 
     [Fact]

@@ -149,8 +149,14 @@ public static class Hl2mpWeaponBehaviours
                 return true;
             }
 
-            // Reload an empty gun once it has waited as long as it must after
-            // firing, then WeaponIdle.
+            // No fire buttons down: an empty shotgun switches away once its wait
+            // is over (its own copy of ReloadOrSwitchWeapons, which waits on the
+            // primary alone); one with shells reloads, then WeaponIdle.
+            if ((held & (InputButtons.Attack | InputButtons.Attack2)) == 0
+                && WeaponLogic.SwitchIfExhausted(attack.Arms, w, now, attack.EffectsLive,
+                                                 w.Clip > 0 || w.Reserve > 0, waitsOnSecondary: false))
+                return true;
+
             if (w.Reserve > 0 && w.Clip <= 0 && w.NextPrimaryAttack < now && StartReload(attack))
                 return true;
 
@@ -258,8 +264,8 @@ public static class Hl2mpWeaponBehaviours
     /// (SECONDARYATTACK, a roll, when crouched). The grenade leaves, and one is
     /// spent, at the throw sequence's own event; the next is drawn when that
     /// sequence has played. The events are stock's Operator_HandleAnimEvent,
-    /// timed from v_grenade.mdl's cycles. Not ported: the switch away from an
-    /// empty hand, which needs the owner.
+    /// timed from v_grenade.mdl's cycles. Once the last is gone the hands take
+    /// the next best weapon (ReloadOrSwitchWeapons).
     /// </summary>
     private sealed class FragBehaviour : IWeaponBehaviour
     {
@@ -322,8 +328,14 @@ public static class Hl2mpWeaponBehaviours
             if (!fired && held.HasFlag(InputButtons.Attack) && w.NextPrimaryAttack <= now && w.Reserve > 0)
                 PrimaryAttack(attack);
 
-            if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0 && now >= w.TimeWeaponIdle)
-                Send(attack, WeaponAnim.Idle);
+            if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0)
+            {
+                // ReloadOrSwitchWeapons: the last grenade gone, the hands take the next.
+                if (WeaponLogic.SwitchIfExhausted(attack.Arms, w, now, attack.EffectsLive, w.Reserve > 0))
+                    return true;
+                if (now >= w.TimeWeaponIdle)
+                    Send(attack, WeaponAnim.Idle);
+            }
 
             if (w.Redraw && now >= w.SequenceEndsAt)
                 Reload(attack);
@@ -497,6 +509,9 @@ public static class Hl2mpWeaponBehaviours
         /// <summary>CWeaponCrossbow::FireBolt's refire.</summary>
         private const float Refire = 0.75f;
 
+        /// <summary>BOLT_WATER_VELOCITY: a bolt fired from under water.</summary>
+        public const float WaterSpeed = 1500f;
+
         /// <summary>SequenceDuration's answer for a sequence the model does not have.</summary>
         private const float MustReloadAfter = 0.1f;
 
@@ -555,8 +570,11 @@ public static class Hl2mpWeaponBehaviours
 
             if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0)
             {
-                // ReloadOrSwitchWeapons (the script's item_flags 0: it reloads
-                // itself once both triggers are free), then WeaponIdle.
+                // ReloadOrSwitchWeapons (the script's item_flags 0: it switches
+                // away with no bolt left anywhere, and reloads itself once both
+                // triggers are free), then WeaponIdle.
+                if (WeaponLogic.SwitchIfExhausted(attack.Arms, w, now, attack.EffectsLive, w.Clip > 0 || w.Reserve > 0))
+                    return true;
                 if (w.Clip <= 0 && w.Reserve > 0 && w.NextPrimaryAttack < now && w.NextSecondaryAttack < now)
                     Reload(attack);
                 else if (now >= w.TimeWeaponIdle)
@@ -588,8 +606,10 @@ public static class Hl2mpWeaponBehaviours
             var w = attack.Weapon;
             var type = attack.Type;
 
+            // BOLT_WATER_VELOCITY with the shooter's eyes under water, else BOLT_AIR_VELOCITY.
             if (attack.EffectsLive)
-                attack.Arms.Launch(in type, type.Projectile, type.LaunchSpeed, thrown: false);
+                attack.Arms.Launch(in type, type.Projectile, attack.Arms.EyesUnderwater() ? WaterSpeed : type.LaunchSpeed,
+                                   thrown: false);
 
             w.Clip -= 1;
             if (attack.EffectsLive)
@@ -717,12 +737,8 @@ public static class Hl2mpWeaponBehaviours
     /// </para>
     ///
     /// <para>
-    /// Not ported: the switch away from an RPG with nothing left
-    /// (ReloadOrSwitchWeapons' SwitchToNextBestWeapon), which needs the
-    /// owner's inventory. Where stock would have switched, its StartGuiding and
-    /// StopGuiding replay LaserOn and LaserOff every frame; here LaserOn plays
-    /// as the dot is made and LaserOff as it is removed, which in every other
-    /// state is the same moment.
+    /// An RPG with nothing left to fire and no missile in flight is put away
+    /// for the next best weapon (ReloadOrSwitchWeapons' SwitchToNextBestWeapon).
     /// </para>
     /// </summary>
     private sealed class RpgBehaviour : IWeaponBehaviour
@@ -786,11 +802,12 @@ public static class Hl2mpWeaponBehaviours
 
             if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0)
             {
-                // ReloadOrSwitchWeapons: no clip to reload, and the switch away
-                // from an empty RPG is not ported.
+                // ReloadOrSwitchWeapons: no clip to reload; nothing to fire and
+                // no missile in flight, the hands take the next best weapon.
                 w.Special = RpgState.Set(w.Special, RpgState.FireOnEmpty, false);
 
-                if (!w.InReload)
+                bool switched = WeaponLogic.SwitchIfExhausted(attack.Arms, w, now, attack.EffectsLive, HasAnyAmmo(w));
+                if (!switched && !w.InReload)
                     WeaponIdle(attack);
             }
 
@@ -844,7 +861,7 @@ public static class Hl2mpWeaponBehaviours
 
             if (RpgState.Has(w.Special, RpgState.FireOnEmpty))
             {
-                // ReloadOrSwitchWeapons: nothing to reload; the switch is not ported.
+                // ReloadOrSwitchWeapons, on the release: nothing to reload.
                 w.Special = RpgState.Set(w.Special, RpgState.FireOnEmpty, false);
                 return;
             }
@@ -984,14 +1001,50 @@ public static class Hl2mpWeaponBehaviours
     {
         private const float FastestRefire = 0.1f;
 
-        public void PrimaryAttack(in WeaponAttackContext attack)
-            => attack.Weapon.SoonestPrimaryAttack = attack.Now + FastestRefire;
+        /// <summary>PISTOL_ACCURACY_SHOT_PENALTY_TIME and PISTOL_ACCURACY_MAXIMUM_PENALTY_TIME.</summary>
+        private const float ShotPenalty = 0.2f, MaximumPenalty = 1.5f;
 
-        /// <summary>CWeaponPistol::Reload: a started reload plays WeaponSound( RELOAD ) on both sides.</summary>
+        /// <summary>VECTOR_CONE_1DEGREES and VECTOR_CONE_6DEGREES: the sines the cone is lerped between.</summary>
+        private const float AccurateCone = 0.00873f, InaccurateCone = 0.05234f;
+
+        /// <summary>
+        /// UpdatePenaltyTime, from ItemPreFrame (and ItemBusyFrame, which runs
+        /// at the same point): with the trigger up and the click's wait over,
+        /// the penalty drains by the time since it was last brought up to date.
+        /// </summary>
+        public void ItemPreFrame(in WeaponAttackContext attack, int buttons)
+        {
+            var w = attack.Weapon;
+            if (((InputButtons)buttons & InputButtons.Attack) == 0 && w.SoonestPrimaryAttack < attack.Now)
+                w.AccuracyPenalty = Math.Clamp(w.AccuracyPenalty - (attack.Now - w.AccuracyPenaltyAt), 0f, MaximumPenalty);
+            w.AccuracyPenaltyAt = attack.Now;
+        }
+
+        /// <summary>
+        /// GetBulletSpread: VectorLerp( VECTOR_CONE_1DEGREES,
+        /// VECTOR_CONE_6DEGREES ) by the penalty over its maximum, in the
+        /// cone's sines, as stock lerps the vector.
+        /// </summary>
+        public float? BulletSpread(in WeaponAttackContext attack)
+        {
+            float ramp = Math.Clamp(attack.Weapon.AccuracyPenalty / MaximumPenalty, 0f, 1f);
+            float sine = AccurateCone + (InaccurateCone - AccurateCone) * ramp;
+            return MathF.Asin(sine) * 180f / MathF.PI;
+        }
+
+        /// <summary>PrimaryAttack's tail: the click's soonest refire, and the shot's penalty, which may pass the maximum.</summary>
+        public void PrimaryAttack(in WeaponAttackContext attack)
+        {
+            attack.Weapon.SoonestPrimaryAttack = attack.Now + FastestRefire;
+            attack.Weapon.AccuracyPenalty += ShotPenalty;
+        }
+
+        /// <summary>CWeaponPistol::Reload: a started reload plays WeaponSound( RELOAD ) on both sides, and clears the penalty.</summary>
         public void Reload(in WeaponAttackContext attack)
         {
             if (attack.EffectsLive)
                 attack.Arms.Sound(attack.Type.ReloadSound);
+            attack.Weapon.AccuracyPenalty = 0f;
         }
 
         public void ItemPostFrame(in WeaponAttackContext attack)

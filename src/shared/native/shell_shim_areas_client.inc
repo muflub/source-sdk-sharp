@@ -320,6 +320,8 @@ void CShimViewClient::ColorLookupResetWeights()
 	{ return ::SourceSharp_ColorLookupResetWeights(); }
 int32_t CShimViewClient::ClientClipRayToEntities( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, const int32_t * pEntityIndices, int32_t nEntities, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, int32_t * pOutHitbox, int32_t * pOutEntityIndex, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags )
 	{ return ::SourceSharp_ClientClipRayToEntities( pStartXYZ, pEndXYZ, nMask, pEntityIndices, nEntities, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHitbox, pOutEntityIndex, pOutSurfaceProps, pOutSurfaceFlags ); }
+int32_t CShimViewClient::ClientTraceHullEntities( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex, const int32_t * pEntityIndices, int32_t nEntities, float * pOutFraction, float * pOutEndXYZ, int32_t * pOutEntityIndex, float * pOutEntityOriginXYZ )
+	{ return ::SourceSharp_ClientTraceHullEntities( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nPassEntityIndex, pEntityIndices, nEntities, pOutFraction, pOutEndXYZ, pOutEntityIndex, pOutEntityOriginXYZ ); }
 
 int32_t CShimUserMessagesClient::ClientViewportQuery( const char * pPanel )
 	{ return ::SourceSharp_ClientViewportQuery( pPanel ); }

@@ -34,6 +34,12 @@ public class PhysCannonImpactEffectTests
         public ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
     }
 
+    // The viewmodel conversion, as a recognisable answer: the point lifted 5 units.
+    private sealed class Lifted : IViewModelAttachmentFormat
+    {
+        public Vector ForWorldPass(EntityHandle entity, Vector attachment) => attachment + new Vector(0f, 0f, 5f);
+    }
+
     private static (PhysCannonImpactEffect Effect, Sparks Sparks, RecordingEngine Engine) Rig(int localPlayer)
     {
         var engine = TestServices.Mock()
@@ -51,7 +57,7 @@ public class PhysCannonImpactEffectTests
 
         var sparks = new Sparks();
         var effect = new PhysCannonImpactEffect(sparks, new RecordingBeams(engine),
-                                                new Standalones(viewModel, weapon), engine, engine);
+                                                new Standalones(viewModel, weapon), engine, engine, new Lifted());
         return (effect, sparks, engine);
     }
 
@@ -66,7 +72,8 @@ public class PhysCannonImpactEffectTests
 
         Assert.Equal([(Impact, new Vector(-1f, 0f, 0f), 0)], sparks.Gauss);
         var beam = (BeamInfo)Assert.Single(engine.Calls, c => c.Member == "Beams.CreateBeamPoints(BeamInfo)").Args[0]!;
-        Assert.Equal((Muzzle, Impact, PhysCannonImpactEffect.BeamSprite, 0.1f, 12f, 4f, 16),
+        // The beam's start is the muzzle where the world's projection draws it.
+        Assert.Equal((Muzzle + new Vector(0f, 0f, 5f), Impact, PhysCannonImpactEffect.BeamSprite, 0.1f, 12f, 4f, 16),
                      (beam.Start, beam.End, beam.ModelName, beam.Life, beam.Width, beam.EndWidth, beam.Segments));
     }
 

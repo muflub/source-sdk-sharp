@@ -183,6 +183,18 @@ public enum TraceMask
     /// ABI for <see cref="All"/>'s reason.
     /// </summary>
     ContentsSolid = 9,
+
+    /// <summary>
+    /// <c>MASK_SHOT &amp; ~CONTENTS_WINDOW</c>: a shot that passes through
+    /// glass, the RPG laser's (<c>UpdateLaserPosition</c>). Mapped on both arms.
+    /// </summary>
+    ShotNoWindows = 10,
+
+    /// <summary>
+    /// <c>MASK_OPAQUE</c>: solid, moveable and opaque contents, the line a
+    /// crossbow bolt traces behind its victim. Mapped on both arms.
+    /// </summary>
+    Opaque = 11,
 }
 
 /// <summary>
@@ -202,6 +214,9 @@ public enum Contents
 
     /// <summary>Solid brush. CONTENTS_SOLID.</summary>
     Solid = 0x1,
+
+    /// <summary>Slime. CONTENTS_SLIME: water's neighbour, a splash that reads as slime.</summary>
+    Slime = 0x10,
 
     /// <summary>
     /// Water. CONTENTS_WATER.
@@ -385,6 +400,19 @@ public readonly record struct ClientTraceResult(
     int SurfaceFlags);
 
 /// <summary>
+/// What a CLIENT box swept through the world and the entities its caller names
+/// stopped on first: whether it stopped, how far it got and where, the index
+/// of what it stopped on (the world's is 0, -1 for a miss) and that entity's
+/// origin (the world's is the map's origin).
+/// </summary>
+public readonly record struct ClientBoxTrace(
+    bool Hit,
+    float Fraction,
+    Vector End,
+    int EntityIndex,
+    Vector EntityOrigin);
+
+/// <summary>
 /// What a swept BOX ran into.
 ///
 /// <para>
@@ -487,6 +515,9 @@ public enum WeaponAnim
 
     /// <summary>ACT_VM_FIDGET: the crossbow's idle with no bolt loaded.</summary>
     Fidget = 13,
+
+    /// <summary>ACT_VM_MISSCENTER: a melee swing that met nothing.</summary>
+    Miss = 14,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

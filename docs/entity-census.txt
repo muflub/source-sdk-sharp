@@ -1,3 +1,6 @@
+# 2026-10-26, stock-ab (the predicted swing's hull): shell_worldquery_client.cpp gained SourceSharp_ClientTraceHullEntities,
+#   whose pass entity is cast to IClientUnknown as the other trace slots' are: client ToEngineIface 12 -> 13 in 5 files;
+#   no object or cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-25, client.so on stock headers (M2): takedamageinfo_library.cpp left client.so (its one client caller,
 #   ClearMultiDamage, went: nothing fills the accumulator): client objects 134 -> 133, shim 134 -> 133; no cross-edge
 #   moved. Hand-applied from tools/entity-census's diff.
@@ -984,7 +987,7 @@ GetBaseEntity           0 in 0 files          0 in 0 files          0 in 0 files
 GetContainingEntity     0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 GetGameData             0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 EHANDLE                 0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
-ToEngineIface           0 in 0 files          12 in 7 files         0 in 0 files          12 in 5 files       
+ToEngineIface           0 in 0 files          12 in 7 files         0 in 0 files          13 in 5 files       
 
 == 3. SHIM -> STOCK CROSS-EDGES, PER STOCK TU ==
 # FLOOR. Sorted by edges. A TU at 0 is one nothing in the shim links

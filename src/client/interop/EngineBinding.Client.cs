@@ -855,6 +855,7 @@ internal sealed unsafe partial class EngineEffects
     // attach guard answered here, where the server's areas are never attached.
     public void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) { }
     public void BubbleEffect(EntityHandle entity, int count, float speed) { }
+    public void BubbleTrailEffect(Vector from, Vector to, int count) { }
     public void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay) { }
     public int EffectDispatchIndex(string name) => 0;
     public void DustEffect(Vector origin, Vector direction, float size, float speed) { }
@@ -1979,6 +1980,33 @@ internal sealed unsafe partial class EngineWorldQuery
             entIndex,
             surfaceProps,
             surfaceFlags);
+    }
+
+    /// <inheritdoc/>
+    public unsafe ClientBoxTrace ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs,
+                                                          TraceMask mask, int passEntityIndex,
+                                                          ReadOnlySpan<int> entityIndices)
+    {
+        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
+        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
+        float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
+        float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
+        float* endPos = stackalloc float[3];
+        float* origin = stackalloc float[3];
+        float fraction = 1f;
+        int entIndex = -1;
+        int stopped;
+
+        // One crossing for the whole list, as the ray's clip.
+        fixed (int* indices = entityIndices)
+        {
+            stopped = _viewClientArea.ClientTraceHullEntities(s, e, lo, hi, (int)mask, passEntityIndex,
+                                                              indices, entityIndices.Length,
+                                                              &fraction, endPos, &entIndex, origin);
+        }
+
+        return new ClientBoxTrace(stopped != 0, fraction, new Vector(endPos[0], endPos[1], endPos[2]),
+                                   entIndex, new Vector(origin[0], origin[1], origin[2]));
     }
 
     /// <summary>

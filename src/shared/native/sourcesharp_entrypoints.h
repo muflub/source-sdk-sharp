@@ -228,7 +228,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 258 slots.
+// CLIENT ONLY -- 259 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -353,6 +353,13 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
                                      const float *pMinsXYZ, const float *pMaxsXYZ,
                                      int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex,
                                      float *pOutFraction, float *pOutEndXYZ );
+int32_t SourceSharp_ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ,
+                                             const float *pMinsXYZ, const float *pMaxsXYZ,
+                                             int32_t nMask, int32_t nPassEntityIndex,
+                                             const int32_t *pEntityIndices, int32_t nEntities,
+                                             float *pOutFraction, float *pOutEndXYZ,
+                                             int32_t *pOutEntityIndex,
+                                             float *pOutEntityOriginXYZ );
 float SourceSharp_ClientTraceHullWorld( const float *pStartXYZ, const float *pEndXYZ,
                                         const float *pMinsXYZ, const float *pMaxsXYZ,
                                         int32_t nMask, int32_t *pOutSolidFlags,

@@ -125,6 +125,11 @@ static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 	nOffsets[ STANDALONE_NET_FIELD_SKIN ]         = CStandaloneEntity::BlockBase()
 	                                              + (int)offsetof( EngineBlock_t, Client )
 	                                              + (int)offsetof( EngineBlockClientTail_t, Skin );
+	// THE BODY, beside it: Client.Body, which managed writes and marks
+	// (ServerSkins.SetBody).
+	nOffsets[ STANDALONE_NET_FIELD_BODY ]         = CStandaloneEntity::BlockBase()
+	                                              + (int)offsetof( EngineBlock_t, Client )
+	                                              + (int)offsetof( EngineBlockClientTail_t, Body );
 
 	int nCount = 0;
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );

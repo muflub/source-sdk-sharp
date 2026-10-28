@@ -1885,7 +1885,23 @@ shim_cpp_files	src/sourcesharp	215
 #   ClientClipRayToEntities (shell_worldquery_client.cpp), the predicted shot's clip against the shells no client trace
 #   can see, and its two rules (shell_te_backend_args.h) and slot plumbing. It binds the predicted impacts landing on the
 #   entity the server's round stopped on rather than the wall behind it.
-shim_lines	src/sourcesharp	126490
+# 2026-10-25, stock A/B: m_nBody on the standalone wire (the planted tripmine's body 3): shim_lines 126490 -> 126510 (+20, the
+#   walk: the row and its bit width in standalone_nettable.h, each side's builder offset into Client.Body, as m_nSkin's
+#   were, and client_prop_collision_test's BothBuildersAddressTheBody that holds both offsets).
+# 2026-10-25, stock A/B: SOURCESHARP_TRACE_SHOT_NO_WINDOWS (the RPG laser's MASK_SHOT & ~CONTENTS_WINDOW): shim_lines
+#   126510 -> 126521 (+11, the walk: the mask's declaration in sourcesharp.h and its arm on the client's line and hull
+#   traces, the way every mask is mapped on both arms).
+# 2026-10-25, stock A/B: COLLISION_GROUP_BREAKABLE_GLASS gets a name, as COLLISION_GROUP_PROJECTILE did: one row in
+#   collision_group_names.h and one in shell_entityapi.cpp's table, so func_breakable_surf is made in stock's group and a
+#   bolt can tell glass: shim_lines 126521 -> 126523.
+# 2026-10-25, stock A/B: SOURCESHARP_TRACE_OPAQUE (MASK_OPAQUE, HL2MP's crossbow bolt's line behind its victim):
+#   shim_lines 126523 -> 126534 (+11, the walk: the declaration and its arm on the client's line and hull traces).
+# RAISED 2026-10-25, 126490 -> 126521 (+31, the walk at stock-ab-vmfx on 868537618), deliberately: C_StandaloneEntity::DrawExtras
+#   (shell_standalone_client.cpp) and its two calls from DrawModel, the generated OnStandaloneDrawExtras slot and the
+#   RENDER_GROUP_TWOPASS pin. It binds stock's weapon draw effects (ViewModelDrawn, the two-pass translucent DrawModel
+#   arm) to managed: the RPG's laser glow, the physcannon's and stunstick's sprites.
+#   Composed at the lane's landing on stock-ab (2026-10-25) onto stock-ab's own raises above: 126534 -> 126565.
+shim_lines	src/sourcesharp	126565
 # RAISED 126368 -> 126370 (2026-10-25, stock-ab): COLLISION_GROUP_PROJECTILE gets a name, one row in collision_group_names.h and one in shell_entityapi.cpp's table (d), so the SMG1's grenade_ar2 is made in stock's group.
 # Composed 2026-10-25 on stock-ab: the two raises above together, 126368 + 2 + 120 = 126490.
 # RAISED 2026-10-19, 128502 -> 128520 (plan_server_native_v2 T6, +18 net): the root's scaffolding is new text -- server_state.h (the two heap tiers m_pDll/m_pLevel) and shell_shim_root_server.h (the server's shim root as a member of the game DLL object, Acquire folded from SourceSharp_InternalFactory) -- and it binds what T6 moves off file-scope statics; T6 3a-3g's dead-global deletions paid for all but 18 lines of it.

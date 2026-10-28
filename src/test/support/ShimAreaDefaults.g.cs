@@ -462,6 +462,7 @@ internal sealed unsafe class DefaultViewClientArea : IViewClientArea
     public void ColorLookupRemove(void* a0) { }
     public void ColorLookupResetWeights() { }
     public int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) => default;
+    public int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11) => default;
 }
 
 /// <summary><see cref="IUserMessagesClientArea"/> for a test with no engine: every call answers its default.</summary>

@@ -1475,7 +1475,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // which the weapon machines resolve on their first command. After the
         // temp entities above, which carry its launch effect.
         _services.AddInstance<IVPhysicsGrabCalls>(new VPhysicsGrabCalls(_engine.VPhysics));
-        _services.AddInstance<ITraceQueries>(new EngineTraceQueries(_engine));
+        _services.AddInstance<ITraceQueries>(new EngineTraceQueries(_services.Require<SideRoute<IServerTraceRoute>>()));
         _services.AddInstance<ICustomMotionControllers>(_services.Require<PhysicsMotionControllers>());
         var physCannon = _services.Create<PhysCannonWorld>();
         _services.AddInstance(physCannon);
@@ -1623,6 +1623,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // rules' reset, its warmup gate before their think).
         var modes = _services.Create<GameModes>();
         _services.AddInstance(modes);
+        _services.AddInstance<ISpawnWeapon>(DefaultSpawnWeapon.Of(_arsenal, _services.Require<IEngineEntities>(), _engineServer));
         _rules = _services.Create<GameRules>();
         modes.Attach(_rules);
         // And the death cycle gets the proxy too (tf2 stage 0.7 part C): the
@@ -1866,6 +1867,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                          _services.Require<IGameClock>(), Log,
                                          _surfaceProps, _convars.Get<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
+        _arsenal.Attachments = _skeletons;
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
         // The model descriptors are read from the same studio headers

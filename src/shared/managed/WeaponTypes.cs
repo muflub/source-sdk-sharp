@@ -25,9 +25,9 @@ namespace SourceSharp.Shared;
 /// would empty its clip in a single pull.
 /// </param>
 /// <param name="Spread">
-/// Half-angle of the cone, in degrees. Zero takes the base class's cone rather
-/// than firing perfectly straight, because "unregistered" and "perfectly
-/// accurate" should not be the same value.
+/// Half-angle of the cone, in degrees: half of stock's VECTOR_CONE_N DEGREES
+/// (the SMG1's 5 DEGREES is 2.5 here). Zero fires perfectly straight, as the
+/// 357's vec3_origin does; a behaviour may answer its own (the pistol's).
 /// </param>
 public readonly record struct WeaponType(
     string Name,
@@ -308,7 +308,7 @@ public static class WeaponTypes
 
         // GetFireRate() is 0.5 held; clicked, the pistol behaviour lets it
         // refire after PISTOL_FASTEST_REFIRE_TIME (weapon_pistol.cpp, hl2mp).
-        new(EntityNames.WeaponPistol,   Interval: 0.5f, Spread: 1.0f)
+        new(EntityNames.WeaponPistol,   Interval: 0.5f, Spread: 0.5f)
         {
             Behaviour   = Hl2mpWeaponBehaviours.Pistol,
             ClipSize    = 18,
@@ -320,7 +320,7 @@ public static class WeaponTypes
             ReloadSound = "Weapon_Pistol.Reload",
         },
 
-        new(EntityNames.Weapon357,      Interval: 0.75f, Spread: 0.5f)
+        new(EntityNames.Weapon357,      Interval: 0.75f)
         {
             ClipSize    = 6,
             AmmoName    = "357",
@@ -334,7 +334,7 @@ public static class WeaponTypes
         // The SMG launches a grenade, on the ammunition dm_lockdown already
         // scatters six boxes of: stock's grenade_ar2, a contact grenade aimed
         // along the eyes at 1000, by CWeaponSMG1::SecondaryAttack's rules.
-        new(EntityNames.WeaponSmg1,     Interval: 0.075f, Spread: 3.0f)
+        new(EntityNames.WeaponSmg1,     Interval: 0.075f, Spread: 2.5f)
         {
             Behaviour = Hl2mpWeaponBehaviours.Smg1,
             Secondary = new SecondaryFire(Interval: 1.0f)
@@ -357,7 +357,7 @@ public static class WeaponTypes
         // that ricochets off the world and keeps going. It stood in as a rocket
         // for a while, which was the same shot without the thing that makes it
         // interesting — a rocket that hits a wall is over.
-        new(EntityNames.WeaponAr2,      Interval: 0.10f, Spread: 2.0f)
+        new(EntityNames.WeaponAr2,      Interval: 0.10f, Spread: 1.5f)
         {
             DefaultClip = 60,   // weapon_ar2.txt's default_clip
             Secondary = new SecondaryFire(Interval: 1.5f)

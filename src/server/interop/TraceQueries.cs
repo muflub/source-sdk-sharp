@@ -33,21 +33,21 @@ public interface ITraceQueries
 /// <see cref="ITraceQueries"/> over the side's tracer (ServerTraceRouting),
 /// asked per call: the tracer is built after the side composes.
 /// </summary>
-public sealed class EngineTraceQueries(ModuleEngine engine) : ITraceQueries
+public sealed class EngineTraceQueries(SideRoute<IServerTraceRoute> tracer) : ITraceQueries
 {
     // COLLISION_GROUP_NONE.
     private const int CollisionGroupNone = 0;
 
     /// <inheritdoc/>
     public TraceAnswer Line(Vector start, Vector end, uint mask, EntityHandle pass)
-        => ServerTraceRouting.TracerOf(engine) is { } tracer
-               ? Answer(tracer.Line(start, end, mask, pass, CollisionGroupNone))
+        => tracer.Target is { } route
+               ? Answer(route.Line(start, end, mask, pass, CollisionGroupNone))
                : new TraceAnswer(1f, end, EntityHandle.None, false);
 
     /// <inheritdoc/>
     public TraceAnswer Hull(Vector start, Vector end, Vector mins, Vector maxs, uint mask, EntityHandle pass)
-        => ServerTraceRouting.TracerOf(engine) is { } tracer
-               ? Answer(tracer.Hull(start, end, mins, maxs, mask, pass, CollisionGroupNone))
+        => tracer.Target is { } route
+               ? Answer(route.Hull(start, end, mins, maxs, mask, pass, CollisionGroupNone))
                : new TraceAnswer(1f, end, EntityHandle.None, false);
 
     private static TraceAnswer Answer(in ServerTrace t)

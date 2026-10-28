@@ -203,7 +203,7 @@ public class ClientEntitiesRouteTests
             [new DebugClientNetStateBlock("func_occluder", "OccluderNetState", true, 8,
                 [new DebugClientNetValue("Index", "uint", 0, 10, true, "37", "0x25")])],
             [new DebugClientInterpolated("Origin", 2, 1.1f, new DebugClientVec3(1, 2, 4))],
-            Skin: 3);
+            Skin: 3, Body: 5);
 
         using var client = DebugApiClientGoldenTests.Channel(TestDebugHooks.Client(entities: new FixedEntities([], state)));
         Assert.Equal(DebugApiClientGoldenTests.Golden("entity"), client.Answer(DebugChannelQuery.Entity, "7"));

@@ -144,6 +144,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly IHooks<IDamageRule>? _damageRules;
     private readonly IHooks<ILoadoutProvider>? _loadoutProviders;
 
+    /// <summary>What a spawning player ends up holding; null leaves the grant's own choice.</summary>
+    private readonly ISpawnWeapon? _spawnWeapon;
+
     /// <summary>
     /// The mode the proxy is answering for, or null — before any proxy,
     /// before the first pick, and on the unknown-id arm. Null is not an
@@ -158,8 +161,10 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                      IGameEvent<PlayerDeathArgs> deaths, Intermission? intermission = null,
                      ConVarRegistry? mpConVars = null, GameModes? modes = null,
                      IHooks<IDamageRule>? damageRules = null,
-                     IHooks<ILoadoutProvider>? loadout = null)
+                     IHooks<ILoadoutProvider>? loadout = null,
+                     ISpawnWeapon? spawnWeapon = null)
     {
+        _spawnWeapon = spawnWeapon;
         // The mode proxy (tf2 stage 0.7). OPTIONAL and null means the game
         // before it: every question below answers with this class's own
         // machine, which is what every no-owner fact measures. The module
@@ -414,6 +419,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         int ammoGiven = 0;
         foreach (var (name, count) in ammo)
             ammoGiven += _players.GiveAmmo(player, count, name);
+
+        // GiveDefaultItems' last word: the weapon the player asked to spawn with.
+        _spawnWeapon?.Choose(player);
 
         // The mode's spawn arm, after the core's own bookkeeping: today's
         // deathmatch adds nothing here (NullMode's machine IS this class and

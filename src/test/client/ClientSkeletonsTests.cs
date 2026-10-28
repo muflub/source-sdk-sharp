@@ -467,7 +467,7 @@ public unsafe class ClientSkeletonsTests
         rig.Blocks.Held[Source] = Block(new NVector(0f, 300f, 0f), model: 8);
         rig.Setup(Entity, output, time: 2f);
 
-        Assert.Equal((new NVector(0f, 300f, 0f), new NVector(105f, 0f, 10f)), (At(output, 0), At(output, 2)));
+        Assert.Equal((new NVector(0f, 300f, 0f), new NVector(5f, 300f, 10f)), (At(output, 0), At(output, 2)));
     }
 
     // ---- the frame's batch (plan_physics_bones_perf A2) -------------------------------

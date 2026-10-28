@@ -212,6 +212,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     public ITempEnts? Temps { get; set; }
 
     /// <summary>
+    /// The skeletons' answer to where an attachment is on a carried weapon,
+    /// bone-merged onto its carrier (the stunstick's draw sparks). Set by the
+    /// composition once the skeletons exist, as <see cref="Temps"/> is. Null:
+    /// the weapon's own origin, which is the SDK's answer for a model that
+    /// cannot be asked.
+    /// </summary>
+    public IMergedAttachments? Attachments { get; set; }
+
+    /// <summary>
     /// The weapon table this arsenal gives from — the one list this side reads,
     /// exposed so the decorator and the console report answer "do we have that
     /// weapon" from the arsenal's own answer rather than a second lookup.
@@ -294,7 +303,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     // arsenal built without one (a test's).
     private readonly IUserMessageSender? _messages;
 
-    private Carry CarryFor(EntityHandle player)
+    internal Carry CarryFor(EntityHandle player)
     {
         if (_carries.TryGetValue(player.Value, out var carry))
             return carry;
@@ -823,6 +832,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         SettlePool(carry, weapon.State.WeaponTypeId, primary: false,
                    beforeSecondary - weapon.State.SecondaryReserve);
 
+        // The weapon asked to be put away for the next best (ReloadOrSwitchWeapons):
+        // taken now the command is done with the state it ran on.
+        if (carry.Arms.TakePendingSwitch() is int nextBest)
+            Take(carry, nextBest);
+
         // A SLAM with no charges left and none out asked to go: stock's
         // Weapon_Drop( this ) and UTIL_Remove( this ) from its WeaponIdle.
         if (SlamBits.Has(weapon.State.Special, SlamBits.Spent) &&
@@ -873,6 +887,64 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         int next = carry.Weapons.FindIndex(o => o.TypeIndex == carry.LastTypeIndex);
         Deploy(carry, next >= 0 ? next : 0);
+    }
+
+    /// <summary>
+    /// CMultiplayRules::GetNextBestWeapon, for the weapon in the hands having
+    /// nothing left to fire: none when the weapon will not be switched from
+    /// empty (ITEM_FLAG_NOAUTOSWITCHEMPTY) or cannot be put away; else the
+    /// first other weapon of the same weight with any ammo, or failing that the
+    /// heaviest with any (a weapon that uses none always has some). Weights and
+    /// flags are the weapons' scripts'.
+    /// </summary>
+    internal int NextBestSlot(Carry carry)
+    {
+        if (carry.ActiveSlot < 0 || carry.ActiveSlot >= carry.Weapons.Count ||
+            _weapons.ByIndex(carry.Weapons[carry.ActiveSlot].TypeIndex) is not WeaponType current)
+            return -1;
+
+        WeaponScript? currentScript = _scripts?.ReadScript(current.Name);
+        if (currentScript is not null && (currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0)
+            return -1;
+
+        if (ActiveBehaviour(carry, out var context) is { } behaviour && !behaviour.CanHolster(in context))
+            return -1;
+
+        int currentWeight = currentScript?.Weight ?? 0;
+        int best = -1, bestWeight = -1;
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            if (slot == carry.ActiveSlot || _weapons.ByIndex(carry.Weapons[slot].TypeIndex) is not WeaponType check)
+                continue;
+
+            int weight = _scripts?.ReadScript(check.Name)?.Weight ?? 0;
+            bool hasAmmo = HasAnyAmmo(carry, carry.Weapons[slot], in check);
+
+            if (weight > -1 && weight == currentWeight)
+            {
+                if (hasAmmo)
+                    return slot;
+            }
+            else if (weight > bestWeight && hasAmmo)
+            {
+                bestWeight = weight;
+                best = slot;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>CBaseCombatWeapon::HasAnyAmmo for a holstered weapon: its kept clip, or its pools.</summary>
+    private bool HasAnyAmmo(Carry carry, Owned owned, in WeaponType type)
+    {
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary &&
+                       ((ClipSizeOf(in type) > 0 && owned.Clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
+        return primary || (usesSecondary && carry.Ammo.GetValueOrDefault(type.SecondaryAmmoName) > 0);
     }
 
     private void SettlePool(Carry carry, int typeIndex, bool primary, int spent)
@@ -1551,8 +1623,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 if (!trace.Hit)
                     continue;
 
+                // A round that ends under water splashes where it went in, and
+                // marks nothing below (HandleShotImpactingWater); it still hurts.
+                bool hitWater = (_arsenal._world.PointContents(trace.End) & Liquid) != 0
+                             && ShotEntersWater(from, from + dir * MaxTrace, in ammo);
+
                 // UTIL_ImpactTrace marks nothing on the sky, on either side.
-                if ((trace.SurfaceFlags & SurfSky) == 0)
+                if (!hitWater && (trace.SurfaceFlags & SurfSky) == 0)
                     _arsenal._effects.ImpactEffect(trace.End - dir * ImpactBackoff, trace.End,
                                                    trace.SurfaceProps, ammo.DamageType,
                                                    trace.Entity);
@@ -1577,6 +1654,42 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         /// <summary>
+        /// CBaseEntity::HandleShotImpactingWater: the shot again, stopping at
+        /// water, and where it went in a gunshotsplash the ammo's size (slime's
+        /// own in slime). The round's own trace met nothing solid on the way,
+        /// so a line through brushes and water stops at the surface.
+        /// </summary>
+        private bool ShotEntersWater(Vector from, Vector end, in AmmoType ammo)
+        {
+            var surface = _arsenal._world.TraceLine(from, end, TraceMask.BrushesAndWater, _carry.Player);
+            Contents below = _arsenal._world.PointContents(surface.End - new Vector(0f, 0f, 0.1f));
+            if ((below & Liquid) == 0)
+                return false;
+
+            if (_arsenal.Temps is { } temps)
+            {
+                TeEffectData data = new()
+                {
+                    Origin = surface.End,
+                    Normal = surface.Normal,
+                    Scale = ammo.MinSplashSize + (float)_random.NextDouble() * (ammo.MaxSplashSize - ammo.MinSplashSize),
+                    Flags = (below & Contents.Slime) != 0 ? FxWaterInSlime : 0,
+                };
+                temps.DispatchEffect(TeFilters.Pas(data.Origin), 0f, GunshotSplash, in data);
+            }
+            return true;
+        }
+
+        /// <summary>CONTENTS_WATER | CONTENTS_SLIME.</summary>
+        private const Contents Liquid = Contents.Water | Contents.Slime;
+
+        /// <summary>The client effect a round's water entry dispatches.</summary>
+        internal const string GunshotSplash = "gunshotsplash";
+
+        /// <summary>FX_WATER_IN_SLIME (shareddefs.h).</summary>
+        private const int FxWaterInSlime = 0x1;
+
+        /// <summary>
         /// How far back along the shot the impact's start point is placed.
         ///
         /// <para>
@@ -1598,8 +1711,122 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         private const float ImpactBackoff = 32f;
 
+        /// <inheritdoc />
+        public bool MeleeConnects(in WeaponType type) => MeleeAim(in type, out _, out _);
+
+        /// <inheritdoc />
+        public bool EyesUnderwater()
+            => (_arsenal._world.PointContents(_arsenal._players.GetShootOrigin(_carry.Player))
+                & (Contents.Water | Contents.Slime)) != 0;
+
+        /// <inheritdoc />
+        public bool SwitchToNextBest()
+        {
+            _pendingSwitch = _arsenal.NextBestSlot(_carry);
+            return _pendingSwitch >= 0;
+        }
+
+        /// <summary>The slot a <see cref="SwitchToNextBest"/> picked this command, once; null for none.</summary>
+        internal int? TakePendingSwitch()
+        {
+            int slot = _pendingSwitch;
+            _pendingSwitch = -1;
+            return slot >= 0 ? slot : null;
+        }
+
+        private int _pendingSwitch = -1;
+
         /// <summary>
-        /// A swing: <c>CBaseHL2MPBludgeonWeapon::Swing</c>'s first ray and, when
+        /// CBaseHL2MPBludgeonWeapon::Swing's aim. The ray first; a ray that
+        /// meets nothing tries the swing's 32-unit hull, backed off by its
+        /// corner radius, and keeps what it found only if the swinger is
+        /// roughly facing it (the "YWB" 0.70721 test: for the world, whose
+        /// origin is the map's, that is wherever the map's origin lies), the
+        /// point taken by ChooseIntersectionPointAndActivity. The surface rides
+        /// with the answer for the impact, as it does for a bullet.
+        /// </summary>
+        private bool MeleeAim(in WeaponType type, out SurfaceTraceResult trace, out Vector forward)
+        {
+            Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
+            forward = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player)).Forward;
+            Vector end = from + forward * type.MeleeRange;
+
+            trace = _arsenal._world.TraceLineSurface(from, end, TraceMask.ShotHull, _carry.Player);
+            if (trace.Hit)
+                return true;
+
+            Vector hullEnd = end - forward * BludgeonSwing.HullRadius;
+            var hull = _arsenal._world.TraceBox(from, hullEnd, BludgeonSwing.Hull * -1f, BludgeonSwing.Hull,
+                                                TraceMask.ShotHull, _carry.Player);
+            if (!hull.Hit)
+                return false;
+
+            Vector target = hull.Entity == EntityHandle.None ? Vector.Zero : _arsenal._entities.GetOrigin(hull.Entity);
+            if ((target - from).Normalized.Dot(forward) < BludgeonSwing.FacingDot)
+                return false;
+
+            trace = IntersectionPoint(from, hull);
+            return true;
+        }
+
+        /// <summary>
+        /// ChooseIntersectionPointAndActivity: the line through the hull's end,
+        /// doubled; when that misses, the nearest of the lines to its eight
+        /// corners, and when they all miss, the hull's own answer.
+        /// </summary>
+        private SurfaceTraceResult IntersectionPoint(Vector from, in SurfaceTraceResult hull)
+        {
+            Vector through = from + (hull.End - from) * 2f;
+            var line = _arsenal._world.TraceLineSurface(from, through, TraceMask.ShotHull, _carry.Player);
+            if (line.Fraction != 1f)
+                return line;
+
+            SurfaceTraceResult best = hull;
+            float nearest = float.MaxValue;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector toCorner = new((corner & 1) != 0 ? BludgeonSwing.HullDim : -BludgeonSwing.HullDim,
+                                      (corner & 2) != 0 ? BludgeonSwing.HullDim : -BludgeonSwing.HullDim,
+                                      (corner & 4) != 0 ? BludgeonSwing.HullDim : -BludgeonSwing.HullDim);
+                var probe = _arsenal._world.TraceLineSurface(from, through + toCorner, TraceMask.ShotHull, _carry.Player);
+                if (probe.Fraction >= 1f)
+                    continue;
+                float distance = (probe.End - from).Length;
+                if (distance < nearest)
+                {
+                    best = probe;
+                    nearest = distance;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// CBaseHL2MPBludgeonWeapon::ImpactWater, for a swing that met nothing:
+        /// from out of the water to a reach's end in it, a splash of 8 where it
+        /// went in (slime's own where it was slime). The swing's shot ray met
+        /// nothing solid, so its line through brushes and water stops at the
+        /// surface.
+        /// </summary>
+        public void MeleeMiss(in WeaponType type)
+        {
+            Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
+            Vector forward = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player)).Forward;
+            Vector end = from + forward * type.MeleeRange;
+
+            if ((_arsenal._world.PointContents(from) & Liquid) != 0)
+                return;
+            Contents at = _arsenal._world.PointContents(end);
+            if ((at & Liquid) == 0)
+                return;
+
+            var surface = _arsenal._world.TraceLine(from, end, TraceMask.BrushesAndWater, _carry.Player);
+            if (surface.Fraction < 1f)
+                _arsenal._effects.SplashEffect(surface.End, 8f, inSlime: (at & Contents.Slime) != 0);
+        }
+
+        /// <summary>
+        /// A swing: <c>CBaseHL2MPBludgeonWeapon::Swing</c>'s aim (see <see cref="MeleeAim"/>) and, when
         /// it lands, <c>Hit</c> — the row's own damage, the hit sound for a row
         /// that plays one (<c>PlayFleshyHittySoundOnHit</c>), and the impact:
         /// the row's own client effect where it declares one, then
@@ -1608,15 +1835,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         public void MeleeSwing(in WeaponType type)
         {
-            Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
-            var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
-
-            // The surface rides with the trace for the impact below, as it does
-            // for a bullet: the client picks the decal and the sound from it.
-            var trace = _arsenal._world.TraceLineSurface(from, from + aim.Forward * type.MeleeRange,
-                                                         TraceMask.Shot, _carry.Player);
-
-            if (!trace.Hit)
+            if (!MeleeAim(in type, out SurfaceTraceResult trace, out Vector forward))
                 return;
 
             // CBaseHLBludgeonWeapon::Hit's CalculateMeleeDamageForce, at the
@@ -1624,7 +1843,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
                 _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
                                          type.MeleeDamage, DamageType.Club,
-                                         DamageForceRules.MeleeForce(aim.Forward, type.MeleeDamage),
+                                         DamageForceRules.MeleeForce(forward, type.MeleeDamage),
                                          trace.End);
 
             // Hit plays it for whatever the ray struck, the world included: a
@@ -1647,7 +1866,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             // world included, as a round's. The predicting swinger draws its
             // own (ClientArsenal's arms); this copy is suppressed for it.
             if ((trace.SurfaceFlags & SurfSky) == 0)
-                _arsenal._effects.ImpactEffect(trace.End - aim.Forward * ImpactBackoff, trace.End,
+                _arsenal._effects.ImpactEffect(trace.End - forward * ImpactBackoff, trace.End,
                                                trace.SurfaceProps, DamageType.Club, trace.Entity);
         }
 
@@ -1765,18 +1984,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 dot.TurnOff();
 
             // UpdateLaserPosition: from Weapon_ShootPosition along the eye, the
-            // whole way, MASK_SHOT (less CONTENTS_WINDOW in stock; see
-            // docs/divergences.md), past the owner.
+            // whole way, MASK_SHOT less CONTENTS_WINDOW (the dot lands behind
+            // glass), past the owner.
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             Vector forward = Angles.Forward(entities.GetEyeAngles(_carry.Player));
-            var tr = _arsenal._world.TraceLine(from, from + forward * MaxTrace, TraceMask.Shot, _carry.Player);
+            var tr = _arsenal._world.TraceLine(from, from + forward * MaxTrace, TraceMask.ShotNoWindows, _carry.Player);
 
             dot.SetLaserPosition(tr.End, tr.Normal);
 
             // DidHitNonWorldEntity, and m_takedamage: something that can be hurt.
             EntityHandle hit = tr.Entity;
             bool hurtable = hit != EntityHandle.None && entities.GetIndex(hit) != 0 &&
-                            (entities.IsPlayer(hit) || entities.GetHealth(hit) > 0);
+                            (entities.IsPlayer(hit) || _arsenal._directory.Get(hit) is { TakesDamage: true });
             dot.TargetEntity = hurtable ? hit : EntityHandle.None;
         }
 
@@ -1970,10 +2189,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// <para>
         /// Stock sparks at the WEAPON's attachment 1, which on a stock server is
         /// the bonemerged w_ model's tip in the carrier's hand. This build's
-        /// carried weapon is parked at the player's origin and not bonemerged on
-        /// the server (<see cref="Frame"/>), so its attachment would answer a
-        /// point at the feet; the sparks go where the hand is instead, a short
-        /// reach out from the eye.
+        /// carried weapon is parked at the player's origin and not bonemerged
+        /// (<see cref="Frame"/>), so the skeletons merge it onto the carrier for
+        /// the ask (<see cref="IMergedAttachments"/>); one they cannot answer
+        /// sparks at the weapon's origin, as the SDK's failed GetAttachment does.
         /// </para>
         /// </summary>
         public void DeploySparks()
@@ -1981,15 +2200,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (_arsenal.Temps is not { } temps)
                 return;
 
-            Vector eye = _arsenal._players.GetShootOrigin(_carry.Player);
-            var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
-            Vector at = eye + aim.Forward * DeploySparkReach;
+            if (_arsenal.Attachments is not { } attachments ||
+                !attachments.GetMergedAttachment(_carry.Weapon, _carry.Player, 1, out Vector at))
+                at = _arsenal._entities.GetOrigin(_carry.Weapon);
 
             temps.Sparks(TeFilters.Pvs(at), 0f, at, 1, 1, null);
+            _arsenal._log.Msg($"[SourceSharp/Arsenal] {_carry.Player} draw sparks at {at}\n");
         }
-
-        /// <summary>How far out from the eye the draw's sparks are made.</summary>
-        private const float DeploySparkReach = 24f;
 
         /// <summary>The draw, from Deploy — outside the machine's own frame.</summary>
         public void SendDeployAnim(ViewModelNetState vm)

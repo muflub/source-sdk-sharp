@@ -12,7 +12,7 @@
 5	SLOT-HELP	void C_StandaloneEntity::PostInterpolate( float flCurrentTime )
 8	SLOT-HELP	void C_StandaloneEntity::PublishRenderPose()
 11	BOUNDARY	void C_StandaloneEntity::OnPositionChanged()
-18	BOUNDARY	void C_StandaloneEntity::AddToLeafSystem()
+19	BOUNDARY	void C_StandaloneEntity::AddToLeafSystem()
 11	BOUNDARY	void C_StandaloneEntity::UpdateVisibility()
 8	BOUNDARY	void C_StandaloneEntity::RemoveFromLeafSystem()
 4	SLOT	const model_t *C_StandaloneEntity::GetModel( void ) const
@@ -36,11 +36,12 @@
 21	BOUNDARY	void SourceSharp_StandaloneDrawBatchCapture( const CClientRenderablesList &list )
 9	SLOT-HELP	float SourceSharp_StandaloneDrawBatchBlend( IClientEntity *pEntity, float flFallback )
 23	BOUNDARY	static void AskDrawBatch()
-110	SLOT	int C_StandaloneEntity::DrawModel( int flags )
+115	SLOT	int C_StandaloneEntity::DrawModel( int flags )
+8	BOUNDARY	int C_StandaloneEntity::DrawExtras( int flags, bool bAfterModel )
 5	SLOT	void C_StandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
 8	SLOT	void C_StandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs )
 6	SLOT	static void RecvProxy_StandaloneTypeId( const CRecvProxyData *pData, void *pStruct,
-45	LAYOUT	static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
+48	LAYOUT	static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
 4	LAYOUT	int SourceSharp_StandaloneBlobOffset()
 5	LAYOUT	int C_StandaloneEntity::BlockBase()
 11	LAYOUT	void *C_StandaloneEntity::operator new( size_t nBytes, int nBlobBytes )

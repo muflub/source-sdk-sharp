@@ -229,6 +229,9 @@ public abstract class FlyingProjectile : ScriptedEntity
     private float _lingerFor = -1f;
     [SaveField] private bool _lingering;
 
+    /// <summary>Stopped and waiting out <see cref="Linger"/>: its think is the removal's.</summary>
+    protected bool IsLingering => _lingering;
+
     /// <summary>Whether it has gone off: <see cref="Spend"/> has run.</summary>
     protected bool IsSpent => _spent;
 

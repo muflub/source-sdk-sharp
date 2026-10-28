@@ -616,6 +616,56 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     }
 
     /// <summary>
+    /// UTIL_BubbleTrail: the water surface above each end (UTIL_FindWaterSurface:
+    /// a MASK_WATER line from 256 above down to the point, which answers the
+    /// point's own Z for one out of the water); nothing when both ends are dry;
+    /// one end dry, the line cut where it meets the surface and the count cut to
+    /// the wet part; the trail to everyone, at speed 8.
+    /// </summary>
+    public override void BubbleTrailEffect(Vector from, Vector to, int count)
+    {
+        float startHeight = WaterSurface(from) - from.Z;
+        float endHeight = WaterSurface(to) - to.Z;
+        if (startHeight == 0f && endHeight == 0f)
+            return;
+
+        float waterZ = startHeight + from.Z;
+        Vector wetFrom = from, wetTo = to;
+        if (startHeight == 0f || endHeight == 0f)
+        {
+            if (startHeight == 0f)
+                waterZ = endHeight + to.Z;
+
+            // IntersectRayWithAAPlane on z, and the count by the wet length.
+            float t = to.Z != from.Z ? (waterZ - from.Z) / (to.Z - from.Z) : 0f;
+            Vector waterPoint = from + (to - from) * t;
+            if (startHeight == 0f)
+            {
+                wetFrom = waterPoint;
+                count = (int)(count * (1f - t));
+            }
+            else
+            {
+                wetTo = waterPoint;
+                count = (int)(count * t);
+            }
+        }
+
+        int sprite = _world.PrecacheModel("sprites/bubble.vmt");
+        if (sprite <= 0)
+            return;
+
+        _temps.BubbleTrail(TeFilters.Broadcast, 0f, wetFrom, wetTo, waterZ, sprite, count, 8f);
+    }
+
+    /// <summary>UTIL_FindWaterSurface( position, position.z, position.z + 256 ).</summary>
+    private float WaterSurface(Vector position)
+    {
+        var top = new Vector(position.X, position.Y, position.Z + 256f);
+        return _world.Trace(top, position, MaskWater) is { } trace ? trace.Trace.EndPos.Z : position.Z;
+    }
+
+    /// <summary>
     /// <c>VectorITransform( in, matrix, out )</c> (mathlib.cpp): the point in
     /// the frame <paramref name="frame"/> maps to the world, for a frame whose
     /// rotation is orthonormal.

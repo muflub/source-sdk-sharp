@@ -92,11 +92,71 @@ public sealed class Satchel : ScriptedEntity
     /// <summary><c>m_bIsAttached</c>: stuck to a wall rather than thrown.</summary>
     [SaveField] public bool IsAttached { get; private set; }
 
+    /// <summary>Spawn's UTIL_SetSize: the box it flies as.</summary>
+    public static Vector ThrownMins => new(-6f, -6f, -2f);
+    /// <inheritdoc cref="ThrownMins"/>
+    public static Vector ThrownMaxs => new(6f, 6f, 2f);
+
+    /// <summary>SatchelThink's resize once it is on a wall, "so player can pick up off wall".</summary>
+    public static Vector AttachedMins => new(-2f, -2f, -6f);
+    /// <inheritdoc cref="AttachedMins"/>
+    public static Vector AttachedMaxs => new(2f, 2f, 6f);
+
+    /// <summary>SatchelThink's period.</summary>
+    public const float ThinkPeriod = 0.1f;
+
+    /// <summary>MAX_COORD_INTEGER: past it, IsInWorld says no.</summary>
+    private const float MaxCoord = 16384f;
+
+    // Stock's GetOwnerEntity, which the shell answers nothing for: the thrower
+    // owns it (and so does not collide with it) until it is clear of them.
+    [SaveField] private bool _heldByThrower;
+    [SaveField] private Vector _lastPosition;
+
     public override void OnSpawn()
     {
         SetModel(Model);
+        Entities.SetBounds(Handle, ThrownMins, ThrownMaxs);
         SetCollisionGroup(CollisionGroup.Weapon);
         CreateEffects();
+        SetNextThink(ThinkPeriod);
+    }
+
+    /// <summary>
+    /// CSatchelCharge::SatchelThink: the small box once on a wall; the thrower
+    /// let go of once the satchel can rise five units with nothing in the way
+    /// (they can shoot their own charge from then on); still once it stops
+    /// moving; gone once it has left the world.
+    /// </summary>
+    public override void OnThink()
+    {
+        if (IsAttached)
+            Entities.SetBounds(Handle, AttachedMins, AttachedMaxs);
+
+        Vector at = Origin;
+        if (_heldByThrower)
+        {
+            Entities.SetOwner(Handle, EntityHandle.None);
+            Vector upABit = at + new Vector(0f, 0f, 5f);
+            var (mins, maxs) = Entities.GetBounds(Handle);
+            var tr = World.EntityTraceHull(Handle, at, upABit, mins, maxs, EnginePushWorld.MaskSolid,
+                                           (int)CollisionGroup.Weapon);
+            if (tr.StartSolid || (tr.EndPos - upABit).LengthSquared > 0f)
+                Entities.SetOwner(Handle, Thrower);
+            else
+                _heldByThrower = false;
+        }
+        else if ((at - _lastPosition).LengthSquared < 1f)
+        {
+            // SetThink( NULL ): at rest, it thinks no more.
+            return;
+        }
+        _lastPosition = at;
+
+        SetNextThink(ThinkPeriod);
+
+        if (MathF.Abs(at.X) > MaxCoord || MathF.Abs(at.Y) > MaxCoord || MathF.Abs(at.Z) > MaxCoord)
+            Remove();
     }
 
     /// <summary>Thrown (or stuck) by <paramref name="thrower"/>, and live from now.</summary>
@@ -105,6 +165,10 @@ public sealed class Satchel : ScriptedEntity
         Thrower = thrower;
         IsLive = true;
         IsAttached = attached;
+
+        // Create( "npc_satchel", ..., GetOwner() ): the thrower owns it.
+        Entities.SetOwner(Handle, thrower);
+        _heldByThrower = true;
 
         if (attached)
             EnableMotion(false);

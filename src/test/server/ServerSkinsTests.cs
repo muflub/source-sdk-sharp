@@ -86,4 +86,28 @@ public sealed unsafe class ServerSkinsTests
             NativeMemory.Free(s_Block);
         }
     }
+
+    /// <summary>The body (m_nBody) goes into the block's Client.Body beside the skin, and its own offset is marked.</summary>
+    [Fact]
+    public void ABodyIsWrittenIntoTheBlockAndItsOffsetMarked()
+    {
+        s_Block = (byte*)NativeMemory.AllocZeroed((nuint)EngineBlock.SizeBytes);
+        var (skins, root) = Build();
+        try
+        {
+            var mine = new EntityHandle(0x00020009u);
+
+            skins.SetBody(mine, 3);
+
+            Assert.Equal(3, *(int*)(s_Block + NetworkedBody.Offset));
+            Assert.Equal(0, *(int*)(s_Block + NetworkedSkin.Offset));
+            Assert.Equal((1, mine.Value, NetworkedBody.Offset), (s_Marks, s_MarkedHandle, s_MarkedOffset));
+            Assert.NotEqual(NetworkedSkin.Offset, NetworkedBody.Offset);
+        }
+        finally
+        {
+            root.Dispose();
+            NativeMemory.Free(s_Block);
+        }
+    }
 }

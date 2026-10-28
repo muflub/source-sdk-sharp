@@ -102,6 +102,8 @@ public class WeaponImpactTests
                                             subject ?? Crate,
                                             hit ? surfaceProp : -1,
                                             surfaceFlags, traced))
+            // Dry land: where a round stops is not water.
+            .Returns("WorldQuery.PointContents", Contents.Empty)
             .Returns("Clock.Now", 10f);
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
@@ -388,6 +390,139 @@ public class WeaponImpactTests
         Vector force = hit.ArgAs<Vector>(4);
         Assert.InRange(force.X, damage * DamageForceRules.PerDamagePoint * 0.999f, damage * DamageForceRules.PerDamagePoint * 1.001f);
         Assert.Equal(struck, hit.ArgAs<Vector>(5));
+    }
+
+    /// <summary>
+    /// A crowbar whose ray meets nothing, with the crate half a hull to the
+    /// side: CBaseHL2MPBludgeonWeapon::Swing's hull catches it, and the swing
+    /// lands where ChooseIntersectionPointAndActivity's doubled line meets it.
+    /// </summary>
+    private static (RecordingEngine Engine, int Hulls) SwingPast(Vector crateAt)
+    {
+        var (arsenal, engine) = Armed(hit: false, weapon: "weapon_crowbar");
+        engine.Returns("Entities.IsValid", true);
+        engine.Strict = false;
+
+        int lines = 0;
+        var miss = new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, -1, 0);
+        var meets = new SurfaceTraceResult(true, 0.5f, new Vector(40f, 10f, 64f), new Vector(-1f, 0f, 0f), Crate,
+                                           TracedSurfaceProp, 0);
+        engine.ReturnsEachCall("WorldQuery.TraceLineSurface", () => ++lines == 1 ? miss : meets)
+              .Returns("WorldQuery.TraceBox", new SurfaceTraceResult(true, 0.6f, new Vector(20f, 0f, 64f),
+                                                                     new Vector(-1f, 0f, 0f), Crate, TracedSurfaceProp, 0))
+              .ReturnsEachCall("Entities.GetOrigin",
+                               () => engine.Last("Entities.GetOrigin")!.Value.ArgAs<EntityHandle>(0) == Crate
+                                   ? crateAt : Vector.Zero);
+
+        PullTheTrigger(arsenal, engine);
+        return (engine, engine.CountOf("WorldQuery.TraceBox"));
+    }
+
+    [Fact]
+    public void ANearMissTheSwingsHullCatchesIsAHit()
+    {
+        var (engine, hulls) = SwingPast(crateAt: new Vector(60f, 10f, 64f));
+
+        Assert.True(hulls > 0, "the ray's miss tried the hull");
+        var hit = Assert.Single(engine.Calls, c => c.Member == "Damage.ApplyAt");
+        Assert.Equal(Crate, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(new Vector(40f, 10f, 64f), hit.ArgAs<Vector>(5));
+    }
+
+    /// <summary>Swing's "YWB" test: a hull hit the swinger is not facing (here, behind them) is a miss.</summary>
+    [Fact]
+    public void AHullHitTheSwingerIsNotFacingIsAMiss()
+    {
+        var (engine, hulls) = SwingPast(crateAt: new Vector(-60f, 10f, 64f));
+
+        Assert.True(hulls > 0, "the ray's miss tried the hull");
+        Assert.False(engine.Called("Damage.ApplyAt"), "a crate behind the swinger was hit");
+    }
+
+    /// <summary>
+    /// ImpactWater: a swing that meets nothing and ends under water splashes
+    /// where it went in; the same swing ending in air does not.
+    /// </summary>
+    private static RecordingEngine SwingInto(Contents atTheEnd)
+    {
+        var (arsenal, engine) = Armed(hit: false, weapon: "weapon_crowbar");
+        engine.Returns("Entities.IsValid", true);
+        engine.Strict = false;
+        var surface = new Vector(30f, 0f, 50f);
+        engine.Returns("WorldQuery.TraceBox", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero,
+                                                                     EntityHandle.None, -1, 0))
+              .ReturnsEachCall("WorldQuery.PointContents",
+                               () => engine.Last("WorldQuery.PointContents")!.Value.ArgAs<Vector>(0).X > 0f
+                                   ? atTheEnd : Contents.Empty)
+              .Returns("WorldQuery.TraceLine", new TraceResult(true, 0.4f, surface, new Vector(0f, 0f, 1f),
+                                                               EntityHandle.None));
+
+        PullTheTrigger(arsenal, engine);
+        return engine;
+    }
+
+    [Fact]
+    public void AMissIntoWaterSplashesWhereItWentIn()
+    {
+        var splash = Assert.Single(SwingInto(Contents.Water).Calls, c => c.Member == "Effects.SplashEffect");
+
+        Assert.Equal((new Vector(30f, 0f, 50f), 8f, false),
+                     (splash.ArgAs<Vector>(0), splash.ArgAs<float>(1), splash.ArgAs<bool>(2)));
+    }
+
+    [Fact]
+    public void AMissIntoSlimeSplashesAsSlime()
+        => Assert.True(Assert.Single(SwingInto(Contents.Slime).Calls, c => c.Member == "Effects.SplashEffect")
+                             .ArgAs<bool>(2));
+
+    [Fact]
+    public void AMissIntoAirMakesNoSplash()
+        => Assert.False(SwingInto(Contents.Empty).Called("Effects.SplashEffect"));
+
+    /// <summary>
+    /// HandleShotImpactingWater: a round that ends under water splashes where
+    /// it went in, the ammo's size, marks nothing below, and still hurts what
+    /// it hit. Found against stock (2026-10-25): this mod's rounds marked a
+    /// pool's floor and never splashed.
+    /// </summary>
+    private static (RecordingEngine Engine, RecordingEffectDispatch Temps) ShotInto(Contents liquid)
+    {
+        var (arsenal, engine) = Armed(weapon: "weapon_pistol");
+        var temps = new RecordingEffectDispatch();
+        arsenal.Temps = temps;
+        engine.Returns("Entities.IsValid", true);
+        engine.Strict = false;
+        engine.Returns("WorldQuery.PointContents", liquid)
+              .Returns("WorldQuery.TraceLine", new TraceResult(true, 0.05f, new Vector(32f, 0f, 60f),
+                                                               new Vector(0f, 0f, 1f), EntityHandle.None));
+
+        PullTheTrigger(arsenal, engine);
+        return (engine, temps);
+    }
+
+    [Fact]
+    public void ARoundIntoWaterSplashesWhereItWentInAndMarksNothingBelow()
+    {
+        var (engine, temps) = ShotInto(Contents.Water);
+
+        var splash = Assert.Single(temps.Effects, e => e.Name == "gunshotsplash");
+        Assert.Equal((new Vector(32f, 0f, 60f), 0), (splash.Data.Origin, splash.Data.Flags));
+        Assert.InRange(splash.Data.Scale, 4f, 8f);
+        Assert.Null(Impact(engine));
+        Assert.True(engine.Called("Damage.ApplyAt"), "the round under water still hurt what it hit");
+    }
+
+    [Fact]
+    public void ARoundIntoSlimeSplashesAsSlime()
+        => Assert.Equal(1, Assert.Single(ShotInto(Contents.Slime).Temps.Effects, e => e.Name == "gunshotsplash").Data.Flags);
+
+    [Fact]
+    public void ARoundOnDryLandMakesNoSplash()
+    {
+        var (engine, temps) = ShotInto(Contents.Empty);
+
+        Assert.DoesNotContain(temps.Effects, e => e.Name == "gunshotsplash");
+        Assert.NotNull(Impact(engine));
     }
 
     [Fact]

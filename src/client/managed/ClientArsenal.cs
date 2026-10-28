@@ -27,7 +27,7 @@ namespace SourceSharp.Client;
 /// stays the server's word by construction.
 /// </para>
 /// </summary>
-public sealed class ClientArsenal : ILocalArsenal
+public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStates
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -73,6 +73,9 @@ public sealed class ClientArsenal : ILocalArsenal
     // what is in front of the player (the SLAM's wall probe). Null in a test's
     // arsenal built without one, which answers that nothing is.
     private readonly IEngineWorldQuery? _world;
+
+    // What the probe and the swing clip against besides the world.
+    private readonly EntityCandidates _candidates = new();
 
     // The local player's entindex and the replayed command's aim, for that
     // probe: set by the basis reset and by each replayed command.
@@ -194,6 +197,18 @@ public sealed class ClientArsenal : ILocalArsenal
 
     /// <summary>The working weapon state the replay runs, for tests.</summary>
     internal WeaponNetState WorkingWeapon => _weapon;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The working copy, for the local player's gun, once the replay has reset
+    /// its basis to the latest decode: with prediction off, or before the
+    /// first replay over a new decode, the copy is behind the server's word.
+    /// </remarks>
+    public WeaponNetState? PredictedStateOf(ClientSsWeapon weapon)
+        => ReferenceEquals(weapon, _localWeapon) && _localViewModel is not null
+           && _lastComparedDecode == _localWeapon.Decodes + _localViewModel.Decodes
+            ? _weapon
+            : null;
 
     private void ResetBasis(EntityHandle player, int acknowledged)
     {
@@ -508,28 +523,39 @@ public sealed class ClientArsenal : ILocalArsenal
         => sequence < 0 || _localViewModel is null ? 0f : _render.SequenceDuration(_localViewModel.Handle, sequence);
 
     /// <summary>
-    /// The SLAM's wall probe on this side: from the local player's eye along
-    /// the replayed command's aim, through MASK_SOLID, passing the player.
-    ///
-    /// <para>
-    /// The eye is the DECODED origin plus the view offset — the server's last
-    /// word on where the player stands, not the replay's own position for this
-    /// command, which the player's prediction keeps to itself. The difference
-    /// is the distance walked since the last snapshot, a few units against a
-    /// forty-two unit reach; a probe it tips the other way mispredicts the
-    /// SLAM's mode for a command, and the next snapshot settles it.
-    /// </para>
+    /// Where this command's probes look from: the eye the prediction ran the
+    /// command's movement to (stock's Weapon_ShootPosition, which the server's
+    /// run of the same command reads), or, for a run told none, the DECODED
+    /// origin plus the view offset -- the server's last word, a few units
+    /// behind a player still walking.
     /// </summary>
+    private bool EyeOfThisCommand(out Vector eye)
+    {
+        if (_hasEye)
+        {
+            eye = _shot.Eye;
+            return true;
+        }
+
+        if (_standalones.GetByIndex(_localIndex) is ClientSsPlayer player)
+        {
+            eye = player.State.Origin + player.State.ViewOffset;
+            return true;
+        }
+
+        eye = default;
+        return false;
+    }
+
+    /// <summary>The SLAM's wall probe, from <see cref="EyeOfThisCommand"/> along the command's angles.</summary>
     internal WallProbe ProbeWall(float reach)
     {
-        if (_world is null || _standalones.GetByIndex(_localIndex) is not ClientSsPlayer player)
+        if (_world is null || !EyeOfThisCommand(out Vector eye))
             return WallProbe.Nothing;
 
-        Vector eye = player.State.Origin + player.State.ViewOffset;
         Vector forward = Angles.Forward(_commandAngles);
 
-        var trace = _world.ClientTraceLine(eye, eye + forward * reach, TraceMask.Solid,
-                                           TraceFilter.Simple, _localIndex);
+        var trace = LineAhead(eye, eye + forward * reach, TraceMask.Solid);
 
         if (!trace.Hit)
             return WallProbe.Nothing;
@@ -537,6 +563,48 @@ public sealed class ClientArsenal : ILocalArsenal
         return _standalones.GetByIndex(trace.EntityIndex) is ClientSsPlayer
             ? WallProbe.Character
             : WallProbe.Surface;
+    }
+
+    /// <summary>
+    /// CBaseHL2MPBludgeonWeapon::Swing's aim, from <see cref="EyeOfThisCommand"/>,
+    /// for the predicted hit-or-miss animation, as the server's swing aims:
+    /// the ray; then the swing's hull, backed off by its corner radius, kept
+    /// only if the swinger roughly faces what it found (the world's origin is
+    /// the map's).
+    /// </summary>
+    internal bool MeleeConnects(float range)
+    {
+        if (_world is null || !EyeOfThisCommand(out Vector eye))
+            return true;
+
+        Vector forward = Angles.Forward(_commandAngles);
+        Vector end = eye + forward * range;
+
+        if (LineAhead(eye, end, TraceMask.ShotHull).Hit)
+            return true;
+
+        var hull = _world.ClientTraceHullEntities(eye, end - forward * BludgeonSwing.HullRadius,
+                                                  BludgeonSwing.Hull * -1f, BludgeonSwing.Hull,
+                                                  TraceMask.ShotHull, _localIndex,
+                                                  _candidates.AllBut(_localIndex));
+        if (!hull.Hit)
+            return false;
+
+        Vector target = hull.EntityIndex > 0 ? hull.EntityOrigin : Vector.Zero;
+        return (target - eye).Normalized.Dot(forward) >= BludgeonSwing.FacingDot;
+    }
+
+    /// <summary>
+    /// A line from the local player as the server's would stop: the world's
+    /// trace, then the entities before its stop (no client trace sees the
+    /// shells, <see cref="EntityCandidates"/>).
+    /// </summary>
+    private ClientTraceResult LineAhead(Vector from, Vector to, TraceMask mask)
+    {
+        var world = _world!.ClientTraceLine(from, to, mask, TraceFilter.Simple, _localIndex);
+        var entity = _world.ClientClipRayToEntities(from, world.Hit ? world.End : to, mask,
+                                                    _candidates.AllBut(_localIndex));
+        return entity.Hit ? entity : world;
     }
 
     /// <summary>Arms the poke: every future weapon-ring save is damaged at the
@@ -595,6 +663,7 @@ public sealed class ClientArsenal : ILocalArsenal
         public int LookupActivity(string activity) => _owner.ResolveActivity(activity);
         public float SequenceDuration(int sequence) => _owner.DurationOf(sequence);
         public WallProbe ProbeWall(float reach) => _owner.ProbeWall(reach);
+        public bool MeleeConnects(in WeaponType type) => _owner.MeleeConnects(type.MeleeRange);
 
         public float AnimDuration(WeaponAnim anim)
         {

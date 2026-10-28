@@ -46,6 +46,10 @@ public class EffectsTracedTests
         public override void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
                                      int modelIndex, int count, float speed)
             => Calls.Add(new("Bubbles", filter, [mins, maxs, height, modelIndex, count, speed, delay]));
+
+        public override void BubbleTrail(TeFilter filter, float delay, Vector from, Vector to, float waterZ,
+                                         int modelIndex, int count, float speed)
+            => Calls.Add(new("BubbleTrail", filter, [from, to, waterZ, modelIndex, count, speed, delay]));
     }
 
     private sealed class World_ : IEffectsWorld
@@ -60,10 +64,14 @@ public class EffectsTracedTests
         public readonly Dictionary<EntityHandle, int> Indices = [];
         public readonly Dictionary<EntityHandle, byte[]> Blocks = [];
 
+        /// <summary>Where a trace ends, when a fact answers per line (a water surface below its start).</summary>
+        public Func<Vector, Vector, Vector>? EndFor;
+
         public ServerTrace? Trace(Vector start, Vector end, uint mask)
         {
             Traces.Add((start, end, mask));
-            return Traceable ? new ServerTrace(new EngineGameTrace { Fraction = Fraction, EndPos = EndPos }, Hit) : null;
+            Vector endPos = EndFor?.Invoke(start, end) ?? EndPos;
+            return Traceable ? new ServerTrace(new EngineGameTrace { Fraction = Fraction, EndPos = endPos }, Hit) : null;
         }
 
         public void StaticDecal(Vector originInEntitySpace, int decalIndex, int entityIndex, int modelIndex, bool lowPriority)
@@ -243,6 +251,52 @@ public class EffectsTracedTests
 
         Assert.False(effects.PaintDecal(4, Vector.Zero, null, 0f, permanent: false, lowPriority: false));
         Assert.Empty(temps.Calls);
+    }
+
+    // ---- BubbleTrailEffect ------------------------------------------------------
+    //
+    // UTIL_BubbleTrail, which this mod did not send at all (stock A/B,
+    // 2026-10-25: a crossbow bolt under water left no wake).
+
+    /// <summary>A pool whose surface is at z 100: a MASK_WATER line from above stops there, or at its end when that is above it.</summary>
+    private static (EffectsOverTempEnts Effects, Temps Temps) Pool()
+    {
+        var (effects, temps, world, _) = Rig();
+        world.EndFor = (start, end) => end.Z < 100f && start.Z > 100f ? new Vector(end.X, end.Y, 100f) : end;
+        return (effects, temps);
+    }
+
+    [Fact]
+    public void ATrailUnderWaterRunsItsLengthUpToTheSurface()
+    {
+        var (effects, temps) = Pool();
+
+        effects.BubbleTrailEffect(new Vector(0f, 0f, 10f), new Vector(30f, 0f, 20f), 5);
+
+        var trail = Assert.Single(temps.Calls, c => c.Member == "BubbleTrail");
+        Assert.Equal(TeFilters.Broadcast, trail.Filter);
+        Assert.Equal(new object?[] { new Vector(0f, 0f, 10f), new Vector(30f, 0f, 20f), 100f, 17, 5, 8f, 0f }, trail.Args);
+    }
+
+    [Fact]
+    public void ATrailInTheAirMakesNoBubbles()
+    {
+        var (effects, temps) = Pool();
+
+        effects.BubbleTrailEffect(new Vector(0f, 0f, 150f), new Vector(30f, 0f, 160f), 5);
+
+        Assert.DoesNotContain(temps.Calls, c => c.Member == "BubbleTrail");
+    }
+
+    [Fact]
+    public void ATrailIntoTheWaterStartsAtTheSurfaceWithItsCountCut()
+    {
+        var (effects, temps) = Pool();
+
+        effects.BubbleTrailEffect(new Vector(0f, 0f, 120f), new Vector(40f, 0f, 80f), 5);
+
+        var trail = Assert.Single(temps.Calls, c => c.Member == "BubbleTrail");
+        Assert.Equal(new object?[] { new Vector(20f, 0f, 100f), new Vector(40f, 0f, 80f), 100f, 17, 2, 8f, 0f }, trail.Args);
     }
 
     // ---- BubbleEffect ----------------------------------------------------------

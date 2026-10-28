@@ -37,8 +37,9 @@ public class WeaponMachineTests
         // Every field of the weapon's state is machine state, so every field
         // is predicted — the 9c5 gate answers yes for it, which is what makes
         // the client replay it at all. The machine's and the HL2MP behaviours',
-        // the SLAM's two, and eleven of the physcannon's (PhysCannonBehaviour).
-        Assert.Equal(36, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        // the SLAM's two, eleven of the physcannon's (PhysCannonBehaviour), and
+        // the pistol's accuracy penalty with its clock.
+        Assert.Equal(38, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
     }
 

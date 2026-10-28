@@ -68,6 +68,83 @@ public class SlamChargeTests
         Assert.Equal(Thrower, satchel.Thrower);
     }
 
+    // CSatchelCharge::SatchelThink (grenade_satchel.cpp), which this mod did
+    // not run (stock A/B, 2026-10-25): the boxes, the thrower let go of once
+    // clear, the stop at rest, the removal outside the world.
+
+    private static readonly Vector Here = new(100f, 0f, 50f);
+
+    [Fact]
+    public void ASatchelFliesAsSpawnsBoxAndThinksEveryTenthOfASecond()
+    {
+        var (satchel, engine, _) = Spawned<Satchel>(EntityNames.NpcSatchel, Vector.Zero);
+
+        var bounds = engine.Last("Entities.SetBounds")!.Value;
+        Assert.Equal((Satchel.ThrownMins, Satchel.ThrownMaxs), (bounds.ArgAs<Vector>(1), bounds.ArgAs<Vector>(2)));
+        Assert.Equal(Satchel.ThinkPeriod, satchel.NextThinkDelay(), 3);
+    }
+
+    [Fact]
+    public void TheThrowerOwnsItUntilItIsClearOfThem()
+    {
+        var (satchel, engine, _) = Spawned<Satchel>(EntityNames.NpcSatchel, Vector.Zero);
+        satchel.ThrownBy(Thrower, attached: false);
+        Assert.Equal(Thrower, engine.Last("Entities.SetOwner")!.Value.ArgAs<EntityHandle>(1));
+
+        engine.Returns("WorldQuery.EntityTraceHull", new EntityHullTrace(Here, StartSolid: true, AllSolid: false));
+        satchel.OnThink();
+        Assert.Equal(Thrower, engine.Last("Entities.SetOwner")!.Value.ArgAs<EntityHandle>(1));
+
+        engine.Returns("WorldQuery.EntityTraceHull", new EntityHullTrace(Here + new Vector(0f, 0f, 5f), false, false));
+        satchel.OnThink();
+        Assert.Equal(EntityHandle.None, engine.Last("Entities.SetOwner")!.Value.ArgAs<EntityHandle>(1));
+
+        // Let go of for good: the next think asks nothing about the thrower.
+        int owners = engine.CountOf("Entities.SetOwner");
+        satchel.OnThink();
+        Assert.Equal(owners, engine.CountOf("Entities.SetOwner"));
+    }
+
+    [Fact]
+    public void OnAWallItTakesTheSmallBox()
+    {
+        var (satchel, engine, _) = Spawned<Satchel>(EntityNames.NpcSatchel, Vector.Zero);
+        satchel.ThrownBy(Thrower, attached: true);
+
+        satchel.OnThink();
+
+        var bounds = engine.Last("Entities.SetBounds")!.Value;
+        Assert.Equal((Satchel.AttachedMins, Satchel.AttachedMaxs), (bounds.ArgAs<Vector>(1), bounds.ArgAs<Vector>(2)));
+    }
+
+    [Fact]
+    public void AtRestItThinksNoMore()
+    {
+        var (satchel, engine, _) = Spawned<Satchel>(EntityNames.NpcSatchel, Vector.Zero);
+        satchel.ThrownBy(Thrower, attached: false);
+        engine.Returns("WorldQuery.EntityTraceHull", new EntityHullTrace(Here + new Vector(0f, 0f, 5f), false, false));
+        satchel.OnThink();            // let go of the thrower
+        satchel.OnThink();            // moved from the origin it had never been at
+        Assert.Equal(Satchel.ThinkPeriod, satchel.NextThinkDelay(), 3);
+
+        engine.Returns("Clock.Now", 10.2f);
+        satchel.OnThink();            // the same place two tenths of a second on
+
+        // Rescheduled, the next think would be a tenth away; not, the old one has come and gone.
+        Assert.True(satchel.NextThinkDelay() < 0.05f, "a satchel at rest kept thinking");
+    }
+
+    [Fact]
+    public void OutsideTheWorldItIsGone()
+    {
+        var (satchel, engine, _) = Spawned<Satchel>(EntityNames.NpcSatchel, Vector.Zero);
+        engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, -20000f));
+
+        satchel.OnThink();
+
+        Assert.True(satchel.Owner!.Directory.IsRemoved(satchel.Handle), "a satchel that fell out of the world stayed");
+    }
+
     [Fact]
     public void TheDetonatorSetsTheSatchelOffAFifthOfASecondLater()
     {
@@ -143,6 +220,21 @@ public class SlamChargeTests
         Assert.True((mine.BeamDirection - new Vector(-1f, 0f, 0f)).Length < 1e-4f,
                     $"the beam leaves along the wall's normal, not {mine.BeamDirection}");
         Assert.False(mine.IsLive);
+    }
+
+    /// <summary>
+    /// CTripmineGrenade::Spawn's m_nBody = 3: the planted mine shows the
+    /// tripmine's parts of w_slam.mdl. Found side by side with stock
+    /// (docs/divergences.md, 2026-10-25): this mod drew body 0.
+    /// </summary>
+    [Fact]
+    public void APlantedTripmineIsDrawnWithItsOwnBody()
+    {
+        var (mine, _, services) = Spawned<Tripmine>(EntityNames.NpcTripmine, OnAWall);
+
+        var skins = (RecordingServerSkins)services.Resolve(typeof(IServerSkins))!;
+        Assert.Contains((mine.Handle, Tripmine.PlantedBody), skins.Bodies);
+        Assert.Equal(3, Tripmine.PlantedBody);
     }
 
     [Fact]

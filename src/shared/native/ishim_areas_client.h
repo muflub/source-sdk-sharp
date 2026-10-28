@@ -233,6 +233,10 @@ public:
 	// caller names (managed's directory is the list), solid ones only, and
 	// answers the nearest hit in ClientTraceLine's outs.
 	virtual int32_t ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ, int32_t *pOutHitbox, int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags ) = 0;
+	// A box swept through the world and clipped against the entities the
+	// caller names, as ClientClipRayToEntities clips a ray: the nearest stop,
+	// the index of what it stopped on and that entity's origin.
+	virtual int32_t ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex, const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction, float *pOutEndXYZ, int32_t *pOutEntityIndex, float *pOutEntityOriginXYZ ) = 0;
 };
 
 // plan_side_isolation §2.2a: the client half of user messages. Managed reads a

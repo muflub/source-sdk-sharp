@@ -351,27 +351,51 @@ public sealed class StockContract
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// The game DLL's two source sets. <c>src/game/client</c> is deliberately
-    /// out: a client-side <c>LINK_ENTITY_TO_CLASS</c> registers a different
-    /// entity for the same map name, and mixing the two would compare a managed
-    /// server entity against a client one.
+    /// What the HL2MP game DLL compiles of the game's two server source sets:
+    /// <c>server/server_hl2mp.vpc</c>'s files (<see cref="VpcProject"/>).
+    /// <c>src/game/client</c> is deliberately out: a client-side
+    /// <c>LINK_ENTITY_TO_CLASS</c> registers a different entity for the same
+    /// map name, and mixing the two would compare a managed server entity
+    /// against a client one.
+    ///
+    /// <para>
+    /// NOT EVERY FILE UNDER <c>server</c> AND <c>shared</c>, which is what this
+    /// read until 2026-10-26. The single-player and episodic sources declare
+    /// the same C++ classes as HL2MP's (<c>CWeaponCrossbow</c> in
+    /// <c>server/hl2</c> and <c>shared/hl2mp</c>), and a class's bags are
+    /// keyed by its C++ name, so the two datadescs were read as one and the
+    /// first file found linked the map name: HL2MP's weapons were held to
+    /// single-player members the HL2MP DLL never compiled.
+    /// </para>
     /// </summary>
     public static IEnumerable<string> SourceFiles(string gameDir)
     {
-        foreach (string side in new[] { "server", "shared" })
+        string project = Path.Combine(gameDir, "server", "server_hl2mp.vpc");
+        string server = Path.Combine(gameDir, "server") + Path.DirectorySeparatorChar;
+        string shared = Path.Combine(gameDir, "shared") + Path.DirectorySeparatorChar;
+
+        var files = new SortedSet<string>(
+            VpcProject.Files(project, Path.GetDirectoryName(gameDir)!)
+                .Where(f => (f.StartsWith(server, StringComparison.Ordinal) || f.StartsWith(shared, StringComparison.Ordinal))
+                            && Path.GetExtension(f) is ".cpp" or ".h"
+                            && File.Exists(f)),
+            StringComparer.Ordinal);
+
+        // THE HEADERS ON ITS INCLUDE PATH TOO. A project lists its .cpp files
+        // and only some of its headers, and a class declared in an unlisted one
+        // (CNewWallHealth : CBaseAnimating, in hl2/item_healthkit.h) lost its
+        // base and so its whole inherited contract: a truncated chain reports
+        // FEWER gaps, never more. The directories are server_hl2mp.vpc's and
+        // server_base.vpc's AdditionalIncludeDirectories.
+        foreach (string dir in new[] { "server", "shared", "shared/econ", "server/NextBot",
+                                       "server/hl2", "shared/hl2", "server/hl2mp", "shared/hl2mp" })
         {
-            string dir = Path.Combine(gameDir, side);
-
-            if (!Directory.Exists(dir))
-                continue;
-
-            foreach (string f in Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
-            {
-                string ext = Path.GetExtension(f);
-                if (ext is ".cpp" or ".h")
-                    yield return f;
-            }
+            string at = Path.Combine(gameDir, dir.Replace('/', Path.DirectorySeparatorChar));
+            if (Directory.Exists(at))
+                files.UnionWith(Directory.EnumerateFiles(at, "*.h", SearchOption.TopDirectoryOnly));
         }
+
+        return files;
     }
 
     /// <summary>

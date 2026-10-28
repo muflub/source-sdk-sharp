@@ -238,9 +238,12 @@ public class ContractDiffOracleTests
         // 1,092 LINK_ENTITY_TO_CLASS across src/game. Floors rather than pins,
         // for the reason tools/leg-floor gives: a pinned count rots and the fix
         // for a stale pin teaches the wrong reflex. A scan that read nothing, or
-        // a fifth of the tree, is nowhere near these.
-        Assert.True(stock.Classes.Count > 2000, $"the scrape found stock's C++ entity classes ({stock.Classes.Count})");
-        Assert.True(stock.Linked.Count > 900, $"the scrape found stock's map classnames ({stock.Linked.Count})");
+        // a fifth of the tree, is nowhere near these. The classes are the HL2MP
+        // DLL's since 2026-10-26 (SourceFiles): 1,179 classes and 609 map
+        // names at valve-sdk.lock 22288b91, where the whole tree's, TF and
+        // single-player with it, were over 2,000 and 900.
+        Assert.True(stock.Classes.Count > 1000, $"the scrape found stock's C++ entity classes ({stock.Classes.Count})");
+        Assert.True(stock.Linked.Count > 500, $"the scrape found stock's map classnames ({stock.Linked.Count})");
     }
 
     [Fact]

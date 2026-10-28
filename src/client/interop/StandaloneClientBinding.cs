@@ -88,6 +88,17 @@ public sealed unsafe class StandaloneClientBinding(Crossings crossings, ILog log
     }
 
     /// <summary>
+    /// An entity's extras for one pass (stock's ViewModelDrawn after the local
+    /// viewmodel, and a two-pass weapon's translucent DrawModel); see
+    /// IClientModule.StandaloneDrawExtras. -1 lets the model draw.
+    /// </summary>
+    public int OnStandaloneDrawExtras(uint a0, int a1)
+    {
+        crossings.Count(CrossingOp.ClientStandaloneDrawExtras);
+        return module.StandaloneDrawExtras(new EntityHandle(a0), a1);
+    }
+
+    /// <summary>
     /// The engine pushed a PVS transition for a client shell entity
     /// (plan_crossings.md Phase X3). Fed straight into the mirror: nothing in
     /// the client module decides anything here.

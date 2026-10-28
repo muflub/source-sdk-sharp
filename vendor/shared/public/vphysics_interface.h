@@ -320,6 +320,18 @@ public:
 	virtual void ConstraintBroken( IPhysicsConstraint * ) = 0;
 };
 
+struct hlshadowcontrol_params_t
+{
+	Vector			targetPosition;
+	QAngle			targetRotation;
+	float			maxAngular;
+	float			maxDampAngular;
+	float			maxSpeed;
+	float			maxDampSpeed;
+	float			dampFactor;
+	float			teleportDistance;
+};
+
 // UNDONE: At some point allow this to be parameterized using hlshadowcontrol_params_t.
 // All of the infrastructure is in place to do that.
 abstract_class IPhysicsShadowController
@@ -570,7 +582,7 @@ public:
 	// Enable / disable gravity for this object
 	virtual void			EnableGravity( bool enable ) = 0;
 	// Enable / disable air friction / drag for this object
-	virtual void unused_EnableDrag() = 0;
+	virtual void			EnableDrag( bool enable ) = 0;
 	// Enable / disable motion (pin / unpin the object)
 	virtual void			EnableMotion( bool enable ) = 0;
 
@@ -608,8 +620,8 @@ public:
 	virtual void unused_GetInvInertia() = 0;
 	virtual void unused_SetInertia() = 0;
 
-	virtual void unused_SetDamping() = 0;
-	virtual void unused_GetDamping() = 0;
+	virtual void			SetDamping( const float *speed, const float *rot ) = 0;
+	virtual void			GetDamping( float *speed, float *rot ) const = 0;
 
 	// coefficients are optional, pass either
 	virtual void unused_SetDragCoefficient() = 0;
@@ -640,7 +652,7 @@ public:
 	virtual void			SetVelocity( const Vector *velocity, const AngularImpulse *angularVelocity ) = 0;
 
 	// like the above, but force the change into the simulator immediately
-	virtual void unused_SetVelocityInstantaneous() = 0;
+	virtual void			SetVelocityInstantaneous( const Vector *velocity, const AngularImpulse *angularVelocity ) = 0;
 
 	// NOTE: velocity is in worldspace, angularVelocity is relative to the object's 
 	// local axes (just like pev->velocity, pev->avelocity)
@@ -698,7 +710,7 @@ public:
 	// applies the math of the shadow controller to this object.
 	// for use in your own controllers
 	// returns the new value of secondsToArrival with dt time elapsed
-	virtual void unused_ComputeShadowControl() = 0;
+	virtual float			ComputeShadowControl( const hlshadowcontrol_params_t &params, float secondsToArrival, float dt ) = 0;
 
 	virtual const CPhysCollide	*GetCollide( void ) const = 0;
 	virtual const char			*GetName() const = 0;

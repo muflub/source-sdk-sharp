@@ -95,7 +95,7 @@ public:
 	virtual void	ClipRayToEntity( const Ray_t &ray, unsigned int fMask, IHandleEntity *pEnt, trace_t *pTrace ) = 0;
 
 	// Traces a ray against a particular entity
-	virtual void unused_ClipRayToCollideable() = 0;
+	virtual void	ClipRayToCollideable( const Ray_t &ray, unsigned int fMask, ICollideable *pCollide, trace_t *pTrace ) = 0;
 
 	// A version that simply accepts a ray (can work as a traceline or tracehull)
 	virtual void	TraceRay( const Ray_t &ray, unsigned int fMask, ITraceFilter *pTraceFilter, trace_t *pTrace ) = 0;

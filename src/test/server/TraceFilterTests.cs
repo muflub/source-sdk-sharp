@@ -165,6 +165,8 @@ public class TraceFilterTests
             ("OPAQUE_AND_NPCS_WINDOW", TraceMask.OpaqueAndNpcsWindow),
             ("GLOW_SIGHT", TraceMask.GlowSight),
             ("CONTENTS_SOLID", TraceMask.ContentsSolid),
+            ("SHOT_NO_WINDOWS", TraceMask.ShotNoWindows),
+            ("OPAQUE", TraceMask.Opaque),
         ];
         Assert.Equal(pairs.Length, native.Count);
         Assert.Equal(pairs.Length, Enum.GetValues<TraceMask>().Length);
@@ -176,15 +178,16 @@ public class TraceFilterTests
     }
 
     /// <summary>
-    /// The flashlight's mask (C7 cluster 12) is mapped on every native arm that
-    /// maps masks: the client's line and hull traces, each to
-    /// MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW. A value an arm did not know would
-    /// be read there as the brushes-only default, in silence. The server's line
+    /// The flashlight's mask (C7 cluster 12) is mapped once, in the client's
+    /// one mask table (ClientTraceMaskOf, which every client trace slot reads,
+    /// <see cref="EveryClientTraceSlotReadsTheOneMaskTable"/>), to
+    /// MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW. A value the table did not know
+    /// would be read as the brushes-only default, in silence. The server's line
     /// trace maps nothing since plan_server_native_v2 T4d: managed TraceMasks
     /// hands it the engine's mask (TraceMaskFoldTests holds every row).
     /// </summary>
     [Theory]
-    [InlineData("client", "shell_worldquery_client.cpp", 2)]
+    [InlineData("client", "shell_worldquery_client.cpp", 1)]
     public void TheFlashlightMaskIsMappedOnEachArm(string side, string file, int arms)
     {
         string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
@@ -215,7 +218,7 @@ public class TraceFilterTests
 
     /// <summary>
     /// The predicted shot's clip (ClientClipRayToEntities) clips each named
-    /// entity at MASK_SHOT, passing over an unsolid one and keeping the nearest
+    /// entity at the caller's mask, passing over an unsolid one and keeping the nearest
     /// stop by the two rules te_backend_args_test holds.
     /// </summary>
     [Fact]
@@ -227,8 +230,59 @@ public class TraceFilterTests
         string body = code[at..code.IndexOf("\n}\n", at, StringComparison.Ordinal)];
 
         Assert.Matches(@"if\s*\(\s*!pCollide\s*\|\|\s*!ClipCandidateIsSolid\(\s*\(int\)pCollide->GetSolid\(\)\s*,\s*pCollide->GetSolidFlags\(\)\s*\)\s*\)\s*continue\s*;", body);
-        Assert.Matches(@"enginetrace->ClipRayToCollideable\(\s*ray\s*,\s*MASK_SHOT\s*,\s*pCollide\s*,", body);
+        Assert.Matches(@"enginetrace->ClipRayToCollideable\(\s*ray\s*,\s*nTraceMask\s*,\s*pCollide\s*,", body);
         Assert.Matches(@"if\s*\(\s*ClipIsNearer\(\s*tr\.fraction\s*,\s*tr\.startsolid\s*,\s*best\.fraction\s*\)\s*\)", body);
+    }
+
+    /// <summary>
+    /// The client maps a SOURCESHARP_TRACE_ value to an engine mask in one
+    /// place: every trace slot's body takes its mask from ClientTraceMaskOf,
+    /// and no comparison of a mask value is made outside it, so a value one
+    /// slot knew could not be read by another as the brushes-only default.
+    /// </summary>
+    [Fact]
+    public void EveryClientTraceSlotReadsTheOneMaskTable()
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
+        string[] slots = ["ClientTraceLine", "ClientClipRayToEntities", "ClientTraceHull", "ClientTraceHullEntities"];
+        foreach (string slot in slots)
+        {
+            int at = code.IndexOf($"int32_t SourceSharp_{slot}(", StringComparison.Ordinal);
+            Assert.True(at >= 0, $"the client defines {slot}'s body");
+            string body = code[at..code.IndexOf("\n}\n", at, StringComparison.Ordinal)];
+            Assert.Matches(@"const\s+unsigned\s+int\s+nTraceMask\s*=\s*ClientTraceMaskOf\(\s*(?:req\.)?nMask\s*\)\s*;", body);
+        }
+
+        int table = code.IndexOf("static unsigned int ClientTraceMaskOf(", StringComparison.Ordinal);
+        Assert.True(table >= 0, "the client defines the one mask table");
+        int tableEnd = code.IndexOf("\n}\n", table, StringComparison.Ordinal);
+        const string Compare = @"nMask\s*==\s*SOURCESHARP_TRACE_\w+";
+        // Every value but BRUSHES, which is the table's default.
+        Assert.Equal(Enum.GetValues<TraceMask>().Length - 1, Regex.Matches(code[table..tableEnd], Compare).Count);
+        Assert.Empty(Regex.Matches(code[..table] + code[tableEnd..], Compare));
+    }
+
+    /// <summary>
+    /// The predicted swing's hull (ClientTraceHullEntities) sweeps the world
+    /// through the simple filter passing the caller's index, then clips the
+    /// same box against each named entity that is solid, keeping the nearest
+    /// stop by te_backend_args_test's two rules, and answers the stop's index
+    /// and that entity's origin.
+    /// </summary>
+    [Fact]
+    public void TheSwingsHullSweepsTheWorldThenClipsTheSolidEntities()
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
+        int at = code.IndexOf("int32_t SourceSharp_ClientTraceHullEntities(", StringComparison.Ordinal);
+        Assert.True(at >= 0, "the client defines the hull slot's body");
+        string body = code[at..code.IndexOf("\n}\n", at, StringComparison.Ordinal)];
+
+        Assert.Matches(@"CTraceFilterSimple\s+traceFilter\(\s*pPass\s*,\s*COLLISION_GROUP_NONE\s*\)\s*;\s*UTIL_TraceHull\(\s*vecStart\s*,\s*vecEnd\s*,\s*vecMins\s*,\s*vecMaxs\s*,\s*nTraceMask\s*,\s*&traceFilter\s*,\s*&best\s*\)", body);
+        Assert.Matches(@"ray\.Init\(\s*vecStart\s*,\s*vecEnd\s*,\s*vecMins\s*,\s*vecMaxs\s*\)", body);
+        Assert.Matches(@"if\s*\(\s*!pCollide\s*\|\|\s*!ClipCandidateIsSolid\(\s*\(int\)pCollide->GetSolid\(\)\s*,\s*pCollide->GetSolidFlags\(\)\s*\)\s*\)\s*continue\s*;", body);
+        Assert.Matches(@"enginetrace->ClipRayToCollideable\(\s*ray\s*,\s*nTraceMask\s*,\s*pCollide\s*,\s*&tr\s*\)", body);
+        Assert.Matches(@"if\s*\(\s*ClipIsNearer\(\s*tr\.fraction\s*,\s*tr\.startsolid\s*,\s*bHit\s*\?\s*best\.fraction\s*:\s*1\.0f\s*\)\s*\)\s*\{\s*best\s*=\s*tr\s*;\s*bHit\s*=\s*true\s*;\s*nHitIndex\s*=\s*pEntityIndices\[i\]\s*;", body);
+        Assert.Matches(@"pHitEnt\s*\?\s*pHitEnt->GetAbsOrigin\(\)\s*:\s*vec3_origin", body);
     }
 
     /// <summary>
@@ -245,13 +299,13 @@ public class TraceFilterTests
     }
 
     /// <summary>
-    /// A glow's sight mask (C7 pixel visibility) is mapped on every native arm
-    /// that maps masks, the client's line and hull traces, each to MASK_OPAQUE
+    /// A glow's sight mask (C7 pixel visibility) is mapped in the client's one
+    /// mask table to MASK_OPAQUE
     /// | CONTENTS_MONSTER | CONTENTS_DEBRIS. The server's is managed
     /// TraceMasks' (TraceMaskFoldTests holds its row).
     /// </summary>
     [Theory]
-    [InlineData("client", "shell_worldquery_client.cpp", 2)]
+    [InlineData("client", "shell_worldquery_client.cpp", 1)]
     public void TheGlowSightMaskIsMappedOnEachArm(string side, string file, int arms)
     {
         string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
@@ -261,18 +315,43 @@ public class TraceFilterTests
     }
 
     /// <summary>
-    /// A glow overlay's line at the sky (C7 glow overlays) is mapped on every
-    /// native arm that maps masks, the client's line and hull traces, each to
-    /// CONTENTS_SOLID alone. The server's is managed TraceMasks'
+    /// A glow overlay's line at the sky (C7 glow overlays) is mapped in the
+    /// client's one mask table to CONTENTS_SOLID alone. The server's is managed TraceMasks'
     /// (TraceMaskFoldTests holds its row).
     /// </summary>
     [Theory]
-    [InlineData("client", "shell_worldquery_client.cpp", 2)]
+    [InlineData("client", "shell_worldquery_client.cpp", 1)]
     public void TheContentsSolidMaskIsMappedOnEachArm(string side, string file, int arms)
     {
         string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
         int found = Regex.Matches(code,
             @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_CONTENTS_SOLID\s*\)\s*nTraceMask\s*=\s*CONTENTS_SOLID\s*;").Count;
+        Assert.Equal(arms, found);
+    }
+
+    /// <summary>
+    /// The RPG laser's shot through glass is mapped in the client's one mask
+    /// table to MASK_SHOT less CONTENTS_WINDOW. The server's is
+    /// managed TraceMasks' (TraceMaskFoldTests holds its row).
+    /// </summary>
+    [Theory]
+    [InlineData("client", "shell_worldquery_client.cpp", 1)]
+    public void TheShotNoWindowsMaskIsMappedOnEachArm(string side, string file, int arms)
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_SHOT_NO_WINDOWS\s*\)\s*nTraceMask\s*=\s*MASK_SHOT\s*&\s*~CONTENTS_WINDOW\s*;").Count;
+        Assert.Equal(arms, found);
+    }
+
+    /// <summary>The bolt's line behind its victim, MASK_OPAQUE, is mapped in the client's one mask table.</summary>
+    [Theory]
+    [InlineData("client", "shell_worldquery_client.cpp", 1)]
+    public void TheOpaqueMaskIsMappedOnEachArm(string side, string file, int arms)
+    {
+        string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
+        int found = Regex.Matches(code,
+            @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_OPAQUE\s*\)\s*nTraceMask\s*=\s*MASK_OPAQUE\s*;").Count;
         Assert.Equal(arms, found);
     }
 

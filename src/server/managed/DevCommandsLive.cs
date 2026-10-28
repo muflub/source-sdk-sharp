@@ -40,6 +40,19 @@ public abstract class SpawningCommand : DevCommand
     /// </summary>
     protected virtual bool CreatesWithoutAHit => false;
 
+    /// <summary>
+    /// The angles a created entity is given, or null to leave its own (and an
+    /// <c>angles</c> key's): stock's <c>ent_create</c> teleports with NULL angles.
+    /// </summary>
+    protected virtual Vector? CreatedAngles(EntityHandle issuer) => null;
+
+    /// <summary>
+    /// Whether what is made is lifted clear of the surface and dropped (a thing
+    /// that falls), or stood on the surface where the aim met it (stock's
+    /// <c>prop_dynamic_create</c>, whose prop never moves).
+    /// </summary>
+    protected virtual bool LiftsClear => true;
+
     protected void Spawn(EntityHandle issuer, string className,
                          List<(string Key, string Value)> keyValues)
     {
@@ -100,7 +113,8 @@ public abstract class SpawningCommand : DevCommand
         if (where is Vector surface)
             Context.Entities.SetOrigin(entity, surface);
 
-        Context.Entities.SetAngles(entity, FacingAwayFrom(issuer));
+        if (CreatedAngles(issuer) is Vector angles)
+            Context.Entities.SetAngles(entity, angles);
         Context.Entities.Spawn(entity);
 
         if (where is null)
@@ -109,14 +123,19 @@ public abstract class SpawningCommand : DevCommand
             return;
         }
 
+        if (!LiftsClear)
+        {
+            Log.Msg($"{Verb}: created {className} #{Context.Entities.GetIndex(entity)} at {where.Value}\n");
+            return;
+        }
+
         // AND THEN LIFT IT CLEAR OF THE SURFACE IT WAS AIMED AT, which is the
         // half of stock's rule this command lost and the reason a spawned
         // physics prop sometimes goes through the floor.
         //
-        // Stock's CC_Ent_Create did NOT create the entity at the trace point.
-        // `CC_Ent_Create_DropPoint` (baseentity.cpp:8355) returned the trace
-        // endpoint RAISED BY 12, and the caller then teleported the entity
-        // there and called `UTIL_DropToFloor` on it. Under SOURCESHARP that
+        // Stock's CC_Ent_Create did NOT create the entity at the trace point:
+        // it raised the trace endpoint by 12 (baseentity.cpp:8564), teleported
+        // the entity there and called `UTIL_DropToFloor` on it. Under SOURCESHARP that
         // helper returns false and `UTIL_DropToFloor` was deleted outright
         // (util.cpp:357, "dead in this build, measured rather than reasoned"),
         // so what is left here puts the entity's ORIGIN exactly on the surface
@@ -162,7 +181,7 @@ public abstract class SpawningCommand : DevCommand
 
     /// <summary>
     /// How far above the surface stock's <c>ent_create</c> dropped what it made:
-    /// twelve units (<c>CC_Ent_Create_DropPoint</c>, baseentity.cpp:8355).
+    /// twelve units (<c>CC_Ent_Create</c>'s <c>tr.endpos.z += 12</c>, baseentity.cpp:8564).
     /// </summary>
     public const float Clearance = 12f;
 
@@ -188,15 +207,6 @@ public abstract class SpawningCommand : DevCommand
         => new Vector(surface.X, surface.Y,
                       surface.Z + Clearance - Math.Min(mins.Z, 0f));
 
-    /// <summary>
-    /// A created entity faces back at the player, which is stock's rule and is
-    /// what makes a spawned prop's front visible rather than its back.
-    /// </summary>
-    private Vector FacingAwayFrom(EntityHandle issuer)
-    {
-        var eye = Context.Entities.GetEyeAngles(issuer);
-        return new Vector(0f, eye.Y + 180f, 0f);
-    }
 }
 
 /// <summary>
@@ -267,6 +277,9 @@ public sealed class PropPhysicsCreateCommand : PropCreateCommand
     }
 
     protected override string PropClass => "prop_physics";
+
+    /// <summary>CreatePhysicsProp's QAngle( 0, 0, 0 ).</summary>
+    protected override Vector? CreatedAngles(EntityHandle issuer) => Vector.Zero;
 }
 
 /// <summary><c>prop_dynamic_create &lt;model&gt;</c>.</summary>
@@ -279,6 +292,40 @@ public sealed class PropDynamicCreateCommand : PropCreateCommand
     }
 
     protected override string PropClass => "prop_dynamic";
+
+    /// <summary>Stood where the aim met the surface, as stock's is.</summary>
+    protected override bool LiftsClear => false;
+
+    /// <summary>
+    /// CC_Prop_Dynamic_Create's basis: up along the surface's normal, forward
+    /// world x laid onto the surface (world z for a wall facing along x).
+    /// </summary>
+    protected override Vector? CreatedAngles(EntityHandle issuer)
+    {
+        Vector eye = Context.Entities.GetEyePosition(issuer);
+        Vector forward = Angles.Forward(Context.Entities.GetEyeAngles(issuer));
+        var tr = Context.World.TraceLine(eye, eye + forward * DevContext.PickRange, TraceMask.Solid, issuer);
+        return tr.Hit ? SurfaceAngles(tr.Normal) : null;
+    }
+
+    /// <summary>The angles of the basis whose up is <paramref name="normal"/>, stock's construction.</summary>
+    public static Vector SurfaceAngles(Vector normal)
+    {
+        Vector x = new(1f, 0f, 0f);
+        Vector y = normal.Cross(x);
+        if (y.Length < 1e-3f)
+        {
+            x = new Vector(0f, 0f, 1f);
+            y = normal.Cross(x);
+        }
+        y = y.Normalized;
+        x = y.Cross(normal).Normalized;
+
+        QAngle angles = new Transform(x.X, y.X, normal.X, 0f,
+                                      x.Y, y.Y, normal.Y, 0f,
+                                      x.Z, y.Z, normal.Z, 0f).ToAngles();
+        return new Vector(angles.Pitch, angles.Yaw, angles.Roll);
+    }
 }
 
 //-----------------------------------------------------------------------------

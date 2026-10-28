@@ -74,6 +74,13 @@ public struct ClientRenderFacts
     /// <summary>Blended, as <c>SetBlending</c> said.</summary>
     public bool Translucent;
 
+    /// <summary>
+    /// Its managed class draws something of its own in the translucent pass
+    /// beside an opaque model (<see cref="IRenderPolicyWishes.WantTwoPass"/>):
+    /// stock's weapons that answer <c>RENDER_GROUP_TWOPASS</c>.
+    /// </summary>
+    public bool TwoPass;
+
     /// <summary>What <see cref="FadeStyle"/> this entity fades by.</summary>
     public FadeStyle Fade;
 
@@ -136,6 +143,27 @@ public struct ClientRenderFacts
 
     /// <summary>Is a studio model, which is the only kind the auto shadow rule grades.</summary>
     public readonly bool IsStudioModel => ModelType == Studio;
+}
+
+/// <summary>
+/// What a managed class asks of its render policy beyond what its block says:
+/// the choices stock made in a class's own override (<c>GetRenderGroup</c>).
+/// </summary>
+public interface IRenderPolicyWishes
+{
+    /// <summary>
+    /// Put <paramref name="entity"/> in the two-pass group, or take it out:
+    /// its model drawn in the opaque pass and the class's own
+    /// <see cref="ClientStandaloneEntity.OnDrawExtras"/> in the translucent
+    /// one. Decided on the next pass.
+    /// </summary>
+    void WantTwoPass(EntityHandle entity, bool twoPass);
+}
+
+/// <summary>No render policy to ask: a class built on its own (a test's).</summary>
+public sealed class NoRenderPolicyWishes : IRenderPolicyWishes
+{
+    public void WantTwoPass(EntityHandle entity, bool twoPass) { }
 }
 
 /// <summary>
@@ -206,7 +234,7 @@ public struct ClientRenderChoices
 /// was paid for once rather than per phase.
 /// </para>
 /// </summary>
-public sealed class ClientRenderPolicy
+public sealed class ClientRenderPolicy : IRenderPolicyWishes
 {
     //-------------------------------------------------------------------------
     // THE RULES. Static and pure: a fact can supply any combination of inputs,
@@ -341,6 +369,11 @@ public sealed class ClientRenderPolicy
     {
         if (facts.ViewModel)
             return ClientRenderGroup.ViewModelOpaque;
+
+        // A class that asked: C_WeaponStunStick's and C_WeaponPhysCannon's
+        // GetRenderGroup answer RENDER_GROUP_TWOPASS whatever else is true.
+        if (facts.TwoPass)
+            return ClientRenderGroup.TwoPass;
 
         if (Transparent(facts))
             return ClientRenderGroup.TranslucentEntity;
@@ -621,6 +654,23 @@ public sealed class ClientRenderPolicy
         Array.Clear(_inputs);
     }
 
+    /// <summary>The handles whose classes asked for the two-pass group.</summary>
+    private readonly HashSet<uint> _twoPass = [];
+
+    /// <inheritdoc/>
+    public void WantTwoPass(EntityHandle entity, bool twoPass)
+    {
+        bool changed = twoPass ? _twoPass.Add(entity.Value) : _twoPass.Remove(entity.Value);
+        if (!changed)
+            return;
+
+        // Decided again on the next pass: the wish is an input the block's
+        // serial cannot see, so the entry's "already decided" mark goes.
+        int index = (int)(entity.Value & EntryMask);
+        if ((uint)index < MaxEntities)
+            _handles[index] = NoHandle;
+    }
+
     /// <summary>The entry-index bits of a <c>CBaseHandle</c>.</summary>
     private const uint EntryMask = (1u << 12) - 1u;
 
@@ -696,6 +746,7 @@ public sealed class ClientRenderPolicy
 
             localPlayer ??= _localPlayer();
             ClientRenderFacts facts = ReadFacts(block, _models(), localPlayer.Value);
+            facts.TwoPass = _twoPass.Contains(handle);
             ClientRenderChoices choices = Decide(facts);
             WriteChoices(block, choices);
 
@@ -719,6 +770,7 @@ public sealed class ClientRenderPolicy
     public void Clear()
     {
         Forget();
+        _twoPass.Clear();
         LastSeen = 0;
         LastDecided = 0;
     }

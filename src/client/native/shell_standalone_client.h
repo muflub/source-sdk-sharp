@@ -508,6 +508,9 @@ public:
 	virtual bool IsTransparent( void ) OVERRIDE { return Block().Client.Transparent != 0; }
 	virtual const model_t *GetModel( void ) const OVERRIDE;
 	virtual int  DrawModel( int flags ) OVERRIDE;
+	// Managed's extras for this pass, before the model (a two-pass entity's
+	// translucent pass) or after it (the local viewmodel): see the .cpp.
+	int DrawExtras( int flags, bool bAfterModel );
 	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
 
 	// A model instance is where the engine keeps this renderable's baked

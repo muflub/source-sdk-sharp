@@ -103,14 +103,15 @@ struct SourceSharpTier_t
 // StandaloneNetFields, which standalone_nettable.h static_asserts (this stayed
 // six when m_fEffects and m_ubInterpolationFrame joined, and is TEN now that
 // the solidity pair — m_nSolidType, m_nSolidFlags — carries a managed prop's
-// shape across for the client's impact clip, and ELEVEN since m_nSkin carries a
-// skin the server picks, 2026-10-19). Not spelled
+// shape across for the client's impact clip, ELEVEN since m_nSkin carries a
+// skin the server picks, 2026-10-19, and TWELVE since m_nBody carries its
+// bodygroups, 2026-10-25). Not spelled
 // `10 + bytes/4` at the call sites: NetTiers reads this across the ABI rather
 // than projecting it, because a boundary rule with two implementations drifts.
 //-----------------------------------------------------------------------------
 enum
 {
-	SOURCESHARP_TIER_PROPS_STANDALONE = 11,
+	SOURCESHARP_TIER_PROPS_STANDALONE = 12,
 };
 
 // Still a function of nShell, because nShell is ABI: NetTierInfo takes it from

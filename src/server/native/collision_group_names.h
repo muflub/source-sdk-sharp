@@ -57,6 +57,7 @@ enum SourceSharpCollisionGroup_t
 	SS_COLLISION_GROUP_DEBRIS       = 3,
 	SS_COLLISION_GROUP_INTERACTIVE  = 4,
 	SS_COLLISION_GROUP_PROJECTILE   = 5,
+	SS_COLLISION_GROUP_BREAKABLE_GLASS = 6,
 };
 
 //-----------------------------------------------------------------------------

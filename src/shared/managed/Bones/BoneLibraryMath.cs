@@ -265,6 +265,36 @@ public static class BoneLibraryMath
     }
 
     /// <summary>
+    /// The bones a merge did not name, under the parents it moved:
+    /// <c>C_BaseAnimating::BuildTransformations</c>' order for a bone-merged
+    /// entity, which copies the matching bones from the source first and then
+    /// builds every other bone under its parent, so a child the source does
+    /// not name (a w_ model's weapon bone, under the hand) follows it. Each
+    /// such bone keeps the transform the own build gave it under its parent
+    /// (<paramref name="own"/>, the build before the merge), under that parent
+    /// as merged (<paramref name="bones"/>), in bone order, so a chain follows
+    /// whole. A root bone keeps its own place.
+    /// </summary>
+    public static void ReparentUnmergedBones(StudioHdr hdr, ReadOnlySpan<short> map,
+                                             ReadOnlySpan<BoneMatrix3x4> own, Span<BoneMatrix3x4> bones)
+    {
+        int count = Math.Min(Math.Min(hdr.NumBones, map.Length), Math.Min(own.Length, bones.Length));
+
+        for (int i = 0; i < count; i++)
+        {
+            int parent = hdr.BoneParent(i);
+
+            if (map[i] >= 0 || parent < 0 || parent >= i)
+            {
+                continue;
+            }
+
+            BoneMatrix3x4 local = BoneSetupMath.ConcatTransforms(BoneSetupMath.MatrixInvert(own[parent]), own[i]);
+            bones[i] = BoneSetupMath.ConcatTransforms(bones[parent], local);
+        }
+    }
+
+    /// <summary>
     /// <c>BoneLibrary_ApplyMergedBones</c>: the source's matrices over the
     /// mapped bones. The spans' lengths are the native counts; an empty span
     /// is the native null and copies nothing. Answers how many bones were

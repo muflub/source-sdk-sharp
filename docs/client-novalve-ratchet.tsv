@@ -30,6 +30,8 @@
 # 2026-10-25, lane M1-C: c_te.cpp's SuppressTE is C# (LocalTempEntSuppression over IManagedTempEntsClient::SuppressLocalTempEnt); the DispatchEffect override that carries it out ruled SLOT: logic-lines 7276 -> 7257. Hand-edited.
 # 2026-10-25, lane M1-C, measured by tools/shim-scope: shell_te_forwards_client.cpp's TE_Bubbles and TE_Smoke left (no te-> caller since C8; TE_Bubbles RESERVED), its 39 empty ITempEntsSystem overrides and TriggerTempEntity ruled SLOT: logic-lines 7424 -> 7276. Hand-edited.
 # 2026-10-25, lane M1-C (client native decisions to C#), measured by tools/shim-scope at 1f8f3e52d + the change: md5_pseudorandom.cpp left client.so (no importer): incdir-forbidden-tus 135 -> 134, logic-lines 7435 -> 7424. Hand-edited.
+# measured at f9964449f
+# 2026-10-25, weapon draw extras (stock-ab-vmfx, on 868537618): logic-lines 7435 -> 7441 RAISED. C_StandaloneEntity::DrawModel gains its two asks of managed (the two-pass translucent pass before the model, the local viewmodel's ViewModelDrawn after it; the ask itself is DrawExtras, ruled BOUNDARY) and AddToLeafSystem pins RENDER_GROUP_TWOPASS == 9 beside the other groups. What draws and which entities ask are managed's (ClientRenderPolicy's two-pass wish, the weapons' draw effects). Hand-edited.
 # 2026-10-20, C7 cluster 12 S2's deletion, measured by tools/client-novalve-census on the lane at f6c3f0b33 + the deletion: shell_renderable_facts.cpp, shell_tools_off_client.cpp and collisionutils.cpp left client.so with clientshadowmgr.cpp, their last importer, and the fork headers only they read left client.txt (toolframework_client.h; collisionutils.h to tests.txt, for the precipitation oracle): fork-hdr-not-allowed 294 -> 292, fork-hdr-total 458 -> 456, incdir-forbidden-tus 138 -> 135, logic-lines 7505 -> 7457, native-convar-decls 69 -> 68 (cs_cl_renderable_report), sdk-links 370 -> 368. Hand-edited.
 # 2026-10-19, C7 cluster 12 S2 (the client shadow manager to C#), measured by tools/client-novalve-census on the lane at main cd01c2887 + the switch: clientshadowmgr.cpp, the client's last fork TU, left client.so (the manager is SourceSharp.Client's Render/Shadows over libss_fwd_client's ShadowNative; shell_shadows_client.cpp is its native residue, shell_flashlight_client.cpp folded into it): fork-src 1 -> 0, fork-hdr-not-allowed 298 -> 294, fork-hdr-total 462 -> 458, incdir-forbidden-tus 139 -> 138, sdk-links 374 -> 370 (the .cpp and bonetoworldarray.h, utlmultilist.h and jobthread.h, which only it read: make sdk-census), logic-lines 7515 -> 7505 (the shells' shadow calls became queue entries; the new shell's functions ruled SLOT, SLOT-HELP, HOOK and BOUNDARY), native-convar-decls 69 unchanged (the ten ConVars and seven commands were the fork TU's, which this census does not count; they are managed declarations now). Hand-edited.
 # 2026-10-19, C7 glow overlays and pixel visibility (glow_overlay.cpp's and c_pixel_visibility.cpp's eviction, one commit: each links a symbol of the other), measured by tools/client-novalve-census on the lane at main a001d7a31: both left client.so (the overlays are GlowOverlaySystem's, the pixel visibility PixelVisibilitySystem's): fork-src 3 -> 1, fork-hdr-not-allowed 303 -> 298, fork-hdr-total 467 -> 462, incdir-forbidden-tus 140 -> 138, sdk-links 515 -> 510 (the two .cpp and glow_overlay.h, c_sun.h and sun_shared.h, which only glow_overlay.cpp read: make sdk-census), logic-lines 7515 unchanged (the four retired shim bodies were ruled BOUNDARY). Hand-edited.
@@ -412,6 +414,32 @@ imports:vtf<-particles	0
 incdir-forbidden	0
 incdir-forbidden-tus	0
 link-forbidden	1
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
+# 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
+#   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
+#   fix needs, not a relabel.
+# LOWERED 2026-10-19, logic-lines 9010 -> 8990 (-20, tools/shim-scope at the C7 cluster 12 L2 landing on main
+#   832d8cd95): BlendPass, L1's native once-per-frame-and-view ComputeFxBlend check, moved to managed with the registry.
+#   fork-src 8 -> 7 and the fork-hdr rows had already followed clientleafsystem.cpp's eviction in the rebase. Hand-edited.
+# 2026-10-19, plan_server_native_v2 T4b: RAISED 8804 -> 9328 (+524), a relabel: tempent_schema.h moved from
+#   src/shared/native to src/client/native (the server plans its temp entity tables in C# and no longer includes it), so
+#   tools/shim-scope, which walks src/client/native, counts the client's planner and registry for the first time. The
+#   client compiled exactly this text before (its TU preprocesses identically, line markers aside). The client port's to
+#   move; the server's twin is TePropPlanner/TeSchemaRegistry.
+# LOWERED 2026-10-19, logic-lines 9514 -> 8939 (-575, tools/shim-scope at the client sound emitter landing on main
+#   ab8f56ef2): sound_emitter.cpp's client emit path went to managed (the lane measured 8804 -> 8229 on its base). Hand-edited.
+# LOWERED 2026-10-19, logic-lines 8939 -> 8696 (-243) and incdir-forbidden-tus 141 -> 140 (tools/client-novalve-census at
+#   the client save codec landing on main 9d7f49fad): shell_savegame.cpp deleted, its save slots ruled SLOT, and the
+#   forwards in shell_clientdll.cpp (the lane measured 9010 -> 8767 on its base). Hand-edited.
+# LOWERED 2026-10-19, logic-lines 8696 -> 7566 (-1130, tools/shim-scope at the client temp entity landing on main 6c0c02d09):
+#   tempent_schema.h and the native registration path deleted; the store and the receiving shell's husk ruled carrying out
+#   (the lane measured 9514 -> 8384 on its base). Hand-edited.
+# LOWERED 2026-10-20, logic-lines 7457 -> 7435 (tools/shim-scope at the serialised ABI cleanup's landing on main c5c8df3d2):
+#   the dead slots' native bodies went with their rows. Hand-edited.
+# 2026-10-25, the server's bodygroup on the wire: RAISED 7435 -> 7438. The client's recv builder addresses the new m_nBody row
+#   (three lines: the offset into the block's Client.Body), beside m_nSkin's; new reach the tripmine's body 3 needs, not a relabel.
+# 2026-10-25, stock-ab-vmfx: RAISED +6 for C_StandaloneEntity::DrawExtras and its two calls (the weapon draw effects' surface),
+#   composed onto the m_nBody raise at the lane's landing: 7438 -> 7444.
 logic-lines	52
 native-convar-decls	58
 needed-forbidden	0

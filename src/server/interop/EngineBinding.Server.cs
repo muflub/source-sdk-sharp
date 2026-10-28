@@ -254,6 +254,9 @@ internal sealed unsafe partial class EngineEffects
     // No engine answer since plan_server_native_v2 T4f: the server answers this from a managed trace and a managed temp entity (EffectsOverTempEnts).
     public void BubbleEffect(EntityHandle entity, int count, float speed) { }
 
+    // Never had an engine answer: the server answers this from a managed trace and a managed temp entity (EffectsOverTempEnts).
+    public void BubbleTrailEffect(Vector from, Vector to, int count) { }
+
     // T4b (plan_server_native_v2): the server's temp entities are planned in C#
     // and stored by native (ServerTempEntEngine over IShimEffectsServer's
     // TempEntBuild), so neither of these reaches the engine any more.
@@ -2851,5 +2854,9 @@ internal sealed unsafe partial class EngineWorldQuery
     public ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
                                                      ReadOnlySpan<int> entityIndices)
         => new ClientTraceResult(false, 1f, end, Vector.Zero, 0, -1, -1, 0);
+    public ClientBoxTrace ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs,
+                                                   TraceMask mask, int passEntityIndex,
+                                                   ReadOnlySpan<int> entityIndices)
+        => new ClientBoxTrace(false, 1f, end, -1, Vector.Zero);
     public int GetArea(Vector origin) => _server.GetArea(origin);
 }

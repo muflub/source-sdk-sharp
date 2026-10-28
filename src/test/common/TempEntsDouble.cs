@@ -61,6 +61,9 @@ internal abstract class TempEntsDouble : ITempEnts
     public virtual void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
                                 int modelIndex, int count, float speed) { }
 
+    public virtual void BubbleTrail(TeFilter filter, float delay, Vector from, Vector to, float waterZ,
+                                    int modelIndex, int count, float speed) { }
+
     public virtual void Impact(TeFilter filter, float delay, Vector position,
                                Vector normal, int type) { }
 

@@ -954,6 +954,11 @@ public enum CrossingOp
     ClientSuppressLocalTempEnt = 386,
     /// <summary>IManagedStandaloneClient::SchemaAccept: a standalone entity's update asks whether its payload's schema hash is this build's (lane M1-C, generic_payload_client.cpp's SourceSharpSchema_Accept). CLIENT ONLY.</summary>
     ClientSchemaAccept = 387,
+    /// <summary>
+    /// IManagedStandaloneClient::OnStandaloneDrawExtras: an entity's extras for one pass, after the
+    /// local viewmodel draws (stock's ViewModelDrawn) and in a two-pass entity's translucent draw. CLIENT ONLY.
+    /// </summary>
+    ClientStandaloneDrawExtras = 388,
 }
 
 /// <summary>

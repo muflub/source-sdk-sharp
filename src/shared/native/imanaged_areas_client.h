@@ -119,6 +119,7 @@ struct SSManagedStandaloneClientTable
 	int32_t ( *NetStateFieldBits )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
 	void ( *OnStandaloneDrawBatch )( IManagedStandaloneClient *self, const uint32_t *pHandles, int32_t nCount, int32_t *pResults );
 	int32_t ( *SchemaAccept )( IManagedStandaloneClient *self, uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName );
+	int32_t ( *OnStandaloneDrawExtras )( IManagedStandaloneClient *self, uint32_t hEntity, int32_t nFlags );
 };
 
 class IManagedStandaloneClient : public IManagedObject
@@ -136,6 +137,7 @@ public:
 	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldBits( this, pClassName, pFieldName ); }
 	void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults ) { Table()->OnStandaloneDrawBatch( this, pHandles, nCount, pResults ); }
 	int32_t SchemaAccept( uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName ) { return Table()->SchemaAccept( this, nTypeId, bPublished, nExpected, nSeen, nEntIndex, pClassName ); }
+	int32_t OnStandaloneDrawExtras( uint32_t hEntity, int32_t nFlags ) { return Table()->OnStandaloneDrawExtras( this, hEntity, nFlags ); }
 
 private:
 	const SSManagedStandaloneClientTable *Table() const { return static_cast< const SSManagedStandaloneClientTable * >( m_pTable ); }
@@ -143,10 +145,10 @@ private:
 
 static const uint32_t kIManagedStandaloneClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xff2dadb5, 0x8a6f1a50, 0x8a6f1a50, 0xb649cac8, 0xe0e1e121, 0x8d177001,
-	0xbddf45d5, 0xbddf45d5, 0xd26c0bc9, 0x87f5efbd,
+	0xbddf45d5, 0xbddf45d5, 0xd26c0bc9, 0x87f5efbd, 0xbabc0fee,
 };
-static const int32_t kIManagedStandaloneClientSlotCount = 12;
-static_assert( sizeof( SSManagedStandaloneClientTable ) == 12 * sizeof( void * ), "SSManagedStandaloneClientTable is one pointer per slot" );
+static const int32_t kIManagedStandaloneClientSlotCount = 13;
+static_assert( sizeof( SSManagedStandaloneClientTable ) == 13 * sizeof( void * ), "SSManagedStandaloneClientTable is one pointer per slot" );
 
 class IManagedPredictionClient;
 

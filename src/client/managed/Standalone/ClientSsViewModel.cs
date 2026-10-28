@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Client.WeaponEffects;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Standalone;
@@ -40,11 +41,20 @@ namespace SourceSharp.Client.Standalone;
 public sealed class ClientSsViewModel : ClientStandaloneEntity
 {
     private readonly IEngineHud _screen;
+    private readonly IWeaponDrawEffects _effects;
 
+    /// <summary>A viewmodel whose weapon draws nothing beside it (a test's).</summary>
     public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen)
+        : this(render, screen, new NoWeaponDrawEffects())
+    {
+    }
+
+    [Inject]
+    public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen, IWeaponDrawEffects effects)
         : base(render)
     {
         _screen = screen;
+        _effects = effects;
     }
 
     public override string ClassName => EntityNames.SsViewModel;
@@ -172,4 +182,14 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
     }
 
     public override int OnDraw() => 0;
+
+    /// <summary>
+    /// C_BaseViewModel::DrawModel's tail: the model has drawn, and its weapon
+    /// draws what it hangs off it (ViewModelDrawn), in the viewmodel pass.
+    /// </summary>
+    public override int OnDrawExtras(int flags)
+    {
+        _effects.ViewModelDrawn(this);
+        return -1;
+    }
 }

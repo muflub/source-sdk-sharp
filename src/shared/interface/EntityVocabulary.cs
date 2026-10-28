@@ -176,6 +176,13 @@ public enum CollisionGroup
     /// projectiles (CGameRules::ShouldCollide). The SMG1's grenade_ar2.
     /// </summary>
     Projectile = 5,
+
+    /// <summary>
+    /// A sheet of breakable glass (func_breakable_surf, CBreakableSurface::
+    /// Spawn): it does not collide with other glass (CGameRules::ShouldCollide),
+    /// and a crossbow bolt flies on through it after the damage.
+    /// </summary>
+    BreakableGlass = 6,
 }
 
 /// <summary>

@@ -100,6 +100,16 @@ public interface IClientModule
     /// out, or -1 for one that must still draw in place.
     /// </summary>
     void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results);
+
+    /// <summary>
+    /// What an entity draws beside its model in one pass, with the pass's
+    /// <c>STUDIO_*</c> flags: after the local viewmodel's model (stock's
+    /// <c>C_BaseCombatWeapon::ViewModelDrawn</c>), and in a two-pass entity's
+    /// translucent pass (stock's weapons' <c>DrawModel</c> arm for
+    /// <c>STUDIO_TRANSPARENCY</c>). Answers what DrawModel returns in place of
+    /// the model's draw, or -1 to let the model draw.
+    /// </summary>
+    int StandaloneDrawExtras(EntityHandle entity, int flags);
     void StandaloneRemoved(EntityHandle entity);
 
     /// <summary>

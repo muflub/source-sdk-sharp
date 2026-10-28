@@ -146,6 +146,9 @@ public sealed class FuncBreakableSurf : ScriptedEntity
             return;
         }
 
+        // CBreakableSurface::Spawn: glass's own group.
+        SetCollisionGroup(CollisionGroup.BreakableGlass);
+
         if (Vars.Health > 0)
             Health = Vars.Health;
 

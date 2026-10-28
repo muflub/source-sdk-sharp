@@ -44,6 +44,13 @@ public interface IClientBeams
     void CreateBeamPoints(BeamInfo info);
 
     /// <summary>
+    /// <c>CreateBeamEntPoint( BeamInfo_t &amp; )</c>: the beam, which its maker
+    /// keeps and changes (stock's <c>Beam_t *</c>: a weapon's laser brightens
+    /// and fades it each frame), or null when none was made.
+    /// </summary>
+    Beam? CreateBeamEntPoint(BeamInfo info);
+
+    /// <summary>
     /// <c>DrawBeam( C_Beam * )</c>: an entity's beam between two points, drawn
     /// now, so only from inside the owner's draw. Nothing is listed, so
     /// nothing outlives the call.
@@ -61,12 +68,34 @@ public interface IClientBeams
 }
 
 /// <summary>
+/// A renderable of the client's own in the world's translucent pass, as a
+/// beam's is (<c>RENDER_GROUP_TRANSLUCENT_ENTITY</c>): what a stock client
+/// effect drawn by an entity of its own (an env_sprite hung on a viewmodel)
+/// draws through here, where no entity exists to draw it.
+/// </summary>
+public interface IClientTranslucentRenderables
+{
+    /// <summary>
+    /// A renderable at <paramref name="origin"/>, its bounds relative to it,
+    /// whose draw is <paramref name="draw"/>, in the world's translucent pass
+    /// at that view. The handle, or -1.
+    /// </summary>
+    int Add(Vector origin, Vector mins, Vector maxs, Action draw);
+
+    /// <summary><c>RenderableChanged</c>: it moved.</summary>
+    void Changed(int handle, Vector origin, Vector mins, Vector maxs);
+
+    /// <summary><c>RemoveRenderable</c>, of one this added; any other handle is left alone.</summary>
+    void Remove(int handle);
+}
+
+/// <summary>
 /// <see cref="IClientBeams"/> over <see cref="BeamSystem"/> and
 /// <see cref="BeamDraw"/>, drawing through <see cref="IClientBeamExecutor"/>;
 /// what native's <c>beams</c> forwards (<see cref="IClientBeamCallbacks"/>).
 /// Carries every live beam across a client reload.
 /// </summary>
-public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IReloadParticipant
+public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IReloadParticipant, IClientTranslucentRenderables
 {
     // view_beams.cpp's trail pool: -particles, at least MIN_PARTICLES, else DEFAULT_PARTICLES.
     private const int MinTrails = 512;
@@ -79,6 +108,7 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private const int LifecycleInit = 0, LifecycleShutdown = 1, LifecycleClear = 2;
 
     private readonly IClientBeamExecutor _executor;
+    private readonly Standalone.IViewModelAttachmentFormat _viewModels;
     private readonly IPixelVisibility _pixelVis;
     private readonly IGameClock _clock;
     private readonly IEngineConsole _console;
@@ -89,11 +119,18 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private readonly float[] _viewFloats = new float[42];
     private readonly float[] _matrix = new float[16];
     private readonly Dictionary<int, Beam> _byRenderable = [];
+
+    // The pool's other renderables (IClientTranslucentRenderables), by handle:
+    // the native pool is one, and only managed code frees from it, so a level's
+    // clear leaves these to their owners' removal.
+    private readonly Dictionary<int, Action> _drawnByOthers = [];
     private BeamSystem _system;
     private long _created, _refused, _updates, _draws;
 
-    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log, IPixelVisibility pixelVis)
+    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log, IPixelVisibility pixelVis,
+                            Standalone.IViewModelAttachmentFormat viewModels)
     {
+        _viewModels = viewModels;
         _executor = executor;
         _pixelVis = pixelVis;
         _clock = clock;
@@ -168,6 +205,13 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
                                           fadeLength, r, g, b, brightness, _clock.Now));
 
     public void CreateBeamPoints(BeamInfo info) => Count(_system.CreateBeamPoints(info, _clock.Now));
+
+    public Beam? CreateBeamEntPoint(BeamInfo info)
+    {
+        Beam? beam = _system.CreateBeamEntPoint(info, _clock.Now);
+        Count(beam);
+        return beam;
+    }
 
     //-------------------------------------------------------------------------
     // Native's `beams`.
@@ -290,12 +334,41 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
 
     public void Draw(int renderable)
     {
+        if (_drawnByOthers.TryGetValue(renderable, out Action? draw))
+        {
+            draw();
+            return;
+        }
+
         if (!_byRenderable.TryGetValue(renderable, out Beam? beam))
             return;
 
         _draws++;
         _draw.View = View(insideView: true);
         _system.DrawBeam(beam, _draw, _world);
+    }
+
+    /// <inheritdoc/>
+    public int Add(Vector origin, Vector mins, Vector maxs, Action draw)
+    {
+        int handle = _executor.RenderableAdd(origin, mins, maxs);
+        if (handle >= 0)
+            _drawnByOthers[handle] = draw;
+        return handle;
+    }
+
+    /// <inheritdoc/>
+    public void Changed(int handle, Vector origin, Vector mins, Vector maxs)
+    {
+        if (_drawnByOthers.ContainsKey(handle))
+            _executor.RenderableChanged(handle, origin, mins, maxs);
+    }
+
+    /// <inheritdoc/>
+    public void Remove(int handle)
+    {
+        if (_drawnByOthers.Remove(handle))
+            _executor.RenderableRemove(handle);
     }
 
     public void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale)
@@ -357,7 +430,9 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
         float[] f = _facts;
         if (plan.TryAttachment && (facts & BeamEntityFacts.Attachment) != 0)
         {
-            position = new Vector(f[0], f[1], f[2]);
+            // A viewmodel's attachment as stock's C_BaseViewModel hands it
+            // out: where the world's projection draws that point of the gun.
+            position = _viewModels.ForWorldPass(entity, new Vector(f[0], f[1], f[2]));
             return true;
         }
 

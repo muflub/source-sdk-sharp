@@ -835,6 +835,18 @@ typedef enum
 	// brushes and nothing else, the sky's surface flag read off what it hit.
 	// Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_CONTENTS_SOLID = 9,
+
+	// MASK_SHOT & ~CONTENTS_WINDOW -- a shot that passes through glass: the
+	// RPG's laser (weapon_rpg.cpp, UpdateLaserPosition), whose dot lands on
+	// what is behind a window. Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's
+	// reason.
+	SOURCESHARP_TRACE_SHOT_NO_WINDOWS = 10,
+
+	// MASK_OPAQUE -- solid, moveable and opaque contents: what a crossbow
+	// bolt's line behind its victim stops on (CCrossbowBolt::BoltTouch). Not
+	// SOURCESHARP_TRACE_BLOCKLOS: that stops on CONTENTS_BLOCKLOS and passes
+	// CONTENTS_OPAQUE. Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_OPAQUE = 11,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a

@@ -149,6 +149,17 @@ public class BreakableSurfaceMaterialTests
         return (FuncBreakableSurf)registry.Get(handle)!;
     }
 
+    /// <summary>CBreakableSurface::Spawn's SetCollisionGroup( COLLISION_GROUP_BREAKABLE_GLASS ), which this mod left at none.</summary>
+    [Fact]
+    public void ASheetOfGlassIsInGlasssOwnGroup()
+    {
+        var glass = Spawn(43, out var engine, modelProp: GlassProp, namedProp: CoarseGlassProp);
+
+        Assert.Contains(engine.Calls, c => c.Member == "EntityPhysics.SetCollisionGroup"
+                                        && c.ArgAs<EntityHandle>(0) == glass.Handle
+                                        && c.ArgAs<CollisionGroup>(1) == CollisionGroup.BreakableGlass);
+    }
+
     [Fact]
     public void TheModelIsWhatThePaneIsMadeOf()
     {

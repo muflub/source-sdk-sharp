@@ -178,6 +178,60 @@ static int TraceHitIndex( IHandleEntity *pHit )
 }
 
 //-----------------------------------------------------------------------------
+// The engine mask a SOURCESHARP_TRACE_ value names, for every trace slot on
+// this side: the line, the hull and both clips read this one table, so no
+// slot can read a value another knows as the brushes-only default in silence.
+//-----------------------------------------------------------------------------
+static unsigned int ClientTraceMaskOf( int32_t nMask )
+{
+	// The server arm's default, and for its reason: brushes only is the mask
+	// that means "does a wall shield you from this".
+	unsigned int nTraceMask = MASK_SOLID_BRUSHONLY;
+	if ( nMask == SOURCESHARP_TRACE_SHOT )
+		nTraceMask = MASK_SHOT;
+	else if ( nMask == SOURCESHARP_TRACE_BRUSHES_AND_WATER )
+		nTraceMask = MASK_SOLID_BRUSHONLY | MASK_WATER;
+	else if ( nMask == SOURCESHARP_TRACE_ALL )
+		nTraceMask = MASK_ALL;
+	// MASK_SHOT_HULL, which is what CRagdollExplosionEnumerator traces the
+	// blast line with (c_te_explosion.cpp:86) and what the managed impulse path
+	// that replaced it asks for. Not MASK_SHOT: the hitbox bit is out and the
+	// grate bit is in, so a blast line stops on a floor vent and does not stop
+	// on a body it is about to throw.
+	else if ( nMask == SOURCESHARP_TRACE_SHOT_HULL )
+		nTraceMask = MASK_SHOT_HULL;
+	// What a THING moving through the world runs into, which is what the legacy
+	// tempent pool's collision arm traces with. Not MASK_SHOT: that adds debris
+	// and hitboxes and drops grates, so a gib would stop on a scrap of debris
+	// and fall through a grating.
+	else if ( nMask == SOURCESHARP_TRACE_SOLID )
+		nTraceMask = MASK_SOLID;
+	// MASK_BLOCKLOS -- "is the line of sight between these two points broken",
+	// which is not the brushes-only default: that stops on glass and does not
+	// stop on a CONTENTS_BLOCKLOS volume. Wired here as well as on the server
+	// arm, which is the arm that needed it, for SOURCESHARP_TRACE_ALL's reason.
+	else if ( nMask == SOURCESHARP_TRACE_BLOCKLOS )
+		nTraceMask = MASK_BLOCKLOS;
+	// The flashlight's direction mask (C7 cluster 12), on both arms.
+	else if ( nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
+		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
+	// A glow's sight line (C7 pixel visibility): no glass. On both arms.
+	else if ( nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
+		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
+	// A glow overlay's line at the sky (C7 glow overlays). On both arms.
+	else if ( nMask == SOURCESHARP_TRACE_CONTENTS_SOLID )
+		nTraceMask = CONTENTS_SOLID;
+	// A shot through glass (the RPG's laser). On both arms.
+	else if ( nMask == SOURCESHARP_TRACE_SHOT_NO_WINDOWS )
+		nTraceMask = MASK_SHOT & ~CONTENTS_WINDOW;
+	// What a crossbow bolt's line behind its victim stops on. On both arms.
+	else if ( nMask == SOURCESHARP_TRACE_OPAQUE )
+		nTraceMask = MASK_OPAQUE;
+
+	return nTraceMask;
+}
+
+//-----------------------------------------------------------------------------
 // A line through the client's world.
 //
 // STOCK'S FILTER, WHICH IS NO FILTER. CTraceFilterHitAll returns true for
@@ -211,43 +265,7 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	const Vector vecStart( req.vecStart.x, req.vecStart.y, req.vecStart.z );
 	const Vector vecEnd  ( req.vecEnd.x,   req.vecEnd.y,   req.vecEnd.z   );
 
-	// The server arm's default, and for its reason: brushes only is the mask
-	// that means "does a wall shield you from this".
-	unsigned int nTraceMask = MASK_SOLID_BRUSHONLY;
-	if ( req.nMask == SOURCESHARP_TRACE_SHOT )
-		nTraceMask = MASK_SHOT;
-	else if ( req.nMask == SOURCESHARP_TRACE_BRUSHES_AND_WATER )
-		nTraceMask = MASK_SOLID_BRUSHONLY | MASK_WATER;
-	else if ( req.nMask == SOURCESHARP_TRACE_ALL )
-		nTraceMask = MASK_ALL;
-	// MASK_SHOT_HULL, which is what CRagdollExplosionEnumerator traces the
-	// blast line with (c_te_explosion.cpp:86) and what the managed impulse path
-	// that replaced it asks for. Not MASK_SHOT: the hitbox bit is out and the
-	// grate bit is in, so a blast line stops on a floor vent and does not stop
-	// on a body it is about to throw.
-	else if ( req.nMask == SOURCESHARP_TRACE_SHOT_HULL )
-		nTraceMask = MASK_SHOT_HULL;
-	// What a THING moving through the world runs into, which is what the legacy
-	// tempent pool's collision arm traces with. Not MASK_SHOT: that adds debris
-	// and hitboxes and drops grates, so a gib would stop on a scrap of debris
-	// and fall through a grating.
-	else if ( req.nMask == SOURCESHARP_TRACE_SOLID )
-		nTraceMask = MASK_SOLID;
-	// MASK_BLOCKLOS -- "is the line of sight between these two points broken",
-	// which is not the brushes-only default: that stops on glass and does not
-	// stop on a CONTENTS_BLOCKLOS volume. Wired here as well as on the server
-	// arm, which is the arm that needed it, for SOURCESHARP_TRACE_ALL's reason.
-	else if ( req.nMask == SOURCESHARP_TRACE_BLOCKLOS )
-		nTraceMask = MASK_BLOCKLOS;
-	// The flashlight's direction mask (C7 cluster 12), on both arms.
-	else if ( req.nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
-		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
-	// A glow's sight line (C7 pixel visibility): no glass. On both arms.
-	else if ( req.nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
-		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
-	// A glow overlay's line at the sky (C7 glow overlays). On both arms.
-	else if ( req.nMask == SOURCESHARP_TRACE_CONTENTS_SOLID )
-		nTraceMask = CONTENTS_SOLID;
+	const unsigned int nTraceMask = ClientTraceMaskOf( req.nMask );
 
 	trace_t tr;
 
@@ -346,7 +364,7 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 // question, so the list is the caller's; this clips the ray against each as
 // the engine's own enumerator would have: one that is not solid (SOLID_NONE,
 // FSOLID_NOT_SOLID) is passed over, and the nearest hit is the answer, in
-// ClientTraceLine's outs. MASK_SHOT only: the one mask a caller has.
+// ClientTraceLine's outs. The mask is ClientTraceMaskOf's, as the line's is.
 //-----------------------------------------------------------------------------
 COMPILE_TIME_ASSERT( (int)SOLID_NONE == kClipSolidNone );
 COMPILE_TIME_ASSERT( (int)FSOLID_NOT_SOLID == kClipNotSolid );
@@ -359,11 +377,13 @@ int32_t SourceSharp_ClientClipRayToEntities( const float *pStartXYZ, const float
 {
 	const TraceLineRequest req = TraceLineArgs( pStartXYZ, pEndXYZ, nMask );
 
-	if ( !req.bTrace || req.nMask != SOURCESHARP_TRACE_SHOT || !pEntityIndices || nEntities <= 0 )
+	if ( !req.bTrace || !pEntityIndices || nEntities <= 0 )
 		return WriteTraceOuts( TraceAnswerMiss( req.bTrace ? req.vecEnd : VecZero() ),
 		                       pOutFraction, pOutEndXYZ, pOutNormalXYZ,
 		                       pOutHitbox, pOutEntityIndex,
 		                       pOutSurfaceProps, pOutSurfaceFlags );
+
+	const unsigned int nTraceMask = ClientTraceMaskOf( req.nMask );
 
 	Ray_t ray;
 	ray.Init( Vector( req.vecStart.x, req.vecStart.y, req.vecStart.z ),
@@ -383,7 +403,7 @@ int32_t SourceSharp_ClientClipRayToEntities( const float *pStartXYZ, const float
 			continue;
 
 		trace_t tr;
-		enginetrace->ClipRayToCollideable( ray, MASK_SHOT, pCollide, &tr );
+		enginetrace->ClipRayToCollideable( ray, nTraceMask, pCollide, &tr );
 
 		if ( ClipIsNearer( tr.fraction, tr.startsolid, best.fraction ) )
 		{
@@ -470,17 +490,7 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 	const Vector vecMins( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] );
 	const Vector vecMaxs( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] );
 
-	unsigned int nTraceMask = MASK_SOLID_BRUSHONLY;
-	if ( nMask == SOURCESHARP_TRACE_SOLID )
-		nTraceMask = MASK_SOLID;
-	else if ( nMask == SOURCESHARP_TRACE_SHOT )
-		nTraceMask = MASK_SHOT;
-	else if ( nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
-		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
-	else if ( nMask == SOURCESHARP_TRACE_GLOW_SIGHT )
-		nTraceMask = MASK_OPAQUE | CONTENTS_MONSTER | CONTENTS_DEBRIS;
-	else if ( nMask == SOURCESHARP_TRACE_CONTENTS_SOLID )
-		nTraceMask = CONTENTS_SOLID;
+	const unsigned int nTraceMask = ClientTraceMaskOf( nMask );
 
 	IClientEntity *pEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
 	IHandleEntity *pPass = pEnt ? static_cast< IClientUnknown * >( pEnt ) : NULL;
@@ -526,6 +536,83 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 		pOutEndXYZ[2] = tr.endpos.z;
 	}
 	return ( tr.fraction < 1.0f || tr.startsolid ) ? 1 : 0;
+}
+
+//-----------------------------------------------------------------------------
+// ClientTraceHullEntities: a box swept through the world (CTraceFilterSimple
+// passing the index managed names, as ClientTraceHull's simple arm) and clipped
+// against each entity managed names, for the reason ClientClipRayToEntities
+// gives: the shells are in no spatial partition, so the world sweep cannot
+// stop on one. The nearest stop of all of them is the answer, by the clip's
+// two rules: whether it stopped, the fraction and the end, the index of what
+// it stopped on (the world's is 0) and that entity's GetAbsOrigin, which is
+// what a caller asking "is it in front of me" reads off it.
+//-----------------------------------------------------------------------------
+int32_t SourceSharp_ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ,
+                                             const float *pMinsXYZ, const float *pMaxsXYZ,
+                                             int32_t nMask, int32_t nPassEntityIndex,
+                                             const int32_t *pEntityIndices, int32_t nEntities,
+                                             float *pOutFraction, float *pOutEndXYZ,
+                                             int32_t *pOutEntityIndex, float *pOutEntityOriginXYZ )
+{
+	if ( !pStartXYZ || !pEndXYZ || !pMinsXYZ || !pMaxsXYZ )
+		return 0;
+	const Vector vecStart( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
+	const Vector vecEnd( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
+	const Vector vecMins( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] );
+	const Vector vecMaxs( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] );
+
+	const unsigned int nTraceMask = ClientTraceMaskOf( nMask );
+
+	IClientEntity *pPassEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
+	IHandleEntity *pPass = pPassEnt ? static_cast< IClientUnknown * >( pPassEnt ) : NULL;
+
+	trace_t best;
+	CTraceFilterSimple traceFilter( pPass, COLLISION_GROUP_NONE );
+	UTIL_TraceHull( vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &best );
+	bool bHit = ( best.fraction < 1.0f || best.startsolid );
+	int32_t nHitIndex = bHit ? TraceHitIndex( ss::TraceHit( best ) ) : -1;
+
+	Ray_t ray;
+	ray.Init( vecStart, vecEnd, vecMins, vecMaxs );
+	for ( int32_t i = 0; pEntityIndices && i < nEntities; ++i )
+	{
+		IClientEntity *pEnt = SourceSharp_ClientEntityFromIndex( pEntityIndices[i] );
+		ICollideable *pCollide = pEnt ? pEnt->GetCollideable() : NULL;
+
+		if ( !pCollide || !ClipCandidateIsSolid( (int)pCollide->GetSolid(), pCollide->GetSolidFlags() ) )
+			continue;
+
+		trace_t tr;
+		enginetrace->ClipRayToCollideable( ray, nTraceMask, pCollide, &tr );
+
+		if ( ClipIsNearer( tr.fraction, tr.startsolid, bHit ? best.fraction : 1.0f ) )
+		{
+			best = tr;
+			bHit = true;
+			nHitIndex = pEntityIndices[i];
+		}
+	}
+
+	IClientEntity *pHitEnt = ( nHitIndex > 0 ) ? SourceSharp_ClientEntityFromIndex( nHitIndex ) : NULL;
+	const Vector vecOrigin = pHitEnt ? pHitEnt->GetAbsOrigin() : vec3_origin;
+	if ( pOutFraction )
+		*pOutFraction = best.fraction;
+	if ( pOutEndXYZ )
+	{
+		pOutEndXYZ[0] = best.endpos.x;
+		pOutEndXYZ[1] = best.endpos.y;
+		pOutEndXYZ[2] = best.endpos.z;
+	}
+	if ( pOutEntityIndex )
+		*pOutEntityIndex = nHitIndex;
+	if ( pOutEntityOriginXYZ )
+	{
+		pOutEntityOriginXYZ[0] = vecOrigin.x;
+		pOutEntityOriginXYZ[1] = vecOrigin.y;
+		pOutEntityOriginXYZ[2] = vecOrigin.z;
+	}
+	return bHit ? 1 : 0;
 }
 
 int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ, float *pOutAngles )

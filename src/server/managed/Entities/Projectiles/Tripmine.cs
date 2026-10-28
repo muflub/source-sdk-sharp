@@ -32,8 +32,9 @@ public sealed class Tripmine : ScriptedEntity
 {
     public Tripmine(IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
                     IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,
-                    IEngineSound sound, IEngineEntityRender render, IScreenEffects screen)
+                    IEngineSound sound, IEngineEntityRender render, IScreenEffects screen, IServerSkins skins)
     {
+        Skins = skins;
         Damage = damage;
         World = world;
         Effects = effects;
@@ -56,6 +57,12 @@ public sealed class Tripmine : ScriptedEntity
     private readonly IEngineSound Sound;
     private readonly IEngineEntityRender Render;
     private readonly IScreenEffects Screen;
+
+    /// <summary>the planted body.</summary>
+    private readonly IServerSkins Skins;
+
+    /// <summary>CTripmineGrenade::Spawn's m_nBody: w_slam.mdl with the tripmine's parts showing.</summary>
+    public const int PlantedBody = 3;
 
     public const string Model = "models/Weapons/w_slam.mdl";
 
@@ -114,6 +121,7 @@ public sealed class Tripmine : ScriptedEntity
     public override void OnSpawn()
     {
         SetModel(Model);
+        Skins.SetBody(Handle, PlantedBody);
         SetCollisionGroup(CollisionGroup.Weapon);
 
         _powerUpAt = GameTime + PowerUpDelay;

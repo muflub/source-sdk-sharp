@@ -56,6 +56,13 @@ internal sealed class RecordingBeams(RecordingEngine engine) : IClientBeams
 
     public void CreateBeamPoints(BeamInfo info) => engine.RecordCall("Beams.CreateBeamPoints(BeamInfo)", info);
 
+    /// <summary>Recorded, and answered with a fresh beam its maker can change.</summary>
+    public Beam? CreateBeamEntPoint(BeamInfo info)
+    {
+        engine.RecordCall("Beams.CreateBeamEntPoint(BeamInfo)", info);
+        return new Beam { Brightness = info.Brightness, FadeLength = info.FadeLength, Flags = info.Flags };
+    }
+
     public void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale)
         => engine.RecordCall("Beams.DrawEntityBeam", info, entityFlags, hdrColorScale);
 

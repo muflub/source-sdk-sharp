@@ -25,6 +25,27 @@ public unsafe class RenderPlanHostTests
         return answer;
     }
 
+    [Fact]
+    public void TheFramesPlayerViewIsKeptAsRenderScaledIt()
+    {
+        // GetPlayerViewSetup after CViewRender::Render: the eye, and both fields
+        // of view widened for the screen's aspect (16:9 here).
+        var record = new PlayerViewRecord();
+        var input = new RenderFrameIn { Width = 1280, Height = 720, FrameCount = 1, ScreenAspect = 16f / 9f };
+        input.Eye.Fov = 75f;
+        input.Eye.FovViewmodel = 54f;
+        input.Eye.Origin = new Vector(1, 2, 3);
+        var answer = default(RenderFrameOut);
+
+        new RenderPlanHost(record).Frame(in input, ref answer);
+
+        Assert.True(record.TryGet(out PlayerView view));
+        Assert.Equal(new Vector(1, 2, 3), view.Origin);
+        Assert.Equal(answer.Eye.Fov, view.Fov);
+        Assert.Equal(answer.Eye.FovViewmodel, view.FovViewmodel);
+        Assert.NotEqual(54f, view.FovViewmodel);
+    }
+
     // Every frame is the plan's: the stock path left (C7 step 3).
     [Fact]
     public void WithNoRequestAFrameIsThePlansAndUnrecorded()

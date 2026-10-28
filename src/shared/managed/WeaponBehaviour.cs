@@ -74,6 +74,19 @@ public interface IWeaponBehaviour
     void Reload(in WeaponAttackContext attack) { }
 
     /// <summary>
+    /// The start of one command, before anything is fired or reloaded: stock's
+    /// <c>ItemPreFrame</c>, with the command's own <paramref name="buttons"/>.
+    /// </summary>
+    void ItemPreFrame(in WeaponAttackContext attack, int buttons) { }
+
+    /// <summary>
+    /// The cone a shot is spread in, as its half-angle in degrees, when the
+    /// weapon's own GetBulletSpread decides it (the pistol's, which widens with
+    /// its accuracy penalty); null for the row's own.
+    /// </summary>
+    float? BulletSpread(in WeaponAttackContext attack) => null;
+
+    /// <summary>
     /// The end of one command, whatever the weapon did in it — firing,
     /// reloading, or standing idle. Stock's <c>ItemPostFrame</c> tail, and the
     /// only behaviour point that runs every command.

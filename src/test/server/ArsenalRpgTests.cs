@@ -149,4 +149,42 @@ public class ArsenalRpgTests
         Assert.Contains(rig.Engine.Calls, c => c.Member == "Entities.Remove" && c.ArgAs<EntityHandle>(0) == dot.Handle);
         Assert.False(dot.IsOn);
     }
+
+    /// <summary>
+    /// UpdateLaserPosition traces MASK_SHOT less CONTENTS_WINDOW: the dot lands
+    /// on what is behind glass. Found against stock (docs/divergences.md, the
+    /// RPG laser trace row, 2026-10-25): this mod's stopped on the pane.
+    /// </summary>
+    [Fact]
+    public void TheLaserLooksThroughGlass()
+    {
+        var rig = Armed();
+
+        Command(rig, 0, 30f);
+
+        Assert.Contains(rig.Engine.Calls, c => c.Member == "WorldQuery.TraceLine"
+                                            && c.ArgAs<TraceMask>(2) == TraceMask.ShotNoWindows);
+    }
+
+    /// <summary>
+    /// The dot's target is what it sits on when that can be hurt (stock's
+    /// m_takedamage): a prop can, an info_target cannot. This mod asked the
+    /// entity's health, which a prop with none reads as unhurtable.
+    /// </summary>
+    [Theory]
+    [InlineData(EntityNames.PropPhysics, true)]
+    [InlineData(EntityNames.InfoTarget, false)]
+    public void TheDotsTargetIsWhatItSitsOnWhenThatCanBeHurt(string className, bool target)
+    {
+        var rig = Armed();
+        var thing = new EntityHandle(0x0002_0031u);
+        rig.Registry.Spawn(thing, className);
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 0.01f, Wall, new Vector(-1f, 0f, 0f), thing))
+                  .Returns("Entities.GetHealth", 0);
+
+        Command(rig, 0, 30f);
+
+        Assert.Equal(target ? thing : EntityHandle.None, TheDot(rig)!.TargetEntity);
+    }
 }

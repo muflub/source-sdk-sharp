@@ -48,6 +48,37 @@ public interface IWeaponArms
     /// <summary>One melee swing: a short trace, the row's own damage.</summary>
     void MeleeSwing(in WeaponType type);
 
+    /// <summary>
+    /// Whether a swing now would meet something: CBaseHL2MPBludgeonWeapon::
+    /// Swing's aim, the ray and then the hull for a near miss. Asked on every
+    /// pass, the replay's too, because it picks the animation (a hit's
+    /// ACT_VM_HITCENTER or a miss's ACT_VM_MISSCENTER) and the animation is
+    /// predicted.
+    /// </summary>
+    bool MeleeConnects(in WeaponType type) => true;
+
+    /// <summary>
+    /// A swing met nothing: Swing's miss tail, ImpactWater's splash where the
+    /// swing went into water. The server's; nothing on the client's replay.
+    /// </summary>
+    void MeleeMiss(in WeaponType type) { }
+
+    /// <summary>
+    /// The weapon in the hands has nothing left to fire: stock's
+    /// <c>SwitchToNextBestWeapon</c> for the carrier (CMultiplayRules::
+    /// GetNextBestWeapon by weight). True when the hands will take another,
+    /// which happens once this command has run. The server's; the client's
+    /// replay never switches.
+    /// </summary>
+    bool SwitchToNextBest() => false;
+
+    /// <summary>
+    /// The carrier's eyes are under water or slime (GetWaterLevel() == 3):
+    /// the crossbow fires slower there. The server's; the replay launches
+    /// nothing, so it is never asked.
+    /// </summary>
+    bool EyesUnderwater() => false;
+
     /// <summary>Sends what the weapon launches instead of a bullet.</summary>
     void Launch(in WeaponType type, string projectile, float speed, bool thrown);
 
@@ -225,6 +256,25 @@ public enum WallProbe
 /// fallback for a model with untagged sequences.
 /// </para>
 /// </summary>
+/// <summary>
+/// CBaseHL2MPBludgeonWeapon::Swing's geometry, which the server's swing and the
+/// client's predicted one both read.
+/// </summary>
+public static class BludgeonSwing
+{
+    /// <summary>BLUDGEON_HULL_DIM.</summary>
+    public const float HullDim = 16f;
+
+    /// <summary>The swing's hull, <see cref="HullDim"/> each way.</summary>
+    public static Vector Hull => new(HullDim, HullDim, HullDim);
+
+    /// <summary>Swing's "cuberoot of 2" backoff: 1.732 * BLUDGEON_HULL_DIM.</summary>
+    public const float HullRadius = 1.732f * HullDim;
+
+    /// <summary>Swing's "sort of facing the guy" threshold.</summary>
+    public const float FacingDot = 0.70721f;
+}
+
 public static class WeaponAnimNames
 {
     public static string[] For(WeaponAnim anim) => anim switch
@@ -242,6 +292,7 @@ public static class WeaponAnimNames
         WeaponAnim.Throw        => new[] { "throw" },
         WeaponAnim.Haulback     => new[] { "lob" },
         WeaponAnim.Fidget       => new[] { "idle_empty" },
+        WeaponAnim.Miss         => new[] { "misscenter1", "misscenter" },
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -268,6 +319,7 @@ public static class WeaponAnimNames
         WeaponAnim.Throw        => new[] { "ACT_VM_THROW" },
         WeaponAnim.Haulback     => new[] { "ACT_VM_HAULBACK" },
         WeaponAnim.Fidget       => new[] { "ACT_VM_FIDGET" },
+        WeaponAnim.Miss         => new[] { "ACT_VM_MISSCENTER" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 
@@ -400,6 +452,8 @@ public sealed class WeaponLogic
 
         var behaviour = _behaviours.For(type.Behaviour);
 
+        behaviour?.ItemPreFrame(Context(in type, w, vm, now, effectsLive), buttons);
+
         // A weapon whose stock class replaces CBaseCombatWeapon::ItemPostFrame
         // outright (the shotgun) runs its own command.
         if (behaviour is not null)
@@ -480,6 +534,12 @@ public sealed class WeaponLogic
             PrimaryAttack(w, vm, in type, now, effectsLive, behaviour);
             return;
         }
+
+        // ReloadOrSwitchWeapons: with nothing held and nothing left to fire,
+        // the hands take the next best weapon.
+        if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0
+            && SwitchIfExhausted(_arms, w, now, effectsLive, HasAnyAmmo(w, in type, clipSize)))
+            return;
 
         // Reload on request, or because the clip ran dry and nothing is held.
         bool wantsReload = held.HasFlag(InputButtons.Reload)
@@ -578,7 +638,9 @@ public sealed class WeaponLogic
         if (shots <= 0)
             return;
 
-        SendAnim(vm, WeaponAnim.Primary, 0f);
+        // A swing that meets nothing plays its miss (Swing's ACT_VM_MISSCENTER).
+        bool connects = !type.IsMelee || _arms.MeleeConnects(in type);
+        SendAnim(vm, connects ? WeaponAnim.Primary : WeaponAnim.Miss, 0f);
 
         // The sound is per shot, stock's order — before the round leaves.
         if (effectsLive)
@@ -589,8 +651,10 @@ public sealed class WeaponLogic
 
         if (type.IsMelee)
         {
-            if (effectsLive)
+            if (effectsLive && connects)
                 _arms.MeleeSwing(in type);
+            else if (effectsLive)
+                _arms.MeleeMiss(in type);
         }
         // A weapon either throws or shoots, never both. A launcher that also
         // fired a bullet down the middle would be two weapons wearing one model.
@@ -601,7 +665,8 @@ public sealed class WeaponLogic
         }
         else if (effectsLive)
         {
-            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets), type.Spread);
+            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets),
+                              behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive)) ?? type.Spread);
         }
 
         // The tail, after the stock shot has been spent and the arms have fired.
@@ -745,6 +810,43 @@ public sealed class WeaponLogic
             return false;
 
         return clipSize > 0 ? w.Clip <= 0 : w.Reserve <= 0;
+    }
+
+    /// <summary>
+    /// CBaseCombatWeapon::HasAnyAmmo for a row the machine runs: a weapon that
+    /// uses no ammo always has some; else rounds in the clip or the pool, or
+    /// in the secondary pool.
+    /// </summary>
+    public static bool HasAnyAmmo(WeaponNetState w, in WeaponType type, int clipSize)
+    {
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary && ((clipSize > 0 && w.Clip > 0) || w.Reserve > 0);
+        return primary || (usesSecondary && w.SecondaryReserve > 0);
+    }
+
+    /// <summary>ReloadOrSwitchWeapons' m_flNextPrimaryAttack = curtime + 0.3 after the switch.</summary>
+    public const float ExhaustedSwitchDelay = 0.3f;
+
+    /// <summary>
+    /// CBaseCombatWeapon::ReloadOrSwitchWeapons' switch, for the machine and
+    /// the behaviours that replace its idle tail: nothing left to fire and the
+    /// trigger's wait over (both triggers', but the shotgun's own copy waits on
+    /// the primary alone), and the arms take the next best weapon.
+    /// </summary>
+    public static bool SwitchIfExhausted(IWeaponArms arms, WeaponNetState w, float now, bool effectsLive,
+                                         bool hasAnyAmmo, bool waitsOnSecondary = true)
+    {
+        if (hasAnyAmmo || !effectsLive || w.NextPrimaryAttack >= now || (waitsOnSecondary && w.NextSecondaryAttack >= now))
+            return false;
+
+        if (!arms.SwitchToNextBest())
+            return false;
+
+        w.NextPrimaryAttack = now + ExhaustedSwitchDelay;
+        return true;
     }
 
     /// <summary>

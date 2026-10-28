@@ -436,7 +436,12 @@ public sealed class ClientBoneDriver
 
             if (haveSourceBones)
             {
+                BoneMatrix3x4[] own = _scratch.Matrices();
+                int bones = Math.Min(own.Length, s.CachedBones.Length);
+                s.CachedBones.AsSpan(0, bones).CopyTo(own);
+
                 BoneLibraryMath.ApplyMergedBones(s.MergeBoneMap, sourceBones, s.CachedBones);
+                BoneLibraryMath.ReparentUnmergedBones(ownHdr, s.MergeBoneMap, own.AsSpan(0, bones), s.CachedBones);
             }
         }
         finally

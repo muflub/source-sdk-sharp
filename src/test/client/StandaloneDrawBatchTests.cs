@@ -48,6 +48,7 @@ public unsafe class StandaloneDrawBatchTests
         public bool StandaloneCreate(EntityHandle entity, string className) => throw new NotSupportedException();
         public void StandaloneSpawn(EntityHandle entity) => throw new NotSupportedException();
         public int StandaloneDraw(EntityHandle entity) => throw new NotSupportedException();
+        public int StandaloneDrawExtras(EntityHandle entity, int flags) => throw new NotSupportedException();
         public void StandaloneRemoved(EntityHandle entity) => throw new NotSupportedException();
         public void StandaloneDataChanged(EntityHandle entity, ReadOnlySpan<byte> blob, int updateType) => throw new NotSupportedException();
         public void OnStage(ClientFrameStage stage) => throw new NotSupportedException();

@@ -136,6 +136,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private readonly Standalone.ClientRenderPolicy _renderPolicy;
     private readonly ConCommandRegistry _commands = new();
     private ClientArsenal _clientArsenal = null!;
+    private WeaponEffects.WeaponDrawEffects? _weaponEffects;
     private ClientPlayerPrediction _prediction = null!;
 
     /// <summary>The viewer's world fog — plan_entity.md step 8e-render.</summary>
@@ -348,6 +349,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     internal int ComposeEngineAreas()
     {
         _services.AddInstance(_mirror);
+
+        // What a class asks of its render policy beyond its block (the two-pass
+        // group a weapon with glows answers): the module's one policy.
+        _services.AddInstance<Standalone.IRenderPolicyWishes>(_renderPolicy);
 
         // This side's reload sections: the debug channel's resume data crosses
         // cs_cl_reload in them (WireDebugChannel, ReloadSave). Here, with the
@@ -869,6 +874,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // crosses cs_cl_reload.
         _services.AddFactory<Render.ScreenSpaceEffectManager>(locator => Render.ScreenSpaceEffectManager.WithStockEffects(
             w => Log.Warning(w), p => LocalCommandLine.Has(locator.Require<ILocalCommandLine>().Args, p)));
+        // The frame's player view, which the render plan decides and the
+        // weapons' draws read to move a viewmodel attachment between fields of view.
+        var playerView = new Render.PlayerViewRecord();
+        _services.AddInstance(playerView);
+        _services.AddInstance<Render.IPlayerView>(playerView);
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
         // The kClientSystems[] rows whose system is managed's (C7): the
         // viewport system (vgui_game_viewport.cpp's CViewportClientSystem).
@@ -1241,6 +1251,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _flecks = _services.Create<Effects.FleckSystems>();
         _services.AddInstance(_flecks);
         _sounds = _services.Create<ClientSoundController>();
+        _services.AddInstance<IClientSoundController>(_sounds);
         _corrections = _services.Create<Standalone.ColorCorrections>();
 
         // The round's tally. An instance the module owns rather than a static,
@@ -1283,9 +1294,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE BEAMS (§2 cluster 5): the bookkeeping and the builders are
         // managed; native's `beams` forwards here (IManagedBeamsClient) and the
         // executor draws. Before the temp entity players, which create them.
+        // A local viewmodel attachment converted to the world's field of view,
+        // as stock's C_BaseViewModel::GetAttachment answers: the beams' endpoints
+        // and the weapons' world-pass effects read it.
+        _services.AddInstance<Standalone.IViewModelAttachmentFormat>(
+            new Standalone.ViewModelAttachmentFormat(_standalones, _services.Require<Render.IPlayerView>()));
         _beams = _services.Create<Beams.ClientBeamSystem>();
         _services.AddInstance(_beams);
         _services.AddInstance<Beams.IClientBeams>(_beams);
+        _services.AddInstance<Beams.IClientTranslucentRenderables>(_beams);
 
         // THE SECOND CAMERA (lane camproto): what a HUD panel shows, decided
         // here and drawn by the native executor at the frame's render.
@@ -2129,6 +2146,23 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                      curTime: () => _clock.Now,
                                                      paused: () => inputHost.IsPaused);
         _services.AddInstance(_inputService);
+
+        // THE WEAPONS' DRAW EFFECTS (stock's ViewModelDrawn, the two-pass
+        // DrawModel arm and ClientThink): after the input, whose camera says
+        // whether a weapon is drawn through the viewmodel. The carried weapon
+        // and the viewmodel ask for them when the registry makes them.
+        _weaponEffects = new WeaponEffects.WeaponDrawEffects(
+            _standalones, hudArea, new WeaponEffects.InputThirdPersonCamera(input), _clock,
+            _services.Require<WeaponCatalog>(),
+            [
+                _services.Create<WeaponEffects.RpgDrawEffect>(),
+                _services.Create<WeaponEffects.StunStickDrawEffect>(),
+                _services.Create<WeaponEffects.PhysCannonDrawEffect>(),
+                _services.Create<WeaponEffects.CrossbowDrawEffect>(),
+            ],
+            _clientArsenal);
+        _services.AddInstance<WeaponEffects.IWeaponDrawEffects>(_weaponEffects);
+
         IEngineConsole inputConsole = _services.Require<IEngineConsole>();
         _services.AddInstance<IDebugClientInput>(new ClientDebugInput(_inputService, inputCvars, inputHost,
                                                                       () => inputConsole.FindConVarValue("sv_cheats")));
@@ -2325,6 +2359,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The physcannon's claws on the local viewmodel (its ClientThink).
         _clientArsenal?.Frame();
+
+        // The carried weapons' own client thinks (their draw effects').
+        _weaponEffects?.Frame(frameTime);
     }
 
     /// <summary>
@@ -3260,6 +3297,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// so this resolves and dispatches and does nothing else.
     /// </summary>
     public int StandaloneDraw(EntityHandle entity) => _standalones.Get(entity)?.OnDraw() ?? 0;
+
+    public int StandaloneDrawExtras(EntityHandle entity, int flags) => _standalones.Get(entity)?.OnDrawExtras(flags) ?? -1;
 
     public void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results)
     {

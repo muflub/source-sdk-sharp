@@ -49,7 +49,7 @@ public class StunstickTests
     private sealed record Rig(Arsenal Arsenal, RecordingEngine Engine, RecordingTemps Temps,
                               WeaponSwitchTests.SpawningEntities World);
 
-    private static Rig Armed(string weapon, bool hit = true)
+    private static Rig Armed(string weapon, bool hit = true, IMergedAttachments? attachments = null)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
             .Returns("Entities.GetClassName", EntityNames.SsPlayer)
@@ -78,6 +78,7 @@ public class StunstickTests
                                   engine, engine, registry, engine, new DamageHitGroups())
         {
             Temps = temps,
+            Attachments = attachments,
         };
 
         Assert.True(arsenal.GiveWeapon(Player, weapon), $"the fixture's player is armed with {weapon}");
@@ -235,6 +236,48 @@ public class StunstickTests
 
         Assert.Contains("Weapon_StunStick.Activate", SoundsPlayed(rig.Engine));
         Assert.Single(rig.Temps.Sparked);
+    }
+
+    private sealed class Merged(bool answers, Vector at) : IMergedAttachments
+    {
+        public readonly List<(EntityHandle Follower, EntityHandle Source, int Attachment)> Asked = [];
+
+        public bool GetMergedAttachment(EntityHandle follower, EntityHandle source, int attachment, out Vector origin)
+        {
+            Asked.Add((follower, source, attachment));
+            origin = answers ? at : default;
+            return answers;
+        }
+    }
+
+    /// <summary>
+    /// SetStunState's sparks are at the weapon's attachment 1, which a stock
+    /// server answers off the w_ model bone-merged onto its carrier.
+    /// </summary>
+    [Fact]
+    public void TheDrawsSparksAreAtTheStickMergedOntoItsCarrier()
+    {
+        var head = new Vector(5f, 6f, 70f);
+        var merged = new Merged(true, head);
+
+        var rig = Armed(EntityNames.WeaponStunstick, attachments: merged);
+
+        Assert.Equal(head, Assert.Single(rig.Temps.Sparked));
+        var (follower, source, attachment) = Assert.Single(merged.Asked);
+        Assert.Equal((Player, 1), (source, attachment));
+        Assert.NotEqual(Player, follower);
+    }
+
+    /// <summary>A stick the skeletons cannot place sparks at its own origin, as a failed GetAttachment answers.</summary>
+    [Fact]
+    public void ADrawWhoseAttachmentCannotBeFoundSparksAtTheWeapon()
+    {
+        var merged = new Merged(false, new Vector(5f, 6f, 70f));
+
+        var rig = Armed(EntityNames.WeaponStunstick, attachments: merged);
+
+        Assert.Single(merged.Asked);
+        Assert.Equal(Vector.Zero, Assert.Single(rig.Temps.Sparked));
     }
 
     [Fact]

@@ -401,7 +401,8 @@ public partial class EngineApiCensusTests
     // and the spray's ClientPlayerLogoDecal (250 + 1 = 251).
     // Predicted weapon effects (stock-ab): ClientClipRayToEntities, the predicted
     // shot's clip against the shells no client trace can see (251 + 1 = 252, landed after M1-C).
-    private const int ClientOnly = 252;
+    // The predicted swing's hull (stock-ab): ClientTraceHullEntities (252 + 1).
+    private const int ClientOnly = 253;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

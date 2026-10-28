@@ -6,6 +6,7 @@ C_StandaloneEntity *StandaloneFromRenderable(	SLOT-HELP	a renderable from the le
 void SourceSharp_StandaloneDrawBatchCapture(	BOUNDARY	notes the view's custom-draw standalones and the blend stock's translucent pass would draw each at; an invisible one is left out as stock skips it
 float SourceSharp_StandaloneDrawBatchBlend(	SLOT-HELP	the blend captured with the batch for the sprite gather, else the live one
 static void AskDrawBatch(	BOUNDARY	the one crossing per view: hands managed the captured handles and keeps its answers
+int C_StandaloneEntity::DrawExtras(	BOUNDARY	IManagedStandaloneClient::OnStandaloneDrawExtras at stock's two weapon-effect points (a two-pass entity's translucent pass, the local viewmodel's ViewModelDrawn): hands managed the pass's flags and returns its answer; decides nothing
 void C_StandaloneEntity::StoreSequence(	BOUNDARY	stores the clock managed chose into the block and the two members SequenceCycle reads; decides nothing
 void SourceSharp_StandaloneStoreSequence(	BOUNDARY	IShimStandaloneClient::StandaloneStoreSequence: resolve the handle and store
 void *SourceSharp_StandaloneEngineBlock(	BOUNDARY	IShimStandaloneClient::StandaloneEngineBlock: the entity block by handle, the client twin of EntityGetEngineBlock

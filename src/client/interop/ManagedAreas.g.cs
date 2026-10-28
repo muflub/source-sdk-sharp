@@ -39,6 +39,7 @@ public unsafe interface IManagedStandaloneClient
     int NetStateFieldBits(byte* a0, byte* a1);
     void OnStandaloneDrawBatch(void* a0, int a1, void* a2);
     int SchemaAccept(uint a0, int a1, uint a2, uint a3, int a4, byte* a5);
+    int OnStandaloneDrawExtras(uint a0, int a1);
 }
 
 [ManagedVtable(typeof(ManagedPredictionClientTable))]

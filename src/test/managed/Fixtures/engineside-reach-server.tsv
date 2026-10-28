@@ -92,6 +92,7 @@ SourceSharp.Abi.EngineServices	get_Tracer
 SourceSharp.Abi.EngineServices	get_VPhysics
 SourceSharp.Abi.EngineStringTables	get_Side
 SourceSharp.Abi.EngineWorldQuery	EntityTraceHull
+SourceSharp.Abi.EngineWorldQuery	TraceBox
 SourceSharp.Abi.EngineWorldQuery	TraceHull
 SourceSharp.Abi.EngineWorldQuery	TraceLine
 SourceSharp.Abi.EngineWorldQuery	TraceLineSurface

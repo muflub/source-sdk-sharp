@@ -1011,6 +1011,7 @@ public sealed class RecordingEngine :
     ClientTraceResult IEngineWorldQuery.ClientTraceLine(Vector start, Vector end, TraceMask mask, TraceFilter filter, int passEntityIndex) => Record<ClientTraceResult>("WorldQuery.ClientTraceLine", start, end, mask, filter, passEntityIndex);
     // The list is copied: the caller's span is a scratch buffer it refills.
     ClientTraceResult IEngineWorldQuery.ClientClipRayToEntities(Vector start, Vector end, TraceMask mask, ReadOnlySpan<int> entityIndices) => Record<ClientTraceResult>("WorldQuery.ClientClipRayToEntities", start, end, mask, entityIndices.ToArray());
+    ClientBoxTrace IEngineWorldQuery.ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, int passEntityIndex, ReadOnlySpan<int> entityIndices) => Record<ClientBoxTrace>("WorldQuery.ClientTraceHullEntities", start, end, mins, maxs, mask, passEntityIndex, entityIndices.ToArray());
     // C-Phase 3 lane DECALS. STRICT, deliberately: this is the question
     // C_BaseEntity::AddDecal's switch is made from, and a double that answered
     // "no such entity" by default would turn every decal test into a test of
@@ -1064,6 +1065,7 @@ public sealed class RecordingEngine :
     // Effects
     void IEngineEffects.BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream, BloodSpray sprayFlags) => RecordVoid("Effects.BloodEffect", origin, direction, color, amount, stream, sprayFlags);
     void IEngineEffects.BubbleEffect(EntityHandle entity, int count, float speed) => RecordVoid("Effects.BubbleEffect", entity, count, speed);
+    void IEngineEffects.BubbleTrailEffect(Vector from, Vector to, int count) => RecordVoid("Effects.BubbleTrailEffect", from, to, count);
 
     // The description is recorded WHOLE rather than by name, because what a test
     // asserts about a registration is the shape it published — the table, the

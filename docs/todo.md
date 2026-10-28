@@ -1016,18 +1016,13 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   (item_ammo_pistol +20.6, weapon_shotgun +15.0): the census's "moved"
   column. Next: compare one item's spawn (UTIL_DropToFloor, its physics
   hull) side by side.
-- **func_friction.** This mod reads `modifytofriction` and applies to
-  players; stock (triggers.cpp, HL1_DLL only) reads `modifier` and skips
-  players (`if ( !pOther->IsPlayer() )`).
-- **game_player_hurt.** Commented out in stock's maprules.cpp; this mod's
-  hurts with DMG_BULLET and the activator as the attacker, stock's (as
-  stock-ab compiles it) with DMG_GENERIC and itself.
-- **sv_stopspeed** is 100 in stock and 75 here; **hud_fastswitch** 0 in
-  stock, 1 here; **dt_UsePartialChangeEnts** 1 in stock, 0 here (ab_cvars
-  against the dev API, every client convar compared).
-- **The MOTD.** Stock hl2mp opens its info panel on join, a translucent
-  sheet over the world while it has no page to show; this mod shows none.
-  stock-ab draws no VGUI for that reason.
+- **hud_fastswitch** is 0 in stock and 1 here: stock's slot keys open the HL2
+  weapon selection HUD (hud_weaponselection.cpp) and a click confirms; this
+  mod switches at once because it has no selection HUD.
+- **The HL2 player's speeds and suit.** CHL2_Player::HandleSpeedChanges runs
+  at hl2_normspeed (190), walks at hl2_walkspeed (150) on +walk and sprints at
+  hl2_sprintspeed (320) on +speed while suit power lasts (SuitPower_*, the AUX
+  POWER HUD); this mod's player runs at 320 always (Movement.cs MaxSpeed).
 - **env_beam and env_laser** now draw through ClientBeam's stock path, but
   with none of CBeam's flags, fade or halo: only point_spotlight sets them.
 - **Players created before ArsenalPlayers.** ServerModule creates

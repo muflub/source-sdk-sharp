@@ -23,14 +23,14 @@ namespace SourceSharp.Client.Effects;
 /// The server names the CARRIER (its entindex) rather than stock's weapon
 /// entity, because the carried weapon here is one per player: the gun is the
 /// carrier's viewmodel for the local player and its world model otherwise.
-/// The first-person attachment is not run through FormatViewModelAttachment
-/// (the viewmodel's FOV correction), so the beam's start can sit a little off
-/// the muzzle at a field of view far from the viewmodel's.
+/// The first-person beam starts where the world's projection draws the
+/// viewmodel's muzzle (stock's beam asks the viewmodel, whose attachments are
+/// FormatViewModelAttachment's): <see cref="IViewModelAttachmentFormat"/>.
 /// </para>
 /// </summary>
 public sealed class PhysCannonImpactEffect(IClientSparks sparks, IClientBeams beams,
                                            IClientStandalones standalones, IEngineEntityRender render,
-                                           IEngineHud screen) : IClientEffectHandler
+                                           IEngineHud screen, IViewModelAttachmentFormat viewModels) : IClientEffectHandler
 {
     /// <summary>PHYSCANNON_BEAM_SPRITE.</summary>
     public const string BeamSprite = "sprites/orangelight1.vmt";
@@ -64,7 +64,7 @@ public sealed class PhysCannonImpactEffect(IClientSparks sparks, IClientBeams be
 
         // Draw a beam: a tenth of a second, 12 wide to 4, white, still, by the
         // sprite's name as stock's BeamInfo_t names it.
-        beams.CreateBeamPoints(Beam(attachment, data.Origin));
+        beams.CreateBeamPoints(Beam(viewModels.ForWorldPass(gun.Handle, attachment), data.Origin));
     }
 
     /// <summary>The blast's BeamInfo_t, from the gun to where it landed.</summary>

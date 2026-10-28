@@ -99,6 +99,7 @@ public sealed class Bolt : FlyingProjectile
     {
         base.OnSpawn();
         Skins.SetSkin(Handle, SkinGlow);
+        SetNextThink(BubbleInterval);
 
         _glow = Entities.Create(EntityNames.EnvSprite);
         if (_glow == EntityHandle.None || !Entities.IsValid(_glow))
@@ -119,6 +120,36 @@ public sealed class Bolt : FlyingProjectile
         Entities.SetParent(_glow, Handle);
         (Directory.Get(_glow) as SpriteBase)?.TurnOff();
     }
+
+    /// <summary>
+    /// CCrossbowBolt::BubbleThink, every tenth of a second in flight: turned
+    /// to face the way it is going (its slight fall bends its nose down), and
+    /// in water a trail of five bubbles over the last tenth of its path. Once
+    /// stuck, the think is the linger's.
+    /// </summary>
+    public override void OnThink()
+    {
+        if (IsLingering)
+        {
+            base.OnThink();
+            return;
+        }
+
+        Vector velocity = Motion.VelocityOf(Handle);
+        if (velocity.LengthSquared > 0f)
+            Entities.SetAngles(Handle, Angles.FromVector(velocity));
+
+        SetNextThink(BubbleInterval);
+
+        Vector at = Origin;
+        if ((World.PointContents(at) & (Contents.Water | Contents.Slime)) == 0)
+            return;
+
+        Effects.BubbleTrailEffect(at - velocity * BubbleInterval, at, 5);
+    }
+
+    /// <summary>BubbleThink's SetNextThink( gpGlobals->curtime + 0.1f ).</summary>
+    public const float BubbleInterval = 0.1f;
 
     /// <summary>~CCrossbowBolt: the glow goes with the bolt.</summary>
     public override void OnRemoved()
@@ -176,6 +207,13 @@ public sealed class Bolt : FlyingProjectile
             Damage.ApplyAt(hit, Attribution, Vars.Damage, DamageType.Bullet | DamageType.NeverGib,
                            DamageForceRules.MeleeForce(flight, Vars.Damage, scale: 0.7f), Origin);
 
+            // "Keep going through the glass": the pane is hurt, the bolt flies on.
+            if (Physics.GetCollisionGroup(hit) == CollisionGroup.BreakableGlass)
+            {
+                KeepFlying(Motion.IncomingVelocityOf(Handle), GravityScale);
+                return;
+            }
+
             // The body "thwack", on the bolt, as stock's EmitSound is.
             Sound.EntityEmitSound(Handle, HitBodySound);
 
@@ -184,7 +222,7 @@ public sealed class Bolt : FlyingProjectile
             // the line runs along its long axis out of the tip, so the trace
             // sees what the mover's own traces never did.
             Vector origin = Entities.GetOrigin(Handle);
-            var tr2 = World.TraceLine(origin, origin + forward * 128f, TraceMask.BlockLos, hit);
+            var tr2 = World.TraceLine(origin, origin + forward * 128f, TraceMask.Opaque, hit);
 
             // Stock's guard, both halves: the line must stop, and stop in
             // static architecture - no entity the engine can name (brushwork),

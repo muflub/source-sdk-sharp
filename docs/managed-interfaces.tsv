@@ -112,6 +112,7 @@ IManagedStandaloneClient	OnStandaloneDrawBatch	void	const uint32_t *pHandles, in
 # native hands over what its type table holds for the type (published or not, the hash it published) and the
 # hash the update arrived with; managed decides and keeps the refusals. 1 decodes the payload.
 IManagedStandaloneClient	SchemaAccept	int32_t	uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName
+IManagedStandaloneClient	OnStandaloneDrawExtras	int32_t	uint32_t hEntity, int32_t nFlags
 IManagedPredictionClient	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
 IManagedPredictionClient	ClientPredictionUpdate	void	int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived
 IManagedPredictionClient	ThirdPersonCamera	int32_t	SourceSharpThirdPersonCamera *pIo

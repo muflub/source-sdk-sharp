@@ -552,6 +552,44 @@ public class ClientRenderPolicyTests
     }
 
     [Fact]
+    public void TheTwoPassGroupIsTheEnginesNine()
+        => Assert.Equal(9, (int)ClientRenderGroup.TwoPass);
+
+    //=========================================================================
+    // THE TWO-PASS GROUP: stock's stunstick and physcannon GetRenderGroup.
+    //=========================================================================
+
+    [Fact]
+    public void AClassThatAskedForTwoPassIsInTheTwoPassGroup()
+    {
+        var facts = Prop();
+        facts.TwoPass = true;
+
+        Assert.Equal(ClientRenderGroup.TwoPass, ClientRenderPolicy.Group(facts));
+    }
+
+    [Fact]
+    public void TwoPassBeatsBlendingAsStocksOverrideDoes()
+    {
+        // C_WeaponPhysCannon is transparent AND answers TWOPASS: the override wins.
+        var facts = Prop();
+        facts.TwoPass = true;
+        facts.Translucent = true;
+
+        Assert.Equal(ClientRenderGroup.TwoPass, ClientRenderPolicy.Group(facts));
+    }
+
+    [Fact]
+    public void TheViewModelStaysInItsOwnGroupWhenItAsksForTwoPass()
+    {
+        var facts = Prop();
+        facts.TwoPass = true;
+        facts.ViewModel = true;
+
+        Assert.Equal(ClientRenderGroup.ViewModelOpaque, ClientRenderPolicy.Group(facts));
+    }
+
+    [Fact]
     public void ShadowFlagValuesMatchTheEngineBits()
     {
         Assert.Equal(2, (int)ClientShadowFlag.Shadow);
@@ -686,6 +724,49 @@ public class ClientRenderPolicyTests
     {
         var blocks = OneProp();
         Policy().Pass(blocks);
+
+        Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
+    }
+
+    [Fact]
+    public void AWishForTwoPassIsDecidedOnTheNextPassThoughTheBlockDidNotMove()
+    {
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.Pass(blocks);
+
+        policy.WantTwoPass(new EntityHandle(0x00010007u), true);
+        int decided = policy.Pass(blocks);
+
+        Assert.Equal(1, decided);
+        Assert.Equal((int)ClientRenderGroup.TwoPass,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
+    }
+
+    [Fact]
+    public void WithdrawingTheWishPutsTheEntityBackInTheOpaqueGroup()
+    {
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.WantTwoPass(new EntityHandle(0x00010007u), true);
+        policy.Pass(blocks);
+
+        policy.WantTwoPass(new EntityHandle(0x00010007u), false);
+        policy.Pass(blocks);
+
+        Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
+    }
+
+    [Fact]
+    public void AWishForAnotherHandleInTheSameSlotIsNotThisEntitysWish()
+    {
+        // Handles are recycled: the serial half is what names the entity.
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.WantTwoPass(new EntityHandle(0x00020007u), true);
+        policy.Pass(blocks);
 
         Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
                      Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));

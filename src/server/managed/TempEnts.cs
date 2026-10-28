@@ -310,6 +310,29 @@ public sealed class TempEnts : ITempEnts
     }
 
     /// <inheritdoc/>
+    public void BubbleTrail(TeFilter filter, float delay, Vector from, Vector to, float waterZ,
+                            int modelIndex, int count, float speed)
+    {
+        var state = new TeBubbleTrail
+        {
+            Mins       = from,
+            Maxs       = to,
+            WaterZ     = waterZ,
+            ModelIndex = modelIndex,
+            // TE_BubbleTrail's MIN( count, BUBBLE_TRAIL_MAX_COUNT ).
+            Count      = Math.Min(count, 255),
+            Speed      = speed,
+        };
+
+        TempEntType? type = Resolve(state);
+
+        if (type is null)
+            return;
+
+        _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
+    }
+
+    /// <inheritdoc/>
     public void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
                         int modelIndex, int count, float speed)
     {

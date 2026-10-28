@@ -1046,13 +1046,13 @@ internal sealed unsafe partial class EngineSide
     public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs,
                                        TraceMask mask, EntityHandle ignore = default)
     {
-        if (Tracer is not { } tracer)
+        if (Tracer.Target is not { } tracer)
             return new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
 
         long cost = CostMeter.Start();
         ServerTrace t = tracer.Hull(start, end, mins, maxs, (uint)TraceMasks.Hull(mask),
                                     new EntityHandle(Skippable(ignore)), CollisionGroupNone);
-        TraceCost.Hull.Stop(cost);
+        TraceCost.Target!.Hull.Stop(cost);
         return ServerTraceResults.Surface(t);
     }
 

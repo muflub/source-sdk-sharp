@@ -140,6 +140,7 @@ public unsafe class ClientSchemaGateTests
         public int ImpactEffectParams(int effect, int material, float scale, bool noFlecks, Span<float> block) => throw new NotSupportedException();
         public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output, Span<byte> particleName, Span<byte> decalName) => throw new NotSupportedException();
         public bool SuppressLocalTempEnt(bool canPredict, int recipientCount) => throw new NotSupportedException();
+        public int StandaloneDrawExtras(EntityHandle entity, int flags) => throw new NotSupportedException();
         public void DispatchUserMessage(int index, ReadOnlySpan<byte> payload) => throw new NotSupportedException();
         public float GetJumpScale(in JumpRequest request) => throw new NotSupportedException();
         public float GetFrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial) => throw new NotSupportedException();

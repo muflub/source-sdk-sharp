@@ -159,8 +159,9 @@ public class BoltImpactTests
         Assert.True(sound.ArgAs<EntityHandle>(0) == bolt.Handle,
                     "the cue is attached to the bolt, as stock's EmitSound on self is");
         var line = Assert.Single(engine.AllOf("WorldQuery.TraceLine"));
-        Assert.True(line.ArgAs<TraceMask>(2) == TraceMask.BlockLos,
-                    "MASK_BLOCKLOS, what the server's BoltTouch traces with");
+        Assert.True(line.ArgAs<TraceMask>(2) == TraceMask.Opaque,
+                    "MASK_OPAQUE, what HL2MP's BoltTouch traces with (shared/hl2mp/weapon_crossbow.cpp; "
+                  + "MASK_BLOCKLOS is single-player HL2's server/hl2 copy, which HL2MP does not build)");
         Assert.True(line.ArgAs<EntityHandle>(3) == Victim, "ignoring the victim");
         var stuck = Assert.Single(temps.Effects);
         Assert.Equal("BoltImpact", stuck.Name);
@@ -404,6 +405,55 @@ public class BoltImpactTests
         Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f)),
                      (box!.Value.ArgAs<Vector>(2), box.Value.ArgAs<Vector>(3)));
         Assert.True(engine.Called("Effects.ImpactEffect"), "the face the box found made no impact");
+    }
+
+    /// <summary>
+    /// "Keep going through the glass": a pane (COLLISION_GROUP_BREAKABLE_GLASS)
+    /// is hurt like any body, and the bolt flies on rather than stopping in it.
+    /// Found against stock (docs/divergences.md, the bolt's touch guards, 2026-10-25).
+    /// </summary>
+    [Fact]
+    public void ABoltFliesOnThroughGlassItHasHurt()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace);
+        engine.Returns("EntityPhysics.GetCollisionGroup", CollisionGroup.BreakableGlass);
+        int before = engine.Calls.Count;
+
+        bolt.OnTouch(Victim);
+
+        var touch = engine.Calls.Skip(before).Select(c => c.Member).ToArray();
+        Assert.Contains("Damage.ApplyAt", touch);
+        Assert.DoesNotContain(engine.Calls.Skip(before), c => c.Member == "Sound.EntityEmitSound"
+                                                            && c.ArgAs<string>(1) == Bolt.HitBodySound);
+        Assert.DoesNotContain("Entities.Remove", touch);
+        Assert.DoesNotContain("EntityRender.SetVisible", touch);
+    }
+
+    /// <summary>
+    /// CCrossbowBolt::BubbleThink: every tenth of a second the bolt faces the
+    /// way it flies, and in water trails five bubbles over the last tenth of
+    /// its path. Found against stock (2026-10-25): this mod's bolt kept its
+    /// launch angles and left no wake.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void InFlightItFacesItsPathAndTrailsBubblesInWater(bool inWater)
+    {
+        var (bolt, engine, _) = ABolt();
+        engine.Returns("WorldQuery.PointContents", inWater ? Contents.Water : Contents.Empty);
+        Assert.Equal(Bolt.BubbleInterval, bolt.NextThinkDelay(), 3);
+        int before = engine.Calls.Count;
+
+        bolt.OnThink();
+
+        var turned = Assert.Single(engine.Calls.Skip(before), c => c.Member == "Entities.SetAngles");
+        Assert.Equal(Angles.FromVector(FiredVelocity), turned.ArgAs<Vector>(1));
+        EngineCall? trail = engine.Last("Effects.BubbleTrailEffect");
+        Assert.Equal(inWater, trail is not null);
+        if (inWater)
+            Assert.Equal((Resting - FiredVelocity * 0.1f, Resting, 5),
+                         (trail!.Value.ArgAs<Vector>(0), trail.Value.ArgAs<Vector>(1), trail.Value.ArgAs<int>(2)));
     }
 
     [Fact]

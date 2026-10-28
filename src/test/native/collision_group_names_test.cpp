@@ -38,6 +38,7 @@ const int kEngineWeapon     = 17;
 const int kEngineDebris     = 24;
 const int kEngineInteractive = 25;
 const int kEngineProjectile = 13;
+const int kEngineBreakableGlass = 6;
 
 const CollisionGroupName_t kNames[] =
 {
@@ -47,6 +48,7 @@ const CollisionGroupName_t kNames[] =
 	{ SS_COLLISION_GROUP_DEBRIS,       kEngineDebris },
 	{ SS_COLLISION_GROUP_INTERACTIVE,  kEngineInteractive },
 	{ SS_COLLISION_GROUP_PROJECTILE,   kEngineProjectile },
+	{ SS_COLLISION_GROUP_BREAKABLE_GLASS, kEngineBreakableGlass },
 };
 
 const int kCount = sizeof( kNames ) / sizeof( kNames[0] );
@@ -80,12 +82,14 @@ TEST( CollisionGroupNames, TheEngineValueIsTheTablesOwn )
 	EXPECT_EQ( kEngineDebris,      CollisionGroup_ToEngine( SS_COLLISION_GROUP_DEBRIS, kNames, kCount ) );
 	EXPECT_EQ( kEngineInteractive, CollisionGroup_ToEngine( SS_COLLISION_GROUP_INTERACTIVE, kNames, kCount ) );
 	EXPECT_EQ( kEngineProjectile,  CollisionGroup_ToEngine( SS_COLLISION_GROUP_PROJECTILE, kNames, kCount ) );
+	EXPECT_EQ( kEngineBreakableGlass, CollisionGroup_ToEngine( SS_COLLISION_GROUP_BREAKABLE_GLASS, kNames, kCount ) );
 
 	EXPECT_EQ( SS_COLLISION_GROUP_VEHICLE_CLIP, CollisionGroup_FromEngine( kEngineVehicleClip, kNames, kCount ) );
 	EXPECT_EQ( SS_COLLISION_GROUP_WEAPON,       CollisionGroup_FromEngine( kEngineWeapon, kNames, kCount ) );
 	EXPECT_EQ( SS_COLLISION_GROUP_DEBRIS,       CollisionGroup_FromEngine( kEngineDebris, kNames, kCount ) );
 	EXPECT_EQ( SS_COLLISION_GROUP_INTERACTIVE,  CollisionGroup_FromEngine( kEngineInteractive, kNames, kCount ) );
 	EXPECT_EQ( SS_COLLISION_GROUP_PROJECTILE,   CollisionGroup_FromEngine( kEngineProjectile, kNames, kCount ) );
+	EXPECT_EQ( SS_COLLISION_GROUP_BREAKABLE_GLASS, CollisionGroup_FromEngine( kEngineBreakableGlass, kNames, kCount ) );
 }
 
 //-----------------------------------------------------------------------------
