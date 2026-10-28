@@ -56,6 +56,9 @@ internal sealed class RecordingBeams(RecordingEngine engine) : IClientBeams
 
     public void CreateBeamPoints(BeamInfo info) => engine.RecordCall("Beams.CreateBeamPoints(BeamInfo)", info);
 
+    public void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale)
+        => engine.RecordCall("Beams.DrawEntityBeam", info, entityFlags, hdrColorScale);
+
     public void DrawQuadratic(in Vector start, in Vector control, in Vector end, float width, in Vector color,
                               float scrollOffset, int spriteIndex, int renderMode)
         => engine.RecordCall("Beams.DrawQuadratic", start, control, end, width, color, scrollOffset, spriteIndex,

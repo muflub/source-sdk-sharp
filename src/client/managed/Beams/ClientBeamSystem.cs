@@ -44,6 +44,13 @@ public interface IClientBeams
     void CreateBeamPoints(BeamInfo info);
 
     /// <summary>
+    /// <c>DrawBeam( C_Beam * )</c>: an entity's beam between two points, drawn
+    /// now, so only from inside the owner's draw. Nothing is listed, so
+    /// nothing outlives the call.
+    /// </summary>
+    void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale);
+
+    /// <summary>
     /// <c>DrawBeamQuadratic</c> over a sprite bound for a render mode: drawn
     /// now, so only from inside the owner's draw.
     /// </summary>
@@ -289,6 +296,13 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
         _draws++;
         _draw.View = View(insideView: true);
         _system.DrawBeam(beam, _draw, _world);
+    }
+
+    public void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale)
+    {
+        _draws++;
+        _draw.View = View(insideView: true);
+        _system.DrawEntityBeam(info, entityFlags, hdrColorScale, _draw, _world, _draw.View.CurTime, _draw.View.FrameTime);
     }
 
     public void DrawQuadratic(in Vector start, in Vector control, in Vector end, float width, in Vector color,

@@ -57,6 +57,9 @@ public class ItemTests
         // health first; the default here is a living player.
         engine.Returns("Entities.GetHealth", toucherHealth);
 
+        // A taken item goes back where the map put it (CItem::Respawn).
+        engine.Ignores("Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "EntityPhysics.InitPhysics");
+
         registry.Spawn(Item, "test_item");
 
         return (registry, (TestItem)registry.Get(Item)!);

@@ -41,10 +41,48 @@ public abstract class PickupItem : ScriptedEntity
 
     private bool _taken;
 
+    /// <summary>The think context that makes the item physical once its model is on it.</summary>
+    public const string PhysicsContext = "ItemPhysics";
+
+    /// <summary>
+    /// Whether this is a CItem that falls and settles (true), or a fixture
+    /// that stays where the map put it: the wall chargers, which stock makes
+    /// static (CNewWallHealth, CNewRecharge).
+    /// </summary>
+    protected virtual bool Falls => true;
+
     public override void OnSpawn()
     {
         SetModel(Model);
         MakePickup(SizeX, SizeY, SizeZ);
+
+        // The model is applied after spawn returns, and the physics object is
+        // made from the model: a think at once, as stock's CItem::Spawn runs
+        // CreateItemVPhysicsObject after its subclass set the model.
+        SetContextThink(PhysicsContext, 0f);
+    }
+
+    public override void OnThink(string context)
+    {
+        if (context == PhysicsContext && Falls)
+            BecomePhysical();
+    }
+
+    /// <summary>
+    /// Stock's CItem::Spawn and CreateItemVPhysicsObject: in
+    /// COLLISION_GROUP_WEAPON, so players pass through it and other items and
+    /// props do not; a solid physics trigger nothing stands on; simulated and
+    /// awake, so it falls and settles on its model's hull. The pickup box
+    /// MakePickup set stays its trigger. A model with no collision stays the
+    /// box it was (stock drops it to the floor instead).
+    /// </summary>
+    private void BecomePhysical()
+    {
+        SetCollisionGroup(CollisionGroup.Weapon);
+        Entities.SetSolidity(Handle, SolidType.VPhysics, SolidFlags.Trigger | SolidFlags.NotStandable);
+
+        if (!InitPhysics())
+            MakePickup(SizeX, SizeY, SizeZ);
     }
 
     //-------------------------------------------------------------------------
@@ -72,7 +110,15 @@ public abstract class PickupItem : ScriptedEntity
         // the map loaded and cannot be rebuilt.
         if (RespawnDelay > 0f)
         {
+            // CItem::Respawn: no physics object while it waits, and back where
+            // the map put it.
             SetPickupEnabled(false);
+            if (Falls)
+            {
+                Entities.DestroyPhysics(Handle);
+                Origin = SpawnOrigin;
+                SetAngles(SpawnAngles);
+            }
             SetNextThink(RespawnDelay);
         }
         else
@@ -85,8 +131,11 @@ public abstract class PickupItem : ScriptedEntity
 
     public override void OnThink()
     {
+        // CItem::Materialize: visible, touchable and physical again.
         _taken = false;
         SetPickupEnabled(true);
+        if (Falls)
+            BecomePhysical();
     }
 
     /// <summary>

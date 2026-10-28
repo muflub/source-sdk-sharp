@@ -579,3 +579,4 @@ src/client/managed/TempEnts/PlayerSprays.cs	ports C_TEPlayerDecal::PostDataUpdat
 src/client/native/client_entity.h	the include environment stock c_baseentity.h gave the client headers (c_baseentity.h), without the entity class
 src/client/native/client_world.h	C_World and its collideable over IClientEntity, from the fork's edited c_world.h (c_world.h)
 cmake/compat/clang-cl/ss_stock_clang_cl.h	settles stock public/tier1/bitbuf.h (RESTRICT) and public/mathlib/ssemath.h (its POSIX arm of SubFloat/SubInt) for clang-cl
+src/server/managed/Entities/Props/DynamicPropSpawn.cs	ports CBaseProp::Spawn's prop data refusals for dynamic props (props.cpp)

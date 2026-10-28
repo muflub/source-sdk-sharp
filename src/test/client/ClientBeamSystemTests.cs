@@ -292,6 +292,61 @@ public class ClientBeamSystemTests
         Assert.Equal(1, rig.Beams.Counters.Meshes);
     }
 
+    // An ss_beam's state as ClientBeam hands it over: a points beam 64 high.
+    private static BeamInfo EntityBeam() => new()
+    {
+        Type = BeamType.Points,
+        Start = new Vector(0, 0, 0),
+        End = new Vector(0, 0, 64),
+        ModelIndex = Sprite,
+        HaloIndex = -1,
+        Width = 4f,
+        EndWidth = 4f,
+        FadeLength = 32f,
+        Brightness = 255f,
+        Red = 120f, Green = 255f, Blue = 150f,
+        Segments = -1,
+    };
+
+    [Fact]
+    public void AnEntitysBeamIsDrawnNowAndLeavesNothingBehind()
+    {
+        // Stock's DrawBeam( C_Beam * ): a Beam_t on the stack, drawn at once.
+        var rig = new Rig();
+
+        rig.Beams.DrawEntityBeam(EntityBeam(), BeamFlags.None, 1f);
+
+        Assert.Equal("bind 7", rig.Exec.Draws[0]);
+        Assert.StartsWith("strip ", rig.Exec.Draws[1]);
+        Assert.Equal(1, rig.Beams.Counters.Draws);
+        Assert.Empty(rig.Beams.Bookkeeping.Active);
+        Assert.Empty(rig.Exec.Renderables);
+    }
+
+    [Fact]
+    public void AnEntitysShadeOutReachesTheStrip()
+    {
+        var plain = new Rig();
+        plain.Beams.DrawEntityBeam(EntityBeam(), BeamFlags.None, 1f);
+        var shaded = new Rig();
+        shaded.Beams.DrawEntityBeam(EntityBeam(), BeamFlags.ShadeOut, 1f);
+
+        Assert.NotEqual(plain.Exec.StripVertices[0], shaded.Exec.StripVertices[0]);
+    }
+
+    [Fact]
+    public void OnlyTheDrawFlagsAreTakenFromTheEntity()
+    {
+        // The control for the fact above: FADEIN is a temp beam's life flag,
+        // not one DrawBeam( C_Beam * ) copies from the entity.
+        var plain = new Rig();
+        plain.Beams.DrawEntityBeam(EntityBeam(), BeamFlags.None, 1f);
+        var faded = new Rig();
+        faded.Beams.DrawEntityBeam(EntityBeam(), BeamFlags.FadeIn, 1f);
+
+        Assert.Equal(plain.Exec.StripVertices[0], faded.Exec.StripVertices[0]);
+    }
+
     [Fact]
     public void ADrawOfAnUnknownRenderableDrawsNothing()
     {

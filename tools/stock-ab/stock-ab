@@ -7,6 +7,7 @@
     tools/stock-ab/stock-ab build [--sdk DIR]     build its hl2mp (sniper image)
     tools/stock-ab/stock-ab run [--sdk DIR] [--config release] [--only a,b]
                                 [--threshold N] [--tolerance P] [--out DIR]
+                                [--map NAME]
     tools/stock-ab/stock-ab --self-test
 
 WHAT A RUN DOES. Both games load ss_sandbox at once: stock hl2mp built from
@@ -22,7 +23,9 @@ Base 2013 Multiplayer install, at 1280x720, with fresh settings. Then:
            each game is shot twice a moment apart, and pixels that moved
            between a game's own two shots are left out of the score
 
-and writes bin/<config>/stock-ab/<stamp>/index.html (the cameras side by
+(--map NAME runs another map both mods hold as the same file, census
+only: the cameras are ss_sandbox's stations) and writes
+bin/<config>/stock-ab/<stamp>/index.html (the cameras side by
 side with a difference heatmap, and the census). A camera passes when at
 most --tolerance percent of its still pixels differ by more than
 --threshold in any channel. Exit 0 when every camera passes or is
@@ -42,6 +45,7 @@ fetch and run refuse both.
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -162,10 +166,60 @@ def parse_getpos(answer):
     raise RunError("getpos printed no setpos line: %r" % lines)
 
 
+def parse_stock_arsenal(text):
+    """Stock's ab_arsenal file: weapon and ammo lines, then #end."""
+    out = {"weapons": {}, "active": None, "ammo": {}}
+    for line in text.splitlines():
+        f = line.split("\t")
+        if f[0] == "weapon" and len(f) >= 5:
+            out["weapons"][f[1]] = int(f[2])
+            if f[4] == "1":
+                out["active"] = f[1]
+        elif f[0] == "ammo" and len(f) >= 3:
+            out["ammo"][f[1].lower()] = int(f[2])
+    return out
+
+
+def parse_sharp_arsenal(lines):
+    """SourceSharp's cs_arsenal lines: "  weapon_x  clip N  (active)" and "  pool Name: N"."""
+    out = {"weapons": {}, "active": None, "ammo": {}}
+    for line in lines:
+        m = re.match(r"\s+(weapon_\S+)\s+clip (-?\d+)(\s+\(active\))?", line)
+        if m:
+            out["weapons"][m.group(1)] = int(m.group(2))
+            if m.group(3):
+                out["active"] = m.group(1)
+            continue
+        m = re.match(r"\s+pool (\S+): (-?\d+)", line)
+        if m:
+            out["ammo"][m.group(1).lower()] = int(m.group(2))
+    return out
+
+
+def sound_names(lines):
+    """The soundscript names (or raw waves) sv_soundemitter_trace printed, in order, by side."""
+    out = []
+    for line in lines:
+        m = re.search(r"\((sv|cl)\) EmitSound:  (?:'([^']+)' emitted as|Raw wave emitted '([^']+)')", line)
+        if m:
+            out.append("%s:%s" % (m.group(1), m.group(2) or m.group(3)))
+    return out
+
+
 def eye_matches(eye, camera, tolerance=2.0):
     x, y, z = camera["origin"]
     want = (x, y, z + EYE_HEIGHT)
     return all(abs(a - b) <= tolerance for a, b in zip(eye, want))
+
+
+def same_file(a, b):
+    """Byte for byte, by digest."""
+    import hashlib
+    digests = []
+    for path in (a, b):
+        with open(path, "rb") as f:
+            digests.append(hashlib.sha256(f.read()).hexdigest())
+    return digests[0] == digests[1]
 
 
 def refuse_protected(sdk):
@@ -253,25 +307,44 @@ TGA_SIZE = 18 + WIDTH * HEIGHT * 3
 
 
 class StockGame:
-    def __init__(self, sdk, work):
+    # What an instance links from the stock mod: what the engine only reads.
+    # Everything it writes (cfg, maps it compiles graphs for, screenshots,
+    # console.log, videoconfig) lands in the instance, so concurrent runs from
+    # several worktrees never share a file.
+    SHARED = ("bin", "gameinfo.txt", "materials", "resource", "scripts", "shaders", "steam.inf", "sound")
+
+    def __init__(self, sdk, work, map_name):
+        self.map_name = map_name
         self.sdk = sdk
-        self.mod = os.path.join(sdk, "game", "mod_hl2mp")
+        self.source_mod = os.path.join(sdk, "game", "mod_hl2mp")
+        self.mod = os.path.join(work, "mod_hl2mp")
         self.channel = os.path.join(work, "stock-ab")
         self.tmp = os.path.join(work, "stock-tmp")
         self.log_path = os.path.join(work, "stock.log")
         self.popen = None
         self.tokens = 0
 
+    def prepare(self):
+        """The private mod directory: links to what the stock mod only reads, its own cfg and maps."""
+        if os.path.isdir(self.mod):
+            return
+        os.makedirs(os.path.join(self.mod, "maps"))
+        for name in self.SHARED:
+            if os.path.exists(os.path.join(self.source_mod, name)):
+                os.symlink(os.path.join(self.source_mod, name), os.path.join(self.mod, name))
+        # The tracked cfg files, copied: the engine writes config.cfg beside them.
+        shutil.copytree(os.path.join(self.source_mod, "cfg"), os.path.join(self.mod, "cfg"),
+                        ignore=shutil.ignore_patterns("config.cfg"))
+        for name in os.listdir(os.path.join(self.source_mod, "maps")):
+            if name.endswith(".bsp") and name != "ss_sandbox.bsp":
+                os.symlink(os.path.join(self.source_mod, "maps", name), os.path.join(self.mod, "maps", name))
+
     def launch(self):
+        self.prepare()
         os.makedirs(self.channel)
         os.makedirs(self.tmp)
-        # Fresh settings each run: config.cfg is what the last run left.
-        for name in ("config.cfg",):
-            path = os.path.join(self.mod, "cfg", name)
-            if os.path.exists(path):
-                os.remove(path)
         args = ["./hl2_linux64", "-game", self.mod] + COMMON_ARGS + [
-            "+engine_no_focus_sleep", "0", "+map", "ss_sandbox"]
+            "+engine_no_focus_sleep", "0", "+map", self.map_name]
         quoted = " ".join("'%s'" % a.replace("'", "'\\''") for a in args)
         line = ". '%s/tools/gpu-offload'; cd '%s' && exec %s" % (ROOT, ENGINE, quoted)
         env = dict(os.environ, TMPDIR=self.tmp, SS_AB_DIR=self.channel,
@@ -325,6 +398,16 @@ class StockGame:
                 raise
             return False
 
+    def arsenal(self):
+        return parse_stock_arsenal(self._ask("ab_arsenal TOKEN", "arsenal"))
+
+    def console_mark(self):
+        self.cmd("ab_capture_begin")
+        return None
+
+    def console_since(self, _mark):
+        return self._ask("ab_capture_end TOKEN", "console").splitlines()
+
     def dump_entities(self, to):
         self._ask("ab_dump_ents TOKEN", "ents", timeout=20)
         shutil.copyfile(os.path.join(self.channel, "ents"), to)
@@ -342,7 +425,8 @@ class StockGame:
 
 
 class SharpGame:
-    def __init__(self, config, work):
+    def __init__(self, config, work, map_name):
+        self.map_name = map_name
         self.game_dir = os.path.join(ROOT, "bin", config)
         self.tmp = os.path.join(work, "sharp-tmp")
         self.api_dir = os.path.join(work, "api")
@@ -355,7 +439,7 @@ class SharpGame:
         os.makedirs(self.tmp)
         os.makedirs(self.api_dir)
         args = ["./source#", "-debugapi", "-debugapisocket", "-background", "-instance",
-                "-assertlog"] + COMMON_ARGS + ["+map", "ss_sandbox"]
+                "-assertlog"] + COMMON_ARGS + ["+map", self.map_name]
         quoted = " ".join("'%s'" % a.replace("'", "'\\''") for a in args)
         line = ". '%s/tools/gpu-offload'; cd '%s' && exec %s" % (ROOT, self.game_dir, quoted)
         env = dict(os.environ, TMPDIR=self.tmp, DEBUG_API_DIR=self.api_dir)
@@ -410,6 +494,16 @@ class SharpGame:
                     raise
                 time.sleep(0.3)
 
+    def arsenal(self):
+        captured = json.loads(self.api("capture", "cs_arsenal"))["captured"]
+        return parse_sharp_arsenal(captured.get("log", []) + captured.get("console", []))
+
+    def console_mark(self):
+        return json.loads(self.api("console", "999999999", "1"))["next"]
+
+    def console_since(self, mark):
+        return [l["text"] for l in json.loads(self.api("console", str(mark), "5000"))["lines"]]
+
     def dump_entities(self, to):
         answer = self.api("ents", "*", timeout=60)
         json.loads(answer)
@@ -437,6 +531,128 @@ def dotnet(args, **kwargs):
                           stderr=subprocess.STDOUT, text=True, **kwargs)
 
 
+# Stock HL2MP's weapons (the classes its server.so links), crowbar to SLAM.
+WEAPONS = ["weapon_crowbar", "weapon_stunstick", "weapon_physcannon", "weapon_pistol", "weapon_357",
+           "weapon_smg1", "weapon_ar2", "weapon_shotgun", "weapon_crossbow", "weapon_rpg", "weapon_frag",
+           "weapon_slam"]
+
+# Where the weapons are held: the hall's -x -y corner, eye level, looking
+# along the diagonal at the stations, so a tracer, a flash and an impact are
+# in frame and nothing is close enough to fill it.
+WEAPON_CAMERA_BACK = 260.0
+
+
+# How much a press is slowed, and how many screenshots it takes, to catch a flash.
+FIRE_TIMESCALE = 0.25
+FLASH_BURST = 6
+
+
+def brightest(paths):
+    """The screenshot with the most light in it: a burst's muzzle flash."""
+    from PIL import Image, ImageStat
+    return max(paths, key=lambda p: ImageStat.Stat(Image.open(p).convert("L")).mean[0])
+
+
+def weapon_sounds(sounds):
+    """A press's sounds without the props it happened to hit (physics/...)."""
+    return sorted({s for s in sounds if not s.split(":", 1)[1].lower().startswith("physics/")})
+
+
+def ammo_delta(before, after):
+    """What one press changed: each pool's count, and the active weapon's clip."""
+    pools = {k: after["ammo"].get(k, 0) - before["ammo"].get(k, 0)
+             for k in set(before["ammo"]) | set(after["ammo"])}
+    pools = {k: v for k, v in pools.items() if v != 0}
+    weapon = after["active"] or before["active"]
+    clip = None
+    if weapon in before["weapons"] and weapon in after["weapons"]:
+        clip = after["weapons"][weapon] - before["weapons"][weapon]
+    return {"pools": pools, "clip": clip}
+
+
+def weapon_round(stock, sharp, weapon, camera, out, tool, opts):
+    """One weapon in both games: equipped, idle, primary, secondary."""
+    record = {"weapon": weapon}
+    for game in (stock, sharp):
+        game.cmd("give " + weapon)
+    time.sleep(1.0)
+    for game in (stock, sharp):
+        game.cmd("use " + weapon + "; " + pose_command(camera))
+    time.sleep(2.5)
+
+    arsenals = {"stock": stock.arsenal(), "sharp": sharp.arsenal()}
+    record["has"] = {side: weapon in a["weapons"] for side, a in arsenals.items()}
+    record["active"] = {side: a["active"] for side, a in arsenals.items()}
+
+    files = []
+    for suffix in ("a", "b"):
+        files.append((stock.screenshot("sab_%s_idle_%s" % (weapon, suffix)),
+                      sharp.screenshot("sab_%s_idle_%s" % (weapon, suffix))))
+        time.sleep(PAIR_GAP_SECONDS)
+    idle = subprocess.run(tool + ["compare", "--out", out, "--name", weapon + "-idle", "--title", weapon + " equipped",
+                                  "--threshold", str(opts.threshold), "--tolerance", str(opts.tolerance),
+                                  files[0][0], files[1][0], files[0][1], files[1][1]],
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    record["idle"] = json.loads(idle.stdout)["Score"] if idle.returncode in (0, 1) else {"error": idle.stdout}
+
+    for attack in ("attack", "attack2"):
+        marks = {"stock": stock.console_mark(), "sharp": sharp.console_mark()}
+        before = {"stock": stock.arsenal(), "sharp": sharp.arsenal()}
+        # Slowed four times so a muzzle flash, which lasts a few frames, is in
+        # a burst of screenshots; each game's brightest frame is its flash.
+        for game in (stock, sharp):
+            game.cmd("host_timescale %s; +%s" % (FIRE_TIMESCALE, attack))
+        burst = {"stock": [], "sharp": []}
+        for k in range(FLASH_BURST):
+            burst["stock"].append(stock.screenshot("sab_%s_%s_%d" % (weapon, attack, k)))
+            burst["sharp"].append(sharp.screenshot("sab_%s_%s_%d" % (weapon, attack, k)))
+        for game in (stock, sharp):
+            game.cmd("-" + attack)
+        time.sleep(1.0)
+        for game in (stock, sharp):
+            game.cmd("host_timescale 1")
+        time.sleep(1.0)
+        flash = (brightest(burst["stock"]), brightest(burst["sharp"]))
+        after = {"stock": stock.arsenal(), "sharp": sharp.arsenal()}
+        sounds = {"stock": sound_names(stock.console_since(marks["stock"])),
+                  "sharp": sound_names(sharp.console_since(marks["sharp"]))}
+        subprocess.run(tool + ["compare", "--out", out, "--name", "%s-%s" % (weapon, attack),
+                               "--title", "%s %s" % (weapon, attack), "--threshold", str(opts.threshold),
+                               "--tolerance", "100", flash[0], flash[0], flash[1], flash[1]],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        record[attack] = {side: {"ammo": ammo_delta(before[side], after[side]), "sounds": sounds[side]}
+                          for side in ("stock", "sharp")}
+        for path in burst["stock"] + burst["sharp"]:
+            os.remove(path)
+    for shot in files:
+        for path in shot:
+            os.remove(path)
+
+    with open(os.path.join(out, "weapons.jsonl"), "a") as f:
+        f.write(json.dumps(record) + "\n")
+    return record
+
+
+def weapon_verdict(record):
+    """Where the two games disagree about one weapon, as short phrases."""
+    problems = []
+    if record["has"]["stock"] != record["has"]["sharp"]:
+        problems.append("only %s has it" % ("stock" if record["has"]["stock"] else "SourceSharp"))
+        return problems
+    if isinstance(record.get("idle"), dict) and record["idle"].get("Verdict") == "Fail":
+        problems.append("looks different equipped (%.1f%%)" % record["idle"]["DifferingPercent"])
+    for attack in ("attack", "attack2"):
+        a = record[attack]
+        if a["stock"]["ammo"] != a["sharp"]["ammo"]:
+            problems.append("%s ammo %s vs %s" % (attack, a["stock"]["ammo"], a["sharp"]["ammo"]))
+        stock_sounds, sharp_sounds = weapon_sounds(a["stock"]["sounds"]), weapon_sounds(a["sharp"]["sounds"])
+        if stock_sounds != sharp_sounds:
+            missing = [x for x in stock_sounds if x not in sharp_sounds]
+            extra = [x for x in sharp_sounds if x not in stock_sounds]
+            problems.append("%s sounds: missing %s, extra %s" % (attack, missing, extra))
+    return problems
+
+
 def noclip_on(game, read_eye):
     """noclip is a toggle: turn it on, then prove the camera hangs in the air."""
     # A player still spawning ignores it, so keep toggling until it holds.
@@ -455,10 +671,13 @@ def run(opts):
     sdk = os.path.abspath(opts.sdk)
     refuse_protected(sdk)
     config = opts.config
-    bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", "ss_sandbox.bsp")
+    sandbox = opts.map == "ss_sandbox"
+    bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", opts.map + ".bsp")
+    source_bsp = os.path.join(sdk, "game", "mod_hl2mp", "maps", opts.map + ".bsp")
     for path, why in ((os.path.join(sdk, "game", "mod_hl2mp", "bin", "linux64", "client.so"), "stock-ab build"),
                       (os.path.join(ROOT, "bin", config, "source#"), "make " + config),
-                      (bsp, "make map MAP=ss_sandbox CONFIG=" + config),
+                      (bsp, "make map MAP=%s CONFIG=%s" % (opts.map, config) if sandbox else "the map in the test mod"),
+                      (source_bsp if not sandbox else bsp, "the same map in stock's mod_hl2mp/maps"),
                       (os.path.join(ENGINE, "hl2_linux64"), "Source SDK Base 2013 Multiplayer installed")):
         if not os.path.exists(path):
             raise RunError("%s is missing (needs: %s)" % (path, why))
@@ -473,15 +692,21 @@ def run(opts):
     dotnet(["build", "-v", "q", "-nologo", os.path.join(ROOT, "src", "tools", "StockAb", "SourceSharp.StockAb.csproj")])
     tool = [DOTNET, os.path.join(ROOT, "bin", "debug", "tools", "stock-ab", "SourceSharp.StockAb.dll")]
 
-    log("writing stock's copy of %s" % bsp)
-    mapgen = [DOTNET, "run", "--project", os.path.join(ROOT, "src", "mapgen"), "--"]
-    stock_bsp = os.path.join(sdk, "game", "mod_hl2mp", "maps", "ss_sandbox.bsp")
-    os.makedirs(os.path.dirname(stock_bsp), exist_ok=True)
-    if os.path.islink(stock_bsp):
-        os.remove(stock_bsp)
-    subprocess.run(mapgen + ["stockmap", bsp, stock_bsp], check=True, stdout=subprocess.PIPE)
-    stations = parse_stations(subprocess.run(mapgen + ["stations"], check=True, stdout=subprocess.PIPE, text=True).stdout)
-    views = cameras(stations)
+    stock = StockGame(sdk, work, opts.map)
+    sharp = SharpGame(config, work, opts.map)
+    stock.prepare()
+    if sandbox:
+        log("writing stock's copy of %s" % bsp)
+        mapgen = [DOTNET, "run", "--project", os.path.join(ROOT, "src", "mapgen"), "--"]
+        subprocess.run(mapgen + ["stockmap", bsp, os.path.join(stock.mod, "maps", "ss_sandbox.bsp")],
+                       check=True, stdout=subprocess.PIPE)
+        stations = parse_stations(subprocess.run(mapgen + ["stations"], check=True, stdout=subprocess.PIPE, text=True).stdout)
+        views = cameras(stations)
+    else:
+        # Another map is compared only as the same bytes in both mods.
+        if not same_file(bsp, source_bsp):
+            raise RunError("%s and %s differ; census needs one map" % (bsp, source_bsp))
+        views = []
     if opts.only:
         wanted = set(opts.only.split(","))
         views = [v for v in views if v["name"] in wanted]
@@ -489,15 +714,13 @@ def run(opts):
         if missing:
             raise RunError("no camera named %s" % ", ".join(sorted(missing)))
 
-    stock = StockGame(sdk, work)
-    sharp = SharpGame(config, work)
     failed = False
     try:
         log("launching stock hl2mp and SourceSharp (%s)" % config)
         stock.launch()
         sharp.launch()
-        wait_for(stock.ready, 240, "stock hl2mp to join ss_sandbox", 1.0)
-        wait_for(sharp.ready, 240, "SourceSharp to join ss_sandbox", 1.0)
+        wait_for(stock.ready, 240, "stock hl2mp to join " + opts.map, 1.0)
+        wait_for(sharp.ready, 240, "SourceSharp to join " + opts.map, 1.0)
         log("both joined; stock log %s, SourceSharp pid %s" % (stock.log_path, sharp.pid))
 
         stock.cmd(SETUP)
@@ -515,6 +738,24 @@ def run(opts):
         census = subprocess.run(tool + ["census", stock_ents, sharp_ents, os.path.join(out, "census.json")],
                                 check=True, stdout=subprocess.PIPE, text=True).stdout
         print(census, end="", flush=True)
+
+        if opts.weapons:
+            wanted = WEAPONS if opts.weapons == "all" else opts.weapons.split(",")
+            xs = [s["x"] for s in stations] if sandbox else [0.0]
+            ys = [s["y"] for s in stations] if sandbox else [0.0]
+            camera = {"origin": (min(xs) - WEAPON_CAMERA_BACK, min(ys) - WEAPON_CAMERA_BACK, 60.0),
+                      "angles": (2.0, 45.0, 0.0)}
+            for game in (stock, sharp):
+                game.cmd("r_drawviewmodel 1; sv_soundemitter_trace 1")
+            weapons_path = os.path.join(out, "weapons.jsonl")
+            if os.path.exists(weapons_path):
+                os.remove(weapons_path)
+            for weapon in wanted:
+                record = weapon_round(stock, sharp, weapon, camera, out, tool, opts)
+                problems = weapon_verdict(record)
+                failed |= bool(problems)
+                log("%-18s %s" % (weapon, "; ".join(problems) if problems else "matches stock"))
+            views = []
 
         shots_path = os.path.join(out, "shots.jsonl")
         if os.path.exists(shots_path):
@@ -612,6 +853,35 @@ def self_test():
                     except RunError:
                         pass
 
+    with tempfile.TemporaryDirectory() as scratch:
+        one, two, three = (os.path.join(scratch, n) for n in ("1", "2", "3"))
+        for path, text in ((one, b"map"), (two, b"map"), (three, b"maq")):
+            with open(path, "wb") as f:
+                f.write(text)
+        assert same_file(one, two) and not same_file(one, three)
+
+    arsenal = parse_stock_arsenal("weapon\tweapon_pistol\t18\t-1\t1\nammo\tPistol\t150\n#end\tt4\n")
+    assert arsenal == {"weapons": {"weapon_pistol": 18}, "active": "weapon_pistol", "ammo": {"pistol": 150}}, arsenal
+    sharp_arsenal = parse_sharp_arsenal(["[SourceSharp/Arsenal] player 1: 2 weapon(s)",
+                                         "  weapon_crowbar  clip -1", "  weapon_pistol  clip 17  (active)",
+                                         "  pool Pistol: 150"])
+    assert sharp_arsenal == {"weapons": {"weapon_crowbar": -1, "weapon_pistol": 17}, "active": "weapon_pistol",
+                             "ammo": {"pistol": 150}}, sharp_arsenal
+    delta = ammo_delta(arsenal, sharp_arsenal)
+    assert delta == {"pools": {}, "clip": -1}, delta
+    assert sound_names(["(sv) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 1)",
+                        "(cl) EmitSound:  Raw wave emitted 'weapons/x.wav' (ent 3)", "noise"]) == \
+        ["sv:Weapon_Pistol.Single", "cl:weapons/x.wav"]
+    same = {"weapon": "w", "has": {"stock": True, "sharp": True}, "idle": {"Verdict": "Pass"},
+            "attack": {"stock": {"ammo": delta, "sounds": ["sv:A"]}, "sharp": {"ammo": delta, "sounds": ["sv:A"]}},
+            "attack2": {"stock": {"ammo": delta, "sounds": []}, "sharp": {"ammo": delta, "sounds": []}}}
+    assert weapon_verdict(same) == [], weapon_verdict(same)
+    same["attack"]["sharp"] = {"ammo": delta, "sounds": ["sv:A", "sv:physics/metal/can.wav"]}
+    assert weapon_verdict(same) == [], "a prop the bullet hit is not the weapon's sound"
+    same["attack"]["sharp"] = {"ammo": delta, "sounds": ["sv:B"]}
+    assert len(weapon_verdict(same)) == 1, weapon_verdict(same)
+    assert weapon_verdict({"weapon": "w", "has": {"stock": True, "sharp": False}}) == ["only stock has it"]
+
     print("stock-ab self-test: ok")
     return 0
 
@@ -635,6 +905,8 @@ def main():
     r.add_argument("--threshold", type=int, default=24)
     r.add_argument("--tolerance", type=float, default=5.0)
     r.add_argument("--out")
+    r.add_argument("--map", default="ss_sandbox")
+    r.add_argument("--weapons", help="all, or a comma list: give, equip and fire each in both games")
     opts = parser.parse_args()
 
     try:

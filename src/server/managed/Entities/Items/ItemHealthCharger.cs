@@ -16,6 +16,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.ItemHealthcharger, ScriptedEntityKind.Item)]
 public sealed class ItemHealthCharger : PickupItem
 {
+    /// <summary>A wall fixture, not a falling item (stock makes it static).</summary>
+    protected override bool Falls => false;
+
     protected override string Model => "models/props_combine/health_charger001.mdl";
     protected override string Describe() => "a health charger";
     protected override float RespawnDelay => 60f;

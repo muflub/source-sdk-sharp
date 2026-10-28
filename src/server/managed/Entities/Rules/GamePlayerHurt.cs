@@ -11,47 +11,48 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// Hurts whoever set it off, or heals them: the damage key is negative for
-/// healing, which is how the stock entity works and how maps are authored.
+/// Hurts the player who used it, or heals them when the damage is negative:
+/// stock's CGamePlayerHurt::Use (maprules.cpp, commented out in the SDK and
+/// compiled by tools/stock-ab). DMG_GENERIC from the entity itself, as
+/// CTakeDamageInfo( this, this, ... ) has it; spawnflag 1 fires once.
 /// </summary>
 [ScriptedEntity(EntityNames.GamePlayerHurt)]
 public sealed class GamePlayerHurt : ScriptedEntity
 {
-    public GamePlayerHurt(IEngineDamage damage, IEnginePlayers players)
+    public GamePlayerHurt(IEngineDamage damage)
     {
         Damage = damage;
-        Players = players;
     }
 
     /// <summary>hurting things.</summary>
     private readonly IEngineDamage Damage;
 
-    /// <summary>the players this entity acts on.</summary>
-    private readonly IEnginePlayers Players;
     /// <summary>What a map may set on this entity. See <see cref="GamePlayerHurtVars"/>.</summary>
     [ScriptVars] public GamePlayerHurtVars Vars = new();
 
-    [ScriptedEvent("HurtPlayer")]
-    private void OnHurtPlayer(InputData input) => Apply(input.Activator);
+    /// <summary>SF_PKILL_FIREONCE.</summary>
+    private const int FireOnce = 0x0001;
 
-    // The stock entity fires on Use as well as on the named input.
     [ScriptedEvent("Use")]
-    private void OnUsed(InputData input) => Apply(input.Activator);
-
-    private void Apply(EntityHandle activator)
+    private void OnUsed(InputData input)
     {
-        if (!Entities.IsValid(activator) || Players.GetTeam(activator) < 0)
-            return;
+        EntityHandle activator = input.Activator;
 
-        if (Vars.Damage < 0f)
+        if (Entities.IsValid(activator) && Entities.IsPlayer(activator))
         {
-            // Healing. Capped at full health, because a map that heals should
-            // not be able to push somebody above what the rules allow.
-            Entities.SetHealth(activator, Math.Min(100, Entities.GetHealth(activator) + (int)-Vars.Damage));
-            return;
+            if (Vars.Damage < 0f)
+            {
+                // TakeHealth: up to full health, never past it.
+                Entities.SetHealth(activator, Math.Min(100, Entities.GetHealth(activator) + (int)-Vars.Damage));
+            }
+            else
+            {
+                Damage.Apply(activator, Handle, Vars.Damage, DamageType.Generic);
+            }
         }
 
-        Damage.Apply(activator, activator, Vars.Damage, DamageType.Bullet);
+        if ((SpawnFlags & FireOnce) != 0)
+            Remove();
     }
 }
 
@@ -61,6 +62,7 @@ public sealed class GamePlayerHurt : ScriptedEntity
 [ScriptVars]
 public partial class GamePlayerHurtVars
 {
+    /// <summary>m_flDamage: 0 until the map gives one.</summary>
     [VarName("dmg")]
-    public float Damage { get; set; } = 10f;
+    public float Damage { get; set; }
 }

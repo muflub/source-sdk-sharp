@@ -81,43 +81,34 @@ public sealed class ClientBeam : ClientStandaloneEntity
     }
 
     /// <summary>
-    /// One beam, this frame.
+    /// One beam, this frame: stock's <c>C_Beam::DrawModel</c>, which asks
+    /// <c>beams->DrawBeam( this )</c> to build the beam from this entity's
+    /// state and draw it there and then.
     ///
     /// <para>
-    /// Every value here was decoded from the entity's own networked state, which
-    /// is why this class is C# and there is no renderer object behind it: there
-    /// is nothing to read out of native memory, because the state already
-    /// arrived as properties.
+    /// In place, at this entity's DrawModel, and NOT batched: the batch runs
+    /// after the frame's renderable lists are built, and the 0.01-second temp
+    /// beam this used to make there joined the leaf system too late for this
+    /// frame and was retired before the next, so no ss_beam was ever drawn
+    /// (cs_cl_beams counted 0 draws; tools/stock-ab, 2026-10-25).
     /// </para>
     /// </summary>
-    /// <summary>
-    /// In the view's batch (C7 item 7): the beam's next life is made there, as
-    /// <see cref="OnDraw"/> would make it at the entity's DrawModel. Nothing is
-    /// drawn at either -- the beam is a renderable of its own and draws itself
-    /// -- so ahead of time is the same draw.
-    /// </summary>
-    public override int OnDrawBatched() => OnDraw();
-
     public override int OnDraw()
     {
         if (!State.Visible || State.SpriteIndex < 0)
             return 0;
 
-        // NOT a life of zero: CreateBeamPoints reads zero as FBEAM_FOREVER and
-        // a forever beam a frame leaks until the renderer falls over. 0.01 is
-        // retired at the next update and replaced at the next draw.
-        _beams.CreateBeamPoints(new BeamInfo
+        _beams.DrawEntityBeam(new BeamInfo
         {
             Type = BeamType.Points,
             Start = State.Start,
             End = State.End,
             ModelIndex = State.SpriteIndex,
-            HaloIndex = -1,
-            HaloScale = 0f,
-            Life = 0.01f,
+            HaloIndex = State.HaloIndex > 0 ? State.HaloIndex : -1,
+            HaloScale = State.HaloScale,
             Width = State.Width,
             EndWidth = State.EndWidth,
-            FadeLength = 0f,
+            FadeLength = State.FadeLength,
             Amplitude = State.Noise,
             Brightness = State.Brightness,
             Speed = State.ScrollRate,
@@ -127,9 +118,7 @@ public sealed class ClientBeam : ClientStandaloneEntity
             Green = State.Green,
             Blue = State.Blue,
             Segments = -1,
-            Renderable = true,
-            Flags = 0,
-        });
+        }, (BeamFlags)State.Flags, State.HdrColorScale);
 
         return 1;
     }

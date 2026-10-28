@@ -119,6 +119,11 @@ public static class Sandbox
     private const string Can    = "models/props_junk/PopCan01a.mdl";
     private const string Door   = "models/props_doors/door01_dynamic.mdl";
 
+    // Two with no prop data, so a plain prop_dynamic (and an ornament, which is
+    // one) keeps them in stock: everything above is a physics prop's model.
+    private const string Sink    = "models/props_c17/furnituresink001a.mdl";
+    private const string Fixture = "models/props_c17/lampfixture01a.mdl";
+
     /// <summary>
     /// The one material here chosen for what vbsp does with it. A face carrying
     /// %compilewater becomes a volume you can swim in; any other texture makes
@@ -762,8 +767,11 @@ public static class Sandbox
 
     private static void DynamicProps(Site site)
     {
-        site.Ent(EntityNames.PropDynamic, "dyn", new(-128f, 64f, 8f), "model", Chair, "angles", "0 90 0");
-        site.Ent(EntityNames.DynamicProp, "dyn2", new(-32f, 64f, 8f), "model", Chair, "angles", "0 90 0");
+        // A prop_dynamic must be on a model with no prop data: stock's
+        // CBaseProp::Spawn deletes one on a physics prop's model, which is what
+        // prop_dynamic_override is for -- dyn3 shows that on the chair.
+        site.Ent(EntityNames.PropDynamic, "dyn", new(-128f, 64f, 8f), "model", Sink, "angles", "0 90 0");
+        site.Ent(EntityNames.DynamicProp, "dyn2", new(-32f, 64f, 8f), "model", Sink, "angles", "0 90 0");
         site.Ent(EntityNames.PropDynamicOverride, "dyn3", new(64f, 64f, 8f), "model", Chair,
             "angles", "0 90 0", "health", "40");
 
@@ -781,7 +789,7 @@ public static class Sandbox
         // No "angles": an ornament's facing comes from its parent, and giving it
         // one here would hide a composition that ignored rotation.
         site.Ent(EntityNames.PropDynamicOrnament, "ornament", new(96f, -96f, 56f),
-            "model", Chair, "InitialOwner", site.Name("door"));
+            "model", Fixture, "InitialOwner", site.Name("door"));
 
         site.OnReset("door", "Close");
         site.OnReset("dyn", "Enable");
@@ -823,8 +831,7 @@ public static class Sandbox
     {
         site.Brush(EntityNames.FuncDoor, "slider",
             new(-192f, -32f, 8f), new(-64f, 32f, 136f), Site.Wall,
-            "angles", "-90 0 0", "speed", "80", "wait", "4",
-            "movedistance", "120", "lip", "8");
+            "movedir", "-90 0 0", "speed", "80", "wait", "4", "lip", "8");
 
         // The hinge, written out because a door is the one rotating brush whose
         // axis is NOT its middle. Site.Brush defaults a rotator's origin to the
@@ -857,8 +864,7 @@ public static class Sandbox
         //---------------------------------------------------------------------
         site.Brush(EntityNames.FuncWater, "water",
             new(-64f, 96f, 8f), new(64f, 160f, 72f), Site.Wall,
-            "angles", "-90 0 0", "speed", "40", "wait", "4",
-            "movedistance", "64", "lip", "0");
+            "movedir", "-90 0 0", "speed", "40", "wait", "4", "lip", "0");
 
         site.OnReset("slider", "Close");
         site.OnReset("swinger", "Close");
@@ -907,7 +913,7 @@ public static class Sandbox
 
         site.Brush(EntityNames.FuncMovelinear, "gauge",
             new(-32f, 64f, 8f), new(32f, 128f, 40f), Site.Accent,
-            "angles", "-90 0 0", "MoveDistance", "96", "speed", "200",
+            "movedir", "-90 0 0", "MoveDistance", "96", "speed", "200",
             "StartPosition", "0");
 
         site.Wire("wheel", "Position", site.Name("gauge"), "SetPosition");
@@ -929,11 +935,11 @@ public static class Sandbox
     {
         site.Brush(EntityNames.FuncMovelinear, "slide",
             new(-192f, 32f, 8f), new(-96f, 128f, 40f), Site.Wall,
-            "angles", "-90 0 0", "MoveDistance", "128", "speed", "60", "StartPosition", "0");
+            "movedir", "-90 0 0", "MoveDistance", "128", "speed", "60", "StartPosition", "0");
 
         site.Brush(EntityNames.MomentaryDoor, "momentary",
             new(-64f, 32f, 8f), new(32f, 128f, 40f), Site.Wall,
-            "angles", "-90 0 0", "MoveDistance", "96", "speed", "40", "StartPosition", "0");
+            "movedir", "-90 0 0", "MoveDistance", "96", "speed", "40", "StartPosition", "0");
 
         site.Brush(EntityNames.FuncPlat, "lift",
             new(64f, 32f, 8f), new(176f, 128f, 24f), Site.Pad,
@@ -964,7 +970,7 @@ public static class Sandbox
 
         var pool = site.Brush(EntityNames.FuncWaterAnalog, "pool",
             new(96f, -160f, -32f), new(208f, -48f, 7f), Site.NoDraw,
-            "angles", "-90 0 0", "MoveDistance", "38", "speed", "12", "StartPosition", "0");
+            "movedir", "-90 0 0", "MoveDistance", "38", "speed", "12", "StartPosition", "0");
 
         // The lid alone carries the water material, and the sides are nodraw.
         // vbsp draws a water surface wherever it finds one, so a brush textured
@@ -1001,9 +1007,11 @@ public static class Sandbox
         site.Brush(EntityNames.FuncBrush, "brush",
             new(80f, 64f, 8f), new(144f, 128f, 104f), Site.Wall, "Solidity", "1");
 
+        // Stock's key (CFrictionModifier). It grips everything but a player:
+        // a player walks across it unchanged, in stock and here.
         site.Brush(EntityNames.FuncFriction, "ice",
             new(-128f, -160f, 8f), new(128f, -32f, 24f), Site.Trigger,
-            "modifytofriction", "15");
+            "modifier", "15");
 
         site.OnReset("toggle", "TurnOn");
         site.OnReset("brush", "Enable");
@@ -2014,7 +2022,7 @@ public static class Sandbox
 
         for (int i = 0; i < 2; i++)
         {
-            site.Ent(EntityNames.PropDynamic, $"scenery{i}", new(112f + (i * 48f), -128f, 72f),
+            site.Ent(EntityNames.PropDynamicOverride, $"scenery{i}", new(112f + (i * 48f), -128f, 72f),
                 "model", Crate, "solid", "6");
         }
 
@@ -2852,7 +2860,7 @@ public static class Sandbox
         // prop_dynamic and not prop_physics, and that is the point rather than a
         // convenience: this entity TELEPORTS its target every tick, and anything
         // the solver also owns would spend the frame fighting it.
-        site.Ent(EntityNames.PropDynamic, "copy", new(-96f, -64f, 40f), "model", Crate);
+        site.Ent(EntityNames.PropDynamicOverride, "copy", new(-96f, -64f, 40f), "model", Crate);
 
         site.Ent(EntityNames.LogicMeasureMovement, "measure", new(0f, -160f, 16f),
             "MeasureTarget", site.Name("mover"),
@@ -3810,7 +3818,7 @@ public static class Sandbox
         // a sound you have to walk up to, which is the only way to hear that it
         // has a position at all.
         //---------------------------------------------------------------------
-        site.Ent(EntityNames.PropDynamic, "machine", new(-176f, -96f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "machine", new(-176f, -96f, 8f),
             "model", Drum, "solid", "6");
 
         site.Ent(EntityNames.AmbientGeneric, "hum", new(-176f, -96f, 48f),
@@ -4059,7 +4067,7 @@ public static class Sandbox
             "Solidity", "1", "rendermode", "9", "renderamt", "170");
 
         // A crate inside, so there is something for the portals to be hiding.
-        site.Ent(EntityNames.PropDynamic, "shut", new(-136f, 128f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "shut", new(-136f, 128f, 8f),
             "model", Crate, "solid", "6");
 
         site.Marker("doormark", new(-8f, 140f, 8f), "255 220 120");
@@ -4081,7 +4089,7 @@ public static class Sandbox
             new(16f, 128f, 8f), new(144f, 136f, 136f), Occluder,
             "StartActive", "1");
 
-        site.Ent(EntityNames.PropDynamic, "hidden", new(80f, 184f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "hidden", new(80f, 184f, 8f),
             "model", Crate, "solid", "6");
 
         site.Marker("blockmark", new(80f, 96f, 8f), "255 160 140");
@@ -4625,10 +4633,10 @@ public static class Sandbox
             "_inner_cone", "30", "_cone", "50", "_exponent", "1");
 
         // Something under each cone to see the difference on.
-        site.Ent(EntityNames.PropDynamic, "underlit", new(-128f, 0f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "underlit", new(-128f, 0f, 8f),
             "model", Crate, "solid", "6");
 
-        site.Ent(EntityNames.PropDynamic, "unlit", new(128f, 0f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "unlit", new(128f, 0f, 8f),
             "model", Crate, "solid", "6");
 
         //---------------------------------------------------------------------
@@ -5035,7 +5043,7 @@ public static class Sandbox
             "texture", ThrownDecal,
             "angles", "0 90 0", "distance", "64");
 
-        site.Ent(EntityNames.PropDynamic, "post", new(96f, 190f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "post", new(96f, 190f, 8f),
             "model", Crate, "solid", "6");
 
         site.Marker("bloodmark", new(-192f, 128f, 8f), "255 140 140");

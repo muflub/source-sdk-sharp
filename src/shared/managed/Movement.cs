@@ -55,7 +55,9 @@ public static class Movement
         Friction      = 4f,
         Accelerate    = 10f,
         AirAccelerate = 10f,
-        StopSpeed     = 75f,
+        // movevars_shared.cpp: 100 in every branch (stock-ab measured 100 live
+        // in stock hl2mp; the 75 here was not stock's).
+        StopSpeed     = 100f,
         MaxVelocity   = 3500f,
         StepSize      = 18f,
 

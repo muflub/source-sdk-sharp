@@ -8126,9 +8126,13 @@ def step_render_plan_sandbox(g):
 PHYS_CONVERT_KINDS = [
     # (converter, target, the class it is, the class stock makes of it)
     ("physbrush_convertslab", "physbrush_slab", "func_brush", "simple_physics_brush"),
-    ("physbrush_convert", "physbrush_scenery0", "prop_dynamic", "simple_physics_prop"),
+    # The map places the crate as prop_dynamic_override: on a physics prop's
+    # model a plain prop_dynamic is deleted as it spawns, in stock and here.
+    # Stock renames the override prop_dynamic after spawning; this mod keeps
+    # the map's classname (docs/todo.md), so that is the class it is here.
+    ("physbrush_convert", "physbrush_scenery0", "prop_dynamic_override", "simple_physics_prop"),
 ]
-PHYS_CONVERT_CONTROL = ("physbrush_scenery1", "prop_dynamic")
+PHYS_CONVERT_CONTROL = ("physbrush_scenery1", "prop_dynamic_override")
 PHYS_CONVERT_FALL = 16.0      # units a converted copy drops below where it hung
 PHYS_CONVERT_SECONDS = 3.0    # how long it is given to fall
 

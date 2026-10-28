@@ -587,6 +587,29 @@ public interface IServerPropData
     /// <c>base</c> chain. 0 and zeros for a model that has none.
     /// </summary>
     int ModelPropData(string? modelKeyValueText, out float explosiveDamage, out float explosiveRadius);
+
+    /// <summary>
+    /// What kind of prop data a model's <c>$keyvalues</c> text holds: stock's
+    /// PARSE_* answer out of CBaseProp::ParsePropData, which CBaseProp::Spawn
+    /// deletes a prop by.
+    /// </summary>
+    PropDataParse ModelPropDataKind(string? modelKeyValueText);
+}
+
+/// <summary>Stock's <c>PARSE_*</c> (props_shared.h).</summary>
+public enum PropDataParse
+{
+    /// <summary>Parsed: the model is a physics prop's and must be one.</summary>
+    Succeeded,
+
+    /// <summary>Parsed, and the model may also be static or dynamic (allowstatic).</summary>
+    SucceededAllowedStatic,
+
+    /// <summary>No prop_data: the model must be static or dynamic.</summary>
+    NoData,
+
+    /// <summary>prop_data that names a base propdata.txt does not have.</summary>
+    BadData,
 }
 
 /// <summary>

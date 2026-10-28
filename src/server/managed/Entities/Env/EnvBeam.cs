@@ -58,6 +58,11 @@ public sealed class EnvBeam : ScriptedEntity
 
         StartOn = 0b0000_0001,
         Ring = 0b0000_1000,
+
+        // SF_BEAM_SHADEIN, SF_BEAM_SHADEOUT, SF_BEAM_TAPEROUT (beam_shared.h).
+        ShadeIn = 0x0080,
+        ShadeOut = 0x0100,
+        TaperOut = 0x0200,
     }
 
     public override void OnSpawn()
@@ -93,8 +98,18 @@ public sealed class EnvBeam : ScriptedEntity
         if (_managedBeam is null)
             return;
 
-        _managedBeam.SetLook(sprite, Vars.Width, Vars.Width, Vars.Noise, Vars.ScrollRate,
+        // CEnvBeam::Spawn: a tapered beam narrows to nothing at its far end.
+        float endWidth = Flags.HasFlag(SpawnFlag.TaperOut) ? 0f : Vars.Width;
+
+        _managedBeam.SetLook(sprite, Vars.Width, endWidth, Vars.Noise, Vars.ScrollRate,
                              (byte)Vars.Colour.X, (byte)Vars.Colour.Y, (byte)Vars.Colour.Z, (byte)Vars.Brightness);
+
+        // BeamUpdateVars: shade in wins over shade out; no halo, no fade
+        // length, CBeam's HDR scale of 1 (EnvBeamLookTests).
+        int flags = Flags.HasFlag(SpawnFlag.ShadeIn) ? BeamNetFlags.ShadeIn
+                  : Flags.HasFlag(SpawnFlag.ShadeOut) ? BeamNetFlags.ShadeOut
+                  : 0;
+        _managedBeam.SetEffects(flags, 0f, 0, 0f, 1f);
 
         if (Flags.HasFlag(SpawnFlag.StartOn))
             TurnOn();

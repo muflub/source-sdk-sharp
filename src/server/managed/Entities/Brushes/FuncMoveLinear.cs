@@ -72,21 +72,22 @@ public sealed class FuncMoveLinear : ScriptedEntity
 
         SetVisible(true);
 
-        // Same rule as a door: the direction is in the angles, and the engine
-        // zeroes them once it has read them.
-        // Whether the map wrote movedir, asked of the key rather than of its
-        // text: comparing against "0 0 0" answered no for a map that wrote
-        // exactly that on purpose.
-        var direction = Vars.MoveDirIsSet
-            ? Angles.Forward(Vars.MoveDir)
-            : Angles.Forward(SpawnAngles);
-        SetAngles(Vector.Zero);
+        // Same rule as a door (stock's CFuncMoveLinear::Spawn): the direction
+        // is the movedir key, 0 0 0 (+x) when the map gives none, and the
+        // angles stay the brush's rotation.
+        var direction = Angles.Forward(Vars.MoveDir);
+
+        // No distance: the brush's own depth along the direction, less the 2
+        // the engine grows its bounds by and less the lip.
+        float distance = Vars.MoveDistance > 0f
+            ? Vars.MoveDistance
+            : FuncDoor.DepthAlong(Entities.GetBoundsSize(Handle), direction) - Vars.Lip;
 
         // StartPosition is a fraction, so the drawn position is wherever along
         // the travel the mapper parked it — not necessarily the shut end.
         var drawn = SpawnOrigin;
-        _closed = drawn - direction * (Vars.MoveDistance * Vars.StartPosition);
-        _open = _closed + direction * Vars.MoveDistance;
+        _closed = drawn - direction * (distance * Vars.StartPosition);
+        _open = _closed + direction * distance;
 
         _target = Vars.StartPosition;
 
@@ -124,7 +125,11 @@ public partial class FuncMoveLinearVars
 {
     public QAngle MoveDir { get; set; }
 
-    public float MoveDistance { get; set; } = 100f;
+    /// <summary>How far it slides. Zero (stock's default) means its own depth along movedir, less the lip.</summary>
+    public float MoveDistance { get; set; }
+
+    /// <summary>CBaseToggle's lip: how much of the depth it does not travel when the distance is its own.</summary>
+    public float Lip { get; set; }
 
     public float StartPosition { get; set; }
 

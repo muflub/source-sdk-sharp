@@ -271,6 +271,65 @@ public sealed class PropData : IServerPropData, IGameLifecycle
         return health;
     }
 
+    /// <inheritdoc/>
+    /// <summary>
+    /// CBaseProp::ParsePropData's answer: no text, no parse or no prop_data
+    /// section is NoData; otherwise the section's kind, through its base
+    /// chain (CPropData::ParsePropFromKV and ParsePropFromBase).
+    /// </summary>
+    public PropDataParse ModelPropDataKind(string? modelKeyValueText)
+    {
+        if (string.IsNullOrEmpty(modelKeyValueText))
+            return PropDataParse.NoData;
+
+        KeyValuesText document;
+        try
+        {
+            document = KeyValuesText.Parse(modelKeyValueText);
+        }
+        catch (KeyValuesTextException)
+        {
+            return PropDataParse.NoData;
+        }
+
+        KeyValuesText? section = document.Children.Count > 0 ? document.Children[0].FindPath("prop_data") : null;
+        return section is null ? PropDataParse.NoData : SectionKind(section, 0);
+    }
+
+    private PropDataParse SectionKind(KeyValuesText section, int depth)
+    {
+        var baseResult = PropDataParse.Succeeded;
+        string? baseName = section.GetString("base", null);
+
+        if (!string.IsNullOrEmpty(baseName))
+        {
+            // ParsePropFromBase: no propdata.txt is no data, a base it does
+            // not have is bad data. Stock recurses on a cycle forever; this
+            // stops at the same depth the health read does and calls it bad.
+            if (!_loaded)
+                Load();
+            if (_fileRoot is null)
+                return PropDataParse.NoData;
+
+            KeyValuesText? baseSection = depth > 8 ? null : _fileRoot.FindPath(baseName);
+            if (baseSection is null)
+            {
+                _log.Warning($"[SourceSharp/PropData] a model's prop_data has a base specified as '{baseName}', "
+                             + $"but there is no matching entry in {ScriptPath}\n");
+                return PropDataParse.BadData;
+            }
+
+            baseResult = SectionKind(baseSection, depth + 1);
+            if (baseResult is not (PropDataParse.Succeeded or PropDataParse.SucceededAllowedStatic))
+                return baseResult;
+        }
+
+        if (baseResult == PropDataParse.SucceededAllowedStatic)
+            return PropDataParse.SucceededAllowedStatic;
+
+        return section.GetInt("allowstatic", 0) != 0 ? PropDataParse.SucceededAllowedStatic : PropDataParse.Succeeded;
+    }
+
     // The base first, so this section's own values override it; depth-limited
     // because a base cycle in data is a bad file, not a hang.
     private void ReadSection(KeyValuesText? section, int depth,

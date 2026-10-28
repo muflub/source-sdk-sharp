@@ -24,6 +24,17 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PropDynamicOverride, ScriptedEntityKind.Prop)]
 public sealed class PropDynamic : ScriptedEntity
 {
+    public PropDynamic(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData)
+    {
+        Precache = precache;
+        Render = render;
+        PropDataTable = propData;
+    }
+
+    private readonly IEnginePrecache Precache;
+    private readonly IEngineEntityRender Render;
+    private readonly IServerPropData PropDataTable;
+
     public readonly Output OnAnimationBegun = new();
     public readonly Output OnAnimationDone = new();
 
@@ -34,8 +45,14 @@ public sealed class PropDynamic : ScriptedEntity
 
     public override void OnSpawn()
     {
-        if (Vars.Model.Length > 0)
-            SetModel(Vars.Model);
+        if (DynamicPropSpawn.Refusal(ClassName, Vars.Model, Precache, Render, PropDataTable) is { } refusal)
+        {
+            Log.Msg(DynamicPropSpawn.Line(ClassName, SpawnOrigin, refusal));
+            Remove();
+            return;
+        }
+
+        SetModel(Vars.Model);
 
         // Solid but never simulated. Chosen here because the shell reads it when
         // it creates the physics object, moments later.

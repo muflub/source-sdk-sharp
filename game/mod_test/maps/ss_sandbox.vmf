@@ -17457,7 +17457,7 @@ entity
 	"classname" "prop_dynamic"
 	"targetname" "propsdyn_dyn"
 	"origin" "832 -2496 8"
-	"model" "models/props_c17/FurnitureChair001a.mdl"
+	"model" "models/props_c17/furnituresink001a.mdl"
 	"angles" "0 90 0"
 	editor
 	{
@@ -17471,7 +17471,7 @@ entity
 	"classname" "dynamic_prop"
 	"targetname" "propsdyn_dyn2"
 	"origin" "928 -2496 8"
-	"model" "models/props_c17/FurnitureChair001a.mdl"
+	"model" "models/props_c17/furnituresink001a.mdl"
 	"angles" "0 90 0"
 	editor
 	{
@@ -17518,7 +17518,7 @@ entity
 	"classname" "prop_dynamic_ornament"
 	"targetname" "propsdyn_ornament"
 	"origin" "1056 -2656 56"
-	"model" "models/props_c17/FurnitureChair001a.mdl"
+	"model" "models/props_c17/lampfixture01a.mdl"
 	"InitialOwner" "propsdyn_door"
 	editor
 	{
@@ -18270,10 +18270,9 @@ entity
 	"id" "1619"
 	"classname" "func_door"
 	"targetname" "doors_slider"
-	"angles" "-90 0 0"
+	"movedir" "-90 0 0"
 	"speed" "80"
 	"wait" "4"
-	"movedistance" "120"
 	"lip" "8"
 	solid
 	{
@@ -18453,10 +18452,9 @@ entity
 	"id" "1635"
 	"classname" "func_water"
 	"targetname" "doors_water"
-	"angles" "-90 0 0"
+	"movedir" "-90 0 0"
 	"speed" "40"
 	"wait" "4"
-	"movedistance" "64"
 	"lip" "0"
 	solid
 	{
@@ -19334,7 +19332,7 @@ entity
 	"id" "1706"
 	"classname" "func_movelinear"
 	"targetname" "buttons_gauge"
-	"angles" "-90 0 0"
+	"movedir" "-90 0 0"
 	"MoveDistance" "96"
 	"speed" "200"
 	"StartPosition" "0"
@@ -19817,7 +19815,7 @@ entity
 	"id" "1740"
 	"classname" "func_movelinear"
 	"targetname" "movers_slide"
-	"angles" "-90 0 0"
+	"movedir" "-90 0 0"
 	"MoveDistance" "128"
 	"speed" "60"
 	"StartPosition" "0"
@@ -19908,7 +19906,7 @@ entity
 	"id" "1748"
 	"classname" "momentary_door"
 	"targetname" "movers_momentary"
-	"angles" "-90 0 0"
+	"movedir" "-90 0 0"
 	"MoveDistance" "96"
 	"speed" "40"
 	"StartPosition" "0"
@@ -20178,7 +20176,7 @@ entity
 	"id" "1772"
 	"classname" "func_water_analog"
 	"targetname" "movers_pool"
-	"angles" "-90 0 0"
+	"movedir" "-90 0 0"
 	"MoveDistance" "38"
 	"speed" "12"
 	"StartPosition" "0"
@@ -23704,7 +23702,7 @@ entity
 entity
 {
 	"id" "2034"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "keyframes_copy"
 	"origin" "-1056 -1344 40"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -24494,7 +24492,7 @@ entity
 	"id" "2095"
 	"classname" "func_friction"
 	"targetname" "walls_ice"
-	"modifytofriction" "15"
+	"modifier" "15"
 	solid
 	{
 		"id" "2096"
@@ -36190,7 +36188,7 @@ entity
 entity
 {
 	"id" "2961"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "physbrush_scenery0"
 	"origin" "-848 512 72"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -36204,7 +36202,7 @@ entity
 entity
 {
 	"id" "2962"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "physbrush_scenery1"
 	"origin" "-800 512 72"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -40514,7 +40512,7 @@ entity
 entity
 {
 	"id" "3268"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "soundscape_machine"
 	"origin" "-496 1184 8"
 	"model" "models/props_c17/oildrum001.mdl"
@@ -41784,7 +41782,7 @@ entity
 entity
 {
 	"id" "3357"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "visibility_shut"
 	"origin" "824 1408 8"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -41926,7 +41924,7 @@ entity
 entity
 {
 	"id" "3368"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "visibility_hidden"
 	"origin" "1040 1464 8"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -44921,7 +44919,7 @@ entity
 entity
 {
 	"id" "3584"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "worldfx_underlit"
 	"origin" "-448 1920 8"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -44935,7 +44933,7 @@ entity
 entity
 {
 	"id" "3585"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "worldfx_unlit"
 	"origin" "-192 1920 8"
 	"model" "models/props_junk/wood_crate001a.mdl"
@@ -45637,7 +45635,7 @@ entity
 entity
 {
 	"id" "3634"
-	"classname" "prop_dynamic"
+	"classname" "prop_dynamic_override"
 	"targetname" "oneshots_post"
 	"origin" "416 2110 8"
 	"model" "models/props_junk/wood_crate001a.mdl"

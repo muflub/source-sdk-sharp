@@ -1,7 +1,7 @@
 From 2d0b2ae6d65aa2570a8d41ee00c8a434a2ce2dcd Mon Sep 17 00:00:00 2001
 From: Mark Chandler <admin@lodle.net>
 Date: Sun, 25 Oct 2026 13:54:47 -0700
-Subject: [PATCH 3/3] stock-ab: ab_cvars, and ab_render_trace with
+Subject: [PATCH 3/4] stock-ab: ab_cvars, and ab_render_trace with
  source-sdk-sharp's render tracer
 
 source-sdk-sharp's tools/stock-ab/build-stock copies its

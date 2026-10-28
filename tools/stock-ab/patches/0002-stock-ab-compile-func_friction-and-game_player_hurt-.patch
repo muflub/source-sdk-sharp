@@ -1,7 +1,7 @@
 From 250e2b7f4ecaf930e7758b28bb7c71dbf5630bc1 Mon Sep 17 00:00:00 2001
 From: Mark Chandler <admin@lodle.net>
 Date: Sun, 25 Oct 2026 13:18:27 -0700
-Subject: [PATCH 2/3] stock-ab: compile func_friction and game_player_hurt into
+Subject: [PATCH 2/4] stock-ab: compile func_friction and game_player_hurt into
  hl2mp
 
 ss_sandbox places both. func_friction was HL1_DLL-only; game_player_hurt

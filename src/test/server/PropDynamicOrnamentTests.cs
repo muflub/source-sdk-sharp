@@ -60,6 +60,11 @@ public class PropDynamicOrnamentTests
         // spawn does; a test that attaches re-stubs it true afterwards.
         engine.Returns("Entities.SetParent", false);
 
+        // CBaseProp::Spawn precaches the model and reads its prop data: none
+        // here, which a dynamic prop keeps (DynamicPropSpawnTests).
+        engine.Returns("Precache.PrecacheModel", 3)
+              .Returns("EntityRender.GetModelKeyValueText", null);
+
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropDynamicOrnament).Assembly);
         registry.Services = services;

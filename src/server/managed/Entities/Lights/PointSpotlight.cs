@@ -189,8 +189,14 @@ public sealed class PointSpotlight : ScriptedEntity
             if (Vars.TargetName.Length == 0 && Name.Length == 0)
             {
                 // Nothing can ever reach it again, so there is nothing left to
-                // think about. The light stays where it was put.
+                // think about. The beam stays where it was put; the end goes
+                // with this entity, as stock's CPointSpotlight::Activate kills
+                // "ourselves and the end point" (SpotlightBeamTests).
                 StopThinking();
+                if (Entities.IsValid(_end))
+                    Entities.Remove(_end);
+                _end = EntityHandle.None;
+                _managedEnd = null;
                 Entities.Remove(Handle);
                 _static = true;
                 return;
@@ -266,6 +272,12 @@ public sealed class PointSpotlight : ScriptedEntity
             _managedBeam?.SetLook(_beamSprite, Vars.GoalWidth, Vars.GoalWidth, 0f, 0f,
                                   (byte)Vars.Colour.X, (byte)Vars.Colour.Y, (byte)Vars.Colour.Z, 64);
             _managedBeam?.SetPoints(origin, target);
+
+            // Stock's CBeam draws whenever it exists; an ss_beam draws only
+            // when told to (SsBeam.Visible), and nothing told this one, so no
+            // spotlight's shaft was ever drawn (SpotlightBeamTests).
+            if (_managedBeam is not null)
+                _managedBeam.Visible = true;
         }
 
         _currentLength = (target - origin).Length;
@@ -338,6 +350,11 @@ public sealed class PointSpotlight : ScriptedEntity
         _managedBeam?.SetLook(_beamSprite, Vars.GoalWidth, width, 0f, 0f,
                               (byte)Vars.Colour.X, (byte)Vars.Colour.Y, (byte)Vars.Colour.Z, 64);
 
+        // SpotlightCreate's CBeam: shaded out along its length and untiled,
+        // with the halo at its source; ComputeRenderInfo's fade length.
+        _managedBeam?.SetEffects(BeamNetFlags.ShadeOut | BeamNetFlags.NoTile, FadeLength(length, Vars.MaxLength),
+                                 _haloSprite, HaloScale, Vars.HdrColourScale);
+
         if (_managedEnd is not null)
         {
             float scale = Flags.HasFlag(SpawnFlag.NoDynamicLight)
@@ -347,6 +364,15 @@ public sealed class PointSpotlight : ScriptedEntity
             _managedEnd.Place(_lastTarget, scale, alpha);
         }
     }
+
+    /// <summary>SpotlightCreate's SetHaloScale( 60 ).</summary>
+    public const float HaloScale = 60f;
+
+    /// <summary>
+    /// How far along the beam it fades: its length, but never more than the
+    /// stated length (stock's ComputeRenderInfo, all three arms).
+    /// </summary>
+    public static float FadeLength(float length, float maxLength) => length > maxLength ? maxLength : length;
 
     /// <summary>
     /// How much of the pool's colour survives at a given length: all of it

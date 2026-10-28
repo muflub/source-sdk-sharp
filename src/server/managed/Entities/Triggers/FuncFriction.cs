@@ -11,7 +11,11 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// Changes how well whoever is inside grips the floor. Ice.
+/// Changes how well whatever is inside grips the floor: stock's
+/// CFrictionModifier (triggers.cpp, compiled for HL1 in the SDK). Its
+/// StartTouch and EndTouch replace CBaseTrigger's, so no trigger spawnflag,
+/// filter, wait or output is involved: anything but a player that enters gets
+/// the modifier, and gets 1 back when it leaves (FuncFrictionTests).
 /// </summary>
 [ScriptedEntity(EntityNames.FuncFriction, ScriptedEntityKind.Brush)]
 public sealed class FuncFriction : TriggerVolume
@@ -27,13 +31,19 @@ public sealed class FuncFriction : TriggerVolume
     /// <summary>What a map may set on this entity. See <see cref="FuncFrictionVars"/>.</summary>
     [ScriptVars] public FuncFrictionVars FuncFrictionVars = new();
 
-    // The map writes a percentage.
-    protected override void Fire(EntityHandle toucher) => Physics.SetFriction(toucher, FuncFrictionVars.Friction / 100f);
+    // Never reached: OnTouch below does not go through the volume's filter.
+    protected override void Fire(EntityHandle toucher) { }
+
+    public override void OnTouch(EntityHandle toucher)
+    {
+        if (!Entities.IsPlayer(toucher))
+            Physics.SetFriction(toucher, FuncFrictionVars.Modifier / 100f);
+    }
 
     public override void OnEndTouch(EntityHandle toucher)
     {
-        base.OnEndTouch(toucher);
-        Physics.SetFriction(toucher, 1f);
+        if (!Entities.IsPlayer(toucher))
+            Physics.SetFriction(toucher, 1f);
     }
 }
 
@@ -43,6 +53,7 @@ public sealed class FuncFriction : TriggerVolume
 [ScriptVars]
 public partial class FuncFrictionVars
 {
-    [VarName("modifytofriction")]
-    public float Friction { get; set; } = 100f;
+    /// <summary>The friction as a percentage of standard; stock's m_frictionFraction starts at 0.</summary>
+    [VarName("modifier")]
+    public float Modifier { get; set; }
 }

@@ -47,6 +47,17 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PropDynamicOrnament, ScriptedEntityKind.Prop)]
 public sealed class PropDynamicOrnament : ScriptedEntity
 {
+    public PropDynamicOrnament(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData)
+    {
+        Precache = precache;
+        Render = render;
+        PropDataTable = propData;
+    }
+
+    private readonly IEnginePrecache Precache;
+    private readonly IEngineEntityRender Render;
+    private readonly IServerPropData PropDataTable;
+
     /// <summary>What a map may set. See <see cref="PropDynamicOrnamentVars"/>.</summary>
     [ScriptVars] public PropDynamicOrnamentVars Vars = new();
 
@@ -55,8 +66,15 @@ public sealed class PropDynamicOrnament : ScriptedEntity
 
     public override void OnSpawn()
     {
-        if (Vars.Model.Length > 0)
-            SetModel(Vars.Model);
+        // COrnamentProp is a CDynamicProp: CBaseProp::Spawn's refusals apply.
+        if (DynamicPropSpawn.Refusal(ClassName, Vars.Model, Precache, Render, PropDataTable) is { } refusal)
+        {
+            Log.Msg(DynamicPropSpawn.Line(ClassName, SpawnOrigin, refusal));
+            Remove();
+            return;
+        }
+
+        SetModel(Vars.Model);
 
         // Solid-but-never-simulated, so the shell builds the right kind of
         // physics object moments from now. It is made non-solid immediately

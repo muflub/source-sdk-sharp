@@ -38,6 +38,8 @@ Entries by owner (the file keeps its order; this is the index):
   fold; the render budget and trace cost rows inside the client and T4f
   entries.
 - **User directions waiting on a stage**: the usercmd wire format.
+- **Stock A/B** (tools/stock-ab): what running stock hl2mp beside the test
+  mod found and this mod still does differently.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
@@ -981,6 +983,47 @@ delete AddPlayersFromBitMask and the tables go with it; check with
 `make globals-census` that the two ledger rows vanished. No fork edit.
 
 **Owner:** the server lane (T6).
+
+## Stock A/B divergences: what stock hl2mp does that this mod does not (2026-10-25)
+
+`tools/stock-ab run` builds stock hl2mp from upstream (plus
+tools/stock-ab/patches' hooks) and runs it beside the test mod on
+ss_sandbox; `--map dm_lockdown` takes the census of another map. Found at
+the stock-ab branch's base 9074634e7 and still open after its fixes:
+
+- **Classname condensing.** Stock renames `dynamic_prop` and
+  `prop_dynamic_override` to `prop_dynamic`, and `physics_prop` and
+  `prop_physics_override` to `prop_physics`, as they spawn (props.cpp
+  CDynamicProp::Spawn, CPhysicsProp::Spawn). Here the classname is the
+  entity's type identity (CStandaloneEntity::SetClassname derives the type id
+  that pairs the native and managed halves and the network layout), so a
+  rename at spawn is a design question, not a port. What reads it: anything
+  that finds entities by classname (FindEntityByClassname, `ent_fire` by
+  class), and live-gate's phys-convert step, which names the class the map
+  placed. Owner: the server lane. Next: decide whether the type id may stay
+  keyed to the spawn name while the reported classname changes.
+- **Useable ladders.** dm_lockdown holds 3 func_useableladder and 14
+  info_ladder_dismount in stock and none here (`stock-ab run --map
+  dm_lockdown`). Owner: the server lane.
+- **Items rest higher.** On dm_lockdown, items and weapons sit about 0.9
+  units above stock's once settled, and some 10-20 units above
+  (item_ammo_pistol +20.6, weapon_shotgun +15.0): the census's "moved"
+  column. Next: compare one item's spawn (UTIL_DropToFloor, its physics
+  hull) side by side.
+- **func_friction.** This mod reads `modifytofriction` and applies to
+  players; stock (triggers.cpp, HL1_DLL only) reads `modifier` and skips
+  players (`if ( !pOther->IsPlayer() )`).
+- **game_player_hurt.** Commented out in stock's maprules.cpp; this mod's
+  hurts with DMG_BULLET and the activator as the attacker, stock's (as
+  stock-ab compiles it) with DMG_GENERIC and itself.
+- **sv_stopspeed** is 100 in stock and 75 here; **hud_fastswitch** 0 in
+  stock, 1 here; **dt_UsePartialChangeEnts** 1 in stock, 0 here (ab_cvars
+  against the dev API, every client convar compared).
+- **The MOTD.** Stock hl2mp opens its info panel on join, a translucent
+  sheet over the world while it has no page to show; this mod shows none.
+  stock-ab draws no VGUI for that reason.
+- **env_beam and env_laser** now draw through ClientBeam's stock path, but
+  with none of CBeam's flags, fade or halo: only point_spotlight sets them.
 
 ## Rulings and divergences recorded only here (not open work)
 

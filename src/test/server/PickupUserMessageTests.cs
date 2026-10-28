@@ -25,7 +25,8 @@ public class PickupUserMessageTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine);
-        engine.Ignores("Entities.SetHealth", "Entities.SetModel", "Entities.GetOrigin")
+        engine.Ignores("Entities.SetHealth", "Entities.SetModel", "Entities.GetOrigin",
+                       "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles")
               .Returns("Entities.IsValid", true)
               .Returns("Entities.GetIndex", Slot)
               .Returns("Entities.GetHealth", health)

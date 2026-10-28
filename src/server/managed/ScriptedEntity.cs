@@ -1671,6 +1671,16 @@ public abstract class ScriptedEntity
     protected void MakePhysicsStatic() => Physics.SetPhysicsStatic(Handle, true);
 
     /// <summary>
+    /// Stock's <c>VPhysicsInitNormal</c>: a simulated object from this
+    /// entity's model, made as the entity's solidity and collision group say.
+    /// False when the model has none.
+    /// </summary>
+    protected bool InitPhysics(bool asleep = false) => Physics.InitPhysics(Handle, asleep);
+
+    /// <summary>Which collision group this entity is in: what it collides with and what passes through it.</summary>
+    protected void SetCollisionGroup(CollisionGroup group) => Physics.SetCollisionGroup(Handle, group);
+
+    /// <summary>
     /// Plays a named animation. Returns false if the model has no such
     /// sequence, which a caller usually wants to know: the map named something
     /// the artist did not build.

@@ -1,0 +1,126 @@
+From 634b0073ff72a842572a49a6b2e4e1385cd6fc15 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Sun, 25 Oct 2026 15:19:53 -0700
+Subject: [PATCH 4/4] stock-ab: ab_arsenal and console capture
+
+ab_arsenal writes player 1's weapons, clips and ammo pools (what
+SourceSharp's cs_arsenal prints); ab_capture_begin/ab_capture_end
+collect what the console prints in between, for sv_soundemitter_trace's
+lines, which console.log writes too late to read.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/game/client/ss_ab_client.cpp | 43 ++++++++++++++++++++++++++++++++
+ src/game/server/ss_ab_server.cpp | 41 ++++++++++++++++++++++++++++++
+ 2 files changed, 84 insertions(+)
+
+diff --git a/src/game/client/ss_ab_client.cpp b/src/game/client/ss_ab_client.cpp
+index e1756c26..82aefcb0 100644
+--- a/src/game/client/ss_ab_client.cpp
++++ b/src/game/client/ss_ab_client.cpp
+@@ -204,3 +204,46 @@ void SSAB_View_Render( vrect_t *rect )
+ 		ABWrite( "trace", text.Get() );
+ 	}
+ }
++
++//-----------------------------------------------------------------------------
++// ab_capture_begin / ab_capture_end <token>: everything the console prints in
++// between, to $SS_AB_DIR/console, then "#end <token>". console.log is written
++// late; this is what the harness reads, e.g. sv_soundemitter_trace's lines.
++//-----------------------------------------------------------------------------
++class CABConsoleCapture : public IConsoleDisplayFunc
++{
++public:
++	virtual void ColorPrint( const Color &clr, const char *pMessage ) { Print( pMessage ); }
++	virtual void Print( const char *pMessage ) { m_Text += pMessage; }
++	virtual void DPrint( const char *pMessage ) { Print( pMessage ); }
++
++	CUtlString m_Text;
++	bool m_bInstalled = false;
++};
++
++static CABConsoleCapture s_ConsoleCapture;
++
++CON_COMMAND( ab_capture_begin, "stock-ab: start collecting console output" )
++{
++	s_ConsoleCapture.m_Text.Clear();
++	if ( !s_ConsoleCapture.m_bInstalled )
++	{
++		g_pCVar->InstallConsoleDisplayFunc( &s_ConsoleCapture );
++		s_ConsoleCapture.m_bInstalled = true;
++	}
++}
++
++CON_COMMAND( ab_capture_end, "stock-ab: write what the console printed since ab_capture_begin to $SS_AB_DIR/console" )
++{
++	if ( s_ConsoleCapture.m_bInstalled )
++	{
++		g_pCVar->RemoveConsoleDisplayFunc( &s_ConsoleCapture );
++		s_ConsoleCapture.m_bInstalled = false;
++	}
++
++	CUtlString text = s_ConsoleCapture.m_Text;
++	text += "\n#end\t";
++	text += args.ArgS();
++	text += "\n";
++	ABWrite( "console", text.Get() );
++}
+diff --git a/src/game/server/ss_ab_server.cpp b/src/game/server/ss_ab_server.cpp
+index 32615e4b..a3eaf960 100644
+--- a/src/game/server/ss_ab_server.cpp
++++ b/src/game/server/ss_ab_server.cpp
+@@ -11,6 +11,7 @@
+ //=============================================================================//
+ 
+ #include "cbase.h"
++#include "ammodef.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ 
+@@ -45,3 +46,43 @@ CON_COMMAND( ab_dump_ents, "stock-ab: write every entity to $SS_AB_DIR/ents" )
+ 	fclose( pFile );
+ 	rename( szTmp, szPath );
+ }
++
++//-----------------------------------------------------------------------------
++// ab_arsenal <token>: player 1's weapons (classname, clip1, clip2, whether
++// active) and every ammo pool it holds, to $SS_AB_DIR/arsenal -- what
++// SourceSharp's cs_arsenal prints -- then "#end <token>".
++//-----------------------------------------------------------------------------
++CON_COMMAND( ab_arsenal, "stock-ab: write player 1's weapons and ammo to $SS_AB_DIR/arsenal" )
++{
++	const char *pszDir = getenv( "SS_AB_DIR" );
++	CBasePlayer *pPlayer = UTIL_PlayerByIndex( 1 );
++	if ( !pszDir || !*pszDir || !pPlayer )
++		return;
++
++	char szTmp[MAX_PATH], szPath[MAX_PATH];
++	V_snprintf( szTmp, sizeof( szTmp ), "%s/arsenal.tmp", pszDir );
++	V_snprintf( szPath, sizeof( szPath ), "%s/arsenal", pszDir );
++
++	FILE *pFile = fopen( szTmp, "wb" );
++	if ( !pFile )
++		return;
++
++	CBaseCombatWeapon *pActive = pPlayer->GetActiveWeapon();
++	for ( int i = 0; i < pPlayer->WeaponCount(); i++ )
++	{
++		CBaseCombatWeapon *pWeapon = pPlayer->GetWeapon( i );
++		if ( pWeapon )
++			fprintf( pFile, "weapon\t%s\t%d\t%d\t%d\n", pWeapon->GetClassname(), pWeapon->Clip1(), pWeapon->Clip2(), pWeapon == pActive ? 1 : 0 );
++	}
++
++	for ( int i = 0; i < GetAmmoDef()->m_nAmmoIndex; i++ )
++	{
++		int nCount = pPlayer->GetAmmoCount( i );
++		if ( nCount > 0 )
++			fprintf( pFile, "ammo\t%s\t%d\n", GetAmmoDef()->GetAmmoOfIndex( i )->pName, nCount );
++	}
++
++	fprintf( pFile, "#end\t%s\n", args.ArgS() );
++	fclose( pFile );
++	rename( szTmp, szPath );
++}
+-- 
+2.53.0
+

@@ -43,6 +43,9 @@ public enum SolidFlags
     /// </summary>
     Trigger = 0x0008,
 
+    /// <summary>Nothing may stand on it: a player stepping onto one slides off rather than riding it.</summary>
+    NotStandable = 0x0010,
+
     /// <summary>Volumetric contents, the way water is. Also a volume to fly through.</summary>
     VolumeContents = 0x0020,
 }

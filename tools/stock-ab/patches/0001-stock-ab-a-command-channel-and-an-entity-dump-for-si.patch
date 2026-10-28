@@ -1,7 +1,7 @@
 From 69d55546a851a1e79e95d603d148311bfda2aa5b Mon Sep 17 00:00:00 2001
 From: Mark Chandler <admin@lodle.net>
 Date: Sun, 25 Oct 2026 13:18:27 -0700
-Subject: [PATCH 1/3] stock-ab: a command channel and an entity dump for
+Subject: [PATCH 1/4] stock-ab: a command channel and an entity dump for
  side-by-side runs
 
 SS_AB_DIR/cmd is run as console text once a frame; ab_ack, ab_view and

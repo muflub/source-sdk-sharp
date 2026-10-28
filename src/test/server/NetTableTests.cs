@@ -1193,14 +1193,15 @@ public partial class NetTableTests
 
         // ONE WORD BETWEEN THEM, wherever the buckets put it. The four are 8
         // bits each and 32 between them, so they are an EXACT FILL under rule 2
-        // and lead the narrow half of the class — behind the five fields that
+        // and lead the narrow half of the class — behind the ten fields that
         // are naturally four bytes (Width, EndWidth, Noise, ScrollRate,
-        // SpriteIndex), which is why the word is at 20 rather than at 0. That
-        // number is derived and pinned; what the test is ABOUT is that there is
-        // one word and not four.
+        // SpriteIndex, Flags, FadeLength, HaloIndex, HaloScale,
+        // HdrColorScale), which is why the word is at 40 rather than at 0.
+        // That number is derived and pinned; what the test is ABOUT is that
+        // there is one word and not four.
         Assert.True(placed.Select(f => f.Offset).Distinct().Count() == 1, "all four of a beam's colour channels live in ONE word");
 
-        Assert.True(placed[0].Offset == Block + 20, $"the word after the class's five whole-word fields, i.e. 20 and not {placed[0].Offset}");
+        Assert.True(placed[0].Offset == Block + 40, $"the word after the class's ten whole-word fields, i.e. 40 and not {placed[0].Offset - Block}");
 
         Assert.True(placed.Select(f => f.BitShift).SequenceEqual(new[] { 0, 8, 16, 24 }), "each takes the next eight bits of it rather than a word of its own");
 

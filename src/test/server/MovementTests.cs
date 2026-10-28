@@ -109,7 +109,7 @@ public class MovementTests
         // stock it should be because somebody meant it, in a commit that says
         // so — not as a side effect of making them reachable.
         Assert.True(p.JumpHeight == 21f && p.Gravity == 600f && p.Friction == 4f &&
-            p.StopSpeed == 75f && p.StepSize == 18f && p.MaxSpeed == 320f &&
+            p.StopSpeed == 100f && p.StepSize == 18f && p.MaxSpeed == 320f &&
             p.AirSpeedCap == 30f && Math.Abs(p.DuckSpeedScale - 0.33333333f) < 1e-6f, "the parameters are still stock Half-Life's");
     }
 

@@ -67,6 +67,26 @@ public sealed class SsBeam : ScriptedEntity
     }
 
     /// <summary>
+    /// What stock's CBeam sets on top of the look: its draw flags, the fade
+    /// along a shaded beam, the halo at its start and its HDR colour scale.
+    /// A beam no owner gives these draws as a plain CBeam does.
+    /// </summary>
+    public void SetEffects(int flags, float fadeLength, int haloIndex, float haloScale, float hdrColorScale)
+    {
+        State.Flags         = flags;
+        State.FadeLength    = fadeLength;
+        State.HaloIndex     = haloIndex;
+        State.HaloScale     = haloScale;
+        State.HdrColorScale = hdrColorScale;
+    }
+
+    public override void OnSpawn()
+    {
+        // CBeam's m_flHDRColorScale starts at 1; a zero would draw it black in HDR.
+        State.HdrColorScale = 1f;
+    }
+
+    /// <summary>
     /// Whether to draw. A flag rather than removal, because a laser is switched
     /// far more often than it is built.
     /// </summary>

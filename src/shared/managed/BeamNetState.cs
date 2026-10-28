@@ -54,4 +54,32 @@ public partial class BeamNetState
     /// mean the client tearing down and rebuilding its half each time.
     /// </summary>
     public partial bool Visible { get; set; }
+
+    /// <summary>
+    /// CBeam's flags that reach the draw (<c>FBEAM_*</c>; stock's
+    /// <c>CViewRenderBeams::DrawBeam( C_Beam * )</c> keeps SINENOISE, SOLID,
+    /// SHADEIN, SHADEOUT and NOTILE of them). See <see cref="BeamNetFlags"/>.
+    /// </summary>
+    public partial int Flags { get; set; }
+
+    /// <summary>How far along the beam a shaded beam fades over (CBeam's m_fFadeLength).</summary>
+    public partial float FadeLength { get; set; }
+
+    /// <summary>The halo sprite drawn at the start, as a model index; 0 or less is none.</summary>
+    public partial int HaloIndex { get; set; }
+
+    public partial float HaloScale { get; set; }
+
+    /// <summary>CBeam's m_flHDRColorScale. 1 is stock's default; SsBeam starts there.</summary>
+    public partial float HdrColorScale { get; set; }
+}
+
+/// <summary>The <c>FBEAM_*</c> values a server sets in <see cref="BeamNetState.Flags"/> (beam_flags.h).</summary>
+public static class BeamNetFlags
+{
+    public const int SineNoise = 0x00000010;
+    public const int Solid = 0x00000020;
+    public const int ShadeIn = 0x00000040;
+    public const int ShadeOut = 0x00000080;
+    public const int NoTile = 0x00000200;
 }
