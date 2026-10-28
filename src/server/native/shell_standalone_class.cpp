@@ -95,7 +95,7 @@ public:
 		return m_Desc.iTier;
 	}
 
-	IServerNetworkable *Create( const char *pClassName ) OVERRIDE
+	IServerNetworkable *Create( const char *pClassName, CServerEntityContext &context ) OVERRIDE
 	{
 		SourceSharp_LogEntityCreate( pClassName );
 
@@ -103,8 +103,8 @@ public:
 		const int iTier = ResolveTier();
 
 		// The player is the one subclass, chosen here where the class is known.
-		CStandaloneEntity *pEnt = m_Desc.bPlayer ? new ( SourceSharp_TierBytes( iTier ) ) CStandalonePlayer
-												 : new ( SourceSharp_TierBytes( iTier ) ) CStandaloneEntity;
+		CStandaloneEntity *pEnt = m_Desc.bPlayer ? new ( SourceSharp_TierBytes( iTier ) ) CStandalonePlayer( context )
+												 : new ( SourceSharp_TierBytes( iTier ) ) CStandaloneEntity( context );
 
 		if ( !pEnt )
 		{
@@ -256,8 +256,17 @@ public:
 			return NULL;
 		}
 
-		return pFactory->Create( pClassName );
+		if ( !m_pContext )
+		{
+			Warning( "[SourceSharp] REFUSED: '%s' was asked for outside DLLInit..DLLShutdown\n",
+					 pClassName ? pClassName : "(null)" );
+			return NULL;
+		}
+
+		return pFactory->Create( pClassName, *m_pContext );
 	}
+
+	virtual void BindContext( CServerEntityContext *pContext ) OVERRIDE { m_pContext = pContext; }
 
 	virtual void Destroy( const char *pClassName, IServerNetworkable *pNetworkable ) OVERRIDE
 	{
@@ -275,6 +284,8 @@ public:
 	}
 
 	CEntityFactoryTable<ss::IEntityFactory> m_Table;
+
+	CServerEntityContext *m_pContext = nullptr;
 
 	// Classname to refusal count, case-blind; m_RefusedOrder is first-refusal order.
 	typedef std::map<std::string, int, ss::CaselessLess> Refused_t;

@@ -562,6 +562,7 @@ TEST( ServerStateTier, ANewDllTierHoldsNoEngineInterfaceOfTheLastOne )
 	CServerDllState &first = dll.Begin();
 	first.m_Engine.m_pEngine = reinterpret_cast<IVEngineServer *>( 0x1000 );
 	first.m_Engine.m_pFileSystem = reinterpret_cast<IFileSystem *>( 0x1000 );
+	first.m_Engine.m_pBaseFileSystem = reinterpret_cast<IBaseFileSystem *>( 0x1000 );
 	first.m_Engine.m_pPartition = reinterpret_cast<ISpatialPartition *>( 0x1000 );
 	first.m_Engine.m_pGameStats = reinterpret_cast<IUploadGameStats *>( 0x1000 );
 	first.m_Engine.m_pStringTables = reinterpret_cast<INetworkStringTableContainer *>( 0x1000 );
@@ -578,6 +579,7 @@ TEST( ServerStateTier, ANewDllTierHoldsNoEngineInterfaceOfTheLastOne )
 	const CServerEngineInterfaces &engine = dll.Begin().m_Engine;
 	EXPECT_EQ( nullptr, engine.m_pEngine ) << "the engine outlived the DLL that bound it";
 	EXPECT_EQ( nullptr, engine.m_pFileSystem ) << "an engine interface outlived the DLL that acquired it";
+	EXPECT_EQ( nullptr, engine.m_pBaseFileSystem );
 	EXPECT_EQ( nullptr, engine.m_pPartition );
 	EXPECT_EQ( nullptr, engine.m_pGameStats );
 	EXPECT_EQ( nullptr, engine.m_pStringTables );

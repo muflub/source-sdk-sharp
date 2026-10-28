@@ -437,7 +437,10 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-27, 109 -> 108: s_ServerGameEnts: the engine holds the root's CLateBoundServerGameEnts (T6 part 3).
 # LOWERED 2026-10-27, 108 -> 106: s_ServerGameTags and s_ServerDLLSharedAppSystems are root members; the app
 #   systems are a constant table (T6 part 3).
-globals_link_level	src/sourcesharp/game/server	106
+# LOWERED 2026-10-27, 106 -> 105: g_ShimLevel is CServerLevel, built by CServerDllServices (T6 part 3).
+# LOWERED 2026-10-27, 105 -> 101: the C#-declared commands and convars, the console snapshot and the change-callback
+#   latch are CShimConsole members; the global ConVar change callback is a CBoundCallback bound to it.
+globals_link_level	src/sourcesharp/game/server	101
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
@@ -551,4 +554,12 @@ globals_reconcile_unattributed	src/sourcesharp/game/server	0
 #   Not a regression.
 # LOWERED 2026-10-27, 251 -> 235: CServerGameClients is handed the engine, globals, model cache and managed areas.
 # LOWERED 2026-10-27, 235 -> 229: CServerGameEnts is handed the engine, model cache, managed areas and transmit set.
-globals_locator_calls	src/sourcesharp/game/server	229
+# LOWERED 2026-10-27, 229 -> 212: CServerLevel is handed the engine, the base file system, model cache and globals.
+# LOWERED 2026-10-27, 212 -> 207: entities and the world allocate with calloc and free, as the engine's
+#   PvAllocEntPrivateData and FreeEntPrivateData do, instead of asking the engine.
+# LOWERED 2026-10-27, 207 -> 170: entities and the world are handed a CServerEntityContext by their factory (engine,
+#   partition, model info, managed holders, players, world serial, the level the game DLL binds).
+# LOWERED 2026-10-27, 170 -> 141: the game DLL's own methods read the managed runtime and areas from the holders it
+#   owns instead of asking ManagedRuntimeServer() and the area accessors.
+# LOWERED 2026-10-27, 141 -> 139: the console reads its managed commands area through the slot its owner hands it.
+globals_locator_calls	src/sourcesharp/game/server	139

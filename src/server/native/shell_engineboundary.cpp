@@ -68,6 +68,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 		return false;
 	if ( ( bound.m_pFileSystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
+	bound.m_pBaseFileSystem = bound.m_pFileSystem;
 	if ( ( bound.m_pEvents = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL ) ) ==
 		 NULL )
 		return false;

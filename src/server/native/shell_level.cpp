@@ -13,7 +13,7 @@
 
 #include "filesystem.h"
 #include "server_state.h"
-#include "server_engine.h"
+#include "shell_level.h"
 #include "datacache/imdlcache.h"
 #include "ss_mapentities.h"
 #include "ss_soundent.h"
@@ -26,14 +26,12 @@
 #include "shell_serversystem.h"
 
 // Defined in shell_standalone_base.cpp.
-void StandaloneEntities_LevelShutdown();
+void StandaloneEntities_LevelShutdown( const CServerEntityContext &context );
 
 // Defined in physics.cpp, gamestringpool.cpp and shell_entityslots.cpp.
 CServerSystem *PhysicsGameSystem();
 CServerSystem *GameStringSystem();
 void SourceSharp_ResetEntitySlots();
-
-extern CGlobalVars *gpGlobals;
 
 // Defined in shell_entityapi.cpp.
 uint32_t SourceSharp_CreateEntity( const char *pClassName );
@@ -83,161 +81,141 @@ uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPacked
 	return hEntity;
 }
 
-namespace
+void CServerLevel::PrecachePointTemplates( const char *pMapDataBlobs, const int32_t *pStringSizes, int32_t nCount )
 {
+	(void)pMapDataBlobs;
+	(void)pStringSizes;
+	(void)nCount;
+}
 
-class CShimLevel : public IShimLevel
+void CServerLevel::SetLowViolence( const char *pMapName )
 {
-public:
-	// No fields: the object exists only to carry a vtable.
+	(void)pMapName;
+}
 
-	// Empty, but still called: its position in managed's LevelInit marks two
-	// orderings (low violence before the template precache, templates after the
-	// entities they read).
-	virtual void PrecachePointTemplates( const char *pMapDataBlobs, const int32_t *pStringSizes,
-										 int32_t nCount ) OVERRIDE
-	{
-		(void)pMapDataBlobs;
-		(void)pStringSizes;
-		(void)nCount;
-	}
+void CServerLevel::LoadMessageOfTheDay() {}
 
-	// Empty, and still called for its position. Managed decides low violence.
-	virtual void SetLowViolence( const char *pMapName ) OVERRIDE { (void)pMapName; }
-
-	// Empty, and still called for its position.
-	virtual void LoadMessageOfTheDay() OVERRIDE {}
-
-	virtual void SetPrecacheAllowed( int32_t bAllowed ) OVERRIDE { EntityPrecache_SetAllowed( bAllowed != 0 ); }
-
-	// The standalone hierarchy's teardown, which gEntList cannot see. Runs
-	// pre-entity, while everything the hierarchy holds is still real.
-	virtual void ShutdownStandaloneEntities() OVERRIDE { StandaloneEntities_LevelShutdown(); }
-
-	// Stock's: "YWB: This entity pointer is going away now and is corrupting
-	// memory on level transitions/restarts".
-	virtual void ShutdownSoundEnt() OVERRIDE { ss::SoundEnt_Shutdown(); }
-
-	// Releases the world through its networkable (CWorldNetworkable::Release
-	// deletes the outer object). The world is not in the entity list, so nothing
-	// else frees it, and the next map's CWorldFactory::Create needs it gone.
-	virtual void ClearEntityList() OVERRIDE
-	{
-		// Must not be guarded: a world left alive faults the next map load.
-		if ( CWorld *pWorld = GetWorldEntity() )
-			pWorld->GetNetworkable()->Release();
-	}
-
-	// Starts the engine's load-game read (stock's LevelInit loadGame arm).
-	// Managed decides what a false answer means.
-	virtual int32_t LoadSaveGameState( const char *pMapName, int32_t bCreatePlayers ) OVERRIDE
-	{
-		if ( pMapName == NULL )
-			return 0;
-
-		return ServerEngine()->LoadGameState( pMapName, bCreatePlayers != 0 ) ? 1 : 0;
-	}
-
-	// Open/Size/Close: Size( path ) answers 0 for a missing file.
-	virtual int32_t FileSizeOnPath( const char *pPath, const char *pPathId ) OVERRIDE
-	{
-		if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL || ServerFileSystem() == NULL )
-			return -1;
-
-		FileHandle_t hFile = ServerFileSystem()->Open( pPath, "rb", pPathId );
-		if ( hFile == FILESYSTEM_INVALID_HANDLE )
-			return -1;
-
-		unsigned int nSize = ServerFileSystem()->Size( hFile );
-		ServerFileSystem()->Close( hFile );
-		return nSize > 0x7fffffffu ? -1 : (int32_t)nSize;
-	}
-
-	virtual int32_t ReadFileOnPath( const char *pPath, const char *pPathId, void *pOut, int32_t nOutSize ) OVERRIDE
-	{
-		if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL || pOut == NULL || nOutSize < 0 ||
-			 ServerFileSystem() == NULL )
-			return -1;
-
-		FileHandle_t hFile = ServerFileSystem()->Open( pPath, "rb", pPathId );
-		if ( hFile == FILESYSTEM_INVALID_HANDLE )
-			return -1;
-
-		unsigned int nSize = ServerFileSystem()->Size( hFile );
-		if ( nSize > (unsigned int)nOutSize )
-		{
-			ServerFileSystem()->Close( hFile );
-			return -1;
-		}
-
-		int nRead = ServerFileSystem()->Read( pOut, (int)nSize, hFile );
-		ServerFileSystem()->Close( hFile );
-		return nRead;
-	}
-
-	// Builds the world from keys managed parsed (MapEntity_SpawnWorld).
-	virtual int32_t SpawnWorld( const char *const *ppKeys, const char *const *ppValues, int32_t nKeys ) OVERRIDE
-	{
-		if ( nKeys < 0 || ( nKeys > 0 && ( ppKeys == NULL || ppValues == NULL ) ) )
-			return 0;
-
-		return MapEntity_SpawnWorld( ppKeys, ppValues, nKeys ) ? 1 : 0;
-	}
-
-	virtual int32_t IsPrecacheAllowed() OVERRIDE { return EntityPrecache_IsAllowed() ? 1 : 0; }
-
-	// The level's load type, chosen by managed.
-	virtual void SetLoadType( int32_t eLoadType ) OVERRIDE { gpGlobals->eLoadType = (MapLoadType_t)eLoadType; }
-
-	// The two native systems' stages, each under the model-cache lock stock's
-	// game-system walk takes per system. Managed owns the order.
-	virtual int32_t PhysicsInit() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
-		return PhysicsGameSystem()->Init() ? 1 : 0;
-	}
-
-	virtual void PhysicsLevelInitPreEntity() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
-		PhysicsGameSystem()->LevelInitPreEntity();
-	}
-
-	virtual void PhysicsLevelInitPostEntity() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
-		PhysicsGameSystem()->LevelInitPostEntity();
-	}
-
-	virtual void PhysicsLevelShutdownPreEntity() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
-		PhysicsGameSystem()->LevelShutdownPreEntity();
-	}
-
-	virtual void PhysicsLevelShutdownPostEntity() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
-		PhysicsGameSystem()->LevelShutdownPostEntity();
-	}
-
-	virtual void StringPoolLevelShutdownPostEntity() OVERRIDE
-	{
-		MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
-		GameStringSystem()->LevelShutdownPostEntity();
-	}
-
-	// After the managed level's end, since a state object may write during its
-	// entity's teardown.
-	virtual void ResetEntitySlots() OVERRIDE { SourceSharp_ResetEntitySlots(); }
-};
-
-} // namespace
-
-static CShimLevel g_ShimLevel;
-
-// The internalFactory's row for this area.
-void *ShimLevel_Acquire()
+void CServerLevel::SetPrecacheAllowed( int32_t bAllowed )
 {
-	return static_cast<IShimLevel *>( &g_ShimLevel );
+	EntityPrecache_SetAllowed( bAllowed != 0 );
+}
+
+void CServerLevel::ShutdownStandaloneEntities()
+{
+	StandaloneEntities_LevelShutdown( m_Entities );
+}
+
+void CServerLevel::ShutdownSoundEnt()
+{
+	ss::SoundEnt_Shutdown();
+}
+
+void CServerLevel::ClearEntityList()
+{
+	// Must not be guarded: a world left alive faults the next map load.
+	if ( CWorld *pWorld = GetWorldEntity() )
+		pWorld->GetNetworkable()->Release();
+}
+
+int32_t CServerLevel::LoadSaveGameState( const char *pMapName, int32_t bCreatePlayers )
+{
+	if ( pMapName == NULL )
+		return 0;
+
+	return m_pEngine->LoadGameState( pMapName, bCreatePlayers != 0 ) ? 1 : 0;
+}
+
+// Open/Size/Close: Size( path ) answers 0 for a missing file.
+int32_t CServerLevel::FileSizeOnPath( const char *pPath, const char *pPathId )
+{
+	if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL )
+		return -1;
+
+	FileHandle_t hFile = m_pFileSystem->Open( pPath, "rb", pPathId );
+	if ( hFile == FILESYSTEM_INVALID_HANDLE )
+		return -1;
+
+	unsigned int nSize = m_pFileSystem->Size( hFile );
+	m_pFileSystem->Close( hFile );
+	return nSize > 0x7fffffffu ? -1 : (int32_t)nSize;
+}
+
+int32_t CServerLevel::ReadFileOnPath( const char *pPath, const char *pPathId, void *pOut, int32_t nOutSize )
+{
+	if ( pPath == NULL || pPath[0] == '\0' || pPathId == NULL || pOut == NULL || nOutSize < 0 )
+		return -1;
+
+	FileHandle_t hFile = m_pFileSystem->Open( pPath, "rb", pPathId );
+	if ( hFile == FILESYSTEM_INVALID_HANDLE )
+		return -1;
+
+	unsigned int nSize = m_pFileSystem->Size( hFile );
+	if ( nSize > (unsigned int)nOutSize )
+	{
+		m_pFileSystem->Close( hFile );
+		return -1;
+	}
+
+	int nRead = m_pFileSystem->Read( pOut, (int)nSize, hFile );
+	m_pFileSystem->Close( hFile );
+	return nRead;
+}
+
+int32_t CServerLevel::SpawnWorld( const char *const *ppKeys, const char *const *ppValues, int32_t nKeys )
+{
+	if ( nKeys < 0 || ( nKeys > 0 && ( ppKeys == NULL || ppValues == NULL ) ) )
+		return 0;
+
+	return MapEntity_SpawnWorld( ppKeys, ppValues, nKeys ) ? 1 : 0;
+}
+
+int32_t CServerLevel::IsPrecacheAllowed()
+{
+	return EntityPrecache_IsAllowed() ? 1 : 0;
+}
+
+void CServerLevel::SetLoadType( int32_t eLoadType )
+{
+	m_pGlobals->eLoadType = (MapLoadType_t)eLoadType;
+}
+
+int32_t CServerLevel::PhysicsInit()
+{
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
+	return PhysicsGameSystem()->Init() ? 1 : 0;
+}
+
+void CServerLevel::PhysicsLevelInitPreEntity()
+{
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
+	PhysicsGameSystem()->LevelInitPreEntity();
+}
+
+void CServerLevel::PhysicsLevelInitPostEntity()
+{
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
+	PhysicsGameSystem()->LevelInitPostEntity();
+}
+
+void CServerLevel::PhysicsLevelShutdownPreEntity()
+{
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
+	PhysicsGameSystem()->LevelShutdownPreEntity();
+}
+
+void CServerLevel::PhysicsLevelShutdownPostEntity()
+{
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
+	PhysicsGameSystem()->LevelShutdownPostEntity();
+}
+
+void CServerLevel::StringPoolLevelShutdownPostEntity()
+{
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
+	GameStringSystem()->LevelShutdownPostEntity();
+}
+
+void CServerLevel::ResetEntitySlots()
+{
+	SourceSharp_ResetEntitySlots();
 }

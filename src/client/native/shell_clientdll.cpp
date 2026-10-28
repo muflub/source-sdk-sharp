@@ -92,6 +92,7 @@ extern vgui::IInputInternal *g_InputInternal;
 #include "ss_command_line.h"
 #include "shell_particle_systems.h"
 #include "shell_new_particles.h"
+#include "shell_shim_console.h"
 
 extern IClientMode *GetClientModeNormal();
 
@@ -603,6 +604,7 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 
 	// Before the HUD: gHUD.Init() hooks the user messages managed declares. The CLR comes up
 	// before SourceSharp_ClientSystemsInit() walks the client systems.
+	ShimConsole().m_ppCommands = &m_Managed.m_Areas.m_pCommandsClient;
 	m_pManagedRuntime = LoadManagedRuntime( this );
 
 	if ( m_pManagedRuntime == NULL )
@@ -727,6 +729,10 @@ void CShellClientDLL::Shutdown()
 
 	SourceSharp_DisconnectTier2();
 	ConVar_Unregister();
+
+	// After the unregister, while g_pCVar is still connected.
+	ShimConsole().ReleaseObjects();
+	ShimConsole().m_ppCommands = NULL;
 	DisconnectTier1Libraries();
 
 	gameeventmanager = NULL;

@@ -14,9 +14,11 @@
 #include "eiface.h"
 #include "PlayerState.h"
 #include "ss_client_message.h"
+#include "late_bound_game_clients.g.h"
 
 class CGlobalVars;
 class IMDLCache;
+class CServerEntityContext;
 struct CManagedAreas;
 struct edict_t;
 
@@ -24,11 +26,12 @@ class CServerGameClients final : public IServerGameClients, private IClientMessa
 {
 public:
 	CServerGameClients( IVEngineServer *pEngine, CGlobalVars *pGlobals, IMDLCache *pMdlCache,
-						const CManagedAreas &managed )
+						const CManagedAreas &managed, CServerEntityContext &entityContext )
 		: m_pEngine( pEngine )
 		, m_pGlobals( pGlobals )
 		, m_pMdlCache( pMdlCache )
 		, m_Managed( managed )
+		, m_EntityContext( entityContext )
 	{
 	}
 
@@ -76,7 +79,19 @@ private:
 	IMDLCache *m_pMdlCache;
 	const CManagedAreas &m_Managed;
 
+	// What a player made here is handed.
+	CServerEntityContext &m_EntityContext;
+
 	// GetPlayerState's answer for an edict with no player, per edict, so the HLTV and
 	// Replay masters don't share one.
 	CPlayerState m_OrphanPlayerStates[ABSOLUTE_PLAYER_LIMIT + 1];
+};
+
+// The root's IServerGameClients, which the engine holds from load: it forwards to the
+// DLL tier's CServerGameClients once DLLInit binds it, and answers GetPlayerLimits
+// itself, since the engine asks for the limits while loading the DLL.
+class CRootServerGameClients final : public CLateBoundServerGameClients
+{
+public:
+	void GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const override;
 };

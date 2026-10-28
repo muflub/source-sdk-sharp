@@ -7,7 +7,8 @@
 
 // SS_REASON b  an interface resolved by name at load
 
-#include "late_bound_game_clients.g.h"
+#include "shell_gameclients.h"
+#include "ss_entityfactory.h"
 #include "late_bound_game_ents.g.h"
 #include "shell_gametags.h"
 #include "shell_sharedappsystems.h"
@@ -89,8 +90,8 @@ public:
 		Dll()->m_Engine.m_pChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
 
 		// Before the runtime loads: managed acquires the areas these implement.
-		Dll()->m_pServices =
-			std::make_unique<CServerDllServices>( Dll()->m_Engine, pGlobals, m_Managed.m_Areas, m_TransmitSet );
+		Dll()->m_pServices = std::make_unique<CServerDllServices>( Dll()->m_Engine, pGlobals, m_Managed, m_TransmitSet,
+																   Dll()->m_Players, Dll()->m_nWorldSerial );
 		BindServiceAreas( Dll()->m_pServices.get() );
 
 		ConVar_Register( FCVAR_GAMEDLL, this );
@@ -101,7 +102,7 @@ public:
 			return false;
 		}
 
-		if ( !ManagedRuntimeServer()->OnSystemStart() )
+		if ( !Runtime()->OnSystemStart() )
 		{
 			return false;
 		}
@@ -111,7 +112,7 @@ public:
 		SeedNetworkingPointers();
 
 		// The engine asks GetTickInterval once, so the interval is fixed for the run.
-		m_flTickInterval = ManagedRuntimeServer()->OnTickInterval();
+		m_flTickInterval = Runtime()->OnTickInterval();
 
 		return true;
 	}
@@ -144,7 +145,7 @@ public:
 	void DLLShutdown() override
 	{
 		// The engine calls DLLShutdown after a failed DLLInit too, when the runtime may be absent.
-		if ( ManagedRuntimeServer() != nullptr )
+		if ( Runtime() != nullptr )
 		{
 			SourceSharp_UnloadManagedSide();
 		}
@@ -152,7 +153,7 @@ public:
 		// Stock's order reversed; ConVar_Unregister needs g_pCVar, so it runs before tier1 goes.
 		SourceSharp_DisconnectTier3();
 		ConVar_Unregister();
-		SourceSharp_ReleaseConsoleObjects();
+		m_ShimRoot.m_Console.ReleaseObjects();
 		SourceSharp_DisconnectTier1();
 
 		m_pEngine = nullptr;
@@ -171,17 +172,18 @@ public:
 		return false;
 	}
 
-	bool GameInit() override { return ManagedRuntimeServer()->OnGameStart(); }
+	bool GameInit() override { return Runtime()->OnGameStart(); }
 
-	void PostInit() override { ManagedRuntimeServer()->OnGamePostStart(); }
+	void PostInit() override { Runtime()->OnGamePostStart(); }
 
-	void GameShutdown() override { ManagedRuntimeServer()->OnGameStop(); }
+	void GameShutdown() override { Runtime()->OnGameStop(); }
 
 	bool LevelInit( char const *pMapName, char const *pMapEntities, char const *pOldLevel, const char *pLandmarkName,
 					bool loadGame, bool background ) override
 	{
 		// A new level tier for every map, before anything keeps per-map state.
 		m_pLevel.Begin();
+		Dll()->m_pServices->m_EntityContext.m_pLevel = Level();
 
 		SourceSharpMapLoad load = {};
 		load.pMapName = pMapName;
@@ -189,19 +191,20 @@ public:
 		load.pOldLevel = pOldLevel;
 		load.pLandmarkName = pLandmarkName;
 
-		return ManagedRuntimeServer()->OnMapLoad( &load, loadGame, background );
+		return Runtime()->OnMapLoad( &load, loadGame, background );
 	}
 
 	void LevelShutdown() override
 	{
-		ManagedRuntimeServer()->OnMapUnload();
+		Runtime()->OnMapUnload();
 
+		Dll()->m_pServices->m_EntityContext.m_pLevel = nullptr;
 		m_pLevel.End();
 	}
 
 	void ServerActivate( edict_t *pEdictList, int edictCount, int clientMax ) override
 	{
-		ManagedRuntimeServer()->OnServerActivate();
+		Runtime()->OnServerActivate();
 	}
 
 	void Think( bool finalTick ) override
@@ -211,17 +214,17 @@ public:
 		// a reload is atomic with respect to the frame. A failed reload does not return.
 		SourceSharp_ServiceReloadRequest();
 
-		ManagedRuntimeServer()->OnThink();
+		Runtime()->OnThink();
 	}
 
-	void GameFrame( bool simulating ) override { ManagedRuntimeServer()->OnGameFrame( simulating ); }
+	void GameFrame( bool simulating ) override { Runtime()->OnGameFrame( simulating ); }
 
 	void PreClientUpdate( bool simulating ) override
 	{
 		if ( !simulating )
 			return;
 
-		ManagedRuntimeServer()->OnPreClientUpdate();
+		Runtime()->OnPreClientUpdate();
 	}
 
 	float GetTickInterval() const override { return m_flTickInterval; }
@@ -237,12 +240,12 @@ public:
 		SourceSharp_CreateNetworkStringTables();
 
 		// Mod-declared tables; the engine allows creating tables only in this window.
-		ManagedRuntimeServer()->CreateNetworkStringTables();
+		Runtime()->CreateNetworkStringTables();
 	}
 
 	CSaveRestoreData *SaveInit( int size ) override
 	{
-		IManagedSaveRestore *pArea = ManagedSaveRestore();
+		IManagedSaveRestore *pArea = m_Managed.m_Areas.m_pSaveRestore;
 		CSaveRestoreData *pSaveData = pArea
 			? static_cast<CSaveRestoreData *>( pArea->SaveInit( size, m_pGlobals ? m_pGlobals->curtime : 0.0f ) )
 			: nullptr;
@@ -268,7 +271,7 @@ public:
 	void SaveWriteFields( CSaveRestoreData *pSave, const char *pname, void *pBaseData, datamap_t *pMap,
 						  typedescription_t *pFields, int fieldCount ) override
 	{
-		if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+		if ( IManagedSaveRestore *pArea = m_Managed.m_Areas.m_pSaveRestore )
 			pArea->SaveWriteFields( pSave, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ),
 									fieldCount );
 	}
@@ -276,7 +279,7 @@ public:
 	void SaveReadFields( CSaveRestoreData *pSave, const char *pname, void *pBaseData, datamap_t *pMap,
 						 typedescription_t *pFields, int fieldCount ) override
 	{
-		if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+		if ( IManagedSaveRestore *pArea = m_Managed.m_Areas.m_pSaveRestore )
 			pArea->SaveReadFields( pSave, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
 	}
 
@@ -299,7 +302,7 @@ public:
 
 	void Save( CSaveRestoreData *pSave ) override
 	{
-		if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+		if ( IManagedSaveRestore *pArea = m_Managed.m_Areas.m_pSaveRestore )
 			pArea->SaveWriteBody( pSave );
 	}
 
@@ -324,7 +327,7 @@ public:
 	void Restore( CSaveRestoreData *pSave, bool createPlayers ) override
 	{
 		// The map's native entities are already respawned; this lays the managed state over them.
-		if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+		if ( IManagedSaveRestore *pArea = m_Managed.m_Areas.m_pSaveRestore )
 			pArea->SaveReadBody( pSave );
 	}
 
@@ -343,7 +346,7 @@ public:
 
 	bool GetUserMessageInfo( int msg_type, char *name, int maxnamelength, int &size ) override
 	{
-		IManagedUserMessages *pMessages = ManagedUserMessages();
+		IManagedUserMessages *pMessages = m_Managed.m_Areas.m_pUserMessages;
 		return pMessages && pMessages->GetUserMessageInfo( msg_type, name, maxnamelength, &size );
 	}
 
@@ -355,9 +358,9 @@ public:
 			 bCurrentlyInGame ? 1 : 0 );
 	}
 
-	bool ShouldHideServer() override { return ManagedRuntimeServer()->OnShouldHideServer(); }
+	bool ShouldHideServer() override { return Runtime()->OnShouldHideServer(); }
 
-	void InvalidateMdlCache() override { ManagedRuntimeServer()->OnInvalidateMdlCache(); }
+	void InvalidateMdlCache() override { Runtime()->OnInvalidateMdlCache(); }
 
 	// The edict becomes an entity index; NULL (the client left) becomes -1, since 0 is worldspawn.
 	void OnQueryCvarValueFinished( QueryCvarCookie_t iCookie, edict_t *pPlayerEntity, EQueryCvarValueStatus eStatus,
@@ -368,20 +371,19 @@ public:
 		const int nEntIndex =
 			( pPlayerEntity != nullptr && m_pEngine != nullptr ) ? m_pEngine->IndexOfEdict( pPlayerEntity ) : -1;
 
-		ManagedRuntimeServer()->OnQueryCvarValueFinished( (int)iCookie, nEntIndex, (int)eStatus, pCvarName,
-														  pCvarValue );
+		Runtime()->OnQueryCvarValueFinished( (int)iCookie, nEntIndex, (int)eStatus, pCvarName, pCvarValue );
 	}
 
-	void GameServerSteamAPIActivated() override { ManagedRuntimeServer()->OnSteamGameServerActivated(); }
+	void GameServerSteamAPIActivated() override { Runtime()->OnSteamGameServerActivated(); }
 
 	// Managed runs first and clears the context itself, so its handlers still see it.
-	void GameServerSteamAPIShutdown() override { ManagedRuntimeServer()->OnSteamGameServerShutdown(); }
+	void GameServerSteamAPIShutdown() override { Runtime()->OnSteamGameServerShutdown(); }
 
 	void SetServerHibernation( bool bHibernating ) override
 	{
 		ShellGameDll_Unreachable( "IServerGameDLL::SetServerHibernation" );
 
-		ManagedRuntimeServer()->OnHibernation( bHibernating );
+		Runtime()->OnHibernation( bHibernating );
 	}
 
 	IServerGCLobby *GetServerGCLobby() override { return nullptr; }
@@ -390,16 +392,14 @@ public:
 	{
 		// Null means "show the real map name"; "" means "show nothing". Managed returns
 		// -1 for no answer and 0 for empty.
-		return Answer(
-			m_szBrowserMapOverride, sizeof( m_szBrowserMapOverride ),
-			ManagedRuntimeServer()->OnBrowserMapOverride( m_szBrowserMapOverride, sizeof( m_szBrowserMapOverride ) ) );
+		return Answer( m_szBrowserMapOverride, sizeof( m_szBrowserMapOverride ),
+					   Runtime()->OnBrowserMapOverride( m_szBrowserMapOverride, sizeof( m_szBrowserMapOverride ) ) );
 	}
 
 	const char *GetServerBrowserGameData() override
 	{
-		return Answer(
-			m_szBrowserGameData, sizeof( m_szBrowserGameData ),
-			ManagedRuntimeServer()->OnBrowserGameData( m_szBrowserGameData, sizeof( m_szBrowserGameData ) ) );
+		return Answer( m_szBrowserGameData, sizeof( m_szBrowserGameData ),
+					   Runtime()->OnBrowserGameData( m_szBrowserGameData, sizeof( m_szBrowserGameData ) ) );
 	}
 
 	// The engine's `status` command. `print` is variadic and cannot cross to managed,
@@ -410,7 +410,7 @@ public:
 		if ( print == nullptr )
 			return;
 
-		const int nWritten = ManagedRuntimeServer()->OnStatusLines( m_szStatusLines, sizeof( m_szStatusLines ) );
+		const int nWritten = Runtime()->OnStatusLines( m_szStatusLines, sizeof( m_szStatusLines ) );
 
 		if ( nWritten < 0 || nWritten >= (int)sizeof( m_szStatusLines ) )
 			return;
@@ -458,8 +458,7 @@ public:
 		// Cleared first, since managed writes a reason only when it refuses.
 		m_szMapChangeReason[0] = '\0';
 
-		const bool bOkay =
-			ManagedRuntimeServer()->OnIsManualMapChangeOkay( m_szMapChangeReason, sizeof( m_szMapChangeReason ) );
+		const bool bOkay = Runtime()->OnIsManualMapChangeOkay( m_szMapChangeReason, sizeof( m_szMapChangeReason ) );
 
 		if ( pszReason != nullptr )
 		{
@@ -519,6 +518,9 @@ public:
 
 	CManagedHolders &Managed() { return m_Managed; }
 
+	// This load's managed runtime, or NULL before it loads and after it unloads.
+	IManagedRuntimeServer *Runtime() const { return m_Managed.m_pRuntimeServer; }
+
 	CServerDllState *Dll() const { return m_pDll.Get(); }
 
 	CServerLevelState *Level() const { return m_pLevel.Get(); }
@@ -550,7 +552,10 @@ private:
 		m_ShimRoot.m_Areas.m_pUserMessages = pServices ? &pServices->m_UserMessages : nullptr;
 		m_ShimRoot.m_Areas.m_pDebugOverlay = pServices ? &pServices->m_DebugOverlays : nullptr;
 		m_ShimRoot.m_pFrame = pServices ? &pServices->m_Frame : nullptr;
+		m_ShimRoot.m_pLevel = pServices ? &pServices->m_Level : nullptr;
 		m_ShimRoot.m_Console.m_pServices = pServices;
+		m_ShimRoot.m_Console.m_ppCommands = pServices ? &m_Managed.m_Areas.m_pCommands : nullptr;
+		ss::EntityFactoryDictionary()->BindContext( pServices ? &pServices->m_EntityContext : nullptr );
 		m_GameClients.Bind( pServices ? &pServices->m_GameClients : nullptr );
 		m_GameEnts.Bind( pServices ? &pServices->m_GameEnts : nullptr );
 	}
@@ -596,7 +601,7 @@ private:
 	// The object handed to managed at load; every other area is acquired from it.
 	CShimRootServer m_ShimRoot;
 
-	CLateBoundServerGameClients m_GameClients;
+	CRootServerGameClients m_GameClients;
 	CLateBoundServerGameEnts m_GameEnts;
 
 	// Asked for at load, before DLLInit; they need nothing.

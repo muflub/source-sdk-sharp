@@ -9,9 +9,12 @@
 // The standalone entity hierarchy's shell: what the engine demands. Decisions are
 // managed code's, reached through the OnManaged* virtuals subclasses implement.
 
+#include <cstdlib>
+
 #include "server_engine.h"
 #include "ss_util.h"
 #include "server_state.h"
+#include "server_entity_context.h"
 #include "standalone_list.h"
 
 #include "standalone_collision_rules.h"
@@ -56,10 +59,20 @@ static CServerEntityShells *Shells()
 	return pLevel ? &pLevel->m_Shells : NULL;
 }
 
+static CServerEntityShells *ShellsOf( const CServerEntityContext &context )
+{
+	return context.m_pLevel ? &context.m_pLevel->m_Shells : NULL;
+}
+
+static CServerOverlaps *OverlapsOf( const CServerEntityContext &context )
+{
+	return context.m_pLevel ? &context.m_pLevel->m_Overlaps : NULL;
+}
+
 // Every shell joins the level's list, which deletes it at the level's end.
 static void TrackShell( CStandaloneEntity *pEnt )
 {
-	CServerEntityShells *pShells = Shells();
+	CServerEntityShells *pShells = ShellsOf( pEnt->Context() );
 	AssertMsg( pShells, "a shell constructed outside a level would outlive it" );
 
 	if ( pShells )
@@ -238,7 +251,7 @@ CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStart
 	return ( it != live.end() ) ? *it : NULL;
 }
 
-// Allocated as the engine allocates an entity: PvAllocEntPrivateData returns
+// Allocated as the engine's PvAllocEntPrivateData allocates an entity (calloc):
 // zeroed memory, which SDK members without constructors rely on.
 void *CStandaloneEntity::operator new( size_t nBytes, int nBlobBytes )
 {
@@ -250,7 +263,7 @@ void *CStandaloneEntity::operator new( size_t nBytes, int nBlobBytes )
 	if ( nBlobBytes < SourceSharp_StandaloneMinBlobBytes() )
 		nBlobBytes = SourceSharp_StandaloneMinBlobBytes();
 
-	return ServerEngine()->PvAllocEntPrivateData( SourceSharp_StandaloneBlobOffset() + nBlobBytes );
+	return calloc( 1, (size_t)( SourceSharp_StandaloneBlobOffset() + nBlobBytes ) );
 }
 
 unsigned char *CStandaloneEntity::DataBlob()
@@ -280,13 +293,13 @@ void CStandaloneEntity::MarkBlockChanged( int nBlockOffset )
 
 void CStandaloneEntity::operator delete( void *pMem )
 {
-	ServerEngine()->FreeEntPrivateData( pMem );
+	free( pMem );
 }
 
 // Pairs with the sized new; reached only if a constructor throws.
 void CStandaloneEntity::operator delete( void *pMem, int )
 {
-	ServerEngine()->FreeEntPrivateData( pMem );
+	free( pMem );
 }
 
 int CStandaloneEntity::BlobBytes() const
@@ -331,9 +344,10 @@ int SourceSharp_StandaloneMinBlobBytes()
 // 'this' in the initialiser list is deliberate. tier1/convar.h re-enables C4355.
 #pragma warning( disable : 4355 )
 #endif
-CStandaloneEntity::CStandaloneEntity()
+CStandaloneEntity::CStandaloneEntity( CServerEntityContext &context )
 	// First: members initialise in declaration order, and the header declares it first.
 	: m_pEngineBlock( reinterpret_cast<EngineBlock_t *>( reinterpret_cast<unsigned char *>( this ) + BlockBase() ) )
+	, m_pContext( &context )
 	, m_nSpawnFlags( 0 )
 	, m_iHealth( 0 )
 	, m_nTriggerBloat( 0 )
@@ -417,7 +431,7 @@ CStandaloneEntity::~CStandaloneEntity()
 	if ( BlockHandle().IsValid() )
 		SourceSharp_SlotUnbind( BlockHandle().GetEntryIndex() );
 
-	if ( CServerEntityShells *pShells = Shells() )
+	if ( CServerEntityShells *pShells = ShellsOf( *m_pContext ) )
 	{
 		ss::erase( pShells->m_Live, this );
 		ss::erase( pShells->m_PendingDeletes, this );
@@ -434,12 +448,12 @@ CStandaloneEntity::~CStandaloneEntity()
 
 	if ( m_Partition != PARTITION_INVALID_HANDLE )
 	{
-		ServerPartition()->DestroyHandle( m_Partition );
+		m_pContext->m_pPartition->DestroyHandle( m_Partition );
 		m_Partition = PARTITION_INVALID_HANDLE;
 	}
 
 	// The engine allocated the cluster list; without this every entity leaks it.
-	ServerEngine()->CleanUpEntityClusterList( BlockPVSInfo() );
+	m_pContext->m_pEngine->CleanUpEntityClusterList( BlockPVSInfo() );
 
 	if ( m_pEdict )
 	{
@@ -450,16 +464,16 @@ CStandaloneEntity::~CStandaloneEntity()
 
 		// Only an edict this entity created. A player's edict is the engine's.
 		if ( m_bOwnsEdict )
-			ServerEngine()->RemoveEdict( m_pEdict );
+			m_pContext->m_pEngine->RemoveEdict( m_pEdict );
 
 		m_pEdict = NULL;
 	}
 }
 
 // The player's edict, in transit from ClientPutInServer to PostConstruct (the DLL tier's).
-void SourceSharp_SetPendingPlayerEdict( edict_t *pEdict )
+void SourceSharp_SetPendingPlayerEdict( CServerPlayersDll &players, edict_t *pEdict )
 {
-	edict_t *&pPending = ShellGameDll_Dll()->m_Players.m_pPendingEdict;
+	edict_t *&pPending = players.m_pPendingEdict;
 
 	if ( pPending && pEdict )
 	{
@@ -469,9 +483,9 @@ void SourceSharp_SetPendingPlayerEdict( edict_t *pEdict )
 	pPending = pEdict;
 }
 
-edict_t *SourceSharp_ClaimPendingPlayerEdict()
+edict_t *SourceSharp_ClaimPendingPlayerEdict( CServerPlayersDll &players )
 {
-	edict_t *&pPending = ShellGameDll_Dll()->m_Players.m_pPendingEdict;
+	edict_t *&pPending = players.m_pPendingEdict;
 	edict_t *pEdict = pPending;
 	pPending = NULL;
 	return pEdict;
@@ -494,13 +508,13 @@ uint32_t CStandaloneEntity::ManagedHandle() const
 
 const model_t *CStandaloneEntity::GetCollisionModel()
 {
-	return Block().Head.CollisionModelIndex > 0 ? ServerModelInfo()->GetModel( Block().Head.CollisionModelIndex )
+	return Block().Head.CollisionModelIndex > 0 ? m_pContext->m_pModelInfo->GetModel( Block().Head.CollisionModelIndex )
 												: NULL;
 }
 
 int CStandaloneEntity::EntIndex() const
 {
-	return m_pEdict ? ServerEngine()->IndexOfEdict( m_pEdict ) : -1;
+	return m_pEdict ? m_pContext->m_pEngine->IndexOfEdict( m_pEdict ) : -1;
 }
 
 // Applied now rather than at Spawn: managed code sets a model from OnSpawn,
@@ -513,8 +527,9 @@ void CStandaloneEntity::SetModelName( const char *pModel )
 	ss::StrCopy( m_szModel, pModel, sizeof( m_szModel ) );
 
 	// A brush model ("*23") is already in the BSP, so it is looked up, not precached.
-	Block().Head.ModelIndex = SourceSharp_IsBrushModelName( m_szModel ) ? ServerModelInfo()->GetModelIndex( m_szModel )
-																		: Precache_Model( m_szModel );
+	Block().Head.ModelIndex = SourceSharp_IsBrushModelName( m_szModel )
+		? m_pContext->m_pModelInfo->GetModelIndex( m_szModel )
+		: Precache_Model( m_szModel );
 
 	if ( Block().Head.ModelIndex <= 0 )
 	{
@@ -527,10 +542,10 @@ void CStandaloneEntity::SetModelName( const char *pModel )
 
 	// A brush is not centred on its origin, so it takes its bounds from the model.
 	// A player keeps its movement hull (standalone_model_bounds.h).
-	if ( const model_t *pModelPtr = ServerModelInfo()->GetModel( Block().Head.ModelIndex ) )
+	if ( const model_t *pModelPtr = m_pContext->m_pModelInfo->GetModel( Block().Head.ModelIndex ) )
 	{
 		Vector vecMins, vecMaxs;
-		ServerModelInfo()->GetModelBounds( pModelPtr, vecMins, vecMaxs );
+		m_pContext->m_pModelInfo->GetModelBounds( pModelPtr, vecMins, vecMaxs );
 
 		if ( StandaloneModel_AdoptsBounds( IsPlayer(), vecMins != vecMaxs ) )
 			SetCollisionBounds( vecMins, vecMaxs );
@@ -551,7 +566,7 @@ void CStandaloneEntity::SetVisible( bool bVisible )
 
 	// A lookup, not a precache: the model was precached at spawn, and a precache
 	// after level load warns.
-	const int nIndex = ServerModelInfo()->GetModelIndex( m_szModel );
+	const int nIndex = m_pContext->m_pModelInfo->GetModelIndex( m_szModel );
 
 	if ( nIndex != Block().Head.ModelIndex )
 	{
@@ -691,7 +706,7 @@ void CStandaloneEntity::UpdatePartition()
 	{
 		if ( m_Partition != PARTITION_INVALID_HANDLE )
 		{
-			ServerPartition()->DestroyHandle( m_Partition );
+			m_pContext->m_pPartition->DestroyHandle( m_Partition );
 			m_Partition = PARTITION_INVALID_HANDLE;
 		}
 
@@ -700,12 +715,12 @@ void CStandaloneEntity::UpdatePartition()
 
 	if ( m_Partition == PARTITION_INVALID_HANDLE )
 	{
-		m_Partition = ServerPartition()->CreateHandle( static_cast<IServerEntity *>( this ) );
+		m_Partition = m_pContext->m_pPartition->CreateHandle( static_cast<IServerEntity *>( this ) );
 	}
 
-	ServerPartition()->Remove( PARTITION_ENGINE_NON_STATIC_EDICTS | PARTITION_ENGINE_SOLID_EDICTS |
-								   PARTITION_ENGINE_TRIGGER_EDICTS,
-							   m_Partition );
+	m_pContext->m_pPartition->Remove( PARTITION_ENGINE_NON_STATIC_EDICTS | PARTITION_ENGINE_SOLID_EDICTS |
+										  PARTITION_ENGINE_TRIGGER_EDICTS,
+									  m_Partition );
 
 	SpatialPartitionListMask_t mask = PARTITION_ENGINE_NON_STATIC_EDICTS;
 
@@ -715,7 +730,7 @@ void CStandaloneEntity::UpdatePartition()
 	if ( Block().Head.SolidFlags & FSOLID_TRIGGER )
 		mask |= PARTITION_ENGINE_TRIGGER_EDICTS;
 
-	ServerPartition()->Insert( mask, m_Partition );
+	m_pContext->m_pPartition->Insert( mask, m_Partition );
 	MovePartitionElement();
 }
 
@@ -742,9 +757,9 @@ static CServerOverlaps *Overlaps()
 }
 
 // Drops everything: on a level change every handle names a departing entity.
-void StandaloneEntities_ClearOverlaps()
+void StandaloneEntities_ClearOverlaps( const CServerEntityContext &context )
 {
-	if ( CServerOverlaps *pOverlaps = Overlaps() )
+	if ( CServerOverlaps *pOverlaps = OverlapsOf( context ) )
 		pOverlaps->Clear();
 }
 
@@ -755,7 +770,7 @@ void CStandaloneEntity::Touch( const Toucher_t &toucher )
 	if ( !toucher.IsValid() )
 		return;
 
-	if ( CServerOverlaps *pOverlaps = Overlaps() )
+	if ( CServerOverlaps *pOverlaps = OverlapsOf( *m_pContext ) )
 		WarnOverlapsFull(
 			pOverlaps->Append( pOverlaps->m_Pending, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() ) );
 }
@@ -767,7 +782,7 @@ void CStandaloneEntity::StartTouch( const Toucher_t &toucher )
 	if ( !toucher.IsValid() )
 		return;
 
-	if ( CServerOverlaps *pOverlaps = Overlaps() )
+	if ( CServerOverlaps *pOverlaps = OverlapsOf( *m_pContext ) )
 		WarnOverlapsFull(
 			pOverlaps->Append( pOverlaps->m_SolverHeld, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() ) );
 }
@@ -779,7 +794,7 @@ void CStandaloneEntity::EndTouch( const Toucher_t &toucher )
 	if ( !toucher.IsValid() )
 		return;
 
-	if ( CServerOverlaps *pOverlaps = Overlaps() )
+	if ( CServerOverlaps *pOverlaps = OverlapsOf( *m_pContext ) )
 		pOverlaps->Forget( pOverlaps->m_SolverHeld, GetRefEHandle().ToInt(), toucher.GetRefEHandle().ToInt() );
 }
 
@@ -857,12 +872,12 @@ void CStandaloneEntity::TouchTriggers( const Vector &vecPrevOrigin )
 
 	if ( bIsTrigger )
 	{
-		ServerEngine()->TriggerMoved( m_pEdict, true );
+		m_pContext->m_pEngine->TriggerMoved( m_pEdict, true );
 		return;
 	}
 
 	if ( bIsSolid )
-		ServerEngine()->SolidMoved( m_pEdict, this, &vecPrevOrigin, true );
+		m_pContext->m_pEngine->SolidMoved( m_pEdict, this, &vecPrevOrigin, true );
 }
 
 // The volume the engine tests trigger overlap against; a point here would make
@@ -907,7 +922,7 @@ void CStandaloneEntity::MovePartitionElement()
 	WorldCollisionBounds( &vecMins, &vecMaxs );
 	SourceSharp_SurroundingBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, &vecMins,
 								   &vecMaxs );
-	ServerPartition()->ElementMoved( m_Partition, vecMins, vecMaxs );
+	m_pContext->m_pPartition->ElementMoved( m_Partition, vecMins, vecMaxs );
 }
 
 // Stock's SetRefEHandle mirrors the handle's serial into the edict, which tells
@@ -958,7 +973,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 
 	if ( pType && pType->nLayoutBytes > BlobBytes() )
 	{
-		CServerLevelState *pLevel = ShellGameDll_Level();
+		CServerLevelState *pLevel = m_pContext->m_pLevel;
 
 		if ( pLevel && !pLevel->m_bWarnedShortBlob )
 		{
@@ -1000,11 +1015,11 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 
 	// A player binds to the edict the engine allocated for the client; everything
 	// else creates its own. Claimed unconditionally so a pending edict never leaks.
-	m_pEdict = SourceSharp_ClaimPendingPlayerEdict();
+	m_pEdict = SourceSharp_ClaimPendingPlayerEdict( m_pContext->m_Players );
 	m_bOwnsEdict = ( m_pEdict == NULL );
 
 	if ( !m_pEdict )
-		m_pEdict = ServerEngine()->CreateEdict();
+		m_pEdict = m_pContext->m_pEngine->CreateEdict();
 
 	if ( !m_pEdict )
 	{
@@ -1013,7 +1028,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	}
 
 	m_pEdict->SetEdict( this, true );
-	m_pEdict->m_EdictIndex = ServerEngine()->IndexOfEdict( m_pEdict );
+	m_pEdict->m_EdictIndex = m_pContext->m_pEngine->IndexOfEdict( m_pEdict );
 
 	// SetEdict stores only m_pUnk. The edict's separate networkable pointer is
 	// read unguarded by GetNetworkable, AreaNum and GetClassName, as
@@ -1022,7 +1037,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 
 	// Into the slot table, which makes a handle to it resolve. The entry is the
 	// edict index. SlotIssue, not SlotBind: SetRefEHandle is the single binder.
-	const int nEntry = ServerEngine()->IndexOfEdict( m_pEdict );
+	const int nEntry = m_pContext->m_pEngine->IndexOfEdict( m_pEdict );
 	const CBaseHandle hIssued = SourceSharp_SlotIssue( nEntry );
 
 	// An occupied entry is a bug (stock only asserted). Said loudly: an entity
@@ -1071,7 +1086,7 @@ void CStandaloneEntity::Spawn()
 
 		// Which visibility clusters it is in; CServerNetworkProperty does this
 		// for stock entities through RecomputePVSInformation.
-		ServerEngine()->BuildEntityClusterList( m_pEdict, BlockPVSInfo() );
+		m_pContext->m_pEngine->BuildEntityClusterList( m_pEdict, BlockPVSInfo() );
 	}
 
 	UpdatePartition();
@@ -1252,13 +1267,13 @@ void CStandaloneEntity::Remove()
 
 	if ( handle.IsValid() )
 	{
-		IManagedEntities *pApi = ManagedEntities();
+		IManagedEntities *pApi = m_pContext->m_Managed.m_Areas.m_pEntities;
 
 		if ( pApi && pApi->EntityRemoveRequested( (uint32_t)handle.ToInt() ) != 0 )
 			return;
 	}
 
-	CServerEntityShells *pShells = Shells();
+	CServerEntityShells *pShells = ShellsOf( *m_pContext );
 	AssertMsg( pShells, "a shell removed outside a level" );
 
 	if ( pShells &&
@@ -1284,11 +1299,11 @@ void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount )
 	}
 }
 
-void StandaloneEntities_Finish()
+void StandaloneEntities_Finish( const CServerEntityContext &context )
 {
 	// From the tail: a destructor removes itself from this list, and removing a
 	// parent can append its children.
-	CServerEntityShells *pShells = Shells();
+	CServerEntityShells *pShells = ShellsOf( context );
 
 	if ( !pShells )
 		return;
@@ -1299,11 +1314,11 @@ void StandaloneEntities_Finish()
 
 // Removes every standalone entity at level change; gEntList cannot see them, so
 // they would otherwise survive into the next map.
-void StandaloneEntities_LevelShutdown()
+void StandaloneEntities_LevelShutdown( const CServerEntityContext &context )
 {
 	// From the end: the destructor removes the entity from the list being walked.
 	// Managed code has already emptied the parent links.
-	if ( CServerEntityShells *pShells = Shells() )
+	if ( CServerEntityShells *pShells = ShellsOf( context ) )
 	{
 		for ( int i = (int)pShells->m_Live.size() - 1; i >= 0; i-- )
 			delete pShells->m_Live[i];
@@ -1314,5 +1329,5 @@ void StandaloneEntities_LevelShutdown()
 
 	// Every handle in it names a destroyed entity, and a recycled entry would
 	// resolve to its new tenant.
-	StandaloneEntities_ClearOverlaps();
+	StandaloneEntities_ClearOverlaps( context );
 }

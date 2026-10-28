@@ -53,6 +53,7 @@ set(server_sourcesharp_sources
     ${LOCAL}/world_adapter.cpp
     ${LOCAL}/world_subject_dll.cpp
     ${SHARED}/alloc_check.cpp
+    ${SHARED}/bound_callback.cpp
     ${SHARED}/console_display_forward.cpp
     ${SHARED}/convar_port.cpp
     ${SHARED}/dt_send.cpp

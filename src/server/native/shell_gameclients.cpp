@@ -21,7 +21,7 @@
 #include "datacache/imdlcache.h"
 
 void ClientActive( edict_t *pEdict, bool bLoadGame );
-void ClientPutInServer( edict_t *pEdict, const char *playername );
+void ClientPutInServer( CServerEntityContext &context, edict_t *pEdict, const char *playername );
 void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize );
 void UTIL_SetCommandClientIndex( int index );
 
@@ -148,7 +148,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 			 "ClientPutInServer, so no player exists on edict %d. Creating it here.\n",
 			 nIndex );
 
-		if ( !StandalonePlayer_Create( pEdict, pszName ? pszName : "" ) )
+		if ( !StandalonePlayer_Create( m_EntityContext, pEdict, pszName ? pszName : "" ) )
 		{
 			Warning( "[SourceSharp][save] the standalone player could NOT be created on "
 					 "edict %d. This load has no player: the map is standing, but nothing "
@@ -204,7 +204,7 @@ void CServerGameClients::ClientPutInServer( edict_t *pEntity, const char *player
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientPutInServer );
 
-	::ClientPutInServer( pEntity, playername );
+	::ClientPutInServer( m_EntityContext, pEntity, playername );
 }
 
 void CServerGameClients::ClientCommand( edict_t *pEntity, const CCommand &args )
@@ -434,10 +434,22 @@ void CServerGameClients::ClientCommandKeyValues( edict_t *pEntity, KeyValues *pK
 	}
 }
 
-void CServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const
+// Stock's limits, the same whether the engine asks the root before DLLInit or the
+// DLL tier after it.
+static void ServerPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers )
 {
-	SOURCESHARP_TRACE();
 	minplayers = 1;
 	maxplayers = ss::kMaxPlayers; // shareddefs.h's MAX_PLAYERS
 	defaultMaxPlayers = 16;
+}
+
+void CServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const
+{
+	SOURCESHARP_TRACE();
+	ServerPlayerLimits( minplayers, maxplayers, defaultMaxPlayers );
+}
+
+void CRootServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const
+{
+	ServerPlayerLimits( minplayers, maxplayers, defaultMaxPlayers );
 }

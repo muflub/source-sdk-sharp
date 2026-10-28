@@ -156,11 +156,16 @@ private:
 	PVSInfo_t m_PVSInfo;
 };
 
+class CServerEntityContext;
+
 class CWorld : public IServerEntity
 {
 public:
-	CWorld();
+	explicit CWorld( CServerEntityContext &context );
 	~CWorld();
+
+	// What the world calls through, for its collideable and networkable members.
+	CServerEntityContext &Context() const { return *m_pContext; }
 
 	// The ServerClass built from the managed declaration (shell_world_nettable.cpp).
 	virtual ServerClass *GetServerClass();
@@ -228,6 +233,9 @@ private:
 	bool ResolveFields();
 
 	SourceSharpWorldFields_t m_Fields;
+
+	// The engine interfaces and DLL-tier state the world calls, and its level.
+	CServerEntityContext *m_pContext;
 
 	edict_t *m_pEdict;
 	CBaseHandle m_RefEHandle;

@@ -115,8 +115,9 @@ CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
 	return ppPlayers[nEntIndex];
 }
 
-CStandalonePlayer::CStandalonePlayer()
-	: m_flWaterJumpTime( 0.0f )
+CStandalonePlayer::CStandalonePlayer( CServerEntityContext &context )
+	: CStandaloneEntity( context )
+	, m_flWaterJumpTime( 0.0f )
 	, m_vecWaterJumpVel( 0, 0, 0 )
 	, m_flSwimSoundTime( 0.0f )
 	, m_flStepSoundTime( 0.0f )
@@ -194,7 +195,7 @@ void CStandalonePlayer::Spawn()
 	PlayerState().deadflag = false;
 	PlayerState().fixangle = FIXANGLE_NONE;
 
-	IManagedClients *pApi = ManagedClients();
+	IManagedClients *pApi = m_pContext->m_Managed.m_Areas.m_pClients;
 
 	// Managed code places the player inside this call, before it is solid and before the
 	// hull is set. The returned handle is deliberately ignored.
@@ -261,7 +262,7 @@ void CStandalonePlayer::OnManagedKilled( IGameEntity *pAttacker )
 	// attacker is the invalid handle, never 0 (the world).
 	const uint32_t hAttacker = SourceSharp_HandleFromEntity( pAttacker );
 
-	IManagedClients *pApi = ManagedClients();
+	IManagedClients *pApi = m_pContext->m_Managed.m_Areas.m_pClients;
 	if ( pApi )
 		pApi->OnPlayerKilled( ManagedHandle(), hAttacker );
 
@@ -317,7 +318,7 @@ void CStandalonePlayer::RunQueuedCommands()
 	const float flSaveFrametime = gpGlobals->frametime;
 
 	// One crossing for the whole queue.
-	IManagedPlayerCommands *pCommands = ManagedPlayerCommands();
+	IManagedPlayerCommands *pCommands = m_pContext->m_Managed.m_Areas.m_pPlayerCommands;
 
 	if ( pCommands )
 	{
@@ -648,7 +649,7 @@ void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand 
 	if ( !pPlayer || args.ArgC() < 1 )
 		return;
 
-	IManagedCommands *pCommands = ManagedCommands();
+	IManagedCommands *pCommands = pPlayer->Context().m_Managed.m_Areas.m_pCommands;
 
 	if ( !pCommands )
 	{
@@ -677,7 +678,7 @@ uint32_t SourceSharp_GetCommandClientHandle()
 }
 
 // `use` is ss_use under stock's name. It needs a registration because
-// ServerEngine()->ServerCommand, which tools drive the game through, only reaches a ConCommand.
+// IVEngineServer::ServerCommand, which tools drive the game through, only reaches a ConCommand.
 static void StandalonePlayer_RouteVerbatim( const CCommand &args )
 {
 	const char *pName = args.ArgC() >= 1 ? args[0] : "command";
@@ -689,7 +690,7 @@ static void StandalonePlayer_RouteVerbatim( const CCommand &args )
 		return;
 	}
 
-	IManagedCommands *pCommands = ManagedCommands();
+	IManagedCommands *pCommands = pPlayer->Context().m_Managed.m_Areas.m_pCommands;
 
 	if ( !pCommands )
 	{
@@ -718,7 +719,7 @@ CStandalonePlayer *SourceSharp_ResolveStandalonePlayer( uint32_t hEntity )
 }
 
 // Creation, from ClientPutInServer.
-CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayerName )
+CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &context, edict_t *pEdict, const char *pPlayerName )
 {
 	if ( !pEdict )
 		return NULL;
@@ -732,12 +733,12 @@ CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayer
 		return NULL;
 	}
 
-	SourceSharp_SetPendingPlayerEdict( pEdict );
+	SourceSharp_SetPendingPlayerEdict( context.m_Players, pEdict );
 
-	IServerNetworkable *pNet = pFactory->Create( "ss_player" );
+	IServerNetworkable *pNet = pFactory->Create( "ss_player", context );
 
 	// Normally claimed by PostConstruct; a failed creation must not leak it to the next entity.
-	SourceSharp_ClaimPendingPlayerEdict();
+	SourceSharp_ClaimPendingPlayerEdict( context.m_Players );
 
 	if ( !pNet )
 		return NULL;

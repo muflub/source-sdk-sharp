@@ -18,6 +18,7 @@
 #include "icvar.h"
 
 #include "shell_convars_client.h"
+#include "shell_shim_console.h"
 
 namespace
 {
@@ -55,7 +56,7 @@ int32_t SourceSharp_ConVarsClientWatch( const char *pName )
 		return -1;
 
 	V_strncpy( g_szWatched[g_nWatched], pName, kNameBytes );
-	SourceSharp_EnsureConVarChangeCallback();
+	ShimConsole().EnsureChangeCallback();
 	return SOURCESHARP_CONVAR_WATCH_ID_BASE + g_nWatched++;
 }
 

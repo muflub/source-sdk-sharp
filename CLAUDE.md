@@ -372,7 +372,7 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   live-gate` by hand only when the user asks, or to diagnose a failure a
   daily report shows (`tools/live-gate --steps <ids> --passes 3`, or
   `tools/3f-gatebisect --steps <id> --rounds 3`).
-- `make live-gate` loads `dm_lockdown` (473 entities / 61 classes), then
+- `make live-gate` loads `dm_lockdown` (485 entities / 63 classes), then
   changes and reloads maps in one process. **Keep the second map load in any
   gate**: reload bugs are invisible to single-load gates.
 - **Zero `[SourceSharp]` lines and a death in swapchain creation** means the GPU

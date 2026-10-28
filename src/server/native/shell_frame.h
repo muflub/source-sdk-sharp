@@ -15,6 +15,7 @@
 
 class CGlobalVars;
 class CServerDebugOverlays;
+class CServerEntityContext;
 class IMDLCache;
 class IUploadGameStats;
 
@@ -22,11 +23,12 @@ class CServerFrame final : public IShimFrame
 {
 public:
 	CServerFrame( CGlobalVars *pGlobals, IUploadGameStats *pGameStats, IMDLCache *pMdlCache,
-				  CServerDebugOverlays &overlays )
+				  CServerDebugOverlays &overlays, CServerEntityContext &entities )
 		: m_pGlobals( pGlobals )
 		, m_pGameStats( pGameStats )
 		, m_pMdlCache( pMdlCache )
 		, m_Overlays( overlays )
+		, m_Entities( entities )
 	{
 	}
 
@@ -72,4 +74,5 @@ private:
 	IUploadGameStats *m_pGameStats;
 	IMDLCache *m_pMdlCache;
 	CServerDebugOverlays &m_Overlays;
+	CServerEntityContext &m_Entities;
 };

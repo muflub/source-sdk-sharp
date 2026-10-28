@@ -295,8 +295,10 @@ static const CNativeCommandBody *NativeBodyFor( const char *pName )
 class CSourceSharpCommand final : public ICommandCallback
 {
 public:
-	CSourceSharpCommand( int nId, const char *pName, const char *pHelp, int nFlags, CServerDllServices *pServices )
-		: m_nId( nId )
+	CSourceSharpCommand( CShimConsole &console, int nId, const char *pName, const char *pHelp, int nFlags,
+						 CServerDllServices *pServices )
+		: m_Console( console )
+		, m_nId( nId )
 		, m_Name( pName ? pName : "" )
 		, m_Help( pHelp ? pHelp : "" )
 		, m_Command( m_Name.c_str(), this, m_Help.c_str(), nFlags )
@@ -317,11 +319,7 @@ public:
 			return;
 		}
 
-#ifndef CLIENT_DLL
-		IManagedCommands *pCommands = g_bSourceSharpLoaded ? ManagedCommands() : NULL;
-#else
-		IManagedCommandsClient *pCommands = g_bSourceSharpLoaded ? ManagedCommandsClient() : NULL;
-#endif
+		ManagedCommandsArea_t *pCommands = m_Console.Commands();
 		if ( !pCommands )
 		{
 			Warning( "[SourceSharp] '%s' ignored — managed runtime not loaded\n", command.Arg( 0 ) );
@@ -340,6 +338,8 @@ public:
 	const char *Name() const { return m_Name.c_str(); }
 
 private:
+	CShimConsole &m_Console;
+
 	// Declared before the command, which is handed these pointers.
 	int m_nId;
 	std::string m_Name;
@@ -348,13 +348,6 @@ private:
 	const CNativeCommandBody *m_pNativeBody;
 	CServerDllServices *m_pServices;
 };
-
-static CConsoleRegistry<CSourceSharpCommand> g_SourceSharpCommands;
-
-class CSourceSharpConVar;
-static CConsoleRegistry<CSourceSharpConVar> g_SourceSharpConVars;
-
-static void SourceSharp_OnConVarChanged( IConVar *pVar, const char *pOldValue, float flOldValue );
 
 class CSourceSharpConVar final
 {
@@ -367,7 +360,7 @@ public:
 		, m_Help( pHelp ? pHelp : "" )
 		,
 		// Bounds and no per-convar callback: the change callback is global (see
-		// SourceSharp_OnConVarChanged).
+		// CShimConsole::OnConVarChanged).
 		m_ConVar( m_Name.c_str(), m_Default.c_str(), nFlags, m_Help.c_str(), bHasMin, flMin, bHasMax, flMax )
 	{
 	}
@@ -389,28 +382,23 @@ private:
 	ConVar m_ConVar;
 };
 
-// Deletes the C#-declared commands and convars. Only after ConVar_Unregister in
-// DLLShutdown, or the engine's ICvar would point at freed memory.
-void SourceSharp_ReleaseConsoleObjects()
+void CShimConsole::ReleaseObjects()
 {
-	g_SourceSharpCommands.DeleteAll();
-	g_SourceSharpConVars.DeleteAll();
+	if ( m_bChangeCallbackInstalled && g_pCVar )
+		g_pCVar->RemoveGlobalChangeCallback( m_ChangeCallback.Get() );
+	m_bChangeCallbackInstalled = false;
+
+	m_Commands.DeleteAll();
+	m_ConVars.DeleteAll();
 }
 
-// Installed once per DLL as a global callback, matching by name: tier1 makes a
-// second registration of a name a child of the first and moves or drops its
-// per-convar callback. A child's accessors read the parent's value.
-static void SourceSharp_OnConVarChanged( IConVar *pVar, const char *pOldValue, float flOldValue )
+// A child's accessors read the parent's value.
+void CShimConsole::OnConVarChanged( IConVar *pVar, const char *pOldValue, float flOldValue )
 {
 	if ( !pVar )
 		return;
 
-	// Above the loaded check, deliberately, so changes before managed is up are seen.
-#ifndef CLIENT_DLL
-	IManagedCommands *pCommands = g_bSourceSharpLoaded ? ManagedCommands() : NULL;
-#else
-	IManagedCommandsClient *pCommands = g_bSourceSharpLoaded ? ManagedCommandsClient() : NULL;
-#endif
+	ManagedCommandsArea_t *pCommands = Commands();
 	if ( !pCommands )
 		return;
 
@@ -418,7 +406,7 @@ static void SourceSharp_OnConVarChanged( IConVar *pVar, const char *pOldValue, f
 	const char *pName = pVar->GetName();
 
 	// A name registers once in any case, so ByName finds the one carrier.
-	CSourceSharpConVar *pConVar = g_SourceSharpConVars.ByName( pName );
+	CSourceSharpConVar *pConVar = m_ConVars.ByName( pName );
 	int32_t nId = -1;
 	const char *pNewValue = "";
 
@@ -441,34 +429,22 @@ static void SourceSharp_OnConVarChanged( IConVar *pVar, const char *pOldValue, f
 		return;
 
 	if ( SourceSharp_GetVerbosity() > 1 )
-		Msg( "[SourceSharp] convar '%s' changed -> '%s'\n", pName, pNewValue );
+		::Msg( "[SourceSharp] convar '%s' changed -> '%s'\n", pName, pNewValue );
 
 	pCommands->ConVarChanged( nId, pNewValue, pOldValue ? pOldValue : "" );
 }
 
-// Installs the change callback once per DLL, on the first registration, when
-// g_pCVar is known live. Never removed.
-static bool g_bSourceSharpConVarCallbackInstalled = false;
-
-static void SourceSharp_InstallConVarChangeCallback()
+void CShimConsole::EnsureChangeCallback()
 {
-	if ( g_bSourceSharpConVarCallbackInstalled || !g_pCVar )
+	if ( m_bChangeCallbackInstalled || !g_pCVar || !m_ChangeCallback.Get() )
 		return;
 
-	g_pCVar->InstallGlobalChangeCallback( SourceSharp_OnConVarChanged );
-	g_bSourceSharpConVarCallbackInstalled = true;
+	g_pCVar->InstallGlobalChangeCallback( m_ChangeCallback.Get() );
+	m_bChangeCallbackInstalled = true;
 
 	if ( SourceSharp_GetVerbosity() > 0 )
 		Msg( "[SourceSharp] convar change callback installed (global, matched by name)\n" );
 }
-
-#ifdef CLIENT_DLL
-// A watch can come before any registration (shell_convars_client.cpp).
-void SourceSharp_EnsureConVarChangeCallback()
-{
-	SourceSharp_InstallConVarChangeCallback();
-}
-#endif
 
 // A re-registered name rebinds to the surviving object: tier1 refuses a duplicate,
 // and a new object would reset the operator's value to its default.
@@ -478,9 +454,9 @@ int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultVal
 	if ( !pName || !pName[0] )
 		return -1;
 
-	SourceSharp_InstallConVarChangeCallback();
+	EnsureChangeCallback();
 
-	if ( CSourceSharpConVar *pConVar = g_SourceSharpConVars.ByName( pName ) )
+	if ( CSourceSharpConVar *pConVar = m_ConVars.ByName( pName ) )
 	{
 		if ( SourceSharp_GetVerbosity() > 0 )
 			::Msg( "[SourceSharp] C# re-registered convar '%s' -> existing id %d, value '%s'\n", pName,
@@ -498,11 +474,10 @@ int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultVal
 	nFlags |= FCVAR_GAMEDLL;
 #endif
 
-	const int nId = g_SourceSharpConVars.NextId();
-	g_SourceSharpConVars.Add( pName,
-							  new CSourceSharpConVar( nId, pName, pDefaultValue ? pDefaultValue : "",
-													  pHelp ? pHelp : "", nFlags, bHasMin != 0, flMin, bHasMax != 0,
-													  flMax ) );
+	const int nId = m_ConVars.NextId();
+	m_ConVars.Add( pName,
+				   new CSourceSharpConVar( nId, pName, pDefaultValue ? pDefaultValue : "", pHelp ? pHelp : "", nFlags,
+										   bHasMin != 0, flMin, bHasMax != 0, flMax ) );
 
 	if ( SourceSharp_GetVerbosity() > 0 )
 		::Msg( "[SourceSharp] C# registered convar '%s' = '%s' (id %d)\n", pName, pDefaultValue ? pDefaultValue : "",
@@ -513,7 +488,7 @@ int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultVal
 
 void CShimConsole::SetConVarValue( int32_t nId, const char *pValue )
 {
-	CSourceSharpConVar *pConVar = g_SourceSharpConVars.ById( nId );
+	CSourceSharpConVar *pConVar = m_ConVars.ById( nId );
 
 	if ( !pConVar || !pValue )
 		return;
@@ -527,7 +502,7 @@ void CShimConsole::GetConVarValue( int32_t nId, char *pOut, int32_t nOutSize )
 		return;
 
 	pOut[0] = '\0';
-	CSourceSharpConVar *pConVar = g_SourceSharpConVars.ById( nId );
+	CSourceSharpConVar *pConVar = m_ConVars.ById( nId );
 
 	if ( !pConVar )
 		return;
@@ -541,7 +516,7 @@ int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp, 
 	if ( !pName || !pName[0] )
 		return -1;
 
-	if ( CSourceSharpCommand *pCommand = g_SourceSharpCommands.ByName( pName ) )
+	if ( CSourceSharpCommand *pCommand = m_Commands.ByName( pName ) )
 	{
 		if ( SourceSharp_GetVerbosity() > 0 )
 			::Msg( "[SourceSharp] C# re-registered console command '%s' -> existing id %d\n", pName,
@@ -558,17 +533,14 @@ int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp, 
 	nFlags |= FCVAR_GAMEDLL;
 #endif
 
-	const int nId = g_SourceSharpCommands.NextId();
-	g_SourceSharpCommands.Add( pName, new CSourceSharpCommand( nId, pName, pHelp ? pHelp : "", nFlags, m_pServices ) );
+	const int nId = m_Commands.NextId();
+	m_Commands.Add( pName, new CSourceSharpCommand( *this, nId, pName, pHelp ? pHelp : "", nFlags, m_pServices ) );
 
 	if ( SourceSharp_GetVerbosity() > 0 )
 		::Msg( "[SourceSharp] C# registered console command '%s' (id %d, flags 0x%x)\n", pName, nId, nFlags );
 
 	return nId;
 }
-
-// A snapshot of the engine's console registry, copied out entry by entry in one frame.
-static std::vector<ConCommandBase *> g_SourceSharpConsoleSnapshot;
 
 static void SourceSharp_CopyOut( char *pOut, int nOutSize, const char *pIn )
 {
@@ -606,7 +578,7 @@ int32_t CShimConsole::FindConVarFlags( const char *pName )
 
 int32_t CShimConsole::ConsoleSnapshot()
 {
-	g_SourceSharpConsoleSnapshot.clear();
+	m_Snapshot.clear();
 
 	if ( !g_pCVar )
 		return 0;
@@ -617,20 +589,20 @@ int32_t CShimConsole::ConsoleSnapshot()
 		ConCommandBase *pBase = iter.Get();
 
 		if ( pBase )
-			g_SourceSharpConsoleSnapshot.push_back( pBase );
+			m_Snapshot.push_back( pBase );
 	}
 
-	return (int)g_SourceSharpConsoleSnapshot.size();
+	return (int)m_Snapshot.size();
 }
 
 int32_t CShimConsole::ConsoleSnapshotEntry( int32_t nIndex, SourceSharpConsoleEntry *pOut )
 {
-	if ( !pOut || nIndex < 0 || nIndex >= (int)g_SourceSharpConsoleSnapshot.size() )
+	if ( !pOut || nIndex < 0 || nIndex >= (int)m_Snapshot.size() )
 		return 0;
 
 	memset( pOut, 0, sizeof( *pOut ) );
 
-	ConCommandBase *pBase = g_SourceSharpConsoleSnapshot[nIndex];
+	ConCommandBase *pBase = m_Snapshot[nIndex];
 
 	SourceSharp_CopyOut( pOut->szName, sizeof( pOut->szName ), pBase->GetName() );
 	SourceSharp_CopyOut( pOut->szHelp, sizeof( pOut->szHelp ), pBase->GetHelpText() );
@@ -796,8 +768,7 @@ bool SourceSharp_LoadManagedSide()
 
 	g_SourceSharpInitGate.MarkSucceeded();
 
-	Msg( "[SourceSharp] managed %s runtime online (%d C# console command(s) registered)\n", SOURCESHARP_SIDE_TAG,
-		 g_SourceSharpCommands.Count() );
+	Msg( "[SourceSharp] managed %s runtime online\n", SOURCESHARP_SIDE_TAG );
 	return true;
 }
 

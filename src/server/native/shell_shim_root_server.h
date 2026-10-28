@@ -14,6 +14,7 @@
 #include "shell_shim_console.h"
 #include "shell_shim_areas.h"
 #include "ishim_frame.h"
+#include "ishim_level.h"
 
 class CShimRootServer final : public IShimRoot
 {
@@ -33,6 +34,9 @@ public:
 
 	// The frame area, the DLL tier's (CServerFrame); NULL outside DLLInit..DLLShutdown.
 	IShimFrame *m_pFrame = nullptr;
+
+	// The level area, the DLL tier's (CServerLevel); NULL outside DLLInit..DLLShutdown.
+	IShimLevel *m_pLevel = nullptr;
 };
 
 // The game DLL's shim root. Defined beside the root in shell_gamedll.cpp.

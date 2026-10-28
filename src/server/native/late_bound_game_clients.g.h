@@ -9,80 +9,106 @@
 //
 // IServerGameClients held by the game DLL's root from load, forwarding to the DLL tier's
 // implementation the root binds in DLLInit and unbinds in DLLShutdown.
+// The engine calls GetPlayerLimits before DLLInit; the root's subclass answers it.
 
 #pragma once
 
 #include "eiface.h"
+#include "tier0/dbg.h"
 
-class CLateBoundServerGameClients final : public IServerGameClients
+class CLateBoundServerGameClients : public IServerGameClients
 {
 public:
 	void Bind( IServerGameClients *pImpl ) { m_pImpl = pImpl; }
 
-	void GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const override
-	{
-		m_pImpl->GetPlayerLimits( minplayers, maxplayers, defaultMaxPlayers );
-	}
-
 	bool ClientConnect( edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject,
 						int maxrejectlen ) override
 	{
-		return m_pImpl->ClientConnect( pEntity, pszName, pszAddress, reject, maxrejectlen );
+		return Impl( "ClientConnect" )->ClientConnect( pEntity, pszName, pszAddress, reject, maxrejectlen );
 	}
 
-	void ClientActive( edict_t *pEntity, bool bLoadGame ) override { m_pImpl->ClientActive( pEntity, bLoadGame ); }
+	void ClientActive( edict_t *pEntity, bool bLoadGame ) override
+	{
+		Impl( "ClientActive" )->ClientActive( pEntity, bLoadGame );
+	}
 
-	void ClientDisconnect( edict_t *pEntity ) override { m_pImpl->ClientDisconnect( pEntity ); }
+	void ClientDisconnect( edict_t *pEntity ) override { Impl( "ClientDisconnect" )->ClientDisconnect( pEntity ); }
 
 	void ClientPutInServer( edict_t *pEntity, char const *playername ) override
 	{
-		m_pImpl->ClientPutInServer( pEntity, playername );
+		Impl( "ClientPutInServer" )->ClientPutInServer( pEntity, playername );
 	}
 
-	void ClientCommand( edict_t *pEntity, const CCommand &args ) override { m_pImpl->ClientCommand( pEntity, args ); }
+	void ClientCommand( edict_t *pEntity, const CCommand &args ) override
+	{
+		Impl( "ClientCommand" )->ClientCommand( pEntity, args );
+	}
 
-	void SetCommandClient( int index ) override { m_pImpl->SetCommandClient( index ); }
+	void SetCommandClient( int index ) override { Impl( "SetCommandClient" )->SetCommandClient( index ); }
 
-	void ClientSettingsChanged( edict_t *pEdict ) override { m_pImpl->ClientSettingsChanged( pEdict ); }
+	void ClientSettingsChanged( edict_t *pEdict ) override
+	{
+		Impl( "ClientSettingsChanged" )->ClientSettingsChanged( pEdict );
+	}
 
 	void ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs, int pvssize ) override
 	{
-		m_pImpl->ClientSetupVisibility( pViewEntity, pClient, pvs, pvssize );
+		Impl( "ClientSetupVisibility" )->ClientSetupVisibility( pViewEntity, pClient, pvs, pvssize );
 	}
 
 	float ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds, int dropped_packets, bool ignore,
 						   bool paused ) override
 	{
-		return m_pImpl->ProcessUsercmds( player, buf, numcmds, totalcmds, dropped_packets, ignore, paused );
+		return Impl( "ProcessUsercmds" )
+			->ProcessUsercmds( player, buf, numcmds, totalcmds, dropped_packets, ignore, paused );
 	}
 
-	void PostClientMessagesSent_DEPRECIATED() override { m_pImpl->PostClientMessagesSent_DEPRECIATED(); }
+	void PostClientMessagesSent_DEPRECIATED() override
+	{
+		Impl( "PostClientMessagesSent_DEPRECIATED" )->PostClientMessagesSent_DEPRECIATED();
+	}
 
-	CPlayerState *GetPlayerState( edict_t *player ) override { return m_pImpl->GetPlayerState( player ); }
+	CPlayerState *GetPlayerState( edict_t *player ) override
+	{
+		return Impl( "GetPlayerState" )->GetPlayerState( player );
+	}
 
 	void ClientEarPosition( edict_t *pEntity, Vector *pEarOrigin ) override
 	{
-		m_pImpl->ClientEarPosition( pEntity, pEarOrigin );
+		Impl( "ClientEarPosition" )->ClientEarPosition( pEntity, pEarOrigin );
 	}
 
-	int GetReplayDelay( edict_t *player, int &entity ) override { return m_pImpl->GetReplayDelay( player, entity ); }
+	int GetReplayDelay( edict_t *player, int &entity ) override
+	{
+		return Impl( "GetReplayDelay" )->GetReplayDelay( player, entity );
+	}
 
-	void GetBugReportInfo( char *buf, int buflen ) override { m_pImpl->GetBugReportInfo( buf, buflen ); }
+	void GetBugReportInfo( char *buf, int buflen ) override
+	{
+		Impl( "GetBugReportInfo" )->GetBugReportInfo( buf, buflen );
+	}
 
 	void NetworkIDValidated( const char *pszUserName, const char *pszNetworkID ) override
 	{
-		m_pImpl->NetworkIDValidated( pszUserName, pszNetworkID );
+		Impl( "NetworkIDValidated" )->NetworkIDValidated( pszUserName, pszNetworkID );
 	}
 
 	void ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues ) override
 	{
-		m_pImpl->ClientCommandKeyValues( pEntity, pKeyValues );
+		Impl( "ClientCommandKeyValues" )->ClientCommandKeyValues( pEntity, pKeyValues );
 	}
 
-	void ClientSpawned( edict_t *pPlayer ) override { m_pImpl->ClientSpawned( pPlayer ); }
+	void ClientSpawned( edict_t *pPlayer ) override { Impl( "ClientSpawned" )->ClientSpawned( pPlayer ); }
 
-	void ClientVoice( edict_t *pPlayer ) override { m_pImpl->ClientVoice( pPlayer ); }
+	void ClientVoice( edict_t *pPlayer ) override { Impl( "ClientVoice" )->ClientVoice( pPlayer ); }
 
 private:
+	IServerGameClients *Impl( const char *pszMethod ) const
+	{
+		if ( !m_pImpl )
+			Error( "[SourceSharp] IServerGameClients::%s was called before DLLInit bound it\n", pszMethod );
+		return m_pImpl;
+	}
+
 	IServerGameClients *m_pImpl = nullptr;
 };

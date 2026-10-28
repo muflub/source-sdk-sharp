@@ -4,8 +4,8 @@
 #include "gtest/gtest.h"
 
 #include "shell_gameclients.h"
-#include "late_bound_game_clients.g.h"
 #include "shell_managed_areas.h"
+#include "server_state.h"
 #include "imanaged_areas.h"
 #include "fakes/fake_engine_server.g.h"
 #include "fakes/fake_net_channel.g.h"
@@ -27,11 +27,11 @@ IGameRules *g_pGameRules = nullptr;
 
 void ClientActive( edict_t *, bool ) {}
 
-void ClientPutInServer( edict_t *, const char * ) {}
+void ClientPutInServer( CServerEntityContext &, edict_t *, const char * ) {}
 
 void SourceSharp_Trace( const char *, const char * ) {}
 
-CStandalonePlayer *StandalonePlayer_Create( edict_t *, const char * )
+CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &, edict_t *, const char * )
 {
 	return nullptr;
 }
@@ -146,9 +146,13 @@ protected:
 
 	CGlobalVars m_Globals{ false };
 	CRecordingEngine m_Engine;
-	CManagedAreas m_Managed{};
+	CManagedHolders m_Holders{};
+	CManagedAreas &m_Managed = m_Holders.m_Areas;
 	CFakeMDLCache m_MdlCache;
-	CServerGameClients m_Clients{ &m_Engine, &m_Globals, &m_MdlCache, m_Managed };
+	CServerPlayersDll m_Players;
+	unsigned short m_nWorldSerial = 0;
+	CServerEntityContext m_EntityContext{ &m_Engine, nullptr, nullptr, m_Holders, m_Players, m_nWorldSerial };
+	CServerGameClients m_Clients{ &m_Engine, &m_Globals, &m_MdlCache, m_Managed, m_EntityContext };
 };
 } // namespace
 
@@ -235,14 +239,30 @@ TEST( LateBoundServerGameClients, ForwardsToTheImplementationItIsBoundTo )
 {
 	CGlobalVars globals( false );
 	CRecordingEngine engine;
-	CManagedAreas managed{};
-	CServerGameClients impl( &engine, &globals, nullptr, managed );
-	CLateBoundServerGameClients forwarder;
+	CManagedHolders holders{};
+	CServerPlayersDll players;
+	unsigned short nWorldSerial = 0;
+	CServerEntityContext entities( &engine, nullptr, nullptr, holders, players, nWorldSerial );
+	CServerGameClients impl( &engine, &globals, nullptr, holders.m_Areas, entities );
+	CRootServerGameClients forwarder;
 
 	forwarder.Bind( &impl );
 
 	EXPECT_EQ( impl.GetPlayerState( &engine.m_Edicts[1] ), forwarder.GetPlayerState( &engine.m_Edicts[1] ) );
 	int nMin = 0, nMax = 0, nDefault = 0;
 	forwarder.GetPlayerLimits( nMin, nMax, nDefault );
+	EXPECT_EQ( 16, nDefault );
+}
+
+TEST( RootServerGameClients, AnswersThePlayerLimitsBeforeAnythingIsBound )
+{
+	// The engine asks while loading the DLL, before DLLInit binds the DLL tier.
+	CRootServerGameClients root;
+
+	int nMin = 0, nMax = 0, nDefault = 0;
+	root.GetPlayerLimits( nMin, nMax, nDefault );
+
+	EXPECT_EQ( 1, nMin );
+	EXPECT_EQ( ss::kMaxPlayers, nMax );
 	EXPECT_EQ( 16, nDefault );
 }

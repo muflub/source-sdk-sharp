@@ -2244,6 +2244,21 @@ ss_cpptest(shell_sharedappsystems_test
              ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_sharedappsystems_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/shell_sharedappsystems.cpp)
+# shell_level.cpp: CServerLevel over generated fakes (tools/native-fakes).
+ss_cpptest_mathlib(shell_level_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_level_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_level.cpp)
+# bound_callback.cpp: C callbacks bound to an object through a generated x86-64 thunk.
+ss_cpptest(bound_callback_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/bound_callback_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/bound_callback.cpp)
 # ss_command_line.h: this process's own argv from /proc/self/cmdline, in place of
 # tier0's CommandLine() (P4). Links no tier0. Built as the client's arm: the
 # Value half is client-only since the server gc cull (server.so never reads a value).

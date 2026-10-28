@@ -5,6 +5,7 @@
 
 class CSharedEdictChangeInfo;
 class IEngineTrace;
+class IBaseFileSystem;
 class IFileSystem;
 class IGameEventManager2;
 class IMDLCache;
@@ -22,6 +23,7 @@ class CServerEngineInterfaces
 public:
 	IVEngineServer *m_pEngine = nullptr;
 	IFileSystem *m_pFileSystem = nullptr;
+	IBaseFileSystem *m_pBaseFileSystem = nullptr; // m_pFileSystem's base, for the open/read/close callers
 	ISpatialPartition *m_pPartition = nullptr;
 	IUploadGameStats *m_pGameStats = nullptr;
 	INetworkStringTableContainer *m_pStringTables = nullptr;

@@ -26,7 +26,7 @@ void InstallGameRules()
 	SourceSharp_CreateGameRules();
 }
 
-void ClientPutInServer( edict_t *pEntity, const char *playername )
+void ClientPutInServer( CServerEntityContext &context, edict_t *pEntity, const char *playername )
 {
 	// The engine hands us an edict and expects the mod to attach a player
 	// entity to it. Nothing spawns without this.
@@ -34,7 +34,7 @@ void ClientPutInServer( edict_t *pEntity, const char *playername )
 
 	// Create fails only if managed registered no player class. Fail loudly: a client
 	// admitted with no player entity dies somewhere unrelated later.
-	if ( !StandalonePlayer_Create( pEntity, playername ) )
+	if ( !StandalonePlayer_Create( context, pEntity, playername ) )
 	{
 		Error( "[SourceSharp] ClientPutInServer: managed side registered no player class — cannot put '%s' in server\n",
 			   playername );

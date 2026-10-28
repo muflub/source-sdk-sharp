@@ -616,7 +616,7 @@ shell_gamerules.o	_ZL20g_DefaultViewVectors	g_DefaultViewVectors	sourcesharp/gam
 	g_StringTableGameRules	g_StringTableGameRules	sourcesharp/game/shared/shell_gamerules.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_gamerules.o	_ZL16s_CollisionRules	s_CollisionRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	80	UNRULED		
 shell_gamerules.o	_ZL13s_DamageRules	s_DamageRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	20	UNRULED		
-shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	232	UNRULED		
+shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	bss	file-or-global	528	UNRULED		
 shell_movement.o	_ZZL11ActiveMovervE9s_pActive	ActiveMover()::s_pActive	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_movement.o	_ZZL12MoveCountersvE9s_nCounts	MoveCounters()::s_nCounts	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_movement.o	_ZZL16MovementRefusalsvE11s_nRefusals	MovementRefusals()::s_nRefusals	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	12	UNRULED		
@@ -634,13 +634,9 @@ shell_physsaverestore_absent.o	_ZZL27ShellPhysSaveRestoreManagervE8s_Absent	Shel
 shell_shared.o	_ZL10g_MoveData	g_MoveData	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	168	UNRULED		
 	g_pMoveData	g_pMoveData	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 sourcesharp_gamesystem.o	_ZL20cs_cl_reload_command	cs_cl_reload_command	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-sourcesharp_gamesystem.o	_ZL21g_SourceSharpCommands	g_SourceSharpCommands	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	120	UNRULED		
-sourcesharp_gamesystem.o	_ZL20g_SourceSharpConVars	g_SourceSharpConVars	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	120	UNRULED		
-sourcesharp_gamesystem.o	_ZL28g_SourceSharpConsoleSnapshot	g_SourceSharpConsoleSnapshot	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 sourcesharp_gamesystem.o	_ZL21g_SourceSharpInitGate	g_SourceSharpInitGate	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 sourcesharp_gamesystem.o	_ZL19g_SourceSharpSystem	g_SourceSharpSystem	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 sourcesharp_gamesystem.o	_ZL18g_bReloadRequested	g_bReloadRequested	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
-sourcesharp_gamesystem.o	_ZL37g_bSourceSharpConVarCallbackInstalled	g_bSourceSharpConVarCallbackInstalled	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 sourcesharp_gamesystem.o	_ZL20g_bSourceSharpLoaded	g_bSourceSharpLoaded	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 standalone_player_sync.o	_ZL23g_nPlayerSyncGeneration	g_nPlayerSyncGeneration	sourcesharp/game/shared/standalone_player_sync.cpp	LOCAL	data	file-or-global	4	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_111s_EarlyLockE	(anonymous namespace)::s_EarlyLock	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	40	UNRULED		

@@ -13,6 +13,10 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include "tier0/platform.h"
+
 #define SOURCESHARP_SHIM_LEVEL_VERSION "SourceSharpLevel001"
 
 abstract_class IShimLevel

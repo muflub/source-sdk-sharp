@@ -17,4 +17,3 @@ int32_t SourceSharp_ClientWatchedConVarId( const char *pName );
 bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut );
 
 // Installs the client's global change callback if no registration has yet.
-void SourceSharp_EnsureConVarChangeCallback();

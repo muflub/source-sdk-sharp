@@ -96,6 +96,5 @@ void SourceSharp_ServiceReloadRequest();
 // Deletes the C#-declared ConCommands and ConVars and their names. Only after
 // the engine has unregistered this DLL's commands (ConVar_Unregister in
 // DLLShutdown): until then its ICvar points at them.
-void SourceSharp_ReleaseConsoleObjects();
 
 #endif

@@ -61,14 +61,24 @@ struct StandaloneClassDesc_t
 
 // The CBaseEntity layer. Never put a member behind a preprocessor conditional: the blob
 // sits at a fixed offset past the members.
+class CServerEntityContext;
+
 class CStandaloneEntity : public IServerEntity, public IServerNetworkable, public ICollideable, public IGameEntity
 {
 private:
 	// Declared first so it is initialised before any member initialiser could use it.
 	EngineBlock_t *m_pEngineBlock;
 
+protected:
+	// The engine interfaces and DLL-tier state this entity calls, and its level.
+	CServerEntityContext *m_pContext;
+
 public:
-	CStandaloneEntity();
+	explicit CStandaloneEntity( CServerEntityContext &context );
+
+	// What this entity calls through, for code that holds the entity.
+	CServerEntityContext &Context() const { return *m_pContext; }
+
 	virtual ~CStandaloneEntity();
 
 	// Every ICollideable, IServerEntity and IServerNetworkable getter reads the block.
@@ -446,8 +456,9 @@ int SourceSharp_StandaloneMinBlobBytes();
 
 // The player's edict, handed from the engine to PostConstruct beside the argument-less
 // factory call. Cleared unconditionally by PostConstruct.
-void SourceSharp_SetPendingPlayerEdict( edict_t *pEdict );
-edict_t *SourceSharp_ClaimPendingPlayerEdict();
+class CServerPlayersDll;
+void SourceSharp_SetPendingPlayerEdict( CServerPlayersDll &players, edict_t *pEdict );
+edict_t *SourceSharp_ClaimPendingPlayerEdict( CServerPlayersDll &players );
 
 // Parenting, relayed to the managed hierarchy (shell_standalone_hierarchy.cpp).
 

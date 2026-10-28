@@ -106,6 +106,7 @@ set(client_sourcesharp_sources
     ${LOCAL}/world_adapter_client.cpp
     ${SHARED}/alloc_check.cpp
     ${SHARED}/collisionproperty.cpp
+    ${SHARED}/bound_callback.cpp
     ${SHARED}/console_display_forward.cpp
     ${SHARED}/convar_port.cpp
     ${SHARED}/dt_element_names.cpp

@@ -10,6 +10,8 @@
 // CWorld: worldspawn, a native object because the engine assumes it at edict 0
 // and brush model 0. Every key it is given is offered to C#.
 
+#include <cstdlib>
+
 #include "server_engine.h"
 #include "ss_util.h"
 
@@ -54,7 +56,7 @@ class CWorldFactory : public ss::IEntityFactory
 public:
 	CWorldFactory() { ss::EntityFactoryDictionary()->InstallFactory( this, "worldspawn" ); }
 
-	virtual IServerNetworkable *Create( const char * ) OVERRIDE
+	virtual IServerNetworkable *Create( const char *, CServerEntityContext &context ) OVERRIDE
 	{
 		// One world: a second construction would take edict 0 and the singleton from the
 		// live world. CreateEntityByName( "worldspawn" ) would reach this, then drop the
@@ -68,7 +70,7 @@ public:
 		}
 
 		// Returns the networkable member; its Release deletes the world.
-		CWorld *pWorld = new CWorld;
+		CWorld *pWorld = new CWorld( context );
 
 		return pWorld->GetNetworkable();
 	}
@@ -93,9 +95,9 @@ int SourceSharp_WorldBlobOffset()
 	return (int)ALIGN_VALUE( sizeof( CWorld ), 16 );
 }
 
-// Allocated the way the engine allocates an entity, plus the blob. The memory is
-// zeroed, which gives the networked values their stock defaults. The blob length
-// is C#'s and may be zero.
+// Allocated as the engine's PvAllocEntPrivateData does (calloc), plus the blob. The
+// memory is zeroed, which gives the networked values their stock defaults. The blob
+// length is C#'s and may be zero.
 static void *AllocWorld( size_t nBytes )
 {
 	Assert( (int)nBytes <= SourceSharp_WorldBlobOffset() );
@@ -105,7 +107,7 @@ static void *AllocWorld( size_t nBytes )
 	if ( nBlobBytes < 0 )
 		nBlobBytes = 0;
 
-	return ServerEngine()->PvAllocEntPrivateData( SourceSharp_WorldBlobOffset() + nBlobBytes );
+	return calloc( 1, (size_t)( SourceSharp_WorldBlobOffset() + nBlobBytes ) );
 }
 
 void *CWorld::operator new( size_t stAllocateBlock )
@@ -113,11 +115,10 @@ void *CWorld::operator new( size_t stAllocateBlock )
 	return AllocWorld( stAllocateBlock );
 }
 
-// CWorld has no base with an operator delete, so without this the engine's block
-// would reach the global delete.
+// CWorld has no base with an operator delete; its block came from calloc.
 void CWorld::operator delete( void *pMem )
 {
-	ServerEngine()->FreeEntPrivateData( pMem );
+	free( pMem );
 }
 
 unsigned char *CWorld::DataBlob()
@@ -160,7 +161,7 @@ bool CWorld::ResolveFields()
 bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 {
 	// Every key goes to C#; the shim keeps no list of the keys C# answers.
-	IManagedRuntimeServer *pRuntime = ManagedRuntimeServer();
+	IManagedRuntimeServer *pRuntime = m_pContext->m_Managed.m_pRuntimeServer;
 
 	if ( pRuntime != NULL &&
 		 pRuntime->OnWorldKeyValue( SourceSharp_HandleFromAnyEntity( static_cast<IServerEntity *>( this ) ), szKeyName,
@@ -212,13 +213,14 @@ CWorldNetworkable::CWorldNetworkable( CWorld *pOuter )
 #endif
 
 // The members are constructed first, then the body hands &m_Networkable to edict 0.
-CWorld::CWorld()
+CWorld::CWorld( CServerEntityContext &context )
 	: m_Collideable( this )
 	, m_Networkable( this )
+	, m_pContext( &context )
 {
 	// Claimed at construction, not in Precache as stock did: the keys arrive before
 	// Precache, and the world's blob is found by identity against this singleton.
-	if ( CServerLevelState *pLevel = ShellGameDll_Level() )
+	if ( CServerLevelState *pLevel = m_pContext->m_pLevel )
 		pLevel->m_pWorld = this;
 
 	m_pEdict = NULL;
@@ -244,7 +246,7 @@ CWorld::~CWorld()
 	m_RefEHandle.Term();
 
 	// ~CServerNetworkProperty makes this call too; the world is FL_EDICT_ALWAYS.
-	ServerEngine()->CleanUpEntityClusterList( m_Networkable.PVSInfo() );
+	m_pContext->m_pEngine->CleanUpEntityClusterList( m_Networkable.PVSInfo() );
 
 	if ( m_pEdict )
 	{
@@ -256,15 +258,14 @@ CWorld::~CWorld()
 	}
 
 	// The engine's purge can free the world after the level tier ended.
-	if ( CServerLevelState *pLevel = ShellGameDll_Level(); pLevel && pLevel->m_pWorld == this )
+	if ( CServerLevelState *pLevel = m_pContext->m_pLevel; pLevel && pLevel->m_pWorld == this )
 		pLevel->m_pWorld = NULL;
 }
 
 // The world's handle serial. Not reset between maps, so a client cannot resolve
 // the previous map's world with the new handle.
-static int SourceSharp_WorldIssueSerial()
+static int SourceSharp_WorldIssueSerial( unsigned short &nSerial )
 {
-	unsigned short &nSerial = ShellGameDll_Dll()->m_nWorldSerial;
 	nSerial = SourceSharp_NextWorldSerial( nSerial );
 	return (int)nSerial;
 }
@@ -291,12 +292,12 @@ void CWorld::AttachToEdictZero()
 	m_pEdict->m_fStateFlags |= FL_EDICT_ALWAYS;
 
 	// The world issues its own handle; it is not in the slot table, which binds shells only.
-	SetRefEHandle( CBaseHandle( RequiredEdictIndex(), SourceSharp_WorldIssueSerial() ) );
+	SetRefEHandle( CBaseHandle( RequiredEdictIndex(), SourceSharp_WorldIssueSerial( m_pContext->m_nWorldSerial ) ) );
 }
 
 const model_t *CWorldCollideable::GetCollisionModel()
 {
-	return ServerModelInfo()->GetModel( GetCollisionModelIndex() );
+	return m_pOuter->Context().m_pModelInfo->GetModel( GetCollisionModelIndex() );
 }
 
 void CWorld::Spawn()
@@ -305,13 +306,13 @@ void CWorld::Spawn()
 	SetModelIndex( 1 );
 
 	// world model
-	m_iszModelName = AllocPooledString( ServerModelInfo()->GetModelName( m_Collideable.GetCollisionModel() ) );
+	m_iszModelName = AllocPooledString( m_pContext->m_pModelInfo->GetModelName( m_Collideable.GetCollisionModel() ) );
 
 	// The box, from the model the index names.
 	if ( const model_t *pModel = m_Collideable.GetCollisionModel() )
 	{
 		Vector vecMins, vecMaxs;
-		ServerModelInfo()->GetModelBounds( pModel, vecMins, vecMaxs );
+		m_pContext->m_pModelInfo->GetModelBounds( pModel, vecMins, vecMaxs );
 		m_Collideable.SetBounds( vecMins, vecMaxs );
 	}
 

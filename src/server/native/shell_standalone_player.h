@@ -27,7 +27,7 @@ class CStandalonePlayer : public CStandaloneEntity, public IMovementPlayer
 public:
 	typedef CStandaloneEntity BaseClass;
 
-	CStandalonePlayer();
+	explicit CStandalonePlayer( CServerEntityContext &context );
 	virtual ~CStandalonePlayer();
 
 	virtual bool IsPlayer() const OVERRIDE { return true; }
@@ -274,7 +274,7 @@ private:
 
 // Creates the player for a connecting client through the registered factory, bound to
 // the engine's edict. NULL, with a warning, when the class was never registered.
-CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayerName );
+CStandalonePlayer *StandalonePlayer_Create( CServerEntityContext &context, edict_t *pEdict, const char *pPlayerName );
 
 // A client command that is not a registered ConCommand, handed to managed code.
 void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand &args );

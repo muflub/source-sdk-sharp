@@ -61,7 +61,7 @@ public:
 
 	// Install a global change callback (to be called when any convar changes)
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
-	virtual void unused_RemoveGlobalChangeCallback() = 0;
+	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
 	virtual void CallGlobalChangeCallbacks( ConVar * var, const char *pOldString, float flOldValue ) = 0;
 
 	// Install a console printer

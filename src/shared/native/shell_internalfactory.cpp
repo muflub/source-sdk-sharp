@@ -37,7 +37,6 @@ void *ShadowEnv_Acquire();
 
 #ifndef CLIENT_DLL
 // Defined in shell_frame.cpp.
-void *ShimLevel_Acquire();
 #endif
 
 #ifdef CLIENT_DLL
@@ -93,7 +92,7 @@ void *CShimRootServer::Acquire( const char *pszName )
 		return m_pFrame;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
-		return ShimLevel_Acquire();
+		return m_pLevel;
 
 	// The generated areas.
 	if ( void *pArea = ShimAreas_Acquire( m_Areas, pszName ) )

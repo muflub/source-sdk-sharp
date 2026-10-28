@@ -10,8 +10,15 @@
   ],
 
   "map": "dm_lockdown",
-  "entities": 473,
-  "classes": 61,
+  "entities": 485,
+  "classes": 63,
+  "_census": [
+    "485 / 63 since 2026-10-27, read off a live dm_lockdown with a client joined",
+    "(`debug-api ents \"*\"`, debug, lane t6-globals). From 473 / 61: +17 for",
+    "func_useableladder (3) and info_ladder_dismount (14), managed entities since",
+    "0dffef1db; -5 spotlight_end, since an unnamed point_spotlight removes its end",
+    "as stock's Activate does (435e890d1; stock leaves 4)."
+  ],
 
   "_otherMap": [
     "THE MAP-CHANGE STEP'S TARGET. Not a second deathmatch map -- there is only",
@@ -37,7 +44,7 @@
     "1234 entities / 271 classes, and 43 ss_te_tester. The floors below are set",
     "under those at roughly 90% -- tight enough that a half-loaded level or a",
     "game answering about the map it never left cannot clear them (dm_lockdown",
-    "is 473 / 61), loose enough that regenerating the map from Sandbox.cs with",
+    "is 485 / 63), loose enough that regenerating the map from Sandbox.cs with",
     "one class more or less does not turn the gate red for a reason that is not",
     "a defect. What pins the number exactly is the step's own cross-pass",
     "equality, which needs no constant here at all."

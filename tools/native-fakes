@@ -39,6 +39,8 @@ FAKES = [
      'src/test/native/fakes/fake_net_channel.g.h', {'INetChannelInfo': 'vendor/shared/public/inetchannelinfo.h'}),
     ('IMDLCache', 'vendor/shared/public/datacache/imdlcache.h', 'datacache/imdlcache.h',
      'src/test/native/fakes/fake_mdl_cache.g.h', {'IAppSystem': 'vendor/shared/public/appframework/IAppSystem.h'}),
+    ('IBaseFileSystem', 'vendor/shared/public/filesystem.h', 'filesystem.h',
+     'src/test/native/fakes/fake_base_file_system.g.h'),
     ('ICollideable', 'vendor/shared/public/engine/ICollideable.h', 'engine/ICollideable.h',
      'src/test/native/fakes/fake_collideable.g.h'),
     ('IServerEntity', 'vendor/shared/public/iserverentity.h', 'iserverentity.h',

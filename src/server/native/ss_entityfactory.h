@@ -9,6 +9,7 @@
 
 #pragma once
 
+class CServerEntityContext;
 class IServerNetworkable;
 
 namespace ss
@@ -18,7 +19,8 @@ namespace ss
 class IEntityFactory
 {
 public:
-	virtual IServerNetworkable *Create( const char *pClassName ) = 0;
+	// The entity is handed the context it calls through for its life.
+	virtual IServerNetworkable *Create( const char *pClassName, CServerEntityContext &context ) = 0;
 	virtual void Destroy( IServerNetworkable *pNetworkable ) = 0;
 	virtual size_t GetEntitySize() = 0;
 };
@@ -31,6 +33,9 @@ public:
 	virtual void Destroy( const char *pClassName, IServerNetworkable *pNetworkable ) = 0;
 	virtual IEntityFactory *FindFactory( const char *pClassName ) = 0;
 	virtual const char *GetCannonicalName( const char *pClassName ) = 0;
+
+	// What Create hands each entity; the game DLL binds it for DLLInit..DLLShutdown.
+	virtual void BindContext( CServerEntityContext *pContext ) = 0;
 };
 
 IEntityFactoryDictionary *EntityFactoryDictionary();

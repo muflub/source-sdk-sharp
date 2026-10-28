@@ -17,7 +17,7 @@
 #include "datacache/imdlcache.h"
 
 // Defined in shell_standalone_base.cpp.
-void StandaloneEntities_Finish();
+void StandaloneEntities_Finish( const CServerEntityContext &context );
 
 void UpdateAllClientData();
 
@@ -73,7 +73,7 @@ void CServerFrame::StandalonePlayerCommands()
 
 void CServerFrame::StandaloneFinish()
 {
-	StandaloneEntities_Finish();
+	StandaloneEntities_Finish( m_Entities );
 }
 
 void CServerFrame::DrainEntitySlots()
